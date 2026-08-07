@@ -332,6 +332,63 @@ Convenciones:
   `src/lib/catalogs.ts`; categorías admin-configurables con el hito de
   admin-settings.
 
+## Notificaciones y cron (Hito 5)
+
+Motor de alertas compartido (`src/lib/alerts.ts`, PRD §4.4 / §5.3) + panel
+interno + correo diario vía `pg_cron` y Resend (PRD §4.4.1). La regla de
+alerta es única: tareas sin borrar, con `fecha_entrega` y en estado abierto
+(`OPEN_TASK_STATES` — nada de `COMPLETADA`/`CANCELADA`), agrupadas en
+**vencidos** (rojo), **vencen hoy** (ámbar) y **próximos 3 días**
+(informativo). Timezone: los límites de día son los del reloj local del
+servidor (Vercel = UTC) y el cron cubre 8:00 Colombia (13:00 UTC).
+
+### Panel de notificaciones
+
+```
+GET   /api/v1/notifications        ?leida=false (solo sin leer)
+PATCH /api/v1/notifications/:id/read
+PATCH /api/v1/notifications/read-all
+```
+
+- Alcance (PRD §4.4.1): `COLABORADOR` → solo sus tareas; `COORDINADOR` /
+  `GERENCIA` / `ADMINISTRADOR` → todas.
+- Cada item del GET trae `notificacion_id` (la fila de la tabla
+  `notificaciones` del snapshot). La reconciliación crea la fila con
+  `leida=false` si no existía para esa `(usuario_id, tarea_id)` y **conserva
+  `leida`** si la fila ya existía (nunca resetea la decisión del usuario;
+  las filas de alertas que salieron del snapshot quedan como historial).
+  `read-all` marca las filas del snapshot visible (no toca historial viejo).
+
+### Cron diario (8:00 → 13:00 UTC)
+
+1. Configura las envs en Vercel: `CRON_SECRET` (nuevo, Hito 5),
+   `RESEND_API_KEY` y `EMAIL_FROM` (PRD §8.4).
+2. En Supabase SQL editor, ejecuta `scripts/cron_setup.sql` reemplazando
+   `[CRON_SECRET]` por el mismo valor de la env.
+3. Prueba manual:
+
+   ```bash
+   curl -X POST -H "x-cron-secret: TU_SECRETO" \
+     https://muttu-hub.vercel.app/api/cron/daily
+   ```
+
+- **Reglas**: `ADMINISTRADOR` no recibe correo; si un usuario no tiene nada
+  en ninguna categoría no se le envía (no-mail-if-empty). La respuesta es
+  `{ ok, processed, sent, failed, skipped_empty, already_sent_today }`.
+- **Idempotencia**: el reintento de las 8:30 (`muttu-retry-830`) solo
+  re-envía si la corrida de las 8:00 no cerró `OK` en `cron_logs`; una
+  segunda llamada al endpoint con una corrida `OK` del día responde
+  `already_sent_today: true` sin re-enviar.
+- **Registro**: cada corrida escribe una fila en `cron_logs`
+  (`daily-notifications`, estado `OK` / `ERROR` / `SKIPPED_NO_CONFIG`,
+  detalle ≤ 400 chars). Sin `RESEND_API_KEY` la corrida responde 200 con
+  `SKIPPED_NO_CONFIG` (graceful, sin crash). Retención 30 días (PRD §8.4).
+- **Proxy**: `/api/cron/*` no pasa por el proxy (el matcher de
+  `src/proxy.ts` excluye todo `/api`), así que autentica solo por header
+  `x-cron-secret`; `/api/v1/notifications*` sigue con la sesión de siempre.
+- **Falla de BD**: el registro en `cron_logs` es best-effort; una falla no
+  aborta la corrida y el reintento de las 8:30 lo decide desde `cron_logs`.
+
 ## Scripts
 
 ```bash
