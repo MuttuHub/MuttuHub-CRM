@@ -1,0 +1,270 @@
+// GET /api/v1/documents — listado del Repositorio (PRD §6.2) con búsqueda
+// (q sobre titulo, etiquetas, categoria, nombre de cliente y de autor),
+// filtros (categoria, etiqueta, cliente, autor, desde/hasta) y paginación
+// (page >= 1, limit 25 máx 100). Nunca trae filas borradas (deleted_at) y los
+// COLABORADOR no ven las categorías restringidas (categoria notIn
+// RESTRICTED_DOC_CATEGORIES, también aplicada al count).
+// POST /api/v1/documents — multipart/form-data (file, titulo?, categoria,
+// etiquetas? JSON, cliente_id?) crea el Documento + sube la versión v1 a
+// Supabase Storage. Flujo transaccional-ish: fila primero, upload después,
+// versión al final; si el upload falla se hace soft delete del documento
+// huérfano y se responde 500 (nunca crash).
+
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { apiError } from "@/lib/api/errors";
+import { isSupabaseConfigured, requireApiUser } from "@/lib/supabase/server";
+import { createSupabaseAdmin } from "@/lib/supabase/admin";
+import { DOC_CATEGORIES, RESTRICTED_DOC_CATEGORIES } from "@/lib/catalogs";
+import { isFullAccess, parsePagination } from "@/lib/api/crm";
+import { documentStoragePath, isAllowedFileType, MAX_FILE_BYTES, STORAGE_BUCKET } from "@/lib/api/files";
+import {
+  buildDocumentWhere,
+  DOCUMENT_BASE_SELECT,
+  DOCUMENT_VERSION_SELECT,
+  loadActiveVersions,
+  loadDocumentClients,
+  loadUserNames,
+  parseDocumentFilters,
+  toDocumentItem,
+} from "@/lib/api/documents";
+
+export const dynamic = "force-dynamic";
+
+const MAX_ETIQUETAS = 8; // validación v1 del Repositorio
+const MAX_ETIQUETA_LENGTH = 40;
+const MAX_TITULO_LENGTH = 200;
+
+/** "Informe final.pdf" -> "Informe final" (título por defecto del documento). */
+function tituloFromFileName(fileName: string): string {
+  const dot = fileName.lastIndexOf(".");
+  const core = dot > 0 ? fileName.slice(0, dot) : fileName;
+  return core.trim().slice(0, MAX_TITULO_LENGTH);
+}
+
+type UploadedFile = {
+  file: File;
+  titulo: string;
+  categoria: string;
+  etiquetas: string[];
+  clienteId: string | null;
+};
+
+/**
+ * Shared multipart + file validation for POST /documents and
+ * POST /documents/:id/versions (mismas reglas que los adjuntos de tarea).
+ * Returns a typed error response when the form is invalid.
+ */
+export async function parseUploadForm(
+  request: Request,
+  { requiereCategoria }: { requiereCategoria: boolean },
+): Promise<{ ok: true; data: UploadedFile } | { ok: false; response: Response }> {
+  let form: FormData;
+  try {
+    form = await request.formData();
+  } catch {
+    return { ok: false, response: apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR") };
+  }
+  const file = form.get("file");
+  if (!(file instanceof File)) {
+    return { ok: false, response: apiError("Adjunta un archivo en el campo 'file'.", 400, "VALIDATION_ERROR") };
+  }
+  // Extensión O MIME en el set permitido: clientes (p.ej. curl) mandan
+  // application/octet-stream incluso para archivos válidos.
+  if (!isAllowedFileType(file)) {
+    return {
+      ok: false,
+      response: apiError("Solo se aceptan PDF, Word (.docx), Excel (.xlsx), JPG o PNG.", 400, "VALIDATION_ERROR"),
+    };
+  }
+  if (file.size > MAX_FILE_BYTES) {
+    return { ok: false, response: apiError("El archivo supera el límite de 10 MB.", 413, "FILE_TOO_LARGE") };
+  }
+
+  const rawTitulo = form.get("titulo");
+  const titulo =
+    typeof rawTitulo === "string" && rawTitulo.trim()
+      ? rawTitulo.trim().slice(0, MAX_TITULO_LENGTH)
+      : tituloFromFileName(file.name);
+
+  const categoriaRaw = form.get("categoria");
+  const categoria = typeof categoriaRaw === "string" ? categoriaRaw : "";
+  if (requiereCategoria && !DOC_CATEGORIES.includes(categoria)) {
+    return { ok: false, response: apiError("Categoría no válida.", 400, "VALIDATION_ERROR") };
+  }
+
+  let etiquetas: string[] = [];
+  const rawEtiquetas = form.get("etiquetas");
+  if (typeof rawEtiquetas === "string" && rawEtiquetas.trim()) {
+    try {
+      const parsed = JSON.parse(rawEtiquetas);
+      if (!Array.isArray(parsed)) throw new Error("no array");
+      etiquetas = parsed
+        .filter((e): e is string => typeof e === "string")
+        .map((e) => e.trim())
+        .filter(Boolean)
+        .map((e) => e.slice(0, MAX_ETIQUETA_LENGTH));
+      if (etiquetas.length > MAX_ETIQUETAS) {
+        return {
+          ok: false,
+          response: apiError(`Demasiadas etiquetas (máximo ${MAX_ETIQUETAS}).`, 400, "VALIDATION_ERROR"),
+        };
+      }
+    } catch {
+      return {
+        ok: false,
+        response: apiError("Las etiquetas deben ser un arreglo JSON de strings.", 400, "VALIDATION_ERROR"),
+      };
+    }
+  }
+
+  const rawClienteId = form.get("cliente_id");
+  const clienteId = typeof rawClienteId === "string" && rawClienteId.trim() ? rawClienteId.trim() : null;
+
+  return { ok: true, data: { titulo, categoria, etiquetas, clienteId, file } };
+}
+
+export async function GET(request: Request) {
+  const auth = await requireApiUser();
+  if (!auth.ok) return auth.response;
+
+  const url = new URL(request.url);
+  const parsed = parseDocumentFilters(url);
+  if (!parsed.ok) return parsed.response;
+  const pagination = parsePagination(url.searchParams, 100);
+  if (!pagination.ok) return pagination.response;
+
+  try {
+    const where = buildDocumentWhere(parsed.filters, auth.usuario);
+
+    const [rows, total] = await Promise.all([
+      db.documento.findMany({
+        where,
+        select: DOCUMENT_BASE_SELECT,
+        orderBy: { created_at: "desc" },
+        skip: (pagination.page - 1) * pagination.limit,
+        take: pagination.limit,
+      }),
+      db.documento.count({ where }),
+    ]);
+
+    const docIds = rows.map((r) => r.id);
+    // Enrichment por lotes: una consulta de versiones activas + una de clientes,
+    // y luego una única consulta de nombres para autores Y subidores de la
+    // versión activa.
+    const [activeVersions, clientsByDoc] = await Promise.all([
+      loadActiveVersions(docIds),
+      loadDocumentClients(docIds),
+    ]);
+    const userNames = await loadUserNames([
+      ...new Set([
+        ...rows.map((r) => r.autor_id),
+        ...[...activeVersions.values()].map((v) => v.subido_por_id),
+      ]),
+    ]);
+
+    return NextResponse.json({
+      page: pagination.page,
+      limit: pagination.limit,
+      total,
+      items: rows.map((r) => toDocumentItem(r, activeVersions, userNames, clientsByDoc)),
+    });
+  } catch (err) {
+    console.error("[documents] list failed:", err);
+    return apiError("No pudimos cargar los documentos. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
+  }
+}
+
+export async function POST(request: Request) {
+  const auth = await requireApiUser();
+  if (!auth.ok) return auth.response;
+
+  // Storage necesita credenciales de Supabase sí o sí: sin ellas no hay upload.
+  if (!isSupabaseConfigured()) {
+    return apiError(
+      "Plataforma no configurada. Revisa las variables de entorno.",
+      500,
+      "INTERNAL_ERROR",
+    );
+  }
+
+  const form = await parseUploadForm(request, { requiereCategoria: true });
+  if (!form.ok) return form.response;
+  const { file, titulo, categoria, etiquetas, clienteId } = form.data;
+
+  // Categorías restringidas: los COLABORADOR no pueden ni crearlas (PRD §6.2).
+  if (!isFullAccess(auth.usuario.rol) && RESTRICTED_DOC_CATEGORIES.includes(categoria)) {
+    return apiError("No tienes permisos para documentos de esa categoría.", 403, "FORBIDDEN");
+  }
+
+  try {
+    if (clienteId) {
+      const cliente = await db.cliente.findFirst({
+        where: { id: clienteId, deleted_at: null },
+        select: { id: true },
+      });
+      if (!cliente) {
+        return apiError("El cliente no existe o fue eliminado.", 400, "VALIDATION_ERROR");
+      }
+    }
+
+    // 1) Fila del documento primero (autor = sesión, nunca del cliente).
+    const documento = await db.documento.create({
+      data: { titulo, categoria, etiquetas, autor_id: auth.usuario.id },
+      select: DOCUMENT_BASE_SELECT,
+    });
+    if (clienteId) {
+      await db.documentoCliente.create({
+        data: { documento_id: documento.id, cliente_id: clienteId },
+      });
+    }
+
+    // 2) Upload de la v1 al bucket muttu-docs (cliente service-role, key sin "/").
+    const storagePath = documentStoragePath(clienteId, documento.id, 1, file.name);
+    const supabase = createSupabaseAdmin();
+    const { error: uploadError } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .upload(storagePath, new Uint8Array(await file.arrayBuffer()), {
+        contentType: file.type || "application/octet-stream",
+        upsert: false,
+      });
+    if (uploadError) {
+      // Mejor esfuerzo: el documento huérfano desaparece del listado (soft
+      // delete) y el usuario reintenta con un nuevo POST.
+      console.error("[documents] upload failed:", uploadError);
+      await db.documento.update({
+        where: { id: documento.id },
+        data: { deleted_at: new Date() },
+      });
+      return apiError("No pudimos subir el archivo. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
+    }
+
+    // 3) Registro de la versión 1.
+    const version = await db.documentoVersion.create({
+      data: {
+        documento_id: documento.id,
+        numero_version: 1,
+        storage_path: storagePath,
+        tamano_bytes: file.size,
+        tipo_archivo: file.type || "application/octet-stream",
+        subido_por_id: auth.usuario.id,
+      },
+      select: DOCUMENT_VERSION_SELECT,
+    });
+
+    const activeVersions = new Map([[documento.id, version]]);
+    const userNames = new Map([[auth.usuario.id, auth.usuario.nombre]]);
+    const clientsByDoc = await loadDocumentClients([documento.id]);
+
+    return NextResponse.json(
+      {
+        ...toDocumentItem(documento, activeVersions, userNames, clientsByDoc),
+        version: version.numero_version,
+      },
+      { status: 201 },
+    );
+  } catch (err) {
+    console.error("[documents] create failed:", err);
+    return apiError("No pudimos guardar el documento. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
+  }
+}

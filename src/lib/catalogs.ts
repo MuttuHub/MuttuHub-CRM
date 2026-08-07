@@ -102,6 +102,30 @@ export const TASK_TAGS: readonly string[] = [
   "Interno",
 ];
 
+// Categorías de documentos (PRD §6.2). Constantes v1 del Repositorio: el
+// catálogo admin-configurable llega con el hito de admin-settings, como los
+// TASK_TAGS. Almacenadas en crudo en `Documento.categoria` (String).
+export const DOC_CATEGORIES: readonly string[] = [
+  "Comercial",
+  "Proyectos",
+  "Legal",
+  "Administrativo-financiero",
+  "Institucional",
+  "Operativo",
+  "Informes",
+  "Otro",
+];
+
+// Categorías restringidas (v1): los COLABORADOR no ven ni descargan
+// documentos de estas categorías (PRD §6.2 "Permisos por categoría"); los
+// roles completos (ADMINISTRADOR/GERENCIA/COORDINADOR) ven todo. Ajustable en
+// este arreglo; el catálogo admin-configurable llega con el hito de
+// admin-settings.
+export const RESTRICTED_DOC_CATEGORIES: readonly string[] = [
+  "Legal",
+  "Administrativo-financiero",
+];
+
 export const ENUM_VALUES = {
   EstadoCliente: Object.keys(ESTADO_CLIENTE_LABELS),
   TipoCliente: Object.keys(TIPO_CLIENTE_LABELS),

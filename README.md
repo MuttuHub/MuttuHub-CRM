@@ -272,6 +272,66 @@ Convenciones:
   `etiquetas` (String[]). Catálogo admin-configurable llega con el hito de
   admin-settings.
 
+## Repositorio de documentos (Hito 4)
+
+Biblioteca con metadatos (no explorador de carpetas) con versionado y
+descargas individuales/múltiples (PRD §6–§8.2):
+
+```
+GET  /api/v1/documents                    lista con búsqueda y filtros (categoria, etiqueta, cliente, autor, desde, hasta, page, limit máx 100)
+POST /api/v1/documents                  multipart form-data: file, titulo?, categoria, etiquetas? (JSON), cliente_id? → 201
+GET  /api/v1/documents/:id              detalle completo + versiones + conteos
+DELETE /api/v1/documents/:id            soft delete del documento completo → 204
+POST /api/v1/documents/:id/versions     multipart form: file → sube la versión max+1 (201)
+GET  /api/v1/documents/:id/versions     todas las versiones desc, con subidor
+GET  /api/v1/documents/:id/download     descarga la versión activa (302 a signed URL 60 s)
+GET  /api/v1/documents/:id/versions/:versionId/download   descarga ESA versión (302)
+POST /api/v1/documents/zip              { ids: string[] } (1 a 50) → documentos.zip
+```
+
+Modelo de permisos (v1):
+
+- **Subir/descargar/listar:** cualquier usuario autenticado (con la excepción
+  de categorías restringidas).
+- **Eliminar:** roles completos (`ADMINISTRADOR`/`GERENCIA`/`COORDINADOR`) o el
+  autor del documento (`COLABORADOR` solo sus propios documentos).
+- **Categorías restringidas** (`Legal`, `Administrativo-financiero` — constantes
+  `RESTRICTED_DOC_CATEGORIES` en `src/lib/catalogs.ts`, catálogo
+  admin-configurable con el hito de admin-settings): los `COLABORADOR` no las
+  ven (listado/detalle) y sus descargas/zip/devuelven **403 `FORBIDDEN`**; no
+  pueden crearlas ni subirles versiones. Los roles completos ven todo.
+
+Convenciones:
+
+- **Subidas**: campo `file`, ≤ 10 MB (413 `FILE_TOO_LARGE`), formatos
+  PDF/DOCX/XLSX/JPG/PNG (400 si no; se acepta por extensión o MIME). Las
+  etiquetas van como arreglo JSON en el campo `etiquetas` (máx 8, cada una ≤ 40
+  chars). El `titulo` es opcional: por defecto usa el nombre del archivo sin
+  extensión.
+- **Storage**: bucket `SUPABASE_STORAGE_BUCKET` (default `muttu-docs`), key sin
+  el "/" inicial según la convención del PRD §6.2:
+  `documentos/{cliente_id o "general"}/{documento_id}/v{n}_{nombre-sanitizado}`.
+  El nombre del archivo se sanitiza (`src/lib/api/files.ts`): sin separadores
+  de path, recortado y máx. 120 caracteres conservando la extensión. Se usa el
+  cliente service role (`src/lib/supabase/admin.ts`, solo servidor); sin
+  Supabase configurado todas las rutas responden 500 con el envelope estándar.
+- **Versiones**: `numero_version = max + 1` (nunca automática por nombre) y la
+  versión activa es SIEMPRE la de mayor número (descarga individual, zip y
+  `version_activa` de la lista). El soft delete es únicamente del documento
+  completo (`deleted_at`): una versión individual jamás se borra (PRD §6.2).
+  Sin límite de versiones en v1.
+- **Zip** (`POST /documents/zip`): máx. 50 documentos (PRD §8.4). Se baja la
+  versión activa de cada uno (signed URL de 60 s + fetch server-side) y se
+  empaqueta con nombre `${titulo}_v${n}${ext}`. Si algún archivo falla no se
+  aborta la descarga: se salta el archivo y un `README.txt` interno lista los
+  fallos.
+- **Nombres de autor/subidor**: resueltos con `usuario.findMany` por lotes
+  (`src/lib/api/documents.ts`) porque `DocumentoVersion.subido_por_id` y
+  `DocumentoCliente` no tienen FK hacia `Usuario` en el schema.
+- **Catálogo**: constantes `DOC_CATEGORIES` y `RESTRICTED_DOC_CATEGORIES` en
+  `src/lib/catalogs.ts`; categorías admin-configurables con el hito de
+  admin-settings.
+
 ## Scripts
 
 ```bash
