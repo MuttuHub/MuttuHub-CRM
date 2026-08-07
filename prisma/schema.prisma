@@ -291,6 +291,7 @@ model AdjuntoTarea {
   tarea_id     String
   storage_path String
   nombre       String
+  tamano_bytes Int?     // tamaño del archivo subido (supabase no lo expone en el listado)
   created_at   DateTime @default(now())
 
   tarea Tarea @relation(fields: [tarea_id], references: [id])

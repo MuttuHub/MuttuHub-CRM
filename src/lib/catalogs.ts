@@ -92,6 +92,16 @@ export const ORIGEN_TAREA_LABELS: Catalog<OrigenTarea> = {
   AMBOS: { label: "Ambos", tone: "neutro" },
 };
 
+// Etiquetas de tarea (PRD §5.2). Catálogo admin-configurable que llega con el
+// hito de admin-settings; por ahora la canonical set, almacenada en crudo en
+// `Tarea.etiquetas` (String[]).
+export const TASK_TAGS: readonly string[] = [
+  "Comercial",
+  "Administrativo",
+  "Proyecto",
+  "Interno",
+];
+
 export const ENUM_VALUES = {
   EstadoCliente: Object.keys(ESTADO_CLIENTE_LABELS),
   TipoCliente: Object.keys(TIPO_CLIENTE_LABELS),

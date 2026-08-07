@@ -220,6 +220,58 @@ Notas de diseño: la bitácora del cliente (`/log`) y los comentarios de tarea
 son **inmutables** — solo se agregan, nunca se editan ni eliminan (el esquema
 no tiene `updated_at` ni `deleted_at` para esos modelos).
 
+## Tablero (Hito 3)
+
+Extensiones del motor de tareas para el Kanban (PRD §5). Los endpoints de
+subtareas y el reporte **no están en el contrato §8.2** (se agregaron por
+§5.2 y §5.4 respectivamente); los adjuntos sí figuran en §8.2.
+
+```
+POST /api/v1/tasks/:id/subtasks              { titulo (1-200), completada? } → 201
+GET  /api/v1/tasks/:id/subtasks            [{ id, titulo, completada, tarea_id }]
+PATCH /api/v1/tasks/:id/subtasks/:subtaskId  { titulo?, completada? }
+DELETE /api/v1/tasks/:id/subtasks/:subtaskId → 204 (borrado físico)
+POST /api/v1/tasks/:id/attachments         multipart/form-data, campo `file` → 201
+GET  /api/v1/tasks/:id/attachments         [{ id, nombre, tamano_bytes, created_at }]
+GET  /api/v1/tasks/:id/attachments/:attachmentId/download → 302 a signed URL (60 s)
+GET  /api/v1/tasks/report                  ?rango=week|month|quarter|all&responsable=&cliente=
+GET  /api/v1/tasks/export                  xlsx (mismos filtros que la lista, máx 500 filas)
+```
+
+Convenciones:
+
+- **Permisos:** mismas reglas que la tarea — lectura como el detalle
+  (`loadTaskScoped`), escritura como el PATCH (`getTaskForWrite`): roles
+  completos en todos lados; `COLABORADOR` solo sus tareas (y las de clientes
+  que lidera).
+- **Subidas**: campo `file`, ≤ 10 MB (413 `FILE_TOO_LARGE`) y solo
+  PDF/DOCX/XLSX/JPG/PNG (400 `VALIDATION_ERROR`; se acepta si la extensión o
+  el MIME están en el set). La respuesta trae `download_url` (signed URL 60 s);
+  si el signed URL falla, el adjunto sigue creado y se usa el endpoint de
+  descarga.
+- **Storage**: bucket `SUPABASE_STORAGE_BUCKET` (default `muttu-docs`), path
+  `tareas/{tarea_id}/{uuid}_{nombre}` (análogo a la convención
+  `/documentos/...` del PRD §6.2, sin el `/` inicial del key). Se usa el
+  cliente service role (`src/lib/supabase/admin.ts` — nunca en cliente). Sin
+  Supabase configurado los endpoints de adjuntos responden 500
+  `INTERNAL_ERROR` con el mismo envelope.
+- **Reporte** (PRD §5.4): `tasa_cumplimiento` = `completadas / total_asignadas`
+  redondeada; "en curso" = estados abiertos (todo salvo
+  `COMPLETADA`/`CANCELADA`); `vencidas` = abiertas con `fecha_entrega` pasada;
+  `por_estado` trae los 7 estados del catálogo con ceros. `rango` filtra por
+  `updated_at` (week=7, month=30, quarter=90 días; `all` sin filtro).
+- **Proxy "a tiempo"**: `Tarea` no tiene `completed_at`, así que el criterio
+  es `updated_at <= fecha_entrega` sobre tareas `COMPLETADA` con fecha (en el
+  reporte y el criterio documentado del xlsx). Las completadas sin fecha no
+  cuentan ni como a tiempo ni como tarde. Si más adelante se agrega
+  `completed_at`, este proxy se reemplaza en un solo lugar (reporte).
+- **Subtareas**: `DELETE` es borrado físico (el modelo no tiene `deleted_at`
+  y el PRD no lo exige para checklist).
+- **Etiquetas**: catálogo canónico en `src/lib/catalogs.ts` (`TASK_TAGS`:
+  Comercial, Administrativo, Proyecto, Interno), almacenado en crudo en
+  `etiquetas` (String[]). Catálogo admin-configurable llega con el hito de
+  admin-settings.
+
 ## Scripts
 
 ```bash

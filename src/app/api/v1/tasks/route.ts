@@ -5,7 +5,7 @@
 // responsable is forced to self).
 
 import { NextResponse } from "next/server";
-import type { Prisma, EstadoTarea, OrigenTarea, PrioridadTarea } from "@prisma/client";
+import type { Prisma, EstadoTarea, OrigenTarea, PrioridadTarea, Usuario } from "@prisma/client";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiError, parseJsonBody } from "@/lib/api/errors";
@@ -26,6 +26,80 @@ export const dynamic = "force-dynamic";
 
 const ESTADOS = ENUM_VALUES.EstadoTarea as readonly EstadoTarea[];
 const ORIGENES = ENUM_VALUES.OrigenTarea as readonly OrigenTarea[];
+
+export type TaskFilters = {
+  q?: string;
+  estado?: string;
+  origen?: string;
+  responsable?: string;
+  cliente?: string;
+  vencidas: boolean;
+};
+
+/**
+ * Parses and validates the shared tasks list/export/report query params
+ * (estado, origen, vencidas, q, cliente, responsable). COLABORADOR can never
+ * request a foreign responsable — their scope is forced downstream in
+ * buildTaskWhere and the param is ignored here (same rule as clients).
+ */
+export function parseTaskFilters(
+  url: URL,
+  rol: Usuario["rol"],
+):
+  | { ok: true; filters: TaskFilters }
+  | { ok: false; response: Response } {
+  const sp = url.searchParams;
+
+  const estadoRaw = sp.get("estado") ?? undefined;
+  if (estadoRaw && !ESTADOS.includes(estadoRaw as EstadoTarea)) {
+    return { ok: false, response: apiError("Estado de tarea no válido.", 400, "VALIDATION_ERROR") };
+  }
+  const origenRaw = sp.get("origen") ?? undefined;
+  if (origenRaw && !ORIGENES.includes(origenRaw as OrigenTarea)) {
+    return { ok: false, response: apiError("Origen no válido.", 400, "VALIDATION_ERROR") };
+  }
+
+  return {
+    ok: true,
+    filters: {
+      q: sp.get("q")?.trim() || undefined,
+      estado: estadoRaw,
+      origen: origenRaw,
+      responsable:
+        rol === "COLABORADOR" ? undefined : (sp.get("responsable") ?? undefined),
+      cliente: sp.get("cliente") ?? undefined,
+      vencidas: sp.get("vencidas") === "true",
+    },
+  };
+}
+
+/**
+ * Builds the shared list/export/report `where` including the COLABORADOR
+ * scope (their tasks only) and the deleted-rows guard (PRD §8.2 soft delete).
+ */
+export function buildTaskWhere(filters: TaskFilters, usuario: Usuario): Prisma.TareaWhereInput {
+  const where: Prisma.TareaWhereInput = {
+    deleted_at: null,
+    ...(isFullAccess(usuario.rol) ? {} : { responsable_id: usuario.id }),
+  };
+  const q = filters.q;
+  if (q) {
+    where.OR = [
+      { titulo: { contains: q, mode: "insensitive" } },
+      { descripcion: { contains: q, mode: "insensitive" } },
+      { cliente: { nombre: { contains: q, mode: "insensitive" } } },
+    ];
+  }
+  if (filters.responsable) where.responsable_id = filters.responsable;
+  if (filters.estado) where.estado = filters.estado as EstadoTarea;
+  if (filters.origen) where.origen = filters.origen as OrigenTarea;
+  if (filters.cliente) where.cliente_id = filters.cliente;
+  if (filters.vencidas) {
+    where.fecha_entrega = { lt: new Date() };
+    where.estado = OPEN_TASK_STATES;
+  }
+  return where;
+}
 
 export const TASK_SCHEMA = z.object({
   titulo: z
@@ -68,46 +142,14 @@ export async function GET(request: Request) {
   if (!auth.ok) return auth.response;
 
   const url = new URL(request.url);
-  const sp = url.searchParams;
+  const parsed = parseTaskFilters(url, auth.usuario.rol);
+  if (!parsed.ok) return parsed.response;
 
-  const estadoRaw = sp.get("estado") ?? undefined;
-  if (estadoRaw && !ESTADOS.includes(estadoRaw as EstadoTarea)) {
-    return apiError("Estado de tarea no válido.", 400, "VALIDATION_ERROR");
-  }
-  const origenRaw = sp.get("origen") ?? undefined;
-  if (origenRaw && !ORIGENES.includes(origenRaw as OrigenTarea)) {
-    return apiError("Origen no válido.", 400, "VALIDATION_ERROR");
-  }
-  const vencidas = sp.get("vencidas") === "true";
-  // COLABORADOR is scoped to their own tasks and cannot count foreign ones.
-  const responsable_id =
-    auth.usuario.rol === "COLABORADOR" ? auth.usuario.id : (sp.get("responsable") ?? undefined);
-
-  const pagination = parsePagination(sp, 100);
+  const pagination = parsePagination(url.searchParams, 100);
   if (!pagination.ok) return pagination.response;
 
   try {
-    const where: Prisma.TareaWhereInput = {
-      deleted_at: null,
-      ...(isFullAccess(auth.usuario.rol) ? {} : { responsable_id: auth.usuario.id }),
-    };
-    const q = sp.get("q")?.trim();
-    if (q) {
-      where.OR = [
-        { titulo: { contains: q, mode: "insensitive" } },
-        { descripcion: { contains: q, mode: "insensitive" } },
-        { cliente: { nombre: { contains: q, mode: "insensitive" } } },
-      ];
-    }
-    if (responsable_id) where.responsable_id = responsable_id;
-    if (estadoRaw) where.estado = estadoRaw as EstadoTarea;
-    if (origenRaw) where.origen = origenRaw as OrigenTarea;
-    const clienteId = sp.get("cliente") ?? undefined;
-    if (clienteId) where.cliente_id = clienteId;
-    if (vencidas) {
-      where.fecha_entrega = { lt: new Date() };
-      where.estado = OPEN_TASK_STATES;
-    }
+    const where = buildTaskWhere(parsed.filters, auth.usuario);
 
     const [rows, total] = await Promise.all([
       db.tarea.findMany({
