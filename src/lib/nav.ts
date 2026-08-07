@@ -75,7 +75,7 @@ export const PAGE_HEADERS: Record<string, PageHeader> = {
   },
   "/documentos": {
     title: "Repositorio documental",
-    subtitle: "118 archivos versionados · el módulo llega en el Hito 4 del roadmap.",
+    subtitle: "Archivos versionados con metadatos: búscalos, súbelos y descárgalos.",
   },
   "/reportes": {
     title: "Reportes",

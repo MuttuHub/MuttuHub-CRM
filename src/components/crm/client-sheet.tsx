@@ -10,13 +10,18 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   CalendarClock,
+  Download,
+  ExternalLink,
   MessageSquarePlus,
   Pencil,
   Send,
   Trash2,
+  Upload,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -64,6 +69,12 @@ import {
   OportunidadFormDialog,
 } from "@/components/crm/entity-dialogs";
 import { TareaFormDialog } from "@/components/crm/task-dialogs";
+import {
+  downloadActiveVersion,
+  extensionOf,
+  formatVersionFecha,
+  useDocuments,
+} from "@/hooks/documents";
 
 type DeleteTarget = { ref: "contacto" | "oportunidad" | "tarea"; id: string } | null;
 
@@ -183,7 +194,7 @@ export function ClientSheet({
                   </TabsContent>
 
                   <TabsContent value="documentos" className="mt-0">
-                    <DocumentosTab />
+                    <DocumentosTab clientId={clientId!} />
                   </TabsContent>
 
                   <TabsContent value="tareas" className="mt-0">
@@ -783,20 +794,97 @@ function BitacoraTab({ clientId }: { clientId: string }) {
 
 /* ── Documentos (Hito 4) y Tareas relacionadas ─────────────────────────── */
 
-function DocumentosTab() {
+// Pestaña compacta del Repositorio (PRD §4.2): últimos 10 documentos del
+// cliente con la versión activa. El CRUD completo vive en /documentos
+// (?cliente=<id> deep-linkea el filtro); acá solo descarga directa.
+function DocumentosTab({ clientId }: { clientId: string }) {
+  const router = useRouter();
+  const query = useDocuments({ cliente: clientId, limit: 10 });
+  const items = query.data?.items ?? [];
+
+  function irAlRepositorio() {
+    router.push(`/documentos?cliente=${clientId}`);
+  }
+
+  function subirVinculado() {
+    toast.info("Elige \"Subir documento\" y vincula el cliente en el Repositorio.");
+    router.push(`/documentos?cliente=${clientId}`);
+  }
+
   return (
-    <div className="grid min-h-[280px] place-items-center rounded-[16px] border border-dashed border-ink-300 bg-ink-100/40 p-8 text-center">
-      <div className="max-w-[40ch]">
-        <span className="mx-auto grid size-11 place-items-center rounded-[15px_15px_15px_5px] bg-ink-100 text-ink-700">
-          <CalendarClock className="size-5" strokeWidth={1.7} />
-        </span>
-        <h3 className="mt-4 font-display text-[16px] font-bold tracking-[-0.02em] text-ink-950">
-          Documentación del cliente
-        </h3>
-        <p className="mt-1.5 text-[13px] leading-relaxed text-ink-600">
-          El repositorio llega en el Hito 4 — los documentos del cliente se
-          verán aquí.
+    <div className="flex flex-col gap-3">
+      <p className="text-[13px] text-ink-600">
+        Los documentos vinculados a este cliente viven en el Repositorio
+        documental (Hito 4).
+      </p>
+      {query.isLoading &&
+        Array.from({ length: 2 }).map((_, i) => (
+          <Skeleton key={i} className="h-12 w-full rounded-[14px]" />
+        ))}
+      {query.isError && (
+        <p className="text-[12.5px] text-ink-600">
+          Servicio no disponible.
         </p>
+      )}
+      {!query.isLoading && !query.isError && items.length === 0 && (
+        <EmptyState copy="Este cliente no tiene documentos vinculados todavía." />
+      )}
+      <ul className="flex flex-col gap-2">
+        {items.map((doc) => (
+          <li
+            key={doc.id}
+            className="flex items-center justify-between gap-3 rounded-[14px] border border-ink-200 bg-white px-4 py-3"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="grid size-8 shrink-0 place-items-center rounded-[11px_11px_11px_4px] bg-ink-100 text-[9px] font-bold text-ink-700">
+                {doc.version_activa
+                  ? (extensionOf(doc.version_activa.tipo_archivo) ?? "").toUpperCase()
+                  : "—"}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-[13.5px] font-semibold text-ink-950">
+                  {doc.titulo}
+                </p>
+                <p className="text-[12px] text-ink-600">
+                  {doc.version_activa
+                    ? `v${doc.version_activa.numero_version} · ${formatVersionFecha(doc.version_activa.created_at)}`
+                    : "sin versión"}
+                </p>
+              </div>
+            </div>
+            {doc.version_activa && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`Descargar ${doc.titulo}`}
+                onClick={() => void downloadActiveVersion(doc).catch(() => undefined)}
+                className="shrink-0 text-ink-500 hover:text-exito"
+              >
+                <Download className="size-4" strokeWidth={1.8} />
+              </Button>
+            )}
+          </li>
+        ))}
+      </ul>
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={irAlRepositorio}
+          className="h-9 rounded-[12px] border-ink-200 bg-white px-3 text-[12.5px] font-semibold text-ink-800 hover:bg-ink-100"
+        >
+          <ExternalLink className="size-3.5 text-ink-500" strokeWidth={1.8} />
+          Ver todos
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={subirVinculado}
+          className="h-9 rounded-[12px] border-ink-200 bg-white px-3 text-[12.5px] font-semibold text-ink-800 hover:bg-ink-100"
+        >
+          <Upload className="size-4 text-exito" strokeWidth={1.8} />
+          Subir documento vinculado
+        </Button>
       </div>
     </div>
   );

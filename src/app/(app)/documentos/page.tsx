@@ -1,28 +1,35 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
-import { FolderOpen } from "lucide-react";
-import { PAGE_HEADERS } from "@/lib/nav";
+import { Skeleton } from "@/components/ui/skeleton";
+import { RepositoryList } from "@/components/documents/repository-list";
 
 export const metadata: Metadata = {
   title: "Repositorio documental",
 };
 
+export const dynamic = "force-dynamic";
+
 export default function DocumentosPage() {
-  const page = PAGE_HEADERS["/documentos"];
   return (
-    <div className="grid flex-1 place-items-center">
-      <div className="flex flex-col items-center text-center">
-        <span className="grid size-12 place-items-center rounded-[17px_17px_17px_6px] border border-rose-200 bg-rose-50 text-rose-500">
-          <FolderOpen className="size-5" strokeWidth={1.7} />
-        </span>
-        <span className="mt-4 inline-flex h-[24px] items-center rounded-full bg-ink-100 px-3 text-[11px] font-bold text-ink-700">
-          Hito 4
-        </span>
-        <h2 className="mt-3 font-display text-[22px] font-bold tracking-[-0.02em] text-ink-950">
-          {page.title}
-        </h2>
-        <p className="mt-1.5 max-w-[52ch] text-[13.5px] leading-relaxed text-ink-600">
-          {page.subtitle}
-        </p>
+    <Suspense fallback={<DocumentosSkeleton />}>
+      <RepositoryList />
+    </Suspense>
+  );
+}
+
+function DocumentosSkeleton() {
+  return (
+    <div className="flex min-w-0 flex-col gap-4">
+      <div className="h-9 w-72" />
+      <div className="h-[120px] rounded-[22px] border border-ink-200 bg-white p-5">
+        <Skeleton className="h-10 w-full" />
+      </div>
+      <div className="rounded-[22px] border border-ink-200 bg-white p-5">
+        <div className="space-y-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full rounded-[12px]" />
+          ))}
+        </div>
       </div>
     </div>
   );
