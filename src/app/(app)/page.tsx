@@ -29,11 +29,22 @@ const TONE_BADGE: Record<Tone, string> = {
   info: "bg-info-bg text-info",
 };
 
-export default function InicioPage() {
+export default async function InicioPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ notice?: string }>;
+}) {
+  const { notice } = await searchParams;
   const agenda = AGENDA[6] ?? [];
 
   return (
     <div className="flex flex-col gap-4">
+      {notice === "admin_only" && (
+        <div className="flex items-center gap-2.5 rounded-[14px] border border-alerta/30 bg-alerta-bg px-4 py-3 text-[13px] font-medium text-alerta">
+          <Flag className="size-4 shrink-0" strokeWidth={1.9} />
+          Solo los administradores pueden acceder a Usuarios y permisos.
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-[14px] xl:grid-cols-4">
         {KPIS_INICIO.map((k) => {
           const Icon = KPI_ICONS[k.icon];

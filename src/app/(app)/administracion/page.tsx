@@ -1,29 +1,58 @@
 import type { Metadata } from "next";
-import { Settings } from "lucide-react";
-import { PAGE_HEADERS } from "@/lib/nav";
+import { Users } from "lucide-react";
+import { db } from "@/lib/db";
+import { requireRole } from "@/lib/supabase/server";
+import { UsersTable } from "@/components/admin/users-table";
 
 export const metadata: Metadata = {
   title: "Usuarios y permisos",
 };
 
-export default function AdministracionPage() {
-  const page = PAGE_HEADERS["/administracion"];
+export const dynamic = "force-dynamic";
+
+export default async function AdministracionPage() {
+  // Unconfigured dev mode → the table component renders the
+  // "Plataforma no conectada" card; configured → redirects when not admin.
+  const auth = await requireRole(["ADMINISTRADOR"], "/?notice=admin_only");
+
+  let usuarios: Awaited<ReturnType<typeof db.usuario.findMany>> = [];
+  let loadError = false;
+
+  if (auth) {
+    try {
+      usuarios = await db.usuario.findMany({
+        orderBy: { created_at: "desc" },
+      });
+    } catch (err) {
+      console.error("[administracion] users fetch failed:", err);
+      loadError = true;
+    }
+  }
+
   return (
-    <div className="grid flex-1 place-items-center">
-      <div className="flex flex-col items-center text-center">
-        <span className="grid size-12 place-items-center rounded-[17px_17px_17px_6px] border border-rose-200 bg-rose-50 text-rose-500">
-          <Settings className="size-5" strokeWidth={1.7} />
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="font-display text-[19px] font-bold tracking-[-0.02em] text-ink-950">
+            Usuarios y permisos
+          </h2>
+          <p className="mt-0.5 text-[13px] text-ink-600">
+            Crea usuarios, asigna roles y desactiva accesos. Nadie se elimina:
+            el historial se conserva.
+          </p>
+        </div>
+        <span className="inline-flex items-center gap-2 rounded-full border border-ink-200 bg-white px-3.5 py-1.5 text-[12px] font-semibold text-ink-700">
+          <Users className="size-3.5" strokeWidth={1.8} />
+          {auth && !loadError ? `${usuarios.length} usuarios` : "—"}
         </span>
-        <span className="mt-4 inline-flex h-[24px] items-center rounded-full bg-ink-100 px-3 text-[11px] font-bold text-ink-700">
-          Hito 5
-        </span>
-        <h2 className="mt-3 font-display text-[22px] font-bold tracking-[-0.02em] text-ink-950">
-          {page.title}
-        </h2>
-        <p className="mt-1.5 max-w-[52ch] text-[13.5px] leading-relaxed text-ink-600">
-          {page.subtitle}
-        </p>
       </div>
+
+      <UsersTable
+        usuarios={usuarios}
+        currentUserId={auth?.usuario?.id}
+        unconfigured={!auth}
+        loadError={loadError}
+      />
     </div>
   );
 }

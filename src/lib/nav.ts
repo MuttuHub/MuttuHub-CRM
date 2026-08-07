@@ -83,7 +83,7 @@ export const PAGE_HEADERS: Record<string, PageHeader> = {
   },
   "/administracion": {
     title: "Usuarios y permisos",
-    subtitle: "15 usuarios activos · la gestión de usuarios llega en el Hito 5.",
+    subtitle: "Crea usuarios, asigna roles y desactiva accesos.",
   },
 };
 
