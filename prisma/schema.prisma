@@ -1,0 +1,337 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────
+
+enum RolUsuario {
+  ADMINISTRADOR
+  GERENCIA
+  COORDINADOR
+  COLABORADOR
+}
+
+enum EstadoCliente {
+  PROSPECTO
+  EN_ACERCAMIENTO
+  CLIENTE_ACTIVO
+  EN_PAUSA
+  STANDBY
+  INACTIVO
+  CERRADO
+}
+
+enum TipoCliente {
+  GOBIERNO_LOCAL
+  GOBIERNO_NACIONAL
+  COOPERANTE_MULTILATERAL
+  EMPRESA_PRIVADA
+  FUNDACION
+  ALIADO_ACADEMICO
+  OTRO
+}
+
+enum PrioridadCliente {
+  ALTA
+  MEDIA
+  BAJA
+}
+
+enum RolContacto {
+  DECISOR
+  TECNICO
+  INFLUENCIADOR
+  OTRO
+}
+
+enum EstadoOportunidad {
+  DISENANDO_PROPUESTA
+  PRESENTADA
+  EN_REVISION
+  EN_NEGOCIACION
+  GANADA
+  PERDIDA
+  STANDBY
+}
+
+enum EstadoTarea {
+  POR_HACER
+  EN_CURSO
+  EN_REVISION
+  COMPLETADA
+  BLOQUEADA
+  EN_ESPERA
+  CANCELADA    // estado oculto en tablero, visible en reportes
+}
+
+enum OrigenTarea {
+  CRM
+  KANBAN
+  AMBOS
+}
+
+enum PrioridadTarea {
+  ALTA
+  MEDIA
+  BAJA
+}
+
+enum TipoNotificacion {
+  COMPROMISO_VENCIDO
+  TAREA_VENCIDA
+  POR_VENCER
+}
+
+// ─────────────────────────────────────────
+// MODELOS
+// ─────────────────────────────────────────
+
+model Usuario {
+  id         String     @id @default(uuid())
+  email      String     @unique
+  nombre     String
+  rol        RolUsuario @default(COLABORADOR)
+  activo     Boolean    @default(true)
+  created_at DateTime   @default(now())
+  updated_at DateTime   @updatedAt
+
+  clientes_asignados  Cliente[]
+  tareas_asignadas    Tarea[]
+  bitacora_entradas   BitacoraEntrada[]
+  documentos_subidos  Documento[]
+  notificaciones      Notificacion[]
+  accesos             Acceso[] // PRD §3.3
+
+  @@map("usuarios")
+}
+
+model Cliente {
+  id                        String            @id @default(uuid())
+  nombre                    String
+  empresa                   String?
+  tipo_cliente              TipoCliente
+  tamano_org                String?
+  ubicacion                 String?
+  canal_contacto_inicial    String?
+  fecha_primer_contacto     DateTime?
+  prioridad                 PrioridadCliente?
+  prioridades_identificadas String?
+  riesgos_barreras          String?
+  resumen_relacion          String?
+  estado                    EstadoCliente     @default(PROSPECTO)
+  responsable_id            String
+  created_at                DateTime          @default(now())
+  updated_at                DateTime          @updatedAt
+  deleted_at                DateTime?
+
+  responsable   Usuario            @relation(fields: [responsable_id], references: [id])
+  contactos     Contacto[]
+  oportunidades Oportunidad[]
+  tareas        Tarea[]
+  bitacora      BitacoraEntrada[]
+  documentos    DocumentoCliente[]
+
+  @@map("clientes")
+}
+
+model Contacto {
+  id           String       @id @default(uuid())
+  cliente_id   String
+  nombre       String
+  cargo        String?
+  correo       String?
+  telefono     String?
+  rol_decision RolContacto?
+  notas        String?
+  created_at   DateTime     @default(now())
+  deleted_at   DateTime?
+
+  cliente Cliente @relation(fields: [cliente_id], references: [id])
+
+  @@map("contactos")
+}
+
+model Oportunidad {
+  id                     String            @id @default(uuid())
+  cliente_id             String
+  nombre                 String
+  problema_detectado     String?
+  solucion_propuesta     String?
+  servicios_interes      String?
+  valor_estimado_cop     Decimal?          @db.Decimal(15, 2)
+  estado                 EstadoOportunidad @default(DISENANDO_PROPUESTA)
+  fecha_ultima_gestion   DateTime?
+  proyectos_relacionados String?
+  created_at             DateTime          @default(now())
+  updated_at             DateTime          @updatedAt
+  deleted_at             DateTime?
+
+  cliente Cliente @relation(fields: [cliente_id], references: [id])
+
+  @@map("oportunidades")
+}
+
+// Tabla unificada CRM + Kanban
+model Tarea {
+  id             String         @id @default(uuid())
+  titulo         String
+  descripcion    String?
+  responsable_id String
+  cliente_id     String?
+  estado         EstadoTarea    @default(POR_HACER)
+  origen         OrigenTarea    @default(KANBAN)
+  prioridad      PrioridadTarea?
+  fecha_entrega  DateTime?
+  etiquetas      String[]       @default([])
+  motivo_bloqueo String?        // solo cuando estado = BLOQUEADA
+  created_at     DateTime       @default(now())
+  updated_at     DateTime       @updatedAt
+  deleted_at     DateTime?
+
+  responsable    Usuario           @relation(fields: [responsable_id], references: [id])
+  cliente        Cliente?          @relation(fields: [cliente_id], references: [id])
+  comentarios    ComentarioTarea[]
+  subtareas      Subtarea[]
+  adjuntos       AdjuntoTarea[]
+  notificaciones Notificacion[]
+
+  @@map("tareas")
+}
+
+// Inmutable por diseño — sin updated_at
+model BitacoraEntrada {
+  id         String   @id @default(uuid())
+  cliente_id String
+  autor_id   String
+  texto      String
+  created_at DateTime @default(now())
+
+  cliente Cliente @relation(fields: [cliente_id], references: [id])
+  autor   Usuario @relation(fields: [autor_id], references: [id])
+
+  @@map("bitacora_entradas")
+}
+
+model Documento {
+  id         String    @id @default(uuid())
+  titulo     String
+  categoria  String    // String libre — configurable desde admin sin tocar código
+  etiquetas  String[]  @default([])
+  autor_id   String
+  created_at DateTime  @default(now())
+  deleted_at DateTime?
+
+  autor     Usuario            @relation(fields: [autor_id], references: [id])
+  versiones DocumentoVersion[]
+  clientes  DocumentoCliente[]
+
+  @@map("documentos")
+}
+
+model DocumentoVersion {
+  id             String   @id @default(uuid())
+  documento_id   String
+  numero_version Int
+  storage_path   String   // path en Supabase Storage
+  tamano_bytes   Int?
+  tipo_archivo   String?
+  subido_por_id  String
+  created_at     DateTime @default(now())
+
+  documento Documento @relation(fields: [documento_id], references: [id])
+
+  @@unique([documento_id, numero_version])
+  @@map("documento_versiones")
+}
+
+model DocumentoCliente {
+  documento_id String
+  cliente_id   String
+
+  documento Documento @relation(fields: [documento_id], references: [id])
+  cliente   Cliente   @relation(fields: [cliente_id], references: [id])
+
+  @@id([documento_id, cliente_id])
+  @@map("documentos_clientes")
+}
+
+model ComentarioTarea {
+  id         String   @id @default(uuid())
+  tarea_id   String
+  autor_id   String
+  texto      String
+  created_at DateTime @default(now())
+
+  tarea Tarea @relation(fields: [tarea_id], references: [id])
+
+  @@map("comentarios_tareas")
+}
+
+model Subtarea {
+  id         String  @id @default(uuid())
+  tarea_id   String
+  titulo     String
+  completada Boolean @default(false)
+
+  tarea Tarea @relation(fields: [tarea_id], references: [id])
+
+  @@map("subtareas")
+}
+
+model AdjuntoTarea {
+  id           String   @id @default(uuid())
+  tarea_id     String
+  storage_path String
+  nombre       String
+  created_at   DateTime @default(now())
+
+  tarea Tarea @relation(fields: [tarea_id], references: [id])
+
+  @@map("adjuntos_tareas")
+}
+
+model Notificacion {
+  id         String           @id @default(uuid())
+  usuario_id String
+  tipo       TipoNotificacion
+  tarea_id   String?
+  leida      Boolean          @default(false)
+  created_at DateTime         @default(now())
+
+  usuario Usuario @relation(fields: [usuario_id], references: [id])
+  tarea   Tarea?  @relation(fields: [tarea_id], references: [id])
+
+  @@map("notificaciones")
+}
+
+// PRD §3.3 — bitácora de accesos (quién entró, cuándo)
+model Acceso {
+  id         String   @id @default(uuid())
+  usuario_id String
+  created_at DateTime @default(now())
+  ip         String?
+  user_agent String?
+
+  usuario Usuario @relation(fields: [usuario_id], references: [id])
+
+  @@map("accesos")
+}
+
+// PRD §4.4.1 + §8.4 — log del cron de notificaciones (retención 30 días)
+model CronLog {
+  id         String   @id @default(uuid())
+  job_name   String
+  estado     String
+  detalle    String?
+  created_at DateTime @default(now())
+
+  @@map("cron_logs")
+}
