@@ -181,6 +181,45 @@ POST /api/v1/auth/reset-password/confirm     { code?, newPassword }
 - `POST  /api/v1/users/:id/deactivate` → soft delete (`activo = false`); nunca
   elimina (PRD §3.4).
 
+### CRM (Hito 2)
+
+Base `/api/v1`, sesión por cookie, errores `{ error, code }` (PRD §8.2):
+
+```
+GET  /api/v1/clients                   lista con búsqueda, filtros y paginación
+POST /api/v1/clients                   crear cliente
+GET  /api/v1/clients/export            xlsx clientes.xlsx (mismo filtrado que la lista)
+GET  /api/v1/clients/:id               detalle + conteos + valor potencial
+PATCH/DELETE /api/v1/clients/:id       actualizar parcial / borrado lógico
+GET  /api/v1/clients/:id/contacts      | POST crear contacto
+PATCH/DELETE /api/v1/clients/:id/contacts/:contactId
+GET  /api/v1/clients/:id/opportunities | POST crear oportunidad
+PATCH/DELETE /api/v1/clients/:id/opportunities/:opportunityId
+GET  /api/v1/clients/:id/log           | POST nota de bitácora (inmutable)
+GET  /api/v1/tasks                     lista CRM + Kanban con filtros (q, cliente, responsable, estado, origen, vencidas)
+POST /api/v1/tasks                     crear tarea (responsable obligatorio)
+GET  /api/v1/tasks/:id                 detalle con hilo de comentarios
+PATCH/DELETE /api/v1/tasks/:id         actualizar parcial / borrado lógico
+PATCH /api/v1/tasks/:id/status         cambio de estado (motivo al bloquear)
+POST /api/v1/tasks/:id/comments        comentario (hilo inmutable)
+GET  /api/v1/catalogs/users            usuarios activos (id, nombre) para selects
+```
+
+Modelo de permisos (v1 pragmático, sin tabla de equipos aún):
+
+- `ADMINISTRADOR`, `GERENCIA` y `COORDINADOR` leen y escriben sobre todo.
+- `COLABORADOR` solo lee/edita sus propios clientes y tareas; al crear, el
+  responsable se fuerza a él mismo.
+- `COLABORADOR` también puede editar tareas de clientes que él lidera.
+
+El export `GET /api/v1/clients/export` genera `clientes.xlsx` (valor en COP,
+etiquetas en español) con el mismo filtrado y alcance de roles que la lista;
+está limitado a las primeras **500 filas** del conjunto filtrado (PRD §8.4).
+
+Notas de diseño: la bitácora del cliente (`/log`) y los comentarios de tarea
+son **inmutables** — solo se agregan, nunca se editan ni eliminan (el esquema
+no tiene `updated_at` ni `deleted_at` para esos modelos).
+
 ## Scripts
 
 ```bash
