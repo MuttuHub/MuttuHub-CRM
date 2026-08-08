@@ -1,11 +1,10 @@
-// Centered brand shell for the (auth) route group: /login.
-
-import { AuthShell } from "@/components/auth/auth-shell";
+// (auth) route group: /login renders its own full-screen panes (approved
+// access design) — no centered shell wrapper.
 
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <AuthShell>{children}</AuthShell>;
+  return <>{children}</>;
 }
