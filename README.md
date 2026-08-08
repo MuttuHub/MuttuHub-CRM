@@ -389,6 +389,37 @@ PATCH /api/v1/notifications/read-all
 - **Falla de BD**: el registro en `cron_logs` es best-effort; una falla no
   aborta la corrida y el reintento de las 8:30 lo decide desde `cron_logs`.
 
+## Dashboard (Hito 6)
+
+El home (`/`) es ahora el dashboard con las 4 "caras" del PRD §7.1:
+
+```
+GET /api/v1/dashboard/pipeline          → { scope, total_activas, valor_activo, embudo, top_clientes, comparativo }
+GET /api/v1/dashboard/tasks             → { scope, por_columna, cumplimiento_por_persona, vencidas }
+GET /api/v1/dashboard/clients-activity  → { scope, sin_gestion, distribucion, actividad_por_responsable }
+GET /api/v1/dashboard/my-summary        → { scope: "own", activas, vencidas, hoy, compromisos_pendientes, clientes_asignados }
+```
+
+- **Caras**: Pipeline comercial, Gestión de tareas, Actividad de clientes y
+  Mi resumen. Cada una consume su endpoint con `useQuery` (las queries se
+  refetchean al cambiar los filtros, la key los incluye).
+- **Filtros comunes (§7.2)**: rango por presets (Todo / 30 días / 90 días —
+  el rango custom queda como TODO), responsable (`/api/v1/catalogs/users`) y
+  tipo de cliente; en Actividad de clientes además el chip de días sin
+  gestión (7/14/30/60 → `dias_sin_gestion`). En scope "own" el filtro de
+  responsable se ignora en el servidor (documentado en `src/lib/dashboard.ts`).
+- **Exportación (§7.3)**: botón "Generar reporte" por cara → abre
+  `/print/dashboard/{cara}?{filtros}`, página imprimible fuera del shell que
+  re-descarga el mismo endpoint y se auto-imprime (patrón de
+  `print/clientes`). Las páginas de impresión usan la utilidad `.print-hide`
+  (definida en `globals.css` bajo `@media print`).
+- **Alcance por rol**: `COLABORADOR` ve solo sus datos (scope "own"), el
+  resto de roles ve la plataforma completa; cada respuesta trae `scope`.
+- **Modo dev sin configurar**: las caras muestran la tarjeta "Plataforma no
+  conectada" con reintento; solo cuando el API responde el envelope "Plataforma
+  no configurada" (sin `.env`), se renderiza debajo la vista de demostración
+  del Hito 1 (datos de `src/lib/mock/demo.ts`), nunca con datos reales.
+
 ## Scripts
 
 ```bash

@@ -188,3 +188,12 @@
     }
   }
 }
+
+/* Utility compartida de las páginas de impresión (print/* y /print/dashboard):
+   oculta la barra de herramientas al imprimir. Las rutas de impresión usan
+   además los variantes print: de Tailwind (p. ej. print:p-0). */
+@media print {
+  .print-hide {
+    display: none !important;
+  }
+}
