@@ -3,6 +3,8 @@ import { Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/supabase/server";
 import { UsersTable } from "@/components/admin/users-table";
+import { CatalogsSection } from "@/components/admin/catalogs-section";
+import { AccesosSection } from "@/components/admin/accesos-section";
 
 export const metadata: Metadata = {
   title: "Usuarios y permisos",
@@ -53,6 +55,12 @@ export default async function AdministracionPage() {
         unconfigured={!auth}
         loadError={loadError}
       />
+
+      {/* Catálogos configurables y bitácora de accesos (PRD §3.3): cargan por
+          cliente; en modo dev sin configurar muestran su tarjeta de error con
+          reintento sin romper la página. */}
+      <CatalogsSection />
+      <AccesosSection />
     </div>
   );
 }
