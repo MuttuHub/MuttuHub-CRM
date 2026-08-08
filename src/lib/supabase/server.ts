@@ -146,6 +146,10 @@ export async function requireApiUser(): Promise<ApiAuthOk | ApiAuthFail> {
   return { ok: true, usuario: session.usuario, supabaseUser: session.supabaseUser };
 }
 
+// TODO(Hito 7): los permisos granulares por módulo del PRD §3.3.2 quedaron
+// FUERA del alcance v1 — los gates son por rol completo (requireRole /
+// requireApiRole), sin combinaciones finas por módulo o recurso.
+
 /** API gate restricted to the given roles (ADMINISTRADOR for users module). */
 export async function requireApiRole(
   roles: RolUsuario[],

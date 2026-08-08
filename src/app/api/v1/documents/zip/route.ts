@@ -23,6 +23,7 @@ import {
 import {
   canReadCategory,
   loadActiveVersions,
+  loadDocCategories,
 } from "@/lib/api/documents";
 
 export const dynamic = "force-dynamic";
@@ -71,9 +72,10 @@ export async function POST(request: Request) {
       return apiError("Uno de los documentos no existe.", 404, "NOT_FOUND");
     }
 
-    // Categorías restringidas: fuera del alcance del COLABORADOR; 403 antes de
-    // generar cualquier signed URL.
-    const restringido = documentos.find((d) => !canReadCategory(auth.usuario, d.categoria));
+    // Categorías restringidas (setting live; fallback constantes): fuera del
+    // alcance del COLABORADOR; 403 antes de generar cualquier signed URL.
+    const { restringidas } = await loadDocCategories();
+    const restringido = documentos.find((d) => !canReadCategory(auth.usuario, d.categoria, restringidas));
     if (restringido) {
       return apiError("No tienes permisos sobre uno de los documentos.", 403, "FORBIDDEN");
     }

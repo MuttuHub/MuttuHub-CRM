@@ -80,8 +80,8 @@ export async function POST(request: Request) {
     await db.acceso.create({
       data: {
         usuario_id: usuario.id,
-        ip: request.headers.get("x-forwarded-for") ?? undefined,
-        user_agent: request.headers.get("user-agent") ?? undefined,
+        ip: request.headers.get("x-forwarded-for") ?? null,
+        user_agent: request.headers.get("user-agent")?.slice(0, 200) ?? null,
       },
     });
   } catch (err) {

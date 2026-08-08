@@ -43,13 +43,17 @@ Completa las variables de Supabase (las encuentras en el panel del proyecto):
 
 ### 4. Base de datos (Prisma)
 
-El esquema (15 tablas, incluye `usuarios`, `accesos` y `cron_logs`) ya trae la
-migración inicial; se aplica a la BD remota:
+El esquema (16 tablas, incluye `usuarios`, `accesos`, `cron_logs` y
+`settings`) ya trae la migración inicial; se aplica a la BD remota:
 
 ```bash
 npm run db:migrate
 npm run db:generate   # regenera el cliente Prisma si cambia el esquema
 ```
+
+> Nota (Hito 7): la migración `0003_settings` (tabla `settings` para los
+> catálogos configurables) está **pendiente de aplicar** — corre `npm run
+> db:migrate` en el próximo deploy. Sin aplicarla todo cae a los defaults.
 
 La tabla `accesos` (bitácora de accesos, PRD §3.3) se crea con la migración y
 se alimenta automáticamente en cada login.
@@ -164,11 +168,13 @@ siempre el envelope `{ "error": "string", "code": "string" }` (PRD §8.2):
 ### Auth
 
 ```
+```
 POST /api/v1/auth/login                     { email, password } → { usuario, sessionExpiresAt }
 POST /api/v1/auth/logout                    204
 GET  /api/v1/auth/me                         { usuario } → 401
 POST /api/v1/auth/reset-password             { email } → 200 siempre
 POST /api/v1/auth/reset-password/confirm     { code?, newPassword }
+GET  /api/v1/auth/accesos                   (solo ADMINISTRADOR) bitácora de accesos
 ```
 
 ### Usuarios *(solo ADMINISTRADOR)*
@@ -269,8 +275,8 @@ Convenciones:
   y el PRD no lo exige para checklist).
 - **Etiquetas**: catálogo canónico en `src/lib/catalogs.ts` (`TASK_TAGS`:
   Comercial, Administrativo, Proyecto, Interno), almacenado en crudo en
-  `etiquetas` (String[]). Catálogo admin-configurable llega con el hito de
-  admin-settings.
+  `etiquetas` (String[]). Desde el Hito 7 el valor live se edita en el admin
+  (`settings` → `task_tags`; ver sección Administración).
 
 ## Repositorio de documentos (Hito 4)
 
@@ -295,9 +301,10 @@ Modelo de permisos (v1):
   de categorías restringidas).
 - **Eliminar:** roles completos (`ADMINISTRADOR`/`GERENCIA`/`COORDINADOR`) o el
   autor del documento (`COLABORADOR` solo sus propios documentos).
-- **Categorías restringidas** (`Legal`, `Administrativo-financiero` — constantes
-  `RESTRICTED_DOC_CATEGORIES` en `src/lib/catalogs.ts`, catálogo
-  admin-configurable con el hito de admin-settings): los `COLABORADOR` no las
+- **Categorías restringidas** (default `Legal`,
+  `Administrativo-financiero` — constantes `RESTRICTED_DOC_CATEGORIES` en
+  `src/lib/catalogs.ts`; el valor live por categoría se edita en `settings`
+  → `doc_categories`, Hito 7): los `COLABORADOR` no las
   ven (listado/detalle) y sus descargas/zip/devuelven **403 `FORBIDDEN`**; no
   pueden crearlas ni subirles versiones. Los roles completos ven todo.
 
@@ -329,8 +336,9 @@ Convenciones:
   (`src/lib/api/documents.ts`) porque `DocumentoVersion.subido_por_id` y
   `DocumentoCliente` no tienen FK hacia `Usuario` en el schema.
 - **Catálogo**: constantes `DOC_CATEGORIES` y `RESTRICTED_DOC_CATEGORIES` en
-  `src/lib/catalogs.ts`; categorías admin-configurables con el hito de
-  admin-settings.
+  `src/lib/catalogs.ts` (defaults de fábrica); desde el Hito 7 el valor live
+  se configura desde el admin (`settings` → `doc_categories`, ver sección
+  Administración) y el API lo re-lee en cada request.
 
 ## Notificaciones y cron (Hito 5)
 
@@ -419,6 +427,46 @@ GET /api/v1/dashboard/my-summary        → { scope: "own", activas, vencidas, h
   conectada" con reintento; solo cuando el API responde el envelope "Plataforma
   no configurada" (sin `.env`), se renderiza debajo la vista de demostración
   del Hito 1 (datos de `src/lib/mock/demo.ts`), nunca con datos reales.
+
+## Administración (Hito 7)
+
+Backend admin (PRD §3.3): catálogos configurables y bitácora de accesos.
+
+```
+GET  /api/v1/settings                (solo ADMINISTRADOR) → { task_tags, doc_categories }
+PUT  /api/v1/settings                (solo ADMINISTRADOR) { task_tags?, doc_categories? }
+GET  /api/v1/catalogs/settings       (cualquier usuario autenticado) → mismo snapshot
+GET  /api/v1/auth/accesos            (solo ADMINISTRADOR) ?limit&before → bitácora
+```
+
+- **Catálogos configurables**: `task_tags` (array de strings) y
+  `doc_categories` (`[{ nombre, restringida }]`). El valor vive en la tabla
+  `settings` (migración `0003_settings`, pendiente por `db:migrate`); sin
+  fila, cada clave cae a las constantes de `src/lib/catalogs.ts`. Validación
+  del PUT: 1 a 30 ítems, únicos (las categorías sin distinguir mayúsculas),
+  ≤ 40 caracteres por etiqueta y ≤ 80 por categoría, y siempre se conserva al
+  menos una etiqueta/categoría. Responde 400 `VALIDATION_ERROR` con mensajes
+  en español; solo se actualizan las claves enviadas y la respuesta es
+  siempre el snapshot fresco.
+- **Enforcement en vivo**: listado, detalle, subida, descarga y zip de
+  documentos re-leen `doc_categories` en cada request
+  (`src/lib/api/documents.ts` → `loadDocCategories`): las categorías
+  restringidas del admin siguen excluidas para `COLABORADOR` (403/listado
+  filtrado) sin tocar código. Las tareas dejan `TASK_TAGS` como catálogo de
+  sugerencia (sin validación forzada en el create/update de tarea, igual que
+  v1).
+- **`/api/v1/catalogs/settings`**: DECISIÓN DE DISEÑO — los selects de la
+  UI (tablero, repositorio) consumen el catálogo sin privilegios de admin, así
+  que este endpoint replica el snapshot del GET de settings con gate de rol
+  solo-lectura (`requireApiUser`, sin escrituras ni ensure de defaults).
+- **Bitácora de accesos**: cada login exitoso escribe una fila en `accesos`
+  (ip + user-agent best-effort; el login jamás falla por el log). El GET del
+  admin pagina por keyset sobre `created_at` desc: `?limit=` (default 20,
+  máx 100) y `?before=` (ISO del último `created_at` de la página anterior,
+  con `next_before` en la respuesta; null al final).
+- **Permisos granulares por módulo (§3.3.2)**: fuera del alcance de v1 — los
+  gates siguen siendo por rol completo (TODO documentado en
+  `src/lib/supabase/server.ts`).
 
 ## Scripts
 

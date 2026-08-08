@@ -1,12 +1,16 @@
 // Shared helpers for the documents repository API (Hito 4 / PRD §6, §8.2).
 //
-// Permission model (v1, documented in the README):
+// Permission model (v1 + Hito 7 live settings, documented in the README):
 //   - Any authenticated user can create documents, upload versions, download
 //     and list (except restricted categories).
-//   - COLABORADOR never sees documents in RESTRICTED_DOC_CATEGORIES: they are
+//   - COLABORADOR never sees documents in restricted categories (the live
+//     `doc_categories` setting, fallback RESTRICTED_DOC_CATEGORIES): they are
 //     excluded from list/get and every download/zip/upload attempt returns
 //     403 FORBIDDEN. Full roles (isFullAccess) see everything.
 //   - Delete: full roles or the document author (Documento.autor_id).
+// The live read happens per request (loadDocCategories): si no hay fila en
+// `settings` se usan las constantes, así el repo funciona idéntico a v1 sin la
+// migración 0003 aplicada.
 //
 // DocumentoVersion.subido_por_id has no FK to Usuario in the schema (nor does
 // DocumentoCliente), so author/uploader names are resolved with batched
@@ -16,8 +20,13 @@
 import type { Prisma, Usuario } from "@prisma/client";
 import { db } from "@/lib/db";
 import { endOfDay, isFullAccess } from "@/lib/api/crm";
-import { DOC_CATEGORIES, RESTRICTED_DOC_CATEGORIES } from "@/lib/catalogs";
 import { apiError } from "@/lib/api/errors";
+import {
+  defaultDocCategories,
+  flattenDocCategories,
+  getSetting,
+  SETTING_DOC_CATEGORIES,
+} from "@/lib/settings";
 
 /** Light projection for list/detail rows (Documento has no updated_at). */
 export const DOCUMENT_BASE_SELECT = {
@@ -49,9 +58,27 @@ export type DocumentVersionRow = Prisma.DocumentoVersionGetPayload<{
   select: typeof DOCUMENT_VERSION_SELECT;
 }>;
 
+/**
+ * Catálogo de categorías en vivo (Hito 7): el setting `doc_categories` o las
+ * constantes como fallback. Lo usan los gates de lectura/escritura y la
+ * validación de filtros/formularios, así el catálogo del admin se aplica sin
+ * tocar código.
+ */
+export async function loadDocCategories(): Promise<{
+  categorias: string[];
+  restringidas: string[];
+}> {
+  const setting = await getSetting(SETTING_DOC_CATEGORIES, defaultDocCategories());
+  return flattenDocCategories(setting);
+}
+
 /** True when the user may read/download documents of this category. */
-export function canReadCategory(usuario: Usuario, categoria: string): boolean {
-  return isFullAccess(usuario.rol) || !RESTRICTED_DOC_CATEGORIES.includes(categoria);
+export function canReadCategory(
+  usuario: Usuario,
+  categoria: string,
+  restringidas: string[],
+): boolean {
+  return isFullAccess(usuario.rol) || !restringidas.includes(categoria);
 }
 
 /** HTTP status/message mapping shared by the 404/403 document gates. */
@@ -72,7 +99,8 @@ export async function loadDocumentForRead(id: string, usuario: Usuario) {
     select: { id: true, categoria: true },
   });
   if (!documento) return { ok: false as const, code: "NOT_FOUND" as const };
-  if (!canReadCategory(usuario, documento.categoria)) {
+  const { restringidas } = await loadDocCategories();
+  if (!canReadCategory(usuario, documento.categoria, restringidas)) {
     return { ok: false as const, code: "FORBIDDEN" as const };
   }
   return { ok: true as const, documento };
@@ -89,7 +117,8 @@ export async function loadDocumentForDelete(id: string, usuario: Usuario) {
     select: { id: true, categoria: true, autor_id: true },
   });
   if (!documento) return { ok: false as const, code: "NOT_FOUND" as const };
-  if (!canReadCategory(usuario, documento.categoria)) {
+  const { restringidas } = await loadDocCategories();
+  if (!canReadCategory(usuario, documento.categoria, restringidas)) {
     return { ok: false as const, code: "FORBIDDEN" as const };
   }
   if (!isFullAccess(usuario.rol) && documento.autor_id !== usuario.id) {
@@ -111,17 +140,19 @@ export type DocumentListFilters = {
 
 /**
  * Parses/validates the list query params (PRD §6.2 "Búsqueda": por nombre,
- * categoría, etiqueta, cliente, autor, rango de fecha).
+ * categoría, etiqueta, cliente, autor, rango de fecha). `categorias` es el
+ * catálogo en vivo (setting doc_categories con fallback a constantes).
  */
 export function parseDocumentFilters(
   url: URL,
+  categorias: string[],
 ):
   | { ok: true; filters: DocumentListFilters }
   | { ok: false; response: Response } {
   const sp = url.searchParams;
 
   const categoria = sp.get("categoria") ?? undefined;
-  if (categoria && !DOC_CATEGORIES.includes(categoria)) {
+  if (categoria && !categorias.includes(categoria)) {
     return { ok: false, response: apiError("Categoría no válida.", 400, "VALIDATION_ERROR") };
   }
   const desde = sp.get("desde") ?? undefined;
@@ -150,15 +181,17 @@ export function parseDocumentFilters(
 /**
  * List `where` incluyendo la exclusión de categorías restringidas para
  * COLABORADOR (el filtro de categoría convive con la exclusión, no la pisa).
+ * Lee el catálogo en vivo: sin fila en `settings` usa las constantes.
  */
-export function buildDocumentWhere(
+export async function buildDocumentWhere(
   filters: DocumentListFilters,
   usuario: Usuario,
-): Prisma.DocumentoWhereInput {
+): Promise<Prisma.DocumentoWhereInput> {
+  const { restringidas } = await loadDocCategories();
   const where: Prisma.DocumentoWhereInput = { deleted_at: null };
   if (!isFullAccess(usuario.rol)) {
     where.categoria = {
-      notIn: [...RESTRICTED_DOC_CATEGORIES],
+      notIn: [...restringidas],
       ...(filters.categoria ? { equals: filters.categoria } : {}),
     };
   } else if (filters.categoria) {

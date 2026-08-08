@@ -92,9 +92,10 @@ export const ORIGEN_TAREA_LABELS: Catalog<OrigenTarea> = {
   AMBOS: { label: "Ambos", tone: "neutro" },
 };
 
-// Etiquetas de tarea (PRD §5.2). Catálogo admin-configurable que llega con el
-// hito de admin-settings; por ahora la canonical set, almacenada en crudo en
-// `Tarea.etiquetas` (String[]).
+// Etiquetas de tarea (PRD §5.2). Constantes = default de fábrica; el valor
+// LIVE admin-configurable vive en la tabla `settings` (clave task_tags, Hito
+// 7 — ver src/lib/settings.ts). Almacenadas en crudo en `Tarea.etiquetas`
+// (String[]).
 export const TASK_TAGS: readonly string[] = [
   "Comercial",
   "Administrativo",
@@ -102,9 +103,10 @@ export const TASK_TAGS: readonly string[] = [
   "Interno",
 ];
 
-// Categorías de documentos (PRD §6.2). Constantes v1 del Repositorio: el
-// catálogo admin-configurable llega con el hito de admin-settings, como los
-// TASK_TAGS. Almacenadas en crudo en `Documento.categoria` (String).
+// Categorías de documentos (PRD §6.2). Constantes = default de fábrica; el
+// valor LIVE admin-configurable vive en la tabla `settings` (clave
+// `doc_categories`, Hito 7 — ver src/lib/settings.ts). Almacenadas en crudo
+// en `Documento.categoria` (String).
 export const DOC_CATEGORIES: readonly string[] = [
   "Comercial",
   "Proyectos",
@@ -116,11 +118,11 @@ export const DOC_CATEGORIES: readonly string[] = [
   "Otro",
 ];
 
-// Categorías restringidas (v1): los COLABORADOR no ven ni descargan
+// Categorías restringidas (default v1): los COLABORADOR no ven ni descargan
 // documentos de estas categorías (PRD §6.2 "Permisos por categoría"); los
-// roles completos (ADMINISTRADOR/GERENCIA/COORDINADOR) ven todo. Ajustable en
-// este arreglo; el catálogo admin-configurable llega con el hito de
-// admin-settings.
+// roles completos (ADMINISTRADOR/GERENCIA/COORDINADOR) ven todo. El valor
+// live (flag `restringida` por categoría) vive en `settings`
+// (doc_categories, Hito 7).
 export const RESTRICTED_DOC_CATEGORIES: readonly string[] = [
   "Legal",
   "Administrativo-financiero",

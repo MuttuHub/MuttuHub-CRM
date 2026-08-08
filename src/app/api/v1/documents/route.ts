@@ -2,8 +2,9 @@
 // (q sobre titulo, etiquetas, categoria, nombre de cliente y de autor),
 // filtros (categoria, etiqueta, cliente, autor, desde/hasta) y paginación
 // (page >= 1, limit 25 máx 100). Nunca trae filas borradas (deleted_at) y los
-// COLABORADOR no ven las categorías restringidas (categoria notIn
-// RESTRICTED_DOC_CATEGORIES, también aplicada al count).
+// COLABORADOR no ven las categorías restringidas del setting live
+// `doc_categories` (fallback RESTRICTED_DOC_CATEGORIES; también aplicado al
+// count).
 // POST /api/v1/documents — multipart/form-data (file, titulo?, categoria,
 // etiquetas? JSON, cliente_id?) crea el Documento + sube la versión v1 a
 // Supabase Storage. Flujo transaccional-ish: fila primero, upload después,
@@ -15,7 +16,6 @@ import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
 import { isSupabaseConfigured, requireApiUser } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { DOC_CATEGORIES, RESTRICTED_DOC_CATEGORIES } from "@/lib/catalogs";
 import { isFullAccess, parsePagination } from "@/lib/api/crm";
 import { documentStoragePath, isAllowedFileType, MAX_FILE_BYTES, STORAGE_BUCKET } from "@/lib/api/files";
 import {
@@ -23,6 +23,7 @@ import {
   DOCUMENT_BASE_SELECT,
   DOCUMENT_VERSION_SELECT,
   loadActiveVersions,
+  loadDocCategories,
   loadDocumentClients,
   loadUserNames,
   parseDocumentFilters,
@@ -53,11 +54,13 @@ type UploadedFile = {
 /**
  * Shared multipart + file validation for POST /documents and
  * POST /documents/:id/versions (mismas reglas que los adjuntos de tarea).
- * Returns a typed error response when the form is invalid.
+ * `categorias` es el catálogo en vivo (setting doc_categories); se ignora
+ * cuando no se requiere validar la categoría. Returns a typed error response
+ * when the form is invalid.
  */
 export async function parseUploadForm(
   request: Request,
-  { requiereCategoria }: { requiereCategoria: boolean },
+  { requiereCategoria, categorias }: { requiereCategoria: boolean; categorias: string[] },
 ): Promise<{ ok: true; data: UploadedFile } | { ok: false; response: Response }> {
   let form: FormData;
   try {
@@ -89,7 +92,7 @@ export async function parseUploadForm(
 
   const categoriaRaw = form.get("categoria");
   const categoria = typeof categoriaRaw === "string" ? categoriaRaw : "";
-  if (requiereCategoria && !DOC_CATEGORIES.includes(categoria)) {
+  if (requiereCategoria && !categorias.includes(categoria)) {
     return { ok: false, response: apiError("Categoría no válida.", 400, "VALIDATION_ERROR") };
   }
 
@@ -129,13 +132,14 @@ export async function GET(request: Request) {
   if (!auth.ok) return auth.response;
 
   const url = new URL(request.url);
-  const parsed = parseDocumentFilters(url);
-  if (!parsed.ok) return parsed.response;
   const pagination = parsePagination(url.searchParams, 100);
   if (!pagination.ok) return pagination.response;
 
   try {
-    const where = buildDocumentWhere(parsed.filters, auth.usuario);
+    const { categorias } = await loadDocCategories();
+    const parsed = parseDocumentFilters(url, categorias);
+    if (!parsed.ok) return parsed.response;
+    const where = await buildDocumentWhere(parsed.filters, auth.usuario);
 
     const [rows, total] = await Promise.all([
       db.documento.findMany({
@@ -188,12 +192,25 @@ export async function POST(request: Request) {
     );
   }
 
-  const form = await parseUploadForm(request, { requiereCategoria: true });
+  // Catálogo en vivo (setting doc_categories; fallback constantes) para
+  // validar la categoría y las restringidas de COLABORADOR.
+  let docCategories: { categorias: string[]; restringidas: string[] };
+  try {
+    docCategories = await loadDocCategories();
+  } catch (err) {
+    console.error("[documents] settings load failed:", err);
+    return apiError("No pudimos cargar los catálogos. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
+  }
+
+  const form = await parseUploadForm(request, {
+    requiereCategoria: true,
+    categorias: docCategories.categorias,
+  });
   if (!form.ok) return form.response;
   const { file, titulo, categoria, etiquetas, clienteId } = form.data;
 
   // Categorías restringidas: los COLABORADOR no pueden ni crearlas (PRD §6.2).
-  if (!isFullAccess(auth.usuario.rol) && RESTRICTED_DOC_CATEGORIES.includes(categoria)) {
+  if (!isFullAccess(auth.usuario.rol) && docCategories.restringidas.includes(categoria)) {
     return apiError("No tienes permisos para documentos de esa categoría.", 403, "FORBIDDEN");
   }
 

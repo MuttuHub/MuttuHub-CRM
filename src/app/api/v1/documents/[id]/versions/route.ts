@@ -69,7 +69,7 @@ export async function POST(request: Request, ctx: RouteContext) {
     );
   }
 
-  const form = await parseUploadForm(request, { requiereCategoria: false });
+  const form = await parseUploadForm(request, { requiereCategoria: false, categorias: [] });
   if (!form.ok) return form.response;
   const { file } = form.data;
 
