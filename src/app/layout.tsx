@@ -5,6 +5,7 @@ import {
   JetBrains_Mono,
 } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "sonner";
 import { Providers } from "./providers";
 
 const display = Bricolage_Grotesque({
@@ -45,7 +46,11 @@ export default function RootLayout({
       className={`${display.variable} ${sans.variable} ${mono.variable} h-full antialiased`}
     >
       <body className="min-h-full">
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          {/* sonner toasts globales (toast() de todos los módulos) */}
+          <Toaster richColors position="bottom-right" />
+        </Providers>
       </body>
     </html>
   );
