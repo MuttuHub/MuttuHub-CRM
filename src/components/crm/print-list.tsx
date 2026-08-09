@@ -1,6 +1,6 @@
 // Reporte imprimible del listado de clientes (PRD §4.6): página fuera del
 // shell (sin sidebar), lee los mismos filtros del listado y re-descarga con
-// page=1&limit=500. Se auto-imprime apenas cargan los datos; en pantalla
+// page=1&limit=200 (max del API, ver parsePagination). Se auto-imprime apenas cargan los datos; en pantalla
 // muestra una barra con el botón "Imprimir" y la vista de pre-impresión.
 
 "use client";
@@ -44,7 +44,7 @@ export function PrintClientes() {
 
     const qs = new URLSearchParams(query);
     qs.set("page", "1");
-    qs.set("limit", "500");
+    qs.set("limit", "200");
 
     apiGet<ClientListResponse>(`/api/v1/clients?${qs.toString()}`)
       .then((data) => {
