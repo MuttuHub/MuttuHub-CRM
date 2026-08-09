@@ -57,11 +57,14 @@ function DropdownMenuLabel({
   className,
   inset,
   ...props
-}: MenuPrimitive.GroupLabel.Props & {
+}: React.ComponentProps<"label"> & {
   inset?: boolean
 }) {
   return (
-    <MenuPrimitive.GroupLabel
+    // Plain label, NOT MenuPrimitive.GroupLabel: Base UI's GroupLabel requires
+    // a <Menu.Group>/<Menu.RadioGroup> parent, while this component is used as
+    // a free-standing section heading (user menu, views list, role picker).
+    <label
       data-slot="dropdown-menu-label"
       data-inset={inset}
       className={cn(
