@@ -12,7 +12,6 @@ export type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
-  count?: string;
 };
 
 export type NavGroup = {
@@ -25,19 +24,9 @@ export const NAV_GROUPS: NavGroup[] = [
     title: "Operación",
     items: [
       { href: "/", label: "Inicio", icon: House },
-      { href: "/clientes", label: "Clientes", icon: Users, count: "34" },
-      {
-        href: "/tablero",
-        label: "Tablero",
-        icon: SquareKanban,
-        count: "27",
-      },
-      {
-        href: "/documentos",
-        label: "Documentos",
-        icon: FolderOpen,
-        count: "118",
-      },
+      { href: "/clientes", label: "Clientes", icon: Users },
+      { href: "/tablero", label: "Tablero", icon: SquareKanban },
+      { href: "/documentos", label: "Documentos", icon: FolderOpen },
       { href: "/reportes", label: "Reportes", icon: FileText },
     ],
   },

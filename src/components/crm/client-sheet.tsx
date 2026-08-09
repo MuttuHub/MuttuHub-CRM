@@ -20,6 +20,7 @@ import {
   Send,
   Trash2,
   Upload,
+  UserX,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -44,6 +45,7 @@ import {
   useBitacora,
   useClientDetail,
   useContacts,
+  useDeleteClient,
   useDeleteContacto,
   useDeleteOportunidad,
   useDeleteTarea,
@@ -91,6 +93,7 @@ export function ClientSheet({
   const users = usersQuery.data ?? [];
 
   const [editOpen, setEditOpen] = useState(false);
+  const [deactivateOpen, setDeactivateOpen] = useState(false);
   const [contactFormOpen, setContactFormOpen] = useState(false);
   const [oppFormOpen, setOppFormOpen] = useState(false);
   const [taskFormOpen, setTaskFormOpen] = useState(false);
@@ -121,7 +124,11 @@ export function ClientSheet({
             <SheetLoading error={Boolean(clienteQuery.error)} />
           ) : (
             <>
-              <SheetHeaderContent cliente={cliente} onEditar={() => setEditOpen(true)} />
+              <SheetHeaderContent
+                cliente={cliente}
+                onEditar={() => setEditOpen(true)}
+                onDesactivar={() => setDeactivateOpen(true)}
+              />
 
               <Tabs defaultValue="general" className="flex min-h-0 flex-1 flex-col">
                 <div className="shrink-0 border-b border-ink-200 px-6">
@@ -237,6 +244,12 @@ export function ClientSheet({
           target={deleteTarget}
           onClose={() => setDeleteTarget(null)}
         />
+        <DeactivateClientDialog
+          clientId={clientId}
+          open={deactivateOpen}
+          onClose={() => setDeactivateOpen(false)}
+          onDeactivated={onClose}
+        />
       </SheetContent>
     </Sheet>
   );
@@ -275,9 +288,11 @@ function SheetLoading({ error }: { error: boolean }) {
 function SheetHeaderContent({
   cliente,
   onEditar,
+  onDesactivar,
 }: {
   cliente: ClientDetail;
   onEditar: () => void;
+  onDesactivar: () => void;
 }) {
   const vencido = cliente.next_compromiso
     ? esVencida(cliente.next_compromiso.fecha_entrega)
@@ -309,6 +324,15 @@ function SheetHeaderContent({
         >
           <Pencil className="size-3.5" strokeWidth={1.9} />
           Editar
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onDesactivar}
+          className="shrink-0 rounded-[10px] px-3 text-[12.5px] font-semibold text-ink-500 hover:border-destructivo/40 hover:text-destructivo"
+        >
+          <UserX className="size-3.5" strokeWidth={1.9} />
+          Desactivar cliente
         </Button>
       </div>
 
@@ -982,6 +1006,42 @@ function DeleteGuard({
         if (ref === "contacto") void deleteContacto.mutate(undefined);
         if (ref === "oportunidad") void deleteOportunidad.mutate(undefined);
         if (ref === "tarea") void deleteTarea.mutate(undefined);
+      }}
+    />
+  );
+}
+
+/* ── Desactivar cliente (soft delete: la historia se conserva) ──────────── */
+
+function DeactivateClientDialog({
+  clientId,
+  open,
+  onClose,
+  onDeactivated,
+}: {
+  clientId: string | null;
+  open: boolean;
+  onClose: () => void;
+  onDeactivated: () => void;
+}) {
+  const deleteClient = useDeleteClient(clientId ?? "");
+
+  return (
+    <ConfirmDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      title="Desactivar cliente"
+      description="El cliente dejará de aparecer en las listas activas, pero su historial se conserva."
+      confirmLabel="Desactivar"
+      pending={deleteClient.isPending}
+      onConfirm={() => {
+        onClose();
+        void deleteClient
+          .mutateAsync()
+          .then(onDeactivated)
+          .catch(() => undefined);
       }}
     />
   );

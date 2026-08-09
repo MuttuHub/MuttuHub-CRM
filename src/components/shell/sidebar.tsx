@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PanelLeft, Search } from "lucide-react";
 import { NAV_GROUPS, isNavActive } from "@/lib/nav";
+import { useNavCounts } from "@/hooks/nav";
 import { useSidebarStore } from "@/store/sidebar";
 import { cn } from "@/lib/utils";
 import {
@@ -16,6 +17,12 @@ import {
 function SidebarContent({ rail }: { rail: boolean }) {
   const pathname = usePathname();
   const toggleCollapsed = useSidebarStore((s) => s.toggleCollapsed);
+  const counts = useNavCounts().data;
+  const countByHref: Partial<Record<string, number>> = {
+    "/clientes": counts?.clientes,
+    "/tablero": counts?.tablero,
+    "/documentos": counts?.documentos,
+  };
 
   return (
     <>
@@ -84,6 +91,7 @@ function SidebarContent({ rail }: { rail: boolean }) {
             {group.items.map((item) => {
               const active = isNavActive(pathname, item.href);
               const Icon = item.icon;
+              const count = countByHref[item.href];
               const link = (
                 <Link
                   href={item.href}
@@ -107,7 +115,7 @@ function SidebarContent({ rail }: { rail: boolean }) {
                       <span className="flex-1 text-left text-[12.5px]">
                         {item.label}
                       </span>
-                      {item.count && (
+                      {count !== undefined && count > 0 && (
                         <span
                           className={cn(
                             "rounded-full px-1.5 py-px font-mono text-[10px] font-semibold",
@@ -116,7 +124,7 @@ function SidebarContent({ rail }: { rail: boolean }) {
                               : "bg-shell-chip text-shell",
                           )}
                         >
-                          {item.count}
+                          {count}
                         </span>
                       )}
                     </>

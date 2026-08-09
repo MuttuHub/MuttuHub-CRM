@@ -52,3 +52,5 @@ skills-lock.json
 
 # TestSprite suite (generated; contains real QA credentials hardcoded)
 testsprite_tests/
+testsprite_tests/tmp/
+testsprite_tests/tmp/config.json

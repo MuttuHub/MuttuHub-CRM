@@ -323,6 +323,25 @@ export function useUpdateClient(id: string): UseMutationResult<
   });
 }
 
+export function useDeleteClient(id: string): UseMutationResult<ApiVoid, string, void> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      try {
+        return await apiDelete<ApiVoid>(`/api/v1/clients/${id}`);
+      } catch (err) {
+        return toastError(err, "No pudimos desactivar el cliente.");
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: clientQueryKeys.list({}) });
+      void qc.invalidateQueries({ queryKey: clientQueryKeys.detail(id) });
+      void qc.invalidateQueries({ queryKey: ["nav", "counts"] });
+      toast.success("Cliente desactivado.");
+    },
+  });
+}
+
 export type ContactoInput = {
   nombre: string;
   cargo?: string | null;
