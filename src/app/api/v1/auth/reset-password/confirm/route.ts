@@ -2,6 +2,11 @@
 // new-password step. The confirm page primarily uses the direct Supabase
 // flow (exchangeCodeForSession + updateUser); this route exists as a switch
 // for when the client flow cannot complete (PRD §8.2).
+//
+// Accepted inputs (all optional but at least one session source is required):
+//   - code:          PKCE recovery code (exchanged first)
+//   - accessToken + refreshToken: an already-verified recovery session
+//                    (used by the dev reset-token flow, no browser needed)
 
 import { NextResponse } from "next/server";
 import {
@@ -25,6 +30,8 @@ export async function POST(request: Request) {
 
   const body = await parseJsonBody<{
     code?: string;
+    accessToken?: string;
+    refreshToken?: string;
     newPassword?: string;
   }>(request);
 
@@ -39,8 +46,9 @@ export async function POST(request: Request) {
 
   const supabase = await createServerSupabase();
 
-  // When a recovery code is present, exchange it first (PKCE flow); the
-  // route also works with an already-established session (no code).
+  // When a recovery code is present, exchange it first (PKCE flow). When a
+  // verified recovery session is supplied as tokens, restore it. The route
+  // also works with an already-established session (no session source).
   if (body?.code) {
     const { error: exchangeError } =
       await supabase.auth.exchangeCodeForSession(body.code);
@@ -48,6 +56,22 @@ export async function POST(request: Request) {
       console.error(
         "[auth/reset-password/confirm] exchangeCodeForSession failed:",
         exchangeError,
+      );
+      return apiError(
+        "El enlace de recuperación no es válido o ya expiró.",
+        400,
+        "VALIDATION_ERROR",
+      );
+    }
+  } else if (body?.accessToken && body?.refreshToken) {
+    const { error: setSessionError } = await supabase.auth.setSession({
+      access_token: body.accessToken,
+      refresh_token: body.refreshToken,
+    });
+    if (setSessionError) {
+      console.error(
+        "[auth/reset-password/confirm] setSession failed:",
+        setSessionError,
       );
       return apiError(
         "El enlace de recuperación no es válido o ya expiró.",

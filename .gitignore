@@ -49,5 +49,6 @@ next-env.d.ts
 .agents/
 .claude/
 skills-lock.json
-testsprite_tests/tmp/
-testsprite_tests/tmp/config.json
+
+# TestSprite suite (generated; contains real QA credentials hardcoded)
+testsprite_tests/
