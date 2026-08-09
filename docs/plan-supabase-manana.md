@@ -41,7 +41,7 @@
 ## 4. Cron de notificaciones diarias (PRD §4.4.1)
 
 - [x] Definir `CRON_SECRET` (generado, ya en `.env` local)
-- [ ] Agregarlo a `.env` local y a Vercel (Environments) — **local OK; Vercel pendiente hasta el primer deploy**
+- [x] Agregar `CRON_SECRET` al `.env` local y a Vercel — **HECHO: 12 env vars cargadas en Production (Encrypted) 2026-08-09**
 - [x] Editar `scripts/cron_setup.sql`: `[CRON_SECRET]` reemplazado por el valor real (endpoint queda `https://muttu-hub.vercel.app`)
 - [x] Ejecutar `scripts/cron_setup.sql` — **aplicado 2026-08-09 vía session pooler: jobs `muttu-daily-8am` (jobid 1) y `muttu-retry-830` (jobid 2) creados**
 - [x] Verificar jobs en Dashboard → Database → Cron — **verificado por query a `cron.job` vía conexión directa**
@@ -54,17 +54,17 @@
 - [x] Crear usuario administrador inicial — **HECHO: `admin@muttu.co` (2026-08-09, service role, rol ADMINISTRADOR)**
 - [ ] Documentar credenciales secretas en un gestor (las anon/publishable son públicas por diseño)
 
-## 6. Testing con TestSprite (E2E autónomo con IA)
+## 6. Deploy y TestSprite (E2E autónomo con IA)
 
-> Configurado después de que la app corra con datos reales (pasos 1–3): TestSprite navega la app
-> **viva por URL**, no testea mocks ni código. Prerequisitos: app desplegada o URL accesible,
-> cuenta de prueba para el flujo de login, y el PRD (`docs/Muttu_Hub_PRD_v2.md`) como insumo.
+> **Deploy HECHO 2026-08-09:** producción en `https://muttu-hub.vercel.app` (proyecto Vercel `muttu1/muttu-hub`, repo GitHub `MuttuHub/MuttuHub-CRM`, 12 env vars). Fix en el camino: Vercel instala `@prisma/client` sin tipos → `build: prisma generate && next build`. Smoke test OK: `/login` 200, `/` 307 a login, cron 200 (idempotencia) / 401 con secret inválido.
+
+> Nota: la integración Git de Vercel falló al linkear (`Failed to connect MuttuHub/MuttuHub-CRM`) — los deploys se hacen por CLI (`npx vercel --prod`). Investigar si se quiere integración automática.
 
 - [ ] Crear cuenta en TestSprite (plan free: 150 créditos/mes alcanza para probar) y obtener API key
 - [ ] Conectar el MCP server de TestSprite a opencode/IDE (todos los planes lo incluyen)
-- [ ] Crear proyecto con URL desplegada (`https://muttu-hub.vercel.app` o local con tunnel ngrok/cloudflared)
+- [x] Crear proyecto con URL desplegada — **`https://muttu-hub.vercel.app` ya está en producción**
 - [ ] Subir el PRD (`docs/Muttu_Hub_PRD_v2.md`) para el feature map → TestSprite planea casos según intención de negocio
-- [ ] Cargar credenciales de la cuenta de prueba (flujo "approved access mock") en el proyecto
+- [ ] Cargar credenciales de la cuenta de prueba (login real con `admin@muttu.co` o una cuenta de test) en el proyecto
 - [ ] Revisar el plan generado (seleccionar/descartar casos) antes de la primera corrida
 - [ ] Correr los tests generados (UI + API) y clasificar fallas: bug real vs. fragilidad vs. entorno
 - [ ] Evaluar el free tier en este proyecto; decidir si hace falta Starter ($19/mes) o Standard ($69/mes) según volumen
