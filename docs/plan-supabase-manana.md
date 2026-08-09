@@ -52,7 +52,7 @@
 - [x] Confirmar que `anon` no puede leer tablas de negocio: `curl` al REST con la anon key → **42501 permission denied en usuarios/documentos/clientes (más estricto que RLS: sin grants para anon)**
 - [x] Confirmar bucket `muttu-docs` privado — **`public: false`, `file_size_limit` 10485760 (10 MB); anon no puede listar ni descargar objetos** — los downloads solo por signed URL
 - [x] Crear usuario administrador inicial — **HECHO: `admin@muttu.co` (2026-08-09, service role, rol ADMINISTRADOR)**
-- [ ] Documentar credenciales secretas en un gestor (las anon/publishable son públicas por diseño)
+- [x] Documentar credenciales secretas en un gestor (las anon/publishable son públicas por diseño) — **HECHO 2026-08-09: respaldo local en `~/seguros/muttu-hub-secrets.txt` (chmod 600, fuera del repo) con `SERVICE_ROLE_KEY` + `POSTGRES_PASSWORD` cargadas y verificadas. Sin gestor externo (usuario no tenía).**
 
 ## 6. Deploy y TestSprite (E2E autónomo con IA)
 
