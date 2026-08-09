@@ -19,9 +19,9 @@ import {
 } from "@/lib/api/errors";
 import { ROLE_LABELS } from "@/lib/auth/types";
 import {
-  createServerSupabase,
   requireApiRole,
 } from "@/lib/supabase/server";
+import { createSupabaseAdmin } from "@/lib/supabase/admin";
 
 const USER_SELECT = {
   id: true,
@@ -99,10 +99,12 @@ export async function POST(request: Request) {
     console.error("[users] email conflict check failed:", err);
   }
 
-  const supabase = await createServerSupabase();
+  // Service-role client: auth.admin.* (createUser/deleteUser) requires the
+  // service role key, the anon-key client cannot perform admin operations.
+  const supabaseAdmin = createSupabaseAdmin();
 
   const { data: created, error: supabaseError } =
-    await supabase.auth.admin.createUser({
+    await supabaseAdmin.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
@@ -136,7 +138,7 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error("[users] prisma create failed:", err);
     // Roll back the Supabase side so no orphan auth user is left behind.
-    await supabase.auth.admin.deleteUser(created.user.id).catch(() => {});
+    await supabaseAdmin.auth.admin.deleteUser(created.user.id).catch(() => {});
     return apiError(
       "No pudimos guardar el usuario. Inténtalo de nuevo.",
       500,
