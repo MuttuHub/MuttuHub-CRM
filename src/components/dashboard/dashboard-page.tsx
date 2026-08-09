@@ -16,10 +16,19 @@ import {
   UserRound,
   UsersRound,
 } from "lucide-react";
-import { buildDashboardQuery, type DashboardFilters } from "@/hooks/dashboard";
+import {
+  buildDashboardQuery,
+  rangoMesActual,
+  type DashboardFilters,
+} from "@/hooks/dashboard";
 import { useUsers } from "@/hooks/crm";
 import { ENUM_VALUES, TIPO_CLIENTE_LABELS } from "@/lib/catalogs";
 import { cn } from "@/lib/utils";
+import {
+  RANGO_OPCIONES,
+  useFiltersStore,
+  type RangoFiltro,
+} from "@/store/filters";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -43,20 +52,14 @@ const CARAS = [
 
 type CaraId = (typeof CARAS)[number]["id"];
 
-const RANGOS = [
-  { value: "todo", label: "Todo" },
-  { value: "30", label: "30 días" },
-  { value: "90", label: "90 días" },
-] as const;
-type Rango = (typeof RANGOS)[number]["value"];
-
 function fechaDesde(dias: number): string {
   return new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
 export function DashboardTabs({ notice }: { notice?: string }) {
   const [cara, setCara] = useState<CaraId>("pipeline");
-  const [rango, setRango] = useState<Rango>("todo");
+  const rango = useFiltersStore((s) => s.rango);
+  const setRango = useFiltersStore((s) => s.setRango);
   const [responsable, setResponsable] = useState("");
   const [tipoCliente, setTipoCliente] = useState("");
   const [dias, setDias] = useState(14);
@@ -64,15 +67,17 @@ export function DashboardTabs({ notice }: { notice?: string }) {
   const usersQuery = useUsers();
   const users = usersQuery.data ?? [];
 
-  const filters: DashboardFilters = useMemo(
-    () => ({
-      desde: rango === "todo" ? undefined : fechaDesde(Number(rango)),
-      hasta: undefined,
+  const filters: DashboardFilters = useMemo(() => {
+    const mes = rango === "mes" ? rangoMesActual() : null;
+    const desde =
+      rango === "todo" ? undefined : rango === "mes" ? mes!.desde : fechaDesde(Number(rango));
+    return {
+      desde,
+      hasta: mes ? mes.hasta : undefined,
       responsable_id: responsable || undefined,
       tipo_cliente: tipoCliente || undefined,
-    }),
-    [rango, responsable, tipoCliente],
-  );
+    };
+  }, [rango, responsable, tipoCliente]);
 
   function generarReporte() {
     const qs = buildDashboardQuery(filters, { dias_sin_gestion: dias });
@@ -116,7 +121,7 @@ export function DashboardTabs({ notice }: { notice?: string }) {
             <span className="text-[11.5px] font-bold tracking-[0.08em] text-ink-500 uppercase">
               Rango
             </span>
-            <ChipSelector options={[...RANGOS]} value={rango} onChange={setRango} />
+            <ChipSelector options={[...RANGO_OPCIONES]} value={rango} onChange={(v: RangoFiltro) => setRango(v)} />
           </div>
 
           <Select value={responsable} onValueChange={(v) => v !== null && setResponsable(v)}>
@@ -158,8 +163,8 @@ export function DashboardTabs({ notice }: { notice?: string }) {
           </div>
         </div>
         <p className="mt-2 text-[11px] text-ink-500">
-          Rango con fecha personalizada: TODO (presets por ahora) · el reporte
-          PDF respeta los filtros y el alcance de tu rol.
+          Este mes usa el mes calendario en curso · el reporte PDF respeta
+          los filtros y el alcance de tu rol.
         </p>
       </div>
 

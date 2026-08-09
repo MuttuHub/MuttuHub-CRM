@@ -79,7 +79,7 @@ export const PAGE_HEADERS: Record<string, PageHeader> = {
   },
   "/reportes": {
     title: "Reportes",
-    subtitle: "Plantillas, envíos programados y dashboard · Hito 6 del roadmap.",
+    subtitle: "Reportes de tareas y caras del dashboard · exportables a Excel y PDF.",
   },
   "/administracion": {
     title: "Usuarios y permisos",

@@ -3,13 +3,23 @@
 import { usePathname } from "next/navigation";
 import { ChevronDown, Menu } from "lucide-react";
 import { PAGE_HEADERS } from "@/lib/nav";
-import { DEMO_USER } from "@/lib/mock/demo";
 import { useSidebarStore } from "@/store/sidebar";
+import { RANGO_HEADER_LABELS, RANGO_OPCIONES, useFiltersStore, type RangoFiltro } from "@/store/filters";
 import { NotificationPanel } from "@/components/shell/notification-panel";
+import { UserMenu } from "@/components/shell/user-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function Header() {
   const pathname = usePathname();
   const setMobileOpen = useSidebarStore((s) => s.setMobileOpen);
+  const rango = useFiltersStore((s) => s.rango);
+  const setRango = useFiltersStore((s) => s.setRango);
   const page = PAGE_HEADERS[pathname] ?? {
     title: "Muttu Hub",
     subtitle: "",
@@ -35,24 +45,31 @@ export function Header() {
       </div>
 
       <div className="flex shrink-0 items-center gap-2.5">
-        <button
-          type="button"
-          className="hidden h-10 items-center gap-2 rounded-[13px] border border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 transition-colors hover:bg-ink-100 sm:inline-flex"
-        >
-          Este mes
-          <ChevronDown className="size-3 text-ink-600" strokeWidth={1.8} />
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            aria-label="Rango de fechas"
+            className="hidden h-10 cursor-pointer items-center gap-2 rounded-[13px] border border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 transition-colors hover:bg-ink-100 sm:inline-flex"
+          >
+            {RANGO_HEADER_LABELS[rango]}
+            <ChevronDown className="size-3 text-ink-600" strokeWidth={1.8} />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuRadioGroup
+              value={rango}
+              onValueChange={(value) => setRango(value as RangoFiltro)}
+            >
+              {RANGO_OPCIONES.map((opcion) => (
+                <DropdownMenuRadioItem key={opcion.value} value={opcion.value}>
+                  {RANGO_HEADER_LABELS[opcion.value]}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <NotificationPanel />
 
-        <div className="flex h-10 items-center gap-2.5 rounded-full border border-ink-200 bg-white py-1 pr-4 pl-1">
-          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-rose-100 text-[11px] font-bold text-rose-700">
-            {DEMO_USER.iniciales}
-          </span>
-          <span className="hidden text-[13px] font-semibold text-ink-900 sm:block">
-            {DEMO_USER.nombre}
-          </span>
-        </div>
+        <UserMenu />
       </div>
     </div>
   );

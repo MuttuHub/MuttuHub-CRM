@@ -28,6 +28,20 @@ export type DashboardFilters = {
   tipo_cliente?: string;
 };
 
+/**
+ * Fechas (YYYY-MM-DD, zona local) del mes calendario en curso: primer día del
+ * mes hasta hoy. Es el rango que aplica el preset "Este mes" (compartido por
+ * el header y el dashboard via src/store/filters.ts). Vive acá (espejo client
+ * de los filtros) y no en src/lib/dashboard.ts — ese módulo es server-only
+ * (importa Prisma y no puede entrar al bundle del cliente).
+ */
+export function rangoMesActual(ahora: Date = new Date()): { desde: string; hasta: string } {
+  const anio = ahora.getFullYear();
+  const mes = String(ahora.getMonth() + 1).padStart(2, "0");
+  const dia = String(ahora.getDate()).padStart(2, "0");
+  return { desde: `${anio}-${mes}-01`, hasta: `${anio}-${mes}-${dia}` };
+}
+
 /** Serializa los filtros en la query string del API (solo valores presentes). */
 export function buildDashboardQuery(
   filters: DashboardFilters,
