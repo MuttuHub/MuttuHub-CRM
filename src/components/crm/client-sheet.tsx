@@ -134,7 +134,7 @@ export function ClientSheet({
                 <div className="shrink-0 border-b border-ink-200 px-6">
                   <TabsList
                     variant="line"
-                    className="h-10 w-full justify-start gap-1 overflow-x-auto pb-1 [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-ink-300 [&::-webkit-scrollbar-track]:bg-transparent"
+                    className="h-10 w-full justify-start gap-1 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                   >
                     <TabsTrigger value="general" className="flex-none px-3">General</TabsTrigger>
                     <TabsTrigger value="contactos" className="flex-none px-3">Contactos</TabsTrigger>
@@ -300,22 +300,23 @@ function SheetHeaderContent({
 
   return (
     <div className="shrink-0 border-b border-ink-200 px-6 py-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 items-start gap-3.5">
-          <InitialsAvatar
-            nombre={cliente.nombre}
-            className="mt-0.5 size-11 rounded-[15px_15px_15px_5px] text-[13px]"
-          />
-          <div className="min-w-0">
-            <h2 className="font-display text-[19px] leading-tight font-bold tracking-[-0.02em] text-ink-950">
-              {cliente.nombre}
-            </h2>
-            <p className="mt-0.5 truncate text-[13px] text-ink-600">
-              {[cliente.empresa, cliente.ubicacion].filter(Boolean).join(" · ") ||
-                "Sin empresa ni ubicación registradas"}
-            </p>
-          </div>
+      <div className="flex items-start gap-3.5">
+        <InitialsAvatar
+          nombre={cliente.nombre}
+          className="mt-0.5 size-11 rounded-[15px_15px_15px_5px] text-[13px]"
+        />
+        <div className="min-w-0 flex-1">
+          <h2 className="font-display text-[19px] leading-tight font-bold tracking-[-0.02em] text-ink-950 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden">
+            {cliente.nombre}
+          </h2>
+          <p className="mt-0.5 truncate text-[13px] text-ink-600">
+            {[cliente.empresa, cliente.ubicacion].filter(Boolean).join(" · ") ||
+              "Sin empresa ni ubicación registradas"}
+          </p>
         </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
         <Button
           variant="outline"
           size="sm"
