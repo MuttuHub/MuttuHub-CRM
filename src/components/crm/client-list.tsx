@@ -30,14 +30,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
@@ -264,7 +256,7 @@ export function ClientList() {
       {listQuery.isError ? (
         <SinConexionCard onRetry={() => void listQuery.refetch()} />
       ) : (
-        <ClientTableCard
+        <ClientGridCard
           query={listQuery}
           page={page}
           onPage={setPage}
@@ -449,9 +441,9 @@ function FiltersCard({
   );
 }
 
-/* ── Tarjeta de la tabla ───────────────────────────────────────────────── */
+/* ── Grilla de cards ──────────────────────────────────────────────────── */
 
-function ClientTableCard({
+function ClientGridCard({
   query,
   page,
   onPage,
@@ -470,55 +462,25 @@ function ClientTableCard({
   const hasta = Math.min(page * PAGE_SIZE, total);
 
   return (
-    <section className="overflow-hidden rounded-[22px] border border-ink-200 bg-white">
+    <section className="rounded-[22px] border border-ink-200 bg-white">
       {isLoading ? (
-        <div className="space-y-3 p-6">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full rounded-[12px]" />
+        <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3 lg:p-5">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-44 w-full rounded-[18px]" />
           ))}
         </div>
       ) : items.length === 0 ? (
         <EmptyClients />
       ) : (
         <>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="pl-5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-                    Cliente
-                  </TableHead>
-                  <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-                    Tipo
-                  </TableHead>
-                  <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-                    Estado
-                  </TableHead>
-                  <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-                    Prioridad
-                  </TableHead>
-                  <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-                    Responsable
-                  </TableHead>
-                  <TableHead className="text-right text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-                    Valor potencial
-                  </TableHead>
-                  <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-                    Próximo compromiso
-                  </TableHead>
-                  <TableHead className="w-14" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map((cliente) => (
-                  <ClientRow
-                    key={cliente.id}
-                    cliente={cliente}
-                    onOpen={() => onOpenFicha(cliente.id)}
-                  />
-                ))}
-              </TableBody>
-            </Table>
+          <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3 lg:p-5">
+            {items.map((cliente) => (
+              <ClientCard
+                key={cliente.id}
+                cliente={cliente}
+                onOpen={() => onOpenFicha(cliente.id)}
+              />
+            ))}
           </div>
 
           <PaginationFooter
@@ -535,7 +497,7 @@ function ClientTableCard({
   );
 }
 
-function ClientRow({
+function ClientCard({
   cliente,
   onOpen,
 }: {
@@ -547,9 +509,8 @@ function ClientRow({
     : false;
 
   return (
-    <TableRow
+    <article
       onClick={onOpen}
-      className="cursor-pointer hover:bg-rose-50/40"
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -557,77 +518,99 @@ function ClientRow({
           onOpen();
         }
       }}
+      aria-label={`Abrir ficha de ${cliente.nombre}`}
+      className="flex cursor-pointer flex-col gap-3.5 rounded-[18px] border border-ink-200 bg-white p-4 shadow-[0_1px_2px_rgba(16,16,32,0.04)] transition-colors hover:border-rose-200 hover:bg-rose-50/30"
     >
-      <TableCell className="pl-5">
-        <div className="flex items-center gap-3">
-          <InitialsAvatar nombre={cliente.nombre} />
-          <div className="min-w-0">
-            <div className="truncate text-[13.5px] font-semibold text-ink-950">
-              {cliente.nombre}
-            </div>
-            <div className="truncate text-[12px] text-ink-600">
-              {[cliente.empresa, cliente.ubicacion].filter(Boolean).join(" · ") || "—"}
-            </div>
-          </div>
+      <div className="flex items-start gap-3">
+        <InitialsAvatar nombre={cliente.nombre} />
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-[14px] font-bold text-ink-950">
+            {cliente.nombre}
+          </h3>
+          <p className="truncate text-[12px] text-ink-600">
+            {[cliente.empresa, cliente.ubicacion].filter(Boolean).join(" · ") || "—"}
+          </p>
         </div>
-      </TableCell>
-      <TableCell>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
         <ToneBadge
           tone={TIPO_CLIENTE_LABELS[cliente.tipo_cliente].tone}
           label={TIPO_CLIENTE_LABELS[cliente.tipo_cliente].label}
         />
-      </TableCell>
-      <TableCell>
         <ToneBadge
           tone={ESTADO_CLIENTE_LABELS[cliente.estado].tone}
           label={ESTADO_CLIENTE_LABELS[cliente.estado].label}
         />
-      </TableCell>
-      <TableCell>
-        <PrioridadChip prioridad={cliente.prioridad} />
-      </TableCell>
-      <TableCell>
-        <ResponsableCell nombre={cliente.responsable_nombre} />
-      </TableCell>
-      <TableCell className="text-right">
-        <span className="font-mono text-[12.5px] font-medium text-ink-900 tabular-nums">
-          {formatCOP(cliente.valor_potencial)}
-        </span>
-      </TableCell>
-      <TableCell>
-        {cliente.next_compromiso ? (
-          <span
-            className={cn(
-              "inline-flex items-center gap-1.5 font-mono text-[12px] tabular-nums",
-              nextVencido ? "font-bold text-destructivo" : "text-ink-600",
-            )}
-          >
-            {formatFecha(cliente.next_compromiso.fecha_entrega)}
-            {nextVencido && (
-              <span className="inline-flex h-[19px] items-center rounded-full bg-destructivo-bg px-2 text-[10px] font-bold text-destructivo">
-                Vencido
+        {cliente.prioridad && <PrioridadChip prioridad={cliente.prioridad} />}
+      </div>
+
+      <dl className="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-ink-100 pt-3 text-[12px]">
+        <div>
+          <dt className="text-[10.5px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+            Valor potencial
+          </dt>
+          <dd className="mt-0.5 font-mono text-[12.5px] font-medium text-ink-900 tabular-nums">
+            {formatCOP(cliente.valor_potencial)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[10.5px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+            Compromisos abiertos
+          </dt>
+          <dd className="mt-0.5 font-mono text-[12.5px] font-medium text-ink-900 tabular-nums">
+            {cliente.compromisos_abiertos}
+          </dd>
+        </div>
+        <div className="col-span-2">
+          <dt className="text-[10.5px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+            Responsable
+          </dt>
+          <dd className="mt-0.5">
+            <ResponsableCell nombre={cliente.responsable_nombre} />
+          </dd>
+        </div>
+        <div className="col-span-2">
+          <dt className="text-[10.5px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+            Próximo compromiso
+          </dt>
+          <dd className="mt-0.5">
+            {cliente.next_compromiso ? (
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1.5 font-mono text-[12px] tabular-nums",
+                  nextVencido ? "font-bold text-destructivo" : "text-ink-600",
+                )}
+              >
+                {formatFecha(cliente.next_compromiso.fecha_entrega)}
+                {nextVencido && (
+                  <span className="inline-flex h-[19px] items-center rounded-full bg-destructivo-bg px-2 text-[10px] font-bold text-destructivo">
+                    Vencido
+                  </span>
+                )}
               </span>
+            ) : (
+              <span className="text-[12.5px] text-ink-500">—</span>
             )}
-          </span>
-        ) : (
-          <span className="text-[12.5px] text-ink-500">—</span>
-        )}
-      </TableCell>
-      <TableCell className="pr-4 text-right">
+          </dd>
+        </div>
+      </dl>
+
+      <div className="flex justify-end border-t border-ink-100 pt-3">
         <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={`Abrir ficha de ${cliente.nombre}`}
+          variant="outline"
+          size="sm"
           onClick={(e) => {
             e.stopPropagation();
             onOpen();
           }}
-          className="text-ink-500 hover:text-rose-700"
+          className="h-8 rounded-[11px] border-ink-200 bg-white px-3 text-[12px] font-semibold text-ink-700 hover:bg-ink-100"
         >
-          <Eye className="size-4" strokeWidth={1.8} />
+          <Eye className="size-3.5" strokeWidth={1.8} />
+          Ver detalle
         </Button>
-      </TableCell>
-    </TableRow>
+      </div>
+    </article>
   );
 }
 

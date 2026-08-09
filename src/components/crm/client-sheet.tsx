@@ -1,8 +1,8 @@
 // Ficha de cliente en panel lateral (PRD §4.2): se abre desde el listado sin
 // recargar la página. El id llega por `?cliente=<id>` (deep-link/reanudable)
 // y el panel se sincroniza con esa URL en ambas direcciones. Pestañas:
-// General, Contactos, Oportunidades, Compromisos, Bitácora, Documentos
-// (Hito 4) y Tareas relacionadas.
+// General, Contactos, Oportunidades, Compromisos, Bitácora, Documentos y
+// Tareas relacionadas.
 //
 // Permisos (v1): los controles de edición/borrado se muestran para cualquier
 // rol; el servidor aplica el alcance por rol y los 403 llegan como toasts.
@@ -134,7 +134,7 @@ export function ClientSheet({
                 <div className="shrink-0 border-b border-ink-200 px-6">
                   <TabsList
                     variant="line"
-                    className="h-10 w-full justify-start gap-1 overflow-x-auto"
+                    className="h-10 w-full justify-start gap-1 overflow-x-auto pb-1 [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-ink-300 [&::-webkit-scrollbar-track]:bg-transparent"
                   >
                     <TabsTrigger value="general" className="flex-none px-3">General</TabsTrigger>
                     <TabsTrigger value="contactos" className="flex-none px-3">Contactos</TabsTrigger>
@@ -816,7 +816,7 @@ function BitacoraTab({ clientId }: { clientId: string }) {
   );
 }
 
-/* ── Documentos (Hito 4) y Tareas relacionadas ─────────────────────────── */
+/* ── Documentos y Tareas relacionadas ─────────────────────────────────── */
 
 // Pestaña compacta del Repositorio (PRD §4.2): últimos 10 documentos del
 // cliente con la versión activa. El CRUD completo vive en /documentos
@@ -839,7 +839,8 @@ function DocumentosTab({ clientId }: { clientId: string }) {
     <div className="flex flex-col gap-3">
       <p className="text-[13px] text-ink-600">
         Los documentos vinculados a este cliente viven en el Repositorio
-        documental (Hito 4).
+        documental: desde ahí puedes descargar la versión activa o subir
+        nuevos.
       </p>
       {query.isLoading &&
         Array.from({ length: 2 }).map((_, i) => (
@@ -921,8 +922,9 @@ function TareasRelacionadasTab({ clientId }: { clientId: string }) {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-[13px] text-ink-600">
-        Todas las tareas vinculadas a este cliente, incluidas las creadas en el
-        tablero. El detalle completo vive en el tablero (Hito 3).
+        Todas las tareas vinculadas a este cliente, incluidas las creadas en
+        el tablero. El estado completo y el flujo de trabajo viven en el
+        tablero.
       </p>
       {query.isLoading &&
         Array.from({ length: 2 }).map((_, i) => (

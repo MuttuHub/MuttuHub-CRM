@@ -56,11 +56,11 @@ export const PAGE_HEADERS: Record<string, PageHeader> = {
   "/clientes": {
     title: "Aliados y clientes",
     subtitle:
-      "7 aliados de demostración · la ficha completa llega en el Hito 2.",
+      "Busca, filtra y abre la ficha completa de cada cliente.",
   },
   "/tablero": {
     title: "Tablero del equipo",
-    subtitle: "27 tareas abiertas · el Kanban llega en el Hito 3 del roadmap.",
+    subtitle: "Tareas y compromisos del equipo en un solo tablero.",
   },
   "/documentos": {
     title: "Repositorio documental",
