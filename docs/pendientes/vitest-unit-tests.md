@@ -1,7 +1,17 @@
 # Plan: Unit tests con Vitest + Testing Library
 
-> Estado: **pendiente** · Estimación: 2–4 hs · Última actualización: 2026-08-09
+> Estado: **en curso — Fases 0–4 completadas (2026-08-10, suite 206/206), falta Fase 5 (cierre)**
+> Estimación: 2–4 hs · Última actualización: 2026-08-10
 > Contexto: `docs/plan-supabase-manana.md` §6 — "TestSprite no reemplaza unit/component tests locales".
+
+## Progreso
+
+- ✅ **Fase 0 — Setup** (commit `ae35953`): vitest 4.1.10, TLR 16.3.2, jsdom 30, vitest.config.ts, src/test/setup.ts (mocks matchMedia/ResizeObserver), scripts test/test:watch/test:coverage. Ojo: `@vitejs/plugin-react` pinnado a 5.2.0 (el latest 6.x choca con peer babel de shadcn).
+- ✅ **Fase 1 — Utilidades puras** (commit `a633e64`): nav, catalogs (test paramétrico vs enums Prisma), dashboard, alerts, settings. Puros al 100%; las async de Prisma quedan deliberadamente fuera (getAlertBuckets, reconcileAlertas, getSetting, etc.).
+- ✅ **Fase 2 — Stores y helpers UI** (commit `3cea1b4`): filters/sidebar stores, sparkline, shared.tsx, saved-views, buildDashboardQuery (vive en src/hooks/dashboard.ts, NO en shared.tsx como decía el plan). Hallazgo → **BUG-001**.
+- ✅ **Fase 3 — Componentes representacionales** (commit `463881b`): ui/* (8), demo-fallback, client-list (3 estados + paginación + `?cliente=`), client-form (zod). Hallazgo → **BUG-002**. Lint: `coverage/**` agregado a eslint ignore (commit `3cea1b4`).
+- ✅ **Fase 4 — Hooks** (commit `8e45c94`): useNavCounts + 4 hooks dashboard al 100% (vi.stubGlobal fetch + apiGet real).
+- ⏳ **Fase 5 — Cierre (PENDIENTE)**: ver sección abajo + criterio de done.
 
 ---
 
@@ -105,15 +115,18 @@ Pura lógica, cero mocking de Supabase — máximo valor, mínimo riesgo.
 
 ## Criterio de done
 
-- [ ] `npm test` corre en < 30 s y pasa en verde
-- [ ] Cobertura ≥ 70% en `src/lib/*` y ≥ 50% global (report V8)
-- [ ] Utilidades puras 100% de funciones exportadas cubiertas (o justificado)
-- [ ] Componentes clave: demo-fallback, client-list (3 estados), client-form (validación zod), sparkline
-- [ ] Unidades de negocio del PRD sin retroceso: los helpers de dashboard (scope, rango, where) cubiertos
-- [ ] Scripts `test`, `test:watch`, `test:coverage` en package.json
-- [ ] README actualizado
+- [x] `npm test` corre en < 30 s y pasa en verde — **206 tests en ~7 s (2026-08-10)**
+- [ ] Cobertura ≥ 70% en `src/lib/*` y ≥ 50% global (report V8) — **requiere Fase 5: `coverage.all: true` + `include` y thresholds reales (hoy 60% decorativo, `all: false`)**
+- [x] Utilidades puras 100% de funciones exportadas cubiertas (o justificado) — **Fase 1**
+- [x] Componentes clave: demo-fallback, client-list (3 estados), client-form (validación zod), sparkline — **Fase 3**
+- [x] Unidades de negocio del PRD sin retroceso: los helpers de dashboard (scope, rango, where) cubiertos — **Fase 1/2**
+- [x] Scripts `test`, `test:watch`, `test:coverage` en package.json — **Fase 0**
+- [ ] README actualizado — **Fase 5**
 
 ## Pendientes relacionados (no bloquean Vitest)
 
-- [ ] GitHub Action TestSprite + `npm test` como gate en PRs (1–2 hs, opcional)
+- [ ] **Fase 5 — Cierre**: (1) `coverage.all: true` + include `src/`; (2) subir thresholds ≥70% lib / ≥50% global — ojo: si el global sube a ≥70%, `http.ts` destapa apiPost/apiPut/apiPatch/apiDelete (líneas 75–99) → decidir cubrirlos o excluir `lib/api/crm.ts`; (3) README con `npm test`.
+- [ ] GitHub Action TestSprite + `npm test` como gate en PRs (1–2 hs, opcional) — también en `plan-supabase-manana.md` §6
 - [ ] SMTP custom en dashboard de Supabase (usuario, cuando quiera — `@muttu.co` rechazado por el proveedor)
+- [ ] BUG-001 (zustand persist hidrata rango inválido) y BUG-002 (debounce buscador clientes inefectivo) — ver `docs/pendientes/bugs-pendientes.md`
+- [ ] Re-correr TC028 de TestSprite en el sandbox con la cuenta `tc028@muttu.co` (solo si se quiere el reporte oficial)
