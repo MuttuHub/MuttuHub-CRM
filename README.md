@@ -1,24 +1,170 @@
 # Muttu Hub
 
-Plataforma integral de **Muttu Innovación Social**: aliados y clientes,
-tablero de tareas Kanban, repositorio documental con versionado, reportes y
-dashboard. Stack: **Next.js 16 (App Router) + Supabase (Auth / Postgres) +
-Prisma**.
+![Next.js](https://img.shields.io/badge/Next.js%2016-000000?logo=nextdotjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?logo=supabase&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-2D3748?logo=prisma&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-212%20passing-22c55e)
+![v1](https://img.shields.io/badge/estado-v1%20completa-0ea5e9)
+
+Plataforma integral de **Muttu Innovación Social** (aliados y clientes, tablero
+Kanban, repositorio documental, reportes y dashboard) construida con
+**Next.js 16 (App Router) + Supabase (Auth/Postgres/Storage) + Prisma**,
+desplegada en **Vercel**.
+
+---
+
+## Resumen ejecutivo
+
+| | |
+|---|---|
+| **Estado** | v1 completa del PRD (hitos 1–7) — 2026-08-11 |
+| **Calidad** | 212 tests Vitest en verde · `tsc` 0 errores · ESLint limpio |
+| **Entrega** | Deploy automático en PRs (preview) y producción por integración Git |
+| **Sesión** | JWT 4 h con banner de cierre y logout forzado |
+
+**Módulos** — todo operativo con datos reales en Supabase:
+
+| Módulo | Qué hace |
+|---|---|
+| 🔐 **Login y sesión** | Email + password, 4 h sin renovación, recuperación por correo, confirmación de email propia |
+| 👥 **CRM** | Clientes, contactos, oportunidades, bitácora inmutable, búsqueda con debounce y filtros |
+| 🗂️ **Tablero Kanban** | Tareas, subtareas, adjuntos (≤10 MB), etiquetas, comentarios inmutables |
+| 📚 **Repositorio** | Documentos con versionado, categorías restringidas, descarga individual/zip |
+| 🔔 **Notificaciones** | Panel por tarea + resumen diario por correo (pg_cron 8:00 Colombia) |
+| 📊 **Dashboard** | 4 caras (pipeline, tareas, actividad, mi resumen) con filtros y export imprimible |
+| ⚙️ **Administración** | Catálogos configurables (etiquetas/categorías), bitácora de accesos, gestión de usuarios |
+
+> **Pendientes y mejoras**: `docs/pendientes/pendientes-y-mejoras.md`
+
+---
+
+## Arquitectura
+
+```mermaid
+flowchart TB
+    subgraph Client["Cliente — Next.js 16 (App Router)"]
+        UI["Componentes React<br/>server + client"]
+        PROXY["src/proxy.ts<br/>middleware: sesión + rutas públicas/neutrales"]
+        API["API Routes<br/>/api/v1/* (envelope {error, code})"]
+    end
+
+    subgraph Sup["Supabase (free tier)"]
+        AUTH["Auth<br/>JWT 4 h · email"]
+        PG[("Postgres<br/>16 tablas · Prisma 7")]
+        STORAGE["Storage<br/>muttu-docs (privado)"]
+    end
+
+    subgraph Vercel["Vercel"]
+        CD["Deploy Git<br/>preview en PRs · prod en main"]
+        CRON["pg_cron<br/>diario 8:00 / retry 8:30"]
+    end
+
+    UI --> PROXY
+    PROXY --> API
+    API --> AUTH
+    API --> PG
+    API --> STORAGE
+    CRON -.->|"x-cron-secret"| API
+    CD -.-> UI
+```
+
+### Modelo de datos (núcleo)
+
+```mermaid
+erDiagram
+    USUARIO ||--o{ CLIENTE : "es responsable de"
+    USUARIO ||--o{ TAREA : "es responsable de"
+    USUARIO ||--o{ ACCESO : "registra"
+    USUARIO ||--o{ NOTIFICACION : "recibe"
+    CLIENTE ||--o{ CONTACTO : "tiene"
+    CLIENTE ||--o{ OPORTUNIDAD : "tiene"
+    CLIENTE ||--o{ TAREA : "relacionada con"
+    CLIENTE ||--o{ DOCUMENTO : "asociado a"
+    TAREA ||--o{ SUBTAREA : "checklist de"
+    TAREA ||--o{ ADJUNTO : "adjunta"
+    TAREA ||--o{ COMENTARIO : "hilo de"
+    DOCUMENTO ||--o{ DOCUMENTO_VERSION : "versiona"
+```
+
+> **Decisión de diseño — identidad auth ↔ usuario**: el `id` de la fila
+> `Usuario` de la app **es el mismo UUID del usuario de Supabase Auth**
+> (relación 1:1). Al crear un usuario, el admin crea primero el auth user con
+> `supabase.auth.admin.createUser` (service role key) y luego
+> `prisma.usuario.create` con ese mismo `id`; esto conserva la integridad
+> referencial entre Auth y la tabla `usuarios` (documentado también en
+> `src/app/api/v1/users/route.ts`).
+
+---
+
+## Flujo de sesión (4 h, sin renovación)
+
+```mermaid
+sequenceDiagram
+    actor U as Usuario
+    participant P as proxy.ts
+    participant A as /api/v1/auth
+    participant S as Supabase Auth
+
+    U->>A: POST /login {email, password}
+    A->>S: signInWithPassword
+    S-->>A: sesión JWT (expira 4 h)
+    A-->>U: {usuario, sessionExpiresAt}
+    Note over U: app guarda sessionDeadlineAt
+
+    U->>P: navega ruta protegida
+    P->>S: getUser (valida / refresca)
+    S-->>P: user
+    P-->>U: página ✓
+
+    Note over U: 3h50m: banner "se cerrará en 10 min"<br/>4h: logout forzado a /login?expired=1
+```
+
+**Reglas de sesión**
+
+- Login escribe la bitácora de accesos (`accesos`), best-effort.
+- Usuario desactivado: la sesión activa vence; el próximo login responde 403 `INACTIVE`.
+- Recuperación de contraseña: correo de un solo uso (1 h), siempre 200 (sin enumerar cuentas).
+- Confirmación de email: `/auth/confirm` canjea token (`verifyOtp`) o code PKCE
+  (`exchangeCodeForSession`), modal "¡Correo verificado!" y redirect a `/login` a los 3 s.
+  Es una ruta **neutral** del proxy: accesible para anónimos y logueados.
+
+---
+
+## Pipeline de entrega
+
+```mermaid
+flowchart LR
+    PR["PR"] --> CI["CI: lint + Vitest<br/>(gate real)"]
+    PR --> VP["Vercel preview deploy"]
+    PR --> E2E["TestSprite E2E<br/>(informativo)"]
+    CI --> M["Merge a main"]
+    VP --> M
+    E2E -.->|"comenta resultados"| PR
+    M --> PROD["Deploy producción<br/>automático (Git)"]
+    PROD --> E2EP["E2E contra prod"]
+```
+
+| Check | Rol |
+|---|---|
+| **CI (Vitest + ESLint)** | Gate de PRs — 212 tests |
+| **Vercel** | Preview en cada PR + producción en main (integración Git) |
+| **TestSprite E2E** | Informativo (`blocking: false`); suite MCP falla en su sandbox (incompatibilidad conocida) |
+
+---
 
 ## Puesta en marcha
 
 ### 1. Requisitos
 
 - Node.js 20+ y npm.
-- Un proyecto de Supabase (el plan gratuito alcanza para v1).
+- Proyecto de Supabase (el plan gratuito alcanza para v1).
 
 ### 2. Variables de entorno
 
 ```bash
 cp .env.example .env
 ```
-
-Completa las variables de Supabase (las encuentras en el panel del proyecto):
 
 | Variable | Desde dónde |
 | --- | --- |
@@ -29,38 +175,29 @@ Completa las variables de Supabase (las encuentras en el panel del proyecto):
 | `NEXT_PUBLIC_APP_URL` | URL de la app (dev: `http://localhost:3000`) |
 
 > Las consultas de runtime usan `DATABASE_URL` con el driver adapter de Prisma
-> (`@prisma/adapter-pg`); `DIRECT_URL` queda disponible para migraciones con
-> pooler (PRD §8.4).
+> (`@prisma/adapter-pg`); `DIRECT_URL` queda para migraciones con pooler (PRD §8.4).
 
-### 3. Configuración de Supabase Auth
+### 3. Supabase Auth
 
-1. **Authentication → Providers → Email:** activa el proveedor de Email.
-2. **Authentication → Settings → Session duration:** fija el JWT en **14400
-   segundos (4 horas)**, la duración de sesión de la plataforma (PRD §3.1).
-   Mantiene el JWT en sintonía con el banner de cierre del cliente (3h50m/4h).
+1. **Authentication → Providers → Email**: activa el proveedor.
+2. **Authentication → Settings → Session duration**: JWT en **14400 s (4 h)**,
+   en sintonía con el banner de cierre (3h50m/4h).
 3. El reset de contraseña redirige a
    `${NEXT_PUBLIC_APP_URL}/auth/reset-password/confirm` (configurado en el código).
 
 ### 4. Base de datos (Prisma)
-
-El esquema (16 tablas, incluye `usuarios`, `accesos`, `cron_logs` y
-`settings`) ya trae la migración inicial; se aplica a la BD remota:
 
 ```bash
 npm run db:migrate
 npm run db:generate   # regenera el cliente Prisma si cambia el esquema
 ```
 
-> Las 3 migraciones (0001_init, 0002_adjuntos_tamano_bytes, 0003_settings) están
-> aplicadas en el remoto (verificado 2026-08-11).
-
-La tabla `accesos` (bitácora de accesos, PRD §3.3) se crea con la migración y
-se alimenta automáticamente en cada login.
+> Las 3 migraciones (`0001_init`, `0002_adjuntos_tamano_bytes`, `0003_settings`)
+> están aplicadas en el remoto (verificado 2026-08-11).
 
 ### 5. Primer administrador
 
-Supabase no permite registro público, así que el primer usuario se crea una
-vez con la service role key:
+Supabase no permite registro público; crea el primer usuario con la service role key:
 
 ```bash
 node - <<'EOF'
@@ -107,60 +244,16 @@ npm run build  # build de producción
 npm run lint   # ESLint
 ```
 
-## Autenticación y sesión
+> **Modo dev sin configurar**: si faltan `NEXT_PUBLIC_SUPABASE_URL` /
+> `NEXT_PUBLIC_SUPABASE_ANON_KEY`, el proxy deja pasar todas las rutas, el login
+> muestra "Plataforma no configurada" y las APIs responden 500 con el envelope.
 
-- **Login:** la página `(auth)/login` envía `POST /api/v1/auth/login`; el
-  servidor firma la sesión con Supabase (`signInWithPassword`), valida
-  `Usuario.activo` y responde `{ usuario, sessionExpiresAt }`. La app guarda
-  `sessionDeadlineAt` en el `localStorage`.
-- **Protección de rutas:** `src/proxy.ts` (el middleware de Next.js 16) bloquea
-  todo salvo `/login`, `/auth/reset-password` y las partes públicas de
-  `/api/v1/auth/*`; cada ruta de API responde su propio `401/403` JSON. Las
-  páginas revalidan con `requireUser` / `requireRole` en `src/lib/supabase/server.ts`.
-- **4 horas, sin renovación:** el banner `session-banner.tsx` avisa a las
-  3h50m *"Tu sesión se cerrará en 10 minutos. Guarda tu trabajo."* (no
-  descartable) y a las 4h cierra la sesión y redirige a `/login?expired=1`
-  con *"Tu sesión expiró"*.
-- **Usuario desactivado:** la sesión activa continúa hasta vencer; el próximo
-  login rechaza con 403 `INACTIVE` (*"Tu cuenta está inactiva. Contacta al
-  administrador."*).
-- **Recuperación de contraseña:** el correo con enlace de un solo uso (1h) lo
-  envía `POST /api/v1/auth/reset-password` (siempre 200, sin enumerar cuentas).
-  La página de confirmación usa el flujo directo de Supabase
-  (`exchangeCodeForSession` + `updateUser`) y la ruta
-  `/api/v1/auth/reset-password/confirm` como fallback.
-- **Confirmación de email:** la página `/auth/confirm` canjea el link del correo
-  con `verifyOtp` (token+type+email) o `exchangeCodeForSession` (code PKCE),
-  muestra el modal "¡Correo verificado!" y redirige a `/login` a los 3 s.
-  Es una ruta **neutral** del proxy (`src/proxy.ts`): accesible para anónimos
-  (recién registrados) y logueados (cambio de email) sin redirigir. Los 6
-  templates de email con marca viven en `supabase/email-templates/`
-  (postergados de pegar en Supabase — ver Oportunidades de mejora).
-
-> El JWT expira a las 4h solo si el dashboard de Supabase está con 14400 s; el
-> banner usa `sessionDeadlineAt` para alinear el aviso con la expiración del JWT.
-
-## Identidad auth ↔ usuario (decisión de diseño)
-
-El `id` de la fila `Usuario` de la app **es el mismo UUID del usuario de Supabase
-Auth** (relación 1:1). Al crear un usuario, el admin primero crea el auth user
-con `supabase.auth.admin.createUser` (service role key) y luego
-`prisma.usuario.create` con ese mismo `id`; esto conserva la integridad
-referencial entre Auth y la tabla `usuarios`. Documentado también en
-`src/app/api/v1/users/route.ts`.
-
-## Modo dev sin configurar
-
-Si `NEXT_PUBLIC_SUPABASE_URL` o `NEXT_PUBLIC_SUPABASE_ANON_KEY` faltan en el
-entorno, la app corre en **modo demo sin configuración**: el proxy deja pasar
-todas las rutas (para que la UI quede visible) y la página de login muestra la
-tarjeta *"Plataforma no configurada"*. Las rutas de API responden
-`{ "error", "code" }` con 500 en lugar de fallar.
+---
 
 ## API v1
 
-Base `/api/v1`, sesión por cookie, respuestas en JSON. Los errores siguen
-siempre el envelope `{ "error": "string", "code": "string" }` (PRD §8.2):
+Base `/api/v1`, sesión por cookie, errores siempre en
+`{ "error": "string", "code": "string" }` (PRD §8.2):
 
 | HTTP | Código | Cuándo |
 | --- | --- | --- |
@@ -171,9 +264,11 @@ siempre el envelope `{ "error": "string", "code": "string" }` (PRD §8.2):
 | 409 | `CONFLICT` | Email ya registrado |
 | 500 | `INTERNAL_ERROR` | Error no controlado |
 
+<details>
+<summary><b>Endpoints por módulo</b> (clic para expandir)</summary>
+
 ### Auth
 
-```
 ```
 POST /api/v1/auth/login                     { email, password } → { usuario, sessionExpiresAt }
 POST /api/v1/auth/logout                    204
@@ -186,21 +281,17 @@ GET  /api/v1/auth/accesos                   (solo ADMINISTRADOR) bitácora de ac
 ### Usuarios *(solo ADMINISTRADOR)*
 
 - `GET   /api/v1/users` → `{ usuarios }` (`id`, `nombre`, `email`, `rol`, `activo`, `created_at`)
-- `POST  /api/v1/users` `{ nombre, email, rol, password }` → crea el auth user y
-  la fila `Usuario`; contraseña ≥ 8 caracteres con letras y números; `409
-  CONFLICT` si el email ya existe.
+- `POST  /api/v1/users` `{ nombre, email, rol, password }` → crea el auth user y la
+  fila `Usuario`; contraseña ≥ 8 caracteres con letras y números; `409` si existe.
 - `PATCH /api/v1/users/:id` `{ rol?, activo?, nombre? }`
-- `POST  /api/v1/users/:id/deactivate` → soft delete (`activo = false`); nunca
-  elimina (PRD §3.4).
+- `POST  /api/v1/users/:id/deactivate` → soft delete (`activo = false`); nunca elimina.
 
-### CRM (Hito 2)
-
-Base `/api/v1`, sesión por cookie, errores `{ error, code }` (PRD §8.2):
+### CRM
 
 ```
 GET  /api/v1/clients                   lista con búsqueda, filtros y paginación
 POST /api/v1/clients                   crear cliente
-GET  /api/v1/clients/export            xlsx clientes.xlsx (mismo filtrado que la lista)
+GET  /api/v1/clients/export            xlsx clientes.xlsx (mismo filtrado)
 GET  /api/v1/clients/:id               detalle + conteos + valor potencial
 PATCH/DELETE /api/v1/clients/:id       actualizar parcial / borrado lógico
 GET  /api/v1/clients/:id/contacts      | POST crear contacto
@@ -208,35 +299,21 @@ PATCH/DELETE /api/v1/clients/:id/contacts/:contactId
 GET  /api/v1/clients/:id/opportunities | POST crear oportunidad
 PATCH/DELETE /api/v1/clients/:id/opportunities/:opportunityId
 GET  /api/v1/clients/:id/log           | POST nota de bitácora (inmutable)
-GET  /api/v1/tasks                     lista CRM + Kanban con filtros (q, cliente, responsable, estado, origen, vencidas)
+GET  /api/v1/tasks                     lista CRM + Kanban con filtros
 POST /api/v1/tasks                     crear tarea (responsable obligatorio)
 GET  /api/v1/tasks/:id                 detalle con hilo de comentarios
 PATCH/DELETE /api/v1/tasks/:id         actualizar parcial / borrado lógico
 PATCH /api/v1/tasks/:id/status         cambio de estado (motivo al bloquear)
 POST /api/v1/tasks/:id/comments        comentario (hilo inmutable)
-GET  /api/v1/catalogs/users            usuarios activos (id, nombre) para selects
+GET  /api/v1/catalogs/users            usuarios activos para selects
 ```
 
-Modelo de permisos (v1 pragmático, sin tabla de equipos aún):
+**Permisos (v1 pragmática)**: `ADMINISTRADOR`, `GERENCIA` y `COORDINADOR`
+leen/escriben todo; `COLABORADOR` solo sus propios clientes y tareas (y las de
+clientes que lidera). El export xlsx (valor en COP, máx. 500 filas) respeta el
+mismo filtrado y alcance. La bitácora (`/log`) y los comentarios son **inmutables**.
 
-- `ADMINISTRADOR`, `GERENCIA` y `COORDINADOR` leen y escriben sobre todo.
-- `COLABORADOR` solo lee/edita sus propios clientes y tareas; al crear, el
-  responsable se fuerza a él mismo.
-- `COLABORADOR` también puede editar tareas de clientes que él lidera.
-
-El export `GET /api/v1/clients/export` genera `clientes.xlsx` (valor en COP,
-etiquetas en español) con el mismo filtrado y alcance de roles que la lista;
-está limitado a las primeras **500 filas** del conjunto filtrado (PRD §8.4).
-
-Notas de diseño: la bitácora del cliente (`/log`) y los comentarios de tarea
-son **inmutables** — solo se agregan, nunca se editan ni eliminan (el esquema
-no tiene `updated_at` ni `deleted_at` para esos modelos).
-
-## Tablero (Hito 3)
-
-Extensiones del motor de tareas para el Kanban (PRD §5). Los endpoints de
-subtareas y el reporte **no están en el contrato §8.2** (se agregaron por
-§5.2 y §5.4 respectivamente); los adjuntos sí figuran en §8.2.
+### Tablero (Kanban)
 
 ```
 POST /api/v1/tasks/:id/subtasks              { titulo (1-200), completada? } → 201
@@ -247,116 +324,35 @@ POST /api/v1/tasks/:id/attachments         multipart/form-data, campo `file` →
 GET  /api/v1/tasks/:id/attachments         [{ id, nombre, tamano_bytes, created_at }]
 GET  /api/v1/tasks/:id/attachments/:attachmentId/download → 302 a signed URL (60 s)
 GET  /api/v1/tasks/report                  ?rango=week|month|quarter|all&responsable=&cliente=
-GET  /api/v1/tasks/export                  xlsx (mismos filtros que la lista, máx 500 filas)
+GET  /api/v1/tasks/export                  xlsx (mismos filtros, máx 500 filas)
 ```
 
-Convenciones:
+- Adjuntos: ≤ 10 MB (413 `FILE_TOO_LARGE`), PDF/DOCX/XLSX/JPG/PNG; bucket
+  `muttu-docs` con service role.
+- Reporte: `tasa_cumplimiento = completadas / total_asignadas`; proxy "a tiempo"
+  = `updated_at <= fecha_entrega` (no hay `completed_at` en v1).
+- Subtareas: `DELETE` es borrado físico (checklist).
 
-- **Permisos:** mismas reglas que la tarea — lectura como el detalle
-  (`loadTaskScoped`), escritura como el PATCH (`getTaskForWrite`): roles
-  completos en todos lados; `COLABORADOR` solo sus tareas (y las de clientes
-  que lidera).
-- **Subidas**: campo `file`, ≤ 10 MB (413 `FILE_TOO_LARGE`) y solo
-  PDF/DOCX/XLSX/JPG/PNG (400 `VALIDATION_ERROR`; se acepta si la extensión o
-  el MIME están en el set). La respuesta trae `download_url` (signed URL 60 s);
-  si el signed URL falla, el adjunto sigue creado y se usa el endpoint de
-  descarga.
-- **Storage**: bucket `SUPABASE_STORAGE_BUCKET` (default `muttu-docs`), path
-  `tareas/{tarea_id}/{uuid}_{nombre}` (análogo a la convención
-  `/documentos/...` del PRD §6.2, sin el `/` inicial del key). Se usa el
-  cliente service role (`src/lib/supabase/admin.ts` — nunca en cliente). Sin
-  Supabase configurado los endpoints de adjuntos responden 500
-  `INTERNAL_ERROR` con el mismo envelope.
-- **Reporte** (PRD §5.4): `tasa_cumplimiento` = `completadas / total_asignadas`
-  redondeada; "en curso" = estados abiertos (todo salvo
-  `COMPLETADA`/`CANCELADA`); `vencidas` = abiertas con `fecha_entrega` pasada;
-  `por_estado` trae los 7 estados del catálogo con ceros. `rango` filtra por
-  `updated_at` (week=7, month=30, quarter=90 días; `all` sin filtro).
-- **Proxy "a tiempo"**: `Tarea` no tiene `completed_at`, así que el criterio
-  es `updated_at <= fecha_entrega` sobre tareas `COMPLETADA` con fecha (en el
-  reporte y el criterio documentado del xlsx). Las completadas sin fecha no
-  cuentan ni como a tiempo ni como tarde. Si más adelante se agrega
-  `completed_at`, este proxy se reemplaza en un solo lugar (reporte).
-- **Subtareas**: `DELETE` es borrado físico (el modelo no tiene `deleted_at`
-  y el PRD no lo exige para checklist).
-- **Etiquetas**: catálogo canónico en `src/lib/catalogs.ts` (`TASK_TAGS`:
-  Comercial, Administrativo, Proyecto, Interno), almacenado en crudo en
-  `etiquetas` (String[]). Desde el Hito 7 el valor live se edita en el admin
-  (`settings` → `task_tags`; ver sección Administración).
-
-## Repositorio de documentos (Hito 4)
-
-Biblioteca con metadatos (no explorador de carpetas) con versionado y
-descargas individuales/múltiples (PRD §6–§8.2):
+### Repositorio de documentos
 
 ```
-GET  /api/v1/documents                    lista con búsqueda y filtros (categoria, etiqueta, cliente, autor, desde, hasta, page, limit máx 100)
-POST /api/v1/documents                  multipart form-data: file, titulo?, categoria, etiquetas? (JSON), cliente_id? → 201
+GET  /api/v1/documents                    lista con búsqueda y filtros (page/limit máx 100)
+POST /api/v1/documents                  multipart form-data: file, titulo?, categoria, etiquetas? → 201
 GET  /api/v1/documents/:id              detalle completo + versiones + conteos
-DELETE /api/v1/documents/:id            soft delete del documento completo → 204
-POST /api/v1/documents/:id/versions     multipart form: file → sube la versión max+1 (201)
-GET  /api/v1/documents/:id/versions     todas las versiones desc, con subidor
-GET  /api/v1/documents/:id/download     descarga la versión activa (302 a signed URL 60 s)
-GET  /api/v1/documents/:id/versions/:versionId/download   descarga ESA versión (302)
+DELETE /api/v1/documents/:id            soft delete → 204
+POST /api/v1/documents/:id/versions     sube la versión max+1 (201)
+GET  /api/v1/documents/:id/versions     todas las versiones desc
+GET  /api/v1/documents/:id/download     descarga la versión activa (302 signed URL 60 s)
+GET  /api/v1/documents/:id/versions/:versionId/download   descarga ESA versión
 POST /api/v1/documents/zip              { ids: string[] } (1 a 50) → documentos.zip
 ```
 
-Modelo de permisos (v1):
+- Versión activa = siempre la de mayor número; una versión jamás se borra.
+- Categorías restringidas (default `Legal`, `Administrativo-financiero`):
+  `COLABORADOR` no las ve ni las descarga (403).
+- Zip: máx. 50 docs; si un archivo falla se salta y un `README.txt` lista los fallos.
 
-- **Subir/descargar/listar:** cualquier usuario autenticado (con la excepción
-  de categorías restringidas).
-- **Eliminar:** roles completos (`ADMINISTRADOR`/`GERENCIA`/`COORDINADOR`) o el
-  autor del documento (`COLABORADOR` solo sus propios documentos).
-- **Categorías restringidas** (default `Legal`,
-  `Administrativo-financiero` — constantes `RESTRICTED_DOC_CATEGORIES` en
-  `src/lib/catalogs.ts`; el valor live por categoría se edita en `settings`
-  → `doc_categories`, Hito 7): los `COLABORADOR` no las
-  ven (listado/detalle) y sus descargas/zip/devuelven **403 `FORBIDDEN`**; no
-  pueden crearlas ni subirles versiones. Los roles completos ven todo.
-
-Convenciones:
-
-- **Subidas**: campo `file`, ≤ 10 MB (413 `FILE_TOO_LARGE`), formatos
-  PDF/DOCX/XLSX/JPG/PNG (400 si no; se acepta por extensión o MIME). Las
-  etiquetas van como arreglo JSON en el campo `etiquetas` (máx 8, cada una ≤ 40
-  chars). El `titulo` es opcional: por defecto usa el nombre del archivo sin
-  extensión.
-- **Storage**: bucket `SUPABASE_STORAGE_BUCKET` (default `muttu-docs`), key sin
-  el "/" inicial según la convención del PRD §6.2:
-  `documentos/{cliente_id o "general"}/{documento_id}/v{n}_{nombre-sanitizado}`.
-  El nombre del archivo se sanitiza (`src/lib/api/files.ts`): sin separadores
-  de path, recortado y máx. 120 caracteres conservando la extensión. Se usa el
-  cliente service role (`src/lib/supabase/admin.ts`, solo servidor); sin
-  Supabase configurado todas las rutas responden 500 con el envelope estándar.
-- **Versiones**: `numero_version = max + 1` (nunca automática por nombre) y la
-  versión activa es SIEMPRE la de mayor número (descarga individual, zip y
-  `version_activa` de la lista). El soft delete es únicamente del documento
-  completo (`deleted_at`): una versión individual jamás se borra (PRD §6.2).
-  Sin límite de versiones en v1.
-- **Zip** (`POST /documents/zip`): máx. 50 documentos (PRD §8.4). Se baja la
-  versión activa de cada uno (signed URL de 60 s + fetch server-side) y se
-  empaqueta con nombre `${titulo}_v${n}${ext}`. Si algún archivo falla no se
-  aborta la descarga: se salta el archivo y un `README.txt` interno lista los
-  fallos.
-- **Nombres de autor/subidor**: resueltos con `usuario.findMany` por lotes
-  (`src/lib/api/documents.ts`) porque `DocumentoVersion.subido_por_id` y
-  `DocumentoCliente` no tienen FK hacia `Usuario` en el schema.
-- **Catálogo**: constantes `DOC_CATEGORIES` y `RESTRICTED_DOC_CATEGORIES` en
-  `src/lib/catalogs.ts` (defaults de fábrica); desde el Hito 7 el valor live
-  se configura desde el admin (`settings` → `doc_categories`, ver sección
-  Administración) y el API lo re-lee en cada request.
-
-## Notificaciones y cron (Hito 5)
-
-Motor de alertas compartido (`src/lib/alerts.ts`, PRD §4.4 / §5.3) + panel
-interno + correo diario vía `pg_cron` y Resend (PRD §4.4.1). La regla de
-alerta es única: tareas sin borrar, con `fecha_entrega` y en estado abierto
-(`OPEN_TASK_STATES` — nada de `COMPLETADA`/`CANCELADA`), agrupadas en
-**vencidos** (rojo), **vencen hoy** (ámbar) y **próximos 3 días**
-(informativo). Timezone: los límites de día son los del reloj local del
-servidor (Vercel = UTC) y el cron cubre 8:00 Colombia (13:00 UTC).
-
-### Panel de notificaciones
+### Notificaciones y cron
 
 ```
 GET   /api/v1/notifications        ?leida=false (solo sin leer)
@@ -364,115 +360,91 @@ PATCH /api/v1/notifications/:id/read
 PATCH /api/v1/notifications/read-all
 ```
 
-- Alcance (PRD §4.4.1): `COLABORADOR` → solo sus tareas; `COORDINADOR` /
-  `GERENCIA` / `ADMINISTRADOR` → todas.
-- Cada item del GET trae `notificacion_id` (la fila de la tabla
-  `notificaciones` del snapshot). La reconciliación crea la fila con
-  `leida=false` si no existía para esa `(usuario_id, tarea_id)` y **conserva
-  `leida`** si la fila ya existía (nunca resetea la decisión del usuario;
-  las filas de alertas que salieron del snapshot quedan como historial).
-  `read-all` marca las filas del snapshot visible (no toca historial viejo).
+- Alcance: `COLABORADOR` → solo sus tareas; roles completos → todas.
+- Cron diario 8:00 Colombia (13:00 UTC) con reintento 8:30; idempotente
+  (`already_sent_today`); registro en `cron_logs` (retención 30 días); sin
+  `RESEND_API_KEY` responde `SKIPPED_NO_CONFIG`.
+- Setup: envs `CRON_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM` en Vercel + ejecutar
+  `scripts/cron_setup.sql` reemplazando `[CRON_SECRET]`.
 
-### Cron diario (8:00 → 13:00 UTC)
-
-1. Configura las envs en Vercel: `CRON_SECRET` (nuevo, Hito 5),
-   `RESEND_API_KEY` y `EMAIL_FROM` (PRD §8.4).
-2. En Supabase SQL editor, ejecuta `scripts/cron_setup.sql` reemplazando
-   `[CRON_SECRET]` por el mismo valor de la env.
-3. Prueba manual:
-
-   ```bash
-   curl -X POST -H "x-cron-secret: TU_SECRETO" \
-     https://muttu-hub.vercel.app/api/cron/daily
-   ```
-
-- **Reglas**: `ADMINISTRADOR` no recibe correo; si un usuario no tiene nada
-  en ninguna categoría no se le envía (no-mail-if-empty). La respuesta es
-  `{ ok, processed, sent, failed, skipped_empty, already_sent_today }`.
-- **Idempotencia**: el reintento de las 8:30 (`muttu-retry-830`) solo
-  re-envía si la corrida de las 8:00 no cerró `OK` en `cron_logs`; una
-  segunda llamada al endpoint con una corrida `OK` del día responde
-  `already_sent_today: true` sin re-enviar.
-- **Registro**: cada corrida escribe una fila en `cron_logs`
-  (`daily-notifications`, estado `OK` / `ERROR` / `SKIPPED_NO_CONFIG`,
-  detalle ≤ 400 chars). Sin `RESEND_API_KEY` la corrida responde 200 con
-  `SKIPPED_NO_CONFIG` (graceful, sin crash). Retención 30 días (PRD §8.4).
-- **Proxy**: `/api/cron/*` no pasa por el proxy (el matcher de
-  `src/proxy.ts` excluye todo `/api`), así que autentica solo por header
-  `x-cron-secret`; `/api/v1/notifications*` sigue con la sesión de siempre.
-- **Falla de BD**: el registro en `cron_logs` es best-effort; una falla no
-  aborta la corrida y el reintento de las 8:30 lo decide desde `cron_logs`.
-
-## Dashboard (Hito 6)
-
-El home (`/`) es ahora el dashboard con las 4 "caras" del PRD §7.1:
+### Dashboard (4 caras)
 
 ```
 GET /api/v1/dashboard/pipeline          → { scope, total_activas, valor_activo, embudo, top_clientes, comparativo }
 GET /api/v1/dashboard/tasks             → { scope, por_columna, cumplimiento_por_persona, vencidas }
 GET /api/v1/dashboard/clients-activity  → { scope, sin_gestion, distribucion, actividad_por_responsable }
-GET /api/v1/dashboard/my-summary        → { scope: "own", activas, vencidas, hoy, compromisos_pendientes, clientes_asignados }
+GET /api/v1/dashboard/my-summary        → { scope: "own", activas, vencidas, hoy, compromisos, clientes_asignados }
 ```
 
-- **Caras**: Pipeline comercial, Gestión de tareas, Actividad de clientes y
-  Mi resumen. Cada una consume su endpoint con `useQuery` (las queries se
-  refetchean al cambiar los filtros, la key los incluye).
-- **Filtros comunes (§7.2)**: rango por presets (Todo / 30 días / 90 días —
-  el rango custom queda como TODO), responsable (`/api/v1/catalogs/users`) y
-  tipo de cliente; en Actividad de clientes además el chip de días sin
-  gestión (7/14/30/60 → `dias_sin_gestion`). En scope "own" el filtro de
-  responsable se ignora en el servidor (documentado en `src/lib/dashboard.ts`).
-- **Exportación (§7.3)**: botón "Generar reporte" por cara → abre
-  `/print/dashboard/{cara}?{filtros}`, página imprimible fuera del shell que
-  re-descarga el mismo endpoint y se auto-imprime (patrón de
-  `print/clientes`). Las páginas de impresión usan la utilidad `.print-hide`
-  (definida en `globals.css` bajo `@media print`).
-- **Alcance por rol**: `COLABORADOR` ve solo sus datos (scope "own"), el
-  resto de roles ve la plataforma completa; cada respuesta trae `scope`.
-- **Modo dev sin configurar**: las caras muestran la tarjeta "Plataforma no
-  conectada" con reintento; solo cuando el API responde el envelope "Plataforma
-  no configurada" (sin `.env`), se renderiza debajo la vista de demostración
-  del Hito 1 (datos de `src/lib/mock/demo.ts`), nunca con datos reales.
+- Filtros comunes: rango (Todo/30/90 días — custom como TODO), responsable, tipo
+  de cliente; chip de días sin gestión (7/14/30/60).
+- Export imprimible: `/print/dashboard/{cara}?{filtros}`.
+- Alcance por rol: `COLABORADOR` → scope "own"; resto → plataforma completa.
 
-## Administración (Hito 7)
-
-Backend admin (PRD §3.3): catálogos configurables y bitácora de accesos.
+### Administración *(solo ADMINISTRADOR)*
 
 ```
-GET  /api/v1/settings                (solo ADMINISTRADOR) → { task_tags, doc_categories }
-PUT  /api/v1/settings                (solo ADMINISTRADOR) { task_tags?, doc_categories? }
+GET  /api/v1/settings                → { task_tags, doc_categories }
+PUT  /api/v1/settings                { task_tags?, doc_categories? }
 GET  /api/v1/catalogs/settings       (cualquier usuario autenticado) → mismo snapshot
-GET  /api/v1/auth/accesos            (solo ADMINISTRADOR) ?limit&before → bitácora
+GET  /api/v1/auth/accesos            ?limit&before → bitácora paginada por keyset
 ```
 
-- **Catálogos configurables**: `task_tags` (array de strings) y
-  `doc_categories` (`[{ nombre, restringida }]`). El valor vive en la tabla
-  `settings` (migración `0003_settings`, aplicada); sin
-  fila, cada clave cae a las constantes de `src/lib/catalogs.ts`. Validación
-  del PUT: 1 a 30 ítems, únicos (las categorías sin distinguir mayúsculas),
-  ≤ 40 caracteres por etiqueta y ≤ 80 por categoría, y siempre se conserva al
-  menos una etiqueta/categoría. Responde 400 `VALIDATION_ERROR` con mensajes
-  en español; solo se actualizan las claves enviadas y la respuesta es
-  siempre el snapshot fresco.
-- **Enforcement en vivo**: listado, detalle, subida, descarga y zip de
-  documentos re-leen `doc_categories` en cada request
-  (`src/lib/api/documents.ts` → `loadDocCategories`): las categorías
-  restringidas del admin siguen excluidas para `COLABORADOR` (403/listado
-  filtrado) sin tocar código. Las tareas dejan `TASK_TAGS` como catálogo de
-  sugerencia (sin validación forzada en el create/update de tarea, igual que
-  v1).
-- **`/api/v1/catalogs/settings`**: DECISIÓN DE DISEÑO — los selects de la
-  UI (tablero, repositorio) consumen el catálogo sin privilegios de admin, así
-  que este endpoint replica el snapshot del GET de settings con gate de rol
-  solo-lectura (`requireApiUser`, sin escrituras ni ensure de defaults).
-- **Bitácora de accesos**: cada login exitoso escribe una fila en `accesos`
-  (ip + user-agent best-effort; el login jamás falla por el log). El GET del
-  admin pagina por keyset sobre `created_at` desc: `?limit=` (default 20,
-  máx 100) y `?before=` (ISO del último `created_at` de la página anterior,
-  con `next_before` en la respuesta; null al final).
-- **Permisos granulares por módulo (§3.3.2)**: fuera del alcance de v1 — los
-  gates siguen siendo por rol completo (TODO documentado en
-  `src/lib/supabase/server.ts`).
+- Catálogos configurables: `task_tags` (1-30 ítems, ≤40 chars) y `doc_categories`
+  (1-30, `[{ nombre, restringida }]`, ≤80 chars); enforcement en vivo en
+  documentos sin tocar código.
+- Bitácora de accesos: cada login exitoso escribe una fila (ip + user-agent
+  best-effort); paginación keyset (`?before` + `next_before`).
+- Permisos granulares por módulo (§3.3.2): fuera del alcance de v1 — gates por rol.
+
+</details>
+
+---
+
+## Testing
+
+Unit/component tests con **Vitest + Testing Library** (jsdom, sin red ni
+Supabase); el E2E en producción lo cubre TestSprite.
+
+```bash
+npm test              # suite completa (212 tests, ~8 s)
+npm run test:watch    # modo watch
+npm run test:coverage # reporte text + html (gate desactivado, ver abajo)
+```
+
+- Tests co-located junto a cada fuente (`*.test.ts`) o componente (`*.test.tsx`).
+- Todo lo que toca Supabase/react-query se mockea (`vi.mock`), nunca el backend.
+- Coverage: `src/lib/*`, `src/store/*`, `src/hooks/*`, `src/components/*`; los
+  módulos de servidor (Prisma/Supabase server/auth) quedan fuera de Vitest.
+- **Gate desactivado a propósito**: el coverage real (~13-15 %) no alcanza la
+  meta de 60 %; thresholds comentados en `vitest.config.ts` y deuda documentada
+  en `docs/pendientes/pendientes-y-mejoras.md`.
+
+---
+
+## Estado y próximos pasos
+
+### ✅ Cerrado en v1 (2026-08-11)
+
+- Bugs BUG-001 (filtros persistidos) y BUG-002 (debounce del buscador).
+- Página de confirmación de email `/auth/confirm` (con ruta neutral del proxy).
+- 6 templates de email con marca en `supabase/email-templates/` (listos).
+- Pipeline: preview deploy en PRs (`VERCEL_TOKEN`), deploy automático a
+  producción por integración Git, E2E informativo.
+
+### 🔭 Oportunidades de mejora
+
+| Área | Mejora | Detalle |
+|---|---|---|
+| **Email** | Templates con marca en Supabase | Requiere DNS de `muttu.co` (Resend) o plan Pro ($25/mes) |
+| **Seguridad** | UI de reautenticación | Modal `verifyOtp` type=reauthentication para operaciones sensibles (template listo) |
+| **Calidad** | Cobertura hacia 60 % | Real ~13-15 %; priorizar hooks y componentes críticos |
+| **E2E** | Gate TestSprite bloqueante | Cuando el sandbox soporte los tests del MCP |
+| **Infra** | Supabase Pro | Solo cuando haya uso real (backups, >500 MB storage) |
+
+> Detalle completo: `docs/pendientes/pendientes-y-mejoras.md`
+
+---
 
 ## Scripts
 
@@ -486,75 +458,12 @@ npm run db:migrate     # aplica migraciones
 npm run db:studio      # inspectar la BD
 ```
 
-## Testing
+## Documentación relacionada
 
-Unit/component tests con **Vitest + Testing Library** (rápidos, sin red ni
-Supabase — jsdom). El gate E2E en producción lo cubre TestSprite (ver
-`docs/plan-supabase-manana.md` §6); Vitest es la red de seguridad de día a día.
-
-```bash
-npm test              # suite completa (212 tests, ~8 s)
-npm run test:watch    # modo watch
-npm run test:coverage # reporte text + html (sin gate: thresholds desactivados)
-```
-
-- Tests co-located junto a cada fuente (`*.test.ts`) o componente (`*.test.tsx`).
-- Todo lo que toca Supabase/react-query se mockea (`vi.mock`), nunca el backend;
-  los mocks globales de `matchMedia`/`ResizeObserver` viven en `src/test/setup.ts`.
-- Coverage: `src/lib/*`, `src/store/*`, `src/hooks/*` y `src/components/*`
-  (config en `vitest.config.ts`). Los módulos de servidor (Prisma, Supabase
-  server, auth) no corren en jsdom y quedan fuera del alcance de Vitest.
-- El texto del reporte omite archivos al 100 %: mirá `coverage/coverage-final.json`
-  para el detalle completo.
-- **Gate desactivado a propósito**: el coverage real (~13-15 %) no alcanza la
-  meta de 60 %; los thresholds están comentados en `vitest.config.ts` y la
-  deuda documentada en `docs/pendientes/pendientes-y-mejoras.md`.
-
-## Estado de la v1
-
-La v1 (PRD completo) está implementada: login con sesión de 4 h, CRM con
-clientes/contactos/oportunidades/bitácora, tablero Kanban con subtareas y
-adjuntos, repositorio documental con versionado y zip, notificaciones + cron
-diario, dashboard con 4 caras, administración con catálogos configurables y
-bitácora de accesos. Pipeline de CI/CD operativo: Vitest (unit) como gate de
-PRs, preview deploy automático de Vercel en PRs y producción por integración
-Git, E2E de TestSprite informativo contra el preview.
-
-**Cobertura de la v1**: 212 tests Vitest en verde, `tsc --noEmit` sin errores,
-ESLint limpio. Bugs conocidos de la v1 (BUG-001 filtros persistidos, BUG-002
-debounce del buscador) resueltos (2026-08-11).
-
-**Pendientes de v1** (detalle en `docs/pendientes/pendientes-y-mejoras.md`):
-
-- Templates de email con marca: listos en `supabase/email-templates/`, sin
-  pegar en Supabase (requieren SMTP custom o plan Pro).
-- E2E de TestSprite: los tests del suite MCP fallan en el sandbox del action
-  (incompatibilidad conocida); el job es informativo (`blocking: false`).
-- Gate de cobertura: desactivado hasta que el % real se acerque a la meta.
-
-## Oportunidades de mejora
-
-Resumen ejecutivo; el detalle completo vive en
-`docs/pendientes/pendientes-y-mejoras.md`.
-
-**Producto**
-
-- Emails con marca propios (`no-reply@muttu.co`) cuando haya acceso al DNS del
-  dominio — 6 templates listos, CTA directo a `/auth/confirm`.
-- UI de reautenticación para operaciones sensibles (eliminar cuenta, cambiar
-  email): el template `reauthentication.html` está listo; falta el modal en la
-  app (`verifyOtp` type=reauthentication).
-
-**Técnica**
-
-- Cobertura de tests hacia 60 %: priorizar hooks y componentes críticos
-  (tablero, pipeline, `useClientsQuery`).
-- Reactivar el gate E2E de TestSprite (`blocking: true`) cuando el sandbox
-  soporte los tests generados por el MCP.
-
-**Infraestructura**
-
-- Supabase Pro cuando haya uso real (backups diarios, >500 MB storage); el
-  free tier sobra con margen hoy.
-- Dominio propio para el remitente de correos (desbloquea templates custom +
-  reputación de envío).
+| Doc | Contenido |
+|---|---|
+| `docs/Muttu_Hub_PRD_v2.md` | PRD del producto |
+| `docs/pendientes/pendientes-y-mejoras.md` | Deuda técnica + oportunidades de mejora |
+| `docs/pendientes/bugs-pendientes.md` | Historial de bugs |
+| `docs/pendientes/vitest-unit-tests.md` | Convenciones de testing |
+| `docs/plan-supabase-manana.md` | Estado de Supabase, email y TestSprite |
