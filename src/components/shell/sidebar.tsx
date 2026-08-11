@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { PanelLeft, Search } from "lucide-react";
 import { NAV_GROUPS, isNavActive } from "@/lib/nav";
@@ -24,6 +25,33 @@ function SidebarContent({ rail }: { rail: boolean }) {
     "/documentos": counts?.documentos,
   };
 
+  // Navigation search: filters NAV_GROUPS by label as you type; ⌘K / Ctrl+K
+  // focuses the input from anywhere in the shell.
+  const [query, setQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        searchRef.current?.focus();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  const q = query.trim().toLocaleLowerCase();
+  const groups = q
+    ? NAV_GROUPS.map((group) => ({
+        ...group,
+        items: group.items.filter((item) =>
+          item.label.toLocaleLowerCase().includes(q),
+        ),
+      })).filter((group) => group.items.length > 0)
+    : NAV_GROUPS;
+  const sinResultados = q !== "" && groups.length === 0;
+
   return (
     <>
       <div
@@ -37,7 +65,10 @@ function SidebarContent({ rail }: { rail: boolean }) {
         <Link
           href="/"
           aria-label="Muttu Hub · Inicio"
-          className={cn("flex items-center", rail ? "flex-col gap-2" : "gap-2.5")}
+          className={cn(
+            "flex items-center",
+            rail ? "flex-col gap-2" : "gap-2.5",
+          )}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -68,9 +99,13 @@ function SidebarContent({ rail }: { rail: boolean }) {
         <div className="relative mb-3 block">
           <Search className="absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-shell-muted" />
           <input
+            ref={searchRef}
             type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar en el Hub"
-            className="h-[38px] w-full rounded-[12px] border border-shell-chip bg-shell-surface pr-10 pl-9 text-[13px] text-shell-text placeholder:text-shell-faint focus:border-rose-600/50 focus:outline-none focus:ring-1 focus:ring-rose-600/40"
+            aria-label="Buscar en el Hub"
+            className="h-[38px] w-full rounded-[12px] border border-shell-chip bg-shell-surface pr-10 pl-9 text-[13px] text-shell-text placeholder:text-shell-faint focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus:outline-none"
           />
           <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded-md border border-shell-border bg-shell-chip px-1.5 py-0.5 font-mono text-[10px] text-shell-faint">
             ⌘K
@@ -79,7 +114,7 @@ function SidebarContent({ rail }: { rail: boolean }) {
       )}
 
       <nav className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-        {NAV_GROUPS.map((group) => (
+        {groups.map((group) => (
           <div key={group.title} className="flex flex-col gap-0.5">
             {rail ? (
               <div className="mx-2 mb-1 h-px bg-shell-chip" aria-hidden="true" />
@@ -142,26 +177,12 @@ function SidebarContent({ rail }: { rail: boolean }) {
             })}
           </div>
         ))}
+        {sinResultados && (
+          <p className="px-3 pb-1 text-[12px] text-shell-faint">
+            Sin resultados para &quot;{query}&quot;
+          </p>
+        )}
       </nav>
-
-      {!rail && (
-        <div className="mt-auto">
-          <div className="rounded-[18px] bg-gradient-to-br from-rose-700 to-rose-500 p-4">
-            <span className="text-[11px] font-bold tracking-[0.09em] text-rose-200 uppercase">
-              Brief pendiente
-            </span>
-            <p className="mt-1.5 font-display text-[15px] leading-snug font-bold text-white">
-              Alcaldía de Soledad quedó sin revisar
-            </p>
-            <button
-              type="button"
-              className="mt-2.5 h-[34px] rounded-[10px] bg-white px-3.5 text-[12px] font-bold text-rose-700 transition-colors hover:bg-rose-50"
-            >
-              Revisar campos
-            </button>
-          </div>
-        </div>
-      )}
     </>
   );
 }
