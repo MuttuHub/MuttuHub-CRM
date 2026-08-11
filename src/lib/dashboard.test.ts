@@ -116,7 +116,7 @@ describe("rangoDeFechas", () => {
     const r = rangoDeFechas({ desde: "2026-01-15", hasta: "2026-03-31" })
     expect(r).toBeDefined()
     // date-only ISO strings parse as UTC (ECMA-262), TZ-independent
-    expect(r!.gte?.toISOString()).toBe("2026-01-15T00:00:00.000Z")
+    expect(new Date(r!.gte!).toISOString()).toBe("2026-01-15T00:00:00.000Z")
     // lte = endOfDay of the UTC-parsed hasta instant: the local wall clock is
     // always set to 23:59:59.999 (checked via local getters, valid in any TZ)
     const lte = r!.lte as Date
@@ -150,7 +150,7 @@ describe("rangoDeFechas", () => {
   it("spans the year-boundary day inclusively (local wall clock untouched by TZ)", () => {
     const r = rangoDeFechas({ desde: "2026-12-31", hasta: "2026-12-31" })
     expect(r).toBeDefined()
-    expect(r!.gte?.toISOString()).toBe("2026-12-31T00:00:00.000Z")
+    expect(new Date(r!.gte!).toISOString()).toBe("2026-12-31T00:00:00.000Z")
     const lte = r!.lte as Date
     const expectedLte = new Date("2026-12-31")
     expectedLte.setHours(23, 59, 59, 999)

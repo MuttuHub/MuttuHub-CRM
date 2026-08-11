@@ -153,7 +153,14 @@ export function ClientList() {
 
   function commit(partial: Partial<LocalFilters>) {
     setLocal((l) => ({ ...l, ...partial }));
-    setApplied((a) => ({ ...a, ...toFilters({ ...EMPTY_LOCAL, ...partial }) }));
+    // BUG-002: `q` se propaga SOLO por el debounce de 350 ms (efecto de arriba).
+    // Si lo aplicamos acá, cada tecla dispara un fetch. El resto de filtros sí
+    // se aplican de inmediato (selects y rangos no necesitan debounce).
+    const rest: Partial<LocalFilters> = { ...partial };
+    delete rest.q;
+    if (Object.keys(rest).length > 0) {
+      setApplied((a) => ({ ...a, ...toFilters({ ...EMPTY_LOCAL, ...rest }) }));
+    }
     setPage(1);
   }
 

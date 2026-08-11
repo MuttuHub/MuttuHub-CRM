@@ -1,9 +1,28 @@
 import { act, fireEvent, render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import type {
+  ClientFilters,
+  ClientListResponse,
+  ClientListRow,
+  UsuarioMini,
+} from "@/hooks/crm"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ClientList } from "./client-list"
 
+type ClientsQueryState = {
+  isLoading: boolean
+  isError: boolean
+  data: ClientListResponse | undefined
+  refetch: ReturnType<typeof vi.fn>
+}
+
+type UsersQueryState = {
+  isLoading: boolean
+  data: UsuarioMini[] | undefined
+}
+
 const { router, useClientsMock, useUsersMock, clientsQuery } = vi.hoisted(() => {
-  const clientsQuery = {
+  const clientsQuery: ClientsQueryState = {
     isLoading: false,
     isError: false,
     data: undefined,
@@ -11,8 +30,11 @@ const { router, useClientsMock, useUsersMock, clientsQuery } = vi.hoisted(() => 
   }
   return {
     router: { replace: vi.fn() },
-    useClientsMock: vi.fn(() => clientsQuery),
-    useUsersMock: vi.fn(() => ({ isLoading: false, data: undefined })),
+    useClientsMock: vi.fn<(filters?: ClientFilters) => ClientsQueryState>(() => clientsQuery),
+    useUsersMock: vi.fn<(_filters?: unknown) => UsersQueryState>(() => ({
+      isLoading: false,
+      data: undefined,
+    })),
     clientsQuery,
   }
 })
@@ -23,8 +45,8 @@ vi.mock("next/navigation", () => ({
 }))
 
 vi.mock("@/hooks/crm", () => ({
-  useClients: (...args: unknown[]) => useClientsMock(...args),
-  useUsers: (...args: unknown[]) => useUsersMock(...args),
+  useClients: (...args: Parameters<typeof useClientsMock>) => useClientsMock(...args),
+  useUsers: (...args: Parameters<typeof useUsersMock>) => useUsersMock(...args),
   useCreateClient: () => ({ isPending: false, mutateAsync: async () => ({}) }),
   useUpdateClient: () => ({ isPending: false, mutateAsync: async () => ({}) }),
   esVencida: (fecha: string | Date | null | undefined) => {
@@ -57,9 +79,9 @@ const USERS = [{ id: "u1", nombre: "Ana Pérez" }]
 const showing = (desde: number, hasta: number, total: number) => (_content: string, element?: Element | null) =>
   !!element && (element.textContent ?? "").trim() === `Mostrando ${desde}–${hasta} de ${total} clientes`
 
-const EMPTY_RESPONSE = { page: 1, limit: 25, total: 0, items: [] }
+const EMPTY_RESPONSE: ClientListResponse = { page: 1, limit: 25, total: 0, items: [] }
 
-const CLIENTE = {
+const CLIENTE: ClientListRow = {
   id: "c1",
   nombre: "Alcaldía de Barranquilla",
   empresa: "Alcaldía Distrital",
@@ -129,7 +151,7 @@ describe("ClientList", () => {
       total: 1,
       items: [CLIENTE],
     }
-    clientsQuery.data.items[0].next_compromiso = { id: "t9", titulo: "Viejo", fecha_entrega: "2020-01-01" }
+    clientsQuery.data!.items[0].next_compromiso = { id: "t9", titulo: "Viejo", fecha_entrega: "2020-01-01" }
     render(<ClientList />)
     expect(screen.getByText("Vencido")).toBeInTheDocument()
   })
@@ -183,17 +205,36 @@ describe("ClientList", () => {
     expect(clientsQuery.refetch).toHaveBeenCalledTimes(1)
   })
 
-  it("applies the search query and keeps it after the 350ms debounce window", () => {
+  it("applies the search query only after the 350ms debounce window (no request per keystroke)", () => {
     render(<ClientList />)
     const input = screen.getByLabelText("Buscar clientes")
     expect(useClientsMock).toHaveBeenLastCalledWith({})
+    // Cada tecla actualiza el draft, pero NO debe disparar fetch:
+    fireEvent.change(input, { target: { value: "g" } })
+    expect(useClientsMock).toHaveBeenLastCalledWith({})
+    fireEvent.change(input, { target: { value: "go" } })
+    expect(useClientsMock).toHaveBeenLastCalledWith({})
     fireEvent.change(input, { target: { value: "gobierno" } })
-    expect(useClientsMock).toHaveBeenLastCalledWith({ q: "gobierno" })
+    expect(useClientsMock).toHaveBeenLastCalledWith({})
+    // Tras la pausa de debounce, se aplica UNA sola vez:
     act(() => {
       vi.advanceTimersByTime(400)
     })
     expect(useClientsMock).toHaveBeenLastCalledWith({ q: "gobierno" })
     expect(screen.getByLabelText("Buscar clientes")).toHaveValue("gobierno")
+  })
+
+  it("applies non-search filters immediately without debounce", async () => {
+    // Radix Select necesita timers reales para abrir el content (rAF).
+    vi.useRealTimers()
+    render(<ClientList />)
+    const user = userEvent.setup()
+    // El placeholder no expone accessible name; el primer combobox es "Tipo de cliente".
+    await user.click(screen.getAllByRole("combobox")[0])
+    await user.click(await screen.findByRole("option", { name: "Gobierno local" }))
+    expect(useClientsMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ tipo: "GOBIERNO_LOCAL" })
+    )
   })
 
   it("keeps the debounce timer from leaking between tests", () => {

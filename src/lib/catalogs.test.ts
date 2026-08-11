@@ -132,7 +132,7 @@ describe("catalog labels", () => {
 
   it("PRIORIDAD_CLIENTE_LABELS and PRIORIDAD_TAREA_LABELS share the same values", () => {
     expect(Object.keys(PRIORIDAD_CLIENTE_LABELS)).toEqual(Object.keys(PRIORIDAD_TAREA_LABELS))
-    for (const key of Object.keys(PRIORIDAD_CLIENTE_LABELS)) {
+    for (const key of Object.keys(PRIORIDAD_CLIENTE_LABELS) as Array<keyof typeof PRIORIDAD_CLIENTE_LABELS>) {
       expect(PRIORIDAD_CLIENTE_LABELS[key]).toEqual(PRIORIDAD_TAREA_LABELS[key])
     }
   })

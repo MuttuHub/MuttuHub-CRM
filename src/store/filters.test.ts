@@ -35,11 +35,11 @@ describe("useFiltersStore", () => {
     expect(fresh.useFiltersStore.getState().rango).toBe("90")
   })
 
-  it("hydrates unknown values verbatim (no validation in persist — known gap)", async () => {
+  it("validates rango on hydrate: unknown value falls back to mes (BUG-001)", async () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ state: { rango: "1000000" }, version: 0 }))
     vi.resetModules()
     const fresh = await import("./filters")
-    expect(fresh.useFiltersStore.getState().rango).toBe("1000000")
+    expect(fresh.useFiltersStore.getState().rango).toBe("mes")
   })
 })
 
