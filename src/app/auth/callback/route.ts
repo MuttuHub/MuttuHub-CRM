@@ -68,6 +68,18 @@ export async function GET(request: Request) {
   }
 
   if (usuario) {
+    // Bitácora de accesos (PRD §3.3): best-effort, never blocks the redirect.
+    try {
+      await db.acceso.create({
+        data: {
+          usuario_id: user.id,
+          ip: request.headers.get("x-forwarded-for") ?? null,
+          user_agent: request.headers.get("user-agent")?.slice(0, 200) ?? null,
+        },
+      });
+    } catch (err) {
+      console.error("[auth/callback] Acceso log failed (best-effort):", err);
+    }
     return NextResponse.redirect(new URL("/", url.origin));
   }
 
