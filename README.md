@@ -479,3 +479,24 @@ npm run db:generate    # genera el cliente Prisma
 npm run db:migrate     # aplica migraciones
 npm run db:studio      # inspectar la BD
 ```
+
+## Testing
+
+Unit/component tests con **Vitest + Testing Library** (rápidos, sin red ni
+Supabase — jsdom). El gate E2E en producción lo cubre TestSprite (ver
+`docs/plan-supabase-manana.md` §6); Vitest es la red de seguridad de día a día.
+
+```bash
+npm test              # suite completa (206 tests, ~7 s)
+npm run test:watch    # modo watch
+npm run test:coverage # reporte + thresholds (líneas ≥ 60 %, branches ≥ 50 %)
+```
+
+- Tests co-located junto a cada fuente (`*.test.ts`) o componente (`*.test.tsx`).
+- Todo lo que toca Supabase/react-query se mockea (`vi.mock`), nunca el backend;
+  los mocks globales de `matchMedia`/`ResizeObserver` viven en `src/test/setup.ts`.
+- Coverage: `src/lib/*`, `src/store/*`, `src/hooks/*` y `src/components/*`
+  (config en `vitest.config.ts`). Los módulos de servidor (Prisma, Supabase
+  server, auth) no corren en jsdom y quedan fuera del alcance de Vitest.
+- El texto del reporte omite archivos al 100 %: mirá `coverage/coverage-final.json`
+  para el detalle completo.
