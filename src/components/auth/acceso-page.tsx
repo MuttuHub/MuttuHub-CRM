@@ -16,28 +16,10 @@ import { toast } from "sonner";
 import { SESSION_STORAGE_KEY } from "@/lib/auth/types";
 import { createClient } from "@/lib/supabase/client";
 
-// ── Design tokens del mock (PRD §1.0/diseño) ──────────────────────────────
-const C = {
-  rose: "#CD1560",
-  rose600: "#B41153",
-  rose700: "#940D44",
-  ink950: "#191113",
-  ink900: "#281D20",
-  ink800: "#3F2F33",
-  ink700: "#5A474C",
-  ink600: "#725D62",
-  ink300: "#DDD2D5",
-  ink200: "#ECE5E7",
-  ink100: "#F7F3F4",
-  exito: "#127C4A",
-  exitoBg: "#E7F5ED",
-  alerta: "#B45309",
-  alertaBg: "#FEF4E6",
-  destructivo: "#B3261E",
-  destructivoBg: "#FDECEA",
-  info: "#1E5FA8",
-  infoBg: "#EAF2FC",
-};
+// Design tokens: colors resolve via CSS variables from the @theme in
+// globals.css — the single source of truth (approved mock scale, PRD §1.0).
+// The login keeps inline styles for pixel fidelity; values are identical,
+// only the source changed.
 
 const VISTAS = {
   login: {
@@ -335,9 +317,9 @@ export function AccesoPage({
         padding: `0 ${k === "password" ? 86 : 14}px 0 14px`,
         fontFamily: "inherit",
         fontSize: 14,
-        color: C.ink900,
-        background: malo ? C.destructivoBg : "#fff",
-        border: `1px solid ${malo ? C.destructivo : C.ink300}`,
+        color: "var(--color-ink-900)",
+        background: malo ? "var(--color-destructivo-bg)" : "#fff",
+        border: `1px solid ${malo ? "var(--color-destructivo)" : "var(--color-ink-300)"}`,
         borderRadius: 13,
         // focus-visible ring via the shared .login-focus rule (globals.css).
         outline: "none",
@@ -346,15 +328,15 @@ export function AccesoPage({
   });
 
   const aviso = error
-    ? { txt: error, bg: C.destructivoBg, fg: C.destructivo, icon: "✕" }
+    ? { txt: error, bg: "var(--color-destructivo-bg)", fg: "var(--color-destructivo)", icon: "✕" }
     : exito
-      ? { txt: exito, bg: C.exitoBg, fg: C.exito, icon: "✓" }
+      ? { txt: exito, bg: "var(--color-exito-bg)", fg: "var(--color-exito)", icon: "✓" }
       : errorOauth && vista === "login"
-        ? { txt: "No pudimos completar el inicio con Google. Inténtalo de nuevo.", bg: C.destructivoBg, fg: C.destructivo, icon: "✕" }
+        ? { txt: "No pudimos completar el inicio con Google. Inténtalo de nuevo.", bg: "var(--color-destructivo-bg)", fg: "var(--color-destructivo)", icon: "✕" }
         : solicitud && vista === "login"
-          ? { txt: "Tu solicitud quedó en revisión: la administración asigna el rol antes de darte acceso.", bg: C.infoBg, fg: C.info, icon: "i" }
+          ? { txt: "Tu solicitud quedó en revisión: la administración asigna el rol antes de darte acceso.", bg: "var(--color-info-bg)", fg: "var(--color-info)", icon: "i" }
           : vista === "registro"
-            ? { txt: "Tu solicitud queda en revisión: la administración asigna el rol antes de darte acceso.", bg: C.infoBg, fg: C.info, icon: "i" }
+            ? { txt: "Tu solicitud queda en revisión: la administración asigna el rol antes de darte acceso.", bg: "var(--color-info-bg)", fg: "var(--color-info)", icon: "i" }
             : null;
 
   const avisoEsError = error !== "" || (errorOauth && vista === "login");
@@ -381,7 +363,7 @@ export function AccesoPage({
             flexDirection: "column",
             gap: 26,
             padding: "34px 34px 30px",
-            background: C.ink950,
+            background: "var(--color-ink-950)",
             borderRadius: 26,
           }}
         >
@@ -501,14 +483,14 @@ export function AccesoPage({
               maxWidth: 452,
               margin: "0 auto",
               background: "#fff",
-              border: `1px solid ${C.ink200}`,
+              border: `1px solid ${"var(--color-ink-200)"}`,
               borderRadius: 26,
               padding: angosto ? "26px 22px" : "32px 34px",
             }}
           >
             {/* Segmented control */}
             {!tabDeshabilitado && (
-              <div style={{ display: "flex", gap: 2, background: C.ink100, padding: 3, borderRadius: 13, marginBottom: 24 }}>
+              <div style={{ display: "flex", gap: 2, background: "var(--color-ink-100)", padding: 3, borderRadius: 13, marginBottom: 24 }}>
                 {(["login", "registro"] as Vista[]).map((v) => {
                   const on = vista === v;
                   return (
@@ -526,7 +508,7 @@ export function AccesoPage({
                         fontSize: 13,
                         fontWeight: on ? 700 : 600,
                         background: on ? "#fff" : "transparent",
-                        color: on ? C.rose700 : C.ink600,
+                        color: on ? "var(--color-rose-700)" : "var(--color-ink-600)",
                         boxShadow: on ? "0 1px 2px rgba(41,29,32,.09)" : "none",
                       }}
                     >
@@ -540,12 +522,12 @@ export function AccesoPage({
             <h1 style={{ margin: "0 0 6px", fontFamily: "'Bricolage Grotesque',sans-serif", fontSize: 28, fontWeight: 800, letterSpacing: "-.03em", lineHeight: 1.12, color: "#191113" }}>
               {VISTAS[vista].titulo}
             </h1>
-            <p style={{ margin: "0 0 22px", fontSize: 14, color: C.ink600, lineHeight: 1.5 }}>{VISTAS[vista].sub}</p>
+            <p style={{ margin: "0 0 22px", fontSize: 14, color: "var(--color-ink-600)", lineHeight: 1.5 }}>{VISTAS[vista].sub}</p>
 
             {expired && (
               <div
                 role="alert"
-                style={{ display: "flex", gap: 10, marginBottom: 18, padding: "11px 13px", borderRadius: 13, background: C.destructivoBg, color: C.destructivo, fontSize: 12.5, fontWeight: 500 }}
+                style={{ display: "flex", gap: 10, marginBottom: 18, padding: "11px 13px", borderRadius: 13, background: "var(--color-destructivo-bg)", color: "var(--color-destructivo)", fontSize: 12.5, fontWeight: 500 }}
               >
                 <span style={{ fontWeight: 700 }}>✕</span>
                 <span>Tu sesión expiró. Inicia sesión nuevamente para continuar.</span>
@@ -561,10 +543,10 @@ export function AccesoPage({
 
             {unconfigured ? (
               <div style={{ textAlign: "center", padding: "8px 0 4px" }}>
-                <p style={{ fontSize: 13.5, color: C.ink700, margin: "0 0 14px" }}>
+                <p style={{ fontSize: 13.5, color: "var(--color-ink-700)", margin: "0 0 14px" }}>
                   El acceso requiere un proyecto de Supabase configurado.
                 </p>
-                <button type="button" onClick={() => toast.info('Revisa la sección "Puesta en marcha" del README y completa el archivo .env')} style={{ height: 44, background: C.rose600, color: "#fff", border: 0, borderRadius: 14, fontSize: 14, fontWeight: 700, cursor: "pointer", padding: "0 22px" }}>
+                <button type="button" onClick={() => toast.info('Revisa la sección "Puesta en marcha" del README y completa el archivo .env')} style={{ height: 44, background: "var(--color-rose-500)", color: "#fff", border: 0, borderRadius: 14, fontSize: 14, fontWeight: 700, cursor: "pointer", padding: "0 22px" }}>
                   Ver pasos de configuración
                 </button>
               </div>
@@ -598,12 +580,12 @@ export function AccesoPage({
                             transform: "translateY(-50%)",
                             height: 32,
                             padding: "0 11px",
-                            background: C.ink100,
+                            background: "var(--color-ink-100)",
                             border: 0,
                             borderRadius: 9,
                             fontSize: 11.5,
                             fontWeight: 700,
-                            color: C.ink700,
+                            color: "var(--color-ink-700)",
                             cursor: "pointer",
                           }}
                         >
@@ -612,13 +594,13 @@ export function AccesoPage({
                       )}
                     </span>
                     {f.error && (
-                      <span style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, fontSize: 12, fontWeight: 500, color: C.destructivo }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, fontSize: 12, fontWeight: 500, color: "var(--color-destructivo)" }}>
                         <span aria-hidden="true">✕</span>
                         {f.error}
                       </span>
                     )}
                     {f.pista && (
-                      <span style={{ display: "block", marginTop: 6, fontSize: 11.5, color: C.ink600 }}>{f.pista}</span>
+                      <span style={{ display: "block", marginTop: 6, fontSize: 11.5, color: "var(--color-ink-600)" }}>{f.pista}</span>
                     )}
                   </label>
                 ))}
@@ -635,9 +617,9 @@ export function AccesoPage({
                           style={{ width: 17, height: 17, accentColor: "#CD1560", cursor: "pointer" }}
                         />
                       </span>
-                      <span style={{ fontSize: 13, color: C.ink800 }}>Recuérdame</span>
+                      <span style={{ fontSize: 13, color: "var(--color-ink-800)" }}>Recuérdame</span>
                     </label>
-                    <button type="button" onClick={ir("recuperar")} style={{ background: "none", border: 0, padding: "5px 8px", margin: "-5px -8px", fontSize: 13, fontWeight: 600, color: C.rose, cursor: "pointer" }}>
+                    <button type="button" onClick={ir("recuperar")} style={{ background: "none", border: 0, padding: "5px 8px", margin: "-5px -8px", fontSize: 13, fontWeight: 600, color: "var(--color-rose-500)", cursor: "pointer" }}>
                       ¿Olvidaste tu contraseña?
                     </button>
                   </div>
@@ -654,14 +636,14 @@ export function AccesoPage({
                         style={{ width: 17, height: 17, accentColor: "#CD1560", cursor: "pointer" }}
                       />
                     </span>
-                    <span style={{ fontSize: 12.5, lineHeight: 1.45, color: C.ink600 }}>
+                    <span style={{ fontSize: 12.5, lineHeight: 1.45, color: "var(--color-ink-600)" }}>
                       Acepto la política de trataamiento de datos de Muttu y entiendo que mi actividad en el Hub queda registrada en la bitácora.
                     </span>
                   </label>
                 )}
 
                 {vista === "registro" && (
-                  <p style={{ margin: "-6px 0 0", fontSize: 11.5, lineHeight: 1.45, color: C.ink600 }}>
+                  <p style={{ margin: "-6px 0 0", fontSize: 11.5, lineHeight: 1.45, color: "var(--color-ink-600)" }}>
                     No pedimos contraseña en la solicitud: la elegirás cuando aceptes el correo de invitación tras la aprobación.
                   </p>
                 )}
@@ -673,7 +655,7 @@ export function AccesoPage({
                   style={{
                     height: 48,
                     marginTop: 4,
-                    background: enviando ? C.rose700 : C.rose,
+                    background: enviando ? "var(--color-rose-700)" : "var(--color-rose-500)",
                     color: "#fff",
                     border: 0,
                     borderRadius: 14,
@@ -681,8 +663,8 @@ export function AccesoPage({
                     fontWeight: 700,
                     cursor: enviando ? "progress" : "pointer",
                   }}
-                  onMouseEnter={(e) => !enviando && (e.currentTarget.style.background = C.rose700)}
-                  onMouseLeave={(e) => !enviando && (e.currentTarget.style.background = C.rose)}
+                  onMouseEnter={(e) => !enviando && (e.currentTarget.style.background = "var(--color-rose-700)")}
+                  onMouseLeave={(e) => !enviando && (e.currentTarget.style.background = "var(--color-rose-500)")}
                 >
                   {enviando ? "Verificando…" : VISTAS[vista].submit}
                 </button>
@@ -691,7 +673,7 @@ export function AccesoPage({
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "4px 0 14px" }}>
                       <span style={{ flex: "1 1 auto", height: 1, background: "#ECE5E7" }} />
-                      <span style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: ".07em", textTransform: "uppercase", color: C.ink600 }}>o continúa con</span>
+                      <span style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: ".07em", textTransform: "uppercase", color: "var(--color-ink-600)" }}>o continúa con</span>
                       <span style={{ flex: "1 1 auto", height: 1, background: "#ECE5E7" }} />
                     </div>
                     <button
@@ -707,19 +689,19 @@ export function AccesoPage({
               </form>
             )}
 
-            <p style={{ margin: "22px 0 0", fontSize: 13, color: C.ink600 }}>
+            <p style={{ margin: "22px 0 0", fontSize: 13, color: "var(--color-ink-600)" }}>
               {VISTAS[vista].pie[0]}{" "}
               <button
                 type="button"
                 onClick={ir(piePaso(vista))}
-                style={{ background: "none", border: 0, padding: 0, fontSize: 13, fontWeight: 700, color: C.rose, cursor: "pointer" }}
+                style={{ background: "none", border: 0, padding: 0, fontSize: 13, fontWeight: 700, color: "var(--color-rose-500)", cursor: "pointer" }}
               >
                 {VISTAS[vista].pie[1]}
               </button>
             </p>
           </div>
 
-          <p style={{ margin: "18px auto 0", maxWidth: 420, textAlign: "center", fontSize: 12, lineHeight: 1.5, color: C.ink600 }}>
+          <p style={{ margin: "18px auto 0", maxWidth: 420, textAlign: "center", fontSize: 12, lineHeight: 1.5, color: "var(--color-ink-600)" }}>
             Muttu Innovación Social S.A.S. · Barranquilla, Colombia · el acceso queda registrado con fecha, hora e IP.
           </p>
         </main>

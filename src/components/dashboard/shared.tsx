@@ -166,7 +166,7 @@ export function ChipSelector<T extends string>({
   onChange: (v: T) => void;
 }) {
   return (
-    <div className="flex items-center gap-1 rounded-[12px] bg-ink-100 p-1">
+    <div className="flex items-center gap-1 rounded-12 bg-ink-100 p-1">
       {options.map((o) => (
         <button
           key={o.value}
@@ -203,7 +203,7 @@ export function SinConexionCard({ onRetry }: { onRetry: () => void }) {
           Configura <code className="rounded-md bg-ink-100 px-1.5 py-0.5 font-mono text-[12px] text-ink-800">.env</code>{" "}
           con Supabase o inicia sesión para cargar los datos del dashboard.
         </p>
-        <Button onClick={onRetry} variant="outline" className="mt-5 rounded-[13px] px-4 font-semibold">
+        <Button onClick={onRetry} variant="outline" className="mt-5 rounded-lg px-4 font-semibold">
           Reintentar
         </Button>
       </div>

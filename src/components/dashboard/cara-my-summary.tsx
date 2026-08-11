@@ -111,7 +111,7 @@ export function CaraMiResumen({ filters }: { filters: DashboardFilters }) {
           <TareaLista items={activas.items} max={MAX_LISTA} empty="No tienes tareas abiertas." />
 
           {hoy.count > 0 && (
-            <div className="mt-4 rounded-[14px] border border-alerta/25 bg-alerta-bg p-3.5">
+            <div className="mt-4 rounded-14 border border-alerta/25 bg-alerta-bg p-3.5">
               <p className="text-[12px] font-bold text-alerta">Vencen hoy</p>
               <TareaLista items={activas.items.filter((t) => esDeHoy(t.fecha_entrega))} max={4} />
             </div>
@@ -233,7 +233,7 @@ function ResumenTile({
       <span className="flex items-center gap-2 text-[12px] font-semibold text-ink-600">
         <span
           className={cn(
-            "grid size-7 shrink-0 place-items-center rounded-[10px]",
+            "grid size-7 shrink-0 place-items-center rounded-10",
             tone === "rojo"
               ? "bg-destructivo text-white"
               : tone === "alerta"

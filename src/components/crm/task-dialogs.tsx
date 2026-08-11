@@ -181,7 +181,7 @@ export function TareaFormDialog({
         {error && (
           <div
             role="alert"
-            className="rounded-[12px] border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
+            className="rounded-12 border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
           >
             {error}
           </div>
@@ -199,7 +199,7 @@ export function TareaFormDialog({
                 value={form.titulo}
                 onChange={(e) => set("titulo", e.target.value)}
                 placeholder="Ej. Entregar informe trimestral"
-                className="h-10 rounded-[12px] bg-white px-3"
+                className="h-10 rounded-12 bg-white px-3"
               />
             </div>
 
@@ -211,7 +211,7 @@ export function TareaFormDialog({
                 value={form.descripcion}
                 onChange={(e) => set("descripcion", e.target.value)}
                 placeholder="Detalle del compromiso"
-                className="w-full resize-none rounded-[12px] border border-input bg-white px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="w-full resize-none rounded-12 border border-input bg-white px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               />
             </div>
 
@@ -223,7 +223,7 @@ export function TareaFormDialog({
                 value={form.responsable_id}
                 onValueChange={(v) => set("responsable_id", v ?? "")}
               >
-                <SelectTrigger className="h-10 w-full rounded-[12px] bg-white px-3">
+                <SelectTrigger className="h-10 w-full rounded-12 bg-white px-3">
                   <SelectValue placeholder="Selecciona el responsable" />
                 </SelectTrigger>
                 <SelectContent>
@@ -243,7 +243,7 @@ export function TareaFormDialog({
                 type="date"
                 value={form.fecha_entrega}
                 onChange={(e) => set("fecha_entrega", e.target.value)}
-                className="h-10 rounded-[12px] bg-white px-3"
+                className="h-10 rounded-12 bg-white px-3"
               />
             </div>
 
@@ -253,7 +253,7 @@ export function TareaFormDialog({
                 value={form.prioridad}
                 onValueChange={(v) => set("prioridad", v as PrioridadTarea | "")}
               >
-                <SelectTrigger className="h-10 w-full rounded-[12px] bg-white px-3">
+                <SelectTrigger className="h-10 w-full rounded-12 bg-white px-3">
                   <SelectValue placeholder="Sin prioridad" />
                 </SelectTrigger>
                 <SelectContent>
@@ -272,7 +272,7 @@ export function TareaFormDialog({
                 value={form.estado}
                 onValueChange={(v) => set("estado", v as EstadoTarea)}
               >
-                <SelectTrigger className="h-10 w-full rounded-[12px] bg-white px-3">
+                <SelectTrigger className="h-10 w-full rounded-12 bg-white px-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -296,7 +296,7 @@ export function TareaFormDialog({
                     type="button"
                     onClick={() => set("origen", option.value)}
                     className={cn(
-                      "flex-1 rounded-[12px] border px-3 py-2.5 text-left transition-colors sm:flex-none sm:min-w-[180px]",
+                      "flex-1 rounded-12 border px-3 py-2.5 text-left transition-colors sm:flex-none sm:min-w-[180px]",
                       form.origen === option.value
                         ? "border-rose-500 bg-rose-50"
                         : "border-ink-200 bg-white hover:bg-ink-100/60",
@@ -330,7 +330,7 @@ export function TareaFormDialog({
                   value={form.motivo_bloqueo}
                   onChange={(e) => set("motivo_bloqueo", e.target.value)}
                   placeholder="Por qué está bloqueado este compromiso"
-                  className="w-full resize-none rounded-[12px] border border-input bg-white px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  className="w-full resize-none rounded-12 border border-input bg-white px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 />
               </div>
             )}
@@ -340,7 +340,7 @@ export function TareaFormDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={pending} className="rounded-[13px] px-4 font-bold">
+            <Button type="submit" disabled={pending} className="rounded-lg px-4 font-bold">
               {pending && <LoaderCircle className="size-4 animate-spin" />}
               {pending ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear compromiso"}
             </Button>

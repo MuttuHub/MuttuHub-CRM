@@ -93,7 +93,7 @@ export function PrintDashboardCara({ cara }: { cara: CaraPrint }) {
         <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="inline-flex h-[34px] items-center gap-1.5 rounded-[11px] border border-ink-200 bg-white px-3 text-[12.5px] font-semibold text-ink-800 transition-colors hover:bg-ink-100"
+            className="inline-flex h-[34px] items-center gap-1.5 rounded-11 border border-ink-200 bg-white px-3 text-[12.5px] font-semibold text-ink-800 transition-colors hover:bg-ink-100"
           >
             <ArrowLeft className="size-3.5" strokeWidth={1.9} />
             Volver al dashboard
@@ -102,7 +102,7 @@ export function PrintDashboardCara({ cara }: { cara: CaraPrint }) {
             Vista de impresión: los filtros que aplicaste se respetan.
           </p>
         </div>
-        <Button onClick={() => window.print()} className="rounded-[12px] px-4 font-bold">
+        <Button onClick={() => window.print()} className="rounded-12 px-4 font-bold">
           <Printer className="size-4" />
           Imprimir
         </Button>
@@ -479,7 +479,7 @@ function MySummaryBody({ data }: { data: DashboardMySummary }) {
 
 function PrintKpi({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[14px] border border-ink-200 bg-panel p-3.5">
+    <div className="rounded-14 border border-ink-200 bg-panel p-3.5">
       <p className="text-[10.5px] font-bold tracking-[0.08em] text-ink-500 uppercase">{label}</p>
       <p className="mt-1.5 font-display text-[19px] font-extrabold tracking-[-0.02em] text-ink-950">
         {value}
@@ -513,7 +513,7 @@ function PrintError({
             ? "Configura el archivo .env con Supabase o inicia sesión para exportar el reporte."
             : message}
         </p>
-        <Button onClick={onRetry} variant="outline" className="mt-5 rounded-[13px] px-4 font-semibold">
+        <Button onClick={onRetry} variant="outline" className="mt-5 rounded-lg px-4 font-semibold">
           Reintentar
         </Button>
       </div>

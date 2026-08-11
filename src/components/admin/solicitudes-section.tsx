@@ -165,7 +165,7 @@ export function SolicitudesSection({
       {notice && (
         <div
           role="alert"
-          className="flex items-center gap-2.5 rounded-[14px] border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
+          className="flex items-center gap-2.5 rounded-14 border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
         >
           <AlertTriangle className="size-4 shrink-0" strokeWidth={1.9} />
           {notice}
@@ -391,7 +391,7 @@ function AprobarDialog({
             variant="outline"
             size="sm"
             disabled={disabled}
-            className="rounded-[10px] font-semibold after:-inset-1"
+            className="rounded-10 font-semibold after:-inset-1"
           >
             Aprobar
           </Button>
@@ -415,7 +415,7 @@ function AprobarDialog({
               value={rol}
               onValueChange={(v) => setRol(v as RolUsuario)}
             >
-              <SelectTrigger className="h-10 w-full rounded-[12px] bg-white px-3">
+              <SelectTrigger className="h-10 w-full rounded-12 bg-white px-3">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -465,7 +465,7 @@ function RechazarDialog({
             variant="ghost"
             size="sm"
             disabled={disabled}
-            className="rounded-[10px] font-semibold text-destructivo hover:text-destructivo after:-inset-1"
+            className="rounded-10 font-semibold text-destructivo hover:text-destructivo after:-inset-1"
           >
             Rechazar
           </Button>

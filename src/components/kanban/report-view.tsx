@@ -61,7 +61,7 @@ export function ReportView({ responsable, cliente, misTareas }: ReportViewProps)
           {misTareas ? "Mi reporte de tareas" : "Reporte de tareas del equipo"}
         </h2>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1 rounded-[13px] bg-ink-100 p-1">
+          <div className="flex items-center gap-1 rounded-lg bg-ink-100 p-1">
             {RANGOS.map((r) => (
               <button
                 key={r.value}
@@ -69,7 +69,7 @@ export function ReportView({ responsable, cliente, misTareas }: ReportViewProps)
                 onClick={() => setRango(r.value)}
                 aria-pressed={rango === r.value}
                 className={cn(
-                  "h-8 rounded-[10px] px-3 text-[12.5px] font-bold transition-colors",
+                  "h-8 rounded-10 px-3 text-[12.5px] font-bold transition-colors",
                   rango === r.value
                     ? "bg-white text-ink-900 shadow-sm"
                     : "text-ink-600 hover:text-ink-900",
@@ -83,7 +83,7 @@ export function ReportView({ responsable, cliente, misTareas }: ReportViewProps)
             variant="outline"
             size="sm"
             onClick={() => void exportExcel()}
-            className="h-9 rounded-[13px] border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+            className="h-9 rounded-lg border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
           >
             <FileSpreadsheet className="size-4 text-exito" strokeWidth={1.8} />
             Excel
@@ -92,7 +92,7 @@ export function ReportView({ responsable, cliente, misTareas }: ReportViewProps)
             variant="outline"
             size="sm"
             onClick={openPdf}
-            className="h-9 rounded-[13px] border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+            className="h-9 rounded-lg border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
           >
             <FileText className="size-4 text-destructivo" strokeWidth={1.8} />
             PDF
@@ -117,7 +117,7 @@ export function ReportView({ responsable, cliente, misTareas }: ReportViewProps)
             <Button
               onClick={() => void reportQuery.refetch()}
               variant="outline"
-              className="mt-5 rounded-[13px] px-4 font-semibold"
+              className="mt-5 rounded-lg px-4 font-semibold"
             >
               Reintentar
             </Button>
@@ -174,7 +174,7 @@ function SummaryCards({
     <section className="rounded-[22px] border border-ink-200 bg-white p-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {cards.map((c) => (
-          <div key={c.label} className="rounded-[14px] bg-ink-100/60 px-4 py-3.5">
+          <div key={c.label} className="rounded-14 bg-ink-100/60 px-4 py-3.5">
             <p className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
               {c.label}
             </p>

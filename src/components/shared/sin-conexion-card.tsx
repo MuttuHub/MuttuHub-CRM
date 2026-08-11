@@ -49,7 +49,7 @@ export function SinConexionCard({
           <Button
             onClick={onRetry}
             variant="outline"
-            className="mt-5 rounded-[13px] px-4 font-semibold"
+            className="mt-5 rounded-lg px-4 font-semibold"
           >
             Reintentar
           </Button>

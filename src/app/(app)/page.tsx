@@ -26,7 +26,7 @@ export default async function InicioPage({
 function InicioSkeleton() {
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <div className="flex h-12 items-center gap-1 rounded-[13px] bg-ink-100 p-1">
+      <div className="flex h-12 items-center gap-1 rounded-lg bg-ink-100 p-1">
         {Array.from({ length: 4 }).map((_, i) => (
           <Skeleton key={i} className="h-9 flex-1 rounded-[9px]" />
         ))}

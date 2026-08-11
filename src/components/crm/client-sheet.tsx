@@ -265,7 +265,7 @@ function SheetLoading({ error }: { error: boolean }) {
           <Skeleton className="h-8 w-56" />
           <Skeleton className="h-4 w-40" />
         </div>
-        <Skeleton className="size-9 rounded-[12px]" />
+        <Skeleton className="size-9 rounded-12" />
       </div>
       <div className="flex flex-wrap gap-2">
         <Skeleton className="h-6 w-24 rounded-full" />
@@ -321,7 +321,7 @@ function SheetHeaderContent({
           variant="outline"
           size="sm"
           onClick={onEditar}
-          className="shrink-0 rounded-[10px] px-3 text-[12.5px] font-semibold"
+          className="shrink-0 rounded-10 px-3 text-[12.5px] font-semibold"
         >
           <Pencil className="size-3.5" strokeWidth={1.9} />
           Editar
@@ -330,7 +330,7 @@ function SheetHeaderContent({
           variant="outline"
           size="sm"
           onClick={onDesactivar}
-          className="shrink-0 rounded-[10px] px-3 text-[12.5px] font-semibold text-ink-500 hover:border-destructivo/40 hover:text-destructivo"
+          className="shrink-0 rounded-10 px-3 text-[12.5px] font-semibold text-ink-500 hover:border-destructivo/40 hover:text-destructivo"
         >
           <UserX className="size-3.5" strokeWidth={1.9} />
           Desactivar cliente
@@ -444,7 +444,7 @@ function ContactosTab({
             ? "Cargando contactos…"
             : `${contactos.length} contacto${contactos.length === 1 ? "" : "s"}`}
         </p>
-        <Button size="sm" onClick={onNew} className="rounded-[10px] font-bold">
+        <Button size="sm" onClick={onNew} className="rounded-10 font-bold">
           Agregar contacto
         </Button>
       </div>
@@ -458,7 +458,7 @@ function ContactosTab({
         {contactos.map((c) => (
           <li
             key={c.id}
-            className="flex items-start gap-3.5 rounded-[14px] border border-ink-200 bg-white p-4"
+            className="flex items-start gap-3.5 rounded-14 border border-ink-200 bg-white p-4"
           >
             <InitialsAvatar nombre={c.nombre} />
             <div className="min-w-0 flex-1">
@@ -531,7 +531,7 @@ function OportunidadesTab({
             ? "Cargando oportunidades…"
             : `${oportunidades.length} oportunidad${oportunidades.length === 1 ? "" : "es"}`}
         </p>
-        <Button size="sm" onClick={onNew} className="rounded-[10px] font-bold">
+        <Button size="sm" onClick={onNew} className="rounded-10 font-bold">
           Nueva oportunidad
         </Button>
       </div>
@@ -545,7 +545,7 @@ function OportunidadesTab({
         {oportunidades.map((o) => {
           const abierta = expandida === o.id;
           return (
-            <li key={o.id} className="rounded-[14px] border border-ink-200 bg-white p-4">
+            <li key={o.id} className="rounded-14 border border-ink-200 bg-white p-4">
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -645,7 +645,7 @@ function CompromisosTab({
             ? "Cargando compromisos…"
             : `${tasks.length} compromiso${tasks.length === 1 ? "" : "s"}`}
         </p>
-        <Button size="sm" onClick={onNew} className="rounded-[10px] font-bold">
+        <Button size="sm" onClick={onNew} className="rounded-10 font-bold">
           Nuevo compromiso
         </Button>
       </div>
@@ -660,7 +660,7 @@ function CompromisosTab({
           const vencida = t.fecha_entrega ? esVencida(t.fecha_entrega) : false;
           const abierta = t.estado !== "COMPLETADA" && t.estado !== "CANCELADA";
           return (
-            <li key={t.id} className="rounded-[14px] border border-ink-200 bg-white p-4">
+            <li key={t.id} className="rounded-14 border border-ink-200 bg-white p-4">
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -758,7 +758,7 @@ function BitacoraTab({ clientId }: { clientId: string }) {
   return (
     <div className="flex flex-col gap-4">
       {/* Composer fijo: sticky al final del área scrolleable */}
-      <div className="sticky bottom-0 z-20 rounded-[14px] border border-ink-200 bg-panel/95 p-4 shadow-[0_-8px_24px_rgba(25,17,19,0.05)] backdrop-blur">
+      <div className="sticky bottom-0 z-20 rounded-14 border border-ink-200 bg-panel/95 p-4 shadow-[0_-8px_24px_rgba(25,17,19,0.05)] backdrop-blur">
         <div className="flex items-start gap-3">
           <span className="mt-1 grid size-8 shrink-0 place-items-center rounded-full bg-rose-100 text-rose-700">
             <MessageSquarePlus className="size-4" strokeWidth={1.8} />
@@ -769,7 +769,7 @@ function BitacoraTab({ clientId }: { clientId: string }) {
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
               placeholder="Agrega una nota de seguimiento…"
-              className="w-full resize-none rounded-[12px] border border-input bg-white px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="w-full resize-none rounded-12 border border-input bg-white px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             />
             <div className="mt-2 flex items-center justify-between gap-3">
               <p className="text-[11.5px] text-ink-500">
@@ -779,7 +779,7 @@ function BitacoraTab({ clientId }: { clientId: string }) {
                 size="sm"
                 onClick={() => void submit()}
                 disabled={!texto.trim() || addMutation.isPending}
-                className="rounded-[10px] font-bold"
+                className="rounded-10 font-bold"
               >
                 {addMutation.isPending ? (
                   <span className="size-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -800,7 +800,7 @@ function BitacoraTab({ clientId }: { clientId: string }) {
 
       <ul className="flex flex-col gap-2.5">
         {[...entradas].reverse().map((e) => (
-          <li key={e.id} className="rounded-[14px] border border-ink-200 bg-white p-4">
+          <li key={e.id} className="rounded-14 border border-ink-200 bg-white p-4">
             <div className="flex items-center gap-2 text-[11.5px] text-ink-500">
               <span className="grid size-6 place-items-center rounded-full bg-ink-100 text-[9.5px] font-bold text-ink-700">
                 {iniciales(e.autor_nombre) || "?"}
@@ -847,7 +847,7 @@ function DocumentosTab({ clientId }: { clientId: string }) {
       </p>
       {query.isLoading &&
         Array.from({ length: 2 }).map((_, i) => (
-          <Skeleton key={i} className="h-12 w-full rounded-[14px]" />
+          <Skeleton key={i} className="h-12 w-full rounded-14" />
         ))}
       {query.isError && (
         <p className="text-[12.5px] text-ink-600">
@@ -861,7 +861,7 @@ function DocumentosTab({ clientId }: { clientId: string }) {
         {items.map((doc) => (
           <li
             key={doc.id}
-            className="flex items-center justify-between gap-3 rounded-[14px] border border-ink-200 bg-white px-4 py-3"
+            className="flex items-center justify-between gap-3 rounded-14 border border-ink-200 bg-white px-4 py-3"
           >
             <div className="flex min-w-0 items-center gap-3">
               <span className="grid size-8 shrink-0 place-items-center rounded-[11px_11px_11px_4px] bg-ink-100 text-[9px] font-bold text-ink-700">
@@ -899,7 +899,7 @@ function DocumentosTab({ clientId }: { clientId: string }) {
           variant="outline"
           size="sm"
           onClick={irAlRepositorio}
-          className="h-9 rounded-[12px] border-ink-200 bg-white px-3 text-[12.5px] font-semibold text-ink-800 hover:bg-ink-100"
+          className="h-9 rounded-12 border-ink-200 bg-white px-3 text-[12.5px] font-semibold text-ink-800 hover:bg-ink-100"
         >
           <ExternalLink className="size-3.5 text-ink-500" strokeWidth={1.8} />
           Ver todos
@@ -908,7 +908,7 @@ function DocumentosTab({ clientId }: { clientId: string }) {
           variant="outline"
           size="sm"
           onClick={subirVinculado}
-          className="h-9 rounded-[12px] border-ink-200 bg-white px-3 text-[12.5px] font-semibold text-ink-800 hover:bg-ink-100"
+          className="h-9 rounded-12 border-ink-200 bg-white px-3 text-[12.5px] font-semibold text-ink-800 hover:bg-ink-100"
         >
           <Upload className="size-4 text-exito" strokeWidth={1.8} />
           Subir documento vinculado
@@ -931,7 +931,7 @@ function TareasRelacionadasTab({ clientId }: { clientId: string }) {
       </p>
       {query.isLoading &&
         Array.from({ length: 2 }).map((_, i) => (
-          <Skeleton key={i} className="h-14 w-full rounded-[14px]" />
+          <Skeleton key={i} className="h-14 w-full rounded-14" />
         ))}
       {query.isError && <ErrorState message="No pudimos cargar las tareas." />}
       {!query.isLoading && !query.isError && tasks.length === 0 && (
@@ -941,7 +941,7 @@ function TareasRelacionadasTab({ clientId }: { clientId: string }) {
         {tasks.map((t) => (
           <li
             key={t.id}
-            className="flex items-center justify-between gap-3 rounded-[14px] border border-ink-200 bg-white px-4 py-3"
+            className="flex items-center justify-between gap-3 rounded-14 border border-ink-200 bg-white px-4 py-3"
           >
             <div className="min-w-0">
               <p className="truncate text-[13.5px] font-semibold text-ink-950">{t.titulo}</p>
@@ -1056,7 +1056,7 @@ function DeactivateClientDialog({
 
 function EmptyState({ copy }: { copy: string }) {
   return (
-    <div className="grid min-h-[140px] place-items-center rounded-[14px] border border-dashed border-ink-300 bg-ink-100/40 px-6 py-8 text-center">
+    <div className="grid min-h-[140px] place-items-center rounded-14 border border-dashed border-ink-300 bg-ink-100/40 px-6 py-8 text-center">
       <p className="max-w-[36ch] text-[13px] leading-relaxed text-ink-600">{copy}</p>
     </div>
   );
@@ -1066,7 +1066,7 @@ function ErrorState({ message }: { message: string }) {
   return (
     <div
       role="alert"
-      className="rounded-[14px] border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
+      className="rounded-14 border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
     >
       {message}
     </div>

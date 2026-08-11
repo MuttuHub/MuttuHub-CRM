@@ -105,7 +105,7 @@ export function CatalogsSection() {
           <Button
             onClick={() => void query.refetch()}
             variant="outline"
-            className="mt-4 rounded-[13px] px-4 font-semibold"
+            className="mt-4 rounded-lg px-4 font-semibold"
           >
             Reintentar
           </Button>
@@ -250,7 +250,7 @@ export function CatalogsSection() {
           </div>
 
           {draft!.task_tags.length === 0 ? (
-            <p className="rounded-[14px] border border-dashed border-ink-300 px-4 py-6 text-center text-[12.5px] text-ink-600">
+            <p className="rounded-14 border border-dashed border-ink-300 px-4 py-6 text-center text-[12.5px] text-ink-600">
               Sin etiquetas — agregá al menos una
             </p>
           ) : (
@@ -280,13 +280,13 @@ export function CatalogsSection() {
               onChange={(e) => setTagInput(e.target.value)}
               placeholder="Nueva etiqueta…"
               aria-label="Nueva etiqueta de tarea"
-              className="h-9 rounded-[12px] border-ink-200 bg-white px-3"
+              className="h-9 rounded-12 border-ink-200 bg-white px-3"
               maxLength={MAX_TAG_LENGTH}
             />
             <Button
               type="submit"
               variant="secondary"
-              className="shrink-0 rounded-[12px] px-3 font-semibold"
+              className="shrink-0 rounded-12 px-3 font-semibold"
             >
               <Plus className="size-3.5" strokeWidth={2.2} />
               Agregar
@@ -311,7 +311,7 @@ export function CatalogsSection() {
           </p>
 
           {draft!.doc_categories.length === 0 ? (
-            <p className="rounded-[14px] border border-dashed border-ink-300 px-4 py-6 text-center text-[12.5px] text-ink-600">
+            <p className="rounded-14 border border-dashed border-ink-300 px-4 py-6 text-center text-[12.5px] text-ink-600">
               Sin categorías — agregá al menos una
             </p>
           ) : (
@@ -323,7 +323,7 @@ export function CatalogsSection() {
                     onChange={(e) => setCategoryName(index, e.target.value)}
                     placeholder="Nombre de la categoría"
                     aria-label={`Nombre de la categoría ${index + 1}`}
-                    className="h-9 min-w-0 flex-1 rounded-[12px] border-ink-200 bg-white px-3"
+                    className="h-9 min-w-0 flex-1 rounded-12 border-ink-200 bg-white px-3"
                     maxLength={MAX_CATEGORY_LENGTH}
                   />
                   <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[12px] font-medium text-ink-700">
@@ -351,7 +351,7 @@ export function CatalogsSection() {
           <button
             type="button"
             onClick={addCategory}
-            className="relative mt-3 inline-flex h-9 items-center justify-center gap-1.5 self-start rounded-[12px] border border-dashed border-ink-300 px-3 text-[12.5px] font-semibold text-ink-600 transition-colors after:absolute after:content-[''] after:-inset-1 hover:border-rose-400 hover:bg-rose-50 hover:text-rose-700"
+            className="relative mt-3 inline-flex h-9 items-center justify-center gap-1.5 self-start rounded-12 border border-dashed border-ink-300 px-3 text-[12.5px] font-semibold text-ink-600 transition-colors after:absolute after:content-[''] after:-inset-1 hover:border-rose-400 hover:bg-rose-50 hover:text-rose-700"
           >
             <Plus className="size-3.5" strokeWidth={2.2} />
             Agregar categoría
@@ -364,14 +364,14 @@ export function CatalogsSection() {
           variant="outline"
           disabled={!dirty || saving}
           onClick={handleDiscard}
-          className="rounded-[13px] px-4 font-semibold"
+          className="rounded-lg px-4 font-semibold"
         >
           Descartar
         </Button>
         <Button
           disabled={!dirty || saving}
           onClick={handleSave}
-          className="rounded-[13px] px-4 font-bold"
+          className="rounded-lg px-4 font-bold"
         >
           {saving ? (
             <LoaderCircle className="size-4 animate-spin" />

@@ -69,7 +69,7 @@ export function PrintReportes() {
         <p className="text-[13px] text-ink-600">
           Vista de impresión: los filtros que aplicaste se respetan.
         </p>
-        <Button onClick={() => window.print()} className="rounded-[12px] px-4 font-bold">
+        <Button onClick={() => window.print()} className="rounded-12 px-4 font-bold">
           <Printer className="size-4" />
           Imprimir
         </Button>
@@ -192,7 +192,7 @@ function Reporte({ data }: { data: TaskReportResponse }) {
 
 function SummaryCard({ label, value }: { label: string; value: number | string }) {
   return (
-    <div className="rounded-[14px] border border-ink-200 bg-ink-100/50 px-4 py-3">
+    <div className="rounded-14 border border-ink-200 bg-ink-100/50 px-4 py-3">
       <p className="text-[10.5px] font-bold tracking-[0.08em] text-ink-500 uppercase">{label}</p>
       <p className="mt-1 font-display text-[24px] leading-none font-extrabold tracking-[-0.02em] text-ink-950 tabular-nums">
         {value}
@@ -295,7 +295,7 @@ function PrintError({
             ? "Configura el archivo .env con Supabase o inicia sesión para exportar el reporte."
             : message}
         </p>
-        <Button onClick={onRetry} variant="outline" className="mt-5 rounded-[13px] px-4 font-semibold">
+        <Button onClick={onRetry} variant="outline" className="mt-5 rounded-lg px-4 font-semibold">
           Reintentar
         </Button>
       </div>

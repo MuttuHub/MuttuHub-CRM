@@ -64,9 +64,9 @@ export function DocumentDialog({
       <DialogContent className="max-h-[88vh] gap-0 overflow-y-auto rounded-[24px] p-0 sm:max-w-[620px]">
         {!documento ? (
           <div className="flex flex-col gap-3 p-6">
-            <Skeleton className="h-8 w-3/4 rounded-[10px]" />
+            <Skeleton className="h-8 w-3/4 rounded-10" />
             <Skeleton className="h-4 w-1/2 rounded-[8px]" />
-            <Skeleton className="h-24 w-full rounded-[14px]" />
+            <Skeleton className="h-24 w-full rounded-14" />
           </div>
         ) : (
           <div className="flex flex-col gap-5 p-6">
@@ -144,7 +144,7 @@ export function DocumentDialog({
                 type="button"
                 disabled={!activa}
                 onClick={() => void downloadActiveVersion(documento).catch(() => undefined)}
-                className="h-9 rounded-[13px] px-4 font-bold"
+                className="h-9 rounded-lg px-4 font-bold"
               >
                 <Download className="size-4" strokeWidth={2} />
                 {activa ? `Descargar v${activa.numero_version}` : "Sin versión"}
@@ -153,7 +153,7 @@ export function DocumentDialog({
                 type="button"
                 variant="outline"
                 onClick={() => setVersionUploadOpen(true)}
-                className="h-9 rounded-[13px] border-ink-200 bg-white px-4 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+                className="h-9 rounded-lg border-ink-200 bg-white px-4 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
               >
                 <Upload className="size-4 text-exito" strokeWidth={1.9} />
                 Subir nueva versión
@@ -164,7 +164,7 @@ export function DocumentDialog({
               <button
                 type="button"
                 onClick={() => setVersionesOpen((v) => !v)}
-                className="flex items-center justify-between rounded-[12px] px-1 py-1 text-left"
+                className="flex items-center justify-between rounded-12 px-1 py-1 text-left"
               >
                 <span className="text-[13px] font-bold text-ink-800">
                   Versiones{" "}
@@ -183,7 +183,7 @@ export function DocumentDialog({
 
               {versionsQuery.isLoading &&
                 Array.from({ length: 2 }).map((_, i) => (
-                  <Skeleton key={i} className="h-11 w-full rounded-[12px]" />
+                  <Skeleton key={i} className="h-11 w-full rounded-12" />
                 ))}
 
               {!versionsQuery.isLoading && versiones.length === 0 && (
@@ -245,7 +245,7 @@ function VersionRow({
   return (
     <li
       className={cn(
-        "flex items-center justify-between gap-3 rounded-[12px] border px-3.5 py-2.5",
+        "flex items-center justify-between gap-3 rounded-12 border px-3.5 py-2.5",
         activa ? "border-exito/30 bg-exito-bg/50" : "border-ink-200 bg-white",
       )}
     >
@@ -329,7 +329,7 @@ function VersionUploadDialog({
                 reset();
                 onOpenChange(false);
               }}
-              className="rounded-[13px] px-4 font-semibold"
+              className="rounded-lg px-4 font-semibold"
             >
               Cancelar
             </Button>
@@ -346,7 +346,7 @@ function VersionUploadDialog({
                   })
                   .catch(() => undefined);
               }}
-              className="rounded-[13px] px-4 font-bold"
+              className="rounded-lg px-4 font-bold"
             >
               {upload.isPending && <LoaderCircle className="size-4 animate-spin" />}
               {upload.isPending ? "Subiendo…" : "Subir versión"}

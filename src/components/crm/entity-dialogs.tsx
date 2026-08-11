@@ -191,7 +191,7 @@ export function ContactoFormDialog({
         {error && (
           <div
             role="alert"
-            className="rounded-[12px] border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
+            className="rounded-12 border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
           >
             {error}
           </div>
@@ -209,7 +209,7 @@ export function ContactoFormDialog({
                 value={form.nombre}
                 onChange={(e) => set("nombre", e.target.value)}
                 placeholder="Nombre y apellido"
-                className="h-10 rounded-[12px] bg-white px-3"
+                className="h-10 rounded-12 bg-white px-3"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -219,7 +219,7 @@ export function ContactoFormDialog({
                 value={form.cargo}
                 onChange={(e) => set("cargo", e.target.value)}
                 placeholder="Ej. Secretaria de Gobierno"
-                className="h-10 rounded-[12px] bg-white px-3"
+                className="h-10 rounded-12 bg-white px-3"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -230,7 +230,7 @@ export function ContactoFormDialog({
                 value={form.correo}
                 onChange={(e) => set("correo", e.target.value)}
                 placeholder="nombre@entidad.co"
-                className="h-10 rounded-[12px] bg-white px-3"
+                className="h-10 rounded-12 bg-white px-3"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -240,7 +240,7 @@ export function ContactoFormDialog({
                 value={form.telefono}
                 onChange={(e) => set("telefono", e.target.value)}
                 placeholder="+57 300 000 0000"
-                className="h-10 rounded-[12px] bg-white px-3"
+                className="h-10 rounded-12 bg-white px-3"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -249,7 +249,7 @@ export function ContactoFormDialog({
                 value={form.rol_decision}
                 onValueChange={(v) => set("rol_decision", v as RolContacto | "")}
               >
-                <SelectTrigger className="h-10 w-full rounded-[12px] bg-white px-3">
+                <SelectTrigger className="h-10 w-full rounded-12 bg-white px-3">
                   <SelectValue placeholder="Sin rol definido" />
                 </SelectTrigger>
                 <SelectContent>
@@ -271,7 +271,7 @@ export function ContactoFormDialog({
               value={form.notas}
               onChange={(e) => set("notas", e.target.value)}
               placeholder="Detalles de la relación con este contacto"
-              className="w-full resize-none rounded-[12px] border border-input bg-white px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="w-full resize-none rounded-12 border border-input bg-white px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             />
           </div>
 
@@ -279,7 +279,7 @@ export function ContactoFormDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={pending} className="rounded-[13px] px-4 font-bold">
+            <Button type="submit" disabled={pending} className="rounded-lg px-4 font-bold">
               {pending && <LoaderCircle className="size-4 animate-spin" />}
               {pending ? "Guardando…" : isEdit ? "Guardar cambios" : "Agregar contacto"}
             </Button>
@@ -428,7 +428,7 @@ export function OportunidadFormDialog({
         {error && (
           <div
             role="alert"
-            className="rounded-[12px] border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
+            className="rounded-12 border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
           >
             {error}
           </div>
@@ -446,7 +446,7 @@ export function OportunidadFormDialog({
                 value={form.nombre}
                 onChange={(e) => set("nombre", e.target.value)}
                 placeholder="Ej. Consultoría línea base 2026"
-                className="h-10 rounded-[12px] bg-white px-3"
+                className="h-10 rounded-12 bg-white px-3"
               />
             </div>
 
@@ -458,7 +458,7 @@ export function OportunidadFormDialog({
                 value={form.problema_detectado}
                 onChange={(e) => set("problema_detectado", e.target.value)}
                 placeholder="Necesidad o dolor que detectamos en el cliente"
-                className="w-full resize-none rounded-[12px] border border-input bg-white px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="w-full resize-none rounded-12 border border-input bg-white px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               />
             </div>
 
@@ -470,7 +470,7 @@ export function OportunidadFormDialog({
                 value={form.solucion_propuesta}
                 onChange={(e) => set("solucion_propuesta", e.target.value)}
                 placeholder="Cómo la resolveríamos"
-                className="w-full resize-none rounded-[12px] border border-input bg-white px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="w-full resize-none rounded-12 border border-input bg-white px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               />
             </div>
 
@@ -481,7 +481,7 @@ export function OportunidadFormDialog({
                 value={form.servicios_interes}
                 onChange={(e) => set("servicios_interes", e.target.value)}
                 placeholder="Ej. Medición, formaciones"
-                className="h-10 rounded-[12px] bg-white px-3"
+                className="h-10 rounded-12 bg-white px-3"
               />
             </div>
 
@@ -495,7 +495,7 @@ export function OportunidadFormDialog({
                 value={form.valor_estimado_cop}
                 onChange={(e) => set("valor_estimado_cop", e.target.value)}
                 placeholder="0"
-                className="h-10 rounded-[12px] bg-white px-3 font-mono text-[13px]"
+                className="h-10 rounded-12 bg-white px-3 font-mono text-[13px]"
               />
             </div>
 
@@ -505,7 +505,7 @@ export function OportunidadFormDialog({
                 value={form.estado}
                 onValueChange={(v) => set("estado", v as EstadoOportunidad)}
               >
-                <SelectTrigger className="h-10 w-full rounded-[12px] bg-white px-3">
+                <SelectTrigger className="h-10 w-full rounded-12 bg-white px-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -525,7 +525,7 @@ export function OportunidadFormDialog({
                 type="date"
                 value={form.fecha_ultima_gestion}
                 onChange={(e) => set("fecha_ultima_gestion", e.target.value)}
-                className="h-10 rounded-[12px] bg-white px-3"
+                className="h-10 rounded-12 bg-white px-3"
               />
             </div>
           </div>
@@ -537,7 +537,7 @@ export function OportunidadFormDialog({
               value={form.proyectos_relacionados}
               onChange={(e) => set("proyectos_relacionados", e.target.value)}
               placeholder="Historial de proyectos afines"
-              className="h-10 rounded-[12px] bg-white px-3"
+              className="h-10 rounded-12 bg-white px-3"
             />
           </div>
 
@@ -545,7 +545,7 @@ export function OportunidadFormDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={pending} className="rounded-[13px] px-4 font-bold">
+            <Button type="submit" disabled={pending} className="rounded-lg px-4 font-bold">
               {pending && <LoaderCircle className="size-4 animate-spin" />}
               {pending ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear oportunidad"}
             </Button>

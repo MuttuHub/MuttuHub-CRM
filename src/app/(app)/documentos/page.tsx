@@ -27,7 +27,7 @@ function DocumentosSkeleton() {
       <div className="rounded-[22px] border border-ink-200 bg-white p-5">
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full rounded-[12px]" />
+            <Skeleton key={i} className="h-12 w-full rounded-12" />
           ))}
         </div>
       </div>

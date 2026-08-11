@@ -239,7 +239,7 @@ export function ClientList() {
             variant="outline"
             size="sm"
             onClick={() => void exportExcel()}
-            className="h-9 rounded-[13px] border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+            className="h-9 rounded-lg border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
           >
             <FileSpreadsheet className="size-4 text-exito" strokeWidth={1.8} />
             Excel
@@ -248,7 +248,7 @@ export function ClientList() {
             variant="outline"
             size="sm"
             onClick={openPdf}
-            className="h-9 rounded-[13px] border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+            className="h-9 rounded-lg border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
           >
             <FileText className="size-4 text-destructivo" strokeWidth={1.8} />
             PDF
@@ -285,7 +285,7 @@ export function ClientList() {
 /* ── Fila de filtros ───────────────────────────────────────────────────── */
 
 const SELECT_CLASS =
-  "h-9 w-full rounded-[12px] border-ink-200 bg-white px-3 text-[13px]";
+  "h-9 w-full rounded-12 border-ink-200 bg-white px-3 text-[13px]";
 
 function FiltersCard({
   local,
@@ -315,7 +315,7 @@ function FiltersCard({
             onChange={(e) => onChange({ q: e.target.value })}
             placeholder="Buscar por nombre, contacto o bitácora…"
             aria-label="Buscar clientes"
-            className="h-10 rounded-[12px] border-ink-200 bg-white pl-9 text-[13px]"
+            className="h-10 rounded-12 border-ink-200 bg-white pl-9 text-[13px]"
           />
         </div>
 
@@ -389,7 +389,7 @@ function FiltersCard({
               value={local.desde}
               onChange={(e) => onChange({ desde: e.target.value })}
               aria-label="Primer contacto desde"
-              className="h-10 w-[148px] rounded-[12px] border-ink-200 bg-white px-3 text-[12.5px]"
+              className="h-10 w-[148px] rounded-12 border-ink-200 bg-white px-3 text-[12.5px]"
             />
             <span className="text-[12px] text-ink-500">a</span>
             <Label htmlFor="fecha-hasta" className="sr-only">
@@ -401,7 +401,7 @@ function FiltersCard({
               value={local.hasta}
               onChange={(e) => onChange({ hasta: e.target.value })}
               aria-label="Primer contacto hasta"
-              className="h-10 w-[148px] rounded-[12px] border-ink-200 bg-white px-3 text-[12.5px]"
+              className="h-10 w-[148px] rounded-12 border-ink-200 bg-white px-3 text-[12.5px]"
             />
           </div>
 
@@ -417,7 +417,7 @@ function FiltersCard({
               value={local.valorMin}
               onChange={(e) => onChange({ valorMin: e.target.value })}
               placeholder="Valor min"
-              className="h-10 w-[118px] rounded-[12px] border-ink-200 bg-white px-3 font-mono text-[12px]"
+              className="h-10 w-[118px] rounded-12 border-ink-200 bg-white px-3 font-mono text-[12px]"
             />
             <span className="text-[12px] text-ink-500">a</span>
             <Label htmlFor="valor-max" className="sr-only">
@@ -431,7 +431,7 @@ function FiltersCard({
               value={local.valorMax}
               onChange={(e) => onChange({ valorMax: e.target.value })}
               placeholder="Valor max"
-              className="h-10 w-[118px] rounded-[12px] border-ink-200 bg-white px-3 font-mono text-[12px]"
+              className="h-10 w-[118px] rounded-12 border-ink-200 bg-white px-3 font-mono text-[12px]"
             />
           </div>
         </div>
@@ -617,7 +617,7 @@ function ClientCard({
             e.stopPropagation();
             onOpen();
           }}
-          className="h-8 rounded-[11px] border-ink-200 bg-white px-3 text-[12px] font-semibold text-ink-700 hover:bg-ink-100"
+          className="h-8 rounded-11 border-ink-200 bg-white px-3 text-[12px] font-semibold text-ink-700 hover:bg-ink-100"
         >
           <Eye className="size-3.5" strokeWidth={1.8} />
           Ver detalle
@@ -669,7 +669,7 @@ function PaginationFooter({
           size="sm"
           disabled={page <= 1}
           onClick={() => onPage(page - 1)}
-          className="h-8 rounded-[10px] px-2.5 text-[12.5px] font-semibold"
+          className="h-8 rounded-10 px-2.5 text-[12.5px] font-semibold"
         >
           Anterior
         </Button>
@@ -681,7 +681,7 @@ function PaginationFooter({
               size="sm"
               onClick={() => onPage(p)}
               className={cn(
-                "h-8 min-w-8 rounded-[10px] px-2 text-[12.5px] font-bold",
+                "h-8 min-w-8 rounded-10 px-2 text-[12.5px] font-bold",
                 p === page && "bg-ink-950 text-white hover:bg-ink-800",
               )}
             >
@@ -698,7 +698,7 @@ function PaginationFooter({
           size="sm"
           disabled={page >= totalPages}
           onClick={() => onPage(page + 1)}
-          className="h-8 rounded-[10px] px-2.5 text-[12.5px] font-semibold"
+          className="h-8 rounded-10 px-2.5 text-[12.5px] font-semibold"
         >
           Siguiente
         </Button>

@@ -120,7 +120,7 @@ export function CaraPipeline({ filters }: { filters: DashboardFilters }) {
               {top_clientes.map((c, i) => (
                 <li
                   key={c.cliente_id}
-                  className="flex items-center gap-3 rounded-[13px] px-2 py-2 transition-colors hover:bg-ink-100/60"
+                  className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-ink-100/60"
                 >
                   <span
                     className={cn(

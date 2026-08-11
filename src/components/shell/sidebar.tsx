@@ -105,7 +105,7 @@ function SidebarContent({ rail }: { rail: boolean }) {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar en el Hub"
             aria-label="Buscar en el Hub"
-            className="h-[38px] w-full rounded-[12px] border border-shell-chip bg-shell-surface pr-10 pl-9 text-[13px] text-shell-text placeholder:text-shell-faint focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus:outline-none"
+            className="h-[38px] w-full rounded-12 border border-shell-chip bg-shell-surface pr-10 pl-9 text-[13px] text-shell-text placeholder:text-shell-faint focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus:outline-none"
           />
           <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded-md border border-shell-border bg-shell-chip px-1.5 py-0.5 font-mono text-[10px] text-shell-faint">
             ⌘K
@@ -131,7 +131,7 @@ function SidebarContent({ rail }: { rail: boolean }) {
                 <Link
                   href={item.href}
                   className={cn(
-                    "relative flex h-[36px] w-full items-center gap-2.5 rounded-[11px] transition-colors after:absolute after:content-[''] after:-inset-y-px focus-visible:ring-3 focus-visible:ring-ring/50",
+                    "relative flex h-[36px] w-full items-center gap-2.5 rounded-11 transition-colors after:absolute after:content-[''] after:-inset-y-px focus-visible:ring-3 focus-visible:ring-ring/50",
                     rail ? "justify-center" : "px-3",
                     active
                       ? "bg-rose-500 font-semibold text-white"

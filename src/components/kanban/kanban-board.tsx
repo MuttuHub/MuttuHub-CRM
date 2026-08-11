@@ -258,7 +258,7 @@ export function KanbanBoard() {
           <div className="flex flex-wrap items-center gap-2">
             <Button
               onClick={() => setDialogTaskId("nueva")}
-              className="h-9 rounded-[13px] px-4 font-bold"
+              className="h-9 rounded-lg px-4 font-bold"
             >
               <Plus className="size-4" strokeWidth={2} />
               Nueva tarea
@@ -267,7 +267,7 @@ export function KanbanBoard() {
               variant="outline"
               size="sm"
               onClick={() => void exportExcel()}
-              className="h-9 rounded-[13px] border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+              className="h-9 rounded-lg border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
             >
               <FileSpreadsheet className="size-4 text-exito" strokeWidth={1.8} />
               Excel
@@ -276,7 +276,7 @@ export function KanbanBoard() {
               variant="outline"
               size="sm"
               onClick={openPrint}
-              className="h-9 rounded-[13px] border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+              className="h-9 rounded-lg border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
             >
               <Printer className="size-4 text-ink-600" strokeWidth={1.8} />
               Imprimir
@@ -482,7 +482,7 @@ function ListaView({ items, onOpen }: { items: CardTask[]; onOpen: (id: string) 
                   </div>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <span className="grid size-7 place-items-center rounded-[10px] text-ink-500 hover:bg-rose-50 hover:text-rose-700">
+                  <span className="grid size-7 place-items-center rounded-10 text-ink-500 hover:bg-rose-50 hover:text-rose-700">
                     <Eye className="size-4" strokeWidth={1.8} />
                   </span>
                 </td>
@@ -528,7 +528,7 @@ type FiltersRowProps = {
   onClear: () => void;
 };
 
-const SEL_CLASS = "h-9 w-full rounded-[12px] border-ink-200 bg-white px-3 text-[12.5px]";
+const SEL_CLASS = "h-9 w-full rounded-12 border-ink-200 bg-white px-3 text-[12.5px]";
 
 // FiltersRow real (definida debajo)
 
@@ -585,10 +585,10 @@ function FiltersRow(props: FiltersRowProps) {
         </Select>
         <div className="flex items-center gap-1.5">
           <Label htmlFor="kanban-desde" className="sr-only">Entrega desde</Label>
-          <Input id="kanban-desde" type="date" value={local.desde} onChange={(e) => onLocal({ desde: e.target.value })} aria-label="Entrega desde" className="h-9 w-[148px] rounded-[12px] border-ink-200 bg-white px-3 text-[12px]" />
+          <Input id="kanban-desde" type="date" value={local.desde} onChange={(e) => onLocal({ desde: e.target.value })} aria-label="Entrega desde" className="h-9 w-[148px] rounded-12 border-ink-200 bg-white px-3 text-[12px]" />
           <span className="text-[12px] text-ink-500">a</span>
           <Label htmlFor="kanban-hasta" className="sr-only">Entrega hasta</Label>
-          <Input id="kanban-hasta" type="date" value={local.hasta} onChange={(e) => onLocal({ hasta: e.target.value })} aria-label="Entrega hasta" className="h-9 w-[148px] rounded-[12px] border-ink-200 bg-white px-3 text-[12px]" />
+          <Input id="kanban-hasta" type="date" value={local.hasta} onChange={(e) => onLocal({ hasta: e.target.value })} aria-label="Entrega hasta" className="h-9 w-[148px] rounded-12 border-ink-200 bg-white px-3 text-[12px]" />
         </div>
       </div>
       {hasActive && (
@@ -616,7 +616,7 @@ function Segmented<T extends string>({
   className?: string;
 }) {
   return (
-    <div className={cn("flex items-center gap-1 rounded-[13px] bg-ink-100 p-1", className)}>
+    <div className={cn("flex items-center gap-1 rounded-lg bg-ink-100 p-1", className)}>
       {options.map((o) => (
         <button
           key={o.value}
@@ -663,7 +663,7 @@ function BoardSkeleton({ vista }: { vista: "board" | "lista" }) {
       <section className="rounded-[22px] border border-ink-200 bg-white p-5">
         <div className="space-y-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-11 w-full rounded-[12px]" />
+            <Skeleton key={i} className="h-11 w-full rounded-12" />
           ))}
         </div>
       </section>
@@ -675,7 +675,7 @@ function BoardSkeleton({ vista }: { vista: "board" | "lista" }) {
         <div key={i} className="w-[248px] shrink-0 space-y-2 rounded-[18px] bg-ink-100/70 p-2.5">
           <Skeleton className="h-5 w-24" />
           {Array.from({ length: 2 }).map((_, j) => (
-            <Skeleton key={j} className="h-[110px] w-full rounded-[14px]" />
+            <Skeleton key={j} className="h-[110px] w-full rounded-14" />
           ))}
         </div>
       ))}

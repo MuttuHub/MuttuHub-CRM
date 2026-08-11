@@ -63,7 +63,7 @@ export function ReportesPage() {
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <Tabs defaultValue="tareas" className="flex min-w-0 flex-col gap-4">
-        <TabsList className="flex h-auto w-full flex-wrap items-center gap-1 rounded-[13px] bg-ink-100 p-1">
+        <TabsList className="flex h-auto w-full flex-wrap items-center gap-1 rounded-lg bg-ink-100 p-1">
           <TabTareasTrigger />
           {CARAS.map((cara) => (
             <TabsTrigger
@@ -150,7 +150,7 @@ function FiltrosCara({
         </div>
 
         <Select value={responsable} onValueChange={(v) => v !== null && onResponsable(v)}>
-          <SelectTrigger size="sm" className="h-8 rounded-[11px] bg-white">
+          <SelectTrigger size="sm" className="h-8 rounded-11 bg-white">
             <SelectValue placeholder="Todos los responsables" />
           </SelectTrigger>
           <SelectContent>
@@ -164,7 +164,7 @@ function FiltrosCara({
         </Select>
 
         <Select value={tipoCliente} onValueChange={(v) => v !== null && onTipoCliente(v)}>
-          <SelectTrigger size="sm" className="h-8 rounded-[11px] bg-white">
+          <SelectTrigger size="sm" className="h-8 rounded-11 bg-white">
             <SelectValue placeholder="Todos los tipos" />
           </SelectTrigger>
           <SelectContent>
@@ -191,7 +191,7 @@ function GenerarReporte({ href }: { href: string }) {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex h-9 items-center gap-2 rounded-[13px] bg-rose-500 px-4 text-[13px] font-bold text-white transition-colors hover:bg-rose-600"
+      className="inline-flex h-9 items-center gap-2 rounded-lg bg-rose-500 px-4 text-[13px] font-bold text-white transition-colors hover:bg-rose-700"
     >
       <Printer className="size-4" strokeWidth={1.9} />
       Generar reporte

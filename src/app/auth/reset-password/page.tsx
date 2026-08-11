@@ -96,7 +96,7 @@ export default function ResetPasswordPage() {
             {error && (
               <div
                 role="alert"
-                className="mt-4 rounded-[14px] border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
+                className="mt-4 rounded-14 border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
               >
                 {error}
               </div>
@@ -111,7 +111,7 @@ export default function ResetPasswordPage() {
                   autoComplete="email"
                   required
                   placeholder="nombre@muttu.co"
-                  className="h-11 rounded-[13px] bg-white px-3.5"
+                  className="h-11 rounded-lg bg-white px-3.5"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
@@ -120,7 +120,7 @@ export default function ResetPasswordPage() {
               <Button
                 type="submit"
                 disabled={status === "loading"}
-                className="mt-1 h-11 rounded-[13px] text-[14px] font-bold"
+                className="mt-1 h-11 rounded-lg text-[14px] font-bold"
               >
                 {status === "loading" && (
                   <LoaderCircle className="size-4 animate-spin" strokeWidth={2} />

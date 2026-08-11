@@ -261,7 +261,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                   value={form.titulo}
                   onChange={(e) => set("titulo", e.target.value)}
                   placeholder="Ej. Entregar informe trimestral"
-                  className="h-10 rounded-[12px] bg-white px-3"
+                  className="h-10 rounded-12 bg-white px-3"
                 />
               </div>
 
@@ -273,7 +273,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                   value={form.descripcion}
                   onChange={(e) => set("descripcion", e.target.value)}
                   placeholder="Detalle de la tarea"
-                  className="w-full resize-none rounded-[12px] border border-input bg-white px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  className="w-full resize-none rounded-12 border border-input bg-white px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 />
               </div>
 
@@ -285,7 +285,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                   value={form.responsable_id}
                   onValueChange={(v) => set("responsable_id", v ?? "")}
                 >
-                  <SelectTrigger className="h-10 w-full rounded-[12px] bg-white px-3">
+                  <SelectTrigger className="h-10 w-full rounded-12 bg-white px-3">
                     <SelectValue placeholder="Selecciona un responsable" />
                   </SelectTrigger>
                   <SelectContent>
@@ -306,7 +306,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                     set("cliente_id", v === "ninguno" ? "" : (v ?? ""))
                   }
                 >
-                  <SelectTrigger className="h-10 w-full rounded-[12px] bg-white px-3">
+                  <SelectTrigger className="h-10 w-full rounded-12 bg-white px-3">
                     <SelectValue placeholder="Sin cliente" />
                   </SelectTrigger>
                   <SelectContent>
@@ -327,7 +327,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                   type="date"
                   value={form.fecha_entrega}
                   onChange={(e) => set("fecha_entrega", e.target.value)}
-                  className="h-10 rounded-[12px] bg-white px-3"
+                  className="h-10 rounded-12 bg-white px-3"
                 />
               </div>
 
@@ -337,7 +337,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                   value={form.prioridad}
                   onValueChange={(v) => set("prioridad", (v ?? "") as PrioridadTarea | "")}
                 >
-                  <SelectTrigger className="h-10 w-full rounded-[12px] bg-white px-3">
+                  <SelectTrigger className="h-10 w-full rounded-12 bg-white px-3">
                     <SelectValue placeholder="Sin prioridad" />
                   </SelectTrigger>
                   <SelectContent>
@@ -380,7 +380,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                       value={form.estado}
                       onValueChange={(v) => set("estado", (v ?? "POR_HACER") as EstadoTarea)}
                     >
-                      <SelectTrigger className="h-10 w-full rounded-[12px] bg-white px-3">
+                      <SelectTrigger className="h-10 w-full rounded-12 bg-white px-3">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -395,7 +395,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
 
                   <div className="flex flex-col justify-end gap-1.5">
                     <Label>Origen</Label>
-                    <p className="rounded-[12px] bg-ink-100 px-3 py-2.5 text-[13px] font-semibold text-ink-700">
+                    <p className="rounded-12 bg-ink-100 px-3 py-2.5 text-[13px] font-semibold text-ink-700">
                       {ORIGEN_TAREA_LABELS[(task?.origen ?? "KANBAN") as OrigenTarea].label}
                       {task?.origen === "CRM" || task?.origen === "AMBOS"
                         ? " · visible también en el CRM"
@@ -416,7 +416,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                     value={form.motivo_bloqueo}
                     onChange={(e) => set("motivo_bloqueo", e.target.value)}
                     placeholder="Por qué está bloqueada la tarea"
-                    className="w-full resize-none rounded-[12px] border border-input bg-white px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                    className="w-full resize-none rounded-12 border border-input bg-white px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                   />
                 </div>
               )}
@@ -438,7 +438,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
               <Button
                 type="submit"
                 disabled={pendingMutation}
-                className="rounded-[13px] px-4 font-bold"
+                className="rounded-lg px-4 font-bold"
               >
                 {pendingMutation && <LoaderCircle className="size-4 animate-spin" />}
                 {pendingMutation ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear tarea"}
@@ -487,14 +487,14 @@ function SubtaskSection({ taskId }: { taskId: string }) {
             }
           }}
           placeholder="Nueva subtarea…"
-          className="h-9 rounded-[10px] bg-white px-3 text-[13px]"
+          className="h-9 rounded-10 bg-white px-3 text-[13px]"
         />
         <Button
           type="button"
           size="sm"
           disabled={!texto.trim() || addSubtarea.isPending}
           onClick={() => void agregar()}
-          className="h-9 shrink-0 rounded-[10px] px-3 font-bold"
+          className="h-9 shrink-0 rounded-10 px-3 font-bold"
         >
           <Plus className="size-4" strokeWidth={2} />
           Agregar
@@ -518,7 +518,7 @@ function SubtaskRow({ taskId, subtarea }: { taskId: string; subtarea: Subtarea }
   const toggle = useUpdateSubtarea(taskId, subtarea.id);
   const remove = useDeleteSubtarea(taskId, subtarea.id);
   return (
-    <div className="flex items-center gap-2.5 rounded-[10px] border border-ink-200 bg-white px-3 py-2 text-[13px]">
+    <div className="flex items-center gap-2.5 rounded-10 border border-ink-200 bg-white px-3 py-2 text-[13px]">
       <Checkbox
         checked={subtarea.completada}
         onCheckedChange={(checked) => {
@@ -566,7 +566,7 @@ function CommentSection({ taskId }: { taskId: string }) {
       ) : (
         <div className="flex flex-col gap-2.5">
           {sorted.map((c) => (
-            <div key={c.id} className="rounded-[12px] bg-white px-3 py-2.5">
+            <div key={c.id} className="rounded-12 bg-white px-3 py-2.5">
               <div className="flex items-center gap-2 text-[11.5px] font-semibold text-ink-800">
                 <span className="grid size-5 place-items-center rounded-full bg-rose-100 text-[9px] font-bold text-rose-700">
                   {iniciales(c.autor_nombre)}
@@ -592,14 +592,14 @@ function CommentSection({ taskId }: { taskId: string }) {
             }
           }}
           placeholder="Escribe un comentario…"
-          className="h-9 rounded-[10px] bg-white px-3 text-[13px]"
+          className="h-9 rounded-10 bg-white px-3 text-[13px]"
         />
         <Button
           type="button"
           size="sm"
           disabled={!texto.trim() || addComment.isPending}
           onClick={() => void enviar()}
-          className="h-9 shrink-0 rounded-[10px] px-3 font-bold"
+          className="h-9 shrink-0 rounded-10 px-3 font-bold"
         >
           <MessageSquarePlus className="size-4" strokeWidth={1.9} />
           Comentar
@@ -657,7 +657,7 @@ function AttachmentSection({ taskId }: { taskId: string }) {
           size="sm"
           disabled={upload.isPending}
           onClick={() => inputRef.current?.click()}
-          className="h-9 rounded-[10px] px-3 font-semibold"
+          className="h-9 rounded-10 px-3 font-semibold"
         >
           {upload.isPending ? (
             <LoaderCircle className="size-4 animate-spin" />
@@ -685,7 +685,7 @@ function AttachmentSection({ taskId }: { taskId: string }) {
 
 function AdjuntoRow({ taskId, adjunto }: { taskId: string; adjunto: Adjunto }) {
   return (
-    <div className="flex items-center gap-2.5 rounded-[10px] bg-white px-3 py-2 text-[13px]">
+    <div className="flex items-center gap-2.5 rounded-10 bg-white px-3 py-2 text-[13px]">
       <Paperclip className="size-4 shrink-0 text-ink-500" strokeWidth={1.9} />
       <span className="min-w-0 flex-1 truncate font-medium text-ink-800">{adjunto.nombre}</span>
       <span className="font-mono text-[10.5px] text-ink-500">
@@ -724,7 +724,7 @@ function DangerZone({ taskId, onDeleted }: { taskId: string; onDeleted: () => vo
         type="button"
         variant="destructive"
         onClick={() => setConfirmOpen(true)}
-        className="self-start rounded-[10px] px-3 font-semibold"
+        className="self-start rounded-10 px-3 font-semibold"
       >
         <Trash2 className="size-4" strokeWidth={1.8} />
         Eliminar tarea
@@ -777,7 +777,7 @@ function ConfirmDeleteDialog({
             variant="destructive"
             disabled={pending}
             onClick={onConfirm}
-            className="rounded-[12px] font-bold"
+            className="rounded-12 font-bold"
           >
             {pending && <LoaderCircle className="size-4 animate-spin" />}
             Eliminar

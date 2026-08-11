@@ -108,7 +108,7 @@ export function PrintFicha({ clientId }: { clientId: string }) {
         <p className="text-[13px] text-ink-600">
           Vista de impresión de la ficha completa.
         </p>
-        <Button onClick={() => window.print()} className="rounded-[12px] px-4 font-bold">
+        <Button onClick={() => window.print()} className="rounded-12 px-4 font-bold">
           <Printer className="size-4" />
           Imprimir
         </Button>
@@ -231,7 +231,7 @@ function FichaReporte({ data }: { data: FichaData }) {
         ) : (
           <ul className="flex flex-col gap-3">
             {data.oportunidades.map((o) => (
-              <li key={o.id} className="rounded-[12px] border border-ink-200 p-3.5">
+              <li key={o.id} className="rounded-12 border border-ink-200 p-3.5">
                 <div className="flex items-baseline justify-between gap-4">
                   <p className="text-[13px] font-bold text-ink-950">{o.nombre}</p>
                   <p className="font-mono text-[12px] tabular-nums">{formatCOP(o.valor_estimado_cop)}</p>
@@ -260,7 +260,7 @@ function FichaReporte({ data }: { data: FichaData }) {
         ) : (
           <ul className="flex flex-col gap-2.5">
             {data.compromisos.map((t) => (
-              <li key={t.id} className="rounded-[12px] border border-ink-200 p-3.5">
+              <li key={t.id} className="rounded-12 border border-ink-200 p-3.5">
                 <div className="flex items-baseline justify-between gap-4">
                   <p className="text-[13px] font-bold text-ink-950">{t.titulo}</p>
                   <p className="text-[11.5px] text-ink-600">
@@ -287,7 +287,7 @@ function FichaReporte({ data }: { data: FichaData }) {
         ) : (
           <ul className="flex flex-col gap-2.5">
             {[...data.bitacora].reverse().map((e) => (
-              <li key={e.id} className="rounded-[12px] border border-ink-200 p-3.5">
+              <li key={e.id} className="rounded-12 border border-ink-200 p-3.5">
                 <p className="font-mono text-[10.5px] text-ink-500">
                   {e.autor_nombre} · {formatFechaHora(e.created_at)}
                 </p>
@@ -382,7 +382,7 @@ function FichaError({ clave, message }: { clave: string; message: string }) {
         <Button
           onClick={() => window.location.reload()}
           variant="outline"
-          className="mt-5 rounded-[13px] px-4 font-semibold"
+          className="mt-5 rounded-lg px-4 font-semibold"
         >
           Reintentar
         </Button>

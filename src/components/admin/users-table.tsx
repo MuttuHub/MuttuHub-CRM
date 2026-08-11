@@ -162,7 +162,7 @@ export function UsersTable({
       {notice && (
         <div
           role="alert"
-          className="flex items-center gap-2.5 rounded-[14px] border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
+          className="flex items-center gap-2.5 rounded-14 border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
         >
           <AlertTriangle className="size-4 shrink-0" strokeWidth={1.9} />
           {notice}
@@ -487,7 +487,7 @@ function NewUserDialog({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger
           render={
-            <Button className="rounded-[13px] px-4 font-bold">
+            <Button className="rounded-lg px-4 font-bold">
               <Plus />
               Nuevo usuario
             </Button>
@@ -511,7 +511,7 @@ function NewUserDialog({
                 id="nuevo-nombre"
                 required
                 placeholder="Nombre y apellido"
-                className="h-10 rounded-[12px] bg-white px-3"
+                className="h-10 rounded-12 bg-white px-3"
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
               />
@@ -523,7 +523,7 @@ function NewUserDialog({
                 type="email"
                 required
                 placeholder="nombre@muttu.co"
-                className="h-10 rounded-[12px] bg-white px-3"
+                className="h-10 rounded-12 bg-white px-3"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -531,7 +531,7 @@ function NewUserDialog({
             <div className="flex flex-col gap-2">
               <Label>Rol</Label>
               <Select value={rol} onValueChange={(v) => setRol(v as RolUsuario)}>
-                <SelectTrigger className="h-10 w-full rounded-[12px] bg-white px-3">
+                <SelectTrigger className="h-10 w-full rounded-12 bg-white px-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -549,7 +549,7 @@ function NewUserDialog({
                 value={invite ? "invite" : "password"}
                 onValueChange={(v) => setInvite(v === "invite")}
               >
-                <SelectTrigger className="h-10 w-full rounded-[12px] bg-white px-3">
+                <SelectTrigger className="h-10 w-full rounded-12 bg-white px-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -574,7 +574,7 @@ function NewUserDialog({
                   required
                   autoComplete="new-password"
                   placeholder="Mínimo 8 caracteres, con letras y números"
-                  className="h-10 rounded-[12px] bg-white px-3"
+                  className="h-10 rounded-12 bg-white px-3"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />

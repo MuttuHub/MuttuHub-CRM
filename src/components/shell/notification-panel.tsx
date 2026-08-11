@@ -51,8 +51,8 @@ const REFETCH_INTERVAL_MS = 60_000;
 type BucketKey = "vencidos" | "hoy" | "proximos3";
 
 const BUCKETS: { key: BucketKey; label: string; className: string }[] = [
-  { key: "vencidos", label: "VENCIDOS", className: "text-rose-600" },
-  { key: "hoy", label: "VENCEN HOY", className: "text-amber-600" },
+  { key: "vencidos", label: "VENCIDOS", className: "text-rose-700" },
+  { key: "hoy", label: "VENCEN HOY", className: "text-alerta" },
   { key: "proximos3", label: "PRÓXIMOS 3 DÍAS", className: "text-ink-600" },
 ];
 
@@ -147,7 +147,7 @@ export function NotificationPanel() {
         aria-label={unread > 0 ? `Notificaciones, ${unread} sin leer` : "Notificaciones"}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className="relative grid size-10 place-items-center rounded-[13px] border border-ink-200 bg-white text-ink-700 transition-colors after:absolute after:content-[''] after:-inset-0.5 hover:bg-ink-100"
+        className="relative grid size-10 place-items-center rounded-lg border border-ink-200 bg-white text-ink-700 transition-colors after:absolute after:content-[''] after:-inset-0.5 hover:bg-ink-100"
       >
         <Bell className="size-4" strokeWidth={1.7} />
         {unread > 0 && (
@@ -216,7 +216,7 @@ export function NotificationPanel() {
                   type="button"
                   onClick={() => markAllRead.mutate()}
                   disabled={markAllRead.isPending || unread === 0}
-                  className="relative flex h-9 w-full items-center justify-center gap-2 rounded-[12px] bg-ink-100 text-[12.5px] font-semibold text-ink-800 transition-colors after:absolute after:content-[''] after:-inset-1 hover:bg-ink-200 disabled:opacity-45"
+                  className="relative flex h-9 w-full items-center justify-center gap-2 rounded-12 bg-ink-100 text-[12.5px] font-semibold text-ink-800 transition-colors after:absolute after:content-[''] after:-inset-1 hover:bg-ink-200 disabled:opacity-45"
                 >
                   <CheckCheck className="size-3.5" strokeWidth={1.9} />
                   {markAllRead.isPending ? "Marcando…" : "Marcar todas como leídas"}
@@ -249,7 +249,7 @@ function AlertRow({
       <button
         type="button"
         onClick={() => onOpen(item)}
-        className="flex w-full flex-col gap-1 rounded-[12px] px-3 py-2.5 text-left transition-colors hover:bg-ink-100/70"
+        className="flex w-full flex-col gap-1 rounded-12 px-3 py-2.5 text-left transition-colors hover:bg-ink-100/70"
       >
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate text-[13px] font-semibold text-ink-800">{item.titulo}</span>
@@ -274,9 +274,9 @@ function LoadingState() {
   return (
     <div className="space-y-3 px-4 py-4">
       <Skeleton className="h-3 w-24" />
-      <Skeleton className="h-11 w-full rounded-[12px]" />
-      <Skeleton className="h-11 w-full rounded-[12px]" />
-      <Skeleton className="h-11 w-full rounded-[12px]" />
+      <Skeleton className="h-11 w-full rounded-12" />
+      <Skeleton className="h-11 w-full rounded-12" />
+      <Skeleton className="h-11 w-full rounded-12" />
     </div>
   );
 }

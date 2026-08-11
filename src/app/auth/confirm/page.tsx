@@ -126,7 +126,7 @@ function ConfirmInner() {
         </p>
         <Link
           href="/login"
-          className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-[13px] bg-primary text-[14px] font-bold text-primary-foreground transition-colors hover:bg-primary/80"
+          className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary text-[14px] font-bold text-primary-foreground transition-colors hover:bg-primary/80"
         >
           Ir a iniciar sesión
         </Link>
@@ -148,7 +148,7 @@ function ConfirmInner() {
         </p>
         <Link
           href="/login"
-          className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-[13px] bg-primary text-[14px] font-bold text-primary-foreground transition-colors hover:bg-primary/80"
+          className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary text-[14px] font-bold text-primary-foreground transition-colors hover:bg-primary/80"
         >
           Volver a iniciar sesión
         </Link>

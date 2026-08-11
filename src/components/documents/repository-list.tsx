@@ -214,7 +214,7 @@ export function RepositoryList() {
         </p>
         <Button
           onClick={() => setUploadOpen(true)}
-          className="h-9 rounded-[13px] px-4 font-bold"
+          className="h-9 rounded-lg px-4 font-bold"
         >
           <FileUp className="size-4" strokeWidth={1.9} />
           Subir documento
@@ -242,7 +242,7 @@ export function RepositoryList() {
               size="sm"
               disabled={zipPending}
               onClick={() => void descargarSeleccion()}
-              className="h-9 rounded-[12px] border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+              className="h-9 rounded-12 border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
             >
               {zipPending ? (
                 <LoaderCircle className="size-4 animate-spin" />
@@ -298,7 +298,7 @@ export function RepositoryList() {
 /* ── Fila de filtros ───────────────────────────────────────────────────── */
 
 const SELECT_CLASS =
-  "h-9 w-full rounded-[12px] border-ink-200 bg-white px-3 text-[13px]";
+  "h-9 w-full rounded-12 border-ink-200 bg-white px-3 text-[13px]";
 
 function SectionFilters({
   local,
@@ -489,7 +489,7 @@ function DocumentsTableCard({
       {query.isLoading ? (
         <div className="space-y-3 p-6">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full rounded-[12px]" />
+            <Skeleton key={i} className="h-12 w-full rounded-12" />
           ))}
         </div>
       ) : isEmpty ? (
@@ -708,7 +708,7 @@ function PaginationFooter({
           size="sm"
           disabled={page <= 1}
           onClick={() => onPage(page - 1)}
-          className="h-8 rounded-[10px] px-2.5 text-[12.5px] font-semibold after:-inset-1"
+          className="h-8 rounded-10 px-2.5 text-[12.5px] font-semibold after:-inset-1"
         >
           Anterior
         </Button>
@@ -720,7 +720,7 @@ function PaginationFooter({
               size="sm"
               onClick={() => onPage(p)}
               className={cn(
-                "h-8 min-w-8 rounded-[10px] px-2 text-[12.5px] font-bold after:-inset-1",
+                "h-8 min-w-8 rounded-10 px-2 text-[12.5px] font-bold after:-inset-1",
                 p === page && "bg-ink-950 text-white hover:bg-ink-800",
               )}
             >
@@ -737,7 +737,7 @@ function PaginationFooter({
           size="sm"
           disabled={page >= totalPages}
           onClick={() => onPage(page + 1)}
-          className="h-8 rounded-[10px] px-2.5 text-[12.5px] font-semibold after:-inset-1"
+          className="h-8 rounded-10 px-2.5 text-[12.5px] font-semibold after:-inset-1"
         >
           Siguiente
         </Button>
@@ -763,7 +763,7 @@ function EmptyDocuments({ onOpenUpload }: { onOpenUpload: () => void }) {
           <span className="font-semibold text-ink-900">{'"Subir documento"'}</span> o
           ajusta los filtros para ver más resultados.
         </p>
-        <Button onClick={onOpenUpload} className="mt-5 rounded-[13px] px-4 font-bold">
+        <Button onClick={onOpenUpload} className="mt-5 rounded-lg px-4 font-bold">
           <FileUp className="size-4" strokeWidth={1.9} />
           Subir documento
         </Button>

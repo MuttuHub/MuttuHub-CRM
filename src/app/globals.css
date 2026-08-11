@@ -95,6 +95,12 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  /* Control radii taken verbatim from the approved mock (exact px, no
+     rounding): components use these instead of arbitrary literals. */
+  --radius-10: 10px;
+  --radius-11: 11px;
+  --radius-12: 12px;
+  --radius-14: 14px;
 }
 
 :root {

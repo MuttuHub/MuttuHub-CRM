@@ -139,7 +139,7 @@ function ResetConfirmInner() {
         </p>
         <Link
           href="/login"
-          className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-[13px] bg-primary text-[14px] font-bold text-primary-foreground transition-colors hover:bg-primary/80"
+          className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary text-[14px] font-bold text-primary-foreground transition-colors hover:bg-primary/80"
         >
           Ir a iniciar sesión
         </Link>
@@ -162,7 +162,7 @@ function ResetConfirmInner() {
       {error && (
         <div
           role="alert"
-          className="mt-4 rounded-[14px] border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
+          className="mt-4 rounded-14 border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
         >
           {error}
         </div>
@@ -177,7 +177,7 @@ function ResetConfirmInner() {
             autoComplete="new-password"
             required
             placeholder="••••••••"
-            className="h-11 rounded-[13px] bg-white px-3.5"
+            className="h-11 rounded-lg bg-white px-3.5"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
@@ -191,7 +191,7 @@ function ResetConfirmInner() {
             autoComplete="new-password"
             required
             placeholder="••••••••"
-            className="h-11 rounded-[13px] bg-white px-3.5"
+            className="h-11 rounded-lg bg-white px-3.5"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
           />
@@ -200,7 +200,7 @@ function ResetConfirmInner() {
         <Button
           type="submit"
           disabled={status === "loading"}
-          className="mt-1 h-11 rounded-[13px] text-[14px] font-bold"
+          className="mt-1 h-11 rounded-lg text-[14px] font-bold"
         >
           {status === "loading" && (
             <LoaderCircle className="size-4 animate-spin" strokeWidth={2} />

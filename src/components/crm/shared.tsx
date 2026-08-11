@@ -81,7 +81,7 @@ export function InitialsAvatar({
   return (
     <span
       className={cn(
-        "grid size-8 shrink-0 place-items-center rounded-[11px] bg-ink-100 text-[10.5px] font-bold text-ink-700",
+        "grid size-8 shrink-0 place-items-center rounded-11 bg-ink-100 text-[10.5px] font-bold text-ink-700",
         className,
       )}
     >

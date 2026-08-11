@@ -87,14 +87,14 @@ export function DashboardTabs({ notice }: { notice?: string }) {
   return (
     <div className="flex min-w-0 flex-col gap-4">
       {notice === "admin_only" && (
-        <div className="flex items-center gap-2.5 rounded-[14px] border border-alerta/30 bg-alerta-bg px-4 py-3 text-[13px] font-medium text-alerta">
+        <div className="flex items-center gap-2.5 rounded-14 border border-alerta/30 bg-alerta-bg px-4 py-3 text-[13px] font-medium text-alerta">
           <Flag className="size-4 shrink-0" strokeWidth={1.9} />
           Solo los administradores pueden acceder a Usuarios y permisos.
         </div>
       )}
 
       {/* Tabs: las 4 caras */}
-      <div className="flex flex-wrap items-center gap-1 rounded-[13px] bg-ink-100 p-1">
+      <div className="flex flex-wrap items-center gap-1 rounded-lg bg-ink-100 p-1">
         {CARAS.map((c) => (
           <button
             key={c.id}
@@ -125,7 +125,7 @@ export function DashboardTabs({ notice }: { notice?: string }) {
           </div>
 
           <Select value={responsable} onValueChange={(v) => v !== null && setResponsable(v)}>
-            <SelectTrigger size="sm" className="h-8 rounded-[11px] bg-white">
+            <SelectTrigger size="sm" className="h-8 rounded-11 bg-white">
               <SelectValue placeholder="Todos los responsables" />
             </SelectTrigger>
             <SelectContent>
@@ -139,7 +139,7 @@ export function DashboardTabs({ notice }: { notice?: string }) {
           </Select>
 
           <Select value={tipoCliente} onValueChange={(v) => v !== null && setTipoCliente(v)}>
-            <SelectTrigger size="sm" className="h-8 rounded-[11px] bg-white">
+            <SelectTrigger size="sm" className="h-8 rounded-11 bg-white">
               <SelectValue placeholder="Todos los tipos" />
             </SelectTrigger>
             <SelectContent>
@@ -155,7 +155,7 @@ export function DashboardTabs({ notice }: { notice?: string }) {
           <div className="ml-auto">
             <Button
               onClick={generarReporte}
-              className="h-9 rounded-[13px] px-4 font-bold"
+              className="h-9 rounded-lg px-4 font-bold"
             >
               <Printer className="size-4" strokeWidth={1.9} />
               Generar reporte
