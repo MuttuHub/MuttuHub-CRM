@@ -339,6 +339,7 @@ export function AccesoPage({
         background: malo ? C.destructivoBg : "#fff",
         border: `1px solid ${malo ? C.destructivo : C.ink300}`,
         borderRadius: 13,
+        // focus-visible ring via the shared .login-focus rule (globals.css).
         outline: "none",
       } as React.CSSProperties,
     };
@@ -355,6 +356,8 @@ export function AccesoPage({
           : vista === "registro"
             ? { txt: "Tu solicitud queda en revisión: la administración asigna el rol antes de darte acceso.", bg: C.infoBg, fg: C.info, icon: "i" }
             : null;
+
+  const avisoEsError = error !== "" || (errorOauth && vista === "login");
 
   const tabDeshabilitado = vista === "recuperar" || vista === "enviado";
 
@@ -513,6 +516,7 @@ export function AccesoPage({
                       key={v}
                       type="button"
                       onClick={ir(v)}
+                      className="login-focus"
                       style={{
                         flex: "1 1 0",
                         height: 36,
@@ -539,14 +543,17 @@ export function AccesoPage({
             <p style={{ margin: "0 0 22px", fontSize: 14, color: C.ink600, lineHeight: 1.5 }}>{VISTAS[vista].sub}</p>
 
             {expired && (
-              <div style={{ display: "flex", gap: 10, marginBottom: 18, padding: "11px 13px", borderRadius: 13, background: C.destructivoBg, color: C.destructivo, fontSize: 12.5, fontWeight: 500 }}>
+              <div
+                role="alert"
+                style={{ display: "flex", gap: 10, marginBottom: 18, padding: "11px 13px", borderRadius: 13, background: C.destructivoBg, color: C.destructivo, fontSize: 12.5, fontWeight: 500 }}
+              >
                 <span style={{ fontWeight: 700 }}>✕</span>
                 <span>Tu sesión expiró. Inicia sesión nuevamente para continuar.</span>
               </div>
             )}
 
             {aviso && (
-              <div role="status" style={{ display: "flex", alignItems: "flex-start", gap: 9, marginBottom: 18, padding: "11px 13px", borderRadius: 13, background: aviso.bg, color: aviso.fg, fontSize: 12.5, fontWeight: 500, lineHeight: 1.45 }}>
+              <div role={avisoEsError ? "alert" : "status"} style={{ display: "flex", alignItems: "flex-start", gap: 9, marginBottom: 18, padding: "11px 13px", borderRadius: 13, background: aviso.bg, color: aviso.fg, fontSize: 12.5, fontWeight: 500, lineHeight: 1.45 }}>
                 <span aria-hidden="true" style={{ fontWeight: 700 }}>{aviso.icon}</span>
                 <span>{aviso.txt}</span>
               </div>
@@ -575,6 +582,7 @@ export function AccesoPage({
                         onChange={campo(f.k)}
                         autoComplete={f.autoComplete}
                         placeholder={f.placeholder}
+                        className="login-focus"
                         style={f.inputStyle}
                       />
                       {f.puedeVer && (
@@ -621,6 +629,7 @@ export function AccesoPage({
                         type="checkbox"
                         checked={recordar}
                         onChange={() => setRecordar((r) => !r)}
+                        className="login-focus"
                         style={{ width: 17, height: 17, accentColor: "#CD1560", cursor: "pointer" }}
                       />
                       <span style={{ fontSize: 13, color: C.ink800 }}>Recuérdame</span>
@@ -637,6 +646,7 @@ export function AccesoPage({
                       type="checkbox"
                       checked={terminos}
                       onChange={() => setTerminos((t) => !t)}
+                      className="login-focus"
                       style={{ width: 17, height: 17, marginTop: 2, accentColor: "#CD1560", cursor: "pointer", flex: "0 0 17px" }}
                     />
                     <span style={{ fontSize: 12.5, lineHeight: 1.45, color: C.ink600 }}>
@@ -654,6 +664,7 @@ export function AccesoPage({
                 <button
                   type="submit"
                   disabled={enviando}
+                  className="login-focus"
                   style={{
                     height: 48,
                     marginTop: 4,
@@ -681,6 +692,7 @@ export function AccesoPage({
                     <button
                       type="button"
                       onClick={() => void entrarConGoogle()}
+                      className="login-focus"
                       style={ssoStyle}
                     >
                       <GoogleIcon /> Google
