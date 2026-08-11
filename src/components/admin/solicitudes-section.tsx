@@ -391,7 +391,7 @@ function AprobarDialog({
             variant="outline"
             size="sm"
             disabled={disabled}
-            className="rounded-[10px] font-semibold"
+            className="rounded-[10px] font-semibold after:-inset-1"
           >
             Aprobar
           </Button>
@@ -465,7 +465,7 @@ function RechazarDialog({
             variant="ghost"
             size="sm"
             disabled={disabled}
-            className="rounded-[10px] font-semibold text-destructivo hover:text-destructivo"
+            className="rounded-[10px] font-semibold text-destructivo hover:text-destructivo after:-inset-1"
           >
             Rechazar
           </Button>

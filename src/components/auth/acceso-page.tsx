@@ -590,6 +590,7 @@ export function AccesoPage({
                           type="button"
                           onClick={() => setVer((v) => !v)}
                           aria-label={ver ? "Ocultar contraseña" : "Mostrar contraseña"}
+                          className="login-focus login-password-toggle"
                           style={{
                             position: "absolute",
                             right: 6,
@@ -625,16 +626,18 @@ export function AccesoPage({
                 {vista === "login" && (
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                     <label style={{ display: "inline-flex", alignItems: "center", gap: 9, cursor: "pointer" }}>
-                      <input
-                        type="checkbox"
-                        checked={recordar}
-                        onChange={() => setRecordar((r) => !r)}
-                        className="login-focus"
-                        style={{ width: 17, height: 17, accentColor: "#CD1560", cursor: "pointer" }}
-                      />
+                      <span style={{ display: "inline-flex", padding: 3.5, margin: -3.5 }}>
+                        <input
+                          type="checkbox"
+                          checked={recordar}
+                          onChange={() => setRecordar((r) => !r)}
+                          className="login-focus"
+                          style={{ width: 17, height: 17, accentColor: "#CD1560", cursor: "pointer" }}
+                        />
+                      </span>
                       <span style={{ fontSize: 13, color: C.ink800 }}>Recuérdame</span>
                     </label>
-                    <button type="button" onClick={ir("recuperar")} style={{ background: "none", border: 0, padding: 0, fontSize: 13, fontWeight: 600, color: C.rose, cursor: "pointer" }}>
+                    <button type="button" onClick={ir("recuperar")} style={{ background: "none", border: 0, padding: "5px 8px", margin: "-5px -8px", fontSize: 13, fontWeight: 600, color: C.rose, cursor: "pointer" }}>
                       ¿Olvidaste tu contraseña?
                     </button>
                   </div>
@@ -642,13 +645,15 @@ export function AccesoPage({
 
                 {vista === "registro" && (
                   <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={terminos}
-                      onChange={() => setTerminos((t) => !t)}
-                      className="login-focus"
-                      style={{ width: 17, height: 17, marginTop: 2, accentColor: "#CD1560", cursor: "pointer", flex: "0 0 17px" }}
-                    />
+                    <span style={{ display: "inline-flex", padding: 3.5, margin: "-1.5px -3.5px -5.5px", flex: "0 0 auto" }}>
+                      <input
+                        type="checkbox"
+                        checked={terminos}
+                        onChange={() => setTerminos((t) => !t)}
+                        className="login-focus"
+                        style={{ width: 17, height: 17, accentColor: "#CD1560", cursor: "pointer" }}
+                      />
+                    </span>
                     <span style={{ fontSize: 12.5, lineHeight: 1.45, color: C.ink600 }}>
                       Acepto la política de trataamiento de datos de Muttu y entiendo que mi actividad en el Hub queda registrada en la bitácora.
                     </span>

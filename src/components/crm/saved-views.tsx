@@ -152,7 +152,7 @@ export function SavedViewsMenu({
                   e.stopPropagation();
                   deleteView(view.id);
                 }}
-                className="mr-1 text-ink-500 opacity-0 hover:text-destructivo group-hover:opacity-100"
+                className="mr-1 text-ink-500 opacity-0 hover:text-destructivo group-hover:opacity-100 after:-inset-1"
               >
                 <Trash2 className="size-3.5" strokeWidth={1.8} />
               </Button>

@@ -644,7 +644,7 @@ function DocumentRow({
               e.stopPropagation();
               void downloadActiveVersion(doc).catch(() => undefined);
             }}
-            className="text-ink-500 hover:text-exito"
+            className="text-ink-500 hover:text-exito after:-inset-1"
           >
             <Download className="size-4" strokeWidth={1.8} />
           </Button>
@@ -656,7 +656,7 @@ function DocumentRow({
               e.stopPropagation();
               onOpen();
             }}
-            className="text-ink-500 hover:text-rose-700"
+            className="text-ink-500 hover:text-rose-700 after:-inset-1"
           >
             <Eye className="size-4" strokeWidth={1.8} />
           </Button>
@@ -708,7 +708,7 @@ function PaginationFooter({
           size="sm"
           disabled={page <= 1}
           onClick={() => onPage(page - 1)}
-          className="h-8 rounded-[10px] px-2.5 text-[12.5px] font-semibold"
+          className="h-8 rounded-[10px] px-2.5 text-[12.5px] font-semibold after:-inset-1"
         >
           Anterior
         </Button>
@@ -720,7 +720,7 @@ function PaginationFooter({
               size="sm"
               onClick={() => onPage(p)}
               className={cn(
-                "h-8 min-w-8 rounded-[10px] px-2 text-[12.5px] font-bold",
+                "h-8 min-w-8 rounded-[10px] px-2 text-[12.5px] font-bold after:-inset-1",
                 p === page && "bg-ink-950 text-white hover:bg-ink-800",
               )}
             >
@@ -737,7 +737,7 @@ function PaginationFooter({
           size="sm"
           disabled={page >= totalPages}
           onClick={() => onPage(page + 1)}
-          className="h-8 rounded-[10px] px-2.5 text-[12.5px] font-semibold"
+          className="h-8 rounded-[10px] px-2.5 text-[12.5px] font-semibold after:-inset-1"
         >
           Siguiente
         </Button>

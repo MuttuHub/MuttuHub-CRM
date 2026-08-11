@@ -198,6 +198,16 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-rose-500) 50%, transparent);
 }
 
+/* Login password-toggle: enlarges the clickable area (44px hit target)
+   without changing the visible 32px button. It sits absolutely inside the
+   password field, so the ::after anchors to it directly. */
+.login-password-toggle::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: inherit;
+}
+
 /* Utility compartida de las páginas de impresión (print/* y /print/dashboard):
    oculta la barra de herramientas al imprimir. Las rutas de impresión usan
    además los variantes print: de Tailwind (p. ej. print:p-0). */

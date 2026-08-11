@@ -265,7 +265,7 @@ export function CatalogsSection() {
                     type="button"
                     onClick={() => removeTag(tag)}
                     aria-label={`Eliminar etiqueta ${tag}`}
-                    className="grid size-5 place-items-center rounded-full text-ink-500 transition-colors hover:bg-rose-50 hover:text-rose-700"
+                    className="relative grid size-5 place-items-center rounded-full text-ink-500 transition-colors after:absolute after:content-[''] after:-inset-1 hover:bg-rose-50 hover:text-rose-700"
                   >
                     <X className="size-3" strokeWidth={2.2} />
                   </button>
@@ -339,7 +339,7 @@ export function CatalogsSection() {
                     type="button"
                     onClick={() => removeCategory(index)}
                     aria-label={`Eliminar categoría ${categoria.nombre || index + 1}`}
-                    className="grid size-7 shrink-0 place-items-center rounded-[9px] text-ink-500 transition-colors hover:bg-rose-50 hover:text-rose-700"
+                    className="relative grid size-7 shrink-0 place-items-center rounded-[9px] text-ink-500 transition-colors after:absolute after:content-[''] after:-inset-2 hover:bg-rose-50 hover:text-rose-700"
                   >
                     <X className="size-3.5" strokeWidth={2.2} />
                   </button>
@@ -351,7 +351,7 @@ export function CatalogsSection() {
           <button
             type="button"
             onClick={addCategory}
-            className="mt-3 inline-flex h-9 items-center justify-center gap-1.5 self-start rounded-[12px] border border-dashed border-ink-300 px-3 text-[12.5px] font-semibold text-ink-600 transition-colors hover:border-rose-400 hover:bg-rose-50 hover:text-rose-700"
+            className="relative mt-3 inline-flex h-9 items-center justify-center gap-1.5 self-start rounded-[12px] border border-dashed border-ink-300 px-3 text-[12.5px] font-semibold text-ink-600 transition-colors after:absolute after:content-[''] after:-inset-1 hover:border-rose-400 hover:bg-rose-50 hover:text-rose-700"
           >
             <Plus className="size-3.5" strokeWidth={2.2} />
             Agregar categoría

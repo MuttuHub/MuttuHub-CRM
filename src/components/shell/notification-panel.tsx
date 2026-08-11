@@ -147,7 +147,7 @@ export function NotificationPanel() {
         aria-label={unread > 0 ? `Notificaciones, ${unread} sin leer` : "Notificaciones"}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className="relative grid size-10 place-items-center rounded-[13px] border border-ink-200 bg-white text-ink-700 transition-colors hover:bg-ink-100"
+        className="relative grid size-10 place-items-center rounded-[13px] border border-ink-200 bg-white text-ink-700 transition-colors after:absolute after:content-[''] after:-inset-0.5 hover:bg-ink-100"
       >
         <Bell className="size-4" strokeWidth={1.7} />
         {unread > 0 && (
@@ -172,7 +172,7 @@ export function NotificationPanel() {
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Cerrar notificaciones"
-              className="grid size-7 place-items-center rounded-[9px] text-ink-500 transition-colors hover:bg-ink-100 hover:text-ink-900"
+              className="relative grid size-7 place-items-center rounded-[9px] text-ink-500 transition-colors after:absolute after:content-[''] after:-inset-2 hover:bg-ink-100 hover:text-ink-900"
             >
               <X className="size-4" strokeWidth={1.8} />
             </button>
@@ -216,7 +216,7 @@ export function NotificationPanel() {
                   type="button"
                   onClick={() => markAllRead.mutate()}
                   disabled={markAllRead.isPending || unread === 0}
-                  className="flex h-9 w-full items-center justify-center gap-2 rounded-[12px] bg-ink-100 text-[12.5px] font-semibold text-ink-800 transition-colors hover:bg-ink-200 disabled:opacity-45"
+                  className="relative flex h-9 w-full items-center justify-center gap-2 rounded-[12px] bg-ink-100 text-[12.5px] font-semibold text-ink-800 transition-colors after:absolute after:content-[''] after:-inset-1 hover:bg-ink-200 disabled:opacity-45"
                 >
                   <CheckCheck className="size-3.5" strokeWidth={1.9} />
                   {markAllRead.isPending ? "Marcando…" : "Marcar todas como leídas"}

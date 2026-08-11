@@ -85,7 +85,7 @@ export function Header() {
           type="button"
           onClick={() => setMobileOpen(true)}
           aria-label="Abrir menú"
-          className="mt-1 grid size-9 shrink-0 place-items-center rounded-[12px] border border-ink-200 bg-white text-ink-700 transition-colors hover:bg-ink-100 lg:hidden"
+          className="relative mt-1 grid size-9 shrink-0 place-items-center rounded-[12px] border border-ink-200 bg-white text-ink-700 transition-colors after:absolute after:content-[''] after:-inset-1 hover:bg-ink-100 lg:hidden"
         >
           <Menu className="size-4" strokeWidth={1.8} />
         </button>
@@ -102,7 +102,7 @@ export function Header() {
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label="Rango de fechas"
-              className="hidden h-10 cursor-pointer items-center gap-2 rounded-[13px] border border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 transition-colors hover:bg-ink-100 sm:inline-flex"
+              className="relative hidden h-10 cursor-pointer items-center gap-2 rounded-[13px] border border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 transition-colors after:absolute after:content-[''] after:-inset-0.5 hover:bg-ink-100 sm:inline-flex"
             >
               {RANGO_HEADER_LABELS[rango]}
               <ChevronDown className="size-3 text-ink-600" strokeWidth={1.8} />

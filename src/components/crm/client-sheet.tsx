@@ -485,6 +485,7 @@ function ContactosTab({
                 size="icon-sm"
                 aria-label={`Editar ${c.nombre}`}
                 onClick={() => onEdit(c)}
+                className="after:-inset-1"
               >
                 <Pencil className="size-3.5" strokeWidth={1.9} />
               </Button>
@@ -493,7 +494,7 @@ function ContactosTab({
                 size="icon-sm"
                 aria-label={`Eliminar ${c.nombre}`}
                 onClick={() => onDelete(c)}
-                className="text-ink-500 hover:text-destructivo"
+                className="text-ink-500 hover:text-destructivo after:-inset-1"
               >
                 <Trash2 className="size-3.5" strokeWidth={1.9} />
               </Button>
@@ -573,6 +574,7 @@ function OportunidadesTab({
                     size="icon-sm"
                     aria-label={`Editar ${o.nombre}`}
                     onClick={() => onEdit(o)}
+                    className="after:-inset-1"
                   >
                     <Pencil className="size-3.5" strokeWidth={1.9} />
                   </Button>
@@ -581,7 +583,7 @@ function OportunidadesTab({
                     size="icon-sm"
                     aria-label={`Eliminar ${o.nombre}`}
                     onClick={() => onDelete(o)}
-                    className="text-ink-500 hover:text-destructivo"
+                    className="text-ink-500 hover:text-destructivo after:-inset-1"
                   >
                     <Trash2 className="size-3.5" strokeWidth={1.9} />
                   </Button>
@@ -702,7 +704,7 @@ function CompromisosTab({
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-7 rounded-[9px] px-2.5 text-[11.5px] font-bold text-exito hover:bg-exito-bg hover:text-exito"
+                      className="h-7 rounded-[9px] px-2.5 text-[11.5px] font-bold text-exito hover:bg-exito-bg hover:text-exito after:-inset-1"
                       onClick={() => statusMutation.mutate({ taskId: t.id, estado: "COMPLETADA" })}
                       disabled={statusMutation.isPending}
                     >
@@ -713,7 +715,7 @@ function CompromisosTab({
                       ✓ Cumplido
                     </span>
                   )}
-                  <Button variant="ghost" size="icon-sm" aria-label={`Editar ${t.titulo}`} onClick={() => onEdit(t)}>
+                  <Button variant="ghost" size="icon-sm" aria-label={`Editar ${t.titulo}`} onClick={() => onEdit(t)} className="after:-inset-1">
                     <Pencil className="size-3.5" strokeWidth={1.9} />
                   </Button>
                   <Button
@@ -721,7 +723,7 @@ function CompromisosTab({
                     size="icon-sm"
                     aria-label={`Eliminar ${t.titulo}`}
                     onClick={() => onDelete(t)}
-                    className="text-ink-500 hover:text-destructivo"
+                    className="text-ink-500 hover:text-destructivo after:-inset-1"
                   >
                     <Trash2 className="size-3.5" strokeWidth={1.9} />
                   </Button>
