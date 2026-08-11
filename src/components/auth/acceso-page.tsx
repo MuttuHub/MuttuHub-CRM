@@ -80,6 +80,9 @@ const PUNTOS = [
 
 const VIDEO_URL = "https://muttu.co/wp-content/uploads/2024/08/Comp-1_10_1.mp4";
 
+/** "Recuérdame": persisted email only — never the password. */
+const REMEMBERED_EMAIL_KEY = "rememberedEmail";
+
 type Campo = { label: string; type: string; value: string; placeholder: string; autoComplete: string; pista?: string; error?: string };
 
 export function AccesoPage({
@@ -99,7 +102,7 @@ export function AccesoPage({
   const [vista, setVista] = useState<Vista>("login");
   const [angosto, setAngosto] = useState(false);
   const [ver, setVer] = useState(false);
-  const [recordar, setRecordar] = useState(true);
+  const [recordar, setRecordar] = useState(false);
   const [terminos, setTerminos] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [videoFalla, setVideoFalla] = useState(false);
@@ -124,6 +127,25 @@ export function AccesoPage({
     }, 3500);
 
     return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  // "Recuérdame": prefill the email field and check the box when a previous
+  // login opted in. Deferred past mount (setTimeout 0): the React Compiler
+  // lint forbids synchronous setState in an effect body, and reading
+  // localStorage during render would mismatch the SSR HTML.
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      try {
+        const guardado = window.localStorage.getItem(REMEMBERED_EMAIL_KEY);
+        if (guardado) {
+          setRecordar(true);
+          setVal((st) => ({ ...st, email: guardado }));
+        }
+      } catch {
+        // localStorage unavailable (private mode): leave the defaults.
+      }
+    }, 0);
+    return () => window.clearTimeout(t);
   }, []);
 
   const ir = (v: Vista) => () => {
@@ -176,6 +198,16 @@ export function AccesoPage({
         }
         if (body.sessionExpiresAt) {
           localStorage.setItem(SESSION_STORAGE_KEY, body.sessionExpiresAt);
+        }
+        // "Recuérdame": persist only the email, never the password.
+        try {
+          if (recordar) {
+            localStorage.setItem(REMEMBERED_EMAIL_KEY, val.email.trim());
+          } else {
+            localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+          }
+        } catch {
+          // localStorage unavailable: the login itself already succeeded.
         }
         router.push(next);
         router.refresh();
@@ -646,7 +678,11 @@ export function AccesoPage({
                       <span style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: ".07em", textTransform: "uppercase", color: C.ink600 }}>o continúa con</span>
                       <span style={{ flex: "1 1 auto", height: 1, background: "#ECE5E7" }} />
                     </div>
-                    <button type="button" onClick={() => void entrarConGoogle()} style={ssoStyle}>
+                    <button
+                      type="button"
+                      onClick={() => void entrarConGoogle()}
+                      style={ssoStyle}
+                    >
                       <GoogleIcon /> Google
                     </button>
                   </div>
