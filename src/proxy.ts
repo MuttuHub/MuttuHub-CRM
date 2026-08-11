@@ -14,9 +14,11 @@ const PUBLIC_PATHS = ["/login", "/auth/reset-password"];
 
 // Reachable by both anonymous and logged-in users: the email confirmation
 // link arrives with the OTP token in the query string and the page exchanges
-// it itself (verifyOtp / exchangeCodeForSession). Forcing login would drop
-// the token for fresh signups; forcing logout would break change-email flows.
-const NEUTRAL_PATHS = ["/auth/confirm"];
+// it itself (verifyOtp / exchangeCodeForSession); the Google OAuth callback
+// lands here right after the provider redirect (exchangeCodeForSession).
+// Forcing login would drop the token/fresh signups; forcing logout would
+// break change-email flows and OAuth handbacks.
+const NEUTRAL_PATHS = ["/auth/confirm", "/auth/callback"];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some(
