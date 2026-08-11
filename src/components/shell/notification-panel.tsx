@@ -40,7 +40,9 @@ export type NotificationsSnapshot = {
   leidas_ids: string[];
 };
 
-const notificationQueryKey = ["notifications", "snapshot"] as const;
+// Shared query key: the header home greeting reads the same snapshot to show
+// real "vencidos / vencen hoy" counts (TanStack Query dedupes the fetch).
+export const notificationQueryKey = ["notifications", "snapshot"] as const;
 
 const REFETCH_INTERVAL_MS = 60_000;
 
@@ -142,7 +144,7 @@ export function NotificationPanel() {
       <button
         type="button"
         onClick={toggle}
-        aria-label="Notificaciones"
+        aria-label={unread > 0 ? `Notificaciones, ${unread} sin leer` : "Notificaciones"}
         aria-expanded={open}
         aria-haspopup="dialog"
         className="relative grid size-10 place-items-center rounded-[13px] border border-ink-200 bg-white text-ink-700 transition-colors hover:bg-ink-100"

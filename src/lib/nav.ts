@@ -60,11 +60,9 @@ export type PageHeader = {
 };
 
 export const PAGE_HEADERS: Record<string, PageHeader> = {
-  "/": {
-    title: "Hola, Adriana",
-    subtitle:
-      "Jueves 6 de agosto · 3 compromisos vencidos y 4 tareas que vencen hoy.",
-  },
+  // "/" is a placeholder: header.tsx overrides it with the signed-in user's
+  // first name, today's date and real notification counts.
+  "/": { title: "Hola", subtitle: "" },
   "/clientes": {
     title: "Aliados y clientes",
     subtitle:

@@ -1,11 +1,19 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, Menu } from "lucide-react";
 import { PAGE_HEADERS } from "@/lib/nav";
+import { useCurrentUser } from "@/hooks/kanban";
+import { apiGet } from "@/lib/api/http";
+import { DEMO_USER } from "@/lib/mock/demo";
 import { useSidebarStore } from "@/store/sidebar";
 import { RANGO_HEADER_LABELS, RANGO_OPCIONES, useFiltersStore, type RangoFiltro } from "@/store/filters";
-import { NotificationPanel } from "@/components/shell/notification-panel";
+import {
+  NotificationPanel,
+  notificationQueryKey,
+  type NotificationsSnapshot,
+} from "@/components/shell/notification-panel";
 import { UserMenu } from "@/components/shell/user-menu";
 import {
   DropdownMenu,
@@ -15,15 +23,56 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+/** Today as "Jueves 6 de agosto" (es-CO, capitalised, no comma). */
+function fechaHoy(): string {
+  const hoy = new Date();
+  const texto = hoy.toLocaleDateString("es-CO", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  const limpio = texto.replace(/,/g, "").trim();
+  return limpio.charAt(0).toUpperCase() + limpio.slice(1);
+}
+
+/** Home subtitle: today's date plus real counts from the notifications snapshot. */
+function subtituloInicio(snapshot: NotificationsSnapshot | undefined): string {
+  const fecha = fechaHoy();
+  if (!snapshot) return fecha;
+  const vencidos = snapshot.vencidos.filter((i) => i.origen === "CRM").length;
+  const hoy = snapshot.hoy.filter((i) => i.origen !== "CRM").length;
+  const partes: string[] = [];
+  if (vencidos > 0) {
+    partes.push(`${vencidos} ${vencidos === 1 ? "compromiso vencido" : "compromisos vencidos"}`);
+  }
+  if (hoy > 0) {
+    partes.push(`${hoy} ${hoy === 1 ? "tarea que vence hoy" : "tareas que vencen hoy"}`);
+  }
+  return partes.length > 0 ? `${fecha} · ${partes.join(" y ")}` : fecha;
+}
+
 export function Header() {
   const pathname = usePathname();
   const setMobileOpen = useSidebarStore((s) => s.setMobileOpen);
   const rango = useFiltersStore((s) => s.rango);
   const setRango = useFiltersStore((s) => s.setRango);
+  const userQuery = useCurrentUser();
+  // Same query as the notification bell: shared cache, no extra fetch.
+  const notificationsQuery = useQuery({
+    queryKey: notificationQueryKey,
+    queryFn: () => apiGet<NotificationsSnapshot>("/api/v1/notifications"),
+    enabled: pathname === "/",
+    retry: false,
+  });
+
   const page = PAGE_HEADERS[pathname] ?? {
     title: "Muttu Hub",
     subtitle: "",
   };
+  const nombre = userQuery.data?.nombre ?? DEMO_USER.nombre;
+  const title = pathname === "/" ? `Hola, ${nombre.split(" ")[0]}` : page.title;
+  const subtitle =
+    pathname === "/" ? subtituloInicio(notificationsQuery.data) : page.subtitle;
 
   return (
     <div className="flex items-start justify-between gap-4">
@@ -38,9 +87,9 @@ export function Header() {
         </button>
         <div className="min-w-0">
           <h1 className="font-display text-[31px] leading-none tracking-[-0.03em] font-extrabold text-ink-950 lg:text-[34px]">
-            {page.title}
+            {title}
           </h1>
-          <p className="mt-2 text-[14px] text-ink-600">{page.subtitle}</p>
+          <p className="mt-2 text-[14px] text-ink-600">{subtitle}</p>
         </div>
       </div>
 
