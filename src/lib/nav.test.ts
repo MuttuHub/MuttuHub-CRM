@@ -25,4 +25,10 @@ describe("isNavActive", () => {
     expect(isNavActive("/clientes-nuevo", "/clientes")).toBe(true)
     expect(isNavActive("/tablero-old", "/tablero")).toBe(true)
   })
+
+  it("with exact, does not highlight the parent when a listed sibling subroute is active", () => {
+    expect(isNavActive("/administracion", "/administracion", true)).toBe(true)
+    expect(isNavActive("/administracion/solicitudes", "/administracion", true)).toBe(false)
+    expect(isNavActive("/administracion/solicitudes", "/administracion/solicitudes", true)).toBe(true)
+  })
 })

@@ -40,6 +40,9 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/administracion",
         label: "Administración",
         icon: Settings,
+        // Exact-match: /administracion/solicitudes is a sibling listed in the
+        // same group — without this, both items stay highlighted there.
+        exact: true,
       },
       {
         href: "/administracion/solicitudes",
