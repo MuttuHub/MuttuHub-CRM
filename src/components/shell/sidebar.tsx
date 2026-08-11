@@ -66,7 +66,7 @@ function SidebarContent({ rail }: { rail: boolean }) {
           href="/"
           aria-label="Muttu Hub · Inicio"
           className={cn(
-            "flex items-center",
+            "flex items-center rounded-[9px] focus-visible:ring-3 focus-visible:ring-ring/50",
             rail ? "flex-col gap-2" : "gap-2.5",
           )}
         >
@@ -87,7 +87,7 @@ function SidebarContent({ rail }: { rail: boolean }) {
           onClick={toggleCollapsed}
           aria-label={rail ? "Expandir menú" : "Contraer menú"}
           className={cn(
-            "grid size-[26px] shrink-0 place-items-center rounded-[9px] border border-shell-border text-shell-muted transition-colors hover:border-shell-kbd hover:text-shell-text",
+            "grid size-[26px] shrink-0 place-items-center rounded-[9px] border border-shell-border text-shell-muted transition-colors hover:border-shell-kbd hover:text-shell-text focus-visible:ring-3 focus-visible:ring-ring/50",
             rail ? "mt-1 block" : "block",
           )}
         >
@@ -131,7 +131,7 @@ function SidebarContent({ rail }: { rail: boolean }) {
                 <Link
                   href={item.href}
                   className={cn(
-                    "flex h-[36px] w-full items-center gap-2.5 rounded-[11px] transition-colors",
+                    "flex h-[36px] w-full items-center gap-2.5 rounded-[11px] transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
                     rail ? "justify-center" : "px-3",
                     active
                       ? "bg-rose-500 font-semibold text-white"
