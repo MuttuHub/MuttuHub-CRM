@@ -337,6 +337,24 @@ model CronLog {
   @@map("cron_logs")
 }
 
+// PRD §3.1 — public access requests: who asked to join and how it was approved
+// (email form or Google OAuth). `revisado_por` / `auth_id` are log-only
+// columns without FK (same pattern as Setting.updated_by).
+model SolicitudAcceso {
+  id           String   @id @default(uuid())
+  nombre       String
+  email        String
+  cargo        String?
+  origen       String   @default("form") // "form" | "google" — how the request arrived
+  auth_id      String? // when origen=google: id of the auth user already created by Supabase
+  estado       String   @default("PENDIENTE") // PENDIENTE | APROBADA | RECHAZADA
+  revisado_por String?
+  revisado_at  DateTime?
+  created_at   DateTime @default(now())
+
+  @@map("solicitudes_acceso")
+}
+
 // PRD §3.3 — setting key/value para los catálogos configurables desde el admin
 // (task_tags, doc_categories y futuros). `value` guarda el JSON del catálogo;
 // `updated_by` es el id del usuario que lo editó (sin FK, log-only).
