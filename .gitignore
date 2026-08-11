@@ -35,7 +35,8 @@ yarn-error.log*
 !.env.example
 
 # vercel
-.vercel
+.vercel/*
+!.vercel/project.json
 
 # typescript
 *.tsbuildinfo
@@ -50,7 +51,12 @@ next-env.d.ts
 .claude/
 skills-lock.json
 
-# TestSprite suite (generated; contains real QA credentials hardcoded)
-testsprite_tests/
-testsprite_tests/tmp/
+# TestSprite suite — tests ARE committed (the GitHub Action needs them);
+# only tmp internals with real secrets stay ignored
+testsprite_tests/tmp/*
+!testsprite_tests/tmp/test_results.json
 testsprite_tests/tmp/config.json
+testsprite_tests/tmp/mcp.log
+testsprite_tests/tmp/code_summary.yaml
+testsprite_tests/tmp/raw_report.md
+testsprite_tests/tmp/prd_files/
