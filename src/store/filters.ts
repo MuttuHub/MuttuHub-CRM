@@ -41,6 +41,14 @@ export const useFiltersStore = create<FiltersState>()(
       name: "muttu-hub-filters",
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ rango: state.rango }),
+      // BUG-001: validar el rango hidratado contra RANGO_OPCIONES. Un valor
+      // inválido en localStorage (ej. "1000000") entraba literal y rompía
+      // RANGO_HEADER_LABELS[rango] en el header (undefined). Fallback "mes".
+      merge: (persisted, current) => {
+        const p = persisted as Partial<FiltersState>;
+        const valido = RANGO_OPCIONES.some((o) => o.value === p?.rango);
+        return { ...current, rango: valido ? (p.rango as RangoFiltro) : "mes" };
+      },
     },
   ),
 );
