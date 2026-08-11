@@ -14,6 +14,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { SESSION_STORAGE_KEY } from "@/lib/auth/types";
+import { createClient } from "@/lib/supabase/client";
 
 // ── Design tokens del mock (PRD §1.0/diseño) ──────────────────────────────
 const C = {
@@ -51,7 +52,7 @@ const VISTAS = {
     sub: "La administración revisa cada solicitud y asigna el rol antes de activarte.",
     submit: "Enviar solicitud",
     pie: ["¿Ya tienes cuenta?", "Entrar"],
-    campos: ["nombre", "email", "cargo", "password"] as const,
+    campos: ["nombre", "email", "cargo"] as const,
   },
   recuperar: {
     titulo: "Recupera tu contraseña",
@@ -71,13 +72,6 @@ const VISTAS = {
 
 type Vista = keyof typeof VISTAS;
 
-const REGLAS_PASSWORD = [
-  { label: "12 caracteres", ok: (p: string) => p.length >= 12 },
-  { label: "Una mayúscula", ok: (p: string) => /[A-ZÁÉÍÓÚÑ]/.test(p) },
-  { label: "Un número", ok: (p: string) => /[0-9]/.test(p) },
-  { label: "Un símbolo", ok: (p: string) => /[^A-Za-z0-9]/.test(p) },
-];
-
 const PUNTOS = [
   "Cartera de aliados con bitácora inmutable y compromisos con responsable y fecha.",
   "Tablero compartido: nada se pierde entre correos y grupos de WhatsApp.",
@@ -91,9 +85,13 @@ type Campo = { label: string; type: string; value: string; placeholder: string; 
 export function AccesoPage({
   next = "/",
   expired = false,
+  solicitud = false,
+  errorOauth = false,
 }: {
   next: string;
   expired: boolean;
+  solicitud: boolean;
+  errorOauth: boolean;
 }) {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -216,25 +214,57 @@ export function AccesoPage({
       return;
     }
 
-    // registro — sin backend público (PRD §3.1: la administradora crea el acceso)
+    // registro — solicitud pública: no password en este flujo (la elige el
+    // usuario cuando acepta el correo de invitación enviado tras la
+    // aprobación del admin). El POST es anónimo (sin sesión).
     if (!terminos) {
       setError("Debes aceptar la política de tratamiento de datos para continuar.");
       return;
     }
-    if (emailMal || !val.nombre.trim() || !val.email.trim() || !val.password) {
-      setError("Completa todos los campos antes de enviar la solicitud.");
+    if (emailMal || !val.nombre.trim() || !val.email.trim()) {
+      setError("Completa tu nombre y un correo válido.");
       return;
     }
     setEnviando(true);
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/v1/auth/solicitud-acceso", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: val.nombre,
+          email: val.email,
+          cargo: val.cargo || undefined,
+        }),
+      });
+      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) {
+        setError(body?.error ?? "No pudimos enviar tu solicitud. Inténtalo de nuevo.");
+        return;
+      }
+      setExito("¡Listo! Tu solicitud quedó en revisión: la administración asigna el rol antes de darte acceso.");
+    } catch {
+      setError("No pudimos enviar tu solicitud. Inténtalo de nuevo.");
+    } finally {
       setEnviando(false);
-      setExito("¡Listo! Tu solicitud quedó en revisión.");
-    }, 900);
+    }
   }
 
-  const pass = val.password;
-  const puntaje = REGLAS_PASSWORD.filter((r) => r.ok(pass)).length;
-  const colorFuerza = [C.ink300, C.destructivo, C.alerta, "#4E9A3F", C.exito][puntaje];
+  async function entrarConGoogle() {
+    setError("");
+    setExito("");
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/auth/callback` },
+      });
+      if (error) {
+        toast.error("No pudimos iniciar con Google. Inténtalo de nuevo.");
+      }
+    } catch {
+      toast.error("No pudimos iniciar con Google. Inténtalo de nuevo.");
+    }
+  }
 
   const DEF: Record<string, Partial<Campo>> = {
     nombre: { label: "Nombre completo", placeholder: "Adriana Gómez Restrepo", autoComplete: "name" },
@@ -286,9 +316,13 @@ export function AccesoPage({
     ? { txt: error, bg: C.destructivoBg, fg: C.destructivo, icon: "✕" }
     : exito
       ? { txt: exito, bg: C.exitoBg, fg: C.exito, icon: "✓" }
-      : vista === "registro"
-        ? { txt: "Tu solicitud queda en revisión: la administración asigna el rol antes de darte acceso.", bg: C.infoBg, fg: C.info, icon: "i" }
-        : null;
+      : errorOauth && vista === "login"
+        ? { txt: "No pudimos completar el inicio con Google. Inténtalo de nuevo.", bg: C.destructivoBg, fg: C.destructivo, icon: "✕" }
+        : solicitud && vista === "login"
+          ? { txt: "Tu solicitud quedó en revisión: la administración asigna el rol antes de darte acceso.", bg: C.infoBg, fg: C.info, icon: "i" }
+          : vista === "registro"
+            ? { txt: "Tu solicitud queda en revisión: la administración asigna el rol antes de darte acceso.", bg: C.infoBg, fg: C.info, icon: "i" }
+            : null;
 
   const tabDeshabilitado = vista === "recuperar" || vista === "enviado";
 
@@ -548,27 +582,6 @@ export function AccesoPage({
                   </label>
                 ))}
 
-                {vista === "registro" && (
-                  <div>
-                    <div style={{ display: "flex", gap: 5, marginBottom: 7 }}>
-                      {[0, 1, 2, 3].map((i) => (
-                        <span key={i} style={{ flex: "1 1 0", height: 5, borderRadius: 999, background: i < puntaje ? colorFuerza : C.ink200 }} />
-                      ))}
-                    </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px" }}>
-                      {REGLAS_PASSWORD.map((r) => {
-                        const ok = r.ok(pass);
-                        return (
-                          <span key={r.label} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, fontWeight: ok ? 600 : 500, color: ok ? C.exito : C.ink600 }}>
-                            <span aria-hidden="true">{ok ? "✓" : "·"}</span>
-                            {r.label}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
                 {vista === "login" && (
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                     <label style={{ display: "inline-flex", alignItems: "center", gap: 9, cursor: "pointer" }}>
@@ -600,6 +613,12 @@ export function AccesoPage({
                   </label>
                 )}
 
+                {vista === "registro" && (
+                  <p style={{ margin: "-6px 0 0", fontSize: 11.5, lineHeight: 1.45, color: C.ink600 }}>
+                    No pedimos contraseña en la solicitud: la elegirás cuando aceptes el correo de invitación tras la aprobación.
+                  </p>
+                )}
+
                 <button
                   type="submit"
                   disabled={enviando}
@@ -627,14 +646,9 @@ export function AccesoPage({
                       <span style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: ".07em", textTransform: "uppercase", color: C.ink600 }}>o continúa con</span>
                       <span style={{ flex: "1 1 auto", height: 1, background: "#ECE5E7" }} />
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9 }}>
-                      <button type="button" onClick={() => toast.info("Google llegará con el proveedor de identidad configurado.")} style={ssoStyle}>
-                        <GoogleIcon /> Google
-                      </button>
-                      <button type="button" onClick={() => toast.info("Microsoft llegará con el proveedor de identidad configurado.")} style={ssoStyle}>
-                        <MicrosoftIcon /> Microsoft
-                      </button>
-                    </div>
+                    <button type="button" onClick={() => void entrarConGoogle()} style={ssoStyle}>
+                      <GoogleIcon /> Google
+                    </button>
                   </div>
                 )}
               </form>
@@ -662,6 +676,7 @@ export function AccesoPage({
 }
 
 const ssoStyle: React.CSSProperties = {
+  width: "100%",
   height: 44,
   display: "inline-flex",
   alignItems: "center",
@@ -692,17 +707,6 @@ function GoogleIcon() {
       <path d="M15.4 8.2c0-.5 0-1-.1-1.5H8v3h4.1a3.6 3.6 0 0 1-1.5 2.3l2.5 2a7.4 7.4 0 0 0 2.3-5.8Z" fill="#4285F4" />
       <path d="M3.8 9.4A4.6 4.6 0 0 1 3.6 8c0-.5.1-1 .2-1.4l-2.6-2A7.6 7.6 0 0 0 .4 8c0 1.2.3 2.4.8 3.4l2.6-2Z" fill="#FBBC05" />
       <path d="M8 15.6c2 0 3.8-.7 5.1-1.9l-2.5-2c-.7.5-1.6.8-2.6.8a4.6 4.6 0 0 1-4.2-3l-2.6 2A7.6 7.6 0 0 0 8 15.6Z" fill="#34A853" />
-    </svg>
-  );
-}
-
-function MicrosoftIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M1 1h6.6v6.6H1z" fill="#F35325" />
-      <path d="M8.4 1H15v6.6H8.4z" fill="#81BC06" />
-      <path d="M1 8.4h6.6V15H1z" fill="#05A6F0" />
-      <path d="M8.4 8.4H15V15H8.4z" fill="#FFBA08" />
     </svg>
   );
 }

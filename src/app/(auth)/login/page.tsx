@@ -11,7 +11,16 @@ function LoginRoute() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/";
   const expired = searchParams.get("expired") === "1";
-  return <AccesoPage next={next} expired={expired} />;
+  const solicitud = searchParams.get("solicitud") === "1";
+  const errorOauth = searchParams.get("error") === "1";
+  return (
+    <AccesoPage
+      next={next}
+      expired={expired}
+      solicitud={solicitud}
+      errorOauth={errorOauth}
+    />
+  );
 }
 
 export default function LoginPage() {
