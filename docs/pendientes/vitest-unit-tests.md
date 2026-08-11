@@ -99,7 +99,7 @@ Pura lógica, cero mocking de Supabase — máximo valor, mínimo riesgo.
 
 1. `npm run test:coverage` → thresholds reales: **lines 60 / statements 60 / functions 60 / branches 50** (medidos: 66.7 / 65.0 / 69.3 / 55.9). Meta del plan (lib ≥70%) alcanzada en el núcleo: utils/nav/catalogs/dashboard/settings al 100%; el global baja por `lib/api` y `lib/mock` arrastrados por imports transitivos (el exclude no filtra el grafo cargado en este combo de versiones — mitigación documentada en `vitest.config.ts`).
 2. README: sección **Testing** + scripts `test`/`test:watch`/`test:coverage`.
-3. (Opcional, sigue pendiente) GitHub Action con `npm test` en PR — ver `plan-supabase-manana.md` §6.
+3. GitHub Action con `npm test` en PR — **hecha (`.github/workflows/ci.yml`, 2026-08-10)**
 
 ---
 
@@ -125,7 +125,7 @@ Pura lógica, cero mocking de Supabase — máximo valor, mínimo riesgo.
 
 ## Pendientes relacionados (no bloquean Vitest)
 
-- [ ] GitHub Action TestSprite + `npm test` como gate en PRs (1–2 hs, opcional) — también en `plan-supabase-manana.md` §6
+- [x] GitHub Action TestSprite + `npm test` como gate en PRs — **hecho 2026-08-10: `.github/workflows/ci.yml` (npm test + lint en PR/main, siempre activo) + `.github/workflows/testsprite.yml` (E2E TestSprite blocking; necesita `VERCEL_TOKEN` para previews en PRs, skipea con aviso si falta). Secret `TESTSPRITE_API_KEY` cargado en GitHub. Ver `plan-supabase-manana.md` §6.**
 - [ ] SMTP custom en dashboard de Supabase (usuario, cuando quiera — `@muttu.co` rechazado por el proveedor)
 - [ ] BUG-001 (zustand persist hidrata rango inválido) y BUG-002 (debounce buscador clientes inefectivo) — ver `docs/pendientes/bugs-pendientes.md`
 - [ ] Re-correr TC028 de TestSprite en el sandbox con la cuenta `tc028@muttu.co` (solo si se quiere el reporte oficial)

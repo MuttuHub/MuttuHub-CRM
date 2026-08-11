@@ -1,0 +1,50 @@
+name: E2E (TestSprite)
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect available secrets
+        id: secrets
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          [ -n "$VERCEL_TOKEN" ] && echo "has_vercel=yes" >> "$GITHUB_OUTPUT" || echo "has_vercel=no" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy Vercel preview (PRs only)
+        id: preview
+        if: github.event_name == 'pull_request' && steps.secrets.outputs.has_vercel == 'yes'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          npx vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
+          npx vercel build --token="$VERCEL_TOKEN"
+          URL=$(npx vercel deploy --prebuilt --token="$VERCEL_TOKEN")
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Preview deployed: $URL"
+
+      - name: Skip E2E on PR (no preview available)
+        if: github.event_name == 'pull_request' && steps.preview.outputs.url == ''
+        run: 'echo "::warning::E2E skipped on PR: no VERCEL_TOKEN secret, so no preview deployment exists. Only the unit gate (ci.yml) is active. Add VERCEL_TOKEN or fix the Vercel Git integration to enable the E2E gate."'
+
+      - name: Run TestSprite E2E
+        if: github.event_name != 'pull_request' || steps.preview.outputs.url != ''
+        uses: TestSprite/run-action@v1
+        with:
+          testsprite-api-key: ${{ secrets.TESTSPRITE_API_KEY }}
+          base_url: ${{ steps.preview.outputs.url || 'https://muttu-hub.vercel.app' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          blocking: true
