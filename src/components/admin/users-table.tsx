@@ -305,6 +305,8 @@ function RowMenu({
   onDeactivate: () => void;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Pending role change waiting for confirmation (null = no dialog).
+  const [rolPendiente, setRolPendiente] = useState<RolUsuario | null>(null);
 
   return (
     <div className="flex items-center justify-end gap-1">
@@ -324,7 +326,7 @@ function RowMenu({
           {ALL_ROLES.map((rol) => (
             <DropdownMenuItem
               key={rol}
-              onClick={() => onPatchRole(rol)}
+              onClick={() => setRolPendiente(rol)}
               className={usuario.rol === rol ? "font-semibold text-rose-700" : ""}
             >
               <span
@@ -349,6 +351,43 @@ function RowMenu({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <Dialog
+        open={rolPendiente !== null}
+        onOpenChange={(open) => !open && setRolPendiente(null)}
+      >
+        <DialogContent className="rounded-[20px] sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
+              Cambiar el rol de {usuario.nombre}
+            </DialogTitle>
+            <DialogDescription>
+              ¿Cambiar el rol de {usuario.nombre} de {ROLE_LABELS[usuario.rol]} a{" "}
+              {rolPendiente ? ROLE_LABELS[rolPendiente] : ""}? El rol define los
+              módulos a los que puede acceder en el Hub.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRolPendiente(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              disabled={busy}
+              onClick={() => {
+                const rol = rolPendiente;
+                setRolPendiente(null);
+                if (rol) onPatchRole(rol);
+              }}
+            >
+              {busy && <LoaderCircle className="size-4 animate-spin" />}
+              Cambiar rol
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent className="rounded-[20px] sm:max-w-[400px]">
