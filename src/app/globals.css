@@ -18,7 +18,8 @@
   --color-ink-100: #f7f3f4;
   --color-ink-200: #ece5e7;
   --color-ink-300: #ddd2d5;
-  --color-ink-500: #8c757b;
+  /* #846f74: darkened from #8c757b for WCAG AA (4.66:1 on white). */
+  --color-ink-500: #846f74;
   --color-ink-600: #725d62;
   --color-ink-700: #5a474c;
   --color-ink-800: #3f2f33;
@@ -32,7 +33,8 @@
   --color-shell-kbd: #382a2e;
   --color-shell-text: #c9bcc0;
   --color-shell-muted: #9c8a8f;
-  --color-shell-faint: #7a6569;
+  /* #947f84: lightened from #7a6569 for WCAG AA on shell surfaces (4.57:1). */
+  --color-shell-faint: #947f84;
 
   /* Semantic */
   --color-exito: #127c4a;
@@ -187,6 +189,13 @@
       transition-duration: 0.01ms !important;
     }
   }
+}
+
+/* Login (acceso-page) uses inline styles, so its focus rings live here:
+   same pattern as the shadcn components (ring of the accent token at 50%). */
+.login-focus:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-rose-500) 50%, transparent);
 }
 
 /* Utility compartida de las páginas de impresión (print/* y /print/dashboard):
