@@ -66,6 +66,44 @@ export async function PATCH(request: Request, ctx: RouteContext) {
     if (!existing) {
       return apiError("El usuario no existe.", 404, "NOT_FOUND");
     }
+
+    // Guard A — self-demotion lockout: an admin must never change their own
+    // role or deactivate themselves through this route, or they could strip
+    // their own access and leave the account stranded. Own `nombre` is fine.
+    const isSelf = auth.usuario.id === existing.id;
+    const changesRole =
+      body?.rol !== undefined && body.rol !== existing.rol;
+    const changesActive =
+      body?.activo !== undefined && body.activo !== existing.activo;
+    if (isSelf && (changesRole || changesActive)) {
+      return apiError(
+        "No puedes cambiar tu propio rol ni desactivarte. Pide a otro administrador que lo haga.",
+        400,
+        "VALIDATION_ERROR",
+      );
+    }
+
+    // Guard B — last-admin lockout: demoting or deactivating an admin must
+    // never leave the Hub without an active administrator to manage users.
+    const demotesAdmin =
+      existing.rol === "ADMINISTRADOR" &&
+      body?.rol !== undefined &&
+      body.rol !== "ADMINISTRADOR";
+    const deactivatesAdmin =
+      existing.rol === "ADMINISTRADOR" && body?.activo === false;
+    if (demotesAdmin || deactivatesAdmin) {
+      const activeAdmins = await db.usuario.count({
+        where: { rol: "ADMINISTRADOR", activo: true },
+      });
+      if (activeAdmins <= 1) {
+        return apiError(
+          "Debe quedar al menos un administrador activo en el Hub.",
+          400,
+          "VALIDATION_ERROR",
+        );
+      }
+    }
+
     const usuario = await db.usuario.update({
       where: { id },
       data,

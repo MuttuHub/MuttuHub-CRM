@@ -266,6 +266,7 @@ export function UsersTable({
                     <TableCell className="pr-4 text-right">
                       <RowMenu
                         usuario={usuario}
+                        isSelf={isSelf}
                         busy={busyId === usuario.id}
                         onPatchRole={(rol) => void patchRole(usuario.id, rol)}
                         onDeactivate={() => void deactivate(usuario.id)}
@@ -284,11 +285,13 @@ export function UsersTable({
 
 function RowMenu({
   usuario,
+  isSelf,
   busy,
   onPatchRole,
   onDeactivate,
 }: {
   usuario: UsuarioRow;
+  isSelf: boolean;
   busy: boolean;
   onPatchRole: (rol: RolUsuario) => void;
   onDeactivate: () => void;
@@ -316,6 +319,8 @@ function RowMenu({
             <DropdownMenuItem
               key={rol}
               onClick={() => setRolPendiente(rol)}
+              disabled={isSelf}
+              title={isSelf ? "No puedes cambiar tu propio rol" : undefined}
               className={usuario.rol === rol ? "font-semibold text-rose-700" : ""}
             >
               <span
@@ -326,7 +331,7 @@ function RowMenu({
               {ROLE_LABELS[rol]}
             </DropdownMenuItem>
           ))}
-          {usuario.activo && (
+          {usuario.activo && !isSelf && (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem
