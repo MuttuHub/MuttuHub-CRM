@@ -1,0 +1,77 @@
+<!--
+  Muttu Hub — Invitación (invite)
+  -------------------------------
+  Propósito: invitar a un usuario nuevo a unirse al espacio de trabajo.
+  Dónde pegarlo: Supabase Dashboard → Authentication → Emails → Invite user.
+  Nota: el CTA apunta DIRECTO a la app (/auth/confirm) con el token OTP — la
+  página lo canjea con verifyOtp (type=invite) y muestra el modal de éxito.
+  Variables válidas: {{ .SiteURL }}, {{ .Email }}, {{ .Token }}, {{ .Data }}
+-->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Te invitaron a Muttu Hub</title>
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
+    @media (max-width: 600px) {
+      .container { width: 100% !important; padding: 24px !important; }
+    }
+  </style>
+</head>
+<body style="margin:0;padding:0;width:100%;height:100%;background-color:#efeaeb;">
+  <table role="presentation" width="100%" height="100%" cellpadding="0" cellspacing="0" bgcolor="#efeaeb" style="background-color:#efeaeb;padding:32px 16px;">
+    <tr>
+      <td align="center" valign="middle" bgcolor="#efeaeb">
+        <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:100%;background-color:#fdfbfb;border:1px solid #ece5e7;border-radius:26px;padding:40px 40px 32px;text-align:center;">
+          <tr>
+            <td align="center" style="padding-bottom:28px;">
+              <img src="https://muttu-hub.vercel.app/brand/logo-color.svg" alt="Muttu Hub" width="124" style="width:124px;height:auto;display:block;border:0;outline:none;text-decoration:none;" />
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-bottom:16px;">
+              <h1 style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:24px;font-weight:bold;color:#191113;letter-spacing:-0.02em;">
+                Te invitamos a Muttu Hub
+              </h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-bottom:24px;">
+              <p style="margin:0;font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#725d62;">
+                Fuiste invitado a unirte al espacio de trabajo de Muttu Hub.
+                Acepta la invitación con el botón de abajo para crear tu cuenta
+                y empezar a trabajar.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-bottom:24px;">
+              <a href="{{ .SiteURL }}/auth/confirm?token={{ .Token }}&type=invite&email={{ .Email }}" style="display:inline-block;background-color:#cd1560;color:#ffffff;font-family:Helvetica,Arial,sans-serif;font-size:15px;font-weight:bold;text-decoration:none;border-radius:12px;padding:12px 28px;">
+                Aceptar invitación
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-bottom:28px;">
+              <p style="margin:0;font-family:Helvetica,Arial,sans-serif;font-size:12.5px;line-height:1.6;color:#8c757b;">
+                Si el botón no funciona, copia y pega este enlace en tu navegador:<br />
+                <a href="{{ .SiteURL }}/auth/confirm?token={{ .Token }}&type=invite&email={{ .Email }}" style="color:#cd1560;text-decoration:underline;word-break:break-all;">{{ .SiteURL }}/auth/confirm?token={{ .Token }}&type=invite&email={{ .Email }}</a>
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="border-top:1px solid #ece5e7;padding-top:20px;">
+              <p style="margin:0;font-family:Helvetica,Arial,sans-serif;font-size:12px;color:#8c757b;">
+                Muttu Hub — CRM<br />
+                <span style="color:#ddd2d5;">Este correo fue enviado automáticamente; no respondas a este mensaje.</span>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
