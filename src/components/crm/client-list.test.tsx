@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ClientList } from "./client-list"
 
@@ -183,17 +184,36 @@ describe("ClientList", () => {
     expect(clientsQuery.refetch).toHaveBeenCalledTimes(1)
   })
 
-  it("applies the search query and keeps it after the 350ms debounce window", () => {
+  it("applies the search query only after the 350ms debounce window (no request per keystroke)", () => {
     render(<ClientList />)
     const input = screen.getByLabelText("Buscar clientes")
     expect(useClientsMock).toHaveBeenLastCalledWith({})
+    // Cada tecla actualiza el draft, pero NO debe disparar fetch:
+    fireEvent.change(input, { target: { value: "g" } })
+    expect(useClientsMock).toHaveBeenLastCalledWith({})
+    fireEvent.change(input, { target: { value: "go" } })
+    expect(useClientsMock).toHaveBeenLastCalledWith({})
     fireEvent.change(input, { target: { value: "gobierno" } })
-    expect(useClientsMock).toHaveBeenLastCalledWith({ q: "gobierno" })
+    expect(useClientsMock).toHaveBeenLastCalledWith({})
+    // Tras la pausa de debounce, se aplica UNA sola vez:
     act(() => {
       vi.advanceTimersByTime(400)
     })
     expect(useClientsMock).toHaveBeenLastCalledWith({ q: "gobierno" })
     expect(screen.getByLabelText("Buscar clientes")).toHaveValue("gobierno")
+  })
+
+  it("applies non-search filters immediately without debounce", async () => {
+    // Radix Select necesita timers reales para abrir el content (rAF).
+    vi.useRealTimers()
+    render(<ClientList />)
+    const user = userEvent.setup()
+    // El placeholder no expone accessible name; el primer combobox es "Tipo de cliente".
+    await user.click(screen.getAllByRole("combobox")[0])
+    await user.click(await screen.findByRole("option", { name: "Gobierno local" }))
+    expect(useClientsMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ tipo: "GOBIERNO_LOCAL" })
+    )
   })
 
   it("keeps the debounce timer from leaking between tests", () => {
