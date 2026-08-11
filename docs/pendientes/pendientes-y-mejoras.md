@@ -28,7 +28,7 @@
 ### 4. Deploy de producción — verificación post-merge (2026-08-11)
 
 - ✅ La integración Git deploya producción automáticamente en push a main (verificado: `/auth/confirm` y `/login` 200 tras el merge).
-- **Bug encontrado y corregido en la verificación**: `/auth/confirm` no estaba en las rutas públicas del proxy (`src/proxy.ts`) → un usuario recién registrado (sin sesión) era redirigido a `/login` y perdía el token del email. Fix: rutas `NEUTRAL_PATHS` — accesibles para anónimos (no redirigen a login) y logueados (no expulsan a `/`, preservando el flujo de change-email). Verificar el próximo smoke test de un link real de confirmación.
+- **Bug encontrado y corregido en la verificación**: `/auth/confirm` no estaba en las rutas públicas del proxy (`src/proxy.ts`) → un usuario recién registrado (sin sesión) era redirigido a `/login` y perdía el token del email. Fix: rutas `NEUTRAL_PATHS` — accesibles para anónimos (no redirigen a login) y logueados (no expulsan a `/`, preservando el flujo de change-email). **Verificado en prod**: GET anónimo a `/auth/confirm?token=…` responde 200 con la página (antes 307 → `/login?next=…`).
 
 ### 5. MCP de Supabase — limitaciones conocidas
 
@@ -40,7 +40,7 @@
 
 - `docs/pendientes/bugs-pendientes.md` — BUG-001 y BUG-002 marcados ✅ (2026-08-11).
 - `docs/pendientes/vitest-unit-tests.md` — suite 212 tests en verde.
-- `docs/plan-supabase-manana.md` — sección 8 actualizada (email postergado); pendiente marcar el ítem VERCEL_TOKEN como completo tras la verificación del deploy.
+- `docs/plan-supabase-manana.md` — sección 8 actualizada (email postergado); ítem VERCEL_TOKEN ✅ completo (secret cargado, preview deploy verificado en PR #2, deploy de prod automático por integración Git).
 
 ## Oportunidades de mejora del CRM
 
