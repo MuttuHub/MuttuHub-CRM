@@ -30,7 +30,6 @@ import {
   Printer,
   RotateCcw,
   SquareKanban,
-  TriangleAlert,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -68,6 +67,13 @@ import {
 import { TaskCard, SortableTaskCard, type CardTask } from "@/components/kanban/task-card";
 import { TaskDialog } from "@/components/kanban/task-dialog";
 import { ReportView } from "@/components/kanban/report-view";
+import { SinConexionCard } from "@/components/shared/sin-conexion-card";
+
+// True when the Supabase env vars are missing (dev-only signal): the API
+// returns 500 "Plataforma no configurada" — show the technical card.
+const unconfigured =
+  !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 // Columnas visibles en el tablero en el orden del PRD §5.1; CANCELADA se
 // mantiene oculta aquí y aparece en Lista/Reporte.
@@ -305,7 +311,7 @@ export function KanbanBoard() {
           misTareas={scope === "mis"}
         />
       ) : tasksQuery.isError ? (
-        <SinConexion onRetry={() => void tasksQuery.refetch()} />
+        <SinConexionCard unconfigured={unconfigured} onRetry={() => void tasksQuery.refetch()} />
       ) : tasksQuery.isLoading ? (
         <BoardSkeleton vista={view === "lista" ? "lista" : "board"} />
       ) : items.length === 0 ? (
@@ -629,29 +635,7 @@ function Segmented<T extends string>({
   );
 }
 
-/* ── Estados ────────────────────────────────────────────────────────────── */
-
-function SinConexion({ onRetry }: { onRetry: () => void }) {
-  return (
-    <section className="grid min-h-[320px] place-items-center rounded-[24px] border border-ink-200 bg-white p-8">
-      <div className="max-w-[46ch] text-center">
-        <span className="mx-auto grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-alerta-bg text-alerta">
-          <TriangleAlert className="size-6" strokeWidth={1.7} />
-        </span>
-        <h3 className="mt-4 font-display text-[19px] font-bold tracking-[-0.02em] text-ink-950">
-          Sin conexión con el tablero
-        </h3>
-        <p className="mt-2 text-[13.5px] leading-relaxed text-ink-600">
-          No pudimos cargar las tareas. Revisa la configuración del entorno y
-          vuelve a intentarlo.
-        </p>
-        <Button onClick={onRetry} variant="outline" className="mt-5 rounded-[13px] px-4 font-semibold">
-          Reintentar
-        </Button>
-      </div>
-    </section>
-  );
-}
+/* ── Estados: vacío / skeleton ─────────────────────────────────────────── */
 
 function TableroVacio({ vista }: { vista: "tablero" | "lista" }) {
   return (

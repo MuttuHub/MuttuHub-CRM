@@ -53,6 +53,13 @@ import {
 import { ToneBadge } from "@/components/crm/shared";
 import { DocumentDialog } from "@/components/documents/document-dialog";
 import { UploadDocumentDialog } from "@/components/documents/upload-dialog";
+import { SinConexionCard } from "@/components/shared/sin-conexion-card";
+
+// True when the Supabase env vars are missing (dev-only signal): the API
+// returns 500 "Plataforma no configurada" — show the technical card.
+const unconfigured =
+  !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 const PAGE_SIZE = 25;
 
@@ -257,7 +264,7 @@ export function RepositoryList() {
       )}
 
       {listQuery.isError ? (
-        <SinConexionCard onRetry={() => void listQuery.refetch()} />
+        <SinConexionCard unconfigured={unconfigured} onRetry={() => void listQuery.refetch()} />
       ) : (
         <DocumentsTableCard
           query={listQuery}
@@ -739,29 +746,7 @@ function PaginationFooter({
   );
 }
 
-/* ── Estados: sin conexión / vacío ─────────────────────────────────────── */
-
-function SinConexionCard({ onRetry }: { onRetry: () => void }) {
-  return (
-    <section className="grid min-h-[320px] place-items-center rounded-[24px] border border-ink-200 bg-white p-8">
-      <div className="max-w-[46ch] text-center">
-        <span className="mx-auto grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-alerta-bg text-alerta">
-          <LoaderCircle className="size-6" strokeWidth={1.7} />
-        </span>
-        <h3 className="mt-4 font-display text-[19px] font-bold tracking-[-0.02em] text-ink-950">
-          Plataforma no conectada
-        </h3>
-        <p className="mt-2 text-[13.5px] leading-relaxed text-ink-600">
-          Configura <code className="rounded-md bg-ink-100 px-1.5 py-0.5 font-mono text-[12px] text-ink-800">.env</code>{" "}
-          con Supabase o inicia sesión para cargar el repositorio documental.
-        </p>
-        <Button onClick={onRetry} variant="outline" className="mt-5 rounded-[13px] px-4 font-semibold">
-          Reintentar
-        </Button>
-      </div>
-    </section>
-  );
-}
+/* ── Estado vacío ──────────────────────────────────────────────────────── */
 
 function EmptyDocuments({ onOpenUpload }: { onOpenUpload: () => void }) {
   return (

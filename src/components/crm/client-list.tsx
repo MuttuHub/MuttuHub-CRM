@@ -14,7 +14,6 @@ import {
   Eye,
   FileSpreadsheet,
   FileText,
-  LoaderCircle,
   RotateCcw,
   Search,
   UsersRound,
@@ -62,6 +61,13 @@ import {
   snapshotFilters,
 } from "@/components/crm/saved-views";
 import { ClientSheet } from "@/components/crm/client-sheet";
+import { SinConexionCard } from "@/components/shared/sin-conexion-card";
+
+// True when the Supabase env vars are missing (dev-only signal): the API
+// returns 500 "Plataforma no configurada" — show the technical card.
+const unconfigured =
+  !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 const PAGE_SIZE = 25;
 
@@ -261,7 +267,7 @@ export function ClientList() {
       />
 
       {listQuery.isError ? (
-        <SinConexionCard onRetry={() => void listQuery.refetch()} />
+        <SinConexionCard unconfigured={unconfigured} onRetry={() => void listQuery.refetch()} />
       ) : (
         <ClientGridCard
           query={listQuery}
@@ -526,7 +532,7 @@ function ClientCard({
         }
       }}
       aria-label={`Abrir ficha de ${cliente.nombre}`}
-      className="flex cursor-pointer flex-col gap-3.5 rounded-[18px] border border-ink-200 bg-white p-4 shadow-[0_1px_2px_rgba(16,16,32,0.04)] transition-colors hover:border-rose-200 hover:bg-rose-50/30"
+      className="flex cursor-pointer flex-col gap-3.5 rounded-[18px] border border-ink-200 bg-white p-4 shadow-[0_1px_2px_rgba(16,16,32,0.04)] transition-colors hover:border-rose-200 hover:bg-rose-50/30 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
     >
       <div className="flex items-start gap-3">
         <InitialsAvatar nombre={cliente.nombre} />
@@ -701,29 +707,7 @@ function PaginationFooter({
   );
 }
 
-/* ── Estados: sin conexión / vacío ─────────────────────────────────────── */
-
-function SinConexionCard({ onRetry }: { onRetry: () => void }) {
-  return (
-    <section className="grid min-h-[320px] place-items-center rounded-[24px] border border-ink-200 bg-white p-8">
-      <div className="max-w-[46ch] text-center">
-        <span className="mx-auto grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-alerta-bg text-alerta">
-          <LoaderCircle className="size-6" strokeWidth={1.7} />
-        </span>
-        <h3 className="mt-4 font-display text-[19px] font-bold tracking-[-0.02em] text-ink-950">
-          Plataforma no conectada
-        </h3>
-        <p className="mt-2 text-[13.5px] leading-relaxed text-ink-600">
-          Configura <code className="rounded-md bg-ink-100 px-1.5 py-0.5 font-mono text-[12px] text-ink-800">.env</code>{" "}
-          con Supabase o inicia sesión para cargar la cartera de clientes.
-        </p>
-        <Button onClick={onRetry} variant="outline" className="mt-5 rounded-[13px] px-4 font-semibold">
-          Reintentar
-        </Button>
-      </div>
-    </section>
-  );
-}
+/* ── Estado vacío ──────────────────────────────────────────────────────── */
 
 function EmptyClients() {
   return (

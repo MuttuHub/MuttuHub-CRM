@@ -51,6 +51,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ALL_ROLES, ROLE_LABELS } from "@/lib/auth/types";
+import { SinConexionCard } from "@/components/shared/sin-conexion-card";
 
 export type UsuarioRow = {
   id: string;
@@ -106,25 +107,13 @@ export function UsersTable({
   const [busyId, setBusyId] = useState<string | null>(null);
 
   if (unconfigured || loadError) {
+    // unconfigured (dev sin env) → card técnica; loadError → copy de usuario
+    // + reintento vía refresh del server component.
     return (
-      <div className="grid min-h-[280px] place-items-center rounded-[22px] border border-ink-200 bg-white p-8">
-        <div className="max-w-[44ch] text-center">
-          <span className="mx-auto grid size-11 place-items-center rounded-[15px_15px_15px_5px] bg-alerta-bg text-alerta">
-            <AlertTriangle className="size-5" strokeWidth={1.7} />
-          </span>
-          <h3 className="mt-4 font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
-            Plataforma no conectada
-          </h3>
-          <p className="mt-1.5 text-[13px] leading-relaxed text-ink-600">
-            Revisa el archivo{" "}
-            <code className="rounded-md bg-ink-100 px-1.5 py-0.5 font-mono text-[12px] text-ink-800">
-              .env
-            </code>{" "}
-            y sigue los pasos de la sección &quot;Puesta en marcha&quot; del
-            README: variables de Supabase y conexión a la base de datos.
-          </p>
-        </div>
-      </div>
+      <SinConexionCard
+        unconfigured={unconfigured}
+        onRetry={() => router.refresh()}
+      />
     );
   }
 
