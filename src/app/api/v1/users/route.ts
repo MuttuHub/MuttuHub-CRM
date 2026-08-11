@@ -61,12 +61,17 @@ export async function POST(request: Request) {
     email?: string;
     rol?: RolUsuario;
     password?: string;
+    invite?: boolean;
   }>(request);
 
   const nombre = body?.nombre?.trim() ?? "";
   const email = normalizeEmail(body?.email ?? "");
   const rol = body?.rol;
   const password = body?.password ?? "";
+  // Invitation mode (`invite: true`, default in the UI) creates the auth user
+  // via inviteUserByEmail: no password is required and the user receives an
+  // email with an OTP link to set their own password on first sign-in.
+  const isInvite = body?.invite === true;
 
   if (!nombre || !email || !rol) {
     return apiError(
@@ -81,7 +86,7 @@ export async function POST(request: Request) {
   if (!(rol in ROLE_LABELS)) {
     return apiError("Rol no válido.", 400, "VALIDATION_ERROR");
   }
-  if (!isValidPassword(password)) {
+  if (!isInvite && !isValidPassword(password)) {
     return apiError(
       "La contraseña debe tener al menos 8 caracteres, con letras y números.",
       400,
@@ -99,16 +104,26 @@ export async function POST(request: Request) {
     console.error("[users] email conflict check failed:", err);
   }
 
-  // Service-role client: auth.admin.* (createUser/deleteUser) requires the
-  // service role key, the anon-key client cannot perform admin operations.
+  // Service-role client: auth.admin.* (createUser/deleteUser/inviteUserByEmail)
+  // requires the service role key, the anon-key client cannot perform admin
+  // operations. inviteUserByEmail returns the same { data: { user }, error }
+  // shape as createUser, so both modes share the error path and rollback below.
   const supabaseAdmin = createSupabaseAdmin();
 
-  const { data: created, error: supabaseError } =
-    await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    });
+  const { data: created, error: supabaseError } = isInvite
+    ? await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+        // Standard Supabase fallback after the invite link is redeemed. The
+        // repo's custom template (supabase/email-templates/invite.html) already
+        // points to /auth/confirm, which handles type=invite via verifyOtp.
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? request.headers.get("origin") ?? "http://localhost:3000"}/auth/confirm`,
+        // user_metadata forwarded to the email template ({{ .Data }}).
+        data: { nombre, rol },
+      })
+    : await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      });
 
   if (supabaseError || !created.user) {
     // Never leak the raw Supabase error message.
