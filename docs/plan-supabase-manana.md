@@ -75,11 +75,23 @@
 - [x] Complementar con unit/component tests locales (Vitest + Testing Library) para el día a día — TestSprite no los reemplaza — **206 tests Vitest en verde; ver `docs/pendientes/vitest-unit-tests.md`**
 - [x] GitHub Action de TestSprite como gate en PRs — **`.github/workflows/ci.yml` (npm test + lint, gate de PR siempre activo) + `.github/workflows/testsprite.yml` (E2E TestSprite/run-action@v1, priority High, NO blocking). Estado 2026-08-11: el action de TestSprite marca los 14 tests FAILED determinísticamente (~24 s, sin testError) por incompatibilidad del sandbox con los tests generados por el MCP (la app y credenciales QA verificadas OK contra prod con Playwright local: login 200 + flujo TC016 completo). Por eso el job E2E quedó INFORMATIVO (comenta en PRs) y el gate real de PRs es `ci.yml`. Cuando TestSprite soporte los tests del MCP en su action, volver a `blocking: true`. Secrets: `TESTSPRITE_API_KEY` cargado. Pendiente: crear `VERCEL_TOKEN` en el dashboard de Vercel para activar el preview deploy en PRs (la integración Git sigue rota, los deploys son por CLI).**
 
+## 8. Email con marca y página de confirmación
+
+> **Decisión 2026-08-11: se POSTERGA el customizado de templates.** Los templates con marca quedan como oportunidad de mejora; los emails siguen saliendo con los templates por defecto de Supabase (texto plano). Motivos: customizar templates con el servicio built-in requiere Pro ($25/mes); SMTP custom sin acceso al DNS de `muttu.co` obligaría a remitente ajeno (Resend shared `onboarding@resend.dev`) o Gmail con entregabilidad media (Brevo). Cuando exista acceso al dominio → Resend + `no-reply@muttu.co` (pasos abajo).
+
+- [x] Plantillas de email con la marca Muttu (6 archivos, GoTrue variables): `supabase/email-templates/` — `confirm-signup.html`, `invite.html`, `magic-link.html`, `reset-password.html`, `change-email.html`, `reauthentication.html` — **listas en el repo pero NO pegadas en Supabase (postergado, ver decisión arriba)**
+  - CTA directo a la app (aplicado 2026-08-11): `confirm-signup` (type=signup), `invite` (type=invite), `magic-link` (type=magiclink) y `change-email` (type=email_change, `email={{ .NewEmail }}`) apuntan a `{{ .SiteURL }}/auth/confirm?token={{ .Token }}&type=…&email=…`.
+  - `reset-password.html` MANTIENE `{{ .ConfirmationURL }}` (flujo PKCE existente con `/auth/reset-password/confirm`).
+  - Centrado horizontal+vertical en los 6: wrapper table `height="100%"` + `valign="middle"` + `bgcolor` (los clientes de correo ignoran el background del body).
+- [ ] (postergado) Dashboard → Authentication → Emails → pegar los templates + SMTP custom + From + Redirect URLs (ver Fase Brevo/Resend en la decisión de arriba)
+- [x] Página `/auth/confirm` implementada (`src/app/auth/confirm/page.tsx` + tests): verifica el link con `verifyOtp` (token+type+email) o `exchangeCodeForSession` (code PKCE), muestra "¡Correo verificado!" y redirige a `/login` a los 3 s (con botón "Ir a iniciar sesión" de respaldo). Estados: cargando, éxito, error ("Volver a iniciar sesión") y "Enlace no válido" / "Plataforma no configurada". Soporta los 5 tipos OTP (`signup`, `email_change`, `recovery`, `invite`, `magiclink`).
+- [x] Suite en verde con los cambios de templates (2026-08-11): **212/212 tests Vitest** + eslint limpio en los archivos tocados
+
 ## 7. Notas / pendientes abiertos
 
 - `list_branches` del MCP falla por permisos del token (`Project reference is missing`) — solo afecta branches de desarrollo; si se usaran en el futuro hay que re-autorizar el MCP.
 - El MCP no expone `service_role` ni el password de postgres: **imposible automatizar el `.env` completo sin el dashboard** (por eso esto queda de sesión para el usuario).
-- El proveedor de email del proyecto cloud rechaza `@muttu.co` (`Email address ... is invalid`): `resetPasswordForEmail` falla en entorno. La app reporta el fallo correctamente (sin filter de usuarios); los tests no dependen del envío real. Configurar SMTP/dominio en el dashboard de Supabase para que los emails lleguen de verdad.
+- El proveedor de email del proyecto cloud rechazaba `@muttu.co` (`Email address ... is invalid`) el 2026-08-09: `resetPasswordForEmail` fallaba en entorno. **NO se reproduce el 2026-08-11** (logs `mail.send` sin error para `admin@muttu.co`, `crmmuttuhub@gmail.com` y `testsprite@muttu.co`; la confirmación de `crmmuttuhub@gmail.com` llegó y el usuario la verificó cayendo a /login por defecto). Sigue pendiente evaluar SMTP custom/dominio en el dashboard si se quiere usar el dominio propio para el remitente.
 
 ---
 

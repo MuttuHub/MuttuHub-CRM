@@ -127,5 +127,5 @@ Pura lógica, cero mocking de Supabase — máximo valor, mínimo riesgo.
 
 - [x] GitHub Action TestSprite + `npm test` como gate en PRs — **hecho 2026-08-10/11: `.github/workflows/ci.yml` (npm test + lint en PR/main, gate real) + `.github/workflows/testsprite.yml` (E2E TestSprite priority High, INFORMATIVO — el action falla 14/14 determinista con los tests del MCP; ver `plan-supabase-manana.md` §6). Secret `TESTSPRITE_API_KEY` cargado. Falta `VERCEL_TOKEN` para previews en PRs.**
 - [ ] SMTP custom en dashboard de Supabase (usuario, cuando quiera — `@muttu.co` rechazado por el proveedor)
-- [ ] BUG-001 (zustand persist hidrata rango inválido) y BUG-002 (debounce buscador clientes inefectivo) — ver `docs/pendientes/bugs-pendientes.md`
+- [x] BUG-001 (zustand persist hidrata rango inválido) y BUG-002 (debounce buscador clientes inefectivo) — **resueltos 2026-08-11, ver `docs/pendientes/bugs-pendientes.md`**
 - [ ] Re-correr TC028 de TestSprite en el sandbox con la cuenta `tc028@muttu.co` (solo si se quiere el reporte oficial)
