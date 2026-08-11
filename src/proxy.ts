@@ -12,8 +12,20 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLIC_PATHS = ["/login", "/auth/reset-password"];
 
+// Reachable by both anonymous and logged-in users: the email confirmation
+// link arrives with the OTP token in the query string and the page exchanges
+// it itself (verifyOtp / exchangeCodeForSession). Forcing login would drop
+// the token for fresh signups; forcing logout would break change-email flows.
+const NEUTRAL_PATHS = ["/auth/confirm"];
+
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`),
+  );
+}
+
+function isNeutralPath(pathname: string): boolean {
+  return NEUTRAL_PATHS.some(
     (path) => pathname === path || pathname.startsWith(`${path}/`),
   );
 }
@@ -52,15 +64,15 @@ export async function proxy(request: NextRequest) {
 
   const { pathname, search } = request.nextUrl;
 
-  if (!user && !isPublicPath(pathname)) {
+  if (!user && !isPublicPath(pathname) && !isNeutralPath(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname + search);
     return NextResponse.redirect(url);
   }
 
-  // Logged-in users don't need the auth pages.
-  if (user && isPublicPath(pathname)) {
+  // Logged-in users don't need the auth pages (neutral paths are exempt).
+  if (user && isPublicPath(pathname) && !isNeutralPath(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     url.search = "";

@@ -25,9 +25,10 @@
 - **Decisión 2026-08-11**: postergado. Customizar templates con el servicio built-in requiere **Pro ($25/mes)**; SMTP custom sin DNS de `muttu.co` obliga a remitente ajeno (Resend shared `onboarding@resend.dev`) o Gmail con entregabilidad media (Brevo; Google eliminó las app passwords en 2025 → Gmail SMTP directo inviable).
 - **Acción futura**: cuando exista acceso al DNS de `muttu.co` → Resend con dominio + `no-reply@muttu.co` + pegar los 6 templates + Redirect URLs (`/auth/confirm`, `/auth/reset-password/confirm`). Pasos detallados en `docs/plan-supabase-manana.md` sección 8.
 
-### 4. Deploy de producción — verificar integración Git tras el merge
+### 4. Deploy de producción — verificación post-merge (2026-08-11)
 
-- La integración Git de Vercel quedó activa (checks de Vercel en PRs). Verificar que el push a main deploye producción automáticamente (antes era por CLI: `npx vercel --prod`). Si el deploy automático falla, volver a CLI y revisar el linkeo.
+- ✅ La integración Git deploya producción automáticamente en push a main (verificado: `/auth/confirm` y `/login` 200 tras el merge).
+- **Bug encontrado y corregido en la verificación**: `/auth/confirm` no estaba en las rutas públicas del proxy (`src/proxy.ts`) → un usuario recién registrado (sin sesión) era redirigido a `/login` y perdía el token del email. Fix: rutas `NEUTRAL_PATHS` — accesibles para anónimos (no redirigen a login) y logueados (no expulsan a `/`, preservando el flujo de change-email). Verificar el próximo smoke test de un link real de confirmación.
 
 ### 5. MCP de Supabase — limitaciones conocidas
 
