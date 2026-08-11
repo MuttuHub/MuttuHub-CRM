@@ -399,12 +399,16 @@ function NewUserDialog({
   const [email, setEmail] = useState("");
   const [rol, setRol] = useState<RolUsuario>("COLABORADOR");
   const [password, setPassword] = useState("");
+  // Invitation mode is the default: the user receives an email with a link to
+  // set their own password (no password field shown).
+  const [invite, setInvite] = useState(true);
 
   function reset() {
     setNombre("");
     setEmail("");
     setRol("COLABORADOR");
     setPassword("");
+    setInvite(true);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -415,7 +419,7 @@ function NewUserDialog({
       onError("Nombre y correo son obligatorios.");
       return;
     }
-    if (!PASSWORD_POLICY.test(password)) {
+    if (!invite && !PASSWORD_POLICY.test(password)) {
       onError("La contraseña debe tener al menos 8 caracteres, con letras y números.");
       return;
     }
@@ -425,7 +429,11 @@ function NewUserDialog({
       const res = await fetch("/api/v1/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre, email, rol, password }),
+        body: JSON.stringify(
+          invite
+            ? { nombre, email, rol, invite: true }
+            : { nombre, email, rol, password },
+        ),
       });
       if (!res.ok) {
         onError(await readError(res, "No pudimos crear el usuario."));
@@ -458,7 +466,9 @@ function NewUserDialog({
               Nuevo usuario
             </DialogTitle>
             <DialogDescription>
-              El usuario recibirá acceso por correo y contraseña.
+              {invite
+                ? "El usuario recibirá un email con un enlace para elegir su contraseña."
+                : "El usuario recibirá acceso con la contraseña que definas."}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -501,18 +511,42 @@ function NewUserDialog({
               </Select>
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="nuevo-password">Contraseña</Label>
-              <Input
-                id="nuevo-password"
-                type="password"
-                required
-                autoComplete="new-password"
-                placeholder="Mínimo 8 caracteres, con letras y números"
-                className="h-10 rounded-[12px] bg-white px-3"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+              <Label>Cómo crea su acceso</Label>
+              <Select
+                value={invite ? "invite" : "password"}
+                onValueChange={(v) => setInvite(v === "invite")}
+              >
+                <SelectTrigger className="h-10 w-full rounded-[12px] bg-white px-3">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="invite">
+                    Enviar invitación por email
+                  </SelectItem>
+                  <SelectItem value="password">Definir contraseña</SelectItem>
+                </SelectContent>
+              </Select>
+              {invite && (
+                <p className="text-[12px] leading-relaxed text-ink-600">
+                  El usuario recibirá un email para elegir su contraseña.
+                </p>
+              )}
             </div>
+            {!invite && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="nuevo-password">Contraseña</Label>
+                <Input
+                  id="nuevo-password"
+                  type="password"
+                  required
+                  autoComplete="new-password"
+                  placeholder="Mínimo 8 caracteres, con letras y números"
+                  className="h-10 rounded-[12px] bg-white px-3"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+            )}
             <DialogFooter className="mt-1">
               <Button
                 type="button"
@@ -523,7 +557,13 @@ function NewUserDialog({
               </Button>
               <Button type="submit" disabled={loading}>
                 {loading && <LoaderCircle className="size-4 animate-spin" />}
-                {loading ? "Creando…" : "Crear usuario"}
+                {loading
+                  ? invite
+                    ? "Enviando…"
+                    : "Creando…"
+                  : invite
+                    ? "Enviar invitación"
+                    : "Crear usuario"}
               </Button>
             </DialogFooter>
           </form>
