@@ -4,6 +4,7 @@ import {
   House,
   Settings,
   SquareKanban,
+  UserRoundCheck,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -12,6 +13,8 @@ export type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
+  /** Exact-match only (no prefix): for items whose path starts with another item's. */
+  exact?: boolean;
 };
 
 export type NavGroup = {
@@ -37,6 +40,12 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/administracion",
         label: "Administración",
         icon: Settings,
+      },
+      {
+        href: "/administracion/solicitudes",
+        label: "Solicitudes de acceso",
+        icon: UserRoundCheck,
+        exact: true,
       },
     ],
   },
@@ -74,9 +83,16 @@ export const PAGE_HEADERS: Record<string, PageHeader> = {
     title: "Usuarios y permisos",
     subtitle: "Crea usuarios, asigna roles y desactiva accesos.",
   },
+  "/administracion/solicitudes": {
+    title: "Solicitudes de acceso",
+    subtitle: "Revisa quién pidió entrar al Hub y asigna el rol antes de aprobar.",
+  },
 };
 
-export function isNavActive(pathname: string, href: string): boolean {
-  if (href === "/") return pathname === "/";
-  return pathname.startsWith(href);
+export function isNavActive(pathname: string, href: string, exact = false): boolean {
+  if (!exact) {
+    if (href === "/") return pathname === "/";
+    return pathname.startsWith(href);
+  }
+  return pathname === href;
 }

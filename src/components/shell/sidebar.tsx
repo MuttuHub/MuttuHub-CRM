@@ -89,7 +89,7 @@ function SidebarContent({ rail }: { rail: boolean }) {
               </span>
             )}
             {group.items.map((item) => {
-              const active = isNavActive(pathname, item.href);
+              const active = isNavActive(pathname, item.href, item.exact);
               const Icon = item.icon;
               const count = countByHref[item.href];
               const link = (
