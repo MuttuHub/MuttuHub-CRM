@@ -74,6 +74,10 @@ export function Header() {
   const subtitle =
     pathname === "/" ? subtituloInicio(notificationsQuery.data) : page.subtitle;
 
+  // The global date-range store is only consumed on Inicio and Reportes
+  // (dashboard-page.tsx, reportes-page.tsx); elsewhere the dropdown is dead.
+  const rangoActivo = pathname === "/" || pathname === "/reportes";
+
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="flex min-w-0 items-start gap-3">
@@ -94,27 +98,29 @@ export function Header() {
       </div>
 
       <div className="flex shrink-0 items-center gap-2.5">
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            aria-label="Rango de fechas"
-            className="hidden h-10 cursor-pointer items-center gap-2 rounded-[13px] border border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 transition-colors hover:bg-ink-100 sm:inline-flex"
-          >
-            {RANGO_HEADER_LABELS[rango]}
-            <ChevronDown className="size-3 text-ink-600" strokeWidth={1.8} />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40">
-            <DropdownMenuRadioGroup
-              value={rango}
-              onValueChange={(value) => setRango(value as RangoFiltro)}
+        {rangoActivo && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label="Rango de fechas"
+              className="hidden h-10 cursor-pointer items-center gap-2 rounded-[13px] border border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 transition-colors hover:bg-ink-100 sm:inline-flex"
             >
-              {RANGO_OPCIONES.map((opcion) => (
-                <DropdownMenuRadioItem key={opcion.value} value={opcion.value}>
-                  {RANGO_HEADER_LABELS[opcion.value]}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              {RANGO_HEADER_LABELS[rango]}
+              <ChevronDown className="size-3 text-ink-600" strokeWidth={1.8} />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuRadioGroup
+                value={rango}
+                onValueChange={(value) => setRango(value as RangoFiltro)}
+              >
+                {RANGO_OPCIONES.map((opcion) => (
+                  <DropdownMenuRadioItem key={opcion.value} value={opcion.value}>
+                    {RANGO_HEADER_LABELS[opcion.value]}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
 
         <NotificationPanel />
 
