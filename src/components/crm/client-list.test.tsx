@@ -1,10 +1,28 @@
 import { act, fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import type {
+  ClientFilters,
+  ClientListResponse,
+  ClientListRow,
+  UsuarioMini,
+} from "@/hooks/crm"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ClientList } from "./client-list"
 
+type ClientsQueryState = {
+  isLoading: boolean
+  isError: boolean
+  data: ClientListResponse | undefined
+  refetch: ReturnType<typeof vi.fn>
+}
+
+type UsersQueryState = {
+  isLoading: boolean
+  data: UsuarioMini[] | undefined
+}
+
 const { router, useClientsMock, useUsersMock, clientsQuery } = vi.hoisted(() => {
-  const clientsQuery = {
+  const clientsQuery: ClientsQueryState = {
     isLoading: false,
     isError: false,
     data: undefined,
@@ -12,8 +30,11 @@ const { router, useClientsMock, useUsersMock, clientsQuery } = vi.hoisted(() => 
   }
   return {
     router: { replace: vi.fn() },
-    useClientsMock: vi.fn(() => clientsQuery),
-    useUsersMock: vi.fn(() => ({ isLoading: false, data: undefined })),
+    useClientsMock: vi.fn<(filters?: ClientFilters) => ClientsQueryState>(() => clientsQuery),
+    useUsersMock: vi.fn<(_filters?: unknown) => UsersQueryState>(() => ({
+      isLoading: false,
+      data: undefined,
+    })),
     clientsQuery,
   }
 })
@@ -24,8 +45,8 @@ vi.mock("next/navigation", () => ({
 }))
 
 vi.mock("@/hooks/crm", () => ({
-  useClients: (...args: unknown[]) => useClientsMock(...args),
-  useUsers: (...args: unknown[]) => useUsersMock(...args),
+  useClients: (...args: Parameters<typeof useClientsMock>) => useClientsMock(...args),
+  useUsers: (...args: Parameters<typeof useUsersMock>) => useUsersMock(...args),
   useCreateClient: () => ({ isPending: false, mutateAsync: async () => ({}) }),
   useUpdateClient: () => ({ isPending: false, mutateAsync: async () => ({}) }),
   esVencida: (fecha: string | Date | null | undefined) => {
@@ -58,9 +79,9 @@ const USERS = [{ id: "u1", nombre: "Ana Pérez" }]
 const showing = (desde: number, hasta: number, total: number) => (_content: string, element?: Element | null) =>
   !!element && (element.textContent ?? "").trim() === `Mostrando ${desde}–${hasta} de ${total} clientes`
 
-const EMPTY_RESPONSE = { page: 1, limit: 25, total: 0, items: [] }
+const EMPTY_RESPONSE: ClientListResponse = { page: 1, limit: 25, total: 0, items: [] }
 
-const CLIENTE = {
+const CLIENTE: ClientListRow = {
   id: "c1",
   nombre: "Alcaldía de Barranquilla",
   empresa: "Alcaldía Distrital",
@@ -130,7 +151,7 @@ describe("ClientList", () => {
       total: 1,
       items: [CLIENTE],
     }
-    clientsQuery.data.items[0].next_compromiso = { id: "t9", titulo: "Viejo", fecha_entrega: "2020-01-01" }
+    clientsQuery.data!.items[0].next_compromiso = { id: "t9", titulo: "Viejo", fecha_entrega: "2020-01-01" }
     render(<ClientList />)
     expect(screen.getByText("Vencido")).toBeInTheDocument()
   })

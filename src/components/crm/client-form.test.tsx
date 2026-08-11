@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import type { ClientDetail } from "@/hooks/crm"
 import { ClientFormDialog, NewClientButton } from "./client-form"
 
 const { createMutation, updateMutation } = vi.hoisted(() => ({
@@ -15,7 +16,7 @@ vi.mock("@/hooks/crm", () => ({
 
 const USERS = [{ id: "u1", nombre: "Ana Pérez" }]
 
-const CLIENTE = {
+const CLIENTE: ClientDetail = {
   id: "c1",
   nombre: "Alcaldía de Barranquilla",
   empresa: "Alcaldía Distrital",
@@ -27,6 +28,7 @@ const CLIENTE = {
   estado: "CLIENTE_ACTIVO",
   prioridad: "ALTA",
   responsable_id: "u1",
+  responsable_nombre: "Ana Pérez",
   prioridades_identificadas: "Transición energética",
   riesgos_barreras: "Presupuesto 2027",
   resumen_relacion: "Relación desde 2024",

@@ -49,7 +49,7 @@ describe("esEnvelopeNoConfigurado", () => {
 
 describe("TONE_DOT and TONE_BAR", () => {
   it("map every UiTone to a class", () => {
-    for (const tone of ["neutro", "activo", "alerta", "riesgo", "exito", "info", "destructivo"]) {
+    for (const tone of ["neutro", "activo", "alerta", "riesgo", "exito", "info", "destructivo"] as const) {
       expect(TONE_DOT[tone]).toBeTruthy()
       expect(TONE_BAR[tone]).toBeTruthy()
     }

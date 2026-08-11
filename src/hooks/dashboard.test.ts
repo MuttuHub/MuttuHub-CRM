@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act, renderHook, waitFor } from "@testing-library/react"
+import type { EstadoOportunidad, EstadoTarea } from "@prisma/client"
 import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
@@ -86,14 +87,14 @@ const PIPELINE: DashboardPipeline = {
   scope: "own",
   total_activas: 5,
   valor_activo: 1200000,
-  embudo: [{ estado: "OPORTUNIDAD_ABIERTA", count: 2 }],
+  embudo: [{ estado: "OPORTUNIDAD_ABIERTA" as unknown as EstadoOportunidad, count: 2 }],
   top_clientes: [{ cliente_id: "c1", nombre: "Alcaldía de Barranquilla", valor_potencial: 1000000 }],
   comparativo: { potencial_activo: 1200000, ganado_historico: 800000, ratio: 1.5 },
 }
 
 const TASKS: DashboardTasks = {
   scope: "own",
-  por_columna: [{ estado: "TAREA_PENDIENTE", label: "Pendientes", count: 6 }],
+  por_columna: [{ estado: "TAREA_PENDIENTE" as unknown as EstadoTarea, label: "Pendientes", count: 6 }],
   cumplimiento_por_persona: [
     { responsable_id: "u1", nombre: "Ana Pérez", total: 4, completadas: 3, cumplidas: 2, porc: 50 },
   ],
