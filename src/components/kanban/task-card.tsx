@@ -1,8 +1,9 @@
 // Tarjeta de tarea del tablero (PRD §5.2): título, chips de prioridad/
 // etiquetas/cliente, avatar del responsable, fecha de entrega (vencida en
-// rojo), mini-progreso de subtareas y banner de bloqueo. Es el item dnd a la
-// vez (useSortable). El conteo de subtareas se resuelve con useQuery por
-// tarjeta; a escala Muttu (≤15 usuarios) el costo es asumible.
+// rojo), conteo de subtareas y banner de bloqueo. Es el item dnd a la
+// vez (useSortable). El conteo de subtareas llega agregado en el listado
+// (subtotal, una sola query para todo el tablero); el detalle con
+// completadas/total se resuelve bajo demanda en el diálogo.
 
 "use client";
 
@@ -25,6 +26,7 @@ export type CardTask = {
   responsable_nombre: string;
   fecha_entrega: string | null;
   motivo_bloqueo: string | null;
+  subtotal?: number;
 };
 
 export function TaskCard({
@@ -87,7 +89,7 @@ export function TaskCard({
       </div>
 
       <div className="mt-2 flex items-center justify-between gap-2">
-        <SubtaskBadge taskId={task.id} />
+        <SubtaskBadge task={task} />
         {bloqueada && (
           <span className="max-w-[14rem] truncate rounded-[8px] bg-alerta-bg px-2 py-1 text-[10.5px] font-bold text-alerta">
             Bloqueada: {task.motivo_bloqueo || "sin motivo"}
@@ -122,7 +124,26 @@ function TaskDate({ fecha }: { fecha: string | null }) {
   );
 }
 
-function SubtaskBadge({ taskId }: { taskId: string }) {
+function SubtaskBadge({ task }: { task: CardTask }) {
+  if (task.subtotal !== undefined) {
+    return <SubtotalChip subtotal={task.subtotal} />;
+  }
+  return <LiveSubtaskBadge taskId={task.id} />;
+}
+
+function SubtotalChip({ subtotal }: { subtotal: number }) {
+  if (subtotal === 0) return null;
+  return (
+    <span
+      className="inline-flex items-center rounded-full bg-ink-100 px-2 py-0.5 font-mono text-[10.5px] font-bold text-ink-700 tabular-nums"
+      title={`${subtotal} ${subtotal === 1 ? "subtarea" : "subtareas"}`}
+    >
+      {subtotal}
+    </span>
+  );
+}
+
+function LiveSubtaskBadge({ taskId }: { taskId: string }) {
   const { data, isError, isLoading } = useSubtareas(taskId);
   if (isLoading || isError || !data || data.length === 0) return null;
   const done = data.filter((s) => s.completada).length;

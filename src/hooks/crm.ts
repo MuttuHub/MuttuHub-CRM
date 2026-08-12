@@ -125,6 +125,7 @@ export type TaskItem = {
   etiquetas: string[];
   motivo_bloqueo: string | null;
   comentarios_count: number;
+  subtotal: number;
   created_at: string;
   updated_at: string;
 };

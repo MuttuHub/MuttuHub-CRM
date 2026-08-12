@@ -269,7 +269,7 @@ export const TASK_SELECT = {
   updated_at: true,
   responsable: { select: { nombre: true } },
   cliente: { select: { nombre: true } },
-  _count: { select: { comentarios: true } },
+  _count: { select: { comentarios: true, subtareas: true } },
 } as const;
 
 export type TaskRow = Prisma.TareaGetPayload<{ select: typeof TASK_SELECT }>;
@@ -289,6 +289,7 @@ export type TaskItem = {
   etiquetas: string[];
   motivo_bloqueo: string | null;
   comentarios_count: number;
+  subtotal: number;
   created_at: Date;
   updated_at: Date;
 };
@@ -310,6 +311,7 @@ export function toTaskItem(tarea: TaskRow): TaskItem {
     etiquetas: tarea.etiquetas,
     motivo_bloqueo: tarea.motivo_bloqueo,
     comentarios_count: tarea._count.comentarios,
+    subtotal: tarea._count.subtareas,
     created_at: tarea.created_at,
     updated_at: tarea.updated_at,
   };
