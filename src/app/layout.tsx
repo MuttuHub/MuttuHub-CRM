@@ -43,6 +43,9 @@ export default function RootLayout({
   return (
     <html
       lang="es"
+      // The anti-FOUC script below mutates documentElement (class + color-scheme)
+      // before hydration; suppress the expected attribute mismatch on this node.
+      suppressHydrationWarning
       className={`${display.variable} ${sans.variable} ${mono.variable} h-full antialiased`}
     >
       <body className="min-h-full">
