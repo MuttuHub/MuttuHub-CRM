@@ -21,13 +21,14 @@ type UsersQueryState = {
   data: UsuarioMini[] | undefined
 }
 
-const { router, toast, useClientsMock, useUsersMock, clientsQuery } = vi.hoisted(() => {
+const { router, toast, useClientsMock, useUsersMock, clientsQuery, searchParamsMap } = vi.hoisted(() => {
   const clientsQuery: ClientsQueryState = {
     isLoading: false,
     isError: false,
     data: undefined,
     refetch: vi.fn(),
   }
+  const searchParamsMap = new Map<string, string>()
   return {
     router: { replace: vi.fn() },
     toast: { error: vi.fn(), success: vi.fn() },
@@ -37,6 +38,7 @@ const { router, toast, useClientsMock, useUsersMock, clientsQuery } = vi.hoisted
       data: undefined,
     })),
     clientsQuery,
+    searchParamsMap,
   }
 })
 
@@ -44,7 +46,7 @@ vi.mock("sonner", () => ({ toast }))
 
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
-  useSearchParams: () => ({ get: () => null }),
+  useSearchParams: () => ({ get: (key: string) => searchParamsMap.get(key) ?? null }),
 }))
 
 vi.mock("@/hooks/crm", () => ({
@@ -114,6 +116,8 @@ describe("ClientList", () => {
     clientsQuery.refetch.mockClear()
     useClientsMock.mockReturnValue(clientsQuery)
     useUsersMock.mockReturnValue({ isLoading: false, data: USERS })
+    searchParamsMap.clear()
+    localStorage.clear()
   })
 
   afterEach(() => {
@@ -125,8 +129,8 @@ describe("ClientList", () => {
     useUsersMock.mockReturnValue({ isLoading: true, data: undefined })
     const { container } = render(<ClientList />)
     expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(6)
-    expect(screen.getByText("Cargando…")).toBeInTheDocument()
     expect(screen.queryByText("No encontramos clientes")).not.toBeInTheDocument()
+    expect(screen.queryByText("Alcaldía de Barranquilla")).not.toBeInTheDocument()
   })
 
   it("shows the empty state for an empty list", () => {
@@ -229,17 +233,25 @@ describe("ClientList", () => {
     expect(screen.getByLabelText("Buscar clientes")).toHaveValue("gobierno")
   })
 
-  it("applies non-search filters immediately without debounce", async () => {
-    // Radix Select necesita timers reales para abrir el content (rAF).
+  it("applies filters only when pressing Aplicar inside the popover (no fetch while editing the draft)", async () => {
+    // Radix/Base UI Select necesita timers reales para abrir los popups (rAF).
     vi.useRealTimers()
     render(<ClientList />)
     const user = userEvent.setup()
+    await user.click(screen.getByRole("button", { name: /Filtros/ }))
     // El placeholder no expone accessible name; el primer combobox es "Tipo de cliente".
-    await user.click(screen.getAllByRole("combobox")[0])
+    const combos = await screen.findAllByRole("combobox")
+    await user.click(combos[0])
     await user.click(await screen.findByRole("option", { name: "Gobierno local" }))
+    // Cambiar un select dentro del popover NO debe disparar el fetch:
+    expect(useClientsMock).toHaveBeenLastCalledWith({})
+    await user.click(screen.getByRole("button", { name: "Aplicar" }))
     expect(useClientsMock).toHaveBeenLastCalledWith(
       expect.objectContaining({ tipo: "GOBIERNO_LOCAL" })
     )
+    expect(router.replace).toHaveBeenLastCalledWith("/clientes?tipo=GOBIERNO_LOCAL", {
+      scroll: false,
+    })
   })
 
   it("keeps the debounce timer from leaking between tests", () => {
@@ -250,36 +262,142 @@ describe("ClientList", () => {
     expect(useClientsMock).toHaveBeenLastCalledWith({})
   })
 
-  it("blocks the fetch when `desde` is after `hasta` and shows the friendly error", () => {
+  it("blocks the fetch when `desde` is after `hasta` and keeps the popover open", async () => {
+    vi.useRealTimers()
     render(<ClientList />)
-    fireEvent.change(screen.getByLabelText("Primer contacto desde"), {
+    const user = userEvent.setup()
+    await user.click(screen.getByRole("button", { name: /Filtros/ }))
+    fireEvent.change(await screen.findByLabelText("Primer contacto desde"), {
       target: { value: "2026-10-01" },
     })
-    expect(useClientsMock).toHaveBeenLastCalledWith({ desde: "2026-10-01" })
     fireEvent.change(screen.getByLabelText("Primer contacto hasta"), {
       target: { value: "2026-01-01" },
     })
+    // La edición del draft no dispara fetch hasta "Aplicar":
+    expect(useClientsMock).toHaveBeenLastCalledWith({})
+    await user.click(screen.getByRole("button", { name: "Aplicar" }))
     expect(toast.error).toHaveBeenCalledWith(
       "La fecha final no puede ser anterior a la inicial.",
     )
-    expect(useClientsMock).toHaveBeenLastCalledWith({ desde: "2026-10-01" })
-    expect(useClientsMock).not.toHaveBeenLastCalledWith(
-      expect.objectContaining({ hasta: "2026-01-01" }),
-    )
+    expect(useClientsMock).toHaveBeenLastCalledWith({})
+    // El popover sigue abierto para corregir el rango:
+    expect(screen.getByRole("button", { name: "Aplicar" })).toBeInTheDocument()
   })
 
-  it("applies a valid date range (desde <= hasta) to the fetch", () => {
+  it("applies a valid date range (desde <= hasta) via Aplicar", async () => {
+    vi.useRealTimers()
     render(<ClientList />)
-    fireEvent.change(screen.getByLabelText("Primer contacto desde"), {
+    const user = userEvent.setup()
+    await user.click(screen.getByRole("button", { name: /Filtros/ }))
+    fireEvent.change(await screen.findByLabelText("Primer contacto desde"), {
       target: { value: "2026-01-01" },
     })
-    expect(useClientsMock).toHaveBeenLastCalledWith({ desde: "2026-01-01" })
     fireEvent.change(screen.getByLabelText("Primer contacto hasta"), {
       target: { value: "2026-10-01" },
     })
+    await user.click(screen.getByRole("button", { name: "Aplicar" }))
     expect(useClientsMock).toHaveBeenLastCalledWith(
       expect.objectContaining({ desde: "2026-01-01", hasta: "2026-10-01" }),
     )
+    expect(router.replace).toHaveBeenLastCalledWith(
+      "/clientes?desde=2026-01-01&hasta=2026-10-01",
+      { scroll: false },
+    )
     expect(toast.error).not.toHaveBeenCalled()
+  })
+
+  /* ── URL persistence (Lote 6) ────────────────────────────────────────── */
+
+  it("seeds filters from the URL at mount (short params) and feeds them to the query", () => {
+    searchParamsMap.set("q", "gobierno")
+    searchParamsMap.set("tipo", "GOBIERNO_LOCAL")
+    searchParamsMap.set("vmin", "1000")
+    searchParamsMap.set("vmax", "5000")
+    render(<ClientList />)
+    expect(useClientsMock).toHaveBeenLastCalledWith({
+      q: "gobierno",
+      tipo: "GOBIERNO_LOCAL",
+      valorMin: "1000",
+      valorMax: "5000",
+    })
+    expect(screen.getByLabelText("Buscar clientes")).toHaveValue("gobierno")
+  })
+
+  it("drops an invalid `desde > hasta` range found in the URL at mount", () => {
+    searchParamsMap.set("desde", "2026-10-01")
+    searchParamsMap.set("hasta", "2026-01-01")
+    render(<ClientList />)
+    expect(useClientsMock).toHaveBeenLastCalledWith({})
+  })
+
+  it("shows the active-filter count on the Filtros button without counting q", () => {
+    searchParamsMap.set("q", "gobierno")
+    searchParamsMap.set("tipo", "GOBIERNO_LOCAL")
+    searchParamsMap.set("desde", "2026-01-01")
+    searchParamsMap.set("hasta", "2026-02-01")
+    render(<ClientList />)
+    expect(screen.getByRole("button", { name: "Filtros 2 filtros" })).toBeInTheDocument()
+  })
+
+  it("shows the plural-only-count Filtros button when nothing is active", () => {
+    render(<ClientList />)
+    expect(screen.getByRole("button", { name: "Filtros" })).toBeInTheDocument()
+  })
+
+  it("keeps the active filters when opening the ficha (cliente + filters coexist)", () => {
+    searchParamsMap.set("tipo", "GOBIERNO_LOCAL")
+    clientsQuery.data = { page: 1, limit: 25, total: 1, items: [CLIENTE] }
+    render(<ClientList />)
+    fireEvent.click(screen.getByRole("article", { name: /Abrir ficha de Alcaldía/ }))
+    expect(router.replace).toHaveBeenLastCalledWith(
+      "/clientes?tipo=GOBIERNO_LOCAL&cliente=c1",
+      { scroll: false },
+    )
+  })
+
+  it("clears filters via Limpiar todo and resets local, applied and the URL", async () => {
+    vi.useRealTimers()
+    render(<ClientList />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole("button", { name: /Filtros/ }))
+    const combos = await screen.findAllByRole("combobox")
+    await user.click(combos[0])
+    await user.click(await screen.findByRole("option", { name: "Gobierno local" }))
+    await user.click(screen.getByRole("button", { name: "Aplicar" }))
+    expect(useClientsMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ tipo: "GOBIERNO_LOCAL" })
+    )
+    await user.click(screen.getByRole("button", { name: /Filtros/ }))
+    await user.click(await screen.findByRole("button", { name: "Limpiar todo" }))
+    expect(useClientsMock).toHaveBeenLastCalledWith({})
+    expect(router.replace).toHaveBeenLastCalledWith("/clientes", { scroll: false })
+  })
+
+  it("writes the URL when applying a saved view", async () => {
+    vi.useRealTimers()
+    render(<ClientList />)
+    const user = userEvent.setup()
+    // Active filter first: tipo = Gobierno local.
+    await user.click(screen.getByRole("button", { name: /Filtros/ }))
+    const combos = await screen.findAllByRole("combobox")
+    await user.click(combos[0])
+    await user.click(await screen.findByRole("option", { name: "Gobierno local" }))
+    await user.click(screen.getByRole("button", { name: "Aplicar" }))
+    expect(router.replace).toHaveBeenLastCalledWith("/clientes?tipo=GOBIERNO_LOCAL", {
+      scroll: false,
+    })
+    // Save the current filters as a view.
+    await user.click(screen.getByRole("button", { name: /Vistas/ }))
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Guardar filtros actuales" })
+    )
+    await user.type(await screen.findByLabelText("Nombre de la vista"), "Gobierno")
+    await user.click(screen.getByRole("button", { name: "Guardar vista" }))
+    // Apply the saved view: URL must be rewritten too.
+    await user.click(screen.getByRole("button", { name: /Vistas/ }))
+    await user.click(await screen.findByRole("menuitem", { name: "Gobierno" }))
+    expect(router.replace).toHaveBeenLastCalledWith("/clientes?tipo=GOBIERNO_LOCAL", {
+      scroll: false,
+    })
   })
 })

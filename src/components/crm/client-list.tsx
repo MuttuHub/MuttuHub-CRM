@@ -8,7 +8,7 @@
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Eye,
@@ -16,12 +16,20 @@ import {
   FileText,
   RotateCcw,
   Search,
+  SlidersHorizontal,
   UsersRound,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -131,31 +139,100 @@ function buildQueryString(filters: ClientFilters): string {
   return sp.toString();
 }
 
+// URL contract: short params to keep the querystring light. `cliente` (ficha
+// deep-link) is not part of the filter contract and is preserved separately.
+const URL_PARAM_KEYS: { local: keyof LocalFilters; url: string }[] = [
+  { local: "q", url: "q" },
+  { local: "tipo", url: "tipo" },
+  { local: "estado", url: "estado" },
+  { local: "prioridad", url: "prioridad" },
+  { local: "responsable", url: "responsable" },
+  { local: "desde", url: "desde" },
+  { local: "hasta", url: "hasta" },
+  { local: "valorMin", url: "vmin" },
+  { local: "valorMax", url: "vmax" },
+];
+
+/** Reads the filter params from the URL (used only at mount). */
+function filtersFromParams(sp: Pick<URLSearchParams, "get">): LocalFilters {
+  const local: LocalFilters = { ...EMPTY_LOCAL };
+  for (const { local: key, url } of URL_PARAM_KEYS) {
+    local[key] = sp.get(url) ?? "";
+  }
+  // Defense: a hand-crafted URL with `desde > hasta` must not 400 the list.
+  if (local.desde && local.hasta && local.desde > local.hasta) {
+    local.desde = "";
+    local.hasta = "";
+  }
+  return local;
+}
+
+/** Builds the /clientes querystring for the applied filters + optional ficha. */
+function urlQueryString(filters: ClientFilters, cliente: string | null): string {
+  const sp = new URLSearchParams();
+  for (const { local, url } of URL_PARAM_KEYS) {
+    const value = filters[local];
+    if (value !== undefined && value !== "") sp.set(url, value);
+  }
+  if (cliente) sp.set("cliente", cliente);
+  const qs = sp.toString();
+  return qs ? `/clientes?${qs}` : "/clientes";
+}
+
+/** Active filter count for the "Filtros" badge. `q` is not counted. */
+function countActiveFilters(filters: ClientFilters): number {
+  let n = 0;
+  if (filters.tipo) n += 1;
+  if (filters.estado) n += 1;
+  if (filters.prioridad) n += 1;
+  if (filters.responsable) n += 1;
+  if (filters.desde || filters.hasta) n += 1;
+  if (filters.valorMin || filters.valorMax) n += 1;
+  return n;
+}
+
 export function ClientList() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const clienteParam = searchParams.get("cliente");
 
-  const [local, setLocal] = useState<LocalFilters>({ ...EMPTY_LOCAL });
-  const [applied, setApplied] = useState<ClientFilters>({});
+  // Filters are seeded from the URL so they survive refresh/navigation.
+  const [local, setLocal] = useState<LocalFilters>(() => filtersFromParams(searchParams));
+  const [applied, setApplied] = useState<ClientFilters>(() => toFilters(filtersFromParams(searchParams)));
   const [page, setPage] = useState(1);
 
   const usersQuery = useUsers();
   const users = usersQuery.data ?? [];
   const listQuery = useClients(applied);
 
+  // Latest applied filters for the q-debounce timer (avoids stale closures).
+  const appliedRef = useRef(applied);
+  useEffect(() => {
+    appliedRef.current = applied;
+  }, [applied]);
+
+  /** Mirrors the applied filters into the URL without polluting `cliente`. */
+  const syncUrl = useCallback(
+    (next: ClientFilters) => {
+      router.replace(urlQueryString(next, clienteParam), { scroll: false });
+    },
+    [router, clienteParam],
+  );
+
   // Debounce del buscador (350 ms).
   const qTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (qTimer.current) clearTimeout(qTimer.current);
     qTimer.current = setTimeout(() => {
-      setApplied((a) => ({ ...a, q: local.q.trim() || undefined }));
+      const next = { ...appliedRef.current, q: local.q.trim() || undefined };
+      setApplied(next);
       setPage(1);
+      syncUrl(next);
     }, 350);
     return () => {
       if (qTimer.current) clearTimeout(qTimer.current);
     };
-  }, [local.q]);
+  }, [local.q, clienteParam, syncUrl]);
 
   function commit(partial: Partial<LocalFilters>) {
     setLocal((l) => ({ ...l, ...partial }));
@@ -172,7 +249,12 @@ export function ClientList() {
     const rest: Partial<LocalFilters> = { ...partial };
     delete rest.q;
     if (Object.keys(rest).length > 0) {
-      setApplied((a) => ({ ...a, ...toFilters({ ...EMPTY_LOCAL, ...rest }) }));
+      const nextFilters: ClientFilters = {
+        ...applied,
+        ...toFilters({ ...EMPTY_LOCAL, ...rest }),
+      };
+      setApplied(nextFilters);
+      syncUrl(nextFilters);
     }
     setPage(1);
   }
@@ -180,22 +262,25 @@ export function ClientList() {
   function clearFilters() {
     setLocal({ ...EMPTY_LOCAL });
     setApplied({});
+    syncUrl({});
     setPage(1);
   }
 
   function applyView(viewFilters: ClientFilters) {
     const next: LocalFilters = { ...EMPTY_LOCAL, ...toLocal(viewFilters) };
+    const nextFilters = snapshotFilters(viewFilters);
     setLocal(next);
-    setApplied(snapshotFilters(viewFilters));
+    setApplied(nextFilters);
+    syncUrl(nextFilters);
     setPage(1);
   }
 
   /* ── Ficha: `?cliente=<id>` es la fuente de verdad del panel ── */
   function openFicha(id: string) {
-    router.replace(`/clientes?cliente=${id}`, { scroll: false });
+    router.replace(urlQueryString(applied, id), { scroll: false });
   }
   function closeFicha() {
-    router.replace("/clientes", { scroll: false });
+    router.replace(urlQueryString(applied, null), { scroll: false });
   }
 
   async function exportExcel() {
@@ -233,7 +318,7 @@ export function ClientList() {
     window.open(`/print/clientes?${qs}`, "_blank", "noopener");
   }
 
-  const hasActive = !filtersEmpty(applied);
+  const activeCount = countActiveFilters(applied);
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -270,7 +355,7 @@ export function ClientList() {
         loadingUsers={usersQuery.isLoading}
         onChange={commit}
         onClear={clearFilters}
-        hasActive={hasActive}
+        activeCount={activeCount}
       />
 
       {listQuery.isError ? (
@@ -300,15 +385,41 @@ function FiltersCard({
   loadingUsers,
   onChange,
   onClear,
-  hasActive,
+  activeCount,
 }: {
   local: LocalFilters;
   users: { id: string; nombre: string }[];
   loadingUsers: boolean;
   onChange: (partial: Partial<LocalFilters>) => void;
   onClear: () => void;
-  hasActive: boolean;
+  activeCount: number;
 }) {
+  const [open, setOpen] = useState(false);
+  // Draft state: touching a control inside the popover must NOT fetch until
+  // "Aplicar". Seeded from the applied local state each time the panel opens.
+  const [draft, setDraft] = useState<LocalFilters>(local);
+
+  function handleOpenChange(next: boolean) {
+    if (next) setDraft(local);
+    setOpen(next);
+  }
+
+  function applyDraft() {
+    if (draft.desde && draft.hasta && draft.desde > draft.hasta) {
+      toast.error("La fecha final no puede ser anterior a la inicial.");
+      return;
+    }
+    onChange({ ...draft });
+    setOpen(false);
+  }
+
+  function clearAll() {
+    setDraft({ ...EMPTY_LOCAL });
+    onClear();
+  }
+
+  const draftEmpty = filtersEmpty(toFilters(draft));
+
   return (
     <section className="rounded-[22px] border border-ink-200 bg-white p-4 lg:p-5">
       <div className="flex flex-wrap items-center gap-3">
@@ -326,137 +437,166 @@ function FiltersCard({
           />
         </div>
 
-        <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-          <Select value={local.tipo} onValueChange={(v) => onChange({ tipo: v === "todos" ? "" : (v ?? "") })}>
-            <SelectTrigger className={cn(SELECT_CLASS, "min-w-[150px]")}>
-              <SelectValue placeholder="Tipo de cliente" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos los tipos</SelectItem>
-              {ENUM_VALUES.TipoCliente.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {TIPO_CLIENTE_LABELS[t as TipoCliente].label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <Popover open={open} onOpenChange={handleOpenChange}>
+          <PopoverTrigger
+            render={
+              <Button
+                variant="outline"
+                className="h-10 rounded-12 border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+              >
+                <SlidersHorizontal className="size-4 text-ink-600" strokeWidth={1.8} />
+                Filtros{" "}
+                {activeCount > 0 && (
+                  <span className="ml-0.5 rounded-full bg-ink-100 px-2 py-0.5 text-[10.5px] font-bold text-ink-600">
+                    {activeCount === 1 ? "1 filtro" : `${activeCount} filtros`}
+                  </span>
+                )}
+              </Button>
+            }
+          />
+          <PopoverContent align="end" className="w-[min(92vw,600px)]">
+            <PopoverTitle className="font-display text-[15px] font-bold text-ink-950">
+              Filtros
+            </PopoverTitle>
+            <PopoverDescription className="sr-only">
+              Combina criterios para acotar la lista de clientes.
+            </PopoverDescription>
 
-          <Select value={local.estado} onValueChange={(v) => onChange({ estado: v === "todos" ? "" : (v ?? "") })}>
-            <SelectTrigger className={cn(SELECT_CLASS, "min-w-[150px]")}>
-              <SelectValue placeholder="Estado" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos los estados</SelectItem>
-              {ENUM_VALUES.EstadoCliente.map((e) => (
-                <SelectItem key={e} value={e}>
-                  {ESTADO_CLIENTE_LABELS[e as EstadoCliente].label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Select value={draft.tipo} onValueChange={(v) => setDraft((d) => ({ ...d, tipo: v === "todos" ? "" : (v ?? "") }))}>
+                <SelectTrigger className={cn(SELECT_CLASS)}>
+                  <SelectValue placeholder="Tipo de cliente" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos los tipos</SelectItem>
+                  {ENUM_VALUES.TipoCliente.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {TIPO_CLIENTE_LABELS[t as TipoCliente].label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-          <Select value={local.prioridad} onValueChange={(v) => onChange({ prioridad: v === "todos" ? "" : (v ?? "") })}>
-            <SelectTrigger className={cn(SELECT_CLASS, "min-w-[130px]")}>
-              <SelectValue placeholder="Prioridad" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Toda prioridad</SelectItem>
-              {ENUM_VALUES.PrioridadCliente.map((p) => (
-                <SelectItem key={p} value={p}>
-                  {PRIORIDAD_CLIENTE_LABELS[p as PrioridadCliente].label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              <Select value={draft.estado} onValueChange={(v) => setDraft((d) => ({ ...d, estado: v === "todos" ? "" : (v ?? "") }))}>
+                <SelectTrigger className={cn(SELECT_CLASS)}>
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos los estados</SelectItem>
+                  {ENUM_VALUES.EstadoCliente.map((e) => (
+                    <SelectItem key={e} value={e}>
+                      {ESTADO_CLIENTE_LABELS[e as EstadoCliente].label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-          <Select
-            value={local.responsable}
-            onValueChange={(v) => onChange({ responsable: v === "todos" ? "" : (v ?? "") })}
-          >
-            <SelectTrigger className={cn(SELECT_CLASS, "min-w-[160px]")}>
-              <SelectValue placeholder={loadingUsers ? "Cargando…" : "Responsable"} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos los responsables</SelectItem>
-              {users.map((u) => (
-                <SelectItem key={u.id} value={u.id}>
-                  {u.nombre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              <Select value={draft.prioridad} onValueChange={(v) => setDraft((d) => ({ ...d, prioridad: v === "todos" ? "" : (v ?? "") }))}>
+                <SelectTrigger className={cn(SELECT_CLASS)}>
+                  <SelectValue placeholder="Prioridad" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Toda prioridad</SelectItem>
+                  {ENUM_VALUES.PrioridadCliente.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {PRIORIDAD_CLIENTE_LABELS[p as PrioridadCliente].label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-          <div className="flex items-center gap-1.5">
-            <Label htmlFor="fecha-desde" className="sr-only">
-              Desde
-            </Label>
-            <Input
-              id="fecha-desde"
-              type="date"
-              value={local.desde}
-              onChange={(e) => onChange({ desde: e.target.value })}
-              aria-label="Primer contacto desde"
-              className="h-10 w-[148px] rounded-12 border-ink-200 bg-white px-3 text-[12.5px]"
-            />
-            <span className="text-[12px] text-ink-500">a</span>
-            <Label htmlFor="fecha-hasta" className="sr-only">
-              Hasta
-            </Label>
-            <Input
-              id="fecha-hasta"
-              type="date"
-              value={local.hasta}
-              onChange={(e) => onChange({ hasta: e.target.value })}
-              aria-label="Primer contacto hasta"
-              className="h-10 w-[148px] rounded-12 border-ink-200 bg-white px-3 text-[12.5px]"
-            />
-          </div>
+              <Select
+                value={draft.responsable}
+                onValueChange={(v) => setDraft((d) => ({ ...d, responsable: v === "todos" ? "" : (v ?? "") }))}
+              >
+                <SelectTrigger className={cn(SELECT_CLASS)}>
+                  <SelectValue placeholder={loadingUsers ? "Cargando…" : "Responsable"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos los responsables</SelectItem>
+                  {users.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-          <div className="flex items-center gap-1.5">
-            <Label htmlFor="valor-min" className="sr-only">
-              Valor mínimo
-            </Label>
-            <Input
-              id="valor-min"
-              type="number"
-              min="0"
-              inputMode="numeric"
-              value={local.valorMin}
-              onChange={(e) => onChange({ valorMin: e.target.value })}
-              placeholder="Valor min"
-              className="h-10 w-[118px] rounded-12 border-ink-200 bg-white px-3 font-mono text-[12px]"
-            />
-            <span className="text-[12px] text-ink-500">a</span>
-            <Label htmlFor="valor-max" className="sr-only">
-              Valor máximo
-            </Label>
-            <Input
-              id="valor-max"
-              type="number"
-              min="0"
-              inputMode="numeric"
-              value={local.valorMax}
-              onChange={(e) => onChange({ valorMax: e.target.value })}
-              placeholder="Valor max"
-              className="h-10 w-[118px] rounded-12 border-ink-200 bg-white px-3 font-mono text-[12px]"
-            />
-          </div>
-        </div>
+              <div className="flex items-center gap-1.5">
+                <Label htmlFor="fecha-desde" className="sr-only">
+                  Desde
+                </Label>
+                <Input
+                  id="fecha-desde"
+                  type="date"
+                  value={draft.desde}
+                  onChange={(e) => setDraft((d) => ({ ...d, desde: e.target.value }))}
+                  aria-label="Primer contacto desde"
+                  className="h-10 min-w-0 flex-1 rounded-12 border-ink-200 bg-white px-3 text-[12.5px]"
+                />
+                <span className="text-[12px] text-ink-500">a</span>
+                <Label htmlFor="fecha-hasta" className="sr-only">
+                  Hasta
+                </Label>
+                <Input
+                  id="fecha-hasta"
+                  type="date"
+                  value={draft.hasta}
+                  onChange={(e) => setDraft((d) => ({ ...d, hasta: e.target.value }))}
+                  aria-label="Primer contacto hasta"
+                  className="h-10 min-w-0 flex-1 rounded-12 border-ink-200 bg-white px-3 text-[12.5px]"
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <Label htmlFor="valor-min" className="sr-only">
+                  Valor mínimo
+                </Label>
+                <Input
+                  id="valor-min"
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  value={draft.valorMin}
+                  onChange={(e) => setDraft((d) => ({ ...d, valorMin: e.target.value }))}
+                  placeholder="Valor min"
+                  className="h-10 min-w-0 flex-1 rounded-12 border-ink-200 bg-white px-3 font-mono text-[12px]"
+                />
+                <span className="text-[12px] text-ink-500">a</span>
+                <Label htmlFor="valor-max" className="sr-only">
+                  Valor máximo
+                </Label>
+                <Input
+                  id="valor-max"
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  value={draft.valorMax}
+                  onChange={(e) => setDraft((d) => ({ ...d, valorMax: e.target.value }))}
+                  placeholder="Valor max"
+                  className="h-10 min-w-0 flex-1 rounded-12 border-ink-200 bg-white px-3 font-mono text-[12px]"
+                />
+              </div>
+            </div>
+
+            <div className="mt-4 flex items-center justify-between gap-2 border-t border-ink-100 pt-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearAll}
+                disabled={draftEmpty}
+                className="h-8 px-2 text-[12.5px] font-semibold text-ink-600"
+              >
+                <RotateCcw className="size-3" strokeWidth={1.9} />
+                Limpiar todo
+              </Button>
+              <Button size="sm" onClick={applyDraft} className="h-8 rounded-lg px-4 text-[13px] font-semibold">
+                Aplicar
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
-
-      {hasActive && (
-        <div className="mt-3 flex items-center justify-end">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClear}
-            className="h-8 px-2 text-[12.5px] font-semibold text-ink-600"
-          >
-            <RotateCcw className="size-3" strokeWidth={1.9} />
-            Limpiar filtros
-          </Button>
-        </div>
-      )}
     </section>
   );
 }
