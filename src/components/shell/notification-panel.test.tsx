@@ -30,7 +30,7 @@ vi.mock("next/navigation", () => ({
 const UNREAD_ITEM: AlertItemNotificacion = {
   id: "t-1",
   titulo: "Entrega vencida",
-  estado: "EN_PROGRESO",
+  estado: "EN_CURSO",
   fecha_entrega: "2026-08-01T00:00:00.000Z",
   origen: "KANBAN",
   responsable_id: "u-1",
