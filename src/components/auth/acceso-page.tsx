@@ -388,7 +388,7 @@ export function AccesoPage({
               loop
               muted
               playsInline
-              preload="auto"
+              preload="metadata"
               onError={() => setVideoFalla(true)}
               aria-hidden="true"
               style={{
@@ -546,7 +546,7 @@ export function AccesoPage({
                 <p style={{ fontSize: 13.5, color: "var(--color-ink-700)", margin: "0 0 14px" }}>
                   El acceso requiere un proyecto de Supabase configurado.
                 </p>
-                <button type="button" onClick={() => toast.info('Revisa la sección "Puesta en marcha" del README y completa el archivo .env')} style={{ height: 44, background: "var(--color-rose-500)", color: "#fff", border: 0, borderRadius: 14, fontSize: 14, fontWeight: 700, cursor: "pointer", padding: "0 22px" }}>
+                <button type="button" onClick={() => toast.info('Revisa la sección "Puesta en marcha" del README y completa el archivo .env')} className="login-focus" style={{ height: 44, background: "var(--color-rose-500)", color: "#fff", border: 0, borderRadius: 14, fontSize: 14, fontWeight: 700, cursor: "pointer", padding: "0 22px" }}>
                   Ver pasos de configuración
                 </button>
               </div>
@@ -619,7 +619,7 @@ export function AccesoPage({
                       </span>
                       <span style={{ fontSize: 13, color: "var(--color-ink-800)" }}>Recuérdame</span>
                     </label>
-                    <button type="button" onClick={ir("recuperar")} style={{ background: "none", border: 0, padding: "5px 8px", margin: "-5px -8px", fontSize: 13, fontWeight: 600, color: "var(--color-rose-500)", cursor: "pointer" }}>
+                    <button type="button" onClick={ir("recuperar")} className="login-focus" style={{ background: "none", border: 0, padding: "5px 8px", margin: "-5px -8px", fontSize: 13, fontWeight: 600, color: "var(--color-rose-500)", cursor: "pointer" }}>
                       ¿Olvidaste tu contraseña?
                     </button>
                   </div>
@@ -694,6 +694,7 @@ export function AccesoPage({
               <button
                 type="button"
                 onClick={ir(piePaso(vista))}
+                className="login-focus"
                 style={{ background: "none", border: 0, padding: 0, fontSize: 13, fontWeight: 700, color: "var(--color-rose-500)", cursor: "pointer" }}
               >
                 {VISTAS[vista].pie[1]}

@@ -107,7 +107,7 @@ function SidebarContent({ rail }: { rail: boolean }) {
             aria-label="Buscar en el Hub"
             className="h-[38px] w-full rounded-12 border border-shell-chip bg-shell-surface pr-10 pl-9 text-[13px] text-shell-text placeholder:text-shell-faint focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus:outline-none"
           />
-          <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded-md border border-shell-border bg-shell-chip px-1.5 py-0.5 font-mono text-[10px] text-shell-faint">
+          <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded-md border border-shell-border bg-shell-chip px-1.5 py-0.5 font-mono text-[10px] text-shell-muted">
             ⌘K
           </kbd>
         </div>
@@ -192,6 +192,16 @@ export function Sidebar() {
   const mobileOpen = useSidebarStore((s) => s.mobileOpen);
   const setMobileOpen = useSidebarStore((s) => s.setMobileOpen);
 
+  // Cierre del drawer móvil con Escape (misma convención que notification-panel).
+  useEffect(() => {
+    if (!mobileOpen) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setMobileOpen(false);
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [mobileOpen, setMobileOpen]);
+
   return (
     <TooltipProvider delay={0}>
       <aside
@@ -211,7 +221,7 @@ export function Sidebar() {
             onClick={() => setMobileOpen(false)}
             className="absolute inset-0 bg-ink-950/50 backdrop-blur-[2px]"
           />
-          <aside className="absolute inset-y-0 left-0 flex w-[264px] flex-col rounded-r-[26px] border-r border-shell-border bg-shell-surface px-3.5 py-3.5">
+          <aside id="sidebar-drawer" className="absolute inset-y-0 left-0 flex w-[264px] flex-col rounded-r-[26px] border-r border-shell-border bg-shell-surface px-3.5 py-3.5">
             <SidebarContent rail={false} />
           </aside>
         </div>

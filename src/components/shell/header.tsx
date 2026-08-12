@@ -54,6 +54,7 @@ function subtituloInicio(snapshot: NotificationsSnapshot | undefined): string {
 export function Header() {
   const pathname = usePathname();
   const setMobileOpen = useSidebarStore((s) => s.setMobileOpen);
+  const mobileOpen = useSidebarStore((s) => s.mobileOpen);
   const rango = useFiltersStore((s) => s.rango);
   const setRango = useFiltersStore((s) => s.setRango);
   const userQuery = useCurrentUser();
@@ -85,6 +86,8 @@ export function Header() {
           type="button"
           onClick={() => setMobileOpen(true)}
           aria-label="Abrir menú"
+          aria-expanded={mobileOpen}
+          aria-controls="sidebar-drawer"
           className="relative mt-1 grid size-9 shrink-0 place-items-center rounded-12 border border-ink-200 bg-white text-ink-700 transition-colors after:absolute after:content-[''] after:-inset-1 hover:bg-ink-100 lg:hidden"
         >
           <Menu className="size-4" strokeWidth={1.8} />

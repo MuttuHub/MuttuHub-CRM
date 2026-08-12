@@ -105,7 +105,7 @@ function TaskDate({ fecha }: { fecha: string | null }) {
   if (!fecha) {
     return (
       <span className="inline-flex h-[20px] items-center rounded-full bg-ink-100 px-2 text-[10.5px] font-semibold text-ink-600">
-        <Hexagon className="mr-1 size-2.5" strokeWidth={1.8} />
+        <CalendarDays className="mr-1 size-2.5" strokeWidth={1.8} />
         Sin fecha
       </span>
     );
