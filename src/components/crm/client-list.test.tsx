@@ -21,7 +21,7 @@ type UsersQueryState = {
   data: UsuarioMini[] | undefined
 }
 
-const { router, useClientsMock, useUsersMock, clientsQuery } = vi.hoisted(() => {
+const { router, toast, useClientsMock, useUsersMock, clientsQuery } = vi.hoisted(() => {
   const clientsQuery: ClientsQueryState = {
     isLoading: false,
     isError: false,
@@ -30,6 +30,7 @@ const { router, useClientsMock, useUsersMock, clientsQuery } = vi.hoisted(() => 
   }
   return {
     router: { replace: vi.fn() },
+    toast: { error: vi.fn(), success: vi.fn() },
     useClientsMock: vi.fn<(filters?: ClientFilters) => ClientsQueryState>(() => clientsQuery),
     useUsersMock: vi.fn<(_filters?: unknown) => UsersQueryState>(() => ({
       isLoading: false,
@@ -38,6 +39,8 @@ const { router, useClientsMock, useUsersMock, clientsQuery } = vi.hoisted(() => 
     clientsQuery,
   }
 })
+
+vi.mock("sonner", () => ({ toast }))
 
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
@@ -101,6 +104,8 @@ describe("ClientList", () => {
   beforeEach(() => {
     vi.useFakeTimers()
     router.replace.mockClear()
+    toast.error.mockClear()
+    toast.success.mockClear()
     useClientsMock.mockClear()
     useUsersMock.mockClear()
     clientsQuery.isLoading = false
@@ -243,5 +248,38 @@ describe("ClientList", () => {
       vi.advanceTimersByTime(400)
     })
     expect(useClientsMock).toHaveBeenLastCalledWith({})
+  })
+
+  it("blocks the fetch when `desde` is after `hasta` and shows the friendly error", () => {
+    render(<ClientList />)
+    fireEvent.change(screen.getByLabelText("Primer contacto desde"), {
+      target: { value: "2026-10-01" },
+    })
+    expect(useClientsMock).toHaveBeenLastCalledWith({ desde: "2026-10-01" })
+    fireEvent.change(screen.getByLabelText("Primer contacto hasta"), {
+      target: { value: "2026-01-01" },
+    })
+    expect(toast.error).toHaveBeenCalledWith(
+      "La fecha final no puede ser anterior a la inicial.",
+    )
+    expect(useClientsMock).toHaveBeenLastCalledWith({ desde: "2026-10-01" })
+    expect(useClientsMock).not.toHaveBeenLastCalledWith(
+      expect.objectContaining({ hasta: "2026-01-01" }),
+    )
+  })
+
+  it("applies a valid date range (desde <= hasta) to the fetch", () => {
+    render(<ClientList />)
+    fireEvent.change(screen.getByLabelText("Primer contacto desde"), {
+      target: { value: "2026-01-01" },
+    })
+    expect(useClientsMock).toHaveBeenLastCalledWith({ desde: "2026-01-01" })
+    fireEvent.change(screen.getByLabelText("Primer contacto hasta"), {
+      target: { value: "2026-10-01" },
+    })
+    expect(useClientsMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ desde: "2026-01-01", hasta: "2026-10-01" }),
+    )
+    expect(toast.error).not.toHaveBeenCalled()
   })
 })

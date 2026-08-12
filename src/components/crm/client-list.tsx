@@ -159,6 +159,13 @@ export function ClientList() {
 
   function commit(partial: Partial<LocalFilters>) {
     setLocal((l) => ({ ...l, ...partial }));
+    // Rango inválido: el input muestra lo tipeado pero NO se dispara el fetch
+    // (el backend rechazaría con 400 de todas formas — defensa en capas).
+    const next = { ...local, ...partial };
+    if (next.desde && next.hasta && next.desde > next.hasta) {
+      toast.error("La fecha final no puede ser anterior a la inicial.");
+      return;
+    }
     // BUG-002: `q` se propaga SOLO por el debounce de 350 ms (efecto de arriba).
     // Si lo aplicamos acá, cada tecla dispara un fetch. El resto de filtros sí
     // se aplican de inmediato (selects y rangos no necesitan debounce).

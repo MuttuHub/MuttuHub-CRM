@@ -213,6 +213,18 @@ export function KanbanBoard() {
     setLocal({ prioridad: "", etiqueta: "", desde: "", hasta: "" });
   }
 
+  // Los filtros locales se aplican en vivo sobre la página cargada; un rango
+  // inválido (desde > hasta) no se aplica y avisa — evita el "sin resultados"
+  // silencioso.
+  function applyLocalFilter(patch: Partial<typeof local>) {
+    const next = { ...local, ...patch };
+    if (next.desde && next.hasta && next.desde > next.hasta) {
+      toast.error("La fecha final no puede ser anterior a la inicial.");
+      return;
+    }
+    setLocal(next);
+  }
+
   const columns: Record<EstadoTarea, CardTask[]> = useMemo(() => {
     const grouped: Record<EstadoTarea, CardTask[]> = {
       POR_HACER: [],
@@ -297,7 +309,7 @@ export function KanbanBoard() {
           clients={clients}
           onResponsable={setResponsableEquipo}
           onCliente={setCliente}
-          onLocal={(patch) => setLocal((prev) => ({ ...prev, ...patch }))}
+          onLocal={applyLocalFilter}
           onClear={clearFilters}
           hasActive={localActive}
         />

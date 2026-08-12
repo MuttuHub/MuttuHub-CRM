@@ -202,6 +202,12 @@ export function parseClientListFilters(
   if (hasta && !/^\d{4}-\d{2}-\d{2}$/.test(hasta)) {
     return { ok: false, response: apiError("Fecha 'hasta' no válida (YYYY-MM-DD).", 400, "VALIDATION_ERROR") };
   }
+  if (desde && hasta && desde > hasta) {
+    return {
+      ok: false,
+      response: apiError("La fecha final no puede ser anterior a la inicial.", 400, "VALIDATION_ERROR"),
+    };
+  }
 
   const valorMin = sp.get("valorMin");
   const valorMax = sp.get("valorMax");
