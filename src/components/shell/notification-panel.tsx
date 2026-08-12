@@ -128,7 +128,12 @@ export function NotificationPanel() {
   function abrirAlerta(item: AlertItemNotificacion) {
     setOpen(false);
     if (item.notificacion_id) markRead.mutate(item.notificacion_id);
-    router.push("/tablero");
+    // Compromisos CRM se resuelven en la ficha del cliente; el resto, en el tablero.
+    if (item.origen === "CRM" && item.cliente_id) {
+      router.push(`/clientes?cliente=${item.cliente_id}`);
+    } else {
+      router.push("/tablero");
+    }
   }
 
   const allItems = snapshot
