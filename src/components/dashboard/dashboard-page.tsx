@@ -104,7 +104,7 @@ export function DashboardTabs({ notice }: { notice?: string }) {
             className={cn(
               "flex flex-1 items-center justify-center gap-2 rounded-[9px] px-3 py-2 text-[12.5px] font-bold whitespace-nowrap transition-colors",
               cara === c.id
-                ? "bg-white text-ink-950 shadow-sm"
+                ? "bg-card text-ink-950 shadow-sm"
                 : "text-ink-600 hover:text-ink-900",
             )}
           >
@@ -125,7 +125,7 @@ export function DashboardTabs({ notice }: { notice?: string }) {
           </div>
 
           <Select value={responsable} onValueChange={(v) => v !== null && setResponsable(v)}>
-            <SelectTrigger size="sm" className="h-8 rounded-11 bg-white">
+            <SelectTrigger size="sm" className="h-8 rounded-11 bg-panel">
               <SelectValue placeholder="Todos los responsables" />
             </SelectTrigger>
             <SelectContent>
@@ -139,7 +139,7 @@ export function DashboardTabs({ notice }: { notice?: string }) {
           </Select>
 
           <Select value={tipoCliente} onValueChange={(v) => v !== null && setTipoCliente(v)}>
-            <SelectTrigger size="sm" className="h-8 rounded-11 bg-white">
+            <SelectTrigger size="sm" className="h-8 rounded-11 bg-panel">
               <SelectValue placeholder="Todos los tipos" />
             </SelectTrigger>
             <SelectContent>

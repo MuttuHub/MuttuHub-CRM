@@ -74,7 +74,7 @@ function initials(nombre: string): string {
 function roleBadgeClass(rol: RolUsuario): string {
   switch (rol) {
     case "ADMINISTRADOR":
-      return "bg-rose-50 text-rose-700";
+      return "bg-rose-50 text-rose-700 dark:text-rose-400";
     case "GERENCIA":
       return "bg-info-bg text-info";
     case "COORDINADOR":
@@ -174,7 +174,7 @@ export function UsersTable({
         onSuccess={() => router.refresh()}
       />
 
-      <div className="overflow-hidden rounded-[22px] border border-ink-200 bg-white">
+      <div className="overflow-hidden rounded-[22px] border border-ink-200 bg-panel">
         {usuarios.length === 0 ? (
           <div className="grid min-h-[220px] place-items-center px-6 py-12 text-center">
             <div>
@@ -215,7 +215,7 @@ export function UsersTable({
                   <TableRow key={usuario.id} className="hover:bg-ink-100/60">
                     <TableCell className="pl-5">
                       <div className="flex items-center gap-3">
-                        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-rose-50 text-[11px] font-bold text-rose-700">
+                        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-rose-50 text-[11px] font-bold text-rose-700 dark:text-rose-400">
                           {initials(usuario.nombre)}
                         </span>
                         <div className="min-w-0">
@@ -321,7 +321,7 @@ function RowMenu({
               onClick={() => setRolPendiente(rol)}
               disabled={isSelf}
               title={isSelf ? "No puedes cambiar tu propio rol" : undefined}
-              className={usuario.rol === rol ? "font-semibold text-rose-700" : ""}
+              className={usuario.rol === rol ? "font-semibold text-rose-700 dark:text-rose-400" : ""}
             >
               <span
                 className={`size-2 rounded-full ${
@@ -511,7 +511,7 @@ function NewUserDialog({
                 id="nuevo-nombre"
                 required
                 placeholder="Nombre y apellido"
-                className="h-10 rounded-12 bg-white px-3"
+                className="h-10 rounded-12 bg-panel px-3"
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
               />
@@ -523,7 +523,7 @@ function NewUserDialog({
                 type="email"
                 required
                 placeholder="nombre@muttu.co"
-                className="h-10 rounded-12 bg-white px-3"
+                className="h-10 rounded-12 bg-panel px-3"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -531,7 +531,7 @@ function NewUserDialog({
             <div className="flex flex-col gap-2">
               <Label>Rol</Label>
               <Select value={rol} onValueChange={(v) => setRol(v as RolUsuario)}>
-                <SelectTrigger className="h-10 w-full rounded-12 bg-white px-3">
+                <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -549,7 +549,7 @@ function NewUserDialog({
                 value={invite ? "invite" : "password"}
                 onValueChange={(v) => setInvite(v === "invite")}
               >
-                <SelectTrigger className="h-10 w-full rounded-12 bg-white px-3">
+                <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -574,7 +574,7 @@ function NewUserDialog({
                   required
                   autoComplete="new-password"
                   placeholder="Mínimo 8 caracteres, con letras y números"
-                  className="h-10 rounded-12 bg-white px-3"
+                  className="h-10 rounded-12 bg-panel px-3"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />

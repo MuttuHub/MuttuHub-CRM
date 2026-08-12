@@ -43,7 +43,7 @@ export default async function AdministracionPage() {
             el historial se conserva.
           </p>
         </div>
-        <span className="inline-flex items-center gap-2 rounded-full border border-ink-200 bg-white px-3.5 py-1.5 text-[12px] font-semibold text-ink-700">
+        <span className="inline-flex items-center gap-2 rounded-full border border-ink-200 bg-panel px-3.5 py-1.5 text-[12px] font-semibold text-ink-700">
           <Users className="size-3.5" strokeWidth={1.8} />
           {auth && !loadError ? `${usuarios.length} usuarios` : "—"}
         </span>

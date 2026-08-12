@@ -50,7 +50,7 @@ export function CaraTareas({ filters }: { filters: DashboardFilters }) {
             return (
               <span
                 key={c.estado}
-                className="inline-flex h-[30px] items-center gap-2 rounded-full border border-ink-200 bg-white px-3.5 text-[12.5px] font-semibold text-ink-800"
+                className="inline-flex h-[30px] items-center gap-2 rounded-full border border-ink-200 bg-panel px-3.5 text-[12.5px] font-semibold text-ink-800"
               >
                 <span
                   className={cn(
@@ -165,7 +165,7 @@ export function CaraTareas({ filters }: { filters: DashboardFilters }) {
                     <div className="min-w-0 flex-1">
                       <Link
                         href="/tablero"
-                        className="block truncate text-[13px] font-semibold text-ink-900 hover:text-rose-700"
+                        className="block truncate text-[13px] font-semibold text-ink-900 hover:text-rose-700 dark:hover:text-rose-400"
                       >
                         {v.titulo}
                       </Link>
@@ -185,7 +185,7 @@ export function CaraTareas({ filters }: { filters: DashboardFilters }) {
             {vencidas.count > MAX_VENCIDAS_VISAS && (
               <p className="text-[12px] text-ink-600">
                 +{vencidas.count - MAX_VENCIDAS_VISAS} más · verlas todas en el{" "}
-                <Link href="/tablero" className="font-semibold text-ink-800 underline decoration-ink-300 underline-offset-2 hover:text-rose-700">
+                <Link href="/tablero" className="font-semibold text-ink-800 underline decoration-ink-300 underline-offset-2 hover:text-rose-700 dark:hover:text-rose-400">
                   tablero
                 </Link>
               </p>

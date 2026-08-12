@@ -242,7 +242,7 @@ export function RepositoryList() {
               size="sm"
               disabled={zipPending}
               onClick={() => void descargarSeleccion()}
-              className="h-9 rounded-12 border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+              className="h-9 rounded-12 border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
             >
               {zipPending ? (
                 <LoaderCircle className="size-4 animate-spin" />
@@ -298,7 +298,7 @@ export function RepositoryList() {
 /* ── Fila de filtros ───────────────────────────────────────────────────── */
 
 const SELECT_CLASS =
-  "h-9 w-full rounded-12 border-ink-200 bg-white px-3 text-[13px]";
+  "h-9 w-full rounded-12 border-ink-200 bg-panel px-3 text-[13px]";
 
 function SectionFilters({
   local,
@@ -318,7 +318,7 @@ function SectionFilters({
   etiquetaOptions: string[];
 }) {
   return (
-    <section className="rounded-[22px] border border-ink-200 bg-white p-4 lg:p-5">
+    <section className="rounded-[22px] border border-ink-200 bg-panel p-4 lg:p-5">
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative min-w-[220px] flex-1">
           <Search
@@ -330,7 +330,7 @@ function SectionFilters({
             onChange={(e) => onChange({ q: e.target.value })}
             placeholder="Buscar por nombre, categoría, etiqueta, cliente o autor…"
             aria-label="Buscar documentos"
-            className="h-10 rounded-lg border-ink-200 bg-white pl-9 text-[13px]"
+            className="h-10 rounded-lg border-ink-200 bg-panel pl-9 text-[13px]"
           />
         </div>
 
@@ -415,7 +415,7 @@ function SectionFilters({
               value={local.desde}
               onChange={(e) => onChange({ desde: e.target.value })}
               aria-label="Documentos desde"
-              className="h-10 w-[148px] rounded-lg border-ink-200 bg-white px-3 text-[12.5px]"
+              className="h-10 w-[148px] rounded-lg border-ink-200 bg-panel px-3 text-[12.5px]"
             />
             <span className="text-[12px] text-ink-500">a</span>
             <Label htmlFor="doc-hasta" className="sr-only">
@@ -427,7 +427,7 @@ function SectionFilters({
               value={local.hasta}
               onChange={(e) => onChange({ hasta: e.target.value })}
               aria-label="Documentos hasta"
-              className="h-10 w-[148px] rounded-lg border-ink-200 bg-white px-3 text-[12.5px]"
+              className="h-10 w-[148px] rounded-lg border-ink-200 bg-panel px-3 text-[12.5px]"
             />
           </div>
         </div>
@@ -485,7 +485,7 @@ function DocumentsTableCard({
   const isEmpty = !query.isLoading && items.length === 0;
 
   return (
-    <section className="overflow-hidden rounded-[22px] border border-ink-200 bg-white">
+    <section className="overflow-hidden rounded-[22px] border border-ink-200 bg-panel">
       {query.isLoading ? (
         <div className="space-y-3 p-6">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -585,7 +585,7 @@ function DocumentRow({
           <span
             className={cn(
               "grid size-9 shrink-0 place-items-center rounded-[12px_12px_12px_4px] text-[9.5px] font-bold",
-              activa ? "bg-rose-100 text-rose-700" : "bg-ink-100 text-ink-600",
+              activa ? "bg-rose-100 text-rose-700 dark:text-rose-400" : "bg-ink-100 text-ink-600",
             )}
           >
             {extensionOf(activa?.tipo_archivo ?? "")?.toUpperCase() ?? "—"}
@@ -656,7 +656,7 @@ function DocumentRow({
               e.stopPropagation();
               onOpen();
             }}
-            className="text-ink-500 hover:text-rose-700 after:-inset-1"
+            className="text-ink-500 hover:text-rose-700 dark:hover:text-rose-400 after:-inset-1"
           >
             <Eye className="size-4" strokeWidth={1.8} />
           </Button>
@@ -721,7 +721,7 @@ function PaginationFooter({
               onClick={() => onPage(p)}
               className={cn(
                 "h-8 min-w-8 rounded-10 px-2 text-[12.5px] font-bold after:-inset-1",
-                p === page && "bg-ink-950 text-white hover:bg-ink-800",
+                p === page && "bg-ink-950 text-white hover:bg-ink-800 dark:bg-ink-100 dark:text-white dark:hover:bg-ink-200",
               )}
             >
               {p}
@@ -752,7 +752,7 @@ function EmptyDocuments({ onOpenUpload }: { onOpenUpload: () => void }) {
   return (
     <div className="grid min-h-[300px] place-items-center px-6 py-12 text-center">
       <div className="max-w-[42ch]">
-        <span className="mx-auto grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-rose-100 text-rose-700">
+        <span className="mx-auto grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-rose-100 text-rose-700 dark:text-rose-400">
           <FolderOpen className="size-6" strokeWidth={1.7} />
         </span>
         <h3 className="mt-4 font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">

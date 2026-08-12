@@ -69,7 +69,7 @@ export function ReportesPage() {
             <TabsTrigger
               key={cara.id}
               value={cara.id}
-              className="flex h-auto flex-1 items-center justify-center gap-2 rounded-[9px] px-3 py-2 text-[12.5px] font-bold whitespace-nowrap text-ink-600 transition-colors hover:text-ink-900 data-active:bg-white data-active:text-ink-950 data-active:shadow-sm"
+              className="flex h-auto flex-1 items-center justify-center gap-2 rounded-[9px] px-3 py-2 text-[12.5px] font-bold whitespace-nowrap text-ink-600 transition-colors hover:text-ink-900 data-active:bg-card data-active:text-ink-950 data-active:shadow-sm"
             >
               <cara.icon className="size-4" strokeWidth={1.9} />
               {cara.label}
@@ -115,7 +115,7 @@ function TabTareasTrigger() {
   return (
     <TabsTrigger
       value="tareas"
-      className="flex h-auto flex-1 items-center justify-center gap-2 rounded-[9px] px-3 py-2 text-[12.5px] font-bold whitespace-nowrap text-ink-600 transition-colors hover:text-ink-900 data-active:bg-white data-active:text-ink-950 data-active:shadow-sm"
+      className="flex h-auto flex-1 items-center justify-center gap-2 rounded-[9px] px-3 py-2 text-[12.5px] font-bold whitespace-nowrap text-ink-600 transition-colors hover:text-ink-900 data-active:bg-card data-active:text-ink-950 data-active:shadow-sm"
     >
       Tareas
     </TabsTrigger>
@@ -150,7 +150,7 @@ function FiltrosCara({
         </div>
 
         <Select value={responsable} onValueChange={(v) => v !== null && onResponsable(v)}>
-          <SelectTrigger size="sm" className="h-8 rounded-11 bg-white">
+          <SelectTrigger size="sm" className="h-8 rounded-11 bg-panel">
             <SelectValue placeholder="Todos los responsables" />
           </SelectTrigger>
           <SelectContent>
@@ -164,7 +164,7 @@ function FiltrosCara({
         </Select>
 
         <Select value={tipoCliente} onValueChange={(v) => v !== null && onTipoCliente(v)}>
-          <SelectTrigger size="sm" className="h-8 rounded-11 bg-white">
+          <SelectTrigger size="sm" className="h-8 rounded-11 bg-panel">
             <SelectValue placeholder="Todos los tipos" />
           </SelectTrigger>
           <SelectContent>

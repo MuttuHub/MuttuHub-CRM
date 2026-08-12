@@ -318,7 +318,7 @@ export function AccesoPage({
         fontFamily: "inherit",
         fontSize: 14,
         color: "var(--color-ink-900)",
-        background: malo ? "var(--color-destructivo-bg)" : "#fff",
+        background: malo ? "var(--color-destructivo-bg)" : "var(--color-card)",
         border: `1px solid ${malo ? "var(--color-destructivo)" : "var(--color-ink-300)"}`,
         borderRadius: 13,
         // focus-visible ring via the shared .login-focus rule (globals.css).
@@ -344,7 +344,7 @@ export function AccesoPage({
   const tabDeshabilitado = vista === "recuperar" || vista === "enviado";
 
   return (
-    <div style={{ minHeight: "100vh", padding: 14, background: "#EFEAEB" }}>
+    <div style={{ minHeight: "100vh", padding: 14, background: "var(--color-page)" }}>
       <div
         style={{
           display: "grid",
@@ -363,7 +363,9 @@ export function AccesoPage({
             flexDirection: "column",
             gap: 26,
             padding: "34px 34px 30px",
-            background: "var(--color-ink-950)",
+            // #191113 fixed: the brand film stays dark in BOTH modes (like
+            // the sidebar shell), even though ink-950 flips to white in dark.
+            background: "#191113",
             borderRadius: 26,
           }}
         >
@@ -482,7 +484,7 @@ export function AccesoPage({
               width: "100%",
               maxWidth: 452,
               margin: "0 auto",
-              background: "#fff",
+              background: "var(--color-card)",
               border: `1px solid ${"var(--color-ink-200)"}`,
               borderRadius: 26,
               padding: angosto ? "26px 22px" : "32px 34px",
@@ -507,8 +509,8 @@ export function AccesoPage({
                         cursor: "pointer",
                         fontSize: 13,
                         fontWeight: on ? 700 : 600,
-                        background: on ? "#fff" : "transparent",
-                        color: on ? "var(--color-rose-700)" : "var(--color-ink-600)",
+                        background: on ? "var(--color-card)" : "transparent",
+                        color: on ? "var(--login-activo-fg)" : "var(--color-ink-600)",
                         boxShadow: on ? "0 1px 2px rgba(41,29,32,.09)" : "none",
                       }}
                     >
@@ -519,7 +521,7 @@ export function AccesoPage({
               </div>
             )}
 
-            <h1 style={{ margin: "0 0 6px", fontFamily: "'Bricolage Grotesque',sans-serif", fontSize: 28, fontWeight: 800, letterSpacing: "-.03em", lineHeight: 1.12, color: "#191113" }}>
+            <h1 style={{ margin: "0 0 6px", fontFamily: "'Bricolage Grotesque',sans-serif", fontSize: 28, fontWeight: 800, letterSpacing: "-.03em", lineHeight: 1.12, color: "var(--color-ink-950)" }}>
               {VISTAS[vista].titulo}
             </h1>
             <p style={{ margin: "0 0 22px", fontSize: 14, color: "var(--color-ink-600)", lineHeight: 1.5 }}>{VISTAS[vista].sub}</p>
@@ -555,7 +557,7 @@ export function AccesoPage({
                 {campos.map((f) => (
                   <label key={f.k} style={{ display: "block" }}>
                     <span style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
-                      <span style={{ fontSize: 12.5, fontWeight: 600, color: "#3F2F33" }}>{f.label}</span>
+                      <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--color-ink-800)" }}>{f.label}</span>
                     </span>
                     <span style={{ position: "relative", display: "block" }}>
                       <input
@@ -619,7 +621,7 @@ export function AccesoPage({
                       </span>
                       <span style={{ fontSize: 13, color: "var(--color-ink-800)" }}>Recuérdame</span>
                     </label>
-                    <button type="button" onClick={ir("recuperar")} className="login-focus" style={{ background: "none", border: 0, padding: "5px 8px", margin: "-5px -8px", fontSize: 13, fontWeight: 600, color: "var(--color-rose-500)", cursor: "pointer" }}>
+                    <button type="button" onClick={ir("recuperar")} className="login-focus" style={{ background: "none", border: 0, padding: "5px 8px", margin: "-5px -8px", fontSize: 13, fontWeight: 600, color: "var(--login-enlace-fg)", cursor: "pointer" }}>
                       ¿Olvidaste tu contraseña?
                     </button>
                   </div>
@@ -672,9 +674,9 @@ export function AccesoPage({
                 {vista !== "enviado" && (
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "4px 0 14px" }}>
-                      <span style={{ flex: "1 1 auto", height: 1, background: "#ECE5E7" }} />
+                      <span style={{ flex: "1 1 auto", height: 1, background: "var(--color-ink-200)" }} />
                       <span style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: ".07em", textTransform: "uppercase", color: "var(--color-ink-600)" }}>o continúa con</span>
-                      <span style={{ flex: "1 1 auto", height: 1, background: "#ECE5E7" }} />
+                      <span style={{ flex: "1 1 auto", height: 1, background: "var(--color-ink-200)" }} />
                     </div>
                     <button
                       type="button"
@@ -695,7 +697,7 @@ export function AccesoPage({
                 type="button"
                 onClick={ir(piePaso(vista))}
                 className="login-focus"
-                style={{ background: "none", border: 0, padding: 0, fontSize: 13, fontWeight: 700, color: "var(--color-rose-500)", cursor: "pointer" }}
+                style={{ background: "none", border: 0, padding: 0, fontSize: 13, fontWeight: 700, color: "var(--login-enlace-fg)", cursor: "pointer" }}
               >
                 {VISTAS[vista].pie[1]}
               </button>
@@ -718,12 +720,12 @@ const ssoStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   gap: 9,
-  background: "#fff",
-  border: `1px solid #DDD2D5`,
+  background: "var(--color-card)",
+  border: `1px solid var(--color-ink-300)`,
   borderRadius: 13,
   fontSize: 13.5,
   fontWeight: 600,
-  color: "#3F2F33",
+  color: "var(--color-ink-800)",
   cursor: "pointer",
 };
 

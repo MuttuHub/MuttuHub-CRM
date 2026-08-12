@@ -51,7 +51,7 @@ const REFETCH_INTERVAL_MS = 60_000;
 type BucketKey = "vencidos" | "hoy" | "proximos3";
 
 const BUCKETS: { key: BucketKey; label: string; className: string }[] = [
-  { key: "vencidos", label: "VENCIDOS", className: "text-rose-700" },
+  { key: "vencidos", label: "VENCIDOS", className: "text-rose-700 dark:text-rose-400" },
   { key: "hoy", label: "VENCEN HOY", className: "text-alerta" },
   { key: "proximos3", label: "PRÓXIMOS 3 DÍAS", className: "text-ink-600" },
 ];
@@ -197,7 +197,7 @@ export function NotificationPanel() {
         aria-label={unread > 0 ? `Notificaciones, ${unread} sin leer` : "Notificaciones"}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className="relative grid size-10 place-items-center rounded-lg border border-ink-200 bg-white text-ink-700 transition-colors after:absolute after:content-[''] after:-inset-0.5 hover:bg-ink-100"
+        className="relative grid size-10 place-items-center rounded-lg border border-ink-200 bg-panel text-ink-700 transition-colors after:absolute after:content-[''] after:-inset-0.5 hover:bg-ink-100"
       >
         <Bell className="size-4" strokeWidth={1.7} />
         {unread > 0 && (

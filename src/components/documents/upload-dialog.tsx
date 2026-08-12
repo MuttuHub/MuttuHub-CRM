@@ -74,7 +74,7 @@ export function FileDropzone({
     return (
       <div className="flex items-center justify-between gap-3 rounded-14 border border-exito/30 bg-exito-bg px-4 py-3">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="grid size-9 shrink-0 place-items-center rounded-[12px_12px_12px_4px] bg-white text-exito">
+          <span className="grid size-9 shrink-0 place-items-center rounded-[12px_12px_12px_4px] bg-panel text-exito">
             <Upload className="size-4" strokeWidth={1.9} />
           </span>
           <div className="min-w-0">
@@ -118,7 +118,7 @@ export function FileDropzone({
             : "border-ink-300 bg-ink-100/40 hover:border-rose-300 hover:bg-rose-50/50",
         )}
       >
-        <span className="grid size-10 place-items-center rounded-[15px_15px_15px_5px] bg-white text-ink-600">
+        <span className="grid size-10 place-items-center rounded-[15px_15px_15px_5px] bg-panel text-ink-600">
           <Upload className="size-5" strokeWidth={1.7} />
         </span>
         <span className="text-[13.5px] font-semibold text-ink-800">
@@ -200,7 +200,7 @@ export function EtiquetasInput({
         onKeyDown={onKeyDown}
         placeholder="Escribe y presiona Enter para agregar…"
         aria-label="Agregar etiqueta"
-        className="h-9 rounded-10 bg-white px-3 text-[13px]"
+        className="h-9 rounded-10 bg-panel px-3 text-[13px]"
       />
       <p className="text-[11.5px] text-ink-500">
         {etiquetas.length}/8 etiquetas · separa con Enter o coma
@@ -299,7 +299,7 @@ export function UploadDocumentDialog({
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
               placeholder="Nombre del documento"
-              className="h-10 rounded-12 bg-white px-3"
+              className="h-10 rounded-12 bg-panel px-3"
             />
           </div>
 
@@ -308,7 +308,7 @@ export function UploadDocumentDialog({
               Categoría <span className="text-rose-500">*</span>
             </Label>
             <Select value={categoria} onValueChange={(v) => setCategoria(v ?? "")}>
-              <SelectTrigger className="h-10 w-full rounded-12 bg-white px-3">
+              <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
                 <SelectValue placeholder="Selecciona una categoría" />
               </SelectTrigger>
               <SelectContent>
@@ -332,7 +332,7 @@ export function UploadDocumentDialog({
               value={clienteId}
               onValueChange={(v) => setClienteId(v === "ninguno" ? "" : (v ?? ""))}
             >
-              <SelectTrigger className="h-10 w-full rounded-12 bg-white px-3">
+              <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
                 <SelectValue placeholder="Sin cliente" />
               </SelectTrigger>
               <SelectContent>

@@ -122,7 +122,7 @@ export function CaraClientesActividad({
                           className={cn(
                             "inline-flex h-[23px] items-center rounded-full px-2.5 text-[11px] font-bold whitespace-nowrap",
                             estado?.tone === "info" && "bg-info-bg text-info",
-                            estado?.tone === "activo" && "bg-rose-50 text-rose-700",
+                            estado?.tone === "activo" && "bg-rose-50 text-rose-700 dark:text-rose-400",
                             estado?.tone === "exito" && "bg-exito-bg text-exito",
                             estado?.tone === "alerta" && "bg-alerta-bg text-alerta",
                             estado?.tone === "neutro" && "bg-ink-100 text-ink-700",

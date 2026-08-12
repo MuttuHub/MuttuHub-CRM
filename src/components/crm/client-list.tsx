@@ -331,7 +331,7 @@ export function ClientList() {
             variant="outline"
             size="sm"
             onClick={() => void exportExcel()}
-            className="h-9 rounded-lg border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+            className="h-9 rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
           >
             <FileSpreadsheet className="size-4 text-exito" strokeWidth={1.8} />
             Excel
@@ -340,7 +340,7 @@ export function ClientList() {
             variant="outline"
             size="sm"
             onClick={openPdf}
-            className="h-9 rounded-lg border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+            className="h-9 rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
           >
             <FileText className="size-4 text-destructivo" strokeWidth={1.8} />
             PDF
@@ -377,7 +377,7 @@ export function ClientList() {
 /* ── Fila de filtros ───────────────────────────────────────────────────── */
 
 const SELECT_CLASS =
-  "h-9 w-full rounded-12 border-ink-200 bg-white px-3 text-[13px]";
+  "h-9 w-full rounded-12 border-ink-200 bg-panel px-3 text-[13px]";
 
 function FiltersCard({
   local,
@@ -421,7 +421,7 @@ function FiltersCard({
   const draftEmpty = filtersEmpty(toFilters(draft));
 
   return (
-    <section className="rounded-[22px] border border-ink-200 bg-white p-4 lg:p-5">
+    <section className="rounded-[22px] border border-ink-200 bg-panel p-4 lg:p-5">
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative min-w-[220px] flex-1">
           <Search
@@ -433,7 +433,7 @@ function FiltersCard({
             onChange={(e) => onChange({ q: e.target.value })}
             placeholder="Buscar por nombre, contacto o bitácora…"
             aria-label="Buscar clientes"
-            className="h-10 rounded-12 border-ink-200 bg-white pl-9 text-[13px]"
+            className="h-10 rounded-12 border-ink-200 bg-panel pl-9 text-[13px]"
           />
         </div>
 
@@ -442,7 +442,7 @@ function FiltersCard({
             render={
               <Button
                 variant="outline"
-                className="h-10 rounded-12 border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+                className="h-10 rounded-12 border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
               >
                 <SlidersHorizontal className="size-4 text-ink-600" strokeWidth={1.8} />
                 Filtros{" "}
@@ -532,7 +532,7 @@ function FiltersCard({
                   value={draft.desde}
                   onChange={(e) => setDraft((d) => ({ ...d, desde: e.target.value }))}
                   aria-label="Primer contacto desde"
-                  className="h-10 min-w-0 flex-1 rounded-12 border-ink-200 bg-white px-3 text-[12.5px]"
+                  className="h-10 min-w-0 flex-1 rounded-12 border-ink-200 bg-panel px-3 text-[12.5px]"
                 />
                 <span className="text-[12px] text-ink-500">a</span>
                 <Label htmlFor="fecha-hasta" className="sr-only">
@@ -544,7 +544,7 @@ function FiltersCard({
                   value={draft.hasta}
                   onChange={(e) => setDraft((d) => ({ ...d, hasta: e.target.value }))}
                   aria-label="Primer contacto hasta"
-                  className="h-10 min-w-0 flex-1 rounded-12 border-ink-200 bg-white px-3 text-[12.5px]"
+                  className="h-10 min-w-0 flex-1 rounded-12 border-ink-200 bg-panel px-3 text-[12.5px]"
                 />
               </div>
 
@@ -560,7 +560,7 @@ function FiltersCard({
                   value={draft.valorMin}
                   onChange={(e) => setDraft((d) => ({ ...d, valorMin: e.target.value }))}
                   placeholder="Valor min"
-                  className="h-10 min-w-0 flex-1 rounded-12 border-ink-200 bg-white px-3 font-mono text-[12px]"
+                  className="h-10 min-w-0 flex-1 rounded-12 border-ink-200 bg-panel px-3 font-mono text-[12px]"
                 />
                 <span className="text-[12px] text-ink-500">a</span>
                 <Label htmlFor="valor-max" className="sr-only">
@@ -574,7 +574,7 @@ function FiltersCard({
                   value={draft.valorMax}
                   onChange={(e) => setDraft((d) => ({ ...d, valorMax: e.target.value }))}
                   placeholder="Valor max"
-                  className="h-10 min-w-0 flex-1 rounded-12 border-ink-200 bg-white px-3 font-mono text-[12px]"
+                  className="h-10 min-w-0 flex-1 rounded-12 border-ink-200 bg-panel px-3 font-mono text-[12px]"
                 />
               </div>
             </div>
@@ -622,7 +622,7 @@ function ClientGridCard({
   const hasta = Math.min(page * PAGE_SIZE, total);
 
   return (
-    <section className="rounded-[22px] border border-ink-200 bg-white">
+    <section className="rounded-[22px] border border-ink-200 bg-panel">
       {isLoading ? (
         <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3 lg:p-5">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -679,7 +679,7 @@ function ClientCard({
         }
       }}
       aria-label={`Abrir ficha de ${cliente.nombre}`}
-      className="flex cursor-pointer flex-col gap-3.5 rounded-[18px] border border-ink-200 bg-white p-4 shadow-[0_1px_2px_rgba(16,16,32,0.04)] transition-colors hover:border-rose-200 hover:bg-rose-50/30 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+      className="flex cursor-pointer flex-col gap-3.5 rounded-[18px] border border-ink-200 bg-panel p-4 shadow-[0_1px_2px_rgba(16,16,32,0.04)] transition-colors hover:border-rose-200 hover:bg-rose-50/30 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
     >
       <div className="flex items-start gap-3">
         <InitialsAvatar nombre={cliente.nombre} />
@@ -764,7 +764,7 @@ function ClientCard({
             e.stopPropagation();
             onOpen();
           }}
-          className="h-8 rounded-11 border-ink-200 bg-white px-3 text-[12px] font-semibold text-ink-700 hover:bg-ink-100"
+          className="h-8 rounded-11 border-ink-200 bg-panel px-3 text-[12px] font-semibold text-ink-700 hover:bg-ink-100"
         >
           <Eye className="size-3.5" strokeWidth={1.8} />
           Ver detalle
@@ -829,7 +829,7 @@ function PaginationFooter({
               onClick={() => onPage(p)}
               className={cn(
                 "h-8 min-w-8 rounded-10 px-2 text-[12.5px] font-bold",
-                p === page && "bg-ink-950 text-white hover:bg-ink-800",
+                p === page && "bg-ink-950 text-white hover:bg-ink-800 dark:bg-ink-100 dark:text-white dark:hover:bg-ink-200",
               )}
             >
               {p}
@@ -860,7 +860,7 @@ function EmptyClients() {
   return (
     <div className="grid min-h-[300px] place-items-center px-6 py-12 text-center">
       <div className="max-w-[42ch]">
-        <span className="mx-auto grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-rose-100 text-rose-700">
+        <span className="mx-auto grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-rose-100 text-rose-700 dark:text-rose-400">
           <UsersRound className="size-6" strokeWidth={1.7} />
         </span>
         <h3 className="mt-4 font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">

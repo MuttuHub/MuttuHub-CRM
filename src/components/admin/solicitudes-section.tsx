@@ -172,7 +172,7 @@ export function SolicitudesSection({
         </div>
       )}
 
-      <section className="overflow-hidden rounded-[22px] border border-ink-200 bg-white">
+      <section className="overflow-hidden rounded-[22px] border border-ink-200 bg-panel">
         <div className="flex items-center gap-2.5 border-b border-ink-100 px-5 py-4">
           <Inbox className="size-4 text-ink-600" strokeWidth={1.8} />
           <h3 className="font-display text-[15px] font-bold tracking-[-0.02em] text-ink-950">
@@ -217,7 +217,7 @@ export function SolicitudesSection({
                 <TableRow key={s.id} className="hover:bg-ink-100/60">
                   <TableCell className="pl-5">
                     <div className="flex items-center gap-3">
-                      <span className="grid size-9 shrink-0 place-items-center rounded-full bg-rose-50 text-[11px] font-bold text-rose-700">
+                      <span className="grid size-9 shrink-0 place-items-center rounded-full bg-rose-50 text-[11px] font-bold text-rose-700 dark:text-rose-400">
                         {initials(s.nombre)}
                       </span>
                       <div className="min-w-0">
@@ -265,7 +265,7 @@ export function SolicitudesSection({
         )}
       </section>
 
-      <section className="overflow-hidden rounded-[22px] border border-ink-200 bg-white">
+      <section className="overflow-hidden rounded-[22px] border border-ink-200 bg-panel">
         <div className="flex items-center gap-2.5 border-b border-ink-100 px-5 py-4">
           <UserRoundCheck className="size-4 text-ink-600" strokeWidth={1.8} />
           <h3 className="font-display text-[15px] font-bold tracking-[-0.02em] text-ink-950">
@@ -415,7 +415,7 @@ function AprobarDialog({
               value={rol}
               onValueChange={(v) => setRol(v as RolUsuario)}
             >
-              <SelectTrigger className="h-10 w-full rounded-12 bg-white px-3">
+              <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

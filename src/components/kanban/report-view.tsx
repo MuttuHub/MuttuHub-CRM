@@ -71,7 +71,7 @@ export function ReportView({ responsable, cliente, misTareas }: ReportViewProps)
                 className={cn(
                   "h-8 rounded-10 px-3 text-[12.5px] font-bold transition-colors",
                   rango === r.value
-                    ? "bg-white text-ink-900 shadow-sm"
+                    ? "bg-card text-ink-900 shadow-sm"
                     : "text-ink-600 hover:text-ink-900",
                 )}
               >
@@ -83,7 +83,7 @@ export function ReportView({ responsable, cliente, misTareas }: ReportViewProps)
             variant="outline"
             size="sm"
             onClick={() => void exportExcel()}
-            className="h-9 rounded-lg border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+            className="h-9 rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
           >
             <FileSpreadsheet className="size-4 text-exito" strokeWidth={1.8} />
             Excel
@@ -92,7 +92,7 @@ export function ReportView({ responsable, cliente, misTareas }: ReportViewProps)
             variant="outline"
             size="sm"
             onClick={openPdf}
-            className="h-9 rounded-lg border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+            className="h-9 rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
           >
             <FileText className="size-4 text-destructivo" strokeWidth={1.8} />
             PDF
@@ -103,7 +103,7 @@ export function ReportView({ responsable, cliente, misTareas }: ReportViewProps)
       {reportQuery.isLoading && <ReportSkeleton />}
 
       {reportQuery.isError && (
-        <section className="grid min-h-[320px] place-items-center rounded-[24px] border border-ink-200 bg-white p-8">
+        <section className="grid min-h-[320px] place-items-center rounded-[24px] border border-ink-200 bg-panel p-8">
           <div className="max-w-[46ch] text-center">
             <span className="mx-auto grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-alerta-bg text-alerta">
               <LoaderCircle className="size-6" strokeWidth={1.7} />
@@ -130,7 +130,7 @@ export function ReportView({ responsable, cliente, misTareas }: ReportViewProps)
           <SummaryCards resumen={report.resumen} rango={RANGO_LABEL[report.rango]} />
 
           {report.resumen.total_asignadas === 0 ? (
-            <section className="grid min-h-[220px] place-items-center rounded-[24px] border border-dashed border-ink-300 bg-white p-8 text-center">
+            <section className="grid min-h-[220px] place-items-center rounded-[24px] border border-dashed border-ink-300 bg-panel p-8 text-center">
               <div className="max-w-[42ch]">
                 <h3 className="font-display text-[17px] font-bold tracking-[-0.02em] text-ink-950">
                   Sin tareas en este período
@@ -171,7 +171,7 @@ function SummaryCards({
     { label: "Tasa de cumplimiento", value: `${resumen.tasa_cumplimiento}%`, mono: true },
   ];
   return (
-    <section className="rounded-[22px] border border-ink-200 bg-white p-4">
+    <section className="rounded-[22px] border border-ink-200 bg-panel p-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {cards.map((c) => (
           <div key={c.label} className="rounded-14 bg-ink-100/60 px-4 py-3.5">
@@ -206,7 +206,7 @@ function TableCard({
   children: ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-[22px] border border-ink-200 bg-white">
+    <section className="overflow-hidden rounded-[22px] border border-ink-200 bg-panel">
       <div className="border-b border-ink-200 px-5 py-3">
         <h3 className="font-display text-[14.5px] font-bold tracking-[-0.01em] text-ink-950">
           {title}

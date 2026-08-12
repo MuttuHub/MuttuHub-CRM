@@ -51,10 +51,10 @@ export function UserMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Menú de usuario"
-        className="relative flex h-10 cursor-pointer items-center gap-2.5 rounded-full border border-ink-200 bg-white py-1 pr-4 pl-1 text-[13px] font-semibold text-ink-900 transition-colors after:absolute after:content-[''] after:-inset-0.5 hover:bg-ink-100"
+        className="relative flex h-10 cursor-pointer items-center gap-2.5 rounded-full border border-ink-200 bg-panel py-1 pr-4 pl-1 text-[13px] font-semibold text-ink-900 transition-colors after:absolute after:content-[''] after:-inset-0.5 hover:bg-ink-100"
       >
         <Avatar>
-          <AvatarFallback className="bg-rose-100 text-[11px] font-bold text-rose-700">
+          <AvatarFallback className="bg-rose-100 text-[11px] font-bold text-rose-700 dark:text-rose-400">
             {iniciales(nombre)}
           </AvatarFallback>
         </Avatar>

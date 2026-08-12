@@ -279,7 +279,7 @@ export function KanbanBoard() {
               variant="outline"
               size="sm"
               onClick={() => void exportExcel()}
-              className="h-9 rounded-lg border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+              className="h-9 rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
             >
               <FileSpreadsheet className="size-4 text-exito" strokeWidth={1.8} />
               Excel
@@ -288,7 +288,7 @@ export function KanbanBoard() {
               variant="outline"
               size="sm"
               onClick={openPrint}
-              className="h-9 rounded-lg border-ink-200 bg-white px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+              className="h-9 rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
             >
               <Printer className="size-4 text-ink-600" strokeWidth={1.8} />
               Imprimir
@@ -396,7 +396,7 @@ function BoardColumn({
           <span className={cn("size-2 rounded-full", dotTone(estado))} />
           <span className="text-[12.5px] font-bold text-ink-800">{label}</span>
         </span>
-        <span className="rounded-full bg-white px-2 py-0.5 font-mono text-[10.5px] font-bold text-ink-600 tabular-nums">
+        <span className="rounded-full bg-panel px-2 py-0.5 font-mono text-[10.5px] font-bold text-ink-600 tabular-nums">
           {tareas.length}
         </span>
       </div>
@@ -430,7 +430,7 @@ function dotTone(estado: EstadoTarea): string {
 
 function ListaView({ items, onOpen }: { items: CardTask[]; onOpen: (id: string) => void }) {
   return (
-    <section className="overflow-hidden rounded-[22px] border border-ink-200 bg-white">
+    <section className="overflow-hidden rounded-[22px] border border-ink-200 bg-panel">
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-[12.5px]">
           <thead>
@@ -494,7 +494,7 @@ function ListaView({ items, onOpen }: { items: CardTask[]; onOpen: (id: string) 
                   </div>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <span className="grid size-7 place-items-center rounded-10 text-ink-500 hover:bg-rose-50 hover:text-rose-700">
+                  <span className="grid size-7 place-items-center rounded-10 text-ink-500 hover:bg-rose-50 hover:text-rose-700 dark:hover:text-rose-400">
                     <Eye className="size-4" strokeWidth={1.8} />
                   </span>
                 </td>
@@ -540,14 +540,14 @@ type FiltersRowProps = {
   onClear: () => void;
 };
 
-const SEL_CLASS = "h-9 w-full rounded-12 border-ink-200 bg-white px-3 text-[12.5px]";
+const SEL_CLASS = "h-9 w-full rounded-12 border-ink-200 bg-panel px-3 text-[12.5px]";
 
 // FiltersRow real (definida debajo)
 
 function FiltersRow(props: FiltersRowProps) {
   const { scope, canEquipo, responsable, cliente, local, users, clients, onResponsable, onCliente, onLocal, hasActive, onClear } = props;
   return (
-    <section className="rounded-[20px] border border-ink-200 bg-white p-3.5">
+    <section className="rounded-[20px] border border-ink-200 bg-panel p-3.5">
       <div className="flex flex-wrap items-center gap-2.5">
         {scope === "equipo" && canEquipo && (
           <Select value={responsable} onValueChange={(v) => onResponsable(v === "todos" ? "" : (v ?? ""))}>
@@ -597,10 +597,10 @@ function FiltersRow(props: FiltersRowProps) {
         </Select>
         <div className="flex items-center gap-1.5">
           <Label htmlFor="kanban-desde" className="sr-only">Entrega desde</Label>
-          <Input id="kanban-desde" type="date" value={local.desde} onChange={(e) => onLocal({ desde: e.target.value })} aria-label="Entrega desde" className="h-9 w-[148px] rounded-12 border-ink-200 bg-white px-3 text-[12px]" />
+          <Input id="kanban-desde" type="date" value={local.desde} onChange={(e) => onLocal({ desde: e.target.value })} aria-label="Entrega desde" className="h-9 w-[148px] rounded-12 border-ink-200 bg-panel px-3 text-[12px]" />
           <span className="text-[12px] text-ink-500">a</span>
           <Label htmlFor="kanban-hasta" className="sr-only">Entrega hasta</Label>
-          <Input id="kanban-hasta" type="date" value={local.hasta} onChange={(e) => onLocal({ hasta: e.target.value })} aria-label="Entrega hasta" className="h-9 w-[148px] rounded-12 border-ink-200 bg-white px-3 text-[12px]" />
+          <Input id="kanban-hasta" type="date" value={local.hasta} onChange={(e) => onLocal({ hasta: e.target.value })} aria-label="Entrega hasta" className="h-9 w-[148px] rounded-12 border-ink-200 bg-panel px-3 text-[12px]" />
         </div>
       </div>
       {hasActive && (
@@ -637,7 +637,7 @@ function Segmented<T extends string>({
           aria-pressed={value === o.value}
           className={cn(
             "flex-1 rounded-[9px] px-3 py-1.5 text-[12px] font-bold whitespace-nowrap transition-colors",
-            value === o.value ? "bg-white text-ink-950 shadow-sm" : "text-ink-600 hover:text-ink-900",
+            value === o.value ? "bg-card text-ink-950 shadow-sm" : "text-ink-600 hover:text-ink-900",
           )}
         >
           {o.label}
@@ -651,9 +651,9 @@ function Segmented<T extends string>({
 
 function TableroVacio({ vista }: { vista: "tablero" | "lista" }) {
   return (
-    <section className="grid min-h-[320px] place-items-center rounded-[24px] border border-ink-200 bg-white p-8">
+    <section className="grid min-h-[320px] place-items-center rounded-[24px] border border-ink-200 bg-panel p-8">
       <div className="max-w-[44ch] text-center">
-        <span className="mx-auto grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-rose-100 text-rose-700">
+        <span className="mx-auto grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-rose-100 text-rose-700 dark:text-rose-400">
           <SquareKanban className="size-6" strokeWidth={1.7} />
         </span>
         <h3 className="mt-4 font-display text-[19px] font-bold tracking-[-0.02em] text-ink-950">
@@ -672,7 +672,7 @@ function TableroVacio({ vista }: { vista: "tablero" | "lista" }) {
 function BoardSkeleton({ vista }: { vista: "board" | "lista" }) {
   if (vista === "lista") {
     return (
-      <section className="rounded-[22px] border border-ink-200 bg-white p-5">
+      <section className="rounded-[22px] border border-ink-200 bg-panel p-5">
         <div className="space-y-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-11 w-full rounded-12" />

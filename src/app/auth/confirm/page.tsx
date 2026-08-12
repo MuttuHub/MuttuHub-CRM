@@ -137,7 +137,7 @@ function ConfirmInner() {
   if (status === "error") {
     return (
       <>
-        <span className="mx-auto grid size-11 place-items-center rounded-[15px_15px_15px_5px] bg-rose-50 text-rose-700">
+        <span className="mx-auto grid size-11 place-items-center rounded-[15px_15px_15px_5px] bg-rose-50 text-rose-700 dark:text-rose-400">
           <XCircle className="size-5" strokeWidth={1.7} />
         </span>
         <h1 className="mt-4 font-display text-[22px] font-bold tracking-[-0.02em] text-ink-950">
@@ -158,7 +158,7 @@ function ConfirmInner() {
 
   return (
     <>
-      <span className="mx-auto grid size-11 place-items-center rounded-[15px_15px_15px_5px] bg-rose-50 text-rose-700">
+      <span className="mx-auto grid size-11 place-items-center rounded-[15px_15px_15px_5px] bg-rose-50 text-rose-700 dark:text-rose-400">
         <LoaderCircle className="size-5 animate-spin" strokeWidth={1.7} />
       </span>
       <h1 className="mt-4 font-display text-[22px] font-bold tracking-[-0.02em] text-ink-950">

@@ -458,7 +458,7 @@ function ContactosTab({
         {contactos.map((c) => (
           <li
             key={c.id}
-            className="flex items-start gap-3.5 rounded-14 border border-ink-200 bg-white p-4"
+            className="flex items-start gap-3.5 rounded-14 border border-ink-200 bg-panel p-4"
           >
             <InitialsAvatar nombre={c.nombre} />
             <div className="min-w-0 flex-1">
@@ -545,14 +545,14 @@ function OportunidadesTab({
         {oportunidades.map((o) => {
           const abierta = expandida === o.id;
           return (
-            <li key={o.id} className="rounded-14 border border-ink-200 bg-white p-4">
+            <li key={o.id} className="rounded-14 border border-ink-200 bg-panel p-4">
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setExpandida(abierta ? null : o.id)}
-                      className="text-left text-[14px] font-semibold text-ink-950 hover:text-rose-700"
+                      className="text-left text-[14px] font-semibold text-ink-950 hover:text-rose-700 dark:hover:text-rose-400"
                     >
                       {o.nombre}
                     </button>
@@ -660,7 +660,7 @@ function CompromisosTab({
           const vencida = t.fecha_entrega ? esVencida(t.fecha_entrega) : false;
           const abierta = t.estado !== "COMPLETADA" && t.estado !== "CANCELADA";
           return (
-            <li key={t.id} className="rounded-14 border border-ink-200 bg-white p-4">
+            <li key={t.id} className="rounded-14 border border-ink-200 bg-panel p-4">
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -760,7 +760,7 @@ function BitacoraTab({ clientId }: { clientId: string }) {
       {/* Composer fijo: sticky al final del área scrolleable */}
       <div className="sticky bottom-0 z-20 rounded-14 border border-ink-200 bg-panel/95 p-4 shadow-[0_-8px_24px_rgba(25,17,19,0.05)] backdrop-blur">
         <div className="flex items-start gap-3">
-          <span className="mt-1 grid size-8 shrink-0 place-items-center rounded-full bg-rose-100 text-rose-700">
+          <span className="mt-1 grid size-8 shrink-0 place-items-center rounded-full bg-rose-100 text-rose-700 dark:text-rose-400">
             <MessageSquarePlus className="size-4" strokeWidth={1.8} />
           </span>
           <div className="min-w-0 flex-1">
@@ -769,7 +769,7 @@ function BitacoraTab({ clientId }: { clientId: string }) {
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
               placeholder="Agrega una nota de seguimiento…"
-              className="w-full resize-none rounded-12 border border-input bg-white px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="w-full resize-none rounded-12 border border-input bg-panel px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             />
             <div className="mt-2 flex items-center justify-between gap-3">
               <p className="text-[11.5px] text-ink-500">
@@ -800,7 +800,7 @@ function BitacoraTab({ clientId }: { clientId: string }) {
 
       <ul className="flex flex-col gap-2.5">
         {[...entradas].reverse().map((e) => (
-          <li key={e.id} className="rounded-14 border border-ink-200 bg-white p-4">
+          <li key={e.id} className="rounded-14 border border-ink-200 bg-panel p-4">
             <div className="flex items-center gap-2 text-[11.5px] text-ink-500">
               <span className="grid size-6 place-items-center rounded-full bg-ink-100 text-[9.5px] font-bold text-ink-700">
                 {iniciales(e.autor_nombre) || "?"}
@@ -861,7 +861,7 @@ function DocumentosTab({ clientId }: { clientId: string }) {
         {items.map((doc) => (
           <li
             key={doc.id}
-            className="flex items-center justify-between gap-3 rounded-14 border border-ink-200 bg-white px-4 py-3"
+            className="flex items-center justify-between gap-3 rounded-14 border border-ink-200 bg-panel px-4 py-3"
           >
             <div className="flex min-w-0 items-center gap-3">
               <span className="grid size-8 shrink-0 place-items-center rounded-[11px_11px_11px_4px] bg-ink-100 text-[9px] font-bold text-ink-700">
@@ -899,7 +899,7 @@ function DocumentosTab({ clientId }: { clientId: string }) {
           variant="outline"
           size="sm"
           onClick={irAlRepositorio}
-          className="h-9 rounded-12 border-ink-200 bg-white px-3 text-[12.5px] font-semibold text-ink-800 hover:bg-ink-100"
+          className="h-9 rounded-12 border-ink-200 bg-panel px-3 text-[12.5px] font-semibold text-ink-800 hover:bg-ink-100"
         >
           <ExternalLink className="size-3.5 text-ink-500" strokeWidth={1.8} />
           Ver todos
@@ -908,7 +908,7 @@ function DocumentosTab({ clientId }: { clientId: string }) {
           variant="outline"
           size="sm"
           onClick={subirVinculado}
-          className="h-9 rounded-12 border-ink-200 bg-white px-3 text-[12.5px] font-semibold text-ink-800 hover:bg-ink-100"
+          className="h-9 rounded-12 border-ink-200 bg-panel px-3 text-[12.5px] font-semibold text-ink-800 hover:bg-ink-100"
         >
           <Upload className="size-4 text-exito" strokeWidth={1.8} />
           Subir documento vinculado
@@ -941,7 +941,7 @@ function TareasRelacionadasTab({ clientId }: { clientId: string }) {
         {tasks.map((t) => (
           <li
             key={t.id}
-            className="flex items-center justify-between gap-3 rounded-14 border border-ink-200 bg-white px-4 py-3"
+            className="flex items-center justify-between gap-3 rounded-14 border border-ink-200 bg-panel px-4 py-3"
           >
             <div className="min-w-0">
               <p className="truncate text-[13.5px] font-semibold text-ink-950">{t.titulo}</p>

@@ -261,7 +261,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                   value={form.titulo}
                   onChange={(e) => set("titulo", e.target.value)}
                   placeholder="Ej. Entregar informe trimestral"
-                  className="h-10 rounded-12 bg-white px-3"
+                  className="h-10 rounded-12 bg-panel px-3"
                 />
               </div>
 
@@ -273,7 +273,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                   value={form.descripcion}
                   onChange={(e) => set("descripcion", e.target.value)}
                   placeholder="Detalle de la tarea"
-                  className="w-full resize-none rounded-12 border border-input bg-white px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  className="w-full resize-none rounded-12 border border-input bg-panel px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 />
               </div>
 
@@ -285,7 +285,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                   value={form.responsable_id}
                   onValueChange={(v) => set("responsable_id", v ?? "")}
                 >
-                  <SelectTrigger className="h-10 w-full rounded-12 bg-white px-3">
+                  <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
                     <SelectValue placeholder="Selecciona un responsable" />
                   </SelectTrigger>
                   <SelectContent>
@@ -306,7 +306,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                     set("cliente_id", v === "ninguno" ? "" : (v ?? ""))
                   }
                 >
-                  <SelectTrigger className="h-10 w-full rounded-12 bg-white px-3">
+                  <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
                     <SelectValue placeholder="Sin cliente" />
                   </SelectTrigger>
                   <SelectContent>
@@ -327,7 +327,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                   type="date"
                   value={form.fecha_entrega}
                   onChange={(e) => set("fecha_entrega", e.target.value)}
-                  className="h-10 rounded-12 bg-white px-3"
+                  className="h-10 rounded-12 bg-panel px-3"
                 />
               </div>
 
@@ -337,7 +337,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                   value={form.prioridad}
                   onValueChange={(v) => set("prioridad", (v ?? "") as PrioridadTarea | "")}
                 >
-                  <SelectTrigger className="h-10 w-full rounded-12 bg-white px-3">
+                  <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
                     <SelectValue placeholder="Sin prioridad" />
                   </SelectTrigger>
                   <SelectContent>
@@ -362,8 +362,8 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                       className={cn(
                         "inline-flex h-7 items-center rounded-full border px-3 text-[12px] font-semibold transition-colors",
                         form.etiquetas.includes(tag)
-                          ? "border-rose-500 bg-rose-50 text-rose-700"
-                          : "border-ink-200 bg-white text-ink-700 hover:bg-ink-100",
+                          ? "border-rose-500 bg-rose-50 text-rose-700 dark:text-rose-400"
+                          : "border-ink-200 bg-panel text-ink-700 hover:bg-ink-100",
                       )}
                     >
                       {tag}
@@ -380,7 +380,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                       value={form.estado}
                       onValueChange={(v) => set("estado", (v ?? "POR_HACER") as EstadoTarea)}
                     >
-                      <SelectTrigger className="h-10 w-full rounded-12 bg-white px-3">
+                      <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -416,7 +416,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                     value={form.motivo_bloqueo}
                     onChange={(e) => set("motivo_bloqueo", e.target.value)}
                     placeholder="Por qué está bloqueada la tarea"
-                    className="w-full resize-none rounded-12 border border-input bg-white px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                    className="w-full resize-none rounded-12 border border-input bg-panel px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                   />
                 </div>
               )}
@@ -487,7 +487,7 @@ function SubtaskSection({ taskId }: { taskId: string }) {
             }
           }}
           placeholder="Nueva subtarea…"
-          className="h-9 rounded-10 bg-white px-3 text-[13px]"
+          className="h-9 rounded-10 bg-panel px-3 text-[13px]"
         />
         <Button
           type="button"
@@ -518,7 +518,7 @@ function SubtaskRow({ taskId, subtarea }: { taskId: string; subtarea: Subtarea }
   const toggle = useUpdateSubtarea(taskId, subtarea.id);
   const remove = useDeleteSubtarea(taskId, subtarea.id);
   return (
-    <div className="flex items-center gap-2.5 rounded-10 border border-ink-200 bg-white px-3 py-2 text-[13px]">
+    <div className="flex items-center gap-2.5 rounded-10 border border-ink-200 bg-panel px-3 py-2 text-[13px]">
       <Checkbox
         checked={subtarea.completada}
         onCheckedChange={(checked) => {
@@ -566,9 +566,9 @@ function CommentSection({ taskId }: { taskId: string }) {
       ) : (
         <div className="flex flex-col gap-2.5">
           {sorted.map((c) => (
-            <div key={c.id} className="rounded-12 bg-white px-3 py-2.5">
+            <div key={c.id} className="rounded-12 bg-panel px-3 py-2.5">
               <div className="flex items-center gap-2 text-[11.5px] font-semibold text-ink-800">
-                <span className="grid size-5 place-items-center rounded-full bg-rose-100 text-[9px] font-bold text-rose-700">
+                <span className="grid size-5 place-items-center rounded-full bg-rose-100 text-[9px] font-bold text-rose-700 dark:text-rose-400">
                   {iniciales(c.autor_nombre)}
                 </span>
                 {c.autor_nombre}
@@ -592,7 +592,7 @@ function CommentSection({ taskId }: { taskId: string }) {
             }
           }}
           placeholder="Escribe un comentario…"
-          className="h-9 rounded-10 bg-white px-3 text-[13px]"
+          className="h-9 rounded-10 bg-panel px-3 text-[13px]"
         />
         <Button
           type="button"
@@ -685,7 +685,7 @@ function AttachmentSection({ taskId }: { taskId: string }) {
 
 function AdjuntoRow({ taskId, adjunto }: { taskId: string; adjunto: Adjunto }) {
   return (
-    <div className="flex items-center gap-2.5 rounded-10 bg-white px-3 py-2 text-[13px]">
+    <div className="flex items-center gap-2.5 rounded-10 bg-panel px-3 py-2 text-[13px]">
       <Paperclip className="size-4 shrink-0 text-ink-500" strokeWidth={1.9} />
       <span className="min-w-0 flex-1 truncate font-medium text-ink-800">{adjunto.nombre}</span>
       <span className="font-mono text-[10.5px] text-ink-500">
@@ -703,7 +703,7 @@ function AdjuntoRow({ taskId, adjunto }: { taskId: string; adjunto: Adjunto }) {
             "noopener",
           );
         }}
-        className="text-ink-500 hover:text-rose-700"
+        className="text-ink-500 hover:text-rose-700 dark:hover:text-rose-400"
       >
         <Download className="size-3.5" strokeWidth={1.9} />
       </Button>

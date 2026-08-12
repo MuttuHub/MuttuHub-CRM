@@ -16,7 +16,7 @@ export function SinConexionCard({
   onRetry?: () => void;
 }) {
   return (
-    <section className="grid min-h-[320px] place-items-center rounded-[24px] border border-ink-200 bg-white p-8">
+    <section className="grid min-h-[320px] place-items-center rounded-[24px] border border-ink-200 bg-panel p-8">
       <div className="max-w-[46ch] text-center">
         <span className="mx-auto grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-alerta-bg text-alerta">
           <TriangleAlert className="size-6" strokeWidth={1.7} />

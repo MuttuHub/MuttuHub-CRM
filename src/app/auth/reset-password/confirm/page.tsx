@@ -149,7 +149,7 @@ function ResetConfirmInner() {
 
   return (
     <>
-      <span className="mx-auto grid size-11 place-items-center rounded-[15px_15px_15px_5px] bg-rose-50 text-rose-700">
+      <span className="mx-auto grid size-11 place-items-center rounded-[15px_15px_15px_5px] bg-rose-50 text-rose-700 dark:text-rose-400">
         <KeyRound className="size-5" strokeWidth={1.7} />
       </span>
       <h1 className="mt-4 font-display text-[22px] font-bold tracking-[-0.02em] text-ink-950">
@@ -177,7 +177,7 @@ function ResetConfirmInner() {
             autoComplete="new-password"
             required
             placeholder="••••••••"
-            className="h-11 rounded-lg bg-white px-3.5"
+            className="h-11 rounded-lg bg-panel px-3.5"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
@@ -191,7 +191,7 @@ function ResetConfirmInner() {
             autoComplete="new-password"
             required
             placeholder="••••••••"
-            className="h-11 rounded-lg bg-white px-3.5"
+            className="h-11 rounded-lg bg-panel px-3.5"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
           />

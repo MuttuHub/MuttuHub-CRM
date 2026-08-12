@@ -9,7 +9,7 @@ import { AGENDA, KPIS_INICIO, MESES, type Tone } from "@/lib/mock/demo";
 
 const TONE_BADGE: Record<Tone, string> = {
   neutro: "bg-ink-100 text-ink-700",
-  activo: "bg-rose-50 text-rose-700",
+  activo: "bg-rose-50 text-rose-700 dark:text-rose-400",
   alerta: "bg-alerta-bg text-alerta",
   riesgo: "bg-destructivo-bg text-destructivo",
   exito: "bg-exito-bg text-exito",
@@ -35,7 +35,7 @@ export function DemoFallback() {
             key={k.label}
             className={cn(
               "rounded-[20px] border p-[18px]",
-              k.acento ? "border-rose-500 bg-rose-500" : "border-ink-200 bg-white",
+              k.acento ? "border-rose-500 bg-rose-500" : "border-ink-200 bg-panel",
             )}
           >
             <span
@@ -81,7 +81,7 @@ export function DemoFallback() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
-        <section className="rounded-[22px] border border-ink-200 bg-white p-5 lg:p-6">
+        <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
               <h2 className="font-display text-[19px] font-bold tracking-[-0.02em] text-ink-950">
@@ -121,7 +121,7 @@ export function DemoFallback() {
           </div>
         </section>
 
-        <section className="rounded-[22px] border border-ink-200 bg-white p-5 lg:p-6">
+        <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
           <h2 className="font-display text-[17px] font-bold tracking-[-0.02em] text-ink-950">
             Agenda del día
           </h2>

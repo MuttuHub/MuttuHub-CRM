@@ -76,7 +76,7 @@ export function DocumentDialog({
                   <span
                     className={cn(
                       "grid size-11 shrink-0 place-items-center rounded-[15px_15px_15px_5px] text-[11px] font-bold",
-                      activa ? "bg-rose-100 text-rose-700" : "bg-ink-100 text-ink-600",
+                      activa ? "bg-rose-100 text-rose-700 dark:text-rose-400" : "bg-ink-100 text-ink-600",
                     )}
                   >
                     {extensionOf(activa?.tipo_archivo ?? "")?.toUpperCase() ?? "—"}
@@ -153,7 +153,7 @@ export function DocumentDialog({
                 type="button"
                 variant="outline"
                 onClick={() => setVersionUploadOpen(true)}
-                className="h-9 rounded-lg border-ink-200 bg-white px-4 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+                className="h-9 rounded-lg border-ink-200 bg-panel px-4 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
               >
                 <Upload className="size-4 text-exito" strokeWidth={1.9} />
                 Subir nueva versión
@@ -246,7 +246,7 @@ function VersionRow({
     <li
       className={cn(
         "flex items-center justify-between gap-3 rounded-12 border px-3.5 py-2.5",
-        activa ? "border-exito/30 bg-exito-bg/50" : "border-ink-200 bg-white",
+        activa ? "border-exito/30 bg-exito-bg/50" : "border-ink-200 bg-panel",
       )}
     >
       <div className="flex min-w-0 items-center gap-2.5">

@@ -111,7 +111,7 @@ export default function ResetPasswordPage() {
                   autoComplete="email"
                   required
                   placeholder="nombre@muttu.co"
-                  className="h-11 rounded-lg bg-white px-3.5"
+                  className="h-11 rounded-lg bg-panel px-3.5"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
@@ -134,7 +134,7 @@ export default function ResetPasswordPage() {
         <div className="mt-5 border-t border-ink-100 pt-4">
           <Link
             href="/login"
-            className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-rose-700 transition-colors hover:text-rose-500"
+            className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-rose-700 dark:text-rose-400 transition-colors hover:text-rose-500 dark:hover:text-rose-400"
           >
             <ArrowLeft className="size-3.5" strokeWidth={2} />
             Volver a iniciar sesión

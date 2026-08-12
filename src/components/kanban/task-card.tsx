@@ -53,7 +53,7 @@ export function TaskCard({
         }
       }}
       className={cn(
-        "group relative cursor-pointer rounded-14 border border-ink-200 bg-white p-3 text-left shadow-sm transition-shadow hover:shadow-md",
+        "group relative cursor-pointer rounded-14 border border-ink-200 bg-panel p-3 text-left shadow-sm transition-shadow hover:shadow-md",
         "focus-visible:ring-3 focus-visible:ring-ring/50 outline-none",
         overlay && "rotate-2 shadow-xl ring-2 ring-rose-200",
       )}
@@ -73,7 +73,7 @@ export function TaskCard({
           </span>
         ))}
         {task.cliente_nombre && (
-          <span className="inline-flex h-[20px] items-center rounded-full bg-rose-100 px-2 text-[10.5px] font-semibold text-rose-700">
+          <span className="inline-flex h-[20px] items-center rounded-full bg-rose-100 px-2 text-[10.5px] font-semibold text-rose-700 dark:text-rose-400">
             <Hexagon className="mr-1 size-2.5" strokeWidth={1.8} />
             {task.cliente_nombre}
           </span>

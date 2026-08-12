@@ -76,7 +76,7 @@ export function CatalogsSection() {
     // El segundo caso cubre el pase en el que el snapshot recién llegó y el
     // borrador todavía no se hidrató (ajuste durante el render, ver arriba).
     return (
-      <section className="rounded-[22px] border border-ink-200 bg-white p-5 lg:p-6">
+      <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
         <Skeleton className="h-5 w-44" />
         <Skeleton className="mt-3 h-3.5 w-72" />
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
@@ -93,7 +93,7 @@ export function CatalogsSection() {
         ? query.error.message
         : "No pudimos cargar los catálogos. Inténtalo de nuevo.";
     return (
-      <section className="grid min-h-[280px] place-items-center rounded-[22px] border border-ink-200 bg-white p-8">
+      <section className="grid min-h-[280px] place-items-center rounded-[22px] border border-ink-200 bg-panel p-8">
         <div className="max-w-[46ch] text-center">
           <span className="mx-auto grid size-11 place-items-center rounded-[15px_15px_15px_5px] bg-alerta-bg text-alerta">
             <AlertTriangle className="size-5" strokeWidth={1.7} />
@@ -224,7 +224,7 @@ export function CatalogsSection() {
   const saving = save.isPending;
 
   return (
-    <section className="rounded-[22px] border border-ink-200 bg-white p-5 lg:p-6">
+    <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h2 className="font-display text-[17px] font-bold tracking-[-0.02em] text-ink-950">
@@ -258,14 +258,14 @@ export function CatalogsSection() {
               {draft!.task_tags.map((tag) => (
                 <li
                   key={tag}
-                  className="inline-flex h-7 items-center gap-1.5 rounded-full border border-ink-200 bg-white pl-3 pr-1 text-[12px] font-semibold text-ink-800"
+                  className="inline-flex h-7 items-center gap-1.5 rounded-full border border-ink-200 bg-panel pl-3 pr-1 text-[12px] font-semibold text-ink-800"
                 >
                   {tag}
                   <button
                     type="button"
                     onClick={() => removeTag(tag)}
                     aria-label={`Eliminar etiqueta ${tag}`}
-                    className="relative grid size-5 place-items-center rounded-full text-ink-500 transition-colors after:absolute after:content-[''] after:-inset-1 hover:bg-rose-50 hover:text-rose-700"
+                    className="relative grid size-5 place-items-center rounded-full text-ink-500 transition-colors after:absolute after:content-[''] after:-inset-1 hover:bg-rose-50 hover:text-rose-700 dark:hover:text-rose-400"
                   >
                     <X className="size-3" strokeWidth={2.2} />
                   </button>
@@ -280,7 +280,7 @@ export function CatalogsSection() {
               onChange={(e) => setTagInput(e.target.value)}
               placeholder="Nueva etiqueta…"
               aria-label="Nueva etiqueta de tarea"
-              className="h-9 rounded-12 border-ink-200 bg-white px-3"
+              className="h-9 rounded-12 border-ink-200 bg-panel px-3"
               maxLength={MAX_TAG_LENGTH}
             />
             <Button
@@ -323,7 +323,7 @@ export function CatalogsSection() {
                     onChange={(e) => setCategoryName(index, e.target.value)}
                     placeholder="Nombre de la categoría"
                     aria-label={`Nombre de la categoría ${index + 1}`}
-                    className="h-9 min-w-0 flex-1 rounded-12 border-ink-200 bg-white px-3"
+                    className="h-9 min-w-0 flex-1 rounded-12 border-ink-200 bg-panel px-3"
                     maxLength={MAX_CATEGORY_LENGTH}
                   />
                   <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[12px] font-medium text-ink-700">
@@ -339,7 +339,7 @@ export function CatalogsSection() {
                     type="button"
                     onClick={() => removeCategory(index)}
                     aria-label={`Eliminar categoría ${categoria.nombre || index + 1}`}
-                    className="relative grid size-7 shrink-0 place-items-center rounded-[9px] text-ink-500 transition-colors after:absolute after:content-[''] after:-inset-2 hover:bg-rose-50 hover:text-rose-700"
+                    className="relative grid size-7 shrink-0 place-items-center rounded-[9px] text-ink-500 transition-colors after:absolute after:content-[''] after:-inset-2 hover:bg-rose-50 hover:text-rose-700 dark:hover:text-rose-400"
                   >
                     <X className="size-3.5" strokeWidth={2.2} />
                   </button>
@@ -351,7 +351,7 @@ export function CatalogsSection() {
           <button
             type="button"
             onClick={addCategory}
-            className="relative mt-3 inline-flex h-9 items-center justify-center gap-1.5 self-start rounded-12 border border-dashed border-ink-300 px-3 text-[12.5px] font-semibold text-ink-600 transition-colors after:absolute after:content-[''] after:-inset-1 hover:border-rose-400 hover:bg-rose-50 hover:text-rose-700"
+            className="relative mt-3 inline-flex h-9 items-center justify-center gap-1.5 self-start rounded-12 border border-dashed border-ink-300 px-3 text-[12.5px] font-semibold text-ink-600 transition-colors after:absolute after:content-[''] after:-inset-1 hover:border-rose-400 hover:bg-rose-50 hover:text-rose-700 dark:hover:text-rose-400"
           >
             <Plus className="size-3.5" strokeWidth={2.2} />
             Agregar categoría

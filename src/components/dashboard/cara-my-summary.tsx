@@ -142,7 +142,7 @@ export function CaraMiResumen({ filters }: { filters: DashboardFilters }) {
               Compromisos pendientes:{" "}
               <span className="font-semibold text-ink-900">{compromisos_pendientes.count}</span>{" "}
               ({compromisos_pendientes.vencidos} vencidos) — se gestionan en la{" "}
-              <Link href="/clientes" className="font-semibold text-ink-800 underline decoration-ink-300 underline-offset-2 hover:text-rose-700">
+              <Link href="/clientes" className="font-semibold text-ink-800 underline decoration-ink-300 underline-offset-2 hover:text-rose-700 dark:hover:text-rose-400">
                 ficha del cliente
               </Link>.
             </p>
@@ -185,7 +185,7 @@ export function CaraMiResumen({ filters }: { filters: DashboardFilters }) {
                   className={cn(
                     "inline-flex h-[30px] items-center gap-2 rounded-full px-3.5 text-[12.5px] font-semibold",
                     entry?.tone === "info" && "bg-info-bg text-info",
-                    entry?.tone === "activo" && "bg-rose-50 text-rose-700",
+                    entry?.tone === "activo" && "bg-rose-50 text-rose-700 dark:text-rose-400",
                     entry?.tone === "exito" && "bg-exito-bg text-exito",
                     entry?.tone === "alerta" && "bg-alerta-bg text-alerta",
                     entry?.tone === "neutro" && "bg-ink-100 text-ink-700",
@@ -227,7 +227,7 @@ function ResumenTile({
           ? "border-destructivo/40 bg-destructivo-bg"
           : tone === "alerta"
             ? "border-alerta/40 bg-alerta-bg"
-            : "border-ink-200 bg-white",
+            : "border-ink-200 bg-panel",
       )}
     >
       <span className="flex items-center gap-2 text-[12px] font-semibold text-ink-600">
@@ -281,7 +281,7 @@ function TareaLista({
           const estado = ESTADO_TAREA_LABELS[t.estado as keyof typeof ESTADO_TAREA_LABELS];
           const estadoClase = cn(
             "inline-flex h-[20px] items-center rounded-full px-2 text-[10.5px] font-bold whitespace-nowrap",
-            estado?.tone === "activo" && "bg-rose-50 text-rose-700",
+            estado?.tone === "activo" && "bg-rose-50 text-rose-700 dark:text-rose-400",
             estado?.tone === "neutro" && "bg-ink-100 text-ink-700",
             estado?.tone === "exito" && "bg-exito-bg text-exito",
             estado?.tone === "alerta" && "bg-alerta-bg text-alerta",

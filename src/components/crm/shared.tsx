@@ -10,7 +10,7 @@ import { iniciales } from "@/hooks/crm";
 
 const TONE_BADGE: Record<UiTone, string> = {
   neutro: "bg-ink-100 text-ink-700",
-  activo: "bg-rose-50 text-rose-700",
+  activo: "bg-rose-50 text-rose-700 dark:text-rose-400",
   alerta: "bg-alerta-bg text-alerta",
   riesgo: "bg-destructivo-bg text-destructivo",
   exito: "bg-exito-bg text-exito",

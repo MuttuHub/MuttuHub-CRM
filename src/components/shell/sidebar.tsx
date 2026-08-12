@@ -219,7 +219,7 @@ export function Sidebar() {
             type="button"
             aria-label="Cerrar menú"
             onClick={() => setMobileOpen(false)}
-            className="absolute inset-0 bg-ink-950/50 backdrop-blur-[2px]"
+            className="absolute inset-0 bg-[#191113]/50 backdrop-blur-[2px]"
           />
           <aside id="sidebar-drawer" className="absolute inset-y-0 left-0 flex w-[264px] flex-col rounded-r-[26px] border-r border-shell-border bg-shell-surface px-3.5 py-3.5">
             <SidebarContent rail={false} />
