@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, CheckCheck, X } from "lucide-react";
 import { toast } from "sonner";
-import { apiGet, apiPatch } from "@/lib/api/http";
+import { apiDelete, apiGet, apiPatch } from "@/lib/api/http";
 import { ESTADO_TAREA_LABELS } from "@/lib/catalogs";
 import type { EstadoTarea, OrigenTarea } from "@prisma/client";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -77,6 +77,11 @@ export function NotificationPanel() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  // Ids sin leer al momento del click en "marcar todas": base del undo (5s).
+  const unreadSnapshotRef = useRef<string[]>([]);
+  // Guard sincrónico del toast: el closure del action no ve isPending a
+  // tiempo, este flag evita un doble click que re-dispare el revert.
+  const revertPendingRef = useRef(false);
 
   const query = useQuery({
     queryKey: notificationQueryKey,
@@ -92,13 +97,53 @@ export function NotificationPanel() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: notificationQueryKey }),
   });
 
+  const revertAllRead = useMutation({
+    mutationFn: (ids: string[]) =>
+      Promise.all(ids.map((id) => apiDelete(`/api/v1/notifications/${id}/read`))),
+    onSettled: () => {
+      // Mantiene el badge coherente aunque el revert falle (la query se
+      // vuelve a leer desde el server tras read-all / fallo parcial).
+      revertPendingRef.current = false;
+      void qc.invalidateQueries({ queryKey: notificationQueryKey });
+    },
+    onError: () => {
+      toast.error("No pudimos deshacer el cambio. Inténtalo de nuevo.");
+    },
+  });
+
   const markAllRead = useMutation({
     mutationFn: () => apiPatch("/api/v1/notifications/read-all"),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: notificationQueryKey });
-      toast.success("Todas las alertas marcadas como leídas.");
+      toast.success("Todas las alertas marcadas como leídas.", {
+        action: {
+          label: "Deshacer",
+          onClick: () => {
+            if (revertPendingRef.current) return;
+            revertPendingRef.current = true;
+            revertAllRead.mutate(unreadSnapshotRef.current);
+          },
+        },
+        duration: 5000,
+      });
     },
   });
+
+  /** Captura los ids sin leer que el usuario ve ahora (base del undo). */
+  function handleMarkAllRead() {
+    if (!snapshot) return;
+    const leidasSet = new Set(snapshot.leidas_ids);
+    unreadSnapshotRef.current = [
+      ...snapshot.vencidos,
+      ...snapshot.hoy,
+      ...snapshot.proximos3,
+    ]
+      .filter(
+        (item) => item.notificacion_id !== null && !leidasSet.has(item.notificacion_id),
+      )
+      .map((item) => item.notificacion_id!);
+    markAllRead.mutate();
+  }
 
   // Cierre por click-fuera, Escape o botón X; el setState vive en handlers.
   useEffect(() => {
@@ -219,7 +264,7 @@ export function NotificationPanel() {
               <div className="border-t border-ink-200 p-3">
                 <button
                   type="button"
-                  onClick={() => markAllRead.mutate()}
+                  onClick={handleMarkAllRead}
                   disabled={markAllRead.isPending || unread === 0}
                   className="relative flex h-9 w-full items-center justify-center gap-2 rounded-12 bg-ink-100 text-[12.5px] font-semibold text-ink-800 transition-colors after:absolute after:content-[''] after:-inset-1 hover:bg-ink-200 disabled:opacity-45"
                 >
