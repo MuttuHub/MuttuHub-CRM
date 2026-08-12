@@ -46,6 +46,14 @@ export default function RootLayout({
       className={`${display.variable} ${sans.variable} ${mono.variable} h-full antialiased`}
     >
       <body className="min-h-full">
+        {/* Anti-FOUC: applies the theme class before first paint. Inline
+            scripts are not hoisted, so this runs in place during parsing.
+            Stored value wins; otherwise follow the system preference. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("muttu-theme");var d=t?t==="dark":window.matchMedia("(prefers-color-scheme: dark)").matches;var r=document.documentElement;if(d)r.classList.add("dark");r.style.colorScheme=d?"dark":"light";}catch(e){}})();`,
+          }}
+        />
         <Providers>
           {children}
           {/* sonner toasts globales (toast() de todos los módulos) */}

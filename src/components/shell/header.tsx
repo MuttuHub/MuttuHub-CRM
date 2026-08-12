@@ -2,9 +2,10 @@
 
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, Menu } from "lucide-react";
+import { ChevronDown, Menu, Moon, Sun } from "lucide-react";
 import { PAGE_HEADERS } from "@/lib/nav";
 import { useCurrentUser } from "@/hooks/kanban";
+import { useTheme } from "@/hooks/use-theme";
 import { apiGet } from "@/lib/api/http";
 import { DEMO_USER } from "@/lib/mock/demo";
 import { useSidebarStore } from "@/store/sidebar";
@@ -57,6 +58,7 @@ export function Header() {
   const mobileOpen = useSidebarStore((s) => s.mobileOpen);
   const rango = useFiltersStore((s) => s.rango);
   const setRango = useFiltersStore((s) => s.setRango);
+  const { theme, toggleTheme } = useTheme();
   const userQuery = useCurrentUser();
   // Same query as the notification bell: shared cache, no extra fetch.
   const notificationsQuery = useQuery({
@@ -124,6 +126,19 @@ export function Header() {
             </DropdownMenuContent>
           </DropdownMenu>
         )}
+
+        <button
+          type="button"
+          onClick={toggleTheme}
+          aria-label={theme === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
+          className="relative grid size-10 place-items-center rounded-lg border border-ink-200 bg-white text-ink-700 transition-colors after:absolute after:content-[''] after:-inset-0.5 hover:bg-ink-100"
+        >
+          {theme === "dark" ? (
+            <Sun className="size-4" strokeWidth={1.8} />
+          ) : (
+            <Moon className="size-4" strokeWidth={1.8} />
+          )}
+        </button>
 
         <NotificationPanel />
 
