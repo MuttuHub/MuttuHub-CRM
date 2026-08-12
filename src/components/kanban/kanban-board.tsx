@@ -14,6 +14,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   DndContext,
   DragOverlay,
+  KeyboardSensor,
   PointerSensor,
   closestCorners,
   useDroppable,
@@ -22,7 +23,11 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import {
   Eye,
   FileSpreadsheet,
@@ -113,6 +118,9 @@ export function KanbanBoard() {
   });
   const [dialogTaskId, setDialogTaskId] = useState<string | null | "nueva">(null);
   const [draggedTask, setDraggedTask] = useState<CardTask | null>(null);
+  // Announced via the sr-only live region when a sortable lands on a new
+  // column (keyboard drags have no visual trail for the screen reader).
+  const [moveAnnouncement, setMoveAnnouncement] = useState("");
 
   const meQuery = useCurrentUser();
   const me = meQuery.data;
@@ -144,7 +152,13 @@ export function KanbanBoard() {
   );
 
   const moveMutation = useMoveTask();
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  // Pointer keeps the existing activation constraint; KeyboardSensor turns
+  // the sortable cards into Space/Enter draggables moved with the arrows
+  // (same sorting code path, so pointer behavior is untouched).
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const localActive = local.prioridad !== "" || local.etiqueta !== "" || local.desde !== "" || local.hasta !== "" || cliente !== "" || responsableEquipo !== "";
 
@@ -176,6 +190,9 @@ export function KanbanBoard() {
     if (!targetColumn || targetColumn === task.estado) return;
 
     const desde = task.estado;
+    setMoveAnnouncement(
+      `Tarea movida a ${ESTADO_TAREA_LABELS[targetColumn as EstadoTarea]?.label ?? targetColumn}`,
+    );
     void qc.setQueryData<TaskListResponse>(taskQueryKeys.list(serverParams), (old) =>
       old ? { ...old, items: old.items.map((t) => (t.id === taskId ? { ...t, estado: targetColumn as EstadoTarea } : t)) } : old,
     );
@@ -335,6 +352,9 @@ export function KanbanBoard() {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
+          <p role="status" aria-live="polite" className="sr-only">
+            {moveAnnouncement}
+          </p>
           <div className="flex gap-3 overflow-x-auto pb-3">
             {BOARD_COLUMNS.map((estado) => (
               <BoardColumn
