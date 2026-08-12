@@ -4,29 +4,33 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* ── Muttu Hub design tokens (extracted from the approved mockup) ── */
+/* ── Muttu Hub design tokens (extracted from the approved mockup) ──
+   Surface/text/badge tokens are VAR INDIRECTIONS: the light values live in
+   :root and .dark re-pins them, so every utility (bg-panel, text-ink-800,
+   bg-rose-50, text-exito…) flips without touching components. The shell and
+   the brand accents (rose-400/500/700) stay fixed by design. */
 @theme {
-  /* Brand rose scale */
-  --color-rose-50: #fcf1f5;
-  --color-rose-100: #f9dfe9;
-  --color-rose-200: #f5bad2;
+  /* Brand rose scale — accents stay fixed; chip backgrounds flip */
+  --color-rose-50: var(--rose-50);
+  --color-rose-100: var(--rose-100);
+  --color-rose-200: var(--rose-200);
   --color-rose-400: #e4569a;
   --color-rose-500: #cd1560;
   --color-rose-700: #940d44;
 
   /* Ink (warm neutral) scale */
-  --color-ink-100: #f7f3f4;
-  --color-ink-200: #ece5e7;
-  --color-ink-300: #ddd2d5;
+  --color-ink-100: var(--ink-100);
+  --color-ink-200: var(--ink-200);
+  --color-ink-300: var(--ink-300);
   /* #846f74: darkened from #8c757b for WCAG AA (4.66:1 on white). */
-  --color-ink-500: #846f74;
-  --color-ink-600: #725d62;
-  --color-ink-700: #5a474c;
-  --color-ink-800: #3f2f33;
-  --color-ink-900: #281d20;
-  --color-ink-950: #191113;
+  --color-ink-500: var(--ink-500);
+  --color-ink-600: var(--ink-600);
+  --color-ink-700: var(--ink-700);
+  --color-ink-800: var(--ink-800);
+  --color-ink-900: var(--ink-900);
+  --color-ink-950: var(--ink-950);
 
-  /* Dark shell (sidebar) extended tones from the mockup */
+  /* Dark shell (sidebar) extended tones from the mockup — fixed */
   --color-shell-border: #241a1c;
   --color-shell-surface: #221a1c;
   --color-shell-chip: #2e2225;
@@ -37,18 +41,18 @@
   --color-shell-faint: #947f84;
 
   /* Semantic */
-  --color-exito: #127c4a;
-  --color-exito-bg: #e7f5ed;
-  --color-alerta: #b45309;
-  --color-alerta-bg: #fef4e6;
-  --color-destructivo: #b3261e;
-  --color-destructivo-bg: #fdecea;
-  --color-info: #1e5fa8;
-  --color-info-bg: #eaf2fc;
+  --color-exito: var(--exito);
+  --color-exito-bg: var(--exito-bg);
+  --color-alerta: var(--alerta);
+  --color-alerta-bg: var(--alerta-bg);
+  --color-destructivo: var(--destructivo);
+  --color-destructivo-bg: var(--destructivo-bg);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
 
   /* Surfaces */
-  --color-page: #efeaeb;
-  --color-panel: #fdfbfb;
+  --color-page: var(--page);
+  --color-panel: var(--panel);
 
   /* Type */
   --font-display: var(--font-bricolage), "Bricolage Grotesque", sans-serif;
@@ -136,6 +140,36 @@
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: #241a1c;
   --sidebar-ring: #cd1560;
+
+  /* Brand tokens (light) — source of the @theme indirections above. */
+  --page: #efeaeb;
+  --panel: #fdfbfb;
+  --ink-100: #f7f3f4;
+  --ink-200: #ece5e7;
+  --ink-300: #ddd2d5;
+  --ink-500: #846f74;
+  --ink-600: #725d62;
+  --ink-700: #5a474c;
+  --ink-800: #3f2f33;
+  --ink-900: #281d20;
+  --ink-950: #191113;
+  --rose-50: #fcf1f5;
+  --rose-100: #f9dfe9;
+  --rose-200: #f5bad2;
+  --exito: #127c4a;
+  --exito-bg: #e7f5ed;
+  --alerta: #b45309;
+  --alerta-bg: #fef4e6;
+  --destructivo: #b3261e;
+  --destructivo-bg: #fdecea;
+  --info: #1e5fa8;
+  --info-bg: #eaf2fc;
+
+  /* Login helpers (acceso-page uses inline styles): accent links and the
+     segmented active tab must flip in dark — rose-500/700 lose contrast on
+     dark surfaces, rose-400 is the dark-ready accent. */
+  --login-enlace-fg: var(--color-rose-500);
+  --login-activo-fg: var(--color-rose-700);
 }
 
 .dark {
@@ -170,6 +204,38 @@
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: #241a1c;
   --sidebar-ring: #cd1560;
+
+  /* Brand tokens (dark): the ink scale inverts — low numbers are dark
+     surfaces, high numbers are light text (shell-text #c9bcc0 family).
+     Ink-100 is a hover/chip SURFACE (118 usages): #c9bcc0 would put light
+     text on a light pill (1.2:1), so it uses the shell-chip tone instead.
+     Rose chip backgrounds are slightly darker than the plan draft so
+     text-rose-400 passes 4.5:1 on them. All semantic text/bg pairs were
+     verified with the WCAG formula (>= 4.5:1, warm values). */
+  --page: #161113;
+  --panel: #1a1316;
+  --ink-100: #2e2225;
+  --ink-200: #3f3337;
+  --ink-300: #4a3d41;
+  --ink-500: #9c8a8f;
+  --ink-600: #947f84;
+  --ink-700: #c9bcc0;
+  --ink-800: #f7f3f4;
+  --ink-900: #f7f3f4;
+  --ink-950: #ffffff;
+  --rose-50: #331a24;
+  --rose-100: #351c24;
+  --rose-200: #5a2f42;
+  --exito: #4caf7d;
+  --exito-bg: #123124;
+  --alerta: #e08c2e;
+  --alerta-bg: #33230f;
+  --destructivo: #e5736b;
+  --destructivo-bg: #351a18;
+  --info: #6ba6d9;
+  --info-bg: #142a3d;
+  --login-enlace-fg: var(--color-rose-400);
+  --login-activo-fg: var(--color-rose-400);
 }
 
 @layer base {
