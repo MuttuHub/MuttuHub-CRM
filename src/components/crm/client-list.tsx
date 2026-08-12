@@ -8,7 +8,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Eye,
@@ -18,6 +18,7 @@ import {
   Search,
   SlidersHorizontal,
   UsersRound,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -191,6 +192,66 @@ function countActiveFilters(filters: ClientFilters): number {
   return n;
 }
 
+/* ── Removable chips for the applied filters ──────────────────────────── */
+
+type ActiveChip = { key: keyof LocalFilters; label: string };
+
+const chipNumberFormatter = new Intl.NumberFormat("es-CO");
+
+/** "12/08" — compact day/month, matching the date inputs' display. */
+function chipFechaCorta(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleDateString("es-CO", { day: "2-digit", month: "2-digit" });
+}
+
+function chipValor(v: string): string {
+  const n = Number(v);
+  return Number.isFinite(n) ? chipNumberFormatter.format(n) : v;
+}
+
+/**
+ * Human-readable chips for every applied filter (search `q` excluded: it is
+ * already visible in the input). Removing a chip resets that filter through
+ * the same commit path as Aplicar/Limpiar todo.
+ */
+function buildActiveChips(
+  applied: ClientFilters,
+  users: { id: string; nombre: string }[],
+): ActiveChip[] {
+  const chips: ActiveChip[] = [];
+  if (applied.tipo) {
+    chips.push({
+      key: "tipo",
+      label: `Tipo: ${TIPO_CLIENTE_LABELS[applied.tipo as TipoCliente]?.label ?? applied.tipo}`,
+    });
+  }
+  if (applied.estado) {
+    chips.push({
+      key: "estado",
+      label: `Estado: ${ESTADO_CLIENTE_LABELS[applied.estado as EstadoCliente]?.label ?? applied.estado}`,
+    });
+  }
+  if (applied.prioridad) {
+    chips.push({
+      key: "prioridad",
+      label: `Prioridad: ${PRIORIDAD_CLIENTE_LABELS[applied.prioridad as PrioridadCliente]?.label ?? applied.prioridad}`,
+    });
+  }
+  if (applied.responsable) {
+    const nombre = users.find((u) => u.id === applied.responsable)?.nombre;
+    chips.push({
+      key: "responsable",
+      label: `Responsable: ${nombre ?? applied.responsable}`,
+    });
+  }
+  if (applied.desde) chips.push({ key: "desde", label: `Desde: ${chipFechaCorta(applied.desde)}` });
+  if (applied.hasta) chips.push({ key: "hasta", label: `Hasta: ${chipFechaCorta(applied.hasta)}` });
+  if (applied.valorMin) chips.push({ key: "valorMin", label: `Valor min: ${chipValor(applied.valorMin)}` });
+  if (applied.valorMax) chips.push({ key: "valorMax", label: `Valor max: ${chipValor(applied.valorMax)}` });
+  return chips;
+}
+
 export function ClientList() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -202,7 +263,7 @@ export function ClientList() {
   const [page, setPage] = useState(1);
 
   const usersQuery = useUsers();
-  const users = usersQuery.data ?? [];
+  const users = useMemo(() => usersQuery.data ?? [], [usersQuery.data]);
   const listQuery = useClients(applied);
 
   // Latest applied filters for the q-debounce timer (avoids stale closures).
@@ -249,10 +310,15 @@ export function ClientList() {
     const rest: Partial<LocalFilters> = { ...partial };
     delete rest.q;
     if (Object.keys(rest).length > 0) {
-      const nextFilters: ClientFilters = {
-        ...applied,
-        ...toFilters({ ...EMPTY_LOCAL, ...rest }),
-      };
+      // Each edited key is dropped from the applied set first, then the
+      // non-empty values are re-assigned — this is what allows a chip or a
+      // "Todas las vistas" select to CLEAR a single applied filter (the old
+      // spread-only merge could not null out keys).
+      const nextFilters: ClientFilters = { ...applied };
+      for (const key of Object.keys(rest) as (keyof LocalFilters)[]) {
+        delete nextFilters[key];
+      }
+      Object.assign(nextFilters, toFilters({ ...EMPTY_LOCAL, ...rest }));
       setApplied(nextFilters);
       syncUrl(nextFilters);
     }
@@ -319,6 +385,7 @@ export function ClientList() {
   }
 
   const activeCount = countActiveFilters(applied);
+  const activeChips = useMemo(() => buildActiveChips(applied, users), [applied, users]);
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -356,6 +423,7 @@ export function ClientList() {
         onChange={commit}
         onClear={clearFilters}
         activeCount={activeCount}
+        chips={activeChips}
       />
 
       {listQuery.isError ? (
@@ -386,6 +454,7 @@ function FiltersCard({
   onChange,
   onClear,
   activeCount,
+  chips,
 }: {
   local: LocalFilters;
   users: { id: string; nombre: string }[];
@@ -393,14 +462,25 @@ function FiltersCard({
   onChange: (partial: Partial<LocalFilters>) => void;
   onClear: () => void;
   activeCount: number;
+  chips: ActiveChip[];
 }) {
   const [open, setOpen] = useState(false);
   // Draft state: touching a control inside the popover must NOT fetch until
-  // "Aplicar". Seeded from the applied local state each time the panel opens.
+  // "Aplicar". Seeded from `local` (the applied filters) when the panel
+  // opens with no pending edits; once the user edits, the draft survives
+  // close/reopen so half-finished edits are never discarded. Any successful
+  // apply or "Limpiar todo" resets the dirty flag so the next open reseeds
+  // from the current applied state.
   const [draft, setDraft] = useState<LocalFilters>(local);
+  const [dirty, setDirty] = useState(false);
+
+  function patchDraft(patch: Partial<LocalFilters>) {
+    setDraft((d) => ({ ...d, ...patch }));
+    setDirty(true);
+  }
 
   function handleOpenChange(next: boolean) {
-    if (next) setDraft(local);
+    if (next && !dirty) setDraft(local);
     setOpen(next);
   }
 
@@ -409,12 +489,16 @@ function FiltersCard({
       toast.error("La fecha final no puede ser anterior a la inicial.");
       return;
     }
-    onChange({ ...draft });
+    // `local.q` is live-typed outside the popover: a stale draft.q must
+    // never clobber whatever the user just wrote in the search box.
+    onChange({ ...draft, q: local.q });
+    setDirty(false);
     setOpen(false);
   }
 
   function clearAll() {
     setDraft({ ...EMPTY_LOCAL });
+    setDirty(false);
     onClear();
   }
 
@@ -463,7 +547,7 @@ function FiltersCard({
             </PopoverDescription>
 
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Select value={draft.tipo} onValueChange={(v) => setDraft((d) => ({ ...d, tipo: v === "todos" ? "" : (v ?? "") }))}>
+              <Select value={draft.tipo} onValueChange={(v) => patchDraft({ tipo: v === "todos" ? "" : (v ?? "") })}>
                 <SelectTrigger className={cn(SELECT_CLASS)}>
                   <SelectValue placeholder="Tipo de cliente" />
                 </SelectTrigger>
@@ -477,7 +561,7 @@ function FiltersCard({
                 </SelectContent>
               </Select>
 
-              <Select value={draft.estado} onValueChange={(v) => setDraft((d) => ({ ...d, estado: v === "todos" ? "" : (v ?? "") }))}>
+              <Select value={draft.estado} onValueChange={(v) => patchDraft({ estado: v === "todos" ? "" : (v ?? "") })}>
                 <SelectTrigger className={cn(SELECT_CLASS)}>
                   <SelectValue placeholder="Estado" />
                 </SelectTrigger>
@@ -491,7 +575,7 @@ function FiltersCard({
                 </SelectContent>
               </Select>
 
-              <Select value={draft.prioridad} onValueChange={(v) => setDraft((d) => ({ ...d, prioridad: v === "todos" ? "" : (v ?? "") }))}>
+              <Select value={draft.prioridad} onValueChange={(v) => patchDraft({ prioridad: v === "todos" ? "" : (v ?? "") })}>
                 <SelectTrigger className={cn(SELECT_CLASS)}>
                   <SelectValue placeholder="Prioridad" />
                 </SelectTrigger>
@@ -507,7 +591,7 @@ function FiltersCard({
 
               <Select
                 value={draft.responsable}
-                onValueChange={(v) => setDraft((d) => ({ ...d, responsable: v === "todos" ? "" : (v ?? "") }))}
+                onValueChange={(v) => patchDraft({ responsable: v === "todos" ? "" : (v ?? "") })}
               >
                 <SelectTrigger className={cn(SELECT_CLASS)}>
                   <SelectValue placeholder={loadingUsers ? "Cargando…" : "Responsable"} />
@@ -530,7 +614,7 @@ function FiltersCard({
                   id="fecha-desde"
                   type="date"
                   value={draft.desde}
-                  onChange={(e) => setDraft((d) => ({ ...d, desde: e.target.value }))}
+                  onChange={(e) => patchDraft({ desde: e.target.value })}
                   aria-label="Primer contacto desde"
                   className="h-10 min-w-0 flex-1 rounded-12 border-ink-200 bg-panel px-3 text-[12.5px]"
                 />
@@ -542,7 +626,7 @@ function FiltersCard({
                   id="fecha-hasta"
                   type="date"
                   value={draft.hasta}
-                  onChange={(e) => setDraft((d) => ({ ...d, hasta: e.target.value }))}
+                  onChange={(e) => patchDraft({ hasta: e.target.value })}
                   aria-label="Primer contacto hasta"
                   className="h-10 min-w-0 flex-1 rounded-12 border-ink-200 bg-panel px-3 text-[12.5px]"
                 />
@@ -558,7 +642,7 @@ function FiltersCard({
                   min="0"
                   inputMode="numeric"
                   value={draft.valorMin}
-                  onChange={(e) => setDraft((d) => ({ ...d, valorMin: e.target.value }))}
+                  onChange={(e) => patchDraft({ valorMin: e.target.value })}
                   placeholder="Valor min"
                   className="h-10 min-w-0 flex-1 rounded-12 border-ink-200 bg-panel px-3 font-mono text-[12px]"
                 />
@@ -572,7 +656,7 @@ function FiltersCard({
                   min="0"
                   inputMode="numeric"
                   value={draft.valorMax}
-                  onChange={(e) => setDraft((d) => ({ ...d, valorMax: e.target.value }))}
+                  onChange={(e) => patchDraft({ valorMax: e.target.value })}
                   placeholder="Valor max"
                   className="h-10 min-w-0 flex-1 rounded-12 border-ink-200 bg-panel px-3 font-mono text-[12px]"
                 />
@@ -597,6 +681,31 @@ function FiltersCard({
           </PopoverContent>
         </Popover>
       </div>
+
+      {/* Applied filters as removable chips (derived from `applied`, no
+          extra fetches). Removing a chip resets that filter via the same
+          commit path as Aplicar; the bulk "Limpiar todo" stays inside the
+          popover, so no duplicate clear-all affordance is rendered here. */}
+      {chips.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          {chips.map((chip) => (
+            <span
+              key={chip.key}
+              className="inline-flex h-7 items-center gap-1 rounded-full bg-ink-100 py-1 pr-1 pl-2.5 text-[12px] font-semibold text-ink-800"
+            >
+              {chip.label}
+              <button
+                type="button"
+                onClick={() => onChange({ [chip.key]: "" })}
+                aria-label={`Quitar filtro ${chip.label}`}
+                className="grid size-5 place-items-center rounded-full text-ink-600 transition-colors hover:bg-ink-200 hover:text-ink-900"
+              >
+                <X className="size-3" strokeWidth={2} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
