@@ -8,6 +8,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, CheckCheck, X } from "lucide-react";
@@ -77,6 +78,12 @@ export function NotificationPanel() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const bellRef = useRef<HTMLButtonElement>(null);
+  // True once the panel has been opened at least once: focus is only
+  // restored to the bell on close, never on the initial mount.
+  const wasOpenRef = useRef(false);
   // Ids sin leer al momento del click en "marcar todas": base del undo (5s).
   const unreadSnapshotRef = useRef<string[]>([]);
   // Guard sincrónico del toast: el closure del action no ve isPending a
@@ -164,6 +171,39 @@ export function NotificationPanel() {
     };
   }, [open]);
 
+  // Dialog focus management: opening moves focus to the close button (first
+  // interactive element of the panel); closing returns it to the bell.
+  useEffect(() => {
+    if (open) {
+      closeButtonRef.current?.focus();
+    } else if (wasOpenRef.current) {
+      bellRef.current?.focus();
+    }
+    wasOpenRef.current = open;
+  }, [open]);
+
+  // Minimal focus trap: Tab cycles first↔last among the panel's focusable
+  // elements so keyboard users cannot fall through to the page behind.
+  function trapPanelFocus(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "Tab") return;
+    const panel = panelRef.current;
+    if (!panel) return;
+    const focusables = panel.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    );
+    if (focusables.length === 0) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    const active = document.activeElement;
+    if (event.shiftKey && (active === first || !panel.contains(active))) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && (active === last || !panel.contains(active))) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
   function toggle() {
     const next = !open;
     setOpen(next);
@@ -193,6 +233,7 @@ export function NotificationPanel() {
     <div ref={rootRef} className="relative">
       <button
         type="button"
+        ref={bellRef}
         onClick={toggle}
         aria-label={unread > 0 ? `Notificaciones, ${unread} sin leer` : "Notificaciones"}
         aria-expanded={open}
@@ -212,6 +253,8 @@ export function NotificationPanel() {
 
       {open && (
         <div
+          ref={panelRef}
+          onKeyDown={trapPanelFocus}
           role="dialog"
           aria-label="Notificaciones"
           className="absolute top-[calc(100%+10px)] right-0 z-50 w-[360px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-ink-200 bg-panel shadow-xl"
@@ -220,6 +263,7 @@ export function NotificationPanel() {
             <h2 className="text-[14px] font-bold text-ink-900">Notificaciones</h2>
             <button
               type="button"
+              ref={closeButtonRef}
               onClick={() => setOpen(false)}
               aria-label="Cerrar notificaciones"
               className="relative grid size-7 place-items-center rounded-[9px] text-ink-500 transition-colors after:absolute after:content-[''] after:-inset-2 hover:bg-ink-100 hover:text-ink-900"
