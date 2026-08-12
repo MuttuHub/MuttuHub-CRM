@@ -162,11 +162,23 @@ export async function GET(request: Request) {
       db.tarea.count({ where }),
     ]);
 
+    // Conteo agregado de subtareas completadas para la página actual:
+    // una sola query (groupBy) en lugar de un fetch por tarjeta.
+    const hechasPorTarea = new Map<string, number>();
+    if (rows.length > 0) {
+      const doneCounts = await db.subtarea.groupBy({
+        by: ["tarea_id"],
+        where: { tarea_id: { in: rows.map((r) => r.id) }, completada: true },
+        _count: { _all: true },
+      });
+      for (const row of doneCounts) hechasPorTarea.set(row.tarea_id, row._count._all);
+    }
+
     return NextResponse.json({
       page: pagination.page,
       limit: pagination.limit,
       total,
-      items: rows.map(toTaskItem),
+      items: rows.map((row) => toTaskItem(row, hechasPorTarea)),
     });
   } catch (err) {
     console.error("[tasks] list failed:", err);

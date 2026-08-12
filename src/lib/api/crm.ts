@@ -296,12 +296,17 @@ export type TaskItem = {
   motivo_bloqueo: string | null;
   comentarios_count: number;
   subtotal: number;
+  /** Subtareas completadas del listado (presente solo cuando el servidor agrega el conteo). */
+  subtotal_hechas?: number;
   created_at: Date;
   updated_at: Date;
 };
 
 /** Row -> JSON shape shared by every task endpoint. */
-export function toTaskItem(tarea: TaskRow): TaskItem {
+export function toTaskItem(
+  tarea: TaskRow,
+  hechasPorTarea?: Map<string, number>,
+): TaskItem {
   return {
     id: tarea.id,
     titulo: tarea.titulo,
@@ -318,6 +323,7 @@ export function toTaskItem(tarea: TaskRow): TaskItem {
     motivo_bloqueo: tarea.motivo_bloqueo,
     comentarios_count: tarea._count.comentarios,
     subtotal: tarea._count.subtareas,
+    subtotal_hechas: hechasPorTarea?.get(tarea.id),
     created_at: tarea.created_at,
     updated_at: tarea.updated_at,
   };

@@ -27,6 +27,7 @@ export type CardTask = {
   fecha_entrega: string | null;
   motivo_bloqueo: string | null;
   subtotal?: number;
+  subtotal_hechas?: number;
 };
 
 export function TaskCard({
@@ -126,13 +127,39 @@ function TaskDate({ fecha }: { fecha: string | null }) {
 
 function SubtaskBadge({ task }: { task: CardTask }) {
   if (task.subtotal !== undefined) {
-    return <SubtotalChip subtotal={task.subtotal} />;
+    return <SubtotalChip subtotal={task.subtotal} subtotalHechas={task.subtotal_hechas} />;
   }
   return <LiveSubtaskBadge taskId={task.id} />;
 }
 
-function SubtotalChip({ subtotal }: { subtotal: number }) {
+function SubtotalChip({
+  subtotal,
+  subtotalHechas,
+}: {
+  subtotal: number;
+  subtotalHechas?: number;
+}) {
   if (subtotal === 0) return null;
+  // Conteo agregado del listado: muestra progreso sin fetches por tarjeta.
+  if (subtotalHechas !== undefined) {
+    const done = subtotalHechas;
+    return (
+      <span
+        className="flex min-w-0 items-center gap-1.5"
+        title={`${done} de ${subtotal} subtareas completadas`}
+      >
+        <span className="font-mono text-[10.5px] font-bold text-ink-700 tabular-nums">
+          {done}/{subtotal}
+        </span>
+        <span className="h-1 w-10 overflow-hidden rounded-full bg-ink-100">
+          <span
+            className="block h-full rounded-full bg-rose-400"
+            style={{ width: `${Math.round((done / subtotal) * 100)}%` }}
+          />
+        </span>
+      </span>
+    );
+  }
   return (
     <span
       className="inline-flex items-center rounded-full bg-ink-100 px-2 py-0.5 font-mono text-[10.5px] font-bold text-ink-700 tabular-nums"
