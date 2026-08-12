@@ -200,8 +200,7 @@ export function SinConexionCard({ onRetry }: { onRetry: () => void }) {
           Plataforma no conectada
         </h3>
         <p className="mt-2 text-[13.5px] leading-relaxed text-ink-600">
-          Configura <code className="rounded-md bg-ink-100 px-1.5 py-0.5 font-mono text-[12px] text-ink-800">.env</code>{" "}
-          con Supabase o inicia sesión para cargar los datos del dashboard.
+          Comprueba tu conexión e inténtalo de nuevo.
         </p>
         <Button onClick={onRetry} variant="outline" className="mt-5 rounded-lg px-4 font-semibold">
           Reintentar

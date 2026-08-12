@@ -71,7 +71,7 @@ export function CaraMiResumen({ filters }: { filters: DashboardFilters }) {
           icon={<CalendarClock className="size-4" strokeWidth={1.9} />}
           label="Vencen hoy"
           value={hoy.count}
-          foot="bucket del motor de alertas"
+          foot="sin cerrar"
           tone="alerta"
         />
         <ResumenTile
@@ -83,7 +83,7 @@ export function CaraMiResumen({ filters }: { filters: DashboardFilters }) {
         />
         <ResumenTile
           icon={<CheckCircle2 className="size-4" strokeWidth={1.9} />}
-          label="Compromisos CRM pendientes"
+          label="Compromisos pendientes"
           value={compromisos_pendientes.count}
           foot={
             compromisos_pendientes.vencidos > 0
@@ -98,7 +98,7 @@ export function CaraMiResumen({ filters }: { filters: DashboardFilters }) {
         {/* Mis tareas */}
         <CardSection
           title="Mis tareas pendientes"
-          subtitle="Todo el tablero, no solo compromisos CRM"
+          subtitle="Todo el tablero, no solo compromisos"
           action={
             <Link href="/tablero">
               <span className="inline-flex h-[29px] items-center rounded-[9px] px-2.5 text-[12px] font-semibold text-ink-700 transition-colors hover:bg-ink-100">
@@ -139,7 +139,7 @@ export function CaraMiResumen({ filters }: { filters: DashboardFilters }) {
               <TareaLista items={vencidas.items} max={MAX_LISTA} />
             </div>
             <p className="mt-3 text-[12px] text-ink-600">
-              Compromisos CRM pendientes:{" "}
+              Compromisos pendientes:{" "}
               <span className="font-semibold text-ink-900">{compromisos_pendientes.count}</span>{" "}
               ({compromisos_pendientes.vencidos} vencidos) — se gestionan en la{" "}
               <Link href="/clientes" className="font-semibold text-ink-800 underline decoration-ink-300 underline-offset-2 hover:text-rose-700">

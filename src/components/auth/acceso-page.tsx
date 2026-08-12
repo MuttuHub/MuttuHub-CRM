@@ -637,7 +637,7 @@ export function AccesoPage({
                       />
                     </span>
                     <span style={{ fontSize: 12.5, lineHeight: 1.45, color: "var(--color-ink-600)" }}>
-                      Acepto la política de trataamiento de datos de Muttu y entiendo que mi actividad en el Hub queda registrada en la bitácora.
+                      Acepto la política de tratamiento de datos de Muttu y entiendo que mi actividad en el Hub queda registrada en la bitácora.
                     </span>
                   </label>
                 )}

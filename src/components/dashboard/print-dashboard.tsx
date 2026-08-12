@@ -432,7 +432,7 @@ function MySummaryBody({ data }: { data: DashboardMySummary }) {
         <PrintKpi label="Tareas pendientes" value={String(activas.count)} />
         <PrintKpi label="Vencen hoy" value={String(hoy.count)} />
         <PrintKpi label="Vencidas" value={String(vencidas.count)} />
-        <PrintKpi label="Compromisos CRM" value={String(compromisos_pendientes.count)} />
+        <PrintKpi label="Compromisos pendientes" value={String(compromisos_pendientes.count)} />
       </div>
 
       {activas.items.length > 0 && (
@@ -470,7 +470,7 @@ function MySummaryBody({ data }: { data: DashboardMySummary }) {
         </TableShell>
       )}
       <p className="mt-6 text-[12px] font-bold text-ink-700">
-        Compromisos CRM pendientes: {compromisos_pendientes.count} (
+        Compromisos pendientes: {compromisos_pendientes.count} (
         {compromisos_pendientes.vencidos} vencidos)
       </p>
     </div>
@@ -510,7 +510,7 @@ function PrintError({
         </h2>
         <p className="mt-2 text-[13.5px] leading-relaxed text-ink-600">
           {sinConexion
-            ? "Configura el archivo .env con Supabase o inicia sesión para exportar el reporte."
+            ? "Conéctate a la plataforma e inicia sesión para exportar el reporte."
             : message}
         </p>
         <Button onClick={onRetry} variant="outline" className="mt-5 rounded-lg px-4 font-semibold">
