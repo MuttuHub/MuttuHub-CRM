@@ -4,8 +4,9 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Star, Trash2, LayoutList } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/crm/entity-dialogs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -89,8 +91,18 @@ export function SavedViewsMenu({
   onApply: (filters: ClientFilters) => void;
 }) {
   const [views, setViews] = useState<SavedView[]>(loadViews);
+  // Espejo del estado para handlers capturados por el toast: el closure del
+  // action vive desde un render previo (pre-delete) y no debe leer `views`.
+  const viewsRef = useRef(views);
+  useEffect(() => {
+    viewsRef.current = views;
+  }, [views]);
   const [saveOpen, setSaveOpen] = useState(false);
   const [name, setName] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<SavedView | null>(null);
+  // Vistas eliminadas (5s de undo): por id para que cada toast de Deshacer
+  // restaure SU vista aunque se elimine otra antes de expirar.
+  const deletedViewsRef = useRef(new Map<string, { view: SavedView; index: number }>());
 
   function saveView() {
     const nombre = name.trim();
@@ -105,10 +117,33 @@ export function SavedViewsMenu({
     setSaveOpen(false);
   }
 
-  function deleteView(id: string) {
-    const next = views.filter((v) => v.id !== id);
+  function confirmDelete() {
+    if (!deleteTarget) return;
+    const index = views.findIndex((v) => v.id === deleteTarget.id);
+    deletedViewsRef.current.set(deleteTarget.id, { view: deleteTarget, index });
+    const next = views.filter((v) => v.id !== deleteTarget.id);
     setViews(next);
     persistViews(next);
+    setDeleteTarget(null);
+    toast.success(`Vista "${deleteTarget.nombre}" eliminada.`, {
+      action: { label: "Deshacer", onClick: () => restoreView(deleteTarget.id) },
+      duration: 5000,
+    });
+  }
+
+  /** Restaura una vista eliminada en su posición original (undo del toast). */
+  function restoreView(id: string) {
+    const entry = deletedViewsRef.current.get(id);
+    if (!entry) return; // ya restaurada (doble click) o expiró el undo.
+    deletedViewsRef.current.delete(id);
+    try {
+      const next = [...viewsRef.current];
+      next.splice(Math.min(entry.index, next.length), 0, entry.view);
+      setViews(next);
+      persistViews(next);
+    } catch {
+      toast.error("No pudimos restaurar la vista. Inténtalo de nuevo.");
+    }
   }
 
   return (
@@ -150,7 +185,7 @@ export function SavedViewsMenu({
                 aria-label={`Eliminar vista ${view.nombre}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  deleteView(view.id);
+                  setDeleteTarget(view);
                 }}
                 className="mr-1 text-ink-500 opacity-0 hover:text-destructivo group-hover:opacity-100 after:-inset-1"
               >
@@ -169,6 +204,17 @@ export function SavedViewsMenu({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title={deleteTarget ? `Eliminar vista "${deleteTarget.nombre}"` : "Eliminar vista"}
+        description="La vista dejará de aparecer en el listado. Puedes deshacerlo desde el aviso."
+        confirmLabel="Eliminar"
+        onConfirm={confirmDelete}
+      />
 
       <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
         <DialogContent className="rounded-[20px] sm:max-w-[380px]">

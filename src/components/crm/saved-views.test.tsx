@@ -1,7 +1,13 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { filtersEmpty, SavedViewsMenu, snapshotFilters, type SavedView } from "./saved-views"
+
+const { toast } = vi.hoisted(() => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}))
+
+vi.mock("sonner", () => ({ toast }))
 
 const STORAGE_KEY = "crm.vistas"
 
@@ -49,6 +55,10 @@ describe("SavedViewsMenu", () => {
     localStorage.clear()
   })
 
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
   it("renders the trigger with a view count badge", () => {
     render(<SavedViewsMenu filters={{}} onApply={vi.fn()} />)
     expect(screen.getByRole("button", { name: /Vistas/ })).toBeInTheDocument()
@@ -93,7 +103,7 @@ describe("SavedViewsMenu", () => {
     expect(stored[0].id).toBeTruthy()
   })
 
-  it("deletes a saved view from storage", async () => {
+  it("requires confirmation before deleting a saved view", async () => {
     const user = userEvent.setup()
     seedViews([
       { id: "v1", nombre: "Activos", filtros: { estado: "activo" } },
@@ -103,7 +113,75 @@ describe("SavedViewsMenu", () => {
     await user.click(screen.getByRole("button", { name: /Vistas/ }))
     await user.click(await screen.findByRole("button", { name: "Eliminar vista Activos" }))
 
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]") as SavedView[]
+    const dialog = await screen.findByRole("dialog")
+    expect(dialog).toHaveTextContent('Eliminar vista "Activos"')
+
+    // Confirmar aún no elimina: falta el clic en el botón del dialog.
+    let stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]") as SavedView[]
+    expect(stored.map((v) => v.id)).toEqual(["v1", "v2"])
+
+    await user.click(screen.getByRole("button", { name: "Eliminar" }))
+    stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]") as SavedView[]
     expect(stored.map((v) => v.id)).toEqual(["v2"])
+    expect(toast.success).toHaveBeenCalledWith(
+      'Vista "Activos" eliminada.',
+      expect.objectContaining({ duration: 5000 }),
+    )
+  })
+
+  it("keeps the view when the confirmation is cancelled", async () => {
+    const user = userEvent.setup()
+    seedViews([{ id: "v1", nombre: "Activos", filtros: { estado: "activo" } }])
+    render(<SavedViewsMenu filters={{}} onApply={vi.fn()} />)
+    await user.click(screen.getByRole("button", { name: /Vistas/ }))
+    await user.click(await screen.findByRole("button", { name: "Eliminar vista Activos" }))
+    await user.click(await screen.findByRole("button", { name: "Cancelar" }))
+
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]") as SavedView[]
+    expect(stored.map((v) => v.id)).toEqual(["v1"])
+    expect(toast.success).not.toHaveBeenCalled()
+  })
+
+  it("undo restores the deleted view with the same data at its original position", async () => {
+    const user = userEvent.setup()
+    seedViews([
+      { id: "v1", nombre: "Activos", filtros: { estado: "activo" } },
+      { id: "v2", nombre: "Gobierno", filtros: { q: "gobierno" } },
+    ])
+    render(<SavedViewsMenu filters={{}} onApply={vi.fn()} />)
+    await user.click(screen.getByRole("button", { name: /Vistas/ }))
+    await user.click(await screen.findByRole("button", { name: "Eliminar vista Activos" }))
+    await user.click(screen.getByRole("button", { name: "Eliminar" }))
+
+    await waitFor(() => expect(toast.success).toHaveBeenCalled())
+    const options = toast.success.mock.calls[0][1] as {
+      action: { label: string; onClick: () => void }
+    }
+    expect(options.action.label).toBe("Deshacer")
+    options.action.onClick()
+
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]") as SavedView[]
+    expect(stored).toEqual([
+      { id: "v1", nombre: "Activos", filtros: { estado: "activo" } },
+      { id: "v2", nombre: "Gobierno", filtros: { q: "gobierno" } },
+    ])
+  })
+
+  it("does not duplicate the view when Deshacer is pressed twice", async () => {
+    const user = userEvent.setup()
+    seedViews([{ id: "v1", nombre: "Activos", filtros: { estado: "activo" } }])
+    render(<SavedViewsMenu filters={{}} onApply={vi.fn()} />)
+    await user.click(screen.getByRole("button", { name: /Vistas/ }))
+    await user.click(await screen.findByRole("button", { name: "Eliminar vista Activos" }))
+    await user.click(screen.getByRole("button", { name: "Eliminar" }))
+
+    await waitFor(() => expect(toast.success).toHaveBeenCalled())
+    const options = toast.success.mock.calls[0][1] as { action: { onClick: () => void } }
+    options.action.onClick()
+    options.action.onClick()
+
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]") as SavedView[]
+    expect(stored).toHaveLength(1)
+    expect(stored[0].id).toBe("v1")
   })
 })
