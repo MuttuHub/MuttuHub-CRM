@@ -198,9 +198,13 @@ export function SortableTaskCard({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `task:${task.id}`,
-    // Orden de la columna COMPLETADA no se persiste: solo se puede entrar,
-    // no reordenar dentro.
-    disabled: task.estado === "COMPLETADA",
+    // BUG FIX: `disabled` on useSortable turns the card off as a drag SOURCE
+    // entirely — it doesn't just stop in-column reordering as the removed
+    // comment intended, it also blocked moving a COMPLETADA task back OUT
+    // (pointer and keyboard alike, since both share this hook). No column
+    // persists an explicit order anyway (no `orden` field on Tarea, and
+    // handleDragEnd no-ops on a same-column drop for every column), so
+    // nothing is lost by leaving this undisabled.
   });
   return (
     <div
