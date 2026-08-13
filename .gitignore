@@ -13,6 +13,12 @@
 # testing
 /coverage
 
+# Playwright — run artifacts (videos, traces, HTML report); the spec + config
+# under e2e/ and playwright.config.ts ARE meant to be committed
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
 # next.js
 /.next/
 /out/
