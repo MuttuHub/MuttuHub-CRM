@@ -9,18 +9,21 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function PATCH(_request: Request, ctx: RouteContext) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
-  const { id } = await ctx.params;
+export const PATCH = withApiErrorHandling(
+  "notifications",
+  "No pudimos marcar la notificación como leída. Inténtalo de nuevo.",
+  async (_request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id } = await ctx.params;
 
-  try {
     const fila = await db.notificacion.findFirst({
       where: { id, usuario_id: auth.usuario.id },
       select: { id: true, leida: true },
@@ -35,18 +38,17 @@ export async function PATCH(_request: Request, ctx: RouteContext) {
       leida = true;
     }
     return NextResponse.json({ notificacion: { id, leida } });
-  } catch (err) {
-    console.error("[notifications] mark-read failed:", err);
-    return apiError("No pudimos marcar la notificación como leída. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);
 
-export async function DELETE(_request: Request, ctx: RouteContext) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
-  const { id } = await ctx.params;
+export const DELETE = withApiErrorHandling(
+  "notifications",
+  "No pudimos desmarcar la notificación como no leída. Inténtalo de nuevo.",
+  async (_request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id } = await ctx.params;
 
-  try {
     const fila = await db.notificacion.findFirst({
       where: { id, usuario_id: auth.usuario.id },
       select: { id: true, leida: true },
@@ -61,8 +63,5 @@ export async function DELETE(_request: Request, ctx: RouteContext) {
       leida = false;
     }
     return NextResponse.json({ notificacion: { id, leida } });
-  } catch (err) {
-    console.error("[notifications] mark-unread failed:", err);
-    return apiError("No pudimos desmarcar la notificación como no leída. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);

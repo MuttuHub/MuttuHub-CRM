@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiError, parseJsonBody } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { getClientForWrite, loadClientScoped, zodError } from "@/lib/api/crm";
 
@@ -15,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-const LOG_ENTRY_SCHEMA = z.object({
+export const LOG_ENTRY_SCHEMA = z.object({
   texto: z
     .string()
     .trim()
@@ -23,12 +24,14 @@ const LOG_ENTRY_SCHEMA = z.object({
     .max(4000, "La nota no puede superar los 4000 caracteres."),
 });
 
-export async function GET(_request: Request, ctx: RouteContext) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
-  const { id } = await ctx.params;
+export const GET = withApiErrorHandling(
+  "log",
+  "No pudimos cargar la bitácora. Inténtalo de nuevo.",
+  async (_request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id } = await ctx.params;
 
-  try {
     const cliente = await loadClientScoped(id, auth.usuario);
     if (!cliente) {
       return apiError("El cliente no existe.", 404, "NOT_FOUND");
@@ -50,25 +53,24 @@ export async function GET(_request: Request, ctx: RouteContext) {
         autor_nombre: autor.nombre,
       })),
     });
-  } catch (err) {
-    console.error("[log] list failed:", err);
-    return apiError("No pudimos cargar la bitácora. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);
 
-export async function POST(request: Request, ctx: RouteContext) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
-  const { id } = await ctx.params;
+export const POST = withApiErrorHandling(
+  "log",
+  "No pudimos guardar la nota. Inténtalo de nuevo.",
+  async (request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id } = await ctx.params;
 
-  const body = await parseJsonBody<unknown>(request);
-  if (body === null) {
-    return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
-  }
-  const parsed = LOG_ENTRY_SCHEMA.safeParse(body);
-  if (!parsed.success) return zodError(parsed.error);
+    const body = await parseJsonBody<unknown>(request);
+    if (body === null) {
+      return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
+    }
+    const parsed = LOG_ENTRY_SCHEMA.safeParse(body);
+    if (!parsed.success) return zodError(parsed.error);
 
-  try {
     const access = await getClientForWrite(id, auth.usuario);
     if (!access.ok) {
       return apiError(
@@ -93,8 +95,5 @@ export async function POST(request: Request, ctx: RouteContext) {
       { entrada: { ...entrada, autor_nombre: entrada.autor.nombre } },
       { status: 201 },
     );
-  } catch (err) {
-    console.error("[log] create failed:", err);
-    return apiError("No pudimos guardar la nota. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);

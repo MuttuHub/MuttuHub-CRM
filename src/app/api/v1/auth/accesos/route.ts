@@ -10,6 +10,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiRole } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -17,34 +18,36 @@ export const dynamic = "force-dynamic";
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
 
-export async function GET(request: Request) {
-  const auth = await requireApiRole(["ADMINISTRADOR"]);
-  if (!auth.ok) return auth.response;
+export const GET = withApiErrorHandling(
+  "auth/accesos",
+  "No pudimos cargar la bitácora de accesos. Inténtalo de nuevo.",
+  async (request: Request) => {
+    const auth = await requireApiRole(["ADMINISTRADOR"]);
+    if (!auth.ok) return auth.response;
 
-  const url = new URL(request.url);
-  const sp = url.searchParams;
+    const url = new URL(request.url);
+    const sp = url.searchParams;
 
-  let limit = DEFAULT_LIMIT;
-  const rawLimit = sp.get("limit");
-  if (rawLimit !== null) {
-    const parsed = Number(rawLimit);
-    if (!Number.isInteger(parsed) || parsed < 1) {
-      return apiError("El parámetro 'limit' no es válido.", 400, "VALIDATION_ERROR");
+    let limit = DEFAULT_LIMIT;
+    const rawLimit = sp.get("limit");
+    if (rawLimit !== null) {
+      const parsed = Number(rawLimit);
+      if (!Number.isInteger(parsed) || parsed < 1) {
+        return apiError("El parámetro 'limit' no es válido.", 400, "VALIDATION_ERROR");
+      }
+      limit = Math.min(parsed, MAX_LIMIT);
     }
-    limit = Math.min(parsed, MAX_LIMIT);
-  }
 
-  let before: Date | undefined;
-  const rawBefore = sp.get("before");
-  if (rawBefore !== null) {
-    const parsed = new Date(rawBefore);
-    if (Number.isNaN(parsed.getTime())) {
-      return apiError("El parámetro 'before' no es una fecha válida (ISO 8601).", 400, "VALIDATION_ERROR");
+    let before: Date | undefined;
+    const rawBefore = sp.get("before");
+    if (rawBefore !== null) {
+      const parsed = new Date(rawBefore);
+      if (Number.isNaN(parsed.getTime())) {
+        return apiError("El parámetro 'before' no es una fecha válida (ISO 8601).", 400, "VALIDATION_ERROR");
+      }
+      before = parsed;
     }
-    before = parsed;
-  }
 
-  try {
     const rows = await db.acceso.findMany({
       where: before ? { created_at: { lt: before } } : undefined,
       orderBy: { created_at: "desc" },
@@ -63,8 +66,5 @@ export async function GET(request: Request) {
     const next_before = hasMore ? accesos[accesos.length - 1].created_at.toISOString() : null;
 
     return NextResponse.json({ accesos, next_before });
-  } catch (err) {
-    console.error("[auth/accesos] failed:", err);
-    return apiError("No pudimos cargar la bitácora de accesos. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);

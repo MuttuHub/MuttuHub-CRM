@@ -22,6 +22,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { ENUM_VALUES } from "@/lib/catalogs";
 import {
@@ -42,25 +43,27 @@ const MAX_SIN_GESTION = 25;
 /** Milisegundos por día para el corte "sin gestión en los últimos X días". */
 const MS_DIA = 24 * 60 * 60 * 1000;
 
-export async function GET(request: Request) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
+export const GET = withApiErrorHandling(
+  "dashboard/clients-activity",
+  "No pudimos cargar la actividad de clientes. Inténtalo de nuevo.",
+  async (request: Request) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
 
-  const url = new URL(request.url);
-  const parsed = parseDashboardFilters(url);
-  if (!parsed.ok) return parsed.response;
-  const filters = parsed.filters;
+    const url = new URL(request.url);
+    const parsed = parseDashboardFilters(url);
+    if (!parsed.ok) return parsed.response;
+    const filters = parsed.filters;
 
-  const sp = url.searchParams;
-  const diasRaw = sp.get("dias_sin_gestion");
-  const dias = diasRaw === null ? DIAS_DEFAULT : Number(diasRaw);
-  if (diasRaw !== null && (!Number.isInteger(dias) || dias < DIAS_MIN || dias > DIAS_MAX)) {
-    return apiError(`dias_sin_gestion no válido (${DIAS_MIN}-${DIAS_MAX}).`, 400, "VALIDATION_ERROR");
-  }
+    const sp = url.searchParams;
+    const diasRaw = sp.get("dias_sin_gestion");
+    const dias = diasRaw === null ? DIAS_DEFAULT : Number(diasRaw);
+    if (diasRaw !== null && (!Number.isInteger(dias) || dias < DIAS_MIN || dias > DIAS_MAX)) {
+      return apiError(`dias_sin_gestion no válido (${DIAS_MIN}-${DIAS_MAX}).`, 400, "VALIDATION_ERROR");
+    }
 
-  const scope = resolveScope(auth.usuario);
+    const scope = resolveScope(auth.usuario);
 
-  try {
     const clienteWhere = clienteScopeWhere(scope, auth.usuario, filters);
     const rango = rangoDeFechas(filters);
     const corte = new Date(Date.now() - dias * MS_DIA);
@@ -177,8 +180,5 @@ export async function GET(request: Request) {
       distribucion: { por_tipo, por_estado, por_prioridad },
       actividad_por_responsable,
     });
-  } catch (err) {
-    console.error("[dashboard/clients-activity] failed:", err);
-    return apiError("No pudimos cargar la actividad de clientes. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);

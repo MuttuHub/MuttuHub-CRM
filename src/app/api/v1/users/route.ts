@@ -17,6 +17,7 @@ import {
   normalizeEmail,
   parseJsonBody,
 } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { ROLE_LABELS } from "@/lib/auth/types";
 import {
   requireApiRole,
@@ -32,25 +33,20 @@ const USER_SELECT = {
   created_at: true,
 } as const;
 
-export async function GET() {
-  const auth = await requireApiRole(["ADMINISTRADOR"]);
-  if (!auth.ok) return auth.response;
+export const GET = withApiErrorHandling(
+  "users",
+  "No pudimos cargar los usuarios. Inténtalo de nuevo.",
+  async () => {
+    const auth = await requireApiRole(["ADMINISTRADOR"]);
+    if (!auth.ok) return auth.response;
 
-  try {
     const usuarios = await db.usuario.findMany({
       select: USER_SELECT,
       orderBy: { created_at: "desc" },
     });
     return NextResponse.json({ usuarios });
-  } catch (err) {
-    console.error("[users] list failed:", err);
-    return apiError(
-      "No pudimos cargar los usuarios. Inténtalo de nuevo.",
-      500,
-      "INTERNAL_ERROR",
-    );
-  }
-}
+  },
+);
 
 export async function POST(request: Request) {
   const auth = await requireApiRole(["ADMINISTRADOR"]);

@@ -12,6 +12,7 @@ import JSZip from "jszip";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiError, parseJsonBody } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { isSupabaseConfigured, requireApiUser } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { zodError } from "@/lib/api/crm";
@@ -42,27 +43,29 @@ function zipEntryName(titulo: string, numero: number, ext: string): string {
   return `${sanitizeFileName(titulo)}_v${numero}${ext}`;
 }
 
-export async function POST(request: Request) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
+export const POST = withApiErrorHandling(
+  "documents",
+  "No pudimos generar la descarga. Inténtalo de nuevo.",
+  async (request: Request) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
 
-  // Storage necesita credenciales de Supabase sí o sí: sin ellas no hay zip.
-  if (!isSupabaseConfigured()) {
-    return apiError(
-      "Plataforma no configurada. Revisa las variables de entorno.",
-      500,
-      "INTERNAL_ERROR",
-    );
-  }
+    // Storage necesita credenciales de Supabase sí o sí: sin ellas no hay zip.
+    if (!isSupabaseConfigured()) {
+      return apiError(
+        "Plataforma no configurada. Revisa las variables de entorno.",
+        500,
+        "INTERNAL_ERROR",
+      );
+    }
 
-  const body = await parseJsonBody<unknown>(request);
-  if (body === null) {
-    return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
-  }
-  const parsed = ZIP_SCHEMA.safeParse(body);
-  if (!parsed.success) return zodError(parsed.error);
+    const body = await parseJsonBody<unknown>(request);
+    if (body === null) {
+      return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
+    }
+    const parsed = ZIP_SCHEMA.safeParse(body);
+    if (!parsed.success) return zodError(parsed.error);
 
-  try {
     const ids = [...new Set(parsed.data.ids)];
     const documentos = await db.documento.findMany({
       where: { id: { in: ids }, deleted_at: null },
@@ -85,11 +88,21 @@ export async function POST(request: Request) {
     const zip = new JSZip();
     const fallos: string[] = [];
 
-    for (const doc of documentos) {
+    // PERF FIX: up to MAX_ZIP_DOCUMENTS (50) signed-URL + fetch round trips
+    // used to run one at a time — on a serverless function with a hard
+    // execution-time limit, 50 sequential round trips risked timing out well
+    // before the "never crash" guarantee below ever kicked in. Bounded
+    // concurrency keeps Storage from getting hit with 50 requests at once
+    // while still running well under the old fully-sequential time.
+    const ZIP_FETCH_CONCURRENCY = 8;
+    type DocResult =
+      | { ok: true; name: string; bytes: Uint8Array }
+      | { ok: false; message: string };
+
+    async function fetchDocEntry(doc: (typeof documentos)[number]): Promise<DocResult> {
       const version = activeVersions.get(doc.id);
       if (!version) {
-        fallos.push(`${doc.titulo} — sin versión disponible.`);
-        continue;
+        return { ok: false, message: `${doc.titulo} — sin versión disponible.` };
       }
       try {
         const { data, error } = await supabase.storage
@@ -101,13 +114,26 @@ export async function POST(request: Request) {
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const bytes = await resp.arrayBuffer();
 
-        zip.file(
-          zipEntryName(doc.titulo, version.numero_version, extensionFromStoragePath(version.storage_path)),
-          new Uint8Array(bytes),
-        );
+        return {
+          ok: true,
+          name: zipEntryName(doc.titulo, version.numero_version, extensionFromStoragePath(version.storage_path)),
+          bytes: new Uint8Array(bytes),
+        };
       } catch (err) {
         console.error("[documents] zip fetch failed for", doc.id, err);
-        fallos.push(`${doc.titulo} — no pudimos descargar la versión activa.`);
+        return { ok: false, message: `${doc.titulo} — no pudimos descargar la versión activa.` };
+      }
+    }
+
+    for (let i = 0; i < documentos.length; i += ZIP_FETCH_CONCURRENCY) {
+      const batch = documentos.slice(i, i + ZIP_FETCH_CONCURRENCY);
+      const results = await Promise.all(batch.map(fetchDocEntry));
+      for (const result of results) {
+        if (result.ok) {
+          zip.file(result.name, result.bytes);
+        } else {
+          fallos.push(result.message);
+        }
       }
     }
 
@@ -130,8 +156,5 @@ export async function POST(request: Request) {
         "Content-Disposition": 'attachment; filename="documentos.zip"',
       },
     });
-  } catch (err) {
-    console.error("[documents] zip failed:", err);
-    return apiError("No pudimos generar la descarga. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);

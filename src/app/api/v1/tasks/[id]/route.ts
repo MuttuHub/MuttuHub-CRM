@@ -12,6 +12,7 @@ import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { apiError, parseJsonBody } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import {
   bloqueoValido,
@@ -42,12 +43,14 @@ const COMENTARIO_SELECT = {
   created_at: true,
 } as const;
 
-export async function GET(_request: Request, ctx: RouteContext) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
-  const { id } = await ctx.params;
+export const GET = withApiErrorHandling(
+  "tasks",
+  "No pudimos cargar la tarea. Inténtalo de nuevo.",
+  async (_request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id } = await ctx.params;
 
-  try {
     const tarea = await loadTaskScoped(id, auth.usuario);
     if (!tarea) {
       return apiError("La tarea no existe.", 404, "NOT_FOUND");
@@ -77,25 +80,24 @@ export async function GET(_request: Request, ctx: RouteContext) {
         })),
       },
     });
-  } catch (err) {
-    console.error("[tasks] detail failed:", err);
-    return apiError("No pudimos cargar la tarea. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);
 
-export async function PATCH(request: Request, ctx: RouteContext) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
-  const { id } = await ctx.params;
+export const PATCH = withApiErrorHandling(
+  "tasks",
+  "No pudimos actualizar la tarea. Inténtalo de nuevo.",
+  async (request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id } = await ctx.params;
 
-  const body = await parseJsonBody<unknown>(request);
-  if (body === null) {
-    return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
-  }
-  const parsed = TASK_PATCH_SCHEMA.safeParse(body);
-  if (!parsed.success) return zodError(parsed.error);
+    const body = await parseJsonBody<unknown>(request);
+    if (body === null) {
+      return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
+    }
+    const parsed = TASK_PATCH_SCHEMA.safeParse(body);
+    if (!parsed.success) return zodError(parsed.error);
 
-  try {
     const access = await getTaskForWrite(id, auth.usuario);
     if (!access.ok) {
       return apiError(
@@ -157,18 +159,17 @@ export async function PATCH(request: Request, ctx: RouteContext) {
 
     const updated = await db.tarea.update({ where: { id }, data, select: TASK_SELECT });
     return NextResponse.json({ task: toTaskItem(updated) });
-  } catch (err) {
-    console.error("[tasks] patch failed:", err);
-    return apiError("No pudimos actualizar la tarea. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);
 
-export async function DELETE(_request: Request, ctx: RouteContext) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
-  const { id } = await ctx.params;
+export const DELETE = withApiErrorHandling(
+  "tasks",
+  "No pudimos eliminar la tarea. Inténtalo de nuevo.",
+  async (_request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id } = await ctx.params;
 
-  try {
     const access = await getTaskForWrite(id, auth.usuario);
     if (!access.ok) {
       return apiError(
@@ -179,8 +180,5 @@ export async function DELETE(_request: Request, ctx: RouteContext) {
     }
     await db.tarea.update({ where: { id }, data: { deleted_at: new Date() } });
     return new NextResponse(null, { status: 204 });
-  } catch (err) {
-    console.error("[tasks] delete failed:", err);
-    return apiError("No pudimos eliminar la tarea. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);

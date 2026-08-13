@@ -9,7 +9,7 @@
 
 import ExcelJS from "exceljs";
 import { db } from "@/lib/db";
-import { apiError } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import {
   ESTADO_TAREA_LABELS,
@@ -22,15 +22,17 @@ export const dynamic = "force-dynamic";
 
 const EXPORT_MAX_ROWS = 500; // PRD §8.4 cap para exportaciones.
 
-export async function GET(request: Request) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
+export const GET = withApiErrorHandling(
+  "tasks",
+  "No pudimos generar el archivo. Inténtalo de nuevo.",
+  async (request: Request) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
 
-  const url = new URL(request.url);
-  const filters = parseTaskFilters(url, auth.usuario.rol);
-  if (!filters.ok) return filters.response;
+    const url = new URL(request.url);
+    const filters = parseTaskFilters(url, auth.usuario.rol);
+    if (!filters.ok) return filters.response;
 
-  try {
     const where = buildTaskWhere(filters.filters, auth.usuario);
     const rows = await db.tarea.findMany({
       where,
@@ -128,8 +130,5 @@ export async function GET(request: Request) {
         "Content-Disposition": 'attachment; filename="tareas.xlsx"',
       },
     });
-  } catch (err) {
-    console.error("[tasks] export failed:", err);
-    return apiError("No pudimos generar el archivo. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);

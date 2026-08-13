@@ -21,6 +21,7 @@ import { NextResponse } from "next/server";
 import type { EstadoTarea } from "@prisma/client";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { ENUM_VALUES } from "@/lib/catalogs";
 import { isFullAccess } from "@/lib/api/crm";
@@ -37,21 +38,23 @@ const RANGO_DAYS: Partial<Record<Rango, number>> = {
   quarter: 90,
 };
 
-export async function GET(request: Request) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
+export const GET = withApiErrorHandling(
+  "tasks",
+  "No pudimos generar el reporte. Inténtalo de nuevo.",
+  async (request: Request) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
 
-  const url = new URL(request.url);
-  const rangoRaw = url.searchParams.get("rango") ?? "month";
-  if (!RANGOS.includes(rangoRaw as Rango)) {
-    return apiError("Rango no válido (week | month | quarter | all).", 400, "VALIDATION_ERROR");
-  }
-  const rango = rangoRaw as Rango;
+    const url = new URL(request.url);
+    const rangoRaw = url.searchParams.get("rango") ?? "month";
+    if (!RANGOS.includes(rangoRaw as Rango)) {
+      return apiError("Rango no válido (week | month | quarter | all).", 400, "VALIDATION_ERROR");
+    }
+    const rango = rangoRaw as Rango;
 
-  const filters = parseTaskFilters(url, auth.usuario.rol);
-  if (!filters.ok) return filters.response;
+    const filters = parseTaskFilters(url, auth.usuario.rol);
+    if (!filters.ok) return filters.response;
 
-  try {
     const where = buildTaskWhere(filters.filters, auth.usuario);
     const days = rango === "all" ? undefined : RANGO_DAYS[rango];
     if (days) {
@@ -190,8 +193,5 @@ export async function GET(request: Request) {
       por_estado: porEstadoArr,
       por_cliente: porClienteArr,
     });
-  } catch (err) {
-    console.error("[tasks] report failed:", err);
-    return apiError("No pudimos generar el reporte. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);

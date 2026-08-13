@@ -15,6 +15,7 @@ import type {
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiError, parseJsonBody } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { ENUM_VALUES } from "@/lib/catalogs";
 import {
@@ -31,7 +32,7 @@ export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-const PATCH_CLIENT_SCHEMA = z.object({
+export const PATCH_CLIENT_SCHEMA = z.object({
   nombre: z.string().trim().min(1, "El nombre no puede estar vacío.").max(200, "El nombre es muy largo.").optional(),
   tipo_cliente: catalogEnum(
     ENUM_VALUES.TipoCliente as readonly TipoCliente[],
@@ -62,12 +63,14 @@ const PATCH_CLIENT_SCHEMA = z.object({
   responsable_id: z.string().optional(),
 });
 
-export async function GET(_request: Request, ctx: RouteContext) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
-  const { id } = await ctx.params;
+export const GET = withApiErrorHandling(
+  "clients",
+  "No pudimos cargar el cliente. Inténtalo de nuevo.",
+  async (_request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id } = await ctx.params;
 
-  try {
     const cliente = await db.cliente.findFirst({
       where: {
         id,
@@ -106,25 +109,32 @@ export async function GET(_request: Request, ctx: RouteContext) {
         next_compromiso: enriched.next_compromiso,
       },
     });
-  } catch (err) {
-    console.error("[clients] detail failed:", err);
-    return apiError("No pudimos cargar el cliente. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);
 
-export async function PATCH(request: Request, ctx: RouteContext) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
-  const { id } = await ctx.params;
+export const PATCH = withApiErrorHandling(
+  "clients",
+  "No pudimos actualizar el cliente. Inténtalo de nuevo.",
+  async (request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id } = await ctx.params;
 
-  const body = await parseJsonBody<unknown>(request);
-  if (body === null) {
-    return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
-  }
-  const parsed = PATCH_CLIENT_SCHEMA.safeParse(body);
-  if (!parsed.success) return zodError(parsed.error);
+    const body = await parseJsonBody<unknown>(request);
+    if (body === null) {
+      return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
+    }
+    const parsed = PATCH_CLIENT_SCHEMA.safeParse(body);
+    if (!parsed.success) return zodError(parsed.error);
+    // BUG FIX: this used to check the built `data` object's key count AFTER
+    // `responsable_id` was excluded from it — a body containing ONLY
+    // `responsable_id` built an empty `data` and got rejected with "Envía al
+    // menos un campo" before the reassignment logic below ever ran. Check
+    // what the client actually sent instead.
+    if (Object.keys(parsed.data).length === 0) {
+      return apiError("Envía al menos un campo para actualizar.", 400, "VALIDATION_ERROR");
+    }
 
-  try {
     const cliente = await db.cliente.findFirst({ where: { id, deleted_at: null } });
     if (!cliente) {
       return apiError("El cliente no existe.", 404, "NOT_FOUND");
@@ -169,10 +179,6 @@ export async function PATCH(request: Request, ctx: RouteContext) {
           : parseDate(parsed.data.fecha_primer_contacto);
     }
 
-    if (Object.keys(data).length === 0) {
-      return apiError("Envía al menos un campo para actualizar.", 400, "VALIDATION_ERROR");
-    }
-
     if (parsed.data.responsable_id !== undefined) {
       const nuevoResponsable = await db.usuario.findFirst({
         where: { id: parsed.data.responsable_id, activo: true },
@@ -189,18 +195,17 @@ export async function PATCH(request: Request, ctx: RouteContext) {
       select: CLIENT_FULL_SELECT,
     });
     return NextResponse.json({ cliente: { ...updated, responsable_nombre: updated.responsable.nombre } });
-  } catch (err) {
-    console.error("[clients] patch failed:", err);
-    return apiError("No pudimos actualizar el cliente. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);
 
-export async function DELETE(_request: Request, ctx: RouteContext) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
-  const { id } = await ctx.params;
+export const DELETE = withApiErrorHandling(
+  "clients",
+  "No pudimos eliminar el cliente. Inténtalo de nuevo.",
+  async (_request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id } = await ctx.params;
 
-  try {
     const cliente = await db.cliente.findFirst({ where: { id, deleted_at: null } });
     if (!cliente) {
       return apiError("El cliente no existe.", 404, "NOT_FOUND");
@@ -214,8 +219,5 @@ export async function DELETE(_request: Request, ctx: RouteContext) {
       data: { deleted_at: new Date() },
     });
     return new NextResponse(null, { status: 204 });
-  } catch (err) {
-    console.error("[clients] delete failed:", err);
-    return apiError("No pudimos eliminar el cliente. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);

@@ -21,7 +21,7 @@
 import { NextResponse } from "next/server";
 import type { EstadoTarea } from "@prisma/client";
 import { db } from "@/lib/db";
-import { apiError } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { OPEN_TASK_STATES } from "@/lib/api/crm";
 import { startOfLocalDay } from "@/lib/alerts";
@@ -49,19 +49,21 @@ const BOARD_STATES: readonly EstadoTarea[] = [
 /** Top de vencidas devueltas (PRD §7.1 "con acceso directo"). */
 const MAX_VENCIDAS_LISTA = 20;
 
-export async function GET(request: Request) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
+export const GET = withApiErrorHandling(
+  "dashboard/tasks",
+  "No pudimos cargar la gestión de tareas. Inténtalo de nuevo.",
+  async (request: Request) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
 
-  const url = new URL(request.url);
-  const parsed = parseDashboardFilters(url);
-  if (!parsed.ok) return parsed.response;
-  const filters = parsed.filters;
+    const url = new URL(request.url);
+    const parsed = parseDashboardFilters(url);
+    if (!parsed.ok) return parsed.response;
+    const filters = parsed.filters;
 
-  const scope = resolveScope(auth.usuario);
-  const hoy = startOfLocalDay();
+    const scope = resolveScope(auth.usuario);
+    const hoy = startOfLocalDay();
 
-  try {
     const rango = rangoDeFechasNullable(filters);
     const enRango = tareaScopeWhere(scope, auth.usuario, filters, {
       ...(rango && { fecha_entrega: rango }),
@@ -149,8 +151,5 @@ export async function GET(request: Request) {
       cumplimiento_por_persona,
       vencidas: { count: vencidas.length, lista },
     });
-  } catch (err) {
-    console.error("[dashboard/tasks] failed:", err);
-    return apiError("No pudimos cargar la gestión de tareas. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);

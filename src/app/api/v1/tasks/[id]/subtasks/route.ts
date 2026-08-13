@@ -10,6 +10,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiError, parseJsonBody } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { getTaskForWrite, loadTaskScoped, zodError } from "@/lib/api/crm";
 
@@ -17,7 +18,7 @@ export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-const SUBTASK_SCHEMA = z.object({
+export const SUBTASK_SCHEMA = z.object({
   titulo: z
     .string()
     .trim()
@@ -26,12 +27,14 @@ const SUBTASK_SCHEMA = z.object({
   completada: z.boolean().optional(),
 });
 
-export async function GET(_request: Request, ctx: RouteContext) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
-  const { id } = await ctx.params;
+export const GET = withApiErrorHandling(
+  "tasks",
+  "No pudimos cargar las subtareas. Inténtalo de nuevo.",
+  async (_request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id } = await ctx.params;
 
-  try {
     const tarea = await loadTaskScoped(id, auth.usuario);
     if (!tarea) {
       return apiError("La tarea no existe.", 404, "NOT_FOUND");
@@ -42,25 +45,24 @@ export async function GET(_request: Request, ctx: RouteContext) {
       select: { id: true, titulo: true, completada: true, tarea_id: true },
     });
     return NextResponse.json({ subtareas });
-  } catch (err) {
-    console.error("[tasks] subtasks list failed:", err);
-    return apiError("No pudimos cargar las subtareas. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);
 
-export async function POST(request: Request, ctx: RouteContext) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
-  const { id } = await ctx.params;
+export const POST = withApiErrorHandling(
+  "tasks",
+  "No pudimos guardar la subtarea. Inténtalo de nuevo.",
+  async (request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id } = await ctx.params;
 
-  const body = await parseJsonBody<unknown>(request);
-  if (body === null) {
-    return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
-  }
-  const parsed = SUBTASK_SCHEMA.safeParse(body);
-  if (!parsed.success) return zodError(parsed.error);
+    const body = await parseJsonBody<unknown>(request);
+    if (body === null) {
+      return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
+    }
+    const parsed = SUBTASK_SCHEMA.safeParse(body);
+    if (!parsed.success) return zodError(parsed.error);
 
-  try {
     const access = await getTaskForWrite(id, auth.usuario);
     if (!access.ok) {
       return apiError(
@@ -79,8 +81,5 @@ export async function POST(request: Request, ctx: RouteContext) {
       select: { id: true, titulo: true, completada: true, tarea_id: true },
     });
     return NextResponse.json({ subtarea }, { status: 201 });
-  } catch (err) {
-    console.error("[tasks] subtask create failed:", err);
-    return apiError("No pudimos guardar la subtarea. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);

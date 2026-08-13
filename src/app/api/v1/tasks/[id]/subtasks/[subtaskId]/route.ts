@@ -11,6 +11,7 @@ import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiError, parseJsonBody } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { getTaskForWrite, zodError } from "@/lib/api/crm";
 
@@ -18,7 +19,7 @@ export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string; subtaskId: string }> };
 
-const SUBTASK_PATCH_SCHEMA = z
+export const SUBTASK_PATCH_SCHEMA = z
   .object({
     titulo: z
       .string()
@@ -37,19 +38,21 @@ const SUBTASK_SELECT = {
   tarea_id: true,
 } as const;
 
-export async function PATCH(request: Request, ctx: RouteContext) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
-  const { id, subtaskId } = await ctx.params;
+export const PATCH = withApiErrorHandling(
+  "tasks",
+  "No pudimos actualizar la subtarea. Inténtalo de nuevo.",
+  async (request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id, subtaskId } = await ctx.params;
 
-  const body = await parseJsonBody<unknown>(request);
-  if (body === null) {
-    return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
-  }
-  const parsed = SUBTASK_PATCH_SCHEMA.safeParse(body);
-  if (!parsed.success) return zodError(parsed.error);
+    const body = await parseJsonBody<unknown>(request);
+    if (body === null) {
+      return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
+    }
+    const parsed = SUBTASK_PATCH_SCHEMA.safeParse(body);
+    if (!parsed.success) return zodError(parsed.error);
 
-  try {
     const access = await getTaskForWrite(id, auth.usuario);
     if (!access.ok) {
       return apiError(
@@ -77,18 +80,17 @@ export async function PATCH(request: Request, ctx: RouteContext) {
       select: SUBTASK_SELECT,
     });
     return NextResponse.json({ subtarea: updated });
-  } catch (err) {
-    console.error("[tasks] subtask patch failed:", err);
-    return apiError("No pudimos actualizar la subtarea. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);
 
-export async function DELETE(_request: Request, ctx: RouteContext) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
-  const { id, subtaskId } = await ctx.params;
+export const DELETE = withApiErrorHandling(
+  "tasks",
+  "No pudimos eliminar la subtarea. Inténtalo de nuevo.",
+  async (_request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id, subtaskId } = await ctx.params;
 
-  try {
     const access = await getTaskForWrite(id, auth.usuario);
     if (!access.ok) {
       return apiError(
@@ -108,8 +110,5 @@ export async function DELETE(_request: Request, ctx: RouteContext) {
 
     await db.subtarea.delete({ where: { id: subtaskId } });
     return new NextResponse(null, { status: 204 });
-  } catch (err) {
-    console.error("[tasks] subtask delete failed:", err);
-    return apiError("No pudimos eliminar la subtarea. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);

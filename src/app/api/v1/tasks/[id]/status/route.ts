@@ -8,6 +8,7 @@ import type { EstadoTarea } from "@prisma/client";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiError, parseJsonBody } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { ENUM_VALUES } from "@/lib/catalogs";
 import {
@@ -22,7 +23,7 @@ export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-const STATUS_SCHEMA = z.object({
+export const STATUS_SCHEMA = z.object({
   estado: catalogEnum(
     ENUM_VALUES.EstadoTarea as readonly EstadoTarea[],
     "Estado de tarea no válido.",
@@ -35,19 +36,21 @@ const STATUS_SCHEMA = z.object({
     .optional(),
 });
 
-export async function PATCH(request: Request, ctx: RouteContext) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
-  const { id } = await ctx.params;
+export const PATCH = withApiErrorHandling(
+  "tasks",
+  "No pudimos actualizar el estado. Inténtalo de nuevo.",
+  async (request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id } = await ctx.params;
 
-  const body = await parseJsonBody<unknown>(request);
-  if (body === null) {
-    return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
-  }
-  const parsed = STATUS_SCHEMA.safeParse(body);
-  if (!parsed.success) return zodError(parsed.error);
+    const body = await parseJsonBody<unknown>(request);
+    if (body === null) {
+      return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
+    }
+    const parsed = STATUS_SCHEMA.safeParse(body);
+    if (!parsed.success) return zodError(parsed.error);
 
-  try {
     const access = await getTaskForWrite(id, auth.usuario);
     if (!access.ok) {
       return apiError(
@@ -76,8 +79,5 @@ export async function PATCH(request: Request, ctx: RouteContext) {
       select: TASK_SELECT,
     });
     return NextResponse.json({ task: toTaskItem(updated) });
-  } catch (err) {
-    console.error("[tasks] status failed:", err);
-    return apiError("No pudimos actualizar el estado. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);

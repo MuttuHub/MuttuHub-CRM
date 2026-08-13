@@ -14,6 +14,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { isSupabaseConfigured, requireApiUser } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { isFullAccess, parsePagination } from "@/lib/api/crm";
@@ -127,15 +128,17 @@ export async function parseUploadForm(
   return { ok: true, data: { titulo, categoria, etiquetas, clienteId, file } };
 }
 
-export async function GET(request: Request) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
+export const GET = withApiErrorHandling(
+  "documents",
+  "No pudimos cargar los documentos. Inténtalo de nuevo.",
+  async (request: Request) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
 
-  const url = new URL(request.url);
-  const pagination = parsePagination(url.searchParams, 100);
-  if (!pagination.ok) return pagination.response;
+    const url = new URL(request.url);
+    const pagination = parsePagination(url.searchParams, 100);
+    if (!pagination.ok) return pagination.response;
 
-  try {
     const { categorias } = await loadDocCategories();
     const parsed = parseDocumentFilters(url, categorias);
     if (!parsed.ok) return parsed.response;
@@ -173,11 +176,8 @@ export async function GET(request: Request) {
       total,
       items: rows.map((r) => toDocumentItem(r, activeVersions, userNames, clientsByDoc)),
     });
-  } catch (err) {
-    console.error("[documents] list failed:", err);
-    return apiError("No pudimos cargar los documentos. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);
 
 export async function POST(request: Request) {
   const auth = await requireApiUser();

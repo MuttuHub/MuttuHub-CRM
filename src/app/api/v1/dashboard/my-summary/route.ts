@@ -18,7 +18,7 @@
 import { NextResponse } from "next/server";
 import type { OrigenTarea } from "@prisma/client";
 import { db } from "@/lib/db";
-import { apiError } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { OPEN_TASK_STATES } from "@/lib/api/crm";
 import { addLocalDays, startOfLocalDay } from "@/lib/alerts";
@@ -33,19 +33,21 @@ export const dynamic = "force-dynamic";
 /** Orígenes que definen un compromiso del CRM (schema OrigenTarea). */
 const ORIGENES_COMPROMISO: readonly OrigenTarea[] = ["CRM", "AMBOS"];
 
-export async function GET(request: Request) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
+export const GET = withApiErrorHandling(
+  "dashboard/my-summary",
+  "No pudimos cargar tu resumen. Inténtalo de nuevo.",
+  async (request: Request) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
 
-  const url = new URL(request.url);
-  const parsed = parseDashboardFilters(url);
-  if (!parsed.ok) return parsed.response;
-  const filters = parsed.filters;
+    const url = new URL(request.url);
+    const parsed = parseDashboardFilters(url);
+    if (!parsed.ok) return parsed.response;
+    const filters = parsed.filters;
 
-  const inicioHoy = startOfLocalDay();
-  const inicioManana = addLocalDays(inicioHoy, 1);
+    const inicioHoy = startOfLocalDay();
+    const inicioManana = addLocalDays(inicioHoy, 1);
 
-  try {
     const rango = rangoDeFechasNullable(filters);
     const where = tareaScopeWhere("own", auth.usuario, filters, {
       estado: OPEN_TASK_STATES,
@@ -102,8 +104,5 @@ export async function GET(request: Request) {
       },
       clientes_asignados: { count: clientes_asignados.length, items: clientes_asignados },
     });
-  } catch (err) {
-    console.error("[dashboard/my-summary] failed:", err);
-    return apiError("No pudimos cargar tu resumen. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);

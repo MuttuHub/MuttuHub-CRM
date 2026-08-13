@@ -12,6 +12,7 @@ import type { Prisma, TipoCliente, EstadoCliente, PrioridadCliente, Usuario } fr
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiError, parseJsonBody } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { ENUM_VALUES } from "@/lib/catalogs";
 import {
@@ -33,7 +34,7 @@ export type ClientListRow = Prisma.ClienteGetPayload<{
   select: typeof CLIENT_BASE_SELECT;
 }>;
 
-const POST_CLIENT_SCHEMA = z.object({
+export const POST_CLIENT_SCHEMA = z.object({
   nombre: z
     .string()
     .trim()
@@ -172,22 +173,24 @@ export async function enrichClients(
   }));
 }
 
-export async function GET(request: Request) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
+export const GET = withApiErrorHandling(
+  "clients",
+  "No pudimos cargar los clientes. Inténtalo de nuevo.",
+  async (request: Request) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
 
-  const url = new URL(request.url);
-  const filters = parseClientListFilters(
-    url,
-    ENUM_VALUES.TipoCliente,
-    ENUM_VALUES.EstadoCliente,
-    ENUM_VALUES.PrioridadCliente,
-  );
-  if (!filters.ok) return filters.response;
-  const pagination = parsePagination(url.searchParams);
-  if (!pagination.ok) return pagination.response;
+    const url = new URL(request.url);
+    const filters = parseClientListFilters(
+      url,
+      ENUM_VALUES.TipoCliente,
+      ENUM_VALUES.EstadoCliente,
+      ENUM_VALUES.PrioridadCliente,
+    );
+    if (!filters.ok) return filters.response;
+    const pagination = parsePagination(url.searchParams);
+    if (!pagination.ok) return pagination.response;
 
-  try {
     const where = buildClientWhere(filters.filters, auth.usuario);
 
     // Value range filters are applied in JS because valor_potencial is a
@@ -231,28 +234,27 @@ export async function GET(request: Request) {
       });
 
     return NextResponse.json({ page: pagination.page, limit: pagination.limit, total, items });
-  } catch (err) {
-    console.error("[clients] list failed:", err);
-    return apiError("No pudimos cargar los clientes. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);
 
-export async function POST(request: Request) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
+export const POST = withApiErrorHandling(
+  "clients",
+  "No pudimos guardar el cliente. Inténtalo de nuevo.",
+  async (request: Request) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
 
-  const body = await parseJsonBody<unknown>(request);
-  if (body === null) {
-    return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
-  }
-  const parsed = POST_CLIENT_SCHEMA.safeParse(body);
-  if (!parsed.success) return zodError(parsed.error);
+    const body = await parseJsonBody<unknown>(request);
+    if (body === null) {
+      return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
+    }
+    const parsed = POST_CLIENT_SCHEMA.safeParse(body);
+    if (!parsed.success) return zodError(parsed.error);
 
-  // COLABORADOR can only create clients they will be the responsable of.
-  const responsable_id =
-    auth.usuario.rol === "COLABORADOR" ? auth.usuario.id : parsed.data.responsable_id;
+    // COLABORADOR can only create clients they will be the responsable of.
+    const responsable_id =
+      auth.usuario.rol === "COLABORADOR" ? auth.usuario.id : parsed.data.responsable_id;
 
-  try {
     const responsable = await db.usuario.findFirst({
       where: { id: responsable_id, activo: true },
       select: { id: true, nombre: true },
@@ -285,8 +287,5 @@ export async function POST(request: Request) {
       { cliente: { ...cliente, responsable_nombre: cliente.responsable.nombre } },
       { status: 201 },
     );
-  } catch (err) {
-    console.error("[clients] create failed:", err);
-    return apiError("No pudimos guardar el cliente. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);

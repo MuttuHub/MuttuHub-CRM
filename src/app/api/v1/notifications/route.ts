@@ -17,7 +17,7 @@
 
 import { NextResponse } from "next/server";
 import type { Usuario } from "@prisma/client";
-import { apiError } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import {
   alertTipo,
@@ -80,11 +80,13 @@ export async function buildSnapshot(usuario: Usuario, scope: "own" | "all"): Pro
   };
 }
 
-export async function GET(request: Request) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
+export const GET = withApiErrorHandling(
+  "notifications",
+  "No pudimos cargar las notificaciones. Inténtalo de nuevo.",
+  async (request: Request) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
 
-  try {
     const scope = auth.usuario.rol === "COLABORADOR" ? "own" : "all";
     const snapshot = await buildSnapshot(auth.usuario, scope);
 
@@ -108,8 +110,5 @@ export async function GET(request: Request) {
       proximos3,
       leidas_ids: snapshot.leidas_ids,
     });
-  } catch (err) {
-    console.error("[notifications] list failed:", err);
-    return apiError("No pudimos cargar las notificaciones. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);

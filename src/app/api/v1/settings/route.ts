@@ -8,6 +8,7 @@
 
 import { NextResponse } from "next/server";
 import { apiError, parseJsonBody } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { TASK_TAGS } from "@/lib/catalogs";
 import { requireApiRole } from "@/lib/supabase/server";
 import {
@@ -41,85 +42,83 @@ async function readSnapshot() {
   return { task_tags, doc_categories };
 }
 
-export async function GET() {
-  const auth = await requireApiRole(["ADMINISTRADOR"]);
-  if (!auth.ok) return auth.response;
+export const GET = withApiErrorHandling(
+  "settings",
+  "No pudimos cargar los catálogos. Inténtalo de nuevo.",
+  async () => {
+    const auth = await requireApiRole(["ADMINISTRADOR"]);
+    if (!auth.ok) return auth.response;
 
-  try {
     await ensureDefaultSettings();
     return NextResponse.json(await readSnapshot());
-  } catch (err) {
-    console.error("[settings] get failed:", err);
-    return apiError("No pudimos cargar los catálogos. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);
 
-export async function PUT(request: Request) {
-  const auth = await requireApiRole(["ADMINISTRADOR"]);
-  if (!auth.ok) return auth.response;
+export const PUT = withApiErrorHandling(
+  "settings",
+  "No pudimos guardar los catálogos. Inténtalo de nuevo.",
+  async (request: Request) => {
+    const auth = await requireApiRole(["ADMINISTRADOR"]);
+    if (!auth.ok) return auth.response;
 
-  const body = await parseJsonBody<{
-    task_tags?: unknown;
-    doc_categories?: unknown;
-  }>(request);
-  if (body === null) {
-    return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
-  }
+    const body = await parseJsonBody<{
+      task_tags?: unknown;
+      doc_categories?: unknown;
+    }>(request);
+    if (body === null) {
+      return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
+    }
 
-  const hasTags = body.task_tags !== undefined;
-  const hasCategories = body.doc_categories !== undefined;
-  if (!hasTags && !hasCategories) {
-    return apiError("Envía 'task_tags' o 'doc_categories'.", 400, "VALIDATION_ERROR");
-  }
+    const hasTags = body.task_tags !== undefined;
+    const hasCategories = body.doc_categories !== undefined;
+    if (!hasTags && !hasCategories) {
+      return apiError("Envía 'task_tags' o 'doc_categories'.", 400, "VALIDATION_ERROR");
+    }
 
-  let tags: string[] | undefined;
-  if (hasTags) {
-    if (!Array.isArray(body.task_tags) || body.task_tags.some((t) => typeof t !== "string")) {
-      return apiError("Las etiquetas deben ser un arreglo de strings.", 400, "VALIDATION_ERROR");
+    let tags: string[] | undefined;
+    if (hasTags) {
+      if (!Array.isArray(body.task_tags) || body.task_tags.some((t) => typeof t !== "string")) {
+        return apiError("Las etiquetas deben ser un arreglo de strings.", 400, "VALIDATION_ERROR");
+      }
+      tags = body.task_tags.map((t) => t.trim()).filter((t) => t.length > 0);
+      if (tags.length < 1) {
+        return apiError("Debe mantener al menos una etiqueta.", 400, "VALIDATION_ERROR");
+      }
+      if (tags.length > MAX_TAGS) {
+        return apiError(`Máximo ${MAX_TAGS} etiquetas.`, 400, "VALIDATION_ERROR");
+      }
+      if (tags.some((t) => t.length > MAX_TAG_LENGTH)) {
+        return apiError(`Cada etiqueta debe tener máximo ${MAX_TAG_LENGTH} caracteres.`, 400, "VALIDATION_ERROR");
+      }
+      if (new Set(tags).size !== tags.length) {
+        return apiError("Las etiquetas no pueden repetirse.", 400, "VALIDATION_ERROR");
+      }
     }
-    tags = body.task_tags.map((t) => t.trim()).filter((t) => t.length > 0);
-    if (tags.length < 1) {
-      return apiError("Debe mantener al menos una etiqueta.", 400, "VALIDATION_ERROR");
-    }
-    if (tags.length > MAX_TAGS) {
-      return apiError(`Máximo ${MAX_TAGS} etiquetas.`, 400, "VALIDATION_ERROR");
-    }
-    if (tags.some((t) => t.length > MAX_TAG_LENGTH)) {
-      return apiError(`Cada etiqueta debe tener máximo ${MAX_TAG_LENGTH} caracteres.`, 400, "VALIDATION_ERROR");
-    }
-    if (new Set(tags).size !== tags.length) {
-      return apiError("Las etiquetas no pueden repetirse.", 400, "VALIDATION_ERROR");
-    }
-  }
 
-  let categories: DocCategoriaSetting[] | undefined;
-  if (hasCategories) {
-    if (!Array.isArray(body.doc_categories) || !body.doc_categories.every(isDocCategoryItem)) {
-      return apiError("Las categorías deben ser [{ nombre, restringida }].", 400, "VALIDATION_ERROR");
+    let categories: DocCategoriaSetting[] | undefined;
+    if (hasCategories) {
+      if (!Array.isArray(body.doc_categories) || !body.doc_categories.every(isDocCategoryItem)) {
+        return apiError("Las categorías deben ser [{ nombre, restringida }].", 400, "VALIDATION_ERROR");
+      }
+      categories = body.doc_categories.map((c) => ({ nombre: c.nombre.trim(), restringida: c.restringida }));
+      if (categories.length < 1 || categories.some((c) => c.nombre.length === 0)) {
+        return apiError("Debe mantener al menos una categoría.", 400, "VALIDATION_ERROR");
+      }
+      if (categories.length > MAX_CATEGORIES) {
+        return apiError(`Máximo ${MAX_CATEGORIES} categorías.`, 400, "VALIDATION_ERROR");
+      }
+      if (categories.some((c) => c.nombre.length > MAX_CATEGORY_LENGTH)) {
+        return apiError(`Cada categoría debe tener máximo ${MAX_CATEGORY_LENGTH} caracteres.`, 400, "VALIDATION_ERROR");
+      }
+      const lower = categories.map((c) => c.nombre.toLowerCase());
+      if (new Set(lower).size !== lower.length) {
+        return apiError("Las categorías no pueden repetirse (sin distinguir mayúsculas).", 400, "VALIDATION_ERROR");
+      }
     }
-    categories = body.doc_categories.map((c) => ({ nombre: c.nombre.trim(), restringida: c.restringida }));
-    if (categories.length < 1 || categories.some((c) => c.nombre.length === 0)) {
-      return apiError("Debe mantener al menos una categoría.", 400, "VALIDATION_ERROR");
-    }
-    if (categories.length > MAX_CATEGORIES) {
-      return apiError(`Máximo ${MAX_CATEGORIES} categorías.`, 400, "VALIDATION_ERROR");
-    }
-    if (categories.some((c) => c.nombre.length > MAX_CATEGORY_LENGTH)) {
-      return apiError(`Cada categoría debe tener máximo ${MAX_CATEGORY_LENGTH} caracteres.`, 400, "VALIDATION_ERROR");
-    }
-    const lower = categories.map((c) => c.nombre.toLowerCase());
-    if (new Set(lower).size !== lower.length) {
-      return apiError("Las categorías no pueden repetirse (sin distinguir mayúsculas).", 400, "VALIDATION_ERROR");
-    }
-  }
 
-  try {
     await ensureDefaultSettings();
     if (tags) await setSetting(SETTING_TASK_TAGS, tags, auth.usuario.id);
     if (categories) await setSetting(SETTING_DOC_CATEGORIES, categories, auth.usuario.id);
     return NextResponse.json(await readSnapshot());
-  } catch (err) {
-    console.error("[settings] update failed:", err);
-    return apiError("No pudimos guardar los catálogos. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);

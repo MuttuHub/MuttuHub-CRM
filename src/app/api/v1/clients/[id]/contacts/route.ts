@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiError, isValidEmail, parseJsonBody } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { ENUM_VALUES } from "@/lib/catalogs";
 import {
@@ -21,7 +22,7 @@ export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-const CONTACT_SCHEMA = z.object({
+export const CONTACT_SCHEMA = z.object({
   nombre: z
     .string()
     .trim()
@@ -44,12 +45,14 @@ const CONTACT_SCHEMA = z.object({
   notas: z.string().nullable().optional(),
 });
 
-export async function GET(_request: Request, ctx: RouteContext) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
-  const { id } = await ctx.params;
+export const GET = withApiErrorHandling(
+  "contacts",
+  "No pudimos cargar los contactos. Inténtalo de nuevo.",
+  async (_request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id } = await ctx.params;
 
-  try {
     const cliente = await loadClientScoped(id, auth.usuario);
     if (!cliente) {
       return apiError("El cliente no existe.", 404, "NOT_FOUND");
@@ -59,25 +62,24 @@ export async function GET(_request: Request, ctx: RouteContext) {
       orderBy: { created_at: "asc" },
     });
     return NextResponse.json({ contactos });
-  } catch (err) {
-    console.error("[contacts] list failed:", err);
-    return apiError("No pudimos cargar los contactos. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);
 
-export async function POST(request: Request, ctx: RouteContext) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
-  const { id } = await ctx.params;
+export const POST = withApiErrorHandling(
+  "contacts",
+  "No pudimos guardar el contacto. Inténtalo de nuevo.",
+  async (request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id } = await ctx.params;
 
-  const body = await parseJsonBody<unknown>(request);
-  if (body === null) {
-    return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
-  }
-  const parsed = CONTACT_SCHEMA.safeParse(body);
-  if (!parsed.success) return zodError(parsed.error);
+    const body = await parseJsonBody<unknown>(request);
+    if (body === null) {
+      return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
+    }
+    const parsed = CONTACT_SCHEMA.safeParse(body);
+    if (!parsed.success) return zodError(parsed.error);
 
-  try {
     const access = await getClientForWrite(id, auth.usuario);
     if (!access.ok) {
       return apiError(
@@ -99,8 +101,5 @@ export async function POST(request: Request, ctx: RouteContext) {
       },
     });
     return NextResponse.json({ contacto }, { status: 201 });
-  } catch (err) {
-    console.error("[contacts] create failed:", err);
-    return apiError("No pudimos guardar el contacto. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);
