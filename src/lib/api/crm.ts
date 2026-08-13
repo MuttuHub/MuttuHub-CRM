@@ -147,10 +147,18 @@ export function parseDate(value: string): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-/** Makes a date-only string inclusive: "2026-08-07" -> end of that day. */
+/**
+ * Makes a date-only string inclusive: "2026-08-07" -> end of that day.
+ * Date-only strings parse as UTC midnight (ECMA-262), so the end must be
+ * computed with the UTC setters too — `setHours` mutates in the server's
+ * LOCAL timezone, which silently shifts the cutoff by the UTC offset (e.g.
+ * ~5h earlier in Colombia, UTC-5), excluding same-day rows from any
+ * "hasta = today" range for most of the business day. `setUTCHours` keeps
+ * this TZ-independent regardless of where the process runs.
+ */
 export function endOfDay(date: Date): Date {
   const end = new Date(date);
-  end.setHours(23, 59, 59, 999);
+  end.setUTCHours(23, 59, 59, 999);
   return end;
 }
 

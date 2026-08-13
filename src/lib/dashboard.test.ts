@@ -112,21 +112,20 @@ describe("parseDashboardFilters", () => {
 })
 
 describe("rangoDeFechas", () => {
-  it("builds an inclusive range from gte (UTC parse of desde) to local end of hasta day", () => {
+  it("builds an inclusive range from gte to UTC end of hasta day (TZ-independent)", () => {
     const r = rangoDeFechas({ desde: "2026-01-15", hasta: "2026-03-31" })
     expect(r).toBeDefined()
     // date-only ISO strings parse as UTC (ECMA-262), TZ-independent
     expect(new Date(r!.gte!).toISOString()).toBe("2026-01-15T00:00:00.000Z")
-    // lte = endOfDay of the UTC-parsed hasta instant: the local wall clock is
-    // always set to 23:59:59.999 (checked via local getters, valid in any TZ)
+    // lte = endOfDay of the UTC-parsed hasta instant, computed with UTC
+    // setters so the cutoff never shifts with the server's local timezone
+    // (a local setHours would move it by the UTC offset — see endOfDay).
     const lte = r!.lte as Date
-    const expectedLte = new Date("2026-03-31")
-    expectedLte.setHours(23, 59, 59, 999)
-    expect(lte.getTime()).toBe(expectedLte.getTime())
-    expect(lte.getHours()).toBe(23)
-    expect(lte.getMinutes()).toBe(59)
-    expect(lte.getSeconds()).toBe(59)
-    expect(lte.getMilliseconds()).toBe(999)
+    expect(lte.toISOString()).toBe("2026-03-31T23:59:59.999Z")
+    expect(lte.getUTCHours()).toBe(23)
+    expect(lte.getUTCMinutes()).toBe(59)
+    expect(lte.getUTCSeconds()).toBe(59)
+    expect(lte.getUTCMilliseconds()).toBe(999)
   })
 
   it("uses only gte when hasta is missing", () => {
@@ -147,15 +146,13 @@ describe("rangoDeFechas", () => {
     expect(rangoDeFechas({ responsable_id: "x" })).toBeUndefined()
   })
 
-  it("spans the year-boundary day inclusively (local wall clock untouched by TZ)", () => {
+  it("spans the year-boundary day inclusively (UTC wall clock untouched by server TZ)", () => {
     const r = rangoDeFechas({ desde: "2026-12-31", hasta: "2026-12-31" })
     expect(r).toBeDefined()
     expect(new Date(r!.gte!).toISOString()).toBe("2026-12-31T00:00:00.000Z")
     const lte = r!.lte as Date
-    const expectedLte = new Date("2026-12-31")
-    expectedLte.setHours(23, 59, 59, 999)
-    expect(lte.getTime()).toBe(expectedLte.getTime())
-    expect(lte.getHours()).toBe(23)
+    expect(lte.toISOString()).toBe("2026-12-31T23:59:59.999Z")
+    expect(lte.getUTCHours()).toBe(23)
   })
 
   it("rangoDeFechasNullable delegates and returns the same range", () => {
