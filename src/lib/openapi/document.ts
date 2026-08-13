@@ -8,6 +8,8 @@ import { registry } from "@/lib/openapi/registry";
 
 import "@/lib/openapi/paths/notifications";
 import "@/lib/openapi/paths/auth";
+import "@/lib/openapi/paths/clients";
+import "@/lib/openapi/paths/tasks";
 import "@/lib/openapi/paths/documents";
 import "@/lib/openapi/paths/dashboard-admin";
 
