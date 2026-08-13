@@ -40,6 +40,14 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import type { EstadoTarea, PrioridadTarea } from "@prisma/client";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -121,6 +129,15 @@ export function KanbanBoard() {
   // Announced via the sr-only live region when a sortable lands on a new
   // column (keyboard drags have no visual trail for the screen reader).
   const [moveAnnouncement, setMoveAnnouncement] = useState("");
+  // A drop (pointer or keyboard) onto BLOQUEADA doesn't move the task right
+  // away: the API requires a motivo_bloqueo (BUG: dragging straight into
+  // BLOQUEADA always failed with "Indica un motivo para bloquear." — the
+  // board never asked for one). This holds the pending drop while we do.
+  const [blockPrompt, setBlockPrompt] = useState<{
+    taskId: string;
+    desde: EstadoTarea;
+  } | null>(null);
+  const [blockMotivo, setBlockMotivo] = useState("");
 
   const meQuery = useCurrentUser();
   const me = meQuery.data;
@@ -170,6 +187,30 @@ export function KanbanBoard() {
     setDraggedTask(task ?? null);
   }
 
+  // Shared by the direct drop path and the BLOQUEADA-confirm dialog: applies
+  // the optimistic move, announces it, and rolls back + toasts on failure.
+  function commitMove(taskId: string, desde: EstadoTarea, estado: EstadoTarea, motivo_bloqueo?: string) {
+    setMoveAnnouncement(`Tarea movida a ${ESTADO_TAREA_LABELS[estado]?.label ?? estado}`);
+    void qc.setQueryData<TaskListResponse>(taskQueryKeys.list(serverParams), (old) =>
+      old ? { ...old, items: old.items.map((t) => (t.id === taskId ? { ...t, estado } : t)) } : old,
+    );
+    moveMutation
+      .mutateAsync({ taskId, estado, motivo_bloqueo })
+      .catch(() => {
+        void qc.setQueryData<TaskListResponse>(taskQueryKeys.list(serverParams), (old) =>
+          old ? { ...old, items: old.items.map((t) => (t.id === taskId ? { ...t, estado: desde } : t)) } : old,
+        );
+        // BUG FIX: the optimistic announcement above already told screen
+        // readers the move succeeded. On rollback, correct it — otherwise a
+        // screen-reader user gets a false "movida" with no follow-up, while
+        // sighted users at least see the error toast.
+        setMoveAnnouncement(
+          `No se pudo mover la tarea, se restauró a ${ESTADO_TAREA_LABELS[desde]?.label ?? desde}`,
+        );
+        toast.error("No pudimos mover la tarea.");
+      });
+  }
+
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     setDraggedTask(null);
@@ -190,20 +231,24 @@ export function KanbanBoard() {
     if (!targetColumn || targetColumn === task.estado) return;
 
     const desde = task.estado;
-    setMoveAnnouncement(
-      `Tarea movida a ${ESTADO_TAREA_LABELS[targetColumn as EstadoTarea]?.label ?? targetColumn}`,
-    );
-    void qc.setQueryData<TaskListResponse>(taskQueryKeys.list(serverParams), (old) =>
-      old ? { ...old, items: old.items.map((t) => (t.id === taskId ? { ...t, estado: targetColumn as EstadoTarea } : t)) } : old,
-    );
-    moveMutation
-      .mutateAsync({ taskId, estado: targetColumn as EstadoTarea })
-      .catch(() => {
-        void qc.setQueryData<TaskListResponse>(taskQueryKeys.list(serverParams), (old) =>
-          old ? { ...old, items: old.items.map((t) => (t.id === taskId ? { ...t, estado: desde } : t)) } : old,
-        );
-        toast.error("No pudimos mover la tarea.");
-      });
+    if (targetColumn === "BLOQUEADA") {
+      // BUG fix: the API requires a motivo_bloqueo when entering BLOQUEADA
+      // (src/app/api/v1/tasks/[id]/status/route.ts) — dropping straight in
+      // used to always fail with "Indica un motivo para bloquear." Ask for
+      // the reason first; nothing moves (optimistically or for real) until
+      // it's confirmed.
+      setBlockMotivo("");
+      setBlockPrompt({ taskId, desde });
+      return;
+    }
+
+    commitMove(taskId, desde, targetColumn as EstadoTarea);
+  }
+
+  function confirmBlock() {
+    if (!blockPrompt || !blockMotivo.trim()) return;
+    commitMove(blockPrompt.taskId, blockPrompt.desde, "BLOQUEADA", blockMotivo.trim());
+    setBlockPrompt(null);
   }
 
   /* ── Acciones de cabecera ── */
@@ -385,6 +430,46 @@ export function KanbanBoard() {
           clients={clients}
         />
       )}
+
+      <Dialog
+        open={blockPrompt !== null}
+        onOpenChange={(open) => {
+          if (!open) setBlockPrompt(null);
+        }}
+      >
+        <DialogContent className="rounded-[20px] sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
+              Bloquear tarea
+            </DialogTitle>
+            <DialogDescription>
+              Indica por qué queda bloqueada antes de moverla.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="kanban-block-motivo">
+              Motivo del bloqueo <span className="text-rose-500">*</span>
+            </Label>
+            <textarea
+              id="kanban-block-motivo"
+              autoFocus
+              rows={2}
+              value={blockMotivo}
+              onChange={(e) => setBlockMotivo(e.target.value)}
+              placeholder="Por qué está bloqueada la tarea"
+              className="w-full resize-none rounded-12 border border-input bg-panel px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBlockPrompt(null)}>
+              Cancelar
+            </Button>
+            <Button disabled={!blockMotivo.trim()} onClick={confirmBlock}>
+              Bloquear tarea
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
