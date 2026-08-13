@@ -9,17 +9,20 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiRole } from "@/lib/supabase/server";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function POST(_request: Request, ctx: RouteContext) {
-  const auth = await requireApiRole(["ADMINISTRADOR"]);
-  if (!auth.ok) return auth.response;
+export const POST = withApiErrorHandling(
+  "solicitudes-acceso",
+  "No pudimos rechazar la solicitud. Inténtalo de nuevo.",
+  async (_request: Request, ctx: RouteContext) => {
+    const auth = await requireApiRole(["ADMINISTRADOR"]);
+    if (!auth.ok) return auth.response;
 
-  const { id } = await ctx.params;
+    const { id } = await ctx.params;
 
-  try {
     const solicitud = await db.solicitudAcceso.findUnique({
       where: { id },
       select: { estado: true },
@@ -52,12 +55,5 @@ export async function POST(_request: Request, ctx: RouteContext) {
         revisado_at: new Date().toISOString(),
       },
     });
-  } catch (err) {
-    console.error("[solicitudes-acceso] reject failed:", err);
-    return apiError(
-      "No pudimos rechazar la solicitud. Inténtalo de nuevo.",
-      500,
-      "INTERNAL_ERROR",
-    );
-  }
-}
+  },
+);

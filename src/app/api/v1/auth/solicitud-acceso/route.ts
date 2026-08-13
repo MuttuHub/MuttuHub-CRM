@@ -19,6 +19,7 @@ import {
   normalizeEmail,
   parseJsonBody,
 } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 const RATE_LIMIT_MAX_PER_EMAIL = 3;
@@ -52,43 +53,45 @@ function isRateLimited(email: string): boolean {
   return entry.count > RATE_LIMIT_MAX_PER_EMAIL;
 }
 
-export async function POST(request: Request) {
-  const body = await parseJsonBody<{
-    nombre?: string;
-    email?: string;
-    cargo?: string;
-  }>(request);
+export const POST = withApiErrorHandling(
+  "solicitud-acceso",
+  "No pudimos guardar tu solicitud. Inténtalo de nuevo.",
+  async (request: Request) => {
+    const body = await parseJsonBody<{
+      nombre?: string;
+      email?: string;
+      cargo?: string;
+    }>(request);
 
-  const nombre = body?.nombre?.trim() ?? "";
-  const email = normalizeEmail(body?.email ?? "");
-  const cargo = body?.cargo?.trim() || null;
+    const nombre = body?.nombre?.trim() ?? "";
+    const email = normalizeEmail(body?.email ?? "");
+    const cargo = body?.cargo?.trim() || null;
 
-  if (!nombre || !email) {
-    return apiError(
-      "Nombre y correo son obligatorios.",
-      400,
-      "VALIDATION_ERROR",
-    );
-  }
-  if (!isValidEmail(email)) {
-    return apiError("Ingresa un correo válido.", 400, "VALIDATION_ERROR");
-  }
-  if (cargo && cargo.length > 120) {
-    return apiError(
-      "El cargo no puede superar los 120 caracteres.",
-      400,
-      "VALIDATION_ERROR",
-    );
-  }
-  if (isRateLimited(email)) {
-    return apiError(
-      "Ya enviaste varias solicitudes con este correo. Espera un poco e inténtalo de nuevo.",
-      429,
-      "CONFLICT",
-    );
-  }
+    if (!nombre || !email) {
+      return apiError(
+        "Nombre y correo son obligatorios.",
+        400,
+        "VALIDATION_ERROR",
+      );
+    }
+    if (!isValidEmail(email)) {
+      return apiError("Ingresa un correo válido.", 400, "VALIDATION_ERROR");
+    }
+    if (cargo && cargo.length > 120) {
+      return apiError(
+        "El cargo no puede superar los 120 caracteres.",
+        400,
+        "VALIDATION_ERROR",
+      );
+    }
+    if (isRateLimited(email)) {
+      return apiError(
+        "Ya enviaste varias solicitudes con este correo. Espera un poco e inténtalo de nuevo.",
+        429,
+        "CONFLICT",
+      );
+    }
 
-  try {
     const pending = await db.solicitudAcceso.findFirst({
       where: { email, estado: "PENDIENTE" },
       select: { id: true },
@@ -118,12 +121,5 @@ export async function POST(request: Request) {
       select: SOLICITUD_SELECT,
     });
     return NextResponse.json({ solicitud }, { status: 201 });
-  } catch (err) {
-    console.error("[solicitud-acceso] create failed:", err);
-    return apiError(
-      "No pudimos guardar tu solicitud. Inténtalo de nuevo.",
-      500,
-      "INTERNAL_ERROR",
-    );
-  }
-}
+  },
+);

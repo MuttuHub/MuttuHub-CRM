@@ -6,18 +6,20 @@
 // visible ahora.
 
 import { NextResponse } from "next/server";
-import { apiError } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { markSnapshotRead } from "@/lib/alerts";
 import { buildSnapshot } from "@/app/api/v1/notifications/route";
 
 export const dynamic = "force-dynamic";
 
-export async function PATCH() {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
+export const PATCH = withApiErrorHandling(
+  "notifications",
+  "No pudimos marcar las notificaciones como leídas. Inténtalo de nuevo.",
+  async () => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
 
-  try {
     const scope = auth.usuario.rol === "COLABORADOR" ? "own" : "all";
     const snapshot = await buildSnapshot(auth.usuario, scope);
     const tareaIds = [
@@ -28,8 +30,5 @@ export async function PATCH() {
 
     const updated = await markSnapshotRead(auth.usuario, tareaIds);
     return NextResponse.json({ ok: true, updated });
-  } catch (err) {
-    console.error("[notifications] read-all failed:", err);
-    return apiError("No pudimos marcar las notificaciones como leídas. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);

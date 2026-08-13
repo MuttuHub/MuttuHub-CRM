@@ -11,6 +11,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { isSupabaseConfigured, requireApiUser } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { documentStoragePath, STORAGE_BUCKET } from "@/lib/api/files";
@@ -27,12 +28,14 @@ export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function GET(_request: Request, ctx: RouteContext) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
-  const { id } = await ctx.params;
+export const GET = withApiErrorHandling(
+  "documents",
+  "No pudimos cargar las versiones. Inténtalo de nuevo.",
+  async (_request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id } = await ctx.params;
 
-  try {
     const access = await loadDocumentForRead(id, auth.usuario);
     if (!access.ok) return documentAccessError(access.code);
 
@@ -49,31 +52,30 @@ export async function GET(_request: Request, ctx: RouteContext) {
         subido_por_nombre: userNames.get(v.subido_por_id) ?? "—",
       })),
     });
-  } catch (err) {
-    console.error("[documents] versions list failed:", err);
-    return apiError("No pudimos cargar las versiones. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);
 
-export async function POST(request: Request, ctx: RouteContext) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
-  const { id } = await ctx.params;
+export const POST = withApiErrorHandling(
+  "documents",
+  "No pudimos guardar la versión. Inténtalo de nuevo.",
+  async (request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id } = await ctx.params;
 
-  // Storage necesita credenciales de Supabase sí o sí: sin ellas no hay upload.
-  if (!isSupabaseConfigured()) {
-    return apiError(
-      "Plataforma no configurada. Revisa las variables de entorno.",
-      500,
-      "INTERNAL_ERROR",
-    );
-  }
+    // Storage necesita credenciales de Supabase sí o sí: sin ellas no hay upload.
+    if (!isSupabaseConfigured()) {
+      return apiError(
+        "Plataforma no configurada. Revisa las variables de entorno.",
+        500,
+        "INTERNAL_ERROR",
+      );
+    }
 
-  const form = await parseUploadForm(request, { requiereCategoria: false, categorias: [] });
-  if (!form.ok) return form.response;
-  const { file } = form.data;
+    const form = await parseUploadForm(request, { requiereCategoria: false, categorias: [] });
+    if (!form.ok) return form.response;
+    const { file } = form.data;
 
-  try {
     const access = await loadDocumentForRead(id, auth.usuario);
     if (!access.ok) return documentAccessError(access.code);
 
@@ -130,8 +132,5 @@ export async function POST(request: Request, ctx: RouteContext) {
       },
       { status: 201 },
     );
-  } catch (err) {
-    console.error("[documents] version create failed:", err);
-    return apiError("No pudimos guardar la versión. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);

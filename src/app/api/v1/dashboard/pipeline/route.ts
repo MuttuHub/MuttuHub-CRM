@@ -18,7 +18,7 @@
 import { NextResponse } from "next/server";
 import type { EstadoOportunidad } from "@prisma/client";
 import { db } from "@/lib/db";
-import { apiError } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import {
   clienteScopeWhere,
@@ -38,18 +38,20 @@ const OFFER_STATES: readonly EstadoOportunidad[] = [
   "STANDBY",
 ];
 
-export async function GET(request: Request) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
+export const GET = withApiErrorHandling(
+  "dashboard/pipeline",
+  "No pudimos cargar el pipeline. Inténtalo de nuevo.",
+  async (request: Request) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
 
-  const url = new URL(request.url);
-  const parsed = parseDashboardFilters(url);
-  if (!parsed.ok) return parsed.response;
-  const filters = parsed.filters;
+    const url = new URL(request.url);
+    const parsed = parseDashboardFilters(url);
+    if (!parsed.ok) return parsed.response;
+    const filters = parsed.filters;
 
-  const scope = resolveScope(auth.usuario);
+    const scope = resolveScope(auth.usuario);
 
-  try {
     const clienteWhere = clienteScopeWhere(scope, auth.usuario, filters);
     const rango = rangoDeFechas(filters);
 
@@ -117,8 +119,5 @@ export async function GET(request: Request) {
         ratio,
       },
     });
-  } catch (err) {
-    console.error("[dashboard/pipeline] failed:", err);
-    return apiError("No pudimos cargar el pipeline. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);

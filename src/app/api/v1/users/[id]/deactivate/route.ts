@@ -4,6 +4,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiRole } from "@/lib/supabase/server";
 
 const USER_SELECT = {
@@ -17,13 +18,15 @@ const USER_SELECT = {
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function POST(_request: Request, ctx: RouteContext) {
-  const auth = await requireApiRole(["ADMINISTRADOR"]);
-  if (!auth.ok) return auth.response;
+export const POST = withApiErrorHandling(
+  "users",
+  "No pudimos desactivar el usuario. Inténtalo de nuevo.",
+  async (_request: Request, ctx: RouteContext) => {
+    const auth = await requireApiRole(["ADMINISTRADOR"]);
+    if (!auth.ok) return auth.response;
 
-  const { id } = await ctx.params;
+    const { id } = await ctx.params;
 
-  try {
     const existing = await db.usuario.findUnique({ where: { id } });
     if (!existing) {
       return apiError("El usuario no existe.", 404, "NOT_FOUND");
@@ -60,12 +63,5 @@ export async function POST(_request: Request, ctx: RouteContext) {
       select: USER_SELECT,
     });
     return NextResponse.json({ usuario });
-  } catch (err) {
-    console.error("[users] deactivate failed:", err);
-    return apiError(
-      "No pudimos desactivar el usuario. Inténtalo de nuevo.",
-      500,
-      "INTERNAL_ERROR",
-    );
-  }
-}
+  },
+);

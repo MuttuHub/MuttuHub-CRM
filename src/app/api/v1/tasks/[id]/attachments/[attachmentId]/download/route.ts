@@ -7,6 +7,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { isSupabaseConfigured, requireApiUser } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { getTaskForWrite } from "@/lib/api/crm";
@@ -17,12 +18,14 @@ type RouteContext = { params: Promise<{ id: string; attachmentId: string }> };
 
 const STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "muttu-docs";
 
-export async function GET(_request: Request, ctx: RouteContext) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
-  const { id, attachmentId } = await ctx.params;
+export const GET = withApiErrorHandling(
+  "tasks",
+  "No pudimos generar la descarga. Inténtalo de nuevo.",
+  async (_request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id, attachmentId } = await ctx.params;
 
-  try {
     const access = await getTaskForWrite(id, auth.usuario);
     if (!access.ok) {
       return apiError(
@@ -57,8 +60,5 @@ export async function GET(_request: Request, ctx: RouteContext) {
       return apiError("No pudimos generar el enlace de descarga. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
     }
     return NextResponse.redirect(data.signedUrl, 302);
-  } catch (err) {
-    console.error("[tasks] attachment download failed:", err);
-    return apiError("No pudimos generar la descarga. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);

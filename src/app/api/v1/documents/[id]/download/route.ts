@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { isSupabaseConfigured, requireApiUser } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { STORAGE_BUCKET } from "@/lib/api/files";
@@ -15,12 +16,14 @@ export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function GET(_request: Request, ctx: RouteContext) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
-  const { id } = await ctx.params;
+export const GET = withApiErrorHandling(
+  "documents",
+  "No pudimos generar la descarga. Inténtalo de nuevo.",
+  async (_request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id } = await ctx.params;
 
-  try {
     const access = await loadDocumentForRead(id, auth.usuario);
     if (!access.ok) return documentAccessError(access.code);
 
@@ -50,8 +53,5 @@ export async function GET(_request: Request, ctx: RouteContext) {
       return apiError("No pudimos generar el enlace de descarga. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
     }
     return NextResponse.redirect(data.signedUrl, 302);
-  } catch (err) {
-    console.error("[documents] download failed:", err);
-    return apiError("No pudimos generar la descarga. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);

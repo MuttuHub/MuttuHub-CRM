@@ -6,18 +6,20 @@
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { apiError } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { OPEN_TASK_STATES } from "@/lib/api/crm";
 import { clienteScopeWhere, resolveScope, tareaScopeWhere } from "@/lib/dashboard";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
+export const GET = withApiErrorHandling(
+  "nav/counts",
+  "No pudimos cargar los contadores. Inténtalo de nuevo.",
+  async () => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
 
-  try {
     const scope = resolveScope(auth.usuario);
     const [clientes, tablero, documentos] = await Promise.all([
       db.cliente.count({ where: clienteScopeWhere(scope, auth.usuario, {}) }),
@@ -28,12 +30,5 @@ export async function GET() {
     ]);
 
     return NextResponse.json({ clientes, tablero, documentos });
-  } catch (err) {
-    console.error("[nav/counts] failed:", err);
-    return apiError(
-      "No pudimos cargar los contadores. Inténtalo de nuevo.",
-      500,
-      "INTERNAL_ERROR",
-    );
-  }
-}
+  },
+);

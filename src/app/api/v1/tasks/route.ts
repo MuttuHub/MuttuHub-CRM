@@ -9,6 +9,7 @@ import type { Prisma, EstadoTarea, OrigenTarea, PrioridadTarea, Usuario } from "
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiError, parseJsonBody } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { ENUM_VALUES } from "@/lib/catalogs";
 import {
@@ -137,18 +138,20 @@ export function bloqueoValido(estado: string | undefined, motivo: string | null 
   return typeof motivo === "string" && motivo.trim().length > 0;
 }
 
-export async function GET(request: Request) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
+export const GET = withApiErrorHandling(
+  "tasks",
+  "No pudimos cargar las tareas. Inténtalo de nuevo.",
+  async (request: Request) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
 
-  const url = new URL(request.url);
-  const parsed = parseTaskFilters(url, auth.usuario.rol);
-  if (!parsed.ok) return parsed.response;
+    const url = new URL(request.url);
+    const parsed = parseTaskFilters(url, auth.usuario.rol);
+    if (!parsed.ok) return parsed.response;
 
-  const pagination = parsePagination(url.searchParams, 100);
-  if (!pagination.ok) return pagination.response;
+    const pagination = parsePagination(url.searchParams, 100);
+    if (!pagination.ok) return pagination.response;
 
-  try {
     const where = buildTaskWhere(parsed.filters, auth.usuario);
 
     const [rows, total] = await Promise.all([
@@ -180,27 +183,26 @@ export async function GET(request: Request) {
       total,
       items: rows.map((row) => toTaskItem(row, hechasPorTarea)),
     });
-  } catch (err) {
-    console.error("[tasks] list failed:", err);
-    return apiError("No pudimos cargar las tareas. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);
 
-export async function POST(request: Request) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
+export const POST = withApiErrorHandling(
+  "tasks",
+  "No pudimos guardar la tarea. Inténtalo de nuevo.",
+  async (request: Request) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
 
-  const body = await parseJsonBody<unknown>(request);
-  if (body === null) {
-    return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
-  }
-  const parsed = TASK_SCHEMA.safeParse(body);
-  if (!parsed.success) return zodError(parsed.error);
-  if (!bloqueoValido(parsed.data.estado, parsed.data.motivo_bloqueo)) {
-    return apiError("Indica un motivo para bloquear.", 400, "VALIDATION_ERROR");
-  }
+    const body = await parseJsonBody<unknown>(request);
+    if (body === null) {
+      return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
+    }
+    const parsed = TASK_SCHEMA.safeParse(body);
+    if (!parsed.success) return zodError(parsed.error);
+    if (!bloqueoValido(parsed.data.estado, parsed.data.motivo_bloqueo)) {
+      return apiError("Indica un motivo para bloquear.", 400, "VALIDATION_ERROR");
+    }
 
-  try {
     // COLABORADOR can only create tasks they will be the responsable of.
     const responsable_id =
       auth.usuario.rol === "COLABORADOR" ? auth.usuario.id : parsed.data.responsable_id;
@@ -242,8 +244,5 @@ export async function POST(request: Request) {
       select: TASK_SELECT,
     });
     return NextResponse.json({ task: toTaskItem(tarea) }, { status: 201 });
-  } catch (err) {
-    console.error("[tasks] create failed:", err);
-    return apiError("No pudimos guardar la tarea. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);

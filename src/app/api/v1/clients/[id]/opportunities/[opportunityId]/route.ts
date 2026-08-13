@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiError, parseJsonBody } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { ENUM_VALUES } from "@/lib/catalogs";
 import { catalogEnum, getClientForWrite, parseDate, zodError } from "@/lib/api/crm";
@@ -15,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string; opportunityId: string }> };
 
-const OPORTUNIDAD_PATCH_SCHEMA = z
+export const OPORTUNIDAD_PATCH_SCHEMA = z
   .object({
     nombre: z
       .string()
@@ -40,19 +41,21 @@ const OPORTUNIDAD_PATCH_SCHEMA = z
   .partial()
   .refine((d) => Object.keys(d).length > 0, "Envía al menos un campo para actualizar.");
 
-export async function PATCH(request: Request, ctx: RouteContext) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
-  const { id, opportunityId } = await ctx.params;
+export const PATCH = withApiErrorHandling(
+  "opportunities",
+  "No pudimos actualizar la oportunidad. Inténtalo de nuevo.",
+  async (request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id, opportunityId } = await ctx.params;
 
-  const body = await parseJsonBody<unknown>(request);
-  if (body === null) {
-    return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
-  }
-  const parsed = OPORTUNIDAD_PATCH_SCHEMA.safeParse(body);
-  if (!parsed.success) return zodError(parsed.error);
+    const body = await parseJsonBody<unknown>(request);
+    if (body === null) {
+      return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
+    }
+    const parsed = OPORTUNIDAD_PATCH_SCHEMA.safeParse(body);
+    if (!parsed.success) return zodError(parsed.error);
 
-  try {
     const access = await getClientForWrite(id, auth.usuario);
     if (!access.ok) {
       return apiError(
@@ -88,18 +91,17 @@ export async function PATCH(request: Request, ctx: RouteContext) {
       },
     });
     return NextResponse.json({ oportunidad });
-  } catch (err) {
-    console.error("[opportunities] patch failed:", err);
-    return apiError("No pudimos actualizar la oportunidad. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);
 
-export async function DELETE(_request: Request, ctx: RouteContext) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
-  const { id, opportunityId } = await ctx.params;
+export const DELETE = withApiErrorHandling(
+  "opportunities",
+  "No pudimos eliminar la oportunidad. Inténtalo de nuevo.",
+  async (_request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id, opportunityId } = await ctx.params;
 
-  try {
     const access = await getClientForWrite(id, auth.usuario);
     if (!access.ok) {
       return apiError(
@@ -121,8 +123,5 @@ export async function DELETE(_request: Request, ctx: RouteContext) {
       data: { deleted_at: new Date() },
     });
     return new NextResponse(null, { status: 204 });
-  } catch (err) {
-    console.error("[opportunities] delete failed:", err);
-    return apiError("No pudimos eliminar la oportunidad. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);

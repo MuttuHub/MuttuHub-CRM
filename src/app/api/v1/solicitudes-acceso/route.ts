@@ -4,7 +4,7 @@
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { apiError } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiRole } from "@/lib/supabase/server";
 
 const SOLICITUD_SELECT = {
@@ -19,22 +19,17 @@ const SOLICITUD_SELECT = {
   created_at: true,
 } as const;
 
-export async function GET() {
-  const auth = await requireApiRole(["ADMINISTRADOR"]);
-  if (!auth.ok) return auth.response;
+export const GET = withApiErrorHandling(
+  "solicitudes-acceso",
+  "No pudimos cargar las solicitudes. Inténtalo de nuevo.",
+  async () => {
+    const auth = await requireApiRole(["ADMINISTRADOR"]);
+    if (!auth.ok) return auth.response;
 
-  try {
     const solicitudes = await db.solicitudAcceso.findMany({
       select: SOLICITUD_SELECT,
       orderBy: { created_at: "desc" },
     });
     return NextResponse.json({ solicitudes });
-  } catch (err) {
-    console.error("[solicitudes-acceso] list failed:", err);
-    return apiError(
-      "No pudimos cargar las solicitudes. Inténtalo de nuevo.",
-      500,
-      "INTERNAL_ERROR",
-    );
-  }
-}
+  },
+);

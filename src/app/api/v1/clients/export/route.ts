@@ -6,7 +6,7 @@
 
 import ExcelJS from "exceljs";
 import { db } from "@/lib/db";
-import { apiError } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import {
   ENUM_VALUES,
@@ -24,20 +24,22 @@ export const dynamic = "force-dynamic";
 
 const EXPORT_MAX_ROWS = 500; // PRD §8.4 cap for exports.
 
-export async function GET(request: Request) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
+export const GET = withApiErrorHandling(
+  "clients",
+  "No pudimos generar el archivo. Inténtalo de nuevo.",
+  async (request: Request) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
 
-  const url = new URL(request.url);
-  const filters = parseClientListFilters(
-    url,
-    ENUM_VALUES.TipoCliente,
-    ENUM_VALUES.EstadoCliente,
-    ENUM_VALUES.PrioridadCliente,
-  );
-  if (!filters.ok) return filters.response;
+    const url = new URL(request.url);
+    const filters = parseClientListFilters(
+      url,
+      ENUM_VALUES.TipoCliente,
+      ENUM_VALUES.EstadoCliente,
+      ENUM_VALUES.PrioridadCliente,
+    );
+    if (!filters.ok) return filters.response;
 
-  try {
     const where = buildClientWhere(filters.filters, auth.usuario);
     // Fetch base fields without a cap (same trade-off as GET /clients): the
     // valor range filter runs in JS after enrichment, so the 500-row cap must
@@ -99,8 +101,5 @@ export async function GET(request: Request) {
         "Content-Disposition": 'attachment; filename="clientes.xlsx"',
       },
     });
-  } catch (err) {
-    console.error("[clients] export failed:", err);
-    return apiError("No pudimos generar el archivo. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);

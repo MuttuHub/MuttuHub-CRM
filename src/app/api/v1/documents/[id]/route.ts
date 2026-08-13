@@ -10,6 +10,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import {
   DOCUMENT_BASE_SELECT,
@@ -27,12 +28,14 @@ export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function GET(_request: Request, ctx: RouteContext) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
-  const { id } = await ctx.params;
+export const GET = withApiErrorHandling(
+  "documents",
+  "No pudimos cargar el documento. Inténtalo de nuevo.",
+  async (_request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id } = await ctx.params;
 
-  try {
     const access = await loadDocumentForRead(id, auth.usuario);
     if (!access.ok) return documentAccessError(access.code);
 
@@ -69,18 +72,17 @@ export async function GET(_request: Request, ctx: RouteContext) {
         versiones_count: versiones.length,
       },
     });
-  } catch (err) {
-    console.error("[documents] detail failed:", err);
-    return apiError("No pudimos cargar el documento. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);
 
-export async function DELETE(_request: Request, ctx: RouteContext) {
-  const auth = await requireApiUser();
-  if (!auth.ok) return auth.response;
-  const { id } = await ctx.params;
+export const DELETE = withApiErrorHandling(
+  "documents",
+  "No pudimos eliminar el documento. Inténtalo de nuevo.",
+  async (_request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id } = await ctx.params;
 
-  try {
     const access = await loadDocumentForDelete(id, auth.usuario);
     if (!access.ok) return documentAccessError(access.code);
 
@@ -89,8 +91,5 @@ export async function DELETE(_request: Request, ctx: RouteContext) {
       data: { deleted_at: new Date() },
     });
     return new NextResponse(null, { status: 204 });
-  } catch (err) {
-    console.error("[documents] delete failed:", err);
-    return apiError("No pudimos eliminar el documento. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-}
+  },
+);
