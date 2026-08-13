@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url"
 import react from "@vitejs/plugin-react"
-import { defineConfig } from "vitest/config"
+import { configDefaults, defineConfig } from "vitest/config"
 
 export default defineConfig({
   plugins: [react()],
@@ -8,6 +8,11 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["src/test/setup.ts"],
+    // e2e/ holds Playwright specs (@playwright/test's own runner, video
+    // recording against the live dev server) — vitest's default glob would
+    // otherwise pick them up and fail them (wrong test/expect implementation).
+    // Spread the built-in defaults too, since setting `exclude` replaces them.
+    exclude: [...configDefaults.exclude, "e2e/**"],
     // En Vitest 4 `coverage` se configura dentro de `test` (no top-level) y la
     // opción `all` fue removida: con `include` definido, los archivos no
     // cubiertos que matcheen los patrones entran al reporte. Scope intencional:
