@@ -225,6 +225,28 @@ export async function POST(request: Request) {
     return apiError("No tienes permisos para documentos de esa categoría.", 403, "FORBIDDEN");
   }
 
+  // QA audit #4: antes solo existía el versionado manual (POST
+  // /:id/versions, iniciado por el usuario desde la ficha); subir con un
+  // título repetido creaba un documento duplicado independiente sin
+  // preguntar nada. Si no es un versionado explícito (force), avisamos y
+  // dejamos que el diálogo decida entre "nueva versión" o "documento aparte".
+  if (!force) {
+    const existing = await db.documento.findFirst({
+      where: { titulo: { equals: titulo, mode: "insensitive" }, deleted_at: null },
+      select: { id: true, titulo: true },
+    });
+    if (existing) {
+      return NextResponse.json(
+        {
+          error: `Ya existe un documento llamado "${existing.titulo}".`,
+          code: "CONFLICT",
+          documento: existing,
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   try {
     // QA audit #4: antes solo existía el versionado manual (POST
     // /:id/versions, iniciado por el usuario desde la ficha); subir con un
