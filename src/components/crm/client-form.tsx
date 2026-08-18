@@ -6,7 +6,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { LoaderCircle, Plus } from "lucide-react";
+import { FileText, LoaderCircle, Plus, Search } from "lucide-react";
 import type {
   EstadoCliente,
   PrioridadCliente,
@@ -41,11 +41,96 @@ import {
   useUpdateClient,
   type ClientDetail,
 } from "@/hooks/crm";
+import { useDocuments, type DocumentItem } from "@/hooks/documents";
 
 function toDateInput(value: string | null | undefined): string {
   if (!value) return "";
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10);
+}
+
+/* ── "Cargar desde Brief existente" (QA audit #4.8 / hallazgo #5) ────────
+ * Prellenado liviano y sin dependencias nuevas: el usuario elige un
+ * documento ya subido al Repositorio y el único dato que se copia es el
+ * título del documento como nombre sugerido del cliente. El resto de los
+ * campos se completan a mano — no hay lectura del contenido del archivo. */
+
+function BriefPickerDialog({
+  open,
+  onOpenChange,
+  onPick,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onPick: (doc: DocumentItem) => void;
+}) {
+  const [q, setQ] = useState("");
+  const query = useDocuments({ q: q.trim() || undefined, limit: 20 });
+  const docs = query.data?.items ?? [];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[80vh] gap-0 overflow-y-auto rounded-[22px] p-0 sm:max-w-[480px]">
+        <div className="flex flex-col gap-4 p-6">
+          <DialogHeader className="gap-1">
+            <DialogTitle className="font-display text-[17px] font-bold tracking-[-0.02em] text-ink-950">
+              Cargar desde Brief existente
+            </DialogTitle>
+            <DialogDescription>
+              Elige un documento del Repositorio; se usa su título como nombre del cliente.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-500"
+              strokeWidth={1.8}
+            />
+            <Input
+              autoFocus
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Buscar por nombre, categoría, cliente…"
+              aria-label="Buscar brief"
+              className="h-10 rounded-12 bg-panel pl-9"
+            />
+          </div>
+
+          <div className="flex max-h-[320px] flex-col gap-1 overflow-y-auto">
+            {query.isLoading ? (
+              <p className="px-1 py-3 text-[13px] text-ink-600">Buscando…</p>
+            ) : docs.length === 0 ? (
+              <p className="px-1 py-3 text-[13px] text-ink-600">
+                No encontramos documentos que coincidan.
+              </p>
+            ) : (
+              docs.map((doc) => (
+                <button
+                  key={doc.id}
+                  type="button"
+                  onClick={() => onPick(doc)}
+                  className="flex items-center gap-3 rounded-12 px-3 py-2.5 text-left hover:bg-ink-100"
+                >
+                  <span className="grid size-8 shrink-0 place-items-center rounded-10 bg-ink-100 text-ink-600">
+                    <FileText className="size-4" strokeWidth={1.8} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13.5px] font-semibold text-ink-900">
+                      {doc.titulo}
+                    </span>
+                    <span className="block truncate text-[12px] text-ink-500">
+                      {doc.categoria}
+                      {doc.clientes[0] ? ` · ${doc.clientes[0].nombre}` : ""}
+                    </span>
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export type ClientFormState = {
@@ -100,6 +185,7 @@ export function ClientFormDialog({
 
   const [form, setForm] = useState<ClientFormState>(EMPTY_CLIENT_STATE);
   const [error, setError] = useState<string | null>(null);
+  const [briefOpen, setBriefOpen] = useState(false);
 
   // Prefill cuando cambia el objetivo (abrir o cambiar de cliente) y limpiar
   // en modo creación. Ajuste en render (patrón de React: ajustar estado ante
@@ -192,6 +278,19 @@ export function ClientFormDialog({
               : "Nombre, tipo de cliente y responsable son obligatorios; el resto se completa progresivamente."}
           </DialogDescription>
         </DialogHeader>
+
+        {!isEdit && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setBriefOpen(true)}
+            className="w-fit rounded-10 text-[12.5px] font-semibold"
+          >
+            <FileText className="size-3.5" strokeWidth={1.9} />
+            Cargar desde Brief existente
+          </Button>
+        )}
 
         {error && (
           <div
@@ -403,6 +502,19 @@ export function ClientFormDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+
+      {!isEdit && briefOpen && (
+        // Montado solo al abrir: evita un fetch de /documents (useDocuments)
+        // en cada apertura de "Nuevo cliente" cuando nadie usa el picker.
+        <BriefPickerDialog
+          open={briefOpen}
+          onOpenChange={setBriefOpen}
+          onPick={(doc) => {
+            set("nombre", doc.titulo);
+            setBriefOpen(false);
+          }}
+        />
+      )}
     </Dialog>
   );
 }

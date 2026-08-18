@@ -4,14 +4,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { ClientDetail } from "@/hooks/crm"
 import { ClientFormDialog, NewClientButton } from "./client-form"
 
-const { createMutation, updateMutation } = vi.hoisted(() => ({
+const { createMutation, updateMutation, documentsQuery } = vi.hoisted(() => ({
   createMutation: { isPending: false, mutateAsync: vi.fn() },
   updateMutation: { isPending: false, mutateAsync: vi.fn() },
+  documentsQuery: { data: undefined as { items: unknown[] } | undefined, isLoading: false },
 }))
 
 vi.mock("@/hooks/crm", () => ({
   useCreateClient: () => createMutation,
   useUpdateClient: () => updateMutation,
+}))
+
+vi.mock("@/hooks/documents", () => ({
+  useDocuments: () => documentsQuery,
 }))
 
 const USERS = [{ id: "u1", nombre: "Ana Pérez" }]
@@ -142,6 +147,38 @@ describe("ClientFormDialog (create)", () => {
     render(<ClientFormDialog open onOpenChange={onOpenChange} users={USERS} onSaved={vi.fn()} />)
     await user.click(screen.getByRole("button", { name: "Cancelar" }))
     expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+})
+
+// QA audit finding #5 (§4.8): "Cargar desde Brief existente" was completely
+// absent. Lightweight scope: pick a document from the Repository and copy
+// its título as the suggested client name — no content parsing.
+describe("ClientFormDialog — Cargar desde Brief existente (QA audit finding #5)", () => {
+  beforeEach(() => {
+    documentsQuery.data = { items: [{ id: "doc-1", titulo: "Brief Alcaldía de Soledad", categoria: "Comercial", clientes: [] }] }
+  })
+
+  it("does not fetch documents until the picker is opened", () => {
+    render(<ClientFormDialog open onOpenChange={vi.fn()} users={USERS} onSaved={vi.fn()} />)
+    expect(screen.queryByRole("heading", { name: "Cargar desde Brief existente" })).not.toBeInTheDocument()
+  })
+
+  it("fills nombre with the picked document's título and closes the picker", async () => {
+    const user = userEvent.setup()
+    render(<ClientFormDialog open onOpenChange={vi.fn()} users={USERS} onSaved={vi.fn()} />)
+
+    await user.click(screen.getByRole("button", { name: "Cargar desde Brief existente" }))
+    await user.click(await screen.findByRole("button", { name: /Brief Alcaldía de Soledad/ }))
+
+    expect(screen.getByLabelText(/Nombre \*/)).toHaveValue("Brief Alcaldía de Soledad")
+    expect(screen.queryByRole("heading", { name: "Cargar desde Brief existente" })).not.toBeInTheDocument()
+  })
+
+  it("does not offer the Brief picker when editing an existing client", () => {
+    render(
+      <ClientFormDialog open cliente={CLIENTE} users={USERS} onOpenChange={vi.fn()} onSaved={vi.fn()} />,
+    )
+    expect(screen.queryByRole("button", { name: "Cargar desde Brief existente" })).not.toBeInTheDocument()
   })
 })
 
