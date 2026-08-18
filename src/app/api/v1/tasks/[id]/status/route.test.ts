@@ -220,4 +220,24 @@ describe("PATCH /api/v1/tasks/:id/status", () => {
       select: expect.anything(),
     });
   });
+
+  // Code review finding on PR #28: logAudit logged the raw `motivo` value
+  // unconditionally, even on the branch where the DB write clears it to
+  // null — the audit trail claimed a reason was kept when it wasn't.
+  it("logs the same motivo_bloqueo that was actually persisted when leaving BLOQUEADA", async () => {
+    authAs(gerencia);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(
+      writeTareaRow({ estado: "BLOQUEADA", motivo_bloqueo: "Ya resuelto" }) as never,
+    );
+    vi.mocked(db.tarea.update).mockResolvedValue(
+      taskRowSelect({ newEstado: "EN_CURSO", storedMotivo: null }) as never,
+    );
+
+    const res = await PATCH(patchRequest({ estado: "EN_CURSO" }), routeContext);
+
+    expect(res.status).toBe(200);
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ cambios: { estado: "EN_CURSO", motivo_bloqueo: null } }),
+    );
+  });
 });

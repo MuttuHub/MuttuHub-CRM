@@ -70,12 +70,17 @@ export const PATCH = withApiErrorHandling(
       return apiError("Indica un motivo para bloquear.", 400, "VALIDATION_ERROR");
     }
 
+    // Leaving BLOQUEADA always clears the stored reason — computed once so
+    // the audit log below can't drift from what's actually persisted (bug
+    // found in code review: logAudit used to log the raw `motivo`
+    // unconditionally, even when the DB write cleared it to null).
+    const motivoPersistido = parsed.data.estado === "BLOQUEADA" ? motivo : null;
+
     const updated = await db.tarea.update({
       where: { id },
       data: {
         estado: parsed.data.estado,
-        // Leaving BLOQUEADA always clears the stored reason.
-        motivo_bloqueo: parsed.data.estado === "BLOQUEADA" ? motivo : null,
+        motivo_bloqueo: motivoPersistido,
       },
       select: TASK_SELECT,
     });
@@ -84,7 +89,7 @@ export const PATCH = withApiErrorHandling(
       entidad_id: id,
       accion: "editar",
       usuario_id: auth.usuario.id,
-      cambios: { estado: parsed.data.estado, motivo_bloqueo: motivo },
+      cambios: { estado: parsed.data.estado, motivo_bloqueo: motivoPersistido },
     });
     return NextResponse.json({ task: toTaskItem(updated) });
   },
