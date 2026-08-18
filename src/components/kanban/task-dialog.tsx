@@ -237,7 +237,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
               <DialogDescription>
                 {isEdit
                   ? "Actualiza los campos, el estado o la zona de detalle."
-                  : "Solo el título es obligatorio; el resto se completa en marcha."}
+                  : "Título y responsable son obligatorios; el resto se completa en marcha."}
               </DialogDescription>
             </DialogHeader>
 
