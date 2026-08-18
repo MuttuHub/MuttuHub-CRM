@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import { apiGet, apiPut, ApiError } from "@/lib/api/http";
 import type { DocCategoriaSetting } from "@/lib/settings";
+import { documentQueryKeys } from "@/hooks/documents";
 
 /* ── DTOs (server response shapes) ─────────────────────────────────────── */
 
@@ -90,6 +91,11 @@ export function useSaveSettings(): UseMutationResult<
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: adminQueryKeys.settings });
+      // Bug fix (code review): guardar acá no invalidaba la query key que usa
+      // useDocCategories() — un diálogo de Upload/los filtros del Repositorio
+      // ya montados en esta sesión seguían mostrando el catálogo viejo hasta
+      // el próximo refetch natural (foco de ventana, remount, etc.).
+      void qc.invalidateQueries({ queryKey: documentQueryKeys.categories });
       toast.success("Catálogos guardados.");
     },
   });

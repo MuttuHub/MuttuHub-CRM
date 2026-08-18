@@ -46,6 +46,7 @@ import {
   downloadSelectionZip,
   extensionOf,
   formatVersionFecha,
+  useDocCategories,
   useDocuments,
   type DocumentFilters,
   type DocumentItem,
@@ -317,6 +318,14 @@ function SectionFilters({
   hasActiveFilters: boolean;
   etiquetaOptions: string[];
 }) {
+  // Code review finding on PR #19: este filtro seguía usando la constante
+  // estática DOC_CATEGORIES en vez del catálogo en vivo que ya migró
+  // upload-dialog.tsx — quedaba desincronizado si un admin editaba
+  // doc_categories, exactamente el bug que este PR dice resolver, en otro
+  // lugar. Mientras carga o si falla, cae a las constantes de fábrica.
+  const categoriesQuery = useDocCategories();
+  const categories = categoriesQuery.data?.map((c) => c.nombre) ?? [...DOC_CATEGORIES];
+
   return (
     <section className="rounded-[22px] border border-ink-200 bg-panel p-4 lg:p-5">
       <div className="flex flex-wrap items-center gap-3">
@@ -344,7 +353,7 @@ function SectionFilters({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todas las categorías</SelectItem>
-              {DOC_CATEGORIES.map((c) => (
+              {categories.map((c) => (
                 <SelectItem key={c} value={c}>
                   {c}
                 </SelectItem>
