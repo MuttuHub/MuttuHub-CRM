@@ -20,7 +20,7 @@
 | 6 | CRM: sin exportar ficha individual a PDF | Informe | ✅ Arreglado (Lote 1) |
 | 7 | Selects: UUID/enum crudo en vez de nombre legible | Informe (ampliado) | ✅ Arreglado (Lote 2) — fix centralizado, ~10 sitios de una vez |
 | 8 | Kanban: fecha de entrega no se guarda | Informe | ✅ Verificado (Lote 5) — funciona, con test de regresión |
-| 9 | Seguridad: bitácora solo cubre login | Informe | ⚠️ Arreglado (Lote 7) — código listo, migración sin aplicar en la BD |
+| 9 | Seguridad: bitácora solo cubre login | Informe | ✅ Arreglado (Lote 7) |
 | 10 | Filtros del Tablero del equipo no entran en una fila | Usuario | ✅ Arreglado (Lote 1) |
 | 11 | Filtros del Repositorio de Documentos, mismo problema de ancho | Usuario | ✅ Arreglado (Lote 1) |
 | 12 | Adjuntos de tarea no aparecen en el Repositorio de Documentos | Usuario | ❌ Pendiente |
@@ -148,16 +148,14 @@ directa de lo ya empezado (bugs 1 y 2, sin commitear todavía).
   Validé rompiendo a propósito el `onPick` (sin copiar el título) antes de
   confiar en el test.
 
-### Lote 7 — Seguridad: bitácora de auditoría de negocio (#9) ⚠️ CÓDIGO LISTO, FALTA APLICAR LA MIGRACIÓN
+### Lote 7 — Seguridad: bitácora de auditoría de negocio (#9) ✅ CERRADO
 
 - Nuevo modelo Prisma `Auditoria` (entidad, entidad_id, acción, usuario_id,
   `cambios` JSON, timestamp — sin FK en `entidad_id` a propósito, para
-  sobrevivir a un soft delete del recurso referenciado). Migración generada
-  en `prisma/migrations/20260818153735_auditoria_negocio/` con
-  `--create-only`: **el SQL existe pero todavía no se aplicó** a la base de
-  datos (que en este entorno es la instancia real de Supabase, no una local)
-  — requiere confirmación explícita antes de correr
-  `prisma migrate dev`/`deploy` contra ella.
+  sobrevivir a un soft delete del recurso referenciado). Migración
+  `prisma/migrations/20260818153735_auditoria_negocio/` generada y
+  **aplicada** con `prisma migrate deploy` (2026-08-18, confirmado por el
+  usuario) — `prisma migrate status` confirma la base al día.
 - `logAudit()` (`src/lib/api/audit.ts`), best-effort igual que el log de
   accesos del login: un fallo al escribir la auditoría nunca tumba la
   operación de negocio.
