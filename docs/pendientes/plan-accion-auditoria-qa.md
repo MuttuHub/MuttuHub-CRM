@@ -18,7 +18,7 @@
 | 4 | Documentos: sin detección de duplicados por nombre | Informe | ❌ Pendiente |
 | 5 | CRM: falta "Cargar desde Brief existente" | Informe | ❌ Pendiente |
 | 6 | CRM: sin exportar ficha individual a PDF | Informe | ✅ Arreglado (Lote 1) |
-| 7 | Selects: UUID/enum crudo en vez de nombre legible | Informe (ampliado) | ❌ Pendiente — bug estructural, ~10 sitios |
+| 7 | Selects: UUID/enum crudo en vez de nombre legible | Informe (ampliado) | ✅ Arreglado (Lote 2) — fix centralizado, ~10 sitios de una vez |
 | 8 | Kanban: fecha de entrega no se guarda | Informe | ✅ Aparenta arreglado, sin test de regresión |
 | 9 | Seguridad: bitácora solo cubre login | Informe | ❌ Pendiente |
 | 10 | Filtros del Tablero del equipo no entran en una fila | Usuario | ✅ Arreglado (Lote 1) |
