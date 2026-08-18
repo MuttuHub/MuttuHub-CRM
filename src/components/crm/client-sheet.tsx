@@ -15,6 +15,7 @@ import {
   CalendarClock,
   Download,
   ExternalLink,
+  FileText,
   MessageSquarePlus,
   Pencil,
   Send,
@@ -325,6 +326,17 @@ function SheetHeaderContent({
         >
           <Pencil className="size-3.5" strokeWidth={1.9} />
           Editar
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            window.open(`/print/clientes/${cliente.id}`, "_blank", "noopener")
+          }
+          className="shrink-0 rounded-10 px-3 text-[12.5px] font-semibold"
+        >
+          <FileText className="size-3.5 text-destructivo" strokeWidth={1.9} />
+          Exportar PDF
         </Button>
         <Button
           variant="outline"
