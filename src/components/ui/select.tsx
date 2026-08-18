@@ -6,7 +6,51 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+// Bug fix (QA audit #7): `Select.Value` only renders a resolved item label
+// when the root receives an `items` map — otherwise it falls back to the raw
+// `value` (a UUID, or an enum like "ALTA") once something is selected. Every
+// call site in the app renders `<SelectItem value={id}>{label}</SelectItem>`
+// without ever passing `items` explicitly, so we derive that map once, here,
+// from the `SelectItem` children actually rendered — fixing all consumers at
+// once instead of touching each of the ~10 places that use `Select`.
+function collectSelectItems(
+  node: React.ReactNode,
+  out: Record<string, React.ReactNode>
+) {
+  React.Children.forEach(node, (child) => {
+    if (!React.isValidElement(child)) return
+    const props = child.props as { value?: unknown; children?: React.ReactNode }
+    if (child.type === SelectItem) {
+      if (props.value !== undefined && props.value !== null) {
+        out[String(props.value)] = props.children
+      }
+      return
+    }
+    if (props.children !== undefined) {
+      collectSelectItems(props.children, out)
+    }
+  })
+}
+
+function deriveSelectItems(
+  node: React.ReactNode
+): Record<string, React.ReactNode> | undefined {
+  const map: Record<string, React.ReactNode> = {}
+  collectSelectItems(node, map)
+  return Object.keys(map).length > 0 ? map : undefined
+}
+
+function Select<Value, Multiple extends boolean | undefined = false>({
+  items,
+  children,
+  ...props
+}: SelectPrimitive.Root.Props<Value, Multiple>) {
+  return (
+    <SelectPrimitive.Root items={items ?? deriveSelectItems(children)} {...props}>
+      {children}
+    </SelectPrimitive.Root>
+  )
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (
