@@ -19,6 +19,7 @@ import { withApiErrorHandling } from "@/lib/api/handler";
 import { isSupabaseConfigured, requireApiUser } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { getTaskForWrite, loadTaskScoped } from "@/lib/api/crm";
+import { loadDocCategories } from "@/lib/api/documents";
 import { logAudit } from "@/lib/api/audit";
 
 export const dynamic = "force-dynamic";
@@ -46,9 +47,19 @@ function safeFileName(name: string): string {
  * antes, un archivo subido a una tarea solo vivía en `adjuntos_tareas` y
  * nunca aparecía en /documentos. Reusa el mismo `storage_path` (no vuelve a
  * subir el archivo) y, si la tarea tiene cliente vinculado, lo vincula
- * también ahí. Categoría fija "Otro": un adjunto de tarea no tiene concepto
- * de categoría propio, y este es un espejo best-effort, no un flujo que
- * deba pedirle una categoría al usuario en el momento de adjuntar.
+ * también ahí.
+ *
+ * Categoría: preferimos "Otro" (una tarea no tiene concepto de categoría
+ * propio), pero contra el catálogo EN VIVO — si un admin la renombró o la
+ * sacó del catálogo, caemos a la primera categoría disponible en vez de
+ * escribir un valor que ya no existe en ningún lado (bug de code review).
+ *
+ * Los 4 writes van en una transacción (bug de code review: antes eran pasos
+ * sueltos en un solo try/catch sin rollback — si fallaba después de crear el
+ * Documento, quedaba huérfano y sin versión, visible en el repositorio sin
+ * archivo para descargar). `logAudit` queda deliberadamente FUERA de la
+ * transacción: es best-effort por diseño (ver su propio try/catch interno),
+ * no necesita la misma garantía de atomicidad que la escritura de negocio.
  *
  * Best-effort a propósito: si el espejo falla, el adjunto ya quedó guardado
  * en la tarea (lo que el usuario pidió) y eso no debe perderse por un
@@ -65,34 +76,41 @@ async function mirrorAttachmentAsDocument(params: {
   usuarioId: string;
 }): Promise<void> {
   try {
-    const documento = await db.documento.create({
-      data: { titulo: params.fileName, categoria: "Otro", autor_id: params.usuarioId },
-    });
-    if (params.clienteId) {
-      await db.documentoCliente.create({
-        data: { documento_id: documento.id, cliente_id: params.clienteId },
+    const { categorias } = await loadDocCategories();
+    const categoria = categorias.includes("Otro") ? "Otro" : (categorias[0] ?? "Otro");
+
+    const documentoId = await db.$transaction(async (tx) => {
+      const documento = await tx.documento.create({
+        data: { titulo: params.fileName, categoria, autor_id: params.usuarioId },
       });
-    }
-    await db.documentoVersion.create({
-      data: {
-        documento_id: documento.id,
-        numero_version: 1,
-        storage_path: params.storagePath,
-        tamano_bytes: params.fileSize,
-        tipo_archivo: params.fileType,
-        subido_por_id: params.usuarioId,
-      },
+      if (params.clienteId) {
+        await tx.documentoCliente.create({
+          data: { documento_id: documento.id, cliente_id: params.clienteId },
+        });
+      }
+      await tx.documentoVersion.create({
+        data: {
+          documento_id: documento.id,
+          numero_version: 1,
+          storage_path: params.storagePath,
+          tamano_bytes: params.fileSize,
+          tipo_archivo: params.fileType,
+          subido_por_id: params.usuarioId,
+        },
+      });
+      await tx.adjuntoTarea.update({
+        where: { id: params.adjuntoId },
+        data: { documento_id: documento.id },
+      });
+      return documento.id;
     });
-    await db.adjuntoTarea.update({
-      where: { id: params.adjuntoId },
-      data: { documento_id: documento.id },
-    });
+
     await logAudit({
       entidad: "documento",
-      entidad_id: documento.id,
+      entidad_id: documentoId,
       accion: "crear",
       usuario_id: params.usuarioId,
-      cambios: { titulo: params.fileName, categoria: "Otro", origen: "adjunto_tarea", tarea_id: params.tareaId },
+      cambios: { titulo: params.fileName, categoria, origen: "adjunto_tarea", tarea_id: params.tareaId },
     });
   } catch (err) {
     console.error("[tasks] failed to mirror attachment into document repository:", err);

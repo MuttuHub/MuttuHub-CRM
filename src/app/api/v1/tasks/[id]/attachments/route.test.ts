@@ -3,7 +3,7 @@
 // 400 "Cuerpo de la solicitud no válido." regardless of the actual body.
 // Node's native Request/FormData/File (undici) handle it correctly.
 // @vitest-environment node
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Usuario } from "@prisma/client";
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -15,8 +15,12 @@ vi.mock("@/lib/supabase/admin", () => ({
   createSupabaseAdmin: vi.fn(),
 }));
 
-vi.mock("@/lib/db", () => ({
-  db: {
+vi.mock("@/lib/db", () => {
+  // $transaction calls the callback with `db` itself as `tx`, so tests keep
+  // asserting on the same db.xxx.create mocks regardless of whether the
+  // route wraps writes in a transaction (see PR #29 code review: the mirror
+  // writes are now atomic).
+  const db = {
     tarea: {
       findFirst: vi.fn(),
     },
@@ -34,8 +38,13 @@ vi.mock("@/lib/db", () => ({
     documentoVersion: {
       create: vi.fn(),
     },
-  },
-}));
+    setting: {
+      findUnique: vi.fn(),
+    },
+    $transaction: vi.fn((callback: (tx: unknown) => unknown) => callback(db)),
+  };
+  return { db };
+});
 
 vi.mock("@/lib/api/audit", () => ({ logAudit: vi.fn() }));
 
@@ -95,6 +104,12 @@ function mockUploadOk() {
     },
   } as never);
 }
+
+beforeEach(() => {
+  // No setting row -> loadDocCategories() falls back to the factory
+  // constants, which include "Otro" (the category the mirror prefers).
+  vi.mocked(db.setting.findUnique).mockResolvedValue(null);
+});
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -381,6 +396,86 @@ describe("POST /api/v1/tasks/:id/attachments", () => {
       expect(res.status).toBe(201);
       const json = await res.json();
       expect(json.adjunto).toMatchObject({ id: "a-1" });
+    });
+
+    // Code review finding on PR #29: the category was hardcoded to "Otro"
+    // without checking the live catalog, so a document could be mirrored
+    // with a category that no longer exists if an admin removed it.
+    it("falls back to the first live category when Otro isn't in the catalog", async () => {
+      authAs(gerencia);
+      vi.mocked(isSupabaseConfigured).mockReturnValue(true);
+      vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow({ responsable_id: "gerencia-1" }) as never);
+      vi.mocked(db.adjuntoTarea.create).mockResolvedValue({
+        id: "a-1",
+        nombre: "informe.pdf",
+        tamano_bytes: 3,
+        created_at: new Date("2026-01-01"),
+      } as never);
+      vi.mocked(db.setting.findUnique).mockResolvedValue({
+        value: [
+          { nombre: "Comercial", restringida: false },
+          { nombre: "Proyectos", restringida: false },
+        ],
+      } as never);
+      vi.mocked(db.documento.create).mockResolvedValue({ id: "doc-1" } as never);
+      mockUploadOk();
+
+      const res = await POST(postRequest(uploadForm()), routeContext);
+
+      expect(res.status).toBe(201);
+      expect(db.documento.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ categoria: "Comercial" }) }),
+      );
+    });
+
+    // Code review finding on PR #29: the 4 mirror writes ran as separate
+    // steps in one try/catch with no rollback, so a failure after creating
+    // the Documento left it orphaned in the database (no version, visible
+    // but undownloadable) — a mock can't observe a real commit/rollback, so
+    // this asserts the writes actually go through db.$transaction instead
+    // of being called directly, which is what gives them that guarantee.
+    it("wraps the mirror writes in a single db.$transaction", async () => {
+      authAs(gerencia);
+      vi.mocked(isSupabaseConfigured).mockReturnValue(true);
+      vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow({ responsable_id: "gerencia-1" }) as never);
+      vi.mocked(db.adjuntoTarea.create).mockResolvedValue({
+        id: "a-1",
+        nombre: "informe.pdf",
+        tamano_bytes: 3,
+        created_at: new Date("2026-01-01"),
+      } as never);
+      vi.mocked(db.documento.create).mockResolvedValue({ id: "doc-1" } as never);
+      mockUploadOk();
+
+      const res = await POST(postRequest(uploadForm()), routeContext);
+
+      expect(res.status).toBe(201);
+      expect(db.$transaction).toHaveBeenCalledTimes(1);
+      expect(db.$transaction).toHaveBeenCalledWith(expect.any(Function));
+    });
+
+    it("does not link the attachment back when a later step in the mirror transaction fails", async () => {
+      authAs(gerencia);
+      vi.mocked(isSupabaseConfigured).mockReturnValue(true);
+      vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow({ responsable_id: "gerencia-1" }) as never);
+      vi.mocked(db.adjuntoTarea.create).mockResolvedValue({
+        id: "a-1",
+        nombre: "informe.pdf",
+        tamano_bytes: 3,
+        created_at: new Date("2026-01-01"),
+      } as never);
+      vi.mocked(db.documento.create).mockResolvedValue({ id: "doc-1" } as never);
+      vi.mocked(db.documentoVersion.create).mockRejectedValue(new Error("db down"));
+      mockUploadOk();
+
+      const res = await POST(postRequest(uploadForm()), routeContext);
+
+      // The attachment upload itself still succeeds (best-effort mirror)...
+      expect(res.status).toBe(201);
+      // ...but the transaction aborted before the last step, so the
+      // attachment never got linked to the (now-failed) mirror document.
+      expect(db.adjuntoTarea.update).not.toHaveBeenCalled();
+      expect(logAudit).not.toHaveBeenCalled();
     });
   });
 
