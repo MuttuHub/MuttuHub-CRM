@@ -184,7 +184,25 @@ export type UploadDocumentInput = {
   categoria: string;
   etiquetas: string[];
   cliente_id?: string;
+  /** Salta la verificación de título duplicado (el usuario ya decidió crear
+   * un documento aparte pese a la advertencia). */
+  force?: boolean;
 };
+
+/**
+ * Título duplicado (QA audit #4): el servidor responde 409 con el documento
+ * existente en vez de crear uno nuevo. No es un error de verdad — el diálogo
+ * lo usa para ofrecer "nueva versión" vs "documento aparte", así que no debe
+ * mostrarse como toast como el resto de errores de `multipartUpload`.
+ */
+export class DocumentDuplicateTitleError extends Error {
+  readonly existing: { id: string; titulo: string };
+  constructor(existing: { id: string; titulo: string }) {
+    super(`Ya existe un documento llamado "${existing.titulo}".`);
+    this.name = "DocumentDuplicateTitleError";
+    this.existing = existing;
+  }
+}
 
 export function useUploadDocument(): UseMutationResult<
   DocumentUploadResponse,
@@ -200,7 +218,23 @@ export function useUploadDocument(): UseMutationResult<
       form.append("categoria", input.categoria);
       form.append("etiquetas", JSON.stringify(input.etiquetas));
       if (input.cliente_id) form.append("cliente_id", input.cliente_id);
-      return multipartUpload<DocumentUploadResponse>("/api/v1/documents", form);
+      if (input.force) form.append("force", "true");
+
+      const res = await fetch("/api/v1/documents", { method: "POST", body: form });
+      if (res.ok) return (await res.json()) as DocumentUploadResponse;
+
+      let body: { error?: string; code?: string; documento?: { id: string; titulo: string } } = {};
+      try {
+        body = await res.json();
+      } catch {
+        /* fallback message below */
+      }
+      if (res.status === 409 && body.code === "CONFLICT" && body.documento) {
+        throw new DocumentDuplicateTitleError(body.documento);
+      }
+      const err = new ApiError(body.error ?? "No pudimos subir el archivo.", res.status, body.code);
+      toast.error(err.message);
+      throw err;
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: documentQueryKeys.all });

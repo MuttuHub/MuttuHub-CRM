@@ -22,6 +22,7 @@ vi.mock("@/lib/db", () => ({
     },
     documento: {
       findMany: vi.fn(),
+      findFirst: vi.fn(),
       count: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
@@ -187,6 +188,9 @@ describe("POST /api/v1/documents", () => {
         }),
       },
     } as never);
+    // Sin coincidencia de título por defecto; los tests de duplicados la
+    // sobreescriben explícitamente.
+    vi.mocked(db.documento.findFirst).mockResolvedValue(null);
   });
 
   it("creates the document and its first version (201)", async () => {
@@ -329,5 +333,57 @@ describe("POST /api/v1/documents", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
     expect(db.documento.create).not.toHaveBeenCalled();
+  });
+
+  // QA audit finding #4: a duplicate title used to silently create a second,
+  // independent document instead of offering to version the existing one.
+  describe("duplicate title (QA audit finding #4)", () => {
+    it("returns 409 with the existing document instead of creating a duplicate", async () => {
+      vi.mocked(db.documento.findFirst).mockResolvedValue(
+        docRow({ id: "doc-existing" }) as never,
+      );
+
+      const res = await POST(
+        postRequest(uploadForm({ categoria: "Comercial", titulo: "Informe final" })),
+      );
+
+      expect(res.status).toBe(409);
+      expect(await res.json()).toMatchObject({
+        code: "CONFLICT",
+        documento: { id: "doc-existing", titulo: "Informe final" },
+      });
+      expect(db.documento.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { titulo: { equals: "Informe final", mode: "insensitive" }, deleted_at: null },
+        }),
+      );
+      expect(db.documento.create).not.toHaveBeenCalled();
+    });
+
+    it("creates the document anyway when force is true, skipping the duplicate check", async () => {
+      vi.mocked(db.documento.findFirst).mockResolvedValue(
+        docRow({ id: "doc-existing" }) as never,
+      );
+      vi.mocked(db.documento.create).mockResolvedValue(docRow({ id: "doc-new", categoria: "Comercial" }));
+      vi.mocked(db.documentoVersion.create).mockResolvedValue({
+        id: "v-1",
+        documento_id: "doc-new",
+        numero_version: 1,
+        storage_path: "documentos/general/doc-new/v1_informe.pdf",
+        tamano_bytes: 3,
+        tipo_archivo: "application/pdf",
+        subido_por_id: "admin-1",
+        created_at: new Date("2026-01-01"),
+      });
+      vi.mocked(db.documentoCliente.findMany).mockResolvedValue([]);
+
+      const res = await POST(
+        postRequest(uploadForm({ categoria: "Comercial", titulo: "Informe final", force: "true" })),
+      );
+
+      expect(res.status).toBe(201);
+      expect(db.documento.findFirst).not.toHaveBeenCalled();
+      expect(db.documento.create).toHaveBeenCalled();
+    });
   });
 });

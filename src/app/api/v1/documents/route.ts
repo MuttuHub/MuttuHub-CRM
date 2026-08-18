@@ -6,10 +6,13 @@
 // `doc_categories` (fallback RESTRICTED_DOC_CATEGORIES; también aplicado al
 // count).
 // POST /api/v1/documents — multipart/form-data (file, titulo?, categoria,
-// etiquetas? JSON, cliente_id?) crea el Documento + sube la versión v1 a
-// Supabase Storage. Flujo transaccional-ish: fila primero, upload después,
+// etiquetas? JSON, cliente_id?, force?) crea el Documento + sube la versión v1
+// a Supabase Storage. Flujo transaccional-ish: fila primero, upload después,
 // versión al final; si el upload falla se hace soft delete del documento
-// huérfano y se responde 500 (nunca crash).
+// huérfano y se responde 500 (nunca crash). Si ya existe un documento con el
+// mismo título (case-insensitive) y `force` no viene en true, responde 409
+// CONFLICT con el documento existente en vez de crear un duplicado — el
+// diálogo de subida ofrece entonces "nueva versión" o "documento aparte".
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -50,6 +53,7 @@ type UploadedFile = {
   categoria: string;
   etiquetas: string[];
   clienteId: string | null;
+  force: boolean;
 };
 
 /**
@@ -125,7 +129,13 @@ export async function parseUploadForm(
   const rawClienteId = form.get("cliente_id");
   const clienteId = typeof rawClienteId === "string" && rawClienteId.trim() ? rawClienteId.trim() : null;
 
-  return { ok: true, data: { titulo, categoria, etiquetas, clienteId, file } };
+  // Solo relevante para POST /documents (QA audit #4): el diálogo lo manda
+  // en true cuando el usuario ya decidió crear un documento aparte pese a la
+  // advertencia de nombre duplicado. La versión nueva (POST /:id/versions)
+  // lo ignora.
+  const force = form.get("force") === "true";
+
+  return { ok: true, data: { titulo, categoria, etiquetas, clienteId, file, force } };
 }
 
 export const GET = withApiErrorHandling(
@@ -207,11 +217,33 @@ export async function POST(request: Request) {
     categorias: docCategories.categorias,
   });
   if (!form.ok) return form.response;
-  const { file, titulo, categoria, etiquetas, clienteId } = form.data;
+  const { file, titulo, categoria, etiquetas, clienteId, force } = form.data;
 
   // Categorías restringidas: los COLABORADOR no pueden ni crearlas (PRD §6.2).
   if (!isFullAccess(auth.usuario.rol) && docCategories.restringidas.includes(categoria)) {
     return apiError("No tienes permisos para documentos de esa categoría.", 403, "FORBIDDEN");
+  }
+
+  // QA audit #4: antes solo existía el versionado manual (POST
+  // /:id/versions, iniciado por el usuario desde la ficha); subir con un
+  // título repetido creaba un documento duplicado independiente sin
+  // preguntar nada. Si no es un versionado explícito (force), avisamos y
+  // dejamos que el diálogo decida entre "nueva versión" o "documento aparte".
+  if (!force) {
+    const existing = await db.documento.findFirst({
+      where: { titulo: { equals: titulo, mode: "insensitive" }, deleted_at: null },
+      select: { id: true, titulo: true },
+    });
+    if (existing) {
+      return NextResponse.json(
+        {
+          error: `Ya existe un documento llamado "${existing.titulo}".`,
+          code: "CONFLICT",
+          documento: existing,
+        },
+        { status: 409 },
+      );
+    }
   }
 
   try {

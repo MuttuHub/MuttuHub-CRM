@@ -34,7 +34,12 @@ import {
   formatBytes,
   useClientOptions,
 } from "@/hooks/kanban";
-import { useDocCategories, useUploadDocument } from "@/hooks/documents";
+import {
+  DocumentDuplicateTitleError,
+  useDocCategories,
+  useUploadDocument,
+  useUploadVersion,
+} from "@/hooks/documents";
 
 /* ── Dropzone compartida (crear documento y nueva versión) ─────────────── */
 
@@ -237,6 +242,11 @@ export function UploadDocumentDialog({
   const [etiquetas, setEtiquetas] = useState<string[]>([]);
   const [clienteId, setClienteId] = useState(prefilledClienteId ?? "");
   const [error, setError] = useState<string | null>(null);
+  // Título duplicado (QA audit #4): en vez de crear un documento aparte en
+  // silencio, se muestra esta advertencia con el documento existente y se
+  // deja que el usuario elija.
+  const [duplicate, setDuplicate] = useState<{ id: string; titulo: string } | null>(null);
+  const versionUpload = useUploadVersion(duplicate?.id ?? "");
 
   function handleFile(next: File | null) {
     setFile(next);
@@ -244,6 +254,21 @@ export function UploadDocumentDialog({
       const dot = next.name.lastIndexOf(".");
       setTitulo(dot > 0 ? next.name.slice(0, dot) : next.name);
     }
+  }
+
+  function handleTitulo(next: string) {
+    setTitulo(next);
+    if (duplicate) setDuplicate(null);
+  }
+
+  function uploadInput() {
+    return {
+      file: file!,
+      titulo: titulo.trim() || file!.name,
+      categoria,
+      etiquetas,
+      ...(clienteId ? { cliente_id: clienteId } : {}),
+    };
   }
 
   async function handleSubmit() {
@@ -257,13 +282,32 @@ export function UploadDocumentDialog({
       return;
     }
     try {
-      await upload.mutateAsync({
-        file,
-        titulo: titulo.trim() || file.name,
-        categoria,
-        etiquetas,
-        ...(clienteId ? { cliente_id: clienteId } : {}),
-      });
+      await upload.mutateAsync(uploadInput());
+      onOpenChange(false);
+      onSaved?.();
+    } catch (err) {
+      if (err instanceof DocumentDuplicateTitleError) {
+        setDuplicate(err.existing);
+        return;
+      }
+      /* el resto de errores los toastean los hooks */
+    }
+  }
+
+  async function handleCreateSeparate() {
+    try {
+      await upload.mutateAsync({ ...uploadInput(), force: true });
+      onOpenChange(false);
+      onSaved?.();
+    } catch {
+      /* los toasts los lanzan los hooks */
+    }
+  }
+
+  async function handleUploadAsVersion() {
+    if (!file || !duplicate) return;
+    try {
+      await versionUpload.mutateAsync({ file });
       onOpenChange(false);
       onSaved?.();
     } catch {
@@ -293,6 +337,50 @@ export function UploadDocumentDialog({
             </div>
           )}
 
+          {duplicate && (
+            <div
+              role="alert"
+              className="flex flex-col gap-3 rounded-xl border border-alerta/30 bg-alerta-bg px-4 py-3.5 text-[13px] text-ink-800"
+            >
+              <p>
+                Ya existe un documento llamado <strong>&ldquo;{duplicate.titulo}&rdquo;</strong>.
+                ¿Querés subir este archivo como una nueva versión de ese documento, o crear uno
+                aparte?
+              </p>
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setDuplicate(null)}
+                  className="rounded-lg font-semibold text-ink-700"
+                >
+                  Volver
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void handleCreateSeparate()}
+                  disabled={upload.isPending}
+                  className="rounded-lg font-semibold"
+                >
+                  Crear aparte
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => void handleUploadAsVersion()}
+                  disabled={versionUpload.isPending}
+                  className="rounded-lg font-bold"
+                >
+                  {versionUpload.isPending && <LoaderCircle className="size-4 animate-spin" />}
+                  Subir como nueva versión
+                </Button>
+              </div>
+            </div>
+          )}
+
           <FileDropzone file={file} onChange={handleFile} />
 
           <div className="flex flex-col gap-2">
@@ -302,7 +390,7 @@ export function UploadDocumentDialog({
             <Input
               id="doc-titulo"
               value={titulo}
-              onChange={(e) => setTitulo(e.target.value)}
+              onChange={(e) => handleTitulo(e.target.value)}
               placeholder="Nombre del documento"
               className="h-10 rounded-12 bg-panel px-3"
             />
@@ -363,7 +451,7 @@ export function UploadDocumentDialog({
             <Button
               type="button"
               onClick={() => void handleSubmit()}
-              disabled={upload.isPending}
+              disabled={upload.isPending || Boolean(duplicate)}
               className="rounded-lg px-4 font-bold"
             >
               {upload.isPending && <LoaderCircle className="size-4 animate-spin" />}
