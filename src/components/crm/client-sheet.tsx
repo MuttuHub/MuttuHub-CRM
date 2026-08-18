@@ -11,6 +11,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import type { EstadoCliente, PrioridadCliente, TipoCliente } from "@prisma/client";
 import {
   CalendarClock,
   Download,
@@ -26,13 +27,23 @@ import {
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
+  ENUM_VALUES,
   ESTADO_CLIENTE_LABELS,
   ESTADO_OPORTUNIDAD_LABELS,
   ESTADO_TAREA_LABELS,
+  PRIORIDAD_CLIENTE_LABELS,
   ROL_CONTACTO_LABELS,
   TIPO_CLIENTE_LABELS,
 } from "@/lib/catalogs";
@@ -52,9 +63,11 @@ import {
   useDeleteTarea,
   useOpportunities,
   useTasksByClient,
+  useUpdateClient,
   useUpdateTareaStatus,
   useUsers,
   type ClientDetail,
+  type ClientInput,
   type Contacto,
   type Oportunidad,
   type TaskItem,
@@ -149,7 +162,7 @@ export function ClientSheet({
 
                 <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
                   <TabsContent value="general" className="mt-0">
-                    <GeneralTab cliente={cliente} />
+                    <GeneralTab cliente={cliente} users={users} />
                   </TabsContent>
 
                   <TabsContent value="contactos" className="mt-0">
@@ -390,43 +403,406 @@ function SheetHeaderContent({
   );
 }
 
-/* ── Pestaña General ───────────────────────────────────────────────────── */
+/* ── Pestaña General (edición inline — QA audit #3) ──────────────────────
+ * Cada campo se guarda solo (PATCH parcial vía useUpdateClient), sin abrir
+ * el modal "Editar cliente" — ese modal se mantiene disponible para editar
+ * varios campos a la vez, pero ya no es la única vía. Los de texto/fecha
+ * muestran el valor como texto y se vuelven un input al hacer clic (guardan
+ * al perder el foco o con Enter, Escape cancela); los de catálogo (tipo,
+ * estado, prioridad, responsable) son directamente un Select, que ya es en
+ * sí mismo un control de "un clic para cambiar". "Valor potencial" y
+ * "Compromisos abiertos" quedan de solo lectura: son agregados calculados
+ * (oportunidades/compromisos), no columnas propias del cliente. */
 
-function GeneralTab({ cliente }: { cliente: ClientDetail }) {
+const INLINE_LABEL_CLASS = "text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase";
+const INLINE_DISPLAY_CLASS =
+  "group mt-1 -mx-1.5 flex w-full items-start gap-1.5 rounded-md px-1.5 py-0.5 text-left text-[13.5px] leading-snug text-ink-900 hover:bg-ink-100 disabled:opacity-60";
+const INLINE_INPUT_CLASS = "mt-1 h-8 rounded-md bg-panel px-2 text-[13.5px]";
+const INLINE_SELECT_TRIGGER_CLASS =
+  "mt-1 h-8 w-full justify-start rounded-md border-transparent bg-transparent px-1.5 font-normal text-ink-900 hover:border-ink-200 hover:bg-ink-100 data-[popup-open]:border-ink-200 data-[popup-open]:bg-ink-100";
+
+function useInlineClientField<K extends keyof ClientInput>(
+  clientId: string,
+  field: K,
+): (value: ClientInput[K]) => Promise<void> {
+  const mutation = useUpdateClient(clientId);
+  return async (value) => {
+    await mutation.mutateAsync({ [field]: value } as Partial<ClientInput>);
+  };
+}
+
+function InlineText({
+  label,
+  value,
+  onSave,
+  required,
+}: {
+  label: string;
+  value: string | null;
+  onSave: (value: string | null) => Promise<void>;
+  required?: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? "");
+  const [saving, setSaving] = useState(false);
+
+  async function commit() {
+    const next = draft.trim();
+    if (required && !next) {
+      setDraft(value ?? "");
+      setEditing(false);
+      return;
+    }
+    if (next === (value ?? "")) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave(next || null);
+      setEditing(false);
+    } catch {
+      /* el toast lo dispara el hook; se queda en edición para reintentar */
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!editing) {
+    return (
+      <div className="min-w-0">
+        <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+        <button
+          type="button"
+          onClick={() => {
+            setDraft(value ?? "");
+            setEditing(true);
+          }}
+          className={INLINE_DISPLAY_CLASS}
+        >
+          <span className="min-w-0 flex-1 whitespace-pre-wrap">{value || "—"}</span>
+          <Pencil
+            className="mt-0.5 size-3 shrink-0 text-ink-400 opacity-0 group-hover:opacity-100"
+            strokeWidth={2}
+          />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-w-0">
+      <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+      <Input
+        autoFocus
+        value={draft}
+        disabled={saving}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => void commit()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            void commit();
+          }
+          if (e.key === "Escape") {
+            e.preventDefault();
+            setDraft(value ?? "");
+            setEditing(false);
+          }
+        }}
+        className={INLINE_INPUT_CLASS}
+      />
+    </div>
+  );
+}
+
+function InlineTextarea({
+  label,
+  value,
+  onSave,
+}: {
+  label: string;
+  value: string | null;
+  onSave: (value: string | null) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? "");
+  const [saving, setSaving] = useState(false);
+
+  async function commit() {
+    const next = draft.trim();
+    if (next === (value ?? "")) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave(next || null);
+      setEditing(false);
+    } catch {
+      /* el toast lo dispara el hook; se queda en edición para reintentar */
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!editing) {
+    return (
+      <div className="min-w-0">
+        <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+        <button
+          type="button"
+          onClick={() => {
+            setDraft(value ?? "");
+            setEditing(true);
+          }}
+          className={INLINE_DISPLAY_CLASS}
+        >
+          <span className="min-w-0 flex-1 whitespace-pre-wrap">{value || "—"}</span>
+          <Pencil
+            className="mt-0.5 size-3 shrink-0 text-ink-400 opacity-0 group-hover:opacity-100"
+            strokeWidth={2}
+          />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-w-0">
+      <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+      <textarea
+        autoFocus
+        rows={2}
+        value={draft}
+        disabled={saving}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => void commit()}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            setDraft(value ?? "");
+            setEditing(false);
+          }
+        }}
+        className="mt-1 w-full resize-none rounded-md border border-input bg-panel px-2 py-1.5 text-[13.5px] text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+      />
+    </div>
+  );
+}
+
+function InlineDate({
+  label,
+  value,
+  onSave,
+}: {
+  label: string;
+  value: string | null;
+  onSave: (value: string | null) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const asInputValue = value && !Number.isNaN(new Date(value).getTime())
+    ? new Date(value).toISOString().slice(0, 10)
+    : "";
+  const [draft, setDraft] = useState(asInputValue);
+  const [saving, setSaving] = useState(false);
+
+  async function commit() {
+    if (draft === asInputValue) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave(draft || null);
+      setEditing(false);
+    } catch {
+      /* el toast lo dispara el hook; se queda en edición para reintentar */
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!editing) {
+    return (
+      <div className="min-w-0">
+        <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+        <button
+          type="button"
+          onClick={() => {
+            setDraft(asInputValue);
+            setEditing(true);
+          }}
+          className={INLINE_DISPLAY_CLASS}
+        >
+          <span className="min-w-0 flex-1">{formatFecha(value)}</span>
+          <Pencil
+            className="mt-0.5 size-3 shrink-0 text-ink-400 opacity-0 group-hover:opacity-100"
+            strokeWidth={2}
+          />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-w-0">
+      <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+      <Input
+        autoFocus
+        type="date"
+        value={draft}
+        disabled={saving}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => void commit()}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            setDraft(asInputValue);
+            setEditing(false);
+          }
+        }}
+        className={INLINE_INPUT_CLASS}
+      />
+    </div>
+  );
+}
+
+const CLEAR_PRIORIDAD = "sin-prioridad";
+
+function InlineSelect<T extends string>({
+  label,
+  value,
+  options,
+  onSave,
+  clearLabel,
+}: {
+  label: string;
+  value: T | "";
+  options: { value: T; label: string }[];
+  onSave: (value: T | null) => Promise<void>;
+  /** Si viene, agrega una opción para volver el campo a null (ej. prioridad). */
+  clearLabel?: string;
+}) {
+  async function handleChange(next: string | null) {
+    if (!next || next === value) return;
+    await onSave(next === CLEAR_PRIORIDAD ? null : (next as T));
+  }
+
+  return (
+    <div className="min-w-0">
+      <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+      <Select value={value || (clearLabel ? CLEAR_PRIORIDAD : "")} onValueChange={(v) => void handleChange(v)}>
+        <SelectTrigger className={INLINE_SELECT_TRIGGER_CLASS}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {clearLabel && <SelectItem value={CLEAR_PRIORIDAD}>{clearLabel}</SelectItem>}
+          {options.map((o) => (
+            <SelectItem key={o.value} value={o.value}>
+              {o.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+function GeneralTab({
+  cliente,
+  users,
+}: {
+  cliente: ClientDetail;
+  users: { id: string; nombre: string }[];
+}) {
+  const save = useInlineClientField(cliente.id, "nombre");
+  const saveEmpresa = useInlineClientField(cliente.id, "empresa");
+  const saveTipo = useInlineClientField(cliente.id, "tipo_cliente");
+  const saveTamano = useInlineClientField(cliente.id, "tamano_org");
+  const saveUbicacion = useInlineClientField(cliente.id, "ubicacion");
+  const saveCanal = useInlineClientField(cliente.id, "canal_contacto_inicial");
+  const saveFecha = useInlineClientField(cliente.id, "fecha_primer_contacto");
+  const savePrioridad = useInlineClientField(cliente.id, "prioridad");
+  const saveEstado = useInlineClientField(cliente.id, "estado");
+  const saveResponsable = useInlineClientField(cliente.id, "responsable_id");
+  const savePrioridades = useInlineClientField(cliente.id, "prioridades_identificadas");
+  const saveRiesgos = useInlineClientField(cliente.id, "riesgos_barreras");
+  const saveResumen = useInlineClientField(cliente.id, "resumen_relacion");
+
   return (
     <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
-      <FieldValue label="Nombre" value={cliente.nombre} />
-      <FieldValue label="Empresa u organización" value={cliente.empresa ?? "—"} />
-      <FieldValue
+      <InlineText
+        label="Nombre"
+        value={cliente.nombre}
+        onSave={(v) => save(v as string)}
+        required
+      />
+      <InlineText label="Empresa u organización" value={cliente.empresa} onSave={saveEmpresa} />
+      <InlineSelect
         label="Tipo de cliente"
-        value={TIPO_CLIENTE_LABELS[cliente.tipo_cliente].label}
+        value={cliente.tipo_cliente}
+        options={(ENUM_VALUES.TipoCliente as readonly TipoCliente[]).map((t) => ({
+          value: t,
+          label: TIPO_CLIENTE_LABELS[t].label,
+        }))}
+        onSave={(v) => saveTipo(v as TipoCliente)}
       />
-      <FieldValue label="Tamaño de la organización" value={cliente.tamano_org ?? "—"} />
-      <FieldValue label="Ubicación" value={cliente.ubicacion ?? "—"} />
-      <FieldValue
+      <InlineText label="Tamaño de la organización" value={cliente.tamano_org} onSave={saveTamano} />
+      <InlineText label="Ubicación" value={cliente.ubicacion} onSave={saveUbicacion} />
+      <InlineText
         label="Canal de contacto inicial"
-        value={cliente.canal_contacto_inicial ?? "—"}
+        value={cliente.canal_contacto_inicial}
+        onSave={saveCanal}
       />
-      <FieldValue
+      <InlineDate
         label="Fecha de primer contacto"
-        value={formatFecha(cliente.fecha_primer_contacto)}
+        value={cliente.fecha_primer_contacto}
+        onSave={saveFecha}
       />
-      <FieldValue label="Prioridad" value={<PrioridadChip prioridad={cliente.prioridad} />} />
-      <FieldValue label="Estado" value={ESTADO_CLIENTE_LABELS[cliente.estado].label} />
-      <FieldValue label="Responsable interno" value={cliente.responsable_nombre} />
+      <InlineSelect
+        label="Prioridad"
+        value={cliente.prioridad ?? ""}
+        options={(ENUM_VALUES.PrioridadCliente as readonly PrioridadCliente[]).map((p) => ({
+          value: p,
+          label: PRIORIDAD_CLIENTE_LABELS[p].label,
+        }))}
+        onSave={(v) => savePrioridad(v as PrioridadCliente | null)}
+        clearLabel="Sin prioridad"
+      />
+      <InlineSelect
+        label="Estado"
+        value={cliente.estado}
+        options={(ENUM_VALUES.EstadoCliente as readonly EstadoCliente[]).map((e) => ({
+          value: e,
+          label: ESTADO_CLIENTE_LABELS[e].label,
+        }))}
+        onSave={(v) => saveEstado(v as EstadoCliente)}
+      />
+      <InlineSelect
+        label="Responsable interno"
+        value={cliente.responsable_id}
+        options={users.map((u) => ({ value: u.id, label: u.nombre }))}
+        onSave={(v) => saveResponsable(v as string)}
+      />
       <FieldValue label="Valor potencial" value={formatCOP(cliente.valor_potencial)} mono />
       <FieldValue label="Compromisos abiertos" value={cliente.compromisos_abiertos} mono />
       <div className="sm:col-span-2">
-        <FieldValue
+        <InlineTextarea
           label="Prioridades identificadas del cliente"
-          value={cliente.prioridades_identificadas ?? "—"}
+          value={cliente.prioridades_identificadas}
+          onSave={savePrioridades}
         />
       </div>
       <div className="sm:col-span-2">
-        <FieldValue label="Riesgos o barreras" value={cliente.riesgos_barreras ?? "—"} />
+        <InlineTextarea label="Riesgos o barreras" value={cliente.riesgos_barreras} onSave={saveRiesgos} />
       </div>
       <div className="sm:col-span-2">
-        <FieldValue label="Resumen de la relación" value={cliente.resumen_relacion ?? "—"} />
+        <InlineTextarea
+          label="Resumen de la relación"
+          value={cliente.resumen_relacion}
+          onSave={saveResumen}
+        />
       </div>
     </dl>
   );
