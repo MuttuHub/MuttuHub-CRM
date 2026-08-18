@@ -12,7 +12,7 @@
 
 | # | Hallazgo | Origen | Estado |
 |---|---|---|---|
-| 1 | Kanban: copy "solo título obligatorio" vs responsable forzado | Informe | ✅ Copy arreglado (validación sigue exigiendo responsable) |
+| 1 | Kanban: copy "solo título obligatorio" vs responsable forzado | Informe | ✅ Cerrado — responsable obligatorio confirmado por el dueño |
 | 2 | Documentos: categoría "Comercial" inválida | Informe | ✅ Arreglado |
 | 3 | CRM: sin edición inline | Informe | ✅ Arreglado (Lote 3) |
 | 4 | Documentos: sin detección de duplicados por nombre | Informe | ✅ Arreglado (Lote 4) |
@@ -201,9 +201,10 @@ directa de lo ya empezado (bugs 1 y 2, sin commitear todavía).
 
 ## Abiertos que necesitan tu decisión (o la de Felipe) antes de tocar código
 
-1. **Bug 1**: ¿el responsable debe volverse *realmente* opcional en Kanban, o
-   el copy corregido ("Título y responsable son obligatorios") ya es la
-   solución final aceptada?
+1. ~~**Bug 1**: ¿responsable opcional o el copy corregido ya es la solución
+   final?~~ — resuelto 2026-08-18: el dueño confirmó que el responsable debe
+   ser **obligatorio** para todas las tareas. El comportamiento actual ya es
+   el correcto (validado en cliente y servidor); no hace falta tocar código.
 2. ~~**Lote 6**: qué es un "Brief existente"~~ — resuelto 2026-08-18: documento
    del Repositorio, prellenado liviano (solo el título → nombre).
 3. ~~**Lote 8**: camino (a) vs (b), borrado en cascada~~ — resuelto
