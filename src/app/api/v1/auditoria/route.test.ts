@@ -95,20 +95,40 @@ describe("GET /api/v1/auditoria", () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.registros).toHaveLength(2);
-    expect(json.next_before).toBe(rows[1].created_at.toISOString());
+    expect(json.next_before).toBe(`${rows[1].created_at.toISOString()}_${rows[1].id}`);
     expect(db.auditoria.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 3 }));
   });
 
-  it("applies the 'before' filter when provided", async () => {
+  it("applies the 'before' cursor when provided, using both created_at and id as tiebreaker", async () => {
     vi.mocked(db.auditoria.findMany).mockResolvedValue([]);
 
-    const res = await GET(auditoriaRequest("?before=2026-01-01T00:00:00.000Z"));
+    const res = await GET(auditoriaRequest("?before=2026-01-01T00:00:00.000Z_aud-5"));
 
     expect(res.status).toBe(200);
     expect(db.auditoria.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { created_at: { lt: new Date("2026-01-01T00:00:00.000Z") } },
+        where: {
+          OR: [
+            { created_at: { lt: new Date("2026-01-01T00:00:00.000Z") } },
+            { created_at: new Date("2026-01-01T00:00:00.000Z"), id: { lt: "aud-5" } },
+          ],
+        },
       }),
+    );
+  });
+
+  // Code review finding: a single-field (created_at) cursor is ambiguous when
+  // two rows share the exact same created_at — the id tiebreaker in the WHERE
+  // clause is what stops one of them from being silently skipped or repeated
+  // across a page boundary. This asserts the tiebreaker branch is present,
+  // not just the plain "lt" branch above.
+  it("orders by created_at and id together so same-instant rows don't get skipped or duplicated", async () => {
+    vi.mocked(db.auditoria.findMany).mockResolvedValue([]);
+
+    await GET(auditoriaRequest());
+
+    expect(db.auditoria.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: [{ created_at: "desc" }, { id: "desc" }] }),
     );
   });
 
@@ -139,8 +159,8 @@ describe("GET /api/v1/auditoria", () => {
     expect(db.auditoria.findMany).not.toHaveBeenCalled();
   });
 
-  it("returns 400 for an invalid 'before' date", async () => {
-    const res = await GET(auditoriaRequest("?before=not-a-date"));
+  it("returns 400 for an invalid 'before' cursor", async () => {
+    const res = await GET(auditoriaRequest("?before=not-a-cursor"));
 
     expect(res.status).toBe(400);
     expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });

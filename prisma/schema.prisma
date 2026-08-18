@@ -346,7 +346,13 @@ model Auditoria {
   usuario Usuario @relation(fields: [usuario_id], references: [id])
 
   @@index([entidad, entidad_id])
-  @@index([created_at])
+  // Code review finding: GET /api/v1/auditoria siempre ordena por
+  // created_at desc y opcionalmente filtra por entidad — ninguno de los
+  // índices anteriores cubría ese patrón. (created_at, id) también respalda
+  // el cursor compuesto de la paginación (ver el mismo hallazgo sobre el
+  // cursor no único).
+  @@index([created_at, id])
+  @@index([entidad, created_at, id])
   @@map("auditoria")
 }
 
