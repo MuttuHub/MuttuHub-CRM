@@ -15,6 +15,7 @@ import { withApiErrorHandling } from "@/lib/api/handler";
 import { isSupabaseConfigured, requireApiUser } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { documentStoragePath, STORAGE_BUCKET } from "@/lib/api/files";
+import { logAudit } from "@/lib/api/audit";
 import {
   DOCUMENT_VERSION_SELECT,
   documentAccessError,
@@ -117,6 +118,14 @@ export const POST = withApiErrorHandling(
         subido_por_id: auth.usuario.id,
       },
       select: DOCUMENT_VERSION_SELECT,
+    });
+
+    await logAudit({
+      entidad: "documento",
+      entidad_id: id,
+      accion: "editar",
+      usuario_id: auth.usuario.id,
+      cambios: { nueva_version: numero, nombre_archivo: file.name },
     });
 
     return NextResponse.json(

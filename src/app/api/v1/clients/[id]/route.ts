@@ -18,6 +18,7 @@ import { apiError, parseJsonBody } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { ENUM_VALUES } from "@/lib/catalogs";
+import { logAudit } from "@/lib/api/audit";
 import {
   catalogEnum,
   CLIENT_FULL_SELECT,
@@ -194,6 +195,13 @@ export const PATCH = withApiErrorHandling(
       data,
       select: CLIENT_FULL_SELECT,
     });
+    await logAudit({
+      entidad: "cliente",
+      entidad_id: id,
+      accion: "editar",
+      usuario_id: auth.usuario.id,
+      cambios: parsed.data,
+    });
     return NextResponse.json({ cliente: { ...updated, responsable_nombre: updated.responsable.nombre } });
   },
 );
@@ -217,6 +225,12 @@ export const DELETE = withApiErrorHandling(
     await db.cliente.update({
       where: { id },
       data: { deleted_at: new Date() },
+    });
+    await logAudit({
+      entidad: "cliente",
+      entidad_id: id,
+      accion: "eliminar",
+      usuario_id: auth.usuario.id,
     });
     return new NextResponse(null, { status: 204 });
   },

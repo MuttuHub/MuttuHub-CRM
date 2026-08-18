@@ -24,8 +24,11 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+vi.mock("@/lib/api/audit", () => ({ logAudit: vi.fn() }));
+
 import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/supabase/server";
+import { logAudit } from "@/lib/api/audit";
 import { GET, POST } from "./route";
 
 const gerencia = { id: "gerencia-1", rol: "GERENCIA" } as Usuario;
@@ -182,6 +185,9 @@ describe("POST /api/v1/tasks", () => {
       expect.objectContaining({
         data: expect.objectContaining({ estado: "POR_HACER", origen: "KANBAN" }),
       }),
+    );
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ entidad: "tarea", entidad_id: "task-new", accion: "crear" }),
     );
   });
 

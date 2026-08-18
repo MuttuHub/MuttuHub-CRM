@@ -14,8 +14,11 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+vi.mock("@/lib/api/audit", () => ({ logAudit: vi.fn() }));
+
 import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/supabase/server";
+import { logAudit } from "@/lib/api/audit";
 import { PATCH } from "./route";
 
 const gerencia = { id: "gerencia-1", rol: "GERENCIA" } as Usuario;
@@ -129,6 +132,9 @@ describe("PATCH /api/v1/tasks/:id/status", () => {
     const res = await PATCH(patchRequest({ estado: "EN_CURSO" }), routeContext);
 
     expect(res.status).toBe(200);
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ entidad: "tarea", entidad_id: "task-1", accion: "editar" }),
+    );
   });
 
   it("allows a full-access role to move any task", async () => {

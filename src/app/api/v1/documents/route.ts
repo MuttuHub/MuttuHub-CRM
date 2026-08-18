@@ -21,6 +21,7 @@ import { withApiErrorHandling } from "@/lib/api/handler";
 import { isSupabaseConfigured, requireApiUser } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { isFullAccess, parsePagination } from "@/lib/api/crm";
+import { logAudit } from "@/lib/api/audit";
 import { documentStoragePath, isAllowedFileType, MAX_FILE_BYTES, STORAGE_BUCKET } from "@/lib/api/files";
 import {
   buildDocumentWhere,
@@ -315,6 +316,14 @@ export async function POST(request: Request) {
     const activeVersions = new Map([[documento.id, version]]);
     const userNames = new Map([[auth.usuario.id, auth.usuario.nombre]]);
     const clientsByDoc = await loadDocumentClients([documento.id]);
+
+    await logAudit({
+      entidad: "documento",
+      entidad_id: documento.id,
+      accion: "crear",
+      usuario_id: auth.usuario.id,
+      cambios: { titulo, categoria, etiquetas, cliente_id: clienteId, nombre_archivo: file.name },
+    });
 
     return NextResponse.json(
       {

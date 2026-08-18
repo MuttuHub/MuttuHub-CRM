@@ -25,8 +25,11 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+vi.mock("@/lib/api/audit", () => ({ logAudit: vi.fn() }));
+
 import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/supabase/server";
+import { logAudit } from "@/lib/api/audit";
 import { DELETE, GET, PATCH } from "./route";
 
 const gerencia = { id: "gerencia-1", rol: "GERENCIA" } as Usuario;
@@ -196,6 +199,9 @@ describe("PATCH /api/v1/tasks/:id", () => {
     expect(db.tarea.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "task-1" }, data: { titulo: "Nuevo título" } }),
     );
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ entidad: "tarea", entidad_id: "task-1", accion: "editar" }),
+    );
   });
 
   it("allows a COLABORADOR who is the linked client's responsable (but not the task's) to update it", async () => {
@@ -293,6 +299,9 @@ describe("DELETE /api/v1/tasks/:id", () => {
       where: { id: "task-1" },
       data: { deleted_at: expect.any(Date) },
     });
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ entidad: "tarea", entidad_id: "task-1", accion: "eliminar" }),
+    );
   });
 
   it("soft-deletes any task (204) for a full-access role", async () => {

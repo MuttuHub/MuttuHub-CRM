@@ -24,8 +24,11 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+vi.mock("@/lib/api/audit", () => ({ logAudit: vi.fn() }));
+
 import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/supabase/server";
+import { logAudit } from "@/lib/api/audit";
 import { GET, PATCH, DELETE } from "./route";
 
 const gerencia = { id: "gerencia-1", rol: "GERENCIA" } as Usuario;
@@ -174,6 +177,9 @@ describe("PATCH /api/v1/clients/:id", () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.cliente).toMatchObject({ nombre: "Acme Renamed", responsable_nombre: "Colab Uno" });
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ entidad: "cliente", entidad_id: "cli-1", accion: "editar" }),
+    );
   });
 
   it("returns 400 for an invalid tipo_cliente", async () => {
@@ -349,6 +355,9 @@ describe("DELETE /api/v1/clients/:id", () => {
     expect(res.status).toBe(204);
     expect(db.cliente.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "cli-1" }, data: { deleted_at: expect.any(Date) } }),
+    );
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ entidad: "cliente", entidad_id: "cli-1", accion: "eliminar" }),
     );
   });
 

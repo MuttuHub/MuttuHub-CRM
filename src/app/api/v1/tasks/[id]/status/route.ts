@@ -11,6 +11,7 @@ import { apiError, parseJsonBody } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { ENUM_VALUES } from "@/lib/catalogs";
+import { logAudit } from "@/lib/api/audit";
 import {
   catalogEnum,
   getTaskForWrite,
@@ -77,6 +78,13 @@ export const PATCH = withApiErrorHandling(
         motivo_bloqueo: parsed.data.estado === "BLOQUEADA" ? motivo : null,
       },
       select: TASK_SELECT,
+    });
+    await logAudit({
+      entidad: "tarea",
+      entidad_id: id,
+      accion: "editar",
+      usuario_id: auth.usuario.id,
+      cambios: { estado: parsed.data.estado, motivo_bloqueo: motivo },
     });
     return NextResponse.json({ task: toTaskItem(updated) });
   },

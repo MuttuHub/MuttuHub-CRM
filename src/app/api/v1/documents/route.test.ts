@@ -45,9 +45,12 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+vi.mock("@/lib/api/audit", () => ({ logAudit: vi.fn() }));
+
 import { db } from "@/lib/db";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { isSupabaseConfigured, requireApiUser } from "@/lib/supabase/server";
+import { logAudit } from "@/lib/api/audit";
 import { GET, POST } from "./route";
 
 const colaborador = {
@@ -214,6 +217,9 @@ describe("POST /api/v1/documents", () => {
     expect(body.version).toBe(1);
     expect(db.documento.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ categoria: "Comercial", autor_id: "admin-1" }) }),
+    );
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ entidad: "documento", entidad_id: "doc-new", accion: "crear" }),
     );
   });
 
