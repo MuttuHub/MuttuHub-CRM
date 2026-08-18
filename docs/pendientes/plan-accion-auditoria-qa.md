@@ -14,7 +14,7 @@
 |---|---|---|---|
 | 1 | Kanban: copy "solo título obligatorio" vs responsable forzado | Informe | ✅ Copy arreglado (validación sigue exigiendo responsable) |
 | 2 | Documentos: categoría "Comercial" inválida | Informe | ✅ Arreglado |
-| 3 | CRM: sin edición inline | Informe | ❌ Pendiente |
+| 3 | CRM: sin edición inline | Informe | ✅ Arreglado (Lote 3) |
 | 4 | Documentos: sin detección de duplicados por nombre | Informe | ✅ Arreglado (Lote 4) |
 | 5 | CRM: falta "Cargar desde Brief existente" | Informe | ❌ Pendiente |
 | 6 | CRM: sin exportar ficha individual a PDF | Informe | ✅ Arreglado (Lote 1) |
@@ -68,16 +68,30 @@ directa de lo ya empezado (bugs 1 y 2, sin commitear todavía).
 - Al tocar un componente base compartido, correr toda la suite de Vitest de
   componentes tras el cambio (no solo los archivos tocados).
 
-### Lote 3 — CRM: edición inline (#3)
+### Lote 3 — CRM: edición inline (#3) ✅ CERRADO
 
-- Reemplazar el flujo actual (botón "Editar" → modal `ClientFormDialog`
-  separado, `client-sheet.tsx:216-320`) por edición por clic directo en los
-  campos de la pestaña General.
-- Necesita una decisión de diseño antes de tocar código: qué campos son
-  editables inline (texto/textarea es directo; los selects — tipo, prioridad,
-  estado, responsable — y la fecha probablemente necesiten un patrón "clic
-  para abrir el control, blur/Enter para guardar" en vez de reescribir toda la
-  interacción).
+- Todos los campos propios del cliente en la pestaña General son ahora
+  editables sin abrir el modal "Editar cliente" (que se mantiene disponible
+  para editar varios campos a la vez). Cada campo hace su propio PATCH
+  parcial vía `useUpdateClient` — no hay un "guardar todo" separado.
+- Texto (nombre, empresa, tamaño, ubicación, canal) y fecha (primer contacto):
+  texto estático que se vuelve input al hacer clic; guarda al perder el foco
+  o con Enter, Escape cancela.
+- Textarea (prioridades identificadas, riesgos, resumen): mismo patrón con
+  `<textarea>`.
+- Catálogo (tipo, estado, prioridad, responsable): directamente un `Select`
+  inline (ya es en sí mismo "un clic para cambiar", sin paso de edición
+  separado); prioridad tiene una opción "Sin prioridad" para volver a null.
+- **Quedan de solo lectura a propósito**: "Valor potencial" y "Compromisos
+  abiertos" — son agregados calculados (suma de oportunidades / conteo de
+  compromisos), no columnas propias de Cliente; no tiene sentido "editarlos".
+- El tipo `ClientInput` (src/hooks/crm.ts) se amplió para aceptar `null`
+  explícito en los campos de texto libre — el PATCH del servidor ya lo
+  soportaba para vaciarlos, pero el tipo del cliente no lo reflejaba
+  (`undefined` se omite del JSON y el servidor lo lee como "no tocar").
+- Tests: nuevo `client-sheet.test.tsx` (guardar texto al perder foco, cancelar
+  con Escape, guardar un select de catálogo al toque). Validé rompiendo a
+  propósito el guardado del select antes de confiar en el test.
 
 ### Lote 4 — Documentos: detección de duplicados por nombre (#4) ✅ CERRADO
 
