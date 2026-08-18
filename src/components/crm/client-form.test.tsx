@@ -1,13 +1,14 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import { act, fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { ClientDetail } from "@/hooks/crm"
 import { ClientFormDialog, NewClientButton } from "./client-form"
 
-const { createMutation, updateMutation, documentsQuery } = vi.hoisted(() => ({
+const { createMutation, updateMutation, documentsQuery, useDocumentsMock } = vi.hoisted(() => ({
   createMutation: { isPending: false, mutateAsync: vi.fn() },
   updateMutation: { isPending: false, mutateAsync: vi.fn() },
   documentsQuery: { data: undefined as { items: unknown[] } | undefined, isLoading: false },
+  useDocumentsMock: vi.fn(),
 }))
 
 vi.mock("@/hooks/crm", () => ({
@@ -16,7 +17,7 @@ vi.mock("@/hooks/crm", () => ({
 }))
 
 vi.mock("@/hooks/documents", () => ({
-  useDocuments: () => documentsQuery,
+  useDocuments: useDocumentsMock,
 }))
 
 const USERS = [{ id: "u1", nombre: "Ana Pérez" }]
@@ -156,6 +157,8 @@ describe("ClientFormDialog (create)", () => {
 describe("ClientFormDialog — Cargar desde Brief existente (QA audit finding #5)", () => {
   beforeEach(() => {
     documentsQuery.data = { items: [{ id: "doc-1", titulo: "Brief Alcaldía de Soledad", categoria: "Comercial", clientes: [] }] }
+    useDocumentsMock.mockReset()
+    useDocumentsMock.mockImplementation(() => documentsQuery)
   })
 
   it("does not fetch documents until the picker is opened", () => {
@@ -172,6 +175,53 @@ describe("ClientFormDialog — Cargar desde Brief existente (QA audit finding #5
 
     expect(screen.getByLabelText(/Nombre \*/)).toHaveValue("Brief Alcaldía de Soledad")
     expect(screen.queryByRole("heading", { name: "Cargar desde Brief existente" })).not.toBeInTheDocument()
+  })
+
+  // Code review finding on PR #25: every keystroke fetched /documents,
+  // unlike the ~350ms debounce pattern already used for the same kind of
+  // search in client-list.tsx and repository-list.tsx.
+  it("debounces the search query instead of fetching on every keystroke", async () => {
+    const user = userEvent.setup()
+    render(<ClientFormDialog open onOpenChange={vi.fn()} users={USERS} onSaved={vi.fn()} />)
+    await user.click(screen.getByRole("button", { name: "Cargar desde Brief existente" }))
+
+    useDocumentsMock.mockClear()
+    vi.useFakeTimers()
+    try {
+      const input = screen.getByLabelText("Buscar brief")
+      fireEvent.change(input, { target: { value: "s" } })
+      fireEvent.change(input, { target: { value: "so" } })
+      fireEvent.change(input, { target: { value: "sol" } })
+      expect(useDocumentsMock).not.toHaveBeenCalledWith(expect.objectContaining({ q: "sol" }))
+
+      act(() => {
+        vi.advanceTimersByTime(400)
+      })
+
+      expect(useDocumentsMock).toHaveBeenLastCalledWith(expect.objectContaining({ q: "sol" }))
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  // Code review finding on PR #25: a título could exceed the 200-char limit
+  // the server enforces on client nombre (a document mirrored from a task
+  // attachment uses the raw file name, uncapped — see the attachments
+  // route). Without truncating here, picking it would only fail at submit
+  // with a generic validation error.
+  it("truncates a título longer than 200 characters when picked", async () => {
+    const longTitle = "A".repeat(250)
+    documentsQuery.data = {
+      items: [{ id: "doc-2", titulo: longTitle, categoria: "Comercial", clientes: [] }],
+    }
+    const user = userEvent.setup()
+    render(<ClientFormDialog open onOpenChange={vi.fn()} users={USERS} onSaved={vi.fn()} />)
+
+    await user.click(screen.getByRole("button", { name: "Cargar desde Brief existente" }))
+    await user.click(await screen.findByRole("button", { name: new RegExp(longTitle.slice(0, 30)) }))
+
+    const nombreInput = screen.getByLabelText(/Nombre \*/) as HTMLInputElement
+    expect(nombreInput.value).toHaveLength(200)
   })
 
   it("does not offer the Brief picker when editing an existing client", () => {

@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { FileText, LoaderCircle, Plus, Search } from "lucide-react";
 import type {
   EstadoCliente,
@@ -55,6 +55,14 @@ function toDateInput(value: string | null | undefined): string {
  * título del documento como nombre sugerido del cliente. El resto de los
  * campos se completan a mano — no hay lectura del contenido del archivo. */
 
+// Mismo límite que POST_CLIENT_SCHEMA.nombre en el servidor. Un título de
+// documento normal nunca lo supera (los endpoints de /documents lo truncan
+// a 200 al subir), pero el título de un documento espejado desde un adjunto
+// de tarea usa el nombre de archivo tal cual (QA audit #12) y no tiene ese
+// tope — sin este truncado acá, elegirlo como Brief fallaría en el submit
+// con un error de validación genérico que no dice de dónde salió el valor.
+const MAX_NOMBRE_LENGTH = 200;
+
 function BriefPickerDialog({
   open,
   onOpenChange,
@@ -65,7 +73,14 @@ function BriefPickerDialog({
   onPick: (doc: DocumentItem) => void;
 }) {
   const [q, setQ] = useState("");
-  const query = useDocuments({ q: q.trim() || undefined, limit: 20 });
+  // Debounce (350 ms, mismo patrón que client-list.tsx/repository-list.tsx):
+  // sin esto, cada tecla disparaba un GET /documents.
+  const [debouncedQ, setDebouncedQ] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQ(q.trim()), 350);
+    return () => clearTimeout(timer);
+  }, [q]);
+  const query = useDocuments({ q: debouncedQ || undefined, limit: 20 });
   const docs = query.data?.items ?? [];
 
   return (
@@ -510,7 +525,7 @@ export function ClientFormDialog({
           open={briefOpen}
           onOpenChange={setBriefOpen}
           onPick={(doc) => {
-            set("nombre", doc.titulo);
+            set("nombre", doc.titulo.slice(0, MAX_NOMBRE_LENGTH));
             setBriefOpen(false);
           }}
         />
