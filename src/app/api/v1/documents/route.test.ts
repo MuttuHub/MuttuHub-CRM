@@ -385,5 +385,56 @@ describe("POST /api/v1/documents", () => {
       expect(db.documento.findFirst).not.toHaveBeenCalled();
       expect(db.documento.create).toHaveBeenCalled();
     });
+
+    // Code review finding on PR #23: the duplicate-title lookup didn't
+    // exclude restricted categories for a COLABORADOR, so a 409 could leak
+    // the existence/id of a document in a category that role can't even list.
+    it("excludes restricted categories from the duplicate lookup for a COLABORADOR", async () => {
+      vi.mocked(requireApiUser).mockResolvedValue({
+        ok: true,
+        usuario: colaborador,
+        supabaseUser: {} as never,
+      });
+      vi.mocked(db.documento.findFirst).mockResolvedValue(null);
+      vi.mocked(db.documento.create).mockResolvedValue(docRow({ id: "doc-new", categoria: "Comercial", autor_id: "user-1" }));
+      vi.mocked(db.documentoVersion.create).mockResolvedValue({
+        id: "v-1",
+        documento_id: "doc-new",
+        numero_version: 1,
+        storage_path: "documentos/general/doc-new/v1_informe.pdf",
+        tamano_bytes: 3,
+        tipo_archivo: "application/pdf",
+        subido_por_id: "user-1",
+        created_at: new Date("2026-01-01"),
+      });
+      vi.mocked(db.documentoCliente.findMany).mockResolvedValue([]);
+
+      const res = await POST(
+        postRequest(uploadForm({ categoria: "Comercial", titulo: "Informe final" })),
+      );
+
+      expect(res.status).toBe(201);
+      expect(db.documento.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            categoria: { notIn: ["Legal", "Administrativo-financiero"] },
+          }),
+        }),
+      );
+    });
+
+    // Code review finding on PR #23: the lookup ran outside the try/catch,
+    // so a DB error there crashed with a raw 500 instead of the {error, code}
+    // envelope every other failure in this handler returns.
+    it("returns the standard error envelope when the duplicate lookup itself fails", async () => {
+      vi.mocked(db.documento.findFirst).mockRejectedValue(new Error("db down"));
+
+      const res = await POST(
+        postRequest(uploadForm({ categoria: "Comercial", titulo: "Informe final" })),
+      );
+
+      expect(res.status).toBe(500);
+      expect(await res.json()).toMatchObject({ code: "INTERNAL_ERROR" });
+    });
   });
 });
