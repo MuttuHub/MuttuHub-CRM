@@ -23,7 +23,7 @@
 | 9 | Seguridad: bitácora solo cubre login | Informe | ✅ Arreglado (Lote 7) |
 | 10 | Filtros del Tablero del equipo no entran en una fila | Usuario | ✅ Arreglado (Lote 1) |
 | 11 | Filtros del Repositorio de Documentos, mismo problema de ancho | Usuario | ✅ Arreglado (Lote 1) |
-| 12 | Adjuntos de tarea no aparecen en el Repositorio de Documentos | Usuario | ⚠️ Arreglado (Lote 8) — código listo, migración sin aplicar en la BD |
+| 12 | Adjuntos de tarea no aparecen en el Repositorio de Documentos | Usuario | ✅ Arreglado (Lote 8) |
 
 ---
 
@@ -174,7 +174,7 @@ directa de lo ya empezado (bugs 1 y 2, sin commitear todavía).
   `logAudit` agregada al happy-path de cada uno de los 8 endpoints
   instrumentados.
 
-### Lote 8 — Adjuntos de tarea → Repositorio de Documentos (#12) ⚠️ CÓDIGO LISTO, FALTA APLICAR LA MIGRACIÓN
+### Lote 8 — Adjuntos de tarea → Repositorio de Documentos (#12) ✅ CERRADO — migración aplicada 2026-08-18
 
 - Camino elegido: **(a) doble escritura**, no migración de esquema — menos
   invasivo, no toca filtros/permisos existentes del repositorio.
@@ -182,7 +182,8 @@ directa de lo ya empezado (bugs 1 y 2, sin commitear todavía).
   `ON DELETE SET NULL`, sin cascada — borrar la tarea nunca borra el
   documento espejo, que sigue viviendo en el Repositorio con vida propia).
   Migración en `prisma/migrations/20260818160826_adjuntos_tarea_documento_link/`,
-  generada con `--create-only`, **sin aplicar todavía**.
+  generada y **aplicada** con `prisma migrate deploy` (2026-08-18, confirmado
+  por el usuario) — `prisma migrate status` confirma la base al día.
 - `POST /tasks/:id/attachments` ahora también crea un `Documento` +
   `DocumentoVersion` reusando el mismo `storage_path` (sin volver a subir el
   archivo), categoría fija `"Otro"` (un adjunto no tiene concepto de
