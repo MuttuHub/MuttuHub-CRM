@@ -34,7 +34,7 @@ import {
   formatBytes,
   useClientOptions,
 } from "@/hooks/kanban";
-import { useUploadDocument } from "@/hooks/documents";
+import { useDocCategories, useUploadDocument } from "@/hooks/documents";
 
 /* ── Dropzone compartida (crear documento y nueva versión) ─────────────── */
 
@@ -225,6 +225,11 @@ export function UploadDocumentDialog({
   const upload = useUploadDocument();
   const clientsQuery = useClientOptions();
   const clients = clientsQuery.data ?? [];
+  // Catálogo en vivo (setting doc_categories); mientras carga o si falla,
+  // se usan las constantes de fábrica para no bloquear el formulario — el
+  // servidor sigue siendo la fuente de verdad de la validación.
+  const categoriesQuery = useDocCategories();
+  const categories = categoriesQuery.data?.map((c) => c.nombre) ?? [...DOC_CATEGORIES];
 
   const [file, setFile] = useState<File | null>(null);
   const [titulo, setTitulo] = useState("");
@@ -312,7 +317,7 @@ export function UploadDocumentDialog({
                 <SelectValue placeholder="Selecciona una categoría" />
               </SelectTrigger>
               <SelectContent>
-                {DOC_CATEGORIES.map((c) => (
+                {categories.map((c) => (
                   <SelectItem key={c} value={c}>
                     {c}
                   </SelectItem>
