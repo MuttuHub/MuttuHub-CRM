@@ -23,13 +23,26 @@ vi.mock("@/lib/db", () => ({
     adjuntoTarea: {
       findMany: vi.fn(),
       create: vi.fn(),
+      update: vi.fn(),
+    },
+    documento: {
+      create: vi.fn(),
+    },
+    documentoCliente: {
+      create: vi.fn(),
+    },
+    documentoVersion: {
+      create: vi.fn(),
     },
   },
 }));
 
+vi.mock("@/lib/api/audit", () => ({ logAudit: vi.fn() }));
+
 import { db } from "@/lib/db";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { isSupabaseConfigured, requireApiUser } from "@/lib/supabase/server";
+import { logAudit } from "@/lib/api/audit";
 import { GET, POST } from "./route";
 
 const gerencia = { id: "gerencia-1", rol: "GERENCIA" } as Usuario;
@@ -289,6 +302,86 @@ describe("POST /api/v1/tasks/:id/attachments", () => {
 
     expect(res.status).toBe(201);
     expect((await res.json()).adjunto.download_url).toBeNull();
+  });
+
+  // QA audit finding #12: a task attachment used to live only in
+  // adjuntos_tareas and never showed up in the Document Repository.
+  describe("mirrors into the Document Repository", () => {
+    it("creates a Documento + version reusing the same storage_path, and links it back", async () => {
+      authAs(gerencia);
+      vi.mocked(isSupabaseConfigured).mockReturnValue(true);
+      vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow({ responsable_id: "gerencia-1" }) as never);
+      vi.mocked(db.adjuntoTarea.create).mockResolvedValue({
+        id: "a-1",
+        nombre: "informe.pdf",
+        tamano_bytes: 3,
+        created_at: new Date("2026-01-01"),
+      } as never);
+      vi.mocked(db.documento.create).mockResolvedValue({ id: "doc-1" } as never);
+      mockUploadOk();
+
+      const res = await POST(postRequest(uploadForm()), routeContext);
+
+      expect(res.status).toBe(201);
+      expect(db.documento.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ titulo: "informe.pdf", categoria: "Otro" }) }),
+      );
+      const versionCall = vi.mocked(db.documentoVersion.create).mock.calls[0]![0]!;
+      expect(versionCall.data).toMatchObject({ documento_id: "doc-1", numero_version: 1 });
+      expect(versionCall.data.storage_path).toMatch(/^tareas\/task-1\//); // same path, no re-upload
+      expect(db.adjuntoTarea.update).toHaveBeenCalledWith({
+        where: { id: "a-1" },
+        data: { documento_id: "doc-1" },
+      });
+      expect(db.documentoCliente.create).not.toHaveBeenCalled();
+      expect(logAudit).toHaveBeenCalledWith(
+        expect.objectContaining({ entidad: "documento", entidad_id: "doc-1", accion: "crear" }),
+      );
+    });
+
+    it("also links the mirrored document to the task's client when the task has one", async () => {
+      authAs(gerencia);
+      vi.mocked(isSupabaseConfigured).mockReturnValue(true);
+      vi.mocked(db.tarea.findFirst).mockResolvedValue({
+        ...writeTareaRow({ responsable_id: "gerencia-1" }),
+        cliente_id: "cli-1",
+      } as never);
+      vi.mocked(db.adjuntoTarea.create).mockResolvedValue({
+        id: "a-1",
+        nombre: "informe.pdf",
+        tamano_bytes: 3,
+        created_at: new Date("2026-01-01"),
+      } as never);
+      vi.mocked(db.documento.create).mockResolvedValue({ id: "doc-1" } as never);
+      mockUploadOk();
+
+      const res = await POST(postRequest(uploadForm()), routeContext);
+
+      expect(res.status).toBe(201);
+      expect(db.documentoCliente.create).toHaveBeenCalledWith({
+        data: { documento_id: "doc-1", cliente_id: "cli-1" },
+      });
+    });
+
+    it("does not fail the attachment upload when the mirror write fails", async () => {
+      authAs(gerencia);
+      vi.mocked(isSupabaseConfigured).mockReturnValue(true);
+      vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow({ responsable_id: "gerencia-1" }) as never);
+      vi.mocked(db.adjuntoTarea.create).mockResolvedValue({
+        id: "a-1",
+        nombre: "informe.pdf",
+        tamano_bytes: 3,
+        created_at: new Date("2026-01-01"),
+      } as never);
+      vi.mocked(db.documento.create).mockRejectedValue(new Error("db down"));
+      mockUploadOk();
+
+      const res = await POST(postRequest(uploadForm()), routeContext);
+
+      expect(res.status).toBe(201);
+      const json = await res.json();
+      expect(json.adjunto).toMatchObject({ id: "a-1" });
+    });
   });
 
   it("returns 500 when the storage upload fails", async () => {

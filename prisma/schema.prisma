@@ -230,9 +230,10 @@ model Documento {
   created_at DateTime  @default(now())
   deleted_at DateTime?
 
-  autor     Usuario            @relation(fields: [autor_id], references: [id])
-  versiones DocumentoVersion[]
-  clientes  DocumentoCliente[]
+  autor          Usuario            @relation(fields: [autor_id], references: [id])
+  versiones      DocumentoVersion[]
+  clientes       DocumentoCliente[]
+  adjuntos_tarea AdjuntoTarea[] // QA audit finding #12: espejo del adjunto de origen, si lo hay
 
   @@map("documentos")
 }
@@ -294,8 +295,16 @@ model AdjuntoTarea {
   nombre       String
   tamano_bytes Int?     // tamaño del archivo subido (supabase no lo expone en el listado)
   created_at   DateTime @default(now())
+  // QA audit finding #12: espejo en el Repositorio de Documentos (mismo
+  // storage_path, sin volver a subir el archivo). Nullable: solo lo tienen
+  // los adjuntos subidos después de este cambio (sin backfill de los
+  // existentes) o si el espejo falla — el adjunto en sí nunca depende de
+  // esto. Sin onDelete: borrar la tarea nunca debe arrastrar el documento,
+  // que sigue viviendo como registro de negocio propio en el Repositorio.
+  documento_id String?
 
-  tarea Tarea @relation(fields: [tarea_id], references: [id])
+  tarea     Tarea      @relation(fields: [tarea_id], references: [id])
+  documento Documento? @relation(fields: [documento_id], references: [id])
 
   @@map("adjuntos_tareas")
 }

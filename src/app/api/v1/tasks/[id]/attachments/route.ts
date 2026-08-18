@@ -19,6 +19,7 @@ import { withApiErrorHandling } from "@/lib/api/handler";
 import { isSupabaseConfigured, requireApiUser } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { getTaskForWrite, loadTaskScoped } from "@/lib/api/crm";
+import { logAudit } from "@/lib/api/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,64 @@ const STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "muttu-docs";
 /** Nombre saneado para el path de storage (la columna `nombre` guarda el original). */
 function safeFileName(name: string): string {
   return name.replace(/[\\/]/g, "_");
+}
+
+/**
+ * Espeja el adjunto en el Repositorio de Documentos (QA audit finding #12):
+ * antes, un archivo subido a una tarea solo vivía en `adjuntos_tareas` y
+ * nunca aparecía en /documentos. Reusa el mismo `storage_path` (no vuelve a
+ * subir el archivo) y, si la tarea tiene cliente vinculado, lo vincula
+ * también ahí. Categoría fija "Otro": un adjunto de tarea no tiene concepto
+ * de categoría propio, y este es un espejo best-effort, no un flujo que
+ * deba pedirle una categoría al usuario en el momento de adjuntar.
+ *
+ * Best-effort a propósito: si el espejo falla, el adjunto ya quedó guardado
+ * en la tarea (lo que el usuario pidió) y eso no debe perderse por un
+ * problema al escribir el documento espejo — se loguea y listo.
+ */
+async function mirrorAttachmentAsDocument(params: {
+  tareaId: string;
+  clienteId: string | null;
+  adjuntoId: string;
+  storagePath: string;
+  fileName: string;
+  fileSize: number;
+  fileType: string;
+  usuarioId: string;
+}): Promise<void> {
+  try {
+    const documento = await db.documento.create({
+      data: { titulo: params.fileName, categoria: "Otro", autor_id: params.usuarioId },
+    });
+    if (params.clienteId) {
+      await db.documentoCliente.create({
+        data: { documento_id: documento.id, cliente_id: params.clienteId },
+      });
+    }
+    await db.documentoVersion.create({
+      data: {
+        documento_id: documento.id,
+        numero_version: 1,
+        storage_path: params.storagePath,
+        tamano_bytes: params.fileSize,
+        tipo_archivo: params.fileType,
+        subido_por_id: params.usuarioId,
+      },
+    });
+    await db.adjuntoTarea.update({
+      where: { id: params.adjuntoId },
+      data: { documento_id: documento.id },
+    });
+    await logAudit({
+      entidad: "documento",
+      entidad_id: documento.id,
+      accion: "crear",
+      usuario_id: params.usuarioId,
+      cambios: { titulo: params.fileName, categoria: "Otro", origen: "adjunto_tarea", tarea_id: params.tareaId },
+    });
+  } catch (err) {
+    console.error("[tasks] failed to mirror attachment into document repository:", err);
+  }
 }
 
 export const GET = withApiErrorHandling(
@@ -127,6 +186,17 @@ export const POST = withApiErrorHandling(
     const adjunto = await db.adjuntoTarea.create({
       data: { tarea_id: id, storage_path: storagePath, nombre: file.name, tamano_bytes: file.size },
       select: { id: true, nombre: true, tamano_bytes: true, created_at: true },
+    });
+
+    await mirrorAttachmentAsDocument({
+      tareaId: id,
+      clienteId: access.tarea.cliente_id,
+      adjuntoId: adjunto.id,
+      storagePath,
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type || "application/octet-stream",
+      usuarioId: auth.usuario.id,
     });
 
     // Signed URL es un detalle de la respuesta, no de la fila: si falla, el
