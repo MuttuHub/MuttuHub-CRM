@@ -16,7 +16,7 @@
 | 2 | Documentos: categoría "Comercial" inválida | Informe | ✅ Arreglado |
 | 3 | CRM: sin edición inline | Informe | ✅ Arreglado (Lote 3) |
 | 4 | Documentos: sin detección de duplicados por nombre | Informe | ✅ Arreglado (Lote 4) |
-| 5 | CRM: falta "Cargar desde Brief existente" | Informe | ❌ Pendiente |
+| 5 | CRM: falta "Cargar desde Brief existente" | Informe | ✅ Arreglado (Lote 6) |
 | 6 | CRM: sin exportar ficha individual a PDF | Informe | ✅ Arreglado (Lote 1) |
 | 7 | Selects: UUID/enum crudo en vez de nombre legible | Informe (ampliado) | ✅ Arreglado (Lote 2) — fix centralizado, ~10 sitios de una vez |
 | 8 | Kanban: fecha de entrega no se guarda | Informe | ✅ Verificado (Lote 5) — funciona, con test de regresión |
@@ -128,16 +128,25 @@ directa de lo ya empezado (bugs 1 y 2, sin commitear todavía).
   informe, o el commit de por medio ya lo corrigió antes de esta revisión. No
   se tocó código de producción — solo se agregaron tests.
 
-### Lote 6 — CRM: "Cargar desde Brief existente" (#5)
+### Lote 6 — CRM: "Cargar desde Brief existente" (#5) ✅ CERRADO
 
-- **Necesita definición de producto antes de estimar o diseñar.** El
-  documento de Requerimientos Funcionales original (§4.8) no está en el repo
-  ni fue encontrado por el propio Felipe al hacer la auditoría — solo tenemos
-  la mención del informe. No hay ninguna entidad "Brief" en el schema ni en
-  el código.
-- Antes de implementar, confirmar con el dueño del producto: ¿qué es
-  exactamente un "Brief existente" en este dominio? ¿un documento del
-  Repositorio, un formulario previo guardado, datos de otro sistema?
+- Definición de producto (resuelta con el dueño 2026-08-18): un "Brief" es un
+  documento ya subido al Repositorio de Documentos. Alcance elegido:
+  **prellenado liviano, sin dependencias nuevas** — se descartó la extracción
+  de contenido con IA (leer el PDF/Word e inferir campos) por ser una pieza
+  de arquitectura nueva y de esfuerzo mucho mayor.
+- Implementado en `client-form.tsx`: botón "Cargar desde Brief existente" en
+  el modal "Nuevo cliente" (solo en modo creación, no en edición) que abre un
+  picker con buscador sobre `useDocuments`. Al elegir un documento, se copia
+  su `título` como nombre sugerido del cliente; el resto de los ~15 campos
+  del formulario quedan vacíos, a completar a mano. No se lee el contenido
+  del archivo.
+- El picker (`BriefPickerDialog`) se monta solo al abrirse (evita un fetch de
+  `/documents` en cada apertura del modal si nadie lo usa).
+- Tests en `client-form.test.tsx`: no hace fetch hasta abrir el picker,
+  prellena el nombre y cierra el picker, no aparece el botón en modo edición.
+  Validé rompiendo a propósito el `onPick` (sin copiar el título) antes de
+  confiar en el test.
 
 ### Lote 7 — Seguridad: bitácora de auditoría de negocio (#9)
 
@@ -176,8 +185,8 @@ directa de lo ya empezado (bugs 1 y 2, sin commitear todavía).
 1. **Bug 1**: ¿el responsable debe volverse *realmente* opcional en Kanban, o
    el copy corregido ("Título y responsable son obligatorios") ya es la
    solución final aceptada?
-2. **Lote 6**: qué es un "Brief existente" en este dominio — sin esto no se
-   puede ni diseñar el Lote 6.
+2. ~~**Lote 6**: qué es un "Brief existente"~~ — resuelto 2026-08-18: documento
+   del Repositorio, prellenado liviano (solo el título → nombre).
 3. **Lote 8**: confirmar el camino (a) doble escritura vs (b) migración de
    esquema, y la política de borrado en cascada.
 
