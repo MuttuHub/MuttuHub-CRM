@@ -80,7 +80,16 @@ export function AuditLogSection() {
             Creación, edición y eliminación de clientes, tareas y documentos.
           </p>
         </div>
-        <Select value={entidad} onValueChange={(v) => setEntidad((v as AuditEntidad | "todas") ?? "todas")}>
+        <Select
+          value={entidad}
+          onValueChange={(v) => {
+            setEntidad((v as AuditEntidad | "todas") ?? "todas");
+            // Code review finding: moreError belongs to the previous filter's
+            // "Cargar más" — a stale banner would otherwise sit under a fresh,
+            // successful table for the new entidad.
+            setMoreError(null);
+          }}
+        >
           <SelectTrigger className="h-9 w-[170px] rounded-10 bg-panel px-3 text-[12.5px]">
             <SelectValue />
           </SelectTrigger>
