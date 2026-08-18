@@ -730,6 +730,17 @@ function GeneralTab({
   const saveRiesgos = useInlineClientField(cliente.id, "riesgos_barreras");
   const saveResumen = useInlineClientField(cliente.id, "resumen_relacion");
 
+  // Bug fix (code review de los PR encadenados): `users` viene de
+  // /api/v1/catalogs/users, que solo trae usuarios activos. Si el
+  // responsable asignado fue desactivado después, no hay opción que
+  // matchee `cliente.responsable_id` y el Select cae al fallback crudo
+  // (UUID) — regresión respecto al `FieldValue` de texto plano que había
+  // antes, que siempre mostraba `responsable_nombre` bien. Se agrega el
+  // responsable actual a las opciones si no está en la lista de activos.
+  const responsableOptions = users.some((u) => u.id === cliente.responsable_id)
+    ? users
+    : [...users, { id: cliente.responsable_id, nombre: cliente.responsable_nombre }];
+
   return (
     <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
       <InlineText
@@ -782,7 +793,7 @@ function GeneralTab({
       <InlineSelect
         label="Responsable interno"
         value={cliente.responsable_id}
-        options={users.map((u) => ({ value: u.id, label: u.nombre }))}
+        options={responsableOptions.map((u) => ({ value: u.id, label: u.nombre }))}
         onSave={(v) => saveResponsable(v as string)}
       />
       <FieldValue label="Valor potencial" value={formatCOP(cliente.valor_potencial)} mono />

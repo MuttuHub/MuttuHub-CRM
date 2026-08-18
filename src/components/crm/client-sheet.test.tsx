@@ -9,8 +9,9 @@ import { ClientSheet } from "./client-sheet"
 // cliente" modal. The General tab fields are now inline-editable (click,
 // change, save on blur/select — no modal).
 
-const { updateMutation } = vi.hoisted(() => ({
+const { updateMutation, clienteQuery } = vi.hoisted(() => ({
   updateMutation: { isPending: false, mutateAsync: vi.fn() },
+  clienteQuery: { data: null as ClientDetail | null, error: null as unknown },
 }))
 
 const CLIENTE: ClientDetail = {
@@ -49,7 +50,7 @@ vi.mock("@/hooks/crm", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/hooks/crm")>()
   return {
     ...actual,
-    useClientDetail: () => ({ data: CLIENTE, error: null }),
+    useClientDetail: () => clienteQuery,
     useUsers: () => ({ data: USERS }),
     useUpdateClient: () => updateMutation,
   }
@@ -72,6 +73,8 @@ describe("ClientSheet — General tab inline editing (QA audit finding #3)", () 
   beforeEach(() => {
     updateMutation.mutateAsync.mockReset()
     updateMutation.mutateAsync.mockResolvedValue({ cliente: CLIENTE })
+    clienteQuery.data = CLIENTE
+    clienteQuery.error = null
   })
 
   it("saves a text field on blur without opening a modal", async () => {
@@ -111,5 +114,22 @@ describe("ClientSheet — General tab inline editing (QA audit finding #3)", () 
     await user.click(await screen.findByRole("option", { name: "Cliente activo" }))
 
     expect(updateMutation.mutateAsync).toHaveBeenCalledWith({ estado: "CLIENTE_ACTIVO" })
+  })
+
+  // Code review finding on PR #24: `users` only lists active users
+  // (GET /api/v1/catalogs/users filters activo:true). If the client's
+  // responsable was deactivated afterwards, the Select had no matching
+  // option and fell back to the raw UUID instead of the name.
+  it("shows the responsable's name even when they're not in the active users list", () => {
+    clienteQuery.data = {
+      ...CLIENTE,
+      responsable_id: "deactivated-1",
+      responsable_nombre: "Carlos Gómez",
+    }
+    renderSheet()
+
+    const trigger = screen.getAllByRole("combobox").find((cb) => cb.textContent?.includes("Carlos Gómez"))
+    expect(trigger).toBeDefined()
+    expect(trigger).not.toHaveTextContent("deactivated-1")
   })
 })
