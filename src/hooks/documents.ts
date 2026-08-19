@@ -92,9 +92,32 @@ export const documentQueryKeys = {
   list: (filters: DocumentFilters) => ["documents", "list", filters] as const,
   detail: (id: string) => ["documents", "detail", id] as const,
   versions: (id: string) => ["documents", id, "versions"] as const,
+  categories: ["documents", "categories"] as const,
 };
 
 /* ── Queries ───────────────────────────────────────────────────────────── */
+
+/**
+ * Catálogo de categorías EN VIVO (setting `doc_categories`, con fallback a
+ * las constantes de fábrica) vía GET /api/v1/catalogs/settings — el mismo
+ * endpoint que lee el admin, sin requerir su rol. Bug fix: el diálogo de
+ * subida y el filtro del repositorio usaban el arreglo estático
+ * DOC_CATEGORIES, que puede quedar desalineado con el catálogo que el
+ * servidor realmente valida al crear un documento (POST /documents ->
+ * loadDocCategories()), rechazando con "Categoría no válida" una opción que
+ * la UI seguía ofreciendo.
+ */
+export function useDocCategories(): UseQueryResult<{ nombre: string; restringida: boolean }[]> {
+  return useQuery({
+    queryKey: documentQueryKeys.categories,
+    queryFn: async () => {
+      const res = await apiGet<{ doc_categories: { nombre: string; restringida: boolean }[] }>(
+        "/api/v1/catalogs/settings",
+      );
+      return res.doc_categories;
+    },
+  });
+}
 
 export function useDocuments(filters: DocumentFilters): UseQueryResult<DocumentListResponse> {
   return useQuery({
