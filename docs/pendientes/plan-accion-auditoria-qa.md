@@ -15,7 +15,7 @@
 | 1 | Kanban: copy "solo título obligatorio" vs responsable forzado | Informe | ✅ Copy arreglado (validación sigue exigiendo responsable) |
 | 2 | Documentos: categoría "Comercial" inválida | Informe | ✅ Arreglado |
 | 3 | CRM: sin edición inline | Informe | ❌ Pendiente |
-| 4 | Documentos: sin detección de duplicados por nombre | Informe | ❌ Pendiente |
+| 4 | Documentos: sin detección de duplicados por nombre | Informe | ✅ Arreglado (Lote 4) |
 | 5 | CRM: falta "Cargar desde Brief existente" | Informe | ❌ Pendiente |
 | 6 | CRM: sin exportar ficha individual a PDF | Informe | ✅ Arreglado (Lote 1) |
 | 7 | Selects: UUID/enum crudo en vez de nombre legible | Informe (ampliado) | ✅ Arreglado (Lote 2) — fix centralizado, ~10 sitios de una vez |
@@ -79,15 +79,21 @@ directa de lo ya empezado (bugs 1 y 2, sin commitear todavía).
   para abrir el control, blur/Enter para guardar" en vez de reescribir toda la
   interacción).
 
-### Lote 4 — Documentos: detección de duplicados por nombre (#4)
+### Lote 4 — Documentos: detección de duplicados por nombre (#4) ✅ CERRADO
 
-- `POST /api/v1/documents` (`src/app/api/v1/documents/route.ts:217-237`) crea
-  siempre sin verificar si ya existe un documento con el mismo nombre/título.
-- Fix: antes de crear, buscar coincidencia por título (y opcionalmente
-  cliente vinculado); si existe, ofrecer en el diálogo de subida la misma
-  opción que ya funciona manualmente desde la ficha del documento ("Subir
-  nueva versión", `document-dialog.tsx:159,306` + `useUploadVersion`) en vez
-  de crear un documento nuevo independiente.
+- Servidor: `POST /api/v1/documents` busca un documento activo con el mismo
+  título (case-insensitive) antes de crear; si existe y el form no manda
+  `force=true`, responde 409 `CONFLICT` con `{ documento: { id, titulo } }` en
+  vez de crear un duplicado.
+- Cliente: `useUploadDocument` distingue ese 409 (nueva `DocumentDuplicateTitleError`,
+  sin toast) del resto de errores. `UploadDocumentDialog` muestra un banner de
+  advertencia con dos acciones: "Subir como nueva versión" (reusa
+  `useUploadVersion` contra el documento existente, el mismo flujo manual que
+  ya funcionaba desde la ficha) o "Crear aparte" (reenvía con `force: true`).
+- Tests: `documents/route.test.ts` (409 + bypass con force) y nuevo
+  `upload-dialog.test.tsx` (banner, versionar, crear aparte) — validé que el
+  test de "Crear aparte" falla si se quita `force: true` antes de confiar en
+  él.
 
 ### Lote 5 — Kanban: verificación de fecha de entrega (#8) ✅ CERRADO
 
