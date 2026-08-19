@@ -471,6 +471,12 @@ export function useUploadAttachment(taskId: string): UseMutationResult<
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: taskQueryKeys.attachments(taskId) });
+      // Bug report: uploading an attachment also mirrors it into the
+      // Document Repository (see /api/v1/tasks/[id]/attachments), which
+      // bumps the "documentos" count GET /api/v1/nav/counts returns — but
+      // nothing here invalidated ["nav","counts"], so the sidebar badge
+      // stayed stale until an unrelated refetch happened to catch up.
+      void qc.invalidateQueries({ queryKey: ["nav", "counts"] });
       toast.success("Archivo adjunto subido.");
     },
   });

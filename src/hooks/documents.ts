@@ -238,6 +238,11 @@ export function useUploadDocument(): UseMutationResult<
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: documentQueryKeys.all });
+      // Bug report: creating a document (directly here, or mirrored from a
+      // task attachment via useUploadAttachment in kanban.ts) never bumped
+      // the "documentos" badge in the sidebar — GET /api/v1/nav/counts just
+      // counts Documento rows, but nothing invalidated ["nav","counts"].
+      void qc.invalidateQueries({ queryKey: ["nav", "counts"] });
       toast.success("Documento subido.");
     },
   });
@@ -280,6 +285,7 @@ export function useDeleteDocument(id: string): UseMutationResult<ApiVoid, Error,
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: documentQueryKeys.all });
+      void qc.invalidateQueries({ queryKey: ["nav", "counts"] });
       toast.success("Documento eliminado.");
     },
   });
