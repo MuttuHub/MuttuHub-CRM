@@ -254,6 +254,43 @@ describe("POST /api/v1/tasks", () => {
     expect(res.status).toBe(201);
   });
 
+  it("persists fecha_entrega on create and returns it in the response (QA audit finding #8)", async () => {
+    authAs(gerencia);
+    vi.mocked(db.usuario.findFirst).mockResolvedValue({ id: "colab-1", nombre: "Colab Uno" } as never);
+    vi.mocked(db.tarea.create).mockResolvedValue(
+      taskRow({ id: "task-new", fecha_entrega: new Date("2026-12-31T00:00:00.000Z") }) as never,
+    );
+
+    const res = await POST(
+      postRequest({
+        titulo: "Tarea con fecha",
+        responsable_id: "colab-1",
+        fecha_entrega: "2026-12-31",
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    expect(db.tarea.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ fecha_entrega: new Date("2026-12-31") }),
+      }),
+    );
+    const json = await res.json();
+    expect(json.task.fecha_entrega).toBe("2026-12-31T00:00:00.000Z");
+  });
+
+  it("returns 400 for an invalid fecha_entrega instead of silently dropping it", async () => {
+    authAs(gerencia);
+
+    const res = await POST(
+      postRequest({ titulo: "Tarea nueva", responsable_id: "colab-1", fecha_entrega: "no-es-una-fecha" }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(db.tarea.create).not.toHaveBeenCalled();
+  });
+
   it("returns 400 when the chosen responsable does not exist or is inactive", async () => {
     authAs(gerencia);
     vi.mocked(db.usuario.findFirst).mockResolvedValue(null);

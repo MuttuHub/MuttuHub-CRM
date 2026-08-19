@@ -19,7 +19,7 @@
 | 5 | CRM: falta "Cargar desde Brief existente" | Informe | ❌ Pendiente |
 | 6 | CRM: sin exportar ficha individual a PDF | Informe | ✅ Arreglado (Lote 1) |
 | 7 | Selects: UUID/enum crudo en vez de nombre legible | Informe (ampliado) | ✅ Arreglado (Lote 2) — fix centralizado, ~10 sitios de una vez |
-| 8 | Kanban: fecha de entrega no se guarda | Informe | ✅ Aparenta arreglado, sin test de regresión |
+| 8 | Kanban: fecha de entrega no se guarda | Informe | ✅ Verificado (Lote 5) — funciona, con test de regresión |
 | 9 | Seguridad: bitácora solo cubre login | Informe | ❌ Pendiente |
 | 10 | Filtros del Tablero del equipo no entran en una fila | Usuario | ✅ Arreglado (Lote 1) |
 | 11 | Filtros del Repositorio de Documentos, mismo problema de ancho | Usuario | ✅ Arreglado (Lote 1) |
@@ -89,14 +89,24 @@ directa de lo ya empezado (bugs 1 y 2, sin commitear todavía).
   nueva versión", `document-dialog.tsx:159,306` + `useUploadVersion`) en vez
   de crear un documento nuevo independiente.
 
-### Lote 5 — Kanban: verificación de fecha de entrega (#8)
+### Lote 5 — Kanban: verificación de fecha de entrega (#8) ✅ CERRADO
 
-- El código persiste bien en cliente y servidor (`task-dialog.tsx:188`,
-  `tasks/route.ts:122-126,237-240`), pero no hay ningún test que cubra
-  explícitamente "crear tarea con fecha_entrega".
-- Acción: verificación manual en el entorno real + agregar un test de
-  regresión en `tasks/route.test.ts`. Si la verificación manual confirma que
-  funciona, este ítem se cierra sin tocar código de producción.
+- Revisé el circuito completo a mano: input (`task-dialog.tsx:325-330`,
+  controlado, `onChange` correcto) → payload del POST (`fecha_entrega:
+  form.fecha_entrega || null`) → schema zod + `parseDate` → `db.tarea.create`
+  (`tasks/route.ts:237-240`) → `TASK_SELECT` incluye `fecha_entrega: true` →
+  `toTaskItem` la devuelve en la respuesta. No encontré ningún punto donde se
+  pierda el valor.
+- Agregué 2 tests de regresión en `tasks/route.test.ts` ("persists
+  fecha_entrega on create..." y "returns 400 for an invalid fecha_entrega...").
+  Para no confiar en un test que "pasa porque sí", rompí a propósito la línea
+  de persistencia (`fecha_entrega: undefined`), corrí la suite y confirmé que
+  el test nuevo FALLA con el mensaje esperado; restauré el código original y
+  volvió a pasar.
+- Conclusión: **no es un bug reproducible en el código actual** (al 18 de
+  agosto de 2026). Puede haber sido un error puntual de la prueba manual del
+  informe, o el commit de por medio ya lo corrigió antes de esta revisión. No
+  se tocó código de producción — solo se agregaron tests.
 
 ### Lote 6 — CRM: "Cargar desde Brief existente" (#5)
 
