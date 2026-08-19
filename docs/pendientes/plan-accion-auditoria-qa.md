@@ -12,7 +12,7 @@
 
 | # | Hallazgo | Origen | Estado |
 |---|---|---|---|
-| 1 | Kanban: copy "solo título obligatorio" vs responsable forzado | Informe | ✅ Copy arreglado (validación sigue exigiendo responsable) |
+| 1 | Kanban: copy "solo título obligatorio" vs responsable forzado | Informe | ✅ Cerrado — responsable obligatorio confirmado por el dueño |
 | 2 | Documentos: categoría "Comercial" inválida | Informe | ✅ Arreglado |
 | 3 | CRM: sin edición inline | Informe | ✅ Arreglado (Lote 3) |
 | 4 | Documentos: sin detección de duplicados por nombre | Informe | ✅ Arreglado (Lote 4) |
@@ -23,7 +23,7 @@
 | 9 | Seguridad: bitácora solo cubre login | Informe | ✅ Arreglado (Lote 7) |
 | 10 | Filtros del Tablero del equipo no entran en una fila | Usuario | ✅ Arreglado (Lote 1) |
 | 11 | Filtros del Repositorio de Documentos, mismo problema de ancho | Usuario | ✅ Arreglado (Lote 1) |
-| 12 | Adjuntos de tarea no aparecen en el Repositorio de Documentos | Usuario | ❌ Pendiente |
+| 12 | Adjuntos de tarea no aparecen en el Repositorio de Documentos | Usuario | ✅ Arreglado (Lote 8) |
 
 ---
 
@@ -174,36 +174,42 @@ directa de lo ya empezado (bugs 1 y 2, sin commitear todavía).
   `logAudit` agregada al happy-path de cada uno de los 8 endpoints
   instrumentados.
 
-### Lote 8 — Adjuntos de tarea → Repositorio de Documentos (#12)
+### Lote 8 — Adjuntos de tarea → Repositorio de Documentos (#12) ✅ CERRADO — migración aplicada 2026-08-18
 
-- Hoy son entidades Prisma totalmente separadas: `AdjuntoTarea`
-  (`prisma/schema.prisma:289-300`, minimalista, sin categoría/etiquetas/
-  versionado) vs `Documento`/`DocumentoVersion`/`DocumentoCliente`
-  (223-264). Comparten el mismo bucket de Supabase pero con prefijos de key
-  distintos.
-- Decisión de diseño pendiente entre dos caminos:
-  - **(a) Doble escritura**: al subir un adjunto de tarea, crear también un
-    `Documento`+`DocumentoVersion` enlazados (requiere agregar una FK opcional
-    para no duplicar el archivo físico, y definir una categoría por defecto
-    ya que `AdjuntoTarea` no tiene ese campo).
-  - **(b) Migración de esquema**: que los adjuntos sean directamente
-    `Documento` con un `tarea_id` opcional — cambio más profundo, impacta
-    filtros y permisos por categoría restringida en todo el repositorio.
-  - Recomiendo (a) por menor invasividad, pero falta decidir qué pasa con los
-    adjuntos ya existentes (backfill) y con el borrado en cascada
-    (tarea eliminada → ¿se borra o se conserva el documento?).
+- Camino elegido: **(a) doble escritura**, no migración de esquema — menos
+  invasivo, no toca filtros/permisos existentes del repositorio.
+- `AdjuntoTarea` ganó un campo `documento_id` nullable (FK a `Documento`,
+  `ON DELETE SET NULL`, sin cascada — borrar la tarea nunca borra el
+  documento espejo, que sigue viviendo en el Repositorio con vida propia).
+  Migración en `prisma/migrations/20260818160826_adjuntos_tarea_documento_link/`,
+  generada y **aplicada** con `prisma migrate deploy` (2026-08-18, confirmado
+  por el usuario) — `prisma migrate status` confirma la base al día.
+- `POST /tasks/:id/attachments` ahora también crea un `Documento` +
+  `DocumentoVersion` reusando el mismo `storage_path` (sin volver a subir el
+  archivo), categoría fija `"Otro"` (un adjunto no tiene concepto de
+  categoría propio), y lo vincula al cliente de la tarea si tiene uno.
+  Best-effort: si el espejo falla, el adjunto igual queda guardado en la
+  tarea — no se pierde lo que el usuario pidió.
+- Alcance decidido: **sin backfill** de los adjuntos ya existentes — solo los
+  subidos después de este cambio se espejan. Un backfill queda como mejora
+  futura si hace falta.
+- Tests: 3 nuevos en `attachments/route.test.ts` (crea+enlaza reusando el
+  storage_path, vincula al cliente de la tarea si tiene uno, no rompe la
+  subida si el espejo falla). Validé rompiendo a propósito el enlace de
+  vuelta (`adjuntoTarea.update`) antes de confiar en el test.
 
 ---
 
 ## Abiertos que necesitan tu decisión (o la de Felipe) antes de tocar código
 
-1. **Bug 1**: ¿el responsable debe volverse *realmente* opcional en Kanban, o
-   el copy corregido ("Título y responsable son obligatorios") ya es la
-   solución final aceptada?
+1. ~~**Bug 1**: ¿responsable opcional o el copy corregido ya es la solución
+   final?~~ — resuelto 2026-08-18: el dueño confirmó que el responsable debe
+   ser **obligatorio** para todas las tareas. El comportamiento actual ya es
+   el correcto (validado en cliente y servidor); no hace falta tocar código.
 2. ~~**Lote 6**: qué es un "Brief existente"~~ — resuelto 2026-08-18: documento
    del Repositorio, prellenado liviano (solo el título → nombre).
-3. **Lote 8**: confirmar el camino (a) doble escritura vs (b) migración de
-   esquema, y la política de borrado en cascada.
+3. ~~**Lote 8**: camino (a) vs (b), borrado en cascada~~ — resuelto
+   2026-08-18: doble escritura, sin cascada. Falta aplicar la migración.
 
 ---
 
