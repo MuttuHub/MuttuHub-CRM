@@ -38,11 +38,32 @@ export type AccesosResponse = {
   next_before: string | null;
 };
 
+// QA audit finding #9: bitácora de auditoría de negocio (Cliente/Tarea/
+// Documento), separada de la de accesos (solo login).
+export type AuditEntidad = "cliente" | "tarea" | "documento";
+export type AuditAccion = "crear" | "editar" | "eliminar";
+
+export type AuditoriaRow = {
+  id: string;
+  entidad: AuditEntidad;
+  entidad_id: string;
+  accion: AuditAccion;
+  cambios: Record<string, unknown> | null;
+  created_at: string;
+  usuario: { email: string; nombre: string };
+};
+
+export type AuditoriaResponse = {
+  registros: AuditoriaRow[];
+  next_before: string | null;
+};
+
 /* ── Query keys ────────────────────────────────────────────────────────── */
 
 export const adminQueryKeys = {
   settings: ["admin", "settings"],
   accesos: ["admin", "accesos"],
+  auditoria: (entidad?: AuditEntidad) => ["admin", "auditoria", entidad ?? "todas"] as const,
 } as const;
 
 /* ── Queries ───────────────────────────────────────────────────────────── */
@@ -65,6 +86,25 @@ export function useAccesos(): ReturnType<typeof useInfiniteQuery<AccesosResponse
           ? `/api/v1/auth/accesos?before=${encodeURIComponent(pageParam)}`
           : "/api/v1/auth/accesos",
       ),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.next_before,
+  });
+}
+
+// Bitácora de auditoría de negocio con la misma paginación por keyset que
+// useAccesos; `entidad` filtra por Cliente/Tarea/Documento.
+export function useAuditoria(
+  entidad?: AuditEntidad,
+): ReturnType<typeof useInfiniteQuery<AuditoriaResponse>> {
+  return useInfiniteQuery({
+    queryKey: adminQueryKeys.auditoria(entidad),
+    queryFn: ({ pageParam }) => {
+      const sp = new URLSearchParams();
+      if (entidad) sp.set("entidad", entidad);
+      if (pageParam) sp.set("before", pageParam);
+      const qs = sp.toString();
+      return apiGet<AuditoriaResponse>(`/api/v1/auditoria${qs ? `?${qs}` : ""}`);
+    },
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.next_before,
   });

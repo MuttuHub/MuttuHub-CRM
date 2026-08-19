@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/supabase/server";
 import { UsersTable } from "@/components/admin/users-table";
 import { CatalogsSection } from "@/components/admin/catalogs-section";
 import { AccesosSection } from "@/components/admin/accesos-section";
+import { AuditLogSection } from "@/components/admin/audit-log-section";
 
 export const metadata: Metadata = {
   title: "Usuarios y permisos",
@@ -61,6 +62,7 @@ export default async function AdministracionPage() {
           reintento sin romper la página. */}
       <CatalogsSection />
       <AccesosSection />
+      <AuditLogSection />
     </div>
   );
 }
