@@ -27,8 +27,11 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+vi.mock("@/lib/api/audit", () => ({ logAudit: vi.fn() }));
+
 import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/supabase/server";
+import { logAudit } from "@/lib/api/audit";
 import { DELETE, GET } from "./route";
 
 const colaborador = {
@@ -149,6 +152,9 @@ describe("DELETE /api/v1/documents/:id", () => {
       where: { id: "doc-1" },
       data: { deleted_at: expect.any(Date) },
     });
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ entidad: "documento", entidad_id: "doc-1", accion: "eliminar" }),
+    );
   });
 
   it("returns 403 when a COLABORADOR deletes a document in a restricted category", async () => {

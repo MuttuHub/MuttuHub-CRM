@@ -15,6 +15,7 @@ import { apiError, parseJsonBody } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { ENUM_VALUES } from "@/lib/catalogs";
+import { logAudit } from "@/lib/api/audit";
 import {
   catalogEnum,
   CLIENT_BASE_SELECT,
@@ -282,6 +283,13 @@ export const POST = withApiErrorHandling(
         resumen_relacion: parsed.data.resumen_relacion,
       },
       select: CLIENT_FULL_SELECT,
+    });
+    await logAudit({
+      entidad: "cliente",
+      entidad_id: cliente.id,
+      accion: "crear",
+      usuario_id: auth.usuario.id,
+      cambios: parsed.data,
     });
     return NextResponse.json(
       { cliente: { ...cliente, responsable_nombre: cliente.responsable.nombre } },

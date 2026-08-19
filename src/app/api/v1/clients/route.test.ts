@@ -24,8 +24,11 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+vi.mock("@/lib/api/audit", () => ({ logAudit: vi.fn() }));
+
 import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/supabase/server";
+import { logAudit } from "@/lib/api/audit";
 import { GET, POST } from "./route";
 
 const gerencia = { id: "gerencia-1", rol: "GERENCIA" } as Usuario;
@@ -171,6 +174,9 @@ describe("POST /api/v1/clients", () => {
     expect(res.status).toBe(201);
     const json = await res.json();
     expect(json.cliente).toMatchObject({ id: "cli-1", responsable_nombre: "Colab Uno" });
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ entidad: "cliente", entidad_id: "cli-1", accion: "crear" }),
+    );
   });
 
   it("returns 400 when nombre is missing", async () => {

@@ -12,6 +12,7 @@ import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
+import { logAudit } from "@/lib/api/audit";
 import {
   DOCUMENT_BASE_SELECT,
   DOCUMENT_VERSION_SELECT,
@@ -89,6 +90,12 @@ export const DELETE = withApiErrorHandling(
     await db.documento.update({
       where: { id },
       data: { deleted_at: new Date() },
+    });
+    await logAudit({
+      entidad: "documento",
+      entidad_id: id,
+      accion: "eliminar",
+      usuario_id: auth.usuario.id,
     });
     return new NextResponse(null, { status: 204 });
   },

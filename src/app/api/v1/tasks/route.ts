@@ -12,6 +12,7 @@ import { apiError, parseJsonBody } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { ENUM_VALUES } from "@/lib/catalogs";
+import { logAudit } from "@/lib/api/audit";
 import {
   catalogEnum,
   isFullAccess,
@@ -242,6 +243,13 @@ export const POST = withApiErrorHandling(
         motivo_bloqueo: parsed.data.motivo_bloqueo?.trim() || null,
       },
       select: TASK_SELECT,
+    });
+    await logAudit({
+      entidad: "tarea",
+      entidad_id: tarea.id,
+      accion: "crear",
+      usuario_id: auth.usuario.id,
+      cambios: parsed.data,
     });
     return NextResponse.json({ task: toTaskItem(tarea) }, { status: 201 });
   },

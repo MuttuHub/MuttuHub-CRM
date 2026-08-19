@@ -20,7 +20,7 @@
 | 6 | CRM: sin exportar ficha individual a PDF | Informe | ✅ Arreglado (Lote 1) |
 | 7 | Selects: UUID/enum crudo en vez de nombre legible | Informe (ampliado) | ✅ Arreglado (Lote 2) — fix centralizado, ~10 sitios de una vez |
 | 8 | Kanban: fecha de entrega no se guarda | Informe | ✅ Verificado (Lote 5) — funciona, con test de regresión |
-| 9 | Seguridad: bitácora solo cubre login | Informe | ❌ Pendiente |
+| 9 | Seguridad: bitácora solo cubre login | Informe | ✅ Arreglado (Lote 7) |
 | 10 | Filtros del Tablero del equipo no entran en una fila | Usuario | ✅ Arreglado (Lote 1) |
 | 11 | Filtros del Repositorio de Documentos, mismo problema de ancho | Usuario | ✅ Arreglado (Lote 1) |
 | 12 | Adjuntos de tarea no aparecen en el Repositorio de Documentos | Usuario | ❌ Pendiente |
@@ -148,16 +148,31 @@ directa de lo ya empezado (bugs 1 y 2, sin commitear todavía).
   Validé rompiendo a propósito el `onPick` (sin copiar el título) antes de
   confiar en el test.
 
-### Lote 7 — Seguridad: bitácora de auditoría de negocio (#9)
+### Lote 7 — Seguridad: bitácora de auditoría de negocio (#9) ✅ CERRADO
 
-- Hoy el único modelo de auditoría es `Acceso` (`prisma/schema.prisma:317-326`),
-  limitado a inicios de sesión. No existe un audit trail de creación/edición
-  de Cliente, Tarea o Documento.
-- Alcance: nuevo modelo Prisma (ej. `AuditLog`: entidad, entidad_id, acción,
-  usuario_id, diff/payload, timestamp), instrumentar los endpoints de
-  creación/edición de los 3 módulos, y una vista en Administración para
-  consultarlo. Es el ítem de mayor esfuerzo de todo el plan — arquitectónico,
-  no un fix puntual.
+- Nuevo modelo Prisma `Auditoria` (entidad, entidad_id, acción, usuario_id,
+  `cambios` JSON, timestamp — sin FK en `entidad_id` a propósito, para
+  sobrevivir a un soft delete del recurso referenciado). Migración
+  `prisma/migrations/20260818153735_auditoria_negocio/` generada y
+  **aplicada** con `prisma migrate deploy` (2026-08-18, confirmado por el
+  usuario) — `prisma migrate status` confirma la base al día.
+- `logAudit()` (`src/lib/api/audit.ts`), best-effort igual que el log de
+  accesos del login: un fallo al escribir la auditoría nunca tumba la
+  operación de negocio.
+- `cambios` guarda los campos enviados en la operación (ya validados por el
+  zod schema del endpoint), no un diff antes/después — evita una lectura
+  extra del estado previo en cada PATCH solo para auditoría.
+- Instrumentados los 8 puntos de escritura de los 3 módulos: clientes
+  (crear/editar/eliminar), tareas (crear/editar incl. `/status`/eliminar),
+  documentos (crear/eliminar, y subir nueva versión cuenta como "editar" del
+  documento padre).
+- Nuevo endpoint `GET /api/v1/auditoria` (solo ADMINISTRADOR, paginación por
+  keyset, filtro opcional por entidad) + hook `useAuditoria` + sección
+  "Bitácora de auditoría" en Administración, debajo de la bitácora de accesos
+  existente (que sigue igual).
+- Tests: `audit.ts` (3), `auditoria/route.test.ts` (8) + una aserción de
+  `logAudit` agregada al happy-path de cada uno de los 8 endpoints
+  instrumentados.
 
 ### Lote 8 — Adjuntos de tarea → Repositorio de Documentos (#12)
 

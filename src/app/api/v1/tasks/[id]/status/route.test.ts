@@ -14,8 +14,11 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+vi.mock("@/lib/api/audit", () => ({ logAudit: vi.fn() }));
+
 import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/supabase/server";
+import { logAudit } from "@/lib/api/audit";
 import { PATCH } from "./route";
 
 const gerencia = { id: "gerencia-1", rol: "GERENCIA" } as Usuario;
@@ -129,6 +132,9 @@ describe("PATCH /api/v1/tasks/:id/status", () => {
     const res = await PATCH(patchRequest({ estado: "EN_CURSO" }), routeContext);
 
     expect(res.status).toBe(200);
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ entidad: "tarea", entidad_id: "task-1", accion: "editar" }),
+    );
   });
 
   it("allows a full-access role to move any task", async () => {
@@ -213,5 +219,25 @@ describe("PATCH /api/v1/tasks/:id/status", () => {
       data: { estado: "EN_CURSO", motivo_bloqueo: null },
       select: expect.anything(),
     });
+  });
+
+  // Code review finding on PR #28: logAudit logged the raw `motivo` value
+  // unconditionally, even on the branch where the DB write clears it to
+  // null — the audit trail claimed a reason was kept when it wasn't.
+  it("logs the same motivo_bloqueo that was actually persisted when leaving BLOQUEADA", async () => {
+    authAs(gerencia);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(
+      writeTareaRow({ estado: "BLOQUEADA", motivo_bloqueo: "Ya resuelto" }) as never,
+    );
+    vi.mocked(db.tarea.update).mockResolvedValue(
+      taskRowSelect({ newEstado: "EN_CURSO", storedMotivo: null }) as never,
+    );
+
+    const res = await PATCH(patchRequest({ estado: "EN_CURSO" }), routeContext);
+
+    expect(res.status).toBe(200);
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ cambios: { estado: "EN_CURSO", motivo_bloqueo: null } }),
+    );
   });
 });

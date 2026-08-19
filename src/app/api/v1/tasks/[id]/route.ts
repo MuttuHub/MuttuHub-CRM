@@ -14,6 +14,7 @@ import { db } from "@/lib/db";
 import { apiError, parseJsonBody } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
+import { logAudit } from "@/lib/api/audit";
 import {
   bloqueoValido,
   TASK_SCHEMA,
@@ -158,6 +159,13 @@ export const PATCH = withApiErrorHandling(
     }
 
     const updated = await db.tarea.update({ where: { id }, data, select: TASK_SELECT });
+    await logAudit({
+      entidad: "tarea",
+      entidad_id: id,
+      accion: "editar",
+      usuario_id: auth.usuario.id,
+      cambios: parsed.data,
+    });
     return NextResponse.json({ task: toTaskItem(updated) });
   },
 );
@@ -179,6 +187,12 @@ export const DELETE = withApiErrorHandling(
       );
     }
     await db.tarea.update({ where: { id }, data: { deleted_at: new Date() } });
+    await logAudit({
+      entidad: "tarea",
+      entidad_id: id,
+      accion: "eliminar",
+      usuario_id: auth.usuario.id,
+    });
     return new NextResponse(null, { status: 204 });
   },
 );
