@@ -109,6 +109,7 @@ model Usuario {
   documentos_subidos  Documento[]
   notificaciones      Notificacion[]
   accesos             Acceso[] // PRD §3.3
+  auditorias          Auditoria[]
 
   @@map("usuarios")
 }
@@ -324,6 +325,35 @@ model Acceso {
   usuario Usuario @relation(fields: [usuario_id], references: [id])
 
   @@map("accesos")
+}
+
+// QA audit finding #9: `Acceso` solo cubre inicios de sesión — no había
+// ningún registro de creación/edición/eliminación de los registros de
+// negocio (Cliente, Tarea, Documento). `cambios` guarda un snapshot liviano
+// de los campos enviados en la operación (no un diff antes/después completo:
+// eso hubiera requerido leer el estado previo en cada PATCH solo para
+// auditoría). `entidad_id` no lleva FK a propósito — sobrevive al soft
+// delete y a que el recurso referenciado ya no exista.
+model Auditoria {
+  id         String   @id @default(uuid())
+  entidad    String // "cliente" | "tarea" | "documento"
+  entidad_id String
+  accion     String // "crear" | "editar" | "eliminar"
+  usuario_id String
+  cambios    Json?
+  created_at DateTime @default(now())
+
+  usuario Usuario @relation(fields: [usuario_id], references: [id])
+
+  @@index([entidad, entidad_id])
+  // Code review finding: GET /api/v1/auditoria siempre ordena por
+  // created_at desc y opcionalmente filtra por entidad — ninguno de los
+  // índices anteriores cubría ese patrón. (created_at, id) también respalda
+  // el cursor compuesto de la paginación (ver el mismo hallazgo sobre el
+  // cursor no único).
+  @@index([created_at, id])
+  @@index([entidad, created_at, id])
+  @@map("auditoria")
 }
 
 // PRD §4.4.1 + §8.4 — log del cron de notificaciones (retención 30 días)
