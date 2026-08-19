@@ -269,20 +269,25 @@ export function useBitacora(id: string | null): UseQueryResult<BitacoraEntrada[]
 
 /* ── Mutations ─────────────────────────────────────────────────────────── */
 
+// Los campos de texto libre son nullable (no solo opcionales): el PATCH del
+// servidor (PATCH_CLIENT_SCHEMA) los acepta en `null` para vaciarlos
+// explícitamente — un `undefined` se omite del JSON y el servidor lo
+// interpreta como "no tocar este campo", que es justo lo que necesita la
+// edición inline (QA audit #3) para poder limpiar un campo con un solo PATCH.
 export type ClientInput = {
   nombre: string;
   tipo_cliente: TipoCliente;
   responsable_id: string;
-  empresa?: string;
-  tamano_org?: string;
-  ubicacion?: string;
-  canal_contacto_inicial?: string;
-  fecha_primer_contacto?: string;
+  empresa?: string | null;
+  tamano_org?: string | null;
+  ubicacion?: string | null;
+  canal_contacto_inicial?: string | null;
+  fecha_primer_contacto?: string | null;
   prioridad?: PrioridadCliente | null;
   estado?: EstadoCliente;
-  prioridades_identificadas?: string;
-  riesgos_barreras?: string;
-  resumen_relacion?: string;
+  prioridades_identificadas?: string | null;
+  riesgos_barreras?: string | null;
+  resumen_relacion?: string | null;
 };
 
 export function useCreateClient(): UseMutationResult<{ cliente: ClientDetail }, Error, ClientInput> {
