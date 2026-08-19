@@ -219,3 +219,49 @@ directa de lo ya empezado (bugs 1 y 2, sin commitear todavía).
 (solo verificación) → 4. Lote 4 → 5. Lote 3 → 6. Lote 7 y Lote 8 (mayor
 esfuerzo, en paralelo si hay dos personas) → Lote 6 en cuanto se resuelva el
 abierto #2.
+
+---
+
+## Cierre — 2026-08-19
+
+Los 12 hallazgos quedaron en `main`, cada uno en su propia PR encadenada
+(#19 a #29), con CI en verde (unit + e2e + preview deploy) antes de mergear.
+Metodología aplicada a cada corrección: test de regresión escrito, fix roto a
+propósito para confirmar que el test fallaba con el mensaje esperado, y recién
+entonces restaurado — nunca se confió en un test sin verlo fallar primero.
+
+Se corrió además una revisión de código sobre las 11 PRs originales, que
+encontró y corrigió 8 hallazgos adicionales (seguridad, condiciones de
+carrera, atomicidad de escrituras, paginación) antes de mergear — ver detalle
+en los mensajes de commit de cada PR (`fix(...)`, todos con referencia
+"Found in code review de PR #N").
+
+**Bug adicional encontrado en verificación post-cierre**: el contador de
+"documentos" de la barra lateral no se actualizaba al subir, espejar o borrar
+un documento — `GET /api/v1/nav/counts` cuenta filas de `Documento` en vivo,
+pero ninguna mutación invalidaba la query key del contador (la barra lateral
+no se remonta al navegar, así que nunca se refrescaba sola). Reportado,
+diagnosticado y corregido el mismo día en PR #30, con test de regresión.
+
+**Verificación final sobre `main`**: `tsc --noEmit` limpio, ESLint limpio,
+suite completa **711/711** tests en verde.
+
+| PR | Título | Mergeada |
+|---|---|---|
+| #19 | Copy del Kanban + catálogo de categorías en vivo | 19 ago 13:28 |
+| #20 | Exportar PDF + ancho de filtros (Lote 1) | 19 ago 13:31 |
+| #21 | Selects: nombre legible en vez de valor crudo (Lote 2) | 19 ago 13:34 |
+| #22 | Tests de persistencia de fecha de entrega (Lote 5) | 19 ago 13:38 |
+| #23 | Aviso de duplicado antes de subir un documento (Lote 4) | 19 ago 13:43 |
+| #24 | Edición inline en la ficha de cliente (Lote 3) | 19 ago 13:49 |
+| #25 | "Cargar desde Brief existente" (Lote 6) | 19 ago 13:55 |
+| #26 | Modelo y endpoint de la bitácora de auditoría (Lote 7) | 19 ago 14:03 |
+| #27 | Sección de bitácora en Administración (Lote 7) | 19 ago 14:12 |
+| #28 | Bitácora conectada a clientes, tareas y documentos (Lote 7) | 19 ago 14:20 |
+| #29 | Adjuntos de tarea espejados al Repositorio (Lote 8) | 19 ago 14:30 |
+| #30 | Contador de documentos de la barra lateral (post-cierre) | 19 ago 14:53 |
+
+> Informe visual de cierre (para compartir con Felipe): ver el artifact
+> publicado en la sesión — resume este mismo contenido con evidencia por
+> hallazgo. Oportunidades de mejora identificadas al margen de la auditoría:
+> `docs/pendientes/oportunidades-mejora-funcionalidad-ux.md`.

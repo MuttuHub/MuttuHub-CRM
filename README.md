@@ -4,8 +4,9 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?logo=supabase&logoColor=white)
 ![Prisma](https://img.shields.io/badge/Prisma-2D3748?logo=prisma&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-212%20passing-22c55e)
+![Tests](https://img.shields.io/badge/tests-711%20passing-22c55e)
 ![v1](https://img.shields.io/badge/estado-v1%20completa-0ea5e9)
+![QA](https://img.shields.io/badge/auditor%C3%ADa%20QA-12%2F12%20cerrados-0ea5e9)
 
 Plataforma integral de **Muttu Innovación Social** (aliados y clientes, tablero
 Kanban, repositorio documental, reportes y dashboard) construida con
@@ -18,8 +19,8 @@ desplegada en **Vercel**.
 
 | | |
 |---|---|
-| **Estado** | v1 completa del PRD (hitos 1–7) — 2026-08-11 |
-| **Calidad** | 212 tests Vitest en verde · `tsc` 0 errores · ESLint limpio |
+| **Estado** | v1 completa del PRD (hitos 1–7) — 2026-08-11; auditoría QA cerrada (12/12) — 2026-08-19 |
+| **Calidad** | 711 tests Vitest en verde · `tsc` 0 errores · ESLint limpio |
 | **Entrega** | Deploy automático en PRs (preview) y producción por integración Git |
 | **Sesión** | JWT 4 h con banner de cierre y logout forzado |
 
@@ -33,9 +34,13 @@ desplegada en **Vercel**.
 | 📚 **Repositorio** | Documentos con versionado, categorías restringidas, descarga individual/zip |
 | 🔔 **Notificaciones** | Panel por tarea + resumen diario por correo (pg_cron 8:00 Colombia) |
 | 📊 **Dashboard** | 4 caras (pipeline, tareas, actividad, mi resumen) con filtros y export imprimible |
-| ⚙️ **Administración** | Catálogos configurables (etiquetas/categorías), bitácora de accesos, gestión de usuarios |
+| ⚙️ **Administración** | Catálogos configurables (etiquetas/categorías), bitácora de accesos, bitácora de auditoría de negocio (clientes/tareas/documentos), gestión de usuarios |
 
-> **Pendientes y mejoras**: `docs/pendientes/pendientes-y-mejoras.md`
+> **Auditoría QA v1.0**: 12/12 hallazgos cerrados — `docs/pendientes/plan-accion-auditoria-qa.md`
+>
+> **Oportunidades de mejora (funcionalidad/UX)**: `docs/pendientes/oportunidades-mejora-funcionalidad-ux.md`
+>
+> **Pendientes y deuda técnica**: `docs/pendientes/pendientes-y-mejoras.md`
 
 ---
 
@@ -407,7 +412,7 @@ Unit/component tests con **Vitest + Testing Library** (jsdom, sin red ni
 Supabase); el E2E en producción lo cubre TestSprite.
 
 ```bash
-npm test              # suite completa (212 tests, ~8 s)
+npm test              # suite completa (711 tests)
 npm run test:watch    # modo watch
 npm run test:coverage # reporte text + html (gate desactivado, ver abajo)
 ```
@@ -432,6 +437,17 @@ npm run test:coverage # reporte text + html (gate desactivado, ver abajo)
 - Pipeline: preview deploy en PRs (`VERCEL_TOKEN`), deploy automático a
   producción por integración Git, E2E informativo.
 
+### ✅ Auditoría QA v1.0 cerrada (2026-08-19)
+
+12 hallazgos (9 del informe QA + 3 reportados por el equipo sobre Tablero y
+Repositorio) resueltos, cada uno con test de regresión, en 12 PRs
+encadenadas mergeadas a `main` con CI en verde. Incluye la nueva **bitácora
+de auditoría de negocio** (Administración → registro de creación/edición/
+eliminación de clientes, tareas y documentos) y el espejado automático de
+adjuntos de tarea al Repositorio de Documentos.
+
+> Detalle hallazgo por hallazgo: `docs/pendientes/plan-accion-auditoria-qa.md`
+
 ### 🔭 Oportunidades de mejora
 
 | Área | Mejora | Detalle |
@@ -442,7 +458,10 @@ npm run test:coverage # reporte text + html (gate desactivado, ver abajo)
 | **E2E** | Gate TestSprite bloqueante | Cuando el sandbox soporte los tests del MCP |
 | **Infra** | Supabase Pro | Solo cuando haya uso real (backups, >500 MB storage) |
 
-> Detalle completo: `docs/pendientes/pendientes-y-mejoras.md`
+> Deuda técnica e infraestructura: `docs/pendientes/pendientes-y-mejoras.md`
+>
+> Funcionalidad y UX/UI (con lo que ya está instalado en el proyecto):
+> `docs/pendientes/oportunidades-mejora-funcionalidad-ux.md`
 
 ---
 
@@ -463,7 +482,9 @@ npm run db:studio      # inspectar la BD
 | Doc | Contenido |
 |---|---|
 | `docs/Muttu_Hub_PRD_v2.md` | PRD del producto |
-| `docs/pendientes/pendientes-y-mejoras.md` | Deuda técnica + oportunidades de mejora |
+| `docs/pendientes/plan-accion-auditoria-qa.md` | Auditoría QA v1.0: los 12 hallazgos, cómo se cerró cada uno, PRs y verificación final |
+| `docs/pendientes/oportunidades-mejora-funcionalidad-ux.md` | Oportunidades de mejora en funcionalidad y UX/UI, dentro del alcance de las herramientas ya instaladas |
+| `docs/pendientes/pendientes-y-mejoras.md` | Deuda técnica + oportunidades de infraestructura |
 | `docs/pendientes/bugs-pendientes.md` | Historial de bugs |
 | `docs/pendientes/vitest-unit-tests.md` | Convenciones de testing |
 | `docs/plan-supabase-manana.md` | Estado de Supabase, email y TestSprite |
