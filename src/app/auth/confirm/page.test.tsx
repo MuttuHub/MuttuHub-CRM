@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react"
+import { act, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import ConfirmPage from "./page"
 
@@ -12,6 +12,9 @@ const mocks = vi.hoisted(() => {
     getSearchParams: () => params,
     verifyOtp: vi.fn(),
     exchangeCodeForSession: vi.fn(),
+    setSession: vi.fn(),
+    updateUser: vi.fn(),
+    getUser: vi.fn(),
   }
 })
 
@@ -25,12 +28,26 @@ vi.mock("@/lib/supabase/client", () => ({
     auth: {
       verifyOtp: mocks.verifyOtp,
       exchangeCodeForSession: mocks.exchangeCodeForSession,
+      setSession: mocks.setSession,
+      updateUser: mocks.updateUser,
+      getUser: mocks.getUser,
     },
   }),
 }))
 
+// jsdom's `location.hash` is read-only, so we install a configurable accessor
+// and point it at a mutable variable.
+let mockHash = ""
+const originalHashDescriptor = Object.getOwnPropertyDescriptor(
+  window.location,
+  "hash",
+)
+
+let replaceStateSpy: ReturnType<typeof vi.spyOn>
+
 const flushMicrotasks = async () => {
   await act(async () => {
+    await Promise.resolve()
     await Promise.resolve()
     await Promise.resolve()
   })
@@ -41,9 +58,26 @@ describe("ConfirmPage", () => {
     vi.useFakeTimers()
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co"
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key"
+    mockHash = ""
+    Object.defineProperty(window.location, "hash", {
+      configurable: true,
+      get: () => mockHash,
+    })
+    replaceStateSpy = vi
+      .spyOn(window.history, "replaceState")
+      .mockImplementation(() => undefined)
     mocks.router.replace.mockClear()
     mocks.verifyOtp.mockClear()
     mocks.exchangeCodeForSession.mockClear()
+    mocks.setSession.mockClear()
+    mocks.updateUser.mockClear()
+    mocks.getUser.mockClear()
+    // Default: verified user without rol metadata (keeps existing tests on
+    // the generic "¡Correo verificado!" done state).
+    mocks.getUser.mockResolvedValue({
+      data: { user: { user_metadata: {} } },
+      error: null,
+    })
     mocks.setSearchParams(new URLSearchParams())
   })
 
@@ -51,6 +85,15 @@ describe("ConfirmPage", () => {
     vi.useRealTimers()
     delete process.env.NEXT_PUBLIC_SUPABASE_URL
     delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    if (originalHashDescriptor) {
+      Object.defineProperty(window.location, "hash", originalHashDescriptor)
+    } else {
+      Object.defineProperty(window.location, "hash", {
+        configurable: true,
+        value: "",
+      })
+    }
+    replaceStateSpy?.mockRestore()
   })
 
   it("verifies via verifyOtp with token+type+email and shows success", async () => {
@@ -65,6 +108,7 @@ describe("ConfirmPage", () => {
       token: "t1",
       email: "a@b.co",
     })
+    expect(mocks.getUser).toHaveBeenCalled()
     expect(screen.getByText("¡Correo verificado!")).toBeInTheDocument()
   })
 
@@ -91,11 +135,12 @@ describe("ConfirmPage", () => {
     expect(mocks.router.replace).toHaveBeenCalledWith("/login")
   })
 
-  it("shows invalid link card when no token and no code", () => {
+  it("shows invalid link card when no token, no code and no access token", () => {
     render(<ConfirmPage />)
     expect(screen.getByText("Enlace no válido")).toBeInTheDocument()
     expect(mocks.verifyOtp).not.toHaveBeenCalled()
     expect(mocks.exchangeCodeForSession).not.toHaveBeenCalled()
+    expect(mocks.setSession).not.toHaveBeenCalled()
   })
 
   it("shows error card when verifyOtp fails", async () => {
@@ -108,6 +153,111 @@ describe("ConfirmPage", () => {
     expect(screen.getByText("Volver a iniciar sesión")).toBeInTheDocument()
     expect(
       screen.queryByText("¡Correo verificado!"),
+    ).not.toBeInTheDocument()
+  })
+
+  it("token+type=invite shows the create-password step instead of success", async () => {
+    mocks.verifyOtp.mockResolvedValue({ error: null })
+    mocks.setSearchParams(
+      new URLSearchParams("token=t1&type=invite&email=a@b.co"),
+    )
+    render(<ConfirmPage />)
+    await flushMicrotasks()
+    expect(mocks.verifyOtp).toHaveBeenCalledWith({
+      type: "invite",
+      token: "t1",
+      email: "a@b.co",
+    })
+    expect(screen.getByText("Crea tu contraseña")).toBeInTheDocument()
+    expect(
+      screen.queryByText("¡Correo verificado!"),
+    ).not.toBeInTheDocument()
+  })
+
+  it("code with user_metadata.rol shows the create-password step", async () => {
+    mocks.exchangeCodeForSession.mockResolvedValue({ error: null })
+    mocks.getUser.mockResolvedValue({
+      data: {
+        user: { user_metadata: { nombre: "Ana", rol: "VENDEDOR" } },
+      },
+      error: null,
+    })
+    mocks.setSearchParams(new URLSearchParams("code=c1"))
+    render(<ConfirmPage />)
+    await flushMicrotasks()
+    expect(mocks.exchangeCodeForSession).toHaveBeenCalledWith("c1")
+    expect(screen.getByText("Crea tu contraseña")).toBeInTheDocument()
+  })
+
+  it("recovered hash token calls setSession, cleans the URL and reaches set-password", async () => {
+    mocks.setSession.mockResolvedValue({ error: null })
+    mocks.getUser.mockResolvedValue({
+      data: {
+        user: { user_metadata: { nombre: "Ana", rol: "VENDEDOR" } },
+      },
+      error: null,
+    })
+    mockHash = "#access_token=at&refresh_token=rt"
+    render(<ConfirmPage />)
+    await flushMicrotasks()
+    expect(mocks.setSession).toHaveBeenCalledWith({
+      access_token: "at",
+      refresh_token: "rt",
+    })
+    expect(replaceStateSpy).toHaveBeenCalled()
+    expect(mocks.verifyOtp).not.toHaveBeenCalled()
+    expect(mocks.exchangeCodeForSession).not.toHaveBeenCalled()
+    expect(screen.getByText("Crea tu contraseña")).toBeInTheDocument()
+  })
+
+  it("create-password submit with updateUser ok shows 'Contraseña creada'", async () => {
+    mocks.verifyOtp.mockResolvedValue({ error: null })
+    mocks.updateUser.mockResolvedValue({ error: null })
+    mocks.setSearchParams(
+      new URLSearchParams("token=t1&type=invite&email=a@b.co"),
+    )
+    render(<ConfirmPage />)
+    await flushMicrotasks()
+    expect(screen.getByText("Crea tu contraseña")).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText("Contraseña"), {
+      target: { value: "Clave1234" },
+    })
+    fireEvent.change(screen.getByLabelText("Confirmar contraseña"), {
+      target: { value: "Clave1234" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Guardar contraseña" }))
+    await flushMicrotasks()
+
+    expect(mocks.updateUser).toHaveBeenCalledWith({ password: "Clave1234" })
+    expect(screen.getByText("Contraseña creada")).toBeInTheDocument()
+  })
+
+  it("create-password submit with updateUser error keeps the form and shows the error", async () => {
+    mocks.verifyOtp.mockResolvedValue({ error: null })
+    mocks.updateUser.mockRejectedValue(new Error("update failed"))
+    mocks.setSearchParams(
+      new URLSearchParams("token=t1&type=invite&email=a@b.co"),
+    )
+    render(<ConfirmPage />)
+    await flushMicrotasks()
+    expect(screen.getByText("Crea tu contraseña")).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText("Contraseña"), {
+      target: { value: "Clave1234" },
+    })
+    fireEvent.change(screen.getByLabelText("Confirmar contraseña"), {
+      target: { value: "Clave1234" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Guardar contraseña" }))
+    await flushMicrotasks()
+
+    expect(
+      screen.getByText("No pudimos crear tu contraseña. Inténtalo de nuevo."),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText("Contraseña")).toBeInTheDocument()
+    expect(
+      screen.queryByText("Contraseña creada"),
     ).not.toBeInTheDocument()
   })
 })

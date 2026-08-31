@@ -1,16 +1,34 @@
 "use client";
 
-// Email-confirmation landing: verifies the confirmation link sent by Supabase
-// (token+type via verifyOtp, or PKCE code via exchangeCodeForSession) and
-// redirects to /login after a short success confirmation.
+// Email-confirmation landing: verifies the confirmation link in every format
+// Supabase can deliver it — PKCE `code`, OTP `token`, or implicit
+// `#access_token` hash / query params — and, for invited users (who have no
+// password yet), shows an inline "create your password" step instead of
+// bouncing them to /login.
 
-import { Suspense, useEffect, useState } from "react";
+import {
+  Suspense,
+  useEffect,
+  useState,
+  type FormEvent,
+} from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CheckCircle2, LoaderCircle, XCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  KeyRound,
+  LoaderCircle,
+  XCircle,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 
 const REDIRECT_DELAY_MS = 3000;
+
+const PASSWORD_POLICY_HINT = "Mínimo 8 caracteres, con letras y números.";
+const PASSWORD_STRENGTH = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
 
 const OTP_TYPES = [
   "signup",
@@ -25,6 +43,26 @@ function isOtpType(value: string | null): value is OtpType {
   return OTP_TYPES.includes(value as OtpType);
 }
 
+// Supabase implicit links deliver the session in the URL hash:
+// #access_token=...&refresh_token=... Only readable at runtime (client-only).
+function readHashTokens(): {
+  access_token: string | null;
+  refresh_token: string | null;
+} {
+  if (typeof window === "undefined") {
+    return { access_token: null, refresh_token: null };
+  }
+  const raw = window.location.hash;
+  if (!raw || raw === "#") {
+    return { access_token: null, refresh_token: null };
+  }
+  const params = new URLSearchParams(raw.replace(/^#/, ""));
+  return {
+    access_token: params.get("access_token"),
+    refresh_token: params.get("refresh_token"),
+  };
+}
+
 function ConfirmInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -33,17 +71,28 @@ function ConfirmInner() {
   const token = searchParams.get("token");
   const email = searchParams.get("email") ?? "";
   const rawType = searchParams.get("type");
-  const type: OtpType = isOtpType(rawType) ? rawType : "signup";
+  // Missing/unknown type falls back to "invite": the app has no public
+  // signup, so most non-OAuth confirmations are invitations.
+  const type: OtpType = isOtpType(rawType) ? rawType : "invite";
 
-  const [status, setStatus] = useState<"loading" | "done" | "error">(
-    "loading",
-  );
+  const queryAccessToken = searchParams.get("access_token");
+  const queryRefreshToken = searchParams.get("refresh_token");
+  const hashTokens = readHashTokens();
+  const accessToken = queryAccessToken ?? hashTokens.access_token;
+  const refreshToken =
+    queryRefreshToken ?? hashTokens.refresh_token ?? "";
+
+  // "set-password" = invited user verified, show the create-password form.
+  const [status, setStatus] = useState<
+    "loading" | "set-password" | "done" | "error"
+  >("loading");
+  const [invite, setInvite] = useState(false);
 
   const unconfigured =
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
     !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  const hasLink = Boolean(token || code);
+  const hasLink = Boolean(token || code || accessToken);
 
   useEffect(() => {
     if (unconfigured || !hasLink) return;
@@ -52,15 +101,54 @@ function ConfirmInner() {
     async function verify() {
       try {
         const supabase = createClient();
-        const result = code
-          ? await supabase.auth.exchangeCodeForSession(code)
-          : await supabase.auth.verifyOtp({
-              type,
-              token: token as string,
-              email,
-            });
-        if (result.error) throw result.error;
-        if (!cancelled) setStatus("done");
+
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+        } else if (token) {
+          const { error } = await supabase.auth.verifyOtp({
+            type,
+            token,
+            email,
+          });
+          if (error) throw error;
+        } else if (accessToken) {
+          await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          // Do not keep the token in the address bar after recovering it.
+          const cleanParams = new URLSearchParams(window.location.search);
+          cleanParams.delete("access_token");
+          cleanParams.delete("refresh_token");
+          const cleanSearch = cleanParams.toString();
+          window.history.replaceState(
+            null,
+            "",
+            cleanSearch
+              ? `${window.location.pathname}?${cleanSearch}`
+              : window.location.pathname,
+          );
+        }
+
+        if (cancelled) return;
+
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+        if (userError) throw userError;
+
+        // Invitation detection: explicit `type=invite`, or any token that
+        // arrives without a `type` carrying rol metadata (inviteUserByEmail
+        // always sends data: { nombre, rol }). There is no public signup.
+        const isInvite =
+          type === "invite" || (!rawType && Boolean(user?.user_metadata?.rol));
+
+        if (!cancelled) {
+          setInvite(isInvite);
+          setStatus(isInvite ? "set-password" : "done");
+        }
       } catch {
         if (!cancelled) setStatus("error");
       }
@@ -70,15 +158,60 @@ function ConfirmInner() {
     return () => {
       cancelled = true;
     };
-  }, [unconfigured, hasLink, code, token, type, email]);
+  }, [
+    unconfigured,
+    hasLink,
+    code,
+    token,
+    rawType,
+    type,
+    email,
+    accessToken,
+    refreshToken,
+  ]);
 
+  // Non-invite verifications keep the 3s bounce to /login afterwards.
   useEffect(() => {
-    if (status !== "done") return;
+    if (status !== "done" || invite) return;
     const timer = setTimeout(() => {
       router.replace("/login");
     }, REDIRECT_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [status, router]);
+  }, [status, invite, router]);
+
+  // Create-password form state (invite step).
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  async function handleCreatePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError(null);
+
+    if (!PASSWORD_STRENGTH.test(password)) {
+      setFormError(PASSWORD_POLICY_HINT);
+      return;
+    }
+    if (password !== confirmPassword) {
+      setFormError("Las contraseñas no coinciden.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      // Session is already active after verification (the browser client is
+      // a singleton), so updateUser sets the password for the invited user.
+      const supabase = createClient();
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
+      setStatus("done");
+    } catch {
+      setFormError("No pudimos crear tu contraseña. Inténtalo de nuevo.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   if (unconfigured) {
     return (
@@ -94,42 +227,6 @@ function ConfirmInner() {
           </code>{" "}
           y los pasos del README.
         </p>
-      </>
-    );
-  }
-
-  if (!hasLink) {
-    return (
-      <>
-        <h1 className="font-display text-[22px] font-bold tracking-[-0.02em] text-ink-950">
-          Enlace no válido
-        </h1>
-        <p className="mt-2 text-[13.5px] leading-relaxed text-ink-600">
-          El enlace de confirmación es inválido o ya expiró. Solicita uno nuevo
-          para continuar.
-        </p>
-      </>
-    );
-  }
-
-  if (status === "done") {
-    return (
-      <>
-        <span className="mx-auto grid size-11 place-items-center rounded-[15px_15px_15px_5px] bg-exito-bg text-exito">
-          <CheckCircle2 className="size-5" strokeWidth={1.7} />
-        </span>
-        <h1 className="mt-4 font-display text-[22px] font-bold tracking-[-0.02em] text-ink-950">
-          ¡Correo verificado!
-        </h1>
-        <p className="mt-2 text-[13.5px] leading-relaxed text-ink-600">
-          Tu correo quedó confirmado. Te redirigimos al inicio de sesión…
-        </p>
-        <Link
-          href="/login"
-          className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary text-[14px] font-bold text-primary-foreground transition-colors hover:bg-primary/80"
-        >
-          Ir a iniciar sesión
-        </Link>
       </>
     );
   }
@@ -151,6 +248,137 @@ function ConfirmInner() {
           className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary text-[14px] font-bold text-primary-foreground transition-colors hover:bg-primary/80"
         >
           Volver a iniciar sesión
+        </Link>
+      </>
+    );
+  }
+
+  if (status === "set-password") {
+    return (
+      <>
+        <span className="mx-auto grid size-11 place-items-center rounded-[15px_15px_15px_5px] bg-rose-50 text-rose-700 dark:text-rose-400">
+          <KeyRound className="size-5" strokeWidth={1.7} />
+        </span>
+        <h1 className="mt-4 font-display text-[22px] font-bold tracking-[-0.02em] text-ink-950">
+          Crea tu contraseña
+        </h1>
+        <p className="mt-1 text-[13.5px] text-ink-600">
+          {PASSWORD_POLICY_HINT}
+        </p>
+
+        {formError && (
+          <div
+            role="alert"
+            className="mt-4 rounded-14 border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
+          >
+            {formError}
+          </div>
+        )}
+
+        <form onSubmit={handleCreatePassword} className="mt-6 flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="password">Contraseña</Label>
+            <Input
+              id="password"
+              type="password"
+              autoComplete="new-password"
+              required
+              placeholder="••••••••"
+              className="h-11 rounded-lg bg-panel px-3.5"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="confirm">Confirmar contraseña</Label>
+            <Input
+              id="confirm"
+              type="password"
+              autoComplete="new-password"
+              required
+              placeholder="••••••••"
+              className="h-11 rounded-lg bg-panel px-3.5"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+            />
+          </div>
+
+          <Button
+            type="submit"
+            disabled={submitting}
+            className="mt-1 h-11 rounded-lg text-[14px] font-bold"
+          >
+            {submitting && (
+              <LoaderCircle className="size-4 animate-spin" strokeWidth={2} />
+            )}
+            {submitting ? "Guardando…" : "Guardar contraseña"}
+          </Button>
+        </form>
+      </>
+    );
+  }
+
+  if (status === "done") {
+    if (invite) {
+      return (
+        <>
+          <span className="mx-auto grid size-11 place-items-center rounded-[15px_15px_15px_5px] bg-exito-bg text-exito">
+            <CheckCircle2 className="size-5" strokeWidth={1.7} />
+          </span>
+          <h1 className="mt-4 font-display text-[22px] font-bold tracking-[-0.02em] text-ink-950">
+            Contraseña creada
+          </h1>
+          <p className="mt-2 text-[13.5px] leading-relaxed text-ink-600">
+            Ya puedes iniciar sesión con tu nueva contraseña.
+          </p>
+          <Link
+            href="/login"
+            className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary text-[14px] font-bold text-primary-foreground transition-colors hover:bg-primary/80"
+          >
+            Ir a iniciar sesión
+          </Link>
+        </>
+      );
+    }
+
+    return (
+      <>
+        <span className="mx-auto grid size-11 place-items-center rounded-[15px_15px_15px_5px] bg-exito-bg text-exito">
+          <CheckCircle2 className="size-5" strokeWidth={1.7} />
+        </span>
+        <h1 className="mt-4 font-display text-[22px] font-bold tracking-[-0.02em] text-ink-950">
+          ¡Correo verificado!
+        </h1>
+        <p className="mt-2 text-[13.5px] leading-relaxed text-ink-600">
+          Tu correo quedó confirmado. Te redirigimos al inicio de sesión…
+        </p>
+        <Link
+          href="/login"
+          className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary text-[14px] font-bold text-primary-foreground transition-colors hover:bg-primary/80"
+        >
+          Ir a iniciar sesión
+        </Link>
+      </>
+    );
+  }
+
+  if (!hasLink) {
+    return (
+      <>
+        <h1 className="font-display text-[22px] font-bold tracking-[-0.02em] text-ink-950">
+          Enlace no válido
+        </h1>
+        <p className="mt-2 text-[13.5px] leading-relaxed text-ink-600">
+          El enlace de confirmación es inválido o ya expiró. Puede que el
+          enlace se haya cortado al copiarlo y pegarlo. Solicita uno nuevo para
+          continuar.
+        </p>
+        <Link
+          href="/login"
+          className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary text-[14px] font-bold text-primary-foreground transition-colors hover:bg-primary/80"
+        >
+          Solicita uno nuevo
         </Link>
       </>
     );
