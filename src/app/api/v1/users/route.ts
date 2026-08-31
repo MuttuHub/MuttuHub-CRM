@@ -121,16 +121,56 @@ export async function POST(request: Request) {
         email_confirm: true,
       });
 
-  if (supabaseError || !created.user) {
+  if (supabaseError) {
     // Never leak the raw Supabase error message.
-    console.error("[users] createUser failed:", supabaseError);
-    const isDuplicate = String(supabaseError?.message ?? "").toLowerCase().includes("already registered");
+    console.error("[users] supabase admin failed:", supabaseError);
+
+    // 422 "already registered" happens when the auth user already exists but
+    // has not accepted its invite (or confirmed email). That is a RE-INVITE
+    // case, not a hard conflict: look the user up and resend via
+    // reinviteUserById so an existing pending invite gets a fresh link.
+    const isDuplicate = String(supabaseError.message ?? "")
+      .toLowerCase()
+      .includes("already registered");
+
+    if (isDuplicate) {
+      const { data: existingAuth } =
+        await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      const match = (existingAuth?.users ?? []).find(
+        (u) => u.email?.trim().toLowerCase() === email.toLowerCase(),
+      );
+      if (match && !match.email_confirmed_at) {
+        const { error: resendError } =
+          await supabaseAdmin.auth.admin.reinviteUserById(match.id);
+        if (resendError) {
+          console.error("[users] reinvite failed:", resendError);
+          return apiError(
+            "No pudimos reenviar la invitación. Inténtalo de nuevo.",
+            500,
+            "INTERNAL_ERROR",
+          );
+        }
+        return apiError(
+          "Ese correo ya tiene una invitación pendiente: te la reenviamos.",
+          409,
+          "INVITE_RESENT",
+        );
+      }
+      return apiError("El correo ya está registrado.", 409, "CONFLICT");
+    }
+
     return apiError(
-      isDuplicate
-        ? "El correo ya está registrado."
-        : "No pudimos crear el usuario. Inténtalo de nuevo.",
-      isDuplicate ? 409 : 500,
-      isDuplicate ? "CONFLICT" : "INTERNAL_ERROR",
+      "No pudimos crear el usuario. Inténtalo de nuevo.",
+      500,
+      "INTERNAL_ERROR",
+    );
+  }
+
+  if (!created?.user) {
+    return apiError(
+      "No pudimos crear el usuario. Inténtalo de nuevo.",
+      500,
+      "INTERNAL_ERROR",
     );
   }
 
