@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Manual de usuario · Muttu Hub</title>
+<style>
+  @page {
+    size: A4;
+    margin: 18mm 15mm 18mm 15mm;
+  }
+  :root {
+    --rose: #cd1560;
+    --rose-dark: #940d44;
+    --ink: #191113;
+    --ink-soft: #725d62;
+    --bg: #fdfbfb;
+    --line: #ece5e7;
+    --exito: #1d7a4f;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #fff;
+    color: var(--ink);
+    font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.5;
+  }
+  .page { max-width: 210mm; margin: 0 auto; padding: 0 4mm; }
+
+  /* Portada */
+  .cover {
+    height: 250mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 0 20mm;
+    page-break-after: always;
+  }
+  .cover .logo { width: 120px; margin-bottom: 16px; }
+  .cover h1 { font-size: 30pt; margin: 0 0 6pt; color: var(--rose); letter-spacing: -0.02em; }
+  .cover .sub { font-size: 14pt; color: var(--ink-soft); margin: 0 0 28pt; }
+  .cover .badge {
+    display: inline-block;
+    background: var(--rose);
+    color: #fff;
+    border-radius: 12px;
+    padding: 8px 18px;
+    font-weight: 600;
+    font-size: 12pt;
+  }
+  .cover .meta { margin-top: 26pt; font-size: 10pt; color: var(--ink-soft); }
+
+  /* Encabezados de sección */
+  h1.section {
+    font-size: 18pt;
+    color: var(--rose);
+    border-bottom: 2px solid var(--line);
+    padding-bottom: 6pt;
+    margin: 22pt 0 12pt;
+    page-break-after: avoid;
+  }
+  h2 { font-size: 12.5pt; color: var(--ink); margin: 16pt 0 6pt; page-break-after: avoid; }
+  h3 { font-size: 11pt; color: var(--rose-dark); margin: 12pt 0 4pt; page-break-after: avoid; }
+  p { margin: 0 0 8pt; }
+  ul, ol { margin: 0 0 10pt 18pt; padding: 0; }
+  li { margin-bottom: 3pt; }
+
+  /* TOC */
+  .toc { page-break-after: always; }
+  .toc h1.section { margin-top: 0; }
+  .toc a { color: var(--ink); text-decoration: none; }
+  .toc ol { list-style: none; margin-left: 0; counter-reset: toc; }
+  .toc li { counter-increment: toc; margin-bottom: 5pt; font-size: 11pt; }
+  .toc li::before { content: counter(toc) ". "; color: var(--rose); font-weight: 700; }
+  .toc .sub { margin-left: 16pt; font-size: 10pt; color: var(--ink-soft); }
+
+  /* Widgets */
+  .passo {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--rose);
+    border-radius: 10px;
+    padding: 8pt 12pt;
+    margin: 0 0 10pt;
+    page-break-inside: avoid;
+  }
+  .passo .num { font-weight: 700; color: var(--rose); }
+  .nota {
+    background: #fdf3f7;
+    border: 1px solid #f0d3de;
+    border-radius: 10px;
+    padding: 8pt 12pt;
+    margin: 0 0 10pt;
+    font-size: 9.5pt;
+    color: var(--ink-soft);
+    page-break-inside: avoid;
+  }
+  .nota strong { color: var(--rose-dark); }
+  .exito {
+    background: #eefaf4;
+    border: 1px solid #cdeadd;
+    border-radius: 10px;
+    padding: 8pt 12pt;
+    margin: 0 0 10pt;
+    color: var(--exito);
+    font-size: 9.5pt;
+    page-break-inside: avoid;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 12pt;
+    font-size: 9.5pt;
+    page-break-inside: avoid;
+  }
+  th, td { border: 1px solid var(--line); padding: 5pt 8pt; text-align: left; vertical-align: top; }
+  th { background: #faf4f6; color: var(--rose-dark); font-weight: 600; }
+  code {
+    background: #f6f0f2;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 0 4px;
+    font-family: Consolas, monospace;
+    font-size: 9pt;
+  }
+  .kbd {
+    background: #fff;
+    border: 1px solid #d9ccd1;
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 0 5px;
+    font-size: 9pt;
+  }
+  .footer {
+    margin-top: 20pt;
+    border-top: 1px solid var(--line);
+    padding-top: 8pt;
+    font-size: 8.5pt;
+    color: var(--ink-soft);
+    text-align: center;
+  }
+  .page-break { page-break-before: always; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- PORTADA -->
+  <div class="cover">
+    <svg class="logo" viewBox="0 0 120 36" aria-hidden="true">
+      <circle cx="16" cy="18" r="10" fill="#cd1560"/>
+      <circle cx="44" cy="18" r="10" fill="#941458"/>
+      <circle cx="72" cy="18" r="10" fill="#e4569a"/>
+      <text x="88" y="23" font-family="Georgia,serif" font-weight="bold" font-size="16" fill="#191113">Muttu</text>
+    </svg>
+    <h1>Muttu Hub</h1>
+    <p class="sub">Manual de usuario paso a paso</p>
+    <span class="badge">Guía del usuario final</span>
+    <p class="meta">Versión 1.0 · Agosto 2026<br/>Muttu Innovación Social S.A.S. · Barranquilla, Colombia</p>
+  </div>
+
+  <!-- ÍNDICE -->
+  <div class="toc">
+    <h1 class="section">Contenido</h1>
+    <ol>
+      <li>Empezar: qué es Muttu Hub y cómo entrar
+        <div class="sub">1.1 Qué es Muttu Hub<br/>1.2 Iniciar sesión</div>
+      </li>
+      <li>Solicitar acceso
+        <div class="sub">2.1 Enviar la solicitud<br/>2.2 Qué pasa después de solicitarla<br/>2.3 Crear tu contraseña con la invitación</div>
+      </li>
+      <li>Conocer el Hub
+        <div class="sub">3.1 Menú de navegación<br/>3.2 Buscar en el Hub<br/>3.3 Cerrar sesión</div>
+      </li>
+      <li>Clientes (CRM)
+        <div class="sub">4.1 Ver la lista y filtrar<br/>4.2 Crear un cliente<br/>4.3 La ficha del cliente<br/>4.4 Contactos<br/>4.5 Oportunidades<br/>4.6 Compromisos<br/>4.7 Bitácora<br/>4.8 Documentos vinculados<br/>4.9 Editar y desactivar un cliente</div>
+      </li>
+      <li>Tablero del equipo</li>
+      <li>Documentos y Repositorio</li>
+      <li>Reportes</li>
+      <li>Administración (para administradores)
+        <div class="sub">8.1 Aprobar o rechazar solicitudes de acceso<br/>8.2 Iniciar sesión con la cuenta de administración</div>
+      </li>
+      <li>Solución de problemas
+        <div class="sub">9.1 El enlace de invitación dice «Enlace no válido»<br/>9.2 Olvidé mi contraseña<br/>9.3 La sesión expiró</div>
+      </li>
+    </ol>
+  </div>
+
+  <!-- 1. EMPEZAR -->
+  <h1 class="section">1. Empezar: qué es Muttu Hub y cómo entrar</h1>
+
+  <h2>1.1 Qué es Muttu Hub</h2>
+  <p>Muttu Hub es el espacio de trabajo del equipo: reúne en un solo lugar la cartera de aliados (clientes), los compromisos y tareas del equipo, los documentos versionados y los reportes. Todo queda registrado con fecha, hora e IP para mantener la bitácora de actividad.</p>
+
+  <h2>1.2 Iniciar sesión</h2>
+  <ol>
+    <li>Abre <code>https://muttu-hub.vercel.app</code> en tu navegador (Chrome o Edge recomendados).</li>
+    <li>En la tarjeta de la derecha verás dos pestañas: <strong>Entrar</strong> y <strong>Solicitar acceso</strong>.</li>
+    <li>Elige <strong>Entrar</strong>.</li>
+    <li>Escribe el <strong>correo corporativo</strong> que te asignó la administradora y tu <strong>contraseña</strong>.</li>
+    <li>Opcional: marca <strong>Recuérdame</strong> para que el correo quede guardado en ese equipo.</li>
+    <li>Pulsa <strong>Entrar</strong>.</li>
+  </ol>
+  <div class="passo"><span class="num">Paso clave:</span> si aún no tienes cuenta ni contraseña, no pulses «Entrar»: usa la pestaña <strong>Solicitar acceso</strong> (ver sección 2).</div>
+  <div class="nota"><strong>¿Olvidaste tu contraseña?</strong> Dentro de la pestaña Entrar pulsa «¿Olvidaste tu contraseña?», escribe tu correo y recibirás un enlace de un solo uso para crear una nueva (sección 9.2).</div>
+
+  <!-- 2. SOLICITAR ACCESO -->
+  <h1 class="section">2. Solicitar acceso</h1>
+
+  <h2>2.1 Enviar la solicitud</h2>
+  <p>Cualquier persona del equipo u organización aliada puede pedir acceso. El acceso se concede exclusivamente por la administradora, así que la solicitud entra a una cola de revisión.</p>
+  <ol>
+    <li>Abre <code>https://muttu-hub.vercel.app</code> y elige la pestaña <strong>Solicitar acceso</strong>.</li>
+    <li>Completa los tres campos:
+      <ul>
+        <li><strong>Nombre completo</strong> — por ejemplo, «Adriana Gómez Restrepo».</li>
+        <li><strong>Correo corporativo</strong> — debe ser el dominio <code>@muttu.co</code> o el de tu organización aliada.</li>
+        <li><strong>Cargo en la organización</strong> — por ejemplo, «Coordinadora de proyectos».</li>
+      </ul>
+    </li>
+    <li>Marca la casilla: <strong>Acepto la política de tratamiento de datos de Muttu</strong>.</li>
+    <li>Pulsa <strong>Enviar solicitud</strong>.</li>
+  </ol>
+  <div class="exito">✓ Verás el aviso: «Tu solicitud quedó en revisión: la administración asigna el rol antes de darte acceso.»</div>
+  <div class="nota"><strong>No pedimos contraseña en la solicitud.</strong> La elegirás tú cuando aceptes el correo de invitación que llega después de la aprobación.</div>
+
+  <h2>2.2 Qué pasa después de solicitarla</h2>
+  <ol>
+    <li>La administradora recibe la solicitud en <strong>Administración → Solicitudes de acceso</strong>.</li>
+    <li>Revisa tus datos y la <strong>aprueba</strong> asignándote un rol (por ejemplo, <strong>Colaborador</strong>).</li>
+    <li>Al aprobar, el sistema envía automáticamente un <strong>correo de invitación</strong> con la marca Muttu a tu correo.</li>
+    <li>Si la solicitud se rechaza, la verás marcada como rechazada y podrás pedir una nueva.</li>
+  </ol>
+
+  <h2>2.3 Crear tu contraseña con la invitación</h2>
+  <ol>
+    <li>Revisa la bandeja de entrada del correo que usaste al solicitar (y la carpeta de spam si no aparece).</li>
+    <li>Abre el correo <strong>«Te invitaron a Muttu Hub»</strong>.</li>
+    <li>Pulsa el botón <strong>Aceptar invitación</strong> (o copia el enlace de respaldo si el botón no funciona).</li>
+    <li>Se abrirá Muttu Hub en la pantalla <strong>Crea tu contraseña</strong>.</li>
+    <li>Escribe una contraseña de <strong>mínimo 8 caracteres, con letras y números</strong>, y confírmala.</li>
+    <li>Pulsa <strong>Guardar contraseña</strong>.</li>
+  </ol>
+  <div class="exito">✓ Verás «Contraseña creada» y podrás pulsar <strong>Ir a iniciar sesión</strong> para entrar con tu correo y tu nueva contraseña.</div>
+  <div class="nota"><strong>El enlace es de un solo uso.</strong> Si lo abres dos veces o esperas demasiado, puede aparecer «Enlace no válido»; en ese caso solicita uno nuevo (sección 9.1).</div>
+
+  <!-- 3. CONOCER EL HUB -->
+  <h1 class="section">3. Conocer el Hub</h1>
+
+  <h2>3.1 Menú de navegación</h2>
+  <p>El menú lateral organiza el Hub en grupos:</p>
+  <table>
+    <tr><th>Sección</th><th>Para qué sirve</th></tr>
+    <tr><td><strong>Inicio</strong></td><td>Resumen personal: tus tareas, actividad reciente y KPIs.</td></tr>
+    <tr><td><strong>Clientes</strong></td><td>Cartera de aliados y clientes: listado, fichas, contactos, oportunidades, compromisos y bitácora.</td></tr>
+    <tr><td><strong>Tablero</strong></td><td>Tablero del equipo: tareas y compromisos en columnas, con alertas de vencimiento.</td></tr>
+    <tr><td><strong>Documentos</strong></td><td>Repositorio documental: archivos versionados con metadatos.</td></tr>
+    <tr><td><strong>Reportes</strong></td><td>Reportes de tareas y resúmenes, exportables a Excel y PDF.</td></tr>
+    <tr><td><strong>Administración</strong></td><td>Solo para administradores: usuarios y solicitudes de acceso.</td></tr>
+  </table>
+
+  <h2>3.2 Buscar en el Hub</h2>
+  <p>Usa la lupa del menú lateral (o el atajo <span class="kbd">Ctrl</span>+<span class="kbd">K</span>) para saltar a una sección escribiendo su nombre.</p>
+
+  <h2>3.3 Cerrar sesión</h2>
+  <p>Abre tu menú de usuario (arriba a la derecha) y elige la opción de salir. No olvides cerrar sesión en equipos compartidos.</p>
+
+  <!-- 4. CLIENTES -->
+  <h1 class="section">4. Clientes (CRM)</h1>
+
+  <h2>4.1 Ver la lista y filtrar</h2>
+  <ol>
+    <li>En el menú elige <strong>Clientes</strong>.</li>
+    <li>Verás la tabla con los aliados, su tipo, estado, prioridad, responsable, valor potencial y próximo compromiso.</li>
+    <li>Usa el buscador <strong>«Buscar por nombre, contacto o bitácora…»</strong> para encontrar un cliente.</li>
+    <li>Filtra con los selectores de <strong>Tipo de cliente</strong>, <strong>Estado</strong>, <strong>Prioridad</strong> y <strong>Responsable</strong>.</li>
+    <li>Pulsa en cualquier fila para abrir la <strong>ficha del cliente</strong>.</li>
+  </ol>
+
+  <h2>4.2 Crear un cliente</h2>
+  <ol>
+    <li>En el listado de Clientes pulsa <strong>Nuevo cliente</strong>.</li>
+    <li>Completa el formulario: nombre, empresa, ubicación, tipo de cliente, estado, prioridad, tamaño de organización, responsable y los datos del primer contacto si los tienes.</li>
+    <li>Pulsa <strong>Crear cliente</strong>.</li>
+  </ol>
+  <div class="exito">✓ El cliente aparece en el listado y su ficha queda lista para cargar oportunidades, compromisos, bitácora y documentos.</div>
+
+  <h2>4.3 La ficha del cliente</h2>
+  <p>Al pulsar sobre un cliente se abre su ficha en el centro de la pantalla, con estas pestañas:</p>
+  <table>
+    <tr><th>Pestaña</th><th>Contenido</th></tr>
+    <tr><td><strong>General</strong></td><td>Datos del cliente, responsable, próximo compromiso, valor potencial y compromisos abiertos.</td></tr>
+    <tr><td><strong>Contactos</strong></td><td>Personas de contacto del cliente.</td></tr>
+    <tr><td><strong>Oportunidades</strong></td><td>Negocios en curso con su valor estimado y estado.</td></tr>
+    <tr><td><strong>Compromisos</strong></td><td>Tareas y compromisos asignados, con responsable y fecha.</td></tr>
+    <tr><td><strong>Bitácora</strong></td><td>Historial de la relación: notas, reuniones y seguimientos (registro inmutable).</td></tr>
+    <tr><td><strong>Documentos</strong></td><td>Archivos vinculados al cliente.</td></tr>
+    <tr><td><strong>Tareas relacionadas</strong></td><td>Tareas del tablero asociadas al cliente.</td></tr>
+  </table>
+  <div class="nota"><strong>Cierra la ficha</strong> con el botón X de la esquina superior derecha o pulsando fuera de ella.</div>
+
+  <h2>4.4 Contactos</h2>
+  <ol>
+    <li>En la ficha del cliente abre la pestaña <strong>Contactos</strong>.</li>
+    <li>Pulsa el botón para añadir un contacto y completa nombre, cargo, correo y teléfono.</li>
+    <li>Guarda el contacto; queda asociado a ese cliente.</li>
+  </ol>
+
+  <h2>4.5 Oportunidades</h2>
+  <ol>
+    <li>En la ficha del cliente abre la pestaña <strong>Oportunidades</strong>.</li>
+    <li>Pulsa <strong>Nueva oportunidad</strong>.</li>
+    <li>Completa el nombre, el <strong>valor estimado (COP)</strong>, el estado (por ejemplo, <em>En negociación</em>) y los datos de seguimiento.</li>
+    <li>Pulsa <strong>Crear oportunidad</strong>.</li>
+  </ol>
+  <div class="nota"><strong>El valor potencial</strong> del cliente se calcula automáticamente: es la suma de sus oportunidades no perdidas. Si un valor parece desproporcionado, verifícalo con el responsable.</div>
+
+  <h2>4.6 Compromisos</h2>
+  <ol>
+    <li>En la ficha del cliente abre la pestaña <strong>Compromisos</strong>.</li>
+    <li>Pulsa <strong>Crear compromiso</strong>.</li>
+    <li>Escribe el título, asigna responsable y elige la <strong>fecha límite</strong>. Los compromisos con fecha alimentan el <strong>próximo compromiso</strong>, la campana de alertas y el resumen diario.</li>
+    <li>Pulsa <strong>Crear compromiso</strong>.</li>
+  </ol>
+  <div class="nota"><strong>Sin fecha no hay alerta.</strong> Un compromiso sin fecha cuenta en la lista, pero no dispara notificaciones de vencimiento. Ponle fecha siempre que sea posible.</div>
+
+  <h2>4.7 Bitácora</h2>
+  <ol>
+    <li>En la ficha del cliente abre la pestaña <strong>Bitácora</strong>.</li>
+    <li>Añade una entrada con la nota del seguimiento, reunión o decisión.</li>
+    <li>La entrada queda registrada con autor, fecha y hora. El historial es inmutable: documenta la relación sin borrar evidencia.</li>
+  </ol>
+
+  <h2>4.8 Documentos vinculados</h2>
+  <ol>
+    <li>En la ficha del cliente abre la pestaña <strong>Documentos</strong>.</li>
+    <li>Elige <strong>Subir documento vinculado</strong> para subir el archivo y asociarlo al cliente.</li>
+    <li>El documento queda versionado en el <strong>Repositorio documental</strong> y accesible desde el cliente.</li>
+  </ol>
+
+  <h2>4.9 Editar y desactivar un cliente</h2>
+  <ol>
+    <li>Dentro de la ficha, arriba, verás <strong>Editar</strong> y <strong>Desactivar cliente</strong>.</li>
+    <li><strong>Editar</strong> abre el formulario con los datos actuales; cambia lo necesario y pulsa <strong>Guardar cambios</strong>.</li>
+    <li><strong>Desactivar cliente</strong> lo saca del listado activo. Los datos no se borran: quedan en la bitácora y pueden reactivarse desde la administración.</li>
+  </ol>
+
+  <!-- 5. TABLERO -->
+  <h1 class="section">5. Tablero del equipo</h1>
+  <ol>
+    <li>En el menú elige <strong>Tablero</strong>.</li>
+    <li>Verás las tareas y compromisos del equipo organizados en columnas (por ejemplo, pendientes, en curso y terminadas).</li>
+    <li>Arrastra las tarjetas entre columnas para actualizar su estado; los cambios quedan registrados.</li>
+    <li>Usa los filtros para ver solo tus tareas, por responsable o por prioridad.</li>
+    <li>La campana de notificaciones y el resumen diario te avisan de los compromisos que vencen.</li>
+  </ol>
+
+  <!-- 6. DOCUMENTOS -->
+  <h1 class="section">6. Documentos y Repositorio</h1>
+  <ol>
+    <li>En el menú elige <strong>Documentos</strong>.</li>
+    <li>Usa <strong>Subir documento</strong> para cargar un archivo; puedes vincularlo a un cliente desde la ficha (sección 4.8).</li>
+    <li>El repositorio guarda versiones: cada cambio suma una versión nueva, sin perder la anterior.</li>
+    <li>Filtra por nombre, tipo de categoría o cliente para encontrar rápido.</li>
+  </ol>
+
+  <!-- 7. REPORTES -->
+  <h1 class="section">7. Reportes</h1>
+  <ol>
+    <li>En el menú elige <strong>Reportes</strong>.</li>
+    <li>Elige el reporte: tareas del equipo, resumen de cartera o actividad.</li>
+    <li>Exporta a <strong>Excel</strong> o <strong>PDF</strong> con los botones de exportación para compartirlo con la dirección.</li>
+  </ol>
+
+  <!-- 8. ADMINISTRACIÓN -->
+  <h1 class="section">8. Administración (para administradores)</h1>
+
+  <h2>8.1 Aprobar o rechazar solicitudes de acceso</h2>
+  <ol>
+    <li>En el menú elige <strong>Administración → Solicitudes de acceso</strong>.</li>
+    <li>Verás la lista de solicitudes <strong>pendientes</strong> con nombre, correo y cargo.</li>
+    <li>Pulsa <strong>Aprobar</strong>: el sistema te pide elegir el <strong>rol</strong> (por ejemplo, Colaborador).</li>
+    <li>Confirma con <strong>Aprobar y enviar invitación</strong>.</li>
+    <li>El solicitante recibe el correo de invitación para crear su contraseña (sección 2.3).</li>
+    <li>Si la solicitud no corresponde, pulsa <strong>Rechazar</strong>.</li>
+  </ol>
+  <div class="exito">✓ La aprobación enciende todo el ciclo: invitación por correo → el usuario crea su contraseña → entra al Hub con su rol.</div>
+
+  <h2>8.2 Gestión de usuarios</h2>
+  <p>Desde <strong>Administración → Usuarios</strong> la administradora puede crear usuarios, cambiar roles y desactivar cuentas. Los roles definen qué secciones ve cada persona.</p>
+
+  <!-- 9. PROBLEMAS -->
+  <h1 class="section">9. Solución de problemas</h1>
+
+  <h2>9.1 El enlace de invitación dice «Enlace no válido»</h2>
+  <ol>
+    <li>El enlace es <strong>de un solo uso</strong>: si ya lo abriste una vez, vuelve a la pantalla de Solicitar acceso y pide uno nuevo a la administradora.</li>
+    <li>Revisa que hayas copiado el enlace <strong>completo</strong> del correo (puede cortarse al pegar en una nota).</li>
+    <li>Prueba abrirlo desde un navegador reciente (Chrome o Edge) en la misma ventana donde recibiste el correo.</li>
+    <li>Si sigue fallando, pide a la administradora que cancele e invite de nuevo.</li>
+  </ol>
+
+  <h2>9.2 Olvidé mi contraseña</h2>
+  <ol>
+    <li>En la pantalla de Entrar pulsa «¿Olvidaste tu contraseña?».</li>
+    <li>Escribe tu correo y pulsa <strong>Enviar enlace</strong>.</li>
+    <li>Revisa tu bandeja (y spam): llega un enlace de un solo uso que vence en 30 minutos.</li>
+    <li>Ábrelo y crea tu nueva contraseña.</li>
+  </ol>
+
+  <h2>9.3 La sesión expiró</h2>
+  <p>Las sesiones duran unas horas por seguridad. Si ves el aviso «Tu sesión expiró», vuelve a iniciar sesión con tu correo y contraseña. Tus datos están a salvo.</p>
+
+  <div class="footer">
+    Muttu Hub · Manual de usuario · Versión 1.0 · Agosto 2026<br/>
+    Muttu Innovación Social S.A.S. · Barranquilla, Colombia · el acceso queda registrado con fecha, hora e IP.
+  </div>
+
+</div>
+</body>
+</html>
