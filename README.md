@@ -74,9 +74,38 @@ flowchart TB
     CD -.-> UI
 ```
 
-### Modelo de datos (núcleo)
+### Flujo de la aplicación
 
 ```mermaid
+flowchart LR
+    subgraph Acceso["Acceso"]
+        A1[Login] --> A2[Correo + contraseña]
+        A3["Solicitar acceso"] --> A4["Admin aprueba"]
+        A4 --> A5["Correo de invitación"]
+        A5 --> A6{"¿Acepta?"}
+        A6 -->|Sí| A7["Crea contraseña"]
+        A7 --> A1
+        A6 -->|No| A8["Fin"]
+    end
+
+    subgraph App["App - sesión 4 h"]
+        H["Inicio / Mi resumen"]
+        C[Clientes]
+        T["Tablero Kanban"]
+        D[Documentos]
+        R[Reportes]
+        AD["Administración - solo admin"]
+    end
+
+    A2 --> App
+    H --- C
+    C --- T
+    T --- D
+    H --- R
+    C -.-> AD
+```
+
+### Modelo de datos (núcleo)
 erDiagram
     USUARIO ||--o{ CLIENTE : "es responsable de"
     USUARIO ||--o{ TAREA : "es responsable de"
