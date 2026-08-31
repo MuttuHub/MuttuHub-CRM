@@ -99,7 +99,7 @@ export function StatTile({
       </span>
       <div
         className={cn(
-          "mt-2.5 font-display text-[26px] leading-none font-extrabold tracking-[-0.03em] tabular-nums lg:text-[28px]",
+          "mt-2.5 font-display text-[26px] leading-[1.12] font-extrabold tracking-[-0.03em] tabular-nums break-words lg:text-[28px]",
           acento ? "text-white" : "text-ink-950",
           mono && "font-mono tracking-[-0.04em]",
         )}
