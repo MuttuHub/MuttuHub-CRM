@@ -282,6 +282,38 @@ npm run lint   # ESLint
 > `NEXT_PUBLIC_SUPABASE_ANON_KEY`, el proxy deja pasar todas las rutas, el login
 > muestra "Plataforma no configurada" y las APIs responden 500 con el envelope.
 
+### 7. Cambiar a un dominio propio
+
+Si el cliente provee un dominio (por ejemplo `app.muttu.co`), hay que
+sincronizar **cuatro lugares** y en este orden — saltarse uno rompe la
+invitación por correo (el `Error sending invite email` que este repo ya
+diagnosticó).
+
+1. **Vercel → Settings → Domains**: añade el dominio y crea los registros DNS
+   que Vercel indica (CNAME `cname.vercel-dns.com` o A record). Cuando quieras
+   que el dominio propio sea el único, activa "Redirect ... to your domain".
+2. **Vercel → Settings → Environment Variables**: cambia `NEXT_PUBLIC_APP_URL`
+   a `https://tu-dominio.com` (y actualiza `.env.example`). Este valor es la
+   base de los `redirectTo` de invitación y reset
+   (`src/app/api/v1/{users,reset-password,solicitudes-acceso}`). Guardar
+   lanza un deploy automático.
+3. **Supabase → Authentication → URL Configuration**:
+   - **Site URL**: `https://tu-dominio.com`.
+   - **Redirect URLs (additional)**: añade como mínimo
+     `https://tu-dominio.com/auth/callback` y
+     `https://tu-dominio.com/auth/confirm` (mantén las de
+     `muttu-hub.vercel.app` durante la transición). Esto alimenta el
+     `uri_allow_list`; si el nuevo redirect no está permitido, el invite
+     vuelve a fallar con 500.
+4. **Templates de email**: los `supabase/email-templates/*.html` llevan el
+   logo hardcodeado a `https://muttu-hub.vercel.app/brand/logo-color.svg`.
+   Actualiza esa URL y **repega los templates en el dashboard**
+   (Authentication → Email Templates) porque los ya cargados no se actualizan
+   al cambiar el repo.
+
+> El orden importa: dominio → env → Supabase URL/redirects → templates.
+> Prueba login + invitación en el nuevo dominio antes de redirigir el viejo.
+
 ---
 
 ## API v1
