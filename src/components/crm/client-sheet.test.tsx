@@ -132,4 +132,21 @@ describe("ClientSheet — General tab inline editing (QA audit finding #3)", () 
     expect(trigger).toBeDefined()
     expect(trigger).not.toHaveTextContent("deactivated-1")
   })
+
+  // Production data gotcha: every open compromiso arrived with
+  // fecha_entrega = null (empty Excel column). The header must surface the
+  // undated compromiso ("… · sin fecha") instead of the lying
+  // "Sin compromisos abiertos", and it must not be flagged as vencido.
+  it("renders an undated próximo compromiso as 'titulo · sin fecha', never as vencido", () => {
+    clienteQuery.data = {
+      ...CLIENTE,
+      next_compromiso: { id: "t-1", titulo: "Propuesta técnica", fecha_entrega: null },
+    }
+    renderSheet()
+
+    const label = screen.getByText(/Próximo compromiso:/)
+    expect(label).toHaveTextContent("Propuesta técnica · sin fecha")
+    expect(label).not.toHaveTextContent("Vencido")
+    expect(screen.queryByText("Sin compromisos abiertos")).not.toBeInTheDocument()
+  })
 })

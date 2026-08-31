@@ -38,7 +38,7 @@ import type {
 export type NextCompromiso = {
   id: string;
   titulo: string;
-  fecha_entrega: string;
+  fecha_entrega: string | null;
 };
 
 export type ClientListRow = {

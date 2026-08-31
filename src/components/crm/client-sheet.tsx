@@ -1,4 +1,4 @@
-// Ficha de cliente en panel lateral (PRD §4.2): se abre desde el listado sin
+// Ficha de cliente en modal centrado (PRD §4.2): se abre desde el listado sin
 // recargar la página. El id llega por `?cliente=<id>` (deep-link/reanudable)
 // y el panel se sincroniza con esa URL en ambas direcciones. Pestañas:
 // General, Contactos, Oportunidades, Compromisos, Bitácora, Documentos y
@@ -25,7 +25,7 @@ import {
   UserX,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -119,19 +119,16 @@ export function ClientSheet({
   const cliente = clienteQuery.data;
 
   return (
-    <Sheet
+    <Dialog
       open={open}
       onOpenChange={(next) => {
         if (!next) onClose();
       }}
     >
-      <SheetContent
-        side="right"
-        className="w-full max-w-none p-0 sm:max-w-[760px] sm:rounded-l-[26px]"
-      >
-        <SheetTitle className="sr-only">
+      <DialogContent className="flex h-[88vh] max-h-[88vh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-[760px]">
+        <DialogTitle className="sr-only">
           {cliente ? `Ficha de ${cliente.nombre}` : "Ficha de cliente"}
-        </SheetTitle>
+        </DialogTitle>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {!cliente ? (
@@ -148,7 +145,7 @@ export function ClientSheet({
                 <div className="shrink-0 border-b border-ink-200 px-6">
                   <TabsList
                     variant="line"
-                    className="h-10 w-full justify-start gap-1 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                    className="h-10 w-full justify-start gap-1 overflow-x-auto pb-1"
                   >
                     <TabsTrigger value="general" className="flex-none px-3">General</TabsTrigger>
                     <TabsTrigger value="contactos" className="flex-none px-3">Contactos</TabsTrigger>
@@ -264,8 +261,8 @@ export function ClientSheet({
           onClose={() => setDeactivateOpen(false)}
           onDeactivated={onClose}
         />
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -389,7 +386,10 @@ function SheetHeaderContent({
             )}
           >
             <CalendarClock className="size-3.5" strokeWidth={1.9} />
-            Próximo compromiso: {formatFecha(cliente.next_compromiso.fecha_entrega)}
+            Próximo compromiso:{" "}
+            {cliente.next_compromiso.fecha_entrega
+              ? formatFecha(cliente.next_compromiso.fecha_entrega)
+              : `${cliente.next_compromiso.titulo} · sin fecha`}
             {vencido && " · Vencido"}
           </span>
         ) : (

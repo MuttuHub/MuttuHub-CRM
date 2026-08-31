@@ -89,7 +89,9 @@ export const GET = withApiErrorHandling(
         valor_potencial: e.valor_potencial,
         compromisos_abiertos: e.compromisos_abiertos,
         next_compromiso: e.next_compromiso
-          ? e.next_compromiso.fecha_entrega.toISOString().slice(0, 10)
+          ? e.next_compromiso.fecha_entrega
+            ? e.next_compromiso.fecha_entrega.toISOString().slice(0, 10)
+            : "Sin fecha"
           : "—",
       });
     }

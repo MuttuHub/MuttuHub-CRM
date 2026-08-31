@@ -150,6 +150,35 @@ describe("GET /api/v1/clients", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
   });
+
+  // Production data gotcha: every imported compromiso had fecha_entrega = null
+  // (empty Excel column). The enrichment used to exclude undated tasks twice
+  // (WHERE not-null + a JS guard), so the ficha wrongly showed "Sin
+  // compromisos abiertos". Undated open tasks must now surface as
+  // next_compromiso, sorting after dated ones.
+  it("picks an undated open task as next_compromiso instead of hiding it", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findMany).mockResolvedValue([baseClientRow] as never);
+    vi.mocked(db.tarea.findMany).mockResolvedValue([
+      { id: "t-1", titulo: "Seguimiento", fecha_entrega: null, cliente_id: "cli-1" },
+    ] as never);
+
+    const res = await GET(new Request("http://localhost/api/v1/clients"));
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.items[0].next_compromiso).toEqual({
+      id: "t-1",
+      titulo: "Seguimiento",
+      fecha_entrega: null,
+    });
+    expect(db.tarea.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.not.objectContaining({ fecha_entrega: expect.anything() }),
+        orderBy: { fecha_entrega: { sort: "asc", nulls: "last" } },
+      }),
+    );
+  });
 });
 
 describe("POST /api/v1/clients", () => {

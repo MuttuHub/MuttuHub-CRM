@@ -114,8 +114,8 @@ export function buildClientWhere(
 /**
  * Enriches client rows with valor_potencial (sum of non-PERDIDA, non-deleted
  * opportunities), compromisos_abiertos and next_compromiso (earliest open
- * task with a due date). Bound to the given client ids — one grouped query
- * per metric instead of N+1.
+ * task; undated tasks count too and sort last). Bound to the given client
+ * ids — one grouped query per metric instead of N+1.
  */
 export async function enrichClients(
   ids: string[],
@@ -125,7 +125,7 @@ export async function enrichClients(
     id: string;
     valor_potencial: number;
     compromisos_abiertos: number;
-    next_compromiso: { id: string; titulo: string; fecha_entrega: Date } | null;
+    next_compromiso: { id: string; titulo: string; fecha_entrega: Date | null } | null;
   }[]
 > {
   const [sums, openCounts, nextTasks] = await Promise.all([
@@ -144,9 +144,8 @@ export async function enrichClients(
         deleted_at: null,
         cliente_id: { in: ids },
         estado: OPEN_TASK_STATES,
-        fecha_entrega: { not: null },
       },
-      orderBy: { fecha_entrega: "asc" },
+      orderBy: { fecha_entrega: { sort: "asc", nulls: "last" } },
       select: { id: true, titulo: true, fecha_entrega: true, cliente_id: true },
       take: ids.length,
     }),
@@ -159,9 +158,9 @@ export async function enrichClients(
       return [c.cliente_id, count] as const;
     }),
   );
-  const nextByClient = new Map<string, { id: string; titulo: string; fecha_entrega: Date }>();
+  const nextByClient = new Map<string, { id: string; titulo: string; fecha_entrega: Date | null }>();
   for (const t of nextTasks) {
-    if (t.cliente_id && !nextByClient.has(t.cliente_id) && t.fecha_entrega) {
+    if (t.cliente_id && !nextByClient.has(t.cliente_id)) {
       nextByClient.set(t.cliente_id, { id: t.id, titulo: t.titulo, fecha_entrega: t.fecha_entrega });
     }
   }

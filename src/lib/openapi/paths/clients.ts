@@ -70,7 +70,7 @@ const NextCompromisoSchema = z
   .object({
     id: z.string().uuid(),
     titulo: z.string(),
-    fecha_entrega: z.string().datetime(),
+    fecha_entrega: z.string().datetime().nullable(),
   })
   .nullable()
   .openapi("NextCompromiso");
