@@ -90,6 +90,57 @@ describe("GET /api/v1/clients", () => {
     expect(json.items[0]).toMatchObject({ id: "cli-1", responsable_nombre: "Colab Uno" });
   });
 
+  // PR 2 (Slice A): every client row carries `puede_editar` (server-authoritative).
+  // Spec: canEditClient(cliente, actor). Same full-access / COLABORADOR matrix
+  // as canEditClient in src/lib/permissions.test.ts, but asserted at the API
+  // boundary so a future code change that drops the flag is caught immediately.
+  describe("puede_editar per row (PR 2)", () => {
+    it("ADMINISTRADOR gets puede_editar: true for any client", async () => {
+      authAs({ id: "admin-1", rol: "ADMINISTRADOR" } as Usuario);
+      vi.mocked(db.cliente.findMany).mockResolvedValue([{ ...baseClientRow, responsable_id: "other-user" }] as never);
+
+      const res = await GET(new Request("http://localhost/api/v1/clients"));
+      const json = await res.json();
+      expect(json.items[0].puede_editar).toBe(true);
+    });
+
+    it("GERENCIA gets puede_editar: true for any client", async () => {
+      authAs(gerencia);
+      vi.mocked(db.cliente.findMany).mockResolvedValue([{ ...baseClientRow, responsable_id: "other-user" }] as never);
+
+      const res = await GET(new Request("http://localhost/api/v1/clients"));
+      const json = await res.json();
+      expect(json.items[0].puede_editar).toBe(true);
+    });
+
+    it("COORDINADOR gets puede_editar: true for any client", async () => {
+      authAs({ id: "coord-1", rol: "COORDINADOR" } as Usuario);
+      vi.mocked(db.cliente.findMany).mockResolvedValue([{ ...baseClientRow, responsable_id: "other-user" }] as never);
+
+      const res = await GET(new Request("http://localhost/api/v1/clients"));
+      const json = await res.json();
+      expect(json.items[0].puede_editar).toBe(true);
+    });
+
+    it("COLABORADOR as the client's responsable gets puede_editar: true", async () => {
+      authAs(colaborador);
+      vi.mocked(db.cliente.findMany).mockResolvedValue([baseClientRow] as never);
+
+      const res = await GET(new Request("http://localhost/api/v1/clients"));
+      const json = await res.json();
+      expect(json.items[0].puede_editar).toBe(true);
+    });
+
+    it("COLABORADOR NOT the client's responsable gets puede_editar: false", async () => {
+      authAs(colaborador);
+      vi.mocked(db.cliente.findMany).mockResolvedValue([{ ...baseClientRow, responsable_id: "other-user" }] as never);
+
+      const res = await GET(new Request("http://localhost/api/v1/clients"));
+      const json = await res.json();
+      expect(json.items[0].puede_editar).toBe(false);
+    });
+  });
+
   it("scopes a COLABORADOR to their own clients (forces responsable_id in the where clause)", async () => {
     authAs(colaborador);
     vi.mocked(db.cliente.findMany).mockResolvedValue([baseClientRow] as never);

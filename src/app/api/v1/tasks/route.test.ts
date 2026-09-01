@@ -29,7 +29,7 @@ vi.mock("@/lib/api/audit", () => ({ logAudit: vi.fn() }));
 import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/api/audit";
-import { GET, POST } from "./route";
+import { buildTaskWhere, GET, POST } from "./route";
 
 const gerencia = { id: "gerencia-1", rol: "GERENCIA" } as Usuario;
 const colaborador = { id: "colab-1", rol: "COLABORADOR" } as Usuario;
@@ -50,7 +50,9 @@ function taskRow(overrides: Partial<Record<string, unknown>> = {}) {
     created_at: new Date("2026-01-01"),
     updated_at: new Date("2026-01-01"),
     responsable: { nombre: overrides.responsable_nombre ?? "Colab Uno" },
-    cliente: overrides.cliente_id ? { nombre: "Cliente Uno" } : null,
+    cliente: overrides.cliente_id
+      ? { nombre: "Cliente Uno", responsable_id: overrides.cliente_responsable_id ?? "other-user" }
+      : null,
     _count: { comentarios: 0, subtareas: 0 },
   };
 }
@@ -80,6 +82,17 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+describe("buildTaskWhere", () => {
+  it("does not scope by responsable_id for a COLABORADOR (reading is global)", () => {
+    const where = buildTaskWhere(
+      { estado: undefined, origen: undefined, responsable: undefined, cliente: undefined, vencidas: false },
+      colaborador,
+    );
+
+    expect(where.responsable_id).toBeUndefined();
+  });
+});
+
 describe("GET /api/v1/tasks", () => {
   it("returns the task list for a full-access role without restricting scope", async () => {
     authAs(gerencia);
@@ -96,16 +109,116 @@ describe("GET /api/v1/tasks", () => {
     expect(where.responsable_id).toBeUndefined();
   });
 
-  it("scopes a COLABORADOR to their own tasks (forces responsable_id in the where clause)", async () => {
+  // PR 2 (Slice A): every task row carries `puede_editar` so the UI can gate
+  // drag / destructive controls / edit fields without re-implementing the rule.
+  // The flag is computed in the same Prisma `findMany` that loads the row, so
+  // the select must surface `cliente.responsable_id` (no extra query).
+  describe("puede_editar per row (PR 2)", () => {
+    it("selects cliente.responsable_id in the same query that loads the row", async () => {
+      authAs(gerencia);
+      vi.mocked(db.tarea.findMany).mockResolvedValue([taskRow()] as never);
+      vi.mocked(db.tarea.count).mockResolvedValue(1);
+
+      await GET(new Request("http://localhost/api/v1/tasks"));
+
+      const select = vi.mocked(db.tarea.findMany).mock.calls[0]![0]!.select as Record<string, unknown>;
+      const clienteSelect = (select.cliente as { select: Record<string, unknown> }).select;
+      expect(clienteSelect).toMatchObject({ nombre: true, responsable_id: true });
+    });
+
+    it("ADMINISTRADOR gets puede_editar: true for any task", async () => {
+      authAs({ id: "admin-1", rol: "ADMINISTRADOR" } as Usuario);
+      vi.mocked(db.tarea.findMany).mockResolvedValue([taskRow({ responsable_id: "other-user" })] as never);
+      vi.mocked(db.tarea.count).mockResolvedValue(1);
+
+      const res = await GET(new Request("http://localhost/api/v1/tasks"));
+      const json = await res.json();
+      expect(json.items[0].puede_editar).toBe(true);
+    });
+
+    it("GERENCIA gets puede_editar: true for any task", async () => {
+      authAs({ id: "gerencia-1", rol: "GERENCIA" } as Usuario);
+      vi.mocked(db.tarea.findMany).mockResolvedValue([taskRow({ responsable_id: "other-user" })] as never);
+      vi.mocked(db.tarea.count).mockResolvedValue(1);
+
+      const res = await GET(new Request("http://localhost/api/v1/tasks"));
+      const json = await res.json();
+      expect(json.items[0].puede_editar).toBe(true);
+    });
+
+    it("COORDINADOR gets puede_editar: true for any task", async () => {
+      authAs({ id: "coord-1", rol: "COORDINADOR" } as Usuario);
+      vi.mocked(db.tarea.findMany).mockResolvedValue([taskRow({ responsable_id: "other-user" })] as never);
+      vi.mocked(db.tarea.count).mockResolvedValue(1);
+
+      const res = await GET(new Request("http://localhost/api/v1/tasks"));
+      const json = await res.json();
+      expect(json.items[0].puede_editar).toBe(true);
+    });
+
+    it("COLABORADOR as task's responsable_id gets puede_editar: true", async () => {
+      authAs(colaborador);
+      vi.mocked(db.tarea.findMany).mockResolvedValue([taskRow({ responsable_id: "colab-1" })] as never);
+      vi.mocked(db.tarea.count).mockResolvedValue(1);
+
+      const res = await GET(new Request("http://localhost/api/v1/tasks"));
+      const json = await res.json();
+      expect(json.items[0].puede_editar).toBe(true);
+    });
+
+    it("COLABORADOR as the linked client's responsable (not task's) gets puede_editar: true", async () => {
+      authAs(colaborador);
+      vi.mocked(db.tarea.findMany).mockResolvedValue([
+        taskRow({ responsable_id: "other-user", cliente_id: "cli-1", cliente_responsable_id: "colab-1" }),
+      ] as never);
+      vi.mocked(db.tarea.count).mockResolvedValue(1);
+
+      const res = await GET(new Request("http://localhost/api/v1/tasks"));
+      const json = await res.json();
+      expect(json.items[0].puede_editar).toBe(true);
+    });
+
+    it("COLABORADOR with no relation to task or client gets puede_editar: false", async () => {
+      authAs(colaborador);
+      vi.mocked(db.tarea.findMany).mockResolvedValue([
+        taskRow({ responsable_id: "other-user", cliente_id: "cli-1", cliente_responsable_id: "another-user" }),
+      ] as never);
+      vi.mocked(db.tarea.count).mockResolvedValue(1);
+
+      const res = await GET(new Request("http://localhost/api/v1/tasks"));
+      const json = await res.json();
+      expect(json.items[0].puede_editar).toBe(false);
+    });
+
+    it("COLABORADOR with no linked client and not the responsable gets puede_editar: false", async () => {
+      authAs(colaborador);
+      vi.mocked(db.tarea.findMany).mockResolvedValue([taskRow({ responsable_id: "other-user" })] as never);
+      vi.mocked(db.tarea.count).mockResolvedValue(1);
+
+      const res = await GET(new Request("http://localhost/api/v1/tasks"));
+      const json = await res.json();
+      expect(json.items[0].puede_editar).toBe(false);
+    });
+  });
+
+  it("does not scope a COLABORADOR — reading is global, no forced responsable_id", async () => {
     authAs(colaborador);
     vi.mocked(db.tarea.findMany).mockResolvedValue([]);
 
-    // Even if the caller tries to look at someone else's book via the
-    // `responsable` query param, the scope must win — the route ignores it.
+    await GET(new Request("http://localhost/api/v1/tasks"));
+
+    const where = vi.mocked(db.tarea.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
+    expect(where.responsable_id).toBeUndefined();
+  });
+
+  it("respects an explicit responsable filter for a COLABORADOR (any role can filter by any responsable)", async () => {
+    authAs(colaborador);
+    vi.mocked(db.tarea.findMany).mockResolvedValue([]);
+
     await GET(new Request("http://localhost/api/v1/tasks?responsable=other-user"));
 
     const where = vi.mocked(db.tarea.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
-    expect(where.responsable_id).toBe("colab-1");
+    expect(where.responsable_id).toBe("other-user");
   });
 
   it("does not force responsable_id for a full-access role", async () => {

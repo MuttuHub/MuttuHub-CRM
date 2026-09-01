@@ -161,6 +161,37 @@ describe("GET /api/v1/clients/:id", () => {
       }),
     );
   });
+
+  // PR 2 (Slice A): the client detail endpoint emits `puede_editar` per
+  // canEditClient(cliente, actor). Spec covers: COLABORADOR responsable ===
+  // actor.id → true (here, mocked as the actor in the happy-path detail test
+  // for COLABORADOR); full-access → always true.
+  describe("puede_editar (PR 2)", () => {
+    it("emits puede_editar: true for a GERENCIA caller on any client", async () => {
+      authAs(gerencia);
+      vi.mocked(db.cliente.findFirst).mockResolvedValue({
+        ...baseClientRow,
+        responsable_id: "other-user",
+        _count: { contactos: 0, oportunidades: 0, bitacora: 0, tareas: 0 },
+      } as never);
+
+      const res = await GET(new Request("http://localhost/api/v1/clients/cli-1"), routeContext);
+      const json = await res.json();
+      expect(json.cliente.puede_editar).toBe(true);
+    });
+
+    it("emits puede_editar: true for a COLABORADOR who IS the responsable", async () => {
+      authAs(colaborador);
+      vi.mocked(db.cliente.findFirst).mockResolvedValue({
+        ...baseClientRow,
+        _count: { contactos: 0, oportunidades: 0, bitacora: 0, tareas: 0 },
+      } as never);
+
+      const res = await GET(new Request("http://localhost/api/v1/clients/cli-1"), routeContext);
+      const json = await res.json();
+      expect(json.cliente.puede_editar).toBe(true);
+    });
+  });
 });
 
 describe("PATCH /api/v1/clients/:id", () => {

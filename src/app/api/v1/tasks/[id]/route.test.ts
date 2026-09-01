@@ -53,7 +53,9 @@ function taskRow(overrides: Partial<Record<string, unknown>> = {}) {
     created_at: new Date("2026-01-01"),
     updated_at: new Date("2026-01-01"),
     responsable: { nombre: "Colab Uno" },
-    cliente: overrides.cliente_id ? { nombre: "Cliente Uno" } : null,
+    cliente: overrides.cliente_id
+      ? { nombre: "Cliente Uno", responsable_id: overrides.cliente_responsable_id ?? "other-user" }
+      : null,
     _count: { comentarios: 0, subtareas: 0 },
   };
 }
@@ -142,6 +144,86 @@ describe("GET /api/v1/tasks/:id", () => {
     expect(json.task.comentarios).toEqual([
       expect.objectContaining({ id: "c-1", autor_nombre: "Ana" }),
     ]);
+  });
+
+  // PR 2 (Slice A): task detail emits `puede_editar` per task and inherits it
+  // onto every embedded comentario. Sub-entities belong to one task — the
+  // parent's flag is the single source of truth (no recompute per sub-row).
+  describe("puede_editar (PR 2)", () => {
+    it("emits puede_editar: true for a GERENCIA caller on any task", async () => {
+      authAs(gerencia);
+      vi.mocked(db.tarea.findFirst).mockResolvedValue({ id: "task-1" } as never);
+      vi.mocked(db.tarea.findUnique).mockResolvedValue(taskRow({ responsable_id: "other-user" }) as never);
+      vi.mocked(db.comentarioTarea.findMany).mockResolvedValue([]);
+
+      const res = await GET(new Request("http://localhost/api/v1/tasks/task-1"), routeContext);
+      const json = await res.json();
+      expect(json.task.puede_editar).toBe(true);
+    });
+
+    it("emits puede_editar: true for a COLABORADOR who is the task's responsable", async () => {
+      authAs(colaborador);
+      vi.mocked(db.tarea.findFirst).mockResolvedValue({ id: "task-1" } as never);
+      vi.mocked(db.tarea.findUnique).mockResolvedValue(taskRow({ responsable_id: "colab-1" }) as never);
+      vi.mocked(db.comentarioTarea.findMany).mockResolvedValue([]);
+
+      const res = await GET(new Request("http://localhost/api/v1/tasks/task-1"), routeContext);
+      const json = await res.json();
+      expect(json.task.puede_editar).toBe(true);
+    });
+
+    it("emits puede_editar: false for a COLABORADOR with no relation", async () => {
+      authAs(colaborador);
+      vi.mocked(db.tarea.findFirst).mockResolvedValue({ id: "task-1" } as never);
+      vi.mocked(db.tarea.findUnique).mockResolvedValue(
+        taskRow({ responsable_id: "other-user", cliente_id: "cli-1", cliente_responsable_id: "another-user" }) as never,
+      );
+      vi.mocked(db.comentarioTarea.findMany).mockResolvedValue([]);
+
+      const res = await GET(new Request("http://localhost/api/v1/tasks/task-1"), routeContext);
+      const json = await res.json();
+      expect(json.task.puede_editar).toBe(false);
+    });
+
+    it("embedded comentarios inherit puede_editar from the parent task (false)", async () => {
+      authAs(colaborador);
+      vi.mocked(db.tarea.findFirst).mockResolvedValue({ id: "task-1" } as never);
+      vi.mocked(db.tarea.findUnique).mockResolvedValue(
+        taskRow({ responsable_id: "other-user", cliente_id: "cli-1", cliente_responsable_id: "another-user" }) as never,
+      );
+      vi.mocked(db.comentarioTarea.findMany).mockResolvedValue([
+        { id: "c-1", autor_id: "user-9", texto: "Primero", created_at: new Date("2026-01-01") },
+        { id: "c-2", autor_id: "colab-1", texto: "Segundo", created_at: new Date("2026-01-02") },
+      ] as never);
+      vi.mocked(db.usuario.findMany).mockResolvedValue([
+        { id: "user-9", nombre: "Ana" },
+        { id: "colab-1", nombre: "Colab Uno" },
+      ] as never);
+
+      const res = await GET(new Request("http://localhost/api/v1/tasks/task-1"), routeContext);
+      const json = await res.json();
+      expect(json.task.puede_editar).toBe(false);
+      for (const c of json.task.comentarios) {
+        expect(c.puede_editar).toBe(false);
+      }
+    });
+
+    it("embedded comentarios inherit puede_editar from the parent task (true)", async () => {
+      authAs(colaborador);
+      vi.mocked(db.tarea.findFirst).mockResolvedValue({ id: "task-1" } as never);
+      vi.mocked(db.tarea.findUnique).mockResolvedValue(taskRow({ responsable_id: "colab-1" }) as never);
+      vi.mocked(db.comentarioTarea.findMany).mockResolvedValue([
+        { id: "c-1", autor_id: "user-9", texto: "Primero", created_at: new Date("2026-01-01") },
+      ] as never);
+      vi.mocked(db.usuario.findMany).mockResolvedValue([{ id: "user-9", nombre: "Ana" }] as never);
+
+      const res = await GET(new Request("http://localhost/api/v1/tasks/task-1"), routeContext);
+      const json = await res.json();
+      expect(json.task.puede_editar).toBe(true);
+      for (const c of json.task.comentarios) {
+        expect(c.puede_editar).toBe(true);
+      }
+    });
   });
 });
 
@@ -262,6 +344,40 @@ describe("PATCH /api/v1/tasks/:id", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
     expect(db.tarea.update).not.toHaveBeenCalled();
+  });
+
+  // PR 2 (Slice A): server is the authority on `puede_editar`. Even if the
+  // client tries to spoof the flag in the body, getTaskForWrite must
+  // re-evaluate and reject. This is the regression sentinel that prevents a
+  // future change where the UI flag is trusted.
+  describe("puede_editar is output-only (PR 2)", () => {
+    it("returns 403 for a COLABORADOR who spoofs puede_editar: true on a foreign task", async () => {
+      authAs(colaborador);
+      vi.mocked(db.tarea.findFirst).mockResolvedValue(
+        writeTareaRow({ responsable_id: "other-user", clienteResponsableId: "another-user" }) as never,
+      );
+
+      const res = await PATCH(patchRequest({ titulo: "Spoof", puede_editar: true }), routeContext);
+
+      expect(res.status).toBe(403);
+      expect(await res.json()).toMatchObject({ code: "FORBIDDEN" });
+      expect(db.tarea.update).not.toHaveBeenCalled();
+    });
+
+    it("ignores puede_editar: false in the body for the COLABORADOR's own task (flag is output-only)", async () => {
+      authAs(colaborador);
+      vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow({ responsable_id: "colab-1" }) as never);
+      vi.mocked(db.tarea.update).mockResolvedValue(taskRow({ titulo: "Nuevo" }) as never);
+
+      const res = await PATCH(patchRequest({ titulo: "Nuevo", puede_editar: false }), routeContext);
+
+      expect(res.status).toBe(200);
+      expect(db.tarea.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ titulo: "Nuevo" }),
+        }),
+      );
+    });
   });
 });
 
