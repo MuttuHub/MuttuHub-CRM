@@ -63,6 +63,73 @@ function readHashTokens(): {
   };
 }
 
+function InvalidLinkCard({ email }: { email: string }) {
+  const [resend, setResend] = useState<"idle" | "sending" | "done" | "error">(
+    "idle",
+  );
+
+  async function handleResend() {
+    if (!email || resend === "sending") return;
+    setResend("sending");
+    try {
+      const res = await fetch("/api/v1/auth/reinvite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      setResend(res.ok ? "done" : "error");
+    } catch {
+      setResend("error");
+    }
+  }
+
+  return (
+    <>
+      <h1 className="font-display text-[22px] font-bold tracking-[-0.02em] text-ink-950">
+        Enlace no válido
+      </h1>
+      <p className="mt-2 text-[13.5px] leading-relaxed text-ink-600">
+        El enlace de confirmación es inválido o ya expiró. Puede que el enlace
+        se haya cortado al copiarlo y pegarlo.
+      </p>
+
+      {email ? (
+        resend === "done" ? (
+          <p className="mt-4 rounded-xl bg-exito-bg px-4 py-3 text-[13px] font-medium text-exito">
+            Si el correo está registrado y tiene una invitación pendiente, te
+            la reenviamos. Revisa tu bandeja.
+          </p>
+        ) : resend === "error" ? (
+          <p className="mt-4 rounded-xl bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo">
+            No pudimos reenviar el correo. Inténtalo de nuevo.
+          </p>
+        ) : (
+          <Button
+            type="button"
+            onClick={() => void handleResend()}
+            disabled={resend === "sending"}
+            className="mt-5 h-11 w-full rounded-lg text-[14px] font-bold"
+          >
+            {resend === "sending" && (
+              <LoaderCircle className="size-4 animate-spin" strokeWidth={2} />
+            )}
+            {resend === "sending"
+              ? "Enviando…"
+              : "Solicitar de nuevo el enlace"}
+          </Button>
+        )
+      ) : (
+        <Link
+          href="/login"
+          className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary text-[14px] font-bold text-primary-foreground transition-colors hover:bg-primary/80"
+        >
+          Volver a iniciar sesión
+        </Link>
+      )}
+    </>
+  );
+}
+
 function ConfirmInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -373,24 +440,7 @@ function ConfirmInner() {
   }
 
   if (!hasLink) {
-    return (
-      <>
-        <h1 className="font-display text-[22px] font-bold tracking-[-0.02em] text-ink-950">
-          Enlace no válido
-        </h1>
-        <p className="mt-2 text-[13.5px] leading-relaxed text-ink-600">
-          El enlace de confirmación es inválido o ya expiró. Puede que el
-          enlace se haya cortado al copiarlo y pegarlo. Solicita uno nuevo para
-          continuar.
-        </p>
-        <Link
-          href="/login"
-          className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary text-[14px] font-bold text-primary-foreground transition-colors hover:bg-primary/80"
-        >
-          Solicita uno nuevo
-        </Link>
-      </>
-    );
+    return <InvalidLinkCard email={email} />;
   }
 
   return (

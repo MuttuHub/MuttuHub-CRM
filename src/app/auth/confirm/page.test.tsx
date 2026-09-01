@@ -275,4 +275,39 @@ describe("ConfirmPage", () => {
       screen.queryByText("Contraseña creada"),
     ).not.toBeInTheDocument()
   })
+
+  it("shows a resend button on invalid link when email is present", async () => {
+    mocks.setSearchParams(new URLSearchParams("email=a@b.co"))
+    render(<ConfirmPage />)
+    await flushMicrotasks()
+    expect(screen.getByText("Enlace no válido")).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Solicitar de nuevo el enlace" }),
+    ).toBeInTheDocument()
+  })
+
+  it("calls /api/v1/auth/reinvite when the resend button is clicked", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true }),
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    mocks.setSearchParams(new URLSearchParams("email=a@b.co"))
+    render(<ConfirmPage />)
+    await flushMicrotasks()
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Solicitar de nuevo el enlace" }),
+    )
+    await flushMicrotasks()
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/auth/reinvite",
+      expect.objectContaining({ method: "POST" }),
+    )
+    expect(fetchMock.mock.calls[0][1].body).toContain("a@b.co")
+
+    vi.unstubAllGlobals()
+  })
 })
