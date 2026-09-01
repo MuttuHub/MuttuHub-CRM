@@ -28,6 +28,7 @@ import {
   parsePagination,
   zodError,
 } from "@/lib/api/crm";
+import { canEditClient } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -230,6 +231,9 @@ export const GET = withApiErrorHandling(
           compromisos_abiertos: e.compromisos_abiertos,
           next_compromiso: e.next_compromiso,
           updated_at: r.updated_at,
+          // Server-authoritative write flag (PR 2). The UI gates destructive
+          // controls / edit fields on this — see canEditClient.
+          puede_editar: canEditClient(r, { id: auth.usuario.id, rol: auth.usuario.rol }),
         };
       });
 

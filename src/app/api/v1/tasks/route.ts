@@ -23,6 +23,7 @@ import {
   toTaskItem,
   zodError,
 } from "@/lib/api/crm";
+import { canEditTask } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -178,7 +179,16 @@ export const GET = withApiErrorHandling(
       page: pagination.page,
       limit: pagination.limit,
       total,
-      items: rows.map((row) => toTaskItem(row, hechasPorTarea)),
+      items: rows.map((row) => ({
+        ...toTaskItem(row, hechasPorTarea),
+        puede_editar: canEditTask(
+          {
+            responsable_id: row.responsable_id,
+            cliente_responsable_id: row.cliente?.responsable_id ?? null,
+          },
+          { id: auth.usuario.id, rol: auth.usuario.rol },
+        ),
+      })),
     });
   },
 );

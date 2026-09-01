@@ -285,7 +285,7 @@ export const TASK_SELECT = {
   created_at: true,
   updated_at: true,
   responsable: { select: { nombre: true } },
-  cliente: { select: { nombre: true } },
+  cliente: { select: { nombre: true, responsable_id: true } },
   _count: { select: { comentarios: true, subtareas: true } },
 } as const;
 

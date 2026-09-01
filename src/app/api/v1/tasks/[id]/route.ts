@@ -27,6 +27,7 @@ import {
   toTaskItem,
   zodError,
 } from "@/lib/api/crm";
+import { canEditTask } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -72,12 +73,23 @@ export const GET = withApiErrorHandling(
         })
       : [];
     const autorNombreById = new Map(autores.map((a) => [a.id, a.nombre]));
+    // Server-authoritative flag (PR 2): sub-entities inherit it from the parent
+    // task — recomputing per row would require N extra parent reads.
+    const puede_editar = canEditTask(
+      {
+        responsable_id: row!.responsable_id,
+        cliente_responsable_id: row!.cliente?.responsable_id ?? null,
+      },
+      { id: auth.usuario.id, rol: auth.usuario.rol },
+    );
     return NextResponse.json({
       task: {
         ...toTaskItem(row!),
+        puede_editar,
         comentarios: comentarios.map((c) => ({
           ...c,
           autor_nombre: autorNombreById.get(c.autor_id) ?? "",
+          puede_editar,
         })),
       },
     });
