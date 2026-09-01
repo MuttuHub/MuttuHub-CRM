@@ -27,6 +27,7 @@ import {
   parseDate,
   zodError,
 } from "@/lib/api/crm";
+import { canManageAny } from "@/lib/permissions";
 import { enrichClients } from "@/app/api/v1/clients/route";
 
 export const dynamic = "force-dynamic";
@@ -140,13 +141,13 @@ export const PATCH = withApiErrorHandling(
     if (!cliente) {
       return apiError("El cliente no existe.", 404, "NOT_FOUND");
     }
-    if (!isFullAccess(auth.usuario.rol) && cliente.responsable_id !== auth.usuario.id) {
+    if (!canManageAny(auth.usuario.rol) && cliente.responsable_id !== auth.usuario.id) {
       return apiError("No tienes permisos para actualizar este cliente.", 403, "FORBIDDEN");
     }
 
     // COLABORADOR cannot hand the client over to another responsable.
     if (
-      !isFullAccess(auth.usuario.rol) &&
+      !canManageAny(auth.usuario.rol) &&
       parsed.data.responsable_id !== undefined &&
       parsed.data.responsable_id !== auth.usuario.id
     ) {
@@ -218,7 +219,7 @@ export const DELETE = withApiErrorHandling(
     if (!cliente) {
       return apiError("El cliente no existe.", 404, "NOT_FOUND");
     }
-    if (!isFullAccess(auth.usuario.rol) && cliente.responsable_id !== auth.usuario.id) {
+    if (!canManageAny(auth.usuario.rol) && cliente.responsable_id !== auth.usuario.id) {
       return apiError("No tienes permisos para eliminar este cliente.", 403, "FORBIDDEN");
     }
 

@@ -1,8 +1,9 @@
 // GET /api/v1/tasks — unified CRM + Kanban task list (PRD §8.2 / HT-19) with
-// search, filters and pagination (page >= 1, limit 25 max 100).
-// POST /api/v1/tasks — create. Same permission model as clients: full roles
-// see/edit everything; COLABORADOR only their own tasks (and on create the
-// responsable is forced to self).
+// search, filters and pagination (page >= 1, limit 25 max 100). Reading is
+// global: every role sees every task (no per-role scope on the list).
+// POST /api/v1/tasks — create. Writing keeps the permission model of clients:
+// COLABORADOR can only create tasks with themself as responsable (forced
+// below); full roles can assign to anyone.
 
 import { NextResponse } from "next/server";
 import type { Prisma, EstadoTarea, OrigenTarea, PrioridadTarea, Usuario } from "@prisma/client";
@@ -15,7 +16,6 @@ import { ENUM_VALUES } from "@/lib/catalogs";
 import { logAudit } from "@/lib/api/audit";
 import {
   catalogEnum,
-  isFullAccess,
   OPEN_TASK_STATES,
   parseDate,
   parsePagination,
@@ -40,13 +40,11 @@ export type TaskFilters = {
 
 /**
  * Parses and validates the shared tasks list/export/report query params
- * (estado, origen, vencidas, q, cliente, responsable). COLABORADOR can never
- * request a foreign responsable — their scope is forced downstream in
- * buildTaskWhere and the param is ignored here (same rule as clients).
+ * (estado, origen, vencidas, q, cliente, responsable). Reading is global now:
+ * any role can filter by any responsable, so the param is never ignored.
  */
 export function parseTaskFilters(
   url: URL,
-  rol: Usuario["rol"],
 ):
   | { ok: true; filters: TaskFilters }
   | { ok: false; response: Response } {
@@ -67,8 +65,7 @@ export function parseTaskFilters(
       q: sp.get("q")?.trim() || undefined,
       estado: estadoRaw,
       origen: origenRaw,
-      responsable:
-        rol === "COLABORADOR" ? undefined : (sp.get("responsable") ?? undefined),
+      responsable: sp.get("responsable") ?? undefined,
       cliente: sp.get("cliente") ?? undefined,
       vencidas: sp.get("vencidas") === "true",
     },
@@ -76,13 +73,12 @@ export function parseTaskFilters(
 }
 
 /**
- * Builds the shared list/export/report `where` including the COLABORADOR
- * scope (their tasks only) and the deleted-rows guard (PRD §8.2 soft delete).
+ * Builds the shared list/export/report `where` including the deleted-rows
+ * guard (PRD §8.2 soft delete). No per-role scope: reading tasks is global.
  */
 export function buildTaskWhere(filters: TaskFilters, usuario: Usuario): Prisma.TareaWhereInput {
   const where: Prisma.TareaWhereInput = {
     deleted_at: null,
-    ...(isFullAccess(usuario.rol) ? {} : { responsable_id: usuario.id }),
   };
   const q = filters.q;
   if (q) {
@@ -147,7 +143,7 @@ export const GET = withApiErrorHandling(
     if (!auth.ok) return auth.response;
 
     const url = new URL(request.url);
-    const parsed = parseTaskFilters(url, auth.usuario.rol);
+    const parsed = parseTaskFilters(url);
     if (!parsed.ok) return parsed.response;
 
     const pagination = parsePagination(url.searchParams, 100);

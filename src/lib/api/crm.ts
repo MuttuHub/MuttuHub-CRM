@@ -11,6 +11,7 @@ import type { EstadoTarea, Prisma, RolUsuario, Tarea, Usuario } from "@prisma/cl
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
+import { canEditClient, canEditTask } from "@/lib/permissions";
 
 export const FULL_ACCESS_ROLES: readonly RolUsuario[] = [
   "ADMINISTRADOR",
@@ -49,7 +50,7 @@ export async function getClientForWrite(id: string, usuario: Usuario) {
     select: { id: true, responsable_id: true },
   });
   if (!cliente) return { ok: false as const, code: "NOT_FOUND" as const };
-  if (!isFullAccess(usuario.rol) && cliente.responsable_id !== usuario.id) {
+  if (!canEditClient(cliente, { id: usuario.id, rol: usuario.rol })) {
     return { ok: false as const, code: "FORBIDDEN" as const };
   }
   return { ok: true as const, cliente };
@@ -87,10 +88,12 @@ export async function getTaskForWrite(id: string, usuario: Usuario) {
     },
   });
   if (!tarea) return { ok: false as const, code: "NOT_FOUND" as const };
-  if (isFullAccess(usuario.rol) || tarea.responsable_id === usuario.id) {
-    return { ok: true as const, tarea };
-  }
-  if (tarea.cliente && tarea.cliente.responsable_id === usuario.id) {
+  if (
+    canEditTask(
+      { responsable_id: tarea.responsable_id, cliente_responsable_id: tarea.cliente?.responsable_id ?? null },
+      { id: usuario.id, rol: usuario.rol },
+    )
+  ) {
     return { ok: true as const, tarea };
   }
   return { ok: false as const, code: "FORBIDDEN" as const };
