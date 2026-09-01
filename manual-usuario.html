@@ -181,7 +181,9 @@
         <div class="sub">4.1 Ver la lista y filtrar<br/>4.2 Crear un cliente<br/>4.3 La ficha del cliente<br/>4.4 Contactos<br/>4.5 Oportunidades<br/>4.6 Compromisos<br/>4.7 Bitácora<br/>4.8 Documentos vinculados<br/>4.9 Editar y desactivar un cliente</div>
       </li>
       <li>Tablero del equipo</li>
-      <li>Documentos y Repositorio</li>
+      <li>Documentos y Repositorio
+        <div class="sub">6.1 Subir un documento<br/>6.2 Versiones<br/>6.3 Descargar y filtrar</div>
+      </li>
       <li>Reportes</li>
       <li>Administración (para administradores)
         <div class="sub">8.1 Aprobar o rechazar solicitudes de acceso<br/>8.2 Iniciar sesión con la cuenta de administración</div>
@@ -340,8 +342,11 @@
   <h2>4.8 Documentos vinculados</h2>
   <ol>
     <li>En la ficha del cliente abre la pestaña <strong>Documentos</strong>.</li>
-    <li>Elige <strong>Subir documento vinculado</strong> para subir el archivo y asociarlo al cliente.</li>
-    <li>El documento queda versionado en el <strong>Repositorio documental</strong> y accesible desde el cliente.</li>
+    <li>Pulsa <strong>Subir documento vinculado</strong> para cargar un archivo y asociarlo a ese cliente.</li>
+    <li>Completa: <strong>Título</strong> (si lo dejas vacío se usa el nombre del archivo), <strong>Categoría</strong> y <strong>Etiquetas</strong> (para buscarlo después).</li>
+    <li>Selecciona el archivo y confirma la subida.</li>
+    <li>El documento queda <strong>versionado</strong> en el Repositorio: si ya existe uno con el mismo título, la app te ofrece <strong>Subir como nueva versión</strong> en vez de duplicarlo.</li>
+    <li>Desde la ficha puedes <strong>descargarlo</strong> o ver su detalle.</li>
   </ol>
 
   <h2>4.9 Editar y desactivar un cliente</h2>
@@ -363,11 +368,27 @@
 
   <!-- 6. DOCUMENTOS -->
   <h1 class="section">6. Documentos y Repositorio</h1>
+  <h2>6.1 Subir un documento</h2>
   <ol>
-    <li>En el menú elige <strong>Documentos</strong>.</li>
-    <li>Usa <strong>Subir documento</strong> para cargar un archivo; puedes vincularlo a un cliente desde la ficha (sección 4.8).</li>
-    <li>El repositorio guarda versiones: cada cambio suma una versión nueva, sin perder la anterior.</li>
-    <li>Filtra por nombre, tipo de categoría o cliente para encontrar rápido.</li>
+    <li>En el menú elige <strong>Documentos</strong> → <strong>Subir documento</strong>.</li>
+    <li>Arrastra el archivo o haz clic para seleccionarlo.</li>
+    <li>Completa el <strong>Título</strong> (obligatorio; si lo dejas vacío se usa el nombre del archivo), la <strong>Categoría</strong> y las <strong>Etiquetas</strong>.</li>
+    <li>Opcional: vincula el documento a un <strong>cliente</strong> para que aparezca también en su ficha (sección 4.8).</li>
+    <li>Confirma la subida.</li>
+  </ol>
+
+  <h2>6.2 Versiones</h2>
+  <ol>
+    <li>Si subes un archivo con un <strong>título que ya existe</strong>, la app te avisa y te ofrece <strong>Subir como nueva versión</strong>.</li>
+    <li>Así no se duplican documentos: cada cambio suma una versión nueva y la anterior queda guardada.</li>
+    <li>En el detalle del documento puedes ver el historial de versiones.</li>
+  </ol>
+
+  <h2>6.3 Descargar y filtrar</h2>
+  <ol>
+    <li>Marca uno o varios documentos con las casillas y pulsa <strong>Descargar selección (.zip)</strong> para bajar todo en un archivo comprimido.</li>
+    <li>Usa el buscador y los filtros por <strong>categoría</strong>, <strong>etiquetas</strong> o <strong>cliente</strong> para encontrar rápido.</li>
+    <li>Cada documento tiene su acción de <strong>descarga</strong> individual y su ficha de detalle.</li>
   </ol>
 
   <!-- 7. REPORTES -->
