@@ -140,20 +140,30 @@ export async function POST(request: Request) {
         (u) => u.email?.trim().toLowerCase() === email.toLowerCase(),
       );
       if (match && !match.email_confirmed_at) {
-        const { error: resendError } =
-          await supabaseAdmin.auth.admin.reinviteUserById(match.id);
-        if (resendError) {
-          console.error("[users] reinvite failed:", resendError);
+        // Regenerate a fresh invite link for the existing (pending) user via
+        // generateLink({ type: "invite" }) — inviteUserByEmail would return
+        // 422 for an already-registered address. The link is returned to the
+        // admin UI to copy/send instead of relying on SMTP delivery.
+        const { data: linkData, error: linkError } =
+          await supabaseAdmin.auth.admin.generateLink({
+            type: "invite",
+            email,
+          });
+        if (linkError || !linkData?.properties?.action_link) {
+          console.error("[users] generateLink failed:", linkError);
           return apiError(
-            "No pudimos reenviar la invitación. Inténtalo de nuevo.",
+            "No pudimos generar el enlace de invitación. Inténtalo de nuevo.",
             500,
             "INTERNAL_ERROR",
           );
         }
-        return apiError(
-          "Ese correo ya tiene una invitación pendiente: te la reenviamos.",
-          409,
-          "INVITE_RESENT",
+        return NextResponse.json(
+          {
+            resent: true,
+            inviteUrl: linkData.properties.action_link,
+            message: "Enlace de invitación generado.",
+          },
+          { status: 200 },
         );
       }
       return apiError("El correo ya está registrado.", 409, "CONFLICT");
