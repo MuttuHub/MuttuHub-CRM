@@ -112,6 +112,21 @@ describe("ConfirmPage", () => {
     expect(screen.getByText("¡Correo verificado!")).toBeInTheDocument()
   })
 
+  it("verifies via verifyOtp with token_hash (modern Supabase invite link)", async () => {
+    mocks.verifyOtp.mockResolvedValue({ error: null })
+    mocks.setSearchParams(
+      new URLSearchParams("token_hash=th1&type=invite&email=a@b.co"),
+    )
+    render(<ConfirmPage />)
+    await flushMicrotasks()
+    expect(mocks.verifyOtp).toHaveBeenCalledWith({
+      type: "invite",
+      token_hash: "th1",
+      email: "a@b.co",
+    })
+    expect(screen.getByText("Crea tu contraseña")).toBeInTheDocument()
+  })
+
   it("verifies via exchangeCodeForSession when only code is present", async () => {
     mocks.exchangeCodeForSession.mockResolvedValue({ error: null })
     mocks.setSearchParams(new URLSearchParams("code=c1"))

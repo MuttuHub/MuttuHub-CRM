@@ -69,6 +69,7 @@ function ConfirmInner() {
 
   const code = searchParams.get("code");
   const token = searchParams.get("token");
+  const tokenHash = searchParams.get("token_hash");
   const email = searchParams.get("email") ?? "";
   const rawType = searchParams.get("type");
   // Missing/unknown type falls back to "invite": the app has no public
@@ -92,7 +93,7 @@ function ConfirmInner() {
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
     !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  const hasLink = Boolean(token || code || accessToken);
+  const hasLink = Boolean(token || code || accessToken || tokenHash);
 
   useEffect(() => {
     if (unconfigured || !hasLink) return;
@@ -109,6 +110,13 @@ function ConfirmInner() {
           const { error } = await supabase.auth.verifyOtp({
             type,
             token,
+            email,
+          });
+          if (error) throw error;
+        } else if (tokenHash) {
+          const { error } = await supabase.auth.verifyOtp({
+            type,
+            token_hash: tokenHash,
             email,
           });
           if (error) throw error;
@@ -163,6 +171,7 @@ function ConfirmInner() {
     hasLink,
     code,
     token,
+    tokenHash,
     rawType,
     type,
     email,
