@@ -288,3 +288,14 @@
     display: none !important;
   }
 }
+
+/* Oculta la barra nativa de scroll pero conserva el scroll (plan Fase 4, 2C):
+   la ficha de cliente señala el desborde de las tabs con máscaras en vez de
+   dejar la scrollbar comerse el alto de la fila. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

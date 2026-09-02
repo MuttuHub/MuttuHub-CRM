@@ -142,10 +142,10 @@ export function ClientSheet({
               />
 
               <Tabs defaultValue="general" className="flex min-h-0 flex-1 flex-col">
-                <div className="shrink-0 border-b border-ink-200 px-6">
+                <div className="no-scrollbar relative shrink-0 overflow-x-auto border-b border-ink-200 px-6">
                   <TabsList
                     variant="line"
-                    className="h-10 w-full justify-start gap-1 overflow-x-auto pb-1"
+                    className="w-full justify-start gap-1 scroll-smooth"
                   >
                     <TabsTrigger value="general" className="flex-none px-3">General</TabsTrigger>
                     <TabsTrigger value="contactos" className="flex-none px-3">Contactos</TabsTrigger>
@@ -155,6 +155,10 @@ export function ClientSheet({
                     <TabsTrigger value="documentos" className="flex-none px-3">Documentos</TabsTrigger>
                     <TabsTrigger value="tareas" className="flex-none px-3">Tareas relacionadas</TabsTrigger>
                   </TabsList>
+                  {/* 2C: máscaras de degradado que señalan el desborde de las
+                      tabs (la barra nativa está oculta con no-scrollbar). */}
+                  <span className="pointer-events-none absolute top-0 left-0 h-full w-4 bg-gradient-to-r from-panel to-transparent" />
+                  <span className="pointer-events-none absolute top-0 right-0 h-full w-4 bg-gradient-to-l from-panel to-transparent" />
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
