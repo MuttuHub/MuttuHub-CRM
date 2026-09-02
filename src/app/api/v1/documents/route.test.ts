@@ -74,6 +74,7 @@ function docRow(overrides: Partial<{ id: string; categoria: string; autor_id: st
     autor_id: overrides.autor_id ?? "user-1",
     created_at: new Date("2026-01-01"),
     deleted_at: null,
+    carpeta_id: null,
   };
 }
 
@@ -207,6 +208,8 @@ describe("POST /api/v1/documents", () => {
       tipo_archivo: "application/pdf",
       subido_por_id: "admin-1",
       created_at: new Date("2026-01-01"),
+      contenido_texto: null,
+      texto_estado: null,
     });
     vi.mocked(db.documentoCliente.findMany).mockResolvedValue([]);
 
@@ -253,6 +256,8 @@ describe("POST /api/v1/documents", () => {
       tipo_archivo: "application/pdf",
       subido_por_id: "user-1",
       created_at: new Date("2026-01-01"),
+      contenido_texto: null,
+      texto_estado: null,
     });
     vi.mocked(db.documentoCliente.findMany).mockResolvedValue([]);
 
@@ -380,6 +385,8 @@ describe("POST /api/v1/documents", () => {
         tipo_archivo: "application/pdf",
         subido_por_id: "admin-1",
         created_at: new Date("2026-01-01"),
+        contenido_texto: null,
+        texto_estado: null,
       });
       vi.mocked(db.documentoCliente.findMany).mockResolvedValue([]);
 
@@ -412,6 +419,8 @@ describe("POST /api/v1/documents", () => {
         tipo_archivo: "application/pdf",
         subido_por_id: "user-1",
         created_at: new Date("2026-01-01"),
+        contenido_texto: null,
+        texto_estado: null,
       });
       vi.mocked(db.documentoCliente.findMany).mockResolvedValue([]);
 

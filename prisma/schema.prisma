@@ -221,6 +221,26 @@ model BitacoraEntrada {
   @@map("bitacora_entradas")
 }
 
+// La carpeta es el eje de ORGANIZACIÓN, nunca el de permisos: `categoria` es lo
+// que leen canReadCategory y los gates de subida/zip. Mover un documento entre
+// carpetas jamás puede cambiar quién lo lee — esa escalada de privilegios
+// disparada por un gesto de organización es exactamente lo que este modelo evita.
+model Carpeta {
+  id           String    @id @default(uuid())
+  nombre       String
+  parent_id    String? // null = raíz; no hay fila "root"
+  creado_por_id String
+  created_at   DateTime  @default(now())
+  deleted_at   DateTime?
+
+  parent      Carpeta?     @relation("CarpetaArbol", fields: [parent_id], references: [id])
+  hijas       Carpeta[]    @relation("CarpetaArbol")
+  documentos  Documento[]
+
+  @@index([parent_id])
+  @@map("carpetas")
+}
+
 model Documento {
   id         String    @id @default(uuid())
   titulo     String
@@ -229,24 +249,31 @@ model Documento {
   autor_id   String
   created_at DateTime  @default(now())
   deleted_at DateTime?
+  carpeta_id String?
 
   autor          Usuario            @relation(fields: [autor_id], references: [id])
+  carpeta        Carpeta?           @relation(fields: [carpeta_id], references: [id])
   versiones      DocumentoVersion[]
   clientes       DocumentoCliente[]
   adjuntos_tarea AdjuntoTarea[] // QA audit finding #12: espejo del adjunto de origen, si lo hay
 
+  // El listado por defecto filtra deleted_at y ordena por created_at desc.
+  @@index([deleted_at, created_at])
+  @@index([carpeta_id])
   @@map("documentos")
 }
 
 model DocumentoVersion {
-  id             String   @id @default(uuid())
-  documento_id   String
-  numero_version Int
-  storage_path   String   // path en Supabase Storage
-  tamano_bytes   Int?
-  tipo_archivo   String?
-  subido_por_id  String
-  created_at     DateTime @default(now())
+  id              String   @id @default(uuid())
+  documento_id    String
+  numero_version  Int
+  storage_path    String   // path en Supabase Storage
+  tamano_bytes    Int?
+  tipo_archivo    String?
+  subido_por_id   String
+  created_at      DateTime @default(now())
+  contenido_texto String? // texto extraído (null = sin texto / sin procesar)
+  texto_estado    String? // "ok" | "sin_texto" | "error" | null (= nunca procesado)
 
   documento Documento @relation(fields: [documento_id], references: [id])
 
@@ -262,6 +289,8 @@ model DocumentoCliente {
   cliente   Cliente   @relation(fields: [cliente_id], references: [id])
 
   @@id([documento_id, cliente_id])
+  // La PK compuesta (documento_id, cliente_id) no sirve para el filtro ?cliente=
+  @@index([cliente_id])
   @@map("documentos_clientes")
 }
 

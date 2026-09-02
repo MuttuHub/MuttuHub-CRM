@@ -55,6 +55,7 @@ function docRow(overrides: Partial<{ id: string; categoria: string; autor_id: st
     autor_id: overrides.autor_id ?? "user-1",
     created_at: new Date("2026-01-01"),
     deleted_at: null,
+    carpeta_id: null,
   };
 }
 
