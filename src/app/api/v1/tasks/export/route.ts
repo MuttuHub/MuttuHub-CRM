@@ -7,6 +7,11 @@
 // "A tiempo/tarde" comparte el proxy del reporte de equipo (updated_at <=
 // fecha_entrega para COMPLETADA) — el xlsx no los expone como columnas, pero
 // el criterio queda documentado en el README (Hito 3).
+//
+// PR 6 (close-phase-1): every export writes an `auditoria` row with
+// `accion: "exportar"`, who, when, how many rows, and which filters were
+// applied. `logAudit` is best-effort (already swallows its own errors per
+// QA audit finding #9), so an audit failure never fails the export.
 
 import ExcelJS from "exceljs";
 import { db } from "@/lib/db";
@@ -18,6 +23,7 @@ import {
   PRIORIDAD_TAREA_LABELS,
 } from "@/lib/catalogs";
 import { buildTaskWhere, parseTaskFilters } from "@/app/api/v1/tasks/route";
+import { logAudit } from "@/lib/api/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +61,20 @@ export const GET = withApiErrorHandling(
       take: EXPORT_MAX_ROWS,
     });
     const ids = rows.map((r) => r.id);
+
+    // PR 6: audit the export before writing the file. Best-effort: logAudit
+    // swallows its own errors, so even a hard DB outage on `auditoria`
+    // wouldn't fail the user's download — the file is the deliverable.
+    await logAudit({
+      entidad: "tarea",
+      entidad_id: null,
+      accion: "exportar",
+      usuario_id: auth.usuario.id,
+      cambios: {
+        rows: rows.length,
+        filters: filters.filters as unknown as Record<string, unknown>,
+      },
+    });
 
     // Conteos de subtareas del conjunto exportado: dos groupBy (totales y
     // completadas) en lugar de N+1.

@@ -4,6 +4,13 @@
 // POST /api/v1/tasks — create. Writing keeps the permission model of clients:
 // COLABORADOR can only create tasks with themself as responsable (forced
 // below); full roles can assign to anyone.
+//
+// PR 6 (close-phase-1): prioridad / etiqueta / fecha_entrega_desde /
+// fecha_entrega_hasta are server-side clauses now (synthetic-rabin
+// §"El tope de 100"). The board feeds them as URL params and the server
+// applies them in `buildTaskWhere`; the matching `total` count is built
+// without those three keys so the truncation banner is honest about
+// what's truncated vs. what's filtered out.
 
 import { NextResponse } from "next/server";
 import type { Prisma, EstadoTarea, OrigenTarea, PrioridadTarea, Usuario } from "@prisma/client";
@@ -16,6 +23,7 @@ import { ENUM_VALUES } from "@/lib/catalogs";
 import { logAudit } from "@/lib/api/audit";
 import {
   catalogEnum,
+  endOfDay,
   OPEN_TASK_STATES,
   parseDate,
   parsePagination,
@@ -29,6 +37,13 @@ export const dynamic = "force-dynamic";
 
 const ESTADOS = ENUM_VALUES.EstadoTarea as readonly EstadoTarea[];
 const ORIGENES = ENUM_VALUES.OrigenTarea as readonly OrigenTarea[];
+const PRIORIDADES = ENUM_VALUES.PrioridadTarea as readonly PrioridadTarea[];
+
+// Keys of the filters that the `total` count must NOT include — the banner
+// "Mostrando N de M tareas" only makes sense if M counts everything else
+// (responsable, cliente, estado, origen, q, deleted_at) and N is the page
+// after prioridad / etiqueta / fecha_entrega_* cut it down.
+const COUNT_EXCLUDED_KEYS = ["prioridad", "etiqueta", "fecha_entrega_desde", "fecha_entrega_hasta"] as const;
 
 export type TaskFilters = {
   q?: string;
@@ -36,13 +51,19 @@ export type TaskFilters = {
   origen?: string;
   responsable?: string;
   cliente?: string;
+  prioridad?: PrioridadTarea;
+  etiqueta?: string;
+  fecha_entrega_desde?: string;
+  fecha_entrega_hasta?: string;
   vencidas: boolean;
 };
 
 /**
- * Parses and validates the shared tasks list/export/report query params
- * (estado, origen, vencidas, q, cliente, responsable). Reading is global now:
- * any role can filter by any responsable, so the param is never ignored.
+ * Parses and validates the shared tasks list/export/report query params.
+ * Reading is global now: any role can filter by any responsable, so the
+ * param is never ignored. PR 6 adds prioridad / etiqueta /
+ * fecha_entrega_desde / fecha_entrega_hasta with the same catalog-style
+ * validation the other params already use.
  */
 export function parseTaskFilters(
   url: URL,
@@ -60,6 +81,32 @@ export function parseTaskFilters(
     return { ok: false, response: apiError("Origen no válido.", 400, "VALIDATION_ERROR") };
   }
 
+  const prioridadRaw = sp.get("prioridad") ?? undefined;
+  if (prioridadRaw && !PRIORIDADES.includes(prioridadRaw as PrioridadTarea)) {
+    return { ok: false, response: apiError("Prioridad no válida.", 400, "VALIDATION_ERROR") };
+  }
+
+  const desde = sp.get("fecha_entrega_desde") ?? undefined;
+  const hasta = sp.get("fecha_entrega_hasta") ?? undefined;
+  if (desde && !/^\d{4}-\d{2}-\d{2}$/.test(desde)) {
+    return {
+      ok: false,
+      response: apiError("Fecha 'desde' no válida (YYYY-MM-DD).", 400, "VALIDATION_ERROR"),
+    };
+  }
+  if (hasta && !/^\d{4}-\d{2}-\d{2}$/.test(hasta)) {
+    return {
+      ok: false,
+      response: apiError("Fecha 'hasta' no válida (YYYY-MM-DD).", 400, "VALIDATION_ERROR"),
+    };
+  }
+  if (desde && hasta && desde > hasta) {
+    return {
+      ok: false,
+      response: apiError("La fecha final no puede ser anterior a la inicial.", 400, "VALIDATION_ERROR"),
+    };
+  }
+
   return {
     ok: true,
     filters: {
@@ -68,6 +115,10 @@ export function parseTaskFilters(
       origen: origenRaw,
       responsable: sp.get("responsable") ?? undefined,
       cliente: sp.get("cliente") ?? undefined,
+      prioridad: prioridadRaw ? (prioridadRaw as PrioridadTarea) : undefined,
+      etiqueta: sp.get("etiqueta")?.trim() || undefined,
+      fecha_entrega_desde: desde,
+      fecha_entrega_hasta: hasta,
       vencidas: sp.get("vencidas") === "true",
     },
   };
@@ -76,6 +127,12 @@ export function parseTaskFilters(
 /**
  * Builds the shared list/export/report `where` including the deleted-rows
  * guard (PRD §8.2 soft delete). No per-role scope: reading tasks is global.
+ *
+ * PR 6 — server-side filters. The `fecha_entrega` branch owns the date
+ * object: it merges `vencidas` ({ lt }) with the `desde`/`hasta` range
+ * ({ gte, lte }) into a single object. Compose-with-AND was tempting but
+ * Prisma rejects duplicate keys at the same level — extending the existing
+ * object keeps one owner of the field (D6 in close-phase-1/design.md).
  */
 export function buildTaskWhere(filters: TaskFilters, usuario: Usuario): Prisma.TareaWhereInput {
   const where: Prisma.TareaWhereInput = {
@@ -93,10 +150,23 @@ export function buildTaskWhere(filters: TaskFilters, usuario: Usuario): Prisma.T
   if (filters.estado) where.estado = filters.estado as EstadoTarea;
   if (filters.origen) where.origen = filters.origen as OrigenTarea;
   if (filters.cliente) where.cliente_id = filters.cliente;
-  if (filters.vencidas) {
-    where.fecha_entrega = { lt: new Date() };
-    where.estado = OPEN_TASK_STATES;
+  if (filters.prioridad) where.prioridad = filters.prioridad;
+  if (filters.etiqueta) where.etiquetas = { has: filters.etiqueta };
+
+  // PR 6: single owner of `fecha_entrega`. vencidas → `{ lt: now }`,
+  // desde/hasta → `{ gte, lte: endOfDay }`, both → merge into one object.
+  const rango: Prisma.DateTimeNullableFilter = {};
+  if (filters.vencidas) rango.lt = new Date();
+  if (filters.fecha_entrega_desde) {
+    const d = parseDate(filters.fecha_entrega_desde);
+    if (d) rango.gte = d;
   }
+  if (filters.fecha_entrega_hasta) {
+    const d = parseDate(filters.fecha_entrega_hasta);
+    if (d) rango.lte = endOfDay(d);
+  }
+  if (Object.keys(rango).length > 0) where.fecha_entrega = rango;
+  if (filters.vencidas) where.estado = OPEN_TASK_STATES;
   return where;
 }
 
@@ -152,6 +222,17 @@ export const GET = withApiErrorHandling(
 
     const where = buildTaskWhere(parsed.filters, auth.usuario);
 
+    // PR 6 (D7): the banner "Mostrando N de M tareas" must be honest about
+    // truncation, not filters. Strip prioridad / etiqueta / fecha_entrega_*
+    // from the count's where — the count reflects everything else the user
+    // asked for (responsable, cliente, estado, origen, q, deleted_at). The
+    // findMany keeps the full filter, so `items.length` is what the
+    // filters actually produced.
+    const countWhere: Prisma.TareaWhereInput = { ...where };
+    delete countWhere.prioridad;
+    delete countWhere.etiquetas;
+    delete countWhere.fecha_entrega;
+
     const [rows, total] = await Promise.all([
       db.tarea.findMany({
         where,
@@ -160,7 +241,7 @@ export const GET = withApiErrorHandling(
         skip: (pagination.page - 1) * pagination.limit,
         take: pagination.limit,
       }),
-      db.tarea.count({ where }),
+      db.tarea.count({ where: countWhere }),
     ]);
 
     // Conteo agregado de subtareas completadas para la página actual:
