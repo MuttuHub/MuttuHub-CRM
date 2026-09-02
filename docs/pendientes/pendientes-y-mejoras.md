@@ -1,6 +1,6 @@
 # Pendientes por corregir y oportunidades de mejora — Muttu Hub CRM
 
-> Última actualización: 2026-08-11 (sesión de batch pendientes v1).
+> Última actualización: 2026-09-02 (cierre de Fase 1 — Tablero global).
 > Estado del pipeline: PR #2 mergeado — unit (Vitest 212) ✅, typecheck 0 errores ✅,
 > preview deploy Vercel (integración Git) ✅, E2E TestSprite informativo ✅.
 
@@ -60,3 +60,13 @@
 
 7. **Dominio propio para el remitente** (`no-reply@muttu.co`) — desbloquea templates custom + reputación de envío (SMTP de Resend/Google Workspace).
 8. **Revisar `scripts/cron_setup.sql`** — contiene el `CRON_SECRET` real; evaluar moverlo a variable de entorno/secret del repo si se versiona.
+
+## Pendientes de Fase 1 — Tablero global (2026-09-02)
+
+> Cierre completo: `docs/cierre-fase-1-tablero-global.md`. La Fase 1 está entregada en `main`; estos son
+> los pendientes que dejó (ninguno bloquea la Fase 2 Documentos).
+
+1. **Sign-off de owner-of-data** (decisión del dueño) — tras globalizar lecturas, confirmar por escrito que compartir todos los datos de clientes/tareas es aceptable. Campos sensibles: `Oportunidad.valor_estimado_cop`, `Contacto.correo/telefono`, `Cliente.riesgos_barreras`. La única frontera de confidencialidad que le queda a un COLABORADOR son las categorías restringidas de documentos.
+2. **Borrar dead code** — `loadClientScoped`/`loadTaskScoped` quedaron sin uso en `src/lib/api/crm.ts` tras abrir lecturas. Commit aparte.
+3. **Perf post-globalización** (medir): 2 `count()` por request de lista (`total`), `clients/route.ts` enriquece en O(n²), `nextTasks` con `take: ids.length` global. Anotado en plan §Verificación.
+4. **Limpieza** — borrar el fork innecesario `agutierrezreginodev/MuttuHub-CRM` y el remote `fork` local si no se usa. El push a la org va por WSL con la cuenta `MuttuHub` (ver nota en el cierre).
