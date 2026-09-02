@@ -395,8 +395,10 @@ GET  /api/v1/tasks/export                  xlsx (mismos filtros, máx 500 filas)
 
 - Adjuntos: ≤ 10 MB (413 `FILE_TOO_LARGE`), PDF/DOCX/XLSX/JPG/PNG; bucket
   `muttu-docs` con service role.
-- Reporte: `tasa_cumplimiento = completadas / total_asignadas`; proxy "a tiempo"
-  = `updated_at <= fecha_entrega` (no hay `completed_at` en v1).
+- Reporte: `tasa_cumplimiento = completadas / total_asignadas`; "a tiempo" =
+  `COALESCE(completed_at, updated_at) <= fecha_entrega` — `completed_at` es la
+  marca real de cierre (Fase 3, plan 3B); el backfill congeló el proxy
+  histórico de las COMPLETADA previas a la migración.
 - Subtareas: `DELETE` es borrado físico (checklist).
 
 ### Repositorio de documentos

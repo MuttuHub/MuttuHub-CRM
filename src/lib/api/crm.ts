@@ -339,3 +339,22 @@ export function toTaskItem(
     updated_at: tarea.updated_at,
   };
 }
+
+/**
+ * El ÚNICO lugar que decide el valor de `completed_at` al transicionar una
+ * tarea (plan Fase 3, 3B). Lo usan tanto el endpoint de status como el PATCH
+ * genérico — una sola regla, dos consumidores:
+ *  - entrar a COMPLETADA → completed_at = now;
+ *  - salir de COMPLETADA (reabrir) → completed_at = null;
+ *  - seguir COMPLETADA (un PATCH que no toca estado) → no tocar la marca.
+ * Devuelve el fragmento de `data` para Prisma, ya listo para propagar.
+ */
+export function completedAtFor(
+  estado: EstadoTarea,
+  estadoPrevio: EstadoTarea,
+): Pick<Prisma.TareaUncheckedUpdateInput, "completed_at"> {
+  if (estado === "COMPLETADA") {
+    return estadoPrevio === "COMPLETADA" ? {} : { completed_at: new Date() };
+  }
+  return { completed_at: null };
+}

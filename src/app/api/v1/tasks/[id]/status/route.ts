@@ -14,6 +14,7 @@ import { ENUM_VALUES } from "@/lib/catalogs";
 import { logAudit } from "@/lib/api/audit";
 import {
   catalogEnum,
+  completedAtFor,
   getTaskForWrite,
   TASK_SELECT,
   toTaskItem,
@@ -81,6 +82,8 @@ export const PATCH = withApiErrorHandling(
       data: {
         estado: parsed.data.estado,
         motivo_bloqueo: motivoPersistido,
+        // Plan Fase 3 (3B): la marca real de cierre, vía el helper central.
+        ...completedAtFor(parsed.data.estado, access.tarea.estado),
       },
       select: TASK_SELECT,
     });

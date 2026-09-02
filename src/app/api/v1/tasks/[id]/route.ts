@@ -26,6 +26,7 @@ import {
   TASK_SELECT,
   toTaskItem,
   zodError,
+  completedAtFor,
 } from "@/lib/api/crm";
 import { canEditTask } from "@/lib/permissions";
 
@@ -155,7 +156,12 @@ export const PATCH = withApiErrorHandling(
     }
     if (parsed.data.responsable_id !== undefined) data.responsable_id = parsed.data.responsable_id;
     if (parsed.data.cliente_id !== undefined) data.cliente_id = parsed.data.cliente_id;
-    if (parsed.data.estado !== undefined) data.estado = parsed.data.estado;
+    if (parsed.data.estado !== undefined) {
+      data.estado = parsed.data.estado;
+      // Plan Fase 3 (3B): marca real de cierre, vía el helper central (misma
+      // regla que el endpoint de status).
+      Object.assign(data, completedAtFor(parsed.data.estado, access.tarea.estado));
+    }
     if (parsed.data.origen !== undefined) data.origen = parsed.data.origen;
     if (parsed.data.prioridad !== undefined) data.prioridad = parsed.data.prioridad;
     if (parsed.data.etiquetas !== undefined) {

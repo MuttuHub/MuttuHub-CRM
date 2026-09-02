@@ -78,6 +78,7 @@ export const GET = withApiErrorHandling(
           estado: true,
           fecha_entrega: true,
           updated_at: true,
+          completed_at: true,
           responsable_id: true,
           responsable: { select: { nombre: true } },
         },
@@ -125,7 +126,9 @@ export const GET = withApiErrorHandling(
       persona.total += 1;
       if (t.estado === "COMPLETADA") {
         persona.completadas += 1;
-        if (t.fecha_entrega && t.updated_at <= t.fecha_entrega) {
+        // Plan Fase 3 (3B): la marca real de cierre, no el proxy updated_at.
+        const cierre = t.completed_at ?? t.updated_at;
+        if (t.fecha_entrega && cierre <= t.fecha_entrega) {
           persona.cumplidas += 1;
         }
       }

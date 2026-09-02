@@ -176,7 +176,7 @@ describe("PATCH /api/v1/tasks/:id/status", () => {
     expect(res.status).toBe(200);
     expect(db.tarea.update).toHaveBeenCalledWith({
       where: { id: "task-1" },
-      data: { estado: "BLOQUEADA", motivo_bloqueo: "Esperando insumos" },
+      data: { estado: "BLOQUEADA", motivo_bloqueo: "Esperando insumos", completed_at: null },
       select: expect.anything(),
     });
   });
@@ -195,7 +195,7 @@ describe("PATCH /api/v1/tasks/:id/status", () => {
     expect(res.status).toBe(200);
     expect(db.tarea.update).toHaveBeenCalledWith({
       where: { id: "task-1" },
-      data: { estado: "BLOQUEADA", motivo_bloqueo: "Motivo anterior" },
+      data: { estado: "BLOQUEADA", motivo_bloqueo: "Motivo anterior", completed_at: null },
       select: expect.anything(),
     });
   });
@@ -211,12 +211,12 @@ describe("PATCH /api/v1/tasks/:id/status", () => {
       taskRowSelect({ newEstado: "EN_CURSO", storedMotivo: null }) as never,
     );
 
-    const res = await PATCH(patchRequest({ estado: "EN_CURSO" }), routeContext);
+const res = await PATCH(patchRequest({ estado: "EN_CURSO" }), routeContext);
 
     expect(res.status).toBe(200);
     expect(db.tarea.update).toHaveBeenCalledWith({
       where: { id: "task-1" },
-      data: { estado: "EN_CURSO", motivo_bloqueo: null },
+      data: { estado: "EN_CURSO", motivo_bloqueo: null, completed_at: null },
       select: expect.anything(),
     });
   });
@@ -241,3 +241,38 @@ describe("PATCH /api/v1/tasks/:id/status", () => {
     );
   });
 });
+
+describe("PATCH /api/v1/tasks/:id/status — completed_at (Fase 3, plan 3B)", () => {
+  it("sets completed_at when entering COMPLETADA", async () => {
+    authAs(gerencia);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(
+      writeTareaRow({ estado: "EN_CURSO" }) as never,
+    );
+    vi.mocked(db.tarea.update).mockResolvedValue(
+      taskRowSelect({ newEstado: "COMPLETADA", storedMotivo: null }) as never,
+    );
+
+    const res = await PATCH(patchRequest({ estado: "COMPLETADA" }), routeContext);
+
+    expect(res.status).toBe(200);
+    const call = vi.mocked(db.tarea.update).mock.calls[0]![0]! as { data: { completed_at: Date | null } };
+    expect(call.data.completed_at).toBeInstanceOf(Date);
+  });
+
+  it("clears completed_at when a COMPLETADA task is reopened", async () => {
+    authAs(gerencia);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(
+      writeTareaRow({ estado: "COMPLETADA" }) as never,
+    );
+    vi.mocked(db.tarea.update).mockResolvedValue(
+      taskRowSelect({ newEstado: "EN_CURSO", storedMotivo: null }) as never,
+    );
+
+    const res = await PATCH(patchRequest({ estado: "EN_CURSO" }), routeContext);
+
+    expect(res.status).toBe(200);
+    const call = vi.mocked(db.tarea.update).mock.calls[0]![0]! as { data: { completed_at: Date | null } };
+    expect(call.data.completed_at).toBeNull();
+  });
+});
+

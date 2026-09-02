@@ -196,6 +196,13 @@ model Tarea {
   created_at     DateTime       @default(now())
   updated_at     DateTime       @updatedAt
   deleted_at     DateTime?
+  // Plan Fase 3 (3B): la marca REAL de cierre, agregada porque updated_at
+  // (el proxy histórico) se movía al renombrar/comentar una tarea ya
+  // completada — el reporte pasaba retroactivamente "a tiempo" a "tarde".
+  // Nullable y con backfill (SET = updated_at WHERE estado='COMPLETADA');
+  // null = nunca completada (o reabierta tras completarse). Se escribe solo
+  // desde el helper central completedAtFor (status + PATCH).
+  completed_at DateTime?
 
   responsable    Usuario           @relation(fields: [responsable_id], references: [id])
   cliente        Cliente?          @relation(fields: [cliente_id], references: [id])

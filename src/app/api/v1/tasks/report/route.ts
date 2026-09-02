@@ -7,11 +7,11 @@
 // (7/30/90 días), responsable y cliente (mismos filtros que la lista).
 // La lectura es global: cualquier rol ve el reporte de todo el equipo.
 //
-// IMPORTANTE (proxy documentado): Tarea no tiene columna completed_at, así
-// que "completada recientemente" y "a tiempo/tarde" usan updated_at como
-// proxy: "a tiempo" ≈ updated_at <= fecha_entrega para tareas COMPLETADA con
-// fecha de entrega (las completadas sin fecha no cuentan ni como a tiempo ni
-// como tarde). Mismo criterio en README y en el reporte xlsx.
+// "A tiempo / tarde" usa completed_at (plan Fase 3, 3B): la marca REAL de
+// cierre, no el proxy updated_at que se movía al renombrar/comentar una tarea
+// ya completada (el reporte pasaba retroactivamente de "a tiempo" a "tarde").
+// COALESCE(completed_at, updated_at) cubre las tareas pre-migración por
+// seguridad, aunque el backfill ya congeló el proxy en completed_at.
 //
 // Sin N+1: una sola query de tareas (select liviano) + una pasada de
 // agregación en JS; los nombres de personas y clientes se resuelven con una
@@ -82,6 +82,7 @@ export const GET = withApiErrorHandling(
           estado: true,
           fecha_entrega: true,
           updated_at: true,
+          completed_at: true,
         },
       }),
       db.usuario.findMany({
@@ -169,7 +170,9 @@ export const GET = withApiErrorHandling(
       if (t.estado === "COMPLETADA") {
         completadas += 1;
         if (t.fecha_entrega) {
-          if (t.updated_at <= t.fecha_entrega) aTiempo += 1;
+          // completed_at es la marca real (3B); COALESCE cubre pre-backfill.
+          const cierre = t.completed_at ?? t.updated_at;
+          if (cierre <= t.fecha_entrega) aTiempo += 1;
           else tarde += 1;
         }
       }
@@ -185,7 +188,8 @@ export const GET = withApiErrorHandling(
       if (t.estado === "COMPLETADA") {
         persona.completadas += 1;
         if (t.fecha_entrega) {
-          if (t.updated_at <= t.fecha_entrega) persona.a_tiempo += 1;
+          const cierre = t.completed_at ?? t.updated_at;
+          if (cierre <= t.fecha_entrega) persona.a_tiempo += 1;
           else persona.tarde += 1;
         }
       }
