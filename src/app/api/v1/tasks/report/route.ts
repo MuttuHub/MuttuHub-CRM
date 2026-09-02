@@ -5,7 +5,7 @@
 //
 // Parámetros: rango=week|month|quarter|all (default month) sobre updated_at
 // (7/30/90 días), responsable y cliente (mismos filtros que la lista).
-// COLABORADOR → solo sus propias tareas y persona = sí mismo.
+// La lectura es global: cualquier rol ve el reporte de todo el equipo.
 //
 // IMPORTANTE (proxy documentado): Tarea no tiene columna completed_at, así
 // que "completada recientemente" y "a tiempo/tarde" usan updated_at como
@@ -24,7 +24,6 @@ import { apiError } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { ENUM_VALUES } from "@/lib/catalogs";
-import { isFullAccess } from "@/lib/api/crm";
 import { buildTaskWhere, parseTaskFilters } from "@/app/api/v1/tasks/route";
 
 export const dynamic = "force-dynamic";
@@ -52,7 +51,7 @@ export const GET = withApiErrorHandling(
     }
     const rango = rangoRaw as Rango;
 
-    const filters = parseTaskFilters(url, auth.usuario.rol);
+    const filters = parseTaskFilters(url);
     if (!filters.ok) return filters.response;
 
     const where = buildTaskWhere(filters.filters, auth.usuario);
@@ -73,13 +72,11 @@ export const GET = withApiErrorHandling(
           updated_at: true,
         },
       }),
-      isFullAccess(auth.usuario.rol)
-        ? db.usuario.findMany({
-            where: { activo: true },
-            select: { id: true, nombre: true },
-            orderBy: { nombre: "asc" },
-          })
-        : Promise.resolve([{ id: auth.usuario.id, nombre: auth.usuario.nombre }]),
+      db.usuario.findMany({
+        where: { activo: true },
+        select: { id: true, nombre: true },
+        orderBy: { nombre: "asc" },
+      }),
     ]);
 
     const porPersona = new Map<

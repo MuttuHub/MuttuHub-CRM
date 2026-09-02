@@ -1,5 +1,6 @@
 // GET /api/v1/tasks/export — xlsx de tareas (PRD §8.4) con los mismos filtros
-// y alcance de roles que GET /tasks (reusa parseTaskFilters + buildTaskWhere).
+// que GET /tasks (reusa parseTaskFilters + buildTaskWhere); la lectura es
+// global, cualquier rol exporta el mismo conjunto según los filtros.
 // Columnas en español; estados/origenes/prioridades con etiqueta del catálogo.
 // Subtareas como "completadas/total" (dos groupBy sobre el conjunto filtrado).
 // Cap: primeras 500 filas del conjunto filtrado (PRD §8.4).
@@ -30,7 +31,7 @@ export const GET = withApiErrorHandling(
     if (!auth.ok) return auth.response;
 
     const url = new URL(request.url);
-    const filters = parseTaskFilters(url, auth.usuario.rol);
+    const filters = parseTaskFilters(url);
     if (!filters.ok) return filters.response;
 
     const where = buildTaskWhere(filters.filters, auth.usuario);

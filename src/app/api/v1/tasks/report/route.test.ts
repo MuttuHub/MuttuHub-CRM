@@ -58,20 +58,33 @@ describe("GET /api/v1/tasks/report", () => {
     expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
   });
 
-  it("scopes a COLABORADOR to their own tasks and persona = themself", async () => {
+  it("does not scope a COLABORADOR — reading is global, no forced responsable_id", async () => {
     authAs(colaborador);
     vi.mocked(db.tarea.findMany).mockResolvedValue([]);
+    vi.mocked(db.usuario.findMany).mockResolvedValue([
+      { id: "colab-1", nombre: "Colab Uno" },
+    ] as never);
 
     const res = await GET(new Request("http://localhost/api/v1/tasks/report?rango=all"));
 
     expect(res.status).toBe(200);
     const where = vi.mocked(db.tarea.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
-    expect(where.responsable_id).toBe("colab-1");
-    expect(db.usuario.findMany).not.toHaveBeenCalled();
+    expect(where.responsable_id).toBeUndefined();
+    expect(db.usuario.findMany).toHaveBeenCalled();
+  });
+
+  it("lists every active user, for any role (COLABORADOR included)", async () => {
+    authAs(colaborador);
+    vi.mocked(db.tarea.findMany).mockResolvedValue([]);
+    vi.mocked(db.usuario.findMany).mockResolvedValue([
+      { id: "r1", nombre: "Responsable Uno" },
+      { id: "r2", nombre: "Responsable Dos" },
+    ] as never);
+
+    const res = await GET(new Request("http://localhost/api/v1/tasks/report?rango=all"));
+
     const json = await res.json();
-    expect(json.por_persona).toEqual([
-      expect.objectContaining({ id: "colab-1", nombre: "Colab Uno" }),
-    ]);
+    expect(json.por_persona).toHaveLength(2);
   });
 
   it("lists every active user for a full-access role", async () => {

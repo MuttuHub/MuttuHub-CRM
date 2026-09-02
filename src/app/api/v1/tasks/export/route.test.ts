@@ -68,7 +68,7 @@ describe("GET /api/v1/tasks/export", () => {
     expect(res.headers.get("Content-Disposition")).toContain("tareas.xlsx");
   });
 
-  it("scopes a COLABORADOR to their own tasks (forces responsable_id in the where clause)", async () => {
+  it("does not scope a COLABORADOR — reading is global, no forced responsable_id", async () => {
     authAs(colaborador);
     vi.mocked(db.tarea.findMany).mockResolvedValue([]);
     vi.mocked(db.subtarea.groupBy).mockResolvedValue([]);
@@ -76,7 +76,7 @@ describe("GET /api/v1/tasks/export", () => {
     await GET(new Request("http://localhost/api/v1/tasks/export"));
 
     const where = vi.mocked(db.tarea.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
-    expect(where.responsable_id).toBe("colab-1");
+    expect(where.responsable_id).toBeUndefined();
   });
 
   it("caps the export at 500 rows (EXPORT_MAX_ROWS)", async () => {
