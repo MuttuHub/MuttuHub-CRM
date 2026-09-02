@@ -1,7 +1,16 @@
 // Vista "Reporte" del tablero (PRD §5.4): resumen con tasa de cumplimiento,
-// distribución por persona / estado / cliente y exportación PDF/Excel. El
-// alcance (rol COLABORADOR = solo sus tareas) lo aplica el backend; aquí solo
-// se titula la vista en consecuencia.
+// distribución por persona / estado / cliente y exportación PDF/Excel.
+//
+// PR 17 (Fase 3, plan §3B): ReportView reimplementaba primitivas que ya
+// existen en el dashboard — los botones de rango eran un ChipSelector, las
+// SummaryCards un StatTile peor, el ReportSkeleton un DashboardSkeleton. Se
+// reutilizan (diff neto negativo). Además la API ya devuelve resumen.a_tiempo
+// / tarde que la UI nunca pintaba: van al pie de la tarjeta de completadas, y
+// la Tasa de cumplimiento (un ratio 0-100) se dibuja con BarRow.
+//
+// El alcance (rol COLABORADOR = solo sus tareas) lo aplica el backend; acá el
+// título se deriva del filtro aplicado (responsable === yo), que es la verdad
+// (3A): la inferencia por rol de reportes-page se eliminó.
 
 "use client";
 
@@ -11,7 +20,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ESTADO_TAREA_LABELS } from "@/lib/catalogs";
-import { useTaskReport, buildTaskQueryString, type ReportFilters } from "@/hooks/kanban";
+import { useTaskReport, buildTaskQueryString, useCurrentUser, type ReportFilters } from "@/hooks/kanban";
+import {
+  BarRow,
+  ChipSelector,
+  DashboardSkeleton,
+  StatTile,
+} from "@/components/dashboard/shared";
 
 const RANGOS: { value: ReportFilters["rango"]; label: string }[] = [
   { value: "week", label: "Semana" },
@@ -30,13 +45,18 @@ const RANGO_LABEL: Record<ReportFilters["rango"], string> = {
 type ReportViewProps = {
   responsable: string | undefined;
   cliente: string | undefined;
-  misTareas: boolean;
 };
 
-export function ReportView({ responsable, cliente, misTareas }: ReportViewProps) {
+export function ReportView({ responsable, cliente }: ReportViewProps) {
   const [rango, setRango] = useState<ReportFilters["rango"]>("month");
   const reportQuery = useTaskReport({ rango, responsable, cliente });
   const report = reportQuery.data;
+  const meQuery = useCurrentUser();
+
+  // 3A: el título se deriva del filtro aplicado (¿estoy filtrando por mí?),
+  // no de la inferencia por rol. En el tablero responsableEquipo === me => "Mi
+  // reporte"; en Reportes (sin filtro) => "del equipo".
+  const misTareas = Boolean(responsable) && responsable === meQuery.data?.id;
 
   function exportExcel() {
     const qs = buildTaskQueryString({
@@ -61,24 +81,11 @@ export function ReportView({ responsable, cliente, misTareas }: ReportViewProps)
           {misTareas ? "Mi reporte de tareas" : "Reporte de tareas del equipo"}
         </h2>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1 rounded-lg bg-ink-100 p-1">
-            {RANGOS.map((r) => (
-              <button
-                key={r.value}
-                type="button"
-                onClick={() => setRango(r.value)}
-                aria-pressed={rango === r.value}
-                className={cn(
-                  "h-8 rounded-10 px-3 text-[12.5px] font-bold transition-colors",
-                  rango === r.value
-                    ? "bg-card text-ink-900 shadow-sm"
-                    : "text-ink-600 hover:text-ink-900",
-                )}
-              >
-                {r.label}
-              </button>
-            ))}
-          </div>
+          <ChipSelector<ReportFilters["rango"]>
+            options={RANGOS}
+            value={rango}
+            onChange={setRango}
+          />
           <Button
             variant="outline"
             size="sm"
@@ -100,7 +107,7 @@ export function ReportView({ responsable, cliente, misTareas }: ReportViewProps)
         </div>
       </div>
 
-      {reportQuery.isLoading && <ReportSkeleton />}
+      {reportQuery.isLoading && <DashboardSkeleton />}
 
       {reportQuery.isError && (
         <section className="grid min-h-[320px] place-items-center rounded-[24px] border border-ink-200 bg-panel p-8">
@@ -155,42 +162,56 @@ export function ReportView({ responsable, cliente, misTareas }: ReportViewProps)
   );
 }
 
-/* ── Tarjetas de resumen ───────────────────────────────────────────────── */
+/* ── Tarjetas de resumen (StatTile del dashboard + BarRow en la tasa) ───── */
 
 function SummaryCards({
   resumen,
   rango,
 }: {
-  resumen: { total_asignadas: number; completadas: number; vencidas_activas: number; tasa_cumplimiento: number };
+  resumen: {
+    total_asignadas: number;
+    completadas: number;
+    vencidas_activas: number;
+    tasa_cumplimiento: number;
+    a_tiempo: number;
+    tarde: number;
+  };
   rango: string;
 }) {
-  const cards = [
-    { label: "Total asignadas", value: resumen.total_asignadas, mono: true },
-    { label: "Completadas", value: resumen.completadas, mono: true, acento: "text-exito" },
-    { label: "Vencidas activas", value: resumen.vencidas_activas, mono: true, acento: resumen.vencidas_activas > 0 ? "text-destructivo" : "" },
-    { label: "Tasa de cumplimiento", value: `${resumen.tasa_cumplimiento}%`, mono: true },
-  ];
   return (
-    <section className="rounded-[22px] border border-ink-200 bg-panel p-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {cards.map((c) => (
-          <div key={c.label} className="rounded-14 bg-ink-100/60 px-4 py-3.5">
-            <p className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-              {c.label}
-            </p>
-            <p
-              className={cn(
-                "mt-1 font-display text-[26px] leading-none font-extrabold tracking-[-0.02em] text-ink-950 tabular-nums",
-                c.acento,
-              )}
-            >
-              {c.value}
-            </p>
-            <p className="mt-1 text-[11px] text-ink-600">{rango}</p>
-          </div>
-        ))}
-      </div>
-    </section>
+    <div className="grid grid-cols-2 gap-[14px] xl:grid-cols-4">
+      <StatTile label="Total asignadas" value={resumen.total_asignadas} mono foot={rango} />
+      <StatTile
+        label="Completadas"
+        value={resumen.completadas}
+        mono
+        foot={
+          <>
+            {resumen.a_tiempo} a tiempo · {resumen.tarde} tarde
+          </>
+        }
+      />
+      <StatTile
+        label="Vencidas activas"
+        value={resumen.vencidas_activas}
+        mono
+        acento={resumen.vencidas_activas > 0}
+        foot={resumen.vencidas_activas > 0 ? "Requieren atención" : rango}
+      />
+      <StatTile
+        label="Tasa de cumplimiento"
+        value={`${resumen.tasa_cumplimiento}%`}
+        mono
+        foot={
+          <BarRow
+            label="completadas"
+            count={resumen.completadas}
+            total={resumen.total_asignadas}
+            tone="exito"
+          />
+        }
+      />
+    </div>
   );
 }
 
@@ -295,16 +316,6 @@ function ClienteTable({ porCliente }: { porCliente: { nombre: string; cantidad: 
         </tr>
       ))}
     </TableCard>
-  );
-}
-
-function ReportSkeleton() {
-  return (
-    <div className="flex min-w-0 flex-col gap-4">
-      <div className="h-[118px] animate-pulse rounded-[22px] bg-ink-100" />
-      <div className="h-[220px] animate-pulse rounded-[22px] bg-ink-100" />
-      <div className="h-[160px] animate-pulse rounded-[22px] bg-ink-100" />
-    </div>
   );
 }
 

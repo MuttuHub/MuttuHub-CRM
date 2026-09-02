@@ -15,7 +15,6 @@ import {
   rangoMesActual,
   type DashboardFilters,
 } from "@/hooks/dashboard";
-import { useCurrentUser } from "@/hooks/kanban";
 import { useUsers } from "@/hooks/crm";
 import { ENUM_VALUES, TIPO_CLIENTE_LABELS } from "@/lib/catalogs";
 import { RANGO_OPCIONES, useFiltersStore } from "@/store/filters";
@@ -48,10 +47,8 @@ export function ReportesPage() {
   const [tipoCliente, setTipoCliente] = useState("");
   const [dias, setDias] = useState(14);
 
-  const currentUserQuery = useCurrentUser();
   const usersQuery = useUsers();
   const users = usersQuery.data ?? [];
-  const misTareas = currentUserQuery.data?.rol === "COLABORADOR";
 
   const filters = useDashboardFilters({ responsable, tipoCliente });
 
@@ -78,7 +75,7 @@ export function ReportesPage() {
         </TabsList>
 
         <TabsContent value="tareas" className="mt-0">
-          <ReportView responsable={undefined} cliente={undefined} misTareas={misTareas} />
+          <ReportView responsable={undefined} cliente={undefined} />
         </TabsContent>
 
         {CARAS.map((cara) => (

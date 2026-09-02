@@ -74,7 +74,6 @@ import {
   buildTaskQueryString,
   taskQueryKeys,
   useClientOptions,
-  useCurrentUser,
   useMoveTask,
   useTasks,
   type TaskFilters,
@@ -158,9 +157,6 @@ export function KanbanBoard() {
     desde: EstadoTarea;
   } | null>(null);
   const [blockMotivo, setBlockMotivo] = useState("");
-
-  const meQuery = useCurrentUser();
-  const me = meQuery.data;
 
   // Limpieza: el toggle Mi tablero/Equipo completo se eliminó — el tablero
   // es global para todos los roles.
@@ -407,7 +403,6 @@ export function KanbanBoard() {
         <ReportView
           responsable={responsableEquipo || undefined}
           cliente={cliente || undefined}
-          misTareas={Boolean(responsableEquipo) && responsableEquipo === me?.id}
         />
       ) : tasksQuery.isError ? (
         <SinConexionCard unconfigured={unconfigured} onRetry={() => void tasksQuery.refetch()} />
