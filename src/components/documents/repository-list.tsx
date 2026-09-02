@@ -764,6 +764,18 @@ function DocumentRow({
                 </span>
               )}
             </div>
+            {doc.match === "contenido" && (
+              <div className="mt-1 space-y-1">
+                <span className="inline-flex items-center gap-1 rounded-full bg-exito/10 px-2 py-0.5 text-[10.5px] font-bold text-exito">
+                  Coincide en el contenido
+                </span>
+                {doc.snippet && (
+                  <p className="line-clamp-2 text-[12px] leading-relaxed text-ink-600">
+                    <SnippetText snippet={doc.snippet} />
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </TableCell>
@@ -923,5 +935,30 @@ function EmptyDocuments({ onOpenUpload }: { onOpenUpload: () => void }) {
         </Button>
       </div>
     </div>
+  );
+}
+
+/**
+ * Snippet de la búsqueda FTS: ts_headline envuelve cada coincidencia con
+ * StartSel=« / StopSel=». Acá se hace split sobre esos delimitadores y se
+ * pinta <mark> — nunca dangerouslySetInnerHTML.
+ */
+export function SnippetText({ snippet }: { snippet: string }) {
+  const parts = snippet.split(/[«»]/);
+  return (
+    <>
+      {parts.map((part, i) =>
+        i % 2 === 1 ? (
+          <mark
+            key={i}
+            className="rounded-sm bg-exito/15 px-0.5 text-ink-900"
+          >
+            {part}
+          </mark>
+        ) : (
+          <span key={i}>{part}</span>
+        ),
+      )}
+    </>
   );
 }

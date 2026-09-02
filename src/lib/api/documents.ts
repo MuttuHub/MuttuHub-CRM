@@ -17,7 +17,7 @@
 // usuario.findMany queries instead of relation selects — same approach the
 // comments module uses for its autores.
 
-import type { Prisma, Usuario } from "@prisma/client";
+import { Prisma, type Usuario } from "@prisma/client";
 import { db } from "@/lib/db";
 import { endOfDay } from "@/lib/api/crm";
 import { apiError } from "@/lib/api/errors";
@@ -245,6 +245,102 @@ export async function buildDocumentWhere(
     ];
   }
   return where;
+}
+
+/**
+ * Ids candidatos de la búsqueda full-text (plan Fase 2, 4B). Devuelve cada
+ * documento que matchea por metadatos (titulo, categoria, etiquetas, autor,
+ * cliente) o por el CONTENIDO de su versión activa (índice GIN sobre
+ * contenido_texto). `match` es el discriminante con lugar para "semantico"
+ * (fase futura documentada en docs/pendientes/busqueda-semantica.md).
+ *
+ * El fix de etiquetas vive acá: `etiquetas: { has: q }` es igualdad exacta y
+ * sensible a mayúsculas (buscar "legal" nunca encontraba "Legal"), así que se
+ * pliega al mismo query crudo con `EXISTS (SELECT 1 FROM unnest(etiquetas) e
+ * WHERE e ILIKE $1)`.
+ *
+ * La query usa la expresión `to_tsvector('spanish', coalesce(contenido_texto,
+ * ''))` byte a byte idéntica a la del índice GIN, o el planner la ignora.
+ * Solo la versión activa es buscable (resuelto acá en la query, no en la
+ * forma de almacenamiento). Sin LIMIT: los ids son ligeros, y ts_headline
+ * corre solo para los ≤25 de la página (nunca para los 500).
+ */
+export async function searchCandidateIds(
+  q: string,
+  usuario: Usuario,
+): Promise<{ id: string; match: "metadatos" | "contenido" }[]> {
+  const { restringidas } = await loadDocCategories();
+  const restringidaClause =
+    !canReadRestrictedDocs(usuario.rol) && restringidas.length > 0
+      ? Prisma.sql`AND d.categoria NOT IN (${Prisma.join(restringidas)})`
+      : Prisma.empty;
+
+  const rows = await db.$queryRaw<{ id: string; match: string }[]>(Prisma.sql`
+    SELECT d.id,
+           CASE WHEN to_tsvector('spanish', coalesce(dv.contenido_texto, ''))
+                     @@ plainto_tsquery('spanish', ${q})
+                THEN 'contenido'
+                ELSE 'metadatos'
+           END AS match
+    FROM documentos d
+    LEFT JOIN LATERAL (
+      SELECT contenido_texto
+      FROM documento_versiones dv2
+      WHERE dv2.documento_id = d.id
+      ORDER BY dv2.numero_version DESC
+      LIMIT 1
+    ) dv ON true
+    WHERE d.deleted_at IS NULL
+      ${restringidaClause}
+      AND (
+        d.titulo ILIKE ${`%${q}%`}
+        OR d.categoria ILIKE ${`%${q}%`}
+        OR EXISTS (SELECT 1 FROM unnest(d.etiquetas) e WHERE e ILIKE ${`%${q}%`})
+        OR EXISTS (SELECT 1 FROM usuarios u WHERE u.id = d.autor_id AND u.nombre ILIKE ${`%${q}%`})
+        OR EXISTS (
+          SELECT 1 FROM documentos_clientes dc
+          JOIN clientes c ON c.id = dc.cliente_id
+          WHERE dc.documento_id = d.id AND c.nombre ILIKE ${`%${q}%`}
+        )
+        OR to_tsvector('spanish', coalesce(dv.contenido_texto, ''))
+           @@ plainto_tsquery('spanish', ${q})
+      )
+  `);
+  return rows.map((r) => ({
+    id: r.id,
+    match: r.match === "contenido" ? ("contenido" as const) : ("metadatos" as const),
+  }));
+}
+
+/**
+ * Snippets con el término resaltado para los ≤25 documentos de la página.
+ * ts_headline devuelve el texto con `StartSel=«` / `StopSel=»` alrededor de
+ * las coincidencias; la UI hace split sobre esos delimitadores y pinta
+ * <mark> — nunca dangerouslySetInnerHTML. Vacío para ids sin contenido.
+ */
+export async function loadSearchHeadlines(
+  q: string,
+  ids: string[],
+): Promise<Map<string, string>> {
+  if (ids.length === 0) return new Map();
+  const rows = await db.$queryRaw<{ id: string; headline: string }[]>(Prisma.sql`
+    SELECT d.id, ts_headline(
+      'spanish',
+      coalesce(dv.contenido_texto, ''),
+      plainto_tsquery('spanish', ${q}),
+      'StartSel=«, StopSel=», MaxWords=25, MinWords=5, MaxFragments=2'
+    ) AS headline
+    FROM documentos d
+    LEFT JOIN LATERAL (
+      SELECT contenido_texto
+      FROM documento_versiones dv2
+      WHERE dv2.documento_id = d.id
+      ORDER BY dv2.numero_version DESC
+      LIMIT 1
+    ) dv ON true
+    WHERE d.id IN (${Prisma.join(ids)})
+  `);
+  return new Map(rows.map((r) => [r.id, r.headline]));
 }
 
 /**

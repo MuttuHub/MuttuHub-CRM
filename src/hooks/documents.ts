@@ -42,6 +42,10 @@ export type DocumentItem = {
   cliente_ids: string[];
   clientes: { id: string; nombre: string }[];
   version_activa: DocumentVersionActiva | null;
+  /** Búsqueda FTS (plan 4B): por qué matcheó — "contenido" muestra el badge. */
+  match?: "metadatos" | "contenido";
+  /** ts_headline con StartSel=« / StopSel=» para resaltar con <mark>. */
+  snippet?: string;
 };
 
 export type DocumentListResponse = {

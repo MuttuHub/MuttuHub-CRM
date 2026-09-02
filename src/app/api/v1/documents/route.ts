@@ -32,9 +32,12 @@ import {
   loadActiveVersions,
   loadDocCategories,
   loadDocumentClients,
+  loadSearchHeadlines,
   loadUserNames,
   parseDocumentFilters,
+  searchCandidateIds,
   toDocumentItem,
+  type DocumentRow,
 } from "@/lib/api/documents";
 
 export const dynamic = "force-dynamic";
@@ -156,18 +159,52 @@ export const GET = withApiErrorHandling(
     const { categorias } = await loadDocCategories();
     const parsed = parseDocumentFilters(url, categorias);
     if (!parsed.ok) return parsed.response;
-    const where = await buildDocumentWhere(parsed.filters, auth.usuario);
+    const { filters } = parsed;
 
-    const [rows, total] = await Promise.all([
-      db.documento.findMany({
-        where,
-        select: DOCUMENT_BASE_SELECT,
-        orderBy: { created_at: "desc" },
-        skip: (pagination.page - 1) * pagination.limit,
-        take: pagination.limit,
-      }),
-      db.documento.count({ where }),
-    ]);
+    let rows: DocumentRow[];
+    let total: number;
+    // Búsqueda FTS (plan Fase 2, 4B): cuando hay q, el query crudo resuelve
+    // los ids candidatos (metadatos + contenido vía el índice GIN) y la UI
+    // marca "Coincide en el contenido". El buildDocumentWhere con q (OR
+    // por metadatos) queda como respaldo cuando el query crudo no es la vía.
+    let matchById: Map<string, "metadatos" | "contenido"> = new Map();
+    let headlines: Map<string, string> = new Map();
+
+    if (filters.q) {
+      const candidates = await searchCandidateIds(filters.q, auth.usuario);
+      matchById = new Map(candidates.map((c) => [c.id, c.match]));
+      const candidateIds = candidates.map((c) => c.id);
+      // Paginación sobre los ids candidatos (sin OR de metadatos: el query
+      // crudo ya filtró).
+      rows = candidateIds.length
+        ? await db.documento.findMany({
+            where: { id: { in: candidateIds }, deleted_at: null },
+            select: DOCUMENT_BASE_SELECT,
+            orderBy: { created_at: "desc" },
+            skip: (pagination.page - 1) * pagination.limit,
+            take: pagination.limit,
+          })
+        : [];
+      total = candidateIds.length;
+      // ts_headline SOLO para los ≤25 de la página (nunca para todos los
+      // candidatos): un término que matchea 800 docs no re-parsea 800 textos.
+      headlines = await loadSearchHeadlines(
+        filters.q,
+        rows.filter((r) => matchById.get(r.id) === "contenido").map((r) => r.id),
+      );
+    } else {
+      const where = await buildDocumentWhere(filters, auth.usuario);
+      [rows, total] = await Promise.all([
+        db.documento.findMany({
+          where,
+          select: DOCUMENT_BASE_SELECT,
+          orderBy: { created_at: "desc" },
+          skip: (pagination.page - 1) * pagination.limit,
+          take: pagination.limit,
+        }),
+        db.documento.count({ where }),
+      ]);
+    }
 
     const docIds = rows.map((r) => r.id);
     // Enrichment por lotes: una consulta de versiones activas + una de clientes,
@@ -188,7 +225,11 @@ export const GET = withApiErrorHandling(
       page: pagination.page,
       limit: pagination.limit,
       total,
-      items: rows.map((r) => toDocumentItem(r, activeVersions, userNames, clientsByDoc)),
+      items: rows.map((r) => ({
+        ...toDocumentItem(r, activeVersions, userNames, clientsByDoc),
+        match: matchById.get(r.id) ?? undefined,
+        snippet: headlines.get(r.id) ?? undefined,
+      })),
     });
   },
 );

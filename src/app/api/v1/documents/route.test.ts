@@ -43,6 +43,7 @@ vi.mock("@/lib/db", () => ({
     cliente: {
       findFirst: vi.fn(),
     },
+    $queryRaw: vi.fn(),
   },
 }));
 
@@ -193,6 +194,50 @@ describe("GET /api/v1/documents", () => {
     expect(res.status).toBe(200);
     const where = vi.mocked(db.documento.findMany).mock.calls[0]![0]!.where as { carpeta_id?: string };
     expect(where.carpeta_id).toBe("folder-1");
+  });
+
+  it("searches content via the FTS candidate query and marks the match", async () => {
+    baseListMocks();
+    vi.mocked(db.$queryRaw).mockResolvedValueOnce([
+      { id: "doc-1", match: "contenido" },
+      { id: "doc-2", match: "metadatos" },
+    ]);
+    vi.mocked(db.documento.findMany).mockResolvedValue([
+      docRow({ id: "doc-1", categoria: "Comercial" }),
+      docRow({ id: "doc-2", categoria: "Comercial" }),
+    ]);
+    vi.mocked(db.$queryRaw).mockResolvedValueOnce([
+      { id: "doc-1", headline: "…de «contrato marco» vigente…" },
+    ]);
+
+    const res = await GET(new Request("http://localhost/api/v1/documents?q=contrato"));
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.total).toBe(2);
+    const doc1 = body.items.find((i: { id: string }) => i.id === "doc-1");
+    const doc2 = body.items.find((i: { id: string }) => i.id === "doc-2");
+    expect(doc1).toMatchObject({ match: "contenido", snippet: "…de «contrato marco» vigente…" });
+    expect(doc2.match).toBe("metadatos");
+    expect(doc2.snippet).toBeUndefined();
+  });
+
+  it("runs ts_headline only for the matched ids on the page", async () => {
+    baseListMocks();
+    vi.mocked(db.$queryRaw).mockResolvedValueOnce([
+      { id: "doc-1", match: "contenido" },
+    ]);
+    vi.mocked(db.documento.findMany).mockResolvedValue([
+      docRow({ id: "doc-1", categoria: "Comercial" }),
+    ]);
+    vi.mocked(db.$queryRaw).mockResolvedValueOnce([
+      { id: "doc-1", headline: "snippet" },
+    ]);
+
+    await GET(new Request("http://localhost/api/v1/documents?q=algo"));
+
+    // $queryRaw se llama exactamente dos veces: candidatos + ts_headline.
+    expect(db.$queryRaw).toHaveBeenCalledTimes(2);
   });
 
   it("returns 400 for an invalid page number", async () => {
