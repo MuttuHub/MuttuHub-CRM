@@ -187,6 +187,20 @@ describe("GET /api/v1/tasks/report", () => {
       { id: "c1", nombre: "Cliente Uno", cantidad: 2 },
       { id: "c2", nombre: "Cliente Dos", cantidad: 1 },
     ]);
+
+    // PR 20: la única vencida (t3, 2000-01-01) es "más de 1 mes"; t1/t2
+    // completadas no cuentan; sin abiertas sin fecha en este fixture.
+    expect(json.vencimientos_por_antiguedad).toEqual([
+      { bucket: "menos de 1 semana", cantidad: 0 },
+      { bucket: "1 a 4 semanas", cantidad: 0 },
+      { bucket: "más de 1 mes", cantidad: 1 },
+      { bucket: "sin fecha de entrega", cantidad: 0 },
+    ]);
+    // Carga semanal: solo t3 tiene fecha_entrega (2000-01-01, sábado → lunes
+    // de esa semana = 1999-12-27, cálculo UTC determinista).
+    expect(json.carga_semanal).toEqual([
+      { semana: "1999-12-27", cantidad: 1 },
+    ]);
   });
 
   it("applies the range filter (rango=week -> updated_at >= 7 days ago) to the query", async () => {

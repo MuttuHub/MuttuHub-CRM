@@ -37,6 +37,18 @@ const RANGO_DAYS: Partial<Record<Rango, number>> = {
   quarter: 90,
 };
 
+const MS_DIA = 24 * 60 * 60 * 1000;
+
+/** Lunes (UTC) de la semana de una fecha — etiqueta del bucket semanal.
+ *  Operar en UTC hace el cálculo determinista sin importar la zona horaria de
+ *  la máquina (Prisma lee los timestamps de Postgres como UTC). */
+function inicioSemana(fecha: Date): string {
+  const d = new Date(Date.UTC(fecha.getUTCFullYear(), fecha.getUTCMonth(), fecha.getUTCDate()));
+  const dia = (d.getUTCDay() + 6) % 7; // 0 = lunes
+  d.setUTCDate(d.getUTCDate() - dia);
+  return d.toISOString().slice(0, 10);
+}
+
 export const GET = withApiErrorHandling(
   "tasks",
   "No pudimos generar el reporte. Inténtalo de nuevo.",
@@ -114,6 +126,20 @@ export const GET = withApiErrorHandling(
     let aTiempo = 0;
     let tarde = 0;
 
+    // PR 20 (plan 3B): vencimientos por antigüedad — convierte "Vencidas
+    // activas: 23" (un número con el que no podés hacer nada) en "17 de las 23
+    // llevan más de un mes". El bucket "Sin fecha de entrega" además saca a la
+    // luz la población que el cálculo actual descarta en silencio. Cero
+    // queries extra: se acumula en este mismo bucle.
+    let vencidasMenosSemana = 0;
+    let vencidas1a4Semanas = 0;
+    let vencidasMasDeMes = 0;
+    let abiertasSinFecha = 0;
+
+    // PR 20: carga por semana de entrega (histograma exacto sobre
+    // fecha_entrega, no un proxy), alimenta el Sparkline existente.
+    const cargaSemanal = new Map<string, number>();
+
     for (const t of rows) {
       // Resumen y distribución por estado / cliente.
       totalAsignadas += 1;
@@ -124,7 +150,21 @@ export const GET = withApiErrorHandling(
 
       const abierta = t.estado !== "COMPLETADA" && t.estado !== "CANCELADA";
       if (abierta) {
-        if (t.fecha_entrega && t.fecha_entrega < now) vencidasActivas += 1;
+        if (t.fecha_entrega) {
+          if (t.fecha_entrega < now) {
+            vencidasActivas += 1;
+            const dias = Math.floor((now.getTime() - t.fecha_entrega.getTime()) / MS_DIA);
+            if (dias < 7) vencidasMenosSemana += 1;
+            else if (dias < 30) vencidas1a4Semanas += 1;
+            else vencidasMasDeMes += 1;
+          }
+          // Carga semanal: todas las tareas abiertas con fecha de entrega
+          // (vencidas o futuras) agrupan por la semana de esa fecha.
+          const semana = inicioSemana(t.fecha_entrega);
+          cargaSemanal.set(semana, (cargaSemanal.get(semana) ?? 0) + 1);
+        } else {
+          abiertasSinFecha += 1;
+        }
       }
       if (t.estado === "COMPLETADA") {
         completadas += 1;
@@ -183,12 +223,29 @@ export const GET = withApiErrorHandling(
       .map(([id, cantidad]) => ({ id, nombre: nombreByCliente.get(id) ?? "", cantidad }))
       .sort((a, b) => b.cantidad - a.cantidad || a.id.localeCompare(b.id));
 
+    // PR 20 (plan 3B): vencimientos por antigüedad — el bucket "sin fecha de
+    // entrega" saca a la luz la población que el resumen descarta en silencio.
+    const vencimientosPorAntiguedad = [
+      { bucket: "menos de 1 semana", cantidad: vencidasMenosSemana },
+      { bucket: "1 a 4 semanas", cantidad: vencidas1a4Semanas },
+      { bucket: "más de 1 mes", cantidad: vencidasMasDeMes },
+      { bucket: "sin fecha de entrega", cantidad: abiertasSinFecha },
+    ];
+
+    // Carga por semana de entrega: histograma exacto sobre fecha_entrega de
+    // las tareas abiertas, ordenado ascendente (para el Sparkline).
+    const cargaSemanalArr = [...cargaSemanal.entries()]
+      .map(([semana, cantidad]) => ({ semana, cantidad }))
+      .sort((a, b) => a.semana.localeCompare(b.semana));
+
     return NextResponse.json({
       rango,
       resumen,
       por_persona: [...porPersona.values()],
       por_estado: porEstadoArr,
       por_cliente: porClienteArr,
+      vencimientos_por_antiguedad: vencimientosPorAntiguedad,
+      carga_semanal: cargaSemanalArr,
     });
   },
 );

@@ -56,6 +56,17 @@ const reporte: TaskReportResponse = {
     { id: "c1", nombre: "Alcaldía", cantidad: 7 },
     { id: "c2", nombre: "Fundación X", cantidad: 3 },
   ],
+  vencimientos_por_antiguedad: [
+    { bucket: "menos de 1 semana", cantidad: 1 },
+    { bucket: "1 a 4 semanas", cantidad: 1 },
+    { bucket: "más de 1 mes", cantidad: 1 },
+    { bucket: "sin fecha de entrega", cantidad: 1 },
+  ],
+  carga_semanal: [
+    { semana: "2026-08-03", cantidad: 3 },
+    { semana: "2026-08-10", cantidad: 4 },
+    { semana: "2026-08-17", cantidad: 2 },
+  ],
 };
 
 beforeEach(() => {
@@ -156,5 +167,27 @@ describe("ReportView — estado/cliente como barras (PR 18)", () => {
     expect(screen.getByText("Cliente 7")).toBeInTheDocument();
     expect(screen.queryByText("Cliente 8")).not.toBeInTheDocument();
     expect(screen.getByText("+2 clientes más.")).toBeInTheDocument();
+  });
+});
+
+describe("ReportView — vencimientos y carga semanal (PR 20)", () => {
+  it("renders the vencimientos buckets with counts as text", () => {
+    render(<ReportView responsable={undefined} cliente={undefined} />);
+    expect(screen.getByText("Vencimientos por antigüedad")).toBeInTheDocument();
+    expect(screen.getByText("menos de 1 semana")).toBeInTheDocument();
+    expect(screen.getByText("más de 1 mes")).toBeInTheDocument();
+    expect(screen.getByText("sin fecha de entrega")).toBeInTheDocument();
+    // Los buckets tienen conteo > 0 en el fixture.
+    expect(screen.getAllByText("1").length).toBeGreaterThan(0);
+  });
+
+  it("makes the weekly load readable with the CSS off (caption + sr-only list)", () => {
+    render(<ReportView responsable={undefined} cliente={undefined} />);
+    expect(screen.getByText("Carga por semana de entrega")).toBeInTheDocument();
+    // El caption sr-only y la lista sr-only portan el dato (el Sparkline es
+    // aria-hidden y nunca puede ser el único portador).
+    expect(screen.getByText(/Carga por semana de entrega \(3 semanas, 9 tareas\)/)).toBeInTheDocument();
+    const lista = screen.getByRole("list");
+    expect(lista).toBeInTheDocument();
   });
 });

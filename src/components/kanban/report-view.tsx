@@ -28,6 +28,7 @@ import {
   StackedBarRow,
   StatTile,
 } from "@/components/dashboard/shared";
+import { Sparkline } from "@/components/dashboard/sparkline";
 
 const RANGOS: { value: ReportFilters["rango"]; label: string }[] = [
   { value: "week", label: "Semana" },
@@ -150,6 +151,10 @@ export function ReportView({ responsable, cliente }: ReportViewProps) {
             </section>
           ) : (
             <>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <VencimientosCard vencimientos={report.vencimientos_por_antiguedad} />
+                <CargaSemanalCard carga={report.carga_semanal} />
+              </div>
               <PersonTable porPersona={report.por_persona} misTareas={misTareas} />
               <CargaPersonaCard porPersona={report.por_persona} />
               <EstadoCard porEstado={report.por_estado} />
@@ -324,6 +329,86 @@ function CargaPersonaCard({
           />
         ))}
       </div>
+    </section>
+  );
+}
+
+function VencimientosCard({
+  vencimientos,
+}: {
+  vencimientos: { bucket: string; cantidad: number }[];
+}) {
+  // PR 20 (plan 3B): convierte "Vencidas activas: 23" (un número con el que no
+  // podés hacer nada) en "17 de las 23 llevan más de un mes". BarRow con tono
+  // por gravedad; "sin fecha de entrega" saca a la luz lo que el resumen
+  // descarta. Las barras leen con CSS apagado (label + conteo como texto).
+  const total = vencimientos.reduce((acc, v) => acc + v.cantidad, 0);
+  const tono = (bucket: string) =>
+    bucket === "más de 1 mes" ? "destructivo" : bucket === "1 a 4 semanas" ? "alerta" : bucket === "menos de 1 semana" ? "info" : "neutro";
+
+  return (
+    <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
+      <h3 className="mb-1 font-display text-[14.5px] font-bold tracking-[-0.01em] text-ink-950">
+        Vencimientos por antigüedad
+      </h3>
+      <p className="mb-4 text-[12.5px] text-ink-600">
+        {total} tareas abiertas con fecha de entrega vencida o sin fecha.
+      </p>
+      <div className="space-y-3.5">
+        {vencimientos.map((v) => (
+          <BarRow
+            key={v.bucket}
+            label={v.bucket}
+            count={v.cantidad}
+            total={total}
+            tone={tono(v.bucket)}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CargaSemanalCard({ carga }: { carga: { semana: string; cantidad: number }[] }) {
+  // PR 20 (plan 3B): histograma exacto sobre fecha_entrega (no un proxy).
+  // El Sparkline es aria-hidden, así que el dato vive en el caption + la lista
+  // sr-only — la regla del plan: todo visual de Reportes lee con CSS apagado.
+  const total = carga.reduce((acc, c) => acc + c.cantidad, 0);
+  if (carga.length === 0) return null;
+
+  const primera = new Date(carga[0].semana);
+  const ultima = new Date(carga[carga.length - 1].semana);
+  const rangoLabel =
+    primera.toLocaleDateString("es-CO", { day: "numeric", month: "short" }) +
+    " – " +
+    ultima.toLocaleDateString("es-CO", { day: "numeric", month: "short" });
+
+  return (
+    <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
+      <h3 className="mb-1 font-display text-[14.5px] font-bold tracking-[-0.01em] text-ink-950">
+        Carga por semana de entrega
+      </h3>
+      <p className="mb-4 text-[12.5px] text-ink-600">
+        {total} tareas abiertas con entrega entre {rangoLabel}.
+      </p>
+      <figure>
+        <figcaption className="sr-only">
+          Carga por semana de entrega ({carga.length} semanas, {total} tareas).
+        </figcaption>
+        <div className="flex items-end justify-between gap-2">
+          <div>
+            <Sparkline data={carga.map((c) => c.cantidad)} />
+          </div>
+          <span className="text-[11px] font-semibold text-ink-500">{rangoLabel}</span>
+        </div>
+        <ul className="sr-only">
+          {carga.map((c) => (
+            <li key={c.semana}>
+              {c.semana}: {c.cantidad}
+            </li>
+          ))}
+        </ul>
+      </figure>
     </section>
   );
 }

@@ -71,6 +71,10 @@ export type TaskReportResponse = {
   }[];
   por_estado: { estado: EstadoTarea; cantidad: number }[];
   por_cliente: { id: string; nombre: string; cantidad: number }[];
+  /** PR 20 (plan 3B): vencidas activas por antigüedad + abiertas sin fecha. */
+  vencimientos_por_antiguedad: { bucket: string; cantidad: number }[];
+  /** PR 20: histograma exacto sobre fecha_entrega de las tareas abiertas. */
+  carga_semanal: { semana: string; cantidad: number }[];
 };
 
 export type CurrentUser = {
