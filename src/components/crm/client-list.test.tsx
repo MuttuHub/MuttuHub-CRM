@@ -100,6 +100,7 @@ const CLIENTE: ClientListRow = {
   compromisos_abiertos: 2,
   next_compromiso: { id: "t1", titulo: "Seguimiento", fecha_entrega: "2026-12-31" },
   updated_at: "2026-08-01T12:00:00.000Z",
+  puede_editar: true,
 }
 
 describe("ClientList", () => {

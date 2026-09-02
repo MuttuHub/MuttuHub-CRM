@@ -39,6 +39,7 @@ const CLIENTE: ClientDetail = {
   oportunidades_count: 0,
   bitacora_count: 0,
   tareas_abiertas_count: 0,
+  puede_editar: true,
 }
 
 const USERS = [

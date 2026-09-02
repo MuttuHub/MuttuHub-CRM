@@ -55,6 +55,13 @@ export type ClientListRow = {
   compromisos_abiertos: number;
   next_compromiso: NextCompromiso | null;
   updated_at: string;
+  /**
+   * PR 2 (Slice A) + PR 4 (Slice B2): server-authoritative write flag.
+   * `false` ⇒ the current user would get 403 on PATCH/DELETE. The UI hides
+   * destructive controls and disables edit fields on this signal. Server is
+   * the authority — a spoofed `true` in a request body is ignored.
+   */
+  puede_editar: boolean;
 };
 
 export type ClientListResponse = {
@@ -128,6 +135,14 @@ export type TaskItem = {
   subtotal: number;
   created_at: string;
   updated_at: string;
+  /**
+   * PR 2 (Slice A) + PR 4 (Slice B2): server-authoritative write flag.
+   * `false` ⇒ the current user would get 403 on PATCH/DELETE. The UI gates
+   * the kanban drag, the task dialog fields, and hides destructive controls
+   * on this signal. Server is the authority — a spoofed `true` in the
+   * request body is ignored.
+   */
+  puede_editar: boolean;
 };
 
 export type TaskListResponse = {

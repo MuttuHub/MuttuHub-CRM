@@ -28,6 +28,14 @@ export type CardTask = {
   motivo_bloqueo: string | null;
   subtotal?: number;
   subtotal_hechas?: number;
+  /**
+   * PR 2 + PR 4 (Slice B2): server-authoritative write flag. `false` ⇒
+   * the current user would 403 on PATCH/DELETE, so the kanban card is
+   * rendered off as a drag source and the task dialog's destructive
+   * controls / edit fields are hidden or disabled. The server is the
+   * authority — a spoofed `true` in any request body is ignored.
+   */
+  puede_editar?: boolean;
 };
 
 export function TaskCard({

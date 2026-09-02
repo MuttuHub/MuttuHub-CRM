@@ -68,6 +68,12 @@ const TaskItemSchema = registry.register(
       .openapi({ description: "Subtareas completadas; solo presente cuando el endpoint agrega el conteo (list/detail)." }),
     created_at: z.string().datetime(),
     updated_at: z.string().datetime(),
+    puede_editar: z.boolean().openapi({
+      description:
+        "PR 2 + PR 4: false ⇒ el usuario actual no puede modificar esta tarea (403 en PATCH/DELETE). " +
+        "La UI deshabilita el drag del kanban, los campos del diálogo y oculta los controles destructivos " +
+        "en función de este flag. El servidor es la autoridad: un valor true en el body se ignora.",
+    }),
   }),
 );
 
@@ -79,6 +85,11 @@ const TaskCommentSchema = registry.register(
     texto: z.string(),
     created_at: z.string().datetime(),
     autor_nombre: z.string(),
+    puede_editar: z.boolean().openapi({
+      description:
+        "PR 2 + PR 4: heredado del padre (todos los comentarios de una tarea comparten el mismo flag " +
+        "que la tarea que los contiene).",
+    }),
   }),
 );
 
@@ -102,6 +113,9 @@ const TaskDetailSchema = registry.register(
     subtotal: z.number().int(),
     created_at: z.string().datetime(),
     updated_at: z.string().datetime(),
+    puede_editar: z.boolean().openapi({
+      description: "PR 2 + PR 4: mismo flag que la lista; ver TaskItem.puede_editar.",
+    }),
     comentarios: z.array(TaskCommentSchema).openapi({ description: "Hilo completo, orden ascendente." }),
   }),
 );

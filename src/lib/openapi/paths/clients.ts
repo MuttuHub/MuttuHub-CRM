@@ -96,6 +96,12 @@ const ClientListItemSchema = registry.register(
     }),
     next_compromiso: NextCompromisoSchema,
     updated_at: z.string().datetime(),
+    puede_editar: z.boolean().openapi({
+      description:
+        "PR 2 + PR 4: false ⇒ el usuario actual no puede modificar este cliente (403 en PATCH/DELETE). " +
+        "La UI oculta controles destructivos y deshabilita los campos de edición en función de este flag. " +
+        "El servidor es la autoridad: un valor true en el body de la solicitud se ignora.",
+    }),
   }),
 );
 
@@ -137,6 +143,9 @@ const ClienteDetailSchema = registry.register(
     compromisos_abiertos: z.number().int(),
     valor_potencial: z.number(),
     next_compromiso: NextCompromisoSchema,
+    puede_editar: z.boolean().openapi({
+      description: "PR 2 + PR 4: mismo flag que la lista; ver ClientListItem.puede_editar.",
+    }),
   }),
 );
 
