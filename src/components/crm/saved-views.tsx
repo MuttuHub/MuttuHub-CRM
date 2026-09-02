@@ -75,9 +75,11 @@ const FILTER_KEYS: (keyof ClientFilters)[] = [
 
 /** Normalized snapshot (undefined instead of "") so saved views stay clean. */
 export function snapshotFilters(filters: ClientFilters): ClientFilters {
-  const out: ClientFilters = {};
+  const out: Record<string, string> = {};
   for (const key of FILTER_KEYS) {
-    const value = filters[key];
+    // FILTER_KEYS son todas string (nunca page/limit); el cast descarta el
+    // branch numérico que ClientFilters ganó con la paginación (PR 24).
+    const value = filters[key] as string | undefined;
     if (value !== undefined && value !== "") out[key] = value;
   }
   return out;

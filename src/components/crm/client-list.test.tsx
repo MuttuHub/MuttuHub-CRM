@@ -166,7 +166,7 @@ describe("ClientList", () => {
     expect(screen.getByText("Vencido")).toBeInTheDocument()
   })
 
-  it("shows the pagination footer and pages through results", () => {
+it("shows the pagination footer and pages through results", () => {
     clientsQuery.data = {
       page: 1,
       limit: 25,
@@ -177,10 +177,15 @@ describe("ClientList", () => {
     expect(screen.getByText(showing(1, 25, 60))).toBeInTheDocument()
     const prev = screen.getByRole("button", { name: "Anterior" })
     expect(prev).toBeDisabled()
+    // BUG FIX (hallazgo #1): "Siguiente" manda page al query, no solo cambia
+    // la etiqueta — el server ya soportaba ?page= pero useClients no lo usaba.
+    expect(useClientsMock).toHaveBeenLastCalledWith({ page: 1 })
     fireEvent.click(screen.getByRole("button", { name: "Siguiente" }))
+    expect(useClientsMock).toHaveBeenLastCalledWith({ page: 2 })
     expect(screen.getByText(showing(26, 50, 60))).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Siguiente" })).not.toBeDisabled()
     fireEvent.click(screen.getByRole("button", { name: "Siguiente" }))
+    expect(useClientsMock).toHaveBeenLastCalledWith({ page: 3 })
     expect(screen.getByText(showing(51, 60, 60))).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Siguiente" })).toBeDisabled()
   })
@@ -218,19 +223,19 @@ describe("ClientList", () => {
   it("applies the search query only after the 350ms debounce window (no request per keystroke)", () => {
     render(<ClientList />)
     const input = screen.getByLabelText("Buscar clientes")
-    expect(useClientsMock).toHaveBeenLastCalledWith({})
+    expect(useClientsMock).toHaveBeenLastCalledWith({ page: 1 })
     // Cada tecla actualiza el draft, pero NO debe disparar fetch:
     fireEvent.change(input, { target: { value: "g" } })
-    expect(useClientsMock).toHaveBeenLastCalledWith({})
+    expect(useClientsMock).toHaveBeenLastCalledWith({ page: 1 })
     fireEvent.change(input, { target: { value: "go" } })
-    expect(useClientsMock).toHaveBeenLastCalledWith({})
+    expect(useClientsMock).toHaveBeenLastCalledWith({ page: 1 })
     fireEvent.change(input, { target: { value: "gobierno" } })
-    expect(useClientsMock).toHaveBeenLastCalledWith({})
+    expect(useClientsMock).toHaveBeenLastCalledWith({ page: 1 })
     // Tras la pausa de debounce, se aplica UNA sola vez:
     act(() => {
       vi.advanceTimersByTime(400)
     })
-    expect(useClientsMock).toHaveBeenLastCalledWith({ q: "gobierno" })
+    expect(useClientsMock).toHaveBeenLastCalledWith({ q: "gobierno", page: 1 })
     expect(screen.getByLabelText("Buscar clientes")).toHaveValue("gobierno")
   })
 
@@ -245,7 +250,7 @@ describe("ClientList", () => {
     await user.click(combos[0])
     await user.click(await screen.findByRole("option", { name: "Gobierno local" }))
     // Cambiar un select dentro del popover NO debe disparar el fetch:
-    expect(useClientsMock).toHaveBeenLastCalledWith({})
+    expect(useClientsMock).toHaveBeenLastCalledWith({ page: 1 })
     await user.click(screen.getByRole("button", { name: "Aplicar" }))
     expect(useClientsMock).toHaveBeenLastCalledWith(
       expect.objectContaining({ tipo: "GOBIERNO_LOCAL" })
@@ -260,7 +265,7 @@ describe("ClientList", () => {
     act(() => {
       vi.advanceTimersByTime(400)
     })
-    expect(useClientsMock).toHaveBeenLastCalledWith({})
+    expect(useClientsMock).toHaveBeenLastCalledWith({ page: 1 })
   })
 
   it("blocks the fetch when `desde` is after `hasta` and keeps the popover open", async () => {
@@ -275,12 +280,12 @@ describe("ClientList", () => {
       target: { value: "2026-01-01" },
     })
     // La edición del draft no dispara fetch hasta "Aplicar":
-    expect(useClientsMock).toHaveBeenLastCalledWith({})
+    expect(useClientsMock).toHaveBeenLastCalledWith({ page: 1 })
     await user.click(screen.getByRole("button", { name: "Aplicar" }))
     expect(toast.error).toHaveBeenCalledWith(
       "La fecha final no puede ser anterior a la inicial.",
     )
-    expect(useClientsMock).toHaveBeenLastCalledWith({})
+    expect(useClientsMock).toHaveBeenLastCalledWith({ page: 1 })
     // El popover sigue abierto para corregir el rango:
     expect(screen.getByRole("button", { name: "Aplicar" })).toBeInTheDocument()
   })
@@ -315,11 +320,12 @@ describe("ClientList", () => {
     searchParamsMap.set("vmin", "1000")
     searchParamsMap.set("vmax", "5000")
     render(<ClientList />)
-    expect(useClientsMock).toHaveBeenLastCalledWith({
+expect(useClientsMock).toHaveBeenLastCalledWith({
       q: "gobierno",
       tipo: "GOBIERNO_LOCAL",
       valorMin: "1000",
       valorMax: "5000",
+      page: 1,
     })
     expect(screen.getByLabelText("Buscar clientes")).toHaveValue("gobierno")
   })
@@ -328,7 +334,7 @@ describe("ClientList", () => {
     searchParamsMap.set("desde", "2026-10-01")
     searchParamsMap.set("hasta", "2026-01-01")
     render(<ClientList />)
-    expect(useClientsMock).toHaveBeenLastCalledWith({})
+    expect(useClientsMock).toHaveBeenLastCalledWith({ page: 1 })
   })
 
   it("shows the active-filter count on the Filtros button without counting q", () => {
@@ -370,7 +376,7 @@ describe("ClientList", () => {
     )
     await user.click(screen.getByRole("button", { name: /Filtros/ }))
     await user.click(await screen.findByRole("button", { name: "Limpiar todo" }))
-    expect(useClientsMock).toHaveBeenLastCalledWith({})
+    expect(useClientsMock).toHaveBeenLastCalledWith({ page: 1 })
     expect(router.replace).toHaveBeenLastCalledWith("/clientes", { scroll: false })
   })
 
@@ -402,3 +408,4 @@ describe("ClientList", () => {
     })
   })
 })
+

@@ -135,7 +135,7 @@ function toLocal(f: ClientFilters): LocalFilters {
 function buildQueryString(filters: ClientFilters): string {
   const sp = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) {
-    if (value !== undefined && value !== "") sp.set(key, value);
+    if (value !== undefined && value !== "") sp.set(key, String(value));
   }
   return sp.toString();
 }
@@ -264,7 +264,15 @@ export function ClientList() {
 
   const usersQuery = useUsers();
   const users = useMemo(() => usersQuery.data ?? [], [usersQuery.data]);
-  const listQuery = useClients(applied);
+  // BUG FIX (plan Fase 2 / hallazgo #1): useClients nunca recibía `page` —
+  // el servidor sí soporta el querystring (?page=, clients/route.ts), así que
+  // "Siguiente" solo cambiaba la etiqueta. El query combina applied + page;
+  // `applied` queda limpio para la URL y el export (que no llevan page).
+  const queryFilters = useMemo<ClientFilters>(
+    () => ({ ...applied, page }),
+    [applied, page],
+  );
+  const listQuery = useClients(queryFilters);
 
   // Latest applied filters for the q-debounce timer (avoids stale closures).
   const appliedRef = useRef(applied);

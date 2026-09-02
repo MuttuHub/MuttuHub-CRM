@@ -166,6 +166,8 @@ export type ClientFilters = {
   hasta?: string;
   valorMin?: string;
   valorMax?: string;
+  page?: number;
+  limit?: number;
 };
 
 export type ClientFiltersPatch = {
@@ -201,7 +203,7 @@ export function useClients(filters: ClientFilters): UseQueryResult<ClientListRes
     queryFn: () => {
       const sp = new URLSearchParams();
       for (const [key, value] of Object.entries(filters)) {
-        if (value !== undefined && value !== "") sp.set(key, value);
+        if (value !== undefined && value !== "") sp.set(key, String(value));
       }
       return apiGet<ClientListResponse>(`/api/v1/clients?${sp.toString()}`);
     },
