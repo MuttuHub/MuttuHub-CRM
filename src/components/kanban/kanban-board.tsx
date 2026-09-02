@@ -30,15 +30,17 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import {
+  ChevronDown,
   Eye,
   FileSpreadsheet,
+  Loader2,
   Plus,
   Printer,
   RotateCcw,
   SquareKanban,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import type { EstadoTarea, PrioridadTarea } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -66,7 +68,7 @@ import {
   PRIORIDAD_TAREA_LABELS,
   TASK_TAGS,
 } from "@/lib/catalogs";
-import { esVencida, formatFecha, iniciales, useUsers, type TaskListResponse } from "@/hooks/crm";
+import { esVencida, formatFecha, iniciales, useUsers, type TaskItem, type TaskListResponse } from "@/hooks/crm";
 import { PrioridadChip, ToneBadge } from "@/components/crm/shared";
 import {
   buildTaskQueryString,
@@ -107,6 +109,29 @@ const VISTAS: { value: View; label: string }[] = [
   { value: "lista", label: "Lista" },
   { value: "reporte", label: "Reporte" },
 ];
+
+// PR 7: useTasks ahora devuelve InfiniteData<TaskListResponse>. El helper
+// de optimism actualiza el ítem por id a través de TODAS las páginas
+// acumuladas (un solo mapa por set; defensa barata si la tarea aparece
+// duplicada entre páginas).
+function patchItemInPages(
+  old: InfiniteData<TaskListResponse> | undefined,
+  taskId: string,
+  patch: (task: TaskItem) => TaskItem,
+): InfiniteData<TaskListResponse> | undefined {
+  if (!old) return old;
+  let patched = false;
+  const pages = old.pages.map((page) => {
+    if (patched) return page;
+    const idx = page.items.findIndex((t) => t.id === taskId);
+    if (idx === -1) return page;
+    patched = true;
+    const items = page.items.slice();
+    items[idx] = patch(items[idx]!);
+    return { ...page, items };
+  });
+  return { ...old, pages };
+}
 
 export function KanbanBoard() {
   const qc = useQueryClient();
@@ -171,10 +196,22 @@ export function KanbanBoard() {
   );
 
   const tasksQuery = useTasks(serverParams);
-  const items = useMemo(() => tasksQuery.data?.items ?? [], [tasksQuery.data]);
+  // PR 7 (close-phase-1): useInfiniteQuery devuelve { pages }. Flatten
+  // dentro de un useMemo para no recrear el array cada render — la
+  // memoización de `columns` (grouping por estado) descubrió en PR 6 que
+  // derivar aquí sin memo rompe el re-render de DnD.
+  const items = useMemo(
+    () => tasksQuery.data?.pages.flatMap((p) => p.items) ?? [],
+    [tasksQuery.data],
+  );
   // Total excluye prioridad/etiqueta/fecha_entrega_* (D7) — es lo que
   // permite que el banner "Mostrando N de M" sea honesto sobre truncado.
-  const total = tasksQuery.data?.total ?? 0;
+  // Cada página trae el mismo `total`; tomamos el último para no depender
+  // del orden de carga.
+  const total =
+    tasksQuery.data?.pages[tasksQuery.data.pages.length - 1]?.total ?? 0;
+  const hasNextPage = tasksQuery.hasNextPage;
+  const isFetchingNextPage = tasksQuery.isFetchingNextPage;
 
   const moveMutation = useMoveTask();
   // Pointer keeps the existing activation constraint; KeyboardSensor turns
@@ -199,14 +236,14 @@ export function KanbanBoard() {
   // the optimistic move, announces it, and rolls back + toasts on failure.
   function commitMove(taskId: string, desde: EstadoTarea, estado: EstadoTarea, motivo_bloqueo?: string) {
     setMoveAnnouncement(`Tarea movida a ${ESTADO_TAREA_LABELS[estado]?.label ?? estado}`);
-    void qc.setQueryData<TaskListResponse>(taskQueryKeys.list(serverParams), (old) =>
-      old ? { ...old, items: old.items.map((t) => (t.id === taskId ? { ...t, estado } : t)) } : old,
+    void qc.setQueryData<InfiniteData<TaskListResponse>>(taskQueryKeys.list(serverParams), (old) =>
+      patchItemInPages(old, taskId, (t) => ({ ...t, estado })),
     );
     moveMutation
       .mutateAsync({ taskId, estado, motivo_bloqueo })
       .catch(() => {
-        void qc.setQueryData<TaskListResponse>(taskQueryKeys.list(serverParams), (old) =>
-          old ? { ...old, items: old.items.map((t) => (t.id === taskId ? { ...t, estado: desde } : t)) } : old,
+        void qc.setQueryData<InfiniteData<TaskListResponse>>(taskQueryKeys.list(serverParams), (old) =>
+          patchItemInPages(old, taskId, (t) => ({ ...t, estado: desde })),
         );
         // BUG FIX: the optimistic announcement above already told screen
         // readers the move succeeded. On rollback, correct it — otherwise a
@@ -416,6 +453,29 @@ export function KanbanBoard() {
           ) : (
             <ListaView items={items} onOpen={(id) => setDialogTaskId(id)} />
           )}
+          {/* PR 7: "Cargar más" reemplaza el tope silencioso de 100. Botón
+              explícito (no IntersectionObserver) para que el scroll listener
+              no pelee con los handlers de @dnd-kit (D8). Desaparece cuando
+              useInfiniteQuery ya no tiene próxima página. */}
+          {hasNextPage ? (
+            <div className="flex justify-center pt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void tasksQuery.fetchNextPage()}
+                disabled={isFetchingNextPage}
+                className="h-9 rounded-lg border-ink-200 bg-panel px-4 text-[12.5px] font-semibold text-ink-800 hover:bg-ink-100"
+                data-testid="kanban-load-more"
+              >
+                {isFetchingNextPage ? (
+                  <Loader2 className="size-4 animate-spin" strokeWidth={1.8} />
+                ) : (
+                  <ChevronDown className="size-4" strokeWidth={1.8} />
+                )}
+                {isFetchingNextPage ? "Cargando…" : "Cargar más"}
+              </Button>
+            </div>
+          ) : null}
         </>
       )}
 

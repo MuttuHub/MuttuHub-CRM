@@ -4,7 +4,7 @@ import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import * as kanban from "./kanban"
 import { taskQueryKeys, useTasks, useUploadAttachment } from "./kanban"
-import type { TaskItem } from "./crm"
+import type { TaskItem, TaskListResponse } from "./crm"
 
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -43,6 +43,15 @@ function jsonResponse(body: unknown, status = 200) {
     status,
     headers: { "Content-Type": "application/json" },
   })
+}
+
+function pageResponse(
+  page: number,
+  limit: number,
+  total: number,
+  items: TaskItem[],
+): TaskListResponse {
+  return { page, limit, total, items }
 }
 
 describe("useUploadAttachment", () => {
@@ -127,7 +136,7 @@ describe("PR 7 — useTasks pagination (useInfiniteQuery)", () => {
 
   it("requests page=1 with limit=100 on the first render", async () => {
     fetchMock.mockResolvedValueOnce(
-      jsonResponse({ page: 1, limit: 100, total: 150, items: [makeTask("t1"), makeTask("t2")] }),
+      jsonResponse(pageResponse(1, 100, 150, [makeTask("t1"), makeTask("t2")])),
     )
     const { wrapper } = createWrapper()
 
@@ -142,12 +151,7 @@ describe("PR 7 — useTasks pagination (useInfiniteQuery)", () => {
 
   it("exposes the first page's items via data.pages", async () => {
     fetchMock.mockResolvedValueOnce(
-      jsonResponse({
-        page: 1,
-        limit: 100,
-        total: 150,
-        items: [makeTask("t1"), makeTask("t2")],
-      }),
+      jsonResponse(pageResponse(1, 100, 150, [makeTask("t1"), makeTask("t2")])),
     )
     const { wrapper } = createWrapper()
 
@@ -161,7 +165,7 @@ describe("PR 7 — useTasks pagination (useInfiniteQuery)", () => {
 
   it("reports hasNextPage true when accumulated items < total", async () => {
     fetchMock.mockResolvedValueOnce(
-      jsonResponse({ page: 1, limit: 100, total: 200, items: [makeTask("t1")] }),
+      jsonResponse(pageResponse(1, 100, 200, [makeTask("t1")])),
     )
     const { wrapper } = createWrapper()
 
@@ -173,12 +177,7 @@ describe("PR 7 — useTasks pagination (useInfiniteQuery)", () => {
 
   it("reports hasNextPage false when accumulated items === total", async () => {
     fetchMock.mockResolvedValueOnce(
-      jsonResponse({
-        page: 1,
-        limit: 100,
-        total: 2,
-        items: [makeTask("t1"), makeTask("t2")],
-      }),
+      jsonResponse(pageResponse(1, 100, 2, [makeTask("t1"), makeTask("t2")])),
     )
     const { wrapper } = createWrapper()
 
@@ -190,20 +189,10 @@ describe("PR 7 — useTasks pagination (useInfiniteQuery)", () => {
 
   it("fetchNextPage requests page=2 and appends items without duplicates", async () => {
     fetchMock.mockResolvedValueOnce(
-      jsonResponse({
-        page: 1,
-        limit: 100,
-        total: 4,
-        items: [makeTask("t1"), makeTask("t2")],
-      }),
+      jsonResponse(pageResponse(1, 100, 4, [makeTask("t1"), makeTask("t2")])),
     )
     fetchMock.mockResolvedValueOnce(
-      jsonResponse({
-        page: 2,
-        limit: 100,
-        total: 4,
-        items: [makeTask("t3"), makeTask("t4")],
-      }),
+      jsonResponse(pageResponse(2, 100, 4, [makeTask("t3"), makeTask("t4")])),
     )
     const { wrapper } = createWrapper()
 

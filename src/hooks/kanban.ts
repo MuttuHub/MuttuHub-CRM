@@ -8,7 +8,16 @@
 
 "use client";
 
-import { useMutation, useQuery, useQueryClient, type UseMutationResult, type UseQueryResult } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type InfiniteData,
+  type UseInfiniteQueryResult,
+  type UseMutationResult,
+  type UseQueryResult,
+} from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiDelete, apiGet, apiPatch, apiPost, ApiError, type ApiVoid } from "@/lib/api/http";
 import type { EstadoTarea, OrigenTarea, PrioridadTarea, RolUsuario } from "@prisma/client";
@@ -124,12 +133,41 @@ export const taskQueryKeys = {
 
 /* ── Queries ───────────────────────────────────────────────────────────── */
 
-export function useTasks(filters: TaskFilters): UseQueryResult<TaskListResponse> {
-  return useQuery({
+/**
+ * Page size for the kanban task list (PR 7, close-phase-1). The server already
+ * paginates (GET /api/v1/tasks accepts `page`/`limit` and returns
+ * `page`/`limit`/`total`/`items`); the hook now drives pages of this size via
+ * `useInfiniteQuery` so the board can show every task instead of a silent
+ * 100-row cut. The `Cargar más` button at the bottom of the board triggers
+ * `fetchNextPage` (D8 — explicit button, no scroll listener, to keep the
+ * @dnd-kit pointer/touch handlers stable).
+ */
+export const TASKS_PAGE_SIZE = 100;
+
+export function useTasks(
+  filters: TaskFilters,
+): UseInfiniteQueryResult<InfiniteData<TaskListResponse>, Error> {
+  return useInfiniteQuery({
     queryKey: taskQueryKeys.list(filters),
-    queryFn: () => {
-      const qs = buildTaskQueryString(filters);
-      return apiGet<TaskListResponse>(`/api/v1/tasks?${qs}`);
+    queryFn: ({ pageParam, signal }) => {
+      // pageParam is the 1-based page number. First page is 1 so the server
+      // (parsePagination default) and the hook agree on `page=1`.
+      const qs = buildTaskQueryString({
+        ...filters,
+        page: pageParam as number,
+        limit: TASKS_PAGE_SIZE,
+      });
+      return apiGet<TaskListResponse>(`/api/v1/tasks?${qs}`, { signal });
+    },
+    initialPageParam: 1,
+    // While the accumulated page set hasn't covered `total` there is more to
+    // fetch. The server's `total` excludes prioridad / etiqueta /
+    // fecha_entrega_* (D7) — accepted asymmetry: when those filters are
+    // active the user may "click past" the filtered result and observe empty
+    // pages until items.length === total. The hook mirrors the spec wording.
+    getNextPageParam: (lastPage, allPages) => {
+      const loaded = allPages.reduce((sum, p) => sum + p.items.length, 0);
+      return loaded < lastPage.total ? lastPage.page + 1 : null;
     },
   });
 }
