@@ -69,7 +69,6 @@ import {
 import { esVencida, formatFecha, iniciales, useUsers, type TaskListResponse } from "@/hooks/crm";
 import { PrioridadChip, ToneBadge } from "@/components/crm/shared";
 import {
-  applyLocalFilters,
   buildTaskQueryString,
   taskQueryKeys,
   useClientOptions,
@@ -81,6 +80,7 @@ import {
 import { TaskCard, SortableTaskCard, type CardTask } from "@/components/kanban/task-card";
 import { TaskDialog } from "@/components/kanban/task-dialog";
 import { ReportView } from "@/components/kanban/report-view";
+import { TruncationBanner } from "@/components/kanban/truncation-banner";
 import { SinConexionCard } from "@/components/shared/sin-conexion-card";
 
 // True when the Supabase env vars are missing (dev-only signal): the API
@@ -152,21 +152,29 @@ export function KanbanBoard() {
   const clientOptionsQuery = useClientOptions();
   const clients = clientOptionsQuery.data ?? [];
 
-  /* Params que sí soporta el servidor. */
+  /* Params que sí soporta el servidor. PR 6: prioridad / etiqueta /
+     fecha_entrega_* pasaron del cliente al servidor — el `local` state del
+     tablero se mapea a los nombres de parámetro que parseTaskFilters
+     acepta (fecha_entrega_desde / fecha_entrega_hasta) para no romper los
+     ids de los inputs. */
   const serverParams: TaskFilters = useMemo(
     () => ({
       cliente: cliente || undefined,
       responsable: responsableEquipo || undefined,
+      prioridad: local.prioridad || undefined,
+      etiqueta: local.etiqueta || undefined,
+      fecha_entrega_desde: local.desde || undefined,
+      fecha_entrega_hasta: local.hasta || undefined,
       limit: 100,
     }),
-    [cliente, responsableEquipo],
+    [cliente, responsableEquipo, local.prioridad, local.etiqueta, local.desde, local.hasta],
   );
 
   const tasksQuery = useTasks(serverParams);
-  const items = useMemo(
-    () => applyLocalFilters(tasksQuery.data?.items ?? [], local),
-    [tasksQuery.data, local],
-  );
+  const items = useMemo(() => tasksQuery.data?.items ?? [], [tasksQuery.data]);
+  // Total excluye prioridad/etiqueta/fecha_entrega_* (D7) — es lo que
+  // permite que el banner "Mostrando N de M" sea honesto sobre truncado.
+  const total = tasksQuery.data?.total ?? 0;
 
   const moveMutation = useMoveTask();
   // Pointer keeps the existing activation constraint; KeyboardSensor turns
@@ -370,36 +378,45 @@ export function KanbanBoard() {
         <BoardSkeleton vista={view === "lista" ? "lista" : "board"} />
       ) : items.length === 0 ? (
         <TableroVacio vista={view === "lista" ? "lista" : "tablero"} />
-      ) : view === "tablero" ? (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCorners}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <p role="status" aria-live="polite" className="sr-only">
-            {moveAnnouncement}
-          </p>
-          <div className="flex gap-3 overflow-x-auto pb-3">
-            {BOARD_COLUMNS.map((estado) => (
-              <BoardColumn
-                key={estado}
-                estado={estado}
-                tareas={columns[estado]}
-                onOpen={(id) => setDialogTaskId(id)}
-              />
-            ))}
-          </div>
-          <DragOverlay dropAnimation={null}>
-            {draggedTask ? (
-              <div className="w-[240px]">
-                <TaskCard task={draggedTask} overlay onClick={() => undefined} />
-              </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
       ) : (
-        <ListaView items={items} onOpen={(id) => setDialogTaskId(id)} />
+        <>
+          {/* PR 6: banner de truncado — solo cuando items.length < total. El
+              total excluye prioridad/etiqueta/fecha_entrega_*, así que cuando
+              se aplica alguno de esos filtros el banner aparece aunque la
+              página no esté "llena". */}
+          <TruncationBanner shown={items.length} total={total} />
+          {view === "tablero" ? (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCorners}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <p role="status" aria-live="polite" className="sr-only">
+                {moveAnnouncement}
+              </p>
+              <div className="flex gap-3 overflow-x-auto pb-3">
+                {BOARD_COLUMNS.map((estado) => (
+                  <BoardColumn
+                    key={estado}
+                    estado={estado}
+                    tareas={columns[estado]}
+                    onOpen={(id) => setDialogTaskId(id)}
+                  />
+                ))}
+              </div>
+              <DragOverlay dropAnimation={null}>
+                {draggedTask ? (
+                  <div className="w-[240px]">
+                    <TaskCard task={draggedTask} overlay onClick={() => undefined} />
+                  </div>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+          ) : (
+            <ListaView items={items} onOpen={(id) => setDialogTaskId(id)} />
+          )}
+        </>
       )}
 
       {dialogTaskId !== null && (

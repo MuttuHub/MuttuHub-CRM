@@ -72,7 +72,15 @@ export type CurrentUser = {
 
 /**
  * Server-side task filters (the /api/v1/tasks list actually accepts these:
- * q, cliente, responsable, estado, origen, vencidas + pagination).
+ * q, cliente, responsable, estado, origen, prioridad, etiqueta,
+ * fecha_entrega_desde, fecha_entrega_hasta, vencidas + pagination).
+ *
+ * PR 6 (close-phase-1): prioridad / etiqueta / fecha_entrega_* are now
+ * real server clauses (synthetic-rabin §"El tope de 100"); the board
+ * feeds them as URL params and the API filters the result set before
+ * paginating. The matching `total` on the response is honest about
+ * truncation vs. filtering, and the board renders a banner when
+ * items.length < total.
  */
 export type TaskFilters = {
   q?: string;
@@ -80,51 +88,14 @@ export type TaskFilters = {
   responsable?: string;
   estado?: EstadoTarea;
   origen?: OrigenTarea;
+  prioridad?: PrioridadTarea;
+  etiqueta?: string;
+  fecha_entrega_desde?: string;
+  fecha_entrega_hasta?: string;
   vencidas?: boolean;
   page?: number;
   limit?: number;
 };
-
-/**
- * Client-side filters (prioridad, etiqueta, rango de fecha) that the list
- * endpoint does NOT support yet — the board applies them locally on the
- * fetched page (limit 100). Kept separate so re-fetches stay honest.
- */
-export type LocalTaskFilters = {
-  prioridad: PrioridadTarea | "";
-  etiqueta: string;
-  desde: string;
-  hasta: string;
-};
-
-export const EMPTY_LOCAL_TASK_FILTERS: LocalTaskFilters = {
-  prioridad: "",
-  etiqueta: "",
-  desde: "",
-  hasta: "",
-};
-
-export function localFiltersActive(f: LocalTaskFilters): boolean {
-  return f.prioridad !== "" || f.etiqueta !== "" || f.desde !== "" || f.hasta !== "";
-}
-
-export function applyLocalFilters(items: TaskItem[], local: LocalTaskFilters): TaskItem[] {
-  if (!localFiltersActive(local)) return items;
-  const desde = local.desde ? new Date(`${local.desde}T00:00:00`).getTime() : null;
-  const hasta = local.hasta ? new Date(`${local.hasta}T23:59:59.999`).getTime() : null;
-  return items.filter((t) => {
-    if (local.prioridad && t.prioridad !== local.prioridad) return false;
-    if (local.etiqueta && !t.etiquetas.includes(local.etiqueta)) return false;
-    const fecha = t.fecha_entrega ? new Date(t.fecha_entrega).getTime() : null;
-    if (fecha === null) {
-      if (desde !== null || hasta !== null) return false;
-    } else {
-      if (desde !== null && fecha < desde) return false;
-      if (hasta !== null && fecha > hasta) return false;
-    }
-    return true;
-  });
-}
 
 /** URL query string for the server-supported task params (list/export/print). */
 export function buildTaskQueryString(filters: TaskFilters, overrides?: TaskFilters): string {
