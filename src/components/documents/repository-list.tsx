@@ -13,6 +13,7 @@ import {
   Eye,
   FileUp,
   FolderOpen,
+  FolderPlus,
   LoaderCircle,
   RotateCcw,
   Search,
@@ -48,12 +49,16 @@ import {
   formatVersionFecha,
   useDocCategories,
   useDocuments,
+  useFolders,
   type DocumentFilters,
   type DocumentItem,
+  type FolderNode,
 } from "@/hooks/documents";
 import { ToneBadge } from "@/components/crm/shared";
 import { DocumentDialog } from "@/components/documents/document-dialog";
 import { UploadDocumentDialog } from "@/components/documents/upload-dialog";
+import { FolderTree } from "@/components/documents/folder-tree";
+import { CreateFolderDialog } from "@/components/documents/folder-dialogs";
 import { SinConexionCard } from "@/components/shared/sin-conexion-card";
 
 // True when the Supabase env vars are missing (dev-only signal): the API
@@ -70,6 +75,7 @@ type LocalFilters = {
   etiqueta: string;
   autor: string;
   cliente: string;
+  carpeta: string;
   desde: string;
   hasta: string;
 };
@@ -80,6 +86,7 @@ const EMPTY_LOCAL: LocalFilters = {
   etiqueta: "",
   autor: "",
   cliente: "",
+  carpeta: "",
   desde: "",
   hasta: "",
 };
@@ -91,6 +98,10 @@ function toFilters(local: LocalFilters, page: number): DocumentFilters {
   if (local.etiqueta) out.etiqueta = local.etiqueta;
   if (local.autor) out.autor = local.autor;
   if (local.cliente) out.cliente = local.cliente;
+  // Cuando q está activo se ignora el filtro de carpeta (comportamiento de
+  // Drive): buscar dentro de una sola carpeta es un default sin sorpresas pero
+  // inútil cuando no sabés dónde está el archivo.
+  if (local.carpeta && !local.q.trim()) out.carpeta = local.carpeta;
   if (local.desde) out.desde = local.desde;
   if (local.hasta) out.hasta = local.hasta;
   return out;
@@ -103,9 +114,20 @@ function hasActive(local: LocalFilters): boolean {
     local.etiqueta !== "" ||
     local.autor !== "" ||
     local.cliente !== "" ||
+    local.carpeta !== "" ||
     local.desde !== "" ||
     local.hasta !== ""
   );
+}
+
+/** Path from the root to the active folder (raíz -> ... -> activa). */
+function folderPath(nodes: FolderNode[], id: string): string[] {
+  for (const n of nodes) {
+    if (n.id === id) return [n.nombre];
+    const child = folderPath(n.hijos, id);
+    if (child.length > 0) return [n.nombre, ...child];
+  }
+  return [];
 }
 
 export function RepositoryList() {
@@ -121,11 +143,14 @@ export function RepositoryList() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [fichaId, setFichaId] = useState<string | null>(null);
   const [zipPending, setZipPending] = useState(false);
+  const [createFolderOpen, setCreateFolderOpen] = useState(false);
 
   const applied = toFilters(local, page);
   const listQuery = useDocuments(applied);
   const usersQuery = useUsers();
   const clientsQuery = useClientOptions();
+  const foldersQuery = useFolders();
+  const folders = foldersQuery.data ?? [];
 
   // Debounce del buscador (350 ms, mismo patrón que el listado de clientes).
   const qTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -206,6 +231,10 @@ export function RepositoryList() {
     }
   }
 
+  const activeFolderName = local.carpeta
+    ? folderPath(folders, local.carpeta).join(" / ")
+    : "";
+
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -222,67 +251,128 @@ export function RepositoryList() {
         </Button>
       </div>
 
-      <SectionFilters
-        local={local}
-        personas={personas}
-        clientes={clientes}
-        onChange={commit}
-        onClear={clearFilters}
-        hasActiveFilters={hasActive(local)}
-        etiquetaOptions={etiquetaOptions}
-      />
-
-      {selected.size > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-rose-200 bg-rose-50 px-4 py-2.5">
-          <span className="text-[13px] font-semibold text-ink-800">
-            {selected.size} {selected.size === 1 ? "documento seleccionado" : "documentos seleccionados"}
-          </span>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={zipPending}
-              onClick={() => void descargarSeleccion()}
-              className="h-9 rounded-12 border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
-            >
-              {zipPending ? (
-                <LoaderCircle className="size-4 animate-spin" />
-              ) : (
-                <Download className="size-4 text-exito" strokeWidth={1.8} />
+      <div className="flex min-w-0 items-center gap-2 text-[13px]">
+        <FolderOpen className="size-4 text-ink-500" strokeWidth={1.8} />
+        {local.q.trim() ? (
+          <span className="font-semibold text-ink-800">Resultados de búsqueda</span>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => commit({ carpeta: "" })}
+              className={cn(
+                "font-semibold",
+                !local.carpeta ? "text-exito" : "text-ink-600 hover:text-ink-800",
               )}
-              Descargar selección (.zip)
-            </Button>
+            >
+              Repositorio
+            </button>
+            {activeFolderName && (
+              <>
+                <span className="text-ink-400">/</span>
+                <span className="font-semibold text-ink-800">{activeFolderName}</span>
+              </>
+            )}
+          </>
+        )}
+      </div>
+
+      <div className="flex min-w-0 flex-col gap-4 lg:grid lg:grid-cols-[240px_1fr]">
+        <aside className="flex min-w-0 flex-col gap-3 rounded-[22px] border border-ink-200 bg-panel p-3">
+          <div className="flex items-center justify-between gap-2 px-1">
+            <span className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+              Carpetas
+            </span>
             <Button
+              type="button"
               variant="ghost"
               size="sm"
-              onClick={() => setSelected(new Set())}
-              className="h-9 px-2.5 text-[12.5px] font-semibold text-ink-600"
+              onClick={() => setCreateFolderOpen(true)}
+              aria-label="Crear carpeta"
+              className="h-7 w-7 rounded-lg p-0 text-ink-500 hover:bg-ink-100 hover:text-ink-800"
             >
-              Limpiar
+              <FolderPlus className="size-4" strokeWidth={1.9} />
             </Button>
           </div>
-        </div>
-      )}
+          {foldersQuery.isLoading ? (
+            <div className="space-y-2 p-1">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-7 w-full rounded-10" />
+              ))}
+            </div>
+          ) : (
+            <FolderTree
+              folders={folders}
+              activeId={local.carpeta || null}
+              onSelect={(id) => commit({ carpeta: id ?? "" })}
+            />
+          )}
+        </aside>
 
-      {listQuery.isError ? (
-        <SinConexionCard unconfigured={unconfigured} onRetry={() => void listQuery.refetch()} />
-      ) : (
-        <DocumentsTableCard
-          query={listQuery}
-          page={page}
-          totalPages={totalPages}
-          desde={desde}
-          hasta={hasta}
-          total={total}
-          selected={selected}
-          allPageSelected={allPageSelected}
-          onTogglePage={togglePage}
-          onToggleOne={toggleOne}
-          onPage={setPage}
-          onOpenFicha={setFichaId}
-          onOpenUpload={() => setUploadOpen(true)}
-        />
-      )}
+        <div className="flex min-w-0 flex-col gap-4">
+          <SectionFilters
+            local={local}
+            personas={personas}
+            clientes={clientes}
+            onChange={commit}
+            onClear={clearFilters}
+            hasActiveFilters={hasActive(local)}
+            etiquetaOptions={etiquetaOptions}
+          />
+
+          {selected.size > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-rose-200 bg-rose-50 px-4 py-2.5">
+              <span className="text-[13px] font-semibold text-ink-800">
+                {selected.size} {selected.size === 1 ? "documento seleccionado" : "documentos seleccionados"}
+              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={zipPending}
+                  onClick={() => void descargarSeleccion()}
+                  className="h-9 rounded-12 border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+                >
+                  {zipPending ? (
+                    <LoaderCircle className="size-4 animate-spin" />
+                  ) : (
+                    <Download className="size-4 text-exito" strokeWidth={1.8} />
+                  )}
+                  Descargar selección (.zip)
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelected(new Set())}
+                  className="h-9 px-2.5 text-[12.5px] font-semibold text-ink-600"
+                >
+                  Limpiar
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {listQuery.isError ? (
+            <SinConexionCard unconfigured={unconfigured} onRetry={() => void listQuery.refetch()} />
+          ) : (
+            <DocumentsTableCard
+              query={listQuery}
+              page={page}
+              totalPages={totalPages}
+              desde={desde}
+              hasta={hasta}
+              total={total}
+              selected={selected}
+              allPageSelected={allPageSelected}
+              onTogglePage={togglePage}
+              onToggleOne={toggleOne}
+              onPage={setPage}
+              onOpenFicha={setFichaId}
+              onOpenUpload={() => setUploadOpen(true)}
+            />
+          )}
+        </div>
+      </div>
 
       {uploadOpen && (
         <UploadDocumentDialog
@@ -292,6 +382,14 @@ export function RepositoryList() {
         />
       )}
       <DocumentDialog documentId={fichaId} onClose={() => setFichaId(null)} />
+      {createFolderOpen && (
+        <CreateFolderDialog
+          open
+          onOpenChange={setCreateFolderOpen}
+          defaultParentId={local.carpeta || null}
+          folders={folders}
+        />
+      )}
     </div>
   );
 }

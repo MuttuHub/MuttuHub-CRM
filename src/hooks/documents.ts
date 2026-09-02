@@ -16,7 +16,7 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { apiDelete, apiGet, ApiError, type ApiVoid } from "@/lib/api/http";
+import { apiDelete, apiGet, apiPost, ApiError, type ApiVoid } from "@/lib/api/http";
 
 /* ── DTOs (server response shapes) ─────────────────────────────────────── */
 
@@ -71,6 +71,24 @@ export type DocumentUploadResponse = DocumentItem & { version: number };
 
 export type DocumentVersionResponse = Omit<DocumentVersion, "documento_id">;
 
+/* ── Folders (plan Fase 2, 4A) ─────────────────────────────────────────── */
+
+export type FolderNode = {
+  id: string;
+  nombre: string;
+  parent_id: string | null;
+  created_at: string;
+  hijos: FolderNode[];
+  documentos_count: number;
+};
+
+export type FolderItem = {
+  id: string;
+  nombre: string;
+  parent_id: string | null;
+  created_at: string;
+};
+
 /* ── Filters (query params mirror parseDocumentFilters) ────────────────── */
 
 export type DocumentFilters = {
@@ -79,6 +97,7 @@ export type DocumentFilters = {
   etiqueta?: string;
   cliente?: string;
   autor?: string;
+  carpeta?: string;
   desde?: string;
   hasta?: string;
   page?: number;
@@ -93,6 +112,7 @@ export const documentQueryKeys = {
   detail: (id: string) => ["documents", "detail", id] as const,
   versions: (id: string) => ["documents", id, "versions"] as const,
   categories: ["documents", "categories"] as const,
+  folders: ["documents", "folders"] as const,
 };
 
 /* ── Queries ───────────────────────────────────────────────────────────── */
@@ -115,6 +135,38 @@ export function useDocCategories(): UseQueryResult<{ nombre: string; restringida
         "/api/v1/catalogs/settings",
       );
       return res.doc_categories;
+    },
+  });
+}
+
+export function useFolders(): UseQueryResult<FolderNode[]> {
+  return useQuery({
+    queryKey: documentQueryKeys.folders,
+    queryFn: async () => {
+      const res = await apiGet<{ carpetas: FolderNode[] }>("/api/v1/folders");
+      return res.carpetas;
+    },
+  });
+}
+
+export function useCreateFolder(): UseMutationResult<
+  { carpeta: FolderItem },
+  Error,
+  { nombre: string; parent_id?: string | null }
+> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input) => {
+      try {
+        return await apiPost<{ carpeta: FolderItem }>("/api/v1/folders", input);
+      } catch (err) {
+        if (err instanceof ApiError) toast.error(err.message);
+        throw err;
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: documentQueryKeys.folders });
+      toast.success("Carpeta creada.");
     },
   });
 }
