@@ -121,3 +121,40 @@ describe("ReportView — preservación de información (PR 17)", () => {
     expect(screen.getByText("Mi reporte de tareas")).toBeInTheDocument();
   });
 });
+
+describe("ReportView — estado/cliente como barras (PR 18)", () => {
+  it("lists zero-count estados as text instead of empty bars", () => {
+    const conCeros: TaskReportResponse = {
+      ...reporte,
+      por_estado: [
+        { estado: "POR_HACER", cantidad: 2 },
+        { estado: "COMPLETADA", cantidad: 6 },
+        { estado: "EN_CURSO", cantidad: 0 },
+        { estado: "BLOQUEADA", cantidad: 0 },
+      ],
+    };
+    reportQuery.data = conCeros;
+    render(<ReportView responsable={undefined} cliente={undefined} />);
+
+    expect(screen.getByText("Sin tareas en: En curso, Bloqueada.")).toBeInTheDocument();
+    expect(screen.getByText("Por hacer")).toBeInTheDocument();
+  });
+
+  it("renders the cliente ranking as bars with top-8 + '+N clientes más'", () => {
+    const muchos: TaskReportResponse = {
+      ...reporte,
+      por_cliente: Array.from({ length: 10 }, (_, i) => ({
+        id: `c${i}`,
+        nombre: `Cliente ${i}`,
+        cantidad: 10 - i,
+      })),
+    };
+    reportQuery.data = muchos;
+    render(<ReportView responsable={undefined} cliente={undefined} />);
+
+    expect(screen.getByText("Cliente 0")).toBeInTheDocument();
+    expect(screen.getByText("Cliente 7")).toBeInTheDocument();
+    expect(screen.queryByText("Cliente 8")).not.toBeInTheDocument();
+    expect(screen.getByText("+2 clientes más.")).toBeInTheDocument();
+  });
+});

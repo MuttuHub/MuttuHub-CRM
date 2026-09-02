@@ -150,9 +150,9 @@ export function ReportView({ responsable, cliente }: ReportViewProps) {
           ) : (
             <>
               <PersonTable porPersona={report.por_persona} misTareas={misTareas} />
-              <EstadoTable porEstado={report.por_estado} />
+              <EstadoCard porEstado={report.por_estado} />
               {report.por_cliente.length > 0 && (
-                <ClienteTable porCliente={report.por_cliente} />
+                <ClienteCard porCliente={report.por_cliente} />
               )}
             </>
           )}
@@ -291,31 +291,79 @@ function PersonTable({
   );
 }
 
-function EstadoTable({ porEstado }: { porEstado: { estado: string; cantidad: number }[] }) {
+function EstadoCard({ porEstado }: { porEstado: { estado: string; cantidad: number }[] }) {
+  // PR 18 (plan 3B): el estado es un embudo, no una tabla. Cada estado tiene
+  // tono semántico (los mismos de cara-pipeline). Los ceros salen de las
+  // barras (una barra de 0% es ruido) pero no se pierden: se listan en texto.
+  const conTareas = porEstado.filter((e) => e.cantidad > 0);
+  const sinTareas = porEstado.filter((e) => e.cantidad === 0);
+  const total = porEstado.reduce((acc, e) => acc + e.cantidad, 0);
+
   return (
-    <TableCard title="Por estado" headers={["Estado", "Cantidad"]}>
-      {porEstado.map((e) => (
-        <tr key={e.estado} className="border-t border-ink-200 first:border-t-0 hover:bg-ink-100/40">
-          <td className="px-5 py-2.5 font-semibold text-ink-900">
-            {ESTADO_TAREA_LABELS[e.estado as keyof typeof ESTADO_TAREA_LABELS]?.label ?? e.estado}
-          </td>
-          <MonoCell value={e.cantidad} />
-        </tr>
-      ))}
-    </TableCard>
+    <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
+      <h3 className="mb-4 font-display text-[14.5px] font-bold tracking-[-0.01em] text-ink-950">
+        Por estado
+      </h3>
+      {total === 0 ? (
+        <p className="text-[13px] text-ink-600">Sin tareas en este período.</p>
+      ) : (
+        <div className="space-y-3.5">
+          {conTareas.map((e) => {
+            const entry = ESTADO_TAREA_LABELS[e.estado as keyof typeof ESTADO_TAREA_LABELS];
+            return (
+              <BarRow
+                key={e.estado}
+                label={entry?.label ?? e.estado}
+                count={e.cantidad}
+                total={total}
+                tone={entry?.tone}
+              />
+            );
+          })}
+          {sinTareas.length > 0 && (
+            <p className="pt-1 text-[12px] text-ink-600">
+              Sin tareas en:{" "}
+              {sinTareas
+                .map((e) => ESTADO_TAREA_LABELS[e.estado as keyof typeof ESTADO_TAREA_LABELS]?.label ?? e.estado)
+                .join(", ")}
+              .
+            </p>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 
-function ClienteTable({ porCliente }: { porCliente: { nombre: string; cantidad: number }[] }) {
+function ClienteCard({ porCliente }: { porCliente: { nombre: string; cantidad: number }[] }) {
+  // PR 18 (plan 3B): ranking -> barra horizontal (el caso indiscutible). Top 8
+  // + "+N clientes más"; ya viene ordenado desc desde el servidor.
+  const top = porCliente.slice(0, 8);
+  const total = porCliente.reduce((acc, c) => acc + c.cantidad, 0);
+  const restantes = porCliente.length - top.length;
+
   return (
-    <TableCard title="Por cliente" headers={["Cliente", "Cantidad"]}>
-      {porCliente.map((c) => (
-        <tr key={c.nombre} className="border-t border-ink-200 first:border-t-0 hover:bg-ink-100/40">
-          <td className="px-5 py-2.5 font-semibold text-ink-900">{c.nombre || "—"}</td>
-          <MonoCell value={c.cantidad} />
-        </tr>
-      ))}
-    </TableCard>
+    <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
+      <h3 className="mb-4 font-display text-[14.5px] font-bold tracking-[-0.01em] text-ink-950">
+        Por cliente
+      </h3>
+      <div className="space-y-3.5">
+        {top.map((c) => (
+          <BarRow
+            key={c.nombre}
+            label={c.nombre || "—"}
+            count={c.cantidad}
+            total={total}
+            tone="activo"
+          />
+        ))}
+        {restantes > 0 && (
+          <p className="pt-1 text-[12px] text-ink-600">
+            +{restantes} {restantes === 1 ? "cliente más" : "clientes más"}.
+          </p>
+        )}
+      </div>
+    </section>
   );
 }
 
