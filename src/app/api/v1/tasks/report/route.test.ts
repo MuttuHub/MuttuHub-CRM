@@ -203,7 +203,7 @@ describe("GET /api/v1/tasks/report", () => {
     ]);
   });
 
-  it("applies the range filter (rango=week -> updated_at >= 7 days ago) to the query", async () => {
+  it("applies the range filter (PR 23: completadas por completed_at, abiertas por updated_at)", async () => {
     authAs(gerencia);
     vi.mocked(db.tarea.findMany).mockResolvedValue([]);
     vi.mocked(db.usuario.findMany).mockResolvedValue([]);
@@ -211,7 +211,10 @@ describe("GET /api/v1/tasks/report", () => {
     await GET(new Request("http://localhost/api/v1/tasks/report?rango=week"));
 
     const where = vi.mocked(db.tarea.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
-    expect(where.updated_at).toEqual({ gte: expect.any(Date) });
+    const or = where.OR as Record<string, unknown>[];
+    expect(or).toHaveLength(2);
+    expect(or[0]).toEqual({ estado: { not: "COMPLETADA" }, updated_at: { gte: expect.any(Date) } });
+    expect(or[1]).toEqual({ estado: "COMPLETADA", completed_at: { gte: expect.any(Date) } });
   });
 
   it("does not filter by date for rango=all", async () => {
@@ -223,5 +226,31 @@ describe("GET /api/v1/tasks/report", () => {
 
     const where = vi.mocked(db.tarea.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
     expect(where.updated_at).toBeUndefined();
+    expect(where.OR).toBeUndefined();
+  });
+
+  it("combines the q OR with the range OR via AND (does not overwrite)", async () => {
+    authAs(gerencia);
+    vi.mocked(db.tarea.findMany).mockResolvedValue([]);
+    vi.mocked(db.usuario.findMany).mockResolvedValue([]);
+
+    await GET(new Request("http://localhost/api/v1/tasks/report?rango=week&q=contrato"));
+
+    const where = vi.mocked(db.tarea.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
+    expect(where.OR).toBeUndefined();
+    const and = where.AND as { OR: Record<string, unknown>[] }[];
+    expect(and).toHaveLength(2);
+    expect(and[0].OR).toHaveLength(3); // q OR (titulo, descripcion, cliente)
+    expect(and[1].OR).toHaveLength(2); // rango OR
+  });
+
+  it("declares the range criterion in meta (PR 23)", async () => {
+    authAs(gerencia);
+    vi.mocked(db.tarea.findMany).mockResolvedValue([]);
+    vi.mocked(db.usuario.findMany).mockResolvedValue([]);
+
+    const res = await GET(new Request("http://localhost/api/v1/tasks/report?rango=month"));
+    const json = await res.json();
+    expect(json.meta.criterio_rango).toContain("completed_at");
   });
 });

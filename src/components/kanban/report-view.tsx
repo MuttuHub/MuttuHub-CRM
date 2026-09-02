@@ -136,6 +136,9 @@ export function ReportView({ responsable, cliente }: ReportViewProps) {
 
       {report && (
         <div className="flex min-w-0 flex-col gap-4">
+          <p className="text-[11.5px] leading-relaxed text-ink-500">
+            Rango: {RANGO_LABEL[report.rango]} · {report.meta.criterio_rango}
+          </p>
           <SummaryCards resumen={report.resumen} rango={RANGO_LABEL[report.rango]} />
 
           {report.resumen.total_asignadas === 0 ? (

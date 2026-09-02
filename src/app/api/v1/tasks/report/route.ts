@@ -69,7 +69,26 @@ export const GET = withApiErrorHandling(
     const where = buildTaskWhere(filters.filters, auth.usuario);
     const days = rango === "all" ? undefined : RANGO_DAYS[rango];
     if (days) {
-      where.updated_at = { gte: new Date(Date.now() - days * 24 * 60 * 60 * 1000) };
+      const desde = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      // PR 23 (plan 3B): el rango NO corre sobre updated_at para todo. Para
+      // las COMPLETADA usa completed_at (la marca real de cierre) y para las
+      // abiertas updated_at (su actividad). Antes "Semana" significaba
+      // "tareas tocadas en 7 días" — renombrar una tarea completada hace un
+      // año la traía al reporte de la semana. Ahora una COMPLETADA solo
+      // aparece si se cerró en el período. Cambia TODOS los números de la
+      // pantalla (nota de release) y la UI declara el criterio en `meta`.
+      const rangoOr = [
+        { estado: { not: "COMPLETADA" as EstadoTarea }, updated_at: { gte: desde } },
+        { estado: "COMPLETADA" as EstadoTarea, completed_at: { gte: desde } },
+      ];
+      // buildTaskWhere puede ya haber puesto un OR (con q): en vez de
+      // pisarlo, se combinan — `(q OR ...) AND (rango)`.
+      if (where.OR) {
+        where.AND = [{ OR: where.OR }, { OR: rangoOr }];
+        delete where.OR;
+      } else {
+        where.OR = rangoOr;
+      }
     }
 
     const [rows, personas] = await Promise.all([
@@ -266,6 +285,13 @@ export const GET = withApiErrorHandling(
       vencimientos_por_antiguedad: vencimientosPorAntiguedad,
       carga_semanal: cargaSemanalArr,
       tendencia_cierre: tendenciaCierreArr,
+      // PR 23 (plan 3B): la UI y el PDF declaran el criterio del rango desde
+      // el payload (no hardcodeado), para que un cambio futuro de criterio
+      // desaparezca de pantalla y PDF sin editar UI.
+      meta: {
+        criterio_rango:
+          "completadas por completed_at, abiertas por updated_at",
+      },
     });
   },
 );

@@ -72,6 +72,7 @@ const reporte: TaskReportResponse = {
     { semana: "2026-08-10", cantidad: 3 },
     { semana: "2026-08-17", cantidad: 2 },
   ],
+  meta: { criterio_rango: "completadas por completed_at, abiertas por updated_at" },
 };
 
 beforeEach(() => {

@@ -77,6 +77,8 @@ export type TaskReportResponse = {
   carga_semanal: { semana: string; cantidad: number }[];
   /** PR 22: cierres por semana sobre completed_at (la marca real). */
   tendencia_cierre: { semana: string; cantidad: number }[];
+  /** PR 23: la UI/PDF declaran el criterio del rango desde el payload. */
+  meta: { criterio_rango: string };
 };
 
 export type CurrentUser = {
