@@ -24,7 +24,6 @@ import {
   clienteScopeWhere,
   parseDashboardFilters,
   rangoDeFechas,
-  resolveScope,
 } from "@/lib/dashboard";
 
 export const dynamic = "force-dynamic";
@@ -50,7 +49,10 @@ export const GET = withApiErrorHandling(
     if (!parsed.ok) return parsed.response;
     const filters = parsed.filters;
 
-    const scope = resolveScope(auth.usuario);
+    // PR 3 (close-phase-1): read scope is global — the pipeline face sees
+    // every active opportunity for every role, including COLABORADOR. The
+    // explicit `responsable_id` filter is honored as-is.
+    const scope = "all" as const;
 
     const clienteWhere = clienteScopeWhere(scope, auth.usuario, filters);
     const rango = rangoDeFechas(filters);

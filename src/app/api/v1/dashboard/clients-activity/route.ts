@@ -29,7 +29,6 @@ import {
   clienteScopeWhere,
   parseDashboardFilters,
   rangoDeFechas,
-  resolveScope,
 } from "@/lib/dashboard";
 
 export const dynamic = "force-dynamic";
@@ -62,7 +61,9 @@ export const GET = withApiErrorHandling(
       return apiError(`dias_sin_gestion no válido (${DIAS_MIN}-${DIAS_MAX}).`, 400, "VALIDATION_ERROR");
     }
 
-    const scope = resolveScope(auth.usuario);
+    // PR 3 (close-phase-1): read scope is global — clients-activity face sees
+    // every client for every role, including COLABORADOR.
+    const scope = "all" as const;
 
     const clienteWhere = clienteScopeWhere(scope, auth.usuario, filters);
     const rango = rangoDeFechas(filters);

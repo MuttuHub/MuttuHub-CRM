@@ -9,7 +9,7 @@ import { db } from "@/lib/db";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { OPEN_TASK_STATES } from "@/lib/api/crm";
-import { clienteScopeWhere, resolveScope, tareaScopeWhere } from "@/lib/dashboard";
+import { clienteScopeWhere, tareaScopeWhere } from "@/lib/dashboard";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +20,9 @@ export const GET = withApiErrorHandling(
     const auth = await requireApiUser();
     if (!auth.ok) return auth.response;
 
-    const scope = resolveScope(auth.usuario);
+    // PR 3 (close-phase-1): nav/counts is platform-wide for every role
+    // (including COLABORADOR). Documentos ya era conteo plano global.
+    const scope = "all" as const;
     const [clientes, tablero, documentos] = await Promise.all([
       db.cliente.count({ where: clienteScopeWhere(scope, auth.usuario, {}) }),
       db.tarea.count({

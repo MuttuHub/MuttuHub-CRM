@@ -29,7 +29,6 @@ import { ESTADO_TAREA_LABELS } from "@/lib/catalogs";
 import {
   parseDashboardFilters,
   rangoDeFechasNullable,
-  resolveScope,
   tareaScopeWhere,
 } from "@/lib/dashboard";
 
@@ -61,7 +60,9 @@ export const GET = withApiErrorHandling(
     if (!parsed.ok) return parsed.response;
     const filters = parsed.filters;
 
-    const scope = resolveScope(auth.usuario);
+    // PR 3 (close-phase-1): read scope is global — the board face sees every
+    // task for every role, including COLABORADOR.
+    const scope = "all" as const;
     const hoy = startOfLocalDay();
 
     const rango = rangoDeFechasNullable(filters);
