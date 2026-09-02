@@ -19,19 +19,19 @@ Chain strategy: stacked-to-main
 
 ## Phase 2: PR 3 — Read-Scope Unlock
 
-- [ ] 2.1 RED NEW `lib/permissions.read.test.ts`: `buildTaskWhere({}, COLABORADOR)` no `responsable_id`; `buildClientWhere` idem; `parseTaskFilters` keeps clause.
-- [ ] 2.2 RED `clients/route.test.ts` + NEW `clients/[id]/route.test.ts`: COLABORADOR sees all; foreign `GET`=200.
-- [ ] 2.3 RED `dashboard/tasks/route.test.ts`: 4 faces + `nav/counts`=`"all"`; `my-summary`=`"own"`.
-- [ ] 2.4 RED `notifications/route.test.ts`: unchanged sentinel.
-- [ ] 2.5 RED NEW `cron/daily/route.test.ts`: COLABORADOR sees own.
-- [ ] 2.6 RED NEW `tasks/[id]/attachments/[attachmentId]/download/route.test.ts`: "Operativo"=302; "Legal"=403.
-- [ ] 2.7 SENTINEL: `documents/**` test diff=0.
-- [ ] 2.8 GREEN `clients/route.ts:110` + `clients/[id]/route.ts:80`: drop conditionals.
-- [ ] 2.9 GREEN `lib/dashboard.ts:23-25`: delete `resolveScope`+export.
-- [ ] 2.10 GREEN `dashboard/{pipeline,tasks,clients-activity}/route.ts` + `nav/counts/route.ts`: `scope="all"`.
-- [ ] 2.11 GREEN `tasks/[id]/attachments/[attachmentId]/download/route.ts:29`: read gate preserving `Documento.categoria` 403.
-- [ ] 2.12 GREEN NEW `cron/daily/route.ts`: mirror `notifications/route.ts:90`.
-- [ ] 2.13 Docs `openapi/paths/{clients,tasks}.ts`: mark reads global.
+- [x] 2.1 RED NEW `lib/permissions.read.test.ts`: `buildTaskWhere({}, COLABORADOR)` no `responsable_id`; `buildClientWhere` idem; `parseTaskFilters` keeps clause.
+- [x] 2.2 RED `clients/route.test.ts` + NEW `clients/[id]/route.test.ts`: COLABORADOR sees all; foreign `GET`=200.
+- [x] 2.3 RED `dashboard/tasks/route.test.ts`: 4 faces + `nav/counts`=`"all"`; `my-summary`=`"own"`.
+- [x] 2.4 RED `notifications/route.test.ts`: unchanged sentinel.
+- [x] 2.5 RED NEW `cron/daily/route.test.ts`: COLABORADOR sees own.
+- [x] 2.6 RED NEW `tasks/[id]/attachments/[attachmentId]/download/route.test.ts`: "Operativo"=302; "Legal"=403.
+- [x] 2.7 SENTINEL: `documents/**` test diff=0.
+- [x] 2.8 GREEN `clients/route.ts:110` + `clients/[id]/route.ts:80`: drop conditionals.
+- [x] 2.9 GREEN `lib/dashboard.ts:23-25`: delete `resolveScope`+export.
+- [x] 2.10 GREEN `dashboard/{pipeline,tasks,clients-activity}/route.ts` + `nav/counts/route.ts`: `scope="all"`.
+- [x] 2.11 GREEN `tasks/[id]/attachments/[attachmentId]/download/route.ts:29`: read gate preserving `Documento.categoria` 403.
+- [x] 2.12 GREEN NEW `cron/daily/route.ts`: mirror `notifications/route.ts:90`.
+- [x] 2.13 Docs `openapi/paths/{clients,tasks}.ts`: mark reads global.
 
 ## Phase 3: PR 4 — UI Affordances
 
@@ -43,7 +43,7 @@ Chain strategy: stacked-to-main
 
 ## Phase 4: PR 5 — Toggle Removal (Verify)
 
-- [ ] 4.1 Verify `git diff main -- kanban-board.tsx`: zero `Scope`/`SCOPE_KEY`/`canEquipo`; `localStorage.removeItem("muttu:kanban:scope")` present.
+- [x] 4.1 Verify `git diff main -- kanban-board.tsx`: zero `Scope`/`SCOPE_KEY`/`canEquipo`; `localStorage.removeItem("muttu:kanban:scope")` present.
 
 ## Phase 5: PR 6 — Filters + Banner + Audit
 
