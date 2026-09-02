@@ -1,7 +1,8 @@
-// Vista principal del Tablero Kanban (PRD §5): control de alcance (Mi tabla
-// / Equipo completo, persistido en localStorage), tabs Tablero | Lista |
-// Reporte, filtros, drag & drop con optimismo (rollback + toast "No pudimos
-// mover la tarea.") y diálogo de tarea compartido.
+// Vista principal del Tablero Kanban (PRD §5): tablero global (todas las
+// tareas de la organización, para todos los roles, sin toggle de alcance),
+// tabs Tablero | Lista | Reporte, filtros, drag & drop con optimismo
+// (rollback + toast "No pudimos mover la tarea.") y diálogo de tarea
+// compartido.
 //
 // Nota de alcance del API (Hito 3): el listado acepta q/cliente/responsable/
 // estado/origen/vencidas. Los filtros de prioridad, etiqueta y rango de
@@ -99,8 +100,6 @@ const BOARD_COLUMNS: EstadoTarea[] = [
   "COMPLETADA",
 ];
 
-const SCOPE_KEY = "muttu:kanban:scope";
-type Scope = "mis" | "equipo";
 type View = "tablero" | "lista" | "reporte";
 
 const VISTAS: { value: View; label: string }[] = [
@@ -111,10 +110,6 @@ const VISTAS: { value: View; label: string }[] = [
 
 export function KanbanBoard() {
   const qc = useQueryClient();
-  const [scope, setScope] = useState<Scope>(() => {
-    if (typeof window === "undefined") return "mis";
-    return localStorage.getItem(SCOPE_KEY) === "equipo" ? "equipo" : "mis";
-  });
   const [view, setView] = useState<View>("tablero");
   const [cliente, setCliente] = useState<string>("");
   const [responsableEquipo, setResponsableEquipo] = useState<string>("");
@@ -141,26 +136,31 @@ export function KanbanBoard() {
 
   const meQuery = useCurrentUser();
   const me = meQuery.data;
-  const canEquipo = me == null || me.rol !== "COLABORADOR";
 
+  // Limpieza: el toggle Mi tablero/Equipo completo se eliminó — el tablero
+  // es global para todos los roles.
   useEffect(() => {
-    localStorage.setItem(SCOPE_KEY, scope);
-  }, [scope]);
+    try {
+      localStorage.removeItem("muttu:kanban:scope");
+    } catch {
+      /* noop */
+    }
+  }, []);
 
   const usersQuery = useUsers();
   const users = usersQuery.data ?? [];
   const clientOptionsQuery = useClientOptions();
   const clients = clientOptionsQuery.data ?? [];
 
-  /* Params que sí soporta el servidor (scope "mis" = responsable = yo). */
-  const serverParams: TaskFilters = useMemo(() => {
-    const responsable = scope === "mis" ? me?.id : undefined;
-    return {
+  /* Params que sí soporta el servidor. */
+  const serverParams: TaskFilters = useMemo(
+    () => ({
       cliente: cliente || undefined,
-      responsable: scope === "equipo" ? responsableEquipo || undefined : responsable,
+      responsable: responsableEquipo || undefined,
       limit: 100,
-    };
-  }, [scope, cliente, responsableEquipo, me?.id]);
+    }),
+    [cliente, responsableEquipo],
+  );
 
   const tasksQuery = useTasks(serverParams);
   const items = useMemo(
@@ -260,11 +260,7 @@ export function KanbanBoard() {
   function openPrint() {
     const sp = new URLSearchParams();
     sp.set("rango", "month");
-    if (scope === "equipo") {
-      if (responsableEquipo) sp.set("responsable", responsableEquipo);
-    } else if (me?.id) {
-      sp.set("responsable", me.id);
-    }
+    if (responsableEquipo) sp.set("responsable", responsableEquipo);
     if (cliente) sp.set("cliente", cliente);
     window.open(`/print/reportes/tareas?${sp.toString()}`, "_blank", "noopener");
   }
@@ -305,20 +301,6 @@ export function KanbanBoard() {
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      {/* Alcance: Mi tablero / Equipo (solo roles con alcance amplio) */}
-      {canEquipo && (
-        <div className="flex items-center gap-2 self-end">
-          <Segmented
-            value={scope}
-            onChange={(v) => setScope(v as Scope)}
-            options={[
-              { value: "mis", label: "Mi tablero" },
-              { value: "equipo", label: "Equipo completo" },
-            ]}
-          />
-        </div>
-      )}
-
       {/* Tabs Tablero / Lista / Reporte */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Segmented
@@ -362,8 +344,6 @@ export function KanbanBoard() {
       {/* Filtros */}
       {view === "tablero" || view === "lista" ? (
         <FiltersRow
-          scope={scope}
-          canEquipo={canEquipo}
           responsable={responsableEquipo}
           cliente={cliente}
           local={local}
@@ -380,9 +360,9 @@ export function KanbanBoard() {
       {/* Contenido */}
       {view === "reporte" ? (
         <ReportView
-          responsable={scope === "mis" ? me?.id ?? undefined : responsableEquipo || undefined}
+          responsable={responsableEquipo || undefined}
           cliente={cliente || undefined}
-          misTareas={scope === "mis"}
+          misTareas={Boolean(responsableEquipo) && responsableEquipo === me?.id}
         />
       ) : tasksQuery.isError ? (
         <SinConexionCard unconfigured={unconfigured} onRetry={() => void tasksQuery.refetch()} />
@@ -631,8 +611,6 @@ function FechaCell({ fecha }: { fecha: string | null }) {
 type LocalState = { prioridad: PrioridadTarea | ""; etiqueta: string; desde: string; hasta: string };
 
 type FiltersRowProps = {
-  scope: Scope;
-  canEquipo: boolean;
   responsable: string;
   cliente: string;
   local: LocalState;
@@ -650,23 +628,21 @@ const SEL_CLASS = "h-9 flex-1 basis-0 rounded-12 border-ink-200 bg-panel px-3 te
 // FiltersRow real (definida debajo)
 
 function FiltersRow(props: FiltersRowProps) {
-  const { scope, canEquipo, responsable, cliente, local, users, clients, onResponsable, onCliente, onLocal, hasActive, onClear } = props;
+  const { responsable, cliente, local, users, clients, onResponsable, onCliente, onLocal, hasActive, onClear } = props;
   return (
     <section className="rounded-[20px] border border-ink-200 bg-panel p-3.5">
       <div className="flex flex-wrap items-center gap-2.5">
-        {scope === "equipo" && canEquipo && (
-          <Select value={responsable} onValueChange={(v) => onResponsable(v === "todos" ? "" : (v ?? ""))}>
-            <SelectTrigger className={cn(SEL_CLASS, "min-w-[160px]")}>
-              <SelectValue placeholder="Responsable" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos los responsables</SelectItem>
-              {users.map((u) => (
-                <SelectItem key={u.id} value={u.id}>{u.nombre}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
+        <Select value={responsable} onValueChange={(v) => onResponsable(v === "todos" ? "" : (v ?? ""))}>
+          <SelectTrigger className={cn(SEL_CLASS, "min-w-[160px]")}>
+            <SelectValue placeholder="Responsable" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos los responsables</SelectItem>
+            {users.map((u) => (
+              <SelectItem key={u.id} value={u.id}>{u.nombre}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={cliente} onValueChange={(v) => onCliente(v === "todos" ? "" : (v ?? ""))}>
           <SelectTrigger className={cn(SEL_CLASS, "min-w-[170px]")}>
             <SelectValue placeholder="Cliente" />
