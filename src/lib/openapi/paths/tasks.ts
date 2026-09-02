@@ -486,6 +486,40 @@ registry.registerPath({
 });
 
 // ---------------------------------------------------------------------------
+// POST /api/v1/tasks/{id}/attachments/from-document
+// ---------------------------------------------------------------------------
+
+registry.registerPath({
+  method: "post",
+  path: "/api/v1/tasks/{id}/attachments/from-document",
+  tags: ["Tareas"],
+  summary: "Adjunta un documento del Repositorio a la tarea (sin re-subir)",
+  description:
+    "Inverso de mirrorAttachmentAsDocument (plan Fase 2, 4C): reutiliza el storage_path de la versión activa " +
+    "del documento y crea la fila AdjuntoTarea. Dos gates obligatorios: getTaskForWrite (la escritura es sobre " +
+    "la tarea) Y loadDocumentForRead (los adjuntos de tarea NO revalidan Documento.categoria al descargar — sin " +
+    "este segundo gate un COLABORADOR adjuntaría un documento Legal a su propia tarea y lo bajaría; 403).",
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: TaskIdParams,
+    body: {
+      content: {
+        "application/json": {
+          schema: z.object({ documento_id: z.string().openapi({ description: "Id del documento del Repositorio." }) }),
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Adjunto creado a partir del documento.",
+      content: { "application/json": { schema: z.object({ adjunto: TaskAttachmentCreatedSchema }) } },
+    },
+    ...standardErrorResponses([400, 401, 403, 404, 500]),
+  },
+});
+
+// ---------------------------------------------------------------------------
 // GET /api/v1/tasks/{id}/attachments/{attachmentId}/download
 // ---------------------------------------------------------------------------
 
