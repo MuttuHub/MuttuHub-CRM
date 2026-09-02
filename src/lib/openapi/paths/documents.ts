@@ -11,7 +11,7 @@ import { registry, standardErrorResponses } from "@/lib/openapi/registry";
 // `canReadCategory`): COLABORADOR is excluded from restricted categories
 // (default catalog: Legal, Administrativo-financiero; configurable live via
 // the `doc_categories` setting, see /api/v1/settings); every other role
-// (ADMINISTRADOR, GERENCIA, COORDINADOR — isFullAccess) has no such
+// (ADMINISTRADOR, GERENCIA, COORDINADOR — canManageAny/canReadRestrictedDocs) has no such
 // restriction.
 const RESTRICTED_CATEGORY_NOTE =
   "COLABORADOR no puede leer/descargar/subir documentos en categorías restringidas " +

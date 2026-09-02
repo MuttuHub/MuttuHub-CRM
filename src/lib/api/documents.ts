@@ -19,8 +19,9 @@
 
 import type { Prisma, Usuario } from "@prisma/client";
 import { db } from "@/lib/db";
-import { endOfDay, isFullAccess } from "@/lib/api/crm";
+import { endOfDay } from "@/lib/api/crm";
 import { apiError } from "@/lib/api/errors";
+import { canManageAny, canReadRestrictedDocs } from "@/lib/permissions";
 import {
   defaultDocCategories,
   flattenDocCategories,
@@ -78,7 +79,7 @@ export function canReadCategory(
   categoria: string,
   restringidas: string[],
 ): boolean {
-  return isFullAccess(usuario.rol) || !restringidas.includes(categoria);
+  return canReadRestrictedDocs(usuario.rol) || !restringidas.includes(categoria);
 }
 
 /** HTTP status/message mapping shared by the 404/403 document gates. */
@@ -121,7 +122,7 @@ export async function loadDocumentForDelete(id: string, usuario: Usuario) {
   if (!canReadCategory(usuario, documento.categoria, restringidas)) {
     return { ok: false as const, code: "FORBIDDEN" as const };
   }
-  if (!isFullAccess(usuario.rol) && documento.autor_id !== usuario.id) {
+  if (!canManageAny(usuario.rol) && documento.autor_id !== usuario.id) {
     return { ok: false as const, code: "FORBIDDEN" as const };
   }
   return { ok: true as const, documento };
@@ -189,7 +190,7 @@ export async function buildDocumentWhere(
 ): Promise<Prisma.DocumentoWhereInput> {
   const { restringidas } = await loadDocCategories();
   const where: Prisma.DocumentoWhereInput = { deleted_at: null };
-  if (!isFullAccess(usuario.rol)) {
+  if (!canReadRestrictedDocs(usuario.rol)) {
     where.categoria = {
       notIn: [...restringidas],
       ...(filters.categoria ? { equals: filters.categoria } : {}),

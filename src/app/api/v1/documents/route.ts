@@ -20,7 +20,8 @@ import { apiError } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { isSupabaseConfigured, requireApiUser } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { isFullAccess, parsePagination } from "@/lib/api/crm";
+import { parsePagination } from "@/lib/api/crm";
+import { canReadRestrictedDocs } from "@/lib/permissions";
 import { logAudit } from "@/lib/api/audit";
 import { documentStoragePath, isAllowedFileType, MAX_FILE_BYTES, STORAGE_BUCKET } from "@/lib/api/files";
 import {
@@ -221,7 +222,7 @@ export async function POST(request: Request) {
   const { file, titulo, categoria, etiquetas, clienteId, force } = form.data;
 
   // Categorías restringidas: los COLABORADOR no pueden ni crearlas (PRD §6.2).
-  if (!isFullAccess(auth.usuario.rol) && docCategories.restringidas.includes(categoria)) {
+  if (!canReadRestrictedDocs(auth.usuario.rol) && docCategories.restringidas.includes(categoria)) {
     return apiError("No tienes permisos para documentos de esa categoría.", 403, "FORBIDDEN");
   }
 
@@ -241,7 +242,7 @@ export async function POST(request: Request) {
         where: {
           titulo: { equals: titulo, mode: "insensitive" },
           deleted_at: null,
-          ...(isFullAccess(auth.usuario.rol)
+          ...(canReadRestrictedDocs(auth.usuario.rol)
             ? {}
             : { categoria: { notIn: [...docCategories.restringidas] } }),
         },
