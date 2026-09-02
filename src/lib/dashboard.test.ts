@@ -4,24 +4,16 @@ import {
   parseDashboardFilters,
   rangoDeFechas,
   rangoDeFechasNullable,
-  resolveScope,
   tareaScopeWhere,
 } from "./dashboard"
 
 const url = (query: string) => new URL(`http://localhost/api/dashboard?${query}`)
 
-describe("resolveScope", () => {
-  it("maps COLABORADOR to own", () => {
-    expect(resolveScope({ rol: "COLABORADOR" })).toBe("own")
-  })
-
-  it.each(["ADMINISTRADOR", "GERENCIA", "COORDINADOR"] as const)(
-    "maps %s to all",
-    (rol) => {
-      expect(resolveScope({ rol })).toBe("all")
-    },
-  )
-})
+// PR 3 (Slice B1): `resolveScope` is no longer exported — reads are global
+// for every role except `my-summary` (which keeps "own" by definition).
+// The four dashboard faces + nav/counts pass scope="all" as a literal at
+// the route site; the helpers below stay because `tareaScopeWhere("own",
+// ...)` is still used by `my-summary`.
 
 describe("parseDashboardFilters", () => {
   it("returns empty filters when no params are present", () => {

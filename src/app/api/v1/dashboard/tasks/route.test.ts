@@ -74,19 +74,22 @@ describe("GET /api/v1/dashboard/tasks", () => {
     expect(db.tarea.findMany).not.toHaveBeenCalled();
   });
 
-  it("scopes the board query to responsable_id for COLABORADOR", async () => {
+  // PR 3: read scope is now global — every role (including COLABORADOR)
+  // sees the platform-wide board. The four dashboard faces + nav/counts
+  // pass scope="all" as a literal; only my-summary keeps "own".
+  it("returns scope 'all' and does NOT force responsable_id for COLABORADOR", async () => {
     mockAuth(colaborador);
     mockTareas([]);
 
     const res = await GET(get());
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ scope: "own" });
+    expect(await res.json()).toMatchObject({ scope: "all" });
     const where = vi.mocked(db.tarea.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
-    expect(where.responsable_id).toBe("colab-1");
+    expect(where.responsable_id).toBeUndefined();
   });
 
-  it("does not scope the board query for full-access roles", async () => {
+  it("returns scope 'all' and does not scope the board query for full-access roles", async () => {
     mockAuth(coordinador);
     mockTareas([]);
 

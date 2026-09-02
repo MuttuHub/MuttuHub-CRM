@@ -141,17 +141,30 @@ describe("GET /api/v1/clients", () => {
     });
   });
 
-  it("scopes a COLABORADOR to their own clients (forces responsable_id in the where clause)", async () => {
+  // PR 3 (Slice B1): read scope is now global. COLABORADOR sees every client
+  // in the list, and the `responsable` query param is honored as-is (never
+  // silently rewritten to self). The write gates below (POST forces
+  // responsable=self, PATCH/DELETE still return 403 on foreign records) stay
+  // intact.
+  it("does NOT scope a COLABORADOR to their own clients (sees every client)", async () => {
     authAs(colaborador);
     vi.mocked(db.cliente.findMany).mockResolvedValue([baseClientRow] as never);
 
-    // Even if the caller tries to look at someone else's book via the
-    // `responsable` query param, the scope must win.
+    await GET(new Request("http://localhost/api/v1/clients?responsable=other-user"));
+
+    const where = vi.mocked(db.cliente.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
+    expect(where.responsable_id).toBeUndefined();
+  });
+
+  it("honors the `responsable` query param for a COLABORADOR (filter is NOT silently rewritten to self)", async () => {
+    authAs(colaborador);
+    vi.mocked(db.cliente.findMany).mockResolvedValue([]);
+
     await GET(new Request("http://localhost/api/v1/clients?responsable=other-user"));
 
     expect(db.cliente.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ responsable_id: "colab-1" }),
+        where: expect.objectContaining({ responsable_id: "other-user" }),
       }),
     );
   });

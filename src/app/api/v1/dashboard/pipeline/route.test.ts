@@ -67,19 +67,22 @@ describe("GET /api/v1/dashboard/pipeline", () => {
     expect(db.oportunidad.findMany).not.toHaveBeenCalled();
   });
 
-  it("scopes to responsable_id for COLABORADOR and ignores the responsable_id query filter", async () => {
+  // PR 3: read scope is now global. The pipeline face is "all" for every
+  // role; the explicit `responsable_id` filter is honored as-is for both
+  // COLABORADOR and full-access roles (no more silent rewrite to self).
+  it("returns scope 'all' and honors the responsable_id filter for COLABORADOR (no rewrite to self)", async () => {
     mockAuth(colaborador);
     vi.mocked(db.oportunidad.findMany).mockResolvedValue([]);
 
     const res = await GET(get("?responsable_id=someone-else"));
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ scope: "own" });
+    expect(await res.json()).toMatchObject({ scope: "all" });
     const where = vi.mocked(db.oportunidad.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
-    expect(where.cliente).toEqual({ deleted_at: null, responsable_id: "colab-1" });
+    expect(where.cliente).toEqual({ deleted_at: null, responsable_id: "someone-else" });
   });
 
-  it("respects the responsable_id filter for full-access roles (scope all)", async () => {
+  it("returns scope 'all' and respects the responsable_id filter for full-access roles", async () => {
     mockAuth(coordinador);
     vi.mocked(db.oportunidad.findMany).mockResolvedValue([]);
 

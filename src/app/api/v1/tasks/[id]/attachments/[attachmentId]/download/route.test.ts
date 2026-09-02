@@ -18,6 +18,9 @@ vi.mock("@/lib/db", () => ({
     adjuntoTarea: {
       findFirst: vi.fn(),
     },
+    documento: {
+      findFirst: vi.fn(),
+    },
   },
 }));
 
@@ -31,17 +34,21 @@ const colaborador = { id: "colab-1", rol: "COLABORADOR" } as Usuario;
 
 const routeContext = { params: Promise.resolve({ id: "task-1", attachmentId: "att-1" }) };
 
-/** getTaskForWrite's findFirst select shape. */
-function writeTareaRow(overrides: Partial<Record<string, unknown>> = {}) {
+/** Read-gate's findFirst select shape (task only needs to exist + be non-deleted). */
+function readTareaRow(overrides: Partial<Record<string, unknown>> = {}) {
   return {
-    id: "task-1",
-    responsable_id: overrides.responsable_id ?? "colab-1",
-    cliente_id: null,
-    estado: "EN_CURSO",
-    motivo_bloqueo: null,
-    cliente: overrides.clienteResponsableId
-      ? { responsable_id: overrides.clienteResponsableId }
-      : null,
+    id: overrides.id ?? "task-1",
+    deleted_at: overrides.deleted_at ?? null,
+  };
+}
+
+/** Adjunto with optional link to a Documento (controls categoria gate). */
+function adjuntoRow(opts: { documentoId?: string | null } = {}) {
+  return {
+    id: "att-1",
+    tarea_id: "task-1",
+    storage_path: "tareas/task-1/x_a.pdf",
+    documento_id: opts.documentoId ?? null,
   };
 }
 
@@ -57,19 +64,81 @@ function request(): Request {
   return new Request("http://localhost/api/v1/tasks/task-1/attachments/att-1/download");
 }
 
+function mockSignedUrlOk() {
+  vi.mocked(isSupabaseConfigured).mockReturnValue(true);
+  vi.mocked(createSupabaseAdmin).mockReturnValue({
+    storage: {
+      from: vi.fn().mockReturnValue({
+        createSignedUrl: vi.fn().mockResolvedValue({
+          data: { signedUrl: "https://signed.example/file" },
+          error: null,
+        }),
+      }),
+    },
+  } as never);
+}
+
 afterEach(() => {
   vi.clearAllMocks();
 });
 
 describe("GET /api/v1/tasks/:id/attachments/:attachmentId/download", () => {
-  it("returns 403 for a COLABORADOR who is neither the task's nor the client's responsable", async () => {
+  // PR 3 (Slice B1): read scope is now global. The download gate switches
+  // from `getTaskForWrite` (write authority) to a READ gate — any
+  // authenticated user passes, EXCEPT if the underlying Documento.categoria
+  // is restricted (existing 403 path, untouched).
+  it("redirects (302) for a COLABORADOR who is NOT the task's responsable, when the adjunto has no linked Documento", async () => {
     authAs(colaborador);
-    vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow({ responsable_id: "other-user" }) as never);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(readTareaRow() as never);
+    vi.mocked(db.adjuntoTarea.findFirst).mockResolvedValue(adjuntoRow() as never);
+
+    mockSignedUrlOk();
+
+    const res = await GET(request(), routeContext);
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("https://signed.example/file");
+  });
+
+  it("redirects (302) for a COLABORADOR downloading an attachment linked to a non-restricted 'Operativo' Documento", async () => {
+    authAs(colaborador);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(readTareaRow() as never);
+    vi.mocked(db.adjuntoTarea.findFirst).mockResolvedValue(adjuntoRow({ documentoId: "doc-1" }) as never);
+    vi.mocked(db.documento.findFirst).mockResolvedValue({ id: "doc-1", categoria: "Operativo" } as never);
+
+    mockSignedUrlOk();
+
+    const res = await GET(request(), routeContext);
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("https://signed.example/file");
+  });
+
+  it("returns 403 for a COLABORADOR downloading an attachment linked to a restricted 'Legal' Documento (categoria gate survives the read-scope unlock)", async () => {
+    authAs(colaborador);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(readTareaRow() as never);
+    vi.mocked(db.adjuntoTarea.findFirst).mockResolvedValue(adjuntoRow({ documentoId: "doc-2" }) as never);
+    vi.mocked(db.documento.findFirst).mockResolvedValue({ id: "doc-2", categoria: "Legal" } as never);
 
     const res = await GET(request(), routeContext);
 
     expect(res.status).toBe(403);
     expect(await res.json()).toMatchObject({ code: "FORBIDDEN" });
+    // The signed URL must NOT be generated for a restricted-category download.
+    expect(createSupabaseAdmin).not.toHaveBeenCalled();
+  });
+
+  it("returns 200/302 for a GERENCIA caller on the same restricted 'Legal' adjunto (full-access sees everything)", async () => {
+    authAs(gerencia);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(readTareaRow() as never);
+    vi.mocked(db.adjuntoTarea.findFirst).mockResolvedValue(adjuntoRow({ documentoId: "doc-2" }) as never);
+    vi.mocked(db.documento.findFirst).mockResolvedValue({ id: "doc-2", categoria: "Legal" } as never);
+
+    mockSignedUrlOk();
+
+    const res = await GET(request(), routeContext);
+
+    expect(res.status).toBe(302);
   });
 
   it("returns 404 when the task does not exist", async () => {
@@ -84,7 +153,7 @@ describe("GET /api/v1/tasks/:id/attachments/:attachmentId/download", () => {
 
   it("returns 404 when the attachment does not belong to the task", async () => {
     authAs(gerencia);
-    vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow() as never);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(readTareaRow() as never);
     vi.mocked(db.adjuntoTarea.findFirst).mockResolvedValue(null);
 
     const res = await GET(request(), routeContext);
@@ -95,8 +164,8 @@ describe("GET /api/v1/tasks/:id/attachments/:attachmentId/download", () => {
 
   it("returns 500 when Supabase is not configured", async () => {
     authAs(gerencia);
-    vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow() as never);
-    vi.mocked(db.adjuntoTarea.findFirst).mockResolvedValue({ storage_path: "tareas/task-1/x_a.pdf" } as never);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(readTareaRow() as never);
+    vi.mocked(db.adjuntoTarea.findFirst).mockResolvedValue(adjuntoRow() as never);
     vi.mocked(isSupabaseConfigured).mockReturnValue(false);
 
     const res = await GET(request(), routeContext);
@@ -107,8 +176,8 @@ describe("GET /api/v1/tasks/:id/attachments/:attachmentId/download", () => {
 
   it("returns 500 when generating the signed URL fails", async () => {
     authAs(gerencia);
-    vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow() as never);
-    vi.mocked(db.adjuntoTarea.findFirst).mockResolvedValue({ storage_path: "tareas/task-1/x_a.pdf" } as never);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(readTareaRow() as never);
+    vi.mocked(db.adjuntoTarea.findFirst).mockResolvedValue(adjuntoRow() as never);
     vi.mocked(isSupabaseConfigured).mockReturnValue(true);
     vi.mocked(createSupabaseAdmin).mockReturnValue({
       storage: {
@@ -124,43 +193,13 @@ describe("GET /api/v1/tasks/:id/attachments/:attachmentId/download", () => {
     expect(await res.json()).toMatchObject({ code: "INTERNAL_ERROR" });
   });
 
-  it("redirects (302) to the signed URL for a COLABORADOR who is the task's responsable", async () => {
-    authAs(colaborador);
-    vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow({ responsable_id: "colab-1" }) as never);
-    vi.mocked(db.adjuntoTarea.findFirst).mockResolvedValue({ storage_path: "tareas/task-1/x_a.pdf" } as never);
-    vi.mocked(isSupabaseConfigured).mockReturnValue(true);
-    vi.mocked(createSupabaseAdmin).mockReturnValue({
-      storage: {
-        from: vi.fn().mockReturnValue({
-          createSignedUrl: vi.fn().mockResolvedValue({
-            data: { signedUrl: "https://signed.example/file" },
-            error: null,
-          }),
-        }),
-      },
-    } as never);
-
-    const res = await GET(request(), routeContext);
-
-    expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("https://signed.example/file");
-  });
-
-  it("redirects (302) for a full-access role on any task", async () => {
+  it("redirects (302) to the signed URL for a full-access role on any task", async () => {
     authAs(gerencia);
-    vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow({ responsable_id: "other-user" }) as never);
-    vi.mocked(db.adjuntoTarea.findFirst).mockResolvedValue({ storage_path: "tareas/task-1/x_a.pdf" } as never);
-    vi.mocked(isSupabaseConfigured).mockReturnValue(true);
-    vi.mocked(createSupabaseAdmin).mockReturnValue({
-      storage: {
-        from: vi.fn().mockReturnValue({
-          createSignedUrl: vi.fn().mockResolvedValue({
-            data: { signedUrl: "https://signed.example/file" },
-            error: null,
-          }),
-        }),
-      },
-    } as never);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(readTareaRow() as never);
+    vi.mocked(db.adjuntoTarea.findFirst).mockResolvedValue(adjuntoRow() as never);
+    vi.mocked(db.documento.findFirst).mockResolvedValue(null);
+
+    mockSignedUrlOk();
 
     const res = await GET(request(), routeContext);
 

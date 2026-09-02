@@ -76,16 +76,18 @@ describe("GET /api/v1/nav/counts", () => {
     expect(json).toEqual({ clientes: 3, tablero: 5, documentos: 7 });
   });
 
-  it("scopes clientes and tablero counts to responsable_id for COLABORADOR", async () => {
+  // PR 3: read scope is now global. nav/counts is platform-wide for every
+  // role, including COLABORADOR. document count was already global.
+  it("does NOT scope clientes and tablero counts to responsable_id for COLABORADOR (sees platform-wide counts)", async () => {
     mockAuth(colaborador);
     mockCounts(0, 0, 0);
 
     await GET();
 
     const clienteWhere = vi.mocked(db.cliente.count).mock.calls[0]![0]!.where as Record<string, unknown>;
-    expect(clienteWhere.responsable_id).toBe("colab-1");
+    expect(clienteWhere.responsable_id).toBeUndefined();
     const tareaWhere = vi.mocked(db.tarea.count).mock.calls[0]![0]!.where as Record<string, unknown>;
-    expect(tareaWhere.responsable_id).toBe("colab-1");
+    expect(tareaWhere.responsable_id).toBeUndefined();
   });
 
   it("does not scope by responsable_id for full-access roles (sees platform-wide counts)", async () => {

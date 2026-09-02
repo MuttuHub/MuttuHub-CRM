@@ -118,18 +118,24 @@ describe("GET /api/v1/clients/:id", () => {
     expect(await res.json()).toMatchObject({ code: "NOT_FOUND" });
   });
 
-  it("scopes a COLABORADOR who is NOT the responsable to 404 (query itself excludes it)", async () => {
+  // PR 3 (Slice B1): GET read scope is now global. COLABORADOR can read any
+  // client by id; the write gates below (PATCH/DELETE still 403 for foreign
+  // records) stay intact.
+  it("allows a COLABORADOR who is NOT the responsable to read the client (PR 3: read is global)", async () => {
     authAs(colaborador);
-    // The route forces responsable_id: usuario.id into the findFirst where for
-    // non full-access roles, so a foreign client simply never matches.
-    vi.mocked(db.cliente.findFirst).mockResolvedValue(null);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({
+      ...baseClientRow,
+      responsable_id: "other-user",
+      _count: { contactos: 0, oportunidades: 0, bitacora: 0, tareas: 0 },
+    } as never);
 
     const res = await GET(new Request("http://localhost/api/v1/clients/cli-1"), routeContext);
 
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+    // The where clause must NOT include responsable_id for any role on GET.
     expect(db.cliente.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ id: "cli-1", deleted_at: null, responsable_id: "colab-1" }),
+        where: { id: "cli-1", deleted_at: null },
       }),
     );
   });

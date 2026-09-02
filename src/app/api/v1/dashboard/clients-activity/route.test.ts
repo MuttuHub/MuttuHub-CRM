@@ -99,14 +99,18 @@ describe("GET /api/v1/dashboard/clients-activity", () => {
     expect(json.sin_gestion.dias).toBe(14);
   });
 
-  it("scopes the client query to responsable_id for COLABORADOR", async () => {
+  // PR 3: read scope is now global. The clients-activity face is "all" for
+  // every role, so COLABORADOR sees the platform-wide client set.
+  it("returns scope 'all' and does NOT force responsable_id for COLABORADOR", async () => {
     mockAuth(colaborador);
     mockCollections([]);
 
-    await GET(get());
+    const res = await GET(get());
 
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ scope: "all" });
     const where = vi.mocked(db.cliente.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
-    expect(where.responsable_id).toBe("colab-1");
+    expect(where.responsable_id).toBeUndefined();
   });
 
   it("flags never-gestioned and stale clients as sin_gestion, excludes recently managed ones", async () => {
