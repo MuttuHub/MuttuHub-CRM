@@ -21,6 +21,9 @@ vi.mock("@/lib/db", () => ({
     documento: {
       findFirst: vi.fn(),
     },
+    setting: {
+      findUnique: vi.fn(),
+    },
   },
 }));
 
@@ -78,6 +81,12 @@ function mockSignedUrlOk() {
   } as never);
 }
 
+/** loadDocCategories falls back to the factory constants when no `settings`
+ * row exists (Legal / Administrativo-financiero restricted). */
+function mockNoDocSettings() {
+  vi.mocked(db.setting.findUnique).mockResolvedValue(null);
+}
+
 afterEach(() => {
   vi.clearAllMocks();
 });
@@ -105,6 +114,7 @@ describe("GET /api/v1/tasks/:id/attachments/:attachmentId/download", () => {
     vi.mocked(db.tarea.findFirst).mockResolvedValue(readTareaRow() as never);
     vi.mocked(db.adjuntoTarea.findFirst).mockResolvedValue(adjuntoRow({ documentoId: "doc-1" }) as never);
     vi.mocked(db.documento.findFirst).mockResolvedValue({ id: "doc-1", categoria: "Operativo" } as never);
+    mockNoDocSettings();
 
     mockSignedUrlOk();
 
@@ -119,6 +129,7 @@ describe("GET /api/v1/tasks/:id/attachments/:attachmentId/download", () => {
     vi.mocked(db.tarea.findFirst).mockResolvedValue(readTareaRow() as never);
     vi.mocked(db.adjuntoTarea.findFirst).mockResolvedValue(adjuntoRow({ documentoId: "doc-2" }) as never);
     vi.mocked(db.documento.findFirst).mockResolvedValue({ id: "doc-2", categoria: "Legal" } as never);
+    mockNoDocSettings();
 
     const res = await GET(request(), routeContext);
 
@@ -133,6 +144,7 @@ describe("GET /api/v1/tasks/:id/attachments/:attachmentId/download", () => {
     vi.mocked(db.tarea.findFirst).mockResolvedValue(readTareaRow() as never);
     vi.mocked(db.adjuntoTarea.findFirst).mockResolvedValue(adjuntoRow({ documentoId: "doc-2" }) as never);
     vi.mocked(db.documento.findFirst).mockResolvedValue({ id: "doc-2", categoria: "Legal" } as never);
+    mockNoDocSettings();
 
     mockSignedUrlOk();
 

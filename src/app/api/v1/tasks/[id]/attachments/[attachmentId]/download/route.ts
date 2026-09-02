@@ -1,8 +1,11 @@
 // GET /api/v1/tasks/:id/attachments/:attachmentId/download — 302 a un signed
 // URL (60 s) del archivo en Supabase Storage. El adjunto debe pertenecer a la
-// tarea del path y el alcance es el mismo que el PATCH de tarea
-// (getTaskForWrite: full roles o responsable). Fallos de storage → 500
-// envelope en lugar de crash.
+// tarea del path. PR 3 (close-phase-1): el alcance del download es GLOBAL —
+// cualquier usuario autenticado puede bajar cualquier adjunto de cualquier
+// tarea, EXCEPTO si el adjunto tiene un `Documento` vinculado con categoría
+// restringida (la compuerta de confidencialidad del módulo de Documentos se
+// mantiene intacta: un COLABORADOR que subió un "Legal" a su propia tarea
+// sigue sin poder descargarlo de vuelta). Fallos de storage → 500 envelope.
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -10,7 +13,10 @@ import { apiError } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { isSupabaseConfigured, requireApiUser } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
-import { getTaskForWrite } from "@/lib/api/crm";
+import {
+  canReadCategory,
+  loadDocCategories,
+} from "@/lib/api/documents";
 
 export const dynamic = "force-dynamic";
 
@@ -26,21 +32,42 @@ export const GET = withApiErrorHandling(
     if (!auth.ok) return auth.response;
     const { id, attachmentId } = await ctx.params;
 
-    const access = await getTaskForWrite(id, auth.usuario);
-    if (!access.ok) {
-      return apiError(
-        access.code === "NOT_FOUND" ? "La tarea no existe." : "No tienes permisos sobre esta tarea.",
-        access.code === "NOT_FOUND" ? 404 : 403,
-        access.code,
-      );
+    // PR 3: read-scope gate. The task only needs to exist + be non-deleted;
+    // per-role ownership is no longer enforced here.
+    const tarea = await db.tarea.findFirst({
+      where: { id, deleted_at: null },
+      select: { id: true },
+    });
+    if (!tarea) {
+      return apiError("La tarea no existe.", 404, "NOT_FOUND");
     }
 
     const adjunto = await db.adjuntoTarea.findFirst({
       where: { id: attachmentId, tarea_id: id },
-      select: { storage_path: true },
+      select: { storage_path: true, documento_id: true },
     });
     if (!adjunto) {
       return apiError("El adjunto no existe.", 404, "NOT_FOUND");
+    }
+
+    // Confidentiality gate (Documents.categoria, PRD §6.2): when the adjunto
+    // is mirrored in the Documentos repository, a COLABORADOR still cannot
+    // download a restricted-category file even on a task they own.
+    if (adjunto.documento_id) {
+      const documento = await db.documento.findFirst({
+        where: { id: adjunto.documento_id, deleted_at: null },
+        select: { categoria: true },
+      });
+      if (documento) {
+        const { restringidas } = await loadDocCategories();
+        if (!canReadCategory(auth.usuario, documento.categoria, restringidas)) {
+          return apiError(
+            "No tienes permisos sobre este documento.",
+            403,
+            "FORBIDDEN",
+          );
+        }
+      }
     }
 
     if (!isSupabaseConfigured()) {
