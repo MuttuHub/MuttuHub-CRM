@@ -47,16 +47,16 @@ Chain strategy: stacked-to-main
 
 ## Phase 5: PR 6 — Filters + Banner + Audit
 
-- [ ] 5.1 RED `tasks/route.test.ts`: `?prioridad`/`?etiqueta`/`?fecha_entrega_*` server-side; merge with `vencidas`; `total` included.
-- [ ] 5.2 RED `tasks/export/route.test.ts`: calls `logAudit({ accion:"exportar", rows, filters })`.
-- [ ] 5.3 RED NEW `audit/export.test.ts`: task+client exports write `auditoria`; throw doesn't fail export.
-- [ ] 5.4 RED `kanban.test.ts`: `applyLocalFilters`/`localFiltersActive`/`LocalTaskFilters` no longer exported.
-- [ ] 5.5 GREEN `lib/api/audit.ts`: widen `AuditAccion` to `"exportar"`.
-- [ ] 5.6 GREEN `tasks/route.ts`: extend `parseTaskFilters`+`buildTaskWhere`; second `count` for `total`.
-- [ ] 5.7 GREEN `tasks/export/route.ts` + `clients/export/route.ts`: `logAudit` in try/catch.
-- [ ] 5.8 GREEN `hooks/kanban.ts`: delete `applyLocalFilters`/`localFiltersActive`/`LocalTaskFilters`/`EMPTY_LOCAL_TASK_FILTERS`.
-- [ ] 5.9 GREEN NEW `truncation-banner.tsx` (10 lines) + wire into `kanban-board.tsx`.
-- [ ] 5.10 Docs `README.md`+`guia-demo.md`+`openapi/paths/tasks.ts`: scope+new params.
+- [x] 5.1 RED `tasks/route.test.ts`: `?prioridad`/`?etiqueta`/`?fecha_entrega_*` server-side; merge with `vencidas`; `total` included.
+- [x] 5.2 RED `tasks/export/route.test.ts`: calls `logAudit({ accion:"exportar", rows, filters })`.
+- [x] 5.3 RED NEW `audit/export.test.ts`: task+client exports write `auditoria`; throw doesn't fail export. (covered inline in tasks/export + clients/export test files — no separate audit/export.test.ts created; the brief said "If it doesn't exist, the deletion is covered by the typecheck/lint" but here both inline tests cover this scenario.)
+- [x] 5.4 RED `kanban.test.ts`: `applyLocalFilters`/`localFiltersActive`/`LocalTaskFilters` no longer exported.
+- [x] 5.5 GREEN `lib/api/audit.ts`: widen `AuditAccion` to `"exportar"`.
+- [x] 5.6 GREEN `tasks/route.ts`: extend `parseTaskFilters`+`buildTaskWhere`; second `count` for `total`.
+- [x] 5.7 GREEN `tasks/export/route.ts` + `clients/export/route.ts`: `logAudit` in try/catch.
+- [x] 5.8 GREEN `hooks/kanban.ts`: delete `applyLocalFilters`/`localFiltersActive`/`LocalTaskFilters`/`EMPTY_LOCAL_TASK_FILTERS`.
+- [x] 5.9 GREEN NEW `truncation-banner.tsx` (10 lines) + wire into `kanban-board.tsx`.
+- [x] 5.10 Docs `README.md`+`guia-demo.md`+`openapi/paths/tasks.ts`: scope+new params.
 
 ## Phase 6: PR 7 — `useInfiniteQuery`
 
