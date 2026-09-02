@@ -39,12 +39,6 @@ const ESTADOS = ENUM_VALUES.EstadoTarea as readonly EstadoTarea[];
 const ORIGENES = ENUM_VALUES.OrigenTarea as readonly OrigenTarea[];
 const PRIORIDADES = ENUM_VALUES.PrioridadTarea as readonly PrioridadTarea[];
 
-// Keys of the filters that the `total` count must NOT include — the banner
-// "Mostrando N de M tareas" only makes sense if M counts everything else
-// (responsable, cliente, estado, origen, q, deleted_at) and N is the page
-// after prioridad / etiqueta / fecha_entrega_* cut it down.
-const COUNT_EXCLUDED_KEYS = ["prioridad", "etiqueta", "fecha_entrega_desde", "fecha_entrega_hasta"] as const;
-
 export type TaskFilters = {
   q?: string;
   estado?: string;
@@ -134,6 +128,10 @@ export function parseTaskFilters(
  * Prisma rejects duplicate keys at the same level — extending the existing
  * object keeps one owner of the field (D6 in close-phase-1/design.md).
  */
+// `usuario` is kept on the signature to preserve the public contract that
+// PR 3 left in place (reading is global, so it isn't read here). Drop it
+// only if a future refactor removes every caller's argument.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function buildTaskWhere(filters: TaskFilters, usuario: Usuario): Prisma.TareaWhereInput {
   const where: Prisma.TareaWhereInput = {
     deleted_at: null,

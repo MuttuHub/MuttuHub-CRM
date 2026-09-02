@@ -3,6 +3,11 @@
 // buildClientWhere + enrichClients from clients/route.ts). Value-range
 // filters still apply in JS after enrichment, and the export is capped at the
 // first 500 rows of the filtered set.
+//
+// PR 6 (close-phase-1): every export writes an `auditoria` row with
+// `accion: "exportar"`, who, when, how many rows, and which filters were
+// applied. `logAudit` is best-effort (already swallows its own errors per
+// QA audit finding #9), so an audit failure never fails the export.
 
 import ExcelJS from "exceljs";
 import { db } from "@/lib/db";
@@ -19,6 +24,7 @@ import {
   parseClientListFilters,
 } from "@/lib/api/crm";
 import { buildClientWhere, enrichClients } from "@/app/api/v1/clients/route";
+import { logAudit } from "@/lib/api/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +63,20 @@ export const GET = withApiErrorHandling(
         (filters.filters.valor_max === undefined || e.valor_potencial <= filters.filters.valor_max),
     );
     const inExport = new Set(filtered.slice(0, EXPORT_MAX_ROWS).map((e) => e.id));
+
+    // PR 6: audit the export before writing the file. Best-effort: logAudit
+    // swallows its own errors, so even a hard DB outage on `auditoria`
+    // wouldn't fail the user's download.
+    await logAudit({
+      entidad: "cliente",
+      entidad_id: null,
+      accion: "exportar",
+      usuario_id: auth.usuario.id,
+      cambios: {
+        rows: inExport.size,
+        filters: filters.filters as unknown as Record<string, unknown>,
+      },
+    });
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Clientes");

@@ -198,12 +198,32 @@ const TaskFilterQueryFields = {
   responsable: z
     .string()
     .optional()
-    .openapi({ description: "Ignorado para COLABORADOR: su alcance ya está forzado a sí mismo." }),
+    .openapi({ description: "Filtra por responsable_id. Cualquier rol puede filtrar por cualquier responsable (lectura global desde PR 3)." }),
   cliente: z.string().optional(),
+  // PR 6 (close-phase-1): prioridad / etiqueta / fecha_entrega_desde /
+  // fecha_entrega_hasta son cláusulas del servidor ahora (antes eran
+  // filtros locales sobre la página de 100 filas — el "tope de 100" del
+  // plan). Se aplican ANTES del paginado; el `total` del response los
+  // EXCLUYE a propósito (banner "Mostrando N de M tareas" honesto).
+  prioridad: PrioridadTareaSchema.optional().openapi({ description: "PR 6: filtro server-side por prioridad." }),
+  etiqueta: z
+    .string()
+    .optional()
+    .openapi({ description: "PR 6: filtra tareas cuya lista `etiquetas` contiene esta cadena (Prisma `etiquetas: { has }`)." }),
+  fecha_entrega_desde: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .openapi({ description: "PR 6: rango inferior (YYYY-MM-DD, inclusive). Se combina con vencidas si ambos están activos." }),
+  fecha_entrega_hasta: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .openapi({ description: "PR 6: rango superior (YYYY-MM-DD, inclusive — fin del día en UTC)." }),
   vencidas: z
     .enum(["true", "false"])
     .optional()
-    .openapi({ description: "Si es 'true', filtra tareas vencidas (fecha_entrega < ahora) en estado abierto. Cualquier otro valor se trata como 'false'." }),
+    .openapi({ description: "Si es 'true', filtra tareas vencidas (fecha_entrega < ahora) en estado abierto. Se combina con fecha_entrega_* si están presentes." }),
 };
 
 const TaskListQuerySchema = z.object({
@@ -236,9 +256,10 @@ registry.registerPath({
   tags: ["Tareas"],
   summary: "Lista de tareas (CRM + Kanban) con búsqueda, filtros y paginación",
   description:
-    "COLABORADOR solo ve tareas donde es responsable (filtro forzado por servidor, el param `responsable` se " +
-    "ignora para este rol); el resto de roles ve todas. Incluye el conteo de subtareas completadas por tarjeta " +
-    "en una sola query agregada.",
+    "Lectura global (PR 3): cualquier rol autenticado ve todas las tareas. Incluye el conteo de subtareas " +
+    "completadas por tarjeta en una sola query agregada. PR 6: prioridad / etiqueta / fecha_entrega_* son " +
+    "cláusulas del servidor — el `total` del response los EXCLUYE para que el banner de truncado del kanban " +
+    "sea honesto sobre el corte, no sobre los filtros.",
   security: [{ sessionCookie: [] }],
   request: { query: TaskListQuerySchema },
   responses: {
@@ -249,7 +270,14 @@ registry.registerPath({
           schema: z.object({
             page: z.number().int(),
             limit: z.number().int(),
-            total: z.number().int(),
+            total: z
+              .number()
+              .int()
+              .openapi({
+                description:
+                  "PR 6: total SIN prioridad / etiqueta / fecha_entrega_* (es el corte real, no el filtro). " +
+                  "Si M > N (donde N = items.length), el kanban pinta 'Mostrando N de M tareas'.",
+              }),
             items: z.array(TaskItemSchema),
           }),
         },
@@ -570,10 +598,12 @@ registry.registerPath({
   tags: ["Tareas"],
   summary: "Exporta las tareas filtradas a un .xlsx",
   description:
-    "Mismos filtros y alcance de roles que GET /tasks (parseTaskFilters + buildTaskWhere): COLABORADOR solo " +
-    "exporta sus propias tareas; el resto de roles exporta todo el conjunto filtrado. Cap de EXPORT_MAX_ROWS = " +
-    "500 filas (las primeras 500 del conjunto filtrado, orden updated_at desc) — no hay paginación en este " +
-    "endpoint. Columnas en español; subtareas como 'completadas/total'.",
+    "Mismos filtros que GET /tasks (parseTaskFilters + buildTaskWhere); lectura global (PR 3), cualquier " +
+    "rol ve el mismo conjunto filtrado. Cap de EXPORT_MAX_ROWS = 500 filas (las primeras 500 del conjunto " +
+    "filtrado, orden updated_at desc) — no hay paginación en este endpoint. Columnas en español; subtareas " +
+    "como 'completadas/total'. PR 6: cada exportación escribe una fila en `auditoria` con `accion='exportar'`, " +
+    "usuario_id, cantidad de filas y filtros aplicados en `cambios` (best-effort — un fallo de auditoría NO " +
+    "falla la exportación).",
   security: [{ sessionCookie: [] }],
   request: { query: TaskExportQuerySchema },
   responses: {

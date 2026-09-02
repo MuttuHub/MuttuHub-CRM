@@ -336,7 +336,9 @@ registry.registerPath({
   summary: "Exporta los clientes visibles a un archivo .xlsx",
   description:
     `${SCOPE_NOTE} Usa exactamente los mismos filtros y el mismo alcance por rol que GET /api/v1/clients. ` +
-    "El archivo se limita a las primeras 500 filas del conjunto filtrado (EXPORT_MAX_ROWS), aplicado después de calcular valor_potencial (no es un LIMIT de base de datos).",
+    "El archivo se limita a las primeras 500 filas del conjunto filtrado (EXPORT_MAX_ROWS), aplicado después de calcular valor_potencial (no es un LIMIT de base de datos). " +
+    "PR 6: cada exportación escribe una fila en `auditoria` con `accion='exportar'`, usuario_id, cantidad de " +
+    "filas y filtros aplicados en `cambios` (best-effort — un fallo de auditoría NO falla la exportación).",
   security: [{ sessionCookie: [] }],
   request: {
     query: z.object({

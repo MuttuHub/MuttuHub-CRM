@@ -20,8 +20,11 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+vi.mock("@/lib/api/audit", () => ({ logAudit: vi.fn() }));
+
 import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/supabase/server";
+import { logAudit } from "@/lib/api/audit";
 import { GET } from "./route";
 
 const gerencia = { id: "gerencia-1", rol: "GERENCIA" } as Usuario;
@@ -125,6 +128,50 @@ describe("GET /api/v1/clients/export", () => {
     expect(await res.json()).toMatchObject({
       code: "VALIDATION_ERROR",
       error: "La fecha final no puede ser anterior a la inicial.",
+    });
+  });
+
+  // PR 6 (close-phase-1): same audit contract as tasks/export. The auditoria
+  // row carries quien/cuando/cuantas filas/filtros — best-effort.
+  describe("audited export (PR 6)", () => {
+    it("calls logAudit with accion='exportar', rows and applied filters", async () => {
+      authAs(gerencia);
+      vi.mocked(db.cliente.findMany).mockResolvedValue([baseClientRow] as never);
+      vi.mocked(db.tarea.groupBy).mockResolvedValue([] as never);
+      vi.mocked(db.oportunidad.groupBy).mockResolvedValue([] as never);
+
+      await GET(
+        new Request(
+          "http://localhost/api/v1/clients/export?tipo=EMPRESA_PRIVADA&estado=PROSPECTO",
+        ),
+      );
+
+      expect(logAudit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entidad: "cliente",
+          accion: "exportar",
+          usuario_id: gerencia.id,
+          cambios: expect.objectContaining({
+            rows: expect.any(Number),
+            filters: expect.objectContaining({
+              tipo: "EMPRESA_PRIVADA",
+              estado: "PROSPECTO",
+            }),
+          }),
+        }),
+      );
+    });
+
+    it("returns 200 even when logAudit throws (audit is best-effort)", async () => {
+      authAs(gerencia);
+      vi.mocked(db.cliente.findMany).mockResolvedValue([]);
+      vi.mocked(db.tarea.groupBy).mockResolvedValue([] as never);
+      vi.mocked(db.oportunidad.groupBy).mockResolvedValue([] as never);
+      vi.mocked(logAudit).mockRejectedValueOnce(new Error("audit down"));
+
+      const res = await GET(new Request("http://localhost/api/v1/clients/export"));
+
+      expect(res.status).toBe(200);
     });
   });
 });
