@@ -17,8 +17,11 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+vi.mock("@/lib/api/audit", () => ({ logAudit: vi.fn() }));
+
 import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/supabase/server";
+import { logAudit } from "@/lib/api/audit";
 import { GET } from "./route";
 
 const gerencia = { id: "gerencia-1", rol: "GERENCIA" } as Usuario;
@@ -131,5 +134,69 @@ describe("GET /api/v1/tasks/export", () => {
     expect(row.getCell(5).value).toBe("Bloqueada");
     expect(row.getCell(10).value).toBe("Esperando insumos");
     expect(row.getCell(11).value).toBe("1/4");
+  });
+
+  // PR 6: exports are audited (global-task-board spec §"Exports are audited").
+  // The audit row carries quien/cuando/cuantas filas/filtros. logAudit is
+  // best-effort (it swallows its own errors), so a throw in the audit path
+  // must NOT fail the export — the file is still the user's primary deliverable.
+  describe("audited export (PR 6)", () => {
+    it("calls logAudit with accion='exportar', rows and applied filters", async () => {
+      authAs(gerencia);
+      vi.mocked(db.tarea.findMany).mockResolvedValue([
+        exportRow({ id: "task-1" }),
+        exportRow({ id: "task-2" }),
+        exportRow({ id: "task-3" }),
+      ] as never);
+      vi.mocked(db.subtarea.groupBy).mockResolvedValue([]);
+
+      await GET(
+        new Request(
+          "http://localhost/api/v1/tasks/export?prioridad=ALTA&etiqueta=legal&estado=EN_CURSO",
+        ),
+      );
+
+      expect(logAudit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entidad: "tarea",
+          accion: "exportar",
+          usuario_id: gerencia.id,
+          cambios: expect.objectContaining({
+            rows: 3,
+            filters: expect.objectContaining({
+              prioridad: "ALTA",
+              etiqueta: "legal",
+              estado: "EN_CURSO",
+            }),
+          }),
+        }),
+      );
+    });
+
+    it("records zero rows when the export comes back empty", async () => {
+      authAs(gerencia);
+      vi.mocked(db.tarea.findMany).mockResolvedValue([]);
+      vi.mocked(db.subtarea.groupBy).mockResolvedValue([]);
+
+      await GET(new Request("http://localhost/api/v1/tasks/export"));
+
+      expect(logAudit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: "exportar",
+          cambios: expect.objectContaining({ rows: 0 }),
+        }),
+      );
+    });
+
+    it("returns 200 even when logAudit throws (audit is best-effort)", async () => {
+      authAs(gerencia);
+      vi.mocked(db.tarea.findMany).mockResolvedValue([]);
+      vi.mocked(db.subtarea.groupBy).mockResolvedValue([]);
+      vi.mocked(logAudit).mockRejectedValueOnce(new Error("audit down"));
+
+      const res = await GET(new Request("http://localhost/api/v1/tasks/export"));
+
+      expect(res.status).toBe(200);
+    });
   });
 });

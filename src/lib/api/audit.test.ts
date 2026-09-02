@@ -61,4 +61,30 @@ describe("logAudit", () => {
       logAudit({ entidad: "documento", entidad_id: "doc-1", accion: "crear", usuario_id: "user-1" }),
     ).resolves.toBeUndefined()
   })
+
+  // PR 6: exports need to be audited. The union widens to include
+  // "exportar" so the export endpoints can carry rows + filters in `cambios`
+  // without TypeScript losing its mind. Type-only assertion — but we also
+  // exercise the runtime path so a future re-narrowing is caught.
+  it("accepts accion: 'exportar' with rows + filters in cambios (PR 6)", async () => {
+    vi.mocked(db.auditoria.create).mockResolvedValue({} as never)
+
+    await logAudit({
+      entidad: "tarea",
+      entidad_id: "task-1",
+      accion: "exportar",
+      usuario_id: "user-1",
+      cambios: { rows: 30, filters: { prioridad: "ALTA" } },
+    })
+
+    expect(db.auditoria.create).toHaveBeenCalledWith({
+      data: {
+        entidad: "tarea",
+        entidad_id: "task-1",
+        accion: "exportar",
+        usuario_id: "user-1",
+        cambios: { rows: 30, filters: { prioridad: "ALTA" } },
+      },
+    })
+  })
 })

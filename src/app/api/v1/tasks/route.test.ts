@@ -281,6 +281,147 @@ describe("GET /api/v1/tasks", () => {
     const json = await res.json();
     expect(json.items[0].subtotal_hechas).toBe(3);
   });
+
+  // PR 6: priority / tag / delivery-date range move from the client to the
+  // server (synthetic-rabin §"El tope de 100", global-task-board spec). Each
+  // clause becomes a Prisma `where` key; the existing `vencidas` branch must
+  // keep merging into the same `fecha_entrega` object without clobbering it.
+  describe("server-side filters (PR 6)", () => {
+    it("applies prioridad as a Prisma where clause", async () => {
+      authAs(gerencia);
+      vi.mocked(db.tarea.findMany).mockResolvedValue([]);
+      vi.mocked(db.tarea.count).mockResolvedValue(0);
+
+      await GET(new Request("http://localhost/api/v1/tasks?prioridad=ALTA"));
+
+      const where = vi.mocked(db.tarea.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
+      expect(where.prioridad).toBe("ALTA");
+    });
+
+    it("applies etiqueta as `etiquetas: { has }` (array-contains)", async () => {
+      authAs(gerencia);
+      vi.mocked(db.tarea.findMany).mockResolvedValue([]);
+      vi.mocked(db.tarea.count).mockResolvedValue(0);
+
+      await GET(new Request("http://localhost/api/v1/tasks?etiqueta=legal"));
+
+      const where = vi.mocked(db.tarea.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
+      expect(where.etiquetas).toEqual({ has: "legal" });
+    });
+
+    it("applies fecha_entrega_desde and fecha_entrega_hasta as a Prisma range", async () => {
+      authAs(gerencia);
+      vi.mocked(db.tarea.findMany).mockResolvedValue([]);
+      vi.mocked(db.tarea.count).mockResolvedValue(0);
+
+      await GET(
+        new Request(
+          "http://localhost/api/v1/tasks?fecha_entrega_desde=2026-01-01&fecha_entrega_hasta=2026-01-31",
+        ),
+      );
+
+      const where = vi.mocked(db.tarea.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
+      const rango = where.fecha_entrega as { gte: Date; lte: Date };
+      expect(rango).toBeDefined();
+      expect(rango.gte).toBeInstanceOf(Date);
+      expect(rango.lte).toBeInstanceOf(Date);
+      // gte = start of "2026-01-01" (UTC midnight); lte = end of "2026-01-31"
+      // (23:59:59.999 UTC) so same-day rows still match "hasta = today".
+      expect(rango.gte.toISOString().slice(0, 10)).toBe("2026-01-01");
+      expect(rango.lte.toISOString().slice(0, 10)).toBe("2026-01-31");
+      expect(rango.lte.getUTCHours()).toBe(23);
+    });
+
+    it("merges fecha_entrega range with vencidas=true on the same object (no clobber, no AND)", async () => {
+      authAs(gerencia);
+      vi.mocked(db.tarea.findMany).mockResolvedValue([]);
+      vi.mocked(db.tarea.count).mockResolvedValue(0);
+
+      await GET(
+        new Request(
+          "http://localhost/api/v1/tasks?vencidas=true&fecha_entrega_desde=2025-01-01&fecha_entrega_hasta=2025-12-31",
+        ),
+      );
+
+      const where = vi.mocked(db.tarea.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
+      // Single object with lt + gte + lte — the brief's "extend the object"
+      // path. If this were an AND composition Prisma would reject duplicate
+      // keys at the same level; the merged-object approach avoids it.
+      const rango = where.fecha_entrega as { lt?: Date; gte?: Date; lte?: Date };
+      expect(rango).toBeDefined();
+      expect(rango.lt).toBeInstanceOf(Date);
+      expect(rango.gte).toBeInstanceOf(Date);
+      expect(rango.lte).toBeInstanceOf(Date);
+      // Vencidas branch still keeps the open-state guard.
+      expect(where.estado).toEqual({ notIn: ["COMPLETADA", "CANCELADA"] });
+    });
+
+    it("includes the open-state guard for vencidas even when no range is given", async () => {
+      authAs(gerencia);
+      vi.mocked(db.tarea.findMany).mockResolvedValue([]);
+      vi.mocked(db.tarea.count).mockResolvedValue(0);
+
+      await GET(new Request("http://localhost/api/v1/tasks?vencidas=true"));
+
+      const where = vi.mocked(db.tarea.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
+      expect(where.fecha_entrega).toEqual({ lt: expect.any(Date) });
+      expect(where.estado).toEqual({ notIn: ["COMPLETADA", "CANCELADA"] });
+    });
+
+    it("returns 400 for an invalid prioridad value", async () => {
+      authAs(gerencia);
+
+      const res = await GET(new Request("http://localhost/api/v1/tasks?prioridad=NOT_REAL"));
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+      expect(db.tarea.findMany).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 for an invalid fecha_entrega_desde (not YYYY-MM-DD)", async () => {
+      authAs(gerencia);
+
+      const res = await GET(
+        new Request("http://localhost/api/v1/tasks?fecha_entrega_desde=not-a-date"),
+      );
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+      expect(db.tarea.findMany).not.toHaveBeenCalled();
+    });
+
+    // D7: the `total` field is the count WITHOUT prioridad/etiqueta/
+    // fecha_entrega_* — the "Mostrando N de M" banner is only honest about
+    // truncation when those three clauses are absent from the count's where.
+    it("computes total from a where that excludes prioridad / etiqueta / fecha_entrega_* (banner honesty)", async () => {
+      authAs(gerencia);
+      vi.mocked(db.tarea.findMany).mockResolvedValue([taskRow()] as never);
+      vi.mocked(db.tarea.count).mockResolvedValue(200);
+
+      const res = await GET(
+        new Request(
+          "http://localhost/api/v1/tasks?prioridad=ALTA&etiqueta=legal&fecha_entrega_desde=2026-01-01",
+        ),
+      );
+
+      const json = await res.json();
+      expect(json.total).toBe(200);
+
+      // The findMany uses the full filter (items are the page the user asked
+      // for); the count's where must NOT carry those three keys, otherwise the
+      // banner would lie ("Mostrando 1 de 1") instead of telling the truth
+      // ("Mostrando 1 de 200").
+      const findManyWhere = vi.mocked(db.tarea.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
+      expect(findManyWhere.prioridad).toBe("ALTA");
+      expect(findManyWhere.etiquetas).toEqual({ has: "legal" });
+      expect(findManyWhere.fecha_entrega).toBeDefined();
+
+      const countWhere = vi.mocked(db.tarea.count).mock.calls[0]![0]!.where as Record<string, unknown>;
+      expect(countWhere.prioridad).toBeUndefined();
+      expect(countWhere.etiquetas).toBeUndefined();
+      expect(countWhere.fecha_entrega).toBeUndefined();
+    });
+  });
 });
 
 describe("POST /api/v1/tasks", () => {
