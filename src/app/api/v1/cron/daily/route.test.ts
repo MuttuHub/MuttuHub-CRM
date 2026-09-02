@@ -30,7 +30,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("@/lib/email", () => ({
-  sendDailyDigestEmail: vi.fn().mockResolvedValue(undefined),
+  sendDailySummary: vi.fn().mockResolvedValue({ ok: true }),
 }));
 
 import { db } from "@/lib/db";
