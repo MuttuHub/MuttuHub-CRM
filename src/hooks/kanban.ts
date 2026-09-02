@@ -245,9 +245,10 @@ export function useAttachments(taskId: string | null): UseQueryResult<Adjunto[]>
   });
 }
 
-export function useCurrentUser(): UseQueryResult<CurrentUser | null> {
+export function useCurrentUser(initialData?: CurrentUser | null): UseQueryResult<CurrentUser | null> {
   return useQuery({
     queryKey: taskQueryKeys.me(),
+    initialData,
     queryFn: async () => {
       try {
         const res = await apiGet<{ usuario: CurrentUser | null }>("/api/v1/auth/me");

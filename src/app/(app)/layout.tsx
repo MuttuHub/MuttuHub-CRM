@@ -11,8 +11,10 @@ export default async function AppShell({
   children: React.ReactNode;
 }) {
   // Defense in depth: the proxy guards routes, this layout re-validates the
-  // JWT and redirects to /login when the session is gone.
-  await requireUser();
+  // JWT and redirects to /login when the session is gone. PR 28 (plan §5):
+  // el usuario real ya está acá — se pasa al Header como initialData para que
+  // el primer paint tenga el nombre correcto (sin el parpadeo del demo).
+  const session = await requireUser();
 
   return (
     <div className="flex min-h-screen gap-[14px] bg-page p-[14px]">
@@ -21,7 +23,7 @@ export default async function AppShell({
         <div className="flex min-h-0 flex-1 gap-[14px]">
           <Sidebar />
           <main className="flex min-w-0 flex-1 flex-col gap-5 rounded-[26px] bg-panel p-6 lg:p-7">
-            <Header />
+            <Header initialUser={session?.usuario ?? null} />
             {children}
           </main>
         </div>

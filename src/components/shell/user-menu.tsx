@@ -11,9 +11,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LoaderCircle, LogOut } from "lucide-react";
 import { toast } from "sonner";
-import { useCurrentUser } from "@/hooks/kanban";
+import { useCurrentUser, type CurrentUser } from "@/hooks/kanban";
+import { iniciales } from "@/hooks/crm";
 import { ROLE_LABELS, SESSION_STORAGE_KEY } from "@/lib/auth/types";
-import { DEMO_USER, iniciales } from "@/lib/mock/demo";
+import { DEMO_USER } from "@/lib/mock/demo";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -24,13 +25,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export function UserMenu() {
+export function UserMenu({ initialUser }: { initialUser?: CurrentUser | null }) {
   const router = useRouter();
-  const userQuery = useCurrentUser();
+  // PR 28 (plan §5): initialData del usuario real (ya en el servidor) — el
+  // primer paint muestra el nombre correcto, sin el parpadeo del demo.
+  const userQuery = useCurrentUser(initialUser);
   const [cerrando, setCerrando] = useState(false);
 
   const user = userQuery.data;
-  const nombre = user?.nombre ?? DEMO_USER.nombre;
+  const nombre = user?.nombre ?? (userQuery.isLoading || userQuery.isError ? "…" : DEMO_USER.nombre);
   const rolLabel = user?.rol ? ROLE_LABELS[user.rol] : "Modo demo";
 
   async function cerrarSesion() {

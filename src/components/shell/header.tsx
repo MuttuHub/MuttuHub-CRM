@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, Menu, Moon, Sun } from "lucide-react";
 import { PAGE_HEADERS } from "@/lib/nav";
-import { useCurrentUser } from "@/hooks/kanban";
+import { useCurrentUser, type CurrentUser } from "@/hooks/kanban";
 import { useTheme } from "@/hooks/use-theme";
 import { apiGet } from "@/lib/api/http";
 import { DEMO_USER } from "@/lib/mock/demo";
@@ -52,14 +52,17 @@ function subtituloInicio(snapshot: NotificationsSnapshot | undefined): string {
   return partes.length > 0 ? `${fecha} · ${partes.join(" y ")}` : fecha;
 }
 
-export function Header() {
+export function Header({ initialUser }: { initialUser?: CurrentUser | null }) {
   const pathname = usePathname();
   const setMobileOpen = useSidebarStore((s) => s.setMobileOpen);
   const mobileOpen = useSidebarStore((s) => s.mobileOpen);
   const rango = useFiltersStore((s) => s.rango);
   const setRango = useFiltersStore((s) => s.setRango);
   const { theme, toggleTheme } = useTheme();
-  const userQuery = useCurrentUser();
+  // PR 28 (plan §5): el usuario real ya está en el servidor (requireUser del
+  // layout); pasarlo como initialData elimina el parpadeo de "Adriana Gómez"
+  // en el primer paint — no queda estado de carga que mostrar.
+  const userQuery = useCurrentUser(initialUser);
   // Same query as the notification bell: shared cache, no extra fetch.
   const notificationsQuery = useQuery({
     queryKey: notificationQueryKey,
@@ -72,7 +75,13 @@ export function Header() {
     title: "Muttu Hub",
     subtitle: "",
   };
-  const nombre = userQuery.data?.nombre ?? DEMO_USER.nombre;
+  // PR 28 (plan §5): separa los tres casos del `?? DEMO_USER` de antes —
+  // cargando/error ("…", el caso genuino sin backend) vs modo demo real
+  // (Supabase sin configurar). Con initialData el primer paint ya tiene el
+  // nombre real, así que "…" solo aparece si algo falló de verdad.
+  const nombre =
+    userQuery.data?.nombre ??
+    (userQuery.isLoading || userQuery.isError ? "…" : DEMO_USER.nombre);
   const title = pathname === "/" ? `Hola, ${nombre.split(" ")[0]}` : page.title;
   const subtitle =
     pathname === "/" ? subtituloInicio(notificationsQuery.data) : page.subtitle;
@@ -142,7 +151,7 @@ export function Header() {
 
         <NotificationPanel />
 
-        <UserMenu />
+        <UserMenu initialUser={initialUser} />
       </div>
     </div>
   );

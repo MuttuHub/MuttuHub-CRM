@@ -302,14 +302,3 @@ export const CLIENTES: Cliente[] = [
     compromiso: "Sin fecha",
   },
 ];
-
-/** Initials from words longer than 3 chars, as in the mockup. */
-export function iniciales(nombre: string): string {
-  const found = nombre
-    .split(" ")
-    .filter((w) => w.length > 3)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("");
-  return found || nombre.slice(0, 2);
-}
