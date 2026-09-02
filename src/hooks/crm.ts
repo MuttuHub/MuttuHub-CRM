@@ -168,6 +168,8 @@ export type ClientFilters = {
   valorMax?: string;
   page?: number;
   limit?: number;
+  sort?: string;
+  dir?: "asc" | "desc";
 };
 
 export type ClientFiltersPatch = {

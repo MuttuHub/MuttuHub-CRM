@@ -43,6 +43,7 @@ const baseClientRow = {
   prioridad: "ALTA",
   ubicacion: "Bogotá",
   responsable_id: "colab-1",
+  fecha_primer_contacto: null,
   updated_at: new Date("2026-01-01"),
   responsable: { nombre: "Colab Uno" },
 };
@@ -242,6 +243,66 @@ describe("GET /api/v1/clients", () => {
         where: expect.not.objectContaining({ fecha_entrega: expect.anything() }),
         orderBy: { fecha_entrega: { sort: "asc", nulls: "last" } },
       }),
+    );
+  });
+});
+
+describe("GET /api/v1/clients — sort (PR 25, plan 2B)", () => {
+  beforeEach(() => {
+    authAs(gerencia);
+    mockEnrichmentEmpty();
+  });
+
+  it("sorts a column (nombre asc) in the Prisma orderBy", async () => {
+    vi.mocked(db.cliente.findMany).mockResolvedValue([] as never);
+
+    await GET(new Request("http://localhost/api/v1/clients?sort=nombre&dir=asc"));
+
+    expect(db.cliente.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { nombre: "asc" } }),
+    );
+  });
+
+  it("sorts a column (updated_at desc) via the orderBy", async () => {
+    vi.mocked(db.cliente.findMany).mockResolvedValue([] as never);
+
+    await GET(new Request("http://localhost/api/v1/clients?sort=updated_at&dir=desc"));
+
+    expect(db.cliente.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { updated_at: "desc" } }),
+    );
+  });
+
+  it("sorts an aggregate (valor_potencial) after enrichment", async () => {
+    vi.mocked(db.cliente.findMany).mockResolvedValue([
+      { ...baseClientRow, id: "a" },
+      { ...baseClientRow, id: "b" },
+    ] as never);
+    vi.mocked(db.oportunidad.groupBy).mockResolvedValue([
+      { cliente_id: "a", _sum: { valor_estimado_cop: BigInt(1000) } },
+      { cliente_id: "b", _sum: { valor_estimado_cop: BigInt(500) } },
+    ] as never);
+
+    const res = await GET(new Request("http://localhost/api/v1/clients?sort=valor_potencial&dir=asc"));
+    const json = await res.json();
+
+    expect(json.items.map((i: { id: string }) => i.id)).toEqual(["b", "a"]);
+  });
+
+  it("rejects an unknown sort criterion (400)", async () => {
+    const res = await GET(new Request("http://localhost/api/v1/clients?sort=noexiste"));
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+  });
+
+  it("defaults to updated_at desc without sort", async () => {
+    vi.mocked(db.cliente.findMany).mockResolvedValue([] as never);
+
+    await GET(new Request("http://localhost/api/v1/clients"));
+
+    expect(db.cliente.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { updated_at: "desc" } }),
     );
   });
 });

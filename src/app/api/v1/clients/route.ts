@@ -177,6 +177,29 @@ export async function enrichClients(
   }));
 }
 
+/** PR 25 (plan 2B): sort + dir del querystring. Columnas se ordenan en Prisma;
+ *  agregados post-enriquecimiento. Default: updated_at desc (comportamiento
+ *  histórico). */
+const SORT_COLUMNS = new Set(["nombre", "prioridad", "estado", "fecha_primer_contacto", "updated_at"]);
+const SORT_AGGREGATES = new Set(["valor_potencial", "compromisos_abiertos", "next_compromiso"]);
+
+function parseClientSort(
+  url: URL,
+):
+  | { ok: true; column: string | null; aggregate: string | null; dir: "asc" | "desc" }
+  | { ok: false; response: Response } {
+  const sp = url.searchParams;
+  const raw = sp.get("sort");
+  const dir = sp.get("dir") === "asc" ? ("asc" as const) : ("desc" as const);
+  if (!raw) return { ok: true, column: null, aggregate: null, dir };
+  if (SORT_COLUMNS.has(raw)) return { ok: true, column: raw, aggregate: null, dir };
+  if (SORT_AGGREGATES.has(raw)) return { ok: true, column: null, aggregate: raw, dir };
+  return {
+    ok: false,
+    response: apiError("Criterio de orden no válido.", 400, "VALIDATION_ERROR"),
+  };
+}
+
 export const GET = withApiErrorHandling(
   "clients",
   "No pudimos cargar los clientes. Inténtalo de nuevo.",
@@ -195,14 +218,27 @@ export const GET = withApiErrorHandling(
     const pagination = parsePagination(url.searchParams);
     if (!pagination.ok) return pagination.response;
 
+    // PR 25 (plan 2B): sort + dir en el querystring, espejado en la URL como
+    // el resto de los filtros (una vista guardada conserva el orden). Los
+    // criterios de columna se ordenan en Prisma; los agregados (valor
+    // potencial, compromisos abiertos, próximo compromiso) después del
+    // enriquecimiento, donde ya se filtra por valor_potencial.
+    const sort = parseClientSort(url);
+    if (!sort.ok) return sort.response;
+    const dir = sort.dir;
+
     const where = buildClientWhere(filters.filters, auth.usuario);
 
     // Value range filters are applied in JS because valor_potencial is a
     // per-client aggregation; fetching base fields first keeps the query light.
+    const orderBy: Prisma.ClienteOrderByWithRelationInput = sort.column
+      ? { [sort.column]: dir }
+      : { updated_at: "desc" };
+
     const rows = await db.cliente.findMany({
       where,
       select: CLIENT_BASE_SELECT,
-      orderBy: { updated_at: "desc" },
+      orderBy,
     });
 
     const enriched = await enrichClients(rows.map((r) => r.id), rows);
@@ -211,6 +247,26 @@ export const GET = withApiErrorHandling(
         (filters.filters.valor_min === undefined || e.valor_potencial >= filters.filters.valor_min) &&
         (filters.filters.valor_max === undefined || e.valor_potencial <= filters.filters.valor_max),
     );
+
+    // PR 25: orden de agregados post-enriquecimiento (ya se filtró por
+    // valor_potencial acá, o sea que el sort convive con el filtro). El
+    // criterio de columna ya se ordenó en Prisma; acá solo se re-ordenan los
+    // tres agregados que no son columnas.
+    if (sort.aggregate) {
+      filtered.sort((a, b) => {
+        const dirMul = dir === "asc" ? 1 : -1;
+        if (sort.aggregate === "valor_potencial") {
+          return (a.valor_potencial - b.valor_potencial) * dirMul;
+        }
+        if (sort.aggregate === "compromisos_abiertos") {
+          return (a.compromisos_abiertos - b.compromisos_abiertos) * dirMul;
+        }
+        // next_compromiso: null (sin próximo) va al final en ambos sentidos.
+        const fa = a.next_compromiso?.fecha_entrega?.getTime() ?? Number.POSITIVE_INFINITY;
+        const fb = b.next_compromiso?.fecha_entrega?.getTime() ?? Number.POSITIVE_INFINITY;
+        return (fa - fb) * dirMul;
+      });
+    }
 
     const total = filtered.length;
     const start = (pagination.page - 1) * pagination.limit;
@@ -240,7 +296,22 @@ export const GET = withApiErrorHandling(
         };
       });
 
-    return NextResponse.json({ page: pagination.page, limit: pagination.limit, total, items });
+    // PR 25: el orden de los agregados vive en `filtered` (ordenado en JS),
+    // no en `rows` (ordenado en Prisma) — los items se re-ordenan al orden de
+    // `filtered` para que el sort por agregado sea real, no solo cosmético.
+    const orderedItems = sort.aggregate
+      ? filtered
+          .slice(start, start + pagination.limit)
+          .map((f) => items.find((i) => i.id === f.id)!)
+          .filter(Boolean)
+      : items;
+
+    return NextResponse.json({
+      page: pagination.page,
+      limit: pagination.limit,
+      total,
+      items: orderedItems,
+    });
   },
 );
 

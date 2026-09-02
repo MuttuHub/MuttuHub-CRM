@@ -114,6 +114,7 @@ export const CLIENT_BASE_SELECT = {
   prioridad: true,
   ubicacion: true,
   responsable_id: true,
+  fecha_primer_contacto: true,
   updated_at: true,
   responsable: { select: { nombre: true } },
 } as const;
