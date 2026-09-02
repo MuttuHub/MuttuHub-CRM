@@ -154,6 +154,53 @@ export function BarRow({
   );
 }
 
+/* ── Barra apilada (segmentos con tono semántico) ───────────────────────── */
+
+export function StackedBarRow({
+  label,
+  segments,
+  total,
+  right,
+}: {
+  label: React.ReactNode;
+  /** Segmentos con valor > 0; el orden define el apilado de izquierda a derecha. */
+  segments: { name: string; value: number; tone: UiTone }[];
+  total: number;
+  right?: React.ReactNode;
+}) {
+  const visible = segments.filter((s) => s.value > 0);
+  const pct = (v: number) => (total > 0 ? (v / total) * 100 : 0);
+  return (
+    <div className="group">
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex min-w-0 items-center gap-2 text-[13px] font-medium text-ink-800">
+          <span className="truncate">{label}</span>
+        </span>
+        <span className="shrink-0 font-mono text-[12px] font-semibold tabular-nums text-ink-700">
+          {total}
+        </span>
+      </div>
+      {/* La barra es aria-hidden: el dato vive en la frase sr-only de abajo. */}
+      <div
+        aria-hidden
+        className="mt-1.5 flex h-[7px] overflow-hidden rounded-full bg-ink-100"
+      >
+        {visible.map((s) => (
+          <div
+            key={s.name}
+            className={cn("h-full", TONE_BAR[s.tone])}
+            style={{ width: `${Math.max(pct(s.value), s.value > 0 ? 1.5 : 0)}%` }}
+          />
+        ))}
+      </div>
+      <p className="sr-only">
+        {label}: {visible.map((s) => `${s.value} ${s.name}`).join(", ")} de {total}.
+      </p>
+      {right}
+    </div>
+  );
+}
+
 /* ── Chip selector (presets / días) ─────────────────────────────────────── */
 
 export function ChipSelector<T extends string>({

@@ -9,6 +9,7 @@ import {
   diasDesde,
   esEnvelopeNoConfigurado,
   SinConexionCard,
+  StackedBarRow,
   StatTile,
   TONE_BAR,
   TONE_DOT,
@@ -129,6 +130,46 @@ describe("BarRow", () => {
     const { container } = render(<BarRow label="Activos" count={1} total={2} tone="exito" />)
     const dot = container.querySelector(".size-\\[7px\\]")
     expect(dot).toHaveClass(TONE_DOT.exito)
+  })
+})
+
+describe("StackedBarRow (PR 19 — carga por persona)", () => {
+  it("is accessible: the bar is aria-hidden and the data lives in a sr-only sentence", () => {
+    const { container } = render(
+      <StackedBarRow
+        label="Ana"
+        total={10}
+        segments={[
+          { name: "completadas", value: 6, tone: "exito" },
+          { name: "en curso", value: 3, tone: "activo" },
+          { name: "vencidas", value: 1, tone: "destructivo" },
+        ]}
+      />,
+    )
+    expect(screen.getByText("Ana")).toBeInTheDocument()
+    expect(screen.getByText("10")).toBeInTheDocument()
+    // La barra visible es aria-hidden: el dato se lee del sr-only.
+    const bar = container.querySelector("[aria-hidden]")
+    expect(bar).not.toBeNull()
+    const sr = container.querySelector(".sr-only")
+    expect(sr?.textContent).toContain("Ana: 6 completadas, 3 en curso, 1 vencidas de 10")
+  })
+
+  it("renders one segment per tone with a TONE_BAR class", () => {
+    const { container } = render(
+      <StackedBarRow
+        label="Luis"
+        total={4}
+        segments={[
+          { name: "completadas", value: 2, tone: "exito" },
+          { name: "en curso", value: 2, tone: "activo" },
+        ]}
+      />,
+    )
+    const segments = container.querySelectorAll("[aria-hidden] > div")
+    expect(segments).toHaveLength(2)
+    expect(segments[0]).toHaveClass(TONE_BAR.exito)
+    expect(segments[1]).toHaveClass(TONE_BAR.activo)
   })
 })
 

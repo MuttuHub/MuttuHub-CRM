@@ -25,6 +25,7 @@ import {
   BarRow,
   ChipSelector,
   DashboardSkeleton,
+  StackedBarRow,
   StatTile,
 } from "@/components/dashboard/shared";
 
@@ -150,6 +151,7 @@ export function ReportView({ responsable, cliente }: ReportViewProps) {
           ) : (
             <>
               <PersonTable porPersona={report.por_persona} misTareas={misTareas} />
+              <CargaPersonaCard porPersona={report.por_persona} />
               <EstadoCard porEstado={report.por_estado} />
               {report.por_cliente.length > 0 && (
                 <ClienteCard porCliente={report.por_cliente} />
@@ -288,6 +290,41 @@ function PersonTable({
         </tr>
       ))}
     </TableCard>
+  );
+}
+
+function CargaPersonaCard({
+  porPersona,
+}: {
+  porPersona: { id: string; nombre: string; asignadas: number; en_curso: number; vencidas: number; completadas: number; a_tiempo: number; tarde: number }[];
+}) {
+  // PR 19 (plan 3B): la tabla por persona responde fila por fila; esta barra
+  // apilada responde de un vistazo la pregunta que la tabla no: ¿está
+  // balanceada la carga? Cada persona = una barra con segmentos
+  // completadas / en curso / vencidas sobre su total de asignadas.
+  const conTareas = porPersona.filter((p) => p.asignadas > 0);
+  if (conTareas.length === 0) return null;
+
+  return (
+    <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
+      <h3 className="mb-4 font-display text-[14.5px] font-bold tracking-[-0.01em] text-ink-950">
+        Carga por persona
+      </h3>
+      <div className="space-y-3.5">
+        {conTareas.map((p) => (
+          <StackedBarRow
+            key={p.id}
+            label={p.nombre}
+            total={p.asignadas}
+            segments={[
+              { name: "completadas", value: p.completadas, tone: "exito" },
+              { name: "en curso", value: p.en_curso, tone: "activo" },
+              { name: "vencidas", value: p.vencidas, tone: "destructivo" },
+            ]}
+          />
+        ))}
+      </div>
+    </section>
   );
 }
 

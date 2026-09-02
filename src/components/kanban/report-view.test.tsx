@@ -106,8 +106,8 @@ describe("ReportView — preservación de información (PR 17)", () => {
 
   it("keeps every persona label and count findable as text", () => {
     render(<ReportView responsable={undefined} cliente={undefined} />);
-    expect(screen.getByText("Ana")).toBeInTheDocument();
-    expect(screen.getByText("Luis")).toBeInTheDocument();
+    expect(screen.getAllByText("Ana").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Luis").length).toBeGreaterThan(0);
   });
 
   it("titles the report 'del equipo' when not filtering by self", () => {
