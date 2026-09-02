@@ -16,7 +16,7 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { apiDelete, apiGet, apiPost, ApiError, type ApiVoid } from "@/lib/api/http";
+import { apiDelete, apiGet, apiPatch, apiPost, ApiError, type ApiVoid } from "@/lib/api/http";
 
 /* ── DTOs (server response shapes) ─────────────────────────────────────── */
 
@@ -167,6 +167,48 @@ export function useCreateFolder(): UseMutationResult<
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: documentQueryKeys.folders });
       toast.success("Carpeta creada.");
+    },
+  });
+}
+
+export function useUpdateFolder(): UseMutationResult<
+  { carpeta: FolderItem },
+  Error,
+  { id: string; nombre?: string; parent_id?: string | null }
+> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...data }) => {
+      try {
+        return await apiPatch<{ carpeta: FolderItem }>(`/api/v1/folders/${id}`, data);
+      } catch (err) {
+        if (err instanceof ApiError) toast.error(err.message);
+        throw err;
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: documentQueryKeys.folders });
+      void qc.invalidateQueries({ queryKey: documentQueryKeys.all });
+      toast.success("Carpeta actualizada.");
+    },
+  });
+}
+
+export function useDeleteFolder(): UseMutationResult<ApiVoid, Error, string> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id) => {
+      try {
+        return await apiDelete<ApiVoid>(`/api/v1/folders/${id}`);
+      } catch (err) {
+        if (err instanceof ApiError) toast.error(err.message);
+        throw err;
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: documentQueryKeys.folders });
+      void qc.invalidateQueries({ queryKey: documentQueryKeys.all });
+      toast.success("Carpeta eliminada.");
     },
   });
 }

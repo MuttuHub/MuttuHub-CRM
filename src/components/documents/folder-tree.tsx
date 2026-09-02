@@ -7,22 +7,32 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Folder, FolderOpen } from "lucide-react";
+import { ChevronDown, Folder, FolderOpen, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { FolderNode } from "@/hooks/documents";
+
+export type FolderAction = "rename" | "move" | "delete";
 
 function FolderBranch({
   node,
   depth,
   activeId,
   onSelect,
+  onAction,
   defaultOpen,
 }: {
   node: FolderNode;
   depth: number;
   activeId: string | null;
   onSelect: (id: string | null) => void;
+  onAction: (id: string, action: FolderAction) => void;
   defaultOpen: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -33,7 +43,7 @@ function FolderBranch({
     <li>
       <div
         className={cn(
-          "group flex items-center gap-1 rounded-10 py-1 pr-2",
+          "group flex items-center gap-1 rounded-10 py-1 pr-1",
           isActive ? "bg-ink-100" : "hover:bg-ink-100/60",
         )}
         style={{ paddingLeft: `${depth * 14 + 6}px` }}
@@ -72,6 +82,38 @@ function FolderBranch({
             </span>
           )}
         </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label={`Acciones de ${node.nombre}`}
+                className="h-6 w-6 shrink-0 rounded-md p-0 text-ink-400 opacity-0 hover:bg-transparent hover:text-ink-800 group-hover:opacity-100 focus-visible:opacity-100"
+              >
+                <MoreHorizontal className="size-3.5" strokeWidth={2} />
+              </Button>
+            }
+          />
+          <DropdownMenuContent align="start" className="min-w-[150px]">
+            <DropdownMenuItem onClick={() => onAction(node.id, "rename")}>
+              <Pencil className="size-3.5" strokeWidth={1.9} />
+              Renombrar
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onAction(node.id, "move")}>
+              <Folder className="size-3.5" strokeWidth={1.9} />
+              Mover…
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => onAction(node.id, "delete")}
+            >
+              <Trash2 className="size-3.5" strokeWidth={1.9} />
+              Eliminar
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       {open && hasChildren && (
         <ul role="group">
@@ -82,6 +124,7 @@ function FolderBranch({
               depth={depth + 1}
               activeId={activeId}
               onSelect={onSelect}
+              onAction={onAction}
               defaultOpen={false}
             />
           ))}
@@ -95,10 +138,12 @@ export function FolderTree({
   folders,
   activeId,
   onSelect,
+  onAction,
 }: {
   folders: FolderNode[];
   activeId: string | null;
   onSelect: (id: string | null) => void;
+  onAction: (id: string, action: FolderAction) => void;
 }) {
   const isRoot = activeId === null;
 
@@ -123,6 +168,7 @@ export function FolderTree({
             depth={0}
             activeId={activeId}
             onSelect={onSelect}
+            onAction={onAction}
             defaultOpen={false}
           />
         ))}

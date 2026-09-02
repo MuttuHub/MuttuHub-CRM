@@ -57,8 +57,13 @@ import {
 import { ToneBadge } from "@/components/crm/shared";
 import { DocumentDialog } from "@/components/documents/document-dialog";
 import { UploadDocumentDialog } from "@/components/documents/upload-dialog";
-import { FolderTree } from "@/components/documents/folder-tree";
-import { CreateFolderDialog } from "@/components/documents/folder-dialogs";
+import { FolderTree, type FolderAction } from "@/components/documents/folder-tree";
+import {
+  CreateFolderDialog,
+  DeleteFolderDialog,
+  MoveFolderDialog,
+  RenameFolderDialog,
+} from "@/components/documents/folder-dialogs";
 import { SinConexionCard } from "@/components/shared/sin-conexion-card";
 
 // True when the Supabase env vars are missing (dev-only signal): the API
@@ -130,6 +135,15 @@ function folderPath(nodes: FolderNode[], id: string): string[] {
   return [];
 }
 
+function findFolder(nodes: FolderNode[], id: string): FolderNode | null {
+  for (const n of nodes) {
+    if (n.id === id) return n;
+    const child = findFolder(n.hijos, id);
+    if (child) return child;
+  }
+  return null;
+}
+
 export function RepositoryList() {
   const searchParams = useSearchParams();
   const clienteParam = searchParams.get("cliente") ?? "";
@@ -144,6 +158,10 @@ export function RepositoryList() {
   const [fichaId, setFichaId] = useState<string | null>(null);
   const [zipPending, setZipPending] = useState(false);
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
+  const [folderAction, setFolderAction] = useState<{
+    id: string;
+    action: FolderAction;
+  } | null>(null);
 
   const applied = toFilters(local, page);
   const listQuery = useDocuments(applied);
@@ -305,6 +323,7 @@ export function RepositoryList() {
               folders={folders}
               activeId={local.carpeta || null}
               onSelect={(id) => commit({ carpeta: id ?? "" })}
+              onAction={(id, action) => setFolderAction({ id, action })}
             />
           )}
         </aside>
@@ -390,8 +409,36 @@ export function RepositoryList() {
           folders={folders}
         />
       )}
+      {folderAction && (
+        <FolderActionDialogs
+          action={folderAction}
+          folders={folders}
+          onClose={() => setFolderAction(null)}
+        />
+      )}
     </div>
   );
+}
+
+function FolderActionDialogs({
+  action,
+  folders,
+  onClose,
+}: {
+  action: { id: string; action: FolderAction };
+  folders: FolderNode[];
+  onClose: () => void;
+}) {
+  const folder = findFolder(folders, action.id);
+  if (!folder) return null;
+
+  if (action.action === "rename") {
+    return <RenameFolderDialog open onOpenChange={onClose} folder={folder} />;
+  }
+  if (action.action === "move") {
+    return <MoveFolderDialog open onOpenChange={onClose} folder={folder} folders={folders} />;
+  }
+  return <DeleteFolderDialog open onOpenChange={onClose} folder={folder} />;
 }
 
 /* ── Fila de filtros ───────────────────────────────────────────────────── */

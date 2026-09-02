@@ -32,39 +32,45 @@ const folders: FolderNode[] = [
   },
 ];
 
+function nodeButton(name: string) {
+  return screen.getByRole("button", {
+    name: (n) => typeof n === "string" && n.startsWith(name) && !n.startsWith("Acciones"),
+  });
+}
+
 describe("FolderTree", () => {
   it("renders root folders with their counts and the implicit root", () => {
-    render(<FolderTree folders={folders} activeId={null} onSelect={vi.fn()} />);
+    render(<FolderTree folders={folders} activeId={null} onSelect={vi.fn()} onAction={vi.fn()} />);
 
     expect(screen.getByRole("button", { name: "Todas" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Comercial/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Legal/ })).toBeInTheDocument();
+    expect(nodeButton("Comercial")).toBeInTheDocument();
+    expect(nodeButton("Legal")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
   });
 
   it("expands a folder to reveal its children (disclosure)", async () => {
     const user = userEvent.setup();
-    render(<FolderTree folders={folders} activeId={null} onSelect={vi.fn()} />);
+    render(<FolderTree folders={folders} activeId={null} onSelect={vi.fn()} onAction={vi.fn()} />);
 
     // Hija no visible hasta expandir "Comercial".
     expect(screen.queryByText("Propuestas")).not.toBeInTheDocument();
     const expand = screen.getByRole("button", { name: "Expandir" });
     await user.click(expand);
-    expect(screen.getByRole("button", { name: /Propuestas/ })).toBeInTheDocument();
+    expect(nodeButton("Propuestas")).toBeInTheDocument();
   });
 
   it("calls onSelect with the folder id when a node is clicked", async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
-    render(<FolderTree folders={folders} activeId={null} onSelect={onSelect} />);
+    render(<FolderTree folders={folders} activeId={null} onSelect={onSelect} onAction={vi.fn()} />);
 
-    await user.click(screen.getByRole("button", { name: /Comercial/ }));
+    await user.click(nodeButton("Comercial"));
     expect(onSelect).toHaveBeenCalledWith("root-1");
   });
 
   it("marks the active folder", () => {
-    render(<FolderTree folders={folders} activeId="root-2" onSelect={vi.fn()} />);
-    const active = screen.getByRole("button", { name: /Legal/ });
+    render(<FolderTree folders={folders} activeId="root-2" onSelect={vi.fn()} onAction={vi.fn()} />);
+    const active = nodeButton("Legal");
     expect(active.closest("div")!.className).toContain("bg-ink-100");
   });
 });
