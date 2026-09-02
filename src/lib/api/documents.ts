@@ -128,6 +128,30 @@ export async function loadDocumentForDelete(id: string, usuario: Usuario) {
   return { ok: true as const, documento };
 }
 
+/**
+ * Write gate for PATCH /documents/:id. Same 404/403 semantics as
+ * `loadDocumentForDelete` (full roles anywhere, COLABORADOR only on their own
+ * documents, never on restricted categories) — plus the caller gets the
+ * current category back so the PATCH can ALSO reject moving the document into
+ * a restricted category: without that second check a COLABORADOR could write
+ * a document whose result they cannot even read (escalation).
+ */
+export async function loadDocumentForWrite(id: string, usuario: Usuario) {
+  const documento = await db.documento.findFirst({
+    where: { id, deleted_at: null },
+    select: { id: true, categoria: true, autor_id: true },
+  });
+  if (!documento) return { ok: false as const, code: "NOT_FOUND" as const };
+  const { restringidas } = await loadDocCategories();
+  if (!canReadCategory(usuario, documento.categoria, restringidas)) {
+    return { ok: false as const, code: "FORBIDDEN" as const };
+  }
+  if (!canManageAny(usuario.rol) && documento.autor_id !== usuario.id) {
+    return { ok: false as const, code: "FORBIDDEN" as const };
+  }
+  return { ok: true as const, documento };
+}
+
 /** Parsed query params for GET /documents, mirrors the clients/tasks ones. */
 export type DocumentListFilters = {
   q?: string;
@@ -135,6 +159,7 @@ export type DocumentListFilters = {
   etiqueta?: string;
   cliente?: string;
   autor?: string;
+  carpeta?: string;
   desde?: string;
   hasta?: string;
 };
@@ -173,6 +198,7 @@ export function parseDocumentFilters(
       etiqueta: sp.get("etiqueta")?.trim() || undefined,
       cliente: sp.get("cliente") ?? undefined,
       autor: sp.get("autor") ?? undefined,
+      carpeta: sp.get("carpeta") ?? undefined,
       desde,
       hasta,
     },
@@ -201,6 +227,7 @@ export async function buildDocumentWhere(
   if (filters.etiqueta) where.etiquetas = { has: filters.etiqueta };
   if (filters.cliente) where.clientes = { some: { cliente_id: filters.cliente } };
   if (filters.autor) where.autor_id = filters.autor;
+  if (filters.carpeta) where.carpeta_id = filters.carpeta;
   if (filters.desde || filters.hasta) {
     const rango: Prisma.DateTimeFilter = {};
     if (filters.desde) rango.gte = new Date(filters.desde);

@@ -175,6 +175,18 @@ describe("GET /api/v1/documents", () => {
     expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
   });
 
+  it("filters by carpeta in the where clause", async () => {
+    baseListMocks();
+    vi.mocked(db.documento.findMany).mockResolvedValue([]);
+    vi.mocked(db.documento.count).mockResolvedValue(0);
+
+    const res = await GET(new Request("http://localhost/api/v1/documents?carpeta=folder-1"));
+
+    expect(res.status).toBe(200);
+    const where = vi.mocked(db.documento.findMany).mock.calls[0]![0]!.where as { carpeta_id?: string };
+    expect(where.carpeta_id).toBe("folder-1");
+  });
+
   it("returns 400 for an invalid page number", async () => {
     const res = await GET(new Request("http://localhost/api/v1/documents?page=0"));
 
