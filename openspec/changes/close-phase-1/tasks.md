@@ -60,7 +60,7 @@ Chain strategy: stacked-to-main
 
 ## Phase 6: PR 7 — `useInfiniteQuery`
 
-- [ ] 6.1 RED `kanban.test.ts`: `useTasks` paginates+appends; `hasNextPage=false` when null.
-- [ ] 6.2 RED `kanban-board.test.tsx`: "Cargar más" present first page; appends no dupes; absent when null.
-- [ ] 6.3 GREEN `hooks/kanban.ts`: `useInfiniteQuery` (page 100, `getNextPageParam: last=>last.nextCursor??null`).
-- [ ] 6.4 GREEN `kanban-board.tsx`: "Cargar más" button→`fetchNextPage`; hidden when `!hasNextPage` (no IntersectionObserver per D8).
+- [x] 6.1 RED `kanban.test.ts`: `useTasks` paginates+appends; `hasNextPage=false` when null.
+- [x] 6.2 RED `kanban-board.test.tsx`: "Cargar más" present first page; appends no dupes; absent when null. (Resolved via hook-level tests in `kanban.test.ts` per the orchestrator instruction — the file did not exist. The same `hasNextPage` boolean drives the button.)
+- [x] 6.3 GREEN `hooks/kanban.ts`: `useInfiniteQuery` (page 100, `getNextPageParam: last=>last.nextCursor??null`).
+- [x] 6.4 GREEN `kanban-board.tsx`: "Cargar más" button→`fetchNextPage`; hidden when `!hasNextPage` (no IntersectionObserver per D8).
