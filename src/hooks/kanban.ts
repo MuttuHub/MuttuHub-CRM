@@ -75,6 +75,8 @@ export type TaskReportResponse = {
   vencimientos_por_antiguedad: { bucket: string; cantidad: number }[];
   /** PR 20: histograma exacto sobre fecha_entrega de las tareas abiertas. */
   carga_semanal: { semana: string; cantidad: number }[];
+  /** PR 22: cierres por semana sobre completed_at (la marca real). */
+  tendencia_cierre: { semana: string; cantidad: number }[];
 };
 
 export type CurrentUser = {

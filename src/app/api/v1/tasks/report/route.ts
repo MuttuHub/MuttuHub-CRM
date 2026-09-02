@@ -141,6 +141,12 @@ export const GET = withApiErrorHandling(
     // fecha_entrega, no un proxy), alimenta el Sparkline existente.
     const cargaSemanal = new Map<string, number>();
 
+    // PR 22 (plan 3B): tendencia de cierre — cierres por semana sobre
+    // completed_at (la marca real, no updated_at). No se envía una línea
+    // rotulada "cierres por semana" que en realidad grafica "tareas editadas
+    // por semana": la columna completed_at (PR 21) hace la serie honesta.
+    const cierresSemanal = new Map<string, number>();
+
     for (const t of rows) {
       // Resumen y distribución por estado / cliente.
       totalAsignadas += 1;
@@ -175,6 +181,10 @@ export const GET = withApiErrorHandling(
           if (cierre <= t.fecha_entrega) aTiempo += 1;
           else tarde += 1;
         }
+        // Tendencia de cierre: la semana del completed_at REAL (COALESCE
+        // cubre las COMPLETADA previas al backfill de PR 21).
+        const semanaCierre = inicioSemana(t.completed_at ?? t.updated_at);
+        cierresSemanal.set(semanaCierre, (cierresSemanal.get(semanaCierre) ?? 0) + 1);
       }
 
       // Desglose por persona (mismas reglas que el resumen).
@@ -242,6 +252,11 @@ export const GET = withApiErrorHandling(
       .map(([semana, cantidad]) => ({ semana, cantidad }))
       .sort((a, b) => a.semana.localeCompare(b.semana));
 
+    // PR 22: tendencia de cierre — misma forma, serie sobre completed_at.
+    const tendenciaCierreArr = [...cierresSemanal.entries()]
+      .map(([semana, cantidad]) => ({ semana, cantidad }))
+      .sort((a, b) => a.semana.localeCompare(b.semana));
+
     return NextResponse.json({
       rango,
       resumen,
@@ -250,6 +265,7 @@ export const GET = withApiErrorHandling(
       por_cliente: porClienteArr,
       vencimientos_por_antiguedad: vencimientosPorAntiguedad,
       carga_semanal: cargaSemanalArr,
+      tendencia_cierre: tendenciaCierreArr,
     });
   },
 );

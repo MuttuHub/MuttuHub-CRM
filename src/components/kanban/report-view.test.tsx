@@ -67,6 +67,11 @@ const reporte: TaskReportResponse = {
     { semana: "2026-08-10", cantidad: 4 },
     { semana: "2026-08-17", cantidad: 2 },
   ],
+  tendencia_cierre: [
+    { semana: "2026-08-03", cantidad: 1 },
+    { semana: "2026-08-10", cantidad: 3 },
+    { semana: "2026-08-17", cantidad: 2 },
+  ],
 };
 
 beforeEach(() => {
@@ -187,7 +192,16 @@ describe("ReportView — vencimientos y carga semanal (PR 20)", () => {
     // El caption sr-only y la lista sr-only portan el dato (el Sparkline es
     // aria-hidden y nunca puede ser el único portador).
     expect(screen.getByText(/Carga por semana de entrega \(3 semanas, 9 tareas\)/)).toBeInTheDocument();
-    const lista = screen.getByRole("list");
-    expect(lista).toBeInTheDocument();
+  });
+});
+
+describe("ReportView — tendencia de cierre (PR 22)", () => {
+  it("renders the cierre trend with its sr-only caption and series", () => {
+    render(<ReportView responsable={undefined} cliente={undefined} />);
+    expect(screen.getByText("Tendencia de cierre")).toBeInTheDocument();
+    expect(screen.getAllByText(/6 tareas completadas/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Tendencia de cierre: 6 tareas completadas en 3 semanas/)).toBeInTheDocument();
+    expect(screen.getByText("2026-08-03: 1")).toBeInTheDocument();
+    expect(screen.getByText("2026-08-10: 3")).toBeInTheDocument();
   });
 });

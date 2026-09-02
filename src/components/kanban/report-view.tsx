@@ -28,7 +28,7 @@ import {
   StackedBarRow,
   StatTile,
 } from "@/components/dashboard/shared";
-import { Sparkline } from "@/components/dashboard/sparkline";
+import { TrendFigure } from "@/components/dashboard/trend-figure";
 
 const RANGOS: { value: ReportFilters["rango"]; label: string }[] = [
   { value: "week", label: "Semana" },
@@ -155,6 +155,9 @@ export function ReportView({ responsable, cliente }: ReportViewProps) {
                 <VencimientosCard vencimientos={report.vencimientos_por_antiguedad} />
                 <CargaSemanalCard carga={report.carga_semanal} />
               </div>
+              {report.tendencia_cierre.length > 0 && (
+                <TendenciaCierreCard tendencia={report.tendencia_cierre} />
+              )}
               <PersonTable porPersona={report.por_persona} misTareas={misTareas} />
               <CargaPersonaCard porPersona={report.por_persona} />
               <EstadoCard porEstado={report.por_estado} />
@@ -371,8 +374,8 @@ function VencimientosCard({
 
 function CargaSemanalCard({ carga }: { carga: { semana: string; cantidad: number }[] }) {
   // PR 20 (plan 3B): histograma exacto sobre fecha_entrega (no un proxy).
-  // El Sparkline es aria-hidden, así que el dato vive en el caption + la lista
-  // sr-only — la regla del plan: todo visual de Reportes lee con CSS apagado.
+  // El dato vive en el caption + lista sr-only de TrendFigure — la regla del
+  // plan: todo visual de Reportes lee con CSS apagado.
   const total = carga.reduce((acc, c) => acc + c.cantidad, 0);
   if (carga.length === 0) return null;
 
@@ -391,24 +394,42 @@ function CargaSemanalCard({ carga }: { carga: { semana: string; cantidad: number
       <p className="mb-4 text-[12.5px] text-ink-600">
         {total} tareas abiertas con entrega entre {rangoLabel}.
       </p>
-      <figure>
-        <figcaption className="sr-only">
-          Carga por semana de entrega ({carga.length} semanas, {total} tareas).
-        </figcaption>
-        <div className="flex items-end justify-between gap-2">
-          <div>
-            <Sparkline data={carga.map((c) => c.cantidad)} />
-          </div>
-          <span className="text-[11px] font-semibold text-ink-500">{rangoLabel}</span>
-        </div>
-        <ul className="sr-only">
-          {carga.map((c) => (
-            <li key={c.semana}>
-              {c.semana}: {c.cantidad}
-            </li>
-          ))}
-        </ul>
-      </figure>
+      <div className="flex items-end justify-between gap-2">
+        <TrendFigure
+          caption={`Carga por semana de entrega (${carga.length} semanas, ${total} tareas).`}
+          series={carga.map((c) => ({ label: c.semana, value: c.cantidad }))}
+          stroke="var(--color-rose-500)"
+        />
+        <span className="text-[11px] font-semibold text-ink-500">{rangoLabel}</span>
+      </div>
+    </section>
+  );
+}
+
+function TendenciaCierreCard({ tendencia }: { tendencia: { semana: string; cantidad: number }[] }) {
+  // PR 22 (plan 3B): la tendencia de cierre que todos quieren. La serie corre
+  // sobre completed_at (PR 21), la marca REAL — no una línea rotulada "cierres
+  // por semana" que en realidad grafica "tareas editadas por semana".
+  const total = tendencia.reduce((acc, t) => acc + t.cantidad, 0);
+  const ultima = new Date(tendencia[tendencia.length - 1].semana);
+  const ultimaLabel = ultima.toLocaleDateString("es-CO", { day: "numeric", month: "short" });
+
+  return (
+    <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
+      <h3 className="mb-1 font-display text-[14.5px] font-bold tracking-[-0.01em] text-ink-950">
+        Tendencia de cierre
+      </h3>
+      <p className="mb-4 text-[12.5px] text-ink-600">
+        {total} tareas completadas en el período · última semana {ultimaLabel}.
+      </p>
+      <div className="flex items-end justify-between gap-2">
+        <TrendFigure
+          caption={`Tendencia de cierre: ${total} tareas completadas en ${tendencia.length} semanas.`}
+          series={tendencia.map((t) => ({ label: t.semana, value: t.cantidad }))}
+          stroke="var(--color-exito)"
+        />
+        <span className="text-[11px] font-semibold text-ink-500">{ultimaLabel}</span>
+      </div>
     </section>
   );
 }
