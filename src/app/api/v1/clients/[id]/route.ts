@@ -4,6 +4,10 @@
 //   their own clients and cannot transfer the record to another responsable.
 // DELETE /api/v1/clients/:id — soft delete (deleted_at = now), same scope.
 // 404 for missing/deleted; 403 when the record is visible but not writable.
+//
+// PR 3 (close-phase-1): the GET read scope is now GLOBAL — every role can
+// read any client by id. Write authority (PATCH/DELETE) still uses
+// `canEditClient` / `canManageAny` from src/lib/permissions.ts.
 
 import { NextResponse } from "next/server";
 import type {
@@ -22,7 +26,6 @@ import { logAudit } from "@/lib/api/audit";
 import {
   catalogEnum,
   CLIENT_FULL_SELECT,
-  isFullAccess,
   OPEN_TASK_STATES,
   parseDate,
   zodError,
@@ -77,7 +80,6 @@ export const GET = withApiErrorHandling(
       where: {
         id,
         deleted_at: null,
-        ...(isFullAccess(auth.usuario.rol) ? {} : { responsable_id: auth.usuario.id }),
       },
       select: {
         ...CLIENT_FULL_SELECT,

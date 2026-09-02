@@ -2,10 +2,11 @@
 // POST /api/v1/clients — create (PRD §4.3: minimum form = nombre, tipo,
 // responsable; estado defaults to PROSPECTO).
 //
-// Permission model (v1 pragmatic, no team/area table): full roles see every
-// client; COLABORADOR is scoped to clients where they are the responsable
-// (their `responsable` filter param is forced to self so no foreign counts
-// leak through).
+// Permission model (PR 3 / close-phase-1): reads are GLOBAL — every role
+// sees every client (the `responsable` query param is honored as-is, never
+// silently rewritten to self). Write authority stays scoped:
+// `canEditClient` is the gate on PATCH/DELETE, and the POST forces
+// `responsable_id = self` for COLABORADOR. See src/lib/permissions.ts.
 
 import { NextResponse } from "next/server";
 import type { Prisma, TipoCliente, EstadoCliente, PrioridadCliente, Usuario } from "@prisma/client";
@@ -21,7 +22,6 @@ import {
   CLIENT_BASE_SELECT,
   CLIENT_FULL_SELECT,
   endOfDay,
-  isFullAccess,
   OPEN_TASK_STATES,
   parseClientListFilters,
   parseDate,
@@ -70,7 +70,10 @@ export const POST_CLIENT_SCHEMA = z.object({
   resumen_relacion: z.string().optional(),
 });
 
-/** Builds the shared list/export `where` including the COLABORADOR scope. */
+/** Builds the shared list/export `where`. Reads are global (PR 3): no
+ * per-role `responsable_id` rewrite — the explicit `responsable_id` filter
+ * is honored as-is for every role. The `usuario` arg is kept for signature
+ * compatibility with future per-call additions (e.g. audit logs). */
 export function buildClientWhere(
   filters: {
     q?: string;
@@ -81,7 +84,8 @@ export function buildClientWhere(
     desde?: string;
     hasta?: string;
   },
-  usuario: Usuario,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for future audit-log additions
+  _usuario: Usuario,
 ): Prisma.ClienteWhereInput {
   const where: Prisma.ClienteWhereInput = { deleted_at: null };
   if (filters.tipo) where.tipo_cliente = filters.tipo as TipoCliente;
@@ -108,7 +112,6 @@ export function buildClientWhere(
     if (filters.hasta) rango.lte = endOfDay(new Date(filters.hasta));
     where.fecha_primer_contacto = rango;
   }
-  if (!isFullAccess(usuario.rol)) where.responsable_id = usuario.id;
   return where;
 }
 

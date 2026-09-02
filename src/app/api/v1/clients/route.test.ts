@@ -142,7 +142,8 @@ describe("GET /api/v1/clients", () => {
   });
 
   // PR 3 (Slice B1): read scope is now global. COLABORADOR sees every client
-  // in the list, and the `responsable` query param is honored as-is (never
+  // in the list (no `responsable_id = self` rewrite when no filter is
+  // present), and the `responsable` query param is honored as-is (never
   // silently rewritten to self). The write gates below (POST forces
   // responsable=self, PATCH/DELETE still return 403 on foreign records) stay
   // intact.
@@ -150,7 +151,7 @@ describe("GET /api/v1/clients", () => {
     authAs(colaborador);
     vi.mocked(db.cliente.findMany).mockResolvedValue([baseClientRow] as never);
 
-    await GET(new Request("http://localhost/api/v1/clients?responsable=other-user"));
+    await GET(new Request("http://localhost/api/v1/clients"));
 
     const where = vi.mocked(db.cliente.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
     expect(where.responsable_id).toBeUndefined();
