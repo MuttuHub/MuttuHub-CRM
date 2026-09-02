@@ -8,11 +8,12 @@
 
 export const MAX_FILE_BYTES = 10 * 1024 * 1024; // PRD §8.4: máx 10 MB.
 
-export const ALLOWED_FILE_EXTENSIONS = new Set(["pdf", "docx", "xlsx", "jpg", "png"]); // PRD §8.4.
+export const ALLOWED_FILE_EXTENSIONS = new Set(["pdf", "docx", "xlsx", "pptx", "jpg", "png"]); // PRD §8.4 + Fase 2 (4A-bis).
 export const ALLOWED_FILE_MIME = new Set([
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   "image/jpeg",
   "image/png",
 ]);

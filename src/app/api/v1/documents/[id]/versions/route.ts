@@ -15,6 +15,7 @@ import { withApiErrorHandling } from "@/lib/api/handler";
 import { isSupabaseConfigured, requireApiUser } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { documentStoragePath, STORAGE_BUCKET } from "@/lib/api/files";
+import { extractForVersion } from "@/lib/api/extract-text";
 import { logAudit } from "@/lib/api/audit";
 import {
   DOCUMENT_VERSION_SELECT,
@@ -26,6 +27,7 @@ import {
 import { parseUploadForm } from "@/app/api/v1/documents/route";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 30; // la extracción de texto agrega trabajo a la subida (plan 4B)
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -96,10 +98,11 @@ export const POST = withApiErrorHandling(
       numero,
       file.name,
     );
+    const fileBytes = new Uint8Array(await file.arrayBuffer());
     const supabase = createSupabaseAdmin();
     const { error: uploadError } = await supabase.storage
       .from(STORAGE_BUCKET)
-      .upload(storagePath, new Uint8Array(await file.arrayBuffer()), {
+      .upload(storagePath, fileBytes, {
         contentType: file.type || "application/octet-stream",
         upsert: false,
       });
@@ -119,6 +122,18 @@ export const POST = withApiErrorHandling(
       },
       select: DOCUMENT_VERSION_SELECT,
     });
+
+    // Extracción inline (plan Fase 2, 4B): después del commit de la versión,
+    // nunca lanza. "error" queda para que el backfill lo reintente.
+    try {
+      const extracted = await extractForVersion(fileBytes, file.name, file.type);
+      await db.documentoVersion.update({
+        where: { id: version.id },
+        data: extracted,
+      });
+    } catch (err) {
+      console.error("[documents] version text extraction failed:", err);
+    }
 
     await logAudit({
       entidad: "documento",

@@ -24,6 +24,7 @@ import { parsePagination } from "@/lib/api/crm";
 import { canReadRestrictedDocs } from "@/lib/permissions";
 import { logAudit } from "@/lib/api/audit";
 import { documentStoragePath, isAllowedFileType, MAX_FILE_BYTES, STORAGE_BUCKET } from "@/lib/api/files";
+import { extractForVersion } from "@/lib/api/extract-text";
 import {
   buildDocumentWhere,
   DOCUMENT_BASE_SELECT,
@@ -37,6 +38,7 @@ import {
 } from "@/lib/api/documents";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 30; // la extracción de texto agrega trabajo a la subida (plan 4B)
 
 const MAX_ETIQUETAS = 8; // validación v1 del Repositorio
 const MAX_ETIQUETA_LENGTH = 40;
@@ -84,7 +86,7 @@ export async function parseUploadForm(
   if (!isAllowedFileType(file)) {
     return {
       ok: false,
-      response: apiError("Solo se aceptan PDF, Word (.docx), Excel (.xlsx), JPG o PNG.", 400, "VALIDATION_ERROR"),
+      response: apiError("Solo se aceptan PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), JPG o PNG.", 400, "VALIDATION_ERROR"),
     };
   }
   if (file.size > MAX_FILE_BYTES) {
@@ -302,6 +304,7 @@ export async function POST(request: Request) {
     }
 
     // 3) Registro de la versión 1.
+    const fileBytes = new Uint8Array(await file.arrayBuffer());
     const version = await db.documentoVersion.create({
       data: {
         documento_id: documento.id,
@@ -313,6 +316,20 @@ export async function POST(request: Request) {
       },
       select: DOCUMENT_VERSION_SELECT,
     });
+
+    // 4) Extracción inline del texto (plan Fase 2, 4B). Después del commit de
+    // la versión y nunca lanza: un fallo acá deja texto_estado="error" (que el
+    // backfill reintentará) y el documento sigue buscable por metadatos. Con
+    // timeout para no secar la subida y dentro de su propio try/catch.
+    try {
+      const extracted = await extractForVersion(fileBytes, file.name, file.type);
+      await db.documentoVersion.update({
+        where: { id: version.id },
+        data: extracted,
+      });
+    } catch (err) {
+      console.error("[documents] text extraction failed:", err);
+    }
 
     const activeVersions = new Map([[documento.id, version]]);
     const userNames = new Map([[auth.usuario.id, auth.usuario.nombre]]);

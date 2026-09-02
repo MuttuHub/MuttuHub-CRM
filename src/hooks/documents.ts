@@ -406,6 +406,7 @@ export function extensionOf(tipoArchivo: string | null | undefined): string | nu
     ["pdf", "pdf"],
     ["wordprocessingml", "docx"],
     ["spreadsheetml", "xlsx"],
+    ["presentationml", "pptx"],
     ["jpeg", "jpg"],
     ["png", "png"],
   ];

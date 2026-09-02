@@ -130,13 +130,13 @@ export function FileDropzone({
           Arrastra el archivo aquí o haz clic para seleccionarlo
         </span>
         <span className="text-[12px] text-ink-500">
-          PDF · Word (.docx) · Excel (.xlsx) · JPG · PNG · máx. 10 MB
+          PDF · Word (.docx) · Excel (.xlsx) · PowerPoint (.pptx) · JPG · PNG · máx. 10 MB
         </span>
       </button>
       <input
         ref={inputRef}
         type="file"
-        accept=".pdf,.docx,.xlsx,.jpg,.jpeg,.png"
+        accept=".pdf,.docx,.xlsx,.pptx,.jpg,.jpeg,.png"
         className="hidden"
         onChange={(e) => accept(e.target.files?.[0] ?? null)}
       />

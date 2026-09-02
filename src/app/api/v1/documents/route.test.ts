@@ -31,6 +31,7 @@ vi.mock("@/lib/db", () => ({
       groupBy: vi.fn(),
       findMany: vi.fn(),
       create: vi.fn(),
+      update: vi.fn(),
     },
     documentoCliente: {
       findMany: vi.fn(),
@@ -46,6 +47,13 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("@/lib/api/audit", () => ({ logAudit: vi.fn() }));
+
+vi.mock("@/lib/api/extract-text", () => ({
+  extractForVersion: vi.fn().mockResolvedValue({
+    contenido_texto: null,
+    texto_estado: "sin_texto",
+  }),
+}));
 
 import { db } from "@/lib/db";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
