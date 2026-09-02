@@ -144,10 +144,10 @@ describe("ClientSheet — PR 4 UI gate (puede_editar=false)", () => {
     renderSheet()
 
     for (const trigger of screen.getAllByRole("combobox")) {
-      const disabled =
-        trigger.getAttribute("data-disabled") === "true" ||
+      const hasDisabled =
+        trigger.hasAttribute("data-disabled") ||
         trigger.getAttribute("aria-disabled") === "true"
-      expect(disabled).toBe(true)
+      expect(hasDisabled).toBe(true)
     }
   })
 

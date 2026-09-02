@@ -204,15 +204,19 @@ export function SortableTaskCard({
   task: CardTask;
   onClick: () => void;
 }) {
+  // PR 4 (Slice B2): gate the drag source on the server-emitted
+  // `puede_editar`. dnd-kit's `useSortable({ disabled })` blocks BOTH
+  // pointer and keyboard reordering for the same node, so a single prop
+  // covers both interaction modes. The card body still renders (the
+  // COLABORADOR must be able to OPEN the task to read it) — only the
+  // drag affordance is taken away.
+  //
+  // `data-dnd-disabled` is the test-observable signal for the gate; the
+  // `aria-disabled` below is the same fact for assistive tech.
+  const puedeEditar = task.puede_editar !== false;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `task:${task.id}`,
-    // BUG FIX: `disabled` on useSortable turns the card off as a drag SOURCE
-    // entirely — it doesn't just stop in-column reordering as the removed
-    // comment intended, it also blocked moving a COMPLETADA task back OUT
-    // (pointer and keyboard alike, since both share this hook). No column
-    // persists an explicit order anyway (no `orden` field on Tarea, and
-    // handleDragEnd no-ops on a same-column drop for every column), so
-    // nothing is lost by leaving this undisabled.
+    disabled: !puedeEditar,
   });
   return (
     <div
@@ -223,6 +227,8 @@ export function SortableTaskCard({
       }}
       {...attributes}
       {...listeners}
+      data-dnd-disabled={puedeEditar ? "false" : "true"}
+      aria-disabled={!puedeEditar}
       className={cn(isDragging && "opacity-30")}
     >
       <TaskCard task={task} onClick={onClick} />

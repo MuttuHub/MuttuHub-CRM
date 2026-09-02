@@ -165,6 +165,7 @@ export function ClientSheet({
                   <TabsContent value="contactos" className="mt-0">
                     <ContactosTab
                       clientId={clientId!}
+                      readOnly={cliente.puede_editar === false}
                       onNew={() => {
                         setEditingContact(null);
                         setContactFormOpen(true);
@@ -180,6 +181,7 @@ export function ClientSheet({
                   <TabsContent value="oportunidades" className="mt-0">
                     <OportunidadesTab
                       clientId={clientId!}
+                      readOnly={cliente.puede_editar === false}
                       onNew={() => {
                         setEditingOpp(null);
                         setOppFormOpen(true);
@@ -195,6 +197,7 @@ export function ClientSheet({
                   <TabsContent value="compromisos" className="mt-0">
                     <CompromisosTab
                       clientId={clientId!}
+                      readOnly={cliente.puede_editar === false}
                       onNew={() => {
                         setEditingTask(null);
                         setTaskFormOpen(true);
@@ -208,11 +211,17 @@ export function ClientSheet({
                   </TabsContent>
 
                   <TabsContent value="bitacora" className="mt-0">
-                    <BitacoraTab clientId={clientId!} />
+                    <BitacoraTab
+                      clientId={clientId!}
+                      readOnly={cliente.puede_editar === false}
+                    />
                   </TabsContent>
 
                   <TabsContent value="documentos" className="mt-0">
-                    <DocumentosTab clientId={clientId!} />
+                    <DocumentosTab
+                      clientId={clientId!}
+                      readOnly={cliente.puede_editar === false}
+                    />
                   </TabsContent>
 
                   <TabsContent value="tareas" className="mt-0">
@@ -327,16 +336,21 @@ function SheetHeaderContent({
         </div>
       </div>
 
+      {/* PR 4 (Slice B2): hide the destructive header controls when the
+       *  server says the user can't edit. The "Exportar PDF" print link
+       *  stays — it's a read action and never reaches a write endpoint. */}
       <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onEditar}
-          className="shrink-0 rounded-10 px-3 text-[12.5px] font-semibold"
-        >
-          <Pencil className="size-3.5" strokeWidth={1.9} />
-          Editar
-        </Button>
+        {cliente.puede_editar && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onEditar}
+            className="shrink-0 rounded-10 px-3 text-[12.5px] font-semibold"
+          >
+            <Pencil className="size-3.5" strokeWidth={1.9} />
+            Editar
+          </Button>
+        )}
         <Button
           variant="outline"
           size="sm"
@@ -348,15 +362,17 @@ function SheetHeaderContent({
           <FileText className="size-3.5 text-destructivo" strokeWidth={1.9} />
           Exportar PDF
         </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onDesactivar}
-          className="shrink-0 rounded-10 px-3 text-[12.5px] font-semibold text-ink-500 hover:border-destructivo/40 hover:text-destructivo"
-        >
-          <UserX className="size-3.5" strokeWidth={1.9} />
-          Desactivar cliente
-        </Button>
+        {cliente.puede_editar && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onDesactivar}
+            className="shrink-0 rounded-10 px-3 text-[12.5px] font-semibold text-ink-500 hover:border-destructivo/40 hover:text-destructivo"
+          >
+            <UserX className="size-3.5" strokeWidth={1.9} />
+            Desactivar cliente
+          </Button>
+        )}
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -436,11 +452,19 @@ function InlineText({
   value,
   onSave,
   required,
+  disabled,
 }: {
   label: string;
   value: string | null;
   onSave: (value: string | null) => Promise<void>;
   required?: boolean;
+  /**
+   * PR 4 (Slice B2): server-authoritative write flag. When true, the
+   * entry button is hidden and the value renders as plain text — the
+   * user can READ the field but never reaches the mutation path that
+   * would 403. Server is the authority; this only hides the affordance.
+   */
+  disabled?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? "");
@@ -469,6 +493,17 @@ function InlineText({
   }
 
   if (!editing) {
+    // PR 4: read-only path — see InlineText for the rationale.
+    if (disabled) {
+      return (
+        <div className="min-w-0">
+          <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+          <p className="mt-1 px-1.5 py-0.5 text-[13.5px] leading-snug text-ink-900">
+            {formatFecha(value)}
+          </p>
+        </div>
+      );
+    }
     return (
       <div className="min-w-0">
         <dt className={INLINE_LABEL_CLASS}>{label}</dt>
@@ -480,7 +515,7 @@ function InlineText({
           }}
           className={INLINE_DISPLAY_CLASS}
         >
-          <span className="min-w-0 flex-1 whitespace-pre-wrap">{value || "—"}</span>
+          <span className="min-w-0 flex-1">{value || "—"}</span>
           <Pencil
             className="mt-0.5 size-3 shrink-0 text-ink-400 opacity-0 group-hover:opacity-100"
             strokeWidth={2}
@@ -520,10 +555,13 @@ function InlineTextarea({
   label,
   value,
   onSave,
+  disabled,
 }: {
   label: string;
   value: string | null;
   onSave: (value: string | null) => Promise<void>;
+  /** PR 4: when true, the field renders as plain text (no edit button). */
+  disabled?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? "");
@@ -547,6 +585,17 @@ function InlineTextarea({
   }
 
   if (!editing) {
+    // PR 4: read-only path — see InlineText for the rationale.
+    if (disabled) {
+      return (
+        <div className="min-w-0">
+          <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+          <p className="mt-1 px-1.5 py-0.5 text-[13.5px] leading-snug whitespace-pre-wrap text-ink-900">
+            {value || "—"}
+          </p>
+        </div>
+      );
+    }
     return (
       <div className="min-w-0">
         <dt className={INLINE_LABEL_CLASS}>{label}</dt>
@@ -595,10 +644,13 @@ function InlineDate({
   label,
   value,
   onSave,
+  disabled,
 }: {
   label: string;
   value: string | null;
   onSave: (value: string | null) => Promise<void>;
+  /** PR 4: when true, the field renders as plain text (no edit button). */
+  disabled?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const asInputValue = value && !Number.isNaN(new Date(value).getTime())
@@ -624,18 +676,32 @@ function InlineDate({
   }
 
   if (!editing) {
+    // PR 4 (Slice B2): when the server says the user can't edit, render
+    // the value as plain text — no entry button, no hover pencil, no
+    // click-to-edit. The server is the authority; this only hides the
+    // affordance so the user never reaches a path that would 403.
+    if (disabled) {
+      return (
+        <div className="min-w-0">
+          <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+          <p className="mt-1 px-1.5 py-0.5 text-[13.5px] leading-snug text-ink-900">
+            {value || "—"}
+          </p>
+        </div>
+      );
+    }
     return (
       <div className="min-w-0">
         <dt className={INLINE_LABEL_CLASS}>{label}</dt>
         <button
           type="button"
           onClick={() => {
-            setDraft(asInputValue);
+            setDraft(value ?? "");
             setEditing(true);
           }}
           className={INLINE_DISPLAY_CLASS}
         >
-          <span className="min-w-0 flex-1">{formatFecha(value)}</span>
+          <span className="min-w-0 flex-1 whitespace-pre-wrap">{value || "—"}</span>
           <Pencil
             className="mt-0.5 size-3 shrink-0 text-ink-400 opacity-0 group-hover:opacity-100"
             strokeWidth={2}
@@ -676,6 +742,7 @@ function InlineSelect<T extends string>({
   options,
   onSave,
   clearLabel,
+  disabled,
 }: {
   label: string;
   value: T | "";
@@ -683,6 +750,9 @@ function InlineSelect<T extends string>({
   onSave: (value: T | null) => Promise<void>;
   /** Si viene, agrega una opción para volver el campo a null (ej. prioridad). */
   clearLabel?: string;
+  /** PR 4: when true, the underlying SelectTrigger is `disabled` and the
+   *  user can't open the popup to change the value. */
+  disabled?: boolean;
 }) {
   async function handleChange(next: string | null) {
     if (!next || next === value) return;
@@ -692,8 +762,15 @@ function InlineSelect<T extends string>({
   return (
     <div className="min-w-0">
       <dt className={INLINE_LABEL_CLASS}>{label}</dt>
-      <Select value={value || (clearLabel ? CLEAR_PRIORIDAD : "")} onValueChange={(v) => void handleChange(v)}>
-        <SelectTrigger className={INLINE_SELECT_TRIGGER_CLASS}>
+      <Select
+        value={value || (clearLabel ? CLEAR_PRIORIDAD : "")}
+        onValueChange={(v) => void handleChange(v)}
+        disabled={disabled}
+      >
+        <SelectTrigger
+          disabled={disabled}
+          className={INLINE_SELECT_TRIGGER_CLASS}
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -716,6 +793,9 @@ function GeneralTab({
   cliente: ClientDetail;
   users: { id: string; nombre: string }[];
 }) {
+  // PR 4 (Slice B2): one flag, every input. The server is the authority
+  // on writes; the UI only hides the affordance, never blocks a request.
+  const readOnly = cliente.puede_editar === false;
   const save = useInlineClientField(cliente.id, "nombre");
   const saveEmpresa = useInlineClientField(cliente.id, "empresa");
   const saveTipo = useInlineClientField(cliente.id, "tipo_cliente");
@@ -748,8 +828,9 @@ function GeneralTab({
         value={cliente.nombre}
         onSave={(v) => save(v as string)}
         required
+        disabled={readOnly}
       />
-      <InlineText label="Empresa u organización" value={cliente.empresa} onSave={saveEmpresa} />
+      <InlineText label="Empresa u organización" value={cliente.empresa} onSave={saveEmpresa} disabled={readOnly} />
       <InlineSelect
         label="Tipo de cliente"
         value={cliente.tipo_cliente}
@@ -758,18 +839,21 @@ function GeneralTab({
           label: TIPO_CLIENTE_LABELS[t].label,
         }))}
         onSave={(v) => saveTipo(v as TipoCliente)}
+        disabled={readOnly}
       />
-      <InlineText label="Tamaño de la organización" value={cliente.tamano_org} onSave={saveTamano} />
-      <InlineText label="Ubicación" value={cliente.ubicacion} onSave={saveUbicacion} />
+      <InlineText label="Tamaño de la organización" value={cliente.tamano_org} onSave={saveTamano} disabled={readOnly} />
+      <InlineText label="Ubicación" value={cliente.ubicacion} onSave={saveUbicacion} disabled={readOnly} />
       <InlineText
         label="Canal de contacto inicial"
         value={cliente.canal_contacto_inicial}
         onSave={saveCanal}
+        disabled={readOnly}
       />
       <InlineDate
         label="Fecha de primer contacto"
         value={cliente.fecha_primer_contacto}
         onSave={saveFecha}
+        disabled={readOnly}
       />
       <InlineSelect
         label="Prioridad"
@@ -780,6 +864,7 @@ function GeneralTab({
         }))}
         onSave={(v) => savePrioridad(v as PrioridadCliente | null)}
         clearLabel="Sin prioridad"
+        disabled={readOnly}
       />
       <InlineSelect
         label="Estado"
@@ -789,12 +874,14 @@ function GeneralTab({
           label: ESTADO_CLIENTE_LABELS[e].label,
         }))}
         onSave={(v) => saveEstado(v as EstadoCliente)}
+        disabled={readOnly}
       />
       <InlineSelect
         label="Responsable interno"
         value={cliente.responsable_id}
         options={responsableOptions.map((u) => ({ value: u.id, label: u.nombre }))}
         onSave={(v) => saveResponsable(v as string)}
+        disabled={readOnly}
       />
       <FieldValue label="Valor potencial" value={formatCOP(cliente.valor_potencial)} mono />
       <FieldValue label="Compromisos abiertos" value={cliente.compromisos_abiertos} mono />
@@ -806,13 +893,14 @@ function GeneralTab({
         />
       </div>
       <div className="sm:col-span-2">
-        <InlineTextarea label="Riesgos o barreras" value={cliente.riesgos_barreras} onSave={saveRiesgos} />
+        <InlineTextarea label="Riesgos o barreras" value={cliente.riesgos_barreras} onSave={saveRiesgos} disabled={readOnly} />
       </div>
       <div className="sm:col-span-2">
         <InlineTextarea
           label="Resumen de la relación"
           value={cliente.resumen_relacion}
           onSave={saveResumen}
+          disabled={readOnly}
         />
       </div>
     </dl>
@@ -826,11 +914,14 @@ function ContactosTab({
   onNew,
   onEdit,
   onDelete,
+  readOnly,
 }: {
   clientId: string;
   onNew: () => void;
   onEdit: (c: Contacto) => void;
   onDelete: (c: Contacto) => void;
+  /** PR 4 (Slice B2): hide the new/edit/delete controls. */
+  readOnly?: boolean;
 }) {
   const query = useContacts(clientId);
   const contactos = query.data ?? [];
@@ -843,9 +934,11 @@ function ContactosTab({
             ? "Cargando contactos…"
             : `${contactos.length} contacto${contactos.length === 1 ? "" : "s"}`}
         </p>
-        <Button size="sm" onClick={onNew} className="rounded-10 font-bold">
-          Agregar contacto
-        </Button>
+        {!readOnly && (
+          <Button size="sm" onClick={onNew} className="rounded-10 font-bold">
+            Agregar contacto
+          </Button>
+        )}
       </div>
 
       {query.isError && <ErrorState message="No pudimos cargar los contactos." />}
@@ -878,26 +971,28 @@ function ContactosTab({
                 <p className="mt-1.5 text-[12.5px] leading-snug text-ink-700">{c.notas}</p>
               )}
             </div>
-            <div className="flex shrink-0 gap-1">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={`Editar ${c.nombre}`}
-                onClick={() => onEdit(c)}
-                className="after:-inset-1"
-              >
-                <Pencil className="size-3.5" strokeWidth={1.9} />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={`Eliminar ${c.nombre}`}
-                onClick={() => onDelete(c)}
-                className="text-ink-500 hover:text-destructivo after:-inset-1"
-              >
-                <Trash2 className="size-3.5" strokeWidth={1.9} />
-              </Button>
-            </div>
+            {!readOnly && (
+              <div className="flex shrink-0 gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Editar ${c.nombre}`}
+                  onClick={() => onEdit(c)}
+                  className="after:-inset-1"
+                >
+                  <Pencil className="size-3.5" strokeWidth={1.9} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Eliminar ${c.nombre}`}
+                  onClick={() => onDelete(c)}
+                  className="text-ink-500 hover:text-destructivo after:-inset-1"
+                >
+                  <Trash2 className="size-3.5" strokeWidth={1.9} />
+                </Button>
+              </div>
+            )}
           </li>
         ))}
       </ul>
@@ -912,11 +1007,14 @@ function OportunidadesTab({
   onNew,
   onEdit,
   onDelete,
+  readOnly,
 }: {
   clientId: string;
   onNew: () => void;
   onEdit: (o: Oportunidad) => void;
   onDelete: (o: Oportunidad) => void;
+  /** PR 4: hide the new/edit/delete controls. */
+  readOnly?: boolean;
 }) {
   const query = useOpportunities(clientId);
   const oportunidades = query.data ?? [];
@@ -930,9 +1028,11 @@ function OportunidadesTab({
             ? "Cargando oportunidades…"
             : `${oportunidades.length} oportunidad${oportunidades.length === 1 ? "" : "es"}`}
         </p>
-        <Button size="sm" onClick={onNew} className="rounded-10 font-bold">
-          Nueva oportunidad
-        </Button>
+        {!readOnly && (
+          <Button size="sm" onClick={onNew} className="rounded-10 font-bold">
+            Nueva oportunidad
+          </Button>
+        )}
       </div>
 
       {query.isError && <ErrorState message="No pudimos cargar las oportunidades." />}
@@ -967,26 +1067,28 @@ function OportunidadesTab({
                     <span>Última gestión: {formatFecha(o.fecha_ultima_gestion)}</span>
                   </p>
                 </div>
-                <div className="flex shrink-0 gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={`Editar ${o.nombre}`}
-                    onClick={() => onEdit(o)}
-                    className="after:-inset-1"
-                  >
-                    <Pencil className="size-3.5" strokeWidth={1.9} />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={`Eliminar ${o.nombre}`}
-                    onClick={() => onDelete(o)}
-                    className="text-ink-500 hover:text-destructivo after:-inset-1"
-                  >
-                    <Trash2 className="size-3.5" strokeWidth={1.9} />
-                  </Button>
-                </div>
+                {!readOnly && (
+                  <div className="flex shrink-0 gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Editar ${o.nombre}`}
+                      onClick={() => onEdit(o)}
+                      className="after:-inset-1"
+                    >
+                      <Pencil className="size-3.5" strokeWidth={1.9} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Eliminar ${o.nombre}`}
+                      onClick={() => onDelete(o)}
+                      className="text-ink-500 hover:text-destructivo after:-inset-1"
+                    >
+                      <Trash2 className="size-3.5" strokeWidth={1.9} />
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {abierta && (
@@ -1026,11 +1128,14 @@ function CompromisosTab({
   onNew,
   onEdit,
   onDelete,
+  readOnly,
 }: {
   clientId: string;
   onNew: () => void;
   onEdit: (t: TaskItem) => void;
   onDelete: (t: TaskItem) => void;
+  /** PR 4: hide the new/Cumplido/edit/delete controls. */
+  readOnly?: boolean;
 }) {
   const query = useTasksByClient(clientId);
   const tasks = query.data ?? [];
@@ -1044,9 +1149,11 @@ function CompromisosTab({
             ? "Cargando compromisos…"
             : `${tasks.length} compromiso${tasks.length === 1 ? "" : "s"}`}
         </p>
-        <Button size="sm" onClick={onNew} className="rounded-10 font-bold">
-          Nuevo compromiso
-        </Button>
+        {!readOnly && (
+          <Button size="sm" onClick={onNew} className="rounded-10 font-bold">
+            Nuevo compromiso
+          </Button>
+        )}
       </div>
 
       {query.isError && <ErrorState message="No pudimos cargar los compromisos." />}
@@ -1098,35 +1205,37 @@ function CompromisosTab({
                       : "Sin fecha límite"}
                   </p>
                 </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  {abierta ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 rounded-[9px] px-2.5 text-[11.5px] font-bold text-exito hover:bg-exito-bg hover:text-exito after:-inset-1"
-                      onClick={() => statusMutation.mutate({ taskId: t.id, estado: "COMPLETADA" })}
-                      disabled={statusMutation.isPending}
-                    >
-                      Cumplido
+                {!readOnly && (
+                  <div className="flex shrink-0 items-center gap-1">
+                    {abierta ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 rounded-[9px] px-2.5 text-[11.5px] font-bold text-exito hover:bg-exito-bg hover:text-exito after:-inset-1"
+                        onClick={() => statusMutation.mutate({ taskId: t.id, estado: "COMPLETADA" })}
+                        disabled={statusMutation.isPending}
+                      >
+                        Cumplido
+                      </Button>
+                    ) : (
+                      <span className="inline-flex h-7 items-center rounded-full bg-exito-bg px-2.5 text-[11px] font-bold text-exito">
+                        ✓ Cumplido
+                      </span>
+                    )}
+                    <Button variant="ghost" size="icon-sm" aria-label={`Editar ${t.titulo}`} onClick={() => onEdit(t)} className="after:-inset-1">
+                      <Pencil className="size-3.5" strokeWidth={1.9} />
                     </Button>
-                  ) : (
-                    <span className="inline-flex h-7 items-center rounded-full bg-exito-bg px-2.5 text-[11px] font-bold text-exito">
-                      ✓ Cumplido
-                    </span>
-                  )}
-                  <Button variant="ghost" size="icon-sm" aria-label={`Editar ${t.titulo}`} onClick={() => onEdit(t)} className="after:-inset-1">
-                    <Pencil className="size-3.5" strokeWidth={1.9} />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={`Eliminar ${t.titulo}`}
-                    onClick={() => onDelete(t)}
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Eliminar ${t.titulo}`}
+                      onClick={() => onDelete(t)}
                     className="text-ink-500 hover:text-destructivo after:-inset-1"
                   >
                     <Trash2 className="size-3.5" strokeWidth={1.9} />
                   </Button>
-                </div>
+                  </div>
+                )}
               </div>
             </li>
           );
@@ -1138,7 +1247,7 @@ function CompromisosTab({
 
 /* ── Pestaña Bitácora (inmutable) ──────────────────────────────────────── */
 
-function BitacoraTab({ clientId }: { clientId: string }) {
+function BitacoraTab({ clientId, readOnly }: { clientId: string; readOnly?: boolean }) {
   const query = useBitacora(clientId);
   const addMutation = useAddLogEntry(clientId);
   const [texto, setTexto] = useState("");
@@ -1156,41 +1265,44 @@ function BitacoraTab({ clientId }: { clientId: string }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Composer fijo: sticky al final del área scrolleable */}
-      <div className="sticky bottom-0 z-20 rounded-14 border border-ink-200 bg-panel/95 p-4 shadow-[0_-8px_24px_rgba(25,17,19,0.05)] backdrop-blur">
-        <div className="flex items-start gap-3">
-          <span className="mt-1 grid size-8 shrink-0 place-items-center rounded-full bg-rose-100 text-rose-700 dark:text-rose-400">
-            <MessageSquarePlus className="size-4" strokeWidth={1.8} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <textarea
-              rows={3}
-              value={texto}
-              onChange={(e) => setTexto(e.target.value)}
-              placeholder="Agrega una nota de seguimiento…"
-              className="w-full resize-none rounded-12 border border-input bg-panel px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            />
-            <div className="mt-2 flex items-center justify-between gap-3">
-              <p className="text-[11.5px] text-ink-500">
-                Una vez guardada, la nota no se puede editar ni eliminar.
-              </p>
-              <Button
-                size="sm"
-                onClick={() => void submit()}
-                disabled={!texto.trim() || addMutation.isPending}
-                className="rounded-10 font-bold"
-              >
-                {addMutation.isPending ? (
-                  <span className="size-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                ) : (
-                  <Send className="size-3.5" strokeWidth={1.9} />
-                )}
-                {addMutation.isPending ? "Guardando…" : "Agregar nota"}
-              </Button>
+      {/* PR 4: composer is the write path — hide when the server says the
+       *  user can't add bitácora entries. The list below stays visible. */}
+      {!readOnly && (
+        <div className="sticky bottom-0 z-20 rounded-14 border border-ink-200 bg-panel/95 p-4 shadow-[0_-8px_24px_rgba(25,17,19,0.05)] backdrop-blur">
+          <div className="flex items-start gap-3">
+            <span className="mt-1 grid size-8 shrink-0 place-items-center rounded-full bg-rose-100 text-rose-700 dark:text-rose-400">
+              <MessageSquarePlus className="size-4" strokeWidth={1.8} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <textarea
+                rows={3}
+                value={texto}
+                onChange={(e) => setTexto(e.target.value)}
+                placeholder="Agrega una nota de seguimiento…"
+                className="w-full resize-none rounded-12 border border-input bg-panel px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              />
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <p className="text-[11.5px] text-ink-500">
+                  Una vez guardada, la nota no se puede editar ni eliminar.
+                </p>
+                <Button
+                  size="sm"
+                  onClick={() => void submit()}
+                  disabled={!texto.trim() || addMutation.isPending}
+                  className="rounded-10 font-bold"
+                >
+                  {addMutation.isPending ? (
+                    <span className="size-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  ) : (
+                    <Send className="size-3.5" strokeWidth={1.9} />
+                  )}
+                  {addMutation.isPending ? "Guardando…" : "Agregar nota"}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {query.isError && <ErrorState message="No pudimos cargar la bitácora." />}
       {!query.isLoading && !query.isError && entradas.length === 0 && (
@@ -1223,7 +1335,7 @@ function BitacoraTab({ clientId }: { clientId: string }) {
 // Pestaña compacta del Repositorio (PRD §4.2): últimos 10 documentos del
 // cliente con la versión activa. El CRUD completo vive en /documentos
 // (?cliente=<id> deep-linkea el filtro); acá solo descarga directa.
-function DocumentosTab({ clientId }: { clientId: string }) {
+function DocumentosTab({ clientId, readOnly }: { clientId: string; readOnly?: boolean }) {
   const router = useRouter();
   const query = useDocuments({ cliente: clientId, limit: 10 });
   const items = query.data?.items ?? [];
@@ -1303,15 +1415,17 @@ function DocumentosTab({ clientId }: { clientId: string }) {
           <ExternalLink className="size-3.5 text-ink-500" strokeWidth={1.8} />
           Ver todos
         </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={subirVinculado}
-          className="h-9 rounded-12 border-ink-200 bg-panel px-3 text-[12.5px] font-semibold text-ink-800 hover:bg-ink-100"
-        >
-          <Upload className="size-4 text-exito" strokeWidth={1.8} />
-          Subir documento vinculado
-        </Button>
+        {!readOnly && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={subirVinculado}
+            className="h-9 rounded-12 border-ink-200 bg-panel px-3 text-[12.5px] font-semibold text-ink-800 hover:bg-ink-100"
+          >
+            <Upload className="size-4 text-exito" strokeWidth={1.8} />
+            Subir documento vinculado
+          </Button>
+        )}
       </div>
     </div>
   );

@@ -108,15 +108,16 @@ describe("TaskDialog — PR 4 UI gate (puede_editar)", () => {
     // tooltip is an accessibility nicety, not a contract.
     expect(screen.getByLabelText(/Título/)).toBeDisabled()
     expect(screen.getByLabelText(/Descripción/)).toBeDisabled()
-    // Estado Select is only rendered when isEdit && task; present here.
-    expect(screen.getAllByRole("combobox").length).toBeGreaterThan(0)
-    for (const trigger of screen.getAllByRole("combobox")) {
-      // base-ui SelectTrigger renders as a combobox role; the disabled
-      // signal surfaces as `data-disabled` or `aria-disabled`.
-      const disabled =
-        trigger.getAttribute("data-disabled") === "true" ||
+    // base-ui's SelectTrigger surfaces the disabled state as a presence
+    // attribute (data-disabled) when the underlying Root is disabled.
+    // We assert the attribute is set, not the value.
+    const triggers = screen.getAllByRole("combobox")
+    expect(triggers.length).toBeGreaterThan(0)
+    for (const trigger of triggers) {
+      const hasDisabled =
+        trigger.hasAttribute("data-disabled") ||
         trigger.getAttribute("aria-disabled") === "true";
-      expect(disabled).toBe(true)
+      expect(hasDisabled).toBe(true)
     }
     // Submit button is hidden, not disabled — the user shouldn't see a
     // "Guardar cambios" they could never actually submit.
@@ -180,10 +181,10 @@ describe("TaskDialog — PR 4 UI gate (puede_editar)", () => {
     expect(screen.getByLabelText(/Título/)).not.toBeDisabled()
     expect(screen.getByLabelText(/Descripción/)).not.toBeDisabled()
     for (const trigger of screen.getAllByRole("combobox")) {
-      const disabled =
-        trigger.getAttribute("data-disabled") === "true" ||
+      const hasDisabled =
+        trigger.hasAttribute("data-disabled") ||
         trigger.getAttribute("aria-disabled") === "true";
-      expect(disabled).toBe(false)
+      expect(hasDisabled).toBe(false)
     }
     expect(screen.getByRole("button", { name: /Guardar cambios/ })).toBeInTheDocument()
     // Destructive section is present for the editor.

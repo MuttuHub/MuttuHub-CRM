@@ -220,6 +220,15 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
   }
 
   const isLoading = isEdit && detailQuery.isLoading;
+  // PR 4 (Slice B2): the server is the authority on writes — when the
+  // server says "this user cannot edit this task", every form field is
+  // disabled and the write-only sub-entity sections + the destructive
+  // "Zona de peligro" are hidden. The task body itself is still
+  // rendered (the COLABORADOR must be able to READ the foreign task
+  // per global-task-board). Creation (taskId=null) bypasses the gate:
+  // the POST write gate is server-side, and a "no-puede-editar" new
+  // task dialog would be incoherent.
+  const readOnly = isEdit && task != null && task.puede_editar === false;
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -235,13 +244,15 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                 {isEdit ? "Editar tarea" : "Nueva tarea"}
               </DialogTitle>
               <DialogDescription>
-                {isEdit
-                  ? "Actualiza los campos, el estado o la zona de detalle."
-                  : "Título y responsable son obligatorios; el resto se completa en marcha."}
+                {readOnly
+                  ? "Estás viendo esta tarea en modo lectura: tu rol no permite modificarla."
+                  : isEdit
+                    ? "Actualiza los campos, el estado o la zona de detalle."
+                    : "Título y responsable son obligatorios; el resto se completa en marcha."}
               </DialogDescription>
             </DialogHeader>
 
-            {error && (
+            {error && !readOnly && (
               <div
                 role="alert"
                 className="rounded-xl border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
@@ -258,6 +269,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                 <Input
                   id="tarea-titulo"
                   required
+                  disabled={readOnly}
                   value={form.titulo}
                   onChange={(e) => set("titulo", e.target.value)}
                   placeholder="Ej. Entregar informe trimestral"
@@ -270,6 +282,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                 <textarea
                   id="tarea-descripcion"
                   rows={2}
+                  disabled={readOnly}
                   value={form.descripcion}
                   onChange={(e) => set("descripcion", e.target.value)}
                   placeholder="Detalle de la tarea"
@@ -284,8 +297,12 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                 <Select
                   value={form.responsable_id}
                   onValueChange={(v) => set("responsable_id", v ?? "")}
+                  disabled={readOnly}
                 >
-                  <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+                  <SelectTrigger
+                    disabled={readOnly}
+                    className="h-10 w-full rounded-12 bg-panel px-3"
+                  >
                     <SelectValue placeholder="Selecciona un responsable" />
                   </SelectTrigger>
                   <SelectContent>
@@ -305,8 +322,12 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                   onValueChange={(v) =>
                     set("cliente_id", v === "ninguno" ? "" : (v ?? ""))
                   }
+                  disabled={readOnly}
                 >
-                  <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+                  <SelectTrigger
+                    disabled={readOnly}
+                    className="h-10 w-full rounded-12 bg-panel px-3"
+                  >
                     <SelectValue placeholder="Sin cliente" />
                   </SelectTrigger>
                   <SelectContent>
@@ -325,6 +346,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                 <Input
                   id="tarea-fecha"
                   type="date"
+                  disabled={readOnly}
                   value={form.fecha_entrega}
                   onChange={(e) => set("fecha_entrega", e.target.value)}
                   className="h-10 rounded-12 bg-panel px-3"
@@ -336,8 +358,12 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                 <Select
                   value={form.prioridad}
                   onValueChange={(v) => set("prioridad", (v ?? "") as PrioridadTarea | "")}
+                  disabled={readOnly}
                 >
-                  <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+                  <SelectTrigger
+                    disabled={readOnly}
+                    className="h-10 w-full rounded-12 bg-panel px-3"
+                  >
                     <SelectValue placeholder="Sin prioridad" />
                   </SelectTrigger>
                   <SelectContent>
@@ -358,6 +384,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                       key={tag}
                       type="button"
                       onClick={() => toggleEtiqueta(tag)}
+                      disabled={readOnly}
                       aria-pressed={form.etiquetas.includes(tag)}
                       className={cn(
                         "inline-flex h-7 items-center rounded-full border px-3 text-[12px] font-semibold transition-colors",
@@ -379,8 +406,12 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                     <Select
                       value={form.estado}
                       onValueChange={(v) => set("estado", (v ?? "POR_HACER") as EstadoTarea)}
+                      disabled={readOnly}
                     >
-                      <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+                      <SelectTrigger
+                        disabled={readOnly}
+                        className="h-10 w-full rounded-12 bg-panel px-3"
+                      >
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -413,6 +444,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                   <textarea
                     id="tarea-motivo"
                     rows={2}
+                    disabled={readOnly}
                     value={form.motivo_bloqueo}
                     onChange={(e) => set("motivo_bloqueo", e.target.value)}
                     placeholder="Por qué está bloqueada la tarea"
@@ -422,7 +454,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
               )}
             </div>
 
-            {isEdit && task && (
+            {isEdit && task && !readOnly && (
               <div className="flex flex-col gap-6 rounded-[16px] border border-ink-200 bg-ink-100/50 p-4">
                 <SubtaskSection taskId={task.id} />
                 <CommentSection taskId={task.id} />
@@ -432,17 +464,25 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
             )}
 
             <DialogFooter className="sm:justify-end">
-              <Button type="button" variant="outline" onClick={onClose}>
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={pendingMutation}
-                className="rounded-lg px-4 font-bold"
-              >
-                {pendingMutation && <LoaderCircle className="size-4 animate-spin" />}
-                {pendingMutation ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear tarea"}
-              </Button>
+              {readOnly ? (
+                <Button type="button" variant="outline" onClick={onClose}>
+                  Cerrar
+                </Button>
+              ) : (
+                <>
+                  <Button type="button" variant="outline" onClick={onClose}>
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={pendingMutation}
+                    className="rounded-lg px-4 font-bold"
+                  >
+                    {pendingMutation && <LoaderCircle className="size-4 animate-spin" />}
+                    {pendingMutation ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear tarea"}
+                  </Button>
+                </>
+              )}
             </DialogFooter>
           </form>
         )}
