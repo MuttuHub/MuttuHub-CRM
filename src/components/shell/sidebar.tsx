@@ -235,7 +235,10 @@ export function Sidebar() {
       <aside
         className={cn(
           "sticky top-[14px] hidden h-[calc(100vh-28px)] shrink-0 flex-col rounded-[26px] border border-shell-border bg-sidebar lg:flex",
-          collapsed ? "w-[72px] px-2.5 py-3.5" : "w-[244px] px-3.5 py-3.5",
+          // PR 31 (plan Fase 5): rail de 200px hasta xl — el acantilado del
+          // iPad horizontal (1024px) no puede pagar 244px. En xl+ vuelve a
+          // 244px, donde el ancho sobra.
+          collapsed ? "w-[72px] px-2.5 py-3.5" : "w-[200px] px-3 py-3.5 xl:w-[244px] xl:px-3.5",
         )}
       >
         <SidebarContent rail={collapsed} />

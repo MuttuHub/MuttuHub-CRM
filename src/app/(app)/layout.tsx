@@ -17,12 +17,12 @@ export default async function AppShell({
   const session = await requireUser();
 
   return (
-    <div className="flex min-h-screen gap-[14px] bg-page p-[14px]">
-      <div className="flex w-full min-w-0 flex-col gap-[14px]">
+    <div className="flex min-h-screen gap-3 bg-page p-3 sm:gap-[14px] sm:p-[14px]">
+      <div className="flex w-full min-w-0 flex-col gap-3 sm:gap-[14px]">
         <SessionBanner />
-        <div className="flex min-h-0 flex-1 gap-[14px]">
+        <div className="flex min-h-0 flex-1 gap-3 sm:gap-[14px]">
           <Sidebar />
-          <main className="flex min-w-0 flex-1 flex-col gap-5 rounded-[26px] bg-panel p-6 lg:p-7">
+          <main className="flex min-w-0 flex-1 flex-col gap-5 rounded-[26px] bg-panel p-4 sm:p-6 lg:p-7">
             <Header initialUser={session?.usuario ?? null} />
             {children}
           </main>
