@@ -185,6 +185,18 @@ flowchart LR
 | **Vercel** | Preview en cada PR + producción en main (integración Git) |
 | **TestSprite E2E** | Informativo (`blocking: false`); suite MCP falla en su sandbox (incompatibilidad conocida) |
 
+### Nota de proceso — manual de usuario
+
+El manual vive en `manual-usuario.html` (autocontenido, con `@page { size: A4 }`), y el PDF
+`Manual-de-usuario-Muttu-Hub.pdf` es un **binario generado a mano**: se desactualiza en silencio si se edita
+solo el HTML. Cada vez que el manual cambie:
+
+1. Editar `manual-usuario.html` (fuente de verdad).
+2. Abrir el HTML en el navegador y exportar/imprimir a PDF con el mismo nombre.
+3. Commitear **ambos** (HTML + PDF) juntos.
+
+Automatizar esta exportación con Playwright (ya instalado) queda anotado como mejora futura.
+
 ---
 
 ## Puesta en marcha

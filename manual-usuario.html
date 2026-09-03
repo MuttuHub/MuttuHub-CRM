@@ -145,6 +145,7 @@
     text-align: center;
   }
   .page-break { page-break-before: always; }
+  .rol { display: inline-block; background: #f6f0f2; border: 1px solid var(--line); border-radius: 6px; padding: 0 6px; font-size: 8.5pt; font-weight: 600; color: var(--rose-dark); }
 </style>
 </head>
 <body>
@@ -159,287 +160,330 @@
       <text x="88" y="23" font-family="Georgia,serif" font-weight="bold" font-size="16" fill="#191113">Muttu</text>
     </svg>
     <h1>Muttu Hub</h1>
-    <p class="sub">Manual de usuario paso a paso</p>
+    <p class="sub">Manual de usuario por pantalla</p>
     <span class="badge">Guía del usuario final</span>
-    <p class="meta">Versión 1.0 · Agosto 2026<br/>Muttu Innovación Social S.A.S. · Barranquilla, Colombia</p>
+    <p class="meta">Versión 1.1 · Septiembre 2026<br/>Muttu Innovación Social S.A.S. · Barranquilla, Colombia</p>
   </div>
 
   <!-- ÍNDICE -->
   <div class="toc">
     <h1 class="section">Contenido</h1>
     <ol>
-      <li>Empezar: qué es Muttu Hub y cómo entrar
-        <div class="sub">1.1 Qué es Muttu Hub<br/>1.2 Iniciar sesión</div>
+      <li>Acceso: entrar y solicitar cuenta
+        <div class="sub">1.1 Entrar · 1.2 Entrar con Google · 1.3 Recuperar la contraseña · 1.4 Solicitar acceso</div>
       </li>
-      <li>Solicitar acceso
-        <div class="sub">2.1 Enviar la solicitud<br/>2.2 Qué pasa después de solicitarla<br/>2.3 Crear tu contraseña con la invitación</div>
+      <li>Inicio: el resumen del día
+        <div class="sub">2.1 Qué muestra · 2.2 Las 4 caras del dashboard</div>
       </li>
-      <li>Conocer el Hub
-        <div class="sub">3.1 Menú de navegación<br/>3.2 Buscar en el Hub<br/>3.3 Cerrar sesión</div>
+      <li>Clientes
+        <div class="sub">3.1 El listado · 3.2 Vistas Tarjetas / Lista / Detalles · 3.3 Filtrar y ordenar · 3.4 Vistas guardadas · 3.5 Crear un cliente · 3.6 La ficha (7 pestañas) · 3.7 Exportar a Excel · 3.8 Ficha imprimible</div>
       </li>
-      <li>Clientes (CRM)
-        <div class="sub">4.1 Ver la lista y filtrar<br/>4.2 Crear un cliente<br/>4.3 La ficha del cliente<br/>4.4 Contactos<br/>4.5 Oportunidades<br/>4.6 Compromisos<br/>4.7 Bitácora<br/>4.8 Documentos vinculados<br/>4.9 Editar y desactivar un cliente</div>
+      <li>Tablero del equipo
+        <div class="sub">4.1 Vistas Tablero / Lista · 4.2 Mover tarjetas · 4.3 Filtros · 4.4 Reporte del tablero</div>
       </li>
-      <li>Tablero del equipo</li>
       <li>Documentos y Repositorio
-        <div class="sub">6.1 Subir un documento<br/>6.2 Versiones<br/>6.3 Descargar y filtrar</div>
+        <div class="sub">5.1 Subir un documento · 5.2 Carpetas · 5.3 Versiones · 5.4 Búsqueda · 5.5 Descargar</div>
       </li>
-      <li>Reportes</li>
-      <li>Administración (para administradores)
-        <div class="sub">8.1 Aprobar o rechazar solicitudes de acceso<br/>8.2 Iniciar sesión con la cuenta de administración</div>
+      <li>Reportes
+        <div class="sub">6.1 Reporte de tareas · 6.2 Las 4 caras · 6.3 Exportar</div>
       </li>
-      <li>Solución de problemas
-        <div class="sub">9.1 El enlace de invitación dice «Enlace no válido»<br/>9.2 Olvidé mi contraseña<br/>9.3 La sesión expiró</div>
+      <li>Administración
+        <div class="sub">7.1 Usuarios y permisos · 7.2 Solicitudes de acceso · 7.3 Catálogos · 7.4 Bitácoras</div>
       </li>
+      <li>Roles y qué puede hacer cada uno
+        <div class="sub">8.1 Los 4 roles · 8.2 Qué NO ve un colaborador</div>
+      </li>
+      <li>Elementos comunes
+        <div class="sub">9.1 Notificaciones · 9.2 Modo oscuro · 9.3 Sesión de 4 horas · 9.4 Colapsar el menú · 9.5 Documentación de la API</div>
+      </li>
+      <li>Solución de problemas</li>
     </ol>
   </div>
 
-  <!-- 1. EMPEZAR -->
-  <h1 class="section">1. Empezar: qué es Muttu Hub y cómo entrar</h1>
+  <!-- 1. ACCESO -->
+  <h1 class="section">1. Acceso: entrar y solicitar cuenta</h1>
+  <p>El acceso a Muttu Hub se concede exclusivamente por la administración. La pantalla de acceso tiene cuatro vistas internas: <strong>Entrar</strong>, <strong>Entrar con Google</strong>, <strong>Recuperar la contraseña</strong> y <strong>Solicitar acceso</strong>.</p>
 
-  <h2>1.1 Qué es Muttu Hub</h2>
-  <p>Muttu Hub es el espacio de trabajo del equipo: reúne en un solo lugar la cartera de aliados (clientes), los compromisos y tareas del equipo, los documentos versionados y los reportes. Todo queda registrado con fecha, hora e IP para mantener la bitácora de actividad.</p>
-
-  <h2>1.2 Iniciar sesión</h2>
+  <h2>1.1 Entrar</h2>
+  <p><span class="rol">Todos los roles</span> · Cómo se llega: abre la dirección del Hub. En la tarjeta central elige la pestaña <strong>Entrar</strong>.</p>
   <ol>
-    <li>Abre <code>https://muttu-hub.vercel.app</code> en tu navegador (Chrome o Edge recomendados).</li>
-    <li>En la tarjeta de la derecha verás dos pestañas: <strong>Entrar</strong> y <strong>Solicitar acceso</strong>.</li>
-    <li>Elige <strong>Entrar</strong>.</li>
-    <li>Escribe el <strong>correo corporativo</strong> que te asignó la administradora y tu <strong>contraseña</strong>.</li>
-    <li>Opcional: marca <strong>Recuérdame</strong> para que el correo quede guardado en ese equipo.</li>
+    <li>Escribe el <strong>correo corporativo</strong> que te asignó la administración.</li>
+    <li>Escribe tu <strong>contraseña</strong>.</li>
+    <li>Opcional: marca <strong>Recuérdame</strong> para que el correo quede guardado en ese equipo (nunca la contraseña).</li>
     <li>Pulsa <strong>Entrar</strong>.</li>
   </ol>
-  <div class="passo"><span class="num">Paso clave:</span> si aún no tienes cuenta ni contraseña, no pulses «Entrar»: usa la pestaña <strong>Solicitar acceso</strong> (ver sección 2).</div>
-  <div class="nota"><strong>¿Olvidaste tu contraseña?</strong> Dentro de la pestaña Entrar pulsa «¿Olvidaste tu contraseña?», escribe tu correo y recibirás un enlace de un solo uso para crear una nueva (sección 9.2).</div>
+  <div class="passo"><span class="num">Paso clave:</span> si aún no tienes cuenta ni contraseña, no pulses «Entrar»: usa la pestaña <strong>Solicitar acceso</strong> (sección 1.4).</div>
 
-  <!-- 2. SOLICITAR ACCESO -->
-  <h1 class="section">2. Solicitar acceso</h1>
-
-  <h2>2.1 Enviar la solicitud</h2>
-  <p>Cualquier persona del equipo u organización aliada puede pedir acceso. El acceso se concede exclusivamente por la administradora, así que la solicitud entra a una cola de revisión.</p>
+  <h2>1.2 Entrar con Google</h2>
+  <p><span class="rol">Todos los roles</span> · Debajo del formulario hay un separador «o continúa con» y el botón <strong>Google</strong>.</p>
   <ol>
-    <li>Abre <code>https://muttu-hub.vercel.app</code> y elige la pestaña <strong>Solicitar acceso</strong>.</li>
-    <li>Completa los tres campos:
-      <ul>
-        <li><strong>Nombre completo</strong> — por ejemplo, «Adriana Gómez Restrepo».</li>
-        <li><strong>Correo corporativo</strong> — debe ser el dominio <code>@muttu.co</code> o el de tu organización aliada.</li>
-        <li><strong>Cargo en la organización</strong> — por ejemplo, «Coordinadora de proyectos».</li>
-      </ul>
-    </li>
+    <li>Pulsa el botón <strong>Google</strong>.</li>
+    <li>Elige la cuenta corporativa en el selector de Google y acepta el acceso.</li>
+    <li>El Hub te deja dentro con el rol que la administración te asignó.</li>
+  </ol>
+  <div class="nota"><strong>Si la cuenta de Google no existe en el Hub</strong> verás un error y deberás solicitar acceso primero (sección 1.4). El botón requiere Google configurado en el proyecto; si no aparece, usa el correo y contraseña.</div>
+
+  <h2>1.3 Recuperar la contraseña</h2>
+  <p><span class="rol">Todos los roles</span> · Dentro de la pestaña Entrar pulsa <strong>¿Olvidaste tu contraseña?</strong>.</p>
+  <ol>
+    <li>Escribe tu correo y pulsa <strong>Enviar enlace</strong>.</li>
+    <li>Revisa tu bandeja (y la carpeta de spam): llega un enlace de <strong>un solo uso</strong> que vence en 30 minutos.</li>
+    <li>Ábrelo, crea tu nueva contraseña (mínimo 8 caracteres, con letras y números) y confírmala.</li>
+    <li>Pulsa <strong>Guardar contraseña</strong> y entra con la nueva.</li>
+  </ol>
+  <div class="nota"><strong>No se informa si el correo existe</strong> por seguridad: si el correo es válido, el enlace va en camino; si no, no verás ningún error que delate cuentas existentes.</div>
+
+  <h2>1.4 Solicitar acceso</h2>
+  <p><span class="rol">Cualquier persona</span> · Elige la pestaña <strong>Solicitar acceso</strong>.</p>
+  <ol>
+    <li>Completa <strong>Nombre completo</strong>, <strong>Correo corporativo</strong> (dominio <code>@muttu.co</code> o el de tu organización aliada) y <strong>Cargo en la organización</strong>.</li>
     <li>Marca la casilla: <strong>Acepto la política de tratamiento de datos de Muttu</strong>.</li>
     <li>Pulsa <strong>Enviar solicitud</strong>.</li>
   </ol>
-  <div class="exito">✓ Verás el aviso: «Tu solicitud quedó en revisión: la administración asigna el rol antes de darte acceso.»</div>
-  <div class="nota"><strong>No pedimos contraseña en la solicitud.</strong> La elegirás tú cuando aceptes el correo de invitación que llega después de la aprobación.</div>
+  <div class="exito">✓ Verás: «Tu solicitud quedó en revisión: la administración asigna el rol antes de darte acceso.»</div>
+  <p>No pedimos contraseña en la solicitud: la elegirás al aceptar el correo de invitación que llega tras la aprobación (sección 7.2).</p>
 
-  <h2>2.2 Qué pasa después de solicitarla</h2>
-  <ol>
-    <li>La administradora recibe la solicitud en <strong>Administración → Solicitudes de acceso</strong>.</li>
-    <li>Revisa tus datos y la <strong>aprueba</strong> asignándote un rol (por ejemplo, <strong>Colaborador</strong>).</li>
-    <li>Al aprobar, el sistema envía automáticamente un <strong>correo de invitación</strong> con la marca Muttu a tu correo.</li>
-    <li>Si la solicitud se rechaza, la verás marcada como rechazada y podrás pedir una nueva.</li>
-  </ol>
+  <!-- 2. INICIO -->
+  <h1 class="section">2. Inicio: el resumen del día</h1>
 
-  <h2>2.3 Crear tu contraseña con la invitación</h2>
-  <ol>
-    <li>Revisa la bandeja de entrada del correo que usaste al solicitar (y la carpeta de spam si no aparece).</li>
-    <li>Abre el correo <strong>«Te invitaron a Muttu Hub»</strong>.</li>
-    <li>Pulsa el botón <strong>Aceptar invitación</strong> (o copia el enlace de respaldo si el botón no funciona).</li>
-    <li>Se abrirá Muttu Hub en la pantalla <strong>Crea tu contraseña</strong>.</li>
-    <li>Escribe una contraseña de <strong>mínimo 8 caracteres, con letras y números</strong>, y confírmala.</li>
-    <li>Pulsa <strong>Guardar contraseña</strong>.</li>
-  </ol>
-  <div class="exito">✓ Verás «Contraseña creada» y podrás pulsar <strong>Ir a iniciar sesión</strong> para entrar con tu correo y tu nueva contraseña.</div>
-  <div class="nota"><strong>El enlace es de un solo uso.</strong> Si lo abres dos veces o esperas demasiado, puede aparecer «Enlace no válido»; en ese caso solicita uno nuevo (sección 9.1).</div>
+  <h2>2.1 Qué muestra</h2>
+  <p><span class="rol">Todos los roles</span> · Cómo se llega: desde el menú lateral, <strong>Inicio</strong>. Es la pantalla de bienvenida con tu nombre y las estadísticas del equipo.</p>
+  <ul>
+    <li><strong>Encabezado</strong>: tu nombre, la fecha de hoy y la campana de notificaciones.</li>
+    <li><strong>Barras de filtros</strong>: rango de fechas y responsable para acotar los números.</li>
+    <li><strong>Tiles de KPIs</strong>: cuentas rápidas (tareas, vencidas, clientes, etc.).</li>
+    <li><strong>Caras del dashboard</strong>: cuatro resúmenes con pestañas (ver 2.2).</li>
+  </ul>
 
-  <!-- 3. CONOCER EL HUB -->
-  <h1 class="section">3. Conocer el Hub</h1>
-
-  <h2>3.1 Menú de navegación</h2>
-  <p>El menú lateral organiza el Hub en grupos:</p>
+  <h2>2.2 Las 4 caras del dashboard</h2>
+  <p>Dentro de Inicio (y también en Reportes) hay 4 pestañas con resúmenes distintos:</p>
   <table>
-    <tr><th>Sección</th><th>Para qué sirve</th></tr>
-    <tr><td><strong>Inicio</strong></td><td>Resumen personal: tus tareas, actividad reciente y KPIs.</td></tr>
-    <tr><td><strong>Clientes</strong></td><td>Cartera de aliados y clientes: listado, fichas, contactos, oportunidades, compromisos y bitácora.</td></tr>
-    <tr><td><strong>Tablero</strong></td><td>Tablero del equipo: tareas y compromisos en columnas, con alertas de vencimiento.</td></tr>
-    <tr><td><strong>Documentos</strong></td><td>Repositorio documental: archivos versionados con metadatos.</td></tr>
-    <tr><td><strong>Reportes</strong></td><td>Reportes de tareas y resúmenes, exportables a Excel y PDF.</td></tr>
-    <tr><td><strong>Administración</strong></td><td>Solo para administradores: usuarios y solicitudes de acceso.</td></tr>
+    <tr><th>Cara</th><th>Qué muestra</th></tr>
+    <tr><td><strong>Pipeline comercial</strong></td><td>El embudo por etapa, el valor en juego y la tendencia de cierre.</td></tr>
+    <tr><td><strong>Gestión de tareas</strong></td><td>Carga por persona, estado de las tareas y vencimientos.</td></tr>
+    <tr><td><strong>Actividad de clientes</strong></td><td>Clientes sin gestión reciente, por antigüedad de la bitácora.</td></tr>
+    <tr><td><strong>Mi resumen</strong></td><td>Tus propias tareas, compromisos y actividad.</td></tr>
   </table>
+  <div class="nota"><strong>El rango de fechas es global</strong>: cambiarlo en Inicio también lo cambia en Reportes (mismo filtro compartido).</div>
 
-  <h2>3.2 Buscar en el Hub</h2>
-  <p>Usa la lupa del menú lateral (o el atajo <span class="kbd">Ctrl</span>+<span class="kbd">K</span>) para saltar a una sección escribiendo su nombre.</p>
+  <!-- 3. CLIENTES -->
+  <h1 class="section">3. Clientes</h1>
 
-  <h2>3.3 Cerrar sesión</h2>
-  <p>Abre tu menú de usuario (arriba a la derecha) y elige la opción de salir. No olvides cerrar sesión en equipos compartidos.</p>
+  <h2>3.1 El listado</h2>
+  <p><span class="rol">Todos los roles (lectura global)</span> · Cómo se llega: menú lateral → <strong>Clientes</strong>. Muestra la cartera de aliados con buscador, filtros y acciones.</p>
 
-  <!-- 4. CLIENTES -->
-  <h1 class="section">4. Clientes (CRM)</h1>
+  <h2>3.2 Vistas Tarjetas / Lista / Detalles</h2>
+  <p>En la barra superior hay un selector de vista con tres modos (tu elección se recuerda entre sesiones):</p>
+  <ul>
+    <li><strong>Tarjetas</strong> (predeterminada): una grilla de tarjetas con los datos principales y el botón «Ver detalle».</li>
+    <li><strong>Lista</strong>: filas compactas con nombre, empresa, insignias y valor — para escanear muchos clientes rápido.</li>
+    <li><strong>Detalles</strong>: una tabla con columnas ordenables (ver 3.3).</li>
+  </ul>
+  <div class="passo"><span class="num">Paso clave:</span> pulsa en cualquier tarjeta, fila o celda para abrir la <strong>ficha del cliente</strong> (sección 3.6).</div>
 
-  <h2>4.1 Ver la lista y filtrar</h2>
+  <h2>3.3 Filtrar y ordenar</h2>
+  <p>El buscador filtra por nombre, contacto o bitácora al escribir (con una pausa breve). El botón <strong>Filtros</strong> abre el panel combinable:</p>
+  <ul>
+    <li><strong>Tipo de cliente</strong>, <strong>Estado</strong>, <strong>Prioridad</strong> y <strong>Responsable</strong>.</li>
+    <li><strong>Fecha de primer contacto</strong> (desde / hasta).</li>
+    <li><strong>Valor potencial</strong> mínimo y máximo.</li>
+  </ul>
+  <p>Los filtros activos aparecen como chips removibles debajo del buscador; pulsa la × de un chip para quitar ese filtro solo. El botón <strong>Limpiar todo</strong> (dentro del panel) los borra de una vez. En la vista <strong>Detalles</strong>, pulsa un encabezado de columna para ordenar (otra vez para invertir el sentido).</p>
+  <div class="nota"><strong>Los filtros y el orden viven en la URL</strong>: si guardas la página o la compartes, se conservan. Una vista guardada (sección 3.4) conserva también el orden.</div>
+
+  <h2>3.4 Vistas guardadas</h2>
+  <p><span class="rol">Todos los roles</span> · El botón <strong>Vistas</strong> guarda una combinación de filtros para reutilizarla con un clic.</p>
   <ol>
-    <li>En el menú elige <strong>Clientes</strong>.</li>
-    <li>Verás la tabla con los aliados, su tipo, estado, prioridad, responsable, valor potencial y próximo compromiso.</li>
-    <li>Usa el buscador <strong>«Buscar por nombre, contacto o bitácora…»</strong> para encontrar un cliente.</li>
-    <li>Filtra con los selectores de <strong>Tipo de cliente</strong>, <strong>Estado</strong>, <strong>Prioridad</strong> y <strong>Responsable</strong>.</li>
-    <li>Pulsa en cualquier fila para abrir la <strong>ficha del cliente</strong>.</li>
+    <li>Aplica los filtros que quieras conservar.</li>
+    <li>Pulsa <strong>Vistas</strong> → <strong>Guardar filtros actuales</strong> y ponle un nombre.</li>
+    <li>Para usarla, pulsa <strong>Vistas</strong> y elige la guardada; el listado se filtra y ordena igual.</li>
+    <li>Puedes eliminar una vista desde el mismo menú (con deshacer de 5 segundos).</li>
   </ol>
 
-  <h2>4.2 Crear un cliente</h2>
+  <h2>3.5 Crear un cliente</h2>
+  <p><span class="rol">Quien pueda editar (según el permiso del servidor)</span> · Pulsa <strong>Nuevo cliente</strong> en el listado.</p>
   <ol>
-    <li>En el listado de Clientes pulsa <strong>Nuevo cliente</strong>.</li>
-    <li>Completa el formulario: nombre, empresa, ubicación, tipo de cliente, estado, prioridad, tamaño de organización, responsable y los datos del primer contacto si los tienes.</li>
+    <li>Completa nombre, empresa, ubicación, tipo, estado, prioridad, tamaño de organización, responsable y los datos del primer contacto si los tienes.</li>
     <li>Pulsa <strong>Crear cliente</strong>.</li>
   </ol>
-  <div class="exito">✓ El cliente aparece en el listado y su ficha queda lista para cargar oportunidades, compromisos, bitácora y documentos.</div>
+  <div class="exito">✓ El cliente aparece en el listado y su ficha queda lista para cargar contactos, oportunidades, compromisos, bitácora y documentos.</div>
 
-  <h2>4.3 La ficha del cliente</h2>
-  <p>Al pulsar sobre un cliente se abre su ficha en el centro de la pantalla, con estas pestañas:</p>
+  <h2>3.6 La ficha (7 pestañas)</h2>
+  <p>Al abrir un cliente se despliega su ficha con siete pestañas (las que no puedas editar se muestran solo lectura):</p>
   <table>
     <tr><th>Pestaña</th><th>Contenido</th></tr>
-    <tr><td><strong>General</strong></td><td>Datos del cliente, responsable, próximo compromiso, valor potencial y compromisos abiertos.</td></tr>
-    <tr><td><strong>Contactos</strong></td><td>Personas de contacto del cliente.</td></tr>
-    <tr><td><strong>Oportunidades</strong></td><td>Negocios en curso con su valor estimado y estado.</td></tr>
-    <tr><td><strong>Compromisos</strong></td><td>Tareas y compromisos asignados, con responsable y fecha.</td></tr>
-    <tr><td><strong>Bitácora</strong></td><td>Historial de la relación: notas, reuniones y seguimientos (registro inmutable).</td></tr>
-    <tr><td><strong>Documentos</strong></td><td>Archivos vinculados al cliente.</td></tr>
-    <tr><td><strong>Tareas relacionadas</strong></td><td>Tareas del tablero asociadas al cliente.</td></tr>
+    <tr><td><strong>General</strong></td><td>Datos del cliente, responsable, próximo compromiso, valor potencial y compromisos abiertos. Campos editables en línea (guardan al salir del campo).</td></tr>
+    <tr><td><strong>Contactos</strong></td><td>Personas de contacto, con su rol de decisión. Añadir / editar / quitar.</td></tr>
+    <tr><td><strong>Oportunidades</strong></td><td>Negocios en curso con valor estimado y estado; alimentan el valor potencial.</td></tr>
+    <tr><td><strong>Compromisos</strong></td><td>Tareas y compromisos asignados con responsable y fecha; disparan la campana de alertas.</td></tr>
+    <tr><td><strong>Bitácora</strong></td><td>Historial inmutable de la relación: notas, reuniones y seguimientos con autor, fecha y hora.</td></tr>
+    <tr><td><strong>Documentos</strong></td><td>Archivos vinculados al cliente; subir uno desde acá lo deja versionado en el Repositorio.</td></tr>
+    <tr><td><strong>Tareas relacionadas</strong></td><td>Tareas del tablero asociadas a este cliente.</td></tr>
   </table>
-  <div class="nota"><strong>Cierra la ficha</strong> con el botón X de la esquina superior derecha o pulsando fuera de ella.</div>
+  <div class="nota"><strong>Cierra la ficha</strong> con la X de la esquina o pulsando fuera. Arriba, <strong>Editar</strong> abre el formulario completo y <strong>Desactivar</strong> saca el cliente del listado activo (los datos no se borran).</div>
 
-  <h2>4.4 Contactos</h2>
+  <h2>3.7 Exportar a Excel</h2>
+  <p><span class="rol">Todos los roles</span> · En el listado, pulsa <strong>Excel</strong>. Descarga <code>clientes.xlsx</code> con los clientes que cumplen los <strong>filtros activos</strong> (y su orden). Se abre un aviso al completar.</p>
+
+  <h2>3.8 Ficha imprimible</h2>
+  <p><span class="rol">Todos los roles</span> · Pulsa <strong>PDF</strong> en el listado para abrir la vista de impresión del reporte de clientes, o usa la ficha imprimible de un cliente individual desde su detalle. Se respetan los filtros aplicados; imprime con el botón <strong>Imprimir</strong>.</p>
+
+  <!-- 4. TABLERO -->
+  <h1 class="section">4. Tablero del equipo</h1>
+
+  <h2>4.1 Vistas Tablero / Lista</h2>
+  <p><span class="rol">Todos los roles (lectura global)</span> · Cómo se llega: menú lateral → <strong>Tablero</strong>. Tiene dos vistas en la barra superior:</p>
+  <ul>
+    <li><strong>Tablero</strong>: columnas por estado (ej. Pendiente, En curso, Terminada). En pantallas angostas las columnas se apilan como grupos.</li>
+    <li><strong>Lista</strong>: las mismas tareas en una lista compacta.</li>
+    <li><strong>Reporte</strong>: resumen con barras (ver 4.4).</li>
+  </ul>
+
+  <h2>4.2 Mover tarjetas</h2>
   <ol>
-    <li>En la ficha del cliente abre la pestaña <strong>Contactos</strong>.</li>
-    <li>Pulsa el botón para añadir un contacto y completa nombre, cargo, correo y teléfono.</li>
-    <li>Guarda el contacto; queda asociado a ese cliente.</li>
+    <li>Arrastra una tarjeta entre columnas para cambiar su estado (o usa las flechas del teclado con el foco en la tarjeta).</li>
+    <li>Los cambios se guardan al soltar y quedan registrados.</li>
+    <li>Pulsa una tarjeta para abrir su diálogo de detalle: comentarios, subtareas, adjuntos y campos editables.</li>
   </ol>
+  <div class="nota"><strong>Quien no puede editar una tarea</strong> la ve sin los controles de guardar/eliminar: el botón oculto es cosmético y el servidor es la autoridad.</div>
 
-  <h2>4.5 Oportunidades</h2>
-  <ol>
-    <li>En la ficha del cliente abre la pestaña <strong>Oportunidades</strong>.</li>
-    <li>Pulsa <strong>Nueva oportunidad</strong>.</li>
-    <li>Completa el nombre, el <strong>valor estimado (COP)</strong>, el estado (por ejemplo, <em>En negociación</em>) y los datos de seguimiento.</li>
-    <li>Pulsa <strong>Crear oportunidad</strong>.</li>
-  </ol>
-  <div class="nota"><strong>El valor potencial</strong> del cliente se calcula automáticamente: es la suma de sus oportunidades no perdidas. Si un valor parece desproporcionado, verifícalo con el responsable.</div>
+  <h2>4.3 Filtros</h2>
+  <p>Usa los selectores de <strong>responsable</strong>, <strong>prioridad</strong> y <strong>etiquetas</strong> para acotar el tablero. El botón «Mis tareas» (según tu rol) y la campana de notificaciones complementan el seguimiento.</p>
 
-  <h2>4.6 Compromisos</h2>
-  <ol>
-    <li>En la ficha del cliente abre la pestaña <strong>Compromisos</strong>.</li>
-    <li>Pulsa <strong>Crear compromiso</strong>.</li>
-    <li>Escribe el título, asigna responsable y elige la <strong>fecha límite</strong>. Los compromisos con fecha alimentan el <strong>próximo compromiso</strong>, la campana de alertas y el resumen diario.</li>
-    <li>Pulsa <strong>Crear compromiso</strong>.</li>
-  </ol>
-  <div class="nota"><strong>Sin fecha no hay alerta.</strong> Un compromiso sin fecha cuenta en la lista, pero no dispara notificaciones de vencimiento. Ponle fecha siempre que sea posible.</div>
+  <h2>4.4 Reporte del tablero</h2>
+  <p>La vista <strong>Reporte</strong> resume el tablero con barras: tareas por estado, por cliente, carga por persona, vencimientos por antigüedad y tendencia de cierre. Exportable a Excel/PDF con los botones correspondientes.</p>
 
-  <h2>4.7 Bitácora</h2>
-  <ol>
-    <li>En la ficha del cliente abre la pestaña <strong>Bitácora</strong>.</li>
-    <li>Añade una entrada con la nota del seguimiento, reunión o decisión.</li>
-    <li>La entrada queda registrada con autor, fecha y hora. El historial es inmutable: documenta la relación sin borrar evidencia.</li>
-  </ol>
+  <!-- 5. DOCUMENTOS -->
+  <h1 class="section">5. Documentos y Repositorio</h1>
 
-  <h2>4.8 Documentos vinculados</h2>
+  <h2>5.1 Subir un documento</h2>
+  <p><span class="rol">Quien pueda editar</span> · Cómo se llega: menú lateral → <strong>Documentos</strong> → <strong>Subir documento</strong>.</p>
   <ol>
-    <li>En la ficha del cliente abre la pestaña <strong>Documentos</strong>.</li>
-    <li>Pulsa <strong>Subir documento vinculado</strong> para cargar un archivo y asociarlo a ese cliente.</li>
-    <li>Completa: <strong>Título</strong> (si lo dejas vacío se usa el nombre del archivo), <strong>Categoría</strong> y <strong>Etiquetas</strong> (para buscarlo después).</li>
-    <li>Selecciona el archivo y confirma la subida.</li>
-    <li>El documento queda <strong>versionado</strong> en el Repositorio: si ya existe uno con el mismo título, la app te ofrece <strong>Subir como nueva versión</strong> en vez de duplicarlo.</li>
-    <li>Desde la ficha puedes <strong>descargarlo</strong> o ver su detalle.</li>
-  </ol>
-
-  <h2>4.9 Editar y desactivar un cliente</h2>
-  <ol>
-    <li>Dentro de la ficha, arriba, verás <strong>Editar</strong> y <strong>Desactivar cliente</strong>.</li>
-    <li><strong>Editar</strong> abre el formulario con los datos actuales; cambia lo necesario y pulsa <strong>Guardar cambios</strong>.</li>
-    <li><strong>Desactivar cliente</strong> lo saca del listado activo. Los datos no se borran: quedan en la bitácora y pueden reactivarse desde la administración.</li>
-  </ol>
-
-  <!-- 5. TABLERO -->
-  <h1 class="section">5. Tablero del equipo</h1>
-  <ol>
-    <li>En el menú elige <strong>Tablero</strong>.</li>
-    <li>Verás las tareas y compromisos del equipo organizados en columnas (por ejemplo, pendientes, en curso y terminadas).</li>
-    <li>Arrastra las tarjetas entre columnas para actualizar su estado; los cambios quedan registrados.</li>
-    <li>Usa los filtros para ver solo tus tareas, por responsable o por prioridad.</li>
-    <li>La campana de notificaciones y el resumen diario te avisan de los compromisos que vencen.</li>
-  </ol>
-
-  <!-- 6. DOCUMENTOS -->
-  <h1 class="section">6. Documentos y Repositorio</h1>
-  <h2>6.1 Subir un documento</h2>
-  <ol>
-    <li>En el menú elige <strong>Documentos</strong> → <strong>Subir documento</strong>.</li>
     <li>Arrastra el archivo o haz clic para seleccionarlo.</li>
-    <li>Completa el <strong>Título</strong> (obligatorio; si lo dejas vacío se usa el nombre del archivo), la <strong>Categoría</strong> y las <strong>Etiquetas</strong>.</li>
-    <li>Opcional: vincula el documento a un <strong>cliente</strong> para que aparezca también en su ficha (sección 4.8).</li>
+    <li>Completa <strong>Título</strong> (si lo dejas vacío se usa el nombre del archivo), <strong>Categoría</strong> y <strong>Etiquetas</strong>.</li>
+    <li>Opcional: vincula un <strong>cliente</strong> para que aparezca también en su ficha (sección 3.6).</li>
     <li>Confirma la subida.</li>
   </ol>
+  <div class="nota"><strong>Formatos aceptados:</strong> PDF, DOCX, PPTX y XLSX. De estos se extrae el texto para la búsqueda full-text (sección 5.4).</div>
 
-  <h2>6.2 Versiones</h2>
+  <h2>5.2 Carpetas</h2>
+  <p>El repositorio se organiza en carpetas. En el panel lateral puedes <strong>crear, renombrar, mover y eliminar</strong> carpetas (una carpeta con contenido no se elimina hasta vaciarla). El pan de navegación (breadcrumb) muestra dónde estás; con una búsqueda activa pasa a «Resultados de búsqueda».</p>
+
+  <h2>5.3 Versiones</h2>
   <ol>
     <li>Si subes un archivo con un <strong>título que ya existe</strong>, la app te avisa y te ofrece <strong>Subir como nueva versión</strong>.</li>
-    <li>Así no se duplican documentos: cada cambio suma una versión nueva y la anterior queda guardada.</li>
-    <li>En el detalle del documento puedes ver el historial de versiones.</li>
+    <li>Así no se duplican documentos: cada cambio suma una versión y la anterior queda guardada en el historial.</li>
+    <li>En el detalle del documento puedes ver y descargar las versiones anteriores.</li>
   </ol>
 
-  <h2>6.3 Descargar y filtrar</h2>
-  <ol>
-    <li>Marca uno o varios documentos con las casillas y pulsa <strong>Descargar selección (.zip)</strong> para bajar todo en un archivo comprimido.</li>
-    <li>Usa el buscador y los filtros por <strong>categoría</strong>, <strong>etiquetas</strong> o <strong>cliente</strong> para encontrar rápido.</li>
-    <li>Cada documento tiene su acción de <strong>descarga</strong> individual y su ficha de detalle.</li>
-  </ol>
+  <h2>5.4 Búsqueda</h2>
+  <p>El buscador encuentra por <strong>nombre, categoría, etiqueta, cliente o autor</strong> y además por el <strong>contenido del texto</strong> extraído del PDF/DOCX/PPTX/XLSX: si la coincidencia es dentro del archivo, la fila muestra la insignia «Coincide en el contenido» con un fragmento.</p>
 
-  <!-- 7. REPORTES -->
-  <h1 class="section">7. Reportes</h1>
-  <ol>
-    <li>En el menú elige <strong>Reportes</strong>.</li>
-    <li>Elige el reporte: tareas del equipo, resumen de cartera o actividad.</li>
-    <li>Exporta a <strong>Excel</strong> o <strong>PDF</strong> con los botones de exportación para compartirlo con la dirección.</li>
-  </ol>
+  <h2>5.5 Descargar</h2>
+  <p>Marca uno o varios documentos con las casillas y pulsa <strong>Descargar selección (.zip)</strong> para bajar todo comprimido. Cada documento tiene además su descarga individual y su ficha de detalle.</p>
 
-  <!-- 8. ADMINISTRACIÓN -->
-  <h1 class="section">8. Administración (para administradores)</h1>
+  <!-- 6. REPORTES -->
+  <h1 class="section">6. Reportes</h1>
 
-  <h2>8.1 Aprobar o rechazar solicitudes de acceso</h2>
+  <h2>6.1 Reporte de tareas</h2>
+  <p><span class="rol">Todos los roles</span> · Cómo se llega: menú lateral → <strong>Reportes</strong>. La pestaña «Tareas» es el reporte del tablero con barras por estado, cliente, persona, vencimientos y tendencia (igual que 4.4), con alcance según tu rol.</p>
+
+  <h2>6.2 Las 4 caras</h2>
+  <p>Las pestañas <strong>Pipeline comercial</strong>, <strong>Gestión de tareas</strong>, <strong>Actividad de clientes</strong> y <strong>Mi resumen</strong> son los mismos resúmenes de Inicio (sección 2.2), cada uno con su bloque «Generar reporte» que abre la vista imprimible de esa cara.</p>
+
+  <h2>6.3 Exportar</h2>
+  <p>Cada reporte exporta a <strong>Excel</strong> o <strong>PDF</strong> con los botones de la barra superior. El criterio de fecha aparece declarado en el reporte (p. ej. «cerradas en el período» vs. «tocadas en el período»), así el número se interpreta solo.</p>
+
+  <!-- 7. ADMINISTRACIÓN -->
+  <h1 class="section">7. Administración</h1>
+
+  <h2>7.1 Usuarios y permisos</h2>
+  <p><span class="rol">Administrador</span> · Cómo se llega: menú lateral → <strong>Administración</strong>. Lista de usuarios con su rol y estado.</p>
+  <ul>
+    <li><strong>Nuevo usuario</strong>: crea la cuenta y envía la invitación por correo.</li>
+    <li><strong>Cambiar rol</strong>: reasigna entre los 4 roles (sección 8).</li>
+    <li><strong>Desactivar</strong>: saca al usuario; no borra sus registros.</li>
+  </ul>
+
+  <h2>7.2 Solicitudes de acceso</h2>
+  <p><span class="rol">Administrador</span> · Cómo se llega: menú lateral → <strong>Solicitudes de acceso</strong>.</p>
   <ol>
-    <li>En el menú elige <strong>Administración → Solicitudes de acceso</strong>.</li>
     <li>Verás la lista de solicitudes <strong>pendientes</strong> con nombre, correo y cargo.</li>
-    <li>Pulsa <strong>Aprobar</strong>: el sistema te pide elegir el <strong>rol</strong> (por ejemplo, Colaborador).</li>
-    <li>Confirma con <strong>Aprobar y enviar invitación</strong>.</li>
-    <li>El solicitante recibe el correo de invitación para crear su contraseña (sección 2.3).</li>
-    <li>Si la solicitud no corresponde, pulsa <strong>Rechazar</strong>.</li>
+    <li>Pulsa <strong>Aprobar</strong> y elige el <strong>rol</strong>; confirma con «Aprobar y enviar invitación».</li>
+    <li>El solicitante recibe el correo de invitación para crear su contraseña (sección 1.4).</li>
+    <li>Si no corresponde, pulsa <strong>Rechazar</strong>.</li>
   </ol>
-  <div class="exito">✓ La aprobación enciende todo el ciclo: invitación por correo → el usuario crea su contraseña → entra al Hub con su rol.</div>
+  <div class="exito">✓ La aprobación enciende todo el ciclo: invitación → el usuario crea su contraseña → entra al Hub con su rol.</div>
 
-  <h2>8.2 Gestión de usuarios</h2>
-  <p>Desde <strong>Administración → Usuarios</strong> la administradora puede crear usuarios, cambiar roles y desactivar cuentas. Los roles definen qué secciones ve cada persona.</p>
+  <h2>7.3 Catálogos</h2>
+  <p><span class="rol">Administrador</span> · Dentro de Administración, la sección <strong>Catálogos</strong> permite editar las listas de valores que se usan en toda la app: tipos de cliente, categorías de documentos, estados, etc. Los cambios se reflejan al instante en los formularios.</p>
 
-  <!-- 9. PROBLEMAS -->
-  <h1 class="section">9. Solución de problemas</h1>
+  <h2>7.4 Bitácoras</h2>
+  <p><span class="rol">Administrador</span> · Administración incluye dos bitácoras de auditoría:</p>
+  <ul>
+    <li><strong>Bitácora de accesos</strong>: quién entró, cuándo y desde dónde (registro inmutable con fecha, hora e IP).</li>
+    <li><strong>Bitácora de auditoría</strong>: las acciones de administración (crear/desactivar usuarios, cambiar roles, etc.) con autor y fecha.</li>
+  </ul>
 
-  <h2>9.1 El enlace de invitación dice «Enlace no válido»</h2>
+  <!-- 8. ROLES -->
+  <h1 class="section">8. Roles y qué puede hacer cada uno</h1>
+
+  <h2>8.1 Los 4 roles</h2>
+  <table>
+    <tr><th>Rol</th><th>Qué puede hacer</th></tr>
+    <tr><td><strong>Administrador</strong></td><td>Todo: gestiona usuarios, solicitudes, catálogos y bitácoras; edita cualquier registro y lee documentos de todas las categorías.</td></tr>
+    <tr><td><strong>Gerencia / Dirección</strong></td><td>Visión completa: edita registros ajenos y lee documentos de todas las categorías, pero no administra usuarios.</td></tr>
+    <tr><td><strong>Coordinador</strong></td><td>Gestiona tareas y clientes de todo el equipo (edita registros ajenos), sin administración de usuarios.</td></tr>
+    <tr><td><strong>Colaborador</strong></td><td>Ve todo y edita lo que le corresponde (sus tareas y sus clientes). No gestiona usuarios ni lee categorías restringidas.</td></tr>
+  </table>
+  <div class="passo"><span class="num">Regla simple:</span> la <strong>lectura</strong> es global para todos; la <strong>edición</strong> la da el rol o ser responsable del registro; la <strong>administración</strong> es solo del administrador.</div>
+
+  <h2>8.2 Qué NO ve un colaborador</h2>
+  <p>Los documentos de <strong>categorías restringidas</strong> (p. ej. «Legal»): un colaborador no los ve ni los descarga, y sus conteos en el sidebar no se muestran para no revelar su existencia. El resto de la cartera y el tablero sí son visibles.</p>
+
+  <!-- 9. ELEMENTOS COMUNES -->
+  <h1 class="section">9. Elementos comunes</h1>
+
+  <h2>9.1 Notificaciones</h2>
+  <p>La campana (arriba a la derecha) agrupa: <strong>Vencidos</strong>, <strong>Vencen hoy</strong> y <strong>Próximos 3 días</strong>. Desde el panel puedes marcar todo como leído y deshacer esa acción en los segundos siguientes. Pulsar una notificación abre la ficha del cliente o tarea relacionada.</p>
+
+  <h2>9.2 Modo oscuro</h2>
+  <p>Conmuta el tema claro/oscuro desde el menú de usuario. Tu elección se recuerda en ese equipo; el manual asume el tema claro, pero toda pantalla existe en ambos.</p>
+
+  <h2>9.3 Sesión de 4 horas</h2>
+  <p>Por seguridad las sesiones duran unas horas. Si ves el aviso «Tu sesión expiró», vuelve a iniciar sesión (sección 1.1). El banner de sesión te avisa con anticipación.</p>
+
+  <h2>9.4 Colapsar el menú</h2>
+  <p>El botón del menú lateral alterna entre el rail expandido y el modo de solo iconos (se recuerda entre sesiones). En pantallas angostas el menú se convierte en un cajón (drawer) que se abre con el botón superior y se cierra al navegar o con Escape.</p>
+
+  <h2>9.5 Documentación de la API</h2>
+  <p>En <code>/api-docs</code> se documentan los endpoints del Hub (clientes, tareas, documentos, reportes, autenticación) con ejemplos de petición y respuesta. Pensado para integraciones y para el equipo técnico.</p>
+
+  <!-- 10. PROBLEMAS -->
+  <h1 class="section">10. Solución de problemas</h1>
+
+  <h2>10.1 El enlace de invitación dice «Enlace no válido»</h2>
   <ol>
-    <li>El enlace es <strong>de un solo uso</strong>: si ya lo abriste una vez, vuelve a la pantalla de Solicitar acceso y pide uno nuevo a la administradora.</li>
-    <li>Revisa que hayas copiado el enlace <strong>completo</strong> del correo (puede cortarse al pegar en una nota).</li>
-    <li>Prueba abrirlo desde un navegador reciente (Chrome o Edge) en la misma ventana donde recibiste el correo.</li>
-    <li>Si sigue fallando, pide a la administradora que cancele e invite de nuevo.</li>
+    <li>El enlace es <strong>de un solo uso</strong>: si ya lo abriste, pide a la administración que te reenvíe la invitación.</li>
+    <li>Revisa que hayas copiado el enlace <strong>completo</strong> del correo.</li>
+    <li>Prueba en un navegador reciente (Chrome o Edge) en la misma ventana donde recibiste el correo.</li>
+    <li>Si sigue fallando, la administración cancela e invita de nuevo.</li>
   </ol>
 
-  <h2>9.2 Olvidé mi contraseña</h2>
-  <ol>
-    <li>En la pantalla de Entrar pulsa «¿Olvidaste tu contraseña?».</li>
-    <li>Escribe tu correo y pulsa <strong>Enviar enlace</strong>.</li>
-    <li>Revisa tu bandeja (y spam): llega un enlace de un solo uso que vence en 30 minutos.</li>
-    <li>Ábrelo y crea tu nueva contraseña.</li>
-  </ol>
+  <h2>10.2 No puedo editar una tarea o un cliente</h2>
+  <p>La edición la da tu rol o el hecho de ser responsable del registro (sección 8). Si un control no aparece, es señal de que el servidor no te autoriza esa escritura; no es un error.</p>
 
-  <h2>9.3 La sesión expiró</h2>
-  <p>Las sesiones duran unas horas por seguridad. Si ves el aviso «Tu sesión expiró», vuelve a iniciar sesión con tu correo y contraseña. Tus datos están a salvo.</p>
+  <h2>10.3 No encuentro un documento que sé que existe</h2>
+  <p>Revisa si estás filtrando por categoría o etiqueta y si la carpeta elegida es la correcta. Con una búsqueda activa, recuerda que el breadcrumb pasa a «Resultados de búsqueda» globales. Si es de una categoría restringida, puede que no tengas permiso para verlo (sección 8.2).</p>
+
+  <h2>10.4 Olvidé mi contraseña</h2>
+  <p>Usa «¿Olvidaste tu contraseña?» en la pantalla de Entrar (sección 1.3). El enlace de recuperación vence en 30 minutos y es de un solo uso.</p>
+
+  <h2>10.5 La sesión expiró</h2>
+  <p>Vuelve a iniciar sesión con tu correo y contraseña (o Google). Tus datos están a salvo.</p>
 
   <div class="footer">
-    Muttu Hub · Manual de usuario · Versión 1.0 · Agosto 2026<br/>
+    Muttu Hub · Manual de usuario · Versión 1.1 · Septiembre 2026<br/>
     Muttu Innovación Social S.A.S. · Barranquilla, Colombia · el acceso queda registrado con fecha, hora e IP.
   </div>
 
