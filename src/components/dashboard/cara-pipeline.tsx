@@ -73,7 +73,7 @@ export function CaraPipeline({ filters }: { filters: DashboardFilters }) {
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         {/* Embudo */}
         <CardSection
           title="Embudo por etapa"
@@ -148,7 +148,7 @@ export function CaraPipeline({ filters }: { filters: DashboardFilters }) {
         title="Comparativo comercial"
         subtitle="Potencial activo vs. ganado histórico"
       >
-        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
           <div className="rounded-[16px] border border-ink-100 bg-ink-100/50 p-4">
             <span className="flex items-center gap-2 text-[12px] font-semibold text-ink-600">
               <Wallet className="size-3.5" strokeWidth={1.9} />

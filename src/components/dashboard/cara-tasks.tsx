@@ -73,7 +73,7 @@ export function CaraTareas({ filters }: { filters: DashboardFilters }) {
         </div>
       </CardSection>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
         {/* Cumplimiento por persona */}
         <CardSection
           title="Cumplimiento por persona"

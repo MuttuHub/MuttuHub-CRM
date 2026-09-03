@@ -191,7 +191,7 @@ export function CaraClientesActividad({
         title="Distribución de la cartera"
         subtitle={`${totalClientes} clientes en alcance · tipo, estado y prioridad`}
       >
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           <DistribucionGrupo
             title="Por tipo"
             rows={distribucion.por_tipo.map((r) => ({

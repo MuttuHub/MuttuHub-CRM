@@ -80,7 +80,7 @@ export function DemoFallback() {
         ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
