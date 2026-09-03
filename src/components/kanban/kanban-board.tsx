@@ -427,7 +427,9 @@ export function KanbanBoard() {
               <p role="status" aria-live="polite" className="sr-only">
                 {moveAnnouncement}
               </p>
-              <div className="flex gap-3 overflow-x-auto pb-3">
+              {/* Patrón F (plan Fase 5): 6 columnas con scroll lateral arriba,
+                  grupos apilados debajo de lg — mismo DOM, mismo SortableContext. */}
+              <div className="flex flex-col gap-3 pb-3 lg:flex-row lg:overflow-x-auto">
                 {BOARD_COLUMNS.map((estado) => (
                   <BoardColumn
                     key={estado}
@@ -489,7 +491,7 @@ export function KanbanBoard() {
           if (!open) setBlockPrompt(null);
         }}
       >
-        <DialogContent className="rounded-[20px] sm:max-w-[420px]">
+        <DialogContent className="rounded-[20px] sm:max-w-[min(420px,calc(100%-2rem))]">
           <DialogHeader>
             <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
               Bloquear tarea
@@ -544,7 +546,8 @@ function BoardColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex w-[248px] shrink-0 flex-col rounded-[18px] border border-ink-200 bg-ink-100/70 p-2.5 transition-colors",
+        // Patrón F: ancho fluido abajo (grupos apilados), columna fija arriba.
+        "flex w-full shrink-0 flex-col rounded-[18px] border border-ink-200 bg-ink-100/70 p-2.5 transition-colors lg:w-[248px]",
         isOver && "border-rose-200 bg-rose-50/70 ring-2 ring-rose-200",
       )}
     >
@@ -835,9 +838,9 @@ function BoardSkeleton({ vista }: { vista: "board" | "lista" }) {
     );
   }
   return (
-    <div className="flex gap-3 overflow-hidden">
+    <div className="flex flex-col gap-3 overflow-hidden lg:flex-row">
       {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="w-[248px] shrink-0 space-y-2 rounded-[18px] bg-ink-100/70 p-2.5">
+        <div key={i} className="w-full shrink-0 space-y-2 rounded-[18px] bg-ink-100/70 p-2.5 lg:w-[248px]">
           <Skeleton className="h-5 w-24" />
           {Array.from({ length: 2 }).map((_, j) => (
             <Skeleton key={j} className="h-[110px] w-full rounded-14" />
