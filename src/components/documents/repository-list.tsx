@@ -17,11 +17,19 @@ import {
   LoaderCircle,
   RotateCcw,
   Search,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -471,6 +479,15 @@ function SectionFilters({
   const categoriesQuery = useDocCategories();
   const categories = categoriesQuery.data?.map((c) => c.nombre) ?? [...DOC_CATEGORIES];
 
+  // Patrón E (plan Fase 5): la búsqueda queda visible; los 6 filtros van a un
+  // Popover clonado de client-list.tsx. Se aplican al instante (mismo
+  // onChange que antes), sin borrador — los Selects ya no necesitan Aplicar.
+  const filtrosActivos = Number(
+    [local.categoria, local.etiqueta, local.autor, local.cliente, local.desde, local.hasta].filter(
+      (v) => v !== "",
+    ).length,
+  );
+
   return (
     <section className="rounded-[22px] border border-ink-200 bg-panel p-4 lg:p-5">
       <div className="flex flex-wrap items-center gap-3">
@@ -488,118 +505,143 @@ function SectionFilters({
           />
         </div>
 
-        <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-          <Select
-            value={local.categoria}
-            onValueChange={(v) => onChange({ categoria: v === "todos" ? "" : (v ?? "") })}
-          >
-            <SelectTrigger className={cn(SELECT_CLASS, "min-w-[150px]")}>
-              <SelectValue placeholder="Categoría" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todas las categorías</SelectItem>
-              {categories.map((c) => (
-                <SelectItem key={c} value={c}>
-                  {c}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <Popover>
+          <PopoverTrigger
+            render={
+              <Button
+                variant="outline"
+                className="h-10 rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+              >
+                <SlidersHorizontal className="size-4 text-ink-600" strokeWidth={1.8} />
+                Filtros{" "}
+                {filtrosActivos > 0 && (
+                  <span className="ml-0.5 rounded-full bg-ink-100 px-2 py-0.5 text-[10.5px] font-bold text-ink-600">
+                    {filtrosActivos}
+                  </span>
+                )}
+              </Button>
+            }
+          />
+          <PopoverContent align="end" className="w-[min(92vw,560px)]">
+            <PopoverTitle className="font-display text-[15px] font-bold text-ink-950">
+              Filtros de documentos
+            </PopoverTitle>
+            <PopoverDescription className="sr-only">
+              Combina criterios para acotar el repositorio.
+            </PopoverDescription>
 
-          <Select
-            value={local.etiqueta}
-            onValueChange={(v) => onChange({ etiqueta: v === "todos" ? "" : (v ?? "") })}
-          >
-            <SelectTrigger className={cn(SELECT_CLASS, "min-w-[140px]")}>
-              <SelectValue placeholder="Etiqueta" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todas las etiquetas</SelectItem>
-              {etiquetaOptions.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {t}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Select
+                value={local.categoria}
+                onValueChange={(v) => onChange({ categoria: v === "todos" ? "" : (v ?? "") })}
+              >
+                <SelectTrigger className={cn(SELECT_CLASS)}>
+                  <SelectValue placeholder="Categoría" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todas las categorías</SelectItem>
+                  {categories.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-          <Select
-            value={local.autor}
-            onValueChange={(v) => onChange({ autor: v === "todos" ? "" : (v ?? "") })}
-          >
-            <SelectTrigger className={cn(SELECT_CLASS, "min-w-[150px]")}>
-              <SelectValue placeholder={personas.length === 0 ? "Cargando…" : "Autor"} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos los autores</SelectItem>
-              {personas.map((u) => (
-                <SelectItem key={u.id} value={u.id}>
-                  {u.nombre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              <Select
+                value={local.etiqueta}
+                onValueChange={(v) => onChange({ etiqueta: v === "todos" ? "" : (v ?? "") })}
+              >
+                <SelectTrigger className={cn(SELECT_CLASS)}>
+                  <SelectValue placeholder="Etiqueta" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todas las etiquetas</SelectItem>
+                  {etiquetaOptions.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-          <Select
-            value={local.cliente}
-            onValueChange={(v) => onChange({ cliente: v === "todos" ? "" : (v ?? "") })}
-          >
-            <SelectTrigger className={cn(SELECT_CLASS, "min-w-[160px]")}>
-              <SelectValue
-                placeholder={clientes.length === 0 ? "Cargando…" : "Cliente"}
-              />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos los clientes</SelectItem>
-              {clientes.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.nombre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              <Select
+                value={local.autor}
+                onValueChange={(v) => onChange({ autor: v === "todos" ? "" : (v ?? "") })}
+              >
+                <SelectTrigger className={cn(SELECT_CLASS)}>
+                  <SelectValue placeholder={personas.length === 0 ? "Cargando…" : "Autor"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos los autores</SelectItem>
+                  {personas.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-          <div className="flex items-center gap-1.5">
-            <Label htmlFor="doc-desde" className="sr-only">
-              Desde
-            </Label>
-            <Input
-              id="doc-desde"
-              type="date"
-              value={local.desde}
-              onChange={(e) => onChange({ desde: e.target.value })}
-              aria-label="Documentos desde"
-              className="h-10 w-[148px] rounded-lg border-ink-200 bg-panel px-3 text-[12.5px]"
-            />
-            <span className="text-[12px] text-ink-500">a</span>
-            <Label htmlFor="doc-hasta" className="sr-only">
-              Hasta
-            </Label>
-            <Input
-              id="doc-hasta"
-              type="date"
-              value={local.hasta}
-              onChange={(e) => onChange({ hasta: e.target.value })}
-              aria-label="Documentos hasta"
-              className="h-10 w-[148px] rounded-lg border-ink-200 bg-panel px-3 text-[12.5px]"
-            />
-          </div>
-        </div>
+              <Select
+                value={local.cliente}
+                onValueChange={(v) => onChange({ cliente: v === "todos" ? "" : (v ?? "") })}
+              >
+                <SelectTrigger className={cn(SELECT_CLASS)}>
+                  <SelectValue placeholder={clientes.length === 0 ? "Cargando…" : "Cliente"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos los clientes</SelectItem>
+                  {clientes.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <div className="flex items-center gap-1.5">
+                <Label htmlFor="doc-desde" className="sr-only">
+                  Desde
+                </Label>
+                <Input
+                  id="doc-desde"
+                  type="date"
+                  value={local.desde}
+                  onChange={(e) => onChange({ desde: e.target.value })}
+                  aria-label="Documentos desde"
+                  className="h-10 min-w-0 flex-1 rounded-lg border-ink-200 bg-panel px-3 text-[12.5px]"
+                />
+                <span className="text-[12px] text-ink-500">a</span>
+                <Label htmlFor="doc-hasta" className="sr-only">
+                  Hasta
+                </Label>
+                <Input
+                  id="doc-hasta"
+                  type="date"
+                  value={local.hasta}
+                  onChange={(e) => onChange({ hasta: e.target.value })}
+                  aria-label="Documentos hasta"
+                  className="h-10 min-w-0 flex-1 rounded-lg border-ink-200 bg-panel px-3 text-[12.5px]"
+                />
+              </div>
+            </div>
+
+            {hasActiveFilters && (
+              <div className="mt-4 flex justify-end border-t border-ink-100 pt-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onClear}
+                  className="h-8 px-2 text-[12.5px] font-semibold text-ink-600"
+                >
+                  <RotateCcw className="size-3" strokeWidth={1.9} />
+                  Limpiar filtros
+                </Button>
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
       </div>
-
-      {hasActiveFilters && (
-        <div className="mt-3 flex items-center justify-end">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClear}
-            className="h-8 px-2 text-[12.5px] font-semibold text-ink-600"
-          >
-            <RotateCcw className="size-3" strokeWidth={1.9} />
-            Limpiar filtros
-          </Button>
-        </div>
-      )}
     </section>
   );
 }
@@ -875,7 +917,7 @@ function PaginationFooter({
           size="sm"
           disabled={page <= 1}
           onClick={() => onPage(page - 1)}
-          className="h-8 rounded-10 px-2.5 text-[12.5px] font-semibold after:-inset-1"
+          className="h-8 rounded-10 px-2.5 text-[12.5px] font-semibold after:-inset-2"
         >
           Anterior
         </Button>
@@ -887,7 +929,7 @@ function PaginationFooter({
               size="sm"
               onClick={() => onPage(p)}
               className={cn(
-                "h-8 min-w-8 rounded-10 px-2 text-[12.5px] font-bold after:-inset-1",
+                "h-8 min-w-8 rounded-10 px-2 text-[12.5px] font-bold after:-inset-2",
                 p === page && "bg-ink-950 text-white hover:bg-ink-800 dark:bg-ink-100 dark:text-white dark:hover:bg-ink-200",
               )}
             >
@@ -904,7 +946,7 @@ function PaginationFooter({
           size="sm"
           disabled={page >= totalPages}
           onClick={() => onPage(page + 1)}
-          className="h-8 rounded-10 px-2.5 text-[12.5px] font-semibold after:-inset-1"
+          className="h-8 rounded-10 px-2.5 text-[12.5px] font-semibold after:-inset-2"
         >
           Siguiente
         </Button>

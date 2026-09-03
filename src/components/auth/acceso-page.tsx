@@ -82,7 +82,6 @@ export function AccesoPage({
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const [vista, setVista] = useState<Vista>("login");
-  const [angosto, setAngosto] = useState(false);
   const [ver, setVer] = useState(false);
   const [recordar, setRecordar] = useState(false);
   const [terminos, setTerminos] = useState(false);
@@ -99,16 +98,10 @@ export function AccesoPage({
 
   // Arranca el video de marca; si el origen remoto no responde en 3,5 s → aurora
   useEffect(() => {
-    const onResize = () => setAngosto(window.innerWidth < 940);
-    onResize();
-    window.addEventListener("resize", onResize);
-
     setTimeout(() => {
       const v = videoRef.current;
       if (v && v.readyState < 2) setVideoFalla(true);
     }, 3500);
-
-    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   // "Recuérdame": prefill the email field and check the box when a previous
@@ -346,20 +339,15 @@ export function AccesoPage({
   return (
     <div style={{ minHeight: "100vh", padding: 14, background: "var(--color-page)" }}>
       <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: angosto ? "minmax(0,1fr)" : "minmax(0,1fr) minmax(0,1.05fr)",
-          gap: 14,
-          minHeight: "calc(100vh - 28px)",
-        }}
+        className="grid gap-[14px] min-h-[calc(100vh-28px)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]"
       >
         {/* Panel oscuro de marca (oculto en móvil) */}
         <aside
+          className="hidden lg:flex"
           style={{
             position: "relative",
             overflow: "hidden",
             isolation: "isolate",
-            display: angosto ? "none" : "flex",
             flexDirection: "column",
             gap: 26,
             padding: "34px 34px 30px",
@@ -478,8 +466,9 @@ export function AccesoPage({
         </aside>
 
         {/* Lado de la tarjeta */}
-        <main style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: angosto ? "22px 4px" : 34 }}>
+        <main className="p-[22px_4px] lg:p-[34px]" style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
           <div
+            className="p-[26px_22px] lg:p-[32px_34px]"
             style={{
               width: "100%",
               maxWidth: 452,
@@ -487,7 +476,6 @@ export function AccesoPage({
               background: "var(--color-card)",
               border: `1px solid ${"var(--color-ink-200)"}`,
               borderRadius: 26,
-              padding: angosto ? "26px 22px" : "32px 34px",
             }}
           >
             {/* Segmented control */}
