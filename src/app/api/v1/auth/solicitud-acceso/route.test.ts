@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@prisma/client";
 
 vi.mock("@/lib/db", () => ({
   db: {
@@ -132,6 +133,27 @@ describe("POST /api/v1/auth/solicitud-acceso", () => {
       code: "CONFLICT",
     });
     expect(db.solicitudAcceso.create).not.toHaveBeenCalled();
+  });
+
+  it("returns the same 409 CONFLICT when the create hits the DB-level unique index (race condition)", async () => {
+    vi.mocked(db.solicitudAcceso.findFirst).mockResolvedValue(null);
+    vi.mocked(db.usuario.findUnique).mockResolvedValue(null);
+    vi.mocked(db.solicitudAcceso.create).mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+        code: "P2002",
+        clientVersion: "test",
+      }),
+    );
+
+    const res = await POST(
+      solicitudRequest({ nombre: "Alguien", email: "concurrente@muttu.co" }),
+    );
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({
+      error: "Ya tienes una solicitud en revisión. Pronto tendrás respuesta.",
+      code: "CONFLICT",
+    });
   });
 
   it("returns 429 after exceeding the per-email rate limit (3/hour)", async () => {

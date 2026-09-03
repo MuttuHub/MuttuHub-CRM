@@ -101,7 +101,7 @@ export const POST = withApiErrorHandling(
   // JSON envelope instead of crashing into Vercel's raw 500.
   if (solicitud.origen === "form") {
     let created: { user: { id: string } | null } | null = null;
-    let supabaseError: { message?: string } | null = null;
+    let supabaseError: { message?: string; code?: string } | null = null;
     try {
       const res = await supabaseAdmin.auth.admin.inviteUserByEmail(solicitud.email, {
         redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? request.headers.get("origin") ?? "http://localhost:3000"}/auth/confirm`,
@@ -120,7 +120,13 @@ export const POST = withApiErrorHandling(
 
     if (supabaseError || !created?.user) {
       console.error("[solicitudes-acceso] inviteUserByEmail failed:", supabaseError);
-      const isDuplicate = String(supabaseError?.message ?? "").toLowerCase().includes("already registered");
+      // Match Supabase's stable error code first — its human-readable message
+      // has changed wording before ("already registered" -> "already been
+      // registered"), which silently broke a plain substring check here and
+      // let a real duplicate-email case fall through as a raw 500.
+      const isDuplicate =
+        supabaseError?.code === "email_exists" ||
+        /already\s+(?:been\s+)?registered/i.test(String(supabaseError?.message ?? ""));
       return apiError(
         isDuplicate
           ? "El correo ya tiene una cuenta en el Hub. Considera rechazar la solicitud."

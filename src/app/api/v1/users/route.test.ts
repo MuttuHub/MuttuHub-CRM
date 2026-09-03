@@ -16,6 +16,10 @@ vi.mock("@/lib/db", () => ({
       findUnique: vi.fn(),
       create: vi.fn(),
     },
+    solicitudAcceso: {
+      findFirst: vi.fn(),
+      update: vi.fn(),
+    },
   },
 }));
 
@@ -48,6 +52,8 @@ function mockSupabaseAdmin(overrides: {
   createUser?: ReturnType<typeof vi.fn>;
   inviteUserByEmail?: ReturnType<typeof vi.fn>;
   deleteUser?: ReturnType<typeof vi.fn>;
+  listUsers?: ReturnType<typeof vi.fn>;
+  generateLink?: ReturnType<typeof vi.fn>;
 }) {
   const client = {
     auth: {
@@ -55,6 +61,8 @@ function mockSupabaseAdmin(overrides: {
         createUser: overrides.createUser ?? vi.fn(),
         inviteUserByEmail: overrides.inviteUserByEmail ?? vi.fn(),
         deleteUser: overrides.deleteUser ?? vi.fn().mockResolvedValue({ error: null }),
+        listUsers: overrides.listUsers ?? vi.fn().mockResolvedValue({ data: { users: [] } }),
+        generateLink: overrides.generateLink ?? vi.fn(),
       },
     },
   };
@@ -215,19 +223,69 @@ describe("POST /api/v1/users", () => {
     });
   });
 
-  it("returns 409 when Supabase reports the email is already registered", async () => {
+  it("returns 409 when Supabase reports the email is already registered and confirmed", async () => {
     mockAuth();
     vi.mocked(db.usuario.findUnique).mockResolvedValue(null);
     mockSupabaseAdmin({
       inviteUserByEmail: vi.fn().mockResolvedValue({
         data: { user: null },
-        error: { message: "Email already registered" },
+        // Real Supabase wording — a plain "already registered" substring
+        // check does NOT match this and used to fall through to a raw 500
+        // in production instead of the intended 409/resend flow.
+        error: {
+          message: "A user with this email address has already been registered",
+        },
+      }),
+      listUsers: vi.fn().mockResolvedValue({
+        data: {
+          users: [
+            {
+              email: validBody.email,
+              email_confirmed_at: "2026-01-01T00:00:00.000Z",
+            },
+          ],
+        },
       }),
     });
 
     const res = await POST(postRequest(validBody));
 
     expect(res.status).toBe(409);
+  });
+
+  it("resends the invite via generateLink when the existing auth user has not confirmed yet", async () => {
+    mockAuth();
+    vi.mocked(db.usuario.findUnique).mockResolvedValue(null);
+    const supabaseAdmin = mockSupabaseAdmin({
+      inviteUserByEmail: vi.fn().mockResolvedValue({
+        data: { user: null },
+        error: { message: "Email already registered" },
+      }),
+      listUsers: vi.fn().mockResolvedValue({
+        data: {
+          users: [{ email: validBody.email, email_confirmed_at: null }],
+        },
+      }),
+      generateLink: vi.fn().mockResolvedValue({
+        data: { properties: { action_link: "https://x.test/invite?token=abc" } },
+        error: null,
+      }),
+    });
+
+    const res = await POST(postRequest(validBody));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(supabaseAdmin.auth.admin.generateLink).toHaveBeenCalledWith({
+      type: "invite",
+      email: validBody.email,
+    });
+    expect(json).toEqual({
+      resent: true,
+      inviteUrl: "https://x.test/invite?token=abc",
+      message: "Enlace de invitación generado.",
+    });
+    expect(db.usuario.create).not.toHaveBeenCalled();
   });
 
   it("returns 500 when Supabase user creation fails for another reason", async () => {
@@ -243,6 +301,72 @@ describe("POST /api/v1/users", () => {
     const res = await POST(postRequest(validBody));
 
     expect(res.status).toBe(500);
+  });
+
+  it("resolves a matching PENDIENTE SolicitudAcceso to APROBADA when the admin creates the user", async () => {
+    mockAuth();
+    vi.mocked(db.usuario.findUnique).mockResolvedValue(null);
+    mockSupabaseAdmin({
+      inviteUserByEmail: vi.fn().mockResolvedValue({
+        data: { user: { id: "auth-4" } },
+        error: null,
+      }),
+    });
+    vi.mocked(db.usuario.create).mockResolvedValue({
+      id: "auth-4",
+      nombre: validBody.nombre,
+      email: validBody.email,
+      rol: validBody.rol,
+      activo: true,
+      created_at: new Date(),
+    } as never);
+    vi.mocked(db.solicitudAcceso.findFirst).mockResolvedValue({
+      id: "sol-1",
+    } as never);
+    vi.mocked(db.solicitudAcceso.update).mockResolvedValue({} as never);
+
+    const res = await POST(postRequest(validBody));
+
+    expect(res.status).toBe(201);
+    expect(db.solicitudAcceso.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { email: validBody.email, estado: "PENDIENTE" },
+      }),
+    );
+    expect(db.solicitudAcceso.update).toHaveBeenCalledWith({
+      where: { id: "sol-1" },
+      data: expect.objectContaining({
+        estado: "APROBADA",
+        revisado_por: "admin-1",
+      }),
+    });
+  });
+
+  it("still returns 201 when the SolicitudAcceso reconciliation fails (best-effort, does not roll back the created user)", async () => {
+    mockAuth();
+    vi.mocked(db.usuario.findUnique).mockResolvedValue(null);
+    mockSupabaseAdmin({
+      inviteUserByEmail: vi.fn().mockResolvedValue({
+        data: { user: { id: "auth-5" } },
+        error: null,
+      }),
+    });
+    vi.mocked(db.usuario.create).mockResolvedValue({
+      id: "auth-5",
+      nombre: validBody.nombre,
+      email: validBody.email,
+      rol: validBody.rol,
+      activo: true,
+      created_at: new Date(),
+    } as never);
+    vi.mocked(db.solicitudAcceso.findFirst).mockRejectedValue(
+      new Error("db down"),
+    );
+
+    const res = await POST(postRequest(validBody));
+
+    expect(res.status).toBe(201);
+    expect(db.solicitudAcceso.update).not.toHaveBeenCalled();
   });
 
   it("rolls back the auth user when the Prisma insert fails", async () => {
