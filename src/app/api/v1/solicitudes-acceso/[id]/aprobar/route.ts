@@ -1,14 +1,29 @@
 // POST /api/v1/solicitudes-acceso/:id/aprobar — admin approval of a public
 // access request (PRD §3.1). ADMINISTRADOR only. The path depends on origin:
 //
-//   - "form": inviteUserByEmail (same pattern as POST /api/v1/users) and then
-//     create the Usuario row with the auth user id returned.
+//   - "form": inviteUserByEmail, then create the Usuario row with the auth
+//     user id returned.
 //   - "google": the auth user already exists (auth_id recorded at callback),
 //     so only the Usuario row is created — id = auth_id, no invitation.
 //
-// The solicitud is marked APROBADA + revisado_por (admin id) + revisado_at.
-// If the Prisma side fails after the invite, the auth user is rolled back so
-// no orphan account is left behind (same as users module).
+// `auth_id` doubles as an idempotency checkpoint, not just Google's marker:
+// right after a successful invite, it's saved on the solicitud BEFORE
+// anything else happens. If a later step fails and the admin retries, the
+// route sees auth_id already set and skips inviteUserByEmail entirely —
+// it reuses that id instead of inviting again. Without this, a retry after
+// a partial failure would invite the SAME email a second time and Supabase
+// would reject it as "already registered", forever, with no way to recover
+// except manually deleting the account. Once checkpointed, the auth user is
+// never rolled back — only the invite step itself (before the checkpoint
+// write lands) can still be safely undone, since nothing durable recorded
+// it yet.
+//
+// Creating the Usuario row and marking the solicitud APROBADA happen inside
+// one Prisma transaction: either both land or neither does. This closes the
+// other half of the same bug — previously these were two separate writes,
+// and a failure between them left a real Usuario account with no way to
+// tell the solicitud was ever handled (stuck in PENDIENTE forever, while
+// the account it was "still waiting on" already existed).
 
 import { NextResponse } from "next/server";
 import type { RolUsuario } from "@prisma/client";
@@ -29,7 +44,18 @@ const SOLICITUD_SELECT = {
   cargo: true,
   origen: true,
   auth_id: true,
+  estado: true,
 } as const;
+
+type SolicitudRow = {
+  id: string;
+  nombre: string;
+  email: string;
+  cargo: string | null;
+  origen: string;
+  auth_id: string | null;
+  estado: string;
+};
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -53,7 +79,7 @@ export const POST = withApiErrorHandling(
     );
   }
 
-  let solicitud: { id: string; nombre: string; email: string; cargo: string | null; origen: string; auth_id: string | null } | null = null;
+  let solicitud: SolicitudRow | null = null;
   try {
     solicitud = await db.solicitudAcceso.findUnique({
       where: { id },
@@ -70,36 +96,27 @@ export const POST = withApiErrorHandling(
   if (!solicitud) {
     return apiError("La solicitud no existe.", 404, "NOT_FOUND");
   }
-
-  try {
-    const pendiente = await db.solicitudAcceso.findUnique({
-      where: { id },
-      select: { estado: true },
-    });
-    if (!pendiente || pendiente.estado !== "PENDIENTE") {
-      return apiError(
-        "Esta solicitud ya fue revisada.",
-        409,
-        "CONFLICT",
-      );
-    }
-  } catch (err) {
-    console.error("[solicitudes-acceso] estado check failed:", err);
-    return apiError(
-      "No pudimos cargar la solicitud. Inténtalo de nuevo.",
-      500,
-      "INTERNAL_ERROR",
-    );
+  if (solicitud.estado !== "PENDIENTE") {
+    return apiError("Esta solicitud ya fue revisada.", 409, "CONFLICT");
   }
 
   const supabaseAdmin = createSupabaseAdmin();
+  let authId = solicitud.auth_id;
 
-  // "form": create the auth user via invite email (the user picks their own
-  // password when redeeming the link, PRD §3.1 — no password is requested).
-  // The SDK call can THROW (bad service-role key, timeout, malformed URL)
-  // instead of returning { data, error }: wrap it so the route answers the
-  // JSON envelope instead of crashing into Vercel's raw 500.
-  if (solicitud.origen === "form") {
+  if (!authId) {
+    if (solicitud.origen !== "form") {
+      return apiError(
+        "La solicitud no tiene un usuario de Google asociado.",
+        400,
+        "VALIDATION_ERROR",
+      );
+    }
+
+    // "form": create the auth user via invite email (the user picks their own
+    // password when redeeming the link, PRD §3.1 — no password is requested).
+    // The SDK call can THROW (bad service-role key, timeout, malformed URL)
+    // instead of returning { data, error }: wrap it so the route answers the
+    // JSON envelope instead of crashing into Vercel's raw 500.
     let created: { user: { id: string } | null } | null = null;
     let supabaseError: { message?: string; code?: string } | null = null;
     try {
@@ -136,14 +153,18 @@ export const POST = withApiErrorHandling(
       );
     }
 
+    // Checkpoint immediately, before anything else touches Usuario or
+    // estado: once this is saved, a retry always reuses this id instead of
+    // inviting the same email again.
     try {
-      await db.usuario.create({
-        data: { id: created.user.id, nombre: solicitud.nombre, email: solicitud.email, rol },
-        select: { id: true },
+      await db.solicitudAcceso.update({
+        where: { id },
+        data: { auth_id: created.user.id },
       });
     } catch (err) {
-      console.error("[solicitudes-acceso] usuario create failed:", err);
-      // Roll back the auth user so no orphan account is left behind.
+      console.error("[solicitudes-acceso] auth_id checkpoint failed:", err);
+      // Nothing durable recorded this invite yet — safe (and correct) to
+      // roll it back so a retry starts clean instead of leaking an account.
       await supabaseAdmin.auth.admin.deleteUser(created.user.id).catch(() => {});
       return apiError(
         "No pudimos guardar el usuario. Inténtalo de nuevo.",
@@ -151,48 +172,30 @@ export const POST = withApiErrorHandling(
         "INTERNAL_ERROR",
       );
     }
-  } else {
-    // "google": the auth user already exists from the OAuth callback.
-    if (!solicitud.auth_id) {
-      return apiError(
-        "La solicitud no tiene un usuario de Google asociado.",
-        400,
-        "VALIDATION_ERROR",
-      );
-    }
-    try {
-      await db.usuario.create({
-        data: {
-          id: solicitud.auth_id,
-          nombre: solicitud.nombre,
-          email: solicitud.email,
-          rol,
-        },
-        select: { id: true },
-      });
-    } catch (err) {
-      console.error("[solicitudes-acceso] usuario create failed:", err);
-      return apiError(
-        "No pudimos guardar el usuario. Inténtalo de nuevo.",
-        500,
-        "INTERNAL_ERROR",
-      );
-    }
+    authId = created.user.id;
   }
 
   try {
-    await db.solicitudAcceso.update({
-      where: { id },
-      data: {
-        estado: "APROBADA",
-        revisado_por: auth.usuario.id,
-        revisado_at: new Date(),
-      },
-    });
+    await db.$transaction([
+      db.usuario.create({
+        data: { id: authId, nombre: solicitud.nombre, email: solicitud.email, rol },
+      }),
+      db.solicitudAcceso.update({
+        where: { id },
+        data: {
+          estado: "APROBADA",
+          revisado_por: auth.usuario.id,
+          revisado_at: new Date(),
+        },
+      }),
+    ]);
   } catch (err) {
-    console.error("[solicitudes-acceso] mark approved failed:", err);
+    console.error("[solicitudes-acceso] finalize failed:", err);
+    // authId is already checkpointed (or was always known, for google) — it
+    // is never rolled back here. A retry reuses it and only redoes this
+    // transaction: no re-invite, no duplicate-email loop.
     return apiError(
-      "Aprobamos el acceso pero no pudimos actualizar la solicitud. Reinténtalo.",
+      "Aprobamos el acceso pero no pudimos guardar el usuario. Reinténtalo.",
       500,
       "INTERNAL_ERROR",
     );

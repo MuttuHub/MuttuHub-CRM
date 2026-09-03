@@ -600,12 +600,15 @@ registry.registerPath({
     "Solo ADMINISTRADOR. Requiere `rol` en el body (rol final asignado al nuevo usuario). El flujo real difiere " +
     "según `origen` de la solicitud: (1) `origen: 'form'` — crea el usuario de Supabase Auth vía " +
     "inviteUserByEmail (sin password, el usuario la define al redimir el correo) y luego crea la fila Usuario " +
-    "con ese id; si el paso de Prisma falla, se revierte (`deleteUser`) el usuario de Auth para no dejar una " +
-    "cuenta huérfana. (2) `origen: 'google'` — el usuario de Auth YA existe (creado por el callback de OAuth, " +
-    "`auth_id` registrado en la solicitud); aquí solo se crea la fila Usuario con id = auth_id, sin invitación " +
-    "ni rollback de Auth (nada que revertir). En ambos casos la solicitud se marca APROBADA con " +
-    "`revisado_por`/`revisado_at`. Una solicitud ya revisada responde 409 CONFLICT; un correo ya registrado en " +
-    "Auth (modo form) también responde 409 CONFLICT.",
+    "con ese id. (2) `origen: 'google'` — el usuario de Auth YA existe (creado por el callback de OAuth, " +
+    "`auth_id` registrado en la solicitud); aquí solo se crea la fila Usuario con id = auth_id, sin invitación. " +
+    "`auth_id` funciona además como checkpoint de idempotencia: apenas el invite tiene éxito se guarda ANTES de " +
+    "tocar la fila Usuario, así que un reintento tras una falla posterior nunca vuelve a invitar el mismo correo " +
+    "— reutiliza el id ya checkpointeado. La creación de Usuario y el marcado APROBADA van juntos en una sola " +
+    "transacción (o pasan los dos o ninguno). El usuario de Auth solo se revierte (`deleteUser`) si falla la " +
+    "escritura del checkpoint (nada quedó registrado todavía); una vez checkpointeado, nunca se revierte — un " +
+    "reintento solo rehace la transacción de base de datos. Una solicitud ya revisada responde 409 CONFLICT; un " +
+    "correo ya registrado en Auth (modo form) también responde 409 CONFLICT.",
   security: [{ sessionCookie: [] }],
   request: {
     params: z.object({ id: z.string().uuid() }),

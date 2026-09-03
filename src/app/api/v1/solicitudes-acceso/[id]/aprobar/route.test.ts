@@ -18,6 +18,11 @@ vi.mock("@/lib/db", () => ({
     usuario: {
       create: vi.fn(),
     },
+    // Array-form $transaction: the individual mocked calls (usuario.create,
+    // solicitudAcceso.update) are already invoked by the time this runs —
+    // Promise.all mirrors Prisma's all-or-nothing semantics closely enough
+    // for these unit tests (one rejection fails the whole transaction).
+    $transaction: vi.fn((ops: unknown[]) => Promise.all(ops)),
   },
 }));
 
@@ -40,6 +45,7 @@ type SolicitudRow = {
   cargo: string | null;
   origen: string;
   auth_id: string | null;
+  estado: string;
 };
 
 const solicitudForm: SolicitudRow = {
@@ -49,6 +55,7 @@ const solicitudForm: SolicitudRow = {
   cargo: "Analista",
   origen: "form",
   auth_id: null,
+  estado: "PENDIENTE",
 };
 
 const solicitudGoogle: SolicitudRow = {
@@ -58,6 +65,7 @@ const solicitudGoogle: SolicitudRow = {
   cargo: null,
   origen: "google",
   auth_id: "google-auth-1",
+  estado: "PENDIENTE",
 };
 
 function mockAdmin() {
@@ -75,17 +83,11 @@ function mockForbidden() {
   });
 }
 
-/**
- * First findUnique call = full row (SOLICITUD_SELECT); second = { estado }.
- * Resets first: some tests only trigger the route's first findUnique call
- * (e.g. 404 not-found), which would otherwise leave a stale queued value for
- * the next test to consume.
- */
-function mockSolicitud(row: SolicitudRow | null, estado = "PENDIENTE") {
+// Single findUnique call now (estado is part of SOLICITUD_SELECT).
+function mockSolicitud(row: SolicitudRow | null) {
   vi.mocked(db.solicitudAcceso.findUnique)
     .mockReset()
-    .mockResolvedValueOnce(row as never)
-    .mockResolvedValueOnce(row ? ({ estado } as never) : (null as never));
+    .mockResolvedValueOnce(row as never);
 }
 
 function mockSupabaseAdmin(overrides: {
@@ -146,7 +148,7 @@ describe("POST /api/v1/solicitudes-acceso/:id/aprobar", () => {
 
   it("returns 409 when the solicitud was already reviewed", async () => {
     mockAdmin();
-    mockSolicitud(solicitudForm, "APROBADA");
+    mockSolicitud({ ...solicitudForm, estado: "APROBADA" });
 
     const res = await POST(request(), ctx);
 
@@ -155,7 +157,7 @@ describe("POST /api/v1/solicitudes-acceso/:id/aprobar", () => {
   });
 
   describe("origen: form", () => {
-    it("invites the user by email, creates the Usuario row and marks the solicitud APROBADA", async () => {
+    it("invites the user, checkpoints auth_id, creates the Usuario row and marks the solicitud APROBADA", async () => {
       mockAdmin();
       mockSolicitud(solicitudForm);
       const supabaseAdmin = mockSupabaseAdmin({
@@ -164,8 +166,8 @@ describe("POST /api/v1/solicitudes-acceso/:id/aprobar", () => {
           error: null,
         }),
       });
-      vi.mocked(db.usuario.create).mockResolvedValue({ id: "auth-1" } as never);
       vi.mocked(db.solicitudAcceso.update).mockResolvedValue({} as never);
+      vi.mocked(db.usuario.create).mockResolvedValue({ id: "auth-1" } as never);
 
       const res = await POST(request(), ctx);
       const json = await res.json();
@@ -175,6 +177,12 @@ describe("POST /api/v1/solicitudes-acceso/:id/aprobar", () => {
         solicitudForm.email,
         expect.objectContaining({ data: { nombre: solicitudForm.nombre, rol: "COLABORADOR" } }),
       );
+      // First write after a successful invite is the checkpoint — before
+      // anything else touches Usuario or estado.
+      expect(db.solicitudAcceso.update).toHaveBeenNthCalledWith(1, {
+        where: { id: "sol-1" },
+        data: { auth_id: "auth-1" },
+      });
       expect(db.usuario.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: {
@@ -185,11 +193,50 @@ describe("POST /api/v1/solicitudes-acceso/:id/aprobar", () => {
           },
         }),
       );
-      expect(db.solicitudAcceso.update).toHaveBeenCalledWith({
+      expect(db.solicitudAcceso.update).toHaveBeenNthCalledWith(2, {
         where: { id: "sol-1" },
         data: expect.objectContaining({ estado: "APROBADA", revisado_por: "admin-1" }),
       });
       expect(json.solicitud).toMatchObject({ id: "sol-1", estado: "APROBADA" });
+    });
+
+    it("reuses a previously checkpointed auth_id instead of inviting again", async () => {
+      mockAdmin();
+      mockSolicitud({ ...solicitudForm, auth_id: "auth-1" });
+      const supabaseAdmin = mockSupabaseAdmin({});
+      vi.mocked(db.solicitudAcceso.update).mockResolvedValue({} as never);
+      vi.mocked(db.usuario.create).mockResolvedValue({ id: "auth-1" } as never);
+
+      const res = await POST(request(), ctx);
+
+      expect(res.status).toBe(200);
+      expect(supabaseAdmin.auth.admin.inviteUserByEmail).not.toHaveBeenCalled();
+      expect(db.usuario.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ id: "auth-1" }) }),
+      );
+      // Only the final estado update — no checkpoint write, nothing to redo.
+      expect(db.solicitudAcceso.update).toHaveBeenCalledTimes(1);
+    });
+
+    it("uses the rol from the retry request, not the one sent on the original (already-invited) attempt", async () => {
+      mockAdmin();
+      // auth_id already checkpointed from a prior attempt with a different
+      // rol — the email's user_metadata still carries that original rol,
+      // but nothing in the app reads it for authorization (only
+      // Usuario.rol does, via requireApiRole/getSessionUser). The retry's
+      // rol is what actually lands in Usuario.
+      mockSolicitud({ ...solicitudForm, auth_id: "auth-1" });
+      const supabaseAdmin = mockSupabaseAdmin({});
+      vi.mocked(db.solicitudAcceso.update).mockResolvedValue({} as never);
+      vi.mocked(db.usuario.create).mockResolvedValue({ id: "auth-1" } as never);
+
+      const res = await POST(request({ rol: "GERENCIA" }), ctx);
+
+      expect(res.status).toBe(200);
+      expect(supabaseAdmin.auth.admin.inviteUserByEmail).not.toHaveBeenCalled();
+      expect(db.usuario.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ rol: "GERENCIA" }) }),
+      );
     });
 
     it("returns 409 when the invite email is already registered", async () => {
@@ -263,7 +310,7 @@ describe("POST /api/v1/solicitudes-acceso/:id/aprobar", () => {
       expect(db.usuario.create).not.toHaveBeenCalled();
     });
 
-    it("rolls back the invited auth user when the Prisma insert fails", async () => {
+    it("rolls back the invited auth user when the auth_id checkpoint write fails", async () => {
       mockAdmin();
       mockSolicitud(solicitudForm);
       const supabaseAdmin = mockSupabaseAdmin({
@@ -272,13 +319,38 @@ describe("POST /api/v1/solicitudes-acceso/:id/aprobar", () => {
           error: null,
         }),
       });
-      vi.mocked(db.usuario.create).mockRejectedValue(new Error("db down"));
+      vi.mocked(db.solicitudAcceso.update).mockRejectedValueOnce(new Error("db down"));
 
       const res = await POST(request(), ctx);
 
       expect(res.status).toBe(500);
+      // Nothing was checkpointed yet — safe to undo the invite.
       expect(supabaseAdmin.auth.admin.deleteUser).toHaveBeenCalledWith("auth-1");
-      expect(db.solicitudAcceso.update).not.toHaveBeenCalled();
+      expect(db.usuario.create).not.toHaveBeenCalled();
+      expect(db.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("does NOT roll back the auth user when the final transaction fails — auth_id is already checkpointed", async () => {
+      mockAdmin();
+      mockSolicitud(solicitudForm);
+      const supabaseAdmin = mockSupabaseAdmin({
+        inviteUserByEmail: vi.fn().mockResolvedValue({
+          data: { user: { id: "auth-1" } },
+          error: null,
+        }),
+      });
+      // 1st update = checkpoint (succeeds), 2nd = final estado update (fails).
+      vi.mocked(db.solicitudAcceso.update)
+        .mockResolvedValueOnce({} as never)
+        .mockRejectedValueOnce(new Error("db down"));
+      vi.mocked(db.usuario.create).mockResolvedValue({ id: "auth-1" } as never);
+
+      const res = await POST(request(), ctx);
+      const json = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(json.error).toMatch(/Aprobamos el acceso/);
+      expect(supabaseAdmin.auth.admin.deleteUser).not.toHaveBeenCalled();
     });
   });
 
@@ -304,6 +376,8 @@ describe("POST /api/v1/solicitudes-acceso/:id/aprobar", () => {
           },
         }),
       );
+      // No checkpoint write for google — auth_id already came from the callback.
+      expect(db.solicitudAcceso.update).toHaveBeenCalledTimes(1);
     });
 
     it("returns 400 when the solicitud has no linked auth_id", async () => {
@@ -327,19 +401,5 @@ describe("POST /api/v1/solicitudes-acceso/:id/aprobar", () => {
       expect(res.status).toBe(500);
       expect(supabaseAdmin.auth.admin.deleteUser).not.toHaveBeenCalled();
     });
-  });
-
-  it("returns 500 with a distinct message when marking the solicitud APROBADA fails after creating the user", async () => {
-    mockAdmin();
-    mockSolicitud(solicitudGoogle);
-    mockSupabaseAdmin({});
-    vi.mocked(db.usuario.create).mockResolvedValue({ id: "google-auth-1" } as never);
-    vi.mocked(db.solicitudAcceso.update).mockRejectedValue(new Error("db down"));
-
-    const res = await POST(request(), ctx);
-    const json = await res.json();
-
-    expect(res.status).toBe(500);
-    expect(json.error).toMatch(/Aprobamos el acceso/);
   });
 });
