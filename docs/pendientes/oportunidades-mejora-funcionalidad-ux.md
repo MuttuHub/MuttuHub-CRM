@@ -76,12 +76,21 @@ lista agrupada por estado con un `Select` para cambiar de estado (mismo
 componente que ya se usa en el resto del CRM) evita reinventar drag-and-drop
 para touch.
 
+> **Estado (Fase 5, PR 34)**: resuelto por el patrón F — las columnas se
+> apilan como grupos debajo de `lg` (mismo DOM, mismo `SortableContext`), con
+> el `Select` de estado existente para cambios rápidos. Ver
+> `docs/patrones-responsive.md`.
+
 ### 8. Accesibilidad de teclado en el drag-and-drop
 
 `@dnd-kit` trae sensores de teclado listos para usar
 (`KeyboardSensor`); confirmar que el tablero los tenga habilitados y que el
 movimiento se anuncie (`aria-live`) para poder mover una tarjeta sin mouse —
 hoy es la única interacción del CRM que depende puramente del mouse/touch.
+
+> **Estado (Fase 5)**: cerrado por verificación — `KeyboardSensor` +
+> `sortableKeyboardCoordinates` y la región `aria-live` ya están en
+> `kanban-board.tsx:175-178,400-402`.
 
 ### 9. Confirmaciones destructivas 100% consistentes
 
@@ -98,12 +107,22 @@ explicación ("Aún no hay registros"). Extender ese mismo tratamiento a listas
 que hoy podrían mostrar solo una tabla vacía (Contactos, Oportunidades,
 Subtareas) — mismo componente, sin diseño nuevo, solo aplicarlo parejo.
 
+> **Estado (Fase 5, PR 33)**: parcial — el patrón C fija `min-w` en las tablas
+> para que los contenedores dejen de desbordar en móvil; el tratamiento
+> completo de estados vacíos en Contactos/Oportunidades/Subtareas sigue
+> abierto.
+
 ### 11. Densidad de tabla configurable
 
 Un toggle "compacta / cómoda" en Repositorio y Bitácora (persistido en
 `zustand`, como la sidebar) para quien gestiona catálogos grandes y quiere
 ver más filas por pantalla sin scroll — es una clase de Tailwind condicional,
 no un componente nuevo.
+
+> **Estado (Fase 5, PR 33)**: reencuadrado — el patrón C fija el ancho cómodo
+> de cada columna (`min-w`), que es la referencia sobre la que un toggle de
+> densidad debe operar; hacerlo antes habría producido dos anchos mínimos en
+> conflicto. El toggle en sí sigue pendiente.
 
 ### 12. Indicadores visuales en el Dashboard sin librería de charts
 
