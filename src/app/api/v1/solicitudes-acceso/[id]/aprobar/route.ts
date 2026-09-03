@@ -17,6 +17,7 @@ import {
   apiError,
   parseJsonBody,
 } from "@/lib/api/errors";
+import { withApiErrorHandling } from "@/lib/api/handler";
 import { ROLE_LABELS } from "@/lib/auth/types";
 import { requireApiRole } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
@@ -32,7 +33,10 @@ const SOLICITUD_SELECT = {
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function POST(request: Request, ctx: RouteContext) {
+export const POST = withApiErrorHandling(
+  "solicitudes-acceso",
+  "No pudimos aprobar la solicitud. Inténtalo de nuevo.",
+  async (request: Request, ctx: RouteContext) => {
   const auth = await requireApiRole(["ADMINISTRADOR"]);
   if (!auth.ok) return auth.response;
 
@@ -92,14 +96,29 @@ export async function POST(request: Request, ctx: RouteContext) {
 
   // "form": create the auth user via invite email (the user picks their own
   // password when redeeming the link, PRD §3.1 — no password is requested).
+  // The SDK call can THROW (bad service-role key, timeout, malformed URL)
+  // instead of returning { data, error }: wrap it so the route answers the
+  // JSON envelope instead of crashing into Vercel's raw 500.
   if (solicitud.origen === "form") {
-    const { data: created, error: supabaseError } =
-      await supabaseAdmin.auth.admin.inviteUserByEmail(solicitud.email, {
+    let created: { user: { id: string } | null } | null = null;
+    let supabaseError: { message?: string } | null = null;
+    try {
+      const res = await supabaseAdmin.auth.admin.inviteUserByEmail(solicitud.email, {
         redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? request.headers.get("origin") ?? "http://localhost:3000"}/auth/confirm`,
         data: { nombre: solicitud.nombre, rol },
       });
+      created = res.data;
+      supabaseError = res.error;
+    } catch (err) {
+      console.error("[solicitudes-acceso] inviteUserByEmail threw:", err);
+      return apiError(
+        "No pudimos enviar la invitación. Inténtalo de nuevo.",
+        500,
+        "INTERNAL_ERROR",
+      );
+    }
 
-    if (supabaseError || !created.user) {
+    if (supabaseError || !created?.user) {
       console.error("[solicitudes-acceso] inviteUserByEmail failed:", supabaseError);
       const isDuplicate = String(supabaseError?.message ?? "").toLowerCase().includes("already registered");
       return apiError(
@@ -181,4 +200,5 @@ export async function POST(request: Request, ctx: RouteContext) {
       revisado_at: new Date().toISOString(),
     },
   });
-}
+  },
+);

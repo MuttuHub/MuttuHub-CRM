@@ -223,6 +223,24 @@ describe("POST /api/v1/solicitudes-acceso/:id/aprobar", () => {
       expect(res.status).toBe(500);
     });
 
+    it("returns a JSON 500 envelope (not a crash) when inviteUserByEmail THROWS (e.g. bad service-role key / SDK error)", async () => {
+      mockAdmin();
+      mockSolicitud(solicitudForm);
+      mockSupabaseAdmin({
+        inviteUserByEmail: vi.fn().mockRejectedValue(new Error("Invalid API key")),
+      });
+
+      const res = await POST(request(), ctx);
+
+      expect(res.status).toBe(500);
+      const json = await res.json();
+      expect(json.error).toBeTruthy();
+      expect(json.code).toBe("INTERNAL_ERROR");
+      // No orphan: nothing was created on Supabase, nothing to roll back.
+      expect(db.solicitudAcceso.update).not.toHaveBeenCalled();
+      expect(db.usuario.create).not.toHaveBeenCalled();
+    });
+
     it("rolls back the invited auth user when the Prisma insert fails", async () => {
       mockAdmin();
       mockSolicitud(solicitudForm);
