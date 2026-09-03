@@ -213,7 +213,9 @@ export function ChipSelector<T extends string>({
   onChange: (v: T) => void;
 }) {
   return (
-    <div className="flex items-center gap-1 rounded-12 bg-ink-100 p-1">
+    // overflow-x-auto + shrink-0 en los chips (bug 0b): el grupo scrollea en
+    // vez de desbordar el documento en viewports angostos.
+    <div className="flex max-w-full items-center gap-1 overflow-x-auto rounded-12 bg-ink-100 p-1">
       {options.map((o) => (
         <button
           key={o.value}
@@ -221,7 +223,7 @@ export function ChipSelector<T extends string>({
           onClick={() => onChange(o.value)}
           aria-pressed={value === o.value}
           className={cn(
-            "rounded-[8px] px-2.5 py-1.5 text-[11.5px] font-bold whitespace-nowrap transition-colors",
+            "shrink-0 rounded-[8px] px-2.5 py-1.5 text-[11.5px] font-bold whitespace-nowrap transition-colors",
             value === o.value
               ? "bg-card text-ink-950 shadow-sm"
               : "text-ink-600 hover:text-ink-900",

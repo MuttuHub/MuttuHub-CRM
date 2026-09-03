@@ -15,7 +15,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-function SidebarContent({ rail }: { rail: boolean }) {
+function SidebarContent({ rail, inDrawer = false }: { rail: boolean; inDrawer?: boolean }) {
   const pathname = usePathname();
   const toggleCollapsed = useSidebarStore((s) => s.toggleCollapsed);
   const counts = useNavCounts().data;
@@ -90,6 +90,9 @@ function SidebarContent({ rail }: { rail: boolean }) {
             "relative grid size-[26px] shrink-0 place-items-center rounded-[9px] border border-shell-border text-shell-muted transition-colors after:absolute after:content-[''] after:-inset-2.5 hover:border-shell-kbd hover:text-shell-text focus-visible:ring-3 focus-visible:ring-ring/50",
             rail ? "mt-1 block" : "block",
           )}
+          // Dentro del drawer móvil no hay modo rail: el botón mutaría el
+          // estado PERSISTIDO de escritorio de forma invisible (bug 0a).
+          hidden={inDrawer}
         >
           <PanelLeft className="size-3.5" strokeWidth={1.7} />
         </button>
@@ -191,6 +194,31 @@ export function Sidebar() {
   const collapsed = useSidebarStore((s) => s.collapsed);
   const mobileOpen = useSidebarStore((s) => s.mobileOpen);
   const setMobileOpen = useSidebarStore((s) => s.setMobileOpen);
+  const pathname = usePathname();
+
+  // Cierre del drawer móvil al navegar (bug 0a): un click en un link cambia
+  // el pathname y el drawer debe desmontarse. El primer render NO cierra (en
+  // la app real el drawer arranca cerrado; saltarlo evita un clobber al
+  // hidratar una sesión que reabrió el drawer antes del mount).
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    setMobileOpen(false);
+  }, [pathname, setMobileOpen]);
+
+  // Bloqueo de scroll del body mientras el drawer está abierto (el scrim no
+  // lo impide por sí solo). Se libera al desmontar/cerrar.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileOpen]);
 
   // Cierre del drawer móvil con Escape (misma convención que notification-panel).
   useEffect(() => {
@@ -222,7 +250,7 @@ export function Sidebar() {
             className="absolute inset-0 bg-[#191113]/50 backdrop-blur-[2px]"
           />
           <aside id="sidebar-drawer" className="absolute inset-y-0 left-0 flex w-[264px] flex-col rounded-r-[26px] border-r border-shell-border bg-shell-surface px-3.5 py-3.5">
-            <SidebarContent rail={false} />
+            <SidebarContent rail={false} inDrawer />
           </aside>
         </div>
       )}

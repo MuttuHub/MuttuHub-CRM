@@ -118,7 +118,7 @@ export function DashboardTabs({ notice }: { notice?: string }) {
       <div className="sticky top-2 z-20 rounded-[16px] border border-ink-200 bg-panel/95 p-3 backdrop-blur">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5">
           <div className="flex items-center gap-2">
-            <span className="text-[11.5px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+            <span className="hidden text-[11.5px] font-bold tracking-[0.08em] text-ink-500 uppercase sm:inline">
               Rango
             </span>
             <ChipSelector options={[...RANGO_OPCIONES]} value={rango} onChange={(v: RangoFiltro) => setRango(v)} />
