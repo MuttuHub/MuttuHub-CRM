@@ -3,7 +3,7 @@
 // Login page — approved access design (Downloads/muttu-hub-acceso.html).
 // Full-screen two-pane layout; all flows live in AccesoPage.
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { AccesoPage } from "@/components/auth/acceso-page";
 
@@ -16,17 +16,20 @@ import { AccesoPage } from "@/components/auth/acceso-page";
 // already renders the right "Enlace no válido" + reenviar card for a hash it
 // doesn't recognize as a valid token — so instead of duplicating that logic,
 // forward there and let it handle it.
+//
+// Pure navigation, no local state: `window.location.replace` unloads this
+// page immediately, so there is nothing to synchronize back into React —
+// setting state here would only trigger a cascading render right before the
+// page tears down.
 function hasSupabaseAuthHash(hash: string): boolean {
   return /(^|[#&])(access_token|error|error_code)=/.test(hash);
 }
 
 function LoginRoute() {
   const searchParams = useSearchParams();
-  const [forwarding, setForwarding] = useState(false);
 
   useEffect(() => {
     if (hasSupabaseAuthHash(window.location.hash)) {
-      setForwarding(true);
       window.location.replace(`/auth/confirm${window.location.hash}`);
     }
   }, []);
@@ -36,10 +39,6 @@ function LoginRoute() {
   const solicitud = searchParams.get("solicitud") === "1";
   const errorOauth = searchParams.get("error") === "1";
   const errorInactivo = searchParams.get("error") === "inactive";
-
-  if (forwarding) {
-    return <div style={{ minHeight: "100vh", background: "#EFEAEB" }} />;
-  }
 
   return (
     <AccesoPage
