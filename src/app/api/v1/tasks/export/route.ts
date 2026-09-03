@@ -63,18 +63,23 @@ export const GET = withApiErrorHandling(
     const ids = rows.map((r) => r.id);
 
     // PR 6: audit the export before writing the file. Best-effort: logAudit
-    // swallows its own errors, so even a hard DB outage on `auditoria`
-    // wouldn't fail the user's download — the file is the deliverable.
-    await logAudit({
-      entidad: "tarea",
-      entidad_id: null,
-      accion: "exportar",
-      usuario_id: auth.usuario.id,
-      cambios: {
-        rows: rows.length,
-        filters: filters.filters as unknown as Record<string, unknown>,
-      },
-    });
+    // swallows its own errors internally, but the call itself is also
+    // wrapped here — defense in depth so a future change to logAudit can't
+    // silently turn an audit hiccup into a failed download.
+    try {
+      await logAudit({
+        entidad: "tarea",
+        entidad_id: null,
+        accion: "exportar",
+        usuario_id: auth.usuario.id,
+        cambios: {
+          rows: rows.length,
+          filters: filters.filters as unknown as Record<string, unknown>,
+        },
+      });
+    } catch (err) {
+      console.error("[tasks] export audit failed:", err);
+    }
 
     // Conteos de subtareas del conjunto exportado: dos groupBy (totales y
     // completadas) en lugar de N+1.
