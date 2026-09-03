@@ -757,7 +757,7 @@ function FiltersCard({
                 type="button"
                 onClick={() => onChange({ [chip.key]: "" })}
                 aria-label={`Quitar filtro ${chip.label}`}
-                className="grid size-5 place-items-center rounded-full text-ink-600 transition-colors hover:bg-ink-200 hover:text-ink-900"
+                className="relative grid size-5 place-items-center rounded-full text-ink-600 transition-colors after:absolute after:content-[''] after:-inset-2 hover:bg-ink-200 hover:text-ink-900"
               >
                 <X className="size-3" strokeWidth={2} />
               </button>
