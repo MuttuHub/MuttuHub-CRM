@@ -72,11 +72,13 @@ export function AccesoPage({
   expired = false,
   solicitud = false,
   errorOauth = false,
+  errorInactivo = false,
 }: {
   next: string;
   expired: boolean;
   solicitud: boolean;
   errorOauth: boolean;
+  errorInactivo: boolean;
 }) {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -326,13 +328,18 @@ export function AccesoPage({
       ? { txt: exito, bg: "var(--color-exito-bg)", fg: "var(--color-exito)", icon: "✓" }
       : errorOauth && vista === "login"
         ? { txt: "No pudimos completar el inicio con Google. Inténtalo de nuevo.", bg: "var(--color-destructivo-bg)", fg: "var(--color-destructivo)", icon: "✕" }
-        : solicitud && vista === "login"
-          ? { txt: "Tu solicitud quedó en revisión: la administración asigna el rol antes de darte acceso.", bg: "var(--color-info-bg)", fg: "var(--color-info)", icon: "i" }
-          : vista === "registro"
-            ? { txt: "Tu solicitud queda en revisión: la administración asigna el rol antes de darte acceso.", bg: "var(--color-info-bg)", fg: "var(--color-info)", icon: "i" }
-            : null;
+        : errorInactivo && vista === "login"
+          ? { txt: "Tu cuenta está inactiva. Contacta al administrador.", bg: "var(--color-destructivo-bg)", fg: "var(--color-destructivo)", icon: "✕" }
+          : solicitud && vista === "login"
+            ? { txt: "Tu solicitud quedó en revisión: la administración asigna el rol antes de darte acceso.", bg: "var(--color-info-bg)", fg: "var(--color-info)", icon: "i" }
+            : vista === "registro"
+              ? { txt: "Tu solicitud queda en revisión: la administración asigna el rol antes de darte acceso.", bg: "var(--color-info-bg)", fg: "var(--color-info)", icon: "i" }
+              : null;
 
-  const avisoEsError = error !== "" || (errorOauth && vista === "login");
+  const avisoEsError =
+    error !== "" ||
+    (errorOauth && vista === "login") ||
+    (errorInactivo && vista === "login");
 
   const tabDeshabilitado = vista === "recuperar" || vista === "enviado";
 

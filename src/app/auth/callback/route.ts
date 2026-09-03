@@ -2,7 +2,10 @@
 // here with a PKCE `code` after signInWithOAuth; the route exchanges it for a
 // session, then routes by app account:
 //
-//   - Usuario row exists for the auth user → redirect / (registered login).
+//   - Usuario row exists and is active → redirect / (registered login).
+//   - Usuario row exists but activo=false → sign out and redirect
+//     /login?error=inactive (same deactivation rule as POST
+//     /api/v1/auth/login).
 //   - No row (or the DB lookup failed) → record/refresh a SolicitudAcceso
 //     with origen "google" (only when no PENDIENTE exists for the email) and
 //     redirect /login?solicitud=1 so the page shows the review notice.
@@ -61,13 +64,24 @@ export async function GET(request: Request) {
   try {
     usuario = await db.usuario.findUnique({
       where: { id: user.id },
-      select: { id: true },
+      select: { id: true, activo: true },
     });
   } catch (err) {
     console.error("[auth/callback] Usuario lookup failed (best-effort):", err);
   }
 
   if (usuario) {
+    if (!usuario.activo) {
+      // Same rule as email+password login (POST /api/v1/auth/login):
+      // deactivated accounts are signed back out immediately. Distinct
+      // error=inactive target (not the generic error=1) so /login shows the
+      // "cuenta inactiva" copy instead of the generic OAuth-failure message.
+      await supabase.auth.signOut().catch(() => {});
+      return NextResponse.redirect(
+        new URL("/login?error=inactive", url.origin),
+      );
+    }
+
     // Bitácora de accesos (PRD §3.3): best-effort, never blocks the redirect.
     try {
       await db.acceso.create({
