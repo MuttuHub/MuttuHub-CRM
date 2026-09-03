@@ -153,6 +153,9 @@ describe("ConfirmPage", () => {
 
   it("shows error card when verifyOtp fails", async () => {
     mocks.verifyOtp.mockRejectedValue(new Error("invalid token"))
+    // No prior successful redemption in this scenario — no session exists
+    // for the fallback check to find.
+    mocks.getUser.mockResolvedValue({ data: { user: null }, error: null })
     mocks.setSearchParams(
       new URLSearchParams("token=t1&type=signup&email=a@b.co"),
     )
@@ -306,6 +309,8 @@ describe("ConfirmPage", () => {
 
   it("expired/redeemed invite link (type=invite, verifyOtp fails) shows the resend action instead of a dead end", async () => {
     mocks.verifyOtp.mockRejectedValue(new Error("invalid or expired"))
+    // Genuinely dead link — no fallback session exists either.
+    mocks.getUser.mockResolvedValue({ data: { user: null }, error: null })
     mocks.setSearchParams(
       new URLSearchParams("token=t1&type=invite&email=a@b.co"),
     )
@@ -339,6 +344,7 @@ describe("ConfirmPage", () => {
 
   it("failed non-invite link (type=recovery) keeps the generic dead-end message, no resend CTA", async () => {
     mocks.verifyOtp.mockRejectedValue(new Error("invalid or expired"))
+    mocks.getUser.mockResolvedValue({ data: { user: null }, error: null })
     mocks.setSearchParams(
       new URLSearchParams("token=t1&type=recovery&email=a@b.co"),
     )
@@ -356,6 +362,7 @@ describe("ConfirmPage", () => {
 
   it("failed hash-token verification (no type param, rawType null) keeps the generic dead-end message, no resend CTA", async () => {
     mocks.setSession.mockRejectedValue(new Error("invalid session"))
+    mocks.getUser.mockResolvedValue({ data: { user: null }, error: null })
     mocks.setSearchParams(new URLSearchParams("email=a@b.co"))
     setLocationHash("#access_token=at&refresh_token=rt")
     render(<ConfirmPage />)
@@ -368,5 +375,75 @@ describe("ConfirmPage", () => {
       screen.queryByRole("button", { name: "Solicitar de nuevo el enlace" }),
     ).not.toBeInTheDocument()
     expect(screen.getByText("Volver a iniciar sesión")).toBeInTheDocument()
+  })
+
+  // Real bug found via Supabase Auth logs: the SAME invite token was
+  // verified twice ~53s apart (button + the plain-text fallback link right
+  // below it in the email both point at the identical one-time URL — an
+  // impatient or unsure tap on mobile hits both). The FIRST /verify call
+  // succeeded (user_signedup + login logged); the second correctly failed
+  // ("One-time token not found") since the token was already spent — but
+  // the app showed a scary "Enlace no válido" instead of noticing the
+  // browser already holds a valid session from the first, successful call.
+  it("falls back to the existing session instead of erroring when verification fails but the user is already authenticated (double-redeemed link)", async () => {
+    mocks.verifyOtp.mockRejectedValue(
+      Object.assign(new Error("Email link is invalid or has expired"), {
+        code: "otp_expired",
+      }),
+    )
+    mocks.getUser.mockResolvedValue({
+      data: { user: { user_metadata: { rol: "VENDEDOR" } } },
+      error: null,
+    })
+    mocks.setSearchParams(
+      new URLSearchParams("token=t1&type=invite&email=a@b.co"),
+    )
+    render(<ConfirmPage />)
+    await flushMicrotasks()
+
+    expect(screen.queryByText("Enlace no válido")).not.toBeInTheDocument()
+    expect(
+      screen.queryByText("No pudimos verificar el correo"),
+    ).not.toBeInTheDocument()
+    expect(screen.getByText("Crea tu contraseña")).toBeInTheDocument()
+  })
+
+  it("still shows the invalid-link dead end when verification fails and there is no existing session either", async () => {
+    mocks.verifyOtp.mockRejectedValue(new Error("Email link is invalid or has expired"))
+    mocks.getUser.mockResolvedValue({ data: { user: null }, error: null })
+    mocks.setSearchParams(
+      new URLSearchParams("token=t1&type=invite&email=a@b.co"),
+    )
+    render(<ConfirmPage />)
+    await flushMicrotasks()
+
+    expect(screen.getByText("Enlace no válido")).toBeInTheDocument()
+  })
+
+  // Real-world invite redirect shape: GoTrue echoes `type=invite` back as a
+  // query param on redirect_to while delivering the session via the URL
+  // hash. If setSession() rejects (the session tokens themselves are
+  // invalid/expired/already redeemed — a Supabase-side condition, not a bug
+  // here) AND there is no existing session to fall back on either, the
+  // URL-cleanup step never runs (it's the line right after the await,
+  // inside the same try), so the hash — and therefore `hasLink` — survives
+  // into the error render. Locks in that this correctly reaches the resend
+  // flow instead of a silent "success" or the wrong dead end.
+  it("shows the resend flow (not a silent false success) when setSession rejects on an invite hash-token link", async () => {
+    mocks.setSession.mockRejectedValue(
+      new Error("Auth session missing or expired"),
+    )
+    mocks.getUser.mockResolvedValue({ data: { user: null }, error: null })
+    mocks.setSearchParams(new URLSearchParams("type=invite&email=a@b.co"))
+    setLocationHash("#access_token=at&refresh_token=rt")
+    render(<ConfirmPage />)
+    await flushMicrotasks()
+
+    // The fallback check runs (that's the point of it) but finds no session.
+    expect(mocks.getUser).toHaveBeenCalled()
+    expect(screen.getByText("Enlace no válido")).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Solicitar de nuevo el enlace" }),
+    ).toBeInTheDocument()
   })
 })
