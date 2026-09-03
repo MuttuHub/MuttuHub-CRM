@@ -8,6 +8,7 @@ import type {
 } from "@/hooks/crm"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ClientList } from "./client-list"
+import { useClientsViewStore } from "@/store/clients-view"
 
 type ClientsQueryState = {
   isLoading: boolean
@@ -104,7 +105,7 @@ const CLIENTE: ClientListRow = {
 }
 
 describe("ClientList", () => {
-  beforeEach(() => {
+beforeEach(() => {
     vi.useFakeTimers()
     router.replace.mockClear()
     toast.error.mockClear()
@@ -119,6 +120,7 @@ describe("ClientList", () => {
     useUsersMock.mockReturnValue({ isLoading: false, data: USERS })
     searchParamsMap.clear()
     localStorage.clear()
+    useClientsViewStore.setState({ view: "tarjetas" })
   })
 
   afterEach(() => {
@@ -400,12 +402,96 @@ expect(useClientsMock).toHaveBeenLastCalledWith({
     )
     await user.type(await screen.findByLabelText("Nombre de la vista"), "Gobierno")
     await user.click(screen.getByRole("button", { name: "Guardar vista" }))
-    // Apply the saved view: URL must be rewritten too.
+// Apply the saved view: URL must be rewritten too.
     await user.click(screen.getByRole("button", { name: /Vistas/ }))
     await user.click(await screen.findByRole("menuitem", { name: "Gobierno" }))
     expect(router.replace).toHaveBeenLastCalledWith("/clientes?tipo=GOBIERNO_LOCAL", {
       scroll: false,
     })
+  })
+
+  /* ── PR 26 (plan 2A): selector de vista Tarjetas / Lista / Detalles ──── */
+
+  it("renders a 3-mode view selector, defaulting to Tarjetas", () => {
+    render(<ClientList />)
+    expect(screen.getByRole("button", { name: /Tarjetas/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+    expect(screen.getByRole("button", { name: /Lista/ })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    )
+    expect(screen.getByRole("button", { name: /Detalles/ })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    )
+  })
+
+  it("keeps the selected view across rerenders via the store", () => {
+    const { rerender } = render(<ClientList />)
+    fireEvent.click(screen.getByRole("button", { name: /Lista/ }))
+    expect(useClientsViewStore.getState().view).toBe("lista")
+    rerender(<ClientList />)
+    expect(screen.getByRole("button", { name: /Lista/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+  })
+
+  it("renders compact rows in the Lista view", () => {
+    clientsQuery.data = { page: 1, limit: 25, total: 1, items: [CLIENTE] }
+    render(<ClientList />)
+    fireEvent.click(screen.getByRole("button", { name: /Lista/ }))
+    expect(screen.getByText("Alcaldía de Barranquilla")).toBeInTheDocument()
+    expect(screen.getByText(/1\.284\.500\.000/)).toBeInTheDocument()
+    expect(screen.queryByRole("article")).not.toBeInTheDocument()
+  })
+
+  it("renders a sortable table in the Detalles view", () => {
+    clientsQuery.data = { page: 1, limit: 25, total: 1, items: [CLIENTE] }
+    render(<ClientList />)
+    fireEvent.click(screen.getByRole("button", { name: /Detalles/ }))
+    expect(screen.getByRole("table")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Ordenar por Cliente" })).toBeInTheDocument()
+    expect(screen.getByRole("columnheader", { name: "Tipo" })).toBeInTheDocument()
+    expect(screen.getByRole("columnheader", { name: "Responsable" })).toBeInTheDocument()
+    expect(screen.getByText("Alcaldía de Barranquilla")).toBeInTheDocument()
+  })
+
+  it("sorts by a column header, writing sort+dir to the query and URL", () => {
+    clientsQuery.data = { page: 1, limit: 25, total: 1, items: [CLIENTE] }
+    render(<ClientList />)
+    fireEvent.click(screen.getByRole("button", { name: /Detalles/ }))
+    fireEvent.click(screen.getByRole("button", { name: "Ordenar por Cliente" }))
+    expect(useClientsMock).toHaveBeenLastCalledWith({ sort: "nombre", dir: "asc", page: 1 })
+    expect(router.replace).toHaveBeenLastCalledWith(
+      "/clientes?sort=nombre&dir=asc",
+      { scroll: false },
+    )
+  })
+
+  it("toggles the direction on a second click of the same column", () => {
+    clientsQuery.data = { page: 1, limit: 25, total: 1, items: [CLIENTE] }
+    render(<ClientList />)
+    fireEvent.click(screen.getByRole("button", { name: /Detalles/ }))
+    const sortButton = screen.getByRole("button", { name: "Ordenar por Cliente" })
+    fireEvent.click(sortButton)
+    fireEvent.click(sortButton)
+    expect(useClientsMock).toHaveBeenLastCalledWith({ sort: "nombre", dir: "desc", page: 1 })
+  })
+
+  it("resets to page 1 when a new sort is applied", () => {
+    clientsQuery.data = {
+      page: 2,
+      limit: 25,
+      total: 40,
+      items: Array.from({ length: 15 }, (_, i) => ({ ...CLIENTE, id: `c${i}` })),
+    }
+    render(<ClientList />)
+    fireEvent.click(screen.getByRole("button", { name: /Detalles/ }))
+    fireEvent.click(screen.getByRole("button", { name: "Ordenar por Cliente" }))
+    expect(useClientsMock).toHaveBeenLastCalledWith({ sort: "nombre", dir: "asc", page: 1 })
   })
 })
 

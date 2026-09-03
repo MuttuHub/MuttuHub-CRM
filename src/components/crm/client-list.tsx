@@ -8,15 +8,22 @@
 
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  ChevronRight,
   Eye,
   FileSpreadsheet,
   FileText,
+  LayoutGrid,
   RotateCcw,
+  Rows3,
   Search,
   SlidersHorizontal,
+  Table2,
   UsersRound,
   X,
 } from "lucide-react";
@@ -71,6 +78,15 @@ import {
 } from "@/components/crm/saved-views";
 import { ClientSheet } from "@/components/crm/client-sheet";
 import { SinConexionCard } from "@/components/shared/sin-conexion-card";
+import { useClientsViewStore, type ClientsView } from "@/store/clients-view";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 // True when the Supabase env vars are missing (dev-only signal): the API
 // returns 500 "Plataforma no configurada" — show the technical card.
@@ -175,9 +191,20 @@ function urlQueryString(filters: ClientFilters, cliente: string | null): string 
     const value = filters[local];
     if (value !== undefined && value !== "") sp.set(url, value);
   }
+  // PR 26 (plan 2B): sort+dir espejados en la URL para que una vista guardada
+  // conserve el orden (el resto de filtros ya viaja por URL_PARAM_KEYS).
+  if (filters.sort) sp.set("sort", filters.sort);
+  if (filters.dir) sp.set("dir", filters.dir);
   if (cliente) sp.set("cliente", cliente);
   const qs = sp.toString();
   return qs ? `/clientes?${qs}` : "/clientes";
+}
+
+/** Reads the sort/dir params from the URL (used only at mount). */
+function sortFromParams(sp: Pick<URLSearchParams, "get">): Pick<ClientFilters, "sort" | "dir"> {
+  const sort = sp.get("sort");
+  if (!sort) return {};
+  return { sort, dir: sp.get("dir") === "asc" ? ("asc" as const) : ("desc" as const) };
 }
 
 /** Active filter count for the "Filtros" badge. `q` is not counted. */
@@ -259,8 +286,17 @@ export function ClientList() {
 
   // Filters are seeded from the URL so they survive refresh/navigation.
   const [local, setLocal] = useState<LocalFilters>(() => filtersFromParams(searchParams));
-  const [applied, setApplied] = useState<ClientFilters>(() => toFilters(filtersFromParams(searchParams)));
+  const [applied, setApplied] = useState<ClientFilters>(() => ({
+    ...toFilters(filtersFromParams(searchParams)),
+    ...sortFromParams(searchParams),
+  }));
   const [page, setPage] = useState(1);
+
+  // PR 26 (plan 2A): selector de vista Tarjetas / Lista / Detalles, persistido
+  // en zustand (patrón store/sidebar). El modo NO va a la URL: es preferencia
+  // de sesión, no de filtrado.
+  const view = useClientsViewStore((s) => s.view);
+  const setView = useClientsViewStore((s) => s.setView);
 
   const usersQuery = useUsers();
   const users = useMemo(() => usersQuery.data ?? [], [usersQuery.data]);
@@ -349,6 +385,16 @@ export function ClientList() {
     setPage(1);
   }
 
+  /** PR 26 (plan 2B): toggle sort column/direction via the querystring. */
+  function sortBy(column: string) {
+    const dir: "asc" | "desc" =
+      applied.sort === column && applied.dir === "asc" ? "desc" : "asc";
+    const next: ClientFilters = { ...applied, sort: column, dir };
+    setApplied(next);
+    syncUrl(next);
+    setPage(1);
+  }
+
   /* ── Ficha: `?cliente=<id>` es la fuente de verdad del panel ── */
   function openFicha(id: string) {
     router.replace(urlQueryString(applied, id), { scroll: false });
@@ -399,6 +445,7 @@ export function ClientList() {
     <div className="flex min-w-0 flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
+          <ViewSelector value={view} onChange={setView} />
           <SavedViewsMenu filters={applied} onApply={applyView} />
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -437,11 +484,15 @@ export function ClientList() {
       {listQuery.isError ? (
         <SinConexionCard unconfigured={unconfigured} onRetry={() => void listQuery.refetch()} />
       ) : (
-        <ClientGridCard
+        <ClientResults
           query={listQuery}
           page={page}
           onPage={setPage}
           onOpenFicha={openFicha}
+          view={view}
+          sort={applied.sort}
+          dir={applied.dir}
+          onSort={sortBy}
         />
       )}
 
@@ -720,16 +771,68 @@ function FiltersCard({
 
 /* ── Grilla de cards ──────────────────────────────────────────────────── */
 
-function ClientGridCard({
+/* ── Selector de vista Tarjetas / Lista / Detalles (PR 26) ────────────── */
+
+const VIEW_OPTIONS: { value: ClientsView; label: string; icon: typeof LayoutGrid }[] = [
+  { value: "tarjetas", label: "Tarjetas", icon: LayoutGrid },
+  { value: "lista", label: "Lista", icon: Rows3 },
+  { value: "detalles", label: "Detalles", icon: Table2 },
+];
+
+function ViewSelector({
+  value,
+  onChange,
+}: {
+  value: ClientsView;
+  onChange: (view: ClientsView) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1 rounded-lg bg-ink-100 p-1">
+      {VIEW_OPTIONS.map((o) => {
+        const Icon = o.icon;
+        const active = value === o.value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            onClick={() => onChange(o.value)}
+            aria-pressed={active}
+            className={cn(
+              "flex items-center gap-1.5 rounded-[9px] px-3 py-1.5 text-[12px] font-bold whitespace-nowrap transition-colors",
+              active
+                ? "bg-card text-ink-950 shadow-sm"
+                : "text-ink-600 hover:text-ink-900",
+            )}
+          >
+            <Icon className="size-3.5" strokeWidth={1.9} />
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ── Resultados (grilla / lista / tabla según la vista) ───────────────── */
+
+function ClientResults({
   query,
   page,
   onPage,
   onOpenFicha,
+  view,
+  sort,
+  dir,
+  onSort,
 }: {
   query: { isLoading: boolean; data?: ClientListResponse };
   page: number;
   onPage: (p: number) => void;
   onOpenFicha: (id: string) => void;
+  view: ClientsView;
+  sort?: string;
+  dir?: "asc" | "desc";
+  onSort: (column: string) => void;
 }) {
   const { isLoading, data } = query;
   const items = data?.items ?? [];
@@ -741,24 +844,38 @@ function ClientGridCard({
   return (
     <section className="rounded-[22px] border border-ink-200 bg-panel">
       {isLoading ? (
-        <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3 lg:p-5">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-44 w-full rounded-[18px]" />
-          ))}
-        </div>
+        view === "detalles" ? (
+          <div className="space-y-3 p-4 lg:p-5">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full rounded-[10px]" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3 lg:p-5">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-44 w-full rounded-[18px]" />
+            ))}
+          </div>
+        )
       ) : items.length === 0 ? (
         <EmptyClients />
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3 lg:p-5">
-            {items.map((cliente) => (
-              <ClientCard
-                key={cliente.id}
-                cliente={cliente}
-                onOpen={() => onOpenFicha(cliente.id)}
-              />
-            ))}
-          </div>
+          {view === "detalles" ? (
+            <ClientTableView items={items} sort={sort} dir={dir} onSort={onSort} onOpen={onOpenFicha} />
+          ) : view === "lista" ? (
+            <ClientListView items={items} onOpen={onOpenFicha} />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3 lg:p-5">
+              {items.map((cliente) => (
+                <ClientCard
+                  key={cliente.id}
+                  cliente={cliente}
+                  onOpen={() => onOpenFicha(cliente.id)}
+                />
+              ))}
+            </div>
+          )}
 
           <PaginationFooter
             page={page}
@@ -771,6 +888,251 @@ function ClientGridCard({
         </>
       )}
     </section>
+  );
+}
+
+/* ── Vista Lista: filas compactas ─────────────────────────────────────── */
+
+function ClientListView({
+  items,
+  onOpen,
+}: {
+  items: ClientListRow[];
+  onOpen: (id: string) => void;
+}) {
+  return (
+    <ul className="divide-y divide-ink-100">
+      {items.map((cliente) => {
+        const nextVencido = cliente.next_compromiso
+          ? esVencida(cliente.next_compromiso.fecha_entrega)
+          : false;
+        return (
+          <li key={cliente.id}>
+            <button
+              type="button"
+              onClick={() => onOpen(cliente.id)}
+              aria-label={`Abrir ficha de ${cliente.nombre}`}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-rose-50/30 focus-visible:ring-2 focus-visible:ring-ring/50 lg:px-5"
+            >
+              <InitialsAvatar nombre={cliente.nombre} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13.5px] font-bold text-ink-950">
+                  {cliente.nombre}
+                </p>
+                <p className="truncate text-[12px] text-ink-600">
+                  {[cliente.empresa, cliente.ubicacion].filter(Boolean).join(" · ") || "—"}
+                </p>
+              </div>
+              <div className="hidden items-center gap-1.5 sm:flex">
+                <ToneBadge
+                  tone={TIPO_CLIENTE_LABELS[cliente.tipo_cliente].tone}
+                  label={TIPO_CLIENTE_LABELS[cliente.tipo_cliente].label}
+                />
+                <ToneBadge
+                  tone={ESTADO_CLIENTE_LABELS[cliente.estado].tone}
+                  label={ESTADO_CLIENTE_LABELS[cliente.estado].label}
+                />
+              </div>
+              <div className="hidden text-right md:block">
+                <p className="font-mono text-[12.5px] font-medium text-ink-900 tabular-nums">
+                  {formatCOP(cliente.valor_potencial)}
+                </p>
+                <p className="text-[11px] text-ink-500">
+                  {cliente.compromisos_abiertos} compromisos
+                </p>
+              </div>
+              <div className="hidden items-center gap-2 lg:flex">
+                <span
+                  className={cn(
+                    "font-mono text-[12px] tabular-nums",
+                    nextVencido ? "font-bold text-destructivo" : "text-ink-600",
+                  )}
+                >
+                  {cliente.next_compromiso
+                    ? formatFecha(cliente.next_compromiso.fecha_entrega)
+                    : "—"}
+                </span>
+                {nextVencido && (
+                  <span className="inline-flex h-[19px] items-center rounded-full bg-destructivo-bg px-2 text-[10px] font-bold text-destructivo">
+                    Vencido
+                  </span>
+                )}
+              </div>
+              <ChevronRight className="size-4 shrink-0 text-ink-400" strokeWidth={1.8} />
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/* ── Vista Detalles: tabla con columnas ordenables ────────────────────── */
+
+function SortableHeader({
+  column,
+  sort,
+  dir,
+  onSort,
+  align,
+  children,
+}: {
+  column: string;
+  sort?: string;
+  dir?: "asc" | "desc";
+  onSort: (column: string) => void;
+  align?: "right";
+  children: ReactNode;
+}) {
+  const active = sort === column;
+  return (
+    <TableHead className={align === "right" ? "text-right" : undefined}>
+      <button
+        type="button"
+        onClick={() => onSort(column)}
+        aria-label={`Ordenar por ${column === "nombre" ? "Cliente" : children}`}
+        className={cn(
+          "inline-flex items-center gap-1 font-semibold text-ink-700 transition-colors hover:text-ink-950",
+          align === "right" && "justify-end",
+        )}
+      >
+        {children}
+        {active ? (
+          dir === "asc" ? (
+            <ArrowUp className="size-3.5" strokeWidth={2} />
+          ) : (
+            <ArrowDown className="size-3.5" strokeWidth={2} />
+          )
+        ) : (
+          <ArrowUpDown className="size-3.5 text-ink-400" strokeWidth={1.8} />
+        )}
+      </button>
+    </TableHead>
+  );
+}
+
+function ClientTableView({
+  items,
+  sort,
+  dir,
+  onSort,
+  onOpen,
+}: {
+  items: ClientListRow[];
+  sort?: string;
+  dir?: "asc" | "desc";
+  onSort: (column: string) => void;
+  onOpen: (id: string) => void;
+}) {
+  return (
+    <Table className="min-w-[880px]">
+      <TableHeader>
+        <TableRow>
+          <SortableHeader column="nombre" sort={sort} dir={dir} onSort={onSort}>
+            Cliente
+          </SortableHeader>
+          <TableHead>Tipo</TableHead>
+          <SortableHeader column="estado" sort={sort} dir={dir} onSort={onSort}>
+            Estado
+          </SortableHeader>
+          <SortableHeader column="prioridad" sort={sort} dir={dir} onSort={onSort}>
+            Prioridad
+          </SortableHeader>
+          <TableHead>Responsable</TableHead>
+          <SortableHeader
+            column="valor_potencial"
+            sort={sort}
+            dir={dir}
+            onSort={onSort}
+            align="right"
+          >
+            Valor potencial
+          </SortableHeader>
+          <SortableHeader
+            column="compromisos_abiertos"
+            sort={sort}
+            dir={dir}
+            onSort={onSort}
+            align="right"
+          >
+            Compromisos
+          </SortableHeader>
+          <SortableHeader column="next_compromiso" sort={sort} dir={dir} onSort={onSort}>
+            Próximo compromiso
+          </SortableHeader>
+          <SortableHeader column="updated_at" sort={sort} dir={dir} onSort={onSort}>
+            Última actividad
+          </SortableHeader>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {items.map((cliente) => {
+          const nextVencido = cliente.next_compromiso
+            ? esVencida(cliente.next_compromiso.fecha_entrega)
+            : false;
+          return (
+            <TableRow
+              key={cliente.id}
+              className="cursor-pointer"
+              onClick={() => onOpen(cliente.id)}
+            >
+              <TableCell>
+                <p className="font-semibold text-ink-950">{cliente.nombre}</p>
+                <p className="text-[11.5px] text-ink-600">
+                  {[cliente.empresa, cliente.ubicacion].filter(Boolean).join(" · ") || "—"}
+                </p>
+              </TableCell>
+              <TableCell>
+                <ToneBadge
+                  tone={TIPO_CLIENTE_LABELS[cliente.tipo_cliente].tone}
+                  label={TIPO_CLIENTE_LABELS[cliente.tipo_cliente].label}
+                />
+              </TableCell>
+              <TableCell>
+                <ToneBadge
+                  tone={ESTADO_CLIENTE_LABELS[cliente.estado].tone}
+                  label={ESTADO_CLIENTE_LABELS[cliente.estado].label}
+                />
+              </TableCell>
+              <TableCell>
+                {cliente.prioridad ? (
+                  <PrioridadChip prioridad={cliente.prioridad} />
+                ) : (
+                  <span className="text-[12.5px] text-ink-500">—</span>
+                )}
+              </TableCell>
+              <TableCell>
+                <ResponsableCell nombre={cliente.responsable_nombre} />
+              </TableCell>
+              <TableCell className="text-right font-mono text-[12.5px] font-medium text-ink-900 tabular-nums">
+                {formatCOP(cliente.valor_potencial)}
+              </TableCell>
+              <TableCell className="text-right font-mono text-[12.5px] tabular-nums">
+                {cliente.compromisos_abiertos}
+              </TableCell>
+              <TableCell>
+                {cliente.next_compromiso ? (
+                  <span
+                    className={cn(
+                      "font-mono text-[12px] tabular-nums",
+                      nextVencido ? "font-bold text-destructivo" : "text-ink-600",
+                    )}
+                  >
+                    {formatFecha(cliente.next_compromiso.fecha_entrega)}
+                    {nextVencido && " · Vencido"}
+                  </span>
+                ) : (
+                  <span className="text-[12.5px] text-ink-500">—</span>
+                )}
+              </TableCell>
+              <TableCell className="font-mono text-[12px] text-ink-600 tabular-nums">
+                {formatFecha(cliente.updated_at)}
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
   );
 }
 

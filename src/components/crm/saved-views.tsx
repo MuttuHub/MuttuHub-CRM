@@ -71,6 +71,10 @@ const FILTER_KEYS: (keyof ClientFilters)[] = [
   "hasta",
   "valorMin",
   "valorMax",
+  // PR 26 (plan 2B): sort+dir viajan en la URL, así que una vista guardada
+  // conserva el orden. page/limit NO: la vista es de filtros, no de página.
+  "sort",
+  "dir",
 ];
 
 /** Normalized snapshot (undefined instead of "") so saved views stay clean. */
