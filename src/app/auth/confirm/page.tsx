@@ -167,9 +167,8 @@ function ConfirmInner() {
     let cancelled = false;
 
     async function verify() {
+      const supabase = createClient();
       try {
-        const supabase = createClient();
-
         if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) throw error;
@@ -229,6 +228,29 @@ function ConfirmInner() {
           setStatus(isInvite ? "set-password" : "done");
         }
       } catch {
+        if (cancelled) return;
+        // A failed verification isn't necessarily a dead link: Supabase
+        // invite tokens are single-use, and the email offers the SAME link
+        // twice (button + plain-text fallback right below it) — an
+        // impatient or unsure second tap redeems an already-spent token.
+        // If the browser already holds a valid session (the first tap
+        // succeeded), treat this the same as success instead of scaring
+        // the user with "invalid link" after it actually worked.
+        try {
+          const {
+            data: { user: fallbackUser },
+          } = await supabase.auth.getUser();
+          if (fallbackUser && !cancelled) {
+            const fallbackIsInvite =
+              rawType === "invite" ||
+              (!rawType && Boolean(fallbackUser.user_metadata?.rol));
+            setInvite(fallbackIsInvite);
+            setStatus(fallbackIsInvite ? "set-password" : "done");
+            return;
+          }
+        } catch {
+          // No session either — fall through to the error state below.
+        }
         if (!cancelled) setStatus("error");
       }
     }
