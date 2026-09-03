@@ -232,7 +232,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[88vh] gap-0 overflow-y-auto rounded-[24px] p-0 sm:max-w-[680px]">
+      <DialogContent className="max-h-[88dvh] gap-0 overflow-y-auto rounded-[24px] p-0 sm:max-w-[min(680px,calc(100%-2rem))]">
         {isLoading ? (
           <div className="grid min-h-[320px] place-items-center text-[13px] text-ink-500">
             Cargando la tarea…
@@ -798,7 +798,7 @@ function ConfirmDeleteDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-[22px] sm:max-w-[380px]">
+      <DialogContent className="rounded-[22px] sm:max-w-[min(380px,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="font-display text-[17px] font-bold tracking-[-0.02em] text-ink-950">
             Eliminar tarea

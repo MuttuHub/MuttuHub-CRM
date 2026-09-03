@@ -61,7 +61,7 @@ export function DocumentDialog({
 
   return (
     <Dialog open={documentId !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[88vh] gap-0 overflow-y-auto rounded-[24px] p-0 sm:max-w-[620px]">
+      <DialogContent className="max-h-[88dvh] gap-0 overflow-y-auto rounded-[24px] p-0 sm:max-w-[min(620px,calc(100%-2rem))]">
         {!documento ? (
           <div className="flex flex-col gap-3 p-6">
             <Skeleton className="h-8 w-3/4 rounded-10" />
@@ -299,7 +299,7 @@ function VersionUploadDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88vh] gap-0 overflow-y-auto rounded-[24px] p-0 sm:max-w-[520px]">
+      <DialogContent className="max-h-[88dvh] gap-0 overflow-y-auto rounded-[24px] p-0 sm:max-w-[min(520px,calc(100%-2rem))]">
         <div className="flex flex-col gap-5 p-6">
           <DialogHeader className="gap-1">
             <DialogTitle className="font-display text-[19px] font-bold tracking-[-0.02em] text-ink-950">

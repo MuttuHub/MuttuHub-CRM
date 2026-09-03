@@ -85,7 +85,7 @@ function BriefPickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[80vh] gap-0 overflow-y-auto rounded-[22px] p-0 sm:max-w-[480px]">
+      <DialogContent className="max-h-[80dvh] gap-0 overflow-y-auto rounded-[22px] p-0 sm:max-w-[min(480px,calc(100%-2rem))]">
         <div className="flex flex-col gap-4 p-6">
           <DialogHeader className="gap-1">
             <DialogTitle className="font-display text-[17px] font-bold tracking-[-0.02em] text-ink-950">
@@ -282,7 +282,7 @@ export function ClientFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88vh] overflow-y-auto rounded-[22px] sm:max-w-[640px]">
+      <DialogContent className="max-h-[88dvh] overflow-y-auto rounded-[22px] sm:max-w-[min(640px,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
             {isEdit ? "Editar cliente" : "Nuevo cliente"}

@@ -125,7 +125,7 @@ export function ClientSheet({
         if (!next) onClose();
       }}
     >
-      <DialogContent className="flex h-[88vh] max-h-[88vh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-[760px]">
+      <DialogContent className="flex h-[88dvh] max-h-[88dvh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(760px,calc(100%-2rem))]">
         <DialogTitle className="sr-only">
           {cliente ? `Ficha de ${cliente.nombre}` : "Ficha de cliente"}
         </DialogTitle>
