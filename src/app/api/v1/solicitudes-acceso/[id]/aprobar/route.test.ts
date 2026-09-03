@@ -198,7 +198,29 @@ describe("POST /api/v1/solicitudes-acceso/:id/aprobar", () => {
       mockSupabaseAdmin({
         inviteUserByEmail: vi.fn().mockResolvedValue({
           data: { user: null },
-          error: { message: "Email already registered" },
+          // Real Supabase wording (not the simplified "Email already
+          // registered" used elsewhere) — a plain "already registered"
+          // substring check does NOT match this and used to fall through
+          // to a raw 500 in production.
+          error: {
+            message: "A user with this email address has already been registered",
+          },
+        }),
+      });
+
+      const res = await POST(request(), ctx);
+
+      expect(res.status).toBe(409);
+      expect(db.usuario.create).not.toHaveBeenCalled();
+    });
+
+    it("returns 409 when Supabase reports email_exists via error code alone", async () => {
+      mockAdmin();
+      mockSolicitud(solicitudForm);
+      mockSupabaseAdmin({
+        inviteUserByEmail: vi.fn().mockResolvedValue({
+          data: { user: null },
+          error: { message: "Unexpected failure", code: "email_exists" },
         }),
       });
 

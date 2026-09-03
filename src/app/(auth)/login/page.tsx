@@ -13,12 +13,14 @@ function LoginRoute() {
   const expired = searchParams.get("expired") === "1";
   const solicitud = searchParams.get("solicitud") === "1";
   const errorOauth = searchParams.get("error") === "1";
+  const errorInactivo = searchParams.get("error") === "inactive";
   return (
     <AccesoPage
       next={next}
       expired={expired}
       solicitud={solicitud}
       errorOauth={errorOauth}
+      errorInactivo={errorInactivo}
     />
   );
 }

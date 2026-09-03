@@ -48,7 +48,10 @@ export const GET = withApiErrorHandling(
   },
 );
 
-export async function POST(request: Request) {
+export const POST = withApiErrorHandling(
+  "users",
+  "No pudimos crear el usuario. Inténtalo de nuevo.",
+  async (request: Request) => {
   const auth = await requireApiRole(["ADMINISTRADOR"]);
   if (!auth.ok) return auth.response;
 
@@ -129,9 +132,14 @@ export async function POST(request: Request) {
     // has not accepted its invite (or confirmed email). That is a RE-INVITE
     // case, not a hard conflict: look the user up and resend via
     // reinviteUserById so an existing pending invite gets a fresh link.
-    const isDuplicate = String(supabaseError.message ?? "")
-      .toLowerCase()
-      .includes("already registered");
+    //
+    // Match the stable error code first — Supabase's human-readable message
+    // has changed wording before ("already registered" -> "already been
+    // registered"), which silently broke a plain substring check here and
+    // let a real duplicate-email case fall through as a raw 500.
+    const isDuplicate =
+      supabaseError.code === "email_exists" ||
+      /already\s+(?:been\s+)?registered/i.test(String(supabaseError.message ?? ""));
 
     if (isDuplicate) {
       const { data: existingAuth } =
@@ -195,6 +203,32 @@ export async function POST(request: Request) {
       },
       select: USER_SELECT,
     });
+
+    // Best-effort reconciliation: an admin creating a user directly for an
+    // email that also has a pending public access request (PRD §3.1) should
+    // resolve that queue entry instead of leaving an orphan PENDIENTE row.
+    // Same fields the approval endpoint sets (aprobar/route.ts). A failure
+    // here never fails the request — the user was already created, which is
+    // the primary outcome.
+    try {
+      const pendiente = await db.solicitudAcceso.findFirst({
+        where: { email, estado: "PENDIENTE" },
+        select: { id: true },
+      });
+      if (pendiente) {
+        await db.solicitudAcceso.update({
+          where: { id: pendiente.id },
+          data: {
+            estado: "APROBADA",
+            revisado_por: auth.usuario.id,
+            revisado_at: new Date(),
+          },
+        });
+      }
+    } catch (err) {
+      console.error("[users] solicitud reconciliation failed:", err);
+    }
+
     return NextResponse.json({ usuario }, { status: 201 });
   } catch (err) {
     console.error("[users] prisma create failed:", err);
@@ -206,4 +240,5 @@ export async function POST(request: Request) {
       "INTERNAL_ERROR",
     );
   }
-}
+  },
+);

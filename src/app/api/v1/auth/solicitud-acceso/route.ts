@@ -12,6 +12,7 @@
 // abuse. A durable limit would need the DB or a store (not in v1 scope).
 
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import {
   apiError,
@@ -20,6 +21,9 @@ import {
   parseJsonBody,
 } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
+
+const DUPLICATE_PENDIENTE_MESSAGE =
+  "Ya tienes una solicitud en revisión. Pronto tendrás respuesta.";
 
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 const RATE_LIMIT_MAX_PER_EMAIL = 3;
@@ -97,11 +101,7 @@ export const POST = withApiErrorHandling(
       select: { id: true },
     });
     if (pending) {
-      return apiError(
-        "Ya tienes una solicitud en revisión. Pronto tendrás respuesta.",
-        409,
-        "CONFLICT",
-      );
+      return apiError(DUPLICATE_PENDIENTE_MESSAGE, 409, "CONFLICT");
     }
 
     const existingUser = await db.usuario.findUnique({
@@ -116,10 +116,27 @@ export const POST = withApiErrorHandling(
       );
     }
 
-    const solicitud = await db.solicitudAcceso.create({
-      data: { nombre, email, cargo, origen: "form" },
-      select: SOLICITUD_SELECT,
-    });
-    return NextResponse.json({ solicitud }, { status: 201 });
+    // The findFirst check above is the fast/common path (clean message, no
+    // round trip to a failed insert). It is NOT atomic though: two concurrent
+    // submits for the same email can both pass it and both reach create.
+    // The partial unique index (email WHERE estado = 'PENDIENTE', migration
+    // solicitudes_acceso_email_pendiente_key) is the race-condition safety
+    // net — catch its P2002 violation and answer with the exact same
+    // duplicate-request conflict the pre-check already returns.
+    try {
+      const solicitud = await db.solicitudAcceso.create({
+        data: { nombre, email, cargo, origen: "form" },
+        select: SOLICITUD_SELECT,
+      });
+      return NextResponse.json({ solicitud }, { status: 201 });
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2002"
+      ) {
+        return apiError(DUPLICATE_PENDIENTE_MESSAGE, 409, "CONFLICT");
+      }
+      throw err;
+    }
   },
 );

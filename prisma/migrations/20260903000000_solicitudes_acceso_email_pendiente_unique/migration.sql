@@ -1,0 +1,11 @@
+-- Race-condition safety net (Fix #5): two concurrent POSTs to
+-- /api/v1/auth/solicitud-acceso for the same email can both pass the app-level
+-- findFirst duplicate check before either insert lands, creating two
+-- PENDIENTE rows. A full unique constraint on "email" is NOT correct here:
+-- historical RECHAZADA/APROBADA rows for the same email are legitimate (see
+-- src/app/auth/callback/route.ts, which reopens an old row on re-request).
+-- A partial unique index scoped to estado = 'PENDIENTE' allows that history
+-- while making a second concurrent PENDIENTE row for the same email fail at
+-- the DB level; the route catches the resulting P2002 and returns the same
+-- 409 CONFLICT already used for the fast-path duplicate check.
+CREATE UNIQUE INDEX "solicitudes_acceso_email_pendiente_key" ON "solicitudes_acceso" ("email") WHERE "estado" = 'PENDIENTE';
