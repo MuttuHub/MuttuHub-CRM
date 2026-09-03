@@ -15,7 +15,6 @@ import {
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  CheckCircle2,
   KeyRound,
   LoaderCircle,
   XCircle,
@@ -272,14 +271,19 @@ function ConfirmInner() {
     refreshToken,
   ]);
 
-  // Non-invite verifications keep the 3s bounce to /login afterwards.
+  // A "done" status always means the browser already holds a valid,
+  // authenticated session at this point (verifyOtp/exchangeCodeForSession/
+  // setSession succeeded, or updateUser just set the invited user's
+  // password on top of the session the invite link opened). There is no
+  // reason to send the user through /login again — straight to the app,
+  // which resolves the right dashboard for their role.
   useEffect(() => {
-    if (status !== "done" || invite) return;
+    if (status !== "done") return;
     const timer = setTimeout(() => {
-      router.replace("/login");
+      router.replace("/");
     }, REDIRECT_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [status, invite, router]);
+  }, [status, router]);
 
   // Create-password form state (invite step).
   const [password, setPassword] = useState("");
@@ -431,44 +435,25 @@ function ConfirmInner() {
   }
 
   if (status === "done") {
-    if (invite) {
-      return (
-        <>
-          <span className="mx-auto grid size-11 place-items-center rounded-[15px_15px_15px_5px] bg-exito-bg text-exito">
-            <CheckCircle2 className="size-5" strokeWidth={1.7} />
-          </span>
-          <h1 className="mt-4 font-display text-[22px] font-bold tracking-[-0.02em] text-ink-950">
-            Contraseña creada
-          </h1>
-          <p className="mt-2 text-[13.5px] leading-relaxed text-ink-600">
-            Ya puedes iniciar sesión con tu nueva contraseña.
-          </p>
-          <Link
-            href="/login"
-            className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary text-[14px] font-bold text-primary-foreground transition-colors hover:bg-primary/80"
-          >
-            Ir a iniciar sesión
-          </Link>
-        </>
-      );
-    }
-
+    // Whether this is a fresh invite (password just set) or a plain
+    // verification, the session is already active — go straight to the
+    // dashboard for the user's role instead of bouncing through /login.
     return (
       <>
         <span className="mx-auto grid size-11 place-items-center rounded-[15px_15px_15px_5px] bg-exito-bg text-exito">
-          <CheckCircle2 className="size-5" strokeWidth={1.7} />
+          <LoaderCircle className="size-5 animate-spin" strokeWidth={1.7} />
         </span>
         <h1 className="mt-4 font-display text-[22px] font-bold tracking-[-0.02em] text-ink-950">
-          ¡Correo verificado!
+          ¡Tu cuenta fue validada!
         </h1>
         <p className="mt-2 text-[13.5px] leading-relaxed text-ink-600">
-          Tu correo quedó confirmado. Te redirigimos al inicio de sesión…
+          En unos instantes te redirigimos a tu panel…
         </p>
         <Link
-          href="/login"
+          href="/"
           className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary text-[14px] font-bold text-primary-foreground transition-colors hover:bg-primary/80"
         >
-          Ir a iniciar sesión
+          Ir al panel ahora
         </Link>
       </>
     );

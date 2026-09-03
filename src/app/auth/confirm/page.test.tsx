@@ -74,7 +74,7 @@ describe("ConfirmPage", () => {
     mocks.updateUser.mockClear()
     mocks.getUser.mockClear()
     // Default: verified user without rol metadata (keeps existing tests on
-    // the generic "¡Correo verificado!" done state).
+    // the generic "¡Tu cuenta fue validada!" done state).
     mocks.getUser.mockResolvedValue({
       data: { user: { user_metadata: {} } },
       error: null,
@@ -102,7 +102,7 @@ describe("ConfirmPage", () => {
       email: "a@b.co",
     })
     expect(mocks.getUser).toHaveBeenCalled()
-    expect(screen.getByText("¡Correo verificado!")).toBeInTheDocument()
+    expect(screen.getByText("¡Tu cuenta fue validada!")).toBeInTheDocument()
   })
 
   it("verifies via verifyOtp with token_hash (modern Supabase invite link)", async () => {
@@ -126,10 +126,10 @@ describe("ConfirmPage", () => {
     render(<ConfirmPage />)
     await flushMicrotasks()
     expect(mocks.exchangeCodeForSession).toHaveBeenCalledWith("c1")
-    expect(screen.getByText("¡Correo verificado!")).toBeInTheDocument()
+    expect(screen.getByText("¡Tu cuenta fue validada!")).toBeInTheDocument()
   })
 
-  it("redirects to /login after 3 seconds", async () => {
+  it("redirects to / (the dashboard) after 3 seconds — the session is already active", async () => {
     mocks.verifyOtp.mockResolvedValue({ error: null })
     mocks.setSearchParams(
       new URLSearchParams("token=t1&type=signup&email=a@b.co"),
@@ -140,7 +140,7 @@ describe("ConfirmPage", () => {
     act(() => {
       vi.advanceTimersByTime(3000)
     })
-    expect(mocks.router.replace).toHaveBeenCalledWith("/login")
+    expect(mocks.router.replace).toHaveBeenCalledWith("/")
   })
 
   it("shows invalid link card when no token, no code and no access token", () => {
@@ -163,7 +163,7 @@ describe("ConfirmPage", () => {
     await flushMicrotasks()
     expect(screen.getByText("Volver a iniciar sesión")).toBeInTheDocument()
     expect(
-      screen.queryByText("¡Correo verificado!"),
+      screen.queryByText("¡Tu cuenta fue validada!"),
     ).not.toBeInTheDocument()
   })
 
@@ -181,7 +181,7 @@ describe("ConfirmPage", () => {
     })
     expect(screen.getByText("Crea tu contraseña")).toBeInTheDocument()
     expect(
-      screen.queryByText("¡Correo verificado!"),
+      screen.queryByText("¡Tu cuenta fue validada!"),
     ).not.toBeInTheDocument()
   })
 
@@ -221,7 +221,7 @@ describe("ConfirmPage", () => {
     expect(screen.getByText("Crea tu contraseña")).toBeInTheDocument()
   })
 
-  it("create-password submit with updateUser ok shows 'Contraseña creada'", async () => {
+  it("create-password submit with updateUser ok shows the validated/redirecting state", async () => {
     mocks.verifyOtp.mockResolvedValue({ error: null })
     mocks.updateUser.mockResolvedValue({ error: null })
     mocks.setSearchParams(
@@ -241,7 +241,7 @@ describe("ConfirmPage", () => {
     await flushMicrotasks()
 
     expect(mocks.updateUser).toHaveBeenCalledWith({ password: "Clave1234" })
-    expect(screen.getByText("Contraseña creada")).toBeInTheDocument()
+    expect(screen.getByText("¡Tu cuenta fue validada!")).toBeInTheDocument()
   })
 
   it("create-password submit with updateUser error keeps the form and shows the error", async () => {
@@ -268,7 +268,7 @@ describe("ConfirmPage", () => {
     ).toBeInTheDocument()
     expect(screen.getByLabelText("Contraseña")).toBeInTheDocument()
     expect(
-      screen.queryByText("Contraseña creada"),
+      screen.queryByText("¡Tu cuenta fue validada!"),
     ).not.toBeInTheDocument()
   })
 
