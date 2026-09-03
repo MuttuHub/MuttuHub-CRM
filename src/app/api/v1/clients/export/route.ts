@@ -65,18 +65,23 @@ export const GET = withApiErrorHandling(
     const inExport = new Set(filtered.slice(0, EXPORT_MAX_ROWS).map((e) => e.id));
 
     // PR 6: audit the export before writing the file. Best-effort: logAudit
-    // swallows its own errors, so even a hard DB outage on `auditoria`
-    // wouldn't fail the user's download.
-    await logAudit({
-      entidad: "cliente",
-      entidad_id: null,
-      accion: "exportar",
-      usuario_id: auth.usuario.id,
-      cambios: {
-        rows: inExport.size,
-        filters: filters.filters as unknown as Record<string, unknown>,
-      },
-    });
+    // swallows its own errors internally, but the call itself is also
+    // wrapped here — defense in depth so a future change to logAudit can't
+    // silently turn an audit hiccup into a failed download.
+    try {
+      await logAudit({
+        entidad: "cliente",
+        entidad_id: null,
+        accion: "exportar",
+        usuario_id: auth.usuario.id,
+        cambios: {
+          rows: inExport.size,
+          filters: filters.filters as unknown as Record<string, unknown>,
+        },
+      });
+    } catch (err) {
+      console.error("[clients] export audit failed:", err);
+    }
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Clientes");

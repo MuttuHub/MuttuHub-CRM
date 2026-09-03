@@ -81,7 +81,11 @@ describe("GET /api/v1/clients/export", () => {
     expect(buffer.byteLength).toBeGreaterThan(0);
   });
 
-  it("scopes a COLABORADOR to their own clients (forces responsable_id in the where clause)", async () => {
+  // Reads are global by design (PR 3 / close-phase-1, see buildClientWhere's
+  // own JSDoc in clients/route.ts): the `responsable` filter is honored
+  // as-is for every role, never silently rewritten to self. This used to
+  // assert the opposite (pre-PR-3 behavior) and had gone stale.
+  it("does not force responsable_id for a COLABORADOR either — reads are global", async () => {
     authAs(colaborador);
     vi.mocked(db.cliente.findMany).mockResolvedValue([baseClientRow] as never);
 
@@ -89,7 +93,7 @@ describe("GET /api/v1/clients/export", () => {
 
     expect(db.cliente.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ responsable_id: "colab-1" }),
+        where: expect.objectContaining({ responsable_id: "other-user" }),
       }),
     );
   });
