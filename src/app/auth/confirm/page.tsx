@@ -217,8 +217,12 @@ function ConfirmInner() {
         // Invitation detection: explicit `type=invite`, or any token that
         // arrives without a `type` carrying rol metadata (inviteUserByEmail
         // always sends data: { nombre, rol }). There is no public signup.
+        // Uses `rawType` (not the `type` fallback above, which always
+        // resolves to "invite" when `rawType` is absent) so the rol check
+        // below actually gets a chance to run instead of being dead code.
         const isInvite =
-          type === "invite" || (!rawType && Boolean(user?.user_metadata?.rol));
+          rawType === "invite" ||
+          (!rawType && Boolean(user?.user_metadata?.rol));
 
         if (!cancelled) {
           setInvite(isInvite);
@@ -308,6 +312,15 @@ function ConfirmInner() {
   }
 
   if (status === "error") {
+    // A failed invite-type link (expired or already redeemed) isn't a dead
+    // end: it carried a real token/code, so offer the same resend action as
+    // a stray page visit instead of bouncing to /login with no way out.
+    // Non-invite flows (e.g. password recovery) keep the generic message —
+    // resending an invite would be the wrong CTA there.
+    if (hasLink && rawType === "invite") {
+      return <InvalidLinkCard email={email} />;
+    }
+
     return (
       <>
         <span className="mx-auto grid size-11 place-items-center rounded-[15px_15px_15px_5px] bg-rose-50 text-rose-700 dark:text-rose-400">

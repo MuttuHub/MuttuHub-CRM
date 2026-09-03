@@ -35,13 +35,18 @@ vi.mock("@/lib/supabase/client", () => ({
   }),
 }))
 
-// jsdom's `location.hash` is read-only, so we install a configurable accessor
-// and point it at a mutable variable.
-let mockHash = ""
-const originalHashDescriptor = Object.getOwnPropertyDescriptor(
-  window.location,
-  "hash",
-)
+// jsdom 30 turned `window.location` and `location.hash` into non-configurable
+// own accessor properties, so redefining `hash` via `Object.defineProperty`
+// throws "Cannot redefine property: hash". Drive the hash through the real
+// History API instead (the same mechanism the page itself uses to clean the
+// URL) — jsdom updates `location` from it natively, no property
+// redefinition needed. Captured before any `history.replaceState` spying so
+// it always hits the real implementation.
+const realReplaceState = window.history.replaceState.bind(window.history)
+
+function setLocationHash(hash: string) {
+  realReplaceState(null, "", `/auth/confirm${hash}`)
+}
 
 let replaceStateSpy: ReturnType<typeof vi.spyOn>
 
@@ -58,11 +63,7 @@ describe("ConfirmPage", () => {
     vi.useFakeTimers()
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co"
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key"
-    mockHash = ""
-    Object.defineProperty(window.location, "hash", {
-      configurable: true,
-      get: () => mockHash,
-    })
+    setLocationHash("")
     replaceStateSpy = vi
       .spyOn(window.history, "replaceState")
       .mockImplementation(() => undefined)
@@ -85,14 +86,6 @@ describe("ConfirmPage", () => {
     vi.useRealTimers()
     delete process.env.NEXT_PUBLIC_SUPABASE_URL
     delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    if (originalHashDescriptor) {
-      Object.defineProperty(window.location, "hash", originalHashDescriptor)
-    } else {
-      Object.defineProperty(window.location, "hash", {
-        configurable: true,
-        value: "",
-      })
-    }
     replaceStateSpy?.mockRestore()
   })
 
@@ -212,7 +205,7 @@ describe("ConfirmPage", () => {
       },
       error: null,
     })
-    mockHash = "#access_token=at&refresh_token=rt"
+    setLocationHash("#access_token=at&refresh_token=rt")
     render(<ConfirmPage />)
     await flushMicrotasks()
     expect(mocks.setSession).toHaveBeenCalledWith({
@@ -309,5 +302,71 @@ describe("ConfirmPage", () => {
     expect(fetchMock.mock.calls[0][1].body).toContain("a@b.co")
 
     vi.unstubAllGlobals()
+  })
+
+  it("expired/redeemed invite link (type=invite, verifyOtp fails) shows the resend action instead of a dead end", async () => {
+    mocks.verifyOtp.mockRejectedValue(new Error("invalid or expired"))
+    mocks.setSearchParams(
+      new URLSearchParams("token=t1&type=invite&email=a@b.co"),
+    )
+    render(<ConfirmPage />)
+    await flushMicrotasks()
+
+    expect(screen.getByText("Enlace no válido")).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Solicitar de nuevo el enlace" }),
+    ).toBeInTheDocument()
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true }),
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Solicitar de nuevo el enlace" }),
+    )
+    await flushMicrotasks()
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/auth/reinvite",
+      expect.objectContaining({ method: "POST" }),
+    )
+    expect(fetchMock.mock.calls[0][1].body).toContain("a@b.co")
+
+    vi.unstubAllGlobals()
+  })
+
+  it("failed non-invite link (type=recovery) keeps the generic dead-end message, no resend CTA", async () => {
+    mocks.verifyOtp.mockRejectedValue(new Error("invalid or expired"))
+    mocks.setSearchParams(
+      new URLSearchParams("token=t1&type=recovery&email=a@b.co"),
+    )
+    render(<ConfirmPage />)
+    await flushMicrotasks()
+
+    expect(
+      screen.getByText("No pudimos verificar el correo"),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: "Solicitar de nuevo el enlace" }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByText("Volver a iniciar sesión")).toBeInTheDocument()
+  })
+
+  it("failed hash-token verification (no type param, rawType null) keeps the generic dead-end message, no resend CTA", async () => {
+    mocks.setSession.mockRejectedValue(new Error("invalid session"))
+    mocks.setSearchParams(new URLSearchParams("email=a@b.co"))
+    setLocationHash("#access_token=at&refresh_token=rt")
+    render(<ConfirmPage />)
+    await flushMicrotasks()
+
+    expect(
+      screen.getByText("No pudimos verificar el correo"),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: "Solicitar de nuevo el enlace" }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByText("Volver a iniciar sesión")).toBeInTheDocument()
   })
 })
