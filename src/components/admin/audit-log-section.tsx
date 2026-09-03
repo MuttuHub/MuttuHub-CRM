@@ -143,7 +143,8 @@ export function AuditLogSection() {
         </div>
       ) : (
         <div className="overflow-hidden rounded-[18px] border border-ink-200">
-          <Table>
+          {/* Patrón C (plan Fase 5): min-w para que scrollee en vez de aplastarse */}
+          <Table className="min-w-[860px]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead className="pl-5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">

@@ -190,7 +190,7 @@ export function UsersTable({
             </div>
           </div>
         ) : (
-          <Table>
+          <Table className="min-w-[760px]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead className="pl-5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
@@ -350,7 +350,7 @@ function RowMenu({
         open={rolPendiente !== null}
         onOpenChange={(open) => !open && setRolPendiente(null)}
       >
-        <DialogContent className="rounded-[20px] sm:max-w-[400px]">
+        <DialogContent className="rounded-[20px] sm:max-w-[min(400px,calc(100%-2rem))]">
           <DialogHeader>
             <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
               Cambiar el rol de {usuario.nombre}
@@ -384,7 +384,7 @@ function RowMenu({
       </Dialog>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent className="rounded-[20px] sm:max-w-[400px]">
+        <DialogContent className="rounded-[20px] sm:max-w-[min(400px,calc(100%-2rem))]">
           <DialogHeader>
             <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
               Desactivar a {usuario.nombre}
@@ -493,7 +493,7 @@ function NewUserDialog({
             </Button>
           }
         />
-        <DialogContent className="rounded-[20px] sm:max-w-[420px]">
+        <DialogContent className="rounded-[20px] sm:max-w-[min(420px,calc(100%-2rem))]">
           <DialogHeader>
             <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
               Nuevo usuario

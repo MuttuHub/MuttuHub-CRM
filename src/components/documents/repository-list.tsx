@@ -651,7 +651,8 @@ function DocumentsTableCard({
       ) : (
         <>
           <div className="overflow-x-auto">
-            <Table>
+            {/* Patrón C (plan Fase 5): min-w para que scrollee en vez de aplastarse */}
+            <Table className="min-w-[920px]">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="w-10 pl-5">

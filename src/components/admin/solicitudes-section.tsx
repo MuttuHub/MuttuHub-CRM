@@ -197,7 +197,7 @@ export function SolicitudesSection({
             </div>
           </div>
         ) : (
-          <Table>
+          <Table className="min-w-[820px]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead className="pl-5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
@@ -282,7 +282,7 @@ export function SolicitudesSection({
             </p>
           </div>
         ) : (
-          <Table>
+          <Table className="min-w-[820px]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead className="pl-5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
@@ -397,7 +397,7 @@ function AprobarDialog({
           </Button>
         }
       />
-      <DialogContent className="rounded-[20px] sm:max-w-[420px]">
+      <DialogContent className="rounded-[20px] sm:max-w-[min(420px,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
             Aprobar acceso de {solicitud.nombre}
@@ -471,7 +471,7 @@ function RechazarDialog({
           </Button>
         }
       />
-      <DialogContent className="rounded-[20px] sm:max-w-[400px]">
+      <DialogContent className="rounded-[20px] sm:max-w-[min(400px,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
             Rechazar a {solicitud.nombre}
