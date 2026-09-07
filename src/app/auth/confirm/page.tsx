@@ -20,7 +20,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 
@@ -393,9 +393,8 @@ function ConfirmInner() {
         <form onSubmit={handleCreatePassword} className="mt-6 flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="password">Contraseña</Label>
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
               autoComplete="new-password"
               required
               placeholder="••••••••"
@@ -407,9 +406,8 @@ function ConfirmInner() {
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="confirm">Confirmar contraseña</Label>
-            <Input
+            <PasswordInput
               id="confirm"
-              type="password"
               autoComplete="new-password"
               required
               placeholder="••••••••"
