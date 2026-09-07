@@ -35,11 +35,30 @@ const ENTIDAD_LABELS: Record<AuditEntidad, { label: string; tone: "info" | "acti
   documento: { label: "Documento", tone: "neutro" },
 };
 
-const ACCION_LABELS: Record<AuditAccion, { label: string; tone: "exito" | "info" | "destructivo" }> = {
+const ACCION_LABELS: Record<AuditAccion, { label: string; tone: "exito" | "info" | "destructivo" | "neutro" }> = {
   crear: { label: "Creó", tone: "exito" },
   editar: { label: "Editó", tone: "info" },
   eliminar: { label: "Eliminó", tone: "destructivo" },
+  exportar: { label: "Exportó", tone: "neutro" },
 };
+
+// Fallback defensivo: si el backend suma un valor de entidad/accion antes de
+// que este mapa se actualice, mostramos la etiqueta cruda en vez de tumbar
+// toda la página (esto es justo lo que pasó con "exportar"). El console.warn
+// es a propósito: sin él, el próximo valor sin mapear se renderizaría en
+// silencio y el desfase client/server pasaría inadvertido otra vez.
+function toneInfo<T extends string>(
+  map: Record<string, { label: string; tone: T }>,
+  key: string,
+  fallbackTone: T,
+) {
+  const info = map[key];
+  if (!info) {
+    console.warn(`[AuditLogSection] valor sin mapear en ACCION_LABELS/ENTIDAD_LABELS: "${key}"`);
+    return { label: key, tone: fallbackTone };
+  }
+  return info;
+}
 
 /** "titulo, categoria" — los nombres de los campos enviados, no sus valores
  * (que pueden ser largos o sensibles); el JSON completo va en el `title`. */
@@ -185,10 +204,10 @@ export function AuditLogSection() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <ToneBadge tone={ENTIDAD_LABELS[r.entidad].tone} label={ENTIDAD_LABELS[r.entidad].label} />
+                    <ToneBadge {...toneInfo(ENTIDAD_LABELS, r.entidad, "neutro")} />
                   </TableCell>
                   <TableCell>
-                    <ToneBadge tone={ACCION_LABELS[r.accion].tone} label={ACCION_LABELS[r.accion].label} />
+                    <ToneBadge {...toneInfo(ACCION_LABELS, r.accion, "neutro")} />
                   </TableCell>
                   <TableCell className="pr-5">
                     <span
