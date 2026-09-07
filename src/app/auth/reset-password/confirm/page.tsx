@@ -11,12 +11,10 @@ import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, KeyRound, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
-
-const PASSWORD_POLICY_HINT = "Mínimo 8 caracteres, con letras y números.";
-const PASSWORD_STRENGTH = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
+import { PASSWORD_POLICY_HINT, PASSWORD_POLICY_REGEX } from "@/lib/auth/password-policy";
 
 function ResetConfirmInner() {
   const searchParams = useSearchParams();
@@ -37,7 +35,7 @@ function ResetConfirmInner() {
     event.preventDefault();
     setError(null);
 
-    if (!PASSWORD_STRENGTH.test(password)) {
+    if (!PASSWORD_POLICY_REGEX.test(password)) {
       setError(PASSWORD_POLICY_HINT);
       return;
     }
@@ -171,9 +169,8 @@ function ResetConfirmInner() {
       <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
         <div className="flex flex-col gap-2">
           <Label htmlFor="password">Contraseña nueva</Label>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             autoComplete="new-password"
             required
             placeholder="••••••••"
@@ -185,9 +182,8 @@ function ResetConfirmInner() {
 
         <div className="flex flex-col gap-2">
           <Label htmlFor="confirm">Confirmar contraseña</Label>
-          <Input
+          <PasswordInput
             id="confirm"
-            type="password"
             autoComplete="new-password"
             required
             placeholder="••••••••"

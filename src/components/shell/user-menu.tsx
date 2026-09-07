@@ -2,19 +2,17 @@
 
 // User menu in the shell header: avatar with initials + name; dropdown shows
 // the profile (name/role) and "Cerrar sesión". Without a configured Supabase
-// backend (dev mode) useCurrentUser resolves to null and we fall back to the
-// demo user so the shell keeps working (same demo-mode policy as the rest of
-// the dashboard). Logout is a plain POST to the idempotent 204 API route;
-// state cleanup mirrors session-banner.tsx.
+// backend (dev mode) useCurrentUser resolves to null and the menu shows "…"
+// instead of a real name — never a demo persona. Logout is a plain POST to
+// the idempotent 204 API route; state cleanup mirrors session-banner.tsx.
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { LoaderCircle, LogOut } from "lucide-react";
+import { KeyRound, LoaderCircle, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { useCurrentUser, type CurrentUser } from "@/hooks/kanban";
 import { iniciales } from "@/hooks/crm";
 import { ROLE_LABELS, SESSION_STORAGE_KEY } from "@/lib/auth/types";
-import { DEMO_USER } from "@/lib/mock/demo";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -24,6 +22,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ChangePasswordDialog } from "@/components/shell/change-password-dialog";
 
 export function UserMenu({ initialUser }: { initialUser?: CurrentUser | null }) {
   const router = useRouter();
@@ -31,10 +30,11 @@ export function UserMenu({ initialUser }: { initialUser?: CurrentUser | null }) 
   // primer paint muestra el nombre correcto, sin el parpadeo del demo.
   const userQuery = useCurrentUser(initialUser);
   const [cerrando, setCerrando] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   const user = userQuery.data;
-  const nombre = user?.nombre ?? (userQuery.isLoading || userQuery.isError ? "…" : DEMO_USER.nombre);
-  const rolLabel = user?.rol ? ROLE_LABELS[user.rol] : "Modo demo";
+  const nombre = user?.nombre ?? "…";
+  const rolLabel = user?.rol ? ROLE_LABELS[user.rol] : null;
 
   async function cerrarSesion() {
     setCerrando(true);
@@ -51,37 +51,55 @@ export function UserMenu({ initialUser }: { initialUser?: CurrentUser | null }) 
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label="Menú de usuario"
-        className="relative flex h-10 cursor-pointer items-center gap-2.5 rounded-full border border-ink-200 bg-panel py-1 pr-4 pl-1 text-[13px] font-semibold text-ink-900 transition-colors after:absolute after:content-[''] after:-inset-0.5 hover:bg-ink-100"
-      >
-        <Avatar>
-          <AvatarFallback className="bg-rose-100 text-[11px] font-bold text-rose-700 dark:text-rose-400">
-            {iniciales(nombre)}
-          </AvatarFallback>
-        </Avatar>
-        <span className="hidden sm:block">{nombre}</span>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52">
-        <DropdownMenuLabel className="flex flex-col gap-0.5 py-1.5">
-          <span className="text-[13px] font-bold text-ink-900">{nombre}</span>
-          <span className="text-[11.5px] font-medium text-ink-500">{rolLabel}</span>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          variant="destructive"
-          disabled={cerrando}
-          onClick={() => void cerrarSesion()}
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          aria-label="Menú de usuario"
+          className="relative flex h-10 cursor-pointer items-center gap-2.5 rounded-full border border-ink-200 bg-panel py-1 pr-4 pl-1 text-[13px] font-semibold text-ink-900 transition-colors after:absolute after:content-[''] after:-inset-0.5 hover:bg-ink-100"
         >
-          {cerrando ? (
-            <LoaderCircle className="size-4 animate-spin" />
-          ) : (
-            <LogOut className="size-4" />
-          )}
-          {cerrando ? "Cerrando sesión…" : "Cerrar sesión"}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <Avatar>
+            <AvatarFallback className="bg-rose-100 text-[11px] font-bold text-rose-700 dark:text-rose-400">
+              {iniciales(nombre)}
+            </AvatarFallback>
+          </Avatar>
+          <span className="hidden sm:block">{nombre}</span>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuLabel className="flex flex-col gap-0.5 py-1.5">
+            <span className="text-[13px] font-bold text-ink-900">{nombre}</span>
+            {rolLabel && (
+              <span className="text-[11.5px] font-medium text-ink-500">{rolLabel}</span>
+            )}
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setChangePasswordOpen(true)}>
+            <KeyRound className="size-4" />
+            Cambiar contraseña
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            variant="destructive"
+            disabled={cerrando}
+            onClick={() => void cerrarSesion()}
+          >
+            {cerrando ? (
+              <LoaderCircle className="size-4 animate-spin" />
+            ) : (
+              <LogOut className="size-4" />
+            )}
+            {cerrando ? "Cerrando sesión…" : "Cerrar sesión"}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {/* Code review finding: nesting this Dialog inside <DropdownMenu>
+          risked the known focus-trap/pointer-events interaction bug between
+          headless menu and dialog primitives (menu close + dialog open in
+          the same tick). Kept as a sibling instead, matching the proven
+          pattern in users-table.tsx's RowMenu. */}
+      <ChangePasswordDialog
+        open={changePasswordOpen}
+        onOpenChange={setChangePasswordOpen}
+      />
+    </>
   );
 }

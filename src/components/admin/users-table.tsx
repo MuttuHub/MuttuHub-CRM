@@ -34,6 +34,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -51,6 +52,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ALL_ROLES, ROLE_LABELS } from "@/lib/auth/types";
+import { PASSWORD_POLICY_REGEX } from "@/lib/auth/password-policy";
 import { SinConexionCard } from "@/components/shared/sin-conexion-card";
 
 export type UsuarioRow = {
@@ -61,8 +63,6 @@ export type UsuarioRow = {
   activo: boolean;
   created_at: Date | string;
 };
-
-const PASSWORD_POLICY = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
 
 function initials(nombre: string): string {
   const parts = nombre.trim().split(/\s+/);
@@ -452,7 +452,7 @@ function NewUserDialog({
       onError("Nombre y correo son obligatorios.");
       return;
     }
-    if (!invite && !PASSWORD_POLICY.test(password)) {
+    if (!invite && !PASSWORD_POLICY_REGEX.test(password)) {
       onError("La contraseña debe tener al menos 8 caracteres, con letras y números.");
       return;
     }
@@ -568,9 +568,8 @@ function NewUserDialog({
             {!invite && (
               <div className="flex flex-col gap-2">
                 <Label htmlFor="nuevo-password">Contraseña</Label>
-                <Input
+                <PasswordInput
                   id="nuevo-password"
-                  type="password"
                   required
                   autoComplete="new-password"
                   placeholder="Mínimo 8 caracteres, con letras y números"
