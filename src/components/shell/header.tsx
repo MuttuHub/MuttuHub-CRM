@@ -7,7 +7,6 @@ import { PAGE_HEADERS } from "@/lib/nav";
 import { useCurrentUser, type CurrentUser } from "@/hooks/kanban";
 import { useTheme } from "@/hooks/use-theme";
 import { apiGet } from "@/lib/api/http";
-import { DEMO_USER } from "@/lib/mock/demo";
 import { useSidebarStore } from "@/store/sidebar";
 import { RANGO_HEADER_LABELS, RANGO_OPCIONES, useFiltersStore, type RangoFiltro } from "@/store/filters";
 import {
@@ -75,13 +74,12 @@ export function Header({ initialUser }: { initialUser?: CurrentUser | null }) {
     title: "Muttu Hub",
     subtitle: "",
   };
-  // PR 28 (plan §5): separa los tres casos del `?? DEMO_USER` de antes —
-  // cargando/error ("…", el caso genuino sin backend) vs modo demo real
-  // (Supabase sin configurar). Con initialData el primer paint ya tiene el
-  // nombre real, así que "…" solo aparece si algo falló de verdad.
-  const nombre =
-    userQuery.data?.nombre ??
-    (userQuery.isLoading || userQuery.isError ? "…" : DEMO_USER.nombre);
+  // Nunca se muestra el usuario demo. El layout pasa `initialUser ?? null`, y
+  // react-query trata ese initialData=null como data ya resuelta: isLoading es
+  // false mientras /me sigue en vuelo, así que el fallback de antes caía en
+  // "Adriana Gómez" durante la carga (y también si /me fallaba: el catch lo
+  // resolvía a null con status success). Sin usuario real → "…".
+  const nombre = userQuery.data?.nombre ?? "…";
   const title = pathname === "/" ? `Hola, ${nombre.split(" ")[0]}` : page.title;
   const subtitle =
     pathname === "/" ? subtituloInicio(notificationsQuery.data) : page.subtitle;

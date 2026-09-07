@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuditLogSection } from "./audit-log-section";
+import type { AuditoriaRow } from "@/hooks/admin";
 
 const { auditoriaQuery } = vi.hoisted(() => ({
   auditoriaQuery: {
@@ -18,7 +19,7 @@ const { auditoriaQuery } = vi.hoisted(() => ({
               created_at: "2026-08-01T12:00:00.000Z",
               usuario: { email: "ana@muttu.co", nombre: "Ana Pérez" },
             },
-          ],
+          ] as AuditoriaRow[],
           next_before: null as string | null,
         },
       ],
@@ -62,5 +63,38 @@ describe("AuditLogSection", () => {
     await user.click(await screen.findByRole("option", { name: "Documentos" }));
 
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  // Regression: producción registra accion:"exportar" (export de clientes/
+  // tareas, ver src/lib/api/audit.ts) pero ACCION_LABELS no lo contemplaba →
+  // `ACCION_LABELS[r.accion].tone` sobre undefined tumbaba toda /administracion
+  // ("This page couldn't load", sin error boundary que lo contuviera).
+  it("renders an 'exportar' audit row without crashing", async () => {
+    const original = auditoriaQuery.data;
+    auditoriaQuery.data = {
+      pages: [
+        {
+          registros: [
+            {
+              id: "aud-2",
+              entidad: "tarea",
+              entidad_id: "",
+              accion: "exportar",
+              cambios: { rows: 23, filters: {} },
+              created_at: "2026-09-04T15:10:58.824Z",
+              usuario: { email: "admin@muttu.co", nombre: "Administrador" },
+            },
+          ] as AuditoriaRow[],
+          next_before: null,
+        },
+      ],
+    };
+
+    try {
+      render(<AuditLogSection />);
+      expect(await screen.findByText("Exportó")).toBeInTheDocument();
+    } finally {
+      auditoriaQuery.data = original;
+    }
   });
 });

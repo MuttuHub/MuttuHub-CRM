@@ -2,6 +2,9 @@
 // Every error response is `{ "error": "string", "code": "string" }`.
 
 import { NextResponse } from "next/server";
+import { isValidPassword } from "@/lib/auth/password-policy";
+
+export { isValidPassword };
 
 export type ApiErrorCode =
   | "VALIDATION_ERROR"
@@ -30,13 +33,6 @@ export async function parseJsonBody<T>(
   } catch {
     return null;
   }
-}
-
-/** Password policy (PRD §3.1): min 8 chars, letters and numbers. */
-export function isValidPassword(password: string): boolean {
-  return (
-    password.length >= 8 && /[A-Za-z]/.test(password) && /\d/.test(password)
-  );
 }
 
 /** Basic email shape check (server-side). */
