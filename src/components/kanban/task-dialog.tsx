@@ -9,6 +9,7 @@
 
 import { useRef, useState, type FormEvent } from "react";
 import {
+  AlertTriangle,
   Download,
   LoaderCircle,
   MessageSquarePlus,
@@ -220,6 +221,12 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
   }
 
   const isLoading = isEdit && detailQuery.isLoading;
+  // Regresión reportada por el jefe ("a veces no aparece la información de
+  // la tarea"): antes solo se miraba isLoading — cuando el fetch fallaba
+  // (isError=true, data=undefined) el código caía al formulario de abajo
+  // con EMPTY_FORM, indistinguible de una tarea sin datos. Ahora un error
+  // explícito con reintento, en vez del formulario en blanco.
+  const loadError = isEdit && detailQuery.isError;
   // PR 4 (Slice B2): the server is the authority on writes — when the
   // server says "this user cannot edit this task", every form field is
   // disabled and the write-only sub-entity sections + the destructive
@@ -236,6 +243,28 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
         {isLoading ? (
           <div className="grid min-h-[320px] place-items-center text-[13px] text-ink-500">
             Cargando la tarea…
+          </div>
+        ) : loadError ? (
+          <div className="grid min-h-[320px] place-items-center p-8">
+            <div className="max-w-[46ch] text-center">
+              <span className="mx-auto grid size-11 place-items-center rounded-[15px_15px_15px_5px] bg-alerta-bg text-alerta">
+                <AlertTriangle className="size-5" strokeWidth={1.7} />
+              </span>
+              <h2 className="mt-4 font-display text-[16px] font-bold tracking-[-0.02em] text-ink-950">
+                Editar tarea
+              </h2>
+              <p className="mt-1 text-[13px] text-ink-600">
+                No pudimos cargar esta tarea. Revisa tu conexión e inténtalo de nuevo.
+              </p>
+              <Button
+                type="button"
+                onClick={() => void detailQuery.refetch()}
+                variant="outline"
+                className="mt-4 rounded-lg px-4 font-semibold"
+              >
+                Reintentar
+              </Button>
+            </div>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-5 p-6">
