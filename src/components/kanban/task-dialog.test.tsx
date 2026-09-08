@@ -18,7 +18,7 @@ import { TaskDialog } from "./task-dialog"
 
 const { taskQuery, subtareasQuery, comentariosQuery, adjuntosQuery } = vi.hoisted(
   () => ({
-    taskQuery: { data: null as TaskDetail | null, isLoading: false, error: null as unknown },
+    taskQuery: { data: null as TaskDetail | null, isLoading: false, isError: false, error: null as unknown },
     subtareasQuery: { data: [] as { id: string; titulo: string; completada: boolean; tarea_id: string }[], isLoading: false, isError: false },
     comentariosQuery: { data: [] as { id: string; autor_id: string; autor_nombre: string; texto: string; created_at: string }[], isLoading: false, isError: false },
     adjuntosQuery: { data: [] as { id: string; nombre: string; tamano_bytes: number | null; created_at: string }[], isLoading: false, isError: false },
@@ -93,6 +93,7 @@ describe("TaskDialog — PR 4 UI gate (puede_editar)", () => {
   beforeEach(() => {
     taskQuery.data = null
     taskQuery.isLoading = false
+    taskQuery.isError = false
     taskQuery.error = null
     subtareasQuery.data = []
     comentariosQuery.data = []
@@ -204,5 +205,46 @@ describe("TaskDialog — PR 4 UI gate (puede_editar)", () => {
     expect(titulo).toHaveValue("Tarea de prueba")
     expect(titulo).not.toBeDisabled()
     expect(screen.getByRole("button", { name: /Crear tarea/ })).toBeInTheDocument()
+  })
+})
+
+// Regresión reportada por el jefe: "al entrar a una tarea a veces no aparece
+// la información" — el diálogo solo miraba detailQuery.isLoading; cuando el
+// fetch de /api/v1/tasks/:id fallaba (isError=true, isLoading=false,
+// data=undefined), caía directo al formulario con EMPTY_FORM en vez de un
+// mensaje de error, así que el usuario veía un "Editar tarea" con todos los
+// campos en blanco, indistinguible de una tarea sin datos.
+describe("TaskDialog — el fetch de la tarea puede fallar", () => {
+  beforeEach(() => {
+    taskQuery.data = null
+    taskQuery.isLoading = false
+    taskQuery.isError = false
+    taskQuery.error = null
+  })
+
+  it("muestra un error explícito en vez de un formulario en blanco", () => {
+    taskQuery.isError = true
+    taskQuery.error = new Error("network error")
+    renderDialog("t1")
+
+    expect(screen.getByRole("heading", { name: /Editar tarea/ })).toBeInTheDocument()
+    expect(
+      screen.getByText(/No pudimos cargar (la|esta) tarea/i),
+    ).toBeInTheDocument()
+    // El formulario vacío ya NO debe estar presente — antes era la señal
+    // confusa de "no aparece la información".
+    expect(screen.queryByLabelText(/Título/)).not.toBeInTheDocument()
+  })
+
+  it("ofrece un botón de reintentar que llama a detailQuery.refetch", async () => {
+    taskQuery.isError = true
+    taskQuery.error = new Error("network error")
+    const refetch = vi.fn()
+    ;(taskQuery as typeof taskQuery & { refetch: () => void }).refetch = refetch
+    renderDialog("t1")
+
+    const user = userEvent.setup()
+    await user.click(screen.getByRole("button", { name: /Reintentar/i }))
+    expect(refetch).toHaveBeenCalled()
   })
 })

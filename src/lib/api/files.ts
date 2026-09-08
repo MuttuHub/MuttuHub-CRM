@@ -24,11 +24,34 @@ export const MAX_SANITIZED_FILENAME_LENGTH = 120;
 
 /**
  * Nombre de archivo seguro para keys de storage y entradas de zip: elimina
- * separadores de path, recorta espacios y lo limita a 120 caracteres
+ * separadores de path, quita tildes/ñ y cualquier caracter fuera del set
+ * seguro de Supabase Storage, recorta espacios y lo limita a 120 caracteres
  * conservando la extensión original.
+ *
+ * Regresión (reportada por el jefe): Supabase Storage devuelve
+ * `StorageApiError 400 InvalidKey` en cuanto la key tiene un caracter
+ * no-ASCII (tilde, ñ, emoji…) — aislado subiendo "técnico.pdf" vs
+ * "tecnico.pdf" contra el storage real. Antes solo se limpiaban "/" y "\\",
+ * así que CUALQUIER nombre de archivo en español con tilde o ñ (algo
+ * habitual: "técnico", "diseño", "administración"…) tumbaba la subida.
  */
 export function sanitizeFileName(name: string): string {
-  const cleaned = name.replace(/[/\\]/g, "_").trim();
+  const withoutSeparators = name.replace(/[/\\]/g, "_").trim();
+  // NFD descompone "é" en "e" + acento combinante; quitamos los combinantes
+  // (rango Unicode de "combining diacritical marks") para quedarnos con la
+  // letra base ASCII. La "ñ"/"Ñ" no se descompone con NFD (es su propio
+  // punto de código), así que se reemplaza aparte.
+  const withoutDiacritics = withoutSeparators
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/ñ/g, "n")
+    .replace(/Ñ/g, "N");
+  // Cualquier caracter restante fuera del set seguro de Supabase Storage
+  // (letras/números ASCII, espacio, y ! - _ . * ' ( )) se reemplaza por "_"
+  // en vez de rechazar el archivo — mismo criterio best-effort que el resto
+  // del módulo de documentos.
+  const safe = withoutDiacritics.replace(/[^A-Za-z0-9 !\-_.*'()]/g, "_");
+  const cleaned = safe.trim();
   if (!cleaned) return "documento";
   const dot = cleaned.lastIndexOf(".");
   if (dot <= 0) return cleaned.slice(0, MAX_SANITIZED_FILENAME_LENGTH);

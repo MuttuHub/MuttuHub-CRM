@@ -26,9 +26,15 @@ export const OPORTUNIDAD_SCHEMA = z.object({
   problema_detectado: z.string().nullable().optional(),
   solucion_propuesta: z.string().nullable().optional(),
   servicios_interes: z.string().nullable().optional(),
+  // El diálogo manda `null` explícito cuando el campo queda vacío
+  // (entity-dialogs.tsx: form.valor_estimado_cop ? Number(...) : null) — el
+  // PATCH hermano (route.ts de :opportunityId) ya tenía .nullable(), este
+  // POST se había quedado atrás y rechazaba la creación entera con "Invalid
+  // input: expected number, received null".
   valor_estimado_cop: z
     .number()
     .min(0, "El valor estimado no puede ser negativo.")
+    .nullable()
     .optional(),
   estado: catalogEnum(
     ENUM_VALUES.EstadoOportunidad as readonly EstadoOportunidad[],
