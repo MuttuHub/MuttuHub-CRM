@@ -163,6 +163,27 @@ describe("POST /api/v1/clients/:id/opportunities", () => {
     expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
   });
 
+  // Regresión reportada por el jefe: el diálogo manda `null` cuando el campo
+  // "Valor estimado" queda vacío (form.valor_estimado_cop ? Number(...) :
+  // null, entity-dialogs.tsx), pero el schema solo aceptaba number|undefined
+  // -> "Invalid input: expected number, received null" y la oportunidad
+  // nunca se creaba.
+  it("accepts a null valor_estimado_cop (empty field in the UI)", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
+    vi.mocked(db.oportunidad.create).mockResolvedValue({ id: "op-1", nombre: "Proyecto X" } as never);
+
+    const res = await POST(
+      postRequest({ nombre: "Proyecto X", valor_estimado_cop: null }),
+      routeContext,
+    );
+
+    expect(res.status).toBe(201);
+    expect(db.oportunidad.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ valor_estimado_cop: null }) }),
+    );
+  });
+
   it("returns 400 for a negative valor_estimado_cop", async () => {
     authAs(gerencia);
 
