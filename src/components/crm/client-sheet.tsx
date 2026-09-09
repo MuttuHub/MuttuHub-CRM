@@ -976,7 +976,7 @@ function ContactosTab({
               )}
             </div>
             {!readOnly && (
-              <div className="flex shrink-0 gap-1">
+              <div className="flex shrink-0 gap-2">
                 <Button
                   variant="ghost"
                   size="icon-sm"
@@ -1072,7 +1072,7 @@ function OportunidadesTab({
                   </p>
                 </div>
                 {!readOnly && (
-                  <div className="flex shrink-0 gap-1">
+                  <div className="flex shrink-0 gap-2">
                     <Button
                       variant="ghost"
                       size="icon-sm"
@@ -1210,7 +1210,7 @@ function CompromisosTab({
                   </p>
                 </div>
                 {!readOnly && (
-                  <div className="flex shrink-0 items-center gap-1">
+                  <div className="flex shrink-0 items-center gap-2">
                     {abierta ? (
                       <Button
                         size="sm"

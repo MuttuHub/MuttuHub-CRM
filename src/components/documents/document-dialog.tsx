@@ -70,8 +70,8 @@ export function DocumentDialog({
           </div>
         ) : (
           <div className="flex flex-col gap-5 p-6">
-            <DialogHeader className="gap-1">
-              <div className="flex items-start justify-between gap-3">
+            <DialogHeader className="gap-1 pt-8">
+              <div className="flex items-start justify-between gap-3 pr-8">
                 <div className="flex min-w-0 items-start gap-3">
                   <span
                     className={cn(
