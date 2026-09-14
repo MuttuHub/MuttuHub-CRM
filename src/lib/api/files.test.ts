@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { isAllowedFileType, fileExtension } from "./files";
+import { isAllowedFileType, fileExtension, sanitizeFileName } from "./files";
+
+describe("sanitizeFileName", () => {
+  // Regression: Supabase Storage rejects keys with spaces/diacritics as
+  // "Invalid key" (400) — this broke uploads for any Spanish file name.
+  it("strips spaces and accents while preserving the extension", () => {
+    expect(sanitizeFileName("Informe Financiero Óptimo.docx")).toBe(
+      "Informe_Financiero_Optimo.docx",
+    );
+  });
+});
 
 describe("isAllowedFileType — .pptx (plan Fase 2, 4A-bis)", () => {
   it("accepts a .pptx by extension", () => {

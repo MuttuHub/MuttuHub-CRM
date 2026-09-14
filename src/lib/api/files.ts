@@ -24,11 +24,17 @@ export const MAX_SANITIZED_FILENAME_LENGTH = 120;
 
 /**
  * Nombre de archivo seguro para keys de storage y entradas de zip: elimina
- * separadores de path, recorta espacios y lo limita a 120 caracteres
- * conservando la extensión original.
+ * separadores de path, diacríticos (tildes, ñ) y cualquier otro carácter que
+ * Supabase Storage rechace como key inválida (espacios incluidos), recorta
+ * espacios y lo limita a 120 caracteres conservando la extensión original.
  */
 export function sanitizeFileName(name: string): string {
-  const cleaned = name.replace(/[/\\]/g, "_").trim();
+  const cleaned = name
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[/\\]/g, "_")
+    .trim()
+    .replace(/[^A-Za-z0-9._-]/g, "_");
   if (!cleaned) return "documento";
   const dot = cleaned.lastIndexOf(".");
   if (dot <= 0) return cleaned.slice(0, MAX_SANITIZED_FILENAME_LENGTH);
