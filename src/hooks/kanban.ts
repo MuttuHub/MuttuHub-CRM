@@ -509,16 +509,30 @@ export function formatBytes(bytes: number | null | undefined): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export const ALLOWED_ATTACHMENT_EXT = ["pdf", "docx", "xlsx", "jpg", "png"];
-export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+export const ALLOWED_ATTACHMENT_EXT = [
+  "pdf",
+  "docx",
+  "xlsx",
+  "jpg",
+  "png",
+  "doc",
+  "ppt",
+  "pptx",
+  "csv",
+  "txt",
+  "jpeg",
+  "heic",
+  "zip",
+];
+export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
 export function attachmentValidationError(file: File): string | null {
   const ext = (file.name.split(".").pop() ?? "").toLowerCase();
   if (!ALLOWED_ATTACHMENT_EXT.includes(ext)) {
-    return "Solo se aceptan PDF, Word (.docx), Excel (.xlsx), JPG o PNG.";
+    return "Solo se aceptan PDF, Word, Excel, PowerPoint, CSV, TXT, ZIP, JPG, JPEG, PNG o HEIC.";
   }
   if (file.size > MAX_ATTACHMENT_BYTES) {
-    return "El archivo supera el límite de 10 MB.";
+    return "El archivo supera el límite de 25 MB.";
   }
   return null;
 }

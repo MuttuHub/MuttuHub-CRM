@@ -1,7 +1,9 @@
 // GET/POST /api/v1/tasks/:id/attachments — adjuntos de la tarjeta (PRD §5.2,
 // contract §8.2 "POST /tasks/:id/attachments").
-// POST: multipart/form-data con el campo `file`. Validación: <= 10 MB (413
-// FILE_TOO_LARGE) y extensión/MIME en PDF/DOCX/XLSX/JPG/PNG (400). Se sube al
+// POST: multipart/form-data con el campo `file`. Validación: tamaño máximo
+// configurable vía MAX_FILE_SIZE_MB (default 25 MB si no está seteada o es
+// inválida; 413 FILE_TOO_LARGE) y extensión/MIME en PDF/DOC/DOCX/XLSX/PPT/PPTX/CSV/TXT/ZIP/
+// JPG/JPEG/PNG/HEIC (400). Se sube al
 // bucket SUPABASE_STORAGE_BUCKET (default "muttu-docs") con el cliente de
 // service role (src/lib/supabase/admin.ts — solo servidor) en
 // `tareas/{tarea_id}/{uuid}_{nombre}` (convención análoga a /documentos/ del
@@ -20,27 +22,54 @@ import { isSupabaseConfigured, requireApiUser } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { getTaskForWrite, loadTaskScoped } from "@/lib/api/crm";
 import { loadDocCategories } from "@/lib/api/documents";
+import { sanitizeFileName } from "@/lib/api/files";
 import { logAudit } from "@/lib/api/audit";
 
 export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-const MAX_FILE_BYTES = 10 * 1024 * 1024; // PRD §8.4: tamaño máx 10 MB.
-const ALLOWED_EXT = new Set(["pdf", "docx", "xlsx", "jpg", "png"]); // PRD §8.4.
+// PRD §8.4: tamaño máx configurable vía MAX_FILE_SIZE_MB (Vercel env var),
+// default 25 MB si no está seteada o no es un número válido.
+const DEFAULT_MAX_FILE_MB = 25;
+const configuredMaxFileMb = Number.parseInt(process.env.MAX_FILE_SIZE_MB ?? "", 10);
+const MAX_FILE_MB =
+  Number.isFinite(configuredMaxFileMb) && configuredMaxFileMb > 0
+    ? configuredMaxFileMb
+    : DEFAULT_MAX_FILE_MB;
+const MAX_FILE_BYTES = MAX_FILE_MB * 1024 * 1024;
+const ALLOWED_EXT = new Set([
+  "pdf",
+  "docx",
+  "xlsx",
+  "jpg",
+  "png",
+  "doc",
+  "ppt",
+  "pptx",
+  "csv",
+  "txt",
+  "jpeg",
+  "heic",
+  "zip",
+]); // PRD §8.4 + lista ampliada aprobada por el cliente.
 const ALLOWED_MIME = new Set([
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "image/jpeg",
   "image/png",
+  "application/msword",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "text/csv",
+  "text/plain",
+  "image/heic",
+  "image/heif",
+  "application/zip",
+  "application/x-zip-compressed",
 ]);
 const STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "muttu-docs";
-
-/** Nombre saneado para el path de storage (la columna `nombre` guarda el original). */
-function safeFileName(name: string): string {
-  return name.replace(/[\\/]/g, "_");
-}
 
 /**
  * Espeja el adjunto en el Repositorio de Documentos (QA audit finding #12):
@@ -170,13 +199,13 @@ export const POST = withApiErrorHandling(
     // application/octet-stream incluso para archivos válidos.
     if (!ALLOWED_EXT.has(ext) && !ALLOWED_MIME.has(file.type)) {
       return apiError(
-        "Solo se aceptan PDF, Word (.docx), Excel (.xlsx), JPG o PNG.",
+        "Solo se aceptan PDF, Word, Excel, PowerPoint, CSV, TXT, ZIP, JPG, JPEG, PNG o HEIC.",
         400,
         "VALIDATION_ERROR",
       );
     }
     if (file.size > MAX_FILE_BYTES) {
-      return apiError("El archivo supera el límite de 10 MB.", 413, "FILE_TOO_LARGE");
+      return apiError(`El archivo supera el límite de ${MAX_FILE_MB} MB.`, 413, "FILE_TOO_LARGE");
     }
 
     const access = await getTaskForWrite(id, auth.usuario);
@@ -188,7 +217,7 @@ export const POST = withApiErrorHandling(
       );
     }
 
-    const storagePath = `tareas/${id}/${randomUUID()}_${safeFileName(file.name)}`;
+    const storagePath = `tareas/${id}/${randomUUID()}_${sanitizeFileName(file.name)}`;
     const supabase = createSupabaseAdmin();
 
     const { error: uploadError } = await supabase.storage

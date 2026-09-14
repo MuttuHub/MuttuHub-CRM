@@ -185,7 +185,7 @@ describe("POST /api/v1/tasks/:id/attachments", () => {
     expect(db.adjuntoTarea.create).not.toHaveBeenCalled();
   });
 
-  it("accepts allowed extensions/MIME types: pdf, docx, xlsx, jpg, png", async () => {
+  it("accepts allowed extensions/MIME types: pdf, docx, xlsx, jpg, png, doc, ppt, pptx, csv, txt, jpeg, heic, zip", async () => {
     authAs(gerencia);
     vi.mocked(isSupabaseConfigured).mockReturnValue(true);
     vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow({ responsable_id: "gerencia-1" }) as never);
@@ -201,6 +201,16 @@ describe("POST /api/v1/tasks/:id/attachments", () => {
       }),
       new File([new Uint8Array([1])], "d.jpg", { type: "image/jpeg" }),
       new File([new Uint8Array([1])], "e.png", { type: "image/png" }),
+      new File([new Uint8Array([1])], "f.doc", { type: "application/msword" }),
+      new File([new Uint8Array([1])], "g.ppt", { type: "application/vnd.ms-powerpoint" }),
+      new File([new Uint8Array([1])], "h.pptx", {
+        type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      }),
+      new File([new Uint8Array([1])], "i.csv", { type: "text/csv" }),
+      new File([new Uint8Array([1])], "j.txt", { type: "text/plain" }),
+      new File([new Uint8Array([1])], "k.jpeg", { type: "image/jpeg" }),
+      new File([new Uint8Array([1])], "l.heic", { type: "image/heic" }),
+      new File([new Uint8Array([1])], "m.zip", { type: "application/zip" }),
     ];
 
     for (const file of files) {
@@ -215,10 +225,10 @@ describe("POST /api/v1/tasks/:id/attachments", () => {
     }
   });
 
-  it("rejects a file over the 10 MB limit (413)", async () => {
+  it("rejects a file over the 25 MB limit (413)", async () => {
     authAs(gerencia);
     vi.mocked(isSupabaseConfigured).mockReturnValue(true);
-    const bigFile = new File([new Uint8Array(10 * 1024 * 1024 + 1)], "grande.pdf", {
+    const bigFile = new File([new Uint8Array(25 * 1024 * 1024 + 1)], "grande.pdf", {
       type: "application/pdf",
     });
 
@@ -227,6 +237,31 @@ describe("POST /api/v1/tasks/:id/attachments", () => {
     expect(res.status).toBe(413);
     expect(await res.json()).toMatchObject({ code: "FILE_TOO_LARGE" });
     expect(db.adjuntoTarea.create).not.toHaveBeenCalled();
+  });
+
+  it("honors MAX_FILE_SIZE_MB env override for the size limit", async () => {
+    authAs(gerencia);
+    vi.mocked(isSupabaseConfigured).mockReturnValue(true);
+    const original = process.env.MAX_FILE_SIZE_MB;
+    process.env.MAX_FILE_SIZE_MB = "1";
+    vi.resetModules();
+    try {
+      const { POST: postWithOverride } = await import("./route");
+      const bigFile = new File([new Uint8Array(1 * 1024 * 1024 + 1)], "grande.pdf", {
+        type: "application/pdf",
+      });
+
+      const res = await postWithOverride(postRequest(uploadForm(bigFile)), routeContext);
+
+      expect(res.status).toBe(413);
+      const body = await res.json();
+      expect(body).toMatchObject({ code: "FILE_TOO_LARGE" });
+      expect(body.error).toEqual(expect.stringContaining("1 MB"));
+    } finally {
+      if (original === undefined) delete process.env.MAX_FILE_SIZE_MB;
+      else process.env.MAX_FILE_SIZE_MB = original;
+      vi.resetModules();
+    }
   });
 
   it("returns 403 for a COLABORADOR who is neither the task's nor the client's responsable", async () => {
@@ -317,6 +352,40 @@ describe("POST /api/v1/tasks/:id/attachments", () => {
 
     expect(res.status).toBe(201);
     expect((await res.json()).adjunto.download_url).toBeNull();
+  });
+
+  // Regression: Supabase Storage rejects keys with spaces/diacritics
+  // ("Invalid key", 400) — a file name like this used to crash the upload
+  // in production for ANY user writing in Spanish.
+  it("sanitizes a file name with spaces and accents before uploading to storage", async () => {
+    authAs(gerencia);
+    vi.mocked(isSupabaseConfigured).mockReturnValue(true);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow({ responsable_id: "gerencia-1" }) as never);
+    vi.mocked(db.adjuntoTarea.create).mockResolvedValue({
+      id: "a-1",
+      nombre: "Informe Financiero Óptimo.docx",
+      tamano_bytes: 1,
+      created_at: new Date("2026-01-01"),
+    } as never);
+    const uploadMock = vi.fn().mockResolvedValue({ error: null });
+    vi.mocked(createSupabaseAdmin).mockReturnValue({
+      storage: {
+        from: vi.fn().mockReturnValue({
+          upload: uploadMock,
+          createSignedUrl: vi.fn().mockResolvedValue({ data: { signedUrl: "https://signed.example/file" }, error: null }),
+        }),
+      },
+    } as never);
+    const file = new File([new Uint8Array([1])], "Informe Financiero Óptimo.docx", {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+
+    const res = await POST(postRequest(uploadForm(file)), routeContext);
+
+    expect(res.status).toBe(201);
+    const uploadedPath = uploadMock.mock.calls[0]![0] as string;
+    expect(uploadedPath).toMatch(/^[A-Za-z0-9._/-]+$/);
+    expect(uploadedPath).not.toMatch(/\s/);
   });
 
   // QA audit finding #12: a task attachment used to live only in

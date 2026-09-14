@@ -659,7 +659,7 @@ function CommentSection({ taskId }: { taskId: string }) {
   }
 }
 
-/* ── Adjuntos (validación cliente: tipo + 10 MB) ───────────────────────── */
+/* ── Adjuntos (validación cliente: tipo + 25 MB) ───────────────────────── */
 
 function AttachmentSection({ taskId }: { taskId: string }) {
   const { data: adjuntos = [], isLoading } = useAttachments(taskId);
@@ -707,7 +707,7 @@ function AttachmentSection({ taskId }: { taskId: string }) {
           Subir archivo
         </Button>
         <span className="text-[11.5px] text-ink-600">
-          PDF, Word, Excel, JPG o PNG · máx 10 MB
+          PDF, Word, Excel, PowerPoint, CSV, TXT, ZIP, JPG, JPEG, PNG o HEIC · máx 25 MB
         </span>
       </div>
     </section>
