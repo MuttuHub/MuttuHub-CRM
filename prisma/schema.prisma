@@ -62,6 +62,11 @@ enum EstadoOportunidad {
   STANDBY
 }
 
+enum FaseOportunidad {
+  PROSPECCION
+  EJECUCION
+}
+
 enum EstadoTarea {
   POR_HACER
   EN_CURSO
@@ -69,7 +74,7 @@ enum EstadoTarea {
   COMPLETADA
   BLOQUEADA
   EN_ESPERA
-  CANCELADA    // estado oculto en tablero, visible en reportes
+  CANCELADA // estado oculto en tablero, visible en reportes
 }
 
 enum OrigenTarea {
@@ -95,21 +100,25 @@ enum TipoNotificacion {
 // ─────────────────────────────────────────
 
 model Usuario {
-  id         String     @id @default(uuid())
-  email      String     @unique
-  nombre     String
-  rol        RolUsuario @default(COLABORADOR)
-  activo     Boolean    @default(true)
-  created_at DateTime   @default(now())
-  updated_at DateTime   @updatedAt
+  id                     String     @id @default(uuid())
+  email                  String     @unique
+  nombre                 String
+  rol                    RolUsuario @default(COLABORADOR)
+  activo                 Boolean    @default(true)
+  // Eje comercial ortogonal a `rol` (oportunidades-comerciales D3). Sembrado
+  // por la migración para los COLABORADORES responsables de clientes con al
+  // menos una oportunidad viva, así el deploy no deja a nadie sin acceso.
+  gestiona_oportunidades Boolean    @default(false)
+  created_at             DateTime   @default(now())
+  updated_at             DateTime   @updatedAt
 
-  clientes_asignados  Cliente[]
-  tareas_asignadas    Tarea[]
-  bitacora_entradas   BitacoraEntrada[]
-  documentos_subidos  Documento[]
-  notificaciones      Notificacion[]
-  accesos             Acceso[] // PRD §3.3
-  auditorias          Auditoria[]
+  clientes_asignados Cliente[]
+  tareas_asignadas   Tarea[]
+  bitacora_entradas  BitacoraEntrada[]
+  documentos_subidos Documento[]
+  notificaciones     Notificacion[]
+  accesos            Acceso[] // PRD §3.3
+  auditorias         Auditoria[]
 
   @@map("usuarios")
 }
@@ -170,31 +179,52 @@ model Oportunidad {
   valor_estimado_cop     Decimal?          @db.Decimal(15, 2)
   estado                 EstadoOportunidad @default(DISENANDO_PROPUESTA)
   fecha_ultima_gestion   DateTime?
+  // Ciclo comercial trazable (oportunidades-comerciales D2). `fase` distingue
+  // prospección de ejecución tras la conversión explícita y auditada de una
+  // oportunidad GANADA; `fecha_adjudicacion` se fija una sola vez por esa
+  // acción. `fecha_envio_propuesta` (RF-C03) es fija: se setea la primera vez
+  // que se registra el envío y nunca se sobreescribe en PATCH posteriores —
+  // a diferencia de `fecha_ultima_gestion`, que sigue mutando en cada PATCH.
+  fase                   FaseOportunidad   @default(PROSPECCION)
+  fecha_adjudicacion     DateTime?
+  fecha_envio_propuesta  DateTime?
+  /// @deprecated oportunidades-comerciales D8 — superseded by `fase` +
+  /// `Tarea.oportunidad_id`. Read-only in the UI; kept additive, not dropped.
   proyectos_relacionados String?
   created_at             DateTime          @default(now())
   updated_at             DateTime          @updatedAt
   deleted_at             DateTime?
 
-  cliente Cliente @relation(fields: [cliente_id], references: [id])
+  cliente  Cliente           @relation(fields: [cliente_id], references: [id])
+  tareas   Tarea[]
+  bitacora BitacoraEntrada[]
 
+  // Objetivo de la FK compuesta de Tarea/BitacoraEntrada (D1): garantiza a
+  // nivel de base de datos que una tarea u entrada de bitácora vinculada a
+  // esta oportunidad solo pueda apuntar al mismo cliente_id.
+  @@unique([id, cliente_id])
   @@map("oportunidades")
 }
 
 // Tabla unificada CRM + Kanban
 model Tarea {
-  id             String         @id @default(uuid())
+  id             String          @id @default(uuid())
   titulo         String
   descripcion    String?
   responsable_id String
   cliente_id     String?
-  estado         EstadoTarea    @default(POR_HACER)
-  origen         OrigenTarea    @default(KANBAN)
+  // Vínculo opcional a una oportunidad comercial (oportunidades-comerciales
+  // D1/RF-C02). Sin backfill: toda tarea preexistente queda con este campo
+  // en NULL — el re-vinculado es manual desde la vista de la oportunidad.
+  oportunidad_id String?
+  estado         EstadoTarea     @default(POR_HACER)
+  origen         OrigenTarea     @default(KANBAN)
   prioridad      PrioridadTarea?
   fecha_entrega  DateTime?
-  etiquetas      String[]       @default([])
-  motivo_bloqueo String?        // solo cuando estado = BLOQUEADA
-  created_at     DateTime       @default(now())
-  updated_at     DateTime       @updatedAt
+  etiquetas      String[]        @default([])
+  motivo_bloqueo String? // solo cuando estado = BLOQUEADA
+  created_at     DateTime        @default(now())
+  updated_at     DateTime        @updatedAt
   deleted_at     DateTime?
   // Plan Fase 3 (3B): la marca REAL de cierre, agregada porque updated_at
   // (el proxy histórico) se movía al renombrar/comentar una tarea ya
@@ -202,28 +232,48 @@ model Tarea {
   // Nullable y con backfill (SET = updated_at WHERE estado='COMPLETADA');
   // null = nunca completada (o reabierta tras completarse). Se escribe solo
   // desde el helper central completedAtFor (status + PATCH).
-  completed_at DateTime?
+  completed_at   DateTime?
 
   responsable    Usuario           @relation(fields: [responsable_id], references: [id])
   cliente        Cliente?          @relation(fields: [cliente_id], references: [id])
+  // Relación compuesta deliberada (D1): comparte el escalar `cliente_id` con
+  // la relación `cliente` de arriba. Esa superposición ES el invariante —
+  // hace imposible, a nivel de base de datos, que una tarea apunte a una
+  // oportunidad de un cliente distinto al suyo. `onDelete/onUpdate: NoAction`
+  // es obligatorio: dos relaciones que comparten un escalar generan rutas de
+  // cascada en conflicto, que Prisma rechaza. El borrado lógico
+  // (`deleted_at`) es el modelo de borrado del proyecto de todos modos, así
+  // que `NoAction` no cuesta nada. El `CHECK` que cierra el hueco de
+  // MATCH SIMPLE (cliente_id NULL) vive en la migración — Prisma no modela
+  // constraints CHECK.
+  oportunidad    Oportunidad?      @relation(fields: [oportunidad_id, cliente_id], references: [id, cliente_id], onDelete: NoAction, onUpdate: NoAction)
   comentarios    ComentarioTarea[]
   subtareas      Subtarea[]
   adjuntos       AdjuntoTarea[]
   notificaciones Notificacion[]
 
+  @@index([oportunidad_id])
   @@map("tareas")
 }
 
 // Inmutable por diseño — sin updated_at
 model BitacoraEntrada {
-  id         String   @id @default(uuid())
-  cliente_id String
-  autor_id   String
-  texto      String
-  created_at DateTime @default(now())
+  id             String   @id @default(uuid())
+  cliente_id     String
+  autor_id       String
+  texto          String
+  // Comunicación específica de una oportunidad (oportunidades-comerciales).
+  // Nullable: las entradas atadas solo al cliente no se ven afectadas.
+  oportunidad_id String?
+  created_at     DateTime @default(now())
 
-  cliente Cliente @relation(fields: [cliente_id], references: [id])
-  autor   Usuario @relation(fields: [autor_id], references: [id])
+  cliente     Cliente      @relation(fields: [cliente_id], references: [id])
+  autor       Usuario      @relation(fields: [autor_id], references: [id])
+  // Misma relación compuesta que Tarea (D1) — cliente_id compartido es el
+  // invariante. `BitacoraEntrada.cliente_id` ya es NOT NULL, así que el hueco
+  // de MATCH SIMPLE no existe aquí; el CHECK de la migración es solo para
+  // `tareas`.
+  oportunidad Oportunidad? @relation(fields: [oportunidad_id, cliente_id], references: [id, cliente_id], onDelete: NoAction, onUpdate: NoAction)
 
   @@map("bitacora_entradas")
 }
@@ -233,16 +283,16 @@ model BitacoraEntrada {
 // carpetas jamás puede cambiar quién lo lee — esa escalada de privilegios
 // disparada por un gesto de organización es exactamente lo que este modelo evita.
 model Carpeta {
-  id           String    @id @default(uuid())
-  nombre       String
-  parent_id    String? // null = raíz; no hay fila "root"
+  id            String    @id @default(uuid())
+  nombre        String
+  parent_id     String? // null = raíz; no hay fila "root"
   creado_por_id String
-  created_at   DateTime  @default(now())
-  deleted_at   DateTime?
+  created_at    DateTime  @default(now())
+  deleted_at    DateTime?
 
-  parent      Carpeta?     @relation("CarpetaArbol", fields: [parent_id], references: [id])
-  hijas       Carpeta[]    @relation("CarpetaArbol")
-  documentos  Documento[]
+  parent     Carpeta?    @relation("CarpetaArbol", fields: [parent_id], references: [id])
+  hijas      Carpeta[]   @relation("CarpetaArbol")
+  documentos Documento[]
 
   @@index([parent_id])
   @@map("carpetas")
@@ -251,7 +301,7 @@ model Carpeta {
 model Documento {
   id         String    @id @default(uuid())
   titulo     String
-  categoria  String    // String libre — configurable desde admin sin tocar código
+  categoria  String // String libre — configurable desde admin sin tocar código
   etiquetas  String[]  @default([])
   autor_id   String
   created_at DateTime  @default(now())
@@ -274,7 +324,7 @@ model DocumentoVersion {
   id              String   @id @default(uuid())
   documento_id    String
   numero_version  Int
-  storage_path    String   // path en Supabase Storage
+  storage_path    String // path en Supabase Storage
   tamano_bytes    Int?
   tipo_archivo    String?
   subido_por_id   String
@@ -329,7 +379,7 @@ model AdjuntoTarea {
   tarea_id     String
   storage_path String
   nombre       String
-  tamano_bytes Int?     // tamaño del archivo subido (supabase no lo expone en el listado)
+  tamano_bytes Int? // tamaño del archivo subido (supabase no lo expone en el listado)
   created_at   DateTime @default(now())
   // QA audit finding #12: espejo en el Repositorio de Documentos (mismo
   // storage_path, sin volver a subir el archivo). Nullable: solo lo tienen
@@ -416,16 +466,16 @@ model CronLog {
 // (email form or Google OAuth). `revisado_por` / `auth_id` are log-only
 // columns without FK (same pattern as Setting.updated_by).
 model SolicitudAcceso {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   nombre       String
   email        String
   cargo        String?
-  origen       String   @default("form") // "form" | "google" — how the request arrived
+  origen       String    @default("form") // "form" | "google" — how the request arrived
   auth_id      String? // when origen=google: id of the auth user already created by Supabase
-  estado       String   @default("PENDIENTE") // PENDIENTE | APROBADA | RECHAZADA
+  estado       String    @default("PENDIENTE") // PENDIENTE | APROBADA | RECHAZADA
   revisado_por String?
   revisado_at  DateTime?
-  created_at   DateTime @default(now())
+  created_at   DateTime  @default(now())
 
   @@map("solicitudes_acceso")
 }
