@@ -25,6 +25,7 @@ import {
   parseDashboardFilters,
   rangoDeFechas,
 } from "@/lib/dashboard";
+import { hasCommercialAccess } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +54,28 @@ export const GET = withApiErrorHandling(
     // every active opportunity for every role, including COLABORADOR. The
     // explicit `responsable_id` filter is honored as-is.
     const scope = "all" as const;
+
+    // Phase 2 (opportunity-access-control, D3): the commercial gate extends
+    // to this dashboard face — without it, a COLABORADOR without the flag
+    // could still read the pipeline numbers RNF-C02 requires hidden. No
+    // query is issued; every aggregate returns zeroed/empty instead of
+    // leaking a partial view.
+    if (
+      !hasCommercialAccess({
+        id: auth.usuario.id,
+        rol: auth.usuario.rol,
+        gestiona_oportunidades: auth.usuario.gestiona_oportunidades,
+      })
+    ) {
+      return NextResponse.json({
+        scope,
+        total_activas: 0,
+        valor_activo: 0,
+        embudo: OFFER_STATES.map((estado) => ({ estado, count: 0 })),
+        top_clientes: [],
+        comparativo: { potencial_activo: 0, ganado_historico: 0, ratio: 0 },
+      });
+    }
 
     const clienteWhere = clienteScopeWhere(scope, auth.usuario, filters);
     const rango = rangoDeFechas(filters);

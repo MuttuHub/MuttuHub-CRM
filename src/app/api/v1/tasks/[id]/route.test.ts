@@ -22,6 +22,9 @@ vi.mock("@/lib/db", () => ({
     cliente: {
       findFirst: vi.fn(),
     },
+    oportunidad: {
+      findFirst: vi.fn(),
+    },
   },
 }));
 
@@ -44,6 +47,7 @@ function taskRow(overrides: Partial<Record<string, unknown>> = {}) {
     descripcion: overrides.descripcion ?? null,
     responsable_id: overrides.responsable_id ?? "colab-1",
     cliente_id: overrides.cliente_id ?? null,
+    oportunidad_id: overrides.oportunidad_id ?? null,
     estado: overrides.estado ?? "POR_HACER",
     origen: overrides.origen ?? "KANBAN",
     prioridad: overrides.prioridad ?? null,
@@ -55,6 +59,9 @@ function taskRow(overrides: Partial<Record<string, unknown>> = {}) {
     responsable: { nombre: "Colab Uno" },
     cliente: overrides.cliente_id
       ? { nombre: "Cliente Uno", responsable_id: overrides.cliente_responsable_id ?? "other-user" }
+      : null,
+    oportunidad: overrides.oportunidad_id
+      ? { id: overrides.oportunidad_id, nombre: "Oportunidad Uno", fase: overrides.oportunidad_fase ?? "PROSPECCION" }
       : null,
     _count: { comentarios: 0, subtareas: 0 },
   };
@@ -306,6 +313,37 @@ describe("PATCH /api/v1/tasks/:id", () => {
     const res = await PATCH(patchRequest({ titulo: "Nuevo título" }), routeContext);
 
     expect(res.status).toBe(200);
+  });
+
+  // opportunity-task-linking spec, non-negotiable invariant (D1/D2): same
+  // cross-client rejection as POST, applied on PATCH — using the task's
+  // existing cliente_id when the body does not change it.
+  it("returns 400 when oportunidad_id belongs to a different cliente (cross-client invariant)", async () => {
+    authAs(gerencia);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow({ cliente_id: "cli-A" }) as never);
+    vi.mocked(db.oportunidad.findFirst).mockResolvedValue({ cliente_id: "cli-B" } as never);
+
+    const res = await PATCH(patchRequest({ oportunidad_id: "op-1" }), routeContext);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(db.tarea.update).not.toHaveBeenCalled();
+  });
+
+  it("allows updating oportunidad_id when it matches the task's cliente_id", async () => {
+    authAs(gerencia);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow({ cliente_id: "cli-A" }) as never);
+    vi.mocked(db.oportunidad.findFirst).mockResolvedValue({ cliente_id: "cli-A" } as never);
+    vi.mocked(db.tarea.update).mockResolvedValue(
+      taskRow({ cliente_id: "cli-A", oportunidad_id: "op-1" }) as never,
+    );
+
+    const res = await PATCH(patchRequest({ oportunidad_id: "op-1" }), routeContext);
+
+    expect(res.status).toBe(200);
+    expect(db.tarea.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ oportunidad_id: "op-1" }) }),
+    );
   });
 
   it("returns 400 when moving to BLOQUEADA without a motivo_bloqueo", async () => {

@@ -14,6 +14,9 @@ vi.mock("@/lib/db", () => ({
       findMany: vi.fn(),
       create: vi.fn(),
     },
+    oportunidad: {
+      findFirst: vi.fn(),
+    },
   },
 }));
 
@@ -144,6 +147,42 @@ describe("POST /api/v1/clients/:id/log", () => {
     expect(db.bitacoraEntrada.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ autor_id: "gerencia-1" }) }),
     );
+  });
+
+  // opportunity-task-linking / commercial-opportunities spec: bitácora
+  // entries can optionally link to an opportunity, subject to the same
+  // client-consistency invariant as tasks (D1/D2).
+  it("creates a bitácora entry linked to an opportunity of the same client", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
+    vi.mocked(db.oportunidad.findFirst).mockResolvedValue({ cliente_id: "cli-1" } as never);
+    vi.mocked(db.bitacoraEntrada.create).mockResolvedValue({
+      id: "bit-1",
+      autor_id: "gerencia-1",
+      autor: { nombre: "Gerencia Uno" },
+      texto: "Nota comercial",
+      oportunidad_id: "op-1",
+      created_at: new Date("2026-01-01"),
+    } as never);
+
+    const res = await POST(postRequest({ texto: "Nota comercial", oportunidad_id: "op-1" }), routeContext);
+
+    expect(res.status).toBe(201);
+    expect(db.bitacoraEntrada.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ oportunidad_id: "op-1" }) }),
+    );
+  });
+
+  it("returns 400 when oportunidad_id belongs to a different cliente (cross-client invariant)", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
+    vi.mocked(db.oportunidad.findFirst).mockResolvedValue({ cliente_id: "cli-OTRO" } as never);
+
+    const res = await POST(postRequest({ texto: "Nota comercial", oportunidad_id: "op-1" }), routeContext);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(db.bitacoraEntrada.create).not.toHaveBeenCalled();
   });
 
   it("returns 400 when texto is missing", async () => {

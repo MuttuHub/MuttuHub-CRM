@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -61,6 +62,10 @@ export type UsuarioRow = {
   email: string;
   rol: RolUsuario;
   activo: boolean;
+  // D3 (oportunidades-comerciales): orthogonal commercial-access flag, only
+  // meaningful for COLABORADOR — full-access roles already pass the gate via
+  // isFullAccess. Ships in this PR to avoid the seed-lockout risk in design.md.
+  gestiona_oportunidades: boolean;
   created_at: Date | string;
 };
 
@@ -133,6 +138,27 @@ export function UsersTable({
       router.refresh();
     } catch {
       setNotice("No pudimos actualizar el rol.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function patchGestionaOportunidades(id: string, gestiona_oportunidades: boolean) {
+    setBusyId(id);
+    setNotice(null);
+    try {
+      const res = await fetch(`/api/v1/users/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gestiona_oportunidades }),
+      });
+      if (!res.ok) {
+        setNotice(await readError(res, "No pudimos actualizar el acceso comercial."));
+        return;
+      }
+      router.refresh();
+    } catch {
+      setNotice("No pudimos actualizar el acceso comercial.");
     } finally {
       setBusyId(null);
     }
@@ -269,6 +295,9 @@ export function UsersTable({
                         isSelf={isSelf}
                         busy={busyId === usuario.id}
                         onPatchRole={(rol) => void patchRole(usuario.id, rol)}
+                        onPatchGestionaOportunidades={(v) =>
+                          void patchGestionaOportunidades(usuario.id, v)
+                        }
                         onDeactivate={() => void deactivate(usuario.id)}
                       />
                     </TableCell>
@@ -288,12 +317,14 @@ function RowMenu({
   isSelf,
   busy,
   onPatchRole,
+  onPatchGestionaOportunidades,
   onDeactivate,
 }: {
   usuario: UsuarioRow;
   isSelf: boolean;
   busy: boolean;
   onPatchRole: (rol: RolUsuario) => void;
+  onPatchGestionaOportunidades: (gestiona_oportunidades: boolean) => void;
   onDeactivate: () => void;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -331,6 +362,20 @@ function RowMenu({
               {ROLE_LABELS[rol]}
             </DropdownMenuItem>
           ))}
+          {usuario.rol === "COLABORADOR" && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Acceso comercial</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem
+                checked={usuario.gestiona_oportunidades}
+                onCheckedChange={(checked) =>
+                  onPatchGestionaOportunidades(checked === true)
+                }
+              >
+                Gestiona oportunidades
+              </DropdownMenuCheckboxItem>
+            </>
+          )}
           {usuario.activo && !isSelf && (
             <>
               <DropdownMenuSeparator />

@@ -142,6 +142,46 @@ describe("GET /api/v1/clients", () => {
     });
   });
 
+  // Phase 2 (oportunidades-comerciales, PR2): every client row also carries
+  // `puede_gestionar_oportunidades` — canManageOpportunity(cliente, actor).
+  describe("puede_gestionar_oportunidades per row (Phase 2)", () => {
+    it("ADMINISTRADOR gets true for any client, flag or not", async () => {
+      authAs({ id: "admin-1", rol: "ADMINISTRADOR", gestiona_oportunidades: false } as Usuario);
+      vi.mocked(db.cliente.findMany).mockResolvedValue([{ ...baseClientRow, responsable_id: "other-user" }] as never);
+
+      const res = await GET(new Request("http://localhost/api/v1/clients"));
+      const json = await res.json();
+      expect(json.items[0].puede_gestionar_oportunidades).toBe(true);
+    });
+
+    it("COLABORADOR responsable WITH the flag gets true", async () => {
+      authAs({ ...colaborador, gestiona_oportunidades: true } as Usuario);
+      vi.mocked(db.cliente.findMany).mockResolvedValue([baseClientRow] as never);
+
+      const res = await GET(new Request("http://localhost/api/v1/clients"));
+      const json = await res.json();
+      expect(json.items[0].puede_gestionar_oportunidades).toBe(true);
+    });
+
+    it("COLABORADOR responsable WITHOUT the flag gets false (RNF-C02)", async () => {
+      authAs({ ...colaborador, gestiona_oportunidades: false } as Usuario);
+      vi.mocked(db.cliente.findMany).mockResolvedValue([baseClientRow] as never);
+
+      const res = await GET(new Request("http://localhost/api/v1/clients"));
+      const json = await res.json();
+      expect(json.items[0].puede_gestionar_oportunidades).toBe(false);
+    });
+
+    it("COLABORADOR with the flag but NOT the responsable gets false (D4 composition)", async () => {
+      authAs({ ...colaborador, gestiona_oportunidades: true } as Usuario);
+      vi.mocked(db.cliente.findMany).mockResolvedValue([{ ...baseClientRow, responsable_id: "other-user" }] as never);
+
+      const res = await GET(new Request("http://localhost/api/v1/clients"));
+      const json = await res.json();
+      expect(json.items[0].puede_gestionar_oportunidades).toBe(false);
+    });
+  });
+
   // PR 3 (Slice B1): read scope is now global. COLABORADOR sees every client
   // in the list (no `responsable_id = self` rewrite when no filter is
   // present), and the `responsable` query param is honored as-is (never

@@ -20,6 +20,13 @@ import { GET } from "./route";
 const colaborador = {
   id: "colab-1",
   rol: "COLABORADOR",
+  gestiona_oportunidades: true,
+} as Usuario;
+
+const colaboradorSinFlag = {
+  id: "colab-2",
+  rol: "COLABORADOR",
+  gestiona_oportunidades: false,
 } as Usuario;
 
 const coordinador = {
@@ -160,6 +167,33 @@ describe("GET /api/v1/dashboard/pipeline", () => {
       potencial_activo: 3000,
       ganado_historico: 5000,
       ratio: 1.67,
+    });
+  });
+
+  // Phase 2 (opportunity-access-control spec, D3): the commercial gate must
+  // extend to the pipeline dashboard — otherwise the flag leaks the numbers
+  // it was meant to hide.
+  it("returns zeroed/hidden commercial aggregates for a COLABORADOR without gestiona_oportunidades", async () => {
+    mockAuth(colaboradorSinFlag);
+
+    const res = await GET(get());
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(db.oportunidad.findMany).not.toHaveBeenCalled();
+    expect(json).toEqual({
+      scope: "all",
+      total_activas: 0,
+      valor_activo: 0,
+      embudo: [
+        { estado: "DISENANDO_PROPUESTA", count: 0 },
+        { estado: "PRESENTADA", count: 0 },
+        { estado: "EN_REVISION", count: 0 },
+        { estado: "EN_NEGOCIACION", count: 0 },
+        { estado: "STANDBY", count: 0 },
+      ],
+      top_clientes: [],
+      comparativo: { potencial_activo: 0, ganado_historico: 0, ratio: 0 },
     });
   });
 

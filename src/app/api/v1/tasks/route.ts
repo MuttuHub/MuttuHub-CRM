@@ -23,6 +23,7 @@ import { ENUM_VALUES } from "@/lib/catalogs";
 import { logAudit } from "@/lib/api/audit";
 import {
   catalogEnum,
+  checkOportunidadClienteConsistency,
   endOfDay,
   OPEN_TASK_STATES,
   parseDate,
@@ -45,6 +46,7 @@ export type TaskFilters = {
   origen?: string;
   responsable?: string;
   cliente?: string;
+  oportunidad?: string;
   prioridad?: PrioridadTarea;
   etiqueta?: string;
   fecha_entrega_desde?: string;
@@ -109,6 +111,7 @@ export function parseTaskFilters(
       origen: origenRaw,
       responsable: sp.get("responsable") ?? undefined,
       cliente: sp.get("cliente") ?? undefined,
+      oportunidad: sp.get("oportunidad") ?? undefined,
       prioridad: prioridadRaw ? (prioridadRaw as PrioridadTarea) : undefined,
       etiqueta: sp.get("etiqueta")?.trim() || undefined,
       fecha_entrega_desde: desde,
@@ -148,6 +151,7 @@ export function buildTaskWhere(filters: TaskFilters, usuario: Usuario): Prisma.T
   if (filters.estado) where.estado = filters.estado as EstadoTarea;
   if (filters.origen) where.origen = filters.origen as OrigenTarea;
   if (filters.cliente) where.cliente_id = filters.cliente;
+  if (filters.oportunidad) where.oportunidad_id = filters.oportunidad;
   if (filters.prioridad) where.prioridad = filters.prioridad;
   if (filters.etiqueta) where.etiquetas = { has: filters.etiqueta };
 
@@ -177,6 +181,7 @@ export const TASK_SCHEMA = z.object({
   descripcion: z.string().max(2000, "La descripción es muy larga.").nullable().optional(),
   responsable_id: z.string().min(1, "El responsable es obligatorio."),
   cliente_id: z.string().optional(),
+  oportunidad_id: z.string().nullable().optional(),
   estado: catalogEnum(ESTADOS, "Estado de tarea no válido.").optional(),
   origen: catalogEnum(ORIGENES, "Origen no válido.").optional(),
   prioridad: catalogEnum(
@@ -311,12 +316,21 @@ export const POST = withApiErrorHandling(
       }
     }
 
+    if (parsed.data.oportunidad_id) {
+      const invariantError = await checkOportunidadClienteConsistency(
+        parsed.data.oportunidad_id,
+        parsed.data.cliente_id ?? null,
+      );
+      if (invariantError) return invariantError;
+    }
+
     const tarea = await db.tarea.create({
       data: {
         titulo: parsed.data.titulo,
         descripcion: parsed.data.descripcion?.trim() || null,
         responsable_id,
         cliente_id: parsed.data.cliente_id,
+        oportunidad_id: parsed.data.oportunidad_id ?? undefined,
         estado: parsed.data.estado ?? "POR_HACER",
         origen: parsed.data.origen ?? "KANBAN",
         prioridad: parsed.data.prioridad,

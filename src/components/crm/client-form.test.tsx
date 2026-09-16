@@ -48,6 +48,7 @@ const CLIENTE: ClientDetail = {
   bitacora_count: 10,
   tareas_abiertas_count: 3,
   puede_editar: true,
+  puede_gestionar_oportunidades: true,
 }
 
 function responsableTrigger() {

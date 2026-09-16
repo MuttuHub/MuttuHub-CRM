@@ -8,7 +8,7 @@
 // (a COLABORADOR needs to be able to READ the foreign task — see
 // global-task-board spec scenarios).
 
-import { render, screen, act } from "@testing-library/react"
+import { render, screen, act, fireEvent } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -59,6 +59,9 @@ function makeTask(overrides: Partial<TaskItem> = {}): TaskDetail {
     responsable_nombre: "Gerencia Demo",
     cliente_id: "c1",
     cliente_nombre: "Alcaldía Demo",
+    oportunidad_id: null,
+    oportunidad_nombre: null,
+    oportunidad_fase: null,
     estado: "EN_CURSO",
     origen: "AMBOS",
     prioridad: "ALTA",
@@ -204,5 +207,42 @@ describe("TaskDialog — PR 4 UI gate (puede_editar)", () => {
     expect(titulo).toHaveValue("Tarea de prueba")
     expect(titulo).not.toBeDisabled()
     expect(screen.getByRole("button", { name: /Crear tarea/ })).toBeInTheDocument()
+  })
+})
+
+describe("TaskDialog — Adjuntos drag & drop", () => {
+  beforeEach(() => {
+    taskQuery.data = makeTask({ puede_editar: true })
+    taskQuery.isLoading = false
+    taskQuery.error = null
+    subtareasQuery.data = []
+    comentariosQuery.data = []
+    adjuntosQuery.data = []
+    noopMutation.mutateAsync.mockClear()
+  })
+
+  function getDropzone() {
+    // The dropzone wraps the file input, the "Subir archivo" button and
+    // the helper text — same container that owns the drag handlers.
+    return screen.getByRole("button", { name: /Subir archivo/ }).parentElement as HTMLElement
+  }
+
+  it("dropping a valid file uploads it via the same mutation as the file input", () => {
+    renderDialog("t1")
+    const file = new File(["contenido"], "contrato.pdf", { type: "application/pdf" })
+
+    fireEvent.drop(getDropzone(), { dataTransfer: { files: [file] } })
+
+    expect(noopMutation.mutateAsync).toHaveBeenCalledTimes(1)
+    expect(noopMutation.mutateAsync).toHaveBeenCalledWith(file)
+  })
+
+  it("dropping an invalid file type shows the validation error and does not upload", () => {
+    renderDialog("t1")
+    const file = new File(["contenido"], "virus.exe", { type: "application/x-msdownload" })
+
+    fireEvent.drop(getDropzone(), { dataTransfer: { files: [file] } })
+
+    expect(noopMutation.mutateAsync).not.toHaveBeenCalled()
   })
 })

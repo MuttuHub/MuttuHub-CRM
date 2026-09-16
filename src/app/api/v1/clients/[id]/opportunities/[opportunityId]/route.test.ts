@@ -22,7 +22,16 @@ import { requireApiUser } from "@/lib/supabase/server";
 import { PATCH, DELETE } from "./route";
 
 const gerencia = { id: "gerencia-1", rol: "GERENCIA" } as Usuario;
-const colaborador = { id: "colab-1", rol: "COLABORADOR" } as Usuario;
+const colaboradorConFlag = {
+  id: "colab-1",
+  rol: "COLABORADOR",
+  gestiona_oportunidades: true,
+} as Usuario;
+const colaboradorSinFlag = {
+  id: "colab-1",
+  rol: "COLABORADOR",
+  gestiona_oportunidades: false,
+} as Usuario;
 
 function authAs(usuario: Usuario) {
   vi.mocked(requireApiUser).mockResolvedValue({
@@ -99,8 +108,8 @@ describe("PATCH /api/v1/clients/:id/opportunities/:opportunityId", () => {
     expect(db.oportunidad.update).not.toHaveBeenCalled();
   });
 
-  it("returns 403 when a COLABORADOR is not the client's responsable", async () => {
-    authAs(colaborador);
+  it("returns 403 when a COLABORADOR is not the client's responsable (even with the flag) — D4", async () => {
+    authAs(colaboradorConFlag);
     vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "someone-else" } as never);
 
     const res = await PATCH(patchRequest({ estado: "GANADA" }), routeContext);
@@ -110,8 +119,19 @@ describe("PATCH /api/v1/clients/:id/opportunities/:opportunityId", () => {
     expect(db.oportunidad.update).not.toHaveBeenCalled();
   });
 
-  it("allows a COLABORADOR who IS the client's responsable to update the opportunity", async () => {
-    authAs(colaborador);
+  it("returns 403 when a COLABORADOR IS the client's responsable but lacks the flag (RNF-C02)", async () => {
+    authAs(colaboradorSinFlag);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
+
+    const res = await PATCH(patchRequest({ estado: "GANADA" }), routeContext);
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ code: "FORBIDDEN" });
+    expect(db.oportunidad.update).not.toHaveBeenCalled();
+  });
+
+  it("allows a COLABORADOR who IS the client's responsable AND has the flag to update the opportunity", async () => {
+    authAs(colaboradorConFlag);
     vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
     vi.mocked(db.oportunidad.findFirst).mockResolvedValue({ id: "op-1", cliente_id: "cli-1" } as never);
     vi.mocked(db.oportunidad.update).mockResolvedValue({ id: "op-1", estado: "GANADA" } as never);
@@ -177,9 +197,9 @@ describe("DELETE /api/v1/clients/:id/opportunities/:opportunityId", () => {
     expect(db.oportunidad.update).not.toHaveBeenCalled();
   });
 
-  it("returns 403 when a COLABORADOR is not the client's responsable", async () => {
-    authAs(colaborador);
-    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "someone-else" } as never);
+  it("returns 403 when a COLABORADOR IS the client's responsable but lacks the flag (RNF-C02)", async () => {
+    authAs(colaboradorSinFlag);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
 
     const res = await DELETE(
       new Request("http://localhost/api/v1/clients/cli-1/opportunities/op-1"),
@@ -191,8 +211,8 @@ describe("DELETE /api/v1/clients/:id/opportunities/:opportunityId", () => {
     expect(db.oportunidad.update).not.toHaveBeenCalled();
   });
 
-  it("allows a COLABORADOR who IS the client's responsable to delete the opportunity", async () => {
-    authAs(colaborador);
+  it("allows a COLABORADOR who IS the client's responsable AND has the flag to delete the opportunity", async () => {
+    authAs(colaboradorConFlag);
     vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
     vi.mocked(db.oportunidad.findFirst).mockResolvedValue({ id: "op-1", cliente_id: "cli-1" } as never);
     vi.mocked(db.oportunidad.update).mockResolvedValue({} as never);

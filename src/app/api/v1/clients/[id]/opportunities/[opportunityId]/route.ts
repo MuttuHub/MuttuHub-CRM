@@ -9,7 +9,7 @@ import { apiError, parseJsonBody } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { ENUM_VALUES } from "@/lib/catalogs";
-import { catalogEnum, getClientForWrite, parseDate, zodError } from "@/lib/api/crm";
+import { catalogEnum, getClientForOpportunityWrite, parseDate, zodError } from "@/lib/api/crm";
 import type { EstadoOportunidad } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -56,10 +56,10 @@ export const PATCH = withApiErrorHandling(
     const parsed = OPORTUNIDAD_PATCH_SCHEMA.safeParse(body);
     if (!parsed.success) return zodError(parsed.error);
 
-    const access = await getClientForWrite(id, auth.usuario);
+    const access = await getClientForOpportunityWrite(id, auth.usuario);
     if (!access.ok) {
       return apiError(
-        access.code === "NOT_FOUND" ? "El cliente no existe." : "No tienes permisos sobre este cliente.",
+        access.code === "NOT_FOUND" ? "El cliente no existe." : "No tienes permisos sobre las oportunidades de este cliente.",
         access.code === "NOT_FOUND" ? 404 : 403,
         access.code,
       );
@@ -102,10 +102,10 @@ export const DELETE = withApiErrorHandling(
     if (!auth.ok) return auth.response;
     const { id, opportunityId } = await ctx.params;
 
-    const access = await getClientForWrite(id, auth.usuario);
+    const access = await getClientForOpportunityWrite(id, auth.usuario);
     if (!access.ok) {
       return apiError(
-        access.code === "NOT_FOUND" ? "El cliente no existe." : "No tienes permisos sobre este cliente.",
+        access.code === "NOT_FOUND" ? "El cliente no existe." : "No tienes permisos sobre las oportunidades de este cliente.",
         access.code === "NOT_FOUND" ? 404 : 403,
         access.code,
       );
