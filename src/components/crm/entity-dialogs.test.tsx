@@ -7,7 +7,7 @@
 import { render, screen } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { describe, expect, it, vi } from "vitest"
-import type { Oportunidad } from "@/hooks/crm"
+import type { BitacoraEntrada, Oportunidad, TaskItem } from "@/hooks/crm"
 import { OportunidadLifecycleDialog } from "./entity-dialogs"
 
 const noopMutation = {
@@ -16,13 +16,26 @@ const noopMutation = {
   mutateAsync: vi.fn().mockResolvedValue({}),
 }
 
+// Hoisted so the vi.mock factory below (itself hoisted above imports by
+// vitest) can reference these mocks, and individual tests can override their
+// return value per-case with mockReturnValueOnce without touching the
+// baseline empty-list behavior every other test relies on.
+const { useTasksByOportunidadMock, useBitacoraMock } = vi.hoisted(() => ({
+  useTasksByOportunidadMock: vi.fn<() => { data: TaskItem[]; isLoading: boolean; isError: boolean }>(
+    () => ({ data: [], isLoading: false, isError: false }),
+  ),
+  useBitacoraMock: vi.fn<() => { data: BitacoraEntrada[]; isLoading: boolean; isError: boolean }>(
+    () => ({ data: [], isLoading: false, isError: false }),
+  ),
+}))
+
 vi.mock("@/hooks/crm", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/hooks/crm")>()
   return {
     ...actual,
-    useTasksByOportunidad: () => ({ data: [], isLoading: false, isError: false }),
+    useTasksByOportunidad: useTasksByOportunidadMock,
     useTasksByClient: () => ({ data: [], isLoading: false, isError: false }),
-    useBitacora: () => ({ data: [], isLoading: false, isError: false }),
+    useBitacora: useBitacoraMock,
     useConvertOportunidad: () => noopMutation,
     useUpdateTarea: () => noopMutation,
     useAddLogEntry: () => noopMutation,
@@ -91,5 +104,59 @@ describe("OportunidadLifecycleDialog", () => {
     renderDialog({ ...BASE_OPORTUNIDAD, estado: "EN_NEGOCIACION" })
 
     expect(screen.queryByRole("button", { name: /Convertir/i })).not.toBeInTheDocument()
+  })
+
+  it("renders linked task titles and bitácora entries when the lists are populated", () => {
+    const LINKED_TASK: TaskItem = {
+      id: "t-1",
+      titulo: "Enviar cotización actualizada",
+      descripcion: null,
+      responsable_id: "u-1",
+      responsable_nombre: "Ana Ríos",
+      cliente_id: "cli-1",
+      cliente_nombre: "Cliente Demo",
+      oportunidad_id: BASE_OPORTUNIDAD.id,
+      oportunidad_nombre: BASE_OPORTUNIDAD.nombre,
+      oportunidad_fase: "PROSPECCION",
+      estado: "EN_CURSO",
+      origen: "CRM",
+      prioridad: "ALTA",
+      fecha_entrega: null,
+      etiquetas: [],
+      motivo_bloqueo: null,
+      comentarios_count: 0,
+      subtotal: 0,
+      created_at: "2026-01-05T00:00:00.000Z",
+      updated_at: "2026-01-05T00:00:00.000Z",
+      puede_editar: true,
+    }
+    const LOG_ENTRY: BitacoraEntrada = {
+      id: "log-1",
+      autor_id: "u-1",
+      autor_nombre: "Ana Ríos",
+      texto: "Llamada de seguimiento con el cliente",
+      oportunidad_id: BASE_OPORTUNIDAD.id,
+      created_at: "2026-01-06T00:00:00.000Z",
+    }
+    useTasksByOportunidadMock.mockReturnValueOnce({
+      data: [LINKED_TASK],
+      isLoading: false,
+      isError: false,
+    })
+    useBitacoraMock.mockReturnValueOnce({
+      data: [LOG_ENTRY],
+      isLoading: false,
+      isError: false,
+    })
+
+    renderDialog(BASE_OPORTUNIDAD)
+
+    expect(screen.getByText("Enviar cotización actualizada")).toBeInTheDocument()
+    expect(screen.queryByText("Sin tareas vinculadas todavía.")).not.toBeInTheDocument()
+    expect(screen.getByText(/Llamada de seguimiento con el cliente/)).toBeInTheDocument()
+    expect(screen.getByText("Ana Ríos:")).toBeInTheDocument()
+    expect(
+      screen.queryByText("Sin entradas de bitácora para esta oportunidad."),
+    ).not.toBeInTheDocument()
   })
 })
