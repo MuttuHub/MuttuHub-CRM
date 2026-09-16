@@ -243,4 +243,49 @@ describe("POST /api/v1/clients/:id/opportunities", () => {
 
     expect(res.status).toBe(201);
   });
+
+  // RF-C03 / fecha_envio_propuesta spec: fixed once, auto-set on the first
+  // transition to PRESENTADA. A brand-new opportunity created directly with
+  // estado: PRESENTADA IS that first transition (it comes from a null field).
+  it("auto-sets fecha_envio_propuesta when created directly with estado PRESENTADA", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
+    vi.mocked(db.oportunidad.create).mockResolvedValue({ id: "op-1", nombre: "Proyecto X" } as never);
+
+    const res = await POST(postRequest({ nombre: "Proyecto X", estado: "PRESENTADA" }), routeContext);
+
+    expect(res.status).toBe(201);
+    expect(db.oportunidad.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ fecha_envio_propuesta: expect.any(Date) }) }),
+    );
+  });
+
+  it("does not set fecha_envio_propuesta when created with a non-PRESENTADA estado", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
+    vi.mocked(db.oportunidad.create).mockResolvedValue({ id: "op-1", nombre: "Proyecto X" } as never);
+
+    await POST(postRequest({ nombre: "Proyecto X" }), routeContext);
+
+    expect(db.oportunidad.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ fecha_envio_propuesta: undefined }) }),
+    );
+  });
+
+  it("an explicit fecha_envio_propuesta in the body always wins over the auto-set", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
+    vi.mocked(db.oportunidad.create).mockResolvedValue({ id: "op-1", nombre: "Proyecto X" } as never);
+
+    await POST(
+      postRequest({ nombre: "Proyecto X", estado: "PRESENTADA", fecha_envio_propuesta: "2026-01-05" }),
+      routeContext,
+    );
+
+    expect(db.oportunidad.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ fecha_envio_propuesta: new Date("2026-01-05") }),
+      }),
+    );
+  });
 });

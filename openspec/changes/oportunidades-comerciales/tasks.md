@@ -90,18 +90,34 @@ Chain strategy: pending
 
 ## Phase 4: Conversion & Audit (PR 3)
 
-- [ ] 4.1 RED: `src/app/api/v1/clients/[id]/opportunities/[opportunityId]/convert/route.test.ts` — 401/403/404/409(not GANADA)/409(repeat).
-- [ ] 4.2 GREEN: widen `AuditAccion`("convertir")/`AuditEntidad`("oportunidad") in `src/lib/api/audit.ts`; add label in `src/components/admin/audit-log-section.tsx`.
-- [ ] 4.3 GREEN: create `src/app/api/v1/clients/[id]/opportunities/[opportunityId]/convert/route.ts` per D5 flow.
-- [ ] 4.4 RED+GREEN: assert linked `tareas.updated_at` untouched + one `auditoria` row after conversion.
-- [ ] 4.5 GREEN: 409 on `PATCH estado` when `fase=EJECUCION` in `[opportunityId]/route.ts` (D7).
-- [ ] 4.6 RED+GREEN: `fecha_envio_propuesta` write-once on first `estado→PRESENTADA` in `route.ts`/`[opportunityId]/route.ts`.
+- [x] 4.1 RED: `src/app/api/v1/clients/[id]/opportunities/[opportunityId]/convert/route.test.ts` — 401/403/404/409(not GANADA)/409(repeat).
+- [x] 4.2 GREEN: widen `AuditAccion`("convertir")/`AuditEntidad`("oportunidad") in `src/lib/api/audit.ts`; add label in `src/components/admin/audit-log-section.tsx`.
+      Also widened the same union types in `src/hooks/admin.ts` (client-side DTO mirror) — needed for the `<Select>` filter option and `ENTIDAD_LABELS`/`ACCION_LABELS` maps to type-check.
+- [x] 4.3 GREEN: create `src/app/api/v1/clients/[id]/opportunities/[opportunityId]/convert/route.ts` per D5 flow.
+- [x] 4.4 RED+GREEN: assert linked `tareas.updated_at` untouched + one `auditoria` row after conversion.
+      Verified as "the route never calls `db.tarea.*` at all" (D6 — zero writes, not just unchanged `updated_at`) plus one `db.auditoria.create` call with `entidad: "oportunidad"`, `accion: "convertir"`.
+- [x] 4.5 GREEN: 409 on `PATCH estado` when `fase=EJECUCION` in `[opportunityId]/route.ts` (D7).
+      Gate is scoped to `estado` changes only — a non-estado PATCH (e.g. `nombre`) on an already-converted opportunity still succeeds (regression-tested).
+- [x] 4.6 RED+GREEN: `fecha_envio_propuesta` write-once on first `estado→PRESENTADA` in `route.ts`/`[opportunityId]/route.ts`.
+      Added the field to both `OPORTUNIDAD_SCHEMA` (POST) and `OPORTUNIDAD_PATCH_SCHEMA` (PATCH): explicit body value always wins; otherwise auto-set only on the transition to PRESENTADA when the field is still null.
 
 ## Phase 5: UI — Lifecycle View & Kanban Chip (PR 3)
 
-- [ ] 5.1 GREEN: `src/components/crm/entity-dialogs.tsx` — lifecycle view (estado, fase, fecha_envio_propuesta, tasks, bitácora, Convert action, link-existing-task); `proyectos_relacionados` read-only (D8).
-- [ ] 5.2 GREEN: `src/components/crm/client-sheet.tsx` — tab visibility + `readOnly` from `puede_gestionar_oportunidades`.
-- [ ] 5.3 RED: `src/components/kanban/task-card.test.tsx` — chip per `oportunidad_fase`, absent when null.
-- [ ] 5.4 GREEN: `src/components/kanban/task-card.tsx` — `CardTask` fields + amber/emerald chip.
-- [ ] 5.5 GREEN: update `src/lib/openapi/paths/clients.ts` and `src/lib/openapi/paths/tasks.ts` contracts.
-- [ ] 5.6 Create `e2e/oportunidad-ciclo.spec.ts` — full cycle: create → link task → PRESENTADA → GANADA → convert → chip flips.
+- [x] 5.1 GREEN: `src/components/crm/entity-dialogs.tsx` — lifecycle view (estado, fase, fecha_envio_propuesta, tasks, bitácora, Convert action, link-existing-task); `proyectos_relacionados` read-only (D8).
+      Implemented as a new `OportunidadLifecycleDialog` component, opened via a "Ver ciclo" button added to each opportunity row in `client-sheet.tsx`'s `OportunidadesTab` (additive — the existing inline problema/solución/servicios expand panel is untouched). Also added a minimal "Agregar nota" affordance (texto + oportunidad_id) so RF-C03's bitácora-por-oportunidad scenario is exercised through real UI, not just the API. D8: `OportunidadFormDialog`'s editable `proyectos_relacionados` input was removed and replaced with a read-only block (shown only when non-empty), both in the create/edit form and in the lifecycle view.
+- [x] 5.2 GREEN: `src/components/crm/client-sheet.tsx` — tab visibility + `readOnly` from `puede_gestionar_oportunidades`.
+      Both the `TabsTrigger` and its `TabsContent` are now conditionally rendered on `cliente.puede_gestionar_oportunidades`; readOnly inside that branch is therefore always `false` (documented inline — TS itself flags `=== false` as unreachable once narrowed by the surrounding conditional).
+- [x] 5.3 RED: `src/components/kanban/task-card.test.tsx` — chip per `oportunidad_fase`, absent when null.
+- [x] 5.4 GREEN: `src/components/kanban/task-card.tsx` — `CardTask` fields + amber/emerald chip.
+- [x] 5.5 GREEN: update `src/lib/openapi/paths/clients.ts` and `src/lib/openapi/paths/tasks.ts` contracts.
+      Added `FaseOportunidadSchema`, `Oportunidad.fase/fecha_adjudicacion/fecha_envio_propuesta`, `puede_gestionar_oportunidades` on both `ClientListItem` and `ClienteDetail`, `BitacoraEntrada.oportunidad_id`, the `oportunidad` query filter and `TaskItem`/`TaskDetail.oportunidad_id/nombre/fase` fields, the `POST .../convert` path (200/401/403/404/409/500), and a 409 case + write-once note on the existing `PATCH .../opportunities/{opportunityId}`. Verified the full `buildOpenApiDocument()` still assembles without a runtime registration error (ran once via a throwaway vitest check, removed after).
+- [x] 5.6 Create `e2e/oportunidad-ciclo.spec.ts` — full cycle: create → link task → PRESENTADA → GANADA → convert → chip flips.
+      Written following the existing `crm-demo.spec.ts`/`permisos-colaborador.spec.ts` patterns (gerencia login, seeded "Fundación Horizonte Nuevo" client, seeded "Validar entregable con equipo técnico" task for the link step, `/tablero` Cliente filter for the final chip assertion). **Not executed in this sandbox** — no running dev server/DB here, same "CI only" constraint already documented on `permisos-colaborador.spec.ts`. Type-checks clean (`npx tsc --noEmit` includes `e2e/**/*.ts`).
+
+### PR 3 batch notes
+
+- Full-suite safety net (`npm test`): 1024/1026 passing. `npx tsc --noEmit`: clean.
+- Same 2 pre-existing failures as the PR1/PR2 baseline, still unrelated and untouched by this batch: `src/app/api/v1/documents/zip/route.test.ts` (filename-sanitization mismatch from commit `29a8f26`, predates this change).
+- 18 files I touched were CRLF-polluted in the working tree before this batch (same pre-existing ~90-file noise documented in the PR1/PR2 notes) — normalized to LF with `sd '\r' ''` before computing the real diff / staging, same technique as PR1/PR2.
+- `EstadoOportunidad`/`FaseOportunidad` etc. are NOT exported/shared between `src/lib/openapi/paths/clients.ts` and `tasks.ts` (each file keeps its own local copy per the existing convention in this codebase) — the Kanban chip's phase enum in `tasks.ts` is therefore an inline `z.enum([...])` without a second `.openapi("FaseOportunidad")` registration, to avoid a duplicate-name collision in the shared zod-to-openapi registry.
+- Discovered gap (not fixed, out of this batch's assigned scope): `GET/POST /api/v1/clients/{id}/opportunities/{opportunityId}/tasks` (created in PR2, task 3.7) has no OpenAPI contract registered. Task 5.5 scoped the openapi work to "the new fields and the convert endpoint" for `clients.ts`/`tasks.ts`, not a retroactive fix for PR2's gap.

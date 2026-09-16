@@ -83,6 +83,7 @@ import {
   ContactoFormDialog,
   ConfirmDialog,
   OportunidadFormDialog,
+  OportunidadLifecycleDialog,
 } from "@/components/crm/entity-dialogs";
 import { TareaFormDialog } from "@/components/crm/task-dialogs";
 import {
@@ -113,6 +114,8 @@ export function ClientSheet({
   const [taskFormOpen, setTaskFormOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contacto | null>(null);
   const [editingOpp, setEditingOpp] = useState<Oportunidad | null>(null);
+  const [viewingOpp, setViewingOpp] = useState<Oportunidad | null>(null);
+  const [lifecycleOpen, setLifecycleOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
 
@@ -149,7 +152,9 @@ export function ClientSheet({
                   >
                     <TabsTrigger value="general" className="flex-none px-3">General</TabsTrigger>
                     <TabsTrigger value="contactos" className="flex-none px-3">Contactos</TabsTrigger>
-                    <TabsTrigger value="oportunidades" className="flex-none px-3">Oportunidades</TabsTrigger>
+                    {cliente.puede_gestionar_oportunidades && (
+                      <TabsTrigger value="oportunidades" className="flex-none px-3">Oportunidades</TabsTrigger>
+                    )}
                     <TabsTrigger value="compromisos" className="flex-none px-3">Compromisos</TabsTrigger>
                     <TabsTrigger value="bitacora" className="flex-none px-3">Bitácora</TabsTrigger>
                     <TabsTrigger value="documentos" className="flex-none px-3">Documentos</TabsTrigger>
@@ -182,21 +187,29 @@ export function ClientSheet({
                     />
                   </TabsContent>
 
-                  <TabsContent value="oportunidades" className="mt-0">
-                    <OportunidadesTab
-                      clientId={clientId!}
-                      readOnly={cliente.puede_editar === false}
-                      onNew={() => {
-                        setEditingOpp(null);
-                        setOppFormOpen(true);
-                      }}
-                      onEdit={(o) => {
-                        setEditingOpp(o);
-                        setOppFormOpen(true);
-                      }}
-                      onDelete={(o) => setDeleteTarget({ ref: "oportunidad", id: o.id })}
-                    />
-                  </TabsContent>
+                  {cliente.puede_gestionar_oportunidades && (
+                    <TabsContent value="oportunidades" className="mt-0">
+                      <OportunidadesTab
+                        clientId={clientId!}
+                        // Tab is only rendered when puede_gestionar_oportunidades is
+                        // true (write access), so readOnly is always false here.
+                        readOnly={false}
+                        onNew={() => {
+                          setEditingOpp(null);
+                          setOppFormOpen(true);
+                        }}
+                        onEdit={(o) => {
+                          setEditingOpp(o);
+                          setOppFormOpen(true);
+                        }}
+                        onDelete={(o) => setDeleteTarget({ ref: "oportunidad", id: o.id })}
+                        onViewLifecycle={(o) => {
+                          setViewingOpp(o);
+                          setLifecycleOpen(true);
+                        }}
+                      />
+                    </TabsContent>
+                  )}
 
                   <TabsContent value="compromisos" className="mt-0">
                     <CompromisosTab
@@ -255,6 +268,13 @@ export function ClientSheet({
           open={oppFormOpen}
           onOpenChange={setOppFormOpen}
           oportunidad={editingOpp}
+        />
+        <OportunidadLifecycleDialog
+          clientId={clientId ?? ""}
+          open={lifecycleOpen}
+          onOpenChange={setLifecycleOpen}
+          oportunidad={viewingOpp}
+          readOnly={cliente?.puede_gestionar_oportunidades === false}
         />
         <TareaFormDialog
           clientId={clientId ?? ""}
@@ -1011,12 +1031,16 @@ function OportunidadesTab({
   onNew,
   onEdit,
   onDelete,
+  onViewLifecycle,
   readOnly,
 }: {
   clientId: string;
   onNew: () => void;
   onEdit: (o: Oportunidad) => void;
   onDelete: (o: Oportunidad) => void;
+  /** oportunidades-comerciales (RF-C02/RF-C04): opens the lifecycle view —
+   * estado, fase, tareas vinculadas, bitácora, and the Convert action. */
+  onViewLifecycle: (o: Oportunidad) => void;
   /** PR 4: hide the new/edit/delete controls. */
   readOnly?: boolean;
 }) {
@@ -1071,28 +1095,39 @@ function OportunidadesTab({
                     <span>Última gestión: {formatFecha(o.fecha_ultima_gestion)}</span>
                   </p>
                 </div>
-                {!readOnly && (
-                  <div className="flex shrink-0 gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={`Editar ${o.nombre}`}
-                      onClick={() => onEdit(o)}
-                      className="after:-inset-1"
-                    >
-                      <Pencil className="size-3.5" strokeWidth={1.9} />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={`Eliminar ${o.nombre}`}
-                      onClick={() => onDelete(o)}
-                      className="text-ink-500 hover:text-destructivo after:-inset-1"
-                    >
-                      <Trash2 className="size-3.5" strokeWidth={1.9} />
-                    </Button>
-                  </div>
-                )}
+                <div className="flex shrink-0 gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label={`Ver ciclo comercial de ${o.nombre}`}
+                    onClick={() => onViewLifecycle(o)}
+                    className="rounded-10 px-2 text-[12px] font-semibold"
+                  >
+                    Ver ciclo
+                  </Button>
+                  {!readOnly && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Editar ${o.nombre}`}
+                        onClick={() => onEdit(o)}
+                        className="after:-inset-1"
+                      >
+                        <Pencil className="size-3.5" strokeWidth={1.9} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Eliminar ${o.nombre}`}
+                        onClick={() => onDelete(o)}
+                        className="text-ink-500 hover:text-destructivo after:-inset-1"
+                      >
+                        <Trash2 className="size-3.5" strokeWidth={1.9} />
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
 
               {abierta && (
