@@ -7,7 +7,7 @@
 
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type DragEvent, type FormEvent } from "react";
 import {
   Download,
   LoaderCircle,
@@ -665,6 +665,9 @@ function AttachmentSection({ taskId }: { taskId: string }) {
   const { data: adjuntos = [], isLoading } = useAttachments(taskId);
   const upload = useUploadAttachment(taskId);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Drag & drop (paridad con el dropzone de Documentos): acá se sube UN
+  // archivo por tarea, así que si sueltan varios sólo tomamos el primero.
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
 
   return (
     <section className="flex flex-col gap-3">
@@ -680,7 +683,20 @@ function AttachmentSection({ taskId }: { taskId: string }) {
           ))}
         </div>
       )}
-      <div className="flex flex-wrap items-center gap-2">
+      <div
+        onDragOver={(e: DragEvent<HTMLDivElement>) => {
+          e.preventDefault();
+          setIsDraggingOver(true);
+        }}
+        onDragLeave={() => setIsDraggingOver(false)}
+        onDrop={onDrop}
+        className={cn(
+          "flex flex-wrap items-center gap-2 rounded-10 border border-dashed px-2 py-1.5 transition-colors",
+          isDraggingOver
+            ? "border-rose-500 bg-rose-50"
+            : "border-transparent",
+        )}
+      >
         <input
           ref={inputRef}
           type="file"
@@ -707,11 +723,19 @@ function AttachmentSection({ taskId }: { taskId: string }) {
           Subir archivo
         </Button>
         <span className="text-[11.5px] text-ink-600">
-          PDF, Word, Excel, PowerPoint, CSV, TXT, ZIP, JPG, JPEG, PNG o HEIC · máx 25 MB
+          PDF, Word, Excel, PowerPoint, CSV, TXT, ZIP, JPG, JPEG, PNG o HEIC · máx 25 MB · o
+          arrastra el archivo aquí
         </span>
       </div>
     </section>
   );
+
+  function onDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setIsDraggingOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) void subir(file);
+  }
 
   function subir(file: File) {
     const validation = attachmentValidationError(file);
