@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { canEditClient, canEditTask, canManageAny } from "./permissions"
+import {
+  canEditClient,
+  canEditTask,
+  canManageAny,
+  canManageOpportunity,
+  hasCommercialAccess,
+} from "./permissions"
 
 describe("canManageAny", () => {
   it.each([
@@ -68,6 +74,62 @@ describe("canEditTask", () => {
       canEditTask(
         { responsable_id: "someone-else", cliente_responsable_id: null },
         { id: "me", rol: "COLABORADOR" },
+      ),
+    ).toBe(false)
+  })
+})
+
+describe("hasCommercialAccess", () => {
+  it.each([
+    ["ADMINISTRADOR", false, true],
+    ["ADMINISTRADOR", true, true],
+    ["GERENCIA", false, true],
+    ["GERENCIA", true, true],
+    ["COORDINADOR", false, true],
+    ["COORDINADOR", true, true],
+    ["COLABORADOR", false, false],
+    ["COLABORADOR", true, true],
+  ] as const)(
+    "rol=%s gestiona_oportunidades=%s -> %s",
+    (rol, gestiona_oportunidades, expected) => {
+      expect(
+        hasCommercialAccess({ id: "me", rol, gestiona_oportunidades }),
+      ).toBe(expected)
+    },
+  )
+})
+
+describe("canManageOpportunity", () => {
+  // Full matrix: 4 roles x flag on/off x responsable yes/no.
+  it.each([
+    ["ADMINISTRADOR", false, "someone-else", true],
+    ["ADMINISTRADOR", false, "me", true],
+    ["ADMINISTRADOR", true, "someone-else", true],
+    ["GERENCIA", false, "someone-else", true],
+    ["GERENCIA", true, "me", true],
+    ["COORDINADOR", false, "someone-else", true],
+    ["COORDINADOR", true, "me", true],
+    ["COLABORADOR", true, "me", true],
+    ["COLABORADOR", true, "someone-else", false],
+    ["COLABORADOR", false, "me", false],
+    ["COLABORADOR", false, "someone-else", false],
+  ] as const)(
+    "rol=%s gestiona_oportunidades=%s responsable_id=%s -> %s",
+    (rol, gestiona_oportunidades, responsable_id, expected) => {
+      expect(
+        canManageOpportunity(
+          { responsable_id },
+          { id: "me", rol, gestiona_oportunidades },
+        ),
+      ).toBe(expected)
+    },
+  )
+
+  it("COLABORADOR responsable of the client but without the flag -> false (RNF-C02, negates the old ownership-only rule)", () => {
+    expect(
+      canManageOpportunity(
+        { responsable_id: "me" },
+        { id: "me", rol: "COLABORADOR", gestiona_oportunidades: false },
       ),
     ).toBe(false)
   })

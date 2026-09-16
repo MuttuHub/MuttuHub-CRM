@@ -18,6 +18,7 @@ const USER_SELECT = {
   email: true,
   rol: true,
   activo: true,
+  gestiona_oportunidades: true,
   created_at: true,
 } as const;
 
@@ -36,9 +37,15 @@ export const PATCH = withApiErrorHandling(
       rol?: RolUsuario;
       activo?: boolean;
       nombre?: string;
+      gestiona_oportunidades?: boolean;
     }>(request);
 
-    const data: { rol?: RolUsuario; activo?: boolean; nombre?: string } = {};
+    const data: {
+      rol?: RolUsuario;
+      activo?: boolean;
+      nombre?: string;
+      gestiona_oportunidades?: boolean;
+    } = {};
 
     if (body?.rol !== undefined) {
       if (!(body.rol in ROLE_LABELS)) {
@@ -55,6 +62,12 @@ export const PATCH = withApiErrorHandling(
         return apiError("El nombre no puede estar vacío.", 400, "VALIDATION_ERROR");
       }
       data.nombre = nombre;
+    }
+    // D3 (oportunidades-comerciales): orthogonal commercial-access flag, no
+    // relation to `rol` — no self/last-admin lockout risk, so it skips
+    // guards A/B below (those exist to protect role-based full access).
+    if (body?.gestiona_oportunidades !== undefined) {
+      data.gestiona_oportunidades = Boolean(body.gestiona_oportunidades);
     }
 
     if (Object.keys(data).length === 0) {

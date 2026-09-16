@@ -7,11 +7,11 @@
 //   - COLABORADOR: reads only clients/tasks where they are the responsable
 //     (list, detail); writes only on records where they are the responsable.
 
-import type { EstadoTarea, Prisma, RolUsuario, Tarea, Usuario } from "@prisma/client";
+import type { EstadoTarea, FaseOportunidad, Prisma, RolUsuario, Tarea, Usuario } from "@prisma/client";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
-import { canEditClient, canEditTask } from "@/lib/permissions";
+import { canEditClient, canEditTask, canManageOpportunity, hasCommercialAccess } from "@/lib/permissions";
 
 export const FULL_ACCESS_ROLES: readonly RolUsuario[] = [
   "ADMINISTRADOR",
@@ -97,6 +97,77 @@ export async function getTaskForWrite(id: string, usuario: Usuario) {
     return { ok: true as const, tarea };
   }
   return { ok: false as const, code: "FORBIDDEN" as const };
+}
+
+/**
+ * Read access to a client's opportunities (RNF-C02, D3): existence is global
+ * (like clients), but commercial visibility is NOT — `hasCommercialAccess` is
+ * the gate, independent of `canEditClient`/responsable ownership. `ok: false`
+ * with code NOT_FOUND (missing/deleted) or FORBIDDEN (visible client, no
+ * commercial access).
+ */
+export async function loadClientForOpportunityRead(id: string, usuario: Usuario) {
+  const cliente = await db.cliente.findFirst({
+    where: { id, deleted_at: null },
+    select: { id: true },
+  });
+  if (!cliente) return { ok: false as const, code: "NOT_FOUND" as const };
+  if (
+    !hasCommercialAccess({
+      id: usuario.id,
+      rol: usuario.rol,
+      gestiona_oportunidades: usuario.gestiona_oportunidades,
+    })
+  ) {
+    return { ok: false as const, code: "FORBIDDEN" as const };
+  }
+  return { ok: true as const, cliente };
+}
+
+/**
+ * Write access to a client's opportunities (D4): commercial access AND the
+ * existing client write boundary (`canManageOpportunity`). Same NOT_FOUND /
+ * FORBIDDEN shape as `getClientForWrite`.
+ */
+export async function getClientForOpportunityWrite(id: string, usuario: Usuario) {
+  const cliente = await db.cliente.findFirst({
+    where: { id, deleted_at: null },
+    select: { id: true, responsable_id: true },
+  });
+  if (!cliente) return { ok: false as const, code: "NOT_FOUND" as const };
+  if (
+    !canManageOpportunity(cliente, {
+      id: usuario.id,
+      rol: usuario.rol,
+      gestiona_oportunidades: usuario.gestiona_oportunidades,
+    })
+  ) {
+    return { ok: false as const, code: "FORBIDDEN" as const };
+  }
+  return { ok: true as const, cliente };
+}
+
+/**
+ * API-level invariant (opportunity-task-linking spec, defense in depth — the
+ * DB composite FK + CHECK constraint are the non-negotiable last line, D1/D2):
+ * when `oportunidad_id` is set, it MUST belong to the same `cliente_id`. A
+ * bare P2003 from Postgres is a 500-shaped surprise, not a usable error.
+ * Returns a ready-to-return 400 Response when inconsistent, or `null` when
+ * consistent (or when there is nothing to check).
+ */
+export async function checkOportunidadClienteConsistency(
+  oportunidad_id: string | null | undefined,
+  cliente_id: string | null | undefined,
+): Promise<Response | null> {
+  if (!oportunidad_id) return null;
+  const oportunidad = await db.oportunidad.findFirst({
+    where: { id: oportunidad_id, deleted_at: null },
+    select: { cliente_id: true },
+  });
+  if (!oportunidad || oportunidad.cliente_id !== cliente_id) {
+    return apiError("La oportunidad no pertenece a este cliente.", 400, "VALIDATION_ERROR");
+  }
+  return null;
 }
 
 /** Tasks in an open state (anything but completed/cancelled). */
@@ -277,6 +348,7 @@ export const TASK_SELECT = {
   descripcion: true,
   responsable_id: true,
   cliente_id: true,
+  oportunidad_id: true,
   estado: true,
   origen: true,
   prioridad: true,
@@ -287,6 +359,9 @@ export const TASK_SELECT = {
   updated_at: true,
   responsable: { select: { nombre: true } },
   cliente: { select: { nombre: true, responsable_id: true } },
+  // RNF-C01 (opportunity-task-linking): Kanban visual differentiation needs
+  // only the opportunity name + fase — one join, same pattern as `cliente`.
+  oportunidad: { select: { id: true, nombre: true, fase: true } },
   _count: { select: { comentarios: true, subtareas: true } },
 } as const;
 
@@ -300,6 +375,9 @@ export type TaskItem = {
   responsable_nombre: string;
   cliente_id: string | null;
   cliente_nombre: string | null;
+  oportunidad_id: string | null;
+  oportunidad_nombre: string | null;
+  oportunidad_fase: FaseOportunidad | null;
   estado: Tarea["estado"];
   origen: Tarea["origen"];
   prioridad: Tarea["prioridad"];
@@ -327,6 +405,9 @@ export function toTaskItem(
     responsable_nombre: tarea.responsable.nombre,
     cliente_id: tarea.cliente_id,
     cliente_nombre: tarea.cliente?.nombre ?? null,
+    oportunidad_id: tarea.oportunidad_id,
+    oportunidad_nombre: tarea.oportunidad?.nombre ?? null,
+    oportunidad_fase: tarea.oportunidad?.fase ?? null,
     estado: tarea.estado,
     origen: tarea.origen,
     prioridad: tarea.prioridad,

@@ -20,6 +20,7 @@ import {
   TASK_SCHEMA,
 } from "@/app/api/v1/tasks/route";
 import {
+  checkOportunidadClienteConsistency,
   getTaskForWrite,
   loadTaskScoped,
   parseDate,
@@ -149,6 +150,16 @@ export const PATCH = withApiErrorHandling(
       }
     }
 
+    if (parsed.data.oportunidad_id !== undefined && parsed.data.oportunidad_id !== null) {
+      const effectiveClienteId =
+        parsed.data.cliente_id !== undefined ? parsed.data.cliente_id : access.tarea.cliente_id;
+      const invariantError = await checkOportunidadClienteConsistency(
+        parsed.data.oportunidad_id,
+        effectiveClienteId,
+      );
+      if (invariantError) return invariantError;
+    }
+
     const data: Prisma.TareaUncheckedUpdateInput = {};
     if (parsed.data.titulo !== undefined) data.titulo = parsed.data.titulo;
     if (parsed.data.descripcion !== undefined) {
@@ -156,6 +167,7 @@ export const PATCH = withApiErrorHandling(
     }
     if (parsed.data.responsable_id !== undefined) data.responsable_id = parsed.data.responsable_id;
     if (parsed.data.cliente_id !== undefined) data.cliente_id = parsed.data.cliente_id;
+    if (parsed.data.oportunidad_id !== undefined) data.oportunidad_id = parsed.data.oportunidad_id;
     if (parsed.data.estado !== undefined) {
       data.estado = parsed.data.estado;
       // Plan Fase 3 (3B): marca real de cierre, vía el helper central (misma

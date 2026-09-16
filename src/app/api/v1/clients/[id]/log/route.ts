@@ -10,7 +10,7 @@ import { db } from "@/lib/db";
 import { apiError, parseJsonBody } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
-import { getClientForWrite, loadClientScoped, zodError } from "@/lib/api/crm";
+import { checkOportunidadClienteConsistency, getClientForWrite, loadClientScoped, zodError } from "@/lib/api/crm";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +22,9 @@ export const LOG_ENTRY_SCHEMA = z.object({
     .trim()
     .min(1, "El texto de la nota es obligatorio.")
     .max(4000, "La nota no puede superar los 4000 caracteres."),
+  // RF-C03 (commercial-opportunities spec): optional link to the client's
+  // commercial cycle — same client-consistency invariant as Tarea (D1/D2).
+  oportunidad_id: z.string().nullable().optional(),
 });
 
 export const GET = withApiErrorHandling(
@@ -44,6 +47,7 @@ export const GET = withApiErrorHandling(
         autor_id: true,
         autor: { select: { nombre: true } },
         texto: true,
+        oportunidad_id: true,
         created_at: true,
       },
     });
@@ -80,14 +84,25 @@ export const POST = withApiErrorHandling(
       );
     }
 
+    if (parsed.data.oportunidad_id) {
+      const invariantError = await checkOportunidadClienteConsistency(parsed.data.oportunidad_id, id);
+      if (invariantError) return invariantError;
+    }
+
     // autor is always the session user — never a client-providable field.
     const entrada = await db.bitacoraEntrada.create({
-      data: { cliente_id: id, autor_id: auth.usuario.id, texto: parsed.data.texto },
+      data: {
+        cliente_id: id,
+        autor_id: auth.usuario.id,
+        texto: parsed.data.texto,
+        oportunidad_id: parsed.data.oportunidad_id ?? undefined,
+      },
       select: {
         id: true,
         autor_id: true,
         autor: { select: { nombre: true } },
         texto: true,
+        oportunidad_id: true,
         created_at: true,
       },
     });

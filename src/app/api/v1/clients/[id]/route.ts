@@ -30,7 +30,7 @@ import {
   parseDate,
   zodError,
 } from "@/lib/api/crm";
-import { canEditClient, canManageAny } from "@/lib/permissions";
+import { canEditClient, canManageAny, canManageOpportunity } from "@/lib/permissions";
 import { enrichClients } from "@/app/api/v1/clients/route";
 
 export const dynamic = "force-dynamic";
@@ -107,6 +107,12 @@ export const GET = withApiErrorHandling(
         // Server-authoritative write flag (PR 2). Same canEditClient the list
         // endpoint uses; the detail UI gates edit fields on it.
         puede_editar: canEditClient(record, { id: auth.usuario.id, rol: auth.usuario.rol }),
+        // Server-authoritative commercial flag (D3, oportunidades-comerciales).
+        puede_gestionar_oportunidades: canManageOpportunity(record, {
+          id: auth.usuario.id,
+          rol: auth.usuario.rol,
+          gestiona_oportunidades: auth.usuario.gestiona_oportunidades,
+        }),
         contactos_count: _count.contactos,
         oportunidades_count: _count.oportunidades,
         bitacora_count: _count.bitacora,
