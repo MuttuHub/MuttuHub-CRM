@@ -7,10 +7,10 @@
 
 "use client";
 
-import { CalendarDays, Hexagon } from "lucide-react";
+import { CalendarDays, Hexagon, Rocket, Target } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { EstadoTarea } from "@prisma/client";
+import type { EstadoTarea, FaseOportunidad } from "@prisma/client";
 import { cn } from "@/lib/utils";
 import { esVencida, formatFecha, iniciales } from "@/hooks/crm";
 import { useSubtareas } from "@/hooks/kanban";
@@ -28,6 +28,15 @@ export type CardTask = {
   motivo_bloqueo: string | null;
   subtotal?: number;
   subtotal_hechas?: number;
+  /**
+   * oportunidades-comerciales (RNF-C01): pure derivation of the DTO already
+   * in scope — no new component, no new query. `null` when the task is not
+   * linked to a commercial opportunity, or was never linked (see D1's "no
+   * backfill" decision).
+   */
+  oportunidad_id?: string | null;
+  oportunidad_nombre?: string | null;
+  oportunidad_fase?: FaseOportunidad | null;
   /**
    * PR 2 + PR 4 (Slice B2): server-authoritative write flag. `false` ⇒
    * the current user would 403 on PATCH/DELETE, so the kanban card is
@@ -86,6 +95,7 @@ export function TaskCard({
             {task.cliente_nombre}
           </span>
         )}
+        <OpportunityPhaseChip fase={task.oportunidad_fase} />
       </div>
 
       <div className="mt-3 flex items-center justify-between gap-2">
@@ -107,6 +117,31 @@ export function TaskCard({
       </div>
     </div>
   );
+}
+
+/**
+ * RNF-C01: distinguishes a PROSPECCION-linked task from an EJECUCION-linked
+ * one on the board — amber "prospecting" vs emerald "executing", nothing
+ * when there is no linked opportunity (or it wasn't fetched at all).
+ */
+function OpportunityPhaseChip({ fase }: { fase?: FaseOportunidad | null }) {
+  if (fase === "PROSPECCION") {
+    return (
+      <span className="inline-flex h-[20px] items-center rounded-full bg-amber-100 px-2 text-[10.5px] font-semibold text-amber-700 dark:text-amber-400">
+        <Target className="mr-1 size-2.5" strokeWidth={1.8} />
+        Prospección
+      </span>
+    );
+  }
+  if (fase === "EJECUCION") {
+    return (
+      <span className="inline-flex h-[20px] items-center rounded-full bg-emerald-100 px-2 text-[10.5px] font-semibold text-emerald-700 dark:text-emerald-400">
+        <Rocket className="mr-1 size-2.5" strokeWidth={1.8} />
+        Ejecución
+      </span>
+    );
+  }
+  return null;
 }
 
 function TaskDate({ fecha }: { fecha: string | null }) {

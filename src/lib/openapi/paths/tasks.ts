@@ -53,6 +53,13 @@ const TaskItemSchema = registry.register(
     responsable_nombre: z.string(),
     cliente_id: z.string().uuid().nullable(),
     cliente_nombre: z.string().nullable(),
+    oportunidad_id: z.string().uuid().nullable().openapi({
+      description: "opportunity-task-linking (D1): FK compuesta con cliente_id — nunca cruza clientes.",
+    }),
+    oportunidad_nombre: z.string().nullable(),
+    oportunidad_fase: z.enum(["PROSPECCION", "EJECUCION"]).nullable().openapi({
+      description: "RNF-C01: alimenta el chip ámbar/esmeralda del tablero. Null si no hay oportunidad vinculada.",
+    }),
     estado: EstadoTareaSchema,
     origen: OrigenTareaSchema,
     prioridad: PrioridadTareaSchema.nullable(),
@@ -103,6 +110,11 @@ const TaskDetailSchema = registry.register(
     responsable_nombre: z.string(),
     cliente_id: z.string().uuid().nullable(),
     cliente_nombre: z.string().nullable(),
+    oportunidad_id: z.string().uuid().nullable().openapi({
+      description: "opportunity-task-linking (D1): FK compuesta con cliente_id — nunca cruza clientes.",
+    }),
+    oportunidad_nombre: z.string().nullable(),
+    oportunidad_fase: z.enum(["PROSPECCION", "EJECUCION"]).nullable(),
     estado: EstadoTareaSchema,
     origen: OrigenTareaSchema,
     prioridad: PrioridadTareaSchema.nullable(),
@@ -200,6 +212,9 @@ const TaskFilterQueryFields = {
     .optional()
     .openapi({ description: "Filtra por responsable_id. Cualquier rol puede filtrar por cualquier responsable (lectura global desde PR 3)." }),
   cliente: z.string().optional(),
+  oportunidad: z.string().optional().openapi({
+    description: "opportunity-task-linking: filtra por oportunidad_id — solo tareas vinculadas a esa oportunidad.",
+  }),
   // PR 6 (close-phase-1): prioridad / etiqueta / fecha_entrega_desde /
   // fecha_entrega_hasta son cláusulas del servidor ahora (antes eran
   // filtros locales sobre la página de 100 filas — el "tope de 100" del

@@ -40,11 +40,11 @@ export type AccesosResponse = {
 
 // QA audit finding #9: bitácora de auditoría de negocio (Cliente/Tarea/
 // Documento), separada de la de accesos (solo login).
-export type AuditEntidad = "cliente" | "tarea" | "documento";
+export type AuditEntidad = "cliente" | "tarea" | "documento" | "oportunidad";
 // Debe reflejar src/lib/api/audit.ts (server) — "exportar" se sumó ahí en el
 // PR 6 (close-phase-1) y este espejo del lado cliente quedó desactualizado,
 // lo que tumbaba /administracion (ver audit-log-section.tsx).
-export type AuditAccion = "crear" | "editar" | "eliminar" | "exportar";
+export type AuditAccion = "crear" | "editar" | "eliminar" | "exportar" | "convertir";
 
 export type AuditoriaRow = {
   id: string;

@@ -4,7 +4,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, Rocket, Target } from "lucide-react";
 import type { EstadoOportunidad, RolContacto } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,14 +30,23 @@ import {
   ROL_CONTACTO_LABELS,
 } from "@/lib/catalogs";
 import {
+  formatFecha,
+  useAddLogEntry,
+  useBitacora,
+  useConvertOportunidad,
   useCreateContacto,
   useCreateOportunidad,
+  useTasksByClient,
+  useTasksByOportunidad,
   useUpdateContacto,
   useUpdateOportunidad,
+  useUpdateTarea,
   type Contacto,
   type Oportunidad,
   type OportunidadInput,
+  type TaskItem,
 } from "@/hooks/crm";
+import { ToneBadge } from "@/components/crm/shared";
 
 /* ── Confirm dialog (shared delete guard) ──────────────────────────────── */
 
@@ -530,16 +539,17 @@ export function OportunidadFormDialog({
             </div>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="oportunidad-proyectos">Proyectos anteriores relacionados</Label>
-            <Input
-              id="oportunidad-proyectos"
-              value={form.proyectos_relacionados}
-              onChange={(e) => set("proyectos_relacionados", e.target.value)}
-              placeholder="Historial de proyectos afines"
-              className="h-10 rounded-12 bg-panel px-3"
-            />
-          </div>
+          {/* D8: deprecated — superseded by `fase` + Tarea.oportunidad_id.
+              Dropped from the create/edit form; still shown read-only when
+              non-empty (data isn't lost, just no longer editable here). */}
+          {form.proyectos_relacionados && (
+            <div className="flex flex-col gap-1">
+              <Label>Proyectos anteriores relacionados (histórico)</Label>
+              <p className="rounded-12 bg-ink-100 px-3 py-2 text-[13px] text-ink-700">
+                {form.proyectos_relacionados}
+              </p>
+            </div>
+          )}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
@@ -551,6 +561,235 @@ export function OportunidadFormDialog({
             </Button>
           </DialogFooter>
         </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ── Ciclo de vida de la oportunidad (RF-C02/RF-C03/RF-C04) ──────────────── */
+
+/** RNF-C01: same amber/emerald semantics as the Kanban chip (task-card.tsx). */
+function FaseBadge({ fase }: { fase: Oportunidad["fase"] }) {
+  if (fase === "EJECUCION") {
+    return (
+      <span className="inline-flex h-[24px] items-center gap-1 rounded-full bg-emerald-100 px-2.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
+        <Rocket className="size-3" strokeWidth={1.9} />
+        Ejecución
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex h-[24px] items-center gap-1 rounded-full bg-amber-100 px-2.5 text-[11px] font-bold text-amber-700 dark:text-amber-400">
+      <Target className="size-3" strokeWidth={1.9} />
+      Prospección
+    </span>
+  );
+}
+
+export function OportunidadLifecycleDialog({
+  clientId,
+  open,
+  onOpenChange,
+  oportunidad,
+  readOnly,
+}: {
+  clientId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  oportunidad: Oportunidad | null;
+  /** D4: no `canManageOpportunity` → can read the cycle, cannot convert or link tasks. */
+  readOnly?: boolean;
+}) {
+  const oportunidadId = oportunidad?.id ?? null;
+  const tareasQuery = useTasksByOportunidad(clientId, oportunidadId);
+  const clientTasksQuery = useTasksByClient(clientId);
+  const bitacoraQuery = useBitacora(clientId);
+  const convertMutation = useConvertOportunidad(clientId, oportunidadId ?? "");
+  const linkTaskMutation = useUpdateTarea();
+  const addLogMutation = useAddLogEntry(clientId);
+
+  const [selectedTaskId, setSelectedTaskId] = useState("");
+  const [nota, setNota] = useState("");
+
+  if (!oportunidad) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[min(560px,calc(100%-2rem))]" />
+      </Dialog>
+    );
+  }
+
+  const tareas = tareasQuery.data ?? [];
+  const tareasVinculadasIds = new Set(tareas.map((t) => t.id));
+  const tareasVinculables = (clientTasksQuery.data ?? []).filter(
+    (t: TaskItem) => t.oportunidad_id === null && !tareasVinculadasIds.has(t.id),
+  );
+  const bitacora = (bitacoraQuery.data ?? []).filter((e) => e.oportunidad_id === oportunidad.id);
+  const puedeConvertir =
+    !readOnly && oportunidad.estado === "GANADA" && oportunidad.fase === "PROSPECCION";
+
+  async function handleVincular() {
+    if (!selectedTaskId || !oportunidad) return;
+    await linkTaskMutation.mutateAsync({
+      taskId: selectedTaskId,
+      clienteId: clientId,
+      input: { oportunidad_id: oportunidad.id },
+    });
+    setSelectedTaskId("");
+  }
+
+  async function handleAgregarNota() {
+    if (!nota.trim() || !oportunidad) return;
+    await addLogMutation.mutateAsync({ texto: nota.trim(), oportunidad_id: oportunidad.id });
+    setNota("");
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[88dvh] overflow-y-auto rounded-[22px] sm:max-w-[min(620px,calc(100%-2rem))]">
+        <DialogHeader>
+          <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
+            {oportunidad.nombre}
+          </DialogTitle>
+          <DialogDescription>
+            Ciclo comercial: estado, tareas vinculadas y bitácora de comunicación.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <ToneBadge
+              tone={ESTADO_OPORTUNIDAD_LABELS[oportunidad.estado].tone}
+              label={ESTADO_OPORTUNIDAD_LABELS[oportunidad.estado].label}
+            />
+            <FaseBadge fase={oportunidad.fase} />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <p className="text-[11px] font-bold tracking-[0.06em] text-ink-500 uppercase">
+                Fecha de envío de propuesta
+              </p>
+              <p className="text-[13px] text-ink-800">{formatFecha(oportunidad.fecha_envio_propuesta)}</p>
+            </div>
+            {oportunidad.fase === "EJECUCION" && (
+              <div>
+                <p className="text-[11px] font-bold tracking-[0.06em] text-ink-500 uppercase">
+                  Fecha de adjudicación
+                </p>
+                <p className="text-[13px] text-ink-800">{formatFecha(oportunidad.fecha_adjudicacion)}</p>
+              </div>
+            )}
+          </div>
+
+          {oportunidad.proyectos_relacionados && (
+            <div>
+              <p className="text-[11px] font-bold tracking-[0.06em] text-ink-500 uppercase">
+                Proyectos anteriores relacionados (histórico)
+              </p>
+              <p className="text-[13px] text-ink-700">{oportunidad.proyectos_relacionados}</p>
+            </div>
+          )}
+
+          {puedeConvertir && (
+            <Button
+              onClick={() => void convertMutation.mutateAsync()}
+              disabled={convertMutation.isPending}
+              className="w-fit rounded-lg px-4 font-bold"
+            >
+              {convertMutation.isPending && <LoaderCircle className="size-4 animate-spin" />}
+              Convertir a ejecución
+            </Button>
+          )}
+
+          <div className="flex flex-col gap-2">
+            <p className="text-[13px] font-bold text-ink-900">
+              Tareas vinculadas ({tareas.length})
+            </p>
+            {tareas.length === 0 ? (
+              <p className="text-[12.5px] text-ink-500">Sin tareas vinculadas todavía.</p>
+            ) : (
+              <ul className="flex flex-col gap-1.5">
+                {tareas.map((t) => (
+                  <li
+                    key={t.id}
+                    className="rounded-10 border border-ink-200 bg-panel px-3 py-2 text-[12.5px] text-ink-800"
+                  >
+                    {t.titulo}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {!readOnly && (
+              <div className="flex items-center gap-2">
+                <Select value={selectedTaskId} onValueChange={(v) => setSelectedTaskId(v ?? "")}>
+                  <SelectTrigger className="h-9 w-full rounded-10 bg-panel px-3 text-[12.5px]">
+                    <SelectValue placeholder="Vincular una tarea existente del cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tareasVinculables.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.titulo}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!selectedTaskId || linkTaskMutation.isPending}
+                  onClick={() => void handleVincular()}
+                  className="shrink-0 rounded-10 px-3 text-[12.5px] font-semibold"
+                >
+                  Vincular
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <p className="text-[13px] font-bold text-ink-900">Bitácora de comunicación</p>
+            {bitacora.length === 0 ? (
+              <p className="text-[12.5px] text-ink-500">Sin entradas de bitácora para esta oportunidad.</p>
+            ) : (
+              <ul className="flex flex-col gap-1.5">
+                {bitacora.map((e) => (
+                  <li
+                    key={e.id}
+                    className="rounded-10 border border-ink-200 bg-panel px-3 py-2 text-[12.5px] text-ink-700"
+                  >
+                    <span className="font-semibold text-ink-900">{e.autor_nombre}:</span> {e.texto}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {!readOnly && (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={nota}
+                  onChange={(e) => setNota(e.target.value)}
+                  placeholder="Agregar una nota de comunicación"
+                  className="h-9 rounded-10 bg-panel px-3 text-[12.5px]"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={!nota.trim() || addLogMutation.isPending}
+                  onClick={() => void handleAgregarNota()}
+                  className="shrink-0 rounded-10 px-3 text-[12.5px] font-semibold"
+                >
+                  Agregar
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cerrar
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

@@ -36,6 +36,12 @@ export const OPORTUNIDAD_PATCH_SCHEMA = z
       .refine((v) => parseDate(v) !== null, "Fecha de última gestión no válida.")
       .nullable()
       .optional(),
+    // RF-C03: fixed once, never overwritten by a later PATCH unless the body
+    // explicitly sends it — see the write-once logic below.
+    fecha_envio_propuesta: z
+      .string()
+      .refine((v) => parseDate(v) !== null, "Fecha de envío de propuesta no válida.")
+      .optional(),
     proyectos_relacionados: z.string().nullable().optional(),
   })
   .partial()
@@ -71,6 +77,12 @@ export const PATCH = withApiErrorHandling(
     if (!existing) {
       return apiError("La oportunidad no existe.", 404, "NOT_FOUND");
     }
+    // D7: fase = EJECUCION is terminal. A converted opportunity is an
+    // executing engagement — reversal is an admin/data-fix concern, not a
+    // PATCH affordance. Non-estado edits (nombre, etc.) are still allowed.
+    if (parsed.data.estado !== undefined && existing.fase === "EJECUCION") {
+      return apiError("Esta oportunidad ya fue adjudicada y no admite cambios de estado.", 409, "CONFLICT");
+    }
 
     const oportunidad = await db.oportunidad.update({
       where: { id: opportunityId },
@@ -87,6 +99,15 @@ export const PATCH = withApiErrorHandling(
             : parsed.data.fecha_ultima_gestion === null
               ? null
               : parseDate(parsed.data.fecha_ultima_gestion),
+        // RF-C03 write-once: an explicit value always wins. Otherwise, only
+        // the FIRST transition to PRESENTADA (current field still null) sets
+        // it — a later PATCH never touches an already-fixed date, unlike
+        // fecha_ultima_gestion which keeps mutating on every PATCH.
+        fecha_envio_propuesta: parsed.data.fecha_envio_propuesta
+          ? parseDate(parsed.data.fecha_envio_propuesta)
+          : parsed.data.estado === "PRESENTADA" && existing.fecha_envio_propuesta === null
+            ? new Date()
+            : undefined,
         proyectos_relacionados: parsed.data.proyectos_relacionados,
       },
     });
