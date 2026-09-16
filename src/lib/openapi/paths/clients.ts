@@ -20,6 +20,7 @@ import { CONTACT_PATCH_SCHEMA } from "@/app/api/v1/clients/[id]/contacts/[contac
 import { LOG_ENTRY_SCHEMA } from "@/app/api/v1/clients/[id]/log/route";
 import { OPORTUNIDAD_SCHEMA } from "@/app/api/v1/clients/[id]/opportunities/route";
 import { OPORTUNIDAD_PATCH_SCHEMA } from "@/app/api/v1/clients/[id]/opportunities/[opportunityId]/route";
+import { TASK_SCHEMA } from "@/app/api/v1/tasks/route";
 
 const SCOPE_NOTE =
   "Alcance: COLABORADOR solo ve/edita clientes donde es responsable; el resto de roles (ADMINISTRADOR, GERENCIA, COORDINADOR) ve/edita todos.";
@@ -212,6 +213,48 @@ const OportunidadSchema = registry.register(
     deleted_at: z.string().datetime().nullable(),
   }),
 );
+
+// opportunity-task-linking: tareas vinculadas a una oportunidad. TaskItem ya
+// está registrado como componente en src/lib/openapi/paths/tasks.ts — igual
+// que FaseOportunidad más arriba, esto es una copia local sin registrar
+// (misma forma, sin duplicar el componente ni introducir uno nuevo).
+const EstadoTareaLocalSchema = z.enum([
+  "POR_HACER",
+  "EN_CURSO",
+  "EN_REVISION",
+  "COMPLETADA",
+  "BLOQUEADA",
+  "EN_ESPERA",
+  "CANCELADA",
+]);
+const OrigenTareaLocalSchema = z.enum(["CRM", "KANBAN", "AMBOS"]);
+const PrioridadTareaLocalSchema = z.enum(["ALTA", "MEDIA", "BAJA"]);
+
+const OportunidadTaskItemSchema = z.object({
+  id: z.string().uuid(),
+  titulo: z.string(),
+  descripcion: z.string().nullable(),
+  responsable_id: z.string().uuid(),
+  responsable_nombre: z.string(),
+  cliente_id: z.string().uuid().nullable(),
+  cliente_nombre: z.string().nullable(),
+  oportunidad_id: z.string().uuid().nullable(),
+  oportunidad_nombre: z.string().nullable(),
+  oportunidad_fase: FaseOportunidadSchema.nullable(),
+  estado: EstadoTareaLocalSchema,
+  origen: OrigenTareaLocalSchema,
+  prioridad: PrioridadTareaLocalSchema.nullable(),
+  fecha_entrega: z.string().datetime().nullable(),
+  etiquetas: z.array(z.string()),
+  motivo_bloqueo: z.string().nullable(),
+  comentarios_count: z.number().int(),
+  subtotal: z.number().int(),
+  created_at: z.string().datetime(),
+  updated_at: z.string().datetime(),
+  puede_editar: z.boolean().openapi({
+    description: "Igual que TaskItem.puede_editar — false ⇒ 403 al editar esta tarea.",
+  }),
+});
 
 const BitacoraEntradaSchema = registry.register(
   "BitacoraEntrada",
@@ -621,5 +664,56 @@ registry.registerPath({
       content: { "application/json": { schema: z.object({ oportunidad: OportunidadSchema }) } },
     },
     ...standardErrorResponses([401, 403, 404, 409, 500]),
+  },
+});
+
+// ── GET /api/v1/clients/{id}/opportunities/{opportunityId}/tasks ────────
+registry.registerPath({
+  method: "get",
+  path: "/api/v1/clients/{id}/opportunities/{opportunityId}/tasks",
+  tags: ["Clientes"],
+  summary: "Lista las tareas vinculadas a una oportunidad",
+  description:
+    `${SCOPE_NOTE} Lectura gateada por el acceso comercial (hasCommercialAccess), no por el alcance de ` +
+    "cliente por sí solo; 403 si el usuario no tiene el flag `gestiona_oportunidades` (o rol de acceso total). " +
+    "404 si el cliente no existe o si la oportunidad no existe/no pertenece a ese cliente.",
+  security: [{ sessionCookie: [] }],
+  request: { params: z.object({ id: z.string().uuid(), opportunityId: z.string().uuid() }) },
+  responses: {
+    200: {
+      description: "Tareas vinculadas a la oportunidad (orden updated_at desc).",
+      content: { "application/json": { schema: z.object({ tareas: z.array(OportunidadTaskItemSchema) }) } },
+    },
+    ...standardErrorResponses([401, 403, 404, 500]),
+  },
+});
+
+// ── POST /api/v1/clients/{id}/opportunities/{opportunityId}/tasks ───────
+registry.registerPath({
+  method: "post",
+  path: "/api/v1/clients/{id}/opportunities/{opportunityId}/tasks",
+  tags: ["Clientes"],
+  summary: "Crea una tarea vinculada a una oportunidad",
+  description:
+    `${SCOPE_NOTE} Escritura requiere permiso de escritura sobre el cliente (403 si es de otro responsable), ` +
+    "gateado además por el acceso comercial (canManageOpportunity). `cliente_id` y `oportunidad_id` se fuerzan " +
+    "siempre desde la URL — nunca desde el body, así que cualquier valor enviado ahí se ignora y la invariante " +
+    "(D1/D2) es estructuralmente imposible de violar desde este endpoint. 404 si el cliente no existe o si la " +
+    "oportunidad no existe/no pertenece a ese cliente.",
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: z.object({ id: z.string().uuid(), opportunityId: z.string().uuid() }),
+    body: {
+      content: {
+        "application/json": { schema: TASK_SCHEMA.omit({ cliente_id: true, oportunidad_id: true }) },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Tarea creada, heredando cliente_id y oportunidad_id de la oportunidad.",
+      content: { "application/json": { schema: z.object({ task: OportunidadTaskItemSchema }) } },
+    },
+    ...standardErrorResponses([400, 401, 403, 404, 500]),
   },
 });
