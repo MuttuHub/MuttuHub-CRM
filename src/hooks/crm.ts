@@ -26,6 +26,7 @@ import type {
   EstadoCliente,
   EstadoOportunidad,
   EstadoTarea,
+  FaseOportunidad,
   OrigenTarea,
   PrioridadCliente,
   PrioridadTarea,
@@ -62,6 +63,12 @@ export type ClientListRow = {
    * the authority — a spoofed `true` in a request body is ignored.
    */
   puede_editar: boolean;
+  /**
+   * D3 (oportunidades-comerciales): server-authoritative commercial flag.
+   * `false` ⇒ the Oportunidades tab is hidden/read-only — see
+   * canManageOpportunity in src/lib/permissions.ts.
+   */
+  puede_gestionar_oportunidades: boolean;
 };
 
 export type ClientListResponse = {
@@ -125,6 +132,10 @@ export type TaskItem = {
   responsable_nombre: string;
   cliente_id: string | null;
   cliente_nombre: string | null;
+  /** RNF-C01 (opportunity-task-linking): drives the Kanban prospección/ejecución chip. */
+  oportunidad_id: string | null;
+  oportunidad_nombre: string | null;
+  oportunidad_fase: FaseOportunidad | null;
   estado: EstadoTarea;
   origen: OrigenTarea;
   prioridad: PrioridadTarea | null;
@@ -537,6 +548,7 @@ export type TareaInput = {
   descripcion?: string | null;
   responsable_id: string;
   cliente_id?: string;
+  oportunidad_id?: string | null;
   estado?: EstadoTarea;
   origen?: OrigenTarea;
   prioridad?: PrioridadTarea | null;

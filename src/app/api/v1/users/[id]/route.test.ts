@@ -182,6 +182,27 @@ describe("PATCH /api/v1/users/:id", () => {
     );
   });
 
+  it("accepts gestiona_oportunidades in the PATCH body (Phase 2, oportunidades-comerciales)", async () => {
+    vi.mocked(db.usuario.findUnique).mockResolvedValue(other);
+    vi.mocked(db.usuario.update).mockResolvedValue({
+      ...other,
+      gestiona_oportunidades: true,
+    });
+
+    const res = await PATCH(
+      patchRequest({ gestiona_oportunidades: true }),
+      routeContext,
+    );
+
+    expect(res.status).toBe(200);
+    expect(db.usuario.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "user-2" },
+        data: { gestiona_oportunidades: true },
+      }),
+    );
+  });
+
   it("does not run admin guards when updating a non-admin user", async () => {
     vi.mocked(db.usuario.findUnique).mockResolvedValue(other);
     vi.mocked(db.usuario.update).mockResolvedValue({

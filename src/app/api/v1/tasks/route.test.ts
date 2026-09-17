@@ -21,6 +21,9 @@ vi.mock("@/lib/db", () => ({
     cliente: {
       findFirst: vi.fn(),
     },
+    oportunidad: {
+      findFirst: vi.fn(),
+    },
   },
 }));
 
@@ -41,6 +44,7 @@ function taskRow(overrides: Partial<Record<string, unknown>> = {}) {
     descripcion: overrides.descripcion ?? null,
     responsable_id: overrides.responsable_id ?? "colab-1",
     cliente_id: overrides.cliente_id ?? null,
+    oportunidad_id: overrides.oportunidad_id ?? null,
     estado: overrides.estado ?? "POR_HACER",
     origen: overrides.origen ?? "KANBAN",
     prioridad: overrides.prioridad ?? null,
@@ -52,6 +56,9 @@ function taskRow(overrides: Partial<Record<string, unknown>> = {}) {
     responsable: { nombre: overrides.responsable_nombre ?? "Colab Uno" },
     cliente: overrides.cliente_id
       ? { nombre: "Cliente Uno", responsable_id: overrides.cliente_responsable_id ?? "other-user" }
+      : null,
+    oportunidad: overrides.oportunidad_id
+      ? { id: overrides.oportunidad_id, nombre: "Oportunidad Uno", fase: overrides.oportunidad_fase ?? "PROSPECCION" }
       : null,
     _count: { comentarios: 0, subtareas: 0 },
   };
@@ -421,6 +428,18 @@ describe("GET /api/v1/tasks", () => {
       expect(countWhere.etiquetas).toBeUndefined();
       expect(countWhere.fecha_entrega).toBeUndefined();
     });
+
+    // opportunity-task-linking spec: GET /tasks?oportunidad_id=X returns only
+    // tasks linked to that opportunity.
+    it("filters by oportunidad_id", async () => {
+      authAs(gerencia);
+      vi.mocked(db.tarea.findMany).mockResolvedValue([taskRow({ oportunidad_id: "op-1" })] as never);
+
+      await GET(new Request("http://localhost/api/v1/tasks?oportunidad=op-1"));
+
+      const where = vi.mocked(db.tarea.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
+      expect(where.oportunidad_id).toBe("op-1");
+    });
   });
 });
 
@@ -458,6 +477,67 @@ describe("POST /api/v1/tasks", () => {
     );
     expect(db.tarea.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ responsable_id: "colab-1" }) }),
+    );
+  });
+
+  // Phase 2 regression guard (opportunity-access-control spec): the
+  // commercial gate on opportunities MUST NOT leak into execution tasks — a
+  // COLABORADOR without gestiona_oportunidades keeps full read/write on
+  // their own tasks.
+  it("allows a COLABORADOR without gestiona_oportunidades to create their own execution task (regression guard)", async () => {
+    authAs({ id: "colab-1", rol: "COLABORADOR", gestiona_oportunidades: false } as Usuario);
+    vi.mocked(db.usuario.findFirst).mockResolvedValue({ id: "colab-1", nombre: "Colab Uno" } as never);
+    vi.mocked(db.tarea.create).mockResolvedValue(taskRow({ id: "task-new" }) as never);
+
+    const res = await POST(postRequest({ titulo: "Tarea de ejecución", responsable_id: "colab-1" }));
+
+    expect(res.status).toBe(201);
+  });
+
+  // opportunity-task-linking spec, non-negotiable invariant (D1/D2): a task
+  // whose oportunidad_id belongs to a different cliente_id is rejected — this
+  // API check is defense in depth in front of the DB composite FK + CHECK.
+  it("returns 400 when oportunidad_id belongs to a different cliente (cross-client invariant)", async () => {
+    authAs(gerencia);
+    vi.mocked(db.usuario.findFirst).mockResolvedValue({ id: "colab-1", nombre: "Colab Uno" } as never);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-A" } as never);
+    vi.mocked(db.oportunidad.findFirst).mockResolvedValue({ cliente_id: "cli-B" } as never);
+
+    const res = await POST(
+      postRequest({
+        titulo: "Tarea nueva",
+        responsable_id: "colab-1",
+        cliente_id: "cli-A",
+        oportunidad_id: "op-1",
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(db.tarea.create).not.toHaveBeenCalled();
+  });
+
+  it("creates a task with a valid oportunidad_id matching cliente_id (happy path)", async () => {
+    authAs(gerencia);
+    vi.mocked(db.usuario.findFirst).mockResolvedValue({ id: "colab-1", nombre: "Colab Uno" } as never);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-A" } as never);
+    vi.mocked(db.oportunidad.findFirst).mockResolvedValue({ cliente_id: "cli-A" } as never);
+    vi.mocked(db.tarea.create).mockResolvedValue(
+      taskRow({ id: "task-new", cliente_id: "cli-A", oportunidad_id: "op-1" }) as never,
+    );
+
+    const res = await POST(
+      postRequest({
+        titulo: "Tarea nueva",
+        responsable_id: "colab-1",
+        cliente_id: "cli-A",
+        oportunidad_id: "op-1",
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    expect(db.tarea.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ oportunidad_id: "op-1" }) }),
     );
   });
 

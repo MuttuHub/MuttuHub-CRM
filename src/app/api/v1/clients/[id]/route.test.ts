@@ -198,6 +198,47 @@ describe("GET /api/v1/clients/:id", () => {
       expect(json.cliente.puede_editar).toBe(true);
     });
   });
+
+  // Phase 2 (oportunidades-comerciales, PR2): the client detail endpoint also
+  // emits `puede_gestionar_oportunidades` per canManageOpportunity.
+  describe("puede_gestionar_oportunidades (Phase 2)", () => {
+    it("emits true for GERENCIA on any client (isFullAccess)", async () => {
+      authAs(gerencia);
+      vi.mocked(db.cliente.findFirst).mockResolvedValue({
+        ...baseClientRow,
+        responsable_id: "other-user",
+        _count: { contactos: 0, oportunidades: 0, bitacora: 0, tareas: 0 },
+      } as never);
+
+      const res = await GET(new Request("http://localhost/api/v1/clients/cli-1"), routeContext);
+      const json = await res.json();
+      expect(json.cliente.puede_gestionar_oportunidades).toBe(true);
+    });
+
+    it("emits false for a COLABORADOR responsable WITHOUT the flag (RNF-C02)", async () => {
+      authAs({ ...colaborador, gestiona_oportunidades: false } as Usuario);
+      vi.mocked(db.cliente.findFirst).mockResolvedValue({
+        ...baseClientRow,
+        _count: { contactos: 0, oportunidades: 0, bitacora: 0, tareas: 0 },
+      } as never);
+
+      const res = await GET(new Request("http://localhost/api/v1/clients/cli-1"), routeContext);
+      const json = await res.json();
+      expect(json.cliente.puede_gestionar_oportunidades).toBe(false);
+    });
+
+    it("emits true for a COLABORADOR responsable WITH the flag", async () => {
+      authAs({ ...colaborador, gestiona_oportunidades: true } as Usuario);
+      vi.mocked(db.cliente.findFirst).mockResolvedValue({
+        ...baseClientRow,
+        _count: { contactos: 0, oportunidades: 0, bitacora: 0, tareas: 0 },
+      } as never);
+
+      const res = await GET(new Request("http://localhost/api/v1/clients/cli-1"), routeContext);
+      const json = await res.json();
+      expect(json.cliente.puede_gestionar_oportunidades).toBe(true);
+    });
+  });
 });
 
 describe("PATCH /api/v1/clients/:id", () => {

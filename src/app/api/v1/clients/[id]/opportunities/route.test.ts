@@ -22,7 +22,16 @@ import { requireApiUser } from "@/lib/supabase/server";
 import { GET, POST } from "./route";
 
 const gerencia = { id: "gerencia-1", rol: "GERENCIA" } as Usuario;
-const colaborador = { id: "colab-1", rol: "COLABORADOR" } as Usuario;
+const colaboradorConFlag = {
+  id: "colab-1",
+  rol: "COLABORADOR",
+  gestiona_oportunidades: true,
+} as Usuario;
+const colaboradorSinFlag = {
+  id: "colab-1",
+  rol: "COLABORADOR",
+  gestiona_oportunidades: false,
+} as Usuario;
 
 function authAs(usuario: Usuario) {
   vi.mocked(requireApiUser).mockResolvedValue({
@@ -81,25 +90,26 @@ describe("GET /api/v1/clients/:id/opportunities", () => {
     expect(db.oportunidad.findMany).not.toHaveBeenCalled();
   });
 
-  it("returns 404 for a COLABORADOR who is NOT the client's responsable", async () => {
-    authAs(colaborador);
-    vi.mocked(db.cliente.findFirst).mockResolvedValue(null);
+  // RNF-C02 / opportunity-access-control spec: a COLABORADOR without the
+  // commercial flag MUST NOT see opportunities, even when they ARE the
+  // client's responsable — commercial read access is role/flag-only, never
+  // per-client ownership (deliberate deviation from the client/task read gate).
+  it("returns 403 for a COLABORADOR without the flag, even as the client's responsable", async () => {
+    authAs(colaboradorSinFlag);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1" } as never);
 
     const res = await GET(
       new Request("http://localhost/api/v1/clients/cli-1/opportunities"),
       routeContext,
     );
 
-    expect(res.status).toBe(404);
-    expect(db.cliente.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ id: "cli-1", responsable_id: "colab-1" }),
-      }),
-    );
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ code: "FORBIDDEN" });
+    expect(db.oportunidad.findMany).not.toHaveBeenCalled();
   });
 
-  it("allows a COLABORADOR who IS the client's responsable to read opportunities", async () => {
-    authAs(colaborador);
+  it("allows a COLABORADOR with the flag to read opportunities, even for a client they are not responsable of", async () => {
+    authAs(colaboradorConFlag);
     vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1" } as never);
     vi.mocked(db.oportunidad.findMany).mockResolvedValue([]);
 
@@ -192,8 +202,8 @@ describe("POST /api/v1/clients/:id/opportunities", () => {
     expect(db.oportunidad.create).not.toHaveBeenCalled();
   });
 
-  it("returns 403 when a COLABORADOR is not the client's responsable", async () => {
-    authAs(colaborador);
+  it("returns 403 when a COLABORADOR is not the client's responsable (even with the flag) — D4", async () => {
+    authAs(colaboradorConFlag);
     vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "someone-else" } as never);
 
     const res = await POST(postRequest({ nombre: "Proyecto X" }), routeContext);
@@ -203,8 +213,19 @@ describe("POST /api/v1/clients/:id/opportunities", () => {
     expect(db.oportunidad.create).not.toHaveBeenCalled();
   });
 
-  it("allows a COLABORADOR who IS the client's responsable to create an opportunity", async () => {
-    authAs(colaborador);
+  it("returns 403 when a COLABORADOR IS the client's responsable but lacks the flag (RNF-C02)", async () => {
+    authAs(colaboradorSinFlag);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
+
+    const res = await POST(postRequest({ nombre: "Proyecto X" }), routeContext);
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ code: "FORBIDDEN" });
+    expect(db.oportunidad.create).not.toHaveBeenCalled();
+  });
+
+  it("allows a COLABORADOR who IS the client's responsable AND has the flag to create an opportunity", async () => {
+    authAs(colaboradorConFlag);
     vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
     vi.mocked(db.oportunidad.create).mockResolvedValue({ id: "op-1", nombre: "Proyecto X" } as never);
 

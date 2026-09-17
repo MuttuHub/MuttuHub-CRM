@@ -102,6 +102,7 @@ const CLIENTE: ClientDetail = {
   bitacora_count: 0,
   tareas_abiertas_count: 0,
   puede_editar: false,
+  puede_gestionar_oportunidades: false,
 }
 
 function renderSheet() {

@@ -52,25 +52,41 @@ Chain strategy: pending
 
 ## Phase 2: Commercial Permissions + Admin Toggle (PR 2)
 
-- [ ] 2.1 RED: extend `src/lib/permissions.test.ts` — full matrix for `hasCommercialAccess`/`canManageOpportunity` (4 roles × flag on/off × responsable yes/no).
-- [ ] 2.2 GREEN: add `CommercialActor`, `hasCommercialAccess()`, `canManageOpportunity()` to `src/lib/permissions.ts`.
-- [ ] 2.3 GREEN: emit `puede_gestionar_oportunidades` in `src/app/api/v1/clients/route.ts` and `src/app/api/v1/clients/[id]/route.ts`.
-- [ ] 2.4 RED: add test for admin toggle of `gestiona_oportunidades` — `src/app/api/v1/users/route.test.ts`.
-- [ ] 2.5 GREEN: extend `src/app/api/v1/users/route.ts` PATCH to accept `gestiona_oportunidades`.
-- [ ] 2.6 GREEN: add toggle control to `src/components/admin/accesos-section.tsx`.
-- [ ] 2.7 RED+GREEN: gate `src/app/api/v1/clients/[id]/opportunities/route.ts` + `[opportunityId]/route.ts` on `hasCommercialAccess`/`canManageOpportunity`; test 403 without flag, 200 on own execution tasks (regression guard).
-- [ ] 2.8 RED+GREEN: gate `src/app/api/v1/dashboard/pipeline/route.ts` commercial aggregates on `hasCommercialAccess`.
+- [x] 2.1 RED: extend `src/lib/permissions.test.ts` — full matrix for `hasCommercialAccess`/`canManageOpportunity` (4 roles × flag on/off × responsable yes/no).
+- [x] 2.2 GREEN: add `CommercialActor`, `hasCommercialAccess()`, `canManageOpportunity()` to `src/lib/permissions.ts`.
+- [x] 2.3 GREEN: emit `puede_gestionar_oportunidades` in `src/app/api/v1/clients/route.ts` and `src/app/api/v1/clients/[id]/route.ts`.
+- [x] 2.4 RED: add test for admin toggle of `gestiona_oportunidades`.
+      Discovery: the PATCH handler actually lives in `src/app/api/v1/users/[id]/route.ts` (not `users/route.ts`, which only has GET/POST) — test added to `src/app/api/v1/users/[id]/route.test.ts`.
+- [x] 2.5 GREEN: extend the users PATCH route to accept `gestiona_oportunidades`.
+      Same file correction as 2.4: `src/app/api/v1/users/[id]/route.ts`. Also added `gestiona_oportunidades` to `USER_SELECT` in both `users/route.ts` and `users/[id]/route.ts` so it round-trips through GET/POST/PATCH.
+- [x] 2.6 GREEN: add toggle control.
+      Discovery: `src/components/admin/accesos-section.tsx` is the login bitácora (access log), unrelated to user administration — the admin user table with role/activo controls is `src/components/admin/users-table.tsx`. Added a `DropdownMenuCheckboxItem` "Gestiona oportunidades" to each COLABORADOR row's action menu there (full-access roles don't need it — they pass the gate via `isFullAccess` regardless of the flag).
+- [x] 2.7 RED+GREEN: gate `src/app/api/v1/clients/[id]/opportunities/route.ts` + `[opportunityId]/route.ts` on `hasCommercialAccess`/`canManageOpportunity`; test 403 without flag, 200 on own execution tasks (regression guard).
+      Added `loadClientForOpportunityRead`/`getClientForOpportunityWrite` helpers to `src/lib/api/crm.ts` (mirrors the existing `loadClientScoped`/`getClientForWrite` shape). Regression guard test added to `src/app/api/v1/tasks/route.test.ts` (a COLABORADOR without the flag still creates their own execution task).
+- [x] 2.8 RED+GREEN: gate `src/app/api/v1/dashboard/pipeline/route.ts` commercial aggregates on `hasCommercialAccess`.
+      Without the flag: zeroed/empty aggregates returned directly, no `db.oportunidad.findMany` query issued at all (cheaper than filtering after the fact, and structurally impossible to leak a partial view).
 
 ## Phase 3: Task↔Opportunity Linking (PR 2)
 
-- [ ] 3.1 RED: `src/app/api/v1/tasks/route.test.ts` — cross-client `oportunidad_id` rejected 400 on create.
-- [ ] 3.2 GREEN: add invariant check + `oportunidad_id` to POST schema and `oportunidad` list filter in `src/app/api/v1/tasks/route.ts`.
-- [ ] 3.3 RED+GREEN: same invariant + PATCH schema in `src/app/api/v1/tasks/[id]/route.ts`; opportunity fields on detail response.
-- [ ] 3.4 GREEN: extend `TASK_SELECT`/`TaskItem`/`toTaskItem` in `src/lib/api/crm.ts` with `oportunidad_id/nombre/fase`.
-- [ ] 3.5 GREEN: update DTO types in `src/hooks/crm.ts`.
-- [ ] 3.6 RED: `src/app/api/v1/clients/[id]/opportunities/[opportunityId]/tasks/route.test.ts` — list + create forcing `cliente_id` from the opportunity.
-- [ ] 3.7 GREEN: create `src/app/api/v1/clients/[id]/opportunities/[opportunityId]/tasks/route.ts`.
-- [ ] 3.8 RED+GREEN: optional `oportunidad_id` + invariant check in `src/app/api/v1/clients/[id]/bitacora/route.ts`.
+- [x] 3.1 RED: `src/app/api/v1/tasks/route.test.ts` — cross-client `oportunidad_id` rejected 400 on create.
+- [x] 3.2 GREEN: add invariant check + `oportunidad_id` to POST schema and `oportunidad` list filter in `src/app/api/v1/tasks/route.ts`.
+      Added shared `checkOportunidadClienteConsistency()` helper to `src/lib/api/crm.ts` — reused by 3.2, 3.3 and 3.8.
+- [x] 3.3 RED+GREEN: same invariant + PATCH schema in `src/app/api/v1/tasks/[id]/route.ts`; opportunity fields on detail response.
+      Opportunity fields on the detail response come for free from 3.4 (`toTaskItem` now always includes them).
+- [x] 3.4 GREEN: extend `TASK_SELECT`/`TaskItem`/`toTaskItem` in `src/lib/api/crm.ts` with `oportunidad_id/nombre/fase`.
+- [x] 3.5 GREEN: update DTO types in `src/hooks/crm.ts` (`TaskItem`, `TareaInput`, `ClientListRow.puede_gestionar_oportunidades`).
+- [x] 3.6 RED: `src/app/api/v1/clients/[id]/opportunities/[opportunityId]/tasks/route.test.ts` — list + create forcing `cliente_id` from the opportunity.
+- [x] 3.7 GREEN: create `src/app/api/v1/clients/[id]/opportunities/[opportunityId]/tasks/route.ts`.
+      GET gated by `loadClientForOpportunityRead`, POST by `getClientForOpportunityWrite`; POST always forces `cliente_id`/`oportunidad_id` from the URL (never from the body), so the invariant is structurally unreachable from this path, not just checked.
+- [x] 3.8 RED+GREEN: optional `oportunidad_id` + invariant check in the bitácora route.
+      Discovery: the bitácora endpoint is `src/app/api/v1/clients/[id]/log/route.ts` (not `.../bitacora/route.ts`, which does not exist) — `BitacoraEntrada` is the Prisma model name, `log` is the route path (see the file's own top-of-file comment).
+
+### PR 2 batch notes
+
+- Full-suite safety net (`npm test`): 999/1001 passing. `npx tsc --noEmit`: clean.
+- Same 2 pre-existing failures as the PR 1 baseline, still unrelated and untouched by this batch: `src/app/api/v1/documents/zip/route.test.ts` (filename-sanitization mismatch from commit `29a8f26`, predates this change).
+- Fixed 6 UI test fixtures that failed `tsc --noEmit` after `ClientListRow`/`TaskItem` gained required fields (`puede_gestionar_oportunidades`, `oportunidad_id`/`oportunidad_nombre`/`oportunidad_fase`): `client-form.test.tsx`, `client-list.test.tsx`, `client-sheet-write-gate.test.tsx`, `client-sheet.test.tsx`, `task-dialog.test.tsx`, `hooks/kanban.test.ts`. These files belong to Phase 4/5 UI scope and were not otherwise touched — the fix is the minimal fixture update needed to keep the type-check gate green, not new behavior.
+- Two file-path corrections vs. this document (see 2.4/2.6/3.8 discovery notes): the users PATCH handler is `users/[id]/route.ts`, the admin toggle target is `users-table.tsx`, and the bitácora route is `clients/[id]/log/route.ts`.
 
 ## Phase 4: Conversion & Audit (PR 3)
 

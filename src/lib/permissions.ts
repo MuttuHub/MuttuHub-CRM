@@ -40,3 +40,28 @@ export function canEditTask(
   if (canManageAny(actor.rol) || tarea.responsable_id === actor.id) return true;
   return tarea.cliente_responsable_id != null && tarea.cliente_responsable_id === actor.id;
 }
+
+/** Actor with the commercial flag (D3, oportunidades-comerciales). Orthogonal to `rol`. */
+export type CommercialActor = PermissionActor & { gestiona_oportunidades: boolean };
+
+/**
+ * READ axis (RNF-C02): who may see the commercial cycle at all. A COLABORADOR
+ * responsable of a client does NOT get commercial access from that alone —
+ * only `isFullAccess` roles or the explicit flag grant it.
+ */
+export function hasCommercialAccess(actor: CommercialActor): boolean {
+  return canManageAny(actor.rol) || actor.gestiona_oportunidades;
+}
+
+/**
+ * WRITE axis (D4): commercial access AND the existing client write boundary.
+ * Composing with `canEditClient` keeps the flag a purely narrowing axis — it
+ * never expands write authority beyond what the actor already has on the
+ * client.
+ */
+export function canManageOpportunity(
+  cliente: { responsable_id: string },
+  actor: CommercialActor,
+): boolean {
+  return hasCommercialAccess(actor) && canEditClient(cliente, actor);
+}

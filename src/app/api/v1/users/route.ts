@@ -30,6 +30,7 @@ const USER_SELECT = {
   email: true,
   rol: true,
   activo: true,
+  gestiona_oportunidades: true,
   created_at: true,
 } as const;
 

@@ -28,7 +28,7 @@ import {
   parsePagination,
   zodError,
 } from "@/lib/api/crm";
-import { canEditClient } from "@/lib/permissions";
+import { canEditClient, canManageOpportunity } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -293,6 +293,13 @@ export const GET = withApiErrorHandling(
           // Server-authoritative write flag (PR 2). The UI gates destructive
           // controls / edit fields on this — see canEditClient.
           puede_editar: canEditClient(r, { id: auth.usuario.id, rol: auth.usuario.rol }),
+          // Server-authoritative commercial flag (D3, oportunidades-comerciales):
+          // gates the Oportunidades tab / write actions in the UI.
+          puede_gestionar_oportunidades: canManageOpportunity(r, {
+            id: auth.usuario.id,
+            rol: auth.usuario.rol,
+            gestiona_oportunidades: auth.usuario.gestiona_oportunidades,
+          }),
         };
       });
 

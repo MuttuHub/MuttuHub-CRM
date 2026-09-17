@@ -40,6 +40,7 @@ const CLIENTE: ClientDetail = {
   bitacora_count: 0,
   tareas_abiertas_count: 0,
   puede_editar: true,
+  puede_gestionar_oportunidades: true,
 }
 
 const USERS = [
