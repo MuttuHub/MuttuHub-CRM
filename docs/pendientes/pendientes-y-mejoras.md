@@ -1,6 +1,6 @@
 # Pendientes por corregir y oportunidades de mejora — Muttu Hub CRM
 
-> Última actualización: 2026-09-02 (cierre de Fase 1 — Tablero global).
+> Última actualización: 2026-09-16 (entrega de `oportunidades-comerciales`, PRs #44/#45/#46 abiertas).
 > Estado del pipeline: PR #2 mergeado — unit (Vitest 212) ✅, typecheck 0 errores ✅,
 > preview deploy Vercel (integración Git) ✅, E2E TestSprite informativo ✅.
 
@@ -70,3 +70,19 @@
 2. **Borrar dead code** — `loadClientScoped`/`loadTaskScoped` quedaron sin uso en `src/lib/api/crm.ts` tras abrir lecturas. Commit aparte.
 3. **Perf post-globalización** (medir): 2 `count()` por request de lista (`total`), `clients/route.ts` enriquece en O(n²), `nextTasks` con `take: ids.length` global. Anotado en plan §Verificación.
 4. **Limpieza** — borrar el fork innecesario `agutierrezreginodev/MuttuHub-CRM` y el remote `fork` local si no se usa. El push a la org va por WSL con la cuenta `MuttuHub` (ver nota en el cierre).
+   - **Reincidencia (2026-09-16)**: el mismo error volvió a pasar al entregar `oportunidades-comerciales` — se pusheó al fork con `gh`/`git` activos como `agutierrezreginodev` y se abrieron 3 PRs desde ahí (#41/#42/#43) antes de notar este mismo pendiente. Se corrigió en el momento: `gh auth switch --user MuttuHub` + `gh auth setup-git`, push directo a `origin`, se cerraron las 3 PRs del fork y se reabrieron correctas desde `origin` (**#44/#45/#46**). Las ramas quedaron huérfanas en el fork (no se pudieron borrar desde acá — `MuttuHub` no tiene permisos de escritura sobre el fork ajeno). **Mientras el fork exista va a seguir pasando** — borrarlo de una vez corta la raíz del problema en vez de repetir el fix cada entrega.
+
+## Pendientes de `oportunidades-comerciales` (2026-09-16)
+
+> Cambio SDD completo (36/36 tasks, `sdd-verify`: PASS WITH WARNINGS). Diseño en
+> `openspec/changes/oportunidades-comerciales/`. Detalle completo del batch de
+> verificación en `verify-report.md` de esa misma carpeta.
+
+1. **3 PRs abiertas, esperando review/merge en orden** — apiladas a `main`, cada una depende de que la anterior se mergee primero (la diff de la 2ª y 3ª se ve inflada hasta entonces, se corrige sola):
+   - PR1 (esquema/migración): `MuttuHub/MuttuHub-CRM#44`
+   - PR2 (permisos + vínculo tarea-oportunidad): `MuttuHub/MuttuHub-CRM#45`
+   - PR3 (conversión + UI + remediación post-verify): `MuttuHub/MuttuHub-CRM#46`
+2. **E2E (`e2e/oportunidad-ciclo.spec.ts`) escrito pero sin ejecutar** — bloqueado, no por el código. Al intentar correrlo contra un stack local de Supabase (Docker), el propio Docker Desktop se rompió a mitad de sesión por errores reales de I/O en el disco virtual de WSL2 (`loop0`, confirmado con `dmesg`). Antes de eso: `supabase start` + `prisma migrate deploy` + seed funcionaron bien local, y el login contra Supabase Auth local funcionó por API directa — la lógica de la app no está en duda.
+   - **Acción futura**: reparar WSL2/Docker Desktop (probablemente `wsl --shutdown` + reabrir Docker Desktop desde Windows — **esto también mata el contenedor `microservicio-propuestas`** que corre aparte, avisar antes). Después, `docker ps -a` para chequear si quedaron contenedores huérfanos del intento de Supabase local y limpiarlos, y reintentar el e2e.
+3. **Deviation de diseño aceptada, sin cambio de código**: la pestaña "Oportunidades" se oculta por completo (no queda en solo lectura) para un COLABORADOR con acceso comercial que no es responsable del cliente — más angosto que la prosa de `design.md`, pero en dirección segura (oculta de más, nunca filtra de más). Firmado como riesgo aceptado el 2026-09-16.
+4. **`sdd-archive` pendiente** de que las 3 PRs se mergeen (o de una decisión explícita de archivar antes, con el estado "PRs abiertas, no mergeadas" documentado).

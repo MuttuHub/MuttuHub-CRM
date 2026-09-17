@@ -35,6 +35,7 @@ export const OPORTUNIDAD_SCHEMA = z.object({
   valor_estimado_cop: z
     .number()
     .min(0, "El valor estimado no puede ser negativo.")
+    .nullable()
     .optional(),
   estado: catalogEnum(
     ENUM_VALUES.EstadoOportunidad as readonly EstadoOportunidad[],
@@ -44,6 +45,13 @@ export const OPORTUNIDAD_SCHEMA = z.object({
     .string()
     .refine((v) => parseDate(v) !== null, "Fecha de última gestión no válida.")
     .nullable()
+    .optional(),
+  // RF-C03: fixed once, never overwritten by a later PATCH (see the write-once
+  // logic below and in [opportunityId]/route.ts). An explicit value here
+  // always wins over the auto-set-on-PRESENTADA behavior.
+  fecha_envio_propuesta: z
+    .string()
+    .refine((v) => parseDate(v) !== null, "Fecha de envío de propuesta no válida.")
     .optional(),
   proyectos_relacionados: z.string().nullable().optional(),
 });
@@ -108,6 +116,14 @@ export const POST = withApiErrorHandling(
         fecha_ultima_gestion: parsed.data.fecha_ultima_gestion
           ? parseDate(parsed.data.fecha_ultima_gestion)
           : undefined,
+        // RF-C03 write-once: an explicit value always wins; otherwise a
+        // brand-new opportunity created directly in PRESENTADA counts as its
+        // first transition (it comes from a null field) and gets fixed now.
+        fecha_envio_propuesta: parsed.data.fecha_envio_propuesta
+          ? parseDate(parsed.data.fecha_envio_propuesta)
+          : parsed.data.estado === "PRESENTADA"
+            ? new Date()
+            : undefined,
         proyectos_relacionados: parsed.data.proyectos_relacionados,
       },
     });

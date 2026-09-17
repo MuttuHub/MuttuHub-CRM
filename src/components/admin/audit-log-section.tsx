@@ -33,6 +33,7 @@ const ENTIDAD_LABELS: Record<AuditEntidad, { label: string; tone: "info" | "acti
   cliente: { label: "Cliente", tone: "info" },
   tarea: { label: "Tarea", tone: "activo" },
   documento: { label: "Documento", tone: "neutro" },
+  oportunidad: { label: "Oportunidad", tone: "info" },
 };
 
 const ACCION_LABELS: Record<AuditAccion, { label: string; tone: "exito" | "info" | "destructivo" | "neutro" }> = {
@@ -40,6 +41,7 @@ const ACCION_LABELS: Record<AuditAccion, { label: string; tone: "exito" | "info"
   editar: { label: "Editó", tone: "info" },
   eliminar: { label: "Eliminó", tone: "destructivo" },
   exportar: { label: "Exportó", tone: "neutro" },
+  convertir: { label: "Convirtió", tone: "exito" },
 };
 
 // Fallback defensivo: si el backend suma un valor de entidad/accion antes de
@@ -117,6 +119,7 @@ export function AuditLogSection() {
             <SelectItem value="cliente">Clientes</SelectItem>
             <SelectItem value="tarea">Tareas</SelectItem>
             <SelectItem value="documento">Documentos</SelectItem>
+            <SelectItem value="oportunidad">Oportunidades</SelectItem>
           </SelectContent>
         </Select>
       </div>

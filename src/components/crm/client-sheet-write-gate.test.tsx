@@ -176,6 +176,24 @@ describe("ClientSheet — PR 4 UI gate (puede_editar=false)", () => {
       screen.queryByRole("button", { name: /Subir documento vinculado/ }),
     ).not.toBeInTheDocument()
   })
+
+  // oportunidades-comerciales task 5.2: tab visibility + readOnly both derive
+  // from puede_gestionar_oportunidades (D3/D4) — independent of puede_editar.
+  it("hides the Oportunidades tab when puede_gestionar_oportunidades is false", () => {
+    renderSheet()
+
+    expect(screen.queryByRole("tab", { name: /Oportunidades/ })).not.toBeInTheDocument()
+  })
+})
+
+describe("ClientSheet — oportunidades-comerciales tab visibility (puede_gestionar_oportunidades)", () => {
+  it("shows the Oportunidades tab when puede_gestionar_oportunidades is true", () => {
+    clienteQuery.data = { ...CLIENTE, puede_gestionar_oportunidades: true }
+    clienteQuery.error = null
+    renderSheet()
+
+    expect(screen.getByRole("tab", { name: /Oportunidades/ })).toBeInTheDocument()
+  })
 })
 
 describe("ClientSheet — PR 4 UI gate (puede_editar=true) regression", () => {

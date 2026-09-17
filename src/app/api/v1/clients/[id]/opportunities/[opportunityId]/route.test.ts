@@ -163,6 +163,104 @@ describe("PATCH /api/v1/clients/:id/opportunities/:opportunityId", () => {
     expect(await res.json()).toMatchObject({ code: "NOT_FOUND" });
     expect(db.oportunidad.update).not.toHaveBeenCalled();
   });
+
+  // D7: fase = EJECUCION is terminal — once converted, changing estado 409s.
+  it("returns 409 when patching estado on an opportunity already in fase EJECUCION (D7)", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
+    vi.mocked(db.oportunidad.findFirst).mockResolvedValue({
+      id: "op-1",
+      cliente_id: "cli-1",
+      fase: "EJECUCION",
+      estado: "GANADA",
+    } as never);
+
+    const res = await PATCH(patchRequest({ estado: "PERDIDA" }), routeContext);
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ code: "CONFLICT" });
+    expect(db.oportunidad.update).not.toHaveBeenCalled();
+  });
+
+  it("allows a non-estado PATCH on an opportunity already in fase EJECUCION", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
+    vi.mocked(db.oportunidad.findFirst).mockResolvedValue({
+      id: "op-1",
+      cliente_id: "cli-1",
+      fase: "EJECUCION",
+      estado: "GANADA",
+    } as never);
+    vi.mocked(db.oportunidad.update).mockResolvedValue({ id: "op-1", nombre: "Nuevo nombre" } as never);
+
+    const res = await PATCH(patchRequest({ nombre: "Nuevo nombre" }), routeContext);
+
+    expect(res.status).toBe(200);
+  });
+
+  // RF-C03 / fecha_envio_propuesta: fixed on the FIRST transition to
+  // PRESENTADA, never rewritten by a later PATCH — independent of
+  // fecha_ultima_gestion, which keeps mutating on every PATCH as before.
+  it("auto-sets fecha_envio_propuesta on the first transition to PRESENTADA", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
+    vi.mocked(db.oportunidad.findFirst).mockResolvedValue({
+      id: "op-1",
+      cliente_id: "cli-1",
+      fase: "PROSPECCION",
+      estado: "DISENANDO_PROPUESTA",
+      fecha_envio_propuesta: null,
+    } as never);
+    vi.mocked(db.oportunidad.update).mockResolvedValue({ id: "op-1", estado: "PRESENTADA" } as never);
+
+    await PATCH(patchRequest({ estado: "PRESENTADA" }), routeContext);
+
+    expect(db.oportunidad.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ fecha_envio_propuesta: expect.any(Date) }),
+      }),
+    );
+  });
+
+  it("does not overwrite an already-fixed fecha_envio_propuesta on a later PATCH", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
+    vi.mocked(db.oportunidad.findFirst).mockResolvedValue({
+      id: "op-1",
+      cliente_id: "cli-1",
+      fase: "PROSPECCION",
+      estado: "PRESENTADA",
+      fecha_envio_propuesta: new Date("2026-01-01"),
+    } as never);
+    vi.mocked(db.oportunidad.update).mockResolvedValue({ id: "op-1", estado: "EN_NEGOCIACION" } as never);
+
+    await PATCH(patchRequest({ estado: "EN_NEGOCIACION" }), routeContext);
+
+    expect(db.oportunidad.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ fecha_envio_propuesta: undefined }) }),
+    );
+  });
+
+  it("an explicit fecha_envio_propuesta in the body always wins, even over an already-fixed date", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
+    vi.mocked(db.oportunidad.findFirst).mockResolvedValue({
+      id: "op-1",
+      cliente_id: "cli-1",
+      fase: "PROSPECCION",
+      estado: "PRESENTADA",
+      fecha_envio_propuesta: new Date("2026-01-01"),
+    } as never);
+    vi.mocked(db.oportunidad.update).mockResolvedValue({ id: "op-1" } as never);
+
+    await PATCH(patchRequest({ fecha_envio_propuesta: "2026-02-10" }), routeContext);
+
+    expect(db.oportunidad.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ fecha_envio_propuesta: new Date("2026-02-10") }),
+      }),
+    );
+  });
 });
 
 describe("DELETE /api/v1/clients/:id/opportunities/:opportunityId", () => {

@@ -20,6 +20,7 @@ import { CONTACT_PATCH_SCHEMA } from "@/app/api/v1/clients/[id]/contacts/[contac
 import { LOG_ENTRY_SCHEMA } from "@/app/api/v1/clients/[id]/log/route";
 import { OPORTUNIDAD_SCHEMA } from "@/app/api/v1/clients/[id]/opportunities/route";
 import { OPORTUNIDAD_PATCH_SCHEMA } from "@/app/api/v1/clients/[id]/opportunities/[opportunityId]/route";
+import { TASK_SCHEMA } from "@/app/api/v1/tasks/route";
 
 const SCOPE_NOTE =
   "Alcance: COLABORADOR solo ve/edita clientes donde es responsable; el resto de roles (ADMINISTRADOR, GERENCIA, COORDINADOR) ve/edita todos.";
@@ -66,6 +67,10 @@ const EstadoOportunidadSchema = z
   ])
   .openapi("EstadoOportunidad");
 
+// oportunidades-comerciales (D2): distingue prospección de ejecución tras la
+// conversión explícita y auditada de una oportunidad GANADA (D5/D6).
+const FaseOportunidadSchema = z.enum(["PROSPECCION", "EJECUCION"]).openapi("FaseOportunidad");
+
 const NextCompromisoSchema = z
   .object({
     id: z.string().uuid(),
@@ -101,6 +106,12 @@ const ClientListItemSchema = registry.register(
         "PR 2 + PR 4: false ⇒ el usuario actual no puede modificar este cliente (403 en PATCH/DELETE). " +
         "La UI oculta controles destructivos y deshabilita los campos de edición en función de este flag. " +
         "El servidor es la autoridad: un valor true en el body de la solicitud se ignora.",
+    }),
+    puede_gestionar_oportunidades: z.boolean().openapi({
+      description:
+        "D3/D4 (oportunidades-comerciales): false ⇒ el usuario actual no puede ver ni gestionar las " +
+        "oportunidades de este cliente (403 en las rutas /opportunities), aun siendo su responsable. " +
+        "Eje ortogonal a puede_editar — ver src/lib/permissions.ts canManageOpportunity.",
     }),
   }),
 );
@@ -146,6 +157,9 @@ const ClienteDetailSchema = registry.register(
     puede_editar: z.boolean().openapi({
       description: "PR 2 + PR 4: mismo flag que la lista; ver ClientListItem.puede_editar.",
     }),
+    puede_gestionar_oportunidades: z.boolean().openapi({
+      description: "Mismo flag que la lista; ver ClientListItem.puede_gestionar_oportunidades.",
+    }),
   }),
 );
 
@@ -180,12 +194,67 @@ const OportunidadSchema = registry.register(
       .openapi({ description: "Decimal(15,2) serializado como string por Prisma/decimal.js.", example: "5000000.00" }),
     estado: EstadoOportunidadSchema,
     fecha_ultima_gestion: z.string().datetime().nullable(),
-    proyectos_relacionados: z.string().nullable(),
+    fase: FaseOportunidadSchema.openapi({
+      description: "D2: PROSPECCION por defecto; pasa a EJECUCION solo vía POST .../convert.",
+    }),
+    fecha_adjudicacion: z.string().datetime().nullable().openapi({
+      description: "Se fija una sola vez, por la conversión explícita (POST .../convert). Null hasta entonces.",
+    }),
+    fecha_envio_propuesta: z.string().datetime().nullable().openapi({
+      description:
+        "RF-C03: fija en la primera transición a estado PRESENTADA (o valor explícito del body); " +
+        "nunca se sobreescribe en un PATCH posterior, a diferencia de fecha_ultima_gestion.",
+    }),
+    proyectos_relacionados: z.string().nullable().openapi({
+      description: "@deprecated D8 — superseded by fase + Tarea.oportunidad_id. Solo lectura en la UI.",
+    }),
     created_at: z.string().datetime(),
     updated_at: z.string().datetime(),
     deleted_at: z.string().datetime().nullable(),
   }),
 );
+
+// opportunity-task-linking: tareas vinculadas a una oportunidad. TaskItem ya
+// está registrado como componente en src/lib/openapi/paths/tasks.ts — igual
+// que FaseOportunidad más arriba, esto es una copia local sin registrar
+// (misma forma, sin duplicar el componente ni introducir uno nuevo).
+const EstadoTareaLocalSchema = z.enum([
+  "POR_HACER",
+  "EN_CURSO",
+  "EN_REVISION",
+  "COMPLETADA",
+  "BLOQUEADA",
+  "EN_ESPERA",
+  "CANCELADA",
+]);
+const OrigenTareaLocalSchema = z.enum(["CRM", "KANBAN", "AMBOS"]);
+const PrioridadTareaLocalSchema = z.enum(["ALTA", "MEDIA", "BAJA"]);
+
+const OportunidadTaskItemSchema = z.object({
+  id: z.string().uuid(),
+  titulo: z.string(),
+  descripcion: z.string().nullable(),
+  responsable_id: z.string().uuid(),
+  responsable_nombre: z.string(),
+  cliente_id: z.string().uuid().nullable(),
+  cliente_nombre: z.string().nullable(),
+  oportunidad_id: z.string().uuid().nullable(),
+  oportunidad_nombre: z.string().nullable(),
+  oportunidad_fase: FaseOportunidadSchema.nullable(),
+  estado: EstadoTareaLocalSchema,
+  origen: OrigenTareaLocalSchema,
+  prioridad: PrioridadTareaLocalSchema.nullable(),
+  fecha_entrega: z.string().datetime().nullable(),
+  etiquetas: z.array(z.string()),
+  motivo_bloqueo: z.string().nullable(),
+  comentarios_count: z.number().int(),
+  subtotal: z.number().int(),
+  created_at: z.string().datetime(),
+  updated_at: z.string().datetime(),
+  puede_editar: z.boolean().openapi({
+    description: "Igual que TaskItem.puede_editar — false ⇒ 403 al editar esta tarea.",
+  }),
+});
 
 const BitacoraEntradaSchema = registry.register(
   "BitacoraEntrada",
@@ -194,6 +263,9 @@ const BitacoraEntradaSchema = registry.register(
     autor_id: z.string().uuid(),
     autor_nombre: z.string(),
     texto: z.string(),
+    oportunidad_id: z.string().uuid().nullable().openapi({
+      description: "RF-C03: vínculo opcional al ciclo comercial de la oportunidad.",
+    }),
     created_at: z.string().datetime(),
   }),
 );
@@ -541,7 +613,9 @@ registry.registerPath({
   summary: "Actualiza una oportunidad de un cliente",
   description:
     `${SCOPE_NOTE} Escritura requiere permiso de escritura sobre el cliente (403 si es de otro responsable); 404 si el cliente no existe o si la oportunidad no existe/no pertenece a ese cliente. ` +
-    "Body parcial pero no vacío (al menos un campo).",
+    "Body parcial pero no vacío (al menos un campo). D7: 409 si intenta cambiar estado en una oportunidad " +
+    "cuya fase ya es EJECUCION (terminal — la conversión no admite reversión por PATCH). " +
+    "fecha_envio_propuesta: write-once (RF-C03) — ver Oportunidad.fecha_envio_propuesta.",
   security: [{ sessionCookie: [] }],
   request: {
     params: z.object({ id: z.string().uuid(), opportunityId: z.string().uuid() }),
@@ -552,7 +626,7 @@ registry.registerPath({
       description: "Oportunidad actualizada.",
       content: { "application/json": { schema: z.object({ oportunidad: OportunidadSchema }) } },
     },
-    ...standardErrorResponses([400, 401, 403, 404, 500]),
+    ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
   },
 });
 
@@ -568,5 +642,78 @@ registry.registerPath({
   responses: {
     204: { description: "Oportunidad eliminada (sin contenido)." },
     ...standardErrorResponses([401, 403, 404, 500]),
+  },
+});
+
+// ── POST /api/v1/clients/{id}/opportunities/{opportunityId}/convert ─────
+registry.registerPath({
+  method: "post",
+  path: "/api/v1/clients/{id}/opportunities/{opportunityId}/convert",
+  tags: ["Clientes"],
+  summary: "Convierte una oportunidad GANADA a ejecución (D2/D5)",
+  description:
+    `${SCOPE_NOTE} Escritura requiere permiso de escritura sobre el cliente (403 si es de otro responsable). ` +
+    "Acción explícita y auditada (entidad oportunidad, accion convertir): fija fase=EJECUCION y " +
+    "fecha_adjudicacion en una sola fila; cero escrituras a tareas (D6) — las tareas vinculadas ya estaban " +
+    "en el Tablero de Seguimiento. 409 si estado no es GANADA, o si fase ya es EJECUCION (D7, idempotente).",
+  security: [{ sessionCookie: [] }],
+  request: { params: z.object({ id: z.string().uuid(), opportunityId: z.string().uuid() }) },
+  responses: {
+    200: {
+      description: "Oportunidad convertida: fase=EJECUCION, fecha_adjudicacion fijada.",
+      content: { "application/json": { schema: z.object({ oportunidad: OportunidadSchema }) } },
+    },
+    ...standardErrorResponses([401, 403, 404, 409, 500]),
+  },
+});
+
+// ── GET /api/v1/clients/{id}/opportunities/{opportunityId}/tasks ────────
+registry.registerPath({
+  method: "get",
+  path: "/api/v1/clients/{id}/opportunities/{opportunityId}/tasks",
+  tags: ["Clientes"],
+  summary: "Lista las tareas vinculadas a una oportunidad",
+  description:
+    `${SCOPE_NOTE} Lectura gateada por el acceso comercial (hasCommercialAccess), no por el alcance de ` +
+    "cliente por sí solo; 403 si el usuario no tiene el flag `gestiona_oportunidades` (o rol de acceso total). " +
+    "404 si el cliente no existe o si la oportunidad no existe/no pertenece a ese cliente.",
+  security: [{ sessionCookie: [] }],
+  request: { params: z.object({ id: z.string().uuid(), opportunityId: z.string().uuid() }) },
+  responses: {
+    200: {
+      description: "Tareas vinculadas a la oportunidad (orden updated_at desc).",
+      content: { "application/json": { schema: z.object({ tareas: z.array(OportunidadTaskItemSchema) }) } },
+    },
+    ...standardErrorResponses([401, 403, 404, 500]),
+  },
+});
+
+// ── POST /api/v1/clients/{id}/opportunities/{opportunityId}/tasks ───────
+registry.registerPath({
+  method: "post",
+  path: "/api/v1/clients/{id}/opportunities/{opportunityId}/tasks",
+  tags: ["Clientes"],
+  summary: "Crea una tarea vinculada a una oportunidad",
+  description:
+    `${SCOPE_NOTE} Escritura requiere permiso de escritura sobre el cliente (403 si es de otro responsable), ` +
+    "gateado además por el acceso comercial (canManageOpportunity). `cliente_id` y `oportunidad_id` se fuerzan " +
+    "siempre desde la URL — nunca desde el body, así que cualquier valor enviado ahí se ignora y la invariante " +
+    "(D1/D2) es estructuralmente imposible de violar desde este endpoint. 404 si el cliente no existe o si la " +
+    "oportunidad no existe/no pertenece a ese cliente.",
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: z.object({ id: z.string().uuid(), opportunityId: z.string().uuid() }),
+    body: {
+      content: {
+        "application/json": { schema: TASK_SCHEMA.omit({ cliente_id: true, oportunidad_id: true }) },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Tarea creada, heredando cliente_id y oportunidad_id de la oportunidad.",
+      content: { "application/json": { schema: z.object({ task: OportunidadTaskItemSchema }) } },
+    },
+    ...standardErrorResponses([400, 401, 403, 404, 500]),
   },
 });

@@ -33,6 +33,7 @@ import type {
   RolContacto,
   TipoCliente,
 } from "@prisma/client";
+import { taskQueryKeys } from "@/hooks/kanban";
 
 /* ── DTOs (server response shapes) ─────────────────────────────────────── */
 
@@ -112,6 +113,17 @@ export type Oportunidad = {
   valor_estimado_cop: number | null;
   estado: EstadoOportunidad;
   fecha_ultima_gestion: string | null;
+  /**
+   * oportunidades-comerciales (D2): `fase` distinguishes prospección de
+   * ejecución tras la conversión explícita y auditada de una oportunidad
+   * GANADA. `fecha_adjudicacion` se fija una sola vez por esa acción.
+   * `fecha_envio_propuesta` (RF-C03) es fija: nunca se sobreescribe en un
+   * PATCH posterior, a diferencia de `fecha_ultima_gestion`.
+   */
+  fase: FaseOportunidad;
+  fecha_adjudicacion: string | null;
+  fecha_envio_propuesta: string | null;
+  /** @deprecated D8 — superseded by `fase` + `Tarea.oportunidad_id`. */
   proyectos_relacionados: string | null;
   created_at: string;
 };
@@ -121,6 +133,8 @@ export type BitacoraEntrada = {
   autor_id: string;
   autor_nombre: string;
   texto: string;
+  /** RF-C03: optional link to the client's commercial cycle. */
+  oportunidad_id: string | null;
   created_at: string;
 };
 
@@ -203,6 +217,8 @@ export const clientQueryKeys = {
   detail: (id: string) => ["clients", "detail", id] as const,
   contacts: (id: string) => ["clients", id, "contacts"] as const,
   opportunities: (id: string) => ["clients", id, "opportunities"] as const,
+  opportunityTasks: (clientId: string, oportunidadId: string) =>
+    ["clients", clientId, "opportunities", oportunidadId, "tasks"] as const,
   tasks: (clientId: string) => ["tasks", "client", clientId] as const,
   log: (id: string) => ["clients", id, "log"] as const,
   users: () => ["catalogs", "users"] as const,
@@ -280,6 +296,23 @@ export function useTasksByClient(clientId: string | null): UseQueryResult<TaskIt
         `/api/v1/tasks?cliente=${clientId}&limit=100`,
       );
       return res.items;
+    },
+  });
+}
+
+/** Tasks linked to a specific opportunity (opportunity-task-linking spec). */
+export function useTasksByOportunidad(
+  clientId: string | null,
+  oportunidadId: string | null,
+): UseQueryResult<TaskItem[]> {
+  return useQuery({
+    queryKey: clientQueryKeys.opportunityTasks(clientId ?? "", oportunidadId ?? ""),
+    enabled: clientId !== null && oportunidadId !== null,
+    queryFn: async () => {
+      const res = await apiGet<{ tareas: TaskItem[] }>(
+        `/api/v1/clients/${clientId}/opportunities/${oportunidadId}/tasks`,
+      );
+      return res.tareas;
     },
   });
 }
@@ -543,6 +576,39 @@ export function useDeleteOportunidad(
   });
 }
 
+/**
+ * D2/D5: converts a GANADA opportunity into "execution" — flips `fase` and
+ * fixes `fecha_adjudicacion`. Zero writes to `tareas` (D6): the kanban chip
+ * flips because it derives from `oportunidad.fase`, not because any task row
+ * changed, so invalidating the opportunity + kanban task lists is enough.
+ */
+export function useConvertOportunidad(
+  clientId: string,
+  oportunidadId: string,
+): UseMutationResult<{ oportunidad: Oportunidad }, string, void> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      try {
+        return await apiPost<{ oportunidad: Oportunidad }>(
+          `/api/v1/clients/${clientId}/opportunities/${oportunidadId}/convert`,
+          {},
+        );
+      } catch (err) {
+        return toastError(err, "No pudimos convertir la oportunidad.");
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: clientQueryKeys.opportunities(clientId) });
+      void qc.invalidateQueries({
+        queryKey: clientQueryKeys.opportunityTasks(clientId, oportunidadId),
+      });
+      void qc.invalidateQueries({ queryKey: taskQueryKeys.all });
+      toast.success("Oportunidad convertida a ejecución.");
+    },
+  });
+}
+
 export type TareaInput = {
   titulo: string;
   descripcion?: string | null;
@@ -597,6 +663,9 @@ export function useUpdateTarea(): UseMutationResult<
       void qc.invalidateQueries({ queryKey: clientQueryKeys.tasks(variables.clienteId) });
       void qc.invalidateQueries({ queryKey: clientQueryKeys.detail(variables.clienteId) });
       void qc.invalidateQueries({ queryKey: clientQueryKeys.list({}) });
+      // Prefix match: covers opportunityTasks(clienteId, *) regardless of
+      // which oportunidad_id was linked/unlinked by this update.
+      void qc.invalidateQueries({ queryKey: ["clients", variables.clienteId, "opportunities"] });
       toast.success("Compromiso actualizado.");
     },
   });
@@ -653,15 +722,15 @@ export function useDeleteTarea(clientId: string, taskId: string): UseMutationRes
 export function useAddLogEntry(clientId: string): UseMutationResult<
   { entrada: BitacoraEntrada },
   string,
-  { texto: string }
+  { texto: string; oportunidad_id?: string | null }
 > {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ texto }) => {
+    mutationFn: async ({ texto, oportunidad_id }) => {
       try {
         return await apiPost<{ entrada: BitacoraEntrada }>(
           `/api/v1/clients/${clientId}/log`,
-          { texto },
+          { texto, ...(oportunidad_id !== undefined ? { oportunidad_id } : {}) },
         );
       } catch (err) {
         return toastError(err, "No pudimos guardar la nota.");

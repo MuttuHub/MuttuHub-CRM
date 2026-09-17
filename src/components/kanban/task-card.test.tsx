@@ -9,7 +9,7 @@
 
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
-import { SortableTaskCard, type CardTask } from "./task-card"
+import { SortableTaskCard, TaskCard, type CardTask } from "./task-card"
 
 const BASE_TASK: CardTask = {
   id: "t1",
@@ -67,5 +67,41 @@ describe("SortableTaskCard — PR 4 UI gate", () => {
   it("still renders the card itself (read-only — the task IS visible to the COLABORADOR)", () => {
     renderCard(false)
     expect(screen.getByText(BASE_TASK.titulo)).toBeInTheDocument()
+  })
+})
+
+// RNF-C01 / opportunity-task-linking spec: the Kanban MUST visually
+// distinguish a task linked to a PROSPECCION opportunity from one linked to
+// an EJECUCION opportunity (or with no opportunity at all).
+describe("TaskCard — opportunity phase chip (RNF-C01)", () => {
+  it("renders the amber 'Prospección' chip when oportunidad_fase is PROSPECCION", () => {
+    render(
+      <TaskCard
+        task={{ ...BASE_TASK, oportunidad_id: "op-1", oportunidad_nombre: "Oportunidad X", oportunidad_fase: "PROSPECCION" }}
+        onClick={() => undefined}
+      />,
+    )
+    expect(screen.getByText("Prospección")).toBeInTheDocument()
+  })
+
+  it("renders the emerald 'Ejecución' chip when oportunidad_fase is EJECUCION", () => {
+    render(
+      <TaskCard
+        task={{ ...BASE_TASK, oportunidad_id: "op-1", oportunidad_nombre: "Oportunidad X", oportunidad_fase: "EJECUCION" }}
+        onClick={() => undefined}
+      />,
+    )
+    expect(screen.getByText("Ejecución")).toBeInTheDocument()
+  })
+
+  it("renders neither chip when oportunidad_fase is null (no linked opportunity)", () => {
+    render(
+      <TaskCard
+        task={{ ...BASE_TASK, oportunidad_id: null, oportunidad_nombre: null, oportunidad_fase: null }}
+        onClick={() => undefined}
+      />,
+    )
+    expect(screen.queryByText("Prospección")).not.toBeInTheDocument()
+    expect(screen.queryByText("Ejecución")).not.toBeInTheDocument()
   })
 })
