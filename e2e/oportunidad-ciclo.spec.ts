@@ -77,7 +77,7 @@ test("commercial cycle: create, link a task, present, win, convert, chip flips",
     await lifecycle.getByRole("button", { name: "Vincular" }).click();
     await expect(lifecycle.getByText(TAREA_A_VINCULAR)).toBeVisible();
     await expect(lifecycle.getByText("Tareas vinculadas (1)")).toBeVisible();
-    await lifecycle.getByRole("button", { name: "Cerrar" }).click();
+    await lifecycle.getByRole("button", { name: "Cerrar" }).first().click();
   });
 
   await test.step("6. Move the opportunity to PRESENTADA, then GANADA", async () => {
@@ -103,8 +103,8 @@ test("commercial cycle: create, link a task, present, win, convert, chip flips",
     await expect(lifecycle.getByText("Ejecución")).toBeVisible();
     // D7/D5: idempotent — the action disappears once already converted.
     await expect(lifecycle.getByRole("button", { name: /Convertir/ })).toHaveCount(0);
-    await lifecycle.getByRole("button", { name: "Cerrar" }).click();
-    await ficha.getByRole("button", { name: "Cerrar" }).click();
+    await lifecycle.getByRole("button", { name: "Cerrar" }).first().click();
+    await ficha.getByRole("button", { name: "Cerrar" }).first().click();
   });
 
   await test.step("8. The Kanban card for the linked task now shows the Ejecución chip", async () => {

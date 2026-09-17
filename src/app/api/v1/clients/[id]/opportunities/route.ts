@@ -35,6 +35,7 @@ export const OPORTUNIDAD_SCHEMA = z.object({
   valor_estimado_cop: z
     .number()
     .min(0, "El valor estimado no puede ser negativo.")
+    .nullable()
     .optional(),
   estado: catalogEnum(
     ENUM_VALUES.EstadoOportunidad as readonly EstadoOportunidad[],

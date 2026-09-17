@@ -106,6 +106,10 @@ export function ClientSheet({
   const clienteQuery = useClientDetail(clientId);
   const usersQuery = useUsers();
   const users = usersQuery.data ?? [];
+  // Shares the OportunidadesTab query cache/key — no extra request. Lets the
+  // lifecycle dialog reflect fresh state after a mutation (e.g. convert)
+  // invalidates it, instead of the stale object captured at dialog-open time.
+  const opportunitiesQuery = useOpportunities(clientId);
 
   const [editOpen, setEditOpen] = useState(false);
   const [deactivateOpen, setDeactivateOpen] = useState(false);
@@ -273,7 +277,11 @@ export function ClientSheet({
           clientId={clientId ?? ""}
           open={lifecycleOpen}
           onOpenChange={setLifecycleOpen}
-          oportunidad={viewingOpp}
+          oportunidad={
+            viewingOpp
+              ? (opportunitiesQuery.data?.find((o) => o.id === viewingOpp.id) ?? viewingOpp)
+              : null
+          }
           readOnly={cliente?.puede_gestionar_oportunidades === false}
         />
         <TareaFormDialog

@@ -663,6 +663,9 @@ export function useUpdateTarea(): UseMutationResult<
       void qc.invalidateQueries({ queryKey: clientQueryKeys.tasks(variables.clienteId) });
       void qc.invalidateQueries({ queryKey: clientQueryKeys.detail(variables.clienteId) });
       void qc.invalidateQueries({ queryKey: clientQueryKeys.list({}) });
+      // Prefix match: covers opportunityTasks(clienteId, *) regardless of
+      // which oportunidad_id was linked/unlinked by this update.
+      void qc.invalidateQueries({ queryKey: ["clients", variables.clienteId, "opportunities"] });
       toast.success("Compromiso actualizado.");
     },
   });
