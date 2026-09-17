@@ -12,6 +12,27 @@ concurrency:
 jobs:
   unit:
     runs-on: ubuntu-latest
+    services:
+      # Disposable, empty Postgres for this job only — torn down with the
+      # runner. There is no separate "dev" database in this project (the only
+      # real Supabase instance is production), so prisma/invariant.test.ts
+      # must never point at it from CI; this service is what it hits instead.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/postgres
     steps:
       - uses: actions/checkout@v4
 
@@ -22,6 +43,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Apply migrations to the ephemeral CI database
+        run: npx prisma migrate deploy
 
       - name: Generate Prisma client (needed by catalogs tests)
         run: npx prisma generate
