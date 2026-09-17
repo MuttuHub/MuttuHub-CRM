@@ -133,8 +133,8 @@ describe("POST /api/v1/documents/zip", () => {
     expect(res.headers.get("Content-Type")).toBe("application/zip");
     const zip = await JSZip.loadAsync(new Uint8Array(await res.arrayBuffer()));
     const names = Object.keys(zip.files);
-    expect(names).toContain("Informe uno_v1.pdf");
-    expect(names).toContain("Informe dos_v1.pdf");
+    expect(names).toContain("Informe_uno_v1.pdf");
+    expect(names).toContain("Informe_dos_v1.pdf");
     expect(names).not.toContain("README.txt");
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
@@ -229,8 +229,8 @@ describe("POST /api/v1/documents/zip", () => {
     expect(res.status).toBe(200);
     const zip = await JSZip.loadAsync(new Uint8Array(await res.arrayBuffer()));
     const names = Object.keys(zip.files);
-    expect(names).toContain("Informe uno_v1.pdf");
-    expect(names).not.toContain("Informe dos_v1.pdf");
+    expect(names).toContain("Informe_uno_v1.pdf");
+    expect(names).not.toContain("Informe_dos_v1.pdf");
     expect(names).toContain("README.txt");
     const readme = await zip.files["README.txt"]!.async("text");
     expect(readme).toContain("Informe dos");
