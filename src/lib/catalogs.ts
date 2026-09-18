@@ -12,6 +12,7 @@ import type {
   PrioridadTarea,
   RolContacto,
   TipoCliente,
+  TipoSoporte,
 } from "@prisma/client";
 import type { UmbralesSemaforo } from "@/lib/semaforo";
 
@@ -158,6 +159,16 @@ export const UMBRALES_SEMAFORO_DEFAULT: UmbralesSemaforo = {
   financiero: { verde_min: 0.85, verde_max: 1.15, amarillo_min: 0.6, amarillo_max: 1.4 },
 };
 
+// tablero-seguimiento-social (RF-04/RF-06, Fase 3b): tipo de soporte de
+// proyecto. Deviation menor no listada en tasks.md 3b: sigue el mismo
+// patrón `Catalog<T>` + `ENUM_VALUES` que TODO otro enum de este archivo
+// (LineaEstrategica incluido), en vez de un `Set` ad-hoc solo para la
+// validación de la API — una sola fuente de verdad para label + validación.
+export const TIPO_SOPORTE_LABELS: Catalog<TipoSoporte> = {
+  VERIFICACION: { label: "Verificación", tone: "info" },
+  LEGALIZACION: { label: "Legalización", tone: "activo" },
+};
+
 export const ENUM_VALUES = {
   EstadoCliente: Object.keys(ESTADO_CLIENTE_LABELS),
   TipoCliente: Object.keys(TIPO_CLIENTE_LABELS),
@@ -168,4 +179,5 @@ export const ENUM_VALUES = {
   EstadoTarea: Object.keys(ESTADO_TAREA_LABELS),
   OrigenTarea: Object.keys(ORIGEN_TAREA_LABELS),
   LineaEstrategica: Object.keys(LINEA_ESTRATEGICA_LABELS),
+  TipoSoporte: Object.keys(TIPO_SOPORTE_LABELS),
 } as const;

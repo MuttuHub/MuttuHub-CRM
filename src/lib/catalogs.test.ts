@@ -7,6 +7,7 @@ import {
   PrioridadTarea,
   RolContacto,
   TipoCliente,
+  TipoSoporte,
 } from "@prisma/client"
 import { describe, expect, it } from "vitest"
 import {
@@ -22,6 +23,7 @@ import {
   ROL_CONTACTO_LABELS,
   TASK_TAGS,
   TIPO_CLIENTE_LABELS,
+  TIPO_SOPORTE_LABELS,
   UMBRALES_SEMAFORO_DEFAULT,
   type Catalog,
   type UiTone,
@@ -91,6 +93,12 @@ const catalogs: {
     labelMap: ORIGEN_TAREA_LABELS as Catalog<string>,
     enumValues: ENUM_VALUES.OrigenTarea,
   },
+  {
+    name: "TipoSoporte",
+    prismaEnum: TipoSoporte,
+    labelMap: TIPO_SOPORTE_LABELS as Catalog<string>,
+    enumValues: ENUM_VALUES.TipoSoporte,
+  },
 ]
 
 describe("catalogs completeness vs Prisma enums", () => {
@@ -153,6 +161,14 @@ describe("catalog labels", () => {
     expect(ORIGEN_TAREA_LABELS.CRM.label).toBe("CRM")
     expect(ORIGEN_TAREA_LABELS.KANBAN.label).toBe("Kanban")
     expect(ORIGEN_TAREA_LABELS.AMBOS.label).toBe("Ambos")
+  })
+
+  // tablero-seguimiento-social (RF-04/RF-06, Fase 3b): tipo de soporte de
+  // proyecto — medio de verificación de un entregable vs. legalización
+  // financiera (factura/cuenta de cobro/planilla).
+  it("TIPO_SOPORTE_LABELS covers verificación y legalización", () => {
+    expect(TIPO_SOPORTE_LABELS.VERIFICACION.label).toBe("Verificación")
+    expect(TIPO_SOPORTE_LABELS.LEGALIZACION.label).toBe("Legalización")
   })
 })
 
