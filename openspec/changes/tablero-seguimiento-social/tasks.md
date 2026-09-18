@@ -87,9 +87,9 @@ Chain strategy: pending
 
 ## Phase 4b: Dashboard Aggregated Endpoint (PR 4b — Unit 4b)
 
-- [ ] 4b.1 RED: `dashboard/projects/route.test.ts` — all 6 KPIs resolve in one round-trip; `Indicador` without `valor_actual` not counted as cumplido; `Actividad` completed without soporte not counted as "entregada"; visualizador-only actor gets 200, every POST/PATCH/DELETE in the module gets 403.
-- [ ] 4b.2 GREEN: create `dashboard/projects/route.ts` — single `db.$queryRaw` per D9's `tecnico`/`financiero`/`indicadores`/`entregables` CTEs; curva S series (planificado per T7's peso-weighted distribution, ejecutado from `gastos.fecha_gasto`) computed in the same request.
-- [ ] 4b.3 Measure and report p95 against the 3s target (RNF-02/D9) on a seeded ~50×20×200 dataset — measured budget, non-blocking.
+- [x] 4b.1 RED: `dashboard/projects/route.test.ts` — all 6 KPIs resolve in one round-trip; `Indicador` without `valor_actual` not counted as cumplido; `Actividad` completed without soporte not counted as "entregada"; visualizador-only actor gets 200, every POST/PATCH/DELETE in the module gets 403.
+- [x] 4b.2 GREEN: create `dashboard/projects/route.ts` — single `db.$queryRaw` per D9's `tecnico`/`financiero`/`indicadores`/`entregables` CTEs; curva S series (planificado per T7's peso-weighted distribution, ejecutado from `gastos.fecha_gasto`) computed in the same request.
+- [x] 4b.3 Measure and report p95 against the 3s target (RNF-02/D9) on a seeded ~50×20×200 dataset — measured budget, non-blocking. **Result: p50 397.5ms, p95 648.2ms, max 648.2ms on the full reference scale (50 proyectos × 20 metas × 200 actividades = 10,000 actividades, 150 líneas presupuestales, 750 gastos, 100 indicadores) — WITHIN the 3s budget with wide margin.**
 
 ## Phase 4c: SVG Charts + Management Dashboard UI (PR 4c — Unit 4c)
 
