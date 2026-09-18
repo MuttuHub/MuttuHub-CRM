@@ -6,6 +6,7 @@ import type {
   EstadoCliente,
   EstadoOportunidad,
   EstadoTarea,
+  LineaEstrategica,
   OrigenTarea,
   PrioridadCliente,
   PrioridadTarea,
@@ -92,6 +93,21 @@ export const ORIGEN_TAREA_LABELS: Catalog<OrigenTarea> = {
   AMBOS: { label: "Ambos", tone: "neutro" },
 };
 
+// tablero-seguimiento-social (D5, RF-01): línea estratégica del Proyecto,
+// lista cerrada. Adelantado desde tasks.md Fase 3a.7 porque el zod schema de
+// creación de Proyecto (Fase 2b, T2) ya necesita validar este enum — ver
+// Deviations en apply-progress. Fase 3a.7 no debe volver a agregarlo.
+export const LINEA_ESTRATEGICA_LABELS: Catalog<LineaEstrategica> = {
+  EMPLEABILIDAD: { label: "Empleabilidad", tone: "info" },
+  EMPRENDIMIENTO: { label: "Emprendimiento", tone: "activo" },
+  PRODUCTIVIDAD: { label: "Productividad", tone: "exito" },
+  CULTURAL: { label: "Cultural", tone: "alerta" },
+  SOCIAL: { label: "Social", tone: "info" },
+  CIVICO_POLITICO: { label: "Cívico-político", tone: "riesgo" },
+  METODO_MUTTU: { label: "Método Muttu", tone: "activo" },
+  AMBIENTAL: { label: "Ambiental", tone: "exito" },
+};
+
 // Etiquetas de tarea (PRD §5.2). Constantes = default de fábrica; el valor
 // LIVE admin-configurable vive en la tabla `settings` (clave task_tags, Hito
 // 7 — ver src/lib/settings.ts). Almacenadas en crudo en `Tarea.etiquetas`
@@ -137,4 +153,5 @@ export const ENUM_VALUES = {
   EstadoOportunidad: Object.keys(ESTADO_OPORTUNIDAD_LABELS),
   EstadoTarea: Object.keys(ESTADO_TAREA_LABELS),
   OrigenTarea: Object.keys(ORIGEN_TAREA_LABELS),
+  LineaEstrategica: Object.keys(LINEA_ESTRATEGICA_LABELS),
 } as const;

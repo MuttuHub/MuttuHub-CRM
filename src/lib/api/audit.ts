@@ -26,7 +26,11 @@ import { db } from "@/lib/db";
 // oportunidades-comerciales (D9): "oportunidad"/"convertir" let the auditoria
 // reader filter conversions without parsing `cambios` — same precedent as the
 // close-phase-1 "exportar" widening above.
-export type AuditEntidad = "cliente" | "tarea" | "documento" | "oportunidad";
+//
+// tablero-seguimiento-social (design.md, Fase 2b.5): "proyecto" covers the
+// Proyecto CRUD and the crear-desde-oportunidad action. `AuditAccion` does
+// NOT change — crear/editar/eliminar already cover every Proyecto write.
+export type AuditEntidad = "cliente" | "tarea" | "documento" | "oportunidad" | "proyecto";
 export type AuditAccion = "crear" | "editar" | "eliminar" | "exportar" | "convertir";
 
 export async function logAudit(params: {

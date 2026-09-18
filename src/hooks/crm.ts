@@ -27,6 +27,7 @@ import type {
   EstadoOportunidad,
   EstadoTarea,
   FaseOportunidad,
+  LineaEstrategica,
   OrigenTarea,
   PrioridadCliente,
   PrioridadTarea,
@@ -224,6 +225,13 @@ export const clientQueryKeys = {
   users: () => ["catalogs", "users"] as const,
 };
 
+/** tablero-seguimiento-social (Fase 2b.6): Proyecto vinculado a una
+ * Oportunidad, si existe — usado por el CTA "Crear proyecto" del diálogo de
+ * ciclo de vida (design.md: "enlace al proyecto si ya existe"). */
+export const projectQueryKeys = {
+  byOportunidad: (oportunidadId: string) => ["projects", "by-oportunidad", oportunidadId] as const,
+};
+
 /* ── Queries ───────────────────────────────────────────────────────────── */
 
 export function useClients(filters: ClientFilters): UseQueryResult<ClientListResponse> {
@@ -282,6 +290,32 @@ export function useOpportunities(id: string | null): UseQueryResult<Oportunidad[
         `/api/v1/clients/${id}/opportunities`,
       );
       return res.oportunidades;
+    },
+  });
+}
+
+/** tablero-seguimiento-social (Fase 2b.6): Proyecto vinculado a una
+ * Oportunidad, si existe. Reutiliza el filtro `oportunidad_id` de la lista
+ * `GET /api/v1/projects` — el mismo alcance de visibilidad que ya aplica esa
+ * ruta (canViewManagementDashboard ve todo; el resto solo sus propios
+ * proyectos como responsable). */
+export type ProjectSummary = {
+  id: string;
+  codigo: string;
+  nombre: string;
+};
+
+export function useProjectByOportunidad(
+  oportunidadId: string | null,
+): UseQueryResult<ProjectSummary | null> {
+  return useQuery({
+    queryKey: projectQueryKeys.byOportunidad(oportunidadId ?? "none"),
+    enabled: oportunidadId !== null,
+    queryFn: async () => {
+      const res = await apiGet<{ proyectos: ProjectSummary[] }>(
+        `/api/v1/projects?oportunidad_id=${encodeURIComponent(oportunidadId ?? "")}`,
+      );
+      return res.proyectos[0] ?? null;
     },
   });
 }
@@ -605,6 +639,47 @@ export function useConvertOportunidad(
       });
       void qc.invalidateQueries({ queryKey: taskQueryKeys.all });
       toast.success("Oportunidad convertida a ejecución.");
+    },
+  });
+}
+
+/**
+ * tablero-seguimiento-social (Fase 2b.6, design.md T2): "Crear proyecto
+ * desde oportunidad ganada". Mismo shape que useConvertOportunidad — misma
+ * query key de invalidación (el Proyecto recién creado queda vinculado a
+ * esta oportunidad, así que `projectQueryKeys.byOportunidad` es la única
+ * cache que puede quedar desactualizada).
+ */
+export type CreateProjectFromOportunidadInput = {
+  codigo: string;
+  nombre: string;
+  territorio: string;
+  linea_estrategica: LineaEstrategica;
+  fecha_inicio: string;
+  fecha_fin: string;
+  beneficiarios_meta?: number;
+  responsable_id?: string;
+};
+
+export function useCreateProjectFromOportunidad(
+  clientId: string,
+  oportunidadId: string,
+): UseMutationResult<{ proyecto: ProjectSummary }, string, CreateProjectFromOportunidadInput> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input) => {
+      try {
+        return await apiPost<{ proyecto: ProjectSummary }>(
+          `/api/v1/clients/${clientId}/opportunities/${oportunidadId}/project`,
+          input,
+        );
+      } catch (err) {
+        return toastError(err, "No pudimos crear el proyecto.");
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectQueryKeys.byOportunidad(oportunidadId) });
+      toast.success("Proyecto creado.");
     },
   });
 }

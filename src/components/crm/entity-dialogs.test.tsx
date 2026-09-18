@@ -7,7 +7,7 @@
 import { render, screen } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { describe, expect, it, vi } from "vitest"
-import type { BitacoraEntrada, Oportunidad, TaskItem } from "@/hooks/crm"
+import type { BitacoraEntrada, Oportunidad, ProjectSummary, TaskItem } from "@/hooks/crm"
 import { OportunidadLifecycleDialog } from "./entity-dialogs"
 
 const noopMutation = {
@@ -20,12 +20,18 @@ const noopMutation = {
 // vitest) can reference these mocks, and individual tests can override their
 // return value per-case with mockReturnValueOnce without touching the
 // baseline empty-list behavior every other test relies on.
-const { useTasksByOportunidadMock, useBitacoraMock } = vi.hoisted(() => ({
+const { useTasksByOportunidadMock, useBitacoraMock, useProjectByOportunidadMock } = vi.hoisted(() => ({
   useTasksByOportunidadMock: vi.fn<() => { data: TaskItem[]; isLoading: boolean; isError: boolean }>(
     () => ({ data: [], isLoading: false, isError: false }),
   ),
   useBitacoraMock: vi.fn<() => { data: BitacoraEntrada[]; isLoading: boolean; isError: boolean }>(
     () => ({ data: [], isLoading: false, isError: false }),
+  ),
+  // tablero-seguimiento-social (Fase 2b.6): sin mock, el hook real dispararía
+  // un fetch de verdad cuando fase === "EJECUCION" — mismo criterio que el
+  // resto de los hooks de este diálogo.
+  useProjectByOportunidadMock: vi.fn<() => { data: ProjectSummary | null; isLoading: boolean; isError: boolean }>(
+    () => ({ data: null, isLoading: false, isError: false }),
   ),
 }))
 
@@ -39,6 +45,8 @@ vi.mock("@/hooks/crm", async (importOriginal) => {
     useConvertOportunidad: () => noopMutation,
     useUpdateTarea: () => noopMutation,
     useAddLogEntry: () => noopMutation,
+    useProjectByOportunidad: useProjectByOportunidadMock,
+    useCreateProjectFromOportunidad: () => noopMutation,
   }
 })
 
@@ -158,5 +166,39 @@ describe("OportunidadLifecycleDialog", () => {
     expect(
       screen.queryByText("Sin entradas de bitácora para esta oportunidad."),
     ).not.toBeInTheDocument()
+  })
+
+  // tablero-seguimiento-social (Fase 2b.6, design.md T2): "Crear proyecto"
+  // solo aparece tras la conversión (fase EJECUCION); antes de eso ni el CTA
+  // ni el enlace tienen sentido.
+  it("hides the 'Crear proyecto' CTA while fase is still PROSPECCION", () => {
+    renderDialog(BASE_OPORTUNIDAD)
+
+    expect(screen.queryByRole("button", { name: /Crear proyecto/i })).not.toBeInTheDocument()
+  })
+
+  it("shows the 'Crear proyecto' CTA once fase is EJECUCION and no project exists yet", () => {
+    renderDialog({ ...BASE_OPORTUNIDAD, fase: "EJECUCION" })
+
+    expect(screen.getByRole("button", { name: /Crear proyecto/i })).toBeInTheDocument()
+  })
+
+  it("shows a link to the existing project instead of the CTA once one is linked", () => {
+    useProjectByOportunidadMock.mockReturnValueOnce({
+      data: { id: "proy-1", codigo: "PRY-001", nombre: "Proyecto vinculado" },
+      isLoading: false,
+      isError: false,
+    })
+
+    renderDialog({ ...BASE_OPORTUNIDAD, fase: "EJECUCION" })
+
+    expect(screen.getByRole("link", { name: /Ver proyecto: PRY-001/i })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: /Crear proyecto/i })).not.toBeInTheDocument()
+  })
+
+  it("hides the 'Crear proyecto' CTA when the caller is read-only", () => {
+    renderDialog({ ...BASE_OPORTUNIDAD, fase: "EJECUCION" }, true)
+
+    expect(screen.queryByRole("button", { name: /Crear proyecto/i })).not.toBeInTheDocument()
   })
 })

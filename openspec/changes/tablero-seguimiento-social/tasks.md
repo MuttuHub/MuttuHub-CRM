@@ -52,13 +52,13 @@ Chain strategy: pending
 
 ## Phase 2b: Proyecto CRUD + Conversion Action (PR 2b — Unit 2b)
 
-- [ ] 2b.1 RED: `src/app/api/v1/projects/route.test.ts`, `[id]/route.test.ts` — create/read/update/soft-delete gated by `canManageProject`; invalid `cliente_id` rejected; visualizador-only gets 200 GET / 403 write.
-- [ ] 2b.2 GREEN: create `src/app/api/v1/projects/route.ts`, `[id]/route.ts` — CRUD, soft delete via `deleted_at`.
-- [ ] 2b.3 RED: new `.../clients/[id]/opportunities/[opportunityId]/project/route.test.ts` — 401/403/404 (cliente)/404 (oportunidad)/409 (`fase≠EJECUCION`)/409 (ya vinculada)/400 (zod)/201+audit row.
-- [ ] 2b.4 GREEN: create `.../opportunities/[opportunityId]/project/route.ts` per T2 flow and zod schema (`codigo`/`nombre`/`territorio`/`linea_estrategica`/`fecha_inicio`/`fecha_fin`/`beneficiarios_meta?`/`responsable_id?`); never accepts `cliente_id`/`oportunidad_id` from the body.
-- [ ] 2b.5 GREEN: widen `AuditEntidad` in `src/lib/api/audit.ts` with `"proyecto"`; add label in `src/components/admin/audit-log-section.tsx`.
-- [ ] 2b.6 GREEN: add "Crear proyecto" CTA in `src/components/crm/entity-dialogs.tsx` for oportunidades in `EJECUCION` (pre-fills from the opportunity; shows linked-project link if one exists). No change to the convert action itself.
-- [ ] 2b.7 Verify sentinel again: `convert/route.test.ts` diff-zero, still green (D1-bis).
+- [x] 2b.1 RED: `src/app/api/v1/projects/route.test.ts`, `[id]/route.test.ts` — create/read/update/soft-delete gated by `canManageProject`; invalid `cliente_id` rejected; visualizador-only gets 200 GET / 403 write.
+- [x] 2b.2 GREEN: create `src/app/api/v1/projects/route.ts`, `[id]/route.ts` — CRUD, soft delete via `deleted_at`.
+- [x] 2b.3 RED: new `.../clients/[id]/opportunities/[opportunityId]/project/route.test.ts` — 401/403/404 (cliente)/404 (oportunidad)/409 (`fase≠EJECUCION`)/409 (ya vinculada)/400 (zod)/201+audit row.
+- [x] 2b.4 GREEN: create `.../opportunities/[opportunityId]/project/route.ts` per T2 flow and zod schema (`codigo`/`nombre`/`territorio`/`linea_estrategica`/`fecha_inicio`/`fecha_fin`/`beneficiarios_meta?`/`responsable_id?`); never accepts `cliente_id`/`oportunidad_id` from the body.
+- [x] 2b.5 GREEN: widen `AuditEntidad` in `src/lib/api/audit.ts` with `"proyecto"`; add label in `src/components/admin/audit-log-section.tsx`.
+- [x] 2b.6 GREEN: add "Crear proyecto" CTA in `src/components/crm/entity-dialogs.tsx` for oportunidades in `EJECUCION` (pre-fills from the opportunity; shows linked-project link if one exists). No change to the convert action itself.
+- [x] 2b.7 Verify sentinel again: `convert/route.test.ts` diff-zero, still green (D1-bis).
 
 ## Phase 3a: Metas, Actividades, Semáforo Técnico (PR 3a — Unit 3a)
 
