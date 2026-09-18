@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest"
 import {
+  canCreateProject,
   canEditClient,
   canEditTask,
   canManageAny,
   canManageOpportunity,
+  canManageProject,
+  canViewManagementDashboard,
+  canViewProject,
   hasCommercialAccess,
 } from "./permissions"
 
@@ -133,4 +137,108 @@ describe("canManageOpportunity", () => {
       ),
     ).toBe(false)
   })
+})
+
+describe("canViewManagementDashboard", () => {
+  // D3: 4 roles x flag on/off. canManageAny roles see the dashboard
+  // regardless of the flag; COLABORADOR needs the flag explicitly.
+  it.each([
+    ["ADMINISTRADOR", false, true],
+    ["ADMINISTRADOR", true, true],
+    ["GERENCIA", false, true],
+    ["GERENCIA", true, true],
+    ["COORDINADOR", false, true],
+    ["COORDINADOR", true, true],
+    ["COLABORADOR", false, false],
+    ["COLABORADOR", true, true],
+  ] as const)(
+    "rol=%s puede_ver_tablero_gerencial=%s -> %s",
+    (rol, puede_ver_tablero_gerencial, expected) => {
+      expect(
+        canViewManagementDashboard({
+          id: "me",
+          rol,
+          puede_ver_tablero_gerencial,
+        }),
+      ).toBe(expected)
+    },
+  )
+})
+
+describe("canCreateProject", () => {
+  it.each([
+    ["ADMINISTRADOR", true],
+    ["GERENCIA", true],
+    ["COORDINADOR", true],
+    ["COLABORADOR", false],
+  ] as const)("rol=%s -> %s", (rol, expected) => {
+    expect(canCreateProject({ id: "me", rol })).toBe(expected)
+  })
+})
+
+describe("canManageProject", () => {
+  // T9: canManageAny roles always manage; COLABORADOR only as the project's
+  // own responsable_id. Mirrors canEditClient exactly.
+  it.each([
+    ["ADMINISTRADOR", "someone-else", true],
+    ["GERENCIA", "someone-else", true],
+    ["COORDINADOR", "someone-else", true],
+    ["COLABORADOR", "me", true],
+    ["COLABORADOR", "someone-else", false],
+  ] as const)("rol=%s responsable_id=%s -> %s", (rol, responsable_id, expected) => {
+    expect(
+      canManageProject({ responsable_id }, { id: "me", rol }),
+    ).toBe(expected)
+  })
+
+  // Mandatory cell (D3): puede_ver_tablero_gerencial is a READ-only axis. A
+  // COLABORADOR with the flag on, not the project's responsable, must NOT
+  // gain write access from the flag alone — this is the core distinction
+  // the whole predicate design rests on.
+  it("COLABORADOR with puede_ver_tablero_gerencial: true, not the responsable -> canManageProject false (flag never composes into write)", () => {
+    const actor: import("./permissions").ProjectActor = {
+      id: "me",
+      rol: "COLABORADOR",
+      puede_ver_tablero_gerencial: true,
+    }
+    expect(
+      canManageProject({ responsable_id: "someone-else" }, actor),
+    ).toBe(false)
+  })
+
+  it("mandatory cell: COLABORADOR + flag -> canViewManagementDashboard true AND canManageProject false (view access != manage access)", () => {
+    const actor: import("./permissions").ProjectActor = {
+      id: "me",
+      rol: "COLABORADOR",
+      puede_ver_tablero_gerencial: true,
+    }
+    expect(canViewManagementDashboard(actor)).toBe(true)
+    expect(canManageProject({ responsable_id: "someone-else" }, actor)).toBe(false)
+  })
+})
+
+describe("canViewProject", () => {
+  // Full cube: 4 roles x flag on/off x responsable yes/no.
+  it.each([
+    ["ADMINISTRADOR", false, "someone-else", true],
+    ["ADMINISTRADOR", true, "someone-else", true],
+    ["GERENCIA", false, "someone-else", true],
+    ["GERENCIA", true, "someone-else", true],
+    ["COORDINADOR", false, "someone-else", true],
+    ["COORDINADOR", true, "someone-else", true],
+    ["COLABORADOR", false, "me", true],
+    ["COLABORADOR", false, "someone-else", false],
+    ["COLABORADOR", true, "me", true],
+    ["COLABORADOR", true, "someone-else", true],
+  ] as const)(
+    "rol=%s puede_ver_tablero_gerencial=%s responsable_id=%s -> %s",
+    (rol, puede_ver_tablero_gerencial, responsable_id, expected) => {
+      expect(
+        canViewProject(
+          { responsable_id },
+          { id: "me", rol, puede_ver_tablero_gerencial },
+        ),
+      ).toBe(expected)
+    },
+  )
 })

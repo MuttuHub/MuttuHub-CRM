@@ -19,6 +19,7 @@ const USER_SELECT = {
   rol: true,
   activo: true,
   gestiona_oportunidades: true,
+  puede_ver_tablero_gerencial: true,
   created_at: true,
 } as const;
 
@@ -38,6 +39,7 @@ export const PATCH = withApiErrorHandling(
       activo?: boolean;
       nombre?: string;
       gestiona_oportunidades?: boolean;
+      puede_ver_tablero_gerencial?: boolean;
     }>(request);
 
     const data: {
@@ -45,6 +47,7 @@ export const PATCH = withApiErrorHandling(
       activo?: boolean;
       nombre?: string;
       gestiona_oportunidades?: boolean;
+      puede_ver_tablero_gerencial?: boolean;
     } = {};
 
     if (body?.rol !== undefined) {
@@ -68,6 +71,12 @@ export const PATCH = withApiErrorHandling(
     // guards A/B below (those exist to protect role-based full access).
     if (body?.gestiona_oportunidades !== undefined) {
       data.gestiona_oportunidades = Boolean(body.gestiona_oportunidades);
+    }
+    // D3 (tablero-seguimiento-social): orthogonal READ-only flag, same shape
+    // as gestiona_oportunidades — grants only dashboard visibility, never
+    // composes into any write predicate, so it skips guards A/B too.
+    if (body?.puede_ver_tablero_gerencial !== undefined) {
+      data.puede_ver_tablero_gerencial = Boolean(body.puede_ver_tablero_gerencial);
     }
 
     if (Object.keys(data).length === 0) {

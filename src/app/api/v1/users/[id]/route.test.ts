@@ -203,6 +203,27 @@ describe("PATCH /api/v1/users/:id", () => {
     );
   });
 
+  it("accepts puede_ver_tablero_gerencial in the PATCH body (D3, tablero-seguimiento-social)", async () => {
+    vi.mocked(db.usuario.findUnique).mockResolvedValue(other);
+    vi.mocked(db.usuario.update).mockResolvedValue({
+      ...other,
+      puede_ver_tablero_gerencial: true,
+    });
+
+    const res = await PATCH(
+      patchRequest({ puede_ver_tablero_gerencial: true }),
+      routeContext,
+    );
+
+    expect(res.status).toBe(200);
+    expect(db.usuario.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "user-2" },
+        data: { puede_ver_tablero_gerencial: true },
+      }),
+    );
+  });
+
   it("does not run admin guards when updating a non-admin user", async () => {
     vi.mocked(db.usuario.findUnique).mockResolvedValue(other);
     vi.mocked(db.usuario.update).mockResolvedValue({

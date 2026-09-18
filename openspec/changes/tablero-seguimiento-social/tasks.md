@@ -45,10 +45,10 @@ Chain strategy: pending
 
 ## Phase 2a: Permissions + Access Control (PR 2a — Unit 2a)
 
-- [ ] 2a.1 RED: extend `src/lib/permissions.test.ts` — matrix for `canViewManagementDashboard`/`canCreateProject`/`canManageProject`/`canViewProject` across 4 roles × flag on/off × responsable yes/no; mandatory cell: COLABORADOR+flag → `canViewManagementDashboard` true AND `canManageProject` false.
-- [ ] 2a.2 GREEN: add `ProjectActor` type + the 4 predicates to `src/lib/permissions.ts` (T9's `responsable_id` axis on `canManageProject`, extension declared in design.md).
-- [ ] 2a.3 GREEN: add `puede_ver_tablero_gerencial` admin toggle to `src/components/admin/users-table.tsx` (mirrors the existing `gestiona_oportunidades` toggle).
-- [ ] 2a.4 GREEN: create `src/lib/api/projects.ts` — `loadProjectScoped`, `getProjectForWrite`, `PROJECT_SELECT`, `toProjectItem` (T10, mirrors `getClientForOpportunityWrite` shape).
+- [x] 2a.1 RED: extend `src/lib/permissions.test.ts` — matrix for `canViewManagementDashboard`/`canCreateProject`/`canManageProject`/`canViewProject` across 4 roles × flag on/off × responsable yes/no; mandatory cell: COLABORADOR+flag → `canViewManagementDashboard` true AND `canManageProject` false.
+- [x] 2a.2 GREEN: add `ProjectActor` type + the 4 predicates to `src/lib/permissions.ts` (T9's `responsable_id` axis on `canManageProject`, extension declared in design.md).
+- [x] 2a.3 GREEN: add `puede_ver_tablero_gerencial` admin toggle to `src/components/admin/users-table.tsx` (mirrors the existing `gestiona_oportunidades` toggle).
+- [x] 2a.4 GREEN: create `src/lib/api/projects.ts` — `loadProjectScoped`, `getProjectForWrite`, `PROJECT_SELECT`, `toProjectItem` (T10, mirrors `getClientForOpportunityWrite` shape).
 
 ## Phase 2b: Proyecto CRUD + Conversion Action (PR 2b — Unit 2b)
 
