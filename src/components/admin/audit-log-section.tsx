@@ -35,6 +35,9 @@ const ENTIDAD_LABELS: Record<AuditEntidad, { label: string; tone: "info" | "acti
   documento: { label: "Documento", tone: "neutro" },
   oportunidad: { label: "Oportunidad", tone: "info" },
   proyecto: { label: "Proyecto", tone: "activo" },
+  presupuesto: { label: "Presupuesto", tone: "activo" },
+  actividad: { label: "Actividad", tone: "info" },
+  soporte: { label: "Soporte", tone: "neutro" },
 };
 
 const ACCION_LABELS: Record<AuditAccion, { label: string; tone: "exito" | "info" | "destructivo" | "neutro" }> = {
@@ -122,6 +125,9 @@ export function AuditLogSection() {
             <SelectItem value="documento">Documentos</SelectItem>
             <SelectItem value="oportunidad">Oportunidades</SelectItem>
             <SelectItem value="proyecto">Proyectos</SelectItem>
+            <SelectItem value="presupuesto">Presupuesto</SelectItem>
+            <SelectItem value="actividad">Actividades</SelectItem>
+            <SelectItem value="soporte">Soportes</SelectItem>
           </SelectContent>
         </Select>
       </div>

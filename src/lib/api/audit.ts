@@ -30,7 +30,24 @@ import { db } from "@/lib/db";
 // tablero-seguimiento-social (design.md, Fase 2b.5): "proyecto" covers the
 // Proyecto CRUD and the crear-desde-oportunidad action. `AuditAccion` does
 // NOT change — crear/editar/eliminar already cover every Proyecto write.
-export type AuditEntidad = "cliente" | "tarea" | "documento" | "oportunidad" | "proyecto";
+//
+// tablero-seguimiento-social (design.md, Fase 4a.5): "presupuesto",
+// "actividad" and "soporte" land here — deliberately deferred from Fases
+// 3a/3b (see those units' apply-progress notes) until a real call site
+// needed them. "presupuesto" is used starting this same batch by
+// `projects/[id]/budget/route.ts` and `expenses/**/route.ts`. The Fase
+// 3a/3b route files (`activities/route.ts`, `attachments/route.ts`) are
+// NOT touched in this batch — retrofitting `logAudit` calls into them is a
+// declared, optional backfill left for a later batch, not silently done.
+export type AuditEntidad =
+  | "cliente"
+  | "tarea"
+  | "documento"
+  | "oportunidad"
+  | "proyecto"
+  | "presupuesto"
+  | "actividad"
+  | "soporte";
 export type AuditAccion = "crear" | "editar" | "eliminar" | "exportar" | "convertir";
 
 export async function logAudit(params: {
