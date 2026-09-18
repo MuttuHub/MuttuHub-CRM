@@ -95,6 +95,34 @@ enum TipoNotificacion {
   POR_VENCER
 }
 
+// tablero-seguimiento-social (RF-01, D5): lista cerrada de líneas
+// estratégicas nombradas por el documento de origen. Un enum obliga a
+// migración por cada valor nuevo — aceptable porque el documento cierra la
+// lista, a diferencia de Rubro (D5), que sí necesita ser administrable.
+enum LineaEstrategica {
+  EMPLEABILIDAD
+  EMPRENDIMIENTO
+  PRODUCTIVIDAD
+  CULTURAL
+  SOCIAL
+  CIVICO_POLITICO
+  METODO_MUTTU
+  AMBIENTAL
+}
+
+enum EstadoProyecto {
+  PLANIFICACION
+  EN_EJECUCION
+  SUSPENDIDO
+  CERRADO
+  CANCELADO
+}
+
+enum TipoSoporte {
+  VERIFICACION // RF-04: medio de verificación de un entregable
+  LEGALIZACION // RF-06: factura, cuenta de cobro, planilla
+}
+
 // ─────────────────────────────────────────
 // MODELOS
 // ─────────────────────────────────────────
@@ -109,6 +137,13 @@ model Usuario {
   // por la migración para los COLABORADORES responsables de clientes con al
   // menos una oportunidad viva, así el deploy no deja a nadie sin acceso.
   gestiona_oportunidades Boolean    @default(false)
+  // tablero-seguimiento-social (RNF-01, D3): eje ortogonal a `rol`, mismo
+  // precedente que `gestiona_oportunidades`. Otorga solo LECTURA del
+  // Tablero de Control Gerencial — nunca compone en un predicado de
+  // escritura. Sin seed: nadie tiene hoy este acceso, así que arrancar en
+  // false no le quita capacidad a nadie (a diferencia de D3 del change
+  // anterior, que sí necesitó un seed de restitución).
+  puede_ver_tablero_gerencial Boolean @default(false)
   created_at             DateTime   @default(now())
   updated_at             DateTime   @updatedAt
 
@@ -119,6 +154,7 @@ model Usuario {
   notificaciones     Notificacion[]
   accesos            Acceso[] // PRD §3.3
   auditorias         Auditoria[]
+  proyectos_responsable Proyecto[] @relation("ProyectosResponsable")
 
   @@map("usuarios")
 }
@@ -148,6 +184,8 @@ model Cliente {
   tareas        Tarea[]
   bitacora      BitacoraEntrada[]
   documentos    DocumentoCliente[]
+  // tablero-seguimiento-social (RF-01): lado inverso únicamente, sin columna.
+  proyectos     Proyecto[]
 
   @@map("clientes")
 }
@@ -198,6 +236,9 @@ model Oportunidad {
   cliente  Cliente           @relation(fields: [cliente_id], references: [id])
   tareas   Tarea[]
   bitacora BitacoraEntrada[]
+  // tablero-seguimiento-social (D1): lado inverso del vínculo opcional y
+  // único hacia Proyecto — cero columnas nuevas aquí, la FK vive en Proyecto.
+  proyecto Proyecto?
 
   // Objetivo de la FK compuesta de Tarea/BitacoraEntrada (D1): garantiza a
   // nivel de base de datos que una tarea u entrada de bitácora vinculada a
@@ -313,6 +354,9 @@ model Documento {
   versiones      DocumentoVersion[]
   clientes       DocumentoCliente[]
   adjuntos_tarea AdjuntoTarea[] // QA audit finding #12: espejo del adjunto de origen, si lo hay
+  // tablero-seguimiento-social (D8): espejo opcional de un soporte de
+  // proyecto, mismo contrato que adjuntos_tarea (sin cascada).
+  soportes_proyecto SoporteProyecto[]
 
   // El listado por defecto filtra deleted_at y ordena por created_at desc.
   @@index([deleted_at, created_at])
@@ -492,4 +536,222 @@ model Setting {
   created_at DateTime @default(now())
 
   @@map("settings")
+}
+
+// ─────────────────────────────────────────
+// tablero-seguimiento-social — Tablero de Seguimiento y Gestión de
+// Proyectos de Impacto Social (RF-01..RF-07, 3.4, RNF-01..03). Módulo nuevo,
+// enteramente aditivo, colgado de Cliente con un vínculo opcional y único
+// hacia la Oportunidad que lo originó (D1). Ver openspec/changes/
+// tablero-seguimiento-social/design.md para el racional completo de cada
+// decisión referenciada abajo.
+// ─────────────────────────────────────────
+
+model Proyecto {
+  id                 String           @id @default(uuid())
+  codigo             String           @unique // RF-01: código de proyecto
+  nombre             String
+  cliente_id         String
+  // D1: vínculo opcional y único con la oportunidad que originó el proyecto.
+  // NO se escribe desde convert/route.ts — solo desde la acción dedicada
+  // (T2, fase 2b de este change). @unique impide dos proyectos sobre la
+  // misma oportunidad.
+  oportunidad_id     String?          @unique
+  territorio         String
+  linea_estrategica  LineaEstrategica
+  fecha_inicio       DateTime
+  fecha_fin          DateTime
+  estado             EstadoProyecto   @default(PLANIFICACION)
+  // D6: contador, no registro nominal de personas (habeas data). Los
+  // atendidos se derivan de Indicador.cuenta_beneficiarios.
+  beneficiarios_meta Int              @default(0)
+  responsable_id     String
+  // D10/T5: override opcional de los umbrales de semáforo para este proyecto.
+  // null = usa el default de organización de la tabla `settings`. Nunca se
+  // comparan constantes de código.
+  umbrales_override  Json?
+  created_at         DateTime         @default(now())
+  updated_at         DateTime         @updatedAt
+  deleted_at         DateTime?
+
+  cliente     Cliente             @relation(fields: [cliente_id], references: [id])
+  responsable Usuario             @relation("ProyectosResponsable", fields: [responsable_id], references: [id])
+  // Relación compuesta (T1): comparte el escalar `cliente_id` con la relación
+  // `cliente` de arriba. Esa superposición ES el invariante — hace
+  // imposible, a nivel de base de datos, que un proyecto apunte a una
+  // oportunidad de un cliente distinto al suyo. NoAction es obligatorio
+  // cuando dos relaciones comparten un escalar (Prisma rechaza las rutas de
+  // cascada en conflicto); el borrado del proyecto es lógico de todos modos.
+  oportunidad Oportunidad?        @relation(fields: [oportunidad_id, cliente_id], references: [id, cliente_id], onDelete: NoAction, onUpdate: NoAction)
+  metas       Meta[]
+  actividades Actividad[]
+  lineas      LineaPresupuestal[]
+  gastos      Gasto[]
+  indicadores Indicador[]
+  soportes    SoporteProyecto[]
+
+  @@index([cliente_id, estado])
+  @@index([deleted_at])
+  // Prisma exige que el lado que define una relación uno-a-uno tenga un
+  // @@unique sobre exactamente los campos de la FK compuesta — @unique en
+  // oportunidad_id solo no basta para esa validación (a diferencia de
+  // Tarea↔Oportunidad, que es uno-a-muchos). Redundante con el @unique de
+  // arriba a nivel de dato (oportunidad_id ya es único por sí solo), pero es
+  // el único índice que Prisma acepta como objetivo de esta relación 1-a-1.
+  @@unique([oportunidad_id, cliente_id])
+  @@map("proyectos")
+}
+
+model Meta {
+  id          String    @id @default(uuid())
+  proyecto_id String
+  nombre      String
+  descripcion String?
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  deleted_at  DateTime?
+
+  proyecto    Proyecto    @relation(fields: [proyecto_id], references: [id])
+  actividades Actividad[]
+  indicadores Indicador[]
+
+  // Objetivo de la FK compuesta de Actividad (D2): garantiza en base de datos
+  // que una actividad solo pueda apuntar a una meta de SU mismo proyecto.
+  @@unique([id, proyecto_id])
+  @@index([proyecto_id])
+  @@map("metas")
+}
+
+model Actividad {
+  id                String    @id @default(uuid())
+  proyecto_id       String
+  meta_id           String // RF-02: toda actividad declara su meta. NOT NULL.
+  nombre            String
+  descripcion       String?
+  peso              Int       @default(1) // ponderación del avance (CHECK > 0)
+  fecha_planificada DateTime // línea base
+  fecha_real        DateTime? // null = aún sin resolver (ni a tiempo ni tarde)
+  porcentaje_avance Int       @default(0) // CHECK 0..100
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  deleted_at        DateTime?
+
+  proyecto Proyecto          @relation(fields: [proyecto_id], references: [id])
+  meta     Meta              @relation(fields: [meta_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
+  soportes SoporteProyecto[]
+
+  @@unique([id, proyecto_id]) // objetivo de la FK compuesta de SoporteProyecto (T8)
+  @@index([proyecto_id, fecha_planificada]) // D9: clave de fecha del cronograma
+  @@index([meta_id])
+  @@index([deleted_at])
+  @@map("actividades")
+}
+
+model Rubro {
+  id         String    @id @default(uuid())
+  nombre     String    @unique
+  activo     Boolean   @default(true) // false = no ofrecible en líneas nuevas, histórico intacto
+  orden      Int       @default(0)
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  deleted_at DateTime?
+
+  lineas LineaPresupuestal[]
+
+  @@map("rubros")
+}
+
+model LineaPresupuestal {
+  id                   String    @id @default(uuid())
+  proyecto_id          String
+  rubro_id             String
+  monto_proyectado_cop Decimal   @db.Decimal(15, 2) // D4: COP únicamente
+  created_at           DateTime  @default(now())
+  updated_at           DateTime  @updatedAt
+  deleted_at           DateTime?
+
+  proyecto Proyecto @relation(fields: [proyecto_id], references: [id])
+  rubro    Rubro    @relation(fields: [rubro_id], references: [id])
+  gastos   Gasto[]
+
+  @@unique([proyecto_id, rubro_id]) // T4: una línea por rubro y proyecto
+  @@unique([id, proyecto_id]) // objetivo de la FK compuesta de Gasto
+  @@index([proyecto_id])
+  @@map("lineas_presupuestales")
+}
+
+model Gasto {
+  id                String    @id @default(uuid())
+  proyecto_id       String
+  linea_id          String
+  concepto          String
+  monto_cop         Decimal   @db.Decimal(15, 2)
+  fecha_gasto       DateTime
+  registrado_por_id String
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  deleted_at        DateTime?
+
+  proyecto Proyecto          @relation(fields: [proyecto_id], references: [id])
+  // RF-06: la trazabilidad contable al rubro es por FK garantizada
+  // (gasto -> linea -> rubro), nunca por un string copiado en el gasto.
+  linea    LineaPresupuestal @relation(fields: [linea_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
+  soportes SoporteProyecto[]
+
+  @@unique([id, proyecto_id]) // objetivo de la FK compuesta de SoporteProyecto
+  @@index([proyecto_id, fecha_gasto])
+  @@index([linea_id])
+  @@map("gastos")
+}
+
+model Indicador {
+  id                   String    @id @default(uuid())
+  proyecto_id          String
+  meta_id              String?
+  nombre               String
+  unidad               String
+  meta_valor           Decimal   @db.Decimal(15, 2)
+  // null = sin medir. Un indicador sin valor_actual NUNCA cuenta como cumplido.
+  valor_actual         Decimal?  @db.Decimal(15, 2)
+  // D6: marca los indicadores poblacionales que alimentan
+  // "Beneficiarios Atendidos". Sin tabla de personas.
+  cuenta_beneficiarios Boolean   @default(false)
+  created_at           DateTime  @default(now())
+  updated_at           DateTime  @updatedAt
+  deleted_at           DateTime?
+
+  proyecto Proyecto @relation(fields: [proyecto_id], references: [id])
+  meta     Meta?    @relation(fields: [meta_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([proyecto_id])
+  @@map("indicadores")
+}
+
+model SoporteProyecto {
+  id            String      @id @default(uuid())
+  proyecto_id   String
+  actividad_id  String? // RF-04
+  gasto_id      String? // RF-06
+  tipo          TipoSoporte
+  nombre        String // obligatorio en ambos casos (D8)
+  // D8: XOR en base de datos. Exactamente uno de los dos no nulo.
+  storage_path  String?
+  url_externa   String? // solo esquema https (CHECK + validación zod)
+  tamano_bytes  Int?
+  // Espejo opcional al Repositorio de Documentos, mismo contrato que
+  // AdjuntoTarea: nullable y sin cascada.
+  documento_id  String?
+  subido_por_id String
+  created_at    DateTime    @default(now())
+  deleted_at    DateTime?
+
+  proyecto  Proyecto   @relation(fields: [proyecto_id], references: [id])
+  actividad Actividad? @relation(fields: [actividad_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
+  gasto     Gasto?     @relation(fields: [gasto_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
+  documento Documento? @relation(fields: [documento_id], references: [id])
+
+  @@index([proyecto_id])
+  @@index([actividad_id])
+  @@index([gasto_id])
+  @@map("soportes_proyecto")
 }
