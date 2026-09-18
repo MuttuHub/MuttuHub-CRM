@@ -4,8 +4,8 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { LoaderCircle, Rocket, Target } from "lucide-react";
-import type { EstadoOportunidad, RolContacto } from "@prisma/client";
+import { LoaderCircle, Rocket, Target, FolderPlus } from "lucide-react";
+import type { EstadoOportunidad, LineaEstrategica, RolContacto } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,6 +27,7 @@ import {
 import {
   ENUM_VALUES,
   ESTADO_OPORTUNIDAD_LABELS,
+  LINEA_ESTRATEGICA_LABELS,
   ROL_CONTACTO_LABELS,
 } from "@/lib/catalogs";
 import {
@@ -36,12 +37,15 @@ import {
   useConvertOportunidad,
   useCreateContacto,
   useCreateOportunidad,
+  useCreateProjectFromOportunidad,
+  useProjectByOportunidad,
   useTasksByClient,
   useTasksByOportunidad,
   useUpdateContacto,
   useUpdateOportunidad,
   useUpdateTarea,
   type Contacto,
+  type CreateProjectFromOportunidadInput,
   type Oportunidad,
   type OportunidadInput,
   type TaskItem,
@@ -586,6 +590,231 @@ function FaseBadge({ fase }: { fase: Oportunidad["fase"] }) {
   );
 }
 
+/**
+ * tablero-seguimiento-social (Fase 2b.6, design.md T2): "Crear proyecto
+ * desde oportunidad ganada". Prefills `nombre` from the opportunity and
+ * `fecha_inicio` from `fecha_adjudicacion` (both editable) — cliente_id and
+ * oportunidad_id are NEVER part of this form; they come from the URL on the
+ * server side (T2), same invariant as the Convert action.
+ */
+function CrearProyectoDialog({
+  clientId,
+  oportunidadId,
+  oportunidadNombre,
+  fechaSugerida,
+  open,
+  onOpenChange,
+}: {
+  clientId: string;
+  oportunidadId: string;
+  oportunidadNombre: string;
+  fechaSugerida: string | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const createMutation = useCreateProjectFromOportunidad(clientId, oportunidadId);
+
+  const [form, setForm] = useState({
+    codigo: "",
+    nombre: oportunidadNombre,
+    territorio: "",
+    linea_estrategica: ENUM_VALUES.LineaEstrategica[0] as LineaEstrategica,
+    fecha_inicio: toDateValue(fechaSugerida),
+    fecha_fin: "",
+    beneficiarios_meta: "",
+  });
+  const [error, setError] = useState<string | null>(null);
+
+  const formKey = `${open ? "open" : "closed"}:${oportunidadId}`;
+  const [lastKey, setLastKey] = useState(formKey);
+  if (formKey !== lastKey) {
+    setLastKey(formKey);
+    if (open) {
+      setError(null);
+      setForm({
+        codigo: "",
+        nombre: oportunidadNombre,
+        territorio: "",
+        linea_estrategica: ENUM_VALUES.LineaEstrategica[0] as LineaEstrategica,
+        fecha_inicio: toDateValue(fechaSugerida),
+        fecha_fin: "",
+        beneficiarios_meta: "",
+      });
+    }
+  }
+
+  function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
+    setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    if (!form.codigo.trim()) return setError("El código de proyecto es obligatorio.");
+    if (!form.nombre.trim()) return setError("El nombre es obligatorio.");
+    if (!form.territorio.trim()) return setError("El territorio es obligatorio.");
+    if (!form.fecha_inicio) return setError("La fecha de inicio es obligatoria.");
+    if (!form.fecha_fin) return setError("La fecha de fin es obligatoria.");
+
+    const payload: CreateProjectFromOportunidadInput = {
+      codigo: form.codigo.trim(),
+      nombre: form.nombre.trim(),
+      territorio: form.territorio.trim(),
+      linea_estrategica: form.linea_estrategica,
+      fecha_inicio: form.fecha_inicio,
+      fecha_fin: form.fecha_fin,
+      beneficiarios_meta: form.beneficiarios_meta ? Number(form.beneficiarios_meta) : undefined,
+    };
+
+    try {
+      await createMutation.mutateAsync(payload);
+      onOpenChange(false);
+    } catch {
+      /* toast handled by the hook */
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[88dvh] overflow-y-auto rounded-[22px] sm:max-w-[min(560px,calc(100%-2rem))]">
+        <DialogHeader>
+          <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
+            Crear proyecto
+          </DialogTitle>
+          <DialogDescription>
+            Proyecto de impacto social originado desde esta oportunidad adjudicada.
+          </DialogDescription>
+        </DialogHeader>
+
+        {error && (
+          <div
+            role="alert"
+            className="rounded-12 border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
+          >
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="proyecto-codigo">
+                Código <span className="text-rose-500">*</span>
+              </Label>
+              <Input
+                id="proyecto-codigo"
+                required
+                value={form.codigo}
+                onChange={(e) => set("codigo", e.target.value)}
+                placeholder="Ej. PRY-2026-014"
+                className="h-10 rounded-12 bg-panel px-3"
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="proyecto-nombre">
+                Nombre <span className="text-rose-500">*</span>
+              </Label>
+              <Input
+                id="proyecto-nombre"
+                required
+                value={form.nombre}
+                onChange={(e) => set("nombre", e.target.value)}
+                className="h-10 rounded-12 bg-panel px-3"
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="proyecto-territorio">
+                Territorio <span className="text-rose-500">*</span>
+              </Label>
+              <Input
+                id="proyecto-territorio"
+                required
+                value={form.territorio}
+                onChange={(e) => set("territorio", e.target.value)}
+                placeholder="Ej. Barranquilla"
+                className="h-10 rounded-12 bg-panel px-3"
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label>Línea estratégica</Label>
+              <Select
+                value={form.linea_estrategica}
+                onValueChange={(v) => set("linea_estrategica", v as LineaEstrategica)}
+              >
+                <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ENUM_VALUES.LineaEstrategica.map((l) => (
+                    <SelectItem key={l} value={l}>
+                      {LINEA_ESTRATEGICA_LABELS[l as LineaEstrategica].label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="proyecto-fecha-inicio">
+                Fecha de inicio <span className="text-rose-500">*</span>
+              </Label>
+              <Input
+                id="proyecto-fecha-inicio"
+                type="date"
+                required
+                value={form.fecha_inicio}
+                onChange={(e) => set("fecha_inicio", e.target.value)}
+                className="h-10 rounded-12 bg-panel px-3"
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="proyecto-fecha-fin">
+                Fecha de fin <span className="text-rose-500">*</span>
+              </Label>
+              <Input
+                id="proyecto-fecha-fin"
+                type="date"
+                required
+                value={form.fecha_fin}
+                onChange={(e) => set("fecha_fin", e.target.value)}
+                className="h-10 rounded-12 bg-panel px-3"
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="proyecto-beneficiarios">Beneficiarios meta</Label>
+              <Input
+                id="proyecto-beneficiarios"
+                type="number"
+                min="0"
+                inputMode="numeric"
+                value={form.beneficiarios_meta}
+                onChange={(e) => set("beneficiarios_meta", e.target.value)}
+                placeholder="0"
+                className="h-10 rounded-12 bg-panel px-3 font-mono text-[13px]"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={createMutation.isPending} className="rounded-lg px-4 font-bold">
+              {createMutation.isPending && <LoaderCircle className="size-4 animate-spin" />}
+              {createMutation.isPending ? "Creando…" : "Crear proyecto"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function OportunidadLifecycleDialog({
   clientId,
   open,
@@ -607,9 +836,14 @@ export function OportunidadLifecycleDialog({
   const convertMutation = useConvertOportunidad(clientId, oportunidadId ?? "");
   const linkTaskMutation = useUpdateTarea();
   const addLogMutation = useAddLogEntry(clientId);
+  // tablero-seguimiento-social (Fase 2b.6): existencia previa gatea CTA vs. enlace.
+  const projectQuery = useProjectByOportunidad(
+    oportunidad?.fase === "EJECUCION" ? oportunidadId : null,
+  );
 
   const [selectedTaskId, setSelectedTaskId] = useState("");
   const [nota, setNota] = useState("");
+  const [crearProyectoOpen, setCrearProyectoOpen] = useState(false);
 
   if (!oportunidad) {
     return (
@@ -645,6 +879,7 @@ export function OportunidadLifecycleDialog({
   }
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[88dvh] overflow-y-auto rounded-[22px] sm:max-w-[min(620px,calc(100%-2rem))]">
         <DialogHeader>
@@ -701,6 +936,32 @@ export function OportunidadLifecycleDialog({
               Convertir a ejecución
             </Button>
           )}
+
+          {/* tablero-seguimiento-social (Fase 2b.6, D1/T2): la acción "Crear
+              proyecto" solo tiene sentido tras la conversión (fase EJECUCION).
+              El servidor sigue siendo la autoridad (canCreateProject) —
+              readOnly aquí solo evita mostrar un CTA que de todos modos
+              respondería 403, igual que "Vincular"/"Agregar" abajo. */}
+          {!readOnly &&
+            oportunidad.fase === "EJECUCION" &&
+            (projectQuery.data ? (
+              <a
+                href={`/proyectos/${projectQuery.data.id}`}
+                className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-ink-200 bg-panel px-4 py-2 text-[13px] font-bold text-ink-800 hover:bg-ink-100"
+              >
+                <FolderPlus className="size-4" strokeWidth={1.9} />
+                Ver proyecto: {projectQuery.data.codigo}
+              </a>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => setCrearProyectoOpen(true)}
+                className="w-fit rounded-lg px-4 font-bold"
+              >
+                <FolderPlus className="size-4" strokeWidth={1.9} />
+                Crear proyecto
+              </Button>
+            ))}
 
           <div className="flex flex-col gap-2">
             <p className="text-[13px] font-bold text-ink-900">
@@ -792,5 +1053,14 @@ export function OportunidadLifecycleDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <CrearProyectoDialog
+      clientId={clientId}
+      oportunidadId={oportunidad.id}
+      oportunidadNombre={oportunidad.nombre}
+      fechaSugerida={oportunidad.fecha_adjudicacion}
+      open={crearProyectoOpen}
+      onOpenChange={setCrearProyectoOpen}
+    />
+    </>
   );
 }
