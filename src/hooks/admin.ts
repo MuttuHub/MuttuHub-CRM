@@ -42,7 +42,18 @@ export type AccesosResponse = {
 // Documento), separada de la de accesos (solo login).
 // tablero-seguimiento-social (Fase 2b.5): "proyecto" se sumó en
 // src/lib/api/audit.ts y este espejo del lado cliente debe seguirlo.
-export type AuditEntidad = "cliente" | "tarea" | "documento" | "oportunidad" | "proyecto";
+// tablero-seguimiento-social (Fase 4a.5): "presupuesto"/"actividad"/"soporte"
+// se sumaron ahí también — mismo riesgo de desfase ya señalado por la Fase
+// 2b.5 arriba, así que este espejo se actualiza en el mismo commit.
+export type AuditEntidad =
+  | "cliente"
+  | "tarea"
+  | "documento"
+  | "oportunidad"
+  | "proyecto"
+  | "presupuesto"
+  | "actividad"
+  | "soporte";
 // Debe reflejar src/lib/api/audit.ts (server) — "exportar" se sumó ahí en el
 // PR 6 (close-phase-1) y este espejo del lado cliente quedó desactualizado,
 // lo que tumbaba /administracion (ver audit-log-section.tsx).

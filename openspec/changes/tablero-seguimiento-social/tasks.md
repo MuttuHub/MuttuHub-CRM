@@ -79,11 +79,11 @@ Chain strategy: pending
 
 ## Phase 4a: Budget — Rubros, Líneas, Gastos (PR 4a — Unit 4a)
 
-- [ ] 4a.1 RED: `rubros/route.test.ts` — inactive `rubro` excluded from new-line options but preserved on historic lines; write gated by `requireApiRole(["ADMINISTRADOR"])`.
-- [ ] 4a.2 GREEN: create `rubros/route.ts`, `[id]/route.ts`.
-- [ ] 4a.3 RED: `budget/route.test.ts` — invalid `rubro_id` rejected; aggregation groups proyectado/ejecutado by `rubro_id` without mixing; 2 `gastos` on 1 línea don't double the proyectado (`LEFT JOIN LATERAL` trap called out in design.md risks).
-- [ ] 4a.4 GREEN: create `projects/[id]/budget/route.ts`, `expenses/route.ts` — `monto_ejecutado_cop` derived via `SUM`, never a counter column (T3).
-- [ ] 4a.5 GREEN: widen `AuditEntidad` with `"presupuesto"`, `"actividad"`, `"soporte"`; sync `src/hooks/admin.ts` label maps.
+- [x] 4a.1 RED: `rubros/route.test.ts` — inactive `rubro` excluded from new-line options but preserved on historic lines; write gated by `requireApiRole(["ADMINISTRADOR"])`.
+- [x] 4a.2 GREEN: create `rubros/route.ts`, `[id]/route.ts`.
+- [x] 4a.3 RED: `budget/route.test.ts` — invalid `rubro_id` rejected; aggregation groups proyectado/ejecutado by `rubro_id` without mixing; 2 `gastos` on 1 línea don't double the proyectado (double-counting trap called out in design.md risks — see Deviations in apply-progress: implemented as `findMany`+JS aggregation per repo's established SMALL-volume pattern, not the raw `LEFT JOIN LATERAL` SQL, which design.md reserves for the cross-project Unit 4b dashboard endpoint).
+- [x] 4a.4 GREEN: create `projects/[id]/budget/route.ts`, `expenses/route.ts` (+ `expenses/[expenseId]/route.ts` for edit/delete) — `monto_ejecutado_cop` derived via `SUM`, never a counter column (T3).
+- [x] 4a.5 GREEN: widen `AuditEntidad` with `"presupuesto"`, `"actividad"`, `"soporte"`; sync `src/hooks/admin.ts` label maps; add UI labels in `src/components/admin/audit-log-section.tsx`.
 
 ## Phase 4b: Dashboard Aggregated Endpoint (PR 4b — Unit 4b)
 
