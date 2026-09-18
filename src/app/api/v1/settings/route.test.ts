@@ -69,7 +69,9 @@ describe("GET /api/v1/settings", () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(db.setting.upsert).toHaveBeenCalledTimes(2);
+    // tablero-seguimiento-social (D10/T5, Fase 3a.7): ensureDefaultSettings
+    // now also upserts SETTING_SEMAFORO_UMBRALES alongside task_tags/doc_categories.
+    expect(db.setting.upsert).toHaveBeenCalledTimes(3);
     expect(json.task_tags).toEqual(["Comercial", "Administrativo", "Proyecto", "Interno"]);
   });
 });

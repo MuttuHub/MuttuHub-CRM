@@ -22,6 +22,7 @@ import {
   ROL_CONTACTO_LABELS,
   TASK_TAGS,
   TIPO_CLIENTE_LABELS,
+  UMBRALES_SEMAFORO_DEFAULT,
   type Catalog,
   type UiTone,
 } from "./catalogs"
@@ -172,5 +173,28 @@ describe("task tags and doc categories", () => {
     for (const categoria of RESTRICTED_DOC_CATEGORIES) {
       expect(DOC_CATEGORIES).toContain(categoria)
     }
+  })
+})
+
+// tablero-seguimiento-social (D10/T5, Fase 3a.7): factory default for the
+// `semaforo_umbrales` setting row. This must match the REAL values Unit 1's
+// migration already seeded (confirmado: true) — it is the row's initial
+// value, never a value compared against directly by semaforo.ts.
+describe("UMBRALES_SEMAFORO_DEFAULT", () => {
+  it("is confirmado: true (D10 was confirmed by the business on 2026-09-18, not a pending placeholder)", () => {
+    expect(UMBRALES_SEMAFORO_DEFAULT.confirmado).toBe(true)
+  })
+
+  it("mirrors the real D10 técnico cuts (verde > 85%, rojo < 60%)", () => {
+    expect(UMBRALES_SEMAFORO_DEFAULT.tecnico).toEqual({ verde: 0.85, rojo: 0.6 })
+  })
+
+  it("mirrors the real D10 financiero cuts (bidireccional: verde 85%-115%, rojo <60% o >140%)", () => {
+    expect(UMBRALES_SEMAFORO_DEFAULT.financiero).toEqual({
+      verde_min: 0.85,
+      verde_max: 1.15,
+      amarillo_min: 0.6,
+      amarillo_max: 1.4,
+    })
   })
 })

@@ -4,6 +4,7 @@ import {
   defaultDocCategories,
   flattenDocCategories,
   SETTING_DOC_CATEGORIES,
+  SETTING_SEMAFORO_UMBRALES,
   SETTING_TASK_TAGS,
 } from "./settings"
 
@@ -74,5 +75,8 @@ describe("setting keys", () => {
   it("exposes the documented setting keys", () => {
     expect(SETTING_TASK_TAGS).toBe("task_tags")
     expect(SETTING_DOC_CATEGORIES).toBe("doc_categories")
+    // tablero-seguimiento-social (D10/T5, Fase 3a.7): matches the literal key
+    // seeded by Unit 1's migration row ('semaforo_umbrales').
+    expect(SETTING_SEMAFORO_UMBRALES).toBe("semaforo_umbrales")
   })
 })
