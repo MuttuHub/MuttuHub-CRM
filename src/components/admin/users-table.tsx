@@ -66,6 +66,10 @@ export type UsuarioRow = {
   // meaningful for COLABORADOR — full-access roles already pass the gate via
   // isFullAccess. Ships in this PR to avoid the seed-lockout risk in design.md.
   gestiona_oportunidades: boolean;
+  // D3 (tablero-seguimiento-social): orthogonal READ-only flag for the
+  // Tablero de Control Gerencial — same shape as gestiona_oportunidades,
+  // never composes into write access (canManageProject ignores it).
+  puede_ver_tablero_gerencial: boolean;
   created_at: Date | string;
 };
 
@@ -159,6 +163,27 @@ export function UsersTable({
       router.refresh();
     } catch {
       setNotice("No pudimos actualizar el acceso comercial.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function patchPuedeVerTableroGerencial(id: string, puede_ver_tablero_gerencial: boolean) {
+    setBusyId(id);
+    setNotice(null);
+    try {
+      const res = await fetch(`/api/v1/users/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ puede_ver_tablero_gerencial }),
+      });
+      if (!res.ok) {
+        setNotice(await readError(res, "No pudimos actualizar el acceso al tablero gerencial."));
+        return;
+      }
+      router.refresh();
+    } catch {
+      setNotice("No pudimos actualizar el acceso al tablero gerencial.");
     } finally {
       setBusyId(null);
     }
@@ -298,6 +323,9 @@ export function UsersTable({
                         onPatchGestionaOportunidades={(v) =>
                           void patchGestionaOportunidades(usuario.id, v)
                         }
+                        onPatchPuedeVerTableroGerencial={(v) =>
+                          void patchPuedeVerTableroGerencial(usuario.id, v)
+                        }
                         onDeactivate={() => void deactivate(usuario.id)}
                       />
                     </TableCell>
@@ -318,6 +346,7 @@ function RowMenu({
   busy,
   onPatchRole,
   onPatchGestionaOportunidades,
+  onPatchPuedeVerTableroGerencial,
   onDeactivate,
 }: {
   usuario: UsuarioRow;
@@ -325,6 +354,7 @@ function RowMenu({
   busy: boolean;
   onPatchRole: (rol: RolUsuario) => void;
   onPatchGestionaOportunidades: (gestiona_oportunidades: boolean) => void;
+  onPatchPuedeVerTableroGerencial: (puede_ver_tablero_gerencial: boolean) => void;
   onDeactivate: () => void;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -373,6 +403,14 @@ function RowMenu({
                 }
               >
                 Gestiona oportunidades
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={usuario.puede_ver_tablero_gerencial}
+                onCheckedChange={(checked) =>
+                  onPatchPuedeVerTableroGerencial(checked === true)
+                }
+              >
+                Ve el tablero gerencial
               </DropdownMenuCheckboxItem>
             </>
           )}

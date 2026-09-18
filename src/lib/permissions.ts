@@ -65,3 +65,39 @@ export function canManageOpportunity(
 ): boolean {
   return hasCommercialAccess(actor) && canEditClient(cliente, actor);
 }
+
+/** Actor con el flag gerencial (D3, tablero-seguimiento-social). Ortogonal a `rol`, como gestiona_oportunidades. */
+export type ProjectActor = PermissionActor & { puede_ver_tablero_gerencial: boolean };
+
+/** EJE DE LECTURA (RNF-01): quién ve el Tablero de Control Gerencial. */
+export function canViewManagementDashboard(actor: ProjectActor): boolean {
+  return canManageAny(actor.rol) || actor.puede_ver_tablero_gerencial;
+}
+
+/** Creación de Proyecto: permiso de Administrador/gestión en el documento de origen. */
+export function canCreateProject(actor: PermissionActor): boolean {
+  return canManageAny(actor.rol);
+}
+
+/**
+ * EJE DE ESCRITURA sobre un proyecto y TODO lo que cuelga de él (metas,
+ * actividades, líneas presupuestales, gastos, soportes). T9: extiende el piso
+ * del spec (`canManageAny`) con el eje del responsable del proyecto, espejo
+ * exacto de canEditClient — sin él, el rol "Gestor de Proyecto / Ejecutor"
+ * del documento de origen no existe. El flag `puede_ver_tablero_gerencial`
+ * NUNCA compone aquí: es una propiedad estructural, no está en la firma.
+ */
+export function canManageProject(
+  proyecto: { responsable_id: string },
+  actor: PermissionActor,
+): boolean {
+  return canManageAny(actor.rol) || proyecto.responsable_id === actor.id;
+}
+
+/** Lectura del detalle de un proyecto: gerencial global, o el propio responsable. */
+export function canViewProject(
+  proyecto: { responsable_id: string },
+  actor: ProjectActor,
+): boolean {
+  return canViewManagementDashboard(actor) || proyecto.responsable_id === actor.id;
+}
