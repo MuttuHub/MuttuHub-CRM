@@ -72,10 +72,10 @@ Chain strategy: pending
 
 ## Phase 3b: Attachments — Backend + UI (PR 3b — Unit 3b)
 
-- [ ] 3b.1 RED: `attachments/route.test.ts` — upload/delete gated by `canManageProject`; read scoped to `canViewProject`; `https://` accepted, `http://` rejected at API layer (DB `CHECK` already covered in 1.1).
-- [ ] 3b.2 GREEN: extend `src/lib/api/files.ts` — `projectSupportStoragePath(proyectoId, soporteId, nombre)`, `isValidExternalUrl(url)` (`https:` only via `new URL`).
-- [ ] 3b.3 GREEN: create `projects/[id]/attachments/route.ts` and activity-/gasto-scoped sub-routes.
-- [ ] 3b.4 GREEN: `src/components/proyectos/**` — ficha, cronograma (línea base vs. real), soportes upload-or-link UI.
+- [x] 3b.1 RED: `attachments/route.test.ts` — upload/delete gated by `canManageProject`; read scoped to `canViewProject`; `https://` accepted, `http://` rejected at API layer (DB `CHECK` already covered in 1.1).
+- [x] 3b.2 GREEN: extend `src/lib/api/files.ts` — `projectSupportStoragePath(proyectoId, soporteId, nombre)`, `isValidExternalUrl(url)` (`https:` only via `new URL`).
+- [x] 3b.3 GREEN: create `projects/[id]/attachments/route.ts` and activity-/gasto-scoped sub-routes (see Deviations in apply-progress: the gasto-scoped sub-route is `expenses/[expenseId]/attachments/route.ts`, not `budget/[id]`, to stay consistent with tasks.md 4a.4's canonical `expenses/` resource name for `Gasto`).
+- [x] 3b.4 GREEN: `src/components/proyectos/**` — ficha, cronograma (línea base vs. real), soportes upload-or-link UI.
 
 ## Phase 4a: Budget — Rubros, Líneas, Gastos (PR 4a — Unit 4a)
 

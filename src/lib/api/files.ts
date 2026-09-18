@@ -75,3 +75,30 @@ export function extensionFromStoragePath(storagePath: string): string {
   const lastSegment = storagePath.split("/").pop() ?? "";
   return fileExtension(lastSegment) ? `.${fileExtension(lastSegment)}` : "";
 }
+
+/**
+ * Key de storage de un `SoporteProyecto` subido como archivo (tablero-
+ * seguimiento-social, T8/D8): `proyectos/{proyecto_id}/soportes/{soporte_id}_{nombre-sanitizado}`,
+ * misma convención sin "/" inicial que `documentStoragePath`. El `soporte_id`
+ * (no un `randomUUID()` aparte) hace la key determinística respecto de la fila.
+ */
+export function projectSupportStoragePath(
+  proyectoId: string,
+  soporteId: string,
+  originalName: string,
+): string {
+  return `proyectos/${proyectoId}/soportes/${soporteId}_${sanitizeFileName(originalName)}`;
+}
+
+/**
+ * D8: `url_externa` solo acepta esquema `https:`. Validado con el
+ * constructor `URL` (no una regex) — cualquier cadena que no parsea como URL
+ * válida, o que parsea con otro esquema (`http:`, `file:`, etc.), se rechaza.
+ */
+export function isValidExternalUrl(url: string): boolean {
+  try {
+    return new URL(url).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
