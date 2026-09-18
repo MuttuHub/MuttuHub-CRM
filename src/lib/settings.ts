@@ -10,10 +10,15 @@ import {
   DOC_CATEGORIES,
   RESTRICTED_DOC_CATEGORIES,
   TASK_TAGS,
+  UMBRALES_SEMAFORO_DEFAULT,
 } from "@/lib/catalogs";
 
 export const SETTING_TASK_TAGS = "task_tags";
 export const SETTING_DOC_CATEGORIES = "doc_categories";
+// D10/T5 (tablero-seguimiento-social, Fase 3a.7): mismo literal que la fila
+// sembrada a mano en la migración de Unit 1 — `getSetting` la lee sin migrar
+// nada nuevo.
+export const SETTING_SEMAFORO_UMBRALES = "semaforo_umbrales";
 
 export type DocCategoriaSetting = { nombre: string; restringida: boolean };
 
@@ -46,6 +51,14 @@ export async function ensureDefaultSettings(): Promise<void> {
   await db.setting.upsert({
     where: { key: SETTING_DOC_CATEGORIES },
     create: { key: SETTING_DOC_CATEGORIES, value: defaultDocCategories() },
+    update: {},
+  });
+  await db.setting.upsert({
+    where: { key: SETTING_SEMAFORO_UMBRALES },
+    create: {
+      key: SETTING_SEMAFORO_UMBRALES,
+      value: UMBRALES_SEMAFORO_DEFAULT as Prisma.InputJsonValue,
+    },
     update: {},
   });
 }

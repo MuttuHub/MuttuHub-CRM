@@ -62,13 +62,13 @@ Chain strategy: pending
 
 ## Phase 3a: Metas, Actividades, Semáforo Técnico (PR 3a — Unit 3a)
 
-- [ ] 3a.1 RED: `src/app/api/v1/projects/[id]/goals/route.test.ts` — `Meta` requires a valid `proyecto_id`.
-- [ ] 3a.2 GREEN: create `goals/route.ts`, `goals/[goalId]/route.ts`.
-- [ ] 3a.3 RED: `activities/route.test.ts` — valid `Actividad` create accepted; cross-project `meta_id` rejected at the API layer (invariant already covered at DB layer in 1.1).
-- [ ] 3a.4 GREEN: create `activities/route.ts`, `[activityId]/route.ts` — `peso`, `fecha_planificada`, `fecha_real`, `porcentaje_avance`.
-- [ ] 3a.5 RED: `src/lib/semaforo.test.ts` — `colorTecnico` verde/amarillo/rojo at exact configured boundaries; weighted `avance_tecnico` `(100×2+40×1)/3=80`; zero-activity project → 0% with no division-by-zero; identical data changes color when only the parameter changes.
-- [ ] 3a.6 GREEN: create `src/lib/semaforo.ts` — pure (no `@/lib/db`/`next/server`) — `colorTecnico`, `colorFinanciero`, `resolverUmbrales`.
-- [ ] 3a.7 GREEN: add `SETTING_SEMAFORO_UMBRALES` to `src/lib/settings.ts`; `UMBRALES_SEMAFORO_DEFAULT` (factory default, `confirmado:false`) to `src/lib/catalogs.ts`; add `LineaEstrategica` to `ENUM_VALUES`.
+- [x] 3a.1 RED: `src/app/api/v1/projects/[id]/goals/route.test.ts` — `Meta` requires a valid `proyecto_id`.
+- [x] 3a.2 GREEN: create `goals/route.ts`, `goals/[goalId]/route.ts`.
+- [x] 3a.3 RED: `activities/route.test.ts` — valid `Actividad` create accepted; cross-project `meta_id` rejected at the API layer (invariant already covered at DB layer in 1.1).
+- [x] 3a.4 GREEN: create `activities/route.ts`, `[activityId]/route.ts` — `peso`, `fecha_planificada`, `fecha_real`, `porcentaje_avance`.
+- [x] 3a.5 RED: `src/lib/semaforo.test.ts` — `colorTecnico` verde/amarillo/rojo at exact configured boundaries; weighted `avance_tecnico` `(100×2+40×1)/3=80`; zero-activity project → 0% with no division-by-zero; identical data changes color when only the parameter changes.
+- [x] 3a.6 GREEN: create `src/lib/semaforo.ts` — pure (no `@/lib/db`/`next/server`) — `colorTecnico`, `colorFinanciero`, `resolverUmbrales`.
+- [x] 3a.7 GREEN: add `SETTING_SEMAFORO_UMBRALES` to `src/lib/settings.ts`; `UMBRALES_SEMAFORO_DEFAULT` (`confirmado:true`, real D10 values — **not** `confirmado:false`, see Deviations: D10 was confirmed 2026-09-18, superseding this task's original placeholder text) to `src/lib/catalogs.ts`. `LineaEstrategica`/`ENUM_VALUES` **skipped** — already done ahead of schedule in Unit 2b.
 
 ## Phase 3b: Attachments — Backend + UI (PR 3b — Unit 3b)
 
