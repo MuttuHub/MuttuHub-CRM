@@ -41,13 +41,15 @@
 // exactamente lo que el spec prohíbe. `programadas` se mantiene disponible
 // como dato de contexto (no expuesto como KPI propio en este batch).
 //
-// **Colores de semáforo a nivel organización — desviación declarada.**
-// design.md resuelve umbrales por proyecto (`Proyecto.umbrales_override`
-// merged sobre el default de organización). A nivel agregado no existe UN
-// proyecto cuyo override aplicar, así que `color_tecnico`/`color_financiero`
-// usan SIEMPRE el umbral de organización (`Setting["semaforo_umbrales"]`),
-// nunca un override individual. Si Fase 4c necesita colores por proyecto en
-// una tabla de desglose, los resuelve como budget/route.ts ya hace.
+// **Colores de semáforo a nivel organización — desviación declarada, con
+// excepción cubierta desde gestion-proyectos-workspace PR1.** A nivel
+// agregado (sin `proyecto_id`) no existe UN proyecto cuyo override aplicar,
+// así que `color_tecnico`/`color_financiero` siguen usando SIEMPRE el umbral
+// de organización (`Setting["semaforo_umbrales"]`) en ese camino — sin
+// cambios. Cuando `proyecto_id` SÍ está presente (alcance de un solo
+// proyecto), el override de ESE proyecto ahora se resuelve con
+// `resolverUmbrales` — el mismo merge que ya hace `budget/route.ts` —, igual
+// que design.md siempre especificó para el caso por-proyecto.
 
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
@@ -58,9 +60,10 @@ import { requireApiUser } from "@/lib/supabase/server";
 import { endOfDay } from "@/lib/api/crm";
 import { parseDashboardFilters } from "@/lib/dashboard";
 import { canViewManagementDashboard } from "@/lib/permissions";
+import { loadProjectScoped } from "@/lib/api/projects";
 import { getSetting, SETTING_SEMAFORO_UMBRALES } from "@/lib/settings";
 import { UMBRALES_SEMAFORO_DEFAULT } from "@/lib/catalogs";
-import { colorFinanciero, colorTecnico } from "@/lib/semaforo";
+import { colorFinanciero, colorTecnico, resolverUmbrales } from "@/lib/semaforo";
 
 export const dynamic = "force-dynamic";
 
@@ -122,7 +125,32 @@ export const GET = withApiErrorHandling(
     const auth = await requireApiUser();
     if (!auth.ok) return auth.response;
 
-    if (
+    const url = new URL(request.url);
+    // "" -> undefined: un `?proyecto_id=` vacío se trata como ausente, nunca
+    // como un id vacío contra el que consultar.
+    const proyectoId = url.searchParams.get("proyecto_id")?.trim() || undefined;
+
+    // Alcance por proyecto (gestion-proyectos-workspace PR1, design.md T2):
+    // con `proyecto_id`, el gate es `canViewProject` (vía `loadProjectScoped`)
+    // en vez de `canViewManagementDashboard` — así el responsable del propio
+    // proyecto ve sus KPIs sin el flag gerencial. SIN `proyecto_id`, el gate
+    // agregado queda BYTE-IDÉNTICO al de antes de este cambio.
+    let umbralesOverride: Prisma.JsonValue = null;
+    if (proyectoId) {
+      const access = await loadProjectScoped(proyectoId, auth.usuario);
+      if (!access.ok) {
+        return apiError(
+          access.code === "NOT_FOUND" ? "El proyecto no existe." : "No tienes permisos sobre este proyecto.",
+          access.code === "NOT_FOUND" ? 404 : 403,
+          access.code,
+        );
+      }
+      const proyecto = await db.proyecto.findUnique({
+        where: { id: proyectoId },
+        select: { umbrales_override: true },
+      });
+      umbralesOverride = proyecto?.umbrales_override ?? null;
+    } else if (
       !canViewManagementDashboard({
         id: auth.usuario.id,
         rol: auth.usuario.rol,
@@ -132,12 +160,10 @@ export const GET = withApiErrorHandling(
       return apiError("No tienes permisos para ver el tablero gerencial.", 403, "FORBIDDEN");
     }
 
-    const url = new URL(request.url);
     const parsed = parseDashboardFilters(url);
     if (!parsed.ok) return parsed.response;
     const filters = parsed.filters;
 
-    const proyectoId = url.searchParams.get("proyecto_id") ?? undefined;
     const clienteId = url.searchParams.get("cliente_id") ?? undefined;
 
     // "corte" = min(hoy, hasta) del filtro del tablero (design.md, Semáforos
@@ -253,7 +279,11 @@ export const GET = withApiErrorHandling(
       ORDER BY mes ASC
     `);
 
-    const umbrales = await getSetting(SETTING_SEMAFORO_UMBRALES, UMBRALES_SEMAFORO_DEFAULT);
+    const umbralesOrganizacion = await getSetting(SETTING_SEMAFORO_UMBRALES, UMBRALES_SEMAFORO_DEFAULT);
+    // Con `proyecto_id`: merge del override del proyecto sobre el default de
+    // organización (mismo patrón que `budget/route.ts`). Sin `proyecto_id`
+    // (agregado org-wide): SIEMPRE el default — ver Deviations arriba.
+    const umbrales = proyectoId ? resolverUmbrales(umbralesOrganizacion, umbralesOverride) : umbralesOrganizacion;
 
     // avance_tecnico/avance_financiero: KPIs expuestos como PORCENTAJE
     // (spec.md's escenario: 60.000.000/100.000.000 = 60%). razon_tecnica/

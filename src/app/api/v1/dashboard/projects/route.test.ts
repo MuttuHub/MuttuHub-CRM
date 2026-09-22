@@ -37,6 +37,10 @@ vi.mock("@/lib/db", () => ({
     setting: {
       findUnique: vi.fn(),
     },
+    proyecto: {
+      findFirst: vi.fn(),
+      findUnique: vi.fn(),
+    },
   },
 }));
 
@@ -325,6 +329,104 @@ describe("GET /api/v1/dashboard/projects", () => {
       expect(sqlText).toContain("porcentaje_avance = 100");
       expect(sqlText).toContain("EXISTS");
       expect(sqlText).toContain("soportes_proyecto");
+    });
+  });
+
+  describe("?proyecto_id scoping (gestion-proyectos-workspace, PR1)", () => {
+    it("returns 200 for the project's own responsable, without canViewManagementDashboard", async () => {
+      authAs(colaboradorSinFlag);
+      vi.mocked(db.proyecto.findFirst).mockResolvedValue({
+        id: "proy-1",
+        responsable_id: colaboradorSinFlag.id,
+      } as never);
+      vi.mocked(db.proyecto.findUnique).mockResolvedValue({ umbrales_override: null } as never);
+      vi.mocked(db.setting.findUnique).mockResolvedValue(null);
+      mockQueries(kpiRow(), []);
+
+      const res = await GET(get("?proyecto_id=proy-1"));
+
+      expect(res.status).toBe(200);
+      expect(db.proyecto.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "proy-1", deleted_at: null } }),
+      );
+    });
+
+    it("returns 404 for an unknown proyecto_id", async () => {
+      authAs(colaboradorSinFlag);
+      vi.mocked(db.proyecto.findFirst).mockResolvedValue(null);
+
+      const res = await GET(get("?proyecto_id=no-existe"));
+
+      expect(res.status).toBe(404);
+      expect(db.$queryRaw).not.toHaveBeenCalled();
+    });
+
+    it("returns 403 for a responsable requesting a foreign project", async () => {
+      authAs(colaboradorSinFlag);
+      vi.mocked(db.proyecto.findFirst).mockResolvedValue({
+        id: "proy-ajeno",
+        responsable_id: "otro-usuario",
+      } as never);
+
+      const res = await GET(get("?proyecto_id=proy-ajeno"));
+
+      expect(res.status).toBe(403);
+      expect(db.$queryRaw).not.toHaveBeenCalled();
+    });
+
+    it("still returns 403 without proyecto_id for a non-gerencial actor (org-wide gate unchanged)", async () => {
+      authAs(colaboradorSinFlag);
+
+      const res = await GET(get());
+
+      expect(res.status).toBe(403);
+      expect(db.proyecto.findFirst).not.toHaveBeenCalled();
+      expect(db.$queryRaw).not.toHaveBeenCalled();
+    });
+
+    it("resolves color_tecnico/color_financiero from the project's umbrales_override, not the org default", async () => {
+      authAs(colaboradorSinFlag);
+      vi.mocked(db.proyecto.findFirst).mockResolvedValue({
+        id: "proy-1",
+        responsable_id: colaboradorSinFlag.id,
+      } as never);
+      // Override: verde a partir de razón 0.5 (el default de organización exige 0.9).
+      vi.mocked(db.proyecto.findUnique).mockResolvedValue({
+        umbrales_override: { tecnico: { verde: 0.5, rojo: 0.3 } },
+      } as never);
+      vi.mocked(db.setting.findUnique).mockResolvedValue({
+        value: {
+          confirmado: true,
+          tecnico: { verde: 0.9, rojo: 0.7 },
+          financiero: { verde_min: 0.9, verde_max: 1.1, amarillo_min: 0.7, amarillo_max: 1.3 },
+        },
+      } as never);
+      // avance_real 60 / avance_planificado 100 -> razón 0.6: rojo bajo el
+      // default de organización mockeado (rojo < 0.7), verde bajo el
+      // override del proyecto (verde >= 0.5).
+      mockQueries(kpiRow({ avance_real: 60, avance_planificado: 100 }), []);
+
+      const res = await GET(get("?proyecto_id=proy-1"));
+      const json = await res.json();
+
+      expect(json.color_tecnico).toBe("verde");
+    });
+
+    it("uses the org default when the project has no umbrales_override", async () => {
+      authAs(colaboradorSinFlag);
+      vi.mocked(db.proyecto.findFirst).mockResolvedValue({
+        id: "proy-1",
+        responsable_id: colaboradorSinFlag.id,
+      } as never);
+      vi.mocked(db.proyecto.findUnique).mockResolvedValue({ umbrales_override: null } as never);
+      vi.mocked(db.setting.findUnique).mockResolvedValue(null);
+      mockQueries(kpiRow({ avance_real: 60, avance_planificado: 100 }), []);
+
+      const res = await GET(get("?proyecto_id=proy-1"));
+      const json = await res.json();
+
+      // Default de organización (UMBRALES_SEMAFORO_DEFAULT): razón 0.6 -> amarillo.
+      expect(json.color_tecnico).toBe("amarillo");
     });
   });
 });
