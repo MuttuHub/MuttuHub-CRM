@@ -24,6 +24,11 @@ import type { EstadoProyecto, LineaEstrategica, TipoSoporte } from "@prisma/clie
 
 /* ── DTOs (server response shapes) ─────────────────────────────────────── */
 
+/** Row shape returned by `GET /api/v1/projects` — same aggregate as
+ * `ProjectDetail` (via `toProjectItem`) plus `umbrales_override`, needed by
+ * the Gantt/Resumen semáforo resolution added later in this change. */
+export type ProjectListRow = ProjectDetail & { umbrales_override: unknown };
+
 export type ProjectDetail = {
   id: string;
   codigo: string;
@@ -97,6 +102,7 @@ export type Soporte = {
 /* ── Query keys ────────────────────────────────────────────────────────── */
 
 export const projectDetailQueryKeys = {
+  list: () => ["projects", "list"] as const,
   detail: (id: string) => ["projects", "detail", id] as const,
   goals: (id: string) => ["projects", id, "goals"] as const,
   activities: (id: string) => ["projects", id, "activities"] as const,
@@ -161,12 +167,148 @@ export function useAttachments(projectId: string | null): UseQueryResult<Soporte
   });
 }
 
+export function useProjects(): UseQueryResult<ProjectListRow[]> {
+  return useQuery({
+    queryKey: projectDetailQueryKeys.list(),
+    queryFn: async () => {
+      const res = await apiGet<{ proyectos: ProjectListRow[] }>("/api/v1/projects");
+      return res.proyectos;
+    },
+  });
+}
+
 /* ── Mutations ─────────────────────────────────────────────────────────── */
 
 function toastError(err: unknown, fallback: string): never {
   if (err instanceof ApiError) toast.error(err.message);
   else toast.error(fallback);
   throw err;
+}
+
+export type ProjectInput = {
+  codigo: string;
+  nombre: string;
+  cliente_id: string;
+  territorio: string;
+  linea_estrategica: LineaEstrategica;
+  fecha_inicio: string;
+  fecha_fin: string;
+  estado?: EstadoProyecto;
+  beneficiarios_meta?: number;
+  responsable_id?: string;
+};
+
+export function useCreateProject(): UseMutationResult<{ proyecto: ProjectListRow }, Error, ProjectInput> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: ProjectInput) => {
+      try {
+        return await apiPost<{ proyecto: ProjectListRow }>("/api/v1/projects", input);
+      } catch (err) {
+        return toastError(err, "No pudimos crear el proyecto.");
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectDetailQueryKeys.list() });
+      toast.success("Proyecto guardado.");
+    },
+  });
+}
+
+export function useUpdateProject(
+  projectId: string,
+): UseMutationResult<{ proyecto: ProjectListRow }, Error, Partial<ProjectInput>> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: Partial<ProjectInput>) => {
+      try {
+        return await apiPatch<{ proyecto: ProjectListRow }>(`/api/v1/projects/${projectId}`, input);
+      } catch (err) {
+        return toastError(err, "No pudimos actualizar el proyecto.");
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectDetailQueryKeys.list() });
+      void qc.invalidateQueries({ queryKey: projectDetailQueryKeys.detail(projectId) });
+      toast.success("Proyecto guardado.");
+    },
+  });
+}
+
+export function useDeleteProject(): UseMutationResult<ApiVoid, Error, string> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (projectId: string) => {
+      try {
+        return await apiDelete<ApiVoid>(`/api/v1/projects/${projectId}`);
+      } catch (err) {
+        return toastError(err, "No pudimos eliminar el proyecto.");
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectDetailQueryKeys.list() });
+      toast.success("Proyecto eliminado.");
+    },
+  });
+}
+
+export type GoalInput = {
+  nombre: string;
+  descripcion?: string;
+};
+
+export function useCreateGoal(projectId: string): UseMutationResult<{ meta: Meta }, Error, GoalInput> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: GoalInput) => {
+      try {
+        return await apiPost<{ meta: Meta }>(`/api/v1/projects/${projectId}/goals`, input);
+      } catch (err) {
+        return toastError(err, "No pudimos crear la meta.");
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectDetailQueryKeys.goals(projectId) });
+      toast.success("Meta guardada.");
+    },
+  });
+}
+
+export function useUpdateGoal(
+  projectId: string,
+  goalId: string,
+): UseMutationResult<{ meta: Meta }, Error, Partial<GoalInput>> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: Partial<GoalInput>) => {
+      try {
+        return await apiPatch<{ meta: Meta }>(`/api/v1/projects/${projectId}/goals/${goalId}`, input);
+      } catch (err) {
+        return toastError(err, "No pudimos actualizar la meta.");
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectDetailQueryKeys.goals(projectId) });
+      toast.success("Meta guardada.");
+    },
+  });
+}
+
+export function useDeleteGoal(projectId: string): UseMutationResult<ApiVoid, Error, string> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (goalId: string) => {
+      try {
+        return await apiDelete<ApiVoid>(`/api/v1/projects/${projectId}/goals/${goalId}`);
+      } catch (err) {
+        return toastError(err, "No pudimos eliminar la meta.");
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectDetailQueryKeys.goals(projectId) });
+      toast.success("Meta eliminada.");
+    },
+  });
 }
 
 export type IndicatorInput = {

@@ -6,9 +6,16 @@ import {
   projectDetailQueryKeys,
   useActivities,
   useAttachments,
+  useCreateGoal,
+  useCreateProject,
   useDeleteAttachment,
+  useDeleteGoal,
+  useDeleteProject,
   useGoals,
   useProjectDetail,
+  useProjects,
+  useUpdateGoal,
+  useUpdateProject,
   useUploadAttachment,
 } from "./projects"
 
@@ -182,6 +189,184 @@ describe("useUploadAttachment", () => {
     const form = init.body as FormData
     expect(form.get("url")).toBe("https://drive.example/x")
     expect(form.get("file")).toBeNull()
+  })
+})
+
+describe("useProjects", () => {
+  const fetchMock = vi.fn()
+  beforeEach(() => {
+    fetchMock.mockReset()
+    vi.stubGlobal("fetch", fetchMock)
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it("fetches the scoped project list from GET /api/v1/projects", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ proyectos: [{ id: "proy-1", codigo: "P-01", nombre: "Proyecto Uno" }] }),
+    )
+    const { wrapper } = createWrapper()
+
+    const { result } = renderHook(() => useProjects(), { wrapper })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data).toHaveLength(1)
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/projects",
+      expect.objectContaining({ method: "GET" }),
+    )
+  })
+})
+
+describe("useCreateProject", () => {
+  const fetchMock = vi.fn()
+  beforeEach(() => {
+    fetchMock.mockReset()
+    vi.stubGlobal("fetch", fetchMock)
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it("posts the new project and invalidates the list", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ proyecto: { id: "proy-1", codigo: "P-01" } }, 201))
+    const { wrapper, invalidateSpy } = createWrapper()
+
+    const { result } = renderHook(() => useCreateProject(), { wrapper })
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        codigo: "P-01",
+        nombre: "Proyecto Uno",
+        cliente_id: "cli-1",
+        territorio: "Bogotá",
+        linea_estrategica: "EMPLEABILIDAD",
+        fecha_inicio: "2026-01-01",
+        fecha_fin: "2026-12-31",
+      })
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/projects",
+      expect.objectContaining({ method: "POST" }),
+    )
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["projects", "list"] })
+  })
+})
+
+describe("useUpdateProject", () => {
+  const fetchMock = vi.fn()
+  beforeEach(() => {
+    fetchMock.mockReset()
+    vi.stubGlobal("fetch", fetchMock)
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it("patches the project and invalidates the list and the detail", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ proyecto: { id: "proy-1", codigo: "P-01" } }))
+    const { wrapper, invalidateSpy } = createWrapper()
+
+    const { result } = renderHook(() => useUpdateProject("proy-1"), { wrapper })
+
+    await act(async () => {
+      await result.current.mutateAsync({ nombre: "Nuevo nombre" })
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/projects/proy-1",
+      expect.objectContaining({ method: "PATCH" }),
+    )
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["projects", "list"] })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: projectDetailQueryKeys.detail("proy-1") })
+  })
+})
+
+describe("useDeleteProject", () => {
+  const fetchMock = vi.fn()
+  beforeEach(() => {
+    fetchMock.mockReset()
+    vi.stubGlobal("fetch", fetchMock)
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it("deletes the project and invalidates the list", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }))
+    const { wrapper, invalidateSpy } = createWrapper()
+
+    const { result } = renderHook(() => useDeleteProject(), { wrapper })
+
+    await act(async () => {
+      await result.current.mutateAsync("proy-1")
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/projects/proy-1",
+      expect.objectContaining({ method: "DELETE" }),
+    )
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["projects", "list"] })
+  })
+})
+
+describe("useCreateGoal / useUpdateGoal / useDeleteGoal", () => {
+  const fetchMock = vi.fn()
+  beforeEach(() => {
+    fetchMock.mockReset()
+    vi.stubGlobal("fetch", fetchMock)
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it("useCreateGoal posts the meta and invalidates the goals list", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ meta: { id: "meta-1", nombre: "Meta Uno" } }, 201))
+    const { wrapper, invalidateSpy } = createWrapper()
+
+    const { result } = renderHook(() => useCreateGoal("proy-1"), { wrapper })
+
+    await act(async () => {
+      await result.current.mutateAsync({ nombre: "Meta Uno" })
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/projects/proy-1/goals",
+      expect.objectContaining({ method: "POST" }),
+    )
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: projectDetailQueryKeys.goals("proy-1") })
+  })
+
+  it("useUpdateGoal patches the meta and invalidates the goals list", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ meta: { id: "meta-1", nombre: "Meta actualizada" } }))
+    const { wrapper, invalidateSpy } = createWrapper()
+
+    const { result } = renderHook(() => useUpdateGoal("proy-1", "meta-1"), { wrapper })
+
+    await act(async () => {
+      await result.current.mutateAsync({ nombre: "Meta actualizada" })
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/projects/proy-1/goals/meta-1",
+      expect.objectContaining({ method: "PATCH" }),
+    )
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: projectDetailQueryKeys.goals("proy-1") })
+  })
+
+  it("useDeleteGoal deletes the meta and invalidates the goals list", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }))
+    const { wrapper, invalidateSpy } = createWrapper()
+
+    const { result } = renderHook(() => useDeleteGoal("proy-1"), { wrapper })
+
+    await act(async () => {
+      await result.current.mutateAsync("meta-1")
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/projects/proy-1/goals/meta-1",
+      expect.objectContaining({ method: "DELETE" }),
+    )
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: projectDetailQueryKeys.goals("proy-1") })
   })
 })
 
