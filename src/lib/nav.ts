@@ -1,4 +1,5 @@
 import {
+  BarChart2,
   FileText,
   FolderOpen,
   House,
@@ -50,6 +51,11 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: UserRoundCheck,
         exact: true,
       },
+      {
+        href: "/tablero-gerencial",
+        label: "Tablero Gerencial",
+        icon: BarChart2,
+      },
     ],
   },
 ];
@@ -87,6 +93,10 @@ export const PAGE_HEADERS: Record<string, PageHeader> = {
   "/administracion/solicitudes": {
     title: "Solicitudes de acceso",
     subtitle: "Revisa quién pidió entrar al Hub y asigna el rol antes de aprobar.",
+  },
+  "/tablero-gerencial": {
+    title: "Tablero de Control Gerencial",
+    subtitle: "KPIs en tiempo real de los proyectos de impacto social.",
   },
 };
 
