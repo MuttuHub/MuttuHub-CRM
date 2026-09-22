@@ -193,8 +193,8 @@ export const GET = withApiErrorHandling(
       ),
       financiero AS (
         -- LEFT JOIN LATERAL, no un JOIN directo (design.md Risks): unir
-        // gastos directamente a lineas_presupuestales multiplicaría
-        // monto_proyectado_cop por el número de gastos de cada línea.
+        -- gastos directamente a lineas_presupuestales multiplicaría
+        -- monto_proyectado_cop por el número de gastos de cada línea.
         SELECT
           COALESCE(SUM(l.monto_proyectado_cop), 0)::float AS proyectado,
           COALESCE(SUM(COALESCE(gx.ejecutado, 0)), 0)::float AS ejecutado
