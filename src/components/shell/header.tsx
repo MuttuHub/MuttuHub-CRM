@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, Menu, Moon, Sun } from "lucide-react";
-import { PAGE_HEADERS } from "@/lib/nav";
+import { resolvePageHeader } from "@/lib/nav";
 import { useCurrentUser, type CurrentUser } from "@/hooks/kanban";
 import { useTheme } from "@/hooks/use-theme";
 import { apiGet } from "@/lib/api/http";
@@ -70,10 +70,7 @@ export function Header({ initialUser }: { initialUser?: CurrentUser | null }) {
     retry: false,
   });
 
-  const page = PAGE_HEADERS[pathname] ?? {
-    title: "Muttu Hub",
-    subtitle: "",
-  };
+  const page = resolvePageHeader(pathname);
   // Nunca se muestra el usuario demo. El layout pasa `initialUser ?? null`, y
   // react-query trata ese initialData=null como data ya resuelta: isLoading es
   // false mientras /me sigue en vuelo, así que el fallback de antes caía en
