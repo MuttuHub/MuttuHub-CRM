@@ -19,7 +19,7 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { apiDelete, apiGet, ApiError, type ApiVoid } from "@/lib/api/http";
+import { apiDelete, apiGet, apiPatch, apiPost, ApiError, type ApiVoid } from "@/lib/api/http";
 import type { EstadoProyecto, LineaEstrategica, TipoSoporte } from "@prisma/client";
 
 /* ── DTOs (server response shapes) ─────────────────────────────────────── */
@@ -67,6 +67,19 @@ export type Actividad = {
   updated_at: string;
 };
 
+export type Indicador = {
+  id: string;
+  proyecto_id: string;
+  meta_id: string | null;
+  nombre: string;
+  unidad: string;
+  meta_valor: number;
+  valor_actual: number | null;
+  cuenta_beneficiarios: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Soporte = {
   id: string;
   proyecto_id: string;
@@ -87,6 +100,7 @@ export const projectDetailQueryKeys = {
   detail: (id: string) => ["projects", "detail", id] as const,
   goals: (id: string) => ["projects", id, "goals"] as const,
   activities: (id: string) => ["projects", id, "activities"] as const,
+  indicators: (id: string) => ["projects", id, "indicators"] as const,
   attachments: (id: string) => ["projects", id, "attachments"] as const,
 };
 
@@ -125,6 +139,17 @@ export function useActivities(projectId: string | null): UseQueryResult<Activida
   });
 }
 
+export function useIndicators(projectId: string | null): UseQueryResult<Indicador[]> {
+  return useQuery({
+    queryKey: projectDetailQueryKeys.indicators(projectId ?? "none"),
+    enabled: projectId !== null,
+    queryFn: async () => {
+      const res = await apiGet<{ indicadores: Indicador[] }>(`/api/v1/projects/${projectId}/indicators`);
+      return res.indicadores;
+    },
+  });
+}
+
 export function useAttachments(projectId: string | null): UseQueryResult<Soporte[]> {
   return useQuery({
     queryKey: projectDetailQueryKeys.attachments(projectId ?? "none"),
@@ -142,6 +167,74 @@ function toastError(err: unknown, fallback: string): never {
   if (err instanceof ApiError) toast.error(err.message);
   else toast.error(fallback);
   throw err;
+}
+
+export type IndicatorInput = {
+  meta_id?: string;
+  nombre: string;
+  unidad: string;
+  meta_valor: number;
+  valor_actual?: number;
+  cuenta_beneficiarios?: boolean;
+};
+
+export function useCreateIndicator(
+  projectId: string,
+): UseMutationResult<{ indicador: Indicador }, Error, IndicatorInput> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: IndicatorInput) => {
+      try {
+        return await apiPost<{ indicador: Indicador }>(`/api/v1/projects/${projectId}/indicators`, input);
+      } catch (err) {
+        return toastError(err, "No pudimos crear el indicador.");
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectDetailQueryKeys.indicators(projectId) });
+      toast.success("Indicador guardado.");
+    },
+  });
+}
+
+export function useUpdateIndicator(
+  projectId: string,
+  indicatorId: string,
+): UseMutationResult<{ indicador: Indicador }, Error, Partial<IndicatorInput>> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: Partial<IndicatorInput>) => {
+      try {
+        return await apiPatch<{ indicador: Indicador }>(
+          `/api/v1/projects/${projectId}/indicators/${indicatorId}`,
+          input,
+        );
+      } catch (err) {
+        return toastError(err, "No pudimos actualizar el indicador.");
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectDetailQueryKeys.indicators(projectId) });
+      toast.success("Indicador guardado.");
+    },
+  });
+}
+
+export function useDeleteIndicator(projectId: string): UseMutationResult<ApiVoid, Error, string> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (indicatorId: string) => {
+      try {
+        return await apiDelete<ApiVoid>(`/api/v1/projects/${projectId}/indicators/${indicatorId}`);
+      } catch (err) {
+        return toastError(err, "No pudimos eliminar el indicador.");
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectDetailQueryKeys.indicators(projectId) });
+      toast.success("Indicador eliminado.");
+    },
+  });
 }
 
 /** D8: exactamente uno de `file`/`url`, nunca ambos — el formulario de la UI
