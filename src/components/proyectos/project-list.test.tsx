@@ -11,9 +11,15 @@ import type { CurrentUser } from "@/hooks/kanban";
 import type { ProjectListRow } from "@/hooks/projects";
 import { ProjectList } from "./project-list";
 
-const { projectsQuery, currentUserQuery } = vi.hoisted(() => ({
+const { projectsQuery, currentUserQuery, createMutationMock, routerPushMock } = vi.hoisted(() => ({
   projectsQuery: { data: [] as ProjectListRow[], isLoading: false },
   currentUserQuery: { data: null as CurrentUser | null },
+  createMutationMock: vi.fn(() => ({
+    isPending: false,
+    mutate: vi.fn(),
+    mutateAsync: vi.fn().mockResolvedValue({ proyecto: { id: "proy-99" } }),
+  })),
+  routerPushMock: vi.fn(),
 }));
 
 vi.mock("@/hooks/projects", async (importOriginal) => {
@@ -21,6 +27,7 @@ vi.mock("@/hooks/projects", async (importOriginal) => {
   return {
     ...actual,
     useProjects: () => projectsQuery,
+    useCreateProject: createMutationMock,
   };
 });
 
@@ -29,6 +36,26 @@ vi.mock("@/hooks/kanban", async (importOriginal) => {
   return {
     ...actual,
     useCurrentUser: () => currentUserQuery,
+  };
+});
+
+vi.mock("@/hooks/crm", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/hooks/crm")>();
+  return {
+    ...actual,
+    useClients: () => ({
+      data: { page: 1, limit: 200, total: 1, items: [{ id: "cli-1", nombre: "Alcaldía Demo" }] },
+      isLoading: false,
+    }),
+    useUsers: () => ({ data: [], isLoading: false }),
+  };
+});
+
+vi.mock("next/navigation", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("next/navigation")>();
+  return {
+    ...actual,
+    useRouter: () => ({ push: routerPushMock }),
   };
 });
 
@@ -69,6 +96,12 @@ beforeEach(() => {
   projectsQuery.data = [];
   projectsQuery.isLoading = false;
   currentUserQuery.data = { id: "u-admin", nombre: "Admin", rol: "ADMINISTRADOR" };
+  routerPushMock.mockClear();
+  createMutationMock.mockReturnValue({
+    isPending: false,
+    mutate: vi.fn(),
+    mutateAsync: vi.fn().mockResolvedValue({ proyecto: { id: "proy-99" } }),
+  });
 });
 
 describe("ProjectList", () => {
@@ -129,4 +162,38 @@ describe("ProjectList", () => {
 
     expect(screen.getByRole("button", { name: /nuevo proyecto/i })).toBeInTheDocument();
   });
+
+  it("opens the create dialog from the Nuevo proyecto button", async () => {
+    const user = userEvent.setup();
+    renderList();
+
+    await user.click(screen.getByRole("button", { name: /nuevo proyecto/i }));
+
+    expect(screen.getByRole("heading", { name: /nuevo proyecto/i })).toBeInTheDocument();
+  });
+
+  it("redirects to the new project's workspace after a successful create", async () => {
+    const mutateAsync = vi.fn().mockResolvedValue({ proyecto: { id: "proy-99" } });
+    createMutationMock.mockReturnValue({ isPending: false, mutate: vi.fn(), mutateAsync });
+    const user = userEvent.setup();
+    renderList();
+
+    await user.click(screen.getByRole("button", { name: /nuevo proyecto/i }));
+    await user.type(screen.getByLabelText(/código/i), "PRY-2026-099");
+    await user.type(screen.getByLabelText(/^nombre/i), "Proyecto de prueba");
+    await user.type(screen.getByLabelText(/territorio/i), "Cartagena");
+    await user.click(screen.getByRole("combobox", { name: "Cliente" }));
+    await user.click(await screen.findByRole("option", { name: "Alcaldía Demo" }));
+    await user.click(screen.getByRole("combobox", { name: "Línea estratégica" }));
+    await user.click(await screen.findByRole("option", { name: "Social" }));
+    await user.type(screen.getByLabelText(/fecha de inicio/i), "2026-02-01");
+    await user.type(screen.getByLabelText(/fecha de fin/i), "2026-11-30");
+
+    await user.click(screen.getByRole("button", { name: /^crear proyecto$/i }));
+
+    expect(mutateAsync).toHaveBeenCalled();
+    expect(routerPushMock).toHaveBeenCalledWith("/proyectos/proy-99");
+    // Longer timeout: opens a dialog with two Select popups + several typed
+    // fields, which comfortably exceeds the 5s default under CPU load.
+  }, 20000);
 });

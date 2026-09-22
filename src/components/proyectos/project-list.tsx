@@ -13,6 +13,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Pencil, Plus, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ import { LINEA_ESTRATEGICA_LABELS } from "@/lib/catalogs";
 import { canCreateProject } from "@/lib/permissions";
 import { useCurrentUser } from "@/hooks/kanban";
 import { useProjects, type ProjectListRow } from "@/hooks/projects";
+import { ProjectFormDialog } from "@/components/proyectos/project-form";
 import type { EstadoProyecto } from "@prisma/client";
 
 const ESTADO_PROYECTO_LABELS: Record<EstadoProyecto, string> = {
@@ -58,6 +60,7 @@ function formatFecha(iso: string): string {
 }
 
 export function ProjectList() {
+  const router = useRouter();
   const projectsQuery = useProjects();
   const { data: currentUser } = useCurrentUser();
 
@@ -67,6 +70,7 @@ export function ProjectList() {
   const [cliente, setCliente] = useState(TODOS);
   const [responsable, setResponsable] = useState(TODOS);
   const [page, setPage] = useState(1);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const rows = useMemo(() => projectsQuery.data ?? [], [projectsQuery.data]);
 
@@ -106,7 +110,7 @@ export function ProjectList() {
           <h2 className="font-display text-[20px] font-bold text-ink-950">Proyectos</h2>
         </div>
         {canCreate && (
-          <Button type="button" className="gap-1.5">
+          <Button type="button" className="gap-1.5" onClick={() => setCreateOpen(true)}>
             <Plus className="size-4" strokeWidth={1.8} />
             Nuevo proyecto
           </Button>
@@ -245,6 +249,12 @@ export function ProjectList() {
           </div>
         </div>
       </div>
+
+      <ProjectFormDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={(projectId) => router.push(`/proyectos/${projectId}`)}
+      />
     </div>
   );
 }
