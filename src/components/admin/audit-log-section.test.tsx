@@ -1,8 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuditLogSection } from "./audit-log-section";
 import type { AuditoriaRow } from "@/hooks/admin";
+import {
+  installMockIntersectionObserver,
+  latestIntersectionObserver,
+} from "@/test/intersection-observer";
 
 const { auditoriaQuery } = vi.hoisted(() => ({
   auditoriaQuery: {
@@ -45,7 +49,13 @@ function entidadTrigger() {
 describe("AuditLogSection", () => {
   beforeEach(() => {
     auditoriaQuery.hasNextPage = true;
+    auditoriaQuery.isFetchingNextPage = false;
     auditoriaQuery.fetchNextPage.mockReset();
+    installMockIntersectionObserver();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   // Code review finding: moreError is local state that survived a filter
@@ -96,5 +106,28 @@ describe("AuditLogSection", () => {
     } finally {
       auditoriaQuery.data = original;
     }
+  });
+
+  it("auto-fetches the next page when the scroll sentinel intersects", () => {
+    render(<AuditLogSection />);
+
+    latestIntersectionObserver().trigger(true);
+
+    expect(auditoriaQuery.fetchNextPage).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not auto-fetch while a page is already loading", () => {
+    auditoriaQuery.isFetchingNextPage = true;
+    render(<AuditLogSection />);
+
+    latestIntersectionObserver().trigger(true);
+
+    expect(auditoriaQuery.fetchNextPage).not.toHaveBeenCalled();
+  });
+
+  it("still renders the manual 'Cargar más' button alongside the sentinel", () => {
+    render(<AuditLogSection />);
+
+    expect(screen.getByRole("button", { name: "Cargar más" })).toBeInTheDocument();
   });
 });

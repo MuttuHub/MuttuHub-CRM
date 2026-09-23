@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { formatFechaHora, iniciales } from "@/hooks/crm";
 import { useAccesos } from "@/hooks/admin";
+import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -40,6 +41,15 @@ export function AccesosSection() {
   const [moreError, setMoreError] = useState<string | null>(null);
   const accesos = query.data?.pages.flatMap((p) => p.accesos) ?? [];
   const hasMore = query.hasNextPage ?? false;
+  // Auto-triggers loadMore() when the sentinel below the table enters the
+  // viewport; the "Cargar más" button stays as a manual fallback (keyboard
+  // / no-JS / no-IntersectionObserver users). Called before the early
+  // returns below so hook order stays stable across renders.
+  const sentinelRef = useInfiniteScroll({
+    hasNextPage: hasMore,
+    fetchNextPage: loadMore,
+    isFetchingNextPage: query.isFetchingNextPage,
+  });
 
   if (query.isLoading) {
     return (
@@ -225,19 +235,27 @@ export function AccesosSection() {
             </p>
           )}
           {hasMore && (
-            <Button
-              onClick={() => void loadMore()}
-              variant="outline"
-              disabled={query.isFetchingNextPage}
-              className="rounded-lg px-4 font-semibold"
-            >
-              {query.isFetchingNextPage ? (
-                <LoaderCircle className="size-4 animate-spin" />
-              ) : (
-                <Plus className="size-4" strokeWidth={2} />
-              )}
-              Cargar más
-            </Button>
+            <>
+              <div
+                ref={sentinelRef}
+                aria-hidden="true"
+                data-testid="infinite-scroll-sentinel"
+                className="h-px w-full"
+              />
+              <Button
+                onClick={() => void loadMore()}
+                variant="outline"
+                disabled={query.isFetchingNextPage}
+                className="rounded-lg px-4 font-semibold"
+              >
+                {query.isFetchingNextPage ? (
+                  <LoaderCircle className="size-4 animate-spin" />
+                ) : (
+                  <Plus className="size-4" strokeWidth={2} />
+                )}
+                Cargar más
+              </Button>
+            </>
           )}
         </div>
       )}
