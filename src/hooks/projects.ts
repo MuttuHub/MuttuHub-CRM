@@ -108,6 +108,30 @@ export const projectDetailQueryKeys = {
   activities: (id: string) => ["projects", id, "activities"] as const,
   indicators: (id: string) => ["projects", id, "indicators"] as const,
   attachments: (id: string) => ["projects", id, "attachments"] as const,
+  dashboard: (projectId: string | null) => ["dashboard", "projects", projectId ?? "org-wide"] as const,
+};
+
+/** Shape of `GET /api/v1/dashboard/projects` — no envelope key, the body
+ * itself is the payload (see `src/app/api/v1/dashboard/projects/route.ts`).
+ * `?proyecto_id=` scopes it to one project (design.md T6); without it the
+ * response is the org-wide aggregate consumed by `/tablero-gerencial`. */
+export type ProjectDashboard = {
+  avance_tecnico: number;
+  avance_financiero: number;
+  cumplimiento_indicadores: number;
+  cumplimiento_cronograma: number;
+  productos_entregados: number;
+  productos_programados: number;
+  beneficiarios_atendidos: number;
+  beneficiarios_meta: number;
+  indicadores_beneficiarios_count: number;
+  color_tecnico: string;
+  color_financiero: string;
+  curva_s: {
+    meses: string[];
+    planificado: number[];
+    ejecutado: number[];
+  };
 };
 
 /* ── Queries ───────────────────────────────────────────────────────────── */
@@ -173,6 +197,22 @@ export function useProjects(): UseQueryResult<ProjectListRow[]> {
     queryFn: async () => {
       const res = await apiGet<{ proyectos: ProjectListRow[] }>("/api/v1/projects");
       return res.proyectos;
+    },
+  });
+}
+
+/** `projectId === null` fetches the org-wide aggregate (Tablero Gerencial);
+ * a project id scopes it via `?proyecto_id=` (Resumen tab, design.md T6).
+ * Both scopes share this one hook so `KpiCards`/`CurveSChartContainer` stop
+ * self-fetching and instead read/write the same TanStack Query cache. */
+export function useProjectDashboard(projectId: string | null): UseQueryResult<ProjectDashboard> {
+  return useQuery({
+    queryKey: projectDetailQueryKeys.dashboard(projectId),
+    queryFn: () => {
+      const path = projectId
+        ? `/api/v1/dashboard/projects?proyecto_id=${projectId}`
+        : "/api/v1/dashboard/projects";
+      return apiGet<ProjectDashboard>(path);
     },
   });
 }

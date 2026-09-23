@@ -41,7 +41,7 @@ import { useProjects, type ProjectListRow } from "@/hooks/projects";
 import { ProjectFormDialog } from "@/components/proyectos/project-form";
 import type { EstadoProyecto } from "@prisma/client";
 
-const ESTADO_PROYECTO_LABELS: Record<EstadoProyecto, string> = {
+export const ESTADO_PROYECTO_LABELS: Record<EstadoProyecto, string> = {
   PLANIFICACION: "Planificación",
   EN_EJECUCION: "En ejecución",
   SUSPENDIDO: "Suspendido",

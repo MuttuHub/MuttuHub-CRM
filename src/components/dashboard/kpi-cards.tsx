@@ -1,10 +1,17 @@
 // Componentes de tarjetas KPI para el Tablero de Control Gerencial
 // Muestra los 6 KPIs del PRD con sus colores de semaforización
+//
+// gestion-proyectos-workspace, Phase 4 (design.md T6): split into a
+// presentational `KpiCardsView` (props only) and a `KpiCards` container that
+// reads `useProjectDashboard`. `KpiCards` keeps its exact name and a
+// zero-arg-compatible signature so `tablero-gerencial-client.tsx` (which
+// calls `<KpiCards />`) stays diff-free; the Resumen tab reuses the same
+// container with `projectId` set.
 
 'use client';
 
-import { useEffect, useState } from 'react';
 import { ArrowUpRight, CheckCheck, ListChecks, PieChart, BarChart3, Users, TrendingUp } from 'lucide-react';
+import { useProjectDashboard, type ProjectDashboard } from '@/hooks/projects';
 
 const COLOR_MAP: Record<string, { bg: string; border: string; text: string }> = {
   verde: { bg: 'bg-panel', border: 'border-exito/30', text: 'text-exito' },
@@ -49,55 +56,26 @@ function KpiCard({
   );
 }
 
-interface KpiData {
-  avance_tecnico: number;
-  avance_financiero: number;
-  cumplimiento_indicadores: number;
-  cumplimiento_cronograma: number;
-  productos_entregados: number;
-  productos_programados: number;
-  beneficiarios_atendidos: number;
-  beneficiarios_meta: number;
-  color_tecnico: string;
-  color_financiero: string;
-  curva_s: {
-    meses: string[];
-    planificado: number[];
-    ejecutado: number[];
-  };
+/** Container: `projectId` omitted (or `undefined`) keeps the org-wide
+ * aggregate `tablero-gerencial-client.tsx` already relies on; a project id
+ * scopes it to that project's Resumen tab (design.md T6). */
+export function KpiCards({ projectId }: { projectId?: string | null } = {}) {
+  const query = useProjectDashboard(projectId ?? null);
+
+  if (query.isLoading) return <div className="flex h-[300px] items-center justify-center">Cargando...</div>;
+  if (query.isError) {
+    return (
+      <div className="flex h-[300px] items-center justify-center text-destructivo">
+        No se pudo cargar el tablero gerencial
+      </div>
+    );
+  }
+  if (!query.data) return <div className="flex h-[300px] items-center justify-center">Sin datos</div>;
+
+  return <KpiCardsView data={query.data} />;
 }
 
-export function KpiCards() {
-  const [data, setData] = useState<KpiData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true);
-        const response = await fetch('/api/v1/dashboard/projects');
-        if (!response.ok) {
-          throw new Error(`Error ${response.status}`);
-        }
-        const json = await response.json();
-        setData(json);
-        setError(null);
-      } catch (err) {
-        setError('No se pudo cargar el tablero gerencial');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchData();
-  }, []);
-
-  if (loading) return <div className="flex h-[300px] items-center justify-center">Cargando...</div>;
-  if (error) return <div className="flex h-[300px] items-center justify-center text-destructivo">{error}</div>;
-  if (!data) return <div className="flex h-[300px] items-center justify-center">Sin datos</div>;
-
+export function KpiCardsView({ data }: { data: ProjectDashboard }) {
   // Calcular porcentajes para los KPIs
   const avanceTecnicoPct = Math.round(data.avance_tecnico);
   const avanceFinancieroPct = Math.round(data.avance_financiero);
