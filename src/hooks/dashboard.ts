@@ -9,6 +9,7 @@
 
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { apiGet } from "@/lib/api/http";
+import type { ProjectDashboard } from "@/hooks/projects";
 import type {
   EstadoCliente,
   EstadoOportunidad,
@@ -152,6 +153,25 @@ export type DashboardMySummary = {
   clientes_asignados: { count: number; items: ClienteAsignado[] };
 };
 
+/* ── GET /api/v1/dashboard/projects (quinta cara, D9) ───────────────────── */
+
+/**
+ * Tablero de Control Gerencial: el DTO y el endpoint son los mismos que sirve
+ * el Resumen de proyecto (`useProjectDashboard` en `@/hooks/projects`), pero
+ * esta cara es org-wide y respeta los filtros comunes del shell (PRD §7.2),
+ * así que vive acá junto a las otras cuatro caras. `projectId` no aplica:
+ * el alcance por proyecto se resuelve en el Resumen del proyecto.
+ */
+export function useDashboardManagement(
+  filters: DashboardFilters,
+): UseQueryResult<ProjectDashboard> {
+  return useQuery({
+    queryKey: dashboardQueryKeys.management(filters),
+    queryFn: () =>
+      apiGet<ProjectDashboard>(`/api/v1/dashboard/projects?${buildDashboardQuery(filters)}`),
+  });
+}
+
 /* ── Query keys (filters included → refetch per change) ─────────────────── */
 
 export const dashboardQueryKeys = {
@@ -160,6 +180,7 @@ export const dashboardQueryKeys = {
   clientsActivity: (filters: DashboardFilters, dias: number) =>
     ["dashboard", "clients-activity", filters, dias] as const,
   mySummary: (filters: DashboardFilters) => ["dashboard", "my-summary", filters] as const,
+  management: (filters: DashboardFilters) => ["dashboard", "management", filters] as const,
 };
 
 /* ── Queries ────────────────────────────────────────────────────────────── */

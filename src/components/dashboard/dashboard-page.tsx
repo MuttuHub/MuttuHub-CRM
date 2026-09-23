@@ -1,4 +1,4 @@
-// Dashboard (Hito 6, PRD §7): contenedor con las 4 "caras" del dashboard,
+// Dashboard (Hito 6, PRD §7): contenedor con las 5 "caras" del dashboard,
 // barra de filtros comunes sticky (§7.2, presets de rango TODO: rango custom)
 // y el botón "Generar reporte" que abre el PDF imprimible por cara con los
 // filtros aplicados. El estado de filtros vive aquí (useState) y se pasa a
@@ -13,6 +13,7 @@ import {
   Gauge,
   ListChecks,
   Printer,
+  Target,
   UserRound,
   UsersRound,
 } from "lucide-react";
@@ -42,12 +43,14 @@ import { CaraPipeline } from "@/components/dashboard/cara-pipeline";
 import { CaraTareas } from "@/components/dashboard/cara-tasks";
 import { CaraClientesActividad } from "@/components/dashboard/cara-clients-activity";
 import { CaraMiResumen } from "@/components/dashboard/cara-my-summary";
+import { CaraGerencial } from "@/components/dashboard/cara-management";
 
 const CARAS = [
   { id: "pipeline", label: "Pipeline comercial", icon: Gauge },
   { id: "tasks", label: "Gestión de tareas", icon: ListChecks },
   { id: "clients-activity", label: "Actividad de clientes", icon: UsersRound },
   { id: "my-summary", label: "Mi resumen", icon: UserRound },
+  { id: "management", label: "Tablero gerencial", icon: Target },
 ] as const;
 
 type CaraId = (typeof CARAS)[number]["id"];
@@ -93,7 +96,7 @@ export function DashboardTabs({ notice }: { notice?: string }) {
         </div>
       )}
 
-      {/* Tabs: las 4 caras */}
+      {/* Tabs: las 5 caras */}
       <div className="flex flex-wrap items-center gap-1 rounded-lg bg-ink-100 p-1">
         {CARAS.map((c) => (
           <button
@@ -175,6 +178,7 @@ export function DashboardTabs({ notice }: { notice?: string }) {
         <CaraClientesActividad filters={filters} dias={dias} onDias={setDias} />
       )}
       {cara === "my-summary" && <CaraMiResumen filters={filters} />}
+      {cara === "management" && <CaraGerencial filters={filters} />}
     </div>
   );
 }

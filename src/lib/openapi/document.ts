@@ -12,6 +12,7 @@ import "@/lib/openapi/paths/clients";
 import "@/lib/openapi/paths/tasks";
 import "@/lib/openapi/paths/documents";
 import "@/lib/openapi/paths/dashboard-admin";
+import "@/lib/openapi/paths/projects";
 
 export function buildOpenApiDocument() {
   const generator = new OpenApiGeneratorV31(registry.definitions);
