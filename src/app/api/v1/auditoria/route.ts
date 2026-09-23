@@ -28,7 +28,12 @@ export const dynamic = "force-dynamic";
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
-const ENTIDADES = ["cliente", "tarea", "documento"] as const;
+// dashboard-export-excel: "dashboard" added so the reader can filter the 4
+// new dashboard-face xlsx exports. NOTE: "oportunidad" (AuditEntidad, PR 6 /
+// oportunidades-comerciales D9) is still missing from this filter list even
+// though logAudit already accepts it — pre-existing gap, out of scope here
+// (same shape as the PR #68 finding this comment used to warn about).
+const ENTIDADES = ["cliente", "tarea", "documento", "dashboard"] as const;
 
 type Cursor = { createdAt: Date; id: string };
 

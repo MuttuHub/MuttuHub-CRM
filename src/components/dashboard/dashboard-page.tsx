@@ -8,7 +8,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
+  FileSpreadsheet,
   Flag,
   Gauge,
   ListChecks,
@@ -52,8 +54,52 @@ const CARAS = [
 
 type CaraId = (typeof CARAS)[number]["id"];
 
+// dashboard-export-excel: maps each cara to its own xlsx export endpoint and
+// download filename. A cara with no entry (e.g. a future "management" face —
+// tacómetro/radar, no row data, PDF-only by design) simply gets no "Exportar
+// Excel" trigger instead of needing a hardcoded exclusion here.
+export const EXPORT_CONFIG: Partial<Record<CaraId, { path: string; filename: string }>> = {
+  pipeline: { path: "pipeline", filename: "pipeline.xlsx" },
+  tasks: { path: "tasks", filename: "tareas-dashboard.xlsx" },
+  "clients-activity": { path: "clients-activity", filename: "actividad-clientes.xlsx" },
+  "my-summary": { path: "my-summary", filename: "mi-resumen.xlsx" },
+};
+
 function fechaDesde(dias: number): string {
   return new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+// Same fetch → blob → temporary <a download> pattern already used by
+// descargarExcel in kanban-board.tsx / report-view.tsx, parameterized with a
+// filename since this trigger serves 4 different caras instead of one fixed
+// endpoint (those two call sites hardcode "tareas.xlsx").
+async function descargarExcel(url: string, filename: string) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      let msg = "No pudimos generar el archivo.";
+      try {
+        const body = (await res.json()) as { error?: string };
+        msg = body.error ?? msg;
+      } catch {
+        /* mensaje por defecto */
+      }
+      toast.error(msg);
+      return;
+    }
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objectUrl);
+    toast.success(`Exportación completada: ${filename}`);
+  } catch {
+    toast.error("No pudimos generar el archivo.");
+  }
 }
 
 export function DashboardTabs({ notice }: { notice?: string }) {
@@ -82,6 +128,17 @@ export function DashboardTabs({ notice }: { notice?: string }) {
   function generarReporte() {
     const qs = buildDashboardQuery(filters, { dias_sin_gestion: dias });
     window.open(`/print/dashboard/${cara}${qs ? `?${qs}` : ""}`, "_blank", "noopener");
+  }
+
+  const exportConfig = EXPORT_CONFIG[cara];
+
+  function exportarExcel() {
+    if (!exportConfig) return;
+    const qs = buildDashboardQuery(filters, { dias_sin_gestion: dias });
+    void descargarExcel(
+      `/api/v1/dashboard/${exportConfig.path}/export${qs ? `?${qs}` : ""}`,
+      exportConfig.filename,
+    );
   }
 
   return (
@@ -152,7 +209,17 @@ export function DashboardTabs({ notice }: { notice?: string }) {
             </SelectContent>
           </Select>
 
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            {exportConfig && (
+              <Button
+                variant="outline"
+                onClick={exportarExcel}
+                className="h-9 rounded-lg border-ink-200 bg-panel px-4 font-bold text-ink-800 hover:bg-ink-100"
+              >
+                <FileSpreadsheet className="size-4 text-exito" strokeWidth={1.9} />
+                Exportar Excel
+              </Button>
+            )}
             <Button
               onClick={generarReporte}
               className="h-9 rounded-lg px-4 font-bold"
