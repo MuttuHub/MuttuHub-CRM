@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import { apiGet, apiPut, ApiError } from "@/lib/api/http";
 import type { DocCategoriaSetting } from "@/lib/settings";
+import type { UmbralesSemaforo } from "@/lib/semaforo";
 import { documentQueryKeys } from "@/hooks/documents";
 
 /* ── DTOs (server response shapes) ─────────────────────────────────────── */
@@ -23,6 +24,10 @@ import { documentQueryKeys } from "@/hooks/documents";
 export type SettingsSnapshot = {
   task_tags: string[];
   doc_categories: DocCategoriaSetting[];
+  // admin-umbrales-semaforo-ui: GET siempre lo puebla (getSetting con
+  // fallback en el servidor); opcional acá solo para que useSaveSettings
+  // pueda recibir un snapshot parcial sin tocar este campo.
+  semaforo_umbrales?: UmbralesSemaforo;
 };
 
 export type AccesoRow = {
@@ -140,6 +145,12 @@ export function useSaveSettings(): UseMutationResult<
         return await apiPut<SettingsSnapshot>("/api/v1/settings", {
           task_tags: snapshot.task_tags,
           doc_categories: snapshot.doc_categories,
+          // admin-umbrales-semaforo-ui: solo se manda cuando el caller (la
+          // nueva UmbralesSection) lo incluye en el snapshot — CatalogsSection
+          // sigue sin tocarlo y el PUT lo trata como campo opcional.
+          ...(snapshot.semaforo_umbrales !== undefined
+            ? { semaforo_umbrales: snapshot.semaforo_umbrales }
+            : {}),
         });
       } catch (err) {
         return toastError(err, "No pudimos guardar los catálogos.");
