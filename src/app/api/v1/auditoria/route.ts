@@ -28,7 +28,7 @@ export const dynamic = "force-dynamic";
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
-const ENTIDADES = ["cliente", "tarea", "documento"] as const;
+const ENTIDADES = ["cliente", "tarea", "documento", "oportunidad"] as const;
 
 type Cursor = { createdAt: Date; id: string };
 

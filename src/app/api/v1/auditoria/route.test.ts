@@ -143,6 +143,17 @@ describe("GET /api/v1/auditoria", () => {
     );
   });
 
+  it("applies the 'entidad' filter for 'oportunidad'", async () => {
+    vi.mocked(db.auditoria.findMany).mockResolvedValue([]);
+
+    const res = await GET(auditoriaRequest("?entidad=oportunidad"));
+
+    expect(res.status).toBe(200);
+    expect(db.auditoria.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { entidad: "oportunidad" } }),
+    );
+  });
+
   it("returns 400 for an invalid 'entidad'", async () => {
     const res = await GET(auditoriaRequest("?entidad=usuario"));
 
