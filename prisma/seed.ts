@@ -22,6 +22,12 @@
 //   password and writes fictional-but-realistic CRM data. Only ever point it
 //   at a throwaway dev/demo Supabase project + Postgres database.
 //
+//   PRODUCTION GUARD: `main()` calls assertLocalTarget() BEFORE any write.
+//   If DATABASE_URL points to anything other than 127.0.0.1/localhost the
+//   script aborts. Do NOT bypass it with SEED_ALLOW_NON_LOCAL=1 on a real
+//   project — that flag exists only for an explicit, conscious demo restore
+//   on a throwaway staging project.
+//
 // Required environment variables (see README "Variables de entorno"):
 //   - DATABASE_URL              Postgres connection string (src/lib/db.ts)
 //   - NEXT_PUBLIC_SUPABASE_URL  Supabase project URL
@@ -29,8 +35,12 @@
 //   - SEED_DEMO_PASSWORD        optional — password for the 4 demo logins
 //                                (defaults to a clearly-labeled placeholder)
 //
-// Usage: `npm run db:seed` (wraps `prisma db seed`, wired to
-// `tsx prisma/seed.ts` via the "prisma.seed" key in package.json).
+// Usage:
+//   - `npm run db:seed:local` — SIEMPRE para la base Docker local
+//     (equivale a `tsx --env-file=.env.local prisma/seed.ts`).
+//   - `npm run db:seed` — fallará con el guard si apunta a producción.
+//   - SEED_ALLOW_NON_LOCAL=1 npm run db:seed — SOLO restauración consciente
+//     en un proyecto demo/staging descartable.
 
 import "dotenv/config";
 import { db } from "../src/lib/db";
@@ -99,6 +109,40 @@ const PERSONAS: PersonaDef[] = [
 ];
 
 type SupabaseAdmin = ReturnType<typeof createSupabaseAdmin>;
+
+// ─────────────────────────────────────────────────────────────────────────
+// Production guard
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Refuses to run the demo seed against anything that is not a local dev
+ * database. Reads the host from DATABASE_URL and aborts BEFORE any write
+ * (no auth user, no row, no storage object is created).
+ *
+ * Override: `SEED_ALLOW_NON_LOCAL=1` — reserved for a conscious demo restore
+ * on a throwaway staging project; never use it against a real deployment.
+ */
+function assertLocalTarget(): void {
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error(
+      "Falta DATABASE_URL. Usa: npm run db:seed:local (carga .env.local).",
+    );
+  }
+  const host = new URL(url).hostname;
+  const isLocal =
+    host === "127.0.0.1" || host === "localhost" || host === "::1";
+  if (!isLocal && process.env.SEED_ALLOW_NON_LOCAL !== "1") {
+    throw new Error(
+      "\n❌ SEED BLOQUEADO — DATABASE_URL apunta a " +
+        `"${host}", que NO es una base local.\n` +
+        "   El seed de demo NUNCA debe ejecutarse contra producción/staging.\n" +
+        "   Para sembrar tu base Docker local:  npm run db:seed:local\n" +
+        "   (SEED_ALLOW_NON_LOCAL=1 fuerza la ejecución; SOLO en un demo descartable.)",
+    );
+  }
+  console.log(`✅ Guard anti-producción OK — target local: ${host}`);
+}
 
 /** Paginates auth.admin.listUsers looking for an exact email match (no getUserByEmail API exists). */
 async function findAuthUserByEmail(admin: SupabaseAdmin, email: string) {
@@ -952,6 +996,8 @@ async function seedAccesos(usuarios: Record<string, { id: string }>) {
 // ─────────────────────────────────────────────────────────────────────────
 
 async function main() {
+  assertLocalTarget();
+
   console.warn(
     "\n" +
       "⚠️  ⚠️  ⚠️  ATENCIÓN — SEED DE DEMO ⚠️  ⚠️  ⚠️\n" +
