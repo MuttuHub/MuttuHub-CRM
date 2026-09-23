@@ -223,7 +223,6 @@ function ConfirmInner() {
           (!rawType && Boolean(user?.user_metadata?.rol));
 
         if (!cancelled) {
-          setInvite(isInvite);
           setStatus(isInvite ? "set-password" : "done");
         }
       } catch {
@@ -243,7 +242,6 @@ function ConfirmInner() {
             const fallbackIsInvite =
               rawType === "invite" ||
               (!rawType && Boolean(fallbackUser.user_metadata?.rol));
-            setInvite(fallbackIsInvite);
             setStatus(fallbackIsInvite ? "set-password" : "done");
             return;
           }

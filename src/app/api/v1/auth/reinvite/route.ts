@@ -15,7 +15,6 @@ import {
   parseJsonBody,
 } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
-import { createSupabaseAdmin } from "@/lib/supabase/admin";
 
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 const RATE_LIMIT_MAX_PER_EMAIL = 3;
@@ -71,7 +70,6 @@ export const POST = withApiErrorHandling(
     });
 
     if (appUser) {
-      const supabaseAdmin = createSupabaseAdmin();
       const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
