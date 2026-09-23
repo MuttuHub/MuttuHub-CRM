@@ -21,6 +21,10 @@ import {
   TIPO_CLIENTE_LABELS,
 } from "@/lib/catalogs";
 import { formatCOP, formatFecha } from "@/hooks/crm";
+import type { ProjectDashboard } from "@/hooks/projects";
+import { Tacometro } from "@/components/dashboard/tacometro";
+import { Radar } from "@/components/dashboard/radar";
+import { CurveSChart } from "@/components/dashboard/curve-s-chart";
 import type {
   DashboardClientsActivity,
   DashboardMySummary,
@@ -32,13 +36,15 @@ export type CaraPrint =
   | "pipeline"
   | "tasks"
   | "clients-activity"
-  | "my-summary";
+  | "my-summary"
+  | "management";
 
 const CARA_META: Record<CaraPrint, { title: string; endpoint: string }> = {
   pipeline: { title: "Reporte — Pipeline comercial", endpoint: "/api/v1/dashboard/pipeline" },
   tasks: { title: "Reporte — Gestión de tareas", endpoint: "/api/v1/dashboard/tasks" },
   "clients-activity": { title: "Reporte — Actividad de clientes", endpoint: "/api/v1/dashboard/clients-activity" },
   "my-summary": { title: "Reporte — Mi resumen", endpoint: "/api/v1/dashboard/my-summary" },
+  management: { title: "Reporte — Tablero gerencial", endpoint: "/api/v1/dashboard/projects" },
 };
 
 type LoadState =
@@ -135,6 +141,7 @@ export function PrintDashboardCara({ cara }: { cara: CaraPrint }) {
             <ClientsBody data={state.data as DashboardClientsActivity} />
           )}
           {cara === "my-summary" && <MySummaryBody data={state.data as DashboardMySummary} />}
+          {cara === "management" && <ManagementBody data={state.data as ProjectDashboard} />}
           <PrintFooter />
         </>
       )}
@@ -473,6 +480,40 @@ function MySummaryBody({ data }: { data: DashboardMySummary }) {
         Compromisos pendientes: {compromisos_pendientes.count} (
         {compromisos_pendientes.vencidos} vencidos)
       </p>
+    </div>
+  );
+}
+
+function ManagementBody({ data }: { data: ProjectDashboard }) {
+  return (
+    <div>
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <PrintKpi label="Avance técnico" value={`${Math.round(data.avance_tecnico)}%`} />
+        <PrintKpi label="Avance financiero" value={`${Math.round(data.avance_financiero)}%`} />
+        <PrintKpi
+          label="Cumplimiento de indicadores"
+          value={`${Math.round(data.cumplimiento_indicadores)}%`}
+        />
+        <PrintKpi
+          label="Cumplimiento de cronograma"
+          value={`${Math.round(data.cumplimiento_cronograma)}%`}
+        />
+        <PrintKpi
+          label="Productos entregados"
+          value={`${data.productos_entregados} / ${data.productos_programados}`}
+        />
+        <PrintKpi
+          label="Beneficiarios atendidos"
+          value={`${data.beneficiarios_atendidos} / ${data.beneficiarios_meta}`}
+        />
+      </div>
+
+      {/* Primitivas SVG propias (D7): deterministas, sin medición del DOM. */}
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Tacometro value={data.avance_tecnico} color={data.color_tecnico as "verde" | "amarillo" | "rojo"} />
+        <CurveSChart data={data.curva_s} />
+        <Radar axes={[{ label: "Indicadores", value: data.cumplimiento_indicadores }]} />
+      </div>
     </div>
   );
 }

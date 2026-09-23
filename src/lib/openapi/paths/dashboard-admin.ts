@@ -320,7 +320,65 @@ registry.registerPath({
   },
 });
 
-// ─── Catálogos de lectura libre (cualquier usuario autenticado) ─────────
+// ─── Quinta cara: Tablero de Control Gerencial (tablero-seguimiento-social) ─
+
+registry.registerPath({
+  method: "get",
+  path: "/api/v1/dashboard/projects",
+  tags: ["Dashboard"],
+  summary: "Cara 'Tablero de Control Gerencial' (quinta cara) — endpoint agregado D9",
+  description:
+    "Un solo round-trip resuelve los seis KPIs de proyecto (avance técnico, avance financiero/curva S, " +
+    "cumplimiento de indicadores, cumplimiento de cronograma, productos entregados/programados, " +
+    "beneficiarios atendidos/meta). SIN `proyecto_id`: gateado por `canViewManagementDashboard` (ADMINISTRADOR/" +
+    "GERENCIA/COORDINADOR o COLABORADOR con `puede_ver_tablero_gerencial`); con `proyecto_id`: gateado por " +
+    "`canViewProject` y con el override de umbrales de ESE proyecto. Filtros comunes del dashboard (PRD §7.2) " +
+    "más `proyecto_id?`/`cliente_id?`. `cumplimiento_cronograma` excluye del denominador las actividades sin " +
+    "`fecha_real` (no penaliza lo no resuelto); un `Indicador` sin `valor_actual` nunca cuenta como cumplido; " +
+    "una `Actividad` finalizada sin soporte no cuenta como entregada.",
+  security: [{ sessionCookie: [] }],
+  request: {
+    query: DashboardQuerySchema.extend({
+      proyecto_id: z.string().uuid().optional().openapi({
+        description: "Alcance a un solo proyecto (Resumen del proyecto). Cambia el gate a `canViewProject`.",
+      }),
+      cliente_id: z.string().uuid().optional().openapi({
+        description: "Filtra por cliente (usado por la ficha del cliente).",
+      }),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Snapshot del tablero gerencial en el alcance y rango solicitados.",
+      content: {
+        "application/json": {
+          schema: registry.register(
+            "DashboardManagementResponse",
+            z.object({
+              avance_tecnico: z.number().openapi({ description: "Porcentaje 0..100 (promedio ponderado por peso)." }),
+              avance_financiero: z.number().openapi({ description: "Porcentaje 0..100 (ejecutado / proyectado)." }),
+              cumplimiento_indicadores: z.number().openapi({ description: "Porcentaje 0..100 de Indicadores cumplidos." }),
+              cumplimiento_cronograma: z.number().openapi({ description: "Porcentaje 0..100 de actividades resueltas a tiempo." }),
+              productos_entregados: z.number().openapi({ description: "Actividades al 100% con soporte." }),
+              productos_programados: z.number().openapi({ description: "Total de actividades del cronograma." }),
+              beneficiarios_atendidos: z.number().openapi({ description: "Derivado de Indicador.cuenta_beneficiarios (nunca un registro nominal)." }),
+              beneficiarios_meta: z.number(),
+              indicadores_beneficiarios_count: z.number().int(),
+              color_tecnico: z.enum(["verde", "amarillo", "rojo"]),
+              color_financiero: z.enum(["verde", "amarillo", "rojo"]),
+              curva_s: z.object({
+                meses: z.array(z.string()).openapi({ description: "Etiquetas YYYY-MM ordenadas." }),
+                planificado: z.array(z.number()).openapi({ description: "Acumulado de peso escalado por el proyectado total (COP)." }),
+                ejecutado: z.array(z.number()).openapi({ description: "Acumulado de gasto por fecha_gasto (COP)." }),
+              }),
+            }),
+          ),
+        },
+      },
+    },
+    ...standardErrorResponses([400, 401, 403, 404, 500]),
+  },
+});
 
 registry.registerPath({
   method: "get",
