@@ -74,6 +74,9 @@ export async function POST() {
     skipped_empty: 0, // usuarios sin alertas → "no-mail-if-empty" (PRD)
     already_sent_today: false,
   };
+  // Errores de envío por usuario — solo para diagnóstico en cron_logs.detalle
+  // (recordJobLog ya trunca a 400 chars, así que no hace falta capar esto acá).
+  const failureDetails: string[] = [];
 
   try {
     // 3) Idempotencia: la corrida de hoy ya cerró OK (reintento 8:30) → no
@@ -116,6 +119,7 @@ export async function POST() {
         summary.failed += 1;
         summary.ok = false;
         console.error(`[cron] email failed for ${usuario.email}:`, result.error);
+        failureDetails.push(`${usuario.email}: ${result.error}`);
       }
     }
 
@@ -124,6 +128,7 @@ export async function POST() {
       `sent=${summary.sent}`,
       `skipped_empty=${summary.skipped_empty}`,
       `failed=${summary.failed}`,
+      ...(failureDetails.length ? [`errors=[${failureDetails.join(" | ")}]`] : []),
     ].join(" ");
     await recordJobLog(summary.ok ? "OK" : "ERROR", detalle);
 
