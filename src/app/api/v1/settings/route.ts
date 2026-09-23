@@ -9,7 +9,8 @@
 import { NextResponse } from "next/server";
 import { apiError, parseJsonBody } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
-import { TASK_TAGS } from "@/lib/catalogs";
+import { TASK_TAGS, UMBRALES_SEMAFORO_DEFAULT } from "@/lib/catalogs";
+import type { UmbralesSemaforo } from "@/lib/semaforo";
 import { requireApiRole } from "@/lib/supabase/server";
 import {
   defaultDocCategories,
@@ -17,6 +18,7 @@ import {
   ensureDefaultSettings,
   getSetting,
   SETTING_DOC_CATEGORIES,
+  SETTING_SEMAFORO_UMBRALES,
   SETTING_TASK_TAGS,
   setSetting,
 } from "@/lib/settings";
@@ -34,12 +36,39 @@ function isDocCategoryItem(value: unknown): value is DocCategoriaSetting {
   return typeof v.nombre === "string" && typeof v.restringida === "boolean";
 }
 
+// admin-umbrales-semaforo-ui: type-guard manual (mismo estilo que
+// isDocCategoryItem arriba, este repo no usa zod en esta ruta) — NO
+// reutiliza UMBRALES_OVERRIDE_SCHEMA de semaforo.ts (ese es `.partial()`
+// para el merge de override por proyecto, un propósito distinto); acá el
+// setting de organización siempre exige la forma completa.
+function isUmbralesSemaforo(value: unknown): value is UmbralesSemaforo {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (typeof v.confirmado !== "boolean") return false;
+
+  const tecnico = v.tecnico;
+  if (typeof tecnico !== "object" || tecnico === null) return false;
+  const t = tecnico as Record<string, unknown>;
+  if (typeof t.verde !== "number" || typeof t.rojo !== "number") return false;
+
+  const financiero = v.financiero;
+  if (typeof financiero !== "object" || financiero === null) return false;
+  const f = financiero as Record<string, unknown>;
+  return (
+    typeof f.verde_min === "number" &&
+    typeof f.verde_max === "number" &&
+    typeof f.amarillo_min === "number" &&
+    typeof f.amarillo_max === "number"
+  );
+}
+
 async function readSnapshot() {
-  const [task_tags, doc_categories] = await Promise.all([
+  const [task_tags, doc_categories, semaforo_umbrales] = await Promise.all([
     getSetting<string[]>(SETTING_TASK_TAGS, [...TASK_TAGS]),
     getSetting<DocCategoriaSetting[]>(SETTING_DOC_CATEGORIES, defaultDocCategories()),
+    getSetting<UmbralesSemaforo>(SETTING_SEMAFORO_UMBRALES, UMBRALES_SEMAFORO_DEFAULT),
   ]);
-  return { task_tags, doc_categories };
+  return { task_tags, doc_categories, semaforo_umbrales };
 }
 
 export const GET = withApiErrorHandling(
@@ -64,6 +93,7 @@ export const PUT = withApiErrorHandling(
     const body = await parseJsonBody<{
       task_tags?: unknown;
       doc_categories?: unknown;
+      semaforo_umbrales?: unknown;
     }>(request);
     if (body === null) {
       return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
@@ -71,8 +101,13 @@ export const PUT = withApiErrorHandling(
 
     const hasTags = body.task_tags !== undefined;
     const hasCategories = body.doc_categories !== undefined;
-    if (!hasTags && !hasCategories) {
-      return apiError("Envía 'task_tags' o 'doc_categories'.", 400, "VALIDATION_ERROR");
+    const hasUmbrales = body.semaforo_umbrales !== undefined;
+    if (!hasTags && !hasCategories && !hasUmbrales) {
+      return apiError(
+        "Envía 'task_tags', 'doc_categories' o 'semaforo_umbrales'.",
+        400,
+        "VALIDATION_ERROR",
+      );
     }
 
     let tags: string[] | undefined;
@@ -116,9 +151,43 @@ export const PUT = withApiErrorHandling(
       }
     }
 
+    let umbrales: UmbralesSemaforo | undefined;
+    if (hasUmbrales) {
+      if (!isUmbralesSemaforo(body.semaforo_umbrales)) {
+        return apiError(
+          "Los umbrales de semáforo deben incluir 'confirmado' (boolean), 'tecnico' ({ verde, rojo }) y 'financiero' ({ verde_min, verde_max, amarillo_min, amarillo_max }), todos numéricos.",
+          400,
+          "VALIDATION_ERROR",
+        );
+      }
+      umbrales = body.semaforo_umbrales;
+      if (umbrales.tecnico.rojo > umbrales.tecnico.verde) {
+        return apiError(
+          "El umbral técnico 'rojo' no puede ser mayor que 'verde'.",
+          400,
+          "VALIDATION_ERROR",
+        );
+      }
+      if (umbrales.financiero.verde_min > umbrales.financiero.verde_max) {
+        return apiError(
+          "El umbral financiero 'verde_min' no puede ser mayor que 'verde_max'.",
+          400,
+          "VALIDATION_ERROR",
+        );
+      }
+      if (umbrales.financiero.amarillo_min > umbrales.financiero.amarillo_max) {
+        return apiError(
+          "El umbral financiero 'amarillo_min' no puede ser mayor que 'amarillo_max'.",
+          400,
+          "VALIDATION_ERROR",
+        );
+      }
+    }
+
     await ensureDefaultSettings();
     if (tags) await setSetting(SETTING_TASK_TAGS, tags, auth.usuario.id);
     if (categories) await setSetting(SETTING_DOC_CATEGORIES, categories, auth.usuario.id);
+    if (umbrales) await setSetting(SETTING_SEMAFORO_UMBRALES, umbrales, auth.usuario.id);
     return NextResponse.json(await readSnapshot());
   },
 );
