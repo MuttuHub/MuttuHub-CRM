@@ -56,4 +56,44 @@ describe("useSaveSettings", () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: adminQueryKeys.settings })
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: documentQueryKeys.categories })
   })
+
+  // admin-umbrales-semaforo-ui: the new UmbralesSection sends semaforo_umbrales
+  // in the input snapshot; CatalogsSection keeps sending SNAPSHOT without it,
+  // so the PUT body must omit the key entirely rather than send `undefined`.
+  it("omits semaforo_umbrales from the PUT body when the input snapshot doesn't set it", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(SNAPSHOT))
+    const { wrapper } = createWrapper()
+
+    const { result } = renderHook(() => useSaveSettings(), { wrapper })
+
+    await act(async () => {
+      await result.current.mutateAsync(SNAPSHOT)
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    const [, init] = fetchMock.mock.calls[0]
+    const sentBody = JSON.parse((init as RequestInit).body as string)
+    expect(sentBody).not.toHaveProperty("semaforo_umbrales")
+  })
+
+  it("includes semaforo_umbrales in the PUT body when the input snapshot sets it", async () => {
+    const umbrales = {
+      confirmado: true,
+      tecnico: { verde: 0.9, rojo: 0.5 },
+      financiero: { verde_min: 0.85, verde_max: 1.15, amarillo_min: 0.6, amarillo_max: 1.4 },
+    }
+    fetchMock.mockResolvedValue(jsonResponse({ ...SNAPSHOT, semaforo_umbrales: umbrales }))
+    const { wrapper } = createWrapper()
+
+    const { result } = renderHook(() => useSaveSettings(), { wrapper })
+
+    await act(async () => {
+      await result.current.mutateAsync({ ...SNAPSHOT, semaforo_umbrales: umbrales })
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    const [, init] = fetchMock.mock.calls[0]
+    const sentBody = JSON.parse((init as RequestInit).body as string)
+    expect(sentBody.semaforo_umbrales).toEqual(umbrales)
+  })
 })

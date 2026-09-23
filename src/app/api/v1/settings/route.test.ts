@@ -16,6 +16,8 @@ vi.mock("@/lib/db", () => ({
 
 import { db } from "@/lib/db";
 import { requireApiRole } from "@/lib/supabase/server";
+import { UMBRALES_SEMAFORO_DEFAULT } from "@/lib/catalogs";
+import type { UmbralesSemaforo } from "@/lib/semaforo";
 import { GET, PUT } from "./route";
 
 const admin = {
@@ -73,6 +75,9 @@ describe("GET /api/v1/settings", () => {
     // now also upserts SETTING_SEMAFORO_UMBRALES alongside task_tags/doc_categories.
     expect(db.setting.upsert).toHaveBeenCalledTimes(3);
     expect(json.task_tags).toEqual(["Comercial", "Administrativo", "Proyecto", "Interno"]);
+    // admin-umbrales-semaforo-ui: readSnapshot must now also surface
+    // semaforo_umbrales (defaulting when the row is absent).
+    expect(json.semaforo_umbrales).toEqual(UMBRALES_SEMAFORO_DEFAULT);
   });
 });
 
@@ -178,5 +183,111 @@ describe("PUT /api/v1/settings", () => {
 
     expect(res.status).toBe(200);
     expect(json.doc_categories).toEqual([{ nombre: "Nueva", restringida: true }]);
+  });
+
+  // admin-umbrales-semaforo-ui: validación completa (todos los campos
+  // presentes con el tipo correcto) + las 3 coherencias que semaforo.ts
+  // asume (tecnico.rojo <= tecnico.verde, financiero.verde_min <=
+  // verde_max, financiero.amarillo_min <= amarillo_max).
+  const VALID_UMBRALES: UmbralesSemaforo = {
+    confirmado: true,
+    tecnico: { verde: 0.9, rojo: 0.5 },
+    financiero: { verde_min: 0.85, verde_max: 1.15, amarillo_min: 0.6, amarillo_max: 1.4 },
+  };
+
+  it("returns 400 when semaforo_umbrales is missing required fields", async () => {
+    mockAuth(admin);
+
+    const res = await PUT(
+      putRequest({ semaforo_umbrales: { confirmado: true, tecnico: { verde: 0.9 } } }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+  });
+
+  it("returns 400 when semaforo_umbrales has a wrong field type", async () => {
+    mockAuth(admin);
+
+    const res = await PUT(
+      putRequest({
+        semaforo_umbrales: {
+          ...VALID_UMBRALES,
+          tecnico: { verde: "0.9", rojo: 0.5 },
+        },
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+  });
+
+  it("returns 400 when tecnico.rojo is greater than tecnico.verde", async () => {
+    mockAuth(admin);
+
+    const res = await PUT(
+      putRequest({
+        semaforo_umbrales: {
+          ...VALID_UMBRALES,
+          tecnico: { verde: 0.5, rojo: 0.9 },
+        },
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+  });
+
+  it("returns 400 when financiero.verde_min is greater than financiero.verde_max", async () => {
+    mockAuth(admin);
+
+    const res = await PUT(
+      putRequest({
+        semaforo_umbrales: {
+          ...VALID_UMBRALES,
+          financiero: { ...VALID_UMBRALES.financiero, verde_min: 1.2, verde_max: 1.15 },
+        },
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+  });
+
+  it("returns 400 when financiero.amarillo_min is greater than financiero.amarillo_max", async () => {
+    mockAuth(admin);
+
+    const res = await PUT(
+      putRequest({
+        semaforo_umbrales: {
+          ...VALID_UMBRALES,
+          financiero: { ...VALID_UMBRALES.financiero, amarillo_min: 1.5, amarillo_max: 1.4 },
+        },
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+  });
+
+  it("updates semaforo_umbrales only and returns the fresh snapshot", async () => {
+    mockAuth(admin);
+    vi.mocked(db.setting.upsert).mockResolvedValue({} as never);
+    vi.mocked(db.setting.findUnique)
+      .mockResolvedValueOnce(null as never)
+      .mockResolvedValueOnce(null as never)
+      .mockResolvedValueOnce({ value: VALID_UMBRALES } as never);
+
+    const res = await PUT(putRequest({ semaforo_umbrales: VALID_UMBRALES }));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.semaforo_umbrales).toEqual(VALID_UMBRALES);
+    expect(db.setting.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { key: "semaforo_umbrales" },
+        update: { value: VALID_UMBRALES, updated_by: "admin-1" },
+      }),
+    );
   });
 });
