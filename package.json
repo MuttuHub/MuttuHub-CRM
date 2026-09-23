@@ -12,6 +12,7 @@
     "db:studio": "prisma studio",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
+    "db:seed:local": "tsx --env-file=.env.local prisma/seed.ts",
     "docs:backfill": "tsx scripts/backfill-document-text.ts",
     "test": "vitest run",
     "test:watch": "vitest",
