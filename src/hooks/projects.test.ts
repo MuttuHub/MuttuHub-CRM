@@ -12,6 +12,7 @@ import {
   useDeleteGoal,
   useDeleteProject,
   useGoals,
+  useProjectDashboard,
   useProjectDetail,
   useProjects,
   useUpdateGoal,
@@ -367,6 +368,49 @@ describe("useCreateGoal / useUpdateGoal / useDeleteGoal", () => {
       expect.objectContaining({ method: "DELETE" }),
     )
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: projectDetailQueryKeys.goals("proy-1") })
+  })
+})
+
+describe("useProjectDashboard", () => {
+  const fetchMock = vi.fn()
+  beforeEach(() => {
+    fetchMock.mockReset()
+    vi.stubGlobal("fetch", fetchMock)
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it("fetches the org-wide dashboard when projectId is null (tablero-gerencial scope)", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ avance_tecnico: 70, curva_s: { meses: [], planificado: [], ejecutado: [] } }),
+    )
+    const { wrapper } = createWrapper()
+
+    const { result } = renderHook(() => useProjectDashboard(null), { wrapper })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/dashboard/projects",
+      expect.objectContaining({ method: "GET" }),
+    )
+  })
+
+  it("fetches the scoped dashboard with ?proyecto_id when a projectId is given", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ avance_tecnico: 55, curva_s: { meses: [], planificado: [], ejecutado: [] } }),
+    )
+    const { wrapper } = createWrapper()
+
+    const { result } = renderHook(() => useProjectDashboard("proy-1"), { wrapper })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/dashboard/projects?proyecto_id=proy-1",
+      expect.objectContaining({ method: "GET" }),
+    )
+  })
+
+  it("uses distinct query keys for org-wide vs. scoped so both caches coexist", () => {
+    expect(projectDetailQueryKeys.dashboard(null)).not.toEqual(projectDetailQueryKeys.dashboard("proy-1"))
   })
 })
 

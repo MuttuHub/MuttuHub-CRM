@@ -1,22 +1,25 @@
 // Gráfica de Curva S para el Tablero de Control Gerencial
 // Muestra el acumulado mensual de peso (planificado) vs gasto (ejecutado)
+//
+// gestion-proyectos-workspace, Phase 4 (design.md T6): `CurveSChart` is now
+// exported (props only) and `CurveSChartContainer` reads
+// `useProjectDashboard` instead of self-fetching. `CurveSChartContainer`
+// keeps its exact default-export name and a zero-arg-compatible signature so
+// `tablero-gerencial-client.tsx` (which calls `<CurveSChartContainer />`)
+// stays diff-free; the Resumen tab reuses it with `projectId` set.
 
 'use client';
 
-import { useEffect, useState } from 'react';
 import { BarChart2, Activity } from 'lucide-react';
+import { useProjectDashboard, type ProjectDashboard } from '@/hooks/projects';
 
-interface CurveSData {
-  meses: string[];
-  planificado: number[];
-  ejecutado: number[];
-}
+type CurveSData = ProjectDashboard['curva_s'];
 
 interface CurveSChartProps {
   data: CurveSData | null;
 }
 
-function CurveSChart({ data }: CurveSChartProps) {
+export function CurveSChart({ data }: CurveSChartProps) {
   if (!data || !data.meses.length) {
     return (
       <div className="bg-panel border border-ink-200 rounded-xl p-4">
@@ -90,39 +93,22 @@ function CurveSChart({ data }: CurveSChartProps) {
   );
 }
 
-export default function CurveSChartContainer() {
-  const [data, setData] = useState<CurveSData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+/** Container: `projectId` omitted (or `undefined`) keeps the org-wide
+ * aggregate `tablero-gerencial-client.tsx` already relies on; a project id
+ * scopes it to that project's Resumen tab (design.md T6). */
+export default function CurveSChartContainer({ projectId }: { projectId?: string | null } = {}) {
+  const query = useProjectDashboard(projectId ?? null);
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true);
-        const response = await fetch('/api/v1/dashboard/projects');
-        if (!response.ok) {
-          throw new Error(`Error ${response.status}`);
-        }
-        const json = await response.json();
-        setData({
-          meses: json.curva_s.meses,
-          planificado: json.curva_s.planificado,
-          ejecutado: json.curva_s.ejecutado
-        });
-        setError(null);
-      } catch (err) {
-        setError('No se pudo cargar la curva S');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    }
+  if (query.isLoading) {
+    return <div className="flex h-[300px] items-center justify-center">Cargando curva S...</div>;
+  }
+  if (query.isError) {
+    return (
+      <div className="flex h-[300px] items-center justify-center text-destructivo">
+        No se pudo cargar la curva S
+      </div>
+    );
+  }
 
-    fetchData();
-  }, []);
-
-  if (loading) return <div className="flex h-[300px] items-center justify-center">Cargando curva S...</div>;
-  if (error) return <div className="flex h-[300px] items-center justify-center text-destructivo">{error}</div>;
-
-  return <CurveSChart data={data} />;
+  return <CurveSChart data={query.data ? query.data.curva_s : null} />;
 }
