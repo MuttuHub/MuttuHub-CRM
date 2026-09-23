@@ -28,7 +28,9 @@ export const dynamic = "force-dynamic";
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
-const ENTIDADES = ["cliente", "tarea", "documento", "oportunidad"] as const;
+// dashboard-export-excel: "dashboard" added so the reader can filter the 4
+// new dashboard-face xlsx exports.
+const ENTIDADES = ["cliente", "tarea", "documento", "oportunidad", "dashboard"] as const;
 
 type Cursor = { createdAt: Date; id: string };
 

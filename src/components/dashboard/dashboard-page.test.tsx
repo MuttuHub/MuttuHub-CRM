@@ -2,9 +2,15 @@
 // la quinta cara "Tablero gerencial" en el arreglo `CARAS` y la monta al
 // seleccionarla, junto a las otras cuatro. Las caras se mockean para aislar
 // el cableado del shell (spec.md "Integración en el shell existente").
+//
+// dashboard-export-excel: segundo describe en este mismo archivo — cubre el
+// trigger "Exportar Excel" de las 4 caras tabulares. Reusa los mismos mocks
+// de caras de arriba (incluye cara-management para no montar el componente
+// real, aunque esa cara no tenga export).
 
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/hooks/crm", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/hooks/crm")>();
@@ -27,7 +33,7 @@ vi.mock("@/components/dashboard/cara-management", () => ({
   CaraGerencial: () => <div>cara-management</div>,
 }));
 
-import { DashboardTabs } from "./dashboard-page";
+import { DashboardTabs, EXPORT_CONFIG } from "./dashboard-page";
 
 describe("DashboardTabs (shell)", () => {
   it("lists the fifth 'Tablero gerencial' face next to the other four", () => {
@@ -51,5 +57,94 @@ describe("DashboardTabs (shell)", () => {
 
     expect(screen.getByText("cara-management")).toBeInTheDocument();
     expect(screen.queryByText("cara-pipeline")).toBeNull();
+  });
+});
+
+function mockFetchOk() {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({
+      ok: true,
+      blob: () => Promise.resolve(new Blob(["x"])),
+    }),
+  );
+}
+
+describe("DashboardTabs — Excel export trigger", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    // jsdom does not implement these; the download flow needs them stubbed.
+    URL.createObjectURL = vi.fn(() => "blob:mock-url");
+    URL.revokeObjectURL = vi.fn();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("only maps the 4 implemented caras — the 'management' cara stays PDF-only", () => {
+    expect(Object.keys(EXPORT_CONFIG).sort()).toEqual(
+      ["clients-activity", "my-summary", "pipeline", "tasks"].sort(),
+    );
+  });
+
+  it("shows an 'Exportar Excel' trigger for the default (pipeline) cara", () => {
+    render(<DashboardTabs />);
+
+    expect(screen.getByRole("button", { name: /exportar excel/i })).toBeInTheDocument();
+  });
+
+  it("shows the trigger for every one of the 4 implemented caras", async () => {
+    const user = userEvent.setup();
+    render(<DashboardTabs />);
+
+    for (const label of [
+      "Gestión de tareas",
+      "Actividad de clientes",
+      "Mi resumen",
+      "Pipeline comercial",
+    ]) {
+      await user.click(screen.getByRole("button", { name: label }));
+      expect(screen.getByRole("button", { name: /exportar excel/i })).toBeInTheDocument();
+    }
+  });
+
+  it("hides the trigger for the management (tacómetro/radar) cara", async () => {
+    const user = userEvent.setup();
+    render(<DashboardTabs />);
+
+    await user.click(screen.getByRole("button", { name: "Tablero gerencial" }));
+
+    expect(screen.queryByRole("button", { name: /exportar excel/i })).toBeNull();
+  });
+
+  it("downloads the pipeline export from the dashboard pipeline export endpoint with the current filters", async () => {
+    mockFetchOk();
+    const user = userEvent.setup();
+    render(<DashboardTabs />);
+
+    await user.click(screen.getByRole("button", { name: /exportar excel/i }));
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringMatching(/^\/api\/v1\/dashboard\/pipeline\/export/),
+      );
+    });
+  });
+
+  it("downloads the tasks-cara export from its own export endpoint (not the pipeline one)", async () => {
+    mockFetchOk();
+    const user = userEvent.setup();
+    render(<DashboardTabs />);
+
+    await user.click(screen.getByRole("button", { name: "Gestión de tareas" }));
+    await user.click(screen.getByRole("button", { name: /exportar excel/i }));
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringMatching(/^\/api\/v1\/dashboard\/tasks\/export/),
+      );
+    });
   });
 });

@@ -39,6 +39,12 @@ import { db } from "@/lib/db";
 // 3a/3b route files (`activities/route.ts`, `attachments/route.ts`) are
 // NOT touched in this batch — retrofitting `logAudit` calls into them is a
 // declared, optional backfill left for a later batch, not silently done.
+//
+// dashboard-export-excel: "dashboard" covers the 4 dashboard-face xlsx
+// exports (pipeline/tasks/clients-activity/my-summary) — they have no single
+// row to point at (entidad_id stays the "" sentinel, same as the other
+// exports), so they get their own entidad instead of overloading "cliente"
+// or "tarea" for data that mixes both.
 export type AuditEntidad =
   | "cliente"
   | "tarea"
@@ -47,7 +53,8 @@ export type AuditEntidad =
   | "proyecto"
   | "presupuesto"
   | "actividad"
-  | "soporte";
+  | "soporte"
+  | "dashboard";
 export type AuditAccion = "crear" | "editar" | "eliminar" | "exportar" | "convertir";
 
 export async function logAudit(params: {
