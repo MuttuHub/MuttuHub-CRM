@@ -133,9 +133,43 @@ compartido primero, para no repetir el mismo fix en varias pantallas):
       del scroll (hay que pararse a mitad de camino) — fricción de UX
       menor, no pérdida de información. Decisión de usuario: se deja así
       (nice-to-have, no bug). Ruta: delegated, read-only.
-- [ ] **C6. Hydration mismatch en login** (Important, #6 — bug de código
-      real) — `acceso-page.tsx` usa `style={{}}` inline en vez de
-      Tailwind; refactor a clases del sistema de diseño existente.
+- [x] **C6. Hydration mismatch en login** (Important, #6 — bug de código
+      real, confirmado por código, no falso positivo como C2/C3/C5) —
+      root cause real: `acceso-page.tsx`, `inputStyle` (dentro del `.map`
+      de `campos`) construía `padding` y `border` como shorthand CSS con
+      template strings dinámicos (`padding: \`0 ${...}px 0 14px\``,
+      `border: \`1px solid ${...}\``). React serializa ese shorthand tal
+      cual en el HTML del server; el CSSOM del navegador lo reparsea a su
+      propia forma al hidratar, y no coincide con lo que React recalcula
+      en cliente — mismatch real (no era problema de `style={{}}` vs
+      Tailwind, la página entera usa estilos inline a propósito por
+      diseño aprobado; NO se refactorizó el enfoque de estilos). Fix
+      acotado: se reemplazaron esas dos propiedades shorthand por
+      longhand explícito — `paddingTop/Right/Bottom/Left` (números) y
+      `borderWidth`/`borderStyle`/`borderColor` — sin tocar ningún otro
+      `style={{}}` del archivo.
+      Evidencia (delegated direct, `src/components/auth/acceso-page.tsx`
+      + `acceso-page.test.tsx` nuevo): RED→GREEN real confirmado. La
+      hidratación SSR real no es reproducible con jsdom+RTL (no hay
+      `hydrateRoot` sobre HTML server-rendered en este proyecto), pero se
+      encontró una señal observable genuina y no frágil: el CSSOM de
+      jsdom (`cssstyle`, misma clase de motor que un navegador real) no
+      logra parsear un shorthand `border` cuyo color es una custom
+      property (`var(--color-x)`) — la declaración completa se descarta y
+      `input.style.borderColor` queda vacío — mientras que `borderColor`
+      longhand sí resuelve. Con eso, el test "resuelve `borderColor` vía
+      longhand" falló primero contra el código sin arreglar (RED real,
+      `expected '' to be 'var(--color-ink-300)'`) y pasó tras el fix
+      (GREEN). El otro test (padding email vs password) documenta los
+      valores computados correctos pero no distingue shorthand/longhand
+      en jsdom (los valores numéricos ya eran correctos antes del bug;
+      solo la representación textual serializada difería) — se declara
+      así, sin inflar el resultado.
+      Checks: `vitest run acceso-page.test.tsx` OK (2/2, RED→GREEN
+      real), `vitest run` suite completa OK (160 archivos / 1461 tests),
+      `tsc --noEmit` sin errores, `eslint` sin warnings/errores en ambos
+      archivos. Ruta: delegated direct (1 writer, 2 archivos: fix +
+      test).
 - [ ] **C7. Warning de consola en Bitácora de auditoría** (Important, #12 —
       bug de código real) — falta mapeo de `"dashboard"` en
       `ACCION_LABELS`/`ENTIDAD_LABELS` de `AuditLogSection`.

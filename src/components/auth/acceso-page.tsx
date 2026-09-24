@@ -309,12 +309,21 @@ export function AccesoPage({
       inputStyle: {
         width: "100%",
         height: 46,
-        padding: `0 ${k === "password" ? 86 : 14}px 0 14px`,
+        // Longhand padding/border (not shorthand template strings): a
+        // dynamic shorthand value serializes differently between the SSR
+        // HTML and the client's recomputed style, which React flags as a
+        // hydration mismatch. Longhand properties don't have this issue.
+        paddingTop: 0,
+        paddingRight: k === "password" ? 86 : 14,
+        paddingBottom: 0,
+        paddingLeft: 14,
         fontFamily: "inherit",
         fontSize: 14,
         color: "var(--color-ink-900)",
         background: malo ? "var(--color-destructivo-bg)" : "var(--color-card)",
-        border: `1px solid ${malo ? "var(--color-destructivo)" : "var(--color-ink-300)"}`,
+        borderWidth: 1,
+        borderStyle: "solid" as const,
+        borderColor: malo ? "var(--color-destructivo)" : "var(--color-ink-300)",
         borderRadius: 13,
         // focus-visible ring via the shared .login-focus rule (globals.css).
         outline: "none",
