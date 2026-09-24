@@ -50,6 +50,11 @@ export type AccesosResponse = {
 // tablero-seguimiento-social (Fase 4a.5): "presupuesto"/"actividad"/"soporte"
 // se sumaron ahí también — mismo riesgo de desfase ya señalado por la Fase
 // 2b.5 arriba, así que este espejo se actualiza en el mismo commit.
+// QA audit finding Important #12: "dashboard" (evento de sistema, no una
+// entidad de negocio) se sumó en src/lib/api/audit.ts y este espejo del lado
+// cliente quedó desactualizado otra vez — mismo desfase client/server que
+// "exportar" (ver comentario de AuditAccion abajo), tumbando el console.warn
+// defensivo de audit-log-section.tsx en cada registro con esa entidad.
 export type AuditEntidad =
   | "cliente"
   | "tarea"
@@ -58,7 +63,8 @@ export type AuditEntidad =
   | "proyecto"
   | "presupuesto"
   | "actividad"
-  | "soporte";
+  | "soporte"
+  | "dashboard";
 // Debe reflejar src/lib/api/audit.ts (server) — "exportar" se sumó ahí en el
 // PR 6 (close-phase-1) y este espejo del lado cliente quedó desactualizado,
 // lo que tumbaba /administracion (ver audit-log-section.tsx).

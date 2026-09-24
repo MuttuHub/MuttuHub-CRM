@@ -170,9 +170,33 @@ compartido primero, para no repetir el mismo fix en varias pantallas):
       `tsc --noEmit` sin errores, `eslint` sin warnings/errores en ambos
       archivos. Ruta: delegated direct (1 writer, 2 archivos: fix +
       test).
-- [ ] **C7. Warning de consola en Bitácora de auditoría** (Important, #12 —
+- [x] **C7. Warning de consola en Bitácora de auditoría** (Important, #12 —
       bug de código real) — falta mapeo de `"dashboard"` en
       `ACCION_LABELS`/`ENTIDAD_LABELS` de `AuditLogSection`.
+      Root cause confirmado: `AuditEntidad` en el server
+      (`src/lib/api/audit.ts`) incluye `"dashboard"`, pero su espejo del
+      lado cliente en `src/hooks/admin.ts` y `ENTIDAD_LABELS` en
+      `src/components/admin/audit-log-section.tsx` no lo tenían — mismo
+      tipo de desfase client/server ya documentado ahí mismo para
+      `"exportar"`. Al llegar un registro con `entidad: "dashboard"`,
+      `toneInfo()` caía al fallback y disparaba `console.warn`.
+      Fix acotado: se agregó `"dashboard"` a la unión `AuditEntidad`
+      (`src/hooks/admin.ts`, con comentario documentando el porqué, mismo
+      patrón que el resto del archivo) y una entrada
+      `dashboard: { label: "Dashboard", tone: "neutro" }` en
+      `ENTIDAD_LABELS` (`audit-log-section.tsx`) — tone "neutro" por ser
+      evento de sistema/agregado, no una entidad de negocio. No se tocó
+      `ACCION_LABELS` ni `toneInfo`.
+      Test agregado en `audit-log-section.test.tsx`: registro con
+      `entidad: "dashboard"` debe renderizar el badge "Dashboard" y NO
+      llamar `console.warn` (`vi.spyOn`) — confirmado RED antes del fix
+      (`findByText("Dashboard")` fallaba por timeout, quedaba el fallback
+      crudo) y GREEN después.
+      Checks: `vitest run audit-log-section.test.tsx` OK (6/6, RED→GREEN
+      real), `vitest run` suite completa OK (160 archivos / 1462 tests),
+      `tsc --noEmit` sin errores, `eslint` sin warnings/errores en los 3
+      archivos tocados. Ruta: delegated direct (1 writer, 2 archivos de
+      código + 1 de test).
 - [ ] **C8. Categoría de documento duplicada por fila** (Important, #7) —
       badge + texto plano repiten el mismo valor en `/documentos`.
 - [ ] **C9. Etiquetas de eje Y superpuestas, gráfico Curva S** (Important,

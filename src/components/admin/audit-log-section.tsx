@@ -39,6 +39,7 @@ const ENTIDAD_LABELS: Record<AuditEntidad, { label: string; tone: "info" | "acti
   presupuesto: { label: "Presupuesto", tone: "activo" },
   actividad: { label: "Actividad", tone: "info" },
   soporte: { label: "Soporte", tone: "neutro" },
+  dashboard: { label: "Dashboard", tone: "neutro" },
 };
 
 const ACCION_LABELS: Record<AuditAccion, { label: string; tone: "exito" | "info" | "destructivo" | "neutro" }> = {

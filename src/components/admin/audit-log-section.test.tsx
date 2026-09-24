@@ -108,6 +108,42 @@ describe("AuditLogSection", () => {
     }
   });
 
+  // Regression: producción registra entidad:"dashboard" (evento de sistema,
+  // ver src/lib/api/audit.ts) pero ENTIDAD_LABELS no lo contemplaba →
+  // toneInfo() caía al fallback y disparaba console.warn en cada render
+  // (mismo tipo de desfase client/server que ya pasó con "exportar").
+  it("renders a 'dashboard' audit row without warning to console", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const original = auditoriaQuery.data;
+    auditoriaQuery.data = {
+      pages: [
+        {
+          registros: [
+            {
+              id: "aud-3",
+              entidad: "dashboard",
+              entidad_id: "",
+              accion: "exportar",
+              cambios: null,
+              created_at: "2026-09-04T15:10:58.824Z",
+              usuario: { email: "admin@muttu.co", nombre: "Administrador" },
+            },
+          ] as AuditoriaRow[],
+          next_before: null,
+        },
+      ],
+    };
+
+    try {
+      render(<AuditLogSection />);
+      expect(await screen.findByText("Dashboard")).toBeInTheDocument();
+      expect(warnSpy).not.toHaveBeenCalled();
+    } finally {
+      auditoriaQuery.data = original;
+      warnSpy.mockRestore();
+    }
+  });
+
   it("auto-fetches the next page when the scroll sentinel intersects", () => {
     render(<AuditLogSection />);
 
