@@ -320,16 +320,42 @@ compartido primero, para no repetir el mismo fix en varias pantallas):
       `tsc --noEmit` sin errores, `eslint` sin warnings/errores en los 2
       archivos tocados. Ruta: direct inline (1 componente + su test, ya
       entendidos, cambio mecánico y acotado).
-- [ ] **C12. Columnas IP/Agente ausentes en mobile, Bitácora de accesos**
-      (Important, #13 — a confirmar con el usuario si es recorte
-      intencional u overflow sin querer).
+- [x] **C12. Columnas IP/Agente ausentes en mobile, Bitácora de accesos**
+      (Important, #13 — el propio audit lo marcaba "a confirmar con el
+      usuario"; consultado y resuelto 2026-09-24). **Mismo patrón que C5,
+      no columnas ausentes.** `AccesosSection`
+      (`src/components/admin/accesos-section.tsx:145`) usa el mismo
+      `<Table className="min-w-[760px]">` del PR de responsive del
+      2026-09-02 ("Patrón C ... para que scrollee en vez de aplastarse")
+      — columnas "IP" y "Agente" presentes en el DOM sin ningún `hidden`,
+      accesibles con el mismo scroll horizontal ya visto y aceptado en
+      C5. Decisión de usuario: mismo criterio que C5, se deja así
+      (nice-to-have, no bug). Ruta: direct inline (lectura de código,
+      sin cambios).
 - [ ] Nice-to-have (bajo impacto, no bloquean): #11 posible redundancia
       `/` vs `/tablero-gerencial`, #14 semáforo de Cronograma solo por
       color, #15 nombre de cliente sin tooltip en Documentos, (de C3)
       Client Sheet como diálogo centrado en vez de sheet full-screen
-      edge-to-edge en mobile, y (de C5) columna "Rol" de la tabla de
+      edge-to-edge en mobile, (de C5) columna "Rol" de la tabla de
       usuarios no cae ni al inicio ni al final del scroll horizontal en
-      mobile — decisiones de usuario 2026-09-24: dejarlas así.
+      mobile, y (de C12) mismo scroll horizontal en la tabla de Bitácora
+      de accesos para llegar a IP/Agente — decisiones de usuario
+      2026-09-24: dejarlas así.
+
+## Parte C — cerrada (2026-09-24)
+
+Los 12 hallazgos priorizados (C1-C12) están resueltos: 6 fixes reales
+aplicados con TDD (C1, C4, C6, C7, C9, C10, C11 — 7 en total), 1 fix de
+datos de seed (C8), y 4 falsos positivos del bug original verificados y
+documentados (C2, C3, C5, C12), cada uno con una fricción de UX menor
+real mantenida como nice-to-have por decisión del usuario. Los 3
+nice-to-have originales (#11, #14, #15) quedan sin iniciar — no fueron
+pedidos para esta pasada.
+Trabajo commiteado work-unit por work-unit en `local/todo-integrado`
+(sin push, sin PR — decisión de usuario del inicio de Parte C). Falta
+decidir con el usuario si además se commitea la Parte A (tabs
+Cronograma/Gantt/Indicadores) y qué hacer con los 3 nice-to-have
+restantes.
 
 Delivery strategy de Parte C: a definir con el usuario cuando arranque
 (sigue en rama local, Parte A todavía sin commitear).
