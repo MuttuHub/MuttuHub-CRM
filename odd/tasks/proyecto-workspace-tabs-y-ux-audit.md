@@ -259,8 +259,36 @@ compartido primero, para no repetir el mismo fix en varias pantallas):
       --noEmit` sin errores, `eslint` sin warnings/errores en los 2 archivos
       tocados. Ruta: direct inline (1 componente + su test, ya entendidos,
       cambio mecánico y acotado).
-- [ ] **C10. Leyenda de colores en Gantt** (Important, #9) — WCAG 1.4.1,
+- [x] **C10. Leyenda de colores en Gantt** (Important, #9) — WCAG 1.4.1,
       info solo por color (verde/rojo/amarillo) sin texto/ícono de apoyo.
+      Root cause confirmado por inspección
+      (`src/components/proyectos/tabs/gantt-tab.tsx`, antes del fix): cada
+      barra de actividad usaba únicamente `BAR_COLOR[color]` para comunicar
+      estado (verde=a tiempo, amarillo=pendiente, rojo=atrasado) — sin texto
+      ni ícono en ningún lado. Un usuario daltónico o en escala de grises no
+      podía distinguir los 3 estados.
+      Fix acotado (aditivo, sin tocar `actividadColor`, `BAR_COLOR`,
+      `MARKER_COLOR`, el cálculo `pct`/`left`/`width` ni el layout
+      responsive de C4): se agregó `STATUS_LABEL: Record<ColorSemaforo,
+      string>` (`verde: "A tiempo"`, `amarillo: "Pendiente"`, `rojo:
+      "Atrasado"`) y (1) una leyenda compacta arriba del tab, cerca de la
+      fila de fechas mín/máx, con swatch de color + texto por estado
+      (mismo patrón `flex items-center gap-2 text-[12px]` que la leyenda de
+      `curve-s-chart.tsx` líneas 41-53), y (2) `title`/`aria-label` en cada
+      `data-testid="gantt-bar"` con el texto de su estado.
+      TDD estricto real: 2 tests nuevos en `gantt-tab.test.tsx` ("shows a
+      text legend for the 3 status colors" y "labels each bar's status in
+      text via title/aria-label, not color alone", este último con 3
+      actividades — verde/rojo/amarillo — verificando `title`/`aria-label`
+      exacto por barra). RED confirmado antes del fix (2/11 fallando:
+      `getByText` no encontraba los textos, `title`/`aria-label` eran
+      `null`) y GREEN después (11/11, los tests de C4 preexistentes siguen
+      pasando).
+      Checks: `vitest run gantt-tab.test.tsx` OK (11/11, RED→GREEN real),
+      `vitest run` suite completa OK (160 archivos / 1465 tests), `tsc
+      --noEmit` sin errores, `eslint` sin warnings/errores en los 2
+      archivos tocados. Ruta: direct inline (1 componente + su test, ya
+      entendidos, cambio mecánico y acotado).
 - [ ] **C11. Touch targets de editar/borrar en Indicadores** (Important,
       #10) — íconos < 44×44px, muy juntos, acción destructiva (borrar).
 - [ ] **C12. Columnas IP/Agente ausentes en mobile, Bitácora de accesos**

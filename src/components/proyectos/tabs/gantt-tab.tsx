@@ -41,6 +41,15 @@ const MARKER_COLOR: Record<ColorSemaforo, string> = {
   rojo: "border-destructivo",
 };
 
+// C10 fix (WCAG 1.4.1 Use of Color): color was the only signal for a bar's
+// status. This text label backs every color both in a legend and per-bar
+// (title/aria-label), so the status is available without perceiving color.
+const STATUS_LABEL: Record<ColorSemaforo, string> = {
+  verde: "A tiempo",
+  amarillo: "Pendiente",
+  rojo: "Atrasado",
+};
+
 /** Reuses the exact "a tiempo" comparison `CronogramaTab` already uses
  * (`fecha_real <= fecha_planificada`); a still-pending actividad whose línea
  * base already passed is treated as late (rojo), otherwise on-track
@@ -100,6 +109,18 @@ export function GanttTab({ projectId }: { projectId: string }) {
         <span>{formatFecha(new Date(maxTime).toISOString())}</span>
       </div>
 
+      {/* C10 fix (WCAG 1.4.1 Use of Color): the bar color below is not the
+          only way to read a status — this legend backs every color with
+          text, same pattern as `curve-s-chart.tsx`'s legend row. */}
+      <div className="flex items-center gap-3 text-[12px] text-ink-600">
+        {(Object.keys(STATUS_LABEL) as ColorSemaforo[]).map((color) => (
+          <span key={color} className="flex items-center gap-1.5">
+            <span className={cn("size-2.5 rounded-full", BAR_COLOR[color])} />
+            <span>{STATUS_LABEL[color]}</span>
+          </span>
+        ))}
+      </div>
+
       {[...actividadesPorMeta.entries()].map(([metaId, grupo]) => (
         <div key={metaId} className="flex flex-col gap-2">
           <p className="text-[12px] font-bold tracking-[0.04em] text-ink-500 uppercase">
@@ -137,6 +158,8 @@ export function GanttTab({ projectId }: { projectId: string }) {
                       <div
                         data-testid="gantt-bar"
                         data-color={color}
+                        title={STATUS_LABEL[color]}
+                        aria-label={STATUS_LABEL[color]}
                         className={cn("absolute top-0.5 h-5 rounded-6", BAR_COLOR[color])}
                         style={{ left: `${left}%`, width: `${width}%` }}
                       />

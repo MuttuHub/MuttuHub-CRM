@@ -132,6 +132,48 @@ describe("GanttTab", () => {
     expect(screen.getByTestId("gantt-bar")).toHaveAttribute("data-color", "verde");
   });
 
+  // C10 fix (WCAG 1.4.1 Use of Color): bar color alone was the only signal
+  // for actividad status. A text legend + a per-bar title/aria-label give
+  // the same information without relying on color perception.
+  it("shows a text legend for the 3 status colors (WCAG 1.4.1)", () => {
+    activitiesQuery.data = [makeActividad()];
+
+    render(<GanttTab projectId="proy-1" />);
+
+    expect(screen.getByText("A tiempo")).toBeInTheDocument();
+    expect(screen.getByText("Pendiente")).toBeInTheDocument();
+    expect(screen.getByText("Atrasado")).toBeInTheDocument();
+  });
+
+  it("labels each bar's status in text via title/aria-label, not color alone", () => {
+    activitiesQuery.data = [
+      makeActividad({ id: "act-done", porcentaje_avance: 100, fecha_real: "2026-02-20T00:00:00.000Z" }),
+      makeActividad({
+        id: "act-late",
+        porcentaje_avance: 60,
+        fecha_planificada: "2026-03-01T00:00:00.000Z",
+        fecha_real: "2026-03-10T00:00:00.000Z",
+      }),
+      makeActividad({
+        id: "act-pending",
+        porcentaje_avance: 40,
+        fecha_planificada: "2099-01-01T00:00:00.000Z",
+        fecha_real: null,
+      }),
+    ];
+
+    render(<GanttTab projectId="proy-1" />);
+
+    const bars = screen.getAllByTestId("gantt-bar");
+    const [doneBar, lateBar, pendingBar] = bars;
+    expect(doneBar).toHaveAttribute("data-color", "verde");
+    expect(doneBar.getAttribute("title") ?? doneBar.getAttribute("aria-label")).toBe("A tiempo");
+    expect(lateBar).toHaveAttribute("data-color", "rojo");
+    expect(lateBar.getAttribute("title") ?? lateBar.getAttribute("aria-label")).toBe("Atrasado");
+    expect(pendingBar).toHaveAttribute("data-color", "amarillo");
+    expect(pendingBar.getAttribute("title") ?? pendingBar.getAttribute("aria-label")).toBe("Pendiente");
+  });
+
   it("groups actividades under their meta nombre", () => {
     goalsQuery.data = [makeMeta({ id: "meta-1", nombre: "Meta Uno" })];
     activitiesQuery.data = [makeActividad({ meta_id: "meta-1" })];
