@@ -95,9 +95,30 @@ compartido primero, para no repetir el mismo fix en varias pantallas):
       lateral, ~50px arriba/abajo) y no un sheet edge-to-edge nativo —
       decisión de usuario: se deja así (nice-to-have, no bug). Ruta:
       delegated, read-only.
-- [ ] **C4. Tab Gantt responsive en mobile** (Critical, #3) — foco
+- [x] **C4. Tab Gantt responsive en mobile** (Critical, #3) — foco
       explícito de este audit (tab nuevo de la Parte A); barras quedan en
       2-4px, fechas ilegibles.
+      Evidencia (delegated, `src/components/proyectos/tabs/gantt-tab.tsx` +
+      `gantt-tab.test.tsx`): confirmado por inspección que el label fijo
+      (`w-40` = 160px) + `%` fijo (`w-10` = 40px) + `gap-3` (24px) consumían
+      224px fijos antes de que la barra (`flex-1`) recibiera lo que
+      sobraba; el contenedor padre (`project-workspace.tsx`, `<div
+      className="space-y-6 p-6">`) resta 48px más (24px por lado), dejando
+      ~342px reales disponibles en un viewport de 390px — igual de
+      insuficiente para el layout de una sola fila. Fix (mismo patrón que
+      C1, `header.tsx`): cada fila de actividad pasa a `flex flex-col gap-1.5
+      sm:flex-row sm:items-center sm:gap-3`; el label pasa a `w-full
+      sm:w-40 sm:shrink-0` (mantiene `truncate` + `title`); la barra y el %
+      se agrupan en un wrapper `flex items-center gap-2 sm:contents` — en
+      mobile los mantiene juntos en su propia línea, y desde `sm:` en
+      adelante `display: contents` los devuelve a ser hijos directos del
+      flex-row, restaurando el layout desktop original byte a byte. Sin
+      tocar `actividadColor`/`pct`/`clampPct`. RED→GREEN confirmado (2 tests
+      nuevos sobre clases responsivas, jsdom no calcula layout real).
+      Checks: `vitest run gantt-tab.test.tsx` OK (9/9), `vitest run` suite
+      completa OK (159 archivos / 1459 tests), `tsc --noEmit` sin errores,
+      `eslint` sin warnings/errores. Ruta: delegated direct (1 writer, 2
+      archivos no triviales).
 - [ ] **C5. Rol truncado en tabla de usuarios, Administración** (Critical,
       #5) — "Colaborador" y "Coordinador" ambos truncan a "Co", pérdida de
       información funcional, no solo estética.
