@@ -197,8 +197,40 @@ compartido primero, para no repetir el mismo fix en varias pantallas):
       `tsc --noEmit` sin errores, `eslint` sin warnings/errores en los 3
       archivos tocados. Ruta: delegated direct (1 writer, 2 archivos de
       código + 1 de test).
-- [ ] **C8. Categoría de documento duplicada por fila** (Important, #7) —
+- [x] **C8. Categoría de documento duplicada por fila** (Important, #7) —
       badge + texto plano repiten el mismo valor en `/documentos`.
+      Root cause real confirmado (NO era bug de `DocumentRow`): en
+      `src/components/documents/repository-list.tsx` la categoría (badge,
+      línea 795) y las etiquetas (línea 796, hasta 3 tags) ya se renderizan
+      como cosas conceptualmente distintas, correctamente separadas en el
+      JSX. El problema era 100% de datos demo: `seedDocumentos` en
+      `prisma/seed.ts` le ponía a cada documento `etiquetas: [categoria]`
+      — la etiqueta era literalmente el nombre de su propia categoría, por
+      eso el mismo texto aparecía dos veces por fila.
+      Fix acotado (solo `prisma/seed.ts`, `seedDocumentos`): se agregó un
+      mapa `DOCUMENT_TAGS: Record<string, string[]>` con 1-2 etiquetas
+      temáticas por categoría (ej. Legal → `["contratos",
+      "confidencialidad"]`, Informes → `["trimestral", "gestion"]`),
+      siguiendo el mismo estilo que `DOCUMENT_TITLES` ya existente, y se
+      reemplazó `etiquetas: [categoria]` por `etiquetas` desde ese mapa
+      (`?? ["general"]` como fallback). Se verificó que ninguna etiqueta
+      elegida coincide (ni parcial ni exactamente, case-insensitive) con
+      ningún valor de `DOC_CATEGORIES`. No se tocó `DocumentRow`, ningún
+      otro seed, ni el guard anti-producción.
+      TDD: no aplica de forma significativa — es un cambio de contenido
+      de un objeto estático en un script de seed, no una unidad de
+      comportamiento nueva; se declara explícito en vez de forzar un test
+      artificial.
+      Checks: `tsc --noEmit` OK (sin errores), `eslint prisma/seed.ts` OK
+      (sin warnings/errores), seed corrido contra LOCAL
+      (`npx tsx --env-file=.env.local prisma/seed.ts`, Docker Supabase
+      local verificado `Up`/`healthy` antes, salida confirma
+      `8 documentos upserted` sin tocar nada fuera de localhost),
+      verificación directa contra la DB local (script temporal vía el
+      `db` de `src/lib/db`, con el mismo guard de host `127.0.0.1`/
+      `localhost` en `DATABASE_URL`, borrado al terminar): 0/8 documentos
+      con etiqueta igual/parcial a su categoría. Ruta: direct inline (1
+      archivo de datos, mecánico, ya entendido).
 - [ ] **C9. Etiquetas de eje Y superpuestas, gráfico Curva S** (Important,
       #8) — un componente, se repite en dashboard `/`, `/tablero-gerencial`
       y proyectos→Resumen.

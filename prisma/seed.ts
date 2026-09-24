@@ -786,6 +786,22 @@ const DOCUMENT_TITLES: Record<string, string> = {
   Otro: "Plantilla de documentos varios",
 };
 
+// Demo tags per category. Deliberately distinct from the DOC_CATEGORIES
+// values themselves (never equal or substring-matching, case-insensitive) —
+// they used to duplicate `categoria` verbatim (`etiquetas: [categoria]`),
+// which rendered the same text twice per row in the repository list
+// (badge + tag). See odd/tasks C8.
+const DOCUMENT_TAGS: Record<string, string[]> = {
+  Comercial: ["marketing", "clientes"],
+  Proyectos: ["cronograma", "hitos"],
+  Legal: ["contratos", "confidencialidad"],
+  "Administrativo-financiero": ["presupuesto", "auditoria"],
+  Institucional: ["identidad", "marca"],
+  Operativo: ["procesos", "onboarding"],
+  Informes: ["trimestral", "gestion"],
+  Otro: ["plantillas", "general"],
+};
+
 // Category -> 1-based CLIENTES index to link via DocumentoCliente (a few only).
 const DOCUMENT_CLIENT_LINK: Record<string, number> = {
   Proyectos: 1, // Alcaldía de Puerto Esperanza
@@ -806,11 +822,12 @@ async function seedDocumentos(admin: SupabaseAdmin, usuarios: Record<string, { i
     const documentoId = fixedId("documento", i + 1);
     const clienteIndex = DOCUMENT_CLIENT_LINK[categoria];
     const clienteId = clienteIndex ? clienteIds[clienteIndex - 1] : null;
+    const etiquetas = DOCUMENT_TAGS[categoria] ?? ["general"];
 
     await db.documento.upsert({
       where: { id: documentoId },
-      create: { id: documentoId, titulo, categoria, etiquetas: [categoria], autor_id: usuarios.administrador.id },
-      update: { titulo, categoria, etiquetas: [categoria] },
+      create: { id: documentoId, titulo, categoria, etiquetas, autor_id: usuarios.administrador.id },
+      update: { titulo, categoria, etiquetas },
     });
 
     if (clienteId) {
