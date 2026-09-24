@@ -86,7 +86,7 @@ export function Header({ initialUser }: { initialUser?: CurrentUser | null }) {
   const rangoActivo = pathname === "/" || pathname === "/reportes";
 
   return (
-    <div className="flex items-start justify-between gap-4">
+    <div className="flex flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-start">
       <div className="flex min-w-0 items-start gap-3">
         <button
           type="button"
@@ -106,7 +106,7 @@ export function Header({ initialUser }: { initialUser?: CurrentUser | null }) {
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-2.5">
+      <div className="flex shrink-0 items-center justify-end gap-2.5">
         {rangoActivo && (
           <DropdownMenu>
             <DropdownMenuTrigger
