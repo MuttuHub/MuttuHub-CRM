@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { isNavActive, PAGE_HEADERS, resolvePageHeader } from "./nav"
+import { isNavActive, NAV_GROUPS, PAGE_HEADERS, resolvePageHeader } from "./nav"
 
 describe("isNavActive", () => {
   it("treats the root as exact-match only", () => {
@@ -30,6 +30,15 @@ describe("isNavActive", () => {
     expect(isNavActive("/administracion", "/administracion", true)).toBe(true)
     expect(isNavActive("/administracion/solicitudes", "/administracion", true)).toBe(false)
     expect(isNavActive("/administracion/solicitudes", "/administracion/solicitudes", true)).toBe(true)
+  })
+
+  it("does not highlight Tablero (Kanban) when Tablero Gerencial is active", () => {
+    const tableroKanban = NAV_GROUPS.flatMap((g) => g.items).find((i) => i.href === "/tablero")!
+    const tableroGerencial = NAV_GROUPS.flatMap((g) => g.items).find((i) => i.href === "/tablero-gerencial")!
+    expect(tableroKanban.exact).toBe(true)
+    expect(isNavActive("/tablero-gerencial", tableroKanban.href, tableroKanban.exact)).toBe(false)
+    expect(isNavActive("/tablero-gerencial", tableroGerencial.href, tableroGerencial.exact)).toBe(true)
+    expect(isNavActive("/tablero", tableroKanban.href, tableroKanban.exact)).toBe(true)
   })
 })
 

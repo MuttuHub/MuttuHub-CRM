@@ -31,7 +31,16 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/", label: "Inicio", icon: House },
       { href: "/clientes", label: "Clientes", icon: Users },
       { href: "/proyectos", label: "Proyectos", icon: Target },
-      { href: "/tablero", label: "Tablero", icon: SquareKanban },
+      {
+        href: "/tablero",
+        label: "Tablero",
+        icon: SquareKanban,
+        // Exact-match: "/tablero" is a prefix of "/tablero-gerencial" (a
+        // sibling item elsewhere in nav), so without this both lit up
+        // together when Tablero Gerencial was active. /tablero has no nested
+        // sub-routes (task detail is a dialog via query param, not a path).
+        exact: true,
+      },
       { href: "/documentos", label: "Documentos", icon: FolderOpen },
       { href: "/reportes", label: "Reportes", icon: FileText },
     ],

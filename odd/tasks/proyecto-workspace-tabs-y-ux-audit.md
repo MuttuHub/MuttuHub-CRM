@@ -435,6 +435,97 @@ Toggle device toolbar → 390×844, el mismo que usó el audit) para los
 Avisar qué funcionó, qué no, y si hay algo para ajustar antes de decidir
 si se commitea la Parte A y qué hacer con push/PR.
 
+## Parte E — Feedback de la prueba manual del usuario (2026-09-24)
+
+El usuario probó Parte A + Parte C en el navegador (Parte D) y devolvió
+feedback. Se separa en un bug confirmado y fixeado, y una lista extensa
+de pedidos de rediseño/producto que quedan documentados pero SIN
+implementar (varios dependen de referencias visuales que el usuario va
+a mandar después).
+
+- [x] **E1. Nav resalta "Tablero" (Kanban) al estar en Tablero
+      Gerencial** — bug real confirmado. Root cause: `isNavActive`
+      (`src/lib/nav.ts`) hace `pathname.startsWith(href)` para ítems sin
+      `exact`; el ítem "Tablero" (`href: "/tablero"`) no tenía `exact`,
+      así que `"/tablero-gerencial".startsWith("/tablero")` daba `true`
+      y el ítem se resaltaba también. Mismo patrón ya usado para
+      "Administración"/"Solicitudes de acceso" en el mismo archivo.
+      Nota: el primer intento de fix puso `exact: true` en el ítem
+      equivocado ("Tablero Gerencial" en vez de "Tablero") — el test
+      RED lo detectó al primer intento y se corrigió antes de commitear.
+      Fix real: `exact: true` en el ítem `/tablero` (no tiene sub-rutas
+      — el detalle de tarea es un diálogo por query param, no una ruta
+      anidada). Test nuevo en `nav.test.ts` (RED→GREEN real: RED
+      confirmado revirtiendo el fix con `git stash`, GREEN tras
+      reaplicarlo). Checks: `vitest run nav.test.ts` OK (9/9),
+      `vitest run sidebar.test.tsx header.test.tsx` OK (7/7, sin
+      regresión), `tsc --noEmit` sin errores, `eslint` sin
+      warnings/errores. Ruta: direct inline (1 archivo de config +
+      1 de test, ya entendidos).
+
+### Explicaciones pedidas por el usuario
+
+- **"Meta asociada" en Indicadores, ¿de dónde salen las opciones?**
+  `IndicadoresTab` (`src/components/proyectos/tabs/indicadores-tab.tsx`)
+  llama `useGoals(projectId)` — el mismo listado de **Metas** que se
+  define y se ve en la tab **Cronograma** de ese mismo proyecto. El
+  select de "Meta asociada" al crear/editar un indicador es opcional y
+  sirve para vincular ese indicador a una meta puntual del cronograma;
+  si el proyecto no tiene metas cargadas todavía, el select aparece
+  vacío.
+- **¿Qué es "Tablero Gerencial" y por qué se parece a Proyectos?**
+  Confirmado por código: `TableroGerencialClient`
+  (`src/components/dashboard/tablero-gerencial-client.tsx`) y la tab
+  **Resumen** de un proyecto (`tabs/resumen-tab.tsx`) usan LITERALMENTE
+  los mismos dos componentes — `KpiCards` y `CurveSChartContainer` — la
+  única diferencia es que Resumen les pasa `projectId` (agregado de UN
+  proyecto) y Tablero Gerencial no les pasa nada (agregado de TODOS los
+  proyectos de la organización). Es decir: Tablero Gerencial = "el
+  Resumen de todos los proyectos juntos". La observación del usuario es
+  válida: visualmente son indistinguibles (mismo layout, mismos KPIs,
+  mismo gráfico) y no hay ningún rótulo que aclare el alcance
+  (org-wide vs. un proyecto) más allá del `<h1>`.
+
+### Pedidos de rediseño/producto — registrados, sin implementar
+
+No autorizados todavía (algunos dependen de referencias visuales que
+el usuario va a mandar; otros son decisiones de alcance que requieren
+su confirmación explícita antes de tocar código):
+
+1. Fusionar Resumen + Indicadores en una sola sección del workspace de
+   proyecto.
+2. Rediseñar Cronograma — el usuario va a mandar inspiración.
+3. Rediseñar Gantt — el usuario va a mandar inspiración. Pedido
+   funcional concreto: mostrar la tarea global con sub-líneas de las
+   tareas/actividades que son requisito para completarla (vista de
+   dependencias, no solo agrupación plana por meta como hoy).
+4. Mejorar la UI del listado de Proyectos — posible vista de tarjetas
+   en vez de tabla/lista.
+5. Fusionar Cronograma + Gantt en una sola vista, con el Gantt como
+   detalle completo y **edición inline de fechas/tiempos** directamente
+   desde el tablero Gantt — esto es un cambio de alcance real: el
+   `GanttTab` actual es explícitamente de solo lectura por diseño ("view-only
+   visualization only — no drag-and-drop, no inline editing", comentario
+   en `gantt-tab.tsx`), así que esto no es un ajuste de UI menor, es una
+   nueva capacidad (mutación de datos desde una vista que hoy no la
+   tiene).
+6. Explicar/documentar mejor "Curva S" — el usuario no entiende qué
+   representa el gráfico (ver también hallazgo nice-to-have #11 de la
+   Parte C: posible redundancia `/` vs `/tablero-gerencial`, mismo tema
+   de fondo).
+7. Documentar el módulo de Gestión de Proyectos (Metas, Actividades,
+   Cronograma, Gantt, Indicadores, Presupuesto, Tablero Gerencial) en
+   `docs/Muttu_Hub_PRD_v2.md` — confirmado que el PRD actual NO tiene
+   ninguna sección de este módulo (el índice va de §6 Repositorio de
+   Documentos a §7 Dashboard/CRM directo; nada sobre Proyectos). Esto
+   explica por qué la implementación no se entiende: nunca quedó
+   documentada.
+
+Ítems 1-6 son decisiones de producto/diseño que quedan pendientes de
+priorización con el usuario. Ítem 7 es documentación pura (sin cambio
+de comportamiento) — candidato a resolver ahora si el usuario lo pide
+explícitamente en esta sesión.
+
 ## Progreso
 - 2026-09-23: doc creado. Arrancando Parte A (delegated writer, TDD estricto)
   y Parte B (delegated audit, read-only) en paralelo.
