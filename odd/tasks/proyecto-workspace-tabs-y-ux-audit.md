@@ -289,8 +289,37 @@ compartido primero, para no repetir el mismo fix en varias pantallas):
       --noEmit` sin errores, `eslint` sin warnings/errores en los 2
       archivos tocados. Ruta: direct inline (1 componente + su test, ya
       entendidos, cambio mecánico y acotado).
-- [ ] **C11. Touch targets de editar/borrar en Indicadores** (Important,
-      #10) — íconos < 44×44px, muy juntos, acción destructiva (borrar).
+- [x] **C11. Touch targets de editar/borrar en Indicadores** (Important,
+      #10) — **diagnóstico del audit impreciso, verificado 2026-09-24.** No
+      es "íconos < 44×44px": `size="icon-sm"` en `button.tsx` (línea 31-32)
+      es `size-7` (28px visible) + `after:-inset-2` (8px por lado) — patrón
+      ya establecido en todo el proyecto de expansión de hit-area vía
+      pseudo-elemento `::after` con inset negativo — así que el hit-area
+      real de un `icon-sm` aislado ya es 28+16 = 44×44px, cumple el mínimo.
+      El problema real: el contenedor de "Editar"/"Eliminar" en
+      `indicadores-tab.tsx` (línea ~115) usaba `gap-1` (4px); con cada botón
+      expandiendo 8px por lado, las dos hit-areas expandidas se superponían
+      en una franja de ~12px entre ambos íconos — riesgo de toque accidental
+      sobre "Eliminar" (acción destructiva), causa real "gap insuficiente
+      entre hit-areas expandidas", no "íconos chicos".
+      Fix acotado: `gap-1` → `gap-4` (16px = 8px + 8px, el mínimo que separa
+      las dos hit-areas de 44px sin que se toquen) en el `<div>` contenedor
+      de esos dos botones, con comentario explicando el porqué. No se tocó
+      `size="icon-sm"` ni el patrón `after:-inset-*` compartido de
+      `button.tsx` (blast radius de toda la app).
+      TDD estricto real: test nuevo en `indicadores-tab.test.tsx`
+      ("keeps enough gap between action buttons to prevent tap overlap on
+      the destructive action") — jsdom no calcula layout real ni
+      pseudo-elementos `::after`, así que el assert es sobre la clase
+      Tailwind del contenedor (`gap-4`, no `gap-1`), con comentario
+      explicando esa limitación. RED confirmado antes del fix
+      (`expected element not to have class: gap-1` fallaba porque sí la
+      tenía) y GREEN después (8/8 del archivo).
+      Checks: `vitest run indicadores-tab.test.tsx` OK (8/8, RED→GREEN
+      real), `vitest run` suite completa OK (160 archivos / 1466 tests),
+      `tsc --noEmit` sin errores, `eslint` sin warnings/errores en los 2
+      archivos tocados. Ruta: direct inline (1 componente + su test, ya
+      entendidos, cambio mecánico y acotado).
 - [ ] **C12. Columnas IP/Agente ausentes en mobile, Bitácora de accesos**
       (Important, #13 — a confirmar con el usuario si es recorte
       intencional u overflow sin querer).
