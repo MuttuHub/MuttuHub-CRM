@@ -231,9 +231,34 @@ compartido primero, para no repetir el mismo fix en varias pantallas):
       `localhost` en `DATABASE_URL`, borrado al terminar): 0/8 documentos
       con etiqueta igual/parcial a su categoría. Ruta: direct inline (1
       archivo de datos, mecánico, ya entendido).
-- [ ] **C9. Etiquetas de eje Y superpuestas, gráfico Curva S** (Important,
+- [x] **C9. Etiquetas de eje Y superpuestas, gráfico Curva S** (Important,
       #8) — un componente, se repite en dashboard `/`, `/tablero-gerencial`
       y proyectos→Resumen.
+      Root cause confirmado por inspección (`src/components/dashboard/curve-s-chart.tsx`,
+      líneas 58-65 antes del fix): las 5 marcas del eje Y (`[0, 25, 50, 75,
+      100].map`) eran cada una `<div className="absolute left-0 right-0">`
+      sin `top` explícito. Sin `top`, un `position: absolute` cae en su
+      "static position"; al ser las 5 hermanas consecutivas sin altura en
+      el flujo, colapsaban las 5 en el mismo punto — superposición
+      garantizada en cualquier viewport, no dependía de datos ni pantalla.
+      Fix acotado a las marcas del eje Y: se agregó
+      `style={{ top: \`${100 - pct}%\`, transform: 'translateY(-50%)' }}` (eje
+      invertido: 100% arriba con `top: 0%`, 0% abajo con `top: 100%`;
+      `translateY(-50%)` centra la línea sobre el punto exacto) y
+      `data-testid={\`y-axis-mark-${pct}\`}` para poder testear la posición.
+      No se tocaron las barras de datos, `CurveSChartContainer` ni la
+      lógica de `maxValor`.
+      TDD estricto real: test nuevo en `curve-s-chart.test.tsx`
+      ("spaces the y-axis marks vertically...") que lee `style.top` de las
+      5 marcas vía `data-testid` y verifica que las 5 sean distintas y
+      estrictamente decrecientes a medida que `pct` aumenta — RED confirmado
+      antes del fix (`getByTestId` fallaba, el testid no existía todavía) y
+      GREEN después (7/7 tests del archivo).
+      Checks: `vitest run curve-s-chart.test.tsx` OK (7/7, RED→GREEN real),
+      `vitest run` suite completa OK (160 archivos / 1463 tests), `tsc
+      --noEmit` sin errores, `eslint` sin warnings/errores en los 2 archivos
+      tocados. Ruta: direct inline (1 componente + su test, ya entendidos,
+      cambio mecánico y acotado).
 - [ ] **C10. Leyenda de colores en Gantt** (Important, #9) — WCAG 1.4.1,
       info solo por color (verde/rojo/amarillo) sin texto/ícono de apoyo.
 - [ ] **C11. Touch targets de editar/borrar en Indicadores** (Important,

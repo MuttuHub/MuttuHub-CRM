@@ -54,9 +54,20 @@ export function CurveSChart({ data }: CurveSChartProps) {
 
       {/* Gráfico de barras simple */}
       <div className="h-[200px] relative">
-        {/* Eje Y - marcas de porcentaje */}
+        {/* Eje Y - marcas de porcentaje
+            Cada marca necesita un `top` explícito: sin él, un `position:
+            absolute` cae en su "static position" y, al ser hermanas
+            consecutivas sin altura en el flujo, las 5 colapsan en el mismo
+            punto. 100% arriba (top: 0%) y 0% abajo (top: 100%): eje
+            invertido respecto al valor. `translateY(-50%)` centra la línea
+            sobre el punto exacto en vez de apoyar el borde superior ahí. */}
         {[0, 25, 50, 75, 100].map((pct) => (
-          <div key={pct} className="absolute left-0 right-0">
+          <div
+            key={pct}
+            data-testid={`y-axis-mark-${pct}`}
+            className="absolute left-0 right-0"
+            style={{ top: `${100 - pct}%`, transform: 'translateY(-50%)' }}
+          >
             <div className="flex h-[1px] items-center justify-between">
               <div className="w-[80%] bg-ink-200" />
               <div className="text-[10px] text-ink-400">{pct}%</div>

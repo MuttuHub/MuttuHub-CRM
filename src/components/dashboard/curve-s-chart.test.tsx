@@ -67,6 +67,28 @@ describe("CurveSChart (presentational)", () => {
     // The chart truncates the raw "YYYY-MM" mes label to its first 3 chars.
     expect(screen.getByText("2026-01".slice(0, 3))).toBeInTheDocument();
   });
+
+  it("spaces the y-axis marks vertically, 100% at the top and 0% at the bottom", () => {
+    render(<CurveSChart data={makeData().curva_s} />);
+
+    // jsdom does not compute real layout, but it DOES reflect the inline
+    // `style` we assign ourselves, so reading `style.top` here is a valid,
+    // discriminating check (unlike asserting on Tailwind-only classes).
+    const pcts = [0, 25, 50, 75, 100];
+    const tops = pcts.map(
+      (pct) => screen.getByTestId(`y-axis-mark-${pct}`).style.top
+    );
+
+    // All 5 marks must land on distinct vertical positions.
+    expect(new Set(tops).size).toBe(5);
+
+    // Percentage axis: as pct increases, `top` must strictly decrease
+    // (higher percentage = higher on screen = smaller `top`).
+    const topValues = tops.map((top) => parseFloat(top));
+    for (let i = 1; i < topValues.length; i++) {
+      expect(topValues[i]).toBeLessThan(topValues[i - 1]);
+    }
+  });
 });
 
 describe("CurveSChartContainer", () => {
