@@ -83,9 +83,18 @@ compartido primero, para no repetir el mismo fix en varias pantallas):
       tarjeta de 300px de ancho, sin overflow en nombre/badges/`dl` de
       datos. No se aplicó ningún fix — no había nada que arreglar. Ruta:
       delegated, read-only.
-- [ ] **C3. Client Sheet full-screen en mobile** (Critical, #2) — modal de
-      ~300px que recorta contenido sin scroll; transversal a todos los
-      tabs del sheet (General/Contactos/Oportunidades/...).
+- [x] **C3. Client Sheet full-screen en mobile** (Critical, #2) —
+      **FALSO POSITIVO (bug), verificado 2026-09-24.** El mismo PR 35
+      (2026-09-02) que resolvió C2 ya deja el sheet en `w-full
+      max-w-[calc(100%-2rem)]` + `h-[88dvh]` con scroll interno
+      (`overflow-y-auto`). Verificación en vivo (390×844, tab General):
+      `scrollHeight` 1038px vs `clientHeight` 361px, scroll hasta el tope
+      real trae todos los campos siguientes a "Canal de contacto inicial"
+      — nada queda inalcanzable. Único punto real: visualmente es un
+      diálogo centrado (358×743px, bordes redondeados, 16px de margen
+      lateral, ~50px arriba/abajo) y no un sheet edge-to-edge nativo —
+      decisión de usuario: se deja así (nice-to-have, no bug). Ruta:
+      delegated, read-only.
 - [ ] **C4. Tab Gantt responsive en mobile** (Critical, #3) — foco
       explícito de este audit (tab nuevo de la Parte A); barras quedan en
       2-4px, fechas ilegibles.
@@ -112,7 +121,10 @@ compartido primero, para no repetir el mismo fix en varias pantallas):
       intencional u overflow sin querer).
 - [ ] Nice-to-have (bajo impacto, no bloquean): #11 posible redundancia
       `/` vs `/tablero-gerencial`, #14 semáforo de Cronograma solo por
-      color, #15 nombre de cliente sin tooltip en Documentos.
+      color, #15 nombre de cliente sin tooltip en Documentos, y (nuevo,
+      de C3) Client Sheet como diálogo centrado en vez de sheet
+      full-screen edge-to-edge en mobile — decisión de usuario 2026-09-24:
+      dejarlo así.
 
 Delivery strategy de Parte C: a definir con el usuario cuando arranque
 (sigue en rama local, Parte A todavía sin commitear).
