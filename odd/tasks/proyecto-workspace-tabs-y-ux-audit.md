@@ -119,9 +119,20 @@ compartido primero, para no repetir el mismo fix en varias pantallas):
       completa OK (159 archivos / 1459 tests), `tsc --noEmit` sin errores,
       `eslint` sin warnings/errores. Ruta: delegated direct (1 writer, 2
       archivos no triviales).
-- [ ] **C5. Rol truncado en tabla de usuarios, Administración** (Critical,
-      #5) — "Colaborador" y "Coordinador" ambos truncan a "Co", pérdida de
-      información funcional, no solo estética.
+- [x] **C5. Rol truncado en tabla de usuarios, Administración** (Critical,
+      #5) — **FALSO POSITIVO (bug), verificado 2026-09-24.** Mismo PR de
+      responsive del 2026-09-02 (`e0f3eba`, "min-w en 5 tablas") ya deja
+      `<Table className="min-w-[760px]">` con scroll horizontal
+      (`overflow-x-auto` del componente base) y badges `whitespace-nowrap`
+      sin `truncate`. Verificación en vivo (390×844): `scrollWidth` 760 vs
+      `clientWidth` 332 (overflow real), `textContent` de los badges
+      completo en el DOM ("Colaborador", "Coordinador", "Gerencia /
+      Dirección", "Administrador" — ninguno cortado), y visualmente
+      legibles al scrollear hasta la posición correcta. Punto real
+      distinto: la columna "Rol" no es visible ni al cargar ni al final
+      del scroll (hay que pararse a mitad de camino) — fricción de UX
+      menor, no pérdida de información. Decisión de usuario: se deja así
+      (nice-to-have, no bug). Ruta: delegated, read-only.
 - [ ] **C6. Hydration mismatch en login** (Important, #6 — bug de código
       real) — `acceso-page.tsx` usa `style={{}}` inline en vez de
       Tailwind; refactor a clases del sistema de diseño existente.
@@ -142,10 +153,11 @@ compartido primero, para no repetir el mismo fix en varias pantallas):
       intencional u overflow sin querer).
 - [ ] Nice-to-have (bajo impacto, no bloquean): #11 posible redundancia
       `/` vs `/tablero-gerencial`, #14 semáforo de Cronograma solo por
-      color, #15 nombre de cliente sin tooltip en Documentos, y (nuevo,
-      de C3) Client Sheet como diálogo centrado en vez de sheet
-      full-screen edge-to-edge en mobile — decisión de usuario 2026-09-24:
-      dejarlo así.
+      color, #15 nombre de cliente sin tooltip en Documentos, (de C3)
+      Client Sheet como diálogo centrado en vez de sheet full-screen
+      edge-to-edge en mobile, y (de C5) columna "Rol" de la tabla de
+      usuarios no cae ni al inicio ni al final del scroll horizontal en
+      mobile — decisiones de usuario 2026-09-24: dejarlas así.
 
 Delivery strategy de Parte C: a definir con el usuario cuando arranque
 (sigue en rama local, Parte A todavía sin commitear).
