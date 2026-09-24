@@ -74,10 +74,15 @@ compartido primero, para no repetir el mismo fix en varias pantallas):
       confirmado (3 tests nuevos). Checks: `vitest run header.test.tsx` OK
       (3/3), `vitest run` suite completa OK (159 archivos / 1457 tests),
       `tsc --noEmit` sin errores, `eslint` sin warnings/errores.
-- [ ] **C2. `/clientes` vista "Tarjetas" responsive** (Critical, #1) —
-      entrada principal a clientes, hoy inusable en mobile (grid de 3
-      columnas fijo). Usar el Kanban/Tablero como referencia de patrón
-      responsive que sí funciona.
+- [x] **C2. `/clientes` vista "Tarjetas" responsive** (Critical, #1) —
+      **FALSO POSITIVO, verificado 2026-09-24.** El grid
+      (`client-list.tsx` `ClientResults`) ya es `grid-cols-1 sm:grid-cols-2
+      xl:grid-cols-3` desde el commit `8422a5a` (2026-09-02, PR 26), tres
+      semanas antes del audit. Verificación en vivo (Playwright, 390×844,
+      Docker local, login demo): `gridTemplateColumns` real = 1 columna,
+      tarjeta de 300px de ancho, sin overflow en nombre/badges/`dl` de
+      datos. No se aplicó ningún fix — no había nada que arreglar. Ruta:
+      delegated, read-only.
 - [ ] **C3. Client Sheet full-screen en mobile** (Critical, #2) — modal de
       ~300px que recorta contenido sin scroll; transversal a todos los
       tabs del sheet (General/Contactos/Oportunidades/...).
