@@ -360,6 +360,81 @@ restantes.
 Delivery strategy de Parte C: a definir con el usuario cuando arranque
 (sigue en rama local, Parte A todavía sin commitear).
 
+## Parte D — Guía de prueba manual (2026-09-24)
+
+Servidor dev levantado contra Docker Supabase local (`.env.local`, NO
+`.env`/cloud — confirmado en el log de arranque: `Environments:
+.env.local, .env`). URL: `http://localhost:3001` (o
+`http://10.102.66.2:3001` si `localhost` no responde desde el navegador
+— gotcha ya conocido de WSL2). Server queda corriendo en background
+para que el usuario pruebe en su propio navegador.
+
+Credenciales demo (`prisma/seed.ts`, contraseña `MuttuDemo2026!` para
+las 4):
+- `admin@demo.muttuhub.local` (ADMINISTRADOR) — necesaria para
+  Administración/Auditoría/Bitácora de accesos.
+- `gerencia@demo.muttuhub.local` (GERENCIA)
+- `coordinador@demo.muttuhub.local` (COORDINADOR)
+- `colaborador@demo.muttuhub.local` (COLABORADOR)
+
+Probar en dos anchos: desktop normal, y mobile emulado (DevTools →
+Toggle device toolbar → 390×844, el mismo que usó el audit) para los
+ítems marcados [mobile].
+
+### Parte A — tabs nuevas del workspace de proyecto
+1. Entrar a cualquier proyecto → tab **Cronograma**: se ve el listado de
+   metas/actividades reusado de `project-sheet.tsx` (código ya probado).
+2. Tab **Gantt**: barras horizontales agrupadas por meta, color por
+   estado, marca de línea base. [mobile] las barras tienen que verse
+   con ancho utilizable (nombre arriba, barra+% abajo) — no franjas de
+   2-4px.
+3. Tab **Indicadores**: listado con barra de progreso; crear uno nuevo
+   (botón "Nuevo indicador"), editarlo, borrarlo con confirmación.
+
+### Parte C — fixes de esta sesión
+4. **C1 (header)** — abrir `/proyectos` y `/documentos` [mobile]: el
+   título tiene que verse completo ("Proyectos" sin cortar,
+   "Repositorio documental" sin superponerse a los íconos de la
+   derecha); los íconos bajan a su propia fila.
+5. **C4 (Gantt mobile)** — mismo tab Gantt del punto 2, [mobile]:
+   confirmar que el nombre de la actividad queda arriba y la barra+%
+   abajo, con la barra legible.
+6. **C6 (login)** — ir a `/login` (deslogueado), abrir la consola del
+   navegador (F12): NO debe aparecer el warning de hidratación sobre
+   los inputs de email/password.
+7. **C7 (bitácora de auditoría)** — como admin, Administración → sección
+   de auditoría: si aparece algún registro con entidad "Dashboard" debe
+   mostrar el badge "Dashboard" (no un valor crudo), sin warning en
+   consola. Es un fix de datos que llegan del backend — si no ves
+   ningún registro "dashboard" en la demo, no hay nada que probar
+   visualmente, ya quedó cubierto por el test automatizado.
+8. **C8 (documentos)** — `/documentos`: las etiquetas de cada fila ya no
+   repiten el nombre de la categoría (ej. "Legal" con etiquetas
+   "contratos"/"confidencialidad", no "Legal" de nuevo). Si ves etiquetas
+   iguales a la categoría, corré el seed de nuevo
+   (`npx tsx --env-file=.env.local prisma/seed.ts`).
+9. **C9 (Curva S)** — dashboard `/`, `/tablero-gerencial`, y tab Resumen
+   de un proyecto: las etiquetas 0%/25%/50%/75%/100% del eje Y del
+   gráfico Curva S tienen que verse en 5 alturas distintas, no todas
+   amontonadas arriba.
+10. **C10 (leyenda Gantt)** — tab Gantt: debe verse una leyenda con
+    color + texto ("A tiempo"/"Pendiente"/"Atrasado") arriba de las
+    barras, y al pasar el mouse sobre una barra su tooltip dice el
+    estado en texto.
+11. **C11 (Indicadores, touch)** — tab Indicadores [mobile]: los botones
+    de editar/borrar de cada indicador tienen que sentirse separados al
+    tocar, sin activar el botón equivocado por error.
+12. **C2/C3/C5/C12 (ya funcionaban, sanity check)** — `/clientes` vista
+    Tarjetas [mobile]: 1 columna, tarjetas legibles. Ficha de cliente
+    [mobile]: hace scroll interno y se llega a todos los campos.
+    Administración → tabla de usuarios y Bitácora de accesos [mobile]:
+    scrollean horizontalmente para ver Rol / IP / Agente (aceptado como
+    está, no debería haber regresión).
+
+### Al terminar de probar
+Avisar qué funcionó, qué no, y si hay algo para ajustar antes de decidir
+si se commitea la Parte A y qué hacer con push/PR.
+
 ## Progreso
 - 2026-09-23: doc creado. Arrancando Parte A (delegated writer, TDD estricto)
   y Parte B (delegated audit, read-only) en paralelo.
