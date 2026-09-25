@@ -149,14 +149,21 @@ export const RESTRICTED_DOC_CATEGORIES: readonly string[] = [
 // tablero-seguimiento-social (D10/T5, Fase 3a.7): default de fábrica del
 // setting `semaforo_umbrales` — igual patrón que DOC_CATEGORIES: no es el
 // valor que lee la comparación (`resolverUmbrales` en semaforo.ts), es el
-// valor inicial de la fila cuando `getSetting` no la encuentra. Los números
-// mismos son los REALES confirmados por el negocio el 2026-09-18 (D10 en la
-// propuesta) — Unit 1's migración ya sembró esta misma fila con
-// `confirmado: true`, así que este default NO es un placeholder pendiente.
+// valor inicial de la fila cuando `getSetting` no la encuentra. Los cortes
+// técnicos son los REALES confirmados por el negocio el 2026-09-18 (D10 en
+// la propuesta) — Unit 1's migración ya sembró esta misma fila con
+// `confirmado: true`.
+//
+// proyecto-financiero-tab (D-FIN1, 2026-09-25): los cortes FINANCIEROS se
+// reemplazan por los del brief de diseño v6 (verde 80-105%, amarillo
+// 60-79%/106-120%, rojo fuera de ese rango) — la Auditoría v6 los recomienda
+// como default de organización (ver proposal.md's D-FIN1). Los cortes
+// TÉCNICOS no cambian, ese es otro semáforo (`colorTecnico`) fuera de
+// alcance de este change.
 export const UMBRALES_SEMAFORO_DEFAULT: UmbralesSemaforo = {
   confirmado: true,
   tecnico: { verde: 0.85, rojo: 0.6 },
-  financiero: { verde_min: 0.85, verde_max: 1.15, amarillo_min: 0.6, amarillo_max: 1.4 },
+  financiero: { verde_min: 0.8, verde_max: 1.05, amarillo_min: 0.6, amarillo_max: 1.2 },
 };
 
 // tablero-seguimiento-social (RF-04/RF-06, Fase 3b): tipo de soporte de

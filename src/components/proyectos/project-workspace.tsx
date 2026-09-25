@@ -4,9 +4,14 @@
 // `client-list.tsx`/`notification-panel.tsx` (`router.replace`, `scroll:
 // false`) instead of a `[tab]` route segment (design T1's own rejection).
 //
-// Only the Resumen tab is wired this PR (design's incremental-tab-rollout
-// guidance): Cronograma/Gantt/Indicadores render as disabled triggers with a
-// "Próximamente" placeholder panel, owned by Phases 5-7.
+// Phases 5-7: Resumen, Cronograma, Gantt and Indicadores are wired, none of
+// them disabled. `TabsContent` (Base UI's `Tabs.Panel`) only mounts the
+// active tab's content, so switching tabs never fetches or renders the
+// others eagerly.
+//
+// proyecto-financiero-tab (F1.1): adds the fifth tab, Financiero, same
+// mount-only-when-selected behavior, reusing `useBudget`/`GET .../budget`
+// (already gated server-side by `canViewProject`, no new permission here).
 //
 // Access gating: `useProjectDetail` already 403s via `canViewProject`
 // (`loadProjectScoped`, unchanged by this PR) — this component only reacts
@@ -22,8 +27,12 @@ import { ApiError } from "@/lib/api/http";
 import { useProjectDetail } from "@/hooks/projects";
 import { ESTADO_PROYECTO_LABELS } from "@/components/proyectos/project-list";
 import { ResumenTab } from "@/components/proyectos/tabs/resumen-tab";
+import { CronogramaTab } from "@/components/proyectos/tabs/cronograma-tab";
+import { GanttTab } from "@/components/proyectos/tabs/gantt-tab";
+import { IndicadoresTab } from "@/components/proyectos/tabs/indicadores-tab";
+import { FinancieroTab } from "@/components/proyectos/tabs/financiero-tab";
 
-const TAB_VALUES = ["resumen", "cronograma", "gantt", "indicadores"] as const;
+const TAB_VALUES = ["resumen", "cronograma", "gantt", "indicadores", "financiero"] as const;
 type TabValue = (typeof TAB_VALUES)[number];
 const DEFAULT_TAB: TabValue = "resumen";
 
@@ -97,28 +106,26 @@ export function ProjectWorkspace({ projectId }: { projectId: string }) {
       >
         <TabsList variant="line">
           <TabsTrigger value="resumen">Resumen</TabsTrigger>
-          <TabsTrigger value="cronograma" disabled>
-            Cronograma
-          </TabsTrigger>
-          <TabsTrigger value="gantt" disabled>
-            Gantt
-          </TabsTrigger>
-          <TabsTrigger value="indicadores" disabled>
-            Indicadores
-          </TabsTrigger>
+          <TabsTrigger value="cronograma">Cronograma</TabsTrigger>
+          <TabsTrigger value="gantt">Gantt</TabsTrigger>
+          <TabsTrigger value="indicadores">Indicadores</TabsTrigger>
+          <TabsTrigger value="financiero">Financiero</TabsTrigger>
         </TabsList>
 
         <TabsContent value="resumen" className="mt-4">
           <ResumenTab projectId={proyecto.id} />
         </TabsContent>
         <TabsContent value="cronograma" className="mt-4">
-          <p className="text-[13px] text-ink-600">Próximamente.</p>
+          <CronogramaTab projectId={proyecto.id} />
         </TabsContent>
         <TabsContent value="gantt" className="mt-4">
-          <p className="text-[13px] text-ink-600">Próximamente.</p>
+          <GanttTab projectId={proyecto.id} />
         </TabsContent>
         <TabsContent value="indicadores" className="mt-4">
-          <p className="text-[13px] text-ink-600">Próximamente.</p>
+          <IndicadoresTab projectId={proyecto.id} />
+        </TabsContent>
+        <TabsContent value="financiero" className="mt-4">
+          <FinancieroTab projectId={proyecto.id} />
         </TabsContent>
       </Tabs>
     </div>

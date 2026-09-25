@@ -205,12 +205,12 @@ describe("UMBRALES_SEMAFORO_DEFAULT", () => {
     expect(UMBRALES_SEMAFORO_DEFAULT.tecnico).toEqual({ verde: 0.85, rojo: 0.6 })
   })
 
-  it("mirrors the real D10 financiero cuts (bidireccional: verde 85%-115%, rojo <60% o >140%)", () => {
+  it("mirrors the D-FIN1 financiero cuts (v6 design brief, bidireccional: verde 80%-105%, amarillo 60%-79%/106%-120%, rojo fuera de rango)", () => {
     expect(UMBRALES_SEMAFORO_DEFAULT.financiero).toEqual({
-      verde_min: 0.85,
-      verde_max: 1.15,
+      verde_min: 0.8,
+      verde_max: 1.05,
       amarillo_min: 0.6,
-      amarillo_max: 1.4,
+      amarillo_max: 1.2,
     })
   })
 })

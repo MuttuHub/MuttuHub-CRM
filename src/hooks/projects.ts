@@ -108,7 +108,29 @@ export const projectDetailQueryKeys = {
   activities: (id: string) => ["projects", id, "activities"] as const,
   indicators: (id: string) => ["projects", id, "indicators"] as const,
   attachments: (id: string) => ["projects", id, "attachments"] as const,
+  budget: (id: string) => ["projects", id, "budget"] as const,
   dashboard: (projectId: string | null) => ["dashboard", "projects", projectId ?? "org-wide"] as const,
+};
+
+/** Shape of `GET /api/v1/projects/:id/budget` — no envelope key, the body
+ * itself is the payload (see `src/app/api/v1/projects/[id]/budget/route.ts`,
+ * `round2()`: amounts are plain JS numbers, never Decimal-as-string). Zero
+ * semáforo logic lives on the client — `color_financiero`/
+ * `color_financiero_total` are rendered verbatim from this response. */
+export type RubroBudget = {
+  rubro_id: string;
+  rubro_nombre: string;
+  rubro_activo: boolean;
+  monto_proyectado_cop: number;
+  monto_ejecutado_cop: number;
+  color_financiero: "verde" | "amarillo" | "rojo";
+};
+
+export type Budget = {
+  rubros: RubroBudget[];
+  proyectado_total: number;
+  ejecutado_total: number;
+  color_financiero_total: "verde" | "amarillo" | "rojo";
 };
 
 /** Shape of `GET /api/v1/dashboard/projects` — no envelope key, the body
@@ -214,6 +236,14 @@ export function useProjectDashboard(projectId: string | null): UseQueryResult<Pr
         : "/api/v1/dashboard/projects";
       return apiGet<ProjectDashboard>(path);
     },
+  });
+}
+
+export function useBudget(projectId: string | null): UseQueryResult<Budget> {
+  return useQuery({
+    queryKey: projectDetailQueryKeys.budget(projectId ?? "none"),
+    enabled: projectId !== null,
+    queryFn: () => apiGet<Budget>(`/api/v1/projects/${projectId}/budget`),
   });
 }
 

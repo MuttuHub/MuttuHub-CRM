@@ -1,8 +1,9 @@
 // gestion-proyectos-workspace, Phase 4 (design.md T1, T6 — spec.md "Workspace
 // por proyecto con tabs" + "Tab Resumen reutiliza el endpoint agregado").
-// Only the Resumen tab is wired this PR; Cronograma/Gantt/Indicadores are
-// disabled stubs (design's own incremental-tab-rollout guidance) until
-// Phases 5-7.
+// Phases 5-7: Cronograma/Gantt/Indicadores are no longer disabled stubs —
+// each mounts its own `tabs/*-tab.tsx` component, mirroring the Resumen
+// tab's own mount-only-when-selected behavior (each tab component below is
+// mocked so this file stays a pure `ProjectWorkspace` shell test).
 
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -47,6 +48,38 @@ vi.mock("@/components/proyectos/tabs/resumen-tab", () => ({
   },
 }));
 
+const cronogramaTabSpy = vi.fn();
+vi.mock("@/components/proyectos/tabs/cronograma-tab", () => ({
+  CronogramaTab: (props: { projectId: string }) => {
+    cronogramaTabSpy(props);
+    return <div data-testid="cronograma-tab" />;
+  },
+}));
+
+const ganttTabSpy = vi.fn();
+vi.mock("@/components/proyectos/tabs/gantt-tab", () => ({
+  GanttTab: (props: { projectId: string }) => {
+    ganttTabSpy(props);
+    return <div data-testid="gantt-tab" />;
+  },
+}));
+
+const indicadoresTabSpy = vi.fn();
+vi.mock("@/components/proyectos/tabs/indicadores-tab", () => ({
+  IndicadoresTab: (props: { projectId: string }) => {
+    indicadoresTabSpy(props);
+    return <div data-testid="indicadores-tab" />;
+  },
+}));
+
+const financieroTabSpy = vi.fn();
+vi.mock("@/components/proyectos/tabs/financiero-tab", () => ({
+  FinancieroTab: (props: { projectId: string }) => {
+    financieroTabSpy(props);
+    return <div data-testid="financiero-tab" />;
+  },
+}));
+
 function makeProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
   return {
     id: "proy-1",
@@ -78,6 +111,10 @@ beforeEach(() => {
   routerReplaceMock.mockClear();
   searchParamsMock.get.mockReset().mockReturnValue(null);
   resumenTabSpy.mockClear();
+  cronogramaTabSpy.mockClear();
+  ganttTabSpy.mockClear();
+  indicadoresTabSpy.mockClear();
+  financieroTabSpy.mockClear();
 });
 
 describe("ProjectWorkspace", () => {
@@ -104,24 +141,72 @@ describe("ProjectWorkspace", () => {
     expect(screen.queryByRole("link", { name: /oportunidad de origen/i })).not.toBeInTheDocument();
   });
 
-  it("renders Cronograma/Gantt/Indicadores as disabled stub tabs", () => {
+  it("renders Cronograma/Gantt/Indicadores/Financiero as enabled (non-disabled) tabs", () => {
     detailQuery.data = makeProject();
 
     render(<ProjectWorkspace projectId="proy-1" />);
 
-    expect(screen.getByRole("tab", { name: "Cronograma" })).toHaveAttribute("aria-disabled", "true");
-    expect(screen.getByRole("tab", { name: "Gantt" })).toHaveAttribute("aria-disabled", "true");
-    expect(screen.getByRole("tab", { name: "Indicadores" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("tab", { name: "Cronograma" })).not.toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("tab", { name: "Gantt" })).not.toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("tab", { name: "Indicadores" })).not.toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("tab", { name: "Financiero" })).not.toHaveAttribute("aria-disabled", "true");
   });
 
-  it("respects a ?tab= stub value from the URL even though its trigger is disabled", () => {
+  it("mounts only the Cronograma tab's content (not Resumen) when ?tab=cronograma", () => {
     detailQuery.data = makeProject();
     searchParamsMock.get.mockImplementation((key: string) => (key === "tab" ? "cronograma" : null));
 
     render(<ProjectWorkspace projectId="proy-1" />);
 
-    expect(screen.getByText("Próximamente.")).toBeInTheDocument();
+    expect(screen.getByTestId("cronograma-tab")).toBeInTheDocument();
+    expect(cronogramaTabSpy).toHaveBeenCalledWith({ projectId: "proy-1" });
     expect(screen.queryByTestId("resumen-tab")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("gantt-tab")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("indicadores-tab")).not.toBeInTheDocument();
+  });
+
+  it("mounts only the Gantt tab's content when ?tab=gantt", () => {
+    detailQuery.data = makeProject();
+    searchParamsMock.get.mockImplementation((key: string) => (key === "tab" ? "gantt" : null));
+
+    render(<ProjectWorkspace projectId="proy-1" />);
+
+    expect(screen.getByTestId("gantt-tab")).toBeInTheDocument();
+    expect(ganttTabSpy).toHaveBeenCalledWith({ projectId: "proy-1" });
+    expect(screen.queryByTestId("resumen-tab")).not.toBeInTheDocument();
+  });
+
+  it("mounts only the Indicadores tab's content when ?tab=indicadores", () => {
+    detailQuery.data = makeProject();
+    searchParamsMock.get.mockImplementation((key: string) => (key === "tab" ? "indicadores" : null));
+
+    render(<ProjectWorkspace projectId="proy-1" />);
+
+    expect(screen.getByTestId("indicadores-tab")).toBeInTheDocument();
+    expect(indicadoresTabSpy).toHaveBeenCalledWith({ projectId: "proy-1" });
+    expect(screen.queryByTestId("resumen-tab")).not.toBeInTheDocument();
+  });
+
+  it("mounts only the Financiero tab's content when ?tab=financiero", () => {
+    detailQuery.data = makeProject();
+    searchParamsMock.get.mockImplementation((key: string) => (key === "tab" ? "financiero" : null));
+
+    render(<ProjectWorkspace projectId="proy-1" />);
+
+    expect(screen.getByTestId("financiero-tab")).toBeInTheDocument();
+    expect(financieroTabSpy).toHaveBeenCalledWith({ projectId: "proy-1" });
+    expect(screen.queryByTestId("resumen-tab")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("cronograma-tab")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("gantt-tab")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("indicadores-tab")).not.toBeInTheDocument();
+  });
+
+  it("does not mount the Financiero tab's content when another tab is active", () => {
+    detailQuery.data = makeProject();
+
+    render(<ProjectWorkspace projectId="proy-1" />);
+
+    expect(screen.queryByTestId("financiero-tab")).not.toBeInTheDocument();
   });
 
   it("shows an access-denied message when the detail query 403s", () => {

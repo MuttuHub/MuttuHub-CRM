@@ -6,6 +6,7 @@ import {
   projectDetailQueryKeys,
   useActivities,
   useAttachments,
+  useBudget,
   useCreateGoal,
   useCreateProject,
   useDeleteAttachment,
@@ -411,6 +412,59 @@ describe("useProjectDashboard", () => {
 
   it("uses distinct query keys for org-wide vs. scoped so both caches coexist", () => {
     expect(projectDetailQueryKeys.dashboard(null)).not.toEqual(projectDetailQueryKeys.dashboard("proy-1"))
+  })
+})
+
+describe("useBudget", () => {
+  const fetchMock = vi.fn()
+  beforeEach(() => {
+    fetchMock.mockReset()
+    vi.stubGlobal("fetch", fetchMock)
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it("fetches the budget for the project (no envelope key, matches GET /budget's raw body)", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        rubros: [
+          {
+            rubro_id: "rubro-1",
+            rubro_nombre: "Personal",
+            rubro_activo: true,
+            monto_proyectado_cop: 1000,
+            monto_ejecutado_cop: 200,
+            color_financiero: "verde",
+          },
+        ],
+        proyectado_total: 1000,
+        ejecutado_total: 200,
+        color_financiero_total: "verde",
+      }),
+    )
+    const { wrapper } = createWrapper()
+
+    const { result } = renderHook(() => useBudget("proy-1"), { wrapper })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data?.rubros).toHaveLength(1)
+    expect(result.current.data?.color_financiero_total).toBe("verde")
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/projects/proy-1/budget",
+      expect.objectContaining({ method: "GET" }),
+    )
+  })
+
+  it("does not fetch when projectId is null", () => {
+    const { wrapper } = createWrapper()
+
+    const { result } = renderHook(() => useBudget(null), { wrapper })
+
+    expect(result.current.fetchStatus).toBe("idle")
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("uses a distinct projects/:id/budget query key", () => {
+    expect(projectDetailQueryKeys.budget("proy-1")).toEqual(["projects", "proy-1", "budget"])
   })
 })
 
