@@ -46,7 +46,7 @@ Strict TDD enabled globally (session config). Runner: `npm run test` (`vitest ru
       flag to user if Docker/WSL2 repair is needed.
 - [ ] **F0.4** — Client decision session (umbrales, role mapping). Using Auditoría's
       recommendations as default per user instruction, documented in each change's design.md.
-- [ ] **F1.1** — Pestaña Financiero (RF-05, RF-07). Uses existing
+- [x] **F1.1** — Pestaña Financiero (RF-05, RF-07). Uses existing
       `/api/v1/projects/[id]/budget` + `semaforo.ts` (already bidirectional). New:
       `useBudget` hook, `tabs/financiero-tab.tsx`. Threshold mismatch to reconcile:
       design brief (80/105/60/79/106/120) vs `UMBRALES_SEMAFORO_DEFAULT` code defaults
@@ -96,6 +96,60 @@ Strict TDD enabled globally (session config). Runner: `npm run test` (`vitest ru
 - Commit: `e78f7ee` — `feat(proyectos): integrate Cronograma tab and remove dead ficha component`
   (4 files changed: `project-workspace.tsx`, `project-workspace.test.tsx`,
   `tabs/cronograma-tab.tsx` + `.test.tsx` added, `project-sheet.tsx` + `.test.tsx` deleted).
+
+### F1.1 (2026-09-25)
+OpenSpec change `proyecto-financiero-tab` (proposal/design/tasks already written this
+session) applied phase-by-phase, strict TDD (RED confirmed before every GREEN):
+
+- **Phase 1** — `useBudget(projectId)` + `Budget`/`RubroBudget` DTOs in
+  `src/hooks/projects.ts`. RED: 3 new tests in `projects.test.ts` failed
+  (`useBudget is not a function`). GREEN: implemented, mirroring `useProjectDashboard`
+  (not `useGoals` as design.md assumed — see deviation below). `npx vitest run
+  src/hooks/projects.test.ts` → 20/20 passed.
+- **Phase 2** — D-FIN1 threshold default. RED: updated `catalogs.test.ts`'s financiero
+  assertion to v6 cuts, confirmed failing against the old defaults (85/115/60/140).
+  GREEN: updated `UMBRALES_SEMAFORO_DEFAULT.financiero` in `src/lib/catalogs.ts` to
+  `{ verde_min: 0.8, verde_max: 1.05, amarillo_min: 0.6, amarillo_max: 1.2 }` (tecnico
+  untouched). Verified no regression in `semaforo.test.ts` (uses its own local fixture,
+  not the default), `settings/route.test.ts`, `dashboard/projects/route.test.ts`,
+  `tacometro.test.tsx`, `budget/route.test.ts` — all green.
+- **Phase 3** — `tabs/financiero-tab.tsx`. RED: 8 tests in a new
+  `financiero-tab.test.tsx` failed (module didn't exist). GREEN: implemented — gauge
+  (CSS conic-gradient, no new dependency), semáforo chip + legend, rubro table
+  (`overflow-x-auto` wrapper, asignado/ejecutado/diferencia/%/chip columns), alert card
+  (one entry per non-verde rubro, static per-color copy). Every color renders
+  `color_financiero`/`color_financiero_total` verbatim — zero client-side semáforo
+  computation (D1). `npx vitest run .../financiero-tab.test.tsx` → 8/8 passed.
+- **Phase 4** — wired into `project-workspace.tsx`: `"financiero"` added to
+  `TAB_VALUES`, `TabsTrigger`/`TabsContent` added. RED: 2 new assertions in
+  `project-workspace.test.tsx` failed (tab not registered). GREEN: wired, mount-only-
+  when-selected confirmed. `npx vitest run project-workspace.test.tsx` → 10/10 passed.
+- **Phase 5** — full verification: `npx tsc --noEmit` → 0 errors. `npx eslint` (scoped
+  to the 8 touched files) → 0 problems. `npm run test` (full suite) → **160 files /
+  1473 tests passed**, 0 failed (vs. F0.2's 159/1460 baseline — net +1 file/+13 tests
+  from this change, no regressions elsewhere).
+- **Deviations from design.md** (both discovered while reading `budget/route.ts` before
+  writing `useBudget`, documented in `tasks.md` too):
+  1. `GET /api/v1/projects/:id/budget` has **no envelope key** — the response body
+     itself is `{ rubros, proyectado_total, ejecutado_total, color_financiero_total }`.
+     `useBudget` mirrors `useProjectDashboard`'s `apiGet<Budget>(...)` direct-return
+     pattern, not `useGoals`' `res.metas` unwrap that design.md specified.
+  2. `monto_proyectado_cop`/`monto_ejecutado_cop`/`proyectado_total`/`ejecutado_total`
+     are typed `number`, not `string` — `round2()` in the route returns a plain JS
+     number and `NextResponse.json` serializes it as a JSON number, never a
+     Decimal-as-string as design.md's Data Model section assumed.
+  Neither deviation changes behavior or scope — both are corrections to design.md's
+  DTO shape based on the actual route implementation, confirmed by reading
+  `budget/route.ts` and its existing test file.
+- Not done in this session: the 390px-viewport dev-server visual check called out in
+  tasks.md 3.3 — the horizontal-scroll wrapper is covered by an automated test
+  (`overflow-x-auto` assertion) and the tab has no interactive controls to violate the
+  44px touch target, so this is a non-blocking follow-up, not a gap in the delivered
+  behavior.
+- Commit: `14ce6db` — `feat(proyectos): add Financiero tab with budget hook and D-FIN1
+  thresholds` (8 files changed, 572 insertions(+), 34 deletions(-): `hooks/projects.ts`
+  + `.test.ts`, `lib/catalogs.ts` + `.test.ts`, `tabs/financiero-tab.tsx` + `.test.tsx`
+  added, `project-workspace.tsx` + `.test.tsx`).
   `CLAUDE.md` and other unrelated untracked files (HANDOFF, PENDIENTES-MENORES, the zip,
   `scripts/seed-proyectos-demo.ts`, other `odd/tasks/*.md`, `.codegraph/`) intentionally left
   unstaged per task scope.
