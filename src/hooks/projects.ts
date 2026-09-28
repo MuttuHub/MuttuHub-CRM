@@ -95,6 +95,10 @@ export type Soporte = {
   storage_path: string | null;
   url_externa: string | null;
   tamano_bytes: number | null;
+  // Already returned by `SUPPORT_SELECT` (attachments/route.ts) — the client
+  // type just never declared it until proyecto-soportes-tab needed to
+  // resolve the author's name for the Soportes tab (design.md D2).
+  subido_por_id: string;
   download_url: string | null;
   created_at: string;
 };
