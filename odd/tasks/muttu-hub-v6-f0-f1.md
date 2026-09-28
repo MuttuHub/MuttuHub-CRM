@@ -65,7 +65,18 @@ Strict TDD enabled globally (session config). Runner: `npm run test` (`vitest ru
       even though `SUPPORT_SELECT` already returns it. Commits: `68e7275` (list +
       delete), `2a80cf0` (modal + workspace wiring), both on `local/todo-integrado`.
       openspec change: `proyecto-soportes-tab`.
-- [ ] **F1.4** — Pestaña Metas (RF-02, KPI 3).
+- [x] **F1.4** — Pestaña Metas (RF-02, KPI 3). Corrected 3 points post-review before
+      implementing (openspec change `proyecto-metas-tab`, design.md D4/D6/D7): indicator
+      progress-bar color is now a parametrized `UmbralesSemaforo.indicador` band
+      (verde ≥90%/amarillo ≥60% org default), resolved server-side via `resolverUmbrales`
+      exactly like técnico/financiero and exposed as `color_indicador` on
+      `GET/PATCH .../indicators` (never hardcoded in the component); tab is the 2nd one
+      (right after Resumen, matching v6), not appended at the end; `A{n}` activity codes
+      are sequential across the whole project, not reset per meta. Slice A (semáforo band +
+      settings backward-compat + server-side color): commit `4285ec2`. Slice B (read-only
+      `metas-tab.tsx`): commit `46a84d3`. Slice C (Editar avance wiring + workspace mount):
+      commit `66d7fec`. All three on `local/todo-integrado`, no push. Full suite green
+      (166 files / 1573 tests) after Slice C.
 - [ ] **F1.5** — Umbrales del semáforo editables en Administración.
 - [ ] **F1.6** — Tablero gerencial unificado (`/tablero-gerencial` + `/`) con visualizaciones v6.
 
@@ -179,7 +190,9 @@ session) applied phase-by-phase, strict TDD (RED confirmed before every GREEN):
   table headers. Task 4.7 (390px manual check) verified structurally only, not in a browser.
 
 ## Next step
-F1.3 done (local commits 68e7275, 2a80cf0, no push). Legalización migration applied locally
-(2026-09-28). `gh auth` works; #44–#46 merged. Pending: archive `oportunidades-comerciales`,
-split `local/todo-integrado` (60+ commits ahead of main) into PRs, manual 390px checks of
-Legalización/Soportes. Next task: F1.4 Metas on user OK.
+F1.4 done (local commits 4285ec2, 46a84d3, 66d7fec, no push). Legalización migration applied
+locally (2026-09-28). `gh auth` works; #44–#46 merged. Pending: archive
+`oportunidades-comerciales`, split `local/todo-integrado` (60+ commits ahead of main) into PRs,
+manual 390px checks of Legalización/Soportes/Metas. Next task: F1.5 (umbrales editables en
+Administración — the `indicador` band's admin editing UI, explicitly deferred by F1.4) on
+user OK.
