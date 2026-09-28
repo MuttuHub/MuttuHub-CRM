@@ -179,5 +179,7 @@ session) applied phase-by-phase, strict TDD (RED confirmed before every GREEN):
   table headers. Task 4.7 (390px manual check) verified structurally only, not in a browser.
 
 ## Next step
-F1.2 done (local commits, no push). Pending: apply the migration to the local DB, manual 390px
-check of Legalización, F0.1 + push/PRs (blocked on `gh auth`). Next task: F1.3 Soportes on user OK.
+F1.3 done (local commits 68e7275, 2a80cf0, no push). Legalización migration applied locally
+(2026-09-28). `gh auth` works; #44–#46 merged. Pending: archive `oportunidades-comerciales`,
+split `local/todo-integrado` (60+ commits ahead of main) into PRs, manual 390px checks of
+Legalización/Soportes. Next task: F1.4 Metas on user OK.
