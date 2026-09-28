@@ -63,7 +63,7 @@ Strict TDD enabled globally (session config). Runner: `npm run test` (`vitest ru
       XOR radio per design D1) to `project-workspace.tsx`'s 7th tab. Fixed a stale
       client type: `Soporte` in `src/hooks/projects.ts` was missing `subido_por_id`
       even though `SUPPORT_SELECT` already returns it. Commits: `68e7275` (list +
-      delete), and the modal + workspace wiring slice on `local/todo-integrado`.
+      delete), `2a80cf0` (modal + workspace wiring), both on `local/todo-integrado`.
       openspec change: `proyecto-soportes-tab`.
 - [ ] **F1.4** — Pestaña Metas (RF-02, KPI 3).
 - [ ] **F1.5** — Umbrales del semáforo editables en Administración.
