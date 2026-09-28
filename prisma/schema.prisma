@@ -692,6 +692,15 @@ model Gasto {
   updated_at        DateTime  @updatedAt
   deleted_at        DateTime?
 
+  // RF-06 (proyecto-legalizacion-tab): trazabilidad de legalización.
+  // `estado_legalizacion` NUNCA se guarda aquí — se deriva en la API a
+  // partir de `observado` + la relación `soportes` ya existente
+  // (estadoLegalizacion() en expenses/route.ts).
+  tercero            String?
+  numero_comprobante String?
+  observado          Boolean  @default(false)
+  observacion        String?
+
   proyecto Proyecto          @relation(fields: [proyecto_id], references: [id])
   // RF-06: la trazabilidad contable al rubro es por FK garantizada
   // (gasto -> linea -> rubro), nunca por un string copiado en el gasto.

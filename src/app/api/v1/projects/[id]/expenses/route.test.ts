@@ -17,6 +17,7 @@ vi.mock("@/lib/db", () => ({
     },
     lineaPresupuestal: {
       findFirst: vi.fn(),
+      findMany: vi.fn(),
     },
     gasto: {
       findMany: vi.fn(),
@@ -53,6 +54,11 @@ function gastoRow(overrides: Partial<Record<string, unknown>> = {}) {
     registrado_por_id: overrides.registrado_por_id ?? "gerencia-1",
     created_at: new Date("2026-02-01"),
     linea: overrides.linea ?? { rubro_id: "rubro-1", rubro: { nombre: "Personal" } },
+    tercero: overrides.tercero ?? null,
+    numero_comprobante: overrides.numero_comprobante ?? null,
+    observado: overrides.observado ?? false,
+    observacion: overrides.observacion ?? null,
+    _count: overrides._count ?? { soportes: 0 },
   };
 }
 
@@ -91,12 +97,69 @@ describe("GET /api/v1/projects/:id/expenses", () => {
     authAs(gerencia);
     vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "proy-1", responsable_id: "gerencia-1" } as never);
     vi.mocked(db.gasto.findMany).mockResolvedValue([gastoRow()] as never);
+    vi.mocked(db.lineaPresupuestal.findMany).mockResolvedValue([] as never);
 
     const res = await GET(new Request("http://localhost/api/v1/projects/proy-1/expenses"), routeContext);
 
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.gastos).toHaveLength(1);
+  });
+
+  it("returns estado_legalizacion 'falta_soporte' when observado is false and there are no soportes", async () => {
+    authAs(gerencia);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "proy-1", responsable_id: "gerencia-1" } as never);
+    vi.mocked(db.gasto.findMany).mockResolvedValue([
+      gastoRow({ observado: false, _count: { soportes: 0 } }),
+    ] as never);
+    vi.mocked(db.lineaPresupuestal.findMany).mockResolvedValue([] as never);
+
+    const res = await GET(new Request("http://localhost/api/v1/projects/proy-1/expenses"), routeContext);
+    const json = await res.json();
+
+    expect(json.gastos[0].estado_legalizacion).toBe("falta_soporte");
+  });
+
+  it("returns estado_legalizacion 'con_soporte' when observado is false and there is at least one soporte LEGALIZACION", async () => {
+    authAs(gerencia);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "proy-1", responsable_id: "gerencia-1" } as never);
+    vi.mocked(db.gasto.findMany).mockResolvedValue([
+      gastoRow({ observado: false, _count: { soportes: 1 } }),
+    ] as never);
+    vi.mocked(db.lineaPresupuestal.findMany).mockResolvedValue([] as never);
+
+    const res = await GET(new Request("http://localhost/api/v1/projects/proy-1/expenses"), routeContext);
+    const json = await res.json();
+
+    expect(json.gastos[0].estado_legalizacion).toBe("con_soporte");
+  });
+
+  it("returns estado_legalizacion 'observado' when observado is true regardless of soportes", async () => {
+    authAs(gerencia);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "proy-1", responsable_id: "gerencia-1" } as never);
+    vi.mocked(db.gasto.findMany).mockResolvedValue([
+      gastoRow({ observado: true, observacion: "Factura ilegible", _count: { soportes: 3 } }),
+    ] as never);
+    vi.mocked(db.lineaPresupuestal.findMany).mockResolvedValue([] as never);
+
+    const res = await GET(new Request("http://localhost/api/v1/projects/proy-1/expenses"), routeContext);
+    const json = await res.json();
+
+    expect(json.gastos[0].estado_legalizacion).toBe("observado");
+  });
+
+  it("returns the project's active líneas presupuestales for the 'Registrar gasto' Rubro selector", async () => {
+    authAs(gerencia);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "proy-1", responsable_id: "gerencia-1" } as never);
+    vi.mocked(db.gasto.findMany).mockResolvedValue([] as never);
+    vi.mocked(db.lineaPresupuestal.findMany).mockResolvedValue([
+      { id: "linea-1", rubro_id: "rubro-1", rubro: { nombre: "Personal" } },
+    ] as never);
+
+    const res = await GET(new Request("http://localhost/api/v1/projects/proy-1/expenses"), routeContext);
+    const json = await res.json();
+
+    expect(json.lineas).toEqual([{ id: "linea-1", rubro_id: "rubro-1", rubro_nombre: "Personal" }]);
   });
 });
 
@@ -162,6 +225,58 @@ describe("POST /api/v1/projects/:id/expenses", () => {
           proyecto_id: "proy-1",
           registrado_por_id: "gerencia-1",
         }),
+      }),
+    );
+  });
+
+  it("accepts and persists tercero and numero_comprobante", async () => {
+    authAs(gerencia);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "proy-1", responsable_id: "gerencia-1" } as never);
+    vi.mocked(db.lineaPresupuestal.findFirst).mockResolvedValue({ id: "linea-1" } as never);
+    vi.mocked(db.gasto.create).mockResolvedValue(
+      gastoRow({ id: "gasto-new", tercero: "Proveedor SAS", numero_comprobante: "FV-001" }) as never,
+    );
+
+    const res = await POST(
+      postRequest({
+        linea_id: "linea-1",
+        concepto: "Compra de materiales",
+        monto_cop: 100,
+        fecha_gasto: "2026-02-01",
+        tercero: "Proveedor SAS",
+        numero_comprobante: "FV-001",
+      }),
+      routeContext,
+    );
+
+    expect(res.status).toBe(201);
+    expect(db.gasto.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          tercero: "Proveedor SAS",
+          numero_comprobante: "FV-001",
+        }),
+      }),
+    );
+    const json = await res.json();
+    expect(json.gasto.estado_legalizacion).toBe("falta_soporte");
+  });
+
+  it("creates the gasto without tercero/numero_comprobante when they are omitted (both nullable)", async () => {
+    authAs(gerencia);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "proy-1", responsable_id: "gerencia-1" } as never);
+    vi.mocked(db.lineaPresupuestal.findFirst).mockResolvedValue({ id: "linea-1" } as never);
+    vi.mocked(db.gasto.create).mockResolvedValue(gastoRow({ id: "gasto-new" }) as never);
+
+    const res = await POST(
+      postRequest({ linea_id: "linea-1", concepto: "Compra", monto_cop: 100, fecha_gasto: "2026-02-01" }),
+      routeContext,
+    );
+
+    expect(res.status).toBe(201);
+    expect(db.gasto.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ tercero: null, numero_comprobante: null }),
       }),
     );
   });

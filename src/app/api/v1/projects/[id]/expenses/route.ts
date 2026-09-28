@@ -22,7 +22,12 @@ export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-/** Projection shared by the Gasto list/detail/create/update responses. */
+/** Projection shared by the Gasto list/detail/create/update responses.
+ * RF-06 (proyecto-legalizacion-tab): `_count.soportes` counts only
+ * `SoporteProyecto` rows of `tipo: LEGALIZACION` linked to this gasto — the
+ * raw input to `estadoLegalizacion()` below. It is never returned verbatim
+ * to the client; `toExpenseResponse()` replaces it with the derived
+ * `estado_legalizacion` string. */
 export const EXPENSE_SELECT = {
   id: true,
   proyecto_id: true,
@@ -33,17 +38,44 @@ export const EXPENSE_SELECT = {
   registrado_por_id: true,
   created_at: true,
   updated_at: true,
+  tercero: true,
+  numero_comprobante: true,
+  observado: true,
+  observacion: true,
   // RF-06: la trazabilidad al rubro es por FK (gasto -> linea -> rubro, T3),
   // nunca un string copiado — se resuelve aquí para que la UI no necesite un
   // segundo round-trip.
   linea: { select: { rubro_id: true, rubro: { select: { nombre: true } } } },
+  _count: { select: { soportes: { where: { tipo: "LEGALIZACION", deleted_at: null } } } },
 } as const;
+
+export type EstadoLegalizacion = "observado" | "con_soporte" | "falta_soporte";
+
+/** design.md "Data Model": D1 — `estado_legalizacion` vive UNA sola vez,
+ * aquí, del lado del servidor. Nunca se recalcula en el cliente ni se
+ * guarda como columna. */
+export function estadoLegalizacion(gasto: { observado: boolean; _count: { soportes: number } }): EstadoLegalizacion {
+  if (gasto.observado) return "observado";
+  return gasto._count.soportes > 0 ? "con_soporte" : "falta_soporte";
+}
+
+type SelectedGasto = Prisma.GastoGetPayload<{ select: typeof EXPENSE_SELECT }>;
+
+/** Adds the derived `estado_legalizacion` and drops the internal `_count`
+ * shape from the response — the client only ever sees the derived string,
+ * never the raw soporte count it was computed from. */
+export function toExpenseResponse(gasto: SelectedGasto) {
+  const { _count, ...rest } = gasto;
+  return { ...rest, estado_legalizacion: estadoLegalizacion({ observado: gasto.observado, _count }) };
+}
 
 export const EXPENSE_SCHEMA = z.object({
   linea_id: z.string().min(1, "La línea presupuestal es obligatoria."),
   concepto: z.string().trim().min(1, "El concepto del gasto es obligatorio.").max(300, "El concepto es muy largo."),
   monto_cop: z.number().positive("El monto debe ser mayor a cero."),
   fecha_gasto: z.string().refine((v) => parseDate(v) !== null, "Fecha de gasto no válida."),
+  tercero: z.string().trim().max(300, "El tercero es muy largo.").optional(),
+  numero_comprobante: z.string().trim().max(100, "El número de comprobante es muy largo.").optional(),
 });
 
 export const GET = withApiErrorHandling(
@@ -63,13 +95,32 @@ export const GET = withApiErrorHandling(
       );
     }
 
-    const gastos = await db.gasto.findMany({
-      where: { proyecto_id: id, deleted_at: null },
-      select: EXPENSE_SELECT,
-      orderBy: { fecha_gasto: "desc" },
-    });
+    const [gastos, lineas] = await Promise.all([
+      db.gasto.findMany({
+        where: { proyecto_id: id, deleted_at: null },
+        select: EXPENSE_SELECT,
+        orderBy: { fecha_gasto: "desc" },
+      }),
+      // Deviation from design.md's File Changes table (documented in
+      // apply evidence): the "Registrar gasto" modal's required Rubro
+      // field has no other in-scope data source — `budget/route.ts` is
+      // explicitly out of scope for this change, and its `rubros`
+      // aggregate doesn't carry `linea_id` anyway (only `rubro_id`,
+      // insufficient to submit `POST .../expenses`). No `rubro.activo`
+      // filter here: unlike creating a NEW línea (budget/route.ts's D5),
+      // registering a gasto against an EXISTING línea must keep working
+      // even if its rubro was deactivated afterwards.
+      db.lineaPresupuestal.findMany({
+        where: { proyecto_id: id, deleted_at: null },
+        select: { id: true, rubro_id: true, rubro: { select: { nombre: true } } },
+        orderBy: { created_at: "asc" },
+      }),
+    ]);
 
-    return NextResponse.json({ gastos });
+    return NextResponse.json({
+      gastos: gastos.map(toExpenseResponse),
+      lineas: lineas.map((linea) => ({ id: linea.id, rubro_id: linea.rubro_id, rubro_nombre: linea.rubro.nombre })),
+    });
   },
 );
 
@@ -118,6 +169,8 @@ export const POST = withApiErrorHandling(
         monto_cop: new Prisma.Decimal(parsed.data.monto_cop),
         fecha_gasto: parseDate(parsed.data.fecha_gasto)!,
         registrado_por_id: auth.usuario.id,
+        tercero: parsed.data.tercero ?? null,
+        numero_comprobante: parsed.data.numero_comprobante ?? null,
       },
       select: EXPENSE_SELECT,
     });
@@ -130,6 +183,6 @@ export const POST = withApiErrorHandling(
       cambios: parsed.data,
     });
 
-    return NextResponse.json({ gasto }, { status: 201 });
+    return NextResponse.json({ gasto: toExpenseResponse(gasto) }, { status: 201 });
   },
 );

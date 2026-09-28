@@ -7,11 +7,13 @@ import {
   useActivities,
   useAttachments,
   useBudget,
+  useCreateExpense,
   useCreateGoal,
   useCreateProject,
   useDeleteAttachment,
   useDeleteGoal,
   useDeleteProject,
+  useExpenses,
   useGoals,
   useProjectDashboard,
   useProjectDetail,
@@ -465,6 +467,125 @@ describe("useBudget", () => {
 
   it("uses a distinct projects/:id/budget query key", () => {
     expect(projectDetailQueryKeys.budget("proy-1")).toEqual(["projects", "proy-1", "budget"])
+  })
+})
+
+describe("useExpenses", () => {
+  const fetchMock = vi.fn()
+  beforeEach(() => {
+    fetchMock.mockReset()
+    vi.stubGlobal("fetch", fetchMock)
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it("fetches gastos + lineas from the real GET .../expenses response shape (no separate envelope key)", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        gastos: [
+          {
+            id: "gasto-1",
+            proyecto_id: "proy-1",
+            linea_id: "linea-1",
+            concepto: "Compra",
+            monto_cop: "100.00",
+            fecha_gasto: "2026-02-01T00:00:00.000Z",
+            registrado_por_id: "gerencia-1",
+            created_at: "2026-02-01T00:00:00.000Z",
+            updated_at: "2026-02-01T00:00:00.000Z",
+            tercero: null,
+            numero_comprobante: null,
+            observado: false,
+            observacion: null,
+            estado_legalizacion: "falta_soporte",
+            linea: { rubro_id: "rubro-1", rubro: { nombre: "Personal" } },
+          },
+        ],
+        lineas: [{ id: "linea-1", rubro_id: "rubro-1", rubro_nombre: "Personal" }],
+      }),
+    )
+    const { wrapper } = createWrapper()
+
+    const { result } = renderHook(() => useExpenses("proy-1"), { wrapper })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data?.gastos).toHaveLength(1)
+    expect(result.current.data?.gastos[0]?.estado_legalizacion).toBe("falta_soporte")
+    expect(result.current.data?.lineas).toEqual([{ id: "linea-1", rubro_id: "rubro-1", rubro_nombre: "Personal" }])
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/projects/proy-1/expenses",
+      expect.objectContaining({ method: "GET" }),
+    )
+  })
+
+  it("does not fetch when projectId is null", () => {
+    const { wrapper } = createWrapper()
+
+    const { result } = renderHook(() => useExpenses(null), { wrapper })
+
+    expect(result.current.fetchStatus).toBe("idle")
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("uses a distinct projects/:id/expenses query key", () => {
+    expect(projectDetailQueryKeys.expenses("proy-1")).toEqual(["projects", "proy-1", "expenses"])
+  })
+})
+
+describe("useCreateExpense", () => {
+  const fetchMock = vi.fn()
+  beforeEach(() => {
+    fetchMock.mockReset()
+    vi.stubGlobal("fetch", fetchMock)
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it("posts the new gasto and invalidates the expenses and budget caches", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(
+        {
+          gasto: {
+            id: "gasto-1",
+            proyecto_id: "proy-1",
+            linea_id: "linea-1",
+            concepto: "Compra",
+            monto_cop: "100.00",
+            fecha_gasto: "2026-02-01T00:00:00.000Z",
+            registrado_por_id: "gerencia-1",
+            created_at: "2026-02-01T00:00:00.000Z",
+            updated_at: "2026-02-01T00:00:00.000Z",
+            tercero: "Proveedor SAS",
+            numero_comprobante: "FV-001",
+            observado: false,
+            observacion: null,
+            estado_legalizacion: "falta_soporte",
+            linea: { rubro_id: "rubro-1", rubro: { nombre: "Personal" } },
+          },
+        },
+        201,
+      ),
+    )
+    const { wrapper, invalidateSpy } = createWrapper()
+
+    const { result } = renderHook(() => useCreateExpense("proy-1"), { wrapper })
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        linea_id: "linea-1",
+        concepto: "Compra",
+        monto_cop: 100,
+        fecha_gasto: "2026-02-01",
+        tercero: "Proveedor SAS",
+        numero_comprobante: "FV-001",
+      })
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/projects/proy-1/expenses",
+      expect.objectContaining({ method: "POST" }),
+    )
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: projectDetailQueryKeys.expenses("proy-1") })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: projectDetailQueryKeys.budget("proy-1") })
   })
 })
 

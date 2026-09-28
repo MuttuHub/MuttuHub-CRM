@@ -50,6 +50,11 @@ function gastoRow(overrides: Partial<Record<string, unknown>> = {}) {
     fecha_gasto: overrides.fecha_gasto ?? new Date("2026-02-01"),
     registrado_por_id: overrides.registrado_por_id ?? "gerencia-1",
     created_at: new Date("2026-02-01"),
+    tercero: overrides.tercero ?? null,
+    numero_comprobante: overrides.numero_comprobante ?? null,
+    observado: overrides.observado ?? false,
+    observacion: overrides.observacion ?? null,
+    _count: overrides._count ?? { soportes: 0 },
   };
 }
 
@@ -76,7 +81,7 @@ describe("GET /api/v1/projects/:id/expenses/:expenseId", () => {
     expect(res.status).toBe(404);
   });
 
-  it("returns 200 with the gasto", async () => {
+  it("returns 200 with the gasto, including the derived estado_legalizacion", async () => {
     authAs(gerencia);
     vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "proy-1", responsable_id: "gerencia-1" } as never);
     vi.mocked(db.gasto.findFirst).mockResolvedValue(gastoRow() as never);
@@ -84,6 +89,8 @@ describe("GET /api/v1/projects/:id/expenses/:expenseId", () => {
     const res = await GET(new Request("http://localhost/api/v1/projects/proy-1/expenses/gasto-1"), routeContext);
 
     expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.gasto.estado_legalizacion).toBe("falta_soporte");
   });
 });
 
@@ -119,6 +126,59 @@ describe("PATCH /api/v1/projects/:id/expenses/:expenseId", () => {
     expect(res.status).toBe(200);
     expect(db.gasto.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "gasto-1" }, data: { monto_cop: 200 } }),
+    );
+  });
+
+  it("returns 403 marking observado without write permission on the project (RF-06)", async () => {
+    authAs(colaboradorAjeno);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "proy-1", responsable_id: "colab-2" } as never);
+
+    const res = await PATCH(patchRequest({ observado: true, observacion: "Factura ilegible" }), routeContext);
+
+    expect(res.status).toBe(403);
+    expect(db.gasto.update).not.toHaveBeenCalled();
+  });
+
+  it("accepts and persists observado + observacion (RF-06 'Marcar observado')", async () => {
+    authAs(gerencia);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "proy-1", responsable_id: "gerencia-1" } as never);
+    vi.mocked(db.gasto.findFirst).mockResolvedValue(gastoRow() as never);
+    vi.mocked(db.gasto.update).mockResolvedValue(
+      gastoRow({ observado: true, observacion: "Factura ilegible" }) as never,
+    );
+
+    const res = await PATCH(patchRequest({ observado: true, observacion: "Factura ilegible" }), routeContext);
+
+    expect(res.status).toBe(200);
+    expect(db.gasto.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "gasto-1" },
+        data: { observado: true, observacion: "Factura ilegible" },
+      }),
+    );
+    const json = await res.json();
+    expect(json.gasto.estado_legalizacion).toBe("observado");
+  });
+
+  it("accepts and persists tercero and numero_comprobante on PATCH", async () => {
+    authAs(gerencia);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "proy-1", responsable_id: "gerencia-1" } as never);
+    vi.mocked(db.gasto.findFirst).mockResolvedValue(gastoRow() as never);
+    vi.mocked(db.gasto.update).mockResolvedValue(
+      gastoRow({ tercero: "Proveedor SAS", numero_comprobante: "FV-002" }) as never,
+    );
+
+    const res = await PATCH(
+      patchRequest({ tercero: "Proveedor SAS", numero_comprobante: "FV-002" }),
+      routeContext,
+    );
+
+    expect(res.status).toBe(200);
+    expect(db.gasto.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "gasto-1" },
+        data: { tercero: "Proveedor SAS", numero_comprobante: "FV-002" },
+      }),
     );
   });
 });

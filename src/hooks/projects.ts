@@ -109,6 +109,7 @@ export const projectDetailQueryKeys = {
   indicators: (id: string) => ["projects", id, "indicators"] as const,
   attachments: (id: string) => ["projects", id, "attachments"] as const,
   budget: (id: string) => ["projects", id, "budget"] as const,
+  expenses: (id: string) => ["projects", id, "expenses"] as const,
   dashboard: (projectId: string | null) => ["dashboard", "projects", projectId ?? "org-wide"] as const,
 };
 
@@ -132,6 +133,45 @@ export type Budget = {
   ejecutado_total: number;
   color_financiero_total: "verde" | "amarillo" | "rojo";
 };
+
+/** RF-06 (proyecto-legalizacion-tab), design.md D1 — derivado UNA sola vez,
+ * server-side (`estadoLegalizacion()` in `expenses/route.ts`); nunca
+ * recalculado aquí. */
+export type EstadoLegalizacion = "observado" | "con_soporte" | "falta_soporte";
+
+/** Shape of one row in `GET .../expenses`' `gastos` array. NOTE: `monto_cop`
+ * arrives as a STRING, not a number — `EXPENSE_SELECT` returns the raw
+ * Prisma `Decimal` and `Decimal.toJSON()` serializes to a decimal STRING
+ * (verified: `JSON.stringify({ m: new Prisma.Decimal(123.45) })` ->
+ * `{"m":"123.45"}`), same pre-existing characteristic as this route's
+ * original T3 implementation — never "fixed" here, out of this change's
+ * scope. Callers MUST `Number(gasto.monto_cop)` before formatting/summing. */
+export type Gasto = {
+  id: string;
+  proyecto_id: string;
+  linea_id: string;
+  concepto: string;
+  monto_cop: string;
+  fecha_gasto: string;
+  registrado_por_id: string;
+  created_at: string;
+  updated_at: string;
+  tercero: string | null;
+  numero_comprobante: string | null;
+  observado: boolean;
+  observacion: string | null;
+  estado_legalizacion: EstadoLegalizacion;
+  linea: { rubro_id: string; rubro: { nombre: string } };
+};
+
+/** A project's líneas presupuestales, for the "Registrar gasto" dialog's
+ * Rubro selector. Sourced from `expenses/route.ts`'s GET response
+ * (deviation from design.md's File Changes table, documented in apply
+ * evidence: `budget/route.ts` is explicitly out of scope for this change,
+ * and its own `rubros` aggregate doesn't carry `linea_id` anyway). */
+export type LineaOption = { id: string; rubro_id: string; rubro_nombre: string };
+
+export type ExpensesResponse = { gastos: Gasto[]; lineas: LineaOption[] };
 
 /** Shape of `GET /api/v1/dashboard/projects` — no envelope key, the body
  * itself is the payload (see `src/app/api/v1/dashboard/projects/route.ts`).
@@ -244,6 +284,18 @@ export function useBudget(projectId: string | null): UseQueryResult<Budget> {
     queryKey: projectDetailQueryKeys.budget(projectId ?? "none"),
     enabled: projectId !== null,
     queryFn: () => apiGet<Budget>(`/api/v1/projects/${projectId}/budget`),
+  });
+}
+
+/** RF-06: `gastos` + `lineas` share one query/cache entry — both come from
+ * the same GET response and are always consumed together by the
+ * Legalización tab (ledger) and its "Registrar gasto" dialog (Rubro
+ * selector). No envelope key beyond `gastos`/`lineas` themselves. */
+export function useExpenses(projectId: string | null): UseQueryResult<ExpensesResponse> {
+  return useQuery({
+    queryKey: projectDetailQueryKeys.expenses(projectId ?? "none"),
+    enabled: projectId !== null,
+    queryFn: () => apiGet<ExpensesResponse>(`/api/v1/projects/${projectId}/expenses`),
   });
 }
 
@@ -445,6 +497,33 @@ export function useDeleteIndicator(projectId: string): UseMutationResult<ApiVoid
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: projectDetailQueryKeys.indicators(projectId) });
       toast.success("Indicador eliminado.");
+    },
+  });
+}
+
+export type ExpenseInput = {
+  linea_id: string;
+  concepto: string;
+  monto_cop: number;
+  fecha_gasto: string;
+  tercero?: string;
+  numero_comprobante?: string;
+};
+
+export function useCreateExpense(projectId: string): UseMutationResult<{ gasto: Gasto }, Error, ExpenseInput> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: ExpenseInput) => {
+      try {
+        return await apiPost<{ gasto: Gasto }>(`/api/v1/projects/${projectId}/expenses`, input);
+      } catch (err) {
+        return toastError(err, "No pudimos crear el gasto.");
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectDetailQueryKeys.expenses(projectId) });
+      void qc.invalidateQueries({ queryKey: projectDetailQueryKeys.budget(projectId) });
+      toast.success("Gasto guardado.");
     },
   });
 }

@@ -19,7 +19,7 @@ import { requireApiUser } from "@/lib/supabase/server";
 import { parseDate, zodError } from "@/lib/api/crm";
 import { getProjectForWrite, loadProjectScoped } from "@/lib/api/projects";
 import { logAudit } from "@/lib/api/audit";
-import { EXPENSE_SELECT } from "../route";
+import { EXPENSE_SELECT, toExpenseResponse } from "../route";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +30,13 @@ export const EXPENSE_PATCH_SCHEMA = z
     concepto: z.string().trim().min(1, "El concepto no puede estar vacío.").max(300, "El concepto es muy largo."),
     monto_cop: z.number().positive("El monto debe ser mayor a cero."),
     fecha_gasto: z.string().refine((v) => parseDate(v) !== null, "Fecha de gasto no válida."),
+    // RF-06 (proyecto-legalizacion-tab): mismo eje de autorización
+    // (canManageProject vía getProjectForWrite) que el resto del PATCH —
+    // no se añade ningún permiso nuevo.
+    tercero: z.string().trim().max(300, "El tercero es muy largo.").nullable(),
+    numero_comprobante: z.string().trim().max(100, "El número de comprobante es muy largo.").nullable(),
+    observado: z.boolean(),
+    observacion: z.string().trim().max(1000, "La observación es muy larga.").nullable(),
   })
   .partial()
   .refine((d) => Object.keys(d).length > 0, "Envía al menos un campo para actualizar.");
@@ -63,7 +70,7 @@ export const GET = withApiErrorHandling(
       return apiError("El gasto no existe.", 404, "NOT_FOUND");
     }
 
-    return NextResponse.json({ gasto });
+    return NextResponse.json({ gasto: toExpenseResponse(gasto) });
   },
 );
 
@@ -102,6 +109,10 @@ export const PATCH = withApiErrorHandling(
     if (parsed.data.concepto !== undefined) data.concepto = parsed.data.concepto;
     if (parsed.data.monto_cop !== undefined) data.monto_cop = parsed.data.monto_cop;
     if (parsed.data.fecha_gasto !== undefined) data.fecha_gasto = parseDate(parsed.data.fecha_gasto)!;
+    if (parsed.data.tercero !== undefined) data.tercero = parsed.data.tercero;
+    if (parsed.data.numero_comprobante !== undefined) data.numero_comprobante = parsed.data.numero_comprobante;
+    if (parsed.data.observado !== undefined) data.observado = parsed.data.observado;
+    if (parsed.data.observacion !== undefined) data.observacion = parsed.data.observacion;
 
     const updated = await db.gasto.update({ where: { id: expenseId }, data, select: EXPENSE_SELECT });
 
@@ -113,7 +124,7 @@ export const PATCH = withApiErrorHandling(
       cambios: parsed.data,
     });
 
-    return NextResponse.json({ gasto: updated });
+    return NextResponse.json({ gasto: toExpenseResponse(updated) });
   },
 );
 
