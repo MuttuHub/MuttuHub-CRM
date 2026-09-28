@@ -40,6 +40,14 @@ vi.mock("@/hooks/crm", async (importOriginal) => {
   };
 });
 
+const soporteDialogSpy = vi.fn();
+vi.mock("@/components/proyectos/soporte-dialog", () => ({
+  SoporteDialog: (props: { open: boolean }) => {
+    soporteDialogSpy(props);
+    return props.open ? <div data-testid="soporte-dialog-stub" /> : null;
+  },
+}));
+
 function makeSoporte(overrides: Partial<Soporte> = {}): Soporte {
   return {
     id: "sop-1",
@@ -68,6 +76,7 @@ beforeEach(() => {
   expensesQuery.data = undefined;
   expensesQuery.isLoading = false;
   deleteMutateAsync.mockClear();
+  soporteDialogSpy.mockClear();
 });
 
 describe("SoportesTab", () => {
@@ -191,6 +200,33 @@ describe("SoportesTab", () => {
     await user.click(screen.getByRole("button", { name: "Eliminar" }));
 
     expect(deleteMutateAsync).toHaveBeenCalledWith("s1");
+  });
+
+  it("opens the Agregar soporte dialog with the fetched actividades/gastos when the CTA is clicked", async () => {
+    const user = userEvent.setup();
+    activitiesQuery.data = [
+      {
+        id: "act-1",
+        proyecto_id: "proy-1",
+        meta_id: "meta-1",
+        nombre: "Taller comunitario",
+        descripcion: null,
+        peso: 1,
+        fecha_planificada: "2026-01-01",
+        fecha_real: null,
+        porcentaje_avance: 0,
+        created_at: "",
+        updated_at: "",
+      },
+    ];
+    attachmentsQuery.data = [makeSoporte()];
+
+    render(<SoportesTab projectId="proy-1" />);
+    await user.click(screen.getByRole("button", { name: "Agregar soporte" }));
+
+    expect(screen.getByTestId("soporte-dialog-stub")).toBeInTheDocument();
+    const lastCall = soporteDialogSpy.mock.calls[soporteDialogSpy.mock.calls.length - 1][0];
+    expect(lastCall.actividades).toEqual(activitiesQuery.data);
   });
 
   it("does not call delete when the confirmation is cancelled", async () => {

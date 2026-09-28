@@ -36,9 +36,7 @@ import {
   type Gasto,
   type Soporte,
 } from "@/hooks/projects";
-// The "Agregar soporte" modal is wired in Phase 2/3 of this change
-// (`soporte-dialog.tsx` + `project-workspace.tsx`); Phase 1 only renders
-// the CTA (tasks.md 1.1 — "no dialog wiring assertion yet").
+import { SoporteDialog } from "@/components/proyectos/soporte-dialog";
 
 const TIPO_LABEL: Record<Soporte["tipo"], string> = {
   VERIFICACION: "Verificación",
@@ -221,9 +219,7 @@ export function SoportesTab({ projectId }: { projectId: string }) {
   const activitiesQuery = useActivities(projectId);
   const expensesQuery = useExpenses(projectId);
   const deleteMutation = useDeleteAttachment(projectId);
-  // "Agregar soporte" is wired to open `SoporteDialog` in Phase 2/3 of this
-  // change (tasks.md 3.2) — this state is unused until that wiring lands.
-  const [, setDialogOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   if (attachmentsQuery.isLoading) {
     return <p className="text-[12.5px] text-ink-600">Cargando…</p>;
@@ -241,6 +237,13 @@ export function SoportesTab({ projectId }: { projectId: string }) {
         <p className="text-[12.5px] text-ink-600">
           Este proyecto no tiene soportes registrados todavía.
         </p>
+        <SoporteDialog
+          projectId={projectId}
+          actividades={actividades ?? []}
+          gastos={gastos ?? []}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+        />
       </div>
     );
   }
@@ -261,6 +264,14 @@ export function SoportesTab({ projectId }: { projectId: string }) {
           />
         ))}
       </div>
+
+      <SoporteDialog
+        projectId={projectId}
+        actividades={actividades ?? []}
+        gastos={gastos ?? []}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      />
     </div>
   );
 }

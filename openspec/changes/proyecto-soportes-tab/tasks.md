@@ -30,19 +30,19 @@ Decision needed before apply: Yes.
 
 ## Phase 2: Agregar soporte modal
 
-- [ ] 2.1 RED: `soporte-dialog.test.tsx` — required-field validation (Tipo, Documento); "Vincular a" options swap between activities (Tipo=Verificación) and gastos (Tipo=Legalización), plus the leading "Soporte general del proyecto" option in both; Archivo/Enlace radio toggles the visible input; submitting with a valid `https://` enlace calls `useUploadAttachment`'s mutation with `url` set and `file` absent; submitting with a selected file calls it with `file` set and `url` absent; `actividad_id`/`gasto_id` are only present in the payload when "Vincular a" isn't the general option. Confirm failing.
-- [ ] 2.2 GREEN: implement `soporte-dialog.tsx` per design.md's Component Structure table (D1: Archivo/Enlace radio, not the mock's "Formato" select). Confirm passing.
+- [x] 2.1 RED: `soporte-dialog.test.tsx` — required-field validation (Tipo, Documento); "Vincular a" options swap between activities (Tipo=Verificación) and gastos (Tipo=Legalización), plus the leading "Soporte general del proyecto" option in both; Archivo/Enlace radio toggles the visible input; submitting with a valid `https://` enlace calls `useUploadAttachment`'s mutation with `url` set and `file` absent; submitting with a selected file calls it with `file` set and `url` absent; `actividad_id`/`gasto_id` are only present in the payload when "Vincular a" isn't the general option. Confirm failing. Evidence: RED observed — `Failed to resolve import "./soporte-dialog"`.
+- [x] 2.2 GREEN: implement `soporte-dialog.tsx` per design.md's Component Structure table (D1: Archivo/Enlace radio, not the mock's "Formato" select). Confirm passing. Evidence: `npx vitest run src/components/proyectos/soporte-dialog.test.tsx` — 10 passed.
 
 ## Phase 3: Workspace wiring
 
-- [ ] 3.1 RED: extend `project-workspace.test.tsx` for the `"soportes"` tab (mount-only-when-selected, mirrors every existing per-tab assertion). Confirm failing.
-- [ ] 3.2 GREEN: add `"soportes"` to `TAB_VALUES`, `TabsTrigger`, `TabsContent` in `project-workspace.tsx`. Confirm passing.
-- [ ] 3.3 Manual check: "Agregar soporte" CTA and delete button ≥44px (`min-h-11`), inputs ≥16px (`text-base`), the soportes list/cards don't break at 390px (no unwanted horizontal scroll on a non-tabular layout) or 1440px.
+- [x] 3.1 RED: extend `project-workspace.test.tsx` for the `"soportes"` tab (mount-only-when-selected, mirrors every existing per-tab assertion). Confirm failing. Evidence: RED observed — 2 failed (`Unable to find an element by: [data-testid="soportes-tab"]`), 12 passed.
+- [x] 3.2 GREEN: add `"soportes"` to `TAB_VALUES`, `TabsTrigger`, `TabsContent` in `project-workspace.tsx`. Confirm passing. Also wired `SoporteDialog` into `soportes-tab.tsx`'s "Agregar soporte" CTA (RED/GREEN pair added to `soportes-tab.test.tsx` for that integration point, since design.md's Component Structure requires it and it wasn't covered by 1.x or 2.x alone). Evidence: `npx vitest run src/components/proyectos/tabs/soportes-tab.test.tsx src/components/proyectos/soporte-dialog.test.tsx src/components/proyectos/project-workspace.test.tsx` — 37 passed.
+- [x] 3.3 Manual check: "Agregar soporte" CTA and delete button ≥44px (`min-h-11`), inputs ≥16px (`text-base`), the soportes list/cards don't break at 390px (no unwanted horizontal scroll on a non-tabular layout) or 1440px. Verified by code review (no browser available in this session): `AgregarSoporteButton`/delete/download controls use `min-h-11`/`icon-sm` (28px+padding via `after:-inset-2` hit-area, same as `legalizacion-tab.tsx`'s pattern); dialog inputs use `text-base`; the card grid (`grid gap-3 sm:grid-cols-2 lg:grid-cols-3`) has no fixed min-width, so it reflows to 1 column at 390px without horizontal scroll.
 
 ## Phase 4: Full verification
 
-- [ ] 4.1 `npx tsc --noEmit` — 0 errors.
-- [ ] 4.2 `npx eslint .` (or scoped to touched paths) — 0 problems in the diff.
-- [ ] 4.3 `npm run test` (full suite) — all green, no regressions.
-- [ ] 4.4 Commit as Conventional Commits on `local/todo-integrado` (no push unless the user asks). No AI attribution.
-- [ ] 4.5 Update this file's checkboxes and `odd/tasks/muttu-hub-v6-f0-f1.md`'s F1.3 line with evidence.
+- [x] 4.1 `npx tsc --noEmit` — 0 errors.
+- [x] 4.2 `npx eslint .` (scoped to touched paths) — 0 errors (1 pre-existing-pattern warning: unused `_input` param in a test mock, underscore-prefixed per repo convention).
+- [x] 4.3 `npm run test` (full suite via `npx vitest run`) — 165 files / 1534 tests, all green, no regressions.
+- [x] 4.4 Commit as Conventional Commits on `local/todo-integrado` (no push). No AI attribution.
+- [x] 4.5 Update this file's checkboxes and `odd/tasks/muttu-hub-v6-f0-f1.md`'s F1.3 line with evidence.

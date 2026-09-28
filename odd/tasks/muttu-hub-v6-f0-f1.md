@@ -36,7 +36,9 @@ Strict TDD enabled globally (session config). Runner: `npm run test` (`vitest ru
 
 - [ ] **F0.1** — Verify PRs #44/#45/#46 status, merge in order, archive the
       `oportunidades-comerciales` OpenSpec change.
-      **BLOCKED**: `gh auth` broken (network). Deferred — user will resolve separately.
+      2026-09-28: `gh auth` works (active account MuttuHub). #44/#45/#46 all MERGED to main
+      on 2026-09-17 (plus #47: ephemeral Postgres for invariant tests in CI). Remaining:
+      archive the `oportunidades-comerciales` OpenSpec change (pending user OK).
 - [x] **F0.2** — PR-ready the Cronograma/Gantt/Indicadores tabs from `local/todo-integrado`;
       delete confirmed dead code: **all of `project-sheet.tsx` + its test** (not just
       `CronogramaTab` — verified zero live importers beyond its own test).
@@ -55,7 +57,14 @@ Strict TDD enabled globally (session config). Runner: `npm run test` (`vitest ru
 - [x] **F1.2** — Pestaña Legalización + modal Registrar gasto (RF-06). Additive migration
       on `Gasto`: `tercero`, `numero_comprobante`, `observado`, `observacion`
       (`estado_legalizacion` is derived in the API, not stored). Migration applied to NO DB yet.
-- [ ] **F1.3** — Pestaña Soportes (RF-04).
+- [x] **F1.3** — Pestaña Soportes (RF-04). UI-only, no schema/API changes: adds
+      `tabs/soportes-tab.tsx` (list, type chip, vinculado a/autor/fecha/formato,
+      download, delete) and `soporte-dialog.tsx` ("Agregar soporte", Archivo/Enlace
+      XOR radio per design D1) to `project-workspace.tsx`'s 7th tab. Fixed a stale
+      client type: `Soporte` in `src/hooks/projects.ts` was missing `subido_por_id`
+      even though `SUPPORT_SELECT` already returns it. Commits: `68e7275` (list +
+      delete), and the modal + workspace wiring slice on `local/todo-integrado`.
+      openspec change: `proyecto-soportes-tab`.
 - [ ] **F1.4** — Pestaña Metas (RF-02, KPI 3).
 - [ ] **F1.5** — Umbrales del semáforo editables en Administración.
 - [ ] **F1.6** — Tablero gerencial unificado (`/tablero-gerencial` + `/`) con visualizaciones v6.
