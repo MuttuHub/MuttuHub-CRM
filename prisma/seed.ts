@@ -29,10 +29,15 @@
 //   - SEED_DEMO_PASSWORD        optional — password for the 4 demo logins
 //                                (defaults to a clearly-labeled placeholder)
 //
-// Usage: `npm run db:seed` (wraps `prisma db seed`, wired to
-// `tsx prisma/seed.ts` via the "prisma.seed" key in package.json).
+// Usage: `npm run db:seed` (wraps `prisma db seed` with --env-file=.env.local,
+// wired to `tsx prisma/seed.ts` via prisma.config.ts).
+//
+// Anti-production guard: `./load-local-env` MUST stay the first import. It
+// loads `.env.local` (never the root `.env`, which is the shared REMOTE
+// project) and aborts before any write unless the database and Supabase URLs
+// target localhost.
 
-import "dotenv/config";
+import "./load-local-env";
 import { db } from "../src/lib/db";
 import { DOC_CATEGORIES, RESTRICTED_DOC_CATEGORIES, TASK_TAGS } from "../src/lib/catalogs";
 import { ensureDefaultSettings } from "../src/lib/settings";
