@@ -77,7 +77,13 @@ Strict TDD enabled globally (session config). Runner: `npm run test` (`vitest ru
       `metas-tab.tsx`): commit `46a84d3`. Slice C (Editar avance wiring + workspace mount):
       commit `66d7fec`. All three on `local/todo-integrado`, no push. Full suite green
       (166 files / 1573 tests) after Slice C.
-- [ ] **F1.5** — Umbrales del semáforo editables en Administración.
+- [x] **F1.5** — Umbrales del semáforo editables en Administración. `UmbralesSection`
+      gained the `indicador` band (verde/amarillo, %) editing inputs, mirroring the
+      server-side coherence check (`indicador.amarillo ≤ indicador.verde`, same message
+      as `route.ts:189-195`); round-trips through the existing GET/PUT
+      `/api/v1/settings` unchanged — no server-side files touched. Strict TDD: RED (4/8
+      tests failing) → GREEN (8/8 passing). Full suite green (166 files / 1574 tests).
+      Commit `90db05b` on `local/todo-integrado`, no push.
 - [ ] **F1.6** — Tablero gerencial unificado (`/tablero-gerencial` + `/`) con visualizaciones v6.
 
 ## Known risks (from code exploration, 2026-09-25)
