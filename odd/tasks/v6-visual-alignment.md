@@ -50,7 +50,7 @@ the prototypes to match the app, was rejected.
 | D9 | Profile + Salir: sidebar only vs sidebar + header | V1.2 |
 
 ## Tasks
-- [ ] **V0.1** `.dark` tokens + new tokens, primary per D1, fixed-light toast (M, needs D1)
+- [x] **V0.1** `.dark` tokens + new tokens, primary per D1, fixed-light toast (M, needs D1)
 - [ ] **V0.2** Type utilities: `PageHeader`, eyebrow, section title, KPI numeral, mono data (S)
 - [ ] **V0.3** `StatusChip` + central estado→tone map, `KpiTile`, semáforo `ProgressBar` (M)
 - [ ] **V0.4** Control sizing: `ui/button`, `ui/input`, `ui/select` at 44/40/36 (M)
@@ -85,6 +85,34 @@ asked once before the first commit that exceeds budget. Branch: `feat/v6-visual-
 
 ## Progress / Evidence
 - 2026-09-28: exploration done (visual gap map). Feature document created. No code changes yet.
+- 2026-09-28 V0.1: `.dark` token values changed + new tokens added (`globals.css`),
+  `.dark --primary` per D1 (#CD1560 + white foreground), sonner toast fixed-light
+  (5s, "Cerrar" close button). Files: `src/app/globals.css`,
+  `src/components/shell/theme-toaster.tsx`,
+  `src/app/globals.tokens.test.ts` (new), `src/components/shell/theme-toaster.test.tsx` (new).
+  TDD: RED 23 failed/15 passed (tokens) + 3 failed (toaster) -> GREEN 38/38 + 3/3.
+  `npx tsc --noEmit` clean; `npx eslint` clean on touched files.
+  Regression check: `src/components/shell/**` (7 files/63 tests) green.
+  WCAG contrast (script run via node, ad hoc, not committed) — all 13 new/changed
+  dark pairs pass AA 4.5:1: body-fg/bg 17.59:1, card-fg/card 16.57:1,
+  ink-700/page 9.60:1, ink-700/panel 9.06:1, ink-500/page 6.03:1, ink-500/panel
+  5.69:1, primary-fg(white)/primary 5.42:1, fg/input-bg 17.59:1, exito-text/
+  exito-bg(~15% mix) 6.44:1, alerta-text/alerta-bg 6.55:1, destructivo-text/
+  destructivo-bg 5.10:1, info-text/info-bg 5.72:1, toast-fg/toast-bg 16.32:1.
+  Light theme: no `:root` value was modified (only new properties added) — the
+  frozen-value tests in `globals.tokens.test.ts` assert 15 pre-existing `:root`
+  values are byte-identical.
+  Visual check (light+dark, 1440/390 — Inicio, Clientes, Proyecto): PENDING
+  (to be done in-browser separately, not run in this session).
+  Deviation from gap map: `--sidebar-accent`/`--sidebar-border`/
+  `--sidebar-foreground` were left unchanged in `.dark` (only `--sidebar`
+  itself was updated to #0D0809) — the active-nav-item rail restyle is V1.1's
+  job (out of V0.1–V0.6 scope), so those tokens weren't touched to avoid
+  pre-empting that task's design. `--popover`/`--popover-foreground` were
+  additionally aligned to the new `--card` surface color (not explicitly
+  listed in the gap map's token table) to avoid an inconsistent popup surface
+  once `--card` changed; this is a low-risk companion change, not a new
+  design decision.
 
 ## Next step
 V0.1–V0.6 on branch `feat/v6-visual-alignment` (from `local/todo-integrado`).
