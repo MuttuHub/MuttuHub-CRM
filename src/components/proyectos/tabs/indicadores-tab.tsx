@@ -216,7 +216,11 @@ function toForm(indicador: Indicador): IndicadorFormState {
   };
 }
 
-function IndicadorFormDialog({
+// proyecto-metas-tab (Slice C): exported so `metas-tab.tsx` can reuse it in
+// edit mode for "Editar avance" — no behavior change, its own props contract
+// (`projectId`, `open`, `onOpenChange`, `indicador`, `metas`) already didn't
+// assume this file as the only caller.
+export function IndicadorFormDialog({
   projectId,
   open,
   onOpenChange,

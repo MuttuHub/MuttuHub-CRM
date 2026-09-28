@@ -96,6 +96,14 @@ vi.mock("@/components/proyectos/tabs/soportes-tab", () => ({
   },
 }));
 
+const metasTabSpy = vi.fn();
+vi.mock("@/components/proyectos/tabs/metas-tab", () => ({
+  MetasTab: (props: { projectId: string }) => {
+    metasTabSpy(props);
+    return <div data-testid="metas-tab" />;
+  },
+}));
+
 function makeProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
   return {
     id: "proy-1",
@@ -133,6 +141,7 @@ beforeEach(() => {
   financieroTabSpy.mockClear();
   legalizacionTabSpy.mockClear();
   soportesTabSpy.mockClear();
+  metasTabSpy.mockClear();
 });
 
 describe("ProjectWorkspace", () => {
@@ -159,17 +168,48 @@ describe("ProjectWorkspace", () => {
     expect(screen.queryByRole("link", { name: /oportunidad de origen/i })).not.toBeInTheDocument();
   });
 
-  it("renders Cronograma/Gantt/Indicadores/Financiero/Legalización/Soportes as enabled (non-disabled) tabs", () => {
+  it("renders Metas/Cronograma/Gantt/Indicadores/Financiero/Legalización/Soportes as enabled (non-disabled) tabs", () => {
     detailQuery.data = makeProject();
 
     render(<ProjectWorkspace projectId="proy-1" />);
 
+    expect(screen.getByRole("tab", { name: "Metas" })).not.toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("tab", { name: "Cronograma" })).not.toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("tab", { name: "Gantt" })).not.toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("tab", { name: "Indicadores" })).not.toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("tab", { name: "Financiero" })).not.toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("tab", { name: "Legalización" })).not.toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("tab", { name: "Soportes" })).not.toHaveAttribute("aria-disabled", "true");
+  });
+
+  // D6 (design.md, corrected): Metas is the 2nd tab, right after Resumen —
+  // matching v6's visual order, not appended at the end.
+  it("places the Metas tab right after Resumen (D6)", () => {
+    detailQuery.data = makeProject();
+
+    render(<ProjectWorkspace projectId="proy-1" />);
+
+    const tabs = screen.getAllByRole("tab").map((tab) => tab.textContent);
+    expect(tabs.slice(0, 2)).toEqual(["Resumen", "Metas"]);
+  });
+
+  it("mounts only the Metas tab's content when ?tab=metas", () => {
+    detailQuery.data = makeProject();
+    searchParamsMock.get.mockImplementation((key: string) => (key === "tab" ? "metas" : null));
+
+    render(<ProjectWorkspace projectId="proy-1" />);
+
+    expect(screen.getByTestId("metas-tab")).toBeInTheDocument();
+    expect(metasTabSpy).toHaveBeenCalledWith({ projectId: "proy-1" });
+    expect(screen.queryByTestId("resumen-tab")).not.toBeInTheDocument();
+  });
+
+  it("does not mount the Metas tab's content when another tab is active", () => {
+    detailQuery.data = makeProject();
+
+    render(<ProjectWorkspace projectId="proy-1" />);
+
+    expect(screen.queryByTestId("metas-tab")).not.toBeInTheDocument();
   });
 
   it("mounts only the Cronograma tab's content (not Resumen) when ?tab=cronograma", () => {
@@ -183,6 +223,7 @@ describe("ProjectWorkspace", () => {
     expect(screen.queryByTestId("resumen-tab")).not.toBeInTheDocument();
     expect(screen.queryByTestId("gantt-tab")).not.toBeInTheDocument();
     expect(screen.queryByTestId("indicadores-tab")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("metas-tab")).not.toBeInTheDocument();
   });
 
   it("mounts only the Gantt tab's content when ?tab=gantt", () => {

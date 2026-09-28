@@ -5,15 +5,18 @@
 // D4 — never recomputed here). "Editar avance" wiring is Slice C, not
 // asserted in this file yet.
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Actividad, Indicador, Meta } from "@/hooks/projects";
 import { MetasTab } from "./metas-tab";
 
-const { goalsQuery, activitiesQuery, indicatorsQuery } = vi.hoisted(() => ({
+const { goalsQuery, activitiesQuery, indicatorsQuery, createMutation, updateMutation } = vi.hoisted(() => ({
   goalsQuery: { data: [] as Meta[], isLoading: false },
   activitiesQuery: { data: [] as Actividad[], isLoading: false },
   indicatorsQuery: { data: [] as Indicador[], isLoading: false },
+  createMutation: { isPending: false, mutateAsync: vi.fn().mockResolvedValue({}) },
+  updateMutation: { isPending: false, mutateAsync: vi.fn().mockResolvedValue({}) },
 }));
 
 vi.mock("@/hooks/projects", async (importOriginal) => {
@@ -23,6 +26,11 @@ vi.mock("@/hooks/projects", async (importOriginal) => {
     useGoals: () => goalsQuery,
     useActivities: () => activitiesQuery,
     useIndicators: () => indicatorsQuery,
+    // IndicadorFormDialog (reused for "Editar avance", Slice C) calls both
+    // hooks internally regardless of edit/create mode — mock both so it
+    // never falls through to the real TanStack Query hooks here.
+    useCreateIndicator: () => createMutation,
+    useUpdateIndicator: () => updateMutation,
   };
 });
 
@@ -79,6 +87,8 @@ beforeEach(() => {
   activitiesQuery.isLoading = false;
   indicatorsQuery.data = [];
   indicatorsQuery.isLoading = false;
+  createMutation.mutateAsync.mockClear();
+  updateMutation.mutateAsync.mockClear();
 });
 
 describe("MetasTab", () => {
@@ -207,6 +217,29 @@ describe("MetasTab", () => {
       // "verde" here proves the component trusts the server field, not a
       // local recomputation.
       expect(screen.getByTestId("indicador-progreso")).toHaveAttribute("data-color", "verde");
+    });
+  });
+
+  describe('"Editar avance" (reuses IndicadorFormDialog, Slice C)', () => {
+    it("opens IndicadorFormDialog pre-filled and submits the new valor_actual", async () => {
+      goalsQuery.data = [makeMeta()];
+      indicatorsQuery.data = [
+        makeIndicador({ nombre: "Familias capacitadas", meta_valor: 100, valor_actual: 40 }),
+      ];
+      const user = userEvent.setup();
+      render(<MetasTab projectId="proy-1" />);
+
+      await user.click(screen.getByRole("button", { name: /editar avance de familias capacitadas/i }));
+
+      const valorActualInput = screen.getByLabelText(/valor actual/i) as HTMLInputElement;
+      expect(valorActualInput.value).toBe("40");
+
+      await user.clear(valorActualInput);
+      await user.type(valorActualInput, "55");
+      await user.click(screen.getByRole("button", { name: /guardar cambios/i }));
+
+      await waitFor(() => expect(updateMutation.mutateAsync).toHaveBeenCalled());
+      expect(updateMutation.mutateAsync.mock.calls[0][0].valor_actual).toBe(55);
     });
   });
 });

@@ -27,6 +27,7 @@ import { ApiError } from "@/lib/api/http";
 import { useProjectDetail } from "@/hooks/projects";
 import { ESTADO_PROYECTO_LABELS } from "@/components/proyectos/project-list";
 import { ResumenTab } from "@/components/proyectos/tabs/resumen-tab";
+import { MetasTab } from "@/components/proyectos/tabs/metas-tab";
 import { CronogramaTab } from "@/components/proyectos/tabs/cronograma-tab";
 import { GanttTab } from "@/components/proyectos/tabs/gantt-tab";
 import { IndicadoresTab } from "@/components/proyectos/tabs/indicadores-tab";
@@ -34,8 +35,11 @@ import { FinancieroTab } from "@/components/proyectos/tabs/financiero-tab";
 import { LegalizacionTab } from "@/components/proyectos/tabs/legalizacion-tab";
 import { SoportesTab } from "@/components/proyectos/tabs/soportes-tab";
 
+// F1.4 (D6, corrected): "metas" is the 2nd tab, right after "resumen" —
+// matching v6's visual order — not appended at the end like F1.1-F1.3 were.
 const TAB_VALUES = [
   "resumen",
+  "metas",
   "cronograma",
   "gantt",
   "indicadores",
@@ -116,6 +120,7 @@ export function ProjectWorkspace({ projectId }: { projectId: string }) {
       >
         <TabsList variant="line">
           <TabsTrigger value="resumen">Resumen</TabsTrigger>
+          <TabsTrigger value="metas">Metas</TabsTrigger>
           <TabsTrigger value="cronograma">Cronograma</TabsTrigger>
           <TabsTrigger value="gantt">Gantt</TabsTrigger>
           <TabsTrigger value="indicadores">Indicadores</TabsTrigger>
@@ -126,6 +131,9 @@ export function ProjectWorkspace({ projectId }: { projectId: string }) {
 
         <TabsContent value="resumen" className="mt-4">
           <ResumenTab projectId={proyecto.id} />
+        </TabsContent>
+        <TabsContent value="metas" className="mt-4">
+          <MetasTab projectId={proyecto.id} />
         </TabsContent>
         <TabsContent value="cronograma" className="mt-4">
           <CronogramaTab projectId={proyecto.id} />
