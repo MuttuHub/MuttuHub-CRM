@@ -21,6 +21,7 @@ const { mutateMock, settingsQuery } = vi.hoisted(() => ({
         confirmado: true,
         tecnico: { verde: 0.85, rojo: 0.6 },
         financiero: { verde_min: 0.85, verde_max: 1.15, amarillo_min: 0.6, amarillo_max: 1.4 },
+        indicador: { verde: 0.9, amarillo: 0.6 },
       },
     },
   },
@@ -53,6 +54,8 @@ describe("UmbralesSection", () => {
     expect(screen.getByLabelText("Verde máximo (%)")).toHaveValue(115)
     expect(screen.getByLabelText("Amarillo mínimo (%)")).toHaveValue(60)
     expect(screen.getByLabelText("Amarillo máximo (%)")).toHaveValue(140)
+    expect(screen.getByLabelText("Indicador verde igual o mayor a (%)")).toHaveValue(90)
+    expect(screen.getByLabelText("Indicador amarillo igual o mayor a (%)")).toHaveValue(60)
     expect(screen.getByRole("checkbox", { name: "Umbrales confirmados por el negocio" })).toBeChecked()
   })
 
@@ -105,6 +108,20 @@ describe("UmbralesSection", () => {
     expect(guardarButton()).toBeDisabled()
   })
 
+  it("shows an inline error when indicador.amarillo exceeds indicador.verde", async () => {
+    const user = userEvent.setup()
+    render(<UmbralesSection />)
+
+    const amarilloInput = screen.getByLabelText("Indicador amarillo igual o mayor a (%)")
+    await user.clear(amarilloInput)
+    await user.type(amarilloInput, "95")
+
+    expect(
+      screen.getByText("El umbral de indicador 'amarillo' no puede ser mayor que 'verde'."),
+    ).toBeInTheDocument()
+    expect(guardarButton()).toBeDisabled()
+  })
+
   it("marks the section dirty when toggling 'confirmado'", async () => {
     const user = userEvent.setup()
     render(<UmbralesSection />)
@@ -132,6 +149,7 @@ describe("UmbralesSection", () => {
           confirmado: true,
           tecnico: { verde: 0.9, rojo: 0.6 },
           financiero: { verde_min: 0.85, verde_max: 1.15, amarillo_min: 0.6, amarillo_max: 1.4 },
+          indicador: { verde: 0.9, amarillo: 0.6 },
         },
       }),
       expect.anything(),

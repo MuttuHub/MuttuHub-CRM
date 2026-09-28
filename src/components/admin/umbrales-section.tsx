@@ -30,6 +30,10 @@ type Draft = {
   financiero_verde_max: string;
   financiero_amarillo_min: string;
   financiero_amarillo_max: string;
+  // admin-umbrales-editables (F1.5): banda de indicadores (KPI 3, D4),
+  // diferida en proyecto-metas-tab — ver route.ts:40-46.
+  indicador_verde: string;
+  indicador_amarillo: string;
 };
 
 function toPercentString(ratio: number): string {
@@ -45,6 +49,10 @@ function umbralesToDraft(u: SemaforoUmbralesInput): Draft {
     financiero_verde_max: toPercentString(u.financiero.verde_max),
     financiero_amarillo_min: toPercentString(u.financiero.amarillo_min),
     financiero_amarillo_max: toPercentString(u.financiero.amarillo_max),
+    // `indicador` is optional on the wire type (route.ts D4) but
+    // GET /api/v1/settings -> getUmbralesSemaforo() always fills it in.
+    indicador_verde: toPercentString(u.indicador!.verde),
+    indicador_amarillo: toPercentString(u.indicador!.amarillo),
   };
 }
 
@@ -52,16 +60,18 @@ function umbralesToDraft(u: SemaforoUmbralesInput): Draft {
  * la UI lo trata como "no se puede guardar todavía", no como un error de
  * coherencia específico. */
 function draftToUmbrales(d: Draft): SemaforoUmbralesInput | null {
-  const [verde, rojo, verde_min, verde_max, amarillo_min, amarillo_max] = [
+  const [verde, rojo, verde_min, verde_max, amarillo_min, amarillo_max, indicador_verde, indicador_amarillo] = [
     d.tecnico_verde,
     d.tecnico_rojo,
     d.financiero_verde_min,
     d.financiero_verde_max,
     d.financiero_amarillo_min,
     d.financiero_amarillo_max,
+    d.indicador_verde,
+    d.indicador_amarillo,
   ].map(Number);
   if (
-    [verde, rojo, verde_min, verde_max, amarillo_min, amarillo_max].some(
+    [verde, rojo, verde_min, verde_max, amarillo_min, amarillo_max, indicador_verde, indicador_amarillo].some(
       (n) => !Number.isFinite(n),
     )
   ) {
@@ -76,6 +86,7 @@ function draftToUmbrales(d: Draft): SemaforoUmbralesInput | null {
       amarillo_min: amarillo_min / 100,
       amarillo_max: amarillo_max / 100,
     },
+    indicador: { verde: indicador_verde / 100, amarillo: indicador_amarillo / 100 },
   };
 }
 
@@ -92,6 +103,13 @@ function validationErrors(parsed: SemaforoUmbralesInput | null): string[] {
   }
   if (parsed.financiero.amarillo_min > parsed.financiero.amarillo_max) {
     errors.push("El umbral financiero 'amarillo_min' no puede ser mayor que 'amarillo_max'.");
+  }
+  // draftToUmbrales always sets `indicador` when parsed is non-null (same
+  // guarantee as the other bands); the wire type only marks it optional for
+  // the PUT-omits-it-to-preserve-stored case (route.ts D4), never for this
+  // component's own output.
+  if (parsed.indicador!.amarillo > parsed.indicador!.verde) {
+    errors.push("El umbral de indicador 'amarillo' no puede ser mayor que 'verde'.");
   }
   return errors;
 }
@@ -292,6 +310,40 @@ export function UmbralesSection() {
                 inputMode="numeric"
                 value={draft!.financiero_amarillo_max}
                 onChange={(e) => set("financiero_amarillo_max", e.target.value)}
+                className="h-9 rounded-12 bg-panel px-3 font-mono text-[13px]"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-[18px] border border-ink-200 bg-ink-100/50 p-4">
+          <h3 className="mb-3 text-[13.5px] font-bold text-ink-950">
+            Indicadores (valor actual / meta)
+          </h3>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="umbrales-indicador-verde">
+                Indicador verde igual o mayor a (%)
+              </Label>
+              <Input
+                id="umbrales-indicador-verde"
+                type="number"
+                inputMode="numeric"
+                value={draft!.indicador_verde}
+                onChange={(e) => set("indicador_verde", e.target.value)}
+                className="h-9 rounded-12 bg-panel px-3 font-mono text-[13px]"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="umbrales-indicador-amarillo">
+                Indicador amarillo igual o mayor a (%)
+              </Label>
+              <Input
+                id="umbrales-indicador-amarillo"
+                type="number"
+                inputMode="numeric"
+                value={draft!.indicador_amarillo}
+                onChange={(e) => set("indicador_amarillo", e.target.value)}
                 className="h-9 rounded-12 bg-panel px-3 font-mono text-[13px]"
               />
             </div>
