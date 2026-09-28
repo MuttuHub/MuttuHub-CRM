@@ -54,17 +54,17 @@
 
 ## Slice C: `cara-management.tsx` — visualizations
 
-- [ ] C.1 RED: `cara-management.test.tsx` — radar receives 5 axes (técnico, financiero, indicadores, cronograma, entregables) with correct values. Confirm failing.
-- [ ] C.2 GREEN: build the 5-axis `RadarAxis[]` from the existing scalars; pass to `Radar`. Confirm passing.
-- [ ] C.3 RED: one `BarRow` (or equivalent) rendered per `por_proyecto` entry for cronograma; a grouped-bar visual per `por_proyecto` entry for entregables (planificado vs. entregado). Confirm failing.
-- [ ] C.4 GREEN: implement the per-project lists, reusing `BarRow`/`CardSection` primitives; add the small grouped-bar sub-component for entregables (CSS/SVG bars, no new chart library). Confirm passing.
-- [ ] C.5 RED: "Semaforización territorial" section renders one row per `por_territorio` entry with two colored dots (técnico/financiero) and `proyectos_count`. Confirm failing.
-- [ ] C.6 GREEN: implement the section. Confirm passing.
-- [ ] C.7 RED: Línea/Territorio `ChipSelector`s exist and, on selection, the query passed to `useDashboardManagement` includes the new params. Confirm failing.
-- [ ] C.8 GREEN: wire the chips (state lifted in `dashboard-page.tsx` or locally in `cara-management.tsx` — decide per existing filter-lifting pattern already used for rango/responsable/tipoCliente). Confirm passing.
-- [ ] C.9 RED: doble-conteo warning renders only when `indicadores_beneficiarios_count > 1`. Confirm failing.
-- [ ] C.10 GREEN: add the conditional banner next to the beneficiarios KPI. Confirm passing.
-- [ ] C.11 Manual check: filter chips ≥44px hit-area, new bar rows don't force horizontal scroll at 390px, territorial list wraps correctly, 1440px layout stays within existing grid. Verified by code review (no browser in this session) unless `run`/browser tooling is invoked separately.
+- [x] C.1 RED: `cara-management.test.tsx` — radar receives 5 axes (técnico, financiero, indicadores, cronograma, entregables) with correct values. Confirm failing.
+- [x] C.2 GREEN: build the 5-axis `RadarAxis[]` from the existing scalars; pass to `Radar`. Confirm passing. — extracted as a pure, separately-tested `buildRadarAxes()` (Entregables axis derived client-side from entregados/programados; Beneficiarios excluded per D1).
+- [x] C.3 RED: one `BarRow` (or equivalent) rendered per `por_proyecto` entry for cronograma; a grouped-bar visual per `por_proyecto` entry for entregables (planificado vs. entregado). Confirm failing.
+- [x] C.4 GREEN: implement the per-project lists, reusing `BarRow`/`CardSection` primitives; add the small grouped-bar sub-component for entregables (CSS/SVG bars, no new chart library). Confirm passing. — new `EntregablesProyectoRow` (two CSS bars sharing a scale), tone from `toneFinanciero`.
+- [x] C.5 RED: "Semaforización territorial" section renders one row per `por_territorio` entry with two colored dots (técnico/financiero) and `proyectos_count`. Confirm failing.
+- [x] C.6 GREEN: implement the section. Confirm passing.
+- [x] C.7 RED: Línea/Territorio filters exist and, on selection, the query passed to `useDashboardManagement` includes the new params. Confirm failing.
+- [x] C.8 GREEN: wire the filters — Línea as a `ChipSelector` (catalog-backed, `ENUM_VALUES.LineaEstrategica`), Territorio as a free-text input (no catalog exists for `Proyecto.territorio`, a free string — design.md's own "Assumptions Taken"); state kept LOCAL to `cara-management.tsx`, never lifted into the shared `DashboardFilters`/`dashboard-page.tsx` state (per design.md D2). Confirm passing.
+- [x] C.9 RED: doble-conteo warning renders only when `indicadores_beneficiarios_count > 1`. Confirm failing.
+- [x] C.10 GREEN: add the conditional banner next to the beneficiarios KPI. Confirm passing.
+- [x] C.11 Manual check: filter row wraps (`flex flex-wrap`), `ChipSelector` already scrolls horizontally instead of overflowing (bug 0b pattern reused), bar rows use `truncate`/`min-w-0` consistent with the rest of the shell, territorial rows wrap in a `flex` row with `divide-y`. Verified by code review (no browser in this session).
 
 ## Slice D: Print mirror + legacy cleanup
 
