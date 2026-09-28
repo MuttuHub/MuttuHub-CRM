@@ -4,9 +4,10 @@
 // gestion-proyectos-workspace, Phase 4 (design.md T6): split into a
 // presentational `KpiCardsView` (props only) and a `KpiCards` container that
 // reads `useProjectDashboard`. `KpiCards` keeps its exact name and a
-// zero-arg-compatible signature so `tablero-gerencial-client.tsx` (which
-// calls `<KpiCards />`) stays diff-free; the Resumen tab reuses the same
-// container with `projectId` set.
+// zero-arg-compatible signature (F1.6: the standalone
+// `/tablero-gerencial-client.tsx` that motivated it was removed, kept as-is,
+// out of scope for that change); the Resumen tab reuses the same container
+// with `projectId` set.
 
 'use client';
 
@@ -57,8 +58,9 @@ function KpiCard({
 }
 
 /** Container: `projectId` omitted (or `undefined`) keeps the org-wide
- * aggregate `tablero-gerencial-client.tsx` already relies on; a project id
- * scopes it to that project's Resumen tab (design.md T6). */
+ * aggregate behavior available (F1.6: no longer relied on by a standalone
+ * route, kept for signature compatibility); a project id scopes it to that
+ * project's Resumen tab (design.md T6). */
 export function KpiCards({ projectId }: { projectId?: string | null } = {}) {
   const query = useProjectDashboard(projectId ?? null);
 

@@ -25,6 +25,7 @@ import type { ProjectDashboard } from "@/hooks/projects";
 import { Tacometro } from "@/components/dashboard/tacometro";
 import { Radar } from "@/components/dashboard/radar";
 import { CurveSChart } from "@/components/dashboard/curve-s-chart";
+import { buildRadarAxes } from "@/components/dashboard/cara-management";
 import type {
   DashboardClientsActivity,
   DashboardMySummary,
@@ -485,6 +486,8 @@ function MySummaryBody({ data }: { data: DashboardMySummary }) {
 }
 
 function ManagementBody({ data }: { data: ProjectDashboard }) {
+  const porProyecto = data.por_proyecto ?? [];
+  const porTerritorio = data.por_territorio ?? [];
   return (
     <div>
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -507,13 +510,61 @@ function ManagementBody({ data }: { data: ProjectDashboard }) {
           value={`${data.beneficiarios_atendidos} / ${data.beneficiarios_meta}`}
         />
       </div>
+      {/* F1.6 (tablero-gerencial-unificado): mismo umbral de negocio que la
+       * Auditoría v6 (KPI 6) — advertencia de doble conteo también en el PDF. */}
+      {data.indicadores_beneficiarios_count > 1 && (
+        <p className="mt-3 rounded-11 border border-alerta/30 bg-alerta-bg px-3 py-2 text-[12px] font-medium text-alerta">
+          Riesgo de doble conteo: más de un indicador cuenta beneficiarios.
+        </p>
+      )}
 
-      {/* Primitivas SVG propias (D7): deterministas, sin medición del DOM. */}
+      {/* Primitivas SVG propias (D7): deterministas, sin medición del DOM.
+       * F1.6: el radar pasa a 5 ejes (misma función pura que la pantalla). */}
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Tacometro value={data.avance_tecnico} color={data.color_tecnico as "verde" | "amarillo" | "rojo"} />
         <CurveSChart data={data.curva_s} />
-        <Radar axes={[{ label: "Indicadores", value: data.cumplimiento_indicadores }]} />
+        <Radar axes={buildRadarAxes(data)} />
       </div>
+
+      {/* F1.6: desglose por proyecto (cronograma + entregables), no un único
+       * agregado. */}
+      {porProyecto.length > 0 && (
+        <TableShell headers={["Proyecto", "Cumplimiento de cronograma", "Entregados / programados"]}>
+          {porProyecto.map((p, i) => (
+            <Row
+              key={p.proyecto_id}
+              first={i === 0}
+              cells={[
+                <span key="n" className="font-bold text-ink-950">
+                  {p.nombre}
+                </span>,
+                `${Math.round(p.cumplimiento_cronograma)}%`,
+                `${p.productos_entregados} / ${p.productos_programados}`,
+              ]}
+            />
+          ))}
+        </TableShell>
+      )}
+
+      {/* F1.6: semaforización territorial. */}
+      {porTerritorio.length > 0 && (
+        <TableShell headers={["Territorio", "Proyectos", "Semáforo técnico", "Semáforo financiero"]}>
+          {porTerritorio.map((t, i) => (
+            <Row
+              key={t.territorio}
+              first={i === 0}
+              cells={[
+                <span key="t" className="font-bold text-ink-950">
+                  {t.territorio}
+                </span>,
+                String(t.proyectos_count),
+                t.color_tecnico,
+                t.color_financiero,
+              ]}
+            />
+          ))}
+        </TableShell>
+      )}
     </div>
   );
 }

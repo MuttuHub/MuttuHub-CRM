@@ -1,9 +1,11 @@
 // gestion-proyectos-workspace, Phase 4 (design.md T6): split of the
 // previously self-fetching `KpiCards` into a presentational `KpiCardsView`
 // (props only) + a container that reads `useProjectDashboard`. The
-// no-projectId container behavior is the regression guard for
-// `/tablero-gerencial-client.tsx`, which still calls `<KpiCards />` with no
-// props and must keep receiving the org-wide aggregate.
+// no-projectId container behavior is a regression guard for the zero-arg
+// call convention (F1.6: the standalone `/tablero-gerencial` route and its
+// client component were removed; `KpiCards` itself isn't used by the
+// unified 5.ª cara, but nothing calling it with no `projectId` should stop
+// receiving the org-wide aggregate).
 
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";

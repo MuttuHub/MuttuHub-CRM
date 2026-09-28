@@ -4,9 +4,11 @@
 // gestion-proyectos-workspace, Phase 4 (design.md T6): `CurveSChart` is now
 // exported (props only) and `CurveSChartContainer` reads
 // `useProjectDashboard` instead of self-fetching. `CurveSChartContainer`
-// keeps its exact default-export name and a zero-arg-compatible signature so
-// `tablero-gerencial-client.tsx` (which calls `<CurveSChartContainer />`)
-// stays diff-free; the Resumen tab reuses it with `projectId` set.
+// keeps its exact default-export name and a zero-arg-compatible signature
+// (F1.6: the standalone `/tablero-gerencial-client.tsx` that motivated it
+// was removed, but nothing calls this with `projectId` and expects the
+// per-project behavior to break — kept as-is, out of scope for that change);
+// the Resumen tab reuses it with `projectId` set.
 
 'use client';
 
@@ -105,7 +107,7 @@ export function CurveSChart({ data }: CurveSChartProps) {
 }
 
 /** Container: `projectId` omitted (or `undefined`) keeps the org-wide
- * aggregate `tablero-gerencial-client.tsx` already relies on; a project id
+ * aggregate (used by `CaraGerencial`, the 5.ª cara — F1.6); a project id
  * scopes it to that project's Resumen tab (design.md T6). */
 export default function CurveSChartContainer({ projectId }: { projectId?: string | null } = {}) {
   const query = useProjectDashboard(projectId ?? null);

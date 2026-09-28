@@ -2,8 +2,10 @@
 // previously self-fetching `CurveSChartContainer` into an exported
 // presentational `CurveSChart` (props only, already existed unexported) + a
 // container reading `useProjectDashboard`. The no-projectId container path
-// is the regression guard for `/tablero-gerencial-client.tsx`, which still
-// calls `<CurveSChartContainer />` with no props.
+// is a regression guard for the zero-arg call convention (F1.6: the
+// standalone `/tablero-gerencial` route and its client component were
+// removed, but the org-wide, no-projectId call is still exercised —
+// `CaraGerencial`, the 5.ª cara, uses the aggregated hook directly instead).
 
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";

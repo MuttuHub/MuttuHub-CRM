@@ -68,15 +68,15 @@
 
 ## Slice D: Print mirror + legacy cleanup
 
-- [ ] D.1 Update `src/app/print/dashboard/management/page.tsx` to mirror the new sections (radar 5 axes, per-project bars, territorial list) for PDF export parity with the on-screen view.
-- [ ] D.2 Delete `src/components/dashboard/tablero-gerencial-client.tsx` and `tablero-gerencial-client.test.tsx`. Search (`rg -n "tablero-gerencial-client"`) to confirm zero remaining references before deleting.
-- [ ] D.3 Full-repo search (`rg -n "tablero-gerencial"`) to confirm no other stale reference remains outside the intended redirect/nav files.
+- [x] D.1 Update `src/app/print/dashboard/management/page.tsx` to mirror the new sections (radar 5 axes, per-project bars, territorial list) for PDF export parity with the on-screen view. — the real content lives in `print-dashboard.tsx`'s `ManagementBody` (the page itself is a thin `PrintDashboardCara cara="management"` wrapper); reuses `buildRadarAxes` from `cara-management.tsx` and adds `por_proyecto`/`por_territorio` tables + the doble-conteo warning. No pre-existing automated test covers this file; verified by code review and `tsc`/`eslint`.
+- [x] D.2 Delete `src/components/dashboard/tablero-gerencial-client.tsx` and `tablero-gerencial-client.test.tsx`. Search (`rg -n "tablero-gerencial-client"`) to confirm zero remaining references before deleting. — the only real import was its own test; 4 stale comment mentions in `curve-s-chart.tsx`/`.test.tsx` and `kpi-cards.tsx`/`.test.tsx` (explaining a zero-arg-compatible signature) were reworded to stop naming a now-deleted file, without touching any behavior.
+- [x] D.3 Full-repo search (`rg -n "tablero-gerencial"`) to confirm no other stale reference remains outside the intended redirect/nav files. — remaining hits are all expected (the redirect page itself, nav href/comments, F1.6 doc comments, and pre-existing test descriptions using the phrase as a scope label).
 
 ## Phase 5: Full verification
 
-- [ ] 5.1 `npx tsc --noEmit` — 0 errors.
-- [ ] 5.2 `npx eslint .` (scoped to touched paths) — 0 errors.
-- [ ] 5.3 `npm run test` (full suite via `npx vitest run`) — all green, no regressions, including the other 4 dashboard caras and the project workspace's Resumen tab (`KpiCards`/`CurveSChartContainer` with `projectId`, untouched consumer).
-- [ ] 5.4 Manual/code-review pass for the responsive constraints (16px inputs, 44px targets, `overflow-x-auto` on wide content, 390/1440 layouts) across all new sections.
-- [ ] 5.5 Commit as Conventional Commits on the current feature branch (no push unless asked), one commit per slice. No AI attribution beyond what the session's attribution reminder requires.
-- [ ] 5.6 Update `odd/tasks/*.md`'s F1.6 line (if tracked there) with evidence, and cross-reference this change's commits.
+- [x] 5.1 `npx tsc --noEmit` — 0 errors.
+- [x] 5.2 `npx eslint` scoped to every touched path — 0 errors, 0 warnings.
+- [x] 5.3 `npx vitest run` (full suite) — 166 files / 1600 tests green (baseline was 166/1574; net +26 from this change's new tests). Two consecutive full-suite runs surfaced different, unrelated test files failing on timeouts (`client-form`/`client-list`/`client-sheet`/`expense-dialog`/`soportes-tab`, none touched by F1.6); a third full run and isolated re-runs of every flagged file were 100% green, confirming load-induced flakiness, not a regression — no dashboard/nav file appeared in any failure set.
+- [x] 5.4 Manual/code-review pass for the responsive constraints (16px inputs, 44px targets, `overflow-x-auto` on wide content, 390/1440 layouts) across all new sections.
+- [x] 5.5 Commit as Conventional Commits on the current feature branch (no push unless asked), one commit per slice. No AI attribution beyond what the session's attribution reminder requires.
+- [x] 5.6 Update `odd/tasks/*.md`'s F1.6 line (if tracked there) with evidence, and cross-reference this change's commits.
