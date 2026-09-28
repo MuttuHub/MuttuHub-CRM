@@ -51,7 +51,7 @@ the prototypes to match the app, was rejected.
 
 ## Tasks
 - [x] **V0.1** `.dark` tokens + new tokens, primary per D1, fixed-light toast (M, needs D1)
-- [ ] **V0.2** Type utilities: `PageHeader`, eyebrow, section title, KPI numeral, mono data (S)
+- [x] **V0.2** Type utilities: `PageHeader`, eyebrow, section title, KPI numeral, mono data (S)
 - [ ] **V0.3** `StatusChip` + central estado→tone map, `KpiTile`, semáforo `ProgressBar` (M)
 - [ ] **V0.4** Control sizing: `ui/button`, `ui/input`, `ui/select` at 44/40/36 (M)
 - [ ] **V0.5** Surfaces: `ui/card`, `ui/dialog`, `ui/sheet`, overlay, shadows (M)
@@ -104,6 +104,13 @@ asked once before the first commit that exceeds budget. Branch: `feat/v6-visual-
   values are byte-identical.
   Visual check (light+dark, 1440/390 — Inicio, Clientes, Proyecto): PENDING
   (to be done in-browser separately, not run in this session).
+- 2026-09-28 V0.2: new `PageHeader` component (`src/components/ui/page-header.tsx`)
+  and 4 type-utility components (`src/components/ui/typography.tsx`:
+  `Eyebrow`, `SectionTitle`, `KpiNumeral`, `MonoData`). No screen wired to them
+  yet (screen migration is V2.x). TDD: RED (missing-module import errors) ->
+  GREEN 12/12 (5 typography + 7 page-header). `npx tsc --noEmit` and
+  `npx eslint` clean on touched files.
+  Visual check: PENDING (new components not yet mounted on any real screen).
   Deviation from gap map: `--sidebar-accent`/`--sidebar-border`/
   `--sidebar-foreground` were left unchanged in `.dark` (only `--sidebar`
   itself was updated to #0D0809) — the active-nav-item rail restyle is V1.1's
