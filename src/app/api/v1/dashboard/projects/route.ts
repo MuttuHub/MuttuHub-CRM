@@ -9,27 +9,36 @@
 // D9: los seis KPIs (avance técnico, avance financiero/curva S,
 // cumplimiento de indicadores, cumplimiento de cronograma, productos
 // entregados/programados, beneficiarios atendidos/meta) resuelven en UN
-// SOLO round-trip HTTP. Internamente son exactamente 2 `db.$queryRaw`:
+// SOLO round-trip HTTP. Internamente son exactamente 4 `db.$queryRaw`
+// (eran 2 antes de F1.6 slice B; ver tablero-gerencial-unificado design.md
+// "Query cost" — el desglose por-proyecto/por-territorio que la Fase 4c
+// dejaba pendiente ya no es una fase futura, es este mismo cambio):
 //   1. `KPI_QUERY` — agregado ORG-WIDE (sobre TODOS los proyectos filtrados
 //      a la vez, no una fila por proyecto) de las 4 CTEs de design.md
 //      (`tecnico`/`financiero`/`indicadores`/`entregables`).
 //   2. `CURVA_S_QUERY` — segunda consulta agregada DENTRO del mismo request
 //      (nunca un segundo round-trip HTTP, design.md lo autoriza
 //      explícitamente) para la serie mensual de la curva S.
+//   3. `POR_PROYECTO_QUERY` (F1.6): mismas CTEs `tecnico`/`entregables`,
+//      GROUP BY `p.id` en vez de colapsadas — alimenta las barras
+//      cronograma/entregables POR PROYECTO del Tablero Gerencial.
+//   4. `POR_TERRITORIO_QUERY` (F1.6): mismas razones técnica/financiera,
+//      GROUP BY `p.territorio` — alimenta la sección "Semaforización
+//      territorial".
 //
 // **Desviación declarada frente a la forma literal de la consulta de
-// design.md**: ese documento devuelve UNA FILA POR PROYECTO (columnas de
-// las 4 CTEs unidas a `proyectos`), pensada para una futura tabla de
-// desglose (Fase 4c, fuera de este batch). Los 6 KPIs de este endpoint son
-// gauges ORG-WIDE (un tacómetro, una curva S, un radar — no una fila por
-// proyecto), así que esta consulta agrega directamente a nivel
-// organización en SQL, reutilizando exactamente las mismas 4 CTEs
+// design.md**: ese documento describe UNA FILA POR PROYECTO (columnas de
+// las 4 CTEs unidas a `proyectos`) para los 6 KPIs mismos. Los 6 KPIs de
+// este endpoint son gauges ORG-WIDE (un tacómetro, una curva S, un radar —
+// no una fila por proyecto), así que la query 1 agrega directamente a
+// nivel organización en SQL, reutilizando exactamente las mismas 4 CTEs
 // (mismos JOINs, mismos FILTER, mismo LEFT JOIN LATERAL anti-doble-conteo)
 // pero sin el `GROUP BY proyecto_id` final. Esto sigue siendo UNA sola
 // consulta agregada (D9) y preserva cada fórmula/guard de design.md byte a
-// byte; solo cambia el nivel de agregación de la fila de salida. Si Fase
-// 4c necesita el desglose por proyecto más adelante, es una consulta
-// adicional de esa fase, no una reescritura de esta.
+// byte; solo cambia el nivel de agregación de la fila de salida. El
+// desglose por-proyecto/por-territorio SÍ agrega con `GROUP BY` (queries 3
+// y 4) — son las dos consultas adicionales que design.md siempre anticipó
+// para esta fase.
 //
 // **`cumplimiento_cronograma` — desviación declarada.** El spec dice
 // "Actividad sin fecha_real aún no cuenta como cumplida ni como incumplida
@@ -62,8 +71,9 @@ import { parseDashboardFilters } from "@/lib/dashboard";
 import { canViewManagementDashboard } from "@/lib/permissions";
 import { loadProjectScoped } from "@/lib/api/projects";
 import { getSetting, SETTING_SEMAFORO_UMBRALES } from "@/lib/settings";
-import { UMBRALES_SEMAFORO_DEFAULT } from "@/lib/catalogs";
+import { ENUM_VALUES, UMBRALES_SEMAFORO_DEFAULT } from "@/lib/catalogs";
 import { colorFinanciero, colorTecnico, resolverUmbrales } from "@/lib/semaforo";
+import type { LineaEstrategica } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -86,6 +96,30 @@ type KpiRow = {
 
 type CurvaRow = { mes: Date; tipo: "peso" | "gasto"; valor: number };
 
+/** Fila cruda de la 3ª consulta (F1.6 slice B, design.md "por_proyecto"):
+ * cronograma + entregables agregados POR PROYECTO (GROUP BY p.id), en vez
+ * de colapsados a una sola fila org-wide como en `KpiRow`. */
+type PorProyectoRow = {
+  proyecto_id: string;
+  nombre: string;
+  a_tiempo: number;
+  resueltas: number;
+  entregables_programados: number;
+  entregables_entregados: number;
+};
+
+/** Fila cruda de la 4ª consulta (F1.6 slice B, design.md "por_territorio"):
+ * las mismas razones técnica/financiera de `KpiRow`, agregadas GROUP BY
+ * `p.territorio` en vez de org-wide. */
+type PorTerritorioRow = {
+  territorio: string;
+  proyectos_count: number;
+  avance_real: number;
+  avance_planificado: number;
+  proyectado: number;
+  ejecutado: number;
+};
+
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
@@ -101,6 +135,10 @@ function proyectosFiltradosSubquery(params: {
   clienteId?: string;
   responsableId?: string;
   tipoCliente?: string;
+  /** F1.6 slice B (design.md D2): filtros propios de este endpoint, NUNCA
+   * parte del `DashboardFilters` compartido por las otras 4 caras. */
+  lineaEstrategica?: string;
+  territorio?: string;
 }): Prisma.Sql {
   const condiciones: Prisma.Sql[] = [];
   if (params.proyectoId) condiciones.push(Prisma.sql`AND p.id = ${params.proyectoId}`);
@@ -109,6 +147,10 @@ function proyectosFiltradosSubquery(params: {
   if (params.tipoCliente) {
     condiciones.push(Prisma.sql`AND c.tipo_cliente = ${params.tipoCliente}::"TipoCliente"`);
   }
+  if (params.lineaEstrategica) {
+    condiciones.push(Prisma.sql`AND p.linea_estrategica = ${params.lineaEstrategica}::"LineaEstrategica"`);
+  }
+  if (params.territorio) condiciones.push(Prisma.sql`AND p.territorio = ${params.territorio}`);
   return Prisma.sql`
     SELECT p.id
     FROM proyectos p
@@ -166,6 +208,16 @@ export const GET = withApiErrorHandling(
 
     const clienteId = url.searchParams.get("cliente_id") ?? undefined;
 
+    // F1.6 slice B (design.md D2): `linea_estrategica`/`territorio` son
+    // filtros propios de ESTE endpoint (la 5.ª cara), nunca parte del
+    // `DashboardFilters` compartido de `parseDashboardFilters` — las otras 4
+    // caras no tienen requisito v6 de estos dos filtros.
+    const lineaEstrategica = url.searchParams.get("linea_estrategica")?.trim() || undefined;
+    if (lineaEstrategica && !ENUM_VALUES.LineaEstrategica.includes(lineaEstrategica as LineaEstrategica)) {
+      return apiError("Línea estratégica no válida.", 400, "VALIDATION_ERROR");
+    }
+    const territorio = url.searchParams.get("territorio")?.trim() || undefined;
+
     // "corte" = min(hoy, hasta) del filtro del tablero (design.md, Semáforos
     // parametrizados). Sin `hasta`, el corte es hoy.
     const ahora = new Date();
@@ -176,9 +228,11 @@ export const GET = withApiErrorHandling(
       clienteId,
       responsableId: filters.responsable_id,
       tipoCliente: filters.tipo_cliente,
+      lineaEstrategica,
+      territorio,
     });
 
-    // Query 1/2: las 4 CTEs de design.md (tecnico/entregables/financiero/
+    // Query 1/4: las 4 CTEs de design.md (tecnico/entregables/financiero/
     // indicadores), agregadas ORG-WIDE (ver Deviations arriba) en una sola
     // consulta — nunca 6 llamadas, una por KPI.
     const kpiRows = await db.$queryRaw<KpiRow[]>(Prisma.sql`
@@ -260,7 +314,7 @@ export const GET = withApiErrorHandling(
     `);
     const kpi = kpiRows[0];
 
-    // Query 2/2: serie mensual de curva S — segunda consulta agregada
+    // Query 2/4: serie mensual de curva S — segunda consulta agregada
     // DENTRO del mismo request (design.md lo autoriza explícitamente; no es
     // un segundo round-trip HTTP). `peso` alimenta el planificado (T7:
     // reparto ponderado acumulado sobre el cronograma); `gasto` alimenta el
@@ -277,6 +331,113 @@ export const GET = withApiErrorHandling(
       WHERE g.deleted_at IS NULL AND g.proyecto_id IN (SELECT id FROM proyectos_filtrados)
       GROUP BY 1
       ORDER BY mes ASC
+    `);
+
+    // Query 3/4 (F1.6 slice B, design.md "por_proyecto"): cronograma +
+    // entregables, mismas CTEs de la query 1 pero GROUP BY p.id en vez de
+    // colapsadas org-wide — alimenta las barras por-proyecto del Tablero
+    // Gerencial (una fila por proyecto en alcance, sin importar si ya tiene
+    // actividades: LEFT JOIN + COALESCE a 0).
+    const porProyectoRows = await db.$queryRaw<PorProyectoRow[]>(Prisma.sql`
+      WITH proyectos_filtrados AS (${proyectosFiltrados}),
+      tecnico_por_proyecto AS (
+        SELECT
+          a.proyecto_id,
+          COUNT(*) FILTER (
+            WHERE a.fecha_real IS NOT NULL AND a.fecha_real <= a.fecha_planificada
+          )::float AS a_tiempo,
+          COUNT(*) FILTER (WHERE a.fecha_real IS NOT NULL)::float AS resueltas
+        FROM actividades a
+        WHERE a.deleted_at IS NULL
+          AND a.proyecto_id IN (SELECT id FROM proyectos_filtrados)
+          AND a.fecha_planificada <= ${corte}
+        GROUP BY a.proyecto_id
+      ),
+      entregables_por_proyecto AS (
+        SELECT
+          a.proyecto_id,
+          COUNT(*)::float AS entregables_programados,
+          COUNT(*) FILTER (
+            WHERE a.porcentaje_avance = 100
+              AND EXISTS (
+                SELECT 1 FROM soportes_proyecto s
+                WHERE s.actividad_id = a.id AND s.deleted_at IS NULL
+              )
+          )::float AS entregables_entregados
+        FROM actividades a
+        WHERE a.deleted_at IS NULL
+          AND a.proyecto_id IN (SELECT id FROM proyectos_filtrados)
+        GROUP BY a.proyecto_id
+      )
+      SELECT
+        p.id AS proyecto_id,
+        p.nombre,
+        COALESCE(t.a_tiempo, 0)::float AS a_tiempo,
+        COALESCE(t.resueltas, 0)::float AS resueltas,
+        COALESCE(e.entregables_programados, 0)::float AS entregables_programados,
+        COALESCE(e.entregables_entregados, 0)::float AS entregables_entregados
+      FROM proyectos p
+      LEFT JOIN tecnico_por_proyecto t ON t.proyecto_id = p.id
+      LEFT JOIN entregables_por_proyecto e ON e.proyecto_id = p.id
+      WHERE p.id IN (SELECT id FROM proyectos_filtrados)
+      ORDER BY p.nombre ASC
+    `);
+
+    // Query 4/4 (F1.6 slice B, design.md "por_territorio" — Semaforización
+    // territorial): las mismas razones técnica/financiera de la query 1,
+    // GROUP BY p.territorio en vez de org-wide. Los colores SIEMPRE se
+    // resuelven contra el umbral de organización (design.md D6: no existe
+    // concepto de override por territorio, a diferencia del override
+    // por-proyecto que sí aplica en el camino `?proyecto_id=`).
+    const porTerritorioRows = await db.$queryRaw<PorTerritorioRow[]>(Prisma.sql`
+      WITH proyectos_filtrados AS (${proyectosFiltrados}),
+      proyectos_por_territorio AS (
+        SELECT p.territorio, COUNT(*)::float AS proyectos_count
+        FROM proyectos p
+        WHERE p.id IN (SELECT id FROM proyectos_filtrados)
+        GROUP BY p.territorio
+      ),
+      tecnico_por_territorio AS (
+        SELECT
+          p.territorio,
+          COALESCE(SUM(a.porcentaje_avance::numeric * a.peso) / NULLIF(SUM(a.peso), 0), 0)::float AS avance_real,
+          COALESCE(
+            100.0 * SUM(a.peso) FILTER (WHERE a.fecha_planificada <= ${corte}) / NULLIF(SUM(a.peso), 0),
+            0
+          )::float AS avance_planificado
+        FROM actividades a
+        JOIN proyectos p ON p.id = a.proyecto_id
+        WHERE a.deleted_at IS NULL
+          AND a.proyecto_id IN (SELECT id FROM proyectos_filtrados)
+          AND a.fecha_planificada <= ${corte}
+        GROUP BY p.territorio
+      ),
+      financiero_por_territorio AS (
+        SELECT
+          p.territorio,
+          COALESCE(SUM(l.monto_proyectado_cop), 0)::float AS proyectado,
+          COALESCE(SUM(COALESCE(gx.ejecutado, 0)), 0)::float AS ejecutado
+        FROM lineas_presupuestales l
+        JOIN proyectos p ON p.id = l.proyecto_id
+        LEFT JOIN LATERAL (
+          SELECT SUM(g.monto_cop) AS ejecutado FROM gastos g
+          WHERE g.linea_id = l.id AND g.deleted_at IS NULL AND g.fecha_gasto <= ${corte}
+        ) gx ON TRUE
+        WHERE l.deleted_at IS NULL
+          AND l.proyecto_id IN (SELECT id FROM proyectos_filtrados)
+        GROUP BY p.territorio
+      )
+      SELECT
+        pt.territorio,
+        pt.proyectos_count,
+        COALESCE(t.avance_real, 0)::float AS avance_real,
+        COALESCE(t.avance_planificado, 0)::float AS avance_planificado,
+        COALESCE(f.proyectado, 0)::float AS proyectado,
+        COALESCE(f.ejecutado, 0)::float AS ejecutado
+      FROM proyectos_por_territorio pt
+      LEFT JOIN tecnico_por_territorio t ON t.territorio = pt.territorio
+      LEFT JOIN financiero_por_territorio f ON f.territorio = pt.territorio
+      ORDER BY pt.territorio ASC
     `);
 
     const umbralesOrganizacion = await getSetting(SETTING_SEMAFORO_UMBRALES, UMBRALES_SEMAFORO_DEFAULT);
@@ -323,6 +484,32 @@ export const GET = withApiErrorHandling(
       ejecutado.push(round2(ejecutadoAcumulado));
     }
 
+    // F1.6 slice B: desglose por proyecto (barras de cronograma/entregables
+    // por proyecto) — misma regla de "no cuenta" que el agregado org-wide
+    // (denominador = resueltas, nunca programadas).
+    const porProyecto = porProyectoRows.map((row) => ({
+      proyecto_id: row.proyecto_id,
+      nombre: row.nombre,
+      cumplimiento_cronograma: row.resueltas > 0 ? round2((row.a_tiempo / row.resueltas) * 100) : 0,
+      productos_entregados: row.entregables_entregados,
+      productos_programados: row.entregables_programados,
+    }));
+
+    // F1.6 slice B: semaforización territorial — colores SIEMPRE contra el
+    // umbral de organización (design.md D6), nunca `umbrales` (que en el
+    // camino `?proyecto_id=` puede llevar el override de ESE proyecto).
+    const porTerritorio = porTerritorioRows.map((row) => {
+      const razonTecnicaTerritorio =
+        row.avance_planificado > 0 ? row.avance_real / row.avance_planificado : 1;
+      const razonFinancieraTerritorio = row.proyectado > 0 ? row.ejecutado / row.proyectado : 0;
+      return {
+        territorio: row.territorio,
+        proyectos_count: row.proyectos_count,
+        color_tecnico: colorTecnico(razonTecnicaTerritorio, umbralesOrganizacion),
+        color_financiero: colorFinanciero(razonFinancieraTerritorio, umbralesOrganizacion),
+      };
+    });
+
     return NextResponse.json({
       avance_tecnico: avanceTecnico,
       avance_financiero: avanceFinanciero,
@@ -336,6 +523,8 @@ export const GET = withApiErrorHandling(
       color_tecnico: colorTecnico(razonTecnica, umbrales),
       color_financiero: colorFinanciero(razonFinanciera, umbrales),
       curva_s: { meses, planificado, ejecutado },
+      por_proyecto: porProyecto,
+      por_territorio: porTerritorio,
     });
   },
 );

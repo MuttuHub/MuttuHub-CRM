@@ -156,14 +156,26 @@ export type DashboardMySummary = {
 /* ── GET /api/v1/dashboard/projects (quinta cara, D9) ───────────────────── */
 
 /**
+ * F1.6 (tablero-gerencial-unificado, design.md D2): filtros propios de la
+ * 5.ª cara — `linea_estrategica`/`territorio` NUNCA se agregan al
+ * `DashboardFilters` compartido (las otras 4 caras no tienen requisito v6
+ * de estos dos filtros; extenderlo ahí les añadiría params sin uso).
+ */
+export type ManagementDashboardFilters = DashboardFilters & {
+  linea_estrategica?: string;
+  territorio?: string;
+};
+
+/**
  * Tablero de Control Gerencial: el DTO y el endpoint son los mismos que sirve
  * el Resumen de proyecto (`useProjectDashboard` en `@/hooks/projects`), pero
- * esta cara es org-wide y respeta los filtros comunes del shell (PRD §7.2),
- * así que vive acá junto a las otras cuatro caras. `projectId` no aplica:
- * el alcance por proyecto se resuelve en el Resumen del proyecto.
+ * esta cara es org-wide y respeta los filtros comunes del shell (PRD §7.2)
+ * más sus dos filtros propios (Línea/Territorio, F1.6), así que vive acá
+ * junto a las otras cuatro caras. `projectId` no aplica: el alcance por
+ * proyecto se resuelve en el Resumen del proyecto.
  */
 export function useDashboardManagement(
-  filters: DashboardFilters,
+  filters: ManagementDashboardFilters,
 ): UseQueryResult<ProjectDashboard> {
   return useQuery({
     queryKey: dashboardQueryKeys.management(filters),
@@ -180,7 +192,7 @@ export const dashboardQueryKeys = {
   clientsActivity: (filters: DashboardFilters, dias: number) =>
     ["dashboard", "clients-activity", filters, dias] as const,
   mySummary: (filters: DashboardFilters) => ["dashboard", "my-summary", filters] as const,
-  management: (filters: DashboardFilters) => ["dashboard", "management", filters] as const,
+  management: (filters: ManagementDashboardFilters) => ["dashboard", "management", filters] as const,
 };
 
 /* ── Queries ────────────────────────────────────────────────────────────── */

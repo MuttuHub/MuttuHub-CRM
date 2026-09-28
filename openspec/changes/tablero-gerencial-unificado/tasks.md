@@ -45,12 +45,12 @@
 
 ## Slice B: Endpoint — filters + per-project/per-territory breakdowns
 
-- [ ] B.1 RED: `dashboard/projects/route.test.ts` — `?linea_estrategica=` and `?territorio=` narrow the aggregate (reuse existing filter-narrowing test shapes for `responsable_id`/`tipo_cliente`). Confirm failing.
-- [ ] B.2 GREEN: extend `proyectosFiltradosSubquery` and its call site with the two new params. Confirm passing.
-- [ ] B.3 RED: `por_proyecto[]` includes one row per project in scope with `cumplimiento_cronograma`/`productos_entregados`/`productos_programados`; `por_territorio[]` includes one row per distinct `territorio` with `proyectos_count`/`color_tecnico`/`color_financiero`. Confirm failing.
-- [ ] B.4 GREEN: add the two new `$queryRaw` calls (reusing `tecnico`/`entregables`/`financiero` CTE shapes with `GROUP BY`); update the file's own "exactly 2 `$queryRaw`" comment to document the new count and why. Confirm passing.
-- [ ] B.5 Update `ProjectDashboard` type (`hooks/projects.ts`) with `por_proyecto`/`por_territorio`; update `useDashboardManagement` (`hooks/dashboard.ts`) to accept `linea_estrategica`/`territorio` in its filter param, isolated from the shared `DashboardFilters` type used by the other 4 caras (per design.md D2). `npx tsc --noEmit` to confirm no downstream breakage in the other 4 caras.
-- [ ] B.6 Update `src/lib/openapi/paths/dashboard-admin.ts` to document the new params/fields.
+- [x] B.1 RED: `dashboard/projects/route.test.ts` — `?linea_estrategica=` and `?territorio=` narrow the aggregate (reuse existing filter-narrowing test shapes for `responsable_id`/`tipo_cliente`). Confirm failing.
+- [x] B.2 GREEN: extend `proyectosFiltradosSubquery` and its call site with the two new params. Confirm passing.
+- [x] B.3 RED: `por_proyecto[]` includes one row per project in scope with `cumplimiento_cronograma`/`productos_entregados`/`productos_programados`; `por_territorio[]` includes one row per distinct `territorio` with `proyectos_count`/`color_tecnico`/`color_financiero`. Confirm failing.
+- [x] B.4 GREEN: add the two new `$queryRaw` calls (reusing `tecnico`/`entregables`/`financiero` CTE shapes with `GROUP BY`); update the file's own "exactly 2 `$queryRaw`" comment to document the new count and why (now 4). Confirm passing.
+- [x] B.5 Update `ProjectDashboard` type (`hooks/projects.ts`) with `por_proyecto`/`por_territorio` (optional, additive — existing fixtures without them stay valid); update `useDashboardManagement` (`hooks/dashboard.ts`) to accept `linea_estrategica`/`territorio` via a new `ManagementDashboardFilters` type, isolated from the shared `DashboardFilters` type used by the other 4 caras (per design.md D2). `npx tsc --noEmit` to confirm no downstream breakage in the other 4 caras.
+- [x] B.6 Update `src/lib/openapi/paths/dashboard-admin.ts` to document the new params/fields.
 
 ## Slice C: `cara-management.tsx` — visualizations
 

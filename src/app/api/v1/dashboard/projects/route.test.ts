@@ -127,10 +127,41 @@ function kpiRow(overrides: Partial<Record<string, number>> = {}) {
   };
 }
 
-function mockQueries(kpi: ReturnType<typeof kpiRow>, curva: { mes: Date; tipo: string; valor: number }[]) {
+/** Fila cruda del desglose por-proyecto (query 3/4, F1.6 slice B). */
+function porProyectoRow(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    proyecto_id: overrides.proyecto_id ?? "proy-1",
+    nombre: overrides.nombre ?? "Proyecto 1",
+    a_tiempo: overrides.a_tiempo ?? 0,
+    resueltas: overrides.resueltas ?? 0,
+    entregables_programados: overrides.entregables_programados ?? 0,
+    entregables_entregados: overrides.entregables_entregados ?? 0,
+  };
+}
+
+/** Fila cruda del desglose por-territorio (query 4/4, F1.6 slice B). */
+function porTerritorioRow(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    territorio: overrides.territorio ?? "Bogotá",
+    proyectos_count: overrides.proyectos_count ?? 1,
+    avance_real: overrides.avance_real ?? 0,
+    avance_planificado: overrides.avance_planificado ?? 0,
+    proyectado: overrides.proyectado ?? 0,
+    ejecutado: overrides.ejecutado ?? 0,
+  };
+}
+
+function mockQueries(
+  kpi: ReturnType<typeof kpiRow>,
+  curva: { mes: Date; tipo: string; valor: number }[],
+  porProyecto: ReturnType<typeof porProyectoRow>[] = [],
+  porTerritorio: ReturnType<typeof porTerritorioRow>[] = [],
+) {
   vi.mocked(db.$queryRaw)
     .mockResolvedValueOnce([kpi] as never)
-    .mockResolvedValueOnce(curva as never);
+    .mockResolvedValueOnce(curva as never)
+    .mockResolvedValueOnce(porProyecto as never)
+    .mockResolvedValueOnce(porTerritorio as never);
 }
 
 afterEach(() => {
@@ -179,7 +210,7 @@ describe("GET /api/v1/dashboard/projects", () => {
     expect(res.status).toBe(200);
   });
 
-  it("resolves all 6 KPIs in exactly ONE round-trip: exactly 2 db.$queryRaw calls, one response payload", async () => {
+  it("resolves all 6 KPIs + the por_proyecto/por_territorio breakdowns in exactly ONE round-trip: exactly 4 db.$queryRaw calls, one response payload (F1.6 slice B: was 2, now 4)", async () => {
     authAs(gerencia);
     vi.mocked(db.setting.findUnique).mockResolvedValue(null);
     mockQueries(
@@ -205,7 +236,7 @@ describe("GET /api/v1/dashboard/projects", () => {
     const res = await GET(get());
     const json = await res.json();
 
-    expect(db.$queryRaw).toHaveBeenCalledTimes(2);
+    expect(db.$queryRaw).toHaveBeenCalledTimes(4);
     // Los 6 KPIs, en el ÚNICO payload de esta respuesta.
     expect(json).toHaveProperty("avance_tecnico");
     expect(json).toHaveProperty("avance_financiero");
@@ -301,6 +332,158 @@ describe("GET /api/v1/dashboard/projects", () => {
     expect(json.curva_s.planificado).toEqual([600, 1000]);
     // ejecutado acumulado: enero 200, febrero 500.
     expect(json.curva_s.ejecutado).toEqual([200, 500]);
+  });
+
+  describe("linea_estrategica/territorio filters (F1.6 slice B, design.md D2)", () => {
+    it("returns 400 for an invalid linea_estrategica", async () => {
+      authAs(gerencia);
+
+      const res = await GET(get("?linea_estrategica=NO_EXISTE"));
+
+      expect(res.status).toBe(400);
+      expect(db.$queryRaw).not.toHaveBeenCalled();
+    });
+
+    it("narrows the aggregate subquery by linea_estrategica when given", async () => {
+      authAs(gerencia);
+      vi.mocked(db.setting.findUnique).mockResolvedValue(null);
+      mockQueries(kpiRow(), []);
+
+      await GET(get("?linea_estrategica=EMPLEABILIDAD"));
+
+      const firstCall = vi.mocked(db.$queryRaw).mock.calls[0][0] as { sql: string } | { text: string };
+      const sqlText = "sql" in firstCall ? firstCall.sql : (firstCall as { text: string }).text;
+      expect(sqlText).toContain("linea_estrategica");
+    });
+
+    it("narrows the aggregate subquery by territorio when given", async () => {
+      authAs(gerencia);
+      vi.mocked(db.setting.findUnique).mockResolvedValue(null);
+      mockQueries(kpiRow(), []);
+
+      await GET(get("?territorio=Bogot%C3%A1"));
+
+      const firstCall = vi.mocked(db.$queryRaw).mock.calls[0][0] as { sql: string } | { text: string };
+      const sqlText = "sql" in firstCall ? firstCall.sql : (firstCall as { text: string }).text;
+      expect(sqlText).toContain("p.territorio");
+    });
+  });
+
+  describe("por_proyecto[] / por_territorio[] breakdowns (F1.6 slice B)", () => {
+    it("resolves the breakdowns in the SAME request: exactly 4 db.$queryRaw calls total", async () => {
+      authAs(gerencia);
+      vi.mocked(db.setting.findUnique).mockResolvedValue(null);
+      mockQueries(kpiRow(), [], [porProyectoRow()], [porTerritorioRow()]);
+
+      const res = await GET(get());
+      const json = await res.json();
+
+      expect(db.$queryRaw).toHaveBeenCalledTimes(4);
+      expect(json).toHaveProperty("por_proyecto");
+      expect(json).toHaveProperty("por_territorio");
+    });
+
+    it("returns one por_proyecto row per project with cumplimiento_cronograma and productos entregados/programados", async () => {
+      authAs(gerencia);
+      vi.mocked(db.setting.findUnique).mockResolvedValue(null);
+      mockQueries(
+        kpiRow(),
+        [],
+        [
+          porProyectoRow({
+            proyecto_id: "proy-1",
+            nombre: "Proyecto Uno",
+            a_tiempo: 3,
+            resueltas: 4,
+            entregables_programados: 10,
+            entregables_entregados: 6,
+          }),
+        ],
+        [],
+      );
+
+      const res = await GET(get());
+      const json = await res.json();
+
+      expect(json.por_proyecto).toEqual([
+        {
+          proyecto_id: "proy-1",
+          nombre: "Proyecto Uno",
+          cumplimiento_cronograma: 75,
+          productos_entregados: 6,
+          productos_programados: 10,
+        },
+      ]);
+    });
+
+    it("a project with no resolved activities gets cumplimiento_cronograma 0 (no division by zero)", async () => {
+      authAs(gerencia);
+      vi.mocked(db.setting.findUnique).mockResolvedValue(null);
+      mockQueries(kpiRow(), [], [porProyectoRow({ a_tiempo: 0, resueltas: 0 })], []);
+
+      const res = await GET(get());
+      const json = await res.json();
+
+      expect(json.por_proyecto[0].cumplimiento_cronograma).toBe(0);
+    });
+
+    it("returns one por_territorio row per distinct territorio with proyectos_count and both semaforo colors", async () => {
+      authAs(gerencia);
+      vi.mocked(db.setting.findUnique).mockResolvedValue(null);
+      mockQueries(
+        kpiRow(),
+        [],
+        [],
+        [
+          porTerritorioRow({
+            territorio: "Bogotá",
+            proyectos_count: 2,
+            avance_real: 60,
+            avance_planificado: 100,
+            proyectado: 100,
+            ejecutado: 100,
+          }),
+        ],
+      );
+
+      const res = await GET(get());
+      const json = await res.json();
+
+      expect(json.por_territorio).toEqual([
+        {
+          territorio: "Bogotá",
+          proyectos_count: 2,
+          color_tecnico: "amarillo",
+          color_financiero: "verde",
+        },
+      ]);
+    });
+
+    it("por_territorio always resolves colors from the ORG default umbrales, never a per-project override (design.md D6)", async () => {
+      authAs(gerencia);
+      // Umbral de organización mockeado explícito para hacer la aserción
+      // determinista frente a UMBRALES_SEMAFORO_DEFAULT.
+      vi.mocked(db.setting.findUnique).mockResolvedValue({
+        value: {
+          confirmado: true,
+          tecnico: { verde: 0.9, rojo: 0.7 },
+          financiero: { verde_min: 0.9, verde_max: 1.1, amarillo_min: 0.7, amarillo_max: 1.3 },
+        },
+      } as never);
+      mockQueries(
+        kpiRow(),
+        [],
+        [],
+        [porTerritorioRow({ avance_real: 60, avance_planificado: 100, proyectado: 100, ejecutado: 100 })],
+      );
+
+      const res = await GET(get());
+      const json = await res.json();
+
+      // razón técnica 0.6 < rojo (0.7) del default de organización -> rojo.
+      expect(json.por_territorio[0].color_tecnico).toBe("rojo");
+      expect(db.proyecto.findUnique).not.toHaveBeenCalled();
+    });
   });
 
   describe("las dos reglas de 'no cuenta' viven en el texto de la consulta SQL", () => {

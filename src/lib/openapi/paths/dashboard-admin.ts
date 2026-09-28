@@ -53,6 +53,19 @@ const EstadoTareaColumnaSchema = z.enum([
   "COMPLETADA",
 ]);
 const OrigenTareaSchema = z.enum(["CRM", "KANBAN", "AMBOS"]);
+/** F1.6 (tablero-gerencial-unificado): mismo enum que projects.ts's propio
+ * `LineaEstrategicaSchema` — cada archivo de dominio define su copia (ver
+ * nota de archivo arriba sobre "Shared enums"), nunca un import cruzado. */
+const LineaEstrategicaSchema = z.enum([
+  "EMPLEABILIDAD",
+  "EMPRENDIMIENTO",
+  "PRODUCTIVIDAD",
+  "CULTURAL",
+  "SOCIAL",
+  "CIVICO_POLITICO",
+  "METODO_MUTTU",
+  "AMBIENTAL",
+]);
 const ScopeSchema = z.enum(["own", "all"]).openapi({
   description:
     "Alcance de la respuesta: COLABORADOR ve alcance propio (scope: own); el resto ve todo (scope: all).",
@@ -330,12 +343,15 @@ registry.registerPath({
   description:
     "Un solo round-trip resuelve los seis KPIs de proyecto (avance técnico, avance financiero/curva S, " +
     "cumplimiento de indicadores, cumplimiento de cronograma, productos entregados/programados, " +
-    "beneficiarios atendidos/meta). SIN `proyecto_id`: gateado por `canViewManagementDashboard` (ADMINISTRADOR/" +
-    "GERENCIA/COORDINADOR o COLABORADOR con `puede_ver_tablero_gerencial`); con `proyecto_id`: gateado por " +
-    "`canViewProject` y con el override de umbrales de ESE proyecto. Filtros comunes del dashboard (PRD §7.2) " +
-    "más `proyecto_id?`/`cliente_id?`. `cumplimiento_cronograma` excluye del denominador las actividades sin " +
-    "`fecha_real` (no penaliza lo no resuelto); un `Indicador` sin `valor_actual` nunca cuenta como cumplido; " +
-    "una `Actividad` finalizada sin soporte no cuenta como entregada.",
+    "beneficiarios atendidos/meta) MÁS (F1.6) el desglose `por_proyecto[]`/`por_territorio[]`. SIN `proyecto_id`: " +
+    "gateado por `canViewManagementDashboard` (ADMINISTRADOR/GERENCIA/COORDINADOR o COLABORADOR con " +
+    "`puede_ver_tablero_gerencial`); con `proyecto_id`: gateado por `canViewProject` y con el override de " +
+    "umbrales de ESE proyecto. Filtros comunes del dashboard (PRD §7.2) más `proyecto_id?`/`cliente_id?` y, " +
+    "propios de esta cara (F1.6, nunca compartidos con las otras 4), `linea_estrategica?`/`territorio?`. " +
+    "`cumplimiento_cronograma` excluye del denominador las actividades sin `fecha_real` (no penaliza lo no " +
+    "resuelto); un `Indicador` sin `valor_actual` nunca cuenta como cumplido; una `Actividad` finalizada sin " +
+    "soporte no cuenta como entregada. `por_territorio[]` resuelve sus colores SIEMPRE contra el umbral de " +
+    "organización (nunca un override por proyecto, no existe ese concepto a nivel territorio).",
   security: [{ sessionCookie: [] }],
   request: {
     query: DashboardQuerySchema.extend({
@@ -344,6 +360,12 @@ registry.registerPath({
       }),
       cliente_id: z.string().uuid().optional().openapi({
         description: "Filtra por cliente (usado por la ficha del cliente).",
+      }),
+      linea_estrategica: LineaEstrategicaSchema.optional().openapi({
+        description: "F1.6: filtra por línea estratégica. Propio de esta cara, no del DashboardFilters compartido.",
+      }),
+      territorio: z.string().optional().openapi({
+        description: "F1.6: filtra por territorio (texto libre, columna Proyecto.territorio).",
       }),
     }),
   },
@@ -371,6 +393,23 @@ registry.registerPath({
                 planificado: z.array(z.number()).openapi({ description: "Acumulado de peso escalado por el proyectado total (COP)." }),
                 ejecutado: z.array(z.number()).openapi({ description: "Acumulado de gasto por fecha_gasto (COP)." }),
               }),
+              por_proyecto: z.array(
+                z.object({
+                  proyecto_id: z.string().uuid(),
+                  nombre: z.string(),
+                  cumplimiento_cronograma: z.number().openapi({ description: "Porcentaje 0..100, mismo criterio que el agregado." }),
+                  productos_entregados: z.number(),
+                  productos_programados: z.number(),
+                }),
+              ).openapi({ description: "F1.6: una fila por proyecto en el alcance filtrado (barras por-proyecto)." }),
+              por_territorio: z.array(
+                z.object({
+                  territorio: z.string(),
+                  proyectos_count: z.number().int(),
+                  color_tecnico: z.enum(["verde", "amarillo", "rojo"]),
+                  color_financiero: z.enum(["verde", "amarillo", "rojo"]),
+                }),
+              ).openapi({ description: "F1.6: semaforización territorial, colores contra el umbral de organización." }),
             }),
           ),
         },

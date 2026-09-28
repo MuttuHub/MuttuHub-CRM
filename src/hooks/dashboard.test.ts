@@ -7,6 +7,7 @@ import {
   buildDashboardQuery,
   rangoMesActual,
   useDashboardClientsActivity,
+  useDashboardManagement,
   useDashboardMySummary,
   useDashboardPipeline,
   useDashboardTasks,
@@ -15,6 +16,7 @@ import {
   type DashboardPipeline,
   type DashboardTasks,
 } from "./dashboard"
+import type { ProjectDashboard } from "./projects"
 
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -321,5 +323,68 @@ describe("useDashboardMySummary", () => {
 
     await waitFor(() => expect(result.current.isError).toBe(true))
     expect(result.current.data).toBeUndefined()
+  })
+})
+
+// F1.6 slice B (design.md D2): linea_estrategica/territorio son filtros
+// PROPIOS de esta cara, aceptados por useDashboardManagement pero NUNCA
+// parte del DashboardFilters compartido que consumen las otras 4 caras.
+const MANAGEMENT: ProjectDashboard = {
+  avance_tecnico: 70,
+  avance_financiero: 60,
+  cumplimiento_indicadores: 80,
+  cumplimiento_cronograma: 90,
+  productos_entregados: 4,
+  productos_programados: 6,
+  beneficiarios_atendidos: 100,
+  beneficiarios_meta: 200,
+  indicadores_beneficiarios_count: 1,
+  color_tecnico: "verde",
+  color_financiero: "amarillo",
+  curva_s: { meses: [], planificado: [], ejecutado: [] },
+  por_proyecto: [],
+  por_territorio: [],
+}
+
+describe("useDashboardManagement", () => {
+  const fetchMock = vi.fn()
+
+  beforeEach(() => {
+    fetchMock.mockReset()
+    vi.stubGlobal("fetch", fetchMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it("serializes linea_estrategica/territorio into the query string alongside the shared filters", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(MANAGEMENT))
+
+    const { result } = renderHook(
+      () =>
+        useDashboardManagement({
+          desde: "2026-08-01",
+          linea_estrategica: "EMPLEABILIDAD",
+          territorio: "Bogotá",
+        }),
+      { wrapper: createWrapper() },
+    )
+
+    await waitFor(() => expect(result.current.data).toEqual(MANAGEMENT))
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/dashboard/projects?desde=2026-08-01&linea_estrategica=EMPLEABILIDAD&territorio=Bogot%C3%A1",
+      expect.any(Object),
+    )
+  })
+
+  it("resolves without the two management-only filters (shared shape stays valid)", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(MANAGEMENT))
+
+    const { result } = renderHook(() => useDashboardManagement({}), {
+      wrapper: createWrapper(),
+    })
+
+    await waitFor(() => expect(result.current.data).toEqual(MANAGEMENT))
   })
 })

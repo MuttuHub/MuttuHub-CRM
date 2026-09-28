@@ -202,6 +202,28 @@ export type ProjectDashboard = {
     planificado: number[];
     ejecutado: number[];
   };
+  /** F1.6 (tablero-gerencial-unificado, slice B): desglose por proyecto de
+   * cronograma/entregables — alimenta las barras por-proyecto de la 5.ª
+   * cara. Opcional y aditivo: `KpiCards`/`CurveSChartContainer` (Resumen de
+   * un proyecto, `projectId` presente) lo ignoran sin cambios, y fixtures de
+   * tests existentes que no lo declaran siguen siendo válidas. */
+  por_proyecto?: {
+    proyecto_id: string;
+    nombre: string;
+    cumplimiento_cronograma: number;
+    productos_entregados: number;
+    productos_programados: number;
+  }[];
+  /** F1.6 (slice B): semaforización territorial — conteo de proyectos y
+   * semáforo técnico/financiero por territorio, SIEMPRE contra el umbral de
+   * organización (design.md D6). Opcional por el mismo motivo que
+   * `por_proyecto`. */
+  por_territorio?: {
+    territorio: string;
+    proyectos_count: number;
+    color_tecnico: string;
+    color_financiero: string;
+  }[];
 };
 
 /* ── Queries ───────────────────────────────────────────────────────────── */
