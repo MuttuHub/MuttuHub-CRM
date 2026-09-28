@@ -1,32 +1,34 @@
 "use client";
 
-// Sonner toaster bound to the app theme. The anti-FOUC script and useTheme
-// own the `.dark` class on <html>; the Toaster must follow that resolved
-// decision (light/dark) instead of sonner's light default, otherwise dark
-// toasts render as white cards over the dark shell. richColors stays on
-// for semantic icons; the base style override maps toasts onto the app
-// surface tokens (--color-card flips with the theme). Text uses
-// --color-ink-800 — the body text token — NOT ink-100: in this palette the
-// ink scale inverts in dark mode (low numbers are surfaces), so ink-100
-// would be dark-on-dark. The action button keeps sonner's own
-// --normal-text/--normal-bg contrast and stays legible in both themes.
+// Sonner toaster — v6 contract (gap map §1 "Toast"): the toast is a FIXED
+// light card, independent of the app theme. Earlier this followed
+// useTheme()/the `.dark` class on <html>, which flipped it to a dark card;
+// v6 wants toasts to always read as a light card even while the rest of the
+// app is dark, so `theme` is now hard-pinned to "light" and the style
+// override uses the new --toast-* tokens (--toast-bg/--toast-fg/
+// --toast-border), which are declared only in :root and never redefined in
+// .dark — they cannot flip even if something later adds a .dark override
+// elsewhere. richColors stays on for semantic icons (they use sonner's own
+// light palette once theme="light"). duration=5000 and closeButton (labeled
+// "Cerrar") match the v6 spec; the action button keeps sonner's own
+// --normal-text/--normal-bg contrast.
 
 import { Toaster } from "sonner";
-import { useTheme } from "@/hooks/use-theme";
 
 export function ThemeToaster() {
-  const { theme } = useTheme();
-
   return (
     <Toaster
-      theme={theme}
+      theme="light"
       richColors
       position="bottom-right"
+      duration={5000}
+      closeButton
       toastOptions={{
+        closeButtonAriaLabel: "Cerrar",
         style: {
-          background: "var(--color-card)",
-          color: "var(--color-ink-800)",
-          border: "1px solid var(--color-border)",
+          background: "var(--toast-bg)",
+          color: "var(--toast-fg)",
+          border: "1px solid var(--toast-border)",
         },
       }}
     />
