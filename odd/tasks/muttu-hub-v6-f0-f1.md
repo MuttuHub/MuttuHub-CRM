@@ -84,7 +84,26 @@ Strict TDD enabled globally (session config). Runner: `npm run test` (`vitest ru
       `/api/v1/settings` unchanged — no server-side files touched. Strict TDD: RED (4/8
       tests failing) → GREEN (8/8 passing). Full suite green (166 files / 1574 tests).
       Commit `90db05b` on `local/todo-integrado`, no push.
-- [ ] **F1.6** — Tablero gerencial unificado (`/tablero-gerencial` + `/`) con visualizaciones v6.
+- [x] **F1.6** — Tablero gerencial unificado (`/tablero-gerencial` + `/`) con visualizaciones v6.
+      openspec change: `tablero-gerencial-unificado` (proposal/design/tasks written this
+      session). `/tablero-gerencial` now `permanentRedirect()`s (308) to `/?cara=management`
+      instead of rendering `TableroGerencialClient` (deleted); the 5.ª cara `CaraGerencial`
+      is the one surviving implementation, enriched with radar multi-eje (5 axes: técnico,
+      financiero, indicadores, cronograma, entregables — D1 default), per-project
+      cronograma/entregables bars (`por_proyecto[]`, no more single aggregated bar),
+      "Semaforización territorial" (`por_territorio[]`, colors always against the org
+      umbral, never a per-project override — D6), Línea/Territorio filters kept LOCAL to
+      `cara-management.tsx` (never lifted into the shared `DashboardFilters` — D2), nav
+      highlighting fixed via a `cara` query-param match on `isNavActive` (D3), and a
+      doble-conteo warning when `indicadores_beneficiarios_count > 1`. D4/D5 (Visualizador
+      landing + hiding the nav item) stayed explicitly out of scope, as designed.
+      Slice A (route unification): `86682c9`. Slice B (endpoint filters + breakdowns):
+      `91cee6c`. Slice C (radar/bars/territorial/filters/warning): `8947e48`. Slice D
+      (print mirror + legacy cleanup): `f13cf29` + `befa554`. All five on `local/todo-integrado`,
+      no push. Full suite green: 166 files / 1600 tests (baseline 166/1574; net +26 new
+      tests from this change — two transient full-suite flakes in unrelated files during
+      verification were reproduced as false alarms: a clean third run and isolated re-runs
+      of every flagged file were 100% green).
 
 ## Known risks (from code exploration, 2026-09-25)
 - `project-workspace.tsx` / `.test.tsx` mid-edit, uncommitted (Cronograma work) — F1.1
@@ -195,10 +214,44 @@ session) applied phase-by-phase, strict TDD (RED confirmed before every GREEN):
 - Deviations vs v6: native `<select>` for Rubro/Soporte; `min-h-11` (44px) targets; full-word
   table headers. Task 4.7 (390px manual check) verified structurally only, not in a browser.
 
+### F1.6 (2026-09-28)
+- Slice A (route unification): `86682c9`. RED→GREEN per work unit — redirect page test
+  (0/1→1/1), `nav.test.ts` (10/12→12/12), `sidebar.test.tsx` (4/6→6/6, one assertion
+  loosened to match design.md D3's own documented gap: "Inicio" and "Tablero Gerencial"
+  both highlight while on `/` per the design's explicit "no other nav item currently
+  needs it"), `dashboard-page.test.tsx` (8/10→10/10).
+- Slice B (endpoint): `91cee6c`. `dashboard/projects/route.test.ts` 29/29→41/41 (12 new:
+  filter validation/narrowing, `por_proyecto[]`/`por_territorio[]` shape, D6's
+  org-umbral-always rule). Endpoint went from 2 to 4 `db.$queryRaw` calls per request
+  (file's own invariant comment updated). `ProjectDashboard.por_proyecto`/`por_territorio`
+  added as OPTIONAL fields (not required) so every pre-existing fixture across
+  `kpi-cards.test.tsx`/`curve-s-chart.test.tsx`/`projects.test.ts` stayed valid untouched.
+  New `ManagementDashboardFilters` type (in `hooks/dashboard.ts`) keeps `linea_estrategica`/
+  `territorio` OUT of the shared `DashboardFilters` the other 4 caras use (D2).
+- Slice C (`cara-management.tsx`): `8947e48`. 6/14→14/14. Radar axis math extracted into a
+  pure, separately-tested `buildRadarAxes()`. Territorio filter implemented as a free-text
+  input, not a chip catalog — `Proyecto.territorio` is a free string with no catalog
+  (design.md's own "Assumptions Taken"), so a fixed chip list isn't representable.
+- Slice D (print + cleanup): `f13cf29` (delete `tablero-gerencial-client.*`) + `befa554`
+  (print mirror + reworded stale comments in `curve-s-chart.tsx`/`kpi-cards.tsx` that named
+  the deleted file, no behavior touched). No pre-existing automated test covered
+  `print-dashboard.tsx`; verified by `tsc`/`eslint`/code review only.
+- Phase 5: `npx tsc --noEmit` 0 errors. `npx eslint` on every touched file (22 files across
+  all 4 slices) — 0 problems. Full suite: 166/1600 green (see F1.6 checklist entry above
+  for the flakiness note).
+
 ## Next step
-F1.4 done (local commits 4285ec2, 46a84d3, 66d7fec, no push). Legalización migration applied
-locally (2026-09-28). `gh auth` works; #44–#46 merged. Pending: archive
-`oportunidades-comerciales`, split `local/todo-integrado` (60+ commits ahead of main) into PRs,
-manual 390px checks of Legalización/Soportes/Metas. Next task: F1.5 (umbrales editables en
-Administración — the `indicador` band's admin editing UI, explicitly deferred by F1.4) on
-user OK.
+F1.6 done (local commits `86682c9`, `91cee6c`, `8947e48`, `f13cf29`, `befa554`; no push).
+F0–F1 (F1.1–F1.6) are now all complete on `local/todo-integrado`. Pending, carried forward
+from earlier sessions and still unresolved:
+- Archive the `oportunidades-comerciales` openspec change, pending user OK.
+- Split `local/todo-integrado` (many commits ahead of `main`) into reviewable PRs — not
+  attempted this session (out of scope for a single ODD task; needs an explicit chain/
+  stacked-PR decision from the user per the delivery-strategy contract).
+- Manual 390px-viewport checks across Legalización/Soportes/Metas AND the new tablero
+  gerencial sections (filter row, per-project bars, territorial list) — only verified
+  structurally (responsive utility classes, `overflow-x-auto`, `flex-wrap`), never in an
+  actual browser this session.
+- No new F0/F1 task is open; the next work item is either a fresh feature request or the
+  PR-splitting/archival housekeeping above, both of which need explicit user direction
+  before proceeding.
