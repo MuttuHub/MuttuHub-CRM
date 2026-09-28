@@ -31,8 +31,9 @@ import { CronogramaTab } from "@/components/proyectos/tabs/cronograma-tab";
 import { GanttTab } from "@/components/proyectos/tabs/gantt-tab";
 import { IndicadoresTab } from "@/components/proyectos/tabs/indicadores-tab";
 import { FinancieroTab } from "@/components/proyectos/tabs/financiero-tab";
+import { LegalizacionTab } from "@/components/proyectos/tabs/legalizacion-tab";
 
-const TAB_VALUES = ["resumen", "cronograma", "gantt", "indicadores", "financiero"] as const;
+const TAB_VALUES = ["resumen", "cronograma", "gantt", "indicadores", "financiero", "legalizacion"] as const;
 type TabValue = (typeof TAB_VALUES)[number];
 const DEFAULT_TAB: TabValue = "resumen";
 
@@ -110,6 +111,7 @@ export function ProjectWorkspace({ projectId }: { projectId: string }) {
           <TabsTrigger value="gantt">Gantt</TabsTrigger>
           <TabsTrigger value="indicadores">Indicadores</TabsTrigger>
           <TabsTrigger value="financiero">Financiero</TabsTrigger>
+          <TabsTrigger value="legalizacion">Legalización</TabsTrigger>
         </TabsList>
 
         <TabsContent value="resumen" className="mt-4">
@@ -126,6 +128,9 @@ export function ProjectWorkspace({ projectId }: { projectId: string }) {
         </TabsContent>
         <TabsContent value="financiero" className="mt-4">
           <FinancieroTab projectId={proyecto.id} />
+        </TabsContent>
+        <TabsContent value="legalizacion" className="mt-4">
+          <LegalizacionTab projectId={proyecto.id} />
         </TabsContent>
       </Tabs>
     </div>

@@ -80,6 +80,14 @@ vi.mock("@/components/proyectos/tabs/financiero-tab", () => ({
   },
 }));
 
+const legalizacionTabSpy = vi.fn();
+vi.mock("@/components/proyectos/tabs/legalizacion-tab", () => ({
+  LegalizacionTab: (props: { projectId: string }) => {
+    legalizacionTabSpy(props);
+    return <div data-testid="legalizacion-tab" />;
+  },
+}));
+
 function makeProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
   return {
     id: "proy-1",
@@ -115,6 +123,7 @@ beforeEach(() => {
   ganttTabSpy.mockClear();
   indicadoresTabSpy.mockClear();
   financieroTabSpy.mockClear();
+  legalizacionTabSpy.mockClear();
 });
 
 describe("ProjectWorkspace", () => {
@@ -141,7 +150,7 @@ describe("ProjectWorkspace", () => {
     expect(screen.queryByRole("link", { name: /oportunidad de origen/i })).not.toBeInTheDocument();
   });
 
-  it("renders Cronograma/Gantt/Indicadores/Financiero as enabled (non-disabled) tabs", () => {
+  it("renders Cronograma/Gantt/Indicadores/Financiero/Legalización as enabled (non-disabled) tabs", () => {
     detailQuery.data = makeProject();
 
     render(<ProjectWorkspace projectId="proy-1" />);
@@ -150,6 +159,7 @@ describe("ProjectWorkspace", () => {
     expect(screen.getByRole("tab", { name: "Gantt" })).not.toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("tab", { name: "Indicadores" })).not.toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("tab", { name: "Financiero" })).not.toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("tab", { name: "Legalización" })).not.toHaveAttribute("aria-disabled", "true");
   });
 
   it("mounts only the Cronograma tab's content (not Resumen) when ?tab=cronograma", () => {
@@ -207,6 +217,29 @@ describe("ProjectWorkspace", () => {
     render(<ProjectWorkspace projectId="proy-1" />);
 
     expect(screen.queryByTestId("financiero-tab")).not.toBeInTheDocument();
+  });
+
+  it("mounts only the Legalización tab's content when ?tab=legalizacion", () => {
+    detailQuery.data = makeProject();
+    searchParamsMock.get.mockImplementation((key: string) => (key === "tab" ? "legalizacion" : null));
+
+    render(<ProjectWorkspace projectId="proy-1" />);
+
+    expect(screen.getByTestId("legalizacion-tab")).toBeInTheDocument();
+    expect(legalizacionTabSpy).toHaveBeenCalledWith({ projectId: "proy-1" });
+    expect(screen.queryByTestId("resumen-tab")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("cronograma-tab")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("gantt-tab")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("indicadores-tab")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("financiero-tab")).not.toBeInTheDocument();
+  });
+
+  it("does not mount the Legalización tab's content when another tab is active", () => {
+    detailQuery.data = makeProject();
+
+    render(<ProjectWorkspace projectId="proy-1" />);
+
+    expect(screen.queryByTestId("legalizacion-tab")).not.toBeInTheDocument();
   });
 
   it("shows an access-denied message when the detail query 403s", () => {
