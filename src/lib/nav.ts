@@ -63,7 +63,10 @@ export const NAV_GROUPS: NavGroup[] = [
         exact: true,
       },
       {
-        href: "/tablero-gerencial",
+        // F1.6 (tablero-gerencial-unificado): apunta a la 5.ª cara del
+        // shell de Inicio en vez de a la ruta standalone eliminada. La ruta
+        // vieja sigue existiendo como redirect 308 (bookmarks externos).
+        href: "/?cara=management",
         label: "Tablero Gerencial",
         icon: BarChart2,
       },
@@ -109,18 +112,37 @@ export const PAGE_HEADERS: Record<string, PageHeader> = {
     title: "Solicitudes de acceso",
     subtitle: "Revisa quién pidió entrar al Hub y asigna el rol antes de aprobar.",
   },
-  "/tablero-gerencial": {
-    title: "Tablero de Control Gerencial",
-    subtitle: "KPIs en tiempo real de los proyectos de impacto social.",
-  },
+  // "/tablero-gerencial" ya no tiene entrada propia (F1.6): la ruta ahora es
+  // un redirect a "/", que ya resuelve su propio header dinámicamente.
 };
 
-export function isNavActive(pathname: string, href: string, exact = false): boolean {
-  if (!exact) {
-    if (href === "/") return pathname === "/";
-    return pathname.startsWith(href);
-  }
-  return pathname === href;
+/**
+ * F1.6 (tablero-gerencial-unificado, design.md D3): un `href` puede llevar
+ * un `cara=` query (ej. `/?cara=management`) para apuntar a una pestaña
+ * específica del shell de Inicio. Sin esto, "Tablero Gerencial" e "Inicio"
+ * se resaltarían juntos en `/` — acá se exige que el `cara` actual (leído
+ * por el caller vía `useSearchParams`) coincida con el del item, además del
+ * match de `pathname` de siempre. Un `href` sin query no cambia de
+ * comportamiento (los demás items de nav no llevan uno).
+ */
+export function isNavActive(
+  pathname: string,
+  href: string,
+  exact = false,
+  searchParams?: URLSearchParams,
+): boolean {
+  const [hrefPath, hrefQuery] = href.split("?");
+  const pathMatches = exact
+    ? pathname === hrefPath
+    : hrefPath === "/"
+      ? pathname === "/"
+      : pathname.startsWith(hrefPath);
+  if (!pathMatches) return false;
+
+  if (!hrefQuery) return true;
+  const caraEsperada = new URLSearchParams(hrefQuery).get("cara");
+  if (caraEsperada === null) return true;
+  return (searchParams?.get("cara") ?? null) === caraEsperada;
 }
 
 /** Fallback header for `PAGE_HEADERS` lookups. */

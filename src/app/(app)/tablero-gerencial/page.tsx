@@ -1,18 +1,12 @@
-// Tablero de Control Gerencial con los 6 KPIs del PRD
-// Ruta: /tablero-gerencial
+// tablero-gerencial-unificado (F1.6): ruta unificada. `/tablero-gerencial`
+// dejó de renderizar su propia implementación (`TableroGerencialClient`,
+// eliminado) y ahora es un redirect server-side permanente (308) hacia la
+// 5.ª cara "Tablero gerencial" del shell de Inicio (`/?cara=management`) —
+// un bookmark o link externo a esta ruta sigue funcionando (design.md,
+// "Routing Decision").
 
-import { Suspense } from 'react';
-import type { Metadata } from 'next';
-import { TableroGerencialClient } from '@/components/dashboard/tablero-gerencial-client';
-
-export const metadata: Metadata = {
-  title: 'Tablero de Control Gerencial',
-};
+import { permanentRedirect } from "next/navigation";
 
 export default function TableroGerencialPage() {
-  return (
-    <Suspense fallback={<div className="flex h-[600px] items-center justify-center">Cargando tablero...</div>}>
-      <TableroGerencialClient />
-    </Suspense>
-  );
+  permanentRedirect("/?cara=management");
 }

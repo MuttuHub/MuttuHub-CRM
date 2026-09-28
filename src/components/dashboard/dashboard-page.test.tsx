@@ -58,6 +58,28 @@ describe("DashboardTabs (shell)", () => {
     expect(screen.getByText("cara-management")).toBeInTheDocument();
     expect(screen.queryByText("cara-pipeline")).toBeNull();
   });
+
+  // F1.6 (tablero-gerencial-unificado, design.md's Routing Decision): `/` +
+  // `/?cara=management` (nav, o el redirect 308 de `/tablero-gerencial`)
+  // deben montar la 5.ª cara directamente, sin que el usuario tenga que
+  // hacer clic en la pestaña.
+  it("mounts the management face first when initialCara='management' (from ?cara=management)", () => {
+    render(<DashboardTabs initialCara="management" />);
+
+    expect(screen.getByText("cara-management")).toBeInTheDocument();
+    expect(screen.queryByText("cara-pipeline")).toBeNull();
+    expect(screen.getByRole("button", { name: "Tablero gerencial" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("defaults to the pipeline face when no initialCara is given", () => {
+    render(<DashboardTabs />);
+
+    expect(screen.getByText("cara-pipeline")).toBeInTheDocument();
+    expect(screen.queryByText("cara-management")).toBeNull();
+  });
 });
 
 function mockFetchOk() {

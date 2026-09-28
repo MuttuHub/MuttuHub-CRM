@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DashboardTabs } from "@/components/dashboard/dashboard-page";
+import { DashboardTabs, type CaraId } from "@/components/dashboard/dashboard-page";
 
 export const metadata: Metadata = {
   title: "Inicio",
@@ -9,16 +9,22 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
+const CARA_IDS: CaraId[] = ["pipeline", "tasks", "clients-activity", "my-summary", "management"];
+
 export default async function InicioPage({
   searchParams,
 }: {
-  searchParams: Promise<{ notice?: string }>;
+  searchParams: Promise<{ notice?: string; cara?: string }>;
 }) {
-  const { notice } = await searchParams;
+  const { notice, cara } = await searchParams;
+  // F1.6: `?cara=management` (nav, o el redirect 308 de
+  // `/tablero-gerencial`) preselecciona la 5.ª cara; un valor desconocido se
+  // ignora (DashboardTabs cae a su default "pipeline").
+  const initialCara = CARA_IDS.find((id) => id === cara);
 
   return (
     <Suspense fallback={<InicioSkeleton />}>
-      <DashboardTabs notice={notice} />
+      <DashboardTabs notice={notice} initialCara={initialCara} />
     </Suspense>
   );
 }

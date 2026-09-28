@@ -4,9 +4,11 @@ import { Sidebar } from "./sidebar"
 import { useSidebarStore } from "@/store/sidebar"
 
 let currentPath = "/tablero"
+let currentSearch = ""
 
 vi.mock("next/navigation", () => ({
   usePathname: () => currentPath,
+  useSearchParams: () => new URLSearchParams(currentSearch),
 }))
 
 vi.mock("next/link", () => ({
@@ -31,6 +33,7 @@ vi.mock("@/components/ui/tooltip", () => ({
 describe("Sidebar", () => {
   beforeEach(() => {
     currentPath = "/tablero"
+    currentSearch = ""
     localStorage.clear()
     useSidebarStore.setState({ collapsed: false, mobileOpen: false })
     document.body.style.overflow = ""
@@ -74,5 +77,26 @@ describe("Sidebar", () => {
     // collapsed state invisibly (plan Fase 5, bug 0a). The desktop rail still
     // keeps its own toggle.
     expect(within(drawer!).queryByRole("button", { name: "Contraer menú" })).not.toBeInTheDocument()
+  })
+
+  // F1.6 (tablero-gerencial-unificado, design.md D3): "Tablero Gerencial"
+  // ahora apunta a "/?cara=management" — sin leer el `cara` actual, este item
+  // e "Inicio" se resaltarían juntos en cualquier pestaña de "/".
+  it("highlights 'Tablero Gerencial' only when its own cara is active, not on every '/' tab", () => {
+    currentPath = "/"
+    currentSearch = "cara=pipeline"
+    render(<Sidebar />)
+    const inicio = screen.getByRole("link", { name: "Inicio" })
+    const tableroGerencial = screen.getByRole("link", { name: "Tablero Gerencial" })
+    expect(inicio.className).toContain("bg-rose-500")
+    expect(tableroGerencial.className).not.toContain("bg-rose-500")
+  })
+
+  it("highlights 'Tablero Gerencial' when cara=management is active (design.md D3, option a)", () => {
+    currentPath = "/"
+    currentSearch = "cara=management"
+    render(<Sidebar />)
+    const tableroGerencial = screen.getByRole("link", { name: "Tablero Gerencial" })
+    expect(tableroGerencial.className).toContain("bg-rose-500")
   })
 })

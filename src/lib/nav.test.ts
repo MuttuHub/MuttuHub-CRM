@@ -34,11 +34,27 @@ describe("isNavActive", () => {
 
   it("does not highlight Tablero (Kanban) when Tablero Gerencial is active", () => {
     const tableroKanban = NAV_GROUPS.flatMap((g) => g.items).find((i) => i.href === "/tablero")!
-    const tableroGerencial = NAV_GROUPS.flatMap((g) => g.items).find((i) => i.href === "/tablero-gerencial")!
     expect(tableroKanban.exact).toBe(true)
-    expect(isNavActive("/tablero-gerencial", tableroKanban.href, tableroKanban.exact)).toBe(false)
-    expect(isNavActive("/tablero-gerencial", tableroGerencial.href, tableroGerencial.exact)).toBe(true)
     expect(isNavActive("/tablero", tableroKanban.href, tableroKanban.exact)).toBe(true)
+  })
+
+  it("matches a `cara=` query param when the href carries one (F1.6: /?cara=management)", () => {
+    expect(isNavActive("/", "/?cara=management", false, new URLSearchParams())).toBe(false)
+    expect(
+      isNavActive("/", "/?cara=management", false, new URLSearchParams("cara=management")),
+    ).toBe(true)
+    expect(
+      isNavActive("/", "/?cara=management", false, new URLSearchParams("cara=pipeline")),
+    ).toBe(false)
+  })
+
+  it("does not require a `cara` match for an href with no query (unaffected by unrelated search params)", () => {
+    expect(isNavActive("/clientes", "/clientes", false, new URLSearchParams("cara=management"))).toBe(true)
+  })
+
+  it("the 'Tablero Gerencial' nav item points at the unified route (F1.6)", () => {
+    const tableroGerencial = NAV_GROUPS.flatMap((g) => g.items).find((i) => i.label === "Tablero Gerencial")!
+    expect(tableroGerencial.href).toBe("/?cara=management")
   })
 })
 

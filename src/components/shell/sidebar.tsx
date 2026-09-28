@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { PanelLeft, Search } from "lucide-react";
 import { NAV_GROUPS, isNavActive } from "@/lib/nav";
 import { useNavCounts } from "@/hooks/nav";
@@ -17,6 +17,7 @@ import {
 
 function SidebarContent({ rail, inDrawer = false }: { rail: boolean; inDrawer?: boolean }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const toggleCollapsed = useSidebarStore((s) => s.toggleCollapsed);
   const counts = useNavCounts().data;
   const countByHref: Partial<Record<string, number>> = {
@@ -127,7 +128,7 @@ function SidebarContent({ rail, inDrawer = false }: { rail: boolean; inDrawer?: 
               </span>
             )}
             {group.items.map((item) => {
-              const active = isNavActive(pathname, item.href, item.exact);
+              const active = isNavActive(pathname, item.href, item.exact, searchParams);
               const Icon = item.icon;
               const count = countByHref[item.href];
               const link = (

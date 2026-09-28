@@ -55,7 +55,7 @@ const CARAS = [
   { id: "management", label: "Tablero gerencial", icon: Target },
 ] as const;
 
-type CaraId = (typeof CARAS)[number]["id"];
+export type CaraId = (typeof CARAS)[number]["id"];
 
 // dashboard-export-excel: maps each cara to its own xlsx export endpoint and
 // download filename. A cara with no entry (e.g. a future "management" face —
@@ -105,8 +105,16 @@ async function descargarExcel(url: string, filename: string) {
   }
 }
 
-export function DashboardTabs({ notice }: { notice?: string }) {
-  const [cara, setCara] = useState<CaraId>("pipeline");
+export function DashboardTabs({
+  notice,
+  initialCara,
+}: {
+  notice?: string;
+  /** F1.6: preselecciona una pestaña desde `?cara=` (nav, o el redirect 308
+   * de `/tablero-gerencial`) en vez de arrancar siempre en "pipeline". */
+  initialCara?: CaraId;
+}) {
+  const [cara, setCara] = useState<CaraId>(initialCara ?? "pipeline");
   const rango = useFiltersStore((s) => s.rango);
   const setRango = useFiltersStore((s) => s.setRango);
   const [responsable, setResponsable] = useState("");
