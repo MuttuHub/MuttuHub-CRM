@@ -14,6 +14,14 @@ export type UmbralesSemaforo = {
   tecnico: { verde: number; rojo: number };
   /** Razón ejecutado / proyectado a la fecha de corte. Bidireccional. */
   financiero: { verde_min: number; verde_max: number; amarillo_min: number; amarillo_max: number };
+  /**
+   * proyecto-metas-tab (D4, KPI 3): razón valor_actual / meta_valor de un
+   * Indicador. Misma unidad (razón, no porcentaje) que tecnico/financiero.
+   * Un `Setting["semaforo_umbrales"]` guardado antes de esta banda existir
+   * no la trae — todo lector la resuelve vía `settings.ts`'s
+   * `getUmbralesSemaforo()`, nunca lee esta banda directamente del JSON.
+   */
+  indicador: { verde: number; amarillo: number };
 };
 
 export type ColorSemaforo = "verde" | "amarillo" | "rojo";
@@ -44,6 +52,18 @@ export function colorFinanciero(razon: number, u: UmbralesSemaforo): ColorSemafo
 }
 
 /**
+ * proyecto-metas-tab (D4, KPI 3): razón valor_actual / meta_valor de un
+ * Indicador. razón >= `indicador.verde` -> verde; razón >= `indicador.amarillo`
+ * (y < verde) -> amarillo; si no, rojo. Mismo estilo que colorTecnico —
+ * cortes SIEMPRE vía parámetro, nunca inline en un componente.
+ */
+export function colorIndicador(razon: number, u: UmbralesSemaforo): ColorSemaforo {
+  if (razon >= u.indicador.verde) return "verde";
+  if (razon >= u.indicador.amarillo) return "amarillo";
+  return "rojo";
+}
+
+/**
  * RF-03 / spec.md "Cálculo del Avance Técnico": promedio ponderado de
  * `porcentaje_avance` usando `peso` como ponderador sobre todas las
  * actividades no eliminadas del proyecto. Un proyecto sin actividades
@@ -66,6 +86,7 @@ const UMBRALES_OVERRIDE_SCHEMA = z
       amarillo_min: z.number(),
       amarillo_max: z.number(),
     }),
+    indicador: z.object({ verde: z.number(), amarillo: z.number() }),
   })
   .partial();
 
@@ -83,5 +104,6 @@ export function resolverUmbrales(organizacion: UmbralesSemaforo, override: unkno
     confirmado: parsed.data.confirmado ?? organizacion.confirmado,
     tecnico: parsed.data.tecnico ?? organizacion.tecnico,
     financiero: parsed.data.financiero ?? organizacion.financiero,
+    indicador: parsed.data.indicador ?? organizacion.indicador,
   };
 }

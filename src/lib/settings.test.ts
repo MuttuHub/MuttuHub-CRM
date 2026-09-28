@@ -1,12 +1,19 @@
-import { describe, expect, it } from "vitest"
-import { DOC_CATEGORIES, RESTRICTED_DOC_CATEGORIES } from "./catalogs"
+import { describe, expect, it, vi } from "vitest"
+import { DOC_CATEGORIES, RESTRICTED_DOC_CATEGORIES, UMBRALES_SEMAFORO_DEFAULT } from "./catalogs"
 import {
   defaultDocCategories,
   flattenDocCategories,
+  getUmbralesSemaforo,
   SETTING_DOC_CATEGORIES,
   SETTING_SEMAFORO_UMBRALES,
   SETTING_TASK_TAGS,
 } from "./settings"
+
+vi.mock("@/lib/db", () => ({
+  db: { setting: { findUnique: vi.fn() } },
+}))
+
+import { db } from "@/lib/db"
 
 describe("defaultDocCategories", () => {
   it("mirrors DOC_CATEGORIES in order, one entry each, without duplicates", () => {
@@ -68,6 +75,33 @@ describe("flattenDocCategories", () => {
     const { categorias, restringidas } = flattenDocCategories(defaultDocCategories())
     expect(categorias).toEqual([...DOC_CATEGORIES])
     expect(restringidas).toEqual([...RESTRICTED_DOC_CATEGORIES])
+  })
+})
+
+describe("getUmbralesSemaforo — backward-compat fill (proyecto-metas-tab, D4)", () => {
+  it("returns the org default (including indicador) when no row is stored", async () => {
+    vi.mocked(db.setting.findUnique).mockResolvedValue(null)
+    const resultado = await getUmbralesSemaforo()
+    expect(resultado).toEqual(UMBRALES_SEMAFORO_DEFAULT)
+  })
+
+  it("returns the stored value verbatim when it already has an indicador band", async () => {
+    const stored = {
+      ...UMBRALES_SEMAFORO_DEFAULT,
+      indicador: { verde: 0.95, amarillo: 0.7 },
+    }
+    vi.mocked(db.setting.findUnique).mockResolvedValue({ value: stored } as never)
+    const resultado = await getUmbralesSemaforo()
+    expect(resultado.indicador).toEqual({ verde: 0.95, amarillo: 0.7 })
+  })
+
+  it("backfills indicador from the default when the stored row predates this change", async () => {
+    const legacy: Record<string, unknown> = { ...UMBRALES_SEMAFORO_DEFAULT }
+    delete legacy.indicador
+    vi.mocked(db.setting.findUnique).mockResolvedValue({ value: legacy } as never)
+    const resultado = await getUmbralesSemaforo()
+    expect(resultado.indicador).toEqual(UMBRALES_SEMAFORO_DEFAULT.indicador)
+    expect(resultado.tecnico).toEqual(legacy.tecnico)
   })
 })
 

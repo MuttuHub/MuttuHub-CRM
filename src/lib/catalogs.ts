@@ -164,6 +164,9 @@ export const UMBRALES_SEMAFORO_DEFAULT: UmbralesSemaforo = {
   confirmado: true,
   tecnico: { verde: 0.85, rojo: 0.6 },
   financiero: { verde_min: 0.8, verde_max: 1.05, amarillo_min: 0.6, amarillo_max: 1.2 },
+  // proyecto-metas-tab (D4, KPI 3): valores exactos de v6 (≥90% verde,
+  // ≥60% amarillo), como razón, no porcentaje.
+  indicador: { verde: 0.9, amarillo: 0.6 },
 };
 
 // tablero-seguimiento-social (RF-04/RF-06, Fase 3b): tipo de soporte de

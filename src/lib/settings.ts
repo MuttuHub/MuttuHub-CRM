@@ -12,6 +12,7 @@ import {
   TASK_TAGS,
   UMBRALES_SEMAFORO_DEFAULT,
 } from "@/lib/catalogs";
+import type { UmbralesSemaforo } from "@/lib/semaforo";
 
 export const SETTING_TASK_TAGS = "task_tags";
 export const SETTING_DOC_CATEGORIES = "doc_categories";
@@ -61,6 +62,18 @@ export async function ensureDefaultSettings(): Promise<void> {
     },
     update: {},
   });
+}
+
+/**
+ * proyecto-metas-tab (D4): lectura normalizada de `semaforo_umbrales` — un
+ * registro guardado antes de que existiera la banda `indicador` (JSON, sin
+ * migración) no la trae; sin este relleno, `colorIndicador` recibiría
+ * `undefined.verde`. Todo lector server-side de esta banda para colorear un
+ * indicador MUST pasar por acá, nunca por `getSetting` crudo.
+ */
+export async function getUmbralesSemaforo(): Promise<UmbralesSemaforo> {
+  const raw = await getSetting<UmbralesSemaforo>(SETTING_SEMAFORO_UMBRALES, UMBRALES_SEMAFORO_DEFAULT);
+  return { ...raw, indicador: raw.indicador ?? UMBRALES_SEMAFORO_DEFAULT.indicador };
 }
 
 /** Upsert del valor con registro de quién lo editó (gates del admin). */

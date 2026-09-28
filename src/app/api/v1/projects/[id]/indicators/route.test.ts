@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Usuario } from "@prisma/client";
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -9,6 +9,7 @@ vi.mock("@/lib/db", () => ({
   db: {
     proyecto: {
       findFirst: vi.fn(),
+      findUnique: vi.fn(),
     },
     meta: {
       findFirst: vi.fn(),
@@ -17,11 +18,15 @@ vi.mock("@/lib/db", () => ({
       findMany: vi.fn(),
       create: vi.fn(),
     },
+    setting: {
+      findUnique: vi.fn(),
+    },
   },
 }));
 
 import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/supabase/server";
+import { UMBRALES_SEMAFORO_DEFAULT } from "@/lib/catalogs";
 import { GET, POST } from "./route";
 
 const gerencia = {
@@ -126,6 +131,73 @@ describe("GET /api/v1/projects/:id/indicators", () => {
     const res = await GET(new Request("http://localhost/api/v1/projects/proy-1/indicators"), routeContext);
 
     expect(res.status).toBe(200);
+  });
+
+  // proyecto-metas-tab (D4): color_indicador is computed server-side, same
+  // pattern as budget/route.ts's color_financiero — the client never
+  // recomputes it.
+  describe("color_indicador (D4)", () => {
+    beforeEach(() => {
+      authAs(visualizador);
+      vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "proy-1", responsable_id: "colab-2" } as never);
+    });
+
+    it("colors verde when the ratio meets the org default (90%)", async () => {
+      vi.mocked(db.proyecto.findUnique).mockResolvedValue({ umbrales_override: null } as never);
+      vi.mocked(db.setting.findUnique).mockResolvedValue(null);
+      vi.mocked(db.indicador.findMany).mockResolvedValue([
+        indicadorRow({ meta_valor: 100, valor_actual: 90 }),
+      ] as never);
+
+      const res = await GET(new Request("http://localhost/api/v1/projects/proy-1/indicators"), routeContext);
+      const json = await res.json();
+
+      expect(json.indicadores[0].color_indicador).toBe("verde");
+    });
+
+    it("colors rojo when valor_actual is null (sin medir)", async () => {
+      vi.mocked(db.proyecto.findUnique).mockResolvedValue({ umbrales_override: null } as never);
+      vi.mocked(db.setting.findUnique).mockResolvedValue(null);
+      vi.mocked(db.indicador.findMany).mockResolvedValue([
+        indicadorRow({ meta_valor: 100, valor_actual: null }),
+      ] as never);
+
+      const res = await GET(new Request("http://localhost/api/v1/projects/proy-1/indicators"), routeContext);
+      const json = await res.json();
+
+      expect(json.indicadores[0].color_indicador).toBe("rojo");
+    });
+
+    it("prefers the project's umbrales_override.indicador over the org default", async () => {
+      vi.mocked(db.proyecto.findUnique).mockResolvedValue({
+        umbrales_override: { indicador: { verde: 0.5, amarillo: 0.3 } },
+      } as never);
+      vi.mocked(db.setting.findUnique).mockResolvedValue(null);
+      vi.mocked(db.indicador.findMany).mockResolvedValue([
+        indicadorRow({ meta_valor: 100, valor_actual: 55 }),
+      ] as never);
+
+      const res = await GET(new Request("http://localhost/api/v1/projects/proy-1/indicators"), routeContext);
+      const json = await res.json();
+
+      // 0.55 >= override's 0.5 -> verde, even though it's below the org
+      // default's 0.9 -> proves the override, not the default, was used.
+      expect(json.indicadores[0].color_indicador).toBe("verde");
+    });
+
+    it("falls back to UMBRALES_SEMAFORO_DEFAULT.indicador when no override and no stored setting exist", async () => {
+      vi.mocked(db.proyecto.findUnique).mockResolvedValue({ umbrales_override: null } as never);
+      vi.mocked(db.setting.findUnique).mockResolvedValue(null);
+      const bordeAmarillo = UMBRALES_SEMAFORO_DEFAULT.indicador.amarillo * 100;
+      vi.mocked(db.indicador.findMany).mockResolvedValue([
+        indicadorRow({ meta_valor: 100, valor_actual: bordeAmarillo }),
+      ] as never);
+
+      const res = await GET(new Request("http://localhost/api/v1/projects/proy-1/indicators"), routeContext);
+      const json = await res.json();
+
+      expect(json.indicadores[0].color_indicador).toBe("amarillo");
+    });
   });
 });
 

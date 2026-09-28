@@ -19,6 +19,8 @@ import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { zodError } from "@/lib/api/crm";
 import { getProjectForWrite, loadProjectScoped } from "@/lib/api/projects";
+import { getUmbralesSemaforo } from "@/lib/settings";
+import { colorIndicador, resolverUmbrales, type UmbralesSemaforo } from "@/lib/semaforo";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +56,34 @@ export const INDICATOR_SCHEMA = z.object({
   cuenta_beneficiarios: z.boolean().optional(),
 });
 
+/**
+ * proyecto-metas-tab (D4): resolves this project's `UmbralesSemaforo`
+ * (org setting + `umbrales_override`), same pattern as `budget/route.ts`.
+ */
+export async function resolveProjectUmbrales(proyectoId: string): Promise<UmbralesSemaforo> {
+  const [proyecto, umbralesOrganizacion] = await Promise.all([
+    db.proyecto.findUnique({ where: { id: proyectoId }, select: { umbrales_override: true } }),
+    getUmbralesSemaforo(),
+  ]);
+  return resolverUmbrales(umbralesOrganizacion, proyecto?.umbrales_override ?? null);
+}
+
+/**
+ * proyecto-metas-tab (D4): adds the derived, read-only `color_indicador` to
+ * one indicador row — never a database column, computed server-side so the
+ * client renders it verbatim (same discipline as `budget/route.ts`'s
+ * `color_financiero`).
+ */
+export function withColorIndicador<T extends { meta_valor: unknown; valor_actual: unknown }>(
+  indicador: T,
+  umbrales: UmbralesSemaforo,
+): T & { color_indicador: "verde" | "amarillo" | "rojo" } {
+  const meta = Number(indicador.meta_valor);
+  const actual = indicador.valor_actual === null ? null : Number(indicador.valor_actual);
+  const razon = actual !== null && meta > 0 ? actual / meta : 0;
+  return { ...indicador, color_indicador: colorIndicador(razon, umbrales) };
+}
+
 export const GET = withApiErrorHandling(
   "projects",
   "No pudimos cargar los indicadores del proyecto. Inténtalo de nuevo.",
@@ -71,13 +101,18 @@ export const GET = withApiErrorHandling(
       );
     }
 
-    const indicadores = await db.indicador.findMany({
-      where: { proyecto_id: id, deleted_at: null },
-      select: INDICATOR_SELECT,
-      orderBy: { created_at: "desc" },
-    });
+    const [indicadores, umbrales] = await Promise.all([
+      db.indicador.findMany({
+        where: { proyecto_id: id, deleted_at: null },
+        select: INDICATOR_SELECT,
+        orderBy: { created_at: "desc" },
+      }),
+      resolveProjectUmbrales(id),
+    ]);
 
-    return NextResponse.json({ indicadores });
+    return NextResponse.json({
+      indicadores: indicadores.map((indicador) => withColorIndicador(indicador, umbrales)),
+    });
   },
 );
 

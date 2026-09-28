@@ -21,13 +21,23 @@ import { documentQueryKeys } from "@/hooks/documents";
 
 /* ── DTOs (server response shapes) ─────────────────────────────────────── */
 
+// proyecto-metas-tab (D4): `indicador` is optional on the wire — this admin
+// section builds no editing UI for that band (F1.5), so its save payload
+// never includes the key; the server preserves whatever is already stored.
+// GET always returns the full band in practice (server-side backfill via
+// `getUmbralesSemaforo()`), this type is just conservative about the PUT
+// round-trip shape.
+export type SemaforoUmbralesInput = Omit<UmbralesSemaforo, "indicador"> & {
+  indicador?: UmbralesSemaforo["indicador"];
+};
+
 export type SettingsSnapshot = {
   task_tags: string[];
   doc_categories: DocCategoriaSetting[];
   // admin-umbrales-semaforo-ui: GET siempre lo puebla (getSetting con
   // fallback en el servidor); opcional acá solo para que useSaveSettings
   // pueda recibir un snapshot parcial sin tocar este campo.
-  semaforo_umbrales?: UmbralesSemaforo;
+  semaforo_umbrales?: SemaforoUmbralesInput;
 };
 
 export type AccesoRow = {

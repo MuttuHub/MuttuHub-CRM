@@ -9,7 +9,7 @@
 import { NextResponse } from "next/server";
 import { apiError, parseJsonBody } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
-import { TASK_TAGS, UMBRALES_SEMAFORO_DEFAULT } from "@/lib/catalogs";
+import { TASK_TAGS } from "@/lib/catalogs";
 import type { UmbralesSemaforo } from "@/lib/semaforo";
 import { requireApiRole } from "@/lib/supabase/server";
 import {
@@ -17,6 +17,7 @@ import {
   DocCategoriaSetting,
   ensureDefaultSettings,
   getSetting,
+  getUmbralesSemaforo,
   SETTING_DOC_CATEGORIES,
   SETTING_SEMAFORO_UMBRALES,
   SETTING_TASK_TAGS,
@@ -36,12 +37,21 @@ function isDocCategoryItem(value: unknown): value is DocCategoriaSetting {
   return typeof v.nombre === "string" && typeof v.restringida === "boolean";
 }
 
+// proyecto-metas-tab (D4): `indicador` is optional on the WIRE — the
+// currently-shipped `UmbralesSection` (admin) builds no editing UI for it
+// (F1.5), so its own save payload never includes the key. `confirmado`/
+// `tecnico`/`financiero` stay required exactly as before.
+type UmbralesSemaforoInput = Omit<UmbralesSemaforo, "indicador"> & {
+  indicador?: UmbralesSemaforo["indicador"];
+};
+
 // admin-umbrales-semaforo-ui: type-guard manual (mismo estilo que
 // isDocCategoryItem arriba, este repo no usa zod en esta ruta) — NO
 // reutiliza UMBRALES_OVERRIDE_SCHEMA de semaforo.ts (ese es `.partial()`
 // para el merge de override por proyecto, un propósito distinto); acá el
-// setting de organización siempre exige la forma completa.
-function isUmbralesSemaforo(value: unknown): value is UmbralesSemaforo {
+// setting de organización siempre exige la forma completa salvo `indicador`
+// (D4 — opcional en el body, nunca en el objeto guardado, ver PUT).
+function isUmbralesSemaforo(value: unknown): value is UmbralesSemaforoInput {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
   if (typeof v.confirmado !== "boolean") return false;
@@ -54,19 +64,29 @@ function isUmbralesSemaforo(value: unknown): value is UmbralesSemaforo {
   const financiero = v.financiero;
   if (typeof financiero !== "object" || financiero === null) return false;
   const f = financiero as Record<string, unknown>;
-  return (
-    typeof f.verde_min === "number" &&
-    typeof f.verde_max === "number" &&
-    typeof f.amarillo_min === "number" &&
-    typeof f.amarillo_max === "number"
-  );
+  if (
+    typeof f.verde_min !== "number" ||
+    typeof f.verde_max !== "number" ||
+    typeof f.amarillo_min !== "number" ||
+    typeof f.amarillo_max !== "number"
+  ) {
+    return false;
+  }
+
+  if (v.indicador !== undefined) {
+    if (typeof v.indicador !== "object" || v.indicador === null) return false;
+    const i = v.indicador as Record<string, unknown>;
+    if (typeof i.verde !== "number" || typeof i.amarillo !== "number") return false;
+  }
+
+  return true;
 }
 
 async function readSnapshot() {
   const [task_tags, doc_categories, semaforo_umbrales] = await Promise.all([
     getSetting<string[]>(SETTING_TASK_TAGS, [...TASK_TAGS]),
     getSetting<DocCategoriaSetting[]>(SETTING_DOC_CATEGORIES, defaultDocCategories()),
-    getSetting<UmbralesSemaforo>(SETTING_SEMAFORO_UMBRALES, UMBRALES_SEMAFORO_DEFAULT),
+    getUmbralesSemaforo(),
   ]);
   return { task_tags, doc_categories, semaforo_umbrales };
 }
@@ -160,7 +180,19 @@ export const PUT = withApiErrorHandling(
           "VALIDATION_ERROR",
         );
       }
-      umbrales = body.semaforo_umbrales;
+      const incoming = body.semaforo_umbrales;
+      // D4: preserve the currently-stored `indicador` when the request omits
+      // it — `UmbralesSection` (admin) never sends this key today (no
+      // editing UI, F1.5), so a bare replace would silently wipe the band.
+      const indicador = incoming.indicador ?? (await getUmbralesSemaforo()).indicador;
+      umbrales = { ...incoming, indicador };
+      if (umbrales.indicador.amarillo > umbrales.indicador.verde) {
+        return apiError(
+          "El umbral de indicador 'amarillo' no puede ser mayor que 'verde'.",
+          400,
+          "VALIDATION_ERROR",
+        );
+      }
       if (umbrales.tecnico.rojo > umbrales.tecnico.verde) {
         return apiError(
           "El umbral técnico 'rojo' no puede ser mayor que 'verde'.",

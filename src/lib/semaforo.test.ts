@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   avanceTecnico,
   colorFinanciero,
+  colorIndicador,
   colorTecnico,
   resolverUmbrales,
   type UmbralesSemaforo,
@@ -11,10 +12,15 @@ import {
 // the comparison reads its cut values from a parameter, never from a
 // hardcoded constant in semaforo.ts (spec.md's "Cambio de parámetro sin
 // despliegue" scenario, exercised below).
+//
+// proyecto-metas-tab (D4, corrected 2026-09-28): `indicador` is the KPI 3
+// band (verde >= 90%, amarillo >= 60%), same ratio convention as
+// tecnico/financiero.
 const UMBRALES: UmbralesSemaforo = {
   confirmado: true,
   tecnico: { verde: 0.85, rojo: 0.6 },
   financiero: { verde_min: 0.85, verde_max: 1.15, amarillo_min: 0.6, amarillo_max: 1.4 },
+  indicador: { verde: 0.9, amarillo: 0.6 },
 };
 
 describe("colorTecnico", () => {
@@ -89,6 +95,41 @@ describe("colorFinanciero (bidirectional, D10)", () => {
   });
 });
 
+describe("colorIndicador — KPI 3, proyecto-metas-tab (D4)", () => {
+  it("returns verde at exactly the configured green threshold", () => {
+    expect(colorIndicador(0.9, UMBRALES)).toBe("verde");
+  });
+
+  it("returns verde above the configured green threshold", () => {
+    expect(colorIndicador(1.0, UMBRALES)).toBe("verde");
+  });
+
+  it("returns amarillo between the configured thresholds, inclusive of the lower boundary", () => {
+    expect(colorIndicador(0.6, UMBRALES)).toBe("amarillo");
+    expect(colorIndicador(0.75, UMBRALES)).toBe("amarillo");
+    expect(colorIndicador(0.8999, UMBRALES)).toBe("amarillo");
+  });
+
+  it("returns rojo strictly below the configured amarillo threshold", () => {
+    expect(colorIndicador(0.5999, UMBRALES)).toBe("rojo");
+  });
+
+  it("returns rojo for an unmeasured indicator (razon 0)", () => {
+    expect(colorIndicador(0, UMBRALES)).toBe("rojo");
+  });
+
+  it("changes color for identical data when only the configured parameter changes — proves it is not hardcoded", () => {
+    const razon = 0.7;
+    expect(colorIndicador(razon, UMBRALES)).toBe("amarillo");
+
+    const umbralesEstrictos: UmbralesSemaforo = {
+      ...UMBRALES,
+      indicador: { verde: 0.5, amarillo: 0.3 },
+    };
+    expect(colorIndicador(razon, umbralesEstrictos)).toBe("verde");
+  });
+});
+
 describe("avanceTecnico — Cálculo del Avance Técnico (RF-03)", () => {
   it("computes the weighted average: (100x2 + 40x1)/3 = 80", () => {
     const actividades = [
@@ -128,5 +169,16 @@ describe("resolverUmbrales — override del proyecto > setting de organización"
     expect(resultado.tecnico).toEqual({ verde: 0.9, rojo: 0.65 });
     expect(resultado.financiero).toEqual(UMBRALES.financiero);
     expect(resultado.confirmado).toBe(UMBRALES.confirmado);
+  });
+
+  it("merges a project override for the indicador band (D4), same as tecnico/financiero", () => {
+    const resultado = resolverUmbrales(UMBRALES, { indicador: { verde: 0.95, amarillo: 0.7 } });
+    expect(resultado.indicador).toEqual({ verde: 0.95, amarillo: 0.7 });
+    expect(resultado.tecnico).toEqual(UMBRALES.tecnico);
+  });
+
+  it("falls back to the organization's indicador band when the override omits it", () => {
+    const resultado = resolverUmbrales(UMBRALES, { tecnico: { verde: 0.9, rojo: 0.65 } });
+    expect(resultado.indicador).toEqual(UMBRALES.indicador);
   });
 });

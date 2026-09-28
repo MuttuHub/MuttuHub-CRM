@@ -13,9 +13,9 @@ import { AlertTriangle, LoaderCircle, Save } from "lucide-react";
 import {
   useSaveSettings,
   useSettings,
+  type SemaforoUmbralesInput,
   type SettingsSnapshot,
 } from "@/hooks/admin";
-import type { UmbralesSemaforo } from "@/lib/semaforo";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -36,7 +36,7 @@ function toPercentString(ratio: number): string {
   return String(Math.round(ratio * 100));
 }
 
-function umbralesToDraft(u: UmbralesSemaforo): Draft {
+function umbralesToDraft(u: SemaforoUmbralesInput): Draft {
   return {
     confirmado: u.confirmado,
     tecnico_verde: toPercentString(u.tecnico.verde),
@@ -51,7 +51,7 @@ function umbralesToDraft(u: UmbralesSemaforo): Draft {
 /** null cuando algún campo no es un número válido (input vacío/malformado);
  * la UI lo trata como "no se puede guardar todavía", no como un error de
  * coherencia específico. */
-function draftToUmbrales(d: Draft): UmbralesSemaforo | null {
+function draftToUmbrales(d: Draft): SemaforoUmbralesInput | null {
   const [verde, rojo, verde_min, verde_max, amarillo_min, amarillo_max] = [
     d.tecnico_verde,
     d.tecnico_rojo,
@@ -81,7 +81,7 @@ function draftToUmbrales(d: Draft): UmbralesSemaforo | null {
 
 /** Mismas coherencias que valida el PUT /api/v1/settings (ver route.ts) y
  * que colorTecnico/colorFinanciero (src/lib/semaforo.ts) asumen. */
-function validationErrors(parsed: UmbralesSemaforo | null): string[] {
+function validationErrors(parsed: SemaforoUmbralesInput | null): string[] {
   if (!parsed) return ["Todos los umbrales deben ser números."];
   const errors: string[] = [];
   if (parsed.tecnico.rojo > parsed.tecnico.verde) {
@@ -96,7 +96,7 @@ function validationErrors(parsed: UmbralesSemaforo | null): string[] {
   return errors;
 }
 
-function sameUmbrales(a: UmbralesSemaforo | undefined, b: UmbralesSemaforo | null): boolean {
+function sameUmbrales(a: SemaforoUmbralesInput | undefined, b: SemaforoUmbralesInput | null): boolean {
   if (!a || !b) return false;
   return JSON.stringify(a) === JSON.stringify(b);
 }

@@ -51,6 +51,11 @@ function makeIndicador(overrides: Partial<Indicador> = {}): Indicador {
     cuenta_beneficiarios: false,
     created_at: "",
     updated_at: "",
+    // proyecto-metas-tab (D4): server-derived field, present on every real
+    // response; this tab never reads it (its own progress bar predates this
+    // change, see indicadores-tab.tsx), the fixture just needs to satisfy
+    // the `Indicador` type.
+    color_indicador: "amarillo",
     ...overrides,
   };
 }

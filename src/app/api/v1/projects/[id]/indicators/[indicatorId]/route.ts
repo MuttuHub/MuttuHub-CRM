@@ -15,7 +15,7 @@ import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { zodError } from "@/lib/api/crm";
 import { getProjectForWrite, loadProjectScoped } from "@/lib/api/projects";
-import { INDICATOR_SELECT } from "../route";
+import { INDICATOR_SELECT, resolveProjectUmbrales, withColorIndicador } from "../route";
 
 export const dynamic = "force-dynamic";
 
@@ -66,7 +66,8 @@ export const GET = withApiErrorHandling(
       return apiError("El indicador no existe.", 404, "NOT_FOUND");
     }
 
-    return NextResponse.json({ indicador });
+    const umbrales = await resolveProjectUmbrales(id);
+    return NextResponse.json({ indicador: withColorIndicador(indicador, umbrales) });
   },
 );
 
@@ -127,7 +128,8 @@ export const PATCH = withApiErrorHandling(
       select: INDICATOR_SELECT,
     });
 
-    return NextResponse.json({ indicador: updated });
+    const umbrales = await resolveProjectUmbrales(id);
+    return NextResponse.json({ indicador: withColorIndicador(updated, umbrales) });
   },
 );
 

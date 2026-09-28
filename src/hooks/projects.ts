@@ -83,6 +83,10 @@ export type Indicador = {
   cuenta_beneficiarios: boolean;
   created_at: string;
   updated_at: string;
+  /** proyecto-metas-tab (D4, KPI 3): computed server-side from
+   * `valor_actual / meta_valor` against `UmbralesSemaforo.indicador` —
+   * rendered verbatim by the client, never recomputed. */
+  color_indicador: "verde" | "amarillo" | "rojo";
 };
 
 export type Soporte = {

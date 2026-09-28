@@ -9,6 +9,7 @@ vi.mock("@/lib/db", () => ({
   db: {
     proyecto: {
       findFirst: vi.fn(),
+      findUnique: vi.fn(),
     },
     meta: {
       findFirst: vi.fn(),
@@ -16,6 +17,9 @@ vi.mock("@/lib/db", () => ({
     indicador: {
       findFirst: vi.fn(),
       update: vi.fn(),
+    },
+    setting: {
+      findUnique: vi.fn(),
     },
   },
 }));
@@ -125,6 +129,26 @@ describe("GET /api/v1/projects/:id/indicators/:indicatorId", () => {
 
     expect(res.status).toBe(200);
   });
+
+  // proyecto-metas-tab (D4): server-side color, same pattern as the parent
+  // indicators/route.ts GET.
+  it("includes color_indicador, computed from the resolved org default", async () => {
+    authAs(gerencia);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "proy-1", responsable_id: "colab-2" } as never);
+    vi.mocked(db.proyecto.findUnique).mockResolvedValue({ umbrales_override: null } as never);
+    vi.mocked(db.setting.findUnique).mockResolvedValue(null);
+    vi.mocked(db.indicador.findFirst).mockResolvedValue(
+      indicadorRow({ meta_valor: 100, valor_actual: null }) as never,
+    );
+
+    const res = await GET(
+      new Request("http://localhost/api/v1/projects/proy-1/indicators/indicador-1"),
+      routeContext,
+    );
+    const json = await res.json();
+
+    expect(json.indicador.color_indicador).toBe("rojo");
+  });
 });
 
 describe("PATCH /api/v1/projects/:id/indicators/:indicatorId", () => {
@@ -201,6 +225,24 @@ describe("PATCH /api/v1/projects/:id/indicators/:indicatorId", () => {
     expect(db.indicador.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "indicador-1" }, data: { nombre: "Indicador Editado" } }),
     );
+  });
+
+  // proyecto-metas-tab (D4): the PATCH response reflects the new
+  // valor_actual's color immediately, same server-side computation as GET.
+  it("returns color_indicador reflecting the updated valor_actual", async () => {
+    authAs(gerencia);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "proy-1", responsable_id: "colab-2" } as never);
+    vi.mocked(db.proyecto.findUnique).mockResolvedValue({ umbrales_override: null } as never);
+    vi.mocked(db.setting.findUnique).mockResolvedValue(null);
+    vi.mocked(db.indicador.findFirst).mockResolvedValue(indicadorRow() as never);
+    vi.mocked(db.indicador.update).mockResolvedValue(
+      indicadorRow({ meta_valor: 100, valor_actual: 95 }) as never,
+    );
+
+    const res = await PATCH(patchRequest({ valor_actual: 95 }), routeContext);
+    const json = await res.json();
+
+    expect(json.indicador.color_indicador).toBe("verde");
   });
 });
 

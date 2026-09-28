@@ -189,7 +189,12 @@ describe("PUT /api/v1/settings", () => {
   // presentes con el tipo correcto) + las 3 coherencias que semaforo.ts
   // asume (tecnico.rojo <= tecnico.verde, financiero.verde_min <=
   // verde_max, financiero.amarillo_min <= amarillo_max).
-  const VALID_UMBRALES: UmbralesSemaforo = {
+  //
+  // proyecto-metas-tab (D4): `indicador` is intentionally OMITTED here —
+  // this is exactly the shape `UmbralesSection` (admin) sends today, since
+  // it builds no editing UI for that band (F1.5). The PUT MUST preserve
+  // whatever `indicador` is already stored instead of dropping it.
+  const VALID_UMBRALES: Omit<UmbralesSemaforo, "indicador"> = {
     confirmado: true,
     tecnico: { verde: 0.9, rojo: 0.5 },
     financiero: { verde_min: 0.85, verde_max: 1.15, amarillo_min: 0.6, amarillo_max: 1.4 },
@@ -270,24 +275,98 @@ describe("PUT /api/v1/settings", () => {
     expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
   });
 
-  it("updates semaforo_umbrales only and returns the fresh snapshot", async () => {
+  it("updates semaforo_umbrales only, preserving the org default indicador when omitted (D4)", async () => {
     mockAuth(admin);
     vi.mocked(db.setting.upsert).mockResolvedValue({} as never);
+    const esperado = { ...VALID_UMBRALES, indicador: UMBRALES_SEMAFORO_DEFAULT.indicador };
     vi.mocked(db.setting.findUnique)
+      // 1) merge fetch inside the PUT handler (no row stored yet -> org default indicador)
+      .mockResolvedValueOnce(null as never)
+      // 2-3) readSnapshot's task_tags/doc_categories
       .mockResolvedValueOnce(null as never)
       .mockResolvedValueOnce(null as never)
-      .mockResolvedValueOnce({ value: VALID_UMBRALES } as never);
+      // 4) readSnapshot's semaforo_umbrales, round-tripping what was just saved
+      .mockResolvedValueOnce({ value: esperado } as never);
 
     const res = await PUT(putRequest({ semaforo_umbrales: VALID_UMBRALES }));
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json.semaforo_umbrales).toEqual(VALID_UMBRALES);
+    expect(json.semaforo_umbrales).toEqual(esperado);
     expect(db.setting.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { key: "semaforo_umbrales" },
-        update: { value: VALID_UMBRALES, updated_by: "admin-1" },
+        update: { value: esperado, updated_by: "admin-1" },
       }),
     );
+  });
+
+  it("preserves a previously-customized indicador band when the PUT body omits it (D4)", async () => {
+    mockAuth(admin);
+    vi.mocked(db.setting.upsert).mockResolvedValue({} as never);
+    const customIndicador = { verde: 0.95, amarillo: 0.7 };
+    const esperado = { ...VALID_UMBRALES, indicador: customIndicador };
+    vi.mocked(db.setting.findUnique)
+      .mockResolvedValueOnce({ value: { ...VALID_UMBRALES, indicador: customIndicador } } as never)
+      .mockResolvedValueOnce(null as never)
+      .mockResolvedValueOnce(null as never)
+      .mockResolvedValueOnce({ value: esperado } as never);
+
+    const res = await PUT(putRequest({ semaforo_umbrales: VALID_UMBRALES }));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.semaforo_umbrales.indicador).toEqual(customIndicador);
+  });
+
+  it("saves an explicit indicador band when the PUT body includes it (D4)", async () => {
+    mockAuth(admin);
+    vi.mocked(db.setting.upsert).mockResolvedValue({} as never);
+    const explicito = { ...VALID_UMBRALES, indicador: { verde: 0.85, amarillo: 0.5 } };
+    // No merge-fetch call here: `incoming.indicador` is present, so the `??`
+    // short-circuits and getUmbralesSemaforo() is never invoked — only
+    // readSnapshot's 3 reads happen.
+    vi.mocked(db.setting.findUnique)
+      .mockResolvedValueOnce(null as never)
+      .mockResolvedValueOnce(null as never)
+      .mockResolvedValueOnce({ value: explicito } as never);
+
+    const res = await PUT(putRequest({ semaforo_umbrales: explicito }));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.semaforo_umbrales).toEqual(explicito);
+    expect(db.setting.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { key: "semaforo_umbrales" },
+        update: { value: explicito, updated_by: "admin-1" },
+      }),
+    );
+  });
+
+  it("returns 400 when indicador.amarillo is greater than indicador.verde", async () => {
+    mockAuth(admin);
+
+    const res = await PUT(
+      putRequest({
+        semaforo_umbrales: { ...VALID_UMBRALES, indicador: { verde: 0.5, amarillo: 0.9 } },
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+  });
+
+  it("returns 400 when indicador has a wrong field type", async () => {
+    mockAuth(admin);
+
+    const res = await PUT(
+      putRequest({
+        semaforo_umbrales: { ...VALID_UMBRALES, indicador: { verde: "0.9", amarillo: 0.5 } },
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
   });
 });
