@@ -34,11 +34,15 @@ Strict TDD enabled globally (session config). Runner: `npm run test` (`vitest ru
 
 ## Tasks
 
-- [ ] **F0.1** — Verify PRs #44/#45/#46 status, merge in order, archive the
+- [x] **F0.1** — Verify PRs #44/#45/#46 status, merge in order, archive the
       `oportunidades-comerciales` OpenSpec change.
       2026-09-28: `gh auth` works (active account MuttuHub). #44/#45/#46 all MERGED to main
-      on 2026-09-17 (plus #47: ephemeral Postgres for invariant tests in CI). Remaining:
-      archive the `oportunidades-comerciales` OpenSpec change (pending user OK).
+      on 2026-09-17 (plus #47: ephemeral Postgres for invariant tests in CI). Archived
+      2026-09-28: change folder moved to
+      `openspec/changes/archive/2026-09-28-oportunidades-comerciales/`, 3 new spec domains
+      (`commercial-opportunities`, `opportunity-access-control`, `opportunity-task-linking`)
+      merged to `openspec/specs/`. Commits: `docs(openspec): archive oportunidades-comerciales
+      change`, `docs(odd): mark F0.1 done`.
 - [x] **F0.2** — PR-ready the Cronograma/Gantt/Indicadores tabs from `local/todo-integrado`;
       delete confirmed dead code: **all of `project-sheet.tsx` + its test** (not just
       `CronogramaTab` — verified zero live importers beyond its own test).
@@ -244,7 +248,6 @@ session) applied phase-by-phase, strict TDD (RED confirmed before every GREEN):
 F1.6 done (local commits `86682c9`, `91cee6c`, `8947e48`, `f13cf29`, `befa554`; no push).
 F0–F1 (F1.1–F1.6) are now all complete on `local/todo-integrado`. Pending, carried forward
 from earlier sessions and still unresolved:
-- Archive the `oportunidades-comerciales` openspec change, pending user OK.
 - Split `local/todo-integrado` (many commits ahead of `main`) into reviewable PRs — not
   attempted this session (out of scope for a single ODD task; needs an explicit chain/
   stacked-PR decision from the user per the delivery-strategy contract).
