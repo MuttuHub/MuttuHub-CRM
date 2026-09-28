@@ -52,8 +52,9 @@ Strict TDD enabled globally (session config). Runner: `npm run test` (`vitest ru
       design brief (80/105/60/79/106/120) vs `UMBRALES_SEMAFORO_DEFAULT` code defaults
       (85/115/60/140) — adopting v6 numbers as org default per Auditoría recommendation.
       Per-person breakdown by rubro explicitly out of scope (no `Gasto.tercero` field yet).
-- [ ] **F1.2** — Pestaña Legalización + modal Registrar gasto (RF-06). Additive migration
-      on `Gasto`: `tercero`, `numero_comprobante`, `estado_legalizacion`.
+- [x] **F1.2** — Pestaña Legalización + modal Registrar gasto (RF-06). Additive migration
+      on `Gasto`: `tercero`, `numero_comprobante`, `observado`, `observacion`
+      (`estado_legalizacion` is derived in the API, not stored). Migration applied to NO DB yet.
 - [ ] **F1.3** — Pestaña Soportes (RF-04).
 - [ ] **F1.4** — Pestaña Metas (RF-02, KPI 3).
 - [ ] **F1.5** — Umbrales del semáforo editables en Administración.
@@ -154,6 +155,20 @@ session) applied phase-by-phase, strict TDD (RED confirmed before every GREEN):
   `scripts/seed-proyectos-demo.ts`, other `odd/tasks/*.md`, `.codegraph/`) intentionally left
   unstaged per task scope.
 
+### F1.2 (2026-09-28)
+- Commits: `a06ce4d` (schema + migration + API + hooks), `c86b532` (tab + dialog + workspace wiring).
+- Route: phases 1–3 inline (finishing a prior agent's work); phase 4 delegated (writer trigger: 4+ non-trivial files).
+- RED→GREEN: legalizacion-tab 0/10→10/10, expense-dialog 0/5→5/5, project-workspace 10/12→12/12;
+  expenses routes + hooks 50/50.
+- `npx tsc --noEmit`: 0 errors. eslint (touched files): 0 problems.
+- Full suite: 1501/1503. The 2 failures are `prisma/invariant.test.ts`, which loads root `.env`
+  (REMOTE shared DB, rollback-only transactions) and fails because the new columns are not there.
+- Deviation: migration `20260928120000_legalizacion_gasto` generated offline with
+  `prisma migrate diff` — local `supabase_db` was down and Windows-side `npx` does not inherit
+  WSL env (prisma.config.ts fell back to remote `.env`). Must be applied locally before e2e.
+- Deviations vs v6: native `<select>` for Rubro/Soporte; `min-h-11` (44px) targets; full-word
+  table headers. Task 4.7 (390px manual check) verified structurally only, not in a browser.
+
 ## Next step
-F0.2 done. Next: F0.1 (blocked on `gh auth`), F0.3 (Docker/e2e, out of scope unless
-blocking), or F0.4/F1.x per user direction.
+F1.2 done (local commits, no push). Pending: apply the migration to the local DB, manual 390px
+check of Legalización, F0.1 + push/PRs (blocked on `gh auth`). Next task: F1.3 Soportes on user OK.
