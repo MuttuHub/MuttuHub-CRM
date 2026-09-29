@@ -56,7 +56,7 @@ the prototypes to match the app, was rejected.
 - [x] **V0.4** Control sizing: `ui/button`, `ui/input`, `ui/select` at 44/40/36 (M)
 - [x] **V0.5** Surfaces: `ui/card`, `ui/dialog`, `ui/sheet`, overlay, shadows (M)
 - [x] **V0.6** `ui/table`, `ui/tabs` rail, shared `EmptyState` (M)
-- [ ] **V1.1** Sidebar: 44px items, rail active state, lockup sizing (S)
+- [x] **V1.1** Sidebar: 44px items, rail active state, lockup sizing (S)
 - [ ] **V1.2** Sidebar profile + Salir block; header `PageHeader` slot (M, needs D9)
 - [ ] **V1.3** Notification panel + session banner token pass (S)
 - [ ] **V2.1** Acceso brand panel (S–M)
@@ -188,3 +188,18 @@ V0.1–V0.6 on branch `feat/v6-visual-alignment` (from `local/todo-integrado`).
   Full `npx vitest run`: 178 files passed / 1 failed (`prisma/invariant.test.ts`, 16 tests,
   known DB-integration failure); 1700 tests passed. `npx tsc --noEmit` and `npx eslint` clean.
   Visual check (light+dark, 1440/390): PENDING.
+- 2026-09-29 V1.1: `shell/sidebar.tsx` nav items h-11 (44px) / `rounded-12` (was 36px / r11);
+  active state = `bg-shell-surface` + 3px left rail (`shadow-[inset_3px_0_0_var(--primary)]`,
+  same technique as the V0.6 table rail) replacing solid `bg-rose-500`; expanded lockup logo
+  86px -> 92px and "Hub" chip -> plain `font-display` 17px/700 `text-shell-text` wordmark.
+  Route: delegated writer (single bounded writer). Rail/collapsed mode inherits the same item
+  classes. Behavior, routing, tooltips and search untouched; profile/Salir (V1.2) and the
+  notification panel (V1.3) not touched. `aria-current` is not set by the sidebar today and was
+  not added (out of scope).
+  TDD: RED 5 failed / 4 passed (2 existing active assertions moved to the rail class + 3 new:
+  44px/r12, active surface+rail, lockup) -> GREEN 9/9 in `sidebar.test.tsx`.
+  Full `npx vitest run`: 178 files passed / 1 failed (`prisma/invariant.test.ts`, 16 tests, known
+  DB failure); 1703 tests passed. `npx tsc --noEmit` and eslint on changed files clean.
+  Light theme: the sidebar is theme-invariant (dark shell), so the light-theme page is affected
+  only through the shell itself (taller items, rail instead of magenta fill) - an intentional V1.x
+  shell restyle. Visual check (light+dark, 1440/390, collapsed + drawer): PENDING.

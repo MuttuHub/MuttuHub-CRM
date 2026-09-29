@@ -75,10 +75,10 @@ function SidebarContent({ rail, inDrawer = false }: { rail: boolean; inDrawer?: 
           <img
             src={rail ? "/brand/logo-iso.svg" : "/brand/logo-blanco.svg"}
             alt="Muttu"
-            className={cn("h-auto", rail ? "w-7" : "w-[86px]")}
+            className={cn("h-auto", rail ? "w-7" : "w-[92px]")}
           />
           {!rail && (
-            <span className="rounded-full bg-shell-chip px-2 py-0.5 font-display text-[15px] font-bold tracking-tight text-white">
+            <span className="font-display text-[17px] font-bold tracking-tight text-shell-text">
               Hub
             </span>
           )}
@@ -135,10 +135,10 @@ function SidebarContent({ rail, inDrawer = false }: { rail: boolean; inDrawer?: 
                 <Link
                   href={item.href}
                   className={cn(
-                    "relative flex h-[36px] w-full items-center gap-2.5 rounded-11 transition-colors after:absolute after:content-[''] after:-inset-y-px focus-visible:ring-3 focus-visible:ring-ring/50",
+                    "relative flex h-11 w-full items-center gap-2.5 rounded-12 transition-colors after:absolute after:content-[''] after:-inset-y-px focus-visible:ring-3 focus-visible:ring-ring/50",
                     rail ? "justify-center" : "px-3",
                     active
-                      ? "bg-rose-500 font-semibold text-white"
+                      ? "bg-shell-surface font-semibold text-white shadow-[inset_3px_0_0_var(--primary)]"
                       : "font-medium text-shell-muted hover:bg-shell-chip hover:text-shell",
                   )}
                 >

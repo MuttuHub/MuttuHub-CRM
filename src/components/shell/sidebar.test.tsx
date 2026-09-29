@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { Sidebar } from "./sidebar"
 import { useSidebarStore } from "@/store/sidebar"
 
+const RAIL = "shadow-[inset_3px_0_0_var(--primary)]"
+
 let currentPath = "/tablero"
 let currentSearch = ""
 
@@ -88,8 +90,8 @@ describe("Sidebar", () => {
     render(<Sidebar />)
     const inicio = screen.getByRole("link", { name: "Inicio" })
     const tableroGerencial = screen.getByRole("link", { name: "Tablero Gerencial" })
-    expect(inicio.className).toContain("bg-rose-500")
-    expect(tableroGerencial.className).not.toContain("bg-rose-500")
+    expect(inicio.className).toContain(RAIL)
+    expect(tableroGerencial.className).not.toContain(RAIL)
   })
 
   it("highlights 'Tablero Gerencial' when cara=management is active (design.md D3, option a)", () => {
@@ -97,6 +99,37 @@ describe("Sidebar", () => {
     currentSearch = "cara=management"
     render(<Sidebar />)
     const tableroGerencial = screen.getByRole("link", { name: "Tablero Gerencial" })
-    expect(tableroGerencial.className).toContain("bg-rose-500")
+    expect(tableroGerencial.className).toContain(RAIL)
+  })
+
+  // V1.1 (v6 visual alignment): 44px items, r12, surface bg + 3px left rail.
+  it("renders nav items at 44px with radius 12", () => {
+    render(<Sidebar />)
+    const link = screen.getByRole("link", { name: "Inicio" })
+    expect(link.className).toContain("h-11")
+    expect(link.className).toContain("rounded-12")
+    expect(link.className).not.toContain("h-[36px]")
+  })
+
+  it("marks the active item with a surface background and rail, not a solid magenta fill", () => {
+    currentPath = "/"
+    currentSearch = "cara=pipeline"
+    render(<Sidebar />)
+    const active = screen.getByRole("link", { name: "Inicio" })
+    expect(active.className).toContain("bg-shell-surface")
+    expect(active.className).toContain("text-white")
+    expect(active.className).not.toContain("bg-rose-500")
+    const inactive = screen.getByRole("link", { name: "Tablero Gerencial" })
+    expect(inactive.className).not.toContain("bg-shell-surface")
+  })
+
+  it("sizes the expanded lockup at 92px with a plain 17px Hub wordmark", () => {
+    render(<Sidebar />)
+    const aside = screen.getByRole("complementary")
+    const logo = within(aside).getByAltText("Muttu")
+    expect(logo.className).toContain("w-[92px]")
+    const hub = within(aside).getByText("Hub")
+    expect(hub.className).toContain("text-[17px]")
+    expect(hub.className).not.toContain("bg-shell-chip")
   })
 })
