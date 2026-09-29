@@ -54,7 +54,7 @@ the prototypes to match the app, was rejected.
 - [x] **V0.2** Type utilities: `PageHeader`, eyebrow, section title, KPI numeral, mono data (S)
 - [x] **V0.3** `StatusChip` + central estado→tone map, `KpiTile`, semáforo `ProgressBar` (M)
 - [x] **V0.4** Control sizing: `ui/button`, `ui/input`, `ui/select` at 44/40/36 (M)
-- [ ] **V0.5** Surfaces: `ui/card`, `ui/dialog`, `ui/sheet`, overlay, shadows (M)
+- [x] **V0.5** Surfaces: `ui/card`, `ui/dialog`, `ui/sheet`, overlay, shadows (M)
 - [ ] **V0.6** `ui/table`, `ui/tabs` rail, shared `EmptyState` (M)
 - [ ] **V1.1** Sidebar: 44px items, rail active state, lockup sizing (S)
 - [ ] **V1.2** Sidebar profile + Salir block; header `PageHeader` slot (M, needs D9)
@@ -151,3 +151,25 @@ V0.1–V0.6 on branch `feat/v6-visual-alignment` (from `local/todo-integrado`).
   Call sites: sizes change globally for every `Button`/`Input`/`SelectTrigger` (compact `size`
   users in crm/client-sheet, documents, kanban, etc. grow); no other class/snapshot tests broke.
   Visual check (light+dark, 1440/390, tap-target): PENDING.
+- 2026-09-29 V0.5: surfaces. `ui/card`: `rounded-[20px]`, `border border-border` replaces
+  `ring-1 ring-foreground/10`, spacing 16->20px (sm stays 12px). `ui/dialog`: overlay
+  `bg-(--overlay)` (blur kept), `sm:max-w-[600px]`, `rounded-[22px]`, border instead of ring,
+  padding 26/28 (`px-7 py-[26px]`), footer padding matched, 26px semibold title, close button
+  moved to top-4/right-5, new optional `DialogCode` (mono req-code slot; additive export).
+  `ui/sheet`: overlay token, `shadow-lg` dropped, header/footer 26/28. Shadows stripped from
+  `popover`, `select`, `dropdown-menu` (content + sub-content). Route: delegated writer (single
+  bounded writer). TDD: RED 3 files / 12 failed, 8 passed (card 2 new, dialog + sheet new files)
+  + 3 failed (popover/select/dropdown-menu shadow) -> GREEN card 5, dialog 8, sheet 7,
+  popover 4, select 5, dropdown-menu 2 (new); `src/components/ui` 19 files / 91 tests.
+  No existing class-assertion tests encoded old values (none updated). Full `npx vitest run`:
+  176 files passed / 1 failed (`prisma/invariant.test.ts`, 16 tests, known DB failure); 1687
+  passed. `npx tsc --noEmit` and `npx eslint src/components/ui` clean.
+  Affected call sites: ~24 files use DialogContent/SheetContent (crm/entity-dialogs,
+  client-sheet, kanban/task-dialog, documents/*, admin/*, proyectos/*, shell/change-password-dialog)
+  and every `Card`. Callers that pass className (`sm:max-w-*`, `rounded-[22px]`) still win via
+  twMerge; dialogs without a width override grow from `max-w-sm` to 600px; all titles are now 26px.
+  Deviations: sheet width left at `sm:max-w-sm` (gap map P3 says 600 default; deferred to avoid
+  resizing client-sheet, decide in V2.3); notification-panel `shadow-xl` (not `ui/`) left for V1.3.
+  Light theme: `--overlay` light value already reproduces `rgba(0,0,0,.1)`; card border/radius/
+  spacing do change light computed styles (required by the gap map P4).
+  Visual check (light+dark, 1440/390, 3 dialogs + a card screen): PENDING.
