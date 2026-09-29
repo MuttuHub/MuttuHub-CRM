@@ -7,6 +7,8 @@ import { PanelLeft, Search } from "lucide-react";
 import { NAV_GROUPS, isNavActive } from "@/lib/nav";
 import { useNavCounts } from "@/hooks/nav";
 import { useSidebarStore } from "@/store/sidebar";
+import type { CurrentUser } from "@/hooks/kanban";
+import { SidebarProfile } from "@/components/shell/sidebar-profile";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -15,7 +17,15 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-function SidebarContent({ rail, inDrawer = false }: { rail: boolean; inDrawer?: boolean }) {
+function SidebarContent({
+  rail,
+  inDrawer = false,
+  initialUser,
+}: {
+  rail: boolean;
+  inDrawer?: boolean;
+  initialUser?: CurrentUser | null;
+}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const toggleCollapsed = useSidebarStore((s) => s.toggleCollapsed);
@@ -187,11 +197,13 @@ function SidebarContent({ rail, inDrawer = false }: { rail: boolean; inDrawer?: 
           </p>
         )}
       </nav>
+
+      <SidebarProfile rail={rail} initialUser={initialUser} />
     </>
   );
 }
 
-export function Sidebar() {
+export function Sidebar({ initialUser }: { initialUser?: CurrentUser | null }) {
   const collapsed = useSidebarStore((s) => s.collapsed);
   const mobileOpen = useSidebarStore((s) => s.mobileOpen);
   const setMobileOpen = useSidebarStore((s) => s.setMobileOpen);
@@ -242,7 +254,7 @@ export function Sidebar() {
           collapsed ? "w-[72px] px-2.5 py-3.5" : "w-[200px] px-3 py-3.5 xl:w-[244px] xl:px-3.5",
         )}
       >
-        <SidebarContent rail={collapsed} />
+        <SidebarContent rail={collapsed} initialUser={initialUser} />
       </aside>
 
       {mobileOpen && (
@@ -254,7 +266,7 @@ export function Sidebar() {
             className="absolute inset-0 bg-[#191113]/50 backdrop-blur-[2px]"
           />
           <aside id="sidebar-drawer" className="absolute inset-y-0 left-0 flex w-[264px] flex-col rounded-r-[26px] border-r border-shell-border bg-shell-surface px-3.5 py-3.5">
-            <SidebarContent rail={false} inDrawer />
+            <SidebarContent rail={false} inDrawer initialUser={initialUser} />
           </aside>
         </div>
       )}

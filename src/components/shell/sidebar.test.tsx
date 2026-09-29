@@ -32,6 +32,12 @@ vi.mock("@/components/ui/tooltip", () => ({
   TooltipProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
+vi.mock("./sidebar-profile", () => ({
+  SidebarProfile: ({ rail }: { rail: boolean }) => (
+    <div data-testid="sidebar-profile" data-rail={String(rail)} />
+  ),
+}))
+
 describe("Sidebar", () => {
   beforeEach(() => {
     currentPath = "/tablero"
@@ -131,5 +137,27 @@ describe("Sidebar", () => {
     const hub = within(aside).getByText("Hub")
     expect(hub.className).toContain("text-[17px]")
     expect(hub.className).not.toContain("bg-shell-chip")
+  })
+
+  // V1.2 (D9): profile + Salir live in the sidebar only.
+  it("renders the profile block inside the desktop aside, expanded", () => {
+    render(<Sidebar />)
+    const aside = screen.getByRole("complementary")
+    const block = within(aside).getByTestId("sidebar-profile")
+    expect(block.dataset.rail).toBe("false")
+  })
+
+  it("renders the profile block in rail mode when collapsed", () => {
+    useSidebarStore.setState({ collapsed: true })
+    render(<Sidebar />)
+    const block = within(screen.getByRole("complementary")).getByTestId("sidebar-profile")
+    expect(block.dataset.rail).toBe("true")
+  })
+
+  it("renders the profile block in the mobile drawer, never in rail mode", () => {
+    useSidebarStore.setState({ mobileOpen: true, collapsed: true })
+    render(<Sidebar />)
+    const drawer = document.getElementById("sidebar-drawer")!
+    expect(within(drawer).getByTestId("sidebar-profile").dataset.rail).toBe("false")
   })
 })

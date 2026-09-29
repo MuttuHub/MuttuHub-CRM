@@ -28,7 +28,7 @@ vi.mock("@/lib/api/http", () => ({
   apiGet: (path: string) => apiGet(path),
 }))
 
-// NotificationPanel and UserMenu have their own dedicated tests (and their
+// NotificationPanel has their own dedicated tests (and their
 // own data fetching); Header only needs to render them, so they are stubbed
 // here to keep this test focused on Header's own layout/behavior.
 vi.mock("@/components/shell/notification-panel", () => ({
@@ -38,14 +38,6 @@ vi.mock("@/components/shell/notification-panel", () => ({
     </button>
   ),
   notificationQueryKey: ["notifications"],
-}))
-
-vi.mock("@/components/shell/user-menu", () => ({
-  UserMenu: () => (
-    <button type="button" aria-label="Menú de usuario">
-      Usuario
-    </button>
-  ),
 }))
 
 function renderHeader() {
@@ -84,7 +76,6 @@ describe("Header — layout compartido roto en mobile (audit Critical #4)", () =
     expect(screen.getByRole("button", { name: "Abrir menú" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Activar modo oscuro" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Notificaciones, 0 sin leer" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Menú de usuario" })).toBeInTheDocument()
   })
 
   it("stacks the title above the icon row on mobile instead of forcing them side by side", () => {
@@ -100,5 +91,23 @@ describe("Header — layout compartido roto en mobile (audit Critical #4)", () =
     const root = container.firstElementChild as HTMLElement
     expect(root.className).toContain("flex-col")
     expect(root.className).toMatch(/sm:flex-row/)
+  })
+})
+
+// V1.2 (D9): profile + Salir moved to the sidebar; the header hosts the shared
+// PageHeader for the title block.
+describe("Header — V1.2", () => {
+  it("no longer renders the user menu (moved to the sidebar)", () => {
+    currentPath = "/proyectos"
+    renderHeader()
+    expect(screen.queryByRole("button", { name: "Menú de usuario" })).toBeNull()
+  })
+
+  it("renders its title block through the shared PageHeader", () => {
+    currentPath = "/proyectos"
+    const { container } = renderHeader()
+    const slot = container.querySelector('[data-slot="page-header"]')
+    expect(slot).not.toBeNull()
+    expect(slot!.querySelector("h1")?.textContent).toBe("Proyectos")
   })
 })

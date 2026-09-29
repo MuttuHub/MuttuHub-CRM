@@ -21,7 +21,7 @@ export default async function AppShell({
       <div className="flex w-full min-w-0 flex-col gap-3 sm:gap-[14px]">
         <SessionBanner />
         <div className="flex min-h-0 flex-1 gap-3 sm:gap-[14px]">
-          <Sidebar />
+          <Sidebar initialUser={session?.usuario ?? null} />
           <main className="flex min-w-0 flex-1 flex-col gap-5 rounded-[26px] bg-panel p-4 sm:p-6 lg:p-7">
             <Header initialUser={session?.usuario ?? null} />
             {children}

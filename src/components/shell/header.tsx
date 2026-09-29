@@ -14,7 +14,7 @@ import {
   notificationQueryKey,
   type NotificationsSnapshot,
 } from "@/components/shell/notification-panel";
-import { UserMenu } from "@/components/shell/user-menu";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -98,12 +98,7 @@ export function Header({ initialUser }: { initialUser?: CurrentUser | null }) {
         >
           <Menu className="size-4" strokeWidth={1.8} />
         </button>
-        <div className="min-w-0">
-          <h1 className="font-display text-[31px] leading-none tracking-[-0.03em] font-extrabold text-ink-950 lg:text-[34px]">
-            {title}
-          </h1>
-          <p className="mt-2 text-[14px] text-ink-600">{subtitle}</p>
-        </div>
+        <PageHeader className="min-w-0" title={title} subtitle={subtitle} />
       </div>
 
       <div className="flex shrink-0 items-center justify-end gap-2.5">
@@ -145,8 +140,6 @@ export function Header({ initialUser }: { initialUser?: CurrentUser | null }) {
         </button>
 
         <NotificationPanel />
-
-        <UserMenu initialUser={initialUser} />
       </div>
     </div>
   );

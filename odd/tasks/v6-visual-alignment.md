@@ -47,7 +47,7 @@ the prototypes to match the app, was rejected.
 | D6 | Rename "Cliente" → "Aliado" in UI copy | V2.13 |
 | D7 | Kanban chip filters vs dropdowns; column count | V2.4 |
 | D8 | Solicitudes: Administración tab vs separate route | V2.10 |
-| D9 | Profile + Salir: sidebar only vs sidebar + header | V1.2 |
+| D9 | **Resolved 2026-09-29**: profile + Salir live in the sidebar only (v6); no duplicate in the header. | V1.2 |
 
 ## Tasks
 - [x] **V0.1** `.dark` tokens + new tokens, primary per D1, fixed-light toast (M, needs D1)
@@ -57,7 +57,7 @@ the prototypes to match the app, was rejected.
 - [x] **V0.5** Surfaces: `ui/card`, `ui/dialog`, `ui/sheet`, overlay, shadows (M)
 - [x] **V0.6** `ui/table`, `ui/tabs` rail, shared `EmptyState` (M)
 - [x] **V1.1** Sidebar: 44px items, rail active state, lockup sizing (S)
-- [ ] **V1.2** Sidebar profile + Salir block; header `PageHeader` slot (M, needs D9)
+- [x] **V1.2** Sidebar profile + Salir block; header `PageHeader` slot (M, needs D9)
 - [x] **V1.3** Notification panel + session banner token pass (S)
 - [ ] **V2.1** Acceso brand panel (S–M)
 - [ ] **V2.2** Inicio caras restyle (M, D5)
@@ -217,3 +217,22 @@ V0.1–V0.6 on branch `feat/v6-visual-alignment` (from `local/todo-integrado`).
   tone tint and dot for non-neutral states; badge ring #fff -> panel #fdfbfb). Sidebar/header/
   profile (V1.2) untouched.
   Visual check (light+dark, 1440/390, panel open/empty/disconnected + banner): PENDING.
+- 2026-09-29 V1.2: per D9 (sidebar only) `shell/user-menu.tsx` became `shell/sidebar-profile.tsx`
+  (`SidebarProfile`, git mv, logout/session logic and demo-persona guard kept verbatim): avatar
+  initials + name + role, "Cambiar contraseña" and "Salir" (POST logout, storage cleanup, redirect,
+  error toast) as visible 44px buttons pinned at the sidebar bottom; rail mode shows avatar + icon
+  buttons (aria-labels, title tooltips), the mobile drawer always renders the expanded block.
+  `Sidebar` takes `initialUser` (passed from `(app)/layout.tsx`). `Header` no longer renders the
+  user menu and now renders its title block through the shared `PageHeader`; theme toggle, range
+  selector and notifications untouched. Nothing user-menu offered is lost (profile, change
+  password, logout all reachable from the sidebar block). Screens not migrated to PageHeader (V2.x).
+  e2e specs `crm-demo` and `change-password` updated to the new controls (not run here).
+  Route: delegated writer (single bounded writer).
+  TDD: RED 11 failed / 9 passed across 3 files (sidebar-profile 8 new/renamed, header 2 new,
+  sidebar 3 new) -> GREEN 20/20 (`src/components/shell` 7 files / 44 tests).
+  Full `npx vitest run`: 179 files passed / 1 failed (`prisma/invariant.test.ts`, 16 tests, known
+  DB failure); 1719 tests passed. `npx tsc --noEmit` and eslint on changed files clean.
+  Light theme: computed styles change - header title uses PageHeader classes (clamp 30-44px,
+  `text-foreground`; was 31/34px `text-ink-950`), subtitle `text-muted-foreground` (was ink-600);
+  header loses the avatar pill; sidebar (theme-invariant dark shell) gains the profile block.
+  Visual check (light+dark, 1440/390, collapsed + drawer): PENDING.

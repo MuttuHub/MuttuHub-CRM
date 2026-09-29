@@ -30,8 +30,7 @@ async function login(page: import("@playwright/test").Page, email: string, passw
 }
 
 async function openChangePasswordDialog(page: import("@playwright/test").Page) {
-  await page.getByRole("button", { name: "Menú de usuario" }).click();
-  await page.getByRole("menuitem", { name: "Cambiar contraseña" }).click();
+  await page.getByRole("button", { name: "Cambiar contraseña" }).click();
   await expect(page.getByRole("heading", { name: "Cambiar contraseña" })).toBeVisible();
 }
 

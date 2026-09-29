@@ -3,9 +3,9 @@ import userEvent from "@testing-library/user-event"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { CurrentUser } from "@/hooks/kanban"
-import { UserMenu } from "./user-menu"
+import { SidebarProfile } from "./sidebar-profile"
 
-// The user menu used to fall back to a demo persona (DEMO_USER = "Adriana
+// The profile block (ex header user menu) used to fall back to a demo persona (DEMO_USER = "Adriana
 // Gómez") whenever the resolved user was null. The layout passes
 // `initialUser ?? null`, which react-query treats as settled data, so
 // `isLoading` was false while GET /api/v1/auth/me was still in flight — the
@@ -24,8 +24,10 @@ vi.mock("@/lib/api/http", () => ({
   apiGet: (path: string) => apiGet(path),
 }))
 
+const { push } = vi.hoisted(() => ({ push: vi.fn() }))
+
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push, refresh: vi.fn() }),
 }))
 
 const USUARIO_REAL: CurrentUser = {
@@ -34,11 +36,11 @@ const USUARIO_REAL: CurrentUser = {
   rol: "ADMINISTRADOR",
 }
 
-function renderMenu(initialUser?: CurrentUser | null) {
+function renderMenu(initialUser?: CurrentUser | null, rail = false) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={qc}>
-      <UserMenu initialUser={initialUser} />
+      <SidebarProfile initialUser={initialUser} rail={rail} />
     </QueryClientProvider>,
   )
 }
@@ -61,7 +63,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe("UserMenu — nunca muestra la persona demo", () => {
+describe("SidebarProfile — nunca muestra la persona demo", () => {
   it("con initialData=null y /me en vuelo muestra '…' y no 'Adriana Gómez' (regresión del bug)", () => {
     pendingMe()
     renderMenu(null)
@@ -92,20 +94,69 @@ describe("UserMenu — nunca muestra la persona demo", () => {
   })
 })
 
-describe("UserMenu — pedido #2 del jefe: cambiar contraseña desde el panel", () => {
-  it("abre el diálogo de cambiar contraseña desde el dropdown", async () => {
+describe("SidebarProfile — pedido #2 del jefe: cambiar contraseña desde el panel", () => {
+  it("abre el diálogo de cambiar contraseña desde el botón del bloque", async () => {
     const user = userEvent.setup()
     apiGet.mockResolvedValue({ usuario: USUARIO_REAL })
     renderMenu()
 
     await waitFor(() => screen.getByText("Felipe Ortiz"))
-    await user.click(screen.getByRole("button", { name: "Menú de usuario" }))
-    await user.click(
-      await screen.findByRole("menuitem", { name: /cambiar contraseña/i }),
-    )
+    await user.click(screen.getByRole("button", { name: /cambiar contraseña/i }))
 
     expect(
       await screen.findByRole("heading", { name: /cambiar contraseña/i }),
     ).toBeInTheDocument()
+  })
+})
+
+// V1.2 (D9: profile + Salir live in the sidebar only).
+describe("SidebarProfile — bloque de perfil y Salir (V1.2)", () => {
+  it("muestra iniciales, nombre y rol", async () => {
+    apiGet.mockResolvedValue({ usuario: USUARIO_REAL })
+    renderMenu()
+
+    await waitFor(() => screen.getByText("Felipe Ortiz"))
+    expect(screen.getByText("FO")).toBeInTheDocument()
+    expect(screen.getByText("Administrador")).toBeInTheDocument()
+  })
+
+  it("expone un botón visible 'Salir' que cierra la sesión (POST logout + redirect)", async () => {
+    const user = userEvent.setup()
+    apiGet.mockResolvedValue({ usuario: USUARIO_REAL })
+    const fetchMock = vi.fn(async () => ({ ok: true }) as Response)
+    vi.stubGlobal("fetch", fetchMock)
+    renderMenu()
+
+    await waitFor(() => screen.getByText("Felipe Ortiz"))
+    await user.click(screen.getByRole("button", { name: "Salir" }))
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/logout", { method: "POST" })
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/login"))
+    vi.unstubAllGlobals()
+  })
+
+  it("si el logout falla avisa con un toast y vuelve a habilitar Salir", async () => {
+    const user = userEvent.setup()
+    apiGet.mockResolvedValue({ usuario: USUARIO_REAL })
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 500 }) as Response))
+    renderMenu()
+
+    await waitFor(() => screen.getByText("Felipe Ortiz"))
+    await user.click(screen.getByRole("button", { name: "Salir" }))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled())
+    expect(screen.getByRole("button", { name: "Salir" })).toBeEnabled()
+    expect(push).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
+  })
+
+  it("en modo rail oculta nombre/rol pero mantiene Salir y Cambiar contraseña accesibles", async () => {
+    apiGet.mockResolvedValue({ usuario: USUARIO_REAL })
+    renderMenu(undefined, true)
+
+    await waitFor(() => screen.getByText("FO"))
+    expect(screen.queryByText("Felipe Ortiz")).toBeNull()
+    expect(screen.getByRole("button", { name: "Salir" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /cambiar contraseña/i })).toBeInTheDocument()
   })
 })

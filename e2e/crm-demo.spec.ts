@@ -161,9 +161,8 @@ test("CRM demo: login, filter/save/clear a view, and walk a client's ficha", asy
     await expect(ficha).toHaveCount(0);
     await beat(page, 1000);
 
-    await page.getByRole("button", { name: "Menú de usuario" }).click();
     await beat(page, 600);
-    await page.getByRole("menuitem", { name: "Cerrar sesión" }).click();
+    await page.getByRole("button", { name: "Salir" }).click();
     await page.waitForURL(/\/login/, { timeout: 15_000 });
     await beat(page, 1200); // rest on the login screen before the video ends
   });

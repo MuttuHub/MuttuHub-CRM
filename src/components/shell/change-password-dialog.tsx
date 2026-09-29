@@ -1,7 +1,7 @@
 "use client";
 
 // Diálogo "Cambiar contraseña" para un usuario ya logueado (pedido #2 del
-// jefe) — abierto desde el dropdown de UserMenu. A diferencia de "olvidé mi
+// jefe) — abierto desde el bloque de perfil del sidebar (SidebarProfile). A diferencia de "olvidé mi
 // contraseña" (reset-password/confirm, para alguien SIN sesión), acá se pide
 // la contraseña actual: el servidor (POST /api/v1/auth/change-password) la
 // reautentica antes de aplicar la nueva.
