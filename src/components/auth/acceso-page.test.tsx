@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { AccesoPage } from "./acceso-page"
 
@@ -85,5 +85,59 @@ describe("AccesoPage inputs — hydration-safe inline styles (C6)", () => {
     fireEvent.change(email, { target: { value: "correo-invalido" } })
 
     expect(email.style.borderColor).toBe("var(--color-destructivo)")
+  })
+})
+
+describe("AccesoPage v6 brand panel (V2.1)", () => {
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co"
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key"
+  })
+
+  afterEach(() => {
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL
+    delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  })
+
+  it("renders the 'Muttu Hub' wordmark hero at 38-64px / weight 800 inside the brand panel", () => {
+    const { container } = renderAcceso()
+    const aside = container.querySelector("aside") as HTMLElement
+    const wordmark = within(aside).getByText("Muttu Hub")
+    expect(wordmark.className).toContain("text-[clamp(38px,4.4vw,64px)]")
+    expect(wordmark.className).toContain("font-extrabold")
+    expect(wordmark.className).toContain("font-display")
+  })
+
+  it("uses the 130px lockup logo", () => {
+    const { container } = renderAcceso()
+    const logo = container.querySelector("aside img") as HTMLElement
+    expect(logo.style.width).toBe("130px")
+  })
+
+  it("paints the brand panel from tokens, with no hard-coded hex colors", () => {
+    const { container } = renderAcceso()
+    const aside = container.querySelector("aside") as HTMLElement
+    expect(aside.style.background).toBe("var(--brand-panel-bg)")
+    expect(aside.outerHTML).not.toMatch(/#[0-9a-fA-F]{3,8}\b/)
+  })
+
+  it("pins controls to 44px height and the 12px control radius", () => {
+    const { container } = renderAcceso()
+    const email = screen.getByLabelText("Correo corporativo")
+    expect(email.style.height).toBe("44px")
+    expect(email.style.borderRadius).toBe("var(--radius-12)")
+    const submit = container.querySelector("button[type=submit]") as HTMLElement
+    expect(submit.style.height).toBe("44px")
+    expect(submit.style.borderRadius).toBe("var(--radius-12)")
+    const google = screen.getByRole("button", { name: /Google/ })
+    expect(google.style.borderRadius).toBe("var(--radius-12)")
+  })
+
+  it("keeps the login form behavior: labelled fields, autofocus-free submit, vista switch", () => {
+    renderAcceso()
+    expect(screen.getByLabelText("Correo corporativo")).toHaveProperty("type", "email")
+    expect(screen.getByLabelText("Contraseña")).toHaveProperty("type", "password")
+    fireEvent.click(screen.getByRole("button", { name: "Solicita acceso" }))
+    expect(screen.getByRole("button", { name: /Solicitar/ })).toBeTruthy()
   })
 })

@@ -141,3 +141,17 @@ describe("globals.css design tokens (V0.1)", () => {
     })
   })
 })
+
+describe("brand panel tokens (V2.1)", () => {
+  it.each([
+    ["--brand-panel-bg", "#191113"],
+    ["--brand-panel-fg", "#ffffff"],
+    ["--brand-panel-fg-muted", "#c9bcc0"],
+    ["--brand-panel-fg-subtle", "#7a6569"],
+    ["--brand-panel-rule", "#2e2225"],
+    ["--brand-panel-accent", "#f5bad2"],
+  ])("%s is a fixed value in :root and not overridden in .dark", (prop, value) => {
+    expect(propValue(root, prop)).toBe(value)
+    expect(propValue(dark, prop)).toBeUndefined()
+  })
+})

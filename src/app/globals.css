@@ -178,6 +178,15 @@
   --login-enlace-fg: var(--color-rose-500);
   --login-activo-fg: var(--color-rose-700);
 
+  /* --- v6 brand panel (V2.1): the Acceso film stays dark in BOTH themes,
+     like the sidebar shell, so these are fixed and never overridden in .dark. */
+  --brand-panel-bg: #191113;
+  --brand-panel-fg: #ffffff;
+  --brand-panel-fg-muted: #c9bcc0;
+  --brand-panel-fg-subtle: #7a6569;
+  --brand-panel-rule: #2e2225;
+  --brand-panel-accent: #f5bad2;
+
   /* --- v6 tokens added by V0.1 (visual alignment) ---
      Additive only: none of the values above this block changed. Each token
      below reproduces the CURRENT light appearance (decision D1 — light stays

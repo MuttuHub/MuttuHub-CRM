@@ -59,7 +59,7 @@ the prototypes to match the app, was rejected.
 - [x] **V1.1** Sidebar: 44px items, rail active state, lockup sizing (S)
 - [x] **V1.2** Sidebar profile + Salir block; header `PageHeader` slot (M, needs D9)
 - [x] **V1.3** Notification panel + session banner token pass (S)
-- [ ] **V2.1** Acceso brand panel (S–M)
+- [x] **V2.1** Acceso brand panel (S–M)
 - [ ] **V2.2** Inicio caras restyle (M, D5)
 - [ ] **V2.3** Clientes list + ficha restyle, modal kept (M)
 - [ ] **V2.4** Kanban restyle (S–M, needs D3/D7)
@@ -236,3 +236,20 @@ V0.1–V0.6 on branch `feat/v6-visual-alignment` (from `local/todo-integrado`).
   `text-foreground`; was 31/34px `text-ink-950`), subtitle `text-muted-foreground` (was ink-600);
   header loses the avatar pill; sidebar (theme-invariant dark shell) gains the profile block.
   Visual check (light+dark, 1440/390, collapsed + drawer): PENDING.
+- 2026-09-29 V2.1: `auth/acceso-page.tsx` brand panel: "Muttu Hub" wordmark hero (README-specified copy;
+  `font-display` clamp 38-64px / 800), lockup 118 -> 130px, hard-coded hex (panel bg, ink, muted, rule,
+  accent, scrim) -> new fixed `--brand-panel-*` tokens in `:root` only (dark in both themes, never
+  overridden in `.dark`); controls: input 46 -> 44px, submit 48 -> 44px, radius 13/14 -> `--radius-12`
+  (inputs, submit, Google SSO, env-missing button). All auth logic, copy, labels, aria and routing
+  untouched. `AuthShell` (reset-password layouts) unchanged; a characterization test was added
+  (its pages already use the 44px `ui/` Input/Button). Files: `acceso-page.tsx`, `globals.css`,
+  `acceso-page.test.tsx`, `globals.tokens.test.ts`, `auth-shell.test.tsx` (new).
+  Route: delegated writer (single bounded writer). No decisions D1-D9 or new ones needed.
+  TDD: RED 10 failed / 42 passed (6 token + 4 acceso cases) -> GREEN 52/52 across the 3 files.
+  Full `npx vitest run`: 180 files passed / 1 failed (`prisma/invariant.test.ts`, 16 tests, known DB
+  failure); 1731 tests passed. `npx tsc --noEmit` and eslint on changed files clean.
+  e2e: no selector references height/wordmark/radius; specs unchanged and not run.
+  Light theme: computed styles change - input height 46 -> 44px, submit 48 -> 44px, control radius
+  13/14 -> 12px, logo 118 -> 130px, new wordmark heading; brand-panel colors resolve to identical
+  values via tokens (scrim now color-mix of the same #191113 at the same alphas).
+  Visual check (light+dark, 1440/390, login + recuperar + reset-password): PENDING.

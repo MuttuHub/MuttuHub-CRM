@@ -308,7 +308,7 @@ export function AccesoPage({
       puedeVer: k === "password",
       inputStyle: {
         width: "100%",
-        height: 46,
+        height: 44,
         // Longhand padding/border (not shorthand template strings): a
         // dynamic shorthand value serializes differently between the SSR
         // HTML and the client's recomputed style, which React flags as a
@@ -324,7 +324,7 @@ export function AccesoPage({
         borderWidth: 1,
         borderStyle: "solid" as const,
         borderColor: malo ? "var(--color-destructivo)" : "var(--color-ink-300)",
-        borderRadius: 13,
+        borderRadius: "var(--radius-12)",
         // focus-visible ring via the shared .login-focus rule (globals.css).
         outline: "none",
       } as React.CSSProperties,
@@ -367,9 +367,9 @@ export function AccesoPage({
             flexDirection: "column",
             gap: 26,
             padding: "34px 34px 30px",
-            // #191113 fixed: the brand film stays dark in BOTH modes (like
+            // Fixed token: the brand film stays dark in BOTH modes (like
             // the sidebar shell), even though ink-950 flips to white in dark.
-            background: "#191113",
+            background: "var(--brand-panel-bg)",
             borderRadius: 26,
           }}
         >
@@ -413,12 +413,16 @@ export function AccesoPage({
               position: "absolute",
               inset: 0,
               background:
-                "linear-gradient(175deg,rgba(25,17,19,.42) 0%,rgba(25,17,19,.72) 46%,rgba(25,17,19,.94) 100%)",
+                "linear-gradient(175deg,color-mix(in srgb,var(--brand-panel-bg) 42%,transparent) 0%,color-mix(in srgb,var(--brand-panel-bg) 72%,transparent) 46%,color-mix(in srgb,var(--brand-panel-bg) 94%,transparent) 100%)",
             }}
           />
 
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/logo-blanco.svg" alt="Muttu · Innovación social" style={{ display: "block", position: "relative", width: 118, height: "auto" }} />
+          <img src="/brand/logo-blanco.svg" alt="Muttu · Innovación social" style={{ display: "block", position: "relative", width: 130, height: "auto" }} />
+
+          <p className="relative m-0 font-display text-[clamp(38px,4.4vw,64px)] font-extrabold leading-none tracking-[-0.03em] text-[color:var(--brand-panel-fg)]">
+            Muttu Hub
+          </p>
 
           <div style={{ position: "relative", marginTop: "auto" }}>
             <p
@@ -429,7 +433,7 @@ export function AccesoPage({
                 fontWeight: 700,
                 letterSpacing: "-.025em",
                 lineHeight: 1.22,
-                color: "#fff",
+                color: "var(--brand-panel-fg)",
                 textWrap: "pretty",
               }}
             >
@@ -447,8 +451,8 @@ export function AccesoPage({
                       flex: "0 0 22px",
                       marginTop: 1,
                       borderRadius: 8,
-                      background: "rgba(205,21,96,.22)",
-                      color: "#F5BAD2",
+                      background: "color-mix(in srgb,var(--color-rose-500) 22%,transparent)",
+                      color: "var(--brand-panel-accent)",
                       display: "grid",
                       placeItems: "center",
                       fontSize: 11,
@@ -457,7 +461,7 @@ export function AccesoPage({
                   >
                     ✓
                   </span>
-                  <span style={{ fontSize: 13.5, lineHeight: 1.45, color: "#C9BCC0" }}>{p}</span>
+                  <span style={{ fontSize: 13.5, lineHeight: 1.45, color: "var(--brand-panel-fg-muted)" }}>{p}</span>
                 </div>
               ))}
             </div>
@@ -473,11 +477,11 @@ export function AccesoPage({
               gap: 10,
             }}
           >
-            <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "#7A6569" }}>
+            <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "var(--brand-panel-fg-subtle)" }}>
               v1.0 · Agosto 2026
             </span>
-            <span style={{ flex: "1 1 auto", height: 1, background: "#2E2225" }} />
-            <span style={{ fontSize: 12.5, fontWeight: 600, color: "#F5BAD2" }}>Soporte</span>
+            <span style={{ flex: "1 1 auto", height: 1, background: "var(--brand-panel-rule)" }} />
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--brand-panel-accent)" }}>Soporte</span>
           </div>
         </aside>
 
@@ -552,7 +556,7 @@ export function AccesoPage({
                 <p style={{ fontSize: 13.5, color: "var(--color-ink-700)", margin: "0 0 14px" }}>
                   El acceso requiere un proyecto de Supabase configurado.
                 </p>
-                <button type="button" onClick={() => toast.info('Revisa la sección "Puesta en marcha" del README y completa el archivo .env')} className="login-focus" style={{ height: 44, background: "var(--color-rose-500)", color: "#fff", border: 0, borderRadius: 14, fontSize: 14, fontWeight: 700, cursor: "pointer", padding: "0 22px" }}>
+                <button type="button" onClick={() => toast.info('Revisa la sección "Puesta en marcha" del README y completa el archivo .env')} className="login-focus" style={{ height: 44, background: "var(--color-rose-500)", color: "#fff", border: 0, borderRadius: "var(--radius-12)", fontSize: 14, fontWeight: 700, cursor: "pointer", padding: "0 22px" }}>
                   Ver pasos de configuración
                 </button>
               </div>
@@ -659,12 +663,12 @@ export function AccesoPage({
                   disabled={enviando}
                   className="login-focus"
                   style={{
-                    height: 48,
+                    height: 44,
                     marginTop: 4,
                     background: enviando ? "var(--color-rose-700)" : "var(--color-rose-500)",
                     color: "#fff",
                     border: 0,
-                    borderRadius: 14,
+                    borderRadius: "var(--radius-12)",
                     fontSize: 15,
                     fontWeight: 700,
                     cursor: enviando ? "progress" : "pointer",
@@ -726,7 +730,7 @@ const ssoStyle: React.CSSProperties = {
   gap: 9,
   background: "var(--color-card)",
   border: `1px solid var(--color-ink-300)`,
-  borderRadius: 13,
+  borderRadius: "var(--radius-12)",
   fontSize: 13.5,
   fontWeight: 600,
   color: "var(--color-ink-800)",
