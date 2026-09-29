@@ -22,6 +22,9 @@ the prototypes to match the app, was rejected.
 
 ## Constraints
 - Light theme: default and frozen (D1). Dark mode is opt-in via the existing toggle and receives the v6 tokens. Light-theme computed styles must not change in V0.x.
+  - Known accepted-by-plan deviation (pending the user's explicit acceptance): V0.4-V0.6, V1.x and V2.1
+    changed light-theme computed styles, as required by the gap map for shared primitives (control
+    sizes, card/dialog surfaces, table rows, shell). Each task's evidence lists the exact changes.
 - Strict TDD: failing class/role assertions before restyling. Runner: `npx vitest run <file>`;
   full suite `npx vitest run`; `npx tsc --noEmit`; eslint on touched files.
 - Visual check per task: light + dark, 1440px and 390px. No horizontal page scroll at 390px
@@ -49,6 +52,14 @@ the prototypes to match the app, was rejected.
 | D8 | Solicitudes: Administración tab vs separate route | V2.10 |
 | D9 | **Resolved 2026-09-29**: profile + Salir live in the sidebar only (v6); no duplicate in the header. | V1.2 |
 
+### Change of scope 2026-09-29
+The product owner sent new functional requirements (RF v2.0 + Estructura técnico-financiera) that
+replace the Projects module data model (Meta/Actividad -> Objetivo/Actividad-semanas/Entregable,
+new financial semáforo, versioning). The visual tasks for the projects screens (V2.5, V2.6, V2.7,
+V2.8, V2.11) are ON HOLD: restyling screens whose data model is being replaced would be rework.
+The visual plan for the projects board will be recreated for v2.0 after the projects-module plan.
+V0, V1, V2.1-V2.4, V2.9 and V2.10 are unaffected.
+
 ## Tasks
 - [x] **V0.1** `.dark` tokens + new tokens, primary per D1, fixed-light toast (M, needs D1)
 - [x] **V0.2** Type utilities: `PageHeader`, eyebrow, section title, KPI numeral, mono data (S)
@@ -63,13 +74,13 @@ the prototypes to match the app, was rejected.
 - [ ] **V2.2** Inicio caras restyle (M, D5)
 - [ ] **V2.3** Clientes list + ficha restyle, modal kept (M)
 - [ ] **V2.4** Kanban restyle (S–M, needs D3/D7)
-- [ ] **V2.5** Proyectos list (M)
-- [ ] **V2.6** Workspace header/tabs + Metas + Indicadores + Gantt "hoy" line (M)
-- [ ] **V2.7** Cronograma → meta-grouped semáforo table (L, may split)
-- [ ] **V2.8** Financiero gauge + Legalización + Resumen alert card (M–L)
+- [ ] ON HOLD (2026-09-29): superseded by PO's RF v2.0 — replan after the projects-module plan; **V2.5** Proyectos list (M)
+- [ ] ON HOLD (2026-09-29): superseded by PO's RF v2.0 — replan after the projects-module plan; **V2.6** Workspace header/tabs + Metas + Indicadores + Gantt "hoy" line (M)
+- [ ] ON HOLD (2026-09-29): superseded by PO's RF v2.0 — replan after the projects-module plan; **V2.7** Cronograma → meta-grouped semáforo table (L, may split)
+- [ ] ON HOLD (2026-09-29): superseded by PO's RF v2.0 — replan after the projects-module plan; **V2.8** Financiero gauge + Legalización + Resumen alert card (M–L)
 - [ ] **V2.9** Documentos restyle (M)
 - [ ] **V2.10** Reportes + Administración pass (M, D8)
-- [ ] **V2.11** Nuevo proyecto 5-step stepper over existing fields (L, needs D2)
+- [ ] ON HOLD (2026-09-29): superseded by PO's RF v2.0 — replan after the projects-module plan; **V2.11** Nuevo proyecto 5-step stepper over existing fields (L, needs D2)
 - [ ] **V2.12** (optional, D4) Aliados split pane (L)
 - [ ] **V2.13** (optional, D6) Cliente → Aliado copy sweep (M)
 
