@@ -53,7 +53,7 @@ the prototypes to match the app, was rejected.
 - [x] **V0.1** `.dark` tokens + new tokens, primary per D1, fixed-light toast (M, needs D1)
 - [x] **V0.2** Type utilities: `PageHeader`, eyebrow, section title, KPI numeral, mono data (S)
 - [x] **V0.3** `StatusChip` + central estado→tone map, `KpiTile`, semáforo `ProgressBar` (M)
-- [ ] **V0.4** Control sizing: `ui/button`, `ui/input`, `ui/select` at 44/40/36 (M)
+- [x] **V0.4** Control sizing: `ui/button`, `ui/input`, `ui/select` at 44/40/36 (M)
 - [ ] **V0.5** Surfaces: `ui/card`, `ui/dialog`, `ui/sheet`, overlay, shadows (M)
 - [ ] **V0.6** `ui/table`, `ui/tabs` rail, shared `EmptyState` (M)
 - [ ] **V1.1** Sidebar: 44px items, rail active state, lockup sizing (S)
@@ -140,3 +140,14 @@ asked once before the first commit that exceeds budget. Branch: `feat/v6-visual-
 
 ## Next step
 V0.1–V0.6 on branch `feat/v6-visual-alignment` (from `local/todo-integrado`).
+- 2026-09-29 V0.4: control sizing in `ui/button` (default/lg h-11=44, sm h-10=40, xs h-9=36;
+  icon/icon-lg size-11, icon-sm size-10, icon-xs size-9), `ui/input` (h-11, file:h-8) and
+  `ui/select` trigger (default h-11, sm h-10). Hit-area `after:-inset-*` and radius untouched
+  (radius pin to `--radius-12` deferred). Route: delegated writer (single bounded writer).
+  TDD: RED 3 files / 4 failed, 10 passed -> GREEN 3 files / 14 tests (button 6, input 4, select 4).
+  Deliberate test update: `button.test.tsx` size="sm" assertion `h-7` -> `h-10`.
+  Full `npx vitest run`: 173 files passed / 1 failed (`prisma/invariant.test.ts`, 16 tests,
+  known DB-integration failure); 1666 tests passed. `npx tsc --noEmit` and `npx eslint` clean.
+  Call sites: sizes change globally for every `Button`/`Input`/`SelectTrigger` (compact `size`
+  users in crm/client-sheet, documents, kanban, etc. grow); no other class/snapshot tests broke.
+  Visual check (light+dark, 1440/390, tap-target): PENDING.
