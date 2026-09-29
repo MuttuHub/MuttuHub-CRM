@@ -55,7 +55,7 @@ the prototypes to match the app, was rejected.
 - [x] **V0.3** `StatusChip` + central estado→tone map, `KpiTile`, semáforo `ProgressBar` (M)
 - [x] **V0.4** Control sizing: `ui/button`, `ui/input`, `ui/select` at 44/40/36 (M)
 - [x] **V0.5** Surfaces: `ui/card`, `ui/dialog`, `ui/sheet`, overlay, shadows (M)
-- [ ] **V0.6** `ui/table`, `ui/tabs` rail, shared `EmptyState` (M)
+- [x] **V0.6** `ui/table`, `ui/tabs` rail, shared `EmptyState` (M)
 - [ ] **V1.1** Sidebar: 44px items, rail active state, lockup sizing (S)
 - [ ] **V1.2** Sidebar profile + Salir block; header `PageHeader` slot (M, needs D9)
 - [ ] **V1.3** Notification panel + session banner token pass (S)
@@ -173,3 +173,18 @@ V0.1–V0.6 on branch `feat/v6-visual-alignment` (from `local/todo-integrado`).
   Light theme: `--overlay` light value already reproduces `rgba(0,0,0,.1)`; card border/radius/
   spacing do change light computed styles (required by the gap map P4).
   Visual check (light+dark, 1440/390, 3 dialogs + a card screen): PENDING.
+- 2026-09-29 V0.6: `ui/table` (rows h-11/44px, eyebrow `th`, `tabular-nums` cells, `numeric`
+  prop on `TableHead`/`TableCell` for right alignment, selected-row 3px primary inset rail),
+  `ui/tabs` line-variant active rail (3px primary pill, was 2px foreground), new shared
+  `ui/empty-state.tsx` (`title`/`description`/`icon`/`action`/`bordered`). Route: delegated
+  writer (single bounded writer). `crm/client-sheet.tsx` private `EmptyState({copy})` now
+  delegates to the shared one (same signature and classes, `bordered`); `shell/notification-panel.tsx`
+  local EmptyState left untouched (V1.3). Affected call sites of table: 6 files
+  (documents/repository-list, proyectos/project-list, admin users/audit-log/accesos/solicitudes,
+  crm/client-list) get taller rows + eyebrow headers; tabs line variant is used by
+  proyectos workspace. APIs backward compatible.
+  TDD: RED 3 files failed (6 failed, 6 passed; table.test.tsx and empty-state.test.tsx new,
+  tabs rail case added) -> GREEN 3 files / 17 tests (table 7, empty-state 5, tabs 5).
+  Full `npx vitest run`: 178 files passed / 1 failed (`prisma/invariant.test.ts`, 16 tests,
+  known DB-integration failure); 1700 tests passed. `npx tsc --noEmit` and `npx eslint` clean.
+  Visual check (light+dark, 1440/390): PENDING.

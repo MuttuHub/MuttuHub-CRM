@@ -57,7 +57,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
+        "h-11 border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted data-[state=selected]:shadow-[inset_3px_0_0_var(--primary)]",
         className
       )}
       {...props}
@@ -65,12 +65,17 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   )
 }
 
-function TableHead({ className, ...props }: React.ComponentProps<"th">) {
+function TableHead({
+  className,
+  numeric = false,
+  ...props
+}: React.ComponentProps<"th"> & { numeric?: boolean }) {
   return (
     <th
       data-slot="table-head"
       className={cn(
-        "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
+        "h-10 px-2 align-middle text-xs font-bold tracking-widest whitespace-nowrap text-ink-500 uppercase [&:has([role=checkbox])]:pr-0",
+        numeric ? "text-right" : "text-left",
         className
       )}
       {...props}
@@ -78,12 +83,17 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
   )
 }
 
-function TableCell({ className, ...props }: React.ComponentProps<"td">) {
+function TableCell({
+  className,
+  numeric = false,
+  ...props
+}: React.ComponentProps<"td"> & { numeric?: boolean }) {
   return (
     <td
       data-slot="table-cell"
       className={cn(
-        "p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
+        "p-2 align-middle whitespace-nowrap tabular-nums [&:has([role=checkbox])]:pr-0",
+        numeric && "text-right",
         className
       )}
       {...props}
