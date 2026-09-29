@@ -78,6 +78,7 @@ import {
   PrioridadChip,
   ToneBadge,
 } from "@/components/crm/shared";
+import { EmptyState as SharedEmptyState } from "@/components/ui/empty-state";
 import { ClientFormDialog } from "@/components/crm/client-form";
 import {
   ContactoFormDialog,
@@ -1615,11 +1616,7 @@ function DeactivateClientDialog({
 /* ── Estados auxiliares ────────────────────────────────────────────────── */
 
 function EmptyState({ copy }: { copy: string }) {
-  return (
-    <div className="grid min-h-[140px] place-items-center rounded-14 border border-dashed border-ink-300 bg-ink-100/40 px-6 py-8 text-center">
-      <p className="max-w-[36ch] text-[13px] leading-relaxed text-ink-600">{copy}</p>
-    </div>
-  );
+  return <SharedEmptyState bordered description={copy} />;
 }
 
 function ErrorState({ message }: { message: string }) {

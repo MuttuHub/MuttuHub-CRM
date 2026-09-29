@@ -67,4 +67,21 @@ describe("Tabs", () => {
     expect(container.querySelector("[data-slot=tabs-list]")).toHaveAttribute("data-variant", "line")
     expect(container.firstElementChild).toHaveAttribute("data-orientation", "horizontal")
   })
+
+  it("draws the line-variant active rail as a 3px primary pill", () => {
+    render(
+      <Tabs defaultValue="a">
+        <TabsList variant="line">
+          <TabsTrigger value="a">Uno</TabsTrigger>
+        </TabsList>
+        <TabsContent value="a">A</TabsContent>
+      </Tabs>,
+    )
+    const tab = screen.getByRole("tab", { name: "Uno" })
+    expect(tab.className).toContain("after:h-[3px]")
+    expect(tab.className).toContain("after:rounded-full")
+    expect(tab.className).toContain("after:bg-primary")
+    expect(tab.className).not.toContain("after:bg-foreground")
+    expect(tab.className).toContain("group-data-[variant=line]/tabs-list:data-active:after:opacity-100")
+  })
 })
