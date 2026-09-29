@@ -72,7 +72,7 @@ V0, V1, V2.1-V2.4, V2.9 and V2.10 are unaffected.
 - [x] **V1.3** Notification panel + session banner token pass (S)
 - [x] **V2.1** Acceso brand panel (S–M)
 - [ ] **V2.2** Inicio caras restyle (M, D5)
-- [ ] **V2.3** Clientes list + ficha restyle, modal kept (M)
+- [x] **V2.3** Clientes list + ficha restyle, modal kept (M)
 - [ ] **V2.4** Kanban restyle (S–M, needs D3/D7)
 - [ ] ON HOLD (2026-09-29): superseded by PO's RF v2.0 — replan after the projects-module plan; **V2.5** Proyectos list (M)
 - [ ] ON HOLD (2026-09-29): superseded by PO's RF v2.0 — replan after the projects-module plan; **V2.6** Workspace header/tabs + Metas + Indicadores + Gantt "hoy" line (M)
@@ -264,3 +264,28 @@ V0.1–V0.6 on branch `feat/v6-visual-alignment` (from `local/todo-integrado`).
   13/14 -> 12px, logo 118 -> 130px, new wordmark heading; brand-panel colors resolve to identical
   values via tokens (scrim now color-mix of the same #191113 at the same alphas).
   Visual check (light+dark, 1440/390, login + recuperar + reset-password): PENDING.
+- 2026-09-29 V2.3: Clientes list + ficha restyle, modal kept (D4/D6 untouched: no split pane, no
+  Cliente->Aliado rename). `crm/shared.tsx`: `InitialsAvatar` 32/r11 -> 40/r12 (`size-10 rounded-12`);
+  `ResponsableCell` keeps a compact `size-8 rounded-10` avatar so it fits 44px table rows;
+  `PrioridadChip` now renders through `StatusChip` (same tones). `client-list.tsx`: "N clientes" /
+  "1 cliente" count beside the create button (hidden until data loads; copy stays "clientes"); all
+  tipo/estado `ToneBadge` -> `StatusChip` (card, list and table views); empty state -> shared
+  `EmptyState` (same copy); Excel/PDF buttons drop the `h-9` override (now `sm` = 40px); filter
+  selects `h-9` -> `h-10`; pagination buttons drop `h-8` (40px). `client-sheet.tsx`: header avatar
+  uses the standard 40/r12 shape (was custom 44px), all tipo/estado/rol/tarea/oportunidad
+  `ToneBadge` -> `StatusChip`, add buttons (Agregar contacto, Nueva oportunidad, Nuevo compromiso)
+  -> dashed-add outline style. `ToneBadge` stays exported for kanban/documents/admin/entity-dialogs
+  (not migrated here). Dialog width, header `PageHeader` (the shell Header already owns the page
+  title) and data flows/validation/a11y untouched. Route: delegated writer (single bounded writer).
+  TDD: RED 11 failed / 34 passed across 3 files (shared.test.tsx new 4, client-list 5, client-sheet
+  3) -> GREEN 45/45; `src/components/crm` 7 files / 91 tests green.
+  Full `npx vitest run`: 181 files passed / 1 failed (`prisma/invariant.test.ts`, 16 tests, known
+  DB failure); 1743 tests passed. `npx tsc --noEmit` and eslint on `src/components/crm` clean.
+  Affected call sites: `InitialsAvatar`/`PrioridadChip` are used only inside crm (client-list,
+  client-sheet); chip height/weight now follows `StatusChip` (24px bold 11px -> text-xs semibold with
+  dot). e2e: `oportunidad-ciclo.spec.ts` selects "Nueva oportunidad" by role/name, unchanged and
+  not run; no other spec references changed selectors.
+  Light theme: computed styles change - avatars 32->40px/r11->12, chips gain dot + new
+  size/weight, control heights 36->40px (export buttons, filter selects, pagination), add buttons
+  solid primary -> dashed outline, empty-state container markup.
+  Visual check (light+dark, 1440/390, cards/list/table + ficha tabs): PENDING.

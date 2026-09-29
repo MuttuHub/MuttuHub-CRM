@@ -152,3 +152,32 @@ describe("ClientSheet — General tab inline editing (QA audit finding #3)", () 
     expect(screen.queryByText("Sin compromisos abiertos")).not.toBeInTheDocument()
   })
 })
+
+describe("ClientSheet — v6 restyle (V2.3)", () => {
+  beforeEach(() => {
+    clienteQuery.data = CLIENTE
+    clienteQuery.error = null
+  })
+
+  it("header avatar uses the standard 40px / 12px shape", () => {
+    renderSheet()
+    const avatar = screen.getAllByText("AB").find((el) => el.className.includes("size-"))!
+    expect(avatar).toHaveClass("size-10", "rounded-12")
+  })
+
+  it("header estado renders as a StatusChip with the catalog tone", () => {
+    renderSheet()
+    const chips = Array.from(document.querySelectorAll('[data-slot="status-chip"]'))
+    const estado = chips.find((c) => c.textContent?.includes("Prospecto"))
+    expect(estado).toHaveAttribute("data-tone", "info")
+  })
+
+  it("'Nueva oportunidad' uses the dashed-add style", async () => {
+    const user = userEvent.setup()
+    renderSheet()
+    await user.click(screen.getByRole("tab", { name: "Oportunidades" }))
+    const btn = await screen.findByRole("button", { name: "Nueva oportunidad" })
+    expect(btn).toHaveClass("border-dashed")
+    expect(btn).not.toHaveClass("bg-primary")
+  })
+})

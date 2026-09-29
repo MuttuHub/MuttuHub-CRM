@@ -157,6 +157,50 @@ beforeEach(() => {
     expect(screen.getByText(showing(1, 1, 1))).toBeInTheDocument()
   })
 
+  describe("v6 restyle (V2.3)", () => {
+    it("shows a pluralized client count next to the create button", () => {
+      clientsQuery.data = { page: 1, limit: 25, total: 60, items: [CLIENTE] }
+      const { rerender } = render(<ClientList />)
+      expect(screen.getByText("60 clientes")).toBeInTheDocument()
+      clientsQuery.data = { page: 1, limit: 25, total: 1, items: [CLIENTE] }
+      rerender(<ClientList />)
+      expect(screen.getByText("1 cliente")).toBeInTheDocument()
+    })
+
+    it("renders the estado as a StatusChip with the catalog tone", () => {
+      clientsQuery.data = { page: 1, limit: 25, total: 1, items: [CLIENTE] }
+      render(<ClientList />)
+      const chip = screen.getByText("Cliente activo").closest('[data-slot="status-chip"]')
+      expect(chip).not.toBeNull()
+      expect(chip).toHaveAttribute("data-tone", "exito")
+    })
+
+    it("renders the estado as a StatusChip in the table view too", () => {
+      useClientsViewStore.setState({ view: "detalles" })
+      clientsQuery.data = { page: 1, limit: 25, total: 1, items: [CLIENTE] }
+      render(<ClientList />)
+      const chip = screen.getByText("Cliente activo").closest('[data-slot="status-chip"]')
+      expect(chip).toHaveAttribute("data-tone", "exito")
+    })
+
+    it("uses the shared EmptyState for an empty list, keeping the copy", () => {
+      const { container } = render(<ClientList />)
+      const empty = container.querySelector('[data-slot="empty-state"]')
+      expect(empty).not.toBeNull()
+      expect(empty).toHaveTextContent("No encontramos clientes")
+      expect(empty).toHaveTextContent("Nuevo cliente")
+    })
+
+    it("export buttons follow the 40px small control size", () => {
+      render(<ClientList />)
+      for (const name of ["Excel", "PDF"]) {
+        const btn = screen.getByRole("button", { name })
+        expect(btn).toHaveClass("h-10")
+        expect(btn).not.toHaveClass("h-9")
+      }
+    })
+  })
+
   it("marks a client with an overdue next compromiso as 'Vencido'", () => {
     clientsQuery.data = {
       page: 1,

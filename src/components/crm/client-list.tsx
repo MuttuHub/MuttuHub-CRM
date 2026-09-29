@@ -29,6 +29,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatusChip } from "@/components/ui/status-chip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -68,7 +70,6 @@ import {
   InitialsAvatar,
   PrioridadChip,
   ResponsableCell,
-  ToneBadge,
 } from "@/components/crm/shared";
 import { NewClientButton } from "@/components/crm/client-form";
 import {
@@ -439,6 +440,11 @@ export function ClientList() {
   }
 
   const activeCount = countActiveFilters(applied);
+  const totalClientes = listQuery.data?.total;
+  const countLabel =
+    totalClientes === undefined
+      ? null
+      : `${totalClientes} ${totalClientes === 1 ? "cliente" : "clientes"}`;
   const activeChips = useMemo(() => buildActiveChips(applied, users), [applied, users]);
 
   return (
@@ -453,7 +459,7 @@ export function ClientList() {
             variant="outline"
             size="sm"
             onClick={() => void exportExcel()}
-            className="h-9 rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+            className="rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
           >
             <FileSpreadsheet className="size-4 text-exito" strokeWidth={1.8} />
             Excel
@@ -462,11 +468,16 @@ export function ClientList() {
             variant="outline"
             size="sm"
             onClick={openPdf}
-            className="h-9 rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+            className="rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
           >
             <FileText className="size-4 text-destructivo" strokeWidth={1.8} />
             PDF
           </Button>
+          {countLabel && (
+            <span className="text-[13px] font-semibold text-ink-600 tabular-nums">
+              {countLabel}
+            </span>
+          )}
           <NewClientButton users={users} onSaved={() => void listQuery.refetch()} />
         </div>
       </div>
@@ -504,7 +515,7 @@ export function ClientList() {
 /* ── Fila de filtros ───────────────────────────────────────────────────── */
 
 const SELECT_CLASS =
-  "h-9 w-full rounded-12 border-ink-200 bg-panel px-3 text-[13px]";
+  "h-10 w-full rounded-12 border-ink-200 bg-panel px-3 text-[13px]";
 
 function FiltersCard({
   local,
@@ -924,14 +935,12 @@ function ClientListView({
                 </p>
               </div>
               <div className="hidden items-center gap-1.5 sm:flex">
-                <ToneBadge
-                  tone={TIPO_CLIENTE_LABELS[cliente.tipo_cliente].tone}
-                  label={TIPO_CLIENTE_LABELS[cliente.tipo_cliente].label}
-                />
-                <ToneBadge
-                  tone={ESTADO_CLIENTE_LABELS[cliente.estado].tone}
-                  label={ESTADO_CLIENTE_LABELS[cliente.estado].label}
-                />
+                <StatusChip tone={TIPO_CLIENTE_LABELS[cliente.tipo_cliente].tone}>
+                  {TIPO_CLIENTE_LABELS[cliente.tipo_cliente].label}
+                </StatusChip>
+                <StatusChip tone={ESTADO_CLIENTE_LABELS[cliente.estado].tone}>
+                  {ESTADO_CLIENTE_LABELS[cliente.estado].label}
+                </StatusChip>
               </div>
               <div className="hidden text-right md:block">
                 <p className="font-mono text-[12.5px] font-medium text-ink-900 tabular-nums">
@@ -1083,16 +1092,14 @@ function ClientTableView({
                 </p>
               </TableCell>
               <TableCell>
-                <ToneBadge
-                  tone={TIPO_CLIENTE_LABELS[cliente.tipo_cliente].tone}
-                  label={TIPO_CLIENTE_LABELS[cliente.tipo_cliente].label}
-                />
+                <StatusChip tone={TIPO_CLIENTE_LABELS[cliente.tipo_cliente].tone}>
+                  {TIPO_CLIENTE_LABELS[cliente.tipo_cliente].label}
+                </StatusChip>
               </TableCell>
               <TableCell>
-                <ToneBadge
-                  tone={ESTADO_CLIENTE_LABELS[cliente.estado].tone}
-                  label={ESTADO_CLIENTE_LABELS[cliente.estado].label}
-                />
+                <StatusChip tone={ESTADO_CLIENTE_LABELS[cliente.estado].tone}>
+                  {ESTADO_CLIENTE_LABELS[cliente.estado].label}
+                </StatusChip>
               </TableCell>
               <TableCell>
                 {cliente.prioridad ? (
@@ -1173,14 +1180,12 @@ function ClientCard({
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
-        <ToneBadge
-          tone={TIPO_CLIENTE_LABELS[cliente.tipo_cliente].tone}
-          label={TIPO_CLIENTE_LABELS[cliente.tipo_cliente].label}
-        />
-        <ToneBadge
-          tone={ESTADO_CLIENTE_LABELS[cliente.estado].tone}
-          label={ESTADO_CLIENTE_LABELS[cliente.estado].label}
-        />
+        <StatusChip tone={TIPO_CLIENTE_LABELS[cliente.tipo_cliente].tone}>
+          {TIPO_CLIENTE_LABELS[cliente.tipo_cliente].label}
+        </StatusChip>
+        <StatusChip tone={ESTADO_CLIENTE_LABELS[cliente.estado].tone}>
+          {ESTADO_CLIENTE_LABELS[cliente.estado].label}
+        </StatusChip>
         {cliente.prioridad && <PrioridadChip prioridad={cliente.prioridad} />}
       </div>
 
@@ -1295,7 +1300,7 @@ function PaginationFooter({
           size="sm"
           disabled={page <= 1}
           onClick={() => onPage(page - 1)}
-          className="h-8 rounded-10 px-2.5 text-[12.5px] font-semibold"
+          className="rounded-10 px-2.5 text-[12.5px] font-semibold"
         >
           Anterior
         </Button>
@@ -1307,7 +1312,7 @@ function PaginationFooter({
               size="sm"
               onClick={() => onPage(p)}
               className={cn(
-                "h-8 min-w-8 rounded-10 px-2 text-[12.5px] font-bold",
+                "min-w-10 rounded-10 px-2 text-[12.5px] font-bold",
                 p === page && "bg-ink-950 text-white hover:bg-ink-800 dark:bg-ink-100 dark:text-white dark:hover:bg-ink-200",
               )}
             >
@@ -1324,7 +1329,7 @@ function PaginationFooter({
           size="sm"
           disabled={page >= totalPages}
           onClick={() => onPage(page + 1)}
-          className="h-8 rounded-10 px-2.5 text-[12.5px] font-semibold"
+          className="rounded-10 px-2.5 text-[12.5px] font-semibold"
         >
           Siguiente
         </Button>
@@ -1337,20 +1342,21 @@ function PaginationFooter({
 
 function EmptyClients() {
   return (
-    <div className="grid min-h-[300px] place-items-center px-6 py-12 text-center">
-      <div className="max-w-[42ch]">
-        <span className="mx-auto grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-rose-100 text-rose-700 dark:text-rose-400">
+    <EmptyState
+      className="min-h-[300px] py-12"
+      icon={
+        <span className="grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-rose-100 text-rose-700 dark:text-rose-400">
           <UsersRound className="size-6" strokeWidth={1.7} />
         </span>
-        <h3 className="mt-4 font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
-          No encontramos clientes
-        </h3>
-        <p className="mt-1.5 text-[13.5px] leading-relaxed text-ink-600">
+      }
+      title="No encontramos clientes"
+      description={
+        <>
           Ajusta los filtros o crea el primer cliente con el botón{" "}
           <span className="font-semibold text-ink-900">{'"Nuevo cliente"'}</span>.
-        </p>
-      </div>
-    </div>
+        </>
+      }
+    />
   );
 }
 

@@ -5,6 +5,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { StatusChip } from "@/components/ui/status-chip";
 import type { UiTone } from "@/lib/catalogs";
 import { iniciales } from "@/hooks/crm";
 
@@ -50,24 +51,9 @@ export const PRIORIDAD_CHIP: Record<string, UiTone> = {
 export function PrioridadChip({ prioridad }: { prioridad: string | null }) {
   if (!prioridad) return <span className="text-[12.5px] text-ink-500">—</span>;
   return (
-    <span
-      className={cn(
-        "inline-flex h-[24px] items-center gap-1.5 rounded-full px-2.5 text-[11px] font-bold whitespace-nowrap",
-        TONE_BADGE[PRIORIDAD_CHIP[prioridad] ?? "neutro"],
-      )}
-    >
-      <span
-        className={cn(
-          "size-[6px] rounded-full",
-          prioridad === "ALTA"
-            ? "bg-destructivo"
-            : prioridad === "MEDIA"
-              ? "bg-alerta"
-              : "bg-info",
-        )}
-      />
+    <StatusChip tone={PRIORIDAD_CHIP[prioridad] ?? "neutro"}>
       {prioridad === "ALTA" ? "Alta" : prioridad === "MEDIA" ? "Media" : "Baja"}
-    </span>
+    </StatusChip>
   );
 }
 
@@ -81,7 +67,7 @@ export function InitialsAvatar({
   return (
     <span
       className={cn(
-        "grid size-8 shrink-0 place-items-center rounded-11 bg-ink-100 text-[10.5px] font-bold text-ink-700",
+        "grid size-10 shrink-0 place-items-center rounded-12 bg-ink-100 text-[12px] font-bold text-ink-700",
         className,
       )}
     >
@@ -99,7 +85,10 @@ export function ResponsableCell({
 }) {
   return (
     <div className={cn("flex items-center gap-2.5", className)}>
-      <InitialsAvatar nombre={nombre} />
+      <InitialsAvatar
+        nombre={nombre}
+        className="size-8 rounded-10 text-[10.5px]"
+      />
       <span className="max-w-[160px] truncate text-[13px] font-medium text-ink-800">
         {nombre}
       </span>

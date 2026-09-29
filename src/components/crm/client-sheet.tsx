@@ -76,9 +76,9 @@ import {
   FieldValue,
   InitialsAvatar,
   PrioridadChip,
-  ToneBadge,
 } from "@/components/crm/shared";
 import { EmptyState as SharedEmptyState } from "@/components/ui/empty-state";
+import { StatusChip } from "@/components/ui/status-chip";
 import { ClientFormDialog } from "@/components/crm/client-form";
 import {
   ContactoFormDialog,
@@ -354,10 +354,7 @@ function SheetHeaderContent({
   return (
     <div className="shrink-0 border-b border-ink-200 px-6 py-5">
       <div className="flex items-start gap-3.5">
-        <InitialsAvatar
-          nombre={cliente.nombre}
-          className="mt-0.5 size-11 rounded-[15px_15px_15px_5px] text-[13px]"
-        />
+        <InitialsAvatar nombre={cliente.nombre} className="mt-0.5" />
         <div className="min-w-0 flex-1">
           <h2 className="font-display text-[19px] leading-tight font-bold tracking-[-0.02em] text-ink-950 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden">
             {cliente.nombre}
@@ -409,14 +406,12 @@ function SheetHeaderContent({
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <ToneBadge
-          tone={TIPO_CLIENTE_LABELS[cliente.tipo_cliente].tone}
-          label={TIPO_CLIENTE_LABELS[cliente.tipo_cliente].label}
-        />
-        <ToneBadge
-          tone={ESTADO_CLIENTE_LABELS[cliente.estado].tone}
-          label={ESTADO_CLIENTE_LABELS[cliente.estado].label}
-        />
+        <StatusChip tone={TIPO_CLIENTE_LABELS[cliente.tipo_cliente].tone}>
+          {TIPO_CLIENTE_LABELS[cliente.tipo_cliente].label}
+        </StatusChip>
+        <StatusChip tone={ESTADO_CLIENTE_LABELS[cliente.estado].tone}>
+          {ESTADO_CLIENTE_LABELS[cliente.estado].label}
+        </StatusChip>
         <PrioridadChip prioridad={cliente.prioridad} />
       </div>
 
@@ -968,7 +963,12 @@ function ContactosTab({
             : `${contactos.length} contacto${contactos.length === 1 ? "" : "s"}`}
         </p>
         {!readOnly && (
-          <Button size="sm" onClick={onNew} className="rounded-10 font-bold">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onNew}
+            className="rounded-10 border-dashed border-ink-300 bg-transparent font-bold text-ink-700 hover:border-primary hover:bg-rose-50 hover:text-primary"
+          >
             Agregar contacto
           </Button>
         )}
@@ -990,10 +990,9 @@ function ContactosTab({
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[14px] font-semibold text-ink-950">{c.nombre}</span>
                 {c.rol_decision && (
-                  <ToneBadge
-                    tone={ROL_CONTACTO_LABELS[c.rol_decision].tone}
-                    label={ROL_CONTACTO_LABELS[c.rol_decision].label}
-                  />
+                  <StatusChip tone={ROL_CONTACTO_LABELS[c.rol_decision].tone}>
+                    {ROL_CONTACTO_LABELS[c.rol_decision].label}
+                  </StatusChip>
                 )}
               </div>
               <p className="mt-0.5 text-[12.5px] text-ink-600">{c.cargo ?? "Sin cargo"}</p>
@@ -1066,7 +1065,12 @@ function OportunidadesTab({
             : `${oportunidades.length} oportunidad${oportunidades.length === 1 ? "" : "es"}`}
         </p>
         {!readOnly && (
-          <Button size="sm" onClick={onNew} className="rounded-10 font-bold">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onNew}
+            className="rounded-10 border-dashed border-ink-300 bg-transparent font-bold text-ink-700 hover:border-primary hover:bg-rose-50 hover:text-primary"
+          >
             Nueva oportunidad
           </Button>
         )}
@@ -1092,10 +1096,9 @@ function OportunidadesTab({
                     >
                       {o.nombre}
                     </button>
-                    <ToneBadge
-                      tone={ESTADO_OPORTUNIDAD_LABELS[o.estado].tone}
-                      label={ESTADO_OPORTUNIDAD_LABELS[o.estado].label}
-                    />
+                    <StatusChip tone={ESTADO_OPORTUNIDAD_LABELS[o.estado].tone}>
+                      {ESTADO_OPORTUNIDAD_LABELS[o.estado].label}
+                    </StatusChip>
                   </div>
                   <p className="mt-0.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-ink-500">
                     <span className="font-mono font-medium text-ink-800">
@@ -1198,7 +1201,12 @@ function CompromisosTab({
             : `${tasks.length} compromiso${tasks.length === 1 ? "" : "s"}`}
         </p>
         {!readOnly && (
-          <Button size="sm" onClick={onNew} className="rounded-10 font-bold">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onNew}
+            className="rounded-10 border-dashed border-ink-300 bg-transparent font-bold text-ink-700 hover:border-primary hover:bg-rose-50 hover:text-primary"
+          >
             Nuevo compromiso
           </Button>
         )}
@@ -1219,10 +1227,9 @@ function CompromisosTab({
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-[14px] font-semibold text-ink-950">{t.titulo}</span>
-                    <ToneBadge
-                      tone={ESTADO_TAREA_LABELS[t.estado].tone}
-                      label={ESTADO_TAREA_LABELS[t.estado].label}
-                    />
+                    <StatusChip tone={ESTADO_TAREA_LABELS[t.estado].tone}>
+                      {ESTADO_TAREA_LABELS[t.estado].label}
+                    </StatusChip>
                   </div>
                   <p className="mt-0.5 text-[12.5px] text-ink-600">
                     {t.responsable_nombre}
@@ -1511,10 +1518,9 @@ function TareasRelacionadasTab({ clientId }: { clientId: string }) {
                 {t.origen !== "CRM" && ` · ${t.origen === "AMBOS" ? "CRM y tablero" : "Tablero"}`}
               </p>
             </div>
-            <ToneBadge
-              tone={ESTADO_TAREA_LABELS[t.estado].tone}
-              label={ESTADO_TAREA_LABELS[t.estado].label}
-            />
+            <StatusChip tone={ESTADO_TAREA_LABELS[t.estado].tone}>
+              {ESTADO_TAREA_LABELS[t.estado].label}
+            </StatusChip>
           </li>
         ))}
       </ul>
