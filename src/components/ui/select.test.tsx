@@ -33,6 +33,12 @@ describe("Select", () => {
     expect(screen.getByRole("combobox")).toHaveTextContent("Responsable")
   })
 
+  it("sizes the trigger at 44px (default) and 40px (sm)", () => {
+    render(<BasicSelect />)
+    expect(screen.getByRole("combobox")).toHaveClass("data-[size=default]:h-11")
+    expect(screen.getByRole("combobox")).toHaveClass("data-[size=sm]:h-10")
+  })
+
   it("shows the item's label instead of the raw value once selected (BUG #7)", async () => {
     const user = userEvent.setup()
     render(<BasicSelect />)

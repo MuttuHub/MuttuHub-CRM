@@ -11,6 +11,11 @@ describe("Input", () => {
     expect(input).toHaveAttribute("data-slot", "input")
   })
 
+  it("is 44px tall", () => {
+    render(<Input aria-label="alto" />)
+    expect(screen.getByRole("textbox", { name: "alto" })).toHaveClass("h-11")
+  })
+
   it("reports typed values through onChange", async () => {
     const user = userEvent.setup()
     const onChange = vi.fn()
