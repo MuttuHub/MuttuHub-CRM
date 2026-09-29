@@ -62,7 +62,9 @@ import {
   type DocumentItem,
   type FolderNode,
 } from "@/hooks/documents";
-import { ToneBadge } from "@/components/crm/shared";
+import { StatusChip } from "@/components/ui/status-chip";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Eyebrow } from "@/components/ui/typography";
 import { DocumentDialog } from "@/components/documents/document-dialog";
 import { UploadDocumentDialog } from "@/components/documents/upload-dialog";
 import { FolderTree, type FolderAction } from "@/components/documents/folder-tree";
@@ -270,7 +272,7 @@ export function RepositoryList() {
         </p>
         <Button
           onClick={() => setUploadOpen(true)}
-          className="h-9 rounded-lg px-4 font-bold"
+          className="rounded-lg px-4 font-bold"
         >
           <FileUp className="size-4" strokeWidth={1.9} />
           Subir documento
@@ -304,18 +306,16 @@ export function RepositoryList() {
       </div>
 
       <div className="flex min-w-0 flex-col gap-4 lg:grid lg:grid-cols-[240px_1fr]">
-        <aside className="flex min-w-0 flex-col gap-3 rounded-[22px] border border-ink-200 bg-panel p-3">
+        <aside className="flex min-w-0 flex-col gap-3 rounded-[20px] border border-ink-200 bg-panel p-3">
           <div className="flex items-center justify-between gap-2 px-1">
-            <span className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-              Carpetas
-            </span>
+            <Eyebrow>Carpetas</Eyebrow>
             <Button
               type="button"
               variant="ghost"
-              size="sm"
+              size="icon-sm"
               onClick={() => setCreateFolderOpen(true)}
               aria-label="Crear carpeta"
-              className="h-7 w-7 rounded-lg p-0 text-ink-500 hover:bg-ink-100 hover:text-ink-800"
+              className="text-ink-500 hover:bg-ink-100 hover:text-ink-800"
             >
               <FolderPlus className="size-4" strokeWidth={1.9} />
             </Button>
@@ -358,7 +358,7 @@ export function RepositoryList() {
                   size="sm"
                   disabled={zipPending}
                   onClick={() => void descargarSeleccion()}
-                  className="h-9 rounded-12 border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+                  className="rounded-12 border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
                 >
                   {zipPending ? (
                     <LoaderCircle className="size-4 animate-spin" />
@@ -371,7 +371,7 @@ export function RepositoryList() {
                   variant="ghost"
                   size="sm"
                   onClick={() => setSelected(new Set())}
-                  className="h-9 px-2.5 text-[12.5px] font-semibold text-ink-600"
+                  className="px-2.5 text-[12.5px] font-semibold text-ink-600"
                 >
                   Limpiar
                 </Button>
@@ -452,7 +452,7 @@ function FolderActionDialogs({
 /* ── Fila de filtros ───────────────────────────────────────────────────── */
 
 const SELECT_CLASS =
-  "h-9 flex-1 basis-0 rounded-12 border-ink-200 bg-panel px-3 text-[13px]";
+  "flex-1 basis-0 rounded-12 border-ink-200 bg-panel px-3 text-[13px]";
 
 function SectionFilters({
   local,
@@ -489,7 +489,7 @@ function SectionFilters({
   );
 
   return (
-    <section className="rounded-[22px] border border-ink-200 bg-panel p-4 lg:p-5">
+    <section className="rounded-[20px] border border-ink-200 bg-panel p-4 lg:p-5">
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative min-w-[220px] flex-1">
           <Search
@@ -501,7 +501,7 @@ function SectionFilters({
             onChange={(e) => onChange({ q: e.target.value })}
             placeholder="Buscar por nombre, categoría, etiqueta, cliente o autor…"
             aria-label="Buscar documentos"
-            className="h-10 rounded-lg border-ink-200 bg-panel pl-9 text-[13px]"
+            className="rounded-lg border-ink-200 bg-panel pl-9 text-[13px]"
           />
         </div>
 
@@ -510,7 +510,7 @@ function SectionFilters({
             render={
               <Button
                 variant="outline"
-                className="h-10 rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+                className="rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
               >
                 <SlidersHorizontal className="size-4 text-ink-600" strokeWidth={1.8} />
                 Filtros{" "}
@@ -609,7 +609,7 @@ function SectionFilters({
                   value={local.desde}
                   onChange={(e) => onChange({ desde: e.target.value })}
                   aria-label="Documentos desde"
-                  className="h-10 min-w-0 flex-1 rounded-lg border-ink-200 bg-panel px-3 text-[12.5px]"
+                  className="min-w-0 flex-1 rounded-lg border-ink-200 bg-panel px-3 text-[12.5px]"
                 />
                 <span className="text-[12px] text-ink-500">a</span>
                 <Label htmlFor="doc-hasta" className="sr-only">
@@ -621,7 +621,7 @@ function SectionFilters({
                   value={local.hasta}
                   onChange={(e) => onChange({ hasta: e.target.value })}
                   aria-label="Documentos hasta"
-                  className="h-10 min-w-0 flex-1 rounded-lg border-ink-200 bg-panel px-3 text-[12.5px]"
+                  className="min-w-0 flex-1 rounded-lg border-ink-200 bg-panel px-3 text-[12.5px]"
                 />
               </div>
             </div>
@@ -632,7 +632,7 @@ function SectionFilters({
                   variant="ghost"
                   size="sm"
                   onClick={onClear}
-                  className="h-8 px-2 text-[12.5px] font-semibold text-ink-600"
+                  className="px-2 text-[12.5px] font-semibold text-ink-600"
                 >
                   <RotateCcw className="size-3" strokeWidth={1.9} />
                   Limpiar filtros
@@ -678,10 +678,15 @@ function DocumentsTableCard({
   onOpenUpload: () => void;
 }) {
   const items = query.data?.items ?? [];
+  const categoriesQuery = useDocCategories();
+  const restringidas = useMemo(
+    () => new Set((categoriesQuery.data ?? []).filter((c) => c.restringida).map((c) => c.nombre)),
+    [categoriesQuery.data],
+  );
   const isEmpty = !query.isLoading && items.length === 0;
 
   return (
-    <section className="overflow-hidden rounded-[22px] border border-ink-200 bg-panel">
+    <section className="overflow-hidden rounded-[20px] border border-ink-200 bg-panel">
       {query.isLoading ? (
         <div className="space-y-3 p-6">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -704,16 +709,16 @@ function DocumentsTableCard({
                       aria-label="Seleccionar todos los de la página"
                     />
                   </TableHead>
-                  <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                  <TableHead>
                     Documento
                   </TableHead>
-                  <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                  <TableHead>
                     Cliente
                   </TableHead>
-                  <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                  <TableHead>
                     Versión activa
                   </TableHead>
-                  <TableHead className="w-24 text-right text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                  <TableHead numeric className="w-24">
                     Acciones
                   </TableHead>
                 </TableRow>
@@ -724,6 +729,7 @@ function DocumentsTableCard({
                     key={doc.id}
                     doc={doc}
                     selected={selected.has(doc.id)}
+                    restringida={restringidas.has(doc.categoria)}
                     onToggle={() => onToggleOne(doc.id)}
                     onOpen={() => onOpenFicha(doc.id)}
                   />
@@ -749,11 +755,13 @@ function DocumentsTableCard({
 function DocumentRow({
   doc,
   selected,
+  restringida,
   onToggle,
   onOpen,
 }: {
   doc: DocumentItem;
   selected: boolean;
+  restringida: boolean;
   onToggle: () => void;
   onOpen: () => void;
 }) {
@@ -761,6 +769,7 @@ function DocumentRow({
   return (
     <TableRow
       onClick={onOpen}
+      data-state={selected ? "selected" : undefined}
       className="cursor-pointer hover:bg-rose-50/40"
       tabIndex={0}
       onKeyDown={(e) => {
@@ -792,7 +801,8 @@ function DocumentRow({
               {doc.titulo}
             </div>
             <div className="mt-0.5 flex flex-wrap items-center gap-1">
-              <ToneBadge tone="neutro" label={doc.categoria} />
+              <StatusChip tone="neutro">{doc.categoria}</StatusChip>
+              {restringida && <StatusChip tone="destructivo">Restringido</StatusChip>}
               {doc.etiquetas.slice(0, 3).map((tag) => (
                 <span
                   key={tag}
@@ -834,7 +844,7 @@ function DocumentRow({
       </TableCell>
       <TableCell>
         {activa ? (
-          <span className="inline-flex h-[24px] items-center gap-1.5 rounded-full bg-ink-100 px-2.5 text-[11px] font-semibold whitespace-nowrap text-ink-700">
+          <span className="inline-flex h-[24px] items-center gap-1.5 rounded-full bg-ink-100 px-2.5 font-mono text-[11px] font-semibold whitespace-nowrap text-ink-700">
             v{activa.numero_version} · {formatVersionFecha(activa.created_at)} ·{" "}
             {activa.subido_por_nombre}
           </span>
@@ -917,7 +927,7 @@ function PaginationFooter({
           size="sm"
           disabled={page <= 1}
           onClick={() => onPage(page - 1)}
-          className="h-8 rounded-10 px-2.5 text-[12.5px] font-semibold after:-inset-2"
+          className="rounded-10 px-2.5 text-[12.5px] font-semibold after:-inset-2"
         >
           Anterior
         </Button>
@@ -929,7 +939,7 @@ function PaginationFooter({
               size="sm"
               onClick={() => onPage(p)}
               className={cn(
-                "h-8 min-w-8 rounded-10 px-2 text-[12.5px] font-bold after:-inset-2",
+                "min-w-10 rounded-10 px-2 text-[12.5px] font-bold after:-inset-2",
                 p === page && "bg-ink-950 text-white hover:bg-ink-800 dark:bg-ink-100 dark:text-white dark:hover:bg-ink-200",
               )}
             >
@@ -946,7 +956,7 @@ function PaginationFooter({
           size="sm"
           disabled={page >= totalPages}
           onClick={() => onPage(page + 1)}
-          className="h-8 rounded-10 px-2.5 text-[12.5px] font-semibold after:-inset-2"
+          className="rounded-10 px-2.5 text-[12.5px] font-semibold after:-inset-2"
         >
           Siguiente
         </Button>
@@ -959,25 +969,28 @@ function PaginationFooter({
 
 function EmptyDocuments({ onOpenUpload }: { onOpenUpload: () => void }) {
   return (
-    <div className="grid min-h-[300px] place-items-center px-6 py-12 text-center">
-      <div className="max-w-[42ch]">
-        <span className="mx-auto grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-rose-100 text-rose-700 dark:text-rose-400">
+    <EmptyState
+      className="min-h-[300px] py-12"
+      icon={
+        <span className="grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-rose-100 text-rose-700 dark:text-rose-400">
           <FolderOpen className="size-6" strokeWidth={1.7} />
         </span>
-        <h3 className="mt-4 font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
-          Sin documentos
-        </h3>
-        <p className="mt-1.5 text-[13.5px] leading-relaxed text-ink-600">
+      }
+      title="Sin documentos"
+      description={
+        <>
           Este documento sube el primer archivo del repositorio con el botón{" "}
           <span className="font-semibold text-ink-900">{'"Subir documento"'}</span> o
           ajusta los filtros para ver más resultados.
-        </p>
-        <Button onClick={onOpenUpload} className="mt-5 rounded-lg px-4 font-bold">
+        </>
+      }
+      action={
+        <Button onClick={onOpenUpload} className="mt-3 rounded-lg px-4 font-bold">
           <FileUp className="size-4" strokeWidth={1.9} />
           Subir documento
         </Button>
-      </div>
-    </div>
+      }
+    />
   );
 }
 

@@ -73,4 +73,12 @@ describe("FolderTree", () => {
     const active = nodeButton("Legal");
     expect(active.closest("div")!.className).toContain("bg-ink-100");
   });
+
+  it("gives the active folder the primary rail and 40px rows", () => {
+    render(<FolderTree folders={folders} activeId="root-2" onSelect={vi.fn()} onAction={vi.fn()} />);
+    const row = nodeButton("Legal").parentElement!;
+    expect(row.className).toContain("shadow-[inset_3px_0_0_var(--primary)]");
+    expect(row).toHaveClass("min-h-10");
+    expect(nodeButton("Comercial").parentElement!.className).not.toContain("inset_3px");
+  });
 });

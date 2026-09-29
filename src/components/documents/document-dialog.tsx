@@ -35,7 +35,7 @@ import {
   useUploadVersion,
   type DocumentVersion,
 } from "@/hooks/documents";
-import { ToneBadge } from "@/components/crm/shared";
+import { StatusChip } from "@/components/ui/status-chip";
 import { ConfirmDialog } from "@/components/crm/entity-dialogs";
 import { FileDropzone } from "@/components/documents/upload-dialog";
 
@@ -61,7 +61,7 @@ export function DocumentDialog({
 
   return (
     <Dialog open={documentId !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[88dvh] gap-0 overflow-y-auto rounded-[24px] p-0 sm:max-w-[min(620px,calc(100%-2rem))]">
+      <DialogContent className="max-h-[88dvh] gap-0 overflow-y-auto p-0 sm:max-w-[min(620px,calc(100%-2rem))]">
         {!documento ? (
           <div className="flex flex-col gap-3 p-6">
             <Skeleton className="h-8 w-3/4 rounded-10" />
@@ -86,7 +86,7 @@ export function DocumentDialog({
                       {documento.titulo}
                     </DialogTitle>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      <ToneBadge tone="neutro" label={documento.categoria} />
+                      <StatusChip tone="neutro">{documento.categoria}</StatusChip>
                       {activa && (
                         <span className="inline-flex h-[24px] items-center rounded-full bg-ink-100 px-2.5 text-[11px] font-semibold text-ink-600">
                           {extensionOf(activa.tipo_archivo ?? "")?.toUpperCase() ??
@@ -144,7 +144,7 @@ export function DocumentDialog({
                 type="button"
                 disabled={!activa}
                 onClick={() => void downloadActiveVersion(documento).catch(() => undefined)}
-                className="h-9 rounded-lg px-4 font-bold"
+                className="rounded-lg px-4 font-bold"
               >
                 <Download className="size-4" strokeWidth={2} />
                 {activa ? `Descargar v${activa.numero_version}` : "Sin versión"}
@@ -153,7 +153,7 @@ export function DocumentDialog({
                 type="button"
                 variant="outline"
                 onClick={() => setVersionUploadOpen(true)}
-                className="h-9 rounded-lg border-ink-200 bg-panel px-4 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+                className="rounded-lg border-ink-200 bg-panel px-4 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
               >
                 <Upload className="size-4 text-exito" strokeWidth={1.9} />
                 Subir nueva versión
@@ -190,17 +190,20 @@ export function DocumentDialog({
                 <p className="text-[12.5px] text-ink-600">Sin versiones todavía.</p>
               )}
 
-              {versionesOpen &&
-                versiones.map((v) => (
-                  <VersionRow
-                    key={v.id}
-                    version={v}
-                    activa={v.id === activa?.version_id}
-                    onDownload={() =>
-                      void downloadDocumentVersion(documento, v).catch(() => undefined)
-                    }
-                  />
-                ))}
+              {versionesOpen && (
+                <ul className="flex flex-col gap-2">
+                  {versiones.map((v) => (
+                    <VersionRow
+                      key={v.id}
+                      version={v}
+                      activa={v.id === activa?.version_id}
+                      onDownload={() =>
+                        void downloadDocumentVersion(documento, v).catch(() => undefined)
+                      }
+                    />
+                  ))}
+                </ul>
+              )}
             </section>
           </div>
         )}
@@ -253,13 +256,13 @@ function VersionRow({
         <span className="shrink-0 font-mono text-[12.5px] font-bold text-ink-900">
           v{version.numero_version}
         </span>
-        <span className="truncate text-[12.5px] text-ink-600">
+        <span className="truncate font-mono text-[12.5px] text-ink-600">
           {formatVersionFecha(version.created_at)} · {version.subido_por_nombre}
         </span>
-        {activa && <ToneBadge tone="exito" label="Activa" className="shrink-0 !px-2" />}
+        {activa && <StatusChip tone="exito">Activa</StatusChip>}
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <span className="text-[11.5px] text-ink-500">
+        <span className="font-mono text-[11.5px] text-ink-500">
           {formatBytes(version.tamano_bytes)}
         </span>
         <Button
@@ -299,7 +302,7 @@ function VersionUploadDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88dvh] gap-0 overflow-y-auto rounded-[24px] p-0 sm:max-w-[min(520px,calc(100%-2rem))]">
+      <DialogContent className="max-h-[88dvh] gap-0 overflow-y-auto p-0 sm:max-w-[min(520px,calc(100%-2rem))]">
         <div className="flex flex-col gap-5 p-6">
           <DialogHeader className="gap-1">
             <DialogTitle className="font-display text-[19px] font-bold tracking-[-0.02em] text-ink-950">

@@ -78,7 +78,7 @@ V0, V1, V2.1-V2.4, V2.9 and V2.10 are unaffected.
 - [ ] ON HOLD (2026-09-29): superseded by PO's RF v2.0 — replan after the projects-module plan; **V2.6** Workspace header/tabs + Metas + Indicadores + Gantt "hoy" line (M)
 - [ ] ON HOLD (2026-09-29): superseded by PO's RF v2.0 — replan after the projects-module plan; **V2.7** Cronograma → meta-grouped semáforo table (L, may split)
 - [ ] ON HOLD (2026-09-29): superseded by PO's RF v2.0 — replan after the projects-module plan; **V2.8** Financiero gauge + Legalización + Resumen alert card (M–L)
-- [ ] **V2.9** Documentos restyle (M)
+- [x] **V2.9** Documentos restyle (M)
 - [ ] **V2.10** Reportes + Administración pass (M, D8)
 - [ ] ON HOLD (2026-09-29): superseded by PO's RF v2.0 — replan after the projects-module plan; **V2.11** Nuevo proyecto 5-step stepper over existing fields (L, needs D2)
 - [ ] **V2.12** (optional, D4) Aliados split pane (L)
@@ -289,3 +289,29 @@ V0.1–V0.6 on branch `feat/v6-visual-alignment` (from `local/todo-integrado`).
   size/weight, control heights 36->40px (export buttons, filter selects, pagination), add buttons
   solid primary -> dashed outline, empty-state container markup.
   Visual check (light+dark, 1440/390, cards/list/table + ficha tabs): PENDING.
+- 2026-09-29 V2.9: Documentos restyle. `repository-list.tsx`: upload/search/filters/date inputs and
+  select triggers drop `h-9`/`h-10` overrides (now 44px default; selection-bar, "Limpiar filtros" and
+  pagination buttons 40px `sm`); "Carpetas" label -> `Eyebrow`; table headers drop per-feature
+  eyebrow classes (owned by `ui/table`, "Acciones" uses `numeric`); selected rows set
+  `data-state="selected"` (primary inset rail); categoria `ToneBadge` -> `StatusChip` (neutro);
+  new destructivo "Restringido" `StatusChip` on rows whose category is `restringida` (data from the
+  already-used `useDocCategories`, no new fetch/model); active-version metadata in mono; empty state
+  -> shared `EmptyState` (same copy, same upload action); cards/panels `rounded-[22px]` -> 20px (also
+  `documentos/page.tsx` skeleton). `folder-tree.tsx`: rows `min-h-10`, active folder gets primary
+  rail, row buttons `size-8`; folder-add button `icon-sm`. `document-dialog.tsx`: dialog radius
+  override dropped (inherits 22px), categoria/"Activa" -> `StatusChip`, action buttons 44px, version
+  rows now a real `<ul>` with mono metadata/size. `folder-dialogs.tsx` / `upload-dialog.tsx`: `h-9`/
+  `h-10` control overrides removed (44px inputs/selects/buttons). `ToneBadge` no longer used in
+  documents (still exported for kanban/admin/entity-dialogs). Behavior, copy, permissions, a11y
+  names untouched; projects module untouched. Route: delegated writer (single bounded writer).
+  TDD: RED 12 failed across 3 files (repository-list.test.tsx new 8, document-dialog.test.tsx new
+  3, folder-tree 1) -> GREEN `src/components/documents` 5 files / 22 tests. Full `npx vitest run`:
+  183 files passed / 1 failed (`prisma/invariant.test.ts`, 16 tests, known DB failure); 1755 tests
+  passed. `npx tsc --noEmit` and eslint on documents + documentos route clean.
+  Affected call sites: components used only via `/documentos` and the ficha de cliente deep link
+  (`?cliente=`); `ToneBadge`/`SinConexionCard` untouched. e2e: no spec references documents; none run.
+  Light theme: computed styles change - controls 36/40 -> 44px (upload, search, filters, selects,
+  dates, dialog inputs/buttons), toolbar/pagination buttons 32/36 -> 40px, card radius 22 -> 20px,
+  dialog radius 24 -> 22px, folder rows ~28 -> 40px, chips gain dot + new size/weight, new red
+  "Restringido" chip, mono version metadata, empty-state title 18px display -> 14px semibold.
+  Visual check (light+dark, 1440/390, list/filters/ficha/versiones/folders): PENDING.

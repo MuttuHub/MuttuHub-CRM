@@ -205,7 +205,7 @@ export function EtiquetasInput({
         onKeyDown={onKeyDown}
         placeholder="Escribe y presiona Enter para agregar…"
         aria-label="Agregar etiqueta"
-        className="h-9 rounded-10 bg-panel px-3 text-[13px]"
+        className="rounded-10 bg-panel px-3 text-[13px]"
       />
       <p className="text-[11.5px] text-ink-500">
         {etiquetas.length}/8 etiquetas · separa con Enter o coma
@@ -392,7 +392,7 @@ export function UploadDocumentDialog({
               value={titulo}
               onChange={(e) => handleTitulo(e.target.value)}
               placeholder="Nombre del documento"
-              className="h-10 rounded-12 bg-panel px-3"
+              className="rounded-12 bg-panel px-3"
             />
           </div>
 
@@ -401,7 +401,7 @@ export function UploadDocumentDialog({
               Categoría <span className="text-rose-500">*</span>
             </Label>
             <Select value={categoria} onValueChange={(v) => setCategoria(v ?? "")}>
-              <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+              <SelectTrigger className="w-full rounded-12 bg-panel px-3">
                 <SelectValue placeholder="Selecciona una categoría" />
               </SelectTrigger>
               <SelectContent>
@@ -425,7 +425,7 @@ export function UploadDocumentDialog({
               value={clienteId}
               onValueChange={(v) => setClienteId(v === "ninguno" ? "" : (v ?? ""))}
             >
-              <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+              <SelectTrigger className="w-full rounded-12 bg-panel px-3">
                 <SelectValue placeholder="Sin cliente" />
               </SelectTrigger>
               <SelectContent>

@@ -43,8 +43,8 @@ function FolderBranch({
     <li>
       <div
         className={cn(
-          "group flex items-center gap-1 rounded-10 py-1 pr-1",
-          isActive ? "bg-ink-100" : "hover:bg-ink-100/60",
+          "group flex min-h-10 items-center gap-1 rounded-10 py-1 pr-1",
+          isActive ? "bg-ink-100 shadow-[inset_3px_0_0_var(--primary)]" : "hover:bg-ink-100/60",
         )}
         style={{ paddingLeft: `${depth * 14 + 6}px` }}
       >
@@ -55,7 +55,7 @@ function FolderBranch({
             size="sm"
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
-            className="h-6 w-6 shrink-0 rounded-md p-0 text-ink-500 hover:bg-transparent hover:text-ink-800"
+            className="size-8 shrink-0 rounded-md p-0 text-ink-500 hover:bg-transparent hover:text-ink-800"
           >
             <ChevronDown
               className={cn("size-3.5 transition-transform", !open && "-rotate-90")}
@@ -64,7 +64,7 @@ function FolderBranch({
             <span className="sr-only">{open ? "Contraer" : "Expandir"}</span>
           </Button>
         ) : (
-          <span className="w-6 shrink-0" />
+          <span className="w-8 shrink-0" />
         )}
         <button
           type="button"
@@ -90,7 +90,7 @@ function FolderBranch({
                 variant="ghost"
                 size="sm"
                 aria-label={`Acciones de ${node.nombre}`}
-                className="h-6 w-6 shrink-0 rounded-md p-0 text-ink-400 opacity-0 hover:bg-transparent hover:text-ink-800 group-hover:opacity-100 focus-visible:opacity-100"
+                className="size-8 shrink-0 rounded-md p-0 text-ink-400 opacity-0 hover:bg-transparent hover:text-ink-800 group-hover:opacity-100 focus-visible:opacity-100"
               >
                 <MoreHorizontal className="size-3.5" strokeWidth={2} />
               </Button>
@@ -153,8 +153,8 @@ export function FolderTree({
         type="button"
         onClick={() => onSelect(null)}
         className={cn(
-          "flex items-center gap-1.5 rounded-10 px-2 py-1.5 text-left",
-          isRoot ? "bg-ink-100" : "hover:bg-ink-100/60",
+          "flex min-h-10 items-center gap-1.5 rounded-10 px-2 py-1.5 text-left",
+          isRoot ? "bg-ink-100 shadow-[inset_3px_0_0_var(--primary)]" : "hover:bg-ink-100/60",
         )}
       >
         <Folder className={cn("size-3.5 shrink-0", isRoot ? "text-exito" : "text-ink-400")} strokeWidth={1.8} />
