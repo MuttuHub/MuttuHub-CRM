@@ -52,7 +52,7 @@ the prototypes to match the app, was rejected.
 ## Tasks
 - [x] **V0.1** `.dark` tokens + new tokens, primary per D1, fixed-light toast (M, needs D1)
 - [x] **V0.2** Type utilities: `PageHeader`, eyebrow, section title, KPI numeral, mono data (S)
-- [ ] **V0.3** `StatusChip` + central estado→tone map, `KpiTile`, semáforo `ProgressBar` (M)
+- [x] **V0.3** `StatusChip` + central estado→tone map, `KpiTile`, semáforo `ProgressBar` (M)
 - [ ] **V0.4** Control sizing: `ui/button`, `ui/input`, `ui/select` at 44/40/36 (M)
 - [ ] **V0.5** Surfaces: `ui/card`, `ui/dialog`, `ui/sheet`, overlay, shadows (M)
 - [ ] **V0.6** `ui/table`, `ui/tabs` rail, shared `EmptyState` (M)
@@ -120,6 +120,23 @@ asked once before the first commit that exceeds budget. Branch: `feat/v6-visual-
   listed in the gap map's token table) to avoid an inconsistent popup surface
   once `--card` changed; this is a low-risk companion change, not a new
   design decision.
+
+- 2026-09-29 V0.3: new `toneFromSemaforo` (`src/lib/estado-tone.ts`), `StatusChip`
+  (`ui/status-chip.tsx`), `KpiTile` (`ui/kpi-tile.tsx`), semáforo `ProgressBar`
+  (`ui/progress-bar.tsx`) + tests. Route: delegated writer (single bounded writer).
+  `ProgressBar` derives the band via `colorIndicador(value/100, umbrales)` (caller passes
+  parameterized `umbrales`; no thresholds duplicated) then `toneFromSemaforo`; clamps
+  0-100 and NaN->0. No screen migrated (V2.x); only pre-existing bar is inline in
+  `proyectos/tabs/metas-tab.tsx` (`BAR_COLOR`), left untouched.
+  TDD: RED 4 files failed (missing modules, 0 tests run) -> GREEN 4 files / 26 tests
+  (3 estado-tone + 11 status-chip + 5 kpi-tile + 7 progress-bar).
+  Full `npx vitest run`: 173 files passed / 1 failed (`prisma/invariant.test.ts`, 16 tests,
+  DB-integration, unrelated to this task); 1663 tests passed. `npx tsc --noEmit` and
+  `npx eslint` clean on touched files.
+  Token gap: `neutro`/`activo`/`riesgo` have no dedicated `*-bg`/text token; `StatusChip`
+  reuses the existing screen mappings (ink-100/ink-700, rose-50/rose-700, destructivo).
+  `exito`/`alerta`/`destructivo`/`info` tokens exist in light and `.dark`.
+  Visual check: PENDING (components not mounted on any screen yet).
 
 ## Next step
 V0.1–V0.6 on branch `feat/v6-visual-alignment` (from `local/todo-integrado`).
