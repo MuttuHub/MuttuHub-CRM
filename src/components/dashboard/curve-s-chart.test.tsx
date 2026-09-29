@@ -126,3 +126,36 @@ describe("CurveSChartContainer", () => {
     expect(screen.getByText("No se pudo cargar la curva S")).toBeInTheDocument();
   });
 });
+
+describe("CurveSChart brand series (V2.2, D5)", () => {
+  it("draws the executed series solid in the primary brand color", () => {
+    render(<CurveSChart data={makeData().curva_s} />);
+    const bar = screen.getByTestId("curve-s-bar-ejecutado-0");
+    expect(bar).toHaveClass("bg-primary");
+    expect(bar).not.toHaveClass("border-dashed");
+  });
+
+  it("draws the plan series as a tinted rose bar with a dashed outline (non-color cue)", () => {
+    render(<CurveSChart data={makeData().curva_s} />);
+    const bar = screen.getByTestId("curve-s-bar-planificado-0");
+    expect(bar).toHaveClass("bg-rose-100", "border-dashed", "border-rose-400");
+  });
+
+  it("does not use the semaforo colors for either series or the legend", () => {
+    const { container } = render(<CurveSChart data={makeData().curva_s} />);
+    expect(container.querySelector(".bg-exito, .bg-destructivo, .text-exito, .text-destructivo")).toBeNull();
+  });
+
+  it("shows a legend whose swatches mirror the bar styles", () => {
+    render(<CurveSChart data={makeData().curva_s} />);
+    expect(screen.getByTestId("curve-s-legend-planificado")).toHaveClass("border-dashed");
+    expect(screen.getByTestId("curve-s-legend-ejecutado")).toHaveClass("bg-primary");
+    expect(screen.getByText("Planificado")).toBeInTheDocument();
+    expect(screen.getByText("Ejecutado")).toBeInTheDocument();
+  });
+
+  it("uses the shared EmptyState when there is no data", () => {
+    const { container } = render(<CurveSChart data={null} />);
+    expect(container.querySelector('[data-slot="empty-state"]')).not.toBeNull();
+  });
+});

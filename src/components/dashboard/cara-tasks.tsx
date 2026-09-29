@@ -17,6 +17,8 @@ import {
   SinConexionCard,
   esEnvelopeNoConfigurado,
 } from "@/components/dashboard/shared";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatusChip } from "@/components/ui/status-chip";
 import { DemoFallback } from "@/components/dashboard/demo-fallback";
 
 const MAX_VENCIDAS_VISAS = 8;
@@ -48,26 +50,10 @@ export function CaraTareas({ filters }: { filters: DashboardFilters }) {
           {por_columna.map((c) => {
             const entry = ESTADO_TAREA_LABELS[c.estado];
             return (
-              <span
-                key={c.estado}
-                className="inline-flex h-[30px] items-center gap-2 rounded-full border border-ink-200 bg-panel px-3.5 text-[12.5px] font-semibold text-ink-800"
-              >
-                <span
-                  className={cn(
-                    "size-[7px] rounded-full",
-                    entry?.tone === "activo" && "bg-rose-400",
-                    entry?.tone === "neutro" && "bg-ink-300",
-                    entry?.tone === "exito" && "bg-exito",
-                    entry?.tone === "alerta" && "bg-alerta",
-                    entry?.tone === "info" && "bg-info",
-                    entry?.tone === "destructivo" && "bg-destructivo",
-                  )}
-                />
+              <StatusChip key={c.estado} tone={entry?.tone ?? "neutro"} className="h-[30px] px-3.5 text-[12.5px]">
                 {entry?.label ?? c.estado}
-                <span className="font-mono text-[12px] font-bold tabular-nums text-ink-950">
-                  {c.count}
-                </span>
-              </span>
+                <span className="font-mono text-[12px] font-bold tabular-nums">{c.count}</span>
+              </StatusChip>
             );
           })}
         </div>
@@ -80,9 +66,7 @@ export function CaraTareas({ filters }: { filters: DashboardFilters }) {
           subtitle={`${totalPersonas} personas con tareas en el rango · % = completadas a tiempo`}
         >
           {cumplimiento_por_persona.length === 0 ? (
-            <p className="py-8 text-center text-[13px] text-ink-500">
-              No hay tareas en el rango para mostrar cumplimiento.
-            </p>
+            <EmptyState description="No hay tareas en el rango para mostrar cumplimiento." />
           ) : (
             <ol className="flex flex-col gap-4">
               {cumplimiento_por_persona.map((p) => (
@@ -126,7 +110,8 @@ export function CaraTareas({ filters }: { filters: DashboardFilters }) {
             <Link href="/tablero">
               <Button
                 variant="ghost"
-                className="h-[29px] rounded-[9px] px-2.5 text-[12px] font-semibold text-ink-700 hover:bg-ink-100"
+                size="xs"
+                className="px-2.5 text-[12px] font-semibold text-ink-700 hover:bg-ink-100"
               >
                 Ver tablero
                 <ArrowUpRight className="size-3.5" strokeWidth={1.9} />
@@ -148,9 +133,7 @@ export function CaraTareas({ filters }: { filters: DashboardFilters }) {
             </div>
 
             {vencidas.lista.length === 0 ? (
-              <p className="py-4 text-center text-[13px] text-ink-500">
-                Sin vencidas activas. ¡Vamos bien!
-              </p>
+              <EmptyState description="Sin vencidas activas. ¡Vamos bien!" />
             ) : (
               <ul className="flex flex-col">
                 {vencidas.lista.slice(0, MAX_VENCIDAS_VISAS).map((v, i) => (

@@ -193,7 +193,7 @@ export function DashboardTabs({
           </div>
 
           <Select value={responsable} onValueChange={(v) => v !== null && setResponsable(v)}>
-            <SelectTrigger size="sm" className="h-8 rounded-11 bg-panel">
+            <SelectTrigger size="sm" className="bg-panel">
               <SelectValue placeholder="Todos los responsables" />
             </SelectTrigger>
             <SelectContent>
@@ -207,7 +207,7 @@ export function DashboardTabs({
           </Select>
 
           <Select value={tipoCliente} onValueChange={(v) => v !== null && setTipoCliente(v)}>
-            <SelectTrigger size="sm" className="h-8 rounded-11 bg-panel">
+            <SelectTrigger size="sm" className="bg-panel">
               <SelectValue placeholder="Todos los tipos" />
             </SelectTrigger>
             <SelectContent>
@@ -224,16 +224,18 @@ export function DashboardTabs({
             {exportConfig && (
               <Button
                 variant="outline"
+                size="sm"
                 onClick={exportarExcel}
-                className="h-9 rounded-lg border-ink-200 bg-panel px-4 font-bold text-ink-800 hover:bg-ink-100"
+                className="border-ink-200 bg-panel px-4 font-bold text-ink-800 hover:bg-ink-100"
               >
                 <FileSpreadsheet className="size-4 text-exito" strokeWidth={1.9} />
                 Exportar Excel
               </Button>
             )}
             <Button
+              size="sm"
               onClick={generarReporte}
-              className="h-9 rounded-lg px-4 font-bold"
+              className="px-4 font-bold"
             >
               <Printer className="size-4" strokeWidth={1.9} />
               Generar reporte

@@ -36,6 +36,9 @@ import {
   TONE_BAR,
   esEnvelopeNoConfigurado,
 } from "@/components/dashboard/shared";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
+import { StatusChip } from "@/components/ui/status-chip";
 import { DemoFallback } from "@/components/dashboard/demo-fallback";
 import { Tacometro } from "@/components/dashboard/tacometro";
 import { Radar, type RadarAxis } from "@/components/dashboard/radar";
@@ -108,7 +111,7 @@ function EntregablesProyectoRow({
       </div>
       <div className="mt-1.5 flex h-[7px] gap-[3px]">
         <div className="h-full flex-1 overflow-hidden rounded-full bg-ink-100">
-          <div className="h-full rounded-full bg-ink-400" style={{ width: programados > 0 ? "100%" : "0%" }} />
+          <div className="h-full rounded-full bg-ink-500" style={{ width: programados > 0 ? "100%" : "0%" }} />
         </div>
         <div className="h-full flex-1 overflow-hidden rounded-full bg-ink-100">
           <div
@@ -183,12 +186,12 @@ export function CaraGerencial({ filters }: { filters: DashboardFilters }) {
           <span className="text-[11.5px] font-bold tracking-[0.08em] text-ink-500 uppercase">
             Territorio
           </span>
-          <input
+          <Input
             type="text"
             value={territorio}
             onChange={(e) => setTerritorio(e.target.value)}
             placeholder="Todos los territorios"
-            className="h-9 min-w-[160px] rounded-11 border border-ink-200 bg-panel px-3 text-[13px] text-ink-800 placeholder:text-ink-400 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus:outline-none"
+            className="min-w-[160px] bg-panel"
           />
         </label>
       </div>
@@ -221,9 +224,7 @@ export function CaraGerencial({ filters }: { filters: DashboardFilters }) {
           subtitle="Actividades a tiempo vs. resueltas, por proyecto"
         >
           {porProyecto.length === 0 ? (
-            <p className="py-4 text-center text-[12.5px] text-ink-500">
-              Sin proyectos en el alcance filtrado.
-            </p>
+            <EmptyState description="Sin proyectos en el alcance filtrado." />
           ) : (
             <div className="flex flex-col gap-3">
               {porProyecto.map((p) => (
@@ -244,9 +245,7 @@ export function CaraGerencial({ filters }: { filters: DashboardFilters }) {
           subtitle="Entregados vs. programados, por proyecto"
         >
           {porProyecto.length === 0 ? (
-            <p className="py-4 text-center text-[12.5px] text-ink-500">
-              Sin proyectos en el alcance filtrado.
-            </p>
+            <EmptyState description="Sin proyectos en el alcance filtrado." />
           ) : (
             <div className="flex flex-col gap-3">
               {porProyecto.map((p) => (
@@ -286,9 +285,7 @@ export function CaraGerencial({ filters }: { filters: DashboardFilters }) {
           className="lg:col-span-2"
         >
           {porTerritorio.length === 0 ? (
-            <p className="py-4 text-center text-[12.5px] text-ink-500">
-              Sin territorios en el alcance filtrado.
-            </p>
+            <EmptyState description="Sin territorios en el alcance filtrado." />
           ) : (
             <div className="flex flex-col divide-y divide-ink-100">
               {porTerritorio.map((t) => (
@@ -298,16 +295,18 @@ export function CaraGerencial({ filters }: { filters: DashboardFilters }) {
                     <span>
                       {t.proyectos_count} {t.proyectos_count === 1 ? "proyecto" : "proyectos"}
                     </span>
-                    <span
-                      className="size-[9px] rounded-full"
-                      style={{ backgroundColor: `var(--color-${t.color_tecnico === "verde" ? "exito" : t.color_tecnico === "amarillo" ? "alerta" : "destructivo"})` }}
+                    <StatusChip
+                      tone={TONE_POR_COLOR[t.color_tecnico as ColorSemaforo] ?? "neutro"}
                       title={`Técnico: ${t.color_tecnico}`}
-                    />
-                    <span
-                      className="size-[9px] rounded-full"
-                      style={{ backgroundColor: `var(--color-${t.color_financiero === "verde" ? "exito" : t.color_financiero === "amarillo" ? "alerta" : "destructivo"})` }}
+                    >
+                      Técnico
+                    </StatusChip>
+                    <StatusChip
+                      tone={TONE_POR_COLOR[t.color_financiero as ColorSemaforo] ?? "neutro"}
                       title={`Financiero: ${t.color_financiero}`}
-                    />
+                    >
+                      Financiero
+                    </StatusChip>
                   </div>
                 </div>
               ))}

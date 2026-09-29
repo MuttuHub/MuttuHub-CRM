@@ -223,3 +223,31 @@ describe("CaraGerencial — F1.6 (tablero-gerencial-unificado)", () => {
     expect(screen.queryByText(/riesgo de doble conteo/i)).not.toBeInTheDocument();
   });
 });
+
+describe("CaraGerencial v6 look (V2.2)", () => {
+  it("renders the Territorio filter with the shared 44px Input", () => {
+    mgmtQuery.data = makeData();
+    render(<CaraGerencial filters={{}} />);
+    const input = screen.getByLabelText("Territorio");
+    expect(input).toHaveAttribute("data-slot", "input");
+  });
+
+  it("uses the shared EmptyState for empty project and territory sections", () => {
+    mgmtQuery.data = makeData();
+    const { container } = render(<CaraGerencial filters={{}} />);
+    expect(container.querySelectorAll('[data-slot="empty-state"]').length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("renders territory semaforo as StatusChips with a text label", () => {
+    mgmtQuery.data = makeData({
+      por_territorio: [
+        { territorio: "Cali", proyectos_count: 2, color_tecnico: "verde", color_financiero: "rojo" },
+      ],
+    } as Partial<ProjectDashboard>);
+    const { container } = render(<CaraGerencial filters={{}} />);
+    const chips = container.querySelectorAll('[data-slot="status-chip"]');
+    expect([...chips].map((c) => c.getAttribute("data-tone"))).toEqual(["exito", "destructivo"]);
+    expect(screen.getByText("Técnico")).toBeInTheDocument();
+    expect(screen.getByText("Financiero")).toBeInTheDocument();
+  });
+});

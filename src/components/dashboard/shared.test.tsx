@@ -211,3 +211,10 @@ describe("DashboardSkeleton", () => {
     expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(22)
   })
 })
+describe("CardSection v6 look (V2.2)", () => {
+  it("uses the 20px section title and the 20px card radius", () => {
+    render(<CardSection title="Titulo v6"><p>x</p></CardSection>)
+    expect(screen.getByRole("heading", { level: 2 })).toHaveClass("text-xl")
+    expect(screen.getByText("Titulo v6").closest("section")).toHaveClass("rounded-[20px]")
+  })
+})

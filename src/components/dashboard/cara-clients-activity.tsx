@@ -23,6 +23,8 @@ import {
   diasDesde,
   esEnvelopeNoConfigurado,
 } from "@/components/dashboard/shared";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatusChip } from "@/components/ui/status-chip";
 import { DemoFallback } from "@/components/dashboard/demo-fallback";
 
 const DIAS_OPTIONS = [7, 14, 30, 60] as const;
@@ -75,17 +77,15 @@ export function CaraClientesActividad({
         }
       >
         {sin_gestion.clientes.length === 0 ? (
-          <div className="grid place-items-center py-10 text-center">
-            <span className="grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-exito-bg text-exito">
-              <UsersRound className="size-6" strokeWidth={1.7} />
-            </span>
-            <h3 className="mt-3 font-display text-[16px] font-bold tracking-[-0.02em] text-ink-950">
-              Todo al día
-            </h3>
-            <p className="mt-1 max-w-[38ch] text-[13px] leading-relaxed text-ink-600">
-              Ningún cliente lleva más de {dias} días sin gestión de bitácora.
-            </p>
-          </div>
+          <EmptyState
+            icon={
+              <span className="grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-exito-bg text-exito">
+                <UsersRound className="size-6" strokeWidth={1.7} />
+              </span>
+            }
+            title="Todo al día"
+            description={`Ningún cliente lleva más de ${dias} días sin gestión de bitácora.`}
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] border-collapse text-[12.5px]">
@@ -118,34 +118,13 @@ export function CaraClientesActividad({
                         )}
                       </td>
                       <td className="py-2.5 pr-4">
-                        <span
-                          className={cn(
-                            "inline-flex h-[23px] items-center rounded-full px-2.5 text-[11px] font-bold whitespace-nowrap",
-                            estado?.tone === "info" && "bg-info-bg text-info",
-                            estado?.tone === "activo" && "bg-rose-50 text-rose-700 dark:text-rose-400",
-                            estado?.tone === "exito" && "bg-exito-bg text-exito",
-                            estado?.tone === "alerta" && "bg-alerta-bg text-alerta",
-                            estado?.tone === "neutro" && "bg-ink-100 text-ink-700",
-                            (estado?.tone === "riesgo" || estado?.tone === "destructivo") && "bg-destructivo-bg text-destructivo",
-                          )}
-                        >
+                        <StatusChip tone={estado?.tone ?? "neutro"}>
                           {estado?.label ?? c.estado}
-                        </span>
+                        </StatusChip>
                       </td>
                       <td className="py-2.5 pr-4">
                         {prioridad ? (
-                          <span
-                            className={cn(
-                              "inline-flex h-[23px] items-center rounded-full px-2.5 text-[11px] font-bold whitespace-nowrap",
-                              prioridad.tone === "riesgo"
-                                ? "bg-destructivo-bg text-destructivo"
-                                : prioridad.tone === "alerta"
-                                  ? "bg-alerta-bg text-alerta"
-                                  : "bg-info-bg text-info",
-                            )}
-                          >
-                            {prioridad.label}
-                          </span>
+                          <StatusChip tone={prioridad.tone}>{prioridad.label}</StatusChip>
                         ) : (
                           <span className="text-ink-500">—</span>
                         )}
@@ -159,17 +138,10 @@ export function CaraClientesActividad({
                             Nunca gestionado
                           </span>
                         ) : (
-                          <span
-                            className={cn(
-                              "inline-flex h-[23px] items-center gap-1.5 rounded-full px-2.5 text-[11px] font-bold tabular-nums",
-                              critico
-                                ? "bg-destructivo-bg text-destructivo"
-                                : "bg-ink-100 text-ink-700",
-                            )}
-                          >
+                          <StatusChip tone={critico ? "destructivo" : "neutro"} className="tabular-nums">
                             <CalendarX2 className="size-3" strokeWidth={2} />
                             {sinDias} días
-                          </span>
+                          </StatusChip>
                         )}
                       </td>
                     </tr>
@@ -228,9 +200,7 @@ export function CaraClientesActividad({
         subtitle="Gestiones y tareas de los clientes del alcance (en el rango)"
       >
         {actividad_por_responsable.length === 0 ? (
-          <p className="py-6 text-center text-[13px] text-ink-500">
-            Sin responsables en el alcance para mostrar.
-          </p>
+          <EmptyState description="Sin responsables en el alcance para mostrar." />
         ) : (
           <div className="flex flex-col gap-4">
             {actividad_por_responsable.map((a) => (

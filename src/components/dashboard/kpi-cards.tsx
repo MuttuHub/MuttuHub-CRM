@@ -13,6 +13,7 @@
 
 import { ArrowUpRight, CheckCheck, ListChecks, PieChart, BarChart3, Users, TrendingUp } from 'lucide-react';
 import { useProjectDashboard, type ProjectDashboard } from '@/hooks/projects';
+import { KpiNumeral } from '@/components/ui/typography';
 
 const COLOR_MAP: Record<string, { bg: string; border: string; text: string }> = {
   verde: { bg: 'bg-panel', border: 'border-exito/30', text: 'text-exito' },
@@ -39,11 +40,11 @@ function KpiCard({
   const formattedValue = typeof value === 'number' ? value.toLocaleString() : value;
 
   return (
-    <div className={`bg-panel border border-ink-200 rounded-xl p-4 flex-1 min-w-0`}>
+    <div className="bg-panel border border-ink-200 rounded-[20px] p-[18px] flex-1 min-w-0">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <Icon className="size-5" strokeWidth={1.9} />
-          <h3 className="text-[14px] font-medium text-ink-950">{title}</h3>
+          <h3 className="text-[12px] font-semibold text-ink-600">{title}</h3>
         </div>
         {trend !== 'neutral' && (
           <span className={`text-[12px] font-medium ${trend === 'up' ? 'text-exito' : 'text-destructivo'}`}>
@@ -51,8 +52,8 @@ function KpiCard({
           </span>
         )}
       </div>
-      <p className="text-[32px] font-bold text-ink-950 leading-none">{formattedValue}</p>
-      {subtitle && <p className="text-[12px] text-ink-500 mt-1">{subtitle}</p>}
+      <KpiNumeral className="mt-2.5 block tracking-[-0.03em] text-ink-950">{formattedValue}</KpiNumeral>
+      {subtitle && <p className="text-[11.5px] text-ink-600 mt-2">{subtitle}</p>}
     </div>
   );
 }

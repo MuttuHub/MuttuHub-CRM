@@ -16,6 +16,8 @@ import {
   SinConexionCard,
   esEnvelopeNoConfigurado,
 } from "@/components/dashboard/shared";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatusChip } from "@/components/ui/status-chip";
 import { DemoFallback } from "@/components/dashboard/demo-fallback";
 
 const MAX_LISTA = 8;
@@ -164,37 +166,24 @@ export function CaraMiResumen({ filters }: { filters: DashboardFilters }) {
         }
       >
         {clientes_asignados.items.length === 0 ? (
-          <div className="grid place-items-center py-10 text-center">
-            <span className="grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-ink-100 text-ink-700">
-              <UsersRound className="size-6" strokeWidth={1.7} />
-            </span>
-            <h3 className="mt-3 font-display text-[16px] font-bold tracking-[-0.02em] text-ink-950">
-              Sin clientes asignados
-            </h3>
-            <p className="mt-1 max-w-[38ch] text-[13px] leading-relaxed text-ink-600">
-              Cuando te asignen clientes aparecerán aquí con su estado.
-            </p>
-          </div>
+          <EmptyState
+            icon={
+              <span className="grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-ink-100 text-ink-700">
+                <UsersRound className="size-6" strokeWidth={1.7} />
+              </span>
+            }
+            title="Sin clientes asignados"
+            description="Cuando te asignen clientes aparecerán aquí con su estado."
+          />
         ) : (
           <div className="flex flex-wrap gap-2">
             {Object.entries(porEstado).map(([estado, count]) => {
               const entry = ESTADO_CLIENTE_LABELS[estado as keyof typeof ESTADO_CLIENTE_LABELS];
               return (
-                <span
-                  key={estado}
-                  className={cn(
-                    "inline-flex h-[30px] items-center gap-2 rounded-full px-3.5 text-[12.5px] font-semibold",
-                    entry?.tone === "info" && "bg-info-bg text-info",
-                    entry?.tone === "activo" && "bg-rose-50 text-rose-700 dark:text-rose-400",
-                    entry?.tone === "exito" && "bg-exito-bg text-exito",
-                    entry?.tone === "alerta" && "bg-alerta-bg text-alerta",
-                    entry?.tone === "neutro" && "bg-ink-100 text-ink-700",
-                    (entry?.tone === "riesgo" || entry?.tone === "destructivo") && "bg-destructivo-bg text-destructivo",
-                  )}
-                >
+                <StatusChip key={estado} tone={entry?.tone ?? "neutro"} className="h-[30px] px-3.5 text-[12.5px]">
                   {entry?.label ?? estado}
                   <span className="font-mono text-[12px] font-bold tabular-nums">{count}</span>
-                </span>
+                </StatusChip>
               );
             })}
           </div>
@@ -268,9 +257,7 @@ function TareaLista({
 
   if (visibles.length === 0) {
     return (
-      <p className="py-4 text-center text-[12.5px] text-ink-500">
-        {empty ?? "Sin tareas en esta categoría."}
-      </p>
+      <EmptyState description={empty ?? "Sin tareas en esta categoría."} />
     );
   }
 
@@ -279,15 +266,6 @@ function TareaLista({
       <ul className="flex flex-col">
         {visibles.map((t, i) => {
           const estado = ESTADO_TAREA_LABELS[t.estado as keyof typeof ESTADO_TAREA_LABELS];
-          const estadoClase = cn(
-            "inline-flex h-[20px] items-center rounded-full px-2 text-[10.5px] font-bold whitespace-nowrap",
-            estado?.tone === "activo" && "bg-rose-50 text-rose-700 dark:text-rose-400",
-            estado?.tone === "neutro" && "bg-ink-100 text-ink-700",
-            estado?.tone === "exito" && "bg-exito-bg text-exito",
-            estado?.tone === "alerta" && "bg-alerta-bg text-alerta",
-            estado?.tone === "info" && "bg-info-bg text-info",
-            estado?.tone === "destructivo" && "bg-destructivo-bg text-destructivo",
-          );
           return (
             <li
               key={t.id}
@@ -299,7 +277,7 @@ function TareaLista({
               <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink-900">
                 {t.titulo}
               </span>
-              <span className={estadoClase}>{estado?.label ?? t.estado}</span>
+              <StatusChip tone={estado?.tone ?? "neutro"}>{estado?.label ?? t.estado}</StatusChip>
               <span className="shrink-0 font-mono text-[11.5px] tabular-nums text-ink-600">
                 {formatFecha(t.fecha_entrega)}
               </span>

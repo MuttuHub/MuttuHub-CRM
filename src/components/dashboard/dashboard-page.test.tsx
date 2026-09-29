@@ -170,3 +170,21 @@ describe("DashboardTabs — Excel export trigger", () => {
     });
   });
 });
+
+describe("DashboardTabs v6 controls (V2.2)", () => {
+  it("drops the ad hoc h-9 overrides so toolbar buttons follow the sm size (40px)", () => {
+    render(<DashboardTabs />);
+    for (const name of [/exportar excel/i, /generar reporte/i]) {
+      const btn = screen.getByRole("button", { name });
+      expect(btn).toHaveClass("h-10");
+      expect(btn).not.toHaveClass("h-9");
+    }
+  });
+
+  it("keeps the filter selects on the sm trigger height without the h-8 override", () => {
+    render(<DashboardTabs />);
+    const triggers = document.querySelectorAll('[data-slot="select-trigger"]');
+    expect(triggers.length).toBe(2);
+    for (const t of triggers) expect(t).not.toHaveClass("h-8");
+  });
+});

@@ -46,7 +46,7 @@ the prototypes to match the app, was rejected.
 | D2 | Wizard: step grouping only vs creation-time data; "8 line toggles" single vs multi | V2.11 |
 | D3 | Shadows: v6 none-except-toast vs UIUX sh-1/2/3 (kanban drag) | V2.4 |
 | D4 | Aliados ficha: keep modal vs split pane | V2.12 |
-| D5 | CurveS series colors: neutral plan/executed pair | V2.2 |
+| D5 | **Resolved 2026-09-29**: CurveS series use the BRAND colors (tokens only): executed = solid `primary`; plan = `rose-100` fill with a dashed `rose-400` outline (non-color cue) + legend swatches. Not exito/destructivo. | V2.2 |
 | D6 | Rename "Cliente" → "Aliado" in UI copy | V2.13 |
 | D7 | Kanban chip filters vs dropdowns; column count | V2.4 |
 | D8 | Solicitudes: Administración tab vs separate route | V2.10 |
@@ -71,7 +71,7 @@ V0, V1, V2.1-V2.4, V2.9 and V2.10 are unaffected.
 - [x] **V1.2** Sidebar profile + Salir block; header `PageHeader` slot (M, needs D9)
 - [x] **V1.3** Notification panel + session banner token pass (S)
 - [x] **V2.1** Acceso brand panel (S–M)
-- [ ] **V2.2** Inicio caras restyle (M, D5)
+- [x] **V2.2** Inicio caras restyle (M, D5)
 - [x] **V2.3** Clientes list + ficha restyle, modal kept (M)
 - [ ] **V2.4** Kanban restyle (S–M, needs D3/D7)
 - [ ] ON HOLD (2026-09-29): superseded by PO's RF v2.0 — replan after the projects-module plan; **V2.5** Proyectos list (M)
@@ -315,3 +315,37 @@ V0.1–V0.6 on branch `feat/v6-visual-alignment` (from `local/todo-integrado`).
   dialog radius 24 -> 22px, folder rows ~28 -> 40px, chips gain dot + new size/weight, new red
   "Restringido" chip, mono version metadata, empty-state title 18px display -> 14px semibold.
   Visual check (light+dark, 1440/390, list/filters/ficha/versiones/folders): PENDING.
+- 2026-09-29 V2.2: Inicio caras restyle, D5 resolved (brand-colored CurveS). `shared.tsx`: `CardSection`
+  title 17px -> `text-xl` (20px), card radius 22 -> 20px, skeleton/`SinConexionCard` radii to 20px
+  (`demo-fallback.tsx` too). `curve-s-chart.tsx`: executed = solid `bg-primary`, plan = `bg-rose-100` +
+  `border-dashed border-rose-400` (tokens only, flip in dark), bars 8 -> 10px, legend lucide icons in
+  exito/destructivo replaced by swatches that mirror the bar classes, empty state -> `EmptyState`,
+  heading 14/500 -> 14/600, radius 12 -> 20px. `tacometro.tsx` center value weight 700 -> 800.
+  `kpi-cards.tsx` `KpiCard`: `KpiNumeral` (28/800) instead of 32/700, label 12/600, radius 20/padding 18.
+  `cara-management.tsx`: Territorio raw `<input>` -> ui `Input` (44px), empty blocks -> `EmptyState`,
+  territorial semaforo dots -> `StatusChip` "Técnico"/"Financiero" (tone from the same color mapping,
+  `title` keeps the color name), per-project plan bar `bg-ink-400` (undefined token, rendered
+  transparent) -> `bg-ink-500`. `cara-pipeline`: ratio pill -> `StatusChip` (same thresholds), empty ->
+  `EmptyState`. `cara-tasks`: board-column chips, empties, "Ver tablero" (`h-[29px]` -> `xs`).
+  `cara-clients-activity` / `cara-my-summary`: estado/prioridad/días chips -> `StatusChip`, "Todo al
+  día"/"Sin clientes asignados" and text empties -> `EmptyState` (same copy). `dashboard-page.tsx`:
+  export/report buttons `h-9` -> `sm` (40px), filter select triggers drop `h-8`/`rounded-11` (now `sm`
+  40px). No data fetching, hooks, semáforo thresholds, API routes or projects data model touched
+  (per-person bar 70/40 thresholds and `TONE_POR_COLOR` left as-is). Not done: v6 "Periodo" chip /
+  Territorio-as-chip (needs a product check on what Periodo filters), `StatTile` promotion to `ui/`
+  (kept in `dashboard/shared.tsx`, already display/800/r20), print view (`print-dashboard.tsx`) untouched.
+  Route: delegated writer (single bounded writer).
+  TDD: RED 20 failed / 86 passed across 7 dashboard test files (caras-v6.test.tsx new, 7 cases;
+  curve-s 5, cara-management 3, dashboard-page 2, shared/tacometro/kpi-cards 1 each) -> GREEN 106/106.
+  Full `npx vitest run`: 184 files passed / 1 failed (`prisma/invariant.test.ts`, 16 tests, known DB
+  failure); 1775 tests passed. `npx tsc --noEmit` and eslint on `src/components/dashboard` clean.
+  Affected call sites: `CardSection`/`StatTile`/`CurveSChart`/`KpiCards` are also used by
+  `proyectos/tabs/resumen-tab.tsx`, `gantt-tab.tsx`, `kanban/report-view.tsx` and `reportes-page.tsx`
+  (they inherit the 20px title/radius, brand CurveS and KPI look; their tests stay green). e2e: no spec
+  references dashboard selectors; none run.
+  Light theme: computed styles change - section titles 17 -> 20px, card radius 22 -> 20px, CurveS
+  series now magenta (executed #CD1560 solid; plan rose-100 fill + dashed rose-400 outline) instead of
+  green/red, tacómetro value 700 -> 800, KPI numeral 32/700 -> 28/800, toolbar buttons 36 -> 40px,
+  filter selects 32 -> 40px, Territorio input 36 -> 44px, chips gain dot + new size/weight, territorial
+  dots -> labelled chips, empty-state title/markup.
+  Visual check (light+dark, 1440/390, all 5 caras): PENDING.

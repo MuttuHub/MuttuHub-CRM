@@ -49,13 +49,13 @@ export function CardSection({
   return (
     <section
       className={cn(
-        "rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6",
+        "rounded-[20px] border border-ink-200 bg-panel p-5 lg:p-6",
         className,
       )}
     >
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h2 className="font-display text-[17px] font-bold tracking-[-0.02em] text-ink-950">
+          <h2 className="font-display text-xl font-bold tracking-[-0.02em] text-ink-950">
             {title}
           </h2>
           {subtitle && <p className="mt-0.5 text-[12.5px] text-ink-600">{subtitle}</p>}
@@ -240,7 +240,7 @@ export function ChipSelector<T extends string>({
 
 export function SinConexionCard({ onRetry }: { onRetry: () => void }) {
   return (
-    <section className="grid min-h-[320px] place-items-center rounded-[24px] border border-ink-200 bg-panel p-8">
+    <section className="grid min-h-[320px] place-items-center rounded-[20px] border border-ink-200 bg-panel p-8">
       <div className="max-w-[46ch] text-center">
         <span className="mx-auto grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-alerta-bg text-alerta">
           <TriangleAlert className="size-6" strokeWidth={1.7} />
@@ -273,7 +273,7 @@ export function DashboardSkeleton() {
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         {Array.from({ length: 2 }).map((_, i) => (
-          <div key={i} className="rounded-[22px] border border-ink-200 bg-panel p-6">
+          <div key={i} className="rounded-[20px] border border-ink-200 bg-panel p-6">
             <Skeleton className="h-5 w-40" />
             <div className="mt-5 space-y-4">
               {Array.from({ length: 4 }).map((__, j) => (

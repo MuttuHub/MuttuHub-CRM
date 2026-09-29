@@ -101,3 +101,12 @@ describe("KpiCards (container)", () => {
     expect(screen.getByText("No se pudo cargar el tablero gerencial")).toBeInTheDocument();
   });
 });
+
+describe("KpiCardsView v6 look (V2.2)", () => {
+  it("renders card surfaces at 20px radius with the shared KPI numeral", () => {
+    const { container } = render(<KpiCardsView data={makeData()} />);
+    const numerals = container.querySelectorAll('[data-slot="kpi-numeral"]');
+    expect(numerals).toHaveLength(6);
+    expect(numerals[0].closest("div.rounded-\\[20px\\]")).not.toBeNull();
+  });
+});

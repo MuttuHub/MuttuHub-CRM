@@ -12,10 +12,15 @@
 
 'use client';
 
-import { BarChart2, Activity } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 import { useProjectDashboard, type ProjectDashboard } from '@/hooks/projects';
 
 type CurveSData = ProjectDashboard['curva_s'];
+
+// D5 (resolved 2026-09-29): brand-colored series. Tokens only (no raw hex);
+// both flip with the theme (rose-100 and ink-* are re-pinned in `.dark`).
+const PLAN_BAR = 'bg-rose-100 border border-dashed border-rose-400';
+const EXEC_BAR = 'bg-primary';
 
 interface CurveSChartProps {
   data: CurveSData | null;
@@ -24,9 +29,9 @@ interface CurveSChartProps {
 export function CurveSChart({ data }: CurveSChartProps) {
   if (!data || !data.meses.length) {
     return (
-      <div className="bg-panel border border-ink-200 rounded-xl p-4">
-        <h3 className="text-[14px] font-medium mb-2">Curva S</h3>
-        <p className="text-[12px] text-ink-500">Sin datos disponibles</p>
+      <div className="bg-panel border border-ink-200 rounded-[20px] p-4">
+        <h3 className="text-sm font-semibold">Curva S</h3>
+        <EmptyState description="Sin datos disponibles" />
       </div>
     );
   }
@@ -39,16 +44,28 @@ export function CurveSChart({ data }: CurveSChartProps) {
   );
 
   return (
-    <div className="bg-panel border border-ink-200 rounded-xl p-4">
+    <div className="bg-panel border border-ink-200 rounded-[20px] p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-[14px] font-medium">Curva S</h3>
-        <div className="flex items-center gap-2 text-[12px]">
-          <span className="flex items-center gap-1">
-            <BarChart2 className="size-4 stroke-1.9 text-exito" />
+        <h3 className="text-sm font-semibold">Curva S</h3>
+        {/* D5: both series use brand tokens, never the semaforo colors. The
+            plan is a tinted rose bar with a DASHED outline and the executed
+            series is a SOLID primary bar, so the pair also differs without
+            relying on color. Swatches mirror the bar classes exactly. */}
+        <div className="flex items-center gap-3 text-xs text-ink-700">
+          <span className="flex items-center gap-1.5">
+            <span
+              data-testid="curve-s-legend-planificado"
+              aria-hidden="true"
+              className={`size-3 rounded-sm ${PLAN_BAR}`}
+            />
             <span>Planificado</span>
           </span>
-          <span className="flex items-center gap-1">
-            <Activity className="size-4 stroke-1.9 text-destructivo" />
+          <span className="flex items-center gap-1.5">
+            <span
+              data-testid="curve-s-legend-ejecutado"
+              aria-hidden="true"
+              className={`size-3 rounded-sm ${EXEC_BAR}`}
+            />
             <span>Ejecutado</span>
           </span>
         </div>
@@ -86,11 +103,13 @@ export function CurveSChart({ data }: CurveSChartProps) {
               <div key={index} className="flex flex-col items-center gap-1">
                 <div className="flex items-end gap-0.5" style={{ height: '160px' }}>
                   <div
-                    className="w-[8px] bg-exito rounded-t-sm"
+                    data-testid={`curve-s-bar-planificado-${index}`}
+                    className={`w-[10px] rounded-t-sm ${PLAN_BAR}`}
                     style={{ height: `${planPct}%` }}
                   />
                   <div
-                    className="w-[8px] bg-destructivo rounded-t-sm"
+                    data-testid={`curve-s-bar-ejecutado-${index}`}
+                    className={`w-[10px] rounded-t-sm ${EXEC_BAR}`}
                     style={{ height: `${ejecPct}%` }}
                   />
                 </div>

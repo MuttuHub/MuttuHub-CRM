@@ -147,7 +147,7 @@ export function Tacometro({
           y={92}
           textAnchor="middle"
           fontSize={30}
-          fontWeight={700}
+          fontWeight={800}
           fill="var(--color-ink-950)"
         >
           {Math.round(clamped)}%

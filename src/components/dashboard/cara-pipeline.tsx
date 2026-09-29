@@ -17,6 +17,8 @@ import {
   esEnvelopeNoConfigurado,
 } from "@/components/dashboard/shared";
 import { StatTile } from "@/components/dashboard/shared";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatusChip } from "@/components/ui/status-chip";
 import { Sparkline } from "@/components/dashboard/sparkline";
 import { DemoFallback } from "@/components/dashboard/demo-fallback";
 
@@ -112,9 +114,7 @@ export function CaraPipeline({ filters }: { filters: DashboardFilters }) {
           subtitle="Los 5 con mayor potencial activo"
         >
           {top_clientes.length === 0 ? (
-            <p className="py-8 text-center text-[13px] text-ink-500">
-              Aún no hay oportunidades activas para rankear.
-            </p>
+            <EmptyState description="Aún no hay oportunidades activas para rankear." />
           ) : (
             <ol className="flex flex-col gap-1">
               {top_clientes.map((c, i) => (
@@ -168,19 +168,13 @@ export function CaraPipeline({ filters }: { filters: DashboardFilters }) {
             </p>
           </div>
           <div className="flex items-center">
-            <span
-              className={cn(
-                "inline-flex h-[34px] items-center gap-1.5 rounded-full px-4 text-[13px] font-bold",
-                comparativo.ratio >= 1
-                  ? "bg-exito-bg text-exito"
-                  : comparativo.ratio > 0
-                    ? "bg-alerta-bg text-alerta"
-                    : "bg-ink-100 text-ink-700",
-              )}
+            <StatusChip
+              tone={comparativo.ratio >= 1 ? "exito" : comparativo.ratio > 0 ? "alerta" : "neutro"}
+              className="h-[34px] px-4 text-[13px] font-bold"
             >
               <Link2 className="size-3.5" strokeWidth={1.9} />
               Ratio {comparativo.ratio.toLocaleString("es-CO", { maximumFractionDigits: 2 })}×
-            </span>
+            </StatusChip>
           </div>
         </div>
       </CardSection>
@@ -189,9 +183,5 @@ export function CaraPipeline({ filters }: { filters: DashboardFilters }) {
 }
 
 function EmbudoVacio() {
-  return (
-    <p className="py-8 text-center text-[13px] text-ink-500">
-      El embudo está vacío para la combinación de filtros actual.
-    </p>
-  );
+  return <EmptyState description="El embudo está vacío para la combinación de filtros actual." />;
 }

@@ -91,3 +91,10 @@ describe("Tacometro", () => {
     spy.mockRestore();
   });
 });
+
+describe("Tacometro v6 weight (V2.2)", () => {
+  it("renders the center value at weight 800", () => {
+    const { getByTestId } = render(<Tacometro value={72} color="verde" />);
+    expect(getByTestId("tacometro-valor")).toHaveAttribute("font-weight", "800");
+  });
+});

@@ -81,7 +81,7 @@ export function DemoFallback() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
-        <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
+        <section className="rounded-[20px] border border-ink-200 bg-panel p-5 lg:p-6">
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
               <h2 className="font-display text-[19px] font-bold tracking-[-0.02em] text-ink-950">
@@ -121,7 +121,7 @@ export function DemoFallback() {
           </div>
         </section>
 
-        <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
+        <section className="rounded-[20px] border border-ink-200 bg-panel p-5 lg:p-6">
           <h2 className="font-display text-[17px] font-bold tracking-[-0.02em] text-ink-950">
             Agenda del día
           </h2>
