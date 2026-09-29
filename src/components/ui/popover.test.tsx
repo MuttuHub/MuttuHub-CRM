@@ -56,4 +56,13 @@ describe("Popover", () => {
     await user.click(screen.getByRole("button", { name: "Fuera" }))
     expect(screen.queryByRole("heading", { name: "Panel de filtros" })).not.toBeInTheDocument()
   })
+
+  it("renders the panel without a drop shadow (v6: none except toast)", async () => {
+    const user = userEvent.setup()
+    render(<SamplePopover />)
+    await user.click(screen.getByRole("button", { name: "Abrir panel" }))
+    const panel = (await screen.findByRole("heading", { name: "Panel de filtros" })).closest("[data-slot=popover-content]")
+    expect(panel).toBeInTheDocument()
+    expect(panel?.className).not.toMatch(/shadow-/)
+  })
 })
