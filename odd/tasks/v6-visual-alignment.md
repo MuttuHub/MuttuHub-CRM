@@ -58,7 +58,7 @@ the prototypes to match the app, was rejected.
 - [x] **V0.6** `ui/table`, `ui/tabs` rail, shared `EmptyState` (M)
 - [x] **V1.1** Sidebar: 44px items, rail active state, lockup sizing (S)
 - [ ] **V1.2** Sidebar profile + Salir block; header `PageHeader` slot (M, needs D9)
-- [ ] **V1.3** Notification panel + session banner token pass (S)
+- [x] **V1.3** Notification panel + session banner token pass (S)
 - [ ] **V2.1** Acceso brand panel (S–M)
 - [ ] **V2.2** Inicio caras restyle (M, D5)
 - [ ] **V2.3** Clientes list + ficha restyle, modal kept (M)
@@ -203,3 +203,17 @@ V0.1–V0.6 on branch `feat/v6-visual-alignment` (from `local/todo-integrado`).
   Light theme: the sidebar is theme-invariant (dark shell), so the light-theme page is affected
   only through the shell itself (taller items, rail instead of magenta fill) - an intentional V1.x
   shell restyle. Visual check (light+dark, 1440/390, collapsed + drawer): PENDING.
+- 2026-09-29 V1.3: `shell/notification-panel.tsx`: panel `shadow-xl` removed (gap map: none);
+  private EmptyState replaced by shared `ui/empty-state` (`NoAlertsState` and `DisconnectedState`
+  now use it; same copy); alert-row estado pill -> `StatusChip` with the catalog tone (was a
+  neutral ink pill); bell badge `ring-white` -> `ring-panel`. `shell/session-banner.tsx`:
+  `shadow-sm` removed (already on `bg-alerta-bg`/`text-alerta` tokens). Behavior/a11y untouched.
+  Route: delegated writer (single bounded writer).
+  TDD: RED 6 failed / 4 passed (5 new panel cases + 1 new banner case; new
+  `session-banner.test.tsx`) -> GREEN 10/10 in the two files.
+  Full `npx vitest run`: 179 files passed / 1 failed (`prisma/invariant.test.ts`, 16 tests, known
+  DB failure); 1710 tests passed. `npx tsc --noEmit` and eslint on changed files clean.
+  Light theme: computed styles change (panel and banner lose their shadow; estado pill gets a
+  tone tint and dot for non-neutral states; badge ring #fff -> panel #fdfbfb). Sidebar/header/
+  profile (V1.2) untouched.
+  Visual check (light+dark, 1440/390, panel open/empty/disconnected + banner): PENDING.

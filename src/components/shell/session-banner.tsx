@@ -59,7 +59,7 @@ export function SessionBanner() {
   return (
     <div
       role="alert"
-      className="sticky top-[14px] z-40 flex items-center justify-center gap-2.5 rounded-[18px] border border-alerta/30 bg-alerta-bg px-4 py-3 text-[13px] font-semibold text-alerta shadow-sm"
+      className="sticky top-[14px] z-40 flex items-center justify-center gap-2.5 rounded-[18px] border border-alerta/30 bg-alerta-bg px-4 py-3 text-[13px] font-semibold text-alerta"
     >
       <AlertTriangle className="size-4 shrink-0" strokeWidth={1.9} />
       Tu sesión se cerrará en 10 minutos. Guarda tu trabajo.

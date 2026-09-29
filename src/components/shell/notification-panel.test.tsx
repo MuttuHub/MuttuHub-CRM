@@ -145,3 +145,65 @@ describe("NotificationPanel — undo de marcar todas como leídas", () => {
     })
   })
 })
+describe("NotificationPanel — v6 tokens", () => {
+  it("renders the open panel without a shadow (v6: none except toast)", async () => {
+    const user = userEvent.setup()
+    renderPanel()
+
+    await user.click(await screen.findByRole("button", { name: "Notificaciones, 1 sin leer" }))
+
+    const dialog = screen.getByRole("dialog", { name: "Notificaciones" })
+    expect(dialog.className).not.toMatch(/shadow/)
+  })
+
+  it("renders the estado as a StatusChip with the catalog tone", async () => {
+    const user = userEvent.setup()
+    renderPanel()
+
+    await user.click(await screen.findByRole("button", { name: "Notificaciones, 1 sin leer" }))
+
+    const chip = screen.getByText("En curso").closest('[data-slot="status-chip"]')
+    expect(chip).not.toBeNull()
+    expect(chip).toHaveAttribute("data-tone", "activo")
+  })
+
+  it("uses the shared EmptyState when there are no alerts", async () => {
+    apiGet.mockImplementation(async () => ({
+      total: 0,
+      vencidos: [],
+      hoy: [],
+      proximos3: [],
+      leidas_ids: [],
+    }))
+    const user = userEvent.setup()
+    renderPanel()
+
+    await user.click(await screen.findByRole("button", { name: "Notificaciones" }))
+
+    const empty = await screen.findByText("Todo al día ✦")
+    expect(empty.closest('[data-slot="empty-state"]')).not.toBeNull()
+    expect(screen.getByText("No hay alertas pendientes.")).toBeInTheDocument()
+  })
+
+  it("uses the shared EmptyState for the disconnected state", async () => {
+    apiGet.mockImplementation(async () => {
+      throw new Error("500")
+    })
+    const user = userEvent.setup()
+    renderPanel()
+
+    await user.click(await screen.findByRole("button", { name: "Notificaciones" }))
+
+    const title = await screen.findByText("Plataforma no conectada")
+    expect(title.closest('[data-slot="empty-state"]')).not.toBeNull()
+  })
+
+  it("themes the badge ring with the panel token instead of raw white", async () => {
+    renderPanel()
+
+    const bell = await screen.findByRole("button", { name: "Notificaciones, 1 sin leer" })
+    const badge = bell.querySelector("span[aria-hidden]")
+    expect(badge?.className).toContain("ring-panel")
+    expect(badge?.className).not.toContain("ring-white")
+  })
+})

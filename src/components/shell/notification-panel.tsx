@@ -16,7 +16,9 @@ import { toast } from "sonner";
 import { apiDelete, apiGet, apiPatch } from "@/lib/api/http";
 import { ESTADO_TAREA_LABELS } from "@/lib/catalogs";
 import type { EstadoTarea, OrigenTarea } from "@prisma/client";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatusChip } from "@/components/ui/status-chip";
 
 /* ── DTOs (server shapes de src/app/api/v1/notifications) ───────────────── */
 
@@ -244,7 +246,7 @@ export function NotificationPanel() {
         {unread > 0 && (
           <span
             aria-hidden="true"
-            className="absolute top-[5px] right-[6px] grid h-[17px] min-w-[17px] place-items-center rounded-full bg-rose-500 px-1 text-[9.5px] leading-none font-bold text-white ring-2 ring-white"
+            className="absolute top-[5px] right-[6px] grid h-[17px] min-w-[17px] place-items-center rounded-full bg-rose-500 px-1 text-[9.5px] leading-none font-bold text-white ring-2 ring-panel"
           >
             {unread > 9 ? "9+" : unread}
           </span>
@@ -257,7 +259,7 @@ export function NotificationPanel() {
           onKeyDown={trapPanelFocus}
           role="dialog"
           aria-label="Notificaciones"
-          className="absolute top-[calc(100%+10px)] right-0 z-50 w-[360px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-ink-200 bg-panel shadow-xl"
+          className="absolute top-[calc(100%+10px)] right-0 z-50 w-[360px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-ink-200 bg-panel"
         >
           <div className="flex items-center justify-between gap-2 border-b border-ink-200 px-4 py-3">
             <h2 className="text-[14px] font-bold text-ink-900">Notificaciones</h2>
@@ -279,7 +281,7 @@ export function NotificationPanel() {
               <LoadingState />
             )
           ) : snapshot.total === 0 ? (
-            <EmptyState />
+            <NoAlertsState />
           ) : (
             <>
               <div className="max-h-[480px] overflow-y-auto px-4 py-4">
@@ -333,7 +335,7 @@ function AlertRow({
   item: AlertItemNotificacion;
   onOpen: (item: AlertItemNotificacion) => void;
 }) {
-  const estadoLabel = ESTADO_TAREA_LABELS[item.estado]?.label ?? "—";
+  const estado = ESTADO_TAREA_LABELS[item.estado];
   const meta = [item.cliente_nombre, item.responsable_nombre, fechaCorta(item.fecha_entrega)]
     .filter(Boolean)
     .join(" · ");
@@ -347,9 +349,12 @@ function AlertRow({
       >
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate text-[13px] font-semibold text-ink-800">{item.titulo}</span>
-          <span className="shrink-0 rounded-full bg-ink-100 px-2 py-0.5 text-[9.5px] font-bold tracking-wide text-ink-600 uppercase">
-            {estadoLabel}
-          </span>
+          <StatusChip
+            tone={estado?.tone ?? "neutro"}
+            className="px-2 text-[9.5px] font-bold tracking-wide uppercase"
+          >
+            {estado?.label ?? "—"}
+          </StatusChip>
         </span>
         <span className="flex min-w-0 items-center gap-2 text-[11.5px] text-ink-600">
           <span className="truncate">{meta}</span>
@@ -375,25 +380,20 @@ function LoadingState() {
   );
 }
 
-function EmptyState() {
-  return (
-    <div className="px-6 py-10 text-center">
-      <p className="text-[14px] font-semibold text-ink-800">Todo al día ✦</p>
-      <p className="mt-1 text-[12.5px] text-ink-600">No hay alertas pendientes.</p>
-    </div>
-  );
+function NoAlertsState() {
+  return <EmptyState title="Todo al día ✦" description="No hay alertas pendientes." />;
 }
 
 function DisconnectedState() {
   return (
-    <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
-      <span className="grid size-9 place-items-center rounded-full bg-ink-100 text-ink-600">
-        <Bell className="size-4" strokeWidth={1.8} />
-      </span>
-      <p className="text-[13.5px] font-semibold text-ink-900">Plataforma no conectada</p>
-      <p className="max-w-[32ch] text-[12px] leading-relaxed text-ink-600">
-        Las alertas aparecerán aquí cuando la plataforma esté configurada.
-      </p>
-    </div>
+    <EmptyState
+      icon={
+        <span className="grid size-9 place-items-center rounded-full bg-ink-100 text-ink-600">
+          <Bell className="size-4" strokeWidth={1.8} />
+        </span>
+      }
+      title="Plataforma no conectada"
+      description="Las alertas aparecerán aquí cuando la plataforma esté configurada."
+    />
   );
 }
