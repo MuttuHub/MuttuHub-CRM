@@ -119,26 +119,36 @@ Two findings discovered while writing this SDD that change the plan:
 `/mnt/c/Users/Adrian/Documents/MuttuHub-CRM`. Never run a DB command without `.env.local`.
 
 ```bash
-git status --short                      # expect the untracked files listed in the session start snapshot
-git log --oneline -1                    # expect the current feat/projects-v2 HEAD (the commit that added this re-scoped document)
+git status --short
+git log --oneline -1                    # expect the current feat/projects-v2 HEAD
 # 1. Prove .env.local points to the local Docker DB (prints host only, never credentials):
 node --env-file=.env.local -e "console.log(new URL(process.env.DATABASE_URL).host)"   # expect 127.0.0.1:54322
 node --env-file=.env.local -e "console.log(new URL(process.env.DIRECT_URL).host)"     # expect 127.0.0.1:54322
-# 2. Local Supabase up (Docker). If not running: `supabase start` (docs/guia-demo.md:39)
+# 2. Local Supabase reachable.
+#    WSL note (VERIFIED 2026-09-30): Docker Desktop's WSL integration is NOT active in this distro — `docker`
+#    is not on PATH, `supabase status` fails with a container-health error, and 127.0.0.1:54322 is unreachable
+#    FROM WSL even though the stack runs on Windows. Enable Docker Desktop -> Settings -> Resources ->
+#    WSL integration, or run every DB command from the Windows side (cmd.exe / powershell.exe).
 supabase status
-# 3. Migration state of the LOCAL DB only (script already wraps --env-file=.env.local, package.json)
-npm run db:migrate:status
+# 3. Migration state of the LOCAL DB only.
+#    There is NO `db:migrate:status` npm script on this branch: it lived on the abandoned v1 chain. Run Prisma
+#    directly, always with the local env loaded, never with the bare `.env`.
+npx prisma migrate status            # with DATABASE_URL/DIRECT_URL taken from .env.local
 ```
 Stop if any host is not `127.0.0.1`/`localhost` — do not "fix" it by editing `.env`.
 
 **Step 2 — baseline checks (≈25 min).**
 ```bash
-npx vitest run 2>&1 | tail -40     # baseline; KNOWN failing file: prisma/invariant.test.ts (record message, do not fix here)
-npx tsc --noEmit                    # expect 0 errors
-npx eslint src/lib/permissions.ts src/lib/semaforo.ts src/lib/api/files.ts
+# Move aside any stale .next/ produced by another branch's dev server BEFORE tsc, or it reports phantom
+# TS2307 errors for routes that do not exist here (27 of them on 2026-09-30, inherited from the v6 branch).
+npx vitest run --pool=threads     # baseline 2026-09-30: 115 files / 1027 tests, ALL GREEN
+npx tsc --noEmit                  # baseline 2026-09-30: 0 errors
+npx eslint src/lib/permissions.ts src/lib/api/files.ts   # src/lib/semaforo.ts does not exist on this branch
 ```
-Record in §6.7 "Progress / Evidence": total tests, failures (expected only `prisma/invariant.test.ts`), tsc result.
-Any other failure = pre-existing; list it under "Known environmental failures" before writing code.
+Record in §6.7 "Progress / Evidence": total tests, failures, tsc result.
+`prisma/invariant.test.ts` does NOT exist on this branch (it belonged to the abandoned chain), so a green suite
+is the expected baseline. Any failure = pre-existing; list it under "Known environmental failures" before
+writing code.
 
 **Step 3 — branch (≈5 min, resolved, see §0.1).**
 ```bash
@@ -1826,9 +1836,14 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
 - **Commit:** `feat(audit): add append-only auditoria_cambios with per-field diff (S0.4)` · **PR-03**.
 
 #### S0.6 — Migration safety kit (M, decision-free)
-- **Goal:** make it impossible for a v2 data script to write anywhere but local Docker; count-first harness;
-  read-only storage orphan report; remote promotion checklist.
-- **Files:** NEW `scripts/migrate-v2/_guard.ts`, `scripts/migrate-v2/_guard.test.ts`,
+- **Goal:** make it impossible for a v2 data script to write anywhere but the local Docker DB; count-first
+  harness; read-only storage orphan report; remote promotion checklist.
+- **Note (VERIFIED 2026-09-30):** the local-DB guard does **not** exist on `main`. `prisma/local-env.ts`,
+  `prisma/load-local-env.ts`, `scripts/cleanup-seed-cloud.ts` and the `assertLocalTarget` guard in
+  `prisma/seed.ts` all live only on the abandoned v1 chain (and inside unmerged PR #55). This task **creates**
+  the guard; it does not reuse one. If PR #55 is merged on `main` first, reuse its guard and drop the duplicate.
+- **Files:** NEW `prisma/load-local-env.ts` (loads `.env.local`, exports the loopback assertion),
+  NEW `scripts/migrate-v2/_guard.ts`, `scripts/migrate-v2/_guard.test.ts`,
   `scripts/migrate-v2/_harness.ts`, `scripts/migrate-v2/_harness.test.ts`, `scripts/migrate-v2/storage-orphans.ts`,
   `scripts/migrate-v2/s1-rubros-report.ts` (count-first report for N-13, read-only), `.gitignore` (`scripts/migrate-v2/out/`),
   this document §6.5 (checklist).
@@ -1843,15 +1858,17 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
   - `it("apply is idempotent: a second run reports zero actions")`
   - `it("revert only touches rows created by the given lote")`
   - `it("writes the markdown report to scripts/migrate-v2/out/")`
-- **GREEN:** `_guard.ts` = `import "../../prisma/load-local-env";` + re-export of a `describeTarget()` helper
-  printing host only; harness per §4.5; orphan report uses `createSupabaseAdmin()` (VERIFIED used by
+- **GREEN:** `prisma/load-local-env.ts` loads `.env.local` and exposes the loopback assertion (host must be
+  `127.0.0.1`/`localhost`); `_guard.ts` imports it as its first side effect + re-exports a `describeTarget()`
+  helper printing host only; harness per §4.5; orphan report uses `createSupabaseAdmin()` (VERIFIED used by
   `prisma/seed.ts`) with `list()` only.
 - **REFACTOR:** shared `printTable()`.
 - **Commands:** `npx vitest run scripts/migrate-v2/_guard.test.ts scripts/migrate-v2/_harness.test.ts`;
   `npx tsx --env-file=.env.local scripts/migrate-v2/s1-rubros-report.ts` (prints the N-13 count report — record
   output in §6.7); `npx tsx --env-file=.env.local scripts/migrate-v2/storage-orphans.ts`; CMD-STD.
-- **Acceptance:** guard tests green; N-13 report shows #projects/#lines/amounts on Material POP and Operación
-  logística (local data); orphan report runs read-only.
+- **Acceptance:** guard tests green; on a fresh local DB the count-first report runs read-only and reports zero
+  rows (there is no v1 data to reassign — the report exists for rubros suspended later); orphan report runs
+  read-only.
 - **Deps:** none (S0.4 for lote rows at `--apply`; harness can stub until then). **Gate:** none. **Lines:** ~330.
 - **Commit:** `feat(db): add guarded v2 migration harness and read-only reports (S0.6)` · **PR-04**.
 
@@ -2545,6 +2562,7 @@ never to a v1→v2 migration, which does not exist.
 | 2026-09-29 | SDD | delegated writer | — (not committed) | — | — | This document created; no code changed |
 | 2026-09-30 | Re-scope for the direct path | orchestrator + delegated writer (partial) | — (same commit as this re-scope) | 5 coexistence-only tasks removed; `feature_projects_v2` / `PROJECTS_V2_OVERRIDE` / `src/lib/features.ts` / `REQ-FLAG` / S9.6 / v1-backfill references eliminated except in §0.4 and the §5.13 tombstone; task count 71 → 66; no source code touched | — | v1 module was never shipped; see `odd/tasks/v2-projects-execution.md` ODD-01..04 |
 | 2026-09-30 | Recalibration pass 2 against `main` | orchestrator | same commit | Verified with `git show main:prisma/schema.prisma`: all nine projects models are absent → "extended" markers removed and ADR-02 rewritten as design continuity, not reuse. Legacy-data requirements and decision rows rewritten or retired. `npx tsc` evidence on the primitives branch | — | §0.4 second pass |
+| 2026-09-30 | **Baseline on `feat/projects-v2`** | orchestrator | `d93824e` | `.env.local` → `127.0.0.1:54322` ✓; `.env` → `aws-1-us-west-2.pooler.supabase.com:6543` (remote, never used) ✓; `npx vitest run --pool=threads`: **115 files / 1027 tests all green** (86 s); `npx tsc --noEmit`: **0 errors** after moving aside a stale `.next/` | — | **Environment blockers: (1) Docker Desktop WSL integration inactive → local Supabase unreachable from WSL; (2) no `db:migrate:status` script and no local-DB guard on this branch — S0.6 creates them** |
 
 Upload limits record (S0.8): _pending_. Baseline suite result (Step 2 of §1.2): _pending_.
 
