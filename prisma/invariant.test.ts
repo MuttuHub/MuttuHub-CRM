@@ -130,7 +130,7 @@ describe("prisma migration seed: D3 gestiona_oportunidades predicate", () => {
       const clienteWithOpp = await tx.cliente.create({
         data: { nombre: `${MARKER}-cliente-con-oportunidad`, tipo_cliente: "OTRO", responsable_id: withOppUser.id },
       });
-      const clienteWithoutOpp = await tx.cliente.create({
+      await tx.cliente.create({
         data: { nombre: `${MARKER}-cliente-sin-oportunidad`, tipo_cliente: "OTRO", responsable_id: withoutOppUser.id },
       });
       await tx.oportunidad.create({ data: { cliente_id: clienteWithOpp.id, nombre: MARKER } });
