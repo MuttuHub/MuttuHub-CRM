@@ -68,6 +68,13 @@ Verified 2026-09-30 against the repository:
 
 ## Phases
 
+### Phase 0 — Baseline on `feat/projects-v2` (done 2026-09-30)
+
+- [x] P0.1 Verify `.env.local` points to loopback: `127.0.0.1:54322` for both `DATABASE_URL` and `DIRECT_URL`. `.env` points to the shared remote (`aws-1-us-west-2.pooler.supabase.com:6543`) and is never used.
+- [x] P0.2 Run the suite and the typecheck: `npx vitest run --pool=threads` → **115 files / 1027 tests, all green** (86 s); `npx tsc --noEmit` → **0 errors** after moving a stale `.next/` aside (it was inherited from the v6 dev server and produced 27 phantom `TS2307` errors for routes that do not exist here).
+- [x] P0.3 Confirm the DB-safety tooling gap: there is **no** `db:migrate:status` script, no `prisma/local-env.ts` and no `assertLocalTarget` guard on `main` — they live only on the abandoned v1 chain and in unmerged PR #55. **S0.6 must create the guard, not reuse it.**
+- [ ] P0.4 Make the local Docker DB reachable from WSL — **blocked**: Docker Desktop's WSL integration is not active in this distro (`docker` is not on PATH; `supabase status` fails with a container-health error; `127.0.0.1:54322` is unreachable from WSL although the stack runs on Windows). Enable Docker Desktop → Settings → Resources → WSL integration, or run DB commands from the Windows side.
+
 ### Phase 1 — GitHub cleanup (no source code) — **GATED on explicit approval**
 
 - [x] P1.1 Confirm `gh` auth is the correct account — active account is `MuttuHub` (has push access); `agutierrezreginodev` is also configured but inactive.
@@ -98,12 +105,17 @@ Verified 2026-09-30 against the repository:
 
 ### Phase 5 — Start v2
 
-- [ ] P5.1 Create `feat/projects-v2` from `main` (after Phase 2 lands).
-- [ ] P5.2 Environment sanity with `.env.local` only; baseline `vitest` / `tsc`.
-- [ ] P5.3 S0.5 (weeks + money pure libs) → S0.4 (append-only `auditoria_cambios` + `logChange`) → S0.6 (migration safety kit with loopback guard).
+- [x] P5.1 Create `feat/projects-v2` from `main` — done 2026-09-30 (`54a356e`, `57fdc4f`, `f396473`, `d93824e`).
+- [x] P5.2 Environment sanity with `.env.local` only; baseline `vitest` / `tsc` — done, see Phase 0.
+- [ ] P5.3 S0.5 (weeks + money pure libs) → S0.4 (append-only `auditoria_cambios` + `logChange`, needs the local DB) → S0.6 (migration safety kit with loopback guard, created from scratch).
 
 ## Open items / risks
 
+- **Environment blocker (2026-09-30):** the local Supabase stack is not reachable from WSL because Docker
+  Desktop's WSL integration is inactive. S0.4 (live-DB trigger test) and every S1.x migration depend on it.
+  Resolve before S0.4; S0.5 (pure libraries) is unaffected.
+- **DB-safety tooling does not exist on `main`:** S0.6 creates the loopback guard; it cannot reuse the one from
+  the abandoned chain. Merging PR #55 first would provide it, but that needs remote authorization.
 - **Business risk (accepted):** confirm with the boss/PO that nothing is expected from the v1
   module in production. Nothing shipped, but there was a PO meeting on 2026-09-22 about
   "gestión de proyectos" features.
