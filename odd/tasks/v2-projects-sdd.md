@@ -4,23 +4,20 @@
 
 | Field | Value |
 |---|---|
-| Status | **SDD READY FOR IMPLEMENTATION** — nothing implemented yet. No code, schema, migration or data changed by this document. |
-| Date | 2026-09-29 |
+| Status | **SDD RE-SCOPED FOR A DIRECT IMPLEMENTATION — nothing implemented yet**. No code, schema, migration or data changed by this document. |
+| Date | 2026-09-29 (re-scoped 2026-09-30) |
 | Author | Single SDD writer (delegated), for user `agutierrezreginodev` |
 | Backbone | `odd/tasks/v2-projects-and-clients-plan.md` (slice IDs S0–S10 and task IDs kept stable) |
 | PO sources | RF v2.0 Módulo Proyectos (2026-09-28) → scratchpad `rf.txt`; Estructura del detalle técnico y financiero v1.0 → scratchpad `est.txt`; RF Detalle de Cliente (2026-09-10) → scratchpad `clientes.txt` (scratchpad = `/tmp/claude-1000/-mnt-c-Users-Adrian-Documents-MuttuHub-CRM/271358b0-5ea7-45e9-96f6-1ae64377aa25/scratchpad/`; the originals are the `.docx` files in `~/Downloads`) |
-| Current branch at writing time | `feat/v6-visual-alignment` @ `97d639e` (95 commits ahead of `main`) |
+| Branch | `feat/projects-v2`, created from `main` (`11e9bc1`). The v1 Projects module was never shipped: `main` has no projects models or migrations and production has 0 rows in proyectos/metas/actividades. |
 | Artifact store | This file (openspec-style content in one ODD feature document). Engram mirror: topic `odd/v2-projects-sdd/tasks` (to be created by the orchestrator, not by this writer). |
 | TDD | Strict TDD ON. Runner `npx vitest run <file>`; full suite `npx vitest run`; typecheck `npx tsc --noEmit`; lint `npx eslint <files>` |
 
-### 0.1 Branch strategy note (user decides)
-- **Recommended:** create `feat/projects-v2` from the current v6 HEAD (`97d639e`) so the v2 work builds on the v6
-  primitives (`StatusChip`, `KpiTile`, `ProgressBar`, `EmptyState`, `PageHeader`, button sizes 44/40/36) that
-  already exist on this branch but not on `main`. Chained PRs target `feat/v6-visual-alignment` until it merges,
-  then are retargeted to `main`.
-- **Alternative:** wait for the v6 branch to merge and branch from `main`. Cleaner PR bases, but blocks S0 start
-  and S10 on the merge date.
-- Either way: v2 work never lands on `feat/v6-visual-alignment` itself (another writer is active there).
+### 0.1 Branch strategy note (resolved)
+The user resolved **D-01 on 2026-09-30**: the v2 work is developed directly on `feat/projects-v2`, branched
+from `main` (`11e9bc1`). The v1 Projects module was never shipped, so there is no base to wait for and no
+`feat/v6-visual-alignment` dependency. V2 work never lands on `feat/v6-visual-alignment` itself (another writer
+is active there).
 
 ### 0.2 How to read this document
 1. Section 1 is enough to start tomorrow morning.
@@ -63,14 +60,21 @@
 | **Gerente** | Role GERENCIA (+ ADMINISTRADOR) — USER-RESOLVED N-01. |
 | **Gestor / Ejecutor** | COORDINADOR who is a member of the project team — USER-RESOLVED N-01/N-20. |
 | **Visualizador** | Any user with `puede_ver_tablero_gerencial = true` who is not ADMINISTRADOR/GERENCIA. |
-| **Coexistence flag** | Setting `feature_projects_v2`; off = v1 module (today), on = v2 module. |
 | pp | Percentage points (technical deviation unit). |
+
+### 0.4 Revision
+2026-09-30 — re-scoped for a direct implementation; the v1 module was never shipped, so the coexistence
+apparatus (flag, expand/backfill/switch/contract, v1 test retirement, S9.6) was removed; ODD-01..ODD-04 in
+`odd/tasks/v2-projects-execution.md`.
 
 ## 1. Executive summary and "Start tomorrow" checklist
 
 ### 1.1 Executive summary
-The Projects module was built from RF v1.0 (Proyecto → Meta → Actividad with one planned date, LineaPresupuestal,
-Gasto without validation, bidirectional financial semáforo). RF v2.0 (PO, 2026-09-28) replaces that model with:
+The v1 Projects module was **designed from RF v1.0** (Proyecto → Meta → Actividad with one planned date,
+LineaPresupuestal, Gasto without validation, bidirectional financial semáforo) but was **NEVER shipped**: `main`
+has no projects models in `prisma/schema.prisma`, no projects migrations, and production has 0 rows in
+proyectos/metas/actividades (the v1 code lives only in unmerged local branches and is being abandoned). RF v2.0
+(PO, 2026-09-28) is therefore implemented **directly** as the only Projects model that ever exists in code:
 Objetivo → Actividad in relative weeks → Entregable → Avance → Medio de verificación; result indicators with
 measurement history; budget per rubro (A) with monthly programming (P); validated expenses (E) with an
 optimal-spend semáforo; Excel template import (atomic, V-01..V-14); baseline approval by Gerencia and versioned,
@@ -78,11 +82,11 @@ approved modifications; append-only audit. The Clients requirements (RF-C01..C04
 implemented; three gaps remain (RF-C04 prefill in one step, RNF-C01 panel separation, RNF-C02 assigned-only
 visibility).
 
-We deliver this **incrementally** in 11 slices (S0–S10, **71 tasks** after splitting every L task), behind a
-Setting-backed coexistence flag `feature_projects_v2` (default off), using **expand → backfill → switch →
-contract** migrations. v1 keeps working at every commit until the contract task S9.6. All data scripts run only
-against the local Docker database (`.env.local`, localhost guard); promotion to the remote Supabase is a separate,
-human-run step.
+We deliver this **incrementally** in 11 slices (S0–S10, **66 tasks** after splitting every L task and
+removing the five tasks that only existed to manage v1↔v2 coexistence or v1 data migration, §5.13). The v2 module
+ships directly against `main` from `feat/projects-v2`: there is no flag, no dual code path and no v1→v2 data
+migration. All local data work runs only against the local Docker database (`.env.local`, localhost guard);
+promotion to the remote Supabase is a separate, human-run step.
 
 Key fixed decisions (USER-RESOLVED 2026-09-29, to confirm with PO): Meta = Objetivo; only GERENCIA and
 ADMINISTRADOR manage projects; COORDINADOR = executor on member projects (many-to-many team); validation by
@@ -92,7 +96,7 @@ one-step project creation from a GANADA opportunity; legacy EN_EJECUCION project
 expenses become REGISTRADO; rubro catalog = R01–R15 only; uploads ≤ 25 MB, light office/image types, never
 deleted.
 
-Three findings discovered while writing this SDD that change the plan:
+Two findings discovered while writing this SDD that change the plan:
 1. **Hosting upload limit (UNVERIFIED, high impact).** The app is deployed on Vercel (VERIFIED `README.md:14`).
    Vercel functions document a ~4.5 MB request-body limit, and the remote bucket `muttu-docs` is configured at
    10 MB (VERIFIED `docs/plan-supabase-manana.md:53`). Raising uploads to 25 MB through a route handler will not
@@ -100,10 +104,6 @@ Three findings discovered while writing this SDD that change the plan:
    upload if confirmed).
 2. **Inconsistent current limits.** `src/lib/api/files.ts:9` = 10 MB (documents, project supports) while
    `src/app/api/v1/tasks/[id]/attachments/route.ts:32-40` already defaults to 25 MB via `MAX_FILE_SIZE_MB`.
-3. **Test inventory confirmed.** A direct-scope sweep (project API routes, `src/components/proyectos`, rubros,
-   settings, dashboard/projects, tablero-gerencial, project-from-opportunity, `semaforo`/`permissions`/`projects`
-   tests) counts **419 `it(`/`test(` call sites in 39 files** (`it.each` counted once). This matches the plan's
-   "~419" estimate; S0.2 still classifies them one by one.
 
 ### 1.2 Start tomorrow — first 90 minutes
 
@@ -112,7 +112,7 @@ Three findings discovered while writing this SDD that change the plan:
 
 ```bash
 git status --short                      # expect the untracked files listed in the session start snapshot
-git log --oneline -1                    # expect 97d639e (or later if the v6 writer pushed)
+git log --oneline -1                    # expect the current feat/projects-v2 HEAD (the commit that added this re-scoped document)
 # 1. Prove .env.local points to the local Docker DB (prints host only, never credentials):
 node --env-file=.env.local -e "console.log(new URL(process.env.DATABASE_URL).host)"   # expect 127.0.0.1:54322
 node --env-file=.env.local -e "console.log(new URL(process.env.DIRECT_URL).host)"     # expect 127.0.0.1:54322
@@ -132,9 +132,9 @@ npx eslint src/lib/permissions.ts src/lib/semaforo.ts src/lib/api/files.ts
 Record in §6.7 "Progress / Evidence": total tests, failures (expected only `prisma/invariant.test.ts`), tsc result.
 Any other failure = pre-existing; list it under "Known environmental failures" before writing code.
 
-**Step 3 — branch (≈5 min, user decides, see §0.1).**
+**Step 3 — branch (≈5 min, resolved, see §0.1).**
 ```bash
-git switch -c feat/projects-v2      # recommended: from current HEAD 97d639e
+git switch feat/projects-v2      # already created from main (11e9bc1)
 ```
 
 **Step 4 — first three tasks (rest of the morning).** Order: **S0.5 → S0.4 → S0.6** (all decision-free).
@@ -145,29 +145,39 @@ git switch -c feat/projects-v2      # recommended: from current HEAD 97d639e
 | 2 | S0.4 append-only AuditoriaCambio | `src/lib/api/audit-cambios.test.ts` → `it("diffFields returns one entry per changed field with before and after values")`; live DB: `prisma/auditoria-cambios.invariant.test.ts` → `it("rejects UPDATE on auditoria_cambios with the append-only trigger")` | `npx vitest run src/lib/api/audit-cambios.test.ts` |
 | 3 | S0.6 migration safety kit | `scripts/migrate-v2/_guard.test.ts` → `it("aborts before importing the db client when DATABASE_URL is not loopback")` | `npx vitest run scripts/migrate-v2/_guard.test.ts` |
 
-Full RED→GREEN→REFACTOR detail per task is in §5. After these three: S0.1, S0.2, S0.3, S0.7, S0.8, then S1.x.
+Full RED→GREEN→REFACTOR detail per task is in §5. After these three: S0.1, S0.7, S0.8, then S1.x.
 
 ## 2. Proposal
 
 ### 2.1 Intent
 Make the Projects section of the Muttu Hub the single source of truth for the technical and financial follow-up
 of social-impact projects as specified by the PO in RF v2.0 and the Estructura document, and close the residual
-Clients/Opportunities gaps — without a big-bang rewrite, without data loss, and without breaking the module that
-users have today.
+Clients/Opportunities gaps — without a big-bang rewrite and without data loss.
 
 ### 2.2 Problem
-- The live model (VERIFIED `prisma/schema.prisma:550-766`) is RF v1.0: `Meta`, `Actividad.fecha_planificada`
-  (single date), `Actividad.peso Int @default(1)`, `porcentaje_avance` typed by hand, `LineaPresupuestal`
-  (no programming), `Gasto` without validation states, `Indicador.valor_actual` (no history),
-  `Proyecto.territorio String` and single `linea_estrategica` enum.
-- The financial semáforo is bidirectional (VERIFIED `src/lib/semaforo.ts:47-52`), which contradicts the
-  confirmed optimal-spend criterion (RF v2.0 §1.4, RF-24).
-- COORDINADOR has global write authority over every project (VERIFIED `MANAGE_ANY_ROLES`,
-  `src/lib/permissions.ts:11-15`, composed by `canManageProject` line 94 and `canCreateProject` line 79),
-  contradicting the resolved role model.
-- Audit is best-effort and not append-only (VERIFIED `src/lib/api/audit.ts` swallows errors; model
-  `Auditoria` has no before/after per field) — gap vs RF-04, RNF-05.
-- 419 tests (39 files) encode v1 behavior; a direct replacement would break them and the loaded data.
+Nothing of the v1 Projects module exists in this branch. `main` has no projects models in
+`prisma/schema.prisma`, no projects migrations, and no projects code at all: `src/lib/semaforo.ts`,
+`src/lib/api/projects.ts`, `src/app/api/v1/projects/**` and `src/components/proyectos/**` are all absent
+(VERIFIED 2026-09-30 on `main` @ `11e9bc1`), and production has 0 rows in `proyectos`/`metas`/`actividades`.
+The v1 model described below therefore lives only in abandoned local branches. It is the design we are
+**replacing before it ever ships** — not a model to migrate, and not a module users have today.
+
+Contrast that motivates each v2 decision (citations point at the abandoned branches unless noted):
+- RF v1.0 shape: `Meta`, `Actividad.fecha_planificada` (single date), `Actividad.peso Int @default(1)`,
+  `porcentaje_avance` typed by hand, `LineaPresupuestal` (no programming), `Gasto` without validation states,
+  `Indicador.valor_actual` (no history), `Proyecto.territorio String` and a single `linea_estrategica` enum.
+- The financial semáforo is bidirectional (`semaforo.ts:47-52` on the abandoned branches), which contradicts
+  the confirmed optimal-spend criterion (RF v2.0 §1.4, RF-24).
+- COORDINADOR has global write authority over every project: `MANAGE_ANY_ROLES` (`src/lib/permissions.ts:11-15`
+  — this file DOES exist on `main`), composed by `canManageProject` and `canCreateProject`, contradicting the
+  resolved role model.
+- Audit is best-effort and not append-only (`src/lib/api/audit.ts` swallows errors — this file DOES exist on
+  `main`; model `Auditoria` has no before/after per field) — gap vs RF-04, RNF-05.
+
+Consequence for every task below: anything under `projects/`, `proyectos/` and `semaforo*` is **created new**
+by this plan, not extended. A file listed without "NEW" in §4.3 exists on `main` only if it is one of the
+platform files (permissions, audit, settings, catalogs, uploads, openapi); all projects models, routes,
+components and pure libraries are new.
 
 ### 2.3 Scope
 **IN**
@@ -175,11 +185,10 @@ users have today.
   versioning and audit of the Estructura document.
 - Residual Clients gaps: RF-C04 (one-step conversion with prefill), RNF-C01 (projects vs opportunities in the
   general panel), RNF-C02 (executors see only assigned active projects).
-- Data migration of existing projects (local first; remote promotion is a human-run checklist).
 - Unified upload policy (≤ 25 MB, light office/image types, soft-delete only) for ALL uploads (user wording
   "25mb o menos, para los archivos"), gated by the hosting/bucket verification S0.8.
 - Removal of territorial semaforización (RF v2.0 §2).
-- Retirement of v1 project code/tests at the contract step; re-plan of held visual tasks (S10).
+- Re-plan of held visual tasks (S10).
 
 **OUT** (RF v2.0 §10.2 future, or not requested)
 - DIAN XML invoice reading; accounting integration; S-curve and financial close projection; per-type templates.
@@ -197,9 +206,8 @@ users have today.
    atomically; any single V-rule violation imports nothing and reports sheet/row/column/rule (§3.10).
 4. A project can go Borrador → baseline v0 → modification v1 → comparison v0 vs vigente with every step in the
    append-only audit (§3.11, §3.16).
-5. No agent-run command ever touches the remote `.env` database; every backfill has a recorded local dry-run.
-6. v1 module works at every commit until S9.6; the full suite is green at each slice close (except the
-   pre-existing known failure, until it is fixed separately).
+5. No agent-run command ever touches the remote `.env` database; every local data script has a recorded dry-run.
+6. The full suite is green at each slice close (except the pre-existing known failure, until it is fixed separately).
 7. Management dashboard KPIs answer in < 3 s with the demo dataset × 10 projects (RNF-02, §3.17).
 
 ### 2.5 Non-goals
@@ -210,8 +218,6 @@ users have today.
 - No automatic "fix" of storage orphans; they are reported only.
 
 ### 2.6 Approach summary
-- **Coexistence flag** `feature_projects_v2` (Setting row, default off) read by a server helper; v2 endpoints
-  answer 404 while off; v1 endpoints of an area become read-only while on, once that area's switch task lands.
 - **Additive schema first** (new tables and nullable/defaulted columns, composite `[id, proyecto_id]` FKs, CHECKs
   in SQL). Reuse existing tables where the concept is the same and it avoids moving FKs or storage objects
   (`Actividad`, `LineaPresupuestal` as "PresupuestoRubro", `Gasto`, `Indicador`, `SoporteProyecto`, `Rubro`).
@@ -226,11 +232,9 @@ users have today.
 ### 2.7 Rollback plan
 | Phase | Rollback |
 |---|---|
-| Expand migration merged, flag off | Nothing to roll back functionally (v1 unaffected). Schema rollback = a new down-migration only if a column blocks something (never drop data columns before S9.6). |
-| Backfill applied locally | Scripts are idempotent and each writes a `migracion_v2_lote` id; rollback = re-run with `--revert <lote>` (only removes rows created by that lote; never touches v1 columns). Local DB can always be rebuilt with `supabase db reset` + seed. |
-| Area switched (flag on locally / pilot) | Set `feature_projects_v2 = {enabled:false}` (admin) or env `PROJECTS_V2_OVERRIDE=off`; v1 data untouched because v2 never writes v1-only columns. |
+| Additive migration merged | Nothing to roll back functionally; schema rollback = a new down-migration only if a column blocks something (never drop data columns before they are unused). |
+| Local data script applied | Scripts are idempotent and each writes a `migracion_v2_lote` id; rollback = re-run with `--revert <lote>` (only removes rows created by that lote). Local DB can always be rebuilt with `supabase db reset` + seed. |
 | Remote promotion (human) | Pre-promotion `pg_dump` of the remote DB (checklist S0.6); restore = human decision. |
-| After S9.6 contract | Restore from the pre-contract backup; this is why S9.6 needs explicit user sign-off. |
 
 ### 2.8 Delivery strategy
 - Chained PRs, one reviewable work unit each; **~400 authored changed lines per PR is an advisory review budget,
@@ -241,8 +245,7 @@ users have today.
 - Work-unit commits: behavior + its tests + docs in the same commit; Conventional Commits
   (`feat(projects): …`, `test(projects): …`, `chore(db): …`, `docs(odd): …`); **no `Co-Authored-By` and no AI
   attribution lines** (user rule, overrides any tool default).
-- Reviewer-friendly order inside a slice: schema/migration → pure lib → API → UI → backfill script → switch (the
-  switch PR retires the v1 tests of that area).
+- Reviewer-friendly order inside a slice: schema/migration → pure lib → API → UI → data script.
 - Native review (RDD) per work-unit commit under the user-owned switch; the assessed tier and outcome are
   recorded in §6.7.
 
@@ -250,14 +253,14 @@ users have today.
 
 | Area | Paths (VERIFIED exist unless marked NEW) | Change |
 |---|---|---|
-| Schema & migrations | `prisma/schema.prisma`, `prisma/migrations/**` (NEW migrations `2026100x…_v2_*`) | Additive models/columns, CHECKs, triggers; contract at S9.6 |
+| Schema & migrations | `prisma/schema.prisma`, `prisma/migrations/**` (NEW migrations `2026100x…_v2_*`) | Additive models/columns, CHECKs, triggers |
 | Permissions | `src/lib/permissions.ts`, `src/lib/api/projects.ts`, `src/components/proyectos/project-list.tsx`, `src/app/api/v1/projects/route.ts`, `src/app/api/v1/clients/[id]/opportunities/[opportunityId]/project/route.ts`, `src/app/api/v1/dashboard/projects/route.ts`, `src/lib/openapi/paths/projects.ts`, `src/lib/openapi/paths/dashboard-admin.ts` | Project-specific predicates; COORDINADOR removed from project management; membership visibility |
 | Audit | `src/lib/api/audit.ts` (kept), NEW `src/lib/api/audit-cambios.ts` | Append-only change log |
-| Settings / flags | `src/lib/settings.ts`, `src/app/api/v1/settings/route.ts`, `src/lib/catalogs.ts`, NEW `src/lib/features.ts` | Flag + semáforo params v2 |
+| Settings / flags | `src/lib/settings.ts`, `src/app/api/v1/settings/route.ts`, `src/lib/catalogs.ts` | Semáforo params v2 |
 | Pure domain libs | NEW `src/lib/proyectos/*.ts` | weeks, money, avance, ficha, semáforo v2, kpis, template |
-| Semáforo v1 | `src/lib/semaforo.ts` | Kept for v1 until S9.6; v2 lives in `src/lib/proyectos/semaforo-v2.ts` |
+| Semáforo | NEW `src/lib/proyectos/semaforo-v2.ts` | v2 technical and optimal-spend semáforo; there is no v1 semáforo library in the branch |
 | Files | `src/lib/api/files.ts`, `src/app/api/v1/tasks/[id]/attachments/route.ts`, `src/app/api/v1/documents/route.ts`, `src/app/api/v1/projects/[id]/attachments/route.ts`, `src/components/proyectos/soporte-dialog.tsx`, `src/components/documents/upload-dialog.tsx` | 25 MB unified policy, type allowlist, signed upload |
-| Project API | `src/app/api/v1/projects/**` (15 route files), NEW sub-routes (§4.8) | v2 endpoints behind flag |
+| Project API | `src/app/api/v1/projects/**` (15 route files), NEW sub-routes (§4.8) | v2 endpoints |
 | Catalog API | `src/app/api/v1/rubros/**`, NEW `src/app/api/v1/strategic-lines/**`, NEW `src/app/api/v1/municipalities/**` | Catalog rules (suspend-not-delete) |
 | Opportunities | `src/app/api/v1/clients/[id]/opportunities/[opportunityId]/project/route.ts`, `src/components/crm/entity-dialogs.tsx` | One-step GANADA → project with prefill |
 | Dashboards | `src/app/api/v1/dashboard/projects/route.ts`, `src/app/(app)/tablero-gerencial/page.tsx`, `src/components/dashboard/cara-management.tsx`, `src/components/dashboard/kpi-cards.tsx` | v2 KPIs, remove territory |
@@ -279,7 +282,9 @@ users have today.
 - Spanish strings inside quotes are the exact UI/API copy (the app's UI and API messages are Spanish — VERIFIED
   e.g. `src/app/api/v1/projects/route.ts:31-45`).
 - These are **delta specs** against `openspec/specs/{project-access-control,project-budget,project-schedule,
-  project-tracking,project-attachments,management-dashboard}` (v1). At S9.6 they are merged into main specs.
+  project-tracking,project-attachments,management-dashboard}` — the v1 project specs created by the abandoned
+  `tablero-seguimiento-social` change. Those specs do not exist on `main`; this document is therefore the
+  definitive specification of these capabilities, not a delta against them.
 
 ### 3.1 Capability ACC — Access and roles
 [src: RF-36, RF v2.0 §3, DP-02, DP-06, N-01, N-20, RNF-03, RNF-C02] [impl: S0.7, S2.6, S6.5]
@@ -360,7 +365,7 @@ members (ADM/GER already see everything).
   puede ser integrante del equipo del proyecto."
 
 ### 3.2 Capability ORG — Project origin and general data
-[src: RF-01, RF-02, RF-11, DP-05, DP-07, N-02, N-03, N-17, RF-C04] [impl: S2.1–S2.5]
+[src: RF-01, RF-02, RF-11, DP-05, DP-07, N-02, N-03, N-17, RF-C04] [impl: S2.1–S2.4, S2.6]
 
 **REQ-ORG-01** Creation MUST ask the origin: `OPORTUNIDAD` or `INDEPENDIENTE` (RF-01 PO-C).
 **REQ-ORG-02** For `OPORTUNIDAD`, only opportunities with `estado = GANADA` and no live project MUST be listed;
@@ -431,7 +436,7 @@ Emprendimiento, Productividad, Cultural, Social, Cívico-político, Método Mutt
 **REQ-CAT-04 Municipios.** A catalog table (nombre, departamento, optional código DANE) administrable by ADM with
 REQ-CAT-02 rules; a project MUST have ≥ 1 municipio (est §3.1 "Oblig. Sí"); informative only — no semáforo by
 municipio (RF v2.0 §2). Catalog source is open (N-21): default = curated list seeded from the manually normalised
-legacy `territorio` values (S2.5 report), extendable by ADM.
+legacy `territorio` values, curated per N-21 and extendable by ADM.
 
 ### 3.4 Capability STR — Technical structure: objectives, activities in weeks, deliverables, indicators
 [src: RF-06..RF-10, DP-01, DP-08, est §3.2–§3.4, §3.6] [impl: S0.5, S3.1–S3.6c]
@@ -745,17 +750,6 @@ office/imagen".
 `projects/[id]/attachments/route.ts:75`).
 **REQ-FIL-05 Access** to expense supports per REQ-GAS-08.
 
-### 3.15 Capability FLAG — Coexistence
-[src: plan Delivery] [impl: S0.3, each switch task, S9.6]
-
-**REQ-FLAG-01** Setting `feature_projects_v2 = {"enabled": boolean}`; missing row → `false`. Env
-`PROJECTS_V2_OVERRIDE` = `on` | `off` MAY override (local/e2e/emergency). Only ADM changes the setting; each change
-is audited `CAMBIAR_PARAMETRO`.
-**REQ-FLAG-02** While off: every v2-only endpoint returns 404 `NOT_FOUND` "Funcionalidad no disponible."; v1 works
-exactly as today. While on: v1 write endpoints of an area already switched return 409 `INVALID_STATE` "Esta
-función fue reemplazada por el nuevo módulo de proyectos."; v1 reads keep working until S9.6.
-**REQ-FLAG-03** Migrations are always additive until S9.6 and never depend on the flag.
-
 ### 3.16 Capability AUD — Append-only audit
 [src: RF-04, RNF-05, RF-35, est §7.4, RF v2.0 §10.3] [impl: S0.4, all write tasks]
 
@@ -789,7 +783,7 @@ values in `valor_nuevo`; parameter changes write `CAMBIAR_PARAMETRO` with the wh
 | PO ID | Prio / status | Spec requirement(s) | Task(s) |
 |---|---|---|---|
 | RF-01 | Alta / PO-C | REQ-ORG-01..03 | S2.3 |
-| RF-02 | Alta / PO-C | REQ-ORG-04..07, REQ-CAT-03, REQ-CAT-04 | S1.2, S1.3, S2.1, S2.2, S2.4, S2.5 |
+| RF-02 | Alta / PO-C | REQ-ORG-04..07, REQ-CAT-03, REQ-CAT-04 | S1.2, S1.3, S2.1, S2.2, S2.4 |
 | RF-03 | Alta / PO-C | REQ-XLS-01..04 | S7.1a–S7.5 |
 | RF-04 | Alta / PO-C | REQ-STR-07, REQ-XLS-03, REQ-AUD-04 | S0.4, S3.6a–c, S5.5, S7.6 |
 | RF-05 | Alta / PO-C | REQ-VER-01, REQ-ORG-09 | S8.1, S8.2 |
@@ -834,18 +828,18 @@ values in `valor_nuevo`; parameter changes write `CAMBIAR_PARAMETRO` with the wh
 | RNF-C01 | — | REQ-CLI-03 | S2.7 |
 | RNF-C02 | — | REQ-CLI-04, REQ-ACC-02 | S0.7, S2.6 |
 | DP-10 (files) | USER-RESOLVED | REQ-FIL-01..05 | S0.8, S0.9a, S0.9b, S4.2 |
-| Coexistence | plan | REQ-FLAG-01..03 | S0.3, S9.6 |
 
 ## 4. Design
 
 ### 4.1 Architecture decisions (ADR)
 
-**ADR-01 Incremental coexistence behind one Setting-backed flag.**
-Context: 419 v1 tests and live data; slices ship independently. Options: (a) big-bang rewrite; (b) per-area flags;
-(c) one global flag + per-slice switch code paths. Decision: (c) `feature_projects_v2`, default off; each slice's
-switch task makes the v2 path live under flag=on and freezes the v1 writes of that area. Consequences: production
-keeps flag off until the pilot/S9.6; local and e2e run both modes; code carries two branches per switched area
-until S9.6 (bounded, removed at contract).
+**ADR-01 Direct single-model implementation of RF v2.0 on top of `main`.**
+Context: the v1 Projects module was designed but never shipped (`main` has no projects models or migrations and
+production has 0 rows in proyectos/metas/actividades); the v2 module is the only Projects model that will ever
+exist in code. Options: (a) build the v1 module first and migrate it; (b) incremental coexistence behind a flag;
+(c) implement RF v2.0 directly. Decision: (c) implement RF v2.0 directly as a single-model implementation on top
+of `main`, developed on `feat/projects-v2`. Consequences: no flag, no dual code paths, no v1 test retirement,
+no contract step, and the v2 domain model is the only one that ever exists in code.
 
 **ADR-02 Reuse tables whose concept is unchanged; add new tables for new concepts.**
 Context: moving FKs or storage objects is the riskiest part of a migration. Decision: reuse `actividades`
@@ -934,7 +928,7 @@ migration SQL (Prisma does not model CHECK). All money `@db.Decimal(15, 2)`; qua
 ```prisma
 // ── Enums (new or extended; additive) ──────────────────────────────
 enum EstadoProyecto {            // extended: BORRADOR added (ALTER TYPE ... ADD VALUE, own migration)
-  PLANIFICACION                  // v1 only; backfilled to BORRADOR (S2.5); dropped at S9.6
+  PLANIFICACION
   BORRADOR
   EN_EJECUCION
   SUSPENDIDO
@@ -962,8 +956,8 @@ enum TipoNotificacion {          // extended
 // ── Proyecto (extended) ────────────────────────────────────────────
 model Proyecto {
   // existing fields unchanged (codigo @unique, territorio, linea_estrategica, … VERIFIED schema.prisma:550-603)
-  origen                       OrigenProyecto?               // backfill: oportunidad_id ? OPORTUNIDAD : INDEPENDIENTE
-  valor_total                  Decimal?  @db.Decimal(15, 2)  // NOT NULL enforced at baseline, not in DB, until S9.6
+  origen                       OrigenProyecto?
+  valor_total                  Decimal?  @db.Decimal(15, 2)
   diferencia_valor_oportunidad Decimal?  @db.Decimal(15, 2)  // RF-02: valor_total - oportunidad.valor_estimado_cop
   programacion_pendiente       Boolean   @default(false)     // N-14 legacy flag
   miembros    ProyectoMiembro[]
@@ -1056,7 +1050,7 @@ model Objetivo {
   codigo         String                            // OE1..
   descripcion    String
   orden          Int       @default(0)
-  meta_origen_id String?   @unique                 // backfill trace from Meta (S3.5)
+  meta_origen_id String?   @unique
   created_at     DateTime  @default(now())
   updated_at     DateTime  @updatedAt
   deleted_at     DateTime?
@@ -1069,7 +1063,7 @@ model Objetivo {
   // SQL: CREATE UNIQUE INDEX objetivos_codigo_uq ON objetivos(proyecto_id, lower(codigo)) WHERE deleted_at IS NULL;
 }
 
-model Actividad {                // extended (existing columns kept until S9.6)
+model Actividad {
   objetivo_id     String?
   codigo          String?                          // 1.1..
   semana_inicio   Int?
@@ -1184,7 +1178,7 @@ model SoporteProyecto {          // extended: medios de verificación + soportes
   medicion MedicionIndicador? @relation(fields: [medicion_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
   accesos  AccesoSoporte[]
   // SQL CHECK soportes_un_padre_v2_ck: num_nonnulls(gasto_id, avance_id, medicion_id) <= 1
-  // (actividad_id MAY coexist with avance_id on migrated VERIFICACION rows — same row, same storage_path)
+  // (actividad_id MAY coexist with avance_id on the same row — same storage_path)
 }
 
 // ── Budget and expenses ───────────────────────────────────────────
@@ -1328,7 +1322,7 @@ Actividad→Objetivo, Indicador→Objetivo, Soporte→Avance/Medición/Gasto). T
 `Proyecto↔Oportunidad [oportunidad_id, cliente_id]` invariant is unchanged.
 
 **Enum migration caveat:** PostgreSQL cannot use a value added by `ALTER TYPE … ADD VALUE` in the same
-transaction; `BORRADOR` is added in its own migration and first used by the later backfill script.
+transaction; `BORRADOR` is added in its own migration and first used by a later migration.
 
 `Usuario` gains the inverse relations `miembro_de ProyectoMiembro[] @relation("MiembroProyecto")` and
 `actividades_responsable Actividad[] @relation("ActividadResponsable")` (no new columns on `usuarios`).
@@ -1368,33 +1362,17 @@ erDiagram
 Independence rule (est §2.1, PO-C): no FK between activities and budget; technical and financial meet only at
 project and period level.
 
-### 4.4 Migration playbook (expand → backfill → switch → contract)
+### 4.4 Schema evolution
+
+v2 schema changes are **additive migrations applied directly** to the branch: new tables and nullable/defaulted
+columns, composite `[id, proyecto_id]` FKs, CHECK constraints in SQL (Prisma does not model CHECK), and triggers.
+There is **no v1→v2 data migration**: the v1 Projects module was never shipped, so there is no legacy project row
+to move. Where the concept is unchanged, v2 reuses the existing table (ADR-02); the v2 columns simply become the
+only shape those tables have in this branch.
 
 Migration names follow the existing pattern `YYYYMMDDHHMMSS_snake_name` (VERIFIED `prisma/migrations/`). All are
 created with `npm run db:migrate` (wraps `--env-file=.env.local`, VERIFIED `package.json`) — `prisma migrate dev
 --create-only` first when the SQL needs hand-written CHECKs/triggers/partial indexes, then edited, then applied.
-
-| Table / area | Expand (migration, task) | Backfill (script, task) | Switch (task) | Contract (S9.6) | Rollback before contract |
-|---|---|---|---|---|---|
-| `auditoria_cambios`, `acceso_soportes` | `v2_auditoria_cambios` + triggers (S0.4); `acceso_soportes` (S6.5) | — | used by v2 writes from S0.4 on | — (kept forever) | drop tables only if empty (dev) |
-| `settings` (flag, params v2) | none (JSON rows) (S0.3, S1.4) | `ensureDefaultSettings` adds rows idempotently | — | delete v1 `semaforo_umbrales` row? No — kept for history | delete rows |
-| `rubros` | `v2_rubros_codigo` codigo/descripcion/fecha_suspension + immutability trigger (S1.1a) | `scripts/migrate-v2/s1-rubros.ts`: set R01/R12, insert 13 missing, suspend Material POP/Operación logística (S1.1a); report lines on retired rubros (S1.1b, read-only) | S1.1a (catalog rules live for v1 too) | — | `--revert <lote>` unsets codes and un-suspends |
-| `lineas_estrategicas`, `proyecto_lineas` | `v2_lineas_estrategicas` (S1.2 catalog, S2.1 link) | `s2-lineas.ts`: one principal row per project from `linea_estrategica` (S2.5) | S2.1 | drop `proyectos.linea_estrategica`, enum `LineaEstrategica` | revert lote |
-| `municipios`, `proyecto_municipios` | `v2_municipios` (S1.3, S2.1) | `s2-municipios.ts`: dry-run lists distinct `territorio` values and projects; apply uses a human-edited mapping JSON `scripts/migrate-v2/data/territorio-map.json` (S2.5, N-16) | S2.1 | drop `proyectos.territorio` | revert lote |
-| `proyectos` (origen, valor_total, estado BORRADOR, sequence) | `v2_proyecto_estado_borrador` (enum value only) + `v2_proyecto_general` (S2.1, S2.2) | `s2-proyectos.ts`: origen from oportunidad_id; valor_total = Σ A (N-17) with difference vs opportunity; PLANIFICACION → BORRADOR; EN_EJECUCION → BORRADOR (N-18); sequences initialised from max `PRY-AAAA-NNN` (S2.5) | S2.3 | drop PLANIFICACION enum value (recreate type), `umbrales_override` | revert lote restores previous estado from the lote log |
-| `proyecto_miembros` | `v2_proyecto_miembros` (S2.6) | `s2-miembros.ts`: add each legacy responsable with rol COORDINADOR as member; report responsables with rol COLABORADOR (they lose access) (S2.6) | S2.6 | — | revert lote |
-| `objetivos` | `v2_objetivos` (S3.1) | `s3-estructura.ts`: Meta → Objetivo OE1..n by `created_at` (S3.5) | S3.6a | drop `metas`, `actividades.meta_id`, `indicadores.meta_id` | revert lote soft-deletes created objetivos |
-| `actividades` (v2 columns) | `v2_actividades_semanas` (S3.2a) | `s3-estructura.ts`: codigo `k.n`, semana_fin from `fecha_planificada`, semana_inicio default = semana_fin (N-11), `peso_v2 = peso` with `peso_manual = true` (DP-08), objetivo_id from meta (S3.5) | S3.6b | drop `fecha_planificada`, `fecha_real`, `porcentaje_avance`, `peso` Int, `meta_id` | revert lote nulls the v2 columns |
-| `entregables`, `avances_entregable` | `v2_entregables` (S3.3), `v2_avances` (S4.1) | `s3-estructura.ts`: for activities with `porcentaje_avance > 0`: synthetic "Avance migrado" (cantidad 100, unidad "%") + one avance = porcentaje on closed projects; for active projects re-capture list only (N-12 default) (S3.5) | S3.6c / S4.1 | — | revert lote |
-| `soportes_proyecto` (avance_id, medicion_id) | `v2_soportes_padres` (S4.2) | same row: synthetic avance gets the activity's VERIFICACION supports via `avance_id` (no storage move) (S3.5) | S4.2 | drop `actividad_id` + `tipo`? only after checking no reader (decided at S9.6) | revert lote nulls `avance_id` |
-| `indicadores`, `mediciones_indicador` | `v2_indicadores_resultado` (S3.4), `v2_mediciones` (S4.3) | objetivo_id via meta; indicators without meta listed for manual assignment (N-08); `valor_actual` → one `migrada` medición dated `updated_at` (N-09) (S4.3) | S4.3 | drop `valor_actual`, `cuenta_beneficiarios` | revert lote |
-| `registros_beneficiarios` | `v2_beneficiarios` (S4.4) | one `migrado` row per project = Σ `valor_actual` of `cuenta_beneficiarios` indicators, dated max(updated_at) (N-10) | S4.4 | — | revert lote |
-| `lineas_presupuestales` (A) | `v2_lineas_check` (S5.1) | `s5-presupuesto.ts`: $0 rows for active R01–R15 missing per project; lines on retired rubros untouched and reported (N-13) | S5.1 | — | revert lote removes only lote-created $0 rows (soft) |
-| `programacion_periodo` | `v2_programacion` (S5.2) | none — legacy projects flagged `programacion_pendiente = true` (N-14) | S5.2 | — | revert lote clears the flag |
-| `gastos` (v2 columns) | `v2_gastos_validacion` (S6.1) — `estado` default REGISTRADO backfills existing rows at DDL time | `s6-gastos.ts`: periodo = month(fecha_gasto); tipo_soporte = OTRO; report rows missing third-party ID (N-15) | S6.3 | drop `observado`, `observacion` | revert lote nulls periodo/tipo |
-| `versiones_proyecto`, `solicitudes_modificacion` | `v2_versiones` (S8.1) | none (legacy projects are Borrador after S2.5) | S8.2 | — | — |
-| `notificaciones` | `v2_notificaciones_sobregasto` (S6.4) | — | S6.4 | — | enum value stays |
-| `proyecto_kpi_cache` | `v2_kpi_cache` (S9.4) | recompute all (idempotent) | S9.4 | — | truncate cache (not append-only) |
 
 ### 4.5 Data-script design (`scripts/migrate-v2/`)
 - **Guard (S0.6):** `scripts/migrate-v2/_guard.ts` is a side-effect module whose FIRST line is
@@ -1430,35 +1408,11 @@ created with `npm run db:migrate` (wraps `--env-file=.env.local`, VERIFIED `pack
 - **Storage orphan report (S0.6, read-only):** lists `storage_path` rows whose object is missing and objects
   under `proyectos/` without a row, using the local Storage API (service key from `.env.local`); never deletes.
 - **The local guard has no bypass flag.** Remote promotion (human-run, checklist in §6.5) uses a separate
-  entrypoint `scripts/migrate-v2/promote-remote.ts` that is written only when the user authorizes promotion
-  (S9.6 prerequisites), imports the same plan/apply functions but replaces the guard with an interactive
-  confirmation of the target host typed by a human. Agents never create or run it (CLAUDE.md DB rule).
-- **Remote promotion checklist (§6.5):** backup, flag off, apply migrations, run each script dry-run from the
-  human entrypoint, review decisions, apply with `--expect-hash`, verify counts, keep flag off until pilot sign-off.
-
-### 4.6 Feature flag `projects_v2`
-- **Storage:** `settings` row `key = "feature_projects_v2"`, `value = {"enabled": false}` — same key/value
-  convention as `task_tags`, `doc_categories`, `semaforo_umbrales` (VERIFIED `src/lib/settings.ts:17-23`). Created
-  idempotently by `ensureDefaultSettings()`.
-- **Module:** NEW `src/lib/features.ts`:
-  ```ts
-  export const SETTING_FEATURE_PROJECTS_V2 = "feature_projects_v2";
-  /** Pure: resolves the effective flag. Env override wins; malformed setting = false. */
-  export function resolveProjectsV2(setting: unknown, envOverride: string | undefined): boolean;
-  /** Server-only: getSetting + resolveProjectsV2(…, process.env.PROJECTS_V2_OVERRIDE). */
-  export async function isProjectsV2Enabled(): Promise<boolean>;
-  /** Route helper: returns a 404 NextResponse when off, null when on. */
-  export async function requireProjectsV2(): Promise<Response | null>;
-  ```
-- **Admin toggle:** `PATCH /api/v1/settings` gains an optional `feature_projects_v2: {enabled: boolean}` field
-  (ADMINISTRADOR only, existing gate VERIFIED `src/app/api/v1/settings/route.ts:98,110`), audited with
-  `logChange(CAMBIAR_PARAMETRO)`.
-- **Client exposure:** NEW `GET /api/v1/features` (any authenticated user) → `{ projects_v2: boolean }`; hook
-  `useFeatures()` in `src/hooks/features.ts`; server components call `isProjectsV2Enabled()` directly.
-- **Branching:** each v2 route calls `requireProjectsV2()` first. Switched v1 write routes call
-  `if (await isProjectsV2Enabled()) return apiError("Esta función fue reemplazada…", 409, "INVALID_STATE")`.
-  UI: `ProjectWorkspace` picks the v1 or v2 tab set from `useFeatures()`.
-- **Tests:** `resolveProjectsV2` pure unit tests; route tests mock `@/lib/features`.
+  entrypoint `scripts/migrate-v2/promote-remote.ts` that is written only when the user authorizes promotion,
+  imports the same plan/apply functions but replaces the guard with an interactive confirmation of the target host
+  typed by a human. Agents never create or run it (CLAUDE.md DB rule).
+- **Remote promotion checklist (§6.5):** backup, apply migrations, run each script dry-run from the human
+  entrypoint, review decisions, apply with `--expect-hash`, verify counts.
 
 ### 4.7 Permissions module changes
 **New/changed predicates in `src/lib/permissions.ts`** (pure, no DB — same discipline, VERIFIED header comment):
@@ -1479,9 +1433,9 @@ export function canViewPortfolio(actor: ProjectActor): boolean;                /
 ```
 `canManageAny`, `MANAGE_ANY_ROLES`, `canReadRestrictedDocs`, `canEditClient`, `canEditTask`,
 `hasCommercialAccess`, `canManageOpportunity` stay **unchanged** (clients/tasks/documents keep COORDINADOR).
-`canViewManagementDashboard` stays for v1 until S9.6; v2 code uses `canViewPortfolio`.
+`canViewManagementDashboard` is not used by v2; v2 code uses `canViewPortfolio`.
 
-**Behavior change in S0.7 (v1 and v2, flag-independent — default, see §6.8 D-02):** a COORDINADOR can no longer
+**Behavior change in S0.7 (applied directly to the project write paths — see §6.8 D-02):** a COORDINADOR can no longer
 create projects nor write to projects where they are not the responsable. A COLABORADOR responsable loses write
 access (they have no project role, N-01). Read scope is unchanged until S2.6.
 
@@ -1492,7 +1446,7 @@ access (they have no project role, N-01). Read scope is unchanged until S2.6.
 | `src/lib/permissions.ts:78-80` | `canCreateProject` | re-implemented on `canManageProjects` |
 | `src/lib/permissions.ts:90-95` | `canManageProject` | new rule above |
 | `src/lib/permissions.ts:98-103` | `canViewProject` | unchanged in S0.7; replaced by membership-aware loader in S2.6 |
-| `src/lib/api/projects.ts:19-35` | `loadProjectScoped` | S2.6: also loads `es_miembro` (`proyecto_miembros` active row) and uses `canViewProjectV2` when flag on |
+| `src/lib/api/projects.ts:19-35` | `loadProjectScoped` | S2.6: also loads `es_miembro` (`proyecto_miembros` active row) and uses `canViewProjectV2` |
 | `src/lib/api/projects.ts:44-54` | `getProjectForWrite` | S0.7 picks up the new `canManageProject`; S3+ v2 routes use new `getProjectForStructure` / `getProjectForExecution` |
 | `src/lib/api/projects.ts:123` | `toProjectItem.puede_editar_proyecto` | S0.7 follows new rule; v2 adds `permisos: {estructura, ejecucion, validar, aprobar}` |
 | `src/app/api/v1/projects/route.ts:60-62,90` | list scope (`canViewManagementDashboard`), `canCreateProject` | S0.7 create gate changes; S2.6 list scope = portfolio or membership |
@@ -1509,13 +1463,12 @@ All routes: `export const dynamic = "force-dynamic"`, `withApiErrorHandling(labe
 `requireApiUser()` (or `requireApiRole(["ADMINISTRADOR"])` for admin), dynamic params as
 `ctx.params: Promise<{…}>` (Next 16 convention VERIFIED in `src/app/api/v1/rubros/[id]/route.ts:20`), zod bodies,
 errors `{ error, code }` via `apiError` (VERIFIED `src/lib/api/errors.ts`). **`ApiErrorCode` gains two values:**
-`INVALID_STATE` (409, wrong project/expense state or switched v1 endpoint) and `OVERSPEND_BLOCKED` (409). Import
+`INVALID_STATE` (409, wrong project/expense state) and `OVERSPEND_BLOCKED` (409). Import
 reports reuse `VALIDATION_ERROR` with an extra `reporte` field (new helper `apiValidationReport(reporte)`).
-Every v2 route first calls `requireProjectsV2()` (404 when off). Money travels as strings `"59500000.00"`.
+Money travels as strings `"59500000.00"`.
 
 | # | Method & path | Auth (matrix) | Request → Response (success) | Errors |
 |---|---|---|---|---|
-| E-01 | GET `/api/v1/features` | any user | → `{projects_v2}` | 401 |
 | E-02 | GET `/api/v1/projects` | P01 | `?estado&cliente_id&linea_id&municipio_id&responsable_id` → `{proyectos: ProjectItemV2[]}` | 401 |
 | E-03 | POST `/api/v1/projects` (INDEPENDIENTE) | P05 | `{nombre, cliente_id, responsable_id, lineas:[{id,principal}], municipio_ids[], fecha_inicio, fecha_fin, valor_total?, beneficiarios_meta?, miembro_ids?}` → 201 `{proyecto}` (código autogenerado) | 400, 403, 404 cliente |
 | E-04 | GET `/api/v1/projects/eligible-opportunities` | P05 | → `{oportunidades:[{id, nombre, cliente_id, cliente_nombre, valor_estimado_cop}]}` (GANADA, no project) | 403 |
@@ -1523,14 +1476,14 @@ Every v2 route first calls `requireProjectsV2()` (404 when off). Money travels a
 | E-06 | GET/PATCH `/api/v1/projects/:id` | P02 / P06 | PATCH general data in BORRADOR → `{proyecto, alertas?:[{tipo:"DIFERENCIA_VALOR", diferencia}]}` | 403, 404, 409 INVALID_STATE |
 | E-07 | GET/POST `/api/v1/projects/:id/members`, DELETE `/members/:userId` | P02 / P07 | `{usuario_id}` → 201 `{miembro}`; DELETE sets `removed_at` | 400 (not COORDINADOR), 403, 409 duplicate |
 | E-08 | GET/POST `/api/v1/projects/:id/objectives`, PATCH/DELETE `/objectives/:oid` | P02 / P06 | `{codigo, descripcion}` | 400, 403, 409 INVALID_STATE, 409 CONFLICT codigo |
-| E-09 | GET/POST `/api/v1/projects/:id/activities` (v2 body when flag on), PATCH/DELETE `/activities/:aid` | P02 / P06 | `{codigo, objetivo_id, nombre, semana_inicio, semana_fin, peso?, responsable_id?}` → activity with derived `fecha_inicio`, `fecha_fin`, `peso`, `estado` | 400 V-07-like, 403, 409 |
+| E-09 | GET/POST `/api/v1/projects/:id/activities` (v2 body), PATCH/DELETE `/activities/:aid` | P02 / P06 | `{codigo, objetivo_id, nombre, semana_inicio, semana_fin, peso?, responsable_id?}` → activity with derived `fecha_inicio`, `fecha_fin`, `peso`, `estado` | 400 V-07-like, 403, 409 |
 | E-10 | GET/POST `/api/v1/projects/:id/deliverables`, PATCH/DELETE `/deliverables/:did` | P02 / P06 | `{codigo, actividad_id, descripcion, cantidad_meta, unidad, tipo_medio_exigido}` | 400, 403, 409 |
 | E-11 | GET/POST `/api/v1/projects/:id/deliverables/:did/progress`; POST `/progress/:pid/void` | P02 / P09; void P18 | `{fecha, cantidad, observacion?, justificacion_exceso?}` → 201 `{avance, cuenta: boolean}`; void `{motivo}` | 400 (future date, over goal), 403, 409 INVALID_STATE |
 | E-12 | POST `/api/v1/projects/:id/attachments` (extended), `…/attachments/upload-url` (ADR-13) | P09 (medios) / P10 (gasto) | multipart or confirm `{storage_path, nombre, tamano_bytes, avance_id? | medicion_id? | gasto_id?}` / link `{url_externa, nombre, …}` | 400 type, 413 FILE_TOO_LARGE, 403 |
 | E-13 | GET/POST `/api/v1/projects/:id/indicators` (v2 body), GET/POST `/indicators/:iid/measurements`, POST `/measurements/:mid/void` | P02 / P06 (indicator), P09 (measurement) | `{fecha, valor, observacion?}` → `{medicion, ultima, tendencia}` | 400, 403, 409 |
 | E-14 | GET/POST `/api/v1/projects/:id/beneficiaries`, POST `/beneficiaries/:bid/void` | P02 / P09 | `{fecha, cantidad, actividad_id?, observacion?}` | 400, 403, 409 |
 | E-15 | GET `/api/v1/projects/:id/technical-status?corte=AAAA-MM-DD&base=vigente|original` | P02 | → `{corte, avance_real, avance_programado, desviacion_pp, color, actividades:[…], umbrales:{…, confirmado}}` | 400 corte |
-| E-16 | GET/PUT `/api/v1/projects/:id/budget` (v2 body when flag on) | P03 / P06 | PUT `{rubros:[{rubro_id, asignado}]}` (all rows) → `{rubros, suma, valor_total, diferencia}` | 400, 403, 409 INVALID_STATE |
+| E-16 | GET/PUT `/api/v1/projects/:id/budget` (v2 body) | P03 / P06 | PUT `{rubros:[{rubro_id, asignado}]}` (all rows) → `{rubros, suma, valor_total, diferencia}` | 400, 403, 409 INVALID_STATE |
 | E-17 | GET/PUT `/api/v1/projects/:id/programming` | P03 / P06 | PUT `{filas:[{rubro_id, periodo, valor}]}` → `{filas, control_por_rubro}` | 400 period outside, 403, 409 |
 | E-18 | GET `/api/v1/projects/:id/financial-sheet?corte=AAAA-MM&base=vigente|original` | P03 | → `{corte, base, tolerancia, rubros:[FichaRow], total: FichaRow, alerta_retraso}` | 400 |
 | E-19 | GET `/api/v1/projects/:id/expenses` (v2 fields), GET `/expenses/:eid` | P03 (list without third-party ID for VIS) | → `{gastos:[…], totales}` | 403 |
@@ -1542,10 +1495,10 @@ Every v2 route first calls `requireProjectsV2()` (404 when off). Money travels a
 | E-25 | POST `/api/v1/projects/:id/baseline/approve` | P08 | → `{version:{numero:0}, proyecto}` | 403, 409 `{precondiciones:[…]}` |
 | E-26 | GET/POST `/api/v1/projects/:id/modifications`, POST `/modifications/:mid/approve`, `/reject` `{comentario}` | P02 / P12 / P13 | POST `{tipo, motivo, detalle:[…]}` → 201 `{solicitud}`; approve → `{version:{numero:N}}` | 400 RF-28 rule, 403, 409 stale version |
 | E-27 | GET `/api/v1/projects/:id/versions`, GET `/versions/:n`, GET `/versions/compare?from=0&to=vigente` | P02 | → `{versiones}` / `{snapshot}` / `{diferencias:[{elemento, clave, desde, hasta}]}` | 404 |
-| E-28 | GET `/api/v1/dashboard/projects` (v2 when flag on) | P17 | `?corte&linea_id&cliente_id&responsable_id&estado&municipio_id` → portfolio KPIs (no `por_territorio`) | 403 |
+| E-28 | GET `/api/v1/dashboard/projects` (v2) | P17 | `?corte&linea_id&cliente_id&responsable_id&estado&municipio_id` → portfolio KPIs (no `por_territorio`) | 403 |
 | E-29 | GET `/api/v1/projects/:id/export?formato=pdf|xlsx&ficha=proyecto|financiera&corte=` | P16 | → file; audited EXPORTAR | 403 |
 | E-30 | Admin: `/api/v1/rubros` (extended rules), NEW `/api/v1/strategic-lines`, `/api/v1/municipalities` (GET any user; POST/PATCH/DELETE ADMINISTRADOR) | P15 | catalog CRUD with suspend-not-delete | 409 CONFLICT has data |
-| E-31 | `PATCH /api/v1/settings` (extended keys `semaforo_parametros_v2`, `feature_projects_v2`) | P15 | → snapshot | 400 |
+| E-31 | `PATCH /api/v1/settings` (extended keys `semaforo_parametros_v2`) | P15 | → snapshot | 400 |
 
 ### 4.9 Pure calculation libraries (`src/lib/proyectos/`)
 All modules are framework/DB-free (no `@/lib/db`, no `next/server`), like `src/lib/permissions.ts` and
@@ -1767,8 +1720,8 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
   reason), then GREEN, then REFACTOR; the RED output line is pasted in §6.7 evidence.
 - **Pyramid:**
   1. Pure unit tests (majority): `src/lib/proyectos/*.test.ts`, `src/lib/permissions.test.ts`,
-     `src/lib/features.test.ts`, template validators one `describe` per V-rule.
-  2. Route tests with mocked `@/lib/db`, `@/lib/supabase/server`, `@/lib/api/audit-cambios`, `@/lib/features`
+     template validators one `describe` per V-rule.
+  2. Route tests with mocked `@/lib/db`, `@/lib/supabase/server`, `@/lib/api/audit-cambios`
      — the existing pattern (VERIFIED `src/app/api/v1/projects/route.test.ts:1-60`: `vi.mock` factories,
      `authAs(usuario)`, row builders, `new Request(...)`).
   3. Component tests with `@testing-library/react`, `vi.hoisted` query stubs and `vi.mock("@/hooks/projects")`
@@ -1783,12 +1736,6 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
   structure) in `src/lib/proyectos/__fixtures__/` (§8.1); asserted with exact equality (bigint).
 - **Factories:** `src/test/factories/proyectos-v2.ts` (NEW): `makeProyectoV2`, `makeActividadV2`,
   `makeEntregable`, `makeGastoV2`, `makeActor({rol, flag, miembro})` — plain objects for route/component tests.
-- **Coexistence:** while flag off, all v1 tests must stay green untouched except the S0.7 COORDINADOR fixtures;
-  every v2 route test has one case "returns 404 when projects_v2 is off"; every switched v1 write route has one
-  case "returns 409 INVALID_STATE when projects_v2 is on".
-- **Legacy test inventory (S0.2):** the 39 files / 419 cases (§1.1) are listed in
-  `odd/tasks/v2-projects-test-inventory.md` with a verdict per file: KEEP (behavior unchanged), REWRITE@<task>,
-  RETIRE@<switch task>, RETIRE@S9.6. A test is only deleted in the PR that removes the behavior it covers.
 - **Known failing baseline:** `prisma/invariant.test.ts` is failing before this work (caller-provided); new
   live-DB tests live in separate files so the baseline failure does not mask them.
 - **Commands per task:** focused `npx vitest run <files>`; `npx tsc --noEmit`; `npx eslint <touched files>`;
@@ -1808,8 +1755,8 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
 - Every commit: Conventional Commit, subject ≤ 72 chars, body lists the task ID and the checks run; **no
   Co-Authored-By / AI attribution**. Record commit hash + checks + RDD outcome in §6.7.
 - Every write route in v2: RED includes (a) happy path, (b) 403 per forbidden actor class from the matrix,
-  (c) 409 wrong state, (d) 404 when flag off, (e) audit `logChange` called with the expected rows.
-- Order for tomorrow: **S0.5, S0.4, S0.6**, then S0.1, S0.2, S0.3, S0.7, S0.8, S0.9a/b, then S1.x.
+  (c) 409 wrong state, (d) audit `logChange` called with the expected rows.
+- Order for tomorrow: **S0.5, S0.4, S0.6**, then S0.1, S0.7, S0.8, S0.9a/b, then S1.x.
 
 ### 5.1 Slice S0 — Foundations and decision closure
 
@@ -1907,27 +1854,6 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
 - **TDD:** n/a (docs). **Acceptance:** six files carry the status line; decisions table references §7.3.
 - **Deps:** none. **Gate:** none. **Lines:** ~30. **Commit:** `docs(openspec): mark v1 project changes superseded by v2 (S0.1)` · **PR-01**.
 
-#### S0.2 — Legacy test inventory (S, docs)
-- **Goal:** classify the 419 cases / 39 files (§1.1 sweep) as KEEP / REWRITE@task / RETIRE@task.
-- **Files:** NEW `odd/tasks/v2-projects-test-inventory.md`.
-- **Method:** `fd -e test.ts -e test.tsx . src/app/api/v1/projects src/components/proyectos src/app/api/v1/rubros "src/app/api/v1/dashboard/projects" "src/app/(app)/tablero-gerencial" "src/app/(app)/proyectos" "src/app/api/v1/clients/[id]/opportunities/[opportunityId]/project"` plus
-  `src/lib/{semaforo,permissions,permissions.read,settings}.test.ts`; per file `rg -c "^\s*(it|test)(\.each)?\("`.
-- **Acceptance:** every file has a verdict and target task; totals reconcile to the sweep.
-- **Deps:** none. **Gate:** none. **Lines:** ~120. **Commit:** `docs(odd): inventory v1 project tests by v2 slice (S0.2)` · **PR-01**.
-
-#### S0.3 — Coexistence flag `feature_projects_v2` (S, decision-free)
-- **Goal:** REQ-FLAG-01/02.
-- **Files:** NEW `src/lib/features.ts`, `src/lib/features.test.ts`, NEW `src/app/api/v1/features/route.ts` + test,
-  NEW `src/hooks/features.ts`; `src/lib/settings.ts` (`ensureDefaultSettings` adds the row);
-  `src/app/api/v1/settings/route.ts` (+ test) accepts `feature_projects_v2`; `src/lib/settings.test.ts`.
-- **RED:** `it("resolveProjectsV2 is false when the setting row is missing")`, `it("resolveProjectsV2 is false for a malformed value")`,
-  `it("PROJECTS_V2_OVERRIDE=on forces true and =off forces false")`, `it("GET /api/v1/features returns {projects_v2} for any authenticated user")`,
-  `it("GET /api/v1/features returns 401 without session")`, `it("PATCH /api/v1/settings stores feature_projects_v2 and audits CAMBIAR_PARAMETRO")`,
-  `it("PATCH /api/v1/settings rejects feature_projects_v2 for non-admins with 403")`, `it("ensureDefaultSettings creates feature_projects_v2 disabled")`.
-- **Commands:** `npx vitest run src/lib/features.test.ts src/app/api/v1/features/route.test.ts src/app/api/v1/settings/route.test.ts src/lib/settings.test.ts`; CMD-STD.
-- **Acceptance:** flag off by default; no behavior change for v1. **Deps:** S0.4 (audit). **Gate:** none.
-- **Lines:** ~200. **Commit:** `feat(projects): add projects_v2 coexistence flag (S0.3)` · **PR-05**.
-
 #### S0.7 — Project permission predicates; COORDINADOR out of project management (M)
 - **Goal:** REQ-ACC-01, REQ-ACC-04 predicates, ADR-08; behavior change tested.
 - **Files:** `src/lib/permissions.ts`, `src/lib/permissions.test.ts`, `src/lib/api/projects.ts`,
@@ -1951,8 +1877,8 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
   (UI) `it("hides the Crear proyecto CTA for COORDINADOR")`.
 - **Commands:** `npx vitest run src/lib/permissions.test.ts src/lib/permissions.read.test.ts src/app/api/v1/projects src/components/proyectos/project-list.test.tsx "src/app/api/v1/clients/[id]/opportunities/[opportunityId]/project"`; CMD-STD.
 - **Acceptance:** all green; clients/tasks/documents suites unchanged and green.
-- **Deps:** none. **Gate:** N-01, DP-02, DP-06 — all USER-RESOLVED; **D-02** (immediate vs behind flag) default
-  immediate. **Lines:** ~300. **Commit:** `feat(projects)!: restrict project management to ADMINISTRADOR and GERENCIA (S0.7)`
+- **Deps:** none. **Gate:** N-01, DP-02, DP-06 — all USER-RESOLVED; **D-02** resolved 2026-09-30: the
+  COORDINADOR project-write restriction is applied directly (see §6.8). **Lines:** ~300. **Commit:** `feat(projects)!: restrict project management to ADMINISTRADOR and GERENCIA (S0.7)`
   (the `!` marks the behavior change; body explains COORDINADOR impact) · **PR-06**.
 
 #### S0.8 — Upload-limit verification (S, investigation + decision record)
@@ -2043,7 +1969,7 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
   `[id]/route.ts` (+ tests); admin section `municipios-section.tsx` (+ test).
 - **RED:** `it("creates a municipio with nombre and departamento unique together")`, `it("rejects duplicate código DANE")`,
   `it("rename/delete of a municipio used by a project returns 409")`, `it("suspended municipios are not offered to new projects")`.
-- **Deps:** S0.4. **Gate:** N-21 (source) — default curated/empty + admin CRUD; seeding decided at S2.5.
+- **Deps:** S0.4. **Gate:** N-21 (source) — default curated/empty + admin CRUD; seeding is done by this catalog task.
 - **Lines:** ~300. **Commit:** `feat(catalogs): add administrable municipios catalog (S1.3)` · **PR-10**.
 
 #### S1.4 — Semáforo parameters v2 (M)
@@ -2051,12 +1977,12 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
   `modificacion_bloquea_periodos_pasados`, each with `confirmado:false` and audit.
 - **Files:** NEW `src/lib/proyectos/semaforo-v2.ts` (params part + `parseParametrosV2`) + test; `src/lib/settings.ts`
   (`SETTING_SEMAFORO_PARAMETROS_V2 = "semaforo_parametros_v2"`, `getParametrosSemaforoV2()`); settings route (+ test);
-  `src/components/admin/umbrales-section.tsx` (+ test) — v2 form behind flag with "no confirmado" badges.
+  NEW `src/components/admin/umbrales-section.tsx` (+ test) — v2 form with "no confirmado" badges.
 - **RED:** `it("defaults are 10/20 pp, 10 % tolerance and 70 % delay threshold, all unconfirmed")`,
   `it("parseParametrosV2 falls back to defaults on malformed JSON")`,
   `it("PATCH settings rejects umbral2 < umbral1")`, `it("each parameter change writes CAMBIAR_PARAMETRO with before/after")`,
   `it("the admin form shows a 'no confirmado' badge next to every unconfirmed value")`.
-- **Deps:** S0.3, S0.4. **Gate:** DP-04 values only (placeholders ship). **Lines:** ~320.
+- **Deps:** S0.4. **Gate:** DP-04 values only (placeholders ship). **Lines:** ~320.
 - **Commit:** `feat(settings): add v2 semáforo parameters with audit (S1.4)` · **PR-11**.
 
 ### 5.3 Slice S2 — Project origin and general data (RF-01, RF-02, RF-11; RF-C04, RNF-C01/C02)
@@ -2072,7 +1998,7 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
   `it("PATCH v2 of valor_total in EN_EJECUCION returns 409 INVALID_STATE")`,
   `it("toProjectItemV2 exposes duracion_semanas derived from dates")`,
   live DB: `it("rejects two principal lines for the same project")`.
-- **Deps:** S1.2, S1.3, S0.3, S0.4. **Gate:** DP-05 (USER-RESOLVED), N-25 default keep states. **Lines:** ~380.
+- **Deps:** S1.2, S1.3, S0.4. **Gate:** DP-05 (USER-RESOLVED), N-25 default keep states. **Lines:** ~380.
 - **Commit:** `feat(projects): add v2 general data with strategic lines and municipios (S2.1)` · **PR-12**.
 
 #### S2.2 — Autogenerated code PRY-AAAA-NNN (S)
@@ -2108,27 +2034,14 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
   `it("returns alerta DIFERENCIA_VALOR without blocking the save")`, `it("the form shows the difference as $50.000")`.
 - **Deps:** S2.3. **Gate:** N-17 default. **Lines:** ~120. **Commit:** `feat(projects): alert and record project vs opportunity value difference (S2.4)` · **PR-13**.
 
-#### S2.5 — Backfill general data (M)
-- **Files:** NEW `scripts/migrate-v2/s2-proyectos.ts`, `s2-lineas.ts`, `s2-municipios.ts` (+ tests of pure planners),
-  `scripts/migrate-v2/data/territorio-map.example.json`.
-- **RED:** `it("maps linea_estrategica to one principal proyecto_lineas row")`,
-  `it("sets origen from oportunidad_id")`, `it("maps PLANIFICACION and EN_EJECUCION to BORRADOR and keeps closed states")`,
-  `it("lists every distinct territorio with its projects as decisions when no mapping exists")`,
-  `it("applies only mapped territorios and reports the rest")`, `it("records previous estado in the lote for revert")`.
-- **Commands:** dry-run each script; record reports in §6.7.
-- **Deps:** S2.1, S0.6. **Gate:** N-16 (manual mapping JSON), N-18 USER-RESOLVED. **Remote:** apply on remote only
-  with the switch promotion (§6.5). **Lines:** ~350. **Commit:** `feat(db): backfill v2 project general data (S2.5)` · **PR-14**.
-
 #### S2.6 — Team membership and membership-based visibility (M)
 - **Files:** schema `ProyectoMiembro`; migration `<ts>_v2_proyecto_miembros` (+ partial unique active index);
   NEW `src/app/api/v1/projects/[id]/members/route.ts`, `[userId]/route.ts` (+ tests); `src/lib/api/projects.ts`
   (`loadProjectScoped` resolves `es_miembro`; v2 visibility); `src/app/api/v1/projects/route.ts` list scope;
-  `scripts/migrate-v2/s2-miembros.ts` (+ test); team tab component (+ test).
+  team tab component (+ test).
 - **RED:** `it("a COORDINADOR sees only projects with an active membership")`,
   `it("removing a member revokes access immediately and keeps the row with removed_at")`,
-  `it("only COORDINADOR users can be added as members")`, `it("adding an existing active member returns 409")`,
-  `it("s2-miembros adds legacy COORDINADOR responsables and reports COLABORADOR responsables")`,
-  `it("with projects_v2 off, v1 visibility is unchanged")`.
+  `it("only COORDINADOR users can be added as members")`, `it("adding an existing active member returns 409")`.
 - **Deps:** S0.7, S2.1. **Gate:** DP-06/N-20 USER-RESOLVED (visibility assumed); A-02 dashboard scope. **Lines:** ~400.
 - **Commit:** `feat(projects): add project team membership and member-based visibility (S2.6)` · **PR-15**.
 
@@ -2149,7 +2062,7 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
 - **RED:** `it("creates OE codes unique per project, case-insensitive")`, `it("rejects edits outside BORRADOR with 409 INVALID_STATE")`,
   `it("soft-deleting an objective with activities returns 409")`, `it("403 for COORDINADOR, COLABORADOR and Visualizador")`,
   `it("404 when projects_v2 is off")`, `it("audits CREAR/EDITAR per field")`.
-- **Deps:** S2.1, S0.3, S0.4. **Gate:** DP-01 USER-RESOLVED. **Lines:** ~330. **Commit:** `feat(projects): add specific objectives (S3.1)` · **PR-17**.
+- **Deps:** S2.1, S0.4. **Gate:** DP-01 USER-RESOLVED. **Lines:** ~330. **Commit:** `feat(projects): add specific objectives (S3.1)` · **PR-17**.
 
 #### S3.2a — Actividad v2 schema + derived schedule mapping (M)
 - **Files:** schema `Actividad` v2 columns; migration `<ts>_v2_actividades_semanas` (CHECKs, partial unique code);
@@ -2161,7 +2074,7 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
 - **Deps:** S0.5, S3.1. **Gate:** DP-08 default "Sí" (PO-P). **Lines:** ~260. **Commit:** `feat(projects): add week-based activity schedule model (S3.2a)` · **PR-18**.
 
 #### S3.2b — Actividad v2 API (M)
-- **Files:** `src/app/api/v1/projects/[id]/activities/route.ts`, `[activityId]/route.ts` (+ tests) — v2 body when flag on.
+- **Files:** `src/app/api/v1/projects/[id]/activities/route.ts`, `[activityId]/route.ts` (+ tests) — v2 body.
 - **RED:** `it("validates 1 ≤ semana_inicio ≤ semana_fin ≤ duracion")`, `it("requires an objective of the same project")`,
   `it("returns derived dates, weight and estado")`, `it("v1 body keeps working when projects_v2 is off")`,
   `it("403 matrix and 409 outside BORRADOR")`.
@@ -2181,30 +2094,18 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
   `it("v1 indicator body still works when projects_v2 is off")`.
 - **Deps:** S3.1. **Gate:** DP-01; N-08 only for backfill. **Lines:** ~260. **Commit:** `feat(projects): attach result indicators to objectives (S3.4)` · **PR-19**.
 
-#### S3.5 — Structure backfill script (M)
-- **Files:** NEW `scripts/migrate-v2/s3-estructura.ts` (+ test of pure planner).
-- **RED:** `it("maps each Meta to an Objetivo OE1..n ordered by created_at")`,
-  `it("maps fecha_planificada to semana_fin and defaults semana_inicio to semana_fin, listing each as an N-11 decision")`,
-  `it("copies peso to peso_v2 with peso_manual = true")`,
-  `it("creates a synthetic 'Avance migrado' deliverable only for closed projects and lists active ones for re-capture")`,
-  `it("links the activity's VERIFICACION supports to the synthetic avance without changing storage_path")`,
-  `it("lists indicators without meta for manual objective assignment (N-08)")`.
-- **Deps:** S3.1–S3.4, S0.6. **Gate:** N-11, N-12, N-08 (defaults listed; apply after user review). **Lines:** ~380.
-- **Commit:** `feat(db): backfill v2 technical structure from metas and activities (S3.5)` · **PR-20**.
-
-#### S3.6a / S3.6b / S3.6c — Draft editor UI + switch per entity (M each)
-- **S3.6a Objetivos editor + switch:** NEW `src/components/proyectos/tabs/estructura-tab.tsx` (+ test) objectives list/form;
-  v1 goals routes return 409 when flag on (`src/app/api/v1/projects/[id]/goals/**` + tests); retire v1 metas-tab
-  tests per S0.2 inventory. RED: `it("lists objectives with their activities count")`, `it("hides edit actions outside BORRADOR")`,
-  `it("v1 goals POST returns 409 INVALID_STATE when projects_v2 is on")`. **Lines:** ~350 · `feat(projects): add objectives editor and switch goals to v2 (S3.6a)` · **PR-21**.
-- **S3.6b Actividades editor + week Gantt + switch:** activity form (weeks, weight, responsable), Gantt by weeks
-  (`gantt-tab.tsx` v2 mode), v1 activity writes 409 when on. RED: `it("shows computed dates next to the weeks")`,
+#### S3.6a / S3.6b / S3.6c — Draft editor UI (M each)
+- **S3.6a Objetivos editor:** NEW `src/components/proyectos/tabs/estructura-tab.tsx` (+ test) objectives list/form.
+  RED: `it("lists objectives with their activities count")`, `it("hides edit actions outside BORRADOR")`.
+  **Lines:** ~350 · `feat(projects): add objectives editor (S3.6a)` · **PR-21**.
+- **S3.6b Actividades editor + week Gantt:** activity form (weeks, weight, responsable), Gantt by weeks
+  (`gantt-tab.tsx`). RED: `it("shows computed dates next to the weeks")`,
   `it("marks manual weights")`, `it("renders one bar per activity from semana_inicio to semana_fin")`.
   **Lines:** ~400 · `feat(projects): add week-based activity editor and Gantt (S3.6b)` · **PR-22**.
 - **S3.6c Entregables + indicadores editor:** RED: `it("adds a deliverable with quantity and unit")`,
   `it("shows a warning for activities without deliverables")`. **Lines:** ~300 ·
   `feat(projects): add deliverables and indicators editor (S3.6c)` · **PR-23**.
-- **Deps:** S3.1–S3.5, S0.4. **Gate:** none beyond S3.x. Styling deferred to S10.
+- **Deps:** S3.1–S3.4, S0.4. **Gate:** none beyond S3.x. Styling deferred to S10.
 
 ### 5.5 Slice S4 — Technical execution and semáforo (RF-12..RF-17)
 
@@ -2251,7 +2152,7 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
 - **Deps:** S0.5. **Gate:** RF-16 PO-P (formulas as PO proposes). **Lines:** ~280. Can be built before S4.1 (pure).
 - **Commit:** `feat(projects): add technical progress calculations (S4.5)` · **PR-27**.
 
-#### S4.6 — Technical semáforo v2 + status endpoint + switch (S)
+#### S4.6 — Technical semáforo v2 + status endpoint (S)
 - **Files:** `src/lib/proyectos/semaforo-v2.ts` (`colorTecnicoV2`) + test; NEW `src/app/api/v1/projects/[id]/technical-status/route.ts`
   (+ test); `cronograma-tab.tsx` v2 mode (+ test).
 - **RED:** `it("deviation 10.0 is verde, 10.1 amarillo, 20.0 amarillo, 20.1 rojo with 10/20 thresholds")`,
@@ -2289,9 +2190,9 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
 - **Deps:** S0.5. **Gate:** none (RF-23 PO-C; tol placeholder). Can start right after S0.5. **Lines:** ~260.
 - **Commit:** `feat(projects): compute financial ficha reproducing the PO example (S5.3)` · **PR-30**.
 
-#### S5.4 — Optimal-spend semáforo + delay alert + financial-sheet endpoint + switch (S)
+#### S5.4 — Optimal-spend semáforo + delay alert + financial-sheet endpoint (S)
 - **Files:** `semaforo-v2.ts` (`colorFinancieroV2`, `alertaRetraso`) + test; NEW `src/app/api/v1/projects/[id]/financial-sheet/route.ts`
-  (+ test); `financiero-tab.tsx` v2 mode (+ test); v1 `colorFinanciero` untouched.
+  (+ test); `financiero-tab.tsx` (+ test).
 - **RED:** `it("colorFinancieroV2 matches the RF-24 truth table")`, `it("alertaRetraso requires E/P below the threshold and technical amarillo or rojo")`,
   `it("no delay alert when P = 0")`, `it("financial-sheet returns corte, base and rows from computeFicha")`,
   `it("the tab renders colors verbatim from the API")`.
@@ -2306,14 +2207,13 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
 
 ### 5.7 Slice S6 — Expenses and validation (RF-20..RF-22, RF-25, RNF-03, RNF-04)
 
-#### S6.1 — Gasto v2 fields + legacy backfill (M)
+#### S6.1 — Gasto v2 fields (M)
 - **Files:** schema `Gasto` v2 columns + enums; migration `<ts>_v2_gastos_validacion` (CHECKs, default REGISTRADO);
   `src/app/api/v1/projects/[id]/expenses/route.ts`, `[expenseId]/route.ts` (+ tests) v2 body;
-  `expense-dialog.tsx` (+ test); `scripts/migrate-v2/s6-gastos.ts` (+ test).
+  `expense-dialog.tsx` (+ test).
 - **RED:** `it("registers an expense with all RF-20 fields and at least one support")`,
   `it("rejects a rubro with A = 0")`, `it("defaults periodo to the document month and rejects periods outside the project")`,
-  `it("rejects valor ≤ 0 and unknown tipo_soporte")`, `it("existing rows read as REGISTRADO after the migration")`,
-  `it("backfill sets periodo and tipo OTRO and reports rows missing third-party ID")`,
+  `it("rejects valor ≤ 0 and unknown tipo_soporte")`,
   `it("Visualizador list responses omit tercero_numero_id")`.
 - **Deps:** S5.1, S4.2 (support attach), S2.6. **Gate:** N-15 USER-RESOLVED. **Lines:** ~400.
 - **Commit:** `feat(projects): capture v2 expense fields with mandatory supports (S6.1)` · **PR-33**.
@@ -2327,10 +2227,10 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
 - **Deps:** S6.1. **Gate:** RF-21 PO-P (non-blocking, low risk). **Lines:** ~180.
 - **Commit:** `feat(projects): warn about duplicate expense documents across projects (S6.2)` · **PR-33**.
 
-#### S6.3 — Validation flow + switch of the legalization area (M)
+#### S6.3 — Validation flow (M)
 - **Files:** NEW `.../expenses/[expenseId]/validate/route.ts`, `reject/route.ts`, `void/route.ts` (+ tests);
   NEW `src/app/api/v1/expense-validations/route.ts` (+ test); validation queue component (+ test);
-  `legalizacion-tab.tsx` v2 mode; v1 `observado` PATCH returns 409 when on.
+  `legalizacion-tab.tsx`.
 - **RED:** `it("GERENCIA validates a REGISTRADO expense of another user")`,
   `it("the registrant cannot validate their own expense (403)")`, `it("rejection requires a motivo")`,
   `it("a RECHAZADO expense edited by its registrant returns to REGISTRADO")`,
@@ -2448,7 +2348,7 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
 - **RED:** `it("lists every failed precondition")` (one it per precondition of REQ-VER-01),
   `it("approval creates version 0, sets EN_EJECUCION and audits APROBAR in one transaction")`,
   `it("only ADM/GER can approve")`, `it("after approval direct structure edits return 409")`.
-- **Deps:** S8.1, S2.5 (legacy back to Borrador). **Gate:** N-01, N-18 USER-RESOLVED. **Lines:** ~350.
+- **Deps:** S8.1. **Gate:** N-01, N-18 USER-RESOLVED. **Lines:** ~350.
 - **Commit:** `feat(projects): approve the baseline and freeze version 0 (S8.2)` · **PR-43**.
 
 #### S8.3a — Modification requests (M)
@@ -2475,7 +2375,7 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
   `it("financial-sheet base=original uses v0 A and P with live E")`, `it("technical-status base=original uses v0 weeks and weights")`.
 - **Deps:** S8.3b. **Gate:** none. **Lines:** ~350. **Commit:** `feat(projects): browse and compare project versions (S8.4)` · **PR-46**.
 
-### 5.10 Slice S9 — Dashboards, exports, territory removal, contract
+### 5.10 Slice S9 — Dashboards, exports, territory removal
 
 #### S9.1 — KPIs 6.7.1 (M)
 - **Files:** NEW `src/lib/proyectos/kpis.ts` (+ test).
@@ -2512,19 +2412,10 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
 - **Commit:** `perf(dashboard): precompute project KPIs for the management dashboard (S9.4)` · **PR-51**.
 
 #### S9.5 — Remove territorial semaforización (S)
-- **Files:** `src/app/api/v1/dashboard/projects/route.ts` (drop `por_territorio` when on), `src/components/dashboard/cara-management.tsx`,
-  `print-dashboard.tsx` (+ tests); retire territory tests per S0.2.
-- **RED:** `it("v2 dashboard response has no por_territorio")`, `it("the management face has no territorial section when projects_v2 is on")`.
+- **Files:** `src/app/api/v1/dashboard/projects/route.ts` (drop `por_territorio`), `src/components/dashboard/cara-management.tsx`,
+  `print-dashboard.tsx` (+ tests).
+- **RED:** `it("v2 dashboard response has no por_territorio")`, `it("the management face has no territorial section")`.
 - **Deps:** S9.2. **Gate:** none (PO-C). **Lines:** ~150. **Commit:** `refactor(dashboard): remove territorial semaforización in v2 (S9.5)` · **PR-51**.
-
-#### S9.6 — Contract (M, requires sign-off)
-- **Goal:** flip `feature_projects_v2` on by default, drop v1 columns/tables/enum values (§4.4 Contract column),
-  delete the v1 code paths and RETIRE@S9.6 tests.
-- **Preconditions:** full suite green; all §6.4 data checks passed locally; remote promotion checklist §6.5
-  executed by the user; fresh backup; explicit user sign-off recorded in §6.7.
-- **RED:** `it("schema has no metas table and no PLANIFICACION value")` (live DB), plus the switched-area tests now without flag branches.
-- **Lines:** ~400 (mostly deletions; may exceed the advisory budget — deletions of a whole area are reviewed as one unit).
-- **Commit:** `feat(projects)!: complete v2 migration and remove the v1 projects model (S9.6)` · **PR-52**.
 
 ### 5.11 Slice S10 — Visual plan for the new screens
 
@@ -2545,74 +2436,84 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
 - **Deps:** S4.1, S6.1. **Gate:** RNF-01 mobile PO-P. **Lines:** ~250. **Commit:** `feat(ui): make progress and expense capture usable on mobile (S10.3)` · **PR-5x**.
 
 ### 5.12 Dependency order and PR grouping
-S0.5 → S0.4 → S0.6 → (S0.1, S0.2, S0.8 docs) → S0.3 → S0.7 → S0.9a → S0.9b (conditional) → S1.1a → S1.1b → S1.2 → S1.3 → S1.4 →
-S2.1 → S2.2 → S2.3 → S2.4 → S2.5 → S2.6 → S2.7 → S3.1 → S3.2a → S3.2b → S3.3 → S3.4 → S3.5 → S3.6a–c →
+S0.5 → S0.4 → S0.6 → (S0.1, S0.8 docs) → S0.7 → S0.9a → S0.9b (conditional) → S1.1a → S1.1b → S1.2 → S1.3 → S1.4 →
+S2.1 → S2.2 → S2.3 → S2.4 → S2.6 → S2.7 → S3.1 → S3.2a → S3.2b → S3.3 → S3.4 → S3.6a–c →
 S4.5 (can run early) → S4.1 → S4.2 → S4.3 → S4.4 → S4.6 → S5.3 (can run right after S0.5) → S5.1 → S5.2 → S5.4 →
 S5.5 → S6.1 → S6.2 → S6.3 → S6.4 → S6.5 → S7.2 (can run early) → S7.1a → S7.1b → S7.3a → S7.3b → S7.4 → S7.6 →
-S7.5 → S7.7 → S8.1 → S8.2 → S8.3a → S8.3b → S8.4 → S9.1 → S9.2 → S9.3a → S9.3b → S9.4 → S9.5 → S9.6;
+S7.5 → S7.7 → S8.1 → S8.2 → S8.3a → S8.3b → S8.4 → S9.1 → S9.2 → S9.3a → S9.3b → S9.4 → S9.5;
 S10.1 after S0.1; S10.2/S10.3 alongside their functional tasks.
 
-**Task count:** S0 10 · S1 5 · S2 7 · S3 9 · S4 6 · S5 5 · S6 5 · S7 9 · S8 5 · S9 7 · S10 3 = **71 tasks**, ~53+ PRs.
+**Task count:** S0 8 · S1 5 · S2 6 · S3 8 · S4 6 · S5 5 · S6 5 · S7 9 · S8 5 · S9 6 · S10 3 = **66 tasks**, ~48 PRs.
 
-**Decision-free tasks (can start now):** S0.1–S0.6, S0.8 (needs the user to read two dashboard values), S1.2,
-S4.5, S5.3, S7.2, S7.3a/b, S10.1. S0.7 is USER-RESOLVED (only D-02 timing default).
+**Decision-free tasks (can start now):** S0.1, S0.4, S0.5, S0.6, S0.8 (needs the user to read two dashboard
+values), S1.2, S4.5, S5.3, S7.2, S7.3a/b, S10.1. S0.7 is USER-RESOLVED (only D-02 timing default).
+
+### 5.13 Removed with the direct path
+
+Five task IDs that existed only to manage v1↔v2 coexistence or to migrate v1 data were deleted from this plan.
+Their IDs are retired and never reused.
+
+| Task ID | Was | Removed because |
+|---|---|---|
+| S0.2 | Legacy test inventory (classify 419 v1 cases / 39 files as KEEP / REWRITE / RETIRE) | v1 projects module was never shipped (`main` has no projects models or migrations, 0 production rows); there is nothing to migrate, no flag to coexist with, and no contract step |
+| S0.3 | Coexistence flag `feature_projects_v2` + `src/lib/features.ts` + `GET /api/v1/features` | Same: nothing to migrate, no flag to coexist with, no contract step |
+| S2.5 | Backfill of general project data (origen, valor_total, lines, municipios, estados) | Same: nothing to migrate, no flag to coexist with, no contract step |
+| S3.5 | Backfill of technical structure (Meta → Objetivo, weeks, deliverables, supports, indicators) | Same: nothing to migrate, no flag to coexist with, no contract step |
+| S9.6 | Contract: flip the flag, drop v1 columns/tables/enum values, retire v1 tests | Same: nothing to migrate, no flag to coexist with, no contract step |
 
 ## 6. Verification and release
 
 ### 6.1 Per-slice closing checklist
 | Slice | Must be true before closing |
 |---|---|
-| S0 | Pure libs 100 % branch-covered by their tests; audit trigger live-DB test green; guard tests green and the N-13 report recorded; flag defaults off; COORDINADOR behavior change covered by route + UI tests; upload limits recorded (S0.8) |
+| S0 | Pure libs 100 % branch-covered by their tests; audit trigger live-DB test green; guard tests green and the N-13 report recorded; COORDINADOR behavior change covered by route + UI tests; upload limits recorded (S0.8) |
 | S1 | Local catalog = 15 active rubros + 2 suspended legacy; rename/delete-with-data returns 409 for rubros, lines, municipios; v2 params editable with "no confirmado" badges |
-| S2 | New project gets `PRY-AAAA-NNN`; GANADA → project converts in one tx; value-difference alert; membership visibility with flag on; v1 unaffected with flag off; S2.5 dry-run reports reviewed |
-| S3 | CedeTextil structure can be entered on screen; weeks → dates exact (F-W1); v1 goals/activities writes return 409 with flag on; S3.5 dry-run decisions resolved or defaulted by the user |
+| S2 | New project gets `PRY-AAAA-NNN`; GANADA → project converts in one tx; value-difference alert; membership visibility enforced |
+| S3 | CedeTextil structure can be entered on screen; weeks → dates exact (F-W1); deliverables and indicators editable in BORRADOR |
 | S4 | F-T1 reproduces; avances count only with medio (param); technical semáforo placeholders visible as unconfirmed |
 | S5 | **F-F1 golden test green (all nine figures, both colors)**; programming Σ = A enforced; delay alert rule tested |
 | S6 | Segregation of duties CHECK + route tests; overspend block + single notification + unblock path; VIS cannot reach supports; access log rows written |
 | S7 | Every V-rule has a pass and a fail test; atomic rollback live-DB test green; CedeTextil pilot file behaves as expected |
 | S8 | v0 frozen and immutable; modification → vN with RF-28 rules; v0 vs vigente comparison in ficha and technical status |
-| S9 | KPIs per 6.7.1 with corte; bench p95 < 3 s recorded; territory section gone with flag on; exports role-aware |
+| S9 | KPIs per 6.7.1 with corte; bench p95 < 3 s recorded; territory section gone; exports role-aware |
 | S10 | New screens use v6 primitives; mobile capture checks |
 
-### 6.2 Coexistence and switch criteria
-- An area may be switched (its v1 writes return 409 when flag on) only when: its v2 API + UI are merged, its
-  backfill dry-run on local shows zero unresolved decisions (or defaults explicitly accepted by the user), and the
-  switch PR contains the v1 test retirements listed for it in the S0.2 inventory.
-- The flag may be turned on in a shared environment only when all areas used by the pilot are switched and §6.4
-  checks pass on that environment's data.
-- Flag off must always restore the v1 experience with no data loss (v2 never writes v1-only columns).
+### 6.2 Slice integration criteria
+- A slice closes only when its v2 API + UI are merged together and its own tests pass; there is no switch step,
+  because the v2 module is the only Projects implementation in the branch.
+- The v2 endpoints are reachable by default: no flag gates them and no v1 read path has to keep working.
+- Only local data scripts (catalogs, defaults) run before a slice closes; §6.4 checks apply to those scripts.
 
 ### 6.3 Definition of done (per task)
 1. RED observed and recorded; GREEN; REFACTOR done with tests still green.
 2. CMD-STD green (focused vitest, `npx tsc --noEmit`, eslint on touched files); full suite at slice close.
 3. Every scenario of the implemented REQ has a test; audit rows asserted for every write.
-4. Flag-off behavior asserted (v2 404 / v1 unchanged) where applicable.
-5. Docs updated in the same commit (this SDD's §6.7 row, openapi paths when routes change —
+4. Docs updated in the same commit (this SDD's §6.7 row, openapi paths when routes change —
    `src/lib/openapi/paths/*.ts`).
-6. Conventional Commit without attribution lines; commit hash recorded; RDD assessment outcome recorded.
+5. Conventional Commit without attribution lines; commit hash recorded; RDD assessment outcome recorded.
 
-### 6.4 Data-migration acceptance checks (local first, then remote by the user)
+### 6.4 Local data-script acceptance checks
+These apply to the catalog/default scripts that still exist (rubros, municipios, $0 budget lines, KPI cache),
+never to a v1→v2 migration, which does not exist.
 | Check | Query/evidence | Pass |
 |---|---|---|
-| No row lost | per table `count(*)` before vs after each `--apply` (report) | equal for v1 tables |
-| Projects mapped | every project has `origen`, ≥ 1 principal line, ≥ 1 municipio or is listed as pending N-16 | 100 % or listed |
-| States | no `PLANIFICACION` left; former EN_EJECUCION projects are BORRADOR (N-18) | yes |
-| Structure | every `metas` row has one `objetivos.meta_origen_id`; every active activity has weeks | yes |
-| Supports | `storage_path` set identical before/after; orphan report unchanged | identical |
-| Money | Σ `lineas_presupuestales.monto_proyectado_cop` per project unchanged; retired-rubro lines untouched | equal |
-| Expenses | all legacy `gastos.estado = REGISTRADO`; `periodo` set; missing-ID list recorded | yes |
+| Local target only | service host resolves to loopback; the guard aborts otherwise | yes |
+| No unrelated row lost | per table `count(*)` before vs after each `--apply` (report) | equal for tables the script does not own |
+| Catalogs | 15 active rubros R01–R15 plus the suspended legacy ones; municipios curated per N-21 | yes |
+| Defaults | $0 budget rows only for active rubros missing per project; retired-rubro lines untouched | yes |
+| Storage | `storage_path` set identical before/after; orphan report unchanged | identical |
 | Audit | one `migracion_v2` lote row per applied script | yes |
 | Idempotency | second `--apply` reports 0 actions | yes |
 
 ### 6.5 Remote promotion checklist (human-run only — agents never execute these)
-1. Announce a maintenance window; ensure flag `feature_projects_v2` is off remotely.
+1. Announce a maintenance window.
 2. `pg_dump` backup of the remote database (user's tooling); verify the dump restores into a scratch DB.
 3. Raise the `muttu-docs` bucket `file_size_limit` to 25 MB if S0.9a is being deployed (Supabase dashboard).
 4. Apply pending migrations to the remote DB from a human terminal (`prisma migrate deploy` with the remote env).
-5. For each backfill, run the human entrypoint `promote-remote.ts` in dry-run, review decisions, then apply with
-   `--expect-hash`.
+5. For each data script, run the human entrypoint `promote-remote.ts` in dry-run, review decisions, then apply
+   with `--expect-hash`.
 6. Run the §6.4 checks remotely; keep the outputs.
-7. Turn the flag on only after the pilot sign-off; rollback = flag off (before S9.6) or restore the backup (after).
+7. Rollback = restore the backup; the schema is additive, so no code rollback is required.
 
 ### 6.6 Review checklist (per PR)
 - Authorization: matrix row(s) covered by tests; no `canManageAny` in new project code; VIS never in write paths.
@@ -2622,7 +2523,7 @@ S4.5, S5.3, S7.2, S7.3a/b, S10.1. S0.7 is USER-RESOLVED (only D-02 timing defaul
 - Audit: `logChange` inside the same transaction; before/after per field.
 - Files: size/type via the shared policy; no storage removal; signed URLs only.
 - DB safety: any script imports the guard first; commands use `.env.local`.
-- Flag: v2 404 when off; v1 unchanged when off.
+- Endpoint exposure: v2 routes are reachable by default; no flag gates them.
 - Tests: RED evidence recorded; scenarios ↔ `it()` titles match this SDD.
 - No persona/slang in code, UI copy, commits (Spanish UI copy is neutral and professional).
 
@@ -2630,14 +2531,15 @@ S4.5, S5.3, S7.2, S7.3a/b, S10.1. S0.7 is USER-RESOLVED (only D-02 timing defaul
 | Date | Task | Route | Commit | Checks (observed) | RDD tier / outcome | Notes |
 |---|---|---|---|---|---|---|
 | 2026-09-29 | SDD | delegated writer | — (not committed) | — | — | This document created; no code changed |
+| 2026-09-30 | Re-scope for the direct path | orchestrator + delegated writer (partial) | — (same commit as this re-scope) | 5 coexistence-only tasks removed; `feature_projects_v2` / `PROJECTS_V2_OVERRIDE` / `src/lib/features.ts` / `REQ-FLAG` / S9.6 / v1-backfill references eliminated except in §0.4 and the §5.13 tombstone; task count 71 → 66; no source code touched | — | v1 module was never shipped; see `odd/tasks/v2-projects-execution.md` ODD-01..04 |
 
 Upload limits record (S0.8): _pending_. Baseline suite result (Step 2 of §1.2): _pending_.
 
 ### 6.8 Needs your decision (user; one at a time when asked)
 | ID | Decision | Default used meanwhile | Blocks |
 |---|---|---|---|
-| D-01 | Branch base: `feat/projects-v2` from v6 HEAD `97d639e` vs from `main` after the v6 merge | from v6 HEAD | start (S0.5) |
-| D-02 | Apply the COORDINADOR project-write restriction immediately (v1 too) or only behind the flag | immediately | S0.7 |
+| D-01 | ~~Branch base~~ — **RESOLVED 2026-09-30**: `feat/projects-v2`, branched from `main` (`11e9bc1`) | — | — |
+| D-02 | ~~COORDINADOR restriction timing~~ — **RESOLVED 2026-09-30**: applied directly to the project write paths (no flag exists) | — | S0.7 |
 | D-03 | Chain strategy for PRs: `stacked-to-main` vs `feature-branch-chain` | ask at first PR over budget | PR-06+ |
 | D-04 | Upload approach after S0.8: multipart through routes vs signed direct upload | signed upload if hosting < 25 MB | S0.9b, S4.2, S6.1, S7.4 |
 | D-05 | Narrow task-attachment types to pdf/docx/xlsx/pptx/jpg/png (drops doc, ppt, csv, txt, zip…) | narrow (user rule "solo livianos office/imagen") | S0.9a |
@@ -2652,12 +2554,12 @@ Upload limits record (S0.8): _pending_. Baseline suite result (Step 2 of §1.2):
 |---|---|---|---|
 | R-01 | A migration/backfill runs against the remote `.env` Supabase (real-looking data) | Low / Critical | Guard with no bypass (S0.6), `.env.local`-only commands, remote promotion only via a human entrypoint (§4.5, §6.5); prior incident referenced by CLAUDE.md (`DIAGNOSTICO-SEED-CLOUD.md`, not present in the repo — UNVERIFIED) |
 | R-02 | 25 MB uploads fail in production: Vercel request-body limit (~4.5 MB, per Vercel docs — UNVERIFIED for this account) and remote bucket at 10 MB (documented) | High / High | S0.8 verification before S0.9a; ADR-13 signed direct uploads; bucket raised by the user before deploy |
-| R-03 | COORDINADOR users lose project creation/edit abruptly (S0.7) | Medium / Medium | D-02 decision, release note, CTA hidden in UI, 403 copy explains; membership in S2.6 restores executor access |
-| R-04 | Test churn: 419 cases / 39 files encode v1 | High / Medium | S0.2 inventory; retire only in switch PRs; flag keeps v1 green |
+| R-03 | COORDINADOR users lose project creation/edit (S0.7) | Medium / Medium | D-02 resolved (applied directly); release note, CTA hidden in UI, 403 copy explains; membership in S2.6 restores executor access |
+| R-04 | Test churn from v1 project tests | High / Low | Removed by the direct path: there are no v1 project tests in this branch, because the v1 module was never shipped (re-scoped from the original 419-case risk) |
 | R-05 | PO reverses a USER-RESOLVED decision (e.g. Gestor creates projects per RF v2.0 §3; Gerente-only approval) | Medium / Medium | Predicates isolated (ADR-08) so a role change is a one-file edit + tests; questions §7.4 sent early |
-| R-06 | Legacy data cannot be mapped automatically (territorio free text, single dates → weeks, % progress) | High / Medium | Count-first reports, human mapping files, defaults listed per decision; closed projects get synthetic data, active ones re-capture |
+| R-06 | ~~Legacy project data cannot be mapped automatically~~ | — / — | Removed by the direct path: there is no legacy project data to map (0 production rows, no v1 tables on `main`) |
 | R-07 | Collisions with the active v6 writer on dashboard files | Medium / Low | Separate branch; S2.7/S9.2/S9.5 scheduled after the v6 merge or coordinated |
-| R-08 | Enum `ADD VALUE` used in the same transaction; enum value removal at contract | Medium / Medium | Separate migrations (§4.2 caveat); contract recreates the type with a rename-swap migration tested locally |
+| R-08 | Enum `ADD VALUE` used in the same transaction | Medium / Low | Separate migrations (§4.2 caveat); no enum value is ever removed, so no rename-swap migration is needed |
 | R-09 | Dashboard > 3 s with many projects (RNF-02) | Medium / Medium | KPI cache (ADR-12), indexes, bench script with pass criterion |
 | R-10 | Transactional audit makes writes fail when audit fails | Low / Medium | Intended (RNF-05); monitored via `withApiErrorHandling` logs; audit insert is a single `createMany` |
 | R-11 | Exposure of personal data (cuentas de cobro, IDs) — Ley 1581 | Medium / High | RNF-03 matrix, VIS exclusions, access log, no bodies in logs |
@@ -2699,13 +2601,13 @@ Upload limits record (S0.8): _pending_. Baseline suite result (Step 2 of §1.2):
 | DP-09 exclude unmeasured indicators | Recommendation Yes, shown apart | No | Yes | PO |
 | DP-12 periodicity | Recommendation Monthly | No | Monthly | PO |
 | N-03 code format + legacy codes | Recommendation keep legacy | No | PRY-AAAA-NNN, legacy untouched | PO |
-| N-08 indicators without meta | Manual assignment in dry-run | Blocks S3.5 apply for those rows only | Listed for manual assignment | User |
+| N-08 indicators without meta | N/A — no v1 indicators exist | No | — | — |
 | N-09 synthetic first measurement | Yes, dated `updated_at`, marked migrated | No | Yes | User |
 | N-10 beneficiary indicators → count rows | Yes | No | Yes | User |
-| N-11 start week unknown | Manual review list; default start = end | Blocks S3.5 apply until reviewed | start = end | User |
-| N-12 synthetic "Avance migrado" | Re-capture active, synthetic closed | Blocks S3.5 apply until reviewed | as plan | User |
+| N-11 start week unknown | N/A — activities are created in v2 with explicit weeks | No | start = end when entered manually | User |
+| N-12 synthetic "Avance migrado" | N/A — no legacy progress to migrate | No | — | — |
 | N-14 legacy without programming | Leave pending, block baseline | No | Pending flag | User |
-| N-16 territorio → municipios | Manual | Blocks S2.5 municipios apply | Mapping JSON by user | User |
+| N-16 territorio → municipios | N/A — municipios are captured directly in v2 | No | — | — |
 | N-17 valor_total source (legacy) | Σ A, alert if ≠ opportunity | No | Σ A | User |
 | N-19 which "panel general" (RNF-C01) | Dashboard Mi resumen + kanban chip | No | as plan | PO/User |
 | N-21 municipios catalog source | Curated, admin-extendable | No | Curated from legacy values | PO/User |
