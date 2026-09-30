@@ -248,7 +248,7 @@ TDD: RED test first (`npx vitest run <file>`), then GREEN, then REFACTOR. Checks
 - [ ] S5.5 Draft edit of budget/programming with audit. Size M. TDD.
 
 ### S6 — Expenses and validation (RF-20..RF-22, RF-25, RNF-03, RNF-04)
-- [ ] S6.1 Gasto v2 fields (periodo, tipo soporte, tercero tipo/número ID, número documento, descripción), rubro must have A > 0, ≥ 1 support. Size M. TDD. Gated: N-15 (legacy rows).
+- [ ] S6.1 Gasto v2 fields (periodo, tipo soporte, tercero tipo/número ID, número documento, descripción), rubro must have A > 0, ≥ 1 support. Size M. TDD. Gated: N-15 (completeness).
 - [ ] S6.2 Duplicate alert (ID + document number, any project). Size S. TDD. Gated: RF-21 Propuesto.
 - [ ] S6.3 Validation flow Registrado → Validado/Rechazado (reason required); only validated count in E. Size M. TDD. Gated: DP-02.
 - [ ] S6.4 Overspend over current A: block validation until approved modification, or alert. Size S. TDD. Gated: DP-11 (block needs S8).
@@ -306,7 +306,7 @@ append-only audit), then S0.6.** Everything else is gated by at least one row be
 | DP-02 | Who validates expenses? | Gerente / new financial role | **Resolved 2026-09-29 (user):** GERENCIA and ADMINISTRADOR validate; the user who registers an expense (COORDINADOR) cannot validate it. No new financial role for now. | S0.7, S6.3 |
 | DP-03 | Contract mode: global price vs full legalization | — | Decide before pilot; affects under-execution reading only | S5.4 (copy/alerts) |
 | DP-04 | Initial thresholds (technical t1/t2, tolerance, delay) | values | **Resolved 2026-09-29 (user, provisional):** the only source is the PO's illustrative example (tolerance 10%); implement so the example reproduces exactly (Personal E=27.0M vs P=29.75M → verde; Transporte E=13.5M vs P×1.10=13.2M → rojo; use it as the S5.3 test fixture). Technical thresholds 1/2 (proposed 10/20 pp) and delay alert (proposed E/P < 70% with technical amarillo/rojo) are NOT in the PO docs: ship as admin-editable placeholders flagged "no confirmado" until the Gerente validates. | S1.4, S4.6, S5.4 |
-| DP-05 | One or several strategic lines | single / multi + principal | **Resolved 2026-09-29 (user):** several strategic lines with one principal; dashboard counts per line use the principal only (no double counting). Legacy single line becomes the principal. To confirm with PO. | S2.1, S7.1 |
+| DP-05 | One or several strategic lines | single / multi + principal | **Resolved 2026-09-29 (user):** several strategic lines with one principal; dashboard counts per line use the principal only (no double counting). To confirm with PO. | S2.1, S7.1 |
 | DP-06 | Gestor sees all or only assigned projects | all / assigned | **Resolved 2026-09-29 (user, visibility assumed):** the Gestor is COORDINADOR only and works on assigned projects (see N-20); assumed visibility = only projects where they are a team member, to be confirmed. | S0.7, S2.6 |
 | DP-07 | Can one opportunity create more than one project | 1:1 / 1:N | 1:1 (current `@unique`) | S2.3 |
 | DP-08 | Manual weight adjust before baseline | yes / no | Yes | S3.2, S7.1 |
@@ -318,16 +318,16 @@ append-only audit), then S0.6.** Everything else is gated by at least one row be
 | N-02 | Eligible opportunity = `estado GANADA` (RF-01) or `fase EJECUCION` after convert (current) | merge / keep 2 steps | **Resolved 2026-09-29 (user):** one step: creating the project from a GANADA opportunity performs the conversion, audited. Independent projects (no opportunity) remain possible. | S2.3 |
 | N-03 | Code format PRY-AAAA-NNN | — | Yes | S2.2 |
 | N-08 | Indicators without meta (objetivo mandatory) | assign manually / generic OE | Manual assignment in dry-run | S3.4 |
-| N-09 | Accept synthetic first measurement from `valor_actual` | yes / re-capture | Yes, dated `updated_at`, marked migrated | S4.3 |
+| N-09 | First measurement for an indicator | — | N/A: no v1 indicator values to convert; measurements are captured in v2 | S4.3 |
 | N-10 | Beneficiary indicators → count rows | yes / re-capture | Yes | S4.4 |
 | N-11 | Week rounding for an activity date | — | N/A: activities are created in v2 with explicit weeks | — |
 | N-12 | Synthetic "Avance migrado" deliverable | — | N/A: no legacy progress to migrate | — |
 | N-13 | Target rubro for Material POP / Operación logística lines | per-project manual / fixed map | **Resolved 2026-09-29 (user):** the catalog is ONLY the 15 rubros R01–R15 of the PO doc; Material POP and Operación logística leave the catalog. Existing amounts in those two are reassigned manually per project LATER (user: "los reasignamos después"); S0.6 produces a count-first report and no data is touched until then. | S1.1b, S5.1 |
-| N-14 | Legacy projects without programming | leave pending / uniform split | Leave pending, block baseline | S5.2 |
+| N-14 | Projects without programming | leave pending / uniform split | Leave pending, block baseline | S5.2 |
 | N-15 | Third-party ID completeness on expenses | — | **Resolved 2026-09-29 (user):** expenses missing the third-party ID are flagged to complete; validation is blocked until completed. | S6.1 |
 | N-16 | territorio free text → municipios | — | N/A: municipios are captured directly in v2 | — |
-| N-17 | valor_total source for legacy projects | Σ A / opportunity value | Σ A, alert if ≠ opportunity | S2.4, S5.1 |
-| N-18 | Legacy EN_EJECUCION projects: auto baseline or back to Borrador | — | **Resolved 2026-09-29 (user):** legacy EN_EJECUCION projects go back to Borrador until GERENCIA approves the baseline; closed projects stay as they are. | S8.2 |
+| N-17 | valor_total source | Σ A / opportunity value | Σ A, alert if ≠ opportunity | S2.4, S5.1 |
+| N-18 | ~~Legacy EN_EJECUCION projects: auto baseline or back to Borrador~~ | — | N/A: no v1 projects exist to convert | — |
 | N-19 | Which "panel general" must separate projects vs opportunities (RNF-C01) | dashboard / kanban / both | Dashboard Mi resumen + existing kanban chip | S2.7 |
 | N-20 | Field executors as project team members (more than one responsable)? | responsable only / team table | **Resolved 2026-09-29 (user):** many-to-many project team: a project has one or several COORDINADORES and a COORDINADOR can be assigned to several projects → team membership table (replaces the single-`responsable` visibility rule); activity responsables stay optional. | S2.6 |
 | N-21 | Municipios catalog source | DANE full / curated | Curated, admin-extendable | S1.3 |
