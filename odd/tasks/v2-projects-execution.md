@@ -121,25 +121,24 @@ Verified 2026-09-30 against the repository:
 
 ## Open items / risks
 
-- ~~**CRITICAL: the default Prisma CLI path writes to production.**~~ **Fixed 2026-09-30 (commit `96c4c5c`).**
-  `npx prisma …` used to resolve `DIRECT_URL` from `.env` (the shared remote) through `prisma.config.ts`.
-  The config now loads `.env.local` only, `prisma/require-local-db.ts` refuses any non-loopback target, and the
-  `db:*:local` scripts replace plain `npx`. Measured after: `npx prisma migrate status` → `127.0.0.1:54322`.
-  Residual: a deliberate remote run must export `DATABASE_URL`/`DIRECT_URL` explicitly.
-- **Environment:** the local stack must be running for S0.4 (live-DB trigger test) and every S1.x migration.
-  S0.5 (pure libraries) does not need it.
+- ~~**CRITICAL: the default Prisma CLI path wrote to production.**~~ **Fixed and merged to `main`** — PR #71, squash commit `6a28935`. `npx prisma …` used to resolve `DIRECT_URL` from `.env` (the shared remote) through `prisma.config.ts`. The config now loads `.env.local` only, `prisma/require-local-db.ts` refuses any non-loopback target, and the `db:*:local` scripts replace plain `npx`. Re-verified on `main` after the merge: `npx prisma migrate status` → `127.0.0.1:54322`, and a remote target raises `NonLocalDatabaseError`. Residual: a deliberate remote run must export `DATABASE_URL`/`DIRECT_URL` explicitly.
+- **Environment:** the local Docker stack must be running for every migration and live-DB test (S1.x onward). The
+  pure libraries (S0.5) do not need it. Note that `prisma migrate reset` needs the user's **verbatim consent
+  string**, because Prisma blocks that command for AI agents.
 - **DB-safety tooling:** no longer a gap. The guard now exists in this branch (P0.6); S0.6 only adds the
   count-first harness, the storage orphan report and the promotion checklist on top of it. PR #55's seed guard is
   superseded; its `scripts/cleanup-seed-cloud.ts` still has its own value.
 - **Business risk (accepted):** confirm with the boss/PO that nothing is expected from the v1
   module in production. Nothing shipped, but there was a PO meeting on 2026-09-22 about
   "gestión de proyectos" features.
-- **Remote DB state (unverified):** whether the shared Supabase already has the v1 projects
-  tables (the 2026-09-17 seed incident loaded `.env` against cloud). Must be checked before any
-  v2 migration. S0.6's loopback guard stays mandatory.
-- **`gh` instability:** the GitHub CLI fails intermittently in this WSL environment with
-  `tls: failed to verify certificate: unknown authority`. Fall back to local git ancestry for
-  triage; retry for remote actions.
+- **Remote DB state (unverified):** whether the shared Supabase still carries the v1 projects tables from the
+  2026-09-17 seed incident. It does not block v2 development — v2 creates its own tables — but it must be checked
+  before the human remote-promotion step (§6.5 of the SDD).
+- **`gh` / git TLS:** failures against GitHub in this environment come from TLS interception, not from `gh`
+  itself. Observed 2026-09-30: a Fortinet FortiGate re-signing `github.com`, untrusted in both WSL
+  (`certificate signer not trusted`) and Windows (`schannel: SEC_E_UNTRUSTED_ROOT`). It resolved on its own later
+  the same day. Verify the issuer (`openssl s_client -connect github.com:443`) before concluding anything, and
+  never disable certificate verification or install a corporate CA without an explicit user decision.
 - **Fork leftover:** `agutierrezreginodev/MuttuHub-CRM` caused the wrong-account push mistake
   twice; recommended to delete it.
 - **Held v6 tasks** still have no owner until S10.1 executes.
@@ -150,3 +149,38 @@ Verified 2026-09-30 against the repository:
 |---|---|---|---|---|
 | 2026-09-30 | Diagnosis + ODD-01..04 decisions | — | PR triage verified via local git ancestry; working tree restored after a dry cherry-pick probe | No remote action taken yet |
 | 2026-09-30 | Scope limit recorded | — | — | Local-only until explicit approval; Phase 1 gated. `gh` account = `MuttuHub`; merge style = squash |
+
+## State at session close (2026-09-30)
+
+**`main` is green and the remote front is clean.**
+
+| | |
+|---|---|
+| `origin/main` | `6bee83f` — CI green: `unit` success, `e2e` success |
+| Open PRs | **0** |
+| Merged this session | `6a28935` #71 (DB-safety fix), `2512f01` #64, `bae437c` #65, `5da944c` #66, `aee0a41` #67, `6bee83f` #68 |
+| Closed as superseded | 19: the 15-PR v1 projects chain (#48–54, #56–63), #69 and #70 (umbrales), #40 (already in `main` as `29a8f26` + `33720b2`), #55 (guard superseded by #71) |
+| Local `main` | fast-forwarded to `6bee83f` |
+
+**On `feat/projects-v2` (local, unpushed):** the re-scoped and recalibrated SDD (66 tasks), this execution plan,
+`S0.5` (`3c3d0ff`, weeks + money, 36 tests) and `S0.4` (`47ce839`, append-only audit, 16 tests).
+
+**Nothing of v2 is pushed.** That is deliberate: v2 stays local until the remote step is explicitly authorized.
+
+## How to resume
+
+1. `mem_context` for the session summary, then read this document and `odd/tasks/v2-projects-sdd.md`.
+2. `git switch feat/projects-v2` and run **`git rebase main` first**. The branch still carries the DB fix as a
+   cherry-pick (`96c4c5c`) that `main` now duplicates as `6a28935`; the rebase should drop it as already applied
+   and leave the branch linear. Then run `npx tsc --noEmit` and `npx vitest run --pool=threads`
+   (expected green: 120 files / 1093 tests before the rebase).
+3. Next task: **S0.6**. Spec in §4.5 of the SDD plus the S0.6 block. Only the count-first harness, the read-only
+   storage orphan report and the promotion checklist remain — the loopback guard already exists.
+4. Before **S0.7** (permissions), confirm with the PO **who creates projects**: RF v2.0 §3 says the **Gestor**
+   does; the user's decision says only **GERENCIA + ADMINISTRADOR**. Building S0.7 on the wrong answer means
+   rework in the permission predicates.
+5. Optional, preserves real value: re-open the closed #55 content as a small PR —
+   `scripts/cleanup-seed-cloud.ts` (141 lines) and `DIAGNOSTICO-SEED-CLOUD.md` (103 lines).
+
+**"Starting v2 from scratch" means a fresh session, not discarding work.** Abandoning the v1 module was the
+scratch decision, and it is done; `S0.4` and `S0.5` are committed and verified. v2 resumes at `S0.6`.
