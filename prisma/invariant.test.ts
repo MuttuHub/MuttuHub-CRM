@@ -12,20 +12,21 @@
 //   1.4/1.5 — the D3 seed UPDATE predicate flags exactly the COLABORADORES
 //             responsible for a client with a live (non-deleted) Oportunidad.
 
-// vitest.config.ts does not load .env (unlike prisma.config.ts) — this file
-// is the only test in the suite that touches a real database connection, so
-// it loads it explicitly rather than changing global test setup for files
-// that never need it.
-import "dotenv/config";
+// This is the only test in the suite that touches a real database connection.
+// `./require-local-db` loads `.env.local` and refuses to run against anything
+// but loopback, so the suite can never reach the shared production instance.
+// It must stay the FIRST import: ES modules evaluate their imports in order,
+// and the Prisma client is built from process.env when `@/lib/db` is imported.
+import "./require-local-db";
 import { describe, expect, it } from "vitest";
 import { db } from "@/lib/db";
 
 const MARKER = "sdd-invariant-oportunidades-pr1";
 
-// This suite runs against a remote pooled Postgres instance (no local DB in
-// this environment) — Prisma's 5s default interactive-transaction timeout is
-// too tight for that round-trip latency and produced flaky
-// "Unable to start a transaction in the given time" failures. Widen both.
+// These tests run against the LOCAL Docker database, inside transactions that
+// always roll back, so nothing is left behind anywhere. The widened timeouts
+// date from when this file pointed at a remote pooler; they cost nothing and
+// keep the suite stable on a busy machine.
 const TX_OPTIONS = { timeout: 20_000, maxWait: 10_000 };
 
 /** Thrown at the end of every transaction body to force a rollback even when
