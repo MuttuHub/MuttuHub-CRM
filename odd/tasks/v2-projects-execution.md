@@ -149,6 +149,7 @@ Verified 2026-09-30 against the repository:
 |---|---|---|---|---|
 | 2026-09-30 | Diagnosis + ODD-01..04 decisions | — | PR triage verified via local git ancestry; working tree restored after a dry cherry-pick probe | No remote action taken yet |
 | 2026-09-30 | Scope limit recorded | — | — | Local-only until explicit approval; Phase 1 gated. `gh` account = `MuttuHub`; merge style = squash |
+| 2026-09-30 | Session 2: rebase onto `main` + baseline re-verification | `5f4e4a8` (branch tip; every v2 commit rewritten) | `tsc` 0 errors; `vitest` 120 files / 1094 tests green in 48.8 s; Docker up; `.env.local` loopback | `96c4c5c` dropped as already-applied; `CLAUDE.md` note kept uncommitted; **no source written** |
 
 ## State at session close (2026-09-30)
 
@@ -163,24 +164,64 @@ Verified 2026-09-30 against the repository:
 | Local `main` | fast-forwarded to `6bee83f` |
 
 **On `feat/projects-v2` (local, unpushed):** the re-scoped and recalibrated SDD (66 tasks), this execution plan,
-`S0.5` (`3c3d0ff`, weeks + money, 36 tests) and `S0.4` (`47ce839`, append-only audit, 16 tests).
+`S0.5` (weeks + money, 36 tests) and `S0.4` (append-only audit, 16 tests).
 
 **Nothing of v2 is pushed.** That is deliberate: v2 stays local until the remote step is explicitly authorized.
+
+## State at session close — session 2 (2026-09-30, rebase + baseline)
+
+Session 2 executed the branch surgery the previous handoff asked for and stopped there. **No source code was
+written and no remote action was taken.**
+
+| | |
+|---|---|
+| Rebase | `git rebase main` completed: **0 behind / 10 ahead** of `main` (`6bee83f`). `96c4c5c` was skipped as *previously applied* — same patch-id as `6a28935`. Expected and correct. |
+| New branch tip | `5f4e4a8` (`docs(odd): close the v2 execution handoff with the final state and resume steps`) |
+| Rewritten hashes | The rebase rewrote **every** v2 commit. Mapping below. Pre-rebase state preserved at `backup/pre-rebase-feat-projects-v2-20260930` (`97e08be`). |
+| Baseline after rebase | `npx tsc --noEmit` → **0 errors**; `npx vitest run --pool=threads` → **120 files / 1094 tests green** in 48.8 s. The handoff predicted 1093; the extra test is real, not a regression. |
+| Local stack | Docker Supabase **up**; `.env.local` → `127.0.0.1:54322` for both `DATABASE_URL` and `DIRECT_URL`. |
+| Uncommitted | `CLAUDE.md` has 14 uncommitted lines documenting the two-`.env` rule (`.env` = shared remote, `.env.local` = local Docker). Written before session 2; **preserved verbatim, not committed** (it was stashed for the rebase and restored). |
+| S0.6 | **Not started.** Nothing exists yet in `scripts/migrate-v2/`. |
+
+**Hash mapping (pre-rebase → post-rebase).** Commit *messages* are unchanged, so a rebased commit can always be
+found by its subject if this table goes stale:
+
+| pre-rebase | post-rebase | subject |
+|---|---|---|
+| `54a356e` | `aad091b` | bring v2 projects plan and SDD to the main-based v2 branch |
+| `57fdc4f` | `37b6493` | add v2 projects execution plan and pivot decisions |
+| `f396473` | `4963ab2` | re-scope v2 projects plan and SDD for a direct implementation on main |
+| `d93824e` | `ef9f9ee` | recalibrate v2 plan and SDD against main |
+| `9983ad4` | `388c765` | record the feat/projects-v2 baseline and its environment blockers |
+| `1432a72` | `9cc9c03` | record the critical Prisma CLI path that targets production |
+| `96c4c5c` | *(dropped)* | DB-safety fix — already in `main` as `6a28935` |
+| `93eac47` | `7e5b25c` | sync the v2 plan with the DB-safety fix |
+| `3c3d0ff` | `88d4b67` | S0.5 weeks + money |
+| `47ce839` | `689ef32` | S0.4 append-only audit |
+| `97e08be` | `5f4e4a8` | close the v2 execution handoff |
 
 ## How to resume
 
 1. `mem_context` for the session summary, then read this document and `odd/tasks/v2-projects-sdd.md`.
-2. `git switch feat/projects-v2` and run **`git rebase main` first**. The branch still carries the DB fix as a
-   cherry-pick (`96c4c5c`) that `main` now duplicates as `6a28935`; the rebase should drop it as already applied
-   and leave the branch linear. Then run `npx tsc --noEmit` and `npx vitest run --pool=threads`
-   (expected green: 120 files / 1093 tests before the rebase).
-3. Next task: **S0.6**. Spec in §4.5 of the SDD plus the S0.6 block. Only the count-first harness, the read-only
-   storage orphan report and the promotion checklist remain — the loopback guard already exists.
-4. Before **S0.7** (permissions), confirm with the PO **who creates projects**: RF v2.0 §3 says the **Gestor**
+
+1. `mem_context` for the session summary, then read this document and `odd/tasks/v2-projects-sdd.md`.
+2. `git switch feat/projects-v2` — **the rebase is already done.** The branch is 0 behind `main` (`6bee83f`) with
+   tip `5f4e4a8`, and its baseline is verified green (session 2 above). Do **not** rebase again unless `main`
+   moved; do not recreate the old cherry-pick.
+3. **Decide `CLAUDE.md` first** — 14 uncommitted lines about the local-vs-remote `.env` rule. It is the only dirty
+   tracked file. Either commit it alone (`docs: document the local-vs-remote env rule`) or fold it into S0.6.
+4. Next task: **S0.6**. Spec in §4.5 of the SDD plus the S0.6 block. Only the count-first harness, the read-only
+   storage orphan report and the promotion checklist remain — the loopback guard already exists **in `main`**.
+   Files: `scripts/migrate-v2/{_guard.ts,_guard.test.ts,_harness.ts,_harness.test.ts,storage-orphans.ts,s1-rubros-report.ts}`,
+   `.gitignore` (`scripts/migrate-v2/out/`), SDD §6.5 + §6.7.
+5. Before **S0.7** (permissions), confirm with the PO **who creates projects**: RF v2.0 §3 says the **Gestor**
    does; the user's decision says only **GERENCIA + ADMINISTRADOR**. Building S0.7 on the wrong answer means
    rework in the permission predicates.
-5. Optional, preserves real value: re-open the closed #55 content as a small PR —
+6. Optional, preserves real value: re-open the closed #55 content as a small PR —
    `scripts/cleanup-seed-cloud.ts` (141 lines) and `DIAGNOSTICO-SEED-CLOUD.md` (103 lines).
+
+**Backup ref:** `backup/pre-rebase-feat-projects-v2-20260930` → `97e08be` (the pre-rebase branch state). Delete it
+once the rebase is trusted.
 
 **"Starting v2 from scratch" means a fresh session, not discarding work.** Abandoning the v1 module was the
 scratch decision, and it is done; `S0.4` and `S0.5` are committed and verified. v2 resumes at `S0.6`.
