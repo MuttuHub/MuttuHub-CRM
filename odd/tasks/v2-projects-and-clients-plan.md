@@ -206,7 +206,7 @@ TDD: RED test first (`npx vitest run <file>`), then GREEN, then REFACTOR. Checks
 
 ### S0 — Foundations and decision closure (decision-free except S0.5)
 - [ ] S0.1 Decision log: record PO answers for every DP/N row in this doc; freeze the 6 affected openspec changes as "superseded by v2" (no archive into main specs). Size S. No TDD (docs).
-- [ ] S0.4 Append-only `AuditoriaCambio` (usuario, fecha, acción, entidad, id, campo, antes, después) with DB trigger rejecting UPDATE/DELETE; `logChange()` helper. Size M. TDD incl. live-DB trigger test on `.env.local`. Meets RNF-05 base, RF-04.
+- [x] S0.4 Append-only `AuditoriaCambio` (usuario, fecha, acción, entidad, id, campo, antes, después) with DB trigger rejecting UPDATE/DELETE/TRUNCATE; `logChange()` helper that writes inside the caller's transaction. Size M. TDD incl. live-DB trigger test on `.env.local`. Meets RNF-05 base, RF-04. **Done 2026-09-30**: 16 tests, `tsc` clean, `logAudit` untouched.
 - [x] S0.5 Pure domain libs: `weeks.ts` (week n start = fecha_inicio + 7(n−1); end = +7n−1; duración = ceil((fin−inicio+1)/7)), `money.ts` (Decimal sums/equality). Size S. TDD pure. Decision-free (RF-07 Confirmado). **Done 2026-09-30**: 36 tests, `tsc` clean, `formatCOP` in bigint.
 - [ ] S0.6 Migration safety kit: `scripts/migrate-v2/_guard.ts` (reuse seed localhost guard), dry-run/count-first harness, storage orphan report (read-only), remote-promotion checklist (human-run). Size M. TDD guard tests.
 - [ ] S0.7 Role mapping + permission matrix predicates (`canApproveBaseline`, `canValidateExpense`, `canViewFinancialSupports`, project visibility). Size M. TDD. Gated: N-01, DP-02, DP-06.
