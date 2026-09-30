@@ -1540,14 +1540,15 @@ export function weekStart(inicio: IsoDate, n: number): IsoDate;                 
 export function weekEnd(inicio: IsoDate, n: number): IsoDate;                   // inicio + 7n - 1
 export function activityDates(inicio: IsoDate, semIni: number, semFin: number): { inicio: IsoDate; fin: IsoDate };
 export function defaultWeight(semIni: number, semFin: number): number;          // semFin - semIni + 1
-export function dateToWeek(inicio: IsoDate, d: IsoDate, duracion: number): number; // floor((d-inicio)/7)+1 clamped [1, duracion]
 export function projectPeriods(inicio: IsoDate, fin: IsoDate): Periodo[];       // month of inicio .. month of fin
 export function periodOf(d: IsoDate): Periodo;
 export function todayInBogota(now?: Date): IsoDate;                             // calendar date in America/Bogota
 ```
 Worked example (fixture F-W1): `durationWeeks("2026-10-05","2027-01-29") = 17`;
 `activityDates("2026-10-05",3,6) = {inicio:"2026-10-19", fin:"2026-11-15"}`; `defaultWeight(3,6) = 4`;
-`projectPeriods(…) = ["2026-10","2026-11","2026-12","2027-01"]`; `dateToWeek("2026-10-05","2026-10-22",17) = 3`.
+`projectPeriods(…) = ["2026-10","2026-11","2026-12","2027-01"]`.
+There is no `dateToWeek`: activities are created with explicit weeks, so the reverse mapping has no caller
+(removed with the direct path; see §0.4).
 
 **`money.ts` (S0.5)**
 ```ts
@@ -1559,7 +1560,10 @@ export function percentTenths(num: Cents, den: Cents): bigint | null;          /
 export function formatPercent(tenths: bigint | null): string;                  // 908n -> "90,8 %", null -> "—"
 export function withinTolerance(e: Cents, p: Cents, tolBasisPoints: bigint): boolean; // e*10000 <= p*(10000+bp)
 export function toleranceThreshold(p: Cents, tolBasisPoints: bigint): Cents;   // p*(10000+bp)/10000 (display only)
-export function formatCOP(c: Cents): string;                                   // "$59.500.000" (reuse formatCOP semantics of src/hooks/crm.ts)
+export function formatCOP(c: Cents): string;                                   // "$ 59.500.000" (same shape as formatCOP in src/hooks/crm.ts, computed in bigint)
+// Note: tsconfig targets ES2017, so BigInt *literals* (`0n`) are rejected by tsc even though `lib` includes
+// esnext. Use named constants built with `BigInt(...)`. The acceptance check
+// `rg -n "parseFloat|Number\(" src/lib/proyectos/money.ts` must stay empty — not even in a comment.
 ```
 Example: `percentTenths(2700000000n, 2975000000n) = 908n` (90,8 %); `percentTenths(1350000000n, 2400000000n) =
 563n` (56,3 % — exact half-up of 562,5); `withinTolerance(1350000000n, 1200000000n, 1000n) = false`.
@@ -1809,6 +1813,12 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
 - **Acceptance:** all tests green; no import of `@/lib/db`/`next/*`; `rg -n "parseFloat|Number\(" src/lib/proyectos/money.ts` empty.
 - **Deps:** none. **Gate:** none (RF-07 PO-C). **Lines:** ~220 (tests ~130).
 - **Commit:** `feat(projects): add pure week and money libraries for v2 (S0.5)` · **PR-02**.
+- **DONE 2026-09-30.** 36 tests green (17 weeks + 19 money); `tsc` 0 errors; eslint clean;
+  `rg -n "parseFloat|Number\(" src/lib/proyectos/money.ts` empty; no `@/lib/db` or `next/*` import. Deviations:
+  (1) `formatCOP` renders `"$ 59.500.000"` with a space, matching the repo's Intl `es-CO` output, and is computed
+  in bigint instead of delegating to Intl with a float; (2) `tsconfig`'s ES2017 target is left untouched, so named
+  `BigInt(...)` constants replace bigint literals; (3) `dateToWeek` is gone — activities are created with explicit
+  weeks, so the inverse has no caller. Commit recorded in §6.7.
 
 #### S0.4 — Append-only `AuditoriaCambio` + `logChange` (M, decision-free)
 - **Goal:** per-field before/after audit that the app cannot alter (RF-04, RNF-05, est §7.4).
@@ -2564,6 +2574,7 @@ never to a v1→v2 migration, which does not exist.
 | 2026-09-30 | Re-scope for the direct path | orchestrator + delegated writer (partial) | — (same commit as this re-scope) | 5 coexistence-only tasks removed; `feature_projects_v2` / `PROJECTS_V2_OVERRIDE` / `src/lib/features.ts` / `REQ-FLAG` / S9.6 / v1-backfill references eliminated except in §0.4 and the §5.13 tombstone; task count 71 → 66; no source code touched | — | v1 module was never shipped; see `odd/tasks/v2-projects-execution.md` ODD-01..04 |
 | 2026-09-30 | Recalibration pass 2 against `main` | orchestrator | same commit | Verified with `git show main:prisma/schema.prisma`: all nine projects models are absent → "extended" markers removed and ADR-02 rewritten as design continuity, not reuse. Legacy-data requirements and decision rows rewritten or retired. `npx tsc` evidence on the primitives branch | — | §0.4 second pass |
 | 2026-09-30 | **DB-safety root cause fixed** | orchestrator | `96c4c5c` | `prisma/local-env.ts` + `prisma/require-local-db.ts` + 14 tests; `npx prisma migrate status` now reports `127.0.0.1:54322`; a remote target raises `NonLocalDatabaseError` without credentials; suite 116 files / 1041 tests green in 52 s (was 86 s, because the DB test now hits local Docker); `tsc` 0 errors | — | Absorbs the guard half of S0.6 and supersedes PR #55's seed guard; `db:*:local` scripts added |
+| 2026-09-30 | **S0.5 pure week and money libraries** | orchestrator (inline, TDD) | see the commit after `93eac47` | RED: both test files failed to resolve their modules. GREEN: **36 tests** (17 `weeks` + 19 `money`); `tsc` 0 errors; eslint clean; `rg -n "parseFloat|Number\(" src/lib/proyectos/money.ts` **empty**; no `@/lib/db` or `next/*` import | — | Deviations: `formatCOP` renders `"$ 59.500.000"` (space, matching Intl `es-CO`) computed in bigint; ES2017 target untouched so `BigInt(...)` replaces bigint literals; `dateToWeek` dropped (no caller) |
 
 Upload limits record (S0.8): _pending_. Baseline suite result (Step 2 of §1.2): _pending_.
 
