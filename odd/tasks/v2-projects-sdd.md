@@ -131,12 +131,10 @@ node --env-file=.env.local -e "console.log(new URL(process.env.DIRECT_URL).host)
 #    WSL integration, or run every DB command from the Windows side (cmd.exe / powershell.exe).
 supabase status
 # 3. Migration state of the LOCAL DB only.
-#    CRITICAL (VERIFIED 2026-09-30): plain `npx prisma ...` from WSL connects to the REMOTE shared Supabase.
-#    `prisma.config.ts` does `import "dotenv/config"`, which loads `.env` (remote), and that wins. Measured:
-#      `npx prisma migrate status`                                  -> at "aws-1-us-west-2.pooler.supabase.com:5432"
-#      `node --env-file=.env.local node_modules/prisma/build/index.js migrate status` -> at "127.0.0.1:54322"
-#    ALWAYS use the second form. Never run migrate dev / migrate deploy / db push / db seed without it.
-node --env-file=.env.local node_modules/prisma/build/index.js migrate status
+#    Fixed 2026-09-30 (commit 96c4c5c): `prisma.config.ts` no longer loads `.env` — the shared production
+#    instance — and `prisma/require-local-db.ts` refuses any non-loopback target. Use the db:*:local scripts;
+#    they invoke Prisma through `node --env-file=.env.local`, never through `npx`.
+npm run db:migrate:status:local        # -> at "127.0.0.1:54322"
 ```
 Stop if any host is not `127.0.0.1`/`localhost` — do not "fix" it by editing `.env`.
 
@@ -1841,12 +1839,9 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
 #### S0.6 — Migration safety kit (M, decision-free)
 - **Goal:** make it impossible for a v2 data script to write anywhere but the local Docker DB; count-first
   harness; read-only storage orphan report; remote promotion checklist.
-- **Note (VERIFIED 2026-09-30):** the local-DB guard does **not** exist on `main`. `prisma/local-env.ts`,
-  `prisma/load-local-env.ts`, `scripts/cleanup-seed-cloud.ts` and the `assertLocalTarget` guard in
-  `prisma/seed.ts` all live only on the abandoned v1 chain (and inside unmerged PR #55). This task **creates**
-  the guard; it does not reuse one. If PR #55 is merged on `main` first, reuse its guard and drop the duplicate.
-- **Files:** NEW `prisma/load-local-env.ts` (loads `.env.local`, exports the loopback assertion),
-  NEW `scripts/migrate-v2/_guard.ts`, `scripts/migrate-v2/_guard.test.ts`,
+- **Note (2026-09-30):** the loopback guard this task originally had to create **already exists**. `prisma/local-env.ts` + `prisma/require-local-db.ts` and the `db:*:local` scripts landed with commit `96c4c5c` (see §6.7). S0.6 therefore builds only the count-first harness, the read-only storage orphan report and the promotion checklist on top of it.
+- **Files:** `scripts/migrate-v2/_guard.ts` (thin wrapper re-exporting `prisma/local-env.ts`),
+  `scripts/migrate-v2/_guard.test.ts`,
   `scripts/migrate-v2/_harness.ts`, `scripts/migrate-v2/_harness.test.ts`, `scripts/migrate-v2/storage-orphans.ts`,
   `scripts/migrate-v2/s1-rubros-report.ts` (count-first report for N-13, read-only), `.gitignore` (`scripts/migrate-v2/out/`),
   this document §6.5 (checklist).
@@ -1855,19 +1850,18 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
   - `it("aborts when DIRECT_URL or NEXT_PUBLIC_SUPABASE_URL is remote")`
   - `it("error message names the host and never the password")`
   - `it("has no flag or env var that bypasses the guard")` (asserts `--allow-remote`/`FORCE` are rejected/ignored)
-  - `it("the db:*:local npm scripts invoke prisma through node --env-file=.env.local, never through npx")`
-    — this is the **only** mitigation that works for the Prisma CLI: a JS-level guard cannot intercept a
-    Prisma subprocess whose `prisma.config.ts` reloads `.env` (measured 2026-09-30; see R-01)
+  These four are already covered by `prisma/local-env.test.ts` (commit `96c4c5c`); this file asserts them
+  through the harness entrypoint so a regression in the wrapper is caught too.
 - **RED** (`_harness.test.ts`, db mocked):
   - `it("dry-run prints counts and decisions and never opens a write transaction")`
   - `it("apply refuses when --expect-hash does not match the recomputed plan")`
   - `it("apply is idempotent: a second run reports zero actions")`
   - `it("revert only touches rows created by the given lote")`
   - `it("writes the markdown report to scripts/migrate-v2/out/")`
-- **GREEN:** `prisma/load-local-env.ts` loads `.env.local` and exposes the loopback assertion (host must be
-  `127.0.0.1`/`localhost`); `_guard.ts` imports it as its first side effect + re-exports a `describeTarget()`
-  helper printing host only; harness per §4.5; orphan report uses `createSupabaseAdmin()` (VERIFIED used by
-  `prisma/seed.ts`) with `list()` only.
+- **GREEN:** `_guard.ts` re-exports `assertLocalDatabaseUrl`/`loadLocalEnv` from `prisma/local-env.ts` (already
+  implemented: loads `.env.local`, loopback-only, credential-free errors, no bypass) and adds a
+  `describeTarget()` helper printing the host only; harness per §4.5; orphan report uses `createSupabaseAdmin()`
+  (VERIFIED used by `prisma/seed.ts`) with `list()` only.
 - **REFACTOR:** shared `printTable()`.
 - **Commands:** `npx vitest run scripts/migrate-v2/_guard.test.ts scripts/migrate-v2/_harness.test.ts`;
   `npx tsx --env-file=.env.local scripts/migrate-v2/s1-rubros-report.ts` (prints the N-13 count report — record
@@ -1875,7 +1869,8 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
 - **Acceptance:** guard tests green; on a fresh local DB the count-first report runs read-only and reports zero
   rows (there is no v1 data to reassign — the report exists for rubros suspended later); orphan report runs
   read-only.
-- **Deps:** none (S0.4 for lote rows at `--apply`; harness can stub until then). **Gate:** none. **Lines:** ~330.
+- **Deps:** none (S0.4 for lote rows at `--apply`; harness can stub until then). **Gate:** none. **Lines:** ~250
+  (reduced from ~330: the guard half is already built and tested).
 - **Commit:** `feat(db): add guarded v2 migration harness and read-only reports (S0.6)` · **PR-04**.
 
 #### S0.1 — Decision log + freeze superseded openspec changes (S, docs)
@@ -2568,7 +2563,7 @@ never to a v1→v2 migration, which does not exist.
 | 2026-09-29 | SDD | delegated writer | — (not committed) | — | — | This document created; no code changed |
 | 2026-09-30 | Re-scope for the direct path | orchestrator + delegated writer (partial) | — (same commit as this re-scope) | 5 coexistence-only tasks removed; `feature_projects_v2` / `PROJECTS_V2_OVERRIDE` / `src/lib/features.ts` / `REQ-FLAG` / S9.6 / v1-backfill references eliminated except in §0.4 and the §5.13 tombstone; task count 71 → 66; no source code touched | — | v1 module was never shipped; see `odd/tasks/v2-projects-execution.md` ODD-01..04 |
 | 2026-09-30 | Recalibration pass 2 against `main` | orchestrator | same commit | Verified with `git show main:prisma/schema.prisma`: all nine projects models are absent → "extended" markers removed and ADR-02 rewritten as design continuity, not reuse. Legacy-data requirements and decision rows rewritten or retired. `npx tsc` evidence on the primitives branch | — | §0.4 second pass |
-| 2026-09-30 | **Baseline on `feat/projects-v2`** | orchestrator | `9983ad4` | `.env.local` → `127.0.0.1:54322` ✓; `.env` → `aws-1-us-west-2.pooler.supabase.com:6543` (remote, never used) ✓; `npx vitest run --pool=threads`: **115 files / 1027 tests all green** (86 s); `npx tsc --noEmit`: **0 errors** after moving aside a stale `.next/` | — | **CRITICAL: plain `npx prisma` targets the REMOTE DB (R-01 confirmed). Use `node --env-file=.env.local node_modules/prisma/build/index.js …`. Docker/WSL works once the containers are up; local `migrate status`: schema up to date, 11 migrations** |
+| 2026-09-30 | **DB-safety root cause fixed** | orchestrator | `96c4c5c` | `prisma/local-env.ts` + `prisma/require-local-db.ts` + 14 tests; `npx prisma migrate status` now reports `127.0.0.1:54322`; a remote target raises `NonLocalDatabaseError` without credentials; suite 116 files / 1041 tests green in 52 s (was 86 s, because the DB test now hits local Docker); `tsc` 0 errors | — | Absorbs the guard half of S0.6 and supersedes PR #55's seed guard; `db:*:local` scripts added |
 
 Upload limits record (S0.8): _pending_. Baseline suite result (Step 2 of §1.2): _pending_.
 
@@ -2589,7 +2584,7 @@ Upload limits record (S0.8): _pending_. Baseline suite result (Step 2 of §1.2):
 ### 7.1 Risks and mitigations
 | ID | Risk | Likelihood / impact | Mitigation |
 |---|---|---|---|
-| R-01 | A migration/backfill runs against the remote `.env` Supabase (real-looking data) | **High** / Critical | **CONFIRMED REAL (2026-09-30): plain `npx prisma …` from this WSL checkout connects to `aws-1-us-west-2.pooler.supabase.com:5432`** — `prisma.config.ts` does `import "dotenv/config"`, which loads `.env` (remote), and its value wins over the shell-exported one. Mitigation: every DB command uses `node --env-file=.env.local node_modules/prisma/build/index.js …` (verified: reports `127.0.0.1:54322`), a `db:*:local` npm wrapper, and the no-bypass guard (S0.6); remote promotion only via the human entrypoint (§4.5, §6.5) |
+| R-01 | A migration/backfill runs against the remote `.env` Supabase (real-looking data) | ~~High~~ Low / Critical | **ROOT CAUSE FIXED 2026-09-30 (commit `96c4c5c`).** Plain `npx prisma …` used to resolve `.env` — the shared remote — through `prisma.config.ts`. Now that config loads `.env.local` only, `prisma/require-local-db.ts` refuses any non-loopback target with a credential-free message and no bypass (no flag, argv entry or env var), and the `db:*:local` scripts replace plain `npx`. Measured after the fix: `npx prisma migrate status` reports `127.0.0.1:54322`. Residual risk: a deliberate remote run must export the variables explicitly (§4.5, §6.5) |
 | R-02 | 25 MB uploads fail in production: Vercel request-body limit (~4.5 MB, per Vercel docs — UNVERIFIED for this account) and remote bucket at 10 MB (documented) | High / High | S0.8 verification before S0.9a; ADR-13 signed direct uploads; bucket raised by the user before deploy |
 | R-03 | COORDINADOR users lose project creation/edit (S0.7) | Medium / Medium | D-02 resolved (applied directly); release note, CTA hidden in UI, 403 copy explains; membership in S2.6 restores executor access |
 | R-04 | Test churn from v1 project tests | High / Low | Removed by the direct path: there are no v1 project tests in this branch, because the v1 module was never shipped (re-scoped from the original 419-case risk) |

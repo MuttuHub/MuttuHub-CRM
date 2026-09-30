@@ -77,7 +77,9 @@ Verified 2026-09-30 against the repository:
 - [x] P0.5 **CRITICAL safety finding — plain `npx prisma` targets PRODUCTION.** `prisma.config.ts` (on `main`) starts with `import "dotenv/config"`, which loads `.env` (the shared remote). Measured side by side with a shell that had exported the local values:
   - `npx prisma migrate status` → `at "aws-1-us-west-2.pooler.supabase.com:5432"`
   - `node --env-file=.env.local node_modules/prisma/build/index.js migrate status` → `at "127.0.0.1:54322"`
-  `migrate status` is read-only, so nothing was written. **Rule from now on: every DB command uses the explicit node + `--env-file=.env.local` form.** `migrate dev`, `migrate deploy`, `db push` and `db seed` via `npx` are forbidden until a wrapper exists.
+  `migrate status` is read-only, so nothing was written. The workaround was to use the explicit
+  `node --env-file=.env.local` form. **Root cause fixed the same day — see P0.6.**
+- [x] P0.6 **DB-safety fix landed in this branch** (commit `96c4c5c`). `prisma/local-env.ts` loads `.env.local` only (never `.env`), asserts loopback, fails closed on unparseable values, produces credential-free errors and has no bypass; `prisma/require-local-db.ts` is the side-effect guard, imported first so it runs before the Prisma client is built; `prisma.config.ts`, `prisma/seed.ts`, `prisma/invariant.test.ts` and `scripts/backfill-document-text.ts` use it; `db:*:local` scripts invoke Prisma through `node --env-file` instead of `npx`. Verified: `npx prisma migrate status` → `127.0.0.1:54322`; a remote target raises `NonLocalDatabaseError`; suite 116 files / 1041 tests green in 52 s (was 86 s). This absorbs the guard half of S0.6 and supersedes PR #55's seed guard.
 
 ### Phase 1 — GitHub cleanup (no source code) — **GATED on explicit approval**
 
@@ -115,16 +117,16 @@ Verified 2026-09-30 against the repository:
 
 ## Open items / risks
 
-- **CRITICAL (confirmed 2026-09-30): the default Prisma CLI path writes to production.** `npx prisma …` from this
-  checkout resolves `DIRECT_URL` from `.env` (the shared remote), not from `.env.local`, because
-  `prisma.config.ts` does `import "dotenv/config"`. Any `migrate dev` / `migrate deploy` / `db push` / `db seed`
-  run that way would mutate the shared database. Mandatory workaround: `node --env-file=.env.local
-  node_modules/prisma/build/index.js <command>`, plus a `db:*:local` npm wrapper as a follow-up. Tracked as R-01 in
-  the SDD; the guard in S0.6 must cover this path because a JS-level guard cannot intercept a Prisma subprocess.
+- ~~**CRITICAL: the default Prisma CLI path writes to production.**~~ **Fixed 2026-09-30 (commit `96c4c5c`).**
+  `npx prisma …` used to resolve `DIRECT_URL` from `.env` (the shared remote) through `prisma.config.ts`.
+  The config now loads `.env.local` only, `prisma/require-local-db.ts` refuses any non-loopback target, and the
+  `db:*:local` scripts replace plain `npx`. Measured after: `npx prisma migrate status` → `127.0.0.1:54322`.
+  Residual: a deliberate remote run must export `DATABASE_URL`/`DIRECT_URL` explicitly.
 - **Environment:** the local stack must be running for S0.4 (live-DB trigger test) and every S1.x migration.
   S0.5 (pure libraries) does not need it.
-- **DB-safety tooling does not exist on `main`:** S0.6 creates the loopback guard; it cannot reuse the one from
-  the abandoned chain. Merging PR #55 first would provide it, but that needs remote authorization.
+- **DB-safety tooling:** no longer a gap. The guard now exists in this branch (P0.6); S0.6 only adds the
+  count-first harness, the storage orphan report and the promotion checklist on top of it. PR #55's seed guard is
+  superseded; its `scripts/cleanup-seed-cloud.ts` still has its own value.
 - **Business risk (accepted):** confirm with the boss/PO that nothing is expected from the v1
   module in production. Nothing shipped, but there was a PO meeting on 2026-09-22 about
   "gestión de proyectos" features.
