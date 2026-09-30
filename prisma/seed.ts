@@ -32,7 +32,7 @@
 // Usage: `npm run db:seed` (wraps `prisma db seed`, wired to
 // `tsx prisma/seed.ts` via the "prisma.seed" key in package.json).
 
-import "dotenv/config";
+import "./require-local-db";
 import { db } from "../src/lib/db";
 import { DOC_CATEGORIES, RESTRICTED_DOC_CATEGORIES, TASK_TAGS } from "../src/lib/catalogs";
 import { ensureDefaultSettings } from "../src/lib/settings";
