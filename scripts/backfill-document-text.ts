@@ -10,7 +10,7 @@
 // Idempotente: un crash a la mitad deja las ya hechas en 'ok', y las falladas
 // en 'error' para la próxima corrida.
 
-import "dotenv/config";
+import "../prisma/require-local-db";
 import { Prisma } from "@prisma/client";
 import { db } from "../src/lib/db";
 import { createSupabaseAdmin } from "../src/lib/supabase/admin";
