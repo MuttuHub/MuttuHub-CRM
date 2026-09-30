@@ -493,3 +493,45 @@ model Setting {
 
   @@map("settings")
 }
+
+// v2 projects module (RF-04, RNF-05, est §7.4) — audit con antes/después por
+// campo. Es *append-only a nivel de base de datos*: la migración
+// `v2_auditoria_cambios` instala un trigger que rechaza UPDATE, DELETE y
+// TRUNCATE, así que la aplicación no puede alterar el registro ni por error.
+//
+// `usuario_id` no lleva FK a propósito (a diferencia del modelo v1
+// `Auditoria`, que sí la tiene): el libro debe sobrevivir a cambios de usuario.
+// `proyecto_id` tampoco la lleva, para que el histórico de un proyecto
+// eliminado siga siendo legible.
+enum AccionAuditoria {
+  CREAR
+  EDITAR
+  IMPORTAR
+  APROBAR
+  VALIDAR
+  RECHAZAR
+  SUSPENDER
+  CAMBIAR_PARAMETRO
+  ANULAR
+  SOLICITAR
+  EXPORTAR
+  CONVERTIR
+}
+
+model AuditoriaCambio {
+  id             String          @id @default(uuid())
+  created_at     DateTime        @default(now())
+  usuario_id     String
+  accion         AccionAuditoria
+  entidad        String // "proyecto" | "objetivo" | "actividad" | ...
+  entidad_id     String
+  proyecto_id    String?
+  campo          String?
+  valor_anterior Json?
+  valor_nuevo    Json?
+  lote_id        String? // agrupa una operación completa (import, aprobación)
+
+  @@index([proyecto_id, created_at])
+  @@index([entidad, entidad_id])
+  @@map("auditoria_cambios")
+}

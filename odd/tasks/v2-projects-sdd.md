@@ -1845,6 +1845,9 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
 - **Acceptance:** 9 tests green; `logAudit` untouched (`git diff --stat src/lib/api/audit.ts` empty).
 - **Deps:** none. **Gate:** none. **Lines:** ~260.
 - **Commit:** `feat(audit): add append-only auditoria_cambios with per-field diff (S0.4)` · **PR-03**.
+- **DONE 2026-09-30.** 16 tests green (12 unit + 4 live-DB invariant); full suite 120 files / 1093 tests; `tsc` 0
+errors; eslint clean; `logAudit` untouched (`git diff --stat src/lib/api/audit.ts` empty). The generated migration also
+carries two cosmetic FK renames Prisma normalised (`bitacora_entradas`, `tareas`).
 
 #### S0.6 — Migration safety kit (M, decision-free)
 - **Goal:** make it impossible for a v2 data script to write anywhere but the local Docker DB; count-first
@@ -2575,6 +2578,8 @@ never to a v1→v2 migration, which does not exist.
 | 2026-09-30 | Recalibration pass 2 against `main` | orchestrator | same commit | Verified with `git show main:prisma/schema.prisma`: all nine projects models are absent → "extended" markers removed and ADR-02 rewritten as design continuity, not reuse. Legacy-data requirements and decision rows rewritten or retired. `npx tsc` evidence on the primitives branch | — | §0.4 second pass |
 | 2026-09-30 | **DB-safety root cause fixed** | orchestrator | `96c4c5c` | `prisma/local-env.ts` + `prisma/require-local-db.ts` + 14 tests; `npx prisma migrate status` now reports `127.0.0.1:54322`; a remote target raises `NonLocalDatabaseError` without credentials; suite 116 files / 1041 tests green in 52 s (was 86 s, because the DB test now hits local Docker); `tsc` 0 errors | — | Absorbs the guard half of S0.6 and supersedes PR #55's seed guard; `db:*:local` scripts added |
 | 2026-09-30 | **S0.5 pure week and money libraries** | orchestrator (inline, TDD) | see the commit after `93eac47` | RED: both test files failed to resolve their modules. GREEN: **36 tests** (17 `weeks` + 19 `money`); `tsc` 0 errors; eslint clean; `rg -n "parseFloat|Number\(" src/lib/proyectos/money.ts` **empty**; no `@/lib/db` or `next/*` import | — | Deviations: `formatCOP` renders `"$ 59.500.000"` (space, matching Intl `es-CO`) computed in bigint; ES2017 target untouched so `BigInt(...)` replaces bigint literals; `dateToWeek` dropped (no caller) |
+| 2026-09-30 | **Local DB reset to the branch schema** | user-authorized (Prisma AI-agent guard satisfied with the user's exact consent text) | n/a | Before: 13 migrations in `_prisma_migrations` and 8 extra abandoned tables (`proyectos`, `metas`, `actividades`, `gastos`, `rubros`, `indicadores`, `lineas_presupuestales`, `soportes_proyecto`) with data. After: **11 migrations, zero abandoned tables**, seed re-run (12 clientes / 4 usuarios / 20 tareas / 10 oportunidades / 8 documentos) | — | `prisma migrate reset` **does not run the seed**; it had to be run explicitly. Also needed `db:generate:local`: the generated client was from Sep 25 (v1 branch) and still carried `puede_ver_tablero_gerencial`. `scripts/seed-proyectos-demo.ts` (untracked, v1) was parked as `.ts.bak` because it broke `tsc` once the client was regenerated |
+| 2026-09-30 | **S0.4 append-only auditoria_cambios** | orchestrator (inline, TDD) | see the commit after the S0.5 one | RED: unit file failed to resolve its module. GREEN: **16 tests** (12 unit + 4 live-DB invariant: INSERT accepted, UPDATE / DELETE / TRUNCATE rejected by trigger); `tsc` 0 errors; eslint clean; `logAudit` untouched; migrations 12 and in sync | — | First v2 migration, created through `db:migrate:local` (the `.env.local` wrapper), not `npx` |
 
 Upload limits record (S0.8): _pending_. Baseline suite result (Step 2 of §1.2): _pending_.
 
