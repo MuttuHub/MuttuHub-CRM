@@ -73,7 +73,11 @@ Verified 2026-09-30 against the repository:
 - [x] P0.1 Verify `.env.local` points to loopback: `127.0.0.1:54322` for both `DATABASE_URL` and `DIRECT_URL`. `.env` points to the shared remote (`aws-1-us-west-2.pooler.supabase.com:6543`) and is never used.
 - [x] P0.2 Run the suite and the typecheck: `npx vitest run --pool=threads` → **115 files / 1027 tests, all green** (86 s); `npx tsc --noEmit` → **0 errors** after moving a stale `.next/` aside (it was inherited from the v6 dev server and produced 27 phantom `TS2307` errors for routes that do not exist here).
 - [x] P0.3 Confirm the DB-safety tooling gap: there is **no** `db:migrate:status` script, no `prisma/local-env.ts` and no `assertLocalTarget` guard on `main` — they live only on the abandoned v1 chain and in unmerged PR #55. **S0.6 must create the guard, not reuse it.**
-- [ ] P0.4 Make the local Docker DB reachable from WSL — **blocked**: Docker Desktop's WSL integration is not active in this distro (`docker` is not on PATH; `supabase status` fails with a container-health error; `127.0.0.1:54322` is unreachable from WSL although the stack runs on Windows). Enable Docker Desktop → Settings → Resources → WSL integration, or run DB commands from the Windows side.
+- [x] P0.4 Local Docker DB reachable — **resolved 2026-09-30**: the stack was simply down. Once the containers are up, `127.0.0.1:54322` responds from WSL, `supabase status` reports the local URLs, and `migrate status` shows 11 migrations, schema up to date.
+- [x] P0.5 **CRITICAL safety finding — plain `npx prisma` targets PRODUCTION.** `prisma.config.ts` (on `main`) starts with `import "dotenv/config"`, which loads `.env` (the shared remote). Measured side by side with a shell that had exported the local values:
+  - `npx prisma migrate status` → `at "aws-1-us-west-2.pooler.supabase.com:5432"`
+  - `node --env-file=.env.local node_modules/prisma/build/index.js migrate status` → `at "127.0.0.1:54322"`
+  `migrate status` is read-only, so nothing was written. **Rule from now on: every DB command uses the explicit node + `--env-file=.env.local` form.** `migrate dev`, `migrate deploy`, `db push` and `db seed` via `npx` are forbidden until a wrapper exists.
 
 ### Phase 1 — GitHub cleanup (no source code) — **GATED on explicit approval**
 
@@ -111,9 +115,14 @@ Verified 2026-09-30 against the repository:
 
 ## Open items / risks
 
-- **Environment blocker (2026-09-30):** the local Supabase stack is not reachable from WSL because Docker
-  Desktop's WSL integration is inactive. S0.4 (live-DB trigger test) and every S1.x migration depend on it.
-  Resolve before S0.4; S0.5 (pure libraries) is unaffected.
+- **CRITICAL (confirmed 2026-09-30): the default Prisma CLI path writes to production.** `npx prisma …` from this
+  checkout resolves `DIRECT_URL` from `.env` (the shared remote), not from `.env.local`, because
+  `prisma.config.ts` does `import "dotenv/config"`. Any `migrate dev` / `migrate deploy` / `db push` / `db seed`
+  run that way would mutate the shared database. Mandatory workaround: `node --env-file=.env.local
+  node_modules/prisma/build/index.js <command>`, plus a `db:*:local` npm wrapper as a follow-up. Tracked as R-01 in
+  the SDD; the guard in S0.6 must cover this path because a JS-level guard cannot intercept a Prisma subprocess.
+- **Environment:** the local stack must be running for S0.4 (live-DB trigger test) and every S1.x migration.
+  S0.5 (pure libraries) does not need it.
 - **DB-safety tooling does not exist on `main`:** S0.6 creates the loopback guard; it cannot reuse the one from
   the abandoned chain. Merging PR #55 first would provide it, but that needs remote authorization.
 - **Business risk (accepted):** confirm with the boss/PO that nothing is expected from the v1

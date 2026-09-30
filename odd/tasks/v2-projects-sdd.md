@@ -131,9 +131,12 @@ node --env-file=.env.local -e "console.log(new URL(process.env.DIRECT_URL).host)
 #    WSL integration, or run every DB command from the Windows side (cmd.exe / powershell.exe).
 supabase status
 # 3. Migration state of the LOCAL DB only.
-#    There is NO `db:migrate:status` npm script on this branch: it lived on the abandoned v1 chain. Run Prisma
-#    directly, always with the local env loaded, never with the bare `.env`.
-npx prisma migrate status            # with DATABASE_URL/DIRECT_URL taken from .env.local
+#    CRITICAL (VERIFIED 2026-09-30): plain `npx prisma ...` from WSL connects to the REMOTE shared Supabase.
+#    `prisma.config.ts` does `import "dotenv/config"`, which loads `.env` (remote), and that wins. Measured:
+#      `npx prisma migrate status`                                  -> at "aws-1-us-west-2.pooler.supabase.com:5432"
+#      `node --env-file=.env.local node_modules/prisma/build/index.js migrate status` -> at "127.0.0.1:54322"
+#    ALWAYS use the second form. Never run migrate dev / migrate deploy / db push / db seed without it.
+node --env-file=.env.local node_modules/prisma/build/index.js migrate status
 ```
 Stop if any host is not `127.0.0.1`/`localhost` — do not "fix" it by editing `.env`.
 
@@ -1852,6 +1855,9 @@ with `{hoja, fila, columna}` on every cell), `validate.ts` (V-01..V-14 each an e
   - `it("aborts when DIRECT_URL or NEXT_PUBLIC_SUPABASE_URL is remote")`
   - `it("error message names the host and never the password")`
   - `it("has no flag or env var that bypasses the guard")` (asserts `--allow-remote`/`FORCE` are rejected/ignored)
+  - `it("the db:*:local npm scripts invoke prisma through node --env-file=.env.local, never through npx")`
+    — this is the **only** mitigation that works for the Prisma CLI: a JS-level guard cannot intercept a
+    Prisma subprocess whose `prisma.config.ts` reloads `.env` (measured 2026-09-30; see R-01)
 - **RED** (`_harness.test.ts`, db mocked):
   - `it("dry-run prints counts and decisions and never opens a write transaction")`
   - `it("apply refuses when --expect-hash does not match the recomputed plan")`
@@ -2562,7 +2568,7 @@ never to a v1→v2 migration, which does not exist.
 | 2026-09-29 | SDD | delegated writer | — (not committed) | — | — | This document created; no code changed |
 | 2026-09-30 | Re-scope for the direct path | orchestrator + delegated writer (partial) | — (same commit as this re-scope) | 5 coexistence-only tasks removed; `feature_projects_v2` / `PROJECTS_V2_OVERRIDE` / `src/lib/features.ts` / `REQ-FLAG` / S9.6 / v1-backfill references eliminated except in §0.4 and the §5.13 tombstone; task count 71 → 66; no source code touched | — | v1 module was never shipped; see `odd/tasks/v2-projects-execution.md` ODD-01..04 |
 | 2026-09-30 | Recalibration pass 2 against `main` | orchestrator | same commit | Verified with `git show main:prisma/schema.prisma`: all nine projects models are absent → "extended" markers removed and ADR-02 rewritten as design continuity, not reuse. Legacy-data requirements and decision rows rewritten or retired. `npx tsc` evidence on the primitives branch | — | §0.4 second pass |
-| 2026-09-30 | **Baseline on `feat/projects-v2`** | orchestrator | `d93824e` | `.env.local` → `127.0.0.1:54322` ✓; `.env` → `aws-1-us-west-2.pooler.supabase.com:6543` (remote, never used) ✓; `npx vitest run --pool=threads`: **115 files / 1027 tests all green** (86 s); `npx tsc --noEmit`: **0 errors** after moving aside a stale `.next/` | — | **Environment blockers: (1) Docker Desktop WSL integration inactive → local Supabase unreachable from WSL; (2) no `db:migrate:status` script and no local-DB guard on this branch — S0.6 creates them** |
+| 2026-09-30 | **Baseline on `feat/projects-v2`** | orchestrator | `9983ad4` | `.env.local` → `127.0.0.1:54322` ✓; `.env` → `aws-1-us-west-2.pooler.supabase.com:6543` (remote, never used) ✓; `npx vitest run --pool=threads`: **115 files / 1027 tests all green** (86 s); `npx tsc --noEmit`: **0 errors** after moving aside a stale `.next/` | — | **CRITICAL: plain `npx prisma` targets the REMOTE DB (R-01 confirmed). Use `node --env-file=.env.local node_modules/prisma/build/index.js …`. Docker/WSL works once the containers are up; local `migrate status`: schema up to date, 11 migrations** |
 
 Upload limits record (S0.8): _pending_. Baseline suite result (Step 2 of §1.2): _pending_.
 
@@ -2583,7 +2589,7 @@ Upload limits record (S0.8): _pending_. Baseline suite result (Step 2 of §1.2):
 ### 7.1 Risks and mitigations
 | ID | Risk | Likelihood / impact | Mitigation |
 |---|---|---|---|
-| R-01 | A migration/backfill runs against the remote `.env` Supabase (real-looking data) | Low / Critical | Guard with no bypass (S0.6), `.env.local`-only commands, remote promotion only via a human entrypoint (§4.5, §6.5); prior incident referenced by CLAUDE.md (`DIAGNOSTICO-SEED-CLOUD.md`, not present in the repo — UNVERIFIED) |
+| R-01 | A migration/backfill runs against the remote `.env` Supabase (real-looking data) | **High** / Critical | **CONFIRMED REAL (2026-09-30): plain `npx prisma …` from this WSL checkout connects to `aws-1-us-west-2.pooler.supabase.com:5432`** — `prisma.config.ts` does `import "dotenv/config"`, which loads `.env` (remote), and its value wins over the shell-exported one. Mitigation: every DB command uses `node --env-file=.env.local node_modules/prisma/build/index.js …` (verified: reports `127.0.0.1:54322`), a `db:*:local` npm wrapper, and the no-bypass guard (S0.6); remote promotion only via the human entrypoint (§4.5, §6.5) |
 | R-02 | 25 MB uploads fail in production: Vercel request-body limit (~4.5 MB, per Vercel docs — UNVERIFIED for this account) and remote bucket at 10 MB (documented) | High / High | S0.8 verification before S0.9a; ADR-13 signed direct uploads; bucket raised by the user before deploy |
 | R-03 | COORDINADOR users lose project creation/edit (S0.7) | Medium / Medium | D-02 resolved (applied directly); release note, CTA hidden in UI, 403 copy explains; membership in S2.6 restores executor access |
 | R-04 | Test churn from v1 project tests | High / Low | Removed by the direct path: there are no v1 project tests in this branch, because the v1 module was never shipped (re-scoped from the original 419-case risk) |
