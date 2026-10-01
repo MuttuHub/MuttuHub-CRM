@@ -229,11 +229,14 @@ function errorMessage(error: unknown): string {
 }
 
 async function writeLote(tx: unknown, loteId: string): Promise<void> {
+  // `auditoriaCambio` is the generated Prisma delegate for the auditoria_cambios
+  // table; the table's @@map name is not a client accessor (`writeLote` must use
+  // the same name every real Prisma transaction client exposes).
   const writer = tx as {
-    auditoria_cambios: { create: (args: { data: Record<string, unknown> }) => Promise<unknown> }
+    auditoriaCambio: { create: (args: { data: Record<string, unknown> }) => Promise<unknown> }
   }
 
-  await writer.auditoria_cambios.create({
+  await writer.auditoriaCambio.create({
     data: {
       usuario_id: "migracion_v2",
       accion: "IMPORTAR",

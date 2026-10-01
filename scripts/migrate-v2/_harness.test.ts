@@ -36,7 +36,12 @@ const samplePlan: Plan = {
   actions: [{ key: "rubro:R05", description: "create budget line" }],
 }
 
-type FakeTx = { auditoria_cambios: { create: (args: unknown) => Promise<unknown> } }
+// `auditoriaCambio` is the REAL generated Prisma delegate name; the table's
+// `@@map("auditoria_cambios")` is not a client accessor. The fake must expose
+// exactly the name `writeLote` writes through — with the snake_case table name
+// this object leaves `tx.auditoria_cambios` undefined and the apply tests fail,
+// which is what exposed the original harness defect.
+type FakeTx = { auditoriaCambio: { create: (args: unknown) => Promise<unknown> } }
 
 function fakeDb() {
   const calls: { options?: { timeout?: number }; wrote: boolean }[] = []
@@ -47,7 +52,7 @@ function fakeDb() {
       calls.push(record)
 
       const tx: FakeTx = {
-        auditoria_cambios: {
+        auditoriaCambio: {
           create: async () => {
             record.wrote = true
             return {}
