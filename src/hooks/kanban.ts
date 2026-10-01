@@ -20,6 +20,12 @@ import {
 } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiDelete, apiGet, apiPatch, apiPost, ApiError, type ApiVoid } from "@/lib/api/http";
+import {
+  ALLOWED_FILE_EXTENSIONS,
+  MAX_FILE_BYTES,
+  MAX_FILE_MB,
+  isAllowedFileType,
+} from "@/lib/api/files";
 import type { EstadoTarea, OrigenTarea, PrioridadTarea, RolUsuario } from "@prisma/client";
 import type { TaskItem, TaskListResponse } from "@/hooks/crm";
 
@@ -509,30 +515,40 @@ export function formatBytes(bytes: number | null | undefined): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export const ALLOWED_ATTACHMENT_EXT = [
-  "pdf",
-  "docx",
-  "xlsx",
-  "jpg",
-  "png",
-  "doc",
-  "ppt",
-  "pptx",
-  "csv",
-  "txt",
-  "jpeg",
-  "heic",
-  "zip",
-];
-export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+/* ── Adjuntos: política única compartida con el servidor (S0.9a) ──────── */
+
+// Display names for the shared allowlist (src/lib/api/files.ts), kept in the
+// set's own order. The UI must not advertise a type or a size the API rejects,
+// so both are derived from the shared module instead of being retyped here.
+const EXTENSION_LABELS: Record<string, string> = {
+  pdf: "PDF",
+  docx: "Word",
+  xlsx: "Excel",
+  pptx: "PowerPoint",
+  jpg: "JPG",
+  jpeg: "JPEG",
+  png: "PNG",
+};
+
+export const ALLOWED_ATTACHMENT_EXT = [...ALLOWED_FILE_EXTENSIONS];
+
+/** "PDF, Word, Excel, PowerPoint, JPG, JPEG, PNG" — the shared allowlist as user-facing text. */
+export const ALLOWED_ATTACHMENT_LABEL = ALLOWED_ATTACHMENT_EXT.map(
+  (ext) => EXTENSION_LABELS[ext] ?? ext.toUpperCase(),
+).join(", ");
+
+export const MAX_ATTACHMENT_BYTES = MAX_FILE_BYTES;
 
 export function attachmentValidationError(file: File): string | null {
-  const ext = (file.name.split(".").pop() ?? "").toLowerCase();
-  if (!ALLOWED_ATTACHMENT_EXT.includes(ext)) {
-    return "Solo se aceptan PDF, Word, Excel, PowerPoint, CSV, TXT, ZIP, JPG, JPEG, PNG o HEIC.";
+  // Same rule the API applies (allowed extension AND an allowed-or-empty
+  // MIME), so the client does not accept a file the server would answer with a
+  // 400. MIME mismatches matter: a `.docx` reported by the OS as a different
+  // MIME is rejected by the API too.
+  if (!isAllowedFileType(file)) {
+    return `Solo se aceptan ${ALLOWED_ATTACHMENT_LABEL}.`;
   }
   if (file.size > MAX_ATTACHMENT_BYTES) {
-    return "El archivo supera el límite de 25 MB.";
+    return `El archivo supera el límite de ${MAX_FILE_MB} MB.`;
   }
   return null;
 }

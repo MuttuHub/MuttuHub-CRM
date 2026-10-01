@@ -474,9 +474,10 @@ registry.registerPath({
   tags: ["Tareas"],
   summary: "Sube un adjunto a la tarea (multipart/form-data)",
   description:
-    `${WRITE_SCOPE_NOTE} Límite 10 MB (413 FILE_TOO_LARGE por encima); solo se aceptan PDF, Word (.docx), ` +
-    "Excel (.xlsx), JPG o PNG — validado por extensión O por MIME (400 VALIDATION_ERROR si ninguno matchea; " +
-    "algunos clientes como curl mandan application/octet-stream aunque el archivo sea válido). Se sube al bucket " +
+    `${WRITE_SCOPE_NOTE} Límite 25 MB por defecto (configurable vía MAX_FILE_SIZE_MB; 413 FILE_TOO_LARGE por encima). ` +
+    "Solo se aceptan PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), JPG, JPEG o PNG: validado por extensión " +
+    "Y por MIME (400 VALIDATION_ERROR si alguno no matchea; se aceptan MIME vacío o application/octet-stream para " +
+    "clientes como curl, que mandan ese valor aunque el archivo sea válido). Se sube al bucket " +
     "de Supabase Storage con el cliente de service role; sin credenciales de Supabase configuradas, 500 " +
     "INTERNAL_ERROR (el storage no puede funcionar sin ellas). `download_url` en la respuesta es un signed URL " +
     "de 60 s (string plano; ver nota en TaskAttachmentCreated).",

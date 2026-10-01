@@ -23,7 +23,7 @@ import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { parsePagination } from "@/lib/api/crm";
 import { canReadRestrictedDocs } from "@/lib/permissions";
 import { logAudit } from "@/lib/api/audit";
-import { documentStoragePath, isAllowedFileType, MAX_FILE_BYTES, STORAGE_BUCKET } from "@/lib/api/files";
+import { documentStoragePath, isAllowedFileType, MAX_FILE_BYTES, MAX_FILE_MB, STORAGE_BUCKET } from "@/lib/api/files";
 import { extractForVersion } from "@/lib/api/extract-text";
 import {
   buildDocumentWhere,
@@ -84,16 +84,17 @@ export async function parseUploadForm(
   if (!(file instanceof File)) {
     return { ok: false, response: apiError("Adjunta un archivo en el campo 'file'.", 400, "VALIDATION_ERROR") };
   }
-  // Extensión O MIME en el set permitido: clientes (p.ej. curl) mandan
-  // application/octet-stream incluso para archivos válidos.
+  // Extensión permitida Y MIME permitido o vacío (política única, S0.9a):
+  // clientes (p.ej. curl) mandan application/octet-stream incluso para
+  // archivos válidos.
   if (!isAllowedFileType(file)) {
     return {
       ok: false,
-      response: apiError("Solo se aceptan PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), JPG o PNG.", 400, "VALIDATION_ERROR"),
+      response: apiError("Solo se aceptan PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), JPG/JPEG o PNG.", 400, "VALIDATION_ERROR"),
     };
   }
   if (file.size > MAX_FILE_BYTES) {
-    return { ok: false, response: apiError("El archivo supera el límite de 10 MB.", 413, "FILE_TOO_LARGE") };
+    return { ok: false, response: apiError(`El archivo supera el límite de ${MAX_FILE_MB} MB.`, 413, "FILE_TOO_LARGE") };
   }
 
   const rawTitulo = form.get("titulo");

@@ -1983,6 +1983,36 @@ honour 25 MB — **D-04 is resolved to the signed direct upload of ADR-13**. Ful
 - **Commit:** `docs(odd): record verified upload limits and approach (S0.8)` · **PR-01** (or its own if late).
 
 #### S0.9a — Unified upload policy: 25 MB, light types, never delete (S)
+**DONE 2026-10-01.** One policy now lives in `src/lib/api/files.ts` and everything derives from it: the two upload
+routes that exist, the client hook, both UI surfaces and the OpenAPI descriptions. Final policy: limit
+`MAX_FILE_SIZE_MB` when it is a plain positive integer, else **25 MB**; extensions
+`{pdf, docx, xlsx, pptx, jpg, jpeg, png}`; `isAllowedFileType` = **allowed extension AND (allowed MIME or empty or
+`application/octet-stream`)** — it used to be OR, which let `report.exe` through on a PDF MIME. The attachments
+route's duplicate constants and its 13-type wider list are gone; the documents 413 message no longer hardcodes
+10 MB. 14 paths, +409/−117 plus a new 120-line guard spec; suite **123 files / 1143 tests green**, `tsc` 0 errors,
+eslint clean.
+
+- **Scope recalibrated before writing:** `src/app/api/v1/projects/[id]/attachments/route.ts`,
+  `src/components/proyectos/soporte-dialog.tsx` and `src/hooks/projects.ts` in the original file list **do not exist**
+  (they belong to a later v2 slice) → deferred there. `src/app/api/v1/documents/[id]/versions/route.ts` also uploads
+  and was missing from the list → included.
+- **Deliberate deviations:** `jpeg` was **added** to the extension allowlist (same format as `jpg`; rejecting the
+  extension would be an accidental regression, not a narrowing); the two 400 messages now say "JPG/JPEG" (they
+  under-advertised what the code accepts — the same defect class as R3-001); and the env override is validated as a
+  plain integer, so `MAX_FILE_SIZE_MB="5abc"`/`"2.9"` falls back to 25 MB instead of silently setting 5 MB/2 MB.
+- **Follow-ups recorded (not silent gaps):** (1) **documentation drift** — `README.md:33,408`,
+  `docs/Muttu_Hub_PRD_v2.md:562,1037` and `voy-a-hacer-un-synthetic-rabin.md:249` still say 10 MB; fixing them is
+  deferred until S0.9b lands **and** the bucket is raised, because advertising 25 MB while production still caps at
+  4.5 MB/10 MB would be the more misleading statement; (2) the never-delete guard's regexes do not cover
+  `storage.update()`, `upload(..., { upsert: true })`, `deleteBucket`/`emptyBucket`/`createBucket`, variable-bound
+  bucket objects, or anything outside `src/` — harden when S0.9b adds signed-upload code paths; (3) the AND rule
+  rejects an allowed extension sent with a legacy MIME such as `application/vnd.ms-excel` / `application/vnd.ms-word`
+  (spec-compliant, but a plausible real-client tightening) — widening the MIME set is a **product decision**;
+  (4) `MAX_FILE_SIZE_MB` is not `NEXT_PUBLIC_`, so the browser resolves it to undefined and the UI always advertises
+  the 25 MB default while a deployment with a different value enforces that other value (pre-existing class; fix path
+  is a `NEXT_PUBLIC_` variable or a server-provided prop); (5) 153 of 315 tracked `src/**/*.{ts,tsx}` files lack a
+  trailing newline — a repo-wide normalisation, if wanted, belongs in its own slice.
+
 - **Goal:** REQ-FIL-01..03 for ALL uploads.
 - **Files:** `src/lib/api/files.ts` (+ test): `MAX_FILE_BYTES` from `MAX_FILE_SIZE_MB` default 25; `isAllowedFileType`
   = extension AND (MIME allowed or empty/octet-stream); `src/app/api/v1/tasks/[id]/attachments/route.ts` (drop its
@@ -1999,6 +2029,12 @@ honour 25 MB — **D-04 is resolved to the signed direct upload of ADR-13**. Ful
 - **Commit:** `feat(files): unify upload policy at 25 MB with strict type allowlist (S0.9a)` · **PR-07**.
 
 #### S0.9b — Direct-to-storage signed upload (M, conditional)
+- **Scope recalibrated 2026-10-01:** `src/app/api/v1/projects/[id]/attachments/route.ts` and `src/hooks/projects.ts`
+  in the list below **do not exist yet** (later slice) → out of scope. In scope: NEW `src/lib/api/signed-upload.ts`,
+  NEW `src/app/api/v1/uploads/sign/route.ts`, the confirm mode in `src/app/api/v1/documents/route.ts` and
+  `src/app/api/v1/tasks/[id]/attachments/route.ts`, and `src/hooks/documents.ts`. **Gate satisfied:** D-04 resolved
+  to signed direct upload, because the 4.5 MB Vercel body limit is a platform constant that binds before the app's
+  own checks (§6.7).
 - **Goal:** ADR-13 — only if S0.8 confirms the hosting body limit < 25 MB.
 - **Files:** NEW `src/lib/api/signed-upload.ts` (+ test), NEW `src/app/api/v1/uploads/sign/route.ts` (+ test),
   `src/app/api/v1/projects/[id]/attachments/route.ts` (confirm mode), `src/app/api/v1/documents/route.ts`,
@@ -2660,6 +2696,7 @@ never to a v1→v2 migration, which does not exist.
 | 2026-10-01 | **S0.7 project permission predicates** | delegated writer + independent verifier (read-only) | see the commit after `959ca33` | Scope recalibrated first (`src/lib/api/projects.ts`, `src/app/api/v1/projects/**`, `src/components/proyectos/**`, `src/lib/openapi/paths/projects.ts` absent on this branch → route/UI 403 tests deferred to S2.x). RED: 13 new cases failed with `TypeError: <predicate> is not a function`. GREEN: **63 tests** across `permissions.test.ts` + `permissions.read.test.ts`; `tsc` 0 errors; eslint clean; `git diff -U0` = single append hunk, 0 deletions. Verifier confirmed all 13 predicates against the contract, **zero `canManageAny`** in the new block, no write predicate reading the gerencial flag | — | Verifier blocked the commit on two untested positive branches (`canViewFinancialSupports` membership; `canApproveBaseline`/`canApproveModification` manager-true) — both closed, +1 test and +1 assertion. Deliberate behaviour changes vs v1: `canCreateProject` and `canManageProject` no longer admit a non-manager responsable |
 | 2026-10-01 | **CP-4 test-suite envelope** | orchestrator (measurement) + independent verifier | `86a6e9d` (first config revision) | Root cause isolated: one full suite is green (122 files / 1122 tests) but **two concurrent suites fail 6-7 tests each** in `src/components/crm/*` and `scripts/migrate-v2/_guard.test.ts` (`Test timed out in 5000ms`, pointer-events), while those same specs pass in isolation. `vitest.config.ts` now pins `pool: "threads"` and `maxWorkers: 4`; three sequential non-contended runs were green ×3, `tsc` 0 errors, eslint clean, single 13-line additive hunk | — | The verifier **refuted** the first revision: `minWorkers` does not exist in vitest 4.1.10 and broke `tsc` (TS2769) — removed. It also corrected two numbers in my comment (unreproduced `environment` figures, available RAM) so the recorded envelope matches what was actually observed |
 | 2026-10-01 | **S0.8 upload-limit verification** | orchestrator (read-only) | see the commit after `4866d8a` | All five checks resolved into facts, two of them without the dashboard: the remote bucket `muttu-docs` `file_size_limit` = **10485760 B (10 MB)**, `public=false`, no MIME restriction (read-only Storage API `getBucket` with the service key from `.env`); Vercel Function body limit = **4.5 MB** (documented platform constant, 413 `FUNCTION_PAYLOAD_TOO_LARGE`); `proxyClientMaxBodySize` default 10 MB but **not applicable** (`src/proxy.ts:91` excludes `api`); local storage 50 MiB; app limits 10 MB documents / 25 MB task attachments | — | **D-04 resolved**: the 4.5 MB platform limit binds before the app's own checks, so multipart cannot honour 25 MB → signed direct upload (ADR-13) with the bucket raised to 25 MB by the user. Recorded dev/prod asymmetry: local 50 MiB vs remote 10 MB. No writes, no dashboard read |
+| 2026-10-01 | **S0.9a unified upload policy** | delegated writer (2 rounds) + independent verifier (read-only) | see the commit after `50eabf6` | Policy unified in `src/lib/api/files.ts`: 25 MB default with a strict-integer `MAX_FILE_SIZE_MB` override, allowlist `{pdf,docx,xlsx,pptx,jpg,jpeg,png}`, `isAllowedFileType` = extension **AND** (allowed MIME or empty/octet-stream); the attachments route's duplicate constants and 13-type list deleted; documents 413 message no longer hardcodes 10 MB; client hook, both UI surfaces and the OpenAPI descriptions derive from the shared module; NEW never-delete guard spec. Suite **123 files / 1143 tests green** (baseline 122/1122, +21 tests accounted for exactly), `tsc` 0 errors, eslint clean, 14 paths | — | Verifier blocked nothing (`READY TO COMMIT: yes`) but listed five real findings; three were closed inside the unit (JPG/JPEG messages, strict env validation, trailing newline) and two are recorded follow-ups (docs drift deferred until 25 MB is real end-to-end; never-delete regex coverage), plus the Office-MIME product decision |
 | 2026-10-01 | **S0.10 production drift record** | orchestrator (read-only audit + docs) | `0dc08ec` (docs commit after it) | Read-only audit of the shared remote: 28 public tables; **all 8 abandoned v1 project tables present** with **4 rows total**; `auditoria_cambios` **absent**; **12 applied migrations** including the phantom `20260918153200_tablero_seguimiento_social`, which exists in **no branch** of the repo yet is recoverable from `6e4c6c8`. TLS never weakened, no table scans (catalog estimates first), no writes | — | Recorded in §6.9 + R-16 + D-10; §6.5 now forbids `migrate dev` against production; R-01 corrected (the no-bypass refusal is in the guarded entry points, not in the Prisma CLI). Decision: touch nothing in production now; v2 is additive and collides with none of the leftovers |
 
 **Upload limits record (S0.8, measured 2026-10-01).** Every check is now a fact, and the last unknown was closed
@@ -2694,7 +2731,7 @@ with `tsc` 0 errors and eslint clean. The "115 files / 1027 tests" figure record
 | D-02 | ~~COORDINADOR restriction timing~~ — **RESOLVED 2026-09-30**: applied directly to the project write paths (no flag exists) | — | S0.7 |
 | D-03 | Chain strategy for PRs: `stacked-to-main` vs `feature-branch-chain` | ask at first PR over budget | PR-06+ |
 | D-04 | ~~Upload approach after S0.8: multipart through routes vs signed direct upload~~ — **RESOLVED 2026-10-01 by measurement**: the Vercel Function body limit is a **4.5 MB platform constant** and binds before the route's own 10 MB / 25 MB checks, so multipart cannot honour 25 MB. Chosen: **signed direct upload (ADR-13)**, which keeps the bytes out of the function. The user must raise the `muttu-docs` bucket limit from 10 MB to 25 MB before deploy. | — | — |
-| D-05 | Narrow task-attachment types to pdf/docx/xlsx/pptx/jpg/png (drops doc, ppt, csv, txt, zip…) | narrow (user rule "solo livianos office/imagen") | S0.9a |
+| D-05 | ~~Narrow task-attachment types to pdf/docx/xlsx/pptx/jpg/png (drops doc, ppt, csv, txt, zip…)~~ — **APPLIED 2026-10-01** with the documented default (narrow), per the user's recorded rule "solo livianos office/imagen". `jpeg` was added to the allowlist on purpose (same format as `jpg`). This was not an explicit user confirmation: if any of `doc`, `ppt`, `csv`, `txt`, `zip` or `heic` must stay, it is a one-line revert in `src/lib/api/files.ts` plus the message strings. | narrow (applied) | — |
 | D-06 | COORDINADOR access to the Tablero gerencial: scoped to member projects vs none | scoped (A-02) | S2.6, S9.2 |
 | D-07 | Commit the untracked `openspec/changes/proyecto-financiero-tab/{proposal,design}.md` before marking superseded | ask | S0.1 |
 | D-08 | PDF engine (N-23) | none — blocks S9.3b only | S9.3b |

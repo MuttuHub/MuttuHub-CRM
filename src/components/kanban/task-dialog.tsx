@@ -48,7 +48,9 @@ import {
   TASK_TAGS,
 } from "@/lib/catalogs";
 import { formatFechaHora, iniciales } from "@/hooks/crm";
+import { MAX_FILE_MB } from "@/lib/api/files";
 import {
+  ALLOWED_ATTACHMENT_LABEL,
   attachmentValidationError,
   formatBytes,
   useAddComment,
@@ -659,7 +661,7 @@ function CommentSection({ taskId }: { taskId: string }) {
   }
 }
 
-/* ── Adjuntos (validación cliente: tipo + 25 MB) ───────────────────────── */
+/* ── Adjuntos (validación cliente: política única compartida — tipo + MAX_FILE_MB) ── */
 
 function AttachmentSection({ taskId }: { taskId: string }) {
   const { data: adjuntos = [], isLoading } = useAttachments(taskId);
@@ -723,8 +725,7 @@ function AttachmentSection({ taskId }: { taskId: string }) {
           Subir archivo
         </Button>
         <span className="text-[11.5px] text-ink-600">
-          PDF, Word, Excel, PowerPoint, CSV, TXT, ZIP, JPG, JPEG, PNG o HEIC · máx 25 MB · o
-          arrastra el archivo aquí
+          {ALLOWED_ATTACHMENT_LABEL} · máx {MAX_FILE_MB} MB · o arrastra el archivo aquí
         </span>
       </div>
     </section>

@@ -1,7 +1,8 @@
 // GET/POST /api/v1/documents/:id/versions — historial y subida de versiones
 // (PRD §6.2 "Versionado").
-// POST: multipart/form-data con el campo `file` (mismas reglas que la
-// creación: <= 10 MB, PDF/DOCX/XLSX/JPG/PNG). La versión nueva siempre es
+// POST: multipart/form-data con el campo `file` (política única compartida con
+// la creación, src/lib/api/files.ts: <= 25 MB configurables, PDF/DOCX/XLSX/
+// PPTX/JPG/JPEG/PNG). La versión nueva siempre es
 // max(numero_version) + 1 y pasa a ser la activa (el botón principal de
 // descarga usa la de mayor numero). El versionado nunca es automático por
 // detección de nombre de archivo.

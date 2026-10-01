@@ -1,6 +1,8 @@
 // Diálogo "Subir documento" del Repositorio (PRD §6.2): dropzone con
-// drag&drop o clic (mismas reglas de archivo que la API: PDF/DOCX/XLSX/JPG/PNG
-// hasta 10 MB), título autocompletado desde el nombre del archivo (editable),
+// drag&drop o clic (política única de archivo de la app, src/lib/api/files.ts:
+// PDF/DOCX/XLSX/PPTX/JPG/JPEG/PNG hasta 25 MB configurables — la UI deriva de
+// ahí tanto el texto como el `accept`, para no prometer algo que la API
+// rechaza), título autocompletado desde el nombre del archivo (editable),
 // categoría obligatoria, etiquetas en chips (Enter/comma, máx 8) y cliente
 // vinculable opcional. FileDropzone se reutiliza en el diálogo "Subir nueva
 // versión" de la ficha (document-dialog.tsx).
@@ -29,7 +31,9 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { DOC_CATEGORIES } from "@/lib/catalogs";
+import { ALLOWED_FILE_EXTENSIONS, MAX_FILE_MB } from "@/lib/api/files";
 import {
+  ALLOWED_ATTACHMENT_LABEL,
   attachmentValidationError,
   formatBytes,
   useClientOptions,
@@ -42,6 +46,10 @@ import {
 } from "@/hooks/documents";
 
 /* ── Dropzone compartida (crear documento y nueva versión) ─────────────── */
+
+// Built from the shared allowlist so the file picker can never advertise a
+// type the API rejects.
+const FILE_ACCEPT = [...ALLOWED_FILE_EXTENSIONS].map((ext) => `.${ext}`).join(",");
 
 export function FileDropzone({
   file,
@@ -130,13 +138,13 @@ export function FileDropzone({
           Arrastra el archivo aquí o haz clic para seleccionarlo
         </span>
         <span className="text-[12px] text-ink-500">
-          PDF · Word (.docx) · Excel (.xlsx) · PowerPoint (.pptx) · JPG · PNG · máx. 10 MB
+          {ALLOWED_ATTACHMENT_LABEL} · máx. {MAX_FILE_MB} MB
         </span>
       </button>
       <input
         ref={inputRef}
         type="file"
-        accept=".pdf,.docx,.xlsx,.pptx,.jpg,.jpeg,.png"
+        accept={FILE_ACCEPT}
         className="hidden"
         onChange={(e) => accept(e.target.files?.[0] ?? null)}
       />

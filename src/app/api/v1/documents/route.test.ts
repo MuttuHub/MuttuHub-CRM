@@ -341,16 +341,69 @@ describe("POST /api/v1/documents", () => {
     expect(db.documento.create).not.toHaveBeenCalled();
   });
 
-  it("rejects a file over the 10 MB limit (413)", async () => {
-    const bigFile = new File([new Uint8Array(10 * 1024 * 1024 + 1)], "grande.pdf", {
+  // S0.9a: the ceiling moved from a hardcoded 10 MB to the shared 25 MB
+  // (MAX_FILE_SIZE_MB). The size guard runs before any DB write, so an
+  // over-limit body answers 413 with no document fixture at all.
+  it("rejects a file over the 25 MB limit (413)", async () => {
+    const bigFile = new File([new Uint8Array(25 * 1024 * 1024 + 1)], "grande.pdf", {
       type: "application/pdf",
     });
 
     const res = await POST(postRequest(uploadForm({ categoria: "Comercial" }, bigFile)));
 
     expect(res.status).toBe(413);
-    expect(await res.json()).toMatchObject({ code: "FILE_TOO_LARGE" });
+    const body = await res.json();
+    expect(body).toMatchObject({ code: "FILE_TOO_LARGE" });
+    expect(body.error).toBe("El archivo supera el límite de 25 MB.");
     expect(db.documento.create).not.toHaveBeenCalled();
+  });
+
+  it("accepts exactly 25 MB", async () => {
+    vi.mocked(db.documento.create).mockResolvedValue(docRow({ id: "doc-limite", categoria: "Comercial" }));
+    vi.mocked(db.documentoVersion.create).mockResolvedValue({
+      id: "v-limite",
+      documento_id: "doc-limite",
+      numero_version: 1,
+      storage_path: "documentos/general/doc-limite/v1_limite.pdf",
+      tamano_bytes: 25 * 1024 * 1024,
+      tipo_archivo: "application/pdf",
+      subido_por_id: "admin-1",
+      created_at: new Date("2026-01-01"),
+      contenido_texto: null,
+      texto_estado: null,
+    } as never);
+    const atLimit = new File([new Uint8Array(25 * 1024 * 1024)], "limite.pdf", {
+      type: "application/pdf",
+    });
+
+    const res = await POST(postRequest(uploadForm({ categoria: "Comercial" }, atLimit)));
+
+    expect(res.status).toBe(201);
+  });
+
+  // The behaviour change itself, not just the new ceiling: 10 MB + 1 byte is
+  // the exact size the old 10 MB policy rejected and the unified policy accepts.
+  it("accepts a 10 MB + 1 byte file the old 10 MB ceiling rejected (S0.9a)", async () => {
+    vi.mocked(db.documento.create).mockResolvedValue(docRow({ id: "doc-11", categoria: "Comercial" }));
+    vi.mocked(db.documentoVersion.create).mockResolvedValue({
+      id: "v-11",
+      documento_id: "doc-11",
+      numero_version: 1,
+      storage_path: "documentos/general/doc-11/v1_once.pdf",
+      tamano_bytes: 10 * 1024 * 1024 + 1,
+      tipo_archivo: "application/pdf",
+      subido_por_id: "admin-1",
+      created_at: new Date("2026-01-01"),
+      contenido_texto: null,
+      texto_estado: null,
+    } as never);
+    const onceRejected = new File([new Uint8Array(10 * 1024 * 1024 + 1)], "once.pdf", {
+      type: "application/pdf",
+    });
+
+    const res = await POST(postRequest(uploadForm({ categoria: "Comercial" }, onceRejected)));
+
+    expect(res.status).toBe(201);
   });
 
   it("returns 400 when the form has no 'file' field", async () => {

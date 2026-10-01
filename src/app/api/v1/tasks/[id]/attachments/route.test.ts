@@ -185,7 +185,7 @@ describe("POST /api/v1/tasks/:id/attachments", () => {
     expect(db.adjuntoTarea.create).not.toHaveBeenCalled();
   });
 
-  it("accepts allowed extensions/MIME types: pdf, docx, xlsx, jpg, png, doc, ppt, pptx, csv, txt, jpeg, heic, zip", async () => {
+  it("accepts only the shared allowlist: pdf, docx, xlsx, pptx, jpg, jpeg, png", async () => {
     authAs(gerencia);
     vi.mocked(isSupabaseConfigured).mockReturnValue(true);
     vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow({ responsable_id: "gerencia-1" }) as never);
@@ -199,18 +199,12 @@ describe("POST /api/v1/tasks/:id/attachments", () => {
       new File([new Uint8Array([1])], "c.xlsx", {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       }),
-      new File([new Uint8Array([1])], "d.jpg", { type: "image/jpeg" }),
-      new File([new Uint8Array([1])], "e.png", { type: "image/png" }),
-      new File([new Uint8Array([1])], "f.doc", { type: "application/msword" }),
-      new File([new Uint8Array([1])], "g.ppt", { type: "application/vnd.ms-powerpoint" }),
-      new File([new Uint8Array([1])], "h.pptx", {
+      new File([new Uint8Array([1])], "d.pptx", {
         type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
       }),
-      new File([new Uint8Array([1])], "i.csv", { type: "text/csv" }),
-      new File([new Uint8Array([1])], "j.txt", { type: "text/plain" }),
-      new File([new Uint8Array([1])], "k.jpeg", { type: "image/jpeg" }),
-      new File([new Uint8Array([1])], "l.heic", { type: "image/heic" }),
-      new File([new Uint8Array([1])], "m.zip", { type: "application/zip" }),
+      new File([new Uint8Array([1])], "e.jpg", { type: "image/jpeg" }),
+      new File([new Uint8Array([1])], "f.jpeg", { type: "image/jpeg" }),
+      new File([new Uint8Array([1])], "g.png", { type: "image/png" }),
     ];
 
     for (const file of files) {
@@ -221,8 +215,49 @@ describe("POST /api/v1/tasks/:id/attachments", () => {
         created_at: new Date("2026-01-01"),
       } as never);
       const res = await POST(postRequest(uploadForm(file)), routeContext);
-      expect(res.status).toBe(201);
+      expect(res.status, `${file.name} should be accepted`).toBe(201);
     }
+  });
+
+  // S0.9a: task attachments used to run their own, wider policy (doc, ppt,
+  // csv, txt, heic, zip + a duplicated 25 MB constant). They now share the
+  // single allowlist from @/lib/api/files, so the removed types must fail
+  // with the shared message.
+  it("rejects a .zip attachment now that the policy is unified", async () => {
+    authAs(gerencia);
+    vi.mocked(isSupabaseConfigured).mockReturnValue(true);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow({ responsable_id: "gerencia-1" }) as never);
+    const zip = new File([new Uint8Array([1])], "paquete.zip", { type: "application/zip" });
+
+    const res = await POST(postRequest(uploadForm(zip)), routeContext);
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body).toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(body.error).toBe(
+      "Solo se aceptan PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), JPG/JPEG o PNG.",
+    );
+    expect(db.adjuntoTarea.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects the other types dropped from the widened task list (doc, ppt, csv, txt, heic)", async () => {
+    authAs(gerencia);
+    vi.mocked(isSupabaseConfigured).mockReturnValue(true);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow({ responsable_id: "gerencia-1" }) as never);
+
+    const dropped: File[] = [
+      new File([new Uint8Array([1])], "viejo.doc", { type: "application/msword" }),
+      new File([new Uint8Array([1])], "viejo.ppt", { type: "application/vnd.ms-powerpoint" }),
+      new File([new Uint8Array([1])], "datos.csv", { type: "text/csv" }),
+      new File([new Uint8Array([1])], "notas.txt", { type: "text/plain" }),
+      new File([new Uint8Array([1])], "foto.heic", { type: "image/heic" }),
+    ];
+
+    for (const file of dropped) {
+      const res = await POST(postRequest(uploadForm(file)), routeContext);
+      expect(res.status, `${file.name} should be rejected`).toBe(400);
+    }
+    expect(db.adjuntoTarea.create).not.toHaveBeenCalled();
   });
 
   it("rejects a file over the 25 MB limit (413)", async () => {
@@ -235,8 +270,31 @@ describe("POST /api/v1/tasks/:id/attachments", () => {
     const res = await POST(postRequest(uploadForm(bigFile)), routeContext);
 
     expect(res.status).toBe(413);
-    expect(await res.json()).toMatchObject({ code: "FILE_TOO_LARGE" });
+    const body = await res.json();
+    expect(body).toMatchObject({ code: "FILE_TOO_LARGE" });
+    // The message interpolates the shared MAX_FILE_MB, not a literal.
+    expect(body.error).toBe("El archivo supera el límite de 25 MB.");
     expect(db.adjuntoTarea.create).not.toHaveBeenCalled();
+  });
+
+  it("accepts exactly 25 MB (the limit is exclusive)", async () => {
+    authAs(gerencia);
+    vi.mocked(isSupabaseConfigured).mockReturnValue(true);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow({ responsable_id: "gerencia-1" }) as never);
+    vi.mocked(db.adjuntoTarea.create).mockResolvedValue({
+      id: "a-limite",
+      nombre: "limite.pdf",
+      tamano_bytes: 25 * 1024 * 1024,
+      created_at: new Date("2026-01-01"),
+    } as never);
+    mockUploadOk();
+    const atLimit = new File([new Uint8Array(25 * 1024 * 1024)], "limite.pdf", {
+      type: "application/pdf",
+    });
+
+    const res = await POST(postRequest(uploadForm(atLimit)), routeContext);
+
+    expect(res.status).toBe(201);
   });
 
   it("honors MAX_FILE_SIZE_MB env override for the size limit", async () => {

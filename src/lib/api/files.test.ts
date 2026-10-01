@@ -1,5 +1,13 @@
-import { describe, expect, it } from "vitest";
-import { isAllowedFileType, fileExtension, sanitizeFileName } from "./files";
+import { describe, expect, it, vi } from "vitest";
+import {
+  ALLOWED_FILE_EXTENSIONS,
+  DEFAULT_MAX_FILE_MB,
+  MAX_FILE_BYTES,
+  MAX_FILE_MB,
+  isAllowedFileType,
+  fileExtension,
+  sanitizeFileName,
+} from "./files";
 
 describe("sanitizeFileName", () => {
   // Regression: Supabase Storage rejects keys with spaces/diacritics as
@@ -19,11 +27,15 @@ describe("isAllowedFileType — .pptx (plan Fase 2, 4A-bis)", () => {
     expect(isAllowedFileType(file)).toBe(true);
   });
 
-  it("accepts a .pptx by MIME type", () => {
+  // S0.9a: the rule changed from OR to AND. A friendly MIME used to carry a
+  // file on its own, so `sin-extension` with a PPTX MIME was accepted. The
+  // extension now decides the identity and the MIME may only confirm it: a
+  // file with no allowed extension is rejected no matter what it declares.
+  it("rejects a MIME-only file with no allowed extension (AND rule)", () => {
     const file = new File([new Uint8Array([1, 2, 3])], "sin-extension", {
       type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     });
-    expect(isAllowedFileType(file)).toBe(true);
+    expect(isAllowedFileType(file)).toBe(false);
   });
 
   it("still rejects an unallowed type (both extension and MIME)", () => {
@@ -44,5 +56,94 @@ describe("isAllowedFileType — .pptx (plan Fase 2, 4A-bis)", () => {
 describe("fileExtension", () => {
   it("lowercases and strips the dot", () => {
     expect(fileExtension("DECK.PPTX")).toBe("pptx");
+  });
+});
+
+describe("unified upload policy — 25 MB and a strict allowlist (S0.9a)", () => {
+  it("rejects a 25 MB + 1 byte file with the 25 MB message", () => {
+    // The shared guard every upload route applies is `file.size > MAX_FILE_BYTES`
+    // and the 413 message they render interpolates MAX_FILE_MB, so these two
+    // values are what make the user read "supera el límite de 25 MB."
+    // (The byte-exact 413 body is asserted in the route tests, where the whole
+    // request/response cycle is observable.)
+    expect(DEFAULT_MAX_FILE_MB).toBe(25);
+    expect(MAX_FILE_MB).toBe(25);
+    expect(MAX_FILE_BYTES).toBe(25 * 1024 * 1024);
+    expect(25 * 1024 * 1024 + 1 > MAX_FILE_BYTES).toBe(true);
+  });
+
+  it("accepts exactly 25 MB", () => {
+    const exactlyTwentyFiveMb = 25 * 1024 * 1024;
+    expect(MAX_FILE_BYTES).toBe(exactlyTwentyFiveMb);
+    // Boundary is exclusive: 25 MB + 1 byte is rejected, exactly 25 MB is not.
+    expect(exactlyTwentyFiveMb > MAX_FILE_BYTES).toBe(false);
+  });
+
+  it("rejects report.exe sent with MIME application/pdf", () => {
+    // Regression the AND rule exists for: the old OR check let a disallowed
+    // extension through on a friendly MIME (an executable labelled as PDF).
+    const spoofed = new File([new Uint8Array([1])], "report.exe", { type: "application/pdf" });
+    expect(isAllowedFileType(spoofed)).toBe(false);
+  });
+
+  it("accepts photo.JPG with an empty MIME", () => {
+    const file = new File([new Uint8Array([1])], "photo.JPG", { type: "" });
+    expect(isAllowedFileType(file)).toBe(true);
+  });
+
+  it("accepts photo.jpeg with an empty MIME", () => {
+    // `.jpeg` is the same format as `.jpg`; rejecting it would be an
+    // accidental regression, not a policy narrowing.
+    const file = new File([new Uint8Array([1])], "photo.jpeg", { type: "" });
+    expect(isAllowedFileType(file)).toBe(true);
+  });
+
+  it("keeps the allowlist narrow: pdf, docx, xlsx, pptx, jpg, jpeg, png only", () => {
+    expect([...ALLOWED_FILE_EXTENSIONS].sort()).toEqual([
+      "docx",
+      "jpeg",
+      "jpg",
+      "pdf",
+      "png",
+      "pptx",
+      "xlsx",
+    ]);
+  });
+
+  it("MAX_FILE_SIZE_MB overrides the default", async () => {
+    const original = process.env.MAX_FILE_SIZE_MB;
+    try {
+      for (const [configured, expected] of [["5", 5], ["10", 10]] as const) {
+        process.env.MAX_FILE_SIZE_MB = configured;
+        vi.resetModules();
+        const reloaded = await import("./files");
+        expect(reloaded.MAX_FILE_MB, `MAX_FILE_SIZE_MB=${configured}`).toBe(expected);
+        expect(reloaded.MAX_FILE_BYTES).toBe(expected * 1024 * 1024);
+        expect(reloaded.DEFAULT_MAX_FILE_MB).toBe(25);
+      }
+    } finally {
+      if (original === undefined) delete process.env.MAX_FILE_SIZE_MB;
+      else process.env.MAX_FILE_SIZE_MB = original;
+      vi.resetModules();
+    }
+  });
+
+  it("falls back to the 25 MB default when MAX_FILE_SIZE_MB is unusable", async () => {
+    const original = process.env.MAX_FILE_SIZE_MB;
+    try {
+      // "5abc" and "2.9" matter: Number.parseInt would read them as 5 and 2, so
+      // an operator typo would silently LOWER the limit instead of falling back.
+      for (const unusable of ["", "not-a-number", "0", "-3", "5abc", "2.9"]) {
+        process.env.MAX_FILE_SIZE_MB = unusable;
+        vi.resetModules();
+        const reloaded = await import("./files");
+        expect(reloaded.MAX_FILE_MB, `MAX_FILE_SIZE_MB=${JSON.stringify(unusable)}`).toBe(25);
+        expect(reloaded.MAX_FILE_BYTES).toBe(25 * 1024 * 1024);
+      }
+    } finally {
+      if (original === undefined) delete process.env.MAX_FILE_SIZE_MB;
+      else process.env.MAX_FILE_SIZE_MB = original;
+      vi.resetModules();
+    }
   });
 });

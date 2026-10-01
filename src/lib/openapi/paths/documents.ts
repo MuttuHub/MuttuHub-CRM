@@ -128,7 +128,10 @@ const DocumentVersionCreateResponseSchema = registry.register(
 const CreateDocumentFormSchema = z.object({
   file: z.string().openapi({
     format: "binary",
-    description: "PDF, Word (.docx), Excel (.xlsx), JPG o PNG (por extensión O por MIME). Máx 10 MB.",
+    description:
+      "PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), JPG, JPEG o PNG. Máx 25 MB " +
+      "(configurable vía MAX_FILE_SIZE_MB). Validación por extensión Y MIME: la extensión debe estar en la lista y " +
+      "el MIME debe estar permitido o venir vacío/application-octet-stream.",
   }),
   titulo: z.string().max(200).optional().openapi({
     description: "Si se omite, se usa el nombre del archivo sin extensión (recortado a 200 caracteres).",
@@ -152,7 +155,10 @@ const CreateDocumentFormSchema = z.object({
 const CreateVersionFormSchema = z.object({
   file: z.string().openapi({
     format: "binary",
-    description: "PDF, Word (.docx), Excel (.xlsx), JPG o PNG (por extensión O por MIME). Máx 10 MB.",
+    description:
+      "PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), JPG, JPEG o PNG. Máx 25 MB " +
+      "(configurable vía MAX_FILE_SIZE_MB). Validación por extensión Y MIME: la extensión debe estar en la lista y " +
+      "el MIME debe estar permitido o venir vacío/application-octet-stream.",
   }),
   titulo: z.string().optional().openapi({
     description: "Aceptado por el parser compartido pero ignorado por esta ruta.",
