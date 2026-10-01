@@ -150,7 +150,9 @@ Verified 2026-09-30 against the repository:
 | 2026-09-30 | Diagnosis + ODD-01..04 decisions | — | PR triage verified via local git ancestry; working tree restored after a dry cherry-pick probe | No remote action taken yet |
 | 2026-09-30 | Scope limit recorded | — | — | Local-only until explicit approval; Phase 1 gated. `gh` account = `MuttuHub`; merge style = squash |
 | 2026-09-30 | Session 2: rebase onto `main` + baseline re-verification | `5f4e4a8` (branch tip; every v2 commit rewritten) | `tsc` 0 errors; `vitest` 120 files / 1094 tests green in 48.8 s; Docker up; `.env.local` loopback | `96c4c5c` dropped as already-applied; `CLAUDE.md` note kept uncommitted; **no source written** |
-| 2026-10-01 | Session 3: `CLAUDE.md` closed + S0.6 migration safety kit | `bd7cc00` (docs) + the S0.6 commit | S0.6: RED both spec files unresolved → GREEN 13 tests (5 guard + 8 harness); `tsc` 0 errors; eslint clean; `s1-rubros-report` read-only, host `127.0.0.1:54322`, zero-valued row; `storage-orphans` 11/11/0/0; independent verifier confirmed guard-first import, hash-before-write, one 120 s `$transaction`, `list()`-only storage, and `.gitignore` as the only modified tracked file | S0.4/S0.5 hash table below is now stale by one commit |
+| 2026-10-01 | Session 3: `CLAUDE.md` closed + S0.6 migration safety kit | `bd7cc00` (docs) + `108c682` (S0.6) | S0.6: RED both spec files unresolved → GREEN 13 tests (5 guard + 8 harness); `tsc` 0 errors; eslint clean; `s1-rubros-report` read-only, host `127.0.0.1:54322`, zero-valued row; `storage-orphans` 11/11/0/0; independent verifier confirmed guard-first import, hash-before-write, one 120 s `$transaction`, `list()`-only storage, and `.gitignore` as the only modified tracked file | S0.4/S0.5 hash table below is now stale by one commit |
+| 2026-10-01 | Session 3: native review of S0.6 (R3-001 fixed) | `959ca33` | 4 lenses ran (host relay, ~293 s); 1 CRITICAL deterministic finding (R3-001: truncated plan hash) fixed RED-first → 13/13 green, `tsc` 0 errors, eslint clean; 12-line correction plan accepted | Review left open at `correction_required`: the final targeted-validation slot is unreachable from the Pi facade, so nothing was approved |
+| 2026-10-01 | Session 3: S0.7 project permission predicates | see the commit after `959ca33` | Scope recalibrated (v1 paths absent → route/UI 403 tests deferred to S2.x); RED 13 failures → GREEN **63 tests**, `tsc` 0 errors, eslint clean, `git diff -U0` = one pure append hunk with 0 deletions | Verifier confirmed all 13 predicates, zero `canManageAny`, no write predicate reading the gerencial flag; blocked commit on two untested positive branches, both closed |
 
 ### Session 3 detail (2026-10-01)
 
@@ -163,6 +165,39 @@ Verified 2026-09-30 against the repository:
 - **D-09 resolved by the user:** only **GERENCIA + ADMINISTRADOR** may create/manage projects. RF v2.0 §3's "Gestor" is not adopted. **S0.7 is therefore unblocked** and must keep COORDINADOR out of project management.
 
 ### Next task: S0.7 — project permission predicates (USER-RESOLVED, no longer gated)
+
+#### S0.7 — DONE 2026-10-01
+
+- **Scope recalibrated before writing.** The SDD's file list for S0.7 named `src/lib/api/projects.ts`,
+  `src/app/api/v1/projects/**`, `src/components/proyectos/**` and `src/lib/openapi/paths/projects.ts`; **none of
+  them exist on this branch** (they were v1). Delivered: the pure predicates in `src/lib/permissions.ts` plus
+  their tests. The three route-level 403 tests and the UI CTA test are **deferred to S2.x**, where the v2 routes
+  and components will exist.
+- **Delivered:** `PROJECT_MANAGER_ROLES = ["ADMINISTRADOR", "GERENCIA"]`, `ProjectActor`,
+  `ProjectMembershipActor`, and `canManageProjects`, `canCreateProject`, `canManageProject`, `canExecuteProject`,
+  `canViewProjectV2`, `canViewFinancialSupports`, `canValidateExpense`, `canApproveBaseline`,
+  `canApproveModification`, `canViewPortfolio`.
+- **Behaviour changes vs v1 (deliberate):** a COORDINADOR can no longer create a project, and ownership alone no
+  longer grants management (a COLABORADOR responsable is denied). The shared `canManageAny` and every pre-existing
+  export are byte-identical — `git diff -U0` is a single pure append hunk with 0 deletions.
+- **Verified:** RED first (`TypeError: <predicate> is not a function`) → **63 tests** green across
+  `permissions.test.ts` + `permissions.read.test.ts`; `tsc` 0 errors; eslint clean. An independent verifier checked
+  all 13 predicates against the contract and confirmed zero `canManageAny` calls and no write predicate reading
+  the gerencial flag; it blocked the commit on two untested positive branches, which were then closed.
+- **How to reuse this in S2.x:** `canViewPortfolio` deliberately uses `PROJECT_MANAGER_ROLES || flag`, not
+  `canManageAny`, so a COORDINADOR gets no global portfolio view — keep the P01–P18 mapping in SDD §4.7 as the
+  source of truth when wiring the routes.
+
+### Session 3 also left one open item: the S0.6 review lineage
+
+The native review of S0.6 (`review-5f975df81d7b1418`) is **intentionally left open at
+`authority.state = correction_required`**. Its one CRITICAL finding was fixed and committed (`959ca33`) and the
+12-line correction plan was accepted, but the final `collect/targeted_validation_required` slot cannot be driven
+from the Pi facade (it cannot carry a `base-ref`; with a clean tree it answers
+`empty_candidate_base_ref_required`), and the validator verdict must be admitted natively rather than authored by
+Pi. No approval and no closure were recorded, so **the review endorses nothing**; delivery remains an ordinary
+human decision and the work is local-only. Details and workarounds are in memory
+(`muttuhub-crm/native-review/environment-blockers`, `gentle-ai/pi-facade/review-routing-defects`).
 
 ## State at session close (2026-09-30)
 

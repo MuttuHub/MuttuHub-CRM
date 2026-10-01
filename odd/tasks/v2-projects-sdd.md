@@ -1921,13 +1921,27 @@ scoping is exercised only at harness level.
 - **Deps:** none. **Gate:** none. **Lines:** ~30. **Commit:** `docs(openspec): mark v1 project changes superseded by v2 (S0.1)` · **PR-01**.
 
 #### S0.7 — Project permission predicates; COORDINADOR out of project management (M)
+**DONE 2026-10-01.** Scope recalibrated before writing: `src/lib/api/projects.ts`, `src/app/api/v1/projects/**`,
+`src/components/proyectos/**` and `src/lib/openapi/paths/projects.ts` **do not exist on this branch** (they belonged
+to the never-shipped v1 module), so this task delivers the pure predicates and their tests only; the three route
+403 tests and the UI "hides the Crear proyecto CTA" test move to the slice that builds the v2 routes (S2.x).
+14 new test cases (34 → 48 cases in `permissions.test.ts`) plus one added during verification
+(`canApproveBaseline`/`canApproveModification` manager-true); `permissions.test.ts` +
+`permissions.read.test.ts` = **63 green**; `tsc` 0 errors; eslint clean. The pre-existing exports are
+byte-identical: `git diff -U0` shows a single pure append (`@@ -67,0 +68,120 @@`), 0 deletions. Independent verifier
+confirmed every predicate against the contract, **zero `canManageAny` calls** in the new block and **no write
+predicate reading the gerencial flag**. Deviations: `canViewFinancialSupports` and `canExecuteProject` are granted
+to a COORDINADOR by **membership**, never by the flag, so the flag's non-granting is asserted with a
+non-member fixture (a COORDINADOR member does get the financial axis); `canViewPortfolio` uses
+`PROJECT_MANAGER_ROLES || flag`, deliberately NOT `canManageAny`, so a COORDINADOR gets no global portfolio view.
+
 - **Goal:** REQ-ACC-01, REQ-ACC-04 predicates, ADR-08; behavior change tested.
-- **Files:** `src/lib/permissions.ts`, `src/lib/permissions.test.ts`, `src/lib/api/projects.ts`,
-  `src/app/api/v1/projects/route.test.ts`, `src/app/api/v1/projects/[id]/route.test.ts` (+ any of the 15 route
-  tests using a COORDINADOR manager fixture — found via `rg -l "COORDINADOR" src/app/api/v1/projects`),
-  `src/app/api/v1/clients/[id]/opportunities/[opportunityId]/project/route.test.ts`,
-  `src/components/proyectos/project-list.test.tsx`, `src/lib/openapi/paths/projects.ts`,
-  `src/lib/openapi/paths/dashboard-admin.ts`, `src/components/admin/users-table.tsx` (comment).
+- **Files (RECALIBRATED 2026-10-01):** `src/lib/permissions.ts`, `src/lib/permissions.test.ts`. The original list
+  here named `src/lib/api/projects.ts`, `src/app/api/v1/projects/{route,[id]/route}.test.ts`, the opportunities→
+  project route test, `src/components/proyectos/project-list.test.tsx`, `src/lib/openapi/paths/projects.ts`,
+  `src/lib/openapi/paths/dashboard-admin.ts` and `src/components/admin/users-table.tsx` — **none of the project
+  ones exist on this branch**; only the two `src/lib/permissions*` files are real. Do not re-add the v1 paths to
+  this task.
 - **RED** (`permissions.test.ts`):
   - `it("canCreateProject is true only for ADMINISTRADOR and GERENCIA")`
   - `it("canManageProject denies a COORDINADOR on a project they are not responsable of")`
@@ -1937,10 +1951,11 @@ scoping is exercised only at harness level.
   - `it("canValidateExpense denies the user who registered the expense")`
   - `it("canManageAny still includes COORDINADOR for clients, tasks and documents")` (regression)
   - `it("puede_ver_tablero_gerencial never grants write in any project predicate")`
-- **RED** (routes): `it("POST /api/v1/projects returns 403 for COORDINADOR")`,
+- **RED** (routes) — **DEFERRED to S2.x** (2026-10-01): `it("POST /api/v1/projects returns 403 for COORDINADOR")`,
   `it("POST .../opportunities/:oid/project returns 403 for COORDINADOR")`,
-  `it("PATCH /api/v1/projects/:id returns 403 for a non-responsable COORDINADOR")`;
-  (UI) `it("hides the Crear proyecto CTA for COORDINADOR")`.
+  `it("PATCH /api/v1/projects/:id returns 403 for a non-responsable COORDINADOR")` and the UI
+  `it("hides the Crear proyecto CTA for COORDINADOR")` cannot be written here: no v2 project route, component or
+  openapi path exists yet. They are part of the acceptance of the first v2 project route slice.
 - **Commands:** `npx vitest run src/lib/permissions.test.ts src/lib/permissions.read.test.ts src/app/api/v1/projects src/components/proyectos/project-list.test.tsx "src/app/api/v1/clients/[id]/opportunities/[opportunityId]/project"`; CMD-STD.
 - **Acceptance:** all green; clients/tasks/documents suites unchanged and green.
 - **Deps:** none. **Gate:** N-01, DP-02, DP-06 — all USER-RESOLVED; **D-02** resolved 2026-09-30: the
@@ -2608,7 +2623,9 @@ never to a v1→v2 migration, which does not exist.
 | 2026-09-30 | **S0.5 pure week and money libraries** | orchestrator (inline, TDD) | see the commit after `93eac47` | RED: both test files failed to resolve their modules. GREEN: **36 tests** (17 `weeks` + 19 `money`); `tsc` 0 errors; eslint clean; `rg -n "parseFloat|Number\(" src/lib/proyectos/money.ts` **empty**; no `@/lib/db` or `next/*` import | — | Deviations: `formatCOP` renders `"$ 59.500.000"` (space, matching Intl `es-CO`) computed in bigint; ES2017 target untouched so `BigInt(...)` replaces bigint literals; `dateToWeek` dropped (no caller) |
 | 2026-09-30 | **Local DB reset to the branch schema** | user-authorized (Prisma AI-agent guard satisfied with the user's exact consent text) | n/a | Before: 13 migrations in `_prisma_migrations` and 8 extra abandoned tables (`proyectos`, `metas`, `actividades`, `gastos`, `rubros`, `indicadores`, `lineas_presupuestales`, `soportes_proyecto`) with data. After: **11 migrations, zero abandoned tables**, seed re-run (12 clientes / 4 usuarios / 20 tareas / 10 oportunidades / 8 documentos) | — | `prisma migrate reset` **does not run the seed**; it had to be run explicitly. Also needed `db:generate:local`: the generated client was from Sep 25 (v1 branch) and still carried `puede_ver_tablero_gerencial`. `scripts/seed-proyectos-demo.ts` (untracked, v1) was parked as `.ts.bak` because it broke `tsc` once the client was regenerated |
 | 2026-09-30 | **S0.4 append-only auditoria_cambios** | orchestrator (inline, TDD) | see the commit after the S0.5 one | RED: unit file failed to resolve its module. GREEN: **16 tests** (12 unit + 4 live-DB invariant: INSERT accepted, UPDATE / DELETE / TRUNCATE rejected by trigger); `tsc` 0 errors; eslint clean; `logAudit` untouched; migrations 12 and in sync | — | First v2 migration, created through `db:migrate:local` (the `.env.local` wrapper), not `npx` |
-| 2026-10-01 | **S0.6 migration safety kit** | delegated writer + independent verifier (read-only) | see the commit after `adbe604` | RED: both spec files failed to resolve (`_harness` absent, `__fixtures__/guard-probe.ts` absent). GREEN: **13 tests** (5 guard spawned against a fake env, 8 harness against a fake `$transaction` client); `tsc` 0 errors; eslint clean; `s1-rubros-report` → 1 zero-valued row, host `127.0.0.1:54322`, `storage-orphans` → 11 rows / 11 objects / 0 rows-without-object / 0 objects-without-row; independent verifier confirmed no `$transaction` on the dry-run path, hash-check before write, one 120 s transaction, `list()`-only storage access, and that only `.gitignore` changed among tracked files | — | Verifier's two findings were wording-level ("only .gitignore + scripts/migrate-v2 in status" — there were 11 entries, the rest pre-existing; "0 rows" — one zero-valued row). Unfixed residuals recorded in the S0.6 block. `CLAUDE.md` committed separately as `bd7cc00` before this task |
+| 2026-10-01 | **S0.6 migration safety kit** | delegated writer + independent verifier (read-only) | `108c682` | RED: both spec files failed to resolve (`_harness` absent, `__fixtures__/guard-probe.ts` absent). GREEN: **13 tests** (5 guard spawned against a fake env, 8 harness against a fake `$transaction` client); `tsc` 0 errors; eslint clean; `s1-rubros-report` → 1 zero-valued row, host `127.0.0.1:54322`, `storage-orphans` → 11 rows / 11 objects / 0 rows-without-object / 0 objects-without-row; independent verifier confirmed no `$transaction` on the dry-run path, hash-check before write, one 120 s transaction, `list()`-only storage access, and that only `.gitignore` changed among tracked files | — | Verifier's two findings were wording-level ("only .gitignore + scripts/migrate-v2 in status" — there were 11 entries, the rest pre-existing; "0 rows" — one zero-valued row). Unfixed residuals recorded in the S0.6 block. `CLAUDE.md` committed separately as `bd7cc00` before this task |
+| 2026-10-01 | **Native review of S0.6 → R3-001 CRITICAL → fixed** | native 4-lens review + delegated writer (correction) | `959ca33` | Lineage `review-5f975df81d7b1418`, candidate = the S0.6 work unit (10 files / 1018 lines, tier **high**, correction budget 200). 4 lenses ran (host relay, ~293 s; prompts ~65 KB, results 3.4–8.4 KB). One finding: **R3-001** (reliability, CRITICAL, deterministic, introduced) — the dry-run printed only 12 chars of the plan hash and returned no hash, so `--apply --expect-hash <sha>` could never obtain the reviewed value. Fixed with RED first (`Received: undefined` → 13/13 green, `tsc` 0 errors, eslint clean); correction plan of **12 diff lines** accepted by the provider | — | The correction had to be **committed** before native could see it (`stop/corrected_candidate_unavailable` otherwise). Authority stayed at `correction_required`: the final `collect/targeted_validation_required` slot is unreachable from the Pi facade (it cannot carry a `base-ref`, so with a clean tree it reports `empty_candidate_base_ref_required`), and the validator verdict must not be authored by Pi. **The review closed nothing and approves no delivery.** Lineage intentionally left open, recorded in memory |
+| 2026-10-01 | **S0.7 project permission predicates** | delegated writer + independent verifier (read-only) | see the commit after `959ca33` | Scope recalibrated first (`src/lib/api/projects.ts`, `src/app/api/v1/projects/**`, `src/components/proyectos/**`, `src/lib/openapi/paths/projects.ts` absent on this branch → route/UI 403 tests deferred to S2.x). RED: 13 new cases failed with `TypeError: <predicate> is not a function`. GREEN: **63 tests** across `permissions.test.ts` + `permissions.read.test.ts`; `tsc` 0 errors; eslint clean; `git diff -U0` = single append hunk, 0 deletions. Verifier confirmed all 13 predicates against the contract, **zero `canManageAny`** in the new block, no write predicate reading the gerencial flag | — | Verifier blocked the commit on two untested positive branches (`canViewFinancialSupports` membership; `canApproveBaseline`/`canApproveModification` manager-true) — both closed, +1 test and +1 assertion. Deliberate behaviour changes vs v1: `canCreateProject` and `canManageProject` no longer admit a non-manager responsable |
 
 Upload limits record (S0.8): _pending_. Baseline suite result (Step 2 of §1.2): _pending_.
 
