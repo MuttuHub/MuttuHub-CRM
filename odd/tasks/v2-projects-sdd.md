@@ -2012,6 +2012,25 @@ eslint clean.
   the 25 MB default while a deployment with a different value enforces that other value (pre-existing class; fix path
   is a `NEXT_PUBLIC_` variable or a server-provided prop); (5) 153 of 315 tracked `src/**/*.{ts,tsx}` files lack a
   trailing newline — a repo-wide normalisation, if wanted, belongs in its own slice.
+- **Native review: APPROVED and acknowledged (2026-10-01).** Lineage `review-f168688ab3c24e95`, candidate = this work
+  unit only (15 files / 699 lines, tier **medium**, one lens: `review-reliability`). Consent was relayed, the review ran
+  via the Pi host relay (1 model run, ~6 min), the outcome was `approved`, and the acknowledgement burned the authority
+  (`gentle-ai.review-acknowledged/v1`). This is the first native review cycle completed end to end in this project —
+  the S0.6 lineage is still stranded at `correction_required` because the post-correction validator slot cannot be
+  driven from the Pi facade. Three **non-blocking advisory findings** were recorded with the closure and must be treated
+  as separate later work, never as a reason to re-run the review on this candidate:
+  - **R3-001** (WARNING, `src/lib/api/files.ts:98`) — the silent-MIME escape: a file with an allowed extension always
+    passes when the client sends no MIME or `application/octet-stream`, so the **extension is the real identity** and a
+    renamed executable slips through. Intentional (curl sends `octet-stream` for valid files) but a residual that must
+    be stated rather than implied. Fix path if wanted: magic-byte sniffing, a product decision.
+  - **R3-002** (WARNING, `src/hooks/kanban.ts:540`) — `MAX_FILE_SIZE_MB` is not `NEXT_PUBLIC_`, so the browser always
+    resolves the 25 MB default while a deployment with another value enforces that other value: the client can accept
+    what the server rejects. Fix path: expose the effective limit (a `NEXT_PUBLIC_` variable or a server-provided prop).
+  - **R3-003** (SUGGESTION, `src/lib/api/files.test.ts:69-71`) — the test titled "rejects a 25 MB + 1 byte file with the
+    25 MB message" exercises no file and no message: it only compares constants and arithmetic. Make it drive a real
+    `File` (or retitle it and lean on the route-level 413 assertions that do).
+  All three are folded into the next upload-related work unit (S0.9b), except the magic-byte question, which is a
+  product decision.
 
 - **Goal:** REQ-FIL-01..03 for ALL uploads.
 - **Files:** `src/lib/api/files.ts` (+ test): `MAX_FILE_BYTES` from `MAX_FILE_SIZE_MB` default 25; `isAllowedFileType`
