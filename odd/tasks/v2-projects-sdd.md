@@ -2005,6 +2005,21 @@ non-member fixture (a COORDINADOR member does get the financial axis); `canViewP
 
 ### 5.2 Slice S1 — Catalogs and admin (RF-33, RF-34, RF-35)
 
+#### S0.10 — Production drift record and the cleanup decision (S, docs + human-gated)
+**DONE 2026-10-01.** The verified production state is recorded in §6.9 (8 abandoned v1 tables with 4 rows total,
+`auditoria_cambios` absent, 12 applied migrations including the phantom `20260918153200_tablero_seguimiento_social`),
+R-16 was added, D-10 records the "leave them" default, §6.5 now forbids `migrate dev` against production, and the
+R-01 cell was corrected: the no-bypass refusal lives in the guarded entry points, not in the Prisma CLI.
+
+- **Goal:** keep the measured production state and the migration drift in the plan of record so no future
+  promotion starts from a false model of production.
+- **Files:** this document (§6.5, §6.7, §6.8, §6.9) and `odd/tasks/v2-projects-execution.md`. Docs only.
+- **TDD:** n/a. **Acceptance:** §6.9 carries the measured numbers; R-16 and D-10 exist; §6.5 warns about the phantom
+  migration and forbids `prisma migrate dev` against production.
+- **Deps:** none. **Gate:** the cleanup itself (D-10) is the user's and is explicitly **out of scope** here — this
+  task never writes to production. **Lines:** ~70. **Commit:** `docs(odd): record the verified production state and
+  the migration drift (S0.10)`.
+
 #### S1.1a — Rubro catalog R01–R15 with immutable codes and suspend-not-delete (M)
 - **Goal:** REQ-CAT-01/02 for rubros.
 - **Files:** `prisma/schema.prisma` (Rubro fields); migration `<ts>_v2_rubros_codigo` (columns + `rubros_codigo_inmutable`
@@ -2587,10 +2602,18 @@ never to a v1→v2 migration, which does not exist.
 | Idempotency | second `--apply` reports 0 actions | yes |
 
 ### 6.5 Remote promotion checklist (human-run only — agents never execute these)
+
+> **Production is not this repository.** Production carries 8 abandoned v1 project tables and an applied
+> migration (`20260918153200_tablero_seguimiento_social`) that exists in no branch of this repo. Read §6.9 before
+> promoting anything. **Never run `prisma migrate dev` against production**, and never reconstruct production's
+> schema from this repository: `_prisma_migrations` is the only authority for what production has.
+
 1. Announce a maintenance window.
 2. `pg_dump` backup of the remote database (user's tooling); verify the dump restores into a scratch DB.
 3. Raise the `muttu-docs` bucket `file_size_limit` to 25 MB if S0.9a is being deployed (Supabase dashboard).
-4. Apply pending migrations to the remote DB from a human terminal (`prisma migrate deploy` with the remote env).
+4. Apply pending migrations to the remote DB from a human terminal with `prisma migrate deploy` — **never
+   `migrate dev`**: it compares the directory with the database, will flag
+   `20260918153200_tablero_seguimiento_social` as applied-but-absent, and can try to reconcile by resetting.
 5. For each data script, run the human entrypoint `promote-remote.ts` in dry-run, review decisions, then apply
    with `--expect-hash <sha>` copied from that dry-run. The harness refuses `--apply` without a hash, refuses a
    recomputed mismatch *before* writing anything, and writes one `IMPORTAR` lote row per applied script.
@@ -2600,6 +2623,9 @@ never to a v1→v2 migration, which does not exist.
 8. To undo a single applied script before a full restore, use `--revert <lote_id>`: it is scoped to the rows that
    lote created and touches nothing else. `promote-remote.ts` does not exist yet — it is written only when the
    user authorizes promotion, and agents never create or run it (CLAUDE.md DB rule).
+9. Cleaning up the abandoned v1 tables is **D-10** and deliberately lives outside this checklist: it is a
+   destructive remote operation, it needs its own verified backup and a reviewed migration, and no agent ever runs
+   it. `migrate deploy` will never remove them on its own.
 
 ### 6.6 Review checklist (per PR)
 - Authorization: matrix row(s) covered by tests; no `canManageAny` in new project code; VIS never in write paths.
@@ -2626,6 +2652,7 @@ never to a v1→v2 migration, which does not exist.
 | 2026-10-01 | **S0.6 migration safety kit** | delegated writer + independent verifier (read-only) | `108c682` | RED: both spec files failed to resolve (`_harness` absent, `__fixtures__/guard-probe.ts` absent). GREEN: **13 tests** (5 guard spawned against a fake env, 8 harness against a fake `$transaction` client); `tsc` 0 errors; eslint clean; `s1-rubros-report` → 1 zero-valued row, host `127.0.0.1:54322`, `storage-orphans` → 11 rows / 11 objects / 0 rows-without-object / 0 objects-without-row; independent verifier confirmed no `$transaction` on the dry-run path, hash-check before write, one 120 s transaction, `list()`-only storage access, and that only `.gitignore` changed among tracked files | — | Verifier's two findings were wording-level ("only .gitignore + scripts/migrate-v2 in status" — there were 11 entries, the rest pre-existing; "0 rows" — one zero-valued row). Unfixed residuals recorded in the S0.6 block. `CLAUDE.md` committed separately as `bd7cc00` before this task |
 | 2026-10-01 | **Native review of S0.6 → R3-001 CRITICAL → fixed** | native 4-lens review + delegated writer (correction) | `959ca33` | Lineage `review-5f975df81d7b1418`, candidate = the S0.6 work unit (10 files / 1018 lines, tier **high**, correction budget 200). 4 lenses ran (host relay, ~293 s; prompts ~65 KB, results 3.4–8.4 KB). One finding: **R3-001** (reliability, CRITICAL, deterministic, introduced) — the dry-run printed only 12 chars of the plan hash and returned no hash, so `--apply --expect-hash <sha>` could never obtain the reviewed value. Fixed with RED first (`Received: undefined` → 13/13 green, `tsc` 0 errors, eslint clean); correction plan of **12 diff lines** accepted by the provider | — | The correction had to be **committed** before native could see it (`stop/corrected_candidate_unavailable` otherwise). Authority stayed at `correction_required`: the final `collect/targeted_validation_required` slot is unreachable from the Pi facade (it cannot carry a `base-ref`, so with a clean tree it reports `empty_candidate_base_ref_required`), and the validator verdict must not be authored by Pi. **The review closed nothing and approves no delivery.** Lineage intentionally left open, recorded in memory |
 | 2026-10-01 | **S0.7 project permission predicates** | delegated writer + independent verifier (read-only) | see the commit after `959ca33` | Scope recalibrated first (`src/lib/api/projects.ts`, `src/app/api/v1/projects/**`, `src/components/proyectos/**`, `src/lib/openapi/paths/projects.ts` absent on this branch → route/UI 403 tests deferred to S2.x). RED: 13 new cases failed with `TypeError: <predicate> is not a function`. GREEN: **63 tests** across `permissions.test.ts` + `permissions.read.test.ts`; `tsc` 0 errors; eslint clean; `git diff -U0` = single append hunk, 0 deletions. Verifier confirmed all 13 predicates against the contract, **zero `canManageAny`** in the new block, no write predicate reading the gerencial flag | — | Verifier blocked the commit on two untested positive branches (`canViewFinancialSupports` membership; `canApproveBaseline`/`canApproveModification` manager-true) — both closed, +1 test and +1 assertion. Deliberate behaviour changes vs v1: `canCreateProject` and `canManageProject` no longer admit a non-manager responsable |
+| 2026-10-01 | **S0.10 production drift record** | orchestrator (read-only audit + docs) | `0dc08ec` (docs commit after it) | Read-only audit of the shared remote: 28 public tables; **all 8 abandoned v1 project tables present** with **4 rows total**; `auditoria_cambios` **absent**; **12 applied migrations** including the phantom `20260918153200_tablero_seguimiento_social`, which exists in **no branch** of the repo yet is recoverable from `6e4c6c8`. TLS never weakened, no table scans (catalog estimates first), no writes | — | Recorded in §6.9 + R-16 + D-10; §6.5 now forbids `migrate dev` against production; R-01 corrected (the no-bypass refusal is in the guarded entry points, not in the Prisma CLI). Decision: touch nothing in production now; v2 is additive and collides with none of the leftovers |
 
 Upload limits record (S0.8): _pending_. Baseline suite result (Step 2 of §1.2): _pending_.
 
@@ -2641,13 +2668,60 @@ Upload limits record (S0.8): _pending_. Baseline suite result (Step 2 of §1.2):
 | D-07 | Commit the untracked `openspec/changes/proyecto-financiero-tab/{proposal,design}.md` before marking superseded | ask | S0.1 |
 | D-08 | PDF engine (N-23) | none — blocks S9.3b only | S9.3b |
 | D-09 | ~~Who can create projects~~ — **RESOLVED 2026-10-01 by the user**: only **GERENCIA + ADMINISTRADOR** (`PROJECT_MANAGER_ROLES`), i.e. the recorded decision wins over RF v2.0 §3's "Gestor". No GESTOR role is introduced and COORDINADOR stays out of project management. | — | — |
+| D-10 | Fate of the 8 inert v1 project tables in production (4 rows total, no code reads them): leave them, or drop them with a verified backup and a reviewed migration | **leave them** — zero risk and v2 is additive | production promotion step (§6.5 item 9) |
+
+### 6.9 Production state (verified 2026-10-01, read-only)
+
+Measured on 2026-10-01 with read-only `SELECT`s against the shared remote
+(`aws-1-us-west-2.pooler.supabase.com:5432` — the only remote instance, i.e. PRODUCTION). Credentials were read
+from `.env` and never appeared on a command line or in any output; **TLS verification was left at its default**
+(never weakened); no table scan was run — catalog estimates first (`pg_class` / `n_live_tup`), exact `count(*)`
+only on the tables under examination. No writes occurred.
+
+| Fact | Measurement |
+|---|---|
+| Public tables | 28 |
+| Abandoned v1 project tables | **all 8 present**: `proyectos`, `metas`, `actividades`, `gastos`, `rubros`, `indicadores`, `soportes_proyecto`, `lineas_presupuestales` |
+| Rows in them | **4 in total** (`rubros` 4; all seven others 0). ~4.1 MB of empty relations and indexes |
+| `auditoria_cambios` (v2, S0.4) | **absent** — the branch has not leaked into production |
+| Applied migrations on production | **12**, including `20260918153200_tablero_seguimiento_social`, which **exists in no branch of this repository** |
+| Migration sets | `main` 11; this branch 12 (`…_oportunidades_comerciales` + `20260930181056_v2_auditoria_cambios`); production 12 (the 11 of `main` + the phantom one) |
+
+**Interpretation.** "The v1 module was never shipped" is true of the *application* and **false of the *database***.
+R-06 remains correct about `main` (no v1 models in `schema.prisma`), and the previously recorded "0 production rows"
+is confirmed for `proyectos`/`metas`/`actividades` — but the tables themselves do exist in production. The concrete
+consequence: **the rows are inert, the schema is not absent, and this repository does not describe production.**
+
+**The phantom migration is recoverable.** `20260918153200_tablero_seguimiento_social` was added by commit
+`6e4c6c8` ("feat(tablero): esquema y migracion del modulo de seguimiento social") and is still present in the
+`feat/tablero-seguimiento-*` and v1 chain branches. So the abandoned module was named "tablero de seguimiento
+social" first and later renamed "proyectos": the 8 production tables and the projects v1 chain are the same work.
+This matters because the DDL of those tables is readable on demand, which makes a future reviewed *drop* migration
+feasible without guessing.
+
+**Why the migration file is deliberately NOT restored into this repo.** Adding
+`prisma/migrations/20260918153200_tablero_seguimiento_social/migration.sql` without the matching models in
+`schema.prisma` would leave migrations and schema inconsistent: `prisma migrate dev` would then want to reconcile by
+*removing* those tables, and the already-reset local database would try to apply it and recreate 8 dead tables.
+Documenting the drift and treating `_prisma_migrations` as the authority for production is the lower-risk position.
+
+**Decision (2026-10-01, recorded): touch nothing in production now.** No code on `main` reads those tables, so they
+are inert weight; removing them is cosmetic, needs a verified backup and a reviewed migration, and `migrate deploy`
+can never remove them by itself. The cleanup decision is D-10 and belongs to the promotion step.
+
+**Hard rules derived from this audit**
+1. `prisma migrate deploy` only, from a human terminal; never `migrate dev` against production.
+2. `_prisma_migrations` on the remote is the authority for production's schema; the repo is not.
+3. Any future destructive remote step needs its own `pg_dump`, its own review, and a human to run it.
+4. v2 is additive (`auditoria_cambios` + its own tables), so it collides with none of the leftovers — do not
+   "clean up first" as a precondition for shipping v2; that would add risk for no benefit.
 
 ## 7. Risks, assumptions, open decisions, questions for the PO
 
 ### 7.1 Risks and mitigations
 | ID | Risk | Likelihood / impact | Mitigation |
 |---|---|---|---|
-| R-01 | A migration/backfill runs against the remote `.env` Supabase (real-looking data) | ~~High~~ Low / Critical | **ROOT CAUSE FIXED 2026-09-30 (commit `96c4c5c`).** Plain `npx prisma …` used to resolve `.env` — the shared remote — through `prisma.config.ts`. Now that config loads `.env.local` only, `prisma/require-local-db.ts` refuses any non-loopback target with a credential-free message and no bypass (no flag, argv entry or env var), and the `db:*:local` scripts replace plain `npx`. Measured after the fix: `npx prisma migrate status` reports `127.0.0.1:54322`. Residual risk: a deliberate remote run must export the variables explicitly (§4.5, §6.5) |
+| R-01 | A migration/backfill runs against the remote `.env` Supabase (real-looking data) | ~~High~~ Low / Critical | **ROOT CAUSE FIXED 2026-09-30 (commit `96c4c5c`).** Plain `npx prisma …` used to resolve `.env` — the shared remote — through `prisma.config.ts`. Now that config loads `.env.local` only, a local `npx prisma …` resolves loopback by default, and the `db:*:local` scripts replace plain `npx`. **Precision (corrected 2026-10-01):** the hard refusal with no bypass lives in the *guarded entry points* — `prisma/require-local-db.ts`, imported by the seed, the DB invariant tests, `scripts/backfill-document-text.ts` and `scripts/migrate-v2/_guard.ts` — **not in the Prisma CLI itself**; `prisma.config.ts` only calls `loadLocalEnv()`, so a deliberate remote run remains possible by exporting the variables, which is exactly why the promotion path is human-only (§6.5, §6.9). Measured after the fix: `npx prisma migrate status` reports `127.0.0.1:54322`. Residual risk: a deliberate remote run must export the variables explicitly (§4.5, §6.5) |
 | R-02 | 25 MB uploads fail in production: Vercel request-body limit (~4.5 MB, per Vercel docs — UNVERIFIED for this account) and remote bucket at 10 MB (documented) | High / High | S0.8 verification before S0.9a; ADR-13 signed direct uploads; bucket raised by the user before deploy |
 | R-03 | COORDINADOR users lose project creation/edit (S0.7) | Medium / Medium | D-02 resolved (applied directly); release note, CTA hidden in UI, 403 copy explains; membership in S2.6 restores executor access |
 | R-04 | Test churn from v1 project tests | High / Low | Removed by the direct path: there are no v1 project tests in this branch, because the v1 module was never shipped (re-scoped from the original 419-case risk) |
@@ -2662,6 +2736,7 @@ Upload limits record (S0.8): _pending_. Baseline suite result (Step 2 of §1.2):
 | R-13 | Rounding differences vs the PO spreadsheet | Low / High | Exact cents + half-up tenths; golden test with 56,25 → 56,3 |
 | R-14 | Known failing `prisma/invariant.test.ts` masks new DB failures | Medium / Low | New live-DB tests in separate files; baseline failure recorded |
 | R-15 | PDF export engine incompatible with serverless | Medium / Low | S9.3b gated by N-23/D-08; Excel export ships first |
+| R-16 | **The repository does not describe production**: 8 abandoned v1 project tables (4 rows total) and an applied migration (`20260918153200_tablero_seguimiento_social`) that exists in no branch | Low / Medium | Measured read-only on 2026-10-01 and recorded in §6.9; promotion uses `migrate deploy` only; D-10 decides the cleanup; `_prisma_migrations` is the authority for production |
 
 ### 7.2 Assumptions register
 | ID | Assumption (default) | Where | How to falsify / owner |
