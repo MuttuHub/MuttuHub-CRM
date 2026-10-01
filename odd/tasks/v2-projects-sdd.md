@@ -1399,15 +1399,26 @@ created with `npm run db:migrate` (wraps `--env-file=.env.local`, VERIFIED `pack
 --create-only` first when the SQL needs hand-written CHECKs/triggers/partial indexes, then edited, then applied.
 
 ### 4.5 Data-script design (`scripts/migrate-v2/`)
-- **Guard (S0.6):** `scripts/migrate-v2/_guard.ts` is a side-effect module whose FIRST line is
-  `import "../../prisma/load-local-env";` (reuses `assertLocalDatabaseUrl`, VERIFIED `prisma/local-env.ts`,
-  `prisma/load-local-env.ts`), so importing any script against a non-loopback `DATABASE_URL`, `DIRECT_URL` or
-  `NEXT_PUBLIC_SUPABASE_URL` throws before `@/lib/db` is constructed. The duplicate guard in
-  `scripts/seed-proyectos-demo.ts:42-65` is left as is (not in scope) but noted for later dedupe.
+- **Guard (S0.6, BUILT):** `scripts/migrate-v2/_guard.ts` is a side-effect module whose FIRST statement is
+  `import "../../prisma/require-local-db"` (**corrected 2026-10-01**: this SDD previously named
+  `prisma/load-local-env.ts`, which does not exist; the real side-effect guard is `prisma/require-local-db.ts`,
+  which loads `.env.local` and asserts `DATABASE_URL` + `DIRECT_URL`), so importing any script against a
+  non-loopback `DATABASE_URL`, `DIRECT_URL` or `NEXT_PUBLIC_SUPABASE_URL` throws before `@/lib/db` is
+  constructed. `_guard.ts` then re-runs `assertLocalDatabaseUrl(GUARDED_VARS)` with
+  `GUARDED_VARS = [DATABASE_URL, DIRECT_URL, NEXT_PUBLIC_SUPABASE_URL]` because `REQUIRED_LOCAL_VARS` covers only
+  the two Postgres URLs; `prisma/require-local-db.ts` itself is deliberately NOT widened, because
+  `prisma.config.ts` and `db:generate:local` do not need the Supabase URL. `describeTarget()` prints the host
+  only. Import order is proved by `__fixtures__/guard-probe.ts` (an addition beyond the original file list).
+  The duplicate guard in `scripts/seed-proyectos-demo.ts:42-65` is left as is (not in scope, and the file is
+  parked as `.bak`) but noted for later dedupe.
 - **Invocation:** `npx tsx --env-file=.env.local scripts/migrate-v2/<script>.ts --dry-run` (default when no flag)
   or `--apply` or `--revert <lote_id>`. Never `npx prisma …` without the env file.
-- **Harness (`_harness.ts`):** `runMigration({ name, plan(db) → Plan, apply(tx, plan, lote) })` where `Plan =
-  { counts: Record<string, number>, decisions: DecisionRow[], actions: Action[] }`. `--dry-run` prints the report
+- **Harness (`_harness.ts`, BUILT):** `runMigration({ name, argv, db, plan, apply, revert?, outDir?, now?, print?, host? })`
+  where `Plan = { counts: PlanCount[], decisions: PlanDecision[], actions: PlanAction[], storage? }` and
+  `PlanCount = { entity, existing, to_create, to_update, skipped }` (**deviation**: this SDD wrote
+  `counts: Record<string, number>`, but the count-first table below needs those five columns). The harness is
+  DB-agnostic — it never imports `@/lib/db`; each script imports the guard, then the client, then the harness and
+  injects `db`, so `_harness.test.ts` runs against a hand-written fake with no database or network. `--dry-run` prints the report
   and exits 0 without opening a write transaction. `--apply` re-computes the plan inside ONE
   `db.$transaction` (timeout 120 s), refuses if the plan differs from a `--expect-hash <sha>` value copied from the
   dry-run (prevents applying a plan nobody reviewed), writes a `lote` row to `auditoria_cambios`
@@ -1850,6 +1861,18 @@ errors; eslint clean; `logAudit` untouched (`git diff --stat src/lib/api/audit.t
 carries two cosmetic FK renames Prisma normalised (`bitacora_entradas`, `tareas`).
 
 #### S0.6 — Migration safety kit (M, decision-free)
+**DONE 2026-10-01.** 13 tests green (5 guard + 8 harness); `tsc` 0 errors; eslint clean; both reports run read-only
+against the local Docker DB (host `127.0.0.1:54322`); the dry-run path never calls `$transaction`; `--apply`
+requires a reviewed `--expect-hash` and writes one `IMPORTAR` lote inside a single 120 s transaction, with the
+recompute+compare *before* any write; `--revert` is scoped to one lote. Deviations: the guard wraps
+`prisma/require-local-db` (not the nonexistent `prisma/load-local-env`); `PlanCount` is a five-column row list;
+`__fixtures__/guard-probe.ts` was added to prove import order; `_harness.ts` imports only `connectionTarget` (no
+side-effect guard) so the tests load without a configured DB; `s1-rubros-report.ts` probes `to_regclass` and
+reports zero rows with an explicit "schema not migrated yet" note, because the v2 budget tables do not exist yet;
+`storage-orphans.ts` walks the whole bucket for "rows without object" and restricts "objects without row" to the
+`proyectos/` prefix. Residual (recorded, not blocking): no runtime `revert()` implementation exists yet, so lote
+scoping is exercised only at harness level.
+
 - **Goal:** make it impossible for a v2 data script to write anywhere but the local Docker DB; count-first
   harness; read-only storage orphan report; remote promotion checklist.
 - **Note (2026-09-30):** the loopback guard this task originally had to create **already exists**. `prisma/local-env.ts` + `prisma/require-local-db.ts` and the `db:*:local` scripts landed with commit `96c4c5c` (see §6.7). S0.6 therefore builds only the count-first harness, the read-only storage orphan report and the promotion checklist on top of it.
@@ -2554,9 +2577,14 @@ never to a v1→v2 migration, which does not exist.
 3. Raise the `muttu-docs` bucket `file_size_limit` to 25 MB if S0.9a is being deployed (Supabase dashboard).
 4. Apply pending migrations to the remote DB from a human terminal (`prisma migrate deploy` with the remote env).
 5. For each data script, run the human entrypoint `promote-remote.ts` in dry-run, review decisions, then apply
-   with `--expect-hash`.
-6. Run the §6.4 checks remotely; keep the outputs.
+   with `--expect-hash <sha>` copied from that dry-run. The harness refuses `--apply` without a hash, refuses a
+   recomputed mismatch *before* writing anything, and writes one `IMPORTAR` lote row per applied script.
+6. Run the §6.4 checks remotely; keep the outputs (each dry-run also writes
+   `scripts/migrate-v2/out/<script>-<stamp>.md`; the folder is git-ignored).
 7. Rollback = restore the backup; the schema is additive, so no code rollback is required.
+8. To undo a single applied script before a full restore, use `--revert <lote_id>`: it is scoped to the rows that
+   lote created and touches nothing else. `promote-remote.ts` does not exist yet — it is written only when the
+   user authorizes promotion, and agents never create or run it (CLAUDE.md DB rule).
 
 ### 6.6 Review checklist (per PR)
 - Authorization: matrix row(s) covered by tests; no `canManageAny` in new project code; VIS never in write paths.
@@ -2580,6 +2608,7 @@ never to a v1→v2 migration, which does not exist.
 | 2026-09-30 | **S0.5 pure week and money libraries** | orchestrator (inline, TDD) | see the commit after `93eac47` | RED: both test files failed to resolve their modules. GREEN: **36 tests** (17 `weeks` + 19 `money`); `tsc` 0 errors; eslint clean; `rg -n "parseFloat|Number\(" src/lib/proyectos/money.ts` **empty**; no `@/lib/db` or `next/*` import | — | Deviations: `formatCOP` renders `"$ 59.500.000"` (space, matching Intl `es-CO`) computed in bigint; ES2017 target untouched so `BigInt(...)` replaces bigint literals; `dateToWeek` dropped (no caller) |
 | 2026-09-30 | **Local DB reset to the branch schema** | user-authorized (Prisma AI-agent guard satisfied with the user's exact consent text) | n/a | Before: 13 migrations in `_prisma_migrations` and 8 extra abandoned tables (`proyectos`, `metas`, `actividades`, `gastos`, `rubros`, `indicadores`, `lineas_presupuestales`, `soportes_proyecto`) with data. After: **11 migrations, zero abandoned tables**, seed re-run (12 clientes / 4 usuarios / 20 tareas / 10 oportunidades / 8 documentos) | — | `prisma migrate reset` **does not run the seed**; it had to be run explicitly. Also needed `db:generate:local`: the generated client was from Sep 25 (v1 branch) and still carried `puede_ver_tablero_gerencial`. `scripts/seed-proyectos-demo.ts` (untracked, v1) was parked as `.ts.bak` because it broke `tsc` once the client was regenerated |
 | 2026-09-30 | **S0.4 append-only auditoria_cambios** | orchestrator (inline, TDD) | see the commit after the S0.5 one | RED: unit file failed to resolve its module. GREEN: **16 tests** (12 unit + 4 live-DB invariant: INSERT accepted, UPDATE / DELETE / TRUNCATE rejected by trigger); `tsc` 0 errors; eslint clean; `logAudit` untouched; migrations 12 and in sync | — | First v2 migration, created through `db:migrate:local` (the `.env.local` wrapper), not `npx` |
+| 2026-10-01 | **S0.6 migration safety kit** | delegated writer + independent verifier (read-only) | see the commit after `adbe604` | RED: both spec files failed to resolve (`_harness` absent, `__fixtures__/guard-probe.ts` absent). GREEN: **13 tests** (5 guard spawned against a fake env, 8 harness against a fake `$transaction` client); `tsc` 0 errors; eslint clean; `s1-rubros-report` → 1 zero-valued row, host `127.0.0.1:54322`, `storage-orphans` → 11 rows / 11 objects / 0 rows-without-object / 0 objects-without-row; independent verifier confirmed no `$transaction` on the dry-run path, hash-check before write, one 120 s transaction, `list()`-only storage access, and that only `.gitignore` changed among tracked files | — | Verifier's two findings were wording-level ("only .gitignore + scripts/migrate-v2 in status" — there were 11 entries, the rest pre-existing; "0 rows" — one zero-valued row). Unfixed residuals recorded in the S0.6 block. `CLAUDE.md` committed separately as `bd7cc00` before this task |
 
 Upload limits record (S0.8): _pending_. Baseline suite result (Step 2 of §1.2): _pending_.
 
@@ -2594,6 +2623,7 @@ Upload limits record (S0.8): _pending_. Baseline suite result (Step 2 of §1.2):
 | D-06 | COORDINADOR access to the Tablero gerencial: scoped to member projects vs none | scoped (A-02) | S2.6, S9.2 |
 | D-07 | Commit the untracked `openspec/changes/proyecto-financiero-tab/{proposal,design}.md` before marking superseded | ask | S0.1 |
 | D-08 | PDF engine (N-23) | none — blocks S9.3b only | S9.3b |
+| D-09 | ~~Who can create projects~~ — **RESOLVED 2026-10-01 by the user**: only **GERENCIA + ADMINISTRADOR** (`PROJECT_MANAGER_ROLES`), i.e. the recorded decision wins over RF v2.0 §3's "Gestor". No GESTOR role is introduced and COORDINADOR stays out of project management. | — | — |
 
 ## 7. Risks, assumptions, open decisions, questions for the PO
 

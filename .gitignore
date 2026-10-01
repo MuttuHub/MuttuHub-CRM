@@ -66,3 +66,6 @@ testsprite_tests/tmp/mcp.log
 testsprite_tests/tmp/code_summary.yaml
 testsprite_tests/tmp/raw_report.md
 testsprite_tests/tmp/prd_files/
+
+# v2 migration dry-run reports (local only)
+scripts/migrate-v2/out/

@@ -117,7 +117,7 @@ Verified 2026-09-30 against the repository:
 
 - [x] P5.1 Create `feat/projects-v2` from `main` — done 2026-09-30 (`54a356e`, `57fdc4f`, `f396473`, `d93824e`).
 - [x] P5.2 Environment sanity with `.env.local` only; baseline `vitest` / `tsc` — done, see Phase 0.
-- [ ] P5.3 S0.5 (weeks + money pure libs) → S0.4 (append-only `auditoria_cambios` + `logChange`, needs the local DB) → S0.6 (migration safety kit with loopback guard, created from scratch).
+- [x] P5.3 S0.5 (weeks + money pure libs) → S0.4 (append-only `auditoria_cambios` + `logChange`, needs the local DB) → S0.6 (migration safety kit with loopback guard, created from scratch). **S0.6 done 2026-10-01.**
 
 ## Open items / risks
 
@@ -150,6 +150,19 @@ Verified 2026-09-30 against the repository:
 | 2026-09-30 | Diagnosis + ODD-01..04 decisions | — | PR triage verified via local git ancestry; working tree restored after a dry cherry-pick probe | No remote action taken yet |
 | 2026-09-30 | Scope limit recorded | — | — | Local-only until explicit approval; Phase 1 gated. `gh` account = `MuttuHub`; merge style = squash |
 | 2026-09-30 | Session 2: rebase onto `main` + baseline re-verification | `5f4e4a8` (branch tip; every v2 commit rewritten) | `tsc` 0 errors; `vitest` 120 files / 1094 tests green in 48.8 s; Docker up; `.env.local` loopback | `96c4c5c` dropped as already-applied; `CLAUDE.md` note kept uncommitted; **no source written** |
+| 2026-10-01 | Session 3: `CLAUDE.md` closed + S0.6 migration safety kit | `bd7cc00` (docs) + the S0.6 commit | S0.6: RED both spec files unresolved → GREEN 13 tests (5 guard + 8 harness); `tsc` 0 errors; eslint clean; `s1-rubros-report` read-only, host `127.0.0.1:54322`, zero-valued row; `storage-orphans` 11/11/0/0; independent verifier confirmed guard-first import, hash-before-write, one 120 s `$transaction`, `list()`-only storage, and `.gitignore` as the only modified tracked file | S0.4/S0.5 hash table below is now stale by one commit |
+
+### Session 3 detail (2026-10-01)
+
+- `CLAUDE.md` (the two-`.env` rule) closed as its own work unit: `bd7cc00 docs(claude): document the local-vs-remote env rule`.
+- **S0.6 implemented by a delegated writer under strict TDD, then independently verified** (read-only verifier, no commits).
+- New surface: `scripts/migrate-v2/{_guard.ts,_guard.test.ts,__fixtures__/guard-probe.ts,_harness.ts,_harness.test.ts,s1-rubros-report.ts,storage-orphans.ts}` plus one `.gitignore` rule (`scripts/migrate-v2/out/`).
+- **What the kit enforces:** any v2 data script that imports `_guard` first aborts on a non-loopback `DATABASE_URL`, `DIRECT_URL` **or** `NEXT_PUBLIC_SUPABASE_URL`, before `@/lib/db` is constructed and with no bypass flag or env var; `--dry-run` (the default) reads and reports without opening a transaction; `--apply` demands `--expect-hash <sha>` from a reviewed dry-run, recomputes and compares inside **one** 120 s transaction *before* writing, and records one `IMPORTAR` lote; `--revert <lote_id>` is scoped to that lote.
+- **Deviations from the SDD, all now recorded in the SDD:** the guard wraps `prisma/require-local-db.ts` (the SDD named `prisma/load-local-env.ts`, which does not exist); `PlanCount` is a five-column row list instead of `Record<string, number>`; `__fixtures__/guard-probe.ts` was added to prove import order.
+- **Residuals (not blocking):** no script implements `revert()` yet, so lote scoping is only exercised at harness level; the harness does not sanitize `name` (not CLI-reachable — `name` is a constant in the shipped scripts).
+- **D-09 resolved by the user:** only **GERENCIA + ADMINISTRADOR** may create/manage projects. RF v2.0 §3's "Gestor" is not adopted. **S0.7 is therefore unblocked** and must keep COORDINADOR out of project management.
+
+### Next task: S0.7 — project permission predicates (USER-RESOLVED, no longer gated)
 
 ## State at session close (2026-09-30)
 
@@ -208,15 +221,9 @@ found by its subject if this table goes stale:
 2. `git switch feat/projects-v2` — **the rebase is already done.** The branch is 0 behind `main` (`6bee83f`) with
    tip `5f4e4a8`, and its baseline is verified green (session 2 above). Do **not** rebase again unless `main`
    moved; do not recreate the old cherry-pick.
-3. **Decide `CLAUDE.md` first** — 14 uncommitted lines about the local-vs-remote `.env` rule. It is the only dirty
-   tracked file. Either commit it alone (`docs: document the local-vs-remote env rule`) or fold it into S0.6.
-4. Next task: **S0.6**. Spec in §4.5 of the SDD plus the S0.6 block. Only the count-first harness, the read-only
-   storage orphan report and the promotion checklist remain — the loopback guard already exists **in `main`**.
-   Files: `scripts/migrate-v2/{_guard.ts,_guard.test.ts,_harness.ts,_harness.test.ts,storage-orphans.ts,s1-rubros-report.ts}`,
-   `.gitignore` (`scripts/migrate-v2/out/`), SDD §6.5 + §6.7.
-5. Before **S0.7** (permissions), confirm with the PO **who creates projects**: RF v2.0 §3 says the **Gestor**
-   does; the user's decision says only **GERENCIA + ADMINISTRADOR**. Building S0.7 on the wrong answer means
-   rework in the permission predicates.
+3. ~~**Decide `CLAUDE.md` first**~~ **Done 2026-10-01**: committed alone as `bd7cc00 docs(claude): document the local-vs-remote env rule`.
+4. ~~Next task: **S0.6**~~ **Done 2026-10-01** (see session 3 above). Next task is **S0.7** (project permission predicates); its gate is resolved (D-09: GERENCIA + ADMINISTRADOR only).
+5. ~~Before **S0.7** (permissions), confirm with the PO **who creates projects**~~ **Resolved 2026-10-01 by the user**: GERENCIA + ADMINISTRADOR. Do not introduce a GESTOR role and do not put COORDINADOR into project management.
 6. Optional, preserves real value: re-open the closed #55 content as a small PR —
    `scripts/cleanup-seed-cloud.ts` (141 lines) and `DIAGNOSTICO-SEED-CLOUD.md` (103 lines).
 
