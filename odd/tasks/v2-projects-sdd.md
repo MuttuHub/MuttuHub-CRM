@@ -2208,23 +2208,56 @@ R-01 cell was corrected: the no-bypass refusal lives in the guarded entry points
   the migration drift (S0.10)`.
 
 #### S1.1a — Rubro catalog R01–R15 with immutable codes and suspend-not-delete (M)
-- **Goal:** REQ-CAT-01/02 for rubros.
-- **Files:** `prisma/schema.prisma` (Rubro fields); migration `<ts>_v2_rubros_codigo` (columns + `rubros_codigo_inmutable`
-  trigger); NEW `scripts/migrate-v2/s1-rubros.ts` (+ test of its pure `planRubros()`); `src/app/api/v1/rubros/route.ts`,
-  `src/app/api/v1/rubros/[id]/route.ts` (+ tests); `prisma/seed.ts` (new installs get R01–R15); `src/lib/catalogs.ts`
-  (`RUBROS_V2` constant with codes and names).
+**Scope recalibrated 2026-10-01 (session 6) — this is GREENFIELD, not an adoption of branch code.** A read-only recon
+found **no `Rubro` model, no `rubros` table, no rubros migration and no rubros route** anywhere in the repository; the
+only non-SDD occurrence of "rubro" is the entity-name literal in `AUDIT_ENTIDADES_V2`
+(`src/lib/api/audit-cambios.ts:37`), and nothing holds a `rubro_id` foreign key. The "VERIFIED" citations inside
+REQ-CAT-02 itself (`RUBRO_PATCH_SCHEMA` at `src/app/api/v1/rubros/[id]/route.ts:22-29`, "today this succeeds", "today
+soft-deletes, line 80") point at v1 code that is **not in this branch** — the same staleness class as S0.6, S0.7 and
+S0.1, except this time it reached the acceptance criteria. Two consequences, both decided by the user:
+
+- **(1) Two REQ-CAT-02 scenarios are DEFERRED, not dropped.** "409 when renaming a rubro that has associated data" and
+  the "Rubro suspendido pendiente de reasignación" display both need `lineas_presupuestales` and projects, which are
+  S5.x work — there is no table to hold the association yet, so the rules are untestable today and can only be faked.
+  **In scope now:** the catalog, immutable codes, suspend-not-delete (`DELETE` → 409 "solo suspender", never a soft
+  delete), and suspend-without-touching-already-referencing rows as a *rule* that becomes observable only once the
+  budget table exists. **Deferred:** the association-dependent 409s and the suspended-rubro display, recorded as S5.x
+  acceptance criteria.
+- **(2) The migration MUST be adoptive and idempotent, because production already has a `rubros` table.** §6.9 measured
+  all 8 abandoned v1 project tables present in production, `rubros` among them, holding `Personal`, `Transporte`,
+  `Material POP` and `Operación logística`; D-10 decided to leave them. A plain `CREATE TABLE rubros` would fail at
+  `migrate deploy` (the table exists, our migration is not in `_prisma_migrations`), and §6.5 forbids reconstructing
+  production's schema from the repo. So the migration must create the table when absent (the branch/local reality)
+  **and** adopt it when present: add the `codigo` column if missing, backfill `R01`/`R12` for `Personal`/`Transporte`,
+  leave `Material POP` and `Operación logística` suspended and code-less, and install the trigger exactly once.
+  REQ-CAT-01 already describes this ("Existing rows Personal and Transporte get R01/R12"). Add it to the promotion
+  checklist. **Asymmetry to carry:** only the greenfield path can be exercised end to end locally; the adoption path
+  needs its own fixture.
+
+- **Goal:** REQ-CAT-01/02 for rubros, minus the two deferred scenarios above.
+- **Files:** `prisma/schema.prisma` (**NEW** `Rubro` model: `codigo` unique and immutable, `nombre`, `activo`,
+  ordering); NEW migration dir `prisma/migrations/<ts>_v2_rubros_codigo/migration.sql` (table + `codigo` column +
+  conditional immutability trigger + the adoptive, idempotent backfill); NEW `scripts/migrate-v2/s1-rubros.ts` + NEW
+  `scripts/migrate-v2/s1-rubros.test.ts` (pure `planRubros()`); NEW `src/app/api/v1/rubros/route.ts` + NEW
+  `src/app/api/v1/rubros/[id]/route.ts` (+ tests); NEW `prisma/rubros.invariant.test.ts` (live DB, `import
+  "./require-local-db"` first, forced rollback — mirror `prisma/auditoria-cambios.invariant.test.ts`);
+  `prisma/seed.ts` (new installs get R01–R15); `src/lib/catalogs.ts` (`RUBROS_V2` constant with codes and names); NEW
+  `src/lib/openapi/paths/rubros.ts` **plus its import line in `src/lib/openapi/document.ts`** — the repo's OpenAPI
+  convention, a path the SDD originally omitted.
 - **RED:** `it("planRubros seeds the 15 R01–R15 rubros in code order")`,
   `it("planRubros is idempotent: a second run reports 0 actions")`,
-  `it("PATCH /rubros/:id rejects renaming a rubro with associated data with 409")`,
-  `it("DELETE /rubros/:id rejects a rubro with associated data with 409")`,
-  `it("PATCH /rubros/:id allows renaming a rubro without data")`,
-  `it("PATCH /rubros/:id never changes codigo")`,
+  `it("PATCH /rubros/:id allows renaming a rubro")`, `it("PATCH /rubros/:id never changes codigo")`,
+  `it("PATCH /rubros/:id suspends a rubro without deleting it")`,
+  `it("DELETE /rubros/:id answers 409 and never deletes")`,
   `it("GET /rubros returns the 15 active rubros ordered by codigo")`;
   live DB: `it("the database rejects updating an existing rubro codigo")` (`prisma/rubros.invariant.test.ts`).
 - **Commands:** `npx vitest run src/app/api/v1/rubros scripts/migrate-v2/s1-rubros.test.ts prisma/rubros.invariant.test.ts`;
-  `npx tsx --env-file=.env.local scripts/migrate-v2/s1-rubros.ts --dry-run` then `--apply --expect-hash <h>`; CMD-STD.
-- **Acceptance:** local catalog = 15 active rubros R01–R15 with immutable codes; rename or delete with data
-  returns 409; suspending a rubro keeps its lines readable as "Rubro suspendido pendiente de reasignación".
+  the migration is created through the local wrapper **`npm run db:migrate:local`** (never plain `npx prisma`); then
+  `npx tsx --env-file=.env.local scripts/migrate-v2/s1-rubros.ts --dry-run` and `--apply --expect-hash <h>`; CMD-STD.
+- **Acceptance (recalibrated):** the local catalog is exactly the 15 active rubros R01–R15 with immutable codes;
+  `PATCH` renames and suspends but never changes `codigo`; `DELETE` always answers 409; the database itself rejects a
+  `codigo` change; the migration is idempotent and promotion-safe against production's legacy `rubros`.
+  **Deferred to S5.x:** the 409-on-rename-with-associated-data and the suspended-rubro display string.
 - **Deps:** S0.4, S0.6. **Gate:** R-codes PO-P (low risk, codes immutable → confirm before remote promotion).
 - **Lines:** ~320. **Commit:** `feat(catalogs): adopt R01–R15 rubro catalog with suspend-not-delete (S1.1a)` · **PR-09**.
 
@@ -2807,6 +2840,14 @@ never to a v1→v2 migration, which does not exist.
 4. Apply pending migrations to the remote DB from a human terminal with `prisma migrate deploy` — **never
    `migrate dev`**: it compares the directory with the database, will flag
    `20260918153200_tablero_seguimiento_social` as applied-but-absent, and can try to reconcile by resetting.
+   **Watch the first v2 migration whose target name production already has.** Production carries the abandoned v1
+   `rubros` table (§6.9), so S1.1a's migration is deliberately **adoptive and idempotent**: it creates the table when
+   absent and adopts it when present (adds `codigo` if missing, backfills `R01`/`R12` for `Personal`/`Transporte`, and
+   leaves `Material POP` and `Operación logística` suspended and code-less). A plain `CREATE TABLE rubros` would abort
+   the deploy. **Exercise the adoption path against a `pg_dump` restore of production before running it for real**,
+   then diff the resulting `rubros` rows and the trigger's presence. The same trap applies to every later v2 migration
+   that shares a name with one of the 8 abandoned tables (`proyectos`, `metas`, `actividades`, `gastos`, `rubros`,
+   `indicadores`, `soportes_proyecto`, `lineas_presupuestales`).
 5. For each data script, run the human entrypoint `promote-remote.ts` in dry-run, review decisions, then apply
    with `--expect-hash <sha>` copied from that dry-run. The harness refuses `--apply` without a hash, refuses a
    recomputed mismatch *before* writing anything, and writes one `IMPORTAR` lote row per applied script.
