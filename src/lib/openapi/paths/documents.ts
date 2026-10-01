@@ -147,6 +147,47 @@ const CreateDocumentFormSchema = z.object({
   }),
 });
 
+// JSON confirm body para CREAR un documento (ADR-13, S0.9b item 1): el navegador
+// ya subió el archivo directo a Storage con un signed URL para el KEY FINAL
+// `documentos/{cliente|general}/{id}/v1_{nombre}`, así que confirma solo con
+// metadata. El servidor deriva el id y el cliente dueño de `storage_path` (nunca
+// confía en un id arbitrario del cliente), verifica que el objeto exista y no
+// supere lo declarado, y recién crea el Documento.
+const ConfirmCreateDocumentBodySchema = z.object({
+  storage_path: z.string().openapi({
+    description:
+      "Key elegido por el servidor al firmar (POST /api/v1/uploads/sign con kind: \"documento_nuevo\"), " +
+      "con la forma documentos/{cliente|general}/{id}/v1_{nombre}. El id del documento y el cliente se " +
+      "derivan de esta ruta.",
+  }),
+  documento_id: z.string().optional().openapi({
+    description:
+      "Id pre-generado devuelto al firmar. Si se envía, debe coincidir con el id codificado en `storage_path`.",
+  }),
+  nombre: z.string().openapi({
+    description: "Nombre original; valida la extensión y debe reconstruir exactamente la ruta firmada.",
+  }),
+  tamano_bytes: z.number().int().positive().openapi({
+    description: "Tamaño declarado por el cliente; el objeto real en Storage no puede superarlo ni exceder 25 MB.",
+  }),
+  tipo_mime: z.string().optional(),
+  titulo: z.string().max(200).openapi({
+    description: "Título del documento; si ya existe uno igual (case-insensitive) responde 409 salvo `force: true`.",
+  }),
+  categoria: z.string().openapi({
+    description: "Debe existir en el catálogo vigente (setting doc_categories).",
+  }),
+  etiquetas: z.array(z.string()).optional().openapi({
+    description: "Máximo 8 etiquetas de 40 caracteres cada una.",
+  }),
+  cliente_id: z.string().optional().openapi({
+    description: "Opcional; si se envía debe coincidir con la carpeta de `storage_path`.",
+  }),
+  force: z.boolean().optional().openapi({
+    description: "true para crear un documento aparte pese a un título duplicado.",
+  }),
+});
+
 // Multipart body de POST /documents/:id/versions — usa el MISMO
 // parseUploadForm compartido (requiereCategoria: false, categorias: []), así
 // que técnicamente acepta los mismos campos, pero el handler solo lee `file`:
@@ -197,6 +238,11 @@ const SignedUploadResponseSchema = registry.register(
     signed_url: z.string().url(),
     max_bytes: z.number().int(),
     allowed_extensions: z.array(z.string()),
+    documento_id: z.string().optional().openapi({
+      description:
+        "Solo en `kind: \"documento_nuevo\"`: id pre-generado del documento, presente en el key firmado. " +
+        "El cliente lo devuelve en el confirm de POST /api/v1/documents.",
+    }),
   }),
 );
 
@@ -243,17 +289,26 @@ registry.registerPath({
   method: "post",
   path: "/api/v1/documents",
   tags: ["Documentos"],
-  summary: "Crea un documento y sube su versión 1 (multipart/form-data)",
+  summary: "Crea un documento y sube su versión 1 (multipart/form-data o JSON de confirmación)",
   description:
-    "Flujo transaccional-ish: crea la fila del Documento, sube el archivo a Supabase Storage y registra la " +
-    "versión 1; si el upload falla se hace soft delete del documento huérfano y responde 500 (nunca deja un " +
-    "documento sin versión visible). " +
+    "multipart/form-data: flujo transaccional-ish — crea la fila del Documento, sube el archivo a Supabase " +
+    "Storage y registra la versión 1; si el upload falla se hace soft delete del documento huérfano y responde " +
+    "500 (nunca deja un documento sin versión visible). Alternativa ADR-13: `application/json` con " +
+    "`{ storage_path, documento_id?, nombre, tamano_bytes, tipo_mime?, titulo, categoria, etiquetas?, cliente_id?, force? }` " +
+    "confirma un documento NUEVO subido directamente a Storage con un signed URL de POST /api/v1/uploads/sign " +
+    "(kind: documento_nuevo); la categoría válida, la categoría restringida y el título duplicado ya se rechazaron " +
+    "al firmar (antes de subir bytes) y este confirm los revalida como defensa en profundidad junto con la " +
+    "derivación del id y el cliente dueño desde `storage_path` y la comprobación de existencia/tamaño del objeto; " +
+    "luego crea el Documento con ese id explícito más su versión 1, su auditoría y la misma extracción de texto " +
+    "que el modo multipart. Un título duplicado responde 409 CONFLICT (con el documento existente) salvo " +
+    "`force: true`. " +
     RESTRICTED_CATEGORY_NOTE,
   security: [{ sessionCookie: [] }],
   request: {
     body: {
       content: {
         "multipart/form-data": { schema: CreateDocumentFormSchema },
+        "application/json": { schema: ConfirmCreateDocumentBodySchema },
       },
     },
   },
@@ -262,7 +317,7 @@ registry.registerPath({
       description: "Documento creado con su versión 1.",
       content: { "application/json": { schema: DocumentCreateResponseSchema } },
     },
-    ...standardErrorResponses([400, 401, 403, 413, 500]),
+    ...standardErrorResponses([400, 401, 403, 409, 413, 500]),
   },
 });
 
@@ -469,9 +524,12 @@ registry.registerPath({
     "Autenticado. Autoriza al actor sobre el objetivo, valida la política única de subida (25 MB y allowlist: la " +
     "extensión Y el MIME permitido o vacío/octet-stream; 413 FILE_TOO_LARGE / 400 VALIDATION_ERROR antes de emitir " +
     "cualquier URL), elige el KEY en el servidor (nunca lo acepta del cliente) y devuelve un signed upload URL de " +
-    "Supabase Storage junto con `max_bytes` y `allowed_extensions`. Nunca devuelve la service key, credenciales del " +
-    "bucket ni una URL pública. El navegador sube directo a Storage (sin límite de body del hosting) y luego confirma " +
-    "con el modo JSON de la ruta de destino.",
+    "Supabase Storage junto con `max_bytes` y `allowed_extensions`. Para `kind: \"documento_nuevo\"` corre además, " +
+    "ANTES de emitir la URL, los mismos gates de creación que el modo multipart de POST /api/v1/documents: categoría " +
+    "inexistente → 400, categoría restringida para un COLABORADOR → 403, título duplicado → 409 CONFLICT (salvo " +
+    "`force: true`) y cliente desconocido/eliminado → 400 — así una petición rechazada no deja un objeto huérfano en " +
+    "Storage. Nunca devuelve la service key, credenciales del bucket ni una URL pública. El navegador sube directo a " +
+    "Storage (sin límite de body del hosting) y luego confirma con el modo JSON de la ruta de destino.",
   security: [{ sessionCookie: [] }],
   request: {
     body: {
@@ -479,14 +537,34 @@ registry.registerPath({
         "application/json": {
           schema: z.object({
             kind: z
-              .enum(["documento_version", "tarea_adjunto"])
+              .enum(["documento_version", "tarea_adjunto", "documento_nuevo"])
               .openapi({ description: "Tipo de objetivo para el que se firma el key." }),
-            ref_id: z.string().openapi({
-              description: "Id del documento (documento_version) o de la tarea (tarea_adjunto).",
+            ref_id: z.string().optional().openapi({
+              description:
+                "Id del documento (documento_version) o de la tarea (tarea_adjunto). Se omite en `documento_nuevo` " +
+                "(el servidor pre-genera el id).",
             }),
             nombre: z.string(),
             tamano_bytes: z.number().int().positive(),
             tipo_mime: z.string().optional(),
+            cliente_id: z.string().optional().openapi({
+              description:
+                "Solo `documento_nuevo`: cliente dueño del documento; elige la carpeta `documentos/{cliente}/...` " +
+                "del key (sin cliente, `documentos/general/...`). Un cliente desconocido/eliminado → 400.",
+            }),
+            titulo: z.string().optional().openapi({
+              description:
+                "Solo `documento_nuevo` (requerido): título del documento. Un título duplicado responde 409 CONFLICT " +
+                "(con el documento existente) antes de emitir la URL, salvo `force: true`.",
+            }),
+            categoria: z.string().optional().openapi({
+              description:
+                "Solo `documento_nuevo` (requerido): debe existir en el catálogo vigente. Categoría inexistente → 400; " +
+                "categoría restringida para un COLABORADOR → 403, ambas antes de emitir la URL.",
+            }),
+            force: z.boolean().optional().openapi({
+              description: "Solo `documento_nuevo`: true para saltar la comprobación de título duplicado.",
+            }),
           }),
         },
       },
@@ -497,6 +575,6 @@ registry.registerPath({
       description: "URL firmada lista para subir el archivo directo a Storage.",
       content: { "application/json": { schema: SignedUploadResponseSchema } },
     },
-    ...standardErrorResponses([400, 401, 403, 404, 413, 500]),
+    ...standardErrorResponses([400, 401, 403, 404, 409, 413, 500]),
   },
 });

@@ -460,8 +460,23 @@ export function useDeleteSubtarea(
   });
 }
 
-/** Multipart upload with the envelope error handling of apiFetch (the
- *  Content-Type header must NOT be set for FormData). */
+/** ADR-13 sign response for a task attachment (mirrors src/hooks/documents.ts). */
+type SignedUploadResponse = {
+  storage_path: string;
+  token: string;
+  signed_url: string;
+  max_bytes: number;
+  allowed_extensions: string[];
+};
+
+/**
+ * ADR-13 flow for a task attachment: sign -> PUT straight to Storage -> JSON
+ * confirm. Mirrors the document/version signed path in src/hooks/documents.ts;
+ * the bytes no longer pass through the route handler, so the hosting
+ * platform's request-body limit never applies. The server still mirrors the
+ * attachment into the Document Repository on confirm, so the nav-counts
+ * invalidation below stays.
+ */
 export function useUploadAttachment(taskId: string): UseMutationResult<
   { adjunto: Adjunto },
   Error,
@@ -470,24 +485,44 @@ export function useUploadAttachment(taskId: string): UseMutationResult<
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (file: File) => {
-      const form = new FormData();
-      form.append("file", file);
+      let signed: SignedUploadResponse;
       try {
-        const res = await fetch(`/api/v1/tasks/${taskId}/attachments`, {
-          method: "POST",
-          body: form,
+        signed = await apiPost<SignedUploadResponse>("/api/v1/uploads/sign", {
+          kind: "tarea_adjunto",
+          ref_id: taskId,
+          nombre: file.name,
+          tamano_bytes: file.size,
+          ...(file.type ? { tipo_mime: file.type } : {}),
+        });
+      } catch (err) {
+        if (err instanceof ApiError) toast.error(err.message);
+        throw err;
+      }
+
+      try {
+        const res = await fetch(signed.signed_url, {
+          method: "PUT",
+          headers: {
+            "Content-Type": file.type || "application/octet-stream",
+            "x-upsert": "false",
+          },
+          body: file,
         });
         if (!res.ok) {
-          let message = "No pudimos subir el archivo.";
-          try {
-            const body = (await res.json()) as { error?: string };
-            message = body.error ?? message;
-          } catch {
-            /* fallback message */
-          }
-          throw new ApiError(message, res.status);
+          throw new ApiError("No pudimos subir el archivo al almacenamiento.", res.status);
         }
-        return (await res.json()) as { adjunto: Adjunto };
+      } catch (err) {
+        if (err instanceof ApiError) toast.error(err.message);
+        throw err;
+      }
+
+      try {
+        return await apiPost<{ adjunto: Adjunto }>(`/api/v1/tasks/${taskId}/attachments`, {
+          storage_path: signed.storage_path,
+          nombre: file.name,
+          tamano_bytes: file.size,
+          ...(file.type ? { tipo_mime: file.type } : {}),
+        });
       } catch (err) {
         if (err instanceof ApiError) toast.error(err.message);
         throw err;

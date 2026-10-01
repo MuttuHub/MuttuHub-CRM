@@ -267,7 +267,42 @@ export type SignedUploadResponse = {
   signed_url: string;
   max_bytes: number;
   allowed_extensions: string[];
+  /** Only present for `kind: "documento_nuevo"`: the pre-generated document id. */
+  documento_id?: string;
 };
+
+/** A `documento_nuevo` sign response always carries the pre-generated id. */
+export type SignedDocumentUploadResponse = SignedUploadResponse & { documento_id: string };
+
+/** PUTs the bytes straight to Storage with the server-signed URL (never through the route handler). */
+async function putToSignedUrl(url: string, file: File): Promise<void> {
+  const res = await fetch(url, {
+    method: "PUT",
+    headers: {
+      "Content-Type": file.type || "application/octet-stream",
+      "x-upsert": "false",
+    },
+    body: file,
+  });
+  if (!res.ok) {
+    throw new ApiError("No pudimos subir el archivo al almacenamiento.", res.status);
+  }
+}
+
+type UploadErrorPayload = {
+  error?: string;
+  code?: string;
+  documento?: { id: string; titulo: string };
+};
+
+/** Reads the error envelope, keeping the `documento` payload a 409 needs. */
+async function readErrorPayload(res: Response): Promise<UploadErrorPayload> {
+  try {
+    return (await res.json()) as UploadErrorPayload;
+  } catch {
+    return {};
+  }
+}
 
 /**
  * ADR-13 flow: ask the server for a signed URL for a key IT chooses, PUT the
@@ -290,17 +325,7 @@ async function signedUpload<T>(input: {
       tamano_bytes: file.size,
       ...(file.type ? { tipo_mime: file.type } : {}),
     });
-    const res = await fetch(signed.signed_url, {
-      method: "PUT",
-      headers: {
-        "Content-Type": file.type || "application/octet-stream",
-        "x-upsert": "false",
-      },
-      body: file,
-    });
-    if (!res.ok) {
-      throw new ApiError("No pudimos subir el archivo al almacenamiento.", res.status);
-    }
+    await putToSignedUrl(signed.signed_url, file);
     return await apiPost<T>(confirmUrl, {
       storage_path: signed.storage_path,
       nombre: file.name,
@@ -328,7 +353,7 @@ export type UploadDocumentInput = {
  * Título duplicado (QA audit #4): el servidor responde 409 con el documento
  * existente en vez de crear uno nuevo. No es un error de verdad — el diálogo
  * lo usa para ofrecer "nueva versión" vs "documento aparte", así que no debe
- * mostrarse como toast como el resto de errores de `multipartUpload`.
+ * mostrarse como toast como el resto de errores de subida.
  */
 export class DocumentDuplicateTitleError extends Error {
   readonly existing: { id: string; titulo: string };
@@ -339,12 +364,11 @@ export class DocumentDuplicateTitleError extends Error {
   }
 }
 
-// NOTE (S0.9b): brand-new document creation stays on multipart. The ADR-13
-// sign endpoint authorises an EXISTING target and picks the key from its real
-// id/cliente/version, so a document that does not exist yet cannot be signed;
-// and Storage objects may never be moved (never-delete policy), so a temporary
-// key is not an option either. Version uploads (useUploadVersion) already use
-// the signed flow and are the path that removes the 4.5 MB cliff in practice.
+// ADR-13 (S0.9b item 1): brand-new document creation now uses the signed path
+// too. The sign endpoint pre-generates the document id and signs the FINAL key
+// `documentos/{cliente}/{id}/v1_{nombre}` (no temporary key, no rename — the
+// never-delete policy forbids moving the object), so a document larger than the
+// hosting body limit no longer fails here.
 export function useUploadDocument(): UseMutationResult<
   DocumentUploadResponse,
   Error,
@@ -353,23 +377,65 @@ export function useUploadDocument(): UseMutationResult<
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input) => {
-      const form = new FormData();
-      form.append("file", input.file);
-      form.append("titulo", input.titulo);
-      form.append("categoria", input.categoria);
-      form.append("etiquetas", JSON.stringify(input.etiquetas));
-      if (input.cliente_id) form.append("cliente_id", input.cliente_id);
-      if (input.force) form.append("force", "true");
+      const { file } = input;
 
-      const res = await fetch("/api/v1/documents", { method: "POST", body: form });
+      // Correction B1: the create gates run at sign time, so the request must
+      // carry titulo/categoria/force; and the 409's `documento` payload is not
+      // kept by apiPost's ApiError, so the sign call reads the raw response
+      // (same as the confirm below).
+      const signRes = await fetch("/api/v1/uploads/sign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: "documento_nuevo",
+          nombre: file.name,
+          tamano_bytes: file.size,
+          ...(file.type ? { tipo_mime: file.type } : {}),
+          ...(input.cliente_id ? { cliente_id: input.cliente_id } : {}),
+          titulo: input.titulo,
+          categoria: input.categoria,
+          ...(input.force ? { force: true } : {}),
+        }),
+      });
+      if (!signRes.ok) {
+        const body = await readErrorPayload(signRes);
+        // Not a real error: the dialog uses it to offer "nueva versión" vs
+        // "documento aparte", so it must NOT be toasted.
+        if (signRes.status === 409 && body.code === "CONFLICT" && body.documento) {
+          throw new DocumentDuplicateTitleError(body.documento);
+        }
+        const err = new ApiError(body.error ?? "No pudimos subir el archivo.", signRes.status, body.code);
+        toast.error(err.message);
+        throw err;
+      }
+      const signed = (await signRes.json()) as SignedDocumentUploadResponse;
+
+      try {
+        await putToSignedUrl(signed.signed_url, file);
+      } catch (err) {
+        if (err instanceof ApiError) toast.error(err.message);
+        throw err;
+      }
+
+      const res = await fetch("/api/v1/documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          storage_path: signed.storage_path,
+          documento_id: signed.documento_id,
+          nombre: file.name,
+          tamano_bytes: file.size,
+          ...(file.type ? { tipo_mime: file.type } : {}),
+          titulo: input.titulo,
+          categoria: input.categoria,
+          etiquetas: input.etiquetas,
+          ...(input.cliente_id ? { cliente_id: input.cliente_id } : {}),
+          ...(input.force ? { force: true } : {}),
+        }),
+      });
       if (res.ok) return (await res.json()) as DocumentUploadResponse;
 
-      let body: { error?: string; code?: string; documento?: { id: string; titulo: string } } = {};
-      try {
-        body = await res.json();
-      } catch {
-        /* fallback message below */
-      }
+      const body = await readErrorPayload(res);
       if (res.status === 409 && body.code === "CONFLICT" && body.documento) {
         throw new DocumentDuplicateTitleError(body.documento);
       }

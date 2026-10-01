@@ -18,6 +18,7 @@
 // comments module uses for its autores.
 
 import { Prisma, type Usuario } from "@prisma/client";
+import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { endOfDay } from "@/lib/api/crm";
 import { apiError } from "@/lib/api/errors";
@@ -28,6 +29,9 @@ import {
   getSetting,
   SETTING_DOC_CATEGORIES,
 } from "@/lib/settings";
+
+/** Max length of a Documento.titulo, shared by the create paths and the guard. */
+export const MAX_TITULO_LENGTH = 200;
 
 /** Light projection for list/detail rows (Documento has no updated_at). */
 export const DOCUMENT_BASE_SELECT = {
@@ -80,6 +84,95 @@ export function canReadCategory(
   restringidas: string[],
 ): boolean {
   return canReadRestrictedDocs(usuario.rol) || !restringidas.includes(categoria);
+}
+
+export type DocumentCreateGuard =
+  | { ok: true; titulo: string }
+  | { ok: false; response: Response };
+
+/**
+ * Gates every NEW document before it is created (QA audit #4 + PRD §6.2):
+ * categoria validity, restricted-category authorization and the duplicate-title
+ * conflict. Shared by the ADR-13 sign endpoint — which runs it BEFORE issuing
+ * the upload URL, so the browser never PUTs bytes for a request that will be
+ * rejected — and by the JSON confirm branch, which re-runs it as defence in
+ * depth (the sign→confirm race is unavoidable). Keeping it in one place is what
+ * stops the two new call sites from drifting.
+ *
+ * Returns the normalized titulo on success, or the exact error envelope the
+ * routes use: 400 invalid categoria, 403 restricted categoria for this actor,
+ * 409 duplicate title (unless `force`), 500 settings unavailable. The
+ * unknown/deleted cliente check stays in the routes (it needs the resolved
+ * cliente id, not just the payload).
+ */
+export async function guardDocumentCreate(input: {
+  usuario: Usuario;
+  titulo: string;
+  categoria: string;
+  force: boolean;
+}): Promise<DocumentCreateGuard> {
+  let categories: { categorias: string[]; restringidas: string[] };
+  try {
+    categories = await loadDocCategories();
+  } catch (err) {
+    console.error("[documents] settings load failed:", err);
+    return {
+      ok: false,
+      response: apiError(
+        "No pudimos cargar los catálogos. Inténtalo de nuevo.",
+        500,
+        "INTERNAL_ERROR",
+      ),
+    };
+  }
+
+  const categoria = input.categoria.trim();
+  if (!categories.categorias.includes(categoria)) {
+    return { ok: false, response: apiError("Categoría no válida.", 400, "VALIDATION_ERROR") };
+  }
+  if (!canReadRestrictedDocs(input.usuario.rol) && categories.restringidas.includes(categoria)) {
+    return {
+      ok: false,
+      response: apiError(
+        "No tienes permisos para documentos de esa categoría.",
+        403,
+        "FORBIDDEN",
+      ),
+    };
+  }
+
+  const titulo = input.titulo.trim().slice(0, MAX_TITULO_LENGTH);
+
+  if (!input.force) {
+    const existing = await db.documento.findFirst({
+      where: {
+        titulo: { equals: titulo, mode: "insensitive" },
+        deleted_at: null,
+        // Excluir las restringidas para un COLABORADOR: un 409 filtraría la
+        // existencia/id de un documento que ese rol ni siquiera puede listar
+        // (code review PR #23).
+        ...(canReadRestrictedDocs(input.usuario.rol)
+          ? {}
+          : { categoria: { notIn: [...categories.restringidas] } }),
+      },
+      select: { id: true, titulo: true },
+    });
+    if (existing) {
+      return {
+        ok: false,
+        response: NextResponse.json(
+          {
+            error: `Ya existe un documento llamado "${existing.titulo}".`,
+            code: "CONFLICT",
+            documento: existing,
+          },
+          { status: 409 },
+        ),
+      };
+    }
+  }
+
+  return { ok: true, titulo };
 }
 
 /** HTTP status/message mapping shared by the 404/403 document gates. */

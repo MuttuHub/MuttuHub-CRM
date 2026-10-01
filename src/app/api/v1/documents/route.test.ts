@@ -60,6 +60,7 @@ import { db } from "@/lib/db";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { isSupabaseConfigured, requireApiUser } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/api/audit";
+import { extractForVersion } from "@/lib/api/extract-text";
 import { GET, POST } from "./route";
 
 const colaborador = {
@@ -568,6 +569,298 @@ describe("POST /api/v1/documents", () => {
 
       expect(res.status).toBe(500);
       expect(await res.json()).toMatchObject({ code: "INTERNAL_ERROR" });
+    });
+  });
+});
+
+// ADR-13 signed-upload document CREATION (S0.9b item 1): the browser uploaded a
+// brand-new document straight to Storage with a URL signed for the FINAL key
+// documentos/{cliente}/{id}/v1_{nombre}. The confirm branch creates the row with
+// THAT id, re-checking the key ownership, the object size and the whole upload
+// policy — never trusting a client-supplied id.
+const DOC_ID = "11111111-1111-4111-8111-111111111111";
+const CONFIRM_PATH = `documentos/general/${DOC_ID}/v1_informe.pdf`;
+
+describe("POST /api/v1/documents — signed-upload confirm mode", () => {
+  function confirmRequest(body: unknown): Request {
+    return new Request("http://localhost/api/v1/documents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  function confirmBody(overrides: Record<string, unknown> = {}) {
+    return {
+      storage_path: CONFIRM_PATH,
+      documento_id: DOC_ID,
+      nombre: "informe.pdf",
+      tamano_bytes: 3,
+      tipo_mime: "application/pdf",
+      titulo: "Informe final",
+      categoria: "Comercial",
+      etiquetas: [],
+      ...overrides,
+    };
+  }
+
+  function mockStorage(size: number | null) {
+    vi.mocked(createSupabaseAdmin).mockReturnValue({
+      storage: {
+        from: vi.fn().mockReturnValue({
+          info: vi.fn().mockResolvedValue(
+            size === null
+              ? { data: null, error: new Error("not found") }
+              : { data: { size }, error: null },
+          ),
+          download: vi.fn().mockResolvedValue({
+            data: new Blob([new Uint8Array([1, 2, 3])]),
+            error: null,
+          }),
+        }),
+      },
+    } as never);
+  }
+
+  function mockStorageThrow() {
+    vi.mocked(createSupabaseAdmin).mockReturnValue({
+      storage: {
+        from: vi.fn().mockReturnValue({
+          info: vi.fn().mockRejectedValue(new Error("storage down")),
+        }),
+      },
+    } as never);
+  }
+
+  function mockCreateOk() {
+    vi.mocked(db.documento.create).mockResolvedValue(docRow({ id: DOC_ID }) as never);
+    vi.mocked(db.documentoVersion.create).mockResolvedValue({
+      id: "v-1",
+      documento_id: DOC_ID,
+      numero_version: 1,
+      storage_path: CONFIRM_PATH,
+      tamano_bytes: 3,
+      tipo_archivo: "application/pdf",
+      subido_por_id: "admin-1",
+      created_at: new Date("2026-01-01"),
+      contenido_texto: null,
+      texto_estado: null,
+    } as never);
+    vi.mocked(db.documentoVersion.update).mockResolvedValue({} as never);
+    vi.mocked(db.documentoCliente.findMany).mockResolvedValue([]);
+  }
+
+  beforeEach(() => {
+    mockStorage(3);
+    vi.mocked(db.documento.findFirst).mockResolvedValue(null);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue(null);
+  });
+
+  it("creates the document with the id derived from the signed key, its v1 version, audit and extraction", async () => {
+    mockCreateOk();
+
+    const res = await POST(confirmRequest(confirmBody()));
+
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.version).toBe(1);
+    expect(db.documento.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          id: DOC_ID,
+          titulo: "Informe final",
+          categoria: "Comercial",
+          autor_id: "admin-1",
+        }),
+      }),
+    );
+    expect(db.documentoVersion.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          documento_id: DOC_ID,
+          numero_version: 1,
+          storage_path: CONFIRM_PATH,
+          tamano_bytes: 3,
+        }),
+      }),
+    );
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ entidad: "documento", entidad_id: DOC_ID, accion: "crear" }),
+    );
+    expect(extractForVersion).toHaveBeenCalled();
+    // The extracted fields must actually be persisted, not just a bare update.
+    expect(db.documentoVersion.update).toHaveBeenCalledWith({
+      where: { id: "v-1" },
+      data: { contenido_texto: null, texto_estado: "sin_texto" },
+    });
+  });
+
+  it("fails closed when the storage_path does not match the declared document id or key shape", async () => {
+    mockCreateOk();
+
+    for (const body of [
+      confirmBody({ storage_path: `documentos/general/other-doc/v1_informe.pdf` }),
+      confirmBody({ storage_path: `documentos/general/${DOC_ID}evil/v1_informe.pdf` }),
+      confirmBody({ documento_id: "other-doc" }),
+      confirmBody({ storage_path: `tareas/${DOC_ID}/abc_informe.pdf` }),
+      confirmBody({ storage_path: `/documentos/general/${DOC_ID}/v1_informe.pdf` }),
+      confirmBody({ storage_path: `documentos/general/${DOC_ID}/../v1_informe.pdf` }),
+      confirmBody({ storage_path: `documentos//${DOC_ID}/v1_informe.pdf` }),
+      confirmBody({ storage_path: `documentos/general/${DOC_ID}` }),
+      confirmBody({ storage_path: `documentos/general/${DOC_ID}/v1_otro.pdf` }),
+      confirmBody({
+        storage_path: "documentos/general/not-a-uuid/v1_informe.pdf",
+        documento_id: "not-a-uuid",
+      }),
+    ]) {
+      const res = await POST(confirmRequest(body));
+      expect(res.status, JSON.stringify(body.storage_path)).toBe(400);
+      const json = await res.json();
+      expect(json.code, JSON.stringify(body.storage_path)).toBe("VALIDATION_ERROR");
+      expect(json.error, JSON.stringify(body.storage_path)).toContain("no corresponde");
+    }
+    expect(db.documento.create).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the declared cliente_id disagrees with the key folder", async () => {
+    mockCreateOk();
+    const path = `documentos/cli-1/${DOC_ID}/v1_informe.pdf`;
+
+    const res = await POST(
+      confirmRequest(confirmBody({ storage_path: path, cliente_id: "cli-2" })),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(db.documento.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects when the storage object is missing or larger than declared", async () => {
+    mockCreateOk();
+
+    mockStorage(null);
+    const missing = await POST(confirmRequest(confirmBody()));
+    expect(missing.status).toBe(400);
+    expect((await missing.json()).error).toContain("no está disponible");
+
+    mockStorage(999);
+    const oversized = await POST(confirmRequest(confirmBody()));
+    expect(oversized.status).toBe(400);
+    expect((await oversized.json()).error).toContain("no está disponible");
+
+    expect(db.documento.create).not.toHaveBeenCalled();
+  });
+
+  // Correction C2: `storedObjectSize` sits outside the create try/catch and POST
+  // is a bare export, so a THROWN Storage error used to escape as a framework
+  // 500 instead of the {error, code} envelope. The test rejects the call rather
+  // than returning an { error } object (the sibling test covers that shape).
+  it("returns the error envelope when the storage info call throws", async () => {
+    mockCreateOk();
+    mockStorageThrow();
+
+    const res = await POST(confirmRequest(confirmBody()));
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe("VALIDATION_ERROR");
+    expect(body.error).toContain("no está disponible");
+    expect(db.documento.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a disallowed file name before creating anything", async () => {
+    mockCreateOk();
+    const res = await POST(confirmRequest(confirmBody({ nombre: "malware.exe", storage_path: `documentos/general/${DOC_ID}/v1_malware.exe` })));
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(db.documento.create).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 with the existing document on a duplicate title unless force is true", async () => {
+    mockCreateOk();
+    vi.mocked(db.documento.findFirst).mockResolvedValue(
+      docRow({ id: "doc-existing", categoria: "Comercial" }) as never,
+    );
+
+    const conflict = await POST(confirmRequest(confirmBody()));
+    expect(conflict.status).toBe(409);
+    expect(await conflict.json()).toMatchObject({
+      code: "CONFLICT",
+      documento: { id: "doc-existing" },
+    });
+    expect(db.documento.create).not.toHaveBeenCalled();
+
+    vi.mocked(db.documento.findFirst).mockClear();
+    const forced = await POST(confirmRequest(confirmBody({ force: true })));
+    expect(forced.status).toBe(201);
+    expect(db.documento.findFirst).not.toHaveBeenCalled();
+    expect(db.documento.create).toHaveBeenCalled();
+  });
+
+  it("rejects an invalid categoria and the restricted categories for a COLABORADOR", async () => {
+    mockCreateOk();
+    const invalid = await POST(confirmRequest(confirmBody({ categoria: "NoExiste" })));
+    expect(invalid.status).toBe(400);
+    expect(await invalid.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+
+    vi.mocked(requireApiUser).mockResolvedValue({
+      ok: true,
+      usuario: colaborador,
+      supabaseUser: {} as never,
+    });
+    const restricted = await POST(confirmRequest(confirmBody({ categoria: "Legal" })));
+    expect(restricted.status).toBe(403);
+    expect(await restricted.json()).toMatchObject({ code: "FORBIDDEN" });
+    expect(db.documento.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unknown cliente without creating anything", async () => {
+    mockCreateOk();
+    const path = `documentos/cli-1/${DOC_ID}/v1_informe.pdf`;
+    vi.mocked(db.cliente.findFirst).mockResolvedValue(null);
+
+    const res = await POST(
+      confirmRequest(confirmBody({ storage_path: path, cliente_id: "cli-1" })),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(db.documento.create).not.toHaveBeenCalled();
+  });
+
+  // Correction C4: assert the cliente link is actually written (it was mocked
+  // but never asserted).
+  it("links the cliente derived from the signed key to the new document", async () => {
+    mockCreateOk();
+    const path = `documentos/cli-1/${DOC_ID}/v1_informe.pdf`;
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1" } as never);
+
+    const res = await POST(
+      confirmRequest(confirmBody({ storage_path: path, cliente_id: "cli-1" })),
+    );
+
+    expect(res.status).toBe(201);
+    expect(db.documentoCliente.create).toHaveBeenCalledWith({
+      data: { documento_id: DOC_ID, cliente_id: "cli-1" },
+    });
+  });
+
+  // Correction C4: prove the extraction RESULT is written, not just that the
+  // row was updated (would still pass if the fields were dropped).
+  it("persists the extracted text fields returned by extractForVersion", async () => {
+    mockCreateOk();
+    vi.mocked(extractForVersion).mockResolvedValueOnce({
+      contenido_texto: "texto extraído",
+      texto_estado: "ok",
+    });
+
+    const res = await POST(confirmRequest(confirmBody()));
+
+    expect(res.status).toBe(201);
+    expect(db.documentoVersion.update).toHaveBeenCalledWith({
+      where: { id: "v-1" },
+      data: { contenido_texto: "texto extraído", texto_estado: "ok" },
     });
   });
 });

@@ -74,9 +74,24 @@ describe("useUploadAttachment", () => {
   // which changes the count GET /api/v1/nav/counts returns — but nothing
   // invalidated ["nav","counts"], so the sidebar's "documentos" badge stayed
   // stale after the upload.
-  it("invalidates both the task's attachments and the nav counts badge", async () => {
+  //
+  // ADR-13 (S0.9b item 2): the client now uses sign -> PUT -> JSON confirm,
+  // mirroring useUploadVersion/useUploadDocument, so the bytes never pass
+  // through the hosting body limit (or the route handler).
+  it("uploads via sign -> PUT -> JSON confirm and invalidates attachments + nav", async () => {
     const adjunto = { adjunto: { id: "adj-1", nombre: "informe.pdf", tamano_bytes: 3, created_at: "2026-01-01T00:00:00.000Z" } }
-    fetchMock.mockResolvedValue(jsonResponse(adjunto, 201))
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({
+          storage_path: "tareas/task-1/abc_informe.pdf",
+          token: "tok",
+          signed_url: "https://storage.example/attach",
+          max_bytes: 25 * 1024 * 1024,
+          allowed_extensions: ["pdf"],
+        }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 200 }))
+      .mockResolvedValueOnce(jsonResponse(adjunto, 201))
     const { wrapper, invalidateSpy } = createWrapper()
 
     const { result } = renderHook(() => useUploadAttachment("task-1"), { wrapper })
@@ -86,6 +101,25 @@ describe("useUploadAttachment", () => {
     })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    const signCall = fetchMock.mock.calls[0]!
+    expect(String(signCall[0])).toBe("/api/v1/uploads/sign")
+    expect(JSON.parse(String(signCall[1].body))).toMatchObject({
+      kind: "tarea_adjunto",
+      ref_id: "task-1",
+      nombre: "informe.pdf",
+      tamano_bytes: 1,
+    })
+    const putCall = fetchMock.mock.calls[1]!
+    expect(String(putCall[0])).toBe("https://storage.example/attach")
+    expect(putCall[1].method).toBe("PUT")
+    expect((putCall[1].headers as Record<string, string>)["x-upsert"]).toBe("false")
+    const confirmCall = fetchMock.mock.calls[2]!
+    expect(String(confirmCall[0])).toBe("/api/v1/tasks/task-1/attachments")
+    expect(JSON.parse(String(confirmCall[1].body))).toMatchObject({
+      storage_path: "tareas/task-1/abc_informe.pdf",
+      nombre: "informe.pdf",
+    })
+
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: taskQueryKeys.attachments("task-1") })
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["nav", "counts"] })
   })

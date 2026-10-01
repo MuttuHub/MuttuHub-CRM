@@ -2048,25 +2048,67 @@ eslint clean.
 - **Commit:** `feat(files): unify upload policy at 25 MB with strict type allowlist (S0.9a)` · **PR-07**.
 
 #### S0.9b — Direct-to-storage signed upload (M, conditional)
-**PARTIAL 2026-10-01 — deliberately left incomplete; do not read this as done.** Delivered and independently verified
-green: the sign endpoint, the key-ownership guard, JSON confirm mode in the version and task-attachment routes (the
-multipart branches untouched), the document-version client moved to sign → PUT → confirm, and the R3-002/R3-003
-follow-ups. Suite **125 files / 1167 tests green**, `tsc` 0 errors, eslint clean.
+**DONE 2026-10-01 (session 4).** ADR-13 signed direct-to-storage uploads are complete for every upload surface that
+exists on this branch: the sign endpoint (three kinds), the key-ownership guard, JSON confirm mode in the version,
+task-attachment and document-creation routes (all multipart branches untouched and behaviour-identical), and all three
+clients on sign → PUT (`x-upsert: false`) → JSON confirm. Suite **126 files / 1194 tests green** at slice close
+(baseline at the partial `7a5e29f`: 125 files / 1167 tests; +1 file and +27 tests accounted for), `tsc` 0 errors,
+eslint clean.
 
-**Remaining work — closure plan (session 4, 2026-10-01)**
-1. **Document *creation* is still multipart** (`POST /documents` has no confirm branch and `useUploadDocument` still
-   posts FormData), so a brand-new document larger than 4.5 MB can still fail in production. The verifier established
-   the correct implementation: have the sign endpoint **pre-generate the document id**, sign the final key
-   `documentos/{cliente}/{newId}/v1_{nombre}`, and add a JSON confirm branch that creates the row with that explicit
-   id — no temp key is involved, so the never-delete policy is *not* the blocker (the writer's stated reason was only
-   half right).
-2. **Magic-byte validation** — still open (R3-001), a product decision.
-3. **Kanban task-attachment client** still uploads multipart; the route already accepts confirm.
-4. Small, recorded: a stale comment in `src/hooks/documents.ts` still references the removed `multipartUpload`; the
-   sign endpoint validates the file policy *before* authorisation, so a bad extension against a forbidden target
-   answers 400 instead of 403 (informational, no target-existence leak); confirmed versions skip inline text
-   extraction until the backfill runs; and a concurrent version create can leave the key's `vN` differing from the
-   row's `numero_version` (cosmetic — downloads use `storage_path`).
+**What landed in this slice** (sessions 3 + 4: `7a5e29f` partial, `a5a3c5f` docs, then the completion commit)
+- `POST /api/v1/uploads/sign` takes
+  `{ kind: "tarea_adjunto" | "documento_version" | "documento_nuevo", ref_id?, nombre, tamano_bytes, tipo_mime?, cliente_id?, titulo?, categoria?, force? }`,
+  authorises the target, chooses the key **server-side** and returns
+  `{ storage_path, token, signed_url, max_bytes, allowed_extensions, documento_id? }`. It never returns the service key,
+an anon key or a public object URL.
+- `documento_nuevo` **pre-generates the document id** and signs the FINAL key
+  `documentos/{cliente|general}/{newId}/v1_{nombre}` — no temporary key and no rename, because the never-delete policy
+  forbids moving the object afterwards.
+- The confirm branch of `POST /api/v1/documents` **derives** the id and the owning cliente from the signed
+  `storage_path` (4-segment shape + `UUID_RE` + a byte-identical rebuild against `documentStoragePath`), never trusting
+  a client-supplied id, verifies that the object exists and is not larger than declared or `MAX_FILE_BYTES`, and then
+  creates the row with that explicit id, its v1 version, its audit entry and the same best-effort text extraction as
+  the multipart branch. A *thrown* Storage error is caught and returns the `{error, code}` envelope rather than
+  escaping as a framework 500.
+- `src/hooks/documents.ts` (`useUploadDocument` and the version upload) and `src/hooks/kanban.ts`
+  (`useUploadAttachment`) all use the signed path, and the kanban client still invalidates both the task's attachments
+  and the nav counts badge.
+
+**B1 — the blocking finding the independent verifier caught, and its correction.** Moving creation to the signed path
+initially put the **duplicate-title 409 and the categoria 400/403 after the browser PUT**: the sign request did not
+carry `titulo` or `categoria`, so those checks could only run at confirm. The multipart branch had rejected the same
+request **before** any Storage write, so with the never-delete policy the object became permanent — a *routine* flow
+leaked one orphan per attempt. Three triggers, all reachable from the shipped dialog: the duplicate title (the exact
+flow QA audit #4 exists for), the restricted-category 403 (the dialog renders every category, including restricted
+ones) and the invalid-category 400 (the dialog falls back to the static list while the live catalog loads or fails).
+**R-17's recorded acceptance did not cover this**: R-17 is about the *size* guarantee, not about triggers unbounded in
+count. **Correction:** the `documento_nuevo` sign request now carries `titulo`, `categoria` and `force?`, and the new
+shared guard `guardDocumentCreate` — categoria validity 400, restricted-category 403, duplicate-title 409, in
+`src/lib/api/documents.ts` — runs **inside the existing authorise phase, before `createSignedUploadUrl` is called**, so
+a rejected request never gets a URL and therefore never PUTs. The confirm branch re-runs the same guard as defence in
+depth. The recorded validation order (auth → configured → shape → policy → authorise) is unchanged. Tests pin it: every
+new rejection asserts `createSignedUploadUrl` was not called, and the hook test asserts the duplicate-title flow
+performs exactly one fetch, to the sign endpoint, with no PUT.
+
+**Residuals and follow-ups recorded, not silently accepted**
+1. **R-17 shrinks but does not disappear** (see its row below): the confirm re-check still runs after the PUT, so a
+   *concurrent* create inside the sign→confirm window — or an oversized object — can still orphan an object.
+2. **The multipart branch still carries its own inline copy** of the categoria/duplicate logic. Its `POST` body is
+   byte-identical to HEAD apart from the JSON-dispatch block, so it was deliberately not refactored onto
+   `guardDocumentCreate`; nothing prevents drift → consolidate in a later slice. The only semantic delta today is that
+   the guard trims `categoria` and the multipart branch does not (unreachable from the UI).
+3. **Magic-byte validation (R3-001)** stays an open product decision, explicitly out of this slice.
+4. Confirming the same `documento_id` twice hits the Prisma unique constraint → 500 (the same replay shape as the
+   versions confirm; pre-existing).
+5. Small: the guard's own tests do not assert `mode: "insensitive"` / `deleted_at: null` on the duplicate lookup; the
+   OpenAPI declares the per-kind-required fields as optional (documentation nit); `useUploadDocument`'s sign call uses
+   raw `fetch` instead of `apiPost` so the 409's `documento` payload survives (it loses the `Accept` header and the
+   generic fallback messages; no user-visible regression); confirmed versions skip inline text extraction until the
+   backfill runs; and a concurrent version create can leave the key's `vN` differing from the row's `numero_version`
+   (cosmetic — downloads use `storage_path`).
+6. The user-run **bucket raise to 25 MB is still pending**, so production still caps below the policy (Vercel's 4.5 MB
+   on the multipart paths, the bucket's 10 MB as the signed path's hard bound) — which is why the 25 MB docs drift
+   stays deferred.
 
 **Closure decisions taken in session 4 (2026-10-01), before writing code:**
 
@@ -2082,7 +2124,10 @@ follow-ups. Suite **125 files / 1167 tests green**, `tsc` 0 errors, eslint clean
 - **(d)** **R-17 is accepted for now** with the bucket `file_size_limit` as the enforced hard bound — recorded as an
   explicit promotion step (§6.5 step 3) — and detected with the S0.6 read-only
   `scripts/migrate-v2/storage-orphans.ts`. The human-run sweeper stays an **open decision** and is surfaced to the
-  user; no new deletion path is added (the never-delete policy and its guard spec are untouched).
+  user; no new deletion path is added (the never-delete policy and its guard spec are untouched). **Amended 2026-10-01
+  after B1:** this acceptance covers the *size* guarantee only, so B1's routine orphan triggers (duplicate title,
+  categoria 400/403) were **not** accepted — they were fixed by moving those gates before the URL is issued. R-17 now
+  covers only what remains after that correction.
 
 **Open risk R-17 — must be consciously accepted or mitigated before promotion.** The signed path moves the size
 guarantee *after* persistence: the sign endpoint checks the **declared** size, but the browser PUT goes straight to
@@ -2768,6 +2813,7 @@ never to a v1→v2 migration, which does not exist.
 | 2026-10-01 | **S0.8 upload-limit verification** | orchestrator (read-only) | see the commit after `4866d8a` | All five checks resolved into facts, two of them without the dashboard: the remote bucket `muttu-docs` `file_size_limit` = **10485760 B (10 MB)**, `public=false`, no MIME restriction (read-only Storage API `getBucket` with the service key from `.env`); Vercel Function body limit = **4.5 MB** (documented platform constant, 413 `FUNCTION_PAYLOAD_TOO_LARGE`); `proxyClientMaxBodySize` default 10 MB but **not applicable** (`src/proxy.ts:91` excludes `api`); local storage 50 MiB; app limits 10 MB documents / 25 MB task attachments | — | **D-04 resolved**: the 4.5 MB platform limit binds before the app's own checks, so multipart cannot honour 25 MB → signed direct upload (ADR-13) with the bucket raised to 25 MB by the user. Recorded dev/prod asymmetry: local 50 MiB vs remote 10 MB. No writes, no dashboard read |
 | 2026-10-01 | **S0.9a unified upload policy** | delegated writer (2 rounds) + independent verifier (read-only) | see the commit after `50eabf6` | Policy unified in `src/lib/api/files.ts`: 25 MB default with a strict-integer `MAX_FILE_SIZE_MB` override, allowlist `{pdf,docx,xlsx,pptx,jpg,jpeg,png}`, `isAllowedFileType` = extension **AND** (allowed MIME or empty/octet-stream); the attachments route's duplicate constants and 13-type list deleted; documents 413 message no longer hardcodes 10 MB; client hook, both UI surfaces and the OpenAPI descriptions derive from the shared module; NEW never-delete guard spec. Suite **123 files / 1143 tests green** (baseline 122/1122, +21 tests accounted for exactly), `tsc` 0 errors, eslint clean, 14 paths | — | Verifier blocked nothing (`READY TO COMMIT: yes`) but listed five real findings; three were closed inside the unit (JPG/JPEG messages, strict env validation, trailing newline) and two are recorded follow-ups (docs drift deferred until 25 MB is real end-to-end; never-delete regex coverage), plus the Office-MIME product decision |
 | 2026-10-01 | **S0.10 production drift record** | orchestrator (read-only audit + docs) | `0dc08ec` (docs commit after it) | Read-only audit of the shared remote: 28 public tables; **all 8 abandoned v1 project tables present** with **4 rows total**; `auditoria_cambios` **absent**; **12 applied migrations** including the phantom `20260918153200_tablero_seguimiento_social`, which exists in **no branch** of the repo yet is recoverable from `6e4c6c8`. TLS never weakened, no table scans (catalog estimates first), no writes | — | Recorded in §6.9 + R-16 + D-10; §6.5 now forbids `migrate dev` against production; R-01 corrected (the no-bypass refusal is in the guarded entry points, not in the Prisma CLI). Decision: touch nothing in production now; v2 is additive and collides with none of the leftovers |
+| 2026-10-01 | **S0.9b signed direct-to-storage uploads — completion and the B1 correction** | delegated writer (2 rounds, strict TDD) + independent read-only verifier (2 passes) | see the completion commit after `a5a3c5f` | Round 1 (completion, 9 files, +899/−73): the sign endpoint gained `kind: "documento_nuevo"` **pre-generating the document id** and signing the FINAL key `documentos/{cliente|general}/{newId}/v1_{nombre}`; `POST /documents` gained a JSON confirm branch that **derives** the id and cliente from the signed path; `useUploadDocument` and `useUploadAttachment` moved to sign → PUT → confirm; the stale `multipartUpload` comment went away. Verifier pass 1: `READY TO COMMIT: no` — every command green, but **B1** blocking. Round 2 (correction): NEW shared `guardDocumentCreate` in `src/lib/api/documents.ts` (categoria 400, restricted 403, duplicate 409) called by the sign endpoint **before `createSignedUploadUrl`** and re-called by the confirm branch; the thrown-Storage path now returns the `{error, code}` envelope; the decorative `assertKeyBelongsToTarget` call removed; two test gaps closed. Verifier pass 2: `READY TO COMMIT: yes`, no blocking finding. Own checks: 7 focused files / **85 tests** green; **full suite 126 files / 1194 tests green** in 123 s (baseline 125/1167); `tsc` 0 errors; eslint clean on the 11 touched files | — | B1 was a **newly introduced parity regression**: the multipart path rejected the same request *before* any Storage write, the signed path initially rejected it *after*, and the never-delete policy made every orphan permanent — so a routine flow leaked one object per attempt. Three triggers were reachable from the shipped dialog (duplicate title, restricted-category 403, invalid-category 400). **R-17's recorded acceptance (size guarantee) did not cover them**; after the correction R-17 covers only the confirm-side TOCTOU and oversized objects. Residuals carried in the S0.9b block: multipart↔guard duplication (no drift guard), R3-001, replay-500, the OpenAPI optionality nit, raw `fetch` vs `apiPost` |
 
 **Upload limits record (S0.8, measured 2026-10-01).** Every check is now a fact, and the last unknown was closed
 **read-only instead of from the dashboard**:
@@ -2904,7 +2950,7 @@ default**: raising it would hide contention instead of removing it.
 | R-14 | Known failing `prisma/invariant.test.ts` masks new DB failures | Medium / Low | New live-DB tests in separate files; baseline failure recorded |
 | R-15 | PDF export engine incompatible with serverless | Medium / Low | S9.3b gated by N-23/D-08; Excel export ships first |
 | R-16 | **The repository does not describe production**: 8 abandoned v1 project tables (4 rows total) and an applied migration (`20260918153200_tablero_seguimiento_social`) that exists in no branch | Low / Medium | Measured read-only on 2026-10-01 and recorded in §6.9; promotion uses `migrate deploy` only; D-10 decides the cleanup; `_prisma_migrations` is the authority for production |
-| R-17 | **Signed uploads move the size guarantee after persistence**: the sign endpoint validates the declared size, but the browser PUT lands in Storage unchecked and confirm only then fails, so an authorised user can leave an oversized orphan that the never-delete policy forbids removing | Medium / Medium | The enforced bound is the bucket's `file_size_limit` (10 MB today, 25 MB after the raise) — record it in the promotion checklist; detect with `scripts/migrate-v2/storage-orphans.ts`; a human-run sweeper is an open decision. Introduced by S0.9b (partial); the multipart path was bounded by the platform body cap |
+| R-17 | **Signed uploads move the guarantees after persistence**: the sign endpoint validates the declared size, the categoria and the duplicate title, but the browser PUT lands in Storage unchecked and confirm only then fails — so an authorised user can leave an orphan object that the never-delete policy forbids removing. Two triggers remain after S0.9b's correction: an **oversized object** (only the bucket limit binds) and a **concurrent create inside the sign→confirm window** (the confirm re-check fails legitimately, after the bytes are stored) | Medium / Low (was Medium / Medium before the correction) | The enforced bound is the bucket's `file_size_limit` (10 MB today, 25 MB after the raise) — recorded in the promotion checklist (§6.5 step 3); detect with `scripts/migrate-v2/storage-orphans.ts`; a human-run sweeper is an open decision. **S0.9b's correction removed the routine triggers**: every rejection that the multipart path made side-effect-free (duplicate title, categoria 400/403) now happens before `createSignedUploadUrl`. Introduced by S0.9b; the multipart path was bounded by the platform body cap |
 
 ### 7.2 Assumptions register
 | ID | Assumption (default) | Where | How to falsify / owner |

@@ -34,6 +34,9 @@ vi.mock("@/lib/db", () => ({
     tarea: {
       findFirst: vi.fn(),
     },
+    cliente: {
+      findFirst: vi.fn(),
+    },
   },
 }));
 
@@ -95,6 +98,7 @@ beforeEach(() => {
   vi.mocked(isSupabaseConfigured).mockReturnValue(true);
   // No settings row -> loadDocCategories falls back to the factory catalog.
   vi.mocked(db.setting.findUnique).mockResolvedValue(null);
+  vi.mocked(db.documento.findFirst).mockResolvedValue(null);
   vi.mocked(db.documentoCliente.findMany).mockResolvedValue([]);
   vi.mocked(db.documentoVersion.findFirst).mockResolvedValue(null);
 });
@@ -282,5 +286,187 @@ describe("POST /api/v1/uploads/sign", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
     expect(createSignedUploadUrl).not.toHaveBeenCalled();
+  });
+
+  // ADR-13 document creation (S0.9b item 1 + correction B1): the sign endpoint
+  // runs the SAME create gates as the multipart branch (categoria validity,
+  // restricted-category authorization, duplicate-title conflict) BEFORE it
+  // issues any URL, then pre-generates the document id and signs the FINAL key
+  // documentos/{cliente}/{id}/v1_{nombre} — no temporary key, no rename.
+  it("sign pre-generates the document id and signs the final v1 key for a new document", async () => {
+    const createSignedUploadUrl = mockSignOk();
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1" } as never);
+
+    const res = await POST(
+      signRequest({
+        kind: "documento_nuevo",
+        nombre: "Informe Final Óptimo.pdf",
+        tamano_bytes: 3,
+        tipo_mime: "application/pdf",
+        cliente_id: "cli-1",
+        titulo: "Informe final",
+        categoria: "Comercial",
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.documento_id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(body.storage_path).toBe(
+      `documentos/cli-1/${body.documento_id}/v1_Informe_Final_Optimo.pdf`,
+    );
+    // The server-signed key IS the final key: the id in it is the one returned.
+    expect(createSignedUploadUrl).toHaveBeenCalledWith(body.storage_path);
+  });
+
+  it("sign signs the general folder key for a new document without a cliente", async () => {
+    const createSignedUploadUrl = mockSignOk();
+
+    const res = await POST(
+      signRequest({
+        kind: "documento_nuevo",
+        nombre: "informe.pdf",
+        tamano_bytes: 3,
+        tipo_mime: "application/pdf",
+        titulo: "Informe final",
+        categoria: "Comercial",
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.storage_path).toBe(
+      `documentos/general/${body.documento_id}/v1_informe.pdf`,
+    );
+    expect(createSignedUploadUrl).toHaveBeenCalledWith(body.storage_path);
+  });
+
+  it("sign rejects an unknown cliente for a new document without signing", async () => {
+    const createSignedUploadUrl = mockSignOk();
+    vi.mocked(db.cliente.findFirst).mockResolvedValue(null);
+
+    const res = await POST(
+      signRequest({
+        kind: "documento_nuevo",
+        nombre: "informe.pdf",
+        tamano_bytes: 3,
+        tipo_mime: "application/pdf",
+        cliente_id: "no-existe",
+        titulo: "Informe final",
+        categoria: "Comercial",
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(createSignedUploadUrl).not.toHaveBeenCalled();
+  });
+
+  // Correction B1: these rejections must happen BEFORE the signed URL is
+  // issued, or the normal dialog flow would PUT the bytes and orphan the object
+  // (the never-delete policy forbids removing it afterwards).
+  it("sign rejects a new document without titulo or categoria before signing", async () => {
+    const createSignedUploadUrl = mockSignOk();
+
+    const noTitulo = await POST(
+      signRequest({
+        kind: "documento_nuevo",
+        nombre: "informe.pdf",
+        tamano_bytes: 3,
+        categoria: "Comercial",
+      }),
+    );
+    expect(noTitulo.status).toBe(400);
+    expect(await noTitulo.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+
+    const noCategoria = await POST(
+      signRequest({
+        kind: "documento_nuevo",
+        nombre: "informe.pdf",
+        tamano_bytes: 3,
+        titulo: "Informe final",
+      }),
+    );
+    expect(noCategoria.status).toBe(400);
+    expect(await noCategoria.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+
+    expect(createSignedUploadUrl).not.toHaveBeenCalled();
+  });
+
+  it("sign rejects a categoria outside the live catalog without signing", async () => {
+    const createSignedUploadUrl = mockSignOk();
+
+    const res = await POST(
+      signRequest({
+        kind: "documento_nuevo",
+        nombre: "informe.pdf",
+        tamano_bytes: 3,
+        titulo: "Informe final",
+        categoria: "NoExiste",
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(createSignedUploadUrl).not.toHaveBeenCalled();
+  });
+
+  it("sign rejects a restricted categoria for a COLABORADOR without signing", async () => {
+    const createSignedUploadUrl = mockSignOk();
+    authAs(colaborador);
+
+    const res = await POST(
+      signRequest({
+        kind: "documento_nuevo",
+        nombre: "informe.pdf",
+        tamano_bytes: 3,
+        titulo: "Informe final",
+        categoria: "Legal",
+      }),
+    );
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ code: "FORBIDDEN" });
+    expect(createSignedUploadUrl).not.toHaveBeenCalled();
+  });
+
+  it("sign returns the duplicate-title 409 without signing unless force is true", async () => {
+    const createSignedUploadUrl = mockSignOk();
+    vi.mocked(db.documento.findFirst).mockResolvedValue({
+      id: "doc-existing",
+      titulo: "Informe final",
+    } as never);
+
+    const conflict = await POST(
+      signRequest({
+        kind: "documento_nuevo",
+        nombre: "informe.pdf",
+        tamano_bytes: 3,
+        titulo: "Informe final",
+        categoria: "Comercial",
+      }),
+    );
+
+    expect(conflict.status).toBe(409);
+    expect(await conflict.json()).toMatchObject({
+      code: "CONFLICT",
+      documento: { id: "doc-existing", titulo: "Informe final" },
+    });
+    expect(createSignedUploadUrl).not.toHaveBeenCalled();
+
+    vi.mocked(db.documento.findFirst).mockClear();
+    const forced = await POST(
+      signRequest({
+        kind: "documento_nuevo",
+        nombre: "informe.pdf",
+        tamano_bytes: 3,
+        titulo: "Informe final",
+        categoria: "Comercial",
+        force: true,
+      }),
+    );
+    expect(forced.status).toBe(200);
+    expect(db.documento.findFirst).not.toHaveBeenCalled();
+    expect(createSignedUploadUrl).toHaveBeenCalled();
   });
 });
