@@ -154,6 +154,7 @@ Verified 2026-09-30 against the repository:
 | 2026-10-01 | Session 3: CP-1 remote backup + CP-2 production audit + CP-4 suite envelope | `86a6e9d` + the CP-4 commit | CP-1: user pushed `feat/projects-v2` to `origin` (tip `0dc08ec` at push time, additive, no PR). CP-2: read-only audit → 8 abandoned v1 tables in production with 4 rows total, `auditoria_cambios` absent, phantom migration `20260918153200_tablero_seguimiento_social` (recoverable from `6e4c6c8`). CP-4: two concurrent suites → 6-7 failures each, one suite → 122/122 green; `pool: threads` + `maxWorkers: 4` pinned, 3 sequential runs green, `tsc` 0 errors | CP-4's first revision was **refuted** by the verifier (`minWorkers` is not a vitest 4.1.10 option and broke `tsc`); removed, and the comment's unreproduced numbers were corrected. The review of the branch-wide candidate is impossible by budget (measured twice) — nothing approved |
 | 2026-10-01 | Session 4: S0.9b completion + the B1 correction | `415ec27` (code + SDD) | Round 1 (9 files, +899/−73): sign kind `documento_nuevo` pre-generating the id and signing the final key, JSON confirm branch deriving the id/cliente from the signed path, kanban client migrated. Independent verifier pass 1: `READY TO COMMIT: no` — all commands green but **B1** blocking. Round 2: shared `guardDocumentCreate` (categoria 400 / restricted 403 / duplicate 409) called by the sign endpoint **before `createSignedUploadUrl`** and re-called by the confirm branch; thrown-Storage path returns the envelope; decorative guard call removed; two test gaps closed. Verifier pass 2: `READY TO COMMIT: yes`. Own checks: 7 focused files / **85 tests** green; **full suite 126 files / 1194 tests green** in 123 s; `tsc` 0 errors; eslint clean | B1 was a **parity regression**: the multipart path rejected the same request before any Storage write, the signed path after it, so every routine duplicate-title/categoria attempt leaked a permanent orphan. R-17's size-only acceptance did not cover it |
 | 2026-10-01 | Session 4: native review of the S0.9b slice | lineage `review-ba69dfb46439abc1` | `review.start` over the **full slice** (base tree `35da212` = `2cbc678`, `committed-only`): 21 paths, 2934 lines, tier **medium**, one lens (`review-reliability`), correction budget 200. Consent envelope relayed verbatim; the human chose `granted`. One reviewer ran (host relay, prompt 166 KB → result 5.9 KB). State **approved**; two advisory `informational` findings (R3-1 WARNING, R3-2 SUGGESTION); acknowledgement completed, **authority burned** | Satisfies RDD. The same session's plans-only candidate (`review-0d0f1e39bb4aadc2`, 26 lines, risk low, `non_executable_only`, 0 lenses) was also approved and burned. The user explicitly **deferred** review of the pre-correction code candidate `sha256:edeb3872…` to the corrected one — a human disposition, not an opt-out |
+| 2026-10-01 | Session 5: S0.9b hygiene unit (one home for the create gates + R3-1) | `8d10180` | The multipart branch of `POST /documents` now takes categoria validity, restricted-category authorization and the duplicate-title conflict from `guardDocumentCreate` (`parseUploadForm` is called with `requiereCategoria: false`) and its inline copies are deleted; the confirm branch's documento/version/cliente inserts are one `db.$transaction` with the audit call and the extraction outside; the guard's tests pin `mode: "insensitive"` / `deleted_at: null`. Verifier: `READY TO COMMIT: yes`, no blocking finding, response contract byte-identical, three benign ordering deltas named. Own checks: focused 41 + 8 + 18 + 14 green; **full suite 126 files / 1201 tests green** (baseline 1194); `tsc` 0 errors; eslint clean | **medium** tier, 1 lens (`review-reliability`), lineage `review-d4d492b8adb83210`: **approved**, acknowledged, **authority burned**; one advisory WARNING at `route.ts:526`, `informational` | Closes S0.9b residual 2, the guard-assertion gap and **R3-1**. `src/lib/api/documents.ts` needed no change. The first capture attempt failed with `native-status-failed — the negotiated review operation exceeded its aggregate time budget`; the identical retry succeeded |
 
 ### Session 3 detail (2026-10-01)
 
@@ -217,6 +218,32 @@ Verified 2026-09-30 against the repository:
   sweeper decision.
 - **Nothing was pushed.** `origin/feat/projects-v2` is now several commits behind local; the remote step still needs
   explicit per-batch approval.
+
+### Session 5 detail (2026-10-01)
+
+- **Why this unit and not S1.1a.** After S0.9b closed, the plan's next task was the first catalogs slice, but the user
+  chose the slice's hygiene unit first: three recorded residuals were cheap and would otherwise become drift.
+- **What landed** (`8d10180`, 3 files): the multipart branch of `POST /api/v1/documents` stopped carrying its own copy
+  of the QA-audit-#4 logic — categoria validity, the restricted-category 403 and the duplicate-title 409 now all come
+  from the shared `guardDocumentCreate`, called before the inserts; **R3-1** was fixed by making the confirm branch's
+  documento/version/cliente inserts one `db.$transaction` with `logAudit` and the best-effort extraction outside it; and
+  the guard's tests now pin `mode: "insensitive"` / `deleted_at: null`, which could previously be dropped unnoticed.
+- **The independent verifier's most useful contribution** was not a finding but an inventory: it established that the
+  response contract is byte-identical and enumerated the *ordering* deltas the consolidation introduced (the live
+  catalog now loads after the form checks, so a malformed form gets its own 400 instead of the catalog's 500; and the
+  etiquetas check now precedes the categoria check). Both are accepted and recorded; neither combination is tested.
+- **Native review**: lineage `review-d4d492b8adb83210`, 3 files / 247 lines, tier medium, one reliability lens,
+  **approved** and **authority burned**, with one advisory WARNING at `route.ts:526`. The first capture attempt died
+  with `native-status-failed — the negotiated review operation exceeded its aggregate time budget`, and the
+  **identical** retry worked: read that message as transient, not fatal.
+- **D-07 decided** (user): the v1 openspec change `proyecto-financiero-tab` is to be marked superseded and kept **out of
+  git**, leaving its `.git/info/exclude` entry alone. Recorded with the two facts that matter — that exclusion is
+  per-clone and untracked, so no collaborator sees it; and the SDD's S0.1 file list is stale (only 1 of its 6 named
+  changes still exists).
+- **New residuals** are item 8 of the S0.9b block: the two ordering deltas, the now-dead `requiereCategoria` flag plus
+  the stale OpenAPI comment that names it (one follow-up), and the fact that H2's atomicity is proven structurally
+  rather than against Postgres.
+- **Nothing was pushed.** Local is still ahead of `origin/feat/projects-v2`; the remote step needs explicit approval.
 
 ### Session 3 also left one open item: the S0.6 review lineage
 
