@@ -254,6 +254,24 @@ Verified 2026-09-30 against the repository:
   that let the harness defect live.
 - **Nothing was pushed.** The commit waits for explicit push authorization, as always.
 
+**Session-6 close (handoff).** The five session commits are `627e54a` (the three decisions), `d55144e` (the S1.1a
+recalibration), `cf8b837` (the harness fix), `9cf8466` (S1.1a, 17 files) and `748817b` (the branch-wide review
+disposition), leaving local **5 commits ahead** of `origin/feat/projects-v2` (`dbc2f52`). The user configured this
+clone during the session (`remote.origin.fetch` for all heads, a fetch, and the branch upstream), so for the first time
+`git status -sb` reports the branch against its remote; note that a push still leaves no local ref to compare against
+unless the fetch refspec stays as configured.
+
+**Review ledger for the session.** Four candidates burned: `review-c327208600982a26` (the decisions document),
+`review-42eb76c1e76ae2d6` (the S1.1a recalibration), and — with the whole S1.1a unit — `review-ba69dfb46439abc1`-style
+full treatment culminating in `review-5a50cbc2ef8376c2`, which was **created and consented but never completed**: it
+failed in the pre-native phase with `operation_timeout` (`retry_safe: false`, `next_action: stop`) after seven lineages
+in one session, so **no lens ran, no collect slot was obtained, and the lineage stays at `reviewing` approving
+nothing**. The branch-wide candidate (`sha256:3320df1d…`, re-offered as `sha256:b7e5a9df…` after the disposition commit —
+same `paths_digest`, same 63 paths against `main`) was **left unreviewed by explicit user decision**, because a
+branch-wide candidate has exceeded the lens context budget every time it was measured and because the review budget was
+already spent. **Tomorrow: re-create the S1.1a review with a NEW lineage in a fresh session** — never retry the stranded
+one — and remember that roughly seven review lineages exhaust a session's aggregate budget.
+
 ### Session 5 detail (2026-10-01)
 
 - **Why this unit and not S1.1a.** After S0.9b closed, the plan's next task was the first catalogs slice, but the user
