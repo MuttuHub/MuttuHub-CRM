@@ -2252,6 +2252,17 @@ Two side effects to remember: the unstrengthened assertions in (v) were left tha
 three times, and the same exhausted budget means a **new** candidate (including this document) cannot complete a review
 until a fresh session.
 
+**Branch-wide candidate: inspected the same day and deliberately NOT started (user decision, 2026-10-01).** After the
+commits, the review extension pointed at target `sha256:3320df1d…` — the `base-diff` projection of the **whole branch**
+against `main` (`base-ref=6bee83f`, `committed-only`, **63 paths**), offering lineage `review-f2c0cd05c9cb56dc`. It was
+**not** started, on two independent grounds: a branch-wide candidate has been measured **three times** (sessions 3 and 4)
+to exceed the lens context budget (`lens_context_budget_exceeded`, no authority created), which is precisely why this
+project reviews **per slice**; and the session's aggregate review budget was already exhausted (`operation_timeout`,
+`retry_safe: false`, `next_action: stop`) right after the S1.1a lineage. **The user explicitly chose to leave this exact
+target unreviewed** and to re-create reviews **per slice in a fresh session**. So the branch-wide range stays
+unreviewed by explicit decision — not by silent omission — and if a whole-branch review is ever wanted it belongs to the
+PR preparation step, not to a slice.
+
 **Scope recalibrated 2026-10-01 (session 6) — this is GREENFIELD, not an adoption of branch code.** A read-only recon
 found **no `Rubro` model, no `rubros` table, no rubros migration and no rubros route** anywhere in the repository; the
 only non-SDD occurrence of "rubro" is the entity-name literal in `AUDIT_ENTIDADES_V2`
