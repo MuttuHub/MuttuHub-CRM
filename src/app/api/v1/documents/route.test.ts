@@ -44,6 +44,10 @@ vi.mock("@/lib/db", () => ({
       findFirst: vi.fn(),
     },
     $queryRaw: vi.fn(),
+    // Array-form $transaction (confirm branch, R3-1): resolve the ops so the
+    // handler reads the created rows exactly as Prisma would after a real
+    // atomic commit.
+    $transaction: vi.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
   },
 }));
 
@@ -422,6 +426,58 @@ describe("POST /api/v1/documents", () => {
 
     expect(res.status).toBe(400);
     expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+  });
+
+  // H1: the create gates have a single home (guardDocumentCreate). The multipart
+  // branch no longer validates the categoria inline (parseUploadForm is called
+  // with requiereCategoria: false), so the guard decides it and the value it
+  // stores is the normalized one. The one accepted delta is that the guard
+  // trims the categoria, which the old inline copy did not.
+  it("validates the categoria through the shared guard and stores the trimmed value", async () => {
+    vi.mocked(db.documento.create).mockResolvedValue(docRow({ id: "doc-new", categoria: "Comercial" }));
+    vi.mocked(db.documentoVersion.create).mockResolvedValue({
+      id: "v-1",
+      documento_id: "doc-new",
+      numero_version: 1,
+      storage_path: "documentos/general/doc-new/v1_informe.pdf",
+      tamano_bytes: 3,
+      tipo_archivo: "application/pdf",
+      subido_por_id: "admin-1",
+      created_at: new Date("2026-01-01"),
+      contenido_texto: null,
+      texto_estado: null,
+    });
+    vi.mocked(db.documentoCliente.findMany).mockResolvedValue([]);
+
+    const res = await POST(postRequest(uploadForm({ categoria: "  Comercial  " })));
+
+    expect(res.status).toBe(201);
+    expect(db.documento.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ categoria: "Comercial" }) }),
+    );
+  });
+
+  it("rejects a blank categoria as a validation error, never a 500", async () => {
+    const res = await POST(postRequest(uploadForm({ categoria: "   " })));
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(db.documento.create).not.toHaveBeenCalled();
+  });
+
+  // The settings-load failure answers the same 500 envelope as before, now
+  // produced by the guard instead of the route's own load. Guarding it keeps the
+  // envelope from regressing to a raw framework 500 when it moves.
+  it("returns 500 with the standard envelope when the category catalog cannot be loaded", async () => {
+    vi.mocked(db.setting.findUnique).mockRejectedValue(new Error("settings down"));
+
+    const res = await POST(postRequest(uploadForm({ categoria: "Comercial" })));
+
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body).toMatchObject({ code: "INTERNAL_ERROR" });
+    expect(body.error).toBe("No pudimos cargar los catálogos. Inténtalo de nuevo.");
+    expect(db.documento.create).not.toHaveBeenCalled();
   });
 
   it("soft-deletes the orphaned document and returns 500 when the upload fails", async () => {
@@ -862,5 +918,61 @@ describe("POST /api/v1/documents — signed-upload confirm mode", () => {
       where: { id: "v-1" },
       data: { contenido_texto: "texto extraído", texto_estado: "ok" },
     });
+  });
+
+  // R3-1: create + (optional) cliente link + v1 version used to be three
+  // independent awaits, so a failure after the first one left a Documento row
+  // with no version. All three keys are known up front (the id comes from the
+  // signed path), so they share ONE atomic db.$transaction.
+  it("performs the document, version and cliente inserts in a single db.$transaction", async () => {
+    mockCreateOk();
+    vi.mocked(db.documentoCliente.create).mockResolvedValue({} as never);
+    const path = `documentos/cli-1/${DOC_ID}/v1_informe.pdf`;
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1" } as never);
+
+    const res = await POST(
+      confirmRequest(confirmBody({ storage_path: path, cliente_id: "cli-1" })),
+    );
+
+    expect(res.status).toBe(201);
+    expect(db.$transaction).toHaveBeenCalledTimes(1);
+    // The exact ops, in order: documento first (the rows below reference it),
+    // then the version, then the cliente link. No write is left outside.
+    expect(vi.mocked(db.$transaction).mock.calls[0]![0]).toEqual([
+      vi.mocked(db.documento.create).mock.results[0]!.value,
+      vi.mocked(db.documentoVersion.create).mock.results[0]!.value,
+      vi.mocked(db.documentoCliente.create).mock.results[0]!.value,
+    ]);
+    // The audit entry and the best-effort extraction stay OUTSIDE the
+    // transaction: a failed extraction must not roll the document back.
+    expect(logAudit).toHaveBeenCalledTimes(1);
+    expect(db.documentoVersion.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips the cliente insert for a document without cliente", async () => {
+    mockCreateOk();
+
+    const res = await POST(confirmRequest(confirmBody()));
+
+    expect(res.status).toBe(201);
+    const ops = vi.mocked(db.$transaction).mock.calls[0]![0] as unknown as unknown[];
+    expect(ops).toHaveLength(2);
+    expect(db.documentoCliente.create).not.toHaveBeenCalled();
+  });
+
+  // The failure the transaction is there to prevent: with the rows inside one
+  // transaction a rejected insert cancels the whole create, so the handler
+  // answers the 500 envelope and never audits or extracts text for a document
+  // that does not exist.
+  it("answers the 500 envelope and skips audit and extraction when the transaction fails", async () => {
+    mockCreateOk();
+    vi.mocked(db.$transaction).mockRejectedValueOnce(new Error("insert failed"));
+
+    const res = await POST(confirmRequest(confirmBody()));
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toMatchObject({ code: "INTERNAL_ERROR" });
+    expect(logAudit).not.toHaveBeenCalled();
+    expect(db.documentoVersion.update).not.toHaveBeenCalled();
   });
 });

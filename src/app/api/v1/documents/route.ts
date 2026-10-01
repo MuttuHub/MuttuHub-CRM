@@ -9,10 +9,11 @@
 // etiquetas? JSON, cliente_id?, force?) crea el Documento + sube la versión v1
 // a Supabase Storage. Flujo transaccional-ish: fila primero, upload después,
 // versión al final; si el upload falla se hace soft delete del documento
-// huérfano y se responde 500 (nunca crash). Si ya existe un documento con el
-// mismo título (case-insensitive) y `force` no viene en true, responde 409
-// CONFLICT con el documento existente en vez de crear un duplicado — el
-// diálogo de subida ofrece entonces "nueva versión" o "documento aparte".
+// huérfano y se responde 500 (nunca crash). Las tres decisiones de creación
+// (categoría válida 400, categoría restringida 403, título duplicado 409 —
+// salvo `force` en true — y 500 si el catálogo live no carga) viven en
+// guardDocumentCreate, compartido con el sign endpoint y con la rama de
+// confirmación; este branch solo valida la forma del formulario.
 
 import { NextResponse } from "next/server";
 import type { Usuario } from "@prisma/client";
@@ -22,7 +23,6 @@ import { withApiErrorHandling } from "@/lib/api/handler";
 import { isSupabaseConfigured, requireApiUser } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { parsePagination } from "@/lib/api/crm";
-import { canReadRestrictedDocs } from "@/lib/permissions";
 import { logAudit } from "@/lib/api/audit";
 import { documentStoragePath, isAllowedFileType, isAllowedNameAndMime, MAX_FILE_BYTES, MAX_FILE_MB, STORAGE_BUCKET } from "@/lib/api/files";
 import { storedObjectSize } from "@/lib/api/signed-upload";
@@ -224,21 +224,22 @@ async function confirmSignedDocument(
       }
     }
 
+    // R3-1: the three inserts are ONE atomic transaction. They used to be three
+    // independent awaits, so an error after the first left a Documento row with
+    // no version (half-created document). Every key is known up front — the id
+    // comes from the signed storage_path and the version references that same id
+    // — so the operations can be batched and Postgres commits every one of them
+    // or none. The operations are built in order: documento first, then the v1
+    // version, then the optional cliente link.
     // Explicit id: the one the sign endpoint pre-generated and encoded in the
     // key (validated above), never a value the client could choose freely.
-    const documento = await db.documento.create({
+    const documentoOp = db.documento.create({
       data: { id: documentoId, titulo, categoria, etiquetas, autor_id: usuario.id },
       select: DOCUMENT_BASE_SELECT,
     });
-    if (clienteId) {
-      await db.documentoCliente.create({
-        data: { documento_id: documento.id, cliente_id: clienteId },
-      });
-    }
-
-    const version = await db.documentoVersion.create({
+    const versionOp = db.documentoVersion.create({
       data: {
-        documento_id: documento.id,
+        documento_id: documentoId,
         numero_version: 1,
         storage_path: storagePath,
         tamano_bytes: realSize,
@@ -247,6 +248,17 @@ async function confirmSignedDocument(
       },
       select: DOCUMENT_VERSION_SELECT,
     });
+    const clienteOp = clienteId
+      ? db.documentoCliente.create({
+          data: { documento_id: documentoId, cliente_id: clienteId },
+        })
+      : null;
+
+    const [documento, version] = await db.$transaction([
+      documentoOp,
+      versionOp,
+      ...(clienteOp ? [clienteOp] : []),
+    ]);
 
     // Same best-effort inline extraction as the multipart branch: the bytes
     // come back from Storage (never from the function request body).
@@ -489,61 +501,36 @@ export async function POST(request: Request) {
     return confirmSignedDocument(request, auth.usuario);
   }
 
-  // Catálogo en vivo (setting doc_categories; fallback constantes) para
-  // validar la categoría y las restringidas de COLABORADOR.
-  let docCategories: { categorias: string[]; restringidas: string[] };
-  try {
-    docCategories = await loadDocCategories();
-  } catch (err) {
-    console.error("[documents] settings load failed:", err);
-    return apiError("No pudimos cargar los catálogos. Inténtalo de nuevo.", 500, "INTERNAL_ERROR");
-  }
-
+  // H1: this branch validates the form SHAPE only (parseUploadForm with
+  // requiereCategoria: false, exactly like POST /documents/:id/versions). Every
+  // create gate — categoria validity, restricted-category authorization and the
+  // duplicate-title conflict — lives in guardDocumentCreate, so the QA-audit-#4
+  // logic has a single home and the call sites cannot drift.
   const form = await parseUploadForm(request, {
-    requiereCategoria: true,
-    categorias: docCategories.categorias,
+    requiereCategoria: false,
+    categorias: [],
   });
   if (!form.ok) return form.response;
-  const { file, titulo, categoria, etiquetas, clienteId, force } = form.data;
-
-  // Categorías restringidas: los COLABORADOR no pueden ni crearlas (PRD §6.2).
-  if (!canReadRestrictedDocs(auth.usuario.rol) && docCategories.restringidas.includes(categoria)) {
-    return apiError("No tienes permisos para documentos de esa categoría.", 403, "FORBIDDEN");
-  }
+  const { file, titulo: tituloRaw, categoria: categoriaRaw, etiquetas, clienteId, force } =
+    form.data;
 
   try {
-    // QA audit #4: antes solo existía el versionado manual (POST
-    // /:id/versions, iniciado por el usuario desde la ficha); subir con un
-    // título repetido creaba un documento duplicado independiente sin
-    // preguntar nada. Si no es un versionado explícito (force), avisamos y
-    // dejamos que el diálogo decida entre "nueva versión" o "documento
-    // aparte". Corrido dentro del try (antes estaba afuera: un error de DB
-    // acá tiraba un 500 crudo en vez del envelope {error, code} esperado) y
-    // excluyendo categorías restringidas para un COLABORADOR — si no, el
-    // 409 filtraba la existencia/id de un documento en una categoría que ese
-    // rol ni siquiera puede listar.
-    if (!force) {
-      const existing = await db.documento.findFirst({
-        where: {
-          titulo: { equals: titulo, mode: "insensitive" },
-          deleted_at: null,
-          ...(canReadRestrictedDocs(auth.usuario.rol)
-            ? {}
-            : { categoria: { notIn: [...docCategories.restringidas] } }),
-        },
-        select: { id: true, titulo: true },
-      });
-      if (existing) {
-        return NextResponse.json(
-          {
-            error: `Ya existe un documento llamado "${existing.titulo}".`,
-            code: "CONFLICT",
-            documento: existing,
-          },
-          { status: 409 },
-        );
-      }
-    }
+    // The three create gates in one call: 400 invalid categoria, 403 restricted
+    // categoria for this actor, 409 duplicate title (unless `force`), 500 when
+    // the live catalog cannot be loaded. Inside the try so a DB failure in the
+    // duplicate lookup still answers the {error, code} envelope instead of a raw
+    // framework 500. The guard normalizes the categoria it validates, so the
+    // route normalizes it first and persists exactly what was validated — a
+    // padded value can never reach the row outside the live catalog.
+    const categoria = categoriaRaw.trim();
+    const gate = await guardDocumentCreate({
+      usuario: auth.usuario,
+      titulo: tituloRaw,
+      categoria,
+      force,
+    });
+    if (!gate.ok) return gate.response;
+    const titulo = gate.titulo;
 
     if (clienteId) {
       const cliente = await db.cliente.findFirst({

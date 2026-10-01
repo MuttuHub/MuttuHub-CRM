@@ -117,6 +117,26 @@ describe("guardDocumentCreate", () => {
     expect(db.documento.findFirst).not.toHaveBeenCalled();
   });
 
+  // H3: the lookup must stay case-insensitive AND scoped to live rows. Without
+  // these exact assertions, dropping either `mode: "insensitive"` or
+  // `deleted_at: null` from the guard would not fail any test.
+  it("scopes the duplicate lookup to live rows with a case-insensitive title match", async () => {
+    await guardDocumentCreate({
+      usuario: gerencia,
+      titulo: "Informe final",
+      categoria: "Comercial",
+      force: false,
+    });
+
+    expect(db.documento.findFirst).toHaveBeenCalledWith({
+      where: {
+        titulo: { equals: "Informe final", mode: "insensitive" },
+        deleted_at: null,
+      },
+      select: { id: true, titulo: true },
+    });
+  });
+
   it("excludes restricted categories from the duplicate lookup for a COLABORADOR", async () => {
     await guardDocumentCreate({
       usuario: colaborador,
