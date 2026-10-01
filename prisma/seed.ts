@@ -34,7 +34,7 @@
 
 import "./require-local-db";
 import { db } from "../src/lib/db";
-import { DOC_CATEGORIES, RESTRICTED_DOC_CATEGORIES, TASK_TAGS } from "../src/lib/catalogs";
+import { DOC_CATEGORIES, RESTRICTED_DOC_CATEGORIES, RUBROS_V2, TASK_TAGS } from "../src/lib/catalogs";
 import { ensureDefaultSettings } from "../src/lib/settings";
 import { createSupabaseAdmin } from "../src/lib/supabase/admin";
 import { documentStoragePath, STORAGE_BUCKET } from "../src/lib/api/files";
@@ -58,6 +58,7 @@ const ENTITY_CODE = {
   version: "a00a",
   acceso: "a00b",
   solicitud: "a00c",
+  rubro: "a00d",
 } as const;
 
 type Entity = keyof typeof ENTITY_CODE;
@@ -948,6 +949,39 @@ async function seedAccesos(usuarios: Record<string, { id: string }>) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Section: Rubro (catálogo único v2 R01–R15, REQ-CAT-01)
+// ─────────────────────────────────────────────────────────────────────────
+
+async function seedRubros() {
+  console.log("\n[rubros] Catálogo único R01–R15...");
+
+  let seq = 0;
+  for (const rubro of RUBROS_V2) {
+    seq += 1;
+    // Natural-key upsert: by `codigo`, not by id. An adopted database already
+    // has R01/R12 with random v1 ids, so the fixed id is used only when the row
+    // is created; re-running the seed refreshes the same 15 rows and never
+    // duplicates or collides.
+    await db.rubro.upsert({
+      where: { codigo: rubro.codigo },
+      create: {
+        id: fixedId("rubro", rubro.orden),
+        codigo: rubro.codigo,
+        nombre: rubro.nombre,
+        orden: rubro.orden,
+        activo: true,
+      },
+      // Only nombre/orden: a re-seed must not override an administrator's suspension (activo=false).
+      update: {
+        nombre: rubro.nombre,
+        orden: rubro.orden,
+      },
+    });
+  }
+  console.log(`  ${seq} rubros R01–R15 upserted.`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // main
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -975,6 +1009,7 @@ async function main() {
   await seedDocumentos(admin, usuarios, clienteIds);
   await seedSolicitudesAcceso(usuarios);
   await seedAccesos(usuarios);
+  await seedRubros();
 
   console.log("\n[settings] Catálogos por defecto (task_tags, doc_categories)...");
   await ensureDefaultSettings();
@@ -987,7 +1022,8 @@ async function main() {
       `  - Clientes: ${CLIENTES.length}\n` +
       `  - Oportunidades: ${OPORTUNIDADES.length}\n` +
       `  - Tareas: ${TAREAS.length}\n` +
-      `  - Documentos: ${DOC_CATEGORIES.length}\n\n` +
+      `  - Documentos: ${DOC_CATEGORIES.length}\n` +
+      `  - Rubros: ${RUBROS_V2.length}\n\n` +
       "Credenciales demo (NUNCA reutilizar fuera de este proyecto de desarrollo):\n" +
       PERSONAS.map((p) => `  - ${p.rol.padEnd(14)} ${p.email}  /  ${DEMO_PASSWORD}`).join("\n") +
       "\n",

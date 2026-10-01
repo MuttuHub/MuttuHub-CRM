@@ -2208,6 +2208,50 @@ R-01 cell was corrected: the no-bypass refusal lives in the guarded entry points
   the migration drift (S0.10)`.
 
 #### S1.1a — Rubro catalog R01–R15 with immutable codes and suspend-not-delete (M)
+**DONE 2026-10-01 (session 6)**, delivered exactly as the recalibration below requires: `RUBROS_V2` (the single TS
+source for R01–R15), the new `Rubro` model, the adoptive/idempotent migration `20261001185211_v2_rubros_codigo`
+(table when absent, adoption when present, unique `codigo` index, conditional immutability trigger, R01/R12 backfill,
+the two legacy rows suspended and code-less), `s1-rubros.ts` + its pure `planRubros()` test driven through the fixed
+`_harness.ts`, `GET /api/v1/rubros`, `PATCH`/`DELETE /api/v1/rubros/:id` (+ tests),
+`prisma/rubros.invariant.test.ts` (the trigger, live DB), `prisma/rubros-migration.invariant.test.ts` (**the ADOPTION
+path**, against a reconstructed production-shaped table in a throwaway schema, running the real migration SQL text),
+the seed, and `src/lib/openapi/paths/rubros.ts` + its registration line. Suite **131 files / 1226 tests green**
+(baseline 126/1201; +5 files and +25 tests accounted for); `tsc` 0 errors; eslint clean on the 15 touched files. The
+script was exercised end to end on the local database: `--dry-run` → `--apply --expect-hash` → `--revert` → re-apply,
+with the lote rows visible in `auditoria_cambios`.
+
+**A real defect found on the way, fixed at the root.** The S0.6 kit's `_harness.ts` wrote its lote through
+`tx.auditoria_cambios` — a delegate the generated client never exposes (it is `auditoriaCambio`) — so **no real
+`--apply` could ever have worked for any script**, and the harness's own test hid it because its fake encoded the same
+wrong name. Fixed in `_harness.ts` plus `_harness.test.ts` (the fake now mirrors the real client, so reverting the name
+fails red again), and the temporary adapter that `s1-rubros.ts` had used to work around it was **deleted** rather than
+shipped.
+
+**Residuals recorded, not silently accepted:** (i) the adoption test reconstructs production's shape from the phantom
+migration instead of a `pg_dump`, so exact types/defaults, extra constraints and a possible pre-existing object named
+`rubros_codigo_inmutable` remain unproven; (ii) the migration does not touch `activo` on the two backfilled rows, so a
+legacy `NULL activo` there would leave a coded-but-invisible rubro — both (i) and (ii) now name explicit checks in the
+§6.5 promotion rehearsal; (iii) a suspended rubro disappears from `GET` and no endpoint lists suspended ones, so an
+administrator cannot *discover* one to restore it — deferred to the catalogs UI (S1.2/S1.3); (iv) `seedRubros`
+deliberately does not re-activate a suspended rubro on re-seed and its path is **unexecuted end to end**, because the
+seed also drives demo Supabase Auth/Storage seeding; (v) three assertions the verifier called weak remain
+unstrengthened because the writer runtime failed repeatedly at the end of the session — the harness fake records a
+boolean instead of a write count (so "exactly one lote row per apply" is unpinned), the adoption test checks the code
+index by name but not `indisunique`, and the `public` guard snapshots rows but not functions/triggers.
+
+**Native review of this slice: STARTED BUT NOT COMPLETED (host-side budget).** Lineage
+`review-5a50cbc2ef8376c2` was created for the 19-path unit (1454 lines, tier **medium**, one `review-reliability` lens,
+correction budget 200) and the human granted the consent envelope, so the candidate **is** reviewed-pending rather than
+silently skipped. The next step then failed in the **pre-native** phase with
+`operation_timeout — The negotiated review operation exceeded its aggregate time budget`, explicitly
+**`retry_safe: false`** and `next_action: stop`. No collect slot was obtained, so **no lens ever ran and the lineage
+stays at `reviewing`**; it approves nothing, and the review must be re-created in a fresh session (a new lineage) rather
+than retried. This is a review-budget limitation of the session, not a finding about the candidate: the candidate itself
+had already passed two independent read-only verifications, the full suite (131 files / 1226 tests) and `tsc`/eslint.
+Two side effects to remember: the unstrengthened assertions in (v) were left that way because the writer runtime failed
+three times, and the same exhausted budget means a **new** candidate (including this document) cannot complete a review
+until a fresh session.
+
 **Scope recalibrated 2026-10-01 (session 6) — this is GREENFIELD, not an adoption of branch code.** A read-only recon
 found **no `Rubro` model, no `rubros` table, no rubros migration and no rubros route** anywhere in the repository; the
 only non-SDD occurrence of "rubro" is the entity-name literal in `AUDIT_ENTIDADES_V2`
@@ -2847,7 +2891,12 @@ never to a v1→v2 migration, which does not exist.
    the deploy. **Exercise the adoption path against a `pg_dump` restore of production before running it for real**,
    then diff the resulting `rubros` rows and the trigger's presence. The same trap applies to every later v2 migration
    that shares a name with one of the 8 abandoned tables (`proyectos`, `metas`, `actividades`, `gastos`, `rubros`,
-   `indicadores`, `soportes_proyecto`, `lineas_presupuestales`).
+   `indicadores`, `soportes_proyecto`, `lineas_presupuestales`). **Two checks specific to the rubros adoption, to run
+   in that same rehearsal:** (a) confirm that no row the migration backfills to `R01`/`R12` is left with a `NULL`
+   `activo` — the migration sets `activo=false` only for code-less rows and never touches `activo` on the two
+   backfilled rows, so a legacy `NULL` there would produce a coded-but-invisible rubro; and (b) confirm that the
+   adopted database has no pre-existing object named `rubros_codigo_inmutable` or `rubros_codigo_no_update`, because
+   the migration's `CREATE OR REPLACE FUNCTION` and `DROP TRIGGER IF EXISTS` would overwrite it.
 5. For each data script, run the human entrypoint `promote-remote.ts` in dry-run, review decisions, then apply
    with `--expect-hash <sha>` copied from that dry-run. The harness refuses `--apply` without a hash, refuses a
    recomputed mismatch *before* writing anything, and writes one `IMPORTAR` lote row per applied script.
@@ -2892,6 +2941,7 @@ never to a v1→v2 migration, which does not exist.
 | 2026-10-01 | **S0.10 production drift record** | orchestrator (read-only audit + docs) | `0dc08ec` (docs commit after it) | Read-only audit of the shared remote: 28 public tables; **all 8 abandoned v1 project tables present** with **4 rows total**; `auditoria_cambios` **absent**; **12 applied migrations** including the phantom `20260918153200_tablero_seguimiento_social`, which exists in **no branch** of the repo yet is recoverable from `6e4c6c8`. TLS never weakened, no table scans (catalog estimates first), no writes | — | Recorded in §6.9 + R-16 + D-10; §6.5 now forbids `migrate dev` against production; R-01 corrected (the no-bypass refusal is in the guarded entry points, not in the Prisma CLI). Decision: touch nothing in production now; v2 is additive and collides with none of the leftovers |
 | 2026-10-01 | **S0.9b signed direct-to-storage uploads — completion and the B1 correction** | delegated writer (2 rounds, strict TDD) + independent read-only verifier (2 passes) | see the completion commit after `a5a3c5f` | Round 1 (completion, 9 files, +899/−73): the sign endpoint gained `kind: "documento_nuevo"` **pre-generating the document id** and signing the FINAL key `documentos/{cliente|general}/{newId}/v1_{nombre}`; `POST /documents` gained a JSON confirm branch that **derives** the id and cliente from the signed path; `useUploadDocument` and `useUploadAttachment` moved to sign → PUT → confirm; the stale `multipartUpload` comment went away. Verifier pass 1: `READY TO COMMIT: no` — every command green, but **B1** blocking. Round 2 (correction): NEW shared `guardDocumentCreate` in `src/lib/api/documents.ts` (categoria 400, restricted 403, duplicate 409) called by the sign endpoint **before `createSignedUploadUrl`** and re-called by the confirm branch; the thrown-Storage path now returns the `{error, code}` envelope; the decorative `assertKeyBelongsToTarget` call removed; two test gaps closed. Verifier pass 2: `READY TO COMMIT: yes`, no blocking finding. Own checks: 7 focused files / **85 tests** green; **full suite 126 files / 1194 tests green** in 123 s (baseline 125/1167); `tsc` 0 errors; eslint clean on the 11 touched files | **medium** tier, **1 lens** (`review-reliability`), lineage `review-ba69dfb46439abc1`: **approved**, acknowledged, **authority burned** (prompt 166 KB → result 5.9 KB). Two **advisory, non-blocking** findings — R3-1 WARNING `documents/route.ts:229-249`, R3-2 SUGGESTION `versions/route.ts:103` — both `informational`; no correction transition was offered and neither reopens the review | B1 was a **newly introduced parity regression**: the multipart path rejected the same request *before* any Storage write, the signed path initially rejected it *after*, and the never-delete policy made every orphan permanent — so a routine flow leaked one object per attempt. Three triggers were reachable from the shipped dialog (duplicate title, restricted-category 403, invalid-category 400). **R-17's recorded acceptance (size guarantee) did not cover them**; after the correction R-17 covers only the confirm-side TOCTOU and oversized objects. Residuals carried in the S0.9b block: multipart↔guard duplication (no drift guard), R3-001, replay-500, the OpenAPI optionality nit, raw `fetch` vs `apiPost` |
 | 2026-10-01 | **S0.9b hygiene unit — one home for the create gates + R3-1** | delegated writer (strict TDD) + independent read-only verifier | `8d10180` (+51/−64 in the route, +112 and +20 in the two test files) | The multipart branch no longer carries its own categoria/duplicate logic (`parseUploadForm` is called with `requiereCategoria: false`), so all three create gates come from `guardDocumentCreate`; the confirm branch's documento/version/cliente inserts are now ONE `db.$transaction` with the audit call and the extraction outside; the guard's tests now pin `mode: "insensitive"` and `deleted_at: null` with an exact `toHaveBeenCalledWith`. Verifier: `READY TO COMMIT: yes`, no blocking finding; it established the response contract is byte-identical and named three benign ordering deltas. Own checks: focused 41 + 8 + 18 + 14 green; **full suite 126 files / 1201 tests green** (baseline 1194); `tsc` 0 errors; eslint clean | **medium** tier, **1 lens** (`review-reliability`), lineage `review-d4d492b8adb83210`: **approved**, acknowledged, **authority burned** (prompt 26 KB → result 1.5 KB). One advisory WARNING at `route.ts:526` (`informational`, no description in the closure envelope, no correction offered) | Closes S0.9b residual 2 (multipart↔guard duplication), the guard-assertion gap and **R3-1**; the unit's own residuals are item 8 of the S0.9b block. `src/lib/api/documents.ts` needed no change. Tooling note: the first capture attempt failed with `native-status-failed — the negotiated review operation exceeded its aggregate time budget` while the *identical* retry succeeded, so treat that message as transient rather than fatal |
+| 2026-10-01 | **S1.1a rubro catalog R01–R15 (greenfield after recalibration)** | delegated writer (2 rounds + 2 partial) + independent read-only verifier (2 passes) | see the commit after `d55144e` | A read-only recon first established that **no `Rubro` model, table, migration or route existed**: the SDD's "VERIFIED" citations for rubros pointed at v1 code absent from this branch, and the file list omitted the OpenAPI path, its registration and two test files. Delivered as recalibrated: `RUBROS_V2`, the `Rubro` model, the adoptive/idempotent migration `20261001185211_v2_rubros_codigo`, `s1-rubros.ts` + `planRubros()` test, `GET`/`PATCH`/`DELETE` routes (+ tests), the trigger's live-DB invariant test, the **adoption-path** test running the real SQL text in a throwaway schema, the seed, and the OpenAPI paths. Verifier pass 1: `READY TO COMMIT: yes` with no blocking finding, and it independently confirmed the shared-harness defect (client exposes only `auditoriaCambio`; `_harness.test.ts` faked the wrong name, so its own test could not catch it). Verifier pass 2 after the correction: `READY TO COMMIT: yes`, isolation confirmed (no leftover schemas, `public.rubros` unchanged), and it judged that the harness test **would now fail red** if the defect returned. Own checks: focused files green throughout; **full suite 131 files / 1226 tests green**; `tsc` 0; eslint clean on 15 files | **medium** tier, **1 lens** (`review-reliability`), lineage `review-5a50cbc2ef8376c2`: the human **granted** the consent envelope, then the next step failed in the **pre-native** phase with `operation_timeout` (**`retry_safe: false`**, `next_action: stop`). No collect slot was obtained, so **no lens ran and the lineage stays at `reviewing`** — it approves nothing. Re-create the review in a fresh session; do not retry this lineage | The harness defect was fixed at the root and the workaround adapter **deleted**, not shipped. Migration was created and applied through `npm run db:migrate:local` (never plain `npx prisma`), and the script ran dry-run → apply → revert → re-apply against the local DB. Residuals are listed in the S1.1a block; the last three are unstrengthened assertions because the writer runtime failed (bash stall, then model never started, then capacity quarantined) |
 
 **Upload limits record (S0.8, measured 2026-10-01).** Every check is now a fact, and the last unknown was closed
 **read-only instead of from the dashboard**:

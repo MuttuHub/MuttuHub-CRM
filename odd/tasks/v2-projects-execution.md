@@ -155,6 +155,7 @@ Verified 2026-09-30 against the repository:
 | 2026-10-01 | Session 4: S0.9b completion + the B1 correction | `415ec27` (code + SDD) | Round 1 (9 files, +899/−73): sign kind `documento_nuevo` pre-generating the id and signing the final key, JSON confirm branch deriving the id/cliente from the signed path, kanban client migrated. Independent verifier pass 1: `READY TO COMMIT: no` — all commands green but **B1** blocking. Round 2: shared `guardDocumentCreate` (categoria 400 / restricted 403 / duplicate 409) called by the sign endpoint **before `createSignedUploadUrl`** and re-called by the confirm branch; thrown-Storage path returns the envelope; decorative guard call removed; two test gaps closed. Verifier pass 2: `READY TO COMMIT: yes`. Own checks: 7 focused files / **85 tests** green; **full suite 126 files / 1194 tests green** in 123 s; `tsc` 0 errors; eslint clean | B1 was a **parity regression**: the multipart path rejected the same request before any Storage write, the signed path after it, so every routine duplicate-title/categoria attempt leaked a permanent orphan. R-17's size-only acceptance did not cover it |
 | 2026-10-01 | Session 4: native review of the S0.9b slice | lineage `review-ba69dfb46439abc1` | `review.start` over the **full slice** (base tree `35da212` = `2cbc678`, `committed-only`): 21 paths, 2934 lines, tier **medium**, one lens (`review-reliability`), correction budget 200. Consent envelope relayed verbatim; the human chose `granted`. One reviewer ran (host relay, prompt 166 KB → result 5.9 KB). State **approved**; two advisory `informational` findings (R3-1 WARNING, R3-2 SUGGESTION); acknowledgement completed, **authority burned** | Satisfies RDD. The same session's plans-only candidate (`review-0d0f1e39bb4aadc2`, 26 lines, risk low, `non_executable_only`, 0 lenses) was also approved and burned. The user explicitly **deferred** review of the pre-correction code candidate `sha256:edeb3872…` to the corrected one — a human disposition, not an opt-out |
 | 2026-10-01 | Session 5: S0.9b hygiene unit (one home for the create gates + R3-1) | `8d10180` | The multipart branch of `POST /documents` now takes categoria validity, restricted-category authorization and the duplicate-title conflict from `guardDocumentCreate` (`parseUploadForm` is called with `requiereCategoria: false`) and its inline copies are deleted; the confirm branch's documento/version/cliente inserts are one `db.$transaction` with the audit call and the extraction outside; the guard's tests pin `mode: "insensitive"` / `deleted_at: null`. Verifier: `READY TO COMMIT: yes`, no blocking finding, response contract byte-identical, three benign ordering deltas named. Own checks: focused 41 + 8 + 18 + 14 green; **full suite 126 files / 1201 tests green** (baseline 1194); `tsc` 0 errors; eslint clean | **medium** tier, 1 lens (`review-reliability`), lineage `review-d4d492b8adb83210`: **approved**, acknowledged, **authority burned**; one advisory WARNING at `route.ts:526`, `informational` | Closes S0.9b residual 2, the guard-assertion gap and **R3-1**. `src/lib/api/documents.ts` needed no change. The first capture attempt failed with `native-status-failed — the negotiated review operation exceeded its aggregate time budget`; the identical retry succeeded |
+| 2026-10-01 | Session 6: user decisions + S1.1a (greenfield rubro catalog) | see the commit after `d55144e` | Decisions closed: D-05 confirmed narrow, R3-001 accepted as a documented residual, **no orphan sweeper ever**, and the v1 openspec change `proyecto-financiero-tab` marked superseded while staying out of git. Then a read-only recon established S1.1a is **greenfield** (no `Rubro` model, table, migration or route; the SDD's "VERIFIED" citations pointed at v1 code absent from this branch), and it is the recon that surfaced the production collision: the abandoned v1 `rubros` table would abort a plain `CREATE TABLE` at `migrate deploy`. Delivered as recalibrated: `RUBROS_V2`, the `Rubro` model, the adoptive/idempotent migration, `s1-rubros.ts` + `planRubros()` test, `GET`/`PATCH`/`DELETE` routes (+ tests), the trigger's live-DB invariant test, the adoption-path test running the real SQL text in a throwaway schema, the seed and the OpenAPI paths. Also fixed at the root: the S0.6 harness's `writeLote` used a delegate the client never exposes, so **no real `--apply` had ever worked**. Own checks: focused green throughout; **full suite 131 files / 1226 tests green** (baseline 126/1201); `tsc` 0 errors; eslint clean on 15 files. Script exercised dry-run → apply → revert → re-apply against the local DB | Verifier pass 1 `READY TO COMMIT: yes` (no blocking finding) and it independently confirmed the harness defect; verifier pass 2 after the correction also `yes`, with isolation confirmed and the judgement that the harness test would now fail red if the defect returned | Residuals recorded in the S1.1a block: the reconstructed (not `pg_dump`) adoption shape, the untouched `activo` on the two backfilled rows, the invisible suspended rubros, the unexecuted seed path, and three unstrengthened assertions left because the writer runtime failed three times (bash stall, model never started, `capacity quarantined`) |
 
 ### Session 3 detail (2026-10-01)
 
@@ -218,6 +219,40 @@ Verified 2026-09-30 against the repository:
   sweeper decision.
 - **Nothing was pushed.** `origin/feat/projects-v2` is now several commits behind local; the remote step still needs
   explicit per-batch approval.
+
+### Session 6 detail (2026-10-01)
+
+- **User decisions that closed the open board**: D-05 confirmed narrow (the dropped attachment types stay dropped by
+  explicit decision), R3-001 accepted as a documented residual (extension + MIME only, no content sniffing), **no orphan
+  sweeper ever** (the read-only report is the only tool, so the never-delete policy keeps no exception), and the v1
+  openspec change `proyecto-financiero-tab` marked superseded while staying out of git.
+- **The recon earned its keep.** S1.1a turned out to be **greenfield**: no `Rubro` model, no table, no migration, no
+  routes, and the SDD's "VERIFIED" citations for rubros pointed at v1 code that is not in this branch. Two REQ-CAT-02
+  scenarios (the 409 on renaming a rubro a project uses, and the "Rubro suspendido pendiente de reasignación" display)
+  are **impossible to test today** because the table that holds the association does not exist; they were deferred to
+  S5.x rather than faked.
+- **The production collision nobody had noticed.** Production still carries the abandoned v1 `rubros` table (D-10 chose
+  to leave it), so a plain `CREATE TABLE rubros` would have aborted `migrate deploy`. The user chose an **adoptive,
+  idempotent migration**, and the trap is now a rule in §6.5 for any future v2 migration that shares a name with one of
+  the 8 abandoned tables.
+- **A real defect, fixed at the root.** `scripts/migrate-v2/_harness.ts` wrote its lote through
+  `tx.auditoria_cambios`, a delegate the generated client **never** exposes (it is `auditoriaCambio`) — so **no real
+  `--apply` could ever have worked**, for any script. The harness's own test hid it, because its fake encoded the same
+  wrong name: the mock agreed with the bug. Fixed the harness, corrected the fake so the defect fails red again, and
+  **deleted the adapter** that `s1-rubros.ts` had used as a bridge instead of shipping it. This is the **second** time in
+  this project that the `--apply` path was silently dead (the first was the truncated plan hash, R3-001 of the S0.6
+  review) and both times an independent reviewer, not a test, found it.
+- **Adoption coverage.** A new test reconstructs the legacy table with production's shape (v1 columns, the unique index
+  on `nombre`, `deleted_at`, no `codigo`) in a throwaway schema, runs the **real migration SQL text read from the file**
+  at runtime, and asserts adoption, idempotency and isolation. Everything runs inside one always-rolling-back
+  transaction; the verifier confirmed no leftover schema and that `public.rubros` is untouched.
+- **Left unclosed by infrastructure, not by choice.** Three assertions the verifier called weak (the harness fake's
+  write count, `indisunique` on the code index, and a `public` guard covering functions/triggers rather than rows only)
+  were **not** strengthened: the writer runtime failed three times in a row — a stall after a `bash` call, a model that
+  never started (`no first run event received`), and finally `capacity quarantined`. They are recorded in the S1.1a
+  block and are non-blocking. The first of the three is the most valuable, because it targets the same weakness class
+  that let the harness defect live.
+- **Nothing was pushed.** The commit waits for explicit push authorization, as always.
 
 ### Session 5 detail (2026-10-01)
 

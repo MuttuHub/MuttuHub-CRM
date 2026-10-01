@@ -535,3 +535,23 @@ model AuditoriaCambio {
   @@index([entidad, entidad_id])
   @@map("auditoria_cambios")
 }
+
+// v2 projects module (REQ-CAT-01, REQ-CAT-02) — catálogo único de rubros
+// R01..R15. `codigo` es `String?` a propósito: la migración adoptiva reutiliza
+// la tabla v1 `rubros` que producción ya tiene, cuyas filas "Material POP" y
+// "Operación logística" quedan suspendidas y SIN código (no se ofrecen a
+// ningún proyecto). El índice único admite varios NULL, y el trigger
+// `rubros_codigo_inmutable` (ver la migración) rechaza cambiar un código
+// existente. `orden` fija la secuencia R01..R15. Sin FKs especulativas: hoy
+// nada referencia un rubro (las líneas presupuestales llegan en S5.x).
+model Rubro {
+  id         String   @id @default(uuid())
+  codigo     String?  @unique
+  nombre     String
+  activo     Boolean  @default(true)
+  orden      Int      @default(0)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("rubros")
+}

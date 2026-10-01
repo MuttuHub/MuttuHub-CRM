@@ -20,6 +20,7 @@ import {
   PRIORIDAD_TAREA_LABELS,
   RESTRICTED_DOC_CATEGORIES,
   ROL_CONTACTO_LABELS,
+  RUBROS_V2,
   TASK_TAGS,
   TIPO_CLIENTE_LABELS,
   type Catalog,
@@ -152,6 +153,43 @@ describe("catalog labels", () => {
     expect(ORIGEN_TAREA_LABELS.CRM.label).toBe("CRM")
     expect(ORIGEN_TAREA_LABELS.KANBAN.label).toBe("Kanban")
     expect(ORIGEN_TAREA_LABELS.AMBOS.label).toBe("Ambos")
+  })
+})
+
+describe("RUBROS_V2 catalog (REQ-CAT-01)", () => {
+  // The 15 PO-provided rubros, in R01..R15 order. This is the single TS source
+  // of truth for the catalog: the migration, the seed and the API all derive
+  // from RUBROS_V2.
+  const EXPECTED: ReadonlyArray<[string, string]> = [
+    ["R01", "Personal"],
+    ["R02", "Consultor"],
+    ["R03", "Subsidio arriendo"],
+    ["R04", "Promoción y divulgación"],
+    ["R05", "Alistamiento"],
+    ["R06", "Caracterización"],
+    ["R07", "Acompañamiento"],
+    ["R08", "Formación"],
+    ["R09", "Capital semilla"],
+    ["R10", "Viáticos"],
+    ["R11", "Varios"],
+    ["R12", "Transporte"],
+    ["R13", "Suministros"],
+    ["R14", "Oficina"],
+    ["R15", "Dotación"],
+  ]
+
+  it("has exactly the 15 PO rubros in R01..R15 code order", () => {
+    expect(RUBROS_V2).toHaveLength(15)
+    expect(RUBROS_V2.map((r) => r.codigo)).toEqual(EXPECTED.map(([codigo]) => codigo))
+    expect(RUBROS_V2.map((r) => r.nombre)).toEqual(EXPECTED.map(([, nombre]) => nombre))
+  })
+
+  it("numbers orden 1..15 sequentially and keeps codes/names unique", () => {
+    expect(RUBROS_V2.map((r) => r.orden)).toEqual(
+      Array.from({ length: 15 }, (_, index) => index + 1),
+    )
+    expect(new Set(RUBROS_V2.map((r) => r.codigo)).size).toBe(15)
+    expect(new Set(RUBROS_V2.map((r) => r.nombre)).size).toBe(15)
   })
 })
 
