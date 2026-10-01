@@ -2048,6 +2048,35 @@ eslint clean.
 - **Commit:** `feat(files): unify upload policy at 25 MB with strict type allowlist (S0.9a)` · **PR-07**.
 
 #### S0.9b — Direct-to-storage signed upload (M, conditional)
+**PARTIAL 2026-10-01 — deliberately left incomplete; do not read this as done.** Delivered and independently verified
+green: the sign endpoint, the key-ownership guard, JSON confirm mode in the version and task-attachment routes (the
+multipart branches untouched), the document-version client moved to sign → PUT → confirm, and the R3-002/R3-003
+follow-ups. Suite **125 files / 1167 tests green**, `tsc` 0 errors, eslint clean.
+
+**Remaining work — tomorrow's first step**
+1. **Document *creation* is still multipart** (`POST /documents` has no confirm branch and `useUploadDocument` still
+   posts FormData), so a brand-new document larger than 4.5 MB can still fail in production. The verifier established
+   the correct implementation: have the sign endpoint **pre-generate the document id**, sign the final key
+   `documentos/{cliente}/{newId}/v1_{nombre}`, and add a JSON confirm branch that creates the row with that explicit
+   id — no temp key is involved, so the never-delete policy is *not* the blocker (the writer's stated reason was only
+   half right).
+2. **Magic-byte validation** — still open (R3-001), a product decision.
+3. **Kanban task-attachment client** still uploads multipart; the route already accepts confirm.
+4. Small, recorded: a stale comment in `src/hooks/documents.ts` still references the removed `multipartUpload`; the
+   sign endpoint validates the file policy *before* authorisation, so a bad extension against a forbidden target
+   answers 400 instead of 403 (informational, no target-existence leak); confirmed versions skip inline text
+   extraction until the backfill runs; and a concurrent version create can leave the key's `vN` differing from the
+   row's `numero_version` (cosmetic — downloads use `storage_path`).
+
+**Open risk R-17 — must be consciously accepted or mitigated before promotion.** The signed path moves the size
+guarantee *after* persistence: the sign endpoint checks the **declared** size, but the browser PUT goes straight to
+Storage, and the real size is only checked at confirm — which then fails. An authorised user can therefore leave an
+**oversized orphan object** that the app's never-delete policy forbids removing. The enforced bound is the bucket's
+`file_size_limit` (10 MB in production today, to be raised to 25 MB), **not** the app. Mitigations: keep the bucket
+limit as the hard bound and put it in the promotion checklist; use the S0.6 read-only
+`scripts/migrate-v2/storage-orphans.ts` report to find objects without a row; decide whether a human-run sweeper is
+wanted. The multipart path did not carry this exposure because the platform body cap bounded it.
+
 - **Scope recalibrated 2026-10-01:** `src/app/api/v1/projects/[id]/attachments/route.ts` and `src/hooks/projects.ts`
   in the list below **do not exist yet** (later slice) → out of scope. In scope: NEW `src/lib/api/signed-upload.ts`,
   NEW `src/app/api/v1/uploads/sign/route.ts`, the confirm mode in `src/app/api/v1/documents/route.ts` and
@@ -2853,6 +2882,7 @@ default**: raising it would hide contention instead of removing it.
 | R-14 | Known failing `prisma/invariant.test.ts` masks new DB failures | Medium / Low | New live-DB tests in separate files; baseline failure recorded |
 | R-15 | PDF export engine incompatible with serverless | Medium / Low | S9.3b gated by N-23/D-08; Excel export ships first |
 | R-16 | **The repository does not describe production**: 8 abandoned v1 project tables (4 rows total) and an applied migration (`20260918153200_tablero_seguimiento_social`) that exists in no branch | Low / Medium | Measured read-only on 2026-10-01 and recorded in §6.9; promotion uses `migrate deploy` only; D-10 decides the cleanup; `_prisma_migrations` is the authority for production |
+| R-17 | **Signed uploads move the size guarantee after persistence**: the sign endpoint validates the declared size, but the browser PUT lands in Storage unchecked and confirm only then fails, so an authorised user can leave an oversized orphan that the never-delete policy forbids removing | Medium / Medium | The enforced bound is the bucket's `file_size_limit` (10 MB today, 25 MB after the raise) — record it in the promotion checklist; detect with `scripts/migrate-v2/storage-orphans.ts`; a human-run sweeper is an open decision. Introduced by S0.9b (partial); the multipart path was bounded by the platform body cap |
 
 ### 7.2 Assumptions register
 | ID | Assumption (default) | Where | How to falsify / owner |

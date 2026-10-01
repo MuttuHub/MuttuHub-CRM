@@ -625,3 +625,145 @@ describe("POST /api/v1/tasks/:id/attachments", () => {
     expect(db.adjuntoTarea.create).not.toHaveBeenCalled();
   });
 });
+
+// ADR-13 signed-upload confirm mode (S0.9b): the browser uploaded straight to
+// Storage, so it confirms with JSON { storage_path, nombre, tamano_bytes }
+// instead of multipart bytes. The route authorises exactly like the multipart
+// path, rejects a key that does not belong to this task, verifies the object
+// in Storage and inserts the same row (same mirror, same response shape).
+describe("POST /api/v1/tasks/:id/attachments — signed-upload confirm mode", () => {
+  function confirmRequest(body: unknown): Request {
+    return new Request("http://localhost/api/v1/tasks/task-1/attachments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  function mockInfoAndSignedUrl(size: number | null) {
+    vi.mocked(createSupabaseAdmin).mockReturnValue({
+      storage: {
+        from: vi.fn().mockReturnValue({
+          info: vi.fn().mockResolvedValue(
+            size === null
+              ? { data: null, error: new Error("not found") }
+              : { data: { size }, error: null },
+          ),
+          createSignedUrl: vi.fn().mockResolvedValue({
+            data: { signedUrl: "https://signed.example/file" },
+            error: null,
+          }),
+        }),
+      },
+    } as never);
+  }
+
+  it("confirm rejects a storage_path outside the key issued for this project", async () => {
+    authAs(gerencia);
+    vi.mocked(isSupabaseConfigured).mockReturnValue(true);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow({ responsable_id: "gerencia-1" }) as never);
+    mockInfoAndSignedUrl(3);
+
+    for (const storage_path of [
+      "tareas/task-2/abc_informe.pdf",
+      "tareas/task-1evil/abc_informe.pdf",
+      "documentos/general/doc-1/v1_informe.pdf",
+      "/tareas/task-1/abc_informe.pdf",
+      "tareas/task-1/../task-2/abc_informe.pdf",
+    ]) {
+      const res = await POST(
+        confirmRequest({ storage_path, nombre: "informe.pdf", tamano_bytes: 3 }),
+        routeContext,
+      );
+      expect(res.status, storage_path).toBe(400);
+      const body = await res.json();
+      expect(body.code, storage_path).toBe("VALIDATION_ERROR");
+      expect(body.error, storage_path).toContain("no corresponde");
+    }
+    expect(db.adjuntoTarea.create).not.toHaveBeenCalled();
+  });
+
+  it("confirm rejects when the storage object is missing or larger than declared", async () => {
+    authAs(gerencia);
+    vi.mocked(isSupabaseConfigured).mockReturnValue(true);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow({ responsable_id: "gerencia-1" }) as never);
+
+    mockInfoAndSignedUrl(null);
+    const missing = await POST(
+      confirmRequest({
+        storage_path: "tareas/task-1/abc_informe.pdf",
+        nombre: "informe.pdf",
+        tamano_bytes: 3,
+      }),
+      routeContext,
+    );
+    expect(missing.status).toBe(400);
+    const missingBody = await missing.json();
+    expect(missingBody.code).toBe("VALIDATION_ERROR");
+    expect(missingBody.error).toContain("no está disponible");
+
+    mockInfoAndSignedUrl(999);
+    const oversized = await POST(
+      confirmRequest({
+        storage_path: "tareas/task-1/abc_informe.pdf",
+        nombre: "informe.pdf",
+        tamano_bytes: 3,
+      }),
+      routeContext,
+    );
+    expect(oversized.status).toBe(400);
+    const oversizedBody = await oversized.json();
+    expect(oversizedBody.code).toBe("VALIDATION_ERROR");
+    expect(oversizedBody.error).toContain("no está disponible");
+
+    expect(db.adjuntoTarea.create).not.toHaveBeenCalled();
+  });
+
+  it("confirm inserts the row and audits when the object exists and matches", async () => {
+    authAs(gerencia);
+    vi.mocked(isSupabaseConfigured).mockReturnValue(true);
+    vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow({ responsable_id: "gerencia-1" }) as never);
+    mockInfoAndSignedUrl(3);
+    vi.mocked(db.adjuntoTarea.create).mockResolvedValue({
+      id: "a-1",
+      nombre: "informe.pdf",
+      tamano_bytes: 3,
+      created_at: new Date("2026-01-01"),
+    } as never);
+    vi.mocked(db.documento.create).mockResolvedValue({ id: "doc-1" } as never);
+    // vi.clearAllMocks() keeps implementations, and an earlier multipart test
+    // made documentoVersion.create reject; reset it so the mirror completes.
+    vi.mocked(db.documentoVersion.create).mockResolvedValue({ id: "dv-1" } as never);
+    vi.mocked(db.adjuntoTarea.update).mockResolvedValue({} as never);
+
+    const res = await POST(
+      confirmRequest({
+        storage_path: "tareas/task-1/abc_informe.pdf",
+        nombre: "informe.pdf",
+        tamano_bytes: 3,
+      }),
+      routeContext,
+    );
+
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.adjunto).toMatchObject({
+      id: "a-1",
+      nombre: "informe.pdf",
+      download_url: "https://signed.example/file",
+    });
+    expect(db.adjuntoTarea.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          tarea_id: "task-1",
+          storage_path: "tareas/task-1/abc_informe.pdf",
+        }),
+      }),
+    );
+    // Same mirror + audit as the multipart path.
+    expect(db.documento.create).toHaveBeenCalled();
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ entidad: "documento", entidad_id: "doc-1", accion: "crear" }),
+    );
+  });
+});

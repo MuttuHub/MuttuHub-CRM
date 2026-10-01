@@ -472,7 +472,7 @@ registry.registerPath({
   method: "post",
   path: "/api/v1/tasks/{id}/attachments",
   tags: ["Tareas"],
-  summary: "Sube un adjunto a la tarea (multipart/form-data)",
+  summary: "Sube un adjunto a la tarea (multipart/form-data o JSON de confirmación)",
   description:
     `${WRITE_SCOPE_NOTE} Límite 25 MB por defecto (configurable vía MAX_FILE_SIZE_MB; 413 FILE_TOO_LARGE por encima). ` +
     "Solo se aceptan PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), JPG, JPEG o PNG: validado por extensión " +
@@ -480,7 +480,10 @@ registry.registerPath({
     "clientes como curl, que mandan ese valor aunque el archivo sea válido). Se sube al bucket " +
     "de Supabase Storage con el cliente de service role; sin credenciales de Supabase configuradas, 500 " +
     "INTERNAL_ERROR (el storage no puede funcionar sin ellas). `download_url` en la respuesta es un signed URL " +
-    "de 60 s (string plano; ver nota en TaskAttachmentCreated).",
+    "de 60 s (string plano; ver nota en TaskAttachmentCreated). Alternativa ADR-13: `application/json` con " +
+    "`{ storage_path, nombre, tamano_bytes, tipo_mime? }` confirma un objeto subido directamente a Storage con un " +
+    "signed URL de POST /api/v1/uploads/sign (el servidor verifica que la ruta pertenezca a esta tarea y que el " +
+    "objeto exista y no supere lo declarado).",
   security: [{ sessionCookie: [] }],
   request: {
     params: TaskIdParams,
@@ -488,6 +491,17 @@ registry.registerPath({
       content: {
         "multipart/form-data": {
           schema: z.object({ file: z.string().openapi({ format: "binary", description: "Campo de formulario 'file'." }) }),
+        },
+        "application/json": {
+          schema: z.object({
+            storage_path: z.string().openapi({
+              description:
+                "Key elegido por el servidor al firmar (POST /api/v1/uploads/sign); debe empezar por tareas/{id}/.",
+            }),
+            nombre: z.string(),
+            tamano_bytes: z.number().int().positive(),
+            tipo_mime: z.string().optional(),
+          }),
         },
       },
     },

@@ -5,6 +5,7 @@ import {
   MAX_FILE_BYTES,
   MAX_FILE_MB,
   isAllowedFileType,
+  isAllowedNameAndMime,
   fileExtension,
   sanitizeFileName,
 } from "./files";
@@ -59,17 +60,36 @@ describe("fileExtension", () => {
   });
 });
 
+describe("isAllowedNameAndMime (JSON endpoints, S0.9b)", () => {
+  it("mirrors the File-based rule for a bare name and MIME string", () => {
+    // The sign endpoint has no File, only the declared name/MIME, so the AND
+    // rule had to be reusable without constructing a File.
+    expect(isAllowedNameAndMime("informe.pdf", "application/pdf")).toBe(true);
+    expect(isAllowedNameAndMime("informe.pdf", null)).toBe(true);
+    expect(isAllowedNameAndMime("informe.pdf", undefined)).toBe(true);
+    expect(isAllowedNameAndMime("informe.pdf", "application/octet-stream")).toBe(true);
+    expect(isAllowedNameAndMime("report.exe", "application/pdf")).toBe(false);
+    expect(isAllowedNameAndMime("sin-extension", "application/pdf")).toBe(false);
+  });
+});
+
 describe("unified upload policy — 25 MB and a strict allowlist (S0.9a)", () => {
-  it("rejects a 25 MB + 1 byte file with the 25 MB message", () => {
+  it("rejects a real 25 MB + 1 byte file against the shared 25 MB limit (message asserted in the route tests)", () => {
+    // R3-003: this title used to promise a file and a message it never built.
     // The shared guard every upload route applies is `file.size > MAX_FILE_BYTES`
-    // and the 413 message they render interpolates MAX_FILE_MB, so these two
-    // values are what make the user read "supera el límite de 25 MB."
-    // (The byte-exact 413 body is asserted in the route tests, where the whole
-    // request/response cycle is observable.)
+    // and the 413 message they render interpolates MAX_FILE_MB, so the limit is
+    // what makes the user read "supera el límite de 25 MB." A real File drives
+    // the byte comparison here; the byte-exact 413 body is asserted in the
+    // route tests, where the whole request/response cycle is observable.
+    const bigFile = new File([new Uint8Array(25 * 1024 * 1024 + 1)], "grande.pdf", {
+      type: "application/pdf",
+    });
     expect(DEFAULT_MAX_FILE_MB).toBe(25);
     expect(MAX_FILE_MB).toBe(25);
     expect(MAX_FILE_BYTES).toBe(25 * 1024 * 1024);
-    expect(25 * 1024 * 1024 + 1 > MAX_FILE_BYTES).toBe(true);
+    expect(bigFile.size).toBe(25 * 1024 * 1024 + 1);
+    expect(bigFile.size > MAX_FILE_BYTES).toBe(true);
+    expect(isAllowedFileType(bigFile)).toBe(true);
   });
 
   it("accepts exactly 25 MB", () => {

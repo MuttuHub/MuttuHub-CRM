@@ -174,6 +174,32 @@ const CreateVersionFormSchema = z.object({
   }),
 });
 
+// JSON confirm body (ADR-13, S0.9b): the browser uploaded the bytes straight to
+// Storage with a signed URL, so it confirms with metadata only; the server
+// verifies the object and inserts the same row.
+const ConfirmUploadBodySchema = z.object({
+  storage_path: z.string().openapi({
+    description:
+      "Key elegido por el servidor al firmar (POST /api/v1/uploads/sign). Debe pertenecer exactamente a este recurso.",
+  }),
+  nombre: z.string().openapi({ description: "Nombre original; usado para validar la extensión." }),
+  tamano_bytes: z.number().int().positive().openapi({
+    description: "Tamaño declarado por el cliente; el objeto real en Storage no puede superarlo ni exceder 25 MB.",
+  }),
+  tipo_mime: z.string().optional(),
+});
+
+const SignedUploadResponseSchema = registry.register(
+  "SignedUploadResponse",
+  z.object({
+    storage_path: z.string().openapi({ description: "Key elegido server-side." }),
+    token: z.string(),
+    signed_url: z.string().url(),
+    max_bytes: z.number().int(),
+    allowed_extensions: z.array(z.string()),
+  }),
+);
+
 // ---------------------------------------------------------------------------
 // GET /api/v1/documents
 // ---------------------------------------------------------------------------
@@ -331,11 +357,13 @@ registry.registerPath({
   method: "post",
   path: "/api/v1/documents/{id}/versions",
   tags: ["Documentos"],
-  summary: "Sube una nueva versión del documento (multipart/form-data)",
+  summary: "Sube una nueva versión del documento (multipart/form-data o JSON de confirmación)",
   description:
     "La nueva versión es siempre max(numero_version) + 1 y pasa a ser la activa (el botón principal de " +
     "descarga usa la de mayor numero_version). El versionado nunca es automático por detección de nombre de " +
-    "archivo. " +
+    "archivo. Alternativa ADR-13: `application/json` con `{ storage_path, nombre, tamano_bytes, tipo_mime? }` " +
+    "confirma un objeto subido directamente a Storage con un signed URL de POST /api/v1/uploads/sign (el " +
+    "servidor verifica que el objeto exista y no supere lo declarado). " +
     RESTRICTED_CATEGORY_NOTE,
   security: [{ sessionCookie: [] }],
   request: {
@@ -343,6 +371,7 @@ registry.registerPath({
     body: {
       content: {
         "multipart/form-data": { schema: CreateVersionFormSchema },
+        "application/json": { schema: ConfirmUploadBodySchema },
       },
     },
   },
@@ -421,5 +450,53 @@ registry.registerPath({
       content: { "application/zip": { schema: { type: "string", format: "binary" } } },
     },
     ...standardErrorResponses([400, 401, 403, 404, 500]),
+  },
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/v1/uploads/sign
+// ---------------------------------------------------------------------------
+// ADR-13 signed direct-to-storage upload. Registered here (the document/version
+// module owns the document side of the flow) until a dedicated uploads domain
+// file exists: the same endpoint also serves `tarea_adjunto` targets, whose
+// confirm mode is documented in paths/tasks.ts.
+registry.registerPath({
+  method: "post",
+  path: "/api/v1/uploads/sign",
+  tags: ["Documentos"],
+  summary: "Firma una subida directa a Supabase Storage (ADR-13)",
+  description:
+    "Autenticado. Autoriza al actor sobre el objetivo, valida la política única de subida (25 MB y allowlist: la " +
+    "extensión Y el MIME permitido o vacío/octet-stream; 413 FILE_TOO_LARGE / 400 VALIDATION_ERROR antes de emitir " +
+    "cualquier URL), elige el KEY en el servidor (nunca lo acepta del cliente) y devuelve un signed upload URL de " +
+    "Supabase Storage junto con `max_bytes` y `allowed_extensions`. Nunca devuelve la service key, credenciales del " +
+    "bucket ni una URL pública. El navegador sube directo a Storage (sin límite de body del hosting) y luego confirma " +
+    "con el modo JSON de la ruta de destino.",
+  security: [{ sessionCookie: [] }],
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            kind: z
+              .enum(["documento_version", "tarea_adjunto"])
+              .openapi({ description: "Tipo de objetivo para el que se firma el key." }),
+            ref_id: z.string().openapi({
+              description: "Id del documento (documento_version) o de la tarea (tarea_adjunto).",
+            }),
+            nombre: z.string(),
+            tamano_bytes: z.number().int().positive(),
+            tipo_mime: z.string().optional(),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "URL firmada lista para subir el archivo directo a Storage.",
+      content: { "application/json": { schema: SignedUploadResponseSchema } },
+    },
+    ...standardErrorResponses([400, 401, 403, 404, 413, 500]),
   },
 });

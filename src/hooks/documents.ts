@@ -254,22 +254,59 @@ export function useDocumentVersions(id: string | null): UseQueryResult<DocumentV
   });
 }
 
-/* ── Mutations (multipart: no Content-Type header for FormData) ────────── */
+/* ── Mutations ─────────────────────────────────────────────────────────── */
 
-async function multipartUpload<T>(url: string, form: FormData): Promise<T> {
+/**
+ * ADR-13 signed direct-to-storage upload response. `max_bytes` and
+ * `allowed_extensions` are the SERVER's policy (MAX_FILE_SIZE_MB may differ
+ * from the client bundle's default), so the UI can adopt server truth.
+ */
+export type SignedUploadResponse = {
+  storage_path: string;
+  token: string;
+  signed_url: string;
+  max_bytes: number;
+  allowed_extensions: string[];
+};
+
+/**
+ * ADR-13 flow: ask the server for a signed URL for a key IT chooses, PUT the
+ * bytes straight to Supabase Storage (no route handler, so the hosting
+ * platform's ~4.5 MB request-body limit never applies), then confirm with
+ * metadata only so the server can verify the object and insert the row.
+ */
+async function signedUpload<T>(input: {
+  kind: "documento_version" | "tarea_adjunto";
+  refId: string;
+  file: File;
+  confirmUrl: string;
+}): Promise<T> {
+  const { kind, refId, file, confirmUrl } = input;
   try {
-    const res = await fetch(url, { method: "POST", body: form });
+    const signed = await apiPost<SignedUploadResponse>("/api/v1/uploads/sign", {
+      kind,
+      ref_id: refId,
+      nombre: file.name,
+      tamano_bytes: file.size,
+      ...(file.type ? { tipo_mime: file.type } : {}),
+    });
+    const res = await fetch(signed.signed_url, {
+      method: "PUT",
+      headers: {
+        "Content-Type": file.type || "application/octet-stream",
+        "x-upsert": "false",
+      },
+      body: file,
+    });
     if (!res.ok) {
-      let message = "No pudimos subir el archivo.";
-      try {
-        const body = (await res.json()) as { error?: string };
-        message = body.error ?? message;
-      } catch {
-        /* fallback message */
-      }
-      throw new ApiError(message, res.status);
+      throw new ApiError("No pudimos subir el archivo al almacenamiento.", res.status);
     }
-    return (await res.json()) as T;
+    return await apiPost<T>(confirmUrl, {
+      storage_path: signed.storage_path,
+      nombre: file.name,
+      tamano_bytes: file.size,
+      ...(file.type ? { tipo_mime: file.type } : {}),
+    });
   } catch (err) {
     if (err instanceof ApiError) toast.error(err.message);
     throw err;
@@ -302,6 +339,12 @@ export class DocumentDuplicateTitleError extends Error {
   }
 }
 
+// NOTE (S0.9b): brand-new document creation stays on multipart. The ADR-13
+// sign endpoint authorises an EXISTING target and picks the key from its real
+// id/cliente/version, so a document that does not exist yet cannot be signed;
+// and Storage objects may never be moved (never-delete policy), so a temporary
+// key is not an option either. Version uploads (useUploadVersion) already use
+// the signed flow and are the path that removes the 4.5 MB cliff in practice.
 export function useUploadDocument(): UseMutationResult<
   DocumentUploadResponse,
   Error,
@@ -354,12 +397,15 @@ export function useUploadVersion(id: string): UseMutationResult<
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ file }) => {
-      const form = new FormData();
-      form.append("file", file);
-      return multipartUpload<DocumentVersionResponse>(
-        `/api/v1/documents/${id}/versions`,
-        form,
-      );
+      // ADR-13 signed upload: the bytes no longer pass through the route
+      // handler, so a 25 MB version is no longer capped at the platform's
+      // ~4.5 MB body limit.
+      return signedUpload<DocumentVersionResponse>({
+        kind: "documento_version",
+        refId: id,
+        file,
+        confirmUrl: `/api/v1/documents/${id}/versions`,
+      });
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: documentQueryKeys.detail(id) });

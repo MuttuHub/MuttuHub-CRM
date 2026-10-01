@@ -14,6 +14,14 @@
  */
 export const DEFAULT_MAX_FILE_MB = 25;
 
+// R3-002: the browser resolves MAX_FILE_MB from its own bundle, and
+// MAX_FILE_SIZE_MB is not NEXT_PUBLIC_, so the client always sees the default
+// above while a server-configured MAX_FILE_SIZE_MB can enforce a different
+// value. The client-side number is a fast pre-check only; the server's 413
+// `FILE_TOO_LARGE` message is authoritative (and the sign endpoint returns
+// `max_bytes`/`allowed_extensions` so the client can adopt server truth).
+// Do not add a NEXT_PUBLIC_ mirror of this variable in this task.
+
 // A plain decimal integer, nothing else: `Number.parseInt` would read "5abc" as
 // 5 and "2.9" as 2, so an operator typo would quietly shrink the limit instead
 // of falling back to the default.
@@ -90,12 +98,21 @@ export function fileExtension(name: string): string {
  * all passed on an allowed extension. The extension carries the identity and
  * the MIME may only confirm it or stay silent — clients such as curl send
  * application/octet-stream (or nothing) for perfectly valid files.
+ *
+ * `nombre`/`mime` (not a File) because the JSON sign endpoint
+ * (POST /api/v1/uploads/sign) only has the declared name and MIME string.
  */
+export function isAllowedNameAndMime(
+  nombre: string,
+  mime: string | null | undefined,
+): boolean {
+  if (!ALLOWED_FILE_EXTENSIONS.has(fileExtension(nombre))) return false;
+  return !mime || mime === "application/octet-stream" || ALLOWED_FILE_MIME.has(mime);
+}
+
+/** Delegates to isAllowedNameAndMime so the AND rule lives in exactly one place. */
 export function isAllowedFileType(file: File): boolean {
-  if (!ALLOWED_FILE_EXTENSIONS.has(fileExtension(file.name))) return false;
-  return (
-    !file.type || file.type === "application/octet-stream" || ALLOWED_FILE_MIME.has(file.type)
-  );
+  return isAllowedNameAndMime(file.name, file.type);
 }
 
 /**
