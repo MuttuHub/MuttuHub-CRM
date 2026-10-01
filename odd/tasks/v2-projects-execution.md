@@ -152,6 +152,8 @@ Verified 2026-09-30 against the repository:
 | 2026-10-01 | Session 3: native review of S0.6 (R3-001 fixed) | `959ca33` | 4 lenses ran (host relay, ~293 s); 1 CRITICAL deterministic finding (R3-001: truncated plan hash) fixed RED-first → 13/13 green, `tsc` 0 errors, eslint clean; 12-line correction plan accepted | Review left open at `correction_required`: the final targeted-validation slot is unreachable from the Pi facade, so nothing was approved |
 | 2026-10-01 | Session 3: S0.7 project permission predicates | see the commit after `959ca33` | Scope recalibrated (v1 paths absent → route/UI 403 tests deferred to S2.x); RED 13 failures → GREEN **63 tests**, `tsc` 0 errors, eslint clean, `git diff -U0` = one pure append hunk with 0 deletions | Verifier confirmed all 13 predicates, zero `canManageAny`, no write predicate reading the gerencial flag; blocked commit on two untested positive branches, both closed |
 | 2026-10-01 | Session 3: CP-1 remote backup + CP-2 production audit + CP-4 suite envelope | `86a6e9d` + the CP-4 commit | CP-1: user pushed `feat/projects-v2` to `origin` (tip `0dc08ec` at push time, additive, no PR). CP-2: read-only audit → 8 abandoned v1 tables in production with 4 rows total, `auditoria_cambios` absent, phantom migration `20260918153200_tablero_seguimiento_social` (recoverable from `6e4c6c8`). CP-4: two concurrent suites → 6-7 failures each, one suite → 122/122 green; `pool: threads` + `maxWorkers: 4` pinned, 3 sequential runs green, `tsc` 0 errors | CP-4's first revision was **refuted** by the verifier (`minWorkers` is not a vitest 4.1.10 option and broke `tsc`); removed, and the comment's unreproduced numbers were corrected. The review of the branch-wide candidate is impossible by budget (measured twice) — nothing approved |
+| 2026-10-01 | Session 4: S0.9b completion + the B1 correction | `415ec27` (code + SDD) | Round 1 (9 files, +899/−73): sign kind `documento_nuevo` pre-generating the id and signing the final key, JSON confirm branch deriving the id/cliente from the signed path, kanban client migrated. Independent verifier pass 1: `READY TO COMMIT: no` — all commands green but **B1** blocking. Round 2: shared `guardDocumentCreate` (categoria 400 / restricted 403 / duplicate 409) called by the sign endpoint **before `createSignedUploadUrl`** and re-called by the confirm branch; thrown-Storage path returns the envelope; decorative guard call removed; two test gaps closed. Verifier pass 2: `READY TO COMMIT: yes`. Own checks: 7 focused files / **85 tests** green; **full suite 126 files / 1194 tests green** in 123 s; `tsc` 0 errors; eslint clean | B1 was a **parity regression**: the multipart path rejected the same request before any Storage write, the signed path after it, so every routine duplicate-title/categoria attempt leaked a permanent orphan. R-17's size-only acceptance did not cover it |
+| 2026-10-01 | Session 4: native review of the S0.9b slice | lineage `review-ba69dfb46439abc1` | `review.start` over the **full slice** (base tree `35da212` = `2cbc678`, `committed-only`): 21 paths, 2934 lines, tier **medium**, one lens (`review-reliability`), correction budget 200. Consent envelope relayed verbatim; the human chose `granted`. One reviewer ran (host relay, prompt 166 KB → result 5.9 KB). State **approved**; two advisory `informational` findings (R3-1 WARNING, R3-2 SUGGESTION); acknowledgement completed, **authority burned** | Satisfies RDD. The same session's plans-only candidate (`review-0d0f1e39bb4aadc2`, 26 lines, risk low, `non_executable_only`, 0 lenses) was also approved and burned. The user explicitly **deferred** review of the pre-correction code candidate `sha256:edeb3872…` to the corrected one — a human disposition, not an opt-out |
 
 ### Session 3 detail (2026-10-01)
 
@@ -186,6 +188,35 @@ Verified 2026-09-30 against the repository:
 - **How to reuse this in S2.x:** `canViewPortfolio` deliberately uses `PROJECT_MANAGER_ROLES || flag`, not
   `canManageAny`, so a COORDINADOR gets no global portfolio view — keep the P01–P18 mapping in SDD §4.7 as the
   source of truth when wiring the routes.
+
+### Session 4 detail (2026-10-01)
+
+- **S0.9b closed.** Document *creation* now goes through the signed path too: the sign endpoint's new `documento_nuevo`
+  kind pre-generates the document id and signs the FINAL key, and the JSON confirm branch of `POST /documents` derives
+  that id (and the owning cliente) from the signed `storage_path` instead of trusting the client. The kanban attachment
+  client moved to sign → PUT → confirm as well. ADR-13 is therefore complete for every upload surface on this branch.
+- **What the independent verifier caught that the orchestrator did not.** B1's blast radius was **three** triggers, not
+  one: besides the duplicate title, the restricted-category 403 and the invalid-category 400 were also reachable from
+  the shipped dialog (it renders every category, and falls back to the static list while the live catalog loads). All
+  three leaked a permanent object per attempt. Reading the diff myself surfaced only the duplicate-title one.
+- **Native review — the first slice review driven from Pi end to end since S0.9a**, and the first to close on a
+  multi-commit range: raw-CLI `review.start` with `--consent=relay` → relayed the exact
+  `gentle-ai.review-integration.consent/v3` envelope verbatim → ran the provider's own `granted` invocation → facade
+  `status` to obtain the canonical `collectBindings` → `gentle_review_capture_group` (forecast, then
+  `reviewerRunAcknowledged: true`) → `acknowledge-approved` (authority burned).
+- **Tooling fact worth keeping:** the `collectBindings` obtained from the **raw CLI** are rejected by the facade
+  capture group (`collectBindings are unknown, expired, or belong to different session routes`). The facade's **own**
+  `status` must supply them; the CLI-rendered and facade-rendered bindings differ (key casing and argument order), and
+  only the facade's are accepted by the facade route.
+- **New open items recorded:** (1) consolidate the multipart branch onto `guardDocumentCreate` so the QA-audit-#4 logic
+  has one home; (2) **R3-1** — the confirm branch's create sequence is not transactional; (3) **R3-2** — the versions
+  confirm route has no local try/catch around `storedObjectSize` (harmless: that route is wrapped by
+  `withApiErrorHandling`, unlike the documents one, which is exactly why C2 was real); (4) the guard's tests do not
+  assert `mode: "insensitive"` / `deleted_at: null`; (5) still pending from the user: raise the `muttu-docs` bucket to
+  25 MB, decide **R3-001** (magic bytes), confirm or reverse **D-05**, answer **D-07**; (6) the human-run orphan
+  sweeper decision.
+- **Nothing was pushed.** `origin/feat/projects-v2` is now several commits behind local; the remote step still needs
+  explicit per-batch approval.
 
 ### Session 3 also left one open item: the S0.6 review lineage
 
