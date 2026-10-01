@@ -2108,7 +2108,11 @@ performs exactly one fetch, to the sign endpoint, with no PUT.
    duplicate-title conflict from `guardDocumentCreate`, and its inline copies are gone, so the QA-audit-#4 logic has
    one home. The accepted consequence is that the guard's `categoria` trim now applies there too: a padded valid value
    that used to 400 now validates, and the trimmed value is what gets persisted.
-3. **Magic-byte validation (R3-001)** stays an open product decision, explicitly out of this slice.
+3. **Magic-byte validation (R3-001) — RESOLVED 2026-10-01 (user): the residual is ACCEPTED, deliberately not implemented.**
+   The policy keeps validating extension **AND** MIME, and nothing sniffs the file's content, so a binary renamed to
+   `informe.pdf` and sent with `application/pdf` still passes. The user weighed implementing signature sniffing
+   (which on the signed path would also mean reading the object's head back from Storage) against the risk and chose to
+   accept it as documented. Revisit only if a real abuse case appears.
 4. Confirming the same `documento_id` twice hits the Prisma unique constraint → 500 (the same replay shape as the
    versions confirm; pre-existing).
 5. Small: ~~the guard's own tests do not assert `mode: "insensitive"` / `deleted_at: null` on the duplicate lookup~~
@@ -2150,8 +2154,9 @@ performs exactly one fetch, to the sign endpoint, with no PUT.
   instead of 403. The policy check reads only the caller's own payload and therefore distinguishes nothing about the
   target, and rejecting a malformed request before the target lookup is the cheaper order. The behaviour and this
   reasoning are recorded here so it is a decision, not an accident.
-- **(c)** Item 2 (magic-byte validation, R3-001) stays an **open product decision** and is explicitly **out of this
-  slice**; nothing about it is silently accepted.
+- **(c)** Item 2 (magic-byte validation, R3-001) was an **open product decision** at the time of this slice and was
+  explicitly **out of it**; nothing about it was silently accepted. **Resolved 2026-10-01 (user): the residual is
+  accepted as documented — see residual 3 in the S0.9b block.**
 - **(d)** **R-17 is accepted for now** with the bucket `file_size_limit` as the enforced hard bound — recorded as an
   explicit promotion step (§6.5 step 3) — and detected with the S0.6 read-only
   `scripts/migrate-v2/storage-orphans.ts`. The human-run sweeper stays an **open decision** and is surfaced to the
@@ -2879,7 +2884,7 @@ with `tsc` 0 errors and eslint clean. The "115 files / 1027 tests" figure record
 | D-02 | ~~COORDINADOR restriction timing~~ — **RESOLVED 2026-09-30**: applied directly to the project write paths (no flag exists) | — | S0.7 |
 | D-03 | Chain strategy for PRs: `stacked-to-main` vs `feature-branch-chain` | ask at first PR over budget | PR-06+ |
 | D-04 | ~~Upload approach after S0.8: multipart through routes vs signed direct upload~~ — **RESOLVED 2026-10-01 by measurement**: the Vercel Function body limit is a **4.5 MB platform constant** and binds before the route's own 10 MB / 25 MB checks, so multipart cannot honour 25 MB. Chosen: **signed direct upload (ADR-13)**, which keeps the bytes out of the function. The user must raise the `muttu-docs` bucket limit from 10 MB to 25 MB before deploy. | — | — |
-| D-05 | ~~Narrow task-attachment types to pdf/docx/xlsx/pptx/jpg/png (drops doc, ppt, csv, txt, zip…)~~ — **APPLIED 2026-10-01** with the documented default (narrow), per the user's recorded rule "solo livianos office/imagen". `jpeg` was added to the allowlist on purpose (same format as `jpg`). This was not an explicit user confirmation: if any of `doc`, `ppt`, `csv`, `txt`, `zip` or `heic` must stay, it is a one-line revert in `src/lib/api/files.ts` plus the message strings. | narrow (applied) | — |
+| D-05 | ~~Narrow task-attachment types to pdf/docx/xlsx/pptx/jpg/png (drops doc, ppt, csv, txt, zip…)~~ — **APPLIED 2026-10-01** with the documented default (narrow), per the user's recorded rule "solo livianos office/imagen". `jpeg` was added to the allowlist on purpose (same format as `jpg`). **CONFIRMED 2026-10-01 (user): keep it narrow.** The earlier caveat — that this was applied by documented default and not by an explicit user confirmation — no longer applies: the dropped types (`doc`, `ppt`, `csv`, `txt`, `zip`, `heic`) were reviewed and confirmed out. If it ever needs reverting it is a one-line change in `src/lib/api/files.ts` plus the message strings and the OpenAPI descriptions. `jpeg` stays in the allowlist on purpose (same format as `jpg`). | narrow (confirmed) | — |
 | D-06 | COORDINADOR access to the Tablero gerencial: scoped to member projects vs none | scoped (A-02) | S2.6, S9.2 |
 | D-07 | ~~Commit the untracked `openspec/changes/proyecto-financiero-tab/{proposal,design}.md` before marking superseded~~ **RESOLVED 2026-10-01 (user, session 5): mark it superseded and keep it OUT of git** — leave the `.git/info/exclude` entry as it is. Two facts to carry: that exclusion lives in a **per-clone, untracked** file, so it is invisible to the repository and to every other clone; and the S0.1 file list is **stale** (see the S0.1 block) | ask | S0.1 |
 | D-08 | PDF engine (N-23) | none — blocks S9.3b only | S9.3b |
@@ -2982,7 +2987,7 @@ default**: raising it would hide contention instead of removing it.
 | R-14 | Known failing `prisma/invariant.test.ts` masks new DB failures | Medium / Low | New live-DB tests in separate files; baseline failure recorded |
 | R-15 | PDF export engine incompatible with serverless | Medium / Low | S9.3b gated by N-23/D-08; Excel export ships first |
 | R-16 | **The repository does not describe production**: 8 abandoned v1 project tables (4 rows total) and an applied migration (`20260918153200_tablero_seguimiento_social`) that exists in no branch | Low / Medium | Measured read-only on 2026-10-01 and recorded in §6.9; promotion uses `migrate deploy` only; D-10 decides the cleanup; `_prisma_migrations` is the authority for production |
-| R-17 | **Signed uploads move the guarantees after persistence**: the sign endpoint validates the declared size, the categoria and the duplicate title, but the browser PUT lands in Storage unchecked and confirm only then fails — so an authorised user can leave an orphan object that the never-delete policy forbids removing. Two triggers remain after S0.9b's correction: an **oversized object** (only the bucket limit binds) and a **concurrent create inside the sign→confirm window** (the confirm re-check fails legitimately, after the bytes are stored) | Medium / Low (was Medium / Medium before the correction) | The enforced bound is the bucket's `file_size_limit` (10 MB today, 25 MB after the raise) — recorded in the promotion checklist (§6.5 step 3); detect with `scripts/migrate-v2/storage-orphans.ts`; a human-run sweeper is an open decision. **S0.9b's correction removed the routine triggers**: every rejection that the multipart path made side-effect-free (duplicate title, categoria 400/403) now happens before `createSignedUploadUrl`. Introduced by S0.9b; the multipart path was bounded by the platform body cap |
+| R-17 | **Signed uploads move the guarantees after persistence**: the sign endpoint validates the declared size, the categoria and the duplicate title, but the browser PUT lands in Storage unchecked and confirm only then fails — so an authorised user can leave an orphan object that the never-delete policy forbids removing. Two triggers remain after S0.9b's correction: an **oversized object** (only the bucket limit binds) and a **concurrent create inside the sign→confirm window** (the confirm re-check fails legitimately, after the bytes are stored) | Medium / Low (was Medium / Medium before the correction) | The enforced bound is the bucket's `file_size_limit` (10 MB today, 25 MB after the raise) — recorded in the promotion checklist (§6.5 step 3); detect with `scripts/migrate-v2/storage-orphans.ts`; **the sweeper decision is RESOLVED 2026-10-01 (user): keep the read-only report as the only tool and never delete** — no automated or documented manual cleanup script is wanted, which keeps the never-delete policy intact. **S0.9b's correction removed the routine triggers**: every rejection that the multipart path made side-effect-free (duplicate title, categoria 400/403) now happens before `createSignedUploadUrl`. Introduced by S0.9b; the multipart path was bounded by the platform body cap |
 
 ### 7.2 Assumptions register
 | ID | Assumption (default) | Where | How to falsify / owner |
