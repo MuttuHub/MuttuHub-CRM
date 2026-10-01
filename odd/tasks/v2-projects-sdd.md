@@ -1963,6 +1963,12 @@ non-member fixture (a COORDINADOR member does get the financial axis); `canViewP
   (the `!` marks the behavior change; body explains COORDINADOR impact) · **PR-06**.
 
 #### S0.8 — Upload-limit verification (S, investigation + decision record)
+**DONE 2026-10-01, and it closed without the dashboard.** The remote bucket's `file_size_limit` was read read-only
+through the Storage API with the service key already present in `.env` (10 MB, not public, no MIME restriction), and
+the Vercel body limit turned out to be a documented platform constant (4.5 MB) rather than an account value. The
+decisive result: the 4.5 MB function limit binds **before** the app's 10 MB / 25 MB checks, so multipart can never
+honour 25 MB — **D-04 is resolved to the signed direct upload of ADR-13**. Full record in §6.7.
+
 - **Goal:** turn R-02 into facts before raising limits (DP-10).
 - **Checks (read-only; no remote writes):** (1) Vercel function request-body limit for the current plan
   (docs/dashboard, by the user); (2) remote bucket `muttu-docs` `file_size_limit` (documented 10 MB,
@@ -1973,7 +1979,7 @@ non-member fixture (a COORDINADOR member does get the financial axis); `canViewP
   (5) current effective limits per route (10 MB documents/project supports, 25 MB default task attachments).
 - **Output:** a short "Upload limits" record in §6.7 + decision D-04: multipart (if hosting ≥ 25 MB) or signed
   direct upload (ADR-13).
-- **TDD:** n/a. **Deps:** none. **Gate:** needs the user to read two dashboard values. **Lines:** ~20.
+- **TDD:** n/a. **Deps:** none. **Gate:** **resolved 2026-10-01** — no dashboard read was needed; see the record in §6.7. **Lines:** ~20.
 - **Commit:** `docs(odd): record verified upload limits and approach (S0.8)` · **PR-01** (or its own if late).
 
 #### S0.9a — Unified upload policy: 25 MB, light types, never delete (S)
@@ -2653,9 +2659,33 @@ never to a v1→v2 migration, which does not exist.
 | 2026-10-01 | **Native review of S0.6 → R3-001 CRITICAL → fixed** | native 4-lens review + delegated writer (correction) | `959ca33` | Lineage `review-5f975df81d7b1418`, candidate = the S0.6 work unit (10 files / 1018 lines, tier **high**, correction budget 200). 4 lenses ran (host relay, ~293 s; prompts ~65 KB, results 3.4–8.4 KB). One finding: **R3-001** (reliability, CRITICAL, deterministic, introduced) — the dry-run printed only 12 chars of the plan hash and returned no hash, so `--apply --expect-hash <sha>` could never obtain the reviewed value. Fixed with RED first (`Received: undefined` → 13/13 green, `tsc` 0 errors, eslint clean); correction plan of **12 diff lines** accepted by the provider | — | The correction had to be **committed** before native could see it (`stop/corrected_candidate_unavailable` otherwise). Authority stayed at `correction_required`: the final `collect/targeted_validation_required` slot is unreachable from the Pi facade (it cannot carry a `base-ref`, so with a clean tree it reports `empty_candidate_base_ref_required`), and the validator verdict must not be authored by Pi. **The review closed nothing and approves no delivery.** Lineage intentionally left open, recorded in memory |
 | 2026-10-01 | **S0.7 project permission predicates** | delegated writer + independent verifier (read-only) | see the commit after `959ca33` | Scope recalibrated first (`src/lib/api/projects.ts`, `src/app/api/v1/projects/**`, `src/components/proyectos/**`, `src/lib/openapi/paths/projects.ts` absent on this branch → route/UI 403 tests deferred to S2.x). RED: 13 new cases failed with `TypeError: <predicate> is not a function`. GREEN: **63 tests** across `permissions.test.ts` + `permissions.read.test.ts`; `tsc` 0 errors; eslint clean; `git diff -U0` = single append hunk, 0 deletions. Verifier confirmed all 13 predicates against the contract, **zero `canManageAny`** in the new block, no write predicate reading the gerencial flag | — | Verifier blocked the commit on two untested positive branches (`canViewFinancialSupports` membership; `canApproveBaseline`/`canApproveModification` manager-true) — both closed, +1 test and +1 assertion. Deliberate behaviour changes vs v1: `canCreateProject` and `canManageProject` no longer admit a non-manager responsable |
 | 2026-10-01 | **CP-4 test-suite envelope** | orchestrator (measurement) + independent verifier | `86a6e9d` (first config revision) | Root cause isolated: one full suite is green (122 files / 1122 tests) but **two concurrent suites fail 6-7 tests each** in `src/components/crm/*` and `scripts/migrate-v2/_guard.test.ts` (`Test timed out in 5000ms`, pointer-events), while those same specs pass in isolation. `vitest.config.ts` now pins `pool: "threads"` and `maxWorkers: 4`; three sequential non-contended runs were green ×3, `tsc` 0 errors, eslint clean, single 13-line additive hunk | — | The verifier **refuted** the first revision: `minWorkers` does not exist in vitest 4.1.10 and broke `tsc` (TS2769) — removed. It also corrected two numbers in my comment (unreproduced `environment` figures, available RAM) so the recorded envelope matches what was actually observed |
+| 2026-10-01 | **S0.8 upload-limit verification** | orchestrator (read-only) | see the commit after `4866d8a` | All five checks resolved into facts, two of them without the dashboard: the remote bucket `muttu-docs` `file_size_limit` = **10485760 B (10 MB)**, `public=false`, no MIME restriction (read-only Storage API `getBucket` with the service key from `.env`); Vercel Function body limit = **4.5 MB** (documented platform constant, 413 `FUNCTION_PAYLOAD_TOO_LARGE`); `proxyClientMaxBodySize` default 10 MB but **not applicable** (`src/proxy.ts:91` excludes `api`); local storage 50 MiB; app limits 10 MB documents / 25 MB task attachments | — | **D-04 resolved**: the 4.5 MB platform limit binds before the app's own checks, so multipart cannot honour 25 MB → signed direct upload (ADR-13) with the bucket raised to 25 MB by the user. Recorded dev/prod asymmetry: local 50 MiB vs remote 10 MB. No writes, no dashboard read |
 | 2026-10-01 | **S0.10 production drift record** | orchestrator (read-only audit + docs) | `0dc08ec` (docs commit after it) | Read-only audit of the shared remote: 28 public tables; **all 8 abandoned v1 project tables present** with **4 rows total**; `auditoria_cambios` **absent**; **12 applied migrations** including the phantom `20260918153200_tablero_seguimiento_social`, which exists in **no branch** of the repo yet is recoverable from `6e4c6c8`. TLS never weakened, no table scans (catalog estimates first), no writes | — | Recorded in §6.9 + R-16 + D-10; §6.5 now forbids `migrate dev` against production; R-01 corrected (the no-bypass refusal is in the guarded entry points, not in the Prisma CLI). Decision: touch nothing in production now; v2 is additive and collides with none of the leftovers |
 
-Upload limits record (S0.8): _pending_. Baseline suite result (Step 2 of §1.2): _pending_.
+**Upload limits record (S0.8, measured 2026-10-01).** Every check is now a fact, and the last unknown was closed
+**read-only instead of from the dashboard**:
+
+| Constraint | Value | How it was verified |
+|---|---|---|
+| Vercel Function request **and response** body | **4.5 MB** — a platform constant, not plan-dependent | Vercel docs *Functions Limits* and *FUNCTION_PAYLOAD_TOO_LARGE* (413); the KB article "How do I bypass the 4.5MB body size limit of Vercel Functions" explicitly says to upload directly to the storage provider |
+| Next proxy body buffering (`proxyClientMaxBodySize`) | default **10 MB**, `experimental` | installed Next doc `node_modules/next/dist/docs/01-app/03-api-reference/05-config/01-next-config-js/proxyClientMaxBodySize.md` |
+| Does that proxy limit apply here? | **No** — the matcher excludes `api` | repo: `src/proxy.ts:91` |
+| Remote bucket `muttu-docs` `file_size_limit` | **10485760 B = 10 MB**; `public=false`; `allowed_mime_types=null` | **read-only Storage API `getBucket`** against `rxwtgvuijaketidnbtoh.supabase.co` with the service key already in `.env`; metadata only, no writes |
+| Local Supabase storage | **50 MiB** | `supabase/config.toml:118` |
+| App limit — documents / project supports | **10 MB** (`MAX_FILE_BYTES`), returns 413 | `src/lib/api/files.ts:9`, enforced at `src/app/api/v1/documents/route.ts:95` |
+| App limit — task attachments | **25 MB default**, env-overridable via `MAX_FILE_SIZE_MB` | `src/app/api/v1/tasks/[id]/attachments/route.ts:34-40`, enforced at :207 |
+| Allowed types (shared) | pdf, docx, xlsx, pptx, jpg, png — extension **or** MIME | `src/lib/api/files.ts:11-19` |
+
+**The decisive conclusion.** In production the binding constraint for any multipart upload through a route is the
+**4.5 MB function body limit**, which is a platform constant: the app's own 10 MB / 25 MB checks can never be
+reached with anything larger. The documented limits are therefore **misleading in production** — a 5 MB document is
+rejected by the platform with `FUNCTION_PAYLOAD_TOO_LARGE` before the route handler runs, and raising the bucket to
+25 MB does not change that. The only way to honour 25 MB is to keep the bytes **out of the function**: the signed
+direct upload of ADR-13 / S0.9b. Note also the **dev/prod asymmetry**: local allows 50 MiB while production allows
+10 MB, so a 25 MB upload succeeds locally and fails in production — a trap when testing S0.9a.
+
+**Baseline suite result (Step 2 of §1.2):** 122 files / **1122 tests** green under the bounded envelope of §6.10,
+with `tsc` 0 errors and eslint clean. The "115 files / 1027 tests" figure recorded in §1.2 is stale.
 
 ### 6.8 Needs your decision (user; one at a time when asked)
 | ID | Decision | Default used meanwhile | Blocks |
@@ -2663,7 +2693,7 @@ Upload limits record (S0.8): _pending_. Baseline suite result (Step 2 of §1.2):
 | D-01 | ~~Branch base~~ — **RESOLVED 2026-09-30**: `feat/projects-v2`, branched from `main` (`11e9bc1`) | — | — |
 | D-02 | ~~COORDINADOR restriction timing~~ — **RESOLVED 2026-09-30**: applied directly to the project write paths (no flag exists) | — | S0.7 |
 | D-03 | Chain strategy for PRs: `stacked-to-main` vs `feature-branch-chain` | ask at first PR over budget | PR-06+ |
-| D-04 | Upload approach after S0.8: multipart through routes vs signed direct upload | signed upload if hosting < 25 MB | S0.9b, S4.2, S6.1, S7.4 |
+| D-04 | ~~Upload approach after S0.8: multipart through routes vs signed direct upload~~ — **RESOLVED 2026-10-01 by measurement**: the Vercel Function body limit is a **4.5 MB platform constant** and binds before the route's own 10 MB / 25 MB checks, so multipart cannot honour 25 MB. Chosen: **signed direct upload (ADR-13)**, which keeps the bytes out of the function. The user must raise the `muttu-docs` bucket limit from 10 MB to 25 MB before deploy. | — | — |
 | D-05 | Narrow task-attachment types to pdf/docx/xlsx/pptx/jpg/png (drops doc, ppt, csv, txt, zip…) | narrow (user rule "solo livianos office/imagen") | S0.9a |
 | D-06 | COORDINADOR access to the Tablero gerencial: scoped to member projects vs none | scoped (A-02) | S2.6, S9.2 |
 | D-07 | Commit the untracked `openspec/changes/proyecto-financiero-tab/{proposal,design}.md` before marking superseded | ask | S0.1 |
@@ -2752,7 +2782,7 @@ default**: raising it would hide contention instead of removing it.
 | ID | Risk | Likelihood / impact | Mitigation |
 |---|---|---|---|
 | R-01 | A migration/backfill runs against the remote `.env` Supabase (real-looking data) | ~~High~~ Low / Critical | **ROOT CAUSE FIXED 2026-09-30 (commit `96c4c5c`).** Plain `npx prisma …` used to resolve `.env` — the shared remote — through `prisma.config.ts`. Now that config loads `.env.local` only, a local `npx prisma …` resolves loopback by default, and the `db:*:local` scripts replace plain `npx`. **Precision (corrected 2026-10-01):** the hard refusal with no bypass lives in the *guarded entry points* — `prisma/require-local-db.ts`, imported by the seed, the DB invariant tests, `scripts/backfill-document-text.ts` and `scripts/migrate-v2/_guard.ts` — **not in the Prisma CLI itself**; `prisma.config.ts` only calls `loadLocalEnv()`, so a deliberate remote run remains possible by exporting the variables, which is exactly why the promotion path is human-only (§6.5, §6.9). Measured after the fix: `npx prisma migrate status` reports `127.0.0.1:54322`. Residual risk: a deliberate remote run must export the variables explicitly (§4.5, §6.5) |
-| R-02 | 25 MB uploads fail in production: Vercel request-body limit (~4.5 MB, per Vercel docs — UNVERIFIED for this account) and remote bucket at 10 MB (documented) | High / High | S0.8 verification before S0.9a; ADR-13 signed direct uploads; bucket raised by the user before deploy |
+| R-02 | 25 MB uploads cannot work in production: the Vercel Function body limit is **4.5 MB** (verified platform constant) and the remote bucket `muttu-docs` is at **10 MB** (read read-only 2026-10-01) | High / **High** | Verified in S0.8 (§6.7). D-04 resolved to the ADR-13 signed direct upload, which keeps the bytes out of the function; the user raises the bucket to 25 MB before deploy; local 50 MiB vs remote 10 MB is a known asymmetry |
 | R-03 | COORDINADOR users lose project creation/edit (S0.7) | Medium / Medium | D-02 resolved (applied directly); release note, CTA hidden in UI, 403 copy explains; membership in S2.6 restores executor access |
 | R-04 | Test churn from v1 project tests | High / Low | Removed by the direct path: there are no v1 project tests in this branch, because the v1 module was never shipped (re-scoped from the original 419-case risk) |
 | R-05 | PO reverses a USER-RESOLVED decision (e.g. Gestor creates projects per RF v2.0 §3; Gerente-only approval) | Medium / Medium | Predicates isolated (ADR-08) so a role change is a one-file edit + tests; questions §7.4 sent early |

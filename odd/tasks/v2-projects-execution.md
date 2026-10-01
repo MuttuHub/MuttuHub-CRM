@@ -131,9 +131,7 @@ Verified 2026-09-30 against the repository:
 - **Business risk (accepted):** confirm with the boss/PO that nothing is expected from the v1
   module in production. Nothing shipped, but there was a PO meeting on 2026-09-22 about
   "gestión de proyectos" features.
-- **Remote DB state (unverified):** whether the shared Supabase still carries the v1 projects tables from the
-  2026-09-17 seed incident. It does not block v2 development — v2 creates its own tables — but it must be checked
-  before the human remote-promotion step (§6.5 of the SDD).
+- **Remote DB state (VERIFIED 2026-10-01, read-only):** the shared Supabase **does** still carry the v1 projects schema — all 8 abandoned tables, with 4 rows in total — plus an applied migration (`20260918153200_tablero_seguimiento_social`) that exists in no branch. Measured and recorded in SDD §6.9 (R-16 / D-10). It does not block v2 development (v2 is additive and creates its own tables) and nothing was changed; the cleanup decision is D-10, to be taken at the human promotion step with a `pg_dump` first.
 - **`gh` / git TLS:** failures against GitHub in this environment come from TLS interception, not from `gh`
   itself. Observed 2026-09-30: a Fortinet FortiGate re-signing `github.com`, untrusted in both WSL
   (`certificate signer not trusted`) and Windows (`schannel: SEC_E_UNTRUSTED_ROOT`). It resolved on its own later
