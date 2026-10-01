@@ -2562,7 +2562,7 @@ Their IDs are retired and never reused.
 ### 6.1 Per-slice closing checklist
 | Slice | Must be true before closing |
 |---|---|
-| S0 | Pure libs 100 % branch-covered by their tests; audit trigger live-DB test green; guard tests green and the N-13 report recorded; COORDINADOR behavior change covered by route + UI tests; upload limits recorded (S0.8) |
+| S0 | Pure libs 100 % branch-covered by their tests; audit trigger live-DB test green; guard tests green and the N-13 report recorded; COORDINADOR behavior change covered by the **predicate** tests — the route-level 403 tests and the UI CTA test moved to the first v2 project-route slice (S2.x), because no project route, component or openapi path exists yet; upload limits recorded (S0.8); suite green under the §6.10 envelope |
 | S1 | Local catalog = 15 active rubros R01–R15 with immutable codes; rename/delete-with-data returns 409 for rubros, lines, municipios; v2 params editable with "no confirmado" badges |
 | S2 | New project gets `PRY-AAAA-NNN`; GANADA → project converts in one tx; value-difference alert; membership visibility enforced |
 | S3 | CedeTextil structure can be entered on screen; weeks → dates exact (F-W1); deliverables and indicators editable in BORRADOR |
@@ -2652,6 +2652,7 @@ never to a v1→v2 migration, which does not exist.
 | 2026-10-01 | **S0.6 migration safety kit** | delegated writer + independent verifier (read-only) | `108c682` | RED: both spec files failed to resolve (`_harness` absent, `__fixtures__/guard-probe.ts` absent). GREEN: **13 tests** (5 guard spawned against a fake env, 8 harness against a fake `$transaction` client); `tsc` 0 errors; eslint clean; `s1-rubros-report` → 1 zero-valued row, host `127.0.0.1:54322`, `storage-orphans` → 11 rows / 11 objects / 0 rows-without-object / 0 objects-without-row; independent verifier confirmed no `$transaction` on the dry-run path, hash-check before write, one 120 s transaction, `list()`-only storage access, and that only `.gitignore` changed among tracked files | — | Verifier's two findings were wording-level ("only .gitignore + scripts/migrate-v2 in status" — there were 11 entries, the rest pre-existing; "0 rows" — one zero-valued row). Unfixed residuals recorded in the S0.6 block. `CLAUDE.md` committed separately as `bd7cc00` before this task |
 | 2026-10-01 | **Native review of S0.6 → R3-001 CRITICAL → fixed** | native 4-lens review + delegated writer (correction) | `959ca33` | Lineage `review-5f975df81d7b1418`, candidate = the S0.6 work unit (10 files / 1018 lines, tier **high**, correction budget 200). 4 lenses ran (host relay, ~293 s; prompts ~65 KB, results 3.4–8.4 KB). One finding: **R3-001** (reliability, CRITICAL, deterministic, introduced) — the dry-run printed only 12 chars of the plan hash and returned no hash, so `--apply --expect-hash <sha>` could never obtain the reviewed value. Fixed with RED first (`Received: undefined` → 13/13 green, `tsc` 0 errors, eslint clean); correction plan of **12 diff lines** accepted by the provider | — | The correction had to be **committed** before native could see it (`stop/corrected_candidate_unavailable` otherwise). Authority stayed at `correction_required`: the final `collect/targeted_validation_required` slot is unreachable from the Pi facade (it cannot carry a `base-ref`, so with a clean tree it reports `empty_candidate_base_ref_required`), and the validator verdict must not be authored by Pi. **The review closed nothing and approves no delivery.** Lineage intentionally left open, recorded in memory |
 | 2026-10-01 | **S0.7 project permission predicates** | delegated writer + independent verifier (read-only) | see the commit after `959ca33` | Scope recalibrated first (`src/lib/api/projects.ts`, `src/app/api/v1/projects/**`, `src/components/proyectos/**`, `src/lib/openapi/paths/projects.ts` absent on this branch → route/UI 403 tests deferred to S2.x). RED: 13 new cases failed with `TypeError: <predicate> is not a function`. GREEN: **63 tests** across `permissions.test.ts` + `permissions.read.test.ts`; `tsc` 0 errors; eslint clean; `git diff -U0` = single append hunk, 0 deletions. Verifier confirmed all 13 predicates against the contract, **zero `canManageAny`** in the new block, no write predicate reading the gerencial flag | — | Verifier blocked the commit on two untested positive branches (`canViewFinancialSupports` membership; `canApproveBaseline`/`canApproveModification` manager-true) — both closed, +1 test and +1 assertion. Deliberate behaviour changes vs v1: `canCreateProject` and `canManageProject` no longer admit a non-manager responsable |
+| 2026-10-01 | **CP-4 test-suite envelope** | orchestrator (measurement) + independent verifier | `86a6e9d` (first config revision) | Root cause isolated: one full suite is green (122 files / 1122 tests) but **two concurrent suites fail 6-7 tests each** in `src/components/crm/*` and `scripts/migrate-v2/_guard.test.ts` (`Test timed out in 5000ms`, pointer-events), while those same specs pass in isolation. `vitest.config.ts` now pins `pool: "threads"` and `maxWorkers: 4`; three sequential non-contended runs were green ×3, `tsc` 0 errors, eslint clean, single 13-line additive hunk | — | The verifier **refuted** the first revision: `minWorkers` does not exist in vitest 4.1.10 and broke `tsc` (TS2769) — removed. It also corrected two numbers in my comment (unreproduced `environment` figures, available RAM) so the recorded envelope matches what was actually observed |
 | 2026-10-01 | **S0.10 production drift record** | orchestrator (read-only audit + docs) | `0dc08ec` (docs commit after it) | Read-only audit of the shared remote: 28 public tables; **all 8 abandoned v1 project tables present** with **4 rows total**; `auditoria_cambios` **absent**; **12 applied migrations** including the phantom `20260918153200_tablero_seguimiento_social`, which exists in **no branch** of the repo yet is recoverable from `6e4c6c8`. TLS never weakened, no table scans (catalog estimates first), no writes | — | Recorded in §6.9 + R-16 + D-10; §6.5 now forbids `migrate dev` against production; R-01 corrected (the no-bypass refusal is in the guarded entry points, not in the Prisma CLI). Decision: touch nothing in production now; v2 is additive and collides with none of the leftovers |
 
 Upload limits record (S0.8): _pending_. Baseline suite result (Step 2 of §1.2): _pending_.
@@ -2715,6 +2716,35 @@ can never remove them by itself. The cleanup decision is D-10 and belongs to the
 3. Any future destructive remote step needs its own `pg_dump`, its own review, and a human to run it.
 4. v2 is additive (`auditoria_cambios` + its own tables), so it collides with none of the leftovers — do not
    "clean up first" as a precondition for shipping v2; that would add risk for no benefit.
+
+### 6.10 Test-suite envelope (CP-4, measured 2026-10-01)
+
+The suite is **not intrinsically flaky**: it fails when the host is oversubscribed. Measured on the project machine
+(12 logical CPUs, 7.6 GiB total, 2.7-3.1 GiB available):
+
+| Scenario | Result |
+|---|---|
+| One full suite, vitest default workers (one per CPU) | **122 files / 1122 tests green**; cumulative jsdom `environment` time 213-317 s |
+| One full suite, `--maxWorkers=4` | green; `environment` 123 s (warm) |
+| **Two full suites concurrently** | **6-7 failures in each run**, always `src/components/crm/{client-form,client-list,client-sheet}.test.tsx` plus `scripts/migrate-v2/_guard.test.ts` (a spec that spawns child processes), with `Test timed out in 5000ms` and `Unable to perform pointer interaction as the element has 'pointer-events: none'` |
+| Those same failing specs in isolation | always green |
+| Three sequential runs under the pinned envelope | green ×3 (122 files, exit 0), zero `FAIL` lines, zero timing/pointer-events failures |
+| First run on a cold cache (drvfs) | `environment` 299-317 s vs 164-172 s warm — a ~1.8× spread that is filesystem-related, not flakiness |
+
+`vitest.config.ts` now pins `pool: "threads"` and `maxWorkers: 4`, so `npm test`, an ad-hoc `npx vitest run` and the
+documented `--pool=threads` command all share one bounded envelope. `testTimeout` is deliberately **left at the 5 s
+default**: raising it would hide contention instead of removing it.
+
+**Rules**
+1. **Never run two full suites at once**, and do not start another heavy command (a second suite, a build) while a
+   suite runs. This is the only reproducible cause of failures observed here.
+2. When a full-suite verification is delegated, the verifier must own the machine for its duration. An earlier
+   "all green" claim in this project was measured while other suites were in flight — the very condition that
+   produces false reds. A flaky suite is also what let R3-001 survive until the native review found it.
+3. Judge the suite by `FAIL` lines and by warm runs, not by wall time: a slow first run on this filesystem is
+   expected.
+4. `minWorkers` does **not** exist in vitest 4.1.10 (it fails `tsc` with TS2769 and is silently ignored at
+   runtime). Only `maxWorkers` is valid.
 
 ## 7. Risks, assumptions, open decisions, questions for the PO
 
