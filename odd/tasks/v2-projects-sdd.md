@@ -2053,7 +2053,7 @@ green: the sign endpoint, the key-ownership guard, JSON confirm mode in the vers
 multipart branches untouched), the document-version client moved to sign → PUT → confirm, and the R3-002/R3-003
 follow-ups. Suite **125 files / 1167 tests green**, `tsc` 0 errors, eslint clean.
 
-**Remaining work — tomorrow's first step**
+**Remaining work — closure plan (session 4, 2026-10-01)**
 1. **Document *creation* is still multipart** (`POST /documents` has no confirm branch and `useUploadDocument` still
    posts FormData), so a brand-new document larger than 4.5 MB can still fail in production. The verifier established
    the correct implementation: have the sign endpoint **pre-generate the document id**, sign the final key
@@ -2067,6 +2067,22 @@ follow-ups. Suite **125 files / 1167 tests green**, `tsc` 0 errors, eslint clean
    answers 400 instead of 403 (informational, no target-existence leak); confirmed versions skip inline text
    extraction until the backfill runs; and a concurrent version create can leave the key's `vN` differing from the
    row's `numero_version` (cosmetic — downloads use `storage_path`).
+
+**Closure decisions taken in session 4 (2026-10-01), before writing code:**
+
+- **(a)** Items 1 and 3 are in scope for this slice and are implemented with strict TDD (one delegated writer, one
+  independent read-only verifier).
+- **(b)** Item 4's ordering finding is **accepted as-is, not reordered**: the sign endpoint keeps
+  auth → configured → shape → policy → authorise, so a forbidden target with a disallowed extension answers 400
+  instead of 403. The policy check reads only the caller's own payload and therefore distinguishes nothing about the
+  target, and rejecting a malformed request before the target lookup is the cheaper order. The behaviour and this
+  reasoning are recorded here so it is a decision, not an accident.
+- **(c)** Item 2 (magic-byte validation, R3-001) stays an **open product decision** and is explicitly **out of this
+  slice**; nothing about it is silently accepted.
+- **(d)** **R-17 is accepted for now** with the bucket `file_size_limit` as the enforced hard bound — recorded as an
+  explicit promotion step (§6.5 step 3) — and detected with the S0.6 read-only
+  `scripts/migrate-v2/storage-orphans.ts`. The human-run sweeper stays an **open decision** and is surfaced to the
+  user; no new deletion path is added (the never-delete policy and its guard spec are untouched).
 
 **Open risk R-17 — must be consciously accepted or mitigated before promotion.** The signed path moves the size
 guarantee *after* persistence: the sign endpoint checks the **declared** size, but the browser PUT goes straight to
@@ -2700,7 +2716,13 @@ never to a v1→v2 migration, which does not exist.
 
 1. Announce a maintenance window.
 2. `pg_dump` backup of the remote database (user's tooling); verify the dump restores into a scratch DB.
-3. Raise the `muttu-docs` bucket `file_size_limit` to 25 MB if S0.9a is being deployed (Supabase dashboard).
+3. Raise the `muttu-docs` bucket `file_size_limit` to 25 MB if S0.9a/S0.9b is being deployed (Supabase
+   dashboard). **This bucket limit is the enforced hard bound for the signed-upload path (R-17):** the browser PUTs
+   straight to Storage, so the app's own size check runs only at confirm — *after* the object exists — and the
+   never-delete policy forbids removing an oversized orphan. Never deploy the signed path with a bucket limit below
+   the app policy (25 MB), and check for leftovers with the read-only
+   `scripts/migrate-v2/storage-orphans.ts` after any large-upload incident. Vercel's 4.5 MB function body limit is a
+   separate platform constant that binds the multipart paths only.
 4. Apply pending migrations to the remote DB from a human terminal with `prisma migrate deploy` — **never
    `migrate dev`**: it compares the directory with the database, will flag
    `20260918153200_tablero_seguimiento_social` as applied-but-absent, and can try to reconcile by resetting.
