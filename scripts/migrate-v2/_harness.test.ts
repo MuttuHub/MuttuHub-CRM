@@ -104,6 +104,10 @@ describe("migrate-v2 harness", () => {
     expect(calls).toHaveLength(0)
     expect(result.reportPath).toBeDefined()
     expect(existsSync(result.reportPath!)).toBe(true)
+    // R3-001: the reviewed sha must be obtainable from the dry-run itself, or the
+    // documented `--apply --expect-hash <sha>` workflow is impossible.
+    expect(result.hash).toBe(planHash(samplePlan))
+    expect(text).toContain(planHash(samplePlan))
   })
 
   it("apply refuses when --expect-hash does not match the recomputed plan", async () => {

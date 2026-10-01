@@ -79,6 +79,8 @@ export type RunMigrationResult = {
   exitCode: number
   reportPath?: string
   plan?: Plan
+  /** Full reviewed plan hash (R3-001): the value `--apply --expect-hash` needs. */
+  hash?: string
   applied?: string[]
   skipped?: string[]
   reverted?: string[]
@@ -134,7 +136,9 @@ export function renderStorageTable(storage: StorageReport | undefined, print: Pr
 }
 
 function renderReport(input: { name: string; host: string; plan: Plan; hash: string }, print: Printer): void {
-  print(`# Migration dry-run: ${input.name}  (db host: ${input.host})  plan-hash: ${input.hash.slice(0, 12)}…`)
+  // R3-001: print the FULL hash. `--apply --expect-hash <sha>` compares the whole
+  // value, so a truncated one could never be copied back out of this report.
+  print(`# Migration dry-run: ${input.name}  (db host: ${input.host})  plan-hash: ${input.hash}`)
   print("## Counts")
   printTable(
     COUNT_HEADERS,
@@ -329,5 +333,5 @@ export async function runMigration(options: RunMigrationOptions): Promise<RunMig
   const plan = await options.plan(options.db)
   const hash = planHash(plan)
   const reportPath = emitReport({ name: options.name, host: deps.host, plan, hash }, deps)
-  return { mode: "dry-run", exitCode: 0, reportPath, plan }
+  return { mode: "dry-run", exitCode: 0, reportPath, plan, hash }
 }
