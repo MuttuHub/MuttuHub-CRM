@@ -1,6 +1,10 @@
 # Muttu Hub v2 — Projects module (RF v2.0) and Clients/Opportunities — development plan
 
-Status: PLAN ONLY (2026-09-29). Nothing implemented. No code, schema or migration changed by this document.
+Status: **LIVING DECISION DOCUMENT** — created 2026-09-29 as a plan, implementation started 2026-09-30 on `feat/projects-v2`.
+This document stays authoritative for **decisions** (the DP/N tables) and **requirement traceability**; it is **not** a
+status board and its `[ ]`/`[x]` boxes are the plan's original intent, not current progress. For progress and evidence
+read `odd/tasks/v2-projects-execution.md` (session log + handoff) and `odd/tasks/v2-projects-sdd.md` §5 per-task
+`DONE` headers plus §6.7. Last reconciled 2026-10-02.
 
 ## Objective
 Replace the unshipped v1 Projects model (Proyecto → Meta → Actividad + LineaPresupuestal + Gasto +
@@ -200,6 +204,12 @@ Gap legend: covered / partial / missing / conflict (vs current code).
 
 ## Slice plan
 Each slice is independently shippable and reviewable, ordered by dependency and decision-readiness.
+
+> **These checkboxes are stale by design; do not read them as status (last reconciled 2026-10-02).** The plan was
+> written before implementation began and was never re-ticked: **S0.4, S0.5, S0.6, S0.7, S0.8, S0.9a, S0.9b, S0.10 and
+> S1.1a are all CLOSED**, and this list still shows most of them unchecked, under the pre-split numbering (`S1.1` here
+> is `S1.1a` + `S1.1b` in the SDD). The list remains useful for **order, size and gating**; for status read the SDD §5
+> headers and `odd/tasks/v2-projects-execution.md`.
 Size: S ≤ ~150, M ~150–400, L > 400 authored lines (L tasks split into chained PRs). Every behavior task is
 TDD: RED test first (`npx vitest run <file>`), then GREEN, then REFACTOR. Checks per task: focused vitest,
 `npx tsc --noEmit`, eslint touched files; full `npx vitest run` at slice close.
@@ -381,10 +391,14 @@ append-only audit), then S0.6.** Everything else is gated by at least one row be
 | Task | Route | Commit | Checks | RDD outcome |
 |---|---|---|---|---|
 | 2026-09-30 re-scope | orchestrator + delegated writer (partial) | — (committed with the re-scope) | 5 coexistence-only tasks removed; all `feature_projects_v2` / S9.6 / v1-backfill references removed except the §5.13 tombstone and the §0.4 revision note; task count 71 → 66 | — |
+| 2026-10-02 | **progress tracking moved out of this document** | — | S0.4, S0.5, S0.6, S0.7, S0.8, S0.9a, S0.9b, S0.10 and S1.1a are **closed** (S1.1a's native review approved and its authority burned 2026-10-02, lineage `review-eea4c3aa7621c16c`), and the tree is clean at `52210ef` with 8 commits unpushed | See `odd/tasks/v2-projects-execution.md` — its "Session 8 close" section is the ordered handoff — and `odd/tasks/v2-projects-sdd.md` §5 + §6.7. No further progress rows are added here |
 
 ## Next step
-1. User forwards "Preguntas para el PO"; answers go into S0.1 and the decisions table.
-2. Meanwhile, start the decision-free work unit S0.5 (weeks/money pure libs) then S0.4 (append-only audit),
-   on the `feat/projects-v2` branch (already created from `main`).
-3. Remote PR cleanup (closing the superseded v1 chain, merging the independent PRs) is gated on explicit user
-   authorization: the work is local-only until then (`odd/tasks/v2-projects-execution.md`).
+**Superseded 2026-10-02 — this section's original plan is complete.** It read: forward the PO questions, then start
+S0.5 + S0.4, then clean up remote PRs. All three were done or superseded: S0.5 and S0.4 closed on 2026-09-30, S0.6
+through S0.10 and S1.1a followed, and the remote cleanup is still gated on explicit user authorisation.
+
+**Current next step:** the ordered handoff in `odd/tasks/v2-projects-execution.md` → "Session 8 close (2026-10-02)".
+In short: close **S0.1** (~5 lines of docs), then the catalogs **S1.2**, **S1.3**, **S1.4**, with **S1.1b deferred until
+S5.1** creates `lineas_presupuestales`; then **S2.1/S2.2/S2.3** open the visible projects module. Nothing in that plan
+waits on the PO — only N-23 (PDF engine) blocks anything, and it blocks S9.3b alone.
