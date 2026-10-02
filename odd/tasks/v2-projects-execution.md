@@ -156,6 +156,7 @@ Verified 2026-09-30 against the repository:
 | 2026-10-01 | Session 4: native review of the S0.9b slice | lineage `review-ba69dfb46439abc1` | `review.start` over the **full slice** (base tree `35da212` = `2cbc678`, `committed-only`): 21 paths, 2934 lines, tier **medium**, one lens (`review-reliability`), correction budget 200. Consent envelope relayed verbatim; the human chose `granted`. One reviewer ran (host relay, prompt 166 KB → result 5.9 KB). State **approved**; two advisory `informational` findings (R3-1 WARNING, R3-2 SUGGESTION); acknowledgement completed, **authority burned** | Satisfies RDD. The same session's plans-only candidate (`review-0d0f1e39bb4aadc2`, 26 lines, risk low, `non_executable_only`, 0 lenses) was also approved and burned. The user explicitly **deferred** review of the pre-correction code candidate `sha256:edeb3872…` to the corrected one — a human disposition, not an opt-out |
 | 2026-10-01 | Session 5: S0.9b hygiene unit (one home for the create gates + R3-1) | `8d10180` | The multipart branch of `POST /documents` now takes categoria validity, restricted-category authorization and the duplicate-title conflict from `guardDocumentCreate` (`parseUploadForm` is called with `requiereCategoria: false`) and its inline copies are deleted; the confirm branch's documento/version/cliente inserts are one `db.$transaction` with the audit call and the extraction outside; the guard's tests pin `mode: "insensitive"` / `deleted_at: null`. Verifier: `READY TO COMMIT: yes`, no blocking finding, response contract byte-identical, three benign ordering deltas named. Own checks: focused 41 + 8 + 18 + 14 green; **full suite 126 files / 1201 tests green** (baseline 1194); `tsc` 0 errors; eslint clean | **medium** tier, 1 lens (`review-reliability`), lineage `review-d4d492b8adb83210`: **approved**, acknowledged, **authority burned**; one advisory WARNING at `route.ts:526`, `informational` | Closes S0.9b residual 2, the guard-assertion gap and **R3-1**. `src/lib/api/documents.ts` needed no change. The first capture attempt failed with `native-status-failed — the negotiated review operation exceeded its aggregate time budget`; the identical retry succeeded |
 | 2026-10-01 | Session 6: user decisions + S1.1a (greenfield rubro catalog) | see the commit after `d55144e` | Decisions closed: D-05 confirmed narrow, R3-001 accepted as a documented residual, **no orphan sweeper ever**, and the v1 openspec change `proyecto-financiero-tab` marked superseded while staying out of git. Then a read-only recon established S1.1a is **greenfield** (no `Rubro` model, table, migration or route; the SDD's "VERIFIED" citations pointed at v1 code absent from this branch), and it is the recon that surfaced the production collision: the abandoned v1 `rubros` table would abort a plain `CREATE TABLE` at `migrate deploy`. Delivered as recalibrated: `RUBROS_V2`, the `Rubro` model, the adoptive/idempotent migration, `s1-rubros.ts` + `planRubros()` test, `GET`/`PATCH`/`DELETE` routes (+ tests), the trigger's live-DB invariant test, the adoption-path test running the real SQL text in a throwaway schema, the seed and the OpenAPI paths. Also fixed at the root: the S0.6 harness's `writeLote` used a delegate the client never exposes, so **no real `--apply` had ever worked**. Own checks: focused green throughout; **full suite 131 files / 1226 tests green** (baseline 126/1201); `tsc` 0 errors; eslint clean on 15 files. Script exercised dry-run → apply → revert → re-apply against the local DB | Verifier pass 1 `READY TO COMMIT: yes` (no blocking finding) and it independently confirmed the harness defect; verifier pass 2 after the correction also `yes`, with isolation confirmed and the judgement that the harness test would now fail red if the defect returned | Residuals recorded in the S1.1a block: the reconstructed (not `pg_dump`) adoption shape, the untouched `activo` on the two backfilled rows, the invisible suspended rubros, the unexecuted seed path, and three unstrengthened assertions left because the writer runtime failed three times (bash stall, model never started, `capacity quarantined`) |
+| 2026-10-02 | Session 7: S1.1a review re-creation attempt | no commit, no lineage | `inspect` → `managed_assets_outdated` → ran the **prescribed** `gentle-ai sync --agent pi` (installed the v4.0.0 managed assets, 9 files) → `inspect` ready again, offering only the **branch-wide** candidate (left unstarted by prior decision) → START for the slice `d55144e89ddc37dd671e0195382e9b0281563da5..HEAD` with `{"mode":"ordinary","baseRef":…,"committedOnly":true}` → `candidate-owner-parent-chmod-ineffective`: v4.0.0 attests POSIX privacy on `<git-common-dir>/gentle-ai/candidate-views` and `/mnt/c` is 9p `drvfs` without `metadata` (`stat` reads `777`; a `chmod 700` probe read back `777`). The first, badly-formed attempt (`mode` omitted) had failed as `graph-v1 START requires lineageId`. **`lineage_created: false` / `mutation_outcome: none` both times** | Blocker is environmental and clone-wide, not about this candidate: **no** native review can start here until it is fixed. User chose (2026-10-02) to enable `[automount] options = "metadata,umask=22,fmask=11"` in `/etc/wsl.conf`, then `wsl --shutdown` and reopen. Safe: `core.filemode=false` and all 472 tracked files `100644`. Next step after the restart: `inspect` → START the same range with a fresh key |
 
 ### Session 3 detail (2026-10-01)
 
@@ -219,6 +220,29 @@ Verified 2026-09-30 against the repository:
   sweeper decision.
 - **Nothing was pushed.** `origin/feat/projects-v2` is now several commits behind local; the remote step still needs
   explicit per-batch approval.
+
+### Session 7 (2026-10-02) — the S1.1a review re-creation, blocked by the filesystem
+
+- **The handoff's next step was taken as written**: a **new** lineage was attempted for the S1.1a slice rather than
+  retrying the stranded `review-5a50cbc2ef8376c2`.
+- **Two consecutive stops, neither of them about the candidate.** (1) `inspect` answered `managed_assets_outdated` with
+  its own prescribed continuation; running that exact `gentle-ai sync --agent pi` installed the **v4.0.0** managed assets
+  (9 files) and cleared the stop. (2) `inspect` then offered only the **branch-wide** candidate, so START was issued for
+  the slice with an explicit committed range — and died with `candidate-owner-parent-chmod-ineffective`: v4.0.0 attests
+  POSIX privacy on `<git-common-dir>/gentle-ai/candidate-views`, and `/mnt/c` is 9p `drvfs` **without `metadata`**, where
+  `chmod` is a no-op. Measured, not assumed: `stat` reads `777` on `.git/gentle-ai` and on `candidate-views`, and a
+  `chmod 700` probe also read back `777`. **`lineage_created: false` and `mutation_outcome: none` on both attempts** — no
+  lineage, no candidate view, the repository untouched.
+- **Lesson from the first attempt**: an explicit-`baseRef` START still needs `"mode":"ordinary"` in its input. Without
+  it the facade falls through to the graph-v1 branch and fails with `Judgment Day graph-v1 START requires lineageId`,
+  an error that says nothing about the real mistake.
+- **Consequence until the environment is fixed**: **every** native review in this clone is blocked, not just S1.1a's, so
+  this is a prerequisite for the per-slice review discipline rather than a nicety.
+- **User decision (2026-10-02)**: enable the WSL `metadata` option on the C: automount in `/etc/wsl.conf`, then
+  `wsl --shutdown` and reopen the distro. Offered only after measuring the exec-bit risk: `core.filemode=false` here and
+  all 472 tracked files `100644`, so no mode churn is possible.
+- **Nothing was pushed and no review authority exists.** Next step after the restart: `inspect`, then START
+  `d55144e89ddc37dd671e0195382e9b0281563da5..HEAD` with a fresh idempotency key.
 
 ### Session 6 detail (2026-10-01)
 
@@ -371,8 +395,13 @@ found by its subject if this table goes stale:
 
 ## How to resume
 
-1. `mem_context` for the session summary, then read this document and `odd/tasks/v2-projects-sdd.md`.
-
+0. **Before anything else — fix the filesystem or no native review can start (2026-10-02 blocker).** Add
+   `[automount] options = "metadata,umask=22,fmask=11"` to `/etc/wsl.conf`, run `wsl --shutdown` from Windows, then reopen
+   the distro and Pi. Without it, v4.0.0 refuses to freeze the candidate (`candidate-owner-parent-chmod-ineffective`) and
+   **every** review in this clone fails before any lineage exists. Then: `inspect`, and START the S1.1a slice
+   `d55144e89ddc37dd671e0195382e9b0281563da5..HEAD` with a fresh idempotency key and
+   `{"mode":"ordinary","baseRef":"d55144e89ddc37dd671e0195382e9b0281563da5","committedOnly":true}` — **never retry** the
+   stranded `review-5a50cbc2ef8376c2`, and never start the branch-wide candidate.
 1. `mem_context` for the session summary, then read this document and `odd/tasks/v2-projects-sdd.md`.
 2. `git switch feat/projects-v2` — **the rebase is already done.** The branch is 0 behind `main` (`6bee83f`) with
    tip `5f4e4a8`, and its baseline is verified green (session 2 above). Do **not** rebase again unless `main`
