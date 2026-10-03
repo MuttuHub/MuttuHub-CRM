@@ -13,6 +13,7 @@ import "@/lib/openapi/paths/tasks";
 import "@/lib/openapi/paths/documents";
 import "@/lib/openapi/paths/dashboard-admin";
 import "@/lib/openapi/paths/rubros";
+import "@/lib/openapi/paths/strategic-lines";
 
 export function buildOpenApiDocument() {
   const generator = new OpenApiGeneratorV31(registry.definitions);

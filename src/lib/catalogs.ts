@@ -155,6 +155,28 @@ export const RUBROS_V2: readonly RubroV2[] = [
   { codigo: "R15", nombre: "Dotación", orden: 15 },
 ];
 
+// Strategic-lines catalog for the v2 projects module (REQ-CAT-03, codes
+// LE01..LE08). Single TS source of truth: the migration, the seed and the API
+// all derive from this constant — the list is NEVER duplicated in the
+// application. LE01..LE08 are immutable (database trigger) and `orden` fixes
+// the LE01..LE08 sequence.
+//
+// There is deliberately NO `LineaEstrategica` enum here: REQ-CAT-03 cited one
+// from an earlier branch and that citation is false (this schema declares no
+// such enum), so the codes are assigned by this constant instead.
+export type LineaEstrategicaV2 = { codigo: string; nombre: string; orden: number };
+
+export const LINEAS_ESTRATEGICAS_V2: readonly LineaEstrategicaV2[] = [
+  { codigo: "LE01", nombre: "Empleabilidad", orden: 1 },
+  { codigo: "LE02", nombre: "Emprendimiento", orden: 2 },
+  { codigo: "LE03", nombre: "Productividad", orden: 3 },
+  { codigo: "LE04", nombre: "Cultural", orden: 4 },
+  { codigo: "LE05", nombre: "Social", orden: 5 },
+  { codigo: "LE06", nombre: "Cívico-político", orden: 6 },
+  { codigo: "LE07", nombre: "Método Muttu", orden: 7 },
+  { codigo: "LE08", nombre: "Ambiental", orden: 8 },
+];
+
 export const ENUM_VALUES = {
   EstadoCliente: Object.keys(ESTADO_CLIENTE_LABELS),
   TipoCliente: Object.keys(TIPO_CLIENTE_LABELS),

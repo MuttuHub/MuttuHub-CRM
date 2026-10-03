@@ -15,6 +15,7 @@ import {
   ESTADO_CLIENTE_LABELS,
   ESTADO_OPORTUNIDAD_LABELS,
   ESTADO_TAREA_LABELS,
+  LINEAS_ESTRATEGICAS_V2,
   ORIGEN_TAREA_LABELS,
   PRIORIDAD_CLIENTE_LABELS,
   PRIORIDAD_TAREA_LABELS,
@@ -190,6 +191,37 @@ describe("RUBROS_V2 catalog (REQ-CAT-01)", () => {
     )
     expect(new Set(RUBROS_V2.map((r) => r.codigo)).size).toBe(15)
     expect(new Set(RUBROS_V2.map((r) => r.nombre)).size).toBe(15)
+  })
+})
+
+describe("LINEAS_ESTRATEGICAS_V2 catalog (REQ-CAT-03)", () => {
+  // The 8 RF-02 strategic lines, in LE01..LE08 order. This is the single TS
+  // source of truth for the catalog: the migration, the seed and the API all
+  // derive from LINEAS_ESTRATEGICAS_V2. There is no `LineaEstrategica` enum in
+  // this repository — the codes are assigned here, not copied from Prisma.
+  const EXPECTED: ReadonlyArray<[string, string]> = [
+    ["LE01", "Empleabilidad"],
+    ["LE02", "Emprendimiento"],
+    ["LE03", "Productividad"],
+    ["LE04", "Cultural"],
+    ["LE05", "Social"],
+    ["LE06", "Cívico-político"],
+    ["LE07", "Método Muttu"],
+    ["LE08", "Ambiental"],
+  ]
+
+  it("has exactly the 8 RF-02 strategic lines in LE01..LE08 code order", () => {
+    expect(LINEAS_ESTRATEGICAS_V2).toHaveLength(8)
+    expect(LINEAS_ESTRATEGICAS_V2.map((l) => l.codigo)).toEqual(EXPECTED.map(([codigo]) => codigo))
+    expect(LINEAS_ESTRATEGICAS_V2.map((l) => l.nombre)).toEqual(EXPECTED.map(([, nombre]) => nombre))
+  })
+
+  it("numbers orden 1..8 sequentially and keeps codes/names unique", () => {
+    expect(LINEAS_ESTRATEGICAS_V2.map((l) => l.orden)).toEqual(
+      Array.from({ length: 8 }, (_, index) => index + 1),
+    )
+    expect(new Set(LINEAS_ESTRATEGICAS_V2.map((l) => l.codigo)).size).toBe(8)
+    expect(new Set(LINEAS_ESTRATEGICAS_V2.map((l) => l.nombre)).size).toBe(8)
   })
 })
 

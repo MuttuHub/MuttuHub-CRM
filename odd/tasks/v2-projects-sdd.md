@@ -2429,6 +2429,37 @@ editor here would leave S1.1a's rubros — also API-only — with no editor, and
 Instead, one later unit adds a single `catalogs-v2` admin section covering rubros + líneas + municipios together, which
 is smaller and more coherent than three one-off sections. Reversible if the user prefers the UI inside this slice.
 
+**DONE 2026-10-02 (session 8)**, implemented exactly as that recalibrated scope requires: `LINEAS_ESTRATEGICAS_V2`
+(the single TS source for LE01..LE08), the `LineaEstrategicaCatalogo` model (`@@map("lineas_estrategicas")` with a
+unique immutable `codigo`), the adoptive/idempotent migration `20261002120000_v2_lineas_estrategicas`
+(create-if-absent + `ADD COLUMN IF NOT EXISTS` + `ON CONFLICT (codigo) DO NOTHING` seed + the conditional trigger
+`lineas_estrategicas_codigo_no_update`), the `GET`/`POST`/`PATCH`/`DELETE /api/v1/strategic-lines[/:id]` routes (GET for
+any authenticated user; POST/PATCH/DELETE for ADMINISTRADOR only; suspend-never-delete; `codigo` refused on `PATCH`), the
+seed section in `prisma/seed.ts`, the OpenAPI paths and two live-DB invariant test files.
+
+**Checks observed.** Focused route tests **20 green** (9 + 11); `src/lib/catalogs.test.ts` 29 green; live-DB invariants
+**7 green**; **full suite 135 files / 1255 tests green** (baseline 131/1226 — the delta is exactly this task's four new
+files); `tsc` 0 errors; eslint clean on all 11 touched lintable files. The migration applied with
+`npm run db:migrate:local` → 14 migrations, *"Your database is now in sync with your schema"*, no drift, and the 8 rows
+plus the trigger were confirmed **directly in the local database** (codes, names, order and `activo` all correct). An
+independent read-only verifier returned **`READY TO COMMIT: yes`** with no blocking findings, and judged the three
+disclosed interpretation choices — soft-delete instead of the rubro routes' 409, an explicit `codigo` on POST, and
+`codigo NOT NULL` here — all non-defects.
+
+**Deliberate divergence from the rubro precedent:** `DELETE` suspends and returns success rather than the rubro routes'
+409, because REQ-CAT-03's 409 applies only to a line already in use and that whole case is deferred with the
+project-dependent rules above.
+
+**Residuals recorded, none blocking:** (i) `seedLineasEstrategicas()` is exercised only indirectly through the
+migration's seed of the same 8 rows — the `prisma/seed.ts` path itself remains **unexecuted end to end**, exactly the
+residual `seedRubros` carries, because the demo seed also drives Supabase Auth/Storage; (ii) `ADD COLUMN IF NOT EXISTS …
+NOT NULL` in this migration would fail against a hypothetical pre-existing `lineas_estrategicas` holding rows without
+those columns — unreachable today since the table is greenfield, but worth remembering before reusing the pattern on a
+real legacy table; (iii) `src/lib/openapi/paths/strategic-lines.ts` has no dedicated test, only `tsc` coverage; and (iv)
+the environment had to be repaired mid-task: the local Supabase stack had been **down for two days**
+(`supabase_db_muttu-hub` `Exited (127)`, port 54322 closed), so the migration and the live-DB tests were initially
+unrunnable and were completed after `docker desktop start` + `supabase start` (see the execution log).
+
 #### S1.3 — Municipios catalog (M)
 - **Goal:** REQ-CAT-04 catalog part.
 - **Files:** schema `Municipio`; migration `<ts>_v2_municipios`; NEW `src/app/api/v1/municipalities/route.ts`,

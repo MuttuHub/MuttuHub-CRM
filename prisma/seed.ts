@@ -34,7 +34,7 @@
 
 import "./require-local-db";
 import { db } from "../src/lib/db";
-import { DOC_CATEGORIES, RESTRICTED_DOC_CATEGORIES, RUBROS_V2, TASK_TAGS } from "../src/lib/catalogs";
+import { DOC_CATEGORIES, LINEAS_ESTRATEGICAS_V2, RESTRICTED_DOC_CATEGORIES, RUBROS_V2, TASK_TAGS } from "../src/lib/catalogs";
 import { ensureDefaultSettings } from "../src/lib/settings";
 import { createSupabaseAdmin } from "../src/lib/supabase/admin";
 import { documentStoragePath, STORAGE_BUCKET } from "../src/lib/api/files";
@@ -59,6 +59,7 @@ const ENTITY_CODE = {
   acceso: "a00b",
   solicitud: "a00c",
   rubro: "a00d",
+  linea: "a00e",
 } as const;
 
 type Entity = keyof typeof ENTITY_CODE;
@@ -982,6 +983,38 @@ async function seedRubros() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Section: Línea estratégica (catálogo v2 LE01–LE08, REQ-CAT-03)
+// ─────────────────────────────────────────────────────────────────────────
+
+async function seedLineasEstrategicas() {
+  console.log("\n[lineas] Catálogo de líneas estratégicas LE01–LE08...");
+
+  let seq = 0;
+  for (const linea of LINEAS_ESTRATEGICAS_V2) {
+    seq += 1;
+    // Natural-key upsert: by `codigo`, so re-running the seed refreshes the
+    // same 8 rows instead of duplicating them.
+    await db.lineaEstrategicaCatalogo.upsert({
+      where: { codigo: linea.codigo },
+      create: {
+        id: fixedId("linea", linea.orden),
+        codigo: linea.codigo,
+        nombre: linea.nombre,
+        orden: linea.orden,
+        activo: true,
+      },
+      // Only nombre/orden: a re-seed must not override an administrator's
+      // suspension (activo=false + fecha_suspension).
+      update: {
+        nombre: linea.nombre,
+        orden: linea.orden,
+      },
+    });
+  }
+  console.log(`  ${seq} líneas estratégicas LE01–LE08 upserted.`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // main
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -1010,6 +1043,7 @@ async function main() {
   await seedSolicitudesAcceso(usuarios);
   await seedAccesos(usuarios);
   await seedRubros();
+  await seedLineasEstrategicas();
 
   console.log("\n[settings] Catálogos por defecto (task_tags, doc_categories)...");
   await ensureDefaultSettings();
@@ -1023,7 +1057,8 @@ async function main() {
       `  - Oportunidades: ${OPORTUNIDADES.length}\n` +
       `  - Tareas: ${TAREAS.length}\n` +
       `  - Documentos: ${DOC_CATEGORIES.length}\n` +
-      `  - Rubros: ${RUBROS_V2.length}\n\n` +
+      `  - Rubros: ${RUBROS_V2.length}\n` +
+      `  - Líneas estratégicas: ${LINEAS_ESTRATEGICAS_V2.length}\n\n` +
       "Credenciales demo (NUNCA reutilizar fuera de este proyecto de desarrollo):\n" +
       PERSONAS.map((p) => `  - ${p.rol.padEnd(14)} ${p.email}  /  ${DEMO_PASSWORD}`).join("\n") +
       "\n",

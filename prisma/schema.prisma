@@ -555,3 +555,25 @@ model Rubro {
 
   @@map("rubros")
 }
+
+// v2 projects module (REQ-CAT-03) — catálogo de líneas estratégicas LE01..LE08.
+// Greenfield on this branch: no `lineas_estrategicas` table exists in any
+// environment, so `codigo` is NOT NULL (unlike `rubros`, whose adopted legacy
+// rows keep a NULL code). `codigo` is immutable — the trigger
+// `lineas_estrategicas_codigo_inmutable` (see the migration) rejects changing
+// an existing code — and `orden` fixes the LE01..LE08 sequence.
+// `fecha_suspension` records WHEN a line was suspended (`activo=false`):
+// suspension is the only way out, because rows are never deleted. No FKs yet:
+// `ProyectoLinea` arrives with S2.1.
+model LineaEstrategicaCatalogo {
+  id               String    @id @default(uuid())
+  codigo           String    @unique
+  nombre           String
+  activo           Boolean   @default(true)
+  fecha_suspension DateTime?
+  orden            Int       @default(0)
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+
+  @@map("lineas_estrategicas")
+}
