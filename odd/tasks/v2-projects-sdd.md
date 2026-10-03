@@ -2393,13 +2393,41 @@ S0.1, except this time it reached the acceptance criteria. Two consequences, bot
 
 #### S1.2 — Strategic-lines catalog (M, decision-free)
 - **Goal:** REQ-CAT-03 catalog part.
-- **Files:** schema `LineaEstrategicaCatalogo`; migration `<ts>_v2_lineas_estrategicas` (table + seed 8 rows from
-  enum, idempotent `ON CONFLICT (codigo) DO NOTHING`); NEW `src/app/api/v1/strategic-lines/route.ts`,
-  `[id]/route.ts` (+ tests); `src/components/admin/` new section `lineas-section.tsx` (+ test).
+- **Files:** schema `LineaEstrategicaCatalogo`; migration `<ts>_v2_lineas_estrategicas` (table + seed the 8 names
+  listed in REQ-CAT-03 — **there is no enum to seed from**, see the recalibration below — idempotent
+  `ON CONFLICT (codigo) DO NOTHING`); NEW `src/app/api/v1/strategic-lines/route.ts`, `[id]/route.ts` (+ tests).
+  *(The admin section originally named here is deferred; see the recorded decision below.)*
 - **RED:** `it("seeds the 8 RF-02 strategic lines")`, `it("GET lists active lines for any authenticated user")`,
-  `it("POST/PATCH/DELETE require ADMINISTRADOR")`, `it("rename or delete of a line used by a project returns 409")`,
-  `it("suspending a line keeps it on existing projects and hides it for new ones")`.
+  `it("POST/PATCH/DELETE require ADMINISTRADOR")`. **Deferred (see below):** `it("rename or delete of a line used by a
+  project returns 409")` and `it("suspending a line keeps it on existing projects and hides it for new ones")` — both
+  need a `Proyecto` that references a line, and that model does not exist until S2.1.
 - **Deps:** S0.4. **Gate:** none. **Lines:** ~330. **Commit:** `feat(catalogs): add administrable strategic lines catalog (S1.2)` · **PR-10**.
+
+**Scope recalibrated 2026-10-02 (session 8) — read this before writing: the task is GREENFIELD and two of its five RED
+scenarios are untestable today.** A read-only recon verified, by enum name and by line, that the enum this task was
+supposed to seed from **does not exist on this branch**: `prisma/schema.prisma` declares 12 enums and **none** is
+`LineaEstrategica`. The citation in REQ-CAT-03 ("VERIFIED enum `LineaEstrategica`, `schema.prisma:102-111`") is
+**false** — line 102 of that file is `model Usuario` — and the only surviving occurrences of `linea_estrategica` live in
+`scripts/seed-proyectos-demo.ts.bak`, a **git-excluded** backup of the abandoned v1 demo seed, which is evidence of
+nothing. So there is no enum, no table, no route, no seed and no UI: the catalog is built from zero, exactly as S1.1a's
+rubros were. This is the **fifth** occurrence of the same staleness class in this project (S0.6, S0.7, S0.1, S1.1a, S1.2).
+
+The 8 values are **not** a product question: REQ-CAT-03 in §3 already lists them (Empleabilidad, Emprendimiento,
+Productividad, Cultural, Social, Cívico-político, Método Muttu, Ambiental), so they become this task's single TS source
+of truth — the role `RUBROS_V2` played in S1.1a. Only the false citation needs correcting.
+
+**Two RED scenarios are deferred to S2.x/S5.x rather than faked**, the same treatment S1.1a's two project-dependent
+REQ-CAT-02 scenarios received: both the 409-on-a-line-in-use and the "suspending keeps it on existing projects" rule
+presuppose a project that references a line, and **`Proyecto` does not exist** (21 models in the schema, none named
+`Proyecto`; v2 creates it in S2.1). Implementing them today would be a simulation, so they stay recorded and unexecuted.
+
+**Recorded decision (2026-10-02): S1.2 ships API-only; the catalogs admin UI becomes ONE explicit later unit.** The SDD
+named `src/components/admin/lineas-section.tsx` as new surface and that directory does exist, but its
+`catalogs-section.tsx` (385 lines) edits `Setting`-backed lists — task tags and document categories — through
+`PUT /api/v1/settings`, a **different contract** from a v2 catalog table; it is not a natural extension point. Adding an
+editor here would leave S1.1a's rubros — also API-only — with no editor, and would turn a catalog slice into a UI slice.
+Instead, one later unit adds a single `catalogs-v2` admin section covering rubros + líneas + municipios together, which
+is smaller and more coherent than three one-off sections. Reversible if the user prefers the UI inside this slice.
 
 #### S1.3 — Municipios catalog (M)
 - **Goal:** REQ-CAT-04 catalog part.
