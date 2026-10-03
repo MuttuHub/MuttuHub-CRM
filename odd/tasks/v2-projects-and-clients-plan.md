@@ -310,6 +310,12 @@ append-only audit), then S0.6.** Everything else is gated by at least one row be
 - RDD: native review per work-unit commit per the user-owned switch; assessment outcome recorded per task.
 
 ## Open decisions (owner: PO/user unless noted)
+
+> This table records the **question and the user's answer as of 2026-09-29**. The authoritative and maintained
+> per-decision state — whether a row genuinely blocks work, its **default** when unanswered, and its owner — lives in
+> `odd/tasks/v2-projects-sdd.md` **§7.3**. If the two ever disagree, §7.3 wins. As of 2026-10-02 only **N-23** (PDF
+> engine) is blocking, and it blocks **S9.3b** alone.
+
 | ID | Question | Options | Recommendation | Blocks |
 |---|---|---|---|---|
 | DP-01 | Is prototype "Meta N" = Objetivo específico; indicators = result indicators? | yes / no | **Resolved 2026-09-29 (user):** Meta = Objetivo específico; adopt RF v2.0 model (Objetivo → Actividad → Entregable; indicators on Objetivo). To confirm with PO. | S3.1, S3.4 |

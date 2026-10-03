@@ -1910,14 +1910,28 @@ scoping is exercised only at harness level.
 - **Commit:** `feat(db): add guarded v2 migration harness and read-only reports (S0.6)` · **PR-04**.
 
 #### S0.1 — Decision log + freeze superseded openspec changes (S, docs)
-- **Goal:** record the 2026-09-29 USER-RESOLVED decisions and the PO answers when they arrive; mark the six v1
+**DONE 2026-10-02 (session 8)**, written as the recalibration below requires. The status banner went into the **one** v1
+change that actually exists on disk — `openspec/changes/proyecto-financiero-tab/` (`proposal.md` and `design.md` carry
+it; `specs/project-budget/spec.md` is the same change) — the five other changes named in the original goal **do not
+exist anywhere**, the plan's decision table now points at §7.3, and nothing was archived into the main specs, by design.
+Two facts make the outcome smaller and untracked: the directory is excluded by `.git/info/exclude` (per-clone and
+untracked), so `git status` shows **nothing** and the banner will never reach a collaborator — which is D-07's intent,
+and the exclusion entry was deliberately left alone — and therefore the commit that closes this task carries **only the
+documentation corrections**, not the openspec edit. Verified 2026-10-02: `git check-ignore -v` resolves the path to
+`.git/info/exclude:33` and `git status --porcelain openspec/` is empty.
+
+- **Goal (original wording):** record the 2026-09-29 USER-RESOLVED decisions and the PO answers when they arrive; mark the six v1
   openspec changes as superseded (no archive into main specs).
 - **Files:** `odd/tasks/v2-projects-and-clients-plan.md` (decision table already updated — add a "see SDD" link),
   `openspec/changes/{proyecto-financiero-tab,proyecto-legalizacion-tab,proyecto-metas-tab,proyecto-soportes-tab,tablero-gerencial-unificado,admin-umbrales-editables}/proposal.md`
   (prepend a "Status: SUPERSEDED by odd/tasks/v2-projects-sdd.md (2026-09-29)" line). Note: `proyecto-financiero-tab`
   `proposal.md`/`design.md` are currently **untracked** (git status) — ask the user whether to commit them as-is
   before marking (§6.8 D-07).
-- **TDD:** n/a (docs). **Acceptance:** six files carry the status line; decisions table references §7.3.
+- **TDD:** n/a (docs). **Acceptance (corrected 2026-10-02):** the superseded banner is present in the **only** v1 change
+  that exists (`proyecto-financiero-tab/`), and the decisions table references §7.3. The original wording — *"six files
+  carry the status line"* — was written against a file list that turned out to be stale: five of the six named changes
+  are absent from the tree. Because the banner lives in a git-excluded directory, acceptance is evidenced by reading the
+  file on disk (`head`), never by a commit.
 - **Deps:** none. **Gate:** none. **Lines:** ~30. **Commit:** `docs(openspec): mark v1 project changes superseded by v2 (S0.1)` · **PR-01**.
 - **Scope recalibrated 2026-10-01 (session 5) — read this before writing S0.1.** Of the six v1 openspec changes named
   above, **only `proyecto-financiero-tab` exists** in the tree; the other five (`proyecto-legalizacion-tab`,
@@ -1926,7 +1940,7 @@ scoping is exercised only at harness level.
   `proyecto-financiero-tab/` is excluded by **`.git/info/exclude`**, not `.gitignore` — a per-clone and untracked file,
   so `git status` shows nothing for it even though the files are on disk. **D-07 is resolved** (see §6.8): mark it
   superseded and leave it out of git. The task therefore shrinks to prepending the status line to that one change,
-  correcting this file list, and linking the decisions table to §7.3.
+  correcting this file list, and linking the decisions table to §7.3 — **all three done 2026-10-02 (session 8)**.
 
 #### S0.7 — Project permission predicates; COORDINADOR out of project management (M)
 **DONE 2026-10-01.** Scope recalibrated before writing: `src/lib/api/projects.ts`, `src/app/api/v1/projects/**`,
