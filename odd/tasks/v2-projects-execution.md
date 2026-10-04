@@ -137,8 +137,7 @@ Verified 2026-09-30 against the repository:
   (`certificate signer not trusted`) and Windows (`schannel: SEC_E_UNTRUSTED_ROOT`). It resolved on its own later
   the same day. Verify the issuer (`openssl s_client -connect github.com:443`) before concluding anything, and
   never disable certificate verification or install a corporate CA without an explicit user decision.
-- **Fork leftover:** `agutierrezreginodev/MuttuHub-CRM` caused the wrong-account push mistake
-  twice; recommended to delete it.
+- **Fork leftover:** ~~`agutierrezreginodev/MuttuHub-CRM` caused the wrong-account push mistake twice; recommended to delete it.~~ **Resolved 2026-10-03**: the local remote pointer named **`fork`** was removed (`git remote remove fork`), so no agent push can target it by accident any more — verified that only `origin` (`MuttuHub/MuttuHub-CRM`) remains and that a dry-run push to it still negotiates cleanly. The **fork on GitHub was deliberately left alone**: deleting the repository itself is a remote, destructive action on someone else's account and stays with the user (`gh repo delete agutierrezreginodev/MuttuHub-CRM` requires that account's credentials).
 - **Held v6 tasks** still have no owner until S10.1 executes.
 
 ## Progress / Evidence
