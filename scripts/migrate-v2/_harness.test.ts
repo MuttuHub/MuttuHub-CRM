@@ -44,17 +44,23 @@ const samplePlan: Plan = {
 type FakeTx = { auditoriaCambio: { create: (args: unknown) => Promise<unknown> } }
 
 function fakeDb() {
-  const calls: { options?: { timeout?: number }; wrote: boolean }[] = []
+  // Counting `lote` writes, not recording a boolean: "exactly one lote row per
+  // --apply" is the rule a fake restating the production call shape once hid
+  // for months. A boolean cannot tell one write from two, so this fake counts
+  // every `auditoriaCambio.create` call, per transaction and in total.
+  const calls: { options?: { timeout?: number }; loteWrites: number }[] = []
+  let loteWritesTotal = 0
 
   const client: MigrationClient = {
     async $transaction<T>(fn: (tx: unknown) => Promise<T>, options?: { timeout?: number }): Promise<T> {
-      const record: { options?: { timeout?: number }; wrote: boolean } = { options, wrote: false }
+      const record: { options?: { timeout?: number }; loteWrites: number } = { options, loteWrites: 0 }
       calls.push(record)
 
       const tx: FakeTx = {
         auditoriaCambio: {
           create: async () => {
-            record.wrote = true
+            record.loteWrites += 1
+            loteWritesTotal += 1
             return {}
           },
         },
@@ -64,7 +70,7 @@ function fakeDb() {
     },
   }
 
-  return { client, calls }
+  return { client, calls, loteWrites: () => loteWritesTotal }
 }
 
 function capture() {
@@ -93,7 +99,7 @@ function baseOptions(overrides: Partial<RunMigrationOptions>): RunMigrationOptio
 
 describe("migrate-v2 harness", () => {
   it("dry-run prints counts and decisions and never opens a write transaction", async () => {
-    const { client, calls } = fakeDb()
+    const { client, calls, loteWrites } = fakeDb()
     const { lines, print } = capture()
 
     const result = await runMigration(
@@ -107,6 +113,9 @@ describe("migrate-v2 harness", () => {
     expect(text).toContain("N-13")
     expect(text).toContain("(no storage data)")
     expect(calls).toHaveLength(0)
+    // The default `--dry-run` writes zero lote rows: a dry-run must leave no
+    // revert scope behind.
+    expect(loteWrites()).toBe(0)
     expect(result.reportPath).toBeDefined()
     expect(existsSync(result.reportPath!)).toBe(true)
     // R3-001: the reviewed sha must be obtainable from the dry-run itself, or the
@@ -116,7 +125,7 @@ describe("migrate-v2 harness", () => {
   })
 
   it("apply refuses when --expect-hash does not match the recomputed plan", async () => {
-    const { client, calls } = fakeDb()
+    const { client, calls, loteWrites } = fakeDb()
     const { lines, print } = capture()
 
     const result = await runMigration(
@@ -131,11 +140,37 @@ describe("migrate-v2 harness", () => {
     expect(result.exitCode).toBe(1)
     expect(lines.join("\n")).toMatch(/hash/i)
     expect(calls).toHaveLength(1)
-    expect(calls[0].wrote).toBe(false)
+    expect(calls[0].loteWrites).toBe(0)
+    expect(loteWrites()).toBe(0)
+  })
+
+  it("writes exactly one lote row per --apply and none per --dry-run", async () => {
+    const { client, calls, loteWrites } = fakeDb()
+    const { print } = capture()
+    const hash = planHash(samplePlan)
+
+    const dry = await runMigration(baseOptions({ db: client, print }))
+    expect(dry.mode).toBe("dry-run")
+    expect(loteWrites()).toBe(0)
+    expect(calls).toHaveLength(0)
+
+    const applied = await runMigration(
+      baseOptions({
+        db: client,
+        print,
+        argv: ["--apply", "--expect-hash", hash],
+        apply: async () => ["rubro:R05"],
+      }),
+    )
+
+    expect(applied.exitCode).toBe(0)
+    expect(calls).toHaveLength(1)
+    expect(calls[0].loteWrites).toBe(1)
+    expect(loteWrites()).toBe(1)
   })
 
   it("apply refuses --apply without --expect-hash", async () => {
-    const { client, calls } = fakeDb()
+    const { client, calls, loteWrites } = fakeDb()
     const { lines, print } = capture()
 
     const result = await runMigration(baseOptions({ db: client, print, argv: ["--apply"] }))
@@ -143,6 +178,7 @@ describe("migrate-v2 harness", () => {
     expect(result.exitCode).toBe(1)
     expect(lines.join("\n")).toContain("expect-hash")
     expect(calls).toHaveLength(0)
+    expect(loteWrites()).toBe(0)
   })
 
   it("apply is idempotent: a second run reports zero actions", async () => {

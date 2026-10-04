@@ -90,12 +90,37 @@ async function rubroRows(tx: Tx, schema: string): Promise<RubroRow[]> {
   )
 }
 
+/**
+ * Full surface the migration could leak into `public`: rows, the immutable-code
+ * function and the trigger. Snapshotting only rows could not see a function or
+ * trigger accidentally created outside the throwaway schema, so this also
+ * records every `public` function and trigger by name and definition.
+ */
 async function publicRubrosSnapshot(): Promise<string> {
   const rows = await db.$queryRawUnsafe<Array<Record<string, unknown>>>(
     `SELECT id, codigo, nombre, activo, orden, created_at, updated_at
        FROM public.rubros ORDER BY id`,
   )
-  return JSON.stringify(rows)
+  const functions = await db.$queryRawUnsafe<Array<Record<string, unknown>>>(
+    `SELECT p.proname AS name,
+            pg_get_function_identity_arguments(p.oid) AS identity,
+            p.prosrc AS definition
+       FROM pg_proc p
+       JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public'
+      ORDER BY p.proname, pg_get_function_identity_arguments(p.oid)`,
+  )
+  const triggers = await db.$queryRawUnsafe<Array<Record<string, unknown>>>(
+    `SELECT t.tgname AS name,
+            c.relname AS table_name,
+            pg_get_triggerdef(t.oid) AS definition
+       FROM pg_trigger t
+       JOIN pg_class c ON c.oid = t.tgrelid
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public' AND NOT t.tgisinternal
+      ORDER BY t.tgname`,
+  )
+  return JSON.stringify({ rows, functions, triggers })
 }
 
 let publicBefore = ""
@@ -114,11 +139,17 @@ describe("v2_rubros_codigo migration: adoption path (live DB)", () => {
         { nombre: "Transporte", codigo: "R12", activo: true },
       ])
 
-      const indexes = await tx.$queryRawUnsafe<Array<{ indexname: string }>>(
-        `SELECT indexname FROM pg_indexes WHERE schemaname = $1 AND indexname = 'rubros_codigo_key'`,
+      const indexes = await tx.$queryRawUnsafe<Array<{ indexname: string; indisunique: boolean }>>(
+        `SELECT c.relname AS indexname, i.indisunique
+           FROM pg_index i
+           JOIN pg_class c ON c.oid = i.indexrelid
+           JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = $1 AND c.relname = 'rubros_codigo_key'`,
         schema,
       )
-      expect(indexes.map((row) => row.indexname)).toEqual(["rubros_codigo_key"])
+      // `indisunique` is the assertion that matters: checking the index by name
+      // alone would pass for a non-unique index.
+      expect(indexes).toEqual([{ indexname: "rubros_codigo_key", indisunique: true }])
 
       const triggers = await tx.$queryRawUnsafe<Array<{ tgname: string }>>(
         `SELECT tgname FROM pg_trigger
@@ -139,6 +170,18 @@ describe("v2_rubros_codigo migration: adoption path (live DB)", () => {
       expect(afterAllowed).toContainEqual({ nombre: "Transporte terrestre", codigo: "R12", activo: true })
       expect(afterAllowed).toContainEqual({ nombre: "Material POP", codigo: "R13", activo: false })
     })
+  })
+
+  it("enforces codigo uniqueness: a duplicate non-NULL code is rejected", async () => {
+    await expect(
+      withAdoptedLegacySchema(async (tx, schema) => {
+        await tx.$executeRawUnsafe(
+          `INSERT INTO "${schema}"."rubros"
+             ("id", "nombre", "codigo", "orden", "created_at", "updated_at")
+           VALUES (gen_random_uuid(), 'Duplicado de Personal', 'R01', 9, now(), now())`,
+        )
+      }),
+    ).rejects.toThrow(/rubros_codigo_key|duplicate key/i)
   })
 
   it("rejects a change to an existing codigo with the immutability trigger", async () => {

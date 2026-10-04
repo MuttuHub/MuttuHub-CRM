@@ -101,11 +101,17 @@ describe("v2_lineas_estrategicas migration: greenfield path (live DB)", () => {
         })),
       )
 
-      const indexes = await tx.$queryRawUnsafe<Array<{ indexname: string }>>(
-        `SELECT indexname FROM pg_indexes WHERE schemaname = $1 AND indexname = 'lineas_estrategicas_codigo_key'`,
+      const indexes = await tx.$queryRawUnsafe<Array<{ indexname: string; indisunique: boolean }>>(
+        `SELECT c.relname AS indexname, i.indisunique
+           FROM pg_index i
+           JOIN pg_class c ON c.oid = i.indexrelid
+           JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = $1 AND c.relname = 'lineas_estrategicas_codigo_key'`,
         schema,
       )
-      expect(indexes.map((row) => row.indexname)).toEqual(["lineas_estrategicas_codigo_key"])
+      // `indisunique` pins the uniqueness the code index promises; a name-only
+      // check would pass for a non-unique index. Mirrors the rubros migration.
+      expect(indexes).toEqual([{ indexname: "lineas_estrategicas_codigo_key", indisunique: true }])
 
       const triggers = await tx.$queryRawUnsafe<Array<{ tgname: string }>>(
         `SELECT tgname FROM pg_trigger

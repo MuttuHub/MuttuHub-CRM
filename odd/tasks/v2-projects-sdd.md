@@ -2246,12 +2246,15 @@ migration instead of a `pg_dump`, so exact types/defaults, extra constraints and
 `rubros_codigo_inmutable` remain unproven; (ii) the migration does not touch `activo` on the two backfilled rows, so a
 legacy `NULL activo` there would leave a coded-but-invisible rubro — both (i) and (ii) now name explicit checks in the
 §6.5 promotion rehearsal; (iii) a suspended rubro disappears from `GET` and no endpoint lists suspended ones, so an
-administrator cannot *discover* one to restore it — deferred to the catalogs UI (S1.2/S1.3); (iv) `seedRubros`
-deliberately does not re-activate a suspended rubro on re-seed and its path is **unexecuted end to end**, because the
-seed also drives demo Supabase Auth/Storage seeding; (v) three assertions the verifier called weak remain
-unstrengthened because the writer runtime failed repeatedly at the end of the session — the harness fake records a
-boolean instead of a write count (so "exactly one lote row per apply" is unpinned), the adoption test checks the code
-index by name but not `indisunique`, and the `public` guard snapshots rows but not functions/triggers.
+administrator cannot *discover* one to restore it — deferred to the catalogs UI (S1.2/S1.3); (iv) **CLOSED 2026-10-03:** `seedRubros`
+deliberately does not re-activate a suspended rubro on re-seed, and its path is no longer unexecuted —
+`npm run db:seed:local` ran to completion against the local database and reported `Rubros: 15`, exit 0; (v) **CLOSED
+2026-10-03:** the three assertions the verifier called weak are now strengthened — the harness fake **counts** `lote`
+writes and pins exactly **1** per successful `--apply` and **0** per `--dry-run`, both catalog migration tests assert the
+code index's `indisunique = true` and the adoption test proves a duplicate non-NULL `codigo` is rejected, and the
+`public` guard snapshots **rows + functions + triggers** instead of rows only. The same 2026-10-03 run also closed the
+identical residual for `seedLineasEstrategicas`, and the symmetric `indisunique` assertion was added to the
+strategic-lines migration test.
 
 **Native review of this slice — first attempt STARTED BUT NOT COMPLETED (host-side budget); the closure came on a re-created lineage, see below.** Lineage
 `review-5a50cbc2ef8376c2` was created for the 19-path unit (1454 lines, tier **medium**, one `review-reliability` lens,
@@ -2450,15 +2453,25 @@ disclosed interpretation choices — soft-delete instead of the rubro routes' 40
 409, because REQ-CAT-03's 409 applies only to a line already in use and that whole case is deferred with the
 project-dependent rules above.
 
-**Residuals recorded, none blocking:** (i) `seedLineasEstrategicas()` is exercised only indirectly through the
-migration's seed of the same 8 rows — the `prisma/seed.ts` path itself remains **unexecuted end to end**, exactly the
-residual `seedRubros` carries, because the demo seed also drives Supabase Auth/Storage; (ii) `ADD COLUMN IF NOT EXISTS …
+**Residuals recorded, none blocking:** (i) **CLOSED 2026-10-03:** `seedLineasEstrategicas()` is no
+longer unexecuted — `npm run db:seed:local` ran to completion against the local database and reported
+`Líneas estratégicas: 8`, exit 0, and that same run closed the identical `seedRubros` residual in the S1.1a block; (ii) `ADD COLUMN IF NOT EXISTS …
 NOT NULL` in this migration would fail against a hypothetical pre-existing `lineas_estrategicas` holding rows without
 those columns — unreachable today since the table is greenfield, but worth remembering before reusing the pattern on a
-real legacy table; (iii) `src/lib/openapi/paths/strategic-lines.ts` has no dedicated test, only `tsc` coverage; and (iv)
+real legacy table; (iii) **CLOSED 2026-10-03:** the OpenAPI gap is covered — the new `src/lib/openapi/document.test.ts` asserts that the
+assembled document builds and exposes `/api/v1/rubros` and `/api/v1/strategic-lines` with their methods, so a broken
+registration import now fails a test instead of relying on `tsc` alone; and (iv)
 the environment had to be repaired mid-task: the local Supabase stack had been **down for two days**
 (`supabase_db_muttu-hub` `Exited (127)`, port 54322 closed), so the migration and the live-DB tests were initially
 unrunnable and were completed after `docker desktop start` + `supabase start` (see the execution log).
+
+**Advisory findings from this slice's closed review, transcribed 2026-10-03** (all `SUGGESTION`, all `informational`,
+none blocking — the reviewer's own statement is that they are separate later work, never a reason to re-run the review on
+this candidate): **R3-1** at `src/app/api/v1/strategic-lines/[id]/route.ts:137`; **R3-2** at
+`prisma/migrations/20261002120000_v2_lineas_estrategicas/migration.sql:27`; **R3-3** at
+`src/lib/openapi/paths/strategic-lines.ts:1`. Their full text lives in the native review authority store under lineage
+`review-1efac96a5fa1344d`; the facade exposes only id, lens, location, severity and disposition, so nothing is
+paraphrased or invented here. R3-3 is at least partly answered by the new `src/lib/openapi/document.test.ts`.
 
 #### S1.3 — Municipios catalog (M)
 - **Goal:** REQ-CAT-04 catalog part.
