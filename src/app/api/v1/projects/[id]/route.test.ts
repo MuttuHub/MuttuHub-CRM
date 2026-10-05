@@ -463,6 +463,22 @@ describe("PATCH /api/v1/projects/:id", () => {
     );
   });
 
+  it("rejects a JSON scalar body instead of answering with a server error", async () => {
+    for (const scalar of ['"x"', "42", "false"]) {
+      const response = await PATCH(
+        new Request("http://localhost/api/v1/projects/pry-1", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: scalar,
+        }),
+        routeContext,
+      );
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toBe("Cuerpo de la solicitud no válido.");
+    }
+    expect(mocks.txUpdate).not.toHaveBeenCalled();
+  });
+
   it("rejects an empty body, an empty line set and an out-of-scope field", async () => {
     const empty = await PATCH(patchRequest({}), routeContext);
     expect(empty.status).toBe(400);

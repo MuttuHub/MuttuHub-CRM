@@ -175,7 +175,9 @@ export const PATCH = withApiErrorHandling(
     }
 
     const body = await parseJsonBody<Record<string, unknown>>(request);
-    if (body === null) {
+    // A syntactically valid JSON *scalar* (`"x"`, 42, false) is not a patch body:
+    // `field in body` would throw on a primitive and surface as 500, not 400.
+    if (body === null || typeof body !== "object") {
       return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
     }
 
