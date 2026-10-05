@@ -1,5 +1,6 @@
 import {
   FileText,
+  FolderKanban,
   FolderOpen,
   House,
   Settings,
@@ -28,6 +29,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/", label: "Inicio", icon: House },
       { href: "/clientes", label: "Clientes", icon: Users },
+      { href: "/proyectos", label: "Proyectos", icon: FolderKanban },
       { href: "/tablero", label: "Tablero", icon: SquareKanban },
       { href: "/documentos", label: "Documentos", icon: FolderOpen },
       { href: "/reportes", label: "Reportes", icon: FileText },
@@ -67,6 +69,11 @@ export const PAGE_HEADERS: Record<string, PageHeader> = {
     title: "Aliados y clientes",
     subtitle:
       "Busca, filtra y abre la ficha completa de cada cliente.",
+  },
+  "/proyectos": {
+    title: "Proyectos",
+    subtitle:
+      "Portafolio v2: estado, responsable, duración e inversión de cada proyecto.",
   },
   "/tablero": {
     title: "Tablero del equipo",
