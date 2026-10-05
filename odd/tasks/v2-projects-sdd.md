@@ -2558,6 +2558,60 @@ decision above); NEW `src/app/api/v1/municipalities/route.ts`, `[id]/route.ts` (
 ### 5.3 Slice S2 — Project origin and general data (RF-01, RF-02, RF-11; RF-C04, RNF-C01/C02)
 
 #### S2.1 — Expand Proyecto: origen, valor_total, lines N..N with principal, municipios, BORRADOR (M)
+**RECON 2026-10-05 — the title was wrong: this is not an expansion.** `Proyecto` **did not exist** on this branch: 22
+models in the schema and none was `Proyecto`, and there was no `EstadoProyecto` enum (the v1 module never shipped). It is
+a full new model, so the task was **split**: **S2.1a** = schema + one adoption migration + live-DB invariants (**delivered
+below**); **S2.1b** = the API half (`PROJECT_SELECT_V2`, `toProjectItemV2`, the `[id]` PATCH v2 body, and
+`src/lib/proyectos/proyecto-general.ts` with `validarLineas` and `duracionProyecto`).
+
+**The design was incomplete for this branch, and that had to be fixed before writing.** §4.2 presents `Proyecto` as a
+**delta** — it was written assuming the v1 model existed — so it only lists the v2 additions and the relation arrays and
+omits the base fields. Rather than invent one, the authoritative field list was assembled from the repository's own
+sources: the API contract table **E-02/E-03** (POST payload
+`{nombre, cliente_id, responsable_id, lineas:[{id,principal}], municipio_ids[], fecha_inicio, fecha_fin, valor_total?,
+beneficiarios_meta?}` and the GET filters `?estado&cliente_id&linea_id&municipio_id&responsable_id`), **ADR-09**
+(`responsable_id` kept as a display/ownership field), §4.2's delta, and the plan's F1 facts. The v2 removals were honoured:
+**no `territorio`** and **no single `linea_estrategica` enum** (replaced by the N..N table).
+
+**A specification error caught by the schema validator, not by a test.** The first spec declared `oportunidad_id @unique`
+plus a composite FK `(oportunidad_id, cliente_id) → oportunidades(id, cliente_id)` plus a 1:1 back-relation
+`Oportunidad.proyecto`; Prisma rejects that with P1012 (a 1:1 relation needs a unique defining tuple). The writer **stopped
+instead of substituting**, and the correction is **option A**: add `@@unique([oportunidad_id, cliente_id])` and keep both
+the composite FK and the 1:1 relation. It is the only candidate of the three that preserves the real guarantee — **a
+project can never point at an opportunity belonging to a different client** — at the cost of one logically redundant
+index; option B would have described a 1:1 relation as 1:N and option C would have dropped the guarantee entirely. Two
+further back-relations (`LineaEstrategicaCatalogo.lineas`, `Municipio.proyectos`) were **forced by Prisma**, not chosen.
+
+**S2.1a DONE 2026-10-05 (session 9).** Enums `EstadoProyecto` (`PLANIFICACION BORRADOR EN_EJECUCION SUSPENDIDO CERRADO
+CANCELADO`) and `OrigenProyecto`; the `Proyecto` model (`@@map("proyectos")`) with `codigo @unique`, `nombre`,
+`cliente_id`, `oportunidad_id @unique`, `responsable_id`, `estado` default `BORRADOR`, `origen`, `fecha_inicio`/
+`fecha_fin` (`@db.Date`), `valor_total` and `diferencia_valor_oportunidad` (`Decimal(15,2)`), `beneficiarios_meta`,
+`umbrales_override`, `programacion_pendiente`, timestamps and `deleted_at`; the `ProyectoLinea` and `ProyectoMunicipio`
+join tables; and **one** adoption migration `20261006120000_v2_proyecto_general` — a single migration, **not** the two the
+original bullet list named, because the enum is new here and there was no existing value to add.
+
+**Checks observed.** Focused **11 green**; **full suite 142 files / 1313 tests, 0 failures** (baseline 140/1302), run twice
+on the **migrated + seeded** database — which is the state a previous unit's defect only appeared in; `tsc` 0; eslint
+clean; `prisma/` suite 63 green. `npm run db:migrate:local` applied the migration as **16 of 16 with no drift and no extra
+migration generated**, and `prisma validate` reports the schema valid. The independent verifier returned
+**`READY TO COMMIT: yes`** with no blocking findings, and proved the guarantees **at the database level rather than by the
+constraints' existence**: a project whose `cliente_id` differs from its opportunity's is rejected by
+`proyectos_oportunidad_id_cliente_id_fkey`, a second principal line is rejected by `proyecto_lineas_principal_uq` while
+non-principal lines are unrestricted, a second project per opportunity is rejected, and the migration contains no INSERT
+and no CHECK.
+
+**Residuals and advisories recorded, none blocking:** (i) the schema diff is additions-only (**101 insertions, 0
+deletions**), so no existing model field moved beyond the five back-relations; (ii) a **transient `40P01` deadlock**
+appeared once when the new suites ran in parallel and did not reproduce in nine further runs — structurally plausible,
+because there are now **four** migration suites that issue catalog-heavy DDL inside a transaction while
+`vitest.config.ts` runs `maxWorkers: 4`, so it is a CI flake candidate rather than a defect of this slice; (iii) the
+composite FK is only valid because of the **pre-existing** unique index `oportunidades_id_cliente_id_key` (created earlier
+for `Tarea`'s composite FK and not a `pg_constraint`), so dropping that index would make this migration non-re-appliable
+— worth knowing before touching opportunity indexes; (iv) `ADD COLUMN IF NOT EXISTS … NOT NULL` without a default is safe
+only on a greenfield/empty table, which this is, but it would fail against an environment already holding project rows;
+(v) the POST contract in E-03 lists `miembro_ids`, whose table (`ProyectoMiembro`) belongs to **S2.6**, so **S2.1b must
+not accept that field yet**; and (vi) any future schema unit still needs the explicit `npm run db:generate:local` step,
+because the migration does not regenerate the Prisma 7 client.
 - **Files:** schema (§4.2 Proyecto, ProyectoLinea, ProyectoMunicipio, enum values); migrations
   `<ts>_v2_proyecto_estado_borrador` (ADD VALUE only) and `<ts>_v2_proyecto_general` (columns, link tables,
   partial unique principal index); `src/lib/catalogs.ts` (label "Borrador"); `src/lib/api/projects.ts`
