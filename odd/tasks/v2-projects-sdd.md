@@ -2726,6 +2726,81 @@ already exists — correct but redundant work, a candidate optimisation if the t
 - **Commit:** `feat(projects): autogenerate PRY-AAAA-NNN project codes (S2.2)` · **PR-12**.
 
 #### S2.3 — Creation flow with origin; one-step GANADA conversion (M)
+**S2.3 DONE 2026-10-05 — the creation API.** Three endpoints: `E-03 POST /api/v1/projects` (INDEPENDIENTE),
+`E-04 GET /api/v1/projects/eligible-opportunities`, and `E-05 POST
+/api/v1/clients/:id/opportunities/:opportunityId/project`. Each write path is **one** `db.$transaction`; the code comes
+from `nextProjectCode(tx, year)` with the year taken as the **creation instant in UTC**. E-05 converts in a single
+transaction: `fase = EJECUCION`; `fecha_adjudicacion` written **only while it is still null** (so an opportunity already
+converted by the older two-step route keeps its original date); the project created with `cliente_id`, `nombre` and
+`valor_total` prefilled from the opportunity (an explicit body value overrides the prefill); and the `CONVERTIR` (entidad
+`oportunidad`) and `CREAR` (entidad `proyecto`) audit rows written in **ONE `logChanges` call** so every row shares one
+`lote_id`. A unique violation on `oportunidad_id` answers the same 409 as the pre-check: the pre-check is not atomic and
+the `oportunidad_id` index is not partial, so a soft-deleted project still occupies the slot — and **E-04 uses the same
+predicate**, so list and creation agree.
+
+**An audit decision worth recording.** The v1 `logAudit` is **unusable** for this requirement — best-effort, writing with
+`db` rather than the caller's `tx`, and carrying no `lote_id` — so the transactional audit goes through
+`logChanges(tx, …)` instead.
+
+**Three debts closed.** The local 409 helper (`PROJECT_STATE_CONFLICT` / `invalidStateError`) is deleted in favour of the
+shared `apiError(…, 409, "INVALID_STATE")` that S2.2 widened, with the stale comment gone; `normalizeProjectDate` and
+`toProjectDecimal` move into `src/lib/api/projects.ts`; and the rule the S2.1b comment assigned to this unit (**V-04**) is
+implemented — a new project's lines and municipios must **exist and be active**, via an `onlyActive` option that E-03 and
+E-05 pass while PATCH deliberately keeps the existence-only default (REQ-CAT-02), an asymmetry frozen by two tests.
+
+**Contract hardening.** `miembro_ids`, `codigo`, `estado`, `oportunidad_id`, `deleted_at`, `umbrales_override`,
+`programacion_pendiente`, `diferencia_valor_oportunidad` and `alertas` are refused with 400 on both POST bodies; E-05
+additionally refuses `cliente_id`; and a syntactically valid JSON scalar body answers 400 rather than 500. `prisma/` is
+untouched: this unit needs no migration.
+
+**A defect found by the independent verifier in this unit's own new code was fixed here rather than deferred:**
+`valor_total` beyond `numeric(15,2)` and `beneficiarios_meta` beyond `int4` reached the database and answered **500**
+(`P2020` / `ValueOutOfRange`); both schemas now bound them, and the PATCH schema — which had the same shape since S2.1b —
+is bounded too. This follows the rule recorded after S2.1b.
+
+**Checks observed.** RED first for every behaviour (9 POST failures, then the four out-of-range assertions as
+`expected 201/200 to be 400`); focused **91 green**; **full suite 151 files / 1431 tests green, run twice** on the migrated
+and seeded database (baseline 148/1373, exactly additive, no test deleted); `tsc` 0 errors; eslint clean on 13 files.
+
+**Live-DB integration test** (the one S2.1b could not write): `prisma/proyecto-create-flow.invariant.test.ts` drives the
+**REAL route handlers** — create → list → edit, plus the E-05 conversion, the shared `lote_id` and the already-converted
+`fecha_adjudicacion` — against the local database inside **ONE forced-rollback transaction**, mocking only auth and
+joining the ambient transaction through a `db` proxy. It leaves zero trace.
+
+**Demo protection verified after the full suite:** `proyectos = 0`, `proyecto_secuencias = 0`, `auditoria_cambios = 48`
+(all rows already existing, from `migracion_v2` and `rubro`), and **no 2026 sequence row** — the demo's first allocation
+is still `PRY-2026-001`.
+
+**Independent verifier: `READY TO COMMIT: yes` in two passes.** The first pass found the P2020 500-shape above; the
+second re-earned the verdict on the fixed candidate. What it attacked and proved: the shared `lote_id` against its
+counterfactual (two separate `logChanges` calls produce two lote ids); that `logChanges` writes through the caller's `tx`
+(forcing a failed audit insert confirms the business row does not survive); the bounds against the real column limits
+(`9999999999999.99::numeric(15,2)` accepted, `10000000000000::numeric(15,2)` rejected by Postgres) and a scan of 201
+doubles just under the bound finding **no** value that passes validation and rounds above the column max; `Infinity` from
+a JSON `1e400` rejected by `z.number()` before the bound; the `P2002` guard against an unrelated unique violation
+(`codigo` → 500, not swallowed) and a false-positive scan of the other constraints; and the rollback harness — nothing
+survives, and the proxy throws if `db.X` is used outside the transaction.
+
+**Residuals and advisories, none blocking:** (i) E-05 has no dedicated out-of-range test of its own — the bounds are
+shared through `PROJECT_CREATE_BASE` and the verifier proved E-05's schema rejects `1e15`/`3e9`, so this is a
+test-symmetry gap; (ii) the `Infinity`/`1e400` path is proven at the real-schema level, not by driving a raw body through
+the handler; (iii) `src/lib/openapi/document.test.ts` now asserts the three new operations' presence, status codes and the
+E-05 body shape, but it asserts the **registration**, not the route — a route whose status diverged without a matching
+registration change would not be caught; (iv) the live-DB harness prints a benign `pg` deprecation warning
+(`client.query() when the client is already executing a query`) because the route's nested `$transaction` runs on the
+ambient transaction client; it is documented in the test and does not affect assertions or rollback, and the only
+cross-worker interaction it creates is a bounded lock wait against `prisma/auditoria-cambios.invariant.test.ts`'s
+`TRUNCATE` (measured tx times 337–689 ms against a 20 s timeout), not a new deadlock shape; (v) `valor_total` accepts `0`
+(consistent with PATCH), so REQ-ORG-04's "> 0 before baseline" belongs to baseline approval (S8.1); (vi) the E-03 contract
+reading stands — creation requires `responsable_id`, `lineas`, `municipio_ids`, `fecha_inicio` and `fecha_fin`, with only
+`valor_total` and `beneficiarios_meta` optional, and E-05's `nombre` optional because the server prefills it; if the form
+must create date-less drafts that is a contract change; (vii) the active-catalog rule is enforced at the API layer, not by
+a database constraint, so a direct DB write could still attach a suspended line or municipio; (viii) E-05 imports its body
+schema from the E-03 route file, the same route-to-route export precedent already set by `PROJECT_PATCH_SCHEMA`; (ix) E-04
+orders by `created_at desc` (the contract does not specify an order). **The S2.2 residuals still stand:** the third
+client-side `ApiErrorCode` copy in `src/lib/api/http.ts` still lacks `INVALID_STATE`, and the allocator's counter floor is
+still applied only on the INSERT path.
+
 - **Files:** `src/app/api/v1/projects/route.ts` (v2 POST independent, + test); NEW
   `src/app/api/v1/projects/eligible-opportunities/route.ts` (+ test);
   `src/app/api/v1/clients/[id]/opportunities/[opportunityId]/project/route.ts` (+ test): accept `estado = GANADA`,
