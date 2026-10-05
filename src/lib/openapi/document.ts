@@ -15,6 +15,7 @@ import "@/lib/openapi/paths/dashboard-admin";
 import "@/lib/openapi/paths/rubros";
 import "@/lib/openapi/paths/strategic-lines";
 import "@/lib/openapi/paths/municipalities";
+import "@/lib/openapi/paths/projects";
 
 export function buildOpenApiDocument() {
   const generator = new OpenApiGeneratorV31(registry.definitions);

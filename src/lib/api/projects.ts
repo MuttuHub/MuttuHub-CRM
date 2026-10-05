@@ -1,0 +1,300 @@
+/**
+ * Shared projection, permission and diff helpers of the v2 projects API
+ * (S2.1b): the list/detail shape of a project (`ProjectItemV2`) and the pieces
+ * the PATCH route composes — read scope, filters, join-set diffing and the
+ * referential checks that turn a raw P2003 into a usable 400.
+ *
+ * Conventions reused from the existing modules, deliberately not reinvented:
+ * `apiError` for the error envelope, `Decimal` values passed through untouched
+ * (the same thing `src/lib/api/crm.ts` does for `valor_estimado_cop`; decimal.js
+ * serializes them as strings), and pure permission predicates from
+ * `src/lib/permissions.ts` (never a role list re-declared here).
+ */
+
+import { NextResponse } from "next/server";
+import type { EstadoProyecto, OrigenProyecto, Prisma, Usuario } from "@prisma/client";
+import { canViewPortfolio, canViewProjectV2, type ProjectMembershipActor } from "@/lib/permissions";
+import { duracionProyecto, isoDate, type LineaInput } from "@/lib/proyectos/proyecto-general";
+import { db } from "@/lib/db";
+import { apiError } from "@/lib/api/errors";
+
+/**
+ * Projection shared by GET /projects, GET /projects/:id and the PATCH
+ * response, so every endpoint answers with the same `ProjectItemV2` object.
+ * The N..N joins select the catalog row, not `linea_id`, because the response
+ * wants `{id, codigo, nombre, principal}` and never a bare id.
+ */
+export const PROJECT_SELECT_V2 = {
+  id: true,
+  codigo: true,
+  nombre: true,
+  estado: true,
+  origen: true,
+  cliente: { select: { id: true, nombre: true } },
+  responsable: { select: { id: true, nombre: true } },
+  // Read (never returned) because the PATCH audit diffs the stored column.
+  responsable_id: true,
+  fecha_inicio: true,
+  fecha_fin: true,
+  valor_total: true,
+  diferencia_valor_oportunidad: true,
+  beneficiarios_meta: true,
+  lineas: {
+    select: { principal: true, linea: { select: { id: true, codigo: true, nombre: true } } },
+  },
+  municipios: {
+    select: { municipio: { select: { id: true, nombre: true, departamento: true } } },
+  },
+} as const;
+
+export type ProjectRowV2 = Prisma.ProyectoGetPayload<{ select: typeof PROJECT_SELECT_V2 }>;
+
+export type ProjectItemV2 = {
+  id: string;
+  codigo: string;
+  nombre: string;
+  estado: EstadoProyecto;
+  origen: OrigenProyecto | null;
+  cliente: { id: string; nombre: string };
+  responsable: { id: string; nombre: string } | null;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  duracion_semanas: number | null;
+  valor_total: Prisma.Decimal | null;
+  diferencia_valor_oportunidad: Prisma.Decimal | null;
+  beneficiarios_meta: number | null;
+  lineas: { id: string; codigo: string; nombre: string; principal: boolean }[];
+  municipios: { id: string; nombre: string; departamento: string }[];
+};
+
+/**
+ * Row -> JSON shape. `fecha_inicio`/`fecha_fin` are `@db.Date` columns, so the
+ * domain value is a calendar date: they are handed back as `YYYY-MM-DD`
+ * instead of the driver's midnight-UTC `Date`. `duracion_semanas` is derived on
+ * every read (never stored) through `duracionProyecto`.
+ */
+export function toProjectItemV2(row: ProjectRowV2): ProjectItemV2 {
+  return {
+    id: row.id,
+    codigo: row.codigo,
+    nombre: row.nombre,
+    estado: row.estado,
+    origen: row.origen,
+    cliente: row.cliente,
+    responsable: row.responsable,
+    fecha_inicio: row.fecha_inicio ? isoDate(row.fecha_inicio) : null,
+    fecha_fin: row.fecha_fin ? isoDate(row.fecha_fin) : null,
+    duracion_semanas: duracionProyecto(row.fecha_inicio, row.fecha_fin),
+    valor_total: row.valor_total,
+    diferencia_valor_oportunidad: row.diferencia_valor_oportunidad,
+    beneficiarios_meta: row.beneficiarios_meta,
+    lineas: row.lineas.map((link) => ({
+      id: link.linea.id,
+      codigo: link.linea.codigo,
+      nombre: link.linea.nombre,
+      principal: link.principal,
+    })),
+    municipios: row.municipios.map((link) => ({
+      id: link.municipio.id,
+      nombre: link.municipio.nombre,
+      departamento: link.municipio.departamento,
+    })),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Read scope (REQ-ACC-02)
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolves the two axes of the project read predicates that this unit cannot
+ * read from the database yet: `ProyectoMiembro` arrives with S2.6, and
+ * `puede_ver_tablero_gerencial` has no column or loader yet (S0.7 built the
+ * predicates as pure functions). Both are `false` here, so today only project
+ * managers (ADMINISTRADOR/GERENCIA) read projects — exactly REQ-ACC-02's
+ * "COLABORADOR without flag sees none", and a COORDINADOR has no resolvable
+ * membership. S2.6 replaces these two constants with real lookups; the
+ * predicates below stay untouched.
+ */
+const UNRESOLVED_GERENCIAL_FLAG = false as const;
+const UNRESOLVED_MEMBERSHIP = false as const;
+
+export function projectReadActor(usuario: Usuario): ProjectMembershipActor {
+  return {
+    id: usuario.id,
+    rol: usuario.rol,
+    puede_ver_tablero_gerencial: UNRESOLVED_GERENCIAL_FLAG,
+    es_miembro: UNRESOLVED_MEMBERSHIP,
+  };
+}
+
+/** P01 (portfolio list): `canViewPortfolio` is the target predicate. */
+export function canReadProjectList(usuario: Usuario): boolean {
+  return canViewPortfolio(projectReadActor(usuario));
+}
+
+/** P02 (single project ficha): `canViewProjectV2` is the target predicate. */
+export function canReadProject(usuario: Usuario): boolean {
+  return canViewProjectV2(projectReadActor(usuario));
+}
+
+// ---------------------------------------------------------------------------
+// List filters (E-02)
+// ---------------------------------------------------------------------------
+
+export type ProjectListFilters = {
+  estado?: string;
+  cliente_id?: string;
+  linea_id?: string;
+  municipio_id?: string;
+  responsable_id?: string;
+};
+
+/**
+ * `where` of GET /api/v1/projects. An actor outside the portfolio scope keeps
+ * a valid query that matches nothing (`id in []`) instead of a second code
+ * path: the restriction is a data decision, not a branch the caller can skip.
+ */
+export function projectListWhere(
+  usuario: Usuario,
+  filters: ProjectListFilters,
+): Prisma.ProyectoWhereInput {
+  const where: Prisma.ProyectoWhereInput = { deleted_at: null };
+
+  if (!canReadProjectList(usuario)) {
+    where.id = { in: [] };
+    return where;
+  }
+
+  if (filters.estado) where.estado = filters.estado as EstadoProyecto;
+  if (filters.cliente_id) where.cliente_id = filters.cliente_id;
+  if (filters.responsable_id) where.responsable_id = filters.responsable_id;
+  if (filters.linea_id) where.lineas = { some: { linea_id: filters.linea_id } };
+  if (filters.municipio_id) where.municipios = { some: { municipio_id: filters.municipio_id } };
+
+  return where;
+}
+
+// ---------------------------------------------------------------------------
+// Audit (REQ-AUD-04)
+// ---------------------------------------------------------------------------
+
+/** Scalar fields whose change produces one audit row each. */
+export const AUDITED_PROJECT_FIELDS = [
+  "nombre",
+  "origen",
+  "fecha_inicio",
+  "fecha_fin",
+  "valor_total",
+  "beneficiarios_meta",
+  "responsable_id",
+] as const;
+
+export type ProjectLineaLink = { id: string; principal: boolean };
+export type ProjectChangeEntry = { campo: string; valor_anterior: unknown; valor_nuevo: unknown };
+
+/**
+ * One entry per changed line link, with the same `campo` ("lineas") and a
+ * before/after payload that names the line: add = null -> {id, principal},
+ * remove = {id, principal} -> null, and a principal flip = {id,false} ->
+ * {id,true}. A replacement that changes nothing writes no audit row.
+ */
+export function diffLineas(
+  before: readonly ProjectLineaLink[],
+  after: readonly ProjectLineaLink[],
+): ProjectChangeEntry[] {
+  const previous = new Map(before.map((link) => [link.id, link.principal]));
+  const next = new Map(after.map((link) => [link.id, link.principal]));
+
+  const cambios: ProjectChangeEntry[] = [];
+  for (const id of new Set([...previous.keys(), ...next.keys()])) {
+    const valorAnterior = previous.has(id) ? { id, principal: previous.get(id)! } : null;
+    const valorNuevo = next.has(id) ? { id, principal: next.get(id)! } : null;
+    if (JSON.stringify(valorAnterior) === JSON.stringify(valorNuevo)) continue;
+    cambios.push({ campo: "lineas", valor_anterior: valorAnterior, valor_nuevo: valorNuevo });
+  }
+  return cambios;
+}
+
+/** Same per-link diff for the municipio set (no attribute beyond membership). */
+export function diffMunicipios(
+  before: readonly string[],
+  after: readonly string[],
+): ProjectChangeEntry[] {
+  const previous = new Set(before);
+  const next = new Set(after);
+
+  const cambios: ProjectChangeEntry[] = [];
+  for (const id of new Set([...previous, ...next])) {
+    const valorAnterior = previous.has(id) ? { id } : null;
+    const valorNuevo = next.has(id) ? { id } : null;
+    if (previous.has(id) === next.has(id)) continue;
+    cambios.push({ campo: "municipios", valor_anterior: valorAnterior, valor_nuevo: valorNuevo });
+  }
+  return cambios;
+}
+
+// ---------------------------------------------------------------------------
+// Referential checks (defense in depth)
+// ---------------------------------------------------------------------------
+
+/**
+ * The composite primary keys of `proyecto_lineas` / `proyecto_municipios` and
+ * the `responsable_id` FK are the real guarantees; these checks answer with the
+ * envelope instead of letting a bare P2003/P2002 reach the client as a 500 —
+ * the same role `checkOportunidadClienteConsistency` plays in crm.ts.
+ *
+ * Existence only: a suspended strategic line stays valid for the projects that
+ * already carry it (REQ-CAT-02); "not offered to new projects" is the creation
+ * flow's rule (S2.3).
+ */
+export async function checkLineasExisten(lineas: readonly LineaInput[]): Promise<Response | null> {
+  if (lineas.length === 0) return null;
+  const ids = [...new Set(lineas.map((linea) => linea.id))];
+  const found = await db.lineaEstrategicaCatalogo.findMany({
+    where: { id: { in: ids } },
+    select: { id: true },
+  });
+  if (found.length !== ids.length) {
+    return apiError("Alguna de las líneas estratégicas no existe.", 400, "VALIDATION_ERROR");
+  }
+  return null;
+}
+
+export async function checkMunicipiosExisten(ids: readonly string[]): Promise<Response | null> {
+  if (ids.length === 0) return null;
+  const requested = [...new Set(ids)];
+  const found = await db.municipio.findMany({
+    where: { id: { in: requested } },
+    select: { id: true },
+  });
+  if (found.length !== requested.length) {
+    return apiError("Algún municipio no existe.", 400, "VALIDATION_ERROR");
+  }
+  return null;
+}
+
+/** Same copy as the clients PATCH when a responsable is missing or inactive. */
+export async function checkResponsableActivo(id: string): Promise<Response | null> {
+  const usuario = await db.usuario.findFirst({ where: { id, activo: true }, select: { id: true } });
+  if (!usuario) {
+    return apiError("El responsable no existe o está inactivo.", 400, "VALIDATION_ERROR");
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// State conflict (E-06)
+// ---------------------------------------------------------------------------
+
+export const PROJECT_STATE_CONFLICT = "INVALID_STATE" as const;
+
+/**
+ * 409 INVALID_STATE of the PATCH route (E-06). Built here instead of through
+ * `apiError` because `ApiErrorCode` (src/lib/api/errors.ts) does not list
+ * INVALID_STATE yet and that file is outside this unit's edit surface; the
+ * envelope is exactly `apiError`'s `{ error, code }`.
+ */
+export function invalidStateError(message: string): NextResponse {
+  return NextResponse.json({ error: message, code: PROJECT_STATE_CONFLICT }, { status: 409 });
+}

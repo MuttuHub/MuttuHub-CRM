@@ -2612,6 +2612,54 @@ only on a greenfield/empty table, which this is, but it would fail against an en
 (v) the POST contract in E-03 lists `miembro_ids`, whose table (`ProyectoMiembro`) belongs to **S2.6**, so **S2.1b must
 not accept that field yet**; and (vi) any future schema unit still needs the explicit `npm run db:generate:local` step,
 because the migration does not regenerate the Prisma 7 client.
+
+**S2.1b DONE 2026-10-05 (session 9) — the API half.** `src/lib/proyectos/proyecto-general.ts` (pure:
+`validarLineas` with the message the SDD's own scenario quotes, `duracionProyecto` **delegating to the existing
+`durationWeeks`** in `weeks.ts` rather than duplicating week arithmetic); `src/lib/api/projects.ts`
+(`PROJECT_SELECT_V2`, `ProjectItemV2`, `toProjectItemV2`, read-scope helpers, `projectListWhere`, the audited-field
+list, line/municipio diffs and the referential checks); `GET /api/v1/projects` (E-02 with its five filters);
+`GET`/`PATCH /api/v1/projects/:id` (E-06: `BORRADOR`-only, one transaction, per-field and per-line/municipio audit
+through `logChanges`); and the OpenAPI paths. `prisma/` was not touched.
+
+**Checks observed.** Focused 44 green (pure lib 12 + list 9 + detail 22 + the document assertion); **full suite 145
+files / 1356 tests, 0 failures** (baseline 142/1313) on the migrated + seeded database; `tsc` 0; eslint clean on 9
+files; 16 migrations still "up to date". The verifier returned **`READY TO COMMIT: yes`** with no blocking findings and
+attacked the slice rather than reading it: it confirmed no path mutates a non-`BORRADOR` project, that every write and
+its audit share one transaction (so a failed audit rolls the write back), that `validarLineas` is enforced **by the
+route** and not only by the lib, that the list scope is a `where` restriction the caller cannot widen, and that
+`estado`/`miembro_ids` are refused with 400 rather than silently ignored. It also confirmed the work is recoverable:
+`git status` shows the change touched **only** the declared surfaces, and neither `permissions.ts` nor `errors.ts` moved.
+
+**Two things this unit deliberately leaves in an intermediate state, both verified:**
+1. **Read scope is narrow by design until S2.6.** `projectReadActor()` pins `es_miembro: false` (the `ProyectoMiembro`
+table is S2.6) and `puede_ver_tablero_gerencial: false` — and the second one is pinned because **that column does not
+exist anywhere in this branch's `prisma/schema.prisma`**: the flag survives only as a *type field* on `ProjectActor` in
+`permissions.ts`, so nothing can resolve it from the database. Net effect today: ADMINISTRADOR/GERENCIA see every
+project; every other role gets an empty list and a 403 on the detail. The verifier confirmed no existing caller consumes
+those predicates, so nothing regresses, and S2.6 recovers by replacing two constants with lookups. **This is why the
+Friday demo must be shown as an ADMINISTRADOR user.** `S2.1b` also declined to add a `responsable_id` read fallback,
+correctly, since that would be new permission logic.
+2. **The 409 is built locally.** `ApiErrorCode` (`src/lib/api/errors.ts`) and the shared error envelope in
+`src/lib/openapi/registry.ts` do not list `INVALID_STATE`, and both files were outside the writer's surfaces, so
+`invalidStateError()` reproduces the same `{error, code}` envelope and the OpenAPI PATCH documents a local
+`ProjectStateConflict` schema. The verifier judged the envelope byte-compatible. **A later unit should widen the shared
+enum**, because S2.2 and S2.3 also return 409.
+
+**Residuals and advisories from S2.1b, none blocking:** (i) **a real defect in this unit's own code**: a JSON *scalar*
+body (`"x"`, `42`, `false`) makes the forbidden-field guard at `src/app/api/v1/projects/[id]/route.ts:183` throw, so it
+answers **500 instead of 400**; reachable but harmless today, and it has no test — **fix it before S2.3 copies this
+route's pattern**; (ii) `PATCH` gates on `canManageProjects` (ADM/GER) rather than `canManageProject`, so a COORDINADOR
+"responsable" cannot edit general data — deliberate per P06, worth a PO confirmation; (iii) the `BORRADOR` gate reads
+`estado` **outside** the transaction, a latent TOCTOU that only matters once S8.1 introduces another writer of `estado`;
+(iv) an authenticated-but-forbidden caller can distinguish 404 from 403 and thus learn that an id exists — unguessable
+uuid text and the same order is already documented for `GET`; (v) no upper-bound validation on `valor_total`
+(`Decimal(15,2)`) or `beneficiarios_meta`, so an out-of-range value fails at the database as 500 instead of 400; (vi)
+zod silently strips unknown-but-not-forbidden fields while declared out-of-scope fields are refused — a `.strict()` would
+make it uniform; and (vii) **there is no live-DB test for the `PATCH` transaction**: the route tests mock `@/lib/db` and
+the table is still empty, so `createMany` on the two join tables and `logChanges`' bulk write are covered only by mocks
+plus `tsc`. The root cause of the missing smoke test is environmental and worth recording: `tsx` cannot start in this
+shell because the installed esbuild binary is **win32-x64** while the shell is linux-x64. **S2.3 must close this with an
+end-to-end live-DB test of create → list → patch**, since that is the path the demo will actually run.
 - **Files:** schema (§4.2 Proyecto, ProyectoLinea, ProyectoMunicipio, enum values); migrations
   `<ts>_v2_proyecto_estado_borrador` (ADD VALUE only) and `<ts>_v2_proyecto_general` (columns, link tables,
   partial unique principal index); `src/lib/catalogs.ts` (label "Borrador"); `src/lib/api/projects.ts`
