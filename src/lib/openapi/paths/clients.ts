@@ -20,6 +20,8 @@ import { CONTACT_PATCH_SCHEMA } from "@/app/api/v1/clients/[id]/contacts/[contac
 import { LOG_ENTRY_SCHEMA } from "@/app/api/v1/clients/[id]/log/route";
 import { OPORTUNIDAD_SCHEMA } from "@/app/api/v1/clients/[id]/opportunities/route";
 import { OPORTUNIDAD_PATCH_SCHEMA } from "@/app/api/v1/clients/[id]/opportunities/[opportunityId]/route";
+import { PROJECT_CREATE_FROM_OPPORTUNITY_SCHEMA } from "@/app/api/v1/projects/route";
+import { ProjectItemV2Schema } from "@/lib/openapi/paths/projects";
 import { TASK_SCHEMA } from "@/app/api/v1/tasks/route";
 
 const SCOPE_NOTE =
@@ -664,6 +666,39 @@ registry.registerPath({
       content: { "application/json": { schema: z.object({ oportunidad: OportunidadSchema }) } },
     },
     ...standardErrorResponses([401, 403, 404, 409, 500]),
+  },
+});
+
+// ── POST /api/v1/clients/{id}/opportunities/{opportunityId}/project ─────
+registry.registerPath({
+  method: "post",
+  path: "/api/v1/clients/{id}/opportunities/{opportunityId}/project",
+  tags: ["Clientes"],
+  summary: "Crea un proyecto desde una oportunidad GANADA en un solo paso (E-05)",
+  description:
+    `${SCOPE_NOTE} Requiere ` + "`canCreateProject` (ADM/GER) y el acceso comercial sobre el cliente. " +
+    "En una sola transacción convierte la oportunidad (`fase = EJECUCION`, fijando `fecha_adjudicacion` solo si " +
+    "todavía es null) y crea el proyecto con `cliente_id`, `nombre` y `valor_total` precargados desde la " +
+    "oportunidad; un valor explícito en el body los reemplaza. 409 si la oportunidad no está en `GANADA` o si ya " +
+    "tiene un proyecto (un proyecto con borrado lógico también bloquea). 404 si el cliente o la oportunidad no " +
+    "existen o no pertenecen al cliente. Las líneas estratégicas y los municipios deben existir y estar activos " +
+    "(V-04); uno suspendido responde 400. `cliente_id`, `miembro_ids`, `codigo`, `estado`, `oportunidad_id` y los " +
+    "demás campos derivados se rechazan con 400.",
+  security: [{ sessionCookie: [] }],
+  request: {
+    // Opaque Postgres `text` ids: a malformed value is a 404, not a 400, so the
+    // params are deliberately NOT declared as `uuid`.
+    params: z.object({ id: z.string(), opportunityId: z.string() }),
+    body: {
+      content: { "application/json": { schema: PROJECT_CREATE_FROM_OPPORTUNITY_SCHEMA } },
+    },
+  },
+  responses: {
+    201: {
+      description: "Proyecto creado; la oportunidad queda en EJECUCION.",
+      content: { "application/json": { schema: z.object({ proyecto: ProjectItemV2Schema }) } },
+    },
+    ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
   },
 });
 

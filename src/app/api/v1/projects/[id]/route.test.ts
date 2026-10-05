@@ -28,11 +28,19 @@ vi.mock("@/lib/api/audit-cambios", async (importOriginal) => {
 });
 
 vi.mock("@/lib/db", () => {
-  // The catalog lookups answer the `id: { in: [...] }` they are given, so the
-  // referential checks read like the query they replace.
-  const matching = (rows: { id: string }[]) => (args: unknown) => {
-    const ids = (args as { where?: { id?: { in?: string[] } } }).where?.id?.in ?? [];
-    return Promise.resolve(rows.filter((row) => ids.includes(row.id)));
+  // The catalog lookups answer the `id: { in: [...] }` and `activo` they are
+  // given. PATCH is existence-only, so it never sends `activo` and still sees
+  // the suspended `-3` rows; the `activo` filter only exists so the asymmetry
+  // is pinned (a future PATCH change to active-only would fail the test).
+  const matching = (rows: { id: string; activo?: boolean }[]) => (args: unknown) => {
+    const where = (args as { where?: { id?: { in?: string[] }; activo?: boolean } }).where;
+    const ids = where?.id?.in ?? [];
+    return Promise.resolve(
+      rows.filter(
+        (row) =>
+          ids.includes(row.id) && (where?.activo === undefined || row.activo === where.activo),
+      ),
+    );
   };
 
   return {
@@ -40,9 +48,23 @@ vi.mock("@/lib/db", () => {
       proyecto: { findFirst: vi.fn() },
       usuario: { findFirst: vi.fn() },
       lineaEstrategicaCatalogo: {
-        findMany: vi.fn(matching([{ id: "linea-1" }, { id: "linea-2" }])),
+        findMany: vi.fn(
+          matching([
+            { id: "linea-1", activo: true },
+            { id: "linea-2", activo: true },
+            { id: "linea-3", activo: false },
+          ]),
+        ),
       },
-      municipio: { findMany: vi.fn(matching([{ id: "mun-1" }, { id: "mun-2" }])) },
+      municipio: {
+        findMany: vi.fn(
+          matching([
+            { id: "mun-1", activo: true },
+            { id: "mun-2", activo: true },
+            { id: "mun-3", activo: false },
+          ]),
+        ),
+      },
       // Interactive-form $transaction: the route reads/writes through the tx
       // client, so the fake forwards to the hoisted tx mocks.
       $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
@@ -434,6 +456,35 @@ describe("PATCH /api/v1/projects/:id", () => {
     expect(mocks.txLineasCreateMany).not.toHaveBeenCalled();
   });
 
+  it("still accepts a suspended line: PATCH is existence-only by design (REQ-CAT-02)", async () => {
+    const res = await PATCH(
+      patchRequest({ lineas: [{ id: "linea-3", principal: true }] }),
+      routeContext,
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.txLineasCreateMany).toHaveBeenCalledWith({
+      data: [{ proyecto_id: "pry-1", linea_id: "linea-3", principal: true }],
+    });
+    // Existence-only: the query must NOT filter on `activo`.
+    const [findArgs] = vi.mocked(db.lineaEstrategicaCatalogo.findMany).mock.calls[0]!;
+    expect(findArgs).toEqual({
+      where: { id: { in: ["linea-3"] } },
+      select: { id: true },
+    });
+  });
+
+  it("still accepts a suspended municipio: PATCH is existence-only by design (REQ-CAT-02)", async () => {
+    const res = await PATCH(patchRequest({ municipio_ids: ["mun-3"] }), routeContext);
+
+    expect(res.status).toBe(200);
+    const [findArgs] = vi.mocked(db.municipio.findMany).mock.calls[0]!;
+    expect(findArgs).toEqual({
+      where: { id: { in: ["mun-3"] } },
+      select: { id: true },
+    });
+  });
+
   it("replaces the municipios and audits the added and removed ones", async () => {
     const res = await PATCH(
       patchRequest({ municipio_ids: ["mun-2"] }),
@@ -507,6 +558,24 @@ describe("PATCH /api/v1/projects/:id", () => {
     expect(String(updateArgs.data.valor_total)).toBe("245450000");
     expect(json.proyecto.diferencia_valor_oportunidad).toBeNull();
     expect(json.proyecto).not.toHaveProperty("alertas");
+  });
+
+  it("rejects an out-of-range valor_total with 400 instead of a 500", async () => {
+    const res = await PATCH(patchRequest({ valor_total: 1e15 }), routeContext);
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.code).toBe("VALIDATION_ERROR");
+    expect(mocks.txUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rejects an out-of-range beneficiarios_meta with 400 instead of a 500", async () => {
+    const res = await PATCH(patchRequest({ beneficiarios_meta: 3_000_000_000 }), routeContext);
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.code).toBe("VALIDATION_ERROR");
+    expect(mocks.txUpdate).not.toHaveBeenCalled();
   });
 
   it("returns the wrapped 500 envelope when the transaction fails", async () => {

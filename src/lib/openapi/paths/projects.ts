@@ -1,16 +1,17 @@
 // OpenAPI path registrations for /api/v1/projects/* — v2 projects general
-// data (contracts E-02 and E-06). Follows the pattern of
+// data (contracts E-02, E-03, E-04 and E-06). Follows the pattern of
 // src/lib/openapi/paths/strategic-lines.ts: read the actual route.ts first,
 // then register exactly what it does — same status codes, same field names,
 // same auth rules. Never invent behavior the route does not have.
 //
-// Out of scope here by design: the POST (E-03), the eligible-opportunities and
-// opportunity-conversion endpoints (E-05/E-06), members (S2.6) and the
+// The one-step GANADA conversion (E-05) lives in paths/clients.ts with the
+// rest of the client-scoped routes. Still out of scope: members (S2.6) and the
 // value-difference alert (S2.4).
 
 import { z } from "zod";
 import { EstadoProyecto, OrigenProyecto } from "@prisma/client";
 import { registry, standardErrorResponses } from "@/lib/openapi/registry";
+import { PROJECT_CREATE_SCHEMA } from "@/app/api/v1/projects/route";
 import { PROJECT_PATCH_SCHEMA } from "@/app/api/v1/projects/[id]/route";
 
 const ProjectLineaSchema = z.object({
@@ -28,7 +29,7 @@ const ProjectMunicipioSchema = z.object({
   departamento: z.string().openapi({ example: "Antioquia" }),
 });
 
-const ProjectItemV2Schema = registry.register(
+export const ProjectItemV2Schema = registry.register(
   "ProjectItemV2",
   z.object({
     id: z.string().uuid(),
@@ -115,6 +116,71 @@ registry.registerPath({
 });
 
 // ---------------------------------------------------------------------------
+// POST /api/v1/projects
+// ---------------------------------------------------------------------------
+
+registry.registerPath({
+  method: "post",
+  path: "/api/v1/projects",
+  tags: ["Projects"],
+  summary: "Crea un proyecto independiente (E-03, solo ADM/GER)",
+  description:
+    "Solo `ADMINISTRADOR`/`GERENCIA` (`canCreateProject`) pueden crear. Crea un proyecto `origen = INDEPENDIENTE` " +
+    "(`oportunidad_id` null) en `BORRADOR` con un `codigo` autogenerado `PRY-AAAA-NNN`; la creación, las líneas, " +
+    "los municipios y la fila de auditoría `CREAR` van en una sola transacción. `miembro_ids` (S2.6), `codigo`, " +
+    "`estado`, `oportunidad_id`, `deleted_at`, `umbrales_override`, `programacion_pendiente`, " +
+    "`diferencia_valor_oportunidad` (S2.4) y `alertas` se rechazan con 400. Las líneas estratégicas y los " +
+    "municipios deben existir y estar activos (V-04); uno suspendido responde 400. 404 si el cliente no existe.",
+  security: [{ sessionCookie: [] }],
+  request: { body: { content: { "application/json": { schema: PROJECT_CREATE_SCHEMA } } } },
+  responses: {
+    201: {
+      description: "Proyecto creado (código autogenerado, estado BORRADOR).",
+      content: { "application/json": { schema: z.object({ proyecto: ProjectItemV2Schema }) } },
+    },
+    ...standardErrorResponses([400, 401, 403, 404, 500]),
+  },
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/v1/projects/eligible-opportunities
+// ---------------------------------------------------------------------------
+
+const EligibleOpportunitySchema = z.object({
+  id: z.string().uuid(),
+  nombre: z.string(),
+  cliente_id: z.string().uuid(),
+  cliente_nombre: z.string(),
+  valor_estimado_cop: z
+    .string()
+    .nullable()
+    .openapi({ description: "Decimal(15,2) serializado como string por Prisma/decimal.js." }),
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/v1/projects/eligible-opportunities",
+  tags: ["Projects"],
+  summary: "Oportunidades GANADA sin proyecto (E-04, solo ADM/GER)",
+  description:
+    "Solo `ADMINISTRADOR`/`GERENCIA` (`canCreateProject`) pueden leerla. Devuelve las oportunidades " +
+    "`estado = GANADA` que no tienen ningún proyecto; `oportunidad_id` está indexado como único sin predicado " +
+    "parcial, así que un proyecto con borrado lógico sigue bloqueando la creación y su oportunidad no aparece aquí.",
+  security: [{ sessionCookie: [] }],
+  responses: {
+    200: {
+      description: "Oportunidades elegibles para crear un proyecto.",
+      content: {
+        "application/json": {
+          schema: z.object({ oportunidades: z.array(EligibleOpportunitySchema) }),
+        },
+      },
+    },
+    ...standardErrorResponses([401, 403, 500]),
+  },
+});
+
+// ---------------------------------------------------------------------------
 // GET /api/v1/projects/{id}
 // ---------------------------------------------------------------------------
 
@@ -149,7 +215,7 @@ registry.registerPath({
   description:
     "Acepta `nombre`, `origen`, `fecha_inicio`, `fecha_fin`, `valor_total`, `beneficiarios_meta`, `responsable_id`, " +
     "`lineas` (reemplazo N..N, 1..n con exactamente una principal) y `municipio_ids` (reemplazo N..N). " +
-    "Fuera de `BORRADOR` responde 409 INVALID_STATE. Las escrituras y las filas de auditoría van en una sola " +
+    "Fuera de `BORRADOR` responde 409 INVALID_STATE (código compartido del envelope). Las escrituras y las filas de auditoría van en una sola " +
     "transacción: una por campo cambiado, por línea y por municipio cambiados. `codigo`, `estado`, `miembro_ids` " +
     "(S2.6) y `diferencia_valor_oportunidad` (S2.4) se rechazan con 400, y la respuesta no incluye `alertas`.",
   security: [{ sessionCookie: [] }],

@@ -32,7 +32,7 @@ import {
   checkResponsableActivo,
   diffLineas,
   diffMunicipios,
-  invalidStateError,
+  normalizeProjectDate,
   toProjectItemV2,
   type ProjectRowV2,
 } from "@/lib/api/projects";
@@ -70,11 +70,20 @@ export const PROJECT_PATCH_SCHEMA = z.object({
     .refine((value) => parseDate(value) !== null, INVALID_DATE_MESSAGES.fecha_fin)
     .nullable()
     .optional(),
-  valor_total: z.number().min(0, "El valor total no puede ser negativo.").nullable().optional(),
+  // Upper bounds match the columns: `numeric(15,2)` and `int4`. Without them a
+  // bigger number reaches Postgres and Prisma raises P2020 (ValueOutOfRange),
+  // which would surface as a 500 instead of a 400.
+  valor_total: z
+    .number()
+    .min(0, "El valor total no puede ser negativo.")
+    .max(9_999_999_999_999.99, "El valor total es demasiado alto.")
+    .nullable()
+    .optional(),
   beneficiarios_meta: z
     .number()
     .int("La meta de beneficiarios debe ser un número entero.")
     .min(0, "La meta de beneficiarios no puede ser negativa.")
+    .max(2_147_483_647, "La meta de beneficiarios es demasiado alta.")
     .nullable()
     .optional(),
   responsable_id: z.string().min(1, "El responsable no puede estar vacío.").nullable().optional(),
@@ -112,13 +121,6 @@ const PATCH_FORBIDDEN_FIELDS = [
   "alertas",
   "miembro_ids",
 ] as const;
-
-/** `@db.Date` stores the calendar day: keep the UTC midnight the column reads back. */
-function normalizeDate(value: string): Date {
-  const date = parseDate(value)!;
-  date.setUTCHours(0, 0, 0, 0);
-  return date;
-}
 
 export const GET = withApiErrorHandling(
   "projects",
@@ -169,8 +171,10 @@ export const PATCH = withApiErrorHandling(
     }
 
     if (existente.estado !== "BORRADOR") {
-      return invalidStateError(
+      return apiError(
         "Solo se pueden editar los datos generales de un proyecto en Borrador.",
+        409,
+        "INVALID_STATE",
       );
     }
 
@@ -205,11 +209,13 @@ export const PATCH = withApiErrorHandling(
     if (parsed.data.origen !== undefined) patch.origen = parsed.data.origen;
     if (parsed.data.fecha_inicio !== undefined) {
       patch.fecha_inicio =
-        parsed.data.fecha_inicio === null ? null : normalizeDate(parsed.data.fecha_inicio);
+        parsed.data.fecha_inicio === null
+          ? null
+          : normalizeProjectDate(parsed.data.fecha_inicio);
     }
     if (parsed.data.fecha_fin !== undefined) {
       patch.fecha_fin =
-        parsed.data.fecha_fin === null ? null : normalizeDate(parsed.data.fecha_fin);
+        parsed.data.fecha_fin === null ? null : normalizeProjectDate(parsed.data.fecha_fin);
     }
     if (parsed.data.valor_total !== undefined) {
       // The column is Decimal(15,2); rounding here keeps the audited value

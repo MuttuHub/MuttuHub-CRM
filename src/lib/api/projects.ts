@@ -11,12 +11,12 @@
  * `src/lib/permissions.ts` (never a role list re-declared here).
  */
 
-import { NextResponse } from "next/server";
-import type { EstadoProyecto, OrigenProyecto, Prisma, Usuario } from "@prisma/client";
+import { Prisma, type EstadoProyecto, type OrigenProyecto, type Usuario } from "@prisma/client";
 import { canViewPortfolio, canViewProjectV2, type ProjectMembershipActor } from "@/lib/permissions";
 import { duracionProyecto, isoDate, type LineaInput } from "@/lib/proyectos/proyecto-general";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
+import { parseDate } from "@/lib/api/crm";
 
 /**
  * Projection shared by GET /projects, GET /projects/:id and the PATCH
@@ -244,32 +244,55 @@ export function diffMunicipios(
  * envelope instead of letting a bare P2003/P2002 reach the client as a 500 —
  * the same role `checkOportunidadClienteConsistency` plays in crm.ts.
  *
- * Existence only: a suspended strategic line stays valid for the projects that
- * already carry it (REQ-CAT-02); "not offered to new projects" is the creation
- * flow's rule (S2.3).
+ * `onlyActive` is the deliberate asymmetry between the two paths (REQ-CAT-02 vs
+ * V-04):
+ *   - PATCH (E-06) leaves it `false` (existence-only), so a suspended strategic
+ *     line or municipio stays valid for the projects that already carry it.
+ *   - Creation (E-03/E-05) passes `true`, because a suspended catalog row must
+ *     not be offered to new projects.
  */
-export async function checkLineasExisten(lineas: readonly LineaInput[]): Promise<Response | null> {
+export type CatalogCheckOptions = { onlyActive?: boolean };
+
+export async function checkLineasExisten(
+  lineas: readonly LineaInput[],
+  { onlyActive = false }: CatalogCheckOptions = {},
+): Promise<Response | null> {
   if (lineas.length === 0) return null;
   const ids = [...new Set(lineas.map((linea) => linea.id))];
   const found = await db.lineaEstrategicaCatalogo.findMany({
-    where: { id: { in: ids } },
+    where: onlyActive ? { id: { in: ids }, activo: true } : { id: { in: ids } },
     select: { id: true },
   });
   if (found.length !== ids.length) {
-    return apiError("Alguna de las líneas estratégicas no existe.", 400, "VALIDATION_ERROR");
+    return apiError(
+      onlyActive
+        ? "Alguna de las líneas estratégicas no existe o está suspendida."
+        : "Alguna de las líneas estratégicas no existe.",
+      400,
+      "VALIDATION_ERROR",
+    );
   }
   return null;
 }
 
-export async function checkMunicipiosExisten(ids: readonly string[]): Promise<Response | null> {
+export async function checkMunicipiosExisten(
+  ids: readonly string[],
+  { onlyActive = false }: CatalogCheckOptions = {},
+): Promise<Response | null> {
   if (ids.length === 0) return null;
   const requested = [...new Set(ids)];
   const found = await db.municipio.findMany({
-    where: { id: { in: requested } },
+    where: onlyActive ? { id: { in: requested }, activo: true } : { id: { in: requested } },
     select: { id: true },
   });
   if (found.length !== requested.length) {
-    return apiError("Algún municipio no existe.", 400, "VALIDATION_ERROR");
+    return apiError(
+      onlyActive
+        ? "Algún municipio no existe o está suspendido."
+        : "Algún municipio no existe.",
+      400,
+      "VALIDATION_ERROR",
+    );
   }
   return null;
 }
@@ -284,17 +307,24 @@ export async function checkResponsableActivo(id: string): Promise<Response | nul
 }
 
 // ---------------------------------------------------------------------------
-// State conflict (E-06)
+// Creation helpers (E-03 / E-05)
 // ---------------------------------------------------------------------------
 
-export const PROJECT_STATE_CONFLICT = "INVALID_STATE" as const;
+/**
+ * `@db.Date` stores the calendar day: keep the UTC midnight the column reads
+ * back. Shared by the creation routes (E-03/E-05) and the PATCH route so a
+ * created and an edited date land on the same instant.
+ */
+export function normalizeProjectDate(value: string): Date {
+  const date = parseDate(value)!;
+  date.setUTCHours(0, 0, 0, 0);
+  return date;
+}
 
 /**
- * 409 INVALID_STATE of the PATCH route (E-06). Built here instead of through
- * `apiError` because `ApiErrorCode` (src/lib/api/errors.ts) does not list
- * INVALID_STATE yet and that file is outside this unit's edit surface; the
- * envelope is exactly `apiError`'s `{ error, code }`.
+ * `@db.Decimal(15,2)` rounding: the audited/returned value must equal the one
+ * the record ends up holding. A null is preserved.
  */
-export function invalidStateError(message: string): NextResponse {
-  return NextResponse.json({ error: message, code: PROJECT_STATE_CONFLICT }, { status: 409 });
+export function toProjectDecimal(value: number | null): Prisma.Decimal | null {
+  return value === null ? null : new Prisma.Decimal(value).toDecimalPlaces(2);
 }
