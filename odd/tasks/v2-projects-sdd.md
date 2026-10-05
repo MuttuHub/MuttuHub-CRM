@@ -2474,11 +2474,71 @@ this candidate): **R3-1** at `src/app/api/v1/strategic-lines/[id]/route.ts:137`;
 paraphrased or invented here. R3-3 is at least partly answered by the new `src/lib/openapi/document.test.ts`.
 
 #### S1.3 — Municipios catalog (M)
-- **Goal:** REQ-CAT-04 catalog part.
-- **Files:** schema `Municipio`; migration `<ts>_v2_municipios`; NEW `src/app/api/v1/municipalities/route.ts`,
-  `[id]/route.ts` (+ tests); admin section `municipios-section.tsx` (+ test).
-- **RED:** `it("creates a municipio with nombre and departamento unique together")`, `it("rejects duplicate código DANE")`,
-  `it("rename/delete of a municipio used by a project returns 409")`, `it("suspended municipios are not offered to new projects")`.
+**RECON DONE 2026-10-05 (session 9) — read this before writing: the task is GREENFIELD and two of its four RED
+scenarios are untestable today.** Verified by name across `prisma/schema.prisma` and `src/`: there is **no `Municipio`
+model**, and **no `territorio` field or enum anywhere** — the only two matches for "municipio" in the whole source tree
+are a filter-string literal in `src/components/crm/saved-views.test.tsx:26` and the entity-name literal in
+`src/lib/api/audit-cambios.ts:36`. So there is no table, no enum, no route, no UI and no legacy values to normalise.
+This is the **sixth** occurrence of the same staleness class (S0.6, S0.7, S0.1, S1.1a, S1.2, S1.3).
+
+**Recorded decision: the catalog starts EMPTY, and only the local demo seed populates it.** Gate N-21's default read
+"curated list seeded from the manually normalised legacy `territorio` values" — impossible here, because `territorio`
+does not exist in this branch, so there are **no** legacy values to normalise and inventing a national list would be data
+invention. The migration therefore creates the table and **seeds nothing**; a small curated set goes into
+`prisma/seed.ts` (demo data, clearly marked, local only) so the funny demo can assign municipios to a project. The
+catalog stays admin-extendable, which is N-21's actual recommendation, and its `codigo DANE` column stays optional.
+
+**Two of the four RED scenarios are deferred, not faked:** `rename/delete of a municipio used by a project returns 409`
+and `suspended municipios are not offered to new projects` both presuppose a project that references a municipio, and
+**`Proyecto` does not exist** (verified: 0 matches in `prisma/schema.prisma`; v2 creates it in S2.1). Same treatment as
+S1.1a's and S1.2's project-dependent scenarios.
+
+**Recorded decision: API-only**, consistent with S1.1a and S1.2. The SDD's `municipios-section.tsx` is dropped from this
+task; the catalogs admin UI remains **one** later unit covering rubros + líneas + municipios together. It is not on the
+critical path of the 2026-10-09 local demo.
+
+- **Goal (original wording):** REQ-CAT-04 catalog part.
+
+**DONE 2026-10-05 (session 9)**, implemented as the recalibration above requires: the `Municipio` model
+(`@@map("municipios")`, unique `(nombre, departamento)` together, unique `codigo_dane` when present), the
+adoptive/idempotent migration `20261005120000_v2_municipios` (`CREATE TABLE IF NOT EXISTS` + `ADD COLUMN IF NOT EXISTS` +
+two `CREATE UNIQUE INDEX IF NOT EXISTS`, **zero seed rows**), the `GET`/`POST`/`PATCH`/`DELETE /api/v1/municipalities[/:id]`
+routes (GET any authenticated user; POST/PATCH/DELETE ADMINISTRADOR only; suspend-never-delete), the OpenAPI paths, two
+live-DB invariant test files, and `seedMunicipios()` with **7 real Colombian municipios** (real DANE codes) as
+demo-only data in `prisma/seed.ts`.
+
+**Checks observed.** Focused **45 green** (route 14 + `[id]` 16 + migration-invariant 7 + invariants 7 + the document
+assertion); **full suite 140 files / 1302 tests green** (baseline 136/1258 — the delta is exactly this task's four new
+test files); `tsc` 0 errors; eslint clean on 9 files. Migration applied → **15 migrations, in sync, no drift**, and
+`public.municipios` held **0 rows immediately after migrating** (the proof that it seeds nothing) and 7 after the demo
+seed; both unique indexes were read back from `pg_indexes`. The demo seed ran end to end (`Rubros: 15`, `Líneas
+estratégicas: 8`, `Municipios (demo): 7`, exit 0).
+
+**A real defect caught by the first verification pass — fixed, then re-verified.** `prisma/municipios.invariant.test.ts`
+inserted `codigo_dane: "05001"`, the very code the same unit's demo seed assigns to Medellín, so the **full suite was RED
+on a migrated + seeded database** (1 failed / 1301 passed) even though the test's rollback was correct: the insert
+collided with a *committed* demo row. The fix is one line (`99001`, synthetic) plus a comment explaining why a real demo
+code must never be reused there. The verifier's pass 2 then returned **`READY TO COMMIT: yes`** with the suite at **140
+files / 1302 tests, 0 failures**. Worth remembering: this is precisely the class of defect a unit's own writer cannot
+see, because each test file passes in isolation and the collision exists only in the *seeded* state — which is the state
+the Friday demo will be in.
+
+**Residuals recorded, none blocking:** (i) the two project-dependent scenarios remain deferred (they need `Proyecto`,
+S2.1); (ii) `codigo_dane` is validated as **exactly 5 digits** when present — stricter than the spec's "optional and
+unique", a deliberate over-specification that matches real DANE codes, whose consequence is that clearing the field
+requires `null` rather than an empty string; (iii) the OpenAPI publication assertion for these paths lives in
+`src/app/api/v1/municipalities/route.test.ts` because `src/lib/openapi/document.test.ts` was outside the writer's
+surfaces — moving it into the document test is a candidate follow-up; (iv) `GET` orders by `orden asc, nombre asc`;
+(v) `prisma migrate dev` did **not** regenerate the Prisma client in this Prisma 7 setup, so `npm run db:generate:local`
+must be run explicitly after any schema change — a step every later schema unit needs; (vi) the admin UI is not built, by
+the API-only decision above.
+- **Files:** schema `Municipio`; migration `<ts>_v2_municipios` (creates the table, **seeds nothing** — see the
+decision above); NEW `src/app/api/v1/municipalities/route.ts`, `[id]/route.ts` (+ tests); a curated demo set in
+`prisma/seed.ts`. The admin section originally named here is deferred.
+- **RED:** `it("creates a municipio with nombre and departamento unique together")`, `it("rejects duplicate código DANE")`.
+  **Deferred (see above):** `it("rename/delete of a municipio used by a project returns 409")` and `it("suspended
+  municipios are not offered to new projects")` — both need a `Proyecto` that references a municipio, and that model does
+  not exist until S2.1.
 - **Deps:** S0.4. **Gate:** N-21 (source) — default curated/empty + admin CRUD; seeding is done by this catalog task.
 - **Lines:** ~300. **Commit:** `feat(catalogs): add administrable municipios catalog (S1.3)` · **PR-10**.
 

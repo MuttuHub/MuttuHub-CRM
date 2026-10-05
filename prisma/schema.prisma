@@ -577,3 +577,30 @@ model LineaEstrategicaCatalogo {
 
   @@map("lineas_estrategicas")
 }
+
+// v2 projects module (REQ-CAT-04) — catálogo administrable de municipios.
+// Greenfield on this branch: no `municipios` table exists in any environment,
+// so the migration creates it and seeds NOTHING. N-21 asked for the catalog to
+// be filled from the normalised legacy `territorio` values, but no `territorio`
+// field or enum exists in this repository: there is nothing to normalise and a
+// national list would be invented data. `codigo_dane` is optional and unique
+// only WHEN PRESENT: the unique index admits several NULLs (Postgres treats
+// them as distinct). `(nombre, departamento)` is unique together, so the same
+// municipality name may repeat across departments but never inside one.
+// `fecha_suspension` records WHEN a municipio was suspended (`activo=false`):
+// suspension is the only way out, because rows are never deleted. No FKs yet:
+// `Proyecto` arrives with S2.1.
+model Municipio {
+  id               String    @id @default(uuid())
+  nombre           String
+  departamento     String
+  codigo_dane      String?   @unique
+  activo           Boolean   @default(true)
+  fecha_suspension DateTime?
+  orden            Int       @default(0)
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+
+  @@unique([nombre, departamento])
+  @@map("municipios")
+}

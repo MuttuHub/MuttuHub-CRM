@@ -60,6 +60,7 @@ const ENTITY_CODE = {
   solicitud: "a00c",
   rubro: "a00d",
   linea: "a00e",
+  municipio: "a00f",
 } as const;
 
 type Entity = keyof typeof ENTITY_CODE;
@@ -1015,6 +1016,62 @@ async function seedLineasEstrategicas() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Section: Municipio (catálogo demo v2, REQ-CAT-04)
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Small CURATED demo set of REAL Colombian municipios with their real DANE
+ * codes, across 7 departments. DEMO DATA ONLY: the S1.3 migration deliberately
+ * seeds nothing (there is no legacy `territorio` to normalise and a full
+ * national list would be invented data), so a recording needs a few real rows
+ * to show. `codigo_dane` is optional and unique only when present.
+ */
+const MUNICIPIOS_DEMO = [
+  { nombre: "Medellín", departamento: "Antioquia", codigo_dane: "05001" },
+  { nombre: "Barranquilla", departamento: "Atlántico", codigo_dane: "08001" },
+  { nombre: "Bogotá D.C.", departamento: "Bogotá D.C.", codigo_dane: "11001" },
+  { nombre: "Cartagena de Indias", departamento: "Bolívar", codigo_dane: "13001" },
+  { nombre: "Manizales", departamento: "Caldas", codigo_dane: "17001" },
+  { nombre: "Bucaramanga", departamento: "Santander", codigo_dane: "68001" },
+  { nombre: "Cali", departamento: "Valle del Cauca", codigo_dane: "76001" },
+] as const;
+
+async function seedMunicipios() {
+  console.log("\n[municipios] Catálogo demo de municipios...");
+
+  let seq = 0;
+  for (const municipio of MUNICIPIOS_DEMO) {
+    seq += 1;
+    // Natural-key upsert by `(nombre, departamento)`, the catalog's own unique
+    // pair, so re-running the seed refreshes the same rows instead of
+    // duplicating them.
+    await db.municipio.upsert({
+      where: {
+        nombre_departamento: {
+          nombre: municipio.nombre,
+          departamento: municipio.departamento,
+        },
+      },
+      create: {
+        id: fixedId("municipio", seq),
+        nombre: municipio.nombre,
+        departamento: municipio.departamento,
+        codigo_dane: municipio.codigo_dane,
+        orden: seq,
+        activo: true,
+      },
+      // Only codigo_dane/orden: a re-seed must not override an administrator's
+      // suspension (activo=false + fecha_suspension).
+      update: {
+        codigo_dane: municipio.codigo_dane,
+        orden: seq,
+      },
+    });
+  }
+  console.log(`  ${seq} municipios demo upserted.`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // main
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -1044,6 +1101,7 @@ async function main() {
   await seedAccesos(usuarios);
   await seedRubros();
   await seedLineasEstrategicas();
+  await seedMunicipios();
 
   console.log("\n[settings] Catálogos por defecto (task_tags, doc_categories)...");
   await ensureDefaultSettings();
@@ -1058,7 +1116,8 @@ async function main() {
       `  - Tareas: ${TAREAS.length}\n` +
       `  - Documentos: ${DOC_CATEGORIES.length}\n` +
       `  - Rubros: ${RUBROS_V2.length}\n` +
-      `  - Líneas estratégicas: ${LINEAS_ESTRATEGICAS_V2.length}\n\n` +
+      `  - Líneas estratégicas: ${LINEAS_ESTRATEGICAS_V2.length}\n` +
+      `  - Municipios (demo): ${MUNICIPIOS_DEMO.length}\n\n` +
       "Credenciales demo (NUNCA reutilizar fuera de este proyecto de desarrollo):\n" +
       PERSONAS.map((p) => `  - ${p.rol.padEnd(14)} ${p.email}  /  ${DEMO_PASSWORD}`).join("\n") +
       "\n",
