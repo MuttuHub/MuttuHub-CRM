@@ -705,3 +705,16 @@ model ProyectoMunicipio {
   @@id([proyecto_id, municipio_id])
   @@map("proyecto_municipios")
 }
+
+// v2 projects module (S2.2, SDD §4.2) — per-year counter that issues the
+// `PRY-AAAA-NNN` project codes. `anio` is the primary key, so the upsert in
+// `src/lib/api/project-code.ts` locks one row per year and two concurrent
+// creations can never share a sequence. Deliberately standalone: it has no
+// relation because `anio` is not a project column, and the migration seeds no
+// rows — the first allocation initialises the counter from `proyectos`.
+model ProyectoSecuencia {
+  anio   Int  @id
+  ultimo Int  @default(0)
+
+  @@map("proyecto_secuencias")
+}
