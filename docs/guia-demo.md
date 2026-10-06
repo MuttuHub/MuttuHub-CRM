@@ -124,6 +124,38 @@ que ya salió de `BORRADOR` no se toca: solo se reporta con el motivo. Corre
 únicamente contra una base local (loopback) y nunca toca `auditoria_cambios`.
 Cada ensayo: primero el ensayo en seco, y recién después `--apply`.
 
+### 1.6. Ensayo grabado (Playwright)
+
+Antes de grabar, ensayá el camino real del demo —proyecto desde oportunidad
+ganada— tal como lo va a hacer el operador. El ensayo corre contra el dev
+server ya levantado (Playwright no lo arranca ni lo detiene) y deja un video.
+
+```bash
+# 1. Estado inicial: primero el ensayo en seco, después aplicá
+npm run db:demo:reset:local            # muestra el plan, no escribe nada
+npm run db:demo:reset:local -- --apply # aplica el plan (una sola transacción)
+
+# 2. Dev server (en otra terminal)
+npm run dev
+
+# 3. Ensayo grabado
+npx playwright test e2e/proyectos-demo.spec.ts
+```
+
+Si el dev server se levantó **desde Windows**, `http://localhost:3000` no
+responde desde WSL: apuntá Playwright a la puerta de enlace de la NAT.
+
+```bash
+GW=$(ip route show default | awk '{print $3}' | head -1)
+curl -s -o /dev/null -w '%{http_code}\n' --max-time 30 "http://$GW:3000/login"  # esperá 200
+PLAYWRIGHT_BASE_URL="http://$GW:3000" npx playwright test e2e/proyectos-demo.spec.ts
+```
+
+El video queda en `test-results/<nombre-del-test>/video.webm` (esa carpeta está
+en `.gitignore`; el video no se commitea). El ensayo es **repetible**: después
+de cada corrida volvé a hacer `npm run db:demo:reset:local -- --apply` para
+dejar `proyectos` en 0 y la oportunidad de vuelta en `PROSPECCION`.
+
 ---
 
 ## 2. Guion sugerido por bloque de funcionalidad
