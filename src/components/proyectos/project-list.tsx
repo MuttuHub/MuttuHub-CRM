@@ -1,8 +1,6 @@
-// Listado de proyectos v2 (unidad 1 de 2: solo lectura). Tabla con código,
-// proyecto, cliente, estado, responsable, fechas con duración en semanas y
-// valor total, más el filtro por estado. La creación (diálogo y paso de
-// origen) es la unidad 2: acá no hay CTA, porque un botón que no abre nada
-// sería un enlace roto.
+// Listado de proyectos v2 (unidad 1: lectura; unidad 2: alta). Tabla con
+// código, proyecto, cliente, estado, responsable, fechas con duración en
+// semanas y valor total, más el filtro por estado y el CTA de creación.
 //
 // Alcance de lectura (S2.6 pendiente): hoy solo ADMINISTRADOR y GERENCIA ven
 // el portafolio; cualquier otro rol recibe una lista vacía. Por eso el estado
@@ -17,8 +15,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { FolderKanban } from "lucide-react";
+import { FolderKanban, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -36,10 +35,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ResponsableCell, ToneBadge } from "@/components/crm/shared";
+import { ProjectCreateDialog } from "@/components/proyectos/project-create-dialog";
 import { useCurrentUser } from "@/hooks/kanban";
 import { useProjects, type ProjectFilters, type ProjectListRow } from "@/hooks/projects";
 import type { UiTone } from "@/lib/catalogs";
-import { canViewPortfolio } from "@/lib/permissions";
+import { canCreateProject, canViewPortfolio } from "@/lib/permissions";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import type { EstadoProyecto } from "@prisma/client";
 
@@ -114,6 +114,8 @@ function formatValorTotal(value: string | null): string {
 
 export function ProjectList() {
   const [estado, setEstado] = useState("");
+  // El diálogo se monta solo al abrir: así no se piden catálogos al cargar.
+  const [crearAbierto, setCrearAbierto] = useState(false);
   // El filtro viaja como query param: estado vacío = sin filtro.
   const filters = useMemo<ProjectFilters>(() => (estado ? { estado } : {}), [estado]);
   const query = useProjects(filters);
@@ -137,6 +139,10 @@ export function ProjectList() {
   const puedeVerPortafolio = usuario
     ? canViewPortfolio({ id: usuario.id, rol: usuario.rol, puede_ver_tablero_gerencial: false })
     : null;
+  // Ocultar el CTA para quien no es ADMINISTRADOR/GERENCIA es solo UX: la
+  // autoridad sigue siendo la API, que responde 403 a cualquier otro rol tanto
+  // en la creación como en el listado de elegibles.
+  const puedeCrear = usuario ? canCreateProject({ id: usuario.id, rol: usuario.rol }) : false;
 
   const proyectos = query.data?.proyectos ?? [];
   const total = proyectos.length;
@@ -174,6 +180,12 @@ export function ProjectList() {
                 ))}
               </SelectContent>
             </Select>
+            {puedeCrear && (
+              <Button size="lg" className="rounded-12" onClick={() => setCrearAbierto(true)}>
+                <Plus className="size-4" />
+                Nuevo proyecto
+              </Button>
+            )}
           </div>
         </header>
 
@@ -185,6 +197,10 @@ export function ProjectList() {
           <ProjectTable proyectos={proyectos} />
         )}
       </section>
+
+      {crearAbierto && (
+        <ProjectCreateDialog open onOpenChange={setCrearAbierto} />
+      )}
     </div>
   );
 }

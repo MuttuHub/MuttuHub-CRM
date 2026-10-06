@@ -16,7 +16,14 @@ type ProjectsQueryState = {
 type UsuarioActual = { id: string; nombre: string; rol: string }
 type CurrentUserState = { data: UsuarioActual | null }
 
-const { toast, useProjectsMock, useCurrentUserMock, projectsQuery, userQuery } = vi.hoisted(() => {
+const {
+  toast,
+  useProjectsMock,
+  useCurrentUserMock,
+  projectsQuery,
+  userQuery,
+  dialogHooks,
+} = vi.hoisted(() => {
   const projectsQuery: ProjectsQueryState = {
     isLoading: false,
     isError: false,
@@ -25,12 +32,24 @@ const { toast, useProjectsMock, useCurrentUserMock, projectsQuery, userQuery } =
     refetch: vi.fn(),
   }
   const userQuery: CurrentUserState = { data: null }
+  const queryState = { data: [], isLoading: false, isError: false }
   return {
     toast: { error: vi.fn(), success: vi.fn() },
     useProjectsMock: vi.fn<(filters: ProjectFilters) => ProjectsQueryState>(() => projectsQuery),
     useCurrentUserMock: vi.fn<() => CurrentUserState>(() => userQuery),
     projectsQuery,
     userQuery,
+    // El diálogo importa estos hooks; con ellos burlados el listado se prueba
+    // sin QueryClientProvider ni fetch real.
+    dialogHooks: {
+      useEligibleOpportunities: vi.fn(() => queryState),
+      useStrategicLines: vi.fn(() => queryState),
+      useMunicipalities: vi.fn(() => queryState),
+      useCreateProject: vi.fn(() => ({ isPending: false, mutateAsync: vi.fn() })),
+      useCreateProjectFromOpportunity: vi.fn(() => ({ isPending: false, mutateAsync: vi.fn() })),
+      useUsers: vi.fn(() => queryState),
+      useClients: vi.fn(() => ({ data: { items: [] }, isLoading: false, isError: false })),
+    },
   }
 })
 
@@ -38,7 +57,21 @@ vi.mock("sonner", () => ({ toast }))
 
 vi.mock("@/hooks/projects", () => ({
   useProjects: (...args: Parameters<typeof useProjectsMock>) => useProjectsMock(...args),
+  useEligibleOpportunities: dialogHooks.useEligibleOpportunities,
+  useStrategicLines: dialogHooks.useStrategicLines,
+  useMunicipalities: dialogHooks.useMunicipalities,
+  useCreateProject: dialogHooks.useCreateProject,
+  useCreateProjectFromOpportunity: dialogHooks.useCreateProjectFromOpportunity,
 }))
+
+vi.mock("@/hooks/crm", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/hooks/crm")>()
+  return {
+    ...actual,
+    useUsers: dialogHooks.useUsers,
+    useClients: dialogHooks.useClients,
+  }
+})
 
 vi.mock("@/hooks/kanban", () => ({
   useCurrentUser: (...args: Parameters<typeof useCurrentUserMock>) => useCurrentUserMock(...args),
@@ -250,6 +283,40 @@ describe("ProjectList", () => {
     // de permisos.
     expect(screen.queryByText("Aún no tienes proyectos visibles")).not.toBeInTheDocument()
     expect(screen.queryByText("No hay proyectos para mostrar")).not.toBeInTheDocument()
+  })
+
+  it("shows the creation CTA to ADMINISTRADOR and GERENCIA", () => {
+    userQuery.data = { id: "u1", nombre: "Ana Pérez", rol: "ADMINISTRADOR" }
+    const primera = render(<ProjectList />)
+    expect(screen.getByRole("button", { name: "Nuevo proyecto" })).toBeInTheDocument()
+    primera.unmount()
+
+    userQuery.data = { id: "u2", nombre: "Greta Gómez", rol: "GERENCIA" }
+    render(<ProjectList />)
+    expect(screen.getByRole("button", { name: "Nuevo proyecto" })).toBeInTheDocument()
+  })
+
+  it("hides the creation CTA for a role without canCreateProject", () => {
+    userQuery.data = { id: "u9", nombre: "Carlos Ruiz", rol: "COLABORADOR" }
+    render(<ProjectList />)
+
+    expect(screen.queryByRole("button", { name: "Nuevo proyecto" })).not.toBeInTheDocument()
+  })
+
+  it("hides the creation CTA while the current user is unknown", () => {
+    userQuery.data = null
+    render(<ProjectList />)
+
+    expect(screen.queryByRole("button", { name: "Nuevo proyecto" })).not.toBeInTheDocument()
+  })
+
+  it("opens the creation dialog from the CTA", async () => {
+    const user = userEvent.setup()
+    render(<ProjectList />)
+
+    await user.click(screen.getByRole("button", { name: "Nuevo proyecto" }))
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument()
   })
 })
 

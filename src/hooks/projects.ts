@@ -11,8 +11,15 @@
 
 "use client";
 
-import { useQuery, type UseQueryResult } from "@tanstack/react-query";
-import { apiGet } from "@/lib/api/http";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
+  type UseQueryResult,
+} from "@tanstack/react-query";
+import { toast } from "sonner";
+import { apiGet, apiPost, ApiError } from "@/lib/api/http";
 import type { EstadoProyecto, OrigenProyecto } from "@prisma/client";
 
 /* ── DTOs (forma real de la respuesta del servidor) ────────────────────── */
@@ -57,6 +64,43 @@ export type ProjectListResponse = {
   proyectos: ProjectListRow[];
 };
 
+/* ── DTOs: elegibles y catálogos (unidad 2: creación) ──────────────────── */
+
+/** Fila de la respuesta de `GET /api/v1/projects/eligible-opportunities`. */
+export type EligibleOpportunity = {
+  id: string;
+  nombre: string;
+  cliente_id: string;
+  cliente_nombre: string;
+  /** Decimal serializado: string, nunca número. */
+  valor_estimado_cop: string | null;
+};
+
+/** Fila de `GET /api/v1/strategic-lines` (`LINEA_SELECT`). */
+export type StrategicLine = {
+  id: string;
+  codigo: string;
+  nombre: string;
+  activo: boolean;
+  fecha_suspension: string | null;
+  orden: number;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Fila de `GET /api/v1/municipalities` (`MUNICIPIO_SELECT`). */
+export type Municipality = {
+  id: string;
+  nombre: string;
+  departamento: string;
+  codigo_dane: string | null;
+  activo: boolean;
+  fecha_suspension: string | null;
+  orden: number;
+  created_at: string;
+  updated_at: string;
+};
+
 /* ── Filtros (mismos query params que parsea el route) ─────────────────── */
 
 export type ProjectFilters = {
@@ -72,6 +116,12 @@ export type ProjectFilters = {
 export const projectQueryKeys = {
   all: ["projects"] as const,
   list: (filters: ProjectFilters) => ["projects", "list", filters] as const,
+  detail: (id: string) => ["projects", "detail", id] as const,
+  eligibleOpportunities: ["projects", "eligible-opportunities"] as const,
+  // Los catálogos viven fuera de `projects` para que invalidar la lista de
+  // proyectos no refetchee catálogos que no cambiaron.
+  strategicLines: ["catalogs", "strategic-lines"] as const,
+  municipalities: ["catalogs", "municipalities"] as const,
 };
 
 /* ── Queries ───────────────────────────────────────────────────────────── */
@@ -88,4 +138,137 @@ export function useProjects(filters: ProjectFilters): UseQueryResult<ProjectList
       return apiGet<ProjectListResponse>(`/api/v1/projects?${sp.toString()}`);
     },
   });
+}
+
+/* ── Queries: elegibles y catálogos ────────────────────────────────────── */
+
+/** E-04: oportunidades GANADA sin proyecto, para el paso de origen del form. */
+export function useEligibleOpportunities(): UseQueryResult<EligibleOpportunity[]> {
+  return useQuery({
+    queryKey: projectQueryKeys.eligibleOpportunities,
+    queryFn: async () => {
+      const res = await apiGet<{ oportunidades: EligibleOpportunity[] }>(
+        "/api/v1/projects/eligible-opportunities",
+      );
+      return res.oportunidades;
+    },
+  });
+}
+
+/** REQ-CAT-03: líneas activas ordenadas por código. */
+export function useStrategicLines(): UseQueryResult<StrategicLine[]> {
+  return useQuery({
+    queryKey: projectQueryKeys.strategicLines,
+    queryFn: async () => {
+      const res = await apiGet<{ lineas: StrategicLine[] }>("/api/v1/strategic-lines");
+      return res.lineas;
+    },
+  });
+}
+
+/** REQ-CAT-04: municipios activos. */
+export function useMunicipalities(): UseQueryResult<Municipality[]> {
+  return useQuery({
+    queryKey: projectQueryKeys.municipalities,
+    queryFn: async () => {
+      const res = await apiGet<{ municipios: Municipality[] }>("/api/v1/municipalities");
+      return res.municipios;
+    },
+  });
+}
+
+/* ── Mutations: creación (E-03 independiente / E-05 desde oportunidad) ─── */
+
+export type ProjectLineaInput = { id: string; principal: boolean };
+
+/** Campos compartidos por ambos endpoints de creación (`PROJECT_CREATE_BASE`). */
+export type ProjectCreateBaseInput = {
+  responsable_id: string;
+  lineas: ProjectLineaInput[];
+  municipio_ids: string[];
+  /** Calendario `YYYY-MM-DD`, nunca instante ISO. */
+  fecha_inicio: string;
+  fecha_fin: string;
+  valor_total?: number;
+  beneficiarios_meta?: number;
+};
+
+/** E-03: proyecto INDEPENDIENTE con `cliente_id` en el cuerpo. */
+export type ProjectCreateInput = ProjectCreateBaseInput & {
+  nombre: string;
+  cliente_id: string;
+};
+
+/**
+ * E-05: el `cliente_id` viaja en la URL y `nombre` es opcional (el servidor
+ * lo deriva de la oportunidad cuando se omite).
+ */
+export type ProjectCreateFromOpportunityInput = ProjectCreateBaseInput & {
+  nombre?: string;
+};
+
+/**
+ * Crea un proyecto independiente. `onSuccess` invalida TODO el namespace
+ * `projects` (lista + detalle + elegibles) para que el nuevo proyecto aparezca
+ * en `/proyectos` sin recargar (cierra el WARNING R3-stale-data).
+ */
+export function useCreateProject(): UseMutationResult<
+  { proyecto: ProjectListRow },
+  string,
+  ProjectCreateInput
+> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input) => {
+      try {
+        return await apiPost<{ proyecto: ProjectListRow }>("/api/v1/projects", input);
+      } catch (err) {
+        return toastError(err, "No pudimos crear el proyecto. Inténtalo de nuevo.");
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectQueryKeys.all });
+      toast.success("Proyecto creado.");
+    },
+  });
+}
+
+/**
+ * E-05: convierte una oportunidad GANADA en proyecto. El `cliente_id` va en la
+ * URL; el cuerpo lleva los mismos campos que E-03 menos `cliente_id`.
+ */
+export function useCreateProjectFromOpportunity(
+  clientId: string,
+  opportunityId: string,
+): UseMutationResult<
+  { proyecto: ProjectListRow },
+  string,
+  ProjectCreateFromOpportunityInput
+> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input) => {
+      try {
+        return await apiPost<{ proyecto: ProjectListRow }>(
+          `/api/v1/clients/${clientId}/opportunities/${opportunityId}/project`,
+          input,
+        );
+      } catch (err) {
+        return toastError(err, "No pudimos crear el proyecto. Inténtalo de nuevo.");
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectQueryKeys.all });
+      toast.success("Proyecto creado desde la oportunidad.");
+    },
+  });
+}
+
+function toastError(err: unknown, fallback: string): never {
+  if (err instanceof ApiError) {
+    toast.error(err.message);
+  } else {
+    toast.error(fallback);
+  }
+  throw err;
 }

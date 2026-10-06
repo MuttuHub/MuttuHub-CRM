@@ -1,21 +1,36 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { renderHook, waitFor } from "@testing-library/react"
+import { act, renderHook, waitFor } from "@testing-library/react"
 import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ApiError } from "@/lib/api/http"
 import {
   projectQueryKeys,
+  useCreateProject,
+  useCreateProjectFromOpportunity,
+  useEligibleOpportunities,
+  useMunicipalities,
   useProjects,
+  useStrategicLines,
+  type EligibleOpportunity,
+  type Municipality,
+  type ProjectCreateInput,
   type ProjectListResponse,
   type ProjectListRow,
+  type StrategicLine,
 } from "./projects"
 
-function createWrapper() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+function createWrapperWithClient() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
   const wrapper = ({ children }: { children: ReactNode }) =>
     createElement(QueryClientProvider, { client: queryClient }, children)
   wrapper.displayName = "QueryClientTestWrapper"
-  return wrapper
+  return { wrapper, queryClient }
+}
+
+function createWrapper() {
+  return createWrapperWithClient().wrapper
 }
 
 function jsonResponse(body: unknown, status = 200) {
@@ -127,5 +142,145 @@ describe("useProjects", () => {
     const filters = { estado: "BORRADOR" }
     expect(projectQueryKeys.all).toEqual(["projects"])
     expect(projectQueryKeys.list(filters)).toEqual(["projects", "list", filters])
+  })
+})
+
+/* ── Unidad 2: elegibles, catálogos y creación ─────────────────────────── */
+
+const OPORTUNIDAD: EligibleOpportunity = {
+  id: "op-1",
+  nombre: "Consultoría línea base",
+  cliente_id: "cli-1",
+  cliente_nombre: "Alcaldía de Barranquilla",
+  valor_estimado_cop: "180000000.00",
+}
+
+const INPUT: ProjectCreateInput = {
+  nombre: "Proyecto nuevo",
+  cliente_id: "cli-1",
+  responsable_id: "u1",
+  lineas: [{ id: "l1", principal: true }],
+  municipio_ids: ["m1"],
+  fecha_inicio: "2026-01-05",
+  fecha_fin: "2026-04-05",
+  valor_total: 180000000,
+}
+
+describe("unidad 2: creación y catálogos", () => {
+  const fetchMock = vi.fn()
+
+  beforeEach(() => {
+    fetchMock.mockReset()
+    vi.stubGlobal("fetch", fetchMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it("loads the eligible opportunities and keeps the estimate as a decimal string", async () => {
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(jsonResponse({ oportunidades: [OPORTUNIDAD] })),
+    )
+
+    const { result } = renderHook(() => useEligibleOpportunities(), { wrapper: createWrapper() })
+
+    await waitFor(() => expect(result.current.data).toEqual([OPORTUNIDAD]))
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/projects/eligible-opportunities",
+      expect.any(Object),
+    )
+    expect(result.current.data?.[0].valor_estimado_cop).toBe("180000000.00")
+  })
+
+  it("loads the strategic lines catalog", async () => {
+    const lineas: StrategicLine[] = [
+      { id: "l1", codigo: "LE-01", nombre: "Educación", activo: true, fecha_suspension: null, orden: 0, created_at: "", updated_at: "" },
+    ]
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ lineas })))
+
+    const { result } = renderHook(() => useStrategicLines(), { wrapper: createWrapper() })
+
+    await waitFor(() => expect(result.current.data).toEqual(lineas))
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/strategic-lines", expect.any(Object))
+  })
+
+  it("loads the municipalities catalog", async () => {
+    const municipios: Municipality[] = [
+      { id: "m1", nombre: "Barranquilla", departamento: "Atlántico", codigo_dane: "08001", activo: true, fecha_suspension: null, orden: 0, created_at: "", updated_at: "" },
+    ]
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ municipios })))
+
+    const { result } = renderHook(() => useMunicipalities(), { wrapper: createWrapper() })
+
+    await waitFor(() => expect(result.current.data).toEqual(municipios))
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/municipalities", expect.any(Object))
+  })
+
+  it("posts the independent body and invalidates the project queries on success", async () => {
+    const { wrapper, queryClient } = createWrapperWithClient()
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries")
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ proyecto: PROYECTO }, 201)))
+
+    const { result } = renderHook(() => useCreateProject(), { wrapper })
+    await act(async () => {
+      await result.current.mutateAsync(INPUT)
+    })
+
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/v1/projects")
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    expect(init.method).toBe("POST")
+    expect(JSON.parse(init.body as string)).toEqual(INPUT)
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["projects"] })
+  })
+
+  it("posts to the client/opportunity URL without cliente_id", async () => {
+    const { wrapper } = createWrapperWithClient()
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ proyecto: PROYECTO }, 201)))
+
+    const sinCliente = { ...INPUT }
+    delete (sinCliente as { cliente_id?: string }).cliente_id
+    const { result } = renderHook(() => useCreateProjectFromOpportunity("cli-1", "op-1"), {
+      wrapper,
+    })
+    await act(async () => {
+      await result.current.mutateAsync(sinCliente)
+    })
+
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/v1/clients/cli-1/opportunities/op-1/project")
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    const body = JSON.parse(init.body as string)
+    expect(body).not.toHaveProperty("cliente_id")
+    expect(body).not.toHaveProperty("oportunidad_id")
+  })
+
+  it("re-throws the server envelope so callers can branch", async () => {
+    const { wrapper } = createWrapperWithClient()
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(jsonResponse({ error: "Esta oportunidad ya tiene un proyecto.", code: "CONFLICT" }, 409)),
+    )
+
+    const { result } = renderHook(() => useCreateProjectFromOpportunity("cli-1", "op-1"), {
+      wrapper,
+    })
+    let error: unknown
+    await act(async () => {
+      try {
+        await result.current.mutateAsync(INPUT)
+      } catch (err) {
+        error = err
+      }
+    })
+
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).message).toBe("Esta oportunidad ya tiene un proyecto.")
+    expect((error as ApiError).status).toBe(409)
+  })
+
+  it("namespaces the catalog and eligible-opportunity keys outside the list", () => {
+    expect(projectQueryKeys.detail("p1")).toEqual(["projects", "detail", "p1"])
+    expect(projectQueryKeys.eligibleOpportunities).toEqual(["projects", "eligible-opportunities"])
+    expect(projectQueryKeys.strategicLines).toEqual(["catalogs", "strategic-lines"])
+    expect(projectQueryKeys.municipalities).toEqual(["catalogs", "municipalities"])
   })
 })
