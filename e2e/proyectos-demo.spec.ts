@@ -40,8 +40,9 @@ async function beat(page: import("@playwright/test").Page, ms = 1600) {
 test.describe.configure({ mode: "serial" });
 
 // Cold Turbopack routes on the shared 9p mount can take 30-60s to compile, and
-// this spec deliberately pauses between beats for the recording.
-test.setTimeout(240_000);
+// this spec deliberately pauses between beats for the recording. The audit
+// reader is one more route compiled mid-run on step 8, so the budget covers it.
+test.setTimeout(300_000);
 
 test("Projects demo: convert a won opportunity into PRY-2026-001 and see it listed", async ({
   page,
@@ -178,5 +179,32 @@ test("Projects demo: convert a won opportunity into PRY-2026-001 and see it list
     await page.getByRole("button", { name: "Cancelar" }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await beat(page, 1200);
+  });
+
+  await test.step("8. Open the ficha and see conversion + creation as ONE audited step", async () => {
+    // The row asserted in step 7 now has a read-only ficha behind "Ver detalle".
+    const row = page.getByRole("row", { name: /PRY-2026-001/ });
+    await row.getByRole("button", { name: "Ver detalle" }).click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible({ timeout: 60_000 });
+    await expect(dialog.getByText("PRY-2026-001").first()).toBeVisible({ timeout: 60_000 });
+    await beat(page, 1200);
+
+    // The Historial section runs its own query (GET .../audit).
+    await expect(dialog.getByText("Historial")).toBeVisible({ timeout: 60_000 });
+
+    // The demo's whole point, proven on screen: the CONVERTIR of the
+    // opportunity and the CREAR of the project share one lote_id and are
+    // rendered as a single audited step, not two loose events.
+    const paso = dialog.getByTestId("historial-paso");
+    await expect(paso).toHaveCount(1, { timeout: 30_000 });
+    await expect(paso.getByText("Conversión")).toBeVisible();
+    await expect(paso.getByText("Creación")).toBeVisible();
+    await beat(page, 3000); // let the viewer read the one audited step
+
+    await dialog.getByRole("button", { name: "Cerrar" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await beat(page, 1000);
   });
 });

@@ -61,5 +61,13 @@ describe("buildOpenApiDocument", () => {
       (bodySchema as { properties?: Record<string, unknown> })?.properties ?? {}
     expect(Object.keys(properties)).toContain("responsable_id")
     expect(Object.keys(properties)).not.toContain("cliente_id")
+
+    // P02 history reader: GET /api/v1/projects/{id}/audit -> 200 { historial },
+    // with the same existence/visibility gate as the detail route.
+    const audit = paths["/api/v1/projects/{id}/audit"]
+    expect(audit?.get).toBeDefined()
+    expect(Object.keys(audit?.get?.responses ?? {})).toEqual(
+      expect.arrayContaining(["200", "403", "404"]),
+    )
   })
 })

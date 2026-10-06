@@ -20,7 +20,7 @@ import {
 } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiGet, apiPost, ApiError } from "@/lib/api/http";
-import type { EstadoProyecto, OrigenProyecto } from "@prisma/client";
+import type { AccionAuditoria, EstadoProyecto, OrigenProyecto } from "@prisma/client";
 
 /* ── DTOs (forma real de la respuesta del servidor) ────────────────────── */
 
@@ -62,6 +62,32 @@ export type ProjectListRow = {
 
 export type ProjectListResponse = {
   proyectos: ProjectListRow[];
+};
+
+/* ── DTO: historial de cambios (REQ-AUD-04) ─────────────────────────────── */
+
+/**
+ * Fila de `{ historial: ProjectAuditEntry[] }` de `GET /api/v1/projects/:id/audit`.
+ * `valor_anterior`/`valor_nuevo` son el JSON del libro tal cual: el cliente lo
+ * formatea para mostrar, nunca asume su forma. `usuario_nombre` es `null`
+ * cuando el usuario ya no existe (el libro no lleva FK a propósito).
+ */
+export type ProjectAuditEntry = {
+  id: string;
+  created_at: string;
+  usuario_id: string;
+  usuario_nombre: string | null;
+  accion: AccionAuditoria;
+  entidad: string;
+  entidad_id: string;
+  campo: string | null;
+  valor_anterior: unknown;
+  valor_nuevo: unknown;
+  lote_id: string | null;
+};
+
+export type ProjectAuditResponse = {
+  historial: ProjectAuditEntry[];
 };
 
 /* ── DTOs: elegibles y catálogos (unidad 2: creación) ──────────────────── */
@@ -117,6 +143,7 @@ export const projectQueryKeys = {
   all: ["projects"] as const,
   list: (filters: ProjectFilters) => ["projects", "list", filters] as const,
   detail: (id: string) => ["projects", "detail", id] as const,
+  audit: (id: string) => ["projects", "audit", id] as const,
   eligibleOpportunities: ["projects", "eligible-opportunities"] as const,
   // Los catálogos viven fuera de `projects` para que invalidar la lista de
   // proyectos no refetchee catálogos que no cambiaron.
@@ -153,6 +180,23 @@ export function useProject(id: string): UseQueryResult<ProjectListRow> {
     queryFn: async () => {
       const res = await apiGet<{ proyecto: ProjectListRow }>(`/api/v1/projects/${id}`);
       return res.proyecto;
+    },
+  });
+}
+
+/**
+ * REQ-AUD-04: historial del proyecto. Cuelga del mismo prefijo `projects` que
+ * la ficha, así que la invalidación de `projectQueryKeys.all` (["projects"])
+ * tras crear o convertir un proyecto también lo refresca. `enabled` repite el
+ * guard de `useProject`: con un id vacío no se dispara la petición.
+ */
+export function useProjectAudit(id: string): UseQueryResult<ProjectAuditEntry[]> {
+  return useQuery({
+    queryKey: projectQueryKeys.audit(id),
+    enabled: id !== "",
+    queryFn: async () => {
+      const res = await apiGet<ProjectAuditResponse>(`/api/v1/projects/${id}/audit`);
+      return res.historial;
     },
   });
 }

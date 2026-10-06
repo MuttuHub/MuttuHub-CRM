@@ -68,7 +68,7 @@ describe("ProjectFichaDialog", () => {
   })
 
   it("renders the loaded ficha fields, the principal line and the municipios", async () => {
-    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ proyecto: PROYECTO })))
+    mockFichaAndAudit({ historial: [] })
 
     renderFicha()
 
@@ -95,10 +95,10 @@ describe("ProjectFichaDialog", () => {
   })
 
   it("omits the difference field when it is null (nothing writes it yet)", async () => {
-    fetchMock.mockImplementation(() =>
-      Promise.resolve(
-        jsonResponse({ proyecto: { ...PROYECTO, diferencia_valor_oportunidad: null } }),
-      ),
+    mockFichaAndAudit(
+      { historial: [] },
+      200,
+      { ...PROYECTO, diferencia_valor_oportunidad: null },
     )
 
     renderFicha()
@@ -146,6 +146,89 @@ describe("ProjectFichaDialog", () => {
 
     await waitFor(() =>
       expect(screen.getByText("El proyecto no existe.")).toBeInTheDocument(),
+    )
+  })
+
+  /* ── Historial (REQ-AUD-04) ─────────────────────────────────────────── */
+
+  // The E-05 conversion writes both rows through one logChanges call: same
+  // lote_id, same transaction instant. The ficha must read them as ONE step.
+  const AUDITORIA = [
+    {
+      id: "aud-convertir",
+      created_at: "2026-10-06T20:39:51.751Z",
+      usuario_id: "u1",
+      usuario_nombre: "Ana Pérez",
+      accion: "CONVERTIR",
+      entidad: "oportunidad",
+      entidad_id: "op-1",
+      campo: null,
+      valor_anterior: { fase: "PROSPECCION", fecha_adjudicacion: null },
+      valor_nuevo: { fase: "EJECUCION" },
+      lote_id: "lote-1",
+    },
+    {
+      id: "aud-crear",
+      created_at: "2026-10-06T20:39:51.751Z",
+      usuario_id: "u1",
+      usuario_nombre: "Ana Pérez",
+      accion: "CREAR",
+      entidad: "proyecto",
+      entidad_id: "p1",
+      campo: null,
+      valor_anterior: null,
+      valor_nuevo: { codigo: "PRY-2026-001", nombre: PROYECTO.nombre, origen: "OPORTUNIDAD" },
+      lote_id: "lote-1",
+    },
+  ]
+
+  function mockFichaAndAudit(auditBody: unknown, auditStatus = 200, proyecto: unknown = PROYECTO) {
+    fetchMock.mockImplementation((input: unknown) => {
+      if (String(input).endsWith("/audit")) {
+        return Promise.resolve(jsonResponse(auditBody, auditStatus))
+      }
+      return Promise.resolve(jsonResponse({ proyecto }))
+    })
+  }
+
+  it("reads the conversion and the creation as one audited step, without raw JSON", async () => {
+    mockFichaAndAudit({ historial: AUDITORIA })
+
+    renderFicha()
+
+    expect(await screen.findByText("Historial")).toBeInTheDocument()
+    await waitFor(() => expect(screen.getAllByTestId("historial-paso")).toHaveLength(1))
+
+    const paso = screen.getByTestId("historial-paso")
+    expect(paso).toHaveTextContent("Conversión")
+    expect(paso).toHaveTextContent("Creación")
+    // The JSON columns are surfaced readably, never dumped raw.
+    expect(paso).toHaveTextContent("Prospección")
+    expect(paso).not.toHaveTextContent("PROSPECCION")
+    expect(paso).not.toHaveTextContent("fecha_adjudicacion")
+  })
+
+  it("shows an empty Historial state when the project has no movements", async () => {
+    mockFichaAndAudit({ historial: [] })
+
+    renderFicha()
+
+    expect(await screen.findByText("Sin movimientos registrados.")).toBeInTheDocument()
+    expect(screen.queryAllByTestId("historial-paso")).toHaveLength(0)
+  })
+
+  it("shows a readable Historial error state without hiding the ficha", async () => {
+    mockFichaAndAudit(
+      { error: "No pudimos cargar el historial del proyecto. Inténtalo de nuevo.", code: "INTERNAL_ERROR" },
+      500,
+    )
+
+    renderFicha()
+
+    expect(await screen.findByText(PROYECTO.nombre)).toBeInTheDocument()
+    const alerta = await screen.findByRole("alert")
+    expect(alerta).toHaveTextContent(
+      "No pudimos cargar el historial del proyecto. Inténtalo de nuevo.",
     )
   })
 })

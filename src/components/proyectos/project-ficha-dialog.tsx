@@ -11,16 +11,27 @@
 
 "use client";
 
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, History } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FieldValue, ToneBadge } from "@/components/crm/shared";
 import {
+  ACCION_AUDITORIA_META,
+  ENTIDAD_AUDITORIA_META,
   ESTADO_PROYECTO_META,
   ORIGEN_PROYECTO_META,
+  agruparHistorial,
+  describeAuditValue,
+  etiquetaCampoAuditoria,
   formatFechaCalendario,
+  formatFechaHora,
 } from "@/components/proyectos/project-display";
-import { useProject, type ProjectListRow } from "@/hooks/projects";
+import {
+  useProject,
+  useProjectAudit,
+  type ProjectAuditEntry,
+  type ProjectListRow,
+} from "@/hooks/projects";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { cn } from "@/lib/utils";
 
@@ -182,8 +193,114 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
             </ul>
           )}
         </section>
+
+        <ProjectHistorial proyectoId={proyecto.id} />
       </div>
     </>
+  );
+}
+
+/* ── Historial (REQ-AUD-04) ────────────────────────────────────────────── */
+
+/**
+ * Historial de cambios del proyecto (solo lectura). La consulta se monta con
+ * la ficha ya cargada y tiene sus propios estados de carga/error/vacío, para
+ * que un fallo del libro no tape el resto de la ficha. No expone ninguna
+ * acción de escritura: el libro es append-only.
+ */
+function ProjectHistorial({ proyectoId }: { proyectoId: string }) {
+  const query = useProjectAudit(proyectoId);
+
+  return (
+    <section data-testid="historial">
+      <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+        <History className="size-3.5" strokeWidth={2} />
+        Historial
+      </h3>
+
+      {query.isError ? (
+        <p role="alert" className="mt-1.5 text-[13px] text-destructivo">
+          {query.error instanceof Error
+            ? query.error.message
+            : "No pudimos cargar el historial. Inténtalo de nuevo."}
+        </p>
+      ) : query.isLoading ? (
+        <HistorialSkeleton />
+      ) : query.data && query.data.length > 0 ? (
+        <HistorialPasos entries={query.data} />
+      ) : (
+        <p className="mt-1.5 text-[13px] text-ink-500">Sin movimientos registrados.</p>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Una operación = un paso. Las filas comparten `lote_id` (y el instante de la
+ * transacción): la conversión de la oportunidad y la creación del proyecto se
+ * leen juntas, que es justamente lo que el módulo promete.
+ */
+function HistorialPasos({ entries }: { entries: ProjectAuditEntry[] }) {
+  return (
+    <ol className="mt-2 flex flex-col gap-3">
+      {agruparHistorial(entries).map((paso) => (
+        <li
+          key={paso.key}
+          data-testid="historial-paso"
+          className="rounded-[14px] border border-ink-200 bg-ink-100 p-3"
+        >
+          <time
+            dateTime={paso.created_at}
+            className="font-mono text-[11px] text-ink-500 tabular-nums"
+          >
+            {formatFechaHora(paso.created_at)}
+          </time>
+          <ul className="mt-2 flex flex-col gap-2.5">
+            {paso.entries.map((entry) => (
+              <HistorialEntrada key={entry.id} entry={entry} />
+            ))}
+          </ul>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function HistorialEntrada({ entry }: { entry: ProjectAuditEntry }) {
+  const anterior = describeAuditValue(entry.valor_anterior);
+  const nuevo = describeAuditValue(entry.valor_nuevo);
+  const campo = entry.campo ? etiquetaCampoAuditoria(entry.campo) : null;
+
+  return (
+    <li className="flex flex-col gap-1">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="rounded-full bg-ink-100 px-2 py-[2px] text-[10.5px] font-bold text-ink-700">
+          {ACCION_AUDITORIA_META[entry.accion]}
+        </span>
+        <span className="text-[11px] font-semibold text-ink-600">
+          {ENTIDAD_AUDITORIA_META[entry.entidad] ?? entry.entidad}
+        </span>
+        <span className="text-[11px] text-ink-500">
+          · {entry.usuario_nombre ?? "Usuario no disponible"}
+        </span>
+      </div>
+      <p className="text-[12.5px] leading-snug text-ink-800">
+        {campo && <span className="font-semibold">{campo}: </span>}
+        {anterior && <span className="text-ink-500 line-through">{anterior}</span>}
+        {anterior && nuevo && <span className="text-ink-500"> → </span>}
+        {nuevo && <span>{nuevo}</span>}
+      </p>
+    </li>
+  );
+}
+
+function HistorialSkeleton() {
+  return (
+    <div className="mt-2 space-y-2">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <Skeleton key={i} className="h-14 w-full rounded-[14px]" />
+      ))}
+    </div>
   );
 }
 

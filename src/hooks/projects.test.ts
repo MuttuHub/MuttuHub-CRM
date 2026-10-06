@@ -10,6 +10,7 @@ import {
   useEligibleOpportunities,
   useMunicipalities,
   useProject,
+  useProjectAudit,
   useProjects,
   useStrategicLines,
   type EligibleOpportunity,
@@ -194,6 +195,73 @@ describe("useProject", () => {
     expect(result.current.error).toBeInstanceOf(ApiError)
     expect((result.current.error as ApiError).message).toBe("No tienes permisos sobre este proyecto.")
     expect((result.current.error as ApiError).status).toBe(403)
+  })
+})
+
+/* ── Historial de cambios (useProjectAudit) ────────────────────────────── */
+
+const AUDITORIA = [
+  {
+    id: "aud-1",
+    created_at: "2026-10-06T20:39:51.751Z",
+    usuario_id: "u1",
+    usuario_nombre: "Ana Pérez",
+    accion: "CONVERTIR",
+    entidad: "oportunidad",
+    entidad_id: "op-1",
+    campo: null,
+    valor_anterior: { fase: "PROSPECCION", fecha_adjudicacion: null },
+    valor_nuevo: { fase: "EJECUCION" },
+    lote_id: "lote-1",
+  },
+  {
+    id: "aud-2",
+    created_at: "2026-10-06T20:39:51.751Z",
+    usuario_id: "u1",
+    usuario_nombre: "Ana Pérez",
+    accion: "CREAR",
+    entidad: "proyecto",
+    entidad_id: "p1",
+    campo: null,
+    valor_anterior: null,
+    valor_nuevo: { codigo: "PRY-2026-001" },
+    lote_id: "lote-1",
+  },
+]
+
+describe("useProjectAudit", () => {
+  const fetchMock = vi.fn()
+
+  beforeEach(() => {
+    fetchMock.mockReset()
+    vi.stubGlobal("fetch", fetchMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it("requests the audit endpoint and returns the historial array", async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ historial: AUDITORIA })))
+
+    const { result } = renderHook(() => useProjectAudit("p1"), { wrapper: createWrapper() })
+
+    await waitFor(() => expect(result.current.data).toEqual(AUDITORIA))
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/audit", expect.any(Object))
+    // El nombre del actor y el lote viajan tal cual; el JSON no se reescribe.
+    expect(result.current.data?.[0].usuario_nombre).toBe("Ana Pérez")
+    expect(result.current.data?.[1].lote_id).toBe("lote-1")
+  })
+
+  it("does not request anything while the id is empty", () => {
+    const { result } = renderHook(() => useProjectAudit(""), { wrapper: createWrapper() })
+
+    expect(result.current.fetchStatus).toBe("idle")
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("namespaces the history under the same `projects` prefix", () => {
+    expect(projectQueryKeys.audit("p1")).toEqual(["projects", "audit", "p1"])
   })
 })
 

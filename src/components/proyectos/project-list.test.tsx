@@ -76,6 +76,11 @@ vi.mock("sonner", () => ({ toast }))
 vi.mock("@/hooks/projects", () => ({
   useProjects: (...args: Parameters<typeof useProjectsMock>) => useProjectsMock(...args),
   useProject: (...args: Parameters<typeof useProjectMock>) => useProjectMock(...args),
+  // Self-contained on purpose: the factory is hoisted, so this entry avoids the
+  // question of which outer bindings are safe to reference (the vi.hoisted
+  // dialogHooks below are the ones that are). The mounted ficha calls this hook,
+  // and here it only has to resolve to an empty history.
+  useProjectAudit: () => ({ data: [], isLoading: false, isError: false, error: null }),
   useEligibleOpportunities: dialogHooks.useEligibleOpportunities,
   useStrategicLines: dialogHooks.useStrategicLines,
   useMunicipalities: dialogHooks.useMunicipalities,

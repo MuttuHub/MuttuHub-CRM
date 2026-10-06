@@ -1,5 +1,6 @@
 // OpenAPI path registrations for /api/v1/projects/* — v2 projects general
-// data (contracts E-02, E-03, E-04 and E-06). Follows the pattern of
+// data (contracts E-02, E-03, E-04 and E-06) plus the project history reader
+// (REQ-AUD-04). Follows the pattern of
 // src/lib/openapi/paths/strategic-lines.ts: read the actual route.ts first,
 // then register exactly what it does — same status codes, same field names,
 // same auth rules. Never invent behavior the route does not have.
@@ -9,7 +10,7 @@
 // value-difference alert (S2.4).
 
 import { z } from "zod";
-import { EstadoProyecto, OrigenProyecto } from "@prisma/client";
+import { AccionAuditoria, EstadoProyecto, OrigenProyecto } from "@prisma/client";
 import { registry, standardErrorResponses } from "@/lib/openapi/registry";
 import { PROJECT_CREATE_SCHEMA } from "@/app/api/v1/projects/route";
 import { PROJECT_PATCH_SCHEMA } from "@/app/api/v1/projects/[id]/route";
@@ -198,6 +199,75 @@ registry.registerPath({
     200: {
       description: "La ficha general del proyecto.",
       content: { "application/json": { schema: z.object({ proyecto: ProjectItemV2Schema }) } },
+    },
+    ...standardErrorResponses([401, 403, 404, 500]),
+  },
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/v1/projects/{id}/audit
+// ---------------------------------------------------------------------------
+
+/**
+ * One row of the append-only change ledger (`auditoria_cambios`). The reader
+ * (`src/lib/api/project-audit.ts`) caps the page and orders it newest-first
+ * with an `id` tiebreaker, because the two rows of one lote share the
+ * transaction's `created_at`.
+ */
+const ProjectAuditEntrySchema = registry.register(
+  "ProjectAuditEntry",
+  z.object({
+    id: z.string().uuid(),
+    created_at: z.string().openapi({
+      description: "Instante transaccional en ISO-8601; dos filas de un mismo lote comparten el valor.",
+      example: "2026-10-06T20:39:51.751Z",
+    }),
+    usuario_id: z.string().openapi({
+      description: "Sin FK a propósito: el libro sobrevive a un usuario eliminado.",
+    }),
+    usuario_nombre: z.string().nullable().openapi({
+      description: "null cuando el usuario ya no existe; el nombre no se inventa ni el read falla.",
+    }),
+    accion: z.enum(AccionAuditoria).openapi({ example: "CONVERTIR" }),
+    entidad: z.string().openapi({ example: "oportunidad" }),
+    entidad_id: z.string(),
+    campo: z.string().nullable().openapi({
+      description: "Campo cambiado; null en operaciones que auditan la operación completa (CREAR, CONVERTIR).",
+    }),
+    valor_anterior: z.unknown().openapi({
+      description: "JSON de la columna, sin reescribir. null cuando no hay valor previo.",
+    }),
+    valor_nuevo: z.unknown().openapi({
+      description: "JSON de la columna, sin reescribir.",
+    }),
+    lote_id: z.string().nullable().openapi({
+      description: "Agrupa las filas de una misma operación; la conversión (CONVERTIR oportunidad) y la creación (CREAR proyecto) comparten uno.",
+    }),
+  }),
+);
+
+registry.registerPath({
+  method: "get",
+  path: "/api/v1/projects/{id}/audit",
+  tags: ["Projects"],
+  summary: "Historial de cambios de un proyecto (P02)",
+  description:
+    "Devuelve el libro de cambios del proyecto, más recientes primero, con un máximo de 100 filas " +
+    "(`PROJECT_AUDIT_LIMIT`): el libro es append-only y crece sin cota. El orden es `created_at` descendente con " +
+    "`id` como desempate, porque en Postgres `now()` es el instante de la transacción y las filas de un mismo " +
+    "`lote_id` pueden compartirlo. Un id desconocido responde 404; un proyecto que existe pero queda fuera del " +
+    "alcance del actor responde 403. El nombre del actor se resuelve en una segunda consulta y llega en `null` " +
+    `cuando el usuario ya no existe. ${SCOPE_NOTE}`,
+  security: [{ sessionCookie: [] }],
+  request: { params: ProjectIdParams },
+  responses: {
+    200: {
+      description: "Historial del proyecto (máximo 100 filas, más recientes primero).",
+      content: {
+        "application/json": {
+          schema: z.object({ historial: z.array(ProjectAuditEntrySchema) }),
+        },
+      },
     },
     ...standardErrorResponses([401, 403, 404, 500]),
   },
