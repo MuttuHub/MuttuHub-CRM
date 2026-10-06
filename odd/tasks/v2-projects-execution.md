@@ -739,26 +739,49 @@ badly, the cut order is: the UI's creation dialog first (fall back to creating v
    Then `inspect` and START the slice with `{"mode":"ordinary","baseRef":"<slice base>","committedOnly":true}` —
    `inspect` keeps offering the **branch-wide** candidate by default, which is *not* what this project reviews, and
    **never retry** the stranded `review-5a50cbc2ef8376c2`.
-   **S1.1a's review is already closed** (session 8: `approved`, authority burned, lineage `review-eea4c3aa7621c16c`), and
-   **S0.1 closed on 2026-10-02, so the S0 phase is complete**; **S1.2 closed the same day**. Next units: **S1.3**
-   (municipios, gate N-21 = curated/admin-extendable) and **S1.4** (semáforo params, gate DP-04 = provisional values),
-   in that order; **S1.1b stays deferred until S5.1** creates `lineas_presupuestales`, and the catalogs admin UI is one
-   recorded later unit covering rubros + líneas + municipios together; the three unstrengthened assertions (v) and the
-   advisory findings R3-1/R3-2 remain as later work.
-   Note also that the **consent dialog expires after 10 minutes** and the **option 3 permission dies with a Pi restart**,
-   so warn the human before issuing START.
-1. `mem_context` for the session summary, then read this document and `odd/tasks/v2-projects-sdd.md`.
-2. `git switch feat/projects-v2` — **the rebase is already done.** The branch is 0 behind `main` (`6bee83f`) with
-   tip `5f4e4a8`, and its baseline is verified green (session 2 above). Do **not** rebase again unless `main`
-   moved; do not recreate the old cherry-pick.
-3. ~~**Decide `CLAUDE.md` first**~~ **Done 2026-10-01**: committed alone as `bd7cc00 docs(claude): document the local-vs-remote env rule`.
-4. ~~Next task: **S0.6**~~ **Done 2026-10-01** (see session 3 above). Next task is **S0.7** (project permission predicates); its gate is resolved (D-09: GERENCIA + ADMINISTRADOR only).
-5. ~~Before **S0.7** (permissions), confirm with the PO **who creates projects**~~ **Resolved 2026-10-01 by the user**: GERENCIA + ADMINISTRADOR. Do not introduce a GESTOR role and do not put COORDINADOR into project management.
-6. Optional, preserves real value: re-open the closed #55 content as a small PR —
-   `scripts/cleanup-seed-cloud.ts` (141 lines) and `DIAGNOSTICO-SEED-CLOUD.md` (103 lines).
+   **Every unit of the Friday sprint is now closed** (rows 1–9 above), each one independently verified and natively
+   reviewed with its authority burned, so there is no "next unit" to pick up: the remaining work is the final
+   rehearsal, one hygiene fix and the advisory backlog, all listed in the resume path below. Deferred from earlier and
+   still true: **S1.1b waits on S5.1** (`lineas_presupuestales`); the catalogs admin UI is one later unit covering
+   rubros + líneas + municipios together; and the three unstrengthened assertions (v) plus the advisory findings
+   R3-1/R3-2 remain later work.
+   Two review-policy facts learned the hard way on 2026-10-06: the **consent dialog expires after 10 minutes** (a stale
+   binding comes back as `consent-binding-expired` with `lineage_created: false` and burns nothing — just START again
+   with a fresh `idempotencyKey`), and the **option 3 permission dies with a Pi restart**, so warn the human before
+   issuing START. `inspect` always offers the **branch-wide** candidate, which this project never reviews: re-frame it
+   to the slice of the new material, and remember that a slice whose only new material is a passive **docs** commit is
+   deliberately exempted rather than spending a lineage (see `env/rdd-docs-only-exemption-policy` in memory).
+1. `mem_context` for the session summary, then read this document and `odd/tasks/v2-projects-sdd.md`. The unit-by-unit
+   receipts, the environment traps and the review policy live in memory (project `muttuhub-crm`) under these topic keys:
+   `v2-projects/demo-reset-unit`, `v2-projects/demo-rehearsal-e2e-spec`, `v2-projects/ui-unit-3-project-ficha`,
+   `v2-projects/ui-unit-4-project-audit-history`, `v2-projects/detail-and-audit-plan`,
+   `env/rdd-docs-only-exemption-policy` and `env/native-review-slice-vs-untracked-selection`.
+2. `git switch feat/projects-v2` — the rebase is long done (0 behind `main` at `6bee83f`); never rebase again unless
+   `main` moved, and never recreate the old cherry-pick. **Tip at close of 2026-10-06: `b949579`, 18 commits ahead of
+   `origin/feat/projects-v2`, working tree clean.** The push is the human's, over HTTPS from home; do not switch the
+   remote to SSH.
+3. **Every unit of the Friday sprint is delivered** (rows 1–9 above), each independently verified and natively reviewed
+   with authority burned. What remains before Friday is not a new unit:
+   - **the final rehearsal**, in this order: `npm run db:demo:reset:local` (dry run, read the plan) →
+     `npm run db:demo:reset:local -- --apply` → dev server up (see the environment risk above if it was started on
+     Windows) → `PLAYWRIGHT_BASE_URL=http://$(ip route show default | awk '{print $3}'):3000 npx playwright test
+     e2e/proyectos-demo.spec.ts` → **copy the video out of `test-results/`**, because the next run overwrites it (a
+     copy from 2026-10-06 lives at `~/muttu-demo/`).
+   - **the `formatFecha` hygiene fix** (`src/hooks/crm.ts:759-768` shifts `@db.Date` columns by one day under
+     `America/Bogota`; fix it **per column**, never globally — the projects UI already uses its own UTC calendar
+     formatter for exactly this reason).
+   - **the consolidated advisory backlog** in *Open items / risks*: separate later work by every reviewer's own
+     disposition, never a reason to re-run a review.
+4. **Out of scope for Friday, decided and reasoned** — do not start these before the demo: **S2.4** (blocked by N-17
+   and it would reopen the already-approved creation route), **S4/S1.4** (the semáforo needs S3's activities and
+   deliverables first), **S2.6/S2.7** (they depend on membership and gerencial-visibility tables that do not exist in
+   this branch).
+5. Optional, preserves real value: re-open the closed #55 content as a small PR — `scripts/cleanup-seed-cloud.ts`
+   (141 lines) and `DIAGNOSTICO-SEED-CLOUD.md` (103 lines).
 
 **Backup ref:** `backup/pre-rebase-feat-projects-v2-20260930` → `97e08be` (the pre-rebase branch state). Delete it
 once the rebase is trusted.
 
-**"Starting v2 from scratch" means a fresh session, not discarding work.** Abandoning the v1 module was the
-scratch decision, and it is done; `S0.4` and `S0.5` are committed and verified. v2 resumes at `S0.6`.
+**"Starting v2 from scratch" means a fresh session, not discarding work.** Abandoning the v1 module was the scratch
+decision and it is done. The Friday demo path is complete and rehearsed: resume by re-reading the sprint plan and the
+backlog, not by opening a new unit.
