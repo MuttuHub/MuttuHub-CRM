@@ -106,6 +106,24 @@ docker exec supabase_db_MUTTU_HUB psql -U postgres -d postgres \
 - Historial de accesos de los 4 usuarios demo (para que la tabla de
   Administración no arranque vacía).
 
+### 1.5. Reiniciar la demo antes de cada ensayo
+
+La demo crea un proyecto a partir de una oportunidad `GANADA`, y `PRY-2026-001`
+es un recurso que se consume: solo hay dos oportunidades `GANADA`, así que cada
+ensayo necesita volver al estado inicial.
+
+```bash
+npm run db:demo:reset:local            # ensayo en seco: muestra el plan, no escribe nada
+npm run db:demo:reset:local -- --apply # aplica el plan, todo en una sola transacción
+```
+
+El reset borra los proyectos que todavía están en `BORRADOR` (con sus líneas y
+municipios) y la fila de `proyecto_secuencias` de los años que quedan sin
+proyectos, y devuelve a `PROSPECCION` las oportunidades convertidas. Un proyecto
+que ya salió de `BORRADOR` no se toca: solo se reporta con el motivo. Corre
+únicamente contra una base local (loopback) y nunca toca `auditoria_cambios`.
+Cada ensayo: primero el ensayo en seco, y recién después `--apply`.
+
 ---
 
 ## 2. Guion sugerido por bloque de funcionalidad
