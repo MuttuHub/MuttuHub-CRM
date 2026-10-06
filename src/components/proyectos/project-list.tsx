@@ -15,7 +15,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { FolderKanban, Plus } from "lucide-react";
+import { Eye, FolderKanban, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,22 +36,16 @@ import {
 } from "@/components/ui/table";
 import { ResponsableCell, ToneBadge } from "@/components/crm/shared";
 import { ProjectCreateDialog } from "@/components/proyectos/project-create-dialog";
+import {
+  ESTADO_PROYECTO_META,
+  formatFechaCalendario,
+} from "@/components/proyectos/project-display";
+import { ProjectFichaDialog } from "@/components/proyectos/project-ficha-dialog";
 import { useCurrentUser } from "@/hooks/kanban";
 import { useProjects, type ProjectFilters, type ProjectListRow } from "@/hooks/projects";
-import type { UiTone } from "@/lib/catalogs";
 import { canCreateProject, canViewPortfolio } from "@/lib/permissions";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import type { EstadoProyecto } from "@prisma/client";
-
-/** Etiqueta y tono de cada estado; aún no viven en src/lib/catalogs.ts. */
-const ESTADO_PROYECTO_META: Record<EstadoProyecto, { label: string; tone: UiTone }> = {
-  PLANIFICACION: { label: "Planificación", tone: "info" },
-  BORRADOR: { label: "Borrador", tone: "neutro" },
-  EN_EJECUCION: { label: "En ejecución", tone: "activo" },
-  SUSPENDIDO: { label: "Suspendido", tone: "alerta" },
-  CERRADO: { label: "Cerrado", tone: "exito" },
-  CANCELADO: { label: "Cancelado", tone: "destructivo" },
-};
 
 /** Orden de la lista del filtro: el mismo del enum `EstadoProyecto`. */
 const ESTADOS: EstadoProyecto[] = [
@@ -64,44 +58,6 @@ const ESTADOS: EstadoProyecto[] = [
 ];
 
 const SIN_DATO = "—";
-
-/**
- * `fecha_inicio`/`fecha_fin` son fechas de calendario (`YYYY-MM-DD`), no
- * instantes: `new Date("2026-01-05")` las lee como medianoche UTC y en
- * Colombia (UTC-5) mostrarían el día anterior. Por eso se arma la fecha en UTC
- * y se formatea en UTC — nunca con una conversión local, que es el error que
- * esta función existe para evitar. Un `Date` (columna `@db.Date` leída por el
- * driver) usa también sus componentes UTC. Exportada para sus pruebas.
- */
-export function formatFechaCalendario(value: string | Date | null | undefined): string {
-  if (value === null || value === undefined) return SIN_DATO;
-
-  let fecha: Date;
-  if (value instanceof Date) {
-    fecha = value;
-  } else {
-    const [year, month, day] = value.split("-").map(Number);
-    if (!year || !month || !day) return SIN_DATO;
-    fecha = new Date(Date.UTC(year, month - 1, day));
-    // Descarta días imposibles ("2026-02-30") en vez de dejar que Date los
-    // desborde al mes siguiente y muestre una fecha que no existe.
-    if (
-      fecha.getUTCFullYear() !== year ||
-      fecha.getUTCMonth() !== month - 1 ||
-      fecha.getUTCDate() !== day
-    ) {
-      return SIN_DATO;
-    }
-  }
-  if (Number.isNaN(fecha.getTime())) return SIN_DATO;
-
-  return fecha.toLocaleDateString("es-CO", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
 
 function formatRango(inicio: string | null, fin: string | null): string {
   return `${formatFechaCalendario(inicio)} – ${formatFechaCalendario(fin)}`;
@@ -116,6 +72,8 @@ export function ProjectList() {
   const [estado, setEstado] = useState("");
   // El diálogo se monta solo al abrir: así no se piden catálogos al cargar.
   const [crearAbierto, setCrearAbierto] = useState(false);
+  // La ficha del proyecto también se monta solo al abrir, con el id de la fila.
+  const [fichaId, setFichaId] = useState<string | null>(null);
   // El filtro viaja como query param: estado vacío = sin filtro.
   const filters = useMemo<ProjectFilters>(() => (estado ? { estado } : {}), [estado]);
   const query = useProjects(filters);
@@ -194,12 +152,16 @@ export function ProjectList() {
         ) : proyectos.length === 0 ? (
           <EmptyProjects estado={estado} puedeVerPortafolio={puedeVerPortafolio} />
         ) : (
-          <ProjectTable proyectos={proyectos} />
+          <ProjectTable proyectos={proyectos} onOpenFicha={setFichaId} />
         )}
       </section>
 
       {crearAbierto && (
         <ProjectCreateDialog open onOpenChange={setCrearAbierto} />
+      )}
+
+      {fichaId !== null && (
+        <ProjectFichaDialog projectId={fichaId} onClose={() => setFichaId(null)} />
       )}
     </div>
   );
@@ -207,7 +169,13 @@ export function ProjectList() {
 
 /* ── Tabla ─────────────────────────────────────────────────────────────── */
 
-function ProjectTable({ proyectos }: { proyectos: ProjectListRow[] }) {
+function ProjectTable({
+  proyectos,
+  onOpenFicha,
+}: {
+  proyectos: ProjectListRow[];
+  onOpenFicha: (id: string) => void;
+}) {
   return (
     <Table className="min-w-[1020px]">
       <TableHeader>
@@ -219,6 +187,7 @@ function ProjectTable({ proyectos }: { proyectos: ProjectListRow[] }) {
           <TableHead>Responsable</TableHead>
           <TableHead>Fechas</TableHead>
           <TableHead className="text-right">Valor total</TableHead>
+          <TableHead className="text-right">Acciones</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -257,6 +226,17 @@ function ProjectTable({ proyectos }: { proyectos: ProjectListRow[] }) {
             </TableCell>
             <TableCell className="text-right font-mono text-[12.5px] font-medium text-ink-900 tabular-nums">
               {formatValorTotal(proyecto.valor_total)}
+            </TableCell>
+            <TableCell className="text-right">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onOpenFicha(proyecto.id)}
+                className="h-8 rounded-11 border-ink-200 bg-panel px-3 text-[12px] font-semibold text-ink-700 hover:bg-ink-100"
+              >
+                <Eye className="size-3.5" strokeWidth={1.8} />
+                Ver detalle
+              </Button>
             </TableCell>
           </TableRow>
         ))}

@@ -1,9 +1,10 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type { ProjectFilters, ProjectListResponse, ProjectListRow } from "@/hooks/projects"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ApiError } from "@/lib/api/http"
-import { ProjectList, formatFechaCalendario } from "./project-list"
+import { ProjectList } from "./project-list"
+import { formatFechaCalendario } from "./project-display"
 
 type ProjectsQueryState = {
   isLoading: boolean
@@ -13,14 +14,23 @@ type ProjectsQueryState = {
   refetch: ReturnType<typeof vi.fn>
 }
 
+type FichaQueryState = {
+  isLoading: boolean
+  isError: boolean
+  error: unknown
+  data: ProjectListRow | undefined
+}
+
 type UsuarioActual = { id: string; nombre: string; rol: string }
 type CurrentUserState = { data: UsuarioActual | null }
 
 const {
   toast,
   useProjectsMock,
+  useProjectMock,
   useCurrentUserMock,
   projectsQuery,
+  fichaQuery,
   userQuery,
   dialogHooks,
 } = vi.hoisted(() => {
@@ -31,13 +41,21 @@ const {
     data: undefined,
     refetch: vi.fn(),
   }
+  const fichaQuery: FichaQueryState = {
+    isLoading: false,
+    isError: false,
+    error: null,
+    data: undefined,
+  }
   const userQuery: CurrentUserState = { data: null }
   const queryState = { data: [], isLoading: false, isError: false }
   return {
     toast: { error: vi.fn(), success: vi.fn() },
     useProjectsMock: vi.fn<(filters: ProjectFilters) => ProjectsQueryState>(() => projectsQuery),
+    useProjectMock: vi.fn<(id: string) => FichaQueryState>(() => fichaQuery),
     useCurrentUserMock: vi.fn<() => CurrentUserState>(() => userQuery),
     projectsQuery,
+    fichaQuery,
     userQuery,
     // El diálogo importa estos hooks; con ellos burlados el listado se prueba
     // sin QueryClientProvider ni fetch real.
@@ -57,6 +75,7 @@ vi.mock("sonner", () => ({ toast }))
 
 vi.mock("@/hooks/projects", () => ({
   useProjects: (...args: Parameters<typeof useProjectsMock>) => useProjectsMock(...args),
+  useProject: (...args: Parameters<typeof useProjectMock>) => useProjectMock(...args),
   useEligibleOpportunities: dialogHooks.useEligibleOpportunities,
   useStrategicLines: dialogHooks.useStrategicLines,
   useMunicipalities: dialogHooks.useMunicipalities,
@@ -109,6 +128,7 @@ describe("ProjectList", () => {
     toast.error.mockClear()
     toast.success.mockClear()
     useProjectsMock.mockClear()
+    useProjectMock.mockClear()
     useCurrentUserMock.mockClear()
     projectsQuery.isLoading = false
     projectsQuery.isError = false
@@ -116,6 +136,11 @@ describe("ProjectList", () => {
     projectsQuery.data = EMPTY
     projectsQuery.refetch.mockClear()
     useProjectsMock.mockReturnValue(projectsQuery)
+    fichaQuery.isLoading = false
+    fichaQuery.isError = false
+    fichaQuery.error = null
+    fichaQuery.data = PROYECTO
+    useProjectMock.mockReturnValue(fichaQuery)
     userQuery.data = { id: "u1", nombre: "Ana Pérez", rol: "ADMINISTRADOR" }
     useCurrentUserMock.mockReturnValue(userQuery)
   })
@@ -317,6 +342,20 @@ describe("ProjectList", () => {
     await user.click(screen.getByRole("button", { name: "Nuevo proyecto" }))
 
     expect(await screen.findByRole("dialog")).toBeInTheDocument()
+  })
+
+  it("opens the ficha for the row's project from 'Ver detalle'", async () => {
+    const user = userEvent.setup()
+    projectsQuery.data = { proyectos: [PROYECTO] }
+
+    render(<ProjectList />)
+    await user.click(screen.getByRole("button", { name: /Ver detalle/ }))
+
+    // La petición es por el id de la fila, no por un id fijo.
+    expect(useProjectMock).toHaveBeenCalledWith("p1")
+    const ficha = await screen.findByRole("dialog")
+    expect(within(ficha).getByText("PRY-2026-001")).toBeInTheDocument()
+    expect(within(ficha).getByText(PROYECTO.nombre)).toBeInTheDocument()
   })
 })
 

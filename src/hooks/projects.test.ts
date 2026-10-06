@@ -9,6 +9,7 @@ import {
   useCreateProjectFromOpportunity,
   useEligibleOpportunities,
   useMunicipalities,
+  useProject,
   useProjects,
   useStrategicLines,
   type EligibleOpportunity,
@@ -142,6 +143,57 @@ describe("useProjects", () => {
     const filters = { estado: "BORRADOR" }
     expect(projectQueryKeys.all).toEqual(["projects"])
     expect(projectQueryKeys.list(filters)).toEqual(["projects", "list", filters])
+  })
+})
+
+/* ── Unidad 3: ficha de solo lectura (useProject) ──────────────────────── */
+
+describe("useProject", () => {
+  const fetchMock = vi.fn()
+
+  beforeEach(() => {
+    fetchMock.mockReset()
+    vi.stubGlobal("fetch", fetchMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it("requests the ficha endpoint and returns the detail DTO untouched", async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ proyecto: PROYECTO })))
+
+    const { result } = renderHook(() => useProject("p1"), { wrapper: createWrapper() })
+
+    await waitFor(() => expect(result.current.data).toEqual(PROYECTO))
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1", expect.any(Object))
+    // Decimales como string, igual que en la lista.
+    expect(result.current.data?.valor_total).toBe("180000000.00")
+  })
+
+  it("does not request anything while the id is empty", () => {
+    const { result } = renderHook(() => useProject(""), { wrapper: createWrapper() })
+
+    expect(result.current.fetchStatus).toBe("idle")
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("surfaces a 403 envelope as an ApiError so the dialog can read it", async () => {
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        jsonResponse(
+          { error: "No tienes permisos sobre este proyecto.", code: "FORBIDDEN" },
+          403,
+        ),
+      ),
+    )
+
+    const { result } = renderHook(() => useProject("p1"), { wrapper: createWrapper() })
+
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(result.current.error).toBeInstanceOf(ApiError)
+    expect((result.current.error as ApiError).message).toBe("No tienes permisos sobre este proyecto.")
+    expect((result.current.error as ApiError).status).toBe(403)
   })
 })
 

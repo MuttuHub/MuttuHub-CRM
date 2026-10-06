@@ -140,6 +140,23 @@ export function useProjects(filters: ProjectFilters): UseQueryResult<ProjectList
   });
 }
 
+/**
+ * E-06: ficha de un solo proyecto. La respuesta es el mismo `ProjectItemV2`
+ * que la lista (`GET /api/v1/projects/:id` → `{ proyecto }`), así que el DTO
+ * reutilizado es `ProjectListRow` y no se declara una copia. `enabled` evita
+ * disparar la petición con un id vacío (409/404 evitables desde el cliente).
+ */
+export function useProject(id: string): UseQueryResult<ProjectListRow> {
+  return useQuery({
+    queryKey: projectQueryKeys.detail(id),
+    enabled: id !== "",
+    queryFn: async () => {
+      const res = await apiGet<{ proyecto: ProjectListRow }>(`/api/v1/projects/${id}`);
+      return res.proyecto;
+    },
+  });
+}
+
 /* ── Queries: elegibles y catálogos ────────────────────────────────────── */
 
 /** E-04: oportunidades GANADA sin proyecto, para el paso de origen del form. */
