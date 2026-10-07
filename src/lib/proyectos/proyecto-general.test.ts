@@ -14,7 +14,7 @@ vi.mock("./weeks", async (importOriginal) => {
   return { ...actual, durationWeeks: vi.fn(actual.durationWeeks) };
 });
 
-import { duracionProyecto, isoDate, validarLineas } from "./proyecto-general";
+import { duracionProyecto, isoDate, miembrosInicialesProyecto, validarLineas } from "./proyecto-general";
 import { durationWeeks } from "./weeks";
 
 beforeEach(() => {
@@ -71,6 +71,27 @@ describe("validarLineas", () => {
     if (!result.ok) {
       expect(result.message).toBe("No repitas la misma línea estratégica.");
     }
+  });
+});
+
+describe("miembrosInicialesProyecto", () => {
+  it("always includes the responsable as the first member", () => {
+    expect(miembrosInicialesProyecto("user-2", [])).toEqual(["user-2"]);
+  });
+
+  it("keeps the requested members in order after the responsable", () => {
+    expect(miembrosInicialesProyecto("user-2", ["coord-9", "coord-10"])).toEqual([
+      "user-2",
+      "coord-9",
+      "coord-10",
+    ]);
+  });
+
+  it("collapses a miembro_ids entry that names the responsable (ADR-09)", () => {
+    expect(miembrosInicialesProyecto("user-2", ["user-2", "coord-9", "user-2"])).toEqual([
+      "user-2",
+      "coord-9",
+    ]);
   });
 });
 

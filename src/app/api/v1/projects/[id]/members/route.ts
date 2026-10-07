@@ -25,6 +25,7 @@ import { requireApiUser } from "@/lib/supabase/server";
 import { canManageProjects } from "@/lib/permissions";
 import { logChange } from "@/lib/api/audit-cambios";
 import {
+  MIEMBRO_NOT_COORDINADOR_MESSAGE,
   PROYECTO_MIEMBRO_SELECT,
   canReadProject,
   loadProjectScoped,
@@ -39,10 +40,6 @@ type RouteContext = { params: Promise<{ id: string }> };
 export const MIEMBRO_CREATE_SCHEMA = z.object({
   usuario_id: z.string().min(1, "El usuario no es válido."),
 });
-
-/** Message the SDD's REQ-ACC-07 scenario quotes for a non-COORDINADOR target. */
-const NOT_COORDINADOR_MESSAGE =
-  "Solo un Coordinador puede ser integrante del equipo del proyecto.";
 
 export const GET = withApiErrorHandling(
   "projects",
@@ -127,7 +124,7 @@ export const POST = withApiErrorHandling(
       return apiError("El usuario no existe o está inactivo.", 400, "VALIDATION_ERROR");
     }
     if (usuario.rol !== "COORDINADOR") {
-      return apiError(NOT_COORDINADOR_MESSAGE, 400, "VALIDATION_ERROR");
+      return apiError(MIEMBRO_NOT_COORDINADOR_MESSAGE, 400, "VALIDATION_ERROR");
     }
 
     try {

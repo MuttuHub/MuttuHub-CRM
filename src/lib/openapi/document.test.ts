@@ -38,6 +38,18 @@ describe("buildOpenApiDocument", () => {
     expect(create?.post).toBeDefined()
     expect(Object.keys(create?.post?.responses ?? {})).toEqual(expect.arrayContaining(["201"]))
 
+    // E-03 carries cliente_id in the body (E-05 derives it from the URL) and,
+    // since S2.6 T4, accepts the initial team.
+    const createBodySchema = create?.post?.requestBody as
+      | { content?: Record<string, { schema?: Record<string, unknown> }> }
+      | undefined
+    const createProperties =
+      (createBodySchema?.content?.["application/json"]?.schema as
+        | { properties?: Record<string, unknown> }
+        | undefined)?.properties ?? {}
+    expect(Object.keys(createProperties)).toContain("cliente_id")
+    expect(Object.keys(createProperties)).toContain("miembro_ids")
+
     // E-04: GET /api/v1/projects/eligible-opportunities -> 200 { oportunidades }.
     const eligible = paths["/api/v1/projects/eligible-opportunities"]
     expect(eligible?.get).toBeDefined()
@@ -61,6 +73,8 @@ describe("buildOpenApiDocument", () => {
       (bodySchema as { properties?: Record<string, unknown> })?.properties ?? {}
     expect(Object.keys(properties)).toContain("responsable_id")
     expect(Object.keys(properties)).not.toContain("cliente_id")
+    // S2.6 T4: E-05 shares the E-03 base, so it also accepts the initial team.
+    expect(Object.keys(properties)).toContain("miembro_ids")
 
     // P02 history reader: GET /api/v1/projects/{id}/audit -> 200 { historial },
     // with the same existence/visibility gate as the detail route.

@@ -6,9 +6,12 @@
 // El cuerpo que se envía NUNCA incluye `codigo`, `estado`, `oportunidad_id`,
 // `cliente_id` (en el camino de oportunidad), `deleted_at`,
 // `umbrales_override`, `programacion_pendiente`,
-// `diferencia_valor_oportunidad`, `alertas` ni `miembro_ids`: el servidor
-// responde 400 si llegan y varias de esas columnas son derivadas o de otra
-// unidad. La alerta de diferencia de valor (S2.4) no se implementa aquí.
+// `diferencia_valor_oportunidad` ni `alertas`: el servidor responde 400 si
+// llegan y varias de esas columnas son derivadas o de otra unidad. Tampoco
+// incluye `miembro_ids`: el equipo inicial se compone después de crear el
+// proyecto (pestaña de equipo), no en este diálogo, aunque el endpoint de
+// creación ya acepte el campo y valide a los COORDINADORES activos. La alerta
+// de diferencia de valor (S2.4) no se implementa aquí.
 
 "use client";
 

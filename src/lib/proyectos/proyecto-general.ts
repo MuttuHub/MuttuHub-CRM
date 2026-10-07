@@ -50,6 +50,20 @@ export function duracionProyecto(
 }
 
 /**
+ * Initial team of a project being created: the responsable is always a member
+ * (ADR-09), and a `miembro_ids` entry that names them collapses into that one
+ * membership. Repeated ids collapse too, in first-seen order, so the partial
+ * unique index `proyecto_miembros_activo_uq` is never asked to reject a request
+ * the contract considers valid.
+ */
+export function miembrosInicialesProyecto(
+  responsableId: string,
+  miembroIds: readonly string[] = [],
+): string[] {
+  return [...new Set([responsableId, ...miembroIds])];
+}
+
+/**
  * REQ-CAT-03: at least one line, exactly one principal. A repeated line is
  * refused here too because the `(proyecto_id, linea_id)` primary key would
  * otherwise fail the whole transaction with a raw P2002.

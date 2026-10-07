@@ -197,7 +197,7 @@ describe("project creation flow (live DB, forced rollback)", () => {
     expect(result.proyectoId).toBeTruthy();
   });
 
-  it("creating from a GANADA opportunity converts it and audits CONVERTIR + CREAR with the same lote_id", async () => {
+  it("creating from a GANADA opportunity converts it and audits the conversion + creation in one lote and the team in its own", async () => {
     const result = await runAndRollback(async (tx) => {
       const { suffix, usuario, cliente, linea, municipio } = await seedFixture(tx);
       const oportunidad = await tx.oportunidad.create({
@@ -244,15 +244,37 @@ describe("project creation flow (live DB, forced rollback)", () => {
       expect(converted?.fase).toBe("EJECUCION");
       expect(converted?.fecha_adjudicacion).not.toBeNull();
 
+      // Two acts -> two lote_ids: the CONVERTIR + CREAR conversion batch keeps
+      // ONE lote (that is what the ficha groups into a single step), and the
+      // responsable's membership is its own step with its own lote, so the
+      // conversion step renders exactly one "Creación" badge.
       const auditRows = await tx.auditoriaCambio.findMany({
         where: { proyecto_id: proyecto.id },
-        orderBy: { accion: "asc" },
       });
-      expect(auditRows).toHaveLength(2);
-      expect(auditRows.map((row) => row.accion).sort()).toEqual(["CONVERTIR", "CREAR"]);
-      const loteIds = new Set(auditRows.map((row) => row.lote_id));
-      expect(loteIds.size).toBe(1);
-      expect([...loteIds][0]).toBeTruthy();
+      expect(auditRows).toHaveLength(3);
+
+      const conversion = auditRows.filter((row) => row.entidad !== "proyecto_miembro");
+      expect(conversion.map((row) => `${row.accion}:${row.entidad}`).sort()).toEqual([
+        "CONVERTIR:oportunidad",
+        "CREAR:proyecto",
+      ]);
+      const loteConversion = new Set(conversion.map((row) => row.lote_id));
+      expect(loteConversion.size).toBe(1);
+      expect([...loteConversion][0]).toBeTruthy();
+
+      const equipo = auditRows.filter((row) => row.entidad === "proyecto_miembro");
+      expect(equipo).toHaveLength(1);
+      expect(equipo[0]).toMatchObject({
+        accion: "CREAR",
+        entidad: "proyecto_miembro",
+        usuario_id: usuario.id,
+      });
+      expect(equipo[0]!.lote_id).toBeTruthy();
+      expect(equipo[0]!.lote_id).not.toBe([...loteConversion][0]);
+      const membership = await tx.proyectoMiembro.findFirst({
+        where: { proyecto_id: proyecto.id, usuario_id: usuario.id },
+      });
+      expect(equipo[0]!.entidad_id).toBe(membership!.id);
 
       // E-04 after the conversion: the opportunity now has a project and must
       // no longer be eligible.
@@ -340,5 +362,277 @@ describe("project creation flow (live DB, forced rollback)", () => {
     expect(await prisma.auditoriaCambio.count({ where: { entidad_id: createdId } })).toBe(0);
     const sequenceAfter = await prisma.proyectoSecuencia.findUnique({ where: { anio: year } });
     expect(sequenceAfter).toEqual(sequenceBefore);
+  });
+});
+
+describe("membership on creation (S2.6 T4, live DB, forced rollback)", () => {
+  function createBody(
+    suffix: string,
+    clienteId: string,
+    lineaId: string,
+    municipioId: string,
+    responsableId: string,
+    extra: Record<string, unknown> = {},
+  ) {
+    return {
+      nombre: `flow-miembro-${suffix}`,
+      cliente_id: clienteId,
+      responsable_id: responsableId,
+      lineas: [{ id: lineaId, principal: true }],
+      municipio_ids: [municipioId],
+      fecha_inicio: "2026-01-05",
+      fecha_fin: "2026-03-30",
+      ...extra,
+    };
+  }
+
+  it("E-05 adds the responsable as an ACTIVE membership row", async () => {
+    const result = await runAndRollback(async (tx) => {
+      const { suffix, usuario, cliente, linea, municipio } = await seedFixture(tx);
+      const oportunidad = await tx.oportunidad.create({
+        data: { cliente_id: cliente.id, nombre: `flow-opp-${suffix}`, estado: "GANADA" },
+      });
+      authAs(usuario.id);
+
+      const res = await createFromOpportunity(
+        jsonRequest(
+          `http://localhost/api/v1/clients/${cliente.id}/opportunities/${oportunidad.id}/project`,
+          "POST",
+          {
+            responsable_id: usuario.id,
+            lineas: [{ id: linea.id, principal: true }],
+            municipio_ids: [municipio.id],
+            fecha_inicio: "2026-01-05",
+            fecha_fin: "2026-03-30",
+          },
+        ),
+        { params: Promise.resolve({ id: cliente.id, opportunityId: oportunidad.id }) },
+      );
+      expect(res.status).toBe(201);
+      const { proyecto } = await res.json();
+
+      // Persisted row, not the returned payload.
+      const miembros = await tx.proyectoMiembro.findMany({
+        where: { proyecto_id: proyecto.id },
+      });
+      expect(miembros).toHaveLength(1);
+      expect(miembros[0]).toMatchObject({
+        usuario_id: usuario.id,
+        agregado_por_id: usuario.id,
+        removed_at: null,
+      });
+      return { miembroId: miembros[0]!.id as string };
+    });
+
+    expect(result.miembroId).toBeTruthy();
+  });
+
+  it("E-03 adds the responsable as an ACTIVE membership row", async () => {
+    const result = await runAndRollback(async (tx) => {
+      const { suffix, usuario, cliente, linea, municipio } = await seedFixture(tx);
+      authAs(usuario.id);
+
+      const res = await createProject(
+        jsonRequest(
+          "http://localhost/api/v1/projects",
+          "POST",
+          createBody(suffix, cliente.id, linea.id, municipio.id, usuario.id),
+        ),
+      );
+      expect(res.status).toBe(201);
+      const { proyecto } = await res.json();
+
+      const miembros = await tx.proyectoMiembro.findMany({
+        where: { proyecto_id: proyecto.id },
+      });
+      expect(miembros).toHaveLength(1);
+      expect(miembros[0]).toMatchObject({
+        usuario_id: usuario.id,
+        agregado_por_id: usuario.id,
+        removed_at: null,
+      });
+
+      // The team is its own audited act: one CREAR proyecto_miembro row with
+      // its own lote, distinct from the project's CREAR row.
+      const auditRows = await tx.auditoriaCambio.findMany({
+        where: { proyecto_id: proyecto.id },
+      });
+      const proyectoAudit = auditRows.filter((row) => row.entidad === "proyecto");
+      const equipoAudit = auditRows.filter((row) => row.entidad === "proyecto_miembro");
+      expect(proyectoAudit).toHaveLength(1);
+      expect(equipoAudit).toHaveLength(1);
+      expect(equipoAudit[0]).toMatchObject({
+        accion: "CREAR",
+        usuario_id: usuario.id,
+        entidad_id: miembros[0]!.id,
+      });
+      expect(equipoAudit[0]!.lote_id).not.toBe(proyectoAudit[0]!.lote_id);
+
+      return { miembroId: miembros[0]!.id as string };
+    });
+
+    expect(result.miembroId).toBeTruthy();
+  });
+
+  it("honours miembro_ids: a supplied active COORDINADOR ends up as an active member", async () => {
+    const result = await runAndRollback(async (tx) => {
+      const { suffix, usuario, cliente, linea, municipio } = await seedFixture(tx);
+      const coordinador = await tx.usuario.create({
+        data: {
+          email: `coord-${suffix}@example.test`,
+          nombre: "coord-miembro",
+          rol: "COORDINADOR",
+        },
+      });
+      authAs(usuario.id);
+
+      const res = await createProject(
+        jsonRequest(
+          "http://localhost/api/v1/projects",
+          "POST",
+          createBody(suffix, cliente.id, linea.id, municipio.id, usuario.id, {
+            miembro_ids: [coordinador.id],
+          }),
+        ),
+      );
+      expect(res.status).toBe(201);
+      const { proyecto } = await res.json();
+
+      const miembros = await tx.proyectoMiembro.findMany({
+        where: { proyecto_id: proyecto.id, removed_at: null },
+      });
+      expect(miembros.map((miembro) => miembro.usuario_id).sort()).toEqual(
+        [usuario.id, coordinador.id].sort(),
+      );
+      return { proyectoId: proyecto.id as string };
+    });
+
+    expect(result.proyectoId).toBeTruthy();
+  });
+
+  it("collapses a miembro_ids entry naming the responsable into ONE active membership", async () => {
+    const result = await runAndRollback(async (tx) => {
+      const { suffix, usuario, cliente, linea, municipio } = await seedFixture(tx);
+      authAs(usuario.id);
+
+      const res = await createProject(
+        jsonRequest(
+          "http://localhost/api/v1/projects",
+          "POST",
+          createBody(suffix, cliente.id, linea.id, municipio.id, usuario.id, {
+            miembro_ids: [usuario.id],
+          }),
+        ),
+      );
+      expect(res.status).toBe(201);
+      const { proyecto } = await res.json();
+
+      const miembros = await tx.proyectoMiembro.findMany({
+        where: { proyecto_id: proyecto.id, removed_at: null },
+      });
+      expect(miembros).toHaveLength(1);
+      expect(miembros[0]!.usuario_id).toBe(usuario.id);
+
+      // Collapsing means one membership AND one audit row, not two.
+      const equipoAudit = await tx.auditoriaCambio.findMany({
+        where: { proyecto_id: proyecto.id, entidad: "proyecto_miembro" },
+      });
+      expect(equipoAudit).toHaveLength(1);
+      expect(equipoAudit[0]!.entidad_id).toBe(miembros[0]!.id);
+      return { proyectoId: proyecto.id as string };
+    });
+
+    expect(result.proyectoId).toBeTruthy();
+  });
+
+  it("rejects an invalid miembro_ids entry with 400 and leaves no half-created project", async () => {
+    const result = await runAndRollback(async (tx) => {
+      const { suffix, usuario, cliente, linea, municipio } = await seedFixture(tx);
+      const colaborador = await tx.usuario.create({
+        data: { email: `colab-${suffix}@example.test`, nombre: "colab-x", rol: "COLABORADOR" },
+      });
+      const inactivo = await tx.usuario.create({
+        data: {
+          email: `inactivo-${suffix}@example.test`,
+          nombre: "coord-inactivo",
+          rol: "COORDINADOR",
+          activo: false,
+        },
+      });
+      authAs(usuario.id);
+
+      const proyectosAntes = await tx.proyecto.count();
+      const miembrosAntes = await tx.proyectoMiembro.count();
+
+      const casos: [string, string][] = [
+        [colaborador.id, "Solo un Coordinador puede ser integrante del equipo del proyecto."],
+        [inactivo.id, "El usuario no existe o está inactivo."],
+        [randomUUID(), "El usuario no existe."],
+      ];
+      for (const [miembroId, mensaje] of casos) {
+        const res = await createProject(
+          jsonRequest(
+            "http://localhost/api/v1/projects",
+            "POST",
+            createBody(suffix, cliente.id, linea.id, municipio.id, usuario.id, {
+              miembro_ids: [miembroId],
+            }),
+          ),
+        );
+        expect(res.status).toBe(400);
+        expect((await res.json()).error).toBe(mensaje);
+      }
+
+      expect(await tx.proyecto.count()).toBe(proyectosAntes);
+      expect(await tx.proyectoMiembro.count()).toBe(miembrosAntes);
+      return { proyectosAntes };
+    });
+
+    expect(result.proyectosAntes).toBeGreaterThanOrEqual(0);
+  });
+
+  it("E-05 rejects an invalid miembro_ids without converting the opportunity", async () => {
+    const result = await runAndRollback(async (tx) => {
+      const { suffix, usuario, cliente, linea, municipio } = await seedFixture(tx);
+      const colaborador = await tx.usuario.create({
+        data: {
+          email: `colab-e05-${suffix}@example.test`,
+          nombre: "colab-e05",
+          rol: "COLABORADOR",
+        },
+      });
+      const oportunidad = await tx.oportunidad.create({
+        data: { cliente_id: cliente.id, nombre: `flow-opp-e05-${suffix}`, estado: "GANADA" },
+      });
+      authAs(usuario.id);
+
+      const res = await createFromOpportunity(
+        jsonRequest(
+          `http://localhost/api/v1/clients/${cliente.id}/opportunities/${oportunidad.id}/project`,
+          "POST",
+          {
+            responsable_id: usuario.id,
+            lineas: [{ id: linea.id, principal: true }],
+            municipio_ids: [municipio.id],
+            fecha_inicio: "2026-01-05",
+            fecha_fin: "2026-03-30",
+            miembro_ids: [colaborador.id],
+          },
+        ),
+        { params: Promise.resolve({ id: cliente.id, opportunityId: oportunidad.id }) },
+      );
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toBe(
+        "Solo un Coordinador puede ser integrante del equipo del proyecto.",
+      );
+
+      const stored = await tx.oportunidad.findUnique({ where: { id: oportunidad.id } });
+      expect(stored?.fase).not.toBe("EJECUCION");
+      expect(stored?.fecha_adjudicacion).toBeNull();
+      expect(await tx.proyecto.count({ where: { oportunidad_id: oportunidad.id } })).toBe(0);
+      return { oportunidadId: oportunidad.id };
+    });
+
+    expect(result.oportunidadId).toBeTruthy();
   });
 });

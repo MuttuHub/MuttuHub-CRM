@@ -129,8 +129,11 @@ registry.registerPath({
   description:
     "Solo `ADMINISTRADOR`/`GERENCIA` (`canCreateProject`) pueden crear. Crea un proyecto `origen = INDEPENDIENTE` " +
     "(`oportunidad_id` null) en `BORRADOR` con un `codigo` autogenerado `PRY-AAAA-NNN`; la creación, las líneas, " +
-    "los municipios y la fila de auditoría `CREAR` van en una sola transacción. `miembro_ids` (S2.6), `codigo`, " +
-    "`estado`, `oportunidad_id`, `deleted_at`, `umbrales_override`, `programacion_pendiente`, " +
+    "los municipios y la fila de auditoría `CREAR` van en una sola transacción. `miembro_ids` (S2.6) se acepta: " +
+    "cada id debe ser un COORDINADOR activo (400 si no existe, está inactivo o no es COORDINADOR) y el responsable " +
+    "siempre entra como integrante, de modo que una entrada que lo nombre se colapsa en su única membresía; el " +
+    "equipo inicial se audita como `CREAR proyecto_miembro` en su propio lote, dentro de la misma transacción. " +
+    "`codigo`, `estado`, `oportunidad_id`, `deleted_at`, `umbrales_override`, `programacion_pendiente`, " +
     "`diferencia_valor_oportunidad` (S2.4) y `alertas` se rechazan con 400. Las líneas estratégicas y los " +
     "municipios deben existir y estar activos (V-04); uno suspendido responde 400. 404 si el cliente no existe.",
   security: [{ sessionCookie: [] }],

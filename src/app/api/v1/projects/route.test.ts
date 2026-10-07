@@ -13,11 +13,13 @@ const mocks = vi.hoisted(() => ({
   proyectoFindFirst: vi.fn(),
   clienteFindFirst: vi.fn(),
   usuarioFindFirst: vi.fn(),
+  usuarioFindMany: vi.fn(),
   oportunidadFindFirst: vi.fn(),
   lineaFindMany: vi.fn(),
   municipioFindMany: vi.fn(),
   txProyectoCreate: vi.fn(),
   txOportunidadUpdate: vi.fn(),
+  txMiembroCreate: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -53,7 +55,7 @@ vi.mock("@/lib/db", () => {
     db: {
       proyecto: { findMany: mocks.proyectoFindMany, findFirst: mocks.proyectoFindFirst },
       cliente: { findFirst: mocks.clienteFindFirst },
-      usuario: { findFirst: mocks.usuarioFindFirst },
+      usuario: { findFirst: mocks.usuarioFindFirst, findMany: mocks.usuarioFindMany },
       oportunidad: { findFirst: mocks.oportunidadFindFirst },
       lineaEstrategicaCatalogo: {
         findMany: vi.fn(
@@ -77,6 +79,7 @@ vi.mock("@/lib/db", () => {
         fn({
           proyecto: { create: mocks.txProyectoCreate },
           oportunidad: { update: mocks.txOportunidadUpdate },
+          proyectoMiembro: { create: mocks.txMiembroCreate },
         }),
       ),
     },
@@ -191,7 +194,11 @@ beforeEach(() => {
   vi.mocked(nextProjectCode).mockResolvedValue("PRY-2026-001");
   mocks.clienteFindFirst.mockResolvedValue({ id: "cli-1" });
   mocks.usuarioFindFirst.mockResolvedValue({ id: "user-2" });
+  mocks.usuarioFindMany.mockResolvedValue([
+    { id: "coord-9", rol: "COORDINADOR", activo: true },
+  ]);
   mocks.txProyectoCreate.mockResolvedValue(proyectoRow);
+  mocks.txMiembroCreate.mockResolvedValue({ id: "mem-1", usuario_id: "user-2" });
 });
 
 afterEach(() => {
@@ -432,12 +439,116 @@ describe("POST /api/v1/projects (E-03)", () => {
     expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
   });
 
-  it("rejects miembro_ids with 400", async () => {
-    const res = await POST(postRequest({ ...createBody, miembro_ids: ["user-3"] }));
+  it("adds the responsable as an active member inside the creation transaction", async () => {
+    const res = await POST(postRequest(createBody));
+
+    expect(res.status).toBe(201);
+    expect(mocks.txMiembroCreate).toHaveBeenCalledTimes(1);
+    const [args] = mocks.txMiembroCreate.mock.calls[0]! as [
+      { data: Record<string, unknown> },
+    ];
+    expect(args.data).toEqual({
+      proyecto_id: "pry-1",
+      usuario_id: "user-2",
+      agregado_por_id: "ger-1",
+    });
+  });
+
+  it("audits the initial team in its own logChanges call, separate from the project batch", async () => {
+    mocks.usuarioFindMany.mockResolvedValue([
+      { id: "coord-9", rol: "COORDINADOR", activo: true },
+    ]);
+    mocks.txMiembroCreate
+      .mockResolvedValueOnce({ id: "mem-resp", usuario_id: "user-2" })
+      .mockResolvedValueOnce({ id: "mem-coord", usuario_id: "coord-9" });
+
+    const res = await POST(postRequest({ ...createBody, miembro_ids: ["coord-9"] }));
+
+    expect(res.status).toBe(201);
+    // Two acts -> two calls: the project batch and the team batch. Each call
+    // gets its own lote_id from logChanges, so the Historial reads them apart.
+    expect(vi.mocked(logChanges)).toHaveBeenCalledTimes(2);
+    const [, proyectoRows] = vi.mocked(logChanges).mock.calls[0]!;
+    expect(proyectoRows).toHaveLength(1);
+    expect(proyectoRows[0]!.entidad).toBe("proyecto");
+    const [, equipoRows] = vi.mocked(logChanges).mock.calls[1]!;
+    expect(equipoRows).toEqual([
+      expect.objectContaining({
+        usuario_id: "ger-1",
+        accion: "CREAR",
+        entidad: "proyecto_miembro",
+        entidad_id: "mem-resp",
+        proyecto_id: "pry-1",
+        valor_nuevo: { usuario_id: "user-2", agregado_por_id: "ger-1" },
+      }),
+      expect.objectContaining({
+        usuario_id: "ger-1",
+        accion: "CREAR",
+        entidad: "proyecto_miembro",
+        entidad_id: "mem-coord",
+        proyecto_id: "pry-1",
+        valor_nuevo: { usuario_id: "coord-9", agregado_por_id: "ger-1" },
+      }),
+    ]);
+  });
+
+  it("accepts miembro_ids of active COORDINADORs and creates one membership each", async () => {
+    mocks.usuarioFindMany.mockResolvedValue([
+      { id: "coord-9", rol: "COORDINADOR", activo: true },
+      { id: "coord-10", rol: "COORDINADOR", activo: true },
+    ]);
+
+    const res = await POST(
+      postRequest({ ...createBody, miembro_ids: ["coord-9", "coord-10"] }),
+    );
+
+    expect(res.status).toBe(201);
+    const usuarioIds = mocks.txMiembroCreate.mock.calls.map(
+      ([args]) => (args as { data: { usuario_id: string } }).data.usuario_id,
+    );
+    expect(usuarioIds).toEqual(["user-2", "coord-9", "coord-10"]);
+  });
+
+  it("collapses a miembro_ids entry that names the responsable (ADR-09)", async () => {
+    const res = await POST(postRequest({ ...createBody, miembro_ids: ["user-2"] }));
+
+    expect(res.status).toBe(201);
+    expect(mocks.txMiembroCreate).toHaveBeenCalledTimes(1);
+    const [args] = mocks.txMiembroCreate.mock.calls[0]! as [
+      { data: { usuario_id: string } },
+    ];
+    expect(args.data.usuario_id).toBe("user-2");
+  });
+
+  it("rejects a COLABORADOR miembro_ids entry with the REQ-ACC-07 copy and creates nothing", async () => {
+    mocks.usuarioFindMany.mockResolvedValue([
+      { id: "colab-9", rol: "COLABORADOR", activo: true },
+    ]);
+
+    const res = await POST(postRequest({ ...createBody, miembro_ids: ["colab-9"] }));
     const json = await res.json();
 
     expect(res.status).toBe(400);
-    expect(json.code).toBe("VALIDATION_ERROR");
+    expect(json.error).toBe(
+      "Solo un Coordinador puede ser integrante del equipo del proyecto.",
+    );
+    expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
+    expect(mocks.txMiembroCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unknown or inactive miembro_ids entry with 400", async () => {
+    mocks.usuarioFindMany.mockResolvedValue([]);
+    const unknown = await POST(postRequest({ ...createBody, miembro_ids: ["nadie"] }));
+    expect(unknown.status).toBe(400);
+    expect((await unknown.json()).error).toBe("El usuario no existe.");
+
+    mocks.usuarioFindMany.mockResolvedValue([
+      { id: "coord-x", rol: "COORDINADOR", activo: false },
+    ]);
+    const inactive = await POST(postRequest({ ...createBody, miembro_ids: ["coord-x"] }));
+    expect(inactive.status).toBe(400);
+    expect((await inactive.json()).error).toBe("El usuario no existe o está inactivo.");
+
     expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
   });
 

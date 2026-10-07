@@ -16,11 +16,13 @@ const mocks = vi.hoisted(() => ({
   oportunidadFindFirst: vi.fn(),
   proyectoFindFirst: vi.fn(),
   usuarioFindFirst: vi.fn(),
+  usuarioFindMany: vi.fn(),
   lineaFindMany: vi.fn(),
   municipioFindMany: vi.fn(),
   transaction: vi.fn(),
   txOportunidadUpdate: vi.fn(),
   txProyectoCreate: vi.fn(),
+  txMiembroCreate: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -55,7 +57,7 @@ vi.mock("@/lib/db", () => {
       cliente: { findFirst: mocks.clienteFindFirst },
       oportunidad: { findFirst: mocks.oportunidadFindFirst },
       proyecto: { findFirst: mocks.proyectoFindFirst },
-      usuario: { findFirst: mocks.usuarioFindFirst },
+      usuario: { findFirst: mocks.usuarioFindFirst, findMany: mocks.usuarioFindMany },
       lineaEstrategicaCatalogo: {
         findMany: vi.fn(
           matching([{ id: "linea-1", activo: true }, { id: "linea-3", activo: false }]),
@@ -154,15 +156,20 @@ beforeEach(() => {
   mocks.oportunidadFindFirst.mockResolvedValue(oportunidad);
   mocks.proyectoFindFirst.mockResolvedValue(null);
   mocks.usuarioFindFirst.mockResolvedValue({ id: "user-2" });
+  mocks.usuarioFindMany.mockResolvedValue([
+    { id: "coord-9", rol: "COORDINADOR", activo: true },
+  ]);
   vi.mocked(nextProjectCode).mockResolvedValue("PRY-2026-001");
   mocks.transaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
     fn({
       oportunidad: { update: mocks.txOportunidadUpdate },
       proyecto: { create: mocks.txProyectoCreate },
+      proyectoMiembro: { create: mocks.txMiembroCreate },
     }),
   );
   mocks.txOportunidadUpdate.mockResolvedValue({ ...oportunidad, fase: "EJECUCION" });
   mocks.txProyectoCreate.mockResolvedValue(proyectoRow);
+  mocks.txMiembroCreate.mockResolvedValue({ id: "mem-1", usuario_id: "user-2" });
 });
 
 afterEach(() => {
@@ -223,12 +230,17 @@ describe("POST /api/v1/clients/:id/opportunities/:opportunityId/project (E-05)",
     expect(String(createArgs.data.valor_total)).toBe("245450000");
   });
 
-  it("audits CONVERTIR and CREAR with the same logChanges call", async () => {
+  it("audits the conversion in one lote and the initial team in its own call", async () => {
     await POST(postRequest(prefillBody), routeContext);
 
-    expect(vi.mocked(logChanges)).toHaveBeenCalledTimes(1);
-    const [, rows] = vi.mocked(logChanges).mock.calls[0]!;
-    expect(rows).toEqual(
+    // Two acts -> two logChanges calls, each with its own lote: the conversion
+    // batch stays byte-identical (CONVERTIR + CREAR), and the responsable's
+    // membership is its own step, so the conversion step keeps exactly one
+    // "Creación" badge.
+    expect(vi.mocked(logChanges)).toHaveBeenCalledTimes(2);
+
+    const [, conversionRows] = vi.mocked(logChanges).mock.calls[0]!;
+    expect(conversionRows).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           usuario_id: "ger-1",
@@ -246,7 +258,51 @@ describe("POST /api/v1/clients/:id/opportunities/:opportunityId/project (E-05)",
         }),
       ]),
     );
-    expect(rows).toHaveLength(2);
+    expect(conversionRows).toHaveLength(2);
+
+    const [, equipoRows] = vi.mocked(logChanges).mock.calls[1]!;
+    expect(equipoRows).toEqual([
+      expect.objectContaining({
+        usuario_id: "ger-1",
+        accion: "CREAR",
+        entidad: "proyecto_miembro",
+        entidad_id: "mem-1",
+        proyecto_id: "pry-1",
+        valor_nuevo: { usuario_id: "user-2", agregado_por_id: "ger-1" },
+      }),
+    ]);
+  });
+
+  it("adds the responsable as an active member inside the conversion transaction", async () => {
+    const res = await POST(postRequest(prefillBody), routeContext);
+
+    expect(res.status).toBe(201);
+    expect(mocks.txMiembroCreate).toHaveBeenCalledTimes(1);
+    const [args] = mocks.txMiembroCreate.mock.calls[0]! as [
+      { data: Record<string, unknown> },
+    ];
+    expect(args.data).toEqual({
+      proyecto_id: "pry-1",
+      usuario_id: "user-2",
+      agregado_por_id: "ger-1",
+    });
+  });
+
+  it("rejects a COLABORADOR miembro_ids entry with 400 before converting the opportunity", async () => {
+    mocks.usuarioFindMany.mockResolvedValue([
+      { id: "colab-9", rol: "COLABORADOR", activo: true },
+    ]);
+
+    const res = await POST(postRequest({ ...prefillBody, miembro_ids: ["colab-9"] }), routeContext);
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toBe(
+      "Solo un Coordinador puede ser integrante del equipo del proyecto.",
+    );
+    expect(mocks.transaction).not.toHaveBeenCalled();
+    expect(mocks.txOportunidadUpdate).not.toHaveBeenCalled();
+    expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
   });
 
   it("does not overwrite fecha_adjudicacion of an already converted opportunity", async () => {

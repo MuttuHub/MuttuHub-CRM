@@ -196,12 +196,24 @@ test("Projects demo: convert a won opportunity into PRY-2026-001 and see it list
 
     // The demo's whole point, proven on screen: the CONVERTIR of the
     // opportunity and the CREAR of the project share one lote_id and are
-    // rendered as a single audited step, not two loose events.
-    const paso = dialog.getByTestId("historial-paso");
-    await expect(paso).toHaveCount(1, { timeout: 30_000 });
-    await expect(paso.getByText("Conversión")).toBeVisible();
-    await expect(paso.getByText("Creación")).toBeVisible();
-    await beat(page, 3000); // let the viewer read the one audited step
+    // rendered as a single audited step, while the responsable's membership is
+    // its own step ("Integrante del equipo"). Each assertion is scoped to its
+    // step, which is stricter than counting steps: the conversion step must NOT
+    // carry the team entity, and each step keeps exactly one action badge.
+    const pasoConversion = dialog
+      .getByTestId("historial-paso")
+      .filter({ hasText: "Conversión" });
+    await expect(pasoConversion).toHaveCount(1, { timeout: 30_000 });
+    await expect(pasoConversion.getByText("Conversión")).toBeVisible();
+    await expect(pasoConversion.getByText("Creación")).toBeVisible();
+    await expect(pasoConversion.getByText("Integrante del equipo")).toHaveCount(0);
+
+    const pasoEquipo = dialog
+      .getByTestId("historial-paso")
+      .filter({ hasText: "Integrante del equipo" });
+    await expect(pasoEquipo).toHaveCount(1, { timeout: 30_000 });
+    await expect(pasoEquipo.getByText("Creación")).toBeVisible();
+    await beat(page, 3000); // let the viewer read the two audited steps
 
     await dialog.getByRole("button", { name: "Cerrar" }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);

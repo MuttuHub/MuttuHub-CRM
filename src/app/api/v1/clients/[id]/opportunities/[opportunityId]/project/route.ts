@@ -23,10 +23,12 @@ import { canCreateProject } from "@/lib/permissions";
 import { getClientForOpportunityWrite } from "@/lib/api/crm";
 import { nextProjectCode } from "@/lib/api/project-code";
 import { logChanges } from "@/lib/api/audit-cambios";
-import { validarLineas } from "@/lib/proyectos/proyecto-general";
+import { validarLineas, miembrosInicialesProyecto } from "@/lib/proyectos/proyecto-general";
 import {
   PROJECT_SELECT_V2,
+  addProyectoMiembros,
   checkLineasExisten,
+  checkMiembrosValidos,
   checkMunicipiosExisten,
   checkResponsableActivo,
   normalizeProjectDate,
@@ -138,6 +140,19 @@ export const POST = withApiErrorHandling(
     const inactiveResponsable = await checkResponsableActivo(parsed.data.responsable_id);
     if (inactiveResponsable) return inactiveResponsable;
 
+    // ADR-09: the responsable is a member from the moment the project exists,
+    // and a `miembro_ids` entry naming them collapses into that membership.
+    // Validated before the transaction so an invalid entry answers 400 without
+    // converting the opportunity or creating a half-built project.
+    const equipo = miembrosInicialesProyecto(
+      parsed.data.responsable_id,
+      parsed.data.miembro_ids ?? [],
+    );
+    const invalidMiembros = await checkMiembrosValidos(
+      equipo.filter((id) => id !== parsed.data.responsable_id),
+    );
+    if (invalidMiembros) return invalidMiembros;
+
     // REQ-ORG-05: the code year is the creation instant in UTC.
     const year = new Date().getUTCFullYear();
     const nombre = parsed.data.nombre ?? oportunidad.nombre;
@@ -186,6 +201,8 @@ export const POST = withApiErrorHandling(
           select: PROJECT_SELECT_V2,
         });
 
+        // ONE logChanges call: the conversion and the creation share a single
+        // lote_id, which is what the ficha's Historial groups into one step.
         await logChanges(tx, [
           {
             usuario_id: auth.usuario.id,
@@ -208,6 +225,14 @@ export const POST = withApiErrorHandling(
             valor_nuevo: { codigo, nombre, cliente_id: id, origen: "OPORTUNIDAD" },
           },
         ]);
+
+        // The initial team is its own audited act: its own `logChanges` call and
+        // its own lote_id, inside the same transaction (REQ-ACC-07).
+        await addProyectoMiembros(tx, {
+          proyectoId: created.id,
+          usuarioIds: equipo,
+          agregadoPorId: auth.usuario.id,
+        });
 
         return created;
       });

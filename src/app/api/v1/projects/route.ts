@@ -26,10 +26,12 @@ import { parseDate } from "@/lib/api/crm";
 import { canCreateProject } from "@/lib/permissions";
 import { nextProjectCode } from "@/lib/api/project-code";
 import { logChanges } from "@/lib/api/audit-cambios";
-import { validarLineas } from "@/lib/proyectos/proyecto-general";
+import { validarLineas, miembrosInicialesProyecto } from "@/lib/proyectos/proyecto-general";
 import {
   PROJECT_SELECT_V2,
+  addProyectoMiembros,
   checkLineasExisten,
+  checkMiembrosValidos,
   checkMunicipiosExisten,
   checkResponsableActivo,
   normalizeProjectDate,
@@ -128,6 +130,10 @@ const PROJECT_CREATE_BASE = {
     .max(2_147_483_647, "La meta de beneficiarios es demasiado alta.")
     .nullable()
     .optional(),
+  // E-03/E-05 (S2.6 T4): team members added at creation. Only active
+  // COORDINADORs are accepted (validated before the transaction); a repeated id
+  // or one naming the responsable collapses into a single membership.
+  miembro_ids: z.array(z.string().min(1, "El usuario no es válido.")).optional(),
 } as const;
 
 export const PROJECT_CREATE_SCHEMA = z.object({
@@ -156,10 +162,11 @@ export const PROJECT_CREATE_FROM_OPPORTUNITY_SCHEMA = z.object({
 });
 
 /**
- * Fields that must not be settable at creation: `miembro_ids` belongs to S2.6,
- * `codigo` to S2.2, `estado`/`oportunidad_id`/`deleted_at` are derived, and
- * `umbrales_override`/`programacion_pendiente`/`diferencia_valor_oportunidad`/
- * `alertas` to later units. E-05 adds `cliente_id` (derived from the URL).
+ * Fields that must not be settable at creation: `codigo` belongs to S2.2,
+ * `estado`/`oportunidad_id`/`deleted_at` are derived, and `umbrales_override`/
+ * `programacion_pendiente`/`diferencia_valor_oportunidad`/`alertas` to later
+ * units. E-05 adds `cliente_id` (derived from the URL). `miembro_ids` is
+ * accepted since S2.6 T4 and validated against active COORDINADORs.
  */
 export const PROJECT_CREATE_FORBIDDEN_FIELDS = [
   "codigo",
@@ -170,7 +177,6 @@ export const PROJECT_CREATE_FORBIDDEN_FIELDS = [
   "programacion_pendiente",
   "diferencia_valor_oportunidad",
   "alertas",
-  "miembro_ids",
 ] as const;
 
 export const PROJECT_CREATE_FROM_OPPORTUNITY_FORBIDDEN_FIELDS = [
@@ -248,6 +254,18 @@ export const POST = withApiErrorHandling(
     const inactiveResponsable = await checkResponsableActivo(parsed.data.responsable_id);
     if (inactiveResponsable) return inactiveResponsable;
 
+    // ADR-09: the responsable is a member from the moment the project exists,
+    // and a `miembro_ids` entry naming them collapses into that membership.
+    // Only the other ids are held to the active-COORDINADOR rule.
+    const equipo = miembrosInicialesProyecto(
+      parsed.data.responsable_id,
+      parsed.data.miembro_ids ?? [],
+    );
+    const invalidMiembros = await checkMiembrosValidos(
+      equipo.filter((id) => id !== parsed.data.responsable_id),
+    );
+    if (invalidMiembros) return invalidMiembros;
+
     // REQ-ORG-05: the code year is the creation instant in UTC; the counter is
     // per year, so a project created on 2026-01-01T00:00Z is PRY-2026-NNN.
     const year = new Date().getUTCFullYear();
@@ -294,6 +312,14 @@ export const POST = withApiErrorHandling(
           },
         },
       ]);
+
+      // The initial team is its own audited act: its own `logChanges` call and
+      // its own lote_id, inside the same transaction (REQ-ACC-07).
+      await addProyectoMiembros(tx, {
+        proyectoId: created.id,
+        usuarioIds: equipo,
+        agregadoPorId: auth.usuario.id,
+      });
 
       return created;
     });

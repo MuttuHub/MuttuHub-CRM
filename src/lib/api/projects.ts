@@ -16,6 +16,7 @@ import { canViewPortfolio, canViewProjectV2, type ProjectActor, type ProjectMemb
 import { duracionProyecto, isoDate, type LineaInput } from "@/lib/proyectos/proyecto-general";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
+import { logChanges } from "@/lib/api/audit-cambios";
 import { parseDate } from "@/lib/api/crm";
 
 /**
@@ -241,6 +242,101 @@ export function toProyectoMiembroItemV2(row: ProyectoMiembroRowV2): ProyectoMiem
     created_at: row.created_at.toISOString(),
     removed_at: row.removed_at ? row.removed_at.toISOString() : null,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Team membership at creation (ADR-09, REQ-ACC-07)
+// ---------------------------------------------------------------------------
+
+/**
+ * The single copy of the REQ-ACC-07 message for a non-COORDINADOR target,
+ * exported so the E-07 members route and both creation routes share it and the
+ * copy cannot drift.
+ */
+export const MIEMBRO_NOT_COORDINADOR_MESSAGE =
+  "Solo un Coordinador puede ser integrante del equipo del proyecto.";
+
+/**
+ * Validates the `miembro_ids` of a creation body exactly the way the E-07
+ * members route validates one target: every id must exist, be `activo` and
+ * carry `rol = COORDINADOR`. The creation routes call it BEFORE opening their
+ * transaction, so an invalid entry answers 400 and leaves no project or
+ * membership behind — never a half-created one.
+ *
+ * The responsable is never passed here: ADR-09 adds them as a member whatever
+ * their role, and `miembrosInicialesProyecto` has already collapsed a
+ * `miembro_ids` entry naming them into the team, so re-validating that id as a
+ * COORDINADOR would reject a request the contract accepts.
+ */
+export async function checkMiembrosValidos(
+  ids: readonly string[],
+): Promise<Response | null> {
+  const requested = [...new Set(ids)];
+  if (requested.length === 0) return null;
+
+  const usuarios = await db.usuario.findMany({
+    where: { id: { in: requested } },
+    select: { id: true, rol: true, activo: true },
+  });
+  const byId = new Map(usuarios.map((usuario) => [usuario.id, usuario]));
+
+  for (const id of requested) {
+    const usuario = byId.get(id);
+    if (!usuario) {
+      return apiError("El usuario no existe.", 400, "VALIDATION_ERROR");
+    }
+    if (!usuario.activo) {
+      return apiError("El usuario no existe o está inactivo.", 400, "VALIDATION_ERROR");
+    }
+    if (usuario.rol !== "COORDINADOR") {
+      return apiError(MIEMBRO_NOT_COORDINADOR_MESSAGE, 400, "VALIDATION_ERROR");
+    }
+  }
+  return null;
+}
+
+/**
+ * Inserts one ACTIVE membership per id inside the caller's transaction
+ * (`removed_at` stays null) and audits the whole team as ITS OWN act: one
+ * `logChanges` call, so every row shares a single lote_id distinct from the
+ * project/conversion batch. That is what lets the ficha render the team as its
+ * own Historial step ("Integrante del equipo") while the E-05 conversion step
+ * keeps exactly one "Creación" badge.
+ *
+ * The audit row mirrors the E-07 members route exactly: `CREAR
+ * proyecto_miembro`, `entidad_id` = the membership id, `proyecto_id` = the
+ * project so the audit reader finds it, and `valor_nuevo` carrying who was
+ * added (`usuario_id`) and by whom (`agregado_por_id`). No members means no
+ * audit row and no lote (`logChanges` is a no-op on an empty list).
+ */
+export async function addProyectoMiembros(
+  tx: Prisma.TransactionClient,
+  args: { proyectoId: string; usuarioIds: readonly string[]; agregadoPorId: string },
+): Promise<void> {
+  const creados: { id: string; usuario_id: string }[] = [];
+  for (const usuarioId of args.usuarioIds) {
+    const row = await tx.proyectoMiembro.create({
+      data: {
+        proyecto_id: args.proyectoId,
+        usuario_id: usuarioId,
+        agregado_por_id: args.agregadoPorId,
+      },
+      select: { id: true, usuario_id: true },
+    });
+    creados.push(row);
+  }
+
+  await logChanges(
+    tx,
+    creados.map((row) => ({
+      usuario_id: args.agregadoPorId,
+      accion: "CREAR" as const,
+      entidad: "proyecto_miembro",
+      entidad_id: row.id,
+      proyecto_id: args.proyectoId,
+      valor_nuevo: { usuario_id: row.usuario_id, agregado_por_id: args.agregadoPorId },
+    })),
+  );
 }
 
 // ---------------------------------------------------------------------------
