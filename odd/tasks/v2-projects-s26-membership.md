@@ -111,6 +111,20 @@ Work unit U2 (API)
   rows for the same membership (harmless and idempotent).
 - [ ] **T4** Create flow adds the responsable as an active member; accept `miembro_ids` on POST `/projects`
   (currently 400). RED: created project has the responsable as member.
+  **Implemented and committed as `d540ffd`** (14 paths, +721/−46), but **deliberately left unchecked**: the independent
+  verification was still running when the session closed and the slice's native review has not run. What it does: both
+  creation flows add the responsable as an ACTIVE member with `agregado_por_id` = the acting user, inside the creation
+  transaction; `miembro_ids` is accepted, validated as an active COORDINADOR **before** the transaction — so an invalid
+  entry answers 400 leaving no project, no membership and no audit row — and collapsed when it names the responsable
+  (the responsable may legitimately be GERENCIA, which ADR-09 allows, so it is exempt from the COORDINADOR rule).
+  The initial team is audited as **its own act**: one `CREAR proyecto_miembro` row per member sharing their own
+  `lote_id`, which keeps the conversion batch as `CONVERTIR` + `CREAR` in a single lote and renders the team as its own
+  Historial step, labelled with the entity name T3 introduced. The rehearsal spec's Historial assertions were
+  re-scoped per **named** step — a tightening, plus a new negative assertion that the conversion step must not carry the
+  team entity. Writer's checks: 9 focused files / 149 tests green, `tsc` 0, eslint 0.
+  **Pending before this box can be checked**: the independent verification verdict, the native review of this slice
+  (`baseRef = 771a541`) and its ledger row. The Playwright rehearsal spec could not be executed here (it needs a
+  dev server the human starts).
 
 Work unit U3 (UI)
 - [ ] **T5** Team tab component in the project ficha (list, add COORDINADOR, remove) with tests.
@@ -145,6 +159,9 @@ reconciled the migration checksum. Two independent read-only verifiers, one per 
 
 ## Next step
 
-T4: the creation flow adds the `responsable` as an active member and `POST /projects` accepts `miembro_ids` (today it
-answers 400), with the RED case "the created project has the responsable as member". The slice's native reviews for U1
-and T3 are burned; only U2 (T3 + T4) and U3 (T5) remain.
+Next: **finish T4** — the independent verification verdict was still in flight when the session ended, so before
+anything else, re-verify the committed delta `d540ffd` and then review it as its own slice on `baseRef = 771a541`
+(the two earlier reviews of the slice, `review-ab42ace5342e9dd6` for U1 and `review-92166de3c97f832e` for T3, are both
+burned). Note that the feature doc's original unit plan grouped T3 + T4 as U2, but each was reviewed separately because
+each is a self-contained work unit with its own commit. After T4 closes, **T5** (the team tab in the ficha) is the last
+task of the slice.
