@@ -12,7 +12,7 @@
  */
 
 import { Prisma, type EstadoProyecto, type OrigenProyecto, type Usuario } from "@prisma/client";
-import { canViewPortfolio, canViewProjectV2, type ProjectMembershipActor } from "@/lib/permissions";
+import { canViewPortfolio, canViewProjectV2, type ProjectActor, type ProjectMembershipActor } from "@/lib/permissions";
 import { duracionProyecto, isoDate, type LineaInput } from "@/lib/proyectos/proyecto-general";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
@@ -107,35 +107,98 @@ export function toProjectItemV2(row: ProjectRowV2): ProjectItemV2 {
 // ---------------------------------------------------------------------------
 
 /**
- * Resolves the two axes of the project read predicates that this unit cannot
- * read from the database yet: `ProyectoMiembro` arrives with S2.6, and
+ * Resolves the two axes of the project read predicates. `es_miembro` arrives
+ * resolved from `proyecto_miembros` by `loadProjectScoped` (S2.6), which keeps
+ * the predicates in `src/lib/permissions.ts` pure and DB-free.
  * `puede_ver_tablero_gerencial` has no column or loader yet (S0.7 built the
- * predicates as pure functions). Both are `false` here, so today only project
- * managers (ADMINISTRADOR/GERENCIA) read projects — exactly REQ-ACC-02's
- * "COLABORADOR without flag sees none", and a COORDINADOR has no resolvable
- * membership. S2.6 replaces these two constants with real lookups; the
- * predicates below stay untouched.
+ * predicates as pure functions) and stays pinned until its own slice (S9.2),
+ * so a COLABORADOR without the flag still sees none (REQ-ACC-02).
  */
 const UNRESOLVED_GERENCIAL_FLAG = false as const;
-const UNRESOLVED_MEMBERSHIP = false as const;
 
-export function projectReadActor(usuario: Usuario): ProjectMembershipActor {
+/**
+ * Portfolio-scope actor: only `rol` and the gerencial flag. The portfolio
+ * predicate has no per-project membership axis, so it does NOT go through
+ * `projectReadActor` and never has to fabricate an `es_miembro` value.
+ */
+function projectPortfolioActor(usuario: Usuario): ProjectActor {
   return {
     id: usuario.id,
     rol: usuario.rol,
     puede_ver_tablero_gerencial: UNRESOLVED_GERENCIAL_FLAG,
-    es_miembro: UNRESOLVED_MEMBERSHIP,
   };
+}
+
+/**
+ * Per-project actor. `es_miembro` is REQUIRED — there is no default that
+ * silently denies — so the compiler forces every caller with a project in hand
+ * to resolve the membership axis (`loadProjectScoped`) before deciding.
+ */
+export function projectReadActor(
+  usuario: Usuario,
+  es_miembro: boolean,
+): ProjectMembershipActor {
+  return { ...projectPortfolioActor(usuario), es_miembro };
 }
 
 /** P01 (portfolio list): `canViewPortfolio` is the target predicate. */
 export function canReadProjectList(usuario: Usuario): boolean {
-  return canViewPortfolio(projectReadActor(usuario));
+  return canViewPortfolio(projectPortfolioActor(usuario));
 }
 
-/** P02 (single project ficha): `canViewProjectV2` is the target predicate. */
-export function canReadProject(usuario: Usuario): boolean {
-  return canViewProjectV2(projectReadActor(usuario));
+/**
+ * P02 (single project ficha): `canViewProjectV2` is the target predicate.
+ * `es_miembro` is required and must come from `loadProjectScoped` for the
+ * project being decided.
+ */
+export function canReadProject(usuario: Usuario, es_miembro: boolean): boolean {
+  return canViewProjectV2(projectReadActor(usuario, es_miembro));
+}
+
+/** Row shape of a scoped read: the caller's projection plus the membership probe. */
+type ScopedProjectRow<S extends Prisma.ProyectoSelect> = Prisma.ProyectoGetPayload<{
+  select: S;
+}> & { miembros: { id: string }[] };
+
+/**
+ * Scoped existence read (REQ-ACC-02): reads the project with the actor's active
+ * `proyecto_miembros` row projected alongside it in the same `findFirst`, so
+ * every read path resolves `es_miembro` exactly once and from the database — a
+ * request-supplied flag is never trusted. The `select` is the caller's
+ * projection (the detail route wants the full `ProjectItemV2` row, a gate wants
+ * `{ id }`); the membership probe itself is not the caller's to duplicate.
+ *
+ * `null` means "no readable project row" (missing or soft-deleted) and belongs
+ * to the caller's 404 branch, which must run before the visibility decision.
+ * `removed_at: null` is the soft-removal contract: a revoked membership stops
+ * granting access immediately while its row stays stored.
+ */
+export async function loadProjectScoped<S extends Prisma.ProyectoSelect>(
+  usuario: Usuario,
+  proyectoId: string,
+  select: S,
+): Promise<{ row: Prisma.ProyectoGetPayload<{ select: S }>; es_miembro: boolean } | null> {
+  // The membership sub-select makes Prisma's args type unify poorly with a
+  // generic `S`, so the args are cast; the row is re-typed to the composed
+  // shape (`S` plus the injected `miembros` probe).
+  const scoped = (await db.proyecto.findFirst({
+    where: { id: proyectoId, deleted_at: null },
+    select: {
+      ...select,
+      miembros: {
+        where: { usuario_id: usuario.id, removed_at: null },
+        select: { id: true },
+        take: 1,
+      },
+    },
+  } as unknown as Prisma.ProyectoFindFirstArgs)) as unknown as ScopedProjectRow<S> | null;
+  if (!scoped) return null;
+
+  const { miembros, ...row } = scoped;
+  return {
+    row: row as unknown as Prisma.ProyectoGetPayload<{ select: S }>,
+    es_miembro: miembros.length > 0,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -152,8 +215,11 @@ export type ProjectListFilters = {
 
 /**
  * `where` of GET /api/v1/projects. An actor outside the portfolio scope keeps
- * a valid query that matches nothing (`id in []`) instead of a second code
- * path: the restriction is a data decision, not a branch the caller can skip.
+ * a valid query that matches only what they may read instead of a second code
+ * path: a COORDINADOR is narrowed to an ACTIVE membership clause and every
+ * other role to `id in []`. Both are data restrictions the caller cannot
+ * widen — never a list of project ids resolved into memory, and never a branch
+ * the route could skip.
  */
 export function projectListWhere(
   usuario: Usuario,
@@ -162,8 +228,11 @@ export function projectListWhere(
   const where: Prisma.ProyectoWhereInput = { deleted_at: null };
 
   if (!canReadProjectList(usuario)) {
-    where.id = { in: [] };
-    return where;
+    if (usuario.rol !== "COORDINADOR") {
+      where.id = { in: [] };
+      return where;
+    }
+    where.miembros = { some: { usuario_id: usuario.id, removed_at: null } };
   }
 
   if (filters.estado) where.estado = filters.estado as EstadoProyecto;

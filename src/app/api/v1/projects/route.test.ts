@@ -136,12 +136,27 @@ function authAs(usuario: Usuario) {
   });
 }
 
-/** The fake honours the visibility clause the route composes. */
-function dbReturns(rows: unknown[]) {
+/**
+ * The fake honours the visibility clause the route composes: an empty
+ * `id: { in: [] }` scope matches nothing, and an active-membership restriction
+ * only matches the rows registered for that user. That keeps the "who sees
+ * what" assertions behavioural instead of only structural.
+ */
+function dbReturns(rows: unknown[], miembrosDe: Record<string, string[]> = {}) {
   mocks.proyectoFindMany.mockImplementation(
-    (args: { where?: { id?: { in?: string[] } } }) => {
+    (args: {
+      where?: { id?: { in?: string[] }; miembros?: { some?: { usuario_id?: string } } };
+    }) => {
       const scope = args.where?.id?.in;
-      return Promise.resolve(scope && scope.length === 0 ? [] : rows);
+      if (scope && scope.length === 0) return Promise.resolve([]);
+
+      const usuarioId = args.where?.miembros?.some?.usuario_id;
+      if (usuarioId) {
+        const allowed = new Set(miembrosDe[usuarioId] ?? []);
+        return Promise.resolve(rows.filter((row) => allowed.has((row as { id: string }).id)));
+      }
+
+      return Promise.resolve(rows);
     },
   );
 }
@@ -301,15 +316,31 @@ describe("GET /api/v1/projects", () => {
     expect(json.proyectos).toEqual([]);
   });
 
-  it("narrows a COORDINADOR to nothing until S2.6 resolves membership", async () => {
+  it("scopes a COORDINADOR to their active memberships inside the where clause", async () => {
     authAs(coordinador);
+    dbReturns([proyectoRow], { "coord-1": ["pry-1"] });
 
     const res = await GET(listRequest());
     const json = await res.json();
 
     expect(mocks.proyectoFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { deleted_at: null, id: { in: [] } } }),
+      expect.objectContaining({
+        where: {
+          deleted_at: null,
+          miembros: { some: { usuario_id: "coord-1", removed_at: null } },
+        },
+      }),
     );
+    expect(json.proyectos).toHaveLength(1);
+  });
+
+  it("scopes a COORDINADOR with no active membership to nothing", async () => {
+    authAs(coordinador);
+    dbReturns([proyectoRow], {});
+
+    const res = await GET(listRequest());
+    const json = await res.json();
+
     expect(json.proyectos).toEqual([]);
   });
 

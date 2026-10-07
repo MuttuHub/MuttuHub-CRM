@@ -8,11 +8,10 @@
 // file only gates and wraps.
 
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
-import { canReadProject } from "@/lib/api/projects";
+import { canReadProject, loadProjectScoped } from "@/lib/api/projects";
 import { listProjectAudit } from "@/lib/api/project-audit";
 
 export const dynamic = "force-dynamic";
@@ -27,18 +26,19 @@ export const GET = withApiErrorHandling(
     if (!auth.ok) return auth.response;
     const { id } = await ctx.params;
 
-    // Existence first: only the id is read, the history query runs afterwards.
-    const proyecto = await db.proyecto.findFirst({
-      where: { id, deleted_at: null },
-      select: { id: true },
-    });
-    if (!proyecto) {
+    // Existence and visibility ride the same scoped read as the detail route:
+    // `loadProjectScoped` settles existence (404 for missing/soft-deleted) and
+    // resolves the active membership of THIS project in one `findFirst`, so a
+    // COORDINADOR member is not denied their own history. Only the id is
+    // projected; the ledger query runs afterwards.
+    const scoped = await loadProjectScoped(auth.usuario, id, { id: true });
+    if (!scoped) {
       return apiError("El proyecto no existe.", 404, "NOT_FOUND");
     }
 
     // Existence is settled; visibility is a read-scope decision. Same 403 copy
     // as the detail route (REQ-ACC-02).
-    if (!canReadProject(auth.usuario)) {
+    if (!canReadProject(auth.usuario, scoped.es_miembro)) {
       return apiError("No tienes permisos sobre este proyecto.", 403, "FORBIDDEN");
     }
 

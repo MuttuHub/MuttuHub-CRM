@@ -25,6 +25,7 @@ import { requireApiUser } from "@/lib/supabase/server";
 import { GET } from "./route";
 
 const gerencia = { id: "ger-1", rol: "GERENCIA" } as Usuario;
+const coordinador = { id: "coord-1", rol: "COORDINADOR" } as Usuario;
 const colaborador = { id: "colab-1", rol: "COLABORADOR" } as Usuario;
 
 const routeContext = { params: Promise.resolve({ id: "pry-1" }) };
@@ -72,7 +73,9 @@ const filas = [
 
 beforeEach(() => {
   authAs(gerencia);
-  vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "pry-1" } as never);
+  // `loadProjectScoped` projects the actor's active membership alongside the
+  // id; the default fixture is a non-member (managers pass on their role).
+  vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "pry-1", miembros: [] } as never);
   vi.mocked(db.auditoriaCambio.findMany).mockResolvedValue(filas as never);
   vi.mocked(db.usuario.findMany).mockResolvedValue([
     { id: "ger-1", nombre: "Gerencia Demo" },
@@ -106,7 +109,14 @@ describe("GET /api/v1/projects/:id/audit", () => {
     expect(res.status).toBe(200);
     expect(db.proyecto.findFirst).toHaveBeenCalledWith({
       where: { id: "pry-1", deleted_at: null },
-      select: { id: true },
+      select: {
+        id: true,
+        miembros: {
+          where: { usuario_id: "ger-1", removed_at: null },
+          select: { id: true },
+          take: 1,
+        },
+      },
     });
     expect(json.historial).toHaveLength(2);
     expect(json.historial[0]).toMatchObject({
@@ -146,6 +156,43 @@ describe("GET /api/v1/projects/:id/audit", () => {
     expect(res.status).toBe(403);
     expect(json.code).toBe("FORBIDDEN");
     expect(json.error).toBe("No tienes permisos sobre este proyecto.");
+    expect(db.auditoriaCambio.findMany).not.toHaveBeenCalled();
+  });
+
+  it("returns 200 for a COORDINADOR who is an active member", async () => {
+    authAs(coordinador);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({
+      id: "pry-1",
+      miembros: [{ id: "miembro-1" }],
+    } as never);
+
+    const res = await GET(getRequest(), routeContext);
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.historial).toHaveLength(2);
+  });
+
+  it("returns 403 for a COORDINADOR who is not an active member", async () => {
+    authAs(coordinador);
+
+    const res = await GET(getRequest(), routeContext);
+    const json = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(json.code).toBe("FORBIDDEN");
+    expect(db.auditoriaCambio.findMany).not.toHaveBeenCalled();
+  });
+
+  it("settles existence before visibility: 404 wins for a project the actor could not read", async () => {
+    authAs(colaborador);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue(null);
+
+    const res = await GET(getRequest(), routeContext);
+    const json = await res.json();
+
+    expect(res.status).toBe(404);
+    expect(json.code).toBe("NOT_FOUND");
     expect(db.auditoriaCambio.findMany).not.toHaveBeenCalled();
   });
 

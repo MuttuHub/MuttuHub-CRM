@@ -32,6 +32,7 @@ import {
   checkResponsableActivo,
   diffLineas,
   diffMunicipios,
+  loadProjectScoped,
   normalizeProjectDate,
   toProjectItemV2,
   type ProjectRowV2,
@@ -130,21 +131,21 @@ export const GET = withApiErrorHandling(
     if (!auth.ok) return auth.response;
     const { id } = await ctx.params;
 
-    const row = await db.proyecto.findFirst({
-      where: { id, deleted_at: null },
-      select: PROJECT_SELECT_V2,
-    });
-    if (!row) {
+    // The membership probe rides the existence read, so the actor's
+    // `es_miembro` is resolved from `proyecto_miembros` before the visibility
+    // decision.
+    const scoped = await loadProjectScoped(auth.usuario, id, PROJECT_SELECT_V2);
+    if (!scoped) {
       return apiError("El proyecto no existe.", 404, "NOT_FOUND");
     }
 
     // Existence is settled first; visibility is a read-scope decision. A
     // project the actor may not read is a 403, not a 404 (REQ-ACC-02).
-    if (!canReadProject(auth.usuario)) {
+    if (!canReadProject(auth.usuario, scoped.es_miembro)) {
       return apiError("No tienes permisos sobre este proyecto.", 403, "FORBIDDEN");
     }
 
-    return NextResponse.json({ proyecto: toProjectItemV2(row) });
+    return NextResponse.json({ proyecto: toProjectItemV2(scoped.row) });
   },
 );
 

@@ -112,6 +112,9 @@ const existente = {
   beneficiarios_meta: 120,
   lineas: [{ principal: true, linea: { id: "linea-1", codigo: "LE01", nombre: "Empleabilidad" } }],
   municipios: [{ municipio: { id: "mun-1", nombre: "Medellín", departamento: "Antioquia" } }],
+  // Membership probe folded into the GET existence read (S2.6): the default
+  // fixture is a non-member, so non-managers fall through to the 403.
+  miembros: [],
 };
 
 const routeContext = { params: Promise.resolve({ id: "pry-1" }) };
@@ -212,12 +215,35 @@ describe("GET /api/v1/projects/:id", () => {
     expect(json.error).toBe("No tienes permisos sobre este proyecto.");
   });
 
-  it("returns 403 for a COORDINADOR until S2.6 resolves membership", async () => {
+  it("returns 200 for a COORDINADOR who is an active member", async () => {
     authAs(coordinador);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({
+      ...existente,
+      miembros: [{ id: "miembro-1" }],
+    } as never);
 
     const res = await GET(getRequest(), routeContext);
 
+    expect(res.status).toBe(200);
+  });
+
+  it("returns 403 for a COORDINADOR who is not an active member", async () => {
+    authAs(coordinador);
+
+    const res = await GET(getRequest(), routeContext);
+    const json = await res.json();
+
     expect(res.status).toBe(403);
+    expect(json.code).toBe("FORBIDDEN");
+  });
+
+  it("settles existence before visibility: 404 wins even without read scope", async () => {
+    authAs(colaborador);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue(null);
+
+    const res = await GET(getRequest(), routeContext);
+
+    expect(res.status).toBe(404);
   });
 });
 
