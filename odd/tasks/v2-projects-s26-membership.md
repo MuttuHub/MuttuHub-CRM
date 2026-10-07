@@ -82,9 +82,33 @@ Work unit U1 (data and scope)
   happens; the removal write lands in T3.
 
 Work unit U2 (API)
-- [ ] **T3** E-07 routes: GET/POST `/projects/:id/members`, DELETE `/projects/:id/members/:userId` (soft remove),
+- [x] **T3** E-07 routes: GET/POST `/projects/:id/members`, DELETE `/projects/:id/members/:userId` (soft remove),
   OpenAPI registration. RED: "only COORDINADOR users can be added as members", "adding an existing active member
   returns 409", 403 for non-managers.
+  **Closed in `643375a`** (12 paths, +1297/−11). Implemented literally from the SDD's E-07 table
+  (`v2-projects-sdd.md:1512`) and REQ-ACC-07 (`:381-388`): body `{usuario_id}` → 201 `{miembro}`; managers only for the
+  writes (404 before 403) and the read scope for the list; the target must be a **COORDINADOR** and the 400 carries the
+  SDD's exact copy; the **409 is mapped from `P2002` on the partial index** `proyecto_miembros_activo_uq`, so it cannot
+  lose a race, and re-adding a removed member inserts a new row; DELETE sets `removed_at` + `removido_por_id` and the
+  row survives. Both writes carry their audit rows in the same transaction.
+  Two decisions taken with evidence rather than taste: the target must also be **`activo`** (every other grant path in
+  the repository requires it: `catalogs/users`, `checkResponsableActivo`, clients, tasks), and the audit vocabulary was
+  unified to **`proyecto_miembro`** end to end — the lane, `AUDIT_ENTIDADES_V2`, the reader and the ficha's label map —
+  replacing an `equipo` value that nothing ever wrote, so the Historial renders "Integrante del equipo" instead of the
+  raw entity name.
+  Evidence: `165 files / 1560 tests` green (baseline after U1: 162/1533, exactly additive), `tsc` 0, eslint 0; the
+  independent verifier re-derived **18 attack scenarios** through the real handlers against the live database — the
+  authorization could not be widened (a member COORDINADOR still gets 403 on POST and DELETE, a malformed body is
+  rejected behind the gate, the actor and the membership never come from the body), mass assignment was ignored, the 409
+  was matched against the **real driver error** whose `meta` names the index, every invalid `usuario_id` shape answers
+  400 rather than 500, and the member's access flips to 403 on the list, the ficha and the Historial the moment
+  `removed_at` is set.
+  Advisories (none blocking, none reopens this review): `R3-001` WARNING `[userId]/route.ts:49-52`, `R3-002` WARNING
+  `members/route.ts:119-131`, `R3-003`/`R3-004` SUGGESTION; a **deactivated manager can still change a team**, because
+  `getSessionUser` does not filter `activo` and `canManageProjects` is role-only (pre-existing and repo-wide, not
+  introduced here); `AUDIT_ENTIDADES_V2` is a declaration the writer and the reader never enforce; the audit-throw
+  atomicity is guaranteed by the code shape but unexercised; and a concurrent double DELETE could write two `EDITAR`
+  rows for the same membership (harmless and idempotent).
 - [ ] **T4** Create flow adds the responsable as an active member; accept `miembro_ids` on POST `/projects`
   (currently 400). RED: created project has the responsable as member.
 
@@ -121,6 +145,6 @@ reconciled the migration checksum. Two independent read-only verifiers, one per 
 
 ## Next step
 
-T3: the E-07 members routes — `GET`/`POST /projects/:id/members` and `DELETE /projects/:id/members/:userId` as a soft
-removal that sets `removed_at` and `removido_por_id` — plus their OpenAPI registration. U1 (T1 + T2) first goes to its
-native review as a single slice on `baseRef = b026e30`.
+T4: the creation flow adds the `responsable` as an active member and `POST /projects` accepts `miembro_ids` (today it
+answers 400), with the RED case "the created project has the responsable as member". The slice's native reviews for U1
+and T3 are burned; only U2 (T3 + T4) and U3 (T5) remain.
