@@ -140,6 +140,7 @@ model Usuario {
   accesos            Acceso[] // PRD §3.3
   auditorias         Auditoria[]
   proyectos_responsable Proyecto[] @relation("ProyectoResponsable")
+  proyectos_miembro ProyectoMiembro[] @relation("MiembroProyecto")
 
   @@map("usuarios")
 }
@@ -670,6 +671,7 @@ model Proyecto {
   responsable Usuario?      @relation("ProyectoResponsable", fields: [responsable_id], references: [id])
   lineas      ProyectoLinea[]
   municipios  ProyectoMunicipio[]
+  miembros    ProyectoMiembro[]
 
   @@unique([oportunidad_id, cliente_id])
   @@index([cliente_id])
@@ -704,6 +706,38 @@ model ProyectoMunicipio {
 
   @@id([proyecto_id, municipio_id])
   @@map("proyecto_municipios")
+}
+
+// v2 projects module (S2.6, ADR-09, DP-06, N-20) — project team membership. A
+// membership is never hard-deleted: `removed_at` soft-revokes access while the
+// row is kept for history, and a removed member can be re-added later. That is
+// why `id` is a surrogate primary key and `(proyecto_id, usuario_id)` cannot
+// be: the same pair legitimately repeats over time. The migration adds the
+// partial unique index `proyecto_miembros_activo_uq` over
+// `(proyecto_id, usuario_id) WHERE removed_at IS NULL` — Prisma cannot express
+// a partial index, and it is the only DB-level guard for "at most one active
+// membership per pair". `(usuario_id, removed_at)` is indexed because
+// `es_miembro` probes exactly that pair. `agregado_por_id` and
+// `removido_por_id` are the audit trail of who granted and revoked the
+// membership: they are plain columns with NO relation and NO foreign key on
+// purpose, mirroring `auditoria_cambios.usuario_id` — an audit pointer must
+// outlive the actor it names. `puede_ver_tablero_gerencial` is intentionally
+// absent: the managerial-board flag belongs to a later slice.
+model ProyectoMiembro {
+  id              String    @id @default(uuid())
+  proyecto_id     String
+  usuario_id      String
+  agregado_por_id String
+  created_at      DateTime  @default(now())
+  removed_at      DateTime?
+  removido_por_id String?
+
+  proyecto Proyecto @relation(fields: [proyecto_id], references: [id])
+  usuario  Usuario  @relation("MiembroProyecto", fields: [usuario_id], references: [id])
+
+  @@index([proyecto_id])
+  @@index([usuario_id, removed_at])
+  @@map("proyecto_miembros")
 }
 
 // v2 projects module (S2.2, SDD §4.2) — per-year counter that issues the
