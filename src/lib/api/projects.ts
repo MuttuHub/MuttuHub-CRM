@@ -11,7 +11,7 @@
  * `src/lib/permissions.ts` (never a role list re-declared here).
  */
 
-import { Prisma, type EstadoProyecto, type OrigenProyecto, type Usuario } from "@prisma/client";
+import { Prisma, type EstadoProyecto, type OrigenProyecto, type RolUsuario, type Usuario } from "@prisma/client";
 import { canViewPortfolio, canViewProjectV2, type ProjectActor, type ProjectMembershipActor } from "@/lib/permissions";
 import { duracionProyecto, isoDate, type LineaInput } from "@/lib/proyectos/proyecto-general";
 import { db } from "@/lib/db";
@@ -198,6 +198,48 @@ export async function loadProjectScoped<S extends Prisma.ProyectoSelect>(
   return {
     row: row as unknown as Prisma.ProyectoGetPayload<{ select: S }>,
     es_miembro: miembros.length > 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Team membership projection (E-07)
+// ---------------------------------------------------------------------------
+
+/**
+ * Projection of one team membership (E-07). The user is the only relation
+ * selected: `agregado_por_id` and `removido_por_id` are plain audit columns,
+ * deliberately without an FK (S2.6 T1), so their names cannot be resolved
+ * through a relation here. Ordering is the caller's (the list route adds the
+ * `id` tiebreaker because every row of one transaction shares `created_at`).
+ */
+export const PROYECTO_MIEMBRO_SELECT = {
+  id: true,
+  created_at: true,
+  removed_at: true,
+  agregado_por_id: true,
+  usuario: { select: { id: true, nombre: true, rol: true } },
+} as const;
+
+export type ProyectoMiembroRowV2 = Prisma.ProyectoMiembroGetPayload<{
+  select: typeof PROYECTO_MIEMBRO_SELECT;
+}>;
+
+/** Row -> JSON shape of `{ miembro }` (E-07). Timestamps travel as ISO-8601. */
+export type ProyectoMiembroItemV2 = {
+  id: string;
+  usuario: { id: string; nombre: string; rol: RolUsuario };
+  agregado_por_id: string;
+  created_at: string;
+  removed_at: string | null;
+};
+
+export function toProyectoMiembroItemV2(row: ProyectoMiembroRowV2): ProyectoMiembroItemV2 {
+  return {
+    id: row.id,
+    usuario: row.usuario,
+    agregado_por_id: row.agregado_por_id,
+    created_at: row.created_at.toISOString(),
+    removed_at: row.removed_at ? row.removed_at.toISOString() : null,
   };
 }
 

@@ -1,19 +1,20 @@
 // OpenAPI path registrations for /api/v1/projects/* — v2 projects general
-// data (contracts E-02, E-03, E-04 and E-06) plus the project history reader
-// (REQ-AUD-04). Follows the pattern of
+// data (contracts E-02, E-03, E-04, E-06 and E-07) plus the project history
+// reader (REQ-AUD-04). Follows the pattern of
 // src/lib/openapi/paths/strategic-lines.ts: read the actual route.ts first,
 // then register exactly what it does — same status codes, same field names,
 // same auth rules. Never invent behavior the route does not have.
 //
 // The one-step GANADA conversion (E-05) lives in paths/clients.ts with the
-// rest of the client-scoped routes. Still out of scope: members (S2.6) and the
-// value-difference alert (S2.4).
+// rest of the client-scoped routes. Still out of scope: the value-difference
+// alert (S2.4).
 
 import { z } from "zod";
-import { AccionAuditoria, EstadoProyecto, OrigenProyecto } from "@prisma/client";
+import { AccionAuditoria, EstadoProyecto, OrigenProyecto, RolUsuario } from "@prisma/client";
 import { registry, standardErrorResponses } from "@/lib/openapi/registry";
 import { PROJECT_CREATE_SCHEMA } from "@/app/api/v1/projects/route";
 import { PROJECT_PATCH_SCHEMA } from "@/app/api/v1/projects/[id]/route";
+import { MIEMBRO_CREATE_SCHEMA } from "@/app/api/v1/projects/[id]/members/route";
 
 const ProjectLineaSchema = z.object({
   id: z.string().uuid(),
@@ -88,9 +89,9 @@ const ProjectListQuery = z.object({
 });
 
 const SCOPE_NOTE =
-  "Lee el proyecto quien tiene alcance de portafolio (ADMINISTRADOR/GERENCIA, más el flag gerencial cuando su " +
-  "loader exista). El alcance por pertenencia al equipo (`ProyectoMiembro`) llega con S2.6; mientras tanto un " +
-  "COORDINADOR no resuelve pertenencia y recibe 403 en el detalle y una lista vacía.";
+  "Lee el proyecto quien tiene alcance de portafolio (ADMINISTRADOR/GERENCIA) o, para un COORDINADOR, una " +
+  "pertenencia activa al equipo (`ProyectoMiembro`, S2.6). Un COLABORADOR y un COORDINADOR sin pertenencia " +
+  "reciben 403 en el detalle y una lista vacía.";
 
 // ---------------------------------------------------------------------------
 // GET /api/v1/projects
@@ -303,5 +304,102 @@ registry.registerPath({
       content: { "application/json": { schema: ProjectStateConflictSchema } },
     },
     ...standardErrorResponses([400, 401, 403, 404, 500]),
+  },
+});
+
+// ---------------------------------------------------------------------------
+// GET/POST /api/v1/projects/{id}/members, DELETE .../members/{userId}
+// ---------------------------------------------------------------------------
+
+const ProjectMemberParams = z.object({ id: z.string().uuid(), userId: z.string() });
+
+/** Una fila de pertenencia al equipo (E-07). */
+const ProyectoMiembroSchema = registry.register(
+  "ProyectoMiembro",
+  z.object({
+    id: z.string().uuid(),
+    usuario: z.object({
+      id: z.string().uuid(),
+      nombre: z.string(),
+      rol: z.enum(RolUsuario),
+    }),
+    agregado_por_id: z.string().openapi({
+      description:
+        "Id del usuario que agregó la fila. Columna de auditoría sin FK a propósito: la fila sobrevive a un usuario eliminado.",
+    }),
+    created_at: z.string().openapi({ description: "Instante en ISO-8601." }),
+    removed_at: z.string().nullable().openapi({
+      description:
+        "null mientras la pertenencia está activa. El retiro lo establece y nunca borra la fila, así el integrante puede volver a agregarse después.",
+    }),
+  }),
+);
+
+registry.registerPath({
+  method: "get",
+  path: "/api/v1/projects/{id}/members",
+  tags: ["Projects"],
+  summary: "Integrantes activos del equipo de un proyecto (P02)",
+  description:
+    "Lista los integrantes con pertenencia activa (`removed_at` null), del más antiguo al más reciente. Puede " +
+    `leerla quien puede leer la ficha. Un id desconocido o con borrado lógico responde 404; un proyecto fuera del alcance de lectura del actor responde 403. ${SCOPE_NOTE}`,
+  security: [{ sessionCookie: [] }],
+  request: { params: ProjectIdParams },
+  responses: {
+    200: {
+      description: "Integrantes activos, del más antiguo al más reciente.",
+      content: {
+        "application/json": { schema: z.object({ miembros: z.array(ProyectoMiembroSchema) }) },
+      },
+    },
+    ...standardErrorResponses([401, 403, 404, 500]),
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/v1/projects/{id}/members",
+  tags: ["Projects"],
+  summary: "Agrega un COORDINADOR al equipo del proyecto (E-07, solo ADM/GER)",
+  description:
+    "Solo `ADMINISTRADOR`/`GERENCIA` (`canManageProjects`, P07) pueden agregar integrantes. El cuerpo es " +
+    "`{ usuario_id }`; el usuario debe existir, estar activo y tener `rol = COORDINADOR`, o responde 400 " +
+    "VALIDATION_ERROR. Un usuario que ya es integrante activo responde 409 CONFLICT desde el índice único parcial " +
+    "`proyecto_miembros_activo_uq`, no desde una verificación de lectura-y-escritura; un integrante retirado se " +
+    "puede agregar de nuevo. Un proyecto desconocido o con borrado lógico responde 404 antes del 403, y la " +
+    "escritura y su fila de auditoría `CREAR proyecto_miembro` comparten una transacción.",
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: ProjectIdParams,
+    body: { content: { "application/json": { schema: MIEMBRO_CREATE_SCHEMA } } },
+  },
+  responses: {
+    201: {
+      description: "Pertenencia creada.",
+      content: { "application/json": { schema: z.object({ miembro: ProyectoMiembroSchema }) } },
+    },
+    ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
+  },
+});
+
+registry.registerPath({
+  method: "delete",
+  path: "/api/v1/projects/{id}/members/{userId}",
+  tags: ["Projects"],
+  summary: "Retira a un integrante del equipo con borrado lógico (E-07, solo ADM/GER)",
+  description:
+    "Solo `ADMINISTRADOR`/`GERENCIA` (P07). Establece `removed_at` y `removido_por_id`; la fila nunca se elimina " +
+    "y el integrante pierde el acceso de lectura de inmediato porque el alcance de lectura solo cuenta " +
+    "pertenencias activas. Retirar a un usuario que no es integrante activo responde 404. Un proyecto desconocido " +
+    "o con borrado lógico responde 404 antes del 403, y la actualización y sus filas de auditoría " +
+    "`EDITAR proyecto_miembro` comparten una transacción.",
+  security: [{ sessionCookie: [] }],
+  request: { params: ProjectMemberParams },
+  responses: {
+    200: {
+      description: "Pertenencia retirada (borrado lógico).",
+      content: { "application/json": { schema: z.object({ miembro: ProyectoMiembroSchema }) } },
+    },
+    ...standardErrorResponses([401, 403, 404, 500]),
   },
 });

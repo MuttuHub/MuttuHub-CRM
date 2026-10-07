@@ -49,6 +49,7 @@ export const ACCION_AUDITORIA_META: Record<AccionAuditoria, string> = {
 export const ENTIDAD_AUDITORIA_META: Record<string, string> = {
   oportunidad: "Oportunidad",
   proyecto: "Proyecto",
+  proyecto_miembro: "Integrante del equipo",
 };
 
 const SIN_DATO = "—";

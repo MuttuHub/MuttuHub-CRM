@@ -70,4 +70,28 @@ describe("buildOpenApiDocument", () => {
       expect.arrayContaining(["200", "403", "404"]),
     )
   })
+
+  it("registers the S2.6 project team membership operations with their status codes", () => {
+    const document = buildOpenApiDocument()
+    const paths = document.paths ?? {}
+
+    // E-07: GET/POST /api/v1/projects/{id}/members.
+    const members = paths["/api/v1/projects/{id}/members"]
+    expect(members?.get).toBeDefined()
+    expect(members?.post).toBeDefined()
+    expect(Object.keys(members?.get?.responses ?? {})).toEqual(
+      expect.arrayContaining(["200", "401", "403", "404"]),
+    )
+    // The duplicate answer is the index-driven 409, so it must be documented.
+    expect(Object.keys(members?.post?.responses ?? {})).toEqual(
+      expect.arrayContaining(["201", "400", "403", "404", "409"]),
+    )
+
+    // E-07: DELETE /api/v1/projects/{id}/members/{userId} (soft removal).
+    const remove = paths["/api/v1/projects/{id}/members/{userId}"]
+    expect(remove?.delete).toBeDefined()
+    expect(Object.keys(remove?.delete?.responses ?? {})).toEqual(
+      expect.arrayContaining(["200", "403", "404"]),
+    )
+  })
 })

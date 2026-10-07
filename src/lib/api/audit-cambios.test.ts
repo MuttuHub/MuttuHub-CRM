@@ -169,8 +169,22 @@ describe("logChanges", () => {
 
 describe("AUDIT_ENTIDADES_V2", () => {
   it("covers the v2 project entity names", () => {
-    for (const entidad of ["proyecto", "objetivo", "actividad", "entregable", "gasto", "version"]) {
+    for (const entidad of [
+      "proyecto",
+      "objetivo",
+      "actividad",
+      "entregable",
+      "gasto",
+      "version",
+      "proyecto_miembro",
+    ]) {
       expect(AUDIT_ENTIDADES_V2).toContain(entidad)
     }
+  })
+
+  it("declares the membership vocabulary exactly once", () => {
+    // `equipo` was a placeholder no route writes and no label maps; the SDD and
+    // the routes use `proyecto_miembro`.
+    expect(AUDIT_ENTIDADES_V2).not.toContain("equipo")
   })
 })

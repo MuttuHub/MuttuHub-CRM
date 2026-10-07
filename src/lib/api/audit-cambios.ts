@@ -31,7 +31,7 @@ export const AUDIT_ENTIDADES_V2 = [
   "gasto",
   "version",
   "solicitud",
-  "equipo",
+  "proyecto_miembro",
   "linea",
   "municipio",
   "rubro",

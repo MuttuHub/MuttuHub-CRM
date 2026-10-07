@@ -231,4 +231,32 @@ describe("ProjectFichaDialog", () => {
       "No pudimos cargar el historial del proyecto. Inténtalo de nuevo.",
     )
   })
+
+  it("labels a membership event with its human entity name, not the raw vocabulary", async () => {
+    mockFichaAndAudit({
+      historial: [
+        {
+          id: "aud-miembro",
+          created_at: "2026-10-07T13:00:00.000Z",
+          usuario_id: "u1",
+          usuario_nombre: "Ana Pérez",
+          accion: "EDITAR",
+          entidad: "proyecto_miembro",
+          entidad_id: "miembro-1",
+          campo: "removed_at",
+          valor_anterior: null,
+          valor_nuevo: "2026-10-07T13:00:00.000Z",
+          lote_id: "lote-miembro",
+        },
+      ],
+    })
+
+    renderFicha()
+
+    const paso = await screen.findByTestId("historial-paso")
+    expect(paso).toHaveTextContent("Edición")
+    expect(paso).toHaveTextContent("Integrante del equipo")
+    // The raw stored vocabulary must never leak into the UI.
+    expect(paso).not.toHaveTextContent("proyecto_miembro")
+  })
 })
