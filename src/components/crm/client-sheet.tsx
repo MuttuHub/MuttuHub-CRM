@@ -51,6 +51,7 @@ import {
   esVencida,
   formatCOP,
   formatFecha,
+  formatFechaDia,
   formatFechaHora,
   iniciales,
   useAddLogEntry,
@@ -1100,7 +1101,7 @@ function OportunidadesTab({
                     <span className="font-mono font-medium text-ink-800">
                       {formatCOP(o.valor_estimado_cop)}
                     </span>
-                    <span>Última gestión: {formatFecha(o.fecha_ultima_gestion)}</span>
+                    <span>Última gestión: {formatFechaDia(o.fecha_ultima_gestion)}</span>
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-2">

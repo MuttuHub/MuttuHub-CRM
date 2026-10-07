@@ -18,6 +18,7 @@ import {
 import {
   formatCOP,
   formatFecha,
+  formatFechaDia,
   formatFechaHora,
   type BitacoraEntrada,
   type ClientDetail,
@@ -173,7 +174,7 @@ function FichaReporte({ data }: { data: FichaData }) {
           <Campo label="Tamaño de la organización" value={cliente.tamano_org ?? "—"} />
           <Campo label="Ubicación" value={cliente.ubicacion ?? "—"} />
           <Campo label="Canal de contacto inicial" value={cliente.canal_contacto_inicial ?? "—"} />
-          <Campo label="Fecha de primer contacto" value={formatFecha(cliente.fecha_primer_contacto)} />
+          <Campo label="Fecha de primer contacto" value={formatFechaDia(cliente.fecha_primer_contacto)} />
           <Campo label="Valor potencial" value={formatCOP(cliente.valor_potencial)} mono />
           <Campo label="Compromisos abiertos" value={String(cliente.compromisos_abiertos)} mono />
           <Campo label="Oportunidades" value={String(cliente.oportunidades_count)} mono />
@@ -238,7 +239,7 @@ function FichaReporte({ data }: { data: FichaData }) {
                 </div>
                 <p className="mt-0.5 text-[11.5px] text-ink-600">
                   {ESTADO_OPORTUNIDAD_LABELS[o.estado]?.label ?? o.estado} · última gestión:{" "}
-                  {formatFecha(o.fecha_ultima_gestion)}
+                  {formatFechaDia(o.fecha_ultima_gestion)}
                 </p>
                 <div className="mt-2 space-y-1 text-[12px] text-ink-700">
                   <p><span className="font-bold text-ink-900">Problema:</span> {o.problema_detectado ?? "—"}</p>

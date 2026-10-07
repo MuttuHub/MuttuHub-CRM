@@ -2,16 +2,21 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import type { ClientDetail } from "@/hooks/crm"
+import type { ClientDetail, Oportunidad } from "@/hooks/crm"
 import { ClientSheet } from "./client-sheet"
 
 // QA audit finding #3: editing a client required opening a separate "Editar
 // cliente" modal. The General tab fields are now inline-editable (click,
 // change, save on blur/select — no modal).
 
-const { updateMutation, clienteQuery } = vi.hoisted(() => ({
+const { updateMutation, clienteQuery, oportunidadesQuery } = vi.hoisted(() => ({
   updateMutation: { isPending: false, mutateAsync: vi.fn() },
   clienteQuery: { data: null as ClientDetail | null, error: null as unknown },
+  oportunidadesQuery: {
+    data: [] as Oportunidad[],
+    isLoading: false,
+    isError: false,
+  },
 }))
 
 const CLIENTE: ClientDetail = {
@@ -55,6 +60,7 @@ vi.mock("@/hooks/crm", async (importOriginal) => {
     useClientDetail: () => clienteQuery,
     useUsers: () => ({ data: USERS }),
     useUpdateClient: () => updateMutation,
+    useOpportunities: () => oportunidadesQuery,
   }
 })
 
@@ -77,6 +83,7 @@ describe("ClientSheet — General tab inline editing (QA audit finding #3)", () 
     updateMutation.mutateAsync.mockResolvedValue({ cliente: CLIENTE })
     clienteQuery.data = CLIENTE
     clienteQuery.error = null
+    oportunidadesQuery.data = []
   })
 
   it("saves a text field on blur without opening a modal", async () => {
@@ -150,5 +157,36 @@ describe("ClientSheet — General tab inline editing (QA audit finding #3)", () 
     expect(label).toHaveTextContent("Propuesta técnica · sin fecha")
     expect(label).not.toHaveTextContent("Vencido")
     expect(screen.queryByText("Sin compromisos abiertos")).not.toBeInTheDocument()
+  })
+
+  // dada629 fixed the one-day UTC-5 shift for date-input calendar days
+  // (`fecha_entrega`, `fecha_primer_contacto`). `fecha_ultima_gestion` is
+  // also captured by an `<input type="date">`: the form sends YYYY-MM-DD and
+  // `parseDate` stores UTC midnight, so the ficha must render that UTC day.
+  // Under TZ=America/Bogota a viewer-zone formatter shows the previous day.
+  it("renders fecha_ultima_gestion as its UTC calendar day in the Oportunidades tab", async () => {
+    const user = userEvent.setup()
+    oportunidadesQuery.data = [
+      {
+        id: "o1",
+        nombre: "Diagnóstico de participación ciudadana",
+        problema_detectado: null,
+        solucion_propuesta: null,
+        servicios_interes: null,
+        valor_estimado_cop: 45_000_000,
+        estado: "PRESENTADA",
+        fecha_ultima_gestion: "2026-08-01T00:00:00.000Z",
+        fase: "PROSPECCION",
+        fecha_adjudicacion: null,
+        fecha_envio_propuesta: null,
+        proyectos_relacionados: null,
+        created_at: "2026-07-01T00:00:00.000Z",
+      },
+    ]
+    renderSheet()
+
+    await user.click(screen.getByRole("tab", { name: "Oportunidades" }))
+
+    expect(await screen.findByText(/Última gestión:/)).toHaveTextContent("01 de ago de 2026")
   })
 })

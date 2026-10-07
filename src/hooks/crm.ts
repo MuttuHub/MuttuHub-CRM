@@ -767,6 +767,30 @@ export function formatFecha(value: string | Date | null | undefined): string {
   });
 }
 
+/**
+ * Calendar day captured with a date input and normalized to UTC midnight
+ * (`fecha_primer_contacto`, `fecha_ultima_gestion`): formatted in UTC so the
+ * day the user picked is the day that shows. `formatFecha` would show the
+ * previous day in UTC-5.
+ *
+ * Do NOT use it for `Tarea.fecha_entrega`: those rows can hold real instants
+ * (the seed writes `daysFromNow`/`daysAgo`, and `esVencida` plus the tasks
+ * report compare the column with `Date.now()`), so they must follow the
+ * viewer's zone via `formatFecha`. The same applies to other real instants
+ * such as `updated_at`.
+ */
+export function formatFechaDia(value: string | Date | null | undefined): string {
+  if (!value) return "—";
+  const date = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("es-CO", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 export function formatFechaHora(value: string | Date | null | undefined): string {
   if (!value) return "—";
   const date = typeof value === "string" ? new Date(value) : value;

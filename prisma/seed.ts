@@ -85,6 +85,27 @@ function daysAgo(days: number): Date {
   return daysFromNow(-days);
 }
 
+/**
+ * UTC midnight of the intended local calendar day `days` from now.
+ *
+ * Calendar-day columns written through the form (`fecha_primer_contacto`,
+ * `fecha_ultima_gestion`) receive a `YYYY-MM-DD` string that the API resolves
+ * with `parseDate` to UTC midnight. `daysFromNow`/`daysAgo` return real
+ * instants, which would render on the previous calendar day in UTC-5, so only
+ * those two date-input columns are normalized here.
+ *
+ * Task due dates (`fechaEntrega`) deliberately keep `daysFromNow`/`daysAgo`:
+ * the alert engine compares instants (`esVencida`, the tasks report) and the
+ * demo needs its overdue/today/upcoming spread, so they must stay real
+ * instants. The same holds for `bitacora.created_at`, `revisado_at` and
+ * `solicitudes.created_at`.
+ */
+function calendarDayFromNow(days: number): Date {
+  const local = new Date();
+  local.setDate(local.getDate() + days);
+  return new Date(Date.UTC(local.getFullYear(), local.getMonth(), local.getDate()));
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Section: Usuarios (demo personas, one per RolUsuario)
 // ─────────────────────────────────────────────────────────────────────────
@@ -361,7 +382,7 @@ async function seedClientes(usuarios: Record<string, { id: string }>) {
         tamano_org: def.tamano_org,
         ubicacion: def.ubicacion,
         canal_contacto_inicial: def.canal_contacto_inicial,
-        fecha_primer_contacto: daysAgo(120 - i * 5),
+        fecha_primer_contacto: calendarDayFromNow(-(120 - i * 5)),
         responsable_id: usuarios[def.responsableKey].id,
         resumen_relacion: def.resumen_relacion,
         riesgos_barreras: def.riesgos_barreras,
@@ -463,12 +484,12 @@ async function seedOportunidades(clienteIds: string[]) {
         servicios_interes: "Consultoría, formación, acompañamiento en implementación.",
         valor_estimado_cop: def.valor,
         estado: def.estado as never,
-        fecha_ultima_gestion: daysAgo(i + 1),
+        fecha_ultima_gestion: calendarDayFromNow(-(i + 1)),
       },
       update: {
         estado: def.estado as never,
         valor_estimado_cop: def.valor,
-        fecha_ultima_gestion: daysAgo(i + 1),
+        fecha_ultima_gestion: calendarDayFromNow(-(i + 1)),
       },
     });
   }
