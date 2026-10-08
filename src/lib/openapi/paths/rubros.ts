@@ -39,6 +39,14 @@ registry.registerPath({
     "código. Las filas sin código (las v1 \"Material POP\" y \"Operación logística\") quedan fuera: están " +
     "suspendidas y nunca se ofrecen a un proyecto.",
   security: [{ sessionCookie: [] }],
+  request: {
+    query: z.object({
+      incluir_inactivos: z.enum(["true", "false"]).optional().openapi({
+        description:
+          "`true` incluye las filas suspendidas. Solo lo respeta ADMINISTRADOR; cualquier otro rol lo ignora y recibe solo las activas.",
+      }),
+    }),
+  },
   responses: {
     200: {
       description: "Los 15 rubros activos del catálogo, en orden R01..R15.",

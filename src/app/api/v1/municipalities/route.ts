@@ -15,6 +15,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiError, parseJsonBody } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
+import { wantsInactivos } from "@/lib/api/incluir-inactivos";
 import { requireApiRole, requireApiUser } from "@/lib/supabase/server";
 import { logChange } from "@/lib/api/audit-cambios";
 
@@ -78,12 +79,12 @@ export function municipioConflictMessage(err: Prisma.PrismaClientKnownRequestErr
 export const GET = withApiErrorHandling(
   "municipalities",
   "No pudimos cargar los municipios. Inténtalo de nuevo.",
-  async () => {
+  async (request?: Request) => {
     const auth = await requireApiUser();
     if (!auth.ok) return auth.response;
 
     const municipios = await db.municipio.findMany({
-      where: { activo: true },
+      where: wantsInactivos(request, auth.usuario.rol) ? {} : { activo: true },
       orderBy: [{ orden: "asc" }, { nombre: "asc" }],
       select: MUNICIPIO_SELECT,
     });

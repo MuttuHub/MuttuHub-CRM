@@ -42,6 +42,14 @@ registry.registerPath({
     "Cualquier usuario autenticado. Devuelve las líneas activas ordenadas por código. Las líneas " +
     "suspendidas (`activo: false`) quedan fuera: nunca se eliminan, solo se suspenden.",
   security: [{ sessionCookie: [] }],
+  request: {
+    query: z.object({
+      incluir_inactivos: z.enum(["true", "false"]).optional().openapi({
+        description:
+          "`true` incluye las filas suspendidas. Solo lo respeta ADMINISTRADOR; cualquier otro rol lo ignora y recibe solo las activas.",
+      }),
+    }),
+  },
   responses: {
     200: {
       description: "Las líneas estratégicas activas, en orden LE01..LE08.",

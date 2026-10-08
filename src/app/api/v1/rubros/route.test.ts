@@ -104,3 +104,49 @@ describe("GET /api/v1/rubros", () => {
     });
   });
 });
+
+describe("GET /api/v1/rubros?incluir_inactivos=true", () => {
+  const url = "http://localhost/api/v1/rubros?incluir_inactivos=true";
+
+  it("lets ADMINISTRADOR see suspended rubros (still only coded rows)", async () => {
+    vi.mocked(requireApiUser).mockResolvedValue({
+      ok: true,
+      usuario: { id: "admin-1", rol: "ADMINISTRADOR" } as Usuario,
+      supabaseUser: {} as never,
+    });
+    vi.mocked(db.rubro.findMany).mockResolvedValue([] as never);
+
+    const res = await GET(new Request(url));
+
+    expect(res.status).toBe(200);
+    expect(vi.mocked(db.rubro.findMany).mock.calls[0][0]?.where).toEqual({ codigo: { not: null } });
+  });
+
+  it("ignores the flag for non-admin roles", async () => {
+    mockAuthenticated();
+    vi.mocked(db.rubro.findMany).mockResolvedValue([] as never);
+
+    await GET(new Request(url));
+
+    expect(vi.mocked(db.rubro.findMany).mock.calls[0][0]?.where).toEqual({
+      activo: true,
+      codigo: { not: null },
+    });
+  });
+
+  it("keeps the default (active only) without the flag, even for ADMINISTRADOR", async () => {
+    vi.mocked(requireApiUser).mockResolvedValue({
+      ok: true,
+      usuario: { id: "admin-1", rol: "ADMINISTRADOR" } as Usuario,
+      supabaseUser: {} as never,
+    });
+    vi.mocked(db.rubro.findMany).mockResolvedValue([] as never);
+
+    await GET(new Request("http://localhost/api/v1/rubros"));
+
+    expect(vi.mocked(db.rubro.findMany).mock.calls[0][0]?.where).toEqual({
+      activo: true,
+      codigo: { not: null },
+    });
+  });
+});

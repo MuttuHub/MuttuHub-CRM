@@ -225,3 +225,35 @@ describe("POST /api/v1/strategic-lines", () => {
     expect(mocks.txLineaCreate).not.toHaveBeenCalled();
   });
 });
+
+describe("GET /api/v1/strategic-lines?incluir_inactivos=true", () => {
+  const url = "http://localhost/api/v1/strategic-lines?incluir_inactivos=true";
+
+  it("lets ADMINISTRADOR see suspended rows", async () => {
+    mockAuthenticated(admin);
+    vi.mocked(db.lineaEstrategicaCatalogo.findMany).mockResolvedValue([] as never);
+
+    const res = await GET(new Request(url));
+
+    expect(res.status).toBe(200);
+    expect(vi.mocked(db.lineaEstrategicaCatalogo.findMany).mock.calls[0][0]?.where).toEqual({});
+  });
+
+  it("ignores the flag for non-admin roles", async () => {
+    mockAuthenticated(usuario);
+    vi.mocked(db.lineaEstrategicaCatalogo.findMany).mockResolvedValue([] as never);
+
+    await GET(new Request(url));
+
+    expect(vi.mocked(db.lineaEstrategicaCatalogo.findMany).mock.calls[0][0]?.where).toEqual({ activo: true });
+  });
+
+  it("keeps the default (active only) without the flag, even for ADMINISTRADOR", async () => {
+    mockAuthenticated(admin);
+    vi.mocked(db.lineaEstrategicaCatalogo.findMany).mockResolvedValue([] as never);
+
+    await GET(new Request("http://localhost/api/v1/strategic-lines"));
+
+    expect(vi.mocked(db.lineaEstrategicaCatalogo.findMany).mock.calls[0][0]?.where).toEqual({ activo: true });
+  });
+});

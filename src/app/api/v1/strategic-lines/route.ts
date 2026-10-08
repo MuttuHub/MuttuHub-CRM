@@ -12,6 +12,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiError, parseJsonBody } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
+import { wantsInactivos } from "@/lib/api/incluir-inactivos";
 import { requireApiRole, requireApiUser } from "@/lib/supabase/server";
 import { logChange } from "@/lib/api/audit-cambios";
 
@@ -47,12 +48,12 @@ const DUPLICATE_CODE_MESSAGE = "Ya existe una línea estratégica con ese códig
 export const GET = withApiErrorHandling(
   "strategic-lines",
   "No pudimos cargar las líneas estratégicas. Inténtalo de nuevo.",
-  async () => {
+  async (request?: Request) => {
     const auth = await requireApiUser();
     if (!auth.ok) return auth.response;
 
     const lineas = await db.lineaEstrategicaCatalogo.findMany({
-      where: { activo: true },
+      where: wantsInactivos(request, auth.usuario.rol) ? {} : { activo: true },
       orderBy: { codigo: "asc" },
       select: LINEA_SELECT,
     });

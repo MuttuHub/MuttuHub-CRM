@@ -47,6 +47,14 @@ registry.registerPath({
     "catálogo no viene sembrado por la migración (no existe un `territorio` heredado que normalizar); " +
     "los municipios demo viven en `prisma/seed.ts`.",
   security: [{ sessionCookie: [] }],
+  request: {
+    query: z.object({
+      incluir_inactivos: z.enum(["true", "false"]).optional().openapi({
+        description:
+          "`true` incluye las filas suspendidas. Solo lo respeta ADMINISTRADOR; cualquier otro rol lo ignora y recibe solo las activas.",
+      }),
+    }),
+  },
   responses: {
     200: {
       description: "Los municipios activos del catálogo, ordenados por `orden`.",

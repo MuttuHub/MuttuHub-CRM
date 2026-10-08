@@ -7,6 +7,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withApiErrorHandling } from "@/lib/api/handler";
+import { wantsInactivos } from "@/lib/api/incluir-inactivos";
 import { requireApiUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -24,12 +25,14 @@ export const RUBRO_SELECT = {
 export const GET = withApiErrorHandling(
   "rubros",
   "No pudimos cargar los rubros. Inténtalo de nuevo.",
-  async () => {
+  async (request?: Request) => {
     const auth = await requireApiUser();
     if (!auth.ok) return auth.response;
 
     const rubros = await db.rubro.findMany({
-      where: { activo: true, codigo: { not: null } },
+      where: wantsInactivos(request, auth.usuario.rol)
+        ? { codigo: { not: null } }
+        : { activo: true, codigo: { not: null } },
       orderBy: { codigo: "asc" },
       select: RUBRO_SELECT,
     });
