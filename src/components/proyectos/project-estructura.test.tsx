@@ -190,6 +190,13 @@ describe("ProjectEstructura", () => {
   })
 
   describe("read model", () => {
+    it("mounts the week Gantt for a read-only COORDINADOR too", async () => {
+      setup({ rol: "COORDINADOR" })
+
+      expect(await screen.findByTestId("gantt")).toBeInTheDocument()
+      expect(await screen.findByTestId("gantt-bar-a1")).toBeInTheDocument()
+    })
+
     it("lists objectives with their activity and indicator counts", async () => {
       setup()
 

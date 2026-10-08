@@ -8,6 +8,7 @@
 "use client";
 
 import { ListTree } from "lucide-react";
+import { EstructuraGantt } from "@/components/proyectos/estructura-gantt";
 import { EstructuraObjetivos } from "@/components/proyectos/estructura-objetivos";
 import { useCurrentUser } from "@/hooks/kanban";
 import type { ProjectListRow } from "@/hooks/projects";
@@ -34,6 +35,8 @@ export function ProjectEstructura({ proyecto }: { proyecto: ProjectListRow }) {
       )}
 
       <EstructuraObjetivos proyecto={proyecto} canEdit={canEdit} />
+
+      <EstructuraGantt proyecto={proyecto} />
     </section>
   );
 }
