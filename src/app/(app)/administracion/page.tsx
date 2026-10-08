@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/supabase/server";
 import { UsersTable } from "@/components/admin/users-table";
 import { CatalogsSection } from "@/components/admin/catalogs-section";
 import { CatalogosV2Section } from "@/components/admin/catalogos-v2-section";
+import { UmbralesSection } from "@/components/admin/umbrales-section";
 import { AccesosSection } from "@/components/admin/accesos-section";
 import { AuditLogSection } from "@/components/admin/audit-log-section";
 
@@ -63,6 +64,7 @@ export default async function AdministracionPage() {
           reintento sin romper la página. */}
       <CatalogsSection />
       <CatalogosV2Section />
+      <UmbralesSection />
       <AccesosSection />
       <AuditLogSection />
     </div>

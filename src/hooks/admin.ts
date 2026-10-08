@@ -18,6 +18,7 @@ import { apiGet, apiPatch, apiPost, apiPut, ApiError } from "@/lib/api/http";
 import type { DocCategoriaSetting } from "@/lib/settings";
 import { documentQueryKeys } from "@/hooks/documents";
 import { projectQueryKeys } from "@/hooks/projects";
+import type { ParametroKey, ParametrosV2 } from "@/lib/proyectos/semaforo-v2";
 
 /* ── DTOs (server response shapes) ─────────────────────────────────────── */
 
@@ -104,6 +105,7 @@ export type MunicipioCreateInput = {
 export const adminQueryKeys = {
   settings: ["admin", "settings"],
   accesos: ["admin", "accesos"],
+  semaforoV2: ["admin", "semaforo-v2"] as const,
   catalogosV2: ["admin", "catalogos-v2"] as const,
   catalogoV2: (kind: CatalogoKind) => ["admin", "catalogos-v2", kind] as const,
   auditoria: (entidad?: AuditEntidad) => ["admin", "auditoria", entidad ?? "todas"] as const,
@@ -243,6 +245,38 @@ export function useCreateMunicipio() {
   return useMutation({
     mutationFn: (input: MunicipioCreateInput) => apiPost<unknown>("/api/v1/municipalities", input),
     onSuccess: invalidate,
+  });
+}
+
+/* ── Parámetros del semáforo v2 ────────────────────────────────────────── */
+
+/** Cuerpo del PATCH: solo los campos que cambian; `confirmado` solo si se envía. */
+export type SemaforoParametrosPatch = {
+  [K in ParametroKey]?: { valor?: ParametrosV2[K]["valor"]; confirmado?: boolean };
+};
+
+export function useSemaforoParametros(): UseQueryResult<ParametrosV2> {
+  return useQuery({
+    queryKey: adminQueryKeys.semaforoV2,
+    queryFn: async () => {
+      const res = await apiGet<{ parametros: ParametrosV2 }>("/api/v1/settings/semaforo-v2");
+      return res.parametros;
+    },
+  });
+}
+
+// Los errores se re-lanzan sin toast: la sección los muestra en línea.
+export function useSaveSemaforoParametros() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (patch: SemaforoParametrosPatch) => {
+      const res = await apiPatch<{ parametros: ParametrosV2 }>("/api/v1/settings/semaforo-v2", patch);
+      return res.parametros;
+    },
+    onSuccess: (parametros) => {
+      qc.setQueryData(adminQueryKeys.semaforoV2, parametros);
+      toast.success("Parámetros guardados.");
+    },
   });
 }
 
