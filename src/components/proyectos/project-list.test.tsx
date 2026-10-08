@@ -91,6 +91,26 @@ vi.mock("@/hooks/projects", () => ({
     error: null,
     variables: undefined,
   }),
+  // The ficha also mounts the Estructura técnica section: empty lists, no mutations pending.
+  ...Object.fromEntries(
+    [
+      "useProjectObjectives",
+      "useProjectActivities",
+      "useProjectDeliverables",
+      "useProjectIndicators",
+    ].map((name) => [name, () => ({ data: [], isLoading: false, isError: false, error: null })]),
+  ),
+  ...Object.fromEntries(
+    [
+      "useCreateObjective", "useUpdateObjective", "useDeleteObjective",
+      "useCreateActivity", "useUpdateActivity", "useDeleteActivity",
+      "useCreateDeliverable", "useUpdateDeliverable", "useDeleteDeliverable",
+      "useCreateIndicator", "useUpdateIndicator", "useDeleteIndicator",
+    ].map((name) => [
+      name,
+      () => ({ mutate: vi.fn(), isPending: false, isError: false, error: null, variables: undefined }),
+    ]),
+  ),
   useEligibleOpportunities: dialogHooks.useEligibleOpportunities,
   useStrategicLines: dialogHooks.useStrategicLines,
   useMunicipalities: dialogHooks.useMunicipalities,

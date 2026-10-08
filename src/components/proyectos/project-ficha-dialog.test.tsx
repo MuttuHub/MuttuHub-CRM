@@ -94,6 +94,17 @@ describe("ProjectFichaDialog", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1", expect.any(Object))
   })
 
+  it("mounts the technical structure section after the team", async () => {
+    mockFichaAndAudit({ historial: [] })
+
+    renderFicha()
+
+    const estructura = await screen.findByTestId("estructura")
+    const equipo = screen.getByTestId("equipo")
+    expect(estructura).toHaveTextContent("Estructura técnica")
+    expect(equipo.compareDocumentPosition(estructura) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it("omits the difference field when it is null (nothing writes it yet)", async () => {
     mockFichaAndAudit(
       { historial: [] },
@@ -199,6 +210,12 @@ describe("ProjectFichaDialog", () => {
       }
       if (String(input).endsWith("/members")) {
         return Promise.resolve(jsonResponse({ miembros: MIEMBROS }))
+      }
+      // Estructura técnica (S3): vacía; su comportamiento vive en project-estructura.test.tsx.
+      const estructura = /\/(objectives|activities|deliverables|indicators)$/.exec(String(input))
+      if (estructura) {
+        const campo = { objectives: "objetivos", activities: "actividades", deliverables: "entregables", indicators: "indicadores" }[estructura[1]]
+        return Promise.resolve(jsonResponse({ [campo as string]: [] }))
       }
       if (String(input).endsWith("/api/v1/auth/me")) {
         return Promise.resolve(

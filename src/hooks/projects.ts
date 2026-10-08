@@ -19,7 +19,7 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { apiDelete, apiGet, apiPost, ApiError } from "@/lib/api/http";
+import { apiDelete, apiGet, apiPatch, apiPost, ApiError } from "@/lib/api/http";
 import type {
   AccionAuditoria,
   EstadoProyecto,
@@ -106,6 +106,106 @@ export type ProjectMember = {
   removed_at: string | null;
 };
 
+/* ── DTOs: estructura técnica (S3: objetivos, actividades, entregables, indicadores) ── */
+
+/** Fila de `{ objetivos }` y de `{ objetivo }` (`toObjetivoView`). */
+export type ProjectObjective = {
+  id: string;
+  proyecto_id: string;
+  codigo: string;
+  descripcion: string;
+  orden: number;
+  created_at: string;
+  updated_at: string;
+};
+
+/**
+ * Fila de `{ actividades }` (`toActividadV2View`). Las fechas son DERIVADAS de
+ * las semanas y la fecha de inicio del proyecto (nunca se envían); `peso` es
+ * número y `peso_manual` indica que lo escribió una persona.
+ */
+export type ProjectActivity = {
+  id: string;
+  proyecto_id: string;
+  objetivo_id: string;
+  codigo: string;
+  nombre: string;
+  semana_inicio: number;
+  semana_fin: number;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  peso: number;
+  peso_manual: boolean;
+  responsable_id: string | null;
+  /** Las semanas superan la duración actual del proyecto (el proyecto se acortó). */
+  fuera_de_duracion: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Fila de `{ entregables }`. `cantidad_meta` es `Decimal(15,2)`: viaja como STRING. */
+export type ProjectDeliverable = {
+  id: string;
+  proyecto_id: string;
+  actividad_id: string;
+  codigo: string;
+  descripcion: string;
+  cantidad_meta: string;
+  unidad: string;
+  tipo_medio_exigido: string;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Fila de `{ indicadores }`. `meta` y `linea_base` son `Decimal(15,2)`: viajan como STRING. */
+export type ProjectIndicator = {
+  id: string;
+  proyecto_id: string;
+  objetivo_id: string;
+  codigo: string;
+  nombre: string;
+  meta: string;
+  unidad: string;
+  linea_base: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Cuerpos de escritura: los códigos son texto libre del cliente (máx. 50). */
+export type ProjectObjectiveInput = { codigo: string; descripcion: string; orden?: number };
+
+export type ProjectActivityInput = {
+  objetivo_id: string;
+  codigo: string;
+  nombre: string;
+  semana_inicio: number;
+  semana_fin: number;
+  /** Número = peso manual; `null` = volver al peso por defecto (duración en semanas). */
+  peso?: number | null;
+  responsable_id?: string | null;
+};
+
+export type ProjectDeliverableInput = {
+  actividad_id: string;
+  codigo: string;
+  descripcion: string;
+  cantidad_meta: number;
+  unidad: string;
+  tipo_medio_exigido: string;
+};
+
+export type ProjectIndicatorInput = {
+  objetivo_id: string;
+  codigo: string;
+  nombre: string;
+  meta: number;
+  unidad: string;
+  linea_base?: number | null;
+};
+
+/** Variables de una edición: el id de la fila y el parche parcial. */
+export type ProjectStructureUpdate<TInput> = { id: string; data: Partial<TInput> };
+
 /* ── DTOs: elegibles y catálogos (unidad 2: creación) ──────────────────── */
 
 /** Fila de la respuesta de `GET /api/v1/projects/eligible-opportunities`. */
@@ -161,6 +261,10 @@ export const projectQueryKeys = {
   detail: (id: string) => ["projects", "detail", id] as const,
   audit: (id: string) => ["projects", "audit", id] as const,
   members: (id: string) => ["projects", "members", id] as const,
+  objectives: (id: string) => ["projects", "objectives", id] as const,
+  activities: (id: string) => ["projects", "activities", id] as const,
+  deliverables: (id: string) => ["projects", "deliverables", id] as const,
+  indicators: (id: string) => ["projects", "indicators", id] as const,
   eligibleOpportunities: ["projects", "eligible-opportunities"] as const,
   // Los catálogos viven fuera de `projects` para que invalidar la lista de
   // proyectos no refetchee catálogos que no cambiaron.
@@ -392,6 +496,192 @@ export function useRemoveProjectMember(
       void qc.invalidateQueries({ queryKey: projectQueryKeys.members(projectId) });
     },
   });
+}
+
+/* ── Estructura técnica (S3 U4) ─────────────────────────────────────────── */
+//
+// Las cuatro colecciones comparten el mismo contrato que el equipo: la query
+// cuelga del prefijo `projects`, las mutaciones invalidan SU lista y relanzan
+// el `ApiError` sin toast (el 400/409 del servidor se muestra en línea).
+
+function useStructureList<TRow>(
+  projectId: string,
+  key: readonly unknown[],
+  path: string,
+  field: string,
+): UseQueryResult<TRow[]> {
+  return useQuery({
+    queryKey: key,
+    enabled: projectId !== "",
+    queryFn: async () => {
+      const res = await apiGet<Record<string, TRow[]>>(`/api/v1/projects/${projectId}/${path}`);
+      return res[field];
+    },
+  });
+}
+
+function useStructureMutations<TRow, TInput>(
+  projectId: string,
+  key: readonly unknown[],
+  path: string,
+  field: string,
+) {
+  const qc = useQueryClient();
+  const base = `/api/v1/projects/${projectId}/${path}`;
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: key });
+  };
+  return {
+    create: {
+      mutationFn: async (input: TInput) => (await apiPost<Record<string, TRow>>(base, input))[field],
+      onSuccess: refresh,
+    },
+    update: {
+      mutationFn: async ({ id, data }: ProjectStructureUpdate<TInput>) =>
+        (await apiPatch<Record<string, TRow>>(`${base}/${id}`, data))[field],
+      onSuccess: refresh,
+    },
+    remove: {
+      mutationFn: async (id: string) => (await apiDelete<Record<string, TRow>>(`${base}/${id}`))[field],
+      onSuccess: refresh,
+    },
+  };
+}
+
+export function useProjectObjectives(id: string): UseQueryResult<ProjectObjective[]> {
+  return useStructureList(id, projectQueryKeys.objectives(id), "objectives", "objetivos");
+}
+
+export function useCreateObjective(
+  projectId: string,
+): UseMutationResult<ProjectObjective, Error, ProjectObjectiveInput> {
+  return useMutation(
+    useStructureMutations<ProjectObjective, ProjectObjectiveInput>(
+      projectId, projectQueryKeys.objectives(projectId), "objectives", "objetivo",
+    ).create,
+  );
+}
+
+export function useUpdateObjective(
+  projectId: string,
+): UseMutationResult<ProjectObjective, Error, ProjectStructureUpdate<ProjectObjectiveInput>> {
+  return useMutation(
+    useStructureMutations<ProjectObjective, ProjectObjectiveInput>(
+      projectId, projectQueryKeys.objectives(projectId), "objectives", "objetivo",
+    ).update,
+  );
+}
+
+export function useDeleteObjective(
+  projectId: string,
+): UseMutationResult<ProjectObjective, Error, string> {
+  return useMutation(
+    useStructureMutations<ProjectObjective, ProjectObjectiveInput>(
+      projectId, projectQueryKeys.objectives(projectId), "objectives", "objetivo",
+    ).remove,
+  );
+}
+
+export function useProjectActivities(id: string): UseQueryResult<ProjectActivity[]> {
+  return useStructureList(id, projectQueryKeys.activities(id), "activities", "actividades");
+}
+
+export function useCreateActivity(
+  projectId: string,
+): UseMutationResult<ProjectActivity, Error, ProjectActivityInput> {
+  return useMutation(
+    useStructureMutations<ProjectActivity, ProjectActivityInput>(
+      projectId, projectQueryKeys.activities(projectId), "activities", "actividad",
+    ).create,
+  );
+}
+
+export function useUpdateActivity(
+  projectId: string,
+): UseMutationResult<ProjectActivity, Error, ProjectStructureUpdate<ProjectActivityInput>> {
+  return useMutation(
+    useStructureMutations<ProjectActivity, ProjectActivityInput>(
+      projectId, projectQueryKeys.activities(projectId), "activities", "actividad",
+    ).update,
+  );
+}
+
+export function useDeleteActivity(
+  projectId: string,
+): UseMutationResult<ProjectActivity, Error, string> {
+  return useMutation(
+    useStructureMutations<ProjectActivity, ProjectActivityInput>(
+      projectId, projectQueryKeys.activities(projectId), "activities", "actividad",
+    ).remove,
+  );
+}
+
+export function useProjectDeliverables(id: string): UseQueryResult<ProjectDeliverable[]> {
+  return useStructureList(id, projectQueryKeys.deliverables(id), "deliverables", "entregables");
+}
+
+export function useCreateDeliverable(
+  projectId: string,
+): UseMutationResult<ProjectDeliverable, Error, ProjectDeliverableInput> {
+  return useMutation(
+    useStructureMutations<ProjectDeliverable, ProjectDeliverableInput>(
+      projectId, projectQueryKeys.deliverables(projectId), "deliverables", "entregable",
+    ).create,
+  );
+}
+
+export function useUpdateDeliverable(
+  projectId: string,
+): UseMutationResult<ProjectDeliverable, Error, ProjectStructureUpdate<ProjectDeliverableInput>> {
+  return useMutation(
+    useStructureMutations<ProjectDeliverable, ProjectDeliverableInput>(
+      projectId, projectQueryKeys.deliverables(projectId), "deliverables", "entregable",
+    ).update,
+  );
+}
+
+export function useDeleteDeliverable(
+  projectId: string,
+): UseMutationResult<ProjectDeliverable, Error, string> {
+  return useMutation(
+    useStructureMutations<ProjectDeliverable, ProjectDeliverableInput>(
+      projectId, projectQueryKeys.deliverables(projectId), "deliverables", "entregable",
+    ).remove,
+  );
+}
+
+export function useProjectIndicators(id: string): UseQueryResult<ProjectIndicator[]> {
+  return useStructureList(id, projectQueryKeys.indicators(id), "indicators", "indicadores");
+}
+
+export function useCreateIndicator(
+  projectId: string,
+): UseMutationResult<ProjectIndicator, Error, ProjectIndicatorInput> {
+  return useMutation(
+    useStructureMutations<ProjectIndicator, ProjectIndicatorInput>(
+      projectId, projectQueryKeys.indicators(projectId), "indicators", "indicador",
+    ).create,
+  );
+}
+
+export function useUpdateIndicator(
+  projectId: string,
+): UseMutationResult<ProjectIndicator, Error, ProjectStructureUpdate<ProjectIndicatorInput>> {
+  return useMutation(
+    useStructureMutations<ProjectIndicator, ProjectIndicatorInput>(
+      projectId, projectQueryKeys.indicators(projectId), "indicators", "indicador",
+    ).update,
+  );
+}
+
+export function useDeleteIndicator(
+  projectId: string,
+): UseMutationResult<ProjectIndicator, Error, string> {
+  return useMutation(
+    useStructureMutations<ProjectIndicator, ProjectIndicatorInput>(
+      projectId, projectQueryKeys.indicators(projectId), "indicators", "indicador",
+    ).remove,
+  );
 }
 
 function toastError(err: unknown, fallback: string): never {
