@@ -176,3 +176,15 @@ describe("ProgramacionPeriodo invariants (live DB)", () => {
     expect(row.valor.toString()).toBe("14875000.5")
   })
 })
+
+describe("budget write lock (live DB)", () => {
+  it("runs the SQL the budget and programming routes use to lock the project", async () => {
+    const rows = await runAndRollback(async (tx) => {
+      const { proyecto } = await fixture(tx)
+      await tx.proyecto.update({ where: { id: proyecto.id }, data: { valor_total: 1500000.5 } })
+      return tx.$queryRaw<{ estado: string; valor_total: string | null }[]>`
+        SELECT "estado", "valor_total"::text AS "valor_total" FROM "proyectos" WHERE "id" = ${proyecto.id} FOR UPDATE`
+    })
+    expect(rows).toEqual([{ estado: "BORRADOR", valor_total: "1500000.50" }])
+  })
+})

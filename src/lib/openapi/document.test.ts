@@ -195,4 +195,14 @@ describe("buildOpenApiDocument", () => {
     const params = (op?.parameters ?? []) as { name: string; in: string }[]
     expect(params.map((p) => [p.name, p.in])).toEqual(expect.arrayContaining([["corte", "query"]]))
   })
+  it("registers the S5 budget and programming operations", () => {
+    const paths = buildOpenApiDocument().paths ?? {}
+    const codes = (op: { responses?: object } | undefined) => Object.keys(op?.responses ?? {})
+    const budget = paths["/api/v1/projects/{id}/budget"]
+    expect(codes(budget?.get)).toEqual(expect.arrayContaining(["200", "401", "403", "404"]))
+    expect(codes(budget?.put)).toEqual(expect.arrayContaining(["200", "400", "403", "404", "409"]))
+    const programming = paths["/api/v1/projects/{id}/programming"]
+    expect(codes(programming?.get)).toEqual(expect.arrayContaining(["200", "403", "404", "409"]))
+    expect(codes(programming?.put)).toEqual(expect.arrayContaining(["200", "400", "403", "404", "409"]))
+  })
 })
