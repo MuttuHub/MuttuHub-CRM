@@ -241,5 +241,8 @@ describe("buildOpenApiDocument", () => {
     expect(codes(paths["/api/v1/expense-validations"]?.get)).toEqual(
       expect.arrayContaining(["200", "400", "401", "403"]),
     )
+    expect(
+      codes(paths["/api/v1/projects/{id}/expenses/{expenseId}/attachments/{attachmentId}/download"]?.get),
+    ).toEqual(expect.arrayContaining(["200", "401", "403", "404", "500"]))
   })
 })

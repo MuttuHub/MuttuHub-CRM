@@ -302,3 +302,33 @@ registry.registerPath({
     ...standardErrorResponses([400, 401, 403, 500]),
   },
 });
+
+registry.registerPath({
+  method: "get",
+  path: "/api/v1/projects/{id}/expenses/{expenseId}/attachments/{attachmentId}/download",
+  tags: ["Projects"],
+  summary: "Descarga un soporte de gasto (URL firmada de 60 s o enlace)",
+  description:
+    "Solo quien puede ver soportes financieros (ADMINISTRADOR/GERENCIA o COORDINADOR integrante activo; la bandera gerencial " +
+    "no lo otorga): 404 del proyecto -> 403 -> 404 del soporte. Cada emisión se registra en `acceso_soportes` (solo escritura) " +
+    "después de firmar; si el registro falla responde 500 y no entrega la URL. Los enlaces externos también se registran.",
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: z.object({ id: z.string().uuid(), expenseId: z.string().uuid(), attachmentId: z.string().uuid() }),
+  },
+  responses: {
+    200: {
+      description: "URL de descarga.",
+      content: {
+        "application/json": {
+          schema: z.object({
+            tipo: z.enum(["archivo", "enlace"]),
+            url: z.string().nullable(),
+            expires_in: z.number().int().nullable().openapi({ description: "Segundos de validez (60) para un archivo; nulo para un enlace." }),
+          }),
+        },
+      },
+    },
+    ...standardErrorResponses([401, 403, 404, 500]),
+  },
+});

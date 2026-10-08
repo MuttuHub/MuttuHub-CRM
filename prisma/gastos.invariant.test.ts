@@ -12,6 +12,8 @@ import { Prisma } from "@prisma/client"
 import { describe, expect, it } from "vitest"
 
 import { db } from "@/lib/db"
+import { loadGastosValidados } from "@/lib/api/financiera"
+import { toCents } from "@/lib/proyectos/money"
 
 const TX_OPTIONS = { timeout: 20_000, maxWait: 10_000 }
 
@@ -325,5 +327,42 @@ describe("AccesoSoporte log (live DB)", () => {
       await tx.soporteProyecto.delete({ where: { id: soporte.id } })
     })
     expect((error as Prisma.PrismaClientKnownRequestError).code).toBe("P2003")
+  })
+})
+
+describe("E seam (live DB)", () => {
+  it("feeds E only with VALIDADO expenses, mapped to the rubro of their line", async () => {
+    const fuente = await runAndRollback(async (tx) => {
+      const { datos, validador, proyecto, rubro, usuario } = await fixture(tx)
+      const validado = { validado_por_id: validador.id, validado_at: new Date() }
+      await tx.gasto.create({ data: { ...datos, monto_cop: 100, estado: "VALIDADO", ...validado } })
+      await tx.gasto.create({ data: { ...datos, monto_cop: 40 } })
+      await tx.gasto.create({
+        data: {
+          ...datos,
+          monto_cop: 30,
+          estado: "RECHAZADO",
+          rechazado_por_id: validador.id,
+          rechazado_at: new Date(),
+          motivo_rechazo: "No aplica",
+        },
+      })
+      await tx.gasto.create({
+        data: {
+          ...datos,
+          monto_cop: 20,
+          estado: "ANULADO",
+          ...validado,
+          anulado_por_id: usuario.id,
+          anulado_at: new Date(),
+          motivo_anulacion: "Error",
+        },
+      })
+      return { fuente: await loadGastosValidados(proyecto.id, tx), rubroId: rubro.id }
+    })
+    expect(fuente.fuente.disponible).toBe(true)
+    expect(fuente.fuente.gastos).toEqual([
+      { rubroId: fuente.rubroId, periodo: "2026-10", valor: toCents("100"), estado: "VALIDADO" },
+    ])
   })
 })

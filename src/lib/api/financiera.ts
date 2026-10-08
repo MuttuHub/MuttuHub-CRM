@@ -1,21 +1,38 @@
 // Source of the validated expenses (E) of the financial ficha.
 //
-// S5 has no `Gasto` table: E is unavailable until S6, which only replaces the
-// body of `loadGastosValidados` (the route and the pure lib do not change).
+// S6: only VALIDADO expenses count (REGISTRADO, RECHAZADO and ANULADO never do), each mapped to
+// the rubro of its budget line. The route and the pure lib (`computeFicha`) do not change: the
+// ficha itself keeps E unavailable for a BORRADOR project (`ejecucion_disponible`).
 
-import type { Cents } from "@/lib/proyectos/money";
+import type { Prisma } from "@prisma/client";
+import { db } from "@/lib/db";
+import { toCents, type Cents } from "@/lib/proyectos/money";
 import type { GastoEstado } from "@/lib/proyectos/ficha-financiera";
 import type { Periodo } from "@/lib/proyectos/weeks";
 
 export type GastoAgregable = { rubroId: string; periodo: Periodo; valor: Cents; estado: GastoEstado };
 
 export type GastosFuente = {
-  /** False while no expense source exists: E is not real and no color is shown. */
+  /** False when E is not real (no expense source, or the project is still BORRADOR): no color is shown. */
   disponible: boolean;
   gastos: GastoAgregable[];
 };
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- the S6 body reads it
-export async function loadGastosValidados(_proyectoId: string): Promise<GastosFuente> {
-  return { disponible: false, gastos: [] };
+export async function loadGastosValidados(
+  proyectoId: string,
+  client: Pick<Prisma.TransactionClient, "gasto"> = db,
+): Promise<GastosFuente> {
+  const rows = await client.gasto.findMany({
+    where: { proyecto_id: proyectoId, estado: "VALIDADO" },
+    select: { periodo: true, monto_cop: true, linea: { select: { rubro_id: true } } },
+  });
+  return {
+    disponible: true,
+    gastos: rows.map((row) => ({
+      rubroId: row.linea.rubro_id,
+      periodo: row.periodo,
+      valor: toCents(row.monto_cop),
+      estado: "VALIDADO" as const,
+    })),
+  };
 }

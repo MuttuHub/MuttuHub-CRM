@@ -171,6 +171,24 @@ describe("GET financial-sheet: F-F1 golden", () => {
   });
 });
 
+describe("GET financial-sheet: BORRADOR keeps E unavailable (S6)", () => {
+  it("answers ejecucion_disponible false for a BORRADOR project even when the source is available", async () => {
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto({ estado: "BORRADOR" }));
+    mocks.loadGastos.mockResolvedValue({ disponible: true, gastos: [] });
+    const body = await (await GET(get(), ctx)).json();
+    expect(body.ejecucion_disponible).toBe(false);
+    for (const row of [...body.rubros, body.total]) {
+      expect(row).toMatchObject({ color: null, ep_decimas: null, ea_decimas: null });
+    }
+    expect(mocks.loadTecnico).not.toHaveBeenCalled();
+  });
+
+  it("keeps E and colors for an EN_EJECUCION project with an available source", async () => {
+    mocks.loadGastos.mockResolvedValue({ disponible: true, gastos: gastosF1 });
+    expect((await (await GET(get(), ctx)).json()).ejecucion_disponible).toBe(true);
+  });
+});
+
 describe("GET financial-sheet: E not available until S6", () => {
   beforeEach(() => {
     mocks.loadGastos.mockResolvedValue({ disponible: false, gastos: [] });

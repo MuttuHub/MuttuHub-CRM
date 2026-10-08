@@ -2,9 +2,10 @@
 //
 // Per rubro and total row: A (assigned), P (programmed up to the corte), E
 // (validated expenses up to the corte), D = E - P, E/P, E/A, the red threshold
-// and the financial color, all through the pure `computeFicha`. E has no source
-// until S6 (`loadGastosValidados` seam): while `ejecucion_disponible` is false E
-// is $0 and no color, percentage or alert is produced. The delay alert lives on
+// and the financial color, all through the pure `computeFicha`. E comes from the
+// VALIDADO expenses (`loadGastosValidados` seam, S6); while `ejecucion_disponible`
+// is false (a BORRADOR project has not started executing) E is $0 and no color,
+// percentage or alert is produced. The delay alert lives on
 // the total row and reads the same technical color as `technical-status`.
 // Aggregates only: no per-gasto or support data (P04). Readable in any estado by
 // whoever can read the project (404 -> 403 -> 409 -> 400).
@@ -93,7 +94,7 @@ export const GET = withApiErrorHandling(
       return apiError(CORTE_INVALIDO_MESSAGE, 400, "VALIDATION_ERROR");
     }
 
-    const [lineas, celdas, fuente, parametros] = await Promise.all([
+    const [lineas, celdas, origen, parametros] = await Promise.all([
       db.lineaPresupuestal.findMany({
         where: { proyecto_id: id },
         select: {
@@ -110,6 +111,9 @@ export const GET = withApiErrorHandling(
       loadGastosValidados(id),
       getSemaforoParametrosV2(),
     ]);
+
+    // A BORRADOR project has nothing executed yet: no E and no color, whatever the source says.
+    const fuente = { ...origen, disponible: origen.disponible && estado !== "BORRADOR" };
 
     const ordenadas = [...lineas].sort((a, b) =>
       compareRubros({ id: a.rubro_id, ...a.rubro }, { id: b.rubro_id, ...b.rubro }),
