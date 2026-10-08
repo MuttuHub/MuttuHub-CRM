@@ -13,6 +13,7 @@
  *    handling the API response needs. No week arithmetic is duplicated here.
  */
 
+import { formatCOP, fromCents, toCents } from "./money";
 import { durationWeeks, type IsoDate } from "./weeks";
 
 export type LineaInput = { id: string; principal?: boolean };
@@ -90,4 +91,40 @@ export function validarLineas(lineas: readonly LineaInput[]): ValidacionLineas {
   }
 
   return { ok: true };
+}
+
+type Monto = string | number | { toString(): string } | null | undefined;
+
+/**
+ * S2.4: `valor_total - valor_estimado_cop` as a two-decimal string, exact to
+ * the cent (it goes through `toCents`, never float math). `null` while either
+ * side is missing. The project value is user-entered; the opportunity's
+ * estimate is the reference.
+ */
+export function diferenciaValor(total: Monto, estimado: Monto): string | null {
+  if (total == null || estimado == null) return null;
+  return fromCents(toCents(total) - toCents(estimado));
+}
+
+export type AlertaProyecto = {
+  codigo: "DIFERENCIA_VALOR";
+  mensaje: string;
+  diferencia: string;
+};
+
+/**
+ * Non-blocking alerts derived from a stored difference. A zero or missing
+ * difference raises nothing.
+ */
+export function alertasProyecto(diferencia: Monto): AlertaProyecto[] {
+  if (diferencia == null) return [];
+  const cents = toCents(diferencia);
+  if (cents === BigInt(0)) return [];
+  return [
+    {
+      codigo: "DIFERENCIA_VALOR",
+      mensaje: `El valor del proyecto difiere del valor estimado de la oportunidad en ${formatCOP(cents)}.`,
+      diferencia: fromCents(cents),
+    },
+  ];
 }

@@ -13,7 +13,13 @@
 
 import { Prisma, type EstadoProyecto, type OrigenProyecto, type RolUsuario, type Usuario } from "@prisma/client";
 import { canViewPortfolio, canViewProjectV2, type ProjectActor, type ProjectMembershipActor } from "@/lib/permissions";
-import { duracionProyecto, isoDate, type LineaInput } from "@/lib/proyectos/proyecto-general";
+import {
+  alertasProyecto,
+  duracionProyecto,
+  isoDate,
+  type AlertaProyecto,
+  type LineaInput,
+} from "@/lib/proyectos/proyecto-general";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
 import { logChanges } from "@/lib/api/audit-cambios";
@@ -63,6 +69,8 @@ export type ProjectItemV2 = {
   duracion_semanas: number | null;
   valor_total: Prisma.Decimal | null;
   diferencia_valor_oportunidad: Prisma.Decimal | null;
+  /** Non-blocking alerts derived from the stored difference (S2.4). */
+  alertas: AlertaProyecto[];
   beneficiarios_meta: number | null;
   lineas: { id: string; codigo: string; nombre: string; principal: boolean }[];
   municipios: { id: string; nombre: string; departamento: string }[];
@@ -88,6 +96,7 @@ export function toProjectItemV2(row: ProjectRowV2): ProjectItemV2 {
     duracion_semanas: duracionProyecto(row.fecha_inicio, row.fecha_fin),
     valor_total: row.valor_total,
     diferencia_valor_oportunidad: row.diferencia_valor_oportunidad,
+    alertas: alertasProyecto(row.diferencia_valor_oportunidad),
     beneficiarios_meta: row.beneficiarios_meta,
     lineas: row.lineas.map((link) => ({
       id: link.linea.id,
@@ -393,6 +402,7 @@ export const AUDITED_PROJECT_FIELDS = [
   "fecha_inicio",
   "fecha_fin",
   "valor_total",
+  "diferencia_valor_oportunidad",
   "beneficiarios_meta",
   "responsable_id",
 ] as const;

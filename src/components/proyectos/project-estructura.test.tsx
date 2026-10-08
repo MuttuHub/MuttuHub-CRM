@@ -39,6 +39,7 @@ const PROYECTO: ProjectListRow = {
   duracion_semanas: 12,
   valor_total: null,
   diferencia_valor_oportunidad: null,
+  alertas: [],
   beneficiarios_meta: null,
   lineas: [],
   municipios: [],

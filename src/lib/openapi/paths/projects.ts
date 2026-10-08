@@ -60,7 +60,19 @@ export const ProjectItemV2Schema = registry.register(
     diferencia_valor_oportunidad: z
       .string()
       .nullable()
-      .openapi({ description: "Decimal(15,2) serializado como string. La alerta DIFERENCIA_VALOR llega con S2.4.", example: "50000" }),
+      .openapi({ description: "Decimal(15,2) serializado como string. valor_total − valor_estimado_cop de la oportunidad de origen (S2.4); null en proyectos independientes o sin valor.", example: "50000" }),
+    alertas: z
+      .array(
+        z.object({
+          codigo: z.literal("DIFERENCIA_VALOR"),
+          mensaje: z.string(),
+          diferencia: z.string().openapi({ description: "Decimal(15,2) como string.", example: "50000.00" }),
+        }),
+      )
+      .openapi({
+        description:
+          "Avisos no bloqueantes derivados de la diferencia (S2.4). Vacío cuando no hay diferencia o es cero.",
+      }),
     beneficiarios_meta: z.number().int().nullable(),
     lineas: z.array(ProjectLineaSchema),
     municipios: z.array(ProjectMunicipioSchema),
@@ -291,7 +303,8 @@ registry.registerPath({
     "`lineas` (reemplazo N..N, 1..n con exactamente una principal) y `municipio_ids` (reemplazo N..N). " +
     "Fuera de `BORRADOR` responde 409 INVALID_STATE (código compartido del envelope). Las escrituras y las filas de auditoría van en una sola " +
     "transacción: una por campo cambiado, por línea y por municipio cambiados. `codigo`, `estado`, `miembro_ids` " +
-    "(S2.6) y `diferencia_valor_oportunidad` (S2.4) se rechazan con 400, y la respuesta no incluye `alertas`.",
+    "(S2.6) y `diferencia_valor_oportunidad` (S2.4) se rechazan con 400. En un proyecto nacido de una oportunidad, " +
+    "cambiar `valor_total` recalcula y audita `diferencia_valor_oportunidad`; la respuesta trae `alertas`.",
   security: [{ sessionCookie: [] }],
   request: {
     params: ProjectIdParams,

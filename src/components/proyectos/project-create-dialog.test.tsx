@@ -290,4 +290,50 @@ describe("ProjectCreateDialog", () => {
     expect(body.nombre).toBe("Proyecto propio")
     expect(createFromOpportunity.mutateAsync).not.toHaveBeenCalled()
   })
+
+  describe("value difference against the opportunity (S2.4)", () => {
+    it("shows the difference as $ 50.000 once valor total departs from the estimate", async () => {
+      const user = userEvent.setup()
+      renderDialog()
+
+      await elegirOportunidad(user)
+      expect(screen.queryByText(/Diferencia con la oportunidad/)).not.toBeInTheDocument()
+
+      fireEvent.change(screen.getByLabelText("Valor total"), { target: { value: "180050000" } })
+
+      expect(screen.getByRole("status")).toHaveTextContent(/Diferencia con la oportunidad.*\$ 50\.000/)
+    })
+
+    it("shows a negative difference when the project is worth less", async () => {
+      const user = userEvent.setup()
+      renderDialog()
+
+      await elegirOportunidad(user)
+      fireEvent.change(screen.getByLabelText("Valor total"), { target: { value: "179950000" } })
+
+      expect(screen.getByRole("status")).toHaveTextContent(/-\$ 50\.000/)
+    })
+
+    it("does not block the submit", async () => {
+      const user = userEvent.setup()
+      renderDialog()
+
+      await elegirOportunidad(user)
+      fireEvent.change(screen.getByLabelText("Valor total"), { target: { value: "180050000" } })
+      await elegirMunicipio(user)
+      await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
+
+      await waitFor(() => expect(createFromOpportunity.mutateAsync).toHaveBeenCalled())
+    })
+
+    it("shows nothing on the independent path", async () => {
+      const user = userEvent.setup()
+      renderDialog()
+
+      await user.click(screen.getByRole("button", { name: "Proyecto independiente" }))
+      fireEvent.change(screen.getByLabelText("Valor total"), { target: { value: "180050000" } })
+
+      expect(screen.queryByText(/Diferencia con la oportunidad/)).not.toBeInTheDocument()
+    })
+  })
 })

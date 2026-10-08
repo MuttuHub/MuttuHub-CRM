@@ -184,6 +184,7 @@ describe("GET /api/v1/projects/:id", () => {
       duracion_semanas: 17,
       valor_total: "245450000",
       diferencia_valor_oportunidad: null,
+      alertas: [],
       beneficiarios_meta: 120,
       lineas: [{ id: "linea-1", codigo: "LE01", nombre: "Empleabilidad", principal: true }],
       municipios: [{ id: "mun-1", nombre: "Medellín", departamento: "Antioquia" }],
@@ -575,15 +576,63 @@ describe("PATCH /api/v1/projects/:id", () => {
     expect(mocks.txUpdate).not.toHaveBeenCalled();
   });
 
-  it("never touches diferencia_valor_oportunidad and returns no alertas", async () => {
+  it("leaves diferencia_valor_oportunidad alone for a project without opportunity", async () => {
     const res = await PATCH(patchRequest({ valor_total: 245450000 }), routeContext);
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    const [updateArgs] = mocks.txUpdate.mock.calls[0]! as [{ data: { valor_total: Prisma.Decimal } }];
+    const [updateArgs] = mocks.txUpdate.mock.calls[0]! as [
+      { data: Record<string, unknown> & { valor_total: Prisma.Decimal } },
+    ];
     expect(String(updateArgs.data.valor_total)).toBe("245450000");
+    expect(updateArgs.data).not.toHaveProperty("diferencia_valor_oportunidad");
     expect(json.proyecto.diferencia_valor_oportunidad).toBeNull();
-    expect(json.proyecto).not.toHaveProperty("alertas");
+    expect(json.proyecto.alertas).toEqual([]);
+  });
+
+  describe("project born from an opportunity (S2.4)", () => {
+    const conOportunidad = {
+      ...existente,
+      oportunidad: { valor_estimado_cop: new Prisma.Decimal("245400000.00") },
+    };
+
+    it("recomputes and audits diferencia_valor_oportunidad when valor_total changes", async () => {
+      vi.mocked(db.proyecto.findFirst).mockResolvedValue(conOportunidad as never);
+      mocks.txFindUniqueOrThrow.mockResolvedValue({
+        ...conOportunidad,
+        valor_total: new Prisma.Decimal("245450000.00"),
+        diferencia_valor_oportunidad: new Prisma.Decimal("50000.00"),
+      });
+
+      const res = await PATCH(patchRequest({ valor_total: 245450000 }), routeContext);
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      const [updateArgs] = mocks.txUpdate.mock.calls[0]! as [{ data: Record<string, unknown> }];
+      expect(String(updateArgs.data.diferencia_valor_oportunidad)).toBe("50000");
+      const [, rows] = vi.mocked(logChanges).mock.calls[0]!;
+      expect(rows).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            campo: "diferencia_valor_oportunidad",
+            valor_anterior: null,
+            valor_nuevo: "50000",
+          }),
+        ]),
+      );
+      expect(json.proyecto.alertas).toEqual([
+        expect.objectContaining({ codigo: "DIFERENCIA_VALOR", diferencia: "50000.00" }),
+      ]);
+    });
+
+    it("does not recompute when valor_total is not in the patch", async () => {
+      vi.mocked(db.proyecto.findFirst).mockResolvedValue(conOportunidad as never);
+
+      await PATCH(patchRequest({ nombre: "Otro" }), routeContext);
+
+      const [updateArgs] = mocks.txUpdate.mock.calls[0]! as [{ data: Record<string, unknown> }];
+      expect(updateArgs.data).not.toHaveProperty("diferencia_valor_oportunidad");
+    });
   });
 
   it("rejects an out-of-range valor_total with 400 instead of a 500", async () => {

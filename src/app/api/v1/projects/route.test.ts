@@ -239,6 +239,7 @@ describe("GET /api/v1/projects", () => {
         duracion_semanas: 17,
         valor_total: "245450000",
         diferencia_valor_oportunidad: null,
+        alertas: [],
         beneficiarios_meta: 120,
         lineas: [
           { id: "linea-1", codigo: "LE01", nombre: "Empleabilidad", principal: true },

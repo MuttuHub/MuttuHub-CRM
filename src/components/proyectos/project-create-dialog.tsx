@@ -10,8 +10,9 @@
 // llegan y varias de esas columnas son derivadas o de otra unidad. Tampoco
 // incluye `miembro_ids`: el equipo inicial se compone después de crear el
 // proyecto (pestaña de equipo), no en este diálogo, aunque el endpoint de
-// creación ya acepte el campo y valide a los COORDINADORES activos. La alerta
-// de diferencia de valor (S2.4) no se implementa aquí.
+// creación ya acepte el campo y valide a los COORDINADORES activos. La
+// diferencia de valor contra la oportunidad (S2.4) se muestra como aviso que
+// nunca bloquea el envío; el servidor la calcula y la guarda por su cuenta.
 
 "use client";
 
@@ -48,7 +49,7 @@ import {
   type ProjectLineaInput,
 } from "@/hooks/projects";
 import { formatCOP, fromCents, toCents } from "@/lib/proyectos/money";
-import { validarLineas } from "@/lib/proyectos/proyecto-general";
+import { diferenciaValor, validarLineas } from "@/lib/proyectos/proyecto-general";
 import { cn } from "@/lib/utils";
 
 /** Filtro estable del picker de clientes: el mismo objeto en cada render. */
@@ -93,6 +94,21 @@ export function valorDesdeDecimal(value: string | null): string {
   if (value === null) return "";
   const texto = fromCents(toCents(value));
   return texto.endsWith(".00") ? texto.slice(0, -3) : texto;
+}
+
+/** `valor_total - valor_estimado_cop` mientras ambos existan y no coincidan. */
+function diferenciaCreacion(
+  origen: OrigenForm,
+  oportunidad: EligibleOpportunity | null,
+  valorTotal: string,
+): string | null {
+  if (origen !== "OPORTUNIDAD" || !oportunidad || valorTotal.trim() === "") return null;
+  try {
+    const diferencia = diferenciaValor(valorTotal.trim(), oportunidad.valor_estimado_cop);
+    return diferencia === null || toCents(diferencia) === BigInt(0) ? null : diferencia;
+  } catch {
+    return null;
+  }
 }
 
 export type ProjectCreateDialogProps = {
@@ -140,6 +156,8 @@ export function ProjectCreateDialog({ open, onOpenChange }: ProjectCreateDialogP
   const lineasPorDefecto = lineas.length > 0 ? [lineas[0].id] : [];
   const lineaIds = lineaIdsEstado ?? lineasPorDefecto;
   const principalIds = principalIdsEstado ?? lineasPorDefecto;
+  // S2.4: aviso informativo, solo en el camino de oportunidad y con valor válido.
+  const diferencia = diferenciaCreacion(origen, oportunidad, valorTotal);
   const pendiente =
     origen === "OPORTUNIDAD" ? createFromOpportunity.isPending : createProject.isPending;
 
@@ -418,6 +436,15 @@ export function ProjectCreateDialog({ open, onOpenChange }: ProjectCreateDialogP
                 placeholder="Opcional"
                 className="h-10 rounded-12 bg-panel px-3"
               />
+              {diferencia !== null && (
+                <p
+                  role="status"
+                  className="rounded-12 border border-ink-200 bg-ink-050 px-3 py-2 text-[12px] text-ink-700"
+                >
+                  Diferencia con la oportunidad: {formatCOP(toCents(diferencia))}. Se guarda en el
+                  proyecto y no impide crearlo.
+                </p>
+              )}
             </div>
 
             <div className="flex flex-col gap-2">

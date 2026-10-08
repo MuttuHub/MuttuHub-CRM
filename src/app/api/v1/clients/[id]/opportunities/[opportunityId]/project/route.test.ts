@@ -321,6 +321,52 @@ describe("POST /api/v1/clients/:id/opportunities/:opportunityId/project (E-05)",
     });
   });
 
+  it("stores diferencia_valor_oportunidad = valor_total - valor_estimado_cop", async () => {
+    const res = await POST(postRequest({ ...prefillBody, valor_total: 245500000 }), routeContext);
+
+    expect(res.status).toBe(201);
+    const [createArgs] = mocks.txProyectoCreate.mock.calls[0]! as [
+      { data: Record<string, unknown> },
+    ];
+    expect(createArgs.data.diferencia_valor_oportunidad).toBe("50000.00");
+  });
+
+  it("stores a zero difference when the prefilled value is kept", async () => {
+    await POST(postRequest(prefillBody), routeContext);
+
+    const [createArgs] = mocks.txProyectoCreate.mock.calls[0]! as [
+      { data: Record<string, unknown> },
+    ];
+    expect(createArgs.data.diferencia_valor_oportunidad).toBe("0.00");
+  });
+
+  it("returns alerta DIFERENCIA_VALOR without blocking the save", async () => {
+    mocks.txProyectoCreate.mockResolvedValue({
+      ...proyectoRow,
+      valor_total: new Prisma.Decimal("245500000.00"),
+      diferencia_valor_oportunidad: new Prisma.Decimal("50000.00"),
+    });
+
+    const res = await POST(postRequest({ ...prefillBody, valor_total: 245500000 }), routeContext);
+    const json = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(json.proyecto.alertas).toEqual([
+      expect.objectContaining({ codigo: "DIFERENCIA_VALOR", diferencia: "50000.00" }),
+    ]);
+  });
+
+  it("returns no alertas when the difference is zero", async () => {
+    mocks.txProyectoCreate.mockResolvedValue({
+      ...proyectoRow,
+      diferencia_valor_oportunidad: new Prisma.Decimal("0.00"),
+    });
+
+    const res = await POST(postRequest(prefillBody), routeContext);
+
+    expect((await res.json()).proyecto.alertas).toEqual([]);
+  });
+
   it("lets the client override the prefilled nombre and valor_total", async () => {
     const res = await POST(
       postRequest({ ...prefillBody, nombre: "Otro nombre", valor_total: 100000000 }),

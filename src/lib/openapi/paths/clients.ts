@@ -686,7 +686,9 @@ registry.registerPath({
     "conversión. 409 si la oportunidad no está en `GANADA` o si ya tiene un proyecto (un proyecto con borrado " +
     "lógico también bloquea). 404 si el cliente o la oportunidad no existen o no pertenecen al cliente. Las " +
     "líneas estratégicas y los municipios deben existir y estar activos (V-04); uno suspendido responde 400. " +
-    "`cliente_id`, `codigo`, `estado`, `oportunidad_id` y los demás campos derivados se rechazan con 400.",
+    "`cliente_id`, `codigo`, `estado`, `oportunidad_id` y los demás campos derivados se rechazan con 400. " +
+    "S2.4: guarda `diferencia_valor_oportunidad = valor_total − valor_estimado_cop` y responde 201 con " +
+    "`alertas: [{ codigo: \"DIFERENCIA_VALOR\" }]` cuando no es cero; la alerta nunca bloquea la creación.",
   security: [{ sessionCookie: [] }],
   request: {
     // Opaque Postgres `text` ids: a malformed value is a 404, not a 400, so the

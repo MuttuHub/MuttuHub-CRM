@@ -14,7 +14,14 @@ vi.mock("./weeks", async (importOriginal) => {
   return { ...actual, durationWeeks: vi.fn(actual.durationWeeks) };
 });
 
-import { duracionProyecto, isoDate, miembrosInicialesProyecto, validarLineas } from "./proyecto-general";
+import {
+  alertasProyecto,
+  diferenciaValor,
+  duracionProyecto,
+  isoDate,
+  miembrosInicialesProyecto,
+  validarLineas,
+} from "./proyecto-general";
 import { durationWeeks } from "./weeks";
 
 beforeEach(() => {
@@ -127,5 +134,36 @@ describe("isoDate", () => {
 
   it("keeps only the date part of an ISO string", () => {
     expect(isoDate("2026-10-05T13:45:00.000Z")).toBe("2026-10-05");
+  });
+});
+
+describe("diferenciaValor (S2.4)", () => {
+  it("is total minus estimated, exact to the cent", () => {
+    expect(diferenciaValor("245500000.00", "245450000.00")).toBe("50000.00");
+    expect(diferenciaValor(100.1, "0.2")).toBe("99.90");
+  });
+
+  it("is negative when the project is worth less than the opportunity", () => {
+    expect(diferenciaValor("100", "250.50")).toBe("-150.50");
+  });
+
+  it("is null when either side is missing", () => {
+    expect(diferenciaValor(null, "100")).toBeNull();
+    expect(diferenciaValor("100", null)).toBeNull();
+    expect(diferenciaValor(undefined, undefined)).toBeNull();
+  });
+});
+
+describe("alertasProyecto (S2.4)", () => {
+  it("raises DIFERENCIA_VALOR for a non-zero difference", () => {
+    const [alerta] = alertasProyecto("50000.00");
+    expect(alerta.codigo).toBe("DIFERENCIA_VALOR");
+    expect(alerta.diferencia).toBe("50000.00");
+    expect(alerta.mensaje).toMatch(/valor/i);
+  });
+
+  it("raises nothing for null or a zero difference", () => {
+    expect(alertasProyecto(null)).toEqual([]);
+    expect(alertasProyecto("0.00")).toEqual([]);
   });
 });

@@ -146,6 +146,7 @@ const PROYECTO: ProjectListRow = {
   duracion_semanas: 12,
   valor_total: "180000000.00",
   diferencia_valor_oportunidad: "-5000000.00",
+  alertas: [],
   beneficiarios_meta: 1200,
   lineas: [{ id: "l1", codigo: "LE-01", nombre: "Educación", principal: true }],
   municipios: [{ id: "m1", nombre: "Barranquilla", departamento: "Atlántico" }],

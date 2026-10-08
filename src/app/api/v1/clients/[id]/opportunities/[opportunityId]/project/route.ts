@@ -23,7 +23,7 @@ import { canCreateProject } from "@/lib/permissions";
 import { getClientForOpportunityWrite } from "@/lib/api/crm";
 import { nextProjectCode } from "@/lib/api/project-code";
 import { logChanges } from "@/lib/api/audit-cambios";
-import { validarLineas, miembrosInicialesProyecto } from "@/lib/proyectos/proyecto-general";
+import { diferenciaValor, validarLineas, miembrosInicialesProyecto } from "@/lib/proyectos/proyecto-general";
 import {
   PROJECT_SELECT_V2,
   addProyectoMiembros,
@@ -187,6 +187,11 @@ export const POST = withApiErrorHandling(
             fecha_inicio: inicio,
             fecha_fin: fin,
             valor_total: valorTotal,
+            // S2.4: recorded, never blocking; the response carries the alert.
+            diferencia_valor_oportunidad: diferenciaValor(
+              valorTotal,
+              oportunidad.valor_estimado_cop,
+            ),
             beneficiarios_meta: parsed.data.beneficiarios_meta ?? null,
             lineas: {
               create: parsed.data.lineas.map((linea) => ({

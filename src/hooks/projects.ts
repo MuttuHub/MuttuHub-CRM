@@ -42,6 +42,14 @@ export type ProjectMunicipio = {
   departamento: string;
 };
 
+/** Aviso no bloqueante de `toProjectItemV2` (S2.4). */
+export type ProjectAlert = {
+  codigo: "DIFERENCIA_VALOR";
+  mensaje: string;
+  /** Decimal serializado: string, nunca número. */
+  diferencia: string;
+};
+
 /** Fila de `{ proyectos: ProjectListRow[] }` según `toProjectItemV2`. */
 export type ProjectListRow = {
   id: string;
@@ -60,6 +68,8 @@ export type ProjectListRow = {
   valor_total: string | null;
   /** Decimal serializado: string, nunca número. */
   diferencia_valor_oportunidad: string | null;
+  /** Avisos no bloqueantes derivados de la diferencia (S2.4). */
+  alertas: ProjectAlert[];
   beneficiarios_meta: number | null;
   lineas: ProjectLinea[];
   municipios: ProjectMunicipio[];
