@@ -672,6 +672,7 @@ model Proyecto {
   lineas      ProyectoLinea[]
   municipios  ProyectoMunicipio[]
   miembros    ProyectoMiembro[]
+  objetivos   Objetivo[]
 
   @@unique([oportunidad_id, cliente_id])
   @@index([cliente_id])
@@ -751,4 +752,29 @@ model ProyectoSecuencia {
   ultimo Int  @default(0)
 
   @@map("proyecto_secuencias")
+}
+
+// v2 projects module (S3, SDD §4.8) — a specific objective of a project's
+// technical structure. Soft-deleted through `deleted_at`. The migration adds
+// the partial unique index `objetivos_codigo_activo_uq` over
+// `(proyecto_id, lower(codigo)) WHERE deleted_at IS NULL` (Prisma cannot
+// express it): the code is unique per project, ignoring case, among live rows.
+// `@@unique([id, proyecto_id])` is the target of the composite same-project
+// foreign keys of `Actividad` and `Indicador`, so a child can never point at an
+// objective of another project.
+model Objetivo {
+  id          String    @id @default(uuid())
+  proyecto_id String
+  codigo      String
+  descripcion String
+  orden       Int       @default(0)
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  deleted_at  DateTime?
+
+  proyecto Proyecto @relation(fields: [proyecto_id], references: [id])
+
+  @@unique([id, proyecto_id])
+  @@index([proyecto_id])
+  @@map("objetivos")
 }

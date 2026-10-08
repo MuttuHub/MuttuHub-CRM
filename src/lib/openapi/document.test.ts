@@ -108,4 +108,17 @@ describe("buildOpenApiDocument", () => {
       expect.arrayContaining(["200", "403", "404"]),
     )
   })
+
+  it("registers the S3 technical-structure operations with their status codes", () => {
+    const paths = buildOpenApiDocument().paths ?? {}
+    const codes = (op: { responses?: object } | undefined) => Object.keys(op?.responses ?? {})
+
+    // U1: objectives.
+    const objectives = paths["/api/v1/projects/{id}/objectives"]
+    expect(codes(objectives?.get)).toEqual(expect.arrayContaining(["200", "401", "403", "404"]))
+    expect(codes(objectives?.post)).toEqual(expect.arrayContaining(["201", "400", "403", "404", "409"]))
+    const objective = paths["/api/v1/projects/{id}/objectives/{objectiveId}"]
+    expect(codes(objective?.patch)).toEqual(expect.arrayContaining(["200", "400", "403", "404", "409"]))
+    expect(codes(objective?.delete)).toEqual(expect.arrayContaining(["200", "403", "404", "409"]))
+  })
 })
