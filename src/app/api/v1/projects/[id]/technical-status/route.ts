@@ -10,17 +10,13 @@
 // deviation. `base` is "vigente" until baselines exist (S8).
 
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
-import { contarMediosVivos, gateEjecucionRead } from "@/lib/api/ejecucion";
+import { gateEjecucionRead } from "@/lib/api/ejecucion";
+import { loadTecnicoStatus } from "@/lib/api/tecnico";
 import { getSemaforoParametrosV2 } from "@/lib/settings";
-import { calcularTecnico, type ActividadTecnicaInput } from "@/lib/proyectos/avance";
-import { pesoEfectivo } from "@/lib/proyectos/actividad";
-import { colorTecnicoV2 } from "@/lib/proyectos/semaforo-v2";
-import { isoDate } from "@/lib/proyectos/proyecto-general";
-import { activityDates, assertIsoDate, todayInBogota } from "@/lib/proyectos/weeks";
+import { assertIsoDate, todayInBogota } from "@/lib/proyectos/weeks";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +25,6 @@ type RouteContext = { params: Promise<{ id: string }> };
 export const CORTE_INVALIDO_MESSAGE = "El corte no es válido. Usa el formato AAAA-MM-DD.";
 export const SIN_FECHAS_MESSAGE = "El proyecto aún no tiene fechas de inicio y fin.";
 
-const toNumber = (value: { toString(): string }) => Number(value.toString());
 /** 0..1 fraction to a 0..100 percentage with one decimal. */
 const pct = (fraction: number) => Math.round(fraction * 1000) / 10;
 
@@ -54,62 +49,13 @@ export const GET = withApiErrorHandling(
       return apiError(CORTE_INVALIDO_MESSAGE, 400, "VALIDATION_ERROR");
     }
 
-    const inicio = isoDate(fecha_inicio);
-    const [actividades, avances, parametros] = await Promise.all([
-      db.actividad.findMany({
-        where: { proyecto_id: id, deleted_at: null },
-        orderBy: [{ semana_inicio: "asc" }, { codigo: "asc" }],
-        select: {
-          id: true,
-          codigo: true,
-          semana_inicio: true,
-          semana_fin: true,
-          peso: true,
-          peso_manual: true,
-          entregables: { where: { deleted_at: null }, select: { id: true, cantidad_meta: true } },
-        },
-      }),
-      db.avanceEntregable.findMany({
-        where: { proyecto_id: id, anulado_at: null, fecha: { lte: new Date(`${corte}T00:00:00.000Z`) } },
-        select: { id: true, entregable_id: true, fecha: true, cantidad: true, created_at: true },
-      }),
-      getSemaforoParametrosV2(),
-    ]);
-
-    const medios = await contarMediosVivos(avances.map((avance) => avance.id));
-    const porEntregable = new Map<string, typeof avances>();
-    for (const avance of avances) {
-      porEntregable.set(avance.entregable_id, [...(porEntregable.get(avance.entregable_id) ?? []), avance]);
-    }
-
-    const entrada: ActividadTecnicaInput[] = actividades.map((actividad) => {
-      const fechas = activityDates(inicio, actividad.semana_inicio, actividad.semana_fin);
-      return {
-        id: actividad.id,
-        codigo: actividad.codigo,
-        peso: pesoEfectivo(actividad),
-        inicio: fechas.inicio,
-        fin: fechas.fin,
-        entregables: actividad.entregables.map((entregable) => ({
-          id: entregable.id,
-          meta: toNumber(entregable.cantidad_meta),
-          avances: (porEntregable.get(entregable.id) ?? []).map((avance) => ({
-            fecha: isoDate(avance.fecha),
-            cantidad: toNumber(avance.cantidad),
-            anulado: false,
-            tieneMedio: (medios.get(avance.id) ?? 0) > 0,
-            createdAt: avance.created_at.toISOString(),
-          })),
-        })),
-      };
-    });
-
-    const tecnico = calcularTecnico({
+    const parametros = await getSemaforoParametrosV2();
+    const { tecnico, umbrales, color } = await loadTecnicoStatus({
+      proyectoId: id,
+      fechaInicio: fecha_inicio,
       corte,
-      requiereMedio: parametros.avance_requiere_medio.valor,
-      actividades: entrada,
+      parametros,
     });
-    const umbrales = { umbral1: parametros.umbral1.valor, umbral2: parametros.umbral2.valor };
 
     return NextResponse.json({
       base: "vigente",
@@ -118,7 +64,7 @@ export const GET = withApiErrorHandling(
       avance_real: pct(tecnico.avance_real),
       avance_programado: pct(tecnico.avance_programado),
       desviacion_pp: Math.round(tecnico.desviacion_pp * 10) / 10,
-      color: colorTecnicoV2(tecnico.desviacion_pp, umbrales),
+      color,
       actividades: tecnico.actividades.map((actividad) => ({
         id: actividad.id,
         codigo: actividad.codigo,

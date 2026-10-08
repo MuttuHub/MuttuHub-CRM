@@ -122,3 +122,59 @@ registry.registerPath({
     ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
   },
 });
+
+const FichaRowSchema = z.object({
+  rubro_id: z.string().uuid().nullable().openapi({ description: "Nulo en la fila de total." }),
+  codigo: z.string().nullable(),
+  nombre: z.string(),
+  asignado: z.string().openapi({ description: "A, Decimal(15,2) como string." }),
+  programado: z.string().openapi({ description: "P acumulado hasta el corte." }),
+  ejecutado: z.string().openapi({ description: "E acumulado de gastos validados hasta el corte; 0.00 sin fuente de gastos." }),
+  diferencia: z.string().openapi({ description: "D = E − P." }),
+  ep_decimas: z.number().int().nullable().openapi({ description: "E/P en décimas de punto porcentual (908 = 90,8 %); nulo si P = 0 o sin gastos." }),
+  ea_decimas: z.number().int().nullable().openapi({ description: "E/A en décimas de punto porcentual; nulo si A = 0 o sin gastos." }),
+  umbral_rojo: z.string().openapi({ description: "P × (1 + tolerancia): frontera amarillo/rojo." }),
+  color: z.enum(["verde", "amarillo", "rojo"]).nullable().openapi({ description: "Nulo mientras `ejecucion_disponible` es false." }),
+});
+
+export const FinancialSheetSchema = registry.register(
+  "FichaFinanciera",
+  z.object({
+    base: z.literal("vigente"),
+    corte: z.string().openapi({ example: "2026-11" }),
+    estado: z.string(),
+    ejecucion_disponible: z.boolean().openapi({ description: "False hasta que existan gastos (S6): E es 0 y no hay colores ni alerta." }),
+    rubros: z.array(FichaRowSchema),
+    total: FichaRowSchema,
+    alerta_retraso: z.boolean().openapi({ description: "Sobre la fila de total: E/P bajo el umbral de retraso y semáforo técnico no verde." }),
+    parametros: z.object({
+      tolerancia: z.number(),
+      retraso: z.number(),
+      confirmado: z.boolean().openapi({ description: "True solo si tolerancia y retraso están confirmados." }),
+    }),
+  }),
+);
+
+registry.registerPath({
+  method: "get",
+  path: "/api/v1/projects/{id}/financial-sheet",
+  tags: ["Projects"],
+  summary: "Ficha financiera: asignado, programado y ejecutado por rubro a un corte mensual",
+  description:
+    `${READ_NOTE} Solo agregados: no incluye gastos individuales ni soportes. El corte es \`AAAA-MM\` dentro de los periodos ` +
+    "del proyecto (por defecto el mes actual en Bogotá, acotado al rango; 400 si es inválido o queda fuera). `base=original` " +
+    "responde 409 mientras no existan versiones (S8). Sin fechas de proyecto responde 409. El color financiero sale de " +
+    "`E > A` rojo, `E <= P` verde, tolerancia amarillo, si no rojo; la fila de total aplica las mismas fórmulas a las sumas.",
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: ProjectParams,
+    query: z.object({
+      corte: z.string().optional().openapi({ description: "Periodo AAAA-MM.", example: "2026-11" }),
+      base: z.enum(["vigente", "original"]).optional().openapi({ description: "Por defecto vigente." }),
+    }),
+  },
+  responses: {
+    200: { description: "Ficha financiera al corte.", content: { "application/json": { schema: FinancialSheetSchema } } },
+    ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
+  },
+});
