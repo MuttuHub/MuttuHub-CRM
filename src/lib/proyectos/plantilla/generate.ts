@@ -283,7 +283,14 @@ async function escribirCatalogos(workbook: ExcelJS.Workbook, input: PlantillaInp
     hoja.getCell(i + 2, 4).value = unidad
   })
 
-  const ref = (columna: string, count: number) => `${sheetRef(HOJAS.catalogos)}!$${columna}$2:$${columna}$${1 + count}`
+  // Anchor every range on the first data row (row 2). An empty catalog used to
+  // produce a reversed range (`$C$2:$C$1`) that ExcelJS rewrites as
+  // `$C$1:$C$2`, wrongly including the header; clamping the last row to row 2
+  // yields a valid single-cell range instead.
+  const ref = (columna: string, count: number) => {
+    const filaFin = Math.max(2, 1 + count)
+    return `${sheetRef(HOJAS.catalogos)}!$${columna}$2:$${columna}$${filaFin}`
+  }
   workbook.definedNames.add(ref("A", input.catalogo.rubros.length), NOMBRES_RANGO.rubros)
   workbook.definedNames.add(ref("B", input.catalogo.lineas.length), NOMBRES_RANGO.lineas)
   workbook.definedNames.add(ref("C", input.catalogo.municipios.length), NOMBRES_RANGO.municipios)

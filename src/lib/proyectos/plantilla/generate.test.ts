@@ -75,6 +75,19 @@ describe("generarPlantilla (F-X1 round trip through ExcelJS)", () => {
     expect(workbook.definedNames.getRanges("Unidades").ranges[0]).toContain("$D$2:$D$")
   })
 
+  it("anchors an empty catalog list on a valid single-cell range", async () => {
+    const input = fixtureF_X1()
+    input.catalogo.municipios = []
+    const buffer = await generarPlantilla(input)
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.load(buffer as never)
+    const ranges = workbook.definedNames.getRanges("Municipios").ranges
+    // An empty list must never yield the reversed `$C$2:$C$1`, which ExcelJS
+    // rewrites to `$C$1:$C$2` and wrongly includes the header row.
+    expect(ranges).toEqual(["'9. Catálogos'!$C$2"])
+    expect(ranges.join()).not.toContain("$C$1")
+  })
+
   it("keeps the data validations after a save/reload round trip", async () => {
     const workbook = await reload()
     expect(sheet(workbook, HOJAS.presupuesto).getCell("A2").dataValidation.formulae).toEqual(["=Rubros"])

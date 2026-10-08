@@ -98,6 +98,83 @@ describe("parsePlantilla of the generated F-X1", () => {
     expect(parsed.indicadores).toHaveLength(2)
   })
 
+  it("round-trips every activity, deliverable, indicator and project field of F-X1", async () => {
+    const parsed = await roundTrip()
+
+    // Objetivos: code, description and their order. `ParsedTemplate` has no
+    // `orden` field; the fixture order is asserted through the mapped arrays.
+    expect(
+      parsed.objetivos.map((f) => ({
+        codigo: f.celdas["Código"].valor,
+        descripcion: f.celdas["Descripción"].valor,
+      })),
+    ).toEqual([
+      {
+        codigo: "OE1",
+        descripcion: "Fortalecer las capacidades productivas de las unidades textiles del municipio.",
+      },
+    ])
+
+    // Actividades: code, objective link, name, weeks (via the parsed cells),
+    // owner and weight (null in the fixture).
+    expect(
+      parsed.actividades.map((f) => ({
+        codigo: f.celdas["Código"].valor,
+        objetivoCodigo: f.celdas["Código objetivo"].valor,
+        nombre: f.celdas["Nombre"].valor,
+        semanaInicio: f.celdas["Semana inicio"].valor,
+        semanaFin: f.celdas["Semana fin"].valor,
+        responsable: f.celdas["Responsable (correo)"].valor,
+        peso: f.celdas["Peso (opcional)"].valor,
+      })),
+    ).toEqual([
+      { codigo: "1.1", objetivoCodigo: "OE1", nombre: "Caracterización de las unidades productivas", semanaInicio: 1, semanaFin: 1, responsable: "ana@muttu.co", peso: null },
+      { codigo: "1.2", objetivoCodigo: "OE1", nombre: "Formación en prácticas de confección", semanaInicio: 2, semanaFin: 2, responsable: "ana@muttu.co", peso: null },
+      { codigo: "1.3", objetivoCodigo: "OE1", nombre: "Acompañamiento técnico a las unidades", semanaInicio: 3, semanaFin: 3, responsable: "ana@muttu.co", peso: null },
+      { codigo: "1.4", objetivoCodigo: "OE1", nombre: "Entrega de dotación y certificación", semanaInicio: 3, semanaFin: 6, responsable: "ana@muttu.co", peso: null },
+    ])
+
+    // Entregables: code, activity link, description, quantity, unit and medium.
+    expect(
+      parsed.entregables.map((f) => ({
+        codigo: f.celdas["Código"].valor,
+        actividadCodigo: f.celdas["Código actividad"].valor,
+        descripcion: f.celdas["Descripción"].valor,
+        cantidadMeta: f.celdas["Cantidad"].valor,
+        unidad: f.celdas["Unidad"].valor,
+        tipoMedio: f.celdas["Tipo de medio exigido"].valor,
+      })),
+    ).toEqual([
+      { codigo: "1.1-E1", actividadCodigo: "1.1", descripcion: "Informe de caracterización", cantidadMeta: 1, unidad: "Informe", tipoMedio: "Documento PDF" },
+      { codigo: "1.1-E2", actividadCodigo: "1.1", descripcion: "Memoria de la jornada de caracterización", cantidadMeta: 1, unidad: "Memoria", tipoMedio: "Documento PDF" },
+      { codigo: "1.2-E1", actividadCodigo: "1.2", descripcion: "Mapa de unidades productivas", cantidadMeta: 1, unidad: "Mapa", tipoMedio: "Documento PDF" },
+      { codigo: "1.3-E1", actividadCodigo: "1.3", descripcion: "Acta de acompañamiento", cantidadMeta: 4, unidad: "Acta", tipoMedio: "Documento PDF" },
+      { codigo: "1.3-E2", actividadCodigo: "1.3", descripcion: "Estatuto del emprendimiento", cantidadMeta: 1, unidad: "Estatuto", tipoMedio: "Documento PDF" },
+      { codigo: "1.4-E1", actividadCodigo: "1.4", descripcion: "Certificado de formación", cantidadMeta: 4, unidad: "Certificado", tipoMedio: "Documento PDF" },
+      { codigo: "1.4-E2", actividadCodigo: "1.4", descripcion: "RUT actualizado de la unidad productiva", cantidadMeta: 4, unidad: "RUT", tipoMedio: "Documento PDF" },
+    ])
+
+    // Indicadores: code, objective link, name, goal, unit and baseline.
+    expect(
+      parsed.indicadores.map((f) => ({
+        codigo: f.celdas["Código"].valor,
+        objetivoCodigo: f.celdas["Código objetivo"].valor,
+        nombre: f.celdas["Nombre"].valor,
+        meta: f.celdas["Meta"].valor,
+        unidad: f.celdas["Unidad"].valor,
+        lineaBase: f.celdas["Línea base"].valor,
+      })),
+    ).toEqual([
+      { codigo: "IND-01", objetivoCodigo: "OE1", nombre: "Unidades productivas fortalecidas", meta: 30, unidad: "Unidades", lineaBase: 0 },
+      { codigo: "IND-02", objetivoCodigo: "OE1", nombre: "Personas formadas", meta: 60, unidad: "Personas", lineaBase: 0 },
+    ])
+
+    // Project: municipality list, total value and beneficiary goal.
+    expect(parsed.proyecto.municipios.valor).toBe("Montería (Córdoba); Cereté (Córdoba)")
+    expect(parsed.proyecto.valorTotal.valor).toBe(177360000)
+    expect(parsed.proyecto.metaBeneficiarios.valor).toBe(500)
+  })
+
   it("round-trips the budget and the monthly programming to the cent", async () => {
     const input = fixtureF_X1()
     const parsed = await roundTrip()
