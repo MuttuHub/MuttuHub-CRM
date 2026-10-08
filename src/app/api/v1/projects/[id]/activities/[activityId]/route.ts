@@ -8,7 +8,8 @@
 // survives a change of weeks, a derived one is recomputed, `peso: null` clears
 // the manual flag. Dates are derived, so `fecha_*` is not an accepted key.
 // Deleting is `deleted_at`, audited as `EDITAR actividad.deleted_at`, and refused
-// with 409 CONFLICT while the activity still has live deliverables.
+// with 409 CONFLICT while the activity still has live deliverables or
+// non-voided beneficiary records.
 
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
@@ -178,6 +179,12 @@ export const DELETE = withApiErrorHandling(
     });
     if (entregablesVivos > 0) {
       return conflict("No puedes eliminar una actividad que tiene entregables. Elimina o reasigna sus entregables primero.");
+    }
+    const beneficiariosVivos = await db.registroBeneficiario.count({
+      where: { actividad_id: activityId, anulado_at: null },
+    });
+    if (beneficiariosVivos > 0) {
+      return conflict("No puedes eliminar una actividad que tiene beneficiarios registrados. Anula sus registros primero.");
     }
 
     const row = await db.$transaction(async (tx) => {

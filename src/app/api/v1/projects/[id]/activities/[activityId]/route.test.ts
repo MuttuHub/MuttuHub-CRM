@@ -20,6 +20,7 @@ vi.mock("@/lib/db", () => ({
     usuario: { findFirst: vi.fn() },
     actividad: { findFirst: vi.fn() },
     entregable: { count: vi.fn() },
+    registroBeneficiario: { count: vi.fn() },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
       fn({ actividad: { update: mocks.txUpdate } }),
     ),
@@ -79,6 +80,7 @@ beforeEach(() => {
   vi.mocked(db.objetivo.findFirst).mockResolvedValue({ id: "obj-2" } as never);
   vi.mocked(db.usuario.findFirst).mockResolvedValue({ id: "u-1" } as never);
   vi.mocked(db.entregable.count).mockResolvedValue(0 as never);
+  vi.mocked(db.registroBeneficiario.count).mockResolvedValue(0 as never);
   mocks.txUpdate.mockImplementation(async ({ data }: { data: object }) => ({ ...fila, ...data }));
 });
 afterEach(() => vi.clearAllMocks());
@@ -195,6 +197,15 @@ describe("DELETE /api/v1/projects/:id/activities/:activityId", () => {
     expect(res.status).toBe(409);
     expect((await res.json()).code).toBe("CONFLICT");
     expect(db.entregable.count).toHaveBeenCalledWith({ where: { actividad_id: "act-1", deleted_at: null } });
+    expect(mocks.txUpdate).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 CONFLICT while the activity has live beneficiary records", async () => {
+    vi.mocked(db.registroBeneficiario.count).mockResolvedValue(1 as never);
+    const res = await DELETE(del(), ctx);
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe("CONFLICT");
+    expect(db.registroBeneficiario.count).toHaveBeenCalledWith({ where: { actividad_id: "act-1", anulado_at: null } });
     expect(mocks.txUpdate).not.toHaveBeenCalled();
   });
 

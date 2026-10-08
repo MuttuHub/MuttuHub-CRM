@@ -195,7 +195,8 @@ registerStructureResource({
     "Las semanas deben cumplir `1 <= semana_inicio <= semana_fin <= duración del proyecto` y el objetivo debe ser uno " +
     "vivo del mismo proyecto, o responde 400. Un proyecto sin fechas responde 400. Sin `peso` se usa la duración en " +
     "semanas; un `peso` enviado queda como manual. Las fechas no se aceptan: se derivan de las semanas.",
-  deleteConflict: "Responde 409 CONFLICT mientras la actividad tenga entregables vivos.",
+  deleteConflict:
+    "Responde 409 CONFLICT mientras la actividad tenga entregables vivos o registros de beneficiarios no anulados.",
 });
 
 const EntregableSchema = registry.register(
@@ -270,5 +271,5 @@ registerStructureResource({
   createExtra:
     "Exige objetivo, código, nombre, `meta > 0` y `unidad`; `linea_base` es opcional y >= 0. El objetivo debe ser " +
     "uno vivo del mismo proyecto, o responde 400. El código es único por proyecto entre filas vivas.",
-  deleteConflict: "",
+  deleteConflict: "Responde 409 CONFLICT mientras el indicador tenga mediciones no anuladas.",
 });

@@ -6,7 +6,8 @@
 // objective requires a live objective of the same project; `linea_base: null`
 // clears the baseline. One `EDITAR` audit row per changed field, Decimals
 // compared by value. Deleting is `deleted_at`, audited as
-// `EDITAR indicador.deleted_at`.
+// `EDITAR indicador.deleted_at`; it answers 409 while the indicator still has
+// non-voided measurements.
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -146,6 +147,13 @@ export const DELETE = withApiErrorHandling(
       where: { id: indicatorId, proyecto_id: id, deleted_at: null },
     });
     if (!existente) return apiError(INDICADOR_NOT_FOUND, 404, "NOT_FOUND");
+
+    const medicionesVivas = await db.medicionIndicador.count({
+      where: { indicador_id: indicatorId, anulado_at: null },
+    });
+    if (medicionesVivas > 0) {
+      return conflict("No puedes eliminar un indicador que tiene mediciones registradas. Anula sus mediciones primero.");
+    }
 
     const row = await db.$transaction(async (tx) => {
       const updated = await tx.indicador.update({

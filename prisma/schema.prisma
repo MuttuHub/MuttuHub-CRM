@@ -678,6 +678,8 @@ model Proyecto {
   entregables Entregable[]
   indicadores Indicador[]
   avances_entregable AvanceEntregable[]
+  mediciones_indicador MedicionIndicador[]
+  registros_beneficiarios RegistroBeneficiario[]
   soportes_proyecto  SoporteProyecto[]
 
   @@unique([oportunidad_id, cliente_id])
@@ -816,6 +818,7 @@ model Actividad {
   objetivo    Objetivo @relation(fields: [objetivo_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
   responsable Usuario? @relation("ActividadResponsable", fields: [responsable_id], references: [id])
   entregables Entregable[]
+  beneficiarios RegistroBeneficiario[]
 
   @@unique([id, proyecto_id])
   @@index([proyecto_id])
@@ -890,8 +893,8 @@ model AvanceEntregable {
 // `soportes_proyecto_padre_check` (exactly one of avance_id / medicion_id),
 // `soportes_proyecto_fuente_check` (exactly one of storage_path / url_externa) and
 // `soportes_proyecto_tamano_check`; `storage_path` is unique so one stored object
-// backs one medio. `avance_id` is a same-project composite FK; `medicion_id` gets
-// its FK with the measurements table (S4 U4). Soft delete only (`deleted_at`).
+// backs one medio. `avance_id` is a same-project composite FK; `medicion_id` is a
+// same-project composite FK to the measurements table (S4 U4). Soft delete only (`deleted_at`).
 // `gasto_id` and the access log belong to S6.
 model SoporteProyecto {
   id            String    @id @default(uuid())
@@ -909,6 +912,7 @@ model SoporteProyecto {
 
   proyecto Proyecto          @relation(fields: [proyecto_id], references: [id])
   avance   AvanceEntregable? @relation(fields: [avance_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
+  medicion MedicionIndicador? @relation(fields: [medicion_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([avance_id])
   @@index([medicion_id])
@@ -937,9 +941,65 @@ model Indicador {
 
   proyecto Proyecto @relation(fields: [proyecto_id], references: [id])
   objetivo Objetivo @relation(fields: [objetivo_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
+  mediciones MedicionIndicador[]
 
   @@unique([id, proyecto_id])
   @@index([proyecto_id])
   @@index([objetivo_id])
   @@map("indicadores")
+}
+
+// v2 projects module (S4 U4, SDD §4.8, REQ-EXE-04/07) — one measurement of a
+// result indicator. Voided, never deleted (CHECK `mediciones_indicador_anulacion_check`
+// keeps `anulado_at` + `motivo_anulacion` together); `valor >= 0` is
+// `mediciones_indicador_valor_check`; the composite relation
+// `[indicador_id, proyecto_id]` keeps the indicator in the same project. Audit
+// pointers carry no FK.
+model MedicionIndicador {
+  id                String    @id @default(uuid())
+  proyecto_id       String
+  indicador_id      String
+  fecha             DateTime  @db.Date
+  valor             Decimal   @db.Decimal(15, 2)
+  observacion       String?
+  registrado_por_id String
+  created_at        DateTime  @default(now())
+  anulado_at        DateTime?
+  anulado_por_id    String?
+  motivo_anulacion  String?
+
+  proyecto  Proyecto   @relation(fields: [proyecto_id], references: [id])
+  indicador Indicador  @relation(fields: [indicador_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
+  soportes  SoporteProyecto[]
+
+  @@unique([id, proyecto_id])
+  @@index([indicador_id, fecha])
+  @@index([proyecto_id])
+  @@map("mediciones_indicador")
+}
+
+// v2 projects module (S4 U4, SDD §4.8, REQ-EXE-05/07) — a beneficiary count
+// registered on a date, optionally tied to one activity of the same project
+// (composite relation; a null `actividad_id` skips the key). `cantidad > 0` is
+// `registros_beneficiarios_cantidad_check`. Voided, never deleted.
+model RegistroBeneficiario {
+  id                String    @id @default(uuid())
+  proyecto_id       String
+  actividad_id      String?
+  fecha             DateTime  @db.Date
+  cantidad          Int
+  observacion       String?
+  registrado_por_id String
+  created_at        DateTime  @default(now())
+  anulado_at        DateTime?
+  anulado_por_id    String?
+  motivo_anulacion  String?
+
+  proyecto  Proyecto   @relation(fields: [proyecto_id], references: [id])
+  actividad Actividad? @relation(fields: [actividad_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([id, proyecto_id])
+  @@index([proyecto_id, fecha])
+  @@index([actividad_id])
+  @@map("registros_beneficiarios")
 }

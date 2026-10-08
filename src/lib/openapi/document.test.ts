@@ -170,4 +170,22 @@ describe("buildOpenApiDocument", () => {
     expect(codes(paths[`${base}/sign`]?.post)).toEqual(expect.arrayContaining(["200", "400", "403", "404", "409", "413"]))
     expect(codes(paths[`${base}/{attachmentId}/download`]?.get)).toEqual(expect.arrayContaining(["200", "403", "404"]))
   })
+  it("registers the S4 measurements and beneficiaries paths and the delete 409s", () => {
+    const paths = buildOpenApiDocument().paths ?? {}
+    const codes = (op: { responses?: object } | undefined) => Object.keys(op?.responses ?? {})
+    const med = "/api/v1/projects/{id}/indicators/{indicatorId}/measurements"
+    expect(codes(paths[med]?.get)).toEqual(expect.arrayContaining(["200", "401", "403", "404"]))
+    expect(codes(paths[med]?.post)).toEqual(expect.arrayContaining(["201", "400", "403", "404", "409"]))
+    expect(codes(paths[`${med}/{measurementId}/void`]?.post)).toEqual(
+      expect.arrayContaining(["200", "400", "403", "404", "409"]),
+    )
+    const ben = "/api/v1/projects/{id}/beneficiaries"
+    expect(codes(paths[ben]?.get)).toEqual(expect.arrayContaining(["200", "401", "403", "404"]))
+    expect(codes(paths[ben]?.post)).toEqual(expect.arrayContaining(["201", "400", "403", "404", "409"]))
+    expect(codes(paths[`${ben}/{beneficiaryId}/void`]?.post)).toEqual(
+      expect.arrayContaining(["200", "400", "403", "404", "409"]),
+    )
+    expect(codes(paths["/api/v1/projects/{id}/indicators/{indicatorId}"]?.delete)).toContain("409")
+    expect(codes(paths["/api/v1/projects/{id}/activities/{activityId}"]?.delete)).toContain("409")
+  })
 })

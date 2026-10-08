@@ -18,6 +18,7 @@ vi.mock("@/lib/db", () => ({
     proyecto: { findFirst: vi.fn() },
     objetivo: { findFirst: vi.fn() },
     indicador: { findFirst: vi.fn() },
+    medicionIndicador: { count: vi.fn() },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
       fn({ indicador: { update: mocks.txUpdate } }),
     ),
@@ -68,6 +69,7 @@ beforeEach(() => {
   vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto as never);
   vi.mocked(db.indicador.findFirst).mockResolvedValue(fila as never);
   vi.mocked(db.objetivo.findFirst).mockResolvedValue({ id: "obj-2" } as never);
+  vi.mocked(db.medicionIndicador.count).mockResolvedValue(0 as never);
   mocks.txUpdate.mockImplementation(async ({ data }: { data: object }) => ({ ...fila, ...data }));
 });
 afterEach(() => vi.clearAllMocks());
@@ -153,6 +155,15 @@ describe("DELETE /api/v1/projects/:id/indicators/:indicatorId", () => {
     authAs(gerencia);
     vi.mocked(db.proyecto.findFirst).mockResolvedValueOnce({ ...proyecto, estado: "ACTIVO" } as never);
     expect((await DELETE(del(), ctx)).status).toBe(409);
+    expect(mocks.txUpdate).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 CONFLICT while the indicator has live measurements", async () => {
+    vi.mocked(db.medicionIndicador.count).mockResolvedValue(2 as never);
+    const res = await DELETE(del(), ctx);
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe("CONFLICT");
+    expect(db.medicionIndicador.count).toHaveBeenCalledWith({ where: { indicador_id: "ind-1", anulado_at: null } });
     expect(mocks.txUpdate).not.toHaveBeenCalled();
   });
 

@@ -8,6 +8,8 @@ import { registry, standardErrorResponses } from "@/lib/openapi/registry";
 import { AVANCE_CREATE_SCHEMA } from "@/app/api/v1/projects/[id]/deliverables/[deliverableId]/progress/route";
 import { MEDIO_ARCHIVO_SCHEMA, MEDIO_ENLACE_SCHEMA } from "@/app/api/v1/projects/[id]/progress/[progressId]/attachments/route";
 import { MEDIO_SIGN_SCHEMA } from "@/app/api/v1/projects/[id]/progress/[progressId]/attachments/sign/route";
+import { MEDICION_CREATE_SCHEMA } from "@/app/api/v1/projects/[id]/indicators/[indicatorId]/measurements/route";
+import { BENEFICIARIOS_CREATE_SCHEMA } from "@/app/api/v1/projects/[id]/beneficiaries/route";
 import { MOTIVO_ANULACION_SCHEMA } from "@/app/api/v1/projects/[id]/deliverables/[deliverableId]/progress/[progressId]/void/route";
 
 const WRITE_NOTE =
@@ -230,5 +232,190 @@ registry.registerPath({
       },
     },
     ...standardErrorResponses([401, 403, 404, 500]),
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Measurements of an indicator and beneficiary records (S4 U4)
+// ---------------------------------------------------------------------------
+
+const VOID_FIELDS = {
+  registrado_por_id: z.string().uuid(),
+  created_at: z.string(),
+  anulado_at: z.string().nullable(),
+  anulado_por_id: z.string().uuid().nullable(),
+  motivo_anulacion: z.string().nullable(),
+};
+
+export const MedicionSchema = registry.register(
+  "MedicionIndicador",
+  z.object({
+    id: z.string().uuid(),
+    proyecto_id: z.string().uuid(),
+    indicador_id: z.string().uuid(),
+    fecha: z.string().openapi({ example: "2026-10-06", description: "Fecha calendario; nunca posterior a hoy (Bogotá)." }),
+    valor: z.string().openapi({ description: "Decimal(15,2) como string; siempre >= 0.", example: "12" }),
+    observacion: z.string().nullable(),
+    ...VOID_FIELDS,
+  }),
+);
+
+export const RegistroBeneficiarioSchema = registry.register(
+  "RegistroBeneficiario",
+  z.object({
+    id: z.string().uuid(),
+    proyecto_id: z.string().uuid(),
+    actividad_id: z.string().uuid().nullable(),
+    fecha: z.string(),
+    cantidad: z.number().int().openapi({ description: "Entero > 0." }),
+    observacion: z.string().nullable(),
+    ...VOID_FIELDS,
+  }),
+);
+
+const TendenciaSchema = z.enum(["sube", "baja", "igual"]).nullable().openapi({
+  description: "Última medición viva frente a la anterior viva; null sin dos mediciones vivas.",
+});
+
+const IndicadorMedicionParams = z.object({ id: z.string().uuid(), indicatorId: z.string().uuid() });
+const MEDICIONES_PATH = "/api/v1/projects/{id}/indicators/{indicatorId}/measurements";
+
+registry.registerPath({
+  method: "get",
+  path: MEDICIONES_PATH,
+  tags: ["Projects"],
+  summary: "Lista las mediciones de un indicador",
+  description:
+    `Incluye las anuladas (se listan, nunca cuentan). \`ultima\` y \`tendencia\` salen solo de las vivas. ${READ_NOTE}`,
+  security: [{ sessionCookie: [] }],
+  request: { params: IndicadorMedicionParams },
+  responses: {
+    200: {
+      description: "Mediciones, última medición viva y tendencia.",
+      content: {
+        "application/json": {
+          schema: z.object({
+            estado: z.string(),
+            indicador: z.object({
+              id: z.string().uuid(),
+              codigo: z.string(),
+              nombre: z.string(),
+              meta: z.string(),
+              unidad: z.string(),
+            }),
+            mediciones: z.array(MedicionSchema),
+            ultima: MedicionSchema.nullable(),
+            tendencia: TendenciaSchema,
+          }),
+        },
+      },
+    },
+    ...standardErrorResponses([401, 403, 404, 500]),
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: MEDICIONES_PATH,
+  tags: ["Projects"],
+  summary: "Registra una medición de un indicador",
+  description:
+    `${WRITE_NOTE} \`valor >= 0\`; la fecha no puede ser posterior a hoy (400). Audita \`CREAR medicion\` en la misma transacción.`,
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: IndicadorMedicionParams,
+    body: { content: { "application/json": { schema: MEDICION_CREATE_SCHEMA } } },
+  },
+  responses: {
+    201: {
+      description: "Medición registrada.",
+      content: {
+        "application/json": {
+          schema: z.object({ medicion: MedicionSchema, ultima: MedicionSchema.nullable(), tendencia: TendenciaSchema }),
+        },
+      },
+    },
+    ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: `${MEDICIONES_PATH}/{measurementId}/void`,
+  tags: ["Projects"],
+  summary: "Anula una medición (solo ADM/GER)",
+  description:
+    "Solo `ADMINISTRADOR`/`GERENCIA`, en cualquier estado del proyecto. Exige `motivo` (1..500). La fila se conserva, " +
+    "queda fuera de `ultima`/`tendencia` y se audita con `ANULAR`. Ya anulada responde 409 CONFLICT.",
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: IndicadorMedicionParams.extend({ measurementId: z.string().uuid() }),
+    body: { content: { "application/json": { schema: MOTIVO_ANULACION_SCHEMA } } },
+  },
+  responses: {
+    200: { description: "Medición anulada.", content: { "application/json": { schema: z.object({ medicion: MedicionSchema }) } } },
+    ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
+  },
+});
+
+const ProjectIdParam = z.object({ id: z.string().uuid() });
+const BENEFICIARIOS_PATH = "/api/v1/projects/{id}/beneficiaries";
+
+registry.registerPath({
+  method: "get",
+  path: BENEFICIARIOS_PATH,
+  tags: ["Projects"],
+  summary: "Lista los registros de beneficiarios y su total vivo",
+  description: `Incluye los anulados (se listan, no suman al \`total\`). ${READ_NOTE}`,
+  security: [{ sessionCookie: [] }],
+  request: { params: ProjectIdParam },
+  responses: {
+    200: {
+      description: "Registros y total de beneficiarios no anulados.",
+      content: {
+        "application/json": {
+          schema: z.object({ estado: z.string(), registros: z.array(RegistroBeneficiarioSchema), total: z.number().int() }),
+        },
+      },
+    },
+    ...standardErrorResponses([401, 403, 404, 500]),
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: BENEFICIARIOS_PATH,
+  tags: ["Projects"],
+  summary: "Registra una cantidad de beneficiarios",
+  description:
+    `${WRITE_NOTE} \`cantidad\` entero > 0; la fecha no puede ser posterior a hoy (400); \`actividad_id\` opcional debe ` +
+    "ser una actividad viva del mismo proyecto (400). Audita `CREAR beneficiarios`.",
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: ProjectIdParam,
+    body: { content: { "application/json": { schema: BENEFICIARIOS_CREATE_SCHEMA } } },
+  },
+  responses: {
+    201: { description: "Registro creado.", content: { "application/json": { schema: z.object({ registro: RegistroBeneficiarioSchema }) } } },
+    ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: `${BENEFICIARIOS_PATH}/{beneficiaryId}/void`,
+  tags: ["Projects"],
+  summary: "Anula un registro de beneficiarios (solo ADM/GER)",
+  description:
+    "Solo `ADMINISTRADOR`/`GERENCIA`, en cualquier estado del proyecto. Exige `motivo` (1..500). La fila se conserva, " +
+    "sale del total y se audita con `ANULAR`. Ya anulado responde 409 CONFLICT.",
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: ProjectIdParam.extend({ beneficiaryId: z.string().uuid() }),
+    body: { content: { "application/json": { schema: MOTIVO_ANULACION_SCHEMA } } },
+  },
+  responses: {
+    200: { description: "Registro anulado.", content: { "application/json": { schema: z.object({ registro: RegistroBeneficiarioSchema }) } } },
+    ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
   },
 });
