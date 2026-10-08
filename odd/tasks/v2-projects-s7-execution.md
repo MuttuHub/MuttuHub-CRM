@@ -105,8 +105,9 @@ Route: delegated writer per round (round 1: U1-U2, round 2: U3-U4, round 3: U5, 
   - Scoped correction (6f8b6a3): the round-trip test now asserts every parsed field of F-X1 (with observed sabotage
     RED evidence), and `ref()` clamps to `$C$2` so an empty catalog never emits an invalid range (+2 tests, 38 total).
     Parent spot check: 4 files / 38 tests green, no trace of the sabotage left in the source.
-- Inherited debt carried into this feature: 118 commits from S4-S6 with no native review acknowledged anywhere, and
-  78 commits still unpushed (D-11).
+- Inherited debt carried into this feature (D-11): the branch reached S7 with 118 commits vs `main` (78 unpushed) and
+  no native review acknowledged anywhere. With S7 rounds 1-2 the branch is at 127 commits vs `main` / 87 unpushed, all
+  of it local. Nothing is lost: every unit is committed and the worktree is clean.
 
 - 2026-10-08 (16:35): round 2 (U3-U4) by one bounded writer, plus one scoped correction.
   - U3 (90d7776): `plantilla/validate.ts` with `ContextoValidacion`, `ErrorPlantilla` and `v01`..`v07`, `vH1`; the
