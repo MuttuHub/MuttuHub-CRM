@@ -147,6 +147,25 @@ vi.mock("@/hooks/projects", () => ({
       () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, isError: false, error: null, variables: undefined }),
     ]),
   ),
+  // The ficha also mounts the Presupuesto section (S5 U5): an empty budget, no programming, no mutations pending.
+  useProjectBudget: () => ({
+    data: { estado: "EN_EJECUCION", rubros: [], suma: "0.00", valor_total: null, diferencia: null },
+    isLoading: false,
+    isError: false,
+    error: null,
+  }),
+  useProjectProgramming: () => ({
+    data: { estado: "EN_EJECUCION", periodos: [], filas: [], control_por_rubro: [], programacion_pendiente: true },
+    isLoading: false,
+    isError: false,
+    error: null,
+  }),
+  ...Object.fromEntries(
+    ["useUpdateBudget", "useUpdateProgramming", "useSetValorTotal"].map((name) => [
+      name,
+      () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, isError: false, error: null, variables: undefined }),
+    ]),
+  ),
   useEligibleOpportunities: dialogHooks.useEligibleOpportunities,
   useStrategicLines: dialogHooks.useStrategicLines,
   useMunicipalities: dialogHooks.useMunicipalities,

@@ -20,7 +20,7 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { apiDelete, apiGet, apiPatch, apiPost, ApiError } from "@/lib/api/http";
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut, ApiError } from "@/lib/api/http";
 import type { EstadoActividad, Tendencia } from "@/lib/proyectos/avance";
 import type {
   AccionAuditoria,
@@ -286,6 +286,9 @@ export const projectQueryKeys = {
   indicatorMeasurements: (id: string, indicatorId: string) =>
     ["projects", "indicator-measurements", id, indicatorId] as const,
   beneficiaries: (id: string) => ["projects", "beneficiaries", id] as const,
+  budget: (id: string) => ["projects", "budget", id] as const,
+  programming: (id: string) => ["projects", "programming", id] as const,
+  financialSheet: (id: string, corte: string | null) => ["projects", "financial-sheet", id, corte] as const,
   eligibleOpportunities: ["projects", "eligible-opportunities"] as const,
   // Los catálogos viven fuera de `projects` para que invalidar la lista de
   // proyectos no refetchee catálogos que no cambiaron.
@@ -1075,6 +1078,170 @@ export function useVoidBeneficiario(
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: projectQueryKeys.beneficiaries(projectId) });
     },
+  });
+}
+
+/* ── Presupuesto, programación y ficha financiera (S5 U5/U6) ───────────── */
+//
+// Los montos viajan como STRING decimal ("59500000.00") en ambos sentidos y
+// nunca pasan por Number(). El color financiero llega del servidor: se pinta,
+// no se recalcula.
+
+export type ProjectBudgetRubro = {
+  rubro_id: string;
+  /** Nulo en rubros heredados sin código. */
+  codigo: string | null;
+  nombre: string;
+  activo: boolean;
+  /** Nulo mientras el rubro no tiene línea (fila virtual en $0). */
+  linea_id: string | null;
+  asignado: string;
+  /** Rubro suspendido con monto pendiente de reasignación. */
+  heredado_pendiente: boolean;
+};
+
+/** `GET/PUT /api/v1/projects/:id/budget`. */
+export type ProjectBudget = {
+  estado: EstadoProyecto;
+  rubros: ProjectBudgetRubro[];
+  suma: string;
+  valor_total: string | null;
+  /** Σ A − valor_total; nulo sin valor total. */
+  diferencia: string | null;
+};
+
+export type ProjectBudgetInput = { rubros: { rubro_id: string; asignado: string }[] };
+
+export type ProjectProgramming = {
+  estado: EstadoProyecto;
+  periodos: string[];
+  filas: { rubro_id: string; periodo: string; valor: string }[];
+  control_por_rubro: {
+    rubro_id: string;
+    codigo: string | null;
+    nombre: string;
+    asignado: string;
+    programado: string;
+    /** Σ celdas − A; informativo en Borrador. */
+    control: string;
+  }[];
+  programacion_pendiente: boolean;
+};
+
+export type ProjectProgrammingInput = { filas: { rubro_id: string; periodo: string; valor: string }[] };
+
+export function useProjectBudget(id: string): UseQueryResult<ProjectBudget> {
+  return useQuery({
+    queryKey: projectQueryKeys.budget(id),
+    enabled: id !== "",
+    queryFn: () => apiGet<ProjectBudget>(`/api/v1/projects/${id}/budget`),
+  });
+}
+
+export function useProjectProgramming(id: string): UseQueryResult<ProjectProgramming> {
+  return useQuery({
+    queryKey: projectQueryKeys.programming(id),
+    enabled: id !== "",
+    queryFn: () => apiGet<ProjectProgramming>(`/api/v1/projects/${id}/programming`),
+  });
+}
+
+/** Refreshes everything a budget or programming write can change. */
+function useRefreshPresupuesto(projectId: string) {
+  const qc = useQueryClient();
+  return () => {
+    for (const key of [
+      projectQueryKeys.budget(projectId),
+      projectQueryKeys.programming(projectId),
+      projectQueryKeys.detail(projectId),
+      ["projects", "financial-sheet", projectId],
+    ]) {
+      void qc.invalidateQueries({ queryKey: key });
+    }
+  };
+}
+
+/** Reemplaza el presupuesto (cubre todos los rubros activos). El 400/409 se muestra en línea. */
+export function useUpdateBudget(
+  projectId: string,
+): UseMutationResult<ProjectBudget, Error, ProjectBudgetInput> {
+  const refresh = useRefreshPresupuesto(projectId);
+  return useMutation({
+    mutationFn: (input) => apiPut<ProjectBudget>(`/api/v1/projects/${projectId}/budget`, input),
+    onSuccess: refresh,
+  });
+}
+
+export function useUpdateProgramming(
+  projectId: string,
+): UseMutationResult<ProjectProgramming, Error, ProjectProgrammingInput> {
+  const refresh = useRefreshPresupuesto(projectId);
+  return useMutation({
+    mutationFn: (input) => apiPut<ProjectProgramming>(`/api/v1/projects/${projectId}/programming`, input),
+    onSuccess: refresh,
+  });
+}
+
+/**
+ * "Igualar valor total a Σ A": reutiliza el PATCH existente del proyecto (que
+ * ya recalcula la diferencia con la oportunidad y audita). El PATCH recibe el
+ * valor como número JSON; la cadena de la suma ya es exacta a dos decimales.
+ */
+export function useSetValorTotal(projectId: string): UseMutationResult<unknown, Error, string> {
+  const refresh = useRefreshPresupuesto(projectId);
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (valorTotal) =>
+      apiPatch<unknown>(`/api/v1/projects/${projectId}`, { valor_total: Number(valorTotal) }),
+    onSuccess: () => {
+      refresh();
+      void qc.invalidateQueries({ queryKey: ["projects", "list"] });
+    },
+  });
+}
+
+/** Fila (por rubro o total) de `GET /api/v1/projects/:id/financial-sheet`. */
+export type ProjectFinancialRow = {
+  /** Nulo en la fila de total. */
+  rubro_id: string | null;
+  codigo: string | null;
+  nombre: string;
+  asignado: string;
+  programado: string;
+  ejecutado: string;
+  diferencia: string;
+  /** E/P en décimas de punto porcentual (908 = 90,8 %); nulo si P = 0 o sin gastos. */
+  ep_decimas: number | null;
+  ea_decimas: number | null;
+  umbral_rojo: string;
+  /** Nulo mientras `ejecucion_disponible` es false. */
+  color: ColorSemaforo | null;
+};
+
+export type ProjectFinancialSheet = {
+  base: string;
+  /** Periodo AAAA-MM. */
+  corte: string;
+  estado: EstadoProyecto;
+  ejecucion_disponible: boolean;
+  rubros: ProjectFinancialRow[];
+  total: ProjectFinancialRow;
+  alerta_retraso: boolean;
+  parametros: { tolerancia: number; retraso: number; confirmado: boolean };
+};
+
+/** Ficha financiera al corte (`null` = el corte por defecto del servidor). */
+export function useProjectFinancialSheet(
+  id: string,
+  corte: string | null,
+): UseQueryResult<ProjectFinancialSheet> {
+  return useQuery({
+    queryKey: projectQueryKeys.financialSheet(id, corte),
+    enabled: id !== "",
+    queryFn: () =>
+      apiGet<ProjectFinancialSheet>(
+        `/api/v1/projects/${id}/financial-sheet${corte ? `?corte=${encodeURIComponent(corte)}` : ""}`,
+      ),
   });
 }
 

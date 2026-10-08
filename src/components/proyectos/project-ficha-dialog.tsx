@@ -29,6 +29,7 @@ import {
 } from "@/components/proyectos/project-display";
 import { ProjectEstructura } from "@/components/proyectos/project-estructura";
 import { ProjectEjecucion } from "@/components/proyectos/project-ejecucion";
+import { ProjectPresupuesto } from "@/components/proyectos/project-presupuesto";
 import { ProjectTeam } from "@/components/proyectos/project-team";
 import {
   useProject,
@@ -201,6 +202,8 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
         <ProjectTeam proyectoId={proyecto.id} />
 
         <ProjectEstructura proyecto={proyecto} />
+
+        <ProjectPresupuesto proyecto={proyecto} />
 
         <ProjectEjecucion proyecto={proyecto} />
 

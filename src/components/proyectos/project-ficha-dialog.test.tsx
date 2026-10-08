@@ -106,6 +106,20 @@ describe("ProjectFichaDialog", () => {
     expect(equipo.compareDocumentPosition(estructura) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
+  it("mounts the Presupuesto section after the technical structure", async () => {
+    mockFichaAndAudit({ historial: [] })
+
+    renderFicha()
+
+    const presupuesto = await screen.findByTestId("presupuesto")
+    const estructura = screen.getByTestId("estructura")
+    expect(presupuesto).toHaveTextContent("Presupuesto")
+    expect(estructura.compareDocumentPosition(presupuesto) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/budget", expect.any(Object)),
+    )
+  })
+
   it("mounts the technical execution section between the structure and the history", async () => {
     mockFichaAndAudit({ historial: [] })
 
@@ -241,6 +255,17 @@ describe("ProjectFichaDialog", () => {
       // Ejecución técnica (S4 U6): semáforo y beneficiarios vacíos.
       if (String(input).endsWith("/technical-status")) {
         return Promise.resolve(jsonResponse(TECNICO))
+      }
+      // Presupuesto (S5 U5): vacío; su comportamiento vive en project-presupuesto.test.tsx.
+      if (String(input).endsWith("/budget")) {
+        return Promise.resolve(
+          jsonResponse({ estado: "EN_EJECUCION", rubros: [], suma: "0.00", valor_total: null, diferencia: null }),
+        )
+      }
+      if (String(input).endsWith("/programming")) {
+        return Promise.resolve(
+          jsonResponse({ estado: "EN_EJECUCION", periodos: [], filas: [], control_por_rubro: [], programacion_pendiente: true }),
+        )
       }
       if (String(input).endsWith("/beneficiaries")) {
         return Promise.resolve(jsonResponse({ estado: "EN_EJECUCION", registros: [], total: 0 }))
