@@ -111,6 +111,42 @@ vi.mock("@/hooks/projects", () => ({
       () => ({ mutate: vi.fn(), isPending: false, isError: false, error: null, variables: undefined }),
     ]),
   ),
+  // The ficha also mounts the Ejecución técnica section (S4 U6/U7): a loaded
+  // semáforo with no activities, plus the read queries and write mutations.
+  useProjectTechnicalStatus: () => ({
+    data: {
+      base: "vigente",
+      corte: "2026-10-25",
+      estado: "EN_EJECUCION",
+      avance_real: 0,
+      avance_programado: 0,
+      desviacion_pp: 0,
+      color: "verde",
+      actividades: [],
+      umbrales: { umbral1: 10, umbral2: 20, confirmado: true },
+    },
+    isLoading: false,
+    isError: false,
+    error: null,
+  }),
+  useDeliverableProgress: () => [],
+  useIndicatorMeasurements: () => ({ data: undefined, isLoading: false, isError: false, error: null }),
+  useProjectBeneficiaries: () => ({
+    data: { estado: "EN_EJECUCION", registros: [], total: 0 },
+    isLoading: false,
+    isError: false,
+    error: null,
+  }),
+  ...Object.fromEntries(
+    [
+      "useCreateAvance", "useVoidAvance", "useAddAvanceMedio",
+      "useCreateMedicion", "useVoidMedicion",
+      "useCreateBeneficiario", "useVoidBeneficiario",
+    ].map((name) => [
+      name,
+      () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, isError: false, error: null, variables: undefined }),
+    ]),
+  ),
   useEligibleOpportunities: dialogHooks.useEligibleOpportunities,
   useStrategicLines: dialogHooks.useStrategicLines,
   useMunicipalities: dialogHooks.useMunicipalities,

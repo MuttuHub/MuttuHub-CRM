@@ -13,6 +13,7 @@
 
 import {
   useMutation,
+  useQueries,
   useQuery,
   useQueryClient,
   type UseMutationResult,
@@ -20,12 +21,16 @@ import {
 } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiDelete, apiGet, apiPatch, apiPost, ApiError } from "@/lib/api/http";
+import type { EstadoActividad, Tendencia } from "@/lib/proyectos/avance";
 import type {
   AccionAuditoria,
   EstadoProyecto,
   OrigenProyecto,
   RolUsuario,
 } from "@prisma/client";
+
+/** Re-exported so the execution UI can name the derived activity states/trends. */
+export type { EstadoActividad, Tendencia };
 
 /* ── DTOs (forma real de la respuesta del servidor) ────────────────────── */
 
@@ -275,6 +280,12 @@ export const projectQueryKeys = {
   activities: (id: string) => ["projects", "activities", id] as const,
   deliverables: (id: string) => ["projects", "deliverables", id] as const,
   indicators: (id: string) => ["projects", "indicators", id] as const,
+  technicalStatus: (id: string) => ["projects", "technical-status", id] as const,
+  deliverableProgress: (id: string, deliverableId: string) =>
+    ["projects", "deliverable-progress", id, deliverableId] as const,
+  indicatorMeasurements: (id: string, indicatorId: string) =>
+    ["projects", "indicator-measurements", id, indicatorId] as const,
+  beneficiaries: (id: string) => ["projects", "beneficiaries", id] as const,
   eligibleOpportunities: ["projects", "eligible-opportunities"] as const,
   // Los catálogos viven fuera de `projects` para que invalidar la lista de
   // proyectos no refetchee catálogos que no cambiaron.
@@ -692,6 +703,167 @@ export function useDeleteIndicator(
       projectId, projectQueryKeys.indicators(projectId), "indicators", "indicador",
     ).remove,
   );
+}
+
+/* ── Ejecución técnica (S4 U6): lecturas ───────────────────────────────── */
+//
+// Todo lo que la sección "Ejecución técnica" lee. El color del semáforo llega
+// del servidor: se declara y se pinta tal cual, nunca se recalcula aquí.
+
+export type ColorSemaforo = "verde" | "amarillo" | "rojo";
+
+/** Fila de `actividades[]` en `GET /api/v1/projects/:id/technical-status`. */
+export type ProjectTechnicalActivity = {
+  id: string;
+  codigo: string;
+  peso: number;
+  /** Porcentaje 0..100 con un decimal, ya derivado por el servidor. */
+  progreso: number;
+  estado: EstadoActividad;
+  fecha_cumplimiento: string | null;
+};
+
+/** Respuesta de `GET /api/v1/projects/:id/technical-status?corte=AAAA-MM-DD`. */
+export type ProjectTechnicalStatus = {
+  /** "vigente" hasta que existan líneas base (S8). */
+  base: string;
+  corte: string;
+  estado: EstadoProyecto;
+  avance_real: number;
+  avance_programado: number;
+  desviacion_pp: number;
+  color: ColorSemaforo;
+  actividades: ProjectTechnicalActivity[];
+  umbrales: { umbral1: number; umbral2: number; confirmado: boolean };
+};
+
+/** Fila de `avances[]` (`toAvanceView`): `cantidad` es `Decimal` y viaja STRING. */
+export type ProjectAvance = {
+  id: string;
+  proyecto_id: string;
+  entregable_id: string;
+  fecha: string;
+  cantidad: string;
+  observacion: string | null;
+  justificacion_exceso: string | null;
+  registrado_por_id: string;
+  created_at: string;
+  anulado_at: string | null;
+  anulado_por_id: string | null;
+  motivo_anulacion: string | null;
+  /** Medios vivos adjuntos. */
+  medios: number;
+  /** Cuenta hacia la meta (no anulado y, cuando se exige, con medio vivo). */
+  cuenta: boolean;
+};
+
+/** Respuesta de `GET .../deliverables/:deliverableId/progress`. */
+export type ProjectDeliverableProgress = {
+  estado: EstadoProyecto;
+  /** Decimal serializado: string, nunca número. */
+  meta: string;
+  avances: ProjectAvance[];
+};
+
+/** Fila de `mediciones[]` (`toMedicionView`): `valor` es `Decimal` y viaja STRING. */
+export type ProjectMedicion = {
+  id: string;
+  proyecto_id: string;
+  indicador_id: string;
+  fecha: string;
+  valor: string;
+  observacion: string | null;
+  registrado_por_id: string;
+  created_at: string;
+  anulado_at: string | null;
+  anulado_por_id: string | null;
+  motivo_anulacion: string | null;
+};
+
+/** Respuesta de `GET .../indicators/:indicatorId/measurements`. */
+export type ProjectIndicatorMeasurements = {
+  estado: EstadoProyecto;
+  indicador: { id: string; codigo: string; nombre: string; meta: string; unidad: string };
+  mediciones: ProjectMedicion[];
+  ultima: ProjectMedicion | null;
+  tendencia: Tendencia | null;
+};
+
+/** Fila de `registros[]` (`toBeneficiarioView`); `cantidad` es un entero. */
+export type ProjectBeneficiario = {
+  id: string;
+  proyecto_id: string;
+  actividad_id: string | null;
+  fecha: string;
+  cantidad: number;
+  observacion: string | null;
+  registrado_por_id: string;
+  created_at: string;
+  anulado_at: string | null;
+  anulado_por_id: string | null;
+  motivo_anulacion: string | null;
+};
+
+/** Respuesta de `GET .../beneficiaries`: `total` es la suma viva (sin anulados). */
+export type ProjectBeneficiaries = {
+  estado: EstadoProyecto;
+  registros: ProjectBeneficiario[];
+  total: number;
+};
+
+/** Semáforo técnico del proyecto (color incluido: se pinta, no se recalcula). */
+export function useProjectTechnicalStatus(id: string): UseQueryResult<ProjectTechnicalStatus> {
+  return useQuery({
+    queryKey: projectQueryKeys.technicalStatus(id),
+    enabled: id !== "",
+    queryFn: () => apiGet<ProjectTechnicalStatus>(`/api/v1/projects/${id}/technical-status`),
+  });
+}
+
+/**
+ * Avances por entregable (S4 U6, decisión 2): los entregables se leen UNA vez
+ * con `useProjectDeliverables` y aquí se abren con `useQueries`, una consulta
+ * por entregable y solo mientras la sección está montada. El orden de la lista
+ * sigue al de `deliverableIds`.
+ */
+export function useDeliverableProgress(
+  projectId: string,
+  deliverableIds: string[],
+): UseQueryResult<ProjectDeliverableProgress>[] {
+  return useQueries({
+    queries: deliverableIds.map((deliverableId) => ({
+      queryKey: projectQueryKeys.deliverableProgress(projectId, deliverableId),
+      enabled: projectId !== "" && deliverableId !== "",
+      queryFn: () =>
+        apiGet<ProjectDeliverableProgress>(
+          `/api/v1/projects/${projectId}/deliverables/${deliverableId}/progress`,
+        ),
+    })),
+  });
+}
+
+/** Mediciones de un indicador con su última lectura y tendencia. */
+export function useIndicatorMeasurements(
+  projectId: string,
+  indicatorId: string,
+): UseQueryResult<ProjectIndicatorMeasurements> {
+  return useQuery({
+    queryKey: projectQueryKeys.indicatorMeasurements(projectId, indicatorId),
+    enabled: projectId !== "" && indicatorId !== "",
+    queryFn: () =>
+      apiGet<ProjectIndicatorMeasurements>(
+        `/api/v1/projects/${projectId}/indicators/${indicatorId}/measurements`,
+      ),
+  });
+}
+
+/** Registros de beneficiarios y su total vivo. */
+export function useProjectBeneficiaries(id: string): UseQueryResult<ProjectBeneficiaries> {
+  return useQuery({
+    queryKey: projectQueryKeys.beneficiaries(id),
+    enabled: id !== "",
+    queryFn: () => apiGet<ProjectBeneficiaries>(`/api/v1/projects/${id}/beneficiaries`),
+  });
 }
 
 function toastError(err: unknown, fallback: string): never {

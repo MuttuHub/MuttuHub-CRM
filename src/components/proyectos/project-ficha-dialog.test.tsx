@@ -106,6 +106,20 @@ describe("ProjectFichaDialog", () => {
     expect(equipo.compareDocumentPosition(estructura) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
+  it("mounts the technical execution section between the structure and the history", async () => {
+    mockFichaAndAudit({ historial: [] })
+
+    renderFicha()
+
+    const ejecucion = await screen.findByTestId("ejecucion")
+    const estructura = screen.getByTestId("estructura")
+    const historial = screen.getByTestId("historial")
+    expect(ejecucion).toHaveTextContent("Ejecución técnica")
+    expect(estructura.compareDocumentPosition(ejecucion) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(ejecucion.compareDocumentPosition(historial) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(await within(ejecucion).findByTestId("semaforo-tecnico")).toBeInTheDocument()
+  })
+
   it("omits the difference field when it is null (nothing writes it yet)", async () => {
     mockFichaAndAudit(
       { historial: [] },
@@ -204,6 +218,18 @@ describe("ProjectFichaDialog", () => {
     },
   ]
 
+  const TECNICO = {
+    base: "vigente",
+    corte: "2026-10-25",
+    estado: "EN_EJECUCION",
+    avance_real: 21.4,
+    avance_programado: 57.1,
+    desviacion_pp: 35.7,
+    color: "rojo",
+    actividades: [],
+    umbrales: { umbral1: 10, umbral2: 20, confirmado: false },
+  }
+
   function mockFichaAndAudit(auditBody: unknown, auditStatus = 200, proyecto: unknown = PROYECTO) {
     fetchMock.mockImplementation((input: unknown) => {
       if (String(input).endsWith("/audit")) {
@@ -211,6 +237,13 @@ describe("ProjectFichaDialog", () => {
       }
       if (String(input).endsWith("/members")) {
         return Promise.resolve(jsonResponse({ miembros: MIEMBROS }))
+      }
+      // Ejecución técnica (S4 U6): semáforo y beneficiarios vacíos.
+      if (String(input).endsWith("/technical-status")) {
+        return Promise.resolve(jsonResponse(TECNICO))
+      }
+      if (String(input).endsWith("/beneficiaries")) {
+        return Promise.resolve(jsonResponse({ estado: "EN_EJECUCION", registros: [], total: 0 }))
       }
       // Estructura técnica (S3): vacía; su comportamiento vive en project-estructura.test.tsx.
       const estructura = /\/(objectives|activities|deliverables|indicators)$/.exec(String(input))
