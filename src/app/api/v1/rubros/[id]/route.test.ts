@@ -20,6 +20,7 @@ vi.mock("@/lib/db", () => ({
     rubro: {
       findUnique: vi.fn(),
     },
+    lineaPresupuestal: { count: vi.fn() },
     // Interactive-form $transaction: the route reads/writes through the tx
     // client, so the fake forwards to the hoisted tx mock.
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
@@ -70,6 +71,7 @@ beforeEach(() => {
     supabaseUser: {} as never,
   });
   vi.mocked(db.rubro.findUnique).mockResolvedValue(existing as never);
+  vi.mocked(db.lineaPresupuestal.count).mockResolvedValue(0);
   mocks.txRubroUpdate.mockResolvedValue({ ...existing, nombre: "Renombrado" } as never);
 });
 
@@ -90,6 +92,36 @@ describe("PATCH /api/v1/rubros/:id", () => {
 
     expect(res.status).toBe(403);
     expect(db.rubro.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 when renaming a rubro that already has budget lines", async () => {
+    vi.mocked(db.lineaPresupuestal.count).mockResolvedValue(2);
+
+    const res = await PATCH(patchRequest({ nombre: "Talento" }), routeContext);
+    const json = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(json.error).toBe(
+      "El rubro tiene datos asociados: no se puede renombrar, solo suspender.",
+    );
+    expect(mocks.txRubroUpdate).not.toHaveBeenCalled();
+  });
+
+  it("still suspends a rubro that has budget lines", async () => {
+    vi.mocked(db.lineaPresupuestal.count).mockResolvedValue(2);
+    mocks.txRubroUpdate.mockResolvedValue({ ...existing, activo: false } as never);
+
+    const res = await PATCH(patchRequest({ activo: false }), routeContext);
+
+    expect(res.status).toBe(200);
+  });
+
+  it("does not block a rename to the same nombre", async () => {
+    vi.mocked(db.lineaPresupuestal.count).mockResolvedValue(2);
+
+    const res = await PATCH(patchRequest({ nombre: "Personal", activo: false }), routeContext);
+
+    expect(res.status).toBe(200);
   });
 
   it("PATCH /rubros/:id allows renaming a rubro", async () => {

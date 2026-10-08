@@ -69,6 +69,18 @@ export const PATCH = withApiErrorHandling(
       return apiError("El rubro no existe.", 404, "NOT_FOUND");
     }
 
+    // REQ-CAT-02: a rubro with budget lines can only be suspended, never renamed.
+    if (data.nombre !== undefined && data.nombre !== existing.nombre) {
+      const lineas = await db.lineaPresupuestal.count({ where: { rubro_id: id } });
+      if (lineas > 0) {
+        return apiError(
+          "El rubro tiene datos asociados: no se puede renombrar, solo suspender.",
+          409,
+          "CONFLICT",
+        );
+      }
+    }
+
     const cambios = diffFields(existing, data, ["nombre", "activo"]);
 
     const updated = await db.$transaction(async (tx) => {

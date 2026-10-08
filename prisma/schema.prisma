@@ -578,6 +578,8 @@ model Rubro {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
+  lineas LineaPresupuestal[]
+
   @@map("rubros")
 }
 
@@ -681,6 +683,8 @@ model Proyecto {
   mediciones_indicador MedicionIndicador[]
   registros_beneficiarios RegistroBeneficiario[]
   soportes_proyecto  SoporteProyecto[]
+  lineas_presupuestales LineaPresupuestal[]
+  programacion_periodos ProgramacionPeriodo[]
 
   @@unique([oportunidad_id, cliente_id])
   @@index([cliente_id])
@@ -1002,4 +1006,49 @@ model RegistroBeneficiario {
   @@index([proyecto_id, fecha])
   @@index([actividad_id])
   @@map("registros_beneficiarios")
+}
+
+// v2 projects module (S5, SDD §3.7, REQ-BUD-01..05) — assigned amount (A) of one
+// rubro in one project. Adoptive: production may still hold the v1 table, so the
+// migration is idempotent. Lines are never deleted ($0 is the "off" state, and
+// rubros are never deleted either), hence no `deleted_at`. CHECK
+// `lineas_monto_no_negativo_ck` keeps the amount >= 0; `@@unique([id, proyecto_id])`
+// is the FK target for programming now and expenses in S6.
+model LineaPresupuestal {
+  id                   String   @id @default(uuid())
+  proyecto_id          String
+  rubro_id             String
+  monto_proyectado_cop Decimal  @db.Decimal(15, 2)
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  proyecto     Proyecto               @relation(fields: [proyecto_id], references: [id])
+  rubro        Rubro                  @relation(fields: [rubro_id], references: [id])
+  programacion ProgramacionPeriodo[]
+
+  @@unique([proyecto_id, rubro_id])
+  @@unique([id, proyecto_id])
+  @@index([proyecto_id])
+  @@map("lineas_presupuestales")
+}
+
+// v2 projects module (S5, SDD §3.7, REQ-BUD-03) — programmed amount (P) of one
+// budget line in one month (`periodo` "AAAA-MM", CHECK `programacion_periodo_ck`).
+// The composite relation keeps the line in the same project. Written by diff in
+// BORRADOR: a cell that becomes 0 is deleted; history lives in `auditoria_cambios`.
+model ProgramacionPeriodo {
+  id          String   @id @default(uuid())
+  proyecto_id String
+  linea_id    String
+  periodo     String   @db.Char(7)
+  valor       Decimal  @db.Decimal(15, 2)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  proyecto Proyecto          @relation(fields: [proyecto_id], references: [id])
+  linea    LineaPresupuestal @relation(fields: [linea_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([linea_id, periodo])
+  @@index([proyecto_id, periodo])
+  @@map("programacion_periodo")
 }
