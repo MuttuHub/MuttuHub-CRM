@@ -19,8 +19,13 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { apiGet, apiPost, ApiError } from "@/lib/api/http";
-import type { AccionAuditoria, EstadoProyecto, OrigenProyecto } from "@prisma/client";
+import { apiDelete, apiGet, apiPost, ApiError } from "@/lib/api/http";
+import type {
+  AccionAuditoria,
+  EstadoProyecto,
+  OrigenProyecto,
+  RolUsuario,
+} from "@prisma/client";
 
 /* ── DTOs (forma real de la respuesta del servidor) ────────────────────── */
 
@@ -90,6 +95,17 @@ export type ProjectAuditResponse = {
   historial: ProjectAuditEntry[];
 };
 
+/* ── DTO: equipo del proyecto (E-07) ────────────────────────────────────── */
+
+/** Fila de `{ miembros: ProjectMember[] }` y de `{ miembro }` (`toProyectoMiembroItemV2`). */
+export type ProjectMember = {
+  id: string;
+  usuario: { id: string; nombre: string; rol: RolUsuario };
+  agregado_por_id: string;
+  created_at: string;
+  removed_at: string | null;
+};
+
 /* ── DTOs: elegibles y catálogos (unidad 2: creación) ──────────────────── */
 
 /** Fila de la respuesta de `GET /api/v1/projects/eligible-opportunities`. */
@@ -144,6 +160,7 @@ export const projectQueryKeys = {
   list: (filters: ProjectFilters) => ["projects", "list", filters] as const,
   detail: (id: string) => ["projects", "detail", id] as const,
   audit: (id: string) => ["projects", "audit", id] as const,
+  members: (id: string) => ["projects", "members", id] as const,
   eligibleOpportunities: ["projects", "eligible-opportunities"] as const,
   // Los catálogos viven fuera de `projects` para que invalidar la lista de
   // proyectos no refetchee catálogos que no cambiaron.
@@ -197,6 +214,22 @@ export function useProjectAudit(id: string): UseQueryResult<ProjectAuditEntry[]>
     queryFn: async () => {
       const res = await apiGet<ProjectAuditResponse>(`/api/v1/projects/${id}/audit`);
       return res.historial;
+    },
+  });
+}
+
+/**
+ * E-07: integrantes ACTIVOS del equipo. Cuelga del prefijo `projects`, así que
+ * invalidar `projectQueryKeys.all` también lo refresca. `enabled` repite el
+ * guard de `useProject`.
+ */
+export function useProjectMembers(id: string): UseQueryResult<ProjectMember[]> {
+  return useQuery({
+    queryKey: projectQueryKeys.members(id),
+    enabled: id !== "",
+    queryFn: async () => {
+      const res = await apiGet<{ miembros: ProjectMember[] }>(`/api/v1/projects/${id}/members`);
+      return res.miembros;
     },
   });
 }
@@ -321,6 +354,42 @@ export function useCreateProjectFromOpportunity(
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: projectQueryKeys.all });
       toast.success("Proyecto creado desde la oportunidad.");
+    },
+  });
+}
+
+/**
+ * E-07: agrega un COORDINADOR al equipo. El error (409 ya es integrante, 400 no
+ * es un Coordinador activo) se re-lanza como `ApiError` sin toast: quien llama
+ * lo muestra en línea junto al control, con el mensaje del servidor.
+ */
+export function useAddProjectMember(
+  projectId: string,
+): UseMutationResult<{ miembro: ProjectMember }, Error, string> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (usuarioId) =>
+      apiPost<{ miembro: ProjectMember }>(`/api/v1/projects/${projectId}/members`, {
+        usuario_id: usuarioId,
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectQueryKeys.members(projectId) });
+    },
+  });
+}
+
+/** E-07: baja lógica (`removed_at`) del integrante; la fila se conserva. */
+export function useRemoveProjectMember(
+  projectId: string,
+): UseMutationResult<{ miembro: ProjectMember }, Error, string> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (usuarioId) =>
+      apiDelete<{ miembro: ProjectMember }>(
+        `/api/v1/projects/${projectId}/members/${usuarioId}`,
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectQueryKeys.members(projectId) });
     },
   });
 }

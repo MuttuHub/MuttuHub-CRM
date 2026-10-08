@@ -10,7 +10,10 @@ import {
   useEligibleOpportunities,
   useMunicipalities,
   useProject,
+  useAddProjectMember,
   useProjectAudit,
+  useProjectMembers,
+  useRemoveProjectMember,
   useProjects,
   useStrategicLines,
   type EligibleOpportunity,
@@ -402,5 +405,94 @@ describe("unidad 2: creación y catálogos", () => {
     expect(projectQueryKeys.eligibleOpportunities).toEqual(["projects", "eligible-opportunities"])
     expect(projectQueryKeys.strategicLines).toEqual(["catalogs", "strategic-lines"])
     expect(projectQueryKeys.municipalities).toEqual(["catalogs", "municipalities"])
+  })
+})
+
+/* ── Equipo del proyecto (E-07) ────────────────────────────────────────── */
+
+const MIEMBRO = {
+  id: "m1",
+  usuario: { id: "u9", nombre: "Carla Ruiz", rol: "COORDINADOR" },
+  agregado_por_id: "u1",
+  created_at: "2026-10-07T13:00:00.000Z",
+  removed_at: null,
+}
+
+describe("project team hooks", () => {
+  const fetchMock = vi.fn()
+
+  beforeEach(() => {
+    fetchMock.mockReset()
+    vi.stubGlobal("fetch", fetchMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it("useProjectMembers requests the members endpoint and returns the miembros array", async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ miembros: [MIEMBRO] })))
+
+    const { result } = renderHook(() => useProjectMembers("p1"), { wrapper: createWrapper() })
+
+    await waitFor(() => expect(result.current.data).toEqual([MIEMBRO]))
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/members", expect.any(Object))
+  })
+
+  it("useProjectMembers does not fetch with an empty id", () => {
+    renderHook(() => useProjectMembers(""), { wrapper: createWrapper() })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("useAddProjectMember posts {usuario_id} and refreshes the team", async () => {
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(jsonResponse({ miembro: MIEMBRO }, 201)),
+    )
+    const { wrapper, queryClient } = createWrapperWithClient()
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries")
+
+    const { result } = renderHook(() => useAddProjectMember("p1"), { wrapper })
+    await act(async () => {
+      await result.current.mutateAsync("u9")
+    })
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe("/api/v1/projects/p1/members")
+    expect(init.method).toBe("POST")
+    expect(JSON.parse(init.body)).toEqual({ usuario_id: "u9" })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: projectQueryKeys.members("p1") })
+  })
+
+  it("useAddProjectMember surfaces the 409 envelope as an ApiError", async () => {
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        jsonResponse({ error: "El usuario ya es integrante del proyecto.", code: "CONFLICT" }, 409),
+      ),
+    )
+
+    const { result } = renderHook(() => useAddProjectMember("p1"), { wrapper: createWrapper() })
+    let caught: unknown
+    await act(async () => {
+      caught = await result.current.mutateAsync("u9").catch((e: unknown) => e)
+    })
+
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as ApiError).status).toBe(409)
+  })
+
+  it("useRemoveProjectMember issues DELETE on the member and refreshes the team", async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ miembro: MIEMBRO })))
+    const { wrapper, queryClient } = createWrapperWithClient()
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries")
+
+    const { result } = renderHook(() => useRemoveProjectMember("p1"), { wrapper })
+    await act(async () => {
+      await result.current.mutateAsync("u9")
+    })
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe("/api/v1/projects/p1/members/u9")
+    expect(init.method).toBe("DELETE")
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: projectQueryKeys.members("p1") })
   })
 })

@@ -5,7 +5,7 @@
 // en projects.test.ts.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { ProjectListRow } from "@/hooks/projects"
@@ -182,10 +182,28 @@ describe("ProjectFichaDialog", () => {
     },
   ]
 
+  const MIEMBROS = [
+    {
+      id: "m1",
+      usuario: { id: "u9", nombre: "Carla Ruiz", rol: "COORDINADOR" },
+      agregado_por_id: "u1",
+      created_at: "2026-10-07T13:00:00.000Z",
+      removed_at: null,
+    },
+  ]
+
   function mockFichaAndAudit(auditBody: unknown, auditStatus = 200, proyecto: unknown = PROYECTO) {
     fetchMock.mockImplementation((input: unknown) => {
       if (String(input).endsWith("/audit")) {
         return Promise.resolve(jsonResponse(auditBody, auditStatus))
+      }
+      if (String(input).endsWith("/members")) {
+        return Promise.resolve(jsonResponse({ miembros: MIEMBROS }))
+      }
+      if (String(input).endsWith("/api/v1/auth/me")) {
+        return Promise.resolve(
+          jsonResponse({ usuario: { id: "u1", nombre: "Ana Pérez", rol: "ADMINISTRADOR" } }),
+        )
       }
       return Promise.resolve(jsonResponse({ proyecto }))
     })
@@ -258,5 +276,16 @@ describe("ProjectFichaDialog", () => {
     expect(paso).toHaveTextContent("Integrante del equipo")
     // The raw stored vocabulary must never leak into the UI.
     expect(paso).not.toHaveTextContent("proyecto_miembro")
+  })
+
+  it("mounts the Equipo section with the project's active members", async () => {
+    mockFichaAndAudit({ historial: [] })
+
+    renderFicha()
+
+    const equipo = await screen.findByTestId("equipo")
+    expect(equipo).toHaveTextContent("Equipo")
+    expect(await within(equipo).findByText("Carla Ruiz")).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/members", expect.any(Object))
   })
 })

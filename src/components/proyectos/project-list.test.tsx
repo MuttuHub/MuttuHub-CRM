@@ -81,6 +81,16 @@ vi.mock("@/hooks/projects", () => ({
   // dialogHooks below are the ones that are). The mounted ficha calls this hook,
   // and here it only has to resolve to an empty history.
   useProjectAudit: () => ({ data: [], isLoading: false, isError: false, error: null }),
+  // The ficha also mounts the Equipo section: an empty team, no mutations pending.
+  useProjectMembers: () => ({ data: [], isLoading: false, isError: false, error: null }),
+  useAddProjectMember: () => ({ mutate: vi.fn(), isPending: false, isError: false, error: null }),
+  useRemoveProjectMember: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+    isError: false,
+    error: null,
+    variables: undefined,
+  }),
   useEligibleOpportunities: dialogHooks.useEligibleOpportunities,
   useStrategicLines: dialogHooks.useStrategicLines,
   useMunicipalities: dialogHooks.useMunicipalities,

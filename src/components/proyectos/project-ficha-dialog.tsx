@@ -1,5 +1,5 @@
-// Ficha de proyecto de solo lectura (E-06). Se abre desde el listado con el id
-// de la fila y monta su propia consulta (`useProject`). No tiene ningún control
+// Ficha de proyecto (E-06), de solo lectura salvo la sección Equipo (E-07). Se abre desde el listado con el id
+// de la fila y monta su propia consulta (`useProject`). Sus datos no tienen ningún control
 // de escritura ni `useEffect` de carga: el estado del request (loading, error,
 // data) sale entero de la query.
 //
@@ -26,6 +26,7 @@ import {
   formatFechaCalendario,
   formatFechaHora,
 } from "@/components/proyectos/project-display";
+import { ProjectTeam } from "@/components/proyectos/project-team";
 import {
   useProject,
   useProjectAudit,
@@ -193,6 +194,8 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
             </ul>
           )}
         </section>
+
+        <ProjectTeam proyectoId={proyecto.id} />
 
         <ProjectHistorial proyectoId={proyecto.id} />
       </div>
