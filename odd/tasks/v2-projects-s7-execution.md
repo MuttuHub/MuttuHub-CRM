@@ -36,18 +36,25 @@ validation errors instead of writing anything partially.
 - Per-unit gates: focused vitest, `npx tsc --noEmit`, eslint on touched files; one commit per unit.
 - `exceljs@^4.4.0` and `jszip@^3.10.1` are already dependencies — do not add or bump anything.
 - `exceljs` is Node-only: never import it from a `"use client"` file.
+- **Native review is unavailable in this runtime (recorded)**: RDD is on (global), but
+  `gentle-ai review assess --committed-only --base-ref <boundary>` returns
+  `risk: "high"` / `reason: unassessable` — "the active runtime is not eligible for immutable receipt review", and
+  only `claude-code` and `codex` are supported. This is a typed capability boundary, not a defect. Per the parent
+  contract, a high/unassessable tier is verified by writer self-verification **plus an independent verifier**; that
+  substitute ran for round 1 (see Progress). Do not disable RDD from here: the switch is the user's.
 
 ## Tasks
 
 Route: delegated writer per round (round 1: U1-U2, round 2: U3-U4, round 3: U5, round 4: U6, round 5: U7).
 
-- [ ] **U1** Columns + generator (~380): `src/lib/proyectos/plantilla/columns.ts`, `generate.ts`, fixture
+- [x] **U1** Columns + generator (~380): `src/lib/proyectos/plantilla/columns.ts`, `generate.ts`, fixture
   `__fixtures__/plantilla-cedetextil.ts` (F-X1 builder, valid and V-12-failing variants). RED: nine sheets with the
   exact names/order, B2 version, prefilled code/client, 15 rubros, `Mes k (AAAA-MM)` columns, named ranges + data
-  validation surviving a reload, `9. Catálogos` protected, every formula carrying `result`.
-- [ ] **U2** Parser (~320): reads every sheet into cells with hoja/fila/columna, formula values via `.result`,
-  Colombian numbers, dates (Date / `DD/MM/AAAA` / ISO), `;` lists keeping order, round-trip
-  `parsePlantilla(await generarPlantilla(x))` equals input, garbage buffer throws `PlantillaIlegible`, row cap.
+  validation surviving a reload, `9. Catálogos` protected, every formula carrying `result`. (ae2881d)
+- [x] **U2** Parser (`src/lib/proyectos/plantilla/parse.ts`): reads every sheet into cells with hoja/fila/columna,
+  formula values via `.result`, Colombian numbers, dates (Date / `DD/MM/AAAA` / ISO), `;` lists keeping order,
+  round-trip `parsePlantilla(await generarPlantilla(x))` equals input, garbage buffer throws `PlantillaIlegible`,
+  row cap. (bf7bcd6; round-trip assertions strengthened and the empty-catalog range guarded in 6f8b6a3)
 - [ ] **U3** Validators V-01..V-07 + V-H1 (~380): one `describe` per rule with a passing and a failing fixture.
 - [ ] **U4** Validators V-08..V-14 + W-01 + `validarPlantilla` + `construirPlan` (~400): V-12 to the cent, ordering,
   500-error truncation, multi-error reporting; `construirPlan` of the valid F-X1 yields 1/4/7 with weights 1/1/1/4.
@@ -74,6 +81,31 @@ Route: delegated writer per round (round 1: U1-U2, round 2: U3-U4, round 3: U5, 
 - 2026-10-08 (14:51) inherited state: S4, S5 and S6 are closed locally with 78 commits unpushed, no PR, and no native
   review acknowledged anywhere in the branch (see D-11).
 
+- 2026-10-08 (15:30): round 1 (U1-U2) by one bounded writer, plus one scoped correction.
+  - U1 (ae2881d): `plantilla/columns.ts` (9 sheets, headers, caps), `plantilla/generate.ts` (`generarPlantilla`),
+    `__fixtures__/plantilla-cedetextil.ts` (F-X1 valid 177.360.000 and V-12 177.410.000). RED: missing modules, then
+    GREEN. 19 tests.
+  - U2 (bf7bcd6): `plantilla/parse.ts` (`parsePlantilla`, `parseNumeroColombiano`, `parseFechaCelda`,
+    `PlantillaIlegible`) + the round-trip. RED: missing module; one genuine inner RED (`"1.440.000,50"` parsed as
+    `"1.440.000.50"` until the dot-grouping branch stripped the thousands dots). 17 tests.
+  - Gates: focused vitest 4 files / 36 tests green; `tsc --noEmit` clean; eslint clean on touched files. Parent spot
+    check re-ran the focused command: 36 green.
+  - **Native review (RDD) could not run**: `gentle-ai review assess --base-ref 1432907 --committed-only --json`
+    returned `risk: "high"`, `review_due: true`, `review_due_reason: "high_risk"` with
+    `unassessable — the active runtime is not eligible for immutable receipt review` (only `claude-code` and `codex`
+    qualify). Recorded as a typed unavailability; RDD was NOT disabled and no PASS was invented.
+  - **Independent verification** (the contract's substitute for a high/unassessable tier) found: (a) minor — the
+    round-trip test asserted only counts/budget/programming, so a silently dropped actividad/entregable/indicador
+    field would have stayed green; (b) advisory — `ref()` wrote a reversed defined name (`$C$2:$C$1`, normalized by
+    ExcelJS to `$C$1:$C$2`, wrongly including the header) when a catalog list was empty; plus three notes
+    (`1e5` -> `"15"`, the generator trusts the caller for the 15 rubros, and the map's "7 entregables of F-T1"
+    cross-reference is loose — the golden F-T1 fixture has 8 entregables and no `unidad` column).
+  - Scoped correction (6f8b6a3): the round-trip test now asserts every parsed field of F-X1 (with observed sabotage
+    RED evidence), and `ref()` clamps to `$C$2` so an empty catalog never emits an invalid range (+2 tests, 38 total).
+    Parent spot check: 4 files / 38 tests green, no trace of the sabotage left in the source.
+- Inherited debt carried into this feature: 118 commits from S4-S6 with no native review acknowledged anywhere, and
+  78 commits still unpushed (D-11).
+
 ## Next step
 
-Round 1: U1 (columns + generator + F-X1 fixture), then U2 (parser + round-trip).
+Round 2: U3 (validators V-01..V-07 + V-H1), then U4 (V-08..V-14 + W-01 + `validarPlantilla` + `construirPlan`).
