@@ -127,7 +127,20 @@ Work unit U2 (API)
   dev server the human starts).
 
 Work unit U3 (UI)
-- [ ] **T5** Team tab component in the project ficha (list, add COORDINADOR, remove) with tests.
+- [x] **T5** Team tab component in the project ficha (list, add COORDINADOR, remove) with tests.
+  **Closed in `574cea3`** (7 paths, +610/−5). Delivered as an "Equipo" section in the ficha (`project-team.tsx`,
+  mounted before the Historial) plus three hooks next to `useProjectAudit`: `useProjectMembers`,
+  `useAddProjectMember`, `useRemoveProjectMember` (invalidate `projectQueryKeys.members`). Everyone who can read the
+  ficha sees the list (name + role label); `canManageProjects` roles also get the add select and a per-row remove
+  button, and non-managers get neither. Loading, empty and error states exist; the add/remove failures (409, 400, 404)
+  show the server's message inline in a `role="alert"`. RED observed first: hooks (5 failed, exports missing), team
+  component (suite failed to load, module missing), ficha mount (1 failed). Evidence: 76/76 in the touched surface
+  (hooks 23, team 10, ficha 10, list, create), `tsc` 0, eslint 0, full suite 164/166 files, 1587/1590 tests with
+  3 failures that are load flakes (two live-DB sequence tests and a user-menu 5s timeout), all green when re-run alone.
+  Known limits: `/catalogs/users` returns only id and nombre, so the picker offers active users who are not members and
+  the server's 400 enforces COORDINADOR (the contract asked to filter by role client-side, which the catalog cannot
+  serve; filtering would need a `rol` projection or filter on that endpoint, outside this unit's surface); the members
+  payload carries no email, so the row shows the role label. The Playwright rehearsal was not run.
 
 ## Route declaration
 
