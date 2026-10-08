@@ -16,12 +16,13 @@ import {
   ENCABEZADO_PROYECTO,
   ENCABEZADOS_PROGRAMACION,
   HOJAS,
+  MAX_ERRORES,
   PLANTILLA_VERSION,
   type HojaKey,
 } from "./columns"
 import { parseFechaCelda, parseNumeroColombiano, type Celda, type Fila, type ParsedTemplate } from "./parse"
-import { toCents, type Cents } from "../money"
-import { durationWeeks } from "../weeks"
+import { formatCOP, fromCents, sumCents, toCents, type Cents } from "../money"
+import { durationWeeks, projectPeriods, type Periodo } from "../weeks"
 import { validarSemanas } from "../actividad"
 
 /** The catalog data a template's project is validated against. */
@@ -52,6 +53,8 @@ export type ResultadoValidacion = {
 
 const ZERO = BigInt(0)
 const MAX_META = 2_147_483_647
+/** `Decimal(9,2)`, the activity weight ceiling. */
+const MAX_PESO_CENTS = toCents("9999999.99")
 /** `Decimal(15,2)`, duplicated here so the pure lib never imports the API layer. */
 export const MONTO_MAXIMO_CENTS = toCents("9999999999999.99")
 
@@ -125,6 +128,17 @@ function leerDecimal(valor: Celda["valor"] | undefined): DecimalLeido {
   if (dec === null) return { ok: false, motivo: "no_numerico" }
   if (contarDecimales(dec) > 2) return { ok: false, motivo: "decimales" }
   return { ok: true, dec, cents: toCents(dec) }
+}
+
+/** Rounds a canonical decimal string half-up to two decimals. */
+function redondear2(dec: string): string {
+  const negativo = dec.startsWith("-")
+  const cuerpo = negativo ? dec.slice(1) : dec
+  const [entero = "0", fraccion = ""] = cuerpo.split(".")
+  const frac3 = `${fraccion}000`.slice(0, 3)
+  const base = BigInt(entero) * BigInt(100) + BigInt(frac3.slice(0, 2))
+  const total = Number(frac3[2]) >= 5 ? base + BigInt(1) : base
+  return fromCents(negativo ? -total : total)
 }
 
 /** 1 -> "A", 27 -> "AA". */
@@ -645,3 +659,400 @@ export function vH1(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
 
   return errores
 }
+
+// ---------------------------------------------------------------------------
+// V-08 — every activity has at least one deliverable
+// ---------------------------------------------------------------------------
+
+export function v08(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[] {
+  void _c
+  if (!estructuraOk(p, "actividades") || !estructuraOk(p, "entregables")) return []
+  const conEntregables = new Set(p.entregables.map((fila) => textoCelda(fila, "Código actividad").toLowerCase()))
+  const errores: ErrorPlantilla[] = []
+  for (const fila of p.actividades) {
+    const codigo = textoCelda(fila, "Código")
+    if (!conEntregables.has(codigo.toLowerCase())) {
+      errores.push(
+        error("V-08", HOJAS.actividades, fila.fila, celdaDe(fila, "Código")?.columna ?? "A", codigo, `La actividad «${codigo}» no tiene entregables.`),
+      )
+    }
+  }
+  return errores
+}
+
+// ---------------------------------------------------------------------------
+// V-09 — positive quantities, metas and weights
+// ---------------------------------------------------------------------------
+
+function revisarPositivo(
+  fila: Fila,
+  encabezado: string,
+  hoja: string,
+  etiqueta: string,
+  columnaPorDefecto: string,
+): ErrorPlantilla[] {
+  const celda = celdaDe(fila, encabezado)
+  const crudo = textoDe(celda?.valor)
+  const columna = celda?.columna ?? columnaPorDefecto
+  if (crudo === "") return [error("V-09", hoja, fila.fila, columna, null, `${etiqueta} es obligatoria.`)]
+  const dec = decimalDeCelda(celda?.valor)
+  if (dec === null) return [error("V-09", hoja, fila.fila, columna, crudo, `${etiqueta} no es un número válido.`)]
+  const cents = toCents(redondear2(dec))
+  if (cents <= ZERO) return [error("V-09", hoja, fila.fila, columna, crudo, `${etiqueta} debe ser mayor que cero.`)]
+  if (cents > MONTO_MAXIMO_CENTS) return [error("V-09", hoja, fila.fila, columna, crudo, `${etiqueta} es demasiado alta.`)]
+  return []
+}
+
+export function v09(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[] {
+  void _c
+  const errores: ErrorPlantilla[] = []
+
+  if (estructuraOk(p, "actividades")) {
+    for (const fila of p.actividades) {
+      const celda = celdaDe(fila, "Peso (opcional)")
+      const crudo = textoDe(celda?.valor)
+      if (crudo === "") continue
+      const dec = decimalDeCelda(celda?.valor)
+      const columna = celda?.columna ?? "G"
+      if (dec === null) {
+        errores.push(error("V-09", HOJAS.actividades, fila.fila, columna, crudo, "El peso no es un número válido."))
+        continue
+      }
+      const cents = toCents(redondear2(dec))
+      if (cents <= ZERO) {
+        errores.push(error("V-09", HOJAS.actividades, fila.fila, columna, crudo, "El peso debe ser mayor que cero."))
+      } else if (cents > MAX_PESO_CENTS) {
+        errores.push(error("V-09", HOJAS.actividades, fila.fila, columna, crudo, "El peso es demasiado alto."))
+      }
+    }
+  }
+
+  if (estructuraOk(p, "entregables")) {
+    for (const fila of p.entregables) {
+      errores.push(...revisarPositivo(fila, "Cantidad", HOJAS.entregables, "La cantidad", "D"))
+    }
+  }
+
+  if (estructuraOk(p, "indicadores")) {
+    for (const fila of p.indicadores) {
+      errores.push(...revisarPositivo(fila, "Meta", HOJAS.indicadores, "La meta", "D"))
+      const celda = celdaDe(fila, "Línea base")
+      const crudo = textoDe(celda?.valor)
+      if (crudo === "") continue
+      const dec = decimalDeCelda(celda?.valor)
+      const columna = celda?.columna ?? "F"
+      if (dec === null) {
+        errores.push(error("V-09", HOJAS.indicadores, fila.fila, columna, crudo, "La línea base no es un número válido."))
+        continue
+      }
+      const cents = toCents(redondear2(dec))
+      if (cents < ZERO) {
+        errores.push(error("V-09", HOJAS.indicadores, fila.fila, columna, crudo, "La línea base no puede ser negativa."))
+      } else if (cents > MONTO_MAXIMO_CENTS) {
+        errores.push(error("V-09", HOJAS.indicadores, fila.fila, columna, crudo, "La línea base es demasiado alta."))
+      }
+    }
+  }
+
+  return errores
+}
+
+// ---------------------------------------------------------------------------
+// V-10 — every objective has at least one activity
+// ---------------------------------------------------------------------------
+
+export function v10(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[] {
+  void _c
+  if (!estructuraOk(p, "objetivos") || !estructuraOk(p, "actividades")) return []
+  const conActividades = new Set(p.actividades.map((fila) => textoCelda(fila, "Código objetivo").toLowerCase()))
+  const errores: ErrorPlantilla[] = []
+  for (const fila of p.objetivos) {
+    const codigo = textoCelda(fila, "Código")
+    if (!conActividades.has(codigo.toLowerCase())) {
+      errores.push(
+        error("V-10", HOJAS.objetivos, fila.fila, celdaDe(fila, "Código")?.columna ?? "A", codigo, `El objetivo «${codigo}» no tiene actividades.`),
+      )
+    }
+  }
+  return errores
+}
+
+// ---------------------------------------------------------------------------
+// V-11 — budget rubros
+// ---------------------------------------------------------------------------
+
+export function v11(p: ParsedTemplate, c: ContextoValidacion): ErrorPlantilla[] {
+  if (!estructuraOk(p, "presupuesto")) return []
+  const activos = new Set(c.rubros.filter((rubro) => rubro.activo).map((rubro) => rubro.codigo))
+  const vistos = new Set<string>()
+  const errores: ErrorPlantilla[] = []
+
+  for (const fila of p.presupuesto) {
+    const celdaCodigo = celdaDe(fila, "Código rubro")
+    const codigo = textoDe(celdaCodigo?.valor)
+    const columna = celdaCodigo?.columna ?? "A"
+    if (codigo === "") {
+      errores.push(error("V-11", HOJAS.presupuesto, fila.fila, columna, null, "El código del rubro no puede estar vacío."))
+    } else if (!activos.has(codigo)) {
+      errores.push(error("V-11", HOJAS.presupuesto, fila.fila, columna, codigo, `El rubro «${codigo}» no existe o está suspendido.`))
+    } else if (vistos.has(codigo)) {
+      errores.push(error("V-11", HOJAS.presupuesto, fila.fila, columna, codigo, `El rubro «${codigo}» está repetido.`))
+    } else {
+      vistos.add(codigo)
+    }
+
+    const celdaValor = celdaDe(fila, "Valor asignado")
+    const asignado = leerDecimal(celdaValor?.valor)
+    const columnaValor = celdaValor?.columna ?? "C"
+    if (!asignado.ok) {
+      const mensaje =
+        asignado.motivo === "decimales"
+          ? "El valor asignado admite máximo dos decimales."
+          : asignado.motivo === "vacio"
+            ? "El valor asignado es obligatorio."
+            : "El valor asignado no es un monto válido."
+      errores.push(error("V-11", HOJAS.presupuesto, fila.fila, columnaValor, textoDe(celdaValor?.valor), mensaje))
+    } else if (asignado.cents < ZERO) {
+      errores.push(error("V-11", HOJAS.presupuesto, fila.fila, columnaValor, asignado.dec, "El valor asignado no puede ser negativo."))
+    } else if (asignado.cents > MONTO_MAXIMO_CENTS) {
+      errores.push(error("V-11", HOJAS.presupuesto, fila.fila, columnaValor, asignado.dec, "El valor asignado es demasiado alto."))
+    }
+  }
+
+  return errores
+}
+
+// ---------------------------------------------------------------------------
+// V-12 — the budget sum equals the project total
+// ---------------------------------------------------------------------------
+
+export function v12(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[] {
+  void _c
+  if (!estructuraOk(p, "presupuesto") || !estructuraOk(p, "proyecto")) return []
+  const total = leerDecimal(p.proyecto.valorTotal.valor)
+  if (!total.ok) return []
+
+  const asignados: Cents[] = []
+  for (const fila of p.presupuesto) {
+    const asignado = leerDecimal(celdaDe(fila, "Valor asignado")?.valor)
+    if (asignado.ok && asignado.cents >= ZERO) asignados.push(asignado.cents)
+  }
+  const suma = sumCents(asignados)
+  if (suma === total.cents) return []
+
+  const diferencia = total.cents - suma
+  return [
+    error(
+      "V-12",
+      HOJAS.presupuesto,
+      null,
+      "C",
+      fromCents(diferencia),
+      `El presupuesto suma ${formatCOP(suma)} y el valor total es ${formatCOP(total.cents)} (diferencia ${formatCOP(diferencia)}).`,
+    ),
+  ]
+}
+
+// ---------------------------------------------------------------------------
+// V-13 — the monthly programming sums to the assigned amount
+// ---------------------------------------------------------------------------
+
+export function v13(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[] {
+  void _c
+  if (!estructuraOk(p, "presupuesto") || !estructuraOk(p, "programacion")) return []
+
+  const asignadoPorRubro = new Map<string, Cents>()
+  for (const fila of p.presupuesto) {
+    const codigo = textoDe(celdaDe(fila, "Código rubro")?.valor)
+    const asignado = leerDecimal(celdaDe(fila, "Valor asignado")?.valor)
+    if (codigo !== "" && asignado.ok) asignadoPorRubro.set(codigo, asignado.cents)
+  }
+
+  const errores: ErrorPlantilla[] = []
+  for (const fila of p.programacion.filas) {
+    const celda = celdaDe(fila, "Código rubro")
+    const codigo = textoDe(celda?.valor)
+    if (codigo === "") continue
+
+    const celdas: Cents[] = []
+    for (const mes of p.programacion.meses) {
+      const dec = decimalDeCelda(fila.celdas[mes.encabezado]?.valor)
+      if (dec !== null) celdas.push(toCents(redondear2(dec)))
+    }
+    const suma = sumCents(celdas)
+    const asignado = asignadoPorRubro.get(codigo) ?? ZERO
+    if (suma !== asignado) {
+      const diferencia = asignado - suma
+      errores.push(
+        error(
+          "V-13",
+          HOJAS.programacion,
+          fila.fila,
+          celda?.columna ?? "A",
+          codigo,
+          `La programación de ${codigo} suma ${formatCOP(suma)} pero el presupuesto asigna ${formatCOP(asignado)} (diferencia ${formatCOP(diferencia)}).`,
+        ),
+      )
+    }
+  }
+
+  return errores
+}
+
+// ---------------------------------------------------------------------------
+// V-14 — month columns inside the project period
+// ---------------------------------------------------------------------------
+
+export function v14(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[] {
+  void _c
+  if (!estructuraOk(p, "programacion") || !estructuraOk(p, "proyecto")) return []
+
+  const inicio = parseFechaCelda(p.proyecto.fechaInicio.valor)
+  const fin = parseFechaCelda(p.proyecto.fechaFin.valor)
+  const periodosValidos =
+    inicio && fin && inicio < fin ? new Set<Periodo>(projectPeriods(inicio, fin)) : null
+
+  const errores: ErrorPlantilla[] = []
+
+  const porEncabezado = new Map<string, number>()
+  for (const mes of p.programacion.meses) {
+    const clave = mes.encabezado.toLowerCase()
+    porEncabezado.set(clave, (porEncabezado.get(clave) ?? 0) + 1)
+
+    if (mes.periodo === null) {
+      errores.push(error("V-14", HOJAS.programacion, 1, mes.columna, mes.encabezado, "El encabezado del mes no es válido."))
+      continue
+    }
+    if (periodosValidos && !periodosValidos.has(mes.periodo)) {
+      const conValor = p.programacion.filas.some((fila) => {
+        const dec = decimalDeCelda(fila.celdas[mes.encabezado]?.valor)
+        return dec !== null && toCents(redondear2(dec)) !== ZERO
+      })
+      if (conValor) {
+        errores.push(
+          error("V-14", HOJAS.programacion, 1, mes.columna, mes.encabezado, `El mes ${mes.periodo} está fuera del período del proyecto.`),
+        )
+      }
+    }
+  }
+  for (const [encabezado, veces] of porEncabezado) {
+    if (veces > 1) {
+      errores.push(error("V-14", HOJAS.programacion, 1, null, encabezado, `El encabezado «${encabezado}» está repetido.`))
+    }
+  }
+
+  for (const fila of p.programacion.filas) {
+    for (const mes of p.programacion.meses) {
+      const celda = fila.celdas[mes.encabezado]
+      if (!celda) continue
+      const crudo = textoDe(celda.valor)
+      if (crudo === "") continue
+      const dec = decimalDeCelda(celda.valor)
+      if (dec === null) {
+        errores.push(error("V-14", HOJAS.programacion, fila.fila, mes.columna, crudo, "El valor del mes no es un número válido."))
+        continue
+      }
+      if (contarDecimales(dec) > 2) {
+        errores.push(error("V-14", HOJAS.programacion, fila.fila, mes.columna, crudo, "El valor del mes admite máximo dos decimales."))
+        continue
+      }
+      if (toCents(dec) < ZERO) {
+        errores.push(error("V-14", HOJAS.programacion, fila.fila, mes.columna, crudo, "El valor del mes no puede ser negativo."))
+      }
+    }
+  }
+
+  return errores
+}
+
+// ---------------------------------------------------------------------------
+// W-01 — responsable emails (warning, never blocking)
+// ---------------------------------------------------------------------------
+
+export function w01(p: ParsedTemplate, c: ContextoValidacion): ErrorPlantilla[] {
+  if (!estructuraOk(p, "actividades")) return []
+  const registrados = new Set(c.usuarios.map((usuario) => usuario.email.trim().toLowerCase()))
+  const advertencias: ErrorPlantilla[] = []
+
+  for (const fila of p.actividades) {
+    const celda = celdaDe(fila, "Responsable (correo)")
+    const email = textoDe(celda?.valor)
+    if (email === "") continue
+    if (!registrados.has(email.toLowerCase())) {
+      advertencias.push(
+        error(
+          "W-01",
+          HOJAS.actividades,
+          fila.fila,
+          celda?.columna ?? "F",
+          email,
+          `El responsable «${email}» no está registrado; la actividad se guardará sin responsable.`,
+        ),
+      )
+    }
+  }
+
+  return advertencias
+}
+
+// ---------------------------------------------------------------------------
+// The composed validator
+// ---------------------------------------------------------------------------
+
+const ORDEN_HOJAS: string[] = Object.values(HOJAS)
+
+/** Errors sorted by sheet order, then row, then column. */
+function compararError(a: ErrorPlantilla, b: ErrorPlantilla): number {
+  const hojaA = ORDEN_HOJAS.indexOf(a.hoja)
+  const hojaB = ORDEN_HOJAS.indexOf(b.hoja)
+  if (hojaA !== hojaB) return hojaA - hojaB
+  const filaA = a.fila ?? 0
+  const filaB = b.fila ?? 0
+  if (filaA !== filaB) return filaA - filaB
+  return (a.columna ?? "").localeCompare(b.columna ?? "")
+}
+
+/**
+ * Runs every rule, sorts the report and caps the error list at `MAX_ERRORES`.
+ * `resumen` counts every finding (errors and warnings) by rule before the cap,
+ * so a truncated list still reports the true per-rule totals.
+ */
+export function validarPlantilla(p: ParsedTemplate, c: ContextoValidacion): ResultadoValidacion {
+  const reglas: ((p: ParsedTemplate, c: ContextoValidacion) => ErrorPlantilla[])[] = [
+    v01,
+    v02,
+    v03,
+    v04,
+    v05,
+    v06,
+    v07,
+    v08,
+    v09,
+    v10,
+    v11,
+    v12,
+    v13,
+    v14,
+    vH1,
+  ]
+  const errores: ErrorPlantilla[] = []
+  for (const regla of reglas) errores.push(...regla(p, c))
+  const advertencias = w01(p, c)
+
+  errores.sort(compararError)
+  advertencias.sort(compararError)
+
+  const resumen: Record<string, number> = {}
+  for (const hallazgo of [...errores, ...advertencias]) {
+    resumen[hallazgo.regla] = (resumen[hallazgo.regla] ?? 0) + 1
+  }
+
+  const truncado = errores.length > MAX_ERRORES
+  return {
+    errores: truncado ? errores.slice(0, MAX_ERRORES) : errores,
+    advertencias,
+    resumen,
+    truncado,
+  }
+}
+
