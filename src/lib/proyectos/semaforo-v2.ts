@@ -83,3 +83,21 @@ export function parseParametrosV2(raw: unknown): ParametrosV2 {
   }
   return result;
 }
+
+export type ColorSemaforo = "verde" | "amarillo" | "rojo";
+
+/**
+ * Color of the technical semáforo from the deviation in percentage points.
+ * Compared in tenths of a point so float noise (9.999999999999998) cannot flip a
+ * boundary: 10.0 is verde, 10.1 amarillo, 20.0 amarillo, 20.1 rojo. A negative
+ * deviation (ahead of schedule) is verde.
+ */
+export function colorTecnicoV2(
+  desviacionPp: number,
+  umbrales: { umbral1: number; umbral2: number },
+): ColorSemaforo {
+  const tenths = Math.round(desviacionPp * 10);
+  if (tenths <= Math.round(umbrales.umbral1 * 10)) return "verde";
+  if (tenths <= Math.round(umbrales.umbral2 * 10)) return "amarillo";
+  return "rojo";
+}
