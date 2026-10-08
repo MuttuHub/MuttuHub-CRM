@@ -36,16 +36,20 @@ record indicator measurements and beneficiaries, and read a technical semáforo 
 
 ## Tasks
 
-Route: delegated writer in two rounds (round 1: U1-U3, round 2: U4-U6).
+Route: delegated writer per round (round 1: U1-U3, round 2: U4-U5, round 3: U6-U7).
 
 - [x] **U1** Pure libs: `src/lib/proyectos/avance.ts`, `__fixtures__/tecnico.ts`, `colorTecnicoV2`/`ColorSemaforo`, tendencia (bd775f7).
 - [x] **U2** Avances backend: migration `v2_avances`, `ejecucion.ts` gates, progress + void routes, delete guard,
   `beneficiarios` audit entity, OpenAPI, `scripts/set-project-estado.ts` (021b560).
 - [x] **U3** Medios: migration `v2_soportes_medios`, `isValidExternalUrl`, `proyecto_soporte` upload target,
   sign/confirm/link routes, signed download, `cuenta` from live medio (2aed734).
-- [ ] **U4** Mediciones + beneficiarios: tables, routes + void, guards, tendencia in response.
-- [ ] **U5** `GET projects/[id]/technical-status`, `fecha_cumplimiento`, OpenAPI.
-- [ ] **U6** UI: hooks, ejecucion section, semáforo, ficha mount.
+- [x] **U4** Mediciones + beneficiarios: tables, routes + void, guards, tendencia in response (b38868e).
+- [x] **U5** `GET projects/[id]/technical-status`, `fecha_cumplimiento`, OpenAPI (42f777c).
+- [x] **U6** UI (a): ejecucion hooks in `src/hooks/projects.ts` + `project-ejecucion.tsx` shell + `semaforo-tecnico.tsx`
+  + read view of avances/entregables per activity + ficha mount. (split of the original U6) (a42c45e)
+- [x] **U7** UI (b): write forms — `ejecucion-avance-form.tsx` (avance + medio sign/upload/confirm or https link),
+  `ejecucion-indicadores.tsx`, `ejecucion-beneficiarios.tsx` — plus void buttons and write-control gating.
+  (split of the original U6) (1601b93)
 
 ## Acceptance
 
@@ -77,6 +81,39 @@ Route: delegated writer in two rounds (round 1: U1-U3, round 2: U4-U6).
     `set-project-estado.ts` is unit-tested with fakes but not executed against the DB. (7) Native review (RDD) not run: needs
     per-candidate consent.
 
+- 2026-10-08: reconciled bookkeeping. U4 (`b38868e`) and U5 (`42f777c`) were committed in a Claude Code session that
+  never updated this document; they are recorded here from the commits. U4 closes the U3 deviation (2): the
+  `soportes_proyecto(medicion_id, proyecto_id)` composite FK and the `mediciones_indicador` tables landed in migration
+  `20261008150000_v2_mediciones_beneficiarios`. Focused re-verification of the four new test files
+  (`technical-status`, `indicators/[indicatorId]/measurements`, `beneficiaries`, `avance`): 4 files / 51 tests green under
+  `TZ=America/Bogota`. The original U6 is split into U6 (render) and U7 (write forms) so each stays reviewable.
+
+- 2026-10-08: round 3 (U6, U7) by one bounded writer from the S4 map §6-§7. RED observed per unit (U6: hooks
+  `is not a function` + `Failed to resolve import` for the three new components; U7: missing form modules + 3 failing
+  gating cases), then GREEN. Focused runs green; writer reported full suite `TZ=America/Bogota npx vitest run`:
+  207 files / 2026 tests green, `tsc --noEmit` clean, eslint clean on touched files. Parent spot check re-ran the
+  7 ejecucion test files: 38 tests green.
+  - U6 (a42c45e): execution query keys + read hooks in `src/hooks/projects.ts` (`useProjectTechnicalStatus`,
+    `useDeliverableProgress` via `useQueries`, `useIndicatorMeasurements`, `useProjectBeneficiaries`);
+    `semaforo-tecnico.tsx` (renders `data-color` from the API, "No confirmado" badge), `ejecucion-avance.tsx`
+    (`<progress>` + estado badge + pending-support counter), `project-ejecucion.tsx` mounted in
+    `project-ficha-dialog.tsx` between `ProjectEstructura` and `ProjectHistorial`.
+  - U7 (1601b93): write hooks (`useCreateAvance` with sign→upload→confirm or https link, void hooks, medicion and
+    beneficiario create/void), `ejecucion-avance-form.tsx`, `ejecucion-indicadores.tsx`,
+    `ejecucion-beneficiarios.tsx`, shared `VoidControl` in `estructura-ui.tsx`, gating in `project-ejecucion.tsx`.
+  - Deviations: (8) membership gating is viable — `GET .../members` is readable by an active-member COORDINADOR, so
+    write controls are `canManageProjects OR (COORDINADOR and active member)`, void managers-only. (9) Forms set
+    `noValidate`: a native `max` date input swallowed the submit, so the inline "no posterior a hoy" guard is the
+    authoritative UI message (the API still enforces it). (10) A medio is optional in the form ("Sin medio" /
+    "Archivo" / "Enlace"); an avance without one stays visible as "Pendiente de soporte". (11) Every estado other
+    than BORRADOR renders content (the read API permits any estado), not only EN_EJECUCION/SUSPENDIDO/CERRADO.
+    (12) Per-activity badge renders the server-derived `estado`; the API exposes no per-activity color.
+    (13) `project-list.test.tsx` mocks the whole `@/hooks/projects` module, so every new hook had to be added to
+    that factory.
+
 ## Next step
 
-Round 2: U4 (mediciones + beneficiarios; add the `medicion_id` composite FK), U5 (technical-status), U6 (UI).
+S4 is complete (U1-U7). Pending, in this order: (1) native review per candidate (RDD, needs per-candidate human
+consent — candidates `a42c45e` and `1601b93`, plus the earlier U1-U5 commits); (2) push / PR decision under ordinary
+repository policy; (3) manual QA of the ejecucion section needs a project in EN_EJECUCION, which is unreachable from
+the UI until S8.2 — use the guarded local `scripts/set-project-estado.ts`.
