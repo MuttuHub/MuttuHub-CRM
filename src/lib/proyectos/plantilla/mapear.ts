@@ -54,6 +54,8 @@ export type PlanImportacion = {
 
 const ZERO = BigInt(0)
 const RE_ENTERO = /^-?\d+$/
+/** A plain decimal; `String(1e21)`/`String(1e-7)` are rejected before `toCents`. */
+const DECIMAL_PLANO = /^-?\d+(?:\.\d+)?$/
 
 function texto(fila: Fila, encabezado: string): string {
   const valor = fila.celdas[encabezado]?.valor
@@ -63,7 +65,11 @@ function texto(fila: Fila, encabezado: string): string {
 }
 
 function decimalDe(valor: Celda["valor"] | undefined): string | null {
-  if (typeof valor === "number") return Number.isFinite(valor) ? String(valor) : null
+  if (typeof valor === "number") {
+    if (!Number.isFinite(valor)) return null
+    const texto = String(valor)
+    return DECIMAL_PLANO.test(texto) ? texto : null
+  }
   if (typeof valor === "string") return parseNumeroColombiano(valor)
   return null
 }

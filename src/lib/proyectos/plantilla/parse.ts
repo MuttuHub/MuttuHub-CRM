@@ -41,6 +41,14 @@ export type ParsedTemplate = {
     meses: { encabezado: string; columna: string; periodo: Periodo | null }[]
     filas: Fila[]
   }
+  /**
+   * Data rows dropped per sheet because they exceeded `MAX_FILAS_HOJA`, keyed by
+   * the sheet name. Empty when nothing was dropped; `vH2` turns it into a finding
+   * so truncation is reported instead of silent (the rows are still not loaded).
+   */
+  excesoFilas: Record<string, number>
+  /** Month columns dropped because they exceeded `MAX_MESES`. */
+  excesoMeses: number
 }
 
 /** Thrown when the buffer is not a readable xlsx at all (corrupt / not a zip). */
@@ -54,7 +62,8 @@ export class PlantillaIlegible extends Error {
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/
 const DMY_DATE = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/
 const MES_ENCABEZADO = /^Mes (\d+) \((\d{4}-\d{2})\)$/
-const MAX_MESES = 60
+/** Month columns read from `8. Programación`; anything beyond is ignored (DoS guard). */
+export const MAX_MESES = 60
 
 const HOJAS_CON_ENCABEZADO: readonly HojaKey[] = [
   "proyecto",
@@ -216,6 +225,11 @@ function columnasEncabezado(hoja: ExcelJS.Worksheet): Columna[] {
   return columnas
 }
 
+/** Data rows a sheet drops at `MAX_FILAS_HOJA` (row 1 is the header). */
+function excesoDeFilas(hoja: ExcelJS.Worksheet): number {
+  return Math.max(0, hoja.actualRowCount - (MAX_FILAS_HOJA + 1))
+}
+
 function leerFilas(hoja: ExcelJS.Worksheet, columnas: Columna[]): Fila[] {
   const filas: Fila[] = []
   const ultima = Math.min(hoja.actualRowCount, MAX_FILAS_HOJA + 1)
@@ -269,6 +283,13 @@ export async function parsePlantilla(buffer: Buffer | ArrayBuffer): Promise<Pars
   const nombres = new Set(workbook.worksheets.map((hoja) => hoja.name))
   const hojasPresentes = Object.values(HOJAS).filter((nombre) => nombres.has(nombre))
 
+  const excesoFilas: Record<string, number> = {}
+  const registrarExceso = (hoja: ExcelJS.Worksheet | undefined): void => {
+    if (!hoja) return
+    const exceso = excesoDeFilas(hoja)
+    if (exceso > 0) excesoFilas[hoja.name] = exceso
+  }
+
   const encabezados: Record<string, string[]> = {}
   for (const key of HOJAS_CON_ENCABEZADO) {
     const hoja = workbook.getWorksheet(HOJAS[key])
@@ -276,6 +297,7 @@ export async function parsePlantilla(buffer: Buffer | ArrayBuffer): Promise<Pars
   }
 
   const hojaProyecto = workbook.getWorksheet(HOJAS.proyecto)
+  registrarExceso(hojaProyecto)
   const proyecto = {
     codigo: celdaProyecto(hojaProyecto, ETIQUETAS_PROYECTO.codigo),
     lineas: celdaProyecto(hojaProyecto, ETIQUETAS_PROYECTO.lineas),
@@ -288,16 +310,21 @@ export async function parsePlantilla(buffer: Buffer | ArrayBuffer): Promise<Pars
 
   const leerHoja = (key: "objetivos" | "actividades" | "entregables" | "indicadores" | "presupuesto"): Fila[] => {
     const hoja = workbook.getWorksheet(HOJAS[key])
-    return hoja ? leerFilas(hoja, columnasEncabezado(hoja)) : []
+    if (!hoja) return []
+    registrarExceso(hoja)
+    return leerFilas(hoja, columnasEncabezado(hoja))
   }
 
   const hojaProgramacion = workbook.getWorksheet(HOJAS.programacion)
   const meses: { encabezado: string; columna: string; periodo: Periodo | null }[] = []
   let filasProgramacion: Fila[] = []
+  let excesoMeses = 0
   if (hojaProgramacion) {
+    registrarExceso(hojaProgramacion)
     const columnas = columnasEncabezado(hojaProgramacion)
-    for (const col of columnas.slice(2)) {
-      if (meses.length >= MAX_MESES) break
+    const columnasMes = columnas.slice(2).filter((col) => MES_ENCABEZADO.test(col.encabezado))
+    excesoMeses = Math.max(0, columnasMes.length - MAX_MESES)
+    for (const col of columnasMes.slice(0, MAX_MESES)) {
       const match = MES_ENCABEZADO.exec(col.encabezado)
       if (match) meses.push({ encabezado: col.encabezado, columna: col.columna, periodo: match[2] })
     }
@@ -318,5 +345,7 @@ export async function parsePlantilla(buffer: Buffer | ArrayBuffer): Promise<Pars
     indicadores: leerHoja("indicadores"),
     presupuesto: leerHoja("presupuesto"),
     programacion: { meses, filas: filasProgramacion },
+    excesoFilas,
+    excesoMeses,
   }
 }

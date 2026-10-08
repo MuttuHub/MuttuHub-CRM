@@ -89,4 +89,25 @@ describe("construirPlan of the valid F-X1", () => {
     expect(p.actividades[0].pesoManual).toBe(true)
     expect(p.actividades[0].peso).toBe("2.50")
   })
+
+  it("rejects a scientific-notation total with a domain error, not a RangeError", async () => {
+    const parsed = await parsePlantilla(bufferValido)
+    parsed.proyecto.valorTotal.valor = 1e21
+    expect(() => construirPlan(parsed, fixtureContextoFX1())).toThrow(
+      "La plantilla no tiene valor total o meta de beneficiarios válidos.",
+    )
+  })
+
+  it("excludes zero-value programming cells", async () => {
+    const parsed = await parsePlantilla(bufferValido)
+    const antes = construirPlan(parsed, fixtureContextoFX1()).programacion.length
+    const r01 = parsed.programacion.filas.find((f) => f.celdas["Código rubro"].valor === "R01")!
+    r01.celdas[parsed.programacion.meses[0].encabezado].valor = 0
+
+    const p = construirPlan(parsed, fixtureContextoFX1())
+    expect(p.programacion).toHaveLength(antes - 1)
+    expect(
+      p.programacion.some((c) => c.rubroCodigo === "R01" && c.periodo === parsed.programacion.meses[0].periodo),
+    ).toBe(false)
+  })
 })

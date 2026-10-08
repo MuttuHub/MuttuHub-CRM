@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest"
 import ExcelJS from "exceljs"
-import { PlantillaIlegible, parseFechaCelda, parseNumeroColombiano, parsePlantilla } from "./parse"
+import { MAX_MESES, PlantillaIlegible, parseFechaCelda, parseNumeroColombiano, parsePlantilla } from "./parse"
 import { generarPlantilla } from "./generate"
 import { HOJAS, MAX_FILAS_HOJA, PLANTILLA_VERSION } from "./columns"
 import { toCents } from "../money"
@@ -213,6 +213,37 @@ describe("parsePlantilla of the generated F-X1", () => {
     const buffer = await workbook.xlsx.writeBuffer()
     const parsed = await parsePlantilla(buffer as never)
     expect(parsed.objetivos).toHaveLength(MAX_FILAS_HOJA)
+  })
+
+  it("surfaces the rows an oversized sheet dropped", async () => {
+    const workbook = new ExcelJS.Workbook()
+    const hoja = workbook.addWorksheet(HOJAS.objetivos)
+    hoja.addRow(["Código", "Descripción"])
+    for (let i = 0; i < MAX_FILAS_HOJA + 5; i++) hoja.addRow([`OE${i}`, "x"])
+    const buffer = await workbook.xlsx.writeBuffer()
+    const parsed = await parsePlantilla(buffer as never)
+    expect(parsed.excesoFilas[HOJAS.objetivos]).toBe(5)
+  })
+
+  it("surfaces the month columns dropped past MAX_MESES", async () => {
+    const workbook = new ExcelJS.Workbook()
+    const hoja = workbook.addWorksheet(HOJAS.programacion)
+    const meses = Array.from(
+      { length: MAX_MESES + 3 },
+      (_, i) => `Mes ${i + 1} (2026-${String((i % 12) + 1).padStart(2, "0")})`,
+    )
+    hoja.addRow(["Código rubro", "Rubro", ...meses, "Total", "Control"])
+    hoja.addRow(["R01", "Personal", ...meses.map(() => 0), 0, 0])
+    const buffer = await workbook.xlsx.writeBuffer()
+    const parsed = await parsePlantilla(buffer as never)
+    expect(parsed.programacion.meses).toHaveLength(MAX_MESES)
+    expect(parsed.excesoMeses).toBe(3)
+  })
+
+  it("reports no excess for the generated F-X1", async () => {
+    const parsed = await roundTrip()
+    expect(parsed.excesoFilas).toEqual({})
+    expect(parsed.excesoMeses).toBe(0)
   })
 
   it("throws PlantillaIlegible for a garbage buffer", async () => {

@@ -17,10 +17,18 @@ import {
   ENCABEZADOS_PROGRAMACION,
   HOJAS,
   MAX_ERRORES,
+  MAX_FILAS_HOJA,
   PLANTILLA_VERSION,
   type HojaKey,
 } from "./columns"
-import { parseFechaCelda, parseNumeroColombiano, type Celda, type Fila, type ParsedTemplate } from "./parse"
+import {
+  MAX_MESES,
+  parseFechaCelda,
+  parseNumeroColombiano,
+  type Celda,
+  type Fila,
+  type ParsedTemplate,
+} from "./parse"
 import { formatCOP, fromCents, sumCents, toCents, type Cents } from "../money"
 import { durationWeeks, projectPeriods, type Periodo } from "../weeks"
 import { validarSemanas } from "../actividad"
@@ -62,6 +70,18 @@ const MES_ENCABEZADO = /^mes \d+ \(\d{4}-\d{2}\)$/
 const HOJAS_CODIGO = ["objetivos", "actividades", "entregables", "indicadores"] as const
 const HOJAS_DATOS = ["objetivos", "actividades", "entregables", "indicadores", "presupuesto"] as const
 const RE_ENTERO = /^-?\d+$/
+/** A plain decimal; `String(1e21)`/`String(1e-7)` are rejected before `toCents`. */
+const DECIMAL_PLANO = /^-?\d+(?:\.\d+)?$/
+/** The project label rows V-01 requires (the parser exposes no `Cliente` field). */
+const ETIQUETAS_PROYECTO_REQUERIDAS: [keyof ParsedTemplate["proyecto"], string][] = [
+  ["codigo", "Código"],
+  ["lineas", "Líneas estratégicas"],
+  ["municipios", "Municipios"],
+  ["fechaInicio", "Fecha de inicio"],
+  ["fechaFin", "Fecha de fin"],
+  ["valorTotal", "Valor total"],
+  ["metaBeneficiarios", "Meta de beneficiarios"],
+]
 
 // ---------------------------------------------------------------------------
 // Cell helpers
@@ -98,9 +118,18 @@ function textoCelda(fila: Fila, encabezado: string): string {
   return textoDe(celdaDe(fila, encabezado)?.valor)
 }
 
-/** A cell's amount as a canonical decimal string, or `null` when not numeric. */
+/**
+ * A cell's amount as a canonical decimal string, or `null` when not numeric.
+ * A finite number is still rejected when `String` renders it in scientific
+ * notation (`1e21` -> `"1e+21"`), which `toCents`/`BigInt` cannot read; those
+ * cells are reported as invalid input instead of throwing.
+ */
 function decimalDeCelda(valor: Celda["valor"] | undefined): string | null {
-  if (typeof valor === "number") return Number.isFinite(valor) ? String(valor) : null
+  if (typeof valor === "number") {
+    if (!Number.isFinite(valor)) return null
+    const texto = String(valor)
+    return DECIMAL_PLANO.test(texto) ? texto : null
+  }
   if (typeof valor === "string") return parseNumeroColombiano(valor)
   return null
 }
@@ -153,6 +182,18 @@ function columnLetter(index: number): string {
   return letras
 }
 
+/** "A" -> 1, "Z" -> 26, "AA" -> 27; `null`/unknown -> 0 (sorts first). */
+function columnIndex(letras: string | null): number {
+  if (!letras) return 0
+  let n = 0
+  for (const caracter of letras.toUpperCase()) {
+    const code = caracter.charCodeAt(0) - 64
+    if (code < 1 || code > 26) return 0
+    n = n * 26 + code
+  }
+  return n
+}
+
 function tokensLista(valor: Celda["valor"] | undefined): string[] {
   return textoDe(valor)
     .split(";")
@@ -194,7 +235,9 @@ function estructuraOk(p: ParsedTemplate, key: HojaKey): boolean {
   if (!p.hojasPresentes.includes(HOJAS[key])) return false
   if (key === "proyecto") {
     const normal = normalizarEncabezados(p.encabezados.proyecto)
-    return normal[0] === "campo" && normal[1] === "valor"
+    if (normal[0] !== "campo" || normal[1] !== "valor") return false
+    // A missing required label row is structural: suppress that sheet's rules.
+    return ETIQUETAS_PROYECTO_REQUERIDAS.every(([campo]) => p.proyecto[campo].fila !== 0)
   }
   if (key === "programacion") return programacionEstructuraOk(p)
   if (key === "instrucciones" || key === "catalogos") return true
@@ -281,16 +324,7 @@ export function v01(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
 
   if (presentes.has(HOJAS.proyecto)) {
     errores.push(...compararEncabezados(HOJAS.proyecto, p.encabezados.proyecto, ENCABEZADO_PROYECTO))
-    const etiquetas: [keyof ParsedTemplate["proyecto"], string][] = [
-      ["codigo", "Código"],
-      ["lineas", "Líneas estratégicas"],
-      ["municipios", "Municipios"],
-      ["fechaInicio", "Fecha de inicio"],
-      ["fechaFin", "Fecha de fin"],
-      ["valorTotal", "Valor total"],
-      ["metaBeneficiarios", "Meta de beneficiarios"],
-    ]
-    for (const [campo, etiqueta] of etiquetas) {
+    for (const [campo, etiqueta] of ETIQUETAS_PROYECTO_REQUERIDAS) {
       if (p.proyecto[campo].fila === 0) {
         errores.push(error("V-01", HOJAS.proyecto, null, "A", etiqueta, `Falta la fila «${etiqueta}» en la hoja ${HOJAS.proyecto}.`))
       }
@@ -661,6 +695,88 @@ export function vH1(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
 }
 
 // ---------------------------------------------------------------------------
+// V-H2 — workbook limits and Excel error cells
+// ---------------------------------------------------------------------------
+
+/** Excel error literals the parser can surface from an error or formula cell. */
+const ERROR_EXCEL =
+  /^#(?:NULL!|DIV\/0!|VALUE!|REF!|NAME\?|NUM!|N\/A|GETTING_DATA|SPILL!|CALC!|FIELD!|BLOCKED!|UNKNOWN!|CONNECT!|BUSY!)$/i
+
+function esErrorExcel(valor: Celda["valor"] | undefined): boolean {
+  return typeof valor === "string" && ERROR_EXCEL.test(valor.trim())
+}
+
+const CELDAS_PROYECTO: (keyof ParsedTemplate["proyecto"])[] = [
+  "codigo",
+  "lineas",
+  "municipios",
+  "fechaInicio",
+  "fechaFin",
+  "valorTotal",
+  "metaBeneficiarios",
+]
+
+/**
+ * Hub guard the SDD lacks (map §3): reports a sheet that exceeded
+ * `MAX_FILAS_HOJA` (the parser drops the extra rows), a `8. Programación` that
+ * exceeded `MAX_MESES` month columns, and any Excel error/formula cell
+ * (`#REF!`, `#DIV/0!`, ...) found in an input cell.
+ */
+export function vH2(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[] {
+  void _c
+  const errores: ErrorPlantilla[] = []
+
+  for (const [hoja, exceso] of Object.entries(p.excesoFilas)) {
+    if (exceso > 0) {
+      errores.push(
+        error(
+          "V-H2",
+          hoja,
+          null,
+          null,
+          exceso,
+          `La hoja tiene ${exceso} fila(s) más de las ${MAX_FILAS_HOJA} permitidas; las filas sobrantes no se importarán.`,
+        ),
+      )
+    }
+  }
+  if (p.excesoMeses > 0) {
+    errores.push(
+      error(
+        "V-H2",
+        HOJAS.programacion,
+        1,
+        null,
+        p.excesoMeses,
+        `La programación tiene ${p.excesoMeses} columna(s) de mes más de las ${MAX_MESES} permitidas; las columnas sobrantes no se importarán.`,
+      ),
+    )
+  }
+
+  const revisarCelda = (celda: Celda): void => {
+    if (esErrorExcel(celda.valor)) {
+      errores.push(
+        error(
+          "V-H2",
+          celda.hoja,
+          celda.fila,
+          celda.columna,
+          celda.valor,
+          `La celda contiene un error de Excel (${celda.valor}): valor no válido.`,
+        ),
+      )
+    }
+  }
+
+  for (const key of CELDAS_PROYECTO) revisarCelda(p.proyecto[key])
+  for (const filas of [p.objetivos, p.actividades, p.entregables, p.indicadores, p.presupuesto, p.programacion.filas]) {
+    for (const fila of filas) for (const celda of Object.values(fila.celdas)) revisarCelda(celda)
+  }
+
+  return errores
+}
+
+// ---------------------------------------------------------------------------
 // V-08 — every activity has at least one deliverable
 // ---------------------------------------------------------------------------
 
@@ -1009,7 +1125,7 @@ function compararError(a: ErrorPlantilla, b: ErrorPlantilla): number {
   const filaA = a.fila ?? 0
   const filaB = b.fila ?? 0
   if (filaA !== filaB) return filaA - filaB
-  return (a.columna ?? "").localeCompare(b.columna ?? "")
+  return columnIndex(a.columna) - columnIndex(b.columna)
 }
 
 /**
@@ -1034,6 +1150,7 @@ export function validarPlantilla(p: ParsedTemplate, c: ContextoValidacion): Resu
     v13,
     v14,
     vH1,
+    vH2,
   ]
   const errores: ErrorPlantilla[] = []
   for (const regla of reglas) errores.push(...regla(p, c))

@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { beforeAll, describe, expect, it } from "vitest"
+import ExcelJS from "exceljs"
 import {
   v01,
   v02,
@@ -16,13 +17,14 @@ import {
   v13,
   v14,
   vH1,
+  vH2,
   w01,
   validarPlantilla,
   type ContextoValidacion,
 } from "./validate"
 import { generarPlantilla } from "./generate"
-import { parsePlantilla, type Celda, type Fila, type ParsedTemplate } from "./parse"
-import { HOJAS } from "./columns"
+import { MAX_MESES, parsePlantilla, type Celda, type Fila, type ParsedTemplate } from "./parse"
+import { HOJAS, MAX_FILAS_HOJA } from "./columns"
 import { toCents } from "../money"
 import { fixtureContextoFX1, fixtureF_X1 } from "../__fixtures__/plantilla-cedetextil"
 
@@ -165,6 +167,13 @@ describe("V-05 unique codes per sheet", () => {
     const errores = v05(parsed, contexto()).filter((e) => e.regla === "V-05" && e.hoja === HOJAS.objetivos)
     expect(errores.map((e) => e.fila).sort()).toEqual([2, 4])
   })
+
+  it("rejects a code longer than 50 characters", async () => {
+    const parsed = await parsedValido()
+    parsed.objetivos[0].celdas["Código"].valor = "x".repeat(51)
+    const error = v05(parsed, contexto()).find((e) => e.regla === "V-05" && e.hoja === HOJAS.objetivos)
+    expect(error?.mensaje).toMatch(/50 caracteres/)
+  })
 })
 
 describe("V-06 cross-sheet references", () => {
@@ -215,6 +224,26 @@ describe("V-H1 required text and DB limits", () => {
     const parsed = await parsedValido()
     parsed.actividades[0].celdas["Nombre"].valor = "x".repeat(301)
     expect(vH1(parsed, contexto()).some((e) => e.regla === "V-H1" && e.hoja === HOJAS.actividades)).toBe(true)
+  })
+
+  it("enforces the 2000-char Descripción limit", async () => {
+    const limite = await parsedValido()
+    limite.entregables[0].celdas["Descripción"].valor = "x".repeat(2000)
+    expect(vH1(limite, contexto()).some((e) => e.regla === "V-H1" && /Descripción/.test(e.mensaje))).toBe(false)
+
+    const excedido = await parsedValido()
+    excedido.entregables[0].celdas["Descripción"].valor = "x".repeat(2001)
+    expect(vH1(excedido, contexto()).some((e) => e.regla === "V-H1" && /Descripción.*2000/.test(e.mensaje))).toBe(true)
+  })
+
+  it("enforces the 200-char Tipo de medio exigido limit", async () => {
+    const limite = await parsedValido()
+    limite.entregables[0].celdas["Tipo de medio exigido"].valor = "x".repeat(200)
+    expect(vH1(limite, contexto()).some((e) => e.regla === "V-H1" && /Tipo de medio exigido/.test(e.mensaje))).toBe(false)
+
+    const excedido = await parsedValido()
+    excedido.entregables[0].celdas["Tipo de medio exigido"].valor = "x".repeat(201)
+    expect(vH1(excedido, contexto()).some((e) => e.regla === "V-H1" && /Tipo de medio exigido.*200/.test(e.mensaje))).toBe(true)
   })
 })
 
@@ -344,6 +373,105 @@ describe("W-01 responsable emails", () => {
   })
 })
 
+describe("F1 — scientific-notation and non-finite cells never throw", () => {
+  it("reports 1e21 in Valor total instead of throwing", async () => {
+    const parsed = await parsedValido()
+    parsed.proyecto.valorTotal.valor = 1e21
+    expect(() => validarPlantilla(parsed, contexto())).not.toThrow()
+    expect(v03(parsed, contexto()).some((e) => e.regla === "V-03" && /no es un monto válido/.test(e.mensaje))).toBe(true)
+  })
+
+  it("reports 1e-7 in Cantidad and 1e21 in Peso instead of throwing", async () => {
+    const parsed = await parsedValido()
+    parsed.entregables[0].celdas["Cantidad"].valor = 1e-7
+    parsed.actividades[0].celdas["Peso (opcional)"].valor = 1e21
+    expect(() => validarPlantilla(parsed, contexto())).not.toThrow()
+    const errores = v09(parsed, contexto()).filter((e) => e.regla === "V-09")
+    expect(errores.some((e) => /cantidad no es un número válido/.test(e.mensaje))).toBe(true)
+    expect(errores.some((e) => /peso no es un número válido/.test(e.mensaje))).toBe(true)
+  })
+})
+
+describe("F2 — V-H2 workbook limits and Excel error cells", () => {
+  it("reports the rows an oversized sheet dropped", async () => {
+    const workbook = new ExcelJS.Workbook()
+    const hoja = workbook.addWorksheet(HOJAS.objetivos)
+    hoja.addRow(["Código", "Descripción"])
+    for (let i = 0; i < MAX_FILAS_HOJA + 5; i++) hoja.addRow([`OE${i}`, "x"])
+    const parsed = await parsePlantilla((await workbook.xlsx.writeBuffer()) as never)
+    const error = vH2(parsed, contexto()).find((e) => e.regla === "V-H2" && e.hoja === HOJAS.objetivos)
+    expect(error?.valor).toBe("5")
+  })
+
+  it("reports the month columns past MAX_MESES", async () => {
+    const workbook = new ExcelJS.Workbook()
+    const hoja = workbook.addWorksheet(HOJAS.programacion)
+    const meses = Array.from(
+      { length: MAX_MESES + 3 },
+      (_, i) => `Mes ${i + 1} (2026-${String((i % 12) + 1).padStart(2, "0")})`,
+    )
+    hoja.addRow(["Código rubro", "Rubro", ...meses, "Total", "Control"])
+    hoja.addRow(["R01", "Personal", ...meses.map(() => 0), 0, 0])
+    const parsed = await parsePlantilla((await workbook.xlsx.writeBuffer()) as never)
+    const error = vH2(parsed, contexto()).find((e) => e.regla === "V-H2" && e.hoja === HOJAS.programacion)
+    expect(error?.valor).toBe("3")
+  })
+
+  it("is wired into validarPlantilla", async () => {
+    const workbook = new ExcelJS.Workbook()
+    const hoja = workbook.addWorksheet(HOJAS.objetivos)
+    hoja.addRow(["Código", "Descripción"])
+    for (let i = 0; i < MAX_FILAS_HOJA + 1; i++) hoja.addRow([`OE${i}`, "x"])
+    const parsed = await parsePlantilla((await workbook.xlsx.writeBuffer()) as never)
+    expect(validarPlantilla(parsed, contexto()).errores.some((e) => e.regla === "V-H2")).toBe(true)
+  })
+
+  it("reports #REF! in a text input cell as valor no válido", async () => {
+    const parsed = await parsedValido()
+    parsed.entregables[0].celdas["Descripción"].valor = "#REF!"
+    const error = vH2(parsed, contexto()).find(
+      (e) => e.regla === "V-H2" && e.hoja === HOJAS.entregables && e.fila === parsed.entregables[0].fila,
+    )
+    expect(error?.valor).toBe("#REF!")
+    expect(error?.mensaje).toMatch(/valor no válido/)
+  })
+
+  it("reports #DIV/0! in a numeric cell that would otherwise parse as 0", async () => {
+    const parsed = await parsedValido()
+    parsed.entregables[0].celdas["Cantidad"].valor = "#DIV/0!"
+    expect(vH2(parsed, contexto()).some((e) => e.regla === "V-H2" && e.valor === "#DIV/0!")).toBe(true)
+  })
+})
+
+describe("F3 — V-01 gates the project sheet", () => {
+  it("treats a missing required label row as structural and suppresses V-03", async () => {
+    const parsed = await parsedValido()
+    parsed.proyecto.valorTotal.fila = 0
+    parsed.proyecto.valorTotal.valor = null
+    expect(
+      v01(parsed, contexto()).some((e) => e.regla === "V-01" && e.hoja === HOJAS.proyecto && /Valor total/.test(e.mensaje)),
+    ).toBe(true)
+    expect(v03(parsed, contexto())).toEqual([])
+    expect(validarPlantilla(parsed, contexto()).errores.some((e) => e.regla === "V-03")).toBe(false)
+  })
+})
+
+describe("F6 — column ordering past Z", () => {
+  it("orders Z before AA by Excel column index", async () => {
+    const parsed = await parsedValido()
+    parsed.programacion.meses = [
+      { encabezado: "Mes 24 (2028-08)", columna: "Z", periodo: null },
+      { encabezado: "Mes 25 (2028-09)", columna: "AA", periodo: null },
+    ]
+    for (const fila of parsed.programacion.filas) {
+      fila.celdas["Mes 24 (2028-08)"] = { hoja: HOJAS.programacion, fila: fila.fila, columna: "Z", valor: "x" }
+      fila.celdas["Mes 25 (2028-09)"] = { hoja: HOJAS.programacion, fila: fila.fila, columna: "AA", valor: "x" }
+    }
+    const fila1 = validarPlantilla(parsed, contexto()).errores.filter((e) => e.fila === 1)
+    expect(fila1.map((e) => e.columna)).toEqual(["Z", "AA"])
+  })
+})
+
 describe("validarPlantilla", () => {
   it("accepts the generated F-X1 with no findings", async () => {
     const resultado = validarPlantilla(await parsedValido(), contexto())
@@ -395,5 +523,53 @@ describe("validarPlantilla", () => {
     const resultado = validarPlantilla(parsed, contexto())
     expect(resultado.errores).toHaveLength(500)
     expect(resultado.truncado).toBe(true)
+    expect(resultado.resumen["V-06"]).toBe(501)
+  })
+
+  it("counts every finding in resumen before the cap and flips truncado at 501", async () => {
+    const conMalos = async (n: number): Promise<ParsedTemplate> => {
+      const parsed = await parsedValido()
+      parsed.entregables = Array.from({ length: n }, (_, i) =>
+        fila(HOJAS.entregables, i + 2, {
+          Código: `E${i + 1}`,
+          "Código actividad": "NOPE",
+          Descripción: "x",
+          Cantidad: 1,
+          Unidad: "Informe",
+          "Tipo de medio exigido": "Documento PDF",
+        }),
+      )
+      return parsed
+    }
+
+    // 496 bad rows + the 4 V-08 (activities left without deliverables) = 500.
+    const limite = validarPlantilla(await conMalos(496), contexto())
+    expect(limite.truncado).toBe(false)
+    expect(limite.errores).toHaveLength(500)
+    expect(limite.resumen["V-06"]).toBe(496)
+    expect(limite.resumen["V-08"]).toBe(4)
+
+    // One more row crosses the cap: resumen still counts all 497 V-06.
+    const truncado = validarPlantilla(await conMalos(497), contexto())
+    expect(truncado.truncado).toBe(true)
+    expect(truncado.errores).toHaveLength(500)
+    expect(truncado.resumen["V-06"]).toBe(497)
+    expect(truncado.resumen["V-08"]).toBe(4)
+  })
+
+  it("orders findings by sheet, then row, then column index", async () => {
+    const parsed = await parsedValido()
+    parsed.objetivos[0].celdas["Descripción"].valor = ""
+    parsed.actividades[3].celdas["Semana fin"].valor = 19
+    const r12 = parsed.programacion.filas.find((f) => f.celdas["Código rubro"].valor === "R12")!
+    r12.celdas[parsed.programacion.meses[0].encabezado].valor = -1
+
+    const { errores } = validarPlantilla(parsed, contexto())
+    expect(errores.map((e) => `${e.hoja}|${e.fila}|${e.columna}`)).toEqual([
+      `${HOJAS.objetivos}|2|B`,
+      `${HOJAS.actividades}|${parsed.actividades[3].fila}|E`,
+      `${HOJAS.programacion}|${r12.fila}|A`,
+      `${HOJAS.programacion}|${r12.fila}|${parsed.programacion.meses[0].columna}`,
+    ])
   })
 })
