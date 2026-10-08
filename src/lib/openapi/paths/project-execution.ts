@@ -6,8 +6,7 @@
 import { z } from "zod";
 import { registry, standardErrorResponses } from "@/lib/openapi/registry";
 import { AVANCE_CREATE_SCHEMA } from "@/app/api/v1/projects/[id]/deliverables/[deliverableId]/progress/route";
-import { MEDIO_ARCHIVO_SCHEMA, MEDIO_ENLACE_SCHEMA } from "@/app/api/v1/projects/[id]/progress/[progressId]/attachments/route";
-import { MEDIO_SIGN_SCHEMA } from "@/app/api/v1/projects/[id]/progress/[progressId]/attachments/sign/route";
+import { MEDIO_ARCHIVO_SCHEMA, MEDIO_ENLACE_SCHEMA, MEDIO_SIGN_SCHEMA } from "@/lib/api/soportes";
 import { MEDICION_CREATE_SCHEMA } from "@/app/api/v1/projects/[id]/indicators/[indicatorId]/measurements/route";
 import { BENEFICIARIOS_CREATE_SCHEMA } from "@/app/api/v1/projects/[id]/beneficiaries/route";
 import { MOTIVO_ANULACION_SCHEMA } from "@/app/api/v1/projects/[id]/deliverables/[deliverableId]/progress/[progressId]/void/route";

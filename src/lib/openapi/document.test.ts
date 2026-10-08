@@ -217,4 +217,17 @@ describe("buildOpenApiDocument", () => {
       ]),
     )
   })
+  it("registers the S6 expense operations", () => {
+    const paths = buildOpenApiDocument().paths ?? {}
+    const codes = (op: { responses?: object } | undefined) => Object.keys(op?.responses ?? {})
+    const list = paths["/api/v1/projects/{id}/expenses"]
+    expect(codes(list?.get)).toEqual(expect.arrayContaining(["200", "401", "403", "404"]))
+    expect(codes(list?.post)).toEqual(expect.arrayContaining(["201", "400", "403", "404", "409"]))
+    expect(codes(paths["/api/v1/projects/{id}/expenses/sign"]?.post)).toEqual(
+      expect.arrayContaining(["200", "400", "403", "404", "409", "413"]),
+    )
+    const one = paths["/api/v1/projects/{id}/expenses/{expenseId}"]
+    expect(codes(one?.get)).toEqual(expect.arrayContaining(["200", "403", "404"]))
+    expect(codes(one?.patch)).toEqual(expect.arrayContaining(["200", "400", "403", "404", "409"]))
+  })
 })
