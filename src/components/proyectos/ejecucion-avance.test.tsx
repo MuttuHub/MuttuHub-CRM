@@ -1,7 +1,9 @@
 // S4 U6: progreso por actividad y por entregable. Presentacional puro; el color
 // y el progreso llegan derivados del servidor.
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen, within } from "@testing-library/react"
+import { createElement, type ReactNode } from "react"
 import { describe, expect, it } from "vitest"
 import type {
   ProjectActivity,
@@ -10,6 +12,16 @@ import type {
   ProjectTechnicalActivity,
 } from "@/hooks/projects"
 import { EjecucionAvance } from "./ejecucion-avance"
+
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  const wrapper = ({ children }: { children: ReactNode }) =>
+    createElement(QueryClientProvider, { client: queryClient }, children)
+  wrapper.displayName = "QueryClientTestWrapper"
+  return wrapper
+}
 
 const STAMP = { created_at: "2026-10-08T00:00:00.000Z", updated_at: "2026-10-08T00:00:00.000Z" }
 
@@ -77,11 +89,15 @@ describe("EjecucionAvance", () => {
   it("renders the activity progress bar and its estado badge", () => {
     render(
       <EjecucionAvance
+        proyectoId="p1"
         actividad={ACTIVIDAD}
+        canWrite={false}
+        canVoid={false}
         tecnico={TECNICO}
         entregables={[ENTREGABLE]}
         progreso={new Map([["e1", { estado: "EN_EJECUCION", meta: "2.00", avances: [avance()] }]])}
       />,
+      { wrapper: createWrapper() },
     )
 
     const actividad = screen.getByTestId("ejecucion-actividad")
@@ -96,7 +112,10 @@ describe("EjecucionAvance", () => {
   it("shows each deliverable's goal and counted quantity", () => {
     render(
       <EjecucionAvance
+        proyectoId="p1"
         actividad={ACTIVIDAD}
+        canWrite={false}
+        canVoid={false}
         tecnico={TECNICO}
         entregables={[ENTREGABLE]}
         progreso={
@@ -105,6 +124,7 @@ describe("EjecucionAvance", () => {
           ])
         }
       />,
+      { wrapper: createWrapper() },
     )
 
     const entregable = screen.getByTestId("ejecucion-entregable")
@@ -117,7 +137,10 @@ describe("EjecucionAvance", () => {
   it("flags non-voided avances without a live medio as pending support", () => {
     render(
       <EjecucionAvance
+        proyectoId="p1"
         actividad={ACTIVIDAD}
+        canWrite={false}
+        canVoid={false}
         tecnico={TECNICO}
         entregables={[ENTREGABLE]}
         progreso={
@@ -137,6 +160,7 @@ describe("EjecucionAvance", () => {
           ])
         }
       />,
+      { wrapper: createWrapper() },
     )
 
     const pendiente = screen.getByTestId("ejecucion-pendiente-soporte")
@@ -149,11 +173,15 @@ describe("EjecucionAvance", () => {
   it("marks an uncounted deliverable as zero counted, even without progress loaded", () => {
     render(
       <EjecucionAvance
+        proyectoId="p1"
         actividad={ACTIVIDAD}
+        canWrite={false}
+        canVoid={false}
         tecnico={{ ...TECNICO, progreso: 0, estado: "NO_INICIADA" }}
         entregables={[ENTREGABLE2]}
         progreso={new Map()}
       />,
+      { wrapper: createWrapper() },
     )
 
     expect(screen.getByTestId("ejecucion-actividad")).toHaveTextContent("No iniciada")

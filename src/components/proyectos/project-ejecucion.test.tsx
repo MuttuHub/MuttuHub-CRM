@@ -113,6 +113,8 @@ type Setup = {
   actividades?: unknown[]
   actividadesStatus?: number
   entregables?: unknown[]
+  rol?: string
+  miembros?: unknown[]
 }
 
 describe("ProjectEjecucion", () => {
@@ -125,13 +127,15 @@ describe("ProjectEjecucion", () => {
     actividades = [ACTIVIDAD],
     actividadesStatus = 200,
     entregables = [ENTREGABLE],
+    rol = "ADMINISTRADOR",
+    miembros = [],
   }: Setup = {}) {
     fetchMock.mockImplementation((input: unknown) => {
       const url = String(input)
       if (url.endsWith("/api/v1/auth/me")) {
-        return Promise.resolve(jsonResponse({ usuario: { id: "u1", nombre: "Ana", rol: "ADMINISTRADOR" } }))
+        return Promise.resolve(jsonResponse({ usuario: { id: "u1", nombre: "Ana", rol } }))
       }
-      if (url.endsWith("/members")) return Promise.resolve(jsonResponse({ miembros: [] }))
+      if (url.endsWith("/members")) return Promise.resolve(jsonResponse({ miembros }))
       if (url.endsWith("/technical-status")) {
         return Promise.resolve(jsonResponse(tecnico, tecnicoStatus))
       }
@@ -146,6 +150,7 @@ describe("ProjectEjecucion", () => {
       if (url.endsWith("/deliverables/e1/progress")) {
         return Promise.resolve(jsonResponse({ estado: "EN_EJECUCION", meta: "2.00", avances: [AVANCE] }))
       }
+      if (url.endsWith("/indicators")) return Promise.resolve(jsonResponse({ indicadores: [] }))
       if (url.endsWith("/beneficiaries")) {
         return Promise.resolve(jsonResponse({ estado: "EN_EJECUCION", registros: [], total: 0 }))
       }
@@ -214,5 +219,56 @@ describe("ProjectEjecucion", () => {
     const alerta = await screen.findByRole("alert")
     expect(alerta).toHaveTextContent("No pudimos calcular el semáforo técnico.")
     expect(screen.queryByTestId("semaforo-tecnico")).not.toBeInTheDocument()
+  })
+
+  describe("write controls (decisión 3)", () => {
+    const MIEMBRO_COORDINADOR = {
+      id: "m1",
+      usuario: { id: "u1", nombre: "Ana", rol: "COORDINADOR" },
+      agregado_por_id: "u9",
+      created_at: "2026-10-08T00:00:00.000Z",
+      removed_at: null,
+    }
+
+    it("offers the avance control to a manager", async () => {
+      setup({ rol: "ADMINISTRADOR" })
+
+      expect(await screen.findByRole("button", { name: "Registrar avance ENT-1" })).toBeInTheDocument()
+    })
+
+    it("offers it to a COORDINADOR who is an active member", async () => {
+      setup({ rol: "COORDINADOR", miembros: [MIEMBRO_COORDINADOR] })
+
+      expect(await screen.findByRole("button", { name: "Registrar avance ENT-1" })).toBeInTheDocument()
+    })
+
+    it("hides it from a COORDINADOR who is not a member", async () => {
+      setup({ rol: "COORDINADOR", miembros: [] })
+
+      await screen.findByTestId("ejecucion-actividad")
+      expect(screen.queryByRole("button", { name: "Registrar avance ENT-1" })).not.toBeInTheDocument()
+    })
+
+    it("hides it from a COLABORADOR", async () => {
+      setup({ rol: "COLABORADOR", miembros: [] })
+
+      await screen.findByTestId("ejecucion-actividad")
+      expect(screen.queryByRole("button", { name: "Registrar avance ENT-1" })).not.toBeInTheDocument()
+    })
+
+    it("shows the void control only to a manager", async () => {
+      setup({ rol: "ADMINISTRADOR" })
+
+      await screen.findByTestId("ejecucion-entregable")
+      // El entregable tiene un avance sin anular: el gestor puede anularlo.
+      expect(screen.getByRole("button", { name: "Anular" })).toBeInTheDocument()
+    })
+
+    it("hides the void control from an active-member COORDINADOR", async () => {
+      setup({ rol: "COORDINADOR", miembros: [MIEMBRO_COORDINADOR] })
+
+      await screen.findByTestId("ejecucion-entregable")
+      expect(screen.queryByRole("button", { name: "Anular" })).not.toBeInTheDocument()
+    })
   })
 })

@@ -4,7 +4,7 @@
 
 "use client";
 
-import { useId, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { LoaderCircle, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -160,4 +160,71 @@ export function RowActions({
 /** Mensaje de la validación local si existe; si no, el del servidor (400/409). */
 export function formError(local: string | null, error: unknown, isError: boolean, fallback: string) {
   return local ?? (isError ? errorMessage(error, fallback) : null);
+}
+
+/**
+ * Anulación en línea (REQ-EXE-07): un botón "Anular" que revela un motivo
+ * obligatorio y confirma. La comparten avances, mediciones y beneficiarios; el
+ * servidor exige un motivo de 1..500 caracteres y decide el permiso (403).
+ */
+export function VoidControl({
+  nombre,
+  pending,
+  error,
+  onConfirm,
+}: {
+  nombre: string;
+  pending: boolean;
+  error: string | null;
+  onConfirm: (motivo: string) => void;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const [motivo, setMotivo] = useState("");
+  const id = useId();
+
+  if (!abierto) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="text-destructivo"
+        onClick={() => setAbierto(true)}
+      >
+        Anular
+      </Button>
+    );
+  }
+
+  return (
+    <form
+      aria-label={`Anular ${nombre}`}
+      onSubmit={(event) => {
+        event.preventDefault();
+        const limpio = motivo.trim();
+        if (limpio !== "") onConfirm(limpio);
+      }}
+      className="flex flex-wrap items-center gap-2"
+    >
+      <Label htmlFor={id} className="sr-only">
+        Motivo de anulación
+      </Label>
+      <Input
+        id={id}
+        aria-label="Motivo de anulación"
+        value={motivo}
+        onChange={(event) => setMotivo(event.target.value)}
+        placeholder="Motivo de la anulación"
+        className="h-8 w-52 rounded-12 bg-panel px-2.5 text-[12px]"
+      />
+      <Button type="submit" size="sm" variant="destructive" disabled={pending || motivo.trim() === ""}>
+        {pending && <LoaderCircle className="size-4 animate-spin" />}
+        Confirmar anulación
+      </Button>
+      <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setAbierto(false)}>
+        Cancelar
+      </Button>
+      <InlineError message={error} />
+    </form>
+  );
 }

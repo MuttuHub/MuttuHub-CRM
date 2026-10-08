@@ -6,18 +6,23 @@
 "use client";
 
 import { Gauge } from "lucide-react";
+import { useCurrentUser } from "@/hooks/kanban";
 import { Skeleton } from "@/components/ui/skeleton";
 import { InlineError, errorMessage } from "@/components/proyectos/estructura-ui";
 import { EjecucionAvance } from "@/components/proyectos/ejecucion-avance";
+import { EjecucionBeneficiarios } from "@/components/proyectos/ejecucion-beneficiarios";
+import { EjecucionIndicadores } from "@/components/proyectos/ejecucion-indicadores";
 import { SemaforoTecnico } from "@/components/proyectos/semaforo-tecnico";
 import {
   useDeliverableProgress,
   useProjectActivities,
   useProjectDeliverables,
+  useProjectMembers,
   useProjectTechnicalStatus,
   type ProjectDeliverableProgress,
   type ProjectListRow,
 } from "@/hooks/projects";
+import { canManageProjects } from "@/lib/permissions";
 
 const TECNICO_ERROR = "No pudimos cargar el semáforo técnico. Inténtalo de nuevo.";
 const ACTIVIDADES_ERROR = "No pudimos cargar las actividades. Inténtalo de nuevo.";
@@ -56,6 +61,21 @@ function EjecucionContent({ proyecto }: { proyecto: ProjectListRow }) {
   const tecnicoQuery = useProjectTechnicalStatus(proyecto.id);
   const activitiesQuery = useProjectActivities(proyecto.id);
   const deliverablesQuery = useProjectDeliverables(proyecto.id);
+
+  // Decisión 3: control de escritura para gestores, o un COORDINADOR que sea
+  // integrante activo (su lectura de `/members` está permitida). Anular es solo
+  // de gestores. La API sigue siendo la autoridad final.
+  const userQuery = useCurrentUser();
+  const membersQuery = useProjectMembers(proyecto.id);
+  const usuario = userQuery.data;
+  const esGestor = usuario ? canManageProjects({ id: usuario.id, rol: usuario.rol }) : false;
+  const esMiembroCoordinador = Boolean(
+    usuario &&
+      usuario.rol === "COORDINADOR" &&
+      (membersQuery.data ?? []).some((miembro) => miembro.usuario.id === usuario.id),
+  );
+  const canWrite = esGestor || esMiembroCoordinador;
+  const canVoid = esGestor;
 
   // Decisión 2: los entregables se leen UNA vez y los avances se abren con
   // `useQueries`, solo mientras la sección está montada.
@@ -104,17 +124,24 @@ function EjecucionContent({ proyecto }: { proyecto: ProjectListRow }) {
             return (
               <EjecucionAvance
                 key={actividad.id}
+                proyectoId={proyecto.id}
                 actividad={actividad}
                 tecnico={tecnica}
                 entregables={deliverables.filter(
                   (deliverable) => deliverable.actividad_id === actividad.id,
                 )}
                 progreso={progreso}
+                canWrite={canWrite}
+                canVoid={canVoid}
               />
             );
           })}
         </ul>
       )}
+
+      <EjecucionIndicadores proyectoId={proyecto.id} canWrite={canWrite} canVoid={canVoid} />
+
+      <EjecucionBeneficiarios proyecto={proyecto} canWrite={canWrite} canVoid={canVoid} />
     </div>
   );
 }

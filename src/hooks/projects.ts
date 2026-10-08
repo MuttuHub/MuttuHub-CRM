@@ -866,6 +866,218 @@ export function useProjectBeneficiaries(id: string): UseQueryResult<ProjectBenef
   });
 }
 
+/* ── Ejecución técnica (S4 U7): escrituras ─────────────────────────────── */
+//
+// Crear avance (con su medio opcional), anular avance, registrar/medir/anular.
+// Todas relanzan el `ApiError` del servidor SIN toast: el formulario lo muestra
+// en línea. El permiso real lo decide la API; el gate del cliente es comodidad.
+
+/** Respuesta de `POST .../attachments/sign` (ADR-13), igual que en tareas. */
+type SignedUploadResponse = {
+  storage_path: string;
+  token: string;
+  signed_url: string;
+  max_bytes: number;
+  allowed_extensions: string[];
+};
+
+/**
+ * ADR-13 para el medio de un avance: firmar -> subir directo a Storage -> confirmar
+ * con metadatos. Los bytes nunca pasan por el route handler.
+ */
+async function uploadAvanceMedioFile(
+  projectId: string,
+  progressId: string,
+  file: File,
+): Promise<void> {
+  const signed = await apiPost<SignedUploadResponse>(
+    `/api/v1/projects/${projectId}/progress/${progressId}/attachments/sign`,
+    {
+      nombre: file.name,
+      tamano_bytes: file.size,
+      ...(file.type ? { tipo_mime: file.type } : {}),
+    },
+  );
+
+  const res = await fetch(signed.signed_url, {
+    method: "PUT",
+    headers: {
+      "Content-Type": file.type || "application/octet-stream",
+      "x-upsert": "false",
+    },
+    body: file,
+  });
+  if (!res.ok) throw new ApiError("No pudimos subir el archivo al almacenamiento.", res.status);
+
+  await apiPost(`/api/v1/projects/${projectId}/progress/${progressId}/attachments`, {
+    storage_path: signed.storage_path,
+    nombre: file.name,
+    tamano_bytes: file.size,
+    ...(file.type ? { tipo_mime: file.type } : {}),
+  });
+}
+
+/** Un medio por avance: o un archivo (firma/subida/confirmación) o un enlace https. */
+export type AvanceMedioInput =
+  | { tipo: "archivo"; file: File }
+  | { tipo: "enlace"; url_externa: string; nombre: string };
+
+export type ProjectAvanceInput = {
+  /** Calendario `YYYY-MM-DD`, nunca posterior a hoy. */
+  fecha: string;
+  cantidad: number;
+  observacion?: string;
+  justificacion_exceso?: string;
+  medio?: AvanceMedioInput;
+};
+
+/**
+ * Registra un avance y, si viene, adjunta su único medio. Ambas escrituras
+ * refrescan la lista de avances del entregable y el semáforo del proyecto.
+ */
+export function useCreateAvance(
+  projectId: string,
+  deliverableId: string,
+): UseMutationResult<ProjectAvance, Error, ProjectAvanceInput> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input) => {
+      const { avance } = await apiPost<{ avance: ProjectAvance; cuenta: boolean }>(
+        `/api/v1/projects/${projectId}/deliverables/${deliverableId}/progress`,
+        {
+          fecha: input.fecha,
+          cantidad: input.cantidad,
+          ...(input.observacion ? { observacion: input.observacion } : {}),
+          ...(input.justificacion_exceso
+            ? { justificacion_exceso: input.justificacion_exceso }
+            : {}),
+        },
+      );
+
+      if (input.medio?.tipo === "archivo") {
+        await uploadAvanceMedioFile(projectId, avance.id, input.medio.file);
+      } else if (input.medio?.tipo === "enlace") {
+        await apiPost(`/api/v1/projects/${projectId}/progress/${avance.id}/attachments`, {
+          url_externa: input.medio.url_externa,
+          nombre: input.medio.nombre,
+        });
+      }
+      return avance;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({
+        queryKey: projectQueryKeys.deliverableProgress(projectId, deliverableId),
+      });
+      void qc.invalidateQueries({ queryKey: projectQueryKeys.technicalStatus(projectId) });
+    },
+  });
+}
+
+/** Anula un avance (conserva la fila); solo gestores, lo decide la API. */
+export function useVoidAvance(
+  projectId: string,
+  deliverableId: string,
+): UseMutationResult<{ avance: ProjectAvance }, Error, { id: string; motivo: string }> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, motivo }) =>
+      apiPost<{ avance: ProjectAvance }>(
+        `/api/v1/projects/${projectId}/deliverables/${deliverableId}/progress/${id}/void`,
+        { motivo },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({
+        queryKey: projectQueryKeys.deliverableProgress(projectId, deliverableId),
+      });
+      void qc.invalidateQueries({ queryKey: projectQueryKeys.technicalStatus(projectId) });
+    },
+  });
+}
+
+export type ProjectMedicionInput = {
+  fecha: string;
+  valor: number;
+  observacion?: string;
+};
+
+/** Registra una medición de indicador (`valor >= 0`). */
+export function useCreateMedicion(
+  projectId: string,
+  indicatorId: string,
+): UseMutationResult<{ medicion: ProjectMedicion }, Error, ProjectMedicionInput> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input) =>
+      apiPost<{ medicion: ProjectMedicion }>(
+        `/api/v1/projects/${projectId}/indicators/${indicatorId}/measurements`,
+        input,
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({
+        queryKey: projectQueryKeys.indicatorMeasurements(projectId, indicatorId),
+      });
+    },
+  });
+}
+
+/** Anula una medición (conserva la fila); solo gestores. */
+export function useVoidMedicion(
+  projectId: string,
+  indicatorId: string,
+): UseMutationResult<{ medicion: ProjectMedicion }, Error, { id: string; motivo: string }> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, motivo }) =>
+      apiPost<{ medicion: ProjectMedicion }>(
+        `/api/v1/projects/${projectId}/indicators/${indicatorId}/measurements/${id}/void`,
+        { motivo },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({
+        queryKey: projectQueryKeys.indicatorMeasurements(projectId, indicatorId),
+      });
+    },
+  });
+}
+
+export type ProjectBeneficiarioInput = {
+  fecha: string;
+  cantidad: number;
+  actividad_id?: string;
+  observacion?: string;
+};
+
+/** Registra un conteo de beneficiarios (`cantidad` entero > 0). */
+export function useCreateBeneficiario(
+  projectId: string,
+): UseMutationResult<{ registro: ProjectBeneficiario }, Error, ProjectBeneficiarioInput> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input) =>
+      apiPost<{ registro: ProjectBeneficiario }>(`/api/v1/projects/${projectId}/beneficiaries`, input),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectQueryKeys.beneficiaries(projectId) });
+    },
+  });
+}
+
+/** Anula un registro de beneficiarios (conserva la fila); solo gestores. */
+export function useVoidBeneficiario(
+  projectId: string,
+): UseMutationResult<{ registro: ProjectBeneficiario }, Error, { id: string; motivo: string }> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, motivo }) =>
+      apiPost<{ registro: ProjectBeneficiario }>(
+        `/api/v1/projects/${projectId}/beneficiaries/${id}/void`,
+        { motivo },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectQueryKeys.beneficiaries(projectId) });
+    },
+  });
+}
+
 function toastError(err: unknown, fallback: string): never {
   if (err instanceof ApiError) {
     toast.error(err.message);
