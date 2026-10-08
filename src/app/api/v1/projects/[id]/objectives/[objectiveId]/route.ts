@@ -5,8 +5,8 @@
 // 404 -> 403 -> 409 INVALID_STATE -> 400. An objective is only addressable
 // through its own project (`proyecto_id` is part of the lookup), so another
 // project's objective is a 404. Deleting is `deleted_at`, audited as
-// `EDITAR objetivo.deleted_at`. The 409 while live activities or indicators
-// exist arrives with U2b/U3, once those tables exist.
+// `EDITAR objetivo.deleted_at`, and refused with 409 CONFLICT while the objective
+// still has live activities (the indicator guard arrives with U3).
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -119,6 +119,13 @@ export const DELETE = withApiErrorHandling(
       where: { id: objectiveId, proyecto_id: id, deleted_at: null },
     });
     if (!existente) return apiError(OBJETIVO_NOT_FOUND, 404, "NOT_FOUND");
+
+    const actividadesVivas = await db.actividad.count({
+      where: { objetivo_id: objectiveId, deleted_at: null },
+    });
+    if (actividadesVivas > 0) {
+      return conflict("No puedes eliminar un objetivo que tiene actividades. Elimina o reasigna sus actividades primero.");
+    }
 
     const row = await db.$transaction(async (tx) => {
       const updated = await tx.objetivo.update({

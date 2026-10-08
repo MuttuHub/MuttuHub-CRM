@@ -7,6 +7,8 @@ import { z } from "zod";
 import { registry, standardErrorResponses } from "@/lib/openapi/registry";
 import { OBJETIVO_CREATE_SCHEMA } from "@/app/api/v1/projects/[id]/objectives/route";
 import { OBJETIVO_PATCH_SCHEMA } from "@/app/api/v1/projects/[id]/objectives/[objectiveId]/route";
+import { ACTIVIDAD_CREATE_SCHEMA } from "@/app/api/v1/projects/[id]/activities/route";
+import { ACTIVIDAD_PATCH_SCHEMA } from "@/app/api/v1/projects/[id]/activities/[activityId]/route";
 
 const WRITE_NOTE =
   "Solo `ADMINISTRADOR`/`GERENCIA` (`canManageProjects`) y solo mientras el proyecto está en Borrador. El orden de " +
@@ -138,4 +140,56 @@ registerStructureResource({
   patch: OBJETIVO_PATCH_SCHEMA,
   createExtra: "Sin `orden`, se agrega al final.",
   deleteConflict: "Responde 409 CONFLICT mientras el objetivo tenga actividades o indicadores vivos.",
+});
+
+const ActividadSchema = registry.register(
+  "ActividadV2",
+  z.object({
+    id: z.string().uuid(),
+    proyecto_id: z.string().uuid(),
+    objetivo_id: z.string().uuid(),
+    codigo: z.string().openapi({ example: "1.4" }),
+    nombre: z.string(),
+    semana_inicio: z.number().int().openapi({ example: 3 }),
+    semana_fin: z.number().int().openapi({ example: 6 }),
+    fecha_inicio: z.string().nullable().openapi({
+      description:
+        "DERIVADA, nunca almacenada: `fecha_inicio del proyecto + 7(semana_inicio-1)`. null mientras el proyecto no tenga fechas.",
+      example: "2026-10-19",
+    }),
+    fecha_fin: z.string().nullable().openapi({
+      description: "DERIVADA: `fecha_inicio del proyecto + 7*semana_fin - 1`; no se recorta a la fecha fin del proyecto.",
+      example: "2026-11-15",
+    }),
+    peso: z.number().openapi({
+      description: "Duración en semanas salvo `peso_manual`; entonces el peso escrito.",
+      example: 4,
+    }),
+    peso_manual: z.boolean(),
+    responsable_id: z.string().uuid().nullable(),
+    fuera_de_duracion: z.boolean().openapi({
+      description:
+        "true cuando las semanas superan la duración actual del proyecto (el proyecto se acortó después). Solo se marca; no bloquea la edición del proyecto.",
+    }),
+    created_at: z.string(),
+    updated_at: z.string(),
+  }),
+);
+
+registerStructureResource({
+  segment: "activities",
+  param: "activityId",
+  tag: "Projects",
+  singular: "una actividad",
+  plural: "las actividades",
+  itemKey: "actividad",
+  listKey: "actividades",
+  item: ActividadSchema,
+  create: ACTIVIDAD_CREATE_SCHEMA,
+  patch: ACTIVIDAD_PATCH_SCHEMA,
+  createExtra:
+    "Las semanas deben cumplir `1 <= semana_inicio <= semana_fin <= duración del proyecto` y el objetivo debe ser uno " +
+    "vivo del mismo proyecto, o responde 400. Un proyecto sin fechas responde 400. Sin `peso` se usa la duración en " +
+    "semanas; un `peso` enviado queda como manual. Las fechas no se aceptan: se derivan de las semanas.",
+  deleteConflict: "",
 });

@@ -120,5 +120,13 @@ describe("buildOpenApiDocument", () => {
     const objective = paths["/api/v1/projects/{id}/objectives/{objectiveId}"]
     expect(codes(objective?.patch)).toEqual(expect.arrayContaining(["200", "400", "403", "404", "409"]))
     expect(codes(objective?.delete)).toEqual(expect.arrayContaining(["200", "403", "404", "409"]))
+
+    // U2b: activities.
+    const activities = paths["/api/v1/projects/{id}/activities"]
+    expect(codes(activities?.get)).toEqual(expect.arrayContaining(["200", "401", "403", "404"]))
+    expect(codes(activities?.post)).toEqual(expect.arrayContaining(["201", "400", "403", "404", "409"]))
+    const activity = paths["/api/v1/projects/{id}/activities/{activityId}"]
+    expect(codes(activity?.patch)).toEqual(expect.arrayContaining(["200", "400", "403", "404", "409"]))
+    expect(codes(activity?.delete)).toEqual(expect.arrayContaining(["200", "403", "404", "409"]))
   })
 })

@@ -1,5 +1,4 @@
-// PATCH/DELETE /api/v1/projects/:id/objectives/:objectiveId (S3 U1).
-// The live-activities delete guard arrives with U2b, once `Actividad` exists.
+// PATCH/DELETE /api/v1/projects/:id/objectives/:objectiveId (S3 U1, U2b).
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
@@ -18,6 +17,7 @@ vi.mock("@/lib/db", () => ({
   db: {
     proyecto: { findFirst: vi.fn() },
     objetivo: { findFirst: vi.fn() },
+    actividad: { count: vi.fn() },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
       fn({ objetivo: { update: mocks.txUpdate } }),
     ),
@@ -64,6 +64,7 @@ beforeEach(() => {
   authAs(gerencia);
   vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto as never);
   vi.mocked(db.objetivo.findFirst).mockResolvedValue(objetivoRow as never);
+  vi.mocked(db.actividad.count).mockResolvedValue(0 as never);
   mocks.txUpdate.mockImplementation(async ({ data }: { data: object }) => ({ ...objetivoRow, ...data }));
 });
 afterEach(() => vi.clearAllMocks());
@@ -139,6 +140,16 @@ describe("DELETE /api/v1/projects/:id/objectives/:objectiveId", () => {
     authAs(gerencia);
     vi.mocked(db.proyecto.findFirst).mockResolvedValueOnce({ ...proyecto, estado: "ACTIVO" } as never);
     expect((await DELETE(del(), ctx)).status).toBe(409);
+    expect(mocks.txUpdate).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 CONFLICT while the objective has live activities", async () => {
+    vi.mocked(db.actividad.count).mockResolvedValue(2 as never);
+    const res = await DELETE(del(), ctx);
+    const json = await res.json();
+    expect(res.status).toBe(409);
+    expect(json.code).toBe("CONFLICT");
+    expect(db.actividad.count).toHaveBeenCalledWith({ where: { objetivo_id: "obj-1", deleted_at: null } });
     expect(mocks.txUpdate).not.toHaveBeenCalled();
   });
 
