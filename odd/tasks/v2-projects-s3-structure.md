@@ -44,11 +44,11 @@ Out: avances/estado of activities (S4), Gantt tab (deferred), backfill (n/a), bu
 
 Route: each unit delegated to one bounded writer (2+ non-trivial files; mapping already delegated).
 
-- [ ] **U1** `Objetivo` schema + migration + invariant test + objectives routes (+ indicator guard on delete).
-- [ ] **U2a** `src/lib/proyectos/actividad.ts` (pesoEfectivo, resolvePeso, validarSemanas, view) + `Actividad` table.
-- [ ] **U2b** Activities routes (week bounds, same-project refs, derived dates, 403/409 matrix); add the
-  objective-delete guard for live activities.
-- [ ] **U3** `Entregable` + `Indicador` schema and routes.
+- [x] **U1** `Objetivo` schema + migration + invariant test + objectives routes (fb8bad3; the indicator delete guard moved to U3, where `Indicador` exists).
+- [x] **U2a** `src/lib/proyectos/actividad.ts` (pesoEfectivo, resolvePeso, validarSemanas, view) + `Actividad` table (ffb3a84).
+- [x] **U2b** Activities routes (week bounds, same-project refs, derived dates, 403/409 matrix); add the
+  objective-delete guard for live activities (fbaa1a0).
+- [x] **U3** `Entregable` + `Indicador` schema and routes (812868e), plus the objective-delete guard for live indicators and the activity-delete guard for live deliverables.
 - [ ] **U4** Hooks + `ProjectEstructura` section in the ficha.
 
 ## Acceptance
@@ -58,8 +58,13 @@ Route: each unit delegated to one bounded writer (2+ non-trivial files; mapping 
 
 ## Progress
 
-- 2026-10-08: mapping done; document created. No S3 code written yet.
+- 2026-10-08: mapping done; document created.
+- 2026-10-08: backend U1-U3 done by one writer, local DB only (4 migrations applied via `.env.local`). RED observed per unit;
+  full suite `TZ=America/Bogota npx vitest run`: 176 files / 1703 tests green; `tsc --noEmit` and eslint clean.
+  Deviations: `Entregable` carries a denormalised `proyecto_id` (code unique per project, REQ-STR-05, composite FK to
+  `actividades(id, proyecto_id)`); `Decimal(15,2)` fields serialise as strings, `peso` as a number; codes are client-supplied
+  free text (no `IND-nn` auto-generation); OpenAPI lives in `src/lib/openapi/paths/project-structure.ts`.
 
 ## Next step
 
-Dispatch U1.
+Dispatch U4 (hooks + `ProjectEstructura` section).
