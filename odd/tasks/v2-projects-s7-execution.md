@@ -55,9 +55,11 @@ Route: delegated writer per round (round 1: U1-U2, round 2: U3-U4, round 3: U5, 
   formula values via `.result`, Colombian numbers, dates (Date / `DD/MM/AAAA` / ISO), `;` lists keeping order,
   round-trip `parsePlantilla(await generarPlantilla(x))` equals input, garbage buffer throws `PlantillaIlegible`,
   row cap. (bf7bcd6; round-trip assertions strengthened and the empty-catalog range guarded in 6f8b6a3)
-- [ ] **U3** Validators V-01..V-07 + V-H1 (~380): one `describe` per rule with a passing and a failing fixture.
-- [ ] **U4** Validators V-08..V-14 + W-01 + `validarPlantilla` + `construirPlan` (~400): V-12 to the cent, ordering,
-  500-error truncation, multi-error reporting; `construirPlan` of the valid F-X1 yields 1/4/7 with weights 1/1/1/4.
+- [x] **U3** Validators V-01..V-07 + V-H1 (`src/lib/proyectos/plantilla/validate.ts`): one `describe` per rule with a
+  passing and a failing fixture. (90d7776)
+- [x] **U4** Validators V-08..V-14 + W-01 + `validarPlantilla` + `construirPlan` (`src/lib/proyectos/plantilla/mapear.ts`):
+  V-12 to the cent, ordering, 500-error truncation, multi-error reporting; `construirPlan` of the valid F-X1 yields
+  1/4/7 with weights 1/1/1/4. (5b9b9bb; the V-H2 guards and the non-finite-cell crash were closed in 4b6c565)
 - [ ] **U5** Template route + import route + atomic write (~400): 404/403/409/413/400 ordering, dry run writes
   nothing, apply calls the writer once; live-DB `prisma/plantilla-import.invariant.test.ts` proving the import counts,
   the V-12 failure writing nothing, and the **atomic rollback** after an injected mid-write failure.
@@ -106,6 +108,28 @@ Route: delegated writer per round (round 1: U1-U2, round 2: U3-U4, round 3: U5, 
 - Inherited debt carried into this feature: 118 commits from S4-S6 with no native review acknowledged anywhere, and
   78 commits still unpushed (D-11).
 
+- 2026-10-08 (16:35): round 2 (U3-U4) by one bounded writer, plus one scoped correction.
+  - U3 (90d7776): `plantilla/validate.ts` with `ContextoValidacion`, `ErrorPlantilla` and `v01`..`v07`, `vH1`; the
+    F-X1 validation context added to the existing fixture. RED: missing module, then GREEN. 22 tests.
+  - U4 (5b9b9bb): `v08`..`v14`, `w01`, `validarPlantilla` (ordering by sheet/row/column, `MAX_ERRORES` cap and
+    `truncado`, `resumen` counted before the cap) and `plantilla/mapear.ts` with `PlanImportacion` +
+    `construirPlan`. RED: missing functions/module. GREEN: 48 tests (42 + 6).
+  - Gates: `src/lib/proyectos/plantilla/` 5 files / 81 tests green; `tsc --noEmit` clean; eslint clean on touched
+    files. Parent spot check: reproduces.
+  - **Independent verification** (the substitute for the unavailable native review) found a real crash and a spec gap:
+    (a) **major** — `validarPlantilla` THREW on numeric cells in scientific notation (`1e21`/`1e-7`) instead of
+    reporting them, so a crafted workbook would have crashed the import route with a 500; (b) **major** — the V-H2
+    guards required by map §3 line 57 were absent, and the row/month caps in `parse.ts` truncated silently, so an
+    oversized workbook could validate "clean" while rows and columns were discarded; (c) **minor** — V-01's
+    project-sheet check only inspected headers, letting a missing label row cascade into V-03; (d) **advisory** —
+    column ordering used `localeCompare` (misorders `AA` after `Z`); (e) five test-coverage gaps that would have
+    stayed green under sabotage.
+  - Scoped correction (4b6c565): a plain-decimal guard closes every `toCents`/`BigInt` path, `vH2` reports the
+    truncation and the Excel error cells (surfaced through `excesoFilas`/`excesoMeses` on `ParsedTemplate`), V-01 now
+    gates the project sheet on its required labels, ordering uses the Excel column index, and the uncovered paths got
+    assertions with sabotage RED evidence for each fix. Plantilla suite: **100 tests green**; `tsc`/eslint clean.
+    Parent spot check: 5 files / 100 tests green, tree clean, no sabotage left.
+
 ## Next step
 
-Round 2: U3 (validators V-01..V-07 + V-H1), then U4 (V-08..V-14 + W-01 + `validarPlantilla` + `construirPlan`).
+Round 3: U5 (template route + import route + the atomic writer, with the live-DB invariant proving the rollback).
