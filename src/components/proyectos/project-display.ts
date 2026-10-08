@@ -50,6 +50,7 @@ export const ENTIDAD_AUDITORIA_META: Record<string, string> = {
   oportunidad: "Oportunidad",
   proyecto: "Proyecto",
   proyecto_miembro: "Integrante del equipo",
+  parametro: "Parámetro del semáforo",
 };
 
 const SIN_DATO = "—";

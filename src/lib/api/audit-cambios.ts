@@ -36,6 +36,7 @@ export const AUDIT_ENTIDADES_V2 = [
   "municipio",
   "rubro",
   "setting",
+  "parametro",
 ] as const
 
 export type AuditEntidadV2 = (typeof AUDIT_ENTIDADES_V2)[number]

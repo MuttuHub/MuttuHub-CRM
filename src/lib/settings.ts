@@ -11,9 +11,12 @@ import {
   RESTRICTED_DOC_CATEGORIES,
   TASK_TAGS,
 } from "@/lib/catalogs";
+import { parseParametrosV2, type ParametrosV2 } from "@/lib/proyectos/semaforo-v2";
 
 export const SETTING_TASK_TAGS = "task_tags";
 export const SETTING_DOC_CATEGORIES = "doc_categories";
+
+export const SETTING_SEMAFORO_PARAMETROS_V2 = "semaforo_parametros_v2";
 
 export type DocCategoriaSetting = { nombre: string; restringida: boolean };
 
@@ -34,6 +37,11 @@ export async function getSetting<T>(key: string, fallback: T): Promise<T> {
   const row = await db.setting.findUnique({ where: { key } });
   if (!row) return fallback;
   return row.value as T;
+}
+
+/** Parámetros del semáforo v2; sin fila o con datos mal formados, los defaults. */
+export async function getSemaforoParametrosV2(): Promise<ParametrosV2> {
+  return parseParametrosV2(await getSetting<unknown>(SETTING_SEMAFORO_PARAMETROS_V2, null));
 }
 
 /** Crea los settings por defecto cuando no existen (idempotente, upsert por key). */

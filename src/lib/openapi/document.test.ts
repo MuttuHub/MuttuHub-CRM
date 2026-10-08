@@ -29,6 +29,14 @@ describe("buildOpenApiDocument", () => {
     )
   })
 
+  it("registers the semaforo v2 parameters path (GET + PATCH)", () => {
+    const paths = buildOpenApiDocument().paths ?? {}
+
+    expect(paths["/api/v1/settings/semaforo-v2"]).toEqual(
+      expect.objectContaining({ get: expect.anything(), patch: expect.anything() }),
+    )
+  })
+
   it("registers the S2.3 project operations with their status codes and body shape", () => {
     const document = buildOpenApiDocument()
     const paths = document.paths ?? {}
