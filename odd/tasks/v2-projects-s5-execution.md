@@ -37,9 +37,9 @@ Route: delegated writer per round (round 1: U1-U3, round 2: U4-U6).
   `toleranciaBp`, `precondicionesPresupuesto` (6e39cde).
 - [x] **U2** Schema + migration `v2_presupuesto` + invariants test, rubro rename 409 guard, `s1-rubros-report.ts` amounts (dbe8f91).
 - [x] **U3** Budget + programming routes (`presupuesto.ts` gates, GET/PUT budget, GET/PUT programming, audit, OpenAPI) (7673e50).
-- [ ] **U4** Financial sheet route: `loadTecnicoStatus` extraction, `financiera.ts` seam, GET financial-sheet, OpenAPI.
-- [ ] **U5** UI editors: hooks, `project-presupuesto.tsx`, programming grid.
-- [ ] **U6** UI financial ficha: `project-financiero.tsx`, selectors, mount, stubs in list/ficha tests.
+- [x] **U4** Financial sheet route: `loadTecnicoStatus` extraction (`lib/api/tecnico.ts`), `financiera.ts` seam, GET financial-sheet, OpenAPI (63d3938).
+- [x] **U5** UI editors: hooks, `project-presupuesto.tsx`, `presupuesto-programacion.tsx`, `presupuesto-ui.tsx`, mounted after Estructura (9371645).
+- [x] **U6** UI financial ficha: `project-financiero.tsx`, corte selector, mount after Ejecución, stubs in list/ficha tests (318c915).
 
 ## Acceptance
 
@@ -77,7 +77,20 @@ Route: delegated writer per round (round 1: U1-U3, round 2: U4-U6).
     against the DB; its planner is covered with a fake client. (7) The control per rubro is also returned with `codigo`/`nombre`
     for the UI. (8) Native review (RDD) not run: needs per-candidate consent.
 
+- 2026-10-08: round 2 (U4-U6), one commit per unit. RED observed per unit (U4: unresolved `./route`/seam modules, then the
+  OpenAPI test failing before the path existed; U5: unresolved `./project-presupuesto`, mount test failing with the mount removed;
+  U6: unresolved `./project-financiero`, one corte-options assertion failing before the placeholder option was dropped), then GREEN.
+  - U4: `loadTecnicoStatus` extracted to `src/lib/api/tecnico.ts` (technical-status tests unchanged and green); seam
+    `src/lib/api/financiera.ts` (`disponible:false`); route `projects/[id]/financial-sheet` (read gate `gatePresupuestoRead`),
+    OpenAPI schema `FichaFinanciera`. Percentages travel as tenths (`ep_decimas`, 908 = 90,8 %).
+  - U5: hooks `useProjectBudget/useUpdateBudget/useProjectProgramming/useUpdateProgramming/useSetValorTotal`; amounts typed with
+    comma or dot, parsed to exact cents, sent as strings; "Igualar" reuses PATCH `valor_total` (sent as a JSON number, the PATCH contract).
+  - U6: `useProjectFinancialSheet(id, corte)`; `COLOR_META` exported from `semaforo-tecnico.tsx`.
+  - Deviations: (1) the VIS flag is pinned false (no column until S9.2), so VIS gets 403 today; the test pins that, not 200.
+    (2) With `ejecucion_disponible:false` the route skips the technical read and returns `ep/ea` null, color null, alert false.
+    (3) Rubros without a line are not rows of the ficha (only budget lines). (4) Save of the budget does not equalize automatically;
+    "Igualar" uses the saved Σ A. (5) Native review (RDD) not run: needs per-candidate consent.
+
 ## Next step
 
-Round 2: U4 (financial sheet route, `loadTecnicoStatus` extraction, `financiera.ts` seam), U5 and U6 (UI), per the map sections 5-6.
-Round 2 reads `src/lib/api/presupuesto.ts` for the gate/view helpers (`gatePresupuestoRead`, `buildBudgetView`).
+S5 code complete. Pending: native review consent (RDD), PO feedback on the defaults in Decisions, S6 replaces the body of `loadGastosValidados`.
