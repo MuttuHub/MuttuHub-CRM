@@ -38,9 +38,9 @@ Route: delegated writer per round (round 1: U1-U3, round 2: U4-U6).
 - [x] **U1** Pure libs `src/lib/proyectos/gastos.ts` (+ fixtures): identification/document normalization, estado machine, redaction, overspend fixtures (3d2384f).
 - [x] **U2** Schema + migration `v2_gastos_validacion` (gastos, acceso_soportes, soportes_proyecto.gasto_id) + `prisma/gastos.invariant.test.ts` (089fad3).
 - [x] **U3** Registration + duplicates + supports: `lib/api/soportes.ts` extraction, sign/create/list/get/patch routes, audit, OpenAPI (13dae48).
-- [ ] **U4** Validation flow + overspend + notifications (migrations for `SOBREGASTO_RUBRO` enum and Notificacion columns, queue route, notifications GET/read-all/panel).
-- [ ] **U5** Support download + access log + E seam (`loadGastosValidados`, BORRADOR keeps `ejecucion_disponible:false`).
-- [ ] **U6** UI: section, form, actions, validation queue, hooks (+ stubs in list/ficha tests).
+- [x] **U4** Validation flow + overspend + notifications: validate/reject/void routes, queue, `SOBREGASTO_RUBRO` enum + Notificacion columns (own migrations), notifications `proyectos` group (0fc495d routes+migrations, cca878b snapshot/read-all/panel).
+- [x] **U5** Support download + access log + E seam: signed download gated by `canViewFinancialSupports`, `acceso_soportes` row after signing, `loadGastosValidados`, BORRADOR keeps `ejecucion_disponible:false` (015eada).
+- [x] **U6** UI: Gastos section, registration form, actions, validation queue, hooks (+ stubs in list/ficha tests) (3a90878).
 
 ## Acceptance
 
@@ -75,7 +75,29 @@ Route: delegated writer per round (round 1: U1-U3, round 2: U4-U6).
     mask `***NNN` (last 3 alphanumerics); create audits one CREAR row (entidad `gasto`) with `soportes` count. (6) Create responds with
     `puedeVerSoportes: true` because the write gate already implies it. (7) Native review (RDD) not run: needs per-candidate consent.
 
+- 2026-10-08: round 2 (U4-U6), one commit per unit (U4 in two), local DB only (`node --env-file=.env.local ... migrate deploy` for
+  `20261010130000_v2_notificacion_sobregasto_enum` and `20261010130100_v2_notificaciones_proyecto`, then `npm run db:generate:local`;
+  `migrate diff --from-config-datasource --to-schema` reported no difference). RED observed per unit (U4: invariant test 3/5 failing on the
+  missing columns/enum, five unresolved route/lib modules, then 5 failing notification tests; U5: unresolved download route, 4 failing
+  `loadGastosValidados`/BORRADOR tests; U6: three unresolved component modules, then 11 list tests failing on the un-stubbed hooks), then GREEN.
+  Full suite `TZ=America/Bogota npx vitest run`: 231 files / 2307 tests green; `tsc --noEmit` and eslint clean on touched files.
+  - U4 (0fc495d, cca878b): `lib/api/validacion-gastos.ts` (gate 404 -> 403 -> 404, `validarEnTransaccion`: row lock on the line, expense re-read under
+    lock, validated SUM, strict `>`, RETURNS `{blocked:true}` after committing flag + notifications), routes `validate`/`reject`/`void`, queue
+    `GET /api/v1/expense-validations`, `lib/api/notificaciones-proyecto.ts` (`notificarSobregasto`, snapshot/read-all helpers), `proyectos` group in
+    `GET /notifications` (+ `total` includes it), read-all and `NotificationPanel` (PROYECTOS group), `OVERSPEND_BLOCKED` error code, OpenAPI.
+  - U5 (015eada): `expenses/[id]/attachments/[aid]/download`, `loadGastosValidados(proyectoId, client = db)`, financial-sheet forces
+    `ejecucion_disponible=false` for BORRADOR, live-DB seam test.
+  - U6 (3a90878): hooks (`useProjectExpenses`, `useCreateExpense`, `useValidateExpense`, `useRejectExpense`, `useVoidExpense`,
+    `useExpenseValidationQueue`, `downloadExpenseSoporte`; `uploadSoporteFile` extracted), `project-gastos.tsx`, `gasto-form.tsx`,
+    `gasto-acciones.tsx`, `expense-validation-queue.tsx` (mounted in `project-list.tsx` for managers), ficha mounts the section after Financiero.
+  - Deviations: (1) `expenses/[id]/attachments` add-after-create routes NOT built: the UI registers each expense with its support and the API
+    already requires one. (2) No UI to edit/correct a RECHAZADO expense (the PATCH exists; hook/UI not built). (3) One support per registration in
+    the form (the API accepts up to 5). (4) Blocked-overspend audit row is an EDITAR of `alerta_sobregasto` (false -> true), VALIDAR only on success.
+    (5) Notification deep link: the panel navigates to `/proyectos` (no ficha deep-link exists yet); the row shows the project code. (6) `Notificacion`
+    FKs use ON DELETE SET NULL; extra index `[usuario_id, leida]`. (7) The live-DB seam test was written after the implementation (the seam is a
+    thin mapping already unit-tested RED first). (8) Native review (RDD) not run: needs per-candidate consent.
+
 ## Next step
 
-Round 2: U4 (validation flow, overspend, notifications; enum `SOBREGASTO_RUBRO` in its own migration), U5 (support download + access log
-+ E seam; also decide on the attachments add routes), U6 (UI).
+S6 is complete locally. Pending: native review per candidate (consent), manual QA of the UI against the local DB (needs `scripts/set-project-estado.ts`
+and lines with A > 0), edit/correct UI for RECHAZADO expenses, ficha deep link from the notification, and S8.3b (REQ-GAS-06, raising A).
