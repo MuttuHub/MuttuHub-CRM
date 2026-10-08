@@ -180,3 +180,70 @@ describe("GET /api/v1/notifications", () => {
     expect(json.proximos3[0].notificacion_id).toBe("n3");
   });
 });
+
+describe("GET /api/v1/notifications: proyectos group (S6)", () => {
+  const gerencia = { id: "ger-1", rol: "GERENCIA" } as Usuario;
+  const filaProyecto = (id: string, leida: boolean) => ({
+    id,
+    tipo: "SOBREGASTO_RUBRO",
+    leida,
+    proyecto_id: "pry-1",
+    gasto_id: `gas-${id}`,
+    created_at: new Date("2026-10-16T12:00:00.000Z"),
+    proyecto: { codigo: "PRY-001" },
+  });
+
+  function mockRows(rows: unknown[]) {
+    vi.mocked(db.notificacion.findMany).mockImplementation((async (args: { where?: { tipo?: unknown } }) =>
+      args?.where?.tipo === "SOBREGASTO_RUBRO" ? rows : []) as never);
+  }
+
+  it("returns the actor's overspend notifications in a `proyectos` group and keeps the task keys", async () => {
+    mockAuth(gerencia);
+    vi.mocked(db.tarea.findMany).mockResolvedValue([]);
+    mockRows([filaProyecto("p1", false), filaProyecto("p2", true)]);
+
+    const json = await (await GET(get())).json();
+
+    expect(db.notificacion.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { usuario_id: "ger-1", tipo: "SOBREGASTO_RUBRO" } }),
+    );
+    expect(json.vencidos).toEqual([]);
+    expect(json.leidas_ids).toEqual([]);
+    expect(json.proyectos).toEqual([
+      {
+        notificacion_id: "p1",
+        tipo: "SOBREGASTO_RUBRO",
+        mensaje: "Gasto supera el asignado del rubro",
+        proyecto_id: "pry-1",
+        proyecto_codigo: "PRY-001",
+        gasto_id: "gas-p1",
+        leida: false,
+        created_at: "2026-10-16T12:00:00.000Z",
+      },
+      expect.objectContaining({ notificacion_id: "p2", leida: true }),
+    ]);
+    expect(json.total).toBe(2);
+  });
+
+  it("with ?leida=false keeps only the unread project rows", async () => {
+    mockAuth(gerencia);
+    vi.mocked(db.tarea.findMany).mockResolvedValue([]);
+    mockRows([filaProyecto("p1", false), filaProyecto("p2", true)]);
+    const json = await (await GET(get("?leida=false"))).json();
+    expect(json.proyectos.map((p: { notificacion_id: string }) => p.notificacion_id)).toEqual(["p1"]);
+    expect(json.total).toBe(1);
+  });
+
+  it("does not look for project notifications for other roles", async () => {
+    for (const actor of [colaborador, coordinador, { id: "adm-1", rol: "ADMINISTRADOR" } as Usuario]) {
+      mockAuth(actor);
+      vi.mocked(db.tarea.findMany).mockResolvedValue([]);
+      const json = await (await GET(get())).json();
+      expect(json.proyectos).toEqual([]);
+    }
+    expect(db.notificacion.findMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ tipo: "SOBREGASTO_RUBRO" }) }),
+    );
+  });
+});

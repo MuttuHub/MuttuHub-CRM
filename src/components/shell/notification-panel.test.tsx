@@ -145,3 +145,45 @@ describe("NotificationPanel — undo de marcar todas como leídas", () => {
     })
   })
 })
+
+describe("NotificationPanel: grupo PROYECTOS (S6)", () => {
+  const PROYECTO_ITEM = {
+    notificacion_id: "np-1",
+    tipo: "SOBREGASTO_RUBRO" as const,
+    mensaje: "Gasto supera el asignado del rubro",
+    proyecto_id: "pry-1",
+    proyecto_codigo: "PRY-001",
+    gasto_id: "gas-1",
+    leida: false,
+    created_at: "2026-10-16T12:00:00.000Z",
+  }
+
+  it("renders the PROYECTOS group, counts it in the badge and marks it read on open", async () => {
+    apiGet.mockImplementation(async () => ({
+      total: 1,
+      vencidos: [],
+      hoy: [],
+      proximos3: [],
+      leidas_ids: [],
+      proyectos: [PROYECTO_ITEM],
+    }))
+    const user = userEvent.setup()
+    renderPanel()
+
+    await user.click(await screen.findByRole("button", { name: "Notificaciones, 1 sin leer" }))
+    expect(screen.getByText("PROYECTOS")).toBeInTheDocument()
+    expect(screen.getByText("Gasto supera el asignado del rubro")).toBeInTheDocument()
+    expect(screen.getByText(/PRY-001/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: /Gasto supera el asignado del rubro/ }))
+    await waitFor(() => expect(apiPatch).toHaveBeenCalledWith("/api/v1/notifications/np-1/read"))
+  })
+
+  it("keeps working with a snapshot that has no proyectos key", async () => {
+    apiGet.mockImplementation(async () => snapshotWith([]))
+    const user = userEvent.setup()
+    renderPanel()
+    await user.click(await screen.findByRole("button", { name: "Notificaciones, 1 sin leer" }))
+    expect(screen.queryByText("PROYECTOS")).not.toBeInTheDocument()
+  })
+})

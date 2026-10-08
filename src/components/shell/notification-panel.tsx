@@ -33,12 +33,26 @@ export type AlertItemNotificacion = {
   notificacion_id: string | null;
 };
 
+/** v2 (S6): overspend notification of a project (GERENCIA only). */
+export type NotificacionProyecto = {
+  notificacion_id: string;
+  tipo: "SOBREGASTO_RUBRO";
+  mensaje: string;
+  proyecto_id: string | null;
+  proyecto_codigo: string | null;
+  gasto_id: string | null;
+  leida: boolean;
+  created_at: string;
+};
+
 export type NotificationsSnapshot = {
   total: number;
   vencidos: AlertItemNotificacion[];
   hoy: AlertItemNotificacion[];
   proximos3: AlertItemNotificacion[];
   leidas_ids: string[];
+  /** Absent in older payloads; the panel tolerates it. */
+  proyectos?: NotificacionProyecto[];
 };
 
 // Shared query key: the header home greeting reads the same snapshot to show
@@ -97,6 +111,7 @@ export function NotificationPanel() {
     refetchInterval: REFETCH_INTERVAL_MS,
   });
   const snapshot = query.data;
+  const proyectos = snapshot?.proyectos ?? [];
 
   const markRead = useMutation({
     mutationFn: (notificacionId: string) =>
@@ -141,14 +156,11 @@ export function NotificationPanel() {
     if (!snapshot) return;
     const leidasSet = new Set(snapshot.leidas_ids);
     unreadSnapshotRef.current = [
-      ...snapshot.vencidos,
-      ...snapshot.hoy,
-      ...snapshot.proximos3,
-    ]
-      .filter(
-        (item) => item.notificacion_id !== null && !leidasSet.has(item.notificacion_id),
-      )
-      .map((item) => item.notificacion_id!);
+      ...[...snapshot.vencidos, ...snapshot.hoy, ...snapshot.proximos3]
+        .filter((item) => item.notificacion_id !== null && !leidasSet.has(item.notificacion_id))
+        .map((item) => item.notificacion_id!),
+      ...proyectos.filter((item) => !item.leida).map((item) => item.notificacion_id),
+    ];
     markAllRead.mutate();
   }
 
@@ -221,13 +233,19 @@ export function NotificationPanel() {
     }
   }
 
+  function abrirProyecto(item: NotificacionProyecto) {
+    setOpen(false);
+    markRead.mutate(item.notificacion_id);
+    router.push("/proyectos");
+  }
+
   const allItems = snapshot
     ? [...snapshot.vencidos, ...snapshot.hoy, ...snapshot.proximos3]
     : [];
   const leidasSet = new Set(snapshot?.leidas_ids ?? []);
-  const unread = allItems.filter(
-    (item) => item.notificacion_id === null || !leidasSet.has(item.notificacion_id),
-  ).length;
+  const unread =
+    allItems.filter((item) => item.notificacion_id === null || !leidasSet.has(item.notificacion_id))
+      .length + proyectos.filter((item) => !item.leida).length;
 
   return (
     <div ref={rootRef} className="relative">
@@ -304,6 +322,21 @@ export function NotificationPanel() {
                     </section>
                   );
                 })}
+                {proyectos.length > 0 && (
+                  <section className="flex flex-col gap-1.5">
+                    <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-[0.08em] uppercase text-rose-700 dark:text-rose-400">
+                      PROYECTOS
+                      <span className="font-sans text-[10.5px] font-semibold tracking-normal normal-case text-ink-500">
+                        · {proyectos.length}
+                      </span>
+                    </h3>
+                    <ul className="flex flex-col gap-0.5">
+                      {proyectos.map((item) => (
+                        <ProyectoRow key={item.notificacion_id} item={item} onOpen={abrirProyecto} />
+                      ))}
+                    </ul>
+                  </section>
+                )}
               </div>
               <div className="border-t border-ink-200 p-3">
                 <button
@@ -355,6 +388,40 @@ function AlertRow({
           <span className="truncate">{meta}</span>
           <span className="ml-auto shrink-0 rounded-md bg-ink-100 px-1.5 py-0.5 text-[9.5px] font-bold tracking-wide text-ink-700 uppercase">
             {chipOrigen(item.origen)}
+          </span>
+        </span>
+      </button>
+    </li>
+  );
+}
+
+function ProyectoRow({
+  item,
+  onOpen,
+}: {
+  item: NotificacionProyecto;
+  onOpen: (item: NotificacionProyecto) => void;
+}) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => onOpen(item)}
+        className="flex w-full flex-col gap-1 rounded-12 px-3 py-2.5 text-left transition-colors hover:bg-ink-100/70"
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <span
+            className={`truncate text-[13px] text-ink-800 ${item.leida ? "font-medium" : "font-semibold"}`}
+          >
+            {item.mensaje}
+          </span>
+        </span>
+        <span className="flex min-w-0 items-center gap-2 text-[11.5px] text-ink-600">
+          <span className="truncate">
+            {[item.proyecto_codigo, fechaCorta(item.created_at)].filter(Boolean).join(" · ")}
+          </span>
+          <span className="ml-auto shrink-0 rounded-md bg-ink-100 px-1.5 py-0.5 text-[9.5px] font-bold tracking-wide text-ink-700 uppercase">
+            Sobregasto
           </span>
         </span>
       </button>

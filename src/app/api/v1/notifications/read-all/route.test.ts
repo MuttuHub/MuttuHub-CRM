@@ -99,3 +99,26 @@ describe("PATCH /api/v1/notifications/read-all", () => {
     expect(json).toEqual({ ok: true, updated: 0 });
   });
 });
+
+describe("PATCH /api/v1/notifications/read-all: proyectos group (S6)", () => {
+  it("also marks the GERENCIA user's unread overspend rows as read", async () => {
+    vi.mocked(requireApiUser).mockResolvedValue({
+      ok: true,
+      usuario: { id: "ger-1", rol: "GERENCIA" } as Usuario,
+      supabaseUser: {} as never,
+    });
+    vi.mocked(db.tarea.findMany).mockResolvedValue([]);
+    vi.mocked(db.notificacion.findMany).mockResolvedValue([
+      { id: "p1", tipo: "SOBREGASTO_RUBRO", leida: false, proyecto_id: "pry-1", gasto_id: "g", created_at: new Date(), proyecto: { codigo: "PRY-001" } },
+    ] as never);
+    vi.mocked(db.notificacion.updateMany).mockResolvedValue({ count: 1 } as never);
+
+    const json = await (await PATCH()).json();
+
+    expect(db.notificacion.updateMany).toHaveBeenCalledWith({
+      where: { usuario_id: "ger-1", tipo: "SOBREGASTO_RUBRO", leida: false },
+      data: { leida: true },
+    });
+    expect(json).toEqual({ ok: true, updated: 1 });
+  });
+});
