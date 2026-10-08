@@ -15,6 +15,7 @@ export type ApiErrorCode =
   | "CONFLICT"
   | "INVALID_STATE"
   | "FILE_TOO_LARGE"
+  | "OVERSPEND_BLOCKED"
   | "INTERNAL_ERROR";
 
 export function apiError(

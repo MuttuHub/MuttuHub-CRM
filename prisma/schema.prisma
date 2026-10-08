@@ -93,6 +93,7 @@ enum TipoNotificacion {
   COMPROMISO_VENCIDO
   TAREA_VENCIDA
   POR_VENCER
+  SOBREGASTO_RUBRO
 }
 
 // v2 projects module (RF-04) — lifecycle of a project. New enum on this branch:
@@ -425,12 +426,20 @@ model Notificacion {
   usuario_id String
   tipo       TipoNotificacion
   tarea_id   String?
+  // v2 (S6): project notifications (overspend). Task rows keep both NULL; NULLs never
+  // collide in the unique key, so there is one project row per (usuario, tipo, gasto).
+  proyecto_id String?
+  gasto_id    String?
   leida      Boolean          @default(false)
   created_at DateTime         @default(now())
 
-  usuario Usuario @relation(fields: [usuario_id], references: [id])
-  tarea   Tarea?  @relation(fields: [tarea_id], references: [id])
+  usuario  Usuario   @relation(fields: [usuario_id], references: [id])
+  tarea    Tarea?    @relation(fields: [tarea_id], references: [id])
+  proyecto Proyecto? @relation(fields: [proyecto_id], references: [id], onDelete: SetNull)
+  gasto    Gasto?    @relation(fields: [gasto_id], references: [id], onDelete: SetNull)
 
+  @@unique([usuario_id, tipo, gasto_id])
+  @@index([usuario_id, leida])
   @@map("notificaciones")
 }
 
@@ -686,6 +695,7 @@ model Proyecto {
   lineas_presupuestales LineaPresupuestal[]
   programacion_periodos ProgramacionPeriodo[]
   gastos                Gasto[]
+  notificaciones        Notificacion[]
 
   @@unique([oportunidad_id, cliente_id])
   @@index([cliente_id])
@@ -1121,6 +1131,7 @@ model Gasto {
   proyecto Proyecto          @relation(fields: [proyecto_id], references: [id])
   linea    LineaPresupuestal @relation(fields: [linea_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
   soportes SoporteProyecto[]
+  notificaciones Notificacion[]
 
   @@unique([id, proyecto_id])
   @@index([proyecto_id, estado, periodo])

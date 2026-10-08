@@ -230,4 +230,16 @@ describe("buildOpenApiDocument", () => {
     expect(codes(one?.get)).toEqual(expect.arrayContaining(["200", "403", "404"]))
     expect(codes(one?.patch)).toEqual(expect.arrayContaining(["200", "400", "403", "404", "409"]))
   })
+  it("registers the S6 validation workflow and the queue", () => {
+    const paths = buildOpenApiDocument().paths ?? {}
+    const codes = (op: { responses?: object } | undefined) => Object.keys(op?.responses ?? {})
+    for (const action of ["validate", "reject", "void"]) {
+      const op = paths[`/api/v1/projects/{id}/expenses/{expenseId}/${action}`]?.post
+      expect(codes(op)).toEqual(expect.arrayContaining(["200", "401", "403", "404", "409"]))
+    }
+    expect(codes(paths["/api/v1/projects/{id}/expenses/{expenseId}/reject"]?.post)).toContain("400")
+    expect(codes(paths["/api/v1/expense-validations"]?.get)).toEqual(
+      expect.arrayContaining(["200", "400", "401", "403"]),
+    )
+  })
 })
