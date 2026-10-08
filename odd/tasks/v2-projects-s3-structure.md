@@ -49,7 +49,7 @@ Route: each unit delegated to one bounded writer (2+ non-trivial files; mapping 
 - [x] **U2b** Activities routes (week bounds, same-project refs, derived dates, 403/409 matrix); add the
   objective-delete guard for live activities (fbaa1a0).
 - [x] **U3** `Entregable` + `Indicador` schema and routes (812868e), plus the objective-delete guard for live indicators and the activity-delete guard for live deliverables.
-- [ ] **U4** Hooks + `ProjectEstructura` section in the ficha.
+- [x] **U4** Hooks + `ProjectEstructura` section in the ficha (4f568e1).
 
 ## Acceptance
 
@@ -64,7 +64,14 @@ Route: each unit delegated to one bounded writer (2+ non-trivial files; mapping 
   Deviations: `Entregable` carries a denormalised `proyecto_id` (code unique per project, REQ-STR-05, composite FK to
   `actividades(id, proyecto_id)`); `Decimal(15,2)` fields serialise as strings, `peso` as a number; codes are client-supplied
   free text (no `IND-nn` auto-generation); OpenAPI lives in `src/lib/openapi/paths/project-structure.ts`.
+- 2026-10-08: U4 done (4f568e1) by one writer. RED observed: hooks test 28/28 failing (missing exports), component test file
+  failing on missing module, ficha mount test failing before the section was mounted. GREEN: hooks 28, `ProjectEstructura` 26,
+  ficha mount 1; full suite `TZ=America/Bogota npx vitest run`: 178 files / 1758 tests green; `tsc --noEmit` and eslint clean.
+  Hooks are in `src/hooks/projects.ts` (list/create/update/delete per entity, own-list invalidation, no toast; update variables
+  are `{ id, data }`). Components: `project-estructura.tsx` + `estructura-{objetivos,actividades,entregables,indicadores,ui}.tsx`.
+  Controls only for `canManageProjects` on BORRADOR; no-dates hint replaces the activity form. Existing `project-list` /
+  `project-ficha-dialog` tests got stubs for the new hooks/endpoints. Native review (RDD) not run: needs per-candidate consent.
 
 ## Next step
 
-Dispatch U4 (hooks + `ProjectEstructura` section).
+S3 complete pending PO feedback on the decisions above; S4 (avances/estado of activities) is next in the ledger.
