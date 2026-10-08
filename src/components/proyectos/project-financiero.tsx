@@ -2,8 +2,9 @@
 // P (programado), E (ejecutado), D = E − P, E/P, E/A y el color por rubro más
 // la fila de total. Todo llega calculado por el servidor y solo se pinta: el
 // cliente NUNCA recalcula el color. Solo agregados: sin gastos individuales ni
-// soportes. Hasta que existan gastos (S6) la API marca `ejecucion_disponible:
-// false` y no se muestran colores ni porcentajes de ejecución.
+// soportes. E sale de los gastos VALIDADOS (S6); mientras el proyecto está en
+// BORRADOR la API marca `ejecucion_disponible: false` y no se muestran colores
+// ni porcentajes de ejecución.
 
 "use client";
 

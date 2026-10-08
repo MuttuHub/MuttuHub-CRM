@@ -289,6 +289,8 @@ export const projectQueryKeys = {
   budget: (id: string) => ["projects", "budget", id] as const,
   programming: (id: string) => ["projects", "programming", id] as const,
   financialSheet: (id: string, corte: string | null) => ["projects", "financial-sheet", id, corte] as const,
+  expenses: (id: string) => ["projects", "expenses", id] as const,
+  expenseQueue: ["projects", "expense-validations"] as const,
   eligibleOpportunities: ["projects", "eligible-opportunities"] as const,
   // Los catálogos viven fuera de `projects` para que invalidar la lista de
   // proyectos no refetchee catálogos que no cambiaron.
@@ -884,23 +886,24 @@ type SignedUploadResponse = {
   allowed_extensions: string[];
 };
 
+/** Datos de confirmación de un archivo ya subido (cuerpo de `attachments`/`expenses`). */
+type SoporteArchivoPayload = {
+  storage_path: string;
+  nombre: string;
+  tamano_bytes: number;
+  tipo_mime?: string;
+};
+
 /**
- * ADR-13 para el medio de un avance: firmar -> subir directo a Storage -> confirmar
- * con metadatos. Los bytes nunca pasan por el route handler.
+ * ADR-13: firmar -> subir directo a Storage. Devuelve los metadatos que la API
+ * espera al confirmar. Los bytes nunca pasan por el route handler.
  */
-async function uploadAvanceMedioFile(
-  projectId: string,
-  progressId: string,
-  file: File,
-): Promise<void> {
-  const signed = await apiPost<SignedUploadResponse>(
-    `/api/v1/projects/${projectId}/progress/${progressId}/attachments/sign`,
-    {
-      nombre: file.name,
-      tamano_bytes: file.size,
-      ...(file.type ? { tipo_mime: file.type } : {}),
-    },
-  );
+async function uploadSoporteFile(signPath: string, file: File): Promise<SoporteArchivoPayload> {
+  const signed = await apiPost<SignedUploadResponse>(signPath, {
+    nombre: file.name,
+    tamano_bytes: file.size,
+    ...(file.type ? { tipo_mime: file.type } : {}),
+  });
 
   const res = await fetch(signed.signed_url, {
     method: "PUT",
@@ -912,12 +915,25 @@ async function uploadAvanceMedioFile(
   });
   if (!res.ok) throw new ApiError("No pudimos subir el archivo al almacenamiento.", res.status);
 
-  await apiPost(`/api/v1/projects/${projectId}/progress/${progressId}/attachments`, {
+  return {
     storage_path: signed.storage_path,
     nombre: file.name,
     tamano_bytes: file.size,
     ...(file.type ? { tipo_mime: file.type } : {}),
-  });
+  };
+}
+
+/** Medio de un avance: firmar -> subir -> confirmar. */
+async function uploadAvanceMedioFile(
+  projectId: string,
+  progressId: string,
+  file: File,
+): Promise<void> {
+  const payload = await uploadSoporteFile(
+    `/api/v1/projects/${projectId}/progress/${progressId}/attachments/sign`,
+    file,
+  );
+  await apiPost(`/api/v1/projects/${projectId}/progress/${progressId}/attachments`, payload);
 }
 
 /** Un medio por avance: o un archivo (firma/subida/confirmación) o un enlace https. */
@@ -1243,6 +1259,207 @@ export function useProjectFinancialSheet(
         `/api/v1/projects/${id}/financial-sheet${corte ? `?corte=${encodeURIComponent(corte)}` : ""}`,
       ),
   });
+}
+
+/* ── Gastos (S6 U6) ────────────────────────────────────────────────────── */
+//
+// Lectura de gastos, registro (con su soporte), validación, rechazo y anulación, y la cola
+// de validación entre proyectos. Todas relanzan el `ApiError` del servidor SIN toast: la
+// sección lo muestra en línea (el 409 OVERSPEND_BLOCKED incluido). El permiso real lo decide
+// la API; el gate del cliente es comodidad. Los valores viajan como string, nunca como número.
+
+export type ProjectExpenseEstado = "REGISTRADO" | "VALIDADO" | "RECHAZADO" | "ANULADO";
+
+export type ProjectExpenseSoporte = {
+  id: string;
+  nombre: string;
+  tipo: "archivo" | "enlace";
+  url_externa: string | null;
+  tipo_mime: string | null;
+  tamano_bytes: number | null;
+  subido_por_id: string;
+  created_at: string;
+};
+
+export type ProjectExpense = {
+  id: string;
+  proyecto_id: string;
+  rubro: { id: string; codigo: string | null; nombre: string };
+  fecha_documento: string;
+  periodo: string;
+  tipo_soporte: "FACTURA_PROVEEDOR" | "CUENTA_COBRO_PERSONA_NATURAL" | "OTRO";
+  tercero_nombre: string;
+  tercero_tipo_id: "NIT" | "CC" | "CE" | null;
+  /** Ausente sin acceso a soportes financieros (RNF-03). */
+  tercero_numero_id?: string | null;
+  numero_documento: string;
+  descripcion: string;
+  valor: string;
+  estado: ProjectExpenseEstado;
+  alerta_sobregasto: boolean;
+  datos_incompletos: boolean;
+  registrado_por_id: string;
+  created_at: string;
+  validado_por_id: string | null;
+  validado_at: string | null;
+  rechazado_por_id: string | null;
+  rechazado_at: string | null;
+  motivo_rechazo: string | null;
+  anulado_por_id: string | null;
+  anulado_at: string | null;
+  motivo_anulacion: string | null;
+  /** Ausente sin acceso a soportes financieros (RNF-03). */
+  soportes?: ProjectExpenseSoporte[];
+};
+
+export type ProjectExpenses = {
+  gastos: ProjectExpense[];
+  totales: Record<ProjectExpenseEstado, { cantidad: number; valor: string }>;
+};
+
+export type ExpenseAlert =
+  | { tipo: "SOBREGASTO"; mensaje: string }
+  | { tipo: "DUPLICADO"; gasto_id: string | null; proyecto_codigo: string | null; mensaje: string };
+
+export type ProjectExpenseInput = {
+  rubro_id: string;
+  fecha_documento: string;
+  periodo?: string;
+  tipo_soporte: ProjectExpense["tipo_soporte"];
+  tercero_nombre: string;
+  tercero_tipo_id: "NIT" | "CC" | "CE" | null;
+  tercero_numero_id: string | null;
+  numero_documento: string;
+  descripcion: string;
+  /** Decimal como string ("1500000.50"). */
+  valor: string;
+  /** Un soporte: archivo (firma -> subida -> confirmación) o enlace https. */
+  soporte: AvanceMedioInput;
+};
+
+export type ExpenseQueueRow = {
+  id: string;
+  proyecto_id: string;
+  proyecto_codigo: string;
+  proyecto_nombre: string;
+  rubro: { id: string; codigo: string | null; nombre: string };
+  fecha_documento: string;
+  periodo: string;
+  tercero_nombre: string;
+  tercero_tipo_id: "NIT" | "CC" | "CE" | null;
+  numero_documento: string;
+  descripcion: string;
+  valor: string;
+  estado: ProjectExpenseEstado;
+  alerta_sobregasto: boolean;
+  datos_incompletos: boolean;
+  registrado_por_id: string;
+  registrado_por_nombre: string | null;
+  propio: boolean;
+  created_at: string;
+};
+
+export function useProjectExpenses(id: string): UseQueryResult<ProjectExpenses> {
+  return useQuery({
+    queryKey: projectQueryKeys.expenses(id),
+    enabled: id !== "",
+    queryFn: () => apiGet<ProjectExpenses>(`/api/v1/projects/${id}/expenses`),
+  });
+}
+
+/** Cola de validación entre proyectos (ADM/GER; el resto recibe 403). */
+export function useExpenseValidationQueue(): UseQueryResult<{ gastos: ExpenseQueueRow[] }> {
+  return useQuery({
+    queryKey: projectQueryKeys.expenseQueue,
+    retry: false,
+    queryFn: () =>
+      apiGet<{ gastos: ExpenseQueueRow[] }>("/api/v1/expense-validations?estado=REGISTRADO&limit=50"),
+  });
+}
+
+/** Refresca lo que un gasto puede cambiar: su lista, la cola y E de la ficha financiera. */
+function useRefreshGastos() {
+  const qc = useQueryClient();
+  return () => {
+    for (const key of [["projects", "expenses"], ["projects", "expense-validations"], ["projects", "financial-sheet"]]) {
+      void qc.invalidateQueries({ queryKey: key });
+    }
+  };
+}
+
+/** Registra un gasto: sube su soporte (si es archivo) y confirma todo en un solo POST. */
+export function useCreateExpense(
+  projectId: string,
+): UseMutationResult<{ gasto: ProjectExpense; alertas: ExpenseAlert[] }, Error, ProjectExpenseInput> {
+  const refresh = useRefreshGastos();
+  return useMutation({
+    mutationFn: async ({ soporte, ...datos }) => {
+      const confirmado =
+        soporte.tipo === "archivo"
+          ? await uploadSoporteFile(`/api/v1/projects/${projectId}/expenses/sign`, soporte.file)
+          : { url_externa: soporte.url_externa, nombre: soporte.nombre };
+      return apiPost<{ gasto: ProjectExpense; alertas: ExpenseAlert[] }>(
+        `/api/v1/projects/${projectId}/expenses`,
+        { ...datos, soportes: [confirmado] },
+      );
+    },
+    onSuccess: refresh,
+  });
+}
+
+type ExpenseTarget = { projectId: string; id: string };
+
+/** Valida un gasto (ADM/GER distinto de quien lo registró). 409 OVERSPEND_BLOCKED refresca la bandera. */
+export function useValidateExpense(): UseMutationResult<{ gasto: ProjectExpense }, Error, ExpenseTarget> {
+  const refresh = useRefreshGastos();
+  return useMutation({
+    mutationFn: ({ projectId, id }) =>
+      apiPost<{ gasto: ProjectExpense }>(`/api/v1/projects/${projectId}/expenses/${id}/validate`),
+    onSettled: refresh,
+  });
+}
+
+export function useRejectExpense(): UseMutationResult<
+  { gasto: ProjectExpense },
+  Error,
+  ExpenseTarget & { motivo: string }
+> {
+  const refresh = useRefreshGastos();
+  return useMutation({
+    mutationFn: ({ projectId, id, motivo }) =>
+      apiPost<{ gasto: ProjectExpense }>(`/api/v1/projects/${projectId}/expenses/${id}/reject`, { motivo }),
+    onSettled: refresh,
+  });
+}
+
+/** Anula un gasto validado (solo gestores); deja de contar en E. */
+export function useVoidExpense(): UseMutationResult<
+  { gasto: ProjectExpense },
+  Error,
+  ExpenseTarget & { motivo: string }
+> {
+  const refresh = useRefreshGastos();
+  return useMutation({
+    mutationFn: ({ projectId, id, motivo }) =>
+      apiPost<{ gasto: ProjectExpense }>(`/api/v1/projects/${projectId}/expenses/${id}/void`, { motivo }),
+    onSettled: refresh,
+  });
+}
+
+/**
+ * Pide la URL firmada (60 s) o el enlace de un soporte y la abre en otra pestaña. La API registra
+ * cada emisión en la bitácora de accesos (RNF-04), así que NO se cachea ni se reutiliza la URL.
+ */
+export async function downloadExpenseSoporte(
+  projectId: string,
+  expenseId: string,
+  soporteId: string,
+): Promise<void> {
+  const res = await apiGet<{ tipo: "archivo" | "enlace"; url: string | null }>(
+    `/api/v1/projects/${projectId}/expenses/${expenseId}/attachments/${soporteId}/download`,
+  );
+  if (!res.url) throw new ApiError("El soporte no tiene un enlace disponible.", 404);
+  window.open(res.url, "_blank", "noopener,noreferrer");
 }
 
 function toastError(err: unknown, fallback: string): never {

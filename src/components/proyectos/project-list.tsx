@@ -35,6 +35,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ResponsableCell, ToneBadge } from "@/components/crm/shared";
+import { ExpenseValidationQueue } from "@/components/proyectos/expense-validation-queue";
 import { ProjectCreateDialog } from "@/components/proyectos/project-create-dialog";
 import {
   ESTADO_PROYECTO_META,
@@ -43,7 +44,7 @@ import {
 import { ProjectFichaDialog } from "@/components/proyectos/project-ficha-dialog";
 import { useCurrentUser } from "@/hooks/kanban";
 import { useProjects, type ProjectFilters, type ProjectListRow } from "@/hooks/projects";
-import { canCreateProject, canViewPortfolio } from "@/lib/permissions";
+import { canCreateProject, canManageProjects, canViewPortfolio } from "@/lib/permissions";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import type { EstadoProyecto } from "@prisma/client";
 
@@ -101,6 +102,8 @@ export function ProjectList() {
   // autoridad sigue siendo la API, que responde 403 a cualquier otro rol tanto
   // en la creación como en el listado de elegibles.
   const puedeCrear = usuario ? canCreateProject({ id: usuario.id, rol: usuario.rol }) : false;
+  // La cola de gastos por validar es solo de gestores (la API responde 403 al resto).
+  const puedeValidar = usuario ? canManageProjects({ id: usuario.id, rol: usuario.rol }) : false;
 
   const proyectos = query.data?.proyectos ?? [];
   const total = proyectos.length;
@@ -108,6 +111,8 @@ export function ProjectList() {
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
+      {puedeValidar && <ExpenseValidationQueue />}
+
       <section className="rounded-[22px] border border-ink-200 bg-panel">
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-200 p-4 lg:p-5">
           {/* Barra de herramientas, no un segundo título: el h1 lo pone el shell. */}

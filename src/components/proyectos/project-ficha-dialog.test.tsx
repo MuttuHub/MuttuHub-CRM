@@ -136,6 +136,22 @@ describe("ProjectFichaDialog", () => {
     )
   })
 
+  it("mounts the Gastos section after the Ficha financiera and before the history", async () => {
+    mockFichaAndAudit({ historial: [] })
+
+    renderFicha()
+
+    const gastos = await screen.findByTestId("gastos")
+    expect(gastos).toHaveTextContent("Gastos")
+    const financiero = screen.getByTestId("financiero")
+    const historial = screen.getByTestId("historial")
+    expect(financiero.compareDocumentPosition(gastos) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(gastos.compareDocumentPosition(historial) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/expenses", expect.any(Object)),
+    )
+  })
+
   it("mounts the technical execution section between the structure and the history", async () => {
     mockFichaAndAudit({ historial: [] })
 
@@ -292,6 +308,10 @@ describe("ProjectFichaDialog", () => {
         return Promise.resolve(
           jsonResponse({ estado: "EN_EJECUCION", rubros: [], suma: "0.00", valor_total: null, diferencia: null }),
         )
+      }
+      // Gastos (S6 U6): vacíos; su comportamiento vive en project-gastos.test.tsx.
+      if (String(input).endsWith("/expenses")) {
+        return Promise.resolve(jsonResponse({ gastos: [], totales: {} }))
       }
       if (String(input).includes("/financial-sheet")) {
         return Promise.resolve(jsonResponse(FINANCIERA))

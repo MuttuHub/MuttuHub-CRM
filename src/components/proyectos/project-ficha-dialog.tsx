@@ -30,6 +30,7 @@ import {
 import { ProjectEstructura } from "@/components/proyectos/project-estructura";
 import { ProjectEjecucion } from "@/components/proyectos/project-ejecucion";
 import { ProjectFinanciero } from "@/components/proyectos/project-financiero";
+import { ProjectGastos } from "@/components/proyectos/project-gastos";
 import { ProjectPresupuesto } from "@/components/proyectos/project-presupuesto";
 import { ProjectTeam } from "@/components/proyectos/project-team";
 import {
@@ -209,6 +210,8 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
         <ProjectEjecucion proyecto={proyecto} />
 
         <ProjectFinanciero proyecto={proyecto} />
+
+        <ProjectGastos proyecto={proyecto} />
 
         <ProjectHistorial proyectoId={proyecto.id} />
       </div>

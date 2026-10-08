@@ -32,6 +32,7 @@ const {
   projectsQuery,
   fichaQuery,
   userQuery,
+  expenseQueue,
   dialogHooks,
 } = vi.hoisted(() => {
   const projectsQuery: ProjectsQueryState = {
@@ -48,6 +49,7 @@ const {
     data: undefined,
   }
   const userQuery: CurrentUserState = { data: null }
+  const expenseQueue: { data: { gastos: unknown[] } | undefined; isError: boolean } = { data: { gastos: [] }, isError: false }
   const queryState = { data: [], isLoading: false, isError: false }
   return {
     toast: { error: vi.fn(), success: vi.fn() },
@@ -57,6 +59,7 @@ const {
     projectsQuery,
     fichaQuery,
     userQuery,
+    expenseQueue,
     // El diálogo importa estos hooks; con ellos burlados el listado se prueba
     // sin QueryClientProvider ni fetch real.
     dialogHooks: {
@@ -185,6 +188,21 @@ vi.mock("@/hooks/projects", () => ({
       () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, isError: false, error: null, variables: undefined }),
     ]),
   ),
+  // ... and the Gastos section (S6 U6) plus the validation queue: no expenses, nothing pending.
+  useProjectExpenses: () => ({
+    data: { gastos: [], totales: {} },
+    isLoading: false,
+    isError: false,
+    error: null,
+  }),
+  useExpenseValidationQueue: () => expenseQueue,
+  ...Object.fromEntries(
+    ["useCreateExpense", "useValidateExpense", "useRejectExpense", "useVoidExpense"].map((name) => [
+      name,
+      () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, isError: false, error: null, variables: undefined }),
+    ]),
+  ),
+  downloadExpenseSoporte: vi.fn(),
   useEligibleOpportunities: dialogHooks.useEligibleOpportunities,
   useStrategicLines: dialogHooks.useStrategicLines,
   useMunicipalities: dialogHooks.useMunicipalities,
@@ -240,6 +258,8 @@ describe("ProjectList", () => {
     useProjectsMock.mockClear()
     useProjectMock.mockClear()
     useCurrentUserMock.mockClear()
+    expenseQueue.data = { gastos: [] }
+    expenseQueue.isError = false
     projectsQuery.isLoading = false
     projectsQuery.isError = false
     projectsQuery.error = null
@@ -429,6 +449,44 @@ describe("ProjectList", () => {
     userQuery.data = { id: "u2", nombre: "Greta Gómez", rol: "GERENCIA" }
     render(<ProjectList />)
     expect(screen.getByRole("button", { name: "Nuevo proyecto" })).toBeInTheDocument()
+  })
+
+  describe("validation queue (S6)", () => {
+    const pendiente = {
+      id: "g1",
+      proyecto_id: "p9",
+      proyecto_codigo: "PRY-009",
+      proyecto_nombre: "Otro",
+      rubro: { id: "r1", codigo: "R12", nombre: "Transporte" },
+      fecha_documento: "2026-10-15",
+      periodo: "2026-10",
+      tercero_nombre: "Proveedor SAS",
+      tercero_tipo_id: "NIT",
+      numero_documento: "FE-1",
+      descripcion: "Tiquetes",
+      valor: "1500000.00",
+      estado: "REGISTRADO",
+      alerta_sobregasto: false,
+      datos_incompletos: false,
+      registrado_por_id: "otro",
+      registrado_por_nombre: "Ana",
+      propio: false,
+      created_at: "2026-10-16T12:00:00.000Z",
+    }
+
+    it("mounts the queue above the table for managers", () => {
+      expenseQueue.data = { gastos: [pendiente] }
+      userQuery.data = { id: "u2", nombre: "Greta Gómez", rol: "GERENCIA" }
+      render(<ProjectList />)
+      expect(screen.getByTestId("cola-validacion")).toHaveTextContent("PRY-009")
+    })
+
+    it("does not mount the queue for other roles", () => {
+      expenseQueue.data = { gastos: [pendiente] }
+      userQuery.data = { id: "u9", nombre: "Carlos Ruiz", rol: "COORDINADOR" }
+      render(<ProjectList />)
+      expect(screen.queryByTestId("cola-validacion")).not.toBeInTheDocument()
+    })
   })
 
   it("hides the creation CTA for a role without canCreateProject", () => {
