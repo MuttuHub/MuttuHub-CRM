@@ -15,6 +15,7 @@ import { LINEAS_ESTRATEGICAS_V2, RUBROS_V2 } from "@/lib/catalogs"
 import { fromCents, toCents } from "../money"
 import type { Periodo } from "../weeks"
 import type { PlantillaInput } from "../plantilla/generate"
+import type { ContextoValidacion } from "../plantilla/validate"
 
 export type F_X1_Variante = "valido" | "v12"
 
@@ -209,3 +210,27 @@ export const F_X1_SUMA_VALIDA = Object.values(F_X1_PRESUPUESTO).reduce(
   (total, valor) => total + toCents(valor),
   toCents("0"),
 )
+
+/**
+ * F-X1 validation context (U3): the project, catalogs and users the validators
+ * resolve against. Mirrors the fixture input one-to-one (the two strategic
+ * lines, the two municipios and the single responsable) plus LE01 so a test can
+ * exercise an unknown-code case against a catalog that still has other entries.
+ * Fresh object per call: tests mutate the context without leaking state.
+ */
+export function fixtureContextoFX1(): ContextoValidacion {
+  return {
+    proyecto: { codigo: F_X1_CODIGO, estado: "BORRADOR" },
+    rubros: RUBROS_V2.map((rubro) => ({ codigo: rubro.codigo, activo: true })),
+    lineas: [
+      { id: "linea-LE03", codigo: "LE03", nombre: "Productividad", activo: true },
+      { id: "linea-LE02", codigo: "LE02", nombre: "Emprendimiento", activo: true },
+      { id: "linea-LE01", codigo: "LE01", nombre: "Empleabilidad", activo: true },
+    ],
+    municipios: [
+      { id: "municipio-23001", nombre: "Montería", departamento: "Córdoba", codigoDane: "23001", activo: true },
+      { id: "municipio-23162", nombre: "Cereté", departamento: "Córdoba", codigoDane: "23162", activo: true },
+    ],
+    usuarios: [{ id: "usuario-ana", email: F_X1_RESPONSABLE }],
+  }
+}
