@@ -38,11 +38,11 @@ record indicator measurements and beneficiaries, and read a technical semáforo 
 
 Route: delegated writer in two rounds (round 1: U1-U3, round 2: U4-U6).
 
-- [ ] **U1** Pure libs: `src/lib/proyectos/avance.ts`, `__fixtures__/tecnico.ts`, `colorTecnicoV2`/`ColorSemaforo`, tendencia.
-- [ ] **U2** Avances backend: migration `v2_avances`, `ejecucion.ts` gates, progress + void routes, delete guard,
-  `beneficiarios` audit entity, OpenAPI, `scripts/set-project-estado.ts`.
-- [ ] **U3** Medios: migration `v2_soportes_medios`, `isValidExternalUrl`, `proyecto_soporte` upload target,
-  sign/confirm/link routes, signed download, `cuenta` from live medio.
+- [x] **U1** Pure libs: `src/lib/proyectos/avance.ts`, `__fixtures__/tecnico.ts`, `colorTecnicoV2`/`ColorSemaforo`, tendencia (bd775f7).
+- [x] **U2** Avances backend: migration `v2_avances`, `ejecucion.ts` gates, progress + void routes, delete guard,
+  `beneficiarios` audit entity, OpenAPI, `scripts/set-project-estado.ts` (021b560).
+- [x] **U3** Medios: migration `v2_soportes_medios`, `isValidExternalUrl`, `proyecto_soporte` upload target,
+  sign/confirm/link routes, signed download, `cuenta` from live medio (2aed734).
 - [ ] **U4** Mediciones + beneficiarios: tables, routes + void, guards, tendencia in response.
 - [ ] **U5** `GET projects/[id]/technical-status`, `fecha_cumplimiento`, OpenAPI.
 - [ ] **U6** UI: hooks, ejecucion section, semáforo, ficha mount.
@@ -55,7 +55,28 @@ Route: delegated writer in two rounds (round 1: U1-U3, round 2: U4-U6).
 ## Progress
 
 - 2026-10-08: document created from the S4 map.
+- 2026-10-08: round 1 (U1-U3) by one writer, local DB only (2 migrations applied with `.env.local`: `20261008130000_v2_avances`,
+  `20261008140000_v2_soportes_medios`; `prisma generate` via `db:generate:local`). RED observed per unit (missing module / missing
+  Prisma delegate / missing route), then GREEN. Full suite `TZ=America/Bogota npx vitest run`: 194 files / 1943 tests green;
+  `tsc --noEmit` and eslint clean.
+  - U1: `avance.ts` (+ `calcularTecnico` composer), fixture F-T1/F-T1b, `colorTecnicoV2` compares in tenths (9.999999999999998 verde,
+    10.1 amarillo, 20.0 amarillo, 20.1 rojo). Golden holds: real 21.4 %, programmed 57.1 %, deviation 35.7 pp, rojo.
+  - U2: `src/lib/api/ejecucion.ts` (`gateEjecucionWrite/Read/Void`, `toAvanceView`, `avanceCuenta`), routes under
+    `projects/[id]/deliverables/[deliverableId]/progress` (+ `[progressId]/void`), deliverable delete guard, `beneficiarios`
+    audit entity, OpenAPI in `src/lib/openapi/paths/project-execution.ts`, `scripts/set-project-estado.ts` (dry run default).
+    Live-DB invariant `prisma/avances.invariant.test.ts` (CHECKs, composite FK, the `FOR UPDATE` SQL).
+  - U3: `isValidExternalUrl`, `proyecto_soporte` target + `proyectoSoportePath`, routes under
+    `projects/[id]/progress/[progressId]/attachments` (`GET`, `POST` file-confirm or link, `sign`, `[attachmentId]/download`),
+    `contarMediosVivos`; `cuenta` is true once a live medio exists.
+  - Deviations: (1) F-T1 fixture gets a second 1.3 deliverable (`a13-e2`, meta 2/0) because the map's single-deliverable 1.3 gives
+    0.5, not the 0.25 the F-T1b numbers need; F-T1 golden unchanged. (2) Cap check sums ALL non-voided avances (counted or not), not
+    only counted, so a medio attached later can never push the total over the goal. (3) `soportes_proyecto.medicion_id` has no FK
+    yet: it arrives with the measurements table in U4 (add the composite FK and the `(id, proyecto_id)` unique there).
+    (4) No `VISUALIZADOR` role exists in `RolUsuario` (only ADM/GER/COORD/COLAB); tests use COLABORADOR. (5) Medios have no
+    delete route (soft-delete column exists; not requested). (6) `tsx` cannot run in this shell (win32 esbuild), so
+    `set-project-estado.ts` is unit-tested with fakes but not executed against the DB. (7) Native review (RDD) not run: needs
+    per-candidate consent.
 
 ## Next step
 
-U1.
+Round 2: U4 (mediciones + beneficiarios; add the `medicion_id` composite FK), U5 (technical-status), U6 (UI).
