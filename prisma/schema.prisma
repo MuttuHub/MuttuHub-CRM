@@ -685,6 +685,7 @@ model Proyecto {
   soportes_proyecto  SoporteProyecto[]
   lineas_presupuestales LineaPresupuestal[]
   programacion_periodos ProgramacionPeriodo[]
+  gastos                Gasto[]
 
   @@unique([oportunidad_id, cliente_id])
   @@index([cliente_id])
@@ -899,12 +900,15 @@ model AvanceEntregable {
 // `soportes_proyecto_tamano_check`; `storage_path` is unique so one stored object
 // backs one medio. `avance_id` is a same-project composite FK; `medicion_id` is a
 // same-project composite FK to the measurements table (S4 U4). Soft delete only (`deleted_at`).
-// `gasto_id` and the access log belong to S6.
+// S6 adds `gasto_id` (same-project composite FK to `gastos`); the CHECK keeps the same name and
+// now reads `num_nonnulls(avance_id, medicion_id, gasto_id) = 1`. Every consultation of an
+// expense support is logged in `acceso_soportes`.
 model SoporteProyecto {
   id            String    @id @default(uuid())
   proyecto_id   String
   avance_id     String?
   medicion_id   String?
+  gasto_id      String?
   nombre        String
   storage_path  String?   @unique
   url_externa   String?
@@ -917,9 +921,12 @@ model SoporteProyecto {
   proyecto Proyecto          @relation(fields: [proyecto_id], references: [id])
   avance   AvanceEntregable? @relation(fields: [avance_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
   medicion MedicionIndicador? @relation(fields: [medicion_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
+  gasto    Gasto?            @relation(fields: [gasto_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
+  accesos  AccesoSoporte[]
 
   @@index([avance_id])
   @@index([medicion_id])
+  @@index([gasto_id])
   @@index([proyecto_id])
   @@map("soportes_proyecto")
 }
@@ -1025,6 +1032,7 @@ model LineaPresupuestal {
   proyecto     Proyecto               @relation(fields: [proyecto_id], references: [id])
   rubro        Rubro                  @relation(fields: [rubro_id], references: [id])
   programacion ProgramacionPeriodo[]
+  gastos       Gasto[]
 
   @@unique([proyecto_id, rubro_id])
   @@unique([id, proyecto_id])
@@ -1051,4 +1059,90 @@ model ProgramacionPeriodo {
   @@unique([linea_id, periodo])
   @@index([proyecto_id, periodo])
   @@map("programacion_periodo")
+}
+
+enum EstadoGasto {
+  REGISTRADO
+  VALIDADO
+  RECHAZADO
+  ANULADO
+}
+
+enum TipoSoporteGasto {
+  FACTURA_PROVEEDOR
+  CUENTA_COBRO_PERSONA_NATURAL
+  OTRO
+}
+
+enum TipoIdentificacion {
+  NIT
+  CC
+  CE
+}
+
+// v2 projects module (S6, SDD §3.9, RF-20..22) — one expense against a budget line. The
+// composite relation `[linea_id, proyecto_id]` keeps the line in the same project. CHECKs
+// (the invariant test asserts these names): `gastos_monto_positivo_ck`, `gastos_periodo_ck`,
+// `gastos_validador_ck` (validator <> registrant), `gastos_rechazo_ck`, `gastos_rechazador_ck`,
+// `gastos_validado_ck` (VALIDADO needs validator, date and the third-party id: N-15) and
+// `gastos_anulado_ck` (ANULADO <=> the three anulado_* columns). `datos_incompletos` is derived
+// (tercero_tipo_id or tercero_numero_id null), never stored. `*_norm` columns are written by the
+// app from `lib/proyectos/gastos.ts` and used only for the duplicate lookup (RF-21). Actor ids
+// carry no FK (same choice as S4). The third-party number never goes to the audit ledger.
+model Gasto {
+  id                    String             @id @default(uuid())
+  proyecto_id           String
+  linea_id              String
+  fecha_documento       DateTime           @db.Date
+  periodo               String             @db.Char(7)
+  tipo_soporte          TipoSoporteGasto
+  tercero_nombre        String
+  tercero_tipo_id       TipoIdentificacion?
+  tercero_numero_id     String?
+  tercero_id_norm       String?
+  numero_documento      String
+  numero_documento_norm String
+  descripcion           String
+  monto_cop             Decimal            @db.Decimal(15, 2)
+  estado                EstadoGasto        @default(REGISTRADO)
+  alerta_sobregasto     Boolean            @default(false)
+  registrado_por_id     String
+  created_at            DateTime           @default(now())
+  updated_at            DateTime           @updatedAt
+  validado_por_id       String?
+  validado_at           DateTime?
+  rechazado_por_id      String?
+  rechazado_at          DateTime?
+  motivo_rechazo        String?
+  anulado_por_id        String?
+  anulado_at            DateTime?
+  motivo_anulacion      String?
+
+  proyecto Proyecto          @relation(fields: [proyecto_id], references: [id])
+  linea    LineaPresupuestal @relation(fields: [linea_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
+  soportes SoporteProyecto[]
+
+  @@unique([id, proyecto_id])
+  @@index([proyecto_id, estado, periodo])
+  @@index([linea_id, estado])
+  @@index([tercero_id_norm, numero_documento_norm])
+  @@index([estado, created_at])
+  @@map("gastos")
+}
+
+// v2 projects module (S6, RNF-04) — append-only log of every issued download of an expense
+// support. Triggers reject UPDATE/DELETE/TRUNCATE (`acceso_soportes_inmutable()`). The soporte
+// FK is RESTRICT; the actor id carries no FK.
+model AccesoSoporte {
+  id          String   @id @default(uuid())
+  soporte_id  String
+  proyecto_id String
+  usuario_id  String
+  created_at  DateTime @default(now())
+
+  soporte SoporteProyecto @relation(fields: [soporte_id], references: [id], onDelete: Restrict)
+
+  @@index([proyecto_id, created_at])
+  @@index([soporte_id])
+  @@map("acceso_soportes")
 }
