@@ -137,3 +137,83 @@ export function toAvanceView(row: AvanceRow, requiereMedio: boolean, medios = 0)
     cuenta: avanceCuenta(row.anulado_at !== null, requiereMedio, medios),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Medios (supports) of an avance
+// ---------------------------------------------------------------------------
+
+/** Live (not soft-deleted) medios per avance id; avances without medios are absent from the map. */
+export async function contarMediosVivos(avanceIds: string[]): Promise<Map<string, number>> {
+  if (avanceIds.length === 0) return new Map();
+  const grouped = await db.soporteProyecto.groupBy({
+    by: ["avance_id"],
+    where: { avance_id: { in: avanceIds }, deleted_at: null },
+    _count: { _all: true },
+  });
+  const counts = new Map<string, number>();
+  for (const row of grouped) {
+    if (row.avance_id) counts.set(row.avance_id, row._count._all);
+  }
+  return counts;
+}
+
+export type MedioRow = {
+  id: string;
+  proyecto_id: string;
+  avance_id: string | null;
+  nombre: string;
+  storage_path: string | null;
+  url_externa: string | null;
+  tipo_mime: string | null;
+  tamano_bytes: number | null;
+  subido_por_id: string;
+  created_at: Date;
+};
+
+export type MedioView = {
+  id: string;
+  proyecto_id: string;
+  avance_id: string | null;
+  nombre: string;
+  tipo: "archivo" | "enlace";
+  url_externa: string | null;
+  tipo_mime: string | null;
+  tamano_bytes: number | null;
+  subido_por_id: string;
+  created_at: string;
+};
+
+/** The storage key is never exposed: downloads go through the signed-URL route. */
+export function toMedioView(row: MedioRow): MedioView {
+  return {
+    id: row.id,
+    proyecto_id: row.proyecto_id,
+    avance_id: row.avance_id,
+    nombre: row.nombre,
+    tipo: row.storage_path ? "archivo" : "enlace",
+    url_externa: row.url_externa,
+    tipo_mime: row.tipo_mime,
+    tamano_bytes: row.tamano_bytes,
+    subido_por_id: row.subido_por_id,
+    created_at: row.created_at.toISOString(),
+  };
+}
+
+export const AVANCE_ANULADO_MEDIO_MESSAGE = "No se pueden adjuntar medios a un avance anulado.";
+
+/** The avance must belong to this project (404); a voided one cannot receive medios (409). */
+export async function loadAvanceParaMedio(
+  proyectoId: string,
+  avanceId: string,
+  { permitirAnulado = false }: { permitirAnulado?: boolean } = {},
+): Promise<{ ok: true; value: { id: string } } | { ok: false; response: Response }> {
+  const avance = await db.avanceEntregable.findFirst({
+    where: { id: avanceId, proyecto_id: proyectoId },
+    select: { id: true, anulado_at: true },
+  });
+  if (!avance) return { ok: false, response: apiError(AVANCE_NO_EXISTE, 404, "NOT_FOUND") };
+  if (avance.anulado_at !== null && !permitirAnulado) {
+    return { ok: false, response: apiError(AVANCE_ANULADO_MEDIO_MESSAGE, 409, "CONFLICT") };
+  }
+  return { ok: true, value: { id: avance.id } };
+}

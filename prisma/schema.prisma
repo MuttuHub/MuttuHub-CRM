@@ -678,6 +678,7 @@ model Proyecto {
   entregables Entregable[]
   indicadores Indicador[]
   avances_entregable AvanceEntregable[]
+  soportes_proyecto  SoporteProyecto[]
 
   @@unique([oportunidad_id, cliente_id])
   @@index([cliente_id])
@@ -875,11 +876,44 @@ model AvanceEntregable {
 
   proyecto   Proyecto   @relation(fields: [proyecto_id], references: [id])
   entregable Entregable @relation(fields: [entregable_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
+  soportes   SoporteProyecto[]
 
   @@unique([id, proyecto_id])
   @@index([entregable_id, fecha])
   @@index([proyecto_id])
   @@map("avances_entregable")
+}
+
+// v2 projects module (S4 U3, SDD §4.8, REQ-EXE-03) — a medio de verificación of
+// an execution record: an uploaded file (`storage_path`, signed upload, never
+// deleted from storage) or an external https link (`url_externa`). CHECKs
+// `soportes_proyecto_padre_check` (exactly one of avance_id / medicion_id),
+// `soportes_proyecto_fuente_check` (exactly one of storage_path / url_externa) and
+// `soportes_proyecto_tamano_check`; `storage_path` is unique so one stored object
+// backs one medio. `avance_id` is a same-project composite FK; `medicion_id` gets
+// its FK with the measurements table (S4 U4). Soft delete only (`deleted_at`).
+// `gasto_id` and the access log belong to S6.
+model SoporteProyecto {
+  id            String    @id @default(uuid())
+  proyecto_id   String
+  avance_id     String?
+  medicion_id   String?
+  nombre        String
+  storage_path  String?   @unique
+  url_externa   String?
+  tipo_mime     String?
+  tamano_bytes  Int?
+  subido_por_id String
+  created_at    DateTime  @default(now())
+  deleted_at    DateTime?
+
+  proyecto Proyecto          @relation(fields: [proyecto_id], references: [id])
+  avance   AvanceEntregable? @relation(fields: [avance_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([avance_id])
+  @@index([medicion_id])
+  @@index([proyecto_id])
+  @@map("soportes_proyecto")
 }
 
 // v2 projects module (S3, SDD §4.8, REQ-STR-06) — a result indicator attached

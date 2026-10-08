@@ -15,11 +15,13 @@ import { sanitizeFileName } from "@/lib/api/files";
 
 export type SignedUploadTarget =
   | { kind: "tarea"; tareaId: string }
-  | { kind: "documento"; clienteId: string | null; documentoId: string };
+  | { kind: "documento"; clienteId: string | null; documentoId: string }
+  | { kind: "proyecto_soporte"; proyectoId: string };
 
 /** Exact segment prefix every key for `target` must live under. */
 export function targetStoragePrefix(target: SignedUploadTarget): string {
   if (target.kind === "tarea") return `tareas/${target.tareaId}`;
+  if (target.kind === "proyecto_soporte") return `proyectos/${target.proyectoId}/soportes`;
   return `documentos/${target.clienteId ?? "general"}/${target.documentoId}`;
 }
 
@@ -34,6 +36,19 @@ export function taskAttachmentStoragePath(
   storageId: string = randomUUID(),
 ): string {
   return `tareas/${tareaId}/${storageId}_${sanitizeFileName(originalName)}`;
+}
+
+/**
+ * Medio (support) of a project record: `proyectos/{proyectoId}/soportes/{uuid}_{nombre-sanitizado}`.
+ * The server always chooses the key; the confirm routes re-check it with
+ * `assertKeyBelongsToTarget`.
+ */
+export function proyectoSoportePath(
+  proyectoId: string,
+  originalName: string,
+  storageId: string = randomUUID(),
+): string {
+  return `proyectos/${proyectoId}/soportes/${storageId}_${sanitizeFileName(originalName)}`;
 }
 
 /**

@@ -18,6 +18,7 @@ import { logChange } from "@/lib/api/audit-cambios";
 import { cantidadPositivaField, parseEstructuraBody, toDecimal2 } from "@/lib/api/estructura";
 import {
   ENTREGABLE_NO_EXISTE,
+  contarMediosVivos,
   gateEjecucionRead,
   gateEjecucionWrite,
   toAvanceView,
@@ -83,11 +84,12 @@ export const GET = withApiErrorHandling(
       getSemaforoParametrosV2(),
     ]);
     const requiereMedio = parametros.avance_requiere_medio.valor;
+    const medios = await contarMediosVivos(rows.map((row) => row.id));
 
     return NextResponse.json({
       estado: gate.value.estado,
       meta: entregable.cantidad_meta.toString(),
-      avances: rows.map((row) => toAvanceView(row, requiereMedio)),
+      avances: rows.map((row) => toAvanceView(row, requiereMedio, medios.get(row.id) ?? 0)),
     });
   },
 );

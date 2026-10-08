@@ -6,6 +6,7 @@ import {
   MAX_FILE_MB,
   isAllowedFileType,
   isAllowedNameAndMime,
+  isValidExternalUrl,
   fileExtension,
   sanitizeFileName,
 } from "./files";
@@ -165,5 +166,40 @@ describe("unified upload policy — 25 MB and a strict allowlist (S0.9a)", () =>
       else process.env.MAX_FILE_SIZE_MB = original;
       vi.resetModules();
     }
+  });
+});
+
+describe("isValidExternalUrl", () => {
+  it("accepts https URLs", () => {
+    expect(isValidExternalUrl("https://drive.example.com/file/d/1")).toBe(true);
+    expect(isValidExternalUrl("https://example.com/a?b=c#d")).toBe(true);
+  });
+
+  it("rejects http, other schemes and malformed values", () => {
+    for (const url of [
+      "http://example.com/a",
+      "javascript:alert(1)",
+      "data:text/html;base64,AAAA",
+      "file:///etc/passwd",
+      "ftp://example.com/x",
+      "//example.com/x",
+      "example.com/x",
+      "https://",
+      "",
+      "   ",
+    ]) {
+      expect(isValidExternalUrl(url), url).toBe(false);
+    }
+  });
+
+  it("rejects URLs longer than 2000 characters, accepts exactly 2000", () => {
+    const base = "https://example.com/";
+    expect(isValidExternalUrl(base + "a".repeat(2000 - base.length))).toBe(true);
+    expect(isValidExternalUrl(base + "a".repeat(2001 - base.length))).toBe(false);
+  });
+
+  it("rejects URLs with embedded credentials and surrounding whitespace", () => {
+    expect(isValidExternalUrl("https://user:pass@example.com/x")).toBe(false);
+    expect(isValidExternalUrl(" https://example.com/x")).toBe(false);
   });
 });

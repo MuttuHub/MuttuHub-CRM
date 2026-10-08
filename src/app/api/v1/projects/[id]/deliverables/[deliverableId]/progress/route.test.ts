@@ -24,6 +24,7 @@ vi.mock("@/lib/db", () => ({
     proyecto: { findFirst: vi.fn() },
     entregable: { findFirst: vi.fn() },
     avanceEntregable: { findMany: vi.fn() },
+    soporteProyecto: { groupBy: vi.fn() },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
       fn({ $queryRaw: mocks.queryRaw, avanceEntregable: { aggregate: mocks.aggregate, create: mocks.create } }),
     ),
@@ -78,6 +79,7 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-10-08T15:00:00.000Z"));
   mocks.requiereMedio = { valor: true, confirmado: false };
+  vi.mocked(db.soporteProyecto.groupBy).mockResolvedValue([] as never);
   authAs(gerencia);
   vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto());
   vi.mocked(db.entregable.findFirst).mockResolvedValue(entregable as never);
@@ -244,6 +246,23 @@ describe("GET progress", () => {
         orderBy: [{ fecha: "asc" }, { created_at: "asc" }],
       }),
     );
+  });
+
+  it("counts an avance (cuenta true) once it has a live medio and exposes the medios count", async () => {
+    vi.mocked(db.soporteProyecto.groupBy).mockResolvedValue([{ avance_id: "av-1", _count: { _all: 2 } }] as never);
+    const json = await (await GET(get(), ctx)).json();
+    expect(json.avances[0]).toMatchObject({ id: "av-1", medios: 2, cuenta: true });
+    expect(json.avances[1]).toMatchObject({ id: "av-2", medios: 0, cuenta: false });
+    expect(db.soporteProyecto.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { avance_id: { in: ["av-1", "av-2"] }, deleted_at: null } }),
+    );
+  });
+
+  it("does not need a medio for cuenta when the parameter does not require one", async () => {
+    mocks.requiereMedio = { valor: false, confirmado: true };
+    const json = await (await GET(get(), ctx)).json();
+    expect(json.avances[0].cuenta).toBe(true);
+    expect(json.avances[1].cuenta).toBe(false); // voided never counts
   });
 
   it("is readable in BORRADOR, 403 for a stranger, 404 for unknown project or deliverable", async () => {

@@ -12,7 +12,7 @@ import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { logChange } from "@/lib/api/audit-cambios";
 import { conflict, parseEstructuraBody } from "@/lib/api/estructura";
-import { AVANCE_NO_EXISTE, gateEjecucionVoid, toAvanceView } from "@/lib/api/ejecucion";
+import { AVANCE_NO_EXISTE, contarMediosVivos, gateEjecucionVoid, toAvanceView } from "@/lib/api/ejecucion";
 import { getSemaforoParametrosV2 } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
@@ -75,6 +75,9 @@ export const POST = withApiErrorHandling(
     });
     if (!row) return conflict(AVANCE_ANULADO_MESSAGE);
 
-    return NextResponse.json({ avance: toAvanceView(row, parametros.avance_requiere_medio.valor) });
+    const medios = await contarMediosVivos([row.id]);
+    return NextResponse.json({
+      avance: toAvanceView(row, parametros.avance_requiere_medio.valor, medios.get(row.id) ?? 0),
+    });
   },
 );

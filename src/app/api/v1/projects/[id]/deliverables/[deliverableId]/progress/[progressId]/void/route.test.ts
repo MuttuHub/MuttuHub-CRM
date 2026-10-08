@@ -18,6 +18,7 @@ vi.mock("@/lib/db", () => ({
   db: {
     proyecto: { findFirst: vi.fn() },
     avanceEntregable: { findFirst: vi.fn() },
+    soporteProyecto: { groupBy: vi.fn(async () => []) },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
       fn({ avanceEntregable: { updateMany: mocks.updateMany, findUniqueOrThrow: mocks.findUnique } }),
     ),

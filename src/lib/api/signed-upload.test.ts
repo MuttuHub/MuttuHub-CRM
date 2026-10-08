@@ -7,6 +7,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assertKeyBelongsToTarget,
+  proyectoSoportePath,
   taskAttachmentStoragePath,
   targetStoragePrefix,
   type SignedUploadTarget,
@@ -113,5 +114,30 @@ describe("assertKeyBelongsToTarget — security-critical key ownership", () => {
     expect(
       assertKeyBelongsToTarget("documentos/general/doc-1/v1_informe.pdf", tareaTarget),
     ).toBe(false);
+  });
+});
+
+describe("proyecto_soporte target", () => {
+  const target: SignedUploadTarget = { kind: "proyecto_soporte", proyectoId: "pry-1" };
+
+  it("lives under proyectos/{id}/soportes", () => {
+    expect(targetStoragePrefix(target)).toBe("proyectos/pry-1/soportes");
+  });
+
+  it("builds proyectos/{id}/soportes/{uuid}_{sanitized-name}", () => {
+    expect(proyectoSoportePath("pry-1", "Acta de entrega ñ.pdf", "uuid-1")).toBe(
+      "proyectos/pry-1/soportes/uuid-1_Acta_de_entrega_n.pdf",
+    );
+  });
+
+  it("accepts its own keys and rejects another project, a sibling prefix and other targets", () => {
+    expect(assertKeyBelongsToTarget("proyectos/pry-1/soportes/u_a.pdf", target)).toBe(true);
+    expect(assertKeyBelongsToTarget("proyectos/pry-2/soportes/u_a.pdf", target)).toBe(false);
+    expect(assertKeyBelongsToTarget("proyectos/pry-1evil/soportes/u_a.pdf", target)).toBe(false);
+    expect(assertKeyBelongsToTarget("proyectos/pry-1/soportes-evil/u_a.pdf", target)).toBe(false);
+    expect(assertKeyBelongsToTarget("proyectos/pry-1/soportes", target)).toBe(false);
+    expect(assertKeyBelongsToTarget("proyectos/pry-1/soportes/../../pry-2/soportes/u_a.pdf", target)).toBe(false);
+    expect(assertKeyBelongsToTarget("tareas/task-1/u_a.pdf", target)).toBe(false);
+    expect(assertKeyBelongsToTarget("proyectos/pry-1/soportes/u_a.pdf", tareaTarget)).toBe(false);
   });
 });

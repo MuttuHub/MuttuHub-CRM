@@ -155,3 +155,81 @@ describe("AvanceEntregable invariants (live DB)", () => {
     expect(rows).toHaveLength(1)
   })
 })
+
+describe("SoporteProyecto invariants (live DB)", () => {
+  async function soporteFixture(tx: Tx) {
+    const base = await fixture(tx)
+    const avance = await tx.avanceEntregable.create({ data: base.datos })
+    const otroAvance = await tx.avanceEntregable.create({
+      data: { ...base.datos, proyecto_id: base.entregableOtro.proyecto_id, entregable_id: base.entregableOtro.id },
+    })
+    const datos = {
+      proyecto_id: base.proyecto.id,
+      avance_id: avance.id,
+      nombre: "acta.pdf",
+      storage_path: `proyectos/${base.proyecto.id}/soportes/${randomUUID()}_acta.pdf`,
+      tipo_mime: "application/pdf",
+      tamano_bytes: 1024,
+      subido_por_id: base.usuario.id,
+    }
+    return { ...base, avance, otroAvance, datos }
+  }
+
+  it("requires exactly one parent (soportes_proyecto_padre_check)", async () => {
+    for (const parent of [{ avance_id: null }, { medicion_id: randomUUID() }]) {
+      const error = await captureError(async (tx) => {
+        const { datos } = await soporteFixture(tx)
+        await tx.soporteProyecto.create({ data: { ...datos, ...parent } })
+      })
+      expect(driverMessage(error)).toContain("soportes_proyecto_padre_check")
+    }
+  })
+
+  it("requires exactly one source: file or external link (soportes_proyecto_fuente_check)", async () => {
+    for (const source of [
+      { storage_path: null },
+      { url_externa: "https://example.com/x" },
+    ]) {
+      const error = await captureError(async (tx) => {
+        const { datos } = await soporteFixture(tx)
+        await tx.soporteProyecto.create({ data: { ...datos, ...source } })
+      })
+      expect(driverMessage(error)).toContain("soportes_proyecto_fuente_check")
+    }
+  })
+
+  it("accepts a link-only medio", async () => {
+    const row = await runAndRollback(async (tx) => {
+      const { datos } = await soporteFixture(tx)
+      return tx.soporteProyecto.create({
+        data: { ...datos, storage_path: null, tipo_mime: null, tamano_bytes: null, url_externa: "https://example.com/x" },
+      })
+    })
+    expect(row.url_externa).toBe("https://example.com/x")
+  })
+
+  it("makes a cross-project avance impossible (composite foreign key)", async () => {
+    const error = await captureError(async (tx) => {
+      const { datos, otroAvance } = await soporteFixture(tx)
+      await tx.soporteProyecto.create({ data: { ...datos, avance_id: otroAvance.id } })
+    })
+    expect((error as Prisma.PrismaClientKnownRequestError).code).toBe("P2003")
+  })
+
+  it("never links the same stored object twice (storage_path unique)", async () => {
+    const error = await captureError(async (tx) => {
+      const { datos } = await soporteFixture(tx)
+      await tx.soporteProyecto.create({ data: datos })
+      await tx.soporteProyecto.create({ data: { ...datos, nombre: "otro.pdf" } })
+    })
+    expect((error as Prisma.PrismaClientKnownRequestError).code).toBe("P2002")
+  })
+
+  it("rejects a non-positive tamano_bytes (soportes_proyecto_tamano_check)", async () => {
+    const error = await captureError(async (tx) => {
+      const { datos } = await soporteFixture(tx)
+      await tx.soporteProyecto.create({ data: { ...datos, tamano_bytes: 0 } })
+    })
+    expect(driverMessage(error)).toContain("soportes_proyecto_tamano_check")
+  })
+})

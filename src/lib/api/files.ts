@@ -110,6 +110,30 @@ export function isAllowedNameAndMime(
   return !mime || mime === "application/octet-stream" || ALLOWED_FILE_MIME.has(mime);
 }
 
+/** Longest external link (medio de verificación) the module stores. */
+export const MAX_EXTERNAL_URL_LENGTH = 2000;
+
+/**
+ * True for an `https:` link the module may store as an external medio: at most
+ * 2000 characters, no surrounding whitespace, a real host and no embedded
+ * credentials. `http:`, `javascript:`, `data:` and `file:` are never accepted.
+ */
+export function isValidExternalUrl(url: string): boolean {
+  if (typeof url !== "string" || url.length === 0 || url.length > MAX_EXTERNAL_URL_LENGTH) return false;
+  if (url !== url.trim()) return false;
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.protocol === "https:" &&
+      parsed.hostname.length > 0 &&
+      parsed.username === "" &&
+      parsed.password === ""
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** Delegates to isAllowedNameAndMime so the AND rule lives in exactly one place. */
 export function isAllowedFileType(file: File): boolean {
   return isAllowedNameAndMime(file.name, file.type);

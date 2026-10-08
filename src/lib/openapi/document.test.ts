@@ -160,4 +160,14 @@ describe("buildOpenApiDocument", () => {
     const anular = paths["/api/v1/projects/{id}/deliverables/{deliverableId}/progress/{progressId}/void"]
     expect(codes(anular?.post)).toEqual(expect.arrayContaining(["200", "400", "403", "404", "409"]))
   })
+
+  it("registers the S4 medios paths (sign, confirm/link, list, download)", () => {
+    const paths = buildOpenApiDocument().paths ?? {}
+    const codes = (op: { responses?: object } | undefined) => Object.keys(op?.responses ?? {})
+    const base = "/api/v1/projects/{id}/progress/{progressId}/attachments"
+    expect(codes(paths[base]?.get)).toEqual(expect.arrayContaining(["200", "401", "403", "404"]))
+    expect(codes(paths[base]?.post)).toEqual(expect.arrayContaining(["201", "400", "403", "404", "409"]))
+    expect(codes(paths[`${base}/sign`]?.post)).toEqual(expect.arrayContaining(["200", "400", "403", "404", "409", "413"]))
+    expect(codes(paths[`${base}/{attachmentId}/download`]?.get)).toEqual(expect.arrayContaining(["200", "403", "404"]))
+  })
 })
