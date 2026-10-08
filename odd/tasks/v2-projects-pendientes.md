@@ -52,7 +52,17 @@ Delivery strategy `ask-on-risk`; one bounded writer per round; one commit per un
 - [x] **A** S2.4 value-difference alert (`diferenciaValor`, create route, PATCH recompute, hook types, dialog, OpenAPI) (482d233).
 - [x] **B** S2.7 "Mi resumen" projects-in-execution vs prospecting-opportunities groups (6b4d2c4).
 - [x] **F** S3.6b structure Gantt (`ganttLayout` + `estructura-gantt.tsx`) (53632e7).
-- [ ] **E1**, **E2**, **D1**, **D2** admin catalogs/settings (round 2).
+- [x] **E1** catalog GETs accept `?incluir_inactivos=true` (ADMINISTRADOR only; other roles ignore it; default unchanged;
+  shared helper `src/lib/api/incluir-inactivos.ts`; OpenAPI query param) (e535518).
+- [x] **E2** catalogs-v2 admin section `catalogos-v2-section.tsx`: rubros / lineas / municipios sub-tables, rename and
+  suspend/restore via PATCH, `codigo` read-only, add form for lineas and municipios (DANE 5 digits), no add for rubros,
+  409 shown inline in Spanish; mounted in `administracion/page.tsx`; hooks in `src/hooks/admin.ts` (170fcb0).
+- [x] **D1** semaforo v2 parameters: `src/lib/proyectos/semaforo-v2.ts` (defaults, all `confirmado:false`, safe
+  `parseParametrosV2`), `SETTING_SEMAFORO_PARAMETROS_V2` + getter in `settings.ts`, route
+  `/api/v1/settings/semaforo-v2` GET (any authenticated) / PATCH (ADMIN, partial, ranges, one `CAMBIAR_PARAMETRO` audit
+  row per changed field, entidad `parametro`), OpenAPI path (8723ef1).
+- [x] **D2** thresholds admin form `umbrales-section.tsx` (six parameters, "No confirmado" badge, confirm toggle, PATCH of
+  changed fields only, inline errors), mounted in `administracion/page.tsx` (a7e640c).
 - [x] **C** resolved, nothing to wire (decision 3).
 - [x] **G** deferred until S5.1 (decision 4).
 
@@ -73,6 +83,16 @@ Delivery strategy `ask-on-risk`; one bounded writer per round; one commit per un
   GANADA/PERDIDA, of clients the caller is responsable of. `CardSection` now sets `aria-label` from its title. Print view
   of "Mi resumen" not extended. Native review (RDD) not run: needs per-candidate consent.
 
+- 2026-10-08: round 2 (E1, E2, D1, D2) done by one writer. RED observed per unit: E1 3 failing (admin sees suspended rows,
+  one per route); E2 and D2 component files failed on the missing module; D1 lib and route files failed on the missing
+  module. GREEN per unit with focused runs; full suite `TZ=America/Bogota npx vitest run`: 185 files / 1840 tests green; `tsc --noEmit` and eslint clean on touched files.
+  Deviations: parameters are stored as `{ valor, confirmado }` per key (a flat number could not carry the confirmation
+  flag); PATCH body mirrors that shape. Audit `campo` is `<param>.valor` / `<param>.confirmado`, `entidad_id` is the
+  setting key. `GET` handlers of the three catalogs take an optional `request` so existing `GET()` callers still work.
+  Catalog mutations in the admin hooks do not toast: the section shows server errors inline. The OpenAPI path was added
+  together with the route (its document test was not observed failing first). No new hook-level tests for the admin
+  catalog hooks (covered through the section tests with mocked hooks). Native review (RDD) not run: needs consent.
+
 ## Next step
 
-Round 2: E1, E2, D1, D2 (admin catalogs/settings).
+Round 2 closed. Remaining: native review per candidate (needs consent); S1.1b stays blocked until S5.1.
