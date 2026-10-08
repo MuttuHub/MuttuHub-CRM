@@ -167,6 +167,16 @@ describe("F-T1 golden", () => {
     expect(r.avance_real).toBeCloseTo(0.25, 10)
   })
 
+  it("reports the date each finished activity was completed (latest deliverable), null otherwise", () => {
+    const r = calcularTecnico({ corte: F_T1_CORTE, requiereMedio: true, actividades: fixtureF_T1() })
+    expect(r.actividades.map((a) => [a.codigo, a.fecha_cumplimiento])).toEqual([
+      ["1.1", "2026-10-09"],
+      ["1.2", null],
+      ["1.3", null],
+      ["1.4", null],
+    ])
+  })
+
   it("returns zeros, not NaN, for a project without activities", () => {
     const r = calcularTecnico({ corte: F_T1_CORTE, requiereMedio: true, actividades: [] })
     expect(r).toMatchObject({ avance_real: 0, avance_programado: 0, desviacion_pp: 0, actividades: [] })

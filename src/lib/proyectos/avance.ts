@@ -138,6 +138,8 @@ export type ActividadTecnicaResultado = {
   peso: number
   progreso: number
   estado: EstadoActividad
+  /** Date the last deliverable reached its goal; null while any is open (or there are none). */
+  fecha_cumplimiento: IsoDate | null
 }
 
 /** Composes the whole technical read: real, programmed, deviation and per-activity estado. */
@@ -165,6 +167,7 @@ export function calcularTecnico(input: {
       peso: a.peso,
       progreso,
       estado: estadoActividad({ progreso, inicio: a.inicio, fin: a.fin, corte, fechaCumplimiento: cumplimiento }),
+      fecha_cumplimiento: cumplimiento,
     }
   })
 

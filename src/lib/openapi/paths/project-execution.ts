@@ -419,3 +419,65 @@ registry.registerPath({
     ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
   },
 });
+
+// ---------------------------------------------------------------------------
+// Technical status / semáforo técnico (S4 U5)
+// ---------------------------------------------------------------------------
+
+const EstadoActividadSchema = z.enum(["NO_INICIADA", "EN_CURSO", "FINALIZADA", "FINALIZADA_CON_RETRASO"]);
+
+registry.registerPath({
+  method: "get",
+  path: "/api/v1/projects/{id}/technical-status",
+  tags: ["Projects"],
+  summary: "Semáforo técnico: avance real vs programado a una fecha de corte",
+  description:
+    `${READ_NOTE} Solo cuentan los avances no anulados con fecha hasta el corte y, mientras \`avance_requiere_medio\` ` +
+    "sea true, con al menos un medio vivo. `avance_real`, `avance_programado` y `progreso` van en porcentaje 0..100 con " +
+    "un decimal; `desviacion_pp` son puntos porcentuales; el `color` sale de la desviación sin redondear y de los " +
+    "umbrales (`desviacion <= umbral1` verde, `<= umbral2` amarillo, si no rojo). `umbrales.confirmado` es true solo " +
+    "si ambos umbrales están confirmados. `base` es `vigente` hasta que existan líneas base (S8). Un proyecto sin " +
+    "fechas responde 409; un `corte` mal formado responde 400.",
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: ProjectIdParam,
+    query: z.object({
+      corte: z.string().optional().openapi({
+        description: "Fecha de corte AAAA-MM-DD; por defecto hoy en Bogotá.",
+        example: "2026-10-25",
+      }),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Estado técnico del proyecto al corte.",
+      content: {
+        "application/json": {
+          schema: z.object({
+            base: z.literal("vigente"),
+            corte: z.string(),
+            estado: z.string().openapi({ description: "Estado del proyecto." }),
+            avance_real: z.number(),
+            avance_programado: z.number(),
+            desviacion_pp: z.number().openapi({ description: "(programado - real) en puntos porcentuales; negativo si va adelantado." }),
+            color: z.enum(["verde", "amarillo", "rojo"]),
+            actividades: z.array(
+              z.object({
+                id: z.string().uuid(),
+                codigo: z.string(),
+                peso: z.number(),
+                progreso: z.number(),
+                estado: EstadoActividadSchema,
+                fecha_cumplimiento: z.string().nullable().openapi({
+                  description: "Fecha en que el último entregable alcanzó su meta; null mientras haya alguno abierto.",
+                }),
+              }),
+            ),
+            umbrales: z.object({ umbral1: z.number(), umbral2: z.number(), confirmado: z.boolean() }),
+          }),
+        },
+      },
+    },
+    ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
+  },
+});

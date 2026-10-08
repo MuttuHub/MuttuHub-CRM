@@ -188,4 +188,11 @@ describe("buildOpenApiDocument", () => {
     expect(codes(paths["/api/v1/projects/{id}/indicators/{indicatorId}"]?.delete)).toContain("409")
     expect(codes(paths["/api/v1/projects/{id}/activities/{activityId}"]?.delete)).toContain("409")
   })
+  it("registers the S4 technical-status path with its corte parameter", () => {
+    const paths = buildOpenApiDocument().paths ?? {}
+    const op = paths["/api/v1/projects/{id}/technical-status"]?.get
+    expect(Object.keys(op?.responses ?? {})).toEqual(expect.arrayContaining(["200", "400", "401", "403", "404", "409"]))
+    const params = (op?.parameters ?? []) as { name: string; in: string }[]
+    expect(params.map((p) => [p.name, p.in])).toEqual(expect.arrayContaining([["corte", "query"]]))
+  })
 })
