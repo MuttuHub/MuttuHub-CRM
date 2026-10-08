@@ -49,9 +49,9 @@ Delivery strategy `ask-on-risk`; one bounded writer per round; one commit per un
 
 ## Tasks
 
-- [ ] **A** S2.4 value-difference alert (`diferenciaValor`, create route, PATCH recompute, hook types, dialog, OpenAPI).
-- [ ] **B** S2.7 "Mi resumen" projects-in-execution vs prospecting-opportunities groups.
-- [ ] **F** S3.6b structure Gantt (`ganttLayout` + `estructura-gantt.tsx`).
+- [x] **A** S2.4 value-difference alert (`diferenciaValor`, create route, PATCH recompute, hook types, dialog, OpenAPI) (482d233).
+- [x] **B** S2.7 "Mi resumen" projects-in-execution vs prospecting-opportunities groups (6b4d2c4).
+- [x] **F** S3.6b structure Gantt (`ganttLayout` + `estructura-gantt.tsx`) (53632e7).
 - [ ] **E1**, **E2**, **D1**, **D2** admin catalogs/settings (round 2).
 - [x] **C** resolved, nothing to wire (decision 3).
 - [x] **G** deferred until S5.1 (decision 4).
@@ -64,7 +64,15 @@ Delivery strategy `ask-on-risk`; one bounded writer per round; one commit per un
 ## Progress
 
 - 2026-10-08: document created; C resolved and G deferred.
+- 2026-10-08: round 1 (A, B, F) done by one writer. RED observed per unit: A helper 5 failing, routes 7 failing, dialog 2
+  failing; B route 4 failing, component 3 failing (missing groups); F helper and component files failing on missing
+  modules, mount test failing before the section was mounted. GREEN: full suite `TZ=America/Bogota npx vitest run`:
+  181 files / 1796 tests; `tsc --noEmit` and eslint clean on touched files.
+  Deviations: the existing money formatter renders `$ 50.000` (with a space), used as is. `alertas` is always present on
+  `ProjectItemV2` (empty array when none), so GET/list expose it too. Prospecting group = fase PROSPECCION and estado not
+  GANADA/PERDIDA, of clients the caller is responsable of. `CardSection` now sets `aria-label` from its title. Print view
+  of "Mi resumen" not extended. Native review (RDD) not run: needs per-candidate consent.
 
 ## Next step
 
-Round 1: A, B, F.
+Round 2: E1, E2, D1, D2 (admin catalogs/settings).
