@@ -1,3 +1,5 @@
+import { withinTolerance, type Cents } from "./money";
+
 // Parámetros del semáforo v2 (valores PLACEHOLDER: el PO aún no los confirmó).
 // Cada parámetro guarda su valor y un `confirmado` que solo se activa cuando un
 // administrador lo marca de forma explícita. Pura: sin acceso a datos.
@@ -100,4 +102,38 @@ export function colorTecnicoV2(
   if (tenths <= Math.round(umbrales.umbral1 * 10)) return "verde";
   if (tenths <= Math.round(umbrales.umbral2 * 10)) return "amarillo";
   return "rojo";
+}
+
+/** Tolerance percent (10) to integer basis points (1000) so no float reaches a comparison. */
+export function toleranciaBp(param: Parametro<number>): bigint {
+  return BigInt(Math.round(param.valor * 100));
+}
+
+/**
+ * Financial semáforo of one row (or the total row). `E > A` is checked first so a
+ * draft where P > A still flags an overspend; then `E <= P` verde, within the
+ * tolerance amarillo, otherwise rojo. P = 0 with E > 0 falls to rojo, 0/0 is verde.
+ */
+export function colorFinancieroV2(
+  amounts: { A: Cents; P: Cents; E: Cents },
+  toleranciaBasisPoints: bigint,
+): ColorSemaforo {
+  const { A, P, E } = amounts;
+  if (E > A) return "rojo";
+  if (E <= P) return "verde";
+  if (withinTolerance(E, P, toleranciaBasisPoints)) return "amarillo";
+  return "rojo";
+}
+
+/**
+ * Possible-delay alert: spending below `umbralPct` of the programmed amount while
+ * the technical semáforo is not verde. Compared in tenths; no percentage (P = 0)
+ * never raises it.
+ */
+export function alertaRetraso(
+  input: { epTenths: bigint | null; colorTecnico: ColorSemaforo },
+  umbralPct: number,
+): boolean {
+  if (input.epTenths === null) return false;
+  return input.epTenths < BigInt(Math.round(umbralPct * 10)) && input.colorTecnico !== "verde";
 }

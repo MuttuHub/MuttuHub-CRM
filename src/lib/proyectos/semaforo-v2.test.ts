@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { toCents } from "./money";
 import {
+  alertaRetraso,
+  colorFinancieroV2,
+  toleranciaBp,
   PARAMETRO_KEYS,
   PARAMETROS_V2_DEFAULT,
   parametrosV2Issue,
@@ -68,5 +72,46 @@ describe("parametrosV2Issue", () => {
   it("flags umbral1 >= umbral2", () => {
     const bad = { ...PARAMETROS_V2_DEFAULT, umbral1: { valor: 25, confirmado: false } };
     expect(parametrosV2Issue(bad)).toMatch(/umbral/i);
+  });
+});
+
+describe("colorFinancieroV2", () => {
+  const tol = BigInt(1000);
+  const c = (a: string, p: string, e: string) => ({ A: toCents(a), P: toCents(p), E: toCents(e) });
+
+  it("E <= P is verde, boundary included", () => {
+    expect(colorFinancieroV2(c("100", "50", "50"), tol)).toBe("verde");
+    expect(colorFinancieroV2(c("100", "50", "10"), tol)).toBe("verde");
+  });
+  it("amarillo up to P*1.1 and rojo one cent above", () => {
+    expect(colorFinancieroV2(c("24000000", "12000000", "13200000.00"), tol)).toBe("amarillo");
+    expect(colorFinancieroV2(c("24000000", "12000000", "13200000.01"), tol)).toBe("rojo");
+  });
+  it("E > A is rojo even when E <= P (unbalanced draft)", () => {
+    expect(colorFinancieroV2(c("40", "100", "50"), tol)).toBe("rojo");
+  });
+  it("P = 0 with E > 0 is rojo; 0/0 is verde", () => {
+    expect(colorFinancieroV2(c("100", "0", "1"), tol)).toBe("rojo");
+    expect(colorFinancieroV2(c("100", "0", "0"), tol)).toBe("verde");
+  });
+});
+
+describe("toleranciaBp", () => {
+  it("converts percent to integer basis points without float noise", () => {
+    expect(toleranciaBp({ valor: 10, confirmado: false })).toBe(BigInt(1000));
+    expect(toleranciaBp({ valor: 7.35, confirmado: true })).toBe(BigInt(735));
+  });
+});
+
+describe("alertaRetraso", () => {
+  it("needs ep < 70% and a non-verde technical color; null ep never", () => {
+    expect(alertaRetraso({ epTenths: BigInt(600), colorTecnico: "rojo" }, 70)).toBe(true);
+    expect(alertaRetraso({ epTenths: BigInt(600), colorTecnico: "amarillo" }, 70)).toBe(true);
+    expect(alertaRetraso({ epTenths: BigInt(600), colorTecnico: "verde" }, 70)).toBe(false);
+    expect(alertaRetraso({ epTenths: BigInt(700), colorTecnico: "rojo" }, 70)).toBe(false);
+    expect(alertaRetraso({ epTenths: null, colorTecnico: "rojo" }, 70)).toBe(false);
+  });
+  it("90,8 % with technical rojo raises no alert", () => {
+    expect(alertaRetraso({ epTenths: BigInt(908), colorTecnico: "rojo" }, 70)).toBe(false);
   });
 });
