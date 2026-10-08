@@ -11,7 +11,7 @@ import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import type { ColorSemaforo, ProjectTechnicalStatus } from "@/hooks/projects";
 import type { UiTone } from "@/lib/catalogs";
 
-const COLOR_META: Record<ColorSemaforo, { tone: UiTone; label: string }> = {
+export const COLOR_META: Record<ColorSemaforo, { tone: UiTone; label: string }> = {
   verde: { tone: "exito", label: "Verde" },
   amarillo: { tone: "alerta", label: "Amarillo" },
   rojo: { tone: "riesgo", label: "Rojo" },

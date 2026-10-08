@@ -120,6 +120,22 @@ describe("ProjectFichaDialog", () => {
     )
   })
 
+  it("mounts the Ficha financiera section after the technical execution and before the history", async () => {
+    mockFichaAndAudit({ historial: [] })
+
+    renderFicha()
+
+    const financiero = await screen.findByTestId("financiero")
+    expect(financiero).toHaveTextContent("Ficha financiera")
+    const ejecucion = screen.getByTestId("ejecucion")
+    const historial = screen.getByTestId("historial")
+    expect(ejecucion.compareDocumentPosition(financiero) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(financiero.compareDocumentPosition(historial) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/financial-sheet", expect.any(Object)),
+    )
+  })
+
   it("mounts the technical execution section between the structure and the history", async () => {
     mockFichaAndAudit({ historial: [] })
 
@@ -244,6 +260,21 @@ describe("ProjectFichaDialog", () => {
     umbrales: { umbral1: 10, umbral2: 20, confirmado: false },
   }
 
+  // Ficha financiera (S5 U6): sin gastos todavía; su comportamiento vive en project-financiero.test.tsx.
+  const FINANCIERA = {
+    base: "vigente",
+    corte: "2026-01",
+    estado: "EN_EJECUCION",
+    ejecucion_disponible: false,
+    rubros: [],
+    total: {
+      rubro_id: null, codigo: null, nombre: "Total", asignado: "0.00", programado: "0.00", ejecutado: "0.00",
+      diferencia: "0.00", ep_decimas: null, ea_decimas: null, umbral_rojo: "0.00", color: null,
+    },
+    alerta_retraso: false,
+    parametros: { tolerancia: 10, retraso: 70, confirmado: false },
+  }
+
   function mockFichaAndAudit(auditBody: unknown, auditStatus = 200, proyecto: unknown = PROYECTO) {
     fetchMock.mockImplementation((input: unknown) => {
       if (String(input).endsWith("/audit")) {
@@ -261,6 +292,9 @@ describe("ProjectFichaDialog", () => {
         return Promise.resolve(
           jsonResponse({ estado: "EN_EJECUCION", rubros: [], suma: "0.00", valor_total: null, diferencia: null }),
         )
+      }
+      if (String(input).includes("/financial-sheet")) {
+        return Promise.resolve(jsonResponse(FINANCIERA))
       }
       if (String(input).endsWith("/programming")) {
         return Promise.resolve(

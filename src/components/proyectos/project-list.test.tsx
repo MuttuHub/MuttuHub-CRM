@@ -160,6 +160,25 @@ vi.mock("@/hooks/projects", () => ({
     isError: false,
     error: null,
   }),
+  // ... and the Ficha financiera section (S5 U6): a sheet with no budget lines.
+  useProjectFinancialSheet: () => ({
+    data: {
+      base: "vigente",
+      corte: "2026-01",
+      estado: "EN_EJECUCION",
+      ejecucion_disponible: false,
+      rubros: [],
+      total: {
+        rubro_id: null, codigo: null, nombre: "Total", asignado: "0.00", programado: "0.00", ejecutado: "0.00",
+        diferencia: "0.00", ep_decimas: null, ea_decimas: null, umbral_rojo: "0.00", color: null,
+      },
+      alerta_retraso: false,
+      parametros: { tolerancia: 10, retraso: 70, confirmado: false },
+    },
+    isLoading: false,
+    isError: false,
+    error: null,
+  }),
   ...Object.fromEntries(
     ["useUpdateBudget", "useUpdateProgramming", "useSetValorTotal"].map((name) => [
       name,
