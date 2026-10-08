@@ -128,5 +128,18 @@ describe("buildOpenApiDocument", () => {
     const activity = paths["/api/v1/projects/{id}/activities/{activityId}"]
     expect(codes(activity?.patch)).toEqual(expect.arrayContaining(["200", "400", "403", "404", "409"]))
     expect(codes(activity?.delete)).toEqual(expect.arrayContaining(["200", "403", "404", "409"]))
+
+    // U3: deliverables and indicators.
+    for (const segment of ["deliverables", "indicators"]) {
+      const collection = paths[`/api/v1/projects/{id}/${segment}`]
+      expect(codes(collection?.get)).toEqual(expect.arrayContaining(["200", "401", "403", "404"]))
+      expect(codes(collection?.post)).toEqual(expect.arrayContaining(["201", "400", "403", "404", "409"]))
+    }
+    const deliverable = paths["/api/v1/projects/{id}/deliverables/{deliverableId}"]
+    expect(codes(deliverable?.patch)).toEqual(expect.arrayContaining(["200", "400", "403", "404", "409"]))
+    expect(codes(deliverable?.delete)).toEqual(expect.arrayContaining(["200", "403", "404"]))
+    const indicator = paths["/api/v1/projects/{id}/indicators/{indicatorId}"]
+    expect(codes(indicator?.patch)).toEqual(expect.arrayContaining(["200", "400", "403", "404", "409"]))
+    expect(codes(indicator?.delete)).toEqual(expect.arrayContaining(["200", "403", "404"]))
   })
 })

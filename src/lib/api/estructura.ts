@@ -115,3 +115,45 @@ export const ordenField = z
   .max(100_000, "El orden es demasiado alto.");
 
 export const NOTHING_TO_UPDATE = "Envía al menos un campo para actualizar.";
+
+const DECIMAL_15_2_MAX = 9_999_999_999_999.99;
+
+/**
+ * A `numeric(15,2)` quantity that must stay strictly positive after rounding to
+ * two decimals (a 0.001 would round to 0 and trip the column CHECK as a 500).
+ */
+export const cantidadPositivaField = z
+  .number({ error: "Ingresa un número válido." })
+  .min(0.01, "El valor debe ser mayor que 0.")
+  .max(DECIMAL_15_2_MAX, "El valor es demasiado alto.");
+
+export const cantidadNoNegativaField = z
+  .number({ error: "Ingresa un número válido." })
+  .min(0, "El valor no puede ser negativo.")
+  .max(DECIMAL_15_2_MAX, "El valor es demasiado alto.");
+
+/** Rounds to the column's two decimals so the audited value equals the stored one. */
+export function toDecimal2(value: number): Prisma.Decimal {
+  return new Prisma.Decimal(value).toDecimalPlaces(2);
+}
+
+export const textoField = (etiqueta: string, max: number) =>
+  z
+    .string({ error: `${etiqueta} es obligatorio.` })
+    .trim()
+    .min(1, `${etiqueta} no puede estar vacío.`)
+    .max(max, `${etiqueta} es demasiado largo.`);
+
+export const OBJETIVO_AJENO_MESSAGE = "El objetivo no existe en este proyecto.";
+
+/** The objective must be a live one of this very project. */
+export async function checkObjetivoDelProyecto(
+  proyectoId: string,
+  objetivoId: string,
+): Promise<Response | null> {
+  const objetivo = await db.objetivo.findFirst({
+    where: { id: objetivoId, proyecto_id: proyectoId, deleted_at: null },
+    select: { id: true },
+  });
+  return objetivo ? null : apiError(OBJETIVO_AJENO_MESSAGE, 400, "VALIDATION_ERROR");
+}

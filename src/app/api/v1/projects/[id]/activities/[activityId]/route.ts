@@ -7,7 +7,8 @@
 // merged pair; the weight follows REQ-STR-04 (`resolvePeso`): a manual weight
 // survives a change of weeks, a derived one is recomputed, `peso: null` clears
 // the manual flag. Dates are derived, so `fecha_*` is not an accepted key.
-// Deleting is `deleted_at`, audited as `EDITAR actividad.deleted_at`.
+// Deleting is `deleted_at`, audited as `EDITAR actividad.deleted_at`, and refused
+// with 409 CONFLICT while the activity still has live deliverables.
 
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
@@ -19,6 +20,7 @@ import { diffFields, logChanges } from "@/lib/api/audit-cambios";
 import { checkResponsableActivo } from "@/lib/api/projects";
 import {
   NOTHING_TO_UPDATE,
+  checkObjetivoDelProyecto,
   codigoField,
   conflict,
   gateEstructuraWrite,
@@ -30,7 +32,6 @@ import {
   ACTIVIDAD_CREATE_SCHEMA,
   ACTIVIDAD_DUPLICATE_MESSAGE,
   ACTIVIDAD_INDEX,
-  checkObjetivoDelProyecto,
   checkSemanasEnProyecto,
 } from "../route";
 
@@ -171,6 +172,13 @@ export const DELETE = withApiErrorHandling(
       where: { id: activityId, proyecto_id: id, deleted_at: null },
     });
     if (!existente) return apiError(ACTIVIDAD_NOT_FOUND, 404, "NOT_FOUND");
+
+    const entregablesVivos = await db.entregable.count({
+      where: { actividad_id: activityId, deleted_at: null },
+    });
+    if (entregablesVivos > 0) {
+      return conflict("No puedes eliminar una actividad que tiene entregables. Elimina o reasigna sus entregables primero.");
+    }
 
     const row = await db.$transaction(async (tx) => {
       const updated = await tx.actividad.update({

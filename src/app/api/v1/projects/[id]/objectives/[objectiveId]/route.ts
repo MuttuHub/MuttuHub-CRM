@@ -6,7 +6,7 @@
 // through its own project (`proyecto_id` is part of the lookup), so another
 // project's objective is a 404. Deleting is `deleted_at`, audited as
 // `EDITAR objetivo.deleted_at`, and refused with 409 CONFLICT while the objective
-// still has live activities (the indicator guard arrives with U3).
+// still has live activities or indicators.
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -125,6 +125,12 @@ export const DELETE = withApiErrorHandling(
     });
     if (actividadesVivas > 0) {
       return conflict("No puedes eliminar un objetivo que tiene actividades. Elimina o reasigna sus actividades primero.");
+    }
+    const indicadoresVivos = await db.indicador.count({
+      where: { objetivo_id: objectiveId, deleted_at: null },
+    });
+    if (indicadoresVivos > 0) {
+      return conflict("No puedes eliminar un objetivo que tiene indicadores. Elimina o reasigna sus indicadores primero.");
     }
 
     const row = await db.$transaction(async (tx) => {

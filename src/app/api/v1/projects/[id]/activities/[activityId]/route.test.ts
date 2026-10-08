@@ -19,6 +19,7 @@ vi.mock("@/lib/db", () => ({
     objetivo: { findFirst: vi.fn() },
     usuario: { findFirst: vi.fn() },
     actividad: { findFirst: vi.fn() },
+    entregable: { count: vi.fn() },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
       fn({ actividad: { update: mocks.txUpdate } }),
     ),
@@ -77,6 +78,7 @@ beforeEach(() => {
   vi.mocked(db.actividad.findFirst).mockResolvedValue(fila as never);
   vi.mocked(db.objetivo.findFirst).mockResolvedValue({ id: "obj-2" } as never);
   vi.mocked(db.usuario.findFirst).mockResolvedValue({ id: "u-1" } as never);
+  vi.mocked(db.entregable.count).mockResolvedValue(0 as never);
   mocks.txUpdate.mockImplementation(async ({ data }: { data: object }) => ({ ...fila, ...data }));
 });
 afterEach(() => vi.clearAllMocks());
@@ -184,6 +186,15 @@ describe("DELETE /api/v1/projects/:id/activities/:activityId", () => {
     authAs(gerencia);
     vi.mocked(db.proyecto.findFirst).mockResolvedValueOnce({ ...proyecto, estado: "ACTIVO" } as never);
     expect((await DELETE(del(), ctx)).status).toBe(409);
+    expect(mocks.txUpdate).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 CONFLICT while the activity has live deliverables", async () => {
+    vi.mocked(db.entregable.count).mockResolvedValue(3 as never);
+    const res = await DELETE(del(), ctx);
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe("CONFLICT");
+    expect(db.entregable.count).toHaveBeenCalledWith({ where: { actividad_id: "act-1", deleted_at: null } });
     expect(mocks.txUpdate).not.toHaveBeenCalled();
   });
 

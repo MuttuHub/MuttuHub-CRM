@@ -9,6 +9,10 @@ import { OBJETIVO_CREATE_SCHEMA } from "@/app/api/v1/projects/[id]/objectives/ro
 import { OBJETIVO_PATCH_SCHEMA } from "@/app/api/v1/projects/[id]/objectives/[objectiveId]/route";
 import { ACTIVIDAD_CREATE_SCHEMA } from "@/app/api/v1/projects/[id]/activities/route";
 import { ACTIVIDAD_PATCH_SCHEMA } from "@/app/api/v1/projects/[id]/activities/[activityId]/route";
+import { ENTREGABLE_CREATE_SCHEMA } from "@/app/api/v1/projects/[id]/deliverables/route";
+import { ENTREGABLE_PATCH_SCHEMA } from "@/app/api/v1/projects/[id]/deliverables/[deliverableId]/route";
+import { INDICADOR_CREATE_SCHEMA } from "@/app/api/v1/projects/[id]/indicators/route";
+import { INDICADOR_PATCH_SCHEMA } from "@/app/api/v1/projects/[id]/indicators/[indicatorId]/route";
 
 const WRITE_NOTE =
   "Solo `ADMINISTRADOR`/`GERENCIA` (`canManageProjects`) y solo mientras el proyecto está en Borrador. El orden de " +
@@ -191,5 +195,80 @@ registerStructureResource({
     "Las semanas deben cumplir `1 <= semana_inicio <= semana_fin <= duración del proyecto` y el objetivo debe ser uno " +
     "vivo del mismo proyecto, o responde 400. Un proyecto sin fechas responde 400. Sin `peso` se usa la duración en " +
     "semanas; un `peso` enviado queda como manual. Las fechas no se aceptan: se derivan de las semanas.",
+  deleteConflict: "Responde 409 CONFLICT mientras la actividad tenga entregables vivos.",
+});
+
+const EntregableSchema = registry.register(
+  "Entregable",
+  z.object({
+    id: z.string().uuid(),
+    proyecto_id: z.string().uuid(),
+    actividad_id: z.string().uuid(),
+    codigo: z.string().openapi({ example: "1.4-E1" }),
+    descripcion: z.string(),
+    cantidad_meta: z.string().openapi({
+      description: "Decimal(15,2) serializado como string; siempre > 0.",
+      example: "100",
+    }),
+    unidad: z.string().openapi({ example: "prendas" }),
+    tipo_medio_exigido: z.string().openapi({
+      description: "Texto libre: el tipo de evidencia que exige el entregable.",
+      example: "Acta firmada",
+    }),
+    created_at: z.string(),
+    updated_at: z.string(),
+  }),
+);
+
+registerStructureResource({
+  segment: "deliverables",
+  param: "deliverableId",
+  tag: "Projects",
+  singular: "un entregable",
+  plural: "los entregables",
+  itemKey: "entregable",
+  listKey: "entregables",
+  item: EntregableSchema,
+  create: ENTREGABLE_CREATE_SCHEMA,
+  patch: ENTREGABLE_PATCH_SCHEMA,
+  createExtra:
+    "Exige `cantidad_meta > 0`, `unidad` y `tipo_medio_exigido`. La actividad debe ser una viva del mismo proyecto, " +
+    "o responde 400. El código es único por proyecto entre filas vivas.",
+  deleteConflict: "",
+});
+
+const IndicadorSchema = registry.register(
+  "Indicador",
+  z.object({
+    id: z.string().uuid(),
+    proyecto_id: z.string().uuid(),
+    objetivo_id: z.string().uuid(),
+    codigo: z.string().openapi({ example: "IND-01" }),
+    nombre: z.string(),
+    meta: z.string().openapi({ description: "Decimal(15,2) serializado como string; siempre > 0.", example: "50" }),
+    unidad: z.string().openapi({ example: "personas" }),
+    linea_base: z.string().nullable().openapi({
+      description: "Decimal(15,2) como string, opcional y >= 0.",
+      example: "5",
+    }),
+    created_at: z.string(),
+    updated_at: z.string(),
+  }),
+);
+
+registerStructureResource({
+  segment: "indicators",
+  param: "indicatorId",
+  tag: "Projects",
+  singular: "un indicador de resultado",
+  plural: "los indicadores de resultado",
+  itemKey: "indicador",
+  listKey: "indicadores",
+  item: IndicadorSchema,
+  create: INDICADOR_CREATE_SCHEMA,
+  patch: INDICADOR_PATCH_SCHEMA,
+  createExtra:
+    "Exige objetivo, código, nombre, `meta > 0` y `unidad`; `linea_base` es opcional y >= 0. El objetivo debe ser " +
+    "uno vivo del mismo proyecto, o responde 400. El código es único por proyecto entre filas vivas.",
   deleteConflict: "",
 });

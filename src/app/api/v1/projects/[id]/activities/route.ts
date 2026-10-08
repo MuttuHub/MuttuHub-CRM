@@ -20,6 +20,7 @@ import { logChange } from "@/lib/api/audit-cambios";
 import { checkResponsableActivo } from "@/lib/api/projects";
 import {
   type EstructuraProyecto,
+  checkObjetivoDelProyecto,
   codigoField,
   conflict,
   gateEstructuraRead,
@@ -37,7 +38,6 @@ type RouteContext = { params: Promise<{ id: string }> };
 export const ACTIVIDAD_INDEX = "actividades_codigo_activo_uq";
 export const ACTIVIDAD_DUPLICATE_MESSAGE = "Ya existe una actividad con ese código en el proyecto.";
 export const SIN_FECHAS_MESSAGE = "Define las fechas del proyecto antes de crear actividades.";
-export const OBJETIVO_AJENO_MESSAGE = "El objetivo no existe en este proyecto.";
 
 const semanaField = z
   .number({ error: "La semana debe ser un número entero." })
@@ -87,18 +87,6 @@ export function checkSemanasEnProyecto(
   );
   const validacion = validarSemanas(semanaInicio, semanaFin, duracion);
   return validacion.ok ? null : apiError(validacion.message, 400, "VALIDATION_ERROR");
-}
-
-/** The objective must be a live one of this very project. */
-export async function checkObjetivoDelProyecto(
-  proyectoId: string,
-  objetivoId: string,
-): Promise<Response | null> {
-  const objetivo = await db.objetivo.findFirst({
-    where: { id: objetivoId, proyecto_id: proyectoId, deleted_at: null },
-    select: { id: true },
-  });
-  return objetivo ? null : apiError(OBJETIVO_AJENO_MESSAGE, 400, "VALIDATION_ERROR");
 }
 
 export const GET = withApiErrorHandling(
