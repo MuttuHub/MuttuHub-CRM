@@ -26,6 +26,7 @@ export const AUDIT_ENTIDADES_V2 = [
   "avance",
   "indicador",
   "medicion",
+  "beneficiarios",
   "presupuesto",
   "programacion",
   "gasto",

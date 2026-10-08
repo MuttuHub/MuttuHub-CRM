@@ -677,6 +677,7 @@ model Proyecto {
   actividades Actividad[]
   entregables Entregable[]
   indicadores Indicador[]
+  avances_entregable AvanceEntregable[]
 
   @@unique([oportunidad_id, cliente_id])
   @@index([cliente_id])
@@ -843,10 +844,42 @@ model Entregable {
 
   proyecto  Proyecto  @relation(fields: [proyecto_id], references: [id])
   actividad Actividad @relation(fields: [actividad_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
+  avances   AvanceEntregable[]
 
+  @@unique([id, proyecto_id])
   @@index([proyecto_id])
   @@index([actividad_id])
   @@map("entregables")
+}
+
+// v2 projects module (S4, SDD §4.8, REQ-EXE-01..07) — one progress record of a
+// deliverable. Never deleted: a void sets `anulado_at` + `motivo_anulacion`
+// (CHECK `avances_entregable_anulacion_check` keeps them together) and the row is
+// excluded from every calculation. `cantidad > 0` is
+// `avances_entregable_cantidad_check`; the composite relation
+// `[entregable_id, proyecto_id]` keeps the deliverable in the same project.
+// `registrado_por_id` / `anulado_por_id` are audit pointers without an FK.
+model AvanceEntregable {
+  id                   String    @id @default(uuid())
+  proyecto_id          String
+  entregable_id        String
+  fecha                DateTime  @db.Date
+  cantidad             Decimal   @db.Decimal(15, 2)
+  observacion          String?
+  justificacion_exceso String?
+  registrado_por_id    String
+  created_at           DateTime  @default(now())
+  anulado_at           DateTime?
+  anulado_por_id       String?
+  motivo_anulacion     String?
+
+  proyecto   Proyecto   @relation(fields: [proyecto_id], references: [id])
+  entregable Entregable @relation(fields: [entregable_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([id, proyecto_id])
+  @@index([entregable_id, fecha])
+  @@index([proyecto_id])
+  @@map("avances_entregable")
 }
 
 // v2 projects module (S3, SDD §4.8, REQ-STR-06) — a result indicator attached

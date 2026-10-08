@@ -145,9 +145,19 @@ describe("buildOpenApiDocument", () => {
     }
     const deliverable = paths["/api/v1/projects/{id}/deliverables/{deliverableId}"]
     expect(codes(deliverable?.patch)).toEqual(expect.arrayContaining(["200", "400", "403", "404", "409"]))
-    expect(codes(deliverable?.delete)).toEqual(expect.arrayContaining(["200", "403", "404"]))
+    expect(codes(deliverable?.delete)).toEqual(expect.arrayContaining(["200", "403", "404", "409"]))
     const indicator = paths["/api/v1/projects/{id}/indicators/{indicatorId}"]
     expect(codes(indicator?.patch)).toEqual(expect.arrayContaining(["200", "400", "403", "404", "409"]))
     expect(codes(indicator?.delete)).toEqual(expect.arrayContaining(["200", "403", "404"]))
+  })
+
+  it("registers the S4 avances paths with their access and state codes", () => {
+    const paths = buildOpenApiDocument().paths ?? {}
+    const codes = (op: { responses?: object } | undefined) => Object.keys(op?.responses ?? {})
+    const progress = paths["/api/v1/projects/{id}/deliverables/{deliverableId}/progress"]
+    expect(codes(progress?.get)).toEqual(expect.arrayContaining(["200", "401", "403", "404"]))
+    expect(codes(progress?.post)).toEqual(expect.arrayContaining(["201", "400", "403", "404", "409"]))
+    const anular = paths["/api/v1/projects/{id}/deliverables/{deliverableId}/progress/{progressId}/void"]
+    expect(codes(anular?.post)).toEqual(expect.arrayContaining(["200", "400", "403", "404", "409"]))
   })
 })

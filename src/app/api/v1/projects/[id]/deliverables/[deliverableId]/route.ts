@@ -5,8 +5,8 @@
 // deliverable is only addressable through its own project. Moving it to another
 // activity requires a live activity of the same project. One `EDITAR` audit row
 // per changed field, quantities compared as Decimals. Deleting is `deleted_at`,
-// audited as `EDITAR entregable.deleted_at` (progress records, S4, will guard
-// this later).
+// audited as `EDITAR entregable.deleted_at`; it answers 409 while the deliverable
+// still has non-voided avances.
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -146,6 +146,13 @@ export const DELETE = withApiErrorHandling(
       where: { id: deliverableId, proyecto_id: id, deleted_at: null },
     });
     if (!existente) return apiError(ENTREGABLE_NOT_FOUND, 404, "NOT_FOUND");
+
+    const avancesVivos = await db.avanceEntregable.count({
+      where: { entregable_id: deliverableId, anulado_at: null },
+    });
+    if (avancesVivos > 0) {
+      return conflict("No puedes eliminar un entregable que tiene avances registrados. Anula sus avances primero.");
+    }
 
     const row = await db.$transaction(async (tx) => {
       const updated = await tx.entregable.update({

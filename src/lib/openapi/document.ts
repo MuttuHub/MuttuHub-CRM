@@ -17,6 +17,7 @@ import "@/lib/openapi/paths/strategic-lines";
 import "@/lib/openapi/paths/municipalities";
 import "@/lib/openapi/paths/projects";
 import "@/lib/openapi/paths/project-structure";
+import "@/lib/openapi/paths/project-execution";
 import "@/lib/openapi/paths/settings-semaforo-v2";
 
 export function buildOpenApiDocument() {

@@ -18,6 +18,7 @@ vi.mock("@/lib/db", () => ({
     proyecto: { findFirst: vi.fn() },
     actividad: { findFirst: vi.fn() },
     entregable: { findFirst: vi.fn() },
+    avanceEntregable: { count: vi.fn() },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
       fn({ entregable: { update: mocks.txUpdate } }),
     ),
@@ -68,6 +69,7 @@ beforeEach(() => {
   vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto as never);
   vi.mocked(db.entregable.findFirst).mockResolvedValue(fila as never);
   vi.mocked(db.actividad.findFirst).mockResolvedValue({ id: "act-2" } as never);
+  vi.mocked(db.avanceEntregable.count).mockResolvedValue(0 as never);
   mocks.txUpdate.mockImplementation(async ({ data }: { data: object }) => ({ ...fila, ...data }));
 });
 afterEach(() => vi.clearAllMocks());
@@ -169,5 +171,14 @@ describe("DELETE /api/v1/projects/:id/deliverables/:deliverableId", () => {
   it("returns 404 for a missing deliverable", async () => {
     vi.mocked(db.entregable.findFirst).mockResolvedValue(null);
     expect((await DELETE(del(), ctx)).status).toBe(404);
+  });
+
+  it("answers 409 CONFLICT while the deliverable has live (non-voided) avances", async () => {
+    vi.mocked(db.avanceEntregable.count).mockResolvedValue(2 as never);
+    const res = await DELETE(del(), ctx);
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe("CONFLICT");
+    expect(db.avanceEntregable.count).toHaveBeenCalledWith({ where: { entregable_id: "ent-1", anulado_at: null } });
+    expect(mocks.txUpdate).not.toHaveBeenCalled();
   });
 });

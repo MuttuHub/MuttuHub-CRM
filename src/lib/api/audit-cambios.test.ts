@@ -178,6 +178,7 @@ describe("AUDIT_ENTIDADES_V2", () => {
       "version",
       "proyecto_miembro",
       "parametro",
+      "beneficiarios",
     ]) {
       expect(AUDIT_ENTIDADES_V2).toContain(entidad)
     }

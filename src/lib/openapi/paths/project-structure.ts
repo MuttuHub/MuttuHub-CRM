@@ -234,7 +234,7 @@ registerStructureResource({
   createExtra:
     "Exige `cantidad_meta > 0`, `unidad` y `tipo_medio_exigido`. La actividad debe ser una viva del mismo proyecto, " +
     "o responde 400. El código es único por proyecto entre filas vivas.",
-  deleteConflict: "",
+  deleteConflict: "Responde 409 CONFLICT mientras el entregable tenga avances no anulados.",
 });
 
 const IndicadorSchema = registry.register(
