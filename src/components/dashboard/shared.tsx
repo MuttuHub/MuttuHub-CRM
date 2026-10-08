@@ -48,6 +48,7 @@ export function CardSection({
 }) {
   return (
     <section
+      aria-label={title}
       className={cn(
         "rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6",
         className,
