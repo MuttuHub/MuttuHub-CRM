@@ -141,6 +141,7 @@ model Usuario {
   auditorias         Auditoria[]
   proyectos_responsable Proyecto[] @relation("ProyectoResponsable")
   proyectos_miembro ProyectoMiembro[] @relation("MiembroProyecto")
+  actividades_responsable Actividad[] @relation("ActividadResponsable")
 
   @@map("usuarios")
 }
@@ -673,6 +674,7 @@ model Proyecto {
   municipios  ProyectoMunicipio[]
   miembros    ProyectoMiembro[]
   objetivos   Objetivo[]
+  actividades Actividad[]
 
   @@unique([oportunidad_id, cliente_id])
   @@index([cliente_id])
@@ -772,9 +774,45 @@ model Objetivo {
   updated_at  DateTime  @updatedAt
   deleted_at  DateTime?
 
-  proyecto Proyecto @relation(fields: [proyecto_id], references: [id])
+  proyecto    Proyecto    @relation(fields: [proyecto_id], references: [id])
+  actividades Actividad[]
 
   @@unique([id, proyecto_id])
   @@index([proyecto_id])
   @@map("objetivos")
+}
+
+// v2 projects module (S3, SDD §4.8, REQ-STR-02..04) — an activity placed in the
+// project's relative weeks. Dates are NEVER stored: `fecha_inicio`/`fecha_fin`
+// are derived on read from `semana_inicio`/`semana_fin` and the project start
+// (`src/lib/proyectos/weeks.ts`). The migration adds what Prisma cannot
+// express: CHECK `actividades_semanas_check` (1 <= inicio <= fin), CHECK
+// `actividades_peso_check` (peso > 0) and the partial unique index
+// `actividades_codigo_activo_uq` over `(proyecto_id, lower(codigo)) WHERE
+// deleted_at IS NULL`. The composite relation `[objetivo_id, proyecto_id]`
+// makes an objective of another project unreferenceable. `peso_manual` marks a
+// weight the user typed; otherwise the weight is the duration in weeks.
+model Actividad {
+  id             String    @id @default(uuid())
+  proyecto_id    String
+  objetivo_id    String
+  codigo         String
+  nombre         String
+  semana_inicio  Int
+  semana_fin     Int
+  peso           Decimal   @db.Decimal(9, 2)
+  peso_manual    Boolean   @default(false)
+  responsable_id String?
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+  deleted_at     DateTime?
+
+  proyecto    Proyecto @relation(fields: [proyecto_id], references: [id])
+  objetivo    Objetivo @relation(fields: [objetivo_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
+  responsable Usuario? @relation("ActividadResponsable", fields: [responsable_id], references: [id])
+
+  @@unique([id, proyecto_id])
+  @@index([proyecto_id])
+  @@index([objetivo_id])
+  @@map("actividades")
 }

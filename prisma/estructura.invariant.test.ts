@@ -112,3 +112,91 @@ describe("Objetivo invariants (live DB)", () => {
     expect((error as Prisma.PrismaClientKnownRequestError).code).toBe("P2003")
   })
 })
+
+async function actividadFixture(tx: Tx) {
+  const base = await fixture(tx)
+  const objetivo = await tx.objetivo.create({
+    data: { proyecto_id: base.proyecto.id, codigo: "OE1", descripcion: "a" },
+  })
+  const objetivoOtro = await tx.objetivo.create({
+    data: { proyecto_id: base.otro.id, codigo: "OE1", descripcion: "b" },
+  })
+  const datos = {
+    proyecto_id: base.proyecto.id,
+    objetivo_id: objetivo.id,
+    codigo: "1.1",
+    nombre: "Actividad",
+    semana_inicio: 1,
+    semana_fin: 2,
+    peso: 2,
+  }
+  return { ...base, objetivo, objetivoOtro, datos }
+}
+
+describe("Actividad invariants (live DB)", () => {
+  it("rejects semana_fin < semana_inicio and semana_inicio < 1 through actividades_semanas_check", async () => {
+    for (const semanas of [
+      { semana_inicio: 3, semana_fin: 2 },
+      { semana_inicio: 0, semana_fin: 2 },
+    ]) {
+      const error = await captureError(async (tx) => {
+        const { datos } = await actividadFixture(tx)
+        await tx.actividad.create({ data: { ...datos, ...semanas } })
+      })
+      expect(driverMessage(error)).toContain("actividades_semanas_check")
+    }
+  })
+
+  it("rejects a non-positive weight through actividades_peso_check", async () => {
+    const error = await captureError(async (tx) => {
+      const { datos } = await actividadFixture(tx)
+      await tx.actividad.create({ data: { ...datos, peso: 0 } })
+    })
+    expect(driverMessage(error)).toContain("actividades_peso_check")
+  })
+
+  it("rejects a second live activity with the same codigo, ignoring case, in the same project", async () => {
+    const error = await captureError(async (tx) => {
+      const { datos } = await actividadFixture(tx)
+      await tx.actividad.create({ data: { ...datos, codigo: "A.1" } })
+      await tx.actividad.create({ data: { ...datos, codigo: "a.1" } })
+    })
+    expect((error as Prisma.PrismaClientKnownRequestError).code).toBe("P2002")
+    expect(driverMessage(error)).toContain("actividades_codigo_activo_uq")
+  })
+
+  it("allows the code again after a soft delete", async () => {
+    const live = await runAndRollback(async (tx) => {
+      const { datos, proyecto } = await actividadFixture(tx)
+      await tx.actividad.create({ data: { ...datos, deleted_at: new Date() } })
+      await tx.actividad.create({ data: datos })
+      return tx.actividad.count({ where: { proyecto_id: proyecto.id, codigo: "1.1", deleted_at: null } })
+    })
+    expect(live).toBe(1)
+  })
+
+  it("makes a cross-project objective impossible (composite foreign key)", async () => {
+    const error = await captureError(async (tx) => {
+      const { datos, objetivoOtro } = await actividadFixture(tx)
+      await tx.actividad.create({ data: { ...datos, objetivo_id: objetivoOtro.id } })
+    })
+    expect((error as Prisma.PrismaClientKnownRequestError).code).toBe("P2003")
+  })
+
+  it("rejects a responsable that does not exist", async () => {
+    const error = await captureError(async (tx) => {
+      const { datos } = await actividadFixture(tx)
+      await tx.actividad.create({ data: { ...datos, responsable_id: randomUUID() } })
+    })
+    expect((error as Prisma.PrismaClientKnownRequestError).code).toBe("P2003")
+  })
+
+  it("accepts a valid activity with the default manual flag off", async () => {
+    const actividad = await runAndRollback(async (tx) => {
+      const { datos } = await actividadFixture(tx)
+      return tx.actividad.create({ data: datos })
+    })
+    expect(actividad.peso_manual).toBe(false)
+    expect(actividad.peso.toString()).toBe("2")
+  })
+})
