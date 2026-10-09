@@ -22,6 +22,7 @@ import {
 } from "@tanstack/react-query";
 import type { TipoModificacion } from "@/lib/proyectos/modificaciones";
 import { toast } from "sonner";
+import { clientQueryKeys } from "@/hooks/crm";
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut, ApiError } from "@/lib/api/http";
 import type { EstadoActividad, Tendencia } from "@/lib/proyectos/avance";
 import type { ReportePlantilla } from "@/lib/proyectos/plantilla-reporte";
@@ -380,9 +381,13 @@ export function useProjectMembers(id: string): UseQueryResult<ProjectMember[]> {
 /* ── Queries: elegibles y catálogos ────────────────────────────────────── */
 
 /** E-04: oportunidades GANADA sin proyecto, para el paso de origen del form. */
-export function useEligibleOpportunities(): UseQueryResult<EligibleOpportunity[]> {
+export function useEligibleOpportunities(options?: {
+  /** `false` evita la petición (p. ej. un rol sin permiso, que recibiría 403). */
+  enabled?: boolean;
+}): UseQueryResult<EligibleOpportunity[]> {
   return useQuery({
     queryKey: projectQueryKeys.eligibleOpportunities,
+    enabled: options?.enabled ?? true,
     queryFn: async () => {
       const res = await apiGet<{ oportunidades: EligibleOpportunity[] }>(
         "/api/v1/projects/eligible-opportunities",
@@ -496,6 +501,8 @@ export function useCreateProjectFromOpportunity(
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: projectQueryKeys.all });
+      // The conversion also moves the opportunity to EJECUCION: refresh the client's list.
+      void qc.invalidateQueries({ queryKey: clientQueryKeys.opportunities(clientId) });
       toast.success("Proyecto creado desde la oportunidad.");
     },
   });

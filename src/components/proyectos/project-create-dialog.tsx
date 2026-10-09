@@ -114,9 +114,19 @@ function diferenciaCreacion(
 export type ProjectCreateDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /**
+   * Opportunity to preselect once the eligible list loads (the "Convertir en
+   * proyecto" entry point on the won opportunity). The rest of the form and its
+   * validation are unchanged; the user can still pick another one.
+   */
+  initialOportunidadId?: string;
 };
 
-export function ProjectCreateDialog({ open, onOpenChange }: ProjectCreateDialogProps) {
+export function ProjectCreateDialog({
+  open,
+  onOpenChange,
+  initialOportunidadId,
+}: ProjectCreateDialogProps) {
   const userQuery = useCurrentUser();
   const usersQuery = useUsers();
   const clientsQuery = useClients(CLIENT_PICKER_FILTERS);
@@ -138,6 +148,7 @@ export function ProjectCreateDialog({ open, onOpenChange }: ProjectCreateDialogP
   const [principalIdsEstado, setPrincipalIdsEstado] = useState<string[] | null>(null);
   const [municipioIds, setMunicipioIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [prefillAplicado, setPrefillAplicado] = useState(false);
 
   const createProject = useCreateProject();
   const createFromOpportunity = useCreateProjectFromOpportunity(
@@ -176,6 +187,17 @@ export function ProjectCreateDialog({ open, onOpenChange }: ProjectCreateDialogP
     setNombre(op.nombre);
     setValorTotal(valorDesdeDecimal(op.valor_estimado_cop));
     setError(null);
+  }
+
+  // Preselección única (derivada en render, sin efectos): se aplica en cuanto la
+  // oportunidad aparece en la lista de elegibles y no se repite, para no pisar
+  // lo que el usuario edite o elija después.
+  if (initialOportunidadId && !prefillAplicado) {
+    const inicial = oportunidades.find((op) => op.id === initialOportunidadId);
+    if (inicial) {
+      setPrefillAplicado(true);
+      elegirOportunidad(inicial);
+    }
   }
 
   function toggleLinea(id: string, incluida: boolean) {

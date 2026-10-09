@@ -5,6 +5,7 @@
 // when the caller is read-only.
 
 import { render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { describe, expect, it, vi } from "vitest"
 import type { BitacoraEntrada, Oportunidad, TaskItem } from "@/hooks/crm"
@@ -20,13 +21,39 @@ const noopMutation = {
 // vitest) can reference these mocks, and individual tests can override their
 // return value per-case with mockReturnValueOnce without touching the
 // baseline empty-list behavior every other test relies on.
-const { useTasksByOportunidadMock, useBitacoraMock } = vi.hoisted(() => ({
+const { useTasksByOportunidadMock, useBitacoraMock, useEligibleOpportunitiesMock, useCurrentUserMock } =
+  vi.hoisted(() => ({
+  // Default: nobody logged in and nothing eligible, so the project-conversion
+  // button stays hidden for every pre-existing test.
+  useEligibleOpportunitiesMock: vi.fn<
+    (options?: { enabled?: boolean }) => { data: { id: string }[] | undefined }
+  >(() => ({ data: [] })),
+  useCurrentUserMock: vi.fn<() => { data: { id: string; rol: string } | null }>(() => ({ data: null })),
   useTasksByOportunidadMock: vi.fn<() => { data: TaskItem[]; isLoading: boolean; isError: boolean }>(
     () => ({ data: [], isLoading: false, isError: false }),
   ),
   useBitacoraMock: vi.fn<() => { data: BitacoraEntrada[]; isLoading: boolean; isError: boolean }>(
     () => ({ data: [], isLoading: false, isError: false }),
   ),
+}))
+
+vi.mock("@/hooks/projects", () => ({
+  useEligibleOpportunities: useEligibleOpportunitiesMock,
+}))
+
+vi.mock("@/hooks/kanban", () => ({
+  useCurrentUser: useCurrentUserMock,
+}))
+
+vi.mock("@/components/proyectos/project-create-dialog", () => ({
+  ProjectCreateDialog: ({
+    open,
+    initialOportunidadId,
+  }: {
+    open: boolean
+    initialOportunidadId?: string
+  }) =>
+    open ? <div data-testid="project-create-dialog">preselected:{initialOportunidadId}</div> : null,
 }))
 
 vi.mock("@/hooks/crm", async (importOriginal) => {
@@ -158,5 +185,67 @@ describe("OportunidadLifecycleDialog", () => {
     expect(
       screen.queryByText("Sin entradas de bitácora para esta oportunidad."),
     ).not.toBeInTheDocument()
+  })
+
+  describe("Convertir en proyecto (S11 U1)", () => {
+    function asManager(eligibleIds: string[] = [BASE_OPORTUNIDAD.id]) {
+      useCurrentUserMock.mockReturnValue({ data: { id: "u-1", rol: "GERENCIA" } })
+      useEligibleOpportunitiesMock.mockReturnValue({ data: eligibleIds.map((id) => ({ id })) })
+    }
+
+    it("shows the action for a GANADA opportunity without a project and a permitted user", () => {
+      asManager()
+      renderDialog(BASE_OPORTUNIDAD)
+
+      expect(screen.getByRole("button", { name: "Convertir en proyecto" })).toBeInTheDocument()
+    })
+
+    it("keeps the existing 'Convertir a ejecución' button next to it", () => {
+      asManager()
+      renderDialog(BASE_OPORTUNIDAD)
+
+      expect(screen.getByRole("button", { name: "Convertir a ejecución" })).toBeInTheDocument()
+    })
+
+    it("hides it when the opportunity already has a project (not in the eligible list)", () => {
+      asManager([])
+      renderDialog({ ...BASE_OPORTUNIDAD, fase: "EJECUCION" })
+
+      expect(screen.queryByRole("button", { name: "Convertir en proyecto" })).not.toBeInTheDocument()
+    })
+
+    it("hides it when the opportunity is not GANADA", () => {
+      asManager()
+      renderDialog({ ...BASE_OPORTUNIDAD, estado: "EN_NEGOCIACION" })
+
+      expect(screen.queryByRole("button", { name: "Convertir en proyecto" })).not.toBeInTheDocument()
+    })
+
+    it("hides it for a role that cannot create projects", () => {
+      useCurrentUserMock.mockReturnValue({ data: { id: "u-2", rol: "COORDINADOR" } })
+      useEligibleOpportunitiesMock.mockReturnValue({ data: [{ id: BASE_OPORTUNIDAD.id }] })
+      renderDialog(BASE_OPORTUNIDAD)
+
+      expect(screen.queryByRole("button", { name: "Convertir en proyecto" })).not.toBeInTheDocument()
+    })
+
+    it("does not fetch the eligible list for a role that cannot create projects", () => {
+      useCurrentUserMock.mockReturnValue({ data: { id: "u-2", rol: "COORDINADOR" } })
+      renderDialog(BASE_OPORTUNIDAD)
+
+      expect(useEligibleOpportunitiesMock).toHaveBeenLastCalledWith({ enabled: false })
+    })
+
+    it("opens the project dialog with this opportunity preselected", async () => {
+      asManager()
+      renderDialog(BASE_OPORTUNIDAD)
+
+      expect(screen.queryByTestId("project-create-dialog")).not.toBeInTheDocument()
+      await userEvent.setup().click(screen.getByRole("button", { name: "Convertir en proyecto" }))
+
+      expect(screen.getByTestId("project-create-dialog")).toHaveTextContent(
+        `preselected:${BASE_OPORTUNIDAD.id}`,
+      )
+    })
   })
 })

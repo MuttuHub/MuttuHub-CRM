@@ -86,8 +86,17 @@ const CLIENTES: { data: { items: Pick<ClientListRow, "id" | "nombre">[] } } = {
 let createProject: MutationState
 let createFromOpportunity: MutationState
 
-function renderDialog(onOpenChange: (open: boolean) => void = vi.fn()) {
-  return render(<ProjectCreateDialog open onOpenChange={onOpenChange} />)
+function renderDialog(
+  onOpenChange: (open: boolean) => void = vi.fn(),
+  initialOportunidadId?: string,
+) {
+  return render(
+    <ProjectCreateDialog
+      open
+      onOpenChange={onOpenChange}
+      initialOportunidadId={initialOportunidadId}
+    />,
+  )
 }
 
 async function elegirOportunidad(user: ReturnType<typeof userEvent.setup>) {
@@ -111,6 +120,42 @@ describe("ProjectCreateDialog", () => {
     useCurrentUserMock.mockReturnValue({ data: USER })
     useCreateProjectMock.mockReturnValue(createProject)
     useCreateProjectFromOpportunityMock.mockReturnValue(createFromOpportunity)
+  })
+
+  it("preselects the opportunity given by initialOportunidadId (name, value and client prefilled)", () => {
+    useEligibleOpportunitiesMock.mockReturnValue({
+      data: [OPORTUNIDAD, OPORTUNIDAD_2],
+      isLoading: false,
+      isError: false,
+    } satisfies QueryState<EligibleOpportunity[]>)
+
+    renderDialog(vi.fn(), "op-1")
+
+    expect(screen.getByRole("button", { name: /Consultoría línea base/ })).toHaveAttribute("aria-pressed", "true")
+    expect(screen.getByRole("button", { name: /Segunda oportunidad ganada/ })).toHaveAttribute("aria-pressed", "false")
+    expect(screen.getByLabelText("Nombre")).toHaveValue("Consultoría línea base")
+    expect(screen.getByLabelText("Valor total")).toHaveValue(180000000)
+  })
+
+  it("preselects once the eligible list arrives after the first render", () => {
+    useEligibleOpportunitiesMock.mockReturnValue({ data: undefined, isLoading: true, isError: false })
+    const view = renderDialog(vi.fn(), "op-1")
+    expect(screen.queryByLabelText("Nombre")).toHaveValue("")
+
+    useEligibleOpportunitiesMock.mockReturnValue({ data: [OPORTUNIDAD], isLoading: false, isError: false })
+    view.rerender(<ProjectCreateDialog open onOpenChange={vi.fn()} initialOportunidadId="op-1" />)
+
+    expect(screen.getByLabelText("Nombre")).toHaveValue("Consultoría línea base")
+  })
+
+  it("still requires municipios when the opportunity is preselected", async () => {
+    const user = userEvent.setup()
+    renderDialog(vi.fn(), "op-1")
+
+    await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
+
+    expect(await screen.findByText("Selecciona al menos un municipio.")).toBeInTheDocument()
+    expect(createFromOpportunity.mutateAsync).not.toHaveBeenCalled()
   })
 
   it("opens on the GANADA-opportunity origin by default", () => {

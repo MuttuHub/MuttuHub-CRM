@@ -47,6 +47,10 @@ import {
   type TaskItem,
 } from "@/hooks/crm";
 import { ToneBadge } from "@/components/crm/shared";
+import { ProjectCreateDialog } from "@/components/proyectos/project-create-dialog";
+import { useCurrentUser } from "@/hooks/kanban";
+import { useEligibleOpportunities } from "@/hooks/projects";
+import { canCreateProject } from "@/lib/permissions";
 
 /* ── Confirm dialog (shared delete guard) ──────────────────────────────── */
 
@@ -586,6 +590,43 @@ function FaseBadge({ fase }: { fase: Oportunidad["fase"] }) {
   );
 }
 
+/**
+ * "Convertir en proyecto" (S11 U1): opens the project creation dialog with this
+ * won opportunity preselected. Shown only for a GANADA opportunity that has no
+ * project yet (it is in the eligible list, which excludes any `proyectos` row,
+ * soft-deleted included) and a user who can create projects. Hidden otherwise;
+ * the API stays the authority (403/409).
+ */
+function ConvertirEnProyectoAction({ oportunidad }: { oportunidad: Oportunidad }) {
+  const userQuery = useCurrentUser();
+  const usuario = userQuery.data;
+  const puedeCrear = usuario ? canCreateProject({ id: usuario.id, rol: usuario.rol }) : false;
+  const eligiblesQuery = useEligibleOpportunities({ enabled: puedeCrear });
+  const [abierto, setAbierto] = useState(false);
+
+  const sinProyecto = (eligiblesQuery.data ?? []).some((op) => op.id === oportunidad.id);
+  // Keep mounting the dialog while open: the conversion refreshes the eligible
+  // list, which would otherwise unmount it before it closes itself.
+  if (!abierto && (!puedeCrear || !sinProyecto)) return null;
+
+  return (
+    <>
+      <Button
+        variant="outline"
+        onClick={() => setAbierto(true)}
+        className="w-fit rounded-lg px-4 font-bold"
+      >
+        Convertir en proyecto
+      </Button>
+      <ProjectCreateDialog
+        open={abierto}
+        onOpenChange={setAbierto}
+        initialOportunidadId={oportunidad.id}
+      />
+    </>
+  );
+}
+
 export function OportunidadLifecycleDialog({
   clientId,
   open,
@@ -701,6 +742,8 @@ export function OportunidadLifecycleDialog({
               Convertir a ejecución
             </Button>
           )}
+
+          {oportunidad.estado === "GANADA" && <ConvertirEnProyectoAction oportunidad={oportunidad} />}
 
           <div className="flex flex-col gap-2">
             <p className="text-[13px] font-bold text-ink-900">
