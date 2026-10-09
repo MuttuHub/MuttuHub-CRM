@@ -23,9 +23,9 @@ import {
   runDemoReset,
   type DemoProjectRow,
   type DemoResetClient,
-  type DemoResetCounts,
   type DemoResetPlan,
   type DemoSnapshot,
+  DEMO_CHILD_TABLES,
 } from "./reset-demo"
 
 type Call = { op: string; args: unknown }
@@ -174,41 +174,57 @@ describe("planDemoReset — sequence rows", () => {
   })
 })
 
+/** A fake child delegate: records its call and reports `count` deleted rows. */
+function childDelegates(calls: Call[], count: (key: string) => number = () => 0) {
+  return Object.fromEntries(
+    DEMO_CHILD_TABLES.map((key) => [
+      key,
+      {
+        deleteMany: async (args: unknown) => {
+          calls.push({ op: key, args })
+          return { count: count(key) }
+        },
+      },
+    ]),
+  )
+}
+
 describe("applyDemoReset", () => {
-  it("deletes municipios, then lineas, then proyectos, restores oportunidades, then secuencias", async () => {
+  it("deletes every child table, then municipios, lineas, proyectos, restores oportunidades, then secuencias", async () => {
     const calls: Call[] = []
-    const tx: DemoResetClient = {
+    const tx = {
+      ...childDelegates(calls, (key) => (key === "proyectoMiembro" ? 5 : 0)),
       proyectoMunicipio: {
-        deleteMany: async (args) => {
+        deleteMany: async (args: unknown) => {
           calls.push({ op: "municipios", args })
           return { count: 3 }
         },
       },
       proyectoLinea: {
-        deleteMany: async (args) => {
+        deleteMany: async (args: unknown) => {
           calls.push({ op: "lineas", args })
           return { count: 4 }
         },
       },
       proyecto: {
-        deleteMany: async (args) => {
+        deleteMany: async (args: unknown) => {
           calls.push({ op: "proyectos", args })
           return { count: 2 }
         },
       },
       oportunidad: {
-        update: async (args) => {
+        update: async (args: unknown) => {
           calls.push({ op: "oportunidad.update", args })
           return {}
         },
       },
       proyectoSecuencia: {
-        deleteMany: async (args) => {
+        deleteMany: async (args: unknown) => {
           calls.push({ op: "secuencias", args })
           return { count: 1 }
         },
       },
-    }
+    } as unknown as DemoResetClient
 
     const plan: DemoResetPlan = {
       deleteProjects: [
@@ -226,32 +242,48 @@ describe("applyDemoReset", () => {
     const counts = await applyDemoReset(tx, plan)
 
     expect(calls.map((call) => call.op)).toEqual([
+      ...DEMO_CHILD_TABLES,
       "municipios",
       "lineas",
       "proyectos",
       "oportunidad.update",
       "secuencias",
     ])
-    expect(calls[0].args).toEqual({ where: { proyecto_id: { in: ["p1", "p2"] } } })
-    expect(calls[1].args).toEqual({ where: { proyecto_id: { in: ["p1", "p2"] } } })
-    expect(calls[2].args).toEqual({ where: { id: { in: ["p1", "p2"] } } })
-    expect(calls[3].args).toEqual({
+    // The members table is the one that broke the reset for UI-created projects.
+    expect(DEMO_CHILD_TABLES).toContain("proyectoMiembro")
+    for (const call of calls.slice(0, DEMO_CHILD_TABLES.length + 2)) {
+      expect(call.args).toEqual({ where: { proyecto_id: { in: ["p1", "p2"] } } })
+    }
+    const tail = DEMO_CHILD_TABLES.length + 2
+    expect(calls[tail].args).toEqual({ where: { id: { in: ["p1", "p2"] } } })
+    expect(calls[tail + 1].args).toEqual({
       where: { id: "o1" },
       data: { fase: "PROSPECCION", fecha_adjudicacion: null },
     })
-    expect(calls[4].args).toEqual({ where: { anio: { in: [2025] } } })
-    expect(counts).toEqual<DemoResetCounts>({
-      municipios: 3,
-      lineas: 4,
-      proyectos: 2,
-      oportunidades: 1,
-      secuencias: 1,
-    })
+    expect(calls[tail + 2].args).toEqual({ where: { anio: { in: [2025] } } })
+    expect(counts.hijos.proyectoMiembro).toBe(5)
+    expect(counts).toMatchObject({ municipios: 3, lineas: 4, proyectos: 2, oportunidades: 1, secuencias: 1 })
+  })
+
+  it("orders the structure chain so no child is deleted after the row it references", () => {
+    const idx = (key: string) => DEMO_CHILD_TABLES.indexOf(key as (typeof DEMO_CHILD_TABLES)[number])
+    expect(idx("soporteProyecto")).toBeLessThan(idx("gasto"))
+    expect(idx("soporteProyecto")).toBeLessThan(idx("avanceEntregable"))
+    expect(idx("soporteProyecto")).toBeLessThan(idx("medicionIndicador"))
+    expect(idx("programacionPeriodo")).toBeLessThan(idx("lineaPresupuestal"))
+    expect(idx("gasto")).toBeLessThan(idx("lineaPresupuestal"))
+    expect(idx("avanceEntregable")).toBeLessThan(idx("entregable"))
+    expect(idx("entregable")).toBeLessThan(idx("actividad"))
+    expect(idx("registroBeneficiario")).toBeLessThan(idx("actividad"))
+    expect(idx("medicionIndicador")).toBeLessThan(idx("indicador"))
+    expect(idx("indicador")).toBeLessThan(idx("objetivo"))
+    expect(idx("actividad")).toBeLessThan(idx("objetivo"))
   })
 
   it("issues no opportunity update when nothing is restored", async () => {
     const calls: Call[] = []
     const tx = {
+      ...childDelegates([]),
       proyectoMunicipio: { deleteMany: async () => ({ count: 0 }) },
       proyectoLinea: { deleteMany: async () => ({ count: 0 }) },
       proyecto: { deleteMany: async () => ({ count: 0 }) },

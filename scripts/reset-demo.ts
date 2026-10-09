@@ -87,7 +87,34 @@ export type DemoResetPlan = {
   keepSecuencias: { anio: number; reason: string }[]
 }
 
+/**
+ * Every table that holds a RESTRICT/NO ACTION FK to `proyectos` (directly or
+ * through another child), in the order they must be emptied: a table is listed
+ * before every table it references. `versiones_proyecto`, `acceso_soportes`
+ * and `auditoria_cambios` are append-only (DB triggers reject DELETE) and only
+ * exist once a project left BORRADOR, so they are intentionally absent: a
+ * BORRADOR project never owns rows there.
+ */
+export const DEMO_CHILD_TABLES = [
+  "soporteProyecto",
+  "programacionPeriodo",
+  "gasto",
+  "lineaPresupuestal",
+  "avanceEntregable",
+  "registroBeneficiario",
+  "entregable",
+  "medicionIndicador",
+  "indicador",
+  "actividad",
+  "objetivo",
+  "proyectoMiembro",
+] as const
+
+export type DemoChildTable = (typeof DEMO_CHILD_TABLES)[number]
+
 export type DemoResetCounts = {
+  /** Rows removed per child table (see `DEMO_CHILD_TABLES`). */
+  hijos: Record<DemoChildTable, number>
   municipios: number
   lineas: number
   proyectos: number
@@ -101,6 +128,10 @@ export type DemoResetCounts = {
  * hands it the Prisma transaction client.
  */
 export type DemoResetClient = {
+  [K in DemoChildTable]: {
+    deleteMany(args: { where: { proyecto_id: { in: string[] } } }): Promise<{ count: number }>
+  }
+} & {
   proyectoMunicipio: {
     deleteMany(args: { where: { proyecto_id: { in: string[] } } }): Promise<{ count: number }>
   }
@@ -219,7 +250,8 @@ export function planDemoReset(snapshot: DemoSnapshot): DemoResetPlan {
 
 /**
  * Executes the plan in the only order the schema allows: both child tables have
- * an `ON DELETE RESTRICT` FK to `proyectos`, so lineas and municipios go first;
+ * an `ON DELETE RESTRICT` FK to `proyectos`, so every child table (members,
+ * structure, budget, expenses...) goes first, then lineas and municipios;
  * the opportunity restore follows the project deletion (they are independent but
  * keeping every removal together reads better in a transaction log); the counter
  * rows go last.
@@ -229,6 +261,12 @@ export async function applyDemoReset(
   plan: DemoResetPlan,
 ): Promise<DemoResetCounts> {
   const proyectoIds = plan.deleteProjects.map((row) => row.id)
+
+  const hijos = {} as Record<DemoChildTable, number>
+  for (const table of DEMO_CHILD_TABLES) {
+    const { count } = await tx[table].deleteMany({ where: { proyecto_id: { in: proyectoIds } } })
+    hijos[table] = count
+  }
 
   const municipios = await tx.proyectoMunicipio.deleteMany({
     where: { proyecto_id: { in: proyectoIds } },
@@ -252,6 +290,7 @@ export async function applyDemoReset(
   })
 
   return {
+    hijos,
     municipios: municipios.count,
     lineas: lineas.count,
     proyectos: proyectos.count,
@@ -342,6 +381,7 @@ function printReport(result: DemoResetRunResult, print: Printer): void {
   ]
   if (result.mode === "apply") {
     summary.push(`municipios=${result.counts.municipios}`, `lineas=${result.counts.lineas}`)
+    for (const table of DEMO_CHILD_TABLES) summary.push(`${table}=${result.counts.hijos[table]}`)
   }
   print(summary.join(" "))
   if (result.mode === "dry-run") print("Dry run: nothing was written. Re-run with --apply to execute.")
