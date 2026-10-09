@@ -20,6 +20,7 @@ vi.mock("@/lib/db", () => ({
     actividad: { findMany: vi.fn() },
     avanceEntregable: { findMany: vi.fn() },
     soporteProyecto: { groupBy: vi.fn() },
+    versionProyecto: { findFirst: vi.fn() },
   },
 }));
 
@@ -185,6 +186,86 @@ describe("GET technical-status: medio requirement and corte", () => {
       // An empty value falls back to today; anything else malformed is a 400.
       expect(res.status, corte).toBe(corte === "" ? 200 : 400);
     }
+  });
+});
+
+describe("GET technical-status: base (S8 U5)", () => {
+  // The live project was re-scheduled after the baseline: 1.4 now spans weeks 3-4 (weight 2).
+  const conCodigo = (a: ReturnType<typeof act>, codigos: string[]) => ({
+    ...a,
+    entregables: a.entregables.map((e, i) => ({ ...e, codigo: codigos[i] })),
+  });
+  const vivas = [
+    conCodigo(actividades[0]!, ["1.1-E1", "1.1-E2"]),
+    conCodigo(actividades[1]!, ["1.2-E1"]),
+    conCodigo(actividades[2]!, ["1.3-E1", "1.3-E2"]),
+    { ...conCodigo(actividades[3]!, ["1.4-E1", "1.4-E2", "1.4-E3"]), semana_fin: 4, peso: new Prisma.Decimal(2) },
+  ];
+  const snapshotV0 = {
+    schema: 1,
+    proyecto: { valor_total: "1.00", fecha_inicio: "2026-10-05", fecha_fin: "2027-01-29", beneficiarios_meta: 1 },
+    presupuesto: [],
+    programacion: [],
+    actividades: [
+      { codigo: "1.1", objetivo_codigo: "OE1", nombre: "a", semana_inicio: 1, semana_fin: 1, peso: "1", peso_manual: false },
+      { codigo: "1.2", objetivo_codigo: "OE1", nombre: "b", semana_inicio: 2, semana_fin: 2, peso: "1", peso_manual: false },
+      { codigo: "1.3", objetivo_codigo: "OE1", nombre: "c", semana_inicio: 3, semana_fin: 3, peso: "1", peso_manual: false },
+      { codigo: "1.4", objetivo_codigo: "OE1", nombre: "d", semana_inicio: 3, semana_fin: 6, peso: "4", peso_manual: false },
+    ],
+    entregables: [
+      { codigo: "1.1-E1", actividad_codigo: "1.1", descripcion: "x", cantidad_meta: "2", unidad: "u" },
+      { codigo: "1.1-E2", actividad_codigo: "1.1", descripcion: "x", cantidad_meta: "1", unidad: "u" },
+      { codigo: "1.2-E1", actividad_codigo: "1.2", descripcion: "x", cantidad_meta: "2", unidad: "u" },
+      { codigo: "1.3-E1", actividad_codigo: "1.3", descripcion: "x", cantidad_meta: "2", unidad: "u" },
+      { codigo: "1.3-E2", actividad_codigo: "1.3", descripcion: "x", cantidad_meta: "2", unidad: "u" },
+      { codigo: "1.4-E1", actividad_codigo: "1.4", descripcion: "x", cantidad_meta: "2", unidad: "u" },
+      { codigo: "1.4-E2", actividad_codigo: "1.4", descripcion: "x", cantidad_meta: "2", unidad: "u" },
+      { codigo: "1.4-E3", actividad_codigo: "1.4", descripcion: "x", cantidad_meta: "2", unidad: "u" },
+    ],
+    indicadores: [],
+  };
+
+  beforeEach(() => {
+    vi.mocked(db.actividad.findMany).mockResolvedValue(vivas as never);
+    vi.mocked(db.versionProyecto.findFirst).mockResolvedValue({ snapshot: snapshotV0 } as never);
+  });
+
+  it("uses the v0 weeks and weights for base=original (the F-T1 golden) and the live ones for vigente", async () => {
+    const original = await (await GET(get("?corte=2026-10-25&base=original"), ctx)).json();
+    expect(original).toMatchObject({ base: "original", avance_real: 21.4, avance_programado: 57.1, desviacion_pp: 35.7, color: "rojo" });
+    expect(original.actividades.map((a: { codigo: string; peso: number }) => [a.codigo, a.peso])).toEqual([
+      ["1.1", 1],
+      ["1.2", 1],
+      ["1.3", 1],
+      ["1.4", 4],
+    ]);
+    expect(original.actividades[0]).toMatchObject({ id: "a11", progreso: 100, estado: "FINALIZADA" });
+
+    const vigente = await (await GET(get("?corte=2026-10-25&base=vigente"), ctx)).json();
+    expect(vigente.base).toBe("vigente");
+    expect(vigente.actividades[3]).toMatchObject({ codigo: "1.4", peso: 2 });
+    expect(vigente.avance_programado).not.toBe(original.avance_programado);
+  });
+
+  it("defaults to vigente", async () => {
+    expect((await (await GET(get(), ctx)).json()).base).toBe("vigente");
+    expect(db.versionProyecto.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("derives the dates of the original from the v0 start", async () => {
+    vi.mocked(db.versionProyecto.findFirst).mockResolvedValue({ snapshot: { ...snapshotV0, proyecto: { ...snapshotV0.proyecto, fecha_inicio: "2026-10-12" } } } as never);
+    const movido = await (await GET(get("?corte=2026-10-25&base=original"), ctx)).json();
+    expect(movido.avance_programado).toBeLessThan(57.1);
+  });
+
+  it("answers 409 for base=original without a v0 and 400 for an unknown base", async () => {
+    vi.mocked(db.versionProyecto.findFirst).mockResolvedValue(null);
+    const sin = await GET(get("?corte=2026-10-25&base=original"), ctx);
+    expect(sin.status).toBe(409);
+    expect((await sin.json()).error).toBe("La versión original aún no existe.");
+    const mala = await GET(get("?corte=2026-10-25&base=otra"), ctx);
+    expect(mala.status).toBe(400);
+    expect((await mala.json()).error).toBe("La base no es válida. Usa vigente u original.");
   });
 });
 

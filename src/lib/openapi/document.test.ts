@@ -290,4 +290,14 @@ describe("buildOpenApiDocument", () => {
     const rechazar = paths["/api/v1/projects/{id}/modifications/{modificationId}/reject"]?.post
     expect(Object.keys(rechazar?.responses ?? {})).toEqual(expect.arrayContaining(["200", "400", "403", "404", "409"]))
   })
+  it("registers the S8 version reads and the base parameter of the two ficha endpoints", () => {
+    const paths = buildOpenApiDocument().paths ?? {}
+    for (const ruta of ["versions", "versions/{numero}", "versions/compare"]) {
+      expect(Object.keys(paths[`/api/v1/projects/{id}/${ruta}`]?.get?.responses ?? {}), ruta).toEqual(expect.arrayContaining(["200", "401", "403", "404"]))
+    }
+    for (const ruta of ["financial-sheet", "technical-status"]) {
+      const parametros = JSON.stringify(paths[`/api/v1/projects/{id}/${ruta}`]?.get?.parameters)
+      expect(parametros, ruta).toContain("original")
+    }
+  })
 })

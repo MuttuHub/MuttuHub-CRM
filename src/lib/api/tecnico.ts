@@ -7,6 +7,7 @@ import { calcularTecnico, type ActividadTecnicaInput } from "@/lib/proyectos/ava
 import { pesoEfectivo } from "@/lib/proyectos/actividad";
 import { isoDate } from "@/lib/proyectos/proyecto-general";
 import { colorTecnicoV2, type ColorSemaforo, type ParametrosV2 } from "@/lib/proyectos/semaforo-v2";
+import type { SnapshotV1 } from "@/lib/proyectos/versiones";
 import { activityDates, type IsoDate } from "@/lib/proyectos/weeks";
 
 const toNumber = (value: { toString(): string }) => Number(value.toString());
@@ -27,6 +28,11 @@ export async function loadTecnicoStatus(input: {
   fechaInicio: Date;
   corte: IsoDate;
   parametros: Pick<ParametrosV2, "umbral1" | "umbral2" | "avance_requiere_medio">;
+  /**
+   * `base=original` (S8): the weeks, weights and quantities of this frozen version replace the live
+   * structure. The avances stay the live ones, matched to the version's deliverables by code.
+   */
+  estructura?: Pick<SnapshotV1, "actividades" | "entregables">;
 }): Promise<TecnicoStatus> {
   const { proyectoId, corte, parametros } = input;
   const inicio = isoDate(input.fechaInicio);
@@ -41,7 +47,7 @@ export async function loadTecnicoStatus(input: {
         semana_fin: true,
         peso: true,
         peso_manual: true,
-        entregables: { where: { deleted_at: null }, select: { id: true, cantidad_meta: true } },
+        entregables: { where: { deleted_at: null }, select: { id: true, codigo: true, cantidad_meta: true } },
       },
     }),
     db.avanceEntregable.findMany({
@@ -56,7 +62,8 @@ export async function loadTecnicoStatus(input: {
     porEntregable.set(avance.entregable_id, [...(porEntregable.get(avance.entregable_id) ?? []), avance]);
   }
 
-  const entrada: ActividadTecnicaInput[] = actividades.map((actividad) => {
+  const fuente = input.estructura ? desdeSnapshot(input.estructura, actividades) : actividades;
+  const entrada: ActividadTecnicaInput[] = fuente.map((actividad) => {
     const fechas = activityDates(inicio, actividad.semana_inicio, actividad.semana_fin);
     return {
       id: actividad.id,
@@ -85,4 +92,33 @@ export async function loadTecnicoStatus(input: {
   });
   const umbrales = { umbral1: parametros.umbral1.valor, umbral2: parametros.umbral2.valor };
   return { tecnico, umbrales, color: colorTecnicoV2(tecnico.desviacion_pp, umbrales) };
+}
+
+type ActividadFuente = {
+  id: string;
+  codigo: string;
+  semana_inicio: number;
+  semana_fin: number;
+  peso: { toString(): string };
+  peso_manual: boolean;
+  entregables: { id: string; cantidad_meta: { toString(): string } }[];
+};
+
+/** The frozen structure in the shape of the live query: ids come from the live rows with the same code. */
+function desdeSnapshot(estructura: Pick<SnapshotV1, "actividades" | "entregables">, vivas: readonly { id: string; codigo: string; entregables: readonly { id: string; codigo: string }[] }[]): ActividadFuente[] {
+  const idActividad = new Map(vivas.map((a) => [a.codigo, a.id]));
+  const idEntregable = new Map(vivas.flatMap((a) => a.entregables.map((e) => [e.codigo, e.id] as const)));
+  return [...estructura.actividades]
+    .sort((a, b) => a.semana_inicio - b.semana_inicio || (a.codigo < b.codigo ? -1 : a.codigo > b.codigo ? 1 : 0))
+    .map((a) => ({
+      id: idActividad.get(a.codigo) ?? a.codigo,
+      codigo: a.codigo,
+      semana_inicio: a.semana_inicio,
+      semana_fin: a.semana_fin,
+      peso: a.peso,
+      peso_manual: a.peso_manual,
+      entregables: estructura.entregables
+        .filter((e) => e.actividad_codigo === a.codigo)
+        .map((e) => ({ id: idEntregable.get(e.codigo) ?? e.codigo, cantidad_meta: e.cantidad_meta })),
+    }));
 }

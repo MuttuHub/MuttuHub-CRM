@@ -435,7 +435,8 @@ registry.registerPath({
     "sea true, con al menos un medio vivo. `avance_real`, `avance_programado` y `progreso` van en porcentaje 0..100 con " +
     "un decimal; `desviacion_pp` son puntos porcentuales; el `color` sale de la desviación sin redondear y de los " +
     "umbrales (`desviacion <= umbral1` verde, `<= umbral2` amarillo, si no rojo). `umbrales.confirmado` es true solo " +
-    "si ambos umbrales están confirmados. `base` es `vigente` hasta que existan líneas base (S8). Un proyecto sin " +
+    "si ambos umbrales están confirmados. `base=original` usa las semanas, pesos y cantidades congeladas en la " +
+    "versión 0 (409 mientras no exista; una base desconocida responde 400). Un proyecto sin " +
     "fechas responde 409; un `corte` mal formado responde 400.",
   security: [{ sessionCookie: [] }],
   request: {
@@ -445,6 +446,7 @@ registry.registerPath({
         description: "Fecha de corte AAAA-MM-DD; por defecto hoy en Bogotá.",
         example: "2026-10-25",
       }),
+      base: z.enum(["vigente", "original"]).optional().openapi({ description: "Por defecto vigente; `original` usa la versión 0." }),
     }),
   },
   responses: {
@@ -453,7 +455,7 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: z.object({
-            base: z.literal("vigente"),
+            base: z.enum(["vigente", "original"]),
             corte: z.string(),
             estado: z.string().openapi({ description: "Estado del proyecto." }),
             avance_real: z.number(),

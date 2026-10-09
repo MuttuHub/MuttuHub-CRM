@@ -4,11 +4,12 @@
 
 import type { Prisma } from "@prisma/client";
 import { apiError, RespuestaAbortada } from "@/lib/api/errors";
+import { db } from "@/lib/db";
 import { logChanges, type CambioInput } from "@/lib/api/audit-cambios";
 import { lockProyecto } from "@/lib/api/presupuesto";
 import { precondicionesLineaBase, type EntradaLineaBase } from "@/lib/proyectos/linea-base";
 import { toCents } from "@/lib/proyectos/money";
-import { buildSnapshot, type LiveProyecto } from "@/lib/proyectos/versiones";
+import { buildSnapshot, type LiveProyecto, type SnapshotV1 } from "@/lib/proyectos/versiones";
 import { randomUUID } from "node:crypto";
 
 export const BASELINE_YA_APROBADA_MESSAGE = "El proyecto ya tiene línea base aprobada.";
@@ -206,4 +207,53 @@ export async function aprobarLineaBase(
     version: { id: version.id, numero: 0, aprobado_at: version.aprobado_at.toISOString() },
     proyecto: { id: input.proyectoId, estado: "EN_EJECUCION" },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Reading versions (E-27)
+// ---------------------------------------------------------------------------
+
+export const VERSION_NO_EXISTE = "La versión no existe.";
+export const VERSION_INVALIDA = "Versión no válida.";
+
+/** A version token of a query/path: a non-negative integer or the literal `vigente`. */
+export type TokenVersion = { tipo: "vigente" } | { tipo: "numero"; numero: number };
+
+export function parseTokenVersion(raw: string, permiteVigente: boolean): TokenVersion | null {
+  if (permiteVigente && raw === "vigente") return { tipo: "vigente" };
+  if (/^\d{1,9}$/.test(raw)) return { tipo: "numero", numero: Number(raw) };
+  return null;
+}
+
+/** The stored snapshot of a version; null when the project has no such version. */
+export async function loadSnapshotVersion(proyectoId: string, numero: number): Promise<SnapshotV1 | null> {
+  const fila = await db.versionProyecto.findFirst({ where: { proyecto_id: proyectoId, numero }, select: { snapshot: true } });
+  return fila ? (fila.snapshot as unknown as SnapshotV1) : null;
+}
+
+/** The vigente as a snapshot built from the live tables; null while the header is incomplete. */
+export async function loadSnapshotVigente(proyectoId: string): Promise<SnapshotV1 | null> {
+  const { live } = await loadLiveProyecto(db, proyectoId);
+  return live ? buildSnapshot(live) : null;
+}
+
+export const BASE_ORIGINAL_MESSAGE = "La versión original aún no existe.";
+export const BASE_INVALIDA_MESSAGE = "La base no es válida. Usa vigente u original.";
+
+export type BaseResuelta = { base: "vigente" } | { base: "original"; snapshot: SnapshotV1 };
+
+/**
+ * `?base=vigente|original` of the financial sheet and the technical status: the live tables or the
+ * frozen v0. An unknown value is a 400; `original` without a v0 is a 409 (a project not yet approved).
+ */
+export async function resolverBase(
+  proyectoId: string,
+  raw: string | null,
+): Promise<{ ok: true; value: BaseResuelta } | { ok: false; response: Response }> {
+  const base = raw ?? "vigente";
+  if (base === "vigente") return { ok: true, value: { base: "vigente" } };
+  if (base !== "original") return { ok: false, response: apiError(BASE_INVALIDA_MESSAGE, 400, "VALIDATION_ERROR") };
+  const snapshot = await loadSnapshotVersion(proyectoId, 0);
+  if (!snapshot) return { ok: false, response: apiError(BASE_ORIGINAL_MESSAGE, 409, "INVALID_STATE") };
+  return { ok: true, value: { base: "original", snapshot } };
 }

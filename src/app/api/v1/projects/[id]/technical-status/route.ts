@@ -7,13 +7,15 @@
 // counts only with a live medio while `avance_requiere_medio` holds. Readable in
 // any estado by whoever can read the project (404 -> 403 -> 409 -> 400). Percent
 // values are 0..100 rounded to one decimal; the color comes from the unrounded
-// deviation. `base` is "vigente" until baselines exist (S8).
+// deviation. `base=vigente` (default) reads the live structure; `base=original` the weeks, weights
+// and quantities frozen in version 0, with the same live avances matched by code (S8).
 
 import { NextResponse } from "next/server";
 import { apiError } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { gateEjecucionRead } from "@/lib/api/ejecucion";
+import { resolverBase } from "@/lib/api/versiones";
 import { loadTecnicoStatus } from "@/lib/api/tecnico";
 import { getSemaforoParametrosV2 } from "@/lib/settings";
 import { assertIsoDate, todayInBogota } from "@/lib/proyectos/weeks";
@@ -49,16 +51,22 @@ export const GET = withApiErrorHandling(
       return apiError(CORTE_INVALIDO_MESSAGE, 400, "VALIDATION_ERROR");
     }
 
+    const base = await resolverBase(id, new URL(request.url).searchParams.get("base"));
+    if (!base.ok) return base.response;
+    const original = base.value.base === "original" ? base.value.snapshot : null;
+
     const parametros = await getSemaforoParametrosV2();
     const { tecnico, umbrales, color } = await loadTecnicoStatus({
       proyectoId: id,
-      fechaInicio: fecha_inicio,
+      // The original keeps ITS start: the weeks of v0 are counted from the date it was approved with.
+      fechaInicio: original ? new Date(`${original.proyecto.fecha_inicio}T00:00:00.000Z`) : fecha_inicio,
       corte,
       parametros,
+      estructura: original ?? undefined,
     });
 
     return NextResponse.json({
-      base: "vigente",
+      base: base.value.base,
       corte,
       estado,
       avance_real: pct(tecnico.avance_real),

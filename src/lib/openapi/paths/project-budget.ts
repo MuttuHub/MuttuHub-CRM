@@ -140,7 +140,7 @@ const FichaRowSchema = z.object({
 export const FinancialSheetSchema = registry.register(
   "FichaFinanciera",
   z.object({
-    base: z.literal("vigente"),
+    base: z.enum(["vigente", "original"]),
     corte: z.string().openapi({ example: "2026-11" }),
     estado: z.string(),
     ejecucion_disponible: z.boolean().openapi({ description: "False hasta que existan gastos (S6): E es 0 y no hay colores ni alerta." }),
@@ -163,14 +163,15 @@ registry.registerPath({
   description:
     `${READ_NOTE} Solo agregados: no incluye gastos individuales ni soportes. El corte es \`AAAA-MM\` dentro de los periodos ` +
     "del proyecto (por defecto el mes actual en Bogotá, acotado al rango; 400 si es inválido o queda fuera). `base=original` " +
-    "responde 409 mientras no existan versiones (S8). Sin fechas de proyecto responde 409. El color financiero sale de " +
+    "calcula A y P desde la versión 0 congelada (con E vigente y los periodos de sus fechas) y responde 409 mientras " +
+    "no exista; una base desconocida responde 400. Sin fechas de proyecto responde 409. El color financiero sale de " +
     "`E > A` rojo, `E <= P` verde, tolerancia amarillo, si no rojo; la fila de total aplica las mismas fórmulas a las sumas.",
   security: [{ sessionCookie: [] }],
   request: {
     params: ProjectParams,
     query: z.object({
       corte: z.string().optional().openapi({ description: "Periodo AAAA-MM.", example: "2026-11" }),
-      base: z.enum(["vigente", "original"]).optional().openapi({ description: "Por defecto vigente." }),
+      base: z.enum(["vigente", "original"]).optional().openapi({ description: "Por defecto vigente; `original` usa la versión 0." }),
     }),
   },
   responses: {
