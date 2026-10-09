@@ -311,4 +311,15 @@ describe("buildOpenApiDocument", () => {
     expect(Object.keys(one?.responses ?? {})).toEqual(expect.arrayContaining(["200", "400", "401", "403", "404", "409"]))
     expect(JSON.stringify(one?.parameters)).toContain("original")
   })
+  it("registers the S9 export paths: xlsx binary, PDF refused with 400", () => {
+    const paths = buildOpenApiDocument().paths ?? {}
+    const one = paths["/api/v1/projects/{id}/export"]?.get
+    expect(Object.keys(one?.responses ?? {})).toEqual(expect.arrayContaining(["200", "400", "401", "403", "404", "409"]))
+    const names = ((one?.parameters ?? []) as { name: string }[]).map((p) => p.name)
+    expect(names).toEqual(expect.arrayContaining(["formato", "ficha", "corte", "base"]))
+    expect(JSON.stringify(one?.responses?.["200"])).toContain("spreadsheetml.sheet")
+    const all = paths["/api/v1/dashboard/portfolio/export"]?.get
+    expect(Object.keys(all?.responses ?? {})).toEqual(expect.arrayContaining(["200", "400", "401", "403"]))
+    expect(JSON.stringify(all?.responses?.["200"])).toContain("spreadsheetml.sheet")
+  })
 })

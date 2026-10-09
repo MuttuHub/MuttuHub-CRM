@@ -133,3 +133,61 @@ registry.registerPath({
     ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
   },
 });
+
+const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const XLSX_RESPONSE = { type: "string" as const, format: "binary" as const };
+const FORMATO = z.enum(["xlsx"]).optional().openapi({ description: "Solo `xlsx`. `pdf` (u otro) responde 400: aún no está disponible." });
+const EXPORT_NOTE =
+  "Solo agregados: ninguna hoja trae gastos individuales, terceros ni soportes, para ningún rol (P04). " +
+  "Cada descarga escribe una fila de auditoría `EXPORTAR` (si la auditoría falla, la descarga no falla).";
+
+registry.registerPath({
+  method: "get",
+  path: "/api/v1/projects/{id}/export",
+  tags: ["Projects"],
+  summary: "Exporta a Excel la ficha del proyecto o la ficha financiera",
+  description:
+    `Lee quien puede leer la ficha del proyecto (404 -> 403 -> 409 sin fechas -> 400). \`ficha=proyecto\` (por defecto) trae datos ` +
+    `generales, conteos de estructura y KPIs; \`ficha=financiera\` trae las filas por rubro y la fila de total de la ficha financiera ` +
+    `(\`corte\` AAAA-MM). \`base=original\` usa la versión 0 congelada. ${EXPORT_NOTE}`,
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: z.object({ id: z.string().uuid() }),
+    query: z.object({
+      formato: FORMATO,
+      ficha: z.enum(["proyecto", "financiera"]).optional(),
+      corte: z.string().optional().openapi({ description: "AAAA-MM-DD para `proyecto`; AAAA-MM para `financiera`." }),
+      base: z.enum(["vigente", "original"]).optional(),
+    }),
+  },
+  responses: {
+    200: { description: "Libro de Excel (.xlsx).", content: { [XLSX]: { schema: XLSX_RESPONSE } } },
+    ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/v1/dashboard/portfolio/export",
+  tags: ["Projects"],
+  summary: "Exporta a Excel el tablero de proyectos",
+  description:
+    "Mismo alcance, filtros y números que `GET /api/v1/dashboard/portfolio` (403 para quien no lo ve; el 403 va antes que el 400 de " +
+    `\`formato\`). Máximo 500 proyectos; si se corta, el resumen lo indica. ${EXPORT_NOTE}`,
+  security: [{ sessionCookie: [] }],
+  request: {
+    query: z.object({
+      formato: FORMATO,
+      corte: CORTE.optional(),
+      linea_id: z.string().optional(),
+      cliente_id: z.string().optional(),
+      responsable_id: z.string().optional(),
+      estado: z.string().optional(),
+      municipio_id: z.string().optional(),
+    }),
+  },
+  responses: {
+    200: { description: "Libro de Excel (.xlsx).", content: { [XLSX]: { schema: XLSX_RESPONSE } } },
+    ...standardErrorResponses([400, 401, 403, 500]),
+  },
+});

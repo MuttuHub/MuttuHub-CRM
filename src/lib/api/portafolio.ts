@@ -48,9 +48,14 @@ export function parsePortafolioFilters(url: URL): { ok: true; filters: ProjectLi
   };
 }
 
+/** Who reads the dashboard: the portfolio scope (all) or a COORDINADOR (their member projects). */
+export function puedeVerPortafolio(usuario: Usuario): boolean {
+  return canReadProjectList(usuario) || usuario.rol === "COORDINADOR";
+}
+
 /** 403 -> 400 (filters, corte) -> the portfolio. */
 export async function cargarPortafolio(usuario: Usuario, url: URL) {
-  if (!canReadProjectList(usuario) && usuario.rol !== "COORDINADOR") {
+  if (!puedeVerPortafolio(usuario)) {
     return { ok: false as const, response: apiError(PORTAFOLIO_FORBIDDEN_MESSAGE, 403, "FORBIDDEN") };
   }
   const filters = parsePortafolioFilters(url);

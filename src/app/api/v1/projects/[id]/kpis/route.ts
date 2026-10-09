@@ -12,16 +12,14 @@ import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { canReadProject, loadProjectScoped } from "@/lib/api/projects";
 import { EJECUCION_FORBIDDEN_MESSAGE, PROYECTO_NO_EXISTE } from "@/lib/api/ejecucion";
-import { loadKpisPortafolio } from "@/lib/api/kpis-portafolio";
-import { parseCorteFecha, serializeKpis } from "@/lib/api/kpis-http";
-import { resolverBase } from "@/lib/api/versiones";
-import { getSemaforoParametrosV2 } from "@/lib/settings";
+import { SIN_FECHAS_MESSAGE, calcularKpisProyecto } from "@/lib/api/kpis-proyecto";
+import { serializeKpis } from "@/lib/api/kpis-http";
 
 export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export const SIN_FECHAS_MESSAGE = "El proyecto aún no tiene fechas de inicio y fin.";
+export { SIN_FECHAS_MESSAGE };
 
 const KPI_SELECT = { id: true, estado: true, fecha_inicio: true, fecha_fin: true, beneficiarios_meta: true } as const;
 
@@ -36,25 +34,14 @@ export const GET = withApiErrorHandling(
     const scoped = await loadProjectScoped(auth.usuario, id, KPI_SELECT);
     if (!scoped) return apiError(PROYECTO_NO_EXISTE, 404, "NOT_FOUND");
     if (!canReadProject(auth.usuario, scoped.es_miembro)) return apiError(EJECUCION_FORBIDDEN_MESSAGE, 403, "FORBIDDEN");
-    const proyecto = scoped.row;
-    if (!proyecto.fecha_inicio || !proyecto.fecha_fin) return apiError(SIN_FECHAS_MESSAGE, 409, "INVALID_STATE");
 
-    const url = new URL(request.url);
-    const corteResult = parseCorteFecha(url.searchParams.get("corte"));
-    if (!corteResult.ok) return corteResult.response;
-    const base = await resolverBase(id, url.searchParams.get("base"));
-    if (!base.ok) return base.response;
-
-    const parametros = await getSemaforoParametrosV2();
-    const kpis = await loadKpisPortafolio({
-      proyectos: [proyecto],
-      corte: corteResult.corte,
-      parametros,
-      original: base.value.base === "original" ? { proyectoId: id, snapshot: base.value.snapshot } : undefined,
+    const params = new URL(request.url).searchParams;
+    const result = await calcularKpisProyecto({
+      proyecto: scoped.row,
+      corteParam: params.get("corte"),
+      baseParam: params.get("base"),
     });
-    return NextResponse.json({
-      base: base.value.base,
-      ...serializeKpis(kpis.get(id) as NonNullable<ReturnType<typeof kpis.get>>),
-    });
+    if (!result.ok) return result.response;
+    return NextResponse.json({ base: result.value.base, ...serializeKpis(result.value.kpis) });
   },
 );
