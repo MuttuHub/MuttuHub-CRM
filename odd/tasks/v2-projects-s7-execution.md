@@ -60,14 +60,17 @@ Route: delegated writer per round (round 1: U1-U2, round 2: U3-U4, round 3: U5, 
 - [x] **U4** Validators V-08..V-14 + W-01 + `validarPlantilla` + `construirPlan` (`src/lib/proyectos/plantilla/mapear.ts`):
   V-12 to the cent, ordering, 500-error truncation, multi-error reporting; `construirPlan` of the valid F-X1 yields
   1/4/7 with weights 1/1/1/4. (5b9b9bb; the V-H2 guards and the non-finite-cell crash were closed in 4b6c565)
-- [ ] **U5** Template route + import route + atomic write (~400): 404/403/409/413/400 ordering, dry run writes
-  nothing, apply calls the writer once; live-DB `prisma/plantilla-import.invariant.test.ts` proving the import counts,
-  the V-12 failure writing nothing, and the **atomic rollback** after an injected mid-write failure.
-- [ ] **U6** UI + hooks + OpenAPI (~350): `import-dialog.tsx` mounted in the Estructura header, validate → summary,
-  error table grouped by sheet, confirm, client-side CSV report, hooks, stubs in the list/ficha tests,
-  `paths/project-template.ts`.
-- [ ] **U7** (S7.7) local pilot (~150): `scripts/import-plantilla-demo.ts` (anti-production guard, generates both
-  variants, imports the valid one into a local BORRADOR project).
+- [x] **U5** Template route + import route + atomic write: `GET /projects/:id/template`, `POST /projects/:id/import`
+  (404/403/409/413/400 ordering, dry run writes nothing, apply calls the writer once), `src/lib/api/plantilla-import.ts`
+  (`importarPlantilla(tx, ...)`, `cargarContexto`, `cargarPlantillaInput`, zip guard), `apiError` extended with an `extra`
+  record for `reporte`; live-DB `prisma/plantilla-import.invariant.test.ts` (8 tests). (b68d0da)
+- [x] **U6** UI + hooks + OpenAPI: `import-dialog.tsx` mounted in the Estructura header (canManageProjects + BORRADOR),
+  validate -> summary, error table by sheet, confirm, client-side CSV (`plantilla-reporte.ts`), hooks
+  (`useImportTemplate`, `downloadProjectTemplate`), `paths/project-template.ts` + document test, stubs/tests in
+  list/ficha/estructura. (eb96b31)
+- [x] **U7** (S7.7) local pilot: `scripts/import-plantilla-demo.ts` (anti-production guard, dry run by default,
+  `--apply` writes the two workbooks and imports the valid one) + fakes-based unit test + note in `docs/guia-demo.md`.
+  (ed4dd96)
 
 ## Acceptance
 
@@ -131,6 +134,29 @@ Route: delegated writer per round (round 1: U1-U2, round 2: U3-U4, round 3: U5, 
     assertions with sabotage RED evidence for each fix. Plantilla suite: **100 tests green**; `tsc`/eslint clean.
     Parent spot check: 5 files / 100 tests green, tree clean, no sabotage left.
 
+- 2026-10-08 (21:05): round 3 (U5-U7) by one bounded writer, one commit per unit.
+  - U5 (b68d0da). RED: five test files failing (missing modules, `apiError` ignoring `reporte`); GREEN: errors 3,
+    plantilla-import 5, import route 17, template route 6, live-DB invariant 8. Atomic-rollback sabotage check: removing
+    the `ROLLBACK TO SAVEPOINT` in the injected-failure test turned it RED, then restored. One real bug found by the
+    tests: the zip guard rejected every real xlsx because directory entries carry no `_data` (now skipped).
+  - U6 (eb96b31). RED: reporte lib/dialog missing, controls absent in Estructura, OpenAPI paths absent. GREEN: 13 dialog
+    tests, 5 CSV tests, 3 control tests, 2 ficha tests, document test. Two test-side fixes: `userEvent` `applyAccept:false`
+    for the non-.xlsx check, `FileReader` to read a jsdom Blob.
+  - U7 (ed4dd96). RED: module missing; GREEN 9 tests (dry run inert, apply once, guard is the first import).
+  - Gates: `tsc --noEmit` clean, eslint clean on touched files, **full suite 245 files / 2484 tests green** under
+    `TZ=America/Bogota` (165 s). No migration; no remote; nothing pushed.
+  - Deviations: (1) the live-DB test does NOT really commit: `auditoria_cambios` is append-only (DELETE trigger), so a
+    committed run could never be cleaned. The test runs in one ambient transaction that always rolls back and emulates the
+    route's `$transaction` with a SAVEPOINT (`ROLLBACK TO SAVEPOINT` is the same Postgres semantics); a stub injects a
+    failure on `entregable.createMany` after objectives and activities were inserted. (2) The writer takes no `hook`
+    parameter: the failure is injected by wrapping the tx in the test. (3) `gateEstructuraWrite` gained an optional
+    `stateMessage` so the 409 copy names the download/import action. (4) Dry run of the script is fully read-only (no
+    files); `--apply` writes the two .xlsx into `tmp/plantilla-demo/` (gitignored).
+  - Native review: unavailable in this runtime (see Constraints); not run, not disabled. Independent verifier pending.
+
 ## Next step
 
-Round 3: U5 (template route + import route + the atomic writer, with the live-DB invariant proving the rollback).
+Independent verification of U5-U7 (substitute for the unavailable native review: atomic writer, route gates, zip guard,
+CSV injection guard), then the manual pilot on the local DB: create a BORRADOR project from the ficha and run
+`npx tsx scripts/import-plantilla-demo.ts --project <codigo>` (dry run first) from a shell where tsx works. S7 is then
+complete; the next slice per the parent ledger.
