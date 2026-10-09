@@ -229,4 +229,21 @@ describe("ProjectDashboard", () => {
     await userEvent.setup().click(enlace)
     expect(screen.queryByRole("dialog")).toBeNull()
   })
+
+  it("pins the action column to the right edge with an opaque background so it stays reachable when the table scrolls", () => {
+    render(<ProjectDashboard />)
+    const cabecera = screen.getByRole("columnheader", { name: "Acciones" })
+    expect(cabecera.className).toMatch(/\bsticky\b/)
+    expect(cabecera.className).toMatch(/\bright-0\b/)
+    expect(cabecera.className).toMatch(/\bbg-panel\b/)
+
+    const fila = screen.getByTestId("tablero-fila-p1")
+    const celda = within(fila).getByRole("link", { name: "Ver detalle" }).closest("td")!
+    expect(celda.className).toMatch(/\bsticky\b/)
+    expect(celda.className).toMatch(/\bright-0\b/)
+    expect(celda.className).toMatch(/\bbg-panel\b/)
+    expect(celda.className).toMatch(/group-hover\/fila:bg-/)
+    expect(fila.className).toMatch(/\bgroup\/fila\b/)
+    expect(within(fila).getAllByRole("cell")).toHaveLength(8)
+  })
 })

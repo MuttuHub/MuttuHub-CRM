@@ -217,30 +217,30 @@ function Resumen({ data }: { data: NonNullable<ReturnType<typeof useProjectsPort
 /* ── Tabla ─────────────────────────────────────────────────────────────── */
 
 function TablaProyectos({ proyectos }: { proyectos: PortfolioProject[] }) {
-  // Debajo de `md` la tabla de 1020 px se vuelve una lista de tarjetas (S10 WU4).
+  // Debajo de `md` la tabla de 900 px se vuelve una lista de tarjetas (S10 WU4).
   const mobile = useIsMobile();
   if (mobile) return <TarjetasProyectos proyectos={proyectos} />;
   return (
     <div className="overflow-x-auto">
-      <Table className="min-w-[1020px]">
+      <Table className="min-w-[900px]">
         <TableHeader>
           <TableRow>
             <TableHead>Código</TableHead>
             <TableHead>Proyecto</TableHead>
             <TableHead>Estado</TableHead>
-            <TableHead>Semáforo técnico</TableHead>
-            <TableHead>Semáforo financiero</TableHead>
+            <TableHead className="whitespace-normal leading-tight">Semáforo técnico</TableHead>
+            <TableHead className="whitespace-normal leading-tight">Semáforo financiero</TableHead>
             <TableHead className="text-right">Avance real</TableHead>
-            <TableHead className="text-right">Ejecutado / asignado</TableHead>
-            <TableHead className="text-right">Acciones</TableHead>
+            <TableHead className="whitespace-normal text-right leading-tight">Ejecutado / asignado</TableHead>
+            <TableHead className="sticky right-0 bg-panel text-right">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {proyectos.map((proyecto) => (
-            <TableRow key={proyecto.id} data-testid={`tablero-fila-${proyecto.id}`}>
+            <TableRow key={proyecto.id} className="group/fila" data-testid={`tablero-fila-${proyecto.id}`}>
               <TableCell className="font-mono text-[12px] font-semibold text-ink-700 tabular-nums">{proyecto.codigo}</TableCell>
-              <TableCell className="max-w-[300px]">
-                <p className="truncate font-semibold text-ink-950">{proyecto.nombre}</p>
+              <TableCell className="max-w-[200px]">
+                <p className="truncate font-semibold text-ink-950" title={proyecto.nombre}>{proyecto.nombre}</p>
                 <p className="truncate text-[11.5px] text-ink-600">{proyecto.cliente.nombre}</p>
               </TableCell>
               <TableCell>
@@ -261,7 +261,7 @@ function TablaProyectos({ proyectos }: { proyectos: PortfolioProject[] }) {
               <TableCell className="text-right font-mono text-[12.5px] tabular-nums">
                 {formatPct(proyecto.kpis.financiero?.ea ?? null)}
               </TableCell>
-              <TableCell className="text-right">
+              <TableCell className="sticky right-0 bg-panel text-right group-hover/fila:bg-muted">
                 <Link
                   href={`/proyectos/${proyecto.id}`}
                   target="_blank"
