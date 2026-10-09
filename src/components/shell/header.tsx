@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, Menu, Moon, Sun } from "lucide-react";
-import { PAGE_HEADERS } from "@/lib/nav";
+import { PAGE_HEADERS, isProjectFichaPath } from "@/lib/nav";
 import { useCurrentUser, type CurrentUser } from "@/hooks/kanban";
 import { useTheme } from "@/hooks/use-theme";
 import { apiGet } from "@/lib/api/http";
@@ -84,6 +84,10 @@ export function Header({ initialUser }: { initialUser?: CurrentUser | null }) {
   const subtitle =
     pathname === "/" ? subtituloInicio(notificationsQuery.data) : page.subtitle;
 
+  // The ficha renders the project name as the page's only <h1>; the shell
+  // keeps an empty left block so the controls do not shift.
+  const sinTitulo = isProjectFichaPath(pathname);
+
   // The global date-range store is only consumed on Inicio and Reportes
   // (dashboard-page.tsx, reportes-page.tsx); elsewhere the dropdown is dead.
   const rangoActivo = pathname === "/" || pathname === "/reportes";
@@ -101,12 +105,16 @@ export function Header({ initialUser }: { initialUser?: CurrentUser | null }) {
         >
           <Menu className="size-4" strokeWidth={1.8} />
         </button>
-        <div className="min-w-0">
-          <h1 className="font-display text-[31px] leading-none tracking-[-0.03em] font-extrabold text-ink-950 lg:text-[34px]">
-            {title}
-          </h1>
-          <p className="mt-2 text-[14px] text-ink-600">{subtitle}</p>
-        </div>
+        {sinTitulo ? (
+          <div className="min-w-0" />
+        ) : (
+          <div className="min-w-0">
+            <h1 className="font-display text-[31px] leading-none tracking-[-0.03em] font-extrabold text-ink-950 lg:text-[34px]">
+              {title}
+            </h1>
+            <p className="mt-2 text-[14px] text-ink-600">{subtitle}</p>
+          </div>
+        )}
       </div>
 
       <div className="flex shrink-0 items-center gap-2.5">

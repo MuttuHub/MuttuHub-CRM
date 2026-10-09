@@ -97,6 +97,11 @@ export const PAGE_HEADERS: Record<string, PageHeader> = {
   },
 };
 
+/** True for the project ficha route `/proyectos/<id>` (exactly one segment). */
+export function isProjectFichaPath(pathname: string): boolean {
+  return /^\/proyectos\/[^/]+$/.test(pathname);
+}
+
 export function isNavActive(pathname: string, href: string, exact = false): boolean {
   if (!exact) {
     if (href === "/") return pathname === "/";
