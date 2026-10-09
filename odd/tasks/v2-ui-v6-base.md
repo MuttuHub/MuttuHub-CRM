@@ -56,7 +56,7 @@ stays usable in BOTH light and dark mode. Section-by-section work on the Project
   default at 15.5 px, `--shell-surface` `#1B1316` (dark), and a derived light palette per D3 with coherent light variants of `--ink-500`, `--card`, `--border`, `--primary` usage.
   Update tests (`button.test.tsx`, `proyectos/ui.test.tsx`, `dashboard/shared.test.tsx` as needed). Checks: vitest full suites of ui/crm/proyectos/dashboard/admin/documents,
   `tsc`, eslint, after-shots in both themes. Route: delegated. Then D5 checkpoint.
-- [ ] **U1b** (accepted 2026-10-09, brand manual v2) Align `src/app/globals.css` and the primitives with D6: replace the derived light values with the manual's, `--background`/`--page`
+- [x] **U1b** (commits `d3f1ac8` tokens, `57b6aad` light default, `7b19b54` outline destructive; accepted 2026-10-09, brand manual v2) Align `src/app/globals.css` and the primitives with D6: replace the derived light values with the manual's, `--background`/`--page`
   `#F6F1F3`, `--radius` 0.75rem, accent/accent-soft per theme, dark `--destructive` `#F07163`, `--ring`, `--foreground` `#F8F2F4`, `--muted-foreground` `#A08A91`, `--input` `#34272C`,
   `--color-rose-400` `#EB3F85`, keep `--border-strong` light `#9b8c91`; the manual's `--accent` shadcn token as an alpha tint; `--sidebar*` light tokens white (the sidebar component itself is U3);
   default theme LIGHT in `src/app/layout.tsx` + `src/hooks/use-theme.ts` (stored value still wins); destructive buttons are OUTLINE (fill only on hover; solid fill is reserved for the primary brand button);
@@ -110,6 +110,21 @@ Forecast well above 400 lines in total; each unit stays near 400 where possible.
 - Review state: the slice since the last reviewed boundary `3d174b9` (tablero fix + U2 + U1) is medium, 29 files, ~1,092 lines, `slice_budget_reached`: the native review is DEFERRED until U1b lands,
   so one candidate is reviewed.
 
+- 2026-10-09: U1b done, delegated route. Applied the manual's palette in both themes (light page `#F6F1F3`, tertiary text `#725D62`, accent `#B41153`, chip tints; dark destructive `#F07163`,
+  ring `#EB3F85`, foreground `#F8F2F4`); `--radius` 0.75rem (`rounded-12` is a fixed 12 px); default theme LIGHT via the inline init script in `layout.tsx` (`var d=t==="dark"`, never
+  consults `matchMedia`; `use-theme.ts` unchanged); destructive Button is an outline (11 call sites, none edited). Deviation: the light `--sidebar*` tokens stay DARK (a white `--sidebar` would make
+  `sidebar.tsx`'s fixed light-on-dark text unreadable); they flip together with the component in U3, a test pins the dark values. RED: 16 failed / 200 passed. GREEN: `src/components src/app src/lib
+  src/hooks` 259 files / 2818 tests, tsc 0 errors, eslint clean; parent re-ran tokens + use-theme + button: 3 files / 108 tests, `tsc` clean. After-shots: 55 PNGs in the scratchpad `uiafter-u1b/`;
+  the no-stored-theme run (emulated dark colorScheme) came out light. `--border-strong` light `#9B8C91` is 3.2:1 on white but 2.87:1 on the `#F6F1F3` page (fields sit on white; D6-3).
+  Observed: `login/page.tsx:56` hard-codes `#EFEAEB` as a Suspense fallback background (outside the surfaces, untouched); Kanban date chips wrap to two lines; the "Proyectos" h1 is clipped by the
+  theme button at 390 px (also in the before baseline); the clientes Lista/Detalles toggles were not confirmed in the shots.
+- 2026-10-09: native review of the consolidated slice `3d174b9..7b19b54` (tablero fix + U2 + U1 + U1b; medium, 32 files, 1402 lines): consent GRANTED, one lens (`review-reliability`),
+  APPROVED, acknowledged (lineage `review-11bd620b6afa4bc8`, authority burned). One advisory WARNING (inferential, non-blocking): `R3-tabs-default-flip` at `tabs.tsx:31-36` — the default TabsList variant
+  flipped from pill to underline app-wide. Parent verified: only 3 non-test `TabsList` consumers exist and each sets its variant explicitly (`client-sheet.tsx:155` line, `proyectos-vista.tsx:42` line,
+  `reportes-page.tsx:70` pill), so nothing changes silently today. Review boundary advances to `7b19b54`.
+- Data finding (not touched): the local DB holds test-pollution clients named "sdd-invariant-linea-base-cliente-..." left by the Prisma invariant tests (the sidebar shows 14 clients, the seed makes 12).
+
 ## Next step
 
-Launch the U1b writer, then run the native review preflight for the consolidated slice (U1 + U2 + U1b), then U3.
+U3 (sidebar: white in light, `--sidebar*` tokens flip with the component, ~220 px, active item tint + 3 px rail), then U4 (tables), U5 (controls sweep), U6 (cards). Pending the user's go-ahead on removing the
+"sdd-invariant" test clients from the LOCAL DB with a guarded script.

@@ -69,6 +69,15 @@ Native review is per candidate (work unit or PR slice), never the whole branch. 
 - Native review: the S12 + U3 slice `18c5adf..3d174b9` was reviewed and APPROVED with zero findings (lineage `review-d929d0e46a8a1929`). The last
   reviewed boundary is `3d174b9`. Reviewed so far: US11 (`f370050..18c5adf`) and US12 + U3; everything older is unreviewed.
 
+## Update 2026-10-09 (S13 UI base)
+
+- New unit **US13** after US12: v6/brand-manual UI base (feature doc `v2-ui-v6-base.md`): U2 `7948b40` (single h1), U1 `6fb8b0d` `fcc97ce` `cd48a1b` (tokens + primitives), U1b `d3f1ac8`
+  `57b6aad` `7b19b54` (manual v2 palette, light default, outline destructive), plus the Tablero action-column fix `5b8c7ff` (belongs with US12). Depends on U10 (tabbed ficha) and US12.
+  Pending U3-U6 will add US14+ (sidebar, tables, controls, cards).
+- Native review: the slice `3d174b9..7b19b54` (medium, 32 files, 1402 lines) was reviewed and APPROVED (lineage `review-11bd620b6afa4bc8`; one advisory warning checked and not materialized).
+  The last reviewed boundary is `7b19b54`. Reviewed so far: US11, US12 + U3, US13 (partial); everything older is unreviewed.
+- Also committed: `docs/brief-video-direccion.md` (`4acf547`), a standalone doc, not part of any unit.
+
 ## Status
 
 - [x] Slicing analysis (read-only), 2026-10-09.
