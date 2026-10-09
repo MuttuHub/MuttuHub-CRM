@@ -247,6 +247,7 @@ describe("ImportDialog", () => {
       await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Plantilla importada."))
       const form = (postCalls()[1] as [string, RequestInit])[1].body as FormData
       expect(form.get("modo")).toBeNull()
+      expect((form.get("archivo") as File).name).toBe("plantilla.xlsx")
       expect(postCalls()).toHaveLength(2)
       const keys = invalidate.mock.calls.map(([filtro]) => JSON.stringify((filtro as { queryKey: unknown }).queryKey))
       for (const parte of ["objectives", "activities", "deliverables", "indicators", "budget", "programming", "detail"]) {

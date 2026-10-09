@@ -5,10 +5,17 @@
 //   - the valid F-X1 workbook replaces the draft with the exact counts, weights,
 //     budget, programming and ONE audit lote;
 //   - a V-12 failure writes nothing (counts before == after);
-//   - an error injected after the objectives and activities were inserted rolls
-//     EVERYTHING back (the previous draft is intact, no audit rows for the lote);
+//   - the PRODUCTION path is atomic: a late failure injected at the last audit
+//     insert while the route wraps the writer in its own `db.$transaction`
+//     leaves zero new rows, zero audit rows and the previous draft intact;
+//   - the writer's own writes are undoable: a failure after the objectives and
+//     activities were inserted can be rolled back with a savepoint (this proves
+//     undoability, NOT that the route wraps the writer — see the test below);
 //   - a re-import soft-deletes the old rows and the same codes stay insertable;
-//   - a non-BORRADOR project, or one that already has progress history, is 409.
+//   - a pre-existing gasto and its soporte survive an import (budget lines are
+//     updated to $0, never deleted);
+//   - a non-BORRADOR project, or one that already has progress history (an
+//     avance OR a medición), is 409.
 //
 // The REAL route handler and writer run against the LOCAL database; only auth is
 // mocked. `auditoria_cambios` is append-only (its triggers reject DELETE), so a
@@ -220,6 +227,33 @@ function autenticar(usuario: Usuario) {
   vi.mocked(requireApiUser).mockResolvedValue({ ok: true, usuario, supabaseUser: {} as never });
 }
 
+/**
+ * Wraps the ambient client so the writer's single audit insert (its LAST write)
+ * throws, leaving every other operation untouched. Used to drive a late failure
+ * through the route's own `db.$transaction` with no test-side savepoint.
+ */
+function fallandoEnAuditoria(tx: Tx, mensaje: string): Tx {
+  return new Proxy(tx, {
+    get(objetivo, prop) {
+      const valor = Reflect.get(objetivo, prop) as unknown;
+      if (prop === "auditoriaCambio") {
+        return new Proxy(valor as object, {
+          get(delegado, metodo) {
+            if (metodo === "createMany") {
+              return async () => {
+                throw new Error(mensaje);
+              };
+            }
+            const fn = Reflect.get(delegado, metodo) as unknown;
+            return typeof fn === "function" ? (fn as (...a: unknown[]) => unknown).bind(delegado) : fn;
+          },
+        });
+      }
+      return typeof valor === "function" ? (valor as (...a: unknown[]) => unknown).bind(objetivo) : valor;
+    },
+  }) as Tx;
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -345,7 +379,10 @@ describe("template import (live DB)", () => {
     });
   });
 
-  it("is atomic: an error injected after the objectives and activities were inserted rolls everything back", async () => {
+  // Proves the writer's writes are UNDOABLE, not that the route wraps them: it
+  // calls `importarPlantilla` directly and owns the SAVEPOINT. The atomicity of
+  // the production path is proven by the route test right below.
+  it("the writer's own writes are undoable: a savepoint rolls back an error injected after the first inserts", async () => {
     await runAndRollback(async (tx) => {
       const ctx = await fixture(tx);
       const { valido } = await plantillas(ctx);
@@ -401,6 +438,35 @@ describe("template import (live DB)", () => {
       expect(
         await tx.objetivo.count({ where: { proyecto_id: ctx.proyecto.id, deleted_at: null, codigo: "OE1" } }),
       ).toBe(0);
+    });
+  });
+
+  it("is atomic through the route's own db.$transaction: a late writer failure rolls everything back", async () => {
+    await runAndRollback(async (tx) => {
+      const ctx = await fixture(tx);
+      autenticar(ctx.gerente);
+      const { valido } = await plantillas(ctx);
+      const antes = await snapshot(tx, ctx.proyecto.id);
+
+      // Fail at the writer's LAST write (the audit lote) through the real route.
+      holder.tx = fallandoEnAuditoria(tx, "late-fail-through-real-tx");
+      const respuesta = await POST(...peticion(ctx.proyecto.id, valido)).finally(() => {
+        holder.tx = tx;
+      });
+
+      expect(respuesta.status).toBe(500);
+
+      // Zero new rows, zero audit rows for the project, the previous draft live.
+      const despues = await snapshot(tx, ctx.proyecto.id);
+      expect(despues.auditoria).toBe(0);
+      expect(despues).toEqual(antes);
+      const antiguo = await tx.objetivo.findUniqueOrThrow({ where: { id: ctx.antiguo.objetivoId } });
+      expect(antiguo.deleted_at).toBeNull();
+      expect(
+        await tx.objetivo.count({ where: { proyecto_id: ctx.proyecto.id, deleted_at: null, codigo: "OE1" } }),
+      ).toBe(0);
+      // The route wrapped the writer exactly once in `db.$transaction`.
+      expect(holder.transacciones).toBe(1);
     });
   });
 
@@ -464,6 +530,81 @@ describe("template import (live DB)", () => {
       const respuesta = await POST(...peticion(ctx.proyecto.id, valido));
       expect(respuesta.status).toBe(409);
       expect(await snapshot(tx, ctx.proyecto.id)).toEqual(antes);
+    });
+  });
+
+  it("refuses to orphan progress history: a project with a medición answers 409 and keeps its draft", async () => {
+    await runAndRollback(async (tx) => {
+      const ctx = await fixture(tx);
+      autenticar(ctx.gerente);
+      const { valido } = await plantillas(ctx);
+      const indicador = await tx.indicador.create({
+        data: {
+          proyecto_id: ctx.proyecto.id,
+          objetivo_id: ctx.antiguo.objetivoId,
+          codigo: "IND-OLD",
+          nombre: "Indicador anterior",
+          meta: new Prisma.Decimal("10"),
+          unidad: "Unidades",
+        },
+      });
+      await tx.medicionIndicador.create({
+        data: {
+          proyecto_id: ctx.proyecto.id,
+          indicador_id: indicador.id,
+          fecha: new Date("2026-09-15T00:00:00Z"),
+          valor: new Prisma.Decimal("1"),
+          registrado_por_id: ctx.gerente.id,
+        },
+      });
+      const antes = await snapshot(tx, ctx.proyecto.id);
+
+      const respuesta = await POST(...peticion(ctx.proyecto.id, valido));
+      expect(respuesta.status).toBe(409);
+      expect(await snapshot(tx, ctx.proyecto.id)).toEqual(antes);
+    });
+  });
+
+  it("a pre-existing gasto and its soporte survive an import (the budget line is zeroed, never deleted)", async () => {
+    await runAndRollback(async (tx) => {
+      const ctx = await fixture(tx);
+      autenticar(ctx.gerente);
+      const { valido } = await plantillas(ctx);
+      const linea = await tx.lineaPresupuestal.findFirstOrThrow({ where: { proyecto_id: ctx.proyecto.id } });
+      const gasto = await tx.gasto.create({
+        data: {
+          proyecto_id: ctx.proyecto.id,
+          linea_id: linea.id,
+          fecha_documento: new Date("2026-10-15T00:00:00Z"),
+          periodo: "2026-10",
+          tipo_soporte: "FACTURA_PROVEEDOR" as const,
+          tercero_nombre: "Proveedor SAS",
+          numero_documento: "FE-0123",
+          numero_documento_norm: "FE0123",
+          descripcion: "Tiquetes",
+          monto_cop: new Prisma.Decimal("100"),
+          registrado_por_id: ctx.gerente.id,
+        },
+      });
+      const soporte = await tx.soporteProyecto.create({
+        data: {
+          proyecto_id: ctx.proyecto.id,
+          gasto_id: gasto.id,
+          nombre: "soporte.pdf",
+          url_externa: "https://example.test/soporte.pdf",
+          subido_por_id: ctx.gerente.id,
+        },
+      });
+
+      expect((await POST(...peticion(ctx.proyecto.id, valido))).status).toBe(200);
+
+      const gastoDespues = await tx.gasto.findUniqueOrThrow({ where: { id: gasto.id } });
+      expect(gastoDespues.linea_id).toBe(linea.id);
+      const soporteDespues = await tx.soporteProyecto.findUniqueOrThrow({ where: { id: soporte.id } });
+      expect(soporteDespues.gasto_id).toBe(gasto.id);
+      expect(soporteDespues.deleted_at).toBeNull();
+      const lineaDespues = await tx.lineaPresupuestal.findUniqueOrThrow({ where: { id: linea.id } });
+      expect(lineaDespues.monto_proyectado_cop.toString()).toBe("0");
     });
   });
 

@@ -36,7 +36,7 @@ const SEPARADOR = ";"
 const SALTO = "\r\n"
 
 /** A cell a spreadsheet would execute as a formula when the CSV is opened. */
-const INICIO_FORMULA = /^[=+\-@\t\r]/
+const INICIO_FORMULA = /^[=+\-@\t\r\n ]/
 
 function celda(valor: string | number | null): string {
   if (valor === null) return ""

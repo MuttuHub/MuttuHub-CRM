@@ -64,4 +64,16 @@ describe("reporteACsv", () => {
     expect(csv).toContain(';"\'=HYPERLINK(')
     expect(csv).not.toMatch(/;"?=HYPERLINK/)
   })
+
+  it("prefixes every formula lead: =, +, -, @, tab, CR, LF and a leading space", () => {
+    const leads = ["=1+1", "+1+1", "-1+1", "@SUM(A1)", "\t1+1", "\r1+1", "\n1+1", " =1+1"]
+    const csv = reporteACsv({
+      ...REPORTE,
+      errores: leads.map((valor, indice) => error("V-01", "2. Proyecto", indice + 2, "Valor no válido.", valor)),
+      advertencias: [],
+    })
+    for (const lead of leads) {
+      expect(csv).toContain(`'${lead}`)
+    }
+  })
 })
