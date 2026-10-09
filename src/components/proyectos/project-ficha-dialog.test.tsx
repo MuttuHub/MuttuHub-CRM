@@ -117,6 +117,18 @@ describe("ProjectFichaDialog", () => {
     expect(screen.getByTestId("estructura")).toContainElement(controles)
   })
 
+  it("offers the baseline approval in the header for a manager on a draft, and not once approved", async () => {
+    mockFichaAndAudit({ historial: [] }, 200, { ...PROYECTO, estado: "BORRADOR" })
+    const draft = renderFicha()
+    expect(await screen.findByRole("button", { name: "Aprobar línea base" })).toBeInTheDocument()
+    draft.unmount()
+
+    mockFichaAndAudit({ historial: [] })
+    renderFicha()
+    await screen.findByText(PROYECTO.nombre)
+    expect(screen.queryByRole("button", { name: "Aprobar línea base" })).not.toBeInTheDocument()
+  })
+
   it("does not offer the template controls once the project left BORRADOR", async () => {
     mockFichaAndAudit({ historial: [] })
 

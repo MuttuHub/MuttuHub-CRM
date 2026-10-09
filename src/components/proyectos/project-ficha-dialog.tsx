@@ -27,6 +27,7 @@ import {
   formatFechaCalendario,
   formatFechaHora,
 } from "@/components/proyectos/project-display";
+import { BaselineApproval } from "@/components/proyectos/baseline-approval";
 import { ProjectEstructura } from "@/components/proyectos/project-estructura";
 import { ProjectEjecucion } from "@/components/proyectos/project-ejecucion";
 import { ProjectFinanciero } from "@/components/proyectos/project-financiero";
@@ -110,7 +111,10 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
             {proyecto.nombre}
           </h2>
         </div>
-        <ToneBadge tone={estado.tone} label={estado.label} />
+        <div className="flex flex-wrap items-center gap-2">
+          <BaselineApproval proyecto={proyecto} />
+          <ToneBadge tone={estado.tone} label={estado.label} />
+        </div>
       </header>
 
       <div className="flex flex-col gap-6 p-5">

@@ -291,6 +291,7 @@ export const projectQueryKeys = {
   programming: (id: string) => ["projects", "programming", id] as const,
   financialSheet: (id: string, corte: string | null) => ["projects", "financial-sheet", id, corte] as const,
   expenses: (id: string) => ["projects", "expenses", id] as const,
+  versions: (id: string) => ["projects", "versions", id] as const,
   expenseQueue: ["projects", "expense-validations"] as const,
   eligibleOpportunities: ["projects", "eligible-opportunities"] as const,
   // Los catálogos viven fuera de `projects` para que invalidar la lista de
@@ -1596,6 +1597,72 @@ export function useImportTemplate(
       if (!data.importado) return;
       refresh();
       toast.success("Plantilla importada.");
+    },
+  });
+}
+
+// ── S8: aprobación de la línea base (E-25) ─────────────────────────────
+
+export type BaselinePrecondicion = { codigo: string; mensaje: string; rubroId?: string };
+
+export type BaselineAprobada = {
+  version: { id: string; numero: number; aprobado_at: string };
+  proyecto: { id: string; estado: string };
+};
+
+/** El 409 de la aprobación con la lista completa de requisitos que faltan. */
+export class BaselinePrecondicionesError extends ApiError {
+  readonly precondiciones: BaselinePrecondicion[];
+
+  constructor(message: string, precondiciones: BaselinePrecondicion[]) {
+    super(message, 409, "INVALID_STATE");
+    this.name = "BaselinePrecondicionesError";
+    this.precondiciones = precondiciones;
+  }
+}
+
+/**
+ * E-25: aprueba la línea base (versión 0) y pasa el proyecto a En ejecución. Los requisitos
+ * pendientes llegan como `BaselinePrecondicionesError` y los demás errores como `ApiError`, ambos
+ * SIN toast: el diálogo los muestra en línea. Al aprobar cambia casi todo lo que la ficha muestra.
+ */
+export function useApproveBaseline(projectId: string): UseMutationResult<BaselineAprobada, Error, void> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/v1/projects/${projectId}/baseline/approve`, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+      });
+      const body = await readJsonBody(res);
+      if (!res.ok) {
+        const message =
+          typeof body.error === "string" ? body.error : "No pudimos aprobar la línea base. Inténtalo de nuevo.";
+        if (Array.isArray(body.precondiciones)) {
+          throw new BaselinePrecondicionesError(message, body.precondiciones as BaselinePrecondicion[]);
+        }
+        throw new ApiError(message, res.status, typeof body.code === "string" ? body.code : undefined);
+      }
+      return body as BaselineAprobada;
+    },
+    onSuccess: () => {
+      for (const key of [
+        projectQueryKeys.detail(projectId),
+        projectQueryKeys.objectives(projectId),
+        projectQueryKeys.activities(projectId),
+        projectQueryKeys.deliverables(projectId),
+        projectQueryKeys.indicators(projectId),
+        projectQueryKeys.budget(projectId),
+        projectQueryKeys.programming(projectId),
+        projectQueryKeys.technicalStatus(projectId),
+        projectQueryKeys.versions(projectId),
+        ["projects", "financial-sheet", projectId],
+        ["projects", "audit", projectId],
+        ["projects", "list"],
+      ]) {
+        void qc.invalidateQueries({ queryKey: key });
+      }
+      toast.success("Línea base aprobada.");
     },
   });
 }
