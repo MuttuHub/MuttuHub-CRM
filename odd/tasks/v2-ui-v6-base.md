@@ -32,20 +32,37 @@ stays usable in BOTH light and dark mode. Section-by-section work on the Project
 ## Decisions
 
 - D1 (user): app-wide base, not Projects-only. D2 (user): light AND dark must both work.
-- D3: dark follows v6 literally. Light is DERIVED from the same semantic token structure (same names, light values) keeping the brand pink `#CD1560`
-  and the app's existing light surfaces unless v6's structure requires otherwise; it is a design judgement, so the user reviews before/after in both themes.
+- D3: dark follows v6 literally. Light was first DERIVED (U1). SUPERSEDED 2026-10-09 by the user's brand manual "Muttu Hub - Manual de identidad v2" (and the
+  "Video novedades v2"), which define BOTH palettes with the same token names and make LIGHT the default theme. Adopt the manual's real values (see D6).
+- D6 (user confirmed the defaults 2026-10-09): (1) light palette = the manual's: `bg #F6F1F3`, sidebar `#FFFFFF`, surface `#FFFFFF`/`#1B1316`, surface-2 `#F7F3F4`/`#241A1E`,
+  border `#ECE5E7`/`#2E2227`, text `#281D20`/`#F8F2F4`, text-2 `#5A474C`/`#C4B2B8`, text-3 `#725D62`/`#A08A91`, primary `#CD1560`, accent `#B41153`/`#EB3F85`,
+  accent-soft `#940D44`/`#F5BAD2`, ok `#127C4A`/`#4CC38A`, warn `#B45309`/`#F0A04B`, bad `#B3261E`/`#F07163`, info `#1E5FA8`/`#6AA6F0`, `--radius` 0.75rem, ring `#CD1560`/`#EB3F85`;
+  (2) the sidebar is WHITE in light theme (as in the manual and the video); (3) input/control border (`--border-strong`) keeps U1's accessible `#9b8c91`
+  (>= 3:1) instead of the manual's `#DDD2D5` (below 3:1; the manual's own a11y section requires AA); (4) progress bars take the semáforo color (manual), not ink (video);
+  (5) the app opens in LIGHT by default, ignoring the system preference unless the user already stored a theme in `muttu-theme`; (6) the manual's own open items
+  (yellow ficha threshold -15 vs -20 pp, "En curso" magenta vs yellow) are product decisions, out of scope here.
 - D4: reuse `feat/v6-primitives` V0.1 and V0.4-V0.6 by cherry-pick (or by porting the diff by hand if a cherry-pick conflicts), then fix the gaps above.
 - D5: CHECKPOINT: after U1 (and before U3), the parent shows the user dark + light before/after shots and waits for approval of the palette.
 
 ## Tasks
 
-- [ ] **U2** One `<h1>` on the ficha: the shell header must not print "Muttu Hub" on `/proyectos/<id>`; show a breadcrumb/"Proyectos" label as `<p>` (or no title)
+- [x] **U2** (commit `7948b40`, 4 files, +91/-9; RED 3 failed / 7 passed; shell tests 59/59 + nav; tsc/eslint clean; parent re-ran 10 tests) One `<h1>` on the ficha: the shell header must not print "Muttu Hub" on `/proyectos/<id>`; show a breadcrumb/"Proyectos" label as `<p>` (or no title)
   and keep controls on the same row; the project name stays the page `<h1>`. ~40 lines + test asserting exactly one `h1`. Route: delegated.
-- [ ] **U1** Tokens + primitives: V0.1, V0.4, V0.5, V0.6 (+ V0.2/V0.3 only if their files are required by the tokens), radius 12 px on button/input/select, Tabs underline
+- [x] **U1** (commits `6fb8b0d` V0.1+V0.4 ported, `fcc97ce` V0.5+V0.6 ported, `cd48a1b` radius 12 + underline tabs + DERIVED light palette; ported with
+  `git checkout <sha> -- <allowed files>` because plain cherry-pick touched files outside the surface; not ported: fixed-light ThemeToaster consumer, dropdown/popover shadow removal,
+  client-sheet EmptyState swap. RED: 18 tests failed before the code. GREEN: `src/components src/app src/lib` 247/247 files, tsc 0 errors, eslint clean; parent re-ran ui + tokens + design-guards:
+  22 files / 175 tests and `tsc`. After-shots: 50 of 52 in the scratchpad `uiafter-u1/` (no ficha at 390). Its LIGHT palette is superseded by U1b. D5 checkpoint: the user paused it to bring the brand manual.)
+  Tokens + primitives: V0.1, V0.4, V0.5, V0.6 (+ V0.2/V0.3 only if their files are required by the tokens), radius 12 px on button/input/select, Tabs underline
   default at 15.5 px, `--shell-surface` `#1B1316` (dark), and a derived light palette per D3 with coherent light variants of `--ink-500`, `--card`, `--border`, `--primary` usage.
   Update tests (`button.test.tsx`, `proyectos/ui.test.tsx`, `dashboard/shared.test.tsx` as needed). Checks: vitest full suites of ui/crm/proyectos/dashboard/admin/documents,
   `tsc`, eslint, after-shots in both themes. Route: delegated. Then D5 checkpoint.
-- [ ] **U3** Sidebar: ~220 px, active item surface + 3 px left bar, light variant; `sidebar.test.tsx`. Route: delegated.
+- [ ] **U1b** (accepted 2026-10-09, brand manual v2) Align `src/app/globals.css` and the primitives with D6: replace the derived light values with the manual's, `--background`/`--page`
+  `#F6F1F3`, `--radius` 0.75rem, accent/accent-soft per theme, dark `--destructive` `#F07163`, `--ring`, `--foreground` `#F8F2F4`, `--muted-foreground` `#A08A91`, `--input` `#34272C`,
+  `--color-rose-400` `#EB3F85`, keep `--border-strong` light `#9b8c91`; the manual's `--accent` shadcn token as an alpha tint; `--sidebar*` light tokens white (the sidebar component itself is U3);
+  default theme LIGHT in `src/app/layout.tsx` + `src/hooks/use-theme.ts` (stored value still wins); destructive buttons are OUTLINE (fill only on hover; solid fill is reserved for the primary brand button);
+  update `globals.tokens.test.ts` contrast assertions and any class/hex assertions. Verify contrast of every changed pair (AA text, 3:1 non-text) and take after-shots in both themes. Route: delegated.
+- [ ] **U3** Sidebar: ~220 px, active item surface + 3 px left bar, WHITE in light theme (manual + video), dark `#0D0809`, nav-active tint `rgba(205,21,96,.08)` light / `#1B1316` dark;
+  logo variants (the tagline "Innovación social" must stay with the logo per the manual: check if the asset exists); `sidebar.test.tsx`. Route: delegated.
 - [ ] **U4** Tables: delete the 35 hard-coded `TableHead` classes, convert the raw tables that matter; update `proyectos/ui.test.tsx`. Route: delegated.
 - [ ] **U5** Controls sweep: audit the 117 `size="sm"` buttons and ~25 height overrides; keep dense toolbars usable (Kanban, documents, clientes). Route: delegated.
 - [ ] **U6** Cards/surfaces: one shared surface class or `Card` consumers, then migrate the ~85 hard-coded surfaces in batches (crm, dashboard, kanban, proyectos, admin, documents).
@@ -87,6 +104,12 @@ Forecast well above 400 lines in total; each unit stays near 400 where possible.
 
 - 2026-10-09: document created after the visual comparison and the read-only mapping (blast radius, baseline shots). User decisions D1 and D2 recorded.
 
+- 2026-10-09: U2 done (`7948b40`), U1 done (`6fb8b0d`, `fcc97ce`, `cd48a1b`), both delegated. The user paused the D5 checkpoint to bring the brand manual and the video; a read-only
+  analysis (manual rendered in an isolated browser, 15 sections, light + dark; the MP4 is 46 s without audio, captions burned in) found the manual defines both palettes with LIGHT as the
+  default and white sidebar, superseding the derived light palette. Parent verified the manual's color/changes sections and two video frames. The user confirmed the D6 defaults.
+- Review state: the slice since the last reviewed boundary `3d174b9` (tablero fix + U2 + U1) is medium, 29 files, ~1,092 lines, `slice_budget_reached`: the native review is DEFERRED until U1b lands,
+  so one candidate is reviewed.
+
 ## Next step
 
-Launch the U2 writer (small, independent), then U1.
+Launch the U1b writer, then run the native review preflight for the consolidated slice (U1 + U2 + U1b), then U3.
