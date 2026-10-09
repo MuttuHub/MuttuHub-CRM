@@ -485,7 +485,7 @@ export function ProjectCreateDialog({ open, onOpenChange }: ProjectCreateDialogP
 
           <fieldset className="flex flex-col gap-2">
             <legend className="text-sm leading-none font-medium">
-              Líneas estratégicas <span className="text-rose-500">*</span>
+              Líneas estratégicas <span className="text-rose-500 dark:text-rose-400">*</span>
             </legend>
             <p className="text-[12px] text-ink-600">
               Marca al menos una y exactamente una como principal.
@@ -519,7 +519,7 @@ export function ProjectCreateDialog({ open, onOpenChange }: ProjectCreateDialogP
 
           <fieldset className="flex flex-col gap-2">
             <legend className="text-sm leading-none font-medium">
-              Municipios <span className="text-rose-500">*</span>
+              Municipios <span className="text-rose-500 dark:text-rose-400">*</span>
             </legend>
             <div className="grid gap-2 sm:grid-cols-3">
               {municipios.map((municipio) => (

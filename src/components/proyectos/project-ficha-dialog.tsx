@@ -255,7 +255,7 @@ function ResumenPanel({ proyecto }: { proyecto: ProjectListRow }) {
                 className={cn(
                   "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12.5px]",
                   linea.principal
-                    ? "border-rose-300 bg-rose-50 text-rose-800"
+                    ? "border-rose-200 bg-rose-50 text-rose-700 dark:text-rose-400"
                     : "border-ink-200 bg-panel text-ink-700",
                 )}
               >
@@ -264,7 +264,7 @@ function ResumenPanel({ proyecto }: { proyecto: ProjectListRow }) {
                 </span>
                 <span className="font-semibold">{linea.nombre}</span>
                 {linea.principal && (
-                  <span className="rounded-full bg-rose-600 px-2 py-[1px] text-[10px] font-bold text-white">
+                  <span className="rounded-full bg-rose-500 px-2 py-[1px] text-[10px] font-bold text-white">
                     Principal
                   </span>
                 )}
