@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { INVALID_NUMBER, formError, parseNumber } from "@/components/proyectos/estructura-ui";
-import { InlineError } from "@/components/proyectos/ui";
+import { CAPTURE_BUTTON, CAPTURE_CHOICE, CAPTURE_FIELD, CAPTURE_TEXTAREA, InlineError } from "@/components/proyectos/ui";
 import {
   useCreateAvance,
   type AvanceMedioInput,
@@ -120,7 +120,7 @@ export function EjecucionAvanceForm({
           max={todayInBogota()}
           value={fecha}
           onChange={(event) => setFecha(event.target.value)}
-          className="h-9 rounded-12 bg-panel px-3"
+          className={CAPTURE_FIELD}
         />
       </div>
 
@@ -133,7 +133,7 @@ export function EjecucionAvanceForm({
           inputMode="decimal"
           value={cantidad}
           onChange={(event) => setCantidad(event.target.value)}
-          className="h-9 rounded-12 bg-panel px-3"
+          className={CAPTURE_FIELD}
         />
       </div>
 
@@ -145,7 +145,7 @@ export function EjecucionAvanceForm({
           id={`${nombreMedio}-obs`}
           value={observacion}
           onChange={(event) => setObservacion(event.target.value)}
-          className="min-h-16 rounded-12 border border-ink-200 bg-panel px-3 py-2 text-[13px] text-ink-900"
+          className={CAPTURE_TEXTAREA}
         />
       </div>
 
@@ -158,7 +158,7 @@ export function EjecucionAvanceForm({
             id={`${nombreMedio}-just`}
             value={justificacion}
             onChange={(event) => setJustificacion(event.target.value)}
-            className="min-h-16 rounded-12 border border-ink-200 bg-panel px-3 py-2 text-[13px] text-ink-900"
+            className={CAPTURE_TEXTAREA}
           />
         </div>
       )}
@@ -173,7 +173,7 @@ export function EjecucionAvanceForm({
               ["enlace", "Enlace"],
             ] as const
           ).map(([valor, label]) => (
-            <label key={valor} className="flex items-center gap-1.5 text-[12.5px] text-ink-800">
+            <label key={valor} className={CAPTURE_CHOICE}>
               <input
                 type="radio"
                 name={nombreMedio}
@@ -196,7 +196,7 @@ export function EjecucionAvanceForm({
             id={`${nombreMedio}-archivo`}
             type="file"
             onChange={(event) => setArchivo(event.target.files?.[0] ?? null)}
-            className="text-[12.5px] text-ink-800"
+            className="min-h-11 text-[12.5px] text-ink-800 md:min-h-0"
           />
         </div>
       )}
@@ -213,7 +213,7 @@ export function EjecucionAvanceForm({
               placeholder="https://"
               value={url}
               onChange={(event) => setUrl(event.target.value)}
-              className="h-9 rounded-12 bg-panel px-3"
+              className={CAPTURE_FIELD}
             />
           </div>
           <div className="flex min-w-0 flex-col gap-1">
@@ -224,17 +224,17 @@ export function EjecucionAvanceForm({
               id={`${nombreMedio}-nombre`}
               value={nombreEnlace}
               onChange={(event) => setNombreEnlace(event.target.value)}
-              className="h-9 rounded-12 bg-panel px-3"
+              className={CAPTURE_FIELD}
             />
           </div>
         </>
       )}
 
       <div className="flex items-center gap-2 sm:col-span-2">
-        <Button type="submit" size="sm" disabled={create.isPending}>
+        <Button type="submit" size="sm" className={CAPTURE_BUTTON} disabled={create.isPending}>
           Registrar avance
         </Button>
-        <Button type="button" size="sm" variant="ghost" disabled={create.isPending} onClick={onDone}>
+        <Button type="button" size="sm" variant="ghost" className={CAPTURE_BUTTON} disabled={create.isPending} onClick={onDone}>
           Cancelar
         </Button>
       </div>

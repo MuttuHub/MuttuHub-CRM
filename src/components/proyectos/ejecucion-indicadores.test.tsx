@@ -6,6 +6,7 @@ import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { expectTouchTargets, mockViewport } from "@/test/viewport"
 import { todayInBogota } from "@/lib/proyectos/weeks"
 import { EjecucionIndicadores } from "./ejecucion-indicadores"
 
@@ -102,6 +103,7 @@ describe("EjecucionIndicadores", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    mockViewport(false)
   })
 
   it("shows the last value, its trend and the history", async () => {
@@ -126,6 +128,26 @@ describe("EjecucionIndicadores", () => {
 
     await waitFor(() => expect(call("POST", "/indicators/i1/measurements")).toBeDefined())
     expect(call("POST", "/indicators/i1/measurements")?.body).toMatchObject({ valor: 45 })
+  })
+
+  it("opens the measurement form in a bottom sheet on phones, with 44 px controls", async () => {
+    mockViewport(true)
+    const user = userEvent.setup()
+    setup()
+
+    const indicador = await screen.findByTestId("ejecucion-indicador")
+    await user.click(within(indicador).getByRole("button", { name: "Registrar medición" }))
+    const dialog = await screen.findByRole("dialog", { name: "Registrar medición" })
+    expectTouchTargets(within(dialog).getByRole("form", { name: "Registrar medición IND-1" }))
+  })
+
+  it("keeps the measurement form inline on desktop", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    const indicador = await screen.findByTestId("ejecucion-indicador")
+    await user.click(within(indicador).getByRole("button", { name: "Registrar medición" }))
+    expect(screen.queryByRole("dialog")).toBeNull()
   })
 
   it("offers no write controls to a read-only viewer", async () => {

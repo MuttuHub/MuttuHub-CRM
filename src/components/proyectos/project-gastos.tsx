@@ -5,6 +5,7 @@
 
 "use client";
 
+import { CaptureSurface } from "@/components/proyectos/capture-surface";
 import { useState } from "react";
 import { Plus, Receipt } from "lucide-react";
 import { ToneBadge } from "@/components/crm/shared";
@@ -83,11 +84,13 @@ export function ProjectGastos({ proyecto }: { proyecto: ProjectListRow }) {
 
           {puedeRegistrar &&
             (registrando ? (
-              <GastoForm
-                proyecto={proyecto}
-                rubros={budgetQuery.data?.rubros ?? []}
-                onDone={() => setRegistrando(false)}
-              />
+              <CaptureSurface title="Registrar gasto" onClose={() => setRegistrando(false)}>
+                <GastoForm
+                  proyecto={proyecto}
+                  rubros={budgetQuery.data?.rubros ?? []}
+                  onDone={() => setRegistrando(false)}
+                />
+              </CaptureSurface>
             ) : (
               <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => setRegistrando(true)}>
                 <Plus className="size-3.5" />

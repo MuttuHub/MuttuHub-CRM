@@ -7,6 +7,7 @@ import userEvent from "@testing-library/user-event"
 import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { ProjectListRow } from "@/hooks/projects"
+import { expectTouchTargets, mockViewport } from "@/test/viewport"
 import { todayInBogota } from "@/lib/proyectos/weeks"
 import { EjecucionBeneficiarios } from "./ejecucion-beneficiarios"
 
@@ -99,6 +100,7 @@ describe("EjecucionBeneficiarios", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    mockViewport(false)
   })
 
   it("shows the total against the goal as plain numbers", async () => {
@@ -119,6 +121,16 @@ describe("EjecucionBeneficiarios", () => {
 
     await waitFor(() => expect(call("POST", "/beneficiaries")).toBeDefined())
     expect(call("POST", "/beneficiaries")?.body).toMatchObject({ cantidad: 15 })
+  })
+
+  it("opens the beneficiaries form in a bottom sheet on phones, with 44 px controls", async () => {
+    mockViewport(true)
+    const user = userEvent.setup()
+    setup()
+
+    await user.click(await screen.findByRole("button", { name: "Registrar beneficiarios" }))
+    const dialog = await screen.findByRole("dialog", { name: "Registrar beneficiarios" })
+    expectTouchTargets(dialog.querySelector("form") as HTMLElement)
   })
 
   it("offers no write controls to a read-only viewer", async () => {

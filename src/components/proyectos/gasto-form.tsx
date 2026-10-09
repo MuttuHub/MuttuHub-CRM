@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
-import { InlineError, SELECT_CLASS_LG as SELECT } from "@/components/proyectos/ui";
+import { CAPTURE_BUTTON, CAPTURE_CHOICE, CAPTURE_FIELD, CAPTURE_TEXTAREA, InlineError, SELECT_CLASS_LG as SELECT } from "@/components/proyectos/ui";
 import {
   useCreateExpense,
   type AvanceMedioInput,
@@ -33,7 +33,7 @@ export const TIPO_SOPORTE_LABELS: Record<ProjectExpense["tipo_soporte"], string>
   OTRO: "Otro",
 };
 
-const FIELD = "h-9 rounded-12 bg-panel px-3";
+const FIELD = CAPTURE_FIELD;
 
 function Campo({ id, label, children, className }: { id: string; label: string; children: React.ReactNode; className?: string }) {
   return (
@@ -146,7 +146,7 @@ export function GastoForm({
           ))}
         </ul>
         <div>
-          <Button type="button" size="sm" onClick={onDone}>
+          <Button type="button" size="sm" className={CAPTURE_BUTTON} onClick={onDone}>
             Entendido
           </Button>
         </div>
@@ -241,7 +241,7 @@ export function GastoForm({
           id={`${p}-desc`}
           value={descripcion}
           onChange={(e) => setDescripcion(e.target.value)}
-          className="min-h-16 rounded-12 border border-ink-200 bg-panel px-3 py-2 text-[13px] text-ink-900"
+          className={CAPTURE_TEXTAREA}
         />
       </Campo>
 
@@ -254,7 +254,7 @@ export function GastoForm({
               ["enlace", "Enlace"],
             ] as const
           ).map(([valorMedio, label]) => (
-            <label key={valorMedio} className="flex items-center gap-1.5 text-[12.5px] text-ink-800">
+            <label key={valorMedio} className={CAPTURE_CHOICE}>
               <input
                 type="radio"
                 name={`${p}-medio`}
@@ -274,7 +274,7 @@ export function GastoForm({
             id={`${p}-archivo`}
             type="file"
             onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
-            className="text-[12.5px] text-ink-800"
+            className="min-h-11 text-[12.5px] text-ink-800 md:min-h-0"
           />
         </Campo>
       ) : (
@@ -289,10 +289,10 @@ export function GastoForm({
       )}
 
       <div className="flex items-center gap-2 sm:col-span-2">
-        <Button type="submit" size="sm" disabled={create.isPending}>
+        <Button type="submit" size="sm" className={CAPTURE_BUTTON} disabled={create.isPending}>
           Registrar
         </Button>
-        <Button type="button" size="sm" variant="ghost" disabled={create.isPending} onClick={onDone}>
+        <Button type="button" size="sm" variant="ghost" className={CAPTURE_BUTTON} disabled={create.isPending} onClick={onDone}>
           Cancelar
         </Button>
       </div>

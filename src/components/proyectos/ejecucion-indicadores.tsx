@@ -4,6 +4,7 @@
 
 "use client";
 
+import { CaptureSurface } from "@/components/proyectos/capture-surface";
 import { useState } from "react";
 import { LoaderCircle, Minus, TrendingDown, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ToneBadge } from "@/components/crm/shared";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import { VoidControl, errorMessage, formError, parseNumber } from "@/components/proyectos/estructura-ui";
-import { EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/ui";
+import { CAPTURE_BUTTON, CAPTURE_FIELD, CAPTURE_TEXTAREA, EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/ui";
 import {
   useCreateMedicion,
   useIndicatorMeasurements,
@@ -62,7 +63,7 @@ export function EjecucionIndicadores({
       ) : !query.data ? (
         <Skeleton className="mt-2 h-16 w-full rounded-[12px]" />
       ) : query.data.length === 0 ? (
-        <p className="mt-1.5 text-[12.5px] text-ink-500">Este proyecto todavía no tiene indicadores.</p>
+        <EmptyBlock>Este proyecto todavía no tiene indicadores.</EmptyBlock>
       ) : (
         <ul className="mt-2 flex flex-col gap-2.5">
           {query.data.map((indicador) => (
@@ -164,11 +165,9 @@ function IndicadorCard({
 
       {canWrite &&
         (abierto ? (
-          <MedicionForm
-            proyectoId={proyectoId}
-            indicador={indicador}
-            onDone={() => setAbierto(false)}
-          />
+          <CaptureSurface title="Registrar medición" onClose={() => setAbierto(false)}>
+            <MedicionForm proyectoId={proyectoId} indicador={indicador} onDone={() => setAbierto(false)} />
+          </CaptureSurface>
         ) : (
           <Button
             type="button"
@@ -285,7 +284,7 @@ function MedicionForm({
           max={todayInBogota()}
           value={fecha}
           onChange={(event) => setFecha(event.target.value)}
-          className="h-9 rounded-12 bg-panel px-3"
+          className={CAPTURE_FIELD}
         />
       </div>
       <div className="flex min-w-0 flex-col gap-1">
@@ -297,7 +296,7 @@ function MedicionForm({
           inputMode="decimal"
           value={valor}
           onChange={(event) => setValor(event.target.value)}
-          className="h-9 rounded-12 bg-panel px-3"
+          className={CAPTURE_FIELD}
         />
       </div>
       <div className="flex min-w-0 flex-col gap-1 sm:col-span-2">
@@ -308,15 +307,15 @@ function MedicionForm({
           id={`${base}-obs`}
           value={observacion}
           onChange={(event) => setObservacion(event.target.value)}
-          className="min-h-14 rounded-12 border border-ink-200 bg-panel px-3 py-2 text-[13px] text-ink-900"
+          className={CAPTURE_TEXTAREA}
         />
       </div>
       <div className="flex items-center gap-2 sm:col-span-2">
-        <Button type="submit" size="sm" disabled={create.isPending}>
+        <Button type="submit" size="sm" className={CAPTURE_BUTTON} disabled={create.isPending}>
           {create.isPending && <LoaderCircle className="size-4 animate-spin" />}
           Guardar
         </Button>
-        <Button type="button" size="sm" variant="ghost" disabled={create.isPending} onClick={onDone}>
+        <Button type="button" size="sm" variant="ghost" className={CAPTURE_BUTTON} disabled={create.isPending} onClick={onDone}>
           Cancelar
         </Button>
       </div>

@@ -7,6 +7,7 @@ import userEvent from "@testing-library/user-event"
 import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { ProjectAvance, ProjectDeliverable } from "@/hooks/projects"
+import { expectTouchTargets } from "@/test/viewport"
 import { todayInBogota } from "@/lib/proyectos/weeks"
 import { EjecucionAvanceForm } from "./ejecucion-avance-form"
 
@@ -116,6 +117,13 @@ describe("EjecucionAvanceForm", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+  })
+
+  it("uses 44 px touch targets on phones and no fixed width over 360 px", () => {
+    setup()
+    const form = screen.getByRole("form", { name: "Registrar avance ENT-1" })
+    expectTouchTargets(form)
+    expect(form.innerHTML).not.toMatch(/(?:min-)?w-\[(?:3[6-9]\d|[4-9]\d\d|\d{4,})px\]/)
   })
 
   it("caps the date at today in Bogota and blocks a future date locally", async () => {

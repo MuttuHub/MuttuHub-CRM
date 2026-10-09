@@ -4,6 +4,7 @@
 
 "use client";
 
+import { CaptureSurface } from "@/components/proyectos/capture-surface";
 import { useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ToneBadge } from "@/components/crm/shared";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import { VoidControl, errorMessage, formError, parseNumber } from "@/components/proyectos/estructura-ui";
-import { EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/ui";
+import { CAPTURE_BUTTON, CAPTURE_FIELD, CAPTURE_TEXTAREA, EmptyBlock, InlineError, SectionHeader, SELECT_CLASS_LG } from "@/components/proyectos/ui";
 import {
   useCreateBeneficiario,
   useProjectActivities,
@@ -92,7 +93,9 @@ export function EjecucionBeneficiarios({
 
       {canWrite &&
         (abierto ? (
-          <BeneficiarioForm proyectoId={proyecto.id} onDone={() => setAbierto(false)} />
+          <CaptureSurface title="Registrar beneficiarios" onClose={() => setAbierto(false)}>
+            <BeneficiarioForm proyectoId={proyecto.id} onDone={() => setAbierto(false)} />
+          </CaptureSurface>
         ) : (
           <Button
             type="button"
@@ -209,7 +212,7 @@ function BeneficiarioForm({ proyectoId, onDone }: { proyectoId: string; onDone: 
           max={todayInBogota()}
           value={fecha}
           onChange={(event) => setFecha(event.target.value)}
-          className="h-9 rounded-12 bg-panel px-3"
+          className={CAPTURE_FIELD}
         />
       </div>
       <div className="flex min-w-0 flex-col gap-1">
@@ -221,7 +224,7 @@ function BeneficiarioForm({ proyectoId, onDone }: { proyectoId: string; onDone: 
           inputMode="numeric"
           value={cantidad}
           onChange={(event) => setCantidad(event.target.value)}
-          className="h-9 rounded-12 bg-panel px-3"
+          className={CAPTURE_FIELD}
         />
       </div>
       {actividades.length > 0 && (
@@ -233,7 +236,7 @@ function BeneficiarioForm({ proyectoId, onDone }: { proyectoId: string; onDone: 
             id={`${base}-actividad`}
             value={actividad}
             onChange={(event) => setActividad(event.target.value)}
-            className="h-9 rounded-12 border border-ink-200 bg-panel px-3 text-[13px] text-ink-900"
+            className={SELECT_CLASS_LG}
           >
             <option value={SIN_ACTIVIDAD}>Sin actividad</option>
             {actividades.map((item) => (
@@ -252,15 +255,15 @@ function BeneficiarioForm({ proyectoId, onDone }: { proyectoId: string; onDone: 
           id={`${base}-obs`}
           value={observacion}
           onChange={(event) => setObservacion(event.target.value)}
-          className="min-h-14 rounded-12 border border-ink-200 bg-panel px-3 py-2 text-[13px] text-ink-900"
+          className={CAPTURE_TEXTAREA}
         />
       </div>
       <div className="flex items-center gap-2 sm:col-span-2">
-        <Button type="submit" size="sm" disabled={create.isPending}>
+        <Button type="submit" size="sm" className={CAPTURE_BUTTON} disabled={create.isPending}>
           {create.isPending && <LoaderCircle className="size-4 animate-spin" />}
           Guardar
         </Button>
-        <Button type="button" size="sm" variant="ghost" disabled={create.isPending} onClick={onDone}>
+        <Button type="button" size="sm" variant="ghost" className={CAPTURE_BUTTON} disabled={create.isPending} onClick={onDone}>
           Cancelar
         </Button>
       </div>

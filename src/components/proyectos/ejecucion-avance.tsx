@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { ToneBadge } from "@/components/crm/shared";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
+import { CaptureSurface } from "@/components/proyectos/capture-surface";
 import { EjecucionAvanceForm } from "@/components/proyectos/ejecucion-avance-form";
 import { VoidControl, errorMessage, plural } from "@/components/proyectos/estructura-ui";
 import { InlineError } from "@/components/proyectos/ui";
@@ -171,13 +172,15 @@ function EntregableRow({
 
       {canWrite &&
         (abierto ? (
-          <EjecucionAvanceForm
-            projectId={proyectoId}
-            entregable={entregable}
-            meta={entregable.cantidad_meta}
-            avances={avances}
-            onDone={() => setAbierto(false)}
-          />
+          <CaptureSurface title="Registrar avance" onClose={() => setAbierto(false)}>
+            <EjecucionAvanceForm
+              projectId={proyectoId}
+              entregable={entregable}
+              meta={entregable.cantidad_meta}
+              avances={avances}
+              onDone={() => setAbierto(false)}
+            />
+          </CaptureSurface>
         ) : (
           <Button
             type="button"

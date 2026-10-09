@@ -4,7 +4,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen, within } from "@testing-library/react"
 import { createElement, type ReactNode } from "react"
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it } from "vitest"
+import userEvent from "@testing-library/user-event"
+import { mockViewport } from "@/test/viewport"
 import type {
   ProjectActivity,
   ProjectDeliverable,
@@ -86,6 +88,28 @@ function avance(overrides: Partial<ProjectDeliverableProgress["avances"][number]
 }
 
 describe("EjecucionAvance", () => {
+  afterEach(() => mockViewport(false))
+
+  it("opens the avance form in a bottom sheet on phones", async () => {
+    mockViewport(true)
+    const user = userEvent.setup()
+    render(
+      <EjecucionAvance
+        proyectoId="p1"
+        actividad={ACTIVIDAD}
+        canWrite
+        canVoid={false}
+        tecnico={TECNICO}
+        entregables={[ENTREGABLE]}
+        progreso={new Map()}
+      />,
+      { wrapper: createWrapper() },
+    )
+    await user.click(screen.getByRole("button", { name: "Registrar avance ENT-1" }))
+    const dialog = await screen.findByRole("dialog", { name: "Registrar avance" })
+    expect(within(dialog).getByRole("form", { name: "Registrar avance ENT-1" })).toBeInTheDocument()
+  })
+
   it("renders the activity progress bar and its estado badge", () => {
     render(
       <EjecucionAvance

@@ -8,6 +8,7 @@ import userEvent from "@testing-library/user-event"
 import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { ProjectListRow } from "@/hooks/projects"
+import { expectTouchTargets, mockViewport } from "@/test/viewport"
 import { ProjectGastos } from "./project-gastos"
 
 function createWrapper() {
@@ -125,6 +126,26 @@ describe("ProjectGastos", () => {
   })
   afterEach(() => {
     vi.unstubAllGlobals()
+  })
+
+  describe("mobile capture", () => {
+    afterEach(() => mockViewport(false))
+
+    it("opens the expense form in a bottom sheet on phones, with 44 px controls", async () => {
+      mockViewport(true)
+      const user = userEvent.setup()
+      setup({ rol: "GERENCIA" })
+      await user.click(await screen.findByRole("button", { name: "Registrar gasto" }))
+      const dialog = await screen.findByRole("dialog", { name: "Registrar gasto" })
+      expectTouchTargets(dialog.querySelector("form") as HTMLElement)
+    })
+
+    it("keeps the expense form inline on desktop", async () => {
+      const user = userEvent.setup()
+      setup({ rol: "GERENCIA" })
+      await user.click(await screen.findByRole("button", { name: "Registrar gasto" }))
+      expect(screen.queryByRole("dialog")).toBeNull()
+    })
   })
 
   describe("register control", () => {

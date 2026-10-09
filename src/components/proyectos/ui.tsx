@@ -15,7 +15,14 @@ import { cn } from "@/lib/utils";
 export const SELECT_CLASS =
   "h-8 rounded-12 border border-ink-200 bg-panel px-2.5 text-[12.5px] text-ink-900 disabled:opacity-60";
 export const SELECT_CLASS_LG =
-  "h-9 rounded-12 border border-ink-200 bg-panel px-3 text-[13px] text-ink-900 disabled:opacity-60";
+  "h-11 rounded-12 border border-ink-200 bg-panel px-3 text-[13px] text-ink-900 disabled:opacity-60 md:h-9";
+
+/** Controles de los formularios de captura: 44 px en teléfono (`h-11`), la altura de siempre desde `md`. */
+export const CAPTURE_FIELD = "h-11 rounded-12 bg-panel px-3 md:h-9";
+export const CAPTURE_TEXTAREA =
+  "min-h-20 rounded-12 border border-ink-200 bg-panel px-3 py-2 text-[13px] text-ink-900 md:min-h-16";
+export const CAPTURE_BUTTON = "h-11 md:h-7";
+export const CAPTURE_CHOICE = "flex min-h-11 items-center gap-1.5 text-[12.5px] text-ink-800 md:min-h-0";
 
 export function SectionHeader({
   as: Tag = "h3",
