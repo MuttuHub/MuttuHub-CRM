@@ -43,7 +43,7 @@ function lastDayOf(periodo: string): IsoDate {
   return `${periodo}-${String(day).padStart(2, "0")}`;
 }
 
-function serializeRow(row: FichaRow, disponible: boolean) {
+export function serializeRow(row: FichaRow, disponible: boolean) {
   return {
     rubro_id: row.rubroId,
     codigo: row.codigo,
