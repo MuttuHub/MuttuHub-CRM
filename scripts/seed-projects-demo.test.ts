@@ -27,6 +27,8 @@ import {
   checkSeedData,
   decideSeed,
   extraGanadaNeeded,
+  NOMBRE_PROYECTO_A,
+  NOMBRE_PROYECTO_B,
   parseSeedArgs,
   runSeedProjectsDemo,
   type SeedClient,
@@ -56,9 +58,18 @@ describe("assertLocalTarget", () => {
 })
 
 describe("decideSeed / extraGanadaNeeded", () => {
-  it("skips when the marker project already exists", () => {
-    expect(decideSeed(0)).toBe("seed")
-    expect(decideSeed(1)).toBe("already-seeded")
+  it("seeds when no demo project exists", () => {
+    expect(decideSeed([])).toBe("seed")
+  })
+
+  it("is already seeded only when BOTH demo projects exist", () => {
+    expect(decideSeed([NOMBRE_PROYECTO_B, NOMBRE_PROYECTO_A])).toBe("already-seeded")
+  })
+
+  it("is partial when only some demo project exists (B built, A missing, or the reverse)", () => {
+    expect(decideSeed([NOMBRE_PROYECTO_B])).toBe("partial")
+    expect(decideSeed([NOMBRE_PROYECTO_A])).toBe("partial")
+    expect(decideSeed(["Demo CedeTextil · otro"])).toBe("partial")
   })
 
   it("adds one extra GANADA only while fewer than three free ones remain", () => {
@@ -143,13 +154,13 @@ describe("buildSeedData consistency", () => {
 
 type Calls = string[]
 
-function fakeClient(over: { marker?: number; libres?: number } = {}): { client: SeedClient; calls: Calls } {
+function fakeClient(over: { nombres?: string[]; libres?: number } = {}): { client: SeedClient; calls: Calls } {
   const calls: Calls = []
   const client = {
     proyecto: {
-      count: vi.fn(async () => {
-        calls.push("proyecto.count")
-        return over.marker ?? 0
+      findMany: vi.fn(async () => {
+        calls.push("proyecto.findMany")
+        return (over.nombres ?? []).map((nombre) => ({ nombre }))
       }),
     },
     oportunidad: {
@@ -194,13 +205,25 @@ describe("runSeedProjectsDemo", () => {
   })
 
   it("a second run is a no-op that says nothing was changed", async () => {
-    const { client } = fakeClient({ marker: 1 })
+    const { client } = fakeClient({ nombres: [NOMBRE_PROYECTO_B, NOMBRE_PROYECTO_A] })
     const writer = vi.fn()
     const out: string[] = []
     const result = await runSeedProjectsDemo(client, ["--apply"], (l) => out.push(l), writer, HOY)
     expect(result.mode).toBe("already-seeded")
     expect(writer).not.toHaveBeenCalled()
     expect(out.join("\n")).toMatch(/already seeded.*nothing was changed/i)
+  })
+
+  it("a partial seed (B built, A missing) writes nothing, fails and explains the restore", async () => {
+    for (const argv of [["--apply"], []]) {
+      const { client } = fakeClient({ nombres: [NOMBRE_PROYECTO_B] })
+      const writer = vi.fn()
+      const out: string[] = []
+      await expect(runSeedProjectsDemo(client, argv, (l) => out.push(l), writer, HOY)).rejects.toThrow(
+        /incomplete[\s\S]*db:migrate:reset:local[\s\S]*db:seed:local[\s\S]*wipes/i,
+      )
+      expect(writer).not.toHaveBeenCalled()
+    }
   })
 
   it("refuses a non-local database before any query", async () => {

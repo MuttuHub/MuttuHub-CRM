@@ -117,9 +117,24 @@ export function assertLocalTarget(url: string | undefined | null): void {
   }
 }
 
-export function decideSeed(markerCount: number): "seed" | "already-seeded" {
-  return markerCount > 0 ? "already-seeded" : "seed"
+export type SeedDecision = "seed" | "already-seeded" | "partial"
+
+/**
+ * Decides from the names of the existing demo projects (those starting with MARKER_PREFIX):
+ * none -> "seed"; both seeded projects (A and B, by exact name) -> "already-seeded";
+ * anything in between -> "partial" (a previous run failed midway), which must not be written over.
+ */
+export function decideSeed(nombres: readonly string[]): SeedDecision {
+  if (nombres.length === 0) return "seed"
+  const completo = nombres.includes(NOMBRE_PROYECTO_A) && nombres.includes(NOMBRE_PROYECTO_B)
+  return completo ? "already-seeded" : "partial"
 }
+
+export const PARTIAL_SEED_MESSAGE =
+  `A previous demo seed run was incomplete: some "${MARKER_PREFIX} ..." project exists but not both. ` +
+  "Nothing was changed. The approved project cannot be removed by db:demo:reset:local (append-only triggers); " +
+  "restore the local database with `npm run db:migrate:reset:local` and then `npm run db:seed:local` " +
+  "(this wipes the whole local database)."
 
 export function extraGanadaNeeded(libres: number): boolean {
   return libres < MIN_GANADAS_LIBRES
@@ -384,9 +399,14 @@ export async function runSeedProjectsDemo(
   const problemas = checkSeedData(data, hoy)
   if (problemas.length > 0) throw new Error(`The seed data is inconsistent: ${problemas.join("; ")}`)
 
-  const marcadores = await client.proyecto.count({ where: { nombre: { startsWith: MARKER_PREFIX } } })
-  if (decideSeed(marcadores) === "already-seeded") {
-    print(`Demo projects already seeded (${marcadores} project(s) named "${MARKER_PREFIX} ..."). Nothing was changed.`)
+  const existentes = await client.proyecto.findMany({
+    where: { nombre: { startsWith: MARKER_PREFIX } },
+    select: { nombre: true },
+  })
+  const decision = decideSeed(existentes.map((p) => p.nombre))
+  if (decision === "partial") throw new Error(PARTIAL_SEED_MESSAGE)
+  if (decision === "already-seeded") {
+    print(`Demo projects already seeded (${existentes.length} project(s) named "${MARKER_PREFIX} ..."). Nothing was changed.`)
     return { mode: "already-seeded" }
   }
 
@@ -777,7 +797,8 @@ export async function applySeed(client: SeedClient, data: SeedData, hoy: string)
   // Highest value first: B takes the one closest to the workbook total, A the next; the rest stays free.
   const [oportunidadB, oportunidadA] = lista
 
-  // Project B first and A last: A's name is the marker, so a half-built B never reads as "seeded".
+  // Project B first and A last. The seed counts as complete only when BOTH exact names exist (see
+  // decideSeed); if a run fails midway, the next run sees a partial state, writes nothing and exits non-zero.
   const b = await crearProyectoDesdeOportunidad(client, oportunidadB, {
     nombre: data.nombreB,
     actor: actores.admin,

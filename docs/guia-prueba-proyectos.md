@@ -121,8 +121,11 @@ validación de gastos y la bitácora de auditoría):
 - Una oportunidad GANADA sin proyecto, para mostrar "Convertir en proyecto". `prisma/seed.ts` trae dos GANADA y el
   seed consume ambas; si quedan menos de tres libres agrega UNA ficticia ("Demo · Programa de formación técnica ...").
 
-Segunda corrida: no cambia nada. Si ya existe un proyecto cuyo nombre empieza por `Demo CedeTextil`, imprime
-`Demo projects already seeded (...). Nothing was changed.` y termina con código 0.
+Segunda corrida: no cambia nada. Si existen los DOS proyectos demo (por nombre exacto), imprime
+`Demo projects already seeded (...). Nothing was changed.` y termina con código 0. Si existe solo uno (una corrida
+anterior falló a medias), no escribe nada, imprime `A previous demo seed run was incomplete ...` y termina con código
+distinto de 0: hay que restaurar la base como se indica abajo. Cubierto por pruebas unitarias; no se provocó una
+falla real a medias contra la base.
 
 Restaurar la demo: `db:demo:reset:local` NO puede borrar estos proyectos (el aprobado tiene filas en tablas de solo
 agregar: `versiones_proyecto`, `acceso_soportes`, `auditoria_cambios`, protegidas por triggers). El camino es
