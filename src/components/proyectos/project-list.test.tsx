@@ -571,6 +571,7 @@ describe("ProjectList", () => {
     await user.click(screen.getByRole("button", { name: /Ver detalle/ }))
 
     const ficha = await screen.findByRole("dialog")
+    await user.click(within(ficha).getByRole("tab", { name: "Cambios" }))
     expect(within(ficha).getByTestId("modificaciones")).toHaveTextContent("Aún no hay solicitudes de modificación.")
     expect(within(ficha).getByTestId("versiones")).toHaveTextContent("v0")
   })

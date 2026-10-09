@@ -1,5 +1,7 @@
 // Ficha de proyecto (E-06), de solo lectura salvo las secciones Equipo (E-07) y
-// Estructura técnica (S3). Se abre desde el listado con el id
+// Estructura técnica (S3). Desde S10 se organiza en pestañas (Resumen, Estructura, Avance, Presupuesto,
+// Gastos, Cambios) bajo un encabezado fijo con código, nombre, estado y semáforos; cada panel se monta
+// (y consulta) solo cuando su pestaña está activa. Se abre desde el listado con el id
 // de la fila y monta su propia consulta (`useProject`). Sus datos no tienen ningún control
 // de escritura ni `useEffect` de carga: el estado del request (loading, error,
 // data) sale entero de la query.
@@ -15,7 +17,9 @@
 import { AlertTriangle, History } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FieldValue, ToneBadge } from "@/components/crm/shared";
+import { StatusChip } from "@/components/ui/status-chip";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FieldValue } from "@/components/crm/shared";
 import {
   ACCION_AUDITORIA_META,
   ENTIDAD_AUDITORIA_META,
@@ -37,9 +41,12 @@ import { ProjectModificaciones } from "@/components/proyectos/project-modificaci
 import { ProjectPresupuesto } from "@/components/proyectos/project-presupuesto";
 import { ProjectTeam } from "@/components/proyectos/project-team";
 import { ProjectVersiones } from "@/components/proyectos/project-versiones";
+import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
+import { EmptyBlock, SectionHeader } from "@/components/proyectos/ui";
 import {
   useProject,
   useProjectAudit,
+  useProjectKpis,
   type ProjectAuditEntry,
   type ProjectListRow,
 } from "@/hooks/projects";
@@ -79,20 +86,22 @@ export function ProjectFichaDialog({
         if (!next) onClose();
       }}
     >
-      <DialogContent className="flex max-h-[88dvh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(720px,calc(100%-2rem))]">
+      <DialogContent className="flex max-h-[88dvh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(760px,calc(100%-2rem))]">
         <DialogTitle className="sr-only">
           {proyecto ? `Ficha de ${proyecto.nombre}` : "Ficha de proyecto"}
         </DialogTitle>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {query.isError ? (
+        {query.isError ? (
+          <div className="min-h-0 flex-1 overflow-y-auto">
             <FichaError error={query.error} />
-          ) : proyecto ? (
-            <FichaContent proyecto={proyecto} />
-          ) : (
+          </div>
+        ) : proyecto ? (
+          <FichaContent proyecto={proyecto} />
+        ) : (
+          <div className="min-h-0 flex-1 overflow-y-auto">
             <FichaSkeleton />
-          )}
-        </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -100,12 +109,27 @@ export function ProjectFichaDialog({
 
 /* ── Estado cargado ────────────────────────────────────────────────────── */
 
+const FICHA_TABS = [
+  { value: "resumen", label: "Resumen" },
+  { value: "estructura", label: "Estructura" },
+  { value: "avance", label: "Avance" },
+  { value: "presupuesto", label: "Presupuesto" },
+  { value: "gastos", label: "Gastos" },
+  { value: "cambios", label: "Cambios" },
+] as const;
+
+const PANEL_CLASS = "mt-0 flex flex-col gap-6";
+
 function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
   const estado = ESTADO_PROYECTO_META[proyecto.estado];
 
   return (
-    <>
-      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-ink-200 p-5">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      {/* Encabezado fijo: no está dentro del panel que se desplaza, así estado y semáforos siempre se ven. */}
+      <header
+        data-testid="ficha-header"
+        className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-ink-200 p-5 pr-12"
+      >
         <div className="min-w-0">
           <span className="font-mono text-[12px] font-semibold text-ink-600 tabular-nums">
             {proyecto.codigo}
@@ -116,118 +140,159 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <BaselineApproval proyecto={proyecto} />
-          <ToneBadge tone={estado.tone} label={estado.label} />
+          <StatusChip tone={estado.tone}>{estado.label}</StatusChip>
+          {proyecto.estado !== "BORRADOR" && <FichaSemaforos proyectoId={proyecto.id} />}
         </div>
       </header>
 
-      <div className="flex flex-col gap-6 p-5">
-        <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
+      <Tabs defaultValue="resumen" className="flex min-h-0 flex-1 flex-col gap-0">
+        <div className="no-scrollbar shrink-0 overflow-x-auto border-b border-ink-200 px-5">
+          <TabsList variant="line" className="w-full justify-start gap-1">
+            {FICHA_TABS.map((tab) => (
+              <TabsTrigger key={tab.value} value={tab.value} className="flex-none px-3">
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
+
+        <div data-testid="ficha-scroll" className="min-h-0 flex-1 overflow-y-auto p-5">
+          <TabsContent value="resumen" className={PANEL_CLASS}>
+            <ResumenPanel proyecto={proyecto} />
+          </TabsContent>
+
+          <TabsContent value="estructura" className={PANEL_CLASS}>
+            <ProjectEstructura proyecto={proyecto} />
+          </TabsContent>
+
+          <TabsContent value="avance" className={PANEL_CLASS}>
+            <ProjectEjecucion proyecto={proyecto} />
+            <ProjectKpisPanel proyecto={proyecto} />
+          </TabsContent>
+
+          <TabsContent value="presupuesto" className={PANEL_CLASS}>
+            <ProjectPresupuesto proyecto={proyecto} />
+            <ProjectFinanciero proyecto={proyecto} />
+          </TabsContent>
+
+          <TabsContent value="gastos" className={PANEL_CLASS}>
+            <ProjectGastos proyecto={proyecto} />
+          </TabsContent>
+
+          <TabsContent value="cambios" className={PANEL_CLASS}>
+            <ProjectModificaciones proyecto={proyecto} />
+            <ProjectVersiones proyecto={proyecto} />
+            <ProjectHistorial proyectoId={proyecto.id} />
+          </TabsContent>
+        </div>
+      </Tabs>
+    </div>
+  );
+}
+
+/**
+ * Semáforos del encabezado. Reutilizan la consulta de la sección Indicadores (misma clave: sin corte, base
+ * vigente), así que no se pide dos veces ni se recalcula nada: el color llega del servidor. Un proyecto fuera de
+ * ejecución (`medible: false`) no tiene semáforo.
+ */
+function FichaSemaforos({ proyectoId }: { proyectoId: string }) {
+  const kpis = useProjectKpis(proyectoId, null, "vigente").data;
+  if (!kpis || !kpis.medible) return null;
+  return (
+    <>
+      {kpis.tecnico && <SemaforoChip color={kpis.tecnico.color} prefix="Semáforo técnico" />}
+      {kpis.financiero && <SemaforoChip color={kpis.financiero.color} prefix="Semáforo financiero" />}
+    </>
+  );
+}
+
+function ResumenPanel({ proyecto }: { proyecto: ProjectListRow }) {
+  return (
+    <>
+      <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
+        <FieldValue
+          label="Origen"
+          value={proyecto.origen ? ORIGEN_PROYECTO_META[proyecto.origen] : SIN_DATO}
+        />
+        <FieldValue label="Cliente" value={proyecto.cliente.nombre} />
+        <FieldValue
+          label="Responsable"
+          value={proyecto.responsable?.nombre ?? "Sin asignar"}
+        />
+        <FieldValue
+          label="Fecha de inicio"
+          value={formatFechaCalendario(proyecto.fecha_inicio)}
+          mono
+        />
+        <FieldValue label="Fecha de fin" value={formatFechaCalendario(proyecto.fecha_fin)} mono />
+        <FieldValue label="Duración" value={formatDuracion(proyecto.duracion_semanas)} mono />
+        <FieldValue label="Valor total" value={formatMonto(proyecto.valor_total)} mono />
+        {proyecto.beneficiarios_meta !== null && (
           <FieldValue
-            label="Origen"
-            value={proyecto.origen ? ORIGEN_PROYECTO_META[proyecto.origen] : SIN_DATO}
-          />
-          <FieldValue label="Cliente" value={proyecto.cliente.nombre} />
-          <FieldValue
-            label="Responsable"
-            value={proyecto.responsable?.nombre ?? "Sin asignar"}
-          />
-          <FieldValue
-            label="Fecha de inicio"
-            value={formatFechaCalendario(proyecto.fecha_inicio)}
+            label="Beneficiarios meta"
+            value={formatEntero(proyecto.beneficiarios_meta)}
             mono
           />
-          <FieldValue label="Fecha de fin" value={formatFechaCalendario(proyecto.fecha_fin)} mono />
-          <FieldValue label="Duración" value={formatDuracion(proyecto.duracion_semanas)} mono />
-          <FieldValue label="Valor total" value={formatMonto(proyecto.valor_total)} mono />
-          {proyecto.beneficiarios_meta !== null && (
-            <FieldValue
-              label="Beneficiarios meta"
-              value={formatEntero(proyecto.beneficiarios_meta)}
-              mono
-            />
-          )}
-          {proyecto.diferencia_valor_oportunidad !== null && (
-            <FieldValue
-              label="Diferencia valor oportunidad"
-              value={formatMonto(proyecto.diferencia_valor_oportunidad)}
-              mono
-            />
-          )}
-        </dl>
+        )}
+        {proyecto.diferencia_valor_oportunidad !== null && (
+          <FieldValue
+            label="Diferencia valor oportunidad"
+            value={formatMonto(proyecto.diferencia_valor_oportunidad)}
+            mono
+          />
+        )}
+      </dl>
 
-        <section>
-          <h3 className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-            Líneas estratégicas
-          </h3>
-          {proyecto.lineas.length === 0 ? (
-            <p className="mt-1.5 text-[13px] text-ink-500">Sin líneas estratégicas.</p>
-          ) : (
-            <ul className="mt-2 flex flex-wrap gap-2">
-              {proyecto.lineas.map((linea) => (
-                <li
-                  key={linea.id}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12.5px]",
-                    linea.principal
-                      ? "border-rose-300 bg-rose-50 text-rose-800"
-                      : "border-ink-200 bg-panel text-ink-700",
-                  )}
-                >
-                  <span className="font-mono text-[11px] text-ink-500 tabular-nums">
-                    {linea.codigo}
+      <section>
+        <SectionHeader>Líneas estratégicas</SectionHeader>
+        {proyecto.lineas.length === 0 ? (
+          <EmptyBlock>Sin líneas estratégicas.</EmptyBlock>
+        ) : (
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {proyecto.lineas.map((linea) => (
+              <li
+                key={linea.id}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12.5px]",
+                  linea.principal
+                    ? "border-rose-300 bg-rose-50 text-rose-800"
+                    : "border-ink-200 bg-panel text-ink-700",
+                )}
+              >
+                <span className="font-mono text-[11px] text-ink-500 tabular-nums">
+                  {linea.codigo}
+                </span>
+                <span className="font-semibold">{linea.nombre}</span>
+                {linea.principal && (
+                  <span className="rounded-full bg-rose-600 px-2 py-[1px] text-[10px] font-bold text-white">
+                    Principal
                   </span>
-                  <span className="font-semibold">{linea.nombre}</span>
-                  {linea.principal && (
-                    <span className="rounded-full bg-rose-600 px-2 py-[1px] text-[10px] font-bold text-white">
-                      Principal
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
-        <section>
-          <h3 className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-            Municipios
-          </h3>
-          {proyecto.municipios.length === 0 ? (
-            <p className="mt-1.5 text-[13px] text-ink-500">Sin municipios.</p>
-          ) : (
-            <ul className="mt-2 flex flex-wrap gap-2">
-              {proyecto.municipios.map((municipio) => (
-                <li
-                  key={municipio.id}
-                  className="rounded-full border border-ink-200 bg-panel px-3 py-1.5 text-[12.5px] text-ink-700"
-                >
-                  {`${municipio.nombre} · ${municipio.departamento}`}
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+      <section>
+        <SectionHeader>Municipios</SectionHeader>
+        {proyecto.municipios.length === 0 ? (
+          <EmptyBlock>Sin municipios.</EmptyBlock>
+        ) : (
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {proyecto.municipios.map((municipio) => (
+              <li
+                key={municipio.id}
+                className="rounded-full border border-ink-200 bg-panel px-3 py-1.5 text-[12.5px] text-ink-700"
+              >
+                {`${municipio.nombre} · ${municipio.departamento}`}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
-        <ProjectTeam proyectoId={proyecto.id} />
-
-        <ProjectEstructura proyecto={proyecto} />
-
-        <ProjectPresupuesto proyecto={proyecto} />
-
-        <ProjectEjecucion proyecto={proyecto} />
-
-        <ProjectKpisPanel proyecto={proyecto} />
-
-        <ProjectFinanciero proyecto={proyecto} />
-
-        <ProjectGastos proyecto={proyecto} />
-
-        <ProjectModificaciones proyecto={proyecto} />
-
-        <ProjectVersiones proyecto={proyecto} />
-
-        <ProjectHistorial proyectoId={proyecto.id} />
-      </div>
+      <ProjectTeam proyectoId={proyecto.id} />
     </>
   );
 }
@@ -245,10 +310,7 @@ function ProjectHistorial({ proyectoId }: { proyectoId: string }) {
 
   return (
     <section data-testid="historial">
-      <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-        <History className="size-3.5" strokeWidth={2} />
-        Historial
-      </h3>
+      <SectionHeader icon={<History className="size-3.5" strokeWidth={2} />}>Historial</SectionHeader>
 
       {query.isError ? (
         <p role="alert" className="mt-1.5 text-[13px] text-destructivo">
@@ -261,7 +323,7 @@ function ProjectHistorial({ proyectoId }: { proyectoId: string }) {
       ) : query.data && query.data.length > 0 ? (
         <HistorialPasos entries={query.data} />
       ) : (
-        <p className="mt-1.5 text-[13px] text-ink-500">Sin movimientos registrados.</p>
+        <EmptyBlock>Sin movimientos registrados.</EmptyBlock>
       )}
     </section>
   );

@@ -6,6 +6,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen, waitFor, within } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { ProjectListRow } from "@/hooks/projects"
@@ -70,6 +71,14 @@ function renderFicha(projectId = "p1") {
   })
 }
 
+/** Los paneles de la ficha se montan solo con su pestaña activa. */
+async function openTab(name: string) {
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole("tab", { name }))
+}
+
+const TAB_NAMES = ["Resumen", "Estructura", "Avance", "Presupuesto", "Gastos", "Cambios"]
+
 describe("ProjectFichaDialog", () => {
   const fetchMock = vi.fn()
 
@@ -109,58 +118,64 @@ describe("ProjectFichaDialog", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1", expect.any(Object))
   })
 
-  it("mounts the KPI panel after the technical execution and before the financial ficha, with the unconfirmed badge", async () => {
+  it("mounts the KPI panel after the technical execution in the Avance tab, with the unconfirmed badge", async () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
+    await openTab("Avance")
 
     const kpis = await screen.findByTestId("kpis")
     expect(kpis).toHaveTextContent("Indicadores")
     expect(await within(kpis).findByTestId("kpi-tecnico")).toHaveAttribute("data-color", "amarillo")
     expect(within(kpis).getByText("No confirmado")).toBeInTheDocument()
     expect(screen.getByTestId("ejecucion").compareDocumentPosition(kpis) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(kpis.compareDocumentPosition(screen.getByTestId("financiero")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.queryByTestId("financiero")).not.toBeInTheDocument()
   })
 
-  it("mounts the modifications queue and the versions section after the expenses and before the historial", async () => {
+  it("mounts the modifications queue, the versions and the historial in the Cambios tab", async () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
+    await openTab("Cambios")
 
     const modificaciones = await screen.findByTestId("modificaciones")
     const versiones = screen.getByTestId("versiones")
     expect(modificaciones).toHaveTextContent("Modificaciones")
     expect(versiones).toHaveTextContent("Versiones")
-    expect(screen.getByTestId("gastos").compareDocumentPosition(modificaciones) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(modificaciones.compareDocumentPosition(versiones) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(versiones.compareDocumentPosition(screen.getByTestId("historial")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.queryByTestId("gastos")).not.toBeInTheDocument()
   })
 
   it("explains the baseline is pending in the versions and modifications sections of a draft, without reading them", async () => {
     mockFichaAndAudit({ historial: [] }, 200, { ...PROYECTO, estado: "BORRADOR" })
 
     renderFicha()
+    await openTab("Cambios")
 
     expect(await screen.findByText("La línea base aún no está aprobada.")).toBeInTheDocument()
     expect(screen.getByText(/línea base esté aprobada/i)).toBeInTheDocument()
     expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/modifications") || String(url).endsWith("/versions"))).toBe(false)
   })
 
-  it("mounts the technical structure section after the team", async () => {
+  it("mounts the team in Resumen and the technical structure only in the Estructura tab", async () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
 
+    expect(await screen.findByTestId("equipo")).toBeInTheDocument()
+    expect(screen.queryByTestId("estructura")).not.toBeInTheDocument()
+    await openTab("Estructura")
     const estructura = await screen.findByTestId("estructura")
-    const equipo = screen.getByTestId("equipo")
     expect(estructura).toHaveTextContent("Estructura técnica")
-    expect(equipo.compareDocumentPosition(estructura) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.queryByTestId("equipo")).not.toBeInTheDocument()
   })
 
   it("offers the Excel template controls in the structure header only for a manager on a draft", async () => {
     mockFichaAndAudit({ historial: [] }, 200, { ...PROYECTO, estado: "BORRADOR" })
 
     renderFicha()
+    await openTab("Estructura")
 
     const controles = await screen.findByTestId("estructura-plantilla")
     expect(controles).toHaveTextContent("Descargar plantilla")
@@ -184,70 +199,136 @@ describe("ProjectFichaDialog", () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
+    await openTab("Estructura")
 
     await screen.findByTestId("estructura")
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
     expect(screen.queryByTestId("estructura-plantilla")).not.toBeInTheDocument()
   })
 
-  it("mounts the Presupuesto section after the technical structure", async () => {
+  it("mounts the Presupuesto section and the Ficha financiera in the Presupuesto tab, and reads them only then", async () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
+    await screen.findByTestId("equipo")
+    expect(fetchMock).not.toHaveBeenCalledWith("/api/v1/projects/p1/budget", expect.any(Object))
+    await openTab("Presupuesto")
 
     const presupuesto = await screen.findByTestId("presupuesto")
-    const estructura = screen.getByTestId("estructura")
     expect(presupuesto).toHaveTextContent("Presupuesto")
-    expect(estructura.compareDocumentPosition(presupuesto) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const financiero = await screen.findByTestId("financiero")
+    expect(financiero).toHaveTextContent("Ficha financiera")
+    expect(presupuesto.compareDocumentPosition(financiero) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/budget", expect.any(Object)),
     )
-  })
-
-  it("mounts the Ficha financiera section after the technical execution and before the history", async () => {
-    mockFichaAndAudit({ historial: [] })
-
-    renderFicha()
-
-    const financiero = await screen.findByTestId("financiero")
-    expect(financiero).toHaveTextContent("Ficha financiera")
-    const ejecucion = screen.getByTestId("ejecucion")
-    const historial = screen.getByTestId("historial")
-    expect(ejecucion.compareDocumentPosition(financiero) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(financiero.compareDocumentPosition(historial) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/financial-sheet", expect.any(Object)),
     )
   })
 
-  it("mounts the Gastos section after the Ficha financiera and before the history", async () => {
+  it("mounts the Gastos section in the Gastos tab", async () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
+    await openTab("Gastos")
 
     const gastos = await screen.findByTestId("gastos")
     expect(gastos).toHaveTextContent("Gastos")
-    const financiero = screen.getByTestId("financiero")
-    const historial = screen.getByTestId("historial")
-    expect(financiero.compareDocumentPosition(gastos) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(gastos.compareDocumentPosition(historial) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/expenses", expect.any(Object)),
     )
   })
 
-  it("mounts the technical execution section between the structure and the history", async () => {
+  it("mounts the technical execution section in the Avance tab", async () => {
+    mockFichaAndAudit({ historial: [] })
+
+    renderFicha()
+    await openTab("Avance")
+
+    const ejecucion = await screen.findByTestId("ejecucion")
+    expect(ejecucion).toHaveTextContent("Ejecución técnica")
+    expect(await within(ejecucion).findByTestId("semaforo-tecnico")).toBeInTheDocument()
+  })
+
+  /* ── Pestañas y encabezado fijo (S10 WU2) ───────────────────────────── */
+
+  it("renders the six tabs in order with Resumen selected by default", async () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
 
-    const ejecucion = await screen.findByTestId("ejecucion")
-    const estructura = screen.getByTestId("estructura")
-    const historial = screen.getByTestId("historial")
-    expect(ejecucion).toHaveTextContent("Ejecución técnica")
-    expect(estructura.compareDocumentPosition(ejecucion) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(ejecucion.compareDocumentPosition(historial) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(await within(ejecucion).findByTestId("semaforo-tecnico")).toBeInTheDocument()
+    const tabs = await screen.findAllByRole("tab")
+    expect(tabs.map((tab) => tab.textContent)).toEqual(TAB_NAMES)
+    expect(screen.getByRole("tab", { name: "Resumen" })).toHaveAttribute("aria-selected", "true")
+    expect(screen.getByRole("tablist")).toBeInTheDocument()
+  })
+
+  it("mounts only the active tab content and fetches per tab (lazy)", async () => {
+    mockFichaAndAudit({ historial: [] })
+
+    renderFicha()
+    await screen.findByTestId("equipo")
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/members", expect.any(Object)))
+
+    for (const id of ["estructura", "presupuesto", "ejecucion", "kpis", "financiero", "gastos", "modificaciones", "versiones", "historial"]) {
+      expect(screen.queryByTestId(id)).not.toBeInTheDocument()
+    }
+    const lazy = ["/budget", "/expenses", "/audit", "/modifications", "/versions", "/financial-sheet", "/technical-status", "/objectives"]
+    for (const suffix of lazy) {
+      expect(fetchMock.mock.calls.some(([url]) => String(url).includes(suffix))).toBe(false)
+    }
+
+    await openTab("Gastos")
+    await screen.findByTestId("gastos")
+    expect(screen.queryByTestId("equipo")).not.toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/expenses", expect.any(Object))
+  })
+
+  it("keeps the header (code, name, estado and both semáforo chips) outside the scrolling panel", async () => {
+    mockFichaAndAudit({ historial: [] }, 200, PROYECTO, {
+      ...KPIS_PANEL,
+      financiero: {
+        corte: "2026-03-15", asignado: "100.00", programado: "50.00", ejecutado: "40.00", ea: 40, ep: 80, color: "rojo", alerta_retraso: false,
+      },
+    })
+
+    renderFicha()
+
+    const header = await screen.findByTestId("ficha-header")
+    expect(within(header).getByText("PRY-2026-001")).toBeInTheDocument()
+    expect(within(header).getByText(PROYECTO.nombre)).toBeInTheDocument()
+    expect(within(header).getByText("En ejecución")).toBeInTheDocument()
+    expect(await within(header).findByText("Semáforo técnico: Amarillo")).toBeInTheDocument()
+    expect(await within(header).findByText("Semáforo financiero: Rojo")).toBeInTheDocument()
+    expect(screen.getByTestId("ficha-scroll")).not.toContainElement(header)
+    await openTab("Gastos")
+    expect(screen.getByTestId("ficha-header")).toBeInTheDocument()
+  })
+
+  it("does not read the KPIs for the header of a draft", async () => {
+    mockFichaAndAudit({ historial: [] }, 200, { ...PROYECTO, estado: "BORRADOR" })
+
+    renderFicha()
+
+    await screen.findByTestId("ficha-header")
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/kpis"))).toBe(false)
+    expect(screen.queryByText(/Semáforo técnico/)).not.toBeInTheDocument()
+  })
+
+  it("moves between tabs with the keyboard", async () => {
+    mockFichaAndAudit({ historial: [] })
+    const user = userEvent.setup()
+
+    renderFicha()
+
+    const resumen = await screen.findByRole("tab", { name: "Resumen" })
+    resumen.focus()
+    await user.keyboard("{ArrowRight}")
+    expect(screen.getByRole("tab", { name: "Estructura" })).toHaveFocus()
+    await user.keyboard("{Enter}")
+    expect(screen.getByRole("tab", { name: "Estructura" })).toHaveAttribute("aria-selected", "true")
+    expect(await screen.findByTestId("estructura")).toBeInTheDocument()
   })
 
   it("omits the difference field when it is null (nothing writes it yet)", async () => {
@@ -375,7 +456,7 @@ describe("ProjectFichaDialog", () => {
     parametros: { tolerancia: 10, retraso: 70, confirmado: false },
   }
 
-  function mockFichaAndAudit(auditBody: unknown, auditStatus = 200, proyecto: unknown = PROYECTO) {
+  function mockFichaAndAudit(auditBody: unknown, auditStatus = 200, proyecto: unknown = PROYECTO, kpis: unknown = KPIS_PANEL) {
     fetchMock.mockImplementation((input: unknown) => {
       if (String(input).endsWith("/audit")) {
         return Promise.resolve(jsonResponse(auditBody, auditStatus))
@@ -399,7 +480,7 @@ describe("ProjectFichaDialog", () => {
       }
       // Indicadores (S9 U6): su comportamiento vive en project-kpis-panel.test.tsx.
       if (String(input).includes("/kpis")) {
-        return Promise.resolve(jsonResponse(KPIS_PANEL))
+        return Promise.resolve(jsonResponse(kpis))
       }
       if (String(input).includes("/financial-sheet")) {
         return Promise.resolve(jsonResponse(FINANCIERA))
@@ -441,6 +522,7 @@ describe("ProjectFichaDialog", () => {
     mockFichaAndAudit({ historial: AUDITORIA })
 
     renderFicha()
+    await openTab("Cambios")
 
     expect(await screen.findByText("Historial")).toBeInTheDocument()
     await waitFor(() => expect(screen.getAllByTestId("historial-paso")).toHaveLength(1))
@@ -458,6 +540,7 @@ describe("ProjectFichaDialog", () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
+    await openTab("Cambios")
 
     expect(await screen.findByText("Sin movimientos registrados.")).toBeInTheDocument()
     expect(screen.queryAllByTestId("historial-paso")).toHaveLength(0)
@@ -470,6 +553,7 @@ describe("ProjectFichaDialog", () => {
     )
 
     renderFicha()
+    await openTab("Cambios")
 
     expect(await screen.findByText(PROYECTO.nombre)).toBeInTheDocument()
     const alerta = await screen.findByRole("alert")
@@ -498,6 +582,7 @@ describe("ProjectFichaDialog", () => {
     })
 
     renderFicha()
+    await openTab("Cambios")
 
     const paso = await screen.findByTestId("historial-paso")
     expect(paso).toHaveTextContent("Edición")
