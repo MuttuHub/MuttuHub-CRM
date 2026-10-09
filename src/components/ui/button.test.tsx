@@ -13,9 +13,10 @@ describe("Button", () => {
 
   it("applies the requested variant and size classes (base-ui keeps its own base)", () => {
     const { container, rerender } = render(<Button variant="destructive" size="sm">X</Button>)
-    expect(container.firstElementChild).toHaveClass("bg-destructive/10", "text-destructive", "hover:bg-destructive/20")
+    expect(container.firstElementChild).toHaveClass("border-destructive", "bg-transparent", "text-destructive", "hover:bg-destructive/10")
     expect(container.firstElementChild).toHaveClass("h-10", "px-2.5")
     expect(container.firstElementChild).not.toHaveClass("bg-primary")
+    expect(container.firstElementChild).not.toHaveClass("bg-destructive")
     rerender(<Button variant="outline" size="icon">X</Button>)
     expect(container.firstElementChild).toHaveClass("border-border-strong", "bg-input-bg")
     rerender(<Button variant="link">X</Button>)
