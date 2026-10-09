@@ -2,7 +2,8 @@
 // pinta tal cual, sin recalcularlo.
 
 import { render, screen } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
+import userEvent from "@testing-library/user-event"
+import { describe, expect, it, vi } from "vitest"
 import type { ProjectTechnicalStatus } from "@/hooks/projects"
 import { SemaforoTecnico } from "./semaforo-tecnico"
 
@@ -52,5 +53,22 @@ describe("SemaforoTecnico", () => {
       expect(screen.getByTestId("semaforo-tecnico")).toHaveTextContent(label)
       unmount()
     }
+  })
+
+  it("shows no base selector unless the caller wires one", () => {
+    render(<SemaforoTecnico tecnico={TECNICO} />)
+    expect(screen.queryByRole("combobox", { name: "Base" })).not.toBeInTheDocument()
+  })
+
+  it("offers the vigente/original base when wired, and reports the change", async () => {
+    const user = userEvent.setup()
+    const onBaseChange = vi.fn()
+    render(<SemaforoTecnico tecnico={{ ...TECNICO, base: "original" }} onBaseChange={onBaseChange} />)
+
+    const base = screen.getByRole("combobox", { name: "Base" })
+    expect(base).toHaveValue("original")
+    await user.selectOptions(base, "vigente")
+    expect(onBaseChange).toHaveBeenCalledWith("vigente")
+    expect(screen.getByTestId("semaforo-tecnico")).toHaveAttribute("data-base", "original")
   })
 })

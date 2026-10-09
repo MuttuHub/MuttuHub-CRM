@@ -5,6 +5,7 @@
 
 "use client";
 
+import { useState } from "react";
 import { Gauge } from "lucide-react";
 import { useCurrentUser } from "@/hooks/kanban";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,6 +20,7 @@ import {
   useProjectDeliverables,
   useProjectMembers,
   useProjectTechnicalStatus,
+  type ProjectBase,
   type ProjectDeliverableProgress,
   type ProjectListRow,
 } from "@/hooks/projects";
@@ -58,7 +60,8 @@ function SectionHeader() {
 }
 
 function EjecucionContent({ proyecto }: { proyecto: ProjectListRow }) {
-  const tecnicoQuery = useProjectTechnicalStatus(proyecto.id);
+  const [base, setBase] = useState<ProjectBase>("vigente");
+  const tecnicoQuery = useProjectTechnicalStatus(proyecto.id, base);
   const activitiesQuery = useProjectActivities(proyecto.id);
   const deliverablesQuery = useProjectDeliverables(proyecto.id);
 
@@ -105,7 +108,7 @@ function EjecucionContent({ proyecto }: { proyecto: ProjectListRow }) {
 
   return (
     <div className="mt-2">
-      <SemaforoTecnico tecnico={tecnico} />
+      <SemaforoTecnico tecnico={tecnico} onBaseChange={setBase} />
 
       {activitiesQuery.isError ? (
         <InlineError

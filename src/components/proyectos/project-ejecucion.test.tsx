@@ -3,6 +3,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen, waitFor, within } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { ProjectListRow } from "@/hooks/projects"
@@ -136,8 +137,9 @@ describe("ProjectEjecucion", () => {
         return Promise.resolve(jsonResponse({ usuario: { id: "u1", nombre: "Ana", rol } }))
       }
       if (url.endsWith("/members")) return Promise.resolve(jsonResponse({ miembros }))
-      if (url.endsWith("/technical-status")) {
-        return Promise.resolve(jsonResponse(tecnico, tecnicoStatus))
+      if (url.split("?")[0].endsWith("/technical-status")) {
+        const base = url.includes("base=original") ? "original" : "vigente"
+        return Promise.resolve(jsonResponse(tecnicoStatus === 200 ? { ...(tecnico as object), base } : tecnico, tecnicoStatus))
       }
       if (url.endsWith("/activities")) {
         return Promise.resolve(
@@ -179,6 +181,20 @@ describe("ProjectEjecucion", () => {
     expect(
       fetchMock.mock.calls.some(([url]) => String(url).endsWith("/technical-status")),
     ).toBe(false)
+  })
+
+  it("reads the original (v0) from the semáforo base selector and keeps showing the section", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    const base = await screen.findByRole("combobox", { name: "Base" })
+    await user.selectOptions(base, "original")
+
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/technical-status?base=original"))).toBe(true),
+    )
+    expect(screen.getByRole("combobox", { name: "Base" })).toHaveValue("original")
+    expect(screen.getByTestId("semaforo-tecnico")).toBeInTheDocument()
   })
 
   it("renders the technical semáforo with the API color for an EN_EJECUCION project", async () => {

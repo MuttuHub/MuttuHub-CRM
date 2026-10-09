@@ -167,7 +167,7 @@ describe("ProjectFinanciero", () => {
     expect(screen.queryByTestId("financiero-alerta")).not.toBeInTheDocument()
   })
 
-  it("offers one corte per project month and refetches when it changes; the base is fixed", async () => {
+  it("offers one corte per project month and refetches when it changes", async () => {
     const user = userEvent.setup()
     setup()
 
@@ -175,12 +175,54 @@ describe("ProjectFinanciero", () => {
     expect(within(corte).getAllByRole("option").map((o) => o.getAttribute("value"))).toEqual([
       "2026-10", "2026-11", "2026-12", "2027-01",
     ])
-    expect(screen.getByRole("combobox", { name: "Base" })).toBeDisabled()
 
     await user.selectOptions(corte, "2026-12")
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/financial-sheet?corte=2026-12", expect.any(Object)),
     )
+  })
+
+  it("keeps the base selector disabled while the baseline is not approved (BORRADOR)", async () => {
+    setup({ proyecto: { estado: "BORRADOR" } })
+
+    const base = await screen.findByRole("combobox", { name: "Base" })
+    expect(base).toBeDisabled()
+    expect(within(base).getAllByRole("option").map((o) => o.getAttribute("value"))).toEqual(["vigente"])
+  })
+
+  it("lets an approved project read the original (v0): it refetches with base=original and keeps the corte", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    const base = await screen.findByRole("combobox", { name: "Base" })
+    expect(base).toBeEnabled()
+    expect(within(base).getAllByRole("option").map((o) => o.getAttribute("value"))).toEqual(["vigente", "original"])
+    await screen.findByTestId("financiero-tabla")
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Corte" }), "2026-12")
+    await user.selectOptions(base, "original")
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/v1/projects/p1/financial-sheet?corte=2026-12&base=original",
+        expect.any(Object),
+      ),
+    )
+    expect(base).toHaveValue("original")
+  })
+
+  it("shows the 409 of an original that does not exist yet, inline", async () => {
+    const user = userEvent.setup()
+    fetchMock.mockImplementation((input: unknown) =>
+      Promise.resolve(
+        String(input).includes("base=original")
+          ? jsonResponse({ error: "La versión original aún no existe.", code: "INVALID_STATE" }, 409)
+          : jsonResponse(FICHA),
+      ),
+    )
+    render(<ProjectFinanciero proyecto={PROYECTO} />, { wrapper: createWrapper() })
+
+    await user.selectOptions(await screen.findByRole("combobox", { name: "Base" }), "original")
+    expect(await screen.findByRole("alert")).toHaveTextContent("La versión original aún no existe.")
   })
 
   it("renders no expense, support or third-party rows", async () => {

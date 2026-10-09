@@ -12,6 +12,7 @@
 "use client";
 
 import {
+  keepPreviousData,
   useMutation,
   useQueries,
   useQuery,
@@ -281,7 +282,11 @@ export const projectQueryKeys = {
   activities: (id: string) => ["projects", "activities", id] as const,
   deliverables: (id: string) => ["projects", "deliverables", id] as const,
   indicators: (id: string) => ["projects", "indicators", id] as const,
-  technicalStatus: (id: string) => ["projects", "technical-status", id] as const,
+  /** Sin `base` es el prefijo de las dos bases (para invalidar); con `base`, la clave de una consulta. */
+  technicalStatus: (id: string, base?: string) =>
+    (base === undefined
+      ? ["projects", "technical-status", id]
+      : ["projects", "technical-status", id, base]) as readonly string[],
   deliverableProgress: (id: string, deliverableId: string) =>
     ["projects", "deliverable-progress", id, deliverableId] as const,
   indicatorMeasurements: (id: string, indicatorId: string) =>
@@ -289,9 +294,12 @@ export const projectQueryKeys = {
   beneficiaries: (id: string) => ["projects", "beneficiaries", id] as const,
   budget: (id: string) => ["projects", "budget", id] as const,
   programming: (id: string) => ["projects", "programming", id] as const,
-  financialSheet: (id: string, corte: string | null) => ["projects", "financial-sheet", id, corte] as const,
+  financialSheet: (id: string, corte: string | null, base: string = "vigente") =>
+    ["projects", "financial-sheet", id, corte, base] as const,
   expenses: (id: string) => ["projects", "expenses", id] as const,
   versions: (id: string) => ["projects", "versions", id] as const,
+  versionCompare: (id: string, from: string, to: string) => ["projects", "version-compare", id, from, to] as const,
+  modifications: (id: string) => ["projects", "modifications", id] as const,
   expenseQueue: ["projects", "expense-validations"] as const,
   eligibleOpportunities: ["projects", "eligible-opportunities"] as const,
   // Los catálogos viven fuera de `projects` para que invalidar la lista de
@@ -732,8 +740,8 @@ export type ProjectTechnicalActivity = {
 
 /** Respuesta de `GET /api/v1/projects/:id/technical-status?corte=AAAA-MM-DD`. */
 export type ProjectTechnicalStatus = {
-  /** "vigente" hasta que existan líneas base (S8). */
-  base: string;
+  /** La base que respondió el servidor: "vigente" u "original" (versión 0). */
+  base: ProjectBase;
   corte: string;
   estado: EstadoProyecto;
   avance_real: number;
@@ -818,12 +826,23 @@ export type ProjectBeneficiaries = {
   total: number;
 };
 
+/** Base de la ficha financiera y del semáforo: las tablas vivas o la versión 0 congelada (S8). */
+export type ProjectBase = "vigente" | "original";
+
 /** Semáforo técnico del proyecto (color incluido: se pinta, no se recalcula). */
-export function useProjectTechnicalStatus(id: string): UseQueryResult<ProjectTechnicalStatus> {
+export function useProjectTechnicalStatus(
+  id: string,
+  base: ProjectBase = "vigente",
+): UseQueryResult<ProjectTechnicalStatus> {
   return useQuery({
-    queryKey: projectQueryKeys.technicalStatus(id),
+    queryKey: projectQueryKeys.technicalStatus(id, base),
     enabled: id !== "",
-    queryFn: () => apiGet<ProjectTechnicalStatus>(`/api/v1/projects/${id}/technical-status`),
+    // Switching the base keeps the previous semáforo on screen instead of flashing a skeleton.
+    placeholderData: keepPreviousData,
+    queryFn: () =>
+      apiGet<ProjectTechnicalStatus>(
+        `/api/v1/projects/${id}/technical-status${base === "original" ? "?base=original" : ""}`,
+      ),
   });
 }
 
@@ -1237,7 +1256,7 @@ export type ProjectFinancialRow = {
 };
 
 export type ProjectFinancialSheet = {
-  base: string;
+  base: ProjectBase;
   /** Periodo AAAA-MM. */
   corte: string;
   estado: EstadoProyecto;
@@ -1252,14 +1271,18 @@ export type ProjectFinancialSheet = {
 export function useProjectFinancialSheet(
   id: string,
   corte: string | null,
+  base: ProjectBase = "vigente",
 ): UseQueryResult<ProjectFinancialSheet> {
   return useQuery({
-    queryKey: projectQueryKeys.financialSheet(id, corte),
+    queryKey: projectQueryKeys.financialSheet(id, corte, base),
     enabled: id !== "",
-    queryFn: () =>
-      apiGet<ProjectFinancialSheet>(
-        `/api/v1/projects/${id}/financial-sheet${corte ? `?corte=${encodeURIComponent(corte)}` : ""}`,
-      ),
+    queryFn: () => {
+      const query = [
+        ...(corte ? [`corte=${encodeURIComponent(corte)}`] : []),
+        ...(base === "original" ? ["base=original"] : []),
+      ].join("&");
+      return apiGet<ProjectFinancialSheet>(`/api/v1/projects/${id}/financial-sheet${query ? `?${query}` : ""}`);
+    },
   });
 }
 
@@ -1674,4 +1697,186 @@ function toastError(err: unknown, fallback: string): never {
     toast.error(fallback);
   }
   throw err;
+}
+
+// ── S8: versiones, comparación y solicitudes de modificación (E-26, E-27) ──────────────────────────
+
+export type ProjectVersion = {
+  /** 0 es la línea base; cada modificación aprobada suma uno. */
+  numero: number;
+  tipo: "LINEA_BASE" | "MODIFICACION";
+  aprobado_at: string;
+  aprobado_por: { id: string; nombre: string | null };
+  motivo: string | null;
+  solicitud_id: string | null;
+};
+
+export type ProjectDiferencia = {
+  elemento: "proyecto" | "presupuesto" | "programacion" | "actividad" | "entregable" | "indicador";
+  clave: string;
+  /** `existencia` cuando el elemento aparece o desaparece. */
+  campo: string;
+  desde: string | null;
+  hasta: string | null;
+};
+
+export type ProjectVersionComparison = { desde: string; hasta: string; diferencias: ProjectDiferencia[] };
+
+export type TipoModificacion = "TRASLADO" | "ADICION" | "REDUCCION" | "REPROGRAMACION" | "CRONOGRAMA" | "ENTREGABLES";
+
+export type ModificacionDetalleItem = {
+  elemento: "presupuesto" | "programacion" | "proyecto" | "actividad" | "entregable" | "indicador";
+  clave: string;
+  campo?: string;
+  antes: string;
+  despues: string;
+};
+
+export type ProjectModificacion = {
+  id: string;
+  tipo: TipoModificacion;
+  motivo: string;
+  detalle: ModificacionDetalleItem[];
+  version_base_numero: number;
+  estado: "PENDIENTE" | "APROBADA" | "RECHAZADA";
+  solicitado_por: { id: string; nombre: string | null };
+  solicitado_at: string;
+  decidido_por: { id: string; nombre: string | null } | null;
+  decidido_at: string | null;
+  comentario_decision: string | null;
+  /** Versión que creó la aprobación; nulo mientras está pendiente o si se rechazó. */
+  version_numero: number | null;
+};
+
+export type ModificacionBody = { tipo: TipoModificacion; motivo: string; detalle: ModificacionDetalleItem[] };
+
+export type ModificacionRegla = { codigo: string; mensaje: string; clave?: string };
+
+/** El 400 con TODAS las reglas de modificación incumplidas (RF-28, REQ-GAS-06). */
+export class ModificacionReglasError extends ApiError {
+  readonly reglas: ModificacionRegla[];
+
+  constructor(message: string, reglas: ModificacionRegla[]) {
+    super(message, 400, "VALIDATION_ERROR");
+    this.name = "ModificacionReglasError";
+    this.reglas = reglas;
+  }
+}
+
+export function useProjectVersions(id: string): UseQueryResult<ProjectVersion[]> {
+  return useQuery({
+    queryKey: projectQueryKeys.versions(id),
+    enabled: id !== "",
+    queryFn: async () => (await apiGet<{ versiones: ProjectVersion[] }>(`/api/v1/projects/${id}/versions`)).versiones,
+  });
+}
+
+/** E-27: diferencias entre dos versiones (`from`/`to` = número o `vigente`). */
+export function useProjectVersionCompare(
+  id: string,
+  from: string,
+  to: string,
+  enabled = true,
+): UseQueryResult<ProjectVersionComparison> {
+  return useQuery({
+    queryKey: projectQueryKeys.versionCompare(id, from, to),
+    enabled: id !== "" && enabled,
+    queryFn: () =>
+      apiGet<ProjectVersionComparison>(
+        `/api/v1/projects/${id}/versions/compare?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+      ),
+  });
+}
+
+export function useProjectModifications(id: string): UseQueryResult<ProjectModificacion[]> {
+  return useQuery({
+    queryKey: projectQueryKeys.modifications(id),
+    enabled: id !== "",
+    queryFn: async () =>
+      (await apiGet<{ solicitudes: ProjectModificacion[] }>(`/api/v1/projects/${id}/modifications`)).solicitudes,
+  });
+}
+
+/** POST de una decisión o solicitud: el 400 con reglas llega tipado y NUNCA con toast (se muestra en línea). */
+async function postModificacion(url: string, body: unknown, fallback: string): Promise<Record<string, unknown>> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { Accept: "application/json", ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const json = await readJsonBody(res);
+  if (!res.ok) {
+    const message = typeof json.error === "string" ? json.error : fallback;
+    if (Array.isArray(json.reglas)) throw new ModificacionReglasError(message, json.reglas as ModificacionRegla[]);
+    throw new ApiError(message, res.status, typeof json.code === "string" ? json.code : undefined);
+  }
+  return json;
+}
+
+/** E-26: solicita una modificación. Las reglas incumplidas llegan en `ModificacionReglasError`. */
+export function useRequestModification(projectId: string): UseMutationResult<ProjectModificacion, Error, ModificacionBody> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body) =>
+      (await postModificacion(`/api/v1/projects/${projectId}/modifications`, body, "No pudimos registrar la solicitud. Inténtalo de nuevo."))
+        .solicitud as ProjectModificacion,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectQueryKeys.modifications(projectId) });
+      void qc.invalidateQueries({ queryKey: ["projects", "audit", projectId] });
+      toast.success("Solicitud de modificación enviada.");
+    },
+  });
+}
+
+/** Aprueba una solicitud: crea la versión N y cambia presupuesto, programación y estructura. */
+export function useApproveModification(projectId: string): UseMutationResult<unknown, Error, string> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (solicitudId) =>
+      postModificacion(
+        `/api/v1/projects/${projectId}/modifications/${solicitudId}/approve`,
+        undefined,
+        "No pudimos aprobar la modificación. Inténtalo de nuevo.",
+      ),
+    onSuccess: () => {
+      for (const key of [
+        projectQueryKeys.modifications(projectId),
+        projectQueryKeys.versions(projectId),
+        ["projects", "version-compare", projectId],
+        projectQueryKeys.detail(projectId),
+        projectQueryKeys.activities(projectId),
+        projectQueryKeys.deliverables(projectId),
+        projectQueryKeys.indicators(projectId),
+        projectQueryKeys.budget(projectId),
+        projectQueryKeys.programming(projectId),
+        projectQueryKeys.technicalStatus(projectId),
+        ["projects", "financial-sheet", projectId],
+        ["projects", "expenses", projectId],
+        ["projects", "audit", projectId],
+        ["projects", "list"],
+      ]) {
+        void qc.invalidateQueries({ queryKey: key });
+      }
+      toast.success("Modificación aprobada.");
+    },
+  });
+}
+
+export function useRejectModification(
+  projectId: string,
+): UseMutationResult<unknown, Error, { solicitudId: string; comentario: string }> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ solicitudId, comentario }) =>
+      postModificacion(
+        `/api/v1/projects/${projectId}/modifications/${solicitudId}/reject`,
+        { comentario },
+        "No pudimos rechazar la solicitud. Inténtalo de nuevo.",
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectQueryKeys.modifications(projectId) });
+      void qc.invalidateQueries({ queryKey: ["projects", "audit", projectId] });
+      toast.success("Solicitud rechazada.");
+    },
+  });
 }

@@ -4,7 +4,8 @@
 // cliente NUNCA recalcula el color. Solo agregados: sin gastos individuales ni
 // soportes. E sale de los gastos VALIDADOS (S6); mientras el proyecto está en
 // BORRADOR la API marca `ejecucion_disponible: false` y no se muestran colores
-// ni porcentajes de ejecución.
+// ni porcentajes de ejecución. La base "Original (v0)" (S8) lee A y P congelados en
+// la línea base, con la E vigente; el servidor hace el cálculo, aquí solo se pide.
 
 "use client";
 
@@ -16,6 +17,7 @@ import { COLOR_META } from "@/components/proyectos/semaforo-tecnico";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   useProjectFinancialSheet,
+  type ProjectBase,
   type ProjectFinancialRow,
   type ProjectFinancialSheet,
   type ProjectListRow,
@@ -60,7 +62,10 @@ function periodosDe(inicio: string, fin: string): string[] {
 function FinancieroContent({ proyecto, inicio, fin }: { proyecto: ProjectListRow; inicio: string; fin: string }) {
   const periodos = periodosDe(inicio, fin);
   const [corte, setCorte] = useState<string | null>(null);
-  const query = useProjectFinancialSheet(proyecto.id, corte);
+  const [base, setBase] = useState<ProjectBase>("vigente");
+  // The original (v0) exists from the baseline approval on; in BORRADOR there is nothing to compare with.
+  const baseDisponible = proyecto.estado !== "BORRADOR";
+  const query = useProjectFinancialSheet(proyecto.id, corte, base);
   const ficha = query.data;
   // The server picks the default corte; the selector then shows the one it used.
   const corteActual = corte ?? ficha?.corte ?? "";
@@ -87,12 +92,14 @@ function FinancieroContent({ proyecto, inicio, fin }: { proyecto: ProjectListRow
           Base
           <select
             aria-label="Base"
-            disabled
-            value="vigente"
-            title="La versión original estará disponible con la línea base aprobada."
+            disabled={!baseDisponible}
+            value={base}
+            onChange={(event) => setBase(event.target.value as ProjectBase)}
+            title={baseDisponible ? undefined : "La versión original estará disponible con la línea base aprobada."}
             className={SELECT_CLASS}
           >
             <option value="vigente">Vigente</option>
+            {baseDisponible && <option value="original">Original (v0)</option>}
           </select>
         </label>
         {ficha && !ficha.parametros.confirmado && <ToneBadge tone="neutro" label="No confirmado" />}
