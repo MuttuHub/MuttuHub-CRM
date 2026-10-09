@@ -8,8 +8,12 @@ los que renderiza la interfaz (verificados contra el código el 2026-10-09).
 
 ## Cómo está organizada la ficha (pestañas)
 
-**Ver detalle** abre la ficha como un diálogo con un **encabezado fijo** y seis pestañas. Todos los pasos de esta
-guía nombran la pestaña donde está cada cosa:
+**Ver detalle** abre la ficha en su propia página, `/proyectos/<id>`, en una **pestaña nueva del navegador**
+(es un enlace con `target="_blank"`; Ctrl o clic central también funcionan). La página tiene el botón
+**Volver a proyectos** (lleva a `/proyectos`), un **encabezado fijo** y seis pestañas. No hay diálogo. Un id que no
+existe muestra "Proyecto no encontrado"; un proyecto que el usuario no puede ver muestra "No tienes acceso a este
+proyecto". Para no confundir: las pestañas de abajo son las de la ficha; la pestaña del navegador es otra cosa.
+Todos los pasos de esta guía nombran la pestaña de la ficha donde está cada cosa:
 
 | Pestaña | Contiene |
 |---|---|
@@ -47,7 +51,7 @@ Antes de la reunión (5 min, una sola vez):
 3. Si quieres mostrar el flujo de errores en vivo, deja el segundo archivo (`...-error-v12.xlsx`) a mano.
 
 En la reunión (como `admin@`, salvo donde se indica):
-1. **Proyectos > Ver detalle** del proyecto en Borrador (abre en **Resumen**: datos y **Equipo**). Pestaña
+1. **Proyectos > Ver detalle** del proyecto en Borrador (abre en una pestaña nueva del navegador, en **Resumen**: datos y **Equipo**; **Volver a proyectos** regresa a la lista). Pestaña
    **Estructura**: el **Cronograma por semanas** (Gantt). Pestaña **Presupuesto**: **Presupuesto** (Σ asignado =
    Valor total). (1 min)
 2. En la pestaña **Estructura**, **Importar plantilla** con el archivo de error: se ve la tabla por hoja y
@@ -150,7 +154,8 @@ después, el semáforo técnico saldrá más atrasado.
 
 ## 2. Ficha del proyecto
 
-1. En la fila, usa **Ver detalle**. Abre en la pestaña **Resumen**; el encabezado muestra código, nombre y estado
+1. En la fila, usa **Ver detalle**. Se abre la ficha en su propia página (`/proyectos/<id>`) en una pestaña nueva del
+   navegador, en la pestaña **Resumen**; la lista queda abierta en la pestaña anterior, sin diálogo. El encabezado muestra código, nombre y estado
    (un Borrador no muestra chips de semáforo).
 2. En **Resumen** revisa datos generales, **Líneas estratégicas**, **Municipios** y la duración en semanas
    (derivada de las fechas).
@@ -469,7 +474,7 @@ Quién ve la pestaña **Tablero** (junto a **Portafolio**): `admin@`, `gerencia@
    asignado** (con "Ejecutado / programado ...") y **Ejecutado** (con "Asignado ..."), más el bloque **Proyectos por
    estado**.
 4. Tabla: Código, Proyecto (con cliente), Estado, **Semáforo técnico**, **Semáforo financiero** (más la insignia
-   **Posible retraso** si aplica), **Avance real**, **Ejecutado / asignado** y **Ver detalle** (abre la ficha). Un
+   **Posible retraso** si aplica), **Avance real**, **Ejecutado / asignado** y **Ver detalle** (abre la ficha en una pestaña nueva del navegador). Un
    proyecto sin indicadores (Borrador) muestra "Sin medir" y "—".
 5. Insignia **No confirmado** junto a **Exportar Excel**: aparece mientras los parámetros del semáforo no estén
    confirmados (§H). Es lo esperado hoy.
@@ -529,11 +534,26 @@ consulta): deben coincidir en color con las tarjetas de abajo.
 
 ## 5. Ensayo automatizado (opcional)
 
+Hay dos specs y **necesitan estados de base distintos**; no corren sobre la misma base sin reiniciarla:
+
+| Spec | Estado de la base que exige | Escribe datos |
+|---|---|---|
+| `e2e/proyectos-demo.spec.ts` | Demo **limpia**: cero proyectos y dos oportunidades Ganada sin proyecto. Crea `PRY-2026-001` desde una oportunidad y abre su ficha en la pestaña nueva. | Sí |
+| `e2e/proyectos-ficha-pagina.spec.ts` | Semilla **S11** (`npm run db:demo:seed-projects:local -- --apply` en una base local nueva): necesita `PRY-2026-001` En ejecución. | No (solo lee) |
+
 ```bash
 npm run db:demo:reset:local -- --apply
 npx playwright test e2e/proyectos-demo.spec.ts   # con el dev server arriba
 npm run db:demo:reset:local -- --apply           # dejar limpio al terminar
+
+# Sobre la base con la semilla S11 (no reiniciar):
+npx playwright test e2e/proyectos-ficha-pagina.spec.ts
 ```
+
+El reset no puede borrar proyectos aprobados: si la base ya tiene la semilla S11, `proyectos-demo.spec.ts` no
+tiene su precondición y falla en el paso 4. `proyectos-ficha-pagina.spec.ts` sigue la pestaña nueva, comprueba
+encabezado, chips de semáforo, "Volver a proyectos", las seis pestañas y el estado "Proyecto no encontrado", y guarda
+capturas (ficha a 1440 y 390 px, Tablero a 1440 px) en el directorio indicado por `SCREENSHOT_DIR`.
 
 ## 6. Límites conocidos (para decirlo en la reunión)
 
@@ -579,8 +599,13 @@ sin precondiciones de línea base, ni qué parámetros controlan exactamente cad
 Tampoco se verificó en S9: que el enlace **Proyectos** del menú lateral sea visible para un colaborador con la
 bandera (se verificó la página, no el menú), ni los libros de Excel abiertos en Excel real (solo lo que prueban los
 tests con `exceljs`).
-Tampoco se verificó al pasar la ficha a pestañas: que cada paso se vea igual en el navegador (solo se leyeron
-`project-ficha-dialog.tsx` y los componentes de cada sección), cuánto tarda en mostrarse el contenido al abrir una
-pestaña por primera vez, ni cómo se ve el encabezado fijo con los dos chips en pantallas estrechas. El orden de
-las secciones dentro de cada pestaña es el del código (S10 ronda 2 ya está integrada).
+Al pasar la ficha a su propia página (S12) se verificó en un navegador real (Playwright sobre la semilla S11, solo
+lectura, 2026-10-09): "Ver detalle" abre `/proyectos/<id>` en una pestaña nueva, el encabezado muestra código, estado
+y los dos chips de semáforo con la palabra del color, "Volver a proyectos" apunta a `/proyectos`, las seis pestañas
+abren su sección y un id inexistente muestra "Proyecto no encontrado"; también se miraron capturas a 1440 y 390 px.
+**No** se verificó: que `proyectos-demo.spec.ts` corra con la ficha nueva (necesita una demo limpia y la base tenía la
+semilla; solo se revisó estáticamente con `tsc`, eslint y `playwright test --list`), cada paso de esta guía dentro de
+la ficha nueva más allá de la pestaña **Resumen** y la presencia de las secciones, cuánto tarda cada pestaña en
+mostrarse la primera vez, ni el modo oscuro ni un teléfono real. El orden de las secciones dentro de cada pestaña es
+el del código.
 Haz un ensayo completo antes de la reunión.
