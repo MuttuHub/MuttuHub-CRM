@@ -172,7 +172,7 @@ describe("kpisProyecto", () => {
     expect(k.financiero).toMatchObject({ ea: 40, ep: 80, color: "verde", alerta_retraso: false })
   })
   it("a zero denominator in A or P yields null percentages", () => {
-    const k = kpisProyecto(proyecto({ financiero: { asignado: 0n, programado: 0n, ejecutado: 0n } }))
+    const k = kpisProyecto(proyecto({ financiero: { asignado: toCents("0"), programado: toCents("0"), ejecutado: toCents("0") } }))
     expect(k.financiero).toMatchObject({ ea: null, ep: null })
   })
   it("BORRADOR yields null financials and no measurement", () => {
