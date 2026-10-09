@@ -283,4 +283,11 @@ describe("buildOpenApiDocument", () => {
     ]?.schema
     expect(JSON.stringify(invalida)).toContain("reglas")
   })
+  it("registers the S8 modification decision operations", () => {
+    const paths = buildOpenApiDocument().paths ?? {}
+    const aprobar = paths["/api/v1/projects/{id}/modifications/{modificationId}/approve"]?.post
+    expect(Object.keys(aprobar?.responses ?? {})).toEqual(expect.arrayContaining(["200", "400", "401", "403", "404", "409", "500"]))
+    const rechazar = paths["/api/v1/projects/{id}/modifications/{modificationId}/reject"]?.post
+    expect(Object.keys(rechazar?.responses ?? {})).toEqual(expect.arrayContaining(["200", "400", "403", "404", "409"]))
+  })
 })

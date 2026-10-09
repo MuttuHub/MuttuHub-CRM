@@ -116,3 +116,54 @@ registry.registerPath({
     ...standardErrorResponses([401, 403, 404, 500]),
   },
 });
+
+const ModificationParams = z.object({ id: z.string().uuid(), modificationId: z.string().uuid() });
+
+const AprobacionModificacionSchema = registry.register(
+  "AprobacionModificacion",
+  z.object({
+    version: z.object({ id: z.string().uuid(), numero: z.number().int().min(1), aprobado_at: z.string().datetime() }),
+    solicitud: SolicitudModificacionSchema,
+  }),
+);
+
+registry.registerPath({
+  method: "post",
+  path: "/api/v1/projects/{id}/modifications/{modificationId}/approve",
+  tags: ["Projects"],
+  summary: "Aprueba una solicitud de modificación: crea la versión N y aplica el cambio",
+  description:
+    "Solo `ADMINISTRADOR`/`GERENCIA` (404 -> 403 -> 404 -> 409). En una sola transacción, con el proyecto y las líneas " +
+    "presupuestales bloqueadas: verifica que la solicitud siga pendiente y se base en la versión vigente, vuelve a juzgar " +
+    "las reglas de RF-28 y REQ-GAS-06 con lo ejecutado leído bajo los bloqueos (400 con `reglas`), aplica los cambios, " +
+    "guarda la versión N (inmutable) y registra la auditoría `APROBAR`. Sin cuerpo.",
+  security: [{ sessionCookie: [] }],
+  request: { params: ModificationParams },
+  responses: {
+    200: { description: "Modificación aprobada.", content: { "application/json": { schema: AprobacionModificacionSchema } } },
+    400: { description: "La modificación ya no cumple las reglas (`reglas`).", content: { "application/json": { schema: ReglasError } } },
+    409: { description: "La solicitud ya fue decidida, se basa en una versión anterior o el proyecto no está en ejecución." },
+    ...standardErrorResponses([401, 403, 404, 500]),
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/v1/projects/{id}/modifications/{modificationId}/reject",
+  tags: ["Projects"],
+  summary: "Rechaza una solicitud de modificación",
+  description:
+    "Solo `ADMINISTRADOR`/`GERENCIA` (404 -> 403 -> 404 -> 409 -> 400). El comentario es obligatorio. La solicitud pasa a " +
+    "`RECHAZADA` y no cambia ningún dato del proyecto; solo se rechaza una solicitud `PENDIENTE`.",
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: ModificationParams,
+    body: { required: true, content: { "application/json": { schema: z.object({ comentario: z.string().min(1).max(1000) }) } } },
+  },
+  responses: {
+    200: { description: "Solicitud rechazada.", content: { "application/json": { schema: z.object({ solicitud: SolicitudModificacionSchema }) } } },
+    400: { description: "Falta el comentario." },
+    409: { description: "La solicitud ya fue decidida." },
+    ...standardErrorResponses([401, 403, 404, 500]),
+  },
+});
