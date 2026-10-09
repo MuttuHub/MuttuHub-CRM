@@ -191,6 +191,9 @@ test("Projects demo: convert a won opportunity into PRY-2026-001 and see it list
     await expect(dialog.getByText("PRY-2026-001").first()).toBeVisible({ timeout: 60_000 });
     await beat(page, 1200);
 
+    // Since S10 the ficha opens on Resumen; Historial lives in the Cambios tab.
+    await dialog.getByRole("tab", { name: "Cambios" }).click();
+
     // The Historial section runs its own query (GET .../audit).
     await expect(dialog.getByText("Historial")).toBeVisible({ timeout: 60_000 });
 
