@@ -77,7 +77,22 @@ the v6 modal visual fidelity, any remote DB write, any schema migration.
   1 free GANADA, 219 audit rows. Not verified: Tablero/semáforos/"Convertir en proyecto" in a browser; a pg `client.query()` deprecation
   warning was seen and not investigated. Local DB now holds an approved project (`db:demo:reset:local` cannot delete it; restore per D4).
 
+- [x] **U3** (commit `d897051`, 3 files, +63/-16; accepted 2026-10-09 from the review advisory `R3-marker-matches-half-built-b`) Make the seed's idempotency robust to a partial run:
+  the marker must identify a COMPLETE seed (e.g. project A's exact name, created last) and a partial seed (B exists, A missing) must be
+  detected and reported with the D4 restore hint instead of "already seeded"; fix the misleading comment at `seed-projects-demo.ts:780-790`;
+  add tests for the partial-run decision (RED first). Route: delegated. Checks: seed unit tests, `tsc`, eslint, dry run against the local DB
+  (it already holds a complete seed: it must still say "already seeded, nothing changed"). No new real write run.
+  Evidence: `decideSeed` now takes the existing demo project names and returns `seed` / `already-seeded` (both exact names) / `partial`
+  (anything in between); the runner reads names with `findMany` and on `partial` throws `PARTIAL_SEED_MESSAGE` before any write (exit 1,
+  restore hint D4); the false comment is fixed; guide section 0.1 describes the three states. RED: 6 failed / 16 passed before the
+  implementation (`client.proyecto.count is not a function` on the partial case). GREEN: 22/22 (parent spot check re-ran them: 22/22),
+  `tsc` 0 errors (a `s`-flag regex hit TS1501 and was rewritten with `[\s\S]`), eslint clean, dry run against the local DB printed
+  "already seeded ... Nothing was changed". Not verified: a REAL partial state against the DB (needs a failed `--apply`); that path is covered
+  by unit tests only. Route: delegated (2 non-trivial files + reading that prepares a write).
+
 ## Authorized scope (allowed edit surfaces)
+
+U3: `scripts/seed-projects-demo.ts`, `scripts/seed-projects-demo.test.ts`, `docs/guia-prueba-proyectos.md` (only if the documented message changes).
 
 U1: `src/components/crm/entity-dialogs.tsx`, `src/components/crm/entity-dialogs*.test.tsx`, `src/components/proyectos/project-create-dialog.tsx`,
 `src/components/proyectos/project-create-dialog*.test.tsx`, `src/hooks/projects.ts` (only if the hook needs a param).
@@ -110,8 +125,11 @@ is pending the user's decision; local work-unit commits proceed, no push/PR.
   recovers. Idempotency therefore holds only for complete runs.
 - Review boundary: advances to `18c5adf`.
 
+- 2026-10-09: U3 done (`d897051`) after the user approved the follow-up. Review boundary stays at `18c5adf` (U3 is a small slice pending
+  under budget unless the assessment says otherwise).
+
 ## Next step
 
-Follow-up (needs the user's go-ahead, would be a new reviewable change): make the seed marker/atomicity robust (e.g. marker = project A only,
-or detect a partial seed and say so with the D4 restore hint) and fix the misleading comment; add a test for the partial-run decision.
-Then browser check of the Tablero, semáforos and "Convertir en proyecto" on the seeded data.
+Browser check of the Tablero, semáforos and "Convertir en proyecto" on the seeded data (user-side, local app on Windows). Delivery: the
+chained-PR slicing plan for the whole branch is being prepared; the chain strategy (stacked-to-main vs feature-branch-chain) needs the
+user's decision.
