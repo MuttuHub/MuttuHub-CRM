@@ -8,6 +8,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { Download, Eye, FolderKanban } from "lucide-react";
 import { toast } from "sonner";
 import { ToneBadge } from "@/components/crm/shared";
@@ -17,8 +18,7 @@ import { InlineError, SELECT_CLASS } from "@/components/proyectos/ui";
 import { ESTADO_PROYECTO_META, formatFechaCalendario } from "@/components/proyectos/project-display";
 import { formatPct } from "@/components/proyectos/project-kpis-panel";
 import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
-import { ProjectFichaDialog } from "@/components/proyectos/project-ficha-dialog";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { useIsMobile } from "@/components/proyectos/capture-surface";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -35,6 +35,7 @@ import {
   type PortfolioProject,
 } from "@/hooks/projects";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
+import { cn } from "@/lib/utils";
 import type { EstadoProyecto } from "@prisma/client";
 
 const ESTADOS: EstadoProyecto[] = ["PLANIFICACION", "BORRADOR", "EN_EJECUCION", "SUSPENDIDO", "CERRADO", "CANCELADO"];
@@ -51,7 +52,6 @@ export function ProjectDashboard() {
     municipio_id: "",
     responsable_id: "",
   });
-  const [fichaId, setFichaId] = useState<string | null>(null);
   // Solo viajan los filtros con valor: cada cambio es otra clave de consulta.
   const filters = useMemo<PortfolioFilters>(
     () => Object.fromEntries(Object.entries(valores).filter(([, valor]) => valor !== "")) as PortfolioFilters,
@@ -152,12 +152,10 @@ export function ProjectDashboard() {
         ) : (
           <div className="flex flex-col gap-4 p-4 lg:p-5">
             <Resumen data={data} />
-            <TablaProyectos proyectos={data.proyectos} onOpenFicha={setFichaId} />
+            <TablaProyectos proyectos={data.proyectos} />
           </div>
         )}
       </section>
-
-      {fichaId !== null && <ProjectFichaDialog projectId={fichaId} onClose={() => setFichaId(null)} />}
     </div>
   );
 }
@@ -218,10 +216,10 @@ function Resumen({ data }: { data: NonNullable<ReturnType<typeof useProjectsPort
 
 /* ── Tabla ─────────────────────────────────────────────────────────────── */
 
-function TablaProyectos({ proyectos, onOpenFicha }: { proyectos: PortfolioProject[]; onOpenFicha: (id: string) => void }) {
+function TablaProyectos({ proyectos }: { proyectos: PortfolioProject[] }) {
   // Debajo de `md` la tabla de 1020 px se vuelve una lista de tarjetas (S10 WU4).
   const mobile = useIsMobile();
-  if (mobile) return <TarjetasProyectos proyectos={proyectos} onOpenFicha={onOpenFicha} />;
+  if (mobile) return <TarjetasProyectos proyectos={proyectos} />;
   return (
     <div className="overflow-x-auto">
       <Table className="min-w-[1020px]">
@@ -264,15 +262,18 @@ function TablaProyectos({ proyectos, onOpenFicha }: { proyectos: PortfolioProjec
                 {formatPct(proyecto.kpis.financiero?.ea ?? null)}
               </TableCell>
               <TableCell className="text-right">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onOpenFicha(proyecto.id)}
-                  className="h-8 rounded-11 border-ink-200 bg-panel px-3 text-[12px] font-semibold text-ink-700 hover:bg-ink-100"
+                <Link
+                  href={`/proyectos/${proyecto.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "sm" }),
+                    "h-8 rounded-11 border-ink-200 bg-panel px-3 text-[12px] font-semibold text-ink-700 hover:bg-ink-100",
+                  )}
                 >
                   <Eye className="size-3.5" strokeWidth={1.8} />
                   Ver detalle
-                </Button>
+                </Link>
               </TableCell>
             </TableRow>
           ))}
@@ -282,7 +283,7 @@ function TablaProyectos({ proyectos, onOpenFicha }: { proyectos: PortfolioProjec
   );
 }
 
-function TarjetasProyectos({ proyectos, onOpenFicha }: { proyectos: PortfolioProject[]; onOpenFicha: (id: string) => void }) {
+function TarjetasProyectos({ proyectos }: { proyectos: PortfolioProject[] }) {
   return (
     <ul className="flex flex-col gap-2.5">
       {proyectos.map((proyecto) => (
@@ -314,14 +315,18 @@ function TarjetasProyectos({ proyectos, onOpenFicha }: { proyectos: PortfolioPro
               <dd className="font-mono tabular-nums">{formatPct(proyecto.kpis.financiero?.ea ?? null)}</dd>
             </div>
           </dl>
-          <Button
-            variant="outline"
-            onClick={() => onOpenFicha(proyecto.id)}
-            className="h-11 w-full rounded-11 border-ink-200 bg-panel text-[13px] font-semibold text-ink-700 hover:bg-ink-100"
+          <Link
+            href={`/proyectos/${proyecto.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "h-11 w-full rounded-11 border-ink-200 bg-panel text-[13px] font-semibold text-ink-700 hover:bg-ink-100",
+            )}
           >
             <Eye className="size-3.5" strokeWidth={1.8} />
             Ver detalle
-          </Button>
+          </Link>
         </li>
       ))}
     </ul>

@@ -1,9 +1,8 @@
 // Ficha de proyecto (E-06), de solo lectura salvo las secciones Equipo (E-07) y
 // Estructura técnica (S3). Desde S10 se organiza en pestañas (Resumen, Estructura, Avance, Presupuesto,
 // Gastos, Cambios) bajo un encabezado fijo con código, nombre, estado y semáforos; cada panel se monta
-// (y consulta) solo cuando su pestaña está activa. Desde S12 es una página propia (`/proyectos/[id]`,
-// variante "page"); la variante "dialog" existe solo mientras el envoltorio `ProjectFichaDialog` siga
-// vivo. Monta su propia consulta (`useProject`): el estado del request (loading, error, data) sale
+// (y consulta) solo cuando su pestaña está activa. Desde S12 es una página propia (`/proyectos/[id]`),
+// que el listado y el tablero abren en una pestaña nueva. Monta su propia consulta (`useProject`): el estado del request (loading, error, data) sale
 // entero de la query, sin `useEffect` de carga ni controles de escritura propios.
 //
 // Reutiliza las piezas que ya existen en el módulo en vez de reinventarlas:
@@ -71,40 +70,14 @@ function formatDuracion(semanas: number | null): string {
   return semanas === 1 ? "1 semana" : `${semanas} semanas`;
 }
 
-export type FichaVariant = "page" | "dialog";
-
 /**
- * Contenido de la ficha. En "page" ocupa el flujo normal del documento (encabezado pegajoso, el contenido
- * se desplaza con la página) y muestra el enlace "Volver a proyectos" si recibe `backHref`; en "dialog"
- * llena el contenedor del diálogo y desplaza su propio panel.
+ * Contenido de la ficha como página: ocupa el flujo normal del documento (encabezado pegajoso, el contenido
+ * se desplaza con la página) y muestra el enlace "Volver a proyectos" si recibe `backHref`. El tope de
+ * ancho (6xl) deja respirar las tablas de Presupuesto y Gastos, que en el diálogo de 760 px quedaban apretadas.
  */
-export function ProjectFicha({
-  projectId,
-  variant = "page",
-  backHref,
-}: {
-  projectId: string;
-  variant?: FichaVariant;
-  backHref?: string;
-}) {
+export function ProjectFicha({ projectId, backHref }: { projectId: string; backHref?: string }) {
   const query = useProject(projectId);
   const proyecto = query.data;
-
-  const body = query.isError ? (
-    <FichaError error={query.error} />
-  ) : proyecto ? (
-    <FichaContent proyecto={proyecto} variant={variant} />
-  ) : (
-    <FichaSkeleton />
-  );
-
-  if (variant === "dialog") {
-    return query.isError || !proyecto ? (
-      <div className="min-h-0 flex-1 overflow-y-auto">{body}</div>
-    ) : (
-      body
-    );
-  }
 
   return (
     <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col gap-4">
@@ -120,7 +93,15 @@ export function ProjectFicha({
           Volver a proyectos
         </Link>
       )}
-      <div className="min-w-0 rounded-[22px] border border-ink-200 bg-panel">{body}</div>
+      <div className="min-w-0 rounded-[22px] border border-ink-200 bg-panel">
+        {query.isError ? (
+          <FichaError error={query.error} />
+        ) : proyecto ? (
+          <FichaContent proyecto={proyecto} />
+        ) : (
+          <FichaSkeleton />
+        )}
+      </div>
     </div>
   );
 }
@@ -138,22 +119,17 @@ const FICHA_TABS = [
 
 const PANEL_CLASS = "mt-0 flex flex-col gap-6";
 
-function FichaContent({ proyecto, variant }: { proyecto: ProjectListRow; variant: FichaVariant }) {
+function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
   const estado = ESTADO_PROYECTO_META[proyecto.estado];
-  const isPage = variant === "page";
 
   return (
-    <div className={cn("flex flex-col", !isPage && "min-h-0 flex-1 overflow-hidden")}>
-      <Tabs defaultValue="resumen" className={cn("flex flex-col gap-0", !isPage && "min-h-0 flex-1")}>
-        {/* Encabezado fijo: no está dentro del panel que se desplaza, así estado y semáforos siempre se ven
-            (pegajoso en la página, fuera del panel con scroll en el diálogo). */}
-        <div className={cn(isPage ? "sticky top-0 z-10 rounded-t-[22px] bg-panel" : "shrink-0")}>
+    <div className="flex flex-col">
+      <Tabs defaultValue="resumen" className="flex flex-col gap-0">
+        {/* Encabezado fijo: pegajoso y fuera del panel de contenido, así estado y semáforos siempre se ven. */}
+        <div className="sticky top-0 z-10 rounded-t-[22px] bg-panel">
           <header
             data-testid="ficha-header"
-            className={cn(
-              "flex flex-wrap items-start justify-between gap-3 border-b border-ink-200 p-5",
-              isPage ? "sm:p-6" : "pr-12",
-            )}
+            className="flex flex-wrap items-start justify-between gap-3 border-b border-ink-200 p-5 sm:p-6"
           >
             <div className="min-w-0">
               <span className="font-mono text-[12px] font-semibold text-ink-600 tabular-nums">
@@ -170,10 +146,7 @@ function FichaContent({ proyecto, variant }: { proyecto: ProjectListRow; variant
             </div>
           </header>
           <div
-            className={cn(
-              "no-scrollbar overflow-x-auto border-b border-ink-200",
-              isPage ? "px-5 sm:px-6" : "px-5",
-            )}
+            className="no-scrollbar overflow-x-auto border-b border-ink-200 px-5 sm:px-6"
           >
             <TabsList variant="line" className="w-full justify-start gap-1">
               {FICHA_TABS.map((tab) => (
@@ -184,10 +157,7 @@ function FichaContent({ proyecto, variant }: { proyecto: ProjectListRow; variant
             </TabsList>
           </div>
         </div>
-        <div
-          data-testid="ficha-scroll"
-          className={cn(isPage ? "p-5 sm:p-6" : "min-h-0 flex-1 overflow-y-auto p-5")}
-        >
+        <div data-testid="ficha-scroll" className="p-5 sm:p-6">
           <TabsContent value="resumen" className={PANEL_CLASS}>
             <ResumenPanel proyecto={proyecto} />
           </TabsContent>

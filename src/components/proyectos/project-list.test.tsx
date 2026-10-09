@@ -372,11 +372,16 @@ describe("ProjectList", () => {
       expect(card).toHaveTextContent("En ejecución")
       expect(card).toHaveTextContent("Ana Pérez")
       expect(card).toHaveTextContent("$ 180.000.000")
-      const boton = within(card).getByRole("button", { name: /Ver detalle/ })
-      expect(boton.className).toMatch(/(^|\s)h-11(\s|$)/)
+      const enlace = within(card).getByRole("link", { name: /Ver detalle/ })
+      expect(enlace.className).toMatch(/(^|\s)h-11(\s|$)/)
       expect(cards.innerHTML).not.toMatch(/min-w-\[\d{3,}px\]/)
-      await user.click(boton)
-      expect(useProjectMock).toHaveBeenCalled()
+      expect(enlace).toHaveAttribute("href", `/proyectos/${PROYECTO.id}`)
+      expect(enlace).toHaveAttribute("target", "_blank")
+      expect(enlace.getAttribute("rel")).toMatch(/noopener/)
+      expect(enlace.getAttribute("rel")).toMatch(/noreferrer/)
+      await user.click(enlace)
+      expect(screen.queryByRole("dialog")).toBeNull()
+      expect(useProjectMock).not.toHaveBeenCalled()
     } finally {
       mockViewport(false)
     }
@@ -582,31 +587,28 @@ describe("ProjectList", () => {
     expect(await screen.findByRole("dialog")).toBeInTheDocument()
   })
 
-  it("opens the ficha for the row's project from 'Ver detalle'", async () => {
-    const user = userEvent.setup()
+  it("links 'Ver detalle' on a table row to the ficha page in a new tab", async () => {
     projectsQuery.data = { proyectos: [PROYECTO] }
 
     render(<ProjectList />)
-    await user.click(screen.getByRole("button", { name: /Ver detalle/ }))
+    const enlace = screen.getByRole("link", { name: /Ver detalle/ })
 
-    // La petición es por el id de la fila, no por un id fijo.
-    expect(useProjectMock).toHaveBeenCalledWith("p1")
-    const ficha = await screen.findByRole("dialog")
-    expect(within(ficha).getByText("PRY-2026-001")).toBeInTheDocument()
-    expect(within(ficha).getByText(PROYECTO.nombre)).toBeInTheDocument()
+    expect(enlace).toHaveAttribute("href", "/proyectos/p1")
+    expect(enlace).toHaveAttribute("target", "_blank")
+    expect(enlace.getAttribute("rel")).toMatch(/noopener/)
+    expect(enlace.getAttribute("rel")).toMatch(/noreferrer/)
+    expect(screen.queryByRole("button", { name: /Ver detalle/ })).toBeNull()
   })
 
-  it("mounts the modifications queue and the versions section in the opened ficha (S8 U6)", async () => {
+  it("does not open a ficha dialog or read the project when 'Ver detalle' is clicked", async () => {
     const user = userEvent.setup()
     projectsQuery.data = { proyectos: [PROYECTO] }
 
     render(<ProjectList />)
-    await user.click(screen.getByRole("button", { name: /Ver detalle/ }))
+    await user.click(screen.getByRole("link", { name: /Ver detalle/ }))
 
-    const ficha = await screen.findByRole("dialog")
-    await user.click(within(ficha).getByRole("tab", { name: "Cambios" }))
-    expect(within(ficha).getByTestId("modificaciones")).toHaveTextContent("Aún no hay solicitudes de modificación.")
-    expect(within(ficha).getByTestId("versiones")).toHaveTextContent("v0")
+    expect(screen.queryByRole("dialog")).toBeNull()
+    expect(useProjectMock).not.toHaveBeenCalled()
   })
 })
 

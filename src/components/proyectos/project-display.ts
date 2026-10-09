@@ -1,6 +1,6 @@
 // Verdad de presentación compartida de la UI de proyectos.
 //
-// `project-list.tsx` abre la ficha (`project-ficha-dialog.tsx`), así que la
+// `project-list.tsx` enlaza a la ficha (`project-ficha.tsx`), así que la
 // ficha no puede depender del listado: antes importaba de él
 // `ESTADO_PROYECTO_META` y `formatFechaCalendario`, y el ciclo
 // listado → ficha → listado invertía el orden natural padre → hijo. Estas

@@ -1,5 +1,5 @@
 // Pestaña "Equipo" de la ficha (E-07). La query y las mutaciones son reales; solo
-// se burla `fetch`, igual que en project-ficha-dialog.test.tsx.
+// se burla `fetch`, igual que en project-ficha.test.tsx.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen, waitFor, within } from "@testing-library/react"

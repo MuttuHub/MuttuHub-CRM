@@ -34,9 +34,6 @@ vi.mock("@/hooks/projects", () => ({
 }))
 vi.mock("@/hooks/crm", () => ({ useUsers: () => ({ data: [{ id: "u1", nombre: "Ana Pérez" }] }) }))
 vi.mock("@/hooks/kanban", () => ({ useClientOptions: () => ({ data: [{ id: "c1", nombre: "Alcaldía" }] }) }))
-vi.mock("@/components/proyectos/project-ficha-dialog", () => ({
-  ProjectFichaDialog: ({ projectId }: { projectId: string }) => <div data-testid="ficha-stub">{projectId}</div>,
-}))
 
 const kpis = (over: object = {}): ProjectKpis => ({
   corte: "2026-03-15",
@@ -131,10 +128,14 @@ describe("ProjectDashboard", () => {
       expect(within(fila).getByTestId("chip-tecnico")).toHaveAttribute("data-color", "rojo")
       expect(within(fila).getByTestId("chip-financiero")).toHaveAttribute("data-color", "verde")
       expect(within(fila).getByText("21,4 %")).toBeInTheDocument()
-      const boton = within(fila).getByRole("button", { name: /Ver detalle/ })
-      expect(boton.className).toMatch(/(^|\s)h-11(\s|$)/)
-      await user.click(boton)
-      expect(screen.getByTestId("ficha-stub")).toHaveTextContent("p1")
+      const enlace = within(fila).getByRole("link", { name: /Ver detalle/ })
+      expect(enlace.className).toMatch(/(^|\s)h-11(\s|$)/)
+      expect(enlace).toHaveAttribute("href", "/proyectos/p1")
+      expect(enlace).toHaveAttribute("target", "_blank")
+      expect(enlace.getAttribute("rel")).toMatch(/noopener/)
+      expect(enlace.getAttribute("rel")).toMatch(/noreferrer/)
+      await user.click(enlace)
+      expect(screen.queryByRole("dialog")).toBeNull()
     } finally {
       mockViewport(false)
     }
@@ -218,9 +219,14 @@ describe("ProjectDashboard", () => {
     expect(toast.error).toHaveBeenCalledWith("Formato no disponible.")
   })
 
-  it("opens the ficha of a row", async () => {
+  it("links the 'Ver detalle' of a table row to the ficha page in a new tab, without a dialog", async () => {
     render(<ProjectDashboard />)
-    await userEvent.setup().click(within(screen.getByTestId("tablero-fila-p1")).getByRole("button", { name: "Ver detalle" }))
-    expect(screen.getByTestId("ficha-stub")).toHaveTextContent("p1")
+    const enlace = within(screen.getByTestId("tablero-fila-p1")).getByRole("link", { name: "Ver detalle" })
+    expect(enlace).toHaveAttribute("href", "/proyectos/p1")
+    expect(enlace).toHaveAttribute("target", "_blank")
+    expect(enlace.getAttribute("rel")).toMatch(/noopener/)
+    expect(enlace.getAttribute("rel")).toMatch(/noreferrer/)
+    await userEvent.setup().click(enlace)
+    expect(screen.queryByRole("dialog")).toBeNull()
   })
 })

@@ -16,5 +16,5 @@ export default async function ProyectoFichaPage({
 }) {
   const { id } = await params;
 
-  return <ProjectFicha projectId={id} variant="page" backHref="/proyectos" />;
+  return <ProjectFicha projectId={id} backHref="/proyectos" />;
 }

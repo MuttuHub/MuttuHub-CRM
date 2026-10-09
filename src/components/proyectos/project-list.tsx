@@ -15,9 +15,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Eye, FolderKanban, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -43,11 +44,11 @@ import {
   ESTADO_PROYECTO_META,
   formatFechaCalendario,
 } from "@/components/proyectos/project-display";
-import { ProjectFichaDialog } from "@/components/proyectos/project-ficha-dialog";
 import { useCurrentUser } from "@/hooks/kanban";
 import { useProjects, type ProjectFilters, type ProjectListRow } from "@/hooks/projects";
 import { canCreateProject, canManageProjects, canViewPortfolio } from "@/lib/permissions";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
+import { cn } from "@/lib/utils";
 import type { EstadoProyecto } from "@prisma/client";
 
 /** Orden de la lista del filtro: el mismo del enum `EstadoProyecto`. */
@@ -75,8 +76,6 @@ export function ProjectList() {
   const [estado, setEstado] = useState("");
   // El diálogo se monta solo al abrir: así no se piden catálogos al cargar.
   const [crearAbierto, setCrearAbierto] = useState(false);
-  // La ficha del proyecto también se monta solo al abrir, con el id de la fila.
-  const [fichaId, setFichaId] = useState<string | null>(null);
   // El filtro viaja como query param: estado vacío = sin filtro.
   const filters = useMemo<ProjectFilters>(() => (estado ? { estado } : {}), [estado]);
   const query = useProjects(filters);
@@ -162,16 +161,12 @@ export function ProjectList() {
         ) : proyectos.length === 0 ? (
           <EmptyProjects estado={estado} puedeVerPortafolio={puedeVerPortafolio} />
         ) : (
-          <ProjectTable proyectos={proyectos} onOpenFicha={setFichaId} />
+          <ProjectTable proyectos={proyectos} />
         )}
       </section>
 
       {crearAbierto && (
         <ProjectCreateDialog open onOpenChange={setCrearAbierto} />
-      )}
-
-      {fichaId !== null && (
-        <ProjectFichaDialog projectId={fichaId} onClose={() => setFichaId(null)} />
       )}
     </div>
   );
@@ -181,14 +176,12 @@ export function ProjectList() {
 
 function ProjectTable({
   proyectos,
-  onOpenFicha,
 }: {
   proyectos: ProjectListRow[];
-  onOpenFicha: (id: string) => void;
 }) {
   // Debajo de `md` la tabla de 1020 px se vuelve una lista de tarjetas (S10 WU4).
   const mobile = useIsMobile();
-  if (mobile) return <ProjectCards proyectos={proyectos} onOpenFicha={onOpenFicha} />;
+  if (mobile) return <ProjectCards proyectos={proyectos} />;
   return (
     <Table className="min-w-[1020px]">
       <TableHeader>
@@ -241,15 +234,18 @@ function ProjectTable({
               {formatValorTotal(proyecto.valor_total)}
             </TableCell>
             <TableCell className="text-right">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onOpenFicha(proyecto.id)}
-                className="h-8 rounded-11 border-ink-200 bg-panel px-3 text-[12px] font-semibold text-ink-700 hover:bg-ink-100"
+              <Link
+                href={`/proyectos/${proyecto.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" }),
+                  "h-8 rounded-11 border-ink-200 bg-panel px-3 text-[12px] font-semibold text-ink-700 hover:bg-ink-100",
+                )}
               >
                 <Eye className="size-3.5" strokeWidth={1.8} />
                 Ver detalle
-              </Button>
+              </Link>
             </TableCell>
           </TableRow>
         ))}
@@ -260,10 +256,8 @@ function ProjectTable({
 
 function ProjectCards({
   proyectos,
-  onOpenFicha,
 }: {
   proyectos: ProjectListRow[];
-  onOpenFicha: (id: string) => void;
 }) {
   return (
     <ul data-testid="proyecto-cards" className="flex flex-col gap-2.5 p-3">
@@ -300,14 +294,18 @@ function ProjectCards({
               <dd className="font-mono font-medium text-ink-900 tabular-nums">{formatValorTotal(proyecto.valor_total)}</dd>
             </div>
           </dl>
-          <Button
-            variant="outline"
-            onClick={() => onOpenFicha(proyecto.id)}
-            className="h-11 w-full rounded-11 border-ink-200 bg-panel text-[13px] font-semibold text-ink-700 hover:bg-ink-100"
+          <Link
+            href={`/proyectos/${proyecto.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "h-11 w-full rounded-11 border-ink-200 bg-panel text-[13px] font-semibold text-ink-700 hover:bg-ink-100",
+            )}
           >
             <Eye className="size-3.5" strokeWidth={1.8} />
             Ver detalle
-          </Button>
+          </Link>
         </li>
       ))}
     </ul>
