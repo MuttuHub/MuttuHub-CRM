@@ -437,7 +437,8 @@ describe("approval vs a concurrent validation (live DB, two connections)", () =>
           if (!(error instanceof IntentionalRollback)) throw error
         })
 
-      await listo
+      // If the approving transaction fails before pausing, surface that error (and still clean up below).
+      await Promise.race([listo, aprobador])
       let terminado = false
       let resultado: unknown
       const gasto = await db.gasto.findUniqueOrThrow({ where: { id: creado.gastoId }, include: GASTO_INCLUDE })
