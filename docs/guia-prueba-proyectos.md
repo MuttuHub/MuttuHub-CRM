@@ -6,6 +6,28 @@ equipo, estructura y Gantt (S3), plantilla Excel (S7), presupuesto y programaci�
 administración, "Mi resumen", y el tablero gerencial con indicadores y exportaciones a Excel (S9). Todo corre en local; nunca contra el Supabase remoto. Los textos entre comillas son
 los que renderiza la interfaz (verificados contra el código el 2026-10-09).
 
+## Cómo está organizada la ficha (pestañas)
+
+**Ver detalle** abre la ficha como un diálogo con un **encabezado fijo** y seis pestañas. Todos los pasos de esta
+guía nombran la pestaña donde está cada cosa:
+
+| Pestaña | Contiene |
+|---|---|
+| **Resumen** | Datos generales, **Líneas estratégicas**, **Municipios**, **Equipo** |
+| **Estructura** | **Estructura técnica** (objetivos, actividades, entregables, indicadores), **Cronograma por semanas** (Gantt), **Descargar plantilla** / **Importar plantilla** |
+| **Avance** | **Ejecución técnica** (semáforo técnico, avances, mediciones, beneficiarios) e **Indicadores** (panel de KPIs y exportaciones) |
+| **Presupuesto** | **Presupuesto** (con programación mensual) y **Ficha financiera** |
+| **Gastos** | **Gastos** |
+| **Cambios** | **Modificaciones**, **Versiones** e **Historial** |
+
+- **Encabezado fijo** (se ve en todas las pestañas): código, nombre, botón **Aprobar línea base** (solo en
+  Borrador y solo admin/gerencia), chip de estado y, fuera de Borrador, los chips **Semáforo técnico: <color>** y
+  **Semáforo financiero: <color>**. Solo aparecen cuando el proyecto es medible (En ejecución, Suspendido o
+  Cerrado) y ya cargaron los indicadores.
+- Los chips de semáforo llevan **siempre la palabra del color** (Verde, Amarillo o Rojo), no solo el color.
+- Las pestañas inactivas **no se montan**: cada una consulta sus datos solo cuando la abres (la primera vez puede
+  mostrar un instante de carga). La pestaña inicial es **Resumen**.
+
 Usuarios (contraseña `MuttuDemo2026!`, dominio `demo.muttuhub.local`):
 
 | Usuario | Rol | Para qué lo usas aquí |
@@ -25,24 +47,29 @@ Antes de la reunión (5 min, una sola vez):
 3. Si quieres mostrar el flujo de errores en vivo, deja el segundo archivo (`...-error-v12.xlsx`) a mano.
 
 En la reunión (como `admin@`, salvo donde se indica):
-1. **Proyectos > Ver detalle** del proyecto en Borrador: datos, Estructura con el **Cronograma por semanas** (Gantt)
-   y **Presupuesto** (Σ asignado = Valor total). (1 min)
-2. En Estructura, **Importar plantilla** con el archivo de error: se ve la tabla por hoja y **Descargar reporte
-   (.csv)**; nada se escribió. (1 min)
-3. **Aprobar línea base** > **Aprobar**: el proyecto pasa a **En ejecución** y nacen las secciones de ejecución,
-   gastos, modificaciones y versiones. (1 min)
-4. **Ejecución técnica**: **Registrar avance** en un entregable con un enlace https; mira el **Semáforo técnico**
-   y la insignia **No confirmado**. (2 min)
-5. **Gastos > Registrar gasto** con soporte. Sal y entra como `gerencia@`: cola **Gastos por validar** y **Validar**.
-   Muestra que el registrante ve "Tú lo registraste" en vez de los botones. (2 min)
-6. **Sobreejecución**: un gasto mayor al asignado del rubro; como `gerencia@` **Validar** da 409 con
-   "Se notificó a Gerencia" y aparece en la campana, grupo **PROYECTOS**. (1 min)
-7. **Solicitar modificación** (traslado) como `admin@`, **Aprobar** como `gerencia@`, y en **Versiones** compara
-   `v0` contra **Vigente**. (2 min)
+1. **Proyectos > Ver detalle** del proyecto en Borrador (abre en **Resumen**: datos y **Equipo**). Pestaña
+   **Estructura**: el **Cronograma por semanas** (Gantt). Pestaña **Presupuesto**: **Presupuesto** (Σ asignado =
+   Valor total). (1 min)
+2. En la pestaña **Estructura**, **Importar plantilla** con el archivo de error: se ve la tabla por hoja y
+   **Descargar reporte (.csv)**; nada se escribió. (1 min)
+3. **Aprobar línea base** (está en el encabezado, visible en cualquier pestaña) > **Aprobar**: el proyecto pasa a
+   **En ejecución**, el encabezado muestra el estado y se habilitan ejecución, gastos, modificaciones y versiones.
+   (1 min)
+4. Pestaña **Avance** > **Ejecución técnica**: **Registrar avance** en un entregable con un enlace https; mira el
+   **Semáforo técnico** (también en el encabezado, con la palabra del color) y la insignia **No confirmado**.
+   (2 min)
+5. Pestaña **Gastos** > **Registrar gasto** con soporte. Sal y entra como `gerencia@`: cola **Gastos por validar**
+   (en **Proyectos**) y, en la pestaña **Gastos** de la ficha, **Validar**. Muestra que el registrante ve "Tú lo
+   registraste" en vez de los botones. (2 min)
+6. **Sobreejecución** (pestaña **Gastos**): un gasto mayor al asignado del rubro; como `gerencia@` **Validar** da
+   409 con "Se notificó a Gerencia" y aparece en la campana, grupo **PROYECTOS**. (1 min)
+7. **Solicitar modificación** (traslado) como `admin@` en la pestaña **Cambios**, **Aprobar** como `gerencia@`, y
+   en **Versiones** (misma pestaña, bajo Modificaciones) compara `v0` contra **Vigente**. (2 min)
 
 8. **Cierre con el Tablero** (como `admin@` o `gerencia@`): en **Proyectos** abre la pestaña **Tablero**
    (`/proyectos?vista=tablero`): tarjetas del portafolio, semáforos por proyecto, insignia **No confirmado** y
-   **Exportar Excel**. Abre **Ver detalle** y muestra la sección **Indicadores**. (1 min; ver §J)
+   **Exportar Excel**. Abre **Ver detalle**, muestra los dos chips de semáforo del encabezado y, en la pestaña
+   **Avance**, la sección **Indicadores**. (1 min; ver §J)
 
 Si el tiempo aprieta, corta el paso 2 y el 6. El paso 8 solo luce con el proyecto ya **En ejecución** (paso 3) y
 al menos un avance o gasto validado; un Borrador sale en el tablero como "Sin medir".
@@ -78,24 +105,27 @@ al menos un avance o gasto validado; un Borrador sale en el tablero como "Sin me
 
 ## 2. Ficha del proyecto
 
-1. En la fila, usa **Ver detalle**.
-2. Revisa datos generales, líneas, municipios, duración en semanas (derivada de las fechas).
-3. Al final, **Historial**: debe verse un paso "conversión de oportunidad + creación" y otro paso separado
+1. En la fila, usa **Ver detalle**. Abre en la pestaña **Resumen**; el encabezado muestra código, nombre y estado
+   (un Borrador no muestra chips de semáforo).
+2. En **Resumen** revisa datos generales, **Líneas estratégicas**, **Municipios** y la duración en semanas
+   (derivada de las fechas).
+3. Abre la pestaña **Cambios**, al final **Historial**: debe verse un paso "conversión de oportunidad + creación" y otro paso separado
    "Integrante del equipo" (el responsable se agregó como miembro al crear).
 
 ## 3. Equipo (S2.6)
 
-1. En la ficha, sección **Equipo**: aparece el responsable.
+1. En la ficha, pestaña **Resumen**, sección **Equipo** (al final de la pestaña): aparece el responsable.
 2. Agrega a otro usuario con el selector. El servidor solo acepta **coordinadores activos**; si eliges otro rol,
    verás el mensaje de error del servidor (comportamiento esperado, el selector aún no filtra por rol).
 3. Agregar al mismo usuario dos veces responde 409. Quitarlo lo marca como baja lógica (no se borra la fila).
-4. Revisa el **Historial**: cada alta y baja queda auditada.
+4. Revisa el **Historial** (pestaña **Cambios**): cada alta y baja queda auditada.
 5. Visibilidad: entra como `coordinador@`. Solo debe ver los proyectos donde es miembro activo; si lo quitas, el
    proyecto desaparece de su lista de inmediato. `colaborador@` no ve la sección de gestión del equipo.
 
 ## 4. Estructura técnica (S3)
 
-En la ficha de un proyecto en **Borrador**, como admin o gerencia:
+En la ficha, pestaña **Estructura** (sección **Estructura técnica**), de un proyecto en **Borrador**, como admin o
+gerencia:
 
 1. **Objetivos**: crea uno (código y descripción). Aparece con contador de actividades e indicadores.
 2. **Actividades**: dentro del objetivo, crea una con semana de inicio y fin.
@@ -109,15 +139,16 @@ En la ficha de un proyecto en **Borrador**, como admin o gerencia:
    - Código repetido en el mismo proyecto: 409 (no distingue mayúsculas).
    - Borrar un objetivo con actividades o indicadores: 409. Borrar una actividad con entregables: 409.
    - Borra primero los hijos y luego el padre: debe funcionar.
-   - Cada alta, cambio o borrado aparece en el **Historial**.
+   - Cada alta, cambio o borrado aparece en el **Historial** (pestaña **Cambios**).
 6. **Solo lectura**: entra como `coordinador@` (miembro) o `colaborador@`. La estructura se ve pero sin controles de
    edición. Un proyecto fuera de Borrador también queda de solo lectura con una nota que lo explica.
 
 ## 4b. Cronograma (Gantt, S3.6b)
 
-Está dentro de **Estructura**, debajo de los objetivos. Cualquier rol que vea la ficha lo ve.
+Está en la pestaña **Estructura**, debajo de los objetivos. Cualquier rol que vea la ficha lo ve.
 
-1. En la ficha de un proyecto con fechas y actividades, busca el encabezado **Cronograma por semanas**.
+1. En la ficha de un proyecto con fechas y actividades, abre la pestaña **Estructura** y busca el encabezado
+   **Cronograma por semanas**.
 2. Esperado: una cabecera `S1, S2, ...` con la fecha de cada semana, y por objetivo una barra por actividad con
    su código, ubicada entre su semana inicial y final.
 3. Crea otra actividad en Estructura (§4): la barra aparece sin recargar. Una actividad con peso manual muestra el
@@ -129,7 +160,7 @@ Está dentro de **Estructura**, debajo de los objetivos. Cualquier rol que vea l
 ## A. Plantilla Excel (S7)
 
 Solo `admin@` o `gerencia@`, y solo con el proyecto en **Borrador**. Los botones **Descargar plantilla** e
-**Importar plantilla** están en el encabezado de Estructura. Otros roles no los ven; fuera de Borrador tampoco.
+**Importar plantilla** están en la pestaña **Estructura**, en el encabezado de la sección. Otros roles no los ven; fuera de Borrador tampoco.
 
 ### A.1 Descargar y llenar
 1. **Descargar plantilla**. Si el proyecto no tiene fechas, la API responde 409: "Define las fechas del proyecto
@@ -148,8 +179,8 @@ Solo `admin@` o `gerencia@`, y solo con el proyecto en **Borrador**. Los botones
    Un responsable desconocido sale como advertencia ("no bloquean la importación").
 4. Libro con errores: alerta "La plantilla tiene N errores. No se importó nada" y tabla por hoja con columnas
    Regla, Fila, Columna, Valor, Mensaje. **Descargar reporte (.csv)** baja el detalle.
-5. Verifica que tras la importación la estructura, el Gantt y el presupuesto quedaron llenos, y que el
-   **Historial** muestra un solo lote.
+5. Verifica que tras la importación la estructura y el Gantt (pestaña **Estructura**) y el presupuesto (pestaña
+   **Presupuesto**) quedaron llenos, y que el **Historial** (pestaña **Cambios**) muestra un solo lote.
 6. Negativos:
    - Archivo que no es Excel: "Solo se acepta la plantilla en formato Excel (.xlsx)."
    - Más de 4 MB: "El archivo supera el límite de 4 MB."
@@ -171,7 +202,7 @@ $177.360.000 y responsable `ana@muttu.co` (no existe en la demo: sale la adverte
 
 ## B. Presupuesto y programación mensual (S5)
 
-Sección **Presupuesto** de la ficha, después de Estructura. Se edita solo en **Borrador** y solo `admin@` o
+Pestaña **Presupuesto** de la ficha, sección **Presupuesto** (arriba; la **Ficha financiera** va debajo, §F). Se edita solo en **Borrador** y solo `admin@` o
 `gerencia@`; el resto lo ve en solo lectura.
 
 1. Tabla por rubro con columna **Asignado**. Escribe montos (acepta coma o punto) y pulsa **Guardar presupuesto**.
@@ -192,7 +223,7 @@ Sección **Presupuesto** de la ficha, después de Estructura. Se edita solo en *
 
 Es la única vía real. Solo `admin@` o `gerencia@`, solo con el proyecto en **Borrador**.
 
-1. En la cabecera de la ficha aparece **Aprobar línea base**. Se abre un diálogo: "Al aprobar, la estructura y el
+1. En el encabezado fijo de la ficha (visible en cualquier pestaña) aparece **Aprobar línea base**. Se abre un diálogo: "Al aprobar, la estructura y el
    presupuesto quedan congelados (versión 0) y el proyecto pasa a En ejecución. Esta acción no se puede deshacer."
 2. Para ver qué bloquea, pulsa **Aprobar** con el proyecto incompleto: la API responde 409 y el diálogo lista TODAS
    las precondiciones en rojo, por ejemplo:
@@ -204,10 +235,13 @@ Es la única vía real. Solo `admin@` o `gerencia@`, solo con el proyecto en **B
    - "Programación pendiente." / "La programación del rubro X no coincide con lo asignado; control ..."
    - "El rubro suspendido X tiene un monto asignado pendiente de reasignación."
    - "El periodo AAAA-MM está fuera del rango del proyecto."
-3. Corrige (B, §4 o la plantilla) y vuelve a pulsar **Aprobar**. Esperado: el diálogo se cierra, el estado pasa a
-   **En ejecución**, el botón desaparece y el **Historial** registra la aprobación en un solo lote.
-4. Efectos: Estructura, Presupuesto y plantilla quedan cerrados; se habilitan **Ejecución técnica**, **Gastos**,
-   **Modificaciones** y **Versiones** (con la versión `v0`).
+3. Corrige (B, §4 o la plantilla) y vuelve a pulsar **Aprobar**. Esperado: el diálogo se cierra, el chip de estado
+   del encabezado pasa a **En ejecución**, el botón desaparece, aparecen los chips **Semáforo técnico** y
+   **Semáforo financiero** (cuando los indicadores terminan de cargar) y el **Historial** (pestaña **Cambios**)
+   registra la aprobación en un solo lote.
+4. Efectos: Estructura, Presupuesto y plantilla quedan cerrados; se habilitan **Ejecución técnica** (pestaña
+   **Avance**), **Gastos** (pestaña **Gastos**), **Modificaciones** y **Versiones** (pestaña **Cambios**, con la
+   versión `v0`).
 5. Atajo solo para QA local, SIN versión 0: `npx tsx scripts/set-project-estado.ts PRY-2026-001 EN_EJECUCION
    --actor admin@demo.muttuhub.local --apply` (en seco por defecto). Un proyecto así NO tiene v0: Versiones dice
    "La línea base aún no está aprobada.", Modificaciones falla ("El proyecto no tiene línea base aprobada.") y el
@@ -216,11 +250,12 @@ Es la única vía real. Solo `admin@` o `gerencia@`, solo con el proyecto en **B
 
 ## D. Ejecución técnica y semáforo (S4)
 
-Sección **Ejecución técnica**. En Borrador solo dice: "La ejecución técnica estará disponible cuando el proyecto
+Pestaña **Avance**, sección **Ejecución técnica** (la sección **Indicadores** va debajo, §J.2). En Borrador solo dice: "La ejecución técnica estará disponible cuando el proyecto
 tenga su línea base aprobada." Escribe `admin@`, `gerencia@` o `coordinador@` integrante; anular es solo de
 admin/gerencia.
 
-1. **Semáforo técnico**: insignia "Semáforo técnico: Verde / Amarillo / Rojo", "Corte al <fecha>", y
+1. **Semáforo técnico**: chip "Semáforo técnico: Verde / Amarillo / Rojo" (siempre con la palabra del color; el
+   mismo color se repite en el chip del encabezado fijo), "Corte al <fecha>", y
    **Avance real**, **Avance programado**, **Desviación** (en pp). El selector **Base** ofrece **Vigente** y
    **Original (v0)**.
 2. Insignia **No confirmado**: aparece mientras los umbrales del semáforo no estén confirmados (ver §H). Es lo
@@ -243,15 +278,15 @@ admin/gerencia.
    - Enlace no https o vacío: "Completa el enlace y su nombre." (el servidor: "El enlace debe ser una URL https
      válida (máximo 2000 caracteres).")
    - `colaborador@` ve todo sin controles; un `coordinador@` que NO es integrante tampoco los ve.
-   - Borrar un entregable con avances (en Estructura) responde 409.
+   - Borrar un entregable con avances (en la pestaña **Estructura**) responde 409.
 
 ## E. Gastos y validación (S6)
 
-Sección **Gastos**. Registran `admin@`, `gerencia@` o `coordinador@` integrante, solo con el proyecto
+Pestaña **Gastos** de la ficha (sección **Gastos**). Registran `admin@`, `gerencia@` o `coordinador@` integrante, solo con el proyecto
 **En ejecución**. Validan y rechazan solo `admin@` y `gerencia@`. Regla central: no puedes validar ni rechazar un
 gasto que tú registraste.
 
-1. Como `admin@`: **Registrar gasto**. Campos: Rubro (solo rubros con monto asignado), Valor, Fecha del documento,
+1. Como `admin@`, en la pestaña **Gastos**: **Registrar gasto**. Campos: Rubro (solo rubros con monto asignado), Valor, Fecha del documento,
    Periodo, Tipo de soporte (Factura de proveedor, Cuenta de cobro de persona natural, ...), Número de documento,
    Tipo y Número de identificación, Nombre del tercero, Descripción y soporte (**Archivo** o **Enlace**).
    Pulsa **Registrar**.
@@ -260,9 +295,9 @@ gasto que tú registraste.
    "Gasto registrado, con avisos" con "Ya existe un gasto con el mismo NIT/cédula y número de documento (...)". No
    bloquea; pulsa **Entendido**.
 4. **Validación por otro usuario**: como `admin@` (el registrante) la fila dice "Tú lo registraste" y no hay
-   botones. Entra como `gerencia@`: en **Proyectos** aparece la cola **Gastos por validar · N**, y en la ficha el
-   gasto tiene **Validar** y **Rechazar**.
-5. **Validar**: pasa a **Validado** y alimenta la **Ficha financiera** (§F). Si faltan tipo y número de
+   botones. Entra como `gerencia@`: en **Proyectos** aparece la cola **Gastos por validar · N**, y en la ficha,
+   pestaña **Gastos**, el gasto tiene **Validar** y **Rechazar**.
+5. **Validar**: pasa a **Validado** y alimenta la **Ficha financiera** (pestaña **Presupuesto**, §F). Si faltan tipo y número de
    identificación, **Validar** está deshabilitado con "Completa el tipo y número de identificación del tercero
    antes de validar." y el gasto lleva la insignia **Datos incompletos**.
 6. **Rechazar**: pide "Motivo del rechazo" (obligatorio) y **Confirmar rechazo**; la fila muestra
@@ -288,14 +323,14 @@ gasto que tú registraste.
 
 ## F. Ficha financiera (S5/S6/S8)
 
-Sección **Financiero**, después de Ejecución técnica. Visible para quienes pueden leer el proyecto (admin, gerencia y coordinador integrante).
+Pestaña **Presupuesto**, sección **Ficha financiera** (debajo de **Presupuesto**). Visible para quienes pueden leer el proyecto (admin, gerencia y coordinador integrante).
 
 1. Tabla por rubro con A (asignado), P (programado), E (ejecutado = gastos **Validados**), D y los porcentajes E/P y
    E/A, color por fila y fila de total.
 2. Selector **Corte** (mes) y selector **Base**: **Vigente** u **Original (v0)**. En Borrador la opción Original no
    existe (tooltip: "La versión original estará disponible con la línea base aprobada.").
 3. Mientras no haya gastos validados: "Ejecución disponible cuando se registren gastos" (en Borrador siempre).
-4. Valida un gasto (§E) y recarga la sección: E sube y el color del rubro cambia según los umbrales. Si E supera A
+4. Valida un gasto (§E, pestaña **Gastos**), vuelve a la pestaña **Presupuesto** y recarga la sección: E sube y el color del rubro cambia según los umbrales. Si E supera A
    el color es rojo.
 5. Cambia **Base** a **Original (v0)** tras una modificación aprobada (§G): A y P vuelven a los valores del v0
    mientras E (los gastos) no cambia.
@@ -307,7 +342,7 @@ Sección **Financiero**, después de Ejecución técnica. Visible para quienes p
 
 ## G. Modificaciones, versiones y comparación (S8)
 
-Secciones **Modificaciones** y **Versiones**. En Borrador: "Las modificaciones estarán disponibles cuando la línea
+Pestaña **Cambios**: secciones **Modificaciones**, **Versiones** e **Historial**, en ese orden. En Borrador: "Las modificaciones estarán disponibles cuando la línea
 base esté aprobada." y "La línea base aún no está aprobada."
 
 1. Como `admin@`, `gerencia@` o `coordinador@` integrante: **Solicitar modificación**. El diálogo dice "Gerencia la
@@ -346,17 +381,17 @@ Menú **Administración** (otros roles son redirigidos). Más abajo en la págin
 2. Cada fila muestra **Activo** o **Suspendido**. Botones **Renombrar <nombre>**, **Suspender <nombre>** y
    **Restaurar <nombre>**. Alta de rubro/línea con Código y Nombre; alta de municipio con Nombre, Departamento y
    Código DANE (opcional).
-3. Prueba: suspende un municipio, abre el diálogo de crear proyecto o la estructura: ya no se ofrece. Restáuralo y
+3. Prueba: suspende un municipio, abre el diálogo de crear proyecto o la pestaña **Estructura**: ya no se ofrece. Restáuralo y
    vuelve. Los inactivos siguen visibles en esta pantalla con su insignia.
 4. Negativo: renombrar un rubro que ya tiene presupuesto responde "El rubro tiene datos asociados: no se puede
    renombrar, solo suspender." Un rubro nunca se elimina. Suspender un rubro con monto asignado en un borrador
-   marca la fila de Presupuesto con "Rubro suspendido pendiente de reasignación" y bloquea la línea base.
+   marca la fila de **Presupuesto** (pestaña **Presupuesto**) con "Rubro suspendido pendiente de reasignación" y bloquea la línea base.
 5. **Umbrales del semáforo**: "Valores provisionales hasta que el equipo de producto los confirme. Marca cada
    parámetro como confirmado solo cuando esté validado." Parámetros: Umbral 1 (pp), Umbral 2 (pp), Tolerancia (%),
    Retraso (%), Avance requiere medio, Modificación bloquea periodos pasados. Cada uno con insignia **Confirmado**
    o **No confirmado**.
-6. Cambia un valor, marca **Confirmar <parámetro>** y pulsa **Guardar parámetros**. Vuelve a Ejecución técnica o
-   Financiero: la insignia **No confirmado** del semáforo desaparece cuando los parámetros que usa quedan
+6. Cambia un valor, marca **Confirmar <parámetro>** y pulsa **Guardar parámetros**. Vuelve a la ficha, pestaña
+   **Avance** (**Ejecución técnica**) o **Presupuesto** (**Ficha financiera**): la insignia **No confirmado** del semáforo desaparece cuando los parámetros que usa quedan
    confirmados. (No verificado qué parámetros exactos controlan cada insignia.)
 7. Cambiar "Avance requiere medio" altera si un avance sin medio cuenta; hazlo solo para demostrar, y déjalo como estaba.
 
@@ -400,7 +435,9 @@ Quién ve la pestaña **Tablero** (junto a **Portafolio**): `admin@`, `gerencia@
    Quítalo del equipo (§3) y el proyecto sale del tablero.
 
 ### J.2 Sección Indicadores en la ficha
-En **Ver detalle**, entre **Ejecución técnica** y **Financiero**. La ven quienes leen el proyecto.
+En **Ver detalle**, pestaña **Avance**, debajo de **Ejecución técnica**. La ven quienes leen el proyecto. Los
+chips **Semáforo técnico** y **Semáforo financiero** del encabezado fijo salen de estos mismos datos (misma
+consulta): deben coincidir en color con las tarjetas de abajo.
 
 1. Controles: **Corte** (fecha) y **Base** (**Vigente** / **Original (v0)**; en Borrador la base está bloqueada).
 2. Tarjetas: **Semáforo técnico** (Avance real, Avance programado, Desviación en pp), **Semáforo financiero**
@@ -414,7 +451,7 @@ En **Ver detalle**, entre **Ejecución técnica** y **Financiero**. La ven quien
    los avances y gastos no cambian.
 
 ### J.3 Exportaciones a Excel
-1. En **Indicadores**: **Exportar ficha (Excel)** baja `<código>-proyecto.xlsx` (hojas `Proyecto`, `Estructura`,
+1. En la pestaña **Avance**, sección **Indicadores**: **Exportar ficha (Excel)** baja `<código>-proyecto.xlsx` (hojas `Proyecto`, `Estructura`,
    `KPIs`) y **Exportar ficha financiera (Excel)** baja `<código>-financiera.xlsx` (hojas `Financiera`, con fila
    Total, y `Resumen`). Respetan el **Corte** y la **Base** elegidos. La financiera exige fechas del proyecto (409
    si no hay).
@@ -459,7 +496,10 @@ No existe todavía, dicho sin adornos:
 
 - **S9 terminada** (tablero, Indicadores por proyecto, exportaciones a Excel, bandera gerencial), pero falta su
   verificación independiente. **PDF no construido**: solo Excel; el PDF responde 400.
-- **S10 pendiente** (en mapeo): el diseño visual final; la interfaz actual es funcional, no definitiva.
+- **S10 (pulido visual) se sigue terminando**: la ficha ya está en pestañas bajo un encabezado fijo y los chips de
+  semáforo ya llevan la palabra del color, pero faltan las barras de progreso, la hoja de captura móvil y las
+  listas en tarjetas por debajo de `md`. La interfaz es funcional, no definitiva. **El diseño no se comprobó en un
+  teléfono real.** Las pestañas se renderizan en una fila con desplazamiento horizontal.
 - **No existe la sección de territorio** en esta rama (se retiró/nunca se construyó): el municipio es solo un filtro.
 - **La base remota NO tiene la columna de la bandera gerencial** (`puede_ver_tablero_gerencial`). No se migra sin
   autorización del usuario; la migración solo se aplicó a la base local.
@@ -490,4 +530,8 @@ sin precondiciones de línea base, ni qué parámetros controlan exactamente cad
 Tampoco se verificó en S9: que el enlace **Proyectos** del menú lateral sea visible para un colaborador con la
 bandera (se verificó la página, no el menú), ni los libros de Excel abiertos en Excel real (solo lo que prueban los
 tests con `exceljs`).
+Tampoco se verificó al pasar la ficha a pestañas: que cada paso se vea igual en el navegador (solo se leyeron
+`project-ficha-dialog.tsx` y los componentes de cada sección), cuánto tarda en mostrarse el contenido al abrir una
+pestaña por primera vez, ni cómo se ve el encabezado fijo con los dos chips en pantallas estrechas. El orden de
+las secciones dentro de cada pestaña es el del código; los componentes pueden cambiar en la ronda 2 de S10.
 Haz un ensayo completo antes de la reunión.
