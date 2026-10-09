@@ -63,9 +63,19 @@ the v6 modal visual fidelity, any remote DB write, any schema migration.
   re-ran the two touched test files: 32/32. Not covered: no Playwright/dev-server click path (create dialog is mocked in the entity-dialogs tests).
   Assessed tier: medium (`executable_change`), 216 changed lines, `review_due=false` (`under_budget`); first assess returned a spurious `high`/
   `unassessable` because this untracked document was undeclared, re-run with `--untracked-scope=exclude` as the tool instructs.
-- [ ] **U2** Demo seed for projects + npm script + doc section in `docs/guia-prueba-proyectos.md`. Route: delegated.
+- [x] **U2** Demo seed for projects + npm script + doc section in `docs/guia-prueba-proyectos.md`. Route: delegated.
   Checks: unit tests for the pure parts (RED first), `tsc`, eslint, dry-run then real run against the local DB, second run must be a
   no-op with the D3 message, `npm run dev` pages load the seeded projects (HTTP 200 via `172.30.48.1:3000`).
+  Evidence (commit `18c5adf`, 5 files, +1088/-2): `scripts/seed-projects-demo.ts` (+ test), `package.json` script `db:demo:seed-projects:local`,
+  `export` added to two helpers in `import-plantilla-demo.ts`, guide section "0.1 Seed de proyectos (demo)". Deviation: route bodies are inline
+  and need a Supabase session, so the seed MIRRORS them call for call and reuses the exported helpers; `importarPlantilla`, `aprobarLineaBase`
+  and `validarEnTransaccion` are called directly; audit goes through `logChange(s)` (drift risk if a route changes). Created: `PRY-2026-001`
+  EN_EJECUCION (v0 approved, 5 avances, 3 mediciones, 5 gastos: 2 VALIDADO, 3 REGISTRADO incl. one `alerta_sobregasto`), `PRY-2026-002`
+  BORRADOR (same workbook, $177.360.000), plus one extra GANADA opportunity left eligible. RED: module-missing failure on the first run (per-test
+  output not kept). GREEN: seed + plantilla tests 28/28 (parent spot check re-ran them: 28/28), `tsc` 0 errors, eslint clean. Real local run:
+  dry run, `--apply`, second `--apply` = no-op with the D3 message; read-only query confirmed 2 projects, 1 version, 5 avances, 5 gastos,
+  1 free GANADA, 219 audit rows. Not verified: Tablero/semáforos/"Convertir en proyecto" in a browser; a pg `client.query()` deprecation
+  warning was seen and not investigated. Local DB now holds an approved project (`db:demo:reset:local` cannot delete it; restore per D4).
 
 ## Authorized scope (allowed edit surfaces)
 
@@ -91,7 +101,17 @@ is pending the user's decision; local work-unit commits proceed, no push/PR.
 
 - 2026-10-09: document created after exploration (Claude Design docs vs code comparison; endpoint and schema gaps verified).
 - 2026-10-09: U1 done (`1909113`), delegated route; trigger evidence: reading prepares a write, 5 files incl. 2 non-trivial components.
+- 2026-10-09: U2 done (`18c5adf`), delegated route; trigger evidence: reading prepares a write, 836-line script + tests + guide.
+- 2026-10-09: native review of the S11 slice (`f370050..18c5adf`, medium, 11 files, 1403 lines, `slice_budget_reached`): consent GRANTED by the
+  user, one lens (`review-reliability`), outcome APPROVED and acknowledged (lineage `review-94ce7b1766a736fc`, authority burned). One advisory
+  WARNING, non-blocking and not a reason to re-review: `R3-marker-matches-half-built-b` at `scripts/seed-projects-demo.ts:780-790` — the
+  idempotency marker is `startsWith("Demo CedeTextil")`, which matches BOTH projects, contradicting the comment that A is the marker; if a run
+  fails after B is created, the next run prints "already seeded" with A missing and the opportunities consumed, and only a full DB reset
+  recovers. Idempotency therefore holds only for complete runs.
+- Review boundary: advances to `18c5adf`.
 
 ## Next step
 
-Launch the U2 writer (demo seed for projects). Delivery: running slice = U1 (216 lines, under budget); U2 is forecast ~350 lines.
+Follow-up (needs the user's go-ahead, would be a new reviewable change): make the seed marker/atomicity robust (e.g. marker = project A only,
+or detect a partial seed and say so with the D4 restore hint) and fix the misleading comment; add a test for the partial-run decision.
+Then browser check of the Tablero, semáforos and "Convertir en proyecto" on the seeded data.
