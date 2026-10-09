@@ -122,6 +122,13 @@ export type PrecondicionCodigo =
   | "PROGRAMACION_PENDIENTE"
   | "RUBRO_SUSPENDIDO_CON_ASIGNADO"
   | "PERIODO_FUERA_DE_RANGO"
+  // S8 baseline structure items (REQ-VER-01), composed in `linea-base.ts`.
+  | "SIN_VALOR_TOTAL"
+  | "SIN_FECHAS"
+  | "SIN_OBJETIVOS"
+  | "OBJETIVO_SIN_ACTIVIDADES"
+  | "ACTIVIDAD_SIN_ENTREGABLES"
+  | "META_BENEFICIARIOS_INVALIDA"
 
 export type PrecondicionFalla = { codigo: PrecondicionCodigo; mensaje: string; rubroId?: string }
 
