@@ -43,16 +43,16 @@ generated server-side; PDF is rejected with 400 (browser print later). The terri
 
 Route: delegated writer per round, one commit per unit, then independent verification.
 
-- [ ] **U1** KPI pure libs (`src/lib/proyectos/kpis.ts` + test, ~300). RED: `cumplimientoCronograma` ignores
+- [x] **U1** (03c45be, f853583) KPI pure libs (`src/lib/proyectos/kpis.ts` + test, ~300). RED: `cumplimientoCronograma` ignores
   activities ending after the corte and counts `FINALIZADA_CON_RETRASO` as late, denominator 0 -> null;
   `entregablesLogrados` requires the meta met AND a support; `cumplimientoIndicadores` caps at 1, excludes unmeasured
   and reports them in `sin_medir`; `beneficiariosVsMeta` with meta null/0 -> null; BORRADOR yields null financials;
   every KPI carries `corte`; `kpisPortafolio` = ΣE/ΣA weighted, not the simple technical mean.
-- [ ] **U2** Gerencial flag (migration, schema, `projects.ts`, users PATCH/GET, `users-table`, ~200). RED: invariant
+- [x] **U2** (671b8e5, 8046fca) Gerencial flag (migration, schema, `projects.ts`, users PATCH/GET, `users-table`, ~200). RED: invariant
   (default false, column exists); `canReadProjectList` true for a flagged COLABORADOR through the real actor; the
   flagged user still gets 403 on every write gate; `PATCH users/:id` is ADM-only; the flag does not widen
   `canViewFinancialSupports`.
-- [ ] **U3** Batched loader (`src/lib/api/kpis-portafolio.ts` + test, ~350): one query per table for ALL ids
+- [x] **U3** (60a1c06) Batched loader (`src/lib/api/kpis-portafolio.ts` + test, ~350): one query per table for ALL ids
   (`proyecto_id IN`), sums via `groupBy`/`$queryRaw`, never row loading. RED: constant call count for 1 vs 50
   projects (each `findMany`/`groupBy` called once); **parity** against `loadTecnicoStatus` + the financial-sheet total
   for the same fixture (corte before/inside/after the project; BORRADOR).
@@ -85,8 +85,39 @@ Route: delegated writer per round, one commit per unit, then independent verific
   verification as their recorded next step** and neither has it; the branch is 108 commits ahead of origin with
   nothing pushed and no native review acknowledged anywhere.
 
+- 2026-10-09 (round 1, U1-U3, one bounded writer; local DB only via `node --env-file=.env.local`):
+  - U1 (03c45be; f853583 fixes bigint literals the ES2017 `tsc` target rejects). RED: 0 tests ran (module missing); GREEN
+    28/28. API: `kpisProyecto`, `kpisNoMedible`, `kpisPortafolio`, `cumplimientoCronograma`, `entregablesLogrados`,
+    `cumplimientoIndicadores`, `beneficiariosVsMeta` in `src/lib/proyectos/kpis.ts`. Blocks: `tecnico`, `cronograma`,
+    `entregables`, `indicadores` (+`sin_medir`, `sin_medir_ids`), `beneficiarios`, `financiero` (bigint cents A/P/E,
+    `ea`/`ep` as 1-decimal percentages, `color`, `alerta_retraso`); each carries `corte`; `medible=false` -> all null.
+    `confirmado` = umbral1/2, tolerancia and retraso all confirmed (the sheet's own flag covers only the last two).
+  - U2 (671b8e5). RED: invariant 2/2, users route 2 and actor tests failing; then GREEN (101 tests in the touched
+    areas). Migration `20261012120000_v2_gerencial_flag` (`ADD COLUMN IF NOT EXISTS ... NOT NULL DEFAULT false`),
+    applied with `migrate deploy` to 127.0.0.1:54322 only, `generate` ran, `migrate diff` = "No difference detected".
+    `UNRESOLVED_GERENCIAL_FLAG` replaced by `usuario.puede_ver_tablero_gerencial`; users GET/PATCH select and accept it
+    (ADM-only gate, 403 test); `users-table` has the "Ve el tablero gerencial" checkbox (COLABORADOR rows).
+    Consequence found by the full suite: the `financial-sheet` access test had a VIS fixture already carrying the flag
+    and expected 403 "until its flag exists"; it now expects 200 flagged / 403 unflagged (8046fca). The remote DB still
+    lacks the column (D7): the remote migration is a separate user-authorized step.
+  - U3 (60a1c06). `src/lib/api/kpis-portafolio.ts` `loadKpisPortafolio({proyectos, corte, parametros})` -> `Map<id,
+    KpisProyecto>`: 8 queries total (actividad+entregables, avances, soporte `groupBy`, indicador+mediciones, and four
+    `groupBy` sums), each called once for 1 and for 50 projects, zero queries when nothing is measurable. Deviation: the
+    loader was written before its test (RED was then obtained by removing the loader: import failure; plus a sabotage
+    run, dropping the gasto period filter and the soporte `deleted_at` filter, made 2 parity cases fail). Parity runs
+    against an in-memory Prisma fake (same fixture feeds `loadTecnicoStatus` and `computeFicha`), cortes before/inside/
+    after the project. No live-DB parity yet: the bench (U4) is the live check.
+  - Gates: focused vitest green, `npx tsc --noEmit` clean, eslint clean on touched files, full suite 2744/2745 with the
+    single failure being the financial-sheet fixture above (fixed): no load-flakes seen this run.
+
 ## Next step
 
-First, close the inherited verification debt the previous session recorded as pending: independent verification of
-S7 U5-U7 (the atomic import writer and its route gates) and of S8 (the version writer, baseline approval and the
-modification flow). Then U1 (the KPI pure libs), which has no dependency.
+Round 2 (U4-U6). U4: routes + bench. Build `GET dashboard/portfolio` (gate: `canReadProjectList(u)` or `rol ===
+COORDINADOR`; rows through `projectListWhere`, then `loadKpisPortafolio` over `proyectos` rows of
+`{id, estado, fecha_inicio, fecha_fin, beneficiarios_meta}` with `getSemaforoParametrosV2()`; response per project
+uses `kpisProyecto` blocks, bigint cents serialized with `fromCents`; aggregate from `kpisPortafolio(list, corte)`).
+`GET projects/:id/kpis` is not batched: call `loadKpisPortafolio` with that single project (same code path) except
+`base=original`, which needs the `resolverBase` snapshot (feed the frozen structure/budget the way `loadTecnicoStatus`
+`estructura` and `rubrosDelOriginal` do; the loader currently covers vigente only, so add an optional frozen-structure
+input there if parity with the sheet is needed). Corte: calendar date `AAAA-MM-DD`, default `todayInBogota()`, 400 on a
+bad one. Bench per the map section 7. Then U5, U6 as listed.
