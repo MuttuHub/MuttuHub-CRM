@@ -65,7 +65,7 @@ Out of scope: `?tab=` deep links, notification links to `/proyectos`, clients fi
   `rel="noopener noreferrer"` styled with `buttonVariants`; `fichaId`/`onOpenFicha`/dialog rendering removed; `project-ficha-dialog.tsx` and its test
   deleted; the unused "dialog" layout variant dropped (D4). RED: 5 tests failed. GREEN: 147 files / 1633 tests; tsc and eslint clean. Parent spot check
   re-ran ficha + list + dashboard tests (3 files, 67 tests) and `tsc --noEmit`: clean. Not verified: anything in a real browser (P3).
-- [ ] **P3** e2e + guide; run `PLAYWRIGHT_BASE_URL=http://172.30.48.1:3000 npx playwright test e2e/proyectos-demo.spec.ts` against the LOCAL demo.
+- [x] **P3** (commits `4746116` e2e, `3d174b9` guide) e2e + guide; run `PLAYWRIGHT_BASE_URL=http://172.30.48.1:3000 npx playwright test e2e/proyectos-demo.spec.ts` against the LOCAL demo.
   Route: delegated. NOTE the e2e needs a clean demo (it creates PRY-2026-001 from a won opportunity) but the local DB now holds the S11 seed
   (approved project, `db:demo:reset:local` cannot delete it): the writer must NOT reset or wipe; if the spec cannot run on the seeded DB, it
   reports that and verifies the page with a separate read-only Playwright script instead (log in as admin, open the seeded `PRY-2026-001` ficha
@@ -99,6 +99,21 @@ P3: `e2e/proyectos-demo.spec.ts`, `e2e/proyectos-ficha-pagina.spec.ts` (new, rea
 - Review: the assessment since the last reviewed boundary `18c5adf` is medium, 2604 lines, `slice_budget_reached` (U3 + docs + S12). The native review is
   deferred until P3 lands: the candidate is frozen only after the implementation is complete (P3 still edits the e2e spec and the guide).
 
+- 2026-10-09: P3 done, delegated route. `proyectos-demo.spec.ts` step 8 follows the new tab (`Promise.all([context.waitForEvent("page"), link.click()])`);
+  NOT run (needs a clean demo; the DB holds the S11 seed), checked statically (`tsc` 0 errors, eslint clean, `playwright test --list`). New read-only
+  `e2e/proyectos-ficha-pagina.spec.ts` (requires the S11 seed): list tab keeps the lista with no dialog, header código + "En ejecución" + both semáforo
+  chips, "Volver a proyectos" href `/proyectos`, six tabs open with their section, `/proyectos/<zero-uuid>` shows "Proyecto no encontrado"; RAN against the
+  local demo via `172.30.48.1:3000`: 1 passed (30.8 s). Guide updated (intro, tabs, recorrido steps 1 and 8, §2, §J, §5 table of DB state per spec).
+  First REAL browser check; the parent viewed the screenshots (ficha 1440 and 390, tablero 1440; saved in the scratchpad, not committed).
+- 2026-10-09: native review of the consolidated slice (`18c5adf..3d174b9`: U3 + S12, medium, 19 files, 2824 lines, `slice_budget_reached`): consent GRANTED,
+  one lens (`review-reliability`), APPROVED with ZERO findings, acknowledged (lineage `review-d929d0e46a8a1929`, authority burned). Reviewer notes (not
+  findings): `src/app/(app)/proyectos/[id]/page.tsx` has no direct test (awaited `params` and `force-dynamic` unproved); a non-UUID id probably shows the
+  generic "No pudimos abrir la ficha" instead of not-found. Review boundary advances to `3d174b9`.
+- Observed in the screenshots (follow-ups, none blocking): (1) the page title in the app shell reads "Muttu Hub" instead of "Proyectos" and the page has
+  two `h1`; (2) in the Tablero at 1440 px the last column ("Ver detalle") is clipped and needs horizontal scroll; (3) the seed shows both semáforos in
+  Verde only, no amarillo/rojo example.
+
 ## Next step
 
-Launch the P3 writer (e2e + guide + real browser check on the seeded DB), then run the native review preflight for the consolidated slice.
+Follow-ups (each needs the user's go-ahead): fix the Tablero clipped "Ver detalle" column; ficha page title/`h1`; add an amarillo/rojo case to the seed
+(would need new data and a restore per D4 of S11); test for the `[id]` page and a non-UUID id.

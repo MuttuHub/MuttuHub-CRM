@@ -61,6 +61,14 @@ Native review is per candidate (work unit or PR slice), never the whole branch. 
 `f370050..18c5adf` (medium, approved; lineage `review-94ce7b1766a736fc`). Everything else is unreviewed; the whole-branch candidate fails with
 `lens_context_budget_exceeded`, so review each unit PR slice when it is built.
 
+## Update 2026-10-09 (after the plan)
+
+- New unit **US12** after US11: project ficha as its own page `/proyectos/[id]` opened in a new browser tab (commits `0edca6d`, `cdb2543`, `4746116`,
+  `3d174b9`, plus doc commits; feature doc `v2-projects-ficha-page.md`). It depends on U10 (tabbed ficha) and U9. `d897051` (seed partial-run fix) stays
+  squashed into US11.
+- Native review: the S12 + U3 slice `18c5adf..3d174b9` was reviewed and APPROVED with zero findings (lineage `review-d929d0e46a8a1929`). The last
+  reviewed boundary is `3d174b9`. Reviewed so far: US11 (`f370050..18c5adf`) and US12 + U3; everything older is unreviewed.
+
 ## Status
 
 - [x] Slicing analysis (read-only), 2026-10-09.
