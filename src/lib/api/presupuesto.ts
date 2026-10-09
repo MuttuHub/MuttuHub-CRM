@@ -92,6 +92,33 @@ export async function lockProyectoBorrador(
   return { valor_total: row.valor_total };
 }
 
+export type ProyectoBloqueado = {
+  estado: string;
+  valor_total: string | null;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  beneficiarios_meta: number | null;
+};
+
+/**
+ * Locks the project row FOR UPDATE and returns what the caller needs to decide under
+ * the lock, whatever the estado (baseline approval needs BORRADOR, a modification
+ * EN_EJECUCION: each caller checks its own estado and message). 404 when it is gone.
+ */
+export async function lockProyecto(
+  tx: Pick<Prisma.TransactionClient, "$queryRaw">,
+  proyectoId: string,
+): Promise<ProyectoBloqueado> {
+  const rows = await tx.$queryRaw<ProyectoBloqueado[]>`
+    SELECT "estado"::text AS "estado", "valor_total"::text AS "valor_total",
+           to_char("fecha_inicio", 'YYYY-MM-DD') AS "fecha_inicio", to_char("fecha_fin", 'YYYY-MM-DD') AS "fecha_fin",
+           "beneficiarios_meta"
+    FROM "proyectos" WHERE "id" = ${proyectoId} AND "deleted_at" IS NULL FOR UPDATE`;
+  const row = rows[0];
+  if (!row) throw new RespuestaAbortada(apiError(PROYECTO_NO_EXISTE, 404, "NOT_FOUND"));
+  return row;
+}
+
 /**
  * Parses an amount sent as decimal string or JSON number into exact cents. A
  * number goes through `String()` and the same regex, so float noise

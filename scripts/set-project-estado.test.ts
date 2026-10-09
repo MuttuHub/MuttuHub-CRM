@@ -17,7 +17,7 @@ import { parseSetEstadoArgs, runSetEstado, type SetEstadoDb } from "./set-projec
 const proyecto = { id: "pry-1", codigo: "PRY-2026-001", nombre: "Demo", estado: "BORRADOR" }
 const usuario = { id: "usr-1", email: "qa@example.test" }
 
-function fakeDb(over: { proyecto?: unknown; usuario?: unknown } = {}) {
+function fakeDb(over: { proyecto?: unknown; usuario?: unknown; versiones?: number } = {}) {
   const calls: string[] = []
   const tx = {
     proyecto: {
@@ -28,6 +28,7 @@ function fakeDb(over: { proyecto?: unknown; usuario?: unknown } = {}) {
       }),
     },
     usuario: { findFirst: vi.fn(async () => ("usuario" in over ? over.usuario : usuario)) },
+    versionProyecto: { count: vi.fn(async () => over.versiones ?? 0) },
   }
   const client = { $transaction: async <T>(fn: (t: unknown) => Promise<T>) => fn(tx) } as unknown as SetEstadoDb
   return { client, tx, calls }
@@ -97,5 +98,30 @@ describe("runSetEstado", () => {
     const same = fakeDb({ proyecto: { ...proyecto, estado: "EN_EJECUCION" } })
     await expect(runSetEstado(same.client, ["PRY-1", "EN_EJECUCION"], print)).rejects.toThrow(/already/i)
     expect(same.calls).toEqual([])
+  })
+
+  it("warns when moving to EN_EJECUCION a project with no baseline version (dry run and apply)", async () => {
+    const dry: string[] = []
+    await runSetEstado(fakeDb().client, ["PRY-2026-001", "EN_EJECUCION"], (line) => dry.push(line))
+    expect(dry.join("\n")).toMatch(/WARNING: .*no baseline \(v0\)/)
+    expect(dry.join("\n")).toMatch(/baseline\/approve/)
+
+    const applied: string[] = []
+    await runSetEstado(
+      fakeDb().client,
+      ["PRY-2026-001", "EN_EJECUCION", "--actor", "qa@example.test", "--apply"],
+      (line) => applied.push(line),
+    )
+    expect(applied.join("\n")).toMatch(/WARNING/)
+  })
+
+  it("does not warn when the project already has its baseline or the target is another estado", async () => {
+    const withBaseline: string[] = []
+    await runSetEstado(fakeDb({ versiones: 1 }).client, ["PRY-2026-001", "EN_EJECUCION"], (line) => withBaseline.push(line))
+    expect(withBaseline.join("\n")).not.toMatch(/WARNING/)
+
+    const other: string[] = []
+    await runSetEstado(fakeDb().client, ["PRY-2026-001", "SUSPENDIDO"], (line) => other.push(line))
+    expect(other.join("\n")).not.toMatch(/WARNING/)
   })
 })

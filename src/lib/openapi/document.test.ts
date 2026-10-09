@@ -264,4 +264,13 @@ describe("buildOpenApiDocument", () => {
       ?.content?.["application/json"]?.schema
     expect(JSON.stringify(reporte)).toContain("reporte")
   })
+  it("registers the S8 baseline approval operation", () => {
+    const paths = buildOpenApiDocument().paths ?? {}
+    const op = paths["/api/v1/projects/{id}/baseline/approve"]?.post
+    expect(Object.keys(op?.responses ?? {})).toEqual(expect.arrayContaining(["201", "401", "403", "404", "409", "500"]))
+    const conflict = (op?.responses?.["409"] as { content?: Record<string, { schema?: unknown }> } | undefined)?.content?.[
+      "application/json"
+    ]?.schema
+    expect(JSON.stringify(conflict)).toContain("precondiciones")
+  })
 })

@@ -1,8 +1,10 @@
 /**
- * WHY: no API route moves a project to EN_EJECUCION in S4 (that is baseline
- * approval, S8.2), yet the execution module only works on such a project. This is
- * a LOCAL-ONLY manual-QA tool, not a feature: it sets `proyectos.estado` for one
- * project and audits the change. Do not add an API route that changes `estado`.
+ * WHY: manual QA of the execution module needs a project that is already EN_EJECUCION.
+ * The real way there is the baseline approval (POST /projects/:id/baseline/approve, S8),
+ * which also freezes version 0. This is a LOCAL-ONLY QA tool, not a feature: it sets
+ * `proyectos.estado` for one project and audits the change, WITHOUT creating v0, so a
+ * project moved this way cannot take modifications or `base=original` (the script warns).
+ * Do not add an API route that changes `estado` outside the baseline approval.
  *
  *   npx tsx scripts/set-project-estado.ts PRY-2026-001 EN_EJECUCION                   # dry run
  *   npx tsx scripts/set-project-estado.ts PRY-2026-001 EN_EJECUCION --actor me@x --apply
@@ -101,6 +103,12 @@ export async function runSetEstado(
     const host = connectionTarget(process.env.DATABASE_URL) ?? "unknown"
     print(`${args.mode === "apply" ? "Set estado — apply" : "Set estado — dry run (no writes)"}  (db host: ${host})`)
     print(`  ${proyecto.codigo} ${proyecto.nombre}: ${proyecto.estado} -> ${args.estado}`)
+    if (args.estado === "EN_EJECUCION" && (await tx.versionProyecto.count({ where: { proyecto_id: proyecto.id } })) === 0) {
+      print(
+        "  WARNING: this project has no baseline (v0): modifications and base=original will answer 409. " +
+          "Approve the baseline through POST /api/v1/projects/:id/baseline/approve instead.",
+      )
+    }
 
     if (args.mode !== "apply") {
       print("Dry run: nothing was written. Re-run with --actor <email> --apply to execute.")
