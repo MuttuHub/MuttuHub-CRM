@@ -1,6 +1,6 @@
 # Guía de prueba paso a paso: sección Proyectos (v2)
 
-Cubre lo construido en las slices S0 a S9: crear un proyecto desde una oportunidad ganada, ficha, historial,
+Cubre lo construido en las slices S0 a S10: crear un proyecto desde una oportunidad ganada, ficha, historial,
 equipo, estructura y Gantt (S3), plantilla Excel (S7), presupuesto y programación (S5), aprobación de línea base
 (S8), ejecución técnica y semáforo (S4), gastos y validación (S6), ficha financiera, modificaciones y versiones (S8),
 administración, "Mi resumen", y el tablero gerencial con indicadores y exportaciones a Excel (S9). Todo corre en local; nunca contra el Supabase remoto. Los textos entre comillas son
@@ -70,6 +70,11 @@ En la reunión (como `admin@`, salvo donde se indica):
    (`/proyectos?vista=tablero`): tarjetas del portafolio, semáforos por proyecto, insignia **No confirmado** y
    **Exportar Excel**. Abre **Ver detalle**, muestra los dos chips de semáforo del encabezado y, en la pestaña
    **Avance**, la sección **Indicadores**. (1 min; ver §J)
+
+9. **Vista móvil (S10)**: con el navegador en modo responsive o la ventana más angosta que 768 px, la lista y el
+   tablero pasan a tarjetas, y **Registrar avance** / **Registrar gasto** abren una hoja desde abajo con controles
+   de 44 px. Las barras de avance muestran real contra programado. (1 min; solo es una simulación por ancho, no un
+   teléfono real)
 
 Si el tiempo aprieta, corta el paso 2 y el 6. El paso 8 solo luce con el proyecto ya **En ejecución** (paso 3) y
 al menos un avance o gasto validado; un Borrador sale en el tablero como "Sin medir".
@@ -496,10 +501,14 @@ No existe todavía, dicho sin adornos:
 
 - **S9 terminada** (tablero, Indicadores por proyecto, exportaciones a Excel, bandera gerencial), pero falta su
   verificación independiente. **PDF no construido**: solo Excel; el PDF responde 400.
-- **S10 (pulido visual) se sigue terminando**: la ficha ya está en pestañas bajo un encabezado fijo y los chips de
-  semáforo ya llevan la palabra del color, pero faltan las barras de progreso, la hoja de captura móvil y las
-  listas en tarjetas por debajo de `md`. La interfaz es funcional, no definitiva. **El diseño no se comprobó en un
-  teléfono real.** Las pestañas se renderizan en una fila con desplazamiento horizontal.
+- **S10 (pulido visual) construida en código**: ficha en pestañas bajo un encabezado fijo, chips de semáforo con la
+  palabra del color, barras de progreso con nombre accesible, formularios de captura en una hoja inferior
+  (bottom sheet) por debajo de `md` con controles de 44 px, y lista y tablero en tarjetas por debajo de `md`.
+  Está cubierta por tests (nombres accesibles, contraste del semáforo, paleta compatible con modo oscuro), pero
+  **no hay comparación de capturas reales (1440 y 390 px, claro y oscuro)** y **el diseño no se comprobó en un
+  teléfono real**: el cambio de tarjetas y hoja se decide por ancho de ventana (`matchMedia`, 767 px). La relación
+  de contraste de la barra (relleno contra fondo) no se midió. Las pestañas se renderizan en una fila con
+  desplazamiento horizontal.
 - **No existe la sección de territorio** en esta rama (se retiró/nunca se construyó): el municipio es solo un filtro.
 - **La base remota NO tiene la columna de la bandera gerencial** (`puede_ver_tablero_gerencial`). No se migra sin
   autorización del usuario; la migración solo se aplicó a la base local.
@@ -533,5 +542,5 @@ tests con `exceljs`).
 Tampoco se verificó al pasar la ficha a pestañas: que cada paso se vea igual en el navegador (solo se leyeron
 `project-ficha-dialog.tsx` y los componentes de cada sección), cuánto tarda en mostrarse el contenido al abrir una
 pestaña por primera vez, ni cómo se ve el encabezado fijo con los dos chips en pantallas estrechas. El orden de
-las secciones dentro de cada pestaña es el del código; los componentes pueden cambiar en la ronda 2 de S10.
+las secciones dentro de cada pestaña es el del código (S10 ronda 2 ya está integrada).
 Haz un ensayo completo antes de la reunión.
