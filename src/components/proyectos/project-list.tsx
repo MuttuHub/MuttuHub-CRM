@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useIsMobile } from "@/components/proyectos/capture-surface";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -185,6 +186,9 @@ function ProjectTable({
   proyectos: ProjectListRow[];
   onOpenFicha: (id: string) => void;
 }) {
+  // Debajo de `md` la tabla de 1020 px se vuelve una lista de tarjetas (S10 WU4).
+  const mobile = useIsMobile();
+  if (mobile) return <ProjectCards proyectos={proyectos} onOpenFicha={onOpenFicha} />;
   return (
     <Table className="min-w-[1020px]">
       <TableHeader>
@@ -251,6 +255,62 @@ function ProjectTable({
         ))}
       </TableBody>
     </Table>
+  );
+}
+
+function ProjectCards({
+  proyectos,
+  onOpenFicha,
+}: {
+  proyectos: ProjectListRow[];
+  onOpenFicha: (id: string) => void;
+}) {
+  return (
+    <ul data-testid="proyecto-cards" className="flex flex-col gap-2.5 p-3">
+      {proyectos.map((proyecto) => (
+        <li
+          key={proyecto.id}
+          data-testid={`proyecto-card-${proyecto.id}`}
+          className="flex min-w-0 flex-col gap-2 rounded-[14px] border border-ink-200 bg-panel p-3"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <span className="font-mono text-[12px] font-semibold text-ink-700 tabular-nums">{proyecto.codigo}</span>
+            <ToneBadge
+              tone={ESTADO_PROYECTO_META[proyecto.estado].tone}
+              label={ESTADO_PROYECTO_META[proyecto.estado].label}
+            />
+          </div>
+          <div className="min-w-0">
+            <p className="font-semibold text-ink-950">{proyecto.nombre}</p>
+            <p className="text-[12px] text-ink-600">{proyecto.cliente.nombre}</p>
+          </div>
+          <dl className="grid grid-cols-1 gap-1 text-[12.5px]">
+            <div className="flex justify-between gap-2">
+              <dt className="text-ink-500">Responsable</dt>
+              <dd className="text-right text-ink-800">{proyecto.responsable?.nombre ?? "Sin asignar"}</dd>
+            </div>
+            <div className="flex justify-between gap-2">
+              <dt className="text-ink-500">Fechas</dt>
+              <dd className="text-right font-mono text-[12px] text-ink-600 tabular-nums">
+                {formatRango(proyecto.fecha_inicio, proyecto.fecha_fin)}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-2">
+              <dt className="text-ink-500">Valor total</dt>
+              <dd className="font-mono font-medium text-ink-900 tabular-nums">{formatValorTotal(proyecto.valor_total)}</dd>
+            </div>
+          </dl>
+          <Button
+            variant="outline"
+            onClick={() => onOpenFicha(proyecto.id)}
+            className="h-11 w-full rounded-11 border-ink-200 bg-panel text-[13px] font-semibold text-ink-700 hover:bg-ink-100"
+          >
+            <Eye className="size-3.5" strokeWidth={1.8} />
+            Ver detalle
+          </Button>
+        </li>
+      ))}
+    </ul>
   );
 }
 

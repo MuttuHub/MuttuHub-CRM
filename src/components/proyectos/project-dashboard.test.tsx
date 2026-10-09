@@ -5,6 +5,7 @@ import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { PortfolioFilters, ProjectKpis, ProjectsPortfolio } from "@/hooks/projects"
+import { mockViewport } from "@/test/viewport"
 import { ProjectDashboard } from "./project-dashboard"
 
 const { toast, usePortfolio, downloadPortfolioExport, state } = vi.hoisted(() => ({
@@ -117,6 +118,26 @@ describe("ProjectDashboard", () => {
     expect(within(fila).getByText("Verde")).toBeInTheDocument()
     expect(within(fila).getByText("21,4 %")).toBeInTheDocument()
     expect(within(fila).getByText("Posible retraso")).toBeInTheDocument()
+  })
+
+  it("below md the portfolio rows become cards that keep the server semáforos and a 44 px action", async () => {
+    mockViewport(true)
+    try {
+      const user = userEvent.setup()
+      render(<ProjectDashboard />)
+      expect(screen.queryByRole("table")).toBeNull()
+      const fila = screen.getByTestId("tablero-fila-p1")
+      expect(fila.tagName).toBe("LI")
+      expect(within(fila).getByTestId("chip-tecnico")).toHaveAttribute("data-color", "rojo")
+      expect(within(fila).getByTestId("chip-financiero")).toHaveAttribute("data-color", "verde")
+      expect(within(fila).getByText("21,4 %")).toBeInTheDocument()
+      const boton = within(fila).getByRole("button", { name: /Ver detalle/ })
+      expect(boton.className).toMatch(/(^|\s)h-11(\s|$)/)
+      await user.click(boton)
+      expect(screen.getByTestId("ficha-stub")).toHaveTextContent("p1")
+    } finally {
+      mockViewport(false)
+    }
   })
 
   it("lists a project that is not measurable with 'Sin medir' and no color", () => {

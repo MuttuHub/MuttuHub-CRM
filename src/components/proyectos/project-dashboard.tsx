@@ -19,6 +19,7 @@ import { formatPct } from "@/components/proyectos/project-kpis-panel";
 import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
 import { ProjectFichaDialog } from "@/components/proyectos/project-ficha-dialog";
 import { Button } from "@/components/ui/button";
+import { useIsMobile } from "@/components/proyectos/capture-surface";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -218,6 +219,9 @@ function Resumen({ data }: { data: NonNullable<ReturnType<typeof useProjectsPort
 /* ── Tabla ─────────────────────────────────────────────────────────────── */
 
 function TablaProyectos({ proyectos, onOpenFicha }: { proyectos: PortfolioProject[]; onOpenFicha: (id: string) => void }) {
+  // Debajo de `md` la tabla de 1020 px se vuelve una lista de tarjetas (S10 WU4).
+  const mobile = useIsMobile();
+  if (mobile) return <TarjetasProyectos proyectos={proyectos} onOpenFicha={onOpenFicha} />;
   return (
     <div className="overflow-x-auto">
       <Table className="min-w-[1020px]">
@@ -275,6 +279,52 @@ function TablaProyectos({ proyectos, onOpenFicha }: { proyectos: PortfolioProjec
         </TableBody>
       </Table>
     </div>
+  );
+}
+
+function TarjetasProyectos({ proyectos, onOpenFicha }: { proyectos: PortfolioProject[]; onOpenFicha: (id: string) => void }) {
+  return (
+    <ul className="flex flex-col gap-2.5">
+      {proyectos.map((proyecto) => (
+        <li
+          key={proyecto.id}
+          data-testid={`tablero-fila-${proyecto.id}`}
+          className="flex min-w-0 flex-col gap-2 rounded-[14px] border border-ink-200 bg-panel p-3"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <span className="font-mono text-[12px] font-semibold text-ink-700 tabular-nums">{proyecto.codigo}</span>
+            <ToneBadge tone={ESTADO_PROYECTO_META[proyecto.estado].tone} label={ESTADO_PROYECTO_META[proyecto.estado].label} />
+          </div>
+          <div className="min-w-0">
+            <p className="font-semibold text-ink-950">{proyecto.nombre}</p>
+            <p className="text-[12px] text-ink-600">{proyecto.cliente.nombre}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Semaforo testId="chip-tecnico" color={proyecto.semaforo_tecnico} />
+            <Semaforo testId="chip-financiero" color={proyecto.semaforo_financiero} />
+            {proyecto.alerta_retraso && <ToneBadge tone="alerta" label="Posible retraso" />}
+          </div>
+          <dl className="grid grid-cols-1 gap-1 text-[12.5px]">
+            <div className="flex justify-between gap-2">
+              <dt className="text-ink-500">Avance real</dt>
+              <dd className="font-mono tabular-nums">{formatPct(proyecto.kpis.tecnico?.avance_real ?? null)}</dd>
+            </div>
+            <div className="flex justify-between gap-2">
+              <dt className="text-ink-500">Ejecutado / asignado</dt>
+              <dd className="font-mono tabular-nums">{formatPct(proyecto.kpis.financiero?.ea ?? null)}</dd>
+            </div>
+          </dl>
+          <Button
+            variant="outline"
+            onClick={() => onOpenFicha(proyecto.id)}
+            className="h-11 w-full rounded-11 border-ink-200 bg-panel text-[13px] font-semibold text-ink-700 hover:bg-ink-100"
+          >
+            <Eye className="size-3.5" strokeWidth={1.8} />
+            Ver detalle
+          </Button>
+        </li>
+      ))}
+    </ul>
   );
 }
 

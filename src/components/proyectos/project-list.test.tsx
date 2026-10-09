@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type { ProjectFilters, ProjectListResponse, ProjectListRow } from "@/hooks/projects"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { mockViewport } from "@/test/viewport"
 import { ApiError } from "@/lib/api/http"
 import { ProjectList } from "./project-list"
 import { formatFechaCalendario } from "./project-display"
@@ -348,6 +349,37 @@ describe("ProjectList", () => {
     expect(screen.getByText("12 sem.")).toBeInTheDocument()
     expect(screen.getByText("$ 180.000.000")).toBeInTheDocument()
     expect(screen.getByText("1 proyecto")).toBeInTheDocument()
+  })
+
+  it("renders table rows on desktop and no card list", () => {
+    projectsQuery.data = { proyectos: [PROYECTO] }
+    render(<ProjectList />)
+    expect(screen.getByRole("table")).toBeInTheDocument()
+    expect(screen.queryByTestId("proyecto-cards")).toBeNull()
+  })
+
+  it("renders a card list instead of the 1020px table below md, with a 44 px 'Ver detalle'", async () => {
+    mockViewport(true)
+    projectsQuery.data = { proyectos: [PROYECTO] }
+    try {
+      const user = userEvent.setup()
+      render(<ProjectList />)
+      expect(screen.queryByRole("table")).toBeNull()
+      const cards = screen.getByTestId("proyecto-cards")
+      const card = within(cards).getByTestId(`proyecto-card-${PROYECTO.id}`)
+      expect(card).toHaveTextContent("PRY-2026-001")
+      expect(card).toHaveTextContent(PROYECTO.nombre)
+      expect(card).toHaveTextContent("En ejecución")
+      expect(card).toHaveTextContent("Ana Pérez")
+      expect(card).toHaveTextContent("$ 180.000.000")
+      const boton = within(card).getByRole("button", { name: /Ver detalle/ })
+      expect(boton.className).toMatch(/(^|\s)h-11(\s|$)/)
+      expect(cards.innerHTML).not.toMatch(/min-w-\[\d{3,}px\]/)
+      await user.click(boton)
+      expect(useProjectMock).toHaveBeenCalled()
+    } finally {
+      mockViewport(false)
+    }
   })
 
   it("renders a project with null responsable, fecha_fin and valor_total without crashing", () => {
