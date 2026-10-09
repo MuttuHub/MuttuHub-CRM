@@ -21,6 +21,7 @@ import "@/lib/openapi/paths/project-execution";
 import "@/lib/openapi/paths/project-budget";
 import "@/lib/openapi/paths/project-template";
 import "@/lib/openapi/paths/project-baseline";
+import "@/lib/openapi/paths/project-modifications";
 import "@/lib/openapi/paths/project-expenses";
 import "@/lib/openapi/paths/settings-semaforo-v2";
 
