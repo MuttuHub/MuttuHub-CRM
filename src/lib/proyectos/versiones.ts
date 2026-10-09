@@ -46,10 +46,10 @@ const byKey = <T>(key: (row: T) => string) => (a: T, b: T) => {
   return ka < kb ? -1 : ka > kb ? 1 : 0
 }
 
-const money = (value: string): string => fromCents(toCents(value))
+export const money = (value: string): string => fromCents(toCents(value))
 
 /** Canonical plain-decimal text: no trailing fractional zeros ("2.00" -> "2", "10.50" -> "10.5"). */
-function decimal(value: string): string {
+export function decimal(value: string): string {
   return value.includes(".") ? value.replace(/0+$/, "").replace(/\.$/, "") : value
 }
 
