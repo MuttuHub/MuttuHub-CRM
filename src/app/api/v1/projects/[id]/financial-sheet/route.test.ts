@@ -304,7 +304,7 @@ describe("GET financial-sheet: base=original (S8 U5)", () => {
 });
 
 describe("GET financial-sheet: access", () => {
-  it("answers 404, 403 for COLABORADOR and a non-member COORDINADOR, 200 for a member and 403 for VIS until its flag exists", async () => {
+  it("answers 404, 403 for COLABORADOR and a non-member COORDINADOR, 200 for a member, 200 for a flagged VIS and 403 for an unflagged one", async () => {
     vi.mocked(db.proyecto.findFirst).mockResolvedValueOnce(null);
     expect((await GET(get(), ctx)).status).toBe(404);
     for (const usuario of [colaborador, coordinador]) {
@@ -314,9 +314,11 @@ describe("GET financial-sheet: access", () => {
     authAs(coordinador);
     vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto({}, true));
     expect((await GET(get(), ctx)).status).toBe(200);
-    // The VIS flag has no column yet (pinned false until S9.2), so the shared predicate answers 403 today.
+    // The gerencial flag is a real column since S9.2: it opens the read (aggregates only), nothing else.
     authAs(visualizador);
     vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto());
+    expect((await GET(get(), ctx)).status).toBe(200);
+    authAs({ ...visualizador, puede_ver_tablero_gerencial: false } as unknown as Usuario);
     expect((await GET(get(), ctx)).status).toBe(403);
   });
 });
