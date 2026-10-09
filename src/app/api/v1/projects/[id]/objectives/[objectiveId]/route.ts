@@ -23,9 +23,11 @@ import {
   isUniqueViolation,
   ordenField,
   parseEstructuraBody,
+  ESTRUCTURA_STATE_MESSAGE,
 } from "@/lib/api/estructura";
 import { toObjetivoView } from "@/lib/proyectos/objetivo";
 import { OBJETIVO_DUPLICATE_MESSAGE, OBJETIVO_INDEX } from "../route";
+import { lockProyectoBorrador } from "@/lib/api/presupuesto";
 
 export const dynamic = "force-dynamic";
 
@@ -79,6 +81,7 @@ export const PATCH = withApiErrorHandling(
 
     try {
       const row = await db.$transaction(async (tx) => {
+        await lockProyectoBorrador(tx, id, ESTRUCTURA_STATE_MESSAGE);
         const updated = await tx.objetivo.update({ where: { id: objectiveId }, data: patch });
         if (cambios.length > 0) {
           await logChanges(
@@ -134,6 +137,7 @@ export const DELETE = withApiErrorHandling(
     }
 
     const row = await db.$transaction(async (tx) => {
+      await lockProyectoBorrador(tx, id, ESTRUCTURA_STATE_MESSAGE);
       const updated = await tx.objetivo.update({
         where: { id: objectiveId },
         data: { deleted_at: new Date() },

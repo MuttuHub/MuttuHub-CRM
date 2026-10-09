@@ -25,8 +25,10 @@ import {
   parseEstructuraBody,
   textoField,
   toDecimal2,
+  ESTRUCTURA_STATE_MESSAGE,
 } from "@/lib/api/estructura";
 import { toIndicadorView } from "@/lib/proyectos/indicador";
+import { lockProyectoBorrador } from "@/lib/api/presupuesto";
 
 export const dynamic = "force-dynamic";
 
@@ -86,6 +88,7 @@ export const POST = withApiErrorHandling(
 
     try {
       const row = await db.$transaction(async (tx) => {
+        await lockProyectoBorrador(tx, id, ESTRUCTURA_STATE_MESSAGE);
         const created = await tx.indicador.create({
           data: {
             proyecto_id: id,

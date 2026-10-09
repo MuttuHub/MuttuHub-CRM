@@ -37,6 +37,10 @@ import {
   toProjectItemV2,
   type ProjectRowV2,
 } from "@/lib/api/projects";
+import { lockProyectoBorrador } from "@/lib/api/presupuesto";
+
+const PROYECTO_GENERAL_STATE_MESSAGE =
+  "Solo se pueden editar los datos generales de un proyecto en Borrador.";
 
 export const dynamic = "force-dynamic";
 
@@ -173,11 +177,7 @@ export const PATCH = withApiErrorHandling(
     }
 
     if (existente.estado !== "BORRADOR") {
-      return apiError(
-        "Solo se pueden editar los datos generales de un proyecto en Borrador.",
-        409,
-        "INVALID_STATE",
-      );
+      return apiError(PROYECTO_GENERAL_STATE_MESSAGE, 409, "INVALID_STATE");
     }
 
     const body = await parseJsonBody<Record<string, unknown>>(request);
@@ -314,6 +314,7 @@ export const PATCH = withApiErrorHandling(
     }
 
     const row = await db.$transaction(async (tx) => {
+      await lockProyectoBorrador(tx, id, PROYECTO_GENERAL_STATE_MESSAGE);
       // Join replacements first: the re-read below then sees the new sets.
       if (lineas !== undefined) {
         await tx.proyectoLinea.deleteMany({ where: { proyecto_id: id } });

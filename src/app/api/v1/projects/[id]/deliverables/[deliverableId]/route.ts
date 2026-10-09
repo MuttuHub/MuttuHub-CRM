@@ -25,6 +25,7 @@ import {
   parseEstructuraBody,
   textoField,
   toDecimal2,
+  ESTRUCTURA_STATE_MESSAGE,
 } from "@/lib/api/estructura";
 import { toEntregableView } from "@/lib/proyectos/entregable";
 import {
@@ -32,6 +33,7 @@ import {
   ENTREGABLE_INDEX,
   checkActividadDelProyecto,
 } from "../route";
+import { lockProyectoBorrador } from "@/lib/api/presupuesto";
 
 export const dynamic = "force-dynamic";
 
@@ -106,6 +108,7 @@ export const PATCH = withApiErrorHandling(
 
     try {
       const row = await db.$transaction(async (tx) => {
+        await lockProyectoBorrador(tx, id, ESTRUCTURA_STATE_MESSAGE);
         const updated = await tx.entregable.update({ where: { id: deliverableId }, data: patch });
         if (cambios.length > 0) {
           await logChanges(
@@ -155,6 +158,7 @@ export const DELETE = withApiErrorHandling(
     }
 
     const row = await db.$transaction(async (tx) => {
+      await lockProyectoBorrador(tx, id, ESTRUCTURA_STATE_MESSAGE);
       const updated = await tx.entregable.update({
         where: { id: deliverableId },
         data: { deleted_at: new Date() },

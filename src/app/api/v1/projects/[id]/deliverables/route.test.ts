@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
 import type { Usuario } from "@prisma/client";
 
-const mocks = vi.hoisted(() => ({ txCreate: vi.fn() }));
+const mocks = vi.hoisted(() => ({ lock: vi.fn(), txCreate: vi.fn() }));
 
 vi.mock("@/lib/supabase/server", () => ({ requireApiUser: vi.fn() }));
 
@@ -24,7 +24,7 @@ vi.mock("@/lib/db", () => ({
     actividad: { findFirst: vi.fn() },
     entregable: { findMany: vi.fn() },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
-      fn({ entregable: { create: mocks.txCreate } }),
+      fn({ $queryRaw: mocks.lock, entregable: { create: mocks.txCreate } }),
     ),
   },
 }));
@@ -84,6 +84,7 @@ function uniqueViolation(constraint: string) {
 }
 
 beforeEach(() => {
+  mocks.lock.mockResolvedValue([{ estado: "BORRADOR", valor_total: null }] as never);
   authAs(gerencia);
   vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto as never);
   vi.mocked(db.actividad.findFirst).mockResolvedValue({ id: "act-1" } as never);
@@ -200,5 +201,28 @@ describe("POST /api/v1/projects/:id/deliverables", () => {
     expect((await res.json()).code).toBe("CONFLICT");
     mocks.txCreate.mockRejectedValueOnce(uniqueViolation("otro_uq"));
     expect((await POST(post(cuerpo), ctx)).status).toBe(500);
+  });
+});
+
+describe("project row lock (S8: a baseline approval cannot interleave with a structure write)", () => {
+  const casos: [string, () => Promise<Response>, ReturnType<typeof vi.fn>][] = [
+    ["POST", () => POST(post({ ...cuerpo, codigo: "1.4-E1" }), ctx), mocks.txCreate],
+  ];
+
+  it.each(casos)("%s locks the project row FOR UPDATE before writing", async (_name, call, write) => {
+    const res = await call();
+    expect(res.status).toBeLessThan(300);
+    expect(mocks.lock).toHaveBeenCalledTimes(1);
+    const sql = mocks.lock.mock.calls[0]![0] as readonly string[];
+    expect(sql.join(" ")).toMatch(/FROM "proyectos"[\s\S]*FOR UPDATE/);
+    expect(mocks.lock.mock.invocationCallOrder[0]).toBeLessThan(write.mock.invocationCallOrder[0]!);
+  });
+
+  it.each(casos)("%s answers 409 and writes nothing when the approval won the race", async (_name, call, write) => {
+    mocks.lock.mockResolvedValue([{ estado: "EN_EJECUCION", valor_total: null }] as never);
+    const res = await call();
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe("INVALID_STATE");
+    expect(write).not.toHaveBeenCalled();
   });
 });

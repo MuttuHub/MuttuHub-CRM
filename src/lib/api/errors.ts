@@ -31,6 +31,13 @@ export function apiError(
   return NextResponse.json({ ...extra, error, code }, { status });
 }
 
+/** Thrown inside a write transaction to roll it back and answer with `response`. */
+export class RespuestaAbortada extends Error {
+  constructor(public readonly response: Response) {
+    super("abortada");
+  }
+}
+
 /** Reads and parses a JSON body; returns null when the body is not JSON. */
 export async function parseJsonBody<T>(
   request: Request,

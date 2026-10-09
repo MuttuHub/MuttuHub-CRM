@@ -27,6 +27,7 @@ import {
   gateEstructuraWrite,
   isUniqueViolation,
   parseEstructuraBody,
+  ESTRUCTURA_STATE_MESSAGE,
 } from "@/lib/api/estructura";
 import { resolvePeso, toActividadV2View } from "@/lib/proyectos/actividad";
 import {
@@ -35,6 +36,7 @@ import {
   ACTIVIDAD_INDEX,
   checkSemanasEnProyecto,
 } from "../route";
+import { lockProyectoBorrador } from "@/lib/api/presupuesto";
 
 export const dynamic = "force-dynamic";
 
@@ -133,6 +135,7 @@ export const PATCH = withApiErrorHandling(
 
     try {
       const row = await db.$transaction(async (tx) => {
+        await lockProyectoBorrador(tx, id, ESTRUCTURA_STATE_MESSAGE);
         const updated = await tx.actividad.update({ where: { id: activityId }, data });
         if (cambios.length > 0) {
           await logChanges(
@@ -188,6 +191,7 @@ export const DELETE = withApiErrorHandling(
     }
 
     const row = await db.$transaction(async (tx) => {
+      await lockProyectoBorrador(tx, id, ESTRUCTURA_STATE_MESSAGE);
       const updated = await tx.actividad.update({
         where: { id: activityId },
         data: { deleted_at: new Date() },

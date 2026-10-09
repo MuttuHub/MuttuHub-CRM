@@ -25,8 +25,10 @@ import {
   parseEstructuraBody,
   textoField,
   toDecimal2,
+  ESTRUCTURA_STATE_MESSAGE,
 } from "@/lib/api/estructura";
 import { toEntregableView } from "@/lib/proyectos/entregable";
+import { lockProyectoBorrador } from "@/lib/api/presupuesto";
 
 export const dynamic = "force-dynamic";
 
@@ -99,6 +101,7 @@ export const POST = withApiErrorHandling(
 
     try {
       const row = await db.$transaction(async (tx) => {
+        await lockProyectoBorrador(tx, id, ESTRUCTURA_STATE_MESSAGE);
         const created = await tx.entregable.create({
           data: {
             proyecto_id: id,

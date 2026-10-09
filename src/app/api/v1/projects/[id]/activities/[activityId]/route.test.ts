@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
 import type { Usuario } from "@prisma/client";
 
-const mocks = vi.hoisted(() => ({ txUpdate: vi.fn() }));
+const mocks = vi.hoisted(() => ({ lock: vi.fn(), txUpdate: vi.fn() }));
 
 vi.mock("@/lib/supabase/server", () => ({ requireApiUser: vi.fn() }));
 
@@ -22,7 +22,7 @@ vi.mock("@/lib/db", () => ({
     entregable: { count: vi.fn() },
     registroBeneficiario: { count: vi.fn() },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
-      fn({ actividad: { update: mocks.txUpdate } }),
+      fn({ $queryRaw: mocks.lock, actividad: { update: mocks.txUpdate } }),
     ),
   },
 }));
@@ -74,6 +74,7 @@ function del(): Request {
 }
 
 beforeEach(() => {
+  mocks.lock.mockResolvedValue([{ estado: "BORRADOR", valor_total: null }] as never);
   authAs(gerencia);
   vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto as never);
   vi.mocked(db.actividad.findFirst).mockResolvedValue(fila as never);
@@ -223,5 +224,29 @@ describe("DELETE /api/v1/projects/:id/activities/:activityId", () => {
   it("returns 404 for a missing activity", async () => {
     vi.mocked(db.actividad.findFirst).mockResolvedValue(null);
     expect((await DELETE(del(), ctx)).status).toBe(404);
+  });
+});
+
+describe("project row lock (S8: a baseline approval cannot interleave with a structure write)", () => {
+  const casos: [string, () => Promise<Response>, ReturnType<typeof vi.fn>][] = [
+    ["PATCH", () => PATCH(patch({ semana_fin: 7 }), ctx), mocks.txUpdate],
+    ["DELETE", () => DELETE(del(), ctx), mocks.txUpdate],
+  ];
+
+  it.each(casos)("%s locks the project row FOR UPDATE before writing", async (_name, call, write) => {
+    const res = await call();
+    expect(res.status).toBeLessThan(300);
+    expect(mocks.lock).toHaveBeenCalledTimes(1);
+    const sql = mocks.lock.mock.calls[0]![0] as readonly string[];
+    expect(sql.join(" ")).toMatch(/FROM "proyectos"[\s\S]*FOR UPDATE/);
+    expect(mocks.lock.mock.invocationCallOrder[0]).toBeLessThan(write.mock.invocationCallOrder[0]!);
+  });
+
+  it.each(casos)("%s answers 409 and writes nothing when the approval won the race", async (_name, call, write) => {
+    mocks.lock.mockResolvedValue([{ estado: "EN_EJECUCION", valor_total: null }] as never);
+    const res = await call();
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe("INVALID_STATE");
+    expect(write).not.toHaveBeenCalled();
   });
 });

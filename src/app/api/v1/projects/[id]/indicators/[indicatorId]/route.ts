@@ -28,9 +28,11 @@ import {
   parseEstructuraBody,
   textoField,
   toDecimal2,
+  ESTRUCTURA_STATE_MESSAGE,
 } from "@/lib/api/estructura";
 import { toIndicadorView } from "@/lib/proyectos/indicador";
 import { INDICADOR_DUPLICATE_MESSAGE, INDICADOR_INDEX } from "../route";
+import { lockProyectoBorrador } from "@/lib/api/presupuesto";
 
 export const dynamic = "force-dynamic";
 
@@ -107,6 +109,7 @@ export const PATCH = withApiErrorHandling(
 
     try {
       const row = await db.$transaction(async (tx) => {
+        await lockProyectoBorrador(tx, id, ESTRUCTURA_STATE_MESSAGE);
         const updated = await tx.indicador.update({ where: { id: indicatorId }, data: patch });
         if (cambios.length > 0) {
           await logChanges(
@@ -156,6 +159,7 @@ export const DELETE = withApiErrorHandling(
     }
 
     const row = await db.$transaction(async (tx) => {
+      await lockProyectoBorrador(tx, id, ESTRUCTURA_STATE_MESSAGE);
       const updated = await tx.indicador.update({
         where: { id: indicatorId },
         data: { deleted_at: new Date() },

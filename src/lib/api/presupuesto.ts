@@ -6,7 +6,7 @@
 // transaction, so a baseline approval racing with an edit cannot slip a change in.
 
 import { Prisma, type Usuario } from "@prisma/client";
-import { apiError } from "@/lib/api/errors";
+import { apiError, RespuestaAbortada } from "@/lib/api/errors";
 import { db } from "@/lib/db";
 import { canManageProjects } from "@/lib/permissions";
 import { canReadProject, loadProjectScoped } from "@/lib/api/projects";
@@ -69,27 +69,25 @@ export async function gatePresupuestoRead(
   return { ok: true, value: scoped.row };
 }
 
-/** Thrown inside a write transaction to roll it back and answer with `response`. */
-export class RespuestaAbortada extends Error {
-  constructor(public readonly response: Response) {
-    super("abortada");
-  }
-}
+// Moved to `errors.ts` so `withApiErrorHandling` can answer it for every route.
+export { RespuestaAbortada };
 
 /**
  * Locks the project row and re-checks BORRADOR. Returns the `valor_total` read
  * under the lock (a concurrent PATCH may have changed it since the gate).
+ * `stateMessage` names the caller's own action in the 409 copy (default: budget).
  */
 export async function lockProyectoBorrador(
   tx: Pick<Prisma.TransactionClient, "$queryRaw">,
   proyectoId: string,
+  stateMessage: string = PRESUPUESTO_STATE_MESSAGE,
 ): Promise<{ valor_total: string | null }> {
   const rows = await tx.$queryRaw<{ estado: string; valor_total: string | null }[]>`
     SELECT "estado", "valor_total"::text AS "valor_total" FROM "proyectos" WHERE "id" = ${proyectoId} FOR UPDATE`;
   const row = rows[0];
   if (!row) throw new RespuestaAbortada(apiError(PROYECTO_NO_EXISTE, 404, "NOT_FOUND"));
   if (row.estado !== "BORRADOR") {
-    throw new RespuestaAbortada(apiError(PRESUPUESTO_STATE_MESSAGE, 409, "INVALID_STATE"));
+    throw new RespuestaAbortada(apiError(stateMessage, 409, "INVALID_STATE"));
   }
   return { valor_total: row.valor_total };
 }
