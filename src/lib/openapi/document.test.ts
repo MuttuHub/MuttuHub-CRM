@@ -300,4 +300,15 @@ describe("buildOpenApiDocument", () => {
       expect(parametros, ruta).toContain("original")
     }
   })
+  it("registers the S9 KPI paths: portfolio dashboard and per-project KPIs", () => {
+    const paths = buildOpenApiDocument().paths ?? {}
+    const portfolio = paths["/api/v1/dashboard/portfolio"]?.get
+    expect(Object.keys(portfolio?.responses ?? {})).toEqual(expect.arrayContaining(["200", "400", "401", "403", "500"]))
+    const names = ((portfolio?.parameters ?? []) as { name: string }[]).map((p) => p.name)
+    expect(names).toEqual(expect.arrayContaining(["corte", "linea_id", "cliente_id", "responsable_id", "estado", "municipio_id"]))
+    expect(JSON.stringify(portfolio)).not.toContain("por_territorio")
+    const one = paths["/api/v1/projects/{id}/kpis"]?.get
+    expect(Object.keys(one?.responses ?? {})).toEqual(expect.arrayContaining(["200", "400", "401", "403", "404", "409"]))
+    expect(JSON.stringify(one?.parameters)).toContain("original")
+  })
 })
