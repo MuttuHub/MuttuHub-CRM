@@ -2,8 +2,9 @@ import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { describe, expect, it } from "vitest"
 
-// V0.1 (v6 visual alignment): `.dark` adopts the v6 token VALUES; `:root`
-// (light theme) must stay byte-for-byte frozen (decision D1). These tests
+// V0.1 (v6 visual alignment): `.dark` adopts the v6 token VALUES. U1 (D3): the
+// light theme keeps the app's base palette and gets DERIVED values for every
+// v6 token, verified against WCAG ratios below. These tests
 // read the raw CSS text instead of rendering it, since jsdom does not
 // compute values from an unlinked stylesheet.
 
@@ -36,7 +37,7 @@ const root = block(":root")
 const dark = block(".dark")
 
 describe("globals.css design tokens (V0.1)", () => {
-  describe("light theme (:root) stays frozen", () => {
+  describe("light theme (:root) keeps the base palette", () => {
     it.each([
       ["--background", "#fdfbfb"],
       ["--foreground", "#281d20"],
@@ -47,7 +48,7 @@ describe("globals.css design tokens (V0.1)", () => {
       ["--border", "#ece5e7"],
       ["--page", "#efeaeb"],
       ["--panel", "#fdfbfb"],
-      ["--ink-500", "#846f74"],
+      ["--ink-500", "#7a656a"],
       ["--ink-700", "#5a474c"],
       ["--exito", "#127c4a"],
       ["--alerta", "#b45309"],
@@ -94,19 +95,19 @@ describe("globals.css design tokens (V0.1)", () => {
     })
   })
 
-  describe("new tokens added by V0.1", () => {
-    it("--border-strong exists in both themes; :root reproduces the current single border weight", () => {
-      expect(propValue(root, "--border-strong")).toBe("#ece5e7")
+  describe("v6 tokens exist in both themes", () => {
+    it("--border-strong: light is a >= 3:1 control border, dark is the v6 #34272c", () => {
+      expect(propValue(root, "--border-strong")).toBe("#9b8c91")
       expect(propValue(dark, "--border-strong")).toBe("#34272c")
     })
 
-    it("--input-bg exists in both themes; :root reproduces the current (transparent-on-background) look", () => {
-      expect(propValue(root, "--input-bg")).toBe("var(--background)")
+    it("--input-bg: light is a white field, dark is the v6 page color", () => {
+      expect(propValue(root, "--input-bg")).toBe("#ffffff")
       expect(propValue(dark, "--input-bg")).toBe("#120c0e")
     })
 
-    it("--overlay exists in both themes; :root reproduces the current bg-black/10 overlay", () => {
-      expect(propValue(root, "--overlay")).toBe("rgba(0, 0, 0, 0.1)")
+    it("--overlay: light is a warm ink scrim, dark the v6 scrim", () => {
+      expect(propValue(root, "--overlay")).toBe("rgba(40, 29, 32, 0.45)")
       expect(propValue(dark, "--overlay")).toBe("rgba(12, 6, 9, 0.66)")
     })
 
@@ -117,6 +118,21 @@ describe("globals.css design tokens (V0.1)", () => {
       expect(propValue(dark, "--accent-tint")).toBe("var(--rose-50)")
     })
 
+    it("--accent-bar (3px sidebar/active rail) is the brand pink in both themes", () => {
+      expect(propValue(root, "--accent-bar")).toBe("#cd1560")
+      expect(propValue(dark, "--accent-bar")).toBe("#cd1560")
+      expect(propValue(block("@theme"), "--color-accent-bar")).toBe("var(--accent-bar)")
+    })
+
+    it("--input-bg and --border-strong are exposed as Tailwind colors", () => {
+      expect(propValue(block("@theme"), "--color-border-strong")).toBe("var(--border-strong)")
+      expect(propValue(block("@theme"), "--color-input-bg")).toBe("var(--input-bg)")
+    })
+
+    it("--shell-surface is the v6 surface #1b1316", () => {
+      expect(propValue(block("@theme"), "--color-shell-surface")).toBe("#1b1316")
+    })
+
     it("fixed-light toast tokens reproduce the current light card, unconditionally", () => {
       expect(propValue(root, "--toast-bg")).toBe("#ffffff")
       expect(propValue(root, "--toast-fg")).toBe("#281d20")
@@ -125,6 +141,57 @@ describe("globals.css design tokens (V0.1)", () => {
       expect(propValue(dark, "--toast-bg")).toBeUndefined()
       expect(propValue(dark, "--toast-fg")).toBeUndefined()
       expect(propValue(dark, "--toast-border")).toBeUndefined()
+    })
+  })
+
+  describe("contrast (WCAG)", () => {
+    const lin = (c: number) => ((c /= 255) <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
+    const lum = (hex: string) => {
+      const [r, g, b] = [1, 3, 5].map((i) => lin(parseInt(hex.slice(i, i + 2), 16)))
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+    const ratio = (a: string, b: string) => {
+      const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x)
+      return (hi + 0.05) / (lo + 0.05)
+    }
+    const v = (body: string, prop: string) => propValue(body, prop) as string
+
+    it.each([
+      ["--ink-500 (table head, tertiary) on card", "--ink-500", "--card"],
+      ["--ink-500 on page", "--ink-500", "--page"],
+      ["--ink-500 on muted", "--ink-500", "--muted"],
+      ["--muted-foreground on card", "--muted-foreground", "--card"],
+      ["--foreground on card", "--foreground", "--card"],
+      ["--primary on card (tab text/links)", "--primary", "--card"],
+    ])("light text: %s >= 4.5:1", (_n, fg, bg) => {
+      expect(ratio(v(root, fg), v(root, bg))).toBeGreaterThanOrEqual(4.5)
+    })
+
+    it.each([
+      ["--ink-500 (table head, tertiary) on card", "--ink-500", "--card"],
+      ["--ink-500 on page", "--ink-500", "--page"],
+      ["--ink-700 (secondary) on card", "--ink-700", "--card"],
+      ["--foreground on card", "--foreground", "--card"],
+    ])("dark text: %s >= 4.5:1", (_n, fg, bg) => {
+      expect(ratio(v(dark, fg), v(dark, bg))).toBeGreaterThanOrEqual(4.5)
+    })
+
+    it.each([
+      ["--border-strong (control boundary) on --input-bg", "--border-strong", "--input-bg"],
+      ["--border-strong on --background", "--border-strong", "--background"],
+      ["--ring (focus) on --background", "--ring", "--background"],
+      ["--primary (tab underline) on --card", "--primary", "--card"],
+      ["--accent-bar on --card", "--accent-bar", "--card"],
+    ])("light non-text: %s >= 3:1", (_n, fg, bg) => {
+      expect(ratio(v(root, fg), v(root, bg))).toBeGreaterThanOrEqual(3)
+    })
+
+    it.each([
+      ["--ring (focus) on --background", "--ring", "--background"],
+      ["--accent-brand (underline/accent) on --card", "--accent-brand", "--card"],
+      ["--accent-bar on --card", "--accent-bar", "--card"],
+    ])("dark non-text: %s >= 3:1", (_n, fg, bg) => {
+      expect(ratio(v(dark, fg), v(dark, bg))).toBeGreaterThanOrEqual(3)
     })
   })
 

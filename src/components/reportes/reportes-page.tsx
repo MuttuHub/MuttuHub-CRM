@@ -67,7 +67,7 @@ export function ReportesPage() {
             justify-center; con overflow-x-auto eso recorta los triggers y hace
             inalcanzable el arranque scrolleando. La importancia gana al orden
             del CSS de Tailwind. */}
-        <TabsList className="no-scrollbar flex !h-auto w-full !justify-start items-center gap-1 overflow-x-auto rounded-lg bg-ink-100 p-1 lg:flex-wrap">
+        <TabsList variant="pill" className="no-scrollbar flex !h-auto w-full !justify-start items-center gap-1 overflow-x-auto rounded-lg bg-ink-100 p-1 lg:flex-wrap">
           <TabTareasTrigger />
           {CARAS.map((cara) => (
             <TabsTrigger

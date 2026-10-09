@@ -20,12 +20,17 @@
   /* v6 "accent-soft" (README): a fixed, non-flipping tint — identical to the
      light rose-200 shade already in use, now named for the v6 contract. */
   --color-accent-soft: #f5bad2;
+  /* v6 3px active rail (sidebar item, tabs): brand pink in both themes. */
+  --color-accent-bar: var(--accent-bar);
+  /* v6 control surface: field border + fill (Input, Select, outline Button). */
+  --color-border-strong: var(--border-strong);
+  --color-input-bg: var(--input-bg);
 
   /* Ink (warm neutral) scale */
   --color-ink-100: var(--ink-100);
   --color-ink-200: var(--ink-200);
   --color-ink-300: var(--ink-300);
-  /* #846f74: darkened from #8c757b for WCAG AA (4.66:1 on white). */
+  /* #7a656a (light): 5.4:1 on white, 4.5:1 on the page tint (U1). */
   --color-ink-500: var(--ink-500);
   --color-ink-600: var(--ink-600);
   --color-ink-700: var(--ink-700);
@@ -35,7 +40,7 @@
 
   /* Dark shell (sidebar) extended tones from the mockup — fixed */
   --color-shell-border: #241a1c;
-  --color-shell-surface: #221a1c;
+  --color-shell-surface: #1b1316;
   --color-shell-chip: #2e2225;
   --color-shell-kbd: #382a2e;
   --color-shell-text: #c9bcc0;
@@ -154,7 +159,7 @@
   --ink-100: #f7f3f4;
   --ink-200: #ece5e7;
   --ink-300: #ddd2d5;
-  --ink-500: #846f74;
+  --ink-500: #7a656a;
   --ink-600: #725d62;
   --ink-700: #5a474c;
   --ink-800: #3f2f33;
@@ -178,21 +183,21 @@
   --login-enlace-fg: var(--color-rose-500);
   --login-activo-fg: var(--color-rose-700);
 
-  /* --- v6 tokens added by V0.1 (visual alignment) ---
-     Additive only: none of the values above this block changed. Each token
-     below reproduces the CURRENT light appearance (decision D1 — light stays
-     frozen) until the primitive that consumes it (ui/input, ui/select,
-     ui/dialog, ui/sheet — V0.4/V0.5) is migrated to read it. */
-  /* Light had only one border weight; --border-strong starts equal to it. */
-  --border-strong: #ece5e7;
-  /* Inputs render `bg-transparent` today, showing the page background through. */
-  --input-bg: var(--background);
-  /* Reproduces the current dialog/sheet overlay (`bg-black/10`). */
-  --overlay: rgba(0, 0, 0, 0.1);
-  /* v6 "accent" brand color — not yet consumed by any light-mode class. */
+  /* --- v6 tokens, light values DERIVED (U1, decision D3) ---
+     Same semantic names as .dark, values chosen on the light palette above:
+     WCAG >= 4.5:1 for text (see globals.tokens.test.ts) and >= 3:1 for
+     control borders / focus / accent rails. The brand pink stays #CD1560. */
+  /* Field boundary: #9b8c91 is 3.2:1 on white (WCAG 1.4.11); the decorative
+     --border hairline stays the soft #ece5e7. */
+  --border-strong: #9b8c91;
+  --input-bg: #ffffff;
+  /* Warm-ink scrim (the dark theme's is a near-black plum). */
+  --overlay: rgba(40, 29, 32, 0.45);
+  /* v6 "accent" brand color: 3.8:1 on white, used for non-text accents. */
   --accent-brand: #eb3f85;
-  /* v6 "accent-tint": alias to the existing chip-tint token. */
   --accent-tint: var(--rose-50);
+  /* 3px active rail color (5.4:1 on white, 3.4:1 on the dark shell). */
+  --accent-bar: #cd1560;
   /* Sonner toast: FIXED light card regardless of app theme (README "Toast"
      contract) — identical to the current (frozen) light card/border/text. */
   --toast-bg: #ffffff;
@@ -290,6 +295,7 @@
      the toast stays a fixed light card in both themes. --accent-soft lives
      in @theme (fixed, non-flipping). */
   --border-strong: #34272c;
+  --accent-bar: #cd1560;
   --input-bg: #120c0e;
   --overlay: rgba(12, 6, 9, 0.66);
   --accent-brand: #eb3f85;

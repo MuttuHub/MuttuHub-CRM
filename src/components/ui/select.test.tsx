@@ -39,6 +39,12 @@ describe("Select", () => {
     expect(screen.getByRole("combobox")).toHaveClass("data-[size=sm]:h-10")
   })
 
+  it("uses the v6 radius (12px) and control surface tokens on the trigger", () => {
+    render(<BasicSelect />)
+    expect(screen.getByRole("combobox")).toHaveClass("rounded-12", "border-border-strong", "bg-input-bg")
+    expect(screen.getByRole("combobox")).not.toHaveClass("rounded-lg")
+  })
+
   it("shows the item's label instead of the raw value once selected (BUG #7)", async () => {
     const user = userEvent.setup()
     render(<BasicSelect />)
