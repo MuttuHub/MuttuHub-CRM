@@ -176,6 +176,8 @@ Deja `PRY-2026-001-valida.xlsx` (se importa) y `PRY-2026-001-error-v12.xlsx`
 sube este último en el diálogo **Importar plantilla** de la ficha para mostrar
 la tabla de errores agrupada por hoja y el reporte en CSV.
 
+Para probar a mano todo lo de Proyectos (S3 a S8) paso a paso, ver `docs/guia-prueba-proyectos.md`.
+
 ---
 
 ## 2. Guion sugerido por bloque de funcionalidad

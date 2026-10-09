@@ -1,12 +1,51 @@
 # Guía de prueba paso a paso: sección Proyectos (v2)
 
-Cubre lo construido en las slices S0–S3: crear un proyecto desde una oportunidad ganada, lista, ficha, historial
-auditado, equipo (S2.6) y estructura técnica (S3). Todo corre en local; nunca contra el Supabase remoto.
+Cubre lo construido en las slices S0 a S8: crear un proyecto desde una oportunidad ganada, ficha, historial,
+equipo, estructura y Gantt (S3), plantilla Excel (S7), presupuesto y programación (S5), aprobación de línea base
+(S8), ejecución técnica y semáforo (S4), gastos y validación (S6), ficha financiera, modificaciones y versiones (S8),
+administración y "Mi resumen". Todo corre en local; nunca contra el Supabase remoto. Los textos entre comillas son
+los que renderiza la interfaz (verificados contra el código el 2026-10-09).
+
+Usuarios (contraseña `MuttuDemo2026!`, dominio `demo.muttuhub.local`):
+
+| Usuario | Rol | Para qué lo usas aquí |
+|---|---|---|
+| `admin@` | Administrador | Todo, incluida Administración |
+| `gerencia@` | Gerencia | Gestiona proyectos; recibe la notificación de sobreejecución |
+| `coordinador@` | Coordinador | Ve solo sus proyectos; puede registrar avances/gastos y solicitar modificaciones si es integrante |
+| `colaborador@` | Colaborador | Solo lectura; sirve para los checks negativos |
+
+## Recorrido de 10 minutos para la reunión
+
+Camino feliz más corto que muestra más valor. Prepáralo ANTES (ver §0 y §A): proyecto ya importado y aprobado.
+
+Antes de la reunión (5 min, una sola vez):
+1. §0 completo (migraciones, reset de la demo, `npm run dev`).
+2. Crea un proyecto (§1) y corre el piloto de la plantilla con `--apply` (§A.3). Deja ese proyecto en Borrador.
+3. Si quieres mostrar el flujo de errores en vivo, deja el segundo archivo (`...-error-v12.xlsx`) a mano.
+
+En la reunión (como `admin@`, salvo donde se indica):
+1. **Proyectos > Ver detalle** del proyecto en Borrador: datos, Estructura con el **Cronograma por semanas** (Gantt)
+   y **Presupuesto** (Σ asignado = Valor total). (1 min)
+2. En Estructura, **Importar plantilla** con el archivo de error: se ve la tabla por hoja y **Descargar reporte
+   (.csv)**; nada se escribió. (1 min)
+3. **Aprobar línea base** > **Aprobar**: el proyecto pasa a **En ejecución** y nacen las secciones de ejecución,
+   gastos, modificaciones y versiones. (1 min)
+4. **Ejecución técnica**: **Registrar avance** en un entregable con un enlace https; mira el **Semáforo técnico**
+   y la insignia **No confirmado**. (2 min)
+5. **Gastos > Registrar gasto** con soporte. Sal y entra como `gerencia@`: cola **Gastos por validar** y **Validar**.
+   Muestra que el registrante ve "Tú lo registraste" en vez de los botones. (2 min)
+6. **Sobreejecución**: un gasto mayor al asignado del rubro; como `gerencia@` **Validar** da 409 con
+   "Se notificó a Gerencia" y aparece en la campana, grupo **PROYECTOS**. (1 min)
+7. **Solicitar modificación** (traslado) como `admin@`, **Aprobar** como `gerencia@`, y en **Versiones** compara
+   `v0` contra **Vigente**. (2 min)
+
+Si el tiempo aprieta, corta el paso 2 y el 6.
 
 ## 0. Preparación
 
-1. Base local arriba (Docker/Supabase en `127.0.0.1:54322`). Aplicar las migraciones nuevas (cuatro de S3 y la de
-   membresías) **solo a la base local**:
+1. Base local arriba (Docker/Supabase en `127.0.0.1:54322`). Aplicar TODAS las migraciones pendientes (S3 a S8)
+   **solo a la base local**:
    ```bash
    npm run db:migrate:status:local
    node --env-file=.env.local node_modules/prisma/build/index.js migrate deploy
@@ -18,8 +57,10 @@ auditado, equipo (S2.6) y estructura técnica (S3). Todo corre en local; nunca c
    npm run db:demo:reset:local -- --apply
    ```
 3. Levantar el servidor: `npm run dev` (si lo levantas desde Windows y WSL no conecta, usa la IP de la puerta de
-   enlace; ver `docs/guia-demo.md` §1.6). La primera carga de cada ruta puede tardar 30–60 s.
-4. Usuarios (contraseña `MuttuDemo2026!`): `admin@`, `gerencia@`, `coordinador@`, `colaborador@` + `demo.muttuhub.local`.
+   enlace; ver `docs/guia-demo.md` §1.6). La primera carga de cada ruta puede tardar 30 a 60 s.
+4. Los scripts con `tsx` (piloto de plantilla y `set-project-estado`) cargan `.env.local` solos y se niegan a
+   correr contra una base que no sea local. En el shell donde se desarrolló `tsx` NO funcionaba (esbuild de
+   Windows): córrelos desde un shell donde `tsx` sí arranque (WSL o PowerShell con `npx tsx --version` OK).
 
 ## 1. Crear un proyecto (admin)
 
@@ -67,6 +108,263 @@ En la ficha de un proyecto en **Borrador**, como admin o gerencia:
 6. **Solo lectura**: entra como `coordinador@` (miembro) o `colaborador@`. La estructura se ve pero sin controles de
    edición. Un proyecto fuera de Borrador también queda de solo lectura con una nota que lo explica.
 
+## 4b. Cronograma (Gantt, S3.6b)
+
+Está dentro de **Estructura**, debajo de los objetivos. Cualquier rol que vea la ficha lo ve.
+
+1. En la ficha de un proyecto con fechas y actividades, busca el encabezado **Cronograma por semanas**.
+2. Esperado: una cabecera `S1, S2, ...` con la fecha de cada semana, y por objetivo una barra por actividad con
+   su código, ubicada entre su semana inicial y final.
+3. Crea otra actividad en Estructura (§4): la barra aparece sin recargar. Una actividad con peso manual muestra el
+   icono **Peso manual**.
+4. Estados vacíos: sin actividades, "Aún no hay actividades para mostrar en el cronograma."; sin fechas del
+   proyecto, "Define las fechas del proyecto para ver el cronograma."
+5. Es solo lectura: no se arrastra ni se edita desde el Gantt.
+
+## A. Plantilla Excel (S7)
+
+Solo `admin@` o `gerencia@`, y solo con el proyecto en **Borrador**. Los botones **Descargar plantilla** e
+**Importar plantilla** están en el encabezado de Estructura. Otros roles no los ven; fuera de Borrador tampoco.
+
+### A.1 Descargar y llenar
+1. **Descargar plantilla**. Si el proyecto no tiene fechas, la API responde 409: "Define las fechas del proyecto
+   antes de descargar la plantilla."
+2. El libro tiene nueve hojas: `1. Instrucciones`, `2. Proyecto`, `3. Objetivos`, `4. Actividades`,
+   `5. Entregables`, `6. Indicadores`, `7. Presupuesto`, `8. Programación`, `9. Catálogos` (protegida).
+   `2. Proyecto` trae código y cliente ya llenos; ahí van fechas, valor total y "Meta de beneficiarios".
+3. Llénalo a mano solo si hay tiempo. Para la reunión usa el piloto (A.3), que genera libros ya llenos.
+
+### A.2 Validar e importar
+1. **Importar plantilla**. Se abre el diálogo "Importar plantilla de proyecto": reemplaza estructura, presupuesto,
+   programación, fechas, líneas y municipios del borrador. Si hay errores, no se escribe nada.
+2. Elige el `.xlsx` en "Archivo de la plantilla (.xlsx, máx. 4 MB)" y pulsa **Validar plantilla**.
+3. Libro válido: "La plantilla es válida.", resumen (objetivos, actividades, entregables, indicadores, rubros con
+   presupuesto, celdas de programación) y "Se reemplazará: ...". Pulsa **Confirmar importación**.
+   Un responsable desconocido sale como advertencia ("no bloquean la importación").
+4. Libro con errores: alerta "La plantilla tiene N errores. No se importó nada" y tabla por hoja con columnas
+   Regla, Fila, Columna, Valor, Mensaje. **Descargar reporte (.csv)** baja el detalle.
+5. Verifica que tras la importación la estructura, el Gantt y el presupuesto quedaron llenos, y que el
+   **Historial** muestra un solo lote.
+6. Negativos:
+   - Archivo que no es Excel: "Solo se acepta la plantilla en formato Excel (.xlsx)."
+   - Más de 4 MB: "El archivo supera el límite de 4 MB."
+   - Proyecto ya aprobado: los botones desaparecen (la API responde 409).
+   - Proyecto con avances, mediciones o beneficiarios: 409 con el mensaje del historial (no se reemplaza).
+   - `coordinador@` o `colaborador@`: no ven los botones (la API responde 403).
+
+### A.3 Piloto local (libros de ejemplo "CedeTextil", cifras ilustrativas)
+Necesita un proyecto en Borrador ya creado (§1). Primero en seco:
+```bash
+npx tsx scripts/import-plantilla-demo.ts --project PRY-2026-001
+npx tsx scripts/import-plantilla-demo.ts --project PRY-2026-001 --actor admin@demo.muttuhub.local --apply
+```
+Con `--apply` escribe en `tmp/plantilla-demo/` el libro válido (`PRY-2026-001-valida.xlsx`, se importa) y el que
+falla (`PRY-2026-001-error-v12.xlsx`: el total no cuadra con el presupuesto por $50.000). Sube el segundo en el
+diálogo para mostrar la tabla de errores. Ojo: el libro válido fija fechas 2026-10-05 a 2027-01-29, valor total
+$177.360.000 y responsable `ana@muttu.co` (no existe en la demo: sale la advertencia). Ver también
+`docs/guia-demo.md` §1.7.
+
+## B. Presupuesto y programación mensual (S5)
+
+Sección **Presupuesto** de la ficha, después de Estructura. Se edita solo en **Borrador** y solo `admin@` o
+`gerencia@`; el resto lo ve en solo lectura.
+
+1. Tabla por rubro con columna **Asignado**. Escribe montos (acepta coma o punto) y pulsa **Guardar presupuesto**.
+2. Debajo: **Σ asignado**, **Valor total** ("Sin definir" si no hay) y **Diferencia** (Σ A menos valor total).
+   Si el valor total estaba vacío, se fija con la suma al guardar.
+3. Si Σ A no coincide con el valor total aparece **Igualar valor total a Σ A**: al pulsarlo el valor total pasa a
+   ser la suma guardada y la diferencia queda en $ 0. Es lo que exige la línea base.
+4. **Programación mensual**: una columna por mes del proyecto y una fila por rubro con monto. Escribe lo
+   programado y **Guardar programación**. Un rubro sin monto asignado no se puede programar ("Asigna un monto a
+   algún rubro para poder programarlo."). Mientras no cuadre, aparece **Programación pendiente**.
+5. El control (Σ programación menos asignado) es informativo en borrador, pero deberá ser $ 0 para aprobar la
+   línea base.
+6. Negativos: un monto inválido avisa antes de guardar ("Ingresa un valor válido..."); en un proyecto ya aprobado
+   la sección queda de solo lectura con "El presupuesto y la programación solo se editan mientras el proyecto está
+   en borrador."; `coordinador@` o `colaborador@` no ven controles de edición.
+
+## C. Aprobar línea base (S8): cómo un proyecto llega a EN EJECUCIÓN
+
+Es la única vía real. Solo `admin@` o `gerencia@`, solo con el proyecto en **Borrador**.
+
+1. En la cabecera de la ficha aparece **Aprobar línea base**. Se abre un diálogo: "Al aprobar, la estructura y el
+   presupuesto quedan congelados (versión 0) y el proyecto pasa a En ejecución. Esta acción no se puede deshacer."
+2. Para ver qué bloquea, pulsa **Aprobar** con el proyecto incompleto: la API responde 409 y el diálogo lista TODAS
+   las precondiciones en rojo, por ejemplo:
+   - "El proyecto no tiene un valor total mayor que cero."
+   - "El proyecto debe tener fechas de inicio y fin válidas."
+   - "La meta de beneficiarios debe ser mayor que cero." (se fija al crear el proyecto o con la plantilla)
+   - "El proyecto no tiene objetivos." / "El objetivo X no tiene actividades." / "La actividad X no tiene entregables."
+   - "La suma del presupuesto (...) no es igual al valor total del proyecto (...); diferencia ..."
+   - "Programación pendiente." / "La programación del rubro X no coincide con lo asignado; control ..."
+   - "El rubro suspendido X tiene un monto asignado pendiente de reasignación."
+   - "El periodo AAAA-MM está fuera del rango del proyecto."
+3. Corrige (B, §4 o la plantilla) y vuelve a pulsar **Aprobar**. Esperado: el diálogo se cierra, el estado pasa a
+   **En ejecución**, el botón desaparece y el **Historial** registra la aprobación en un solo lote.
+4. Efectos: Estructura, Presupuesto y plantilla quedan cerrados; se habilitan **Ejecución técnica**, **Gastos**,
+   **Modificaciones** y **Versiones** (con la versión `v0`).
+5. Atajo solo para QA local, SIN versión 0: `npx tsx scripts/set-project-estado.ts PRY-2026-001 EN_EJECUCION
+   --actor admin@demo.muttuhub.local --apply` (en seco por defecto). Un proyecto así NO tiene v0: Versiones dice
+   "La línea base aún no está aprobada.", Modificaciones falla ("El proyecto no tiene línea base aprobada.") y el
+   selector Base en **Original (v0)** da "La versión original aún no existe.". Para la reunión usa la aprobación real.
+6. `coordinador@` y `colaborador@` no ven el botón.
+
+## D. Ejecución técnica y semáforo (S4)
+
+Sección **Ejecución técnica**. En Borrador solo dice: "La ejecución técnica estará disponible cuando el proyecto
+tenga su línea base aprobada." Escribe `admin@`, `gerencia@` o `coordinador@` integrante; anular es solo de
+admin/gerencia.
+
+1. **Semáforo técnico**: insignia "Semáforo técnico: Verde / Amarillo / Rojo", "Corte al <fecha>", y
+   **Avance real**, **Avance programado**, **Desviación** (en pp). El selector **Base** ofrece **Vigente** y
+   **Original (v0)**.
+2. Insignia **No confirmado**: aparece mientras los umbrales del semáforo no estén confirmados (ver §H). Es lo
+   esperado hoy.
+3. Por actividad: estado (No iniciada, En curso, Finalizada, Finalizada con retraso, calculado por el servidor),
+   barra de progreso y sus entregables con "Meta ... / Contado ...".
+4. **Registrar avance** en un entregable: Fecha, Cantidad, Observación (opcional) y "Medio de verificación" con
+   tres opciones: **Sin medio**, **Archivo** o **Enlace** (URL https + "Nombre del enlace").
+   - Con archivo o enlace, el avance queda **Cuenta** y mueve el semáforo.
+   - **Sin medio** queda como **Pendiente de soporte** y NO cuenta (el entregable muestra "N pendiente de soporte").
+5. **Registrar medición** en un indicador (Fecha, Valor, Observación) y **Registrar beneficiarios** (Fecha,
+   Cantidad, Actividad opcional). Se ven en sus listas con la última medición.
+6. **Anular** (solo admin/gerencia): pide "Motivo de anulación"; el registro queda con insignia **Anulado/Anulada**
+   y deja de contar. Nada se borra; el Historial lo audita.
+7. Negativos:
+   - Fecha futura: "La fecha del avance no puede ser posterior a hoy."
+   - Sin fecha: "La fecha es obligatoria."
+   - Cantidad que supera la meta acumulada: aparece "Justificación del exceso"; sin ella, "Indica una
+     justificación del exceso."
+   - Enlace no https o vacío: "Completa el enlace y su nombre." (el servidor: "El enlace debe ser una URL https
+     válida (máximo 2000 caracteres).")
+   - `colaborador@` ve todo sin controles; un `coordinador@` que NO es integrante tampoco los ve.
+   - Borrar un entregable con avances (en Estructura) responde 409.
+
+## E. Gastos y validación (S6)
+
+Sección **Gastos**. Registran `admin@`, `gerencia@` o `coordinador@` integrante, solo con el proyecto
+**En ejecución**. Validan y rechazan solo `admin@` y `gerencia@`. Regla central: no puedes validar ni rechazar un
+gasto que tú registraste.
+
+1. Como `admin@`: **Registrar gasto**. Campos: Rubro (solo rubros con monto asignado), Valor, Fecha del documento,
+   Periodo, Tipo de soporte (Factura de proveedor, Cuenta de cobro de persona natural, ...), Número de documento,
+   Tipo y Número de identificación, Nombre del tercero, Descripción y soporte (**Archivo** o **Enlace**).
+   Pulsa **Registrar**.
+2. Esperado: el gasto aparece como **Registrado** con el resumen por estado ("Registrado: 1 gasto · $ ...").
+3. **Alerta de duplicado**: registra otro con el mismo número de identificación y número de documento. Aparece
+   "Gasto registrado, con avisos" con "Ya existe un gasto con el mismo NIT/cédula y número de documento (...)". No
+   bloquea; pulsa **Entendido**.
+4. **Validación por otro usuario**: como `admin@` (el registrante) la fila dice "Tú lo registraste" y no hay
+   botones. Entra como `gerencia@`: en **Proyectos** aparece la cola **Gastos por validar · N**, y en la ficha el
+   gasto tiene **Validar** y **Rechazar**.
+5. **Validar**: pasa a **Validado** y alimenta la **Ficha financiera** (§F). Si faltan tipo y número de
+   identificación, **Validar** está deshabilitado con "Completa el tipo y número de identificación del tercero
+   antes de validar." y el gasto lleva la insignia **Datos incompletos**.
+6. **Rechazar**: pide "Motivo del rechazo" (obligatorio) y **Confirmar rechazo**; la fila muestra
+   "Rechazado: <motivo>". No hay pantalla para corregir un rechazado (ver Límites).
+7. **Anular un gasto validado** (admin/gerencia): botón **Anular** con motivo; queda **Anulado**.
+8. **Sobreejecución**:
+   1. Como `admin@` registra un gasto con Valor mayor que el asignado del rubro (o mayor que lo que queda).
+      Sale el aviso "Este gasto, sumado a los gastos validados, superaría el valor asignado al rubro." (si la API lo
+      devuelve) y la fila lleva **Supera el asignado**.
+   2. Como `gerencia@` pulsa **Validar**: error 409 en la fila, "Validar este gasto superaría el valor asignado al
+      rubro. Se notificó a Gerencia." El gasto sigue **Registrado**, con la insignia **Supera el asignado**.
+   3. La campana (**Notificaciones**) de `gerencia@` muestra el grupo **PROYECTOS** con "Gasto supera el asignado
+      del rubro" y el código del proyecto. Refresca si no aparece. Al abrir la campana se marcan como leídas. Hoy la
+      notificación lleva a `/proyectos` (no abre la ficha).
+   4. Solo se notifica a usuarios Gerencia; `admin@` ve la marca en la lista y en la cola pero no recibe campana.
+9. **Soporte**: en cada gasto, el botón con el nombre del soporte ("Ver soporte <nombre>") abre la descarga firmada
+   (60 s). Cada acceso se registra. Si falla: "No pudimos abrir el soporte. Inténtalo de nuevo." Un `coordinador@`
+   integrante ve los soportes de su proyecto; `colaborador@` no ve la sección de gestión.
+10. Negativos: sin soporte, "Adjunta al menos un soporte (archivo o enlace)."; rubro sin asignado, "Solo puedes
+    registrar gastos en rubros con valor asignado."; validar un gasto que ya no está registrado, 409 "Solo se pueden
+    validar o rechazar gastos en estado registrado."; el registrante que fuerza la llamada recibe 403 "No puedes
+    validar un gasto que tú registraste."
+
+## F. Ficha financiera (S5/S6/S8)
+
+Sección **Financiero**, después de Ejecución técnica. Visible para quienes pueden leer el proyecto (admin, gerencia y coordinador integrante).
+
+1. Tabla por rubro con A (asignado), P (programado), E (ejecutado = gastos **Validados**), D y los porcentajes E/P y
+   E/A, color por fila y fila de total.
+2. Selector **Corte** (mes) y selector **Base**: **Vigente** u **Original (v0)**. En Borrador la opción Original no
+   existe (tooltip: "La versión original estará disponible con la línea base aprobada.").
+3. Mientras no haya gastos validados: "Ejecución disponible cuando se registren gastos" (en Borrador siempre).
+4. Valida un gasto (§E) y recarga la sección: E sube y el color del rubro cambia según los umbrales. Si E supera A
+   el color es rojo.
+5. Cambia **Base** a **Original (v0)** tras una modificación aprobada (§G): A y P vuelven a los valores del v0
+   mientras E (los gastos) no cambia.
+6. Insignia **No confirmado** mientras los umbrales no estén confirmados (§H).
+7. Si el gasto va por debajo de lo programado y el avance técnico está atrasado aparece el aviso "Posible retraso:
+   el gasto va por debajo de lo programado y el avance técnico está atrasado."
+8. Negativo: la API restringe la lectura a quienes pueden ver el proyecto; el comportamiento exacto de
+   `colaborador@` aquí no se verificó.
+
+## G. Modificaciones, versiones y comparación (S8)
+
+Secciones **Modificaciones** y **Versiones**. En Borrador: "Las modificaciones estarán disponibles cuando la línea
+base esté aprobada." y "La línea base aún no está aprobada."
+
+1. Como `admin@`, `gerencia@` o `coordinador@` integrante: **Solicitar modificación**. El diálogo dice "Gerencia la
+   revisa y, si la aprueba, se crea una nueva versión del proyecto."
+2. Elige **Tipo de modificación**: Traslado entre rubros, Adición de recursos, Reducción de recursos,
+   Reprogramación de periodos, Cronograma, Entregables e indicadores. Cambia solo lo necesario, escribe el
+   **Motivo** y **Enviar solicitud**.
+   - Traslado: baja un rubro y sube otro por el mismo valor (Σ = 0).
+   - Adición: sube rubros (el valor total pasa a ser la nueva suma). Reducción: lo contrario.
+3. La solicitud queda **Pendiente** en la lista. Como `admin@` o `gerencia@`: **Aprobar** o **Rechazar**
+   (**Confirmar rechazo** con "Comentario del rechazo"). Aprobar crea la versión 1; la fila queda **Aprobada**,
+   "por <nombre> · Versión 1". Un `coordinador@` solo solicita; no decide.
+4. **Versiones**: tabla con `v0` (Línea base) y `v1` (Modificación), y la comparación **Desde** / **Hasta**
+   (`v0` ... `Vigente`). Muestra las diferencias agrupadas (Presupuesto, Programación, Actividades, ...), con
+   "Desaparece" / "Aparece" para elementos nuevos o eliminados.
+5. Reglas a comprobar (el formulario lista cada una en rojo):
+   - **REQ-GAS-06**: pide un traslado que deje un rubro por debajo de lo ya validado como gasto: "El valor
+     asignado de «R01» no puede quedar por debajo de lo ya ejecutado ($ ...)." Hace falta tener antes un gasto
+     **Validado** en ese rubro (§E).
+   - "Un traslado no puede cambiar el valor total del proyecto (diferencia $ ...)."
+   - "Una adición debe aumentar el valor total del proyecto." / "Una reducción debe disminuir el valor total del
+     proyecto."
+   - "El periodo AAAA-MM ya transcurrió: no se puede reprogramar." (depende del parámetro "Modificación bloquea
+     periodos pasados", §H)
+   - "La fecha de fin no puede ser anterior a la de inicio."
+   - Solicitud vieja: "La solicitud se basa en una versión anterior; ..." y "La solicitud ya fue decidida."
+6. Negativo: en Borrador o sin v0 no hay formulario; `colaborador@` no ve controles.
+
+## H. Administración: catálogos v2 y parámetros del semáforo (solo `admin@`)
+
+Menú **Administración** (otros roles son redirigidos). Más abajo en la página están las dos secciones.
+
+1. **Catálogos de proyectos**: "Renombra o suspende rubros, líneas estratégicas y municipios. Nada se elimina: lo
+   suspendido deja de ofrecerse en proyectos nuevos y puede restaurarse." Tres tablas: **Rubros**,
+   **Líneas estratégicas**, **Municipios**.
+2. Cada fila muestra **Activo** o **Suspendido**. Botones **Renombrar <nombre>**, **Suspender <nombre>** y
+   **Restaurar <nombre>**. Alta de rubro/línea con Código y Nombre; alta de municipio con Nombre, Departamento y
+   Código DANE (opcional).
+3. Prueba: suspende un municipio, abre el diálogo de crear proyecto o la estructura: ya no se ofrece. Restáuralo y
+   vuelve. Los inactivos siguen visibles en esta pantalla con su insignia.
+4. Negativo: renombrar un rubro que ya tiene presupuesto responde "El rubro tiene datos asociados: no se puede
+   renombrar, solo suspender." Un rubro nunca se elimina. Suspender un rubro con monto asignado en un borrador
+   marca la fila de Presupuesto con "Rubro suspendido pendiente de reasignación" y bloquea la línea base.
+5. **Umbrales del semáforo**: "Valores provisionales hasta que el equipo de producto los confirme. Marca cada
+   parámetro como confirmado solo cuando esté validado." Parámetros: Umbral 1 (pp), Umbral 2 (pp), Tolerancia (%),
+   Retraso (%), Avance requiere medio, Modificación bloquea periodos pasados. Cada uno con insignia **Confirmado**
+   o **No confirmado**.
+6. Cambia un valor, marca **Confirmar <parámetro>** y pulsa **Guardar parámetros**. Vuelve a Ejecución técnica o
+   Financiero: la insignia **No confirmado** del semáforo desaparece cuando los parámetros que usa quedan
+   confirmados. (No verificado qué parámetros exactos controlan cada insignia.)
+7. Cambiar "Avance requiere medio" altera si un avance sin medio cuenta; hazlo solo para demostrar, y déjalo como estaba.
+
+## I. Mi resumen (S2.7)
+
+1. Entra al tablero principal (ruta `/`) y abre la pestaña **Mi resumen**.
+2. Bloque **Proyectos en ejecución**: "N proyectos", lista de código, nombre y cliente, y **Ver proyectos**.
+   Solo cuenta los **En ejecución** (un Borrador no aparece). Si no hay: "No tienes proyectos en ejecución."
+3. Bloque **Oportunidades en prospección**: "N oportunidades" con nombre, cliente y valor. Si no hay: "No tienes
+   oportunidades en prospección."
+4. Alcance: admin y gerencia ven todo; `coordinador@` ve solo sus proyectos como integrante. Aprueba una línea
+   base y comprueba que el proyecto pasa de no aparecer a aparecer.
+
 ## 5. Ensayo automatizado (opcional)
 
 ```bash
@@ -77,9 +375,31 @@ npm run db:demo:reset:local -- --apply           # dejar limpio al terminar
 
 ## 6. Límites conocidos (para decirlo en la reunión)
 
-Aún **no existen**: avances y semáforo de ejecución (S4), presupuesto y programación (S5), gastos y validación (S6),
-plantilla Excel (S7), línea base y versiones (S8), dashboards (S9), diseño visual final (S10), ni el Gantt.
-No hay edición de datos generales del proyecto desde la UI, ni filtro por rol en el selector del equipo. La
-estructura solo la edita administración o gerencia, y solo en Borrador. Las revisiones nativas (RDD) de T4, T5 y de
-S3 no se ejecutaron. Los valores por defecto de S3 (peso, borrado con hijos, medio exigido como texto libre) están
-en `odd/tasks/v2-projects-s3-structure.md` y esperan confirmación del PO.
+No existe todavía, dicho sin adornos:
+
+- **S9 en curso, no terminado**: dashboards de proyectos, exportaciones y el tablero gerencial. No los muestres como
+  entregados.
+- **S10 en curso, no terminado**: el diseño visual final; la interfaz actual es funcional, no definitiva.
+- **Cerrar, suspender o cancelar un proyecto**: ninguna slice lo construye (P14). Un proyecto En ejecución no tiene
+  salida desde la interfaz.
+- Gastos: no hay pantalla para corregir un gasto **Rechazado** (la API sí lo permite), y el formulario acepta un
+  soporte por gasto (la API admite hasta cinco). La notificación de sobreejecución lleva a `/proyectos`, no abre la
+  ficha del proyecto. No hay notificaciones por solicitudes de modificación.
+- Modificaciones: el formulario no permite agregar ni quitar actividades, entregables o indicadores.
+- No hay edición de datos generales del proyecto desde la interfaz, ni filtro por rol en el selector del equipo.
+  La estructura, el presupuesto y la importación solo se tocan en Borrador y solo por admin o gerencia.
+- Un proyecto puesto en En ejecución con `scripts/set-project-estado.ts` no tiene versión 0: sin Versiones, sin
+  Modificaciones y sin base Original.
+- **Revisiones nativas (RDD) pendientes**: el runtime de desarrollo no era elegible; ninguna slice desde S3 tiene
+  revisión nativa aprobada. Se sustituyó por verificación independiente de un segundo agente en S7; la de S8
+  (verificación independiente de la ronda 2) sigue pendiente.
+- **Valores por defecto sin confirmar por el dueño de producto**: umbrales del semáforo (de ahí la insignia
+  **No confirmado**), peso por defecto de las actividades, borrado con hijos, medio exigido, "Modificación bloquea
+  periodos pasados", tope de importación (4 MB) y las reglas de notificación de sobreejecución. Están en los
+  documentos `odd/tasks/v2-projects-s*-execution.md`.
+- Todo es local: nada está empujado ni desplegado, y la base remota no se tocó.
+
+Qué NO pudo verificarse al escribir esta guía: no se ejecutó la aplicación, los scripts ni las pruebas; los textos
+salen de leer el código. En particular no se comprobó contra la base real que el libro del piloto deje el proyecto
+sin precondiciones de línea base, ni qué parámetros controlan exactamente cada insignia **No confirmado**.
+Haz un ensayo completo antes de la reunión.
