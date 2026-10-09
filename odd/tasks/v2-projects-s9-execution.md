@@ -56,16 +56,16 @@ Route: delegated writer per round, one commit per unit, then independent verific
   (`proyecto_id IN`), sums via `groupBy`/`$queryRaw`, never row loading. RED: constant call count for 1 vs 50
   projects (each `findMany`/`groupBy` called once); **parity** against `loadTecnicoStatus` + the financial-sheet total
   for the same fixture (corte before/inside/after the project; BORRADOR).
-- [ ] **U4** Routes + bench (`dashboard/portfolio/route.ts`, `projects/[id]/kpis/route.ts`, OpenAPI,
+- [x] **U4** (6df4b13, 8cab543) Routes + bench (`dashboard/portfolio/route.ts`, `projects/[id]/kpis/route.ts`, OpenAPI,
   `scripts/migrate-v2/bench-dashboard.ts`, ~400). RED: 403 for an unflagged COLABORADOR and 200 for a flagged one;
   a COORDINADOR sees member projects only; filters (línea principal, cliente, responsable, estado, municipio); both
   semáforos and the state per project; no `por_territorio` key; corte echoed; bad corte 400; the per-project
   404 -> 403 -> 409 -> 400 order; `base=original`.
-- [ ] **U5** Exports (`src/lib/proyectos/export-xlsx.ts`, export routes, ~380). RED: the workbook opens with `exceljs`
+- [x] **U5** (23cb5a9, e6b0616; refactors f02c717, 81f0fcd) Exports (`src/lib/proyectos/export-xlsx.ts`, export routes, ~380). RED: the workbook opens with `exceljs`
   and has the expected sheets; the financiera total row equals the `computeFicha` total; no tercero/soporte header for
   ADM, COORD-M and a flagged VIS; an `EXPORTAR` audit row is written and an audit failure does not fail the download;
   `formato=pdf` -> 400.
-- [ ] **U6** UI (`project-dashboard.tsx`, `project-kpis-panel.tsx`, hooks, tabs in `/proyectos`, ~400). RED: the tab is
+- [x] **U6** (8d1c544, 6ff6bab) UI (`project-dashboard.tsx`, `project-kpis-panel.tsx`, hooks, tabs in `/proyectos`, ~400). RED: the tab is
   hidden for an unflagged COLABORADOR; colors render from the payload without recomputation; filters change the query
   key; empty state; the export button hits the route; the ficha shows the KPI panel and the "no confirmado" badge.
 
@@ -109,15 +109,49 @@ Route: delegated writer per round, one commit per unit, then independent verific
     after the project. No live-DB parity yet: the bench (U4) is the live check.
   - Gates: focused vitest green, `npx tsc --noEmit` clean, eslint clean on touched files, full suite 2744/2745 with the
     single failure being the financial-sheet fixture above (fixed): no load-flakes seen this run.
+- 2026-10-09 (round 2, U4-U6, one bounded writer; local DB only, bench via Windows `node.exe --env-file=.env.local`
+  because `node_modules` holds the win32 esbuild). Baseline full suite before starting: 269 files / 2745 tests green.
+  - U4. Loader got the optional frozen input (`original: {proyectoId, snapshot}`: structure, start date, A, P and
+    beneficiarios_meta from v0; avances, mediciones and E stay live), because the per-project `base=original` is in D3 and
+    the sheets already support it. RED: 2 tests failed (input ignored), then 11/11 with parity against `loadTecnicoStatus`
+    given the same `estructura`. Routes `dashboard/portfolio` (gate `canReadProjectList || COORDINADOR`, rows through
+    `projectListWhere`) and `projects/:id/kpis` (404 -> 403 -> 409 -> 400, `base`); RED: modules missing, then 20/20.
+    Helpers `src/lib/api/kpis-http.ts` (corte parser, bigint -> decimal string). OpenAPI `paths/project-kpis.ts` (RED: 1 test
+    failing, then 19/19). Bench `scripts/migrate-v2/bench-dashboard.ts` (+ pure `bench-stats.ts`, written together with its
+    4 tests, no separate RED): 50 BENCH- projects x 20 activities x 3 deliverables x 30 VALIDADO expenses (3000 avances,
+    1500 gastos, 1800 programacion cells) on 127.0.0.1:54322; 1 warm-up + 10 runs of project query + loader + aggregate:
+    **min 40.4 / p50 45.8 / p95 68.0 / max 68.0 ms**; PASS (< 3 s) and the cache table is NOT warranted (< 1.5 s). The seeded rows were
+    deleted in `finally` (checked: 0 BENCH- projects/users/gastos left). Output JSON in the gitignored `scripts/migrate-v2/out/`.
+  - U5. `src/lib/proyectos/export-xlsx.ts` (`xlsxFichaFinanciera`, `xlsxFichaProyecto`, `xlsxPortafolio`, `celdaTexto`
+    formula guard, `assertSinEncabezadosProhibidos`): RED = module missing, then 17/17 (workbook reopened with exceljs; the
+    total row equals `computeFicha`'s). Routes `projects/:id/export?ficha&formato&corte&base` and
+    `dashboard/portfolio/export` (cap 500 rows, 403 before the `formato` 400, `EXPORTAR` audit best-effort, `formato=pdf` -> 400):
+    RED = routes missing, then 19/19. To avoid forking the numbers, the financial-sheet computation moved to
+    `src/lib/api/financial-sheet.ts`, the portfolio read to `src/lib/api/portafolio.ts` and the single-project KPIs to
+    `src/lib/api/kpis-proyecto.ts` (behavior-preserving; the existing route tests stayed green: 16 + 12).
+  - U6. Hooks `useProjectKpis`, `useProjectsPortfolio`, `downloadProjectExport`, `downloadPortfolioExport` (RED 6/6 then green);
+    `CurrentUser.puede_ver_tablero_gerencial` (`/auth/me` already returns the full row); `ProjectKpisPanel` in the ficha
+    between Ejecución and Financiero (7 tests; a payload whose color contradicts its numbers is painted verbatim);
+    `ProjectDashboard` (10 tests: filters change the query filters, empty/loading/error, export button, no "territorio");
+    `ProyectosVista` tabs on `/proyectos?vista=tablero` (hidden for an unflagged COLABORADOR, even by URL; 11 tests);
+    `project-list.tsx` now reads the real flag instead of the hardcoded `false`. `project-list.test.tsx` (mocks the hooks
+    wholesale) got `useProjectKpis`/`downloadProjectExport` stubs; `project-ficha-dialog.test.tsx` got a `/kpis` fetch branch.
+  - Territory removal: nothing to remove here (map section 4). Guards: portfolio payload has no `por_territorio`, OpenAPI does
+    not mention it, the dashboard renders no "territorio" text; `rg -in "por_territorio|territorio" src` = only comments.
+  - Gates: focused vitest per unit green; `npx tsc --noEmit` clean before every commit; eslint clean on touched files
+    (the 2 `invite` warnings are pre-existing and elsewhere); full suite **279 files / 2843 tests green** under `TZ=America/Bogota`,
+    no load-flakes seen.
+  - Deviations: (1) role-aware redaction is structural, as decided in the map: every readable role gets only aggregates and no
+    workbook has a gasto, tercero or soporte column (pinned per role ADM, COORD-M, flagged VIS + a guard that refuses such a header);
+    there is no per-role column branching. (2) The `formato=pdf` copy is "Formato no disponible. Por ahora solo se exporta en Excel (xlsx).".
+    (3) The `linea_id` filter matches any linked line (as the list does); the row carries `linea_principal`. (4) Bench stats
+    written together with their tests. (5) Native review unavailable in this runtime (see Constraints): high tier -> needs the
+    independent verifier.
 
 ## Next step
 
-Round 2 (U4-U6). U4: routes + bench. Build `GET dashboard/portfolio` (gate: `canReadProjectList(u)` or `rol ===
-COORDINADOR`; rows through `projectListWhere`, then `loadKpisPortafolio` over `proyectos` rows of
-`{id, estado, fecha_inicio, fecha_fin, beneficiarios_meta}` with `getSemaforoParametrosV2()`; response per project
-uses `kpisProyecto` blocks, bigint cents serialized with `fromCents`; aggregate from `kpisPortafolio(list, corte)`).
-`GET projects/:id/kpis` is not batched: call `loadKpisPortafolio` with that single project (same code path) except
-`base=original`, which needs the `resolverBase` snapshot (feed the frozen structure/budget the way `loadTecnicoStatus`
-`estructura` and `rubrosDelOriginal` do; the loader currently covers vigente only, so add an optional frozen-structure
-input there if parity with the sheet is needed). Corte: calendar date `AAAA-MM-DD`, default `todayInBogota()`, 400 on a
-bad one. Bench per the map section 7. Then U5, U6 as listed.
+Independent read-only verification of S9 (U1-U6; high tier, no native review here) and, with the user's authorization, the
+remote migration of the gerencial flag (D7). Open questions for the PO: confirm the semáforo parameters (the UI shows
+"No confirmado" until then), PDF format (N-23), and the `dashboard/portfolio` path replacing the SDD's `dashboard/projects`.
+Merge note for when `feat/v6-visual-alignment` / `local/todo-integrado` land: delete their `dashboard/projects/route.ts(.test)`,
+`cara-management(.test)` and the territory block of `print-dashboard.tsx`.
