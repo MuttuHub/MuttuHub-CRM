@@ -46,6 +46,7 @@ test.setTimeout(300_000);
 
 test("Projects demo: convert a won opportunity into PRY-2026-001 and see it listed", async ({
   page,
+  context,
 }) => {
   await test.step("1. Login as gerencia (full project access)", async () => {
     // ?next=/proyectos sends the redirect straight to the module, so this
@@ -181,21 +182,29 @@ test("Projects demo: convert a won opportunity into PRY-2026-001 and see it list
     await beat(page, 1200);
   });
 
-  await test.step("8. Open the ficha and see conversion + creation as ONE audited step", async () => {
-    // The row asserted in step 7 now has a read-only ficha behind "Ver detalle".
+  await test.step("8. Open the ficha in a new tab and see conversion + creation as ONE audited step", async () => {
+    // The row asserted in step 7 has a read-only ficha behind "Ver detalle". Since S12 the ficha is its own page
+    // (/proyectos/<id>) and "Ver detalle" is a target=_blank link, so it opens in a NEW browser tab.
     const row = page.getByRole("row", { name: /PRY-2026-001/ });
-    await row.getByRole("button", { name: "Ver detalle" }).click();
+    const [ficha] = await Promise.all([
+      context.waitForEvent("page"),
+      row.getByRole("link", { name: "Ver detalle" }).click(),
+    ]);
+    await ficha.waitForLoadState("domcontentloaded", { timeout: 90_000 });
+    await expect(ficha).toHaveURL(/\/proyectos\/[0-9a-f-]{36}$/, { timeout: 60_000 });
+    // No dialog opened on the list tab, and the ficha page has no dialog either.
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(ficha.getByText("PRY-2026-001").first()).toBeVisible({ timeout: 60_000 });
+    for (const tab of ["Resumen", "Estructura", "Avance", "Presupuesto", "Gastos", "Cambios"]) {
+      await expect(ficha.getByRole("tab", { name: tab })).toBeVisible();
+    }
+    await beat(ficha, 1200);
 
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible({ timeout: 60_000 });
-    await expect(dialog.getByText("PRY-2026-001").first()).toBeVisible({ timeout: 60_000 });
-    await beat(page, 1200);
-
-    // Since S10 the ficha opens on Resumen; Historial lives in the Cambios tab.
-    await dialog.getByRole("tab", { name: "Cambios" }).click();
+    // The ficha opens on Resumen; Historial lives in the Cambios tab.
+    await ficha.getByRole("tab", { name: "Cambios" }).click();
 
     // The Historial section runs its own query (GET .../audit).
-    await expect(dialog.getByText("Historial")).toBeVisible({ timeout: 60_000 });
+    await expect(ficha.getByText("Historial")).toBeVisible({ timeout: 60_000 });
 
     // The demo's whole point, proven on screen: the CONVERTIR of the
     // opportunity and the CREAR of the project share one lote_id and are
@@ -203,7 +212,7 @@ test("Projects demo: convert a won opportunity into PRY-2026-001 and see it list
     // its own step ("Integrante del equipo"). Each assertion is scoped to its
     // step, which is stricter than counting steps: the conversion step must NOT
     // carry the team entity, and each step keeps exactly one action badge.
-    const pasoConversion = dialog
+    const pasoConversion = ficha
       .getByTestId("historial-paso")
       .filter({ hasText: "Conversión" });
     await expect(pasoConversion).toHaveCount(1, { timeout: 30_000 });
@@ -211,14 +220,15 @@ test("Projects demo: convert a won opportunity into PRY-2026-001 and see it list
     await expect(pasoConversion.getByText("Creación")).toBeVisible();
     await expect(pasoConversion.getByText("Integrante del equipo")).toHaveCount(0);
 
-    const pasoEquipo = dialog
+    const pasoEquipo = ficha
       .getByTestId("historial-paso")
       .filter({ hasText: "Integrante del equipo" });
     await expect(pasoEquipo).toHaveCount(1, { timeout: 30_000 });
     await expect(pasoEquipo.getByText("Creación")).toBeVisible();
-    await beat(page, 3000); // let the viewer read the two audited steps
+    await beat(ficha, 3000); // let the viewer read the two audited steps
 
-    await dialog.getByRole("button", { name: "Cerrar" }).click();
+    // Back on the list tab: the ficha tab is closed and nothing changed here.
+    await ficha.close();
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await beat(page, 1000);
   });
