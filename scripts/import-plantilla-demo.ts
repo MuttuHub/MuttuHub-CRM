@@ -92,7 +92,7 @@ export function parseDemoArgs(argv: readonly string[]): DemoArgs {
 }
 
 /** LE03/LE02 when the catalog has them, otherwise the first two active lines. */
-function elegirLineas(contexto: ContextoValidacion) {
+export function elegirLineas(contexto: ContextoValidacion) {
   const activas = contexto.lineas.filter((linea) => linea.activo)
   const preferidas = ["LE03", "LE02"].flatMap((codigo) => activas.filter((linea) => linea.codigo === codigo))
   const elegidas = preferidas.length === 2 ? preferidas : activas.slice(0, 2)
@@ -100,7 +100,7 @@ function elegirLineas(contexto: ContextoValidacion) {
   return elegidas
 }
 
-function elegirMunicipios(contexto: ContextoValidacion) {
+export function elegirMunicipios(contexto: ContextoValidacion) {
   const elegidos = contexto.municipios.filter((municipio) => municipio.activo).slice(0, 2)
   if (elegidos.length < 2) {
     throw new Error("The local catalog needs at least 2 active municipios: run the seed (prisma/seed.ts) first.")

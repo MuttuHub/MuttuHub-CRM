@@ -99,6 +99,43 @@ al menos un avance o gasto validado; un Borrador sale en el tablero como "Sin me
    correr contra una base que no sea local. En el shell donde se desarrolló `tsx` NO funcionaba (esbuild de
    Windows): córrelos desde un shell donde `tsx` sí arranque (WSL o PowerShell con `npx tsx --version` OK).
 
+### 0.1 Seed de proyectos (demo)
+
+Alternativa al recorrido manual: deja datos listos para mostrar (cifras y nombres ficticios, todo local).
+
+```bash
+npm run db:demo:seed-projects:local                # en seco (por defecto): imprime el host y el plan
+npm run db:demo:seed-projects:local -- --apply     # escribe
+```
+
+Qué crea (escrito por los mismos servicios que usa la API: importador de plantilla, aprobación de línea base,
+validación de gastos y la bitácora de auditoría):
+
+- `Demo CedeTextil · En ejecución` (`PRY-2026-001` en una base recién sembrada): línea base aprobada (versión v0,
+  por lo que Versiones y Modificaciones funcionan), 4 actividades, 7 entregables, 2 indicadores, presupuesto de
+  $177.360.000 y programación mensual. Trae 5 avances (todos con enlace https como medio, salvo uno sin medio a propósito),
+  3 mediciones y 5 gastos con soporte https: 2 VALIDADO, 2 REGISTRADO y 1 REGISTRADO con alerta de sobregasto
+  (validarlo supera el rubro R11 y queda bloqueado y notificado).
+- `Demo CedeTextil · Borrador (aprobar línea base)` (`PRY-2026-002`): en BORRADOR con la misma estructura, presupuesto
+  y programación importados, para mostrar "Aprobar línea base" en vivo.
+- Una oportunidad GANADA sin proyecto, para mostrar "Convertir en proyecto". `prisma/seed.ts` trae dos GANADA y el
+  seed consume ambas; si quedan menos de tres libres agrega UNA ficticia ("Demo · Programa de formación técnica ...").
+
+Segunda corrida: no cambia nada. Si ya existe un proyecto cuyo nombre empieza por `Demo CedeTextil`, imprime
+`Demo projects already seeded (...). Nothing was changed.` y termina con código 0.
+
+Restaurar la demo: `db:demo:reset:local` NO puede borrar estos proyectos (el aprobado tiene filas en tablas de solo
+agregar: `versiones_proyecto`, `acceso_soportes`, `auditoria_cambios`, protegidas por triggers). El camino es
+`npm run db:migrate:reset:local` y luego `npm run db:seed:local`. ADVERTENCIA: esto borra TODA la base local; no lo
+corre el seed ni nadie por ti.
+
+Verificado el 2026-10-09 contra la base local (`127.0.0.1:54322`) con una consulta de solo lectura: 2 proyectos
+(`EN_EJECUCION` y `BORRADOR`), 1 versión (v0), 5 avances con 5 medios, 3 mediciones, 5 gastos (2 VALIDADO,
+3 REGISTRADO, uno con alerta) y 1 oportunidad GANADA libre. No verificado: cómo se ven el Tablero y los semáforos en
+el navegador, ni el flujo "Convertir en proyecto" con clics. Los semáforos dependen de la fecha: las fechas de los
+avances y gastos son "hoy" al correr el seed, pero el proyecto dura del 2026-10-05 al 2027-01-29; corrido mucho
+después, el semáforo técnico saldrá más atrasado.
+
 ## 1. Crear un proyecto (admin)
 
 1. Entra como `admin@demo.muttuhub.local` y abre **Proyectos** en el menú.
