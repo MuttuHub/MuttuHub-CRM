@@ -113,7 +113,14 @@ P3: `e2e/proyectos-demo.spec.ts`, `e2e/proyectos-ficha-pagina.spec.ts` (new, rea
   two `h1`; (2) in the Tablero at 1440 px the last column ("Ver detalle") is clipped and needs horizontal scroll; (3) the seed shows both semáforos in
   Verde only, no amarillo/rojo example.
 
+- 2026-10-09: follow-up (1) done, commit `5b8c7ff` (2 files, +27/-10), delegated: Tablero table min width 1020 -> 900 px, long headers may wrap, project name
+  capped at 200 px with a `title`, "Acciones" header and cell `sticky right-0 bg-panel` with `group-hover/fila:bg-muted`. RED: sticky-class test failed (1 failed /
+  11 passed); GREEN: dashboard + vista 22/22, `src/components/proyectos` 30 files / 327 tests, tsc and eslint clean; parent spot check re-ran the dashboard
+  tests (12/12). Real-browser screenshots (parent viewed 1440 and 1024): at 1440 and 1280 the action is fully visible, at 1024 it stays pinned on an opaque
+  background ("Semáforo financiero" is partly covered until scrolled; dark theme blends in). Not verified: the sticky cell hover colour in a real browser.
+  Assessed: medium, 64 lines since `3d174b9`, `review_due=false` (`under_budget`), so no native review yet.
+
 ## Next step
 
-Follow-ups (each needs the user's go-ahead): fix the Tablero clipped "Ver detalle" column; ficha page title/`h1`; add an amarillo/rojo case to the seed
-(would need new data and a restore per D4 of S11); test for the `[id]` page and a non-UUID id.
+Remaining follow-ups (each needs the user's go-ahead): ficha page title/`h1`; add an amarillo/rojo case to the seed (would need new data and a restore per D4
+of S11); test for the `[id]` page and a non-UUID id.
