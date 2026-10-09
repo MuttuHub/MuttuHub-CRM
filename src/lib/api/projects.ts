@@ -120,11 +120,9 @@ export function toProjectItemV2(row: ProjectRowV2): ProjectItemV2 {
  * Resolves the two axes of the project read predicates. `es_miembro` arrives
  * resolved from `proyecto_miembros` by `loadProjectScoped` (S2.6), which keeps
  * the predicates in `src/lib/permissions.ts` pure and DB-free.
- * `puede_ver_tablero_gerencial` has no column or loader yet (S0.7 built the
- * predicates as pure functions) and stays pinned until its own slice (S9.2),
- * so a COLABORADOR without the flag still sees none (REQ-ACC-02).
+ * `puede_ver_tablero_gerencial` is the `usuarios` column (S9.2): a flagged user
+ * reads the portfolio, a COLABORADOR without it still sees none (REQ-ACC-02).
  */
-const UNRESOLVED_GERENCIAL_FLAG = false as const;
 
 /**
  * Portfolio-scope actor: only `rol` and the gerencial flag. The portfolio
@@ -135,7 +133,7 @@ function projectPortfolioActor(usuario: Usuario): ProjectActor {
   return {
     id: usuario.id,
     rol: usuario.rol,
-    puede_ver_tablero_gerencial: UNRESOLVED_GERENCIAL_FLAG,
+    puede_ver_tablero_gerencial: usuario.puede_ver_tablero_gerencial,
   };
 }
 

@@ -130,6 +130,9 @@ model Usuario {
   // por la migración para los COLABORADORES responsables de clientes con al
   // menos una oportunidad viva, así el deploy no deja a nadie sin acceso.
   gestiona_oportunidades Boolean    @default(false)
+  // Eje de lectura gerencial ortogonal a `rol` (v2 S9, REQ-ACC-02): habilita el tablero
+  // de portafolio y solo lectura; nunca concede escritura ni soportes financieros.
+  puede_ver_tablero_gerencial Boolean @default(false)
   created_at             DateTime   @default(now())
   updated_at             DateTime   @updatedAt
 
