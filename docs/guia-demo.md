@@ -168,7 +168,7 @@ que no sea local, igual que `reset-demo`.
 npx tsx scripts/import-plantilla-demo.ts --project PRY-2026-001
 
 # Escribe los dos .xlsx en tmp/plantilla-demo/ e importa el válido (un solo lote de auditoría)
-npx tsx scripts/import-plantilla-demo.ts --project PRY-2026-001 --actor admin@muttu.co --apply
+npx tsx scripts/import-plantilla-demo.ts --project PRY-2026-001 --actor admin@demo.muttuhub.local --apply
 ```
 
 Deja `PRY-2026-001-valida.xlsx` (se importa) y `PRY-2026-001-error-v12.xlsx`

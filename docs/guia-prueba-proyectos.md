@@ -1,9 +1,9 @@
 # Guía de prueba paso a paso: sección Proyectos (v2)
 
-Cubre lo construido en las slices S0 a S8: crear un proyecto desde una oportunidad ganada, ficha, historial,
+Cubre lo construido en las slices S0 a S9: crear un proyecto desde una oportunidad ganada, ficha, historial,
 equipo, estructura y Gantt (S3), plantilla Excel (S7), presupuesto y programación (S5), aprobación de línea base
 (S8), ejecución técnica y semáforo (S4), gastos y validación (S6), ficha financiera, modificaciones y versiones (S8),
-administración y "Mi resumen". Todo corre en local; nunca contra el Supabase remoto. Los textos entre comillas son
+administración, "Mi resumen", y el tablero gerencial con indicadores y exportaciones a Excel (S9). Todo corre en local; nunca contra el Supabase remoto. Los textos entre comillas son
 los que renderiza la interfaz (verificados contra el código el 2026-10-09).
 
 Usuarios (contraseña `MuttuDemo2026!`, dominio `demo.muttuhub.local`):
@@ -13,7 +13,7 @@ Usuarios (contraseña `MuttuDemo2026!`, dominio `demo.muttuhub.local`):
 | `admin@` | Administrador | Todo, incluida Administración |
 | `gerencia@` | Gerencia | Gestiona proyectos; recibe la notificación de sobreejecución |
 | `coordinador@` | Coordinador | Ve solo sus proyectos; puede registrar avances/gastos y solicitar modificaciones si es integrante |
-| `colaborador@` | Colaborador | Solo lectura; sirve para los checks negativos |
+| `colaborador@` | Colaborador | Solo lectura; sirve para los checks negativos y, con la bandera gerencial (§J), para el tablero |
 
 ## Recorrido de 10 minutos para la reunión
 
@@ -40,7 +40,12 @@ En la reunión (como `admin@`, salvo donde se indica):
 7. **Solicitar modificación** (traslado) como `admin@`, **Aprobar** como `gerencia@`, y en **Versiones** compara
    `v0` contra **Vigente**. (2 min)
 
-Si el tiempo aprieta, corta el paso 2 y el 6.
+8. **Cierre con el Tablero** (como `admin@` o `gerencia@`): en **Proyectos** abre la pestaña **Tablero**
+   (`/proyectos?vista=tablero`): tarjetas del portafolio, semáforos por proyecto, insignia **No confirmado** y
+   **Exportar Excel**. Abre **Ver detalle** y muestra la sección **Indicadores**. (1 min; ver §J)
+
+Si el tiempo aprieta, corta el paso 2 y el 6. El paso 8 solo luce con el proyecto ya **En ejecución** (paso 3) y
+al menos un avance o gasto validado; un Borrador sale en el tablero como "Sin medir".
 
 ## 0. Preparación
 
@@ -365,6 +370,81 @@ Menú **Administración** (otros roles son redirigidos). Más abajo en la págin
 4. Alcance: admin y gerencia ven todo; `coordinador@` ve solo sus proyectos como integrante. Aprueba una línea
    base y comprueba que el proyecto pasa de no aparecer a aparecer.
 
+## J. Tablero, indicadores y exportaciones (S9)
+
+Requiere la migración de la bandera gerencial aplicada a la base LOCAL (§0, paso 1). Los números del tablero y de
+los Indicadores salen del servidor; la interfaz solo los pinta. Solo hay indicadores para proyectos **En
+ejecución**, **Suspendido** o **Cerrado**: un Borrador no tiene (no hay forma de suspender o cerrar desde la
+interfaz, ver Límites).
+
+### J.1 Pestaña Tablero (`/proyectos?vista=tablero`)
+Quién ve la pestaña **Tablero** (junto a **Portafolio**): `admin@`, `gerencia@`, cualquier `coordinador@`, y un
+`colaborador@` solo si tiene la bandera gerencial (§J.4). Quien no califica ve solo el listado, sin pestañas.
+
+1. Como `gerencia@`, abre **Proyectos** y la pestaña **Tablero** (la URL cambia a `?vista=tablero`).
+2. Filtros (cada cambio vuelve a consultar): **Estado**, **Línea estratégica**, **Municipio**, **Cliente**,
+   **Responsable** y **Corte** (fecha). Sin corte se usa hoy. El municipio es solo un filtro: no hay desglose por
+   territorio.
+3. Tarjetas: **Proyectos** ("Corte al <fecha>"), **Avance real promedio** (con "Programado ..."), **Ejecutado /
+   asignado** (con "Ejecutado / programado ...") y **Ejecutado** (con "Asignado ..."), más el bloque **Proyectos por
+   estado**.
+4. Tabla: Código, Proyecto (con cliente), Estado, **Semáforo técnico**, **Semáforo financiero** (más la insignia
+   **Posible retraso** si aplica), **Avance real**, **Ejecutado / asignado** y **Ver detalle** (abre la ficha). Un
+   proyecto sin indicadores (Borrador) muestra "Sin medir" y "—".
+5. Insignia **No confirmado** junto a **Exportar Excel**: aparece mientras los parámetros del semáforo no estén
+   confirmados (§H). Es lo esperado hoy.
+6. Estados: cargando (filas gris claro), vacío ("No hay proyectos para mostrar", "Prueba con otros filtros. ..."),
+   error ("No pudimos cargar el tablero de proyectos. Inténtalo de nuevo."). Prueba el vacío filtrando por **Estado
+   = Cancelado**.
+7. Como `coordinador@`: la pestaña existe, pero el tablero cuenta solo los proyectos donde es integrante activo.
+   Quítalo del equipo (§3) y el proyecto sale del tablero.
+
+### J.2 Sección Indicadores en la ficha
+En **Ver detalle**, entre **Ejecución técnica** y **Financiero**. La ven quienes leen el proyecto.
+
+1. Controles: **Corte** (fecha) y **Base** (**Vigente** / **Original (v0)**; en Borrador la base está bloqueada).
+2. Tarjetas: **Semáforo técnico** (Avance real, Avance programado, Desviación en pp), **Semáforo financiero**
+   (Asignado, Programado, Ejecutado, E/A, E/P y el aviso "Posible retraso: ..."), **Cumplimiento del cronograma**
+   ("N a tiempo de M vencidas"), **Entregables logrados** ("N de M programados"), **Cumplimiento de indicadores**
+   ("N medidos, M sin medir") y **Beneficiarios vs meta**.
+3. Insignia **No confirmado** junto a los controles (solo si el proyecto es medible).
+4. En un Borrador: "Los indicadores se calculan cuando el proyecto está en ejecución, suspendido o cerrado."
+5. Registra un avance con soporte (§D) y un gasto validado (§E), recarga y comprueba que los porcentajes se mueven.
+   Cambia **Base** a **Original (v0)** tras una modificación aprobada (§G): lo programado y asignado vuelven al v0;
+   los avances y gastos no cambian.
+
+### J.3 Exportaciones a Excel
+1. En **Indicadores**: **Exportar ficha (Excel)** baja `<código>-proyecto.xlsx` (hojas `Proyecto`, `Estructura`,
+   `KPIs`) y **Exportar ficha financiera (Excel)** baja `<código>-financiera.xlsx` (hojas `Financiera`, con fila
+   Total, y `Resumen`). Respetan el **Corte** y la **Base** elegidos. La financiera exige fechas del proyecto (409
+   si no hay).
+2. En el **Tablero**: **Exportar Excel** baja `portafolio-<corte>.xlsx` (hojas `Portafolio` y `Resumen`) con los
+   filtros activos; tope de 500 proyectos (si se corta, la hoja Resumen lo dice).
+3. Abre cada libro: solo agregados. No debe haber columnas de gasto individual, tercero (nombre, NIT/cédula) ni
+   soporte, para ningún rol. Si los parámetros no están confirmados, hay una fila "Nota" que lo dice.
+4. Cada descarga deja una fila de auditoría `EXPORTAR`; si la auditoría falla, la descarga igual funciona.
+5. **PDF**: no existe botón. Si llamas la API a mano con `formato=pdf` responde 400 "Formato no disponible. Por
+   ahora solo se exporta en Excel (xlsx)."
+
+### J.4 Dar la bandera gerencial a un colaborador
+1. Como `admin@`: **Administración > Usuarios**, menú de acciones de la fila del colaborador (**Acciones de
+   <nombre>**), sección **Acceso a proyectos**, casilla **Ve el tablero gerencial**. Solo aparece en filas de rol
+   Colaborador. Si falla: "No pudimos actualizar el acceso al tablero gerencial."
+2. Entra como `colaborador@` (sesión nueva o recarga). Esperado: **Proyectos** muestra **Portafolio** y **Tablero**;
+   el listado trae todos los proyectos; puede abrir la ficha, ver **Indicadores** y exportar.
+3. Sigue sin poder: crear proyectos, editar estructura/presupuesto, aprobar línea base, registrar avances o
+   gastos, validar o rechazar, ni solicitar o decidir modificaciones (sin botones; la API responde 403). Tampoco ve
+   soportes de gastos (la bandera no los habilita).
+4. Quita la casilla y comprueba que la pestaña **Tablero** desaparece y `/proyectos?vista=tablero` muestra solo el
+   listado. Solo `admin@` puede cambiar la bandera.
+
+### J.5 Checks negativos
+- `colaborador@` SIN bandera: sin pestaña; abrir `?vista=tablero` a mano no muestra el tablero; la API del portafolio
+  responde 403.
+- `coordinador@` que no es integrante de un proyecto: no sale en su tablero ni puede abrir su ficha.
+- Corte inválido en la API: 400. Proyecto en Borrador: Indicadores explica por qué no hay cifras.
+- El tablero no muestra gastos individuales, terceros, soportes ni "territorio".
+
 ## 5. Ensayo automatizado (opcional)
 
 ```bash
@@ -377,9 +457,14 @@ npm run db:demo:reset:local -- --apply           # dejar limpio al terminar
 
 No existe todavía, dicho sin adornos:
 
-- **S9 en curso, no terminado**: dashboards de proyectos, exportaciones y el tablero gerencial. No los muestres como
-  entregados.
-- **S10 en curso, no terminado**: el diseño visual final; la interfaz actual es funcional, no definitiva.
+- **S9 terminada** (tablero, Indicadores por proyecto, exportaciones a Excel, bandera gerencial), pero falta su
+  verificación independiente. **PDF no construido**: solo Excel; el PDF responde 400.
+- **S10 pendiente** (en mapeo): el diseño visual final; la interfaz actual es funcional, no definitiva.
+- **No existe la sección de territorio** en esta rama (se retiró/nunca se construyó): el municipio es solo un filtro.
+- **La base remota NO tiene la columna de la bandera gerencial** (`puede_ver_tablero_gerencial`). No se migra sin
+  autorización del usuario; la migración solo se aplicó a la base local.
+- **Decisiones del dueño de producto sin confirmar** en S9: umbrales del semáforo (insignia **No confirmado**),
+  formato PDF, y la ruta `dashboard/portfolio` en lugar de `dashboard/projects`.
 - **Cerrar, suspender o cancelar un proyecto**: ninguna slice lo construye (P14). Un proyecto En ejecución no tiene
   salida desde la interfaz.
 - Gastos: no hay pantalla para corregir un gasto **Rechazado** (la API sí lo permite), y el formulario acepta un
@@ -402,4 +487,7 @@ No existe todavía, dicho sin adornos:
 Qué NO pudo verificarse al escribir esta guía: no se ejecutó la aplicación, los scripts ni las pruebas; los textos
 salen de leer el código. En particular no se comprobó contra la base real que el libro del piloto deje el proyecto
 sin precondiciones de línea base, ni qué parámetros controlan exactamente cada insignia **No confirmado**.
+Tampoco se verificó en S9: que el enlace **Proyectos** del menú lateral sea visible para un colaborador con la
+bandera (se verificó la página, no el menú), ni los libros de Excel abiertos en Excel real (solo lo que prueban los
+tests con `exceljs`).
 Haz un ensayo completo antes de la reunión.
