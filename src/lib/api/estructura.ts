@@ -26,10 +26,14 @@ export type EstructuraProyecto = {
   fecha_fin: Date | null;
 };
 
-/** 404 -> 403 -> 409 for a structure write. */
+/**
+ * 404 -> 403 -> 409 for a structure write. `stateMessage` lets a sibling surface
+ * (the S7 template download/import) name its own action in the 409 copy.
+ */
 export async function gateEstructuraWrite(
   usuario: Usuario,
   proyectoId: string,
+  stateMessage: string = ESTRUCTURA_STATE_MESSAGE,
 ): Promise<GateResult<EstructuraProyecto>> {
   const proyecto = await db.proyecto.findFirst({
     where: { id: proyectoId, deleted_at: null },
@@ -44,7 +48,7 @@ export async function gateEstructuraWrite(
   if (proyecto.estado !== "BORRADOR") {
     return {
       ok: false,
-      response: apiError(ESTRUCTURA_STATE_MESSAGE, 409, "INVALID_STATE"),
+      response: apiError(stateMessage, 409, "INVALID_STATE"),
     };
   }
   return { ok: true, value: proyecto };

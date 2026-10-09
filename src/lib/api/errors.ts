@@ -18,12 +18,17 @@ export type ApiErrorCode =
   | "OVERSPEND_BLOCKED"
   | "INTERNAL_ERROR";
 
+/**
+ * `extra` carries additional keys next to the envelope (the S7 import report is
+ * `{ reporte }`). `error` and `code` always win: extra keys never overwrite them.
+ */
 export function apiError(
   error: string,
   status: number,
   code: ApiErrorCode,
+  extra?: Record<string, unknown>,
 ): NextResponse {
-  return NextResponse.json({ error, code }, { status });
+  return NextResponse.json({ ...extra, error, code }, { status });
 }
 
 /** Reads and parses a JSON body; returns null when the body is not JSON. */
