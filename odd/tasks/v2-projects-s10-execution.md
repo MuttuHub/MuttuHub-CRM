@@ -59,11 +59,21 @@ Route: delegated writer, one commit per unit. Round 1 = WU0-WU2, round 2 = WU3-W
   inactive panels, so each section fetches only when its tab is active (test: no budget/expenses/audit/... request while
   on Resumen). Arrow keys move focus, Enter activates (base-ui default `activateOnFocus=false`). `project-list.test` got a
   click on the Cambios tab.
-- [ ] **WU3** `ProgressBar` (semáforo band) in avance rows and KPI tiles replacing native `<progress>`; `EmptyBlock` /
-  `EmptyState` in every section. RED: `role=progressbar` with name and aria-valuenow; empty state per section.
-- [ ] **WU4** Mobile capture (Sheet for avance/gasto forms below `md`, 44 px controls) and card lists below `md` in list and
-  tablero (4a forms, 4b cards if over budget).
-- [ ] **WU5** Polish (unify dialog dialect, admin chips) + a11y/dark/contrast guard tests from the map §7 + `docs(odd)`.
+- [x] **WU3** (6f0009e) `ProgressBar` (server band, `aria-label`) replaces the native `<progress>` in avance rows and shows avance
+  real/programado and ejecutado/asignado in the KPI panel; `KpiCard` (KpiTile + named bar) for cronograma, entregables, indicadores
+  and beneficiarios; `EmptyBlock` is now the shared `EmptyState` (11 section empties, list and tablero empties); the KPI
+  section is a labelled region. RED: 9 tests failed; GREEN proyectos suite 292/292.
+- [x] **WU4** (2a44ff5 forms, c67ea5d cards) `CaptureSurface` + `useIsMobile` (matchMedia `(max-width: 767px)`, `useSyncExternalStore`,
+  desktop on the server/jsdom): avance, medición, beneficiarios and gasto forms open in a bottom `Sheet` below `md`, inline on
+  desktop; capture controls are `h-11 md:h-9` (shared `CAPTURE_*` constants, `SELECT_CLASS_LG` too). List and tablero render
+  card lists below `md` (same hook; a JS switch instead of CSS because rendering both would duplicate text/test ids and ids).
+  RED: capture-surface missing module, then 5 form tests failed on the reverted components, 2+1 card tests failed; GREEN 304/304.
+- [x] **WU5** (bbfc700) Guards: accessible names on gasto/avance/modificación controls (all medio variants), no native `<progress>`
+  and every `ProgressBar` named, semáforo contrast from `globals.css` tokens (light and dark), raw-palette-without-`dark:`
+  guard. The palette guard found a real dark-mode defect: `project-ficha-dialog` used `text-rose-800`/`border-rose-300`
+  (Tailwind defaults that do not flip) on a flipping `bg-rose-50`; fixed, plus `text-rose-500` asterisks in the create dialog.
+  Contrast measured (all >= 4.5, no finding): see the test. Guard tests were green on first run (they pin existing behavior),
+  except the palette guard (RED, 4 offenders).
 
 ## Progress
 
@@ -73,6 +83,14 @@ Route: delegated writer, one commit per unit. Round 1 = WU0-WU2, round 2 = WU3-W
   Deviations: (1) ProgressBar API differs from the v6 branch (band instead of thresholds, A1). (2) Ficha financiera sits in
   Presupuesto, the KPI panel (with the financial semáforo) in Avance. (3) The header is "sticky" by structure (outside the
   scroll area), not by the CSS `sticky` class. (4) Dialog width 760 (same as client-sheet) instead of 720.
+
+- 2026-10-09 (round 2, WU3-WU5): tsc and eslint clean per unit. Full suite **291 files / 2932 tests green** (`TZ=America/Bogota`).
+  Deviations: (1) card lists/Sheet switch by `matchMedia` hook, not CSS. (2) The portfolio `StatTile` (shared with the app
+  dashboard) was NOT swapped for `KpiTile` to keep dashboard pixels. (3) `project-create-dialog` and `import-dialog` forms not
+  covered by the accessible-name guard (they mock hooks; their own tests use labels). (4) Tabs keyboard behaviour is
+  covered by WU2 tests in `project-ficha-dialog.test.tsx`.
+  Pending: real screenshot regression (1440 and 390, light and dark) needs the running app; the `ProgressBar` fill vs track
+  (3:1 non-text) was not measured.
 
 ## Next step
 
