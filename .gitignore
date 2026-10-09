@@ -69,3 +69,6 @@ testsprite_tests/tmp/prd_files/
 
 # v2 migration dry-run reports (local only)
 scripts/migrate-v2/out/
+
+# Local S7 template pilot output (scripts/import-plantilla-demo.ts)
+tmp/plantilla-demo/

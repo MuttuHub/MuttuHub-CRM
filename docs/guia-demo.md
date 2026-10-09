@@ -156,6 +156,26 @@ en `.gitignore`; el video no se commitea). El ensayo es **repetible**: después
 de cada corrida volvé a hacer `npm run db:demo:reset:local -- --apply` para
 dejar `proyectos` en 0 y la oportunidad de vuelta en `PROSPECCION`.
 
+### 1.7. Piloto local de la plantilla Excel (S7)
+
+Sirve para probar la importación con un libro real (el ejemplo sintético
+"CedeTextil", cifras ilustrativas). Necesita un proyecto **en Borrador** ya
+creado desde la ficha. Carga `.env.local` y se niega a correr contra una base
+que no sea local, igual que `reset-demo`.
+
+```bash
+# Ensayo en seco (por defecto): valida las dos variantes contra los catálogos locales, no escribe nada
+npx tsx scripts/import-plantilla-demo.ts --project PRY-2026-001
+
+# Escribe los dos .xlsx en tmp/plantilla-demo/ e importa el válido (un solo lote de auditoría)
+npx tsx scripts/import-plantilla-demo.ts --project PRY-2026-001 --actor admin@muttu.co --apply
+```
+
+Deja `PRY-2026-001-valida.xlsx` (se importa) y `PRY-2026-001-error-v12.xlsx`
+(el total del proyecto no coincide con la suma del presupuesto por $50.000):
+sube este último en el diálogo **Importar plantilla** de la ficha para mostrar
+la tabla de errores agrupada por hoja y el reporte en CSV.
+
 ---
 
 ## 2. Guion sugerido por bloque de funcionalidad
