@@ -187,14 +187,31 @@ export function esMedible(estado: string): boolean {
   return (ESTADOS_MEDIBLES as readonly string[]).includes(estado)
 }
 
+/** A project listed with its state but without KPIs (state outside D5, or no dates yet). */
+export function kpisNoMedible(corte: IsoDate, estado: string, parametros: ParametrosV2): KpisProyecto {
+  return {
+    corte,
+    estado,
+    confirmado: parametrosConfirmados(parametros),
+    medible: false,
+    tecnico: null,
+    cronograma: null,
+    entregables: null,
+    indicadores: null,
+    beneficiarios: null,
+    financiero: null,
+  }
+}
+
+function parametrosConfirmados(p: ParametrosV2): boolean {
+  return p.umbral1.confirmado && p.umbral2.confirmado && p.tolerancia.confirmado && p.retraso.confirmado
+}
+
 export function kpisProyecto(input: KpiProyectoInput): KpisProyecto {
   const { corte, parametros } = input
   const p = parametros
-  const confirmado = p.umbral1.confirmado && p.umbral2.confirmado && p.tolerancia.confirmado && p.retraso.confirmado
-  const base = { corte, estado: input.estado, confirmado }
-  if (!esMedible(input.estado)) {
-    return { ...base, medible: false, tecnico: null, cronograma: null, entregables: null, indicadores: null, beneficiarios: null, financiero: null }
-  }
+  if (!esMedible(input.estado)) return kpisNoMedible(corte, input.estado, p)
+  const base = { corte, estado: input.estado, confirmado: parametrosConfirmados(p) }
 
   const requiereMedio = p.avance_requiere_medio.valor
   const resultado = calcularTecnico({ corte, requiereMedio, actividades: [...input.actividades] })

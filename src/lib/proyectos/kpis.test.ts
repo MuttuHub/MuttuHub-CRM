@@ -238,3 +238,16 @@ describe("kpisPortafolio", () => {
     expect(p.financiero.ea).toBeNull()
   })
 })
+
+describe("kpisNoMedible", () => {
+  it("lists the state with null KPIs and the corte", async () => {
+    const { kpisNoMedible } = await import("./kpis")
+    expect(kpisNoMedible(CORTE, "BORRADOR", PARAMETROS_V2_DEFAULT)).toMatchObject({
+      corte: CORTE,
+      estado: "BORRADOR",
+      medible: false,
+      tecnico: null,
+      financiero: null,
+    })
+  })
+})
