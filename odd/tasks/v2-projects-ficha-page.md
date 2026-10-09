@@ -51,11 +51,20 @@ Out of scope: `?tab=` deep links, notification links to `/proyectos`, clients fi
 
 ## Tasks
 
-- [ ] **P1** Ficha page route + page component (split out of the dialog). Route: delegated (reading prepares a write, 2+ non-trivial files).
-  Checks: RED-first vitest for the page component (header chips, tabs, lazy mount, back link, not-found/forbidden state), `tsc`, eslint,
-  `src/components/proyectos` suite.
-- [ ] **P2** "Ver detalle" -> new-tab links in list and dashboard; remove dialog state. Route: delegated. Checks: RED-first tests (link href/target/rel on
-  rows and cards in both views, no dialog rendered), `tsc`, eslint, `src/components/proyectos` suite.
+- [x] **P1** (commit `0edca6d`, 5 files, +1164/-986) Ficha page route + page component (split out of the dialog). Route: delegated (reading prepares a write,
+  2+ non-trivial files). Checks: RED-first vitest for the page component (header chips, tabs, lazy mount, back link, not-found/forbidden state), `tsc`,
+  eslint, `src/components/proyectos` suite.
+  Evidence: `src/app/(app)/proyectos/[id]/page.tsx` is an async server component that awaits `params` (Promise in Next 16.3.0) and renders
+  `ProjectFicha` (`project-ficha.tsx`, moved from the dialog with `git mv`) with `backHref="/proyectos"`; the dialog stayed as a thin wrapper for this
+  commit only. 404/403 via `useProject` -> `ApiError.status`: `FichaError` shows "Proyecto no encontrado" / "No tienes acceso a este proyecto" /
+  "No pudimos abrir la ficha" with the back link always visible. Layout `max-w-6xl` in a card, header + tab bar in one sticky block. RED: 30/30 new tests
+  failed (component missing). GREEN: ficha tests 31; `src/components/proyectos src/app` 148 files / 1634 tests; tsc and eslint clean.
+- [x] **P2** (commit `cdb2543`) "Ver detalle" -> new-tab links in list and dashboard; remove dialog state. Route: delegated. Checks: RED-first tests (link
+  href/target/rel on rows and cards in both views, no dialog rendered), `tsc`, eslint, `src/components/proyectos` suite.
+  Evidence: the four "Ver detalle" (list rows/cards, tablero rows/cards) are `Link` to `/proyectos/<id>` with `target="_blank"` and
+  `rel="noopener noreferrer"` styled with `buttonVariants`; `fichaId`/`onOpenFicha`/dialog rendering removed; `project-ficha-dialog.tsx` and its test
+  deleted; the unused "dialog" layout variant dropped (D4). RED: 5 tests failed. GREEN: 147 files / 1633 tests; tsc and eslint clean. Parent spot check
+  re-ran ficha + list + dashboard tests (3 files, 67 tests) and `tsc --noEmit`: clean. Not verified: anything in a real browser (P3).
 - [ ] **P3** e2e + guide; run `PLAYWRIGHT_BASE_URL=http://172.30.48.1:3000 npx playwright test e2e/proyectos-demo.spec.ts` against the LOCAL demo.
   Route: delegated. NOTE the e2e needs a clean demo (it creates PRY-2026-001 from a won opportunity) but the local DB now holds the S11 seed
   (approved project, `db:demo:reset:local` cannot delete it): the writer must NOT reset or wipe; if the spec cannot run on the seeded DB, it
@@ -68,7 +77,7 @@ P1/P2: `src/app/(app)/proyectos/**`, `src/components/proyectos/project-ficha*.ts
 `src/components/proyectos/project-list.tsx`, `src/components/proyectos/project-list.test.tsx`, `src/components/proyectos/project-dashboard.tsx`,
 `src/components/proyectos/project-dashboard.test.tsx`, `src/components/proyectos/proyectos-vista.tsx`, `src/components/proyectos/proyectos-vista.test.tsx`,
 `src/components/proyectos/project-team.test.tsx` (only if it imports the dialog), `src/components/proyectos/project-display.ts` (only if needed).
-P3: `e2e/proyectos-demo.spec.ts`, `docs/guia-prueba-proyectos.md`.
+P3: `e2e/proyectos-demo.spec.ts`, `e2e/proyectos-ficha-pagina.spec.ts` (new, read-only spec that requires the S11 demo seed), `docs/guia-prueba-proyectos.md`.
 
 ## Acceptance criteria
 
@@ -86,7 +95,10 @@ P3: `e2e/proyectos-demo.spec.ts`, `docs/guia-prueba-proyectos.md`.
 ## Progress
 
 - 2026-10-09: document created after exploration (dialog usage mapped; user chose "new browser tab").
+- 2026-10-09: P1 (`0edca6d`) and P2 (`cdb2543`) done, delegated route; trigger evidence: reading prepares a write, 5+9 files, two non-trivial components.
+- Review: the assessment since the last reviewed boundary `18c5adf` is medium, 2604 lines, `slice_budget_reached` (U3 + docs + S12). The native review is
+  deferred until P3 lands: the candidate is frozen only after the implementation is complete (P3 still edits the e2e spec and the guide).
 
 ## Next step
 
-Launch the P1 + P2 writer.
+Launch the P3 writer (e2e + guide + real browser check on the seeded DB), then run the native review preflight for the consolidated slice.
