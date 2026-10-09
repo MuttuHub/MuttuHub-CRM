@@ -9,6 +9,7 @@
 
 import { ListTree } from "lucide-react";
 import { EstructuraGantt } from "@/components/proyectos/estructura-gantt";
+import { ImportDialog } from "@/components/proyectos/import-dialog";
 import { EstructuraObjetivos } from "@/components/proyectos/estructura-objetivos";
 import { useCurrentUser } from "@/hooks/kanban";
 import type { ProjectListRow } from "@/hooks/projects";
@@ -23,10 +24,13 @@ export function ProjectEstructura({ proyecto }: { proyecto: ProjectListRow }) {
 
   return (
     <section data-testid="estructura">
-      <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-        <ListTree className="size-3.5" strokeWidth={2} />
-        Estructura técnica
-      </h3>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+          <ListTree className="size-3.5" strokeWidth={2} />
+          Estructura técnica
+        </h3>
+        {canEdit && <ImportDialog proyecto={proyecto} />}
+      </div>
 
       {puedeGestionar && !esBorrador && (
         <p className="mt-1.5 text-[12.5px] text-ink-500">

@@ -245,4 +245,23 @@ describe("buildOpenApiDocument", () => {
       codes(paths["/api/v1/projects/{id}/expenses/{expenseId}/attachments/{attachmentId}/download"]?.get),
     ).toEqual(expect.arrayContaining(["200", "401", "403", "404", "500"]))
   })
+  it("registers the S7 template download and import operations", () => {
+    const paths = buildOpenApiDocument().paths ?? {}
+    const codes = (op: { responses?: object } | undefined) => Object.keys(op?.responses ?? {})
+
+    const template = paths["/api/v1/projects/{id}/template"]?.get
+    expect(codes(template)).toEqual(expect.arrayContaining(["200", "401", "403", "404", "409", "500"]))
+    const content = (template?.responses?.["200"] as { content?: Record<string, unknown> } | undefined)?.content
+    expect(Object.keys(content ?? {})).toEqual([
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ])
+
+    const importar = paths["/api/v1/projects/{id}/import"]?.post
+    expect(codes(importar)).toEqual(expect.arrayContaining(["200", "400", "401", "403", "404", "409", "413", "500"]))
+    const body = importar?.requestBody as { content?: Record<string, unknown> } | undefined
+    expect(Object.keys(body?.content ?? {})).toEqual(["multipart/form-data"])
+    const reporte = (importar?.responses?.["400"] as { content?: Record<string, { schema?: unknown }> } | undefined)
+      ?.content?.["application/json"]?.schema
+    expect(JSON.stringify(reporte)).toContain("reporte")
+  })
 })

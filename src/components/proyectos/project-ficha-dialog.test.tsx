@@ -106,6 +106,27 @@ describe("ProjectFichaDialog", () => {
     expect(equipo.compareDocumentPosition(estructura) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
+  it("offers the Excel template controls in the structure header only for a manager on a draft", async () => {
+    mockFichaAndAudit({ historial: [] }, 200, { ...PROYECTO, estado: "BORRADOR" })
+
+    renderFicha()
+
+    const controles = await screen.findByTestId("estructura-plantilla")
+    expect(controles).toHaveTextContent("Descargar plantilla")
+    expect(controles).toHaveTextContent("Importar plantilla")
+    expect(screen.getByTestId("estructura")).toContainElement(controles)
+  })
+
+  it("does not offer the template controls once the project left BORRADOR", async () => {
+    mockFichaAndAudit({ historial: [] })
+
+    renderFicha()
+
+    await screen.findByTestId("estructura")
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
+    expect(screen.queryByTestId("estructura-plantilla")).not.toBeInTheDocument()
+  })
+
   it("mounts the Presupuesto section after the technical structure", async () => {
     mockFichaAndAudit({ historial: [] })
 

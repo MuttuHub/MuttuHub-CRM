@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner";
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut, ApiError } from "@/lib/api/http";
 import type { EstadoActividad, Tendencia } from "@/lib/proyectos/avance";
+import type { ReportePlantilla } from "@/lib/proyectos/plantilla-reporte";
 import type {
   AccionAuditoria,
   EstadoProyecto,
@@ -1460,6 +1461,143 @@ export async function downloadExpenseSoporte(
   );
   if (!res.url) throw new ApiError("El soporte no tiene un enlace disponible.", 404);
   window.open(res.url, "_blank", "noopener,noreferrer");
+}
+
+/* ── Plantilla Excel (S7 U6) ───────────────────────────────────────────── */
+//
+// La descarga y la importación hablan multipart/binario, así que no usan
+// `apiPost` (solo JSON). El reporte de errores viaja en el 400 como `reporte`;
+// `ImportReportError` lo conserva para que el diálogo lo pinte por hoja.
+
+export type ImportResumen = {
+  objetivos: number;
+  actividades: number;
+  entregables: number;
+  indicadores: number;
+  rubros: number;
+  celdas_programacion: number;
+};
+
+export type ImportReemplaza = Pick<ImportResumen, "objetivos" | "actividades" | "entregables" | "indicadores">;
+
+/** `POST /import` con `modo=validar`: nada se escribió. */
+export type ImportValidacion = {
+  importado: false;
+  valido: true;
+  resumen: ImportResumen;
+  reemplaza: ImportReemplaza;
+  advertencias: ReportePlantilla["advertencias"];
+};
+
+/** `POST /import` aplicado: un solo lote de auditoría. */
+export type ImportAplicada = {
+  importado: true;
+  lote_id: string;
+  resumen: ImportResumen;
+  advertencias: ReportePlantilla["advertencias"];
+};
+
+export type ImportTemplateInput = { archivo: File; validar: boolean };
+
+/** El 400 de validación con el reporte por regla/hoja/fila. */
+export class ImportReportError extends ApiError {
+  readonly reporte: ReportePlantilla;
+
+  constructor(message: string, reporte: ReportePlantilla) {
+    super(message, 400, "VALIDATION_ERROR");
+    this.name = "ImportReportError";
+    this.reporte = reporte;
+  }
+}
+
+async function readJsonBody(res: Response): Promise<Record<string, unknown>> {
+  try {
+    return ((await res.json()) as Record<string, unknown> | null) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+function failureOf(res: Response, body: Record<string, unknown>, fallback: string): ApiError {
+  const message = typeof body.error === "string" ? body.error : fallback;
+  const reporte = body.reporte as ReportePlantilla | undefined;
+  if (reporte && Array.isArray(reporte.errores)) return new ImportReportError(message, reporte);
+  return new ApiError(message, res.status, typeof body.code === "string" ? body.code : undefined);
+}
+
+/** Guarda un blob como descarga del navegador (revoca la URL al terminar). */
+export function saveBlobAs(blob: Blob, filename: string): void {
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
+/** E-23: baja la plantilla del proyecto, precargada con su estado actual. */
+export async function downloadProjectTemplate(projectId: string): Promise<void> {
+  const res = await fetch(`/api/v1/projects/${projectId}/template`, { method: "GET" });
+  if (!res.ok) {
+    throw failureOf(res, await readJsonBody(res), "No pudimos descargar la plantilla. Inténtalo de nuevo.");
+  }
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? "plantilla.xlsx";
+  saveBlobAs(await res.blob(), filename);
+}
+
+/** Todo lo que un import aplicado puede haber cambiado. */
+function useRefreshAfterImport(projectId: string) {
+  const qc = useQueryClient();
+  return () => {
+    for (const key of [
+      projectQueryKeys.objectives(projectId),
+      projectQueryKeys.activities(projectId),
+      projectQueryKeys.deliverables(projectId),
+      projectQueryKeys.indicators(projectId),
+      projectQueryKeys.budget(projectId),
+      projectQueryKeys.programming(projectId),
+      projectQueryKeys.detail(projectId),
+      projectQueryKeys.technicalStatus(projectId),
+      ["projects", "financial-sheet", projectId],
+      ["projects", "list"],
+    ]) {
+      void qc.invalidateQueries({ queryKey: key });
+    }
+  };
+}
+
+/**
+ * E-24: valida (`validar: true`, no escribe) o aplica la plantilla. El 400 con
+ * reporte llega como `ImportReportError`; los demás errores, como `ApiError`.
+ */
+export function useImportTemplate(
+  projectId: string,
+): UseMutationResult<ImportValidacion | ImportAplicada, Error, ImportTemplateInput> {
+  const refresh = useRefreshAfterImport(projectId);
+  return useMutation({
+    mutationFn: async ({ archivo, validar }) => {
+      const form = new FormData();
+      form.set("archivo", archivo);
+      if (validar) form.set("modo", "validar");
+      // Sin Content-Type: el navegador pone el boundary del multipart.
+      const res = await fetch(`/api/v1/projects/${projectId}/import`, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        body: form,
+      });
+      const body = await readJsonBody(res);
+      if (!res.ok) throw failureOf(res, body, "No pudimos importar la plantilla. Inténtalo de nuevo.");
+      return body as ImportValidacion | ImportAplicada;
+    },
+    onSuccess: (data) => {
+      if (!data.importado) return;
+      refresh();
+      toast.success("Plantilla importada.");
+    },
+  });
 }
 
 function toastError(err: unknown, fallback: string): never {

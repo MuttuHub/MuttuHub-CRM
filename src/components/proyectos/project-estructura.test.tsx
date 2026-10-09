@@ -278,6 +278,33 @@ describe("ProjectEstructura", () => {
     })
   })
 
+  describe("template import controls (S7)", () => {
+    it("offers download and import to a manager on a BORRADOR project", async () => {
+      setup()
+
+      const controles = await screen.findByTestId("estructura-plantilla")
+      expect(within(controles).getByRole("button", { name: /descargar plantilla/i })).toBeInTheDocument()
+      expect(within(controles).getByRole("button", { name: /importar plantilla/i })).toBeInTheDocument()
+    })
+
+    it("hides them from a non-manager role", async () => {
+      setup({ rol: "COORDINADOR" })
+
+      await objetivo("OBJ-1")
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
+      expect(screen.queryByTestId("estructura-plantilla")).not.toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: /importar plantilla/i })).not.toBeInTheDocument()
+    })
+
+    it("hides them from a manager once the project left BORRADOR", async () => {
+      setup({ proyecto: { estado: "EN_EJECUCION" } })
+
+      await objetivo("OBJ-1")
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
+      expect(screen.queryByRole("button", { name: /descargar plantilla/i })).not.toBeInTheDocument()
+    })
+  })
+
   describe("permissions", () => {
     it("is read-only for a non-manager role", async () => {
       setup({ rol: "COORDINADOR" })

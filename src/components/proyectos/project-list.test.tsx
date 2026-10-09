@@ -94,6 +94,12 @@ vi.mock("@/hooks/projects", () => ({
     error: null,
     variables: undefined,
   }),
+  // The Estructura header mounts the template import dialog (S7 U6) on a BORRADOR project for a
+  // manager: an idle mutation and the two browser-download helpers.
+  useImportTemplate: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  downloadProjectTemplate: vi.fn(),
+  saveBlobAs: vi.fn(),
+  ImportReportError: class ImportReportError extends Error {},
   // The ficha also mounts the Estructura técnica section: empty lists, no mutations pending.
   ...Object.fromEntries(
     [
