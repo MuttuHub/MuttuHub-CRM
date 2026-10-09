@@ -14,12 +14,11 @@
   --color-rose-50: var(--rose-50);
   --color-rose-100: var(--rose-100);
   --color-rose-200: var(--rose-200);
-  --color-rose-400: #e4569a;
+  --color-rose-400: #eb3f85;
   --color-rose-500: #cd1560;
   --color-rose-700: #940d44;
-  /* v6 "accent-soft" (README): a fixed, non-flipping tint — identical to the
-     light rose-200 shade already in use, now named for the v6 contract. */
-  --color-accent-soft: #f5bad2;
+  /* Manual v2 "accent-soft": #940D44 on light, #F5BAD2 on dark (flips). */
+  --color-accent-soft: var(--accent-soft);
   /* v6 3px active rail (sidebar item, tabs): brand pink in both themes. */
   --color-accent-bar: var(--accent-bar);
   /* v6 control surface: field border + fill (Input, Select, outline Button). */
@@ -30,7 +29,7 @@
   --color-ink-100: var(--ink-100);
   --color-ink-200: var(--ink-200);
   --color-ink-300: var(--ink-300);
-  /* #7a656a (light): 5.4:1 on white, 4.5:1 on the page tint (U1). */
+  /* Manual v2 text-3: #725d62 (light) is 6.1:1 on white, 5.4:1 on the page. */
   --color-ink-500: var(--ink-500);
   --color-ink-600: var(--ink-600);
   --color-ink-700: var(--ink-700);
@@ -120,7 +119,7 @@
 }
 
 :root {
-  --background: #fdfbfb;
+  --background: #f6f1f3;
   --foreground: #281d20;
   --card: #ffffff;
   --card-foreground: #281d20;
@@ -132,7 +131,8 @@
   --secondary-foreground: #3f2f33;
   --muted: #f7f3f4;
   --muted-foreground: #725d62;
-  --accent: #fcf1f5;
+  /* Manual v2 shadcn accent: a soft alpha tint of the brand pink. */
+  --accent: rgba(205, 21, 96, 0.08);
   --accent-foreground: #940d44;
   --destructive: #b3261e;
   --border: #ece5e7;
@@ -143,7 +143,10 @@
   --chart-3: #f5bad2;
   --chart-4: #ddd2d5;
   --chart-5: #8c757b;
-  --radius: 0.8125rem;
+  --radius: 0.75rem;
+  /* Manual v2 wants a WHITE sidebar in light, but sidebar.tsx still paints
+     light-on-dark text (shell-* tokens): the flip lands with U3 together
+     with the component migration. */
   --sidebar: #191113;
   --sidebar-foreground: #c9bcc0;
   --sidebar-primary: #cd1560;
@@ -154,12 +157,12 @@
   --sidebar-ring: #cd1560;
 
   /* Brand tokens (light) — source of the @theme indirections above. */
-  --page: #efeaeb;
-  --panel: #fdfbfb;
+  --page: #f6f1f3;
+  --panel: #ffffff;
   --ink-100: #f7f3f4;
   --ink-200: #ece5e7;
   --ink-300: #ddd2d5;
-  --ink-500: #7a656a;
+  --ink-500: #725d62;
   --ink-600: #725d62;
   --ink-700: #5a474c;
   --ink-800: #3f2f33;
@@ -183,21 +186,22 @@
   --login-enlace-fg: var(--color-rose-500);
   --login-activo-fg: var(--color-rose-700);
 
-  /* --- v6 tokens, light values DERIVED (U1, decision D3) ---
-     Same semantic names as .dark, values chosen on the light palette above:
-     WCAG >= 4.5:1 for text (see globals.tokens.test.ts) and >= 3:1 for
-     control borders / focus / accent rails. The brand pink stays #CD1560. */
+  /* --- v6 tokens, light values from the brand manual v2 (U1b, decision D6) ---
+     Same semantic names as .dark. WCAG >= 4.5:1 for text (see
+     globals.tokens.test.ts) and >= 3:1 for control borders / focus / accent
+     rails. --border-strong keeps U1's accessible value (D6-3). */
   /* Field boundary: #9b8c91 is 3.2:1 on white (WCAG 1.4.11); the decorative
      --border hairline stays the soft #ece5e7. */
   --border-strong: #9b8c91;
   --input-bg: #ffffff;
   /* Warm-ink scrim (the dark theme's is a near-black plum). */
   --overlay: rgba(40, 29, 32, 0.45);
-  /* v6 "accent" brand color: 3.8:1 on white, used for non-text accents. */
-  --accent-brand: #eb3f85;
+  /* Manual v2 "accent" (links, rail, dots): 6.7:1 on white, 6.0:1 on the page. */
+  --accent-brand: #b41153;
+  --accent-soft: #940d44;
   --accent-tint: var(--rose-50);
-  /* 3px active rail color (5.4:1 on white, 3.4:1 on the dark shell). */
-  --accent-bar: #cd1560;
+  /* 3px active rail color. */
+  --accent-bar: #b41153;
   /* Sonner toast: FIXED light card regardless of app theme (README "Toast"
      contract) — identical to the current (frozen) light card/border/text. */
   --toast-bg: #ffffff;
@@ -210,7 +214,7 @@
      brand --page token below — the app had two lighter surfaces standing
      in for the same v6 concept. */
   --background: #120c0e;
-  --foreground: #f7f3f4;
+  --foreground: #f8f2f4;
   /* v6 "surface" (#1B1316). */
   --card: #1b1316;
   --card-foreground: #f7f3f4;
@@ -224,16 +228,16 @@
   --secondary: #241a1e;
   --secondary-foreground: #f7f3f4;
   --muted: #241a1e;
-  --muted-foreground: #9c8a8f;
-  --accent: #241a1e;
+  --muted-foreground: #a08a91;
+  --accent: rgba(235, 63, 133, 0.14);
   --accent-foreground: #f9dfe9;
-  --destructive: #b3261e;
+  --destructive: #f07163;
   /* v6 "border" (#2E2227). --input keeps its current value: it is still
      used as BOTH border and translucent background at existing call sites
      until V0.4 splits it into --border-strong / --input-bg. */
   --border: #2e2227;
-  --input: #382a2e;
-  --ring: #e4569a;
+  --input: #34272c;
+  --ring: #eb3f85;
   --chart-1: #e4569a;
   --chart-2: #cd1560;
   --chart-3: #f5bad2;
@@ -299,6 +303,7 @@
   --input-bg: #120c0e;
   --overlay: rgba(12, 6, 9, 0.66);
   --accent-brand: #eb3f85;
+  --accent-soft: #f5bad2;
   --accent-tint: var(--rose-50);
 }
 

@@ -2,9 +2,9 @@ import { readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { describe, expect, it } from "vitest"
 
-// V0.1 (v6 visual alignment): `.dark` adopts the v6 token VALUES. U1 (D3): the
-// light theme keeps the app's base palette and gets DERIVED values for every
-// v6 token, verified against WCAG ratios below. These tests
+// V0.1 (v6 visual alignment): `.dark` adopts the v6 token VALUES. U1b (D6): the
+// light theme adopts the brand manual v2 values (it replaces the palette U1
+// derived), verified against WCAG ratios below. These tests
 // read the raw CSS text instead of rendering it, since jsdom does not
 // compute values from an unlinked stylesheet.
 
@@ -37,24 +37,35 @@ const root = block(":root")
 const dark = block(".dark")
 
 describe("globals.css design tokens (V0.1)", () => {
-  describe("light theme (:root) keeps the base palette", () => {
+  describe("light theme (:root) adopts the brand manual v2 palette", () => {
     it.each([
-      ["--background", "#fdfbfb"],
+      ["--background", "#f6f1f3"],
       ["--foreground", "#281d20"],
       ["--card", "#ffffff"],
       ["--primary", "#cd1560"],
       ["--primary-foreground", "#ffffff"],
       ["--secondary", "#f7f3f4"],
       ["--border", "#ece5e7"],
-      ["--page", "#efeaeb"],
-      ["--panel", "#fdfbfb"],
-      ["--ink-500", "#7a656a"],
+      ["--page", "#f6f1f3"],
+      ["--panel", "#ffffff"],
+      ["--muted", "#f7f3f4"],
+      ["--ink-100", "#f7f3f4"],
+      ["--ink-500", "#725d62"],
+      ["--muted-foreground", "#725d62"],
+      ["--ring", "#cd1560"],
+      ["--accent", "rgba(205, 21, 96, 0.08)"],
+      ["--accent-foreground", "#940d44"],
+      ["--radius", "0.75rem"],
+      ["--exito-bg", "#e7f5ed"],
+      ["--alerta-bg", "#fef4e6"],
+      ["--destructivo-bg", "#fdecea"],
+      ["--info-bg", "#eaf2fc"],
       ["--ink-700", "#5a474c"],
       ["--exito", "#127c4a"],
       ["--alerta", "#b45309"],
       ["--destructivo", "#b3261e"],
       ["--info", "#1e5fa8"],
-    ])("%s is unchanged (%s)", (prop, value) => {
+    ])("%s is %s", (prop, value) => {
       expect(propValue(root, prop)).toBe(value)
     })
   })
@@ -66,7 +77,6 @@ describe("globals.css design tokens (V0.1)", () => {
       ["--card", "#1b1316"],
       ["--secondary", "#241a1e"],
       ["--muted", "#241a1e"],
-      ["--accent", "#241a1e"],
       ["--border", "#2e2227"],
       ["--exito", "#4cc38a"],
       ["--alerta", "#f0a04b"],
@@ -74,6 +84,12 @@ describe("globals.css design tokens (V0.1)", () => {
       ["--info", "#6aa6f0"],
       ["--ink-700", "#c4b2b8"],
       ["--ink-500", "#a08a91"],
+      ["--foreground", "#f8f2f4"],
+      ["--muted-foreground", "#a08a91"],
+      ["--destructive", "#f07163"],
+      ["--input", "#34272c"],
+      ["--ring", "#eb3f85"],
+      ["--accent", "rgba(235, 63, 133, 0.14)"],
     ])("%s -> %s", (prop, value) => {
       expect(propValue(dark, prop)).toBe(value)
     })
@@ -95,6 +111,40 @@ describe("globals.css design tokens (V0.1)", () => {
     })
   })
 
+  describe("sidebar tokens (U1b/U3)", () => {
+    // The manual wants a WHITE sidebar in light, but sidebar.tsx still hard-codes
+    // light-on-dark text (shell-* tokens): flipping --sidebar now would make it
+    // unreadable. U3 migrates the component and flips these tokens together.
+    it("keep the dark shell until the sidebar component migrates (U3)", () => {
+      expect(propValue(root, "--sidebar")).toBe("#191113")
+      expect(propValue(dark, "--sidebar")).toBe("#0d0809")
+    })
+  })
+
+  describe("semaphore and accent tokens pin the manual in both themes", () => {
+    it.each([
+      ["--exito", "#127c4a", "#4cc38a"],
+      ["--alerta", "#b45309", "#f0a04b"],
+      ["--destructivo", "#b3261e", "#f07163"],
+      ["--info", "#1e5fa8", "#6aa6f0"],
+    ])("%s light/dark", (prop, light, darkValue) => {
+      expect(propValue(root, prop)).toBe(light)
+      expect(propValue(dark, prop)).toBe(darkValue)
+    })
+
+    it("--color-rose-400 (dark-ready accent) is the manual's #eb3f85", () => {
+      expect(propValue(block("@theme"), "--color-rose-400")).toBe("#eb3f85")
+    })
+
+    it("--border-strong light stays the accessible #9b8c91 (decision D6-3)", () => {
+      expect(propValue(root, "--border-strong")).toBe("#9b8c91")
+    })
+
+    it("--destructive light #b3261e", () => {
+      expect(propValue(root, "--destructive")).toBe("#b3261e")
+    })
+  })
+
   describe("v6 tokens exist in both themes", () => {
     it("--border-strong: light is a >= 3:1 control border, dark is the v6 #34272c", () => {
       expect(propValue(root, "--border-strong")).toBe("#9b8c91")
@@ -111,15 +161,15 @@ describe("globals.css design tokens (V0.1)", () => {
       expect(propValue(dark, "--overlay")).toBe("rgba(12, 6, 9, 0.66)")
     })
 
-    it("--accent-brand / --accent-tint exist in both themes", () => {
-      expect(propValue(root, "--accent-brand")).toBe("#eb3f85")
+    it("--accent-brand / --accent-tint exist in both themes (manual accent)", () => {
+      expect(propValue(root, "--accent-brand")).toBe("#b41153")
       expect(propValue(dark, "--accent-brand")).toBe("#eb3f85")
       expect(propValue(root, "--accent-tint")).toBe("var(--rose-50)")
       expect(propValue(dark, "--accent-tint")).toBe("var(--rose-50)")
     })
 
-    it("--accent-bar (3px sidebar/active rail) is the brand pink in both themes", () => {
-      expect(propValue(root, "--accent-bar")).toBe("#cd1560")
+    it("--accent-bar (3px active rail): manual accent in light, brand pink in dark", () => {
+      expect(propValue(root, "--accent-bar")).toBe("#b41153")
       expect(propValue(dark, "--accent-bar")).toBe("#cd1560")
       expect(propValue(block("@theme"), "--color-accent-bar")).toBe("var(--accent-bar)")
     })
@@ -163,8 +213,24 @@ describe("globals.css design tokens (V0.1)", () => {
       ["--muted-foreground on card", "--muted-foreground", "--card"],
       ["--foreground on card", "--foreground", "--card"],
       ["--primary on card (tab text/links)", "--primary", "--card"],
+      ["--ink-700 (secondary) on page", "--ink-700", "--page"],
+      ["--foreground on page", "--foreground", "--page"],
+      ["--accent-foreground (accent-soft) on page", "--accent-foreground", "--page"],
+      ["--destructivo on --destructivo-bg", "--destructivo", "--destructivo-bg"],
+      ["--exito on --exito-bg", "--exito", "--exito-bg"],
+      ["--alerta on --alerta-bg", "--alerta", "--alerta-bg"],
+      ["--info on --info-bg", "--info", "--info-bg"],
     ])("light text: %s >= 4.5:1", (_n, fg, bg) => {
       expect(ratio(v(root, fg), v(root, bg))).toBeGreaterThanOrEqual(4.5)
+    })
+
+    it("accent #b41153 (manual light accent) passes AA on white and on the page", () => {
+      expect(ratio("#b41153", "#ffffff")).toBeGreaterThanOrEqual(4.5)
+      expect(ratio("#b41153", v(root, "--page"))).toBeGreaterThanOrEqual(4.5)
+    })
+
+    it("white on the brand primary is >= 4.5:1", () => {
+      expect(ratio(v(root, "--primary-foreground"), v(root, "--primary"))).toBeGreaterThanOrEqual(4.5)
     })
 
     it.each([
@@ -172,13 +238,15 @@ describe("globals.css design tokens (V0.1)", () => {
       ["--ink-500 on page", "--ink-500", "--page"],
       ["--ink-700 (secondary) on card", "--ink-700", "--card"],
       ["--foreground on card", "--foreground", "--card"],
+      ["--muted-foreground on card", "--muted-foreground", "--card"],
+      ["--destructive on card", "--destructive", "--card"],
     ])("dark text: %s >= 4.5:1", (_n, fg, bg) => {
       expect(ratio(v(dark, fg), v(dark, bg))).toBeGreaterThanOrEqual(4.5)
     })
 
     it.each([
       ["--border-strong (control boundary) on --input-bg", "--border-strong", "--input-bg"],
-      ["--border-strong on --background", "--border-strong", "--background"],
+      ["--border-strong on --card (D6-3: 2.87:1 on the page tint, fields sit on white)", "--border-strong", "--card"],
       ["--ring (focus) on --background", "--ring", "--background"],
       ["--primary (tab underline) on --card", "--primary", "--card"],
       ["--accent-bar on --card", "--accent-bar", "--card"],
@@ -195,7 +263,7 @@ describe("globals.css design tokens (V0.1)", () => {
     })
   })
 
-  describe("shell radius and accent-soft are tokenized in @theme (fixed, non-flipping)", () => {
+  describe("shell radius and accent-soft are tokenized in @theme", () => {
     const theme = block("@theme")
     const themeInline = block("@theme inline")
 
@@ -203,8 +271,10 @@ describe("globals.css design tokens (V0.1)", () => {
       expect(propValue(themeInline, "--radius-26")).toBe("26px")
     })
 
-    it("--color-accent-soft is the fixed v6 accent-soft value", () => {
-      expect(propValue(theme, "--color-accent-soft")).toBe("#f5bad2")
+    it("--color-accent-soft flips: manual #940d44 in light, #f5bad2 in dark", () => {
+      expect(propValue(theme, "--color-accent-soft")).toBe("var(--accent-soft)")
+      expect(propValue(root, "--accent-soft")).toBe("#940d44")
+      expect(propValue(dark, "--accent-soft")).toBe("#f5bad2")
     })
   })
 })
