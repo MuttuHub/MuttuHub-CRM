@@ -7,16 +7,8 @@ import { useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EstructuraActividades } from "@/components/proyectos/estructura-actividades";
 import { EstructuraIndicadores } from "@/components/proyectos/estructura-indicadores";
-import {
-  AddButton,
-  InlineError,
-  RowActions,
-  StructureForm,
-  TextField,
-  errorMessage,
-  formError,
-  plural,
-} from "@/components/proyectos/estructura-ui";
+import { AddButton, RowActions, StructureForm, TextField, errorMessage, formError, plural } from "@/components/proyectos/estructura-ui";
+import { InlineError } from "@/components/proyectos/ui";
 import {
   useCreateObjective,
   useDeleteObjective,

@@ -8,7 +8,8 @@ import { useState } from "react";
 import { GitCompareArrows } from "lucide-react";
 import { ToneBadge } from "@/components/crm/shared";
 import { formatFechaHora } from "@/components/proyectos/project-display";
-import { InlineError, errorMessage } from "@/components/proyectos/estructura-ui";
+import { errorMessage } from "@/components/proyectos/estructura-ui";
+import { InlineError, SELECT_CLASS, SectionHeader } from "@/components/proyectos/ui";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   useProjectVersionCompare,
@@ -23,7 +24,6 @@ const VERSIONES_ERROR = "No pudimos cargar las versiones. Inténtalo de nuevo.";
 const COMPARACION_ERROR = "No pudimos comparar las versiones. Inténtalo de nuevo.";
 export const SIN_LINEA_BASE_NOTE = "La línea base aún no está aprobada.";
 
-const SELECT_CLASS = "h-8 rounded-12 border border-ink-200 bg-panel px-2.5 text-[12.5px] text-ink-900";
 
 const ELEMENTO_LABEL: Record<ProjectDiferencia["elemento"], string> = {
   proyecto: "Proyecto",
@@ -70,10 +70,7 @@ const claveDe = (clave: string) => clave.replace("|", " · ");
 export function ProjectVersiones({ proyecto }: { proyecto: ProjectListRow }) {
   return (
     <section data-testid="versiones">
-      <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-        <GitCompareArrows className="size-3.5" strokeWidth={2} />
-        Versiones
-      </h3>
+      <SectionHeader icon={<GitCompareArrows className="size-3.5" strokeWidth={2} />}>Versiones</SectionHeader>
       {proyecto.estado === "BORRADOR" ? (
         <p className="mt-1.5 text-[12.5px] text-ink-500">{SIN_LINEA_BASE_NOTE}</p>
       ) : (

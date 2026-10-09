@@ -30,6 +30,7 @@ import {
 } from "@/hooks/projects";
 import { ROLE_LABELS } from "@/lib/auth/types";
 import { canManageProjects } from "@/lib/permissions";
+import { SectionHeader } from "@/components/proyectos/ui";
 
 const LOAD_ERROR = "No pudimos cargar el equipo del proyecto. Inténtalo de nuevo.";
 
@@ -46,10 +47,7 @@ export function ProjectTeam({ proyectoId }: { proyectoId: string }) {
 
   return (
     <section data-testid="equipo">
-      <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-        <Users className="size-3.5" strokeWidth={2} />
-        Equipo
-      </h3>
+      <SectionHeader icon={<Users className="size-3.5" strokeWidth={2} />}>Equipo</SectionHeader>
 
       {members.isError ? (
         <p role="alert" className="mt-1.5 text-[13px] text-destructivo">

@@ -14,6 +14,7 @@ import { EstructuraObjetivos } from "@/components/proyectos/estructura-objetivos
 import { useCurrentUser } from "@/hooks/kanban";
 import type { ProjectListRow } from "@/hooks/projects";
 import { canManageProjects } from "@/lib/permissions";
+import { SectionHeader } from "@/components/proyectos/ui";
 
 export function ProjectEstructura({ proyecto }: { proyecto: ProjectListRow }) {
   const userQuery = useCurrentUser();
@@ -25,10 +26,7 @@ export function ProjectEstructura({ proyecto }: { proyecto: ProjectListRow }) {
   return (
     <section data-testid="estructura">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-          <ListTree className="size-3.5" strokeWidth={2} />
-          Estructura técnica
-        </h3>
+        <SectionHeader icon={<ListTree className="size-3.5" strokeWidth={2} />}>Estructura técnica</SectionHeader>
         {canEdit && <ImportDialog proyecto={proyecto} />}
       </div>
 

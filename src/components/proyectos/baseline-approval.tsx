@@ -16,7 +16,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { InlineError, errorMessage } from "@/components/proyectos/estructura-ui";
+import { errorMessage } from "@/components/proyectos/estructura-ui";
+import { InlineError } from "@/components/proyectos/ui";
 import { useCurrentUser } from "@/hooks/kanban";
 import {
   BaselinePrecondicionesError,

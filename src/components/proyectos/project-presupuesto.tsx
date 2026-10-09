@@ -9,7 +9,8 @@
 import { useState } from "react";
 import { LoaderCircle, Wallet } from "lucide-react";
 import { ToneBadge } from "@/components/crm/shared";
-import { InlineError, errorMessage } from "@/components/proyectos/estructura-ui";
+import { errorMessage } from "@/components/proyectos/estructura-ui";
+import { InlineError, SectionHeader } from "@/components/proyectos/ui";
 import {
   MONTO_INVALIDO,
   MoneyInput,
@@ -40,10 +41,7 @@ export function ProjectPresupuesto({ proyecto }: { proyecto: ProjectListRow }) {
 
   return (
     <section data-testid="presupuesto">
-      <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-        <Wallet className="size-3.5" strokeWidth={2} />
-        Presupuesto
-      </h3>
+      <SectionHeader icon={<Wallet className="size-3.5" strokeWidth={2} />}>Presupuesto</SectionHeader>
 
       {puedeGestionar && proyecto.estado !== "BORRADOR" && (
         <p className="mt-1.5 text-[12.5px] text-ink-500">

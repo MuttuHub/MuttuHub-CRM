@@ -11,7 +11,8 @@ import { LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { InlineError, errorMessage } from "@/components/proyectos/estructura-ui";
+import { errorMessage } from "@/components/proyectos/estructura-ui";
+import { InlineError } from "@/components/proyectos/ui";
 import { useRejectExpense, useValidateExpense } from "@/hooks/projects";
 
 export const PROPIO_TEXT = "Tú lo registraste";

@@ -7,15 +7,9 @@
 "use client";
 
 import { ToneBadge } from "@/components/crm/shared";
+import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
-import type { ColorSemaforo, ProjectBase, ProjectTechnicalStatus } from "@/hooks/projects";
-import type { UiTone } from "@/lib/catalogs";
-
-export const COLOR_META: Record<ColorSemaforo, { tone: UiTone; label: string }> = {
-  verde: { tone: "exito", label: "Verde" },
-  amarillo: { tone: "alerta", label: "Amarillo" },
-  rojo: { tone: "riesgo", label: "Rojo" },
-};
+import type { ProjectBase, ProjectTechnicalStatus } from "@/hooks/projects";
 
 function formatPct(value: number): string {
   return `${new Intl.NumberFormat("es-CO", { maximumFractionDigits: 1 }).format(value)} %`;
@@ -33,8 +27,6 @@ export function SemaforoTecnico({
   /** Con el callback, el semáforo ofrece la base vigente/original (S8); sin él, es solo lectura. */
   onBaseChange?: (base: ProjectBase) => void;
 }) {
-  const meta = COLOR_META[tecnico.color];
-
   return (
     <div
       data-testid="semaforo-tecnico"
@@ -43,7 +35,7 @@ export function SemaforoTecnico({
       className="rounded-[14px] border border-ink-200 bg-panel p-3"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <ToneBadge tone={meta.tone} label={`Semáforo técnico: ${meta.label}`} />
+        <SemaforoChip color={tecnico.color} prefix="Semáforo técnico" />
         {tecnico.umbrales.confirmado === false && <ToneBadge tone="neutro" label="No confirmado" />}
         <span className="text-[12px] text-ink-500">
           Corte al {formatFechaCalendario(tecnico.corte)}

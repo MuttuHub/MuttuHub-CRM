@@ -17,17 +17,8 @@ import {
 import { ToneBadge } from "@/components/crm/shared";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import { EstructuraEntregables } from "@/components/proyectos/estructura-entregables";
-import {
-  AddButton,
-  INVALID_NUMBER,
-  InlineError,
-  RowActions,
-  StructureForm,
-  TextField,
-  errorMessage,
-  formError,
-  parseNumber,
-} from "@/components/proyectos/estructura-ui";
+import { AddButton, INVALID_NUMBER, RowActions, StructureForm, TextField, errorMessage, formError, parseNumber } from "@/components/proyectos/estructura-ui";
+import { InlineError, SectionHeader } from "@/components/proyectos/ui";
 import { useUsers } from "@/hooks/crm";
 import {
   useCreateActivity,
@@ -81,7 +72,7 @@ export function EstructuraActividades({
 
   return (
     <div className="mt-3">
-      <h4 className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">Actividades</h4>
+      <SectionHeader as="h4">Actividades</SectionHeader>
       {propias.length === 0 ? (
         <p className="mt-1 text-[12.5px] text-ink-500">Sin actividades.</p>
       ) : (

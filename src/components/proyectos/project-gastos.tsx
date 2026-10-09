@@ -10,7 +10,8 @@ import { Plus, Receipt } from "lucide-react";
 import { ToneBadge } from "@/components/crm/shared";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { InlineError, VoidControl, errorMessage, plural } from "@/components/proyectos/estructura-ui";
+import { VoidControl, errorMessage, plural } from "@/components/proyectos/estructura-ui";
+import { InlineError, SectionHeader } from "@/components/proyectos/ui";
 import { GastoForm, TIPO_SOPORTE_LABELS } from "@/components/proyectos/gasto-form";
 import { ValidacionControles } from "@/components/proyectos/gasto-acciones";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
@@ -60,10 +61,7 @@ export function ProjectGastos({ proyecto }: { proyecto: ProjectListRow }) {
 
   return (
     <section data-testid="gastos">
-      <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-        <Receipt className="size-3.5" strokeWidth={2} />
-        Gastos
-      </h3>
+      <SectionHeader icon={<Receipt className="size-3.5" strokeWidth={2} />}>Gastos</SectionHeader>
 
       {query.isError ? (
         <InlineError message={errorMessage(query.error, GASTOS_ERROR)} className="mt-2" />

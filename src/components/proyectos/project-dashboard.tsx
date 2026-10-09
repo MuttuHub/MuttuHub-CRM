@@ -12,10 +12,11 @@ import { Download, Eye, FolderKanban } from "lucide-react";
 import { toast } from "sonner";
 import { ToneBadge } from "@/components/crm/shared";
 import { BarRow, StatTile } from "@/components/dashboard/shared";
-import { InlineError, errorMessage } from "@/components/proyectos/estructura-ui";
+import { errorMessage } from "@/components/proyectos/estructura-ui";
+import { InlineError, SELECT_CLASS } from "@/components/proyectos/ui";
 import { ESTADO_PROYECTO_META, formatFechaCalendario } from "@/components/proyectos/project-display";
 import { formatPct } from "@/components/proyectos/project-kpis-panel";
-import { COLOR_META } from "@/components/proyectos/semaforo-tecnico";
+import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
 import { ProjectFichaDialog } from "@/components/proyectos/project-ficha-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -36,7 +37,6 @@ import type { EstadoProyecto } from "@prisma/client";
 
 const ESTADOS: EstadoProyecto[] = ["PLANIFICACION", "BORRADOR", "EN_EJECUCION", "SUSPENDIDO", "CERRADO", "CANCELADO"];
 const TABLERO_ERROR = "No pudimos cargar el tablero de proyectos. Inténtalo de nuevo.";
-const SELECT_CLASS = "h-8 rounded-12 border border-ink-200 bg-panel px-2.5 text-[12.5px] text-ink-900";
 
 type FiltroKey = keyof PortfolioFilters;
 
@@ -281,9 +281,7 @@ function TablaProyectos({ proyectos, onOpenFicha }: { proyectos: PortfolioProjec
 function Semaforo({ testId, color }: { testId: string; color: ColorSemaforo | null }) {
   if (color === null) return <span className="text-[12px] text-ink-500">Sin medir</span>;
   return (
-    <span data-testid={testId} data-color={color}>
-      <ToneBadge tone={COLOR_META[color].tone} label={COLOR_META[color].label} />
-    </span>
+    <SemaforoChip data-testid={testId} color={color} />
   );
 }
 

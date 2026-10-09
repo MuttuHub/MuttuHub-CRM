@@ -11,18 +11,8 @@ import {
   useUpdateIndicator,
   type ProjectIndicator,
 } from "@/hooks/projects";
-import {
-  AddButton,
-  INVALID_NUMBER,
-  InlineError,
-  RowActions,
-  StructureForm,
-  TextField,
-  errorMessage,
-  formError,
-  formatCantidad,
-  parseNumber,
-} from "@/components/proyectos/estructura-ui";
+import { AddButton, INVALID_NUMBER, RowActions, StructureForm, TextField, errorMessage, formError, formatCantidad, parseNumber } from "@/components/proyectos/estructura-ui";
+import { InlineError, SectionHeader } from "@/components/proyectos/ui";
 
 export function EstructuraIndicadores({
   proyectoId,
@@ -51,7 +41,7 @@ export function EstructuraIndicadores({
 
   return (
     <div className="mt-3">
-      <h4 className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">Indicadores</h4>
+      <SectionHeader as="h4">Indicadores</SectionHeader>
       {propios.length === 0 ? (
         <p className="mt-1 text-[12.5px] text-ink-500">Sin indicadores.</p>
       ) : (

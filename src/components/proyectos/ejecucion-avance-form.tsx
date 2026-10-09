@@ -9,12 +9,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  INVALID_NUMBER,
-  InlineError,
-  formError,
-  parseNumber,
-} from "@/components/proyectos/estructura-ui";
+import { INVALID_NUMBER, formError, parseNumber } from "@/components/proyectos/estructura-ui";
+import { InlineError } from "@/components/proyectos/ui";
 import {
   useCreateAvance,
   type AvanceMedioInput,

@@ -11,7 +11,8 @@ import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { InlineError, errorMessage } from "@/components/proyectos/estructura-ui";
+import { errorMessage } from "@/components/proyectos/estructura-ui";
+import { InlineError, SELECT_CLASS_LG as SELECT } from "@/components/proyectos/ui";
 import {
   useCreateExpense,
   type AvanceMedioInput,
@@ -33,7 +34,6 @@ export const TIPO_SOPORTE_LABELS: Record<ProjectExpense["tipo_soporte"], string>
 };
 
 const FIELD = "h-9 rounded-12 bg-panel px-3";
-const SELECT = "h-9 rounded-12 border border-ink-200 bg-panel px-3 text-[13px] text-ink-900";
 
 function Campo({ id, label, children, className }: { id: string; label: string; children: React.ReactNode; className?: string }) {
   return (

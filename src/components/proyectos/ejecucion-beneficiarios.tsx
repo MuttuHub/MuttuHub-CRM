@@ -12,13 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToneBadge } from "@/components/crm/shared";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
-import {
-  InlineError,
-  VoidControl,
-  errorMessage,
-  formError,
-  parseNumber,
-} from "@/components/proyectos/estructura-ui";
+import { VoidControl, errorMessage, formError, parseNumber } from "@/components/proyectos/estructura-ui";
+import { InlineError, SectionHeader } from "@/components/proyectos/ui";
 import {
   useCreateBeneficiario,
   useProjectActivities,
@@ -54,9 +49,7 @@ export function EjecucionBeneficiarios({
 
   return (
     <div className="mt-3">
-      <h4 className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-        Beneficiarios
-      </h4>
+      <SectionHeader as="h4">Beneficiarios</SectionHeader>
 
       {query.isError ? (
         <InlineError

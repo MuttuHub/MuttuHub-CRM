@@ -9,7 +9,8 @@ import { useState } from "react";
 import { Gauge } from "lucide-react";
 import { useCurrentUser } from "@/hooks/kanban";
 import { Skeleton } from "@/components/ui/skeleton";
-import { InlineError, errorMessage } from "@/components/proyectos/estructura-ui";
+import { errorMessage } from "@/components/proyectos/estructura-ui";
+import { InlineError, SectionHeader } from "@/components/proyectos/ui";
 import { EjecucionAvance } from "@/components/proyectos/ejecucion-avance";
 import { EjecucionBeneficiarios } from "@/components/proyectos/ejecucion-beneficiarios";
 import { EjecucionIndicadores } from "@/components/proyectos/ejecucion-indicadores";
@@ -36,7 +37,7 @@ export function ProjectEjecucion({ proyecto }: { proyecto: ProjectListRow }) {
   if (proyecto.estado === "BORRADOR") {
     return (
       <section data-testid="ejecucion">
-        <SectionHeader />
+        <EjecucionHeader />
         <p className="mt-1.5 text-[12.5px] text-ink-500">{EJECUCION_BORRADOR_HINT}</p>
       </section>
     );
@@ -44,19 +45,14 @@ export function ProjectEjecucion({ proyecto }: { proyecto: ProjectListRow }) {
 
   return (
     <section data-testid="ejecucion">
-      <SectionHeader />
+      <EjecucionHeader />
       <EjecucionContent proyecto={proyecto} />
     </section>
   );
 }
 
-function SectionHeader() {
-  return (
-    <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-      <Gauge className="size-3.5" strokeWidth={2} />
-      Ejecución técnica
-    </h3>
-  );
+function EjecucionHeader() {
+  return <SectionHeader icon={<Gauge className="size-3.5" strokeWidth={2} />}>Ejecución técnica</SectionHeader>;
 }
 
 function EjecucionContent({ proyecto }: { proyecto: ProjectListRow }) {

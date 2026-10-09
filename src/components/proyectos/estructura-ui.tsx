@@ -9,6 +9,7 @@ import { LoaderCircle, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { InlineError } from "@/components/proyectos/ui";
 import { cn } from "@/lib/utils";
 
 export const INVALID_NUMBER = "Ingresa un número válido.";
@@ -35,15 +36,6 @@ export function formatCantidad(value: string): string {
 
 export function plural(n: number, singular: string, pluralForm: string): string {
   return `${n} ${n === 1 ? singular : pluralForm}`;
-}
-
-export function InlineError({ message, className }: { message: string | null; className?: string }) {
-  if (!message) return null;
-  return (
-    <p role="alert" className={cn("text-[13px] text-destructivo", className)}>
-      {message}
-    </p>
-  );
 }
 
 export function TextField({

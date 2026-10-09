@@ -11,7 +11,8 @@ import { ToneBadge } from "@/components/crm/shared";
 import { SolicitarModificacion, TIPO_MODIFICACION_LABEL } from "@/components/proyectos/modificacion-form";
 import { formatFechaHora } from "@/components/proyectos/project-display";
 import { CAMPO_LABEL } from "@/components/proyectos/project-versiones";
-import { InlineError, errorMessage } from "@/components/proyectos/estructura-ui";
+import { errorMessage } from "@/components/proyectos/estructura-ui";
+import { InlineError, SectionHeader } from "@/components/proyectos/ui";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrentUser } from "@/hooks/kanban";
@@ -55,10 +56,7 @@ function formatValor(item: ModificacionDetalleItem, valor: string): string {
 export function ProjectModificaciones({ proyecto }: { proyecto: ProjectListRow }) {
   return (
     <section data-testid="modificaciones">
-      <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-        <FilePen className="size-3.5" strokeWidth={2} />
-        Modificaciones
-      </h3>
+      <SectionHeader icon={<FilePen className="size-3.5" strokeWidth={2} />}>Modificaciones</SectionHeader>
       {proyecto.estado === "BORRADOR" ? (
         <p className="mt-1.5 text-[12.5px] text-ink-500">{MODIFICACIONES_BORRADOR_HINT}</p>
       ) : (

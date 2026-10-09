@@ -14,18 +14,8 @@ import {
   type ProjectActivity,
   type ProjectDeliverable,
 } from "@/hooks/projects";
-import {
-  AddButton,
-  INVALID_NUMBER,
-  InlineError,
-  RowActions,
-  StructureForm,
-  TextField,
-  errorMessage,
-  formatCantidad,
-  formError,
-  parseNumber,
-} from "@/components/proyectos/estructura-ui";
+import { AddButton, INVALID_NUMBER, RowActions, StructureForm, TextField, errorMessage, formatCantidad, formError, parseNumber } from "@/components/proyectos/estructura-ui";
+import { InlineError } from "@/components/proyectos/ui";
 
 export function EstructuraEntregables({
   proyectoId,

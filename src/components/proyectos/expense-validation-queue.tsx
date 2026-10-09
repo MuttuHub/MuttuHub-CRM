@@ -10,6 +10,7 @@ import { ValidacionControles } from "@/components/proyectos/gasto-acciones";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import { useExpenseValidationQueue } from "@/hooks/projects";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
+import { SectionHeader } from "@/components/proyectos/ui";
 
 export function ExpenseValidationQueue() {
   const query = useExpenseValidationQueue();
@@ -22,9 +23,7 @@ export function ExpenseValidationQueue() {
       aria-label="Gastos por validar"
       className="rounded-[22px] border border-ink-200 bg-panel p-4 lg:p-5"
     >
-      <h2 className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-        Gastos por validar · {gastos.length}
-      </h2>
+      <SectionHeader as="h2">Gastos por validar · {gastos.length}</SectionHeader>
       <ul className="mt-2 flex flex-col gap-2">
         {gastos.map((gasto) => (
           <li

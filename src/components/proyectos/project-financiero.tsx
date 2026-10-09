@@ -12,8 +12,9 @@
 import { useState } from "react";
 import { AlertTriangle, PiggyBank } from "lucide-react";
 import { ToneBadge } from "@/components/crm/shared";
-import { InlineError, errorMessage } from "@/components/proyectos/estructura-ui";
-import { COLOR_META } from "@/components/proyectos/semaforo-tecnico";
+import { errorMessage } from "@/components/proyectos/estructura-ui";
+import { InlineError, SELECT_CLASS, SectionHeader } from "@/components/proyectos/ui";
+import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   useProjectFinancialSheet,
@@ -30,16 +31,11 @@ export const SIN_GASTOS_NOTE = "Ejecución disponible cuando se registren gastos
 export const ALERTA_RETRASO_TEXT =
   "Posible retraso: el gasto va por debajo de lo programado y el avance técnico está atrasado.";
 
-const SELECT_CLASS =
-  "h-8 rounded-12 border border-ink-200 bg-panel px-2.5 text-[12.5px] text-ink-900 disabled:opacity-60";
 
 export function ProjectFinanciero({ proyecto }: { proyecto: ProjectListRow }) {
   return (
     <section data-testid="financiero">
-      <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-        <PiggyBank className="size-3.5" strokeWidth={2} />
-        Ficha financiera
-      </h3>
+      <SectionHeader icon={<PiggyBank className="size-3.5" strokeWidth={2} />}>Ficha financiera</SectionHeader>
       {proyecto.fecha_inicio && proyecto.fecha_fin ? (
         <FinancieroContent proyecto={proyecto} inicio={proyecto.fecha_inicio} fin={proyecto.fecha_fin} />
       ) : (
@@ -177,7 +173,6 @@ function FichaFila({
   testId: string;
   total?: boolean;
 }) {
-  const meta = row.color ? COLOR_META[row.color] : null;
   return (
     <tr
       data-testid={testId}
@@ -195,10 +190,8 @@ function FichaFila({
       <td className="px-2 py-1.5 text-right tabular-nums">{disponible ? porcentaje(row.ea_decimas) : "—"}</td>
       <td className="px-2 py-1.5 text-right tabular-nums">{monto(row.umbral_rojo)}</td>
       <td className="px-3 py-1.5">
-        {disponible && row.color && meta ? (
-          <span data-color={row.color}>
-            <ToneBadge tone={meta.tone} label={meta.label} />
-          </span>
+        {disponible && row.color ? (
+          <SemaforoChip color={row.color} />
         ) : (
           "—"
         )}

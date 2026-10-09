@@ -12,13 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToneBadge } from "@/components/crm/shared";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
-import {
-  InlineError,
-  VoidControl,
-  errorMessage,
-  formError,
-  parseNumber,
-} from "@/components/proyectos/estructura-ui";
+import { VoidControl, errorMessage, formError, parseNumber } from "@/components/proyectos/estructura-ui";
+import { InlineError, SectionHeader } from "@/components/proyectos/ui";
 import {
   useCreateMedicion,
   useIndicatorMeasurements,
@@ -58,7 +53,7 @@ export function EjecucionIndicadores({
 
   return (
     <div className="mt-3">
-      <h4 className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">Indicadores</h4>
+      <SectionHeader as="h4">Indicadores</SectionHeader>
       {query.isError ? (
         <InlineError
           message={errorMessage(query.error, "No pudimos cargar los indicadores. Inténtalo de nuevo.")}

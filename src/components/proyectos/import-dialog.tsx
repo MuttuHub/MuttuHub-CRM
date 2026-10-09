@@ -20,7 +20,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { InlineError, errorMessage, plural } from "@/components/proyectos/estructura-ui";
+import { errorMessage, plural } from "@/components/proyectos/estructura-ui";
+import { InlineError } from "@/components/proyectos/ui";
 import {
   ImportReportError,
   downloadProjectTemplate,

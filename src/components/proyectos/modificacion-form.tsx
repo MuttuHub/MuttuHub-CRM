@@ -18,7 +18,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { InlineError, errorMessage } from "@/components/proyectos/estructura-ui";
+import { errorMessage } from "@/components/proyectos/estructura-ui";
+import { InlineError, SELECT_CLASS_LG as SELECT_CLASS } from "@/components/proyectos/ui";
 import {
   ModificacionReglasError,
   useProjectActivities,
@@ -43,7 +44,6 @@ export const TIPO_MODIFICACION_LABEL: Record<TipoModificacion, string> = {
 };
 
 const TIPOS = Object.keys(TIPO_MODIFICACION_LABEL) as TipoModificacion[];
-const SELECT_CLASS = "h-9 rounded-12 border border-ink-200 bg-panel px-3 text-[13px] text-ink-900";
 const CELDA_CLASS = "h-8 w-[8.5rem] rounded-12 bg-panel px-2 text-right text-[12.5px] tabular-nums";
 
 export function SolicitarModificacion({ proyecto }: { proyecto: ProjectListRow }) {

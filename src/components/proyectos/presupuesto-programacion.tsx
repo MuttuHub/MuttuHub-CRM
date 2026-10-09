@@ -7,7 +7,8 @@
 import { useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { ToneBadge } from "@/components/crm/shared";
-import { InlineError, errorMessage } from "@/components/proyectos/estructura-ui";
+import { errorMessage } from "@/components/proyectos/estructura-ui";
+import { InlineError } from "@/components/proyectos/ui";
 import {
   MONTO_INVALIDO,
   MoneyInput,

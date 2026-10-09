@@ -20,6 +20,7 @@ import {
 import { ganttLayout, type GanttBarra } from "@/lib/proyectos/gantt";
 import { weekStart } from "@/lib/proyectos/weeks";
 import { cn } from "@/lib/utils";
+import { SectionHeader } from "@/components/proyectos/ui";
 
 const LOAD_ERROR = "No pudimos cargar el cronograma. Inténtalo de nuevo.";
 /** Ancho mínimo de una columna de semana: por debajo, la grilla se desplaza en horizontal. */
@@ -40,10 +41,7 @@ export function EstructuraGantt({ proyecto }: { proyecto: ProjectListRow }) {
 
   return (
     <div data-testid="gantt" className="mt-4">
-      <h4 className="flex items-center gap-1.5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-        <ChartGantt className="size-3.5" strokeWidth={2} />
-        Cronograma por semanas
-      </h4>
+      <SectionHeader as="h4" icon={<ChartGantt className="size-3.5" strokeWidth={2} />}>Cronograma por semanas</SectionHeader>
       <GanttBody
         proyecto={proyecto}
         objetivos={objetivos.data}

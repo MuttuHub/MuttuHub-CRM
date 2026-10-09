@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { ToneBadge } from "@/components/crm/shared";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import { EjecucionAvanceForm } from "@/components/proyectos/ejecucion-avance-form";
-import { InlineError, VoidControl, errorMessage, plural } from "@/components/proyectos/estructura-ui";
+import { VoidControl, errorMessage, plural } from "@/components/proyectos/estructura-ui";
+import { InlineError } from "@/components/proyectos/ui";
 import {
   useVoidAvance,
   type EstadoActividad,
