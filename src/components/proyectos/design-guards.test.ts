@@ -13,9 +13,23 @@ function tokens(selector: string): Record<string, string> {
   const out: Record<string, string> = {}
   const re = new RegExp(`(^|\\n)\\s*${selector.replace(".", "\\.")}\\s*\\{([^}]*)\\}`, "g")
   for (const block of css.matchAll(re)) {
-    for (const decl of block[2].matchAll(/--([\w-]+):\s*(#[0-9a-fA-F]{6})\s*;/g)) out[decl[1]] = decl[2]
+    for (const decl of block[2].matchAll(/--([\w-]+):\s*(#[0-9a-fA-F]{6}|color-mix\([^;]*\))\s*;/g)) out[decl[1]] = decl[2]
   }
   return out
+}
+
+const toRgb = (hex: string): [number, number, number] => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) as [number, number, number]
+const toHex = (rgb: number[]) => `#${rgb.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")}`
+
+/** Resolves a token to an opaque hex. `color-mix(in srgb, var(--x) N%, transparent)` is composited over `surface`. */
+function solid(theme: Record<string, string>, name: string, surface: string): string {
+  const value = theme[name]
+  const mix = /^color-mix\(in srgb,\s*var\(--([\w-]+)\)\s+(\d+)%,\s*transparent\)$/.exec(value ?? "")
+  if (!mix) return value
+  const alpha = Number(mix[2]) / 100
+  const fg = toRgb(theme[mix[1]])
+  const bg = toRgb(surface)
+  return toHex(fg.map((v, i) => v * alpha + bg[i] * (1 - alpha)))
 }
 
 function channel(hex: string, i: number): number {
@@ -42,14 +56,14 @@ describe("semáforo chip contrast (WCAG AA, 4.5:1)", () => {
     for (const theme of Object.values(themes)) {
       for (const [, fg, bg] of SEMAFORO_PAIRS) {
         expect(theme[fg]).toMatch(/^#/)
-        expect(theme[bg]).toMatch(/^#/)
+        expect(solid(theme, bg, theme.card)).toMatch(/^#/)
       }
     }
   })
 
   for (const [themeName, theme] of Object.entries(themes)) {
     it.each(SEMAFORO_PAIRS)(`${themeName}: %s text on its background`, (_color, fg, bg) => {
-      const ratio = contrast(theme[fg], theme[bg])
+      const ratio = contrast(theme[fg], solid(theme, bg, theme.card))
       expect(ratio, `${themeName} ${fg} on ${bg} = ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(4.5)
     })
   }
