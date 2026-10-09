@@ -209,6 +209,29 @@ vi.mock("@/hooks/projects", () => ({
     ]),
   ),
   downloadExpenseSoporte: vi.fn(),
+  // ... and the Modificaciones queue and the Versiones section (S8 U6): nothing requested, one baseline version.
+  useProjectModifications: () => ({ data: [], isLoading: false, isError: false, error: null }),
+  useProjectVersions: () => ({
+    data: [
+      { numero: 0, tipo: "LINEA_BASE", aprobado_at: "2026-10-08T15:00:00.000Z", aprobado_por: { id: "g1", nombre: "Gina" }, motivo: null, solicitud_id: null },
+    ],
+    isLoading: false,
+    isError: false,
+    error: null,
+  }),
+  useProjectVersionCompare: () => ({
+    data: { desde: "0", hasta: "vigente", diferencias: [] },
+    isLoading: false,
+    isError: false,
+    error: null,
+  }),
+  ...Object.fromEntries(
+    ["useRequestModification", "useApproveModification", "useRejectModification"].map((name) => [
+      name,
+      () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, isError: false, error: null, variables: undefined }),
+    ]),
+  ),
+  ModificacionReglasError: class ModificacionReglasError extends Error {},
   useEligibleOpportunities: dialogHooks.useEligibleOpportunities,
   useStrategicLines: dialogHooks.useStrategicLines,
   useMunicipalities: dialogHooks.useMunicipalities,
@@ -530,6 +553,18 @@ describe("ProjectList", () => {
     const ficha = await screen.findByRole("dialog")
     expect(within(ficha).getByText("PRY-2026-001")).toBeInTheDocument()
     expect(within(ficha).getByText(PROYECTO.nombre)).toBeInTheDocument()
+  })
+
+  it("mounts the modifications queue and the versions section in the opened ficha (S8 U6)", async () => {
+    const user = userEvent.setup()
+    projectsQuery.data = { proyectos: [PROYECTO] }
+
+    render(<ProjectList />)
+    await user.click(screen.getByRole("button", { name: /Ver detalle/ }))
+
+    const ficha = await screen.findByRole("dialog")
+    expect(within(ficha).getByTestId("modificaciones")).toHaveTextContent("Aún no hay solicitudes de modificación.")
+    expect(within(ficha).getByTestId("versiones")).toHaveTextContent("v0")
   })
 })
 

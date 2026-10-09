@@ -34,7 +34,7 @@ const ELEMENTO_LABEL: Record<ProjectDiferencia["elemento"], string> = {
   indicador: "Indicadores",
 };
 
-const CAMPO_LABEL: Record<string, string> = {
+export const CAMPO_LABEL: Record<string, string> = {
   valor_total: "Valor total",
   fecha_inicio: "Fecha de inicio",
   fecha_fin: "Fecha de fin",

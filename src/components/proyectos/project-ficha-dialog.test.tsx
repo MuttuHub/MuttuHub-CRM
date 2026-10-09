@@ -95,6 +95,30 @@ describe("ProjectFichaDialog", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1", expect.any(Object))
   })
 
+  it("mounts the modifications queue and the versions section after the expenses and before the historial", async () => {
+    mockFichaAndAudit({ historial: [] })
+
+    renderFicha()
+
+    const modificaciones = await screen.findByTestId("modificaciones")
+    const versiones = screen.getByTestId("versiones")
+    expect(modificaciones).toHaveTextContent("Modificaciones")
+    expect(versiones).toHaveTextContent("Versiones")
+    expect(screen.getByTestId("gastos").compareDocumentPosition(modificaciones) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(modificaciones.compareDocumentPosition(versiones) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(versiones.compareDocumentPosition(screen.getByTestId("historial")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it("explains the baseline is pending in the versions and modifications sections of a draft, without reading them", async () => {
+    mockFichaAndAudit({ historial: [] }, 200, { ...PROYECTO, estado: "BORRADOR" })
+
+    renderFicha()
+
+    expect(await screen.findByText("La línea base aún no está aprobada.")).toBeInTheDocument()
+    expect(screen.getByText(/línea base esté aprobada/i)).toBeInTheDocument()
+    expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/modifications") || String(url).endsWith("/versions"))).toBe(false)
+  })
+
   it("mounts the technical structure section after the team", async () => {
     mockFichaAndAudit({ historial: [] })
 
@@ -353,6 +377,16 @@ describe("ProjectFichaDialog", () => {
         return Promise.resolve(
           jsonResponse({ estado: "EN_EJECUCION", periodos: [], filas: [], control_por_rubro: [], programacion_pendiente: true }),
         )
+      }
+      // Modificaciones y versiones (S8 U6): vacías; su comportamiento vive en project-modificaciones/versiones.test.tsx.
+      if (String(input).endsWith("/modifications")) {
+        return Promise.resolve(jsonResponse({ solicitudes: [] }))
+      }
+      if (String(input).endsWith("/versions")) {
+        return Promise.resolve(jsonResponse({ versiones: [] }))
+      }
+      if (String(input).includes("/versions/compare")) {
+        return Promise.resolve(jsonResponse({ desde: "0", hasta: "vigente", diferencias: [] }))
       }
       if (String(input).endsWith("/beneficiaries")) {
         return Promise.resolve(jsonResponse({ estado: "EN_EJECUCION", registros: [], total: 0 }))

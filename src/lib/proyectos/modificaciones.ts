@@ -49,7 +49,7 @@ export type ErrorRegla = { codigo: ErrorReglaCodigo; mensaje: string; clave?: st
 type Solicitud = { tipo: TipoModificacion; detalle: readonly DetalleItem[] }
 
 /** Fields each tipo may touch. D7: nothing is added or removed, only existing values change. */
-const PERMITIDOS: Record<TipoModificacion, Partial<Record<DetalleElemento, readonly string[]>>> = {
+export const CAMPOS_PERMITIDOS: Record<TipoModificacion, Partial<Record<DetalleElemento, readonly string[]>>> = {
   TRASLADO: { presupuesto: ["asignado"], programacion: ["valor"] },
   ADICION: { presupuesto: ["asignado"], programacion: ["valor"] },
   REDUCCION: { presupuesto: ["asignado"], programacion: ["valor"] },
@@ -146,7 +146,7 @@ function revisarDetalle(live: LiveProyecto, s: Solicitud): ErrorRegla[] {
       continue
     }
     vistos.add(llave)
-    if (!PERMITIDOS[s.tipo][item.elemento]?.includes(campo)) {
+    if (!CAMPOS_PERMITIDOS[s.tipo][item.elemento]?.includes(campo)) {
       errores.push({
         codigo: "ELEMENTO_NO_PERMITIDO",
         clave: item.clave,

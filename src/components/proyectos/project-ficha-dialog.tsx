@@ -32,8 +32,10 @@ import { ProjectEstructura } from "@/components/proyectos/project-estructura";
 import { ProjectEjecucion } from "@/components/proyectos/project-ejecucion";
 import { ProjectFinanciero } from "@/components/proyectos/project-financiero";
 import { ProjectGastos } from "@/components/proyectos/project-gastos";
+import { ProjectModificaciones } from "@/components/proyectos/project-modificaciones";
 import { ProjectPresupuesto } from "@/components/proyectos/project-presupuesto";
 import { ProjectTeam } from "@/components/proyectos/project-team";
+import { ProjectVersiones } from "@/components/proyectos/project-versiones";
 import {
   useProject,
   useProjectAudit,
@@ -216,6 +218,10 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
         <ProjectFinanciero proyecto={proyecto} />
 
         <ProjectGastos proyecto={proyecto} />
+
+        <ProjectModificaciones proyecto={proyecto} />
+
+        <ProjectVersiones proyecto={proyecto} />
 
         <ProjectHistorial proyectoId={proyecto.id} />
       </div>

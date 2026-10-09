@@ -20,6 +20,7 @@ import {
   type UseMutationResult,
   type UseQueryResult,
 } from "@tanstack/react-query";
+import type { TipoModificacion } from "@/lib/proyectos/modificaciones";
 import { toast } from "sonner";
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut, ApiError } from "@/lib/api/http";
 import type { EstadoActividad, Tendencia } from "@/lib/proyectos/avance";
@@ -1722,7 +1723,7 @@ export type ProjectDiferencia = {
 
 export type ProjectVersionComparison = { desde: string; hasta: string; diferencias: ProjectDiferencia[] };
 
-export type TipoModificacion = "TRASLADO" | "ADICION" | "REDUCCION" | "REPROGRAMACION" | "CRONOGRAMA" | "ENTREGABLES";
+export type { TipoModificacion };
 
 export type ModificacionDetalleItem = {
   elemento: "presupuesto" | "programacion" | "proyecto" | "actividad" | "entregable" | "indicador";
