@@ -47,9 +47,15 @@ Route: delegated writer per round (round 1: U1-U3, round 2: U4-U6).
 - [x] **U3** (S8.2b) E-25 route + `lockProyecto` + `loadLiveProyecto` + atomic tx + project row lock on the structure
   writers (R1) + OpenAPI + `set-project-estado.ts` warning + approval dialog and `useApproveBaseline`.
   R1 locks (d1f7bcf), route/writer/OpenAPI/script (f42588c), UI (b30c6e1).
-- [ ] **U4** (S8.3a) RF-28 libs (`applyModificacion`, `validarModificacion`) + request/list routes + form.
-- [ ] **U5** (S8.3b) Approve/reject routes + `aplicarModificacion` tx + UI actions (closes REQ-GAS-06).
-- [ ] **U6** (S8.4) Versions API (E-27) + `base=original` in financial-sheet and technical-status + versions section.
+- [x] **U4** (S8.3) Modification requests, approval and rejection (round 2 re-scoped the map's U4+U5 into one unit):
+  pure RF-28 libs `proyectos/modificaciones.ts` (`applyModificacion`, `validarModificacion`) (87c742f); request/list
+  routes + OpenAPI (4b52ed4); approve/reject routes + atomic `aplicarModificacion` writer with REQ-GAS-06 under the line
+  locks + live-DB invariants + OpenAPI (ef26992).
+- [x] **U5** (S8.4a) E-27 versions list/detail/compare routes (static `compare` folder), `base=original|vigente` real in
+  financial-sheet and technical-status (`tecnico.ts` structure override from the v0 snapshot). (6a91733)
+- [x] **U6** (S8.4b) UI: hooks and the Base selector in the financial and technical sections (4fa441c); versions list +
+  v0 vs vigente comparison section (2e7ed11); request form, pending queue with Aprobar/Rechazar, ficha mounting and the
+  project-list / ficha-dialog stubs (5a5d30d). Race-test hardening (test commit after).
 
 ## Acceptance
 
@@ -91,12 +97,44 @@ Route: delegated writer per round (round 1: U1-U3, round 2: U4-U6).
     (3) The baseline route returns `201`; the writer takes an optional `loteId`.
   - Native review: unavailable in this runtime (see D11); not run, not disabled. Independent verifier pending.
 
+- 2026-10-09 (round 2, U4-U6, one bounded writer, local DB only):
+  - U4a (87c742f). RED: module missing. GREEN: 19 pure tests (golden TRASLADO / ADICION / REDUCCION, REQ-GAS-06,
+    past-period lock on/off, weeks, dates, allowed elements, stale `antes`, add-a-rubro, manual weight kept).
+    New codes beyond the map: `ELEMENTO_INEXISTENTE`, `FECHAS_INVALIDAS`, `VALOR_INVALIDO`, `DETALLE_DUPLICADO`,
+    `DETALLE_VACIO`. The libs live in `proyectos/modificaciones.ts` (not `versiones.ts`, which stays the snapshot model).
+  - U4b (4b52ed4). RED: route module missing (11 tests). GREEN 11 route tests + 5 helper tests + OpenAPI. The helper test
+    and the OpenAPI registration were written together with the code (no separate RED run).
+  - U4c (ef26992). RED (observed): live-DB invariants 9/9 failing (`aplicarModificacion is not a function`). GREEN 9/9:
+    version N + changes + audit lote in one tx; snapshot equals `buildSnapshot(applyModificacion(live))` for ADICION
+    (new rubro), CRONOGRAMA, ENTREGABLES; stale base 409; decided 409; reject records the comment and changes no data;
+    A below validated E -> 400 `reglas` and nothing written; overspend-blocked gasto validates after an ADICION;
+    SAVEPOINT rollback after the version insert; two-connection test (an approval that has already read E holds the line
+    locks and a validation waits). Sabotage: removing the explicit line `FOR UPDATE` turned the race test RED, restored
+    GREEN (the pause is injected right after the E read, since the later line UPDATEs would lock anyway). Approve/reject
+    route tests (13) were observed RED by removing the route files. Lock order: project, then lines by id.
+    `aplicarModificacion` lives in `api/modificaciones.ts` (not `api/versiones.ts`) to avoid an import cycle.
+  - U5 (6a91733). RED: 3 new route test files (module missing) and 5 failing tests in the ficha routes. GREEN: versions 10,
+    financial-sheet base=original 3 (+1 changed), technical-status base 4. `resolverBase` + `loadSnapshot*` in
+    `api/versiones.ts`; the original uses the v0 dates for the corte periods and the weeks; the delay alert still reads the
+    vigente technical color (documented in the route header).
+  - U6 (4fa441c, 2e7ed11, 5a5d30d). RED each time (module/hook missing). GREEN: hooks 6, ficha selectors (financiero +3,
+    semaforo +2, ejecucion +1), versions section 5, form 9 + builder 6, queue 12, ficha-dialog +2, project-list +1.
+    The modification matrix of allowed fields is exported once (`CAMPOS_PERMITIDOS`) and reused by the form builder.
+  - Gates: `tsc --noEmit` clean; eslint clean on touched files; **full suite 265 files / 2693 tests green** under
+    `TZ=America/Bogota` (no flake in this run).
+  - Deviations: (1) U4/U5 of the map were merged into one unit (round 2 scope); (2) libs/writer file locations as above;
+    (3) the first race-test run, failing for a missing function, left a committed fixture (1 project, 2 users, 3 rubros
+    marked `sdd-invariant-modificaciones`) because `await listo` hung; it was deleted by hand and the test now races
+    `listo` against the approving transaction so a failure cannot hang; (4) the request form offers only rubros with a
+    code and no way to add activities or deliverables (D7); (5) the commits of U4c and 5a5d30d exceed ~400 lines, mostly
+    tests (advisory only).
+  - Native review: unavailable in this runtime (D11); not run, not disabled. Independent verifier pending.
+
 ## Next step
 
-Round 2: U4 (RF-28 libs `applyModificacion` / `validarModificacion` added to `src/lib/proyectos/versiones.ts` with the
-map section 4 signatures and golden cases (b)-(f) on `liveF_V1`; request/list routes; form), then U5 (approve/reject with
-`aplicarModificacion(tx, ...)` in `src/lib/api/versiones.ts`, reusing `lockProyecto` and `loadLiveProyecto`; lock order
-project -> lines by id; REQ-GAS-06), then U6 (E-27 routes, `base=original`, versions section; `useApproveBaseline`
-already invalidates `projectQueryKeys.versions`). Reusable pieces: `RespuestaAbortada` + `withApiErrorHandling`,
-`aprobarLineaBase` as the model for atomic writers, `carrera()` in `prisma/linea-base.invariant.test.ts` for lock races.
-`ApiErrorCode` already has INVALID_STATE; extras go through `apiError(..., { reglas })`.
+Independent verification of S8 (no native review available): read the three round-2 diffs against REQ-VER-02..06 and
+RF-26..RF-29, re-run `TZ=America/Bogota npx vitest run` and the three live-DB invariant files, and confirm the manual QA
+path (approve a baseline, request a traslado as a member COORDINADOR, approve it as GERENCIA, compare v0 vs vigente, read
+the ficha with `base=original`). Open items for the PO: D9 (notifications for requests), P14 close/suspend/cancel (no
+slice owns it), the unconfirmed `modificacion_bloquea_periodos_pasados` parameter. Then S8 can be closed in
+`odd/tasks/v2-projects-execution.md`.
