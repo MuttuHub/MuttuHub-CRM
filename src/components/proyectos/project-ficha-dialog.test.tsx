@@ -50,6 +50,20 @@ const PROYECTO: ProjectListRow = {
   municipios: [{ id: "m1", nombre: "Barranquilla", departamento: "Atlántico" }],
 }
 
+const KPIS_PANEL = {
+  base: "vigente",
+  corte: "2026-03-15",
+  estado: "EN_EJECUCION",
+  medible: true,
+  confirmado: false,
+  tecnico: { corte: "2026-03-15", avance_real: 30, avance_programado: 40, desviacion_pp: 10, color: "amarillo" },
+  cronograma: null,
+  entregables: null,
+  indicadores: null,
+  beneficiarios: null,
+  financiero: null,
+}
+
 function renderFicha(projectId = "p1") {
   return render(<ProjectFichaDialog projectId={projectId} onClose={vi.fn()} />, {
     wrapper: createWrapper(),
@@ -93,6 +107,19 @@ describe("ProjectFichaDialog", () => {
 
     expect(screen.getByText("Barranquilla · Atlántico")).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1", expect.any(Object))
+  })
+
+  it("mounts the KPI panel after the technical execution and before the financial ficha, with the unconfirmed badge", async () => {
+    mockFichaAndAudit({ historial: [] })
+
+    renderFicha()
+
+    const kpis = await screen.findByTestId("kpis")
+    expect(kpis).toHaveTextContent("Indicadores")
+    expect(await within(kpis).findByTestId("kpi-tecnico")).toHaveAttribute("data-color", "amarillo")
+    expect(within(kpis).getByText("No confirmado")).toBeInTheDocument()
+    expect(screen.getByTestId("ejecucion").compareDocumentPosition(kpis) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(kpis.compareDocumentPosition(screen.getByTestId("financiero")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it("mounts the modifications queue and the versions section after the expenses and before the historial", async () => {
@@ -369,6 +396,10 @@ describe("ProjectFichaDialog", () => {
       // Gastos (S6 U6): vacíos; su comportamiento vive en project-gastos.test.tsx.
       if (String(input).endsWith("/expenses")) {
         return Promise.resolve(jsonResponse({ gastos: [], totales: {} }))
+      }
+      // Indicadores (S9 U6): su comportamiento vive en project-kpis-panel.test.tsx.
+      if (String(input).includes("/kpis")) {
+        return Promise.resolve(jsonResponse(KPIS_PANEL))
       }
       if (String(input).includes("/financial-sheet")) {
         return Promise.resolve(jsonResponse(FINANCIERA))

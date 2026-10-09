@@ -297,6 +297,8 @@ export const projectQueryKeys = {
   programming: (id: string) => ["projects", "programming", id] as const,
   financialSheet: (id: string, corte: string | null, base: string = "vigente") =>
     ["projects", "financial-sheet", id, corte, base] as const,
+  kpis: (id: string, corte: string | null, base: string = "vigente") => ["projects", "kpis", id, corte, base] as const,
+  portfolio: (filters: PortfolioFilters) => ["projects", "portfolio", filters] as const,
   expenses: (id: string) => ["projects", "expenses", id] as const,
   versions: (id: string) => ["projects", "versions", id] as const,
   versionCompare: (id: string, from: string, to: string) => ["projects", "version-compare", id, from, to] as const,
@@ -1880,4 +1882,159 @@ export function useRejectModification(
       toast.success("Solicitud rechazada.");
     },
   });
+}
+
+/* ── Tablero y KPIs (S9 U6) ────────────────────────────────────────────── */
+//
+// Los colores, porcentajes y alertas llegan calculados por el servidor (`kpisProyecto`): aquí solo se
+// declaran y se pintan, NUNCA se recalculan. Los montos viajan como string decimal.
+
+export type KpiTecnico = {
+  corte: string;
+  avance_real: number;
+  avance_programado: number;
+  desviacion_pp: number;
+  color: ColorSemaforo;
+};
+
+export type ProjectKpis = {
+  corte: string;
+  estado: EstadoProyecto;
+  /** false para BORRADOR / PLANIFICACION / CANCELADO: todos los bloques vienen null. */
+  medible: boolean;
+  /** true solo si el PO confirmó umbrales, tolerancia y retraso. */
+  confirmado: boolean;
+  tecnico: KpiTecnico | null;
+  cronograma: { corte: string; vencidas: number; a_tiempo: number; valor: number | null } | null;
+  entregables: { corte: string; programados: number; logrados: number; valor: number | null } | null;
+  indicadores: { corte: string; valor: number | null; medidos: number; sin_medir: number; sin_medir_ids: string[] } | null;
+  beneficiarios: { corte: string; total: number; meta: number | null; valor: number | null } | null;
+  financiero: {
+    corte: string;
+    asignado: string;
+    programado: string;
+    ejecutado: string;
+    ea: number | null;
+    ep: number | null;
+    color: ColorSemaforo;
+    alerta_retraso: boolean;
+  } | null;
+};
+
+/** Respuesta de `GET /api/v1/projects/:id/kpis`. */
+export type ProjectKpisResponse = ProjectKpis & { base: ProjectBase };
+
+export type PortfolioFilters = {
+  corte?: string;
+  estado?: string;
+  cliente_id?: string;
+  linea_id?: string;
+  municipio_id?: string;
+  responsable_id?: string;
+};
+
+export type PortfolioProject = {
+  id: string;
+  codigo: string;
+  nombre: string;
+  estado: EstadoProyecto;
+  cliente: { id: string; nombre: string };
+  responsable: { id: string; nombre: string } | null;
+  linea_principal: { id: string; codigo: string; nombre: string } | null;
+  fecha_inicio: string | null;
+  fecha_fin: string | null;
+  semaforo_tecnico: ColorSemaforo | null;
+  semaforo_financiero: ColorSemaforo | null;
+  alerta_retraso: boolean | null;
+  kpis: ProjectKpis;
+};
+
+/** Respuesta de `GET /api/v1/dashboard/portfolio`. */
+export type ProjectsPortfolio = {
+  base: "vigente";
+  corte: string;
+  confirmado: boolean;
+  proyectos: PortfolioProject[];
+  agregado: {
+    corte: string;
+    tecnico: { proyectos: number; avance_real: number | null; avance_programado: number | null };
+    financiero: {
+      proyectos: number;
+      asignado: string;
+      programado: string;
+      ejecutado: string;
+      ea: number | null;
+      ep: number | null;
+    };
+    por_color_tecnico: Record<ColorSemaforo, number>;
+    por_color_financiero: Record<ColorSemaforo, number>;
+  };
+  por_estado: Record<string, number>;
+};
+
+function queryString(entries: Record<string, string | undefined | null>): string {
+  const sp = new URLSearchParams();
+  for (const [key, value] of Object.entries(entries)) {
+    if (value !== undefined && value !== null && value !== "") sp.set(key, value);
+  }
+  const text = sp.toString();
+  return text ? `?${text}` : "";
+}
+
+/** KPIs de un proyecto. Sin `corte` el servidor usa hoy (Bogotá); `base=original` lee la versión 0. */
+export function useProjectKpis(
+  id: string,
+  corte: string | null,
+  base: ProjectBase = "vigente",
+): UseQueryResult<ProjectKpisResponse> {
+  return useQuery({
+    queryKey: projectQueryKeys.kpis(id, corte, base),
+    enabled: id !== "",
+    placeholderData: keepPreviousData,
+    queryFn: () =>
+      apiGet<ProjectKpisResponse>(
+        `/api/v1/projects/${id}/kpis${queryString({ corte, base: base === "original" ? "original" : null })}`,
+      ),
+  });
+}
+
+/** Tablero del portafolio: cada filtro entra en la clave, así que cambiarlo refetchea. */
+export function useProjectsPortfolio(
+  filters: PortfolioFilters,
+  options: { enabled?: boolean } = {},
+): UseQueryResult<ProjectsPortfolio> {
+  return useQuery({
+    queryKey: projectQueryKeys.portfolio(filters),
+    enabled: options.enabled ?? true,
+    placeholderData: keepPreviousData,
+    queryFn: () => apiGet<ProjectsPortfolio>(`/api/v1/dashboard/portfolio${queryString({ ...filters })}`),
+  });
+}
+
+async function descargarExcel(url: string, fallbackName: string): Promise<void> {
+  const res = await fetch(url, { method: "GET" });
+  if (!res.ok) {
+    throw failureOf(res, await readJsonBody(res), "No pudimos generar el archivo. Inténtalo de nuevo.");
+  }
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? fallbackName;
+  saveBlobAs(await res.blob(), filename);
+}
+
+/** E-29: baja la ficha del proyecto o la financiera en Excel. */
+export async function downloadProjectExport(
+  projectId: string,
+  options: { ficha: "proyecto" | "financiera"; corte?: string | null; base?: ProjectBase },
+): Promise<void> {
+  const query = queryString({
+    ficha: options.ficha,
+    corte: options.corte,
+    base: options.base === "original" ? "original" : null,
+  });
+  await descargarExcel(`/api/v1/projects/${projectId}/export${query}`, `${options.ficha}.xlsx`);
+}
+
+/** Baja el tablero del portafolio (mismos filtros que la consulta) en Excel. */
+export async function downloadPortfolioExport(filters: PortfolioFilters): Promise<void> {
+  await descargarExcel(`/api/v1/dashboard/portfolio/export${queryString({ ...filters })}`, "portafolio.xlsx");
 }

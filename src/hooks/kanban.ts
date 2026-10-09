@@ -91,6 +91,8 @@ export type CurrentUser = {
   id: string;
   nombre: string;
   rol: RolUsuario;
+  /** Bandera del tablero gerencial (S9): `/auth/me` devuelve la fila completa del usuario. */
+  puede_ver_tablero_gerencial?: boolean;
 };
 
 /**

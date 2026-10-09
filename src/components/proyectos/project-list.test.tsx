@@ -156,6 +156,14 @@ vi.mock("@/hooks/projects", () => ({
       () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, isError: false, error: null, variables: undefined }),
     ]),
   ),
+  // The ficha also mounts the Indicadores panel (S9 U6): a loaded, measurable project, plus the export download.
+  useProjectKpis: () => ({
+    data: { base: "vigente", corte: "2026-10-25", estado: "EN_EJECUCION", medible: true, confirmado: true, tecnico: null, cronograma: null, entregables: null, indicadores: null, beneficiarios: null, financiero: null },
+    isLoading: false,
+    isError: false,
+    error: null,
+  }),
+  downloadProjectExport: vi.fn(),
   // The ficha also mounts the Presupuesto section (S5 U5): an empty budget, no programming, no mutations pending.
   useProjectBudget: () => ({
     data: { estado: "EN_EJECUCION", rubros: [], suma: "0.00", valor_total: null, diferencia: null },

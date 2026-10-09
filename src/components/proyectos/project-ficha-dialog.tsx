@@ -31,6 +31,7 @@ import { BaselineApproval } from "@/components/proyectos/baseline-approval";
 import { ProjectEstructura } from "@/components/proyectos/project-estructura";
 import { ProjectEjecucion } from "@/components/proyectos/project-ejecucion";
 import { ProjectFinanciero } from "@/components/proyectos/project-financiero";
+import { ProjectKpisPanel } from "@/components/proyectos/project-kpis-panel";
 import { ProjectGastos } from "@/components/proyectos/project-gastos";
 import { ProjectModificaciones } from "@/components/proyectos/project-modificaciones";
 import { ProjectPresupuesto } from "@/components/proyectos/project-presupuesto";
@@ -214,6 +215,8 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
         <ProjectPresupuesto proyecto={proyecto} />
 
         <ProjectEjecucion proyecto={proyecto} />
+
+        <ProjectKpisPanel proyecto={proyecto} />
 
         <ProjectFinanciero proyecto={proyecto} />
 
