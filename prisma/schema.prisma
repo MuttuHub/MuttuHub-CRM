@@ -696,6 +696,8 @@ model Proyecto {
   programacion_periodos ProgramacionPeriodo[]
   gastos                Gasto[]
   notificaciones        Notificacion[]
+  versiones             VersionProyecto[]
+  solicitudes           SolicitudModificacion[]
 
   @@unique([oportunidad_id, cliente_id])
   @@index([cliente_id])
@@ -1156,4 +1158,67 @@ model AccesoSoporte {
   @@index([proyecto_id, created_at])
   @@index([soporte_id])
   @@map("acceso_soportes")
+}
+
+// v2 projects module (S8, RF-05/RF-26..29) — baseline and modification versions.
+enum TipoVersion {
+  LINEA_BASE
+  MODIFICACION
+}
+
+enum TipoModificacion {
+  TRASLADO
+  ADICION
+  REDUCCION
+  REPROGRAMACION
+  CRONOGRAMA
+  ENTREGABLES
+}
+
+enum EstadoSolicitud {
+  PENDIENTE
+  APROBADA
+  RECHAZADA
+}
+
+// Immutable JSON snapshot of the approved structure + budget. Triggers reject UPDATE/DELETE/
+// TRUNCATE (`versiones_proyecto_inmutable()`); CHECKs tie `numero = 0` to LINEA_BASE and
+// MODIFICACION to a `solicitud_id`. The approver id carries no FK (like other audit pointers).
+model VersionProyecto {
+  id              String      @id @default(uuid())
+  proyecto_id     String
+  numero          Int
+  tipo            TipoVersion
+  solicitud_id    String?     @unique
+  aprobado_por_id String
+  aprobado_at     DateTime    @default(now())
+  snapshot        Json
+
+  proyecto  Proyecto               @relation(fields: [proyecto_id], references: [id], onDelete: Restrict)
+  solicitud SolicitudModificacion? @relation(fields: [solicitud_id], references: [id], onDelete: Restrict)
+
+  @@unique([proyecto_id, numero])
+  @@index([proyecto_id])
+  @@map("versiones_proyecto")
+}
+
+model SolicitudModificacion {
+  id                  String           @id @default(uuid())
+  proyecto_id         String
+  tipo                TipoModificacion
+  motivo              String
+  detalle             Json
+  version_base_numero Int
+  estado              EstadoSolicitud  @default(PENDIENTE)
+  solicitado_por_id   String
+  solicitado_at       DateTime         @default(now())
+  decidido_por_id     String?
+  decidido_at         DateTime?
+  comentario_decision String?
+
+  proyecto Proyecto         @relation(fields: [proyecto_id], references: [id], onDelete: Restrict)
+  version  VersionProyecto?
+
+  @@index([proyecto_id, estado])
+  @@map("solicitudes_modificacion")
 }
