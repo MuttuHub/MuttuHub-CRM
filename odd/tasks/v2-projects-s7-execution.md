@@ -27,6 +27,14 @@ validation errors instead of writing anything partially.
 - D-11 **Takeover boundary (recorded)**: the branch arrived at S7 with 118 commits and no native review ever
   acknowledged. That history is explicit inherited debt; the review boundary for slices produced from here is
   `1432907` (the S6 tip). Anything before it stays unreviewed by decision, not by accident.
+- D-12 **Import route rejection order (kept, deviates from map §4)**: the implementation rejects a declared
+  oversized body (413) before the extension/MIME check (400), while the map prescribes formData 400 -> type 400 ->
+  size 413. Keeping it: refusing an oversized upload before parsing the body is deliberate, and the OpenAPI
+  description and the route tests already document the 409 -> 413 -> 400 order. Consequence: an oversized `.pdf`
+  answers 413, not 400.
+- D-13 **Zip guard residual (accepted)**: `inspeccionarZip` trusts the archive's declared uncompressed sizes, so a
+  forged central directory can slip past it; JSZip's own length probe then rejects the archive and the route answers
+  400. Residual risk is transient memory while JSZip inflates. Accepted rather than hardened.
 
 ## Constraints
 
@@ -66,8 +74,9 @@ Route: delegated writer per round (round 1: U1-U2, round 2: U3-U4, round 3: U5, 
   record for `reporte`; live-DB `prisma/plantilla-import.invariant.test.ts` (8 tests). (b68d0da)
 - [x] **U6** UI + hooks + OpenAPI: `import-dialog.tsx` mounted in the Estructura header (canManageProjects + BORRADOR),
   validate -> summary, error table by sheet, confirm, client-side CSV (`plantilla-reporte.ts`), hooks
-  (`useImportTemplate`, `downloadProjectTemplate`), `paths/project-template.ts` + document test, stubs/tests in
-  list/ficha/estructura. (eb96b31)
+  (`useImportTemplate`, `downloadProjectTemplate`), `paths/project-template.ts` + document test, and the hook stubs in
+  the list test (the ficha and estructura tests use the real hooks with a fetch mock, they do not mock the hooks
+  module). (eb96b31)
 - [x] **U7** (S7.7) local pilot: `scripts/import-plantilla-demo.ts` (anti-production guard, dry run by default,
   `--apply` writes the two workbooks and imports the valid one) + fakes-based unit test + note in `docs/guia-demo.md`.
   (ed4dd96)
@@ -152,11 +161,32 @@ Route: delegated writer per round (round 1: U1-U2, round 2: U3-U4, round 3: U5, 
     parameter: the failure is injected by wrapping the tx in the test. (3) `gateEstructuraWrite` gained an optional
     `stateMessage` so the 409 copy names the download/import action. (4) Dry run of the script is fully read-only (no
     files); `--apply` writes the two .xlsx into `tmp/plantilla-demo/` (gitignored).
-  - Native review: unavailable in this runtime (see Constraints); not run, not disabled. Independent verifier pending.
+  - Native review: unavailable in this runtime (see Constraints); not run, not disabled.
+
+- 2026-10-08 (22:55): independent verification of U5-U7 (the substitute for the unavailable native review) and one
+  scoped correction.
+  - Verifier ran 11 focused files / 149 tests plus the live-DB invariant (8 tests) and `tsc`: the route gates, the
+    single `$transaction` and its write order, the audit lote, the dry run writing nothing, the zip guard, the CSV
+    guard and the pilot all CONFIRMED. It also independently proved production atomicity with a real
+    `db.$transaction` probe (late injected failure -> zero rows).
+  - Findings: (a) **major, about the proof itself** — the "atomic rollback" invariant test performed its own
+    `SAVEPOINT`, so removing the route's `$transaction` would have left it green: it proved the writer's writes are
+    undoable, not that production wraps them; (b) advisory — the CSV injection guard missed a leading space and a
+    line feed; (c) advisory — the confirm POST never asserted the file was re-sent; (d) advisory — the defensive 409
+    only exercised an avance; (e) advisory — no positive proof that a pre-existing gasto/soporte survives an import.
+  - Correction (3a05c6c): a route-level test now drives the real `db.$transaction` with a late failure (Proxy on the
+    last write) and asserts zero rows, zero audit rows and the previous draft intact — sabotage RED captured by
+    removing the route's `$transaction`; the old savepoint test is relabelled as the undoability proof. The CSV guard
+    now covers leading whitespace and LF, the confirm POST asserts `archivo`, a medición exercises a second
+    defensive-409 path, and a gasto + soporte are now positively asserted to survive. Invariant file 8 -> 11 tests;
+    `plantilla-reporte` 5 -> 6. Parent spot check: 3 files / 30 tests green, tree clean.
+  - Deviations recorded as D-12 (import rejection order) and D-13 (zip guard residual); the U6 stub wording was
+    corrected (F7).
 
 ## Next step
 
-Independent verification of U5-U7 (substitute for the unavailable native review: atomic writer, route gates, zip guard,
-CSV injection guard), then the manual pilot on the local DB: create a BORRADOR project from the ficha and run
-`npx tsx scripts/import-plantilla-demo.ts --project <codigo>` (dry run first) from a shell where tsx works. S7 is then
-complete; the next slice per the parent ledger.
+S7 is complete except for the manual pilot, which is blocked in this shell: `tsx` cannot run here (win32 esbuild), so
+`scripts/import-plantilla-demo.ts` was verified by reading and by its fakes-based unit test only. Run it from a shell
+where `tsx` works (`npx tsx scripts/import-plantilla-demo.ts --project <codigo>`, dry run first).
+Inherited and still open: independent verification of S8 (the version writer, baseline approval and the modification
+flow) — the previous session recorded it as its next step and never ran it. Then S9 U1 (the KPI pure libs).
