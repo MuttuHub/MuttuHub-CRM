@@ -92,11 +92,14 @@ export function ProjectList() {
   }, [query.isError, query.error]);
 
   const usuario = userQuery.data;
-  // Mismo `puede_ver_tablero_gerencial: false` que hoy resuelve el servidor
-  // (S0.7/S2.6 pendientes). Un falso negativo solo cambia el texto del estado
-  // vacío, nunca el acceso: el alcance real lo aplica la API.
+  // La bandera `puede_ver_tablero_gerencial` viaja en `/auth/me` (S9). Un falso negativo solo
+  // cambia el texto del estado vacío, nunca el acceso: el alcance real lo aplica la API.
   const puedeVerPortafolio = usuario
-    ? canViewPortfolio({ id: usuario.id, rol: usuario.rol, puede_ver_tablero_gerencial: false })
+    ? canViewPortfolio({
+        id: usuario.id,
+        rol: usuario.rol,
+        puede_ver_tablero_gerencial: usuario.puede_ver_tablero_gerencial ?? false,
+      })
     : null;
   // Ocultar el CTA para quien no es ADMINISTRADOR/GERENCIA es solo UX: la
   // autoridad sigue siendo la API, que responde 403 a cualquier otro rol tanto

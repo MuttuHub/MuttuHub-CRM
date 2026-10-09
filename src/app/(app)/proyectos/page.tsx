@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ProjectList } from "@/components/proyectos/project-list";
+import { ProyectosVista } from "@/components/proyectos/proyectos-vista";
 
 export const metadata: Metadata = {
   title: "Proyectos",
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default function ProyectosPage() {
   return (
     <Suspense fallback={<ProyectosSkeleton />}>
-      <ProjectList />
+      <ProyectosVista />
     </Suspense>
   );
 }
