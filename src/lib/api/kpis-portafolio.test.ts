@@ -223,3 +223,73 @@ describe("parity with the per-project paths", () => {
     expect(result.get("p1")?.indicadores?.medidos).toBe(0)
   })
 })
+
+describe("base=original (frozen structure)", () => {
+  const snapshot = {
+    schema: 1 as const,
+    proyecto: { valor_total: "3000000", fecha_inicio: "2026-01-12", fecha_fin: "2026-06-30", beneficiarios_meta: 50 },
+    presupuesto: [
+      { rubro_codigo: "R1", rubro_nombre: "Uno", asignado: "2000000" },
+      { rubro_codigo: "R2", rubro_nombre: "Dos", asignado: "1000000.50" },
+    ],
+    programacion: [
+      { rubro_codigo: "R1", periodo: "2026-01", valor: "500000" },
+      { rubro_codigo: "R1", periodo: "2026-03", valor: "700000" },
+      { rubro_codigo: "R2", periodo: "2026-06", valor: "100000" },
+    ],
+    actividades: [
+      { codigo: "1", objetivo_codigo: "O1", nombre: "a", semana_inicio: 1, semana_fin: 2, peso: "10", peso_manual: false },
+      { codigo: "2", objetivo_codigo: "O1", nombre: "b", semana_inicio: 3, semana_fin: 12, peso: "30", peso_manual: false },
+    ],
+    entregables: [
+      { codigo: "1-E1", actividad_codigo: "1", descripcion: "", cantidad_meta: "10", unidad: "u" },
+      { codigo: "1-E2", actividad_codigo: "1", descripcion: "", cantidad_meta: "20", unidad: "u" },
+      { codigo: "2-E1", actividad_codigo: "2", descripcion: "", cantidad_meta: "10", unidad: "u" },
+      { codigo: "2-E2", actividad_codigo: "2", descripcion: "", cantidad_meta: "10", unidad: "u" },
+    ],
+    indicadores: [],
+  }
+
+  it("matches loadTecnicoStatus with the same frozen structure and sums A and P from the snapshot", async () => {
+    seedProject("p1", 0)
+    const corte = "2026-03-15"
+    const result = await loadKpisPortafolio({
+      proyectos: [base("p1", "EN_EJECUCION")],
+      corte,
+      parametros: PARAMETROS_V2_DEFAULT,
+      original: { proyectoId: "p1", snapshot },
+    })
+    const kpis = result.get("p1")!
+    const tecnico = await loadTecnicoStatus({
+      proyectoId: "p1",
+      fechaInicio: D(snapshot.proyecto.fecha_inicio),
+      corte,
+      parametros: PARAMETROS_V2_DEFAULT,
+      estructura: snapshot,
+    })
+    expect(kpis.tecnico?.avance_real).toBe(Math.round(tecnico.tecnico.avance_real * 1000) / 10)
+    expect(kpis.tecnico?.avance_programado).toBe(Math.round(tecnico.tecnico.avance_programado * 1000) / 10)
+    expect(kpis.tecnico?.color).toBe(tecnico.color)
+    // A and P frozen; E is the live validated total up to the corte period.
+    expect(kpis.financiero).toMatchObject({
+      asignado: toCents("3000000.50"),
+      programado: toCents("1200000"),
+      ejecutado: toCents("440000.50"),
+    })
+    expect(kpis.beneficiarios?.meta).toBe(50)
+  })
+
+  it("leaves the other projects of the batch on the vigente base", async () => {
+    seedProject("p1", 0)
+    seedProject("p2", 0)
+    const result = await loadKpisPortafolio({
+      proyectos: [base("p1", "EN_EJECUCION"), base("p2", "EN_EJECUCION")],
+      corte: "2026-03-15",
+      parametros: PARAMETROS_V2_DEFAULT,
+      original: { proyectoId: "p1", snapshot },
+    })
+    expect(result.get("p2")?.financiero?.asignado).toBe(toCents("1500000.50"))
+    expect(result.get("p1")?.financiero?.asignado).toBe(toCents("3000000.50"))
+  })
+})
+

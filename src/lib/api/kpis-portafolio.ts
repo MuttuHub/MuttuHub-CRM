@@ -18,6 +18,7 @@ import {
   type KpisProyecto,
 } from "@/lib/proyectos/kpis";
 import type { ParametrosV2 } from "@/lib/proyectos/semaforo-v2";
+import type { SnapshotV1 } from "@/lib/proyectos/versiones";
 import { periodOf, activityDates, type IsoDate } from "@/lib/proyectos/weeks";
 
 const toNumber = (value: { toString(): string }) => Number(value.toString());
@@ -38,6 +39,15 @@ function group<T extends { proyecto_id: string }>(rows: readonly T[]): Map<strin
   return map;
 }
 
+/** The frozen version 0 of ONE project of the batch (`base=original`, S8): structure, A and P come from it. */
+export type OriginalBase = { proyectoId: string; snapshot: SnapshotV1 };
+
+const sumaCents = (values: Iterable<string>): Cents => {
+  let total = ZERO;
+  for (const value of values) total += toCents(value);
+  return total;
+};
+
 /**
  * KPIs of every given project at `corte` (calendar date; the financial side uses its month, like the
  * sheet). Projects outside D5 or without dates are returned with null KPIs and cost no query.
@@ -47,6 +57,8 @@ export async function loadKpisPortafolio(input: {
   proyectos: readonly ProyectoKpiBase[];
   corte: IsoDate;
   parametros: ParametrosV2;
+  /** Optional frozen base for one project; the others stay vigente. Avances, mediciones and E are always live. */
+  original?: OriginalBase;
 }): Promise<Map<string, KpisProyecto>> {
   const { corte, parametros } = input;
   const result = new Map<string, KpisProyecto>();
@@ -71,7 +83,7 @@ export async function loadKpisPortafolio(input: {
         semana_fin: true,
         peso: true,
         peso_manual: true,
-        entregables: { where: { deleted_at: null }, select: { id: true, cantidad_meta: true } },
+        entregables: { where: { deleted_at: null }, select: { id: true, codigo: true, cantidad_meta: true } },
       },
     }),
     db.avanceEntregable.findMany({
@@ -133,8 +145,13 @@ export async function loadKpisPortafolio(input: {
   const ejecutadoDe = sumaPor(ejecutado, (r) => sumOf(r._sum.monto_cop));
 
   for (const proyecto of medibles) {
-    const inicio = isoDate(proyecto.fecha_inicio as Date);
-    const entrada: KpiActividadInput[] = (actividadesDe.get(proyecto.id) ?? []).map((actividad) => {
+    const congelado = input.original?.proyectoId === proyecto.id ? input.original.snapshot : null;
+    // The original keeps ITS start: the weeks of v0 are counted from the date it was approved with.
+    const inicio = congelado ? congelado.proyecto.fecha_inicio : isoDate(proyecto.fecha_inicio as Date);
+    const fuente = congelado
+      ? desdeSnapshot(congelado, actividadesDe.get(proyecto.id) ?? [])
+      : (actividadesDe.get(proyecto.id) ?? []);
+    const entrada: KpiActividadInput[] = fuente.map((actividad) => {
       const fechas = activityDates(inicio, actividad.semana_inicio, actividad.semana_fin);
       return {
         id: actividad.id,
@@ -173,14 +190,51 @@ export async function loadKpisPortafolio(input: {
         parametros,
         actividades: entrada,
         indicadores: indicadoresKpi,
-        beneficiarios: { total: Number(beneficiariosDe.get(proyecto.id) ?? 0), meta: proyecto.beneficiarios_meta },
+        beneficiarios: {
+          total: Number(beneficiariosDe.get(proyecto.id) ?? 0),
+          meta: congelado ? congelado.proyecto.beneficiarios_meta : proyecto.beneficiarios_meta,
+        },
         financiero: {
-          asignado: (asignadoDe.get(proyecto.id) as Cents | undefined) ?? ZERO,
-          programado: (programadoDe.get(proyecto.id) as Cents | undefined) ?? ZERO,
+          asignado: congelado
+            ? sumaCents(congelado.presupuesto.map((r) => r.asignado))
+            : ((asignadoDe.get(proyecto.id) as Cents | undefined) ?? ZERO),
+          programado: congelado
+            ? sumaCents(congelado.programacion.filter((c) => c.periodo <= periodo).map((c) => c.valor))
+            : ((programadoDe.get(proyecto.id) as Cents | undefined) ?? ZERO),
           ejecutado: (ejecutadoDe.get(proyecto.id) as Cents | undefined) ?? ZERO,
         },
       }),
     );
   }
   return result;
+}
+
+type ActividadFuente = {
+  id: string;
+  codigo: string;
+  semana_inicio: number;
+  semana_fin: number;
+  peso: { toString(): string };
+  peso_manual: boolean;
+  entregables: { id: string; cantidad_meta: { toString(): string } }[];
+};
+
+/** The frozen structure in the shape of the live rows; ids come from the live rows with the same code. */
+function desdeSnapshot(
+  snapshot: SnapshotV1,
+  vivas: readonly { id: string; codigo: string; entregables: readonly { id: string; codigo: string }[] }[],
+): ActividadFuente[] {
+  const idActividad = new Map(vivas.map((a) => [a.codigo, a.id]));
+  const idEntregable = new Map(vivas.flatMap((a) => a.entregables.map((e) => [e.codigo, e.id] as const)));
+  return snapshot.actividades.map((a) => ({
+    id: idActividad.get(a.codigo) ?? a.codigo,
+    codigo: a.codigo,
+    semana_inicio: a.semana_inicio,
+    semana_fin: a.semana_fin,
+    peso: a.peso,
+    peso_manual: a.peso_manual,
+    entregables: snapshot.entregables
+      .filter((e) => e.actividad_codigo === a.codigo)
+      .map((e) => ({ id: idEntregable.get(e.codigo) ?? e.codigo, cantidad_meta: e.cantidad_meta })),
+  }));
 }
