@@ -124,7 +124,8 @@ describe("ProjectModificaciones", () => {
 
   it("shows the empty state", async () => {
     setup({ solicitudes: [] })
-    expect(await screen.findByText("Aún no hay solicitudes de modificación.")).toBeInTheDocument()
+    const vacio = await screen.findByText("Aún no hay solicitudes de modificación.")
+    expect(vacio.closest("[data-slot='empty-state']")).not.toBeNull()
   })
 
   it("gives a manager the request button and Aprobar/Rechazar on the pending request only", async () => {

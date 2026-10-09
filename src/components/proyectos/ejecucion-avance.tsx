@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ProgressBar } from "@/components/ui/progress-bar";
 import { ToneBadge } from "@/components/crm/shared";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import { EjecucionAvanceForm } from "@/components/proyectos/ejecucion-avance-form";
@@ -73,11 +74,10 @@ export function EjecucionAvance({
       </div>
 
       <div className="mt-1.5 flex items-center gap-2">
-        <progress
+        <ProgressBar
           data-testid="ejecucion-progreso"
+          aria-label={`Avance de la actividad ${actividad.codigo}`}
           value={tecnico.progreso}
-          max={100}
-          className="h-2 w-full overflow-hidden rounded-full accent-rose-600"
         />
         <span className="shrink-0 text-[12px] text-ink-600 tabular-nums">
           {`${formatNumero(tecnico.progreso)} %`}

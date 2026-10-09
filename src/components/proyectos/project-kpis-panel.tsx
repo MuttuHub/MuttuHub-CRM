@@ -11,7 +11,7 @@ import { BarChart3, Download } from "lucide-react";
 import { toast } from "sonner";
 import { ToneBadge } from "@/components/crm/shared";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
-import { BigValue, InlineError, MetricRow, MetricTile, SELECT_CLASS, SectionHeader } from "@/components/proyectos/ui";
+import { EmptyBlock, InlineError, KpiCard, MetricBar, MetricRow, MetricTile, SELECT_CLASS, SectionHeader } from "@/components/proyectos/ui";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -59,8 +59,10 @@ export function ProjectKpisPanel({ proyecto }: { proyecto: ProjectListRow }) {
   };
 
   return (
-    <section data-testid="kpis">
-      <SectionHeader icon={<BarChart3 className="size-3.5" strokeWidth={2} />}>Indicadores</SectionHeader>
+    <section data-testid="kpis" aria-labelledby="kpis-titulo">
+      <SectionHeader id="kpis-titulo" icon={<BarChart3 className="size-3.5" strokeWidth={2} />}>
+        Indicadores
+      </SectionHeader>
 
       <div className="mt-2 flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-1.5 text-[12px] text-ink-600">
@@ -105,7 +107,7 @@ export function ProjectKpisPanel({ proyecto }: { proyecto: ProjectListRow }) {
       ) : query.isLoading || !kpis ? (
         <Skeleton className="mt-2 h-24 w-full rounded-[14px]" />
       ) : !kpis.medible ? (
-        <p className="mt-2 text-[12.5px] text-ink-500">{KPIS_NO_MEDIBLE_NOTE}</p>
+        <EmptyBlock className="mt-2">{KPIS_NO_MEDIBLE_NOTE}</EmptyBlock>
       ) : (
         <KpiTiles kpis={kpis} />
       )}
@@ -121,8 +123,8 @@ function KpiTiles({ kpis }: { kpis: ProjectKpis }) {
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         {tecnico && (
           <MetricTile testId="kpi-tecnico" color={tecnico.color} chipPrefix="Semáforo técnico">
-            <MetricRow label="Avance real" value={formatPct(tecnico.avance_real)} />
-            <MetricRow label="Avance programado" value={formatPct(tecnico.avance_programado)} />
+            <MetricBar label="Avance real" value={formatPct(tecnico.avance_real)} percent={tecnico.avance_real} band={tecnico.color} />
+            <MetricBar label="Avance programado" value={formatPct(tecnico.avance_programado)} percent={tecnico.avance_programado} />
             <MetricRow label="Desviación" value={formatPp(tecnico.desviacion_pp)} />
           </MetricTile>
         )}
@@ -131,40 +133,50 @@ function KpiTiles({ kpis }: { kpis: ProjectKpis }) {
             <MetricRow label="Asignado" value={formatMonto(financiero.asignado)} />
             <MetricRow label="Programado" value={formatMonto(financiero.programado)} />
             <MetricRow label="Ejecutado" value={formatMonto(financiero.ejecutado)} />
-            <MetricRow label="Ejecutado / asignado" value={formatPct(financiero.ea)} />
-            <MetricRow label="Ejecutado / programado" value={formatPct(financiero.ep)} />
+            <MetricBar label="Ejecutado / asignado" value={formatPct(financiero.ea)} percent={financiero.ea} band={financiero.color} />
+            <MetricBar label="Ejecutado / programado" value={formatPct(financiero.ep)} percent={financiero.ep} band={financiero.color} />
             {financiero.alerta_retraso && <p className="text-[12px] text-ink-700">{ALERTA_RETRASO_TEXT}</p>}
           </MetricTile>
         )}
         {cronograma && (
-          <MetricTile testId="kpi-cronograma" title="Cumplimiento del cronograma">
-            <BigValue value={formatPct(cronograma.valor)} detalle={`${cronograma.a_tiempo} a tiempo de ${cronograma.vencidas} vencidas`} />
-          </MetricTile>
+          <KpiCard
+            testId="kpi-cronograma"
+            label="Cumplimiento del cronograma"
+            value={formatPct(cronograma.valor)}
+            percent={cronograma.valor}
+            hint={`${cronograma.a_tiempo} a tiempo de ${cronograma.vencidas} vencidas`}
+          />
         )}
         {entregables && (
-          <MetricTile testId="kpi-entregables" title="Entregables logrados">
-            <BigValue value={formatPct(entregables.valor)} detalle={`${entregables.logrados} de ${entregables.programados} programados`} />
-          </MetricTile>
+          <KpiCard
+            testId="kpi-entregables"
+            label="Entregables logrados"
+            value={formatPct(entregables.valor)}
+            percent={entregables.valor}
+            hint={`${entregables.logrados} de ${entregables.programados} programados`}
+          />
         )}
         {indicadores && (
-          <MetricTile testId="kpi-indicadores" title="Cumplimiento de indicadores">
-            <BigValue
-              value={formatPct(indicadores.valor)}
-              detalle={`${indicadores.medidos} medidos${indicadores.sin_medir > 0 ? `, ${indicadores.sin_medir} sin medir` : ""}`}
-            />
-          </MetricTile>
+          <KpiCard
+            testId="kpi-indicadores"
+            label="Cumplimiento de indicadores"
+            value={formatPct(indicadores.valor)}
+            percent={indicadores.valor}
+            hint={`${indicadores.medidos} medidos${indicadores.sin_medir > 0 ? `, ${indicadores.sin_medir} sin medir` : ""}`}
+          />
         )}
         {beneficiarios && (
-          <MetricTile testId="kpi-beneficiarios" title="Beneficiarios vs meta">
-            <BigValue
-              value={formatPct(beneficiarios.valor)}
-              detalle={
-                beneficiarios.meta === null
-                  ? `${beneficiarios.total} registrados, sin meta`
-                  : `${beneficiarios.total} de ${beneficiarios.meta}`
-              }
-            />
-          </MetricTile>
+          <KpiCard
+            testId="kpi-beneficiarios"
+            label="Beneficiarios vs meta"
+            value={formatPct(beneficiarios.valor)}
+            percent={beneficiarios.valor}
+            hint={
+              beneficiarios.meta === null
+                ? `${beneficiarios.total} registrados, sin meta`
+                : `${beneficiarios.total} de ${beneficiarios.meta}`
+            }
+          />
         )}
       </div>
     </div>

@@ -13,7 +13,7 @@ import { useState } from "react";
 import { AlertTriangle, PiggyBank } from "lucide-react";
 import { ToneBadge } from "@/components/crm/shared";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
-import { InlineError, SELECT_CLASS, SectionHeader } from "@/components/proyectos/ui";
+import { EmptyBlock, InlineError, SELECT_CLASS, SectionHeader } from "@/components/proyectos/ui";
 import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -129,7 +129,7 @@ function FichaTabla({ ficha }: { ficha: ProjectFinancialSheet }) {
       )}
 
       {ficha.rubros.length === 0 ? (
-        <p className="text-[13px] text-ink-500">Aún no hay presupuesto asignado a este proyecto.</p>
+        <EmptyBlock>Aún no hay presupuesto asignado a este proyecto.</EmptyBlock>
       ) : (
         <div className="overflow-x-auto rounded-[14px] border border-ink-200 bg-panel">
           <table data-testid="financiero-tabla" className="w-full text-[12.5px]">

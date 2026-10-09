@@ -70,6 +70,41 @@ describe("ProjectKpisPanel", () => {
     expect(within(financiero).getByText(/Posible retraso/)).toBeInTheDocument()
   })
 
+  it("exposes avance real vs programado as accessible progress bars (server band, no client semaforo)", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(KPIS))
+    renderPanel()
+    const tecnico = await screen.findByTestId("kpi-tecnico")
+    const real = within(tecnico).getByRole("progressbar", { name: "Avance real" })
+    expect(real).toHaveAttribute("aria-valuenow", "21.4")
+    expect(real).toHaveAttribute("data-band", "rojo")
+    const programado = within(tecnico).getByRole("progressbar", { name: "Avance programado" })
+    expect(programado).toHaveAttribute("aria-valuenow", "25")
+    expect(programado).not.toHaveAttribute("data-band")
+    const financiero = screen.getByTestId("kpi-financiero")
+    expect(within(financiero).getByRole("progressbar", { name: "Ejecutado / asignado" })).toHaveAttribute("data-band", "verde")
+  })
+
+  it("renders the compliance numbers as KpiTiles with a named progress bar, and none for a null value", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ ...KPIS, beneficiarios: { ...KPIS.beneficiarios, valor: null, meta: null } }))
+    renderPanel()
+    const cronograma = await screen.findByTestId("kpi-cronograma")
+    expect(cronograma.querySelector("[data-slot='kpi-tile']")).not.toBeNull()
+    expect(within(cronograma).getByRole("progressbar", { name: "Cumplimiento del cronograma" })).toHaveAttribute("aria-valuenow", "80")
+    const beneficiarios = screen.getByTestId("kpi-beneficiarios")
+    expect(beneficiarios.querySelector("[data-slot='kpi-tile']")).not.toBeNull()
+    expect(within(beneficiarios).queryByRole("progressbar")).toBeNull()
+  })
+
+  it("is a labelled region and uses EmptyState when the project is not measurable", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ ...KPIS, estado: "BORRADOR", medible: false, tecnico: null, cronograma: null, entregables: null, indicadores: null, beneficiarios: null, financiero: null }),
+    )
+    renderPanel()
+    const region = screen.getByRole("region", { name: "Indicadores" })
+    await within(region).findByText(/Los indicadores se calculan/)
+    expect(region.querySelector("[data-slot='empty-state']")).not.toBeNull()
+  })
+
   it("shows the compliance indicators with their detail, and em dash for a null value", async () => {
     fetchMock.mockResolvedValue(jsonResponse({ ...KPIS, beneficiarios: { ...KPIS.beneficiarios, valor: null, meta: null } }))
     renderPanel()

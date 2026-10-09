@@ -12,7 +12,7 @@ import {
   type ProjectIndicator,
 } from "@/hooks/projects";
 import { AddButton, INVALID_NUMBER, RowActions, StructureForm, TextField, errorMessage, formError, formatCantidad, parseNumber } from "@/components/proyectos/estructura-ui";
-import { InlineError, SectionHeader } from "@/components/proyectos/ui";
+import { EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/ui";
 
 export function EstructuraIndicadores({
   proyectoId,
@@ -43,7 +43,7 @@ export function EstructuraIndicadores({
     <div className="mt-3">
       <SectionHeader as="h4">Indicadores</SectionHeader>
       {propios.length === 0 ? (
-        <p className="mt-1 text-[12.5px] text-ink-500">Sin indicadores.</p>
+        <EmptyBlock>Sin indicadores.</EmptyBlock>
       ) : (
         <ul className="mt-1.5 flex flex-col gap-1.5">
           {propios.map((indicador) =>

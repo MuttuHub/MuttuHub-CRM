@@ -11,6 +11,12 @@ import {
 } from "./ui"
 
 describe("proyectos/ui", () => {
+  it("EmptyBlock is the shared EmptyState primitive", () => {
+    const { container } = render(<EmptyBlock>Sin líneas estratégicas.</EmptyBlock>)
+    expect(container.querySelector("[data-slot='empty-state']")).not.toBeNull()
+    expect(screen.getByText("Sin líneas estratégicas.")).toBeInTheDocument()
+  })
+
   it("SectionHeader renders an eyebrow heading at the requested level with a decorative icon", () => {
     const { container } = render(
       <SectionHeader icon={<svg data-testid="ico" />} as="h4">

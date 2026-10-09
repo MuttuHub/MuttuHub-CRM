@@ -12,7 +12,7 @@ import { SolicitarModificacion, TIPO_MODIFICACION_LABEL } from "@/components/pro
 import { formatFechaHora } from "@/components/proyectos/project-display";
 import { CAMPO_LABEL } from "@/components/proyectos/project-versiones";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
-import { InlineError, SectionHeader } from "@/components/proyectos/ui";
+import { EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/ui";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrentUser } from "@/hooks/kanban";
@@ -143,7 +143,7 @@ function ModificacionesContent({ proyecto }: { proyecto: ProjectListRow }) {
       ) : query.isLoading || !query.data ? (
         <Skeleton className="h-16 w-full rounded-[14px]" />
       ) : solicitudes.length === 0 ? (
-        <p className="text-[12.5px] text-ink-500">Aún no hay solicitudes de modificación.</p>
+        <EmptyBlock>Aún no hay solicitudes de modificación.</EmptyBlock>
       ) : (
         <ul className="flex flex-col gap-2.5">
           {solicitudes.map((solicitud) => {

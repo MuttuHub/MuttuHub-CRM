@@ -171,6 +171,7 @@ describe("ProjectDashboard", () => {
     state.query = { ...state.query, data: { ...PORTAFOLIO, proyectos: [], por_estado: {} } }
     render(<ProjectDashboard />)
     expect(screen.getByText("No hay proyectos para mostrar")).toBeInTheDocument()
+    expect(screen.getByText("No hay proyectos para mostrar").closest("[data-slot='empty-state']")).not.toBeNull()
     expect(screen.queryByTestId("tablero-fila-p1")).not.toBeInTheDocument()
   })
 

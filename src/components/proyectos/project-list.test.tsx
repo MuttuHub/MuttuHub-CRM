@@ -380,6 +380,7 @@ describe("ProjectList", () => {
     render(<ProjectList />)
 
     expect(screen.getByText("Todavía no hay proyectos")).toBeInTheDocument()
+    expect(screen.getByText("Todavía no hay proyectos").closest("[data-slot='empty-state']")).not.toBeNull()
     expect(screen.queryByText("Aún no tienes proyectos visibles")).not.toBeInTheDocument()
   })
 

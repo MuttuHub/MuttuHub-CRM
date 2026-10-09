@@ -11,7 +11,7 @@ import { ToneBadge } from "@/components/crm/shared";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VoidControl, errorMessage, plural } from "@/components/proyectos/estructura-ui";
-import { InlineError, SectionHeader } from "@/components/proyectos/ui";
+import { EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/ui";
 import { GastoForm, TIPO_SOPORTE_LABELS } from "@/components/proyectos/gasto-form";
 import { ValidacionControles } from "@/components/proyectos/gasto-acciones";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
@@ -97,7 +97,7 @@ export function ProjectGastos({ proyecto }: { proyecto: ProjectListRow }) {
 
           <div data-testid="gastos-lista" className="mt-2">
             {gastos.length === 0 ? (
-              <p className="text-[12.5px] text-ink-500">Aún no hay gastos registrados.</p>
+              <EmptyBlock>Aún no hay gastos registrados.</EmptyBlock>
             ) : (
               <ul className="flex flex-col gap-2">
                 {gastos.map((gasto) => (

@@ -5,6 +5,9 @@
 
 import type { ReactNode } from "react";
 import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
+import { EmptyState } from "@/components/ui/empty-state";
+import { KpiTile } from "@/components/ui/kpi-tile";
+import { ProgressBar } from "@/components/ui/progress-bar";
 import type { ColorSemaforo } from "@/hooks/projects";
 import { cn } from "@/lib/utils";
 
@@ -16,17 +19,20 @@ export const SELECT_CLASS_LG =
 
 export function SectionHeader({
   as: Tag = "h3",
+  id,
   icon,
   className,
   children,
 }: {
   as?: "h2" | "h3" | "h4";
+  id?: string;
   icon?: ReactNode;
   className?: string;
   children: ReactNode;
 }) {
   return (
     <Tag
+      id={id}
       className={cn(
         "flex items-center gap-1.5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase",
         className,
@@ -38,8 +44,9 @@ export function SectionHeader({
   );
 }
 
+/** Bloque vacío de una sección: el `EmptyState` compartido, en versión compacta. */
 export function EmptyBlock({ children, className }: { children: ReactNode; className?: string }) {
-  return <p className={cn("mt-1.5 text-[13px] text-ink-500", className)}>{children}</p>;
+  return <EmptyState bordered description={children} className={cn("mt-1.5 min-h-0 py-4", className)} />;
 }
 
 export function InlineError({ message, className }: { message: string | null; className?: string }) {
@@ -81,6 +88,48 @@ export function MetricRow({ label, value }: { label: string; value: string }) {
     <div className="flex items-baseline justify-between gap-2">
       <span className="text-[12px] text-ink-500">{label}</span>
       <span className="font-semibold text-ink-900 tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+/** Fila de métrica con barra accesible; `band` solo lo trae el servidor (el cliente nunca calcula el semáforo). */
+export function MetricBar({
+  label,
+  value,
+  percent,
+  band,
+}: {
+  label: string;
+  value: string;
+  percent: number | null;
+  band?: ColorSemaforo;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <MetricRow label={label} value={value} />
+      {percent !== null && <ProgressBar aria-label={label} value={percent} band={band} />}
+    </div>
+  );
+}
+
+/** Tarjeta KPI: cifra grande (`KpiTile`) con su barra de progreso nombrada cuando hay valor. */
+export function KpiCard({
+  testId,
+  label,
+  value,
+  percent,
+  hint,
+}: {
+  testId: string;
+  label: string;
+  value: string;
+  percent: number | null;
+  hint: string;
+}) {
+  return (
+    <div data-testid={testId} className="rounded-[14px] border border-ink-200 bg-panel p-3">
+      <KpiTile label={label} value={value} hint={hint} />
+      {percent !== null && <ProgressBar className="mt-2" aria-label={label} value={percent} />}
     </div>
   );
 }

@@ -104,9 +104,11 @@ describe("EjecucionAvance", () => {
     expect(actividad).toHaveTextContent("1.1")
     expect(actividad).toHaveTextContent("Taller de formación")
     expect(actividad).toHaveTextContent("Finalizada")
-    const barra = screen.getByTestId("ejecucion-progreso") as HTMLProgressElement
-    expect(barra.value).toBe(100)
-    expect(barra.max).toBe(100)
+    const barra = screen.getByRole("progressbar", { name: "Avance de la actividad 1.1" })
+    expect(barra).toHaveAttribute("aria-valuenow", "100")
+    expect(barra).toHaveAttribute("aria-valuemin", "0")
+    expect(barra).toHaveAttribute("aria-valuemax", "100")
+    expect(barra.tagName).not.toBe("PROGRESS")
   })
 
   it("shows each deliverable's goal and counted quantity", () => {

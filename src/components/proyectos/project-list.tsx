@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -314,16 +315,15 @@ function EmptyProjects({
   const { title, body } = emptyCopy(estado, puedeVerPortafolio);
 
   return (
-    <div className="grid min-h-[300px] place-items-center px-6 py-12 text-center">
-      <div className="max-w-[42ch]">
-        <span className="mx-auto grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-rose-100 text-rose-700 dark:text-rose-400">
+    <EmptyState
+      className="min-h-[300px] py-12"
+      icon={
+        <span className="grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-rose-100 text-rose-700 dark:text-rose-400">
           <FolderKanban className="size-6" strokeWidth={1.7} />
         </span>
-        <h3 className="mt-4 font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
-          {title}
-        </h3>
-        <p className="mt-1.5 text-[13.5px] leading-relaxed text-ink-600">{body}</p>
-      </div>
-    </div>
+      }
+      title={title}
+      description={body}
+    />
   );
 }

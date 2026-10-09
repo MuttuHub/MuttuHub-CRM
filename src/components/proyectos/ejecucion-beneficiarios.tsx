@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ToneBadge } from "@/components/crm/shared";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import { VoidControl, errorMessage, formError, parseNumber } from "@/components/proyectos/estructura-ui";
-import { InlineError, SectionHeader } from "@/components/proyectos/ui";
+import { EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/ui";
 import {
   useCreateBeneficiario,
   useProjectActivities,
@@ -68,7 +68,7 @@ export function EjecucionBeneficiarios({
           </p>
 
           {registros.length === 0 ? (
-            <p className="mt-1.5 text-[12.5px] text-ink-500">Sin registros de beneficiarios.</p>
+            <EmptyBlock>Sin registros de beneficiarios.</EmptyBlock>
           ) : (
             <ul className="mt-2 flex flex-col gap-1.5">
               {registros.map((registro) => (

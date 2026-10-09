@@ -194,7 +194,8 @@ describe("ProjectGastos", () => {
 
     it("shows the empty state", async () => {
       setup({ gastos: [] })
-      expect(await screen.findByText("Aún no hay gastos registrados.")).toBeInTheDocument()
+      const vacio = await screen.findByText("Aún no hay gastos registrados.")
+      expect(vacio.closest("[data-slot='empty-state']")).not.toBeNull()
     })
 
     it("shows the rejection motivo and the void motivo", async () => {

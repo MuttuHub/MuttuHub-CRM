@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ToneBadge } from "@/components/crm/shared";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import { VoidControl, errorMessage, formError, parseNumber } from "@/components/proyectos/estructura-ui";
-import { InlineError, SectionHeader } from "@/components/proyectos/ui";
+import { EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/ui";
 import {
   useCreateMedicion,
   useIndicatorMeasurements,
@@ -139,7 +139,7 @@ function IndicadorCard({
           </div>
 
           {mediciones.length === 0 ? (
-            <p className="mt-1.5 text-[12px] text-ink-500">Sin mediciones registradas.</p>
+            <EmptyBlock>Sin mediciones registradas.</EmptyBlock>
           ) : (
             <ul className="mt-2 flex flex-col gap-1.5">
               {mediciones.map((medicion) => (
