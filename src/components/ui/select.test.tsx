@@ -64,4 +64,13 @@ describe("Select", () => {
     expect(trigger).toHaveTextContent("Etiqueta manual")
     expect(trigger).not.toHaveTextContent("Ana Pérez")
   })
+
+  it("renders the listbox without a drop shadow (v6: none except toast)", async () => {
+    render(<BasicSelect />)
+    await userEvent.click(screen.getByRole("combobox"))
+    const list = await screen.findByRole("listbox")
+    const content = list.closest("[data-slot=select-content]")
+    expect(content).toBeInTheDocument()
+    expect(content?.className).not.toMatch(/shadow-/)
+  })
 })
