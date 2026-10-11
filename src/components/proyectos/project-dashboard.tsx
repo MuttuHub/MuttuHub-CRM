@@ -77,7 +77,7 @@ export function ProjectDashboard() {
 
   return (
     <div className="flex min-w-0 flex-col gap-4" data-testid="tablero">
-      <section className="rounded-[22px] border border-ink-200 bg-panel">
+      <section className="surface">
         <header className="flex flex-wrap items-end justify-between gap-3 border-b border-ink-200 p-4 lg:p-5">
           <div className="flex flex-wrap items-center gap-3">
             <Filtro label="Estado">
@@ -198,7 +198,7 @@ function Resumen({ data }: { data: NonNullable<ReturnType<typeof useProjectsPort
           foot={`Asignado ${formatCOP(toCents(agregado.financiero.asignado))}`}
         />
       </div>
-      <div data-testid="tablero-estados" className="flex flex-col gap-2 rounded-[20px] border border-ink-200 bg-panel p-[18px] md:col-span-2 xl:col-span-4">
+      <div data-testid="tablero-estados" className="flex flex-col gap-2 surface p-[18px] md:col-span-2 xl:col-span-4">
         <span className="text-[12px] font-semibold text-ink-600">Proyectos por estado</span>
         {estados.map(([estado, cantidad]) => (
           <BarRow
@@ -268,7 +268,7 @@ function TablaProyectos({ proyectos }: { proyectos: PortfolioProject[] }) {
                   rel="noopener noreferrer"
                   className={cn(
                     buttonVariants({ variant: "outline", size: "sm" }),
-                    "h-8 rounded-11 border-ink-200 bg-panel px-3 text-[12px] font-semibold text-ink-700 hover:bg-ink-100",
+                    "h-8 px-3 text-[12px] font-semibold text-ink-700 hover:bg-ink-100",
                   )}
                 >
                   <Eye className="size-3.5" strokeWidth={1.8} />
@@ -290,7 +290,7 @@ function TarjetasProyectos({ proyectos }: { proyectos: PortfolioProject[] }) {
         <li
           key={proyecto.id}
           data-testid={`tablero-fila-${proyecto.id}`}
-          className="flex min-w-0 flex-col gap-2 rounded-[14px] border border-ink-200 bg-panel p-3"
+          className="flex min-w-0 flex-col gap-2 rounded-inner border border-border bg-panel p-3"
         >
           <div className="flex items-start justify-between gap-2">
             <span className="font-mono text-[12px] font-semibold text-ink-700 tabular-nums">{proyecto.codigo}</span>
@@ -321,7 +321,7 @@ function TarjetasProyectos({ proyectos }: { proyectos: PortfolioProject[] }) {
             rel="noopener noreferrer"
             className={cn(
               buttonVariants({ variant: "outline" }),
-              "h-11 w-full rounded-11 border-ink-200 bg-panel text-[13px] font-semibold text-ink-700 hover:bg-ink-100",
+              "h-11 w-full text-[13px] font-semibold text-ink-700 hover:bg-ink-100",
             )}
           >
             <Eye className="size-3.5" strokeWidth={1.8} />

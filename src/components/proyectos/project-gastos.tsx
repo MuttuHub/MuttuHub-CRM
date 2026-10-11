@@ -147,7 +147,7 @@ function GastoFila({
   }
 
   return (
-    <li data-testid="gasto-fila" className="flex flex-col gap-1.5 rounded-[14px] border border-ink-200 bg-panel p-3">
+    <li data-testid="gasto-fila" className="flex flex-col gap-1.5 rounded-inner border border-border bg-panel p-3">
       <div className="flex flex-wrap items-center gap-2">
         <ToneBadge tone={meta.tone} label={meta.label} />
         {gasto.alerta_sobregasto && <ToneBadge tone="destructivo" label="Supera el asignado" />}

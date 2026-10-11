@@ -79,7 +79,7 @@ export function MetricTile({
   children: ReactNode;
 }) {
   return (
-    <div data-testid={testId} data-color={color} className="rounded-[14px] border border-ink-200 bg-panel p-3">
+    <div data-testid={testId} data-color={color} className="rounded-inner border border-border bg-panel p-3">
       {color ? (
         <SemaforoChip color={color} prefix={chipPrefix} />
       ) : (
@@ -134,7 +134,7 @@ export function KpiCard({
   hint: string;
 }) {
   return (
-    <div data-testid={testId} className="rounded-[14px] border border-ink-200 bg-panel p-3">
+    <div data-testid={testId} className="rounded-inner border border-border bg-panel p-3">
       <KpiTile label={label} value={value} hint={hint} />
       {percent !== null && <ProgressBar className="mt-2" aria-label={label} value={percent} />}
     </div>

@@ -32,7 +32,7 @@ export function SemaforoTecnico({
       data-testid="semaforo-tecnico"
       data-color={tecnico.color}
       data-base={tecnico.base}
-      className="rounded-[14px] border border-ink-200 bg-panel p-3"
+      className="rounded-inner border border-border bg-panel p-3"
     >
       <div className="flex flex-wrap items-center gap-2">
         <SemaforoChip color={tecnico.color} prefix="Semáforo técnico" />

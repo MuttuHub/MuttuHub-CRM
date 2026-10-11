@@ -106,7 +106,7 @@ function MemberRow({
   return (
     <li
       data-testid="equipo-integrante"
-      className="flex items-center justify-between gap-3 rounded-[14px] border border-ink-200 bg-ink-100 px-3 py-2"
+      className="flex items-center justify-between gap-3 rounded-inner border border-border bg-panel px-3 py-2"
     >
       <div className="min-w-0">
         <p className="truncate text-[13px] font-semibold text-ink-900">{miembro.usuario.nombre}</p>
@@ -153,7 +153,7 @@ function AddMember({
         <Select value={usuarioId} onValueChange={(value) => setUsuarioId(value ?? "")}>
           <SelectTrigger
             aria-label="Agregar coordinador"
-            className="min-w-0 flex-1 bg-panel px-3"
+            className="min-w-0 flex-1 px-3"
           >
             <SelectValue placeholder="Selecciona un coordinador" />
           </SelectTrigger>

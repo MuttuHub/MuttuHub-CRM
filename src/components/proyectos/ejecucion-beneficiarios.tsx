@@ -200,7 +200,7 @@ function BeneficiarioForm({ proyectoId, onDone }: { proyectoId: string; onDone: 
         event.preventDefault();
         submit();
       }}
-      className="mt-2 grid gap-2.5 rounded-[14px] border border-ink-200 bg-ink-100 p-3 sm:grid-cols-2"
+      className="mt-2 grid gap-2.5 surface-inner p-3 sm:grid-cols-2"
     >
       <div className="flex min-w-0 flex-col gap-1">
         <Label htmlFor={`${base}-fecha`} className="text-[12px] text-ink-600">

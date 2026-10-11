@@ -96,7 +96,7 @@ function VersionesContent({ proyectoId }: { proyectoId: string }) {
 
 function VersionesTabla({ versiones }: { versiones: ProjectVersion[] }) {
   return (
-    <div className="overflow-x-auto rounded-[14px] border border-ink-200 bg-panel">
+    <div className="overflow-x-auto rounded-inner border border-border bg-panel">
       <Table data-testid="versiones-tabla" className="w-full text-[12.5px]">
         <TableHeader>
           <TableRow>
@@ -181,7 +181,7 @@ function Diferencias({ diferencias }: { diferencias: ProjectDiferencia[] }) {
           key={elemento}
           data-testid="diferencias-grupo"
           data-elemento={elemento}
-          className="overflow-x-auto rounded-[14px] border border-ink-200 bg-panel"
+          className="overflow-x-auto rounded-inner border border-border bg-panel"
         >
           <Table className="w-full text-[12.5px]">
             <caption className="border-b border-ink-200 px-3 py-1.5 text-left text-[11px] font-bold text-ink-500 uppercase">

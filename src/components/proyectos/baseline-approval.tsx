@@ -74,7 +74,7 @@ function BaselineApprovalControl({ proyecto }: { proyecto: ProjectListRow }) {
       </Button>
 
       <Dialog open={open} onOpenChange={cambiarApertura}>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-[22px] sm:max-w-[min(560px,calc(100%-2rem))]">
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[min(560px,calc(100%-2rem))]">
           <DialogHeader>
             <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
               Aprobar línea base

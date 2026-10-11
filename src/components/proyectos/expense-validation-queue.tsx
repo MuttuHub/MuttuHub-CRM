@@ -21,7 +21,7 @@ export function ExpenseValidationQueue() {
     <section
       data-testid="cola-validacion"
       aria-label="Gastos por validar"
-      className="rounded-[22px] border border-ink-200 bg-panel p-4 lg:p-5"
+      className="surface p-4 lg:p-5"
     >
       <SectionHeader as="h2">Gastos por validar · {gastos.length}</SectionHeader>
       <ul className="mt-2 flex flex-col gap-2">
@@ -29,7 +29,7 @@ export function ExpenseValidationQueue() {
           <li
             key={gasto.id}
             data-testid="cola-fila"
-            className="flex flex-col gap-1.5 rounded-[14px] border border-ink-200 p-3"
+            className="flex flex-col gap-1.5 rounded-inner border border-border p-3"
           >
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-mono text-[12px] font-semibold text-ink-600 tabular-nums">

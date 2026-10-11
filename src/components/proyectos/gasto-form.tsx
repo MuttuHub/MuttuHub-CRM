@@ -135,7 +135,7 @@ export function GastoForm({
 
   if (alertas) {
     return (
-      <div role="status" className="mt-2 flex flex-col gap-2 rounded-[14px] border border-alerta/40 bg-panel p-3">
+      <div role="status" className="mt-2 flex flex-col gap-2 rounded-inner border border-alerta/40 bg-panel p-3">
         <p className="flex items-center gap-1.5 text-[13px] font-semibold text-ink-900">
           <AlertTriangle className="size-4 text-alerta" strokeWidth={2} />
           Gasto registrado, con avisos
@@ -163,7 +163,7 @@ export function GastoForm({
         event.preventDefault();
         submit();
       }}
-      className="mt-2 grid gap-2.5 rounded-[14px] border border-ink-200 bg-panel p-3 sm:grid-cols-2"
+      className="mt-2 grid gap-2.5 rounded-inner border border-border bg-panel p-3 sm:grid-cols-2"
     >
       <Campo id={`${p}-rubro`} label="Rubro">
         <select id={`${p}-rubro`} value={rubroId} onChange={(e) => setRubroId(e.target.value)} className={SELECT}>
@@ -274,7 +274,7 @@ export function GastoForm({
             id={`${p}-archivo`}
             type="file"
             onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
-            className="min-h-11 text-[12.5px] text-ink-800 md:min-h-0"
+            className="min-h-11 text-base md:text-[12.5px] text-ink-800 md:min-h-0"
           />
         </Campo>
       ) : (

@@ -103,7 +103,7 @@ function IndicadorCard({
   return (
     <li
       data-testid="ejecucion-indicador"
-      className="rounded-[12px] border border-ink-200 bg-panel p-2.5"
+      className="rounded-inner border border-border bg-panel p-2.5"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-[13px] text-ink-900">
@@ -272,7 +272,7 @@ function MedicionForm({
         event.preventDefault();
         submit();
       }}
-      className="mt-2 grid gap-2.5 rounded-[14px] border border-ink-200 bg-ink-100 p-3 sm:grid-cols-2"
+      className="mt-2 grid gap-2.5 surface-inner p-3 sm:grid-cols-2"
     >
       <div className="flex min-w-0 flex-col gap-1">
         <Label htmlFor={`${base}-fecha`} className="text-[12px] text-ink-600">

@@ -117,7 +117,7 @@ export function ProjectList() {
     <div className="flex min-w-0 flex-col gap-4">
       {puedeValidar && <ExpenseValidationQueue />}
 
-      <section className="rounded-[22px] border border-ink-200 bg-panel">
+      <section className="surface">
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-200 p-4 lg:p-5">
           {/* Barra de herramientas, no un segundo título: el h1 lo pone el shell. */}
           <span className="rounded-full bg-ink-100 px-2.5 py-1 text-[11.5px] font-bold text-ink-600">
@@ -135,7 +135,7 @@ export function ProjectList() {
               <SelectTrigger
                 size="sm"
                 aria-label="Filtrar por estado"
-                className="w-[190px] border-ink-200 bg-panel px-3 text-[13px]"
+                className="w-[190px] px-3 text-base md:text-[13px]"
               >
                 <SelectValue placeholder="Todos los estados" />
               </SelectTrigger>
@@ -241,7 +241,7 @@ function ProjectTable({
                 rel="noopener noreferrer"
                 className={cn(
                   buttonVariants({ variant: "outline", size: "sm" }),
-                  "border-ink-200 bg-panel px-3 text-[12px] font-semibold text-ink-700 hover:bg-ink-100",
+                  "px-3 text-[12px] font-semibold text-ink-700 hover:bg-ink-100",
                 )}
               >
                 <Eye className="size-3.5" strokeWidth={1.8} />
@@ -266,7 +266,7 @@ function ProjectCards({
         <li
           key={proyecto.id}
           data-testid={`proyecto-card-${proyecto.id}`}
-          className="flex min-w-0 flex-col gap-2 rounded-[14px] border border-ink-200 bg-panel p-3"
+          className="flex min-w-0 flex-col gap-2 rounded-inner border border-border bg-panel p-3"
         >
           <div className="flex items-start justify-between gap-2">
             <span className="font-mono text-[12px] font-semibold text-ink-700 tabular-nums">{proyecto.codigo}</span>
@@ -301,7 +301,7 @@ function ProjectCards({
             rel="noopener noreferrer"
             className={cn(
               buttonVariants({ variant: "outline" }),
-              "h-11 w-full rounded-11 border-ink-200 bg-panel text-[13px] font-semibold text-ink-700 hover:bg-ink-100",
+              "h-11 w-full text-[13px] font-semibold text-ink-700 hover:bg-ink-100",
             )}
           >
             <Eye className="size-3.5" strokeWidth={1.8} />

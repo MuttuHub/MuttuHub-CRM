@@ -65,7 +65,7 @@ export function TextField({
         inputMode={inputMode}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-10 bg-panel px-3"
+        className="h-10 px-3"
       />
     </div>
   );
@@ -93,7 +93,7 @@ export function StructureForm({
         event.preventDefault();
         onSubmit();
       }}
-      className="mt-2 grid gap-2.5 rounded-[14px] border border-ink-200 bg-panel p-3 sm:grid-cols-2"
+      className="mt-2 grid gap-2.5 rounded-inner border border-border bg-panel p-3 sm:grid-cols-2"
     >
       {children}
       <div className="flex items-center gap-2 sm:col-span-2">
@@ -207,7 +207,7 @@ export function VoidControl({
         value={motivo}
         onChange={(event) => setMotivo(event.target.value)}
         placeholder="Motivo de la anulación"
-        className="h-10 w-52 bg-panel px-2.5 text-[12px]"
+        className="h-10 w-52 px-2.5 text-base md:text-[12px]"
       />
       <Button type="submit" size="sm" variant="destructive" disabled={pending || motivo.trim() === ""}>
         {pending && <LoaderCircle className="size-4 animate-spin" />}

@@ -64,7 +64,7 @@ export function EjecucionAvance({
   return (
     <li
       data-testid="ejecucion-actividad"
-      className="rounded-[12px] border border-ink-200 bg-panel p-2.5"
+      className="rounded-inner border border-border bg-panel p-2.5"
     >
       <div className="flex items-start justify-between gap-2">
         <p className="text-[13px] text-ink-900">

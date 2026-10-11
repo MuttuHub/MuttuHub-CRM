@@ -108,7 +108,7 @@ export function EjecucionAvanceForm({
         event.preventDefault();
         submit();
       }}
-      className="mt-2 grid gap-2.5 rounded-[14px] border border-ink-200 bg-panel p-3 sm:grid-cols-2"
+      className="mt-2 grid gap-2.5 rounded-inner border border-border bg-panel p-3 sm:grid-cols-2"
     >
       <div className="flex min-w-0 flex-col gap-1">
         <Label htmlFor={`${nombreMedio}-fecha`} className="text-[12px] text-ink-600">
@@ -196,7 +196,7 @@ export function EjecucionAvanceForm({
             id={`${nombreMedio}-archivo`}
             type="file"
             onChange={(event) => setArchivo(event.target.files?.[0] ?? null)}
-            className="min-h-11 text-[12.5px] text-ink-800 md:min-h-0"
+            className="min-h-11 text-base md:text-[12.5px] text-ink-800 md:min-h-0"
           />
         </div>
       )}

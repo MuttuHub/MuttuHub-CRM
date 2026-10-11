@@ -187,7 +187,7 @@ export function ImportDialog({ proyecto }: { proyecto: ProjectListRow }) {
       </Button>
 
       <Dialog open={open} onOpenChange={cambiarApertura}>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-[22px] sm:max-w-[min(860px,calc(100%-2rem))]">
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[min(860px,calc(100%-2rem))]">
           <DialogHeader>
             <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
               Importar plantilla de proyecto
@@ -208,7 +208,7 @@ export function ImportDialog({ proyecto }: { proyecto: ProjectListRow }) {
               accept=".xlsx"
               onChange={elegirArchivo}
               disabled={ocupado}
-              className="h-auto bg-panel px-3 py-2"
+              className="h-auto px-3 py-2"
             />
             <InlineError message={archivoError} />
           </div>
@@ -216,7 +216,7 @@ export function ImportDialog({ proyecto }: { proyecto: ProjectListRow }) {
           <InlineError message={error} />
 
           {validacion && (
-            <div className="flex flex-col gap-2 rounded-[14px] border border-ink-200 bg-ink-100 p-3">
+            <div className="flex flex-col gap-2 surface-inner p-3">
               <p className="flex items-center gap-1.5 text-[13.5px] font-semibold text-ink-900">
                 <FileSpreadsheet className="size-4" />
                 La plantilla es válida.
@@ -259,7 +259,7 @@ export function ImportDialog({ proyecto }: { proyecto: ProjectListRow }) {
                 </p>
               )}
               {agruparPorHoja(reporte.errores).map((grupo) => (
-                <section key={grupo.hoja} data-testid="import-errores-hoja" className="rounded-[14px] border border-ink-200 p-2">
+                <section key={grupo.hoja} data-testid="import-errores-hoja" className="rounded-inner border border-border p-2">
                   <h4 className="px-2 pt-1 text-[13px] font-semibold text-ink-900">
                     {grupo.hoja}{" "}
                     <span className="font-normal text-ink-500">· {plural(grupo.errores.length, "error", "errores")}</span>

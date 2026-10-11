@@ -45,7 +45,7 @@ export const TIPO_MODIFICACION_LABEL: Record<TipoModificacion, string> = {
 };
 
 const TIPOS = Object.keys(TIPO_MODIFICACION_LABEL) as TipoModificacion[];
-const CELDA_CLASS = "h-10 w-[8.5rem] bg-panel px-2 text-right text-[12.5px] tabular-nums";
+const CELDA_CLASS = "h-10 w-[8.5rem] px-2 text-right text-base tabular-nums md:text-[12.5px]";
 
 export function SolicitarModificacion({ proyecto }: { proyecto: ProjectListRow }) {
   const [open, setOpen] = useState(false);
@@ -56,7 +56,7 @@ export function SolicitarModificacion({ proyecto }: { proyecto: ProjectListRow }
         Solicitar modificación
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-[22px] sm:max-w-[min(860px,calc(100%-2rem))]">
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[min(860px,calc(100%-2rem))]">
           <DialogHeader>
             <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
               Solicitar modificación
@@ -183,7 +183,7 @@ function Formulario({ proyecto, onDone }: { proyecto: ProjectListRow; onDone: ()
       ) : cargando ? (
         <Skeleton className="h-32 w-full rounded-[14px]" />
       ) : grilla ? (
-        <div data-testid="modificacion-grilla" className="overflow-x-auto rounded-[14px] border border-ink-200 bg-panel">
+        <div data-testid="modificacion-grilla" className="overflow-x-auto rounded-inner border border-border bg-panel">
           <Table className="w-full text-[12.5px]">
             <TableHeader>
               <TableRow>
@@ -242,7 +242,7 @@ function Formulario({ proyecto, onDone }: { proyecto: ProjectListRow; onDone: ()
                 aria-label="Fecha de inicio"
                 value={valorDe("fecha_inicio", proyecto.fecha_inicio ?? "")}
                 onChange={(event) => escribir("fecha_inicio")(event.target.value)}
-                className="h-10 bg-panel px-3"
+                className="h-10 px-3"
               />
             </Campo>
             <Campo label="Fecha de fin">
@@ -251,13 +251,13 @@ function Formulario({ proyecto, onDone }: { proyecto: ProjectListRow; onDone: ()
                 aria-label="Fecha de fin"
                 value={valorDe("fecha_fin", proyecto.fecha_fin ?? "")}
                 onChange={(event) => escribir("fecha_fin")(event.target.value)}
-                className="h-10 bg-panel px-3"
+                className="h-10 px-3"
               />
             </Campo>
           </div>
           <ul className="flex flex-col gap-2">
             {(activities.data ?? []).map((a) => (
-              <li key={a.id} className="flex flex-wrap items-center gap-3 rounded-[14px] border border-ink-200 bg-panel p-2.5">
+              <li key={a.id} className="flex flex-wrap items-center gap-3 rounded-inner border border-border bg-panel p-2.5">
                 <span className="min-w-0 flex-1 text-[12.5px] text-ink-800">
                   <span className="font-mono text-[11.5px] text-ink-500">{a.codigo} </span>
                   {a.nombre}
@@ -267,14 +267,14 @@ function Formulario({ proyecto, onDone }: { proyecto: ProjectListRow; onDone: ()
                   inputMode="numeric"
                   value={valorDe(clave("si", a.codigo), String(a.semana_inicio))}
                   onChange={(event) => escribir(clave("si", a.codigo))(event.target.value)}
-                  className="h-10 w-16 bg-panel px-2 text-right"
+                  className="h-10 w-16 px-2 text-right"
                 />
                 <Input
                   aria-label={`Semana final ${a.codigo}`}
                   inputMode="numeric"
                   value={valorDe(clave("sf", a.codigo), String(a.semana_fin))}
                   onChange={(event) => escribir(clave("sf", a.codigo))(event.target.value)}
-                  className="h-10 w-16 bg-panel px-2 text-right"
+                  className="h-10 w-16 px-2 text-right"
                 />
               </li>
             ))}
@@ -283,7 +283,7 @@ function Formulario({ proyecto, onDone }: { proyecto: ProjectListRow; onDone: ()
       ) : (
         <ul className="flex flex-col gap-2">
           {(deliverables.data ?? []).map((e) => (
-            <li key={e.id} className="flex flex-wrap items-center gap-3 rounded-[14px] border border-ink-200 bg-panel p-2.5">
+            <li key={e.id} className="flex flex-wrap items-center gap-3 rounded-inner border border-border bg-panel p-2.5">
               <span className="min-w-0 flex-1 text-[12.5px] text-ink-800">
                 <span className="font-mono text-[11.5px] text-ink-500">{e.codigo} </span>
                 {e.descripcion}
@@ -293,12 +293,12 @@ function Formulario({ proyecto, onDone }: { proyecto: ProjectListRow; onDone: ()
                 inputMode="decimal"
                 value={valorDe(clave("e", e.codigo), e.cantidad_meta)}
                 onChange={(event) => escribir(clave("e", e.codigo))(event.target.value)}
-                className="h-10 w-24 bg-panel px-2 text-right"
+                className="h-10 w-24 px-2 text-right"
               />
             </li>
           ))}
           {(indicators.data ?? []).map((i) => (
-            <li key={i.id} className="flex flex-wrap items-center gap-3 rounded-[14px] border border-ink-200 bg-panel p-2.5">
+            <li key={i.id} className="flex flex-wrap items-center gap-3 rounded-inner border border-border bg-panel p-2.5">
               <span className="min-w-0 flex-1 text-[12.5px] text-ink-800">
                 <span className="font-mono text-[11.5px] text-ink-500">{i.codigo} </span>
                 {i.nombre}
@@ -308,7 +308,7 @@ function Formulario({ proyecto, onDone }: { proyecto: ProjectListRow; onDone: ()
                 inputMode="decimal"
                 value={valorDe(clave("i", i.codigo), i.meta)}
                 onChange={(event) => escribir(clave("i", i.codigo))(event.target.value)}
-                className="h-10 w-24 bg-panel px-2 text-right"
+                className="h-10 w-24 px-2 text-right"
               />
             </li>
           ))}
@@ -322,7 +322,7 @@ function Formulario({ proyecto, onDone }: { proyecto: ProjectListRow; onDone: ()
           onChange={(event) => setMotivo(event.target.value)}
           rows={3}
           maxLength={1000}
-          className="rounded-12 border border-ink-200 bg-panel px-3 py-2 text-[13px] text-ink-900"
+          className="rounded-12 border border-border-strong bg-input-bg px-3 py-2 text-base text-ink-900 md:text-[13px]"
         />
       </Campo>
 

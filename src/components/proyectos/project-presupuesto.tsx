@@ -110,7 +110,7 @@ function PresupuestoEditor({
 
   return (
     <div className="mt-2 flex flex-col gap-2.5">
-      <div className="overflow-x-auto rounded-[14px] border border-ink-200 bg-panel">
+      <div className="overflow-x-auto rounded-inner border border-border bg-panel">
         <Table data-testid="presupuesto-tabla" className="w-full text-[12.5px]">
           <TableHeader>
             <TableRow>

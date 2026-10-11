@@ -155,7 +155,7 @@ function ModificacionesContent({ proyecto }: { proyecto: ProjectListRow }) {
                 key={solicitud.id}
                 data-testid="solicitud"
                 data-estado={solicitud.estado}
-                className="rounded-[14px] border border-ink-200 bg-panel p-3"
+                className="rounded-inner border border-border bg-panel p-3"
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <ToneBadge tone={meta.tone} label={meta.label} />
@@ -206,7 +206,7 @@ function ModificacionesContent({ proyecto }: { proyecto: ProjectListRow }) {
                           onChange={(event) => setComentario(event.target.value)}
                           rows={2}
                           maxLength={1000}
-                          className="rounded-12 border border-ink-200 bg-panel px-3 py-2 text-[13px] text-ink-900"
+                          className="rounded-12 border border-border-strong bg-input-bg px-3 py-2 text-base text-ink-900 md:text-[13px]"
                         />
                         <div className="flex flex-wrap gap-2">
                           <Button

@@ -304,7 +304,7 @@ export function ProjectCreateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-[22px] sm:max-w-[min(720px,calc(100%-2rem))]">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[min(720px,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
             Nuevo proyecto
@@ -400,7 +400,7 @@ export function ProjectCreateDialog({
                 <SelectTrigger
                   id="proyecto-cliente"
                   aria-label="Cliente"
-                  className="w-full bg-panel px-3"
+                  className="w-full px-3"
                 >
                   <SelectValue placeholder="Selecciona el cliente" />
                 </SelectTrigger>
@@ -423,7 +423,7 @@ export function ProjectCreateDialog({
                 value={nombre}
                 onChange={(event) => setNombre(event.target.value)}
                 placeholder="Nombre del proyecto"
-                className="bg-panel px-3"
+                className="px-3"
               />
             </div>
 
@@ -433,7 +433,7 @@ export function ProjectCreateDialog({
                 <SelectTrigger
                   id="proyecto-responsable"
                   aria-label="Responsable"
-                  className="w-full bg-panel px-3"
+                  className="w-full px-3"
                 >
                   <SelectValue placeholder="Selecciona el responsable" />
                 </SelectTrigger>
@@ -456,7 +456,7 @@ export function ProjectCreateDialog({
                 value={valorTotal}
                 onChange={(event) => setValorTotal(event.target.value)}
                 placeholder="Opcional"
-                className="bg-panel px-3"
+                className="px-3"
               />
               {diferencia !== null && (
                 <p
@@ -476,7 +476,7 @@ export function ProjectCreateDialog({
                 type="date"
                 value={fechaInicio}
                 onChange={(event) => setFechaInicio(event.target.value)}
-                className="bg-panel px-3"
+                className="px-3"
               />
             </div>
 
@@ -487,7 +487,7 @@ export function ProjectCreateDialog({
                 type="date"
                 value={fechaFin}
                 onChange={(event) => setFechaFin(event.target.value)}
-                className="bg-panel px-3"
+                className="px-3"
               />
             </div>
 
@@ -500,7 +500,7 @@ export function ProjectCreateDialog({
                 value={beneficiariosMeta}
                 onChange={(event) => setBeneficiariosMeta(event.target.value)}
                 placeholder="Opcional"
-                className="bg-panel px-3"
+                className="px-3"
               />
             </div>
           </div>
@@ -516,7 +516,7 @@ export function ProjectCreateDialog({
               {lineas.map((linea) => (
                 <div
                   key={linea.id}
-                  className="flex items-center justify-between gap-3 rounded-12 border border-ink-200 bg-panel px-3 py-2"
+                  className="flex items-center justify-between gap-3 rounded-inner border border-border bg-panel px-3 py-2"
                 >
                   <div className="flex min-w-0 items-center gap-2">
                     <Checkbox

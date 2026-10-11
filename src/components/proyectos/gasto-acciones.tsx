@@ -57,7 +57,7 @@ function RejectControl({
         value={motivo}
         onChange={(event) => setMotivo(event.target.value)}
         placeholder="Motivo del rechazo"
-        className="h-10 w-52 bg-panel px-2.5 text-[12px]"
+        className="h-10 w-52 px-2.5 text-base md:text-[12px]"
       />
       <Button type="submit" size="sm" variant="destructive" disabled={pending || motivo.trim() === ""}>
         {pending && <LoaderCircle className="size-4 animate-spin" />}

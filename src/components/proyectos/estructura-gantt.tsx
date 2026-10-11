@@ -97,7 +97,7 @@ function GanttBody({
     .filter((grupo) => grupo.barras.length > 0);
 
   return (
-    <div className="mt-2 overflow-x-auto rounded-[14px] border border-ink-200 bg-panel p-3">
+    <div className="mt-2 overflow-x-auto rounded-inner border border-border bg-panel p-3">
       <div style={{ minWidth: layout.totalSemanas * MIN_COLUMNA_PX }}>
         <div data-testid="gantt-header" className="grid gap-px" style={columnas}>
           {Array.from({ length: layout.totalSemanas }, (_, i) => i + 1).map((semana) => (

@@ -86,14 +86,14 @@ export function ProjectFicha({ projectId, backHref }: { projectId: string; backH
           href={backHref}
           className={cn(
             buttonVariants({ variant: "outline", size: "sm" }),
-            "w-fit border-ink-200 bg-panel px-3 text-[12.5px] font-semibold text-ink-700 hover:bg-ink-100",
+            "w-fit px-3 text-[12.5px] font-semibold text-ink-700 hover:bg-ink-100",
           )}
         >
           <ArrowLeft className="size-3.5" strokeWidth={1.8} />
           Volver a proyectos
         </Link>
       )}
-      <div className="min-w-0 rounded-[22px] border border-ink-200 bg-panel">
+      <div className="min-w-0 surface">
         {query.isError ? (
           <FichaError error={query.error} />
         ) : proyecto ? (
@@ -126,7 +126,7 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
     <div className="flex flex-col">
       <Tabs defaultValue="resumen" className="flex flex-col gap-0">
         {/* Encabezado fijo: pegajoso y fuera del panel de contenido, así estado y semáforos siempre se ven. */}
-        <div className="sticky top-0 z-10 rounded-t-[22px] bg-panel">
+        <div className="sticky top-0 z-10 rounded-t-card bg-panel">
           <header
             data-testid="ficha-header"
             className="flex flex-wrap items-start justify-between gap-3 border-b border-ink-200 p-5 sm:p-6"
@@ -342,7 +342,7 @@ function HistorialPasos({ entries }: { entries: ProjectAuditEntry[] }) {
         <li
           key={paso.key}
           data-testid="historial-paso"
-          className="rounded-[14px] border border-ink-200 bg-ink-100 p-3"
+          className="rounded-inner border border-border bg-panel p-3"
         >
           <time
             dateTime={paso.created_at}

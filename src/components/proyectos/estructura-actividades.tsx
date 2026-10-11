@@ -81,7 +81,7 @@ export function EstructuraActividades({
             <li
               key={actividad.id}
               data-testid="estructura-actividad"
-              className="rounded-[12px] border border-ink-200 bg-panel p-2.5"
+              className="rounded-inner border border-border bg-panel p-2.5"
             >
               {abierto === actividad.id ? (
                 <ActivityForm
@@ -240,7 +240,7 @@ function ActivityForm({
       <div className="flex min-w-0 flex-col gap-1">
         <span className="text-[12px] font-medium text-ink-600">Responsable</span>
         <Select value={responsable} onValueChange={(value) => setResponsable(value ?? SIN_RESPONSABLE)}>
-          <SelectTrigger size="sm" aria-label="Responsable" className="min-w-0 bg-panel px-3">
+          <SelectTrigger size="sm" aria-label="Responsable" className="min-w-0 px-3">
             <SelectValue placeholder="Sin responsable" />
           </SelectTrigger>
           <SelectContent>

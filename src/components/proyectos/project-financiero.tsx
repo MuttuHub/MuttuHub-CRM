@@ -122,7 +122,7 @@ function FichaTabla({ ficha }: { ficha: ProjectFinancialSheet }) {
       {ficha.alerta_retraso && (
         <p
           data-testid="financiero-alerta"
-          className="flex items-start gap-1.5 rounded-[14px] border border-ink-200 bg-panel p-2.5 text-[12.5px] font-semibold text-ink-900"
+          className="flex items-start gap-1.5 rounded-inner border border-border bg-panel p-2.5 text-[12.5px] font-semibold text-ink-900"
         >
           <AlertTriangle className="mt-0.5 size-3.5 shrink-0" strokeWidth={2} />
           {ALERTA_RETRASO_TEXT}
@@ -132,7 +132,7 @@ function FichaTabla({ ficha }: { ficha: ProjectFinancialSheet }) {
       {ficha.rubros.length === 0 ? (
         <EmptyBlock>Aún no hay presupuesto asignado a este proyecto.</EmptyBlock>
       ) : (
-        <div className="overflow-x-auto rounded-[14px] border border-ink-200 bg-panel">
+        <div className="overflow-x-auto rounded-inner border border-border bg-panel">
           <Table data-testid="financiero-tabla" className="w-full text-[12.5px]">
             <TableHeader>
               <TableRow>

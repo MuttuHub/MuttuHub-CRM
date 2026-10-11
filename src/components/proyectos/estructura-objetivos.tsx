@@ -96,7 +96,7 @@ function ObjectiveCard({
   const nIndicadores = indicadores.data?.filter((i) => i.objetivo_id === objetivo.id).length;
 
   return (
-    <li data-testid="estructura-objetivo" className="rounded-[14px] border border-ink-200 bg-ink-100 p-3">
+    <li data-testid="estructura-objetivo" className="rounded-inner border border-border bg-panel p-3">
       {editing ? (
         <ObjectiveForm proyectoId={proyecto.id} objetivo={objetivo} onDone={onDone} />
       ) : (

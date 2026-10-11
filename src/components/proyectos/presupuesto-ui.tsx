@@ -39,7 +39,7 @@ export function MoneyInput({
       inputMode="decimal"
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className={className ?? "w-full min-w-24 bg-panel px-2 text-right text-[12.5px] tabular-nums"}
+      className={className ?? "w-full min-w-24 px-2 text-right text-base md:text-[12.5px] tabular-nums"}
     />
   );
 }
