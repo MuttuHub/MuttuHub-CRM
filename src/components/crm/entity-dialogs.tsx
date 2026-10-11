@@ -73,7 +73,7 @@ export function ConfirmDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-[20px] sm:max-w-[min(400px,calc(100%-2rem))]">
+      <DialogContent className="sm:max-w-[min(400px,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
             {title}
@@ -191,7 +191,7 @@ export function ContactoFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88dvh] overflow-y-auto rounded-[22px] sm:max-w-[min(520px,calc(100%-2rem))]">
+      <DialogContent className="max-h-[88dvh] overflow-y-auto sm:max-w-[min(520px,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
             {isEdit ? "Editar contacto" : "Agregar contacto"}
@@ -222,7 +222,7 @@ export function ContactoFormDialog({
                 value={form.nombre}
                 onChange={(e) => set("nombre", e.target.value)}
                 placeholder="Nombre y apellido"
-                className="bg-panel px-3"
+                className="px-3"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -232,7 +232,7 @@ export function ContactoFormDialog({
                 value={form.cargo}
                 onChange={(e) => set("cargo", e.target.value)}
                 placeholder="Ej. Secretaria de Gobierno"
-                className="bg-panel px-3"
+                className="px-3"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -243,7 +243,7 @@ export function ContactoFormDialog({
                 value={form.correo}
                 onChange={(e) => set("correo", e.target.value)}
                 placeholder="nombre@entidad.co"
-                className="bg-panel px-3"
+                className="px-3"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -253,7 +253,7 @@ export function ContactoFormDialog({
                 value={form.telefono}
                 onChange={(e) => set("telefono", e.target.value)}
                 placeholder="+57 300 000 0000"
-                className="bg-panel px-3"
+                className="px-3"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -262,7 +262,7 @@ export function ContactoFormDialog({
                 value={form.rol_decision}
                 onValueChange={(v) => set("rol_decision", v as RolContacto | "")}
               >
-                <SelectTrigger className="w-full bg-panel px-3">
+                <SelectTrigger className="w-full px-3">
                   <SelectValue placeholder="Sin rol definido" />
                 </SelectTrigger>
                 <SelectContent>
@@ -284,7 +284,7 @@ export function ContactoFormDialog({
               value={form.notas}
               onChange={(e) => set("notas", e.target.value)}
               placeholder="Detalles de la relación con este contacto"
-              className="w-full resize-none rounded-12 border border-input bg-panel px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="w-full resize-none rounded-12 border border-border-strong bg-input-bg px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             />
           </div>
 
@@ -427,7 +427,7 @@ export function OportunidadFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88dvh] overflow-y-auto rounded-[22px] sm:max-w-[min(560px,calc(100%-2rem))]">
+      <DialogContent className="max-h-[88dvh] overflow-y-auto sm:max-w-[min(560px,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
             {isEdit ? "Editar oportunidad" : "Nueva oportunidad"}
@@ -459,7 +459,7 @@ export function OportunidadFormDialog({
                 value={form.nombre}
                 onChange={(e) => set("nombre", e.target.value)}
                 placeholder="Ej. Consultoría línea base 2026"
-                className="bg-panel px-3"
+                className="px-3"
               />
             </div>
 
@@ -471,7 +471,7 @@ export function OportunidadFormDialog({
                 value={form.problema_detectado}
                 onChange={(e) => set("problema_detectado", e.target.value)}
                 placeholder="Necesidad o dolor que detectamos en el cliente"
-                className="w-full resize-none rounded-12 border border-input bg-panel px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="w-full resize-none rounded-12 border border-border-strong bg-input-bg px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               />
             </div>
 
@@ -483,7 +483,7 @@ export function OportunidadFormDialog({
                 value={form.solucion_propuesta}
                 onChange={(e) => set("solucion_propuesta", e.target.value)}
                 placeholder="Cómo la resolveríamos"
-                className="w-full resize-none rounded-12 border border-input bg-panel px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="w-full resize-none rounded-12 border border-border-strong bg-input-bg px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               />
             </div>
 
@@ -494,7 +494,7 @@ export function OportunidadFormDialog({
                 value={form.servicios_interes}
                 onChange={(e) => set("servicios_interes", e.target.value)}
                 placeholder="Ej. Medición, formaciones"
-                className="bg-panel px-3"
+                className="px-3"
               />
             </div>
 
@@ -508,7 +508,7 @@ export function OportunidadFormDialog({
                 value={form.valor_estimado_cop}
                 onChange={(e) => set("valor_estimado_cop", e.target.value)}
                 placeholder="0"
-                className="bg-panel px-3 font-mono text-[13px]"
+                className="px-3 font-mono text-[13px]"
               />
             </div>
 
@@ -518,7 +518,7 @@ export function OportunidadFormDialog({
                 value={form.estado}
                 onValueChange={(v) => set("estado", v as EstadoOportunidad)}
               >
-                <SelectTrigger className="w-full bg-panel px-3">
+                <SelectTrigger className="w-full px-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -538,7 +538,7 @@ export function OportunidadFormDialog({
                 type="date"
                 value={form.fecha_ultima_gestion}
                 onChange={(e) => set("fecha_ultima_gestion", e.target.value)}
-                className="bg-panel px-3"
+                className="px-3"
               />
             </div>
           </div>
@@ -687,7 +687,7 @@ export function OportunidadLifecycleDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88dvh] overflow-y-auto rounded-[22px] sm:max-w-[min(620px,calc(100%-2rem))]">
+      <DialogContent className="max-h-[88dvh] overflow-y-auto sm:max-w-[min(620px,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
             {oportunidad.nombre}
@@ -756,7 +756,7 @@ export function OportunidadLifecycleDialog({
                 {tareas.map((t) => (
                   <li
                     key={t.id}
-                    className="rounded-10 border border-ink-200 bg-panel px-3 py-2 text-[12.5px] text-ink-800"
+                    className="surface-inner px-3 py-2 text-[12.5px] text-ink-800"
                   >
                     {t.titulo}
                   </li>
@@ -766,7 +766,7 @@ export function OportunidadLifecycleDialog({
             {!readOnly && (
               <div className="flex items-center gap-2">
                 <Select value={selectedTaskId} onValueChange={(v) => setSelectedTaskId(v ?? "")}>
-                  <SelectTrigger size="sm" className="w-full bg-panel px-3 text-[12.5px]">
+                  <SelectTrigger size="sm" className="w-full px-3 text-[12.5px]">
                     <SelectValue placeholder="Vincular una tarea existente del cliente" />
                   </SelectTrigger>
                   <SelectContent>
@@ -799,7 +799,7 @@ export function OportunidadLifecycleDialog({
                 {bitacora.map((e) => (
                   <li
                     key={e.id}
-                    className="rounded-10 border border-ink-200 bg-panel px-3 py-2 text-[12.5px] text-ink-700"
+                    className="surface-inner px-3 py-2 text-[12.5px] text-ink-700"
                   >
                     <span className="font-semibold text-ink-900">{e.autor_nombre}:</span> {e.texto}
                   </li>
@@ -812,7 +812,7 @@ export function OportunidadLifecycleDialog({
                   value={nota}
                   onChange={(e) => setNota(e.target.value)}
                   placeholder="Agregar una nota de comunicación"
-                  className="h-10 bg-panel px-3 text-[12.5px]"
+                  className="h-10 px-3 text-[12.5px]"
                 />
                 <Button
                   size="sm"

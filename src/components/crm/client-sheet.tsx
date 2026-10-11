@@ -466,7 +466,7 @@ function SheetHeaderContent({
 const INLINE_LABEL_CLASS = "text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase";
 const INLINE_DISPLAY_CLASS =
   "group mt-1 -mx-1.5 flex w-full items-start gap-1.5 rounded-md px-1.5 py-0.5 text-left text-[13.5px] leading-snug text-ink-900 hover:bg-ink-100 disabled:opacity-60";
-const INLINE_INPUT_CLASS = "mt-1 h-10 bg-panel px-2 text-[13.5px]";
+const INLINE_INPUT_CLASS = "mt-1 h-10 px-2 text-[13.5px]";
 const INLINE_SELECT_TRIGGER_CLASS =
   "mt-1 h-10 w-full justify-start border-transparent bg-transparent px-1.5 font-normal text-ink-900 hover:border-ink-200 hover:bg-ink-100 data-[popup-open]:border-ink-200 data-[popup-open]:bg-ink-100";
 
@@ -667,7 +667,7 @@ function InlineTextarea({
             setEditing(false);
           }
         }}
-        className="mt-1 w-full resize-none rounded-md border border-input bg-panel px-2 py-1.5 text-[13.5px] text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="mt-1 w-full resize-none rounded-md border border-border-strong bg-input-bg px-2 py-1.5 text-[13.5px] text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
       />
     </div>
   );
@@ -983,7 +983,7 @@ function ContactosTab({
         {contactos.map((c) => (
           <li
             key={c.id}
-            className="flex items-start gap-3.5 rounded-14 border border-ink-200 bg-panel p-4"
+            className="flex items-start gap-3.5 rounded-inner border border-border bg-panel p-4"
           >
             <InitialsAvatar nombre={c.nombre} />
             <div className="min-w-0 flex-1">
@@ -1081,7 +1081,7 @@ function OportunidadesTab({
         {oportunidades.map((o) => {
           const abierta = expandida === o.id;
           return (
-            <li key={o.id} className="rounded-14 border border-ink-200 bg-panel p-4">
+            <li key={o.id} className="rounded-inner border border-border bg-panel p-4">
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -1214,7 +1214,7 @@ function CompromisosTab({
           const vencida = t.fecha_entrega ? esVencida(t.fecha_entrega) : false;
           const abierta = t.estado !== "COMPLETADA" && t.estado !== "CANCELADA";
           return (
-            <li key={t.id} className="rounded-14 border border-ink-200 bg-panel p-4">
+            <li key={t.id} className="rounded-inner border border-border bg-panel p-4">
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -1316,7 +1316,7 @@ function BitacoraTab({ clientId, readOnly }: { clientId: string; readOnly?: bool
       {/* PR 4: composer is the write path — hide when the server says the
        *  user can't add bitácora entries. The list below stays visible. */}
       {!readOnly && (
-        <div className="sticky bottom-0 z-20 rounded-14 border border-ink-200 bg-panel/95 p-4 shadow-[0_-8px_24px_rgba(25,17,19,0.05)] backdrop-blur">
+        <div className="sticky bottom-0 z-20 rounded-inner border border-border bg-panel/95 p-4 backdrop-blur">
           <div className="flex items-start gap-3">
             <span className="mt-1 grid size-8 shrink-0 place-items-center rounded-full bg-rose-100 text-rose-700 dark:text-rose-400">
               <MessageSquarePlus className="size-4" strokeWidth={1.8} />
@@ -1327,7 +1327,7 @@ function BitacoraTab({ clientId, readOnly }: { clientId: string; readOnly?: bool
                 value={texto}
                 onChange={(e) => setTexto(e.target.value)}
                 placeholder="Agrega una nota de seguimiento…"
-                className="w-full resize-none rounded-12 border border-input bg-panel px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="w-full resize-none rounded-12 border border-border-strong bg-input-bg px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               />
               <div className="mt-2 flex items-center justify-between gap-3">
                 <p className="text-[11.5px] text-ink-500">
@@ -1359,7 +1359,7 @@ function BitacoraTab({ clientId, readOnly }: { clientId: string; readOnly?: bool
 
       <ul className="flex flex-col gap-2.5">
         {[...entradas].reverse().map((e) => (
-          <li key={e.id} className="rounded-14 border border-ink-200 bg-panel p-4">
+          <li key={e.id} className="rounded-inner border border-border bg-panel p-4">
             <div className="flex items-center gap-2 text-[11.5px] text-ink-500">
               <span className="grid size-6 place-items-center rounded-full bg-ink-100 text-[9.5px] font-bold text-ink-700">
                 {iniciales(e.autor_nombre) || "?"}
@@ -1406,7 +1406,7 @@ function DocumentosTab({ clientId, readOnly }: { clientId: string; readOnly?: bo
       </p>
       {query.isLoading &&
         Array.from({ length: 2 }).map((_, i) => (
-          <Skeleton key={i} className="h-12 w-full rounded-14" />
+          <Skeleton key={i} className="h-12 w-full rounded-inner" />
         ))}
       {query.isError && (
         <p className="text-[12.5px] text-ink-600">
@@ -1420,7 +1420,7 @@ function DocumentosTab({ clientId, readOnly }: { clientId: string; readOnly?: bo
         {items.map((doc) => (
           <li
             key={doc.id}
-            className="flex items-center justify-between gap-3 rounded-14 border border-ink-200 bg-panel px-4 py-3"
+            className="flex items-center justify-between gap-3 rounded-inner border border-border bg-panel px-4 py-3"
           >
             <div className="flex min-w-0 items-center gap-3">
               <span className="grid size-8 shrink-0 place-items-center rounded-[11px_11px_11px_4px] bg-ink-100 text-[9px] font-bold text-ink-700">
@@ -1458,7 +1458,7 @@ function DocumentosTab({ clientId, readOnly }: { clientId: string; readOnly?: bo
           variant="outline"
           size="sm"
           onClick={irAlRepositorio}
-          className="border-ink-200 bg-panel px-3 text-[12.5px] font-semibold text-ink-800 hover:bg-ink-100"
+          className="px-3 text-[12.5px] font-semibold text-ink-800"
         >
           <ExternalLink className="size-3.5 text-ink-500" strokeWidth={1.8} />
           Ver todos
@@ -1468,7 +1468,7 @@ function DocumentosTab({ clientId, readOnly }: { clientId: string; readOnly?: bo
             variant="outline"
             size="sm"
             onClick={subirVinculado}
-            className="border-ink-200 bg-panel px-3 text-[12.5px] font-semibold text-ink-800 hover:bg-ink-100"
+            className="px-3 text-[12.5px] font-semibold text-ink-800"
           >
             <Upload className="size-4 text-exito" strokeWidth={1.8} />
             Subir documento vinculado
@@ -1492,7 +1492,7 @@ function TareasRelacionadasTab({ clientId }: { clientId: string }) {
       </p>
       {query.isLoading &&
         Array.from({ length: 2 }).map((_, i) => (
-          <Skeleton key={i} className="h-14 w-full rounded-14" />
+          <Skeleton key={i} className="h-14 w-full rounded-inner" />
         ))}
       {query.isError && <ErrorState message="No pudimos cargar las tareas." />}
       {!query.isLoading && !query.isError && tasks.length === 0 && (
@@ -1502,7 +1502,7 @@ function TareasRelacionadasTab({ clientId }: { clientId: string }) {
         {tasks.map((t) => (
           <li
             key={t.id}
-            className="flex items-center justify-between gap-3 rounded-14 border border-ink-200 bg-panel px-4 py-3"
+            className="flex items-center justify-between gap-3 rounded-inner border border-border bg-panel px-4 py-3"
           >
             <div className="min-w-0">
               <p className="truncate text-[13.5px] font-semibold text-ink-950">{t.titulo}</p>
@@ -1617,7 +1617,7 @@ function DeactivateClientDialog({
 
 function EmptyState({ copy }: { copy: string }) {
   return (
-    <div className="grid min-h-[140px] place-items-center rounded-14 border border-dashed border-ink-300 bg-ink-100/40 px-6 py-8 text-center">
+    <div className="grid min-h-[140px] place-items-center rounded-inner border border-dashed border-ink-300 bg-ink-100/40 px-6 py-8 text-center">
       <p className="max-w-[36ch] text-[13px] leading-relaxed text-ink-600">{copy}</p>
     </div>
   );
@@ -1627,7 +1627,7 @@ function ErrorState({ message }: { message: string }) {
   return (
     <div
       role="alert"
-      className="rounded-14 border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
+      className="rounded-inner border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
     >
       {message}
     </div>

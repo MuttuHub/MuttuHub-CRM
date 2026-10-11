@@ -453,7 +453,7 @@ export function ClientList() {
             variant="outline"
             size="sm"
             onClick={() => void exportExcel()}
-            className="border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+            className="px-3.5 text-[13px] font-semibold text-ink-800"
           >
             <FileSpreadsheet className="size-4 text-exito" strokeWidth={1.8} />
             Excel
@@ -462,7 +462,7 @@ export function ClientList() {
             variant="outline"
             size="sm"
             onClick={openPdf}
-            className="border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+            className="px-3.5 text-[13px] font-semibold text-ink-800"
           >
             <FileText className="size-4 text-destructivo" strokeWidth={1.8} />
             PDF
@@ -504,7 +504,7 @@ export function ClientList() {
 /* ── Fila de filtros ───────────────────────────────────────────────────── */
 
 const SELECT_CLASS =
-  "h-10 w-full border-ink-200 bg-panel px-3 text-[13px]";
+  "h-10 w-full px-3 text-[13px]";
 
 function FiltersCard({
   local,
@@ -564,7 +564,7 @@ function FiltersCard({
   const draftEmpty = filtersEmpty(toFilters(draft));
 
   return (
-    <section className="rounded-[22px] border border-ink-200 bg-panel p-4 lg:p-5">
+    <section className="surface p-4 lg:p-5">
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative min-w-[220px] flex-1">
           <Search
@@ -576,7 +576,7 @@ function FiltersCard({
             onChange={(e) => onChange({ q: e.target.value })}
             placeholder="Buscar por nombre, contacto o bitácora…"
             aria-label="Buscar clientes"
-            className="h-10 border-ink-200 bg-panel pl-9 text-[13px]"
+            className="h-10 pl-9 text-[13px]"
           />
         </div>
 
@@ -586,7 +586,7 @@ function FiltersCard({
               <Button
                 size="sm"
                 variant="outline"
-                className="border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+                className="px-3.5 text-[13px] font-semibold text-ink-800"
               >
                 <SlidersHorizontal className="size-4 text-ink-600" strokeWidth={1.8} />
                 Filtros{" "}
@@ -676,7 +676,7 @@ function FiltersCard({
                   value={draft.desde}
                   onChange={(e) => patchDraft({ desde: e.target.value })}
                   aria-label="Primer contacto desde"
-                  className="h-10 min-w-0 flex-1 border-ink-200 bg-panel px-3 text-[12.5px]"
+                  className="h-10 min-w-0 flex-1 px-3 text-[12.5px]"
                 />
                 <span className="text-[12px] text-ink-500">a</span>
                 <Label htmlFor="fecha-hasta" className="sr-only">
@@ -688,7 +688,7 @@ function FiltersCard({
                   value={draft.hasta}
                   onChange={(e) => patchDraft({ hasta: e.target.value })}
                   aria-label="Primer contacto hasta"
-                  className="h-10 min-w-0 flex-1 border-ink-200 bg-panel px-3 text-[12.5px]"
+                  className="h-10 min-w-0 flex-1 px-3 text-[12.5px]"
                 />
               </div>
 
@@ -704,7 +704,7 @@ function FiltersCard({
                   value={draft.valorMin}
                   onChange={(e) => patchDraft({ valorMin: e.target.value })}
                   placeholder="Valor min"
-                  className="h-10 min-w-0 flex-1 border-ink-200 bg-panel px-3 font-mono text-[12px]"
+                  className="h-10 min-w-0 flex-1 px-3 font-mono text-[12px]"
                 />
                 <span className="text-[12px] text-ink-500">a</span>
                 <Label htmlFor="valor-max" className="sr-only">
@@ -718,7 +718,7 @@ function FiltersCard({
                   value={draft.valorMax}
                   onChange={(e) => patchDraft({ valorMax: e.target.value })}
                   placeholder="Valor max"
-                  className="h-10 min-w-0 flex-1 border-ink-200 bg-panel px-3 font-mono text-[12px]"
+                  className="h-10 min-w-0 flex-1 px-3 font-mono text-[12px]"
                 />
               </div>
             </div>
@@ -843,7 +843,7 @@ function ClientResults({
   const hasta = Math.min(page * PAGE_SIZE, total);
 
   return (
-    <section className="rounded-[22px] border border-ink-200 bg-panel">
+    <section className="surface">
       {isLoading ? (
         view === "detalles" ? (
           <div className="space-y-3 p-4 lg:p-5">
@@ -854,7 +854,7 @@ function ClientResults({
         ) : (
           <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3 lg:p-5">
             {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-44 w-full rounded-[18px]" />
+              <Skeleton key={i} className="h-44 w-full rounded-card" />
             ))}
           </div>
         )
@@ -1159,7 +1159,7 @@ function ClientCard({
         }
       }}
       aria-label={`Abrir ficha de ${cliente.nombre}`}
-      className="flex cursor-pointer flex-col gap-3.5 rounded-[18px] border border-ink-200 bg-panel p-4 shadow-[0_1px_2px_rgba(16,16,32,0.04)] transition-colors hover:border-rose-200 hover:bg-rose-50/30 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+      className="flex cursor-pointer flex-col gap-3.5 rounded-inner border border-border bg-panel p-4 transition-colors hover:border-rose-200 hover:bg-rose-50/30 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
     >
       <div className="flex items-start gap-3">
         <InitialsAvatar nombre={cliente.nombre} />
@@ -1244,7 +1244,7 @@ function ClientCard({
             e.stopPropagation();
             onOpen();
           }}
-          className="border-ink-200 bg-panel px-3 text-[12px] font-semibold text-ink-700 hover:bg-ink-100"
+          className="px-3 text-[12px] font-semibold text-ink-700"
         >
           <Eye className="size-3.5" strokeWidth={1.8} />
           Ver detalle

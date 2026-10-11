@@ -136,7 +136,7 @@ export function CaraTareas({ filters }: { filters: DashboardFilters }) {
           }
         >
           <div className="flex flex-col gap-4">
-            <div className="flex items-end gap-3 rounded-[16px] bg-destructivo-bg p-4">
+            <div className="flex items-end gap-3 rounded-inner bg-destructivo-bg p-4">
               <CalendarClock className="size-6 text-destructivo" strokeWidth={1.8} />
               <div>
                 <p className="font-display text-[30px] leading-none font-extrabold tabular-nums text-destructivo">

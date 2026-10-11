@@ -160,7 +160,7 @@ export function SavedViewsMenu({
             <Button
               size="sm"
               variant="outline"
-              className="border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+              className="px-3.5 text-[13px] font-semibold text-ink-800"
             >
               <LayoutList className="size-4 text-ink-600" strokeWidth={1.8} />
               Vistas
@@ -224,7 +224,7 @@ export function SavedViewsMenu({
       />
 
       <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
-        <DialogContent className="rounded-[20px] sm:max-w-[min(380px,calc(100%-2rem))]">
+        <DialogContent className="sm:max-w-[min(380px,calc(100%-2rem))]">
           <DialogHeader>
             <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
               Guardar vista
@@ -248,7 +248,7 @@ export function SavedViewsMenu({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ej. Gobierno local activo"
-                className="bg-panel px-3"
+                className="px-3"
               />
             </div>
             <DialogFooter>

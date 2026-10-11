@@ -132,7 +132,7 @@ export function CaraMiResumen({ filters }: { filters: DashboardFilters }) {
           <TareaLista items={activas.items} max={MAX_LISTA} empty="No tienes tareas abiertas." />
 
           {hoy.count > 0 && (
-            <div className="mt-4 rounded-14 border border-alerta/25 bg-alerta-bg p-3.5">
+            <div className="mt-4 rounded-inner border border-alerta/25 bg-alerta-bg p-3.5">
               <p className="text-[12px] font-bold text-alerta">Vencen hoy</p>
               <TareaLista items={activas.items.filter((t) => esDeHoy(t.fecha_entrega))} max={4} />
             </div>
@@ -145,7 +145,7 @@ export function CaraMiResumen({ filters }: { filters: DashboardFilters }) {
             title="Vencidas"
             subtitle="Cierralas cuanto antes"
           >
-            <div className="flex items-end gap-3 rounded-[16px] bg-destructivo-bg p-4">
+            <div className="flex items-end gap-3 rounded-inner bg-destructivo-bg p-4">
               <FileClock className="size-6 shrink-0 text-destructivo" strokeWidth={1.8} />
               <div>
                 <p className="font-display text-[30px] leading-none font-extrabold tabular-nums text-destructivo">
@@ -277,12 +277,12 @@ function ResumenTile({
   return (
     <div
       className={cn(
-        "rounded-[20px] border p-[18px]",
+        "p-[18px]",
         tone === "rojo"
-          ? "border-destructivo/40 bg-destructivo-bg"
+          ? "rounded-card border border-destructivo/40 bg-destructivo-bg"
           : tone === "alerta"
-            ? "border-alerta/40 bg-alerta-bg"
-            : "border-ink-200 bg-panel",
+            ? "rounded-card border border-alerta/40 bg-alerta-bg"
+            : "surface",
       )}
     >
       <span className="flex items-center gap-2 text-[12px] font-semibold text-ink-600">

@@ -89,7 +89,7 @@ export function PrintDashboardCara({ cara }: { cara: CaraPrint }) {
 
   return (
     <main className="min-h-screen bg-white px-6 py-6 text-ink-900 sm:px-10 print:bg-white print:p-0">
-      <div className="print-hide mb-6 flex items-center justify-between rounded-[16px] border border-ink-200 bg-panel px-5 py-4">
+      <div /* v6-surface */ className="print-hide mb-6 flex items-center justify-between rounded-[16px] border border-ink-200 bg-panel px-5 py-4">
         <div className="flex items-center gap-3">
           <Link
             href="/"
@@ -479,7 +479,7 @@ function MySummaryBody({ data }: { data: DashboardMySummary }) {
 
 function PrintKpi({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-14 border border-ink-200 bg-panel p-3.5">
+    <div /* v6-surface */ className="rounded-14 border border-ink-200 bg-panel p-3.5">
       <p className="text-[10.5px] font-bold tracking-[0.08em] text-ink-500 uppercase">{label}</p>
       <p className="mt-1.5 font-display text-[19px] font-extrabold tracking-[-0.02em] text-ink-950">
         {value}

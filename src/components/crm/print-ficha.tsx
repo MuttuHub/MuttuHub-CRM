@@ -105,7 +105,7 @@ export function PrintFicha({ clientId }: { clientId: string }) {
 
   return (
     <main className="min-h-screen bg-white px-6 py-6 text-ink-900 sm:px-10 print:bg-white print:p-0">
-      <div className="print-hide mb-6 flex items-center justify-between rounded-[16px] border border-ink-200 bg-panel px-5 py-4">
+      <div /* v6-surface */ className="print-hide mb-6 flex items-center justify-between rounded-[16px] border border-ink-200 bg-panel px-5 py-4">
         <p className="text-[13px] text-ink-600">
           Vista de impresión de la ficha completa.
         </p>

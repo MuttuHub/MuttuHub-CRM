@@ -85,7 +85,7 @@ function BriefPickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[80dvh] gap-0 overflow-y-auto rounded-[22px] p-0 sm:max-w-[min(480px,calc(100%-2rem))]">
+      <DialogContent className="max-h-[80dvh] gap-0 overflow-y-auto p-0 sm:max-w-[min(480px,calc(100%-2rem))]">
         <div className="flex flex-col gap-4 p-6">
           <DialogHeader className="gap-1">
             <DialogTitle className="font-display text-[17px] font-bold tracking-[-0.02em] text-ink-950">
@@ -107,7 +107,7 @@ function BriefPickerDialog({
               onChange={(e) => setQ(e.target.value)}
               placeholder="Buscar por nombre, categoría, cliente…"
               aria-label="Buscar brief"
-              className="bg-panel pl-9"
+              className="pl-9"
             />
           </div>
 
@@ -282,7 +282,7 @@ export function ClientFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88dvh] overflow-y-auto rounded-[22px] sm:max-w-[min(640px,calc(100%-2rem))]">
+      <DialogContent className="max-h-[88dvh] overflow-y-auto sm:max-w-[min(640px,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
             {isEdit ? "Editar cliente" : "Nuevo cliente"}
@@ -328,7 +328,7 @@ export function ClientFormDialog({
                 value={form.nombre}
                 onChange={(e) => set("nombre", e.target.value)}
                 placeholder="Ej. Alcaldía de Barranquilla"
-                className="bg-panel px-3"
+                className="px-3"
               />
             </div>
 
@@ -339,7 +339,7 @@ export function ClientFormDialog({
                 value={form.empresa}
                 onChange={(e) => set("empresa", e.target.value)}
                 placeholder="Razón social"
-                className="bg-panel px-3"
+                className="px-3"
               />
             </div>
 
@@ -350,7 +350,7 @@ export function ClientFormDialog({
                 value={form.tamano_org}
                 onChange={(e) => set("tamano_org", e.target.value)}
                 placeholder="Ej. 50–200 personas"
-                className="bg-panel px-3"
+                className="px-3"
               />
             </div>
 
@@ -360,7 +360,7 @@ export function ClientFormDialog({
                 value={form.tipo_cliente}
                 onValueChange={(v) => set("tipo_cliente", v as TipoCliente)}
               >
-                <SelectTrigger className="w-full bg-panel px-3">
+                <SelectTrigger className="w-full px-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -379,7 +379,7 @@ export function ClientFormDialog({
                 value={form.responsable_id}
                 onValueChange={(v) => set("responsable_id", v ?? "")}
               >
-                <SelectTrigger className="w-full bg-panel px-3">
+                <SelectTrigger className="w-full px-3">
                   <SelectValue placeholder="Selecciona el responsable" />
                 </SelectTrigger>
                 <SelectContent>
@@ -399,7 +399,7 @@ export function ClientFormDialog({
                 value={form.ubicacion}
                 onChange={(e) => set("ubicacion", e.target.value)}
                 placeholder="Ciudad, departamento"
-                className="bg-panel px-3"
+                className="px-3"
               />
             </div>
 
@@ -410,7 +410,7 @@ export function ClientFormDialog({
                 value={form.canal_contacto_inicial}
                 onChange={(e) => set("canal_contacto_inicial", e.target.value)}
                 placeholder="Ej. Feria, referido, red"
-                className="bg-panel px-3"
+                className="px-3"
               />
             </div>
 
@@ -421,7 +421,7 @@ export function ClientFormDialog({
                 type="date"
                 value={form.fecha_primer_contacto}
                 onChange={(e) => set("fecha_primer_contacto", e.target.value)}
-                className="bg-panel px-3"
+                className="px-3"
               />
             </div>
 
@@ -431,7 +431,7 @@ export function ClientFormDialog({
                 value={form.prioridad}
                 onValueChange={(v) => set("prioridad", v as PrioridadCliente | "")}
               >
-                <SelectTrigger className="w-full bg-panel px-3">
+                <SelectTrigger className="w-full px-3">
                   <SelectValue placeholder="Sin prioridad" />
                 </SelectTrigger>
                 <SelectContent>
@@ -452,7 +452,7 @@ export function ClientFormDialog({
                 value={form.estado}
                 onValueChange={(v) => set("estado", v as EstadoCliente)}
               >
-                <SelectTrigger className="w-full bg-panel px-3">
+                <SelectTrigger className="w-full px-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -466,7 +466,7 @@ export function ClientFormDialog({
             </div>
           </div>
 
-          <div className="flex flex-col gap-4 rounded-14 border border-ink-200 bg-ink-100/50 p-4">
+          <div className="flex flex-col gap-4 surface-inner p-4">
             <div className="flex flex-col gap-2">
               <Label htmlFor="cliente-prioridades">Prioridades identificadas del cliente</Label>
               <textarea
@@ -475,7 +475,7 @@ export function ClientFormDialog({
                 value={form.prioridades_identificadas}
                 onChange={(e) => set("prioridades_identificadas", e.target.value)}
                 placeholder="Qué le importa hoy al cliente"
-                className="w-full resize-none rounded-12 border border-input bg-panel px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="w-full resize-none rounded-12 border border-border-strong bg-input-bg px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -486,7 +486,7 @@ export function ClientFormDialog({
                 value={form.riesgos_barreras}
                 onChange={(e) => set("riesgos_barreras", e.target.value)}
                 placeholder="Obstáculos para cerrar o avanzar"
-                className="w-full resize-none rounded-12 border border-input bg-panel px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="w-full resize-none rounded-12 border border-border-strong bg-input-bg px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -497,7 +497,7 @@ export function ClientFormDialog({
                 value={form.resumen_relacion}
                 onChange={(e) => set("resumen_relacion", e.target.value)}
                 placeholder="Historia y contexto de la relación (no acumulativo)"
-                className="w-full resize-none rounded-12 border border-input bg-panel px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="w-full resize-none rounded-12 border border-border-strong bg-input-bg px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               />
             </div>
           </div>
