@@ -229,7 +229,7 @@ describe("ProjectFicha (page)", () => {
     expect(within(estructura).queryByTestId("gantt")).not.toBeInTheDocument()
   })
 
-  it("mounts the read-only weekly schedule in the Cronograma tab, lazily", async () => {
+  it("mounts the read-only v6 schedule in the Cronograma tab, lazily", async () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
@@ -241,7 +241,7 @@ describe("ProjectFicha (page)", () => {
     const cronograma = await screen.findByTestId("cronograma")
     expect(cronograma).toHaveTextContent("Cronograma")
     await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/activities", expect.any(Object)),
+      expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/technical-status", expect.any(Object)),
     )
     // Solo lectura: la vista de cronograma no ofrece ningún control de escritura.
     expect(within(cronograma).queryByRole("button")).not.toBeInTheDocument()
