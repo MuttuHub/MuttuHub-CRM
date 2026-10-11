@@ -50,7 +50,7 @@ technical schedule with spend: build TWO separate curves (technical and financia
   out of the Avance tab.
 - [x] **P3** Gastos ledger: KPIs (total, validados, por validar, observados per D5), chip filters, `con_soporte` counts in the `expenses` response.
 - [x] **P4** Ficha with 8 tabs per D10 (move the structure sections, lazy-mount tests, keep Cambios).
-- [ ] **P5** `GET projects/:id/attention` (server-derived list: rubro sobreejecución, late activities, avances sin soporte, indicators below target, alerta de retraso, gastos observados) + `requiere-atencion.tsx`.
+- [x] **P5** `GET projects/:id/attention` (server-derived list: rubro sobreejecución, late activities, avances sin soporte, indicators below target, alerta de retraso, gastos observados) + `requiere-atencion.tsx`.
 - [ ] **P6** Technical-status activities enriched (`programado`, `dias`, `al_corte`, `color`, `sin_soporte`, objective roll-ups); Metas e indicadores and Cronograma views.
 - [ ] **P7** S-curve: pure `src/lib/proyectos/curva.ts` + tests, `GET projects/:id/curve?base=` returning `{ base, corte, periodos: [{ periodo, tecnico: { planeado, ejecutado|null }, financiero: { planeado, ejecutado|null } }] }`,
   loader change (all non-voided avances filtered in memory per month), SVG curve (ported/adapted `CurveSChart`), Avance monthly table, multi-month fixture. Needs D1, D2.
@@ -97,8 +97,13 @@ worktrees for non-suffix candidates, as in S13).
   **full suite 308 files / 3234 tests green** under `TZ=America/Bogota`, `tsc --noEmit` 0, guards green. Deviation recorded: the Metas tab still shows the old "Estructura técnica" section header (P6 relabel),
   and Cronograma groups by start week (P6 may reshape to the v6 días/% column set).
 
+- 2026-10-11 (OpenCode continuation): **P5 done** — `199609a` `feat(proyectos): add the server-derived attention list and its Resumen card`. New pure `src/lib/proyectos/atencion.ts` (6 stable tipos, reuses
+  `calcularTecnico` for D3 and `esObservado` for D5), loader `src/lib/api/atencion.ts` (reuses `calcularKpisProyecto` so `medible`/`corte`/`alerta_retraso` cannot drift), `GET projects/:id/attention` with the KPI
+  route's auth/membership scoping (404→403→409→400), OpenAPI path registered by side-effect import, `useProjectAttention`, and `requiere-atencion.tsx` mounted in Resumen. Parent verification: **full suite 312 files /
+  3267 tests green** under `TZ=America/Bogota`, `tsc --noEmit` 0, guards green. Deviations: only `?corte` supported (no `base`); `avance_sin_soporte` lists any non-voided avance up to the corte without a live support
+  regardless of `avance_requiere_medio`; the loader runs the KPI loader plus its own batch.
+
 ## Next step
 
-P5: `GET projects/:id/attention` (server-derived list: rubro sobreejecución, late activities, avances sin soporte, indicators below target, alerta de retraso, gastos observados) plus `requiere-atencion.tsx`
-and its placement in the Resumen tab; then P6 (enriched technical-status activities + the Metas e indicadores and Cronograma views), P7 (S-curve), P8 (Presupuesto gauge), P9 (Tablero gerencial). Native review
-of P1-P5 as small candidates has to run in Claude Code (OpenCode is ineligible); independent read-only verification is the in-runtime substitute.
+P6: enrich the technical-status activities (`programado`, `dias`, `al_corte`, `color`, `sin_soporte`, objective roll-ups) and reshape the Metas e indicadores and Cronograma views to the v6 column set; then P7
+(S-curve), P8 (Presupuesto gauge), P9 (Tablero gerencial). Native review of P1-P5 as small candidates has to run in Claude Code (OpenCode is ineligible); independent read-only verification is the in-runtime substitute.
