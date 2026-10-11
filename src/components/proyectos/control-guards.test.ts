@@ -1,74 +1,86 @@
-// U5: controls come from the v6 primitives (Button 44/40/36, Input 44, SelectTrigger 44/40, radius 12). This guard reads
-// the real sources and fails on NEW occurrences of the patterns the sweep removed:
+// U5/U7: controls come from the v6 primitives (Button 44/40/36, Input 44, SelectTrigger 44/40, radius 12). This guard
+// reads the real sources of EVERY component under src/components (except the `ui/` primitives and print files) plus ALL
+// the src/app routes (no pending scope) and fails on NEW occurrences of the patterns the sweep removed:
 //   1. <Button>/<Input>/<SelectTrigger> overriding the height below the compact 36 px (h-6/h-7/h-8) or the radius
 //      (rounded-lg/md/10/11/12/xl) the primitive already sets;
-//   2. hand-rolled <select>/<input> or shared class constants (SELECT_*, SEL_*, CAPTURE_*, *_INPUT_*, *_CLASS) below 40 px.
+//   2. hand-rolled <select>/<input> or shared class constants (SELECT_*, SEL_*, CAPTURE_*, INLINE_*, *_INPUT_*, *_CLASS) below 40 px;
+//   3. a lone `text-[Npx]` on an Input/SelectTrigger/select/input tag, or on a control class CONSTANT (one that sets a
+//      height): it must come as `text-base md:text-[Npx]`.
 // A justified exception carries the marker `/* v6-compact */` inside the tag (or on the constant's line).
-// Scope: every component under src/components (except the `ui/` primitives and `print-*` files) plus the src/app routes.
+// JSX tags are found with the tokenizer in src/test/guard-utils.ts, not a regex.
 
-import { readdirSync, readFileSync, statSync } from "node:fs"
+import { readFileSync } from "node:fs"
 import path from "node:path"
 import { describe, expect, it } from "vitest"
+import { classConstants, COMPONENTS_ROOT, componentSources, lineOf, rel, scanTags } from "@/test/guard-utils"
 
-const ROOT = path.resolve(__dirname, "..")
-const APP_ROOT = path.resolve(ROOT, "..", "app")
+const FILES = componentSources()
+const MARKER = "v6-compact"
+const SMALL_HEIGHT = /(?<![\w:[-])(?:[a-z]+:)*h-(?:[1-8]|\[\d+px\])(?![\w-])/
+const CONTROL_HEIGHT = /(?<![\w:[-])(?:[a-z]+:)*h-(?:\d|\[)/
+const RADIUS_OVERRIDE = /(?<![\w:[-])rounded-(?:lg|md|10|11|12|xl)(?![\w-])/
+const LONE_SIZE = /(?<![\w:[-])text-\[\d+(?:\.\d+)?px\](?![\w-])/
+const PAIRED = /(?<![\w:[-])md:text-\[\d/
+const BASE_SIZE = /(?<![\w:-])text-base(?![\w-])/
+// Constants the height rule has always read, in addition to the shared name patterns of classConstants().
+const HEIGHT_CONSTANT = /^(?:CELDA\w*|\w*_(?:CLASS|FIELD))$/
 
-function sources(dir: string): string[] {
-  return readdirSync(dir).flatMap((name) => {
-    const full = path.join(dir, name)
-    if (statSync(full).isDirectory()) return name === "print" ? [] : sources(full)
-    return /\.tsx$/.test(name) && !name.includes(".test.") && !name.startsWith("print-") ? [full] : []
-  })
+// PENDING constants (outside the U7 edit surfaces): explicit file:name entries, each scoped out until its file is migrated.
+const PENDING_CONSTANTS = [
+  // src/components/crm/client-sheet.tsx, `mt-1 h-10 px-2 text-[13.5px]`: the client sheet was not part of the U7 edit surface.
+  "components/crm/client-sheet.tsx:INLINE_INPUT_CLASS",
+]
+
+// PENDING files per rule (src-relative). Found by the tokenizer in U7, whose edit surface did not include them; each entry is
+// an explicit, reviewable scope-out to clear in the next UI task, not a silent skip.
+const PENDING_TAG_FILES: Record<string, string[]> = {
+  // <Button> in the upload dialog footer carries `rounded-lg` (primitive radius is 12 px).
+  radius: ["components/documents/document-dialog.tsx"],
+  // two comment/bitacora <Input className="... text-[13px]"> (lone size).
+  font: ["components/kanban/task-dialog.tsx"],
 }
 
-// `ui` holds the primitives themselves.
-const SKIPPED_DIRS = ["ui"]
-const FILES = [
-  ...sources(ROOT).filter((f) => !path.relative(ROOT, f).split(path.sep).some((part) => SKIPPED_DIRS.includes(part))),
-  ...sources(APP_ROOT),
-]
-const rel = (f: string) => path.relative(path.resolve(ROOT, ".."), f).split(path.sep).join("/")
-const MARKER = "v6-compact"
-const PRIMITIVE_TAG = /<(Button|Input|SelectTrigger)\b(?:[^<>{}]|\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})*?\/?>/g
-const NATIVE_TAG = /<(select|input)\b(?:[^<>{}]|\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})*?\/?>/g
-const SMALL_HEIGHT = /(?<![\w:[-])(?:[a-z]+:)*h-(?:[1-8]|\[\d+px\])(?![\w-])/
-const RADIUS_OVERRIDE = /(?<![\w:[-])rounded-(?:lg|md|10|11|12|xl)(?![\w-])/
-const CONSTANT = /(?:const)\s+((?:SELECT|SEL|CAPTURE|INLINE|CELDA)\w*|\w*_(?:CLASS|FIELD))\s*=\s*\n?\s*"([^"]*)"/g
+type Hit = (tag: string) => string | null
 
-function scan(pattern: RegExp, test: (tag: string) => string | null): string[] {
+function scan(names: readonly string[], test: Hit, rule?: keyof typeof PENDING_TAG_FILES): string[] {
   const offenders: string[] = []
-  for (const file of FILES) {
+  const pending = rule ? PENDING_TAG_FILES[rule] : []
+  for (const file of FILES.filter((f) => !pending.includes(rel(f)))) {
     const text = readFileSync(file, "utf8")
-    for (const m of text.matchAll(pattern)) {
-      if (m[0].includes(MARKER)) continue
-      const hit = test(m[0])
-      if (hit) offenders.push(`${rel(file)}:${text.slice(0, m.index).split("\n").length} <${m[1]}> ${hit}`)
+    for (const tag of scanTags(text, names)) {
+      if (tag.text.includes(MARKER)) continue
+      const hit = test(tag.text)
+      if (hit) offenders.push(`${rel(file)}:${lineOf(text, tag.index)} <${tag.name}> ${hit}`)
     }
   }
   return offenders
 }
 
+const PRIMITIVES = ["Button", "Input", "SelectTrigger"] as const
+const NATIVE = ["select", "input"] as const
+const CONTROLS = ["Input", "SelectTrigger", "select", "input"] as const
+
 describe("control sizes and radius", () => {
   it("no Button, Input or SelectTrigger overrides the primitive height below 36 px", () => {
-    expect(scan(PRIMITIVE_TAG, (tag) => SMALL_HEIGHT.exec(tag)?.[0] ?? null)).toEqual([])
+    expect(scan(PRIMITIVES, (tag) => SMALL_HEIGHT.exec(tag)?.[0] ?? null)).toEqual([])
   })
 
   it("no Button, Input or SelectTrigger overrides the primitive radius", () => {
-    expect(scan(PRIMITIVE_TAG, (tag) => RADIUS_OVERRIDE.exec(tag)?.[0] ?? null)).toEqual([])
+    expect(scan(PRIMITIVES, (tag) => RADIUS_OVERRIDE.exec(tag)?.[0] ?? null, "radius")).toEqual([])
   })
 
   it("hand-rolled <select> and <input> are at least 40 px", () => {
-    expect(scan(NATIVE_TAG, (tag) => SMALL_HEIGHT.exec(tag)?.[0] ?? null)).toEqual([])
+    expect(scan(NATIVE, (tag) => SMALL_HEIGHT.exec(tag)?.[0] ?? null)).toEqual([])
   })
 
   it("shared control class constants are at least 40 px", () => {
     const offenders: string[] = []
     for (const file of FILES) {
       const text = readFileSync(file, "utf8")
-      for (const m of text.matchAll(CONSTANT)) {
-        if (m[0].includes(MARKER)) continue
-        const hit = SMALL_HEIGHT.exec(m[2])
-        if (hit) offenders.push(`${rel(file)}: ${m[1]} ${hit[0]}`)
+      for (const c of classConstants(text)) {
+        if (c.line.includes(MARKER) || !HEIGHT_CONSTANT.test(c.name) && !/^(?:SEL|SELECT|CAPTURE|INLINE)_/.test(c.name)) continue
+        const hit = SMALL_HEIGHT.exec(c.value)
+        if (hit) offenders.push(`${rel(file)}: ${c.name} ${hit[0]}`)
       }
     }
     expect(offenders).toEqual([])
@@ -76,25 +88,27 @@ describe("control sizes and radius", () => {
 
   it("small font sizes on controls come as `text-base md:text-[Npx]` (every scanned file)", () => {
     // The primitives set `text-base md:text-sm`: a lone `text-[Npx]` only replaces `text-base`, so `md:text-sm` still wins from md up.
-    const CONTROL_TAG = /<(Input|SelectTrigger|select|input)\b(?:[^<>{}]|\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})*?\/?>/g
-    const LONE_SIZE = /(?<![\w:[-])text-\[\d+(?:\.\d+)?px\](?![\w-])/
-    const PAIRED = /(?<![\w:[-])md:text-\[\d/
+    expect(scan(CONTROLS, (tag) => (!PAIRED.test(tag) && LONE_SIZE.exec(tag)?.[0]) || null, "font")).toEqual([])
+  })
+
+  it("control class constants (those that set a height) keep `text-base md:text-[Npx]`, never a lone size", () => {
+    // Constants are passed to the primitives as variables (`className={cn(SEL_CLASS, ...)}`), so the tag scan never sees them.
     const offenders: string[] = []
-    // PENDING (outside the U6c edit surfaces): `components/crm/` (client-list, entity-dialogs) still has lone `text-[Npx]` sizes.
-    const PENDING = ["components/crm/"]
-    for (const file of FILES.filter((f) => !PENDING.some((p) => rel(f).startsWith(p)))) {
+    for (const file of FILES) {
       const text = readFileSync(file, "utf8")
-      for (const m of text.matchAll(CONTROL_TAG)) {
-        if (m[0].includes(MARKER)) continue
-        const size = LONE_SIZE.exec(m[0])?.[0]
-        if (size && !PAIRED.test(m[0])) offenders.push(`${rel(file)}:${text.slice(0, m.index).split("\n").length} <${m[1]}> ${size}`)
+      for (const c of classConstants(text)) {
+        if (c.line.includes(MARKER) || PENDING_CONSTANTS.includes(`${rel(file)}:${c.name}`)) continue
+        const size = LONE_SIZE.exec(c.value)?.[0]
+        if (size && CONTROL_HEIGHT.test(c.value) && !PAIRED.test(c.value) && !BASE_SIZE.test(c.value)) {
+          offenders.push(`${rel(file)}:${lineOf(text, c.index)} ${c.name} ${size}`)
+        }
       }
     }
     expect(offenders).toEqual([])
   })
 
   it("native selects and textareas keep 16 px text below md (no iOS zoom)", () => {
-    const text = readFileSync(path.join(ROOT, "proyectos", "ui.tsx"), "utf8")
+    const text = readFileSync(path.join(COMPONENTS_ROOT, "proyectos", "ui.tsx"), "utf8")
     for (const m of text.matchAll(/export const (SELECT_CLASS(?:_LG)?|CAPTURE_TEXTAREA)\s*=\s*\n?\s*"([^"]*)"/g)) {
       expect(m[2], m[1]).toMatch(/(?<![\w:-])text-base(?![\w-])/)
     }
