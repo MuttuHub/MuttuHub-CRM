@@ -1,6 +1,11 @@
-// Listado de proyectos v2 (unidad 1: lectura; unidad 2: alta). Tabla con
-// código, proyecto, cliente, estado, responsable, fechas con duración en
-// semanas y valor total, más el filtro por estado y el CTA de creación.
+// Listado de proyectos v2 (Portafolio, diseño v6): fila de KPIs, y debajo la tabla con proyecto
+// (código · cliente y título), territorio · línea, responsable, avance técnico y financiero (barra con la
+// banda del SERVIDOR más el porcentaje) y estado, además del filtro por estado y el CTA de creación.
+// Las filas del listado (`GET projects`) se fusionan por id con las del portafolio (`GET dashboard/portfolio`):
+// sin datos del portafolio (BORRADOR u otro estado no medible) la fila dice "Sin medir". Avance financiero =
+// `kpis.financiero.ea` (ejecutado / asignado), el mismo número que muestra el Tablero. Los KPIs resumen todo el
+// portafolio visible (consultas sin filtro); la tabla sí obedece al filtro de estado. La cola de gastos por
+// validar va DESPUÉS de la tabla (orden v6: KPIs, tabla, cola).
 //
 // Alcance de lectura (S2.6 pendiente): hoy solo ADMINISTRADOR y GERENCIA ven
 // el portafolio; cualquier otro rol recibe una lista vacía. Por eso el estado
@@ -39,13 +44,23 @@ import {
 } from "@/components/ui/table";
 import { ResponsableCell, ToneBadge } from "@/components/crm/shared";
 import { ExpenseValidationQueue } from "@/components/proyectos/expense-validation-queue";
+import { PortafolioKpis } from "@/components/proyectos/portafolio-kpis";
 import { ProjectCreateDialog } from "@/components/proyectos/project-create-dialog";
 import {
   ESTADO_PROYECTO_META,
   formatFechaCalendario,
 } from "@/components/proyectos/project-display";
+import { formatPct } from "@/components/proyectos/project-kpis-panel";
+import { ProgressBar } from "@/components/ui/progress-bar";
 import { useCurrentUser } from "@/hooks/kanban";
-import { useProjects, type ProjectFilters, type ProjectListRow } from "@/hooks/projects";
+import {
+  useProjects,
+  useProjectsPortfolio,
+  type ColorSemaforo,
+  type PortfolioProject,
+  type ProjectFilters,
+  type ProjectListRow,
+} from "@/hooks/projects";
 import { canCreateProject, canManageProjects, canViewPortfolio } from "@/lib/permissions";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { cn } from "@/lib/utils";
@@ -72,14 +87,52 @@ function formatValorTotal(value: string | null): string {
   return value === null ? SIN_DATO : formatCOP(toCents(value));
 }
 
+/** Fila del listado con su par del portafolio (null si el servidor no lo devolvió). */
+type Fila = { proyecto: ProjectListRow; portafolio: PortfolioProject | null };
+
+/** Lo que pinta una celda de avance: `null` = sin dato medible; `value` null = medible pero sin razón. */
+type Avance = { value: number | null; band: ColorSemaforo | null } | null;
+
+function avanceTecnico(pf: PortfolioProject | null): Avance {
+  const tecnico = pf?.kpis.medible ? pf.kpis.tecnico : null;
+  return pf && tecnico ? { value: tecnico.avance_real, band: pf.semaforo_tecnico ?? tecnico.color } : null;
+}
+
+function avanceFinanciero(pf: PortfolioProject | null): Avance {
+  const financiero = pf?.kpis.medible ? pf.kpis.financiero : null;
+  return pf && financiero ? { value: financiero.ea, band: pf.semaforo_financiero ?? financiero.color } : null;
+}
+
+/** Territorio: municipios sin repetir (máximo 2, luego «+N») y la línea principal (o la primera). */
+function territorio(proyecto: ProjectListRow): { municipios: string; linea: string | null } {
+  const nombres = [...new Set(proyecto.municipios.map((m) => m.nombre))];
+  const visibles = nombres.slice(0, 2).join(", ");
+  const resto = nombres.length - 2;
+  const linea = proyecto.lineas.find((l) => l.principal) ?? proyecto.lineas[0] ?? null;
+  return { municipios: nombres.length === 0 ? SIN_DATO : resto > 0 ? `${visibles} +${resto}` : visibles, linea: linea?.nombre ?? null };
+}
+
 export function ProjectList() {
   const [estado, setEstado] = useState("");
   // El diálogo se monta solo al abrir: así no se piden catálogos al cargar.
   const [crearAbierto, setCrearAbierto] = useState(false);
   // El filtro viaja como query param: estado vacío = sin filtro.
   const filters = useMemo<ProjectFilters>(() => (estado ? { estado } : {}), [estado]);
-  const query = useProjects(filters);
   const userQuery = useCurrentUser();
+  const usuarioActual = userQuery.data;
+  // Quién ve el portafolio: lo mismo que decide la pestaña Tablero. Es UX: la API aplica el alcance (403).
+  const puedeResumen = usuarioActual
+    ? canViewPortfolio({
+        id: usuarioActual.id,
+        rol: usuarioActual.rol,
+        puede_ver_tablero_gerencial: usuarioActual.puede_ver_tablero_gerencial ?? false,
+      }) || usuarioActual.rol === "COORDINADOR"
+    : false;
+  // Los KPIs resumen todo el portafolio: consultas SIN filtro (con el filtro vacío son las mismas de la tabla).
+  const kpiLista = useProjects({});
+  const kpiPortafolio = useProjectsPortfolio({}, { enabled: puedeResumen });
+  const query = useProjects(filters);
+  const portafolioQuery = useProjectsPortfolio(filters, { enabled: puedeResumen });
 
   // Los 403 y los errores del servidor se avisan con toast, no con pantalla:
   // el listado no pierde su encabezado ni el filtro.
@@ -109,22 +162,38 @@ export function ProjectList() {
   // La cola de gastos por validar es solo de gestores (la API responde 403 al resto).
   const puedeValidar = usuario ? canManageProjects({ id: usuario.id, rol: usuario.rol }) : false;
 
-  const proyectos = query.data?.proyectos ?? [];
+  const proyectos = useMemo(() => query.data?.proyectos ?? [], [query.data]);
+  const portafolio = portafolioQuery.data;
+  const filas = useMemo<Fila[]>(() => {
+    const porId = new Map((portafolio?.proyectos ?? []).map((p) => [p.id, p] as const));
+    return proyectos.map((proyecto) => ({ proyecto, portafolio: porId.get(proyecto.id) ?? null }));
+  }, [proyectos, portafolio]);
+  const cargandoPortafolio = puedeResumen && portafolioQuery.isLoading;
   const total = proyectos.length;
   const conteo = query.isError ? SIN_DATO : query.data ? (total === 1 ? "1 proyecto" : `${total} proyectos`) : "…";
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      {puedeValidar && <ExpenseValidationQueue />}
+      {puedeResumen && (
+        <PortafolioKpis
+          lista={kpiLista.data?.proyectos}
+          portafolio={kpiPortafolio.data}
+          isLoading={kpiLista.isLoading || kpiPortafolio.isLoading}
+          isError={kpiLista.isError || kpiPortafolio.isError}
+        />
+      )}
 
       <section className="surface">
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-200 p-4 lg:p-5">
           {/* Barra de herramientas, no un segundo título: el h1 lo pone el shell. */}
-          <span className="rounded-full bg-ink-100 px-2.5 py-1 text-[11.5px] font-bold text-ink-600">
-            {conteo}
-          </span>
-
           <div className="flex items-center gap-2">
+            <span className="rounded-full bg-ink-100 px-2.5 py-1 text-[11.5px] font-bold text-ink-600">
+              {conteo}
+            </span>
+            {portafolio && !portafolio.confirmado && <ToneBadge tone="neutro" label="No confirmado" />}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
               Estado
             </span>
@@ -162,9 +231,11 @@ export function ProjectList() {
         ) : proyectos.length === 0 ? (
           <EmptyProjects estado={estado} puedeVerPortafolio={puedeVerPortafolio} />
         ) : (
-          <ProjectTable proyectos={proyectos} />
+          <ProjectTable filas={filas} cargando={cargandoPortafolio} />
         )}
       </section>
+
+      {puedeValidar && <ExpenseValidationQueue />}
 
       {crearAbierto && (
         <ProjectCreateDialog open onOpenChange={setCrearAbierto} />
@@ -175,94 +246,129 @@ export function ProjectList() {
 
 /* ── Tabla ─────────────────────────────────────────────────────────────── */
 
-function ProjectTable({
-  proyectos,
-}: {
-  proyectos: ProjectListRow[];
-}) {
-  // Debajo de `md` la tabla de 1020 px se vuelve una lista de tarjetas (S10 WU4).
+function ProjectTable({ filas, cargando }: { filas: Fila[]; cargando: boolean }) {
+  // Debajo de `md` la tabla se vuelve una lista de tarjetas (S10 WU4).
   const mobile = useIsMobile();
-  if (mobile) return <ProjectCards proyectos={proyectos} />;
+  if (mobile) return <ProjectCards filas={filas} cargando={cargando} />;
   return (
-    <Table className="min-w-[1020px]">
+    <Table className="min-w-[1040px]">
       <TableHeader>
         <TableRow>
-          <TableHead>Código</TableHead>
           <TableHead>Proyecto</TableHead>
-          <TableHead>Cliente</TableHead>
-          <TableHead>Estado</TableHead>
+          <TableHead>Territorio · línea</TableHead>
           <TableHead>Responsable</TableHead>
-          <TableHead>Fechas</TableHead>
-          <TableHead numeric>Valor total</TableHead>
+          <TableHead>Avance técnico</TableHead>
+          <TableHead>Avance financiero</TableHead>
+          <TableHead>Estado</TableHead>
           <TableHead numeric>Acciones</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {proyectos.map((proyecto) => (
-          <TableRow key={proyecto.id}>
-            <TableCell className="font-mono text-[12px] font-semibold text-ink-700 tabular-nums">
-              {proyecto.codigo}
-            </TableCell>
-            <TableCell className="max-w-[320px]">
-              <p className="truncate font-semibold text-ink-950">{proyecto.nombre}</p>
-              {proyecto.lineas.length > 0 && (
-                <p className="truncate text-[11.5px] text-ink-600">
-                  {proyecto.lineas.map((linea) => linea.nombre).join(" · ")}
+        {filas.map(({ proyecto, portafolio }) => {
+          const lugar = territorio(proyecto);
+          return (
+            <TableRow key={proyecto.id} data-testid={`proyecto-fila-${proyecto.id}`}>
+              <TableCell className="max-w-[340px] whitespace-normal">
+                <p className="text-[11.5px] text-ink-600">
+                  <span className="font-mono font-semibold text-ink-700 tabular-nums">{proyecto.codigo}</span>
+                  <span> · {proyecto.cliente.nombre}</span>
                 </p>
-              )}
-            </TableCell>
-            <TableCell className="text-[13px] text-ink-800">{proyecto.cliente.nombre}</TableCell>
-            <TableCell>
-              <ToneBadge
-                tone={ESTADO_PROYECTO_META[proyecto.estado].tone}
-                label={ESTADO_PROYECTO_META[proyecto.estado].label}
-              />
-            </TableCell>
-            <TableCell>
-              {proyecto.responsable ? (
-                <ResponsableCell nombre={proyecto.responsable.nombre} />
-              ) : (
-                <span className="text-[12.5px] text-ink-500">Sin asignar</span>
-              )}
-            </TableCell>
-            <TableCell className="font-mono text-[12px] text-ink-600 tabular-nums">
-              {formatRango(proyecto.fecha_inicio, proyecto.fecha_fin)}
-              {proyecto.duracion_semanas !== null && (
-                <span className="ml-1.5 text-ink-500">{proyecto.duracion_semanas} sem.</span>
-              )}
-            </TableCell>
-            <TableCell className="text-right font-mono text-[12.5px] font-medium text-ink-900 tabular-nums">
-              {formatValorTotal(proyecto.valor_total)}
-            </TableCell>
-            <TableCell className="text-right">
-              <Link
-                href={`/proyectos/${proyecto.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cn(
-                  buttonVariants({ variant: "outline", size: "sm" }),
-                  "px-3 text-[12px] font-semibold text-ink-700 hover:bg-ink-100",
+                <p className="font-semibold text-ink-950">{proyecto.nombre}</p>
+              </TableCell>
+              <TableCell className="max-w-[200px] whitespace-normal text-[13px] text-ink-800">
+                <p>{lugar.municipios}</p>
+                {lugar.linea && <p className="text-[11.5px] text-ink-600">{lugar.linea}</p>}
+              </TableCell>
+              <TableCell>
+                {proyecto.responsable ? (
+                  <ResponsableCell nombre={proyecto.responsable.nombre} />
+                ) : (
+                  <span className="text-[12.5px] text-ink-500">Sin asignar</span>
                 )}
-              >
-                <Eye className="size-3.5" strokeWidth={1.8} />
-                Ver detalle
-              </Link>
-            </TableCell>
-          </TableRow>
-        ))}
+              </TableCell>
+              <TableCell className="min-w-[170px]">
+                <AvanceCell
+                  testId={`avance-tecnico-${proyecto.id}`}
+                  label={`Avance técnico de ${proyecto.codigo}`}
+                  avance={avanceTecnico(portafolio)}
+                  cargando={cargando}
+                />
+              </TableCell>
+              <TableCell className="min-w-[170px]">
+                <AvanceCell
+                  testId={`avance-financiero-${proyecto.id}`}
+                  label={`Avance financiero de ${proyecto.codigo}`}
+                  avance={avanceFinanciero(portafolio)}
+                  cargando={cargando}
+                />
+              </TableCell>
+              <TableCell>
+                <ToneBadge
+                  tone={ESTADO_PROYECTO_META[proyecto.estado].tone}
+                  label={ESTADO_PROYECTO_META[proyecto.estado].label}
+                />
+              </TableCell>
+              <TableCell className="text-right">
+                <Link
+                  href={`/proyectos/${proyecto.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "sm" }),
+                    "px-3 text-[12px] font-semibold text-ink-700 hover:bg-ink-100",
+                  )}
+                >
+                  <Eye className="size-3.5" strokeWidth={1.8} />
+                  Ver detalle
+                </Link>
+              </TableCell>
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );
 }
 
-function ProjectCards({
-  proyectos,
+/** Barra con la banda del servidor y el porcentaje; sin dato medible dice «Sin medir». */
+function AvanceCell({
+  testId,
+  label,
+  avance,
+  cargando,
 }: {
-  proyectos: ProjectListRow[];
+  testId: string;
+  label: string;
+  avance: Avance;
+  cargando: boolean;
 }) {
+  if (cargando) return <Skeleton data-testid={testId} className="h-2 w-full" />;
+  if (!avance) {
+    return (
+      <span data-testid={testId} className="text-[12.5px] text-ink-500">
+        Sin medir
+      </span>
+    );
+  }
+  return (
+    <div data-testid={testId} className="flex items-center gap-2">
+      <ProgressBar
+        aria-label={label}
+        value={avance.value ?? 0}
+        band={avance.value === null ? undefined : (avance.band ?? undefined)}
+        className="min-w-[72px] flex-1"
+      />
+      <span className="w-[54px] text-right font-mono text-[12px] text-ink-800 tabular-nums">
+        {formatPct(avance.value)}
+      </span>
+    </div>
+  );
+}
+
+function ProjectCards({ filas, cargando }: { filas: Fila[]; cargando: boolean }) {
   return (
     <ul data-testid="proyecto-cards" className="flex flex-col gap-2.5 p-3">
-      {proyectos.map((proyecto) => (
+      {filas.map(({ proyecto, portafolio }) => (
         <li
           key={proyecto.id}
           data-testid={`proyecto-card-${proyecto.id}`}
@@ -278,6 +384,26 @@ function ProjectCards({
           <div className="min-w-0">
             <p className="font-semibold text-ink-950">{proyecto.nombre}</p>
             <p className="text-[12px] text-ink-600">{proyecto.cliente.nombre}</p>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <div>
+              <p className="text-[11.5px] text-ink-500">Avance técnico</p>
+              <AvanceCell
+                testId={`avance-tecnico-${proyecto.id}`}
+                label={`Avance técnico de ${proyecto.codigo}`}
+                avance={avanceTecnico(portafolio)}
+                cargando={cargando}
+              />
+            </div>
+            <div>
+              <p className="text-[11.5px] text-ink-500">Avance financiero</p>
+              <AvanceCell
+                testId={`avance-financiero-${proyecto.id}`}
+                label={`Avance financiero de ${proyecto.codigo}`}
+                avance={avanceFinanciero(portafolio)}
+                cargando={cargando}
+              />
+            </div>
           </div>
           <dl className="grid grid-cols-1 gap-1 text-[12.5px]">
             <div className="flex justify-between gap-2">

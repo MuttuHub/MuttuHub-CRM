@@ -35,7 +35,8 @@ describe("PortafolioKpis", () => {
 
     expect(within(tile("kpi-presupuesto")).getByText("Presupuesto activo")).toBeInTheDocument()
     // D8: only EN_EJECUCION projects, exact money (never through a float)
-    expect(within(tile("kpi-presupuesto")).getByText("$ 177.400.000,50")).toBeInTheDocument()
+    const monto = within(tile("kpi-presupuesto")).getByText("$ 177,4 M")
+    expect(monto).toHaveAttribute("title", "$ 177.400.000,50")
 
     expect(within(tile("kpi-beneficiarios")).getByText("Beneficiarios")).toBeInTheDocument()
     expect(within(tile("kpi-beneficiarios")).getByText("1.850")).toBeInTheDocument()
@@ -44,6 +45,11 @@ describe("PortafolioKpis", () => {
     expect(within(tile("kpi-atrasadas")).getByText("Actividades atrasadas")).toBeInTheDocument()
     expect(within(tile("kpi-atrasadas")).getByText("2")).toBeInTheDocument()
     expect(within(tile("kpi-atrasadas")).getByText(/al corte del 11 de oct de 2026/)).toBeInTheDocument()
+  })
+
+  it("keeps the standard money format below one million", () => {
+    render(<PortafolioKpis lista={[fila("1", "EN_EJECUCION", "250000.00")]} portafolio={PORTAFOLIO} isLoading={false} isError={false} />)
+    expect(within(tile("kpi-presupuesto")).getByText("$ 250.000")).toBeInTheDocument()
   })
 
   it("says so when no project has a beneficiaries goal", () => {

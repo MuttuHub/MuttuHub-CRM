@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import type { ProjectFilters, ProjectListResponse, ProjectListRow } from "@/hooks/projects"
+import type { PortfolioFilters, PortfolioProject, ProjectFilters, ProjectListResponse, ProjectListRow, ProjectsPortfolio } from "@/hooks/projects"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { mockViewport } from "@/test/viewport"
 import { ApiError } from "@/lib/api/http"
@@ -25,9 +25,18 @@ type FichaQueryState = {
 type UsuarioActual = { id: string; nombre: string; rol: string }
 type CurrentUserState = { data: UsuarioActual | null }
 
+type PortfolioQueryState = {
+  isLoading: boolean
+  isError: boolean
+  error: unknown
+  data: ProjectsPortfolio | undefined
+}
+
 const {
   toast,
   useProjectsMock,
+  useProjectsPortfolioMock,
+  portfolioQuery,
   useProjectMock,
   useCurrentUserMock,
   projectsQuery,
@@ -43,6 +52,7 @@ const {
     data: undefined,
     refetch: vi.fn(),
   }
+  const portfolioQuery: PortfolioQueryState = { isLoading: false, isError: false, error: null, data: undefined }
   const fichaQuery: FichaQueryState = {
     isLoading: false,
     isError: false,
@@ -55,6 +65,8 @@ const {
   return {
     toast: { error: vi.fn(), success: vi.fn() },
     useProjectsMock: vi.fn<(filters: ProjectFilters) => ProjectsQueryState>(() => projectsQuery),
+    useProjectsPortfolioMock: vi.fn<(filters: PortfolioFilters) => PortfolioQueryState>(() => portfolioQuery),
+    portfolioQuery,
     useProjectMock: vi.fn<(id: string) => FichaQueryState>(() => fichaQuery),
     useCurrentUserMock: vi.fn<() => CurrentUserState>(() => userQuery),
     projectsQuery,
@@ -79,6 +91,7 @@ vi.mock("sonner", () => ({ toast }))
 
 vi.mock("@/hooks/projects", () => ({
   useProjects: (...args: Parameters<typeof useProjectsMock>) => useProjectsMock(...args),
+  useProjectsPortfolio: (...args: Parameters<typeof useProjectsPortfolioMock>) => useProjectsPortfolioMock(...args),
   useProject: (...args: Parameters<typeof useProjectMock>) => useProjectMock(...args),
   // Self-contained on purpose: the factory is hoisted, so this entry avoids the
   // question of which outer bindings are safe to reference (the vi.hoisted
@@ -294,8 +307,14 @@ describe("ProjectList", () => {
     toast.error.mockClear()
     toast.success.mockClear()
     useProjectsMock.mockClear()
+    useProjectsPortfolioMock.mockClear()
     useProjectMock.mockClear()
     useCurrentUserMock.mockClear()
+    portfolioQuery.isLoading = false
+    portfolioQuery.isError = false
+    portfolioQuery.error = null
+    portfolioQuery.data = undefined
+    useProjectsPortfolioMock.mockReturnValue(portfolioQuery)
     expenseQueue.data = { gastos: [] }
     expenseQueue.isError = false
     projectsQuery.isLoading = false
@@ -319,7 +338,8 @@ describe("ProjectList", () => {
 
     const { container } = render(<ProjectList />)
 
-    expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(6)
+    // 6 rows of the table (+ the 4 tiles of the KPI row, which also wait for the projects)
+    expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThanOrEqual(6)
     expect(screen.queryByText(PROYECTO.nombre)).not.toBeInTheDocument()
     expect(screen.queryByText("Todavía no hay proyectos")).not.toBeInTheDocument()
   })
@@ -335,20 +355,194 @@ describe("ProjectList", () => {
     expect(screen.getByRole("combobox", { name: "Filtrar por estado" })).toBeInTheDocument()
   })
 
-  it("renders the projects table with dates, weeks and value", () => {
+  it("renders the v6 table: project (code · client, title), territory · línea, responsable, estado", () => {
     projectsQuery.data = { proyectos: [PROYECTO] }
 
     render(<ProjectList />)
 
-    expect(screen.getByText("PRY-2026-001")).toBeInTheDocument()
-    expect(screen.getByText(PROYECTO.nombre)).toBeInTheDocument()
-    expect(screen.getByText("Alcaldía de Barranquilla")).toBeInTheDocument()
-    expect(screen.getByText("En ejecución")).toBeInTheDocument()
-    expect(screen.getByText("Ana Pérez")).toBeInTheDocument()
-    expect(screen.getByText("05 de ene de 2026 – 30 de mar de 2026")).toBeInTheDocument()
-    expect(screen.getByText("12 sem.")).toBeInTheDocument()
-    expect(screen.getByText("$ 180.000.000")).toBeInTheDocument()
+    const fila = screen.getByTestId("proyecto-fila-p1")
+    expect(within(fila).getByText("PRY-2026-001")).toBeInTheDocument()
+    expect(within(fila).getByText(/Alcaldía de Barranquilla/)).toBeInTheDocument()
+    expect(within(fila).getByText(PROYECTO.nombre)).toBeInTheDocument()
+    expect(within(fila).getByText("Barranquilla")).toBeInTheDocument()
+    expect(within(fila).getByText("Educación")).toBeInTheDocument()
+    expect(within(fila).getByText("En ejecución")).toBeInTheDocument()
+    expect(within(fila).getByText("Ana Pérez")).toBeInTheDocument()
+    const heads = screen.getAllByRole("columnheader").map((h) => h.textContent)
+    expect(heads).toEqual(
+      expect.arrayContaining(["Proyecto", "Territorio · línea", "Responsable", "Avance técnico", "Avance financiero", "Estado"]),
+    )
     expect(screen.getByText("1 proyecto")).toBeInTheDocument()
+  })
+
+  describe("portfolio merge (technical and financial bars)", () => {
+    const MEDIBLE: PortfolioProject = {
+      id: "p1",
+      codigo: "PRY-2026-001",
+      nombre: "x",
+      estado: "EN_EJECUCION",
+      cliente: { id: "c1", nombre: "x" },
+      responsable: null,
+      linea_principal: null,
+      fecha_inicio: null,
+      fecha_fin: null,
+      // Incoherent on purpose with any threshold: the UI paints what the server says.
+      semaforo_tecnico: "rojo",
+      semaforo_financiero: "verde",
+      alerta_retraso: null,
+      atrasadas: 1,
+      kpis: {
+        medible: true,
+        tecnico: { avance_real: 59.4, avance_programado: 80, desviacion_pp: 20.6, color: "rojo", corte: "2026-10-11" },
+        financiero: { ea: 48.2, ep: 90, color: "verde", asignado: "1", programado: "1", ejecutado: "1", alerta_retraso: false, corte: "2026-10-11" },
+      },
+    } as unknown as PortfolioProject
+    const BORRADOR_ROW: ProjectListRow = { ...PROYECTO, id: "p2", codigo: "PRY-2026-002", nombre: "Borrador", estado: "BORRADOR" }
+    const BORRADOR_PF = {
+      ...MEDIBLE,
+      id: "p2",
+      estado: "BORRADOR",
+      semaforo_tecnico: null,
+      semaforo_financiero: null,
+      kpis: { medible: false, tecnico: null, financiero: null },
+    } as unknown as PortfolioProject
+    const portafolio = (proyectos: PortfolioProject[], confirmado = false) =>
+      ({
+        base: "vigente",
+        corte: "2026-10-11",
+        confirmado,
+        proyectos,
+        agregado: { atrasadas: 1, beneficiarios: { total: 10, meta: 20 } },
+        por_estado: {},
+      }) as unknown as ProjectsPortfolio
+
+    it("merges by project id and paints each bar with the server band and the percentage", () => {
+      projectsQuery.data = { proyectos: [BORRADOR_ROW, PROYECTO] }
+      // the portfolio arrives in another order: the merge is by id, not by position
+      portfolioQuery.data = portafolio([MEDIBLE, BORRADOR_PF])
+
+      render(<ProjectList />)
+
+      const tecnico = within(screen.getByTestId("proyecto-fila-p1")).getByTestId("avance-tecnico-p1")
+      const barraT = within(tecnico).getByRole("progressbar")
+      expect(barraT).toHaveAttribute("data-band", "rojo")
+      expect(barraT).toHaveAttribute("aria-valuenow", "59.4")
+      expect(tecnico).toHaveTextContent("59,4 %")
+      const financiero = within(screen.getByTestId("proyecto-fila-p1")).getByTestId("avance-financiero-p1")
+      const barraF = within(financiero).getByRole("progressbar")
+      expect(barraF).toHaveAttribute("data-band", "verde")
+      expect(barraF).toHaveAttribute("aria-valuenow", "48.2")
+      expect(financiero).toHaveTextContent("48,2 %")
+    })
+
+    it("shows 'Sin medir' instead of bars for a project that is not medible (BORRADOR)", () => {
+      projectsQuery.data = { proyectos: [BORRADOR_ROW] }
+      portfolioQuery.data = portafolio([BORRADOR_PF])
+
+      render(<ProjectList />)
+
+      const fila = screen.getByTestId("proyecto-fila-p2")
+      expect(within(fila).queryByRole("progressbar")).toBeNull()
+      expect(within(fila).getAllByText("Sin medir")).toHaveLength(2)
+    })
+
+    it("shows 'Sin medir' for a project the portfolio does not return", () => {
+      projectsQuery.data = { proyectos: [PROYECTO] }
+      portfolioQuery.data = portafolio([])
+      render(<ProjectList />)
+      expect(within(screen.getByTestId("proyecto-fila-p1")).getAllByText("Sin medir")).toHaveLength(2)
+    })
+
+    it("shows a neutral empty bar and a dash when the financial ratio is null", () => {
+      const sinEa = {
+        ...MEDIBLE,
+        semaforo_financiero: "verde",
+        kpis: { ...MEDIBLE.kpis, financiero: { ...MEDIBLE.kpis.financiero, ea: null } },
+      } as unknown as PortfolioProject
+      projectsQuery.data = { proyectos: [PROYECTO] }
+      portfolioQuery.data = portafolio([sinEa])
+      render(<ProjectList />)
+      const financiero = screen.getByTestId("avance-financiero-p1")
+      expect(financiero).toHaveTextContent("—")
+      expect(within(financiero).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "0")
+      expect(within(financiero).getByRole("progressbar")).not.toHaveAttribute("data-band")
+    })
+
+    it("shows skeleton bars while the portfolio loads, and 'Sin medir' (not a crash) when it fails", () => {
+      projectsQuery.data = { proyectos: [PROYECTO] }
+      portfolioQuery.isLoading = true
+      const { container, unmount } = render(<ProjectList />)
+      const fila = screen.getByTestId("proyecto-fila-p1")
+      expect(fila.querySelectorAll('[data-slot="skeleton"]').length).toBe(2)
+      expect(within(fila).queryByText("Sin medir")).toBeNull()
+      unmount()
+      portfolioQuery.isLoading = false
+      portfolioQuery.isError = true
+      portfolioQuery.error = new Error("boom")
+      const second = render(<ProjectList />)
+      expect(within(screen.getByTestId("proyecto-fila-p1")).getAllByText("Sin medir")).toHaveLength(2)
+      void container
+      second.unmount()
+    })
+
+    it("asks the portfolio with the same estado filter as the list, and for the unfiltered KPIs first", async () => {
+      projectsQuery.data = { proyectos: [PROYECTO] }
+      render(<ProjectList />)
+      await selectEstado("En ejecución")
+      expect(useProjectsPortfolioMock).toHaveBeenCalledWith({}, { enabled: true })
+      expect(useProjectsPortfolioMock).toHaveBeenLastCalledWith({ estado: "EN_EJECUCION" }, { enabled: true })
+      expect(useProjectsMock).toHaveBeenLastCalledWith({ estado: "EN_EJECUCION" })
+    })
+
+    it("shows the 'No confirmado' badge while the thresholds are unconfirmed", () => {
+      projectsQuery.data = { proyectos: [PROYECTO] }
+      portfolioQuery.data = portafolio([MEDIBLE], false)
+      const { unmount } = render(<ProjectList />)
+      expect(screen.getByText("No confirmado")).toBeInTheDocument()
+      unmount()
+      portfolioQuery.data = portafolio([MEDIBLE], true)
+      render(<ProjectList />)
+      expect(screen.queryByText("No confirmado")).not.toBeInTheDocument()
+    })
+
+    it("cards below md also show both bars", () => {
+      mockViewport(true)
+      try {
+        projectsQuery.data = { proyectos: [PROYECTO, BORRADOR_ROW] }
+        portfolioQuery.data = portafolio([MEDIBLE, BORRADOR_PF])
+        render(<ProjectList />)
+        const card = screen.getByTestId("proyecto-card-p1")
+        expect(within(card).getByTestId("avance-tecnico-p1")).toHaveTextContent("59,4 %")
+        expect(within(card).getByTestId("avance-financiero-p1")).toHaveTextContent("48,2 %")
+        expect(within(card).getAllByRole("progressbar")).toHaveLength(2)
+        const sin = screen.getByTestId("proyecto-card-p2")
+        expect(within(sin).queryByRole("progressbar")).toBeNull()
+        expect(within(sin).getAllByText("Sin medir")).toHaveLength(2)
+      } finally {
+        mockViewport(false)
+      }
+    })
+  })
+
+  it("does not mount the KPI row nor ask the portfolio for a role that cannot read it", () => {
+    userQuery.data = { id: "u9", nombre: "Carlos Ruiz", rol: "COLABORADOR" }
+    useCurrentUserMock.mockReturnValue(userQuery)
+    projectsQuery.data = { proyectos: [PROYECTO] }
+    render(<ProjectList />)
+    expect(screen.queryByTestId("portafolio-kpis")).toBeNull()
+    expect(screen.queryByTestId("portafolio-kpis-cargando")).toBeNull()
+    expect(useProjectsPortfolioMock).toHaveBeenCalledWith({}, { enabled: false })
+    expect(within(screen.getByTestId("proyecto-fila-p1")).getAllByText("Sin medir")).toHaveLength(2)
+  })
+
+  it("keeps 'Ver detalle' opening the ficha in a new tab, safely", () => {
+    projectsQuery.data = { proyectos: [PROYECTO] }
+    render(<ProjectList />)
+    const enlace = within(screen.getByTestId("proyecto-fila-p1")).getByRole("link", { name: /Ver detalle/ })
+    expect(enlace).toHaveAttribute("href", "/proyectos/p1")
+    expect(enlace).toHaveAttribute("target", "_blank")
+    expect(enlace.getAttribute("rel")).toMatch(/noopener/)
+    expect(enlace.getAttribute("rel")).toMatch(/noreferrer/)
   })
 
   it("renders table rows on desktop and no card list", () => {
@@ -408,9 +602,6 @@ describe("ProjectList", () => {
 
     expect(screen.getByText(PROYECTO.nombre)).toBeInTheDocument()
     expect(screen.getByText("Sin asignar")).toBeInTheDocument()
-    expect(screen.getByText("05 de ene de 2026 – —")).toBeInTheDocument()
-    expect(screen.getByText("—")).toBeInTheDocument()
-    expect(screen.queryByText(/sem\./)).not.toBeInTheDocument()
   })
 
   it("shows the empty state for a portfolio reader with no projects", () => {
@@ -481,7 +672,7 @@ describe("ProjectList", () => {
 
     render(<ProjectList />)
 
-    expect(screen.getByText("05 de ene de 2026 – —")).toBeInTheDocument()
+    expect(screen.getByText(PROYECTO.nombre)).toBeInTheDocument()
   })
 
   it("surfaces an API error as a toast, not as a screen", () => {
@@ -549,11 +740,31 @@ describe("ProjectList", () => {
       created_at: "2026-10-16T12:00:00.000Z",
     }
 
-    it("mounts the queue above the table for managers", () => {
+    it("mounts the queue for managers", () => {
       expenseQueue.data = { gastos: [pendiente] }
       userQuery.data = { id: "u2", nombre: "Greta Gómez", rol: "GERENCIA" }
       render(<ProjectList />)
       expect(screen.getByTestId("cola-validacion")).toHaveTextContent("PRY-009")
+    })
+
+    it("keeps the v6 order: KPI row, then the table, then the validation queue", () => {
+      expenseQueue.data = { gastos: [pendiente] }
+      userQuery.data = { id: "u2", nombre: "Greta Gómez", rol: "GERENCIA" }
+      projectsQuery.data = { proyectos: [PROYECTO] }
+      portfolioQuery.data = {
+        base: "vigente",
+        corte: "2026-10-11",
+        confirmado: true,
+        proyectos: [],
+        agregado: { atrasadas: 0, beneficiarios: { total: 0, meta: null } },
+        por_estado: {},
+      } as unknown as ProjectsPortfolio
+      render(<ProjectList />)
+      const kpis = screen.getByTestId("portafolio-kpis")
+      const tabla = screen.getByRole("table")
+      const cola = screen.getByTestId("cola-validacion")
+      expect(kpis.compareDocumentPosition(tabla) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(tabla.compareDocumentPosition(cola) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
 
     it("does not mount the queue for other roles", () => {

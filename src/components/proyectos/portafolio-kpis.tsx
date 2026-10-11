@@ -21,11 +21,25 @@ const TILE = "surface p-4 lg:p-5";
 const numero = new Intl.NumberFormat("es-CO");
 
 /** D8: solo los proyectos EN_EJECUCION; el decimal llega como string y se suma en centavos. */
-function presupuestoActivo(lista: readonly ProjectListRow[]): string {
-  const total = lista
+function presupuestoActivo(lista: readonly ProjectListRow[]): bigint {
+  return lista
     .filter((proyecto) => proyecto.estado === "EN_EJECUCION" && proyecto.valor_total !== null)
     .reduce((suma, proyecto) => suma + toCents(proyecto.valor_total as string), BigInt(0));
-  return formatCOP(total);
+}
+
+const UN_MILLON_CENTAVOS = BigInt(100_000_000);
+const DECIMA_DE_MILLON = BigInt(10_000_000);
+
+/**
+ * `$ 177,4 M` (como el diseño v6): millones con un decimal, calculado en bigint; el monto exacto va en el
+ * `title`. Por debajo del millón se usa el formato estándar de la app.
+ */
+function formatMillones(cents: bigint): string {
+  if (cents < UN_MILLON_CENTAVOS) return formatCOP(cents);
+  const decimas = (cents + DECIMA_DE_MILLON / BigInt(2)) / DECIMA_DE_MILLON;
+  const entero = (decimas / BigInt(10)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  const decimal = decimas % BigInt(10);
+  return `$ ${entero}${decimal === BigInt(0) ? "" : `,${decimal}`} M`;
 }
 
 export function PortafolioKpis({
@@ -63,6 +77,7 @@ export function PortafolioKpis({
   }
 
   const { beneficiarios, atrasadas } = portafolio.agregado;
+  const presupuesto = presupuestoActivo(lista);
   const enEjecucion = lista.filter((proyecto) => proyecto.estado === "EN_EJECUCION").length;
 
   return (
@@ -78,7 +93,7 @@ export function PortafolioKpis({
         data-testid="kpi-presupuesto"
         className={TILE}
         label="Presupuesto activo"
-        value={<span className="text-[24px] lg:text-[28px]">{presupuestoActivo(lista)}</span>}
+        value={<span title={formatCOP(presupuesto)} className="whitespace-nowrap text-[24px] sm:text-[28px]">{formatMillones(presupuesto)}</span>}
         hint="Valor total en ejecución"
       />
       <KpiTile
