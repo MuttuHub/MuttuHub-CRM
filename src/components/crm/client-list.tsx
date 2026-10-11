@@ -992,7 +992,7 @@ function SortableHeader({
         onClick={() => onSort(column)}
         aria-label={`Ordenar por ${column === "nombre" ? "Cliente" : children}`}
         className={cn(
-          "inline-flex items-center gap-1 transition-colors hover:text-ink-950",
+          "inline-flex items-center gap-1 uppercase transition-colors hover:text-ink-950",
           align === "right" && "justify-end",
         )}
       >
