@@ -366,7 +366,7 @@ export function KanbanBoard() {
               variant="outline"
               size="sm"
               onClick={() => void exportExcel()}
-              className="border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+              className="px-3.5 text-[13px] font-semibold text-ink-800"
             >
               <FileSpreadsheet className="size-4 text-exito" strokeWidth={1.8} />
               Excel
@@ -375,7 +375,7 @@ export function KanbanBoard() {
               variant="outline"
               size="sm"
               onClick={openPrint}
-              className="border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+              className="px-3.5 text-[13px] font-semibold text-ink-800"
             >
               <Printer className="size-4 text-ink-600" strokeWidth={1.8} />
               Imprimir
@@ -463,7 +463,7 @@ export function KanbanBoard() {
                 size="sm"
                 onClick={() => void tasksQuery.fetchNextPage()}
                 disabled={isFetchingNextPage}
-                className="border-ink-200 bg-panel px-4 text-[12.5px] font-semibold text-ink-800 hover:bg-ink-100"
+                className="px-4 text-[12.5px] font-semibold text-ink-800"
                 data-testid="kanban-load-more"
               >
                 {isFetchingNextPage ? (
@@ -493,7 +493,7 @@ export function KanbanBoard() {
           if (!open) setBlockPrompt(null);
         }}
       >
-        <DialogContent className="rounded-[20px] sm:max-w-[min(420px,calc(100%-2rem))]">
+        <DialogContent className="sm:max-w-[min(420px,calc(100%-2rem))]">
           <DialogHeader>
             <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
               Bloquear tarea
@@ -549,7 +549,7 @@ function BoardColumn({
       ref={setNodeRef}
       className={cn(
         // Patrón F: ancho fluido abajo (grupos apilados), columna fija arriba.
-        "flex w-full shrink-0 flex-col rounded-[18px] border border-ink-200 bg-ink-100/70 p-2.5 transition-colors lg:w-[248px]",
+        "flex w-full shrink-0 flex-col rounded-card border border-border bg-muted p-2.5 transition-colors lg:w-[248px]",
         isOver && "border-rose-200 bg-rose-50/70 ring-2 ring-rose-200",
       )}
     >
@@ -592,7 +592,7 @@ function dotTone(estado: EstadoTarea): string {
 
 function ListaView({ items, onOpen }: { items: CardTask[]; onOpen: (id: string) => void }) {
   return (
-    <section className="overflow-hidden rounded-[22px] border border-ink-200 bg-panel">
+    <section className="overflow-hidden surface">
       <div className="overflow-x-auto">
         <Table className="text-[12.5px]">
           <TableHeader>
@@ -697,14 +697,14 @@ type FiltersRowProps = {
   onClear: () => void;
 };
 
-const SEL_CLASS = "h-10 flex-1 basis-0 border-ink-200 bg-panel px-3 text-[12.5px]";
+const SEL_CLASS = "h-10 flex-1 basis-0 px-3 text-[12.5px]";
 
 // FiltersRow real (definida debajo)
 
 function FiltersRow(props: FiltersRowProps) {
   const { responsable, cliente, local, users, clients, onResponsable, onCliente, onLocal, hasActive, onClear } = props;
   return (
-    <section className="rounded-[20px] border border-ink-200 bg-panel p-3.5">
+    <section className="surface p-3.5">
       <div className="flex flex-wrap items-center gap-2.5">
         <Select value={responsable} onValueChange={(v) => onResponsable(v === "todos" ? "" : (v ?? ""))}>
           <SelectTrigger className={cn(SEL_CLASS, "min-w-[160px]")}>
@@ -752,10 +752,10 @@ function FiltersRow(props: FiltersRowProps) {
         </Select>
         <div className="flex items-center gap-1.5">
           <Label htmlFor="kanban-desde" className="sr-only">Entrega desde</Label>
-          <Input id="kanban-desde" type="date" value={local.desde} onChange={(e) => onLocal({ desde: e.target.value })} aria-label="Entrega desde" className="h-10 w-[148px] border-ink-200 bg-panel px-3 text-base md:text-[12px]" />
+          <Input id="kanban-desde" type="date" value={local.desde} onChange={(e) => onLocal({ desde: e.target.value })} aria-label="Entrega desde" className="h-10 w-[148px] px-3 text-base md:text-[12px]" />
           <span className="text-[12px] text-ink-500">a</span>
           <Label htmlFor="kanban-hasta" className="sr-only">Entrega hasta</Label>
-          <Input id="kanban-hasta" type="date" value={local.hasta} onChange={(e) => onLocal({ hasta: e.target.value })} aria-label="Entrega hasta" className="h-10 w-[148px] border-ink-200 bg-panel px-3 text-base md:text-[12px]" />
+          <Input id="kanban-hasta" type="date" value={local.hasta} onChange={(e) => onLocal({ hasta: e.target.value })} aria-label="Entrega hasta" className="h-10 w-[148px] px-3 text-base md:text-[12px]" />
         </div>
       </div>
       {hasActive && (
@@ -806,7 +806,7 @@ function Segmented<T extends string>({
 
 function TableroVacio({ vista }: { vista: "tablero" | "lista" }) {
   return (
-    <section className="grid min-h-[320px] place-items-center rounded-[24px] border border-ink-200 bg-panel p-8">
+    <section className="grid min-h-[320px] place-items-center surface p-8">
       <div className="max-w-[44ch] text-center">
         <span className="mx-auto grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-rose-100 text-rose-700 dark:text-rose-400">
           <SquareKanban className="size-6" strokeWidth={1.7} />
@@ -827,7 +827,7 @@ function TableroVacio({ vista }: { vista: "tablero" | "lista" }) {
 function BoardSkeleton({ vista }: { vista: "board" | "lista" }) {
   if (vista === "lista") {
     return (
-      <section className="rounded-[22px] border border-ink-200 bg-panel p-5">
+      <section className="surface p-5">
         <div className="space-y-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-11 w-full rounded-12" />
@@ -839,7 +839,7 @@ function BoardSkeleton({ vista }: { vista: "board" | "lista" }) {
   return (
     <div className="flex flex-col gap-3 overflow-hidden lg:flex-row">
       {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="w-full shrink-0 space-y-2 rounded-[18px] bg-ink-100/70 p-2.5 lg:w-[248px]">
+        <div key={i} className="w-full shrink-0 space-y-2 rounded-card bg-muted p-2.5 lg:w-[248px]">
           <Skeleton className="h-5 w-24" />
           {Array.from({ length: 2 }).map((_, j) => (
             <Skeleton key={j} className="h-[110px] w-full rounded-14" />

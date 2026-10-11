@@ -70,7 +70,7 @@ export function TaskCard({
         }
       }}
       className={cn(
-        "group relative cursor-pointer rounded-14 border border-ink-200 bg-panel p-3 text-left shadow-sm transition-shadow hover:shadow-md",
+        "group relative cursor-pointer rounded-inner border border-border bg-panel p-3 text-left transition-colors hover:border-border-strong",
         "focus-visible:ring-3 focus-visible:ring-ring/50 outline-none",
         overlay && "rotate-2 shadow-xl ring-2 ring-rose-200",
       )}

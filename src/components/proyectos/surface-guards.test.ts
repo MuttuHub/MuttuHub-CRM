@@ -8,7 +8,7 @@ import path from "node:path"
 import { describe, expect, it } from "vitest"
 
 const ROOT = path.resolve(__dirname, "..")
-const MIGRATED_AREAS = ["crm", "dashboard"]
+const MIGRATED_AREAS = ["crm", "dashboard", "kanban", "documents", "reportes", "admin"]
 const MARKER = "v6-surface"
 
 function sources(dir: string): string[] {

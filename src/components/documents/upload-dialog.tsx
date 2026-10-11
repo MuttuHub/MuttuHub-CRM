@@ -213,7 +213,7 @@ export function EtiquetasInput({
         onKeyDown={onKeyDown}
         placeholder="Escribe y presiona Enter para agregar…"
         aria-label="Agregar etiqueta"
-        className="h-10 bg-panel px-3 text-base md:text-[13px]"
+        className="h-10 px-3 text-base md:text-[13px]"
       />
       <p className="text-[11.5px] text-ink-500">
         {etiquetas.length}/8 etiquetas · separa con Enter o coma
@@ -325,7 +325,7 @@ export function UploadDocumentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] gap-0 overflow-y-auto rounded-[24px] p-0 sm:max-w-[min(560px,calc(100%-2rem))]">
+      <DialogContent className="max-h-[90dvh] gap-0 overflow-y-auto p-0 sm:max-w-[min(560px,calc(100%-2rem))]">
         <div className="flex flex-col gap-5 p-6">
           <DialogHeader className="gap-1">
             <DialogTitle className="font-display text-[19px] font-bold tracking-[-0.02em] text-ink-950">
@@ -339,7 +339,7 @@ export function UploadDocumentDialog({
           {error && (
             <div
               role="alert"
-              className="rounded-xl border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
+              className="rounded-inner border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
             >
               {error}
             </div>
@@ -348,7 +348,7 @@ export function UploadDocumentDialog({
           {duplicate && (
             <div
               role="alert"
-              className="flex flex-col gap-3 rounded-xl border border-alerta/30 bg-alerta-bg px-4 py-3.5 text-[13px] text-ink-800"
+              className="flex flex-col gap-3 rounded-inner border border-alerta/30 bg-alerta-bg px-4 py-3.5 text-[13px] text-ink-800"
             >
               <p>
                 Ya existe un documento llamado <strong>&ldquo;{duplicate.titulo}&rdquo;</strong>.
@@ -400,7 +400,7 @@ export function UploadDocumentDialog({
               value={titulo}
               onChange={(e) => handleTitulo(e.target.value)}
               placeholder="Nombre del documento"
-              className="bg-panel px-3"
+              className="px-3"
             />
           </div>
 
@@ -409,7 +409,7 @@ export function UploadDocumentDialog({
               Categoría <span className="text-rose-500">*</span>
             </Label>
             <Select value={categoria} onValueChange={(v) => setCategoria(v ?? "")}>
-              <SelectTrigger className="w-full bg-panel px-3">
+              <SelectTrigger className="w-full px-3">
                 <SelectValue placeholder="Selecciona una categoría" />
               </SelectTrigger>
               <SelectContent>
@@ -433,7 +433,7 @@ export function UploadDocumentDialog({
               value={clienteId}
               onValueChange={(v) => setClienteId(v === "ninguno" ? "" : (v ?? ""))}
             >
-              <SelectTrigger className="w-full bg-panel px-3">
+              <SelectTrigger className="w-full px-3">
                 <SelectValue placeholder="Sin cliente" />
               </SelectTrigger>
               <SelectContent>

@@ -234,7 +234,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[88dvh] gap-0 overflow-y-auto rounded-[24px] p-0 sm:max-w-[min(680px,calc(100%-2rem))]">
+      <DialogContent className="max-h-[88dvh] gap-0 overflow-y-auto p-0 sm:max-w-[min(680px,calc(100%-2rem))]">
         {isLoading ? (
           <div className="grid min-h-[320px] place-items-center text-[13px] text-ink-500">
             Cargando la tarea…
@@ -257,7 +257,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
             {error && !readOnly && (
               <div
                 role="alert"
-                className="rounded-xl border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
+                className="rounded-inner border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
               >
                 {error}
               </div>
@@ -275,7 +275,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                   value={form.titulo}
                   onChange={(e) => set("titulo", e.target.value)}
                   placeholder="Ej. Entregar informe trimestral"
-                  className="bg-panel px-3"
+                  className="px-3"
                 />
               </div>
 
@@ -303,7 +303,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                 >
                   <SelectTrigger
                     disabled={readOnly}
-                    className="w-full bg-panel px-3"
+                    className="w-full px-3"
                   >
                     <SelectValue placeholder="Selecciona un responsable" />
                   </SelectTrigger>
@@ -328,7 +328,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                 >
                   <SelectTrigger
                     disabled={readOnly}
-                    className="w-full bg-panel px-3"
+                    className="w-full px-3"
                   >
                     <SelectValue placeholder="Sin cliente" />
                   </SelectTrigger>
@@ -351,7 +351,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                   disabled={readOnly}
                   value={form.fecha_entrega}
                   onChange={(e) => set("fecha_entrega", e.target.value)}
-                  className="bg-panel px-3"
+                  className="px-3"
                 />
               </div>
 
@@ -364,7 +364,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                 >
                   <SelectTrigger
                     disabled={readOnly}
-                    className="w-full bg-panel px-3"
+                    className="w-full px-3"
                   >
                     <SelectValue placeholder="Sin prioridad" />
                   </SelectTrigger>
@@ -412,7 +412,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                     >
                       <SelectTrigger
                         disabled={readOnly}
-                        className="w-full bg-panel px-3"
+                        className="w-full px-3"
                       >
                         <SelectValue />
                       </SelectTrigger>
@@ -457,7 +457,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
             </div>
 
             {isEdit && task && !readOnly && (
-              <div className="flex flex-col gap-6 rounded-[16px] border border-ink-200 bg-ink-100/50 p-4">
+              <div className="flex flex-col gap-6 surface-inner p-4">
                 <SubtaskSection taskId={task.id} />
                 <CommentSection taskId={task.id} />
                 <AttachmentSection taskId={task.id} />
@@ -823,7 +823,7 @@ function ConfirmDeleteDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-[22px] sm:max-w-[min(380px,calc(100%-2rem))]">
+      <DialogContent className="sm:max-w-[min(380px,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="font-display text-[17px] font-bold tracking-[-0.02em] text-ink-950">
             Eliminar tarea

@@ -93,7 +93,7 @@ export function ReportView({ responsable, cliente }: ReportViewProps) {
             variant="outline"
             size="sm"
             onClick={() => void exportExcel()}
-            className="border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+            className="px-3.5 text-[13px] font-semibold text-ink-800"
           >
             <FileSpreadsheet className="size-4 text-exito" strokeWidth={1.8} />
             Excel
@@ -102,7 +102,7 @@ export function ReportView({ responsable, cliente }: ReportViewProps) {
             variant="outline"
             size="sm"
             onClick={openPdf}
-            className="border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+            className="px-3.5 text-[13px] font-semibold text-ink-800"
           >
             <FileText className="size-4 text-destructivo" strokeWidth={1.8} />
             PDF
@@ -113,7 +113,7 @@ export function ReportView({ responsable, cliente }: ReportViewProps) {
       {reportQuery.isLoading && <DashboardSkeleton />}
 
       {reportQuery.isError && (
-        <section className="grid min-h-[320px] place-items-center rounded-[24px] border border-ink-200 bg-panel p-8">
+        <section className="grid min-h-[320px] place-items-center surface p-8">
           <div className="max-w-[46ch] text-center">
             <span className="mx-auto grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-alerta-bg text-alerta">
               <LoaderCircle className="size-6" strokeWidth={1.7} />
@@ -143,7 +143,7 @@ export function ReportView({ responsable, cliente }: ReportViewProps) {
           <SummaryCards resumen={report.resumen} rango={RANGO_LABEL[report.rango]} />
 
           {report.resumen.total_asignadas === 0 ? (
-            <section className="grid min-h-[220px] place-items-center rounded-[24px] border border-dashed border-ink-300 bg-panel p-8 text-center">
+            <section className="grid min-h-[220px] place-items-center rounded-card border border-dashed border-border-strong bg-panel p-8 text-center">
               <div className="max-w-[42ch]">
                 <h3 className="font-display text-[17px] font-bold tracking-[-0.02em] text-ink-950">
                   Sin tareas en este período
@@ -241,7 +241,7 @@ function TableCard({
   children: ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-[22px] border border-ink-200 bg-panel">
+    <section className="overflow-hidden surface">
       <div className="border-b border-ink-200 px-5 py-3">
         <h3 className="font-display text-[14.5px] font-bold tracking-[-0.01em] text-ink-950">
           {title}
@@ -315,7 +315,7 @@ function CargaPersonaCard({
   if (conTareas.length === 0) return null;
 
   return (
-    <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
+    <section className="surface p-5 lg:p-6">
       <h3 className="mb-4 font-display text-[14.5px] font-bold tracking-[-0.01em] text-ink-950">
         Carga por persona
       </h3>
@@ -351,7 +351,7 @@ function VencimientosCard({
     bucket === "más de 1 mes" ? "destructivo" : bucket === "1 a 4 semanas" ? "alerta" : bucket === "menos de 1 semana" ? "info" : "neutro";
 
   return (
-    <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
+    <section className="surface p-5 lg:p-6">
       <h3 className="mb-1 font-display text-[14.5px] font-bold tracking-[-0.01em] text-ink-950">
         Vencimientos por antigüedad
       </h3>
@@ -388,7 +388,7 @@ function CargaSemanalCard({ carga }: { carga: { semana: string; cantidad: number
     ultima.toLocaleDateString("es-CO", { day: "numeric", month: "short" });
 
   return (
-    <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
+    <section className="surface p-5 lg:p-6">
       <h3 className="mb-1 font-display text-[14.5px] font-bold tracking-[-0.01em] text-ink-950">
         Carga por semana de entrega
       </h3>
@@ -416,7 +416,7 @@ function TendenciaCierreCard({ tendencia }: { tendencia: { semana: string; canti
   const ultimaLabel = ultima.toLocaleDateString("es-CO", { day: "numeric", month: "short" });
 
   return (
-    <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
+    <section className="surface p-5 lg:p-6">
       <h3 className="mb-1 font-display text-[14.5px] font-bold tracking-[-0.01em] text-ink-950">
         Tendencia de cierre
       </h3>
@@ -444,7 +444,7 @@ function EstadoCard({ porEstado }: { porEstado: { estado: string; cantidad: numb
   const total = porEstado.reduce((acc, e) => acc + e.cantidad, 0);
 
   return (
-    <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
+    <section className="surface p-5 lg:p-6">
       <h3 className="mb-4 font-display text-[14.5px] font-bold tracking-[-0.01em] text-ink-950">
         Por estado
       </h3>
@@ -487,7 +487,7 @@ function ClienteCard({ porCliente }: { porCliente: { nombre: string; cantidad: n
   const restantes = porCliente.length - top.length;
 
   return (
-    <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
+    <section className="surface p-5 lg:p-6">
       <h3 className="mb-4 font-display text-[14.5px] font-bold tracking-[-0.01em] text-ink-950">
         Por cliente
       </h3>
