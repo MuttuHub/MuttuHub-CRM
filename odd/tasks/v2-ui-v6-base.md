@@ -63,8 +63,8 @@ stays usable in BOTH light and dark mode. Section-by-section work on the Project
   update `globals.tokens.test.ts` contrast assertions and any class/hex assertions. Verify contrast of every changed pair (AA text, 3:1 non-text) and take after-shots in both themes. Route: delegated.
 - [x] **U3** (commit `16fdd6b`, 4 files, +191/-53) Sidebar: ~220 px, active item surface + 3 px left bar, WHITE in light theme (manual + video), dark `#0D0809`, nav-active tint `rgba(205,21,96,.08)` light / `#1B1316` dark;
   logo variants (the tagline "Innovación social" must stay with the logo per the manual: check if the asset exists); `sidebar.test.tsx`. Route: delegated.
-- [ ] **U4** Tables: delete the 35 hard-coded `TableHead` classes, convert the raw tables that matter; update `proyectos/ui.test.tsx`. Route: delegated.
-- [ ] **U5** Controls sweep: audit the 117 `size="sm"` buttons and ~25 height overrides; keep dense toolbars usable (Kanban, documents, clientes). Route: delegated.
+- [x] **U4** (commits `21e36c3` 18 files +262/-261, `3b7fb1b` guard test, `982b120` sortable header uppercase) Tables: delete the 35 hard-coded `TableHead` classes, convert the raw tables that matter; update `proyectos/ui.test.tsx`. Route: delegated.
+- [x] **U5** (commits `196a601` crm+dashboard, `7837acf` kanban+documents, `8d3ccbd` admin+reportes+shell, `e2ef1f7` proyectos + guard) Controls sweep: audit the 117 `size="sm"` buttons and ~25 height overrides; keep dense toolbars usable (Kanban, documents, clientes). Route: delegated.
 - [ ] **U6** Cards/surfaces: one shared surface class or `Card` consumers, then migrate the ~85 hard-coded surfaces in batches (crm, dashboard, kanban, proyectos, admin, documents).
   Route: delegated, one writer per area batch.
 
@@ -135,7 +135,31 @@ Forecast well above 400 lines in total; each unit stays near 400 where possible.
   are INVALID (the spec's click did not reach the ficha: they show the Proyectos list); the "Sesión" card from the manual was not built. Assessed since `7b19b54`: medium, 398 lines, `review_due=false` (`under_budget`).
 - Review state: U3 is pending inside the next slice (boundary stays `7b19b54`) until U4+ reach the budget or the user asks.
 
+- 2026-10-11: U4 done, delegated. 35 `TableHead` sites lost the hard-coded `text-[11px] ... tracking-[0.08em]` override (repository-list, users-table, solicitudes x2, audit-log, accesos), 11 raw tables in 10 files were
+  converted to `Table/TableRow/TableCell` (catalogos-v2, project-versiones x2, project-presupuesto, project-financiero, modificacion-form, presupuesto-programacion, import-dialog, kanban Lista, report-view,
+  cara-clients-activity); `numeric` prop for right-aligned columns; the 4 print tables and the HTML email table were left on purpose; the sticky "Ver detalle" column was untouched. New guard
+  `src/components/proyectos/table-guards.test.ts` (RED: 2 failed with 55 offenders). GREEN: 260 files / 2843 tests, tsc and eslint clean; parent re-ran guard + crm: 8 files / 86 tests and `tsc`. Parent found the
+  sortable headers (Cliente, Estado, Prioridad) rendered in mixed case (the inner button does not inherit `text-transform` under preflight): fixed in `982b120` (`uppercase` on the button). Pre-existing, not a
+  regression: at 390 px the Clientes "Detalles" table only shows its first column and scrolls horizontally (same in the U3 shots); the Documentos table clips its "Acciones" column at 1440 px (same in the U3 and U5 shots).
+- 2026-10-11: U5 done, delegated, 4 commits. ~290 control tags audited; 191 primitive tags lost explicit `h-6..h-10` / radius overrides (dialog/form fields now 44 px, toolbar/inline controls compact 40 px via
+  `size="sm"` for selects and explicit `h-10` for inputs, which have no size prop); 11 hand-rolled controls aligned to the primitive tokens (`SELECT_CLASS*`, `CAPTURE_FIELD/TEXTAREA/BUTTON` (now 44), client-sheet `INLINE_*`,
+  `CELDA_CLASS`, the `SEL_CLASS` constants, semaforo-tecnico select, sidebar search 38 -> 40); 2 `folder-tree` chevrons kept at `h-6 w-6` with `/* v6-compact */`; `select.tsx` got `text-base md:text-sm` (RED: 1 failed / 12
+  passed). New guard `src/components/proyectos/control-guards.test.ts` (RED against HEAD sources: 5 failed). Not touched (outside the surfaces): `src/app/auth/*` (5 `h-11 rounded-lg` sites), `shared/sin-conexion-card.tsx`;
+  outline buttons/inputs still carry `border-ink-200 bg-panel` overrides (left for U6). GREEN: 261 files / 2850 tests, tsc and eslint clean; parent re-ran guards + ui: 22 files / 116 tests and `tsc`. The worker viewed 22 of 73
+  shots (the ficha tabs were shot after ~900 ms so some show skeletons; no ficha at 390 in light).
+- 2026-10-11: native review of `7b19b54..e2ef1f7` (U3 + U4 + U5: medium, 60 files, 1,490 lines, `slice_budget_reached`): the WHOLE slice failed at preflight with `lens_context_budget_exceeded` (no authority was created, nothing to
+  repair). Per the contract it was split into three candidates, each with its own consent (the user chose "Revisar en 3 candidatos"). `gentle-ai review start/assess` only accept a base and assume HEAD as the end, so the two
+  earlier candidates were reviewed from detached `git worktree`s at their end commits (created under `../MuttuHub-CRM-worktrees/`, removed afterwards; the pre-existing `csv-export` worktree was not touched):
+  - C (U5 part 2, `07bf8c4..e2ef1f7`, 27 files, 221 lines; lineage `review-ec578e8e4b629e49`): APPROVED + acknowledged. Advisory (inferential, non-blocking): `R3-select-textsize-override` — callers that pass an arbitrary
+    font size (`text-[12.5px]` in `audit-log-section.tsx:114`, `text-[13px]` in the project-list estado filter) replace only the base `text-base`, so from `md` up the trigger renders 14 px (`md:text-sm`) instead of 12.5/13 px and
+    below `md` stays under 16 px; `R3-input-test-unproved` (suggestion): the new Input test asserts classes `input.tsx` already had, and small-font Input callers (VoidControl/RejectControl `text-[12px]`) lose the 16 px mobile size.
+  - B (U5 part 1, `982b120..7837acf`, 21 files, 297 lines; lineage `review-fde283093dbe40ba`): APPROVED + acknowledged. Advisory suggestion `R3-size-default-dependency`: sizes now depend on the primitives' variants, no visual test.
+  - A (U3 + U4, `7b19b54..982b120`, 26 files, 974 lines; lineage `review-fc79e13f417f9a71`): APPROVED, zero findings, acknowledged.
+  Authority burned for the three lineages. The review boundary is now `e2ef1f7` (HEAD).
+
 ## Next step
 
-U4 (tables: remove the ~35 hard-coded `TableHead` overrides and unify the eyebrow header), U5 (controls sweep), U6 (cards), then the Proyectos sections against v6. Pending the user's go-ahead on removing the
-"sdd-invariant" test clients from the LOCAL DB with a guarded script, and on the dark rail colour (`#CD1560` vs `#EB3F85`).
+U6 (cards/surfaces: ~85 hard-coded surfaces, by area), then the Proyectos sections against v6. Follow-ups worth a small task: (1) per-call font-size overrides on `SelectTrigger`/`Input` vs `text-base md:text-sm` (audit-log, project-list estado filter,
+VoidControl/RejectControl); (2) Documentos table clips "Acciones" at 1440 px; (3) Clientes "Detalles" at 390 px shows one column. Pending the user's go-ahead on removing the "sdd-invariant" test clients from the LOCAL DB with a guarded
+script, and on the dark rail colour (`#CD1560` vs `#EB3F85`). Unverified: the "Nuevo proyecto" dialog showed "No hay oportunidades ganadas sin proyecto" in one capture although a read-only query confirmed one eligible GANADA opportunity
+(most likely the shot was taken before the list loaded).
