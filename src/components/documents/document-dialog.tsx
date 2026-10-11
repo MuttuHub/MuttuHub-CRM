@@ -144,7 +144,7 @@ export function DocumentDialog({
                 type="button"
                 disabled={!activa}
                 onClick={() => void downloadActiveVersion(documento).catch(() => undefined)}
-                className="h-9 rounded-lg px-4 font-bold"
+                className="px-4 font-bold"
               >
                 <Download className="size-4" strokeWidth={2} />
                 {activa ? `Descargar v${activa.numero_version}` : "Sin versión"}
@@ -153,7 +153,7 @@ export function DocumentDialog({
                 type="button"
                 variant="outline"
                 onClick={() => setVersionUploadOpen(true)}
-                className="h-9 rounded-lg border-ink-200 bg-panel px-4 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+                className="border-ink-200 bg-panel px-4 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
               >
                 <Upload className="size-4 text-exito" strokeWidth={1.9} />
                 Subir nueva versión
@@ -329,7 +329,7 @@ function VersionUploadDialog({
                 reset();
                 onOpenChange(false);
               }}
-              className="rounded-lg px-4 font-semibold"
+              className="px-4 font-semibold"
             >
               Cancelar
             </Button>

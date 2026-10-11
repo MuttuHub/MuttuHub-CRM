@@ -275,7 +275,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                   value={form.titulo}
                   onChange={(e) => set("titulo", e.target.value)}
                   placeholder="Ej. Entregar informe trimestral"
-                  className="h-10 rounded-12 bg-panel px-3"
+                  className="bg-panel px-3"
                 />
               </div>
 
@@ -303,7 +303,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                 >
                   <SelectTrigger
                     disabled={readOnly}
-                    className="h-10 w-full rounded-12 bg-panel px-3"
+                    className="w-full bg-panel px-3"
                   >
                     <SelectValue placeholder="Selecciona un responsable" />
                   </SelectTrigger>
@@ -328,7 +328,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                 >
                   <SelectTrigger
                     disabled={readOnly}
-                    className="h-10 w-full rounded-12 bg-panel px-3"
+                    className="w-full bg-panel px-3"
                   >
                     <SelectValue placeholder="Sin cliente" />
                   </SelectTrigger>
@@ -351,7 +351,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                   disabled={readOnly}
                   value={form.fecha_entrega}
                   onChange={(e) => set("fecha_entrega", e.target.value)}
-                  className="h-10 rounded-12 bg-panel px-3"
+                  className="bg-panel px-3"
                 />
               </div>
 
@@ -364,7 +364,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                 >
                   <SelectTrigger
                     disabled={readOnly}
-                    className="h-10 w-full rounded-12 bg-panel px-3"
+                    className="w-full bg-panel px-3"
                   >
                     <SelectValue placeholder="Sin prioridad" />
                   </SelectTrigger>
@@ -412,7 +412,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                     >
                       <SelectTrigger
                         disabled={readOnly}
-                        className="h-10 w-full rounded-12 bg-panel px-3"
+                        className="w-full bg-panel px-3"
                       >
                         <SelectValue />
                       </SelectTrigger>
@@ -478,7 +478,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                   <Button
                     type="submit"
                     disabled={pendingMutation}
-                    className="rounded-lg px-4 font-bold"
+                    className="px-4 font-bold"
                   >
                     {pendingMutation && <LoaderCircle className="size-4 animate-spin" />}
                     {pendingMutation ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear tarea"}
@@ -529,14 +529,14 @@ function SubtaskSection({ taskId }: { taskId: string }) {
             }
           }}
           placeholder="Nueva subtarea…"
-          className="h-9 rounded-10 bg-panel px-3 text-[13px]"
+          className="h-10 bg-panel px-3 text-[13px]"
         />
         <Button
           type="button"
           size="sm"
           disabled={!texto.trim() || addSubtarea.isPending}
           onClick={() => void agregar()}
-          className="h-9 shrink-0 rounded-10 px-3 font-bold"
+          className="shrink-0 px-3 font-bold"
         >
           <Plus className="size-4" strokeWidth={2} />
           Agregar
@@ -634,14 +634,14 @@ function CommentSection({ taskId }: { taskId: string }) {
             }
           }}
           placeholder="Escribe un comentario…"
-          className="h-9 rounded-10 bg-panel px-3 text-[13px]"
+          className="h-10 bg-panel px-3 text-[13px]"
         />
         <Button
           type="button"
           size="sm"
           disabled={!texto.trim() || addComment.isPending}
           onClick={() => void enviar()}
-          className="h-9 shrink-0 rounded-10 px-3 font-bold"
+          className="shrink-0 px-3 font-bold"
         >
           <MessageSquarePlus className="size-4" strokeWidth={1.9} />
           Comentar
@@ -715,7 +715,7 @@ function AttachmentSection({ taskId }: { taskId: string }) {
           size="sm"
           disabled={upload.isPending}
           onClick={() => inputRef.current?.click()}
-          className="h-9 rounded-10 px-3 font-semibold"
+          className="px-3 font-semibold"
         >
           {upload.isPending ? (
             <LoaderCircle className="size-4 animate-spin" />
@@ -789,7 +789,7 @@ function DangerZone({ taskId, onDeleted }: { taskId: string; onDeleted: () => vo
         type="button"
         variant="destructive"
         onClick={() => setConfirmOpen(true)}
-        className="self-start rounded-10 px-3 font-semibold"
+        className="self-start px-3 font-semibold"
       >
         <Trash2 className="size-4" strokeWidth={1.8} />
         Eliminar tarea
@@ -842,7 +842,7 @@ function ConfirmDeleteDialog({
             variant="destructive"
             disabled={pending}
             onClick={onConfirm}
-            className="rounded-12 font-bold"
+            className="font-bold"
           >
             {pending && <LoaderCircle className="size-4 animate-spin" />}
             Eliminar

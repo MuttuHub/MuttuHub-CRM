@@ -93,7 +93,7 @@ export function ReportView({ responsable, cliente }: ReportViewProps) {
             variant="outline"
             size="sm"
             onClick={() => void exportExcel()}
-            className="h-9 rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+            className="border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
           >
             <FileSpreadsheet className="size-4 text-exito" strokeWidth={1.8} />
             Excel
@@ -102,7 +102,7 @@ export function ReportView({ responsable, cliente }: ReportViewProps) {
             variant="outline"
             size="sm"
             onClick={openPdf}
-            className="h-9 rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+            className="border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
           >
             <FileText className="size-4 text-destructivo" strokeWidth={1.8} />
             PDF
@@ -127,7 +127,7 @@ export function ReportView({ responsable, cliente }: ReportViewProps) {
             <Button
               onClick={() => void reportQuery.refetch()}
               variant="outline"
-              className="mt-5 rounded-lg px-4 font-semibold"
+              className="mt-5 px-4 font-semibold"
             >
               Reintentar
             </Button>

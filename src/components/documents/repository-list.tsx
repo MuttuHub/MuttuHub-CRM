@@ -270,7 +270,7 @@ export function RepositoryList() {
         </p>
         <Button
           onClick={() => setUploadOpen(true)}
-          className="h-9 rounded-lg px-4 font-bold"
+          className="px-4 font-bold"
         >
           <FileUp className="size-4" strokeWidth={1.9} />
           Subir documento
@@ -312,10 +312,10 @@ export function RepositoryList() {
             <Button
               type="button"
               variant="ghost"
-              size="sm"
+              size="icon-sm"
               onClick={() => setCreateFolderOpen(true)}
               aria-label="Crear carpeta"
-              className="h-7 w-7 rounded-lg p-0 text-ink-500 hover:bg-ink-100 hover:text-ink-800"
+              className="text-ink-500 hover:bg-ink-100 hover:text-ink-800"
             >
               <FolderPlus className="size-4" strokeWidth={1.9} />
             </Button>
@@ -358,7 +358,7 @@ export function RepositoryList() {
                   size="sm"
                   disabled={zipPending}
                   onClick={() => void descargarSeleccion()}
-                  className="h-9 rounded-12 border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+                  className="border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
                 >
                   {zipPending ? (
                     <LoaderCircle className="size-4 animate-spin" />
@@ -371,7 +371,7 @@ export function RepositoryList() {
                   variant="ghost"
                   size="sm"
                   onClick={() => setSelected(new Set())}
-                  className="h-9 px-2.5 text-[12.5px] font-semibold text-ink-600"
+                  className="px-2.5 text-[12.5px] font-semibold text-ink-600"
                 >
                   Limpiar
                 </Button>
@@ -452,7 +452,7 @@ function FolderActionDialogs({
 /* ── Fila de filtros ───────────────────────────────────────────────────── */
 
 const SELECT_CLASS =
-  "h-9 flex-1 basis-0 rounded-12 border-ink-200 bg-panel px-3 text-[13px]";
+  "h-10 flex-1 basis-0 border-ink-200 bg-panel px-3 text-[13px]";
 
 function SectionFilters({
   local,
@@ -501,7 +501,7 @@ function SectionFilters({
             onChange={(e) => onChange({ q: e.target.value })}
             placeholder="Buscar por nombre, categoría, etiqueta, cliente o autor…"
             aria-label="Buscar documentos"
-            className="h-10 rounded-lg border-ink-200 bg-panel pl-9 text-[13px]"
+            className="h-10 border-ink-200 bg-panel pl-9 text-[13px]"
           />
         </div>
 
@@ -510,7 +510,7 @@ function SectionFilters({
             render={
               <Button
                 variant="outline"
-                className="h-10 rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+                className="border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
               >
                 <SlidersHorizontal className="size-4 text-ink-600" strokeWidth={1.8} />
                 Filtros{" "}
@@ -609,7 +609,7 @@ function SectionFilters({
                   value={local.desde}
                   onChange={(e) => onChange({ desde: e.target.value })}
                   aria-label="Documentos desde"
-                  className="h-10 min-w-0 flex-1 rounded-lg border-ink-200 bg-panel px-3 text-[12.5px]"
+                  className="h-10 min-w-0 flex-1 border-ink-200 bg-panel px-3 text-[12.5px]"
                 />
                 <span className="text-[12px] text-ink-500">a</span>
                 <Label htmlFor="doc-hasta" className="sr-only">
@@ -621,7 +621,7 @@ function SectionFilters({
                   value={local.hasta}
                   onChange={(e) => onChange({ hasta: e.target.value })}
                   aria-label="Documentos hasta"
-                  className="h-10 min-w-0 flex-1 rounded-lg border-ink-200 bg-panel px-3 text-[12.5px]"
+                  className="h-10 min-w-0 flex-1 border-ink-200 bg-panel px-3 text-[12.5px]"
                 />
               </div>
             </div>
@@ -632,7 +632,7 @@ function SectionFilters({
                   variant="ghost"
                   size="sm"
                   onClick={onClear}
-                  className="h-8 px-2 text-[12.5px] font-semibold text-ink-600"
+                  className="px-2 text-[12.5px] font-semibold text-ink-600"
                 >
                   <RotateCcw className="size-3" strokeWidth={1.9} />
                   Limpiar filtros
@@ -917,7 +917,7 @@ function PaginationFooter({
           size="sm"
           disabled={page <= 1}
           onClick={() => onPage(page - 1)}
-          className="h-8 rounded-10 px-2.5 text-[12.5px] font-semibold after:-inset-2"
+          className="px-2.5 text-[12.5px] font-semibold after:-inset-2"
         >
           Anterior
         </Button>
@@ -929,7 +929,7 @@ function PaginationFooter({
               size="sm"
               onClick={() => onPage(p)}
               className={cn(
-                "h-8 min-w-8 rounded-10 px-2 text-[12.5px] font-bold after:-inset-2",
+                "min-w-8 px-2 text-[12.5px] font-bold after:-inset-2",
                 p === page && "bg-ink-950 text-white hover:bg-ink-800 dark:bg-ink-100 dark:text-white dark:hover:bg-ink-200",
               )}
             >
@@ -946,7 +946,7 @@ function PaginationFooter({
           size="sm"
           disabled={page >= totalPages}
           onClick={() => onPage(page + 1)}
-          className="h-8 rounded-10 px-2.5 text-[12.5px] font-semibold after:-inset-2"
+          className="px-2.5 text-[12.5px] font-semibold after:-inset-2"
         >
           Siguiente
         </Button>
@@ -972,7 +972,7 @@ function EmptyDocuments({ onOpenUpload }: { onOpenUpload: () => void }) {
           <span className="font-semibold text-ink-900">{'"Subir documento"'}</span> o
           ajusta los filtros para ver más resultados.
         </p>
-        <Button onClick={onOpenUpload} className="mt-5 rounded-lg px-4 font-bold">
+        <Button onClick={onOpenUpload} className="mt-5 px-4 font-bold">
           <FileUp className="size-4" strokeWidth={1.9} />
           Subir documento
         </Button>

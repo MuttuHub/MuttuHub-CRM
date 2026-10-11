@@ -213,7 +213,7 @@ export function EtiquetasInput({
         onKeyDown={onKeyDown}
         placeholder="Escribe y presiona Enter para agregar…"
         aria-label="Agregar etiqueta"
-        className="h-9 rounded-10 bg-panel px-3 text-[13px]"
+        className="h-10 bg-panel px-3 text-[13px]"
       />
       <p className="text-[11.5px] text-ink-500">
         {etiquetas.length}/8 etiquetas · separa con Enter o coma
@@ -361,7 +361,7 @@ export function UploadDocumentDialog({
                   variant="ghost"
                   size="sm"
                   onClick={() => setDuplicate(null)}
-                  className="rounded-lg font-semibold text-ink-700"
+                  className="font-semibold text-ink-700"
                 >
                   Volver
                 </Button>
@@ -371,7 +371,7 @@ export function UploadDocumentDialog({
                   size="sm"
                   onClick={() => void handleCreateSeparate()}
                   disabled={upload.isPending}
-                  className="rounded-lg font-semibold"
+                  className="font-semibold"
                 >
                   Crear aparte
                 </Button>
@@ -380,7 +380,7 @@ export function UploadDocumentDialog({
                   size="sm"
                   onClick={() => void handleUploadAsVersion()}
                   disabled={versionUpload.isPending}
-                  className="rounded-lg font-bold"
+                  className="font-bold"
                 >
                   {versionUpload.isPending && <LoaderCircle className="size-4 animate-spin" />}
                   Subir como nueva versión
@@ -400,7 +400,7 @@ export function UploadDocumentDialog({
               value={titulo}
               onChange={(e) => handleTitulo(e.target.value)}
               placeholder="Nombre del documento"
-              className="h-10 rounded-12 bg-panel px-3"
+              className="bg-panel px-3"
             />
           </div>
 
@@ -409,7 +409,7 @@ export function UploadDocumentDialog({
               Categoría <span className="text-rose-500">*</span>
             </Label>
             <Select value={categoria} onValueChange={(v) => setCategoria(v ?? "")}>
-              <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+              <SelectTrigger className="w-full bg-panel px-3">
                 <SelectValue placeholder="Selecciona una categoría" />
               </SelectTrigger>
               <SelectContent>
@@ -433,7 +433,7 @@ export function UploadDocumentDialog({
               value={clienteId}
               onValueChange={(v) => setClienteId(v === "ninguno" ? "" : (v ?? ""))}
             >
-              <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+              <SelectTrigger className="w-full bg-panel px-3">
                 <SelectValue placeholder="Sin cliente" />
               </SelectTrigger>
               <SelectContent>
@@ -452,7 +452,7 @@ export function UploadDocumentDialog({
               type="button"
               variant="ghost"
               onClick={() => onOpenChange(false)}
-              className="rounded-lg px-4 font-semibold"
+              className="px-4 font-semibold"
             >
               Cancelar
             </Button>
@@ -460,7 +460,7 @@ export function UploadDocumentDialog({
               type="button"
               onClick={() => void handleSubmit()}
               disabled={upload.isPending || Boolean(duplicate)}
-              className="rounded-lg px-4 font-bold"
+              className="px-4 font-bold"
             >
               {upload.isPending && <LoaderCircle className="size-4 animate-spin" />}
               {upload.isPending ? "Subiendo…" : "Subir"}

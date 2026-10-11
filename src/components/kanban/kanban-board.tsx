@@ -355,8 +355,9 @@ export function KanbanBoard() {
         {view === "tablero" || view === "lista" ? (
           <div className="flex flex-wrap items-center gap-2">
             <Button
+              size="sm"
               onClick={() => setDialogTaskId("nueva")}
-              className="h-9 rounded-lg px-4 font-bold"
+              className="px-4 font-bold"
             >
               <Plus className="size-4" strokeWidth={2} />
               Nueva tarea
@@ -365,7 +366,7 @@ export function KanbanBoard() {
               variant="outline"
               size="sm"
               onClick={() => void exportExcel()}
-              className="h-9 rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+              className="border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
             >
               <FileSpreadsheet className="size-4 text-exito" strokeWidth={1.8} />
               Excel
@@ -374,7 +375,7 @@ export function KanbanBoard() {
               variant="outline"
               size="sm"
               onClick={openPrint}
-              className="h-9 rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+              className="border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
             >
               <Printer className="size-4 text-ink-600" strokeWidth={1.8} />
               Imprimir
@@ -462,7 +463,7 @@ export function KanbanBoard() {
                 size="sm"
                 onClick={() => void tasksQuery.fetchNextPage()}
                 disabled={isFetchingNextPage}
-                className="h-9 rounded-lg border-ink-200 bg-panel px-4 text-[12.5px] font-semibold text-ink-800 hover:bg-ink-100"
+                className="border-ink-200 bg-panel px-4 text-[12.5px] font-semibold text-ink-800 hover:bg-ink-100"
                 data-testid="kanban-load-more"
               >
                 {isFetchingNextPage ? (
@@ -696,7 +697,7 @@ type FiltersRowProps = {
   onClear: () => void;
 };
 
-const SEL_CLASS = "h-9 flex-1 basis-0 rounded-12 border-ink-200 bg-panel px-3 text-[12.5px]";
+const SEL_CLASS = "h-10 flex-1 basis-0 border-ink-200 bg-panel px-3 text-[12.5px]";
 
 // FiltersRow real (definida debajo)
 
@@ -751,15 +752,15 @@ function FiltersRow(props: FiltersRowProps) {
         </Select>
         <div className="flex items-center gap-1.5">
           <Label htmlFor="kanban-desde" className="sr-only">Entrega desde</Label>
-          <Input id="kanban-desde" type="date" value={local.desde} onChange={(e) => onLocal({ desde: e.target.value })} aria-label="Entrega desde" className="h-9 w-[148px] rounded-12 border-ink-200 bg-panel px-3 text-[12px]" />
+          <Input id="kanban-desde" type="date" value={local.desde} onChange={(e) => onLocal({ desde: e.target.value })} aria-label="Entrega desde" className="h-10 w-[148px] border-ink-200 bg-panel px-3 text-[12px]" />
           <span className="text-[12px] text-ink-500">a</span>
           <Label htmlFor="kanban-hasta" className="sr-only">Entrega hasta</Label>
-          <Input id="kanban-hasta" type="date" value={local.hasta} onChange={(e) => onLocal({ hasta: e.target.value })} aria-label="Entrega hasta" className="h-9 w-[148px] rounded-12 border-ink-200 bg-panel px-3 text-[12px]" />
+          <Input id="kanban-hasta" type="date" value={local.hasta} onChange={(e) => onLocal({ hasta: e.target.value })} aria-label="Entrega hasta" className="h-10 w-[148px] border-ink-200 bg-panel px-3 text-[12px]" />
         </div>
       </div>
       {hasActive && (
         <div className="mt-2.5 flex items-center justify-end">
-          <Button variant="ghost" size="sm" onClick={onClear} className="h-8 px-2 text-[12.5px] font-semibold text-ink-600">
+          <Button variant="ghost" size="sm" onClick={onClear} className="px-2 text-[12.5px] font-semibold text-ink-600">
             <RotateCcw className="size-3" strokeWidth={1.9} />
             Limpiar filtros
           </Button>
