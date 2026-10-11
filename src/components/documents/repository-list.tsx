@@ -501,7 +501,7 @@ function SectionFilters({
             onChange={(e) => onChange({ q: e.target.value })}
             placeholder="Buscar por nombre, categoría, etiqueta, cliente o autor…"
             aria-label="Buscar documentos"
-            className="h-10 border-ink-200 bg-panel pl-9 text-[13px]"
+            className="h-10 border-ink-200 bg-panel pl-9 text-base md:text-[13px]"
           />
         </div>
 
@@ -609,7 +609,7 @@ function SectionFilters({
                   value={local.desde}
                   onChange={(e) => onChange({ desde: e.target.value })}
                   aria-label="Documentos desde"
-                  className="h-10 min-w-0 flex-1 border-ink-200 bg-panel px-3 text-[12.5px]"
+                  className="h-10 min-w-0 flex-1 border-ink-200 bg-panel px-3 text-base md:text-[12.5px]"
                 />
                 <span className="text-[12px] text-ink-500">a</span>
                 <Label htmlFor="doc-hasta" className="sr-only">
@@ -621,7 +621,7 @@ function SectionFilters({
                   value={local.hasta}
                   onChange={(e) => onChange({ hasta: e.target.value })}
                   aria-label="Documentos hasta"
-                  className="h-10 min-w-0 flex-1 border-ink-200 bg-panel px-3 text-[12.5px]"
+                  className="h-10 min-w-0 flex-1 border-ink-200 bg-panel px-3 text-base md:text-[12.5px]"
                 />
               </div>
             </div>

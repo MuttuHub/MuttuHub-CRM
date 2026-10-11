@@ -111,7 +111,7 @@ export function AuditLogSection() {
             setMoreError(null);
           }}
         >
-          <SelectTrigger size="sm" className="w-[170px] bg-panel px-3 text-[12.5px]">
+          <SelectTrigger size="sm" className="w-[170px] bg-panel px-3 text-base md:text-[12.5px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

@@ -69,6 +69,24 @@ describe("control sizes and radius", () => {
     expect(offenders).toEqual([])
   })
 
+  it("small font sizes on controls come as `text-base md:text-[Npx]` (areas: kanban, documents, reportes, admin)", () => {
+    // The primitives set `text-base md:text-sm`: a lone `text-[Npx]` only replaces `text-base`, so `md:text-sm` still wins from md up.
+    const AREAS = ["kanban", "documents", "reportes", "admin"]
+    const CONTROL_TAG = /<(Input|SelectTrigger|select|input)\b(?:[^<>{}]|\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})*?\/?>/g
+    const LONE_SIZE = /(?<![\w:[-])text-\[\d+(?:\.\d+)?px\](?![\w-])/
+    const PAIRED = /(?<![\w:[-])md:text-\[\d/
+    const offenders: string[] = []
+    for (const file of FILES.filter((f) => AREAS.some((a) => rel(f).startsWith(`${a}/`)))) {
+      const text = readFileSync(file, "utf8")
+      for (const m of text.matchAll(CONTROL_TAG)) {
+        if (m[0].includes(MARKER)) continue
+        const size = LONE_SIZE.exec(m[0])?.[0]
+        if (size && !PAIRED.test(m[0])) offenders.push(`${rel(file)}:${text.slice(0, m.index).split("\n").length} <${m[1]}> ${size}`)
+      }
+    }
+    expect(offenders).toEqual([])
+  })
+
   it("native selects and textareas keep 16 px text below md (no iOS zoom)", () => {
     const text = readFileSync(path.join(ROOT, "proyectos", "ui.tsx"), "utf8")
     for (const m of text.matchAll(/export const (SELECT_CLASS(?:_LG)?|CAPTURE_TEXTAREA)\s*=\s*\n?\s*"([^"]*)"/g)) {

@@ -110,7 +110,7 @@ export function CreateFolderDialog({
               onKeyDown={(e) => {
                 if (e.key === "Enter") void submit();
               }}
-              className="border-ink-200 bg-panel text-[13px]"
+              className="border-ink-200 bg-panel text-base md:text-[13px]"
             />
           </div>
 
@@ -124,7 +124,7 @@ export function CreateFolderDialog({
                 <SelectTrigger
                   id="folder-parent"
                   className={cn(
-                    "w-full border-ink-200 bg-panel px-3 text-[13px]",
+                    "w-full border-ink-200 bg-panel px-3 text-base md:text-[13px]",
                   )}
                 >
                   <SelectValue placeholder={defaultParentId ? "Carpeta seleccionada" : "Raíz del repositorio"} />
@@ -207,7 +207,7 @@ export function RenameFolderDialog({
             onKeyDown={(e) => {
               if (e.key === "Enter") void submit();
             }}
-            className="border-ink-200 bg-panel text-[13px]"
+            className="border-ink-200 bg-panel text-base md:text-[13px]"
           />
         </div>
         <DialogFooter>
@@ -278,7 +278,7 @@ export function MoveFolderDialog({
           <Select value={parentId} onValueChange={(v) => setParentId(v ?? "")}>
             <SelectTrigger
               id="folder-move"
-              className="w-full border-ink-200 bg-panel px-3 text-[13px]"
+              className="w-full border-ink-200 bg-panel px-3 text-base md:text-[13px]"
             >
               <SelectValue placeholder="Elige destino" />
             </SelectTrigger>

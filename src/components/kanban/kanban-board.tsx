@@ -752,10 +752,10 @@ function FiltersRow(props: FiltersRowProps) {
         </Select>
         <div className="flex items-center gap-1.5">
           <Label htmlFor="kanban-desde" className="sr-only">Entrega desde</Label>
-          <Input id="kanban-desde" type="date" value={local.desde} onChange={(e) => onLocal({ desde: e.target.value })} aria-label="Entrega desde" className="h-10 w-[148px] border-ink-200 bg-panel px-3 text-[12px]" />
+          <Input id="kanban-desde" type="date" value={local.desde} onChange={(e) => onLocal({ desde: e.target.value })} aria-label="Entrega desde" className="h-10 w-[148px] border-ink-200 bg-panel px-3 text-base md:text-[12px]" />
           <span className="text-[12px] text-ink-500">a</span>
           <Label htmlFor="kanban-hasta" className="sr-only">Entrega hasta</Label>
-          <Input id="kanban-hasta" type="date" value={local.hasta} onChange={(e) => onLocal({ hasta: e.target.value })} aria-label="Entrega hasta" className="h-10 w-[148px] border-ink-200 bg-panel px-3 text-[12px]" />
+          <Input id="kanban-hasta" type="date" value={local.hasta} onChange={(e) => onLocal({ hasta: e.target.value })} aria-label="Entrega hasta" className="h-10 w-[148px] border-ink-200 bg-panel px-3 text-base md:text-[12px]" />
         </div>
       </div>
       {hasActive && (
