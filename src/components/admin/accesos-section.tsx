@@ -43,7 +43,7 @@ export function AccesosSection() {
 
   if (query.isLoading) {
     return (
-      <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
+      <section className="surface p-5 lg:p-6">
         <Skeleton className="h-5 w-40" />
         <Skeleton className="mt-3 h-3.5 w-64" />
         <Skeleton className="mt-5 h-10 w-full" />
@@ -60,7 +60,7 @@ export function AccesosSection() {
         ? query.error.message
         : "No pudimos cargar la bitácora de accesos. Inténtalo de nuevo.";
     return (
-      <section className="grid min-h-[280px] place-items-center rounded-[22px] border border-ink-200 bg-panel p-8">
+      <section className="grid min-h-[280px] place-items-center surface p-8">
         <div className="max-w-[46ch] text-center">
           <span className="mx-auto grid size-11 place-items-center rounded-[15px_15px_15px_5px] bg-alerta-bg text-alerta">
             <AlertTriangle className="size-5" strokeWidth={1.7} />
@@ -95,7 +95,7 @@ export function AccesosSection() {
   }
 
   return (
-    <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
+    <section className="surface p-5 lg:p-6">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h2 className="font-display text-[17px] font-bold tracking-[-0.02em] text-ink-950">
@@ -115,7 +115,7 @@ export function AccesosSection() {
       </div>
 
       {accesos.length === 0 ? (
-        <div className="grid min-h-[180px] place-items-center rounded-[18px] border border-dashed border-ink-200 px-6 py-10 text-center">
+        <div className="grid min-h-[180px] place-items-center rounded-inner border border-dashed border-border px-6 py-10 text-center">
           <div>
             <span className="mx-auto grid size-11 place-items-center rounded-[15px_15px_15px_5px] bg-ink-100 text-ink-700">
               <Fingerprint className="size-5" strokeWidth={1.7} />
@@ -130,7 +130,7 @@ export function AccesosSection() {
           </div>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-[18px] border border-ink-200">
+        <div className="overflow-hidden rounded-inner border border-border">
           {/* Patrón C (plan Fase 5): min-w para que scrollee en vez de aplastarse */}
           <Table className="min-w-[760px]">
             <TableHeader>

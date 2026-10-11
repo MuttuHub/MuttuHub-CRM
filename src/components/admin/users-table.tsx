@@ -223,7 +223,7 @@ export function UsersTable({
         onSuccess={() => router.refresh()}
       />
 
-      <div className="overflow-hidden rounded-[22px] border border-ink-200 bg-panel">
+      <div className="overflow-hidden surface">
         {usuarios.length === 0 ? (
           <div className="grid min-h-[220px] place-items-center px-6 py-12 text-center">
             <div>
@@ -432,7 +432,7 @@ function RowMenu({
         open={rolPendiente !== null}
         onOpenChange={(open) => !open && setRolPendiente(null)}
       >
-        <DialogContent className="rounded-[20px] sm:max-w-[min(400px,calc(100%-2rem))]">
+        <DialogContent className="sm:max-w-[min(400px,calc(100%-2rem))]">
           <DialogHeader>
             <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
               Cambiar el rol de {usuario.nombre}
@@ -466,7 +466,7 @@ function RowMenu({
       </Dialog>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent className="rounded-[20px] sm:max-w-[min(400px,calc(100%-2rem))]">
+        <DialogContent className="sm:max-w-[min(400px,calc(100%-2rem))]">
           <DialogHeader>
             <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
               Desactivar a {usuario.nombre}
@@ -575,7 +575,7 @@ function NewUserDialog({
             </Button>
           }
         />
-        <DialogContent className="rounded-[20px] sm:max-w-[min(420px,calc(100%-2rem))]">
+        <DialogContent className="sm:max-w-[min(420px,calc(100%-2rem))]">
           <DialogHeader>
             <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
               Nuevo usuario
@@ -593,7 +593,7 @@ function NewUserDialog({
                 id="nuevo-nombre"
                 required
                 placeholder="Nombre y apellido"
-                className="bg-panel px-3"
+                className="px-3"
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
               />
@@ -605,7 +605,7 @@ function NewUserDialog({
                 type="email"
                 required
                 placeholder="nombre@muttu.co"
-                className="bg-panel px-3"
+                className="px-3"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -613,7 +613,7 @@ function NewUserDialog({
             <div className="flex flex-col gap-2">
               <Label>Rol</Label>
               <Select value={rol} onValueChange={(v) => setRol(v as RolUsuario)}>
-                <SelectTrigger className="w-full bg-panel px-3">
+                <SelectTrigger className="w-full px-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -631,7 +631,7 @@ function NewUserDialog({
                 value={invite ? "invite" : "password"}
                 onValueChange={(v) => setInvite(v === "invite")}
               >
-                <SelectTrigger className="w-full bg-panel px-3">
+                <SelectTrigger className="w-full px-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

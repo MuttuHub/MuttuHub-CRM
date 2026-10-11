@@ -79,7 +79,7 @@ function CatalogoTable({
   return (
     <section
       aria-label={title}
-      className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6"
+      className="surface p-5 lg:p-6"
     >
       <h3 className="font-display text-[16px] font-bold tracking-[-0.02em] text-ink-950">
         {title}

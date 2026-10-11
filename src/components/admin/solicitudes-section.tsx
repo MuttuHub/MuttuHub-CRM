@@ -172,7 +172,7 @@ export function SolicitudesSection({
         </div>
       )}
 
-      <section className="overflow-hidden rounded-[22px] border border-ink-200 bg-panel">
+      <section className="overflow-hidden surface">
         <div className="flex items-center gap-2.5 border-b border-ink-100 px-5 py-4">
           <Inbox className="size-4 text-ink-600" strokeWidth={1.8} />
           <h3 className="font-display text-[15px] font-bold tracking-[-0.02em] text-ink-950">
@@ -265,7 +265,7 @@ export function SolicitudesSection({
         )}
       </section>
 
-      <section className="overflow-hidden rounded-[22px] border border-ink-200 bg-panel">
+      <section className="overflow-hidden surface">
         <div className="flex items-center gap-2.5 border-b border-ink-100 px-5 py-4">
           <UserRoundCheck className="size-4 text-ink-600" strokeWidth={1.8} />
           <h3 className="font-display text-[15px] font-bold tracking-[-0.02em] text-ink-950">
@@ -397,7 +397,7 @@ function AprobarDialog({
           </Button>
         }
       />
-      <DialogContent className="rounded-[20px] sm:max-w-[min(420px,calc(100%-2rem))]">
+      <DialogContent className="sm:max-w-[min(420px,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
             Aprobar acceso de {solicitud.nombre}
@@ -415,7 +415,7 @@ function AprobarDialog({
               value={rol}
               onValueChange={(v) => setRol(v as RolUsuario)}
             >
-              <SelectTrigger className="w-full bg-panel px-3">
+              <SelectTrigger className="w-full px-3">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -471,7 +471,7 @@ function RechazarDialog({
           </Button>
         }
       />
-      <DialogContent className="rounded-[20px] sm:max-w-[min(400px,calc(100%-2rem))]">
+      <DialogContent className="sm:max-w-[min(400px,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
             Rechazar a {solicitud.nombre}

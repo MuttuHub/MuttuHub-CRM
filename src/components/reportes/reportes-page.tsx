@@ -144,7 +144,7 @@ function FiltrosCara({
   const setRango = useFiltersStore((s) => s.setRango);
 
   return (
-    <div className="rounded-[16px] border border-ink-200 bg-panel p-3">
+    <div className="surface p-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5">
         <div className="flex items-center gap-2">
           <span className="text-[11.5px] font-bold tracking-[0.08em] text-ink-500 uppercase">
@@ -154,7 +154,7 @@ function FiltrosCara({
         </div>
 
         <Select value={responsable} onValueChange={(v) => v !== null && onResponsable(v)}>
-          <SelectTrigger size="sm" className="bg-panel">
+          <SelectTrigger size="sm">
             <SelectValue placeholder="Todos los responsables" />
           </SelectTrigger>
           <SelectContent>
@@ -168,7 +168,7 @@ function FiltrosCara({
         </Select>
 
         <Select value={tipoCliente} onValueChange={(v) => v !== null && onTipoCliente(v)}>
-          <SelectTrigger size="sm" className="bg-panel">
+          <SelectTrigger size="sm">
             <SelectValue placeholder="Todos los tipos" />
           </SelectTrigger>
           <SelectContent>

@@ -78,7 +78,7 @@ export function UmbralesSection() {
 
   if (query.isLoading || (query.data && draft === null)) {
     return (
-      <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
+      <section className="surface p-5 lg:p-6">
         <Skeleton className="h-5 w-52" />
         <Skeleton className="mt-4 h-40" />
       </section>
@@ -87,7 +87,7 @@ export function UmbralesSection() {
 
   if (query.isError || !query.data || !draft) {
     return (
-      <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
+      <section className="surface p-5 lg:p-6">
         <p role="alert" className="text-[13px] text-alerta">
           No pudimos cargar los parámetros del semáforo.
         </p>
@@ -156,7 +156,7 @@ export function UmbralesSection() {
   }
 
   return (
-    <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
+    <section className="surface p-5 lg:p-6">
       <h3 className="font-display text-[16px] font-bold tracking-[-0.02em] text-ink-950">
         Umbrales del semáforo
       </h3>
