@@ -118,6 +118,27 @@
      rounded-[26px] at the call sites (sidebar.tsx, app layout) — V1.1 wires
      this token in; kept here so it exists ahead of that migration. */
   --radius-26: 26px;
+  /* v6 surfaces (manual "Forma"): outer cards/panels 20 px, inner cards and
+     tiles 14 px. Used through `rounded-card` / `rounded-inner` and the
+     `surface` / `surface-inner` utilities below. */
+  --radius-card: 20px;
+  --radius-inner: 14px;
+}
+
+/* One shared surface vocabulary (no shadows; every colour is a theme token, so
+   both themes flip). `surface` = outer card/panel, `surface-inner` = a tile or
+   field group nested inside a surface. Do not combine them with other
+   rounded-*, border-* or bg-* classes: pick a state class instead. */
+@utility surface {
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  background-color: var(--panel);
+}
+
+@utility surface-inner {
+  border-radius: var(--radius-inner);
+  border: 1px solid var(--border);
+  background-color: var(--muted);
 }
 
 :root {

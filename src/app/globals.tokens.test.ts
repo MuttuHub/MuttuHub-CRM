@@ -322,4 +322,35 @@ describe("globals.css design tokens (V0.1)", () => {
       expect(propValue(dark, "--accent-soft")).toBe("#f5bad2")
     })
   })
+  describe("v6 surface vocabulary (U6)", () => {
+    const themeInline = block("@theme inline")
+
+    it("defines the card (20px) and inner-card (14px) radius tokens", () => {
+      expect(propValue(themeInline, "--radius-card")).toBe("20px")
+      expect(propValue(themeInline, "--radius-inner")).toBe("14px")
+    })
+
+    it("`surface` is card radius + 1px border token + panel, without shadow", () => {
+      const body = block("@utility surface")
+      expect(propValue(body, "border-radius")).toBe("var(--radius-card)")
+      expect(propValue(body, "border")).toBe("1px solid var(--border)")
+      expect(propValue(body, "background-color")).toBe("var(--panel)")
+      expect(body).not.toMatch(/shadow/)
+    })
+
+    it("`surface-inner` is inner radius + 1px border token + muted, without shadow", () => {
+      const body = block("@utility surface-inner")
+      expect(propValue(body, "border-radius")).toBe("var(--radius-inner)")
+      expect(propValue(body, "border")).toBe("1px solid var(--border)")
+      expect(propValue(body, "background-color")).toBe("var(--muted)")
+      expect(body).not.toMatch(/shadow/)
+    })
+
+    it("the surface colours are theme tokens that flip (no raw hex in the utilities)", () => {
+      expect(block("@utility surface") + block("@utility surface-inner")).not.toMatch(/#[0-9a-f]{3,8}/i)
+      expect(propValue(root, "--panel")).not.toBe(propValue(dark, "--panel"))
+      expect(propValue(root, "--muted")).not.toBe(propValue(dark, "--muted"))
+      expect(propValue(root, "--border")).not.toBe(propValue(dark, "--border"))
+    })
+  })
 })
