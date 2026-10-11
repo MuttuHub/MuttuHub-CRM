@@ -256,7 +256,7 @@ export function NotificationPanel() {
         aria-label={unread > 0 ? `Notificaciones, ${unread} sin leer` : "Notificaciones"}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className="relative grid size-10 place-items-center rounded-lg border border-ink-200 bg-panel text-ink-700 transition-colors after:absolute after:content-[''] after:-inset-0.5 hover:bg-ink-100"
+        className="relative grid size-10 place-items-center rounded-12 border border-border-strong bg-input-bg text-ink-700 transition-colors after:absolute after:content-[''] after:-inset-0.5 hover:bg-muted"
       >
         <Bell className="size-4" strokeWidth={1.7} />
         {unread > 0 && (
@@ -275,7 +275,7 @@ export function NotificationPanel() {
           onKeyDown={trapPanelFocus}
           role="dialog"
           aria-label="Notificaciones"
-          className="absolute top-[calc(100%+10px)] right-0 z-50 w-[360px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-ink-200 bg-panel shadow-xl"
+          className="absolute top-[calc(100%+10px)] right-0 z-50 w-[360px] max-w-[calc(100vw-2rem)] overflow-hidden surface shadow-xl"
         >
           <div className="flex items-center justify-between gap-2 border-b border-ink-200 px-4 py-3">
             <h2 className="text-[14px] font-bold text-ink-900">Notificaciones</h2>

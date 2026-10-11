@@ -101,7 +101,7 @@ export function Header({ initialUser }: { initialUser?: CurrentUser | null }) {
           aria-label="Abrir menú"
           aria-expanded={mobileOpen}
           aria-controls="sidebar-drawer"
-          className="relative mt-1 grid size-9 shrink-0 place-items-center rounded-12 border border-ink-200 bg-panel text-ink-700 transition-colors after:absolute after:content-[''] after:-inset-1 hover:bg-ink-100 lg:hidden"
+          className="relative mt-1 grid size-9 shrink-0 place-items-center rounded-12 border border-border-strong bg-input-bg text-ink-700 transition-colors after:absolute after:content-[''] after:-inset-1 hover:bg-muted lg:hidden"
         >
           <Menu className="size-4" strokeWidth={1.8} />
         </button>
@@ -122,7 +122,7 @@ export function Header({ initialUser }: { initialUser?: CurrentUser | null }) {
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label="Rango de fechas"
-              className="relative hidden h-10 cursor-pointer items-center gap-2 rounded-lg border border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 transition-colors after:absolute after:content-[''] after:-inset-0.5 hover:bg-ink-100 sm:inline-flex"
+              className="relative hidden h-10 cursor-pointer items-center gap-2 rounded-12 border border-border-strong bg-input-bg px-3.5 text-[13px] font-semibold text-ink-800 transition-colors after:absolute after:content-[''] after:-inset-0.5 hover:bg-muted sm:inline-flex"
             >
               {RANGO_HEADER_LABELS[rango]}
               <ChevronDown className="size-3 text-ink-600" strokeWidth={1.8} />
@@ -146,7 +146,7 @@ export function Header({ initialUser }: { initialUser?: CurrentUser | null }) {
           type="button"
           onClick={toggleTheme}
           aria-label={theme === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
-          className="relative grid size-10 place-items-center rounded-lg border border-ink-200 bg-panel text-ink-700 transition-colors after:absolute after:content-[''] after:-inset-0.5 hover:bg-ink-100"
+          className="relative grid size-10 place-items-center rounded-12 border border-border-strong bg-input-bg text-ink-700 transition-colors after:absolute after:content-[''] after:-inset-0.5 hover:bg-muted"
         >
           {theme === "dark" ? (
             <Sun className="size-4" strokeWidth={1.8} />

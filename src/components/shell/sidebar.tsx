@@ -115,7 +115,7 @@ function SidebarContent({ rail, inDrawer = false }: { rail: boolean; inDrawer?: 
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar en el Hub"
             aria-label="Buscar en el Hub"
-            className="h-10 w-full rounded-12 border border-border-strong bg-shell-surface pr-10 pl-9 text-[13px] text-shell-text placeholder:text-shell-faint focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus:outline-none"
+            className="h-10 w-full rounded-12 border border-border-strong bg-shell-surface pr-10 pl-9 text-base md:text-[13px] text-shell-text placeholder:text-shell-faint focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus:outline-none"
           />
           <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded-md border border-shell-border bg-sidebar px-1.5 py-0.5 font-mono text-[10px] text-shell-muted">
             ⌘K
@@ -142,7 +142,7 @@ function SidebarContent({ rail, inDrawer = false }: { rail: boolean; inDrawer?: 
                   href={item.href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "relative flex h-[44px] w-full items-center gap-2.5 rounded-11 transition-colors after:absolute after:content-[''] after:-inset-y-px focus-visible:ring-3 focus-visible:ring-ring/50",
+                    "relative flex h-[44px] w-full items-center gap-2.5 transition-colors after:absolute after:content-[''] after:-inset-y-px focus-visible:ring-3 focus-visible:ring-ring/50",
                     rail ? "justify-center" : "px-3",
                     active
                       ? "bg-shell-active font-semibold text-shell-text before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-accent-bar before:content-['']"
