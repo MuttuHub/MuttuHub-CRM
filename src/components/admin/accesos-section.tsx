@@ -72,7 +72,7 @@ export function AccesosSection() {
           <Button
             onClick={() => void query.refetch()}
             variant="outline"
-            className="mt-4 rounded-lg px-4 font-semibold"
+            className="mt-4 px-4 font-semibold"
           >
             Reintentar
           </Button>
@@ -229,7 +229,7 @@ export function AccesosSection() {
               onClick={() => void loadMore()}
               variant="outline"
               disabled={query.isFetchingNextPage}
-              className="rounded-lg px-4 font-semibold"
+              className="px-4 font-semibold"
             >
               {query.isFetchingNextPage ? (
                 <LoaderCircle className="size-4 animate-spin" />

@@ -115,7 +115,7 @@ function SidebarContent({ rail, inDrawer = false }: { rail: boolean; inDrawer?: 
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar en el Hub"
             aria-label="Buscar en el Hub"
-            className="h-[38px] w-full rounded-12 border border-border-strong bg-shell-surface pr-10 pl-9 text-[13px] text-shell-text placeholder:text-shell-faint focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus:outline-none"
+            className="h-10 w-full rounded-12 border border-border-strong bg-shell-surface pr-10 pl-9 text-[13px] text-shell-text placeholder:text-shell-faint focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus:outline-none"
           />
           <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded-md border border-shell-border bg-sidebar px-1.5 py-0.5 font-mono text-[10px] text-shell-muted">
             ⌘K

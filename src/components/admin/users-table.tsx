@@ -569,7 +569,7 @@ function NewUserDialog({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger
           render={
-            <Button className="rounded-lg px-4 font-bold">
+            <Button className="px-4 font-bold">
               <Plus />
               Nuevo usuario
             </Button>
@@ -593,7 +593,7 @@ function NewUserDialog({
                 id="nuevo-nombre"
                 required
                 placeholder="Nombre y apellido"
-                className="h-10 rounded-12 bg-panel px-3"
+                className="bg-panel px-3"
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
               />
@@ -605,7 +605,7 @@ function NewUserDialog({
                 type="email"
                 required
                 placeholder="nombre@muttu.co"
-                className="h-10 rounded-12 bg-panel px-3"
+                className="bg-panel px-3"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -613,7 +613,7 @@ function NewUserDialog({
             <div className="flex flex-col gap-2">
               <Label>Rol</Label>
               <Select value={rol} onValueChange={(v) => setRol(v as RolUsuario)}>
-                <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+                <SelectTrigger className="w-full bg-panel px-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -631,7 +631,7 @@ function NewUserDialog({
                 value={invite ? "invite" : "password"}
                 onValueChange={(v) => setInvite(v === "invite")}
               >
-                <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+                <SelectTrigger className="w-full bg-panel px-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

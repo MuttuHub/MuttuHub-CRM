@@ -154,7 +154,7 @@ function FiltrosCara({
         </div>
 
         <Select value={responsable} onValueChange={(v) => v !== null && onResponsable(v)}>
-          <SelectTrigger size="sm" className="h-8 rounded-11 bg-panel">
+          <SelectTrigger size="sm" className="bg-panel">
             <SelectValue placeholder="Todos los responsables" />
           </SelectTrigger>
           <SelectContent>
@@ -168,7 +168,7 @@ function FiltrosCara({
         </Select>
 
         <Select value={tipoCliente} onValueChange={(v) => v !== null && onTipoCliente(v)}>
-          <SelectTrigger size="sm" className="h-8 rounded-11 bg-panel">
+          <SelectTrigger size="sm" className="bg-panel">
             <SelectValue placeholder="Todos los tipos" />
           </SelectTrigger>
           <SelectContent>
@@ -195,7 +195,7 @@ function GenerarReporte({ href }: { href: string }) {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex h-9 items-center gap-2 rounded-lg bg-rose-500 px-4 text-[13px] font-bold text-white transition-colors hover:bg-rose-700"
+      className="inline-flex h-10 items-center gap-2 rounded-12 bg-rose-500 px-4 text-[13px] font-bold text-white transition-colors hover:bg-rose-700"
     >
       <Printer className="size-4" strokeWidth={1.9} />
       Generar reporte

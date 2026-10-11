@@ -111,7 +111,7 @@ export function AuditLogSection() {
             setMoreError(null);
           }}
         >
-          <SelectTrigger className="h-9 w-[170px] rounded-10 bg-panel px-3 text-[12.5px]">
+          <SelectTrigger size="sm" className="w-[170px] bg-panel px-3 text-[12.5px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -142,7 +142,7 @@ export function AuditLogSection() {
             <Button
               onClick={() => void query.refetch()}
               variant="outline"
-              className="mt-4 rounded-lg px-4 font-semibold"
+              className="mt-4 px-4 font-semibold"
             >
               Reintentar
             </Button>
@@ -247,7 +247,7 @@ export function AuditLogSection() {
               onClick={() => void loadMore()}
               variant="outline"
               disabled={query.isFetchingNextPage}
-              className="rounded-lg px-4 font-semibold"
+              className="px-4 font-semibold"
             >
               {query.isFetchingNextPage ? (
                 <LoaderCircle className="size-4 animate-spin" />

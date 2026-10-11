@@ -391,7 +391,7 @@ function AprobarDialog({
             variant="outline"
             size="sm"
             disabled={disabled}
-            className="rounded-10 font-semibold after:-inset-1"
+            className="font-semibold after:-inset-1"
           >
             Aprobar
           </Button>
@@ -415,7 +415,7 @@ function AprobarDialog({
               value={rol}
               onValueChange={(v) => setRol(v as RolUsuario)}
             >
-              <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+              <SelectTrigger className="w-full bg-panel px-3">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -465,7 +465,7 @@ function RechazarDialog({
             variant="ghost"
             size="sm"
             disabled={disabled}
-            className="rounded-10 font-semibold text-destructivo hover:text-destructivo after:-inset-1"
+            className="font-semibold text-destructivo hover:text-destructivo after:-inset-1"
           >
             Rechazar
           </Button>

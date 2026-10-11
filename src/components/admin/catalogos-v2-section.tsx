@@ -119,7 +119,7 @@ function CatalogoTable({
                           aria-label={`Nombre de ${row.codigo ?? row.nombre}`}
                           value={draft}
                           onChange={(e) => setDraft(e.target.value)}
-                          className="h-8"
+                          className="h-10"
                         />
                       ) : (
                         row.nombre
@@ -232,11 +232,11 @@ function LineaAddForm({ onError }: { onError: (message: string | null) => void }
     <form onSubmit={(e) => void submit(e)} className="mt-4 flex flex-wrap items-end gap-2">
       <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink-700">
         Código
-        <Input value={codigo} onChange={(e) => setCodigo(e.target.value)} className="h-8 w-28" />
+        <Input value={codigo} onChange={(e) => setCodigo(e.target.value)} className="h-10 w-28" />
       </label>
       <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink-700">
         Nombre
-        <Input value={nombre} onChange={(e) => setNombre(e.target.value)} className="h-8 w-64" />
+        <Input value={nombre} onChange={(e) => setNombre(e.target.value)} className="h-10 w-64" />
       </label>
       <Button type="submit" size="sm" disabled={create.isPending}>
         <Plus className="size-3.5" /> Agregar
@@ -281,14 +281,14 @@ function MunicipioAddForm({ onError }: { onError: (message: string | null) => vo
     <form onSubmit={(e) => void submit(e)} className="mt-4 flex flex-wrap items-end gap-2">
       <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink-700">
         Nombre
-        <Input value={nombre} onChange={(e) => setNombre(e.target.value)} className="h-8 w-48" />
+        <Input value={nombre} onChange={(e) => setNombre(e.target.value)} className="h-10 w-48" />
       </label>
       <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink-700">
         Departamento
         <Input
           value={departamento}
           onChange={(e) => setDepartamento(e.target.value)}
-          className="h-8 w-48"
+          className="h-10 w-48"
         />
       </label>
       <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink-700">
@@ -297,7 +297,7 @@ function MunicipioAddForm({ onError }: { onError: (message: string | null) => vo
           value={dane}
           inputMode="numeric"
           onChange={(e) => setDane(e.target.value)}
-          className="h-8 w-40"
+          className="h-10 w-40"
         />
       </label>
       <Button type="submit" size="sm" disabled={create.isPending}>

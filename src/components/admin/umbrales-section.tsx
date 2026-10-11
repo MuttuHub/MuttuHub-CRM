@@ -191,7 +191,7 @@ export function UmbralesSection() {
                     aria-label={meta.label}
                     value={item.valor as string}
                     onChange={(e) => update(key, { valor: e.target.value })}
-                    className="h-8 w-24"
+                    className="h-10 w-24"
                   />
                 ) : (
                   <Checkbox
