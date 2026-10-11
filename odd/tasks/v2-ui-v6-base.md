@@ -65,7 +65,7 @@ stays usable in BOTH light and dark mode. Section-by-section work on the Project
   logo variants (the tagline "Innovación social" must stay with the logo per the manual: check if the asset exists); `sidebar.test.tsx`. Route: delegated.
 - [x] **U4** (commits `21e36c3` 18 files +262/-261, `3b7fb1b` guard test, `982b120` sortable header uppercase) Tables: delete the 35 hard-coded `TableHead` classes, convert the raw tables that matter; update `proyectos/ui.test.tsx`. Route: delegated.
 - [x] **U5** (commits `196a601` crm+dashboard, `7837acf` kanban+documents, `8d3ccbd` admin+reportes+shell, `e2ef1f7` proyectos + guard) Controls sweep: audit the 117 `size="sm"` buttons and ~25 height overrides; keep dense toolbars usable (Kanban, documents, clientes). Route: delegated.
-- [ ] **U6** Cards/surfaces: one shared surface class or `Card` consumers, then migrate the ~85 hard-coded surfaces in batches (crm, dashboard, kanban, proyectos, admin, documents).
+- [x] **U6** (U6a `eb2ab86` `8f1c6e4` `c9f4444`, U6b `4efdd0d` `6ec9b62` `a9ac5d1`, U6c `a99bf22` `67409b6` `22c7d29` `0461101`) Cards/surfaces: one shared surface class or `Card` consumers, then migrate the ~85 hard-coded surfaces in batches (crm, dashboard, kanban, proyectos, admin, documents).
   Route: delegated, one writer per area batch.
 
 Each unit: strict test-first where a runnable test fits (class/structure assertions; jsdom cannot measure layout), then an "after" screenshot run with the same
@@ -157,9 +157,40 @@ Forecast well above 400 lines in total; each unit stays near 400 where possible.
   - A (U3 + U4, `7b19b54..982b120`, 26 files, 974 lines; lineage `review-fc79e13f417f9a71`): APPROVED, zero findings, acknowledged.
   Authority burned for the three lineages. The review boundary is now `e2ef1f7` (HEAD).
 
+- 2026-10-11: U6 done in three batches, all delegated. Vocabulary in `globals.css`: `--radius-card: 20px` (`rounded-card`), `--radius-inner: 14px` (`rounded-inner`), `@utility surface` (card radius + 1 px
+  border token + `--panel`, no shadow) and `@utility surface-inner` (inner radius + border + `--muted`); the 26 px shell radius already existed. Cards that hold chips/avatars use the inner panel set
+  `rounded-inner border border-border bg-panel` because `bg-muted` equals the ink-100 chip background in light. tailwind-merge does not know `@utility` classes: conditional states swap whole class sets.
+  - U6a (crm + dashboard, 15 files; guard `surface-guards.test.ts`, RED 24 offenders): 14 outer, 5 inner + 7 inner-panel; shadows removed; ~30 control overrides removed.
+  - U6b (kanban, documents, reportes, admin): 30 outer + 4 inner, kanban task cards = inner panels (drag ring/overlay unchanged), 42 control overrides removed, 11 font sizes -> `text-base md:text-[Npx]`
+    (guard rule added, RED 11 offenders), Documentos table fixed (`min-w` 760, sticky opaque "Acciones" cell with row-hover colour, truncated title/client/version cells; "ACCIONES" fully visible at 1440,
+    reachable at 1280). Surface guard RED: 33 offenders.
+  - U6c (proyectos + shell + shared + auth): 8 outer + ~24 inner-panel + 3 `surface-inner`, ~45 control overrides, 10 font sizes, 5 auth `h-11 rounded-lg` sites and the login Suspense `#EFEAEB` -> `bg-background`;
+    guards widened to ALL of `src/components` (except `ui/` and `print-*`) and `src/app` routes (RED: 3 failed, 20 + 6 + 15 offenders). Left on purpose: chips/pills/avatars, print views, the sidebar 26 px radius,
+    the notification panel `shadow-xl` (floating).
+  Verification: full suite after each batch (262 files / 2856-2857 tests), tsc 0 errors, eslint clean; parent re-ran guards, tsc and the full suite for U6a (262/2856), and guards + area suites + tsc for U6b and U6c.
+- 2026-10-11: native reviews of U6 (three candidates, each with its own consent; the earlier two from detached worktrees, removed afterwards):
+  - U6c (`a9ac5d1..0461101`, 40 files, 278 lines, HIGH risk only because `src/app/auth/confirm/page.tsx` is a hot path (auth); four lenses; lineage `review-017cb931a1b3f2af`): APPROVED + acknowledged. risk and resilience: no
+    findings (auth edits are className-only). readability: 3 SUGGESTIONS (`R2-duplicated-sources`: the directory walker/print exclusion/`rel()` are duplicated in the two guard tests; `R2-guard-path-mismatch`: `rel()` is
+    src-relative but `SKIPPED_DIRS` is ROOT-relative in `control-guards.test.ts`; `R2-guard-scope-comment`: the header comment overstates the scope vs the PENDING list). reliability: `R3-change-password-input-radius`
+    WARNING (inferential): the 3 Inputs in `change-password-dialog.tsx` keep a redundant `rounded-12`; the parent verified the guard is green (6/6), so it is cosmetic only.
+  - U6b (`c9f4444..a9ac5d1`, 19 files, 254 lines, medium; lineage `review-7580a3c2830f72bb`): APPROVED + acknowledged. Two WARNINGS: `R3-select-class-lone-size` (`SELECT_CLASS` in
+    `documents/repository-list.tsx:455` keeps a lone `text-[13px]`) and `R3-sel-class-lone-size` (`SEL_CLASS` in `kanban/kanban-board.tsx:700` keeps `text-[12.5px]`); both are passed to `SelectTrigger` as variables, so
+    the guard's tag regex never sees them (real gap).
+  - U6a (`14f6dc3..c9f4444`, 18 files, 312 lines, medium; lineage `review-89cbc036528e104c`): APPROVED + acknowledged. One SUGGESTION `R3-guard-tag-regex`: the guard's TAG regex ends a tag at the first bare `>`
+    outside braces, so a static className with a variant such as `[&>svg]:` would end the match early and miss a later offender.
+  Authority burned for the three lineages. The review boundary is now `0461101` (HEAD).
+- Seen in the U6c shots (not fixed): in the dark "Nuevo proyecto" dialog the SELECTED origin pill has dark-rose text on a dark-rose fill (`text-rose-700` with no dark variant); at 390 px the notification panel
+  clips on the left and the "Proyectos" page title wraps under the header buttons; `ui/dialog.tsx`/`sheet.tsx` still hard-code `rounded-[22px]`; 8 lone `text-[Npx]` sites remain in `crm/client-list.tsx` and
+  `crm/entity-dialogs.tsx` (the guard has a PENDING scope for crm and `(app)`). Resolved doubt: the "No hay oportunidades ganadas sin proyecto" message seen once in the dialog was capture timing; the U6c shot lists the
+  free GANADA opportunity.
+
 ## Next step
 
-U6 (cards/surfaces: ~85 hard-coded surfaces, by area), then the Proyectos sections against v6. Follow-ups worth a small task: (1) per-call font-size overrides on `SelectTrigger`/`Input` vs `text-base md:text-sm` (audit-log, project-list estado filter,
+Small cleanup task (call it U7) from the review advisories: (1) rewrite the lone font sizes in `SELECT_CLASS` (documents) and `SEL_CLASS` (kanban) and the 8 crm sites, and make the control guard also read class
+CONSTANTS; (2) dedupe the guard helpers (shared walker/`rel()`/skip list), fix the `rel()`/`SKIPPED_DIRS` base mismatch and the header comment, and harden the tag regex against `[&>svg]:` variants; (3) drop the redundant
+`rounded-12` in `change-password-dialog.tsx`; (4) fix the dark contrast of the selected origin pill in the "Nuevo proyecto" dialog. Then the Proyectos sections against v6. Earlier follow-ups: per-call font sizes
+(done in U6b/U6c except the crm sites), Clientes "Detalles" at 390 px shows one column, Solicitudes table at 390 px keeps Aprobar/Rechazar off-screen, Documentos checkbox column renders as a thin bar. Pending the user's
+go-ahead on removing the "sdd-invariant" test clients from the LOCAL DB and on the dark rail colour. Old next step (superseded): (1) per-call font-size overrides on `SelectTrigger`/`Input` vs `text-base md:text-sm` (audit-log, project-list estado filter,
 VoidControl/RejectControl); (2) Documentos table clips "Acciones" at 1440 px; (3) Clientes "Detalles" at 390 px shows one column. Pending the user's go-ahead on removing the "sdd-invariant" test clients from the LOCAL DB with a guarded
 script, and on the dark rail colour (`#CD1560` vs `#EB3F85`). Unverified: the "Nuevo proyecto" dialog showed "No hay oportunidades ganadas sin proyecto" in one capture although a read-only query confirmed one eligible GANADA opportunity
 (most likely the shot was taken before the list loaded).
