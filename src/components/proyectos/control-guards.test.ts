@@ -4,25 +4,30 @@
 //      (rounded-lg/md/10/11/12/xl) the primitive already sets;
 //   2. hand-rolled <select>/<input> or shared class constants (SELECT_*, SEL_*, CAPTURE_*, *_INPUT_*, *_CLASS) below 40 px.
 // A justified exception carries the marker `/* v6-compact */` inside the tag (or on the constant's line).
+// Scope: every component under src/components (except the `ui/` primitives and `print-*` files) plus the src/app routes.
 
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import path from "node:path"
 import { describe, expect, it } from "vitest"
 
 const ROOT = path.resolve(__dirname, "..")
+const APP_ROOT = path.resolve(ROOT, "..", "app")
 
 function sources(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const full = path.join(dir, name)
-    if (statSync(full).isDirectory()) return sources(full)
-    return /\.tsx$/.test(name) && !name.includes(".test.") ? [full] : []
+    if (statSync(full).isDirectory()) return name === "print" ? [] : sources(full)
+    return /\.tsx$/.test(name) && !name.includes(".test.") && !name.startsWith("print-") ? [full] : []
   })
 }
 
-// `ui` holds the primitives themselves; `shared` (one Button with `rounded-lg`) was outside the U5 sweep and is still pending.
-const SKIPPED_DIRS = ["ui", "shared"]
-const FILES = sources(ROOT).filter((f) => !f.split(path.sep).some((part) => SKIPPED_DIRS.includes(part)))
-const rel = (f: string) => path.relative(ROOT, f).split(path.sep).join("/")
+// `ui` holds the primitives themselves.
+const SKIPPED_DIRS = ["ui"]
+const FILES = [
+  ...sources(ROOT).filter((f) => !path.relative(ROOT, f).split(path.sep).some((part) => SKIPPED_DIRS.includes(part))),
+  ...sources(APP_ROOT),
+]
+const rel = (f: string) => path.relative(path.resolve(ROOT, ".."), f).split(path.sep).join("/")
 const MARKER = "v6-compact"
 const PRIMITIVE_TAG = /<(Button|Input|SelectTrigger)\b(?:[^<>{}]|\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})*?\/?>/g
 const NATIVE_TAG = /<(select|input)\b(?:[^<>{}]|\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})*?\/?>/g
@@ -69,14 +74,15 @@ describe("control sizes and radius", () => {
     expect(offenders).toEqual([])
   })
 
-  it("small font sizes on controls come as `text-base md:text-[Npx]` (areas: kanban, documents, reportes, admin)", () => {
+  it("small font sizes on controls come as `text-base md:text-[Npx]` (every scanned file)", () => {
     // The primitives set `text-base md:text-sm`: a lone `text-[Npx]` only replaces `text-base`, so `md:text-sm` still wins from md up.
-    const AREAS = ["kanban", "documents", "reportes", "admin"]
     const CONTROL_TAG = /<(Input|SelectTrigger|select|input)\b(?:[^<>{}]|\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})*?\/?>/g
     const LONE_SIZE = /(?<![\w:[-])text-\[\d+(?:\.\d+)?px\](?![\w-])/
     const PAIRED = /(?<![\w:[-])md:text-\[\d/
     const offenders: string[] = []
-    for (const file of FILES.filter((f) => AREAS.some((a) => rel(f).startsWith(`${a}/`)))) {
+    // PENDING (outside the U6c edit surfaces): `components/crm/` (client-list, entity-dialogs) still has lone `text-[Npx]` sizes.
+    const PENDING = ["components/crm/"]
+    for (const file of FILES.filter((f) => !PENDING.some((p) => rel(f).startsWith(p)))) {
       const text = readFileSync(file, "utf8")
       for (const m of text.matchAll(CONTROL_TAG)) {
         if (m[0].includes(MARKER)) continue
