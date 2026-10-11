@@ -3,7 +3,7 @@
 // qué controles aparecen según rol, membresía, estado del proyecto y autoría del gasto.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen, waitFor, within } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -71,12 +71,30 @@ const gasto = (id: string, over: Record<string, unknown> = {}) => ({
   soportes: [
     { id: "s1", nombre: "factura.pdf", tipo: "archivo", url_externa: null, tipo_mime: "application/pdf", tamano_bytes: 100, subido_por_id: "otro", created_at: "2026-10-16T12:00:00.000Z" },
   ],
+  soportes_count: 1,
   ...over,
 })
 
-const TOTALES = Object.fromEntries(
-  ["REGISTRADO", "VALIDADO", "RECHAZADO", "ANULADO"].map((e) => [e, { cantidad: 0, valor: "0.00" }]),
-)
+/** Same reading the server makes: totals by estado plus the `resumen` block. */
+function respuesta(gastos: ReturnType<typeof gasto>[]) {
+  const totales = Object.fromEntries(
+    ["REGISTRADO", "VALIDADO", "RECHAZADO", "ANULADO"].map((e) => {
+      const delEstado = gastos.filter((g) => g.estado === e)
+      return [e, { cantidad: delEstado.length, valor: delEstado.reduce((a, g) => a + Number(g.valor), 0).toFixed(2) }]
+    }),
+  )
+  const vigentes = gastos.filter((g) => g.estado === "REGISTRADO" || g.estado === "VALIDADO")
+  const observados = gastos.filter((g) => g.estado === "REGISTRADO" && (g.alerta_sobregasto || g.datos_incompletos))
+  return {
+    gastos,
+    totales,
+    resumen: {
+      vigentes: vigentes.length,
+      con_soporte: vigentes.filter((g) => (g.soportes_count ?? 0) > 0).length,
+      observados: { cantidad: observados.length, valor: observados.reduce((a, g) => a + Number(g.valor), 0).toFixed(2) },
+    },
+  }
+}
 
 const BUDGET = {
   estado: "EN_EJECUCION",
@@ -94,7 +112,7 @@ type Setup = {
   usuarioId?: string
   miembro?: boolean
   proyecto?: Partial<ProjectListRow>
-  gastos?: unknown[]
+  gastos?: ReturnType<typeof gasto>[]
   conSoportes?: boolean
 }
 
@@ -112,7 +130,7 @@ describe("ProjectGastos", () => {
         )
       }
       if (url.endsWith("/budget")) return Promise.resolve(jsonResponse(BUDGET))
-      if (url.endsWith("/expenses") && method === "GET") return Promise.resolve(jsonResponse({ gastos, totales: TOTALES }))
+      if (url.endsWith("/expenses") && method === "GET") return Promise.resolve(jsonResponse(respuesta(gastos)))
       return Promise.resolve(jsonResponse({}))
     })
     return render(<ProjectGastos proyecto={{ ...PROYECTO, ...proyecto }} />, { wrapper: createWrapper() })
@@ -207,6 +225,7 @@ describe("ProjectGastos", () => {
       const sinAcceso = gasto("g1")
       delete (sinAcceso as Record<string, unknown>).tercero_numero_id
       delete (sinAcceso as Record<string, unknown>).soportes
+      delete (sinAcceso as Record<string, unknown>).soportes_count
       setup({ rol: "COLABORADOR", gastos: [sinAcceso] })
       const fila = await screen.findByTestId("gasto-fila")
       expect(fila).not.toHaveTextContent("900123456")
@@ -229,6 +248,140 @@ describe("ProjectGastos", () => {
       const filas = await screen.findAllByTestId("gasto-fila")
       expect(filas[0]).toHaveTextContent("Soporte ilegible")
       expect(filas[1]).toHaveTextContent("Factura duplicada")
+    })
+  })
+
+  describe("ledger table", () => {
+    const MIXTO = () => [
+      gasto("g1", { alerta_sobregasto: true, valor: "450000.00" }),
+      gasto("g2", { estado: "VALIDADO", valor: "500000.00" }),
+      gasto("g3", { datos_incompletos: true, tercero_numero_id: null, soportes: [], soportes_count: 0 }),
+      gasto("g4", { estado: "RECHAZADO", motivo_rechazo: "Soporte ilegible" }),
+      gasto("g5"),
+    ]
+
+    it("renders a table with the ledger columns and numeric amounts", async () => {
+      setup({ gastos: MIXTO() })
+      const lista = await screen.findByTestId("gastos-lista")
+      const tabla = within(lista).getByRole("table")
+      const cabeceras = within(tabla).getAllByRole("columnheader").map((th) => th.textContent)
+      expect(cabeceras).toEqual(["Fecha", "Rubro", "Tercero", "Documento", "Monto", "Estado", "Soporte", "Acciones"])
+      const filas = within(tabla).getAllByTestId("gasto-fila")
+      expect(filas).toHaveLength(5)
+      expect(filas[0]).toHaveTextContent("R12 · Transporte")
+      expect(filas[0]).toHaveTextContent("Proveedor SAS")
+      expect(filas[0]).toHaveTextContent("FE-0123")
+      const monto = within(filas[0]).getByText("$ 450.000").closest("td")
+      expect(monto?.className).toContain("text-right")
+    })
+
+    it("shows the KPI row from the server numbers", async () => {
+      setup({ gastos: MIXTO() })
+      const kpis = await screen.findByTestId("gastos-kpis")
+      expect(within(kpis).getByTestId("gastos-kpi-observados")).toHaveTextContent("2")
+      expect(within(kpis).getByTestId("gastos-kpi-con-soporte")).toHaveTextContent("3 de 4")
+    })
+
+    it("marks the support column: a button per support, or 'Sin soporte' when the viewer has none", async () => {
+      setup({ gastos: MIXTO() })
+      const filas = await screen.findAllByTestId("gasto-fila")
+      expect(within(filas[0]).getByRole("button", { name: "Ver soporte factura.pdf" })).toBeInTheDocument()
+      expect(within(filas[2]).getByText("Sin soporte")).toBeInTheDocument()
+      expect(within(filas[0]).queryByText("Sin soporte")).not.toBeInTheDocument()
+    })
+
+    it("does not say 'Sin soporte' when the API hid the supports (RNF-03)", async () => {
+      const oculto = gasto("g1")
+      delete (oculto as Record<string, unknown>).soportes
+      delete (oculto as Record<string, unknown>).soportes_count
+      setup({ rol: "COLABORADOR", gastos: [oculto] })
+      const fila = await screen.findByTestId("gasto-fila")
+      expect(fila).not.toHaveTextContent("Sin soporte")
+    })
+
+    it("hides the actions column for someone who cannot validate", async () => {
+      setup({ rol: "COORDINADOR", miembro: true, gastos: MIXTO() })
+      const tabla = within(await screen.findByTestId("gastos-lista")).getByRole("table")
+      expect(within(tabla).queryByRole("columnheader", { name: "Acciones" })).not.toBeInTheDocument()
+    })
+  })
+
+  describe("filter chips", () => {
+    const MIXTO = () => [
+      gasto("g1", { alerta_sobregasto: true }),
+      gasto("g2", { estado: "VALIDADO" }),
+      gasto("g3", { datos_incompletos: true, tercero_numero_id: null }),
+      gasto("g4", { estado: "RECHAZADO", motivo_rechazo: "Soporte ilegible" }),
+      gasto("g5"),
+    ]
+    const chip = (nombre: RegExp) => screen.getByRole("button", { name: nombre })
+
+    it("lists the chips with their counts and starts on Todos", async () => {
+      setup({ gastos: MIXTO() })
+      await screen.findByTestId("gastos-lista")
+      expect(chip(/^Todos/)).toHaveTextContent("5")
+      expect(chip(/^Registrado/)).toHaveTextContent("3")
+      expect(chip(/^Validado/)).toHaveTextContent("1")
+      expect(chip(/^Rechazado/)).toHaveTextContent("1")
+      expect(chip(/^Observados/)).toHaveTextContent("2")
+      expect(chip(/^Todos/)).toHaveAttribute("aria-pressed", "true")
+      expect(chip(/^Observados/)).toHaveAttribute("aria-pressed", "false")
+      expect(screen.queryByRole("button", { name: /^Anulado/ })).not.toBeInTheDocument()
+    })
+
+    it("filters the loaded list by estado without calling the API again", async () => {
+      const user = userEvent.setup()
+      setup({ gastos: MIXTO() })
+      await screen.findByTestId("gastos-lista")
+      const antes = fetchMock.mock.calls.length
+      await user.click(chip(/^Validado/))
+      expect(screen.getAllByTestId("gasto-fila")).toHaveLength(1)
+      expect(chip(/^Validado/)).toHaveAttribute("aria-pressed", "true")
+      expect(chip(/^Todos/)).toHaveAttribute("aria-pressed", "false")
+      expect(fetchMock.mock.calls.length).toBe(antes)
+    })
+
+    it("Observados keeps REGISTRADO expenses with the overspend alert or incomplete data (D5)", async () => {
+      const user = userEvent.setup()
+      setup({ gastos: MIXTO() })
+      await screen.findByTestId("gastos-lista")
+      await user.click(chip(/^Observados/))
+      const filas = screen.getAllByTestId("gasto-fila")
+      expect(filas).toHaveLength(2)
+      expect(filas[0]).toHaveTextContent("Supera el asignado")
+      expect(filas[1]).toHaveTextContent("Datos incompletos")
+    })
+
+    it("shows the Anulado chip only when the list has voided expenses", async () => {
+      setup({ gastos: [gasto("g1"), gasto("g2", { estado: "ANULADO", motivo_anulacion: "Duplicado" })] })
+      await screen.findByTestId("gastos-lista")
+      expect(chip(/^Anulado/)).toHaveTextContent("1")
+    })
+
+    it("says so when a filter has no expenses, and is reachable with the keyboard", async () => {
+      setup({ gastos: [gasto("g1")] })
+      await screen.findByTestId("gastos-lista")
+      const rechazado = chip(/^Rechazado/)
+      rechazado.focus()
+      expect(rechazado).toHaveFocus()
+      fireEvent.click(rechazado)
+      expect(screen.getByText("No hay gastos con este filtro.")).toBeInTheDocument()
+      expect(screen.queryByTestId("gasto-fila")).not.toBeInTheDocument()
+    })
+  })
+
+  describe("below md", () => {
+    afterEach(() => mockViewport(false))
+
+    it("renders cards instead of the table, with the same actions", async () => {
+      mockViewport(true)
+      setup({ gastos: [gasto("g1"), gasto("g2", { estado: "VALIDADO" })] })
+      const lista = await screen.findByTestId("gastos-lista")
+      await within(lista).findAllByTestId("gasto-fila")
+      expect(within(lista).queryByRole("table")).not.toBeInTheDocument()
+      expect(within(lista).getByTestId("gastos-cards")).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: "Validar" })).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: "Anular" })).toBeInTheDocument()
     })
   })
 

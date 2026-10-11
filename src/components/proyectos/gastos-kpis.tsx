@@ -17,6 +17,7 @@ export const GASTOS_ERROR = "No pudimos cargar los gastos. Inténtalo de nuevo."
 
 const GRID = "grid grid-cols-2 gap-3 lg:grid-cols-5";
 const TILE = "surface p-4 lg:p-5";
+const CERO = { cantidad: 0, valor: "0.00" };
 const numero = new Intl.NumberFormat("es-CO");
 
 /** Compacto con el monto exacto en `title` (el decimal llega como string y se opera en centavos). */
@@ -47,8 +48,15 @@ export function GastosKpis({
     );
   }
 
-  const { totales, resumen } = data;
-  const vigente = toCents(totales.REGISTRADO.valor) + toCents(totales.VALIDADO.valor);
+  // Tolerante con una respuesta sin `totales` o sin `resumen` (versiones anteriores de la API): ceros, nunca un error.
+  const registrado = data.totales?.REGISTRADO ?? CERO;
+  const validado = data.totales?.VALIDADO ?? CERO;
+  const resumen = data.resumen ?? {
+    vigentes: registrado.cantidad + validado.cantidad,
+    observados: CERO,
+  };
+  const totales = { REGISTRADO: registrado, VALIDADO: validado };
+  const vigente = toCents(registrado.valor) + toCents(validado.valor);
   const gastos = (cantidad: number) => plural(cantidad, "gasto", "gastos");
 
   return (
