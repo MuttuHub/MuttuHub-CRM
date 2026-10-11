@@ -36,6 +36,7 @@ import { ProjectEstructura } from "@/components/proyectos/project-estructura";
 import { ProjectEjecucion } from "@/components/proyectos/project-ejecucion";
 import { ProjectFinanciero } from "@/components/proyectos/project-financiero";
 import { ProjectKpisPanel } from "@/components/proyectos/project-kpis-panel";
+import { ResumenKpis } from "@/components/proyectos/resumen-kpis";
 import { ProjectGastos } from "@/components/proyectos/project-gastos";
 import { ProjectModificaciones } from "@/components/proyectos/project-modificaciones";
 import { ProjectPresupuesto } from "@/components/proyectos/project-presupuesto";
@@ -210,6 +211,7 @@ function FichaSemaforos({ proyectoId }: { proyectoId: string }) {
 function ResumenPanel({ proyecto }: { proyecto: ProjectListRow }) {
   return (
     <>
+      <ResumenKpis proyecto={proyecto} />
       <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
         <FieldValue
           label="Origen"

@@ -132,6 +132,36 @@ describe("ProjectFicha (page)", () => {
     expect(screen.queryByTestId("financiero")).not.toBeInTheDocument()
   })
 
+  it("renders the six KPI cards at the top of Resumen, above the fact sheet, reading the KPIs once", async () => {
+    mockFichaAndAudit({ historial: [] }, 200, PROYECTO, {
+      ...KPIS_PANEL,
+      cronograma: { corte: "2026-03-15", vencidas: 4, a_tiempo: 3, atrasadas: 1, valor: 75 },
+      entregables: { corte: "2026-03-15", programados: 5, logrados: 2, valor: 40 },
+      indicadores: { corte: "2026-03-15", valor: 50, medidos: 2, en_meta: 1, sin_medir: 0, sin_medir_ids: [] },
+      beneficiarios: { corte: "2026-03-15", total: 10, meta: 100, valor: 10 },
+      financiero: { corte: "2026-03-15", asignado: "100.00", programado: "50.00", ejecutado: "40.00", ea: 40, ep: 80, color: "verde", alerta_retraso: false },
+    })
+
+    renderFicha()
+
+    const cards = await screen.findByTestId("resumen-kpis")
+    expect(await within(cards).findByTestId("resumen-kpi-tecnico")).toHaveTextContent("30 %")
+    expect(within(cards).getAllByTestId(/^resumen-kpi-(?!dot)/)).toHaveLength(6)
+    expect(cards.compareDocumentPosition(screen.getByText("Origen")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes("/kpis"))).toHaveLength(1)
+    await openTab("Gastos")
+    expect(screen.queryByTestId("resumen-kpis")).not.toBeInTheDocument()
+  })
+
+  it("shows the Sin medir cards in the Resumen of a draft without reading the KPIs", async () => {
+    mockFichaAndAudit({ historial: [] }, 200, { ...PROYECTO, estado: "BORRADOR" })
+
+    renderFicha()
+
+    expect(await screen.findByTestId("resumen-kpi-tecnico")).toHaveTextContent("Sin medir")
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/kpis"))).toBe(false)
+  })
+
   it("mounts the modifications queue, the versions and the historial in the Cambios tab", async () => {
     mockFichaAndAudit({ historial: [] })
 

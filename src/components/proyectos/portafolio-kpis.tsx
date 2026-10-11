@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { KpiTile } from "@/components/ui/kpi-tile";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ProjectListRow, ProjectsPortfolio } from "@/hooks/projects";
+import { formatMillones } from "@/lib/format/millones";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 
 const KPIS_ERROR = "No pudimos cargar el resumen del portafolio. Inténtalo de nuevo.";
@@ -25,21 +26,6 @@ function presupuestoActivo(lista: readonly ProjectListRow[]): bigint {
   return lista
     .filter((proyecto) => proyecto.estado === "EN_EJECUCION" && proyecto.valor_total !== null)
     .reduce((suma, proyecto) => suma + toCents(proyecto.valor_total as string), BigInt(0));
-}
-
-const UN_MILLON_CENTAVOS = BigInt(100_000_000);
-const DECIMA_DE_MILLON = BigInt(10_000_000);
-
-/**
- * `$ 177,4 M` (como el diseño v6): millones con un decimal, calculado en bigint; el monto exacto va en el
- * `title`. Por debajo del millón se usa el formato estándar de la app.
- */
-function formatMillones(cents: bigint): string {
-  if (cents < UN_MILLON_CENTAVOS) return formatCOP(cents);
-  const decimas = (cents + DECIMA_DE_MILLON / BigInt(2)) / DECIMA_DE_MILLON;
-  const entero = (decimas / BigInt(10)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  const decimal = decimas % BigInt(10);
-  return `$ ${entero}${decimal === BigInt(0) ? "" : `,${decimal}`} M`;
 }
 
 export function PortafolioKpis({
