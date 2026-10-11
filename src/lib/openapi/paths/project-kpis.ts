@@ -18,7 +18,15 @@ const KpisProyectoSchema = registry.register(
     tecnico: z
       .object({ corte: CORTE, avance_real: z.number(), avance_programado: z.number(), desviacion_pp: z.number(), color: SEMAFORO })
       .nullable(),
-    cronograma: z.object({ corte: CORTE, vencidas: z.number().int(), a_tiempo: z.number().int(), valor: PCT }).nullable(),
+    cronograma: z
+      .object({
+        corte: CORTE,
+        vencidas: z.number().int(),
+        a_tiempo: z.number().int(),
+        atrasadas: z.number().int().openapi({ description: "Vencidas (fin <= corte) con progreso < 100 %; las terminadas con retraso no cuentan." }),
+        valor: PCT,
+      })
+      .nullable(),
     entregables: z.object({ corte: CORTE, programados: z.number().int(), logrados: z.number().int(), valor: PCT }).nullable(),
     indicadores: z
       .object({ corte: CORTE, valor: PCT, medidos: z.number().int(), sin_medir: z.number().int(), sin_medir_ids: z.array(z.string()) })
@@ -59,6 +67,7 @@ const PortafolioSchema = registry.register(
         semaforo_tecnico: SEMAFORO.nullable(),
         semaforo_financiero: SEMAFORO.nullable(),
         alerta_retraso: z.boolean().nullable(),
+        atrasadas: z.number().int().nullable().openapi({ description: "Actividades atrasadas (D3); null si el proyecto no es medible." }),
         kpis: KpisProyectoSchema,
       }),
     ),
@@ -72,6 +81,10 @@ const PortafolioSchema = registry.register(
         ejecutado: z.string(),
         ea: PCT.openapi({ description: "ΣE / ΣA, ponderado por monto." }),
         ep: PCT.openapi({ description: "ΣE / ΣP, ponderado por monto." }),
+      }),
+      atrasadas: z.number().int().openapi({ description: "Suma de actividades atrasadas de los proyectos medibles." }),
+      beneficiarios: z.object({ total: z.number().int(), meta: z.number().int().nullable() }).openapi({
+        description: "Suma de beneficiarios registrados y de metas de los proyectos medibles; meta es null si ninguno tiene meta.",
       }),
       por_color_tecnico: z.record(z.string(), z.number().int()),
       por_color_financiero: z.record(z.string(), z.number().int()),

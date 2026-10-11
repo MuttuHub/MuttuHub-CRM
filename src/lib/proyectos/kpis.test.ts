@@ -74,6 +74,28 @@ describe("cumplimientoCronograma", () => {
   })
 })
 
+describe("atrasadas (D3)", () => {
+  it("counts due activities below 100 % and never the ones finished late", () => {
+    const r = cumplimientoCronograma(
+      [
+        { fin: "2026-02-28", estado: "FINALIZADA" },
+        { fin: "2026-02-28", estado: "FINALIZADA_CON_RETRASO" },
+        { fin: "2026-03-10", estado: "EN_CURSO" },
+        { fin: "2026-03-31", estado: "NO_INICIADA" },
+        { fin: "2026-04-30", estado: "EN_CURSO" },
+      ],
+      CORTE,
+    )
+    expect(r).toMatchObject({ vencidas: 4, a_tiempo: 1, atrasadas: 2 })
+  })
+  it("kpisProyecto exposes it, 0 when everything due is finished", () => {
+    const tarde = actividad({ id: "T", fin: "2026-03-01", entregables: [{ id: "T-e", meta: 10, avances: [avance("2026-03-20", 10)] }] })
+    const abierta = actividad({ id: "O", fin: "2026-03-15", entregables: [{ id: "O-e", meta: 10, avances: [avance("2026-03-10", 4)] }] })
+    expect(kpisProyecto(proyecto({ actividades: [tarde, abierta] })).cronograma?.atrasadas).toBe(1)
+    expect(kpisProyecto(proyecto()).cronograma?.atrasadas).toBe(0)
+  })
+})
+
 describe("entregablesLogrados", () => {
   it("requires the goal met AND a live support", () => {
     const acts = [
@@ -231,6 +253,22 @@ describe("kpisPortafolio", () => {
     expect(p.corte).toBe(CORTE)
     expect(p.por_color_financiero.verde).toBe(1)
     expect(p.por_color_tecnico.verde + p.por_color_tecnico.amarillo + p.por_color_tecnico.rojo).toBe(1)
+  })
+  it("sums atrasadas and beneficiaries over the measured projects only", () => {
+    const abierta = actividad({ id: "O", fin: "2026-03-15", entregables: [{ id: "O-e", meta: 10, avances: [] }] })
+    const a = kpisProyecto(proyecto({ actividades: [abierta], beneficiarios: { total: 40, meta: 100 } }))
+    const b = kpisProyecto(proyecto({ actividades: [abierta, { ...abierta, id: "O2" }], beneficiarios: { total: 10, meta: null } }))
+    const borrador = kpisProyecto(proyecto({ estado: "BORRADOR" }))
+    const p = kpisPortafolio([a, b, borrador], CORTE)
+    expect(p.atrasadas).toBe(3)
+    expect(p.beneficiarios).toEqual({ total: 50, meta: 100 })
+  })
+  it("beneficiaries meta is null when no measured project has a goal; empty portfolio is 0", () => {
+    const sinMeta = kpisProyecto(proyecto({ beneficiarios: { total: 5, meta: null } }))
+    expect(kpisPortafolio([sinMeta], CORTE).beneficiarios).toEqual({ total: 5, meta: null })
+    const vacio = kpisPortafolio([], CORTE)
+    expect(vacio.atrasadas).toBe(0)
+    expect(vacio.beneficiarios).toEqual({ total: 0, meta: null })
   })
   it("empty portfolio yields nulls", () => {
     const p = kpisPortafolio([], CORTE)

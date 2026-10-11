@@ -93,6 +93,45 @@ describe("GET dashboard/portfolio: access", () => {
   })
 })
 
+describe("GET dashboard/portfolio: atrasadas and beneficiarios", () => {
+  it("exposes atrasadas per project and in agregado (D3: a finished-late activity does not count) and the beneficiaries aggregate", async () => {
+    const avance = (fecha: string, cantidad: number) => ({ fecha, cantidad, anulado: false, tieneMedio: true, createdAt: `${fecha}T12:00:00.000Z` })
+    const act = (id: string, fin: string, avances: ReturnType<typeof avance>[]) => ({
+      id,
+      codigo: id,
+      peso: 1,
+      inicio: "2026-01-05",
+      fin,
+      entregables: [{ id: `${id}-e`, meta: 10, avances }],
+    })
+    const conAtrasos = kpisProyecto({
+      corte: "2026-03-15",
+      estado: "EN_EJECUCION",
+      parametros: PARAMETROS_V2_DEFAULT,
+      actividades: [
+        act("A", "2026-02-01", [avance("2026-03-01", 10)]), // finished late: NOT atrasada
+        act("B", "2026-03-01", [avance("2026-02-20", 3)]), // due and open: atrasada
+        act("C", "2026-06-01", []), // not due yet
+      ],
+      indicadores: [],
+      beneficiarios: { total: 30, meta: 100 },
+      financiero: { asignado: toCents("1000"), programado: toCents("500"), ejecutado: toCents("100") },
+    })
+    vi.mocked(loadKpisPortafolio).mockResolvedValue(
+      new Map([
+        ["1", conAtrasos],
+        ["2", kpisNoMedible("2026-03-15", "BORRADOR", PARAMETROS_V2_DEFAULT)],
+      ]),
+    )
+    const body = await (await GET(get())).json()
+    expect(body.proyectos[0].atrasadas).toBe(1)
+    expect(body.proyectos[0].kpis.cronograma.atrasadas).toBe(1)
+    expect(body.proyectos[1].atrasadas).toBeNull()
+    expect(body.agregado.atrasadas).toBe(1)
+    expect(body.agregado.beneficiarios).toEqual({ total: 30, meta: 100 })
+  })
+})
+
 describe("GET dashboard/portfolio: payload", () => {
   it("returns both semáforos and the state per project, the corte echoed and no territory key", async () => {
     const res = await GET(get())

@@ -88,6 +88,7 @@ export async function cargarPortafolio(usuario: Usuario, url: URL) {
       semaforo_tecnico: k.tecnico?.color ?? null,
       semaforo_financiero: k.financiero?.color ?? null,
       alerta_retraso: k.financiero?.alerta_retraso ?? null,
+      atrasadas: k.cronograma?.atrasadas ?? null,
       kpis: serializeKpis(k),
     };
   });

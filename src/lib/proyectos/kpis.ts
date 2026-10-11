@@ -52,6 +52,8 @@ export type CumplimientoCronograma = {
   vencidas: number
   /** Of those, the ones finished within their dates (FINALIZADA, never _CON_RETRASO). */
   a_tiempo: number
+  /** D3: due by the corte (`fin <= corte`) and below 100 %. Activities finished late are NOT counted. */
+  atrasadas: number
   valor: number | null
 }
 
@@ -61,7 +63,8 @@ export function cumplimientoCronograma(
 ): CumplimientoCronograma {
   const vencidas = actividades.filter((a) => a.fin <= corte)
   const aTiempo = vencidas.filter((a) => a.estado === "FINALIZADA").length
-  return { corte, vencidas: vencidas.length, a_tiempo: aTiempo, valor: pct(aTiempo, vencidas.length) }
+  const atrasadas = vencidas.filter((a) => a.estado === "NO_INICIADA" || a.estado === "EN_CURSO").length
+  return { corte, vencidas: vencidas.length, a_tiempo: aTiempo, atrasadas, valor: pct(aTiempo, vencidas.length) }
 }
 
 // ---------------------------------------------------------------------------
@@ -267,6 +270,10 @@ export type KpisPortafolio = {
     /** ΣE / ΣP, money-weighted. */
     ep: number | null
   }
+  /** Σ of the per-project `atrasadas` (D3) over the measured projects. */
+  atrasadas: number
+  /** Σ registered and Σ goal over the measured projects; `meta` is null when none has a goal. */
+  beneficiarios: { total: number; meta: number | null }
   por_estado: Record<string, number>
   por_color_tecnico: Record<ColorSemaforo, number>
   por_color_financiero: Record<ColorSemaforo, number>
@@ -285,6 +292,9 @@ export function kpisPortafolio(proyectos: readonly KpisProyecto[], corte: IsoDat
   const asignado = sumCents(financieros.map((f) => f.asignado))
   const programado = sumCents(financieros.map((f) => f.programado))
   const ejecutado = sumCents(financieros.map((f) => f.ejecutado))
+
+  const medidos = proyectos.flatMap((k) => (k.beneficiarios ? [k.beneficiarios] : []))
+  const metas = medidos.flatMap((b) => (b.meta === null ? [] : [b.meta]))
 
   const porEstado: Record<string, number> = {}
   for (const k of proyectos) porEstado[k.estado] = (porEstado[k.estado] ?? 0) + 1
@@ -308,6 +318,11 @@ export function kpisPortafolio(proyectos: readonly KpisProyecto[], corte: IsoDat
       ejecutado,
       ea: tenthsToPct(percentTenths(ejecutado, asignado)),
       ep: tenthsToPct(percentTenths(ejecutado, programado)),
+    },
+    atrasadas: proyectos.reduce((sum, k) => sum + (k.cronograma?.atrasadas ?? 0), 0),
+    beneficiarios: {
+      total: medidos.reduce((sum, b) => sum + b.total, 0),
+      meta: metas.length === 0 ? null : metas.reduce((sum, m) => sum + m, 0),
     },
     por_estado: porEstado,
     por_color_tecnico: colores(tecnicos),

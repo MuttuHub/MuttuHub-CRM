@@ -1912,7 +1912,7 @@ export type ProjectKpis = {
   /** true solo si el PO confirmó umbrales, tolerancia y retraso. */
   confirmado: boolean;
   tecnico: KpiTecnico | null;
-  cronograma: { corte: string; vencidas: number; a_tiempo: number; valor: number | null } | null;
+  cronograma: { corte: string; vencidas: number; a_tiempo: number; atrasadas: number; valor: number | null } | null;
   entregables: { corte: string; programados: number; logrados: number; valor: number | null } | null;
   indicadores: { corte: string; valor: number | null; medidos: number; sin_medir: number; sin_medir_ids: string[] } | null;
   beneficiarios: { corte: string; total: number; meta: number | null; valor: number | null } | null;
@@ -1953,6 +1953,8 @@ export type PortfolioProject = {
   semaforo_tecnico: ColorSemaforo | null;
   semaforo_financiero: ColorSemaforo | null;
   alerta_retraso: boolean | null;
+  /** Actividades atrasadas (D3); null si el proyecto no es medible. */
+  atrasadas: number | null;
   kpis: ProjectKpis;
 };
 
@@ -1973,6 +1975,10 @@ export type ProjectsPortfolio = {
       ea: number | null;
       ep: number | null;
     };
+    /** Σ de actividades atrasadas (D3) de los proyectos medibles. */
+    atrasadas: number;
+    /** Σ registrados y Σ meta de los proyectos medibles; meta null si ninguno tiene meta. */
+    beneficiarios: { total: number; meta: number | null };
     por_color_tecnico: Record<ColorSemaforo, number>;
     por_color_financiero: Record<ColorSemaforo, number>;
   };
