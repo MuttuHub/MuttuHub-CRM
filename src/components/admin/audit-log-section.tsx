@@ -169,19 +169,19 @@ export function AuditLogSection() {
           <Table className="min-w-[860px]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="pl-5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead className="pl-5">
                   Fecha
                 </TableHead>
-                <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead>
                   Usuario
                 </TableHead>
-                <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead>
                   Entidad
                 </TableHead>
-                <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead>
                   Acción
                 </TableHead>
-                <TableHead className="pr-5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead className="pr-5">
                   Campos
                 </TableHead>
               </TableRow>

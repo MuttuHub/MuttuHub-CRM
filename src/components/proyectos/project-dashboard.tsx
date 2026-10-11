@@ -230,9 +230,9 @@ function TablaProyectos({ proyectos }: { proyectos: PortfolioProject[] }) {
             <TableHead>Estado</TableHead>
             <TableHead className="whitespace-normal leading-tight">Semáforo técnico</TableHead>
             <TableHead className="whitespace-normal leading-tight">Semáforo financiero</TableHead>
-            <TableHead className="text-right">Avance real</TableHead>
-            <TableHead className="whitespace-normal text-right leading-tight">Ejecutado / asignado</TableHead>
-            <TableHead className="sticky right-0 bg-panel text-right">Acciones</TableHead>
+            <TableHead numeric>Avance real</TableHead>
+            <TableHead numeric className="whitespace-normal leading-tight">Ejecutado / asignado</TableHead>
+            <TableHead numeric className="sticky right-0 bg-panel">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

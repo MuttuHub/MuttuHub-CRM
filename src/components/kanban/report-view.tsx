@@ -29,6 +29,7 @@ import {
   StatTile,
 } from "@/components/dashboard/shared";
 import { TrendFigure } from "@/components/dashboard/trend-figure";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const RANGOS: { value: ReportFilters["rango"]; label: string }[] = [
   { value: "week", label: "Semana" },
@@ -247,21 +248,18 @@ function TableCard({
         </h3>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-[12.5px]">
-          <thead>
-            <tr className="border-b border-ink-200 text-left">
+        <Table className="text-[12.5px]">
+          <TableHeader>
+            <TableRow>
               {headers.map((h) => (
-                <th
-                  key={h}
-                  className="px-5 py-2.5 text-[10.5px] font-bold tracking-[0.09em] text-ink-500 uppercase"
-                >
+                <TableHead key={h}>
                   {h}
-                </th>
+                </TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>{children}</tbody>
-        </table>
+            </TableRow>
+          </TableHeader>
+          <TableBody>{children}</TableBody>
+        </Table>
       </div>
     </section>
   );
@@ -269,11 +267,11 @@ function TableCard({
 
 function MonoCell({ value, tone }: { value: number | string; tone?: string }) {
   return (
-    <td className="px-5 py-2.5">
+    <TableCell>
       <span className={cn("font-mono text-[12px] font-medium tabular-nums", tone ?? "text-ink-900")}>
         {value}
       </span>
-    </td>
+    </TableCell>
   );
 }
 
@@ -290,15 +288,15 @@ function PersonTable({
       headers={["Persona", "Asignadas", "En curso", "Vencidas", "Completadas", "A tiempo", "Tarde"]}
     >
       {porPersona.map((p) => (
-        <tr key={p.id} className="border-t border-ink-200 first:border-t-0 hover:bg-ink-100/40">
-          <td className="px-5 py-2.5 font-semibold text-ink-900">{p.nombre}</td>
+        <TableRow key={p.id}>
+          <TableCell className="font-semibold text-ink-900">{p.nombre}</TableCell>
           <MonoCell value={p.asignadas} />
           <MonoCell value={p.en_curso} />
           <MonoCell value={p.vencidas} tone={p.vencidas > 0 ? "text-destructivo" : "text-ink-900"} />
           <MonoCell value={p.completadas} tone="text-exito" />
           <MonoCell value={p.a_tiempo} tone="text-exito" />
           <MonoCell value={p.tarde} tone={p.tarde > 0 ? "text-alerta" : "text-ink-900"} />
-        </tr>
+        </TableRow>
       ))}
     </TableCard>
   );

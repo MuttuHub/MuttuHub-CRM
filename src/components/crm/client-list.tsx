@@ -986,13 +986,13 @@ function SortableHeader({
 }) {
   const active = sort === column;
   return (
-    <TableHead className={align === "right" ? "text-right" : undefined}>
+    <TableHead numeric={align === "right"}>
       <button
         type="button"
         onClick={() => onSort(column)}
         aria-label={`Ordenar por ${column === "nombre" ? "Cliente" : children}`}
         className={cn(
-          "inline-flex items-center gap-1 font-semibold text-ink-700 transition-colors hover:text-ink-950",
+          "inline-flex items-center gap-1 transition-colors hover:text-ink-950",
           align === "right" && "justify-end",
         )}
       >

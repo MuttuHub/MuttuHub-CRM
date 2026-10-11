@@ -34,6 +34,7 @@ import {
 } from "@/hooks/projects";
 import { IMPORT_MAX_BYTES } from "@/lib/proyectos/plantilla/columns";
 import { agruparPorHoja, reporteACsv, type ReportePlantilla } from "@/lib/proyectos/plantilla-reporte";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const TOO_LARGE = "El archivo supera el límite de 4 MB.";
 const NOT_XLSX = "Solo se acepta la plantilla en formato Excel (.xlsx).";
@@ -65,28 +66,28 @@ function reemplazaTexto(reemplaza: ImportReemplaza): string {
 function HallazgoTabla({ errores }: { errores: ReportePlantilla["errores"] }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-left text-[12.5px]">
-        <thead className="text-ink-500">
-          <tr>
+      <Table className="text-[12.5px]">
+        <TableHeader>
+          <TableRow>
             {["Regla", "Fila", "Columna", "Valor", "Mensaje"].map((titulo) => (
-              <th key={titulo} scope="col" className="px-2 py-1 font-semibold">
+              <TableHead key={titulo} scope="col">
                 {titulo}
-              </th>
+              </TableHead>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {errores.map((error, indice) => (
-            <tr key={`${error.regla}-${error.fila}-${indice}`} className="border-t border-ink-200 align-top">
-              <td className="px-2 py-1 font-mono text-[12px] whitespace-nowrap">{error.regla}</td>
-              <td className="px-2 py-1 tabular-nums">{error.fila ?? "—"}</td>
-              <td className="px-2 py-1">{error.columna ?? "—"}</td>
-              <td className="max-w-[14rem] px-2 py-1 break-words">{error.valor ?? "—"}</td>
-              <td className="px-2 py-1">{error.mensaje}</td>
-            </tr>
+            <TableRow key={`${error.regla}-${error.fila}-${indice}`} className="align-top">
+              <TableCell className="align-top font-mono text-[12px]">{error.regla}</TableCell>
+              <TableCell className="align-top">{error.fila ?? "—"}</TableCell>
+              <TableCell className="align-top">{error.columna ?? "—"}</TableCell>
+              <TableCell className="max-w-[14rem] align-top break-words whitespace-normal">{error.valor ?? "—"}</TableCell>
+              <TableCell className="align-top whitespace-normal">{error.mensaje}</TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }

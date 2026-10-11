@@ -30,6 +30,7 @@ import {
 } from "@/hooks/projects";
 import { canManageProjects } from "@/lib/permissions";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const BUDGET_ERROR = "No pudimos cargar el presupuesto. Inténtalo de nuevo.";
 
@@ -110,17 +111,17 @@ function PresupuestoEditor({
   return (
     <div className="mt-2 flex flex-col gap-2.5">
       <div className="overflow-x-auto rounded-[14px] border border-ink-200 bg-panel">
-        <table data-testid="presupuesto-tabla" className="w-full text-[12.5px]">
-          <thead>
-            <tr className="border-b border-ink-200 text-left text-[11px] text-ink-500">
-              <th scope="col" className="px-3 py-2 font-semibold">Rubro</th>
-              <th scope="col" className="px-3 py-2 text-right font-semibold">Asignado</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table data-testid="presupuesto-tabla" className="w-full text-[12.5px]">
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">Rubro</TableHead>
+              <TableHead scope="col" numeric>Asignado</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {budget.rubros.map((r) => (
-              <tr key={r.rubro_id} data-testid="presupuesto-fila" className="border-b border-ink-100 last:border-0">
-                <td className="px-3 py-1.5 text-ink-800">
+              <TableRow key={r.rubro_id} data-testid="presupuesto-fila">
+                <TableCell className="text-ink-800 whitespace-normal">
                   <span className="font-mono text-[11.5px] text-ink-500">{r.codigo ?? "—"}</span>{" "}
                   {r.nombre}
                   {r.heredado_pendiente && (
@@ -128,8 +129,8 @@ function PresupuestoEditor({
                       <ToneBadge tone="alerta" label="Rubro suspendido pendiente de reasignación" />
                     </div>
                   )}
-                </td>
-                <td className="px-3 py-1.5 text-right tabular-nums">
+                </TableCell>
+                <TableCell numeric>
                   {canEdit ? (
                     <MoneyInput
                       label={`Asignado ${r.codigo ?? r.nombre}`}
@@ -139,11 +140,11 @@ function PresupuestoEditor({
                   ) : (
                     formatCOP(toCents(r.asignado))
                   )}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
       <dl data-testid="presupuesto-resumen" className="grid grid-cols-1 gap-x-6 gap-y-1.5 sm:grid-cols-3">

@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const DANE_REGEX = /^\d{5}$/;
 
@@ -92,27 +93,27 @@ function CatalogoTable({
         </p>
       ) : (
         <div className="mt-3 overflow-x-auto">
-          <table className="w-full text-left text-[13px]">
-            <thead>
-              <tr className="text-[11px] uppercase tracking-wide text-ink-500">
-                <th className="py-1.5 pr-3 font-semibold">{codeHeader}</th>
-                <th className="py-1.5 pr-3 font-semibold">Nombre</th>
+          <Table className="text-[13px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead>{codeHeader}</TableHead>
+                <TableHead>Nombre</TableHead>
                 {detailHeader ? (
-                  <th className="py-1.5 pr-3 font-semibold">{detailHeader}</th>
+                  <TableHead>{detailHeader}</TableHead>
                 ) : null}
-                <th className="py-1.5 pr-3 font-semibold">Estado</th>
-                <th className="py-1.5 text-right font-semibold">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
+                <TableHead>Estado</TableHead>
+                <TableHead numeric>Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {rows.map((row) => {
                 const editing = editingId === row.id;
                 return (
-                  <tr key={row.id} className="border-t border-ink-100">
-                    <td className="py-2 pr-3 font-mono text-[12px] text-ink-700">
+                  <TableRow key={row.id}>
+                    <TableCell className="font-mono text-[12px] text-ink-700">
                       {row.codigo ?? "—"}
-                    </td>
-                    <td className="py-2 pr-3 text-ink-950">
+                    </TableCell>
+                    <TableCell className="text-ink-950">
                       {editing ? (
                         <Input
                           aria-label={`Nombre de ${row.codigo ?? row.nombre}`}
@@ -123,18 +124,18 @@ function CatalogoTable({
                       ) : (
                         row.nombre
                       )}
-                    </td>
+                    </TableCell>
                     {detailHeader ? (
-                      <td className="py-2 pr-3 text-ink-700">{row.detalle ?? "—"}</td>
+                      <TableCell className="text-ink-700 whitespace-normal">{row.detalle ?? "—"}</TableCell>
                     ) : null}
-                    <td className="py-2 pr-3">
+                    <TableCell>
                       {row.activo ? (
                         <Badge variant="secondary">Activo</Badge>
                       ) : (
                         <Badge variant="outline">Suspendido</Badge>
                       )}
-                    </td>
-                    <td className="py-2 text-right">
+                    </TableCell>
+                    <TableCell numeric>
                       <div className="inline-flex gap-1.5">
                         {editing ? (
                           <>
@@ -187,12 +188,12 @@ function CatalogoTable({
                           </>
                         )}
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
 

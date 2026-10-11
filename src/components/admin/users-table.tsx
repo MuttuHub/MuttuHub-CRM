@@ -242,16 +242,16 @@ export function UsersTable({
           <Table className="min-w-[760px]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="pl-5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead className="pl-5">
                   Usuario
                 </TableHead>
-                <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead>
                   Rol
                 </TableHead>
-                <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead>
                   Estado
                 </TableHead>
-                <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead>
                   Ingreso
                 </TableHead>
                 <TableHead className="w-12" />

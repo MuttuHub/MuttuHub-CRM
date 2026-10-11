@@ -19,6 +19,7 @@ import {
   type ProjectVersion,
 } from "@/hooks/projects";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const VERSIONES_ERROR = "No pudimos cargar las versiones. Inténtalo de nuevo.";
 const COMPARACION_ERROR = "No pudimos comparar las versiones. Inténtalo de nuevo.";
@@ -96,33 +97,33 @@ function VersionesContent({ proyectoId }: { proyectoId: string }) {
 function VersionesTabla({ versiones }: { versiones: ProjectVersion[] }) {
   return (
     <div className="overflow-x-auto rounded-[14px] border border-ink-200 bg-panel">
-      <table data-testid="versiones-tabla" className="w-full text-[12.5px]">
-        <thead>
-          <tr className="border-b border-ink-200 text-left text-[11px] text-ink-500">
-            <th scope="col" className="px-3 py-2 font-semibold">Versión</th>
-            <th scope="col" className="px-2 py-2 font-semibold">Tipo</th>
-            <th scope="col" className="px-2 py-2 font-semibold">Fecha</th>
-            <th scope="col" className="px-2 py-2 font-semibold">Aprobó</th>
-            <th scope="col" className="px-3 py-2 font-semibold">Motivo</th>
-          </tr>
-        </thead>
-        <tbody>
+      <Table data-testid="versiones-tabla" className="w-full text-[12.5px]">
+        <TableHeader>
+          <TableRow>
+            <TableHead scope="col">Versión</TableHead>
+            <TableHead scope="col">Tipo</TableHead>
+            <TableHead scope="col">Fecha</TableHead>
+            <TableHead scope="col">Aprobó</TableHead>
+            <TableHead scope="col">Motivo</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {versiones.map((version) => (
-            <tr key={version.numero} data-testid="version-fila" className="border-b border-ink-100 last:border-b-0">
-              <td className="px-3 py-1.5 font-mono font-semibold text-ink-900">{`v${version.numero}`}</td>
-              <td className="px-2 py-1.5">
+            <TableRow key={version.numero} data-testid="version-fila">
+              <TableCell className="font-mono font-semibold text-ink-900">{`v${version.numero}`}</TableCell>
+              <TableCell>
                 <ToneBadge
                   tone={version.tipo === "LINEA_BASE" ? "neutro" : "info"}
                   label={version.tipo === "LINEA_BASE" ? "Línea base" : "Modificación"}
                 />
-              </td>
-              <td className="px-2 py-1.5 whitespace-nowrap text-ink-700">{formatFechaHora(version.aprobado_at)}</td>
-              <td className="px-2 py-1.5 text-ink-700">{version.aprobado_por.nombre ?? "Usuario no disponible"}</td>
-              <td className="px-3 py-1.5 text-ink-800">{version.motivo ?? "—"}</td>
-            </tr>
+              </TableCell>
+              <TableCell className="whitespace-nowrap text-ink-700">{formatFechaHora(version.aprobado_at)}</TableCell>
+              <TableCell className="text-ink-700 whitespace-normal">{version.aprobado_por.nombre ?? "Usuario no disponible"}</TableCell>
+              <TableCell className="text-ink-800 whitespace-normal">{version.motivo ?? "—"}</TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }
@@ -182,21 +183,21 @@ function Diferencias({ diferencias }: { diferencias: ProjectDiferencia[] }) {
           data-elemento={elemento}
           className="overflow-x-auto rounded-[14px] border border-ink-200 bg-panel"
         >
-          <table className="w-full text-[12.5px]">
+          <Table className="w-full text-[12.5px]">
             <caption className="border-b border-ink-200 px-3 py-1.5 text-left text-[11px] font-bold text-ink-500 uppercase">
               {ELEMENTO_LABEL[elemento]}
             </caption>
-            <tbody>
+            <TableBody>
               {filas.map((fila, indice) => (
-                <tr key={`${fila.clave}-${fila.campo}-${indice}`} className="border-b border-ink-100 last:border-b-0">
-                  <td className="px-3 py-1.5 font-mono text-[11.5px] text-ink-700">{claveDe(fila.clave)}</td>
-                  <td className="px-2 py-1.5 text-ink-600">{CAMPO_LABEL[fila.campo] ?? fila.campo}</td>
-                  <td className="px-2 py-1.5 text-right text-ink-500 tabular-nums line-through">{valorDe(fila, fila.desde)}</td>
-                  <td className="px-3 py-1.5 text-right font-semibold text-ink-900 tabular-nums">{valorDe(fila, fila.hasta)}</td>
-                </tr>
+                <TableRow key={`${fila.clave}-${fila.campo}-${indice}`}>
+                  <TableCell className="font-mono text-[11.5px] text-ink-700">{claveDe(fila.clave)}</TableCell>
+                  <TableCell className="text-ink-600">{CAMPO_LABEL[fila.campo] ?? fila.campo}</TableCell>
+                  <TableCell numeric className="text-ink-500 line-through">{valorDe(fila, fila.desde)}</TableCell>
+                  <TableCell numeric className="font-semibold text-ink-900">{valorDe(fila, fila.hasta)}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       ))}
     </div>

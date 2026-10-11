@@ -704,16 +704,16 @@ function DocumentsTableCard({
                       aria-label="Seleccionar todos los de la página"
                     />
                   </TableHead>
-                  <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                  <TableHead>
                     Documento
                   </TableHead>
-                  <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                  <TableHead>
                     Cliente
                   </TableHead>
-                  <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                  <TableHead>
                     Versión activa
                   </TableHead>
-                  <TableHead className="w-24 text-right text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                  <TableHead numeric className="w-24">
                     Acciones
                   </TableHead>
                 </TableRow>

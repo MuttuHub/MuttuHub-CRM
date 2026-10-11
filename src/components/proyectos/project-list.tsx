@@ -192,8 +192,8 @@ function ProjectTable({
           <TableHead>Estado</TableHead>
           <TableHead>Responsable</TableHead>
           <TableHead>Fechas</TableHead>
-          <TableHead className="text-right">Valor total</TableHead>
-          <TableHead className="text-right">Acciones</TableHead>
+          <TableHead numeric>Valor total</TableHead>
+          <TableHead numeric>Acciones</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>

@@ -83,6 +83,7 @@ import { TaskDialog } from "@/components/kanban/task-dialog";
 import { ReportView } from "@/components/kanban/report-view";
 import { TruncationBanner } from "@/components/kanban/truncation-banner";
 import { SinConexionCard } from "@/components/shared/sin-conexion-card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 // True when the Supabase env vars are missing (dev-only signal): the API
 // returns 500 "Plataforma no configurada" — show the technical card.
@@ -592,22 +593,19 @@ function ListaView({ items, onOpen }: { items: CardTask[]; onOpen: (id: string) 
   return (
     <section className="overflow-hidden rounded-[22px] border border-ink-200 bg-panel">
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-[12.5px]">
-          <thead>
-            <tr className="border-b border-ink-200 text-left">
+        <Table className="text-[12.5px]">
+          <TableHeader>
+            <TableRow>
               {["Título", "Responsable", "Cliente", "Estado", "Prioridad", "Fecha entrega", "Etiquetas", ""].map((h) => (
-                <th
-                  key={h}
-                  className="px-5 py-3 text-[10.5px] font-bold tracking-[0.09em] text-ink-500 uppercase"
-                >
+                <TableHead key={h}>
                   {h}
-                </th>
+                </TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {items.map((t) => (
-              <tr
+              <TableRow
                 key={t.id}
                 onClick={() => onOpen(t.id)}
                 onKeyDown={(e) => {
@@ -617,31 +615,31 @@ function ListaView({ items, onOpen }: { items: CardTask[]; onOpen: (id: string) 
                   }
                 }}
                 tabIndex={0}
-                className="cursor-pointer border-t border-ink-200 first:border-t-0 hover:bg-rose-50/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50 outline-none"
+                className="cursor-pointer focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50 outline-none"
               >
-                <td className="px-5 py-3 font-semibold text-ink-950">{t.titulo}</td>
-                <td className="px-5 py-3">
+                <TableCell className="font-semibold text-ink-950">{t.titulo}</TableCell>
+                <TableCell>
                   <span className="flex items-center gap-2 text-[12.5px] text-ink-700">
                     <span className="grid size-6 place-items-center rounded-[8px] bg-ink-100 text-[9.5px] font-bold text-ink-700">
                       {iniciales(t.responsable_nombre)}
                     </span>
                     {t.responsable_nombre}
                   </span>
-                </td>
-                <td className="px-5 py-3 text-[12.5px] text-ink-700">{t.cliente_nombre ?? "—"}</td>
-                <td className="px-5 py-3">
+                </TableCell>
+                <TableCell className="text-[12.5px] text-ink-700 whitespace-normal">{t.cliente_nombre ?? "—"}</TableCell>
+                <TableCell>
                   <ToneBadge
                     tone={ESTADO_TAREA_LABELS[t.estado]?.tone ?? "neutro"}
                     label={ESTADO_TAREA_LABELS[t.estado]?.label ?? t.estado}
                   />
-                </td>
-                <td className="px-5 py-3">
+                </TableCell>
+                <TableCell>
                   <PrioridadChip prioridad={t.prioridad} />
-                </td>
-                <td className="px-5 py-3">
+                </TableCell>
+                <TableCell>
                   <FechaCell fecha={t.fecha_entrega} />
-                </td>
-                <td className="px-5 py-3">
+                </TableCell>
+                <TableCell>
                   <div className="flex flex-wrap gap-1">
                     {t.etiquetas.slice(0, 2).map((etq) => (
                       <span
@@ -652,16 +650,16 @@ function ListaView({ items, onOpen }: { items: CardTask[]; onOpen: (id: string) 
                       </span>
                     ))}
                   </div>
-                </td>
-                <td className="px-4 py-3 text-right">
+                </TableCell>
+                <TableCell numeric>
                   <span className="grid size-7 place-items-center rounded-10 text-ink-500 hover:bg-rose-50 hover:text-rose-700 dark:hover:text-rose-400">
                     <Eye className="size-4" strokeWidth={1.8} />
                   </span>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </section>
   );

@@ -33,6 +33,7 @@ import {
 } from "@/hooks/projects";
 import { construirDetalle, type CampoEditable, type TipoModificacion } from "@/lib/proyectos/modificacion-detalle";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export const TIPO_MODIFICACION_LABEL: Record<TipoModificacion, string> = {
   TRASLADO: "Traslado entre rubros",
@@ -183,26 +184,26 @@ function Formulario({ proyecto, onDone }: { proyecto: ProjectListRow; onDone: ()
         <Skeleton className="h-32 w-full rounded-[14px]" />
       ) : grilla ? (
         <div data-testid="modificacion-grilla" className="overflow-x-auto rounded-[14px] border border-ink-200 bg-panel">
-          <table className="w-full text-[12.5px]">
-            <thead>
-              <tr className="border-b border-ink-200 text-left text-[11px] text-ink-500">
-                <th scope="col" className="px-3 py-2 font-semibold">Rubro</th>
-                <th scope="col" className="px-2 py-2 text-right font-semibold">Asignado</th>
+          <Table className="w-full text-[12.5px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead scope="col">Rubro</TableHead>
+                <TableHead scope="col" numeric>Asignado</TableHead>
                 {periodos.map((periodo) => (
-                  <th key={periodo} scope="col" className="px-2 py-2 text-right font-semibold">{periodo}</th>
+                  <TableHead key={periodo} scope="col" numeric>{periodo}</TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {rubros.map((rubro) => {
                 const codigo = rubro.codigo as string;
                 return (
-                  <tr key={rubro.rubro_id} className="border-b border-ink-100 last:border-b-0">
-                    <td className="px-3 py-1.5 text-ink-800">
+                  <TableRow key={rubro.rubro_id}>
+                    <TableCell className="text-ink-800 whitespace-normal">
                       <span className="font-mono text-[11.5px] text-ink-500">{codigo} </span>
                       {rubro.nombre}
-                    </td>
-                    <td className="px-2 py-1.5 text-right">
+                    </TableCell>
+                    <TableCell numeric>
                       {tipo === "REPROGRAMACION" ? (
                         <span className="tabular-nums">{formatCOP(toCents(rubro.asignado))}</span>
                       ) : (
@@ -214,9 +215,9 @@ function Formulario({ proyecto, onDone }: { proyecto: ProjectListRow; onDone: ()
                           className={CELDA_CLASS}
                         />
                       )}
-                    </td>
+                    </TableCell>
                     {periodos.map((periodo) => (
-                      <td key={periodo} className="px-2 py-1.5 text-right">
+                      <TableCell key={periodo} numeric>
                         <Input
                           aria-label={`Programado ${codigo} ${periodo}`}
                           inputMode="decimal"
@@ -224,13 +225,13 @@ function Formulario({ proyecto, onDone }: { proyecto: ProjectListRow; onDone: ()
                           onChange={(event) => escribir(clave("p", codigo, periodo))(event.target.value)}
                           className={CELDA_CLASS}
                         />
-                      </td>
+                      </TableCell>
                     ))}
-                  </tr>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       ) : tipo === "CRONOGRAMA" ? (
         <div className="flex flex-col gap-3">

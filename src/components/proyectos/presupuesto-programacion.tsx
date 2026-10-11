@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProjectProgramming, useUpdateProgramming, type ProjectListRow, type ProjectProgramming } from "@/hooks/projects";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const PROGRAMMING_ERROR = "No pudimos cargar la programación. Inténtalo de nuevo.";
 
@@ -104,26 +105,26 @@ function ProgramacionGrid({
       {pendiente && <ToneBadge tone="alerta" label="Programación pendiente" className="self-start" />}
 
       <div className="overflow-x-auto rounded-[14px] border border-ink-200 bg-panel">
-        <table data-testid="programacion-grid" className="w-full text-[12.5px]">
-          <thead>
-            <tr className="border-b border-ink-200 text-left text-[11px] text-ink-500">
-              <th scope="col" className="px-3 py-2 font-semibold">Rubro</th>
+        <Table data-testid="programacion-grid" className="w-full text-[12.5px]">
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">Rubro</TableHead>
               {data.periodos.map((periodo) => (
-                <th key={periodo} scope="col" className="px-2 py-2 text-right font-semibold">{periodo}</th>
+                <TableHead key={periodo} scope="col" numeric>{periodo}</TableHead>
               ))}
-              <th scope="col" className="px-3 py-2 text-right font-semibold">Control</th>
-            </tr>
-          </thead>
-          <tbody>
+              <TableHead scope="col" numeric>Control</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {data.control_por_rubro.map((c) => {
               const control = sumaFila(c.rubro_id) - toCents(c.asignado);
               return (
-                <tr key={c.rubro_id} data-testid="programacion-fila" className="border-b border-ink-100 last:border-0">
-                  <td className="px-3 py-1.5 text-ink-800">
+                <TableRow key={c.rubro_id} data-testid="programacion-fila">
+                  <TableCell className="text-ink-800 whitespace-normal">
                     <span className="font-mono text-[11.5px] text-ink-500">{c.codigo ?? "—"}</span> {c.nombre}
-                  </td>
+                  </TableCell>
                   {data.periodos.map((periodo) => (
-                    <td key={periodo} className="px-2 py-1.5 text-right tabular-nums">
+                    <TableCell key={periodo} numeric>
                       {canEdit ? (
                         <MoneyInput
                           label={`Programado ${c.codigo ?? c.nombre} ${periodo}`}
@@ -133,14 +134,14 @@ function ProgramacionGrid({
                       ) : (
                         formatCOP(toCents(valorCelda(c.rubro_id, periodo) ?? "0"))
                       )}
-                    </td>
+                    </TableCell>
                   ))}
-                  <td className="px-3 py-1.5 text-right font-semibold tabular-nums">{formatCOP(control)}</td>
-                </tr>
+                  <TableCell numeric className="font-semibold">{formatCOP(control)}</TableCell>
+                </TableRow>
               );
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
       <p className="text-[12px] text-ink-500">

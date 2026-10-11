@@ -25,6 +25,7 @@ import {
 } from "@/hooks/projects";
 import { formatCOP, formatPercent, toCents } from "@/lib/proyectos/money";
 import { projectPeriods } from "@/lib/proyectos/weeks";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const FICHA_ERROR = "No pudimos cargar la ficha financiera. Inténtalo de nuevo.";
 export const SIN_GASTOS_NOTE = "Ejecución disponible cuando se registren gastos";
@@ -132,27 +133,27 @@ function FichaTabla({ ficha }: { ficha: ProjectFinancialSheet }) {
         <EmptyBlock>Aún no hay presupuesto asignado a este proyecto.</EmptyBlock>
       ) : (
         <div className="overflow-x-auto rounded-[14px] border border-ink-200 bg-panel">
-          <table data-testid="financiero-tabla" className="w-full text-[12.5px]">
-            <thead>
-              <tr className="border-b border-ink-200 text-left text-[11px] text-ink-500">
-                <th scope="col" className="px-3 py-2 font-semibold">Rubro</th>
-                <th scope="col" className="px-2 py-2 text-right font-semibold">Asignado</th>
-                <th scope="col" className="px-2 py-2 text-right font-semibold">Programado</th>
-                <th scope="col" className="px-2 py-2 text-right font-semibold">Ejecutado</th>
-                <th scope="col" className="px-2 py-2 text-right font-semibold">Diferencia</th>
-                <th scope="col" className="px-2 py-2 text-right font-semibold">E/P</th>
-                <th scope="col" className="px-2 py-2 text-right font-semibold">E/A</th>
-                <th scope="col" className="px-2 py-2 text-right font-semibold">Umbral rojo</th>
-                <th scope="col" className="px-3 py-2 font-semibold">Estado</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table data-testid="financiero-tabla" className="w-full text-[12.5px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead scope="col">Rubro</TableHead>
+                <TableHead scope="col" numeric>Asignado</TableHead>
+                <TableHead scope="col" numeric>Programado</TableHead>
+                <TableHead scope="col" numeric>Ejecutado</TableHead>
+                <TableHead scope="col" numeric>Diferencia</TableHead>
+                <TableHead scope="col" numeric>E/P</TableHead>
+                <TableHead scope="col" numeric>E/A</TableHead>
+                <TableHead scope="col" numeric>Umbral rojo</TableHead>
+                <TableHead scope="col">Estado</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {ficha.rubros.map((row) => (
                 <FichaFila key={row.rubro_id ?? row.nombre} row={row} disponible={disponible} testId="financiero-fila" />
               ))}
               <FichaFila row={ficha.total} disponible={disponible} testId="financiero-total" total />
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </>
@@ -174,28 +175,28 @@ function FichaFila({
   total?: boolean;
 }) {
   return (
-    <tr
+    <TableRow
       data-testid={testId}
-      className={total ? "border-t border-ink-200 font-semibold" : "border-b border-ink-100"}
+      className={total ? "border-t border-ink-200 font-semibold" : undefined}
     >
-      <td className="px-3 py-1.5 text-ink-800">
+      <TableCell className="text-ink-800 whitespace-normal">
         {row.codigo && <span className="font-mono text-[11.5px] text-ink-500">{row.codigo} </span>}
         {row.nombre}
-      </td>
-      <td className="px-2 py-1.5 text-right tabular-nums">{monto(row.asignado)}</td>
-      <td className="px-2 py-1.5 text-right tabular-nums">{monto(row.programado)}</td>
-      <td className="px-2 py-1.5 text-right tabular-nums">{disponible ? monto(row.ejecutado) : "—"}</td>
-      <td className="px-2 py-1.5 text-right tabular-nums">{disponible ? monto(row.diferencia) : "—"}</td>
-      <td className="px-2 py-1.5 text-right tabular-nums">{disponible ? porcentaje(row.ep_decimas) : "—"}</td>
-      <td className="px-2 py-1.5 text-right tabular-nums">{disponible ? porcentaje(row.ea_decimas) : "—"}</td>
-      <td className="px-2 py-1.5 text-right tabular-nums">{monto(row.umbral_rojo)}</td>
-      <td className="px-3 py-1.5">
+      </TableCell>
+      <TableCell numeric>{monto(row.asignado)}</TableCell>
+      <TableCell numeric>{monto(row.programado)}</TableCell>
+      <TableCell numeric>{disponible ? monto(row.ejecutado) : "—"}</TableCell>
+      <TableCell numeric>{disponible ? monto(row.diferencia) : "—"}</TableCell>
+      <TableCell numeric>{disponible ? porcentaje(row.ep_decimas) : "—"}</TableCell>
+      <TableCell numeric>{disponible ? porcentaje(row.ea_decimas) : "—"}</TableCell>
+      <TableCell numeric>{monto(row.umbral_rojo)}</TableCell>
+      <TableCell>
         {disponible && row.color ? (
           <SemaforoChip color={row.color} />
         ) : (
           "—"
         )}
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }

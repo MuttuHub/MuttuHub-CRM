@@ -200,16 +200,16 @@ export function SolicitudesSection({
           <Table className="min-w-[820px]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="pl-5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead className="pl-5">
                   Solicitante
                 </TableHead>
-                <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead>
                   Origen
                 </TableHead>
-                <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead>
                   Recibida
                 </TableHead>
-                <TableHead className="w-[210px] pr-5 text-right" />
+                <TableHead numeric className="w-[210px] pr-5" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -285,16 +285,16 @@ export function SolicitudesSection({
           <Table className="min-w-[820px]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="pl-5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead className="pl-5">
                   Solicitante
                 </TableHead>
-                <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead>
                   Origen
                 </TableHead>
-                <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead>
                   Resolución
                 </TableHead>
-                <TableHead className="pr-5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead className="pr-5">
                   Revisada
                 </TableHead>
               </TableRow>
