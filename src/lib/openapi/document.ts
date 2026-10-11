@@ -25,6 +25,7 @@ import "@/lib/openapi/paths/project-modifications";
 import "@/lib/openapi/paths/project-versions";
 import "@/lib/openapi/paths/project-expenses";
 import "@/lib/openapi/paths/project-kpis";
+import "@/lib/openapi/paths/project-attention";
 import "@/lib/openapi/paths/settings-semaforo-v2";
 
 export function buildOpenApiDocument() {

@@ -299,6 +299,7 @@ export const projectQueryKeys = {
   financialSheet: (id: string, corte: string | null, base: string = "vigente") =>
     ["projects", "financial-sheet", id, corte, base] as const,
   kpis: (id: string, corte: string | null, base: string = "vigente") => ["projects", "kpis", id, corte, base] as const,
+  attention: (id: string, corte: string | null) => ["projects", "attention", id, corte] as const,
   portfolio: (filters: PortfolioFilters) => ["projects", "portfolio", filters] as const,
   expenses: (id: string) => ["projects", "expenses", id] as const,
   versions: (id: string) => ["projects", "versions", id] as const,
@@ -1943,6 +1944,34 @@ export type ProjectKpis = {
 /** Respuesta de `GET /api/v1/projects/:id/kpis`. */
 export type ProjectKpisResponse = ProjectKpis & { base: ProjectBase };
 
+/** Discriminador estable de un aviso de "Requiere atención"; el servidor es dueño del texto. */
+export type AtencionTipo =
+  | "alerta_retraso"
+  | "rubro_sobreejecucion"
+  | "actividad_atrasada"
+  | "avance_sin_soporte"
+  | "indicador_bajo_meta"
+  | "gasto_observado";
+
+export type AtencionItem = {
+  tipo: AtencionTipo;
+  titulo: string;
+  detalle: string;
+  rubro_id?: string;
+  actividad_id?: string;
+  avance_id?: string;
+  indicador_id?: string;
+  gasto_id?: string;
+};
+
+/** Respuesta de `GET /api/v1/projects/:id/attention`. */
+export type ProjectAttention = {
+  corte: string;
+  /** false para BORRADOR / PLANIFICACION / CANCELADO: la lista viene vacía. */
+  medible: boolean;
+  items: AtencionItem[];
+};
+
 export type PortfolioFilters = {
   corte?: string;
   estado?: string;
@@ -2020,6 +2049,20 @@ export function useProjectKpis(
       apiGet<ProjectKpisResponse>(
         `/api/v1/projects/${id}/kpis${queryString({ corte, base: base === "original" ? "original" : null })}`,
       ),
+  });
+}
+
+/** "Requiere atención" de un proyecto (S14 P5): el servidor deriva la lista; el cliente solo pinta. */
+export function useProjectAttention(
+  id: string,
+  corte: string | null = null,
+): UseQueryResult<ProjectAttention> {
+  return useQuery({
+    queryKey: projectQueryKeys.attention(id, corte),
+    enabled: id !== "",
+    placeholderData: keepPreviousData,
+    queryFn: () =>
+      apiGet<ProjectAttention>(`/api/v1/projects/${id}/attention${queryString({ corte })}`),
   });
 }
 

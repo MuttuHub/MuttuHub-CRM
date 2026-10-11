@@ -40,6 +40,7 @@ import { ProjectEjecucion } from "@/components/proyectos/project-ejecucion";
 import { ProjectFinanciero } from "@/components/proyectos/project-financiero";
 import { ProjectKpisPanel } from "@/components/proyectos/project-kpis-panel";
 import { ResumenKpis } from "@/components/proyectos/resumen-kpis";
+import { RequiereAtencion } from "@/components/proyectos/requiere-atencion";
 import { ProjectGastos } from "@/components/proyectos/project-gastos";
 import { ProjectModificaciones } from "@/components/proyectos/project-modificaciones";
 import { ProjectPresupuesto } from "@/components/proyectos/project-presupuesto";
@@ -225,6 +226,7 @@ function ResumenPanel({ proyecto }: { proyecto: ProjectListRow }) {
   return (
     <>
       <ResumenKpis proyecto={proyecto} />
+      <RequiereAtencion proyecto={proyecto} />
       <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
         <FieldValue
           label="Origen"

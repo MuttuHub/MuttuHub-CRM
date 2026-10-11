@@ -311,6 +311,14 @@ describe("buildOpenApiDocument", () => {
     expect(Object.keys(one?.responses ?? {})).toEqual(expect.arrayContaining(["200", "400", "401", "403", "404", "409"]))
     expect(JSON.stringify(one?.parameters)).toContain("original")
   })
+  it("registers the S14 attention path with its corte parameter", () => {
+    const paths = buildOpenApiDocument().paths ?? {}
+    const one = paths["/api/v1/projects/{id}/attention"]?.get
+    expect(Object.keys(one?.responses ?? {})).toEqual(expect.arrayContaining(["200", "400", "401", "403", "404", "409"]))
+    const names = ((one?.parameters ?? []) as { name: string }[]).map((p) => p.name)
+    expect(names).toEqual(expect.arrayContaining(["corte"]))
+    expect(JSON.stringify(buildOpenApiDocument().components?.schemas)).toContain("gasto_observado")
+  })
   it("registers the S9 export paths: xlsx binary, PDF refused with 400", () => {
     const paths = buildOpenApiDocument().paths ?? {}
     const one = paths["/api/v1/projects/{id}/export"]?.get

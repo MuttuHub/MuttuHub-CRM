@@ -162,6 +162,23 @@ describe("ProjectFicha (page)", () => {
     expect(screen.queryByTestId("resumen-kpis")).not.toBeInTheDocument()
   })
 
+  it("mounts the attention card in the Resumen, below the KPI cards and above the fact sheet", async () => {
+    mockFichaAndAudit({ historial: [] })
+
+    renderFicha()
+
+    const atencion = await screen.findByTestId("requiere-atencion")
+    expect(atencion).toHaveTextContent("Requiere atención")
+    expect(await within(atencion).findByText("Sin novedades por ahora.")).toBeInTheDocument()
+    expect(
+      screen.getByTestId("resumen-kpis").compareDocumentPosition(atencion) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      atencion.compareDocumentPosition(screen.getByText("Origen")) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes("/attention"))).toHaveLength(1)
+  })
+
   it("shows the Sin medir cards in the Resumen of a draft without reading the KPIs", async () => {
     mockFichaAndAudit({ historial: [] }, 200, { ...PROYECTO, estado: "BORRADOR" })
 
@@ -607,6 +624,10 @@ describe("ProjectFicha (page)", () => {
       // Indicadores (S9 U6): su comportamiento vive en project-kpis-panel.test.tsx.
       if (String(input).includes("/kpis")) {
         return Promise.resolve(jsonResponse(kpis))
+      }
+      // Requiere atención (S14 P5): vacío; su comportamiento vive en requiere-atencion.test.tsx.
+      if (String(input).includes("/attention")) {
+        return Promise.resolve(jsonResponse({ corte: "2026-03-15", medible: true, items: [] }))
       }
       if (String(input).includes("/financial-sheet")) {
         return Promise.resolve(jsonResponse(FINANCIERA))
