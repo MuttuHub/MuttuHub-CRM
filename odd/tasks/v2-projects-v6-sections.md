@@ -44,11 +44,11 @@ technical schedule with spend: build TWO separate curves (technical and financia
 
 ## Units (each ~400 changed lines or less; strict test-first; delegated writer; verification by the parent; native review per small candidate)
 
-- [ ] **P1** Portafolio: `portafolio-kpis.tsx` (4 KPIs with `KpiTile`), project list with technical and financial `ProgressBar`s (server band), merge portfolio rows with the list by id; `agregado` gets `atrasadas` and
+- [x] **P1** Portafolio: `portafolio-kpis.tsx` (4 KPIs with `KpiTile`), project list with technical and financial `ProgressBar`s (server band), merge portfolio rows with the list by id; `agregado` gets `atrasadas` and
   beneficiaries. Needs D3, D8.
-- [ ] **P2** Resumen: 6 KPI cards (técnico, financiero, cronograma, indicadores, entregables con soporte, beneficiarios) from the existing KPI data, `indicadores.en_meta` count, neutral dots (D6); move the KPI tiles
+- [x] **P2** Resumen: 6 KPI cards (técnico, financiero, cronograma, indicadores, entregables con soporte, beneficiarios) from the existing KPI data, `indicadores.en_meta` count, neutral dots (D6); move the KPI tiles
   out of the Avance tab.
-- [ ] **P3** Gastos ledger: KPIs (total, validados, por validar, observados per D5), chip filters, `con_soporte` counts in the `expenses` response.
+- [x] **P3** Gastos ledger: KPIs (total, validados, por validar, observados per D5), chip filters, `con_soporte` counts in the `expenses` response.
 - [ ] **P4** Ficha with 8 tabs per D10 (move the structure sections, lazy-mount tests, keep Cambios).
 - [ ] **P5** `GET projects/:id/attention` (server-derived list: rubro sobreejecución, late activities, avances sin soporte, indicators below target, alerta de retraso, gastos observados) + `requiere-atencion.tsx`.
 - [ ] **P6** Technical-status activities enriched (`programado`, `dias`, `al_corte`, `color`, `sin_soporte`, objective roll-ups); Metas e indicadores and Cronograma views.
@@ -83,7 +83,17 @@ worktrees for non-suffix candidates, as in S13).
 ## Progress
 
 - 2026-10-11: document created after the read-only exploration (data availability, formulas, plan) and the user's decisions: scope FULL incl. the S-curve; the 9 defaults adopted; start with P1-P4.
+- 2026-10-11 (Claude Code session, recorded here by the OpenCode continuation): P1 done — `e63ce6a` (portfolio aggregate `atrasadas` + beneficiaries),
+  `84c469e` (`portafolio-kpis.tsx`, 4 KPI tiles) and `e117910` (technical and financial `ProgressBar`s in `project-list.tsx`, server band). P2 done — `dd5ad0f` (`indicadores.en_meta` count in
+  `GET projects/:id/kpis` and its OpenAPI) and `8e3b34b` (`resumen-kpis.tsx`, the six cards in the Resumen tab, plus `src/lib/format/millones.ts`). P3 done — `bec2c55` (`soportes_count` + `resumen` in the
+  `expenses` response with route/OpenAPI/lib tests), `72c5d4b` (`gastos-kpis.tsx` KPI row) and `d5a80f5` (the ledger table, chip filters, mobile cards, per-filter empty state).
+- 2026-10-11 (OpenCode continuation): P3 verified by the parent — focused suite 4 files / 83 tests, **full suite 307 files / 3225 tests green** under `TZ=America/Bogota`, `tsc --noEmit` 0 errors,
+  eslint clean on the three touched files — then committed as `d5a80f5`. **Native review of P1-P3 not run**: the OpenCode runtime is not eligible for immutable receipt review
+  (`gentle-ai review assess` -> `high`/`unassessable`; only Claude Code and Codex are eligible), same constraint recorded in S9/S10. Independent read-only verification is the substitute; deferred to the
+  parent when a slice is closed.
 
 ## Next step
 
-Launch the P1 writer (Portafolio), then P2, P3, P4 sequentially, verifying each, then the native review of P1-P4 as small candidates.
+P4: restructure the ficha dialog from the current 6 tabs to the 8 of D10 (Resumen, Metas e indicadores, Cronograma, Gantt, Avance, Presupuesto, Gastos, Cambios), relocating the existing `ProjectEstructura`
+content into Metas e indicadores / Cronograma / Gantt, keeping Cambios last and the lazy mounting; then P5 (attention endpoint + `requiere-atencion.tsx`), P6 (enriched activity status + the two views), P7
+(S-curve), P8 (Presupuesto gauge), P9 (Tablero gerencial). Native review of P1-P4 as small candidates has to run in Claude Code (OpenCode is ineligible).
