@@ -1,6 +1,7 @@
 // Ficha de proyecto (E-06), de solo lectura salvo las secciones Equipo (E-07) y
-// Estructura técnica (S3). Desde S10 se organiza en pestañas (Resumen, Estructura, Avance, Presupuesto,
-// Gastos, Cambios) bajo un encabezado fijo con código, nombre, estado y semáforos; cada panel se monta
+// Estructura técnica (S3). Desde S10 se organiza en pestañas (Resumen, Metas e
+// indicadores, Cronograma, Gantt, Avance, Presupuesto, Gastos, Cambios) bajo un encabezado fijo con código,
+// nombre, estado y semáforos; cada panel se monta
 // (y consulta) solo cuando su pestaña está activa. Desde S12 es una página propia (`/proyectos/[id]`),
 // que el listado y el tablero abren en una pestaña nueva. Monta su propia consulta (`useProject`): el estado del request (loading, error, data) sale
 // entero de la query, sin `useEffect` de carga ni controles de escritura propios.
@@ -32,6 +33,8 @@ import {
   formatFechaHora,
 } from "@/components/proyectos/project-display";
 import { BaselineApproval } from "@/components/proyectos/baseline-approval";
+import { EstructuraGantt } from "@/components/proyectos/estructura-gantt";
+import { ProjectCronograma } from "@/components/proyectos/project-cronograma";
 import { ProjectEstructura } from "@/components/proyectos/project-estructura";
 import { ProjectEjecucion } from "@/components/proyectos/project-ejecucion";
 import { ProjectFinanciero } from "@/components/proyectos/project-financiero";
@@ -111,7 +114,9 @@ export function ProjectFicha({ projectId, backHref }: { projectId: string; backH
 
 const FICHA_TABS = [
   { value: "resumen", label: "Resumen" },
-  { value: "estructura", label: "Estructura" },
+  { value: "metas", label: "Metas e indicadores" },
+  { value: "cronograma", label: "Cronograma" },
+  { value: "gantt", label: "Gantt" },
   { value: "avance", label: "Avance" },
   { value: "presupuesto", label: "Presupuesto" },
   { value: "gastos", label: "Gastos" },
@@ -163,8 +168,16 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
             <ResumenPanel proyecto={proyecto} />
           </TabsContent>
 
-          <TabsContent value="estructura" className={PANEL_CLASS}>
+          <TabsContent value="metas" className={PANEL_CLASS}>
             <ProjectEstructura proyecto={proyecto} />
+          </TabsContent>
+
+          <TabsContent value="cronograma" className={PANEL_CLASS}>
+            <ProjectCronograma proyecto={proyecto} />
+          </TabsContent>
+
+          <TabsContent value="gantt" className={PANEL_CLASS}>
+            <EstructuraGantt proyecto={proyecto} />
           </TabsContent>
 
           <TabsContent value="avance" className={PANEL_CLASS}>

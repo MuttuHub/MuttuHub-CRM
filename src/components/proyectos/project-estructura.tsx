@@ -4,11 +4,13 @@
 // (`canManageProjects`) y mientras el proyecto está en BORRADOR ve los controles
 // de alta, edición y baja. Esa visibilidad es comodidad de interfaz: la
 // autoridad es la API (403 a otros roles, 409 INVALID_STATE fuera de BORRADOR).
+//
+// Desde S14 (P4) es el contenido de la pestaña "Metas e indicadores": el Gantt
+// (solo lectura) vive en su propia pestaña, así que ya no se renderiza aquí.
 
 "use client";
 
 import { ListTree } from "lucide-react";
-import { EstructuraGantt } from "@/components/proyectos/estructura-gantt";
 import { ImportDialog } from "@/components/proyectos/import-dialog";
 import { EstructuraObjetivos } from "@/components/proyectos/estructura-objetivos";
 import { useCurrentUser } from "@/hooks/kanban";
@@ -37,8 +39,6 @@ export function ProjectEstructura({ proyecto }: { proyecto: ProjectListRow }) {
       )}
 
       <EstructuraObjetivos proyecto={proyecto} canEdit={canEdit} />
-
-      <EstructuraGantt proyecto={proyecto} />
     </section>
   );
 }

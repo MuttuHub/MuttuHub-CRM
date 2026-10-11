@@ -77,7 +77,16 @@ async function openTab(name: string) {
   await user.click(await screen.findByRole("tab", { name }))
 }
 
-const TAB_NAMES = ["Resumen", "Estructura", "Avance", "Presupuesto", "Gastos", "Cambios"]
+const TAB_NAMES = [
+  "Resumen",
+  "Metas e indicadores",
+  "Cronograma",
+  "Gantt",
+  "Avance",
+  "Presupuesto",
+  "Gastos",
+  "Cambios",
+]
 
 describe("ProjectFicha (page)", () => {
   const fetchMock = vi.fn()
@@ -188,24 +197,61 @@ describe("ProjectFicha (page)", () => {
     expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/modifications") || String(url).endsWith("/versions"))).toBe(false)
   })
 
-  it("mounts the team in Resumen and the technical structure only in the Estructura tab", async () => {
+  it("mounts the team in Resumen and the technical structure only in the Metas e indicadores tab", async () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
 
     expect(await screen.findByTestId("equipo")).toBeInTheDocument()
     expect(screen.queryByTestId("estructura")).not.toBeInTheDocument()
-    await openTab("Estructura")
+    await openTab("Metas e indicadores")
     const estructura = await screen.findByTestId("estructura")
     expect(estructura).toHaveTextContent("Estructura técnica")
     expect(screen.queryByTestId("equipo")).not.toBeInTheDocument()
+    // El Gantt ya no vive dentro de la estructura: tiene su propia pestaña.
+    expect(within(estructura).queryByTestId("gantt")).not.toBeInTheDocument()
+  })
+
+  it("mounts the read-only weekly schedule in the Cronograma tab, lazily", async () => {
+    mockFichaAndAudit({ historial: [] })
+
+    renderFicha()
+    await screen.findByTestId("equipo")
+    expect(screen.queryByTestId("cronograma")).not.toBeInTheDocument()
+
+    await openTab("Cronograma")
+
+    const cronograma = await screen.findByTestId("cronograma")
+    expect(cronograma).toHaveTextContent("Cronograma")
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/activities", expect.any(Object)),
+    )
+    // Solo lectura: la vista de cronograma no ofrece ningún control de escritura.
+    expect(within(cronograma).queryByRole("button")).not.toBeInTheDocument()
+    expect(within(cronograma).queryByRole("form")).not.toBeInTheDocument()
+  })
+
+  it("mounts the week Gantt in its own Gantt tab", async () => {
+    mockFichaAndAudit({ historial: [] })
+
+    renderFicha()
+    await screen.findByTestId("equipo")
+    expect(screen.queryByTestId("gantt")).not.toBeInTheDocument()
+
+    await openTab("Gantt")
+
+    const gantt = await screen.findByTestId("gantt")
+    expect(gantt).toHaveTextContent("Cronograma por semanas")
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/objectives", expect.any(Object)),
+    )
   })
 
   it("offers the Excel template controls in the structure header only for a manager on a draft", async () => {
     mockFichaAndAudit({ historial: [] }, 200, { ...PROYECTO, estado: "BORRADOR" })
 
     renderFicha()
-    await openTab("Estructura")
+    await openTab("Metas e indicadores")
 
     const controles = await screen.findByTestId("estructura-plantilla")
     expect(controles).toHaveTextContent("Descargar plantilla")
@@ -229,7 +275,7 @@ describe("ProjectFicha (page)", () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
-    await openTab("Estructura")
+    await openTab("Metas e indicadores")
 
     await screen.findByTestId("estructura")
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
@@ -283,7 +329,7 @@ describe("ProjectFicha (page)", () => {
 
   /* ── Pestañas y encabezado fijo (S10 WU2) ───────────────────────────── */
 
-  it("renders the six tabs in order with Resumen selected by default", async () => {
+  it("renders the eight tabs in order with Resumen selected by default", async () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
@@ -301,10 +347,10 @@ describe("ProjectFicha (page)", () => {
     await screen.findByTestId("equipo")
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/members", expect.any(Object)))
 
-    for (const id of ["estructura", "presupuesto", "ejecucion", "kpis", "financiero", "gastos", "modificaciones", "versiones", "historial"]) {
+    for (const id of ["estructura", "cronograma", "gantt", "presupuesto", "ejecucion", "kpis", "financiero", "gastos", "modificaciones", "versiones", "historial"]) {
       expect(screen.queryByTestId(id)).not.toBeInTheDocument()
     }
-    const lazy = ["/budget", "/expenses", "/audit", "/modifications", "/versions", "/financial-sheet", "/technical-status", "/objectives"]
+    const lazy = ["/budget", "/expenses", "/audit", "/modifications", "/versions", "/financial-sheet", "/technical-status", "/objectives", "/activities"]
     for (const suffix of lazy) {
       expect(fetchMock.mock.calls.some(([url]) => String(url).includes(suffix))).toBe(false)
     }
@@ -355,9 +401,9 @@ describe("ProjectFicha (page)", () => {
     const resumen = await screen.findByRole("tab", { name: "Resumen" })
     resumen.focus()
     await user.keyboard("{ArrowRight}")
-    expect(screen.getByRole("tab", { name: "Estructura" })).toHaveFocus()
+    expect(screen.getByRole("tab", { name: "Metas e indicadores" })).toHaveFocus()
     await user.keyboard("{Enter}")
-    expect(screen.getByRole("tab", { name: "Estructura" })).toHaveAttribute("aria-selected", "true")
+    expect(screen.getByRole("tab", { name: "Metas e indicadores" })).toHaveAttribute("aria-selected", "true")
     expect(await screen.findByTestId("estructura")).toBeInTheDocument()
   })
 

@@ -132,14 +132,18 @@ export function EstructuraActividades({
   );
 }
 
-function ActivitySummary({
+/**
+ * Resumen de solo lectura de una actividad (código, nombre, semanas, fechas derivadas, peso y avisos).
+ * Lo comparten el árbol de la estructura (con `actions`) y el Cronograma (sin acciones).
+ */
+export function ActivitySummary({
   actividad,
   responsable,
   actions,
 }: {
   actividad: ProjectActivity;
-  responsable: string | null;
-  actions: React.ReactNode;
+  responsable?: string | null;
+  actions?: React.ReactNode;
 }) {
   return (
     <div className="flex items-start justify-between gap-2">
