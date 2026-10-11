@@ -1,7 +1,7 @@
 # Pasos siguientes — Muttu Hub (después de la sesión del 2026-10-09)
 
 Guía para retomar el trabajo. Rama: `feat/projects-v2`. Todo está **commiteado en local y sin publicar** (unos 209 commits sobre `6bee83f`; no se hizo push ni se abrió ningún PR).
-Último commit de la sesión: `7552ea1`. Última revisión nativa aprobada: hasta `7b19b54`.
+Actualizado el 2026-10-11 (después de la sesión del viernes 2026-10-09): último commit `9e017d1`, ~210 commits locales sobre `6bee83f`. Última revisión nativa aprobada: todo hasta `9e017d1` (U3 a U7 revisadas por candidatos pequeños).
 Detalle técnico: `odd/tasks/v2-ui-v6-base.md`, `v2-projects-ficha-page.md`, `v2-projects-s11-convert-and-seed.md`, `v2-projects-delivery-chain.md`. Resumen guardado en Engram (tema `session/summary-2026-10-09`).
 
 ## 1. Dónde quedó todo
@@ -13,7 +13,7 @@ Detalle técnico: `odd/tasks/v2-ui-v6-base.md`, `v2-projects-ficha-page.md`, `v2
 | Ficha de proyecto en su propia página, en pestaña nueva (S12) | Hecho, probado en navegador con Playwright y revisado |
 | Columna "Ver detalle" del Tablero cortada | Arreglada |
 | Base de la nueva interfaz (S13: tokens v6, paleta del manual v2, claro por defecto, un solo `h1`, botones destructivos de contorno) | Hecha y revisada |
-| Barra lateral blanca en claro, tablas, botones pequeños, tarjetas (U3 a U6) | **Pendiente** |
+| Barra lateral blanca en claro (U3), tablas (U4), botones y campos pequeños (U5), tarjetas y superficies (U6) y la limpieza de las revisiones (U7) | **Hecho y revisado** (2026-10-11). Capturas antes y después en claro y oscuro; guardas automáticas contra estilos fijos |
 | Plan de entrega en PRs encadenados | Planeado, **nada creado ni publicado** |
 | Brief del video para Claude Motion | Escrito (`docs/brief-video-direccion.md`) |
 
@@ -56,10 +56,12 @@ Qué decirle a tu jefe como límites (detalle en `docs/guia-prueba-proyectos.md`
 
 | Unidad | Qué hace | Nota |
 |---|---|---|
-| **U3** Barra lateral | Blanca en claro, ~220 px, ítem activo con tinte y barra rosa de 3 px; los tokens `--sidebar*` cambian junto con el componente | Es lo más visible; U1b dejó esos tokens oscuros a propósito |
-| **U4** Tablas | Quitar ~35 estilos de cabecera fijados a mano y unificar la cabecera en mayúscula pequeña | Afecta Clientes, Administración, Documentos y Proyectos |
-| **U5** Botones y campos pequeños | Revisar ~117 usos de `size="sm"` (pasan de 28 a 40 px) y ~25 alturas a mano | Riesgo en barras de herramientas del Kanban y Documentos |
-| **U6** Tarjetas y superficies | Migrar ~85 superficies con radios fijos, por área | La unidad más grande; se divide por área |
+| **U3** Barra lateral | HECHA: blanca en claro, 220 px, ítem activo con tinte y barra rosa de 3 px | Revisada y aprobada |
+| **U4** Tablas | HECHA: 35 cabeceras unificadas, 11 tablas crudas convertidas | Revisada y aprobada |
+| **U5** Botones y campos pequeños | HECHA: ~290 controles auditados, 191 alturas y radios fijos eliminados | Revisada y aprobada (tres candidatos) |
+| **U6** Tarjetas y superficies | HECHA: tokens `surface` y radios de 20 y 14 px; CRM, dashboard, kanban, documentos, reportes, administración, proyectos, shell y autenticación | Revisada y aprobada (tres candidatos; el de autenticación como riesgo alto, cuatro lentes) |
+| **U7** Limpieza | HECHA: tamaños de letra de controles, guardas con analizador de etiquetas, contraste en oscuro de las píldoras de origen | Revisada y aprobada |
+| Pendiente menor | Dos `Input` con `text-[13px]` en `kanban/task-dialog.tsx`, un botón con `rounded-lg` en `documents/document-dialog.tsx` y la constante `INLINE_INPUT_CLASS` de `crm/client-sheet.tsx` (alcance pendiente explícito en las guardas); tabla de Solicitudes a 390 px con Aprobar/Rechazar fuera de pantalla; Detalles de Clientes a 390 px con una sola columna; columna de casillas de Documentos como barra fina | Ver `odd/tasks/v2-ui-v6-base.md` |
 | Después | Secciones de Proyectos contra el diseño v6: Portafolio con KPIs y barras de avance, ficha › Resumen con tarjetas KPI y "Requiere atención", Estructura, Avance, Presupuesto, Gastos, Tablero | Ver la comparación diseño vs app en la conversación de Engram |
 
 Cada unidad sigue el mismo ritmo: documento ODD actualizado, worker con tests primero, capturas antes y después en claro y oscuro (las de "antes" están en el scratchpad de la sesión y pueden perderse; se regeneran), commit local y evaluación de riesgo.

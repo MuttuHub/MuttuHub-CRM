@@ -184,9 +184,23 @@ Forecast well above 400 lines in total; each unit stays near 400 where possible.
   `crm/entity-dialogs.tsx` (the guard has a PENDING scope for crm and `(app)`). Resolved doubt: the "No hay oportunidades ganadas sin proyecto" message seen once in the dialog was capture timing; the U6c shot lists the
   free GANADA opportunity.
 
+- 2026-10-11: U7 done (cleanup from the U6 review advisories), delegated, 4 commits. `dc07a72`: 11 lone `text-[Npx]` -> `text-base md:text-[Npx]` (constants `SELECT_CLASS` in repository-list and client-list,
+  `SEL_CLASS` in kanban-board; 4 + 3 crm tag sites). `189c524`: shared guard helper `src/test/guard-utils.ts` (+8 tests; walker, print exclusion, one src-relative `rel()`/skip list, a quote/template/brace-aware tag
+  tokenizer `scanTags`, the class-constant reader `classConstants`); the three guards use it; new rules: class constants with a height and a lone size fail (`/* v6-compact */` escape), the tag rule now also covers
+  `Input`/`SelectTrigger`/`select`/`input`; the crm PENDING scope was removed (the `app/(app)` and `app/api` pending scope remains). `2ec2da1`: the 3 password fields lost `h-10 rounded-12 px-3` (44 px primitive;
+  `px-3` was overriding the `pr-10` that clears the eye button). `9e017d1`: selected origin pills use `text-accent-soft` (create dialog and `task-dialogs.tsx`; contrast dark 1.97 -> 10.54, light 7.93) +
+  `src/test/selected-state-contrast.test.ts`. RED: tokenizer test failed on the missing module (and proves the old regex stops at `[&>svg]:`); constants + tokenizer on the real tree: 3 failed (3 constants + 8
+  crm sites); pill classes: 2 failed. GREEN: 264 files / 2871 tests, tsc and eslint clean; parent re-ran guards + `src/test` (5 files / 24 tests), `tsc` and viewed the dark "Nuevo proyecto" shot (pill legible).
+  The tokenizer surfaced 3 offenders outside the surface that the old regex missed, kept as explicit PENDING entries: a `rounded-lg` Button in `documents/document-dialog.tsx` (~336), two `Input ... text-[13px]` in
+  `kanban/task-dialog.tsx` (~522, ~627) and the `INLINE_INPUT_CLASS` constant in `crm/client-sheet.tsx` (`text-[13.5px]`). The constants rule only fails constants that set a height (not every constant).
+- 2026-10-11: native review of U7 (`0461101..9e017d1`, 14 files, 543 lines, medium; lineage `review-636f9376482a51ca`): APPROVED + acknowledged, one SUGGESTION `R3-selected-secondary-text-contrast-unproved`: the contrast
+  test checks the accent-soft label on the selected fills but not the secondary hint text (now `text-ink-700`) in either theme. The review boundary is now `9e017d1` (HEAD). The whole S13 stack (U1..U7) is reviewed.
+
 ## Next step
 
-Small cleanup task (call it U7) from the review advisories: (1) rewrite the lone font sizes in `SELECT_CLASS` (documents) and `SEL_CLASS` (kanban) and the 8 crm sites, and make the control guard also read class
+U7 is DONE (see above); remaining small items: (a) assert the secondary hint contrast of the selected pills in both themes; (b) clear the three PENDING offenders (kanban/task-dialog, documents/document-dialog,
+crm/client-sheet) and the `app/(app)` pending scope; (c) Solicitudes at 390 px, Clientes "Detalles" at 390 px, Documentos checkbox column. Then the Proyectos sections against v6 (needs product/design decisions).
+Original list of the cleanup task (superseded, kept for reference): (1) rewrite the lone font sizes in `SELECT_CLASS` (documents) and `SEL_CLASS` (kanban) and the 8 crm sites, and make the control guard also read class
 CONSTANTS; (2) dedupe the guard helpers (shared walker/`rel()`/skip list), fix the `rel()`/`SKIPPED_DIRS` base mismatch and the header comment, and harden the tag regex against `[&>svg]:` variants; (3) drop the redundant
 `rounded-12` in `change-password-dialog.tsx`; (4) fix the dark contrast of the selected origin pill in the "Nuevo proyecto" dialog. Then the Proyectos sections against v6. Earlier follow-ups: per-call font sizes
 (done in U6b/U6c except the crm sites), Clientes "Detalles" at 390 px shows one column, Solicitudes table at 390 px keeps Aprobar/Rechazar off-screen, Documentos checkbox column renders as a thin bar. Pending the user's
