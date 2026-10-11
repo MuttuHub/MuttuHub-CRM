@@ -13,15 +13,15 @@ import { cn } from "@/lib/utils";
 
 /** `<select>` nativo (se conserva en móvil, D3). `SELECT_CLASS_LG` es la variante de formularios. */
 export const SELECT_CLASS =
-  "h-8 rounded-12 border border-ink-200 bg-panel px-2.5 text-[12.5px] text-ink-900 disabled:opacity-60";
+  "h-10 rounded-12 border border-border-strong bg-input-bg px-2.5 text-base text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60 md:text-[12.5px]";
 export const SELECT_CLASS_LG =
-  "h-11 rounded-12 border border-ink-200 bg-panel px-3 text-[13px] text-ink-900 disabled:opacity-60 md:h-9";
+  "h-11 rounded-12 border border-border-strong bg-input-bg px-3 text-base text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60 md:text-[13px]";
 
-/** Controles de los formularios de captura: 44 px en teléfono (`h-11`), la altura de siempre desde `md`. */
-export const CAPTURE_FIELD = "h-11 rounded-12 bg-panel px-3 md:h-9";
+/** Controles de los formularios de captura: 44 px (`h-11`, modo campo) en todos los anchos; el resto lo aporta el primitivo. */
+export const CAPTURE_FIELD = "h-11 px-3";
 export const CAPTURE_TEXTAREA =
-  "min-h-20 rounded-12 border border-ink-200 bg-panel px-3 py-2 text-[13px] text-ink-900 md:min-h-16";
-export const CAPTURE_BUTTON = "h-11 md:h-7";
+  "min-h-20 rounded-12 border border-border-strong bg-input-bg px-3 py-2 text-base text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-[13px]";
+export const CAPTURE_BUTTON = "h-11";
 export const CAPTURE_CHOICE = "flex min-h-11 items-center gap-1.5 text-[12.5px] text-ink-800 md:min-h-0";
 
 export function SectionHeader({

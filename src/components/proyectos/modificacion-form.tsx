@@ -45,7 +45,7 @@ export const TIPO_MODIFICACION_LABEL: Record<TipoModificacion, string> = {
 };
 
 const TIPOS = Object.keys(TIPO_MODIFICACION_LABEL) as TipoModificacion[];
-const CELDA_CLASS = "h-8 w-[8.5rem] rounded-12 bg-panel px-2 text-right text-[12.5px] tabular-nums";
+const CELDA_CLASS = "h-10 w-[8.5rem] bg-panel px-2 text-right text-[12.5px] tabular-nums";
 
 export function SolicitarModificacion({ proyecto }: { proyecto: ProjectListRow }) {
   const [open, setOpen] = useState(false);
@@ -242,7 +242,7 @@ function Formulario({ proyecto, onDone }: { proyecto: ProjectListRow; onDone: ()
                 aria-label="Fecha de inicio"
                 value={valorDe("fecha_inicio", proyecto.fecha_inicio ?? "")}
                 onChange={(event) => escribir("fecha_inicio")(event.target.value)}
-                className="h-9 rounded-12 bg-panel px-3"
+                className="h-10 bg-panel px-3"
               />
             </Campo>
             <Campo label="Fecha de fin">
@@ -251,7 +251,7 @@ function Formulario({ proyecto, onDone }: { proyecto: ProjectListRow; onDone: ()
                 aria-label="Fecha de fin"
                 value={valorDe("fecha_fin", proyecto.fecha_fin ?? "")}
                 onChange={(event) => escribir("fecha_fin")(event.target.value)}
-                className="h-9 rounded-12 bg-panel px-3"
+                className="h-10 bg-panel px-3"
               />
             </Campo>
           </div>
@@ -267,14 +267,14 @@ function Formulario({ proyecto, onDone }: { proyecto: ProjectListRow; onDone: ()
                   inputMode="numeric"
                   value={valorDe(clave("si", a.codigo), String(a.semana_inicio))}
                   onChange={(event) => escribir(clave("si", a.codigo))(event.target.value)}
-                  className="h-8 w-16 rounded-12 bg-panel px-2 text-right"
+                  className="h-10 w-16 bg-panel px-2 text-right"
                 />
                 <Input
                   aria-label={`Semana final ${a.codigo}`}
                   inputMode="numeric"
                   value={valorDe(clave("sf", a.codigo), String(a.semana_fin))}
                   onChange={(event) => escribir(clave("sf", a.codigo))(event.target.value)}
-                  className="h-8 w-16 rounded-12 bg-panel px-2 text-right"
+                  className="h-10 w-16 bg-panel px-2 text-right"
                 />
               </li>
             ))}
@@ -293,7 +293,7 @@ function Formulario({ proyecto, onDone }: { proyecto: ProjectListRow; onDone: ()
                 inputMode="decimal"
                 value={valorDe(clave("e", e.codigo), e.cantidad_meta)}
                 onChange={(event) => escribir(clave("e", e.codigo))(event.target.value)}
-                className="h-8 w-24 rounded-12 bg-panel px-2 text-right"
+                className="h-10 w-24 bg-panel px-2 text-right"
               />
             </li>
           ))}
@@ -308,7 +308,7 @@ function Formulario({ proyecto, onDone }: { proyecto: ProjectListRow; onDone: ()
                 inputMode="decimal"
                 value={valorDe(clave("i", i.codigo), i.meta)}
                 onChange={(event) => escribir(clave("i", i.codigo))(event.target.value)}
-                className="h-8 w-24 rounded-12 bg-panel px-2 text-right"
+                className="h-10 w-24 bg-panel px-2 text-right"
               />
             </li>
           ))}

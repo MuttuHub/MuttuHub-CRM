@@ -91,11 +91,11 @@ export function ProjectKpisPanel({ proyecto }: { proyecto: ProjectListRow }) {
         </label>
         {kpis && kpis.medible && !kpis.confirmado && <ToneBadge tone="neutro" label="No confirmado" />}
         <div className="ml-auto flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" className="h-8 rounded-11" onClick={() => void exportar("proyecto")}>
+          <Button variant="outline" size="sm" onClick={() => void exportar("proyecto")}>
             <Download className="size-3.5" strokeWidth={1.8} />
             Exportar ficha (Excel)
           </Button>
-          <Button variant="outline" size="sm" className="h-8 rounded-11" onClick={() => void exportar("financiera")}>
+          <Button variant="outline" size="sm" onClick={() => void exportar("financiera")}>
             <Download className="size-3.5" strokeWidth={1.8} />
             Exportar ficha financiera (Excel)
           </Button>

@@ -65,7 +65,7 @@ export function TextField({
         inputMode={inputMode}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-9 rounded-12 bg-panel px-3"
+        className="h-10 bg-panel px-3"
       />
     </div>
   );
@@ -207,7 +207,7 @@ export function VoidControl({
         value={motivo}
         onChange={(event) => setMotivo(event.target.value)}
         placeholder="Motivo de la anulación"
-        className="h-8 w-52 rounded-12 bg-panel px-2.5 text-[12px]"
+        className="h-10 w-52 bg-panel px-2.5 text-[12px]"
       />
       <Button type="submit" size="sm" variant="destructive" disabled={pending || motivo.trim() === ""}>
         {pending && <LoaderCircle className="size-4 animate-spin" />}

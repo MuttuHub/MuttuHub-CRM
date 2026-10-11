@@ -136,7 +136,7 @@ export function ProjectDashboard() {
           </div>
           <div className="flex items-center gap-2">
             {data && !data.confirmado && <ToneBadge tone="neutro" label="No confirmado" />}
-            <Button size="lg" variant="outline" className="rounded-12" onClick={() => void exportar()}>
+            <Button size="lg" variant="outline" onClick={() => void exportar()}>
               <Download className="size-4" />
               Exportar Excel
             </Button>

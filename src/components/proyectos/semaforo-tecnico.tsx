@@ -47,7 +47,7 @@ export function SemaforoTecnico({
               aria-label="Base"
               value={tecnico.base}
               onChange={(event) => onBaseChange(event.target.value as ProjectBase)}
-              className="h-8 rounded-12 border border-ink-200 bg-panel px-2.5 text-[12.5px] text-ink-900"
+              className="h-10 rounded-12 border border-border-strong bg-input-bg px-2.5 text-base text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-[12.5px]"
             >
               <option value="vigente">Vigente</option>
               <option value="original">Original (v0)</option>

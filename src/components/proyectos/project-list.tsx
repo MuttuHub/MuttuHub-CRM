@@ -133,8 +133,9 @@ export function ProjectList() {
               onValueChange={(value) => setEstado(value === "todos" ? "" : (value ?? ""))}
             >
               <SelectTrigger
+                size="sm"
                 aria-label="Filtrar por estado"
-                className="h-9 w-[190px] rounded-12 border-ink-200 bg-panel px-3 text-[13px]"
+                className="w-[190px] border-ink-200 bg-panel px-3 text-[13px]"
               >
                 <SelectValue placeholder="Todos los estados" />
               </SelectTrigger>
@@ -148,7 +149,7 @@ export function ProjectList() {
               </SelectContent>
             </Select>
             {puedeCrear && (
-              <Button size="lg" className="rounded-12" onClick={() => setCrearAbierto(true)}>
+              <Button size="lg" onClick={() => setCrearAbierto(true)}>
                 <Plus className="size-4" />
                 Nuevo proyecto
               </Button>
@@ -240,7 +241,7 @@ function ProjectTable({
                 rel="noopener noreferrer"
                 className={cn(
                   buttonVariants({ variant: "outline", size: "sm" }),
-                  "h-8 rounded-11 border-ink-200 bg-panel px-3 text-[12px] font-semibold text-ink-700 hover:bg-ink-100",
+                  "border-ink-200 bg-panel px-3 text-[12px] font-semibold text-ink-700 hover:bg-ink-100",
                 )}
               >
                 <Eye className="size-3.5" strokeWidth={1.8} />

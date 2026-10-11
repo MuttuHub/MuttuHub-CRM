@@ -39,6 +39,11 @@ describe("Select", () => {
     expect(screen.getByRole("combobox")).toHaveClass("data-[size=sm]:h-10")
   })
 
+  it("uses 16px text below md so touch browsers do not zoom, 14px from md", () => {
+    render(<BasicSelect />)
+    expect(screen.getByRole("combobox")).toHaveClass("text-base", "md:text-sm")
+  })
+
   it("uses the v6 radius (12px) and control surface tokens on the trigger", () => {
     render(<BasicSelect />)
     expect(screen.getByRole("combobox")).toHaveClass("rounded-12", "border-border-strong", "bg-input-bg")

@@ -240,7 +240,7 @@ function ActivityForm({
       <div className="flex min-w-0 flex-col gap-1">
         <span className="text-[12px] font-medium text-ink-600">Responsable</span>
         <Select value={responsable} onValueChange={(value) => setResponsable(value ?? SIN_RESPONSABLE)}>
-          <SelectTrigger aria-label="Responsable" className="h-9 min-w-0 rounded-12 bg-panel px-3">
+          <SelectTrigger size="sm" aria-label="Responsable" className="min-w-0 bg-panel px-3">
             <SelectValue placeholder="Sin responsable" />
           </SelectTrigger>
           <SelectContent>

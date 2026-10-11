@@ -153,7 +153,7 @@ function AddMember({
         <Select value={usuarioId} onValueChange={(value) => setUsuarioId(value ?? "")}>
           <SelectTrigger
             aria-label="Agregar coordinador"
-            className="h-10 min-w-0 flex-1 rounded-12 bg-panel px-3"
+            className="min-w-0 flex-1 bg-panel px-3"
           >
             <SelectValue placeholder="Selecciona un coordinador" />
           </SelectTrigger>

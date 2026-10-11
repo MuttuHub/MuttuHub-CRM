@@ -86,7 +86,7 @@ export function ProjectFicha({ projectId, backHref }: { projectId: string; backH
           href={backHref}
           className={cn(
             buttonVariants({ variant: "outline", size: "sm" }),
-            "h-9 w-fit rounded-11 border-ink-200 bg-panel px-3 text-[12.5px] font-semibold text-ink-700 hover:bg-ink-100",
+            "w-fit border-ink-200 bg-panel px-3 text-[12.5px] font-semibold text-ink-700 hover:bg-ink-100",
           )}
         >
           <ArrowLeft className="size-3.5" strokeWidth={1.8} />

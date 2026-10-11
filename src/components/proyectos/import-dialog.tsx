@@ -208,7 +208,7 @@ export function ImportDialog({ proyecto }: { proyecto: ProjectListRow }) {
               accept=".xlsx"
               onChange={elegirArchivo}
               disabled={ocupado}
-              className="h-auto rounded-12 bg-panel px-3 py-2"
+              className="h-auto bg-panel px-3 py-2"
             />
             <InlineError message={archivoError} />
           </div>
