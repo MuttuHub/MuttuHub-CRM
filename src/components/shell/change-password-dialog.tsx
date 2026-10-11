@@ -131,7 +131,6 @@ export function ChangePasswordDialog({
               id="current-password"
               autoComplete="current-password"
               required
-              className="h-10 rounded-12 px-3"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
             />
@@ -143,7 +142,6 @@ export function ChangePasswordDialog({
               id="new-password"
               autoComplete="new-password"
               required
-              className="h-10 rounded-12 px-3"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
             />
@@ -155,7 +153,6 @@ export function ChangePasswordDialog({
               id="confirm-new-password"
               autoComplete="new-password"
               required
-              className="h-10 rounded-12 px-3"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
             />
