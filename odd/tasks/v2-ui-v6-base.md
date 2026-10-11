@@ -61,7 +61,7 @@ stays usable in BOTH light and dark mode. Section-by-section work on the Project
   `--color-rose-400` `#EB3F85`, keep `--border-strong` light `#9b8c91`; the manual's `--accent` shadcn token as an alpha tint; `--sidebar*` light tokens white (the sidebar component itself is U3);
   default theme LIGHT in `src/app/layout.tsx` + `src/hooks/use-theme.ts` (stored value still wins); destructive buttons are OUTLINE (fill only on hover; solid fill is reserved for the primary brand button);
   update `globals.tokens.test.ts` contrast assertions and any class/hex assertions. Verify contrast of every changed pair (AA text, 3:1 non-text) and take after-shots in both themes. Route: delegated.
-- [ ] **U3** Sidebar: ~220 px, active item surface + 3 px left bar, WHITE in light theme (manual + video), dark `#0D0809`, nav-active tint `rgba(205,21,96,.08)` light / `#1B1316` dark;
+- [x] **U3** (commit `16fdd6b`, 4 files, +191/-53) Sidebar: ~220 px, active item surface + 3 px left bar, WHITE in light theme (manual + video), dark `#0D0809`, nav-active tint `rgba(205,21,96,.08)` light / `#1B1316` dark;
   logo variants (the tagline "Innovación social" must stay with the logo per the manual: check if the asset exists); `sidebar.test.tsx`. Route: delegated.
 - [ ] **U4** Tables: delete the 35 hard-coded `TableHead` classes, convert the raw tables that matter; update `proyectos/ui.test.tsx`. Route: delegated.
 - [ ] **U5** Controls sweep: audit the 117 `size="sm"` buttons and ~25 height overrides; keep dense toolbars usable (Kanban, documents, clientes). Route: delegated.
@@ -124,7 +124,18 @@ Forecast well above 400 lines in total; each unit stays near 400 where possible.
   `reportes-page.tsx:70` pill), so nothing changes silently today. Review boundary advances to `7b19b54`.
 - Data finding (not touched): the local DB holds test-pollution clients named "sdd-invariant-linea-base-cliente-..." left by the Prisma invariant tests (the sidebar shows 14 clients, the seed makes 12).
 
+- 2026-10-11: U3 done (`16fdd6b`), delegated route. The `--color-shell-*` tokens (fixed dark hex in `@theme`) now point to per-theme `--shell-*` variables (`:root` / `.dark`); active item = tint + 3 px rounded
+  rail (`--accent-bar`) + primary-colour text + `aria-current="page"` (the solid pink pill is gone); light sidebar `#FFFFFF`, dark `#0D0809`, nav-active `rgba(205,21,96,.08)` / `#1B1316`, chip `#F1EAED` / `#2E2225`;
+  single expanded width 220 px (was 200, 244 at xl), collapsed 72 px, row height 44 px; search field border `border-border-strong`; drawer uses `bg-sidebar`; the dead class `hover:text-shell` (undefined token)
+  became `hover:text-shell-text`. Logo: `public/brand/` already has `logo-color.svg`, `logo-blanco.svg`, `logo-iso.svg`: colour in light (`dark:hidden`), white in dark (`hidden dark:block`), isotipo when collapsed;
+  there is NO tagline asset ("Innovación social") and no magenta-mono variant, so the tagline is not shown. Contrast (computed): text on sidebar/active 16.3/14.3 light, 18.0/16.5 dark; text-2 8.6/7.5 and 9.9/9.0;
+  text-3 6.1/5.3 and 6.2/5.7; rail 6.7/5.8 light, 3.67/3.36 dark (>= 3:1; `#EB3F85` would give 4.85/5.29, the user may prefer it); search border 3.2 on white (dark `#2E2227` on `#0D0809` is only ~1.4:1, left subtle as before).
+  RED: 25 failed / 96 passed (sidebar + tokens tests, new tests against the old code). GREEN: `src/components src/app src/lib src/hooks` 259 files / 2841 tests, tsc 0 errors, eslint clean; parent re-ran shell +
+  tokens: 6 files / 139 tests and `tsc`. After-shots: 54 PNGs in the scratchpad `uiafter-u3/`; the parent viewed inicio light 1440, clientes-tarjetas dark 1440 and the collapsed light rail. The `ficha-resumen` after-shots
+  are INVALID (the spec's click did not reach the ficha: they show the Proyectos list); the "Sesión" card from the manual was not built. Assessed since `7b19b54`: medium, 398 lines, `review_due=false` (`under_budget`).
+- Review state: U3 is pending inside the next slice (boundary stays `7b19b54`) until U4+ reach the budget or the user asks.
+
 ## Next step
 
-U3 (sidebar: white in light, `--sidebar*` tokens flip with the component, ~220 px, active item tint + 3 px rail), then U4 (tables), U5 (controls sweep), U6 (cards). Pending the user's go-ahead on removing the
-"sdd-invariant" test clients from the LOCAL DB with a guarded script.
+U4 (tables: remove the ~35 hard-coded `TableHead` overrides and unify the eyebrow header), U5 (controls sweep), U6 (cards), then the Proyectos sections against v6. Pending the user's go-ahead on removing the
+"sdd-invariant" test clients from the LOCAL DB with a guarded script, and on the dark rail colour (`#CD1560` vs `#EB3F85`).
