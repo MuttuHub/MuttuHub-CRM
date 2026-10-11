@@ -51,6 +51,18 @@ export function datosIncompletos(input: {
   return input.tercero_tipo_id == null || input.tercero_numero_id == null
 }
 
+/**
+ * D5: "observado" is a reading of the ledger, not a state. A REGISTRADO expense is observed while it carries the
+ * overspend alert or its third-party data is incomplete; leaving REGISTRADO (validated, rejected, voided) clears it.
+ */
+export function esObservado(input: {
+  estado: EstadoGasto
+  alerta_sobregasto: boolean
+  datos_incompletos: boolean
+}): boolean {
+  return input.estado === "REGISTRADO" && (input.alerta_sobregasto || input.datos_incompletos)
+}
+
 const TRANSICIONES: Record<EstadoGasto, Partial<Record<AccionGasto, EstadoGasto>>> = {
   REGISTRADO: { VALIDAR: "VALIDADO", RECHAZAR: "RECHAZADO" },
   RECHAZADO: { CORREGIR: "REGISTRADO" },
@@ -78,7 +90,7 @@ export function esDuplicado(a: DuplicadoKey, b: DuplicadoKey): boolean {
   return a.tercero_id_norm === b.tercero_id_norm && a.numero_documento_norm === b.numero_documento_norm
 }
 
-const CAMPOS_RESTRINGIDOS = ["tercero_numero_id", "tercero_id_norm", "soportes"] as const
+const CAMPOS_RESTRINGIDOS = ["tercero_numero_id", "tercero_id_norm", "soportes", "soportes_count"] as const
 
 /** RNF-03/RNF-04: drops the third-party number and supports unless the actor may view supports. */
 export function redactarGasto<T extends object>(

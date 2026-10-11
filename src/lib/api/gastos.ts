@@ -26,6 +26,7 @@ import {
   periodoPorDefecto,
   redactarGasto,
   datosIncompletos,
+  esObservado,
   type EstadoGasto,
 } from "@/lib/proyectos/gastos";
 import { fromCents, sumCents, toCents, type Cents } from "@/lib/proyectos/money";
@@ -354,6 +355,8 @@ export type GastoView = {
   motivo_anulacion: string | null;
   /** Omitted for actors who cannot view financial supports (RNF-03). */
   soportes?: SoporteGastoView[];
+  /** Live supports of the expense. Omitted together with `soportes` (RNF-03). */
+  soportes_count?: number;
 };
 
 const iso = (value: Date | null) => (value ? value.toISOString() : null);
@@ -400,6 +403,7 @@ export function toGastoView(row: GastoConRelaciones, opts: { puedeVerSoportes: b
     anulado_at: iso(row.anulado_at),
     motivo_anulacion: row.motivo_anulacion,
     soportes: row.soportes.map(toSoporteGastoView),
+    soportes_count: row.soportes.length,
   };
   return redactarGasto(completo, opts) as GastoView;
 }
@@ -416,6 +420,40 @@ export function totalesPorEstado(rows: readonly { estado: EstadoGasto; monto_cop
     };
   }
   return out;
+}
+
+export type ResumenGastos = {
+  /** Expenses that count: REGISTRADO and VALIDADO. */
+  vigentes: number;
+  /** Vigentes with at least one live support. Omitted without financial-support access (RNF-03). */
+  con_soporte?: number;
+  /** D5: REGISTRADO with the overspend alert or incomplete data. */
+  observados: { cantidad: number; valor: string };
+};
+
+export function resumenGastos(
+  rows: readonly {
+    estado: EstadoGasto;
+    monto_cop: { toString(): string };
+    alerta_sobregasto: boolean;
+    tercero_tipo_id: string | null;
+    tercero_numero_id: string | null;
+    soportes: readonly unknown[];
+  }[],
+  opts: { puedeVerSoportes: boolean },
+): ResumenGastos {
+  const vigentes = rows.filter((row) => ESTADOS_VIVOS.includes(row.estado));
+  const observados = rows.filter((row) =>
+    esObservado({ estado: row.estado, alerta_sobregasto: row.alerta_sobregasto, datos_incompletos: datosIncompletos(row) }),
+  );
+  return {
+    vigentes: vigentes.length,
+    ...(opts.puedeVerSoportes ? { con_soporte: vigentes.filter((row) => row.soportes.length > 0).length } : {}),
+    observados: {
+      cantidad: observados.length,
+      valor: fromCents(sumCents(observados.map((row) => toCents(row.monto_cop)))),
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------

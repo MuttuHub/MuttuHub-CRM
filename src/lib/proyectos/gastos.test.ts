@@ -5,6 +5,7 @@ import { gastosTransporte, TRANSPORTE_ASIGNADO } from "./__fixtures__/gastos"
 import {
   datosIncompletos,
   esDuplicado,
+  esObservado,
   normalizarIdentificacion,
   normalizarNumeroDocumento,
   periodoEnProyecto,
@@ -117,6 +118,27 @@ describe("redactarGasto", () => {
 
   it("keeps everything for actors with access", () => {
     expect(redactarGasto(view, { puedeVerSoportes: true })).toEqual(view)
+  })
+
+  it("hides the support count together with the supports", () => {
+    const out = redactarGasto({ ...view, soportes_count: 1 }, { puedeVerSoportes: false })
+    expect(out).not.toHaveProperty("soportes_count")
+  })
+})
+
+describe("esObservado (D5)", () => {
+  const base = { estado: "REGISTRADO" as const, alerta_sobregasto: false, datos_incompletos: false }
+
+  it("is a REGISTRADO expense with the overspend alert or with incomplete data", () => {
+    expect(esObservado({ ...base, alerta_sobregasto: true })).toBe(true)
+    expect(esObservado({ ...base, datos_incompletos: true })).toBe(true)
+    expect(esObservado(base)).toBe(false)
+  })
+
+  it("never applies to an expense that already left REGISTRADO", () => {
+    for (const estado of ["VALIDADO", "RECHAZADO", "ANULADO"] as const) {
+      expect(esObservado({ ...base, estado, alerta_sobregasto: true, datos_incompletos: true })).toBe(false)
+    }
   })
 })
 

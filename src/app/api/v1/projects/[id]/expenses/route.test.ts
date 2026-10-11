@@ -409,6 +409,42 @@ describe("GET expenses", () => {
     expect(json.gastos[0].soportes).toHaveLength(1);
   });
 
+  it("reports the live support count of each expense", async () => {
+    const json = await (await GET(get(), ctx)).json();
+    expect(json.gastos.map((gasto: { soportes_count: number }) => gasto.soportes_count)).toEqual([1, 0, 0]);
+  });
+
+  it("summarizes live expenses, those with a live support and the observados (REGISTRADO with alert or incomplete data)", async () => {
+    const fila = (data: Record<string, unknown>, soportes: unknown[]) => ({
+      ...gastoRow(data),
+      linea: { rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" } },
+      soportes,
+    });
+    vi.mocked(db.gasto.findMany).mockResolvedValue([
+      fila({ id: "a", estado: "REGISTRADO", monto_cop: new Prisma.Decimal("100"), alerta_sobregasto: true }, [soporteRow()]),
+      fila({ id: "b", estado: "REGISTRADO", monto_cop: new Prisma.Decimal("40.50"), tercero_numero_id: null }, []),
+      fila({ id: "c", estado: "REGISTRADO", monto_cop: new Prisma.Decimal("10") }, [soporteRow()]),
+      fila({ id: "d", estado: "VALIDADO", monto_cop: new Prisma.Decimal("200"), alerta_sobregasto: true }, [soporteRow()]),
+      fila({ id: "e", estado: "RECHAZADO", monto_cop: new Prisma.Decimal("5") }, [soporteRow()]),
+      fila({ id: "f", estado: "ANULADO", monto_cop: new Prisma.Decimal("7") }, []),
+    ] as never);
+    const json = await (await GET(get(), ctx)).json();
+    expect(json.resumen).toEqual({
+      vigentes: 4,
+      con_soporte: 3,
+      observados: { cantidad: 2, valor: "140.50" },
+    });
+  });
+
+  it("omits the with-support count (and the per-expense count) without financial-support access", async () => {
+    vi.mocked(canViewFinancialSupports).mockReturnValue(false);
+    const json = await (await GET(get(), ctx)).json();
+    expect(json.resumen).not.toHaveProperty("con_soporte");
+    expect(json.resumen.vigentes).toBe(3);
+    for (const gasto of json.gastos) expect(gasto).not.toHaveProperty("soportes_count");
+    vi.mocked(canViewFinancialSupports).mockReturnValue(true);
+  });
+
   it("is readable in any estado and by a member COORDINADOR", async () => {
     authAs(coordinador);
     vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto("CERRADO", true));

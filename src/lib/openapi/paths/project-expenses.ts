@@ -65,6 +65,11 @@ export const GastoSchema = registry.register(
     anulado_at: z.string().nullable(),
     motivo_anulacion: z.string().nullable(),
     soportes: z.array(SoporteGastoSchema).optional().openapi({ description: "Omitido sin acceso a soportes financieros (RNF-03)." }),
+    soportes_count: z
+      .number()
+      .int()
+      .optional()
+      .openapi({ description: "Soportes vigentes del gasto. Omitido sin acceso a soportes financieros (RNF-03)." }),
   }),
 );
 
@@ -77,6 +82,18 @@ const AlertaSchema = z.union([
     mensaje: z.string(),
   }),
 ]);
+
+const ResumenSchema = z.object({
+  vigentes: z.number().int().openapi({ description: "Gastos REGISTRADO y VALIDADO." }),
+  con_soporte: z
+    .number()
+    .int()
+    .optional()
+    .openapi({ description: "Vigentes con al menos un soporte vigente. Omitido sin acceso a soportes financieros (RNF-03)." }),
+  observados: z.object({ cantidad: z.number().int(), valor: z.string() }).openapi({
+    description: "Gastos REGISTRADO con alerta de sobregasto o con datos incompletos (no es un estado).",
+  }),
+});
 
 const TotalesSchema = z.record(z.string(), z.object({ cantidad: z.number().int(), valor: z.string() }));
 
@@ -91,7 +108,7 @@ registry.registerPath({
   responses: {
     200: {
       description: "Gastos y totales por estado.",
-      content: { "application/json": { schema: z.object({ gastos: z.array(GastoSchema), totales: TotalesSchema }) } },
+      content: { "application/json": { schema: z.object({ gastos: z.array(GastoSchema), totales: TotalesSchema, resumen: ResumenSchema }) } },
     },
     ...standardErrorResponses([401, 403, 404, 500]),
   },

@@ -1345,11 +1345,23 @@ export type ProjectExpense = {
   motivo_anulacion: string | null;
   /** Ausente sin acceso a soportes financieros (RNF-03). */
   soportes?: ProjectExpenseSoporte[];
+  /** Soportes vigentes; ausente sin acceso a soportes financieros (RNF-03). */
+  soportes_count?: number;
+};
+
+export type ProjectExpensesResumen = {
+  /** REGISTRADO y VALIDADO. */
+  vigentes: number;
+  /** Vigentes con soporte; ausente sin acceso a soportes financieros (RNF-03). */
+  con_soporte?: number;
+  /** D5: REGISTRADO con alerta de sobregasto o con datos incompletos. */
+  observados: { cantidad: number; valor: string };
 };
 
 export type ProjectExpenses = {
   gastos: ProjectExpense[];
   totales: Record<ProjectExpenseEstado, { cantidad: number; valor: string }>;
+  resumen: ProjectExpensesResumen;
 };
 
 export type ExpenseAlert =

@@ -30,6 +30,7 @@ import {
   gateGastoRead,
   parseValorGasto,
   resolverLinea,
+  resumenGastos,
   resolverPeriodo,
   superaAsignado,
   toGastoView,
@@ -62,6 +63,7 @@ export const GET = withApiErrorHandling(
     return NextResponse.json({
       gastos: rows.map((row) => toGastoView(row, { puedeVerSoportes })),
       totales: totalesPorEstado(rows),
+      resumen: resumenGastos(rows, { puedeVerSoportes }),
     });
   },
 );
