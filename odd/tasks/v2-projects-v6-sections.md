@@ -49,7 +49,7 @@ technical schedule with spend: build TWO separate curves (technical and financia
 - [x] **P2** Resumen: 6 KPI cards (técnico, financiero, cronograma, indicadores, entregables con soporte, beneficiarios) from the existing KPI data, `indicadores.en_meta` count, neutral dots (D6); move the KPI tiles
   out of the Avance tab.
 - [x] **P3** Gastos ledger: KPIs (total, validados, por validar, observados per D5), chip filters, `con_soporte` counts in the `expenses` response.
-- [ ] **P4** Ficha with 8 tabs per D10 (move the structure sections, lazy-mount tests, keep Cambios).
+- [x] **P4** Ficha with 8 tabs per D10 (move the structure sections, lazy-mount tests, keep Cambios).
 - [ ] **P5** `GET projects/:id/attention` (server-derived list: rubro sobreejecución, late activities, avances sin soporte, indicators below target, alerta de retraso, gastos observados) + `requiere-atencion.tsx`.
 - [ ] **P6** Technical-status activities enriched (`programado`, `dias`, `al_corte`, `color`, `sin_soporte`, objective roll-ups); Metas e indicadores and Cronograma views.
 - [ ] **P7** S-curve: pure `src/lib/proyectos/curva.ts` + tests, `GET projects/:id/curve?base=` returning `{ base, corte, periodos: [{ periodo, tecnico: { planeado, ejecutado|null }, financiero: { planeado, ejecutado|null } }] }`,
@@ -91,9 +91,14 @@ worktrees for non-suffix candidates, as in S13).
   eslint clean on the three touched files — then committed as `d5a80f5`. **Native review of P1-P3 not run**: the OpenCode runtime is not eligible for immutable receipt review
   (`gentle-ai review assess` -> `high`/`unassessable`; only Claude Code and Codex are eligible), same constraint recorded in S9/S10. Independent read-only verification is the substitute; deferred to the
   parent when a slice is closed.
+- 2026-10-11 (OpenCode continuation): **P4 done** — `9a899e2` `feat(proyectos): split the ficha into eight tabs with a weekly schedule`. `FICHA_TABS` is now the 8 of D10 (Resumen, Metas e indicadores,
+  Cronograma, Gantt, Avance, Presupuesto, Gastos, Cambios); `ProjectEstructura` lost its Gantt (now its own tab) and feeds the Metas e indicadores tab; new read-only `project-cronograma.tsx` groups
+  activities by start week (reusing the shared `ActivitySummary`, whose `responsable`/`actions` props became optional); lazy mounting untouched. Parent verification: proyectos suite 37 files / 391 tests,
+  **full suite 308 files / 3234 tests green** under `TZ=America/Bogota`, `tsc --noEmit` 0, guards green. Deviation recorded: the Metas tab still shows the old "Estructura técnica" section header (P6 relabel),
+  and Cronograma groups by start week (P6 may reshape to the v6 días/% column set).
 
 ## Next step
 
-P4: restructure the ficha dialog from the current 6 tabs to the 8 of D10 (Resumen, Metas e indicadores, Cronograma, Gantt, Avance, Presupuesto, Gastos, Cambios), relocating the existing `ProjectEstructura`
-content into Metas e indicadores / Cronograma / Gantt, keeping Cambios last and the lazy mounting; then P5 (attention endpoint + `requiere-atencion.tsx`), P6 (enriched activity status + the two views), P7
-(S-curve), P8 (Presupuesto gauge), P9 (Tablero gerencial). Native review of P1-P4 as small candidates has to run in Claude Code (OpenCode is ineligible).
+P5: `GET projects/:id/attention` (server-derived list: rubro sobreejecución, late activities, avances sin soporte, indicators below target, alerta de retraso, gastos observados) plus `requiere-atencion.tsx`
+and its placement in the Resumen tab; then P6 (enriched technical-status activities + the Metas e indicadores and Cronograma views), P7 (S-curve), P8 (Presupuesto gauge), P9 (Tablero gerencial). Native review
+of P1-P5 as small candidates has to run in Claude Code (OpenCode is ineligible); independent read-only verification is the in-runtime substitute.
