@@ -508,7 +508,7 @@ export function OportunidadFormDialog({
                 value={form.valor_estimado_cop}
                 onChange={(e) => set("valor_estimado_cop", e.target.value)}
                 placeholder="0"
-                className="px-3 font-mono text-[13px]"
+                className="px-3 font-mono text-base md:text-[13px]"
               />
             </div>
 
@@ -766,7 +766,7 @@ export function OportunidadLifecycleDialog({
             {!readOnly && (
               <div className="flex items-center gap-2">
                 <Select value={selectedTaskId} onValueChange={(v) => setSelectedTaskId(v ?? "")}>
-                  <SelectTrigger size="sm" className="w-full px-3 text-[12.5px]">
+                  <SelectTrigger size="sm" className="w-full px-3 text-base md:text-[12.5px]">
                     <SelectValue placeholder="Vincular una tarea existente del cliente" />
                   </SelectTrigger>
                   <SelectContent>
@@ -812,7 +812,7 @@ export function OportunidadLifecycleDialog({
                   value={nota}
                   onChange={(e) => setNota(e.target.value)}
                   placeholder="Agregar una nota de comunicación"
-                  className="h-10 px-3 text-[12.5px]"
+                  className="h-10 px-3 text-base md:text-[12.5px]"
                 />
                 <Button
                   size="sm"

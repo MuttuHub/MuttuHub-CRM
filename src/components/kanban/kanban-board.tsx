@@ -697,7 +697,7 @@ type FiltersRowProps = {
   onClear: () => void;
 };
 
-const SEL_CLASS = "h-10 flex-1 basis-0 px-3 text-[12.5px]";
+const SEL_CLASS = "h-10 flex-1 basis-0 px-3 text-base md:text-[12.5px]";
 
 // FiltersRow real (definida debajo)
 

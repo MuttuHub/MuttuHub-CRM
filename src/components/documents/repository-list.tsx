@@ -452,7 +452,7 @@ function FolderActionDialogs({
 /* ── Fila de filtros ───────────────────────────────────────────────────── */
 
 const SELECT_CLASS =
-  "h-10 flex-1 basis-0 px-3 text-[13px]";
+  "h-10 flex-1 basis-0 px-3 text-base md:text-[13px]";
 
 function SectionFilters({
   local,

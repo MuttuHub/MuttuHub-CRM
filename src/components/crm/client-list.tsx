@@ -504,7 +504,7 @@ export function ClientList() {
 /* ── Fila de filtros ───────────────────────────────────────────────────── */
 
 const SELECT_CLASS =
-  "h-10 w-full px-3 text-[13px]";
+  "h-10 w-full px-3 text-base md:text-[13px]";
 
 function FiltersCard({
   local,
@@ -576,7 +576,7 @@ function FiltersCard({
             onChange={(e) => onChange({ q: e.target.value })}
             placeholder="Buscar por nombre, contacto o bitácora…"
             aria-label="Buscar clientes"
-            className="h-10 pl-9 text-[13px]"
+            className="h-10 pl-9 text-base md:text-[13px]"
           />
         </div>
 
@@ -676,7 +676,7 @@ function FiltersCard({
                   value={draft.desde}
                   onChange={(e) => patchDraft({ desde: e.target.value })}
                   aria-label="Primer contacto desde"
-                  className="h-10 min-w-0 flex-1 px-3 text-[12.5px]"
+                  className="h-10 min-w-0 flex-1 px-3 text-base md:text-[12.5px]"
                 />
                 <span className="text-[12px] text-ink-500">a</span>
                 <Label htmlFor="fecha-hasta" className="sr-only">
@@ -688,7 +688,7 @@ function FiltersCard({
                   value={draft.hasta}
                   onChange={(e) => patchDraft({ hasta: e.target.value })}
                   aria-label="Primer contacto hasta"
-                  className="h-10 min-w-0 flex-1 px-3 text-[12.5px]"
+                  className="h-10 min-w-0 flex-1 px-3 text-base md:text-[12.5px]"
                 />
               </div>
 
@@ -704,7 +704,7 @@ function FiltersCard({
                   value={draft.valorMin}
                   onChange={(e) => patchDraft({ valorMin: e.target.value })}
                   placeholder="Valor min"
-                  className="h-10 min-w-0 flex-1 px-3 font-mono text-[12px]"
+                  className="h-10 min-w-0 flex-1 px-3 font-mono text-base md:text-[12px]"
                 />
                 <span className="text-[12px] text-ink-500">a</span>
                 <Label htmlFor="valor-max" className="sr-only">
@@ -718,7 +718,7 @@ function FiltersCard({
                   value={draft.valorMax}
                   onChange={(e) => patchDraft({ valorMax: e.target.value })}
                   placeholder="Valor max"
-                  className="h-10 min-w-0 flex-1 px-3 font-mono text-[12px]"
+                  className="h-10 min-w-0 flex-1 px-3 font-mono text-base md:text-[12px]"
                 />
               </div>
             </div>
