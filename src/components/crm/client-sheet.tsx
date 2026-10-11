@@ -378,7 +378,7 @@ function SheetHeaderContent({
             variant="outline"
             size="sm"
             onClick={onEditar}
-            className="shrink-0 rounded-10 px-3 text-[12.5px] font-semibold"
+            className="shrink-0 px-3 text-[12.5px] font-semibold"
           >
             <Pencil className="size-3.5" strokeWidth={1.9} />
             Editar
@@ -390,7 +390,7 @@ function SheetHeaderContent({
           onClick={() =>
             window.open(`/print/clientes/${cliente.id}`, "_blank", "noopener")
           }
-          className="shrink-0 rounded-10 px-3 text-[12.5px] font-semibold"
+          className="shrink-0 px-3 text-[12.5px] font-semibold"
         >
           <FileText className="size-3.5 text-destructivo" strokeWidth={1.9} />
           Exportar PDF
@@ -400,7 +400,7 @@ function SheetHeaderContent({
             variant="outline"
             size="sm"
             onClick={onDesactivar}
-            className="shrink-0 rounded-10 px-3 text-[12.5px] font-semibold text-ink-500 hover:border-destructivo/40 hover:text-destructivo"
+            className="shrink-0 px-3 text-[12.5px] font-semibold text-ink-500 hover:border-destructivo/40 hover:text-destructivo"
           >
             <UserX className="size-3.5" strokeWidth={1.9} />
             Desactivar cliente
@@ -466,9 +466,9 @@ function SheetHeaderContent({
 const INLINE_LABEL_CLASS = "text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase";
 const INLINE_DISPLAY_CLASS =
   "group mt-1 -mx-1.5 flex w-full items-start gap-1.5 rounded-md px-1.5 py-0.5 text-left text-[13.5px] leading-snug text-ink-900 hover:bg-ink-100 disabled:opacity-60";
-const INLINE_INPUT_CLASS = "mt-1 h-8 rounded-md bg-panel px-2 text-[13.5px]";
+const INLINE_INPUT_CLASS = "mt-1 h-10 bg-panel px-2 text-[13.5px]";
 const INLINE_SELECT_TRIGGER_CLASS =
-  "mt-1 h-8 w-full justify-start rounded-md border-transparent bg-transparent px-1.5 font-normal text-ink-900 hover:border-ink-200 hover:bg-ink-100 data-[popup-open]:border-ink-200 data-[popup-open]:bg-ink-100";
+  "mt-1 h-10 w-full justify-start border-transparent bg-transparent px-1.5 font-normal text-ink-900 hover:border-ink-200 hover:bg-ink-100 data-[popup-open]:border-ink-200 data-[popup-open]:bg-ink-100";
 
 function useInlineClientField<K extends keyof ClientInput>(
   clientId: string,
@@ -968,7 +968,7 @@ function ContactosTab({
             : `${contactos.length} contacto${contactos.length === 1 ? "" : "s"}`}
         </p>
         {!readOnly && (
-          <Button size="sm" onClick={onNew} className="rounded-10 font-bold">
+          <Button size="sm" onClick={onNew} className="font-bold">
             Agregar contacto
           </Button>
         )}
@@ -1066,7 +1066,7 @@ function OportunidadesTab({
             : `${oportunidades.length} oportunidad${oportunidades.length === 1 ? "" : "es"}`}
         </p>
         {!readOnly && (
-          <Button size="sm" onClick={onNew} className="rounded-10 font-bold">
+          <Button size="sm" onClick={onNew} className="font-bold">
             Nueva oportunidad
           </Button>
         )}
@@ -1110,7 +1110,7 @@ function OportunidadesTab({
                     size="sm"
                     aria-label={`Ver ciclo comercial de ${o.nombre}`}
                     onClick={() => onViewLifecycle(o)}
-                    className="rounded-10 px-2 text-[12px] font-semibold"
+                    className="px-2 text-[12px] font-semibold"
                   >
                     Ver ciclo
                   </Button>
@@ -1198,7 +1198,7 @@ function CompromisosTab({
             : `${tasks.length} compromiso${tasks.length === 1 ? "" : "s"}`}
         </p>
         {!readOnly && (
-          <Button size="sm" onClick={onNew} className="rounded-10 font-bold">
+          <Button size="sm" onClick={onNew} className="font-bold">
             Nuevo compromiso
           </Button>
         )}
@@ -1259,7 +1259,7 @@ function CompromisosTab({
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-7 rounded-[9px] px-2.5 text-[11.5px] font-bold text-exito hover:bg-exito-bg hover:text-exito after:-inset-1"
+                        className="px-2.5 text-[11.5px] font-bold text-exito hover:bg-exito-bg hover:text-exito after:-inset-1"
                         onClick={() => statusMutation.mutate({ taskId: t.id, estado: "COMPLETADA" })}
                         disabled={statusMutation.isPending}
                       >
@@ -1337,7 +1337,7 @@ function BitacoraTab({ clientId, readOnly }: { clientId: string; readOnly?: bool
                   size="sm"
                   onClick={() => void submit()}
                   disabled={!texto.trim() || addMutation.isPending}
-                  className="rounded-10 font-bold"
+                  className="font-bold"
                 >
                   {addMutation.isPending ? (
                     <span className="size-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -1458,7 +1458,7 @@ function DocumentosTab({ clientId, readOnly }: { clientId: string; readOnly?: bo
           variant="outline"
           size="sm"
           onClick={irAlRepositorio}
-          className="h-9 rounded-12 border-ink-200 bg-panel px-3 text-[12.5px] font-semibold text-ink-800 hover:bg-ink-100"
+          className="border-ink-200 bg-panel px-3 text-[12.5px] font-semibold text-ink-800 hover:bg-ink-100"
         >
           <ExternalLink className="size-3.5 text-ink-500" strokeWidth={1.8} />
           Ver todos
@@ -1468,7 +1468,7 @@ function DocumentosTab({ clientId, readOnly }: { clientId: string; readOnly?: bo
             variant="outline"
             size="sm"
             onClick={subirVinculado}
-            className="h-9 rounded-12 border-ink-200 bg-panel px-3 text-[12.5px] font-semibold text-ink-800 hover:bg-ink-100"
+            className="border-ink-200 bg-panel px-3 text-[12.5px] font-semibold text-ink-800 hover:bg-ink-100"
           >
             <Upload className="size-4 text-exito" strokeWidth={1.8} />
             Subir documento vinculado

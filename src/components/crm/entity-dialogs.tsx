@@ -222,7 +222,7 @@ export function ContactoFormDialog({
                 value={form.nombre}
                 onChange={(e) => set("nombre", e.target.value)}
                 placeholder="Nombre y apellido"
-                className="h-10 rounded-12 bg-panel px-3"
+                className="bg-panel px-3"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -232,7 +232,7 @@ export function ContactoFormDialog({
                 value={form.cargo}
                 onChange={(e) => set("cargo", e.target.value)}
                 placeholder="Ej. Secretaria de Gobierno"
-                className="h-10 rounded-12 bg-panel px-3"
+                className="bg-panel px-3"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -243,7 +243,7 @@ export function ContactoFormDialog({
                 value={form.correo}
                 onChange={(e) => set("correo", e.target.value)}
                 placeholder="nombre@entidad.co"
-                className="h-10 rounded-12 bg-panel px-3"
+                className="bg-panel px-3"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -253,7 +253,7 @@ export function ContactoFormDialog({
                 value={form.telefono}
                 onChange={(e) => set("telefono", e.target.value)}
                 placeholder="+57 300 000 0000"
-                className="h-10 rounded-12 bg-panel px-3"
+                className="bg-panel px-3"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -262,7 +262,7 @@ export function ContactoFormDialog({
                 value={form.rol_decision}
                 onValueChange={(v) => set("rol_decision", v as RolContacto | "")}
               >
-                <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+                <SelectTrigger className="w-full bg-panel px-3">
                   <SelectValue placeholder="Sin rol definido" />
                 </SelectTrigger>
                 <SelectContent>
@@ -292,7 +292,7 @@ export function ContactoFormDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={pending} className="rounded-lg px-4 font-bold">
+            <Button type="submit" disabled={pending} className="px-4 font-bold">
               {pending && <LoaderCircle className="size-4 animate-spin" />}
               {pending ? "Guardando…" : isEdit ? "Guardar cambios" : "Agregar contacto"}
             </Button>
@@ -459,7 +459,7 @@ export function OportunidadFormDialog({
                 value={form.nombre}
                 onChange={(e) => set("nombre", e.target.value)}
                 placeholder="Ej. Consultoría línea base 2026"
-                className="h-10 rounded-12 bg-panel px-3"
+                className="bg-panel px-3"
               />
             </div>
 
@@ -494,7 +494,7 @@ export function OportunidadFormDialog({
                 value={form.servicios_interes}
                 onChange={(e) => set("servicios_interes", e.target.value)}
                 placeholder="Ej. Medición, formaciones"
-                className="h-10 rounded-12 bg-panel px-3"
+                className="bg-panel px-3"
               />
             </div>
 
@@ -508,7 +508,7 @@ export function OportunidadFormDialog({
                 value={form.valor_estimado_cop}
                 onChange={(e) => set("valor_estimado_cop", e.target.value)}
                 placeholder="0"
-                className="h-10 rounded-12 bg-panel px-3 font-mono text-[13px]"
+                className="bg-panel px-3 font-mono text-[13px]"
               />
             </div>
 
@@ -518,7 +518,7 @@ export function OportunidadFormDialog({
                 value={form.estado}
                 onValueChange={(v) => set("estado", v as EstadoOportunidad)}
               >
-                <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+                <SelectTrigger className="w-full bg-panel px-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -538,7 +538,7 @@ export function OportunidadFormDialog({
                 type="date"
                 value={form.fecha_ultima_gestion}
                 onChange={(e) => set("fecha_ultima_gestion", e.target.value)}
-                className="h-10 rounded-12 bg-panel px-3"
+                className="bg-panel px-3"
               />
             </div>
           </div>
@@ -559,7 +559,7 @@ export function OportunidadFormDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={pending} className="rounded-lg px-4 font-bold">
+            <Button type="submit" disabled={pending} className="px-4 font-bold">
               {pending && <LoaderCircle className="size-4 animate-spin" />}
               {pending ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear oportunidad"}
             </Button>
@@ -614,7 +614,7 @@ function ConvertirEnProyectoAction({ oportunidad }: { oportunidad: Oportunidad }
       <Button
         variant="outline"
         onClick={() => setAbierto(true)}
-        className="w-fit rounded-lg px-4 font-bold"
+        className="w-fit px-4 font-bold"
       >
         Convertir en proyecto
       </Button>
@@ -736,7 +736,7 @@ export function OportunidadLifecycleDialog({
             <Button
               onClick={() => void convertMutation.mutateAsync()}
               disabled={convertMutation.isPending}
-              className="w-fit rounded-lg px-4 font-bold"
+              className="w-fit px-4 font-bold"
             >
               {convertMutation.isPending && <LoaderCircle className="size-4 animate-spin" />}
               Convertir a ejecución
@@ -766,7 +766,7 @@ export function OportunidadLifecycleDialog({
             {!readOnly && (
               <div className="flex items-center gap-2">
                 <Select value={selectedTaskId} onValueChange={(v) => setSelectedTaskId(v ?? "")}>
-                  <SelectTrigger className="h-9 w-full rounded-10 bg-panel px-3 text-[12.5px]">
+                  <SelectTrigger size="sm" className="w-full bg-panel px-3 text-[12.5px]">
                     <SelectValue placeholder="Vincular una tarea existente del cliente" />
                   </SelectTrigger>
                   <SelectContent>
@@ -782,7 +782,7 @@ export function OportunidadLifecycleDialog({
                   variant="outline"
                   disabled={!selectedTaskId || linkTaskMutation.isPending}
                   onClick={() => void handleVincular()}
-                  className="shrink-0 rounded-10 px-3 text-[12.5px] font-semibold"
+                  className="shrink-0 px-3 text-[12.5px] font-semibold"
                 >
                   Vincular
                 </Button>
@@ -812,14 +812,14 @@ export function OportunidadLifecycleDialog({
                   value={nota}
                   onChange={(e) => setNota(e.target.value)}
                   placeholder="Agregar una nota de comunicación"
-                  className="h-9 rounded-10 bg-panel px-3 text-[12.5px]"
+                  className="h-10 bg-panel px-3 text-[12.5px]"
                 />
                 <Button
                   size="sm"
                   variant="outline"
                   disabled={!nota.trim() || addLogMutation.isPending}
                   onClick={() => void handleAgregarNota()}
-                  className="shrink-0 rounded-10 px-3 text-[12.5px] font-semibold"
+                  className="shrink-0 px-3 text-[12.5px] font-semibold"
                 >
                   Agregar
                 </Button>

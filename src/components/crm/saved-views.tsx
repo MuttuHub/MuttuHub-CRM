@@ -158,8 +158,9 @@ export function SavedViewsMenu({
         <DropdownMenuTrigger
           render={
             <Button
+              size="sm"
               variant="outline"
-              className="h-9 rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+              className="border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
             >
               <LayoutList className="size-4 text-ink-600" strokeWidth={1.8} />
               Vistas
@@ -247,7 +248,7 @@ export function SavedViewsMenu({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ej. Gobierno local activo"
-                className="h-10 rounded-12 bg-panel px-3"
+                className="bg-panel px-3"
               />
             </div>
             <DialogFooter>

@@ -107,7 +107,7 @@ function BriefPickerDialog({
               onChange={(e) => setQ(e.target.value)}
               placeholder="Buscar por nombre, categoría, cliente…"
               aria-label="Buscar brief"
-              className="h-10 rounded-12 bg-panel pl-9"
+              className="bg-panel pl-9"
             />
           </div>
 
@@ -300,7 +300,7 @@ export function ClientFormDialog({
             variant="outline"
             size="sm"
             onClick={() => setBriefOpen(true)}
-            className="w-fit rounded-10 text-[12.5px] font-semibold"
+            className="w-fit text-[12.5px] font-semibold"
           >
             <FileText className="size-3.5" strokeWidth={1.9} />
             Cargar desde Brief existente
@@ -328,7 +328,7 @@ export function ClientFormDialog({
                 value={form.nombre}
                 onChange={(e) => set("nombre", e.target.value)}
                 placeholder="Ej. Alcaldía de Barranquilla"
-                className="h-10 rounded-12 bg-panel px-3"
+                className="bg-panel px-3"
               />
             </div>
 
@@ -339,7 +339,7 @@ export function ClientFormDialog({
                 value={form.empresa}
                 onChange={(e) => set("empresa", e.target.value)}
                 placeholder="Razón social"
-                className="h-10 rounded-12 bg-panel px-3"
+                className="bg-panel px-3"
               />
             </div>
 
@@ -350,7 +350,7 @@ export function ClientFormDialog({
                 value={form.tamano_org}
                 onChange={(e) => set("tamano_org", e.target.value)}
                 placeholder="Ej. 50–200 personas"
-                className="h-10 rounded-12 bg-panel px-3"
+                className="bg-panel px-3"
               />
             </div>
 
@@ -360,7 +360,7 @@ export function ClientFormDialog({
                 value={form.tipo_cliente}
                 onValueChange={(v) => set("tipo_cliente", v as TipoCliente)}
               >
-                <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+                <SelectTrigger className="w-full bg-panel px-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -379,7 +379,7 @@ export function ClientFormDialog({
                 value={form.responsable_id}
                 onValueChange={(v) => set("responsable_id", v ?? "")}
               >
-                <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+                <SelectTrigger className="w-full bg-panel px-3">
                   <SelectValue placeholder="Selecciona el responsable" />
                 </SelectTrigger>
                 <SelectContent>
@@ -399,7 +399,7 @@ export function ClientFormDialog({
                 value={form.ubicacion}
                 onChange={(e) => set("ubicacion", e.target.value)}
                 placeholder="Ciudad, departamento"
-                className="h-10 rounded-12 bg-panel px-3"
+                className="bg-panel px-3"
               />
             </div>
 
@@ -410,7 +410,7 @@ export function ClientFormDialog({
                 value={form.canal_contacto_inicial}
                 onChange={(e) => set("canal_contacto_inicial", e.target.value)}
                 placeholder="Ej. Feria, referido, red"
-                className="h-10 rounded-12 bg-panel px-3"
+                className="bg-panel px-3"
               />
             </div>
 
@@ -421,7 +421,7 @@ export function ClientFormDialog({
                 type="date"
                 value={form.fecha_primer_contacto}
                 onChange={(e) => set("fecha_primer_contacto", e.target.value)}
-                className="h-10 rounded-12 bg-panel px-3"
+                className="bg-panel px-3"
               />
             </div>
 
@@ -431,7 +431,7 @@ export function ClientFormDialog({
                 value={form.prioridad}
                 onValueChange={(v) => set("prioridad", v as PrioridadCliente | "")}
               >
-                <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+                <SelectTrigger className="w-full bg-panel px-3">
                   <SelectValue placeholder="Sin prioridad" />
                 </SelectTrigger>
                 <SelectContent>
@@ -452,7 +452,7 @@ export function ClientFormDialog({
                 value={form.estado}
                 onValueChange={(v) => set("estado", v as EstadoCliente)}
               >
-                <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+                <SelectTrigger className="w-full bg-panel px-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -510,7 +510,7 @@ export function ClientFormDialog({
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={pending} className="rounded-lg px-4 font-bold">
+            <Button type="submit" disabled={pending} className="px-4 font-bold">
               {pending && <LoaderCircle className="size-4 animate-spin" />}
               {pending ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear cliente"}
             </Button>
@@ -546,7 +546,7 @@ export function NewClientButton({
     <>
       <Button
         onClick={() => setOpen(true)}
-        className="rounded-lg bg-rose-500 px-4 font-bold text-white hover:bg-rose-700"
+        className="bg-rose-500 px-4 font-bold text-white hover:bg-rose-700"
       >
         <Plus />
         Nuevo cliente

@@ -199,7 +199,7 @@ export function TareaFormDialog({
                 value={form.titulo}
                 onChange={(e) => set("titulo", e.target.value)}
                 placeholder="Ej. Entregar informe trimestral"
-                className="h-10 rounded-12 bg-panel px-3"
+                className="bg-panel px-3"
               />
             </div>
 
@@ -223,7 +223,7 @@ export function TareaFormDialog({
                 value={form.responsable_id}
                 onValueChange={(v) => set("responsable_id", v ?? "")}
               >
-                <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+                <SelectTrigger className="w-full bg-panel px-3">
                   <SelectValue placeholder="Selecciona el responsable" />
                 </SelectTrigger>
                 <SelectContent>
@@ -243,7 +243,7 @@ export function TareaFormDialog({
                 type="date"
                 value={form.fecha_entrega}
                 onChange={(e) => set("fecha_entrega", e.target.value)}
-                className="h-10 rounded-12 bg-panel px-3"
+                className="bg-panel px-3"
               />
             </div>
 
@@ -253,7 +253,7 @@ export function TareaFormDialog({
                 value={form.prioridad}
                 onValueChange={(v) => set("prioridad", v as PrioridadTarea | "")}
               >
-                <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+                <SelectTrigger className="w-full bg-panel px-3">
                   <SelectValue placeholder="Sin prioridad" />
                 </SelectTrigger>
                 <SelectContent>
@@ -272,7 +272,7 @@ export function TareaFormDialog({
                 value={form.estado}
                 onValueChange={(v) => set("estado", v as EstadoTarea)}
               >
-                <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+                <SelectTrigger className="w-full bg-panel px-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -340,7 +340,7 @@ export function TareaFormDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={pending} className="rounded-lg px-4 font-bold">
+            <Button type="submit" disabled={pending} className="px-4 font-bold">
               {pending && <LoaderCircle className="size-4 animate-spin" />}
               {pending ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear compromiso"}
             </Button>

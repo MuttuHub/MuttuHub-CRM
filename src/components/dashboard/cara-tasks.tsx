@@ -125,8 +125,9 @@ export function CaraTareas({ filters }: { filters: DashboardFilters }) {
           action={
             <Link href="/tablero">
               <Button
+                size="xs"
                 variant="ghost"
-                className="h-[29px] rounded-[9px] px-2.5 text-[12px] font-semibold text-ink-700 hover:bg-ink-100"
+                className="px-2.5 text-[12px] font-semibold text-ink-700 hover:bg-ink-100"
               >
                 Ver tablero
                 <ArrowUpRight className="size-3.5" strokeWidth={1.9} />

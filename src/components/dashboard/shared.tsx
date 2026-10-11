@@ -252,7 +252,7 @@ export function SinConexionCard({ onRetry }: { onRetry: () => void }) {
         <p className="mt-2 text-[13.5px] leading-relaxed text-ink-600">
           Comprueba tu conexión e inténtalo de nuevo.
         </p>
-        <Button onClick={onRetry} variant="outline" className="mt-5 rounded-lg px-4 font-semibold">
+        <Button onClick={onRetry} variant="outline" className="mt-5 px-4 font-semibold">
           Reintentar
         </Button>
       </div>

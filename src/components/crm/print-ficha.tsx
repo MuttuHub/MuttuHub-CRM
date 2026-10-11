@@ -109,7 +109,7 @@ export function PrintFicha({ clientId }: { clientId: string }) {
         <p className="text-[13px] text-ink-600">
           Vista de impresión de la ficha completa.
         </p>
-        <Button onClick={() => window.print()} className="rounded-12 px-4 font-bold">
+        <Button onClick={() => window.print()} className="px-4 font-bold">
           <Printer className="size-4" />
           Imprimir
         </Button>
@@ -383,7 +383,7 @@ function FichaError({ clave, message }: { clave: string; message: string }) {
         <Button
           onClick={() => window.location.reload()}
           variant="outline"
-          className="mt-5 rounded-lg px-4 font-semibold"
+          className="mt-5 px-4 font-semibold"
         >
           Reintentar
         </Button>
