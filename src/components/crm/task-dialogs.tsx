@@ -306,12 +306,17 @@ export function TareaFormDialog({
                     <span
                       className={cn(
                         "block text-[13px] font-bold",
-                        form.origen === option.value ? "text-rose-700 dark:text-rose-400" : "text-ink-800",
+                        form.origen === option.value ? "text-accent-soft" : "text-ink-800",
                       )}
                     >
                       {option.label}
                     </span>
-                    <span className="mt-0.5 block text-[11.5px] text-ink-600">
+                    <span
+                      className={cn(
+                        "mt-0.5 block text-[11.5px]",
+                        form.origen === option.value ? "text-ink-700" : "text-ink-600",
+                      )}
+                    >
                       {option.hint}
                     </span>
                   </button>

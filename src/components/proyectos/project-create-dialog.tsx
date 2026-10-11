@@ -341,7 +341,7 @@ export function ProjectCreateDialog({
                   className={cn(
                     "rounded-12 border px-3 py-2 text-[13px] font-medium transition-colors",
                     origen === opcion.value
-                      ? "border-rose-500 bg-rose-50 text-rose-700 dark:bg-rose-500/10"
+                      ? "border-rose-500 bg-rose-50 text-accent-soft dark:bg-rose-500/10"
                       : "border-ink-200 bg-panel text-ink-700 hover:bg-ink-050",
                   )}
                 >
