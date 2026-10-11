@@ -34,13 +34,13 @@ const proyecto = (over: object = {}, miembro = false) =>
     ...over,
   }) as never
 
-const kpis = () =>
+const kpis = (indicadores: Parameters<typeof kpisProyecto>[0]["indicadores"] = []) =>
   kpisProyecto({
     corte: "2026-03-15",
     estado: "EN_EJECUCION",
     parametros: PARAMETROS_V2_DEFAULT,
     actividades: [],
-    indicadores: [],
+    indicadores,
     beneficiarios: { total: 10, meta: 100 },
     financiero: { asignado: toCents("2000.50"), programado: toCents("500"), ejecutado: toCents("100") },
   })
@@ -71,6 +71,25 @@ describe("GET projects/:id/kpis", () => {
     const arg = vi.mocked(loadKpisPortafolio).mock.calls[0][0]
     expect(arg.proyectos).toEqual([expect.objectContaining({ id: "pry-1", beneficiarios_meta: 100 })])
     expect(arg.original).toBeUndefined()
+  })
+
+  it("exposes indicadores.en_meta (met goals, ignoring indicators without target or measurements)", async () => {
+    const med = (valor: number) => ({ fecha: "2026-03-01", valor, anulado: false })
+    vi.mocked(loadKpisPortafolio).mockResolvedValue(
+      new Map([
+        [
+          "pry-1",
+          kpis([
+            { id: "i1", meta: 10, mediciones: [med(10)] },
+            { id: "i2", meta: 10, mediciones: [med(4)] },
+            { id: "i3", meta: 10, mediciones: [] },
+            { id: "i4", meta: 0, mediciones: [med(3)] },
+          ]),
+        ],
+      ]),
+    )
+    const body = await (await GET(get(), ctx)).json()
+    expect(body.indicadores).toMatchObject({ en_meta: 1, medidos: 2, sin_medir: 2 })
   })
 
   it("404 for an unknown project, before any permission decision", async () => {

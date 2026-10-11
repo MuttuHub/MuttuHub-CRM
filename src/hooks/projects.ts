@@ -1914,7 +1914,7 @@ export type ProjectKpis = {
   tecnico: KpiTecnico | null;
   cronograma: { corte: string; vencidas: number; a_tiempo: number; atrasadas: number; valor: number | null } | null;
   entregables: { corte: string; programados: number; logrados: number; valor: number | null } | null;
-  indicadores: { corte: string; valor: number | null; medidos: number; sin_medir: number; sin_medir_ids: string[] } | null;
+  indicadores: { corte: string; valor: number | null; medidos: number; en_meta: number; sin_medir: number; sin_medir_ids: string[] } | null;
   beneficiarios: { corte: string; total: number; meta: number | null; valor: number | null } | null;
   financiero: {
     corte: string;

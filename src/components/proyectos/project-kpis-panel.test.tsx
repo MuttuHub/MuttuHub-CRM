@@ -32,7 +32,7 @@ const KPIS: ProjectKpisResponse = {
   tecnico: { corte: "2026-03-15", avance_real: 21.4, avance_programado: 25, desviacion_pp: 0, color: "rojo" },
   cronograma: { corte: "2026-03-15", vencidas: 5, a_tiempo: 4, atrasadas: 1, valor: 80 },
   entregables: { corte: "2026-03-15", programados: 10, logrados: 3, valor: 30 },
-  indicadores: { corte: "2026-03-15", valor: 40, medidos: 1, sin_medir: 2, sin_medir_ids: ["i2", "i3"] },
+  indicadores: { corte: "2026-03-15", valor: 40, medidos: 1, en_meta: 0, sin_medir: 2, sin_medir_ids: ["i2", "i3"] },
   beneficiarios: { corte: "2026-03-15", total: 10, meta: 100, valor: 10 },
   financiero: {
     corte: "2026-03-15",

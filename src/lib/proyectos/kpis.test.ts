@@ -161,6 +161,24 @@ describe("cumplimientoIndicadores", () => {
   it("nothing measured yields null", () => {
     expect(cumplimientoIndicadores([{ id: "x", meta: 1, mediciones: [] }], CORTE).valor).toBeNull()
   })
+  it("counts en_meta: measured indicators whose last measurement reaches the goal", () => {
+    const r = cumplimientoIndicadores(
+      [
+        { id: "ok", meta: 100, mediciones: [med("2026-01-10", 100)] },
+        { id: "sobre", meta: 100, mediciones: [med("2026-01-10", 150)] },
+        { id: "debajo", meta: 100, mediciones: [med("2026-01-10", 99)] },
+        { id: "cayo", meta: 100, mediciones: [med("2026-01-10", 120), med("2026-02-10", 80)] },
+        { id: "sin-medicion", meta: 100, mediciones: [] },
+        { id: "sin-meta", meta: 0, mediciones: [med("2026-01-10", 5)] },
+      ],
+      CORTE,
+    )
+    expect(r.en_meta).toBe(2)
+    expect(r.medidos).toBe(4)
+  })
+  it("en_meta is 0 when nothing is measured", () => {
+    expect(cumplimientoIndicadores([{ id: "x", meta: 1, mediciones: [] }], CORTE).en_meta).toBe(0)
+  })
 })
 
 describe("beneficiariosVsMeta", () => {

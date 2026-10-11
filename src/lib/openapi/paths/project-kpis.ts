@@ -29,7 +29,7 @@ const KpisProyectoSchema = registry.register(
       .nullable(),
     entregables: z.object({ corte: CORTE, programados: z.number().int(), logrados: z.number().int(), valor: PCT }).nullable(),
     indicadores: z
-      .object({ corte: CORTE, valor: PCT, medidos: z.number().int(), sin_medir: z.number().int(), sin_medir_ids: z.array(z.string()) })
+      .object({ corte: CORTE, valor: PCT, medidos: z.number().int(), en_meta: z.number().int().openapi({ description: "Medidos cuya última medición al corte alcanza la meta (último >= meta)." }), sin_medir: z.number().int(), sin_medir_ids: z.array(z.string()) })
       .nullable(),
     beneficiarios: z.object({ corte: CORTE, total: z.number().int(), meta: z.number().int().nullable(), valor: PCT }).nullable(),
     financiero: z

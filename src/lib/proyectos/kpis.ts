@@ -100,6 +100,8 @@ export type CumplimientoIndicadores = {
   corte: IsoDate
   valor: number | null
   medidos: number
+  /** Measured indicators whose latest measurement at the corte reaches the goal (`last >= meta`). */
+  en_meta: number
   sin_medir: number
   sin_medir_ids: string[]
 }
@@ -115,13 +117,17 @@ function ultimaMedicion(mediciones: readonly MedicionInput[], corte: IsoDate): M
 export function cumplimientoIndicadores(indicadores: readonly IndicadorKpiInput[], corte: IsoDate): CumplimientoIndicadores {
   const ratios: number[] = []
   const sinMedir: string[] = []
+  let enMeta = 0
   for (const indicador of indicadores) {
     const ultima = indicador.meta > 0 ? ultimaMedicion(indicador.mediciones, corte) : null
     if (ultima === null) sinMedir.push(indicador.id)
-    else ratios.push(Math.min(1, ultima.valor / indicador.meta))
+    else {
+      ratios.push(Math.min(1, ultima.valor / indicador.meta))
+      if (ultima.valor >= indicador.meta) enMeta += 1
+    }
   }
   const valor = ratios.length === 0 ? null : round1((ratios.reduce((sum, r) => sum + r, 0) / ratios.length) * 100)
-  return { corte, valor, medidos: ratios.length, sin_medir: sinMedir.length, sin_medir_ids: sinMedir }
+  return { corte, valor, medidos: ratios.length, en_meta: enMeta, sin_medir: sinMedir.length, sin_medir_ids: sinMedir }
 }
 
 // ---------------------------------------------------------------------------
