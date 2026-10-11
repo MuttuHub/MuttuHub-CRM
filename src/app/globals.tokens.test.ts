@@ -111,13 +111,26 @@ describe("globals.css design tokens (V0.1)", () => {
     })
   })
 
-  describe("sidebar tokens (U1b/U3)", () => {
-    // The manual wants a WHITE sidebar in light, but sidebar.tsx still hard-codes
-    // light-on-dark text (shell-* tokens): flipping --sidebar now would make it
-    // unreadable. U3 migrates the component and flips these tokens together.
-    it("keep the dark shell until the sidebar component migrates (U3)", () => {
-      expect(propValue(root, "--sidebar")).toBe("#191113")
-      expect(propValue(dark, "--sidebar")).toBe("#0d0809")
+  describe("sidebar tokens (U3: white in light, near-black in dark)", () => {
+    it.each([
+      ["--sidebar", "#ffffff", "#0d0809"],
+      ["--sidebar-foreground", "#281d20", "#f8f2f4"],
+      ["--sidebar-border", "#ece5e7", "#2e2227"],
+      ["--shell-border", "#ece5e7", "#2e2227"],
+      ["--shell-text", "#281d20", "#f8f2f4"],
+      ["--shell-muted", "#5a474c", "#c4b2b8"],
+      ["--shell-faint", "#725d62", "#a08a91"],
+      ["--shell-active", "rgba(205, 21, 96, 0.08)", "#1b1316"],
+    ])("%s light/dark", (prop, light, darkValue) => {
+      expect(propValue(root, prop)).toBe(light)
+      expect(propValue(dark, prop)).toBe(darkValue)
+    })
+
+    it("--color-shell-* flip with the theme (no fixed dark hex left in @theme)", () => {
+      const theme = block("@theme")
+      for (const n of ["border", "surface", "chip", "kbd", "hover", "active", "text", "muted", "faint"]) {
+        expect(propValue(theme, `--color-shell-${n}`)).toBe(`var(--shell-${n})`)
+      }
     })
   })
 
@@ -179,8 +192,8 @@ describe("globals.css design tokens (V0.1)", () => {
       expect(propValue(block("@theme"), "--color-input-bg")).toBe("var(--input-bg)")
     })
 
-    it("--shell-surface is the v6 surface #1b1316", () => {
-      expect(propValue(block("@theme"), "--color-shell-surface")).toBe("#1b1316")
+    it("--shell-surface is the v6 surface #1b1316 in dark", () => {
+      expect(propValue(dark, "--shell-surface")).toBe("#1b1316")
     })
 
     it("fixed-light toast tokens reproduce the current light card, unconditionally", () => {
@@ -227,6 +240,38 @@ describe("globals.css design tokens (V0.1)", () => {
     it("accent #b41153 (manual light accent) passes AA on white and on the page", () => {
       expect(ratio("#b41153", "#ffffff")).toBeGreaterThanOrEqual(4.5)
       expect(ratio("#b41153", v(root, "--page"))).toBeGreaterThanOrEqual(4.5)
+    })
+
+    it.each([
+      ["--shell-text", "--shell-text"],
+      ["--shell-muted", "--shell-muted"],
+      ["--shell-faint", "--shell-faint"],
+    ])("light sidebar text %s >= 4.5:1 on white, the active tint and the field", (_n, fg) => {
+      const white = v(root, "--sidebar")
+      const tint = "#fbecf2" // rgba(205,21,96,.08) over white
+      for (const bg of [white, tint, v(root, "--shell-surface")]) {
+        expect(ratio(v(root, fg), bg)).toBeGreaterThanOrEqual(4.5)
+      }
+    })
+
+    it("light rail and search border are >= 3:1 on the white sidebar", () => {
+      expect(ratio(v(root, "--accent-bar"), v(root, "--sidebar"))).toBeGreaterThanOrEqual(3)
+      expect(ratio(v(root, "--accent-bar"), "#fbecf2")).toBeGreaterThanOrEqual(3)
+      expect(ratio(v(root, "--border-strong"), v(root, "--sidebar"))).toBeGreaterThanOrEqual(3)
+    })
+
+    it.each(["--shell-text", "--shell-muted", "--shell-faint"])(
+      "dark sidebar text %s >= 4.5:1 on the sidebar and the active surface",
+      (fg) => {
+        for (const bg of [v(dark, "--sidebar"), v(dark, "--shell-active"), v(dark, "--shell-hover")]) {
+          expect(ratio(v(dark, fg), bg)).toBeGreaterThanOrEqual(4.5)
+        }
+      },
+    )
+
+    it("dark rail (#cd1560) is >= 3:1 on the sidebar and on the active surface", () => {
+      expect(ratio(v(dark, "--accent-bar"), v(dark, "--sidebar"))).toBeGreaterThanOrEqual(3)
+      expect(ratio(v(dark, "--accent-bar"), v(dark, "--shell-active"))).toBeGreaterThanOrEqual(3)
     })
 
     it("white on the brand primary is >= 4.5:1", () => {

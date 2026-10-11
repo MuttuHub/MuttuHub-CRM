@@ -75,4 +75,71 @@ describe("Sidebar", () => {
     // keeps its own toggle.
     expect(within(drawer!).queryByRole("button", { name: "Contraer menú" })).not.toBeInTheDocument()
   })
+
+  describe("v6 sidebar (U3)", () => {
+    const link = (name: string) => screen.getByRole("link", { name })
+
+    it("marks the active item with a tint, a 3px accent rail and aria-current", () => {
+      render(<Sidebar />)
+      const active = link("Tablero")
+      expect(active).toHaveAttribute("aria-current", "page")
+      expect(active.className).toContain("bg-shell-active")
+      expect(active.className).toContain("text-shell-text")
+      expect(active.className).toContain("before:w-[3px]")
+      expect(active.className).toContain("before:rounded-full")
+      expect(active.className).toContain("before:bg-accent-bar")
+    })
+
+    it("drops the solid pink pill (no rose fill, no white text)", () => {
+      render(<Sidebar />)
+      const active = link("Tablero")
+      expect(active.className).not.toContain("bg-rose-500")
+      expect(active.className).not.toMatch(/(^|\s)text-white/)
+    })
+
+    it("gives inactive items no rail, no aria-current and a subtle hover", () => {
+      render(<Sidebar />)
+      const inactive = link("Clientes")
+      expect(inactive).not.toHaveAttribute("aria-current")
+      expect(inactive.className).not.toContain("before:bg-accent-bar")
+      expect(inactive.className).not.toContain("bg-shell-active")
+      expect(inactive.className).toContain("hover:bg-shell-hover")
+    })
+
+    it("uses a single 220px expanded width (no 200px / xl 244px steps)", () => {
+      render(<Sidebar />)
+      const aside = screen.getByRole("complementary")
+      expect(aside.className).toContain("w-[220px]")
+      expect(aside.className).not.toContain("w-[200px]")
+      expect(aside.className).not.toContain("xl:w-[244px]")
+    })
+
+    it("keeps the 72px collapsed rail with the same active treatment", () => {
+      useSidebarStore.setState({ collapsed: true })
+      render(<Sidebar />)
+      const aside = screen.getByRole("complementary")
+      expect(aside.className).toContain("w-[72px]")
+      expect(aside.className).not.toContain("w-[220px]")
+      // Icon-only links: the tooltip mock drops the aria-label, so find by href.
+      const active = document.querySelector('a[href="/tablero"]')!
+      expect(active).toHaveAttribute("aria-current", "page")
+      expect(active.className).toContain("before:bg-accent-bar")
+    })
+
+    it("paints the sidebar from the theme-aware token, in the drawer too", () => {
+      useSidebarStore.setState({ mobileOpen: true })
+      render(<Sidebar />)
+      expect(screen.getAllByRole("complementary")[0].className).toContain("bg-sidebar")
+      expect(document.getElementById("sidebar-drawer")!.className).toContain("bg-sidebar")
+    })
+
+    it("swaps the logo per theme: colour on white, white variant on dark", () => {
+      render(<Sidebar />)
+      const color = document.querySelector('img[src="/brand/logo-color.svg"]')
+      const white = document.querySelector('img[src="/brand/logo-blanco.svg"]')
+      expect(color?.className).toContain("dark:hidden")
+      expect(white?.className).toContain("hidden")
+      expect(white?.className).toContain("dark:block")
+    })
+  })
 })

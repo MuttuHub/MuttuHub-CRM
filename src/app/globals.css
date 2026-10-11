@@ -37,15 +37,17 @@
   --color-ink-900: var(--ink-900);
   --color-ink-950: var(--ink-950);
 
-  /* Dark shell (sidebar) extended tones from the mockup — fixed */
-  --color-shell-border: #241a1c;
-  --color-shell-surface: #1b1316;
-  --color-shell-chip: #2e2225;
-  --color-shell-kbd: #382a2e;
-  --color-shell-text: #c9bcc0;
-  --color-shell-muted: #9c8a8f;
-  /* #947f84: lightened from #7a6569 for WCAG AA on shell surfaces (4.57:1). */
-  --color-shell-faint: #947f84;
+  /* Shell (sidebar) tones: theme-aware since U3 (white sidebar in light, near-black
+     in dark). Values live in :root / .dark as --shell-*. */
+  --color-shell-border: var(--shell-border);
+  --color-shell-surface: var(--shell-surface);
+  --color-shell-chip: var(--shell-chip);
+  --color-shell-kbd: var(--shell-kbd);
+  --color-shell-hover: var(--shell-hover);
+  --color-shell-active: var(--shell-active);
+  --color-shell-text: var(--shell-text);
+  --color-shell-muted: var(--shell-muted);
+  --color-shell-faint: var(--shell-faint);
 
   /* Semantic */
   --color-exito: var(--exito);
@@ -144,17 +146,26 @@
   --chart-4: #ddd2d5;
   --chart-5: #8c757b;
   --radius: 0.75rem;
-  /* Manual v2 wants a WHITE sidebar in light, but sidebar.tsx still paints
-     light-on-dark text (shell-* tokens): the flip lands with U3 together
-     with the component migration. */
-  --sidebar: #191113;
-  --sidebar-foreground: #c9bcc0;
+  /* Manual v2: WHITE sidebar in light (U3 flipped the tokens together with
+     sidebar.tsx, which now reads the --shell-* tones below). */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #281d20;
   --sidebar-primary: #cd1560;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #241a1c;
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #241a1c;
+  --sidebar-accent: rgba(205, 21, 96, 0.08);
+  --sidebar-accent-foreground: #281d20;
+  --sidebar-border: #ece5e7;
   --sidebar-ring: #cd1560;
+  /* Shell tones (light): text / text-2 / text-3 of the manual; active = accent tint. */
+  --shell-border: #ece5e7;
+  --shell-surface: #f7f3f4;
+  --shell-chip: #f1eaed;
+  --shell-kbd: #ddd2d5;
+  --shell-hover: rgba(205, 21, 96, 0.04);
+  --shell-active: rgba(205, 21, 96, 0.08);
+  --shell-text: #281d20;
+  --shell-muted: #5a474c;
+  --shell-faint: #725d62;
 
   /* Brand tokens (light) — source of the @theme indirections above. */
   --page: #f6f1f3;
@@ -243,17 +254,25 @@
   --chart-3: #f5bad2;
   --chart-4: #8c757b;
   --chart-5: #ddd2d5;
-  /* v6 "sidebar" (#0D0809). The sidebar is theme-invariant BY DESIGN — light
-     keeps its own (unchanged) dark shell — so only the `.dark` value moves;
-     `:root`'s --sidebar is untouched. */
+  /* v6 "sidebar" (#0D0809). */
   --sidebar: #0d0809;
-  --sidebar-foreground: #c9bcc0;
+  --sidebar-foreground: #f8f2f4;
   --sidebar-primary: #cd1560;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #241a1c;
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #241a1c;
+  --sidebar-accent: #1b1316;
+  --sidebar-accent-foreground: #f8f2f4;
+  --sidebar-border: #2e2227;
   --sidebar-ring: #cd1560;
+  /* Shell tones (dark): active item = surface #1b1316 (v6). */
+  --shell-border: #2e2227;
+  --shell-surface: #1b1316;
+  --shell-chip: #2e2225;
+  --shell-kbd: #382a2e;
+  --shell-hover: #150e11;
+  --shell-active: #1b1316;
+  --shell-text: #f8f2f4;
+  --shell-muted: #c4b2b8;
+  --shell-faint: #a08a91;
 
   /* Brand tokens (dark): the ink scale inverts — low numbers are dark
      surfaces, high numbers are light text (shell-text #c9bcc0 family).
