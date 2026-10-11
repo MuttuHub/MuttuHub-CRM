@@ -9,10 +9,12 @@
 
 import {
   activityDates,
+  daysBetweenInclusive,
   defaultWeight,
   durationWeeks,
   type IsoDate,
 } from "./weeks"
+import { colorTecnicoV2, type ColorSemaforo } from "./semaforo-v2"
 
 /** A value Prisma's Decimal and a plain number both satisfy. */
 type NumericLike = number | { toString(): string }
@@ -61,6 +63,75 @@ export function resolvePeso(input: {
     return { peso: toNumber(input.actual.peso), peso_manual: true }
   }
   return { peso: defaultWeight(input.semana_inicio, input.semana_fin), peso_manual: false }
+}
+
+/** Calendar days an activity spans, both endpoints included (the v6 "Días" column). */
+export function duracionDias(inicio: IsoDate, fin: IsoDate): number {
+  return daysBetweenInclusive(inicio, fin)
+}
+
+/**
+ * Days of the activity already elapsed at `corte`, both endpoints included and
+ * clamped to `[0, duración]` (the v6 "Al corte" column): 0 before it starts, the
+ * full duration once it has ended.
+ */
+export function diasAlCorte(corte: IsoDate, inicio: IsoDate, fin: IsoDate): number {
+  const total = daysBetweenInclusive(inicio, fin)
+  return Math.min(Math.max(daysBetweenInclusive(inicio, corte), 0), total)
+}
+
+export type ObjetivoResumenInput = {
+  objetivo_codigo: string
+  /** Effective weight of the activity; a zero total weight yields zero progress. */
+  peso: number
+  /** Real progress 0..1 at the corte. */
+  progreso: number
+  /** Planned fraction 0..1 at the corte. */
+  programado: number
+}
+
+export type ObjetivoResumen = {
+  codigo: string
+  /** Weighted mean of the activities' planned fraction (0..1). */
+  programado: number
+  /** Weighted mean of the activities' real progress (0..1). */
+  ejecutado: number
+  /** `(programado - ejecutado) * 100`, in percentage points. */
+  desviacion_pp: number
+  /** Server-computed semáforo band; the client never derives it (D11). */
+  color: ColorSemaforo
+}
+
+/**
+ * Roll-up per objective (S14 P6): the weighted mean of its activities' planned
+ * and executed fractions, the deviation in percentage points and the semáforo
+ * from the API thresholds. Objectives keep the order of first appearance.
+ */
+export function resumenObjetivos(
+  actividades: readonly ObjetivoResumenInput[],
+  umbrales: { umbral1: number; umbral2: number },
+): ObjetivoResumen[] {
+  const orden: string[] = []
+  const grupos = new Map<string, { peso: number; programado: number; ejecutado: number }>()
+  for (const actividad of actividades) {
+    let grupo = grupos.get(actividad.objetivo_codigo)
+    if (!grupo) {
+      grupo = { peso: 0, programado: 0, ejecutado: 0 }
+      grupos.set(actividad.objetivo_codigo, grupo)
+      orden.push(actividad.objetivo_codigo)
+    }
+    grupo.peso += actividad.peso
+    grupo.programado += actividad.peso * actividad.programado
+    grupo.ejecutado += actividad.peso * actividad.progreso
+  }
+
+  return orden.map((codigo) => {
+    const grupo = grupos.get(codigo)!
+    const programado = grupo.peso > 0 ? grupo.programado / grupo.peso : 0
+    const ejecutado = grupo.peso > 0 ? grupo.ejecutado / grupo.peso : 0
+    const desviacion_pp = (programado - ejecutado) * 100
+    return { codigo, programado, ejecutado, desviacion_pp, color: colorTecnicoV2(desviacion_pp, umbrales) }
+  })
 }
 
 export type SemanasValidation = { ok: true } | { ok: false; message: string }

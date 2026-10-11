@@ -738,7 +738,7 @@ export function useDeleteIndicator(
 
 export type ColorSemaforo = "verde" | "amarillo" | "rojo";
 
-/** Fila de `actividades[]` en `GET /api/v1/projects/:id/technical-status`. */
+/** Fila de `actividades[]` en `GET /api/v1/projects/:id/technical-status` (S4). */
 export type ProjectTechnicalActivity = {
   id: string;
   codigo: string;
@@ -749,7 +749,37 @@ export type ProjectTechnicalActivity = {
   fecha_cumplimiento: string | null;
 };
 
-/** Respuesta de `GET /api/v1/projects/:id/technical-status?corte=AAAA-MM-DD`. */
+/** Fila enriquecida de `actividades[]` (S14 P6): lo que leen el Cronograma y las Metas. */
+export type ProjectTechnicalActivityV6 = ProjectTechnicalActivity & {
+  nombre: string;
+  /** Código del objetivo al que pertenece (la agrupación del Cronograma). */
+  objetivo_codigo: string;
+  /** Porcentaje 0..100 planeado al corte (la columna «% plan»). */
+  programado: number;
+  /** Duración en días calendario (la columna «Días»). */
+  dias: number;
+  /** Días transcurridos al corte, con tope en `dias` (la columna «Al corte»). */
+  al_corte: number;
+  /** Semáforo de la actividad: llega calculado por el servidor, nunca se recalcula (D11). */
+  color: ColorSemaforo;
+  /** true cuando ningún avance de la actividad tiene un soporte vivo. */
+  sin_soporte: boolean;
+};
+
+/** Fila de `objetivos[]`: el acumulado planeado vs ejecutado de un objetivo (S14 P6). */
+export type ProjectTechnicalObjective = {
+  codigo: string;
+  /** Media ponderada del % planeado de sus actividades. */
+  programado: number;
+  /** Media ponderada del % real de sus actividades. */
+  ejecutado: number;
+  /** `(programado - ejecutado)` en puntos porcentuales. */
+  desviacion_pp: number;
+  /** Semáforo del objetivo: llega calculado por el servidor, nunca se recalcula (D11). */
+  color: ColorSemaforo;
+};
+
+/** Respuesta de `GET /api/v1/projects/:id/technical-status?corte=AAAA-MM-DD` (S4). */
 export type ProjectTechnicalStatus = {
   /** La base que respondió el servidor: "vigente" u "original" (versión 0). */
   base: ProjectBase;
@@ -761,6 +791,18 @@ export type ProjectTechnicalStatus = {
   color: ColorSemaforo;
   actividades: ProjectTechnicalActivity[];
   umbrales: { umbral1: number; umbral2: number; confirmado: boolean };
+};
+
+/**
+ * La misma respuesta enriquecida por la S14 P6: cada actividad trae su planeación,
+ * su semáforo y su soporte, y la respuesta agrega el acumulado por objetivo. Es la
+ * que devuelve el hook; `ProjectTechnicalStatus` sigue siendo la forma base que
+ * consumen el chip del semáforo y la ejecución por actividad.
+ */
+export type ProjectTechnicalStatusV6 = Omit<ProjectTechnicalStatus, "actividades"> & {
+  actividades: ProjectTechnicalActivityV6[];
+  /** Acumulado por objetivo (S14 P6): planeado vs ejecutado y su semáforo. */
+  objetivos: ProjectTechnicalObjective[];
 };
 
 /** Fila de `avances[]` (`toAvanceView`): `cantidad` es `Decimal` y viaja STRING. */
@@ -844,14 +886,14 @@ export type ProjectBase = "vigente" | "original";
 export function useProjectTechnicalStatus(
   id: string,
   base: ProjectBase = "vigente",
-): UseQueryResult<ProjectTechnicalStatus> {
+): UseQueryResult<ProjectTechnicalStatusV6> {
   return useQuery({
     queryKey: projectQueryKeys.technicalStatus(id, base),
     enabled: id !== "",
     // Switching the base keeps the previous semáforo on screen instead of flashing a skeleton.
     placeholderData: keepPreviousData,
     queryFn: () =>
-      apiGet<ProjectTechnicalStatus>(
+      apiGet<ProjectTechnicalStatusV6>(
         `/api/v1/projects/${id}/technical-status${base === "original" ? "?base=original" : ""}`,
       ),
   });

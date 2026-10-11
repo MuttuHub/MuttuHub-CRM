@@ -434,7 +434,10 @@ registry.registerPath({
     `${READ_NOTE} Solo cuentan los avances no anulados con fecha hasta el corte y, mientras \`avance_requiere_medio\` ` +
     "sea true, con al menos un medio vivo. `avance_real`, `avance_programado` y `progreso` van en porcentaje 0..100 con " +
     "un decimal; `desviacion_pp` son puntos porcentuales; el `color` sale de la desviación sin redondear y de los " +
-    "umbrales (`desviacion <= umbral1` verde, `<= umbral2` amarillo, si no rojo). `umbrales.confirmado` es true solo " +
+    "umbrales (`desviacion <= umbral1` verde, `<= umbral2` amarillo, si no rojo). Cada actividad trae además su " +
+    "`programado` (% planeado al corte), `dias` (duración), `al_corte` (días transcurridos al corte), su propio " +
+    "`color` y `sin_soporte`; `objetivos` es el acumulado por objetivo (planeado vs ejecutado y su color). " +
+    "`umbrales.confirmado` es true solo " +
     "si ambos umbrales están confirmados. `base=original` usa las semanas, pesos y cantidades congeladas en la " +
     "versión 0 (409 mientras no exista; una base desconocida responde 400). Un proyecto sin " +
     "fechas responde 409; un `corte` mal formado responde 400.",
@@ -466,12 +469,30 @@ registry.registerPath({
               z.object({
                 id: z.string().uuid(),
                 codigo: z.string(),
+                nombre: z.string(),
+                objetivo_codigo: z.string().openapi({ description: "Código del objetivo al que pertenece la actividad." }),
                 peso: z.number(),
                 progreso: z.number(),
+                programado: z.number().openapi({ description: "Porcentaje 0..100 planeado al corte (la columna «% plan»)." }),
+                dias: z.number().int().openapi({ description: "Duración de la actividad en días calendario (la columna «Días»)." }),
+                al_corte: z.number().int().openapi({ description: "Días transcurridos al corte, con tope en `dias` (la columna «Al corte»)." }),
                 estado: EstadoActividadSchema,
                 fecha_cumplimiento: z.string().nullable().openapi({
                   description: "Fecha en que el último entregable alcanzó su meta; null mientras haya alguno abierto.",
                 }),
+                color: z.enum(["verde", "amarillo", "rojo"]).openapi({
+                  description: "Semáforo de la actividad al corte, calculado por el servidor.",
+                }),
+                sin_soporte: z.boolean().openapi({ description: "true cuando ningún avance de la actividad tiene un soporte vivo." }),
+              }),
+            ),
+            objetivos: z.array(
+              z.object({
+                codigo: z.string(),
+                programado: z.number().openapi({ description: "Media ponderada del % planeado de sus actividades." }),
+                ejecutado: z.number().openapi({ description: "Media ponderada del % real de sus actividades." }),
+                desviacion_pp: z.number().openapi({ description: "(programado - ejecutado) en puntos porcentuales." }),
+                color: z.enum(["verde", "amarillo", "rojo"]),
               }),
             ),
             umbrales: z.object({ umbral1: z.number(), umbral2: z.number(), confirmado: z.boolean() }),

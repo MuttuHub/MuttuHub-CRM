@@ -194,6 +194,11 @@ describe("buildOpenApiDocument", () => {
     expect(Object.keys(op?.responses ?? {})).toEqual(expect.arrayContaining(["200", "400", "401", "403", "404", "409"]))
     const params = (op?.parameters ?? []) as { name: string; in: string }[]
     expect(params.map((p) => [p.name, p.in])).toEqual(expect.arrayContaining([["corte", "query"]]))
+    // S14 P6: the enriched payload documents the v6 columns and the objective roll-up.
+    const schema = JSON.stringify(op?.responses?.["200"])
+    for (const campo of ["programado", "dias", "al_corte", "sin_soporte", "objetivo_codigo", "objetivos"]) {
+      expect(schema, campo).toContain(campo)
+    }
   })
   it("registers the S5 budget and programming operations", () => {
     const paths = buildOpenApiDocument().paths ?? {}

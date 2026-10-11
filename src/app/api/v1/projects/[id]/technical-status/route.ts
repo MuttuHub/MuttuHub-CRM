@@ -56,7 +56,7 @@ export const GET = withApiErrorHandling(
     const original = base.value.base === "original" ? base.value.snapshot : null;
 
     const parametros = await getSemaforoParametrosV2();
-    const { tecnico, umbrales, color } = await loadTecnicoStatus({
+    const { tecnico, actividades, objetivos, umbrales, color } = await loadTecnicoStatus({
       proyectoId: id,
       // The original keeps ITS start: the weeks of v0 are counted from the date it was approved with.
       fechaInicio: original ? new Date(`${original.proyecto.fecha_inicio}T00:00:00.000Z`) : fecha_inicio,
@@ -73,13 +73,27 @@ export const GET = withApiErrorHandling(
       avance_programado: pct(tecnico.avance_programado),
       desviacion_pp: Math.round(tecnico.desviacion_pp * 10) / 10,
       color,
-      actividades: tecnico.actividades.map((actividad) => ({
+      actividades: actividades.map((actividad) => ({
         id: actividad.id,
         codigo: actividad.codigo,
+        nombre: actividad.nombre,
+        objetivo_codigo: actividad.objetivo_codigo,
         peso: actividad.peso,
         progreso: pct(actividad.progreso),
+        programado: pct(actividad.programado),
+        dias: actividad.dias,
+        al_corte: actividad.al_corte,
         estado: actividad.estado,
         fecha_cumplimiento: actividad.fecha_cumplimiento,
+        color: actividad.color,
+        sin_soporte: actividad.sin_soporte,
+      })),
+      objetivos: objetivos.map((objetivo) => ({
+        codigo: objetivo.codigo,
+        programado: pct(objetivo.programado),
+        ejecutado: pct(objetivo.ejecutado),
+        desviacion_pp: Math.round(objetivo.desviacion_pp * 10) / 10,
+        color: objetivo.color,
       })),
       umbrales: { ...umbrales, confirmado: parametros.umbral1.confirmado && parametros.umbral2.confirmado },
     });

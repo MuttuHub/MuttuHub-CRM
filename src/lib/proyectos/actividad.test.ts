@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest"
 
 import { F_W1 } from "./__fixtures__/weeks"
-import { pesoEfectivo, resolvePeso, toActividadV2View, validarSemanas } from "./actividad"
+import {
+  diasAlCorte,
+  duracionDias,
+  pesoEfectivo,
+  resolvePeso,
+  resumenObjetivos,
+  toActividadV2View,
+  validarSemanas,
+} from "./actividad"
 
 const proyecto = {
   fecha_inicio: new Date(`${F_W1.fechaInicio}T00:00:00.000Z`),
@@ -91,6 +99,60 @@ describe("validarSemanas", () => {
 
   it("rejects non-integer weeks", () => {
     expect(validarSemanas(1.5, 3, 17).ok).toBe(false)
+  })
+})
+
+describe("duracionDias", () => {
+  it("counts both endpoints of the activity (the v6 Días column)", () => {
+    expect(duracionDias("2026-01-05", "2026-01-25")).toBe(21)
+    expect(duracionDias("2026-01-05", "2026-01-05")).toBe(1)
+  })
+})
+
+describe("diasAlCorte", () => {
+  it("counts the elapsed days at the corte, both endpoints included", () => {
+    expect(diasAlCorte("2026-01-10", "2026-01-05", "2026-01-25")).toBe(6)
+  })
+
+  it("is 0 before the activity starts and the full duration once it ends", () => {
+    expect(diasAlCorte("2026-01-01", "2026-01-05", "2026-01-25")).toBe(0)
+    expect(diasAlCorte("2026-02-01", "2026-01-05", "2026-01-25")).toBe(21)
+  })
+})
+
+describe("resumenObjetivos (S14 P6)", () => {
+  const umbrales = { umbral1: 10, umbral2: 20 }
+
+  it("weights each objective by its activities, keeping the order of first appearance", () => {
+    const out = resumenObjetivos(
+      [
+        { objetivo_codigo: "OE2", peso: 1, progreso: 1, programado: 1 },
+        { objetivo_codigo: "OE1", peso: 1, progreso: 0, programado: 1 },
+        { objetivo_codigo: "OE1", peso: 1, progreso: 1, programado: 1 },
+      ],
+      umbrales,
+    )
+    expect(out.map((o) => o.codigo)).toEqual(["OE2", "OE1"])
+    expect(out[0]).toMatchObject({ programado: 1, ejecutado: 1, desviacion_pp: 0, color: "verde" })
+    expect(out[1].programado).toBeCloseTo(1)
+    expect(out[1].ejecutado).toBeCloseTo(0.5)
+    expect(out[1].desviacion_pp).toBeCloseTo(50)
+    expect(out[1].color).toBe("rojo")
+  })
+
+  it("derives the objective colour from the API thresholds, never from the client", () => {
+    const actividades = [{ objetivo_codigo: "OE1", peso: 1, progreso: 0.5, programado: 1 }]
+    expect(resumenObjetivos(actividades, { umbral1: 40, umbral2: 60 })[0].color).toBe("amarillo")
+    expect(resumenObjetivos(actividades, { umbral1: 10, umbral2: 20 })[0].color).toBe("rojo")
+  })
+
+  it("gives an objective without weight zeros (verde)", () => {
+    const out = resumenObjetivos([{ objetivo_codigo: "OE1", peso: 0, progreso: 1, programado: 1 }], umbrales)
+    expect(out[0]).toMatchObject({ programado: 0, ejecutado: 0, desviacion_pp: 0, color: "verde" })
+  })
+
+  it("is empty without activities", () => {
+    expect(resumenObjetivos([], umbrales)).toEqual([])
   })
 })
 

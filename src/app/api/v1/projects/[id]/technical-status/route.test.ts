@@ -46,10 +46,12 @@ const ent = (id: string, meta: number) => ({ id, cantidad_meta: new Prisma.Decim
 const act = (id: string, codigo: string, ini: number, fin: number, entregables: object[]) => ({
   id,
   codigo,
+  nombre: `Actividad ${codigo}`,
   semana_inicio: ini,
   semana_fin: fin,
   peso: new Prisma.Decimal(fin - ini + 1),
   peso_manual: false,
+  objetivo: { codigo: "OE1" },
   entregables,
 });
 // F-T1: activities 1.1 w1, 1.2 w2, 1.3 w3, 1.4 w3-6 (weights 1, 1, 1, 4).
@@ -144,6 +146,59 @@ describe("GET technical-status: F-T1 golden", () => {
     mocks.parametros.umbral1 = { valor: 10, confirmado: true };
     mocks.parametros.umbral2 = { valor: 40, confirmado: true };
     expect((await (await GET(get(), ctx)).json()).color).toBe("amarillo");
+  });
+});
+
+describe("GET technical-status: enriched activities and objective roll-ups (S14 P6)", () => {
+  const fila = (a: {
+    codigo: string; dias: number; al_corte: number; programado: number;
+    progreso: number; color: string; sin_soporte: boolean;
+  }) => [a.codigo, a.dias, a.al_corte, a.programado, a.progreso, a.color, a.sin_soporte];
+
+  it("enriches each activity with días, al corte, % plan, % real, colour and support", async () => {
+    const body = await (await GET(get(), ctx)).json();
+    expect(body.actividades.map(fila)).toEqual([
+      // 1.1 w1: 7 days, the corte is past its end, fully planned and done -> verde, with support.
+      ["1.1", 7, 7, 100, 100, "verde", false],
+      // 1.2 w2: 7 days, planned 100 / real 50 -> rojo, with support.
+      ["1.2", 7, 7, 100, 50, "rojo", false],
+      // 1.3 w3: 7 days, the corte is its last day, no avances -> rojo, no support.
+      ["1.3", 7, 7, 100, 0, "rojo", true],
+      // 1.4 w3-6: 28 days, only 7 elapsed at the corte -> planned 25, real 0 -> rojo, no support.
+      ["1.4", 28, 7, 25, 0, "rojo", true],
+    ]);
+    expect(body.actividades[0]).toMatchObject({ nombre: "Actividad 1.1", objetivo_codigo: "OE1" });
+  });
+
+  it("rolls the objectives up from the same activities (weighted planned vs executed)", async () => {
+    const body = await (await GET(get(), ctx)).json();
+    expect(body.objetivos).toEqual([
+      { codigo: "OE1", programado: 57.1, ejecutado: 21.4, desviacion_pp: 35.7, color: "rojo" },
+    ]);
+  });
+
+  it("derives every colour from the API thresholds, never on the client", async () => {
+    mocks.parametros.umbral1 = { valor: 40, confirmado: true };
+    mocks.parametros.umbral2 = { valor: 60, confirmado: true };
+    const body = await (await GET(get(), ctx)).json();
+    expect(body.actividades.map((a: { codigo: string; color: string }) => [a.codigo, a.color])).toEqual([
+      ["1.1", "verde"],
+      ["1.2", "amarillo"],
+      ["1.3", "rojo"],
+      ["1.4", "verde"],
+    ]);
+    expect(body.objetivos[0]).toMatchObject({ desviacion_pp: 35.7, color: "verde" });
+  });
+
+  it("marks sin_soporte per activity from the live supports", async () => {
+    vi.mocked(db.soporteProyecto.groupBy).mockResolvedValue(conMedio(["v1"]) as never);
+    const body = await (await GET(get(), ctx)).json();
+    expect(body.actividades.map((a: { codigo: string; sin_soporte: boolean }) => [a.codigo, a.sin_soporte])).toEqual([
+      ["1.1", false],
+      ["1.2", true],
+      ["1.3", true],
+      ["1.4", true],
+    ]);
   });
 });
 
@@ -245,6 +300,25 @@ describe("GET technical-status: base (S8 U5)", () => {
     expect(vigente.base).toBe("vigente");
     expect(vigente.actividades[3]).toMatchObject({ codigo: "1.4", peso: 2 });
     expect(vigente.avance_programado).not.toBe(original.avance_programado);
+  });
+
+  it("keeps the enrichment for base=original (v0 weeks and objective codes)", async () => {
+    const original = await (await GET(get("?corte=2026-10-25&base=original"), ctx)).json();
+    expect(
+      original.actividades.map((a: { codigo: string; objetivo_codigo: string; peso: number }) => [
+        a.codigo,
+        a.objetivo_codigo,
+        a.peso,
+      ]),
+    ).toEqual([
+      ["1.1", "OE1", 1],
+      ["1.2", "OE1", 1],
+      ["1.3", "OE1", 1],
+      ["1.4", "OE1", 4],
+    ]);
+    expect(original.objetivos).toEqual([
+      { codigo: "OE1", programado: 57.1, ejecutado: 21.4, desviacion_pp: 35.7, color: "rojo" },
+    ]);
   });
 
   it("defaults to vigente", async () => {
