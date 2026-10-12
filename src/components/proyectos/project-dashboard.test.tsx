@@ -80,7 +80,8 @@ const PORTAFOLIO: ProjectsPortfolio = {
       kpis: kpis({
         tecnico: { corte: "2026-03-15", avance_real: 21.4, avance_programado: 21.4, desviacion_pp: 0, color: "rojo" },
         cronograma: { corte: "2026-03-15", vencidas: 1, a_tiempo: 3, atrasadas: 1, valor: 75 },
-        entregables: { corte: "2026-03-15", programados: 4, logrados: 3, valor: 75 },
+        // 1/3 se redondearía a 33 en el cliente; el servidor manda 33.3 (D11).
+        entregables: { corte: "2026-03-15", programados: 3, logrados: 1, valor: 33.3 },
         financiero: { corte: "2026-03-15", asignado: "1000", programado: "500", ejecutado: "100", ea: 10, ep: 20, color: "verde", alerta_retraso: true },
       }),
     },
@@ -380,8 +381,11 @@ describe("ProjectDashboard: Tablero gerencial (S14 P9)", () => {
     expect(within(cronograma).getByRole("progressbar", { name: /cronograma de Fortalecimiento/i })).toBeInTheDocument()
 
     const entregables = screen.getByTestId("tablero-entregables")
-    expect(within(entregables).getByText("3/4")).toBeInTheDocument()
-    expect(within(entregables).getByRole("progressbar", { name: /entregables de Fortalecimiento/i })).toBeInTheDocument()
+    expect(within(entregables).getByText("1/3")).toBeInTheDocument()
+    // El valor pintado es el del servidor (33.3), no el recálculo del cliente (33).
+    expect(
+      within(entregables).getByRole("progressbar", { name: /entregables de Fortalecimiento/i }),
+    ).toHaveAttribute("aria-valuenow", "33.3")
   })
 
   it("reuses the S-curve of the selected project, defaulting to the first visible one", async () => {

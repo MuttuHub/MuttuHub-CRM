@@ -77,6 +77,9 @@ export function duracionDias(inicio: IsoDate, fin: IsoDate): number {
  */
 export function diasAlCorte(corte: IsoDate, inicio: IsoDate, fin: IsoDate): number {
   const total = daysBetweenInclusive(inicio, fin)
+  // Un rango invertido (fin < inicio) no debería llegar, pero si llega no puede
+  // producir un "Al corte" negativo: se trata como duración cero.
+  if (total <= 0) return 0
   return Math.min(Math.max(daysBetweenInclusive(inicio, corte), 0), total)
 }
 

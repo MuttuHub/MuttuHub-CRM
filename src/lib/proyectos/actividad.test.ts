@@ -118,6 +118,10 @@ describe("diasAlCorte", () => {
     expect(diasAlCorte("2026-01-01", "2026-01-05", "2026-01-25")).toBe(0)
     expect(diasAlCorte("2026-02-01", "2026-01-05", "2026-01-25")).toBe(21)
   })
+
+  it("never goes negative on an inverted range (fin before inicio)", () => {
+    expect(diasAlCorte("2026-02-10", "2026-02-10", "2026-02-05")).toBe(0)
+  })
 })
 
 describe("resumenObjetivos (S14 P6)", () => {

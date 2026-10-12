@@ -480,12 +480,12 @@ function TableroGerencial({ data }: { data: PortafolioData }) {
           conEntregables.map((proyecto) => {
             const programados = proyecto.kpis.entregables?.programados ?? 0;
             const logrados = proyecto.kpis.entregables?.logrados ?? 0;
-            const ratio = programados > 0 ? Math.round((logrados / programados) * 100) : 0;
             return (
               <FilaBarra
                 key={proyecto.id}
                 nombre={proyecto.nombre}
-                valor={ratio}
+                // El porcentaje lo calcula el servidor (D11): el cliente no lo recalcula.
+                valor={proyecto.kpis.entregables?.valor ?? null}
                 texto={`${logrados}/${programados}`}
                 ariaLabel={`Entregables de ${proyecto.nombre}: ${logrados} de ${programados}`}
               />
