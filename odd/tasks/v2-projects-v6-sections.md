@@ -51,7 +51,7 @@ technical schedule with spend: build TWO separate curves (technical and financia
 - [x] **P3** Gastos ledger: KPIs (total, validados, por validar, observados per D5), chip filters, `con_soporte` counts in the `expenses` response.
 - [x] **P4** Ficha with 8 tabs per D10 (move the structure sections, lazy-mount tests, keep Cambios).
 - [x] **P5** `GET projects/:id/attention` (server-derived list: rubro sobreejecución, late activities, avances sin soporte, indicators below target, alerta de retraso, gastos observados) + `requiere-atencion.tsx`.
-- [ ] **P6** Technical-status activities enriched (`programado`, `dias`, `al_corte`, `color`, `sin_soporte`, objective roll-ups); Metas e indicadores and Cronograma views.
+- [x] **P6** Technical-status activities enriched (`programado`, `dias`, `al_corte`, `color`, `sin_soporte`, objective roll-ups); Metas e indicadores and Cronograma views.
 - [ ] **P7** S-curve: pure `src/lib/proyectos/curva.ts` + tests, `GET projects/:id/curve?base=` returning `{ base, corte, periodos: [{ periodo, tecnico: { planeado, ejecutado|null }, financiero: { planeado, ejecutado|null } }] }`,
   loader change (all non-voided avances filtered in memory per month), SVG curve (ported/adapted `CurveSChart`), Avance monthly table, multi-month fixture. Needs D1, D2.
 - [ ] **P8** Presupuesto: gauge (ported `Tacometro`) + planned vs executed bars per rubro from the existing `financial-sheet`. Needs D4.
@@ -103,7 +103,15 @@ worktrees for non-suffix candidates, as in S13).
   3267 tests green** under `TZ=America/Bogota`, `tsc --noEmit` 0, guards green. Deviations: only `?corte` supported (no `base`); `avance_sin_soporte` lists any non-voided avance up to the corte without a live support
   regardless of `avance_requiere_medio`; the loader runs the KPI loader plus its own batch.
 
+- 2026-10-11 (OpenCode continuation): **P6 done** — `948ab9f` `feat(proyectos): enrich the technical-status activities and objective roll-ups` (per-activity `programado`/`dias`/`al_corte`/`color`/`sin_soporte` + the
+  `objetivos[]` roll-up block in the payload, route/hooks/OpenAPI/`actividad.ts`), `ac2f5ad` `feat(proyectos): reshape the Cronograma to the v6 activity table` (v6 columns días/% plan/% real/soporte, server
+  colour), `fa0b882` `fix(proyectos): group the cronograma by objective regardless of week order` (a real defect the writer left uncommitted when the power cut: the grouping only merged consecutive objectives),
+  and `31bd560` `feat(proyectos): show the objective roll-ups in the Metas e indicadores view` (relabel from "Estructura técnica" + the per-objective roll-up block, one technical-status call passed down as a Map,
+  silent when absent). Parent verification: **full suite 313 files / 3287 tests green** under `TZ=America/Bogota` (one load flake on the first run, clean on re-run), `tsc --noEmit` 0, guards green. Notes: the
+  technical-status endpoint is readable in any estado, so a draft with dates still paints roll-ups; `formatPct` is duplicated from the Cronograma because shared helpers were outside the surfaces.
+
 ## Next step
 
-P6: enrich the technical-status activities (`programado`, `dias`, `al_corte`, `color`, `sin_soporte`, objective roll-ups) and reshape the Metas e indicadores and Cronograma views to the v6 column set; then P7
-(S-curve), P8 (Presupuesto gauge), P9 (Tablero gerencial). Native review of P1-P5 as small candidates has to run in Claude Code (OpenCode is ineligible); independent read-only verification is the in-runtime substitute.
+P7: the S-curve — pure `src/lib/proyectos/curva.ts` + tests, `GET projects/:id/curve?base=` returning `{ base, corte, periodos: [{ periodo, tecnico: { planeado, ejecutado|null }, financiero: { planeado, ejecutado|null } }] }`,
+the loader change (all non-voided avances filtered in memory per month), the SVG curve ported from `feat/dashboard-management-csv-export` (`CurveSChart`), the Avance monthly table and the multi-month fixture; then P8
+(Presupuesto gauge), P9 (Tablero gerencial). Native review of P1-P6 as small candidates has to run in Claude Code (OpenCode is ineligible); independent read-only verification is the in-runtime substitute.
