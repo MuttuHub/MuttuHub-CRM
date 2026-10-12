@@ -86,6 +86,22 @@ const PortafolioSchema = registry.register(
       beneficiarios: z.object({ total: z.number().int(), meta: z.number().int().nullable() }).openapi({
         description: "Suma de beneficiarios registrados y de metas de los proyectos medibles; meta es null si ninguno tiene meta.",
       }),
+      por_linea: z
+        .array(
+          z.object({
+            linea: z.object({ id: z.string(), codigo: z.string(), nombre: z.string() }).nullable().openapi({
+              description: "Línea estratégica principal del grupo; null para los proyectos sin línea principal (\"Sin línea\").",
+            }),
+            proyectos: z.number().int(),
+            tecnico: z.object({ avance_real: PCT, avance_programado: PCT }).openapi({
+              description: "Media simple del avance técnico de los proyectos medibles de la línea; null si ninguno es medible.",
+            }),
+            indicadores: z.object({ valor: PCT, medidos: z.number().int(), en_meta: z.number().int() }).openapi({
+              description: "Cumplimiento medio de indicadores (0..100) y las sumas de medidos y en meta; valor null si nada se midió.",
+            }),
+          }),
+        )
+        .openapi({ description: "Agregado por línea estratégica principal (D7: el radar del Tablero gerencial). Orden de primera aparición." }),
       por_color_tecnico: z.record(z.string(), z.number().int()),
       por_color_financiero: z.record(z.string(), z.number().int()),
     }),

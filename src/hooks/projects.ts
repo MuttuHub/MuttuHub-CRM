@@ -2077,6 +2077,13 @@ export type ProjectsPortfolio = {
     atrasadas: number;
     /** Σ registrados y Σ meta de los proyectos medibles; meta null si ninguno tiene meta. */
     beneficiarios: { total: number; meta: number | null };
+    /** Agregado por línea estratégica principal (S14 P9, D7): el radar del Tablero gerencial. */
+    por_linea: {
+      linea: { id: string; codigo: string; nombre: string } | null;
+      proyectos: number;
+      tecnico: { avance_real: number | null; avance_programado: number | null };
+      indicadores: { valor: number | null; medidos: number; en_meta: number };
+    }[];
     por_color_tecnico: Record<ColorSemaforo, number>;
     por_color_financiero: Record<ColorSemaforo, number>;
   };

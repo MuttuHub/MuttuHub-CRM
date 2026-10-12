@@ -316,6 +316,11 @@ describe("buildOpenApiDocument", () => {
     expect(Object.keys(one?.responses ?? {})).toEqual(expect.arrayContaining(["200", "400", "401", "403", "404", "409"]))
     expect(JSON.stringify(one?.parameters)).toContain("original")
   })
+  it("registers the S14 por_linea aggregate on the portfolio dashboard", () => {
+    const schema = JSON.stringify(buildOpenApiDocument().components?.schemas)
+    expect(schema).toContain("por_linea")
+    expect(schema).toContain("por_color_tecnico")
+  })
   it("registers the S14 attention path with its corte parameter", () => {
     const paths = buildOpenApiDocument().paths ?? {}
     const one = paths["/api/v1/projects/{id}/attention"]?.get

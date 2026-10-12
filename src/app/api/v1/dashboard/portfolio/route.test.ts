@@ -132,6 +132,41 @@ describe("GET dashboard/portfolio: atrasadas and beneficiarios", () => {
   })
 })
 
+describe("GET dashboard/portfolio: por_linea", () => {
+  it("aggregates the visible projects by their principal strategic line (count and means)", async () => {
+    const body = await (await GET(get())).json()
+    expect(body.agregado.por_linea).toEqual([
+      {
+        linea: { id: "l1", codigo: "L1", nombre: "Principal" },
+        proyectos: 2,
+        tecnico: {
+          avance_real: medible().tecnico?.avance_real ?? null,
+          avance_programado: medible().tecnico?.avance_programado ?? null,
+        },
+        indicadores: { valor: null, medidos: 0, en_meta: 0 },
+      },
+    ])
+  })
+
+  it("groups projects without a principal line under a null line", async () => {
+    vi.mocked(db.proyecto.findMany).mockResolvedValue([
+      { ...fila("1", "EN_EJECUCION"), lineas: [] },
+    ] as never)
+    const body = await (await GET(get())).json()
+    expect(body.agregado.por_linea).toEqual([
+      {
+        linea: null,
+        proyectos: 1,
+        tecnico: {
+          avance_real: medible().tecnico?.avance_real ?? null,
+          avance_programado: medible().tecnico?.avance_programado ?? null,
+        },
+        indicadores: { valor: null, medidos: 0, en_meta: 0 },
+      },
+    ])
+  })
+})
+
 describe("GET dashboard/portfolio: payload", () => {
   it("returns both semáforos and the state per project, the corte echoed and no territory key", async () => {
     const res = await GET(get())

@@ -10,7 +10,7 @@ import { loadKpisPortafolio } from "@/lib/api/kpis-portafolio";
 import { parseCorteFecha, serializeAgregado, serializeKpis } from "@/lib/api/kpis-http";
 import { getSemaforoParametrosV2 } from "@/lib/settings";
 import { isoDate } from "@/lib/proyectos/proyecto-general";
-import { kpisPortafolio } from "@/lib/proyectos/kpis";
+import { kpisPortafolio, type KpisProyecto } from "@/lib/proyectos/kpis";
 
 export const PORTAFOLIO_FORBIDDEN_MESSAGE = "No tienes permisos para ver el tablero de proyectos.";
 
@@ -94,6 +94,12 @@ export async function cargarPortafolio(usuario: Usuario, url: URL) {
   });
 
   const agregado = kpisPortafolio([...kpis.values()], corte);
+  const porLinea = agregarPorLinea(
+    rows.map((row) => ({
+      kpis: kpis.get(row.id) as NonNullable<ReturnType<typeof kpis.get>>,
+      linea: row.lineas.find((l) => l.principal)?.linea ?? null,
+    })),
+  );
   return {
     ok: true as const,
     value: {
@@ -101,10 +107,71 @@ export async function cargarPortafolio(usuario: Usuario, url: URL) {
       corte,
       confirmado: [parametros.umbral1, parametros.umbral2, parametros.tolerancia, parametros.retraso].every((p) => p.confirmado),
       proyectos,
-      agregado: serializeAgregado(agregado),
+      agregado: { ...serializeAgregado(agregado), por_linea: porLinea },
       por_estado: agregado.por_estado,
     },
   };
 }
 
 export type Portafolio = Extract<Awaited<ReturnType<typeof cargarPortafolio>>, { ok: true }>["value"];
+
+// ---------------------------------------------------------------------------
+// Aggregate by strategic line (S14 P9): the radar's per-line series.
+// ---------------------------------------------------------------------------
+
+export type LineaRef = { id: string; codigo: string; nombre: string };
+
+export type PorLineaPortafolio = {
+  /** Principal line of the group; `null` for the projects without one ("Sin línea"). */
+  linea: LineaRef | null;
+  proyectos: number;
+  /** Simple mean over the measured projects of the line; null when none is measured. */
+  tecnico: { avance_real: number | null; avance_programado: number | null };
+  /** Mean indicator compliance plus the summed counts; `valor` is null when nothing is measured. */
+  indicadores: { valor: number | null; medidos: number; en_meta: number };
+};
+
+const round1 = (value: number): number => Math.round(value * 10) / 10;
+
+const meanOf = (values: readonly number[]): number | null =>
+  values.length === 0 ? null : round1(values.reduce((sum, value) => sum + value, 0) / values.length);
+
+/**
+ * Groups the visible portfolio by each project's PRINCIPAL strategic line, preserving
+ * the first-appearance order (so the radar axes are stable). The technical mean and the
+ * indicator compliance come from the server KPI blocks: the client never recomputes a
+ * band or a percentage, it only means values the server already returned.
+ */
+export function agregarPorLinea(
+  entradas: readonly { kpis: KpisProyecto; linea: LineaRef | null }[],
+): PorLineaPortafolio[] {
+  const orden: (LineaRef | null)[] = [];
+  const grupos = new Map<string, KpisProyecto[]>();
+  for (const entrada of entradas) {
+    const key = entrada.linea?.id ?? "";
+    const items = grupos.get(key);
+    if (items) items.push(entrada.kpis);
+    else {
+      grupos.set(key, [entrada.kpis]);
+      orden.push(entrada.linea);
+    }
+  }
+  return orden.map((linea) => {
+    const items = grupos.get(linea?.id ?? "") ?? [];
+    const tecnicos = items.flatMap((k) => (k.tecnico ? [k.tecnico] : []));
+    const indicadores = items.flatMap((k) => (k.indicadores ? [k.indicadores] : []));
+    return {
+      linea,
+      proyectos: items.length,
+      tecnico: {
+        avance_real: meanOf(tecnicos.map((t) => t.avance_real)),
+        avance_programado: meanOf(tecnicos.map((t) => t.avance_programado)),
+      },
+      indicadores: {
+        valor: meanOf(indicadores.flatMap((i) => (i.valor === null ? [] : [i.valor]))),
+        medidos: indicadores.reduce((sum, i) => sum + i.medidos, 0),
+        en_meta: indicadores.reduce((sum, i) => sum + i.en_meta, 0),
+      },
+    };
+  });
+}
