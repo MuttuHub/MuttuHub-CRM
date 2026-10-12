@@ -128,6 +128,12 @@ worktrees for non-suffix candidates, as in S13).
   adds the radar, the per-project cronograma/entregables bars and the territory table built by merging the list by id, D7; filters and export preserved). Parent verification: **full suite 320 files / 3364 tests green**
   under `TZ=America/Bogota`, `tsc --noEmit` 0, guards green. A regression in the export route test (its `kpis-portafolio` mock) was caught and avoided by not adding an export there. Remaining deviation: the Tablero
   S-curve reuses the curve of a selected visible project, not a portfolio-aggregated monthly series — a true portfolio curve needs a new server aggregate (not in scope of the allowed surfaces).
+- 2026-10-12 (OpenCode continuation): **independent read-only verification of the S14 slice** (`e63ce6a..HEAD`, the in-runtime substitute for the native review). Verdict `READY: yes`, no BLOCKER/MAJOR.
+  Sound: the curve math (`finDeMes` incl. leap, `tecnicoPlaneado`, trailing-null semantics, half-up rounding), D1/D2, D3 agreement with `cumplimientoCronograma`, the single D5 `esObservado` shared by four
+  consumers, `resumenObjetivos`, D7 territory counting, and D11/D12 (no client semáforo recompute in colours, no chart library, no DOM measurement). Findings fixed in `1c3f9ca`: (1) the gerencial Tablero
+  recomputed the entregables percentage in the client (`Math.round`) instead of using the server value — its test was hollow (the 3/4 fixture coincided); now it paints `kpis.entregables.valor` and the test uses
+  1/3 (server 33.3 vs client 33); (2) `diasAlCorte` could return a negative "Al corte" on an inverted range — guarded. Open (not fixed, minor): the S-curve geometry (path coordinates) is not asserted, and
+  `actividad_atrasada` is a permanent flag for a deliverable-less activity (matches the letter of D3).
 
 ## S14 status
 
