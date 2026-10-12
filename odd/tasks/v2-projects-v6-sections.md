@@ -55,7 +55,7 @@ technical schedule with spend: build TWO separate curves (technical and financia
 - [x] **P7** S-curve: pure `src/lib/proyectos/curva.ts` + tests, `GET projects/:id/curve?base=` returning `{ base, corte, periodos: [{ periodo, tecnico: { planeado, ejecutado|null }, financiero: { planeado, ejecutado|null } }] }`,
   loader change (all non-voided avances filtered in memory per month), SVG curve (ported/adapted `CurveSChart`), Avance monthly table, multi-month fixture. Needs D1, D2.
 - [x] **P8** Presupuesto: gauge (ported `Tacometro`) + planned vs executed bars per rubro from the existing `financial-sheet`. Needs D4.
-- [ ] **P9** Tablero gerencial: portfolio curve, `por_linea` radar (ported `Radar`), gauge, per-project cronograma/entregables bars, territory table (D7), `agregado.por_linea`.
+- [x] **P9** Tablero gerencial: portfolio curve, `por_linea` radar (ported `Radar`), gauge, per-project cronograma/entregables bars, territory table (D7), `agregado.por_linea`.
 
 ## Constraints
 
@@ -123,7 +123,18 @@ worktrees for non-suffix candidates, as in S13).
   explicit server-derived `bandas` instead of the design's unconfirmed 60/80 subexecution bands (D4), the needle colour is the server's `total.color` and the value `total.ea_decimas/10` (no client recompute, D11);
   residual risk noted: in a rare `E > A` case the clamped needle can sit in a green band while the server colour is rojo. Screenshot verification in light/dark is pending (no browser access from the writer).
 
-## Next step
+- 2026-10-12 (OpenCode continuation): **P9 done** — `c800e40` `feat(proyectos): aggregate the portfolio by strategic line` (`agregado.por_linea`, computed in `portafolio.ts` because `kpis.ts`/`kpis-http.ts` were
+  outside the surfaces; route/OpenAPI/DTO), `8777db0` `feat(proyectos): port the radar primitive for the gerencial tablero`, `e2f661d` `feat(proyectos): build the gerencial Tablero` (reuses `CurveSChart` and `Tacometro`,
+  adds the radar, the per-project cronograma/entregables bars and the territory table built by merging the list by id, D7; filters and export preserved). Parent verification: **full suite 320 files / 3364 tests green**
+  under `TZ=America/Bogota`, `tsc --noEmit` 0, guards green. A regression in the export route test (its `kpis-portafolio` mock) was caught and avoided by not adding an export there. Remaining deviation: the Tablero
+  S-curve reuses the curve of a selected visible project, not a portfolio-aggregated monthly series — a true portfolio curve needs a new server aggregate (not in scope of the allowed surfaces).
 
-P9 (last unit): Tablero gerencial — the portfolio curve, the `por_linea` radar ported from `feat/dashboard-management-csv-export` (`Radar`), the gauge, the per-project cronograma/entregables bars, the territory
-table (D7) and `agregado.por_linea`. After P9: the whole S14 scope is implemented; then the S13/S14 screenshot pass and the native review of P1-P9 as small candidates (Claude Code; OpenCode is ineligible).
+## S14 status
+
+All nine units (P1-P9) are implemented, committed locally and green (**full suite 320 files / 3364 tests**). Nothing was pushed and no PR exists.
+
+Pending, in order:
+1. **Screenshots** in light and dark (1440 and 390) against the v6 design shots — the writers had no browser access; needs the running Windows dev server.
+2. **Independent read-only verification** of the S14 slice (the in-runtime substitute for the native review; the S7 sessions show it finds real defects).
+3. **Native review** of P1-P9 as small candidates — must run in Claude Code (OpenCode is ineligible for immutable receipt review).
+4. Optional: the portfolio-level aggregated S-curve; per-rubro financial curve; the PO's unconfirmed business thresholds (umbral amarillo, "En curso" colour).
