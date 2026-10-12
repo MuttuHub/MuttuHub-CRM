@@ -52,7 +52,7 @@ technical schedule with spend: build TWO separate curves (technical and financia
 - [x] **P4** Ficha with 8 tabs per D10 (move the structure sections, lazy-mount tests, keep Cambios).
 - [x] **P5** `GET projects/:id/attention` (server-derived list: rubro sobreejecución, late activities, avances sin soporte, indicators below target, alerta de retraso, gastos observados) + `requiere-atencion.tsx`.
 - [x] **P6** Technical-status activities enriched (`programado`, `dias`, `al_corte`, `color`, `sin_soporte`, objective roll-ups); Metas e indicadores and Cronograma views.
-- [ ] **P7** S-curve: pure `src/lib/proyectos/curva.ts` + tests, `GET projects/:id/curve?base=` returning `{ base, corte, periodos: [{ periodo, tecnico: { planeado, ejecutado|null }, financiero: { planeado, ejecutado|null } }] }`,
+- [x] **P7** S-curve: pure `src/lib/proyectos/curva.ts` + tests, `GET projects/:id/curve?base=` returning `{ base, corte, periodos: [{ periodo, tecnico: { planeado, ejecutado|null }, financiero: { planeado, ejecutado|null } }] }`,
   loader change (all non-voided avances filtered in memory per month), SVG curve (ported/adapted `CurveSChart`), Avance monthly table, multi-month fixture. Needs D1, D2.
 - [ ] **P8** Presupuesto: gauge (ported `Tacometro`) + planned vs executed bars per rubro from the existing `financial-sheet`. Needs D4.
 - [ ] **P9** Tablero gerencial: portfolio curve, `por_linea` radar (ported `Radar`), gauge, per-project cronograma/entregables bars, territory table (D7), `agregado.por_linea`.
@@ -110,8 +110,15 @@ worktrees for non-suffix candidates, as in S13).
   silent when absent). Parent verification: **full suite 313 files / 3287 tests green** under `TZ=America/Bogota` (one load flake on the first run, clean on re-run), `tsc --noEmit` 0, guards green. Notes: the
   technical-status endpoint is readable in any estado, so a draft with dates still paints roll-ups; `formatPct` is duplicated from the Cronograma because shared helpers were outside the surfaces.
 
+- 2026-10-12 (OpenCode continuation): **P7 done** — `96b8a1f` `feat(proyectos): add the pure S-curve math and its multi-month fixture` (pure `curva.ts`: `tecnicoPlaneado` linear by days at month end D1,
+  `construirCurva` with the two separate series, `ejecutado: null` after the corte; fixture F-C1), `ea9934d` `feat(proyectos): expose the project S-curve endpoint` (`GET projects/:id/curve?base=vigente|original`,
+  loader `src/lib/api/curva.ts` reading all non-voided avances once and bucketing per month, `tecnico.ts` helpers exported for reuse, OpenAPI path), `09ff0b0` `feat(proyectos): paint the S-curve and its monthly table
+  in the Avance tab` (ported `curve-s-chart.tsx` inline SVG, two labelled panels, monthly table, reduced-motion-gated). Parent verification: **full suite 317 files / 3325 tests green** under `TZ=America/Bogota`, `tsc
+  --noEmit` 0, guards green. Deviations: the writer knowingly exceeded the ~600-line heuristic (~1478) to finish item 4 instead of leaving a dead component; no `?corte` (derived, clamped like `financial-sheet`);
+  curves are percentages; the corte month counts the whole month's validated spend while the technical curve measures at the corte date.
+
 ## Next step
 
-P7: the S-curve — pure `src/lib/proyectos/curva.ts` + tests, `GET projects/:id/curve?base=` returning `{ base, corte, periodos: [{ periodo, tecnico: { planeado, ejecutado|null }, financiero: { planeado, ejecutado|null } }] }`,
-the loader change (all non-voided avances filtered in memory per month), the SVG curve ported from `feat/dashboard-management-csv-export` (`CurveSChart`), the Avance monthly table and the multi-month fixture; then P8
-(Presupuesto gauge), P9 (Tablero gerencial). Native review of P1-P6 as small candidates has to run in Claude Code (OpenCode is ineligible); independent read-only verification is the in-runtime substitute.
+P8: Presupuesto — the gauge ported from `feat/dashboard-management-csv-export` (`Tacometro`) plus planned vs executed bars per rubro from the existing `financial-sheet` (needs D4); then P9 (Tablero gerencial:
+portfolio curve, `por_linea` radar, gauge, per-project cronograma/entregables bars, territory table D7, `agregado.por_linea`). Native review of P1-P7 as small candidates has to run in Claude Code (OpenCode is
+ineligible); independent read-only verification is the in-runtime substitute.
