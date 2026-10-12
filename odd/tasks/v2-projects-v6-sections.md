@@ -54,7 +54,7 @@ technical schedule with spend: build TWO separate curves (technical and financia
 - [x] **P6** Technical-status activities enriched (`programado`, `dias`, `al_corte`, `color`, `sin_soporte`, objective roll-ups); Metas e indicadores and Cronograma views.
 - [x] **P7** S-curve: pure `src/lib/proyectos/curva.ts` + tests, `GET projects/:id/curve?base=` returning `{ base, corte, periodos: [{ periodo, tecnico: { planeado, ejecutado|null }, financiero: { planeado, ejecutado|null } }] }`,
   loader change (all non-voided avances filtered in memory per month), SVG curve (ported/adapted `CurveSChart`), Avance monthly table, multi-month fixture. Needs D1, D2.
-- [ ] **P8** Presupuesto: gauge (ported `Tacometro`) + planned vs executed bars per rubro from the existing `financial-sheet`. Needs D4.
+- [x] **P8** Presupuesto: gauge (ported `Tacometro`) + planned vs executed bars per rubro from the existing `financial-sheet`. Needs D4.
 - [ ] **P9** Tablero gerencial: portfolio curve, `por_linea` radar (ported `Radar`), gauge, per-project cronograma/entregables bars, territory table (D7), `agregado.por_linea`.
 
 ## Constraints
@@ -117,8 +117,13 @@ worktrees for non-suffix candidates, as in S13).
   --noEmit` 0, guards green. Deviations: the writer knowingly exceeded the ~600-line heuristic (~1478) to finish item 4 instead of leaving a dead component; no `?corte` (derived, clamped like `financial-sheet`);
   curves are percentages; the corte month counts the whole month's validated spend while the technical curve measures at the corte date.
 
+- 2026-10-12 (OpenCode continuation): **P8 done** — `733eafb` `feat(proyectos): paint the budget gauge and the per-rubro bars in Presupuesto`. Ported `Tacometro` as `src/components/proyectos/tacometro.tsx`
+  (inline SVG, fixed viewBox, no measurement, reduced-motion gated, token strokes) and rendered the executed-vs-assigned gauge plus one planned-vs-executed bar per rubro inside `project-financiero.tsx` (the
+  Presupuesto tab's financial sheet, so no duplicate fetch). Parent verification: **full suite 318 files / 3343 tests green** under `TZ=America/Bogota`, `tsc --noEmit` 0, guards green. Deviations: the gauge takes
+  explicit server-derived `bandas` instead of the design's unconfirmed 60/80 subexecution bands (D4), the needle colour is the server's `total.color` and the value `total.ea_decimas/10` (no client recompute, D11);
+  residual risk noted: in a rare `E > A` case the clamped needle can sit in a green band while the server colour is rojo. Screenshot verification in light/dark is pending (no browser access from the writer).
+
 ## Next step
 
-P8: Presupuesto — the gauge ported from `feat/dashboard-management-csv-export` (`Tacometro`) plus planned vs executed bars per rubro from the existing `financial-sheet` (needs D4); then P9 (Tablero gerencial:
-portfolio curve, `por_linea` radar, gauge, per-project cronograma/entregables bars, territory table D7, `agregado.por_linea`). Native review of P1-P7 as small candidates has to run in Claude Code (OpenCode is
-ineligible); independent read-only verification is the in-runtime substitute.
+P9 (last unit): Tablero gerencial — the portfolio curve, the `por_linea` radar ported from `feat/dashboard-management-csv-export` (`Radar`), the gauge, the per-project cronograma/entregables bars, the territory
+table (D7) and `agregado.por_linea`. After P9: the whole S14 scope is implemented; then the S13/S14 screenshot pass and the native review of P1-P9 as small candidates (Claude Code; OpenCode is ineligible).
