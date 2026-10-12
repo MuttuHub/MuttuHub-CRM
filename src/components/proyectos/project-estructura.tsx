@@ -1,4 +1,4 @@
-// Estructura técnica del proyecto (S3 U4) dentro de la ficha: objetivos con sus
+// Metas e indicadores del proyecto (S3 U4) dentro de la ficha: objetivos con sus
 // actividades (ubicadas por semanas), entregables e indicadores. Todos los que
 // ven la ficha ven la estructura; solo quien gestiona proyectos
 // (`canManageProjects`) y mientras el proyecto está en BORRADOR ve los controles
@@ -28,7 +28,7 @@ export function ProjectEstructura({ proyecto }: { proyecto: ProjectListRow }) {
   return (
     <section data-testid="estructura">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <SectionHeader icon={<ListTree className="size-3.5" strokeWidth={2} />}>Estructura técnica</SectionHeader>
+        <SectionHeader icon={<ListTree className="size-3.5" strokeWidth={2} />}>Metas e indicadores</SectionHeader>
         {canEdit && <ImportDialog proyecto={proyecto} />}
       </div>
 

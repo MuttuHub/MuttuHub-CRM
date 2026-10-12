@@ -223,7 +223,7 @@ describe("ProjectFicha (page)", () => {
     expect(screen.queryByTestId("estructura")).not.toBeInTheDocument()
     await openTab("Metas e indicadores")
     const estructura = await screen.findByTestId("estructura")
-    expect(estructura).toHaveTextContent("Estructura técnica")
+    expect(estructura).toHaveTextContent("Metas e indicadores")
     expect(screen.queryByTestId("equipo")).not.toBeInTheDocument()
     // El Gantt ya no vive dentro de la estructura: tiene su propia pestaña.
     expect(within(estructura).queryByTestId("gantt")).not.toBeInTheDocument()

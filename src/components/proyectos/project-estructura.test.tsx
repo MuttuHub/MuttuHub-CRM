@@ -6,7 +6,7 @@ import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import type { ProjectListRow } from "@/hooks/projects"
+import type { ProjectListRow, ProjectTechnicalObjective } from "@/hooks/projects"
 import { ProjectEstructura } from "./project-estructura"
 
 function createWrapper() {
@@ -107,6 +107,28 @@ const USERS = [
   { id: "u2", nombre: "Luis Gómez" },
 ]
 
+const ROLLUP1: ProjectTechnicalObjective = {
+  codigo: "OBJ-1",
+  programado: 80,
+  ejecutado: 60,
+  desviacion_pp: 20,
+  color: "amarillo",
+}
+
+/** Respuesta del estado técnico (S14 P6) con los acumulados por objetivo. */
+const TECNICO = (objetivos: ProjectTechnicalObjective[]) => ({
+  base: "vigente",
+  corte: "2026-10-25",
+  estado: "EN_EJECUCION",
+  avance_real: 60,
+  avance_programado: 80,
+  desviacion_pp: 20,
+  color: "amarillo",
+  actividades: [],
+  objetivos,
+  umbrales: { umbral1: 10, umbral2: 20, confirmado: false },
+})
+
 type Setup = {
   rol?: "ADMINISTRADOR" | "GERENCIA" | "COORDINADOR"
   proyecto?: Partial<ProjectListRow>
@@ -115,6 +137,10 @@ type Setup = {
   entregables?: unknown[]
   indicadores?: unknown[]
   listStatus?: number
+  /** Acumulados por objetivo que devuelve el estado técnico (S14 P6). */
+  rollups?: ProjectTechnicalObjective[]
+  /** Estado HTTP del estado técnico; 200 devuelve los roll-ups. */
+  tecnicoStatus?: number
   /** Respuesta forzada para una mutación: clave "METHOD sufijo-de-url". */
   overrides?: Record<string, Response>
 }
@@ -130,6 +156,8 @@ describe("ProjectEstructura", () => {
     entregables = [ENT1],
     indicadores = [IND1],
     listStatus = 200,
+    rollups = [],
+    tecnicoStatus = 200,
     overrides = {},
   }: Setup = {}) {
     fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
@@ -139,6 +167,16 @@ describe("ProjectEstructura", () => {
         return Promise.resolve(jsonResponse({ usuario: { id: "u1", nombre: "Ana", rol } }))
       }
       if (url.endsWith("/api/v1/catalogs/users")) return Promise.resolve(jsonResponse({ users: USERS }))
+      if (url.endsWith("/projects/p1/technical-status")) {
+        return Promise.resolve(
+          tecnicoStatus === 200
+            ? jsonResponse(TECNICO(rollups))
+            : jsonResponse(
+                { error: "No pudimos calcular el semáforo técnico. Inténtalo de nuevo.", code: "INTERNAL_ERROR" },
+                tecnicoStatus,
+              ),
+        )
+      }
       const forced = Object.entries(overrides).find(
         ([key]) => key.split(" ")[0] === method && url.endsWith(key.split(" ")[1]),
       )
@@ -276,6 +314,30 @@ describe("ProjectEstructura", () => {
 
       const alerta = await screen.findByRole("alert")
       expect(alerta).toHaveTextContent("No pudimos cargar la estructura.")
+    })
+  })
+
+  describe("Metas e indicadores (S14 P6)", () => {
+    it("labels the section as the tab it feeds", async () => {
+      setup()
+
+      const seccion = await screen.findByTestId("estructura")
+      expect(within(seccion).getByText("Metas e indicadores")).toBeInTheDocument()
+      expect(within(seccion).queryByText("Estructura técnica")).not.toBeInTheDocument()
+    })
+
+    it("shows each objective roll-up, reading the technical status once", async () => {
+      setup({ rollups: [ROLLUP1] })
+
+      const o1 = await objetivo("OBJ-1")
+      const rollup = await within(o1).findByTestId("estructura-objetivo-rollup")
+      expect(rollup).toHaveTextContent("60 %")
+      expect(within(rollup).getByText("Semáforo: Amarillo")).toHaveAttribute("data-color", "amarillo")
+      const o2 = await objetivo("OBJ-2")
+      expect(within(o2).queryByTestId("estructura-objetivo-rollup")).not.toBeInTheDocument()
+      expect(
+        fetchMock.mock.calls.filter(([url]) => String(url).endsWith("/technical-status")),
+      ).toHaveLength(1)
     })
   })
 
