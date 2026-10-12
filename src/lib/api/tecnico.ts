@@ -82,45 +82,11 @@ export async function loadTecnicoStatus(input: {
   ]);
 
   const medios = await contarMediosVivos(avances.map((avance) => avance.id));
-  const porEntregable = new Map<string, typeof avances>();
-  for (const avance of avances) {
-    porEntregable.set(avance.entregable_id, [...(porEntregable.get(avance.entregable_id) ?? []), avance]);
-  }
+  const porEntregable = agruparAvancesPorEntregable(avances);
 
-  const vivas: ActividadFuente[] = actividades.map((actividad) => ({
-    id: actividad.id,
-    codigo: actividad.codigo,
-    nombre: actividad.nombre,
-    // The relation is required in the schema; a test fixture may omit it.
-    objetivo_codigo: actividad.objetivo?.codigo ?? "",
-    semana_inicio: actividad.semana_inicio,
-    semana_fin: actividad.semana_fin,
-    peso: actividad.peso,
-    peso_manual: actividad.peso_manual,
-    entregables: actividad.entregables,
-  }));
+  const vivas = mapearActividadesFuente(actividades);
   const fuente = input.estructura ? desdeSnapshot(input.estructura, vivas) : vivas;
-  const entrada: ActividadTecnicaInput[] = fuente.map((actividad) => {
-    const fechas = activityDates(inicio, actividad.semana_inicio, actividad.semana_fin);
-    return {
-      id: actividad.id,
-      codigo: actividad.codigo,
-      peso: pesoEfectivo(actividad),
-      inicio: fechas.inicio,
-      fin: fechas.fin,
-      entregables: actividad.entregables.map((entregable) => ({
-        id: entregable.id,
-        meta: toNumber(entregable.cantidad_meta),
-        avances: (porEntregable.get(entregable.id) ?? []).map((avance) => ({
-          fecha: isoDate(avance.fecha),
-          cantidad: toNumber(avance.cantidad),
-          anulado: false,
-          tieneMedio: (medios.get(avance.id) ?? 0) > 0,
-          createdAt: avance.created_at.toISOString(),
-        })),
-      })),
-    };
-  });
+  const entrada = entradaTecnica(fuente, inicio, porEntregable, medios);
 
   const tecnico = calcularTecnico({
     corte,
@@ -165,7 +131,7 @@ export async function loadTecnicoStatus(input: {
   return { tecnico, actividades: actividadesEnriquecidas, objetivos, umbrales, color };
 }
 
-type ActividadFuente = {
+export type ActividadFuente = {
   id: string;
   codigo: string;
   nombre: string;
@@ -177,8 +143,89 @@ type ActividadFuente = {
   entregables: { id: string; codigo: string; cantidad_meta: { toString(): string } }[];
 };
 
+/** One non-voided avance row as the technical queries select it (S14 P7 shares it with the curve). */
+export type AvanceTecnicoRow = {
+  id: string;
+  entregable_id: string;
+  fecha: Date;
+  cantidad: { toString(): string };
+  created_at: Date;
+};
+
+/** Live activity rows in the shape `entradaTecnica`/`desdeSnapshot` consume. */
+export function mapearActividadesFuente(
+  actividades: readonly {
+    id: string;
+    codigo: string;
+    nombre: string;
+    semana_inicio: number;
+    semana_fin: number;
+    peso: { toString(): string };
+    peso_manual: boolean;
+    objetivo: { codigo: string } | null;
+    entregables: { id: string; codigo: string; cantidad_meta: { toString(): string } }[];
+  }[],
+): ActividadFuente[] {
+  return actividades.map((actividad) => ({
+    id: actividad.id,
+    codigo: actividad.codigo,
+    nombre: actividad.nombre,
+    // The relation is required in the schema; a test fixture may omit it.
+    objetivo_codigo: actividad.objetivo?.codigo ?? "",
+    semana_inicio: actividad.semana_inicio,
+    semana_fin: actividad.semana_fin,
+    peso: actividad.peso,
+    peso_manual: actividad.peso_manual,
+    entregables: actividad.entregables,
+  }));
+}
+
+/** Groups the avances by deliverable so a month can be filtered without re-reading them. */
+export function agruparAvancesPorEntregable(
+  avances: readonly AvanceTecnicoRow[],
+): Map<string, AvanceTecnicoRow[]> {
+  const porEntregable = new Map<string, AvanceTecnicoRow[]>();
+  for (const avance of avances) {
+    porEntregable.set(avance.entregable_id, [...(porEntregable.get(avance.entregable_id) ?? []), avance]);
+  }
+  return porEntregable;
+}
+
+/**
+ * The plain `ActividadTecnicaInput[]` the pure math consumes: weeks become calendar
+ * dates from the project start and every avance carries whether it has a live medio.
+ */
+export function entradaTecnica(
+  fuente: readonly ActividadFuente[],
+  inicio: IsoDate,
+  porEntregable: ReadonlyMap<string, readonly AvanceTecnicoRow[]>,
+  medios: ReadonlyMap<string, number>,
+): ActividadTecnicaInput[] {
+  return fuente.map((actividad) => {
+    const fechas = activityDates(inicio, actividad.semana_inicio, actividad.semana_fin);
+    return {
+      id: actividad.id,
+      codigo: actividad.codigo,
+      peso: pesoEfectivo(actividad),
+      inicio: fechas.inicio,
+      fin: fechas.fin,
+      entregables: actividad.entregables.map((entregable) => ({
+        id: entregable.id,
+        meta: toNumber(entregable.cantidad_meta),
+        avances: (porEntregable.get(entregable.id) ?? []).map((avance) => ({
+          fecha: isoDate(avance.fecha),
+          cantidad: toNumber(avance.cantidad),
+          anulado: false,
+          tieneMedio: (medios.get(avance.id) ?? 0) > 0,
+          createdAt: avance.created_at.toISOString(),
+        })),
+      })),
+    };
+  });
+}
+
 /** The frozen structure in the shape of the live query: ids come from the live rows with the same code. */
-function desdeSnapshot(estructura: Pick<SnapshotV1, "actividades" | "entregables">, vivas: readonly ActividadFuente[]): ActividadFuente[] {
+export function desdeSnapshot(estructura: Pick<SnapshotV1, "actividades" | "entregables">, vivas: readonly ActividadFuente[]): ActividadFuente[] {
   const idActividad = new Map(vivas.map((a) => [a.codigo, a.id]));
   const idEntregable = new Map(vivas.flatMap((a) => a.entregables.map((e) => [e.codigo, e.id] as const)));
   return [...estructura.actividades]

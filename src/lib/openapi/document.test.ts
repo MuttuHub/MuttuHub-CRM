@@ -324,6 +324,18 @@ describe("buildOpenApiDocument", () => {
     expect(names).toEqual(expect.arrayContaining(["corte"]))
     expect(JSON.stringify(buildOpenApiDocument().components?.schemas)).toContain("gasto_observado")
   })
+  it("registers the S14 S-curve path with its base parameter and two curves", () => {
+    const paths = buildOpenApiDocument().paths ?? {}
+    const one = paths["/api/v1/projects/{id}/curve"]?.get
+    expect(Object.keys(one?.responses ?? {})).toEqual(expect.arrayContaining(["200", "400", "401", "403", "404", "409"]))
+    const names = ((one?.parameters ?? []) as { name: string }[]).map((p) => p.name)
+    expect(names).toEqual(expect.arrayContaining(["base"]))
+    // The row shape lives in the registered components; the 200 is a $ref to it.
+    const schema = JSON.stringify(buildOpenApiDocument().components?.schemas)
+    for (const campo of ["CurvaPunto", "periodo", "tecnico", "financiero", "planeado", "ejecutado"]) {
+      expect(schema, campo).toContain(campo)
+    }
+  })
   it("registers the S9 export paths: xlsx binary, PDF refused with 400", () => {
     const paths = buildOpenApiDocument().paths ?? {}
     const one = paths["/api/v1/projects/{id}/export"]?.get
