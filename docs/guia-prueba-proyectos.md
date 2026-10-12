@@ -1,27 +1,33 @@
 # Guía de prueba paso a paso: sección Proyectos (v2)
 
-Cubre lo construido en las slices S0 a S10: crear un proyecto desde una oportunidad ganada, ficha, historial,
+Cubre lo construido en las slices S0 a S14: crear un proyecto desde una oportunidad ganada, ficha, historial,
 equipo, estructura y Gantt (S3), plantilla Excel (S7), presupuesto y programación (S5), aprobación de línea base
 (S8), ejecución técnica y semáforo (S4), gastos y validación (S6), ficha financiera, modificaciones y versiones (S8),
 administración, "Mi resumen", y el tablero gerencial con indicadores y exportaciones a Excel (S9). Todo corre en local; nunca contra el Supabase remoto. Los textos entre comillas son
 los que renderiza la interfaz (verificados contra el código el 2026-10-09).
 
+> **Actualización 2026-10-12:** la ficha pasó a **ocho pestañas** y esta guía se refrescó para S14 (secciones de
+> Proyectos contra el diseño v6). Los textos de interfaz siguen verificados contra el código; lo nuevo de S14 se
+> apoya en la ejecución de la slice (`odd/tasks/v2-projects-v6-sections.md`).
+
 ## Cómo está organizada la ficha (pestañas)
 
 **Ver detalle** abre la ficha en su propia página, `/proyectos/<id>`, en una **pestaña nueva del navegador**
 (es un enlace con `target="_blank"`; Ctrl o clic central también funcionan). La página tiene el botón
-**Volver a proyectos** (lleva a `/proyectos`), un **encabezado fijo** y seis pestañas. No hay diálogo. Un id que no
+**Volver a proyectos** (lleva a `/proyectos`), un **encabezado fijo** y ocho pestañas. No hay diálogo. Un id que no
 existe muestra "Proyecto no encontrado"; un proyecto que el usuario no puede ver muestra "No tienes acceso a este
 proyecto". Para no confundir: las pestañas de abajo son las de la ficha; la pestaña del navegador es otra cosa.
 Todos los pasos de esta guía nombran la pestaña de la ficha donde está cada cosa:
 
 | Pestaña | Contiene |
 |---|---|
-| **Resumen** | Datos generales, **Líneas estratégicas**, **Municipios**, **Equipo** |
-| **Estructura** | **Estructura técnica** (objetivos, actividades, entregables, indicadores), **Cronograma por semanas** (Gantt), **Descargar plantilla** / **Importar plantilla** |
-| **Avance** | **Ejecución técnica** (semáforo técnico, avances, mediciones, beneficiarios) e **Indicadores** (panel de KPIs y exportaciones) |
-| **Presupuesto** | **Presupuesto** (con programación mensual) y **Ficha financiera** |
-| **Gastos** | **Gastos** |
+| **Resumen** | Datos generales, **Líneas estratégicas**, **Municipios**, **Equipo**, tarjetas KPI y la tarjeta **Requiere atención** |
+| **Metas e indicadores** | **Metas e indicadores** (objetivos, actividades, entregables, indicadores) y **Descargar plantilla** / **Importar plantilla** |
+| **Cronograma** | **Cronograma** por semanas (solo lectura) |
+| **Gantt** | **Gantt** por semanas |
+| **Avance** | **Ejecución técnica** (semáforo técnico, avances, mediciones, beneficiarios), **Curva S** (técnica y financiera, separadas) e **Indicadores** (panel de KPIs y exportaciones) |
+| **Presupuesto** | **Presupuesto** (con programación mensual, **gauge** y barras por rubro) y **Ficha financiera** |
+| **Gastos** | **Gastos** (libro mayor con KPIs, filtros y tabla) |
 | **Cambios** | **Modificaciones**, **Versiones** e **Historial** |
 
 - **Encabezado fijo** (se ve en todas las pestañas): código, nombre, botón **Aprobar línea base** (solo en
@@ -52,9 +58,9 @@ Antes de la reunión (5 min, una sola vez):
 
 En la reunión (como `admin@`, salvo donde se indica):
 1. **Proyectos > Ver detalle** del proyecto en Borrador (abre en una pestaña nueva del navegador, en **Resumen**: datos y **Equipo**; **Volver a proyectos** regresa a la lista). Pestaña
-   **Estructura**: el **Cronograma por semanas** (Gantt). Pestaña **Presupuesto**: **Presupuesto** (Σ asignado =
+   **Cronograma**: el **Cronograma** por semanas. Pestaña **Gantt**: el **Gantt** por semanas. Pestaña **Presupuesto**: **Presupuesto** (Σ asignado =
    Valor total). (1 min)
-2. En la pestaña **Estructura**, **Importar plantilla** con el archivo de error: se ve la tabla por hoja y
+2. En la pestaña **Metas e indicadores**, **Importar plantilla** con el archivo de error: se ve la tabla por hoja y
    **Descargar reporte (.csv)**; nada se escribió. (1 min)
 3. **Aprobar línea base** (está en el encabezado, visible en cualquier pestaña) > **Aprobar**: el proyecto pasa a
    **En ejecución**, el encabezado muestra el estado y se habilitan ejecución, gastos, modificaciones y versiones.
@@ -174,7 +180,7 @@ después, el semáforo técnico saldrá más atrasado.
 
 ## 4. Estructura técnica (S3)
 
-En la ficha, pestaña **Estructura** (sección **Estructura técnica**), de un proyecto en **Borrador**, como admin o
+En la ficha, pestaña **Metas e indicadores** (sección **Metas e indicadores**), de un proyecto en **Borrador**, como admin o
 gerencia:
 
 1. **Objetivos**: crea uno (código y descripción). Aparece con contador de actividades e indicadores.
@@ -195,13 +201,13 @@ gerencia:
 
 ## 4b. Cronograma (Gantt, S3.6b)
 
-Está en la pestaña **Estructura**, debajo de los objetivos. Cualquier rol que vea la ficha lo ve.
+Está en la pestaña **Gantt**. Cualquier rol que vea la ficha lo ve.
 
-1. En la ficha de un proyecto con fechas y actividades, abre la pestaña **Estructura** y busca el encabezado
+1. En la ficha de un proyecto con fechas y actividades, abre la pestaña **Gantt** y busca el encabezado
    **Cronograma por semanas**.
 2. Esperado: una cabecera `S1, S2, ...` con la fecha de cada semana, y por objetivo una barra por actividad con
    su código, ubicada entre su semana inicial y final.
-3. Crea otra actividad en Estructura (§4): la barra aparece sin recargar. Una actividad con peso manual muestra el
+3. Crea otra actividad en Metas e indicadores (§4): la barra aparece sin recargar. Una actividad con peso manual muestra el
    icono **Peso manual**.
 4. Estados vacíos: sin actividades, "Aún no hay actividades para mostrar en el cronograma."; sin fechas del
    proyecto, "Define las fechas del proyecto para ver el cronograma."
@@ -210,7 +216,7 @@ Está en la pestaña **Estructura**, debajo de los objetivos. Cualquier rol que 
 ## A. Plantilla Excel (S7)
 
 Solo `admin@` o `gerencia@`, y solo con el proyecto en **Borrador**. Los botones **Descargar plantilla** e
-**Importar plantilla** están en la pestaña **Estructura**, en el encabezado de la sección. Otros roles no los ven; fuera de Borrador tampoco.
+**Importar plantilla** están en la pestaña **Metas e indicadores**, en el encabezado de la sección. Otros roles no los ven; fuera de Borrador tampoco.
 
 ### A.1 Descargar y llenar
 1. **Descargar plantilla**. Si el proyecto no tiene fechas, la API responde 409: "Define las fechas del proyecto
@@ -229,8 +235,8 @@ Solo `admin@` o `gerencia@`, y solo con el proyecto en **Borrador**. Los botones
    Un responsable desconocido sale como advertencia ("no bloquean la importación").
 4. Libro con errores: alerta "La plantilla tiene N errores. No se importó nada" y tabla por hoja con columnas
    Regla, Fila, Columna, Valor, Mensaje. **Descargar reporte (.csv)** baja el detalle.
-5. Verifica que tras la importación la estructura y el Gantt (pestaña **Estructura**) y el presupuesto (pestaña
-   **Presupuesto**) quedaron llenos, y que el **Historial** (pestaña **Cambios**) muestra un solo lote.
+5. Verifica que tras la importación la estructura (pestaña **Metas e indicadores**), el Gantt (pestaña **Gantt**)
+   y el presupuesto (pestaña **Presupuesto**) quedaron llenos, y que el **Historial** (pestaña **Cambios**) muestra un solo lote.
 6. Negativos:
    - Archivo que no es Excel: "Solo se acepta la plantilla en formato Excel (.xlsx)."
    - Más de 4 MB: "El archivo supera el límite de 4 MB."
@@ -289,7 +295,7 @@ Es la única vía real. Solo `admin@` o `gerencia@`, solo con el proyecto en **B
    del encabezado pasa a **En ejecución**, el botón desaparece, aparecen los chips **Semáforo técnico** y
    **Semáforo financiero** (cuando los indicadores terminan de cargar) y el **Historial** (pestaña **Cambios**)
    registra la aprobación en un solo lote.
-4. Efectos: Estructura, Presupuesto y plantilla quedan cerrados; se habilitan **Ejecución técnica** (pestaña
+4. Efectos: Metas e indicadores, Presupuesto y plantilla quedan cerrados; se habilitan **Ejecución técnica** (pestaña
    **Avance**), **Gastos** (pestaña **Gastos**), **Modificaciones** y **Versiones** (pestaña **Cambios**, con la
    versión `v0`).
 5. Atajo solo para QA local, SIN versión 0: `npx tsx scripts/set-project-estado.ts PRY-2026-001 EN_EJECUCION
@@ -328,7 +334,7 @@ admin/gerencia.
    - Enlace no https o vacío: "Completa el enlace y su nombre." (el servidor: "El enlace debe ser una URL https
      válida (máximo 2000 caracteres).")
    - `colaborador@` ve todo sin controles; un `coordinador@` que NO es integrante tampoco los ve.
-   - Borrar un entregable con avances (en la pestaña **Estructura**) responde 409.
+   - Borrar un entregable con avances (en la pestaña **Metas e indicadores**) responde 409.
 
 ## E. Gastos y validación (S6)
 
@@ -431,7 +437,7 @@ Menú **Administración** (otros roles son redirigidos). Más abajo en la págin
 2. Cada fila muestra **Activo** o **Suspendido**. Botones **Renombrar <nombre>**, **Suspender <nombre>** y
    **Restaurar <nombre>**. Alta de rubro/línea con Código y Nombre; alta de municipio con Nombre, Departamento y
    Código DANE (opcional).
-3. Prueba: suspende un municipio, abre el diálogo de crear proyecto o la pestaña **Estructura**: ya no se ofrece. Restáuralo y
+3. Prueba: suspende un municipio, abre el diálogo de crear proyecto o la pestaña **Metas e indicadores**: ya no se ofrece. Restáuralo y
    vuelve. Los inactivos siguen visibles en esta pantalla con su insignia.
 4. Negativo: renombrar un rubro que ya tiene presupuesto responde "El rubro tiene datos asociados: no se puede
    renombrar, solo suspender." Un rubro nunca se elimina. Suspender un rubro con monto asignado en un borrador
@@ -552,7 +558,7 @@ npx playwright test e2e/proyectos-ficha-pagina.spec.ts
 
 El reset no puede borrar proyectos aprobados: si la base ya tiene la semilla S11, `proyectos-demo.spec.ts` no
 tiene su precondición y falla en el paso 4. `proyectos-ficha-pagina.spec.ts` sigue la pestaña nueva, comprueba
-encabezado, chips de semáforo, "Volver a proyectos", las seis pestañas y el estado "Proyecto no encontrado", y guarda
+encabezado, chips de semáforo, "Volver a proyectos", las ocho pestañas y el estado "Proyecto no encontrado", y guarda
 capturas (ficha a 1440 y 390 px, Tablero a 1440 px) en el directorio indicado por `SCREENSHOT_DIR`.
 
 ## 6. Límites conocidos (para decirlo en la reunión)
@@ -569,6 +575,14 @@ No existe todavía, dicho sin adornos:
   teléfono real**: el cambio de tarjetas y hoja se decide por ancho de ventana (`matchMedia`, 767 px). La relación
   de contraste de la barra (relleno contra fondo) no se midió. Las pestañas se renderizan en una fila con
   desplazamiento horizontal.
+- **S13 (base de interfaz v6) y S14 (secciones de Proyectos contra el diseño v6) están implementadas en código**,
+  commiteadas en local: la ficha tiene **ocho pestañas**, **Avance** suma la **curva S** (técnica y financiera,
+  separadas), **Presupuesto** el **gauge** y las barras por rubro, **Gastos** es un **libro mayor** con KPIs,
+  filtros y tabla, **Resumen** suma tarjetas KPI y la tarjeta **Requiere atención** (endpoint
+  `GET projects/:id/attention`), y el **Tablero gerencial** suma radar, gauge, barras por proyecto y tabla
+  territorial. Suite completa (320 archivos / 3365 tests) verde y `tsc` 0. Faltan: **capturas reales (claro y
+  oscuro)** contra los diseños v6, la **revisión nativa** de S13/S14 y la decisión del dueño de producto sobre los
+  umbrales del semáforo. Nada de esto está desplegado.
 - **No existe la sección de territorio** en esta rama (se retiró/nunca se construyó): el municipio es solo un filtro.
 - **La base remota NO tiene la columna de la bandera gerencial** (`puede_ver_tablero_gerencial`). No se migra sin
   autorización del usuario; la migración solo se aplicó a la base local.
@@ -601,7 +615,7 @@ bandera (se verificó la página, no el menú), ni los libros de Excel abiertos 
 tests con `exceljs`).
 Al pasar la ficha a su propia página (S12) se verificó en un navegador real (Playwright sobre la semilla S11, solo
 lectura, 2026-10-09): "Ver detalle" abre `/proyectos/<id>` en una pestaña nueva, el encabezado muestra código, estado
-y los dos chips de semáforo con la palabra del color, "Volver a proyectos" apunta a `/proyectos`, las seis pestañas
+y los dos chips de semáforo con la palabra del color, "Volver a proyectos" apunta a `/proyectos`, las ocho pestañas
 abren su sección y un id inexistente muestra "Proyecto no encontrado"; también se miraron capturas a 1440 y 390 px.
 **No** se verificó: que `proyectos-demo.spec.ts` corra con la ficha nueva (necesita una demo limpia y la base tenía la
 semilla; solo se revisó estáticamente con `tsc`, eslint y `playwright test --list`), cada paso de esta guía dentro de

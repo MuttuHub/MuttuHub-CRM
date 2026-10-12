@@ -1,12 +1,12 @@
 # Pasos siguientes — Muttu Hub (después de la sesión del 2026-10-09)
 
-Guía para retomar el trabajo. Rama: `feat/projects-v2`. Todo está **commiteado en local y sin publicar** (unos 209 commits sobre `6bee83f`; no se hizo push ni se abrió ningún PR).
-Actualizado el 2026-10-11 (después de la sesión del viernes 2026-10-09): último commit `9e017d1`, ~210 commits locales sobre `6bee83f`. Última revisión nativa aprobada: todo hasta `9e017d1` (U3 a U7 revisadas por candidatos pequeños).
+Guía para retomar el trabajo. Rama: `feat/projects-v2`. Todo está **commiteado en local y sin publicar** (268 commits sobre `6bee83f`, 228 de ellos por delante de `origin/feat/projects-v2`; no se hizo push ni se abrió ningún PR).
+Actualizado el 2026-10-12 (después de la sesión del viernes 2026-10-09): último commit `bac3d28`, 268 commits locales sobre `6bee83f` (228 por delante de `origin/feat/projects-v2`). Última revisión nativa aprobada: todo hasta `9e017d1` (U3 a U7 revisadas por candidatos pequeños).
 Detalle técnico: `odd/tasks/v2-ui-v6-base.md`, `v2-projects-ficha-page.md`, `v2-projects-s11-convert-and-seed.md`, `v2-projects-delivery-chain.md`. Resumen guardado en Engram (tema `session/summary-2026-10-09`).
 
 ## Actualización 2026-10-12 — S14 completo (secciones v6)
 
-El branch avanzó mucho más desde esta guía. Lo nuevo, commiteado en local y **sin publicar** (227 commits sobre `6bee83f`, último commit `15344bd`):
+El branch avanzó mucho más desde esta guía. Lo nuevo, commiteado en local y **sin publicar** (268 commits sobre `6bee83f`, último commit `bac3d28`):
 
 - **S14 (secciones de Proyectos contra el diseño v6) P1–P9 COMPLETO**: Portafolio con KPIs y barras de avance, Resumen con tarjetas KPI y "Requiere atención" (endpoint `GET projects/:id/attention`), ficha a **8 pestañas** (Resumen, Metas e indicadores, Cronograma, Gantt, Avance, Presupuesto, Gastos, Cambios), Metas e indicadores con roll-ups por objetivo, Cronograma en tabla v6, **curva S** (técnica y financiera separadas) en Avance, **gauge** de Presupuesto con barras por rubro, y Tablero gerencial con radar, gauge, barras por proyecto y tabla territorial.
 - Suite completa **320 archivos / 3365 tests verde**; `tsc` 0; guardas de diseño (S13) verdes.
@@ -27,6 +27,7 @@ La sección 5 de abajo (U3–U6) ya está hecha; se conserva como registro.
 | Columna "Ver detalle" del Tablero cortada | Arreglada |
 | Base de la nueva interfaz (S13: tokens v6, paleta del manual v2, claro por defecto, un solo `h1`, botones destructivos de contorno) | Hecha y revisada |
 | Barra lateral blanca en claro (U3), tablas (U4), botones y campos pequeños (U5), tarjetas y superficies (U6) y la limpieza de las revisiones (U7) | **Hecho y revisado** (2026-10-11). Capturas antes y después en claro y oscuro; guardas automáticas contra estilos fijos |
+| Secciones de Proyectos contra el diseño v6 (S14, P1–P9) | **Hecho en código y commiteado en local**; falta la revisión nativa y las capturas claro/oscuro |
 | Plan de entrega en PRs encadenados | Planeado, **nada creado ni publicado** |
 | Brief del video para Claude Motion | Escrito (`docs/brief-video-direccion.md`) |
 

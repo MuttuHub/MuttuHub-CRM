@@ -1,5 +1,9 @@
 # Muttu Hub v2 — Projects module: direct path (pivot from v1)
 
+> **Nota (2026-10-12):** este ledger dejó de mantenerse el 2026-10-07 (S2.6). El estado actual (S0–S14 hechos,
+> 268 commits sobre `6bee83f`, 0 publicados) vive en los ledger por slice `odd/tasks/v2-projects-s*-execution.md`,
+> `odd/tasks/v2-ui-v6-base.md`, `odd/tasks/v2-projects-v6-sections.md` y en `docs/pasos-siguientes.md`.
+
 ## Objective
 
 Deliver the PO's RF v2.0 projects module **directly on `main`**, without the unshipped v1

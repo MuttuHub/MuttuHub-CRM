@@ -73,7 +73,8 @@ Native review is per candidate (work unit or PR slice), never the whole branch. 
 
 - New unit **US13** after US12: v6/brand-manual UI base (feature doc `v2-ui-v6-base.md`): U2 `7948b40` (single h1), U1 `6fb8b0d` `fcc97ce` `cd48a1b` (tokens + primitives), U1b `d3f1ac8`
   `57b6aad` `7b19b54` (manual v2 palette, light default, outline destructive), plus the Tablero action-column fix `5b8c7ff` (belongs with US12). Depends on U10 (tabbed ficha) and US12.
-  Pending U3-U6 will add US14+ (sidebar, tables, controls, cards).
+  U3–U7 shipped and are done (sidebar, tables, controls, cards, cleanup); the later UI work continued under its own feature ids, not as a `US14+` unit in this series.
+- **Note on the `US` numbering:** it is per-feature and independent across slices, not one single series: S13 used US13–US16 and S14 used US14–US17, but those are different series that happen to reuse the same labels.
 - Native review: the slice `3d174b9..7b19b54` (medium, 32 files, 1402 lines) was reviewed and APPROVED (lineage `review-11bd620b6afa4bc8`; one advisory warning checked and not materialized).
   The last reviewed boundary is `7b19b54`. Reviewed so far: US11, US12 + U3, US13 (partial); everything older is unreviewed.
 - Also committed: `docs/brief-video-direccion.md` (`4acf547`), a standalone doc, not part of any unit.
@@ -82,6 +83,7 @@ Native review is per candidate (work unit or PR slice), never the whole branch. 
 
 - [x] Slicing analysis (read-only), 2026-10-09.
 - [x] Chain strategy chosen: feature-branch-chain.
+- Code state: all of S0–S14 is already committed on `feat/projects-v2` (268 commits over `6bee83f`, 0 pushed). What is missing is only the PR packaging: no chain/integration branch, no tracker PR and no child PR exists yet.
 - [ ] Maintainer decision on `size:exception` for the units above 400 lines.
 - [ ] Integration branch + tracker PR (draft). Needs the user's go-ahead for branch creation, push and PR.
 - [ ] Unit branches built in order (cherry-pick, squashing the listed fixups), each verified independently (tests/build) before its PR.
