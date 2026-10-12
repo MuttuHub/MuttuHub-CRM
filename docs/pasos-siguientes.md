@@ -4,6 +4,19 @@ Guía para retomar el trabajo. Rama: `feat/projects-v2`. Todo está **commiteado
 Actualizado el 2026-10-11 (después de la sesión del viernes 2026-10-09): último commit `9e017d1`, ~210 commits locales sobre `6bee83f`. Última revisión nativa aprobada: todo hasta `9e017d1` (U3 a U7 revisadas por candidatos pequeños).
 Detalle técnico: `odd/tasks/v2-ui-v6-base.md`, `v2-projects-ficha-page.md`, `v2-projects-s11-convert-and-seed.md`, `v2-projects-delivery-chain.md`. Resumen guardado en Engram (tema `session/summary-2026-10-09`).
 
+## Actualización 2026-10-12 — S14 completo (secciones v6)
+
+El branch avanzó mucho más desde esta guía. Lo nuevo, commiteado en local y **sin publicar** (227 commits sobre `6bee83f`, último commit `15344bd`):
+
+- **S14 (secciones de Proyectos contra el diseño v6) P1–P9 COMPLETO**: Portafolio con KPIs y barras de avance, Resumen con tarjetas KPI y "Requiere atención" (endpoint `GET projects/:id/attention`), ficha a **8 pestañas** (Resumen, Metas e indicadores, Cronograma, Gantt, Avance, Presupuesto, Gastos, Cambios), Metas e indicadores con roll-ups por objetivo, Cronograma en tabla v6, **curva S** (técnica y financiera separadas) en Avance, **gauge** de Presupuesto con barras por rubro, y Tablero gerencial con radar, gauge, barras por proyecto y tabla territorial.
+- Suite completa **320 archivos / 3365 tests verde**; `tsc` 0; guardas de diseño (S13) verdes.
+- Verificación independiente del slice: sin bloqueantes; se corrigió un defecto real (el Tablero recalculaba el % de entregables en el cliente en vez de usar el valor del servidor).
+- Detalle: `odd/tasks/v2-projects-v6-sections.md`.
+
+Lo que sigue (no bloqueante): **capturas claro/oscuro** contra los diseños v6 (necesita el dev server de Windows), **revisión nativa** de P1–P9 en Claude Code, y las decisiones del usuario (umbrales del PO, `size:exception`, PRD, push/PRs).
+
+La sección 5 de abajo (U3–U6) ya está hecha; se conserva como registro.
+
 ## 1. Dónde quedó todo
 
 | Tema | Estado |
