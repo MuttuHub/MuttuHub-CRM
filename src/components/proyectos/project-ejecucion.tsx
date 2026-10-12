@@ -15,9 +15,11 @@ import { EjecucionAvance } from "@/components/proyectos/ejecucion-avance";
 import { EjecucionBeneficiarios } from "@/components/proyectos/ejecucion-beneficiarios";
 import { EjecucionIndicadores } from "@/components/proyectos/ejecucion-indicadores";
 import { SemaforoTecnico } from "@/components/proyectos/semaforo-tecnico";
+import { CurveSChart } from "@/components/proyectos/curve-s-chart";
 import {
   useDeliverableProgress,
   useProjectActivities,
+  useProjectCurve,
   useProjectDeliverables,
   useProjectMembers,
   useProjectTechnicalStatus,
@@ -29,6 +31,7 @@ import { canManageProjects } from "@/lib/permissions";
 
 const TECNICO_ERROR = "No pudimos cargar el semáforo técnico. Inténtalo de nuevo.";
 const ACTIVIDADES_ERROR = "No pudimos cargar las actividades. Inténtalo de nuevo.";
+const CURVA_ERROR = "No pudimos cargar la curva S. Inténtalo de nuevo.";
 
 export const EJECUCION_BORRADOR_HINT =
   "La ejecución técnica estará disponible cuando el proyecto tenga su línea base aprobada.";
@@ -55,9 +58,19 @@ function EjecucionHeader() {
   return <SectionHeader icon={<Gauge className="size-3.5" strokeWidth={2} />}>Ejecución técnica</SectionHeader>;
 }
 
+/** Curva S (S14 P7): el servidor ya calculó las dos curvas y el corte; aquí solo se montan (D11). */
+function CurvaAvance({ query }: { query: ReturnType<typeof useProjectCurve> }) {
+  if (query.isError) {
+    return <InlineError message={errorMessage(query.error, CURVA_ERROR)} className="mt-2" />;
+  }
+  if (!query.data) return <Skeleton className="mt-2 h-40 w-full rounded-[14px]" />;
+  return <CurveSChart curva={query.data} />;
+}
+
 function EjecucionContent({ proyecto }: { proyecto: ProjectListRow }) {
   const [base, setBase] = useState<ProjectBase>("vigente");
   const tecnicoQuery = useProjectTechnicalStatus(proyecto.id, base);
+  const curvaQuery = useProjectCurve(proyecto.id, base);
   const activitiesQuery = useProjectActivities(proyecto.id);
   const deliverablesQuery = useProjectDeliverables(proyecto.id);
 
@@ -105,6 +118,8 @@ function EjecucionContent({ proyecto }: { proyecto: ProjectListRow }) {
   return (
     <div className="mt-2">
       <SemaforoTecnico tecnico={tecnico} onBaseChange={setBase} />
+
+      <CurvaAvance query={curvaQuery} />
 
       {activitiesQuery.isError ? (
         <InlineError

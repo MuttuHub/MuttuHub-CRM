@@ -300,6 +300,7 @@ export const projectQueryKeys = {
     ["projects", "financial-sheet", id, corte, base] as const,
   kpis: (id: string, corte: string | null, base: string = "vigente") => ["projects", "kpis", id, corte, base] as const,
   attention: (id: string, corte: string | null) => ["projects", "attention", id, corte] as const,
+  curve: (id: string, base: string = "vigente") => ["projects", "curve", id, base] as const,
   portfolio: (filters: PortfolioFilters) => ["projects", "portfolio", filters] as const,
   expenses: (id: string) => ["projects", "expenses", id] as const,
   versions: (id: string) => ["projects", "versions", id] as const,
@@ -2014,6 +2015,20 @@ export type ProjectAttention = {
   items: AtencionItem[];
 };
 
+/** Una fila de la curva S: el periodo y las dos curvas (técnica y financiera), separadas. */
+export type ProjectCurvePoint = {
+  periodo: string;
+  tecnico: { planeado: number; ejecutado: number | null };
+  financiero: { planeado: number; ejecutado: number | null };
+};
+
+/** Respuesta de `GET /api/v1/projects/:id/curve` (S14 P7). */
+export type ProjectCurve = {
+  base: ProjectBase;
+  corte: string;
+  periodos: ProjectCurvePoint[];
+};
+
 export type PortfolioFilters = {
   corte?: string;
   estado?: string;
@@ -2105,6 +2120,18 @@ export function useProjectAttention(
     placeholderData: keepPreviousData,
     queryFn: () =>
       apiGet<ProjectAttention>(`/api/v1/projects/${id}/attention${queryString({ corte })}`),
+  });
+}
+
+/** Curva S de un proyecto (S14 P7): el servidor devuelve las dos curvas ya calculadas; el cliente solo pinta. */
+export function useProjectCurve(id: string, base: ProjectBase = "vigente"): UseQueryResult<ProjectCurve> {
+  return useQuery({
+    queryKey: projectQueryKeys.curve(id, base),
+    enabled: id !== "",
+    // Cambiar la base mantiene la curva anterior en pantalla en vez de parpadear a un esqueleto.
+    placeholderData: keepPreviousData,
+    queryFn: () =>
+      apiGet<ProjectCurve>(`/api/v1/projects/${id}/curve${base === "original" ? "?base=original" : ""}`),
   });
 }
 

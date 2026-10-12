@@ -107,10 +107,21 @@ const TECNICO = {
   umbrales: { umbral1: 10, umbral2: 20, confirmado: false },
 }
 
+const CURVA = {
+  base: "vigente",
+  corte: "2026-10",
+  periodos: [
+    { periodo: "2026-09", tecnico: { planeado: 40, ejecutado: 30 }, financiero: { planeado: 45, ejecutado: 35 } },
+    { periodo: "2026-10", tecnico: { planeado: 70, ejecutado: 55 }, financiero: { planeado: 80, ejecutado: 60 } },
+    { periodo: "2026-11", tecnico: { planeado: 100, ejecutado: null }, financiero: { planeado: 100, ejecutado: null } },
+  ],
+}
+
 type Setup = {
   proyecto?: Partial<ProjectListRow>
   tecnico?: unknown
   tecnicoStatus?: number
+  curva?: unknown
   actividades?: unknown[]
   actividadesStatus?: number
   entregables?: unknown[]
@@ -125,6 +136,7 @@ describe("ProjectEjecucion", () => {
     proyecto = {},
     tecnico = TECNICO,
     tecnicoStatus = 200,
+    curva = CURVA,
     actividades = [ACTIVIDAD],
     actividadesStatus = 200,
     entregables = [ENTREGABLE],
@@ -140,6 +152,10 @@ describe("ProjectEjecucion", () => {
       if (url.split("?")[0].endsWith("/technical-status")) {
         const base = url.includes("base=original") ? "original" : "vigente"
         return Promise.resolve(jsonResponse(tecnicoStatus === 200 ? { ...(tecnico as object), base } : tecnico, tecnicoStatus))
+      }
+      if (url.split("?")[0].endsWith("/curve")) {
+        const base = url.includes("base=original") ? "original" : "vigente"
+        return Promise.resolve(jsonResponse({ ...(curva as object), base }))
       }
       if (url.endsWith("/activities")) {
         return Promise.resolve(
@@ -206,6 +222,32 @@ describe("ProjectEjecucion", () => {
     expect(semaforo).toHaveTextContent("No confirmado")
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/technical-status", expect.any(Object)),
+    )
+  })
+
+  it("mounts the S-curve with its monthly table in the Avance tab", async () => {
+    setup()
+
+    const curva = await screen.findByTestId("curve-s-chart")
+    expect(curva).toHaveTextContent("Curva S")
+    expect(curva).toHaveTextContent("Avance técnico")
+    expect(curva).toHaveTextContent("Avance financiero")
+    const tabla = within(curva).getByTestId("curve-s-tabla")
+    expect(within(tabla).getByText("sep 2026")).toBeInTheDocument()
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/curve", expect.any(Object)),
+    )
+  })
+
+  it("refetches the curve when the base selector changes", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    const base = await screen.findByRole("combobox", { name: "Base" })
+    await user.selectOptions(base, "original")
+
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/curve?base=original"))).toBe(true),
     )
   })
 
