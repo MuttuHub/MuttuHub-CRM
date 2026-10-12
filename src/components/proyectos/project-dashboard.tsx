@@ -1,9 +1,11 @@
 // Tablero del portafolio de proyectos (S9 U6, RF-30; `/proyectos?vista=tablero`). De solo lectura: cada
 // semáforo, porcentaje y alerta llega calculado por el servidor (`GET /dashboard/portfolio`) y aquí solo se
 // pinta; el cliente NUNCA recalcula un color. El alcance (todos, o solo los proyectos del COORDINADOR) lo
-// aplica la API. Solo agregados: sin gastos individuales ni soportes, y sin desglose por territorio (el
-// municipio es solo un filtro). Mientras los parámetros del semáforo no estén confirmados se muestra
-// la insignia "No confirmado".
+// aplica la API. Solo agregados: sin gastos individuales ni soportes. Desde S14 P9 el tablero es gerencial:
+// tacómetro, curva S, radar por línea estratégica (`agregado.por_linea`), barras por proyecto de cronograma
+// y entregables, y la semaforización territorial (D7: un proyecto cuenta en cada departamento que toca,
+// fusionando el agregado con la lista por id — el payload NO trae desglose por territorio). Mientras los
+// parámetros del semáforo no estén confirmados se muestra la insignia "No confirmado".
 
 "use client";
 
@@ -12,27 +14,36 @@ import Link from "next/link";
 import { Download, Eye, FolderKanban } from "lucide-react";
 import { toast } from "sonner";
 import { ToneBadge } from "@/components/crm/shared";
-import { BarRow, StatTile } from "@/components/dashboard/shared";
+import { BarRow, StatTile, TONE_DOT } from "@/components/dashboard/shared";
+import { CurveSChart } from "@/components/proyectos/curve-s-chart";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { InlineError, SELECT_CLASS } from "@/components/proyectos/ui";
+import { Radar } from "@/components/proyectos/radar";
+import { Tacometro } from "@/components/proyectos/tacometro";
 import { ESTADO_PROYECTO_META, formatFechaCalendario } from "@/components/proyectos/project-display";
 import { formatPct } from "@/components/proyectos/project-kpis-panel";
-import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
+import { SemaforoChip, SEMAFORO_LABEL } from "@/components/proyectos/semaforo-chip";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useIsMobile } from "@/components/proyectos/capture-surface";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ProgressBar } from "@/components/ui/progress-bar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { toneFromSemaforo } from "@/lib/estado-tone";
 import { useClientOptions } from "@/hooks/kanban";
 import { useUsers } from "@/hooks/crm";
 import {
   downloadPortfolioExport,
   useMunicipalities,
+  useProjectCurve,
+  useProjects,
   useProjectsPortfolio,
   useStrategicLines,
   type ColorSemaforo,
   type PortfolioFilters,
   type PortfolioProject,
+  type ProjectFilters,
+  type ProjectListRow,
 } from "@/hooks/projects";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { cn } from "@/lib/utils";
@@ -64,6 +75,18 @@ export function ProjectDashboard() {
   const municipios = useMunicipalities().data ?? [];
   const clientes = useClientOptions().data ?? [];
   const responsables = useUsers().data ?? [];
+  // La lista alimenta la semaforización territorial (D7): el agregado del portafolio no trae municipios.
+  const listFilters = useMemo<ProjectFilters>(
+    () => ({
+      estado: valores.estado || undefined,
+      cliente_id: valores.cliente_id || undefined,
+      linea_id: valores.linea_id || undefined,
+      municipio_id: valores.municipio_id || undefined,
+      responsable_id: valores.responsable_id || undefined,
+    }),
+    [valores],
+  );
+  const lista = useProjects(listFilters).data?.proyectos ?? [];
   const set = (key: FiltroKey) => (event: { target: { value: string } }) =>
     setValores((previo) => ({ ...previo, [key]: event.target.value }));
 
@@ -152,6 +175,8 @@ export function ProjectDashboard() {
         ) : (
           <div className="flex flex-col gap-4 p-4 lg:p-5">
             <Resumen data={data} />
+            <TableroGerencial data={data} />
+            <Territorio proyectos={data.proyectos} lista={lista} />
             <TablaProyectos proyectos={data.proyectos} />
           </div>
         )}
@@ -363,5 +388,227 @@ function TableroVacio() {
       title="No hay proyectos para mostrar"
       description="Prueba con otros filtros. Si no ves ninguno, puede que no tengas proyectos a tu cargo todavía."
     />
+  );
+}
+
+/* ── Tablero gerencial (S14 P9) ─────────────────────────────────────────── */
+
+type PortafolioData = NonNullable<ReturnType<typeof useProjectsPortfolio>["data"]>;
+
+/** Modal of the SERVER colour counts: the needle paints a band the server already returned (D11). */
+function colorDominante(conteo: Record<ColorSemaforo, number>): ColorSemaforo | undefined {
+  const entradas = Object.entries(conteo) as [ColorSemaforo, number][];
+  const total = entradas.reduce((suma, [, n]) => suma + n, 0);
+  if (total === 0) return undefined;
+  return entradas.reduce((max, entrada) => (entrada[1] > max[1] ? entrada : max))[0];
+}
+
+/** Tacómetro, curva S, radar por línea y las barras por proyecto. Solo agregados: nada se recalcula. */
+function TableroGerencial({ data }: { data: PortafolioData }) {
+  const { agregado, proyectos } = data;
+  const [seleccion, setSeleccion] = useState(proyectos[0]?.id ?? "");
+  // Un cambio de filtros puede dejar fuera el proyecto elegido: se cae al primero visible.
+  const curvaId = proyectos.some((proyecto) => proyecto.id === seleccion) ? seleccion : (proyectos[0]?.id ?? "");
+  const curva = useProjectCurve(curvaId);
+  const conCronograma = proyectos.filter((proyecto) => proyecto.kpis.cronograma !== null);
+  const conEntregables = proyectos.filter((proyecto) => proyecto.kpis.entregables !== null);
+  const axes = agregado.por_linea
+    .filter((linea) => linea.indicadores.valor !== null)
+    .map((linea) => ({ label: linea.linea?.nombre ?? "Sin línea", value: linea.indicadores.valor as number }));
+
+  return (
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <Tarjeta testId="tablero-tacometro" titulo="Avance técnico">
+        <Tacometro
+          value={agregado.tecnico.avance_real}
+          color={colorDominante(agregado.por_color_tecnico)}
+          label="Avance técnico del portafolio"
+        />
+        <p className="text-[12px] text-ink-500">Promedio del avance técnico de los proyectos medibles.</p>
+      </Tarjeta>
+
+      <Tarjeta testId="tablero-curva" titulo="Curva S por proyecto" className="md:col-span-2">
+        <label className="flex max-w-[280px] flex-col gap-1 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+          Proyecto de la curva
+          <select
+            aria-label="Proyecto de la curva"
+            value={curvaId}
+            onChange={(event) => setSeleccion(event.target.value)}
+            className={SELECT_CLASS}
+          >
+            {proyectos.map((proyecto) => (
+              <option key={proyecto.id} value={proyecto.id}>{`${proyecto.codigo} ${proyecto.nombre}`}</option>
+            ))}
+          </select>
+        </label>
+        <CurveSChart curva={curva.data ?? null} />
+      </Tarjeta>
+
+      <Tarjeta testId="tablero-radar" titulo="Indicadores por línea estratégica">
+        <Radar axes={axes} label="Cumplimiento de indicadores por línea estratégica" />
+        <ul data-testid="tablero-radar-leyenda" className="flex flex-col gap-1">
+          {agregado.por_linea.map((linea, index) => (
+            <li key={linea.linea?.id ?? `sin-linea-${index}`} className="flex items-center justify-between gap-2 text-[12.5px]">
+              <span className="truncate text-ink-600">{linea.linea?.nombre ?? "Sin línea"}</span>
+              <span className="shrink-0 font-mono tabular-nums text-ink-800">
+                {linea.indicadores.valor === null ? "Sin medir" : formatPct(linea.indicadores.valor)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </Tarjeta>
+
+      <Tarjeta testId="tablero-cronograma" titulo="Cumplimiento del cronograma">
+        {conCronograma.length === 0 ? (
+          <p className="text-[12.5px] text-ink-500">Sin datos de cronograma todavía.</p>
+        ) : (
+          conCronograma.map((proyecto) => (
+            <FilaBarra
+              key={proyecto.id}
+              nombre={proyecto.nombre}
+              valor={proyecto.kpis.cronograma?.valor ?? null}
+              ariaLabel={`Cumplimiento del cronograma de ${proyecto.nombre}`}
+            />
+          ))
+        )}
+      </Tarjeta>
+
+      <Tarjeta testId="tablero-entregables" titulo="Productos entregados / programados">
+        {conEntregables.length === 0 ? (
+          <p className="text-[12.5px] text-ink-500">Sin entregables programados todavía.</p>
+        ) : (
+          conEntregables.map((proyecto) => {
+            const programados = proyecto.kpis.entregables?.programados ?? 0;
+            const logrados = proyecto.kpis.entregables?.logrados ?? 0;
+            const ratio = programados > 0 ? Math.round((logrados / programados) * 100) : 0;
+            return (
+              <FilaBarra
+                key={proyecto.id}
+                nombre={proyecto.nombre}
+                valor={ratio}
+                texto={`${logrados}/${programados}`}
+                ariaLabel={`Entregables de ${proyecto.nombre}: ${logrados} de ${programados}`}
+              />
+            );
+          })
+        )}
+      </Tarjeta>
+    </div>
+  );
+}
+
+function Tarjeta({
+  testId,
+  titulo,
+  className,
+  children,
+}: {
+  testId: string;
+  titulo: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section data-testid={testId} className={cn("surface flex flex-col gap-3 p-4 lg:p-5", className)}>
+      <h3 className="text-[13px] font-semibold text-ink-700">{titulo}</h3>
+      {children}
+    </section>
+  );
+}
+
+/** Una barra neutra por proyecto: el valor sale del servidor, sin banda de semáforo que recalcular. */
+function FilaBarra({
+  nombre,
+  valor,
+  texto,
+  ariaLabel,
+}: {
+  nombre: string;
+  valor: number | null;
+  texto?: string;
+  ariaLabel: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between gap-2 text-[12.5px]">
+        <span className="truncate text-ink-700" title={nombre}>{nombre}</span>
+        <span className="shrink-0 font-mono tabular-nums text-ink-800">{texto ?? formatPct(valor)}</span>
+      </div>
+      <ProgressBar aria-label={ariaLabel} value={valor ?? 0} />
+    </div>
+  );
+}
+
+/* ── Semaforización territorial (D7) ────────────────────────────────────── */
+
+/** D7: un proyecto cuenta en cada departamento que toca; el agregado no trae municipios, así que se
+ *  fusiona con la lista por id. Los colores son los del servidor, contados — nunca recalculados. */
+function Territorio({ proyectos, lista }: { proyectos: PortfolioProject[]; lista: readonly ProjectListRow[] }) {
+  const municipiosPorId = new Map(lista.map((row) => [row.id, row.municipios]));
+  const porDepartamento = new Map<string, PortfolioProject[]>();
+  for (const proyecto of proyectos) {
+    const departamentos = new Set((municipiosPorId.get(proyecto.id) ?? []).map((municipio) => municipio.departamento));
+    for (const departamento of departamentos) {
+      porDepartamento.set(departamento, [...(porDepartamento.get(departamento) ?? []), proyecto]);
+    }
+  }
+  const filas = [...porDepartamento.entries()].sort(
+    (a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], "es"),
+  );
+
+  return (
+    <section data-testid="tablero-territorio" className="surface overflow-hidden">
+      <h3 className="p-4 text-[13px] font-semibold text-ink-700 lg:p-5">Semaforización territorial</h3>
+      {filas.length === 0 ? (
+        <p className="px-4 pb-4 text-[12.5px] text-ink-500 lg:px-5 lg:pb-5">Ningún proyecto visible tiene territorio asignado.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <Table className="min-w-[640px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Departamento</TableHead>
+                <TableHead numeric>Proyectos</TableHead>
+                <TableHead>Semáforo técnico</TableHead>
+                <TableHead>Semáforo financiero</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filas.map(([departamento, items]) => (
+                <TableRow key={departamento} data-testid={`territorio-${departamento}`}>
+                  <TableCell className="font-semibold text-ink-950">{departamento}</TableCell>
+                  <TableCell numeric className="font-mono text-[12.5px] tabular-nums">{items.length}</TableCell>
+                  <TableCell>
+                    <ConteoSemaforo colores={items.map((proyecto) => proyecto.semaforo_tecnico)} />
+                  </TableCell>
+                  <TableCell>
+                    <ConteoSemaforo colores={items.map((proyecto) => proyecto.semaforo_financiero)} />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** Counts the SERVER colours present in a department; each colour keeps its word, never colour alone. */
+function ConteoSemaforo({ colores }: { colores: (ColorSemaforo | null)[] }) {
+  const conteo = new Map<ColorSemaforo | null, number>();
+  for (const color of colores) conteo.set(color, (conteo.get(color) ?? 0) + 1);
+  return (
+    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+      {[...conteo.entries()].map(([color, cantidad]) => (
+        <span key={color ?? "sin"} className="inline-flex items-center gap-1 text-[12px] text-ink-700">
+          <span
+            aria-hidden
+            className={cn("size-2 rounded-full", color === null ? "bg-ink-300" : TONE_DOT[toneFromSemaforo(color)])}
+          />
+          {color === null ? "Sin medir" : SEMAFORO_LABEL[color]}
+          {cantidad > 1 ? ` ${cantidad}` : ""}
+        </span>
+      ))}
+    </span>
   );
 }

@@ -4,13 +4,14 @@
 import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import type { PortfolioFilters, ProjectKpis, ProjectsPortfolio } from "@/hooks/projects"
+import type { PortfolioFilters, ProjectCurve, ProjectKpis, ProjectListRow, ProjectsPortfolio } from "@/hooks/projects"
 import { mockViewport } from "@/test/viewport"
 import { ProjectDashboard } from "./project-dashboard"
 
-const { toast, usePortfolio, downloadPortfolioExport, state } = vi.hoisted(() => ({
+const { toast, usePortfolio, useCurve, downloadPortfolioExport, state } = vi.hoisted(() => ({
   toast: { error: vi.fn(), success: vi.fn() },
   usePortfolio: vi.fn(),
+  useCurve: vi.fn(),
   downloadPortfolioExport: vi.fn(),
   state: {
     query: { data: undefined, isLoading: false, isError: false, error: null } as {
@@ -19,6 +20,8 @@ const { toast, usePortfolio, downloadPortfolioExport, state } = vi.hoisted(() =>
       isError: boolean
       error: unknown
     },
+    list: [] as unknown[],
+    curva: undefined as ProjectCurve | undefined,
   },
 }))
 
@@ -28,6 +31,11 @@ vi.mock("@/hooks/projects", () => ({
     usePortfolio(filters)
     return state.query
   },
+  useProjectCurve: (id: string) => {
+    useCurve(id)
+    return { data: state.curva, isLoading: false, isError: false }
+  },
+  useProjects: () => ({ data: { proyectos: state.list }, isLoading: false, isError: false }),
   downloadPortfolioExport: (...args: unknown[]) => downloadPortfolioExport(...args),
   useStrategicLines: () => ({ data: [{ id: "l1", codigo: "LE01", nombre: "Educación", activo: true }] }),
   useMunicipalities: () => ({ data: [{ id: "m1", nombre: "Barranquilla", departamento: "Atlántico", activo: true }] }),
@@ -71,6 +79,8 @@ const PORTAFOLIO: ProjectsPortfolio = {
       atrasadas: 1,
       kpis: kpis({
         tecnico: { corte: "2026-03-15", avance_real: 21.4, avance_programado: 21.4, desviacion_pp: 0, color: "rojo" },
+        cronograma: { corte: "2026-03-15", vencidas: 1, a_tiempo: 3, atrasadas: 1, valor: 75 },
+        entregables: { corte: "2026-03-15", programados: 4, logrados: 3, valor: 75 },
         financiero: { corte: "2026-03-15", asignado: "1000", programado: "500", ejecutado: "100", ea: 10, ep: 20, color: "verde", alerta_retraso: true },
       }),
     },
@@ -97,15 +107,86 @@ const PORTAFOLIO: ProjectsPortfolio = {
     financiero: { proyectos: 1, asignado: "1000", programado: "500", ejecutado: "100", ea: 10, ep: 20 },
     atrasadas: 1,
     beneficiarios: { total: 30, meta: 100 },
+    por_linea: [
+      {
+        linea: { id: "l1", codigo: "LE01", nombre: "Educación" },
+        proyectos: 1,
+        tecnico: { avance_real: 21.4, avance_programado: 25 },
+        indicadores: { valor: 80, medidos: 2, en_meta: 1 },
+      },
+      {
+        linea: null,
+        proyectos: 1,
+        tecnico: { avance_real: null, avance_programado: null },
+        indicadores: { valor: null, medidos: 0, en_meta: 0 },
+      },
+    ],
     por_color_tecnico: { verde: 0, amarillo: 0, rojo: 1 },
     por_color_financiero: { verde: 1, amarillo: 0, rojo: 0 },
   },
   por_estado: { EN_EJECUCION: 1, BORRADOR: 1 },
 }
 
+/** `useProjects` (the list) feeds the territory table (D7) by id. */
+const LISTA: ProjectListRow[] = [
+  {
+    id: "p1",
+    codigo: "PRY-2026-001",
+    nombre: "Fortalecimiento",
+    estado: "EN_EJECUCION",
+    origen: null,
+    cliente: { id: "c1", nombre: "Alcaldía" },
+    responsable: { id: "u1", nombre: "Ana Pérez" },
+    fecha_inicio: "2026-01-05",
+    fecha_fin: "2026-06-30",
+    duracion_semanas: 25,
+    valor_total: "1000",
+    diferencia_valor_oportunidad: null,
+    alertas: [],
+    beneficiarios_meta: 100,
+    lineas: [],
+    // The same project touches two departments: D7 counts it in both.
+    municipios: [
+      { id: "m1", nombre: "Barranquilla", departamento: "Atlántico" },
+      { id: "m2", nombre: "Cartagena", departamento: "Bolívar" },
+    ],
+  },
+  {
+    id: "p2",
+    codigo: "PRY-2026-002",
+    nombre: "Borrador",
+    estado: "BORRADOR",
+    origen: null,
+    cliente: { id: "c1", nombre: "Alcaldía" },
+    responsable: null,
+    fecha_inicio: null,
+    fecha_fin: null,
+    duracion_semanas: null,
+    valor_total: null,
+    diferencia_valor_oportunidad: null,
+    alertas: [],
+    beneficiarios_meta: null,
+    lineas: [],
+    municipios: [],
+  },
+]
+
+const CURVA: ProjectCurve = {
+  base: "vigente",
+  corte: "2026-03",
+  periodos: [
+    { periodo: "2026-01", tecnico: { planeado: 10, ejecutado: 8 }, financiero: { planeado: 5, ejecutado: 4 } },
+    { periodo: "2026-02", tecnico: { planeado: 40, ejecutado: 30 }, financiero: { planeado: 35, ejecutado: 20 } },
+    { periodo: "2026-03", tecnico: { planeado: 70, ejecutado: 55 }, financiero: { planeado: 60, ejecutado: 45 } },
+    { periodo: "2026-04", tecnico: { planeado: 100, ejecutado: null }, financiero: { planeado: 100, ejecutado: null } },
+  ],
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   state.query = { data: PORTAFOLIO, isLoading: false, isError: false, error: null }
+  state.list = LISTA
+  state.curva = CURVA
 })
 
 describe("ProjectDashboard", () => {
@@ -126,7 +207,8 @@ describe("ProjectDashboard", () => {
     try {
       const user = userEvent.setup()
       render(<ProjectDashboard />)
-      expect(screen.queryByRole("table")).toBeNull()
+      // El listado de proyectos pasa a tarjetas; las tablas del tablero gerencial (curva, territorio) siguen.
+      expect(screen.queryByRole("columnheader", { name: "Acciones" })).toBeNull()
       const fila = screen.getByTestId("tablero-fila-p1")
       expect(fila.tagName).toBe("LI")
       expect(within(fila).getByTestId("chip-tecnico")).toHaveAttribute("data-color", "rojo")
@@ -167,9 +249,26 @@ describe("ProjectDashboard", () => {
     expect(screen.queryByText("No confirmado")).not.toBeInTheDocument()
   })
 
-  it("has no territory breakdown anywhere", () => {
-    const { container } = render(<ProjectDashboard />)
-    expect(container.textContent?.toLowerCase()).not.toContain("territorio")
+  it("groups the territory by department, counting a project in every department it touches (D7)", () => {
+    render(<ProjectDashboard />)
+    const territorio = screen.getByTestId("tablero-territorio")
+    expect(territorio).toHaveTextContent("Atlántico")
+    expect(territorio).toHaveTextContent("Bolívar")
+    const atlantico = within(territorio).getByTestId("territorio-Atlántico")
+    const bolivar = within(territorio).getByTestId("territorio-Bolívar")
+    // The same project p1 is counted in both departments it touches.
+    expect(atlantico).toHaveTextContent("1")
+    expect(bolivar).toHaveTextContent("1")
+    // The dots/words come from the server semáforos, verbatim.
+    expect(atlantico).toHaveTextContent("Rojo")
+    expect(atlantico).toHaveTextContent("Verde")
+  })
+
+  it("keeps the territory table out of the payload: no por_territorio aggregate is requested", () => {
+    render(<ProjectDashboard />)
+    expect(screen.getByTestId("tablero-territorio")).toBeInTheDocument()
+    // The dashboard derives the territory by merging the list by id, not from the aggregate.
+    expect(state.query.data).not.toHaveProperty("por_territorio")
   })
 
   it("changing a filter changes the query filters (the query key)", async () => {
@@ -249,5 +348,55 @@ describe("ProjectDashboard", () => {
     expect(celda.className).toMatch(/group-hover\/fila:bg-/)
     expect(fila.className).toMatch(/\bgroup\/fila\b/)
     expect(within(fila).getAllByRole("cell")).toHaveLength(8)
+  })
+})
+
+describe("ProjectDashboard: Tablero gerencial (S14 P9)", () => {
+  it("paints the portfolio technical gauge with the server mean", () => {
+    render(<ProjectDashboard />)
+    const gauge = screen.getByTestId("tablero-tacometro")
+    expect(within(gauge).getByTestId("tacometro")).toBeInTheDocument()
+    expect(within(gauge).getByTestId("tacometro-valor")).toHaveTextContent("21,4 %")
+    // The needle paints the modal SERVER colour of the portfolio; no band is recomputed.
+    expect(within(gauge).getByTestId("tacometro-aguja")).toHaveAttribute("data-color", "rojo")
+  })
+
+  it("plots one radar spoke per measured line and lists every line, measured or not", () => {
+    const { container } = render(<ProjectDashboard />)
+    const radar = screen.getByTestId("tablero-radar")
+    expect(within(radar).getAllByTestId("radar-eje")).toHaveLength(1)
+    const leyenda = screen.getByTestId("tablero-radar-leyenda")
+    expect(within(leyenda).getByText("Educación")).toBeInTheDocument()
+    expect(within(leyenda).getByText("Sin línea")).toBeInTheDocument()
+    expect(within(leyenda).getByText("80 %")).toBeInTheDocument()
+    expect(container.textContent).toContain("Sin medir")
+  })
+
+  it("bars the cronograma and the entregables per project with the server values", () => {
+    render(<ProjectDashboard />)
+    const cronograma = screen.getByTestId("tablero-cronograma")
+    expect(within(cronograma).getByText("Fortalecimiento")).toBeInTheDocument()
+    expect(within(cronograma).getByText("75 %")).toBeInTheDocument()
+    expect(within(cronograma).getByRole("progressbar", { name: /cronograma de Fortalecimiento/i })).toBeInTheDocument()
+
+    const entregables = screen.getByTestId("tablero-entregables")
+    expect(within(entregables).getByText("3/4")).toBeInTheDocument()
+    expect(within(entregables).getByRole("progressbar", { name: /entregables de Fortalecimiento/i })).toBeInTheDocument()
+  })
+
+  it("reuses the S-curve of the selected project, defaulting to the first visible one", async () => {
+    render(<ProjectDashboard />)
+    expect(useCurve).toHaveBeenLastCalledWith("p1")
+    expect(screen.getByTestId("curve-s-chart")).toBeInTheDocument()
+    const user = userEvent.setup()
+    await user.selectOptions(screen.getByLabelText("Proyecto de la curva"), "p2")
+    expect(useCurve).toHaveBeenLastCalledWith("p2")
+  })
+
+  it("renders nothing chart-related when the portfolio is empty", () => {
+    state.query = { ...state.query, data: { ...PORTAFOLIO, proyectos: [], por_estado: {} } }
+    render(<ProjectDashboard />)
+    expect(screen.getByText("No hay proyectos para mostrar")).toBeInTheDocument()
+    expect(screen.queryByTestId("tablero-radar")).not.toBeInTheDocument()
   })
 })
