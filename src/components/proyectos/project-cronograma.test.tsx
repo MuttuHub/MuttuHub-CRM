@@ -101,12 +101,21 @@ const TECNICO = (actividades?: ProjectTechnicalActivityV6[]) => ({
 })
 
 describe("agruparPorObjetivo", () => {
-  it("groups consecutive activities of the same objective, in the server order", () => {
+  it("groups the activities of each objective, in order of first appearance", () => {
     expect(agruparPorObjetivo([ACT1, ACT2, ACT3]).map((g) => [g.codigo, g.actividades.length])).toEqual([
       ["OE1", 2],
       ["OE2", 1],
     ])
     expect(agruparPorObjetivo([])).toEqual([])
+  })
+
+  it("keeps one group per objective even when the weeks interleave them", () => {
+    // ACT3 (OE2) sits between two OE1 activities, as the week ordering can do.
+    const grupos = agruparPorObjetivo([ACT1, ACT3, ACT2])
+    expect(grupos.map((g) => [g.codigo, g.actividades.map((a) => a.codigo)])).toEqual([
+      ["OE1", ["ACT-1", "ACT-2"]],
+      ["OE2", ["ACT-3"]],
+    ])
   })
 })
 

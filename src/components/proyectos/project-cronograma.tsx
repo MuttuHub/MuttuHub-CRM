@@ -29,19 +29,24 @@ export type ObjetivoGrupo = { codigo: string; actividades: ProjectTechnicalActiv
 
 /**
  * Agrupa las actividades por el objetivo al que pertenecen, en el orden en que
- * el servidor las envía (semana de inicio y código): es puro y estable para que
- * la vista agrupada sea predecible.
+ * aparece cada objetivo en la respuesta del servidor. Es puro y estable para que
+ * la vista agrupada sea predecible, aunque el orden por semana intercale metas.
  */
 export function agruparPorObjetivo(
   actividades: readonly ProjectTechnicalActivityV6[],
 ): ObjetivoGrupo[] {
-  const grupos: ObjetivoGrupo[] = [];
+  const orden: string[] = [];
+  const porCodigo = new Map<string, ProjectTechnicalActivityV6[]>();
   for (const actividad of actividades) {
-    const ultimo = grupos[grupos.length - 1];
-    if (ultimo && ultimo.codigo === actividad.objetivo_codigo) ultimo.actividades.push(actividad);
-    else grupos.push({ codigo: actividad.objetivo_codigo, actividades: [actividad] });
+    let grupo = porCodigo.get(actividad.objetivo_codigo);
+    if (!grupo) {
+      grupo = [];
+      porCodigo.set(actividad.objetivo_codigo, grupo);
+      orden.push(actividad.objetivo_codigo);
+    }
+    grupo.push(actividad);
   }
-  return grupos;
+  return orden.map((codigo) => ({ codigo, actividades: porCodigo.get(codigo)! }));
 }
 
 export function ProjectCronograma({ proyecto }: { proyecto: ProjectListRow }) {
