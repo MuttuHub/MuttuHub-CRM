@@ -19,6 +19,7 @@ import {
   apiGet,
   apiPatch,
   apiPost,
+  apiPut,
   ApiError,
   type ApiVoid,
 } from "@/lib/api/http";
@@ -127,6 +128,27 @@ export type ContactoFilters = {
   con_quadrante?: boolean;
   poder?: number;
   interes?: number;
+};
+
+/** v7 alignment C7a: categorías del resumen diario que se pueden activar/desactivar. */
+export type AutomatizacionesCategorias = {
+  vencidos: boolean;
+  hoy: boolean;
+  proximos: boolean;
+};
+
+/** v7 C7a: configuración del seguimiento automático que lee el cron diario. */
+export type Automatizaciones = {
+  resumen_diario: boolean;
+  dias_por_vencer: number;
+  categorias: AutomatizacionesCategorias;
+};
+
+/** v7 C7a: cuerpo del PUT — actualización parcial de `Automatizaciones`. */
+export type AutomatizacionesInput = {
+  resumen_diario?: boolean;
+  dias_por_vencer?: number;
+  categorias?: Partial<AutomatizacionesCategorias>;
 };
 
 export type Oportunidad = {
@@ -279,6 +301,11 @@ export const clientQueryKeys = {
   users: () => ["catalogs", "users"] as const,
 };
 
+/** v7 C7a: settings query keys (automatizaciones). */
+export const automatizacionesQueryKeys = {
+  detail: () => ["settings", "automatizaciones"] as const,
+};
+
 /* ── Queries ───────────────────────────────────────────────────────────── */
 
 export function useClients(filters: ClientFilters): UseQueryResult<ClientListResponse> {
@@ -428,6 +455,46 @@ export function useGlobalContacts(
         `/api/v1/contacts${qs ? `?${qs}` : ""}`,
       );
       return res.contactos;
+    },
+  });
+}
+
+/**
+ * v7 alignment C7a: the Automatizaciones settings (admin-only on the server).
+ * Reads the daily-summary configuration that the cron consumes.
+ */
+export function useAutomatizaciones(): UseQueryResult<Automatizaciones> {
+  return useQuery({
+    queryKey: automatizacionesQueryKeys.detail(),
+    queryFn: async () => {
+      const res = await apiGet<{ automatizaciones: Automatizaciones }>(
+        "/api/v1/settings/automatizaciones",
+      );
+      return res.automatizaciones;
+    },
+  });
+}
+
+/**
+ * v7 C7a: partial update of the Automatizaciones settings. Seeds the cache with
+ * the server's fresh value and invalidates so every consumer re-reads it.
+ */
+export function useUpdateAutomatizaciones(): UseMutationResult<
+  { automatizaciones: Automatizaciones },
+  Error,
+  AutomatizacionesInput
+> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input) =>
+      apiPut<{ automatizaciones: Automatizaciones }>(
+        "/api/v1/settings/automatizaciones",
+        input,
+      ),
+    onError: (err) => toastError(err, "No pudimos guardar las automatizaciones."),
+    onSuccess: (data) => {
+      qc.setQueryData(automatizacionesQueryKeys.detail(), data.automatizaciones);
+      void qc.invalidateQueries({ queryKey: automatizacionesQueryKeys.detail() });
     },
   });
 }

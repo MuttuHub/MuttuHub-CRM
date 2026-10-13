@@ -30,6 +30,7 @@ import "@/lib/openapi/paths/project-kpis";
 import "@/lib/openapi/paths/project-attention";
 import "@/lib/openapi/paths/project-curve";
 import "@/lib/openapi/paths/settings-semaforo-v2";
+import "@/lib/openapi/paths/settings-automatizaciones";
 
 export function buildOpenApiDocument() {
   const generator = new OpenApiGeneratorV31(registry.definitions);

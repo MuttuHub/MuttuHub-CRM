@@ -386,4 +386,16 @@ describe("buildOpenApiDocument", () => {
       expect(schema, campo).toContain(campo)
     }
   })
+  it("registers the C7a automatizaciones settings path (GET + PUT)", () => {
+    const paths = buildOpenApiDocument().paths ?? {}
+
+    expect(paths["/api/v1/settings/automatizaciones"]).toEqual(
+      expect.objectContaining({ get: expect.anything(), put: expect.anything() }),
+    )
+
+    const schema = JSON.stringify(buildOpenApiDocument().components?.schemas)
+    for (const campo of ["resumen_diario", "dias_por_vencer", "categorias", "vencidos", "proximos"]) {
+      expect(schema, campo).toContain(campo)
+    }
+  })
 })

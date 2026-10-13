@@ -4,6 +4,8 @@ import {
   alertTipo,
   alertWhere,
   emptyAlertBuckets,
+  filterBucketsByCategorias,
+  proximosEnd,
   startOfLocalDay,
 } from "./alerts"
 
@@ -121,6 +123,80 @@ describe("alertTipo", () => {
       expect(alertTipo("proximos3", origen)).toBe("POR_VENCER")
     },
   )
+})
+
+describe("proximosEnd", () => {
+  it("windows the próximos bucket to start + 1 + dias_por_vencer days", () => {
+    const start = local(2026, 0, 10, 0)
+    const end3 = proximosEnd(start, 3)
+    expect(end3.getDate()).toBe(14)
+    expect(end3.getHours()).toBe(0)
+  })
+
+  it("threads the dias_por_vencer value through the window", () => {
+    const start = local(2026, 0, 10, 0)
+    expect(proximosEnd(start, 1).getDate()).toBe(12)
+    expect(proximosEnd(start, 7).getDate()).toBe(18)
+    expect(proximosEnd(start, 30).getMonth()).toBe(1)
+    expect(proximosEnd(start, 30).getDate()).toBe(10)
+  })
+
+  it("collapses the window to empty when dias_por_vencer is zero", () => {
+    const start = local(2026, 0, 10, 0)
+    expect(proximosEnd(start, 0).getTime()).toBe(addLocalDays(start, 1).getTime())
+  })
+
+  it("does not mutate the start date", () => {
+    const start = local(2026, 5, 15, 9, 30)
+    proximosEnd(start, 5)
+    expect(start.getDate()).toBe(15)
+    expect(start.getHours()).toBe(9)
+  })
+})
+
+describe("filterBucketsByCategorias", () => {
+  const buckets = {
+    vencidos: [{ id: "v" }],
+    hoy: [{ id: "h" }],
+    proximos3: [{ id: "p" }],
+  }
+
+  it("keeps every category when all toggles are on", () => {
+    const result = filterBucketsByCategorias(buckets as never, {
+      vencidos: true,
+      hoy: true,
+      proximos: true,
+    })
+    expect(result).toEqual(buckets)
+  })
+
+  it("empties only the disabled categories", () => {
+    const result = filterBucketsByCategorias(buckets as never, {
+      vencidos: false,
+      hoy: true,
+      proximos: false,
+    })
+    expect(result).toEqual({ vencidos: [], hoy: [{ id: "h" }], proximos3: [] })
+  })
+
+  it("empties every category when all toggles are off", () => {
+    const result = filterBucketsByCategorias(buckets as never, {
+      vencidos: false,
+      hoy: false,
+      proximos: false,
+    })
+    expect(result).toEqual({ vencidos: [], hoy: [], proximos3: [] })
+  })
+
+  it("returns a fresh object without mutating the input", () => {
+    const result = filterBucketsByCategorias(buckets as never, {
+      vencidos: false,
+      hoy: false,
+      proximos: false,
+    })
+    expect(result).not.toBe(buckets)
+    expect(buckets.vencidos).toEqual([{ id: "v" }])
+  })
 })
 
 describe("alertWhere", () => {
