@@ -27,7 +27,7 @@ const R_AGUJA = R - 14;
  * so it can never be crossed by the needle: glyph tops (~0.7 em above the baseline)
  * land under the hub (r = 5), and the baseline stays inside the fixed viewBox.
  */
-const VALOR_FONT = 18;
+const VALOR_FONT = 17;
 const VALOR_Y = 119;
 
 const BAND_STROKE: Record<ColorSemaforo, string> = {
