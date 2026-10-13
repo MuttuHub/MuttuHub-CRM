@@ -3,6 +3,7 @@
 // they are never blended into a single number. `ejecutado` is null after the corte.
 
 import { describe, expect, it } from "vitest"
+import { avanceProgramado } from "./avance"
 import {
   acumular,
   construirCurva,
@@ -66,11 +67,65 @@ describe("tecnicoPlaneado (D1: linear by days at month end)", () => {
   })
 })
 
+describe("tecnicoPlaneado with a corte (D13: the corte month is evaluated at the corte date)", () => {
+  const periodos = F_C1_PERIODOS
+  const actividades = fixtureF_C1Actividades()
+  const corte = { periodo: F_C1_CORTE, fecha: "2026-11-15" }
+  const pct = (fracciones: number[]) => fracciones.map((f) => Math.round(f * 1000) / 10)
+
+  it("evaluates only the corte month at the corte date; past and future months keep the month end", () => {
+    // 2026-11-15: A1 done, A2 (09-28..12-06, 70 days) 49 days in = 0.7, A3 not started
+    // -> (2 * 1 + 4 * 0.7) / 8 = 60 %. Month end (11-30) would be 70.7 %.
+    expect(pct(tecnicoPlaneado(actividades, periodos, corte))).toEqual([12.9, 27.1, 49.3, 60, 97.3])
+  })
+
+  it("uses the very same formula as the technical KPI at that date", () => {
+    const fila = tecnicoPlaneado(actividades, periodos, corte)[periodos.indexOf(F_C1_CORTE)]
+    expect(fila).toBe(avanceProgramado([...actividades], "2026-11-15"))
+  })
+
+  it("is the month end when the corte is the last day of the month", () => {
+    const alFin = tecnicoPlaneado(actividades, periodos, { periodo: F_C1_CORTE, fecha: "2026-11-30" })
+    expect(alFin).toEqual(tecnicoPlaneado(actividades, periodos))
+  })
+
+  it("never plans past the month-end value of the same month and keeps the series monotonic", () => {
+    const conCorte = tecnicoPlaneado(actividades, periodos, corte)
+    const finDeMesSerie = tecnicoPlaneado(actividades, periodos)
+    conCorte.forEach((valor, i) => expect(valor).toBeLessThanOrEqual(finDeMesSerie[i]))
+    for (let i = 1; i < conCorte.length; i += 1) expect(conCorte[i]).toBeGreaterThanOrEqual(conCorte[i - 1])
+  })
+
+  it("leaves every month at month end when the corte period is not among the periods", () => {
+    expect(tecnicoPlaneado(actividades, periodos, { periodo: "2027-03", fecha: "2027-03-10" })).toEqual(
+      tecnicoPlaneado(actividades, periodos),
+    )
+  })
+})
+
 describe("acumular", () => {
   it("turns a monthly series into its cumulative one, index-aligned", () => {
     expect(acumular([1, 2, 3, 4])).toEqual([1, 3, 6, 10])
     expect(acumular([])).toEqual([])
     expect(acumular([5])).toEqual([5])
+  })
+})
+
+describe("construirCurva with the D13 planned technical series", () => {
+  it("paints the planned value at the corte in the corte month and keeps ejecutado null after it", () => {
+    const filas = construirCurva({
+      periodos: F_C1_PERIODOS,
+      corte: F_C1_CORTE,
+      tecnico: {
+        planeado: tecnicoPlaneado(fixtureF_C1Actividades(), F_C1_PERIODOS, { periodo: F_C1_CORTE, fecha: "2026-11-15" }),
+        ejecutado: F_C1_TECNICO_EJECUTADO,
+      },
+      financiero: { planeado: F_C1_FINANCIERO_PLANEADO, ejecutado: F_C1_FINANCIERO_EJECUTADO },
+    })
+    expect(filas.map((f) => f.tecnico.planeado)).toEqual([12.9, 27.1, 49.3, 60, 97.3])
+    expect(filas.map((f) => f.tecnico.ejecutado)).toEqual([5, 20, 40, 65, null])
+    // The financial plan is untouched by D13.
+    expect(filas.map((f) => f.financiero.planeado)).toEqual([10, 30, 55, 80, 100])
   })
 })
 

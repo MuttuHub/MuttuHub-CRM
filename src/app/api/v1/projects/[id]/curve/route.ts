@@ -1,7 +1,7 @@
 // GET /api/v1/projects/:id/curve?base=vigente|original — the S-curve (S14 P7).
 //
-// TWO curves that never mix: the technical one (planned linear by days at month end, D1;
-// executed = real progress at each period) and the financial one (planned = cumulative
+// TWO curves that never mix: the technical one (planned linear by days at month end, D1, and at the corte
+// date for the corte month, D13; executed = real progress at each period) and the financial one (planned = cumulative
 // programmed / assigned, executed = cumulative validated / assigned). `ejecutado` is null
 // for every period after the corte. `base=vigente` (default) reads the live structure and
 // budget; `base=original` the weeks, weights and A/P frozen in version 0 with the same live

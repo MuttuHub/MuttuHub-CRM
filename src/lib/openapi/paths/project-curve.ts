@@ -9,7 +9,7 @@ const CurvaPuntoSchema = registry.register(
   z.object({
     periodo: z.string().openapi({ example: "2026-10", description: "Periodo AAAA-MM." }),
     tecnico: z.object({
-      planeado: z.number().openapi({ description: "Avance técnico planeado al fin de mes (D1), 0..100 con un decimal." }),
+      planeado: z.number().openapi({ description: "Avance técnico planeado, 0..100 con un decimal: al fin de mes (D1), salvo el mes de corte, que se evalúa en la fecha de corte (D13)." }),
       ejecutado: z.number().nullable().openapi({ description: "Avance técnico real; null después del corte." }),
     }),
     financiero: z.object({
@@ -38,8 +38,8 @@ registry.registerPath({
   tags: ["Projects"],
   summary: "Curva S del proyecto (técnica y financiera)",
   description:
-    "Dos curvas separadas que nunca se mezclan: la técnica (planeado lineal por días al fin de mes, D1; ejecutado = " +
-    "avance real por periodo) y la financiera (planeado = programado acumulado / asignado; ejecutado = validado " +
+    "Dos curvas separadas que nunca se mezclan: la técnica (planeado lineal por días al fin de mes, D1, y en la fecha de corte para el mes de corte, D13; " +
+    "ejecutado = avance real por periodo) y la financiera (planeado = programado acumulado / asignado; ejecutado = validado " +
     "acumulado / asignado). `ejecutado` es null en los periodos posteriores al corte. `base=vigente` (por defecto) lee " +
     "la estructura y el presupuesto vivos; `base=original` las semanas, pesos y A/P congelados en la versión 0 con los " +
     "mismos avances y gastos vivos. Lee quien puede leer la ficha del proyecto, en cualquier estado " +

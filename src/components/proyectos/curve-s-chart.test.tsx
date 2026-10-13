@@ -14,7 +14,7 @@ const CURVA: ProjectCurve = {
     { periodo: "2026-08", tecnico: { planeado: 20.7, ejecutado: 10 }, financiero: { planeado: 20, ejecutado: 5 } },
     { periodo: "2026-09", tecnico: { planeado: 42.1, ejecutado: 28 }, financiero: { planeado: 40, ejecutado: 15 } },
     { periodo: "2026-10", tecnico: { planeado: 64.3, ejecutado: 40 }, financiero: { planeado: 60, ejecutado: 30 } },
-    { periodo: "2026-11", tecnico: { planeado: 85.7, ejecutado: 48 }, financiero: { planeado: 80, ejecutado: 42.5 } },
+    { periodo: "2026-11", tecnico: { planeado: 78.6, ejecutado: 48 }, financiero: { planeado: 80, ejecutado: 42.5 } },
     { periodo: "2026-12", tecnico: { planeado: 100, ejecutado: null }, financiero: { planeado: 100, ejecutado: null } },
   ],
 };
@@ -85,5 +85,17 @@ describe("CurveSChart", () => {
     expect(ultima).toHaveTextContent("dic 2026");
     // After the corte there is no execution: the cell is an em dash, never a zero.
     expect(within(ultima).getAllByText("—")).toHaveLength(2);
+  });
+
+  it("labels the corte month 'al corte' in the legend and the monthly table (D13)", () => {
+    render(<CurveSChart curva={CURVA} />);
+    const tabla = screen.getByTestId("curve-s-tabla");
+    const filas = within(tabla).getAllByRole("row");
+    // Only the corte month carries the label; its planned technical value is the one at the corte date.
+    expect(filas[4]).toHaveTextContent("nov 2026 (al corte)");
+    expect(filas[4]).toHaveTextContent("78,6 %");
+    expect(within(tabla).getAllByText(/al corte/)).toHaveLength(1);
+    expect(screen.getByText(/Corte al nov 2026/)).toBeInTheDocument();
+    expect(screen.getByText(/plan técnico de ese mes se mide a la fecha de corte/)).toBeInTheDocument();
   });
 });

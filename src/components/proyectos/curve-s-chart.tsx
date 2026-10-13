@@ -88,7 +88,9 @@ export function CurveSChart({ curva }: { curva: ProjectCurve | null }) {
               <span aria-hidden className="inline-block h-0.5 w-4 rounded-full bg-rose-500" />
               Ejecutado
             </span>
-            <span className="text-ink-500">Corte al {formatPeriodo(curva.corte)}</span>
+            <span className="text-ink-500">
+              Corte al {formatPeriodo(curva.corte)}. El plan técnico de ese mes se mide a la fecha de corte.
+            </span>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -108,7 +110,7 @@ export function CurveSChart({ curva }: { curva: ProjectCurve | null }) {
             />
           </div>
 
-          <CurvaMensualTable puntos={puntos} />
+          <CurvaMensualTable puntos={puntos} corte={curva.corte} />
         </>
       )}
     </section>
@@ -207,7 +209,7 @@ function CurvaPanel({
 
 /* ── Monthly table ──────────────────────────────────────────────────────── */
 
-function CurvaMensualTable({ puntos }: { puntos: readonly ProjectCurvePoint[] }) {
+function CurvaMensualTable({ puntos, corte }: { puntos: readonly ProjectCurvePoint[]; corte: string }) {
   return (
     <Table data-testid="curve-s-tabla">
       <TableHeader>
@@ -222,7 +224,7 @@ function CurvaMensualTable({ puntos }: { puntos: readonly ProjectCurvePoint[] })
       <TableBody>
         {puntos.map((p) => (
           <TableRow key={p.periodo}>
-            <TableCell>{formatPeriodo(p.periodo)}</TableCell>
+            <TableCell>{p.periodo === corte ? `${formatPeriodo(p.periodo)} (al corte)` : formatPeriodo(p.periodo)}</TableCell>
             <TableCell numeric>{formatPct(p.tecnico.planeado)}</TableCell>
             <TableCell numeric>{p.tecnico.ejecutado === null ? "—" : formatPct(p.tecnico.ejecutado)}</TableCell>
             <TableCell numeric>{formatPct(p.financiero.planeado)}</TableCell>

@@ -103,7 +103,7 @@ const GOLDEN = [
   { periodo: "2026-08", tecnico: { planeado: 20.7, ejecutado: 10 }, financiero: { planeado: 20, ejecutado: 5 } },
   { periodo: "2026-09", tecnico: { planeado: 42.1, ejecutado: 28 }, financiero: { planeado: 40, ejecutado: 15 } },
   { periodo: "2026-10", tecnico: { planeado: 64.3, ejecutado: 40 }, financiero: { planeado: 60, ejecutado: 30 } },
-  { periodo: "2026-11", tecnico: { planeado: 85.7, ejecutado: 48 }, financiero: { planeado: 80, ejecutado: 42.5 } },
+  { periodo: "2026-11", tecnico: { planeado: 78.6, ejecutado: 48 }, financiero: { planeado: 80, ejecutado: 42.5 } },
   { periodo: "2026-12", tecnico: { planeado: 100, ejecutado: null }, financiero: { planeado: 100, ejecutado: null } },
 ];
 

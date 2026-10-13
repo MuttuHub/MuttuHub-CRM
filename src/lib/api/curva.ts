@@ -1,7 +1,8 @@
 // Source of the S-curve behind `GET /api/v1/projects/:id/curve?base=vigente|original` (S14 P7).
 //
-// TWO curves that never mix: the technical one (planned linear by days at month end, D1;
-// executed = real progress measured at each period) and the financial one (planned =
+// TWO curves that never mix: the technical one (planned linear by days at month end, D1, and at the
+// corte date for the corte month, D13; executed = real progress measured at each period) and the
+// financial one (planned =
 // cumulative programmed / assigned, executed = cumulative validated / assigned). Every
 // non-voided avance up to the corte is read once and bucketed per month in memory, so one
 // read feeds the whole timeline. `base=vigente` (default) reads the live structure and
@@ -166,7 +167,7 @@ export async function calcularCurva(
       periodos: construirCurva({
         periodos,
         corte,
-        tecnico: { planeado: tecnicoPlaneado(entrada, periodos), ejecutado: tecnicoEjecutado },
+        tecnico: { planeado: tecnicoPlaneado(entrada, periodos, { periodo: corte, fecha: corteFecha }), ejecutado: tecnicoEjecutado },
         financiero: { planeado: fraccion(programadoCum), ejecutado: fraccion(ejecutadoCum) },
       }),
     },

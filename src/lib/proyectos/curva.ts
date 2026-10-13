@@ -6,9 +6,11 @@
  * assigned budget). Both come out as percentages 0..100 with one decimal, so a
  * single chart can plot them on a shared axis without ever blending the two.
  *
- * The planned technical curve is linear by days at month end (D1): the very same
+ * The planned technical curve is linear by days (D1): the very same
  * `avanceProgramado` formula the semáforo uses, evaluated at the last day of each
- * period. `ejecutado` is null for every period after the corte, so the chart can
+ * period, EXCEPT the corte month, which is evaluated at the corte date itself
+ * (D13) so the plan point lines up with the executed point and the KPI plan.
+ * `ejecutado` is null for every period after the corte, so the chart can
  * never draw an execution that has not happened yet.
  */
 
@@ -37,16 +39,25 @@ export function fechaMedicion(periodo: Periodo, corte: IsoDate): IsoDate {
 
 export type TecnicoPlaneadoInput = { peso: number; inicio: IsoDate; fin: IsoDate }
 
+/** The corte as the curve measures it: its period and the date inside that period. */
+export type CorteMedicion = { periodo: Periodo; fecha: IsoDate }
+
 /**
- * Planned technical fraction 0..1 at each period's month end (D1, linear by
- * days): the weighted mean of every activity's elapsed fraction, reused from the
- * technical semáforo so the curve and the KPI cannot drift.
+ * Planned technical fraction 0..1 per period (linear by days): the weighted mean
+ * of every activity's elapsed fraction, reused from the technical semáforo so the
+ * curve and the KPI cannot drift. Each period is evaluated at its month end (D1),
+ * except the corte month (D13) when `corte` is given: that one is evaluated at the
+ * corte date, the same date the KPI `avance_programado` uses. Past and future
+ * months keep the month-end rule.
  */
 export function tecnicoPlaneado(
   actividades: readonly TecnicoPlaneadoInput[],
   periodos: readonly Periodo[],
+  corte?: CorteMedicion,
 ): number[] {
-  return periodos.map((periodo) => avanceProgramado([...actividades], finDeMes(periodo)))
+  return periodos.map((periodo) =>
+    avanceProgramado([...actividades], corte && periodo === corte.periodo ? corte.fecha : finDeMes(periodo)),
+  )
 }
 
 /** Cumulative sum, index-aligned: a monthly series becomes its running total. */

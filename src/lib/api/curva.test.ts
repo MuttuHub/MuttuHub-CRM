@@ -106,6 +106,27 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+const snapshotV0Corte = {
+  schema: 1,
+  proyecto: { valor_total: "20000000.00", fecha_inicio: "2026-08-03", fecha_fin: "2026-12-31", beneficiarios_meta: 1 },
+  presupuesto: [
+    { rubro_codigo: "R01", rubro_nombre: "Personal", asignado: "15000000.00" },
+    { rubro_codigo: "R12", rubro_nombre: "Transporte", asignado: "5000000.00" },
+  ],
+  programacion: meses.map((periodo) => ({ rubro_codigo: "R01", periodo, valor: "4000000.00" })),
+  actividades: [
+    { codigo: "a1", objetivo_codigo: "OE1", nombre: "a", semana_inicio: 1, semana_fin: 4, peso: "4", peso_manual: true },
+    { codigo: "a2", objetivo_codigo: "OE1", nombre: "b", semana_inicio: 5, semana_fin: 12, peso: "8", peso_manual: true },
+    { codigo: "a3", objetivo_codigo: "OE1", nombre: "c", semana_inicio: 13, semana_fin: 20, peso: "8", peso_manual: true },
+  ],
+  entregables: [
+    { codigo: "a1-e1", actividad_codigo: "a1", descripcion: "x", cantidad_meta: "100", unidad: "u" },
+    { codigo: "a2-e1", actividad_codigo: "a2", descripcion: "x", cantidad_meta: "100", unidad: "u" },
+    { codigo: "a3-e1", actividad_codigo: "a3", descripcion: "x", cantidad_meta: "100", unidad: "u" },
+  ],
+  indicadores: [],
+};
+
 describe("calcularCurva: vigente golden", () => {
   it("returns one row per period with the two curves as percentages", async () => {
     const result = await calcularCurva(input());
@@ -117,7 +138,7 @@ describe("calcularCurva: vigente golden", () => {
       { periodo: "2026-08", tecnico: { planeado: 20.7, ejecutado: 10 }, financiero: { planeado: 20, ejecutado: 5 } },
       { periodo: "2026-09", tecnico: { planeado: 42.1, ejecutado: 28 }, financiero: { planeado: 40, ejecutado: 15 } },
       { periodo: "2026-10", tecnico: { planeado: 64.3, ejecutado: 40 }, financiero: { planeado: 60, ejecutado: 30 } },
-      { periodo: "2026-11", tecnico: { planeado: 85.7, ejecutado: 48 }, financiero: { planeado: 80, ejecutado: 42.5 } },
+      { periodo: "2026-11", tecnico: { planeado: 78.6, ejecutado: 48 }, financiero: { planeado: 80, ejecutado: 42.5 } },
       { periodo: "2026-12", tecnico: { planeado: 100, ejecutado: null }, financiero: { planeado: 100, ejecutado: null } },
     ]);
   });
@@ -134,6 +155,21 @@ describe("calcularCurva: vigente golden", () => {
         }),
       }),
     );
+  });
+
+  it("evaluates the planned technical value of the corte month at the corte date (D13), past and future months at month end (D1)", async () => {
+    const result = await calcularCurva(input());
+    if (!result.ok) throw new Error("expected ok");
+    // Corte 2026-11-20: a3 (10-26..12-20, peso 8 of 20) has run 26 of 56 days -> (4 + 8 + 8 * 26/56) / 20 = 78.57 %.
+    // At the month end (11-30) it would be 85.7 %: the planned point must NOT reach that far.
+    expect(result.value.periodos.map((p) => p.tecnico.planeado)).toEqual([20.7, 42.1, 64.3, 78.6, 100]);
+  });
+
+  it("applies the same corte rule to the planned technical value of base=original", async () => {
+    vi.mocked(db.versionProyecto.findFirst).mockResolvedValue({ snapshot: snapshotV0Corte } as never);
+    const result = await calcularCurva(input({ baseParam: "original" }));
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.value.periodos.map((p) => p.tecnico.planeado)).toEqual([20.7, 42.1, 64.3, 78.6, 100]);
   });
 
   it("keeps the technical and the financial curves independent", async () => {
@@ -181,26 +217,7 @@ describe("calcularCurva: corte and dates", () => {
 });
 
 describe("calcularCurva: base=original", () => {
-  const snapshotV0 = {
-    schema: 1,
-    proyecto: { valor_total: "20000000.00", fecha_inicio: "2026-08-03", fecha_fin: "2026-12-31", beneficiarios_meta: 1 },
-    presupuesto: [
-      { rubro_codigo: "R01", rubro_nombre: "Personal", asignado: "15000000.00" },
-      { rubro_codigo: "R12", rubro_nombre: "Transporte", asignado: "5000000.00" },
-    ],
-    programacion: meses.map((periodo) => ({ rubro_codigo: "R01", periodo, valor: "4000000.00" })),
-    actividades: [
-      { codigo: "a1", objetivo_codigo: "OE1", nombre: "a", semana_inicio: 1, semana_fin: 4, peso: "4", peso_manual: true },
-      { codigo: "a2", objetivo_codigo: "OE1", nombre: "b", semana_inicio: 5, semana_fin: 12, peso: "8", peso_manual: true },
-      { codigo: "a3", objetivo_codigo: "OE1", nombre: "c", semana_inicio: 13, semana_fin: 20, peso: "8", peso_manual: true },
-    ],
-    entregables: [
-      { codigo: "a1-e1", actividad_codigo: "a1", descripcion: "x", cantidad_meta: "100", unidad: "u" },
-      { codigo: "a2-e1", actividad_codigo: "a2", descripcion: "x", cantidad_meta: "100", unidad: "u" },
-      { codigo: "a3-e1", actividad_codigo: "a3", descripcion: "x", cantidad_meta: "100", unidad: "u" },
-    ],
-    indicadores: [],
-  };
+  const snapshotV0 = snapshotV0Corte;
 
   it("reads the frozen A and P of v0 with the same live avances and expenses", async () => {
     vi.mocked(db.versionProyecto.findFirst).mockResolvedValue({ snapshot: snapshotV0 } as never);
