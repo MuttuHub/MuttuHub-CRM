@@ -1,6 +1,5 @@
 // Ficha de proyecto (E-06), de solo lectura salvo las secciones Equipo (E-07) y
-// Estructura técnica (S3). Desde S10 se organiza en pestañas (Resumen, Metas e
-// indicadores, Cronograma, Gantt, Avance, Presupuesto, Gastos, Cambios) bajo un encabezado fijo con código,
+// Estructura técnica (S3). Desde S10 se organiza en pestañas (las 10 del prototipo v7 más Cambios) bajo un encabezado fijo con código,
 // nombre, estado y semáforos; cada panel se monta
 // (y consulta) solo cuando su pestaña está activa. Desde S12 es una página propia (`/proyectos/[id]`),
 // que el listado y el tablero abren en una pestaña nueva. Monta su propia consulta (`useProject`): el estado del request (loading, error, data) sale
@@ -36,7 +35,12 @@ import { BaselineApproval } from "@/components/proyectos/baseline-approval";
 import { EstructuraGantt } from "@/components/proyectos/estructura-gantt";
 import { ProjectCronograma } from "@/components/proyectos/project-cronograma";
 import { ProjectEstructura } from "@/components/proyectos/project-estructura";
-import { ProjectEjecucion } from "@/components/proyectos/project-ejecucion";
+import {
+  ProjectBeneficiarios,
+  ProjectEjecucion,
+  ProjectIndicadores,
+} from "@/components/proyectos/project-ejecucion";
+import { ProjectSoportes } from "@/components/proyectos/project-soportes";
 import { ProjectFinanciero } from "@/components/proyectos/project-financiero";
 import { ProjectKpisPanel } from "@/components/proyectos/project-kpis-panel";
 import { ResumenKpis } from "@/components/proyectos/resumen-kpis";
@@ -118,9 +122,13 @@ const FICHA_TABS = [
   { value: "metas", label: "Metas e indicadores" },
   { value: "cronograma", label: "Cronograma" },
   { value: "gantt", label: "Gantt" },
-  { value: "avance", label: "Avance" },
-  { value: "presupuesto", label: "Presupuesto" },
-  { value: "gastos", label: "Gastos" },
+  { value: "seguimiento", label: "Ficha de seguimiento" },
+  { value: "financiero", label: "Financiero" },
+  { value: "legalizacion", label: "Legalización" },
+  { value: "beneficiarios", label: "Beneficiarios" },
+  { value: "soportes", label: "Soportes" },
+  { value: "equipo", label: "Equipo" },
+  // Not in the v7 prototype, kept so the change history, versions and modifications stay reachable.
   { value: "cambios", label: "Cambios" },
 ] as const;
 
@@ -171,6 +179,7 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
 
           <TabsContent value="metas" className={PANEL_CLASS}>
             <ProjectEstructura proyecto={proyecto} />
+            <ProjectIndicadores proyecto={proyecto} />
           </TabsContent>
 
           <TabsContent value="cronograma" className={PANEL_CLASS}>
@@ -181,24 +190,36 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
             <EstructuraGantt proyecto={proyecto} />
           </TabsContent>
 
-          <TabsContent value="avance" className={PANEL_CLASS}>
-            <ProjectEjecucion proyecto={proyecto} />
-            <ProjectKpisPanel proyecto={proyecto} />
+          <TabsContent value="seguimiento" className={PANEL_CLASS}>
+            <ProjectEjecucion proyecto={proyecto} seguimiento />
           </TabsContent>
 
-          <TabsContent value="presupuesto" className={PANEL_CLASS}>
-            <ProjectPresupuesto proyecto={proyecto} />
+          <TabsContent value="financiero" className={PANEL_CLASS}>
             <ProjectFinanciero proyecto={proyecto} />
+            <ProjectPresupuesto proyecto={proyecto} />
           </TabsContent>
 
-          <TabsContent value="gastos" className={PANEL_CLASS}>
+          <TabsContent value="legalizacion" className={PANEL_CLASS}>
             <ProjectGastos proyecto={proyecto} />
+          </TabsContent>
+
+          <TabsContent value="beneficiarios" className={PANEL_CLASS}>
+            <ProjectBeneficiarios proyecto={proyecto} />
+          </TabsContent>
+
+          <TabsContent value="soportes" className={PANEL_CLASS}>
+            <ProjectSoportes proyectoId={proyecto.id} />
+          </TabsContent>
+
+          <TabsContent value="equipo" className={PANEL_CLASS}>
+            <ProjectTeam proyectoId={proyecto.id} />
           </TabsContent>
 
           <TabsContent value="cambios" className={PANEL_CLASS}>
             <ProjectModificaciones proyecto={proyecto} />
             <ProjectVersiones proyecto={proyecto} />
             <ProjectHistorial proyectoId={proyecto.id} />
+            <ProjectKpisPanel proyecto={proyecto} soloExportar />
           </TabsContent>
         </div>
       </Tabs>
@@ -309,8 +330,6 @@ function ResumenPanel({ proyecto }: { proyecto: ProjectListRow }) {
           </ul>
         )}
       </section>
-
-      <ProjectTeam proyectoId={proyecto.id} />
     </>
   );
 }

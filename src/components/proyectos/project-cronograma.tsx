@@ -6,6 +6,7 @@
 
 "use client";
 
+import { esMedible } from "@/lib/proyectos/kpis";
 import type * as React from "react";
 import { CalendarDays } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -52,6 +53,8 @@ export function agruparPorObjetivo(
 
 export function ProjectCronograma({ proyecto }: { proyecto: ProjectListRow }) {
   const query = useProjectTechnicalStatus(proyecto.id);
+  // Outside execution the project is not measurable: the server colours are meaningless, so none is shown.
+  const conSemaforo = esMedible(proyecto.estado);
 
   return (
     <section data-testid="cronograma">
@@ -82,14 +85,14 @@ export function ProjectCronograma({ proyecto }: { proyecto: ProjectListRow }) {
                 <TableHead scope="col" numeric>Días</TableHead>
                 <TableHead scope="col" numeric>% plan</TableHead>
                 <TableHead scope="col" numeric>% real</TableHead>
-                <TableHead scope="col">Semáforo</TableHead>
+                {conSemaforo && <TableHead scope="col">Semáforo</TableHead>}
                 <TableHead scope="col">Soporte</TableHead>
               </TableRow>
             </TableHeader>
             {agruparPorObjetivo(query.data.actividades).map((grupo) => (
               <TableBody key={grupo.codigo} data-testid={`cronograma-objetivo-${grupo.codigo}`}>
                 <TableRow className="bg-ink-100/60">
-                  <TableCell colSpan={6} className="text-[12px] font-semibold text-ink-600">
+                  <TableCell colSpan={conSemaforo ? 6 : 5} className="text-[12px] font-semibold text-ink-600">
                     Objetivo {grupo.codigo}
                   </TableCell>
                 </TableRow>
@@ -102,9 +105,11 @@ export function ProjectCronograma({ proyecto }: { proyecto: ProjectListRow }) {
                     <TableCell numeric>{actividad.dias}</TableCell>
                     <TableCell numeric>{formatPct(actividad.programado)}</TableCell>
                     <TableCell numeric>{formatPct(actividad.progreso)}</TableCell>
-                    <TableCell>
-                      <SemaforoChip color={actividad.color} />
-                    </TableCell>
+                    {conSemaforo && (
+                      <TableCell>
+                        <SemaforoChip color={actividad.color} />
+                      </TableCell>
+                    )}
                     <TableCell>{actividad.sin_soporte ? "Sin soporte" : "Con soporte"}</TableCell>
                   </TableRow>
                 ))}
@@ -112,7 +117,7 @@ export function ProjectCronograma({ proyecto }: { proyecto: ProjectListRow }) {
             ))}
           </Table>
         </div>
-        <CronogramaTarjetas grupos={agruparPorObjetivo(query.data.actividades)} />
+        <CronogramaTarjetas grupos={agruparPorObjetivo(query.data.actividades)} conSemaforo={conSemaforo} />
         </>
       )}
     </section>
@@ -120,7 +125,7 @@ export function ProjectCronograma({ proyecto }: { proyecto: ProjectListRow }) {
 }
 
 /** Stacked layout below md: one card per activity so no column is cropped on a phone. */
-function CronogramaTarjetas({ grupos }: { grupos: ObjetivoGrupo[] }) {
+function CronogramaTarjetas({ grupos, conSemaforo }: { grupos: ObjetivoGrupo[]; conSemaforo: boolean }) {
   return (
     <div data-testid="cronograma-tarjetas" className="mt-2 flex min-w-0 flex-col gap-3 md:hidden">
       {grupos.map((grupo) => (
@@ -143,9 +148,11 @@ function CronogramaTarjetas({ grupos }: { grupos: ObjetivoGrupo[] }) {
                   <Dato label="% real">{formatPct(actividad.progreso)}</Dato>
                   <Dato label="Soporte">{actividad.sin_soporte ? "Sin soporte" : "Con soporte"}</Dato>
                 </dl>
-                <div>
-                  <SemaforoChip color={actividad.color} />
-                </div>
+                {conSemaforo && (
+                  <div>
+                    <SemaforoChip color={actividad.color} />
+                  </div>
+                )}
               </li>
             ))}
           </ul>

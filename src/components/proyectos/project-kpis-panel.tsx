@@ -37,7 +37,11 @@ export const formatPct = (value: number | null): string => (value === null ? SIN
 const formatPp = (value: number): string => `${nf.format(value)} pp`;
 const formatMonto = (value: string): string => formatCOP(toCents(value));
 
-export function ProjectKpisPanel({ proyecto }: { proyecto: ProjectListRow }) {
+/**
+ * `soloExportar` keeps only the corte/base selectors and the Excel exports: the ficha shows the KPI cards once, in
+ * the Resumen, so repeating them below the other sections only duplicated them.
+ */
+export function ProjectKpisPanel({ proyecto, soloExportar = false }: { proyecto: ProjectListRow; soloExportar?: boolean }) {
   // Sin corte el servidor usa hoy (Bogotá); el campo solo lo fija cuando el usuario lo elige.
   const [corte, setCorte] = useState("");
   const [base, setBase] = useState<ProjectBase>("vigente");
@@ -61,7 +65,7 @@ export function ProjectKpisPanel({ proyecto }: { proyecto: ProjectListRow }) {
   return (
     <section data-testid="kpis" aria-labelledby="kpis-titulo">
       <SectionHeader id="kpis-titulo" icon={<BarChart3 className="size-3.5" strokeWidth={2} />}>
-        Indicadores
+        {soloExportar ? "Exportar fichas" : "Indicadores"}
       </SectionHeader>
 
       <div className="mt-2 flex flex-wrap items-center gap-3">
@@ -102,7 +106,7 @@ export function ProjectKpisPanel({ proyecto }: { proyecto: ProjectListRow }) {
         </div>
       </div>
 
-      {query.isError ? (
+      {soloExportar ? null : query.isError ? (
         <InlineError className="mt-2" message={errorMessage(query.error, KPIS_ERROR)} />
       ) : query.isLoading || !kpis ? (
         <Skeleton className="mt-2 h-24 w-full rounded-[14px]" />
@@ -144,7 +148,7 @@ function KpiTiles({ kpis }: { kpis: ProjectKpis }) {
             label="Cumplimiento del cronograma"
             value={formatPct(cronograma.valor)}
             percent={cronograma.valor}
-            hint={`${cronograma.a_tiempo} a tiempo de ${cronograma.vencidas} vencidas`}
+            hint={`${cronograma.a_tiempo} de ${cronograma.vencidas} ${cronograma.vencidas === 1 ? "actividad a tiempo" : "actividades a tiempo"}`}
           />
         )}
         {entregables && (

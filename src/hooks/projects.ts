@@ -294,6 +294,7 @@ export const projectQueryKeys = {
   indicatorMeasurements: (id: string, indicatorId: string) =>
     ["projects", "indicator-measurements", id, indicatorId] as const,
   beneficiaries: (id: string) => ["projects", "beneficiaries", id] as const,
+  supports: (id: string) => ["projects", "supports", id] as const,
   budget: (id: string) => ["projects", "budget", id] as const,
   programming: (id: string) => ["projects", "programming", id] as const,
   financialSheet: (id: string, corte: string | null, base: string = "vigente") =>
@@ -1551,6 +1552,42 @@ export async function downloadExpenseSoporte(
   );
   if (!res.url) throw new ApiError("El soporte no tiene un enlace disponible.", 404);
   window.open(res.url, "_blank", "noopener,noreferrer");
+}
+
+/**
+ * Opens the support of an avance (file via a 60 s signed URL, or its external link) in another tab.
+ * Same contract as `downloadExpenseSoporte`: never cache the URL, the API logs every issuance.
+ */
+export async function downloadAvanceSoporte(projectId: string, avanceId: string, soporteId: string): Promise<void> {
+  const res = await apiGet<{ tipo: "archivo" | "enlace"; url: string | null }>(
+    `/api/v1/projects/${projectId}/progress/${avanceId}/attachments/${soporteId}/download`,
+  );
+  if (!res.url) throw new ApiError("El soporte no tiene un enlace disponible.", 404);
+  window.open(res.url, "_blank", "noopener,noreferrer");
+}
+
+/* ── Soportes del proyecto (pestaña Soportes, solo lectura) ─────────────── */
+
+export type ProjectSupport = {
+  id: string;
+  nombre: string;
+  tipo: "archivo" | "enlace";
+  tipo_mime: string | null;
+  tamano_bytes: number | null;
+  origen: "avance" | "indicador" | "gasto" | "proyecto";
+  origen_id: string | null;
+  vinculo: string | null;
+  url_externa: string | null;
+  subido_por: string | null;
+  created_at: string;
+};
+
+export function useProjectSupports(id: string): UseQueryResult<ProjectSupport[]> {
+  return useQuery({
+    queryKey: projectQueryKeys.supports(id),
+    enabled: id !== "",
+    queryFn: async () => (await apiGet<{ soportes: ProjectSupport[] }>(`/api/v1/projects/${id}/supports`)).soportes,
+  });
 }
 
 /* ── Plantilla Excel (S7 U6) ───────────────────────────────────────────── */

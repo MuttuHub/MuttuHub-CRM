@@ -116,6 +116,21 @@ function ultimaMedicion(mediciones: readonly MedicionInput[], corte: IsoDate): M
   return vivas.length === 0 ? null : vivas[vivas.length - 1]
 }
 
+/** `2026-09-30` -> `30 sept 2026` (es-CO, calendar date read in UTC so it never shifts a day). */
+function fechaLegible(iso: IsoDate): string {
+  const [year, month, day] = iso.split("-").map(Number)
+  if (!year || !month || !day) return iso
+  return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString("es-CO", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  })
+}
+
+/** Free text goes before a colon: drop its own trailing period so it never reads "Compra.:". */
+const sinPuntoFinal = (texto: string): string => texto.replace(/[.\s]+$/, "")
+
 const etiquetaRubro = (rubro: AtencionRubroInput): string =>
   rubro.codigo ? `${rubro.codigo} ${rubro.nombre}` : rubro.nombre
 
@@ -123,7 +138,7 @@ function detalleGasto(gasto: AtencionGastoInput): string {
   const motivos: string[] = []
   if (gasto.alerta_sobregasto) motivos.push("supera lo asignado al rubro")
   if (gasto.datos_incompletos) motivos.push("datos del tercero incompletos")
-  return `${gasto.descripcion}: ${motivos.join(" y ")}.`
+  return `${sinPuntoFinal(gasto.descripcion)}: ${motivos.join(" y ")}.`
 }
 
 /**
@@ -165,7 +180,7 @@ export function construirAtencion(input: AtencionInput): AtencionItem[] {
       items.push({
         tipo: "actividad_atrasada",
         titulo: ATENCION_TITULO.actividad_atrasada,
-        detalle: `${actividad.codigo} ${actividad.nombre}: vencida el ${actividad.fin} con avance ${nf.format(progreso * 100)} %.`,
+        detalle: `${actividad.codigo} ${sinPuntoFinal(actividad.nombre)}: vencida el ${fechaLegible(actividad.fin)} con avance ${nf.format(progreso * 100)} %.`,
         actividad_id: actividad.id,
       })
     }
@@ -176,7 +191,7 @@ export function construirAtencion(input: AtencionInput): AtencionItem[] {
       items.push({
         tipo: "avance_sin_soporte",
         titulo: ATENCION_TITULO.avance_sin_soporte,
-        detalle: `Avance del ${avance.fecha} sin soporte adjunto.`,
+        detalle: `Avance del ${fechaLegible(avance.fecha)} sin soporte adjunto.`,
         avance_id: avance.id,
       })
     }

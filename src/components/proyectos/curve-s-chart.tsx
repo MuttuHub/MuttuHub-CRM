@@ -31,6 +31,11 @@ function formatPct(value: number): string {
   return `${PCT.format(value)} %`;
 }
 
+/** Signed difference in percentage points: `3.1` -> `"+3,1 pp"`, `-4` -> `"-4 pp"`. */
+function formatPp(value: number): string {
+  return `${value > 0 ? "+" : ""}${PCT.format(value)} pp`;
+}
+
 /** `"2026-08"` -> `"ago 2026"`. */
 function formatPeriodo(periodo: string): string {
   const mes = MESES_CORTOS[Number(periodo.slice(5, 7)) - 1] ?? periodo.slice(5, 7);
@@ -211,12 +216,13 @@ function CurvaPanel({
 
 function CurvaMensualTable({ puntos, corte }: { puntos: readonly ProjectCurvePoint[]; corte: string }) {
   return (
-    <Table data-testid="curve-s-tabla" className="min-w-[460px]">
+    <Table data-testid="curve-s-tabla" className="min-w-[540px]">
       <TableHeader>
         <TableRow>
           <TableHead>Periodo</TableHead>
           <TableHead numeric>Téc. plan</TableHead>
           <TableHead numeric>Téc. ejec</TableHead>
+          <TableHead numeric>Dif.</TableHead>
           <TableHead numeric>Fin. plan</TableHead>
           <TableHead numeric>Fin. ejec</TableHead>
         </TableRow>
@@ -227,6 +233,9 @@ function CurvaMensualTable({ puntos, corte }: { puntos: readonly ProjectCurvePoi
             <TableCell>{p.periodo === corte ? `${formatPeriodo(p.periodo)} (al corte)` : formatPeriodo(p.periodo)}</TableCell>
             <TableCell numeric>{formatPct(p.tecnico.planeado)}</TableCell>
             <TableCell numeric>{p.tecnico.ejecutado === null ? "—" : formatPct(p.tecnico.ejecutado)}</TableCell>
+            <TableCell numeric>
+              {p.tecnico.ejecutado === null ? "—" : formatPp(p.tecnico.ejecutado - p.tecnico.planeado)}
+            </TableCell>
             <TableCell numeric>{formatPct(p.financiero.planeado)}</TableCell>
             <TableCell numeric>{p.financiero.ejecutado === null ? "—" : formatPct(p.financiero.ejecutado)}</TableCell>
           </TableRow>

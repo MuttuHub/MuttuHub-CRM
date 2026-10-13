@@ -92,6 +92,14 @@ describe("construirAtencion", () => {
       expect(items[0]).toMatchObject({ avance_id: "av1", titulo: "Avance sin soporte" })
     })
 
+    it("writes the avance date as a readable calendar date, never ISO", () => {
+      const items = construirAtencion(
+        input({ avances: [{ id: "av1", entregable_id: "e1", fecha: "2026-02-10", tiene_soporte: false }] }),
+      )
+      expect(items[0].detalle).toMatch(/^Avance del 10 (de )?feb(\.)?( de)? 2026 sin soporte adjunto\.$/)
+      expect(items[0].detalle).not.toMatch(/\d{4}-\d{2}-\d{2}/)
+    })
+
     it("ignores an avance with a support", () => {
       const items = construirAtencion(
         input({ avances: [{ id: "av1", entregable_id: "e1", fecha: "2026-02-10", tiene_soporte: true }] }),
@@ -145,6 +153,12 @@ describe("construirAtencion", () => {
     it("flags a REGISTRADO expense with the overspend alert or incomplete data", () => {
       expect(tipos(construirAtencion(input({ gastos: [gasto({ alerta_sobregasto: true })] })))).toEqual(["gasto_observado"])
       expect(tipos(construirAtencion(input({ gastos: [gasto({ datos_incompletos: true })] })))).toEqual(["gasto_observado"])
+    })
+
+    it("does not leave a '.:' when the description already ends with a period", () => {
+      const [item] = construirAtencion(input({ gastos: [gasto({ alerta_sobregasto: true, descripcion: "Compra de insumos." })] }))
+      expect(item.detalle).toBe("Compra de insumos: supera lo asignado al rubro.")
+      expect(item.detalle).not.toContain(".:")
     })
 
     it("ignores validated, rejected or voided expenses, and a clean REGISTRADO", () => {

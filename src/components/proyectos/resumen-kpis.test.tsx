@@ -49,6 +49,20 @@ afterEach(() => vi.unstubAllGlobals())
 const card = (id: string) => screen.findByTestId(`resumen-kpi-${id}`)
 
 describe("ResumenKpis", () => {
+  it("uses the singular when there is exactly one activity or indicator", async () => {
+    fetchMock.mockResolvedValue(
+      json({
+        ...KPIS,
+        cronograma: { ...KPIS.cronograma!, vencidas: 1, a_tiempo: 1, atrasadas: 0 },
+        indicadores: { ...KPIS.indicadores!, medidos: 1, en_meta: 1, sin_medir: 0, sin_medir_ids: [] },
+      }),
+    )
+    render(<ResumenKpis proyecto={{ id: "p1", estado: "EN_EJECUCION" }} />, { wrapper })
+
+    expect(await card("cronograma")).toHaveTextContent("1 de 1 actividad a tiempo")
+    expect(await card("indicadores")).toHaveTextContent("1 de 1 indicador en meta")
+  })
+
   it("renders the six cards with the server values and hints", async () => {
     fetchMock.mockResolvedValue(json(KPIS))
     render(<ResumenKpis proyecto={{ id: "p1", estado: "EN_EJECUCION" }} />, { wrapper })

@@ -7,6 +7,7 @@
 
 "use client";
 
+import { esMedible } from "@/lib/proyectos/kpis";
 import { useMemo, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProgressBar } from "@/components/ui/progress-bar";
@@ -50,9 +51,12 @@ export function EstructuraObjetivos({
 
   const rollups = useMemo(() => {
     const porCodigo = new Map<string, ProjectTechnicalObjective>();
-    for (const objetivo of status.data?.objetivos ?? []) porCodigo.set(objetivo.codigo, objetivo);
+    // A project outside execution is not measurable: no accumulated progress and no semáforo to show.
+    if (esMedible(proyecto.estado)) {
+      for (const objetivo of status.data?.objetivos ?? []) porCodigo.set(objetivo.codigo, objetivo);
+    }
     return porCodigo;
-  }, [status.data]);
+  }, [status.data, proyecto.estado]);
 
   if (query.isError) return <InlineError message={errorMessage(query.error, LOAD_ERROR)} className="mt-1.5" />;
   if (!query.data) {

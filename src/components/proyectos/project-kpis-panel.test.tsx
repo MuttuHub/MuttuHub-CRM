@@ -109,7 +109,7 @@ describe("ProjectKpisPanel", () => {
     fetchMock.mockResolvedValue(jsonResponse({ ...KPIS, beneficiarios: { ...KPIS.beneficiarios, valor: null, meta: null } }))
     renderPanel()
     expect(await screen.findByTestId("kpi-cronograma")).toHaveTextContent("80 %")
-    expect(screen.getByTestId("kpi-cronograma")).toHaveTextContent("4 a tiempo de 5 vencidas")
+    expect(screen.getByTestId("kpi-cronograma")).toHaveTextContent("4 de 5 actividades a tiempo")
     expect(screen.getByTestId("kpi-entregables")).toHaveTextContent("3 de 10 programados")
     expect(screen.getByTestId("kpi-indicadores")).toHaveTextContent("2 sin medir")
     expect(screen.getByTestId("kpi-beneficiarios")).toHaveTextContent("—")

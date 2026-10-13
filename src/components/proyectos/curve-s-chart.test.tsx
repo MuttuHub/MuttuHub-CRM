@@ -84,7 +84,7 @@ describe("CurveSChart", () => {
     const ultima = filas[5];
     expect(ultima).toHaveTextContent("dic 2026");
     // After the corte there is no execution: the cell is an em dash, never a zero.
-    expect(within(ultima).getAllByText("—")).toHaveLength(2);
+    expect(within(ultima).getAllByText("—")).toHaveLength(3);
   });
 
   it("labels the corte month 'al corte' in the legend and the monthly table (D13)", () => {

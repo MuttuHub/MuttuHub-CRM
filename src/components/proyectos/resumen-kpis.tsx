@@ -139,7 +139,7 @@ function Cards({ kpis }: { kpis: ProjectKpis }) {
           hint={
             cronograma.vencidas === 0
               ? "Sin actividades vencidas al corte"
-              : `${cronograma.a_tiempo} de ${cronograma.vencidas} actividades a tiempo`
+              : `${cronograma.a_tiempo} de ${cronograma.vencidas} ${cronograma.vencidas === 1 ? "actividad a tiempo" : "actividades a tiempo"}`
           }
         />
         <Card
@@ -149,7 +149,7 @@ function Cards({ kpis }: { kpis: ProjectKpis }) {
           hint={
             totalIndicadores === 0
               ? "Sin indicadores definidos"
-              : `${indicadores.en_meta} de ${totalIndicadores} indicadores en meta`
+              : `${indicadores.en_meta} de ${totalIndicadores} ${totalIndicadores === 1 ? "indicador en meta" : "indicadores en meta"}`
           }
         />
         <Card
