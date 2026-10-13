@@ -10,7 +10,13 @@
 
 "use client";
 
+import { ProgressBar } from "@/components/ui/progress-bar";
 import { cn } from "@/lib/utils";
+
+/** A polygon needs at least 3 vertices; below that the series is drawn as bars. */
+const MIN_EJES_RADAR = 3;
+
+const PCT = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 1 });
 
 const CX = 100;
 const CY = 100;
@@ -63,6 +69,33 @@ export function Radar({ axes, label = "Cumplimiento de indicadores", className }
     );
   }
 
+  // One or two axes collapse the polygon into a dot or a line: show readable bars instead.
+  if (axes.length < MIN_EJES_RADAR) {
+    return (
+      <div
+        data-testid="radar-barras"
+        role="group"
+        aria-label={label}
+        className={cn("flex w-full flex-col gap-2.5", className)}
+      >
+        {axes.map((a) => {
+          const valor = Math.min(100, Math.max(0, Number.isFinite(a.value) ? a.value : 0));
+          return (
+            <div key={a.label} data-testid="radar-barra" className="flex flex-col gap-1">
+              <div className="flex items-center justify-between gap-2 text-[12.5px]">
+                <span className="truncate text-ink-700" title={a.label}>
+                  {a.label}
+                </span>
+                <span className="shrink-0 font-mono tabular-nums text-ink-800">{`${PCT.format(valor)} %`}</span>
+              </div>
+              <ProgressBar aria-label={`${a.label}: ${PCT.format(valor)} %`} value={valor} />
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   const n = axes.length;
   const points = axes.map((a, i) => point(i, n, a.value));
   const polygon = points.map(([x, y]) => `${x},${y}`).join(" ");
@@ -78,18 +111,17 @@ export function Radar({ axes, label = "Cumplimiento de indicadores", className }
       >
         <title>{label}</title>
 
-        {/* Anillos de referencia (solo con 3+ ejes: un polígono de <3 puntos es degenerado) */}
-        {n >= 3 &&
-          [0.25, 0.5, 0.75, 1].map((f) => (
-            <polygon
-              key={f}
-              data-testid="radar-anillo"
-              points={axes.map((_, i) => ringPoint(i, n, f)).join(" ")}
-              fill="none"
-              strokeWidth={1}
-              className="stroke-ink-200"
-            />
-          ))}
+        {/* Anillos de referencia */}
+        {[0.25, 0.5, 0.75, 1].map((f) => (
+          <polygon
+            key={f}
+            data-testid="radar-anillo"
+            points={axes.map((_, i) => ringPoint(i, n, f)).join(" ")}
+            fill="none"
+            strokeWidth={1}
+            className="stroke-ink-200"
+          />
+        ))}
 
         {/* Ejes (uno por dimensión) */}
         {axes.map((a, i) => {

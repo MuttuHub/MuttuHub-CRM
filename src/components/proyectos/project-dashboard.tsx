@@ -416,6 +416,13 @@ function TableroGerencial({ data }: { data: PortafolioData }) {
     .filter((linea) => linea.indicadores.valor !== null)
     .map((linea) => ({ label: linea.linea?.nombre ?? "Sin línea", value: linea.indicadores.valor as number }));
 
+  // Below 3 measured lines the radar draws bars that already carry name and value, so
+  // the legend only adds the lines without a measure; with a real radar it lists them all.
+  const radarConBarras = axes.length < 3;
+  const leyenda = radarConBarras
+    ? agregado.por_linea.filter((linea) => linea.indicadores.valor === null)
+    : agregado.por_linea;
+
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
       <Tarjeta testId="tablero-tacometro" titulo="Avance técnico">
@@ -446,16 +453,18 @@ function TableroGerencial({ data }: { data: PortafolioData }) {
 
       <Tarjeta testId="tablero-radar" titulo="Indicadores por línea estratégica">
         <Radar axes={axes} label="Cumplimiento de indicadores por línea estratégica" />
-        <ul data-testid="tablero-radar-leyenda" className="flex flex-col gap-1">
-          {agregado.por_linea.map((linea, index) => (
-            <li key={linea.linea?.id ?? `sin-linea-${index}`} className="flex items-center justify-between gap-2 text-[12.5px]">
-              <span className="truncate text-ink-600">{linea.linea?.nombre ?? "Sin línea"}</span>
-              <span className="shrink-0 font-mono tabular-nums text-ink-800">
-                {linea.indicadores.valor === null ? "Sin medir" : formatPct(linea.indicadores.valor)}
-              </span>
-            </li>
-          ))}
-        </ul>
+        {leyenda.length > 0 && (
+          <ul data-testid="tablero-radar-leyenda" className="flex flex-col gap-1">
+            {leyenda.map((linea, index) => (
+              <li key={linea.linea?.id ?? `sin-linea-${index}`} className="flex items-center justify-between gap-2 text-[12.5px]">
+                <span className="truncate text-ink-600">{linea.linea?.nombre ?? "Sin línea"}</span>
+                <span className="shrink-0 font-mono tabular-nums text-ink-800">
+                  {linea.indicadores.valor === null ? "Sin medir" : formatPct(linea.indicadores.valor)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </Tarjeta>
 
       <Tarjeta testId="tablero-cronograma" titulo="Cumplimiento del cronograma">

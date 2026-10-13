@@ -362,15 +362,39 @@ describe("ProjectDashboard: Tablero gerencial (S14 P9)", () => {
     expect(within(gauge).getByTestId("tacometro-aguja")).toHaveAttribute("data-color", "rojo")
   })
 
-  it("plots one radar spoke per measured line and lists every line, measured or not", () => {
+  it("falls back to bars below three measured lines and lists only the unmeasured ones in the legend", () => {
     const { container } = render(<ProjectDashboard />)
     const radar = screen.getByTestId("tablero-radar")
-    expect(within(radar).getAllByTestId("radar-eje")).toHaveLength(1)
+    // One measured strategic line: no degenerate polygon, a labelled bar instead.
+    expect(within(radar).queryByTestId("radar-eje")).not.toBeInTheDocument()
+    expect(within(radar).getByTestId("radar-barras")).toBeInTheDocument()
+    expect(within(radar).getByRole("progressbar", { name: /Educación/ })).toHaveAttribute("aria-valuenow", "80")
+    expect(within(radar).getByText("80 %")).toBeInTheDocument()
+    // The legend no longer repeats the measured line; it still lists the unmeasured one.
     const leyenda = screen.getByTestId("tablero-radar-leyenda")
-    expect(within(leyenda).getByText("Educación")).toBeInTheDocument()
+    expect(within(leyenda).queryByText("Educación")).not.toBeInTheDocument()
     expect(within(leyenda).getByText("Sin línea")).toBeInTheDocument()
-    expect(within(leyenda).getByText("80 %")).toBeInTheDocument()
     expect(container.textContent).toContain("Sin medir")
+  })
+
+  it("plots the radar and lists every line in the legend with three or more measured lines", () => {
+    const base = PORTAFOLIO.agregado.por_linea[0]
+    const lineas = ["l1", "l2", "l3"].map((id, i) => ({
+      ...base,
+      linea: { id, codigo: `LE0${i}`, nombre: `Línea ${i}` },
+      indicadores: { valor: 40 + i * 10, medidos: 1, en_meta: 1 },
+    }))
+    state.query = {
+      ...state.query,
+      data: { ...PORTAFOLIO, agregado: { ...PORTAFOLIO.agregado, por_linea: lineas } },
+    }
+    render(<ProjectDashboard />)
+    const radar = screen.getByTestId("tablero-radar")
+    expect(within(radar).getAllByTestId("radar-eje")).toHaveLength(3)
+    expect(within(radar).queryByTestId("radar-barras")).not.toBeInTheDocument()
+    const leyenda = screen.getByTestId("tablero-radar-leyenda")
+    expect(within(leyenda).getByText("Línea 2")).toBeInTheDocument()
+    expect(within(leyenda).getByText("60 %")).toBeInTheDocument()
   })
 
   it("bars the cronograma and the entregables per project with the server values", () => {
