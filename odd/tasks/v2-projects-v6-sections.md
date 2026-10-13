@@ -139,8 +139,25 @@ worktrees for non-suffix candidates, as in S13).
 
 All nine units (P1-P9) are implemented, committed locally and green (**full suite 320 files / 3364 tests**). Nothing was pushed and no PR exists.
 
+UPDATE 2026-10-13 (Claude Code session): the independent read-only verification is DONE (see Progress, `1c3f9ca`) and the SCREENSHOT verification is DONE (66 PNGs, both themes, 1440 and 390, PRY-2026-001 and
+PRY-2026-002, the Portafolio, the 8 tabs, the coordinador Gastos view and the gerencial Tablero; the worker viewed all but one; the parent re-verified the two worst findings by reading the code and viewing the
+shots). The numbers agree with the API (Resumen cards, curve end point, gauge value, financial totals) and there are no console errors or HTTP >= 400 responses. Defects found (evidence PNGs in the session
+scratchpad `uiafter-s14/`):
+- MAJOR: `tacometro.tsx:52` `large = hasta - desde > 50 ? 1 : 0` draws any band longer than 50 the long way round (the red 27.5-100 band): the Presupuesto gauge arc overflows its panel and covers the Corte/Base selects.
+- MAJOR: the gerencial Tablero overflows horizontally at 390 px (scrollWidth 717 vs 390; wide filter selects, territory table); the Radar with ONE strategic line renders as a vertical line and a dot.
+- MAJOR at 390: the Cronograma table crops its columns (% real, semáforo, soporte) inside its card; the page h1 ("Proyectos") is clipped by the header buttons (also seen in S13 baselines for Reportes/Documentos).
+- MINOR: "1 de 1 actividades a tiempo" / "1 a tiempo de 1 vencidas" (`resumen-kpis.tsx:~142`, `project-kpis-panel.tsx:~147`); the attention list shows an ISO date and ".:" punctuation; the Avance tab still ends
+  with the old KPI block (duplicates the Resumen cards); a BORRADOR project shows "Semáforo: Amarillo/Rojo" in Metas and Cronograma; Gastos money KPIs wrap at 390; the Tablero gauge needle overlaps its value;
+  curve semantics: the planned technical value of the corte month is evaluated at month end (69.4 %) while the executed dot and the KPI plan are at the corte (32.1 % vs 18.4 %), so the curve looks like a large gap
+  while the semáforo is Verde; the Gantt has no fill/colour/corte line; Metas indicator rows are plain text; the Cambios tab is very tall. With ONE month of demo data the curve reads as intended (a dot plus a dashed plan).
+Fix plan (all inside the S14 surfaces; strict test-first; a NEW geometry assertion for the gauge so the test is not hollow): F1 charts (gauge arc and needle, radar fallback to bars below 3 axes, D13: the planned
+value of the corte month is evaluated at the corte); F2 responsive 390 (Tablero overflow, Cronograma mobile cards, shell header title, Gastos KPI wrap); F3 copy and polish (singular/plural, attention text,
+duplicate Avance block, draft semáforos). Deferred (needs design or product input): Gantt fill/colour/corte line, Metas indicator bars, Cambios length, portfolio-aggregated curve.
+D13 (decision taken by the parent, to be confirmed by the user): for the month that contains the corte, the planned technical value is evaluated at the corte date (consistent with the KPI and the semáforo);
+past months and future months keep the month-end rule of D1.
+
 Pending, in order:
-1. **Screenshots** in light and dark (1440 and 390) against the v6 design shots — the writers had no browser access; needs the running Windows dev server.
-2. **Independent read-only verification** of the S14 slice (the in-runtime substitute for the native review; the S7 sessions show it finds real defects).
+1. **Fixes F1-F3** from the screenshot verification, then a re-run of the screenshots.
+2. **Native review** of the whole S14 slice (see below), after the fixes.
 3. **Native review** of P1-P9 as small candidates — must run in Claude Code (OpenCode is ineligible for immutable receipt review).
 4. Optional: the portfolio-level aggregated S-curve; per-rubro financial curve; the PO's unconfirmed business thresholds (umbral amarillo, "En curso" colour).
