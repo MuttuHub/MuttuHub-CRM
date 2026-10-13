@@ -15,14 +15,14 @@ import { formatCOP, toCents } from "@/lib/proyectos/money";
 
 export const GASTOS_ERROR = "No pudimos cargar los gastos. Inténtalo de nuevo.";
 
-const GRID = "grid grid-cols-2 gap-3 lg:grid-cols-5";
+const GRID = "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5";
 const TILE = "surface p-4 lg:p-5";
 const CERO = { cantidad: 0, valor: "0.00" };
 const numero = new Intl.NumberFormat("es-CO");
 
 /** Compacto con el monto exacto en `title` (el decimal llega como string y se opera en centavos). */
 function Dinero({ cents }: { cents: bigint }) {
-  return <span title={formatCOP(cents)}>{formatMillones(cents)}</span>;
+  return <span className="whitespace-nowrap" title={formatCOP(cents)}>{formatMillones(cents)}</span>;
 }
 
 export function GastosKpis({

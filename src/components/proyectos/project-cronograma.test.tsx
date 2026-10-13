@@ -185,6 +185,24 @@ describe("ProjectCronograma", () => {
     expect(act2).toHaveTextContent("Sin soporte")
   })
 
+  it("renders a stacked card per activity below md and keeps the table from md up", async () => {
+    setup()
+
+    const tabla = await screen.findByTestId("cronograma-tabla")
+    expect(tabla.closest("[data-testid='cronograma-tabla-md']")).toHaveClass("hidden", "md:block")
+
+    const lista = screen.getByTestId("cronograma-tarjetas")
+    expect(lista).toHaveClass("md:hidden")
+    const tarjetas = within(lista).getAllByTestId("cronograma-tarjeta")
+    expect(tarjetas).toHaveLength(3)
+    expect(tarjetas[0]).toHaveTextContent("ACT-1")
+    expect(tarjetas[0]).toHaveTextContent("% plan")
+    expect(tarjetas[0]).toHaveTextContent("60 %")
+    expect(within(tarjetas[0]).getByText("Amarillo")).toBeInTheDocument()
+    expect(tarjetas[0]).toHaveTextContent("Con soporte")
+    expect(tarjetas[1]).toHaveTextContent("Sin soporte")
+  })
+
   it("is read-only: it offers no edit controls or forms", async () => {
     setup()
 

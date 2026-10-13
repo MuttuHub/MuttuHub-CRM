@@ -109,7 +109,7 @@ export function Header({ initialUser }: { initialUser?: CurrentUser | null }) {
           <div className="min-w-0" />
         ) : (
           <div className="min-w-0">
-            <h1 className="font-display text-[31px] leading-none tracking-[-0.03em] font-extrabold text-ink-950 lg:text-[34px]">
+            <h1 className="font-display text-[26px] leading-none tracking-[-0.03em] font-extrabold text-ink-950 sm:text-[31px] lg:text-[34px]">
               {title}
             </h1>
             <p className="mt-2 text-[14px] text-ink-600">{subtitle}</p>
@@ -117,7 +117,7 @@ export function Header({ initialUser }: { initialUser?: CurrentUser | null }) {
         )}
       </div>
 
-      <div className="flex shrink-0 items-center gap-2.5">
+      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
         {rangoActivo && (
           <DropdownMenu>
             <DropdownMenuTrigger

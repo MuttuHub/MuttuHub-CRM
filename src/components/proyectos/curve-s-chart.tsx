@@ -71,7 +71,7 @@ export function CurveSChart({ curva }: { curva: ProjectCurve | null }) {
   const puntos = curva?.periodos ?? [];
 
   return (
-    <section data-testid="curve-s-chart" className="mt-2 flex flex-col gap-3">
+    <section data-testid="curve-s-chart" className="mt-2 flex min-w-0 flex-col gap-3">
       <SectionHeader icon={<TrendingUp className="size-3.5" strokeWidth={2} />}>Curva S</SectionHeader>
 
       {!curva || puntos.length === 0 ? (
@@ -211,7 +211,7 @@ function CurvaPanel({
 
 function CurvaMensualTable({ puntos, corte }: { puntos: readonly ProjectCurvePoint[]; corte: string }) {
   return (
-    <Table data-testid="curve-s-tabla">
+    <Table data-testid="curve-s-tabla" className="min-w-[460px]">
       <TableHeader>
         <TableRow>
           <TableHead>Periodo</TableHead>

@@ -6,6 +6,7 @@
 
 "use client";
 
+import type * as React from "react";
 import { CalendarDays } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
@@ -69,7 +70,11 @@ export function ProjectCronograma({ proyecto }: { proyecto: ProjectListRow }) {
       ) : query.data.actividades.length === 0 ? (
         <EmptyBlock>Este proyecto todavía no tiene actividades.</EmptyBlock>
       ) : (
-        <div className="mt-2 overflow-x-auto rounded-inner border border-border bg-panel">
+        <>
+        <div
+          data-testid="cronograma-tabla-md"
+          className="mt-2 hidden min-w-0 overflow-x-auto rounded-inner border border-border bg-panel md:block"
+        >
           <Table data-testid="cronograma-tabla" className="w-full text-[12.5px]">
             <TableHeader>
               <TableRow>
@@ -107,7 +112,54 @@ export function ProjectCronograma({ proyecto }: { proyecto: ProjectListRow }) {
             ))}
           </Table>
         </div>
+        <CronogramaTarjetas grupos={agruparPorObjetivo(query.data.actividades)} />
+        </>
       )}
     </section>
+  );
+}
+
+/** Stacked layout below md: one card per activity so no column is cropped on a phone. */
+function CronogramaTarjetas({ grupos }: { grupos: ObjetivoGrupo[] }) {
+  return (
+    <div data-testid="cronograma-tarjetas" className="mt-2 flex min-w-0 flex-col gap-3 md:hidden">
+      {grupos.map((grupo) => (
+        <section key={grupo.codigo} className="flex min-w-0 flex-col gap-2">
+          <h4 className="text-[12px] font-semibold text-ink-600">Objetivo {grupo.codigo}</h4>
+          <ul className="flex flex-col gap-2">
+            {grupo.actividades.map((actividad) => (
+              <li
+                key={actividad.id}
+                data-testid="cronograma-tarjeta"
+                className="surface-inner flex min-w-0 flex-col gap-2 p-3 text-[12.5px]"
+              >
+                <p className="text-ink-800">
+                  <span className="font-mono text-[11.5px] text-ink-500">{actividad.codigo}</span>{" "}
+                  {actividad.nombre}
+                </p>
+                <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
+                  <Dato label="Días">{actividad.dias}</Dato>
+                  <Dato label="% plan">{formatPct(actividad.programado)}</Dato>
+                  <Dato label="% real">{formatPct(actividad.progreso)}</Dato>
+                  <Dato label="Soporte">{actividad.sin_soporte ? "Sin soporte" : "Con soporte"}</Dato>
+                </dl>
+                <div>
+                  <SemaforoChip color={actividad.color} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function Dato({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <dt className="text-ink-500">{label}</dt>
+      <dd className="font-mono tabular-nums text-ink-800">{children}</dd>
+    </div>
   );
 }

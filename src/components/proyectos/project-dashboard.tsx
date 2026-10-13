@@ -102,7 +102,7 @@ export function ProjectDashboard() {
     <div className="flex min-w-0 flex-col gap-4" data-testid="tablero">
       <section className="surface">
         <header className="flex flex-wrap items-end justify-between gap-3 border-b border-ink-200 p-4 lg:p-5">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="grid w-full grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:flex lg:w-auto lg:flex-wrap lg:items-center">
             <Filtro label="Estado">
               <select aria-label="Estado" value={valores.estado} onChange={set("estado")} className={SELECT_CLASS}>
                 <option value="">Todos</option>
@@ -157,7 +157,7 @@ export function ProjectDashboard() {
               <input type="date" aria-label="Corte" value={valores.corte} onChange={set("corte")} className={SELECT_CLASS} />
             </Filtro>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {data && !data.confirmado && <ToneBadge tone="neutro" label="No confirmado" />}
             <Button size="lg" variant="outline" onClick={() => void exportar()}>
               <Download className="size-4" />
@@ -187,7 +187,7 @@ export function ProjectDashboard() {
 
 function Filtro({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex flex-col gap-1 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+    <label className="flex min-w-0 flex-col gap-1 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
       {label}
       {children}
     </label>
@@ -518,7 +518,7 @@ function Tarjeta({
   children: React.ReactNode;
 }) {
   return (
-    <section data-testid={testId} className={cn("surface flex flex-col gap-3 p-4 lg:p-5", className)}>
+    <section data-testid={testId} className={cn("surface flex min-w-0 flex-col gap-3 p-4 lg:p-5", className)}>
       <h3 className="text-[13px] font-semibold text-ink-700">{titulo}</h3>
       {children}
     </section>
@@ -566,7 +566,7 @@ function Territorio({ proyectos, lista }: { proyectos: PortfolioProject[]; lista
   );
 
   return (
-    <section data-testid="tablero-territorio" className="surface overflow-hidden">
+    <section data-testid="tablero-territorio" className="surface min-w-0 overflow-hidden">
       <h3 className="p-4 text-[13px] font-semibold text-ink-700 lg:p-5">Semaforización territorial</h3>
       {filas.length === 0 ? (
         <p className="px-4 pb-4 text-[12.5px] text-ink-500 lg:px-5 lg:pb-5">Ningún proyecto visible tiene territorio asignado.</p>
