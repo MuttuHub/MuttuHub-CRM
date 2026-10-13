@@ -161,3 +161,9 @@ Pending, in order:
 2. **Native review** of the whole S14 slice (see below), after the fixes.
 3. **Native review** of P1-P9 as small candidates — must run in Claude Code (OpenCode is ineligible for immutable receipt review).
 4. Optional: the portfolio-level aggregated S-curve; per-rubro financial curve; the PO's unconfirmed business thresholds (umbral amarillo, "En curso" colour).
+
+## F1 done (2026-10-13)
+
+Commits on `feat/projects-v2`: `ca68b78` (gauge arc flag fixed to 0, needle clear of the value), `02a15e8` (radar falls back to bars below 3 axes), `6de46a1` (D13: planned technical value of the corte month evaluated at the corte), `862dd9c` (more room between the gauge hub and its value).
+Parent verification: gauge/radar/curve tests + the four S13 guards: 8 files / 72 tests pass; `tsc` 0 errors; visual check of the Presupuesto tab (light + dark, 1440): the gauge draws the upper semicircle with its three bands, the value sits under the hub.
+Next: F2 (responsive 390), then F3 (copy/polish), then re-shoot and native review in small candidates.
