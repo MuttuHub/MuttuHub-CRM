@@ -48,8 +48,8 @@ describe("subscoreContacto", () => {
     expect(subscoreContacto(74)).toBe(21.3)
   })
 
-  it("treats no entries (null) as 0 — an available worst-case signal, never unavailable", () => {
-    expect(subscoreContacto(null)).toBe(0)
+  it("is unavailable (null) when the client has no entries at all", () => {
+    expect(subscoreContacto(null)).toBeNull()
   })
 })
 
@@ -206,16 +206,41 @@ describe("calcularSalud — composition and motivo", () => {
     expect(result.motivo).toBe(MOTIVO_SIN_RIESGO)
   })
 
-  it("puts a client with no bitacora and no project at contacto 0 (RIESGO), not SIN_DATOS", () => {
+  it("puts a client with no entries at all and nothing else in SIN_DATOS, not RIESGO", () => {
     const result = calcularSalud({
       diasUltimaInteraccion: null,
       compromisos: null,
       proyectosColores: [],
     })
+    expect(result.subscores.contacto).toBeNull()
+    expect(result.score).toBeNull()
+    expect(result.bucket).toBe("SIN_DATOS")
+    expect(result.motivo).toBe(MOTIVO_SIN_DATOS)
+  })
+
+  it("keeps contacto 0 (a real RIESGO) when the last entry is older than 90 days", () => {
+    const result = calcularSalud({
+      diasUltimaInteraccion: 200,
+      compromisos: null,
+      proyectosColores: [],
+    })
+    // An entry exists, so contacto is available and floored at 0 — not SIN_DATOS.
     expect(result.subscores.contacto).toBe(0)
     expect(result.score).toBe(0)
     expect(result.bucket).toBe("RIESGO")
-    expect(result.motivo).toBe("Sin interacciones registradas")
+    expect(result.motivo).toBe("Sin interacciones hace 200 días")
+  })
+
+  it("judges a client with no entries by its measurable project", () => {
+    const result = calcularSalud({
+      diasUltimaInteraccion: null,
+      compromisos: null,
+      proyectosColores: ["rojo"],
+    })
+    expect(result.subscores).toEqual({ contacto: null, compromisos: null, proyectos: 20 })
+    expect(result.score).toBe(20)
+    expect(result.bucket).toBe("RIESGO")
+    expect(result.motivo).toBe("Proyectos en rojo")
   })
 })
 

@@ -212,4 +212,57 @@ describe("GET /api/v1/clients/health", () => {
       estado: { notIn: ["CERRADO", "CANCELADO"] },
     });
   });
+
+  it("sorts SIN_DATOS last and counts it apart from RIESGO", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findMany).mockResolvedValue([
+      { id: "cli-sin", nombre: "Aliado Sin Datos" },
+      { id: "cli-riesgo", nombre: "Aliado En Riesgo" },
+    ] as never);
+    // Neither client has a bitácora entry, so Contacto is unavailable for both.
+    vi.mocked(db.bitacoraEntrada.groupBy).mockResolvedValue([]);
+    vi.mocked(db.proyecto.findMany).mockResolvedValue([
+      {
+        id: "proj-1",
+        cliente_id: "cli-riesgo",
+        estado: "EN_EJECUCION",
+        fecha_inicio: new Date("2026-01-01"),
+        fecha_fin: new Date("2026-06-01"),
+        beneficiarios_meta: null,
+      },
+    ] as never);
+    vi.mocked(loadKpisPortafolio).mockResolvedValue(
+      new Map([["proj-1", { tecnico: { color: "rojo" } }]]) as never,
+    );
+
+    const res = await GET();
+    const json = await res.json();
+
+    // The client with a measurable (red) project is judged RIESGO; the one with
+    // no data at all is SIN_DATOS and sorts after it.
+    expect(
+      json.data.clientes.map((c: { cliente_id: string; bucket: string }) => [c.cliente_id, c.bucket]),
+    ).toEqual([
+      ["cli-riesgo", "RIESGO"],
+      ["cli-sin", "SIN_DATOS"],
+    ]);
+    expect(json.data.clientes[0]).toMatchObject({
+      score: 20,
+      subscores: { contacto: null, compromisos: null, proyectos: 20 },
+      motivo: "Proyectos en rojo",
+    });
+    expect(json.data.clientes[1]).toMatchObject({
+      score: null,
+      subscores: { contacto: null, compromisos: null, proyectos: null },
+      motivo: "Sin datos suficientes",
+    });
+    expect(json.data.cartera).toEqual({
+      sana: 0,
+      atencion: 0,
+      riesgo: 1,
+      sin_datos: 1,
+      total: 2,
+      promedio: 20,
+    });
+  });
 });

@@ -7,11 +7,11 @@
  * is not the same as "bad health". Every sub-score is rounded to one decimal so
  * the API contract is stable; the composed score is rounded the same way.
  *
- * `subscoreContacto` is deliberately ALWAYS available (0 when the client has no
- * bitácora entry), per the decided formula: a client you never contacted is bad
- * health, not missing data. `puntajeSalud`/`clasificarBucket`/`motivoSalud` are
- * written generically so the "no component available" path still yields
- * `null` + `SIN_DATOS` (never `RIESGO`) if that ever changes.
+ * A component is UNAVAILABLE (`null`) when the client has no signal for it:
+ * no bitácora entry at all (Contacto), no open dated task (Compromisos), no live
+ * project with a derivable semáforo (Proyectos). When none is available the
+ * score is `null` + `SIN_DATOS` — never `RIESGO`. An OLD entry (past the 90-day
+ * floor) is available and scores 0, so it is judged normally.
  */
 
 import type { ColorSemaforo } from "@/lib/proyectos/semaforo-v2"
@@ -82,11 +82,12 @@ const clamp = (value: number, min: number, max: number): number =>
 
 /**
  * Contact score: 100 up to `CONTACTO_DIAS_OPTIMO` days, 0 from
- * `CONTACTO_DIAS_LIMITE` on, linear in between. No entries (null) is 0 — an
- * available, worst-case signal, never "unavailable".
+ * `CONTACTO_DIAS_LIMITE` on, linear in between. No entries at all (null) is an
+ * UNAVAILABLE component — a client never contacted has no contact signal, so it
+ * is dropped and the remaining weights renormalised.
  */
-export function subscoreContacto(dias: number | null): number {
-  if (dias === null) return 0
+export function subscoreContacto(dias: number | null): number | null {
+  if (dias === null) return null
   if (dias <= CONTACTO_DIAS_OPTIMO) return 100
   if (dias >= CONTACTO_DIAS_LIMITE) return 0
   return round1(clamp((100 * (CONTACTO_DIAS_LIMITE - dias)) / 75, 0, 100))
@@ -175,8 +176,11 @@ export function motivoSalud(
     return motivoCompromisos(input.compromisos)
   }
   if (input.proyectosColores.includes("rojo")) return "Proyectos en rojo"
-  if (subscores.contacto !== null && subscores.contacto < UMBRAL_SANA) {
-    if (input.diasUltimaInteraccion === null) return "Sin interacciones registradas"
+  if (
+    subscores.contacto !== null &&
+    input.diasUltimaInteraccion !== null &&
+    subscores.contacto < UMBRAL_SANA
+  ) {
     return `Sin interacciones hace ${input.diasUltimaInteraccion} días`
   }
   if (
