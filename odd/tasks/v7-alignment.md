@@ -2,6 +2,7 @@
 
 Engram mirror topic: `odd/v7-alignment/tasks`. Created 2026-10-13. Branch: `feat/projects-v2`. Prototype: `Muttu Hub v7.dc.html`.
 Gap analysis: `odd/tasks/v7-gap-analysis.md` (v7 differs from v6 only by a light/dark theme system; no new screens, no in-app guides).
+Pending decisions and resume pointers (review runtime, guard coverage, screenshot passes, deferred units): `docs/pendientes/pendientes-v7-alignment-2026-10-13.md`.
 
 ## Objective
 Make Tablero, Proyectos and Clientes look like the v7 prototype (same or very close design) without breaking the backend contract. Clientes gets the
