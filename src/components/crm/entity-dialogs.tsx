@@ -41,6 +41,7 @@ import {
   useUpdateContacto,
   useUpdateOportunidad,
   useUpdateTarea,
+  useUsers,
   type Contacto,
   type Oportunidad,
   type OportunidadInput,
@@ -103,6 +104,22 @@ export function ConfirmDialog({
 
 /* ── Contacto ──────────────────────────────────────────────────────────── */
 
+/**
+ * The base-ui Select cannot carry an empty-string value, so "none" is the
+ * sentinel for "sin definir"; it maps back to `null` in the payload.
+ */
+const SIN_VALOR = "none";
+
+/** 1..5 options for the poder/interés axes (v7 C4b). */
+const NIVELES_PODER_INTERES = [1, 2, 3, 4, 5] as const;
+
+/** 1..3 options for fuerza_relacion, labelled so the value is not a bare number. */
+const NIVELES_FUERZA: readonly { value: string; label: string }[] = [
+  { value: "1", label: "Baja" },
+  { value: "2", label: "Media" },
+  { value: "3", label: "Alta" },
+];
+
 export type ContactoFormState = {
   nombre: string;
   cargo: string;
@@ -110,6 +127,11 @@ export type ContactoFormState = {
   telefono: string;
   rol_decision: RolContacto | "";
   notas: string;
+  /** v7 C4b: quadrant axes, strength and owner, kept as Select strings. */
+  poder: string;
+  interes: string;
+  fuerza_relacion: string;
+  owner_id: string;
 };
 
 export function ContactoFormDialog({
@@ -128,6 +150,9 @@ export function ContactoFormDialog({
   const updateMutation = useUpdateContacto(clientId, contacto?.id ?? "");
   const pending = isEdit ? updateMutation.isPending : createMutation.isPending;
 
+  const usersQuery = useUsers();
+  const users = usersQuery.data ?? [];
+
   const [form, setForm] = useState<ContactoFormState>({
     nombre: "",
     cargo: "",
@@ -135,6 +160,10 @@ export function ContactoFormDialog({
     telefono: "",
     rol_decision: "",
     notas: "",
+    poder: SIN_VALOR,
+    interes: SIN_VALOR,
+    fuerza_relacion: SIN_VALOR,
+    owner_id: SIN_VALOR,
   });
   const [error, setError] = useState<string | null>(null);
 
@@ -152,12 +181,36 @@ export function ContactoFormDialog({
           telefono: contacto.telefono ?? "",
           rol_decision: contacto.rol_decision ?? "",
           notas: contacto.notas ?? "",
+          poder: contacto.poder === null ? SIN_VALOR : String(contacto.poder),
+          interes: contacto.interes === null ? SIN_VALOR : String(contacto.interes),
+          fuerza_relacion:
+            contacto.fuerza_relacion === null ? SIN_VALOR : String(contacto.fuerza_relacion),
+          owner_id: contacto.owner_id ?? SIN_VALOR,
         });
       } else {
-        setForm({ nombre: "", cargo: "", correo: "", telefono: "", rol_decision: "", notas: "" });
+        setForm({
+          nombre: "",
+          cargo: "",
+          correo: "",
+          telefono: "",
+          rol_decision: "",
+          notas: "",
+          poder: SIN_VALOR,
+          interes: SIN_VALOR,
+          fuerza_relacion: SIN_VALOR,
+          owner_id: SIN_VALOR,
+        });
       }
     }
   }
+
+  // `users` only lists active users; if the assigned owner was deactivated the
+  // Select would fall back to the raw UUID, so the current owner is kept as an
+  // extra option (mirrors the client-sheet responsable fix).
+  const ownerOptions =
+    form.owner_id === SIN_VALOR || users.some((u) => u.id === form.owner_id)
+      ? users
+      : [...users, { id: form.owner_id, nombre: "Usuario no disponible" }];
 
   function set<K extends keyof ContactoFormState>(key: K, value: ContactoFormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -175,6 +228,10 @@ export function ContactoFormDialog({
       telefono: form.telefono.trim() || null,
       rol_decision: form.rol_decision ? (form.rol_decision as RolContacto) : null,
       notas: form.notas.trim() || null,
+      poder: form.poder === SIN_VALOR ? null : Number(form.poder),
+      interes: form.interes === SIN_VALOR ? null : Number(form.interes),
+      fuerza_relacion: form.fuerza_relacion === SIN_VALOR ? null : Number(form.fuerza_relacion),
+      owner_id: form.owner_id === SIN_VALOR ? null : form.owner_id,
     };
 
     try {
@@ -274,7 +331,84 @@ export function ContactoFormDialog({
                 </SelectContent>
               </Select>
             </div>
+
+            {/* v7 C4b: the Relaciones axes, the strength and the internal owner. */}
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="contacto-poder">Poder</Label>
+              <Select value={form.poder} onValueChange={(v) => set("poder", v ?? SIN_VALOR)}>
+                <SelectTrigger id="contacto-poder" className="w-full px-3">
+                  <SelectValue placeholder="Sin definir" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SIN_VALOR}>Sin definir</SelectItem>
+                  {NIVELES_PODER_INTERES.map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {n}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="contacto-interes">Interés</Label>
+              <Select value={form.interes} onValueChange={(v) => set("interes", v ?? SIN_VALOR)}>
+                <SelectTrigger id="contacto-interes" className="w-full px-3">
+                  <SelectValue placeholder="Sin definir" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SIN_VALOR}>Sin definir</SelectItem>
+                  {NIVELES_PODER_INTERES.map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {n}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="contacto-fuerza">Fuerza de la relación</Label>
+              <Select
+                value={form.fuerza_relacion}
+                onValueChange={(v) => set("fuerza_relacion", v ?? SIN_VALOR)}
+              >
+                <SelectTrigger id="contacto-fuerza" className="w-full px-3">
+                  <SelectValue placeholder="Sin definir" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SIN_VALOR}>Sin definir</SelectItem>
+                  {NIVELES_FUERZA.map((n) => (
+                    <SelectItem key={n.value} value={n.value}>
+                      {n.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="contacto-owner">Relación</Label>
+              <Select value={form.owner_id} onValueChange={(v) => set("owner_id", v ?? SIN_VALOR)}>
+                <SelectTrigger id="contacto-owner" className="w-full px-3">
+                  <SelectValue placeholder="Sin responsable" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SIN_VALOR}>Sin responsable</SelectItem>
+                  {ownerOptions.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+
+          <p className="text-[12px] text-ink-500">
+            Poder e interés se miden de 1 (bajo) a 5 (alto): desde 4 el contacto entra
+            en un cuadrante del mapa. La fuerza de la relación va de baja a alta.
+          </p>
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="contacto-notas">Notas</Label>

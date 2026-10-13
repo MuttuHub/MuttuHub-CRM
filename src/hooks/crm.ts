@@ -115,6 +115,8 @@ export type Contacto = {
 
 /** v7 C4a: a contact as it appears in the cross-client Relaciones feed. */
 export type ContactoFeedItem = Contacto & {
+  /** The API projection carries the client id too; the chips key on it. */
+  cliente_id: string;
   cliente_nombre: string;
   owner_nombre: string | null;
 };
