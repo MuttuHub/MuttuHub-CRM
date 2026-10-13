@@ -3,6 +3,7 @@ import type { Usuario } from "@prisma/client";
 
 vi.mock("@/lib/supabase/server", () => ({
   requireApiRole: vi.fn(),
+  requireApiUser: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -15,7 +16,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { db } from "@/lib/db";
-import { requireApiRole } from "@/lib/supabase/server";
+import { requireApiRole, requireApiUser } from "@/lib/supabase/server";
 import { GET, PUT } from "./route";
 
 const admin = { id: "admin-1", rol: "ADMINISTRADOR" } as Usuario;
@@ -28,6 +29,11 @@ const DEFAULTS = {
 
 function mockAuth() {
   vi.mocked(requireApiRole).mockResolvedValue({
+    ok: true,
+    usuario: admin,
+    supabaseUser: {} as never,
+  });
+  vi.mocked(requireApiUser).mockResolvedValue({
     ok: true,
     usuario: admin,
     supabaseUser: {} as never,
@@ -59,13 +65,17 @@ afterEach(() => {
 });
 
 describe("GET /api/v1/settings/automatizaciones", () => {
-  it("is 403 for a non-admin", async () => {
-    mockForbidden();
+  it("reads for any authenticated user, not only admins", async () => {
+    vi.mocked(requireApiUser).mockResolvedValue({
+      ok: true,
+      usuario: { id: "colab-1", rol: "COLABORADOR" } as Usuario,
+      supabaseUser: {} as never,
+    });
 
     const res = await GET();
 
-    expect(res.status).toBe(403);
-    expect(requireApiRole).toHaveBeenCalledWith(["ADMINISTRADOR"]);
+    expect(res.status).toBe(200);
+    expect(requireApiUser).toHaveBeenCalled();
   });
 
   it("returns the defaults for an admin when nothing is stored", async () => {

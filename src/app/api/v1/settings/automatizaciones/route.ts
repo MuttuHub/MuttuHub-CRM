@@ -1,6 +1,7 @@
 // GET/PUT /api/v1/settings/automatizaciones — v7 alignment C7a (seguimiento
-// automático). Solo ADMINISTRADOR en ambos verbos, siguiendo el patrón de
-// /api/v1/settings/semaforo-v2 (withApiErrorHandling + parseJsonBody + zod).
+// automático). GET lo lee cualquier usuario autenticado (la sección vive bajo
+// /clientes y se muestra en solo lectura); PUT es solo ADMINISTRADOR. Sigue el
+// patrón de /api/v1/settings/semaforo-v2 (withApiErrorHandling + parseJsonBody + zod).
 //
 // GET: sin fila guardada o con datos mal formados responde los defaults.
 // PUT: actualización parcial; cualquier subconjunto de `resumen_diario`,
@@ -15,7 +16,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { apiError, parseJsonBody } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
-import { requireApiRole } from "@/lib/supabase/server";
+import { requireApiRole, requireApiUser } from "@/lib/supabase/server";
 import {
   DIAS_POR_VENCER_MAX,
   DIAS_POR_VENCER_MIN,
@@ -55,7 +56,7 @@ export const GET = withApiErrorHandling(
   "settings/automatizaciones",
   "No pudimos cargar las automatizaciones. Inténtalo de nuevo.",
   async () => {
-    const auth = await requireApiRole(["ADMINISTRADOR"]);
+    const auth = await requireApiUser();
     if (!auth.ok) return auth.response;
 
     return NextResponse.json({ automatizaciones: await getAutomatizaciones() });
