@@ -2,8 +2,9 @@
 // three behaviours the shell owes: (1) the seven sections render in the v7 order
 // (and NOT Convocatorias, which v7 has but the user's list does not), (2) the
 // active item follows the current route exactly, and (3) Aliados still renders
-// the untouched ClientList while the other six sections render an honest
-// "en construcción" placeholder.
+// the untouched ClientList. Interacciones (C3b) left the placeholder set and now
+// renders its real feed; the remaining five sections still show the honest
+// "en construcción" placeholder until units C2..C7 land.
 
 import { render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -28,6 +29,15 @@ vi.mock("@/components/crm/client-list", () => ({
   ClientList: () => <div data-testid="client-list-stub" />,
 }))
 
+// Interacciones (C3b) renders a client feed that fetches its own data; stub both
+// pieces so this shell test stays independent of the CRM data layer.
+vi.mock("@/components/crm/interacciones-feed", () => ({
+  InteraccionesFeed: () => <div data-testid="interacciones-feed-stub" />,
+}))
+vi.mock("@/components/crm/interaccion-form-dialog", () => ({
+  RegistrarInteraccionButton: () => null,
+}))
+
 import ClientesPage from "@/app/(app)/clientes/page"
 import ClientesOportunidadesPage from "@/app/(app)/clientes/oportunidades/page"
 import ClientesInteraccionesPage from "@/app/(app)/clientes/interacciones/page"
@@ -38,7 +48,6 @@ import ClientesAutomatizacionesPage from "@/app/(app)/clientes/automatizaciones/
 
 const PLACEHOLDER_PAGES = [
   ["Oportunidades", ClientesOportunidadesPage],
-  ["Interacciones", ClientesInteraccionesPage],
   ["Relaciones", ClientesRelacionesPage],
   ["Salud", ClientesSaludPage],
   ["Mapa", ClientesMapaPage],
@@ -96,5 +105,11 @@ describe("Clientes sections", () => {
   it.each(PLACEHOLDER_PAGES)("%s renders an honest 'en construcción' placeholder", (label, Page) => {
     render(<Page />)
     expect(screen.getByText(new RegExp(`${label}.*en construcción`, "i"))).toBeInTheDocument()
+  })
+
+  it("Interacciones renders the real feed instead of the placeholder", () => {
+    render(<ClientesInteraccionesPage />)
+    expect(screen.getByTestId("interacciones-feed-stub")).toBeInTheDocument()
+    expect(screen.queryByText(/en construcción/i)).not.toBeInTheDocument()
   })
 })

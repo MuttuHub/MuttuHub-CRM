@@ -163,6 +163,8 @@ describe("OportunidadLifecycleDialog", () => {
       autor_nombre: "Ana Ríos",
       texto: "Llamada de seguimiento con el cliente",
       oportunidad_id: BASE_OPORTUNIDAD.id,
+      tipo: "LLAMADA",
+      proximo_paso: null,
       created_at: "2026-01-06T00:00:00.000Z",
     }
     useTasksByOportunidadMock.mockReturnValueOnce({

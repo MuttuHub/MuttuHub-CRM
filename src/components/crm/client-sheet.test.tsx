@@ -1,23 +1,30 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import type { ClientDetail, Oportunidad } from "@/hooks/crm"
+import type { BitacoraEntrada, ClientDetail, Oportunidad } from "@/hooks/crm"
 import { ClientSheet } from "./client-sheet"
 
 // QA audit finding #3: editing a client required opening a separate "Editar
 // cliente" modal. The General tab fields are now inline-editable (click,
 // change, save on blur/select — no modal).
 
-const { updateMutation, clienteQuery, oportunidadesQuery } = vi.hoisted(() => ({
-  updateMutation: { isPending: false, mutateAsync: vi.fn() },
-  clienteQuery: { data: null as ClientDetail | null, error: null as unknown },
-  oportunidadesQuery: {
-    data: [] as Oportunidad[],
-    isLoading: false,
-    isError: false,
-  },
-}))
+const { updateMutation, clienteQuery, oportunidadesQuery, bitacoraQuery, addLogMutation } =
+  vi.hoisted(() => ({
+    updateMutation: { isPending: false, mutateAsync: vi.fn() },
+    clienteQuery: { data: null as ClientDetail | null, error: null as unknown },
+    oportunidadesQuery: {
+      data: [] as Oportunidad[],
+      isLoading: false,
+      isError: false,
+    },
+    bitacoraQuery: {
+      data: [] as BitacoraEntrada[],
+      isLoading: false,
+      isError: false,
+    },
+    addLogMutation: { isPending: false, mutateAsync: vi.fn() },
+  }))
 
 const CLIENTE: ClientDetail = {
   id: "c1",
@@ -61,6 +68,8 @@ vi.mock("@/hooks/crm", async (importOriginal) => {
     useUsers: () => ({ data: USERS }),
     useUpdateClient: () => updateMutation,
     useOpportunities: () => oportunidadesQuery,
+    useBitacora: () => bitacoraQuery,
+    useAddLogEntry: () => addLogMutation,
   }
 })
 
@@ -84,6 +93,11 @@ describe("ClientSheet — General tab inline editing (QA audit finding #3)", () 
     clienteQuery.data = CLIENTE
     clienteQuery.error = null
     oportunidadesQuery.data = []
+    bitacoraQuery.data = []
+    bitacoraQuery.isLoading = false
+    bitacoraQuery.isError = false
+    addLogMutation.mutateAsync.mockReset()
+    addLogMutation.mutateAsync.mockResolvedValue({})
   })
 
   it("saves a text field on blur without opening a modal", async () => {
@@ -188,5 +202,86 @@ describe("ClientSheet — General tab inline editing (QA audit finding #3)", () 
     await user.click(screen.getByRole("tab", { name: "Oportunidades" }))
 
     expect(await screen.findByText(/Última gestión:/)).toHaveTextContent("01 de ago de 2026")
+  })
+})
+
+// v7 alignment, unit C3b: the per-client bitácora gained the interaction `tipo`
+// and the optional `proximo_paso`. The tab must show them per entry and let the
+// composer set them, without changing the rest of the sheet's behaviour.
+describe("ClientSheet — Bitácora tipo and próximo paso (C3b)", () => {
+  it("shows the tipo chip and the próximo paso of an entry", async () => {
+    const user = userEvent.setup()
+    bitacoraQuery.data = [
+      {
+        id: "b1",
+        autor_id: "u1",
+        autor_nombre: "Ana Pérez",
+        texto: "Nota de la llamada con el equipo técnico",
+        oportunidad_id: null,
+        tipo: "LLAMADA",
+        proximo_paso: "Enviar la propuesta el viernes",
+        created_at: "2026-01-06T12:00:00.000Z",
+      },
+    ]
+    renderSheet()
+
+    await user.click(screen.getByRole("tab", { name: "Bitácora" }))
+
+    const entry = within(await screen.findByRole("list"))
+    expect(entry.getByText("Llamada")).toBeInTheDocument()
+    expect(entry.getByText("Próximo paso")).toBeInTheDocument()
+    expect(entry.getByText("Enviar la propuesta el viernes")).toBeInTheDocument()
+  })
+
+  it("does not render a Próximo paso block for an entry without one", async () => {
+    const user = userEvent.setup()
+    bitacoraQuery.data = [
+      {
+        id: "b1",
+        autor_id: "u1",
+        autor_nombre: "Ana Pérez",
+        texto: "Nota rápida",
+        oportunidad_id: null,
+        tipo: "OTRO",
+        proximo_paso: null,
+        created_at: "2026-01-06T12:00:00.000Z",
+      },
+    ]
+    renderSheet()
+
+    await user.click(screen.getByRole("tab", { name: "Bitácora" }))
+
+    const entry = within(await screen.findByRole("list"))
+    expect(entry.getByText("Otro")).toBeInTheDocument()
+    expect(entry.queryByText("Próximo paso")).not.toBeInTheDocument()
+  })
+
+  it("posts tipo and próximo paso from the composer", async () => {
+    const user = userEvent.setup()
+    renderSheet()
+
+    await user.click(screen.getByRole("tab", { name: "Bitácora" }))
+
+    const tipoTrigger = screen
+      .getAllByRole("combobox")
+      .find((cb) => cb.textContent?.includes("Otro"))!
+    await user.click(tipoTrigger)
+    await user.click(await screen.findByRole("option", { name: "Correo" }))
+
+    await user.type(
+      screen.getByPlaceholderText(/Agrega una nota de seguimiento/),
+      "Correo con la propuesta ajustada",
+    )
+    await user.type(
+      screen.getByPlaceholderText(/Próximo paso/),
+      "Confirmar la reunión del lunes",
+    )
+    await user.click(screen.getByRole("button", { name: /Agregar nota/ }))
+
+    expect(addLogMutation.mutateAsync).toHaveBeenCalledWith({
+      texto: "Correo con la propuesta ajustada",
+      tipo: "CORREO",
+      proximo_paso: "Confirmar la reunión del lunes",
+    })
   })
 })

@@ -11,7 +11,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { EstadoCliente, PrioridadCliente, TipoCliente } from "@prisma/client";
+import type { EstadoCliente, PrioridadCliente, TipoCliente, TipoInteraccion } from "@prisma/client";
 import {
   CalendarClock,
   Download,
@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatusChip } from "@/components/ui/status-chip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
@@ -87,6 +88,11 @@ import {
   OportunidadLifecycleDialog,
 } from "@/components/crm/entity-dialogs";
 import { TareaFormDialog } from "@/components/crm/task-dialogs";
+import {
+  TIPO_INTERACCION_LABELS,
+  TIPO_INTERACCION_ORDER,
+  TIPO_INTERACCION_TONES,
+} from "@/components/crm/interacciones-feed";
 import {
   downloadActiveVersion,
   extensionOf,
@@ -1299,13 +1305,21 @@ function BitacoraTab({ clientId, readOnly }: { clientId: string; readOnly?: bool
   const query = useBitacora(clientId);
   const addMutation = useAddLogEntry(clientId);
   const [texto, setTexto] = useState("");
+  const [tipo, setTipo] = useState<TipoInteraccion>("OTRO");
+  const [proximoPaso, setProximoPaso] = useState("");
   const entradas = query.data ?? [];
 
   async function submit() {
     if (!texto.trim()) return;
     try {
-      await addMutation.mutateAsync({ texto: texto.trim() });
+      await addMutation.mutateAsync({
+        texto: texto.trim(),
+        tipo,
+        proximo_paso: proximoPaso.trim() || null,
+      });
       setTexto("");
+      setProximoPaso("");
+      setTipo("OTRO");
     } catch {
       /* toast handled by the hook */
     }
@@ -1322,6 +1336,32 @@ function BitacoraTab({ clientId, readOnly }: { clientId: string; readOnly?: bool
               <MessageSquarePlus className="size-4" strokeWidth={1.8} />
             </span>
             <div className="min-w-0 flex-1">
+              <div className="mb-2 grid gap-2 sm:grid-cols-[minmax(0,180px)_minmax(0,1fr)]">
+                <Select
+                  value={tipo}
+                  onValueChange={(v) => {
+                    if (v) setTipo(v as TipoInteraccion);
+                  }}
+                >
+                  <SelectTrigger size="sm" aria-label="Tipo de interacción" className="w-full px-3">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIPO_INTERACCION_ORDER.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {TIPO_INTERACCION_LABELS[t]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  value={proximoPaso}
+                  onChange={(e) => setProximoPaso(e.target.value)}
+                  placeholder="Próximo paso (opcional)"
+                  aria-label="Próximo paso"
+                  className="px-3"
+                />
+              </div>
               <textarea
                 rows={3}
                 value={texto}
@@ -1358,21 +1398,35 @@ function BitacoraTab({ clientId, readOnly }: { clientId: string; readOnly?: bool
       )}
 
       <ul className="flex flex-col gap-2.5">
-        {[...entradas].reverse().map((e) => (
-          <li key={e.id} className="rounded-inner border border-border bg-panel p-4">
-            <div className="flex items-center gap-2 text-[11.5px] text-ink-500">
-              <span className="grid size-6 place-items-center rounded-full bg-ink-100 text-[9.5px] font-bold text-ink-700">
-                {iniciales(e.autor_nombre) || "?"}
-              </span>
-              <span className="font-semibold text-ink-800">{e.autor_nombre}</span>
-              <span aria-hidden="true">·</span>
-              <span className="font-mono">{formatFechaHora(e.created_at)}</span>
-            </div>
-            <p className="mt-2 text-[13px] leading-relaxed whitespace-pre-wrap text-ink-800">
-              {e.texto}
-            </p>
-          </li>
-        ))}
+        {[...entradas].reverse().map((e) => {
+          const tipoEntrada = e.tipo ?? "OTRO";
+          return (
+            <li key={e.id} className="rounded-inner border border-border bg-panel p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusChip tone={TIPO_INTERACCION_TONES[tipoEntrada]}>
+                  {TIPO_INTERACCION_LABELS[tipoEntrada]}
+                </StatusChip>
+                <span className="grid size-6 place-items-center rounded-full bg-ink-100 text-[9.5px] font-bold text-ink-700">
+                  {iniciales(e.autor_nombre) || "?"}
+                </span>
+                <span className="text-[11.5px] font-semibold text-ink-800">{e.autor_nombre}</span>
+                <span aria-hidden="true" className="text-[11.5px] text-ink-500">·</span>
+                <span className="font-mono text-[11.5px] text-ink-500">{formatFechaHora(e.created_at)}</span>
+              </div>
+              <p className="mt-2 text-[13px] leading-relaxed whitespace-pre-wrap text-ink-800">
+                {e.texto}
+              </p>
+              {e.proximo_paso && (
+                <div className="mt-3 rounded-inner border border-border bg-muted px-3 py-2">
+                  <p className="text-[11px] font-bold tracking-[0.06em] text-ink-500 uppercase">
+                    Próximo paso
+                  </p>
+                  <p className="mt-0.5 text-[12.5px] text-ink-800">{e.proximo_paso}</p>
+                </div>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
