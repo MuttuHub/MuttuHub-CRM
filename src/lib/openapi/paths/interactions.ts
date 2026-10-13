@@ -7,7 +7,7 @@ import { registry, standardErrorResponses } from "@/lib/openapi/registry";
 import { TipoInteraccionSchema } from "@/lib/openapi/paths/clients";
 
 const SCOPE_NOTE =
-  "Alcance: COLABORADOR solo ve las interacciones de los clientes donde es responsable; el resto de roles (ADMINISTRADOR, GERENCIA, COORDINADOR) ve las de todos.";
+  "Alcance: lectura global (como la lista de clientes). Cualquier rol autenticado ve las interacciones de todos los clientes; solo se ocultan los clientes eliminados.";
 
 const InteraccionFeedItemSchema = z.object({
   id: z.string().uuid(),
