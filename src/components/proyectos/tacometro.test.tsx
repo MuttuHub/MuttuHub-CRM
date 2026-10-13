@@ -115,4 +115,80 @@ describe("Tacometro", () => {
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
   });
+
+  describe("arc geometry (semicircle: the large-arc flag is always 0)", () => {
+    const CX = 100;
+    const CY = 100;
+    const VIEWBOX_W = 200;
+
+    /** Parses `M x0 y0 A rx ry rot large sweep x1 y1` from a path `d` attribute. */
+    function parseArc(d: string) {
+      const m = d.match(
+        /^M (-?[\d.]+) (-?[\d.]+) A (-?[\d.]+) (-?[\d.]+) (\d+) ([01]) ([01]) (-?[\d.]+) (-?[\d.]+)$/,
+      );
+      expect(m, `unparseable arc: ${d}`).not.toBeNull();
+      const n = (i: number) => Number(m![i]);
+      return { x0: n(1), y0: n(2), rx: n(3), ry: n(4), large: n(6), sweep: n(7), x1: n(8), y1: n(9) };
+    }
+
+    const BANDAS_EXTREMAS = [
+      { hasta: 25, color: "verde" as const },
+      { hasta: 27.5, color: "amarillo" as const },
+      { hasta: 100, color: "rojo" as const },
+    ];
+
+    it("draws every band and the track with large-arc-flag 0 and endpoints on the upper semicircle", () => {
+      const { container } = render(<Tacometro value={11.6} color="verde" bandas={BANDAS_EXTREMAS} />);
+      const paths = [
+        container.querySelector('[data-testid="tacometro-track"]')!,
+        ...container.querySelectorAll('[data-testid="tacometro-banda"]'),
+      ];
+      expect(paths).toHaveLength(4);
+      for (const path of paths) {
+        const arc = parseArc(path.getAttribute("d")!);
+        expect(arc.large).toBe(0);
+        expect(arc.sweep).toBe(1);
+        for (const [x, y] of [
+          [arc.x0, arc.y0],
+          [arc.x1, arc.y1],
+        ]) {
+          expect(y).toBeLessThanOrEqual(CY);
+          expect(x).toBeGreaterThanOrEqual(0);
+          expect(x).toBeLessThanOrEqual(VIEWBOX_W);
+          // Both endpoints lie on the circle of radius R around the hub.
+          expect(Math.hypot(x - CX, y - CY)).toBeCloseTo(arc.rx, 0);
+        }
+      }
+    });
+
+    it("goes left to right: the 27.5-100 band starts left of its end point and never leaves the semicircle", () => {
+      const { container } = render(<Tacometro value={50} color="rojo" bandas={BANDAS_EXTREMAS} />);
+      const rojo = container.querySelector('[data-color="rojo"][data-testid="tacometro-banda"]')!;
+      const arc = parseArc(rojo.getAttribute("d")!);
+      expect(arc.x0).toBeLessThan(arc.x1);
+      // 100 sits at the far right of the semicircle, on the baseline.
+      expect(arc.x1).toBe(CX + arc.rx);
+      expect(arc.y1).toBe(CY);
+      // The 27.5 start point is above the baseline, on the left half.
+      expect(arc.y0).toBeLessThan(CY);
+      expect(arc.x0).toBeLessThan(CX);
+    });
+
+    it("keeps the full 0-100 track as the exact half circle", () => {
+      const { container } = render(<Tacometro value={50} color="verde" />);
+      const arc = parseArc(container.querySelector('[data-testid="tacometro-track"]')!.getAttribute("d")!);
+      expect(arc).toMatchObject({ x0: CX - arc.rx, y0: CY, x1: CX + arc.rx, y1: CY, large: 0, sweep: 1 });
+    });
+  });
+
+  it("places the value below the needle hub so the needle never overlaps it", () => {
+    const { container } = render(<Tacometro value={32.1} color="verde" />);
+    const valor = container.querySelector('[data-testid="tacometro-valor"]')!;
+    const y = Number(valor.getAttribute("y"));
+    const size = Number(valor.getAttribute("font-size"));
+    // The needle only ever points into the upper half (y <= hub), the hub radius is 5:
+    // the glyph tops (~0.7 em above the baseline) must sit under the hub, inside the viewBox.
+    expect(y - 0.7 * size).toBeGreaterThanOrEqual(100 + 5);
+    expect(y).toBeLessThanOrEqual(120);
+  });
 });

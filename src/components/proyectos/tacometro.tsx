@@ -22,6 +22,13 @@ const CY = 100;
 const R = 78;
 /** Radio de la aguja (más corta que el arco, para que no lo tape). */
 const R_AGUJA = R - 14;
+/**
+ * The value sits BELOW the hub (the needle only ever points into the upper half),
+ * so it can never be crossed by the needle: glyph tops (~0.7 em above the baseline)
+ * land under the hub (r = 5), and the baseline stays inside the fixed viewBox.
+ */
+const VALOR_FONT = 18;
+const VALOR_Y = 119;
 
 const BAND_STROKE: Record<ColorSemaforo, string> = {
   verde: "var(--color-exito)",
@@ -49,8 +56,10 @@ function polar(p: number): [number, number] {
 function arcPath(desde: number, hasta: number): string {
   const [x0, y0] = polar(desde);
   const [x1, y1] = polar(hasta);
-  const large = hasta - desde > 50 ? 1 : 0;
-  return `M ${x0} ${y0} A ${R} ${R} 0 ${large} 1 ${x1} ${y1}`;
+  // The gauge is a 180-degree semicircle: any arc (0..100 at most) spans <= 180
+  // degrees, so the large-arc flag is ALWAYS 0. With 1 a band longer than half
+  // would be drawn the long way round, below the baseline.
+  return `M ${x0} ${y0} A ${R} ${R} 0 0 1 ${x1} ${y1}`;
 }
 
 /** One arc segment: everything from the previous boundary up to `hasta`. */
@@ -167,9 +176,9 @@ export function Tacometro({
         <text
           data-testid="tacometro-valor"
           x={CX}
-          y={92}
+          y={VALOR_Y}
           textAnchor="middle"
-          fontSize={30}
+          fontSize={VALOR_FONT}
           fontWeight={700}
           fill="var(--color-ink-950)"
         >
