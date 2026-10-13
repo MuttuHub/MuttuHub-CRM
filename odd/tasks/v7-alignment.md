@@ -11,7 +11,7 @@ sections aliados, oportunidades, interacciones, relaciones, salud, mapa and auto
 Lighter mode: tests for logic and backend (migrations, routes) only; UI verified by screenshots (light/dark, 1440/390); one native review per section.
 
 ## Units (sequential, single writer)
-- [ ] T1 Tablero v7 (pills Todas/Prospección/Ejecución/Mías, 7th virtual "Nuevo proyecto" column from `Oportunidad.proyecto`, "Avanzar →" button)
+- [x] T1 Tablero v7 — done in b62fa8c, parent-verified (tsc 0, kanban tests green, screenshots light/dark); deferred: expose project id/code on the task DTO so the converted card links to the exact project. (pills Todas/Prospección/Ejecución/Mías, 7th virtual "Nuevo proyecto" column from `Oportunidad.proyecto`, "Avanzar →" button)
 - [ ] P1 Proyectos: finish F2 responsive work left uncommitted, ficha tabs regroup to the v7 10 tabs, "Ficha de seguimiento" table
 - [ ] P2 Proyectos: "Nuevo proyecto" as a page (stepper)
 - [ ] C1 Clientes tab shell + routes, Aliados master/detail
