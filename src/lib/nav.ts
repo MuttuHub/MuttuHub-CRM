@@ -70,6 +70,30 @@ export const PAGE_HEADERS: Record<string, PageHeader> = {
     subtitle:
       "Busca, filtra y abre la ficha completa de cada cliente.",
   },
+  "/clientes/oportunidades": {
+    title: "Oportunidades",
+    subtitle: "El embudo comercial: oportunidades por etapa, valor y responsable.",
+  },
+  "/clientes/interacciones": {
+    title: "Interacciones",
+    subtitle: "El historial de contacto con cada aliado: reuniones, correos, llamadas y visitas.",
+  },
+  "/clientes/relaciones": {
+    title: "Relaciones",
+    subtitle: "El mapa de poder e interés de los contactos de cada aliado.",
+  },
+  "/clientes/salud": {
+    title: "Salud",
+    subtitle: "La salud de la cartera: contactos, compromisos y proyectos por aliado.",
+  },
+  "/clientes/mapa": {
+    title: "Mapa",
+    subtitle: "Cobertura por departamento: aliados y proyectos por territorio.",
+  },
+  "/clientes/automatizaciones": {
+    title: "Automatizaciones",
+    subtitle: "Reglas de seguimiento automático y plantillas de correo.",
+  },
   "/proyectos": {
     title: "Proyectos",
     subtitle:
