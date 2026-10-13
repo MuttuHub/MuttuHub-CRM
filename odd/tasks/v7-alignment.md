@@ -12,7 +12,7 @@ Lighter mode: tests for logic and backend (migrations, routes) only; UI verified
 
 ## Units (sequential, single writer)
 - [x] T1 Tablero v7 — done in b62fa8c, parent-verified (tsc 0, kanban tests green, screenshots light/dark); deferred: expose project id/code on the task DTO so the converted card links to the exact project. (pills Todas/Prospección/Ejecución/Mías, 7th virtual "Nuevo proyecto" column from `Oportunidad.proyecto`, "Avanzar →" button)
-- [ ] P1 Proyectos: finish F2 responsive work left uncommitted, ficha tabs regroup to the v7 10 tabs, "Ficha de seguimiento" table
+- [x] P1 Proyectos: ficha regrouped to the v7 tabs (11 = the 10 of v7 + Cambios), new read-only Soportes tab with `GET /projects/:id/supports`, "Ficha de seguimiento" variant (S-curve + side cards + avance por meta), Indicadores/Beneficiarios split out, Equipo to its own tab; F2 responsive and F3 copy/polish closed. Commits: `a20bcdc` (F2), `3ba7c9a` (tests), `8dd426c` (regroup + Soportes + F3 copy). Pending product decision: the editable "Nueva planeación" monthly input of the v7 prototype conflicts with the S8 baseline lock (programming is frozen after approval); the tab already shows the read-only monthly table via the S-curve.
 - [ ] P2 Proyectos: "Nuevo proyecto" as a page (stepper)
 - [ ] C1 Clientes tab shell + routes, Aliados master/detail
 - [ ] C2 Oportunidades (global API, 7-stage kanban, ficha; stage mapping decision pending)
@@ -22,4 +22,8 @@ Lighter mode: tests for logic and backend (migrations, routes) only; UI verified
 - [ ] Optional: Convocatorias, propuesta económica
 
 ## Open product decisions (defaults will be taken and flagged)
-Salud score formula; opportunity stage mapping to v7 states; Mapa data source (no departamento link on Cliente); Automatizaciones scope.
+Salud score formula; opportunity stage mapping to v7 states; Mapa data source (no departamento link on Cliente); Automatizaciones scope; the editable "Nueva planeación" monthly input of the v7 Ficha de seguimiento (conflicts with the S8 baseline lock).
+
+## Progress
+- 2026-10-13: T1 Tablero v7 done (`b62fa8c`, docs `12d8866`).
+- 2026-10-13: **P1 done** (`8dd426c`). The ficha moved from 8 to 11 tabs; `ProjectIndicadores`/`ProjectBeneficiarios` extracted; `ProjectKpisPanel` gained `soloExportar` and moved to Cambios; the new `project-soportes.tsx` + `GET /projects/:id/supports` list every live soporte (metadata only; downloads keep each origin's signed route; expense supports stay filtered by RNF-03); `ProjectTeam` left Resumen for its own tab; the cronograma and the objective roll-ups only paint a semáforo when the project is measurable. Tests aligned in `3ba7c9a`. Parent verification: full suite **323 files / 3411 tests green**, `tsc` 0, guards green. Remaining: the editable monthly input (product decision); the optional P2 (Nuevo proyecto stepper) and the Clientes units C1-C8.

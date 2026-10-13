@@ -167,3 +167,10 @@ Pending, in order:
 Commits on `feat/projects-v2`: `ca68b78` (gauge arc flag fixed to 0, needle clear of the value), `02a15e8` (radar falls back to bars below 3 axes), `6de46a1` (D13: planned technical value of the corte month evaluated at the corte), `862dd9c` (more room between the gauge hub and its value).
 Parent verification: gauge/radar/curve tests + the four S13 guards: 8 files / 72 tests pass; `tsc` 0 errors; visual check of the Presupuesto tab (light + dark, 1440): the gauge draws the upper semicircle with its three bands, the value sits under the hub.
 Next: F2 (responsive 390), then F3 (copy/polish), then re-shoot and native review in small candidates.
+
+## F2 and F3 done (2026-10-13)
+
+- F2 (responsive 390): `a20bcdc` — Tablero overflow, Cronograma mobile cards, shell header title and Gastos KPI wrap; a new `responsive-guards.test.ts` pins it.
+- F3 (copy/polish): `8dd426c` — attention text with readable dates and no double period, singular/plural in the KPI hints, a "Dif." column in the S-curve table; and the v7 P1 regroup that removed the duplicate KPI block from Avance (now export-only in Cambios) and stopped painting a semáforo for draft projects in Metas/Cronograma.
+- Still deferred (needs design or product input): Gantt fill/colour/corte line, Metas indicator bars, Cambios length, portfolio-aggregated curve, and the editable "Nueva planeación" monthly input (see `v7-alignment.md`).
+- Next: re-shoot light/dark 1440/390 and run the native review of the S14 slice in Claude Code (OpenCode is ineligible).
