@@ -2,10 +2,10 @@
 // three behaviours the shell owes: (1) the seven sections render in the v7 order
 // (and NOT Convocatorias, which v7 has but the user's list does not), (2) the
 // active item follows the current route exactly, and (3) Aliados still renders
-// the untouched ClientList. Interacciones (C3b), Relaciones (C4b) and
-// Automatizaciones (C7b) left the placeholder set and now render their real
-// sections; the remaining three still show the honest "en construcción"
-// placeholder until units C2, C5 and C6 land.
+// the untouched ClientList. Interacciones (C3b), Relaciones (C4b), Salud (C5b)
+// and Automatizaciones (C7b) left the placeholder set and now render their real
+// sections; the remaining two still show the honest "en construcción"
+// placeholder until units C2 and C6 land.
 
 import { render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -46,6 +46,12 @@ vi.mock("@/components/crm/relaciones-vista", () => ({
   RelacionesVista: () => <div data-testid="relaciones-vista-stub" />,
 }))
 
+// Salud (C5b) renders the portfolio gauge + ranked list, which fetches its own
+// feed; stub it so this shell test stays independent of the CRM data layer.
+vi.mock("@/components/crm/salud-vista", () => ({
+  SaludVista: () => <div data-testid="salud-vista-stub" />,
+}))
+
 // Automatizaciones (C7b) renders an admin settings form that reads its own
 // settings query; stub it so this shell test stays independent of the CRM data
 // layer.
@@ -63,7 +69,6 @@ import ClientesAutomatizacionesPage from "@/app/(app)/clientes/automatizaciones/
 
 const PLACEHOLDER_PAGES = [
   ["Oportunidades", ClientesOportunidadesPage],
-  ["Salud", ClientesSaludPage],
   ["Mapa", ClientesMapaPage],
 ] as const
 
@@ -129,6 +134,12 @@ describe("Clientes sections", () => {
   it("Relaciones renders the real quadrant map instead of the placeholder", () => {
     render(<ClientesRelacionesPage />)
     expect(screen.getByTestId("relaciones-vista-stub")).toBeInTheDocument()
+    expect(screen.queryByText(/en construcción/i)).not.toBeInTheDocument()
+  })
+
+  it("Salud renders the real section instead of the placeholder", () => {
+    render(<ClientesSaludPage />)
+    expect(screen.getByTestId("salud-vista-stub")).toBeInTheDocument()
     expect(screen.queryByText(/en construcción/i)).not.toBeInTheDocument()
   })
 
