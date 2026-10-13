@@ -11,6 +11,10 @@ import { describe, expect, it, vi } from "vitest"
 import type { Oportunidad } from "@/hooks/crm"
 import { InteraccionFormDialog } from "./interaccion-form-dialog"
 
+// The dialog drives ~8 userEvent interactions; under a loaded full-suite run the
+// 5 s default is not enough, so give the file a generous budget.
+vi.setConfig({ testTimeout: 20000 })
+
 const { addLogMutation, useOpportunitiesMock } = vi.hoisted(() => ({
   addLogMutation: { isPending: false, mutateAsync: vi.fn() },
   useOpportunitiesMock: vi.fn<() => { data: Oportunidad[] }>(() => ({ data: [] })),
