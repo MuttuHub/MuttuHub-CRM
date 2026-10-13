@@ -146,23 +146,19 @@ describe("GET /api/v1/interactions", () => {
     expect(db.bitacoraEntrada.findMany).not.toHaveBeenCalled();
   });
 
-  it("scopes a COLABORADOR to interactions of the clients they are responsable for", async () => {
+  it("reads are global: a COLABORADOR sees every client's interactions, like the client list (PR 3)", async () => {
     authAs(colaborador);
     vi.mocked(db.bitacoraEntrada.findMany).mockResolvedValue([]);
 
     const res = await GET(getRequest());
 
     expect(res.status).toBe(200);
-    expect(db.bitacoraEntrada.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          cliente: expect.objectContaining({ responsable_id: "colab-1" }),
-        }),
-      }),
-    );
+    const call = vi.mocked(db.bitacoraEntrada.findMany).mock.calls[0][0];
+    expect(call?.where?.cliente).toEqual({ deleted_at: null });
+    expect(call?.where?.cliente).not.toHaveProperty("responsable_id");
   });
 
-  it("does not scope a full-access role by responsable", async () => {
+  it("does not scope a full-access role by responsable either", async () => {
     authAs(gerencia);
     vi.mocked(db.bitacoraEntrada.findMany).mockResolvedValue([]);
 

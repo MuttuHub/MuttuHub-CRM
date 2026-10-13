@@ -3,18 +3,16 @@
 // creation stays on the per-client POST /clients/:id/log and there are
 // intentionally NO PATCH/DELETE routes here (same immutability contract).
 //
-// Read scope mirrors the client read scope (`loadClientScoped`): a
-// COLABORADOR only sees interactions of the clients they are the responsable
-// of; ADMINISTRADOR / GERENCIA / COORDINADOR see every client. Filters:
-// `cliente_id` and `tipo` (the TipoInteraccion catalog).
+// Read scope mirrors the client list reads, which are GLOBAL (PR 3): every
+// signed-in role sees every client's interactions; only soft-deleted clients
+// are hidden. Filters: `cliente_id` and `tipo` (the TipoInteraccion catalog).
 
 import { NextResponse } from "next/server";
-import type { Prisma, TipoInteraccion, Usuario } from "@prisma/client";
+import type { Prisma, TipoInteraccion } from "@prisma/client";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
-import { isFullAccess } from "@/lib/api/crm";
 
 export const dynamic = "force-dynamic";
 
@@ -43,20 +41,13 @@ export const INTERACTION_FEED_SELECT = {
 } as const;
 
 /**
- * Shared feed `where`: soft-deleted clients are always hidden, and a
- * COLABORADOR is scoped to the clients they are responsable for — the same
- * rule `loadClientScoped` applies to the per-client routes.
+ * Shared feed `where`: soft-deleted clients are always hidden. Reads are
+ * global, matching the client list (PR 3) — no per-role rewrite.
  */
 export function buildInteractionWhere(
   filters: InteractionFeedFilters,
-  usuario: Usuario,
 ): Prisma.BitacoraEntradaWhereInput {
-  const where: Prisma.BitacoraEntradaWhereInput = {
-    cliente: {
-      deleted_at: null,
-      ...(isFullAccess(usuario.rol) ? {} : { responsable_id: usuario.id }),
-    },
-  };
+  const where: Prisma.BitacoraEntradaWhereInput = { cliente: { deleted_at: null } };
   if (filters.cliente_id) where.cliente_id = filters.cliente_id;
   if (filters.tipo) where.tipo = filters.tipo as TipoInteraccion;
   return where;
@@ -77,7 +68,7 @@ export const GET = withApiErrorHandling(
     const cliente_id = url.searchParams.get("cliente_id")?.trim() || undefined;
 
     const rows = await db.bitacoraEntrada.findMany({
-      where: buildInteractionWhere({ cliente_id, tipo }, auth.usuario),
+      where: buildInteractionWhere({ cliente_id, tipo }),
       select: INTERACTION_FEED_SELECT,
       orderBy: { created_at: "desc" },
     });
