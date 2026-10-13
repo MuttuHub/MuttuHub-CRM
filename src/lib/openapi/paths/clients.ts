@@ -171,7 +171,7 @@ const ClienteDetailSchema = registry.register(
   }),
 );
 
-const ContactoSchema = registry.register(
+export const ContactoSchema = registry.register(
   "Contacto",
   z.object({
     id: z.string().uuid(),
@@ -182,6 +182,18 @@ const ContactoSchema = registry.register(
     telefono: z.string().nullable(),
     rol_decision: RolContactoSchema.nullable(),
     notas: z.string().nullable(),
+    poder: z.number().int().min(1).max(5).nullable().openapi({
+      description: "v7 C4a: eje de poder en la matriz poder × interés (1..5). Null = sin cuadrante asignado.",
+    }),
+    interes: z.number().int().min(1).max(5).nullable().openapi({
+      description: "v7 C4a: eje de interés en la matriz poder × interés (1..5). Null = sin cuadrante asignado.",
+    }),
+    fuerza_relacion: z.number().int().min(1).max(3).nullable().openapi({
+      description: "v7 C4a: fuerza de la relación (1..3). Null = sin medir.",
+    }),
+    owner_id: z.string().uuid().nullable().openapi({
+      description: "v7 C4a: propietario interno opcional ('Relación: owner'). Null = sin owner asignado.",
+    }),
     created_at: z.string().datetime(),
     deleted_at: z.string().datetime().nullable(),
   }),

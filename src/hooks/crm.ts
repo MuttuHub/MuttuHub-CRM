@@ -102,7 +102,29 @@ export type Contacto = {
   telefono: string | null;
   rol_decision: RolContacto | null;
   notas: string | null;
+  /** v7 alignment C4a: power axis of the power × interest matrix (1..5). */
+  poder: number | null;
+  /** v7 C4a: interest axis of the power × interest matrix (1..5). */
+  interes: number | null;
+  /** v7 C4a: relationship strength (1..3). */
+  fuerza_relacion: number | null;
+  /** v7 C4a: optional internal owner ("Relación: owner"). */
+  owner_id: string | null;
   created_at: string;
+};
+
+/** v7 C4a: a contact as it appears in the cross-client Relaciones feed. */
+export type ContactoFeedItem = Contacto & {
+  cliente_nombre: string;
+  owner_nombre: string | null;
+};
+
+export type ContactoFilters = {
+  cliente_id?: string;
+  /** true ⇒ only contacts with both poder and interes set. */
+  con_quadrante?: boolean;
+  poder?: number;
+  interes?: number;
 };
 
 export type Oportunidad = {
@@ -251,6 +273,7 @@ export const clientQueryKeys = {
   tasks: (clientId: string) => ["tasks", "client", clientId] as const,
   log: (id: string) => ["clients", id, "log"] as const,
   interactions: (filters: InteractionFilters) => ["interactions", "list", filters] as const,
+  contactsFeed: (filters: ContactoFilters) => ["contacts", "list", filters] as const,
   users: () => ["catalogs", "users"] as const,
 };
 
@@ -383,6 +406,30 @@ export function useInteractions(
   });
 }
 
+/**
+ * v7 alignment C4a: the cross-client Relaciones contact list. Optional filters
+ * by cliente and quadrant; reads are global, matching the client list (PR 3).
+ */
+export function useGlobalContacts(
+  filters: ContactoFilters = {},
+): UseQueryResult<ContactoFeedItem[]> {
+  return useQuery({
+    queryKey: clientQueryKeys.contactsFeed(filters),
+    queryFn: async () => {
+      const sp = new URLSearchParams();
+      if (filters.cliente_id) sp.set("cliente_id", filters.cliente_id);
+      if (filters.con_quadrante) sp.set("con_quadrante", "true");
+      if (filters.poder !== undefined) sp.set("poder", String(filters.poder));
+      if (filters.interes !== undefined) sp.set("interes", String(filters.interes));
+      const qs = sp.toString();
+      const res = await apiGet<{ contactos: ContactoFeedItem[] }>(
+        `/api/v1/contacts${qs ? `?${qs}` : ""}`,
+      );
+      return res.contactos;
+    },
+  });
+}
+
 /* ── Mutations ─────────────────────────────────────────────────────────── */
 
 // Los campos de texto libre son nullable (no solo opcionales): el PATCH del
@@ -471,6 +518,11 @@ export type ContactoInput = {
   telefono?: string | null;
   rol_decision?: RolContacto | null;
   notas?: string | null;
+  /** v7 C4a: quadrant + strength + owner (all optional, nullable to clear). */
+  poder?: number | null;
+  interes?: number | null;
+  fuerza_relacion?: number | null;
+  owner_id?: string | null;
 };
 
 export function useCreateContacto(clientId: string): UseMutationResult<
@@ -493,6 +545,7 @@ export function useCreateContacto(clientId: string): UseMutationResult<
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: clientQueryKeys.contacts(clientId) });
       void qc.invalidateQueries({ queryKey: clientQueryKeys.detail(clientId) });
+      void qc.invalidateQueries({ queryKey: ["contacts"] });
       toast.success("Contacto agregado.");
     },
   });
@@ -517,6 +570,7 @@ export function useUpdateContacto(clientId: string, contactId: string): UseMutat
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: clientQueryKeys.contacts(clientId) });
+      void qc.invalidateQueries({ queryKey: ["contacts"] });
       toast.success("Contacto actualizado.");
     },
   });
@@ -539,6 +593,7 @@ export function useDeleteContacto(clientId: string, contactId: string): UseMutat
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: clientQueryKeys.contacts(clientId) });
       void qc.invalidateQueries({ queryKey: clientQueryKeys.detail(clientId) });
+      void qc.invalidateQueries({ queryKey: ["contacts"] });
       toast.success("Contacto eliminado.");
     },
   });

@@ -367,4 +367,23 @@ describe("buildOpenApiDocument", () => {
     expect(schema).toContain("TipoInteraccion")
     expect(schema).toContain("proximo_paso")
   })
+  it("registers the C4a global contacts feed and the extended Contacto schema", () => {
+    const paths = buildOpenApiDocument().paths ?? {}
+    const feed = paths["/api/v1/contacts"]?.get
+    expect(feed).toBeDefined()
+    expect(Object.keys(feed?.responses ?? {})).toEqual(
+      expect.arrayContaining(["200", "400", "401"]),
+    )
+    const names = ((feed?.parameters ?? []) as { name: string }[]).map((p) => p.name)
+    expect(names).toEqual(
+      expect.arrayContaining(["cliente_id", "con_quadrante", "poder", "interes"]),
+    )
+
+    // The extended Contacto component: quadrant + owner fields, plus the feed's
+    // cliente/owner display names.
+    const schema = JSON.stringify(buildOpenApiDocument().components?.schemas)
+    for (const campo of ["poder", "interes", "fuerza_relacion", "owner_id", "owner_nombre"]) {
+      expect(schema, campo).toContain(campo)
+    }
+  })
 })

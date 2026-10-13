@@ -150,6 +150,7 @@ model Usuario {
   clientes_asignados Cliente[]
   tareas_asignadas   Tarea[]
   bitacora_entradas  BitacoraEntrada[]
+  contactos_propietario Contacto[] @relation("ContactoOwner")
   documentos_subidos Documento[]
   notificaciones     Notificacion[]
   accesos            Acceso[] // PRD §3.3
@@ -200,10 +201,20 @@ model Contacto {
   telefono     String?
   rol_decision RolContacto?
   notas        String?
+  // v7 alignment C4a (Relaciones): the power × interest matrix. Both axes are
+  // 1..5 and the relationship strength is 1..3. Nullable so every pre-existing
+  // row keeps working — a contact without a quadrant is valid.
+  poder           Int?
+  interes         Int?
+  fuerza_relacion Int?
+  // v7 C4a: optional internal owner ("Relación: owner" in the v7 contact list).
+  // Nullable and not required; when set the global feed exposes the owner name.
+  owner_id        String?
   created_at   DateTime     @default(now())
   deleted_at   DateTime?
 
-  cliente Cliente @relation(fields: [cliente_id], references: [id])
+  cliente Cliente  @relation(fields: [cliente_id], references: [id])
+  owner   Usuario? @relation("ContactoOwner", fields: [owner_id], references: [id])
 
   @@map("contactos")
 }
