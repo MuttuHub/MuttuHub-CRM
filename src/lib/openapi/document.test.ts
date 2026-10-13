@@ -398,4 +398,17 @@ describe("buildOpenApiDocument", () => {
       expect(schema, campo).toContain(campo)
     }
   })
+  it("registers the C5a client health path with the cartera envelope", () => {
+    const paths = buildOpenApiDocument().paths ?? {}
+    const health = paths["/api/v1/clients/health"]?.get
+    expect(health).toBeDefined()
+    expect(Object.keys(health?.responses ?? {})).toEqual(
+      expect.arrayContaining(["200", "401", "500"]),
+    )
+
+    const schema = JSON.stringify(buildOpenApiDocument().components?.schemas)
+    for (const campo of ["SaludCliente", "SaludCartera", "subscores", "motivo", "promedio", "sin_datos"]) {
+      expect(schema, campo).toContain(campo)
+    }
+  })
 })

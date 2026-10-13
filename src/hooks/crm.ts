@@ -213,6 +213,42 @@ export type InteractionFilters = {
   tipo?: TipoInteraccion;
 };
 
+/** v7 alignment C5a: bucket de salud de un aliado. */
+export type SaludBucket = "SANA" | "ATENCION" | "RIESGO" | "SIN_DATOS";
+
+/** v7 C5a: sub-scores del score de salud (null = componente sin datos). */
+export type SaludSubscores = {
+  contacto: number | null;
+  compromisos: number | null;
+  proyectos: number | null;
+};
+
+/** v7 C5a: score de salud de un aliado en el feed de la cartera. */
+export type SaludClienteRow = {
+  cliente_id: string;
+  cliente_nombre: string;
+  score: number | null;
+  bucket: SaludBucket;
+  subscores: SaludSubscores;
+  motivo: string;
+};
+
+/** v7 C5a: resumen de la cartera completa. */
+export type SaludCartera = {
+  sana: number;
+  atencion: number;
+  riesgo: number;
+  sin_datos: number;
+  total: number;
+  promedio: number | null;
+};
+
+/** v7 C5a: payload de GET /api/v1/clients/health. */
+export type SaludCarteraData = {
+  clientes: SaludClienteRow[];
+  cartera: SaludCartera;
+};
+
 export type TaskItem = {
   id: string;
   titulo: string;
@@ -298,6 +334,7 @@ export const clientQueryKeys = {
   log: (id: string) => ["clients", id, "log"] as const,
   interactions: (filters: InteractionFilters) => ["interactions", "list", filters] as const,
   contactsFeed: (filters: ContactoFilters) => ["contacts", "list", filters] as const,
+  saludCartera: () => ["clients", "salud"] as const,
   users: () => ["catalogs", "users"] as const,
 };
 
@@ -455,6 +492,22 @@ export function useGlobalContacts(
         `/api/v1/contacts${qs ? `?${qs}` : ""}`,
       );
       return res.contactos;
+    },
+  });
+}
+
+/**
+ * v7 alignment C5a: the global "Salud de la cartera" read. The server computes
+ * every score (contacto, compromisos, proyectos) and the portfolio summary; the
+ * client only renders the ranked list. Reads are global, matching the client
+ * list (PR 3).
+ */
+export function useSaludCartera(): UseQueryResult<SaludCarteraData> {
+  return useQuery({
+    queryKey: clientQueryKeys.saludCartera(),
+    queryFn: async () => {
+      const res = await apiGet<{ data: SaludCarteraData }>("/api/v1/clients/health");
+      return res.data;
     },
   });
 }
