@@ -2,9 +2,10 @@
 // three behaviours the shell owes: (1) the seven sections render in the v7 order
 // (and NOT Convocatorias, which v7 has but the user's list does not), (2) the
 // active item follows the current route exactly, and (3) Aliados still renders
-// the untouched ClientList. Interacciones (C3b) and Relaciones (C4b) left the
-// placeholder set and now render their real sections; the remaining four still
-// show the honest "en construcción" placeholder until units C2, C5..C7 land.
+// the untouched ClientList. Interacciones (C3b), Relaciones (C4b) and
+// Automatizaciones (C7b) left the placeholder set and now render their real
+// sections; the remaining three still show the honest "en construcción"
+// placeholder until units C2, C5 and C6 land.
 
 import { render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -45,6 +46,13 @@ vi.mock("@/components/crm/relaciones-vista", () => ({
   RelacionesVista: () => <div data-testid="relaciones-vista-stub" />,
 }))
 
+// Automatizaciones (C7b) renders an admin settings form that reads its own
+// settings query; stub it so this shell test stays independent of the CRM data
+// layer.
+vi.mock("@/components/crm/automatizaciones-vista", () => ({
+  AutomatizacionesVista: () => <div data-testid="automatizaciones-vista-stub" />,
+}))
+
 import ClientesPage from "@/app/(app)/clientes/page"
 import ClientesOportunidadesPage from "@/app/(app)/clientes/oportunidades/page"
 import ClientesInteraccionesPage from "@/app/(app)/clientes/interacciones/page"
@@ -57,7 +65,6 @@ const PLACEHOLDER_PAGES = [
   ["Oportunidades", ClientesOportunidadesPage],
   ["Salud", ClientesSaludPage],
   ["Mapa", ClientesMapaPage],
-  ["Automatizaciones", ClientesAutomatizacionesPage],
 ] as const
 
 beforeEach(() => {
@@ -122,6 +129,12 @@ describe("Clientes sections", () => {
   it("Relaciones renders the real quadrant map instead of the placeholder", () => {
     render(<ClientesRelacionesPage />)
     expect(screen.getByTestId("relaciones-vista-stub")).toBeInTheDocument()
+    expect(screen.queryByText(/en construcción/i)).not.toBeInTheDocument()
+  })
+
+  it("Automatizaciones renders the real settings section instead of the placeholder", () => {
+    render(<ClientesAutomatizacionesPage />)
+    expect(screen.getByTestId("automatizaciones-vista-stub")).toBeInTheDocument()
     expect(screen.queryByText(/en construcción/i)).not.toBeInTheDocument()
   })
 })
