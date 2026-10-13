@@ -32,6 +32,7 @@ import type {
   PrioridadTarea,
   RolContacto,
   TipoCliente,
+  TipoInteraccion,
 } from "@prisma/client";
 import { taskQueryKeys } from "@/hooks/kanban";
 
@@ -135,7 +136,35 @@ export type BitacoraEntrada = {
   texto: string;
   /** RF-C03: optional link to the client's commercial cycle. */
   oportunidad_id: string | null;
+  /**
+   * v7 alignment C3a: kind of interaction; the server always sends it (OTRO
+   * default). Optional here so pre-existing consumers (the C3b UI and its
+   * fixtures) keep compiling without a coordinated edit.
+   */
+  tipo?: TipoInteraccion;
+  /** v7 C3a: optional next step agreed in the interaction. */
+  proximo_paso?: string | null;
   created_at: string;
+};
+
+/** v7 C3a: a bitácora entry as it appears in the cross-client feed. */
+export type InteractionFeedItem = {
+  id: string;
+  cliente_id: string;
+  cliente_nombre: string;
+  oportunidad_id: string | null;
+  oportunidad_nombre: string | null;
+  autor_id: string;
+  autor_nombre: string;
+  texto: string;
+  tipo: TipoInteraccion;
+  proximo_paso: string | null;
+  created_at: string;
+};
+
+export type InteractionFilters = {
+  cliente_id?: string;
+  tipo?: TipoInteraccion;
 };
 
 export type TaskItem = {
@@ -221,6 +250,7 @@ export const clientQueryKeys = {
     ["clients", clientId, "opportunities", oportunidadId, "tasks"] as const,
   tasks: (clientId: string) => ["tasks", "client", clientId] as const,
   log: (id: string) => ["clients", id, "log"] as const,
+  interactions: (filters: InteractionFilters) => ["interactions", "list", filters] as const,
   users: () => ["catalogs", "users"] as const,
 };
 
@@ -326,6 +356,29 @@ export function useBitacora(id: string | null): UseQueryResult<BitacoraEntrada[]
         `/api/v1/clients/${id}/log`,
       );
       return res.entradas;
+    },
+  });
+}
+
+/**
+ * v7 alignment C3a: the cross-client Interacciones feed. Optional filters by
+ * cliente and tipo; the server applies the read scope (a COLABORADOR only sees
+ * the clients they are responsable for).
+ */
+export function useInteractions(
+  filters: InteractionFilters = {},
+): UseQueryResult<InteractionFeedItem[]> {
+  return useQuery({
+    queryKey: clientQueryKeys.interactions(filters),
+    queryFn: async () => {
+      const sp = new URLSearchParams();
+      if (filters.cliente_id) sp.set("cliente_id", filters.cliente_id);
+      if (filters.tipo) sp.set("tipo", filters.tipo);
+      const qs = sp.toString();
+      const res = await apiGet<{ interacciones: InteractionFeedItem[] }>(
+        `/api/v1/interactions${qs ? `?${qs}` : ""}`,
+      );
+      return res.interacciones;
     },
   });
 }
@@ -722,15 +775,20 @@ export function useDeleteTarea(clientId: string, taskId: string): UseMutationRes
 export function useAddLogEntry(clientId: string): UseMutationResult<
   { entrada: BitacoraEntrada },
   string,
-  { texto: string; oportunidad_id?: string | null }
+  { texto: string; oportunidad_id?: string | null; tipo?: TipoInteraccion; proximo_paso?: string | null }
 > {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ texto, oportunidad_id }) => {
+    mutationFn: async ({ texto, oportunidad_id, tipo, proximo_paso }) => {
       try {
         return await apiPost<{ entrada: BitacoraEntrada }>(
           `/api/v1/clients/${clientId}/log`,
-          { texto, ...(oportunidad_id !== undefined ? { oportunidad_id } : {}) },
+          {
+            texto,
+            ...(oportunidad_id !== undefined ? { oportunidad_id } : {}),
+            ...(tipo !== undefined ? { tipo } : {}),
+            ...(proximo_paso !== undefined ? { proximo_paso } : {}),
+          },
         );
       } catch (err) {
         return toastError(err, "No pudimos guardar la nota.");
@@ -739,6 +797,8 @@ export function useAddLogEntry(clientId: string): UseMutationResult<
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: clientQueryKeys.log(clientId) });
       void qc.invalidateQueries({ queryKey: clientQueryKeys.detail(clientId) });
+      // v7 C3a: the new entry also lands in the cross-client feed.
+      void qc.invalidateQueries({ queryKey: ["interactions"] });
       toast.success("Nota agregada a la bitácora.");
     },
   });

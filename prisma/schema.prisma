@@ -67,6 +67,17 @@ enum FaseOportunidad {
   EJECUCION
 }
 
+// v7 alignment C3a (Interacciones): the kind of a bitácora entry. `OTRO` is
+// the default so every pre-existing row (and any writer that predates this
+// unit) keeps working unchanged.
+enum TipoInteraccion {
+  REUNION
+  CORREO
+  LLAMADA
+  VISITA
+  OTRO
+}
+
 enum EstadoTarea {
   POR_HACER
   EN_CURSO
@@ -294,6 +305,11 @@ model BitacoraEntrada {
   // Comunicación específica de una oportunidad (oportunidades-comerciales).
   // Nullable: las entradas atadas solo al cliente no se ven afectadas.
   oportunidad_id String?
+  // v7 alignment C3a (Interacciones): the kind of interaction. Defaults to
+  // OTRO so legacy rows and old writers stay valid — this column is additive.
+  tipo           TipoInteraccion @default(OTRO)
+  // v7 C3a: optional next step agreed in the interaction (free text).
+  proximo_paso   String?
   created_at     DateTime @default(now())
 
   cliente     Cliente      @relation(fields: [cliente_id], references: [id])
@@ -304,6 +320,7 @@ model BitacoraEntrada {
   // `tareas`.
   oportunidad Oportunidad? @relation(fields: [oportunidad_id, cliente_id], references: [id, cliente_id], onDelete: NoAction, onUpdate: NoAction)
 
+  @@index([cliente_id])
   @@map("bitacora_entradas")
 }
 

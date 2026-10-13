@@ -352,4 +352,19 @@ describe("buildOpenApiDocument", () => {
     expect(Object.keys(all?.responses ?? {})).toEqual(expect.arrayContaining(["200", "400", "401", "403"]))
     expect(JSON.stringify(all?.responses?.["200"])).toContain("spreadsheetml.sheet")
   })
+  it("registers the C3a interactions feed and the extended bitácora schema", () => {
+    const paths = buildOpenApiDocument().paths ?? {}
+    const feed = paths["/api/v1/interactions"]?.get
+    expect(feed).toBeDefined()
+    expect(Object.keys(feed?.responses ?? {})).toEqual(
+      expect.arrayContaining(["200", "400", "401"]),
+    )
+    const names = ((feed?.parameters ?? []) as { name: string }[]).map((p) => p.name)
+    expect(names).toEqual(expect.arrayContaining(["cliente_id", "tipo"]))
+
+    // The extended log entry: tipo + proximo_paso live on the shared component.
+    const schema = JSON.stringify(buildOpenApiDocument().components?.schemas)
+    expect(schema).toContain("TipoInteraccion")
+    expect(schema).toContain("proximo_paso")
+  })
 })

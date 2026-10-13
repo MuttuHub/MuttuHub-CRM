@@ -73,6 +73,12 @@ const EstadoOportunidadSchema = z
 // conversión explícita y auditada de una oportunidad GANADA (D5/D6).
 const FaseOportunidadSchema = z.enum(["PROSPECCION", "EJECUCION"]).openapi("FaseOportunidad");
 
+// v7 alignment C3a (Interacciones): the kind of a bitácora entry. Registered
+// once here and reused by the cross-client feed (paths/interactions.ts).
+export const TipoInteraccionSchema = z
+  .enum(["REUNION", "CORREO", "LLAMADA", "VISITA", "OTRO"])
+  .openapi("TipoInteraccion");
+
 const NextCompromisoSchema = z
   .object({
     id: z.string().uuid(),
@@ -267,6 +273,12 @@ const BitacoraEntradaSchema = registry.register(
     texto: z.string(),
     oportunidad_id: z.string().uuid().nullable().openapi({
       description: "RF-C03: vínculo opcional al ciclo comercial de la oportunidad.",
+    }),
+    tipo: TipoInteraccionSchema.openapi({
+      description: "v7 C3a: tipo de interacción (REUNION, CORREO, LLAMADA, VISITA, OTRO); OTRO por defecto.",
+    }),
+    proximo_paso: z.string().nullable().openapi({
+      description: "v7 C3a: próximo paso acordado en la interacción (texto libre, opcional).",
     }),
     created_at: z.string().datetime(),
   }),
