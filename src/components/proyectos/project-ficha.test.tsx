@@ -82,9 +82,12 @@ const TAB_NAMES = [
   "Metas e indicadores",
   "Cronograma",
   "Gantt",
-  "Avance",
-  "Presupuesto",
-  "Gastos",
+  "Ficha de seguimiento",
+  "Financiero",
+  "Legalización",
+  "Beneficiarios",
+  "Soportes",
+  "Equipo",
   "Cambios",
 ]
 
@@ -127,18 +130,18 @@ describe("ProjectFicha (page)", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1", expect.any(Object))
   })
 
-  it("mounts the KPI panel after the technical execution in the Avance tab, with the unconfirmed badge", async () => {
+  it("mounts the KPI export panel in the Cambios tab, with the unconfirmed badge", async () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
-    await openTab("Avance")
+    await openTab("Cambios")
 
     const kpis = await screen.findByTestId("kpis")
-    expect(kpis).toHaveTextContent("Indicadores")
-    expect(await within(kpis).findByTestId("kpi-tecnico")).toHaveAttribute("data-color", "amarillo")
+    expect(kpis).toHaveTextContent("Exportar fichas")
     expect(within(kpis).getByText("No confirmado")).toBeInTheDocument()
-    expect(screen.getByTestId("ejecucion").compareDocumentPosition(kpis) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(screen.queryByTestId("financiero")).not.toBeInTheDocument()
+    expect(within(kpis).getByRole("button", { name: /Exportar ficha \(Excel\)/ })).toBeInTheDocument()
+    expect(screen.getByTestId("modificaciones").compareDocumentPosition(kpis) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.queryByTestId("ejecucion")).not.toBeInTheDocument()
   })
 
   it("renders the six KPI cards at the top of Resumen, above the fact sheet, reading the KPIs once", async () => {
@@ -158,7 +161,7 @@ describe("ProjectFicha (page)", () => {
     expect(within(cards).getAllByTestId(/^resumen-kpi-(?!dot)/)).toHaveLength(6)
     expect(cards.compareDocumentPosition(screen.getByText("Origen")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(fetchMock.mock.calls.filter(([url]) => String(url).includes("/kpis"))).toHaveLength(1)
-    await openTab("Gastos")
+    await openTab("Legalización")
     expect(screen.queryByTestId("resumen-kpis")).not.toBeInTheDocument()
   })
 
@@ -214,12 +217,14 @@ describe("ProjectFicha (page)", () => {
     expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/modifications") || String(url).endsWith("/versions"))).toBe(false)
   })
 
-  it("mounts the team in Resumen and the technical structure only in the Metas e indicadores tab", async () => {
+  it("mounts the technical structure only in the Metas e indicadores tab, and the team in its own Equipo tab", async () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
 
-    expect(await screen.findByTestId("equipo")).toBeInTheDocument()
+    await screen.findByTestId("resumen-kpis")
+    // La ficha ya no muestra el equipo ni la estructura en Resumen: cada uno tiene su pestaña.
+    expect(screen.queryByTestId("equipo")).not.toBeInTheDocument()
     expect(screen.queryByTestId("estructura")).not.toBeInTheDocument()
     await openTab("Metas e indicadores")
     const estructura = await screen.findByTestId("estructura")
@@ -233,7 +238,7 @@ describe("ProjectFicha (page)", () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
-    await screen.findByTestId("equipo")
+    await screen.findByTestId("resumen-kpis")
     expect(screen.queryByTestId("cronograma")).not.toBeInTheDocument()
 
     await openTab("Cronograma")
@@ -252,7 +257,7 @@ describe("ProjectFicha (page)", () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
-    await screen.findByTestId("equipo")
+    await screen.findByTestId("resumen-kpis")
     expect(screen.queryByTestId("gantt")).not.toBeInTheDocument()
 
     await openTab("Gantt")
@@ -299,19 +304,19 @@ describe("ProjectFicha (page)", () => {
     expect(screen.queryByTestId("estructura-plantilla")).not.toBeInTheDocument()
   })
 
-  it("mounts the Presupuesto section and the Ficha financiera in the Presupuesto tab, and reads them only then", async () => {
+  it("mounts the Ficha financiera and the Presupuesto section in the Financiero tab, and reads them only then", async () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
-    await screen.findByTestId("equipo")
+    await screen.findByTestId("resumen-kpis")
     expect(fetchMock).not.toHaveBeenCalledWith("/api/v1/projects/p1/budget", expect.any(Object))
-    await openTab("Presupuesto")
+    await openTab("Financiero")
 
-    const presupuesto = await screen.findByTestId("presupuesto")
-    expect(presupuesto).toHaveTextContent("Presupuesto")
     const financiero = await screen.findByTestId("financiero")
     expect(financiero).toHaveTextContent("Ficha financiera")
-    expect(presupuesto.compareDocumentPosition(financiero) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const presupuesto = await screen.findByTestId("presupuesto")
+    expect(presupuesto).toHaveTextContent("Presupuesto")
+    expect(financiero.compareDocumentPosition(presupuesto) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/budget", expect.any(Object)),
     )
@@ -320,11 +325,11 @@ describe("ProjectFicha (page)", () => {
     )
   })
 
-  it("mounts the Gastos section in the Gastos tab", async () => {
+  it("mounts the Gastos section in the Legalización tab", async () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
-    await openTab("Gastos")
+    await openTab("Legalización")
 
     const gastos = await screen.findByTestId("gastos")
     expect(gastos).toHaveTextContent("Gastos")
@@ -333,20 +338,57 @@ describe("ProjectFicha (page)", () => {
     )
   })
 
-  it("mounts the technical execution section in the Avance tab", async () => {
+  it("mounts the Beneficiarios section in its own tab, lazily", async () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
-    await openTab("Avance")
+    await screen.findByTestId("resumen-kpis")
+    expect(screen.queryByTestId("ejecucion-beneficiarios-total")).not.toBeInTheDocument()
+
+    await openTab("Beneficiarios")
+
+    const total = await screen.findByTestId("ejecucion-beneficiarios-total")
+    expect(total).toHaveTextContent("1.200 beneficiarios")
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/beneficiaries", expect.any(Object))
+  })
+
+  it("mounts the Soportes section in its own tab, lazily", async () => {
+    mockFichaAndAudit({ historial: [] })
+
+    renderFicha()
+    await screen.findByTestId("resumen-kpis")
+    expect(screen.queryByTestId("soportes")).not.toBeInTheDocument()
+
+    await openTab("Soportes")
+
+    const soportes = await screen.findByTestId("soportes")
+    expect(soportes).toHaveTextContent("Soportes")
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/supports", expect.any(Object)),
+    )
+  })
+
+  it("mounts the technical execution section in the Ficha de seguimiento tab, with its side cards, lazily", async () => {
+    mockFichaAndAudit({ historial: [] })
+
+    renderFicha()
+    await screen.findByTestId("resumen-kpis")
+    expect(screen.queryByTestId("ejecucion")).not.toBeInTheDocument()
+
+    await openTab("Ficha de seguimiento")
 
     const ejecucion = await screen.findByTestId("ejecucion")
-    expect(ejecucion).toHaveTextContent("Ejecución técnica")
+    expect(ejecucion).toHaveTextContent("Ficha de seguimiento")
     expect(await within(ejecucion).findByTestId("semaforo-tecnico")).toBeInTheDocument()
+    expect(await within(ejecucion).findByTestId("seguimiento-lateral")).toBeInTheDocument()
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/curve", expect.any(Object)),
+    )
   })
 
   /* ── Pestañas y encabezado fijo (S10 WU2) ───────────────────────────── */
 
-  it("renders the eight tabs in order with Resumen selected by default", async () => {
+  it("renders the eleven tabs in order with Resumen selected by default", async () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
@@ -361,20 +403,19 @@ describe("ProjectFicha (page)", () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
-    await screen.findByTestId("equipo")
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/members", expect.any(Object)))
+    await screen.findByTestId("resumen-kpis")
 
-    for (const id of ["estructura", "cronograma", "gantt", "presupuesto", "ejecucion", "kpis", "financiero", "gastos", "modificaciones", "versiones", "historial"]) {
+    for (const id of ["estructura", "cronograma", "gantt", "presupuesto", "ejecucion", "kpis", "financiero", "gastos", "modificaciones", "versiones", "historial", "equipo", "soportes", "ejecucion-beneficiarios-total"]) {
       expect(screen.queryByTestId(id)).not.toBeInTheDocument()
     }
-    const lazy = ["/budget", "/expenses", "/audit", "/modifications", "/versions", "/financial-sheet", "/technical-status", "/objectives", "/activities"]
+    const lazy = ["/budget", "/expenses", "/audit", "/modifications", "/versions", "/financial-sheet", "/technical-status", "/objectives", "/activities", "/members", "/supports", "/beneficiaries", "/curve"]
     for (const suffix of lazy) {
       expect(fetchMock.mock.calls.some(([url]) => String(url).includes(suffix))).toBe(false)
     }
 
-    await openTab("Gastos")
+    await openTab("Legalización")
     await screen.findByTestId("gastos")
-    expect(screen.queryByTestId("equipo")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("resumen-kpis")).not.toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/expenses", expect.any(Object))
   })
 
@@ -395,7 +436,7 @@ describe("ProjectFicha (page)", () => {
     expect(await within(header).findByText("Semáforo técnico: Amarillo")).toBeInTheDocument()
     expect(await within(header).findByText("Semáforo financiero: Rojo")).toBeInTheDocument()
     expect(screen.getByTestId("ficha-scroll")).not.toContainElement(header)
-    await openTab("Gastos")
+    await openTab("Legalización")
     expect(screen.getByTestId("ficha-header")).toBeInTheDocument()
   })
 
@@ -650,6 +691,14 @@ describe("ProjectFicha (page)", () => {
       if (String(input).endsWith("/beneficiaries")) {
         return Promise.resolve(jsonResponse({ estado: "EN_EJECUCION", registros: [], total: 0 }))
       }
+      // Soportes (v7): vacíos; su comportamiento vive en project-soportes.test.tsx.
+      if (String(input).endsWith("/supports")) {
+        return Promise.resolve(jsonResponse({ soportes: [] }))
+      }
+      // Curva S (Ficha de seguimiento): vacía; el gráfico se prueba aparte.
+      if (String(input).endsWith("/curve")) {
+        return Promise.resolve(jsonResponse({ base: "vigente", corte: "2026-03-15", periodos: [] }))
+      }
       // Estructura técnica (S3): vacía; su comportamiento vive en project-estructura.test.tsx.
       const estructura = /\/(objectives|activities|deliverables|indicators)$/.exec(String(input))
       if (estructura) {
@@ -742,6 +791,7 @@ describe("ProjectFicha (page)", () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
+    await openTab("Equipo")
 
     const equipo = await screen.findByTestId("equipo")
     expect(equipo).toHaveTextContent("Equipo")

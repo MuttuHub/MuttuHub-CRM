@@ -327,7 +327,7 @@ describe("ProjectEstructura", () => {
     })
 
     it("shows each objective roll-up, reading the technical status once", async () => {
-      setup({ rollups: [ROLLUP1] })
+      setup({ proyecto: { estado: "EN_EJECUCION" }, rollups: [ROLLUP1] })
 
       const o1 = await objetivo("OBJ-1")
       const rollup = await within(o1).findByTestId("estructura-objetivo-rollup")
@@ -338,6 +338,13 @@ describe("ProjectEstructura", () => {
       expect(
         fetchMock.mock.calls.filter(([url]) => String(url).endsWith("/technical-status")),
       ).toHaveLength(1)
+    })
+
+    it("shows no roll-up for a non-measurable project (BORRADOR)", async () => {
+      setup({ proyecto: { estado: "BORRADOR" }, rollups: [ROLLUP1] })
+
+      const o1 = await objetivo("OBJ-1")
+      expect(within(o1).queryByTestId("estructura-objetivo-rollup")).not.toBeInTheDocument()
     })
   })
 
