@@ -56,6 +56,39 @@ Docker Desktop fue lanzado el 2026-10-14 para habilitar la validación local.
 - [x] T4 Sembrar el demo de Proyectos — ver "Estado verificado de los datos" (08:49).
 - [ ] T5 Recorrer `docs/guia-prueba-proyectos.md` end-to-end y registrar qué falla (crear proyecto, ficha 11
       pestañas, cronograma, presupuesto, aprobar línea base, gastos, versiones, tablero, exportaciones).
+      **Resultado QA (09:30, Playwright headless):** sin bloqueantes; 11 pestañas × 2 proyectos, tablero, móvil y
+      exportaciones sin errores de consola ni 4xx/5xx. Defectos a corregir antes de las 15:30 (route: delegated,
+      writer trigger — 3+ archivos no triviales):
+  - [x] D1 Signo de la desviación: la tarjeta superior de Ficha de seguimiento dice "-11,7 pp" y "Diferencia"
+        dice "+11,7 pp" para el mismo hueco (`desviacionPp` = plan − real). Unificar lo visible a real − plan
+        (Ficha de seguimiento, Resumen, xlsx) sin tocar la lógica del semáforo.
+        Commit `ae73122`. Convención: real − plan con signo (`+11,7 pp` = adelantado); `desviacionPp` y umbrales
+        intactos; el xlsx rotula "Desviación (pp, real − programado)". RED observado (7 pruebas), GREEN: 6 archivos
+        de prueba + ficha/resumen; `tsc` y `eslint` limpios.
+  - [x] D2 Historial (Cambios) muestra internos: UUIDs (`objetivo_id`, `rubro_id`, `Cliente`), cambios sin efecto
+        (`Sí → Sí`), montos crudos (`14875000.00`), mayúsculas mezcladas.
+        Commit `8e3ccd1`. Solo presentación: `historial-format.ts` (+ pruebas) y etiquetas en `project-display.ts`;
+        resuelve nombres con lo que la ficha ya tiene (cliente, responsable, líneas, municipios) o los omite.
+        RED por módulo ausente; GREEN 53 pruebas (formato, ficha, display); guards, `tsc`, `eslint` limpios.
+  - [x] D3 Crear proyecto: error de municipio no visible; tras crear no hay confirmación ni enlace al proyecto.
+        Commit `e07c913`. El error vive junto al botón y hace scroll; tras crear, el diálogo muestra "Proyecto
+        creado" con enlace "Abrir proyecto" (`/proyectos/<id>`) y botón "Listo". GREEN 21 pruebas del diálogo +
+        project-list + entity-dialogs; `tsc`, `eslint` limpios.
+  - [x] D4 Seed: PRY-2026-002 conserva "(aprobar línea base)" en el nombre; actividades y entregables cruzados.
+        Commit `0e30f3a`. A = "Demo CedeTextil · Ruta de fortalecimiento" (el nombre viejo sigue contando como
+        sembrado); 3 entregables reescritos en la entrada del demo (1.2-E1, 1.3-E2, 1.4-E2). RED por exports
+        ausentes, GREEN 28 pruebas; script NO ejecutado. Docs con el nombre viejo: `docs/guia-prueba-proyectos.md:136`,
+        `docs/brief-video-direccion.md:57`.
+  - [ ] D5 Guía: textos viejos "Presupuesto"/"Avance" (líneas 67-68, 88); falta "Nombre del enlace".
+  - Riesgo de demo: compilación en frío del dev server (hasta ~15 s en el primer "Registrar avance" con enlace;
+    cerrar la pestaña en esa ventana deja el avance "Pendiente de soporte"). Mitigación: calentar rutas o
+    `next build && next start`.
+  - Datos consumidos por el QA (base local): 002 aprobada, 2 avances en 001, oportunidad convertida en
+    PRY-2026-003. Restaurar exige reset local completo (`db:migrate:reset:local` + `db:seed:local` +
+    `db:demo:seed-projects:local -- --apply`); `reset-demo.ts` solo borra proyectos en Borrador. El seed deja
+    **1** oportunidad GANADA libre, no 2.
+  - Pendiente (no hoy): inputs de dinero sin formato, barra de 11 pestañas recortada a 1440 px sin indicador,
+    subtítulo del encabezado apretado en móvil, fecha cruda en la hoja de cliente (fuera de Proyectos).
 - [ ] T6 (si la ruta lo exige) desbloquear el push TLS y publicar el destino elegido.
 - [ ] T7 Registrar el resultado verificado, los checks fallidos y el siguiente paso.
 
@@ -118,7 +151,7 @@ Pendientes del propio módulo de Proyectos que no bloquean la demo:
 | PRY-2026-001 Demo CedeTextil · En ejecución | EN_EJECUCION | 4 | 7 | 2 | 8 | 5 | 3 | 5 |
 | PRY-2026-002 Demo CedeTextil · Borrador | BORRADOR | 4 | 7 | 2 | 8 | 0 | 0 | 0 |
 
-Oportunidades GANADA libres para la conversión en vivo: 2. Credenciales: `admin@demo.muttuhub.local` /
+Oportunidades GANADA libres para la conversión en vivo: **1** (corregido por el QA de las 09:30; la otra ya es PRY-2026-001). Credenciales: `admin@demo.muttuhub.local` /
 `gerencia@demo.muttuhub.local`, contraseña `MuttuDemo2026!`.
 
 H6. **Las pruebas de invariantes contaminan la base local.** `prisma/modificaciones.invariant.test.ts:5` declara que
@@ -137,7 +170,8 @@ operativa: **no correr la suite completa mientras se ensaya o se demuestra**; si
 3. **Aprobar línea base** en PRY-2026-002: pasa a En ejecución y aparecen los chips de semáforo.
 4. **PRY-2026-001**: pestaña **Ficha de seguimiento** (curva S + semáforo técnico), **Legalización** (5 gastos:
    2 registrados, 2 validados, 1 con sobreejecución bloqueada) y **Cambios** (Modificaciones, Versiones, Historial).
-5. **Convertir en proyecto** una de las 2 oportunidades GANADA libres.
+5. **Convertir en proyecto** la única oportunidad GANADA libre ("Demo · Programa de formación técnica", Universidad Central del Valle). Elegir al menos un municipio antes de "Crear proyecto".
+3b. Narración: al aprobar la línea base de PRY-2026-002 el **Semáforo técnico** sale **Rojo** (0 % real contra 20,4 % plan, actividad 1.1 atrasada). Es el comportamiento correcto: explicarlo como la alerta temprana.
 6. Tablero: `/proyectos?vista=tablero` y **Exportar Excel**.
 7. Vista móvil (<768 px): lista y tablero en tarjetas.
 
