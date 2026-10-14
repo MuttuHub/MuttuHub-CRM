@@ -159,7 +159,7 @@ después, el semáforo técnico saldrá más atrasado.
 ## 1. Crear un proyecto (admin)
 
 1. Entra como `admin@demo.muttuhub.local` y abre **Proyectos** en el menú.
-2. La lista debe estar vacía. Pulsa el botón de crear: el diálogo lista oportunidades en estado **Ganada** (hay dos).
+2. La lista debe estar vacía. Pulsa **Nuevo proyecto**: el paso **General** de la página lista oportunidades en estado **Ganada** (hay dos).
 3. Elige una; se precargan cliente, nombre y valor. Completa fecha de inicio, fecha de fin, línea estratégica
    principal y municipios, y confirma.
 4. Resultado esperado: el proyecto aparece como `PRY-2026-001` en estado **Borrador**, y esa oportunidad ya no sale
@@ -345,7 +345,7 @@ admin/gerencia.
 
 ## E. Gastos y validación (S6)
 
-Pestaña **Gastos** de la ficha (sección **Gastos**). Registran `admin@`, `gerencia@` o `coordinador@` integrante, solo con el proyecto
+Pestaña **Legalización** de la ficha (sección **Gastos**). Registran `admin@`, `gerencia@` o `coordinador@` integrante, solo con el proyecto
 **En ejecución**. Validan y rechazan solo `admin@` y `gerencia@`. Regla central: no puedes validar ni rechazar un
 gasto que tú registraste.
 
@@ -444,7 +444,7 @@ Menú **Administración** (otros roles son redirigidos). Más abajo en la págin
 2. Cada fila muestra **Activo** o **Suspendido**. Botones **Renombrar <nombre>**, **Suspender <nombre>** y
    **Restaurar <nombre>**. Alta de rubro/línea con Código y Nombre; alta de municipio con Nombre, Departamento y
    Código DANE (opcional).
-3. Prueba: suspende un municipio, abre el diálogo de crear proyecto o la pestaña **Metas e indicadores**: ya no se ofrece. Restáuralo y
+3. Prueba: suspende un municipio, abre el paso **General** de crear un proyecto o la pestaña **Metas e indicadores**: ya no se ofrece. Restáuralo y
    vuelve. Los inactivos siguen visibles en esta pantalla con su insignia.
 4. Negativo: renombrar un rubro que ya tiene presupuesto responde "El rubro tiene datos asociados: no se puede
    renombrar, solo suspender." Un rubro nunca se elimina. Suspender un rubro con monto asignado en un borrador

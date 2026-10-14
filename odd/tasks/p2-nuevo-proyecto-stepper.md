@@ -32,7 +32,8 @@ Show the boss the project creation flow, visual and functional, as in v7: a page
       editors for the created project.
 - [x] T4 Step 5 Revisión: summary + "Aprobar línea base" (existing action, same permissions) / "Guardar borrador" → ficha.
 - [x] T5 (gate) Point "Nuevo proyecto" and "Convertir en proyecto" to the page — only after browser verification.
-- [ ] T6 Browser verification (both origins), then restore demo data (needs explicit user consent).
+- [x] T6 Browser verification (both origins), then restore demo data (needs explicit user consent).
+      Browser QA 2026-10-14: both origins created and the independent one approved (qa3); entry links + 5 eligible opportunities + dark mode verified non-mutating (qa4); data restored with the flow seed (09cdfce). Tablero card not shown live: needs a completed commercial task on a won opportunity (data gap, not a defect).
 
 ## Acceptance
 Both origins create a BORRADOR project from step 1; steps 2–4 save through existing endpoints and the data shows in the
