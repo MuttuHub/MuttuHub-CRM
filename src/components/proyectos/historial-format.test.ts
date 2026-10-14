@@ -59,7 +59,52 @@ describe("resumirCambio", () => {
     expect(resumirCambio({ campo: null, valor_anterior: { a: 1, b: null }, valor_nuevo: { a: 1 } }, NOMBRES)).toBeNull()
     expect(
       resumirCambio({ campo: null, valor_anterior: { fase: "PROSPECCION", peso: 1 }, valor_nuevo: { fase: "EJECUCION", peso: 1 } }, NOMBRES),
-    ).toEqual({ campo: null, anterior: "Fase: Prospección", nuevo: "Fase: Ejecución" })
+    ).toEqual({ campo: "Fase", anterior: "Prospección", nuevo: "Ejecución" })
+  })
+
+  it("lifts the label of a single changed key so it is not repeated on both sides", () => {
+    expect(
+      resumirCambio({ campo: null, valor_anterior: { fase: "PROSPECCION" }, valor_nuevo: { fase: "EJECUCION" } }, NOMBRES),
+    ).toEqual({ campo: "Fase", anterior: "Prospección", nuevo: "Ejecución" })
+    expect(
+      resumirCambio({ campo: null, valor_anterior: { fase: "PROSPECCION", peso: 1 }, valor_nuevo: { fase: "EJECUCION", peso: 2 } }, NOMBRES),
+    ).toEqual({ campo: null, anterior: "Fase: Prospección · Peso: 1", nuevo: "Fase: Ejecución · Peso: 2" })
+  })
+
+  it("formats raw money (numbers and integer strings) of money fields with formatCOP", () => {
+    expect(resumirCambio({ campo: "valor_total", valor_anterior: 180000000, valor_nuevo: 177360000 }, NOMBRES)).toEqual({
+      campo: "Valor total",
+      anterior: "$ 180.000.000",
+      nuevo: "$ 177.360.000",
+    })
+    expect(resumirCambio({ campo: "valor_estimado_cop", valor_anterior: "1500000", valor_nuevo: "2000000" }, NOMBRES)).toEqual({
+      campo: "Valor estimado",
+      anterior: "$ 1.500.000",
+      nuevo: "$ 2.000.000",
+    })
+    expect(
+      resumirCambio(
+        { campo: null, valor_anterior: { valor_total: 100, nombre: "A" }, valor_nuevo: { valor_total: 250000, nombre: "B" } },
+        NOMBRES,
+      ),
+    ).toEqual({ campo: null, anterior: "Valor total: $ 100 · Nombre: A", nuevo: "Valor total: $ 250.000 · Nombre: B" })
+  })
+
+  it("keeps plain numbers of non-money fields as numbers", () => {
+    expect(resumirCambio({ campo: "beneficiarios_meta", valor_anterior: 1200, valor_nuevo: 1500 }, NOMBRES)).toEqual({
+      campo: "Beneficiarios meta",
+      anterior: "1200",
+      nuevo: "1500",
+    })
+  })
+
+  it("accents the humanized fallback labels and enum values", () => {
+    expect(formatearValorHistorial("LINEA_BASE", NOMBRES)).toBe("Línea base")
+    expect(resumirCambio({ campo: "tipo", valor_anterior: null, valor_nuevo: "LINEA_BASE" }, NOMBRES)).toEqual({
+      campo: "Tipo",
+      anterior: "",
+      nuevo: "Línea base",
+    })
   })
 
   it("formats label and money of a budget change and the month of a programming cell", () => {

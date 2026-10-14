@@ -16,6 +16,7 @@ import {
   etiquetaCampoAuditoria,
   formatFechaCalendario,
   formatFechaHora,
+  humanizarEspanol,
 } from "@/components/proyectos/project-display";
 
 export type NombresPorId = ReadonlyMap<string, string>;
@@ -33,6 +34,9 @@ const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 const INSTANTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 const DECIMAL = /^-?\d+\.\d{2}$/;
 const ENUM = /^[A-Z][A-Z0-9_]+$/;
+const NUMERO = /^-?\d+(\.\d+)?$/;
+/** Money columns of the ledger by name: `valor_total`, `valor_estimado_cop`, `monto_*`, `asignado*`, `*_cop`... */
+const CAMPO_MONETARIO = /^(valor_(total|estimado)|diferencia_valor|monto|asignado)(_|$)|_cop$/;
 
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -61,8 +65,18 @@ function enumLegible(valor: string): string {
   if (conocido !== valor) return conocido;
   const estado = ESTADO_PROYECTO_META[valor as keyof typeof ESTADO_PROYECTO_META];
   if (estado) return estado.label;
-  const texto = valor.replace(/_/g, " ").toLowerCase();
-  return texto.charAt(0).toUpperCase() + texto.slice(1);
+  return humanizarEspanol(valor.replace(/_/g, " "));
+}
+
+/** A raw number (or numeric string) of a money field -> `formatCOP`; `null` when it is not an amount. */
+function dineroLegible(valor: unknown, campo: string | undefined): string | null {
+  if (!campo || !CAMPO_MONETARIO.test(campo)) return null;
+  if (typeof valor !== "number" && !(typeof valor === "string" && NUMERO.test(valor))) return null;
+  try {
+    return formatCOP(toCents(valor));
+  } catch {
+    return null;
+  }
 }
 
 function formatearTexto(valor: string, nombres: NombresPorId): string {
@@ -80,8 +94,10 @@ function formatearTexto(valor: string, nombres: NombresPorId): string {
  * One JSON value of the ledger -> text. A uuid is replaced by its name when `nombres` knows it and
  * omitted otherwise (an empty string); null keys of an object are omitted.
  */
-export function formatearValorHistorial(valor: unknown, nombres: NombresPorId): string {
+export function formatearValorHistorial(valor: unknown, nombres: NombresPorId, campo?: string): string {
   if (valor === null || valor === undefined) return "";
+  const dinero = dineroLegible(valor, campo);
+  if (dinero !== null) return dinero;
   if (typeof valor === "string") return formatearTexto(valor, nombres);
   if (typeof valor === "number" || typeof valor === "boolean") return describeAuditValue(valor);
   if (Array.isArray(valor)) {
@@ -94,7 +110,7 @@ export function formatearValorHistorial(valor: unknown, nombres: NombresPorId): 
           const origen = ORIGEN_PROYECTO_META[item as keyof typeof ORIGEN_PROYECTO_META] ?? item;
           return `${etiquetaCampoAuditoria(clave)}: ${origen}`;
         }
-        const texto = formatearValorHistorial(item, nombres);
+        const texto = formatearValorHistorial(item, nombres, clave);
         if (texto === "") return "";
         return clave === "id" ? texto : `${etiquetaCampoAuditoria(clave)}: ${texto}`;
       })
@@ -153,12 +169,25 @@ export function resumirCambio(
     return null;
   }
 
-  const textoAnterior = formatearValorHistorial(anterior, nombres);
-  const textoNuevo = formatearValorHistorial(nuevo, nombres);
+  // A row with no field whose only changed key is the same on both sides ({fase: A} -> {fase: B}):
+  // that key becomes the label, so it is not repeated as a prefix of each value.
+  let clave = fila.campo;
+  if (!clave && esObjeto(anterior) && esObjeto(nuevo)) {
+    const unicas = new Set([...Object.keys(anterior), ...Object.keys(nuevo)]);
+    const [unica] = unicas;
+    if (unicas.size === 1 && unica !== "id" && unica !== "origen") {
+      clave = unica;
+      anterior = anterior[unica];
+      nuevo = nuevo[unica];
+    }
+  }
+
+  const textoAnterior = formatearValorHistorial(anterior, nombres, clave ?? undefined);
+  const textoNuevo = formatearValorHistorial(nuevo, nombres, clave ?? undefined);
   if (textoAnterior !== "" && textoAnterior === textoNuevo) return null;
 
   const tieneValor = textoAnterior !== "" || textoNuevo !== "";
-  const campo = fila.campo && tieneValor ? (mesLegible(fila.campo) ?? etiquetaCampoAuditoria(fila.campo)) : null;
+  const campo = clave && tieneValor ? (mesLegible(clave) ?? etiquetaCampoAuditoria(clave)) : null;
   return { campo, anterior: textoAnterior, nuevo: textoNuevo };
 }
 

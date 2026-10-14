@@ -61,12 +61,58 @@ export const ENTIDAD_AUDITORIA_META: Record<string, string> = {
   entregable: "Entregable",
   indicador: "Indicador",
   linea_presupuestal: "Línea presupuestal",
+  medicion: "Medición",
+  version: "Versión",
 };
+
+/** Spanish words the humanized fallback must accent (the ledger names carry no tildes). */
+const PALABRAS_CON_TILDE: Record<string, string> = {
+  descripcion: "descripción",
+  observacion: "observación",
+  numero: "número",
+  medicion: "medición",
+  mediciones: "mediciones",
+  version: "versión",
+  versiones: "versiones",
+  linea: "línea",
+  lineas: "líneas",
+  validacion: "validación",
+  aprobacion: "aprobación",
+  ejecucion: "ejecución",
+  prospeccion: "prospección",
+  planificacion: "planificación",
+  suspension: "suspensión",
+  anulacion: "anulación",
+  creacion: "creación",
+  edicion: "edición",
+  conversion: "conversión",
+  modificacion: "modificación",
+  justificacion: "justificación",
+  clasificacion: "clasificación",
+  identificacion: "identificación",
+  informacion: "información",
+  codigo: "código",
+  periodo: "período",
+  parametro: "parámetro",
+  categoria: "categoría",
+  estrategica: "estratégica",
+  url: "URL",
+};
+
+/** Sentence case in Spanish from space-separated words: accents the known words, capitalizes the first. */
+export function humanizarEspanol(texto: string): string {
+  const palabras = texto
+    .toLowerCase()
+    .split(" ")
+    .map((palabra) => PALABRAS_CON_TILDE[palabra] ?? palabra)
+    .join(" ");
+  return palabras.charAt(0).toUpperCase() + palabras.slice(1);
+}
 
 /** Sentence case from a snake_case name: `fecha_compromiso_pago` -> "Fecha compromiso pago". */
 function humanizarNombre(nombre: string): string {
   const texto = nombre.replace(/_id$/, "").replace(/_/g, " ").trim();
-  return texto === "" ? nombre : texto.charAt(0).toUpperCase() + texto.slice(1).toLowerCase();
+  return texto === "" ? nombre : humanizarEspanol(texto);
 }
 
 /** Nombre legible de una entidad del libro; sin traducción, su nombre en sentence case. */
@@ -142,6 +188,16 @@ const CAMPO_AUDITORIA_META: Record<string, string> = {
   fecha_inicio: "Fecha de inicio",
   fecha_fin: "Fecha de fin",
   valor_total: "Valor total",
+  valor_estimado_cop: "Valor estimado",
+  descripcion: "Descripción",
+  observacion: "Observación",
+  numero: "Número",
+  numero_documento: "Número de documento",
+  tercero_numero: "Número del tercero",
+  url_externa: "URL externa",
+  medicion: "Medición",
+  linea_base: "Línea base",
+  version: "Versión",
   beneficiarios_meta: "Beneficiarios meta",
   responsable_id: "Responsable",
   lineas: "Líneas estratégicas",
@@ -171,6 +227,7 @@ export function etiquetaCampoAuditoria(campo: string): string {
 const VALOR_AUDITORIA_META: Record<string, string> = {
   PROSPECCION: "Prospección",
   EJECUCION: "Ejecución",
+  LINEA_BASE: "Línea base",
 };
 
 /**
