@@ -17,17 +17,18 @@ import { StatusChip } from "@/components/ui/status-chip";
 import { PasoGeneralCreado, PasoGeneralForm } from "@/components/proyectos/nuevo-proyecto/paso-general";
 import { NuevoProyectoStepper } from "@/components/proyectos/nuevo-proyecto/nuevo-proyecto-stepper";
 import {
-  PASOS,
+  datosDePaso,
+  esProyectoAprobado,
   hrefNuevoProyecto,
   pasoAnterior,
   pasoSiguiente,
   resolverPaso,
 } from "@/components/proyectos/nuevo-proyecto/stepper-logic";
+import { useProyectoNuevo } from "@/components/proyectos/nuevo-proyecto/use-proyecto-nuevo";
 import { PasoSiguientes } from "@/components/proyectos/nuevo-proyecto/paso-siguientes";
 import { ESTADO_PROYECTO_META } from "@/components/proyectos/project-display";
 import type { CreatedProject } from "@/components/proyectos/project-create-form";
 import { useCurrentUser } from "@/hooks/kanban";
-import { useProject } from "@/hooks/projects";
 import { canCreateProject } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
@@ -41,7 +42,7 @@ export function NuevoProyecto() {
   const oportunidadId = search.get("oportunidad") ?? undefined;
   const hayProyecto = proyectoId !== "";
   const paso = resolverPaso(search.get("paso"), hayProyecto);
-  const proyectoQuery = useProject(proyectoId);
+  const proyectoQuery = useProyectoNuevo(proyectoId);
   const proyecto = proyectoQuery.data;
 
   function irAPaso(numero: number) {
@@ -56,7 +57,8 @@ export function NuevoProyecto() {
   const puedeCrear = usuario ? canCreateProject({ id: usuario.id, rol: usuario.rol }) : false;
   const anterior = pasoAnterior(paso);
   const siguiente = pasoSiguiente(paso);
-  const datosPaso = PASOS[paso - 1];
+  const aprobado = proyecto ? esProyectoAprobado(proyecto.estado) : false;
+  const datosPaso = datosDePaso(paso, aprobado);
   const estado = proyecto ? ESTADO_PROYECTO_META[proyecto.estado] : null;
 
   return (
@@ -79,6 +81,9 @@ export function NuevoProyecto() {
           <SinAcceso />
         ) : hayProyecto && proyectoQuery.isError ? (
           <ProyectoNoDisponible error={proyectoQuery.error} />
+        ) : hayProyecto && !proyecto ? (
+          // Until the project resolves nothing is known about it: no stepper with "completado" steps.
+          <CargandoPagina />
         ) : (
           <>
             <header
@@ -104,7 +109,7 @@ export function NuevoProyecto() {
             </header>
 
             <div className="no-scrollbar overflow-x-auto border-b border-ink-200 px-5 py-4 sm:px-6">
-              <NuevoProyectoStepper actual={paso} hayProyecto={hayProyecto} onSeleccionar={irAPaso} />
+              <NuevoProyectoStepper actual={paso} hayProyecto={hayProyecto} aprobado={aprobado} onSeleccionar={irAPaso} />
             </div>
 
             <div data-testid="nuevo-proyecto-paso" className="flex flex-col gap-5 p-5 sm:p-6">
@@ -117,9 +122,7 @@ export function NuevoProyecto() {
 
               {paso === 1 && !hayProyecto ? (
                 <PasoGeneralForm oportunidadId={oportunidadId} onCreated={alCrear} />
-              ) : !proyecto ? (
-                <CargandoPaso />
-              ) : paso === 1 ? (
+              ) : !proyecto ? null : paso === 1 ? (
                 <PasoGeneralCreado proyecto={proyecto} />
               ) : (
                 <PasoSiguientes paso={paso} proyecto={proyecto} />
@@ -156,16 +159,6 @@ function CargandoPagina() {
     <div className="space-y-3 p-5" data-testid="nuevo-proyecto-cargando">
       {Array.from({ length: 4 }).map((_, i) => (
         <Skeleton key={i} className="h-10 w-full rounded-[10px]" />
-      ))}
-    </div>
-  );
-}
-
-function CargandoPaso() {
-  return (
-    <div className="space-y-3" data-testid="nuevo-proyecto-paso-cargando">
-      {Array.from({ length: 3 }).map((_, i) => (
-        <Skeleton key={i} className="h-12 w-full rounded-12" />
       ))}
     </div>
   );

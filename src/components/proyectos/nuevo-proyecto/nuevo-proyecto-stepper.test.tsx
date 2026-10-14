@@ -31,4 +31,17 @@ describe("NuevoProyectoStepper", () => {
     await user.click(screen.getByRole("button", { name: /^General/ }))
     expect(onSeleccionar).toHaveBeenCalledWith(1)
   })
+
+  it("shows the Revisión pill as done once the baseline is approved, keeping it the current step", () => {
+    render(<NuevoProyectoStepper actual={5} hayProyecto aprobado onSeleccionar={vi.fn()} />)
+    const revision = screen.getByRole("button", { name: /^Revisión/ })
+    expect(revision).toHaveAttribute("data-estado", "hecho")
+    expect(revision).toHaveAttribute("aria-current", "step")
+    expect(revision).toHaveTextContent("(completado)")
+  })
+
+  it("keeps Revisión pending while the project is still a draft", () => {
+    render(<NuevoProyectoStepper actual={3} hayProyecto onSeleccionar={vi.fn()} />)
+    expect(screen.getByRole("button", { name: /^Revisión/ })).toHaveAttribute("data-estado", "pendiente")
+  })
 })

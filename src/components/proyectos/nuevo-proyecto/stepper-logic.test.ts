@@ -4,7 +4,9 @@
 import { describe, expect, it } from "vitest"
 import {
   PASOS,
+  datosDePaso,
   estadoDePaso,
+  esProyectoAprobado,
   hrefNuevoProyecto,
   pasoAnterior,
   pasoHabilitado,
@@ -86,5 +88,37 @@ describe("hrefNuevoProyecto", () => {
 
   it("encodes the ids", () => {
     expect(hrefNuevoProyecto({ proyecto: "a b" })).toBe("/proyectos/nuevo?proyecto=a%20b")
+  })
+})
+
+describe("estadoDePaso once the baseline is approved", () => {
+  it("marks the Revisión step done even while it is the active one", () => {
+    expect(estadoDePaso(5, 5, true, true)).toBe("hecho")
+    expect(estadoDePaso(5, 3, true, true)).toBe("hecho")
+  })
+
+  it("leaves the other steps as they were", () => {
+    expect([1, 2, 3, 4].map((n) => estadoDePaso(n, 5, true, true))).toEqual(["hecho", "hecho", "hecho", "hecho"])
+    expect([1, 2, 3, 4, 5].map((n) => estadoDePaso(n, 3, true, true))).toEqual(["hecho", "hecho", "activo", "pendiente", "hecho"])
+  })
+})
+
+describe("esProyectoAprobado", () => {
+  it("is true for any state past BORRADOR and false while still a draft", () => {
+    expect(esProyectoAprobado("BORRADOR")).toBe(false)
+    expect(esProyectoAprobado("EN_EJECUCION")).toBe(true)
+  })
+})
+
+describe("datosDePaso", () => {
+  it("returns the v7 copy of every step, Revisión included, before approval", () => {
+    expect(datosDePaso(5, false)).toBe(PASOS[4])
+    expect(datosDePaso(2, true)).toBe(PASOS[1])
+  })
+
+  it("swaps the Revisión copy for an approved state after approval", () => {
+    const aprobado = datosDePaso(5, true)
+    expect(aprobado.titulo).toBe("Línea base aprobada")
+    expect(aprobado.descripcion).not.toMatch(/Confirma lo capturado/)
   })
 })

@@ -31,7 +31,27 @@ export function pasoHabilitado(numero: number, hayProyecto: boolean): boolean {
   return numero === 1 || hayProyecto
 }
 
-export function estadoDePaso(numero: number, actual: number, hayProyecto: boolean): EstadoPaso {
+/** The baseline is approved once the project left BORRADOR. */
+export function esProyectoAprobado(estado: string): boolean {
+  return estado !== "BORRADOR"
+}
+
+/** Copy of a step; Revisión turns into an approved state once the baseline is approved. */
+export function datosDePaso(numero: number, aprobado: boolean): (typeof PASOS)[number] | typeof REVISION_APROBADA {
+  if (aprobado && numero === TOTAL_PASOS) return REVISION_APROBADA
+  return PASOS[numero - 1]
+}
+
+const REVISION_APROBADA = {
+  numero: TOTAL_PASOS,
+  etiqueta: "Revisión",
+  titulo: "Línea base aprobada",
+  descripcion: "La estructura y el presupuesto quedaron congelados. Abre el proyecto para darle seguimiento.",
+} as const
+
+/** `aprobado` marks the Revisión step done even while it is the active one. */
+export function estadoDePaso(numero: number, actual: number, hayProyecto: boolean, aprobado = false): EstadoPaso {
+  if (aprobado && numero === TOTAL_PASOS) return "hecho"
   if (numero === actual) return "activo"
   return hayProyecto && numero < actual ? "hecho" : "pendiente"
 }

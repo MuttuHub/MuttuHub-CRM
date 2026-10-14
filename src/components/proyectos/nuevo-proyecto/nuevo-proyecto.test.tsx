@@ -22,7 +22,7 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(nav.search),
 }))
 vi.mock("@/hooks/kanban", () => ({ useCurrentUser: useCurrentUserMock }))
-vi.mock("@/hooks/projects", () => ({ useProject: useProjectMock }))
+vi.mock("@/components/proyectos/nuevo-proyecto/use-proyecto-nuevo", () => ({ useProyectoNuevo: useProjectMock }))
 vi.mock("@/components/proyectos/nuevo-proyecto/paso-general", () => ({
   PasoGeneralForm: ({ oportunidadId, onCreated }: { oportunidadId?: string; onCreated: (p: { id: string; codigo: string | null; nombre: string | null }) => void }) => (
     <div data-testid="paso-general-form">
@@ -167,11 +167,32 @@ describe("NuevoProyecto", () => {
     expect(screen.getByRole("button", { name: "Atrás" })).toBeInTheDocument()
   })
 
-  it("shows a skeleton for the step while the project loads", () => {
+  it("shows only a loading skeleton, not the stepper with done steps, while the project loads", () => {
     nav.search = "proyecto=p1&paso=2"
     render(<NuevoProyecto />)
-    expect(screen.getByTestId("nuevo-proyecto-paso-cargando")).toBeInTheDocument()
+    expect(screen.getByTestId("nuevo-proyecto-cargando")).toBeInTheDocument()
+    expect(screen.queryByRole("navigation", { name: /Pasos/ })).not.toBeInTheDocument()
+    expect(screen.queryByText(/completado/)).not.toBeInTheDocument()
     expect(screen.queryByTestId("paso-siguientes")).not.toBeInTheDocument()
+  })
+
+  it("reflects the approval on step 5: Revisión done, approved copy instead of the review copy", () => {
+    nav.search = "proyecto=p1&paso=5"
+    useProjectMock.mockReturnValue({ data: { ...PROYECTO, estado: "EN_EJECUCION" }, isError: false, error: null })
+    render(<NuevoProyecto />)
+
+    expect(paso("Revisión")).toHaveAttribute("data-estado", "hecho")
+    expect(screen.getByRole("heading", { level: 2, name: "Línea base aprobada" })).toBeInTheDocument()
+    expect(screen.queryByText(/Confirma lo capturado/)).not.toBeInTheDocument()
+  })
+
+  it("keeps the review copy on step 5 while the project is a draft", () => {
+    nav.search = "proyecto=p1&paso=5"
+    useProjectMock.mockReturnValue({ data: PROYECTO, isError: false, error: null })
+    render(<NuevoProyecto />)
+
+    expect(paso("Revisión")).toHaveAttribute("data-estado", "activo")
+    expect(screen.getByRole("heading", { level: 2, name: "Revisar y aprobar" })).toBeInTheDocument()
   })
 
   it("shows the no-access block, and no form, to users who cannot create projects", () => {
