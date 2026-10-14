@@ -3,7 +3,7 @@
  * "Aprobar línea base" and "Convertir en proyecto") needs realistic data without a long
  * manual walkthrough. This is a LOCAL-ONLY, idempotent tool, not a feature. It builds:
  *
- *   - Project A "Demo CedeTextil · Borrador": created from a won opportunity, with the
+ *   - Project A "Demo CedeTextil · Ruta de fortalecimiento": created from a won opportunity, with the
  *     CedeTextil structure + budget + monthly programming imported, left in BORRADOR so
  *     "Aprobar línea base" can be shown live.
  *   - Project B "Demo CedeTextil · En ejecución": same workbook, baseline approved through
@@ -66,7 +66,7 @@ import {
   F_X1_PRESUPUESTO,
   fixtureF_X1,
 } from "../src/lib/proyectos/__fixtures__/plantilla-cedetextil"
-import { generarPlantilla } from "../src/lib/proyectos/plantilla/generate"
+import { generarPlantilla, type PlantillaInput } from "../src/lib/proyectos/plantilla/generate"
 import { construirPlan } from "../src/lib/proyectos/plantilla/mapear"
 import { parsePlantilla } from "../src/lib/proyectos/plantilla/parse"
 import { validarPlantilla } from "../src/lib/proyectos/plantilla/validate"
@@ -83,7 +83,9 @@ export type SeedClient = typeof db
 
 /** Every demo project name starts with this prefix: it is the idempotency marker (D3). */
 export const MARKER_PREFIX = "Demo CedeTextil"
-export const NOMBRE_PROYECTO_A = `${MARKER_PREFIX} · Borrador (aprobar línea base)`
+export const NOMBRE_PROYECTO_A = `${MARKER_PREFIX} · Ruta de fortalecimiento`
+/** Name project A had before it was neutralised: a database seeded then must still read as seeded. */
+export const NOMBRE_PROYECTO_A_LEGADO = `${MARKER_PREFIX} · Borrador (aprobar línea base)`
 export const NOMBRE_PROYECTO_B = `${MARKER_PREFIX} · En ejecución`
 export const NOMBRE_EXTRA_GANADA = "Demo · Programa de formación técnica (ganada, lista para convertir)"
 export const VALOR_EXTRA_GANADA = 95_000_000
@@ -121,12 +123,13 @@ export type SeedDecision = "seed" | "already-seeded" | "partial"
 
 /**
  * Decides from the names of the existing demo projects (those starting with MARKER_PREFIX):
- * none -> "seed"; both seeded projects (A and B, by exact name) -> "already-seeded";
+ * none -> "seed"; both seeded projects (A, under its current or legacy name, and B) -> "already-seeded";
  * anything in between -> "partial" (a previous run failed midway), which must not be written over.
  */
 export function decideSeed(nombres: readonly string[]): SeedDecision {
   if (nombres.length === 0) return "seed"
-  const completo = nombres.includes(NOMBRE_PROYECTO_A) && nombres.includes(NOMBRE_PROYECTO_B)
+  const tieneA = nombres.includes(NOMBRE_PROYECTO_A) || nombres.includes(NOMBRE_PROYECTO_A_LEGADO)
+  const completo = tieneA && nombres.includes(NOMBRE_PROYECTO_B)
   return completo ? "already-seeded" : "partial"
 }
 
@@ -193,6 +196,33 @@ function ayerAcotado(hoy: string): string {
 
 const URL_BASE = "https://demo.muttuhub.example/soportes"
 
+/**
+ * Deliverables of the shared F-X1 workbook that do not belong to the activity that holds them
+ * (a "Mapa de unidades productivas" under the training activity, an "Estatuto" under the technical
+ * support, a "RUT" under the delivery of equipment). The demo rewrites only their text so each reads
+ * as part of its activity; codes, quantities and counts stay, so the avances and the structure keep
+ * matching the workbook.
+ */
+export const ENTREGABLES_DEMO: Readonly<Record<string, { descripcion: string; unidad: string }>> = {
+  "1.2-E1": { descripcion: "Informe de la formación en confección", unidad: "Informe" },
+  "1.3-E2": { descripcion: "Plan de mejora de la unidad productiva", unidad: "Plan" },
+  "1.4-E2": { descripcion: "Acta de entrega de dotación", unidad: "Acta" },
+}
+
+/** The F-X1 input with the demo wording of {@link ENTREGABLES_DEMO} applied. */
+export function aplicarContenidoDemo(entrada: PlantillaInput): PlantillaInput {
+  return {
+    ...entrada,
+    estructura: {
+      ...entrada.estructura,
+      entregables: entrada.estructura.entregables.map((entregable) => {
+        const ajuste = ENTREGABLES_DEMO[entregable.codigo]
+        return ajuste ? { ...entregable, ...ajuste } : entregable
+      }),
+    },
+  }
+}
+
 /** All illustrative: fictitious third parties, `.example` links, round figures. */
 export function buildSeedData(hoy: string): SeedData {
   const ayer = ayerAcotado(hoy)
@@ -218,8 +248,8 @@ export function buildSeedData(hoy: string): SeedData {
       entregable: "1.2-E1",
       fecha: hoy,
       cantidad: "1",
-      observacion: "Mapa de unidades productivas validado con la comunidad.",
-      medios: [soporte("Mapa de unidades productivas (PDF)", "mapa-unidades.pdf")],
+      observacion: "Informe de la formación en confección entregado a la coordinación.",
+      medios: [soporte("Informe de la formación (PDF)", "informe-formacion.pdf")],
     },
     {
       entregable: "1.3-E1",
@@ -559,7 +589,9 @@ async function importarCedeTextil(
   responsableEmail: string,
 ): Promise<string> {
   const contexto = await cargarContexto(client, proyecto.id)
-  const buffer = await generarPlantilla(entradaDemo("valido", proyecto.codigo, contexto, responsableEmail))
+  const buffer = await generarPlantilla(
+    aplicarContenidoDemo(entradaDemo("valido", proyecto.codigo, contexto, responsableEmail)),
+  )
   const parsed = await parsePlantilla(buffer)
   const resultado = validarPlantilla(parsed, contexto)
   if (resultado.errores.length > 0) {

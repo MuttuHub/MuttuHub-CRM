@@ -21,7 +21,10 @@ import {
   fixtureF_X1,
 } from "../src/lib/proyectos/__fixtures__/plantilla-cedetextil"
 import {
+  MARKER_PREFIX,
   MIN_GANADAS_LIBRES,
+  NOMBRE_PROYECTO_A_LEGADO,
+  aplicarContenidoDemo,
   assertLocalTarget,
   buildSeedData,
   checkSeedData,
@@ -66,6 +69,15 @@ describe("decideSeed / extraGanadaNeeded", () => {
     expect(decideSeed([NOMBRE_PROYECTO_B, NOMBRE_PROYECTO_A])).toBe("already-seeded")
   })
 
+  it("names project A neutrally (no state, no instruction) while keeping the idempotency marker", () => {
+    expect(NOMBRE_PROYECTO_A.startsWith(MARKER_PREFIX)).toBe(true)
+    expect(NOMBRE_PROYECTO_A).not.toMatch(/borrador|aprobar|línea base/i)
+  })
+
+  it("still reads a database seeded under the legacy name of project A as already seeded", () => {
+    expect(decideSeed([NOMBRE_PROYECTO_B, NOMBRE_PROYECTO_A_LEGADO])).toBe("already-seeded")
+  })
+
   it("is partial when only some demo project exists (B built, A missing, or the reverse)", () => {
     expect(decideSeed([NOMBRE_PROYECTO_B])).toBe("partial")
     expect(decideSeed([NOMBRE_PROYECTO_A])).toBe("partial")
@@ -78,6 +90,40 @@ describe("decideSeed / extraGanadaNeeded", () => {
     expect(extraGanadaNeeded(0)).toBe(true)
     expect(extraGanadaNeeded(3)).toBe(false)
     expect(extraGanadaNeeded(5)).toBe(false)
+  })
+})
+
+describe("aplicarContenidoDemo", () => {
+  const base = fixtureF_X1("valido")
+  const demo = aplicarContenidoDemo(base)
+
+  it("keeps the structure of the workbook: same activities, entregables (codes and quantities) and indicators", () => {
+    expect(demo.estructura.actividades).toHaveLength(4)
+    expect(demo.estructura.entregables).toHaveLength(7)
+    expect(demo.estructura.indicadores).toHaveLength(2)
+    expect(demo.estructura.entregables.map((e) => [e.codigo, e.actividadCodigo, e.cantidad])).toEqual(
+      base.estructura.entregables.map((e) => [e.codigo, e.actividadCodigo, e.cantidad]),
+    )
+  })
+
+  it("no longer holds entregables that belong to another activity", () => {
+    const textos = demo.estructura.entregables.map((e) => `${e.descripcion} ${e.unidad}`).join(" | ")
+    expect(textos).not.toMatch(/Mapa de unidades productivas|Estatuto|RUT/)
+    const porCodigo = new Map(demo.estructura.entregables.map((e) => [e.codigo, e.descripcion]))
+    expect(porCodigo.get("1.2-E1")).toMatch(/formación/i)
+    expect(porCodigo.get("1.3-E2")).toMatch(/unidad productiva/i)
+    expect(porCodigo.get("1.4-E2")).toMatch(/dotación/i)
+  })
+
+  it("leaves the already coherent entregables untouched and does not mutate the fixture", () => {
+    const original = fixtureF_X1("valido").estructura.entregables
+    expect(demo.estructura.entregables.find((e) => e.codigo === "1.1-E1")).toEqual(original.find((e) => e.codigo === "1.1-E1"))
+    expect(base.estructura.entregables.find((e) => e.codigo === "1.2-E1")?.descripcion).toBe("Mapa de unidades productivas")
+  })
+
+  it("the avance of 1.2-E1 describes the formación, not the map", () => {
+    const avance = buildSeedData(HOY).avances.find((a) => a.entregable === "1.2-E1")
+    expect(`${avance?.observacion} ${avance?.medios.map((m) => m.nombre).join(" ")}`).not.toMatch(/mapa/i)
   })
 })
 
