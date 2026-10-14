@@ -64,14 +64,15 @@ Antes de la reunión (5 min, una sola vez):
 
 En la reunión (como `admin@`, salvo donde se indica):
 1. **Proyectos > Ver detalle** del proyecto en Borrador (abre en una pestaña nueva del navegador, en **Resumen**: datos y **Equipo**; **Volver a proyectos** regresa a la lista). Pestaña
-   **Cronograma**: el **Cronograma** por semanas. Pestaña **Gantt**: el **Gantt** por semanas. Pestaña **Presupuesto**: **Presupuesto** (Σ asignado =
+   **Cronograma**: el **Cronograma** por semanas. Pestaña **Gantt**: el **Gantt** por semanas. Pestaña **Financiero**: **Presupuesto** (Σ asignado =
    Valor total). (1 min)
 2. En la pestaña **Metas e indicadores**, **Importar plantilla** con el archivo de error: se ve la tabla por hoja y
    **Descargar reporte (.csv)**; nada se escribió. (1 min)
 3. **Aprobar línea base** (está en el encabezado, visible en cualquier pestaña) > **Aprobar**: el proyecto pasa a
    **En ejecución**, el encabezado muestra el estado y se habilitan ejecución, gastos, modificaciones y versiones.
    (1 min)
-4. Pestaña **Ficha de seguimiento**: **Registrar avance** en un entregable con un enlace https; mira el
+4. Pestaña **Ficha de seguimiento**: **Registrar avance** en un entregable con un enlace https (URL y "Nombre del enlace", ambos obligatorios; espera a que
+   el diálogo cierre solo: el enlace se guarda en una segunda petición); mira el
    **Semáforo técnico** (también en el encabezado, con la palabra del color) y la insignia **No confirmado**.
    (2 min)
 5. Pestaña **Legalización** > **Registrar gasto** con soporte. Sal y entra como `gerencia@`: cola **Gastos por validar**
@@ -85,7 +86,7 @@ En la reunión (como `admin@`, salvo donde se indica):
 8. **Cierre con el Tablero** (como `admin@` o `gerencia@`): en **Proyectos** abre la pestaña **Tablero**
    (`/proyectos?vista=tablero`): tarjetas del portafolio, semáforos por proyecto, insignia **No confirmado** y
    **Exportar Excel**. Abre **Ver detalle**, muestra los dos chips de semáforo del encabezado y, en la pestaña
-   **Avance**, la sección **Indicadores**. (1 min; ver §J)
+   **Metas e indicadores**, la sección **Indicadores**. (1 min; ver §J)
 
 9. **Vista móvil (S10)**: con el navegador en modo responsive o la ventana más angosta que 768 px, la lista y el
    tablero pasan a tarjetas, y **Registrar avance** / **Registrar gasto** abren una hoja desde abajo con controles
@@ -264,7 +265,7 @@ $177.360.000 y responsable `ana@muttu.co` (no existe en la demo: sale la adverte
 
 ## B. Presupuesto y programación mensual (S5)
 
-Pestaña **Presupuesto** de la ficha, sección **Presupuesto** (arriba; la **Ficha financiera** va debajo, §F). Se edita solo en **Borrador** y solo `admin@` o
+Pestaña **Financiero** de la ficha, sección **Presupuesto** (arriba; la **Ficha financiera** va debajo, §F). Se edita solo en **Borrador** y solo `admin@` o
 `gerencia@`; el resto lo ve en solo lectura.
 
 1. Tabla por rubro con columna **Asignado**. Escribe montos (acepta coma o punto) y pulsa **Guardar presupuesto**.
@@ -385,7 +386,7 @@ gasto que tú registraste.
 
 ## F. Ficha financiera (S5/S6/S8)
 
-Pestaña **Presupuesto**, sección **Ficha financiera** (debajo de **Presupuesto**). Visible para quienes pueden leer el proyecto (admin, gerencia y coordinador integrante).
+Pestaña **Financiero**, sección **Ficha financiera** (debajo de **Presupuesto**). Visible para quienes pueden leer el proyecto (admin, gerencia y coordinador integrante).
 
 1. Tabla por rubro con A (asignado), P (programado), E (ejecutado = gastos **Validados**), D y los porcentajes E/P y
    E/A, color por fila y fila de total.
