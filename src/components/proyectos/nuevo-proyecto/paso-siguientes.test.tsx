@@ -20,6 +20,10 @@ vi.mock("@/components/proyectos/project-presupuesto", () => ({
   ProjectPresupuesto: ({ proyecto }: { proyecto: ProjectListRow }) => <div data-testid="presupuesto">{proyecto.id}</div>,
 }))
 
+vi.mock("@/components/proyectos/nuevo-proyecto/paso-revision", () => ({
+  PasoRevision: ({ proyecto }: { proyecto: ProjectListRow }) => <div data-testid="revision">{proyecto.id}</div>,
+}))
+
 const PROYECTO = { id: "p1", codigo: "PRY-1", nombre: "X", estado: "BORRADOR" } as ProjectListRow
 
 describe("PasoSiguientes", () => {
@@ -39,6 +43,11 @@ describe("PasoSiguientes", () => {
   it("step 4 (Presupuesto) renders the budget and monthly programming editor", () => {
     render(<PasoSiguientes paso={4} proyecto={PROYECTO} />)
     expect(screen.getByTestId("presupuesto")).toHaveTextContent("p1")
+  })
+
+  it("step 5 (Revisión) renders the review", () => {
+    render(<PasoSiguientes paso={5} proyecto={PROYECTO} />)
+    expect(screen.getByTestId("revision")).toHaveTextContent("p1")
   })
 
   it("renders nothing for step 1, which is the General step and has no body here", () => {

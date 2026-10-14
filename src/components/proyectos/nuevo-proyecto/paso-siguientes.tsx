@@ -5,17 +5,17 @@
 //                    "Descargar plantilla" / "Importar plantilla".
 //   3 Cronograma  -> ProjectCronograma + EstructuraGantt: read-only views of the activities.
 //   4 Presupuesto -> ProjectPresupuesto: valor total, rubros and the monthly programming.
-// Step 5 (Revisión) is added by its own work unit.
+//   5 Revisión    -> PasoRevision: read-only summary plus the existing baseline approval.
 
 "use client";
 
 import Link from "next/link";
 import { EstructuraGantt } from "@/components/proyectos/estructura-gantt";
+import { PasoRevision } from "@/components/proyectos/nuevo-proyecto/paso-revision";
 import { hrefNuevoProyecto } from "@/components/proyectos/nuevo-proyecto/stepper-logic";
 import { ProjectCronograma } from "@/components/proyectos/project-cronograma";
 import { ProjectEstructura } from "@/components/proyectos/project-estructura";
 import { ProjectPresupuesto } from "@/components/proyectos/project-presupuesto";
-import { EmptyBlock } from "@/components/proyectos/ui";
 import type { ProjectListRow } from "@/hooks/projects";
 
 const PANEL_CLASS = "flex flex-col gap-6";
@@ -52,15 +52,7 @@ export function PasoSiguientes({ paso, proyecto }: { paso: number; proyecto: Pro
         </div>
       );
     case 5:
-      return (
-        <EmptyBlock>
-          La revisión se completa desde la{" "}
-          <Link href={`/proyectos/${proyecto.id}`} className="font-semibold underline">
-            ficha del proyecto
-          </Link>
-          .
-        </EmptyBlock>
-      );
+      return <PasoRevision proyecto={proyecto} />;
     default:
       return null;
   }
