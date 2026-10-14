@@ -732,6 +732,37 @@ describe("ProjectFicha (page)", () => {
     expect(paso).not.toHaveTextContent("fecha_adjudicacion")
   })
 
+  it("keeps the Historial readable: no uuids, no no-op rows, money and months formatted, sentence-case labels", async () => {
+    const base = { usuario_id: "u1", usuario_nombre: "Ana Pérez", entidad_id: "x", created_at: "2026-10-06T20:39:51.751Z" }
+    mockFichaAndAudit({
+      historial: [
+        { ...base, id: "h1", accion: "CREAR", entidad: "programacion", campo: "2026-11", valor_anterior: null, valor_nuevo: "14875000.00", lote_id: "l1" },
+        { ...base, id: "h2", accion: "EDITAR", entidad: "gasto", campo: "alerta_sobregasto", valor_anterior: true, valor_nuevo: true, lote_id: "l1" },
+        { ...base, id: "h3", accion: "EDITAR", entidad: "actividad", campo: "peso", valor_anterior: 1, valor_nuevo: 2, lote_id: "l1" },
+        {
+          ...base, id: "h4", accion: "CREAR", entidad: "actividad", campo: null, valor_anterior: null,
+          valor_nuevo: { objetivo_id: "48e0a1b2-1111-4222-8333-444455556666", rubro_id: "00000000-0000-4000-8000-000000000009", codigo: "1.1" },
+          lote_id: "l2",
+        },
+        { ...base, id: "h5", accion: "EDITAR", entidad: "gasto", campo: "alerta_sobregasto", valor_anterior: false, valor_nuevo: false, lote_id: "l3" },
+      ],
+    })
+
+    renderFicha()
+    await openTab("Cambios")
+
+    await waitFor(() => expect(screen.getAllByTestId("historial-paso")).toHaveLength(2))
+    const historial = screen.getByTestId("historial")
+    expect(historial).toHaveTextContent("Noviembre 2026")
+    expect(historial).toHaveTextContent("$ 14.875.000")
+    expect(historial).toHaveTextContent("Peso:")
+    expect(historial).toHaveTextContent("Código: 1.1")
+    expect(historial).not.toHaveTextContent("Alerta de sobregasto")
+    expect(historial).not.toHaveTextContent(/[0-9a-f]{8}-[0-9a-f]{4}-/)
+    expect(historial).not.toHaveTextContent("objetivo_id")
+    expect(historial).not.toHaveTextContent("14875000.00")
+  })
+
   it("shows an empty Historial state when the project has no movements", async () => {
     mockFichaAndAudit({ historial: [] })
 

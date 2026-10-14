@@ -13,6 +13,7 @@
 
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { AlertTriangle, ArrowLeft, History } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
@@ -22,17 +23,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FieldValue } from "@/components/crm/shared";
 import {
   ACCION_AUDITORIA_META,
-  ENTIDAD_AUDITORIA_META,
   ESTADO_PROYECTO_META,
   ORIGEN_PROYECTO_META,
-  agruparHistorial,
-  describeAuditValue,
-  etiquetaCampoAuditoria,
+  etiquetaEntidadAuditoria,
   formatFechaCalendario,
   formatFechaHora,
 } from "@/components/proyectos/project-display";
 import { BaselineApproval } from "@/components/proyectos/baseline-approval";
 import { EstructuraGantt } from "@/components/proyectos/estructura-gantt";
+import { nombresDelProyecto, pasosLegibles, type CambioLegible, type PasoLegible } from "@/components/proyectos/historial-format";
 import { ProjectCronograma } from "@/components/proyectos/project-cronograma";
 import { ProjectEstructura } from "@/components/proyectos/project-estructura";
 import {
@@ -218,7 +217,7 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
           <TabsContent value="cambios" className={PANEL_CLASS}>
             <ProjectModificaciones proyecto={proyecto} />
             <ProjectVersiones proyecto={proyecto} />
-            <ProjectHistorial proyectoId={proyecto.id} />
+            <ProjectHistorial proyecto={proyecto} />
             <ProjectKpisPanel proyecto={proyecto} soloExportar />
           </TabsContent>
         </div>
@@ -342,8 +341,12 @@ function ResumenPanel({ proyecto }: { proyecto: ProjectListRow }) {
  * que un fallo del libro no tape el resto de la ficha. No expone ninguna
  * acción de escritura: el libro es append-only.
  */
-function ProjectHistorial({ proyectoId }: { proyectoId: string }) {
-  const query = useProjectAudit(proyectoId);
+function ProjectHistorial({ proyecto }: { proyecto: ProjectListRow }) {
+  const query = useProjectAudit(proyecto.id);
+  const pasos = useMemo(
+    () => pasosLegibles(query.data ?? [], nombresDelProyecto(proyecto)),
+    [query.data, proyecto],
+  );
 
   return (
     <section data-testid="historial">
@@ -357,8 +360,8 @@ function ProjectHistorial({ proyectoId }: { proyectoId: string }) {
         </p>
       ) : query.isLoading ? (
         <HistorialSkeleton />
-      ) : query.data && query.data.length > 0 ? (
-        <HistorialPasos entries={query.data} />
+      ) : pasos.length > 0 ? (
+        <HistorialPasos pasos={pasos} />
       ) : (
         <EmptyBlock>Sin movimientos registrados.</EmptyBlock>
       )}
@@ -371,10 +374,10 @@ function ProjectHistorial({ proyectoId }: { proyectoId: string }) {
  * transacción): la conversión de la oportunidad y la creación del proyecto se
  * leen juntas, que es justamente lo que el módulo promete.
  */
-function HistorialPasos({ entries }: { entries: ProjectAuditEntry[] }) {
+function HistorialPasos({ pasos }: { pasos: PasoLegible<ProjectAuditEntry>[] }) {
   return (
     <ol className="mt-2 flex flex-col gap-3">
-      {agruparHistorial(entries).map((paso) => (
+      {pasos.map((paso) => (
         <li
           key={paso.key}
           data-testid="historial-paso"
@@ -387,8 +390,8 @@ function HistorialPasos({ entries }: { entries: ProjectAuditEntry[] }) {
             {formatFechaHora(paso.created_at)}
           </time>
           <ul className="mt-2 flex flex-col gap-2.5">
-            {paso.entries.map((entry) => (
-              <HistorialEntrada key={entry.id} entry={entry} />
+            {paso.entradas.map(({ entry, cambio }) => (
+              <HistorialEntrada key={entry.id} entry={entry} cambio={cambio} />
             ))}
           </ul>
         </li>
@@ -397,10 +400,8 @@ function HistorialPasos({ entries }: { entries: ProjectAuditEntry[] }) {
   );
 }
 
-function HistorialEntrada({ entry }: { entry: ProjectAuditEntry }) {
-  const anterior = describeAuditValue(entry.valor_anterior);
-  const nuevo = describeAuditValue(entry.valor_nuevo);
-  const campo = entry.campo ? etiquetaCampoAuditoria(entry.campo) : null;
+function HistorialEntrada({ entry, cambio }: { entry: ProjectAuditEntry; cambio: CambioLegible }) {
+  const { anterior, nuevo, campo } = cambio;
 
   return (
     <li className="flex flex-col gap-1">
@@ -409,7 +410,7 @@ function HistorialEntrada({ entry }: { entry: ProjectAuditEntry }) {
           {ACCION_AUDITORIA_META[entry.accion]}
         </span>
         <span className="text-[11px] font-semibold text-ink-600">
-          {ENTIDAD_AUDITORIA_META[entry.entidad] ?? entry.entidad}
+          {etiquetaEntidadAuditoria(entry.entidad)}
         </span>
         <span className="text-[11px] text-ink-500">
           · {entry.usuario_nombre ?? "Usuario no disponible"}

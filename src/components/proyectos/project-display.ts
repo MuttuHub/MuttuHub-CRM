@@ -52,7 +52,27 @@ export const ENTIDAD_AUDITORIA_META: Record<string, string> = {
   proyecto: "Proyecto",
   proyecto_miembro: "Integrante del equipo",
   parametro: "Parámetro del semáforo",
+  presupuesto: "Presupuesto",
+  programacion: "Programación",
+  solicitud: "Solicitud de modificación",
+  gasto: "Gasto",
+  objetivo: "Objetivo",
+  actividad: "Actividad",
+  entregable: "Entregable",
+  indicador: "Indicador",
+  linea_presupuestal: "Línea presupuestal",
 };
+
+/** Sentence case from a snake_case name: `fecha_compromiso_pago` -> "Fecha compromiso pago". */
+function humanizarNombre(nombre: string): string {
+  const texto = nombre.replace(/_id$/, "").replace(/_/g, " ").trim();
+  return texto === "" ? nombre : texto.charAt(0).toUpperCase() + texto.slice(1).toLowerCase();
+}
+
+/** Nombre legible de una entidad del libro; sin traducción, su nombre en sentence case. */
+export function etiquetaEntidadAuditoria(entidad: string): string {
+  return ENTIDAD_AUDITORIA_META[entidad] ?? humanizarNombre(entidad);
+}
 
 const SIN_DATO = "—";
 
@@ -130,11 +150,21 @@ const CAMPO_AUDITORIA_META: Record<string, string> = {
   fecha_adjudicacion: "Fecha de adjudicación",
   id: "Id",
   principal: "Principal",
+  peso: "Peso",
+  estado: "Estado",
+  asignado: "Monto asignado",
+  alerta_sobregasto: "Alerta de sobregasto",
+  deleted_at: "Eliminación",
+  reemplazo: "Reemplazo de plantilla",
+  plantilla: "Plantilla",
+  objetivo_id: "Objetivo",
+  rubro_id: "Rubro",
+  actividad_id: "Actividad",
 };
 
-/** Etiqueta de un `campo` (o de una clave de un valor JSON); sin traducción, el nombre original. */
+/** Etiqueta de un `campo` (o de una clave de un valor JSON) en español; sin traducción, el nombre en sentence case. */
 export function etiquetaCampoAuditoria(campo: string): string {
-  return CAMPO_AUDITORIA_META[campo] ?? campo;
+  return CAMPO_AUDITORIA_META[campo] ?? humanizarNombre(campo);
 }
 
 /** Valores de enum que el libro guarda y conviene leer en español. */
