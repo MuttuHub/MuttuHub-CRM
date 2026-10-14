@@ -207,3 +207,12 @@ Secuencia corrida: `db:migrate:reset:local -- --force` → `db:seed:local` → `
   la semaforización territorial (`v2-projects-sdd.md:733`) y el Tablero gerencial la reintrodujo por v6/v7 (D7,
   `project-dashboard.tsx:551`). Otros parciales: `fin < inicio` deja pasar fin = inicio (V-03 exige inicio < fin), valor
   total 0 se bloquea recién en línea base, PDF pendiente (D-08), sin cierre/suspensión/cancelación (P14).
+
+## Segunda restauración + datos de flujo (2026-10-14 11:50)
+
+L8 (textual, consentimiento): "listo dale, pero crea un seed de mock data con clientes, oportunidades y demás para que
+el flujo sea ameno". Secuencia: `db:migrate:reset:local -- --force` → `db:seed:local` →
+`db:demo:seed-projects:local -- --apply` → `db:demo:seed-flujo:local -- --apply` (nuevo, `4383abc`; seco primero, host
+`127.0.0.1:54322`). Verificado por SQL: PRY-2026-001 EN_EJECUCION, PRY-2026-002 BORRADOR, 18 clientes, **5** oportunidades
+GANADA libres; re-ejecución del seed de flujo: "already seeded. Nothing was changed". Orden obligatorio: seed-flujo va
+DESPUÉS de seed-projects (este elige las GANADA de mayor valor para sus dos proyectos).
