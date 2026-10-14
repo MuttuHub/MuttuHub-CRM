@@ -175,3 +175,13 @@ operativa: **no correr la suite completa mientras se ensaya o se demuestra**; si
 6. Tablero: `/proyectos?vista=tablero` y **Exportar Excel**.
 7. Vista móvil (<768 px): lista y tablero en tarjetas.
 
+
+## Restauración de datos (2026-10-14, después de D1–D4)
+
+L7 (textual, consentimiento para el reset local completo): "listo dale" — usado como
+`PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION` en `npm run db:migrate:reset:local -- --force`.
+
+Secuencia corrida: `db:migrate:reset:local -- --force` → `db:seed:local` → `db:demo:seed-projects:local` (seco, host
+`127.0.0.1:54322`) → `-- --apply`. Verificado por SQL: `PRY-2026-001` EN_EJECUCION «Demo CedeTextil · En ejecución»
+(5 avances, 3 mediciones, 5 gastos), `PRY-2026-002` BORRADOR «Demo CedeTextil · Ruta de fortalecimiento»,
+**1** oportunidad GANADA libre. Desde aquí: no correr la suite ni mutar datos hasta la reunión (H6).

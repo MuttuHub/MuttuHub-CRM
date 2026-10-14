@@ -133,7 +133,7 @@ validación de gastos y la bitácora de auditoría):
   $177.360.000 y programación mensual. Trae 5 avances (todos con enlace https como medio, salvo uno sin medio a propósito),
   3 mediciones y 5 gastos con soporte https: 2 VALIDADO, 2 REGISTRADO y 1 REGISTRADO con alerta de sobregasto
   (validarlo supera el rubro R11 y queda bloqueado y notificado).
-- `Demo CedeTextil · Borrador (aprobar línea base)` (`PRY-2026-002`): en BORRADOR con la misma estructura, presupuesto
+- `Demo CedeTextil · Ruta de fortalecimiento` (`PRY-2026-002`): en BORRADOR con la misma estructura, presupuesto
   y programación importados, para mostrar "Aprobar línea base" en vivo.
 - Una oportunidad GANADA sin proyecto, para mostrar "Convertir en proyecto". `prisma/seed.ts` trae dos GANADA y el
   seed consume ambas; si quedan menos de tres libres agrega UNA ficticia ("Demo · Programa de formación técnica ...").
