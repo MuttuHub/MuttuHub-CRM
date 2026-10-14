@@ -17,7 +17,7 @@ export function reintentarProyecto(failureCount: number, error: unknown): boolea
 }
 
 export function useProyectoNuevo(id: string): UseQueryResult<ProjectListRow> {
-  return useQuery({
+  return useQuery<ProjectListRow>({
     queryKey: projectQueryKeys.detail(id),
     enabled: id !== "",
     retry: reintentarProyecto,
