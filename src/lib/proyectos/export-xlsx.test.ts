@@ -135,6 +135,13 @@ describe("xlsxFichaProyecto", () => {
     expect(k.find((r) => r[0] === "Asignado")?.[1]).toBe(1000)
   })
 
+  it("exports the deviation as real - plan, the same sign the screen shows", async () => {
+    const tecnico = { avance_real: 32.1, avance_programado: 20.4, desviacion_pp: -11.7, color: "verde" as const }
+    const wb = await abrir(await xlsxFichaProyecto({ ...proyecto, kpis: { ...proyecto.kpis, tecnico } as FichaProyectoXlsx["kpis"] }))
+    const k = filas(wb.getWorksheet("KPIs") as ExcelJS.Worksheet)
+    expect(k.find((r) => String(r[0]).startsWith("Desviación"))?.[1]).toBeCloseTo(11.7)
+  })
+
   it("a non-measurable project still exports, with empty KPI values", async () => {
     const wb = await abrir(await xlsxFichaProyecto({ ...proyecto, kpis: { ...proyecto.kpis, medible: false, tecnico: null, financiero: null, cronograma: null, entregables: null, indicadores: null, beneficiarios: null } }))
     const k = filas(wb.getWorksheet("KPIs") as ExcelJS.Worksheet)

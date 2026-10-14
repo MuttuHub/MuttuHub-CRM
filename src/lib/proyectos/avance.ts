@@ -109,6 +109,14 @@ export function desviacionPp(programado: number, real: number): number {
   return (programado - real) * 100
 }
 
+/**
+ * User-facing deviation: real - plan in percentage points, positive when the project is ahead of the plan.
+ * Display only; `desviacionPp` (plan - real) stays the input of the semáforo thresholds.
+ */
+export function diferenciaRealPlanPp(desviacion: number): number {
+  return desviacion === 0 ? 0 : -desviacion
+}
+
 export function estadoActividad(input: {
   progreso: number
   inicio: IsoDate

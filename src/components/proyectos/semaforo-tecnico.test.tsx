@@ -28,8 +28,15 @@ describe("SemaforoTecnico", () => {
     expect(semaforo).toHaveTextContent("Rojo")
     expect(semaforo).toHaveTextContent("21,4 %")
     expect(semaforo).toHaveTextContent("57,1 %")
-    expect(semaforo).toHaveTextContent("35,7 pp")
+    // desviacion_pp is plan - real (57,1 - 21,4); the card shows real - plan, so it is behind by -35,7.
+    expect(semaforo).toHaveTextContent("-35,7 pp")
     expect(semaforo).toHaveTextContent("25 de oct de 2026")
+  })
+
+  it("shows a positive deviation when the project is ahead of the plan", () => {
+    render(<SemaforoTecnico tecnico={{ ...TECNICO, avance_real: 32.1, avance_programado: 20.4, desviacion_pp: -11.7 }} />)
+
+    expect(screen.getByTestId("semaforo-tecnico")).toHaveTextContent("+11,7 pp")
   })
 
   it("shows the 'No confirmado' badge only while the thresholds are unconfirmed", () => {

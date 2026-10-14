@@ -127,6 +127,7 @@ type Setup = {
   entregables?: unknown[]
   rol?: string
   miembros?: unknown[]
+  seguimiento?: boolean
 }
 
 describe("ProjectEjecucion", () => {
@@ -142,6 +143,7 @@ describe("ProjectEjecucion", () => {
     entregables = [ENTREGABLE],
     rol = "ADMINISTRADOR",
     miembros = [],
+    seguimiento = false,
   }: Setup = {}) {
     fetchMock.mockImplementation((input: unknown) => {
       const url = String(input)
@@ -174,7 +176,7 @@ describe("ProjectEjecucion", () => {
       }
       return Promise.resolve(jsonResponse({}))
     })
-    return render(<ProjectEjecucion proyecto={{ ...PROYECTO, ...proyecto }} />, {
+    return render(<ProjectEjecucion proyecto={{ ...PROYECTO, ...proyecto }} seguimiento={seguimiento} />, {
       wrapper: createWrapper(),
     })
   }
@@ -223,6 +225,16 @@ describe("ProjectEjecucion", () => {
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/technical-status", expect.any(Object)),
     )
+  })
+
+  it("shows the same real - plan deviation on the top card and on the 'Diferencia' side card", async () => {
+    // Curve 2026-10: planeado 70 / ejecutado 55 -> side card -15; the top card must agree (behind = negative).
+    setup({ seguimiento: true, tecnico: { ...TECNICO, avance_real: 55, avance_programado: 70, desviacion_pp: 15 } })
+
+    const semaforo = await screen.findByTestId("semaforo-tecnico")
+    expect(semaforo).toHaveTextContent("-15 pp")
+    const lateral = await screen.findByTestId("seguimiento-lateral")
+    await waitFor(() => expect(lateral).toHaveTextContent("-15 pp"))
   })
 
   it("mounts the S-curve with its monthly table in the Avance tab", async () => {

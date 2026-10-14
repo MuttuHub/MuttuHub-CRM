@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { ToneBadge } from "@/components/crm/shared";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { EmptyBlock, InlineError, KpiCard, MetricBar, MetricRow, MetricTile, SELECT_CLASS, SectionHeader } from "@/components/proyectos/ui";
-import { formatFechaCalendario } from "@/components/proyectos/project-display";
+import { formatDiferenciaPp, formatFechaCalendario } from "@/components/proyectos/project-display";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -34,7 +34,6 @@ const SIN_DATO = "—";
 
 const nf = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 1 });
 export const formatPct = (value: number | null): string => (value === null ? SIN_DATO : `${nf.format(value)} %`);
-const formatPp = (value: number): string => `${nf.format(value)} pp`;
 const formatMonto = (value: string): string => formatCOP(toCents(value));
 
 /**
@@ -129,7 +128,7 @@ function KpiTiles({ kpis }: { kpis: ProjectKpis }) {
           <MetricTile testId="kpi-tecnico" color={tecnico.color} chipPrefix="Semáforo técnico">
             <MetricBar label="Avance real" value={formatPct(tecnico.avance_real)} percent={tecnico.avance_real} band={tecnico.color} />
             <MetricBar label="Avance programado" value={formatPct(tecnico.avance_programado)} percent={tecnico.avance_programado} />
-            <MetricRow label="Desviación" value={formatPp(tecnico.desviacion_pp)} />
+            <MetricRow label="Desviación" value={formatDiferenciaPp(tecnico.desviacion_pp)} />
           </MetricTile>
         )}
         {financiero && (

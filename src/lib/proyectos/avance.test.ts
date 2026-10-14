@@ -7,6 +7,7 @@ import {
   avanceReal,
   calcularTecnico,
   desviacionPp,
+  diferenciaRealPlanPp,
   estadoActividad,
   fechaCumplimiento,
   fraccionTiempo,
@@ -69,6 +70,12 @@ describe("fraccionTiempo / avanceProgramado / desviacionPp", () => {
   it("expresses the deviation in percentage points (negative when ahead)", () => {
     expect(desviacionPp(0.5, 0.25)).toBeCloseTo(25)
     expect(desviacionPp(0.2, 0.5)).toBeCloseTo(-30)
+  })
+
+  it("exposes the user-facing difference as real - plan (positive when ahead), the sign flip of desviacionPp", () => {
+    expect(diferenciaRealPlanPp(desviacionPp(0.204, 0.321))).toBeCloseTo(11.7)
+    expect(diferenciaRealPlanPp(desviacionPp(0.5, 0.25))).toBeCloseTo(-25)
+    expect(Object.is(diferenciaRealPlanPp(0), 0)).toBe(true)
   })
 })
 

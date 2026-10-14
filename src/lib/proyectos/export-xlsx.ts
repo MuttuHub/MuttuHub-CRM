@@ -10,6 +10,7 @@
  */
 
 import ExcelJS from "exceljs"
+import { diferenciaRealPlanPp } from "./avance"
 
 export type ColorXlsx = "verde" | "amarillo" | "rojo"
 
@@ -189,7 +190,7 @@ function filasKpis(k: KpisXlsx): Celda[][] {
   return [
     ["Avance real (%)", numero(t?.avance_real), ""],
     ["Avance programado (%)", numero(t?.avance_programado), ""],
-    ["Desviación (pp)", numero(t?.desviacion_pp), ""],
+    ["Desviación (pp, real − programado)", numero(t && diferenciaRealPlanPp(t.desviacion_pp)), ""],
     ["Semáforo técnico", colorTexto(t?.color), ""],
     ["Cumplimiento del cronograma (%)", numero(k.cronograma?.valor), detalle(k.cronograma && `${k.cronograma.a_tiempo} a tiempo de ${k.cronograma.vencidas} vencidas`)],
     ["Entregables logrados (%)", numero(k.entregables?.valor), detalle(k.entregables && `${k.entregables.logrados} de ${k.entregables.programados} programados`)],

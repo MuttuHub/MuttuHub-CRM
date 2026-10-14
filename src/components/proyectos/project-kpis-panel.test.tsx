@@ -70,6 +70,15 @@ describe("ProjectKpisPanel", () => {
     expect(within(financiero).getByText(/Posible retraso/)).toBeInTheDocument()
   })
 
+  it("shows the deviation as real - plan: positive when the project is ahead of the plan", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ ...KPIS, tecnico: { ...KPIS.tecnico, avance_real: 32.1, avance_programado: 20.4, desviacion_pp: -11.7 } }),
+    )
+    renderPanel()
+    const tecnico = await screen.findByTestId("kpi-tecnico")
+    expect(within(tecnico).getByText("+11,7 pp")).toBeInTheDocument()
+  })
+
   it("exposes avance real vs programado as accessible progress bars (server band, no client semaforo)", async () => {
     fetchMock.mockResolvedValue(jsonResponse(KPIS))
     renderPanel()

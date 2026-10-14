@@ -1,22 +1,18 @@
 // Semáforo técnico (S4 U6). De solo lectura: el COLOR llega calculado por el
 // servidor (`colorTecnicoV2`) y aquí solo se pinta; el cliente JAMÁS lo
-// recalcula. Muestra el avance real y programado, la desviación en puntos
-// porcentuales, la fecha de corte y, mientras los umbrales no estén confirmados,
+// recalcula. Muestra el avance real y programado, la desviación (real - plan)
+// en puntos porcentuales, la fecha de corte y, mientras los umbrales no estén confirmados,
 // la insignia "No confirmado".
 
 "use client";
 
 import { ToneBadge } from "@/components/crm/shared";
 import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
-import { formatFechaCalendario } from "@/components/proyectos/project-display";
+import { formatDiferenciaPp, formatFechaCalendario } from "@/components/proyectos/project-display";
 import type { ProjectBase, ProjectTechnicalStatus } from "@/hooks/projects";
 
 function formatPct(value: number): string {
   return `${new Intl.NumberFormat("es-CO", { maximumFractionDigits: 1 }).format(value)} %`;
-}
-
-function formatPp(value: number): string {
-  return `${new Intl.NumberFormat("es-CO", { maximumFractionDigits: 1 }).format(value)} pp`;
 }
 
 export function SemaforoTecnico({
@@ -69,7 +65,7 @@ export function SemaforoTecnico({
         </div>
         <div className="flex items-baseline justify-between gap-2">
           <dt className="text-[12px] text-ink-500">Desviación</dt>
-          <dd className="font-semibold text-ink-900 tabular-nums">{formatPp(tecnico.desviacion_pp)}</dd>
+          <dd className="font-semibold text-ink-900 tabular-nums">{formatDiferenciaPp(tecnico.desviacion_pp)}</dd>
         </div>
       </dl>
     </div>

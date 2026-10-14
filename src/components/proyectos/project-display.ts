@@ -12,6 +12,7 @@
 
 import type { AccionAuditoria, EstadoProyecto, OrigenProyecto } from "@prisma/client";
 import type { UiTone } from "@/lib/catalogs";
+import { diferenciaRealPlanPp } from "@/lib/proyectos/avance";
 
 /** Etiqueta y tono de cada estado; aún no viven en src/lib/catalogs.ts. */
 export const ESTADO_PROYECTO_META: Record<EstadoProyecto, { label: string; tone: UiTone }> = {
@@ -217,4 +218,16 @@ export function agruparHistorial<T extends AuditHistoryEntryLike>(
   }
 
   return pasos;
+}
+
+const PP = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 1 });
+
+/**
+ * Deviation shown to the user: real - plan in percentage points, always signed ("+11,7 pp" ahead of plan,
+ * "-35,7 pp" behind). The API's `desviacion_pp` is plan - real (it feeds the semáforo), so it is flipped here.
+ */
+export function formatDiferenciaPp(desviacionPp: number): string {
+  const rounded = Math.round(diferenciaRealPlanPp(desviacionPp) * 10) / 10;
+  const value = rounded === 0 ? 0 : rounded;
+  return `${value > 0 ? "+" : ""}${PP.format(value)} pp`;
 }
