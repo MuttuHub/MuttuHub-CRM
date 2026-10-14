@@ -124,6 +124,39 @@ que ya salió de `BORRADOR` no se toca: solo se reporta con el motivo. Corre
 únicamente contra una base local (loopback) y nunca toca `auditoria_cambios`.
 Cada ensayo: primero el ensayo en seco, y recién después `--apply`.
 
+### 1.5.1. Datos de relleno para el flujo de creación de proyectos
+
+Para que el stepper `/proyectos/nuevo` ("Desde una oportunidad ganada" y
+"Proyecto independiente") se vea vivo, `scripts/seed-demo-flujo.ts` agrega datos
+**ficticios** (organizaciones y personas inventadas, correos `@demo.muttuhub.local`):
+6 clientes con 1-2 contactos, 12 oportunidades en todos los estados, 18
+interacciones en la bitácora y **4 oportunidades `GANADA` sin proyecto**. No crea
+proyectos. Solo corre contra la base local (usa `prisma/require-local-db`) y es
+idempotente: un segundo `--apply` no cambia nada.
+
+Orden obligatorio (siempre después de los proyectos demo, para que el seed de
+proyectos no consuma estas oportunidades):
+
+```bash
+npm run db:demo:reset:local                      # solo si venís de un ensayo (opcional)
+npm run db:seed:local
+npm run db:demo:seed-projects:local -- --apply
+npm run db:demo:seed-flujo:local                 # ensayo en seco: no escribe nada
+npm run db:demo:seed-flujo:local -- --apply
+```
+
+Oportunidades `GANADA` libres para mostrar "Convertir en proyecto":
+
+| Oportunidad | Cliente | Valor (COP) |
+| --- | --- | --- |
+| Fortalecimiento de unidades productivas textiles del Caribe | Fundación Tejiendo Caribe | 185.000.000 |
+| Programa de asociatividad y comercialización agroproductiva | Cooperativa Agroproductiva Alto Cauca | 120.000.000 |
+| Escuela de formación técnica en confección | Instituto Andino de Innovación Productiva | 210.000.000 |
+| Diagnóstico de cadena de valor de economía circular | Agencia de Cooperación Delta Verde | 48.000.000 |
+
+Si una ya se convirtió en un ensayo y el proyecto sigue en `BORRADOR`,
+`db:demo:reset:local -- --apply` la devuelve a `PROSPECCION`.
+
 ### 1.6. Ensayo grabado (Playwright)
 
 Antes de grabar, ensayá el camino real del demo —proyecto desde oportunidad
