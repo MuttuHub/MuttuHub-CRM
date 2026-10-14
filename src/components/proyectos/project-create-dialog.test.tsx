@@ -248,6 +248,27 @@ describe("ProjectCreateDialog", () => {
     expect(createFromOpportunity.mutateAsync).not.toHaveBeenCalled()
   })
 
+  it("shows the validation error next to the submit button and scrolls it into view", async () => {
+    const scrollIntoView = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+    const user = userEvent.setup()
+    renderDialog()
+
+    await elegirOportunidad(user)
+    const submit = screen.getByRole("button", { name: "Crear proyecto" })
+    await user.click(submit)
+
+    const alerta = await screen.findByRole("alert")
+    expect(alerta).toHaveTextContent("Selecciona al menos un municipio.")
+    // It lives in the form, after the municipios fieldset and before the submit button: where the user is looking.
+    const form = submit.closest("form") as HTMLFormElement
+    expect(form).toContainElement(alerta)
+    const municipios = screen.getByRole("checkbox", { name: "Municipio Barranquilla" })
+    expect(municipios.compareDocumentPosition(alerta) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(alerta.compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(scrollIntoView).toHaveBeenCalled()
+  })
+
   it("refuses fecha_fin before fecha_inicio and fires no request", async () => {
     const user = userEvent.setup()
     renderDialog()
@@ -306,7 +327,31 @@ describe("ProjectCreateDialog", () => {
     expect(onOpenChange).not.toHaveBeenCalledWith(false)
   })
 
-  it("closes the dialog after a successful creation", async () => {
+  it("confirms a successful creation with a link to the new project and closes only on request", async () => {
+    const user = userEvent.setup()
+    const onOpenChange = vi.fn()
+    createFromOpportunity.mutateAsync.mockResolvedValueOnce({
+      proyecto: { id: "p-new", codigo: "PRY-2026-009", nombre: "Consultoría línea base" },
+    })
+    renderDialog(onOpenChange)
+
+    await elegirOportunidad(user)
+    await elegirMunicipio(user)
+    await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
+
+    const confirmacion = await screen.findByRole("status")
+    expect(confirmacion).toHaveTextContent("Proyecto creado")
+    expect(confirmacion).toHaveTextContent("PRY-2026-009")
+    expect(screen.getByRole("link", { name: "Abrir proyecto" })).toHaveAttribute("href", "/proyectos/p-new")
+    // The form is gone (no second submit) and the dialog stays open until the user closes it.
+    expect(screen.queryByRole("button", { name: "Crear proyecto" })).not.toBeInTheDocument()
+    expect(onOpenChange).not.toHaveBeenCalledWith(false)
+
+    await user.click(screen.getByRole("button", { name: "Listo" }))
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+
+  it("closes the dialog after a successful creation that returns no id", async () => {
     const user = userEvent.setup()
     const onOpenChange = vi.fn()
     renderDialog(onOpenChange)

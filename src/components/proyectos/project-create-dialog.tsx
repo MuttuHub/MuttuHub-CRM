@@ -16,9 +16,10 @@
 
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { LoaderCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { CircleCheckBig, LoaderCircle } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -149,6 +150,14 @@ export function ProjectCreateDialog({
   const [municipioIds, setMunicipioIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [prefillAplicado, setPrefillAplicado] = useState(false);
+  // Proyecto recién creado: el diálogo pasa a una confirmación con el enlace a su ficha.
+  const [creado, setCreado] = useState<{ id: string; codigo: string | null; nombre: string | null } | null>(null);
+  // El error se pinta junto al botón de envío (el diálogo hace scroll y el pie queda fuera de la vista).
+  const errorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+  }, [error]);
 
   const createProject = useCreateProject();
   const createFromOpportunity = useCreateProjectFromOpportunity(
@@ -279,20 +288,26 @@ export function ProjectCreateDialog({
 
     const cuerpo = construirCuerpo();
     try {
+      let resultado: { proyecto?: { id?: string; codigo?: string; nombre?: string } } | undefined;
       if (origen === "OPORTUNIDAD" && oportunidad) {
         const nombreLimpio = nombre.trim();
-        await createFromOpportunity.mutateAsync({
+        resultado = await createFromOpportunity.mutateAsync({
           ...cuerpo,
           ...(nombreLimpio ? { nombre: nombreLimpio } : {}),
         });
       } else {
-        await createProject.mutateAsync({
+        resultado = await createProject.mutateAsync({
           ...cuerpo,
           nombre: nombre.trim(),
           cliente_id: clienteId,
         });
       }
-      onOpenChange(false);
+      const proyecto = resultado?.proyecto;
+      if (proyecto?.id) {
+        setCreado({ id: proyecto.id, codigo: proyecto.codigo ?? null, nombre: proyecto.nombre ?? null });
+      } else {
+        onOpenChange(false);
+      }
     } catch (err) {
       // 400/403/404/409: el diálogo sigue abierto y muestra el mensaje del
       // servidor (p. ej. "Esta oportunidad ya tiene un proyecto."), no uno genérico.
@@ -302,8 +317,51 @@ export function ProjectCreateDialog({
     }
   }
 
+  function cambiarApertura(siguiente: boolean) {
+    if (!siguiente) setCreado(null);
+    onOpenChange(siguiente);
+  }
+
+  if (creado) {
+    return (
+      <Dialog open={open} onOpenChange={cambiarApertura}>
+        <DialogContent className="sm:max-w-[min(480px,calc(100%-2rem))]">
+          <DialogHeader>
+            <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
+              Proyecto creado
+            </DialogTitle>
+            <DialogDescription>Quedó en borrador. Ábrelo para completar su ficha.</DialogDescription>
+          </DialogHeader>
+          <div
+            role="status"
+            className="flex items-start gap-2 rounded-12 border border-ink-200 bg-ink-050 px-4 py-3 text-[13px] text-ink-800"
+          >
+            <CircleCheckBig className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden />
+            <p>
+              Proyecto creado
+              {creado.codigo && <span className="font-mono font-semibold"> {creado.codigo}</span>}
+              {creado.nombre && <span> · {creado.nombre}</span>}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => cambiarApertura(false)}>
+              Listo
+            </Button>
+            <Link
+              href={`/proyectos/${creado.id}`}
+              onClick={() => cambiarApertura(false)}
+              className={buttonVariants({ variant: "default" })}
+            >
+              Abrir proyecto
+            </Link>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={cambiarApertura}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[min(720px,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
@@ -313,15 +371,6 @@ export function ProjectCreateDialog({
             Desde una oportunidad ganada o como proyecto independiente. Queda en borrador.
           </DialogDescription>
         </DialogHeader>
-
-        {error && (
-          <div
-            role="alert"
-            className="rounded-12 border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
-          >
-            {error}
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <fieldset className="flex flex-col gap-2">
@@ -557,11 +606,21 @@ export function ProjectCreateDialog({
             </div>
           </fieldset>
 
+          {error && (
+            <div
+              ref={errorRef}
+              role="alert"
+              className="rounded-12 border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
+            >
+              {error}
+            </div>
+          )}
+
           <DialogFooter>
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}
+              onClick={() => cambiarApertura(false)}
               disabled={pendiente}
             >
               Cancelar
