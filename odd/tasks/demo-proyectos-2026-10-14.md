@@ -185,3 +185,17 @@ Secuencia corrida: `db:migrate:reset:local -- --force` → `db:seed:local` → `
 `127.0.0.1:54322`) → `-- --apply`. Verificado por SQL: `PRY-2026-001` EN_EJECUCION «Demo CedeTextil · En ejecución»
 (5 avances, 3 mediciones, 5 gastos), `PRY-2026-002` BORRADOR «Demo CedeTextil · Ruta de fortalecimiento»,
 **1** oportunidad GANADA libre. Desde aquí: no correr la suite ni mutar datos hasta la reunión (H6).
+
+## Revisión contra v7 y requerimientos (2026-10-14 ~10:15, exploración de solo lectura)
+
+- Paso a paso de creación: `docs/paso-a-paso-crear-proyecto.md` (`32aa1a9`). "Nuevo proyecto" vive solo en la pestaña
+  **Portafolio** de `/proyectos` (no en Tablero); también desde la oportunidad ganada ("Convertir en proyecto").
+- Brechas v7 visibles en demo: P2 stepper (General/Metas/Cronograma/Presupuesto/Revisión), Cronograma sin KPIs/corte/leyenda,
+  Gantt sin relleno real ni línea de corte, Beneficiarios sin KPIs ni desglose por grupo, Soportes solo lectura (v7 permite
+  vincular), Financiero sin alertas ni nota de rubros sin asignación, "Importar Excel" de gastos.
+- Requerimientos: fuente real = RF v2.0 del PO (`~/Downloads/Requerimientos_Funcionales_v2_Modulo_Proyectos.docx`, más
+  `Estructura_Detalle_Tecnico_y_Financiero.docx`, `Requerimientos Funcionales - Detalle Clientes.docx`) reflejado en
+  `odd/tasks/v2-projects-sdd.md`; el PRD v2 no cubre Proyectos. Conflicto a decidir con el PO: **REQ-DSH-04** exige quitar
+  la semaforización territorial (`v2-projects-sdd.md:733`) y el Tablero gerencial la reintrodujo por v6/v7 (D7,
+  `project-dashboard.tsx:551`). Otros parciales: `fin < inicio` deja pasar fin = inicio (V-03 exige inicio < fin), valor
+  total 0 se bloquea recién en línea base, PDF pendiente (D-08), sin cierre/suspensión/cancelación (P14).
