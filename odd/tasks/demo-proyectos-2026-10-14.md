@@ -120,6 +120,14 @@ L6 (2026-10-14 09:05, textual):
 > servidor de desarrollo y luego subir los cambios al repositorio. Enfoquemonos solo en el modulo de proyectos, los
 > demás cambios dejalos documentados como pendiente"
 
+L7 (2026-10-14, textual):
+> "crea un seed de mock data con clientes, oportunidades y demás para que el flujo sea ameno"
+
+Resuelto en `4383abc`: `scripts/seed-demo-flujo.ts` (`npm run db:demo:seed-flujo:local`, seco por defecto, `-- --apply`
+escribe; local-only e idempotente por ids fijos `00000000-0000-4000-d00x-*`). 6 clientes, 10 contactos, 12 oportunidades
+(todos los estados, 4 GANADA libres), 18 interacciones. Orden: reset -> `db:seed:local` -> seed-projects `--apply` -> seed-flujo
+`--apply`. Documentado en `docs/guia-demo.md` §1.5.1.
+
 ## Fuera del alcance de hoy (pendiente, documentado por L6)
 
 Solo se trabaja el módulo de Proyectos. Lo siguiente queda pendiente, sin cambios hoy; su detalle vive en
