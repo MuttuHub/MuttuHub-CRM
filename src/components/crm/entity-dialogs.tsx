@@ -3,10 +3,12 @@
 
 "use client";
 
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { LoaderCircle, Rocket, Target } from "lucide-react";
 import type { EstadoOportunidad, RolContacto } from "@prisma/client";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -48,7 +50,6 @@ import {
   type TaskItem,
 } from "@/hooks/crm";
 import { ToneBadge } from "@/components/crm/shared";
-import { ProjectCreateDialog } from "@/components/proyectos/project-create-dialog";
 import { useCurrentUser } from "@/hooks/kanban";
 import { useEligibleOpportunities } from "@/hooks/projects";
 import { canCreateProject } from "@/lib/permissions";
@@ -725,8 +726,8 @@ function FaseBadge({ fase }: { fase: Oportunidad["fase"] }) {
 }
 
 /**
- * "Convertir en proyecto" (S11 U1): opens the project creation dialog with this
- * won opportunity preselected. Shown only for a GANADA opportunity that has no
+ * "Convertir en proyecto": links to the new-project stepper page with this won
+ * opportunity preselected. Shown only for a GANADA opportunity that has no
  * project yet (it is in the eligible list, which excludes any `proyectos` row,
  * soft-deleted included) and a user who can create projects. Hidden otherwise;
  * the API stays the authority (403/409).
@@ -736,28 +737,17 @@ function ConvertirEnProyectoAction({ oportunidad }: { oportunidad: Oportunidad }
   const usuario = userQuery.data;
   const puedeCrear = usuario ? canCreateProject({ id: usuario.id, rol: usuario.rol }) : false;
   const eligiblesQuery = useEligibleOpportunities({ enabled: puedeCrear });
-  const [abierto, setAbierto] = useState(false);
 
   const sinProyecto = (eligiblesQuery.data ?? []).some((op) => op.id === oportunidad.id);
-  // Keep mounting the dialog while open: the conversion refreshes the eligible
-  // list, which would otherwise unmount it before it closes itself.
-  if (!abierto && (!puedeCrear || !sinProyecto)) return null;
+  if (!puedeCrear || !sinProyecto) return null;
 
   return (
-    <>
-      <Button
-        variant="outline"
-        onClick={() => setAbierto(true)}
-        className="w-fit px-4 font-bold"
-      >
-        Convertir en proyecto
-      </Button>
-      <ProjectCreateDialog
-        open={abierto}
-        onOpenChange={setAbierto}
-        initialOportunidadId={oportunidad.id}
-      />
-    </>
+    <Link
+      href={`/proyectos/nuevo?oportunidad=${encodeURIComponent(oportunidad.id)}`}
+      className={cn(buttonVariants({ variant: "outline" }), "w-fit px-4 font-bold")}
+    >
+      Convertir en proyecto
+    </Link>
   );
 }
 

@@ -44,7 +44,7 @@ import {
 import { toast } from "sonner";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import type { EstadoTarea, PrioridadTarea } from "@prisma/client";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -83,7 +83,6 @@ import {
 } from "@/hooks/kanban";
 import { useEligibleOpportunities } from "@/hooks/projects";
 import { canCreateProject } from "@/lib/permissions";
-import { ProjectCreateDialog } from "@/components/proyectos/project-create-dialog";
 import { TaskCard, SortableTaskCard, type CardTask } from "@/components/kanban/task-card";
 import {
   BOARD_ESTADOS,
@@ -143,8 +142,6 @@ export function KanbanBoard() {
   // v7 filter pills (Todas / Prospección / Ejecución / Mías).
   const [pill, setPill] = useState<BoardPill>("todas");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  // Opportunity being converted from a card ("Pasar a nuevo proyecto →").
-  const [convertOppId, setConvertOppId] = useState<string | null>(null);
   const [cliente, setCliente] = useState<string>("");
   const [responsableEquipo, setResponsableEquipo] = useState<string>("");
   const [local, setLocal] = useState({
@@ -353,7 +350,6 @@ export function KanbanBoard() {
 
   function handleCardAction(task: CardTask, action: CardAction) {
     if (action.kind === "advance") commitMove(task.id, task.estado, action.to);
-    else if (action.kind === "convert") setConvertOppId(action.oportunidadId);
   }
 
   function actionFor(task: CardTask) {
@@ -549,20 +545,6 @@ export function KanbanBoard() {
         />
       )}
 
-      {convertOppId !== null && (
-        <ProjectCreateDialog
-          open
-          onOpenChange={(open) => {
-            if (open) return;
-            setConvertOppId(null);
-            // The conversion moves the opportunity to EJECUCION: refresh so the
-            // task jumps to "Nuevo proyecto".
-            void qc.invalidateQueries({ queryKey: taskQueryKeys.all });
-          }}
-          initialOportunidadId={convertOppId}
-        />
-      )}
-
       <Dialog
         open={blockPrompt !== null}
         onOpenChange={(open) => {
@@ -702,7 +684,7 @@ function ProjectColumn({
 }
 
 /** The footer of a card: the v7 "Avanzar →" family, a hint, or the link to the project. */
-function CardActionView({ action, onRun }: { action: CardAction; onRun: () => void }) {
+export function CardActionView({ action, onRun }: { action: CardAction; onRun: () => void }) {
   // The card sits inside a dnd-kit draggable: keep pointer/keyboard events on
   // the button from reaching its sensors so a click never starts a drag.
   const isolate = {
@@ -723,12 +705,28 @@ function CardActionView({ action, onRun }: { action: CardAction; onRun: () => vo
       </Link>
     );
   }
+  if (action.kind === "convert") {
+    // "Pasar a nuevo proyecto →" opens the stepper page with the opportunity preselected.
+    return (
+      <div {...isolate}>
+        <Link
+          href={`/proyectos/nuevo?oportunidad=${encodeURIComponent(action.oportunidadId)}`}
+          className={cn(
+            buttonVariants({ size: "sm" }),
+            "w-full justify-start px-3 text-[13px] font-semibold",
+          )}
+        >
+          {action.label}
+        </Link>
+      </div>
+    );
+  }
   return (
     <div {...isolate}>
       <Button
         type="button"
         size="sm"
-        variant={action.kind === "convert" ? "default" : "outline"}
+        variant="outline"
         onClick={onRun}
         className="w-full justify-start px-3 text-[13px] font-semibold"
       >

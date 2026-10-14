@@ -23,7 +23,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Eye, FolderKanban, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -45,7 +45,6 @@ import {
 import { ResponsableCell, ToneBadge } from "@/components/crm/shared";
 import { ExpenseValidationQueue } from "@/components/proyectos/expense-validation-queue";
 import { PortafolioKpis } from "@/components/proyectos/portafolio-kpis";
-import { ProjectCreateDialog } from "@/components/proyectos/project-create-dialog";
 import {
   ESTADO_PROYECTO_META,
   formatFechaCalendario,
@@ -115,7 +114,6 @@ function territorio(proyecto: ProjectListRow): { municipios: string; linea: stri
 export function ProjectList() {
   const [estado, setEstado] = useState("");
   // El diálogo se monta solo al abrir: así no se piden catálogos al cargar.
-  const [crearAbierto, setCrearAbierto] = useState(false);
   // El filtro viaja como query param: estado vacío = sin filtro.
   const filters = useMemo<ProjectFilters>(() => (estado ? { estado } : {}), [estado]);
   const userQuery = useCurrentUser();
@@ -218,10 +216,10 @@ export function ProjectList() {
               </SelectContent>
             </Select>
             {puedeCrear && (
-              <Button size="lg" onClick={() => setCrearAbierto(true)}>
+              <Link href="/proyectos/nuevo" className={buttonVariants({ size: "lg" })}>
                 <Plus className="size-4" />
                 Nuevo proyecto
-              </Button>
+              </Link>
             )}
           </div>
         </header>
@@ -236,10 +234,6 @@ export function ProjectList() {
       </section>
 
       {puedeValidar && <ExpenseValidationQueue />}
-
-      {crearAbierto && (
-        <ProjectCreateDialog open onOpenChange={setCrearAbierto} />
-      )}
     </div>
   );
 }

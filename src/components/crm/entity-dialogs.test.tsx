@@ -212,7 +212,7 @@ describe("OportunidadLifecycleDialog", () => {
       asManager()
       renderDialog(BASE_OPORTUNIDAD)
 
-      expect(screen.getByRole("button", { name: "Convertir en proyecto" })).toBeInTheDocument()
+      expect(screen.getByRole("link", { name: "Convertir en proyecto" })).toBeInTheDocument()
     })
 
     it("keeps the existing 'Convertir a ejecución' button next to it", () => {
@@ -226,14 +226,14 @@ describe("OportunidadLifecycleDialog", () => {
       asManager([])
       renderDialog({ ...BASE_OPORTUNIDAD, fase: "EJECUCION" })
 
-      expect(screen.queryByRole("button", { name: "Convertir en proyecto" })).not.toBeInTheDocument()
+      expect(screen.queryByRole("link", { name: "Convertir en proyecto" })).not.toBeInTheDocument()
     })
 
     it("hides it when the opportunity is not GANADA", () => {
       asManager()
       renderDialog({ ...BASE_OPORTUNIDAD, estado: "EN_NEGOCIACION" })
 
-      expect(screen.queryByRole("button", { name: "Convertir en proyecto" })).not.toBeInTheDocument()
+      expect(screen.queryByRole("link", { name: "Convertir en proyecto" })).not.toBeInTheDocument()
     })
 
     it("hides it for a role that cannot create projects", () => {
@@ -241,7 +241,7 @@ describe("OportunidadLifecycleDialog", () => {
       useEligibleOpportunitiesMock.mockReturnValue({ data: [{ id: BASE_OPORTUNIDAD.id }] })
       renderDialog(BASE_OPORTUNIDAD)
 
-      expect(screen.queryByRole("button", { name: "Convertir en proyecto" })).not.toBeInTheDocument()
+      expect(screen.queryByRole("link", { name: "Convertir en proyecto" })).not.toBeInTheDocument()
     })
 
     it("does not fetch the eligible list for a role that cannot create projects", () => {
@@ -251,16 +251,15 @@ describe("OportunidadLifecycleDialog", () => {
       expect(useEligibleOpportunitiesMock).toHaveBeenLastCalledWith({ enabled: false })
     })
 
-    it("opens the project dialog with this opportunity preselected", async () => {
+    it("links to the stepper page with this opportunity preselected", () => {
       asManager()
       renderDialog(BASE_OPORTUNIDAD)
 
-      expect(screen.queryByTestId("project-create-dialog")).not.toBeInTheDocument()
-      await userEvent.setup().click(screen.getByRole("button", { name: "Convertir en proyecto" }))
-
-      expect(screen.getByTestId("project-create-dialog")).toHaveTextContent(
-        `preselected:${BASE_OPORTUNIDAD.id}`,
+      expect(screen.getByRole("link", { name: "Convertir en proyecto" })).toHaveAttribute(
+        "href",
+        `/proyectos/nuevo?oportunidad=${BASE_OPORTUNIDAD.id}`,
       )
+      expect(screen.queryByTestId("project-create-dialog")).not.toBeInTheDocument()
     })
   })
 })

@@ -709,12 +709,12 @@ describe("ProjectList", () => {
   it("shows the creation CTA to ADMINISTRADOR and GERENCIA", () => {
     userQuery.data = { id: "u1", nombre: "Ana Pérez", rol: "ADMINISTRADOR" }
     const primera = render(<ProjectList />)
-    expect(screen.getByRole("button", { name: "Nuevo proyecto" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Nuevo proyecto" })).toBeInTheDocument()
     primera.unmount()
 
     userQuery.data = { id: "u2", nombre: "Greta Gómez", rol: "GERENCIA" }
     render(<ProjectList />)
-    expect(screen.getByRole("button", { name: "Nuevo proyecto" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Nuevo proyecto" })).toBeInTheDocument()
   })
 
   describe("validation queue (S6)", () => {
@@ -779,23 +779,23 @@ describe("ProjectList", () => {
     userQuery.data = { id: "u9", nombre: "Carlos Ruiz", rol: "COLABORADOR" }
     render(<ProjectList />)
 
-    expect(screen.queryByRole("button", { name: "Nuevo proyecto" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("link", { name: "Nuevo proyecto" })).not.toBeInTheDocument()
   })
 
   it("hides the creation CTA while the current user is unknown", () => {
     userQuery.data = null
     render(<ProjectList />)
 
-    expect(screen.queryByRole("button", { name: "Nuevo proyecto" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("link", { name: "Nuevo proyecto" })).not.toBeInTheDocument()
   })
 
-  it("opens the creation dialog from the CTA", async () => {
-    const user = userEvent.setup()
+  it("links the creation CTA to the /proyectos/nuevo stepper page instead of opening the dialog", async () => {
+    userQuery.data = { id: "u1", nombre: "Ana Pérez", rol: "ADMINISTRADOR" }
     render(<ProjectList />)
 
-    await user.click(screen.getByRole("button", { name: "Nuevo proyecto" }))
-
-    expect(await screen.findByRole("dialog")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Nuevo proyecto" })).toHaveAttribute("href", "/proyectos/nuevo")
+    await userEvent.setup().click(screen.getByRole("link", { name: "Nuevo proyecto" }))
+    expect(screen.queryByRole("dialog")).toBeNull()
   })
 
   it("links 'Ver detalle' on a table row to the ficha page in a new tab", async () => {
