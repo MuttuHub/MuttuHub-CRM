@@ -27,12 +27,25 @@ import {
 } from "@/hooks/projects";
 import { canApproveBaseline } from "@/lib/permissions";
 
-export function BaselineApproval({ proyecto }: { proyecto: ProjectListRow }) {
+export function BaselineApproval({
+  proyecto,
+  triggerVariant = "outline",
+}: {
+  proyecto: ProjectListRow;
+  /** The ficha header keeps the quiet outline trigger; the stepper review makes it the primary action. */
+  triggerVariant?: "outline" | "default";
+}) {
   if (proyecto.estado !== "BORRADOR") return null;
-  return <BaselineApprovalControl proyecto={proyecto} />;
+  return <BaselineApprovalControl proyecto={proyecto} triggerVariant={triggerVariant} />;
 }
 
-function BaselineApprovalControl({ proyecto }: { proyecto: ProjectListRow }) {
+function BaselineApprovalControl({
+  proyecto,
+  triggerVariant,
+}: {
+  proyecto: ProjectListRow;
+  triggerVariant: "outline" | "default";
+}) {
   const userQuery = useCurrentUser();
   const usuario = userQuery.data;
   const aprobar = useApproveBaseline(proyecto.id);
@@ -68,7 +81,7 @@ function BaselineApprovalControl({ proyecto }: { proyecto: ProjectListRow }) {
 
   return (
     <>
-      <Button type="button" variant="outline" size="sm" onClick={() => cambiarApertura(true)}>
+      <Button type="button" variant={triggerVariant} size="sm" onClick={() => cambiarApertura(true)}>
         <Lock />
         Aprobar línea base
       </Button>

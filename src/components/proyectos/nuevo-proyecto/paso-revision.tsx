@@ -70,7 +70,7 @@ export function PasoRevision({ proyecto }: { proyecto: ProjectListRow }) {
             línea base: la estructura y el presupuesto quedan congelados y el proyecto pasa a En ejecución.
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <BaselineApproval proyecto={proyecto} />
+            <BaselineApproval proyecto={proyecto} triggerVariant="default" />
             <Link
               href={`/proyectos/${proyecto.id}`}
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
