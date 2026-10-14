@@ -1,4 +1,4 @@
-// U7: text on the selected-state fills of the origin pills/buttons (project-create-dialog, task-dialogs) must reach
+// U7: text on the selected-state fills of the origin pills/buttons (project-create-form, task-dialogs) must reach
 // WCAG AA (4.5:1) in BOTH themes, computed from the real hex tokens in globals.css (no copied numbers).
 import { readFileSync } from "node:fs"
 import path from "node:path"
@@ -54,7 +54,7 @@ describe("selected origin classes use the theme-aware text token", () => {
   const src = (...p: string[]) => readFileSync(path.resolve(__dirname, "..", "components", ...p), "utf8")
 
   it("project-create-dialog: the selected origin pill has no fixed text-rose-700", () => {
-    const pill = /origen === opcion\.value\s*\?\s*"([^"]*)"/.exec(src("proyectos", "project-create-dialog.tsx"))?.[1] ?? ""
+    const pill = /origen === opcion\.value\s*\?\s*"([^"]*)"/.exec(src("proyectos", "project-create-form.tsx"))?.[1] ?? ""
     expect(pill).toContain("text-accent-soft")
     expect(pill).not.toContain("text-rose-700")
   })
