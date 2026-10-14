@@ -131,6 +131,23 @@ describe("ProjectCreateForm", () => {
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith({ id: "p-ind", codigo: "PRY-2026-010", nombre: "Libre" }))
   })
 
+  it("toggles the municipio and línea checkboxes from their visible names (clickable labels)", async () => {
+    const user = userEvent.setup()
+    renderForm()
+
+    const municipio = screen.getByRole("checkbox", { name: "Municipio Barranquilla" })
+    expect(municipio).not.toBeChecked()
+    await user.click(screen.getByText("Barranquilla"))
+    expect(municipio).toBeChecked()
+    await user.click(screen.getByText("Barranquilla"))
+    expect(municipio).not.toBeChecked()
+
+    const linea = screen.getByRole("checkbox", { name: "Incluir Salud" })
+    expect(linea).not.toBeChecked()
+    await user.click(screen.getByText("Salud"))
+    expect(linea).toBeChecked()
+  })
+
   it("calls onCreatedWithoutId (not onCreated) when the server returns no project id", async () => {
     const user = userEvent.setup()
     const onCreatedWithoutId = vi.fn()

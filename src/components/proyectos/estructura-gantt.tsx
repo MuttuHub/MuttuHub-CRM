@@ -147,7 +147,7 @@ function Barra({ barra, actividad }: { barra: GanttBarra; actividad: ProjectActi
         "flex h-6 min-w-0 items-center gap-1 rounded-md px-1.5 text-[11px] font-semibold",
         barra.fueraDeDuracion
           ? "border border-destructivo/50 bg-destructivo-bg text-destructivo"
-          : "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400",
+          : "border border-rose-200 bg-rose-100 text-rose-700 dark:text-rose-400",
       )}
     >
       <span className="truncate">{barra.codigo}</span>

@@ -31,7 +31,7 @@ Show the boss the project creation flow, visual and functional, as in v7: a page
 - [x] T3 Steps 2–4 embed the existing Metas (+ Importar plantilla), Cronograma/Gantt and Financiero (Presupuesto)
       editors for the created project.
 - [x] T4 Step 5 Revisión: summary + "Aprobar línea base" (existing action, same permissions) / "Guardar borrador" → ficha.
-- [ ] T5 (gate) Point "Nuevo proyecto" and "Convertir en proyecto" to the page — only after browser verification.
+- [x] T5 (gate) Point "Nuevo proyecto" and "Convertir en proyecto" to the page — only after browser verification.
 - [ ] T6 Browser verification (both origins), then restore demo data (needs explicit user consent).
 
 ## Acceptance
@@ -60,3 +60,20 @@ Route per task: delegated (single writer, trigger: 2+ non-trivial files). Writte
   import) then GREEN 8/8.
 - Final checks: nuevo-proyecto suites + dialog + form + design/control/table/surface/responsive/a11y guards green,
   `npx tsc --noEmit` clean, eslint clean on touched files. Browser verification and T5/T6 pending (parent).
+
+### T5 `6f69ee2` feat (entry points, after browser QA of the page passed)
+"Nuevo proyecto" (ProjectList), "Convertir en proyecto" (`ConvertirEnProyectoAction`) and the kanban card action
+"Pasar a nuevo proyecto →" are now `next/link` anchors (role link) to `/proyectos/nuevo` or
+`/proyectos/nuevo?oportunidad=<id>`; permission gating untouched (`canCreateProject`, eligible list, `cardAction`).
+`CardActionView` is exported for its test. `ProjectCreateDialog` and its suite are kept (no remaining caller).
+RED observed (6 failures: link role/href, dialog assertions) then GREEN: project-list, entity-dialogs, kanban 95/95.
+
+### Polish (browser QA 2026-10-14)
+- `72b7d3f` fix(proyectos): (1) after approval the Revisión pill is done (`estadoDePaso(..., aprobado)`, still the
+  current step) and step 5 header reads "Línea base aprobada" (`datosDePaso`); (3) `?proyecto=<id>` shows the page
+  skeleton until the project resolves (no "completado" pills while loading) and a 404 is not retried
+  (`use-proyecto-nuevo.ts`, local wrapper over the same query key; shared `useProject` untouched). RED observed
+  (22 failures) then GREEN nuevo-proyecto 56/56.
+- (2) "Aprobar línea base" as primary action: NOT done. The button lives in `src/components/proyectos/baseline-approval.tsx`
+  (hardcoded `variant="outline"`), outside the allowed edit surfaces; it needs an optional `variant`/`size` prop there.
+- Item 4 (clickable municipio/línea labels) and item 5 (Gantt dark contrast): see the next commit.

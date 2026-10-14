@@ -97,6 +97,14 @@ describe("EstructuraGantt", () => {
     expect(screen.getAllByTestId(/^gantt-bar-/)).toHaveLength(3)
   })
 
+  it("styles an in-range bar with the themed rose tokens plus a dark text pair, so it stays visible on dark surfaces", async () => {
+    setup()
+
+    const bar = await screen.findByTestId("gantt-bar-a1")
+    expect(bar).toHaveClass("bg-rose-100", "border-rose-200", "text-rose-700", "dark:text-rose-400")
+    expect(bar.className).not.toMatch(/dark:bg-rose-500\/10/)
+  })
+
   it("labels each week column with its start date", async () => {
     setup()
 
