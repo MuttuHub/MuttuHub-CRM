@@ -163,6 +163,7 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
   Evidencia: `d03a56c`. Validador compartido `src/lib/proyectos/rango-fechas.ts` (API crear y convertir, PATCH, modificaciones, formulario). Verificación: vitest src/components/proyectos, api/v1/{projects,dashboard,clients}, lib/{proyectos,api,openapi} 1958/1959 (el fallo era responsive-guards, corregido en `095bb3a`), `tsc --noEmit` y eslint sin errores.
 - [x] **F5** `valor_total > 0` al crear (C2). Depende de PO-5. Tamaño S.
   Evidencia: `d1a6ef6`. `valor_total` obligatorio y > 0 solo en `PROJECT_CREATE_SCHEMA` y en el formulario; la conversión (E-05) conserva su prefill desde la oportunidad en el servidor, pero el formulario exige > 0. Pregunta abierta: ¿exigir también > 0 en la ruta E-05 cuando la oportunidad no trae valor?
+  Seguimiento: resuelta en `e7c8df5`. La ruta E-05 responde 400 («El valor total debe ser mayor que cero.») cuando el valor final, del cuerpo o del prefill, es nulo o <= 0; se quitó su comprobación `fin < inicio` por redundante (el esquema compartido ya exige inicio < fin).
 - [ ] **F6** Fecha de primer contacto en formato legible (D2). Tamaño S.
 - [ ] **F7** El DTO de la tarea lleva el id y el código del proyecto, para enlazar al proyecto exacto (D3). Tamaño S.
 - [ ] **F8** Crear proyecto desde un cliente (M1, M2). Cambios:
@@ -231,13 +232,13 @@ Mapa aprobado (UX-1):
   Ruta D. Evidencia: `d6e73d1`. Vitest `project-ficha`, `ficha` y `project-ejecucion` con 58/58 en verde (RED previo: 27
   fallos), `tsc` y `eslint` limpios, detector de Impeccable sin hallazgos. Pendiente (F13): Imprimir/PDF en el menú
   `⋯`, hoy solo tiene Exportar a Excel.
-- [ ] **U3** Resumen. Cambios:
+- [x] **U3** Resumen. Cambios:
   - Frase de causa por semáforo, a partir de los datos de `kpis` y `attention` que ya existen. No requiere API nueva.
   - 3 KPI: avance técnico (real contra plan), ejecución financiera (ejecutado contra programado) y beneficiarios.
   - Datos generales y equipo, con edición en un diálogo.
   - Se elimina el panel de KPI duplicado de Cambios.
 
-  Ruta D.
+  Ruta D. Evidencia: nuevo `ficha/ficha-resumen.tsx` (salud técnica y financiera con una frase de causa, «Requiere atención» con enlaces «Ver actividades»/«Ver finanzas», «Próximos pasos» en borrador, datos generales, equipo y registro de beneficiarios plegado). Se elimina `resumen-kpis.tsx` y su prueba. Vitest `src/components/proyectos` y `api/v1/clients` 780/780, `tsc` y eslint limpios, detector de Impeccable sin hallazgos. Pendiente: la edición de datos generales en un diálogo no se hizo (queda para F14, que hace editable «Beneficiarios»). El texto vacío de «Requiere atención» pasa a «Nada pendiente por ahora.».
 - [ ] **U4** Actividades. Una sola estructura con el selector Lista · Gantt · Tablero.
   - En borrador: edición de objetivos, actividades, entregables e indicadores, más la carga por Excel.
   - En ejecución: avance por actividad e indicadores.
