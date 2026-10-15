@@ -105,3 +105,28 @@ LISTO PARA INTEGRAR: X3
 - PREGUNTA: ninguna.
 
 LISTO PARA INTEGRAR: X4
+
+---
+
+## X5 · `FichaDocumentos`
+
+- Commit: `486f9ea` — `feat(proyectos): add the documents tab with every project support grouped by origin`
+- Archivos tocados:
+  - `src/components/proyectos/ficha/ficha-documentos.tsx` — **nuevo**. Una lista con todos los soportes de
+    `useProjectSupports`, agrupada en Actividades (avance), Indicadores, Gastos y Proyecto; filtro por origen con
+    chips (`aria-pressed`) y buscador por nombre (insensible a mayúsculas); estados de carga (esqueleto), error
+    (en línea) y vacío (proyecto sin documentos / filtro sin resultados). Reutiliza `formatoSoporte` y las mismas
+    acciones de descarga de `project-soportes.tsx` (URL firmada por origen; enlace externo directo; «Abrir»
+    deshabilitado para un indicador sin enlace).
+  - `src/components/proyectos/ficha/ficha-documentos.test.tsx` — **nuevo**. Agrupación, filtro, buscador, vacíos,
+    error/carga y apertura (gasto por URL firmada; enlace directo).
+- Verificaciones:
+  1. `TZ=America/Bogota npx vitest run` sobre las rutas del carril **más** las guardas de código → 16 archivos,
+     149 pruebas, **verde**.
+  2. `npx tsc --noEmit` → **sin errores**.
+  3. `npx eslint src/components/proyectos/ficha src/components/proyectos/project-financiero.tsx
+     src/components/proyectos/project-presupuesto.tsx src/components/proyectos/project-gastos.tsx` → **sin avisos**.
+- PEDIDO A CLAUDE: ninguno. La pestaña vieja «Soportes» sigue montada hasta que U8 la retire.
+- PREGUNTA: ninguna.
+
+LISTO PARA INTEGRAR: X5
