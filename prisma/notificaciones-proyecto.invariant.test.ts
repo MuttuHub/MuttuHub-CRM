@@ -97,6 +97,22 @@ describe("Project notifications (live DB)", () => {
     expect(row.leida).toBe(false)
   })
 
+  it("stores a GASTO_RECHAZADO notification tied to a project and an expense", async () => {
+    const row = await runAndRollback(async (tx) => {
+      const { usuario, proyecto, gasto } = await fixture(tx)
+      return tx.notificacion.create({
+        data: {
+          usuario_id: usuario.id,
+          tipo: "GASTO_RECHAZADO",
+          proyecto_id: proyecto.id,
+          gasto_id: gasto.id,
+        },
+      })
+    })
+    expect(row.tipo).toBe("GASTO_RECHAZADO")
+    expect(row.leida).toBe(false)
+  })
+
   it("keeps one notification per (usuario, tipo, gasto): skipDuplicates adds nothing", async () => {
     const total = await runAndRollback(async (tx) => {
       const { usuario, proyecto, gasto } = await fixture(tx)
