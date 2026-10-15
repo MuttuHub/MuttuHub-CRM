@@ -366,4 +366,13 @@ describe("ImportDialog", () => {
 
     expect(await within(dialogo).findByRole("alert")).toHaveTextContent("El archivo supera el límite de 4 MB.")
   })
+
+  it("explains the Excel flow behind a help button in the template step", async () => {
+    const user = userEvent.setup()
+    setup()
+    await user.click(screen.getByRole("button", { name: /importar plantilla/i }))
+    await screen.findByRole("dialog")
+    await user.click(screen.getByRole("button", { name: "Ayuda: Plantilla de Excel" }))
+    expect(await screen.findByText(/no se guarda nada\./)).toBeInTheDocument()
+  })
 })

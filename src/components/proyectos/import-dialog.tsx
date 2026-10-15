@@ -18,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { HelpHint } from "@/components/ui/help-hint";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { errorMessage, plural } from "@/components/proyectos/estructura-ui";
@@ -227,6 +228,9 @@ export function ImportDialog({
 
           <div data-testid="import-paso-plantilla" className="flex flex-wrap items-center gap-2 surface-inner p-3">
             <p className="text-[13px] text-ink-700">¿Aún no tienes la plantilla?</p>
+            <HelpHint label="Plantilla de Excel">
+              Descarga la plantilla, diligénciala y súbela. Si hay errores, ves la lista y no se guarda nada.
+            </HelpHint>
             <Button
               type="button"
               variant="outline"
