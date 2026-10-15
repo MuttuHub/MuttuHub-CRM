@@ -94,7 +94,7 @@ La integración es **progresiva y en un solo sentido**.
 | M7 | Notificar el rechazo de un gasto: ¿con el motivo? ¿también al anular? Requiere migración aditiva (enum) | ✅ 2026-10-15 | Solo al rechazar, con el motivo en el mensaje y enlace al gasto. Nuevo `GASTO_RECHAZADO`; las notificaciones de proyecto se abren a quien registró el gasto | F12, R3 |
 | UX-1 | Rediseño de la ficha | ✅ 2026-10-15 | Mapa de 5 pestañas aprobado: Resumen, Actividades, Finanzas, Documentos e Historial. El semáforo vive solo en el encabezado; Resumen explica la causa. La ficha la usan el ejecutor y gerencia por igual: abre en Resumen, con «Registrar avance» y «Registrar gasto» en el encabezado | U2–U8, X2–X6 |
 | UX-2 | Ayudas al crear un proyecto | ✅ 2026-10-15 | Pistas contextuales en cada paso y en cada campo no obvio del stepper, y en la carga por Excel | U7 |
-| G-1 | La gerencia acepta un merge grande sin PRs encadenados | pendiente (usuario) | | R6, R9 |
+| G-1 | La gerencia acepta un merge grande sin PRs encadenados | ✅ 2026-10-15 | La gerencia delegó la decisión en el usuario. El merge a `main` se hace solo si la revisión de Claude sale sin hallazgos graves. La revisión tiene tres capas: suite completa, `tsc` y build en verde; el ensayo de migraciones R4/R7; y una revisión dirigida a permisos por rol, migraciones y datos, dinero, y borrado o anulación (R6b) | R6, R6b, R9 |
 | G-2 | Ventana de lanzamiento (propuesta: domingo 2026-10-18 en la mañana) | pendiente (usuario) | | R9 |
 
 ## Tareas
@@ -114,6 +114,15 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
     - `build`: falla por `next/font`, que no puede descargar Google Fonts. Es el bloqueo de red de Fortinet.
 
     **Pendiente:** levantar Docker y repetir las invariantes, y luego decidir si se alojan las fuentes localmente (R1b).
+  - Corrida 2 de las invariantes (2026-10-15, con Docker arriba): 24/29 archivos pasan.
+    - Las 4 suites con timeout (`estructura`, `plantilla-import`, `municipios-migration`, `rubros-migration`) pasan
+      41/41 cuando se corren en secuencia (`--no-file-parallelism`). Era carga del entorno.
+    - Falla real: `proyecto-create-flow` (7 pruebas) responde 400 «El valor total es obligatorio.». Sus datos de prueba
+      no traen `valor_total` desde F5. Se corrige en R1c.
+  - Red: `git ls-remote` y `git push --dry-run` funcionan desde la red actual. `origin/feat/projects-v2` está en
+    `42b8da0`.
+- [ ] **R1c** Ajustar los datos de prueba de las invariantes a F4/F5 (`valor_total > 0`, inicio < fin) y correr todas
+  las invariantes en secuencia. Ruta D.
 - [x] **R2** Worktree y rama de DeepSeek, y su prompt listo para pegar (`odd/tasks/lanzamiento-v2-deepseek-prompt.md`).
   Ruta I.
 - [ ] **R3** Migración aditiva de lanzamiento. Contiene `Proyecto.descripcion String?` si M3 la aprueba, y
@@ -137,6 +146,9 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
   3. Etiqueta `v2.0.0-rc1`.
 
   Ruta I.
+- [ ] **R6b** Revisión de entrega (G-1). Es una revisión dirigida de `main..feat/projects-v2` sobre permisos por rol y
+  alcance, migraciones y datos, dinero (gastos, presupuesto y validación) y operaciones de borrado o anulación. Se usan
+  revisores frescos en paralelo. Un hallazgo grave bloquea el merge hasta corregirlo. Ruta D.
 - [ ] **R7** Ensayo 2 con el código final, más el humo de la app sobre la copia. Ruta D.
 - [ ] **R8** Runbook de lanzamiento, checklist de humo y plan de vuelta atrás (`docs/runbook-lanzamiento-v2.md`). Ruta D.
 - [ ] **R9** Lanzamiento, que ejecuta el usuario. Pasos:
