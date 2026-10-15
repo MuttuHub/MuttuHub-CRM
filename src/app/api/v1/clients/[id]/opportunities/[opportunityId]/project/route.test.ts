@@ -381,6 +381,24 @@ describe("POST /api/v1/clients/:id/opportunities/:opportunityId/project (E-05)",
     expect(String(createArgs.data.valor_total)).toBe("100000000");
   });
 
+  it.each([
+    ["the opportunity has no value to prefill", { ...oportunidad, valor_estimado_cop: null }, {}],
+    ["the opportunity value to prefill is zero", { ...oportunidad, valor_estimado_cop: new Prisma.Decimal("0") }, {}],
+    ["the body value is zero", oportunidad, { valor_total: 0 }],
+    ["the body value is null", oportunidad, { valor_total: null }],
+  ])("rejects with 400 when %s (PO-5)", async (_label, opp, extra) => {
+    mocks.oportunidadFindFirst.mockResolvedValue(opp);
+
+    const res = await POST(postRequest({ ...prefillBody, ...extra }), routeContext);
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.code).toBe("VALIDATION_ERROR");
+    expect(json.error).toBe("El valor total debe ser mayor que cero.");
+    expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
+    expect(mocks.txOportunidadUpdate).not.toHaveBeenCalled();
+  });
+
   it("returns 409 for an opportunity that is not GANADA", async () => {
     mocks.oportunidadFindFirst.mockResolvedValue({ ...oportunidad, estado: "EN_NEGOCIACION" });
 

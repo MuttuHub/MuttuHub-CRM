@@ -85,15 +85,9 @@ export const POST = withApiErrorHandling(
       return apiError(validacion.message, 400, "VALIDATION_ERROR");
     }
 
+    // V-03 (strict start < end) is already enforced by the shared schema above.
     const inicio = normalizeProjectDate(parsed.data.fecha_inicio);
     const fin = normalizeProjectDate(parsed.data.fecha_fin);
-    if (fin.getTime() < inicio.getTime()) {
-      return apiError(
-        "La fecha de fin no puede ser anterior a la de inicio.",
-        400,
-        "VALIDATION_ERROR",
-      );
-    }
 
     const access = await getClientForOpportunityWrite(id, auth.usuario);
     if (!access.ok) {
@@ -160,6 +154,10 @@ export const POST = withApiErrorHandling(
       parsed.data.valor_total === undefined
         ? oportunidad.valor_estimado_cop
         : toProjectDecimal(parsed.data.valor_total);
+    // PO-5 / REQ-ORG-04: the final value (body or prefilled) must be positive.
+    if (valorTotal === null || valorTotal.lte(0)) {
+      return apiError("El valor total debe ser mayor que cero.", 400, "VALIDATION_ERROR");
+    }
 
     try {
       const row = await db.$transaction(async (tx) => {
