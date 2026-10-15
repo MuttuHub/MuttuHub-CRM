@@ -32,9 +32,13 @@ v7 total                     65 %  (fuera del compromiso del lunes)
 
 ## Alcance
 
-- **Entra:** los huecos de los tres RF que no dependen de decisiones abiertas, los pedidos de la reunión (M1 a M7) y el
-  pulido v7 de la ficha de proyecto (B1 a B5 y B7). También la ruta de lanzamiento completa: ensayo, runbook, respaldo,
-  migración y deploy.
+- **Entra:**
+  - Los huecos de los tres RF que no dependen de decisiones abiertas.
+  - Los pedidos de la reunión (M1 a M7).
+  - El **rediseño de la ficha del proyecto**: pasa de 11 pestañas a 5, el semáforo se simplifica y se suman ayudas al
+    crear un proyecto (carriles U y X).
+  - La ruta de lanzamiento completa: ensayo, runbook, respaldo, migración y deploy.
+- **Sale del alcance:** el pulido v7 pestaña por pestaña (D1 a D6). Lo reemplaza el rediseño.
 - **No entra:** el resto de v7, que incluye kanban y ficha de oportunidad, salud de cartera, mapa, convocatorias y
   propuesta económica. Tampoco entran cerrar, suspender o cancelar proyectos (PO-3) ni la importación de gastos por
   Excel (PO-11).
@@ -56,14 +60,15 @@ v7 total                     65 %  (fuera del compromiso del lunes)
 
 | | Claude | DeepSeek |
 |---|---|---|
-| Rama | `feat/projects-v2`, la de integración | `feat/ficha-v7-polish`, creada desde `feat/projects-v2` |
-| Carpeta | la carpeta principal del repo | worktree `../MuttuHub-CRM-worktrees/ficha-v7` |
-| Base | Supabase local (54322) y el contenedor de ensayo `postgres` (54330) | ninguna: solo pruebas de sus componentes |
+| Rama | `feat/projects-v2`, la de integración | `feat/ficha-ux-finanzas`, creada desde `feat/projects-v2` |
+| Carpeta | la carpeta principal del repo | worktree `../MuttuHub-CRM-worktrees/ficha-ux` |
+| Base | Supabase local (54322) y el contenedor de ensayo `postgres` (54330) | La misma Supabase local, **solo para navegar** la app. Nunca corre `prisma migrate`, `db push`, `reset` ni seeds |
 | Puerto | 3000 | 3001 |
-| Superficie exclusiva | `prisma/**`, `scripts/**`, `src/app/api/**`, `src/lib/**`, `src/hooks/**`, `src/components/crm/**`, `project-dashboard.tsx`, `project-list.tsx`, `project-create-form.tsx`, `nuevo-proyecto*`, `project-gastos.tsx`, `gastos-kpis.tsx`, `notification-panel.tsx`, `ejecucion-beneficiarios.tsx`, `resumen-kpis.tsx`, `portafolio-kpis.tsx`, las pestañas de `project-ficha.tsx`, `src/app/(app)/proyectos/[id]/**`, `docs/**`, `odd/**` | `project-presupuesto.tsx`, `project-cronograma.tsx`, `estructura-gantt.tsx`, `project-financiero.tsx`, el encabezado de `project-ficha.tsx`, y los `.test.tsx` de cada uno |
-| No toca | la superficie de DeepSeek | todo lo demás: `package.json`, el lockfile, DTOs y API. Si falta un campo, lo pide |
+| Superficie exclusiva | Todo lo que no es de DeepSeek. En particular: `project-ficha.tsx`, `src/components/proyectos/ficha/ficha-resumen*`, `ficha/ficha-actividades*`, `ficha/actividades-*`, el resto de `src/components/proyectos/**`, `prisma/**`, `scripts/**`, `src/app/**`, `src/lib/**`, `src/hooks/**`, `src/components/crm/**`, `docs/**`, `odd/tasks/lanzamiento-v2-fin-de-semana.md` | `src/components/proyectos/ficha/ficha-finanzas*`, `ficha/ficha-documentos*`, `ficha/ficha-historial*`, `project-financiero*`, `project-presupuesto*`, `presupuesto-programacion*`, `tacometro*`, `project-gastos*`, `gastos-kpis*`, `gasto-*`, `project-soportes*`, `project-modificaciones*`, `project-versiones*`, `odd/tasks/lanzamiento-v2-deepseek-log.md` |
+| No toca | la superficie de DeepSeek | todo lo demás: `package.json`, el lockfile, `src/hooks/**`, `src/lib/**` y la API. Si falta un dato, lo pide |
 
-Claude integra la rama de DeepSeek en los puntos de sincronización: el viernes en la noche y el sábado a las 12:00.
+Claude integra la rama de DeepSeek y monta sus tres componentes en la ficha. Hay dos puntos de sincronización: el viernes
+en la noche y el sábado a las 12:00.
 
 ## Decisiones
 
@@ -80,6 +85,8 @@ Claude integra la rama de DeepSeek en los puntos de sincronización: el viernes 
 | M5 | Beneficiarios «solo cantidad»: ¿la meta, los atendidos o ambos? ¿Se quita el historial por actividad? | ✅ 2026-10-15 | Beneficiarios deja de ser sección. Queda un solo número editable, «Beneficiarios», en los datos generales. Desaparecen el registro de atendidos y el KPI atendidos/meta | F14 (D5 y F2 cancelados) |
 | M6 | «Observado» → «Pendiente por revisión»: ¿renombrar solo la etiqueta? | ✅ 2026-10-15 | Solo la etiqueta, en el filtro, el KPI y la alerta. Se mantiene el criterio (sobregasto o datos incompletos) | F11 |
 | M7 | Notificar el rechazo de un gasto: ¿con el motivo? ¿también al anular? Requiere migración aditiva (enum) | ✅ 2026-10-15 | Solo al rechazar, con el motivo en el mensaje y enlace al gasto. Nuevo `GASTO_RECHAZADO`; las notificaciones de proyecto se abren a quien registró el gasto | F12, R3 |
+| UX-1 | Rediseño de la ficha | ✅ 2026-10-15 | Mapa de 5 pestañas aprobado: Resumen, Actividades, Finanzas, Documentos e Historial. El semáforo vive solo en el encabezado; Resumen explica la causa. La ficha la usan el ejecutor y gerencia por igual: abre en Resumen, con «Registrar avance» y «Registrar gasto» en el encabezado | U2–U8, X2–X6 |
+| UX-2 | Ayudas al crear un proyecto | ✅ 2026-10-15 | Pistas contextuales en cada paso y en cada campo no obvio del stepper, y en la carga por Excel | U7 |
 | G-1 | La gerencia acepta un merge grande sin PRs encadenados | pendiente (usuario) | | R6, R9 |
 | G-2 | Ventana de lanzamiento (propuesta: domingo 2026-10-18 en la mañana) | pendiente (usuario) | | R9 |
 
@@ -92,7 +99,7 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
 
 - [ ] **R1** Base en verde sobre `feat/projects-v2`: `npx tsc --noEmit`, `TZ=America/Bogota npx vitest run` y
   `npm run build`. Ruta D (ejecución). Aceptación: los tres en verde, con el resultado anotado aquí.
-- [ ] **R2** Worktree y rama de DeepSeek, y su prompt listo para pegar (`odd/tasks/lanzamiento-v2-deepseek-prompt.md`).
+- [x] **R2** Worktree y rama de DeepSeek, y su prompt listo para pegar (`odd/tasks/lanzamiento-v2-deepseek-prompt.md`).
   Ruta I.
 - [ ] **R3** Migración aditiva de lanzamiento. Contiene `Proyecto.descripcion String?` si M3 la aprueba, y
   `TipoNotificacion.GASTO_RECHAZADO` en una migración aparte si M7 la aprueba, porque `ADD VALUE` no comparte
@@ -154,8 +161,8 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
   formulario, la ficha y OpenAPI. Depende de M3. Tamaño M.
 - [ ] **F10** Ocultar las pestañas Oportunidades y Mapa de Clientes (M4). Se quitan de `CLIENTES_SECTIONS`
   (`clientes-subnav.tsx:23-31`) y sus rutas redirigen a `/clientes`. Tamaño S.
-- [ ] **F11** Renombrar la etiqueta «Observado» a «Pendiente por revisión» (M6). Es solo texto: `project-gastos.tsx:51`,
-  `gastos-kpis.tsx:100`, `atencion.ts:39` y sus pruebas. Tamaño S.
+- [ ] **F11** Renombrar «Observado» en `atencion.ts:39` («Gasto observado» → «Gasto pendiente por revisión»). Las
+  etiquetas de `project-gastos.tsx` y `gastos-kpis.tsx` pasan a X1 (DeepSeek). Tamaño S.
 - [ ] **F12** Notificar a `registrado_por_id` cuando se rechaza un gasto (M7). Toca la ruta `reject`,
   `notificaciones-proyecto.ts`, la lectura de notificaciones para roles no gerenciales, `notification-panel.tsx` y
   OpenAPI. Depende de M7 y R3. Tamaño M.
@@ -177,23 +184,96 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
 
   Se pasa del carril D al F porque toca la API y los agregados. Tamaño M.
 
-### Carril D: ficha de proyecto v7 (DeepSeek)
+### Carril D: pulido v7 por pestaña (cancelado)
 
-- [ ] **D1** (B1) Presupuesto: formato de miles en los campos de dinero y meses legibles. Tamaño S.
-- [ ] **D2** (B2) Encabezado de la ficha: chips de línea estratégica y territorio. Si el DTO no trae los campos, los pide
-  a Claude. Tamaño S.
-- [ ] **D3** (B3) Cronograma: 4 KPI, leyenda de umbrales y columnas «Días», «Al corte» y soporte. Tamaño M.
-- [ ] **D4** (B4) Gantt: relleno del avance real y línea de «Corte». Tamaño M.
-- [x] ~~**D5** (B5) Beneficiarios: KPI y desglose.~~ Cancelada por M5. El trabajo pasa a F14 (Claude).
-- [ ] **D6** (B7) Financiero: alertas del semáforo financiero y nota de «rubros sin asignación». Tamaño S.
+D1 a D6 se cancelan por UX-1, porque pulían pestañas que se fusionan. D1 (formato de miles en Presupuesto) se absorbe en
+X4. D3, D4 y D6 se descartan: el rediseño simplifica esas vistas en vez de sumarles KPI.
+
+### Carril U: rediseño de la ficha, parte 1 (Claude)
+
+Mapa aprobado (UX-1):
+
+| Pestaña | Junta | Contenido |
+|---|---|---|
+| Resumen | Resumen, Equipo y Beneficiarios | Cada semáforo con una frase de causa, la lista «Requiere atención» con enlaces de acción, 3 KPI (no 6), los datos generales (con descripción y beneficiarios) y el equipo |
+| Actividades | Metas, Cronograma, Gantt y Seguimiento | Una lista de objetivos y actividades con 3 vistas: Lista (con avance y «Registrar avance»), Gantt y Tablero (kanban derivado). En borrador abre con «Cargar desde Excel» como acción principal |
+| Finanzas | Financiero, Presupuesto y Legalización | Selector: Resumen · Gastos · Presupuesto (DeepSeek) |
+| Documentos | Soportes y adjuntos de gastos | Una sola lista (DeepSeek) |
+| Historial | Cambios | Modificaciones · Versiones · Auditoría (DeepSeek) |
+
+- [x] **U1** Extraer `ProjectHistorial` a `project-historial.tsx`, para que X6 lo componga. Ruta I. Evidencia:
+  `fe8b992`. `tsc` limpio y `project-ficha` con 38/38 pruebas en verde.
+- [ ] **U2** Encabezado. Cambios:
+  - Los semáforos viven solo aquí, como chips que llevan a la pestaña correspondiente.
+  - Acciones principales según rol y estado: «Registrar avance» y «Registrar gasto».
+  - Menú `⋯` con Exportar Excel, Imprimir/PDF (F13) y Aprobar línea base (en borrador).
+  - Barra de 5 pestañas.
+
+  Ruta D.
+- [ ] **U3** Resumen. Cambios:
+  - Frase de causa por semáforo, a partir de los datos de `kpis` y `attention` que ya existen. No requiere API nueva.
+  - 3 KPI: avance técnico (real contra plan), ejecución financiera (ejecutado contra programado) y beneficiarios.
+  - Datos generales y equipo, con edición en un diálogo.
+  - Se elimina el panel de KPI duplicado de Cambios.
+
+  Ruta D.
+- [ ] **U4** Actividades. Una sola estructura con el selector Lista · Gantt · Tablero.
+  - En borrador: edición de objetivos, actividades, entregables e indicadores, más la carga por Excel.
+  - En ejecución: avance por actividad e indicadores.
+  - Los selectores de línea base y de corte quedan en «Opciones avanzadas», con vigente y hoy por defecto.
+
+  Ruta D.
+- [ ] **U5** Vista Tablero, de solo lectura. Columnas Por iniciar, En curso, Atrasada y Terminada, derivadas de
+  `progreso`, `programado`, `color` y las fechas de `technical-status`. Al hacer clic en una tarjeta se abre «Registrar
+  avance». No requiere migración ni toca el modelo `Tarea`. Ruta D.
+- [ ] **U6** Excel visible:
+  - En borrador sin estructura, el estado vacío ofrece «Cargar desde Excel» como acción principal y «Crear a mano» como
+    secundaria.
+  - Con estructura, el botón queda en la barra de Actividades.
+
+  Ruta D.
+- [ ] **U7** Ayudas al crear un proyecto (UX-2):
+  - Una pista breve por paso del stepper (qué se pide y por qué).
+  - Ayudas en los campos no obvios: línea estratégica principal, municipios, valor, fechas, peso de la actividad,
+    programación y línea base.
+  - Una guía de la plantilla Excel.
+
+  Usa un componente de ayuda reutilizable y accesible. Ruta D.
+- [ ] **U8** Integración. Pasos:
+  1. Montar `FichaFinanzas`, `FichaDocumentos` y `FichaHistorial`.
+  2. Quitar las pestañas viejas.
+  3. Actualizar `project-ficha.test.tsx`.
+  4. Pasar el detector de Impeccable sobre lo cambiado.
+
+  Ruta I.
+
+### Carril X: rediseño de la ficha, parte 2 (DeepSeek)
+
+El prompt completo está en `odd/tasks/lanzamiento-v2-deepseek-prompt.md`.
+
+- [ ] **X1** Renombrar la etiqueta «Observado» a «Pendiente por revisión» en `project-gastos.tsx:51` y
+  `gastos-kpis.tsx:100`, con sus pruebas (M6). Tamaño S.
+- [ ] **X2** `FichaFinanzas`, con selector Resumen · Gastos · Presupuesto. Compone `ProjectFinanciero`, `ProjectGastos` y
+  `ProjectPresupuesto`. Tamaño M.
+- [ ] **X3** Finanzas simplificadas. Cambios:
+  - El tacómetro pasa a una barra de ejecutado, programado y asignado.
+  - Los selectores de corte y base quedan en «Opciones avanzadas».
+  - Se quita la fila de KPI duplicada de gastos.
+
+  Tamaño M.
+- [ ] **X4** Formato de miles en los campos de dinero de Presupuesto y meses legibles (antes D1). Tamaño S.
+- [ ] **X5** `FichaDocumentos`: soportes de actividades más adjuntos de gastos en una sola lista. No requiere API nueva.
+  Tamaño S-M.
+- [ ] **X6** `FichaHistorial`, con selector Modificaciones · Versiones · Auditoría. Compone `ProjectModificaciones`,
+  `ProjectVersiones` y `ProjectHistorial`. Tamaño S.
 
 ## Calendario
 
 | Día | Claude | DeepSeek | Usuario |
 |---|---|---|---|
-| Jueves 15 | R1, R2, F1, F11, F4, F5 | D1, D6 | Destrabar el push, conseguir G-1 y sacar el dump de producción |
-| Viernes 16 | R3 (12:00), R4, R5, F3, F6, F7, F8, F14, F10 | D3, D4, D2 | Probar en el navegador |
-| Sábado 17 | F9, F12, F13 → **congelamiento a las 12:00** → R6, R7, R8 | Solo correcciones que Claude le marque | Probar la versión candidata |
+| Jueves 15 | U1 ✅, R2, R1, U2, F1, F4, F5, F11 | X1, X2, X6 | Destrabar el push, conseguir G-1 y sacar el dump de producción |
+| Viernes 16 | R3 (12:00), R4, R5, U3, U4, U5, F14, F8, F3, F10 | X3, X4, X5 | Probar en el navegador |
+| Sábado 17 | U6, U7, F9, F12, F13, F6, F7 → U8 (integración) → **congelamiento a las 12:00** → R6, R7, R8 | Solo correcciones que Claude le marque | Probar la versión candidata |
 | Domingo 18 | R9 acompañado, después monitoreo | Margen para correcciones de UI | Ventana de lanzamiento (G-2) y decisión de mantener o revertir |
 
 ## Vuelta atrás
@@ -224,6 +304,24 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
   - Corrección: Clientes tiene solo 2 pestañas vacías (Oportunidades y Mapa), no 6.
   - R3 queda con dos migraciones aditivas: `descripcion` y `GASTO_RECHAZADO`.
 
+- 2026-10-15: el usuario encontró la experiencia difícil en la demo y pidió simplificarla. El inventario de la ficha
+  mostró:
+  - 11 pestañas.
+  - Las mismas actividades en 4 pestañas.
+  - El semáforo técnico y el financiero repetidos 3 veces cada uno.
+  - 2 juegos de KPI duplicados.
+  - El Excel (9 hojas: objetivos, actividades, entregables, indicadores, presupuesto y programación) escondido en Metas,
+    solo en borrador y solo para ADM/GER.
+
+  Cambios en el plan:
+  - Se aprueba UX-1 (5 pestañas) y UX-2 (ayudas).
+  - D1–D6 se cancelan.
+  - Se agregan los carriles U (Claude) y X (DeepSeek).
+  - Las etiquetas de F11 en gastos pasan a X1.
+  - Kanban: `Actividad` no tiene estado propio, así que el tablero se deriva de `technical-status`. Las `Tarea` del CRM
+    no tienen vínculo con proyectos.
+  - El rediseño no requiere migración.
+
 ## Siguiente paso
 
-Faltan G-1 (aceptación de la gerencia) y G-2 (ventana). Luego R1 y R2, para arrancar a DeepSeek con D1 y D6.
+Faltan G-1 (aceptación de la gerencia) y G-2 (ventana). Siguen R2 (el worktree de DeepSeek), R1 y U2.
