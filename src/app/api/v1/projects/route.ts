@@ -29,6 +29,7 @@ import { logChanges } from "@/lib/api/audit-cambios";
 import { validarLineas, miembrosInicialesProyecto } from "@/lib/proyectos/proyecto-general";
 import { MENSAJE_RANGO_FECHAS, rangoFechasValido } from "@/lib/proyectos/rango-fechas";
 import {
+  PROJECT_DESCRIPCION_SCHEMA,
   PROJECT_SELECT_V2,
   addProyectoMiembros,
   checkLineasExisten,
@@ -96,6 +97,7 @@ const INVALID_DATE_MESSAGES = {
 
 /** Fields both creation paths (E-03 and E-05) share. */
 const PROJECT_CREATE_BASE = {
+  descripcion: PROJECT_DESCRIPCION_SCHEMA,
   responsable_id: z.string().min(1, "El responsable no puede estar vacío."),
   lineas: z
     .array(
@@ -290,6 +292,7 @@ export const POST = withApiErrorHandling(
         data: {
           codigo,
           nombre: parsed.data.nombre,
+          descripcion: parsed.data.descripcion ?? null,
           cliente_id: parsed.data.cliente_id,
           oportunidad_id: null,
           responsable_id: parsed.data.responsable_id,

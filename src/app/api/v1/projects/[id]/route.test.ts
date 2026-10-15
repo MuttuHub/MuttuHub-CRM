@@ -102,6 +102,7 @@ const existente = {
   id: "pry-1",
   codigo: "PRY-2026-001",
   nombre: "CedeTextil",
+  descripcion: null,
   estado: "BORRADOR",
   origen: "OPORTUNIDAD",
   cliente: { id: "cli-1", nombre: "CedeTextil S.A." },
@@ -178,6 +179,7 @@ describe("GET /api/v1/projects/:id", () => {
       id: "pry-1",
       codigo: "PRY-2026-001",
       nombre: "CedeTextil",
+      descripcion: null,
       estado: "BORRADOR",
       origen: "OPORTUNIDAD",
       cliente: { id: "cli-1", nombre: "CedeTextil S.A." },
@@ -352,6 +354,30 @@ describe("PATCH /api/v1/projects/:id", () => {
         }),
       ]),
     );
+  });
+
+  it("edits the description (trimmed, blank -> null) and audits the change", async () => {
+    const res = await PATCH(patchRequest({ descripcion: "  Nuevo alcance " }), routeContext);
+
+    expect(res.status).toBe(200);
+    expect(mocks.txUpdate).toHaveBeenCalledWith({
+      where: { id: "pry-1" },
+      data: { descripcion: "Nuevo alcance" },
+    });
+    const [, rows] = vi.mocked(logChanges).mock.calls[0]!;
+    expect(rows).toEqual([
+      expect.objectContaining({ campo: "descripcion", valor_anterior: null, valor_nuevo: "Nuevo alcance" }),
+    ]);
+  });
+
+  it("clears the description with a blank string, and rejects one over 2000 characters", async () => {
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ ...existente, descripcion: "Antes" } as never);
+    const cleared = await PATCH(patchRequest({ descripcion: "  " }), routeContext);
+    expect(cleared.status).toBe(200);
+    expect(mocks.txUpdate).toHaveBeenCalledWith({ where: { id: "pry-1" }, data: { descripcion: null } });
+
+    const tooLong = await PATCH(patchRequest({ descripcion: "x".repeat(2001) }), routeContext);
+    expect(tooLong.status).toBe(400);
   });
 
   it("does not audit a field that was sent unchanged", async () => {

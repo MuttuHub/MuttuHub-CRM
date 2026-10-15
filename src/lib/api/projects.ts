@@ -11,6 +11,7 @@
  * `src/lib/permissions.ts` (never a role list re-declared here).
  */
 
+import { z } from "zod";
 import { Prisma, type EstadoProyecto, type OrigenProyecto, type RolUsuario, type Usuario } from "@prisma/client";
 import { canViewPortfolio, canViewProjectV2, type ProjectActor, type ProjectMembershipActor } from "@/lib/permissions";
 import {
@@ -25,6 +26,20 @@ import { apiError } from "@/lib/api/errors";
 import { logChanges } from "@/lib/api/audit-cambios";
 import { parseDate } from "@/lib/api/crm";
 
+export const DESCRIPCION_MAX = 2000;
+
+/**
+ * M3: optional description shared by the create, conversion and PATCH bodies.
+ * Trimmed, capped at 2000 characters, and an empty string stores NULL.
+ */
+export const PROJECT_DESCRIPCION_SCHEMA = z
+  .string()
+  .trim()
+  .max(DESCRIPCION_MAX, "La descripción es muy larga.")
+  .transform((value) => (value === "" ? null : value))
+  .nullable()
+  .optional();
+
 /**
  * Projection shared by GET /projects, GET /projects/:id and the PATCH
  * response, so every endpoint answers with the same `ProjectItemV2` object.
@@ -35,6 +50,7 @@ export const PROJECT_SELECT_V2 = {
   id: true,
   codigo: true,
   nombre: true,
+  descripcion: true,
   estado: true,
   origen: true,
   cliente: { select: { id: true, nombre: true } },
@@ -60,6 +76,8 @@ export type ProjectItemV2 = {
   id: string;
   codigo: string;
   nombre: string;
+  /** M3: optional free-text description; null when none was captured. */
+  descripcion: string | null;
   estado: EstadoProyecto;
   origen: OrigenProyecto | null;
   cliente: { id: string; nombre: string };
@@ -87,6 +105,7 @@ export function toProjectItemV2(row: ProjectRowV2): ProjectItemV2 {
     id: row.id,
     codigo: row.codigo,
     nombre: row.nombre,
+    descripcion: row.descripcion,
     estado: row.estado,
     origen: row.origen,
     cliente: row.cliente,
@@ -396,6 +415,7 @@ export function projectListWhere(
 /** Scalar fields whose change produces one audit row each. */
 export const AUDITED_PROJECT_FIELDS = [
   "nombre",
+  "descripcion",
   "origen",
   "fecha_inicio",
   "fecha_fin",

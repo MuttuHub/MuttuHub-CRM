@@ -64,6 +64,8 @@ export type ProjectListRow = {
   id: string;
   codigo: string;
   nombre: string;
+  /** M3: texto libre opcional; `null` si no se capturó. Opcional en el tipo para no obligar a todos los fixtures. */
+  descripcion?: string | null;
   estado: EstadoProyecto;
   origen: OrigenProyecto | null;
   cliente: { id: string; nombre: string };
@@ -428,6 +430,8 @@ export type ProjectLineaInput = { id: string; principal: boolean };
 
 /** Campos compartidos por ambos endpoints de creación (`PROJECT_CREATE_BASE`). */
 export type ProjectCreateBaseInput = {
+  /** M3: opcional, máx. 2000 caracteres. */
+  descripcion?: string;
   responsable_id: string;
   lineas: ProjectLineaInput[];
   municipio_ids: string[];

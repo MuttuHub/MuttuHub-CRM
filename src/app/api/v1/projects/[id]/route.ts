@@ -1,7 +1,7 @@
 // GET /api/v1/projects/:id — one project ficha (contract E-06, P02).
 // PATCH /api/v1/projects/:id — general data of a BORRADOR project (E-06, P06).
 //
-// PATCH accepts nombre, origen, fecha_inicio, fecha_fin, valor_total,
+// PATCH accepts nombre, descripcion, origen, fecha_inicio, fecha_fin, valor_total,
 // beneficiarios_meta, responsable_id, `lineas` (N..N replacement) and
 // `municipio_ids` (N..N replacement). Every scalar write, both join
 // replacements and all audit rows happen in ONE transaction (ADR-05,
@@ -26,6 +26,7 @@ import { diffFields, logChanges, type CambioInput } from "@/lib/api/audit-cambio
 import { diferenciaValor, validarLineas } from "@/lib/proyectos/proyecto-general";
 import {
   AUDITED_PROJECT_FIELDS,
+  PROJECT_DESCRIPCION_SCHEMA,
   PROJECT_SELECT_V2,
   canReadProject,
   checkLineasExisten,
@@ -62,6 +63,7 @@ export const PROJECT_PATCH_SCHEMA = z.object({
     .min(1, "El nombre no puede estar vacío.")
     .max(200, "El nombre es muy largo.")
     .optional(),
+  descripcion: PROJECT_DESCRIPCION_SCHEMA,
   origen: z
     .enum(OrigenProyecto, { error: "Origen de proyecto no válido." })
     .nullable()
@@ -209,6 +211,7 @@ export const PATCH = withApiErrorHandling(
 
     const patch: ProjectPatch = {};
     if (parsed.data.nombre !== undefined) patch.nombre = parsed.data.nombre;
+    if (parsed.data.descripcion !== undefined) patch.descripcion = parsed.data.descripcion;
     if (parsed.data.origen !== undefined) patch.origen = parsed.data.origen;
     if (parsed.data.fecha_inicio !== undefined) {
       patch.fecha_inicio =

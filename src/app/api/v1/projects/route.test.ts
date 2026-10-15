@@ -640,6 +640,26 @@ describe("POST /api/v1/projects (E-03)", () => {
     expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
   });
 
+  it("stores the trimmed description, and NULL when it is blank or omitted", async () => {
+    await POST(postRequest({ ...createBody, descripcion: "  Alcance del convenio  " }));
+    await POST(postRequest({ ...createBody, descripcion: "   " }));
+    await POST(postRequest(createBody));
+
+    const datas = mocks.txProyectoCreate.mock.calls.map(
+      (call) => (call[0] as { data: { descripcion: unknown } }).data.descripcion,
+    );
+    expect(datas).toEqual(["Alcance del convenio", null, null]);
+  });
+
+  it("rejects a description over 2000 characters with 400", async () => {
+    const res = await POST(postRequest({ ...createBody, descripcion: "x".repeat(2001) }));
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.code).toBe("VALIDATION_ERROR");
+    expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
+  });
+
   it("rejects an out-of-range beneficiarios_meta with 400 instead of a 500", async () => {
     const res = await POST(postRequest({ ...createBody, beneficiarios_meta: 3_000_000_000 }));
     const json = await res.json();

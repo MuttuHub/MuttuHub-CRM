@@ -230,6 +230,16 @@ describe("POST /api/v1/clients/:id/opportunities/:opportunityId/project (E-05)",
     expect(String(createArgs.data.valor_total)).toBe("245450000");
   });
 
+  it("stores the optional description on conversion", async () => {
+    await POST(postRequest({ ...prefillBody, descripcion: " Alcance " }), routeContext);
+    await POST(postRequest(prefillBody), routeContext);
+
+    const datas = mocks.txProyectoCreate.mock.calls.map(
+      (call) => (call[0] as { data: { descripcion: unknown } }).data.descripcion,
+    );
+    expect(datas).toEqual(["Alcance", null]);
+  });
+
   it("audits the conversion in one lote and the initial team in its own call", async () => {
     await POST(postRequest(prefillBody), routeContext);
 

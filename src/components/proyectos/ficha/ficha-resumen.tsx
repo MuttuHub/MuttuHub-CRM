@@ -304,6 +304,14 @@ function DatosGenerales({ proyecto }: { proyecto: ProjectListRow }) {
   return (
     <section data-testid="datos-generales" aria-label="Datos generales" className="flex flex-col gap-4">
       <SectionHeader>Datos generales</SectionHeader>
+      {proyecto.descripcion ? (
+        <div data-testid="resumen-descripcion">
+          <h4 className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">Descripción</h4>
+          <p className="mt-1 text-[13.5px] leading-relaxed whitespace-pre-line text-ink-900">
+            {proyecto.descripcion}
+          </p>
+        </div>
+      ) : null}
       <dl className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
         <FieldValue
           label="Origen"

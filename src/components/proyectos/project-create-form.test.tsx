@@ -181,6 +181,32 @@ describe("ProjectCreateForm", () => {
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith({ id: "p-ind", codigo: "PRY-2026-010", nombre: "Libre" }))
   })
 
+  it("sends the trimmed description with the project, and omits it when left blank", async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await elegirCliente(user, "Cliente Uno")
+    await user.type(screen.getByLabelText("Nombre"), "Libre")
+    await user.type(screen.getByLabelText("Valor total"), "1000000")
+    await user.click(screen.getByRole("checkbox", { name: "Municipio Barranquilla" }))
+    await user.type(screen.getByLabelText("Descripción (opcional)"), "  Alcance del convenio  ")
+    await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
+    await waitFor(() => expect(createProject.mutateAsync).toHaveBeenCalled())
+    expect(createProject.mutateAsync.mock.calls[0][0]).toMatchObject({ descripcion: "Alcance del convenio" })
+  })
+
+  it("does not send a description when the field is blank", async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await elegirCliente(user, "Cliente Uno")
+    await user.type(screen.getByLabelText("Nombre"), "Libre")
+    await user.type(screen.getByLabelText("Valor total"), "1000000")
+    await user.click(screen.getByRole("checkbox", { name: "Municipio Barranquilla" }))
+    await user.type(screen.getByLabelText("Descripción (opcional)"), "   ")
+    await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
+    await waitFor(() => expect(createProject.mutateAsync).toHaveBeenCalled())
+    expect(createProject.mutateAsync.mock.calls[0][0]).not.toHaveProperty("descripcion")
+  })
+
   it("toggles the municipio and línea checkboxes from their visible names (clickable labels)", async () => {
     const user = userEvent.setup()
     renderForm()
@@ -386,6 +412,7 @@ describe("ProjectCreateForm", () => {
       ["Línea estratégica principal", /Exactamente una debe ser la principal/],
       ["Municipios", /al menos uno/],
       ["Meta de beneficiarios", /personas/],
+      ["Descripción", /Alcance|objetivo/],
     ] as const) {
       await user.click(screen.getByRole("button", { name: `Ayuda: ${nombre}` }))
       expect(await screen.findByText(texto)).toBeInTheDocument()

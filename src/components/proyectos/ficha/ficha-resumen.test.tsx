@@ -161,6 +161,21 @@ describe("FichaResumen", () => {
     expect(screen.queryByTestId("resumen-beneficiarios")).not.toBeInTheDocument()
   })
 
+  it("shows the description as a paragraph in Datos generales, and hides it when there is none", async () => {
+    mockApi()
+    const primero = render(
+      <FichaResumen proyecto={{ ...PROYECTO, descripcion: "Alcance del convenio" }} onIrA={vi.fn()} />,
+      { wrapper: createWrapper() },
+    )
+    const datos = await screen.findByTestId("datos-generales")
+    expect(within(datos).getByTestId("resumen-descripcion")).toHaveTextContent("Alcance del convenio")
+    primero.unmount()
+
+    renderResumen({ ...PROYECTO, descripcion: null })
+    await screen.findByTestId("salud-tecnico")
+    expect(screen.queryByTestId("resumen-descripcion")).not.toBeInTheDocument()
+  })
+
   it("explains that a project that is not measurable has no health yet", async () => {
     mockApi({ kpisBody: kpis({ medible: false, tecnico: null, financiero: null }) })
 

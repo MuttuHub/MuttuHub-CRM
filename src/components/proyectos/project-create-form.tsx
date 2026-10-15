@@ -20,6 +20,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { MENSAJE_RANGO_FECHAS, rangoFechasValido } from "@/lib/proyectos/rango-fechas";
 import { LoaderCircle } from "lucide-react";
 import { ClienteResumen } from "@/components/proyectos/nuevo-proyecto/cliente-resumen";
+import { CAPTURE_TEXTAREA } from "@/components/proyectos/ui";
 import { HelpHint } from "@/components/ui/help-hint";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -53,9 +54,13 @@ const SIN_OPORTUNIDAD = "sin-oportunidad";
 /** Con más clientes que esto aparece un campo para buscar por nombre. */
 const CLIENTES_PARA_BUSCAR = 8;
 
+/** Mirrors the server cap (`DESCRIPCION_MAX` in `src/lib/api/projects.ts`, which is server-only). */
+const DESCRIPCION_MAX = 2000;
+
 type OrigenForm = "OPORTUNIDAD" | "INDEPENDIENTE";
 
 type CuerpoCreacion = {
+  descripcion?: string;
   responsable_id: string;
   lineas: ProjectLineaInput[];
   municipio_ids: string[];
@@ -167,6 +172,7 @@ export function ProjectCreateForm({
 
   const [oportunidad, setOportunidad] = useState<EligibleOpportunity | null>(null);
   const [nombre, setNombre] = useState("");
+  const [descripcion, setDescripcion] = useState("");
   const [clienteId, setClienteId] = useState(initialClienteId ?? "");
   const [busquedaCliente, setBusquedaCliente] = useState("");
   const [valorTotal, setValorTotal] = useState("");
@@ -292,6 +298,8 @@ export function ProjectCreateForm({
       fecha_inicio: fechaInicio,
       fecha_fin: fechaFin,
     };
+    const descripcionLimpia = descripcion.trim();
+    if (descripcionLimpia !== "") cuerpo.descripcion = descripcionLimpia;
     const valor = valorTotal.trim();
     if (valor !== "") cuerpo.valor_total = Number(valor);
     const beneficiarios = beneficiariosMeta.trim();
@@ -461,6 +469,29 @@ export function ProjectCreateForm({
             placeholder="Nombre del proyecto"
             className="px-3"
           />
+        </div>
+
+        <div className="flex flex-col gap-2 sm:col-span-2">
+          <Etiqueta
+            htmlFor="proyecto-descripcion"
+            ayuda={{
+              label: "Descripción",
+              texto: "Alcance u objetivo del proyecto en pocas líneas. Es opcional y se muestra en la ficha.",
+            }}
+          >
+            Descripción (opcional)
+          </Etiqueta>
+          <textarea
+            id="proyecto-descripcion"
+            value={descripcion}
+            onChange={(event) => setDescripcion(event.target.value)}
+            maxLength={DESCRIPCION_MAX}
+            placeholder="Describe el alcance del proyecto"
+            className={CAPTURE_TEXTAREA}
+          />
+          <p className="text-[12px] text-ink-500" aria-live="polite">
+            {descripcion.length}/{DESCRIPCION_MAX}
+          </p>
         </div>
 
         <div className="flex flex-col gap-2">

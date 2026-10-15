@@ -37,6 +37,7 @@ export const ProjectItemV2Schema = registry.register(
     id: z.string().uuid(),
     codigo: z.string().openapi({ example: "PRY-2026-001" }),
     nombre: z.string(),
+    descripcion: z.string().nullable().openapi({ description: "Texto libre opcional (máx. 2000); null si no se capturó." }),
     estado: z.enum(EstadoProyecto),
     origen: z.enum(OrigenProyecto).nullable(),
     cliente: z.object({ id: z.string().uuid(), nombre: z.string() }),
@@ -299,7 +300,7 @@ registry.registerPath({
   tags: ["Projects"],
   summary: "Edita los datos generales de un proyecto en Borrador (P06, solo ADM/GER)",
   description:
-    "Acepta `nombre`, `origen`, `fecha_inicio`, `fecha_fin`, `valor_total`, `beneficiarios_meta`, `responsable_id`, " +
+    "Acepta `nombre`, `descripcion` (máx. 2000; vacío guarda null), `origen`, `fecha_inicio`, `fecha_fin`, `valor_total`, `beneficiarios_meta`, `responsable_id`, " +
     "`lineas` (reemplazo N..N, 1..n con exactamente una principal) y `municipio_ids` (reemplazo N..N). " +
     "Fuera de `BORRADOR` responde 409 INVALID_STATE (código compartido del envelope). Las escrituras y las filas de auditoría van en una sola " +
     "transacción: una por campo cambiado, por línea y por municipio cambiados. `codigo`, `estado`, `miembro_ids` " +

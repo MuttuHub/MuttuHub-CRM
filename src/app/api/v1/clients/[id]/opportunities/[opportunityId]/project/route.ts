@@ -178,6 +178,7 @@ export const POST = withApiErrorHandling(
           data: {
             codigo,
             nombre,
+            descripcion: parsed.data.descripcion ?? null,
             cliente_id: id,
             oportunidad_id: opportunityId,
             responsable_id: parsed.data.responsable_id,
