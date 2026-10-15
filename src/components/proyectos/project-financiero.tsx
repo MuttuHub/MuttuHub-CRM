@@ -10,15 +10,16 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, PiggyBank } from "lucide-react";
+import { AlertTriangle, ChevronDown, PiggyBank } from "lucide-react";
 import { ToneBadge } from "@/components/crm/shared";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { EmptyBlock, InlineError, SELECT_CLASS, SectionHeader } from "@/components/proyectos/ui";
 import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
-import { Tacometro, type TacometroBanda } from "@/components/proyectos/tacometro";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   useProjectFinancialSheet,
+  type ColorSemaforo,
   type ProjectBase,
   type ProjectFinancialRow,
   type ProjectFinancialSheet,
@@ -62,6 +63,7 @@ function FinancieroContent({ proyecto, inicio, fin }: { proyecto: ProjectListRow
   const periodos = periodosDe(inicio, fin);
   const [corte, setCorte] = useState<string | null>(null);
   const [base, setBase] = useState<ProjectBase>("vigente");
+  const [opciones, setOpciones] = useState(false);
   // The original (v0) exists from the baseline approval on; in BORRADOR there is nothing to compare with.
   const baseDisponible = proyecto.estado !== "BORRADOR";
   const query = useProjectFinancialSheet(proyecto.id, corte, base);
@@ -71,38 +73,54 @@ function FinancieroContent({ proyecto, inicio, fin }: { proyecto: ProjectListRow
 
   return (
     <div className="mt-2 flex flex-col gap-2.5">
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-1.5 text-[12px] text-ink-600">
-          Corte
-          <select
-            aria-label="Corte"
-            value={corteActual}
-            onChange={(event) => setCorte(event.target.value)}
-            className={SELECT_CLASS}
-          >
-            {periodos.map((periodo) => (
-              <option key={periodo} value={periodo}>
-                {periodo}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex items-center gap-1.5 text-[12px] text-ink-600">
-          Base
-          <select
-            aria-label="Base"
-            disabled={!baseDisponible}
-            value={base}
-            onChange={(event) => setBase(event.target.value as ProjectBase)}
-            title={baseDisponible ? undefined : "La versión original estará disponible con la línea base aprobada."}
-            className={SELECT_CLASS}
-          >
-            <option value="vigente">Vigente</option>
-            {baseDisponible && <option value="original">Original (v0)</option>}
-          </select>
-        </label>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          aria-expanded={opciones}
+          aria-controls="financiero-opciones-avanzadas"
+          onClick={() => setOpciones((abiertas) => !abiertas)}
+        >
+          <ChevronDown className={cn("size-3.5 transition-transform", opciones && "rotate-180")} aria-hidden />
+          Opciones avanzadas
+        </Button>
         {ficha && !ficha.parametros.confirmado && <ToneBadge tone="neutro" label="No confirmado" />}
       </div>
+
+      {opciones && (
+        <div id="financiero-opciones-avanzadas" className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-1.5 text-[12px] text-ink-600">
+            Corte
+            <select
+              aria-label="Corte"
+              value={corteActual}
+              onChange={(event) => setCorte(event.target.value)}
+              className={SELECT_CLASS}
+            >
+              {periodos.map((periodo) => (
+                <option key={periodo} value={periodo}>
+                  {periodo}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center gap-1.5 text-[12px] text-ink-600">
+            Base
+            <select
+              aria-label="Base"
+              disabled={!baseDisponible}
+              value={base}
+              onChange={(event) => setBase(event.target.value as ProjectBase)}
+              title={baseDisponible ? undefined : "La versión original estará disponible con la línea base aprobada."}
+              className={SELECT_CLASS}
+            >
+              <option value="vigente">Vigente</option>
+              {baseDisponible && <option value="original">Original (v0)</option>}
+            </select>
+          </label>
+        </div>
+      )}
 
       {query.isError ? (
         <InlineError message={errorMessage(query.error, FICHA_ERROR)} />
@@ -135,8 +153,8 @@ function FichaTabla({ ficha }: { ficha: ProjectFinancialSheet }) {
         <EmptyBlock>Aún no hay presupuesto asignado a este proyecto.</EmptyBlock>
       ) : (
         <>
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">
-            <PresupuestoGauge ficha={ficha} />
+          <div className="flex flex-col gap-3">
+            <BarraEjecucion ficha={ficha} />
             <RubroBars rubros={ficha.rubros} disponible={disponible} />
           </div>
           <div className="overflow-x-auto rounded-inner border border-border bg-panel">
@@ -168,12 +186,10 @@ function FichaTabla({ ficha }: { ficha: ProjectFinancialSheet }) {
   );
 }
 
-/* ── Presupuesto gauge and per-rubro bars (S14 P8) ───────────────────────── */
+/* ── Ejecución y barras por rubro (X3) ──────────────────────────────────── */
 
 const ZERO = BigInt(0);
 const MIL = BigInt(1000);
-const PCT1 = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 1 });
-const pct1Texto = (n: number) => `${PCT1.format(n)} %`;
 
 /** `valor / base` as a percentage rounded to a tenth, in bigint so no amount hits a float. */
 function pct1(valor: bigint, base: bigint): number {
@@ -181,57 +197,58 @@ function pct1(valor: bigint, base: bigint): number {
   return Number((valor * MIL + base / BigInt(2)) / base) / 10;
 }
 
-/**
- * The two boundaries of the server's own financial rule, projected on the E/A
- * scale: E ≤ P is verde, up to `umbral_rojo = P * (1 + tolerancia)` is amarillo,
- * above it rojo. They are read from the amounts the server already sent; the
- * client never recomputes the colour (D11).
- */
-function limitesFinancieros(total: ProjectFinancialRow): { verde: number; amarillo: number } | null {
-  const asignado = toCents(total.asignado);
-  if (asignado <= ZERO) return null;
-  const verde = pct1(toCents(total.programado), asignado);
-  const amarillo = pct1(toCents(total.umbral_rojo), asignado);
-  if (amarillo <= verde) return null;
-  return { verde, amarillo };
-}
+const COLOR_BARRA: Record<ColorSemaforo, string> = {
+  verde: "bg-exito",
+  amarillo: "bg-alerta",
+  rojo: "bg-destructivo",
+};
 
-function PresupuestoGauge({ ficha }: { ficha: ProjectFinancialSheet }) {
-  const ea = ficha.total.ea_decimas === null ? null : ficha.total.ea_decimas / 10;
-  const limites = limitesFinancieros(ficha.total);
-  const bandas: TacometroBanda[] | undefined = limites
-    ? [
-        { hasta: limites.verde, color: "verde" },
-        { hasta: limites.amarillo, color: "amarillo" },
-        { hasta: 100, color: "rojo" },
-      ]
-    : undefined;
+/**
+ * Barra horizontal de ejecución (X3): el avance (E/A) con una marca en lo programado (P/A) sobre el
+ * total asignado, y la frase «Ejecutado … de … programados (… %) · Asignado …» debajo. El color sale
+ * del servidor (`color` de la ficha); el cliente nunca lo recalcula (D11). La frase es también el
+ * nombre accesible de la barra.
+ */
+function BarraEjecucion({ ficha }: { ficha: ProjectFinancialSheet }) {
+  const disponible = ficha.ejecucion_disponible;
+  const ejecutado = toCents(ficha.total.ejecutado);
+  const programado = toCents(ficha.total.programado);
+  const asignado = toCents(ficha.total.asignado);
+  const anchoEjecutado = pct1(ejecutado, asignado);
+  const anchoProgramado = pct1(programado, asignado);
+  const ep = ficha.total.ep_decimas === null ? null : Math.round(ficha.total.ep_decimas / 10);
+  const frase = [
+    `Ejecutado ${formatCOP(ejecutado)} de ${formatCOP(programado)} programados${ep === null ? "" : ` (${ep} %)`}`,
+    `Asignado ${formatCOP(asignado)}`,
+  ].join(" · ");
+  const color = disponible ? ficha.total.color : null;
 
   return (
-    <div data-testid="financiero-gauge" className="surface-inner p-3">
-      <Tacometro value={ea} color={ficha.total.color ?? "amarillo"} bandas={bandas} label="Ejecución financiera" />
-      <p data-testid="financiero-gauge-caption" className="mt-2 text-center text-[12.5px] text-ink-600">
-        {formatCOP(toCents(ficha.total.ejecutado))} ejecutado de {formatCOP(toCents(ficha.total.asignado))} asignado
+    <div data-testid="financiero-ejecucion-bloque" className="surface-inner p-3">
+      <div
+        data-testid="financiero-ejecucion"
+        data-color={color ?? undefined}
+        role="img"
+        aria-label={frase}
+        className="relative h-2.5 w-full overflow-hidden rounded-full bg-ink-100"
+      >
+        <span
+          data-testid="financiero-ejecucion-ejecutado"
+          data-width={anchoEjecutado}
+          className={cn("absolute inset-y-0 left-0 rounded-full", color ? COLOR_BARRA[color] : "bg-ink-300")}
+          style={{ width: `${anchoEjecutado}%` }}
+        />
+        <span
+          data-testid="financiero-ejecucion-programado"
+          data-width={anchoProgramado}
+          aria-hidden
+          className="absolute inset-y-0 -ml-px w-0.5 bg-ink-950"
+          style={{ left: `${anchoProgramado}%` }}
+        />
+      </div>
+      <p data-testid="financiero-ejecucion-caption" className="mt-2 text-[12.5px] text-ink-600">
+        {frase}
       </p>
-      {limites && (
-        <ul
-          data-testid="financiero-gauge-leyenda"
-          className="mt-2 flex flex-col gap-1 border-t border-border pt-2 text-[12px] text-ink-600"
-        >
-          <li className="flex items-center gap-2">
-            <span aria-hidden className="size-2.5 shrink-0 rounded-full bg-exito" />
-            Verde: hasta {pct1Texto(limites.verde)}
-          </li>
-          <li className="flex items-center gap-2">
-            <span aria-hidden className="size-2.5 shrink-0 rounded-full bg-alerta" />
-            Amarillo: {pct1Texto(limites.verde)} – {pct1Texto(limites.amarillo)}
-          </li>
-          <li className="flex items-center gap-2">
-            <span aria-hidden className="size-2.5 shrink-0 rounded-full bg-destructivo" />
-            Rojo: por encima de {pct1Texto(limites.amarillo)}
-          </li>
-        </ul>
-      )}
     </div>
   );
 }

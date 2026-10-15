@@ -167,10 +167,27 @@ describe("ProjectFinanciero", () => {
     expect(screen.queryByTestId("financiero-alerta")).not.toBeInTheDocument()
   })
 
+  it("keeps the corte and base selectors in a collapsed 'Opciones avanzadas' block, closed by default and keyboard operable", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    const boton = await screen.findByRole("button", { name: "Opciones avanzadas" })
+    expect(boton).toHaveAttribute("aria-expanded", "false")
+    expect(screen.queryByRole("combobox", { name: "Corte" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("combobox", { name: "Base" })).not.toBeInTheDocument()
+
+    boton.focus()
+    await user.keyboard("{Enter}")
+    expect(boton).toHaveAttribute("aria-expanded", "true")
+    expect(await screen.findByRole("combobox", { name: "Corte" })).toBeInTheDocument()
+    expect(screen.getByRole("combobox", { name: "Base" })).toBeInTheDocument()
+  })
+
   it("offers one corte per project month and refetches when it changes", async () => {
     const user = userEvent.setup()
     setup()
 
+    await user.click(await screen.findByRole("button", { name: "Opciones avanzadas" }))
     const corte = await screen.findByRole("combobox", { name: "Corte" })
     expect(within(corte).getAllByRole("option").map((o) => o.getAttribute("value"))).toEqual([
       "2026-10", "2026-11", "2026-12", "2027-01",
@@ -183,8 +200,10 @@ describe("ProjectFinanciero", () => {
   })
 
   it("keeps the base selector disabled while the baseline is not approved (BORRADOR)", async () => {
+    const user = userEvent.setup()
     setup({ proyecto: { estado: "BORRADOR" } })
 
+    await user.click(await screen.findByRole("button", { name: "Opciones avanzadas" }))
     const base = await screen.findByRole("combobox", { name: "Base" })
     expect(base).toBeDisabled()
     expect(within(base).getAllByRole("option").map((o) => o.getAttribute("value"))).toEqual(["vigente"])
@@ -194,6 +213,7 @@ describe("ProjectFinanciero", () => {
     const user = userEvent.setup()
     setup()
 
+    await user.click(await screen.findByRole("button", { name: "Opciones avanzadas" }))
     const base = await screen.findByRole("combobox", { name: "Base" })
     expect(base).toBeEnabled()
     expect(within(base).getAllByRole("option").map((o) => o.getAttribute("value"))).toEqual(["vigente", "original"])
@@ -221,6 +241,7 @@ describe("ProjectFinanciero", () => {
     )
     render(<ProjectFinanciero proyecto={PROYECTO} />, { wrapper: createWrapper() })
 
+    await user.click(await screen.findByRole("button", { name: "Opciones avanzadas" }))
     await user.selectOptions(await screen.findByRole("combobox", { name: "Base" }), "original")
     expect(await screen.findByRole("alert")).toHaveTextContent("La versión original aún no existe.")
   })
@@ -249,48 +270,45 @@ describe("ProjectFinanciero", () => {
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/financial-sheet"))).toBe(false)
   })
 
-  // S14 P8: the gauge and the planned-vs-executed bars read the same sheet. The
-  // needle colour and the E/A value come from the server (D11); the band
-  // boundaries come from the server amounts (P/A and umbral_rojo/A), never from
-  // local constants.
-  describe("Presupuesto gauge and per-rubro bars", () => {
-    const bandas = (container: HTMLElement) =>
-      [...container.querySelectorAll('[data-testid="tacometro-banda"]')].map(
-        (b) => `${b.getAttribute("data-desde")}-${b.getAttribute("data-hasta")}:${b.getAttribute("data-color")}`,
-      )
-
-    it("paints the server E/A value and the server needle colour on the gauge", async () => {
+  // Carril X · X3: la barra de ejecución y las barras por rubro leen la misma ficha. El color del avance
+  // sale del servidor (D11); los anchos se derivan de los montos del servidor (E/A y P/A), nunca de
+  // constantes locales.
+  describe("executed bar and per-rubro bars", () => {
+    it("paints the executed share of the assigned amount, the programmed marker and the server colour", async () => {
       setup()
 
-      const gauge = await screen.findByTestId("financiero-gauge")
-      const aguja = gauge.querySelector('[data-testid="tacometro-aguja"]')!
-      // 485 tenths -> 48,5 %; rotate(-90 + 48,5/100*180) = -2,7.
-      expect(aguja).toHaveAttribute("data-color", "verde")
-      expect(aguja).toHaveAttribute("transform", "rotate(-2.7 100 100)")
-      expect(gauge.querySelector('[data-testid="tacometro-valor"]')).toHaveTextContent("48,5 %")
+      const barra = await screen.findByTestId("financiero-ejecucion")
+      expect(barra).toHaveAttribute("data-color", "verde")
+      // E/A = 40.500.000 / 83.500.000 = 48,5 %; P/A = 41.750.000 / 83.500.000 = 50 %.
+      expect(within(barra).getByTestId("financiero-ejecucion-ejecutado")).toHaveAttribute("data-width", "48.5")
+      expect(within(barra).getByTestId("financiero-ejecucion-programado")).toHaveAttribute("data-width", "50")
     })
 
-    it("shows the executed amount over the assigned amount under the gauge", async () => {
+    it("describes the bar and repeats the same sentence as its accessible name", async () => {
       setup()
 
-      expect(await screen.findByTestId("financiero-gauge-caption")).toHaveTextContent(
-        "$ 40.500.000 ejecutado de $ 83.500.000 asignado",
-      )
+      const frase = "Ejecutado $ 40.500.000 de $ 41.750.000 programados (97 %) · Asignado $ 83.500.000"
+      const barra = await screen.findByTestId("financiero-ejecucion")
+      expect(barra).toHaveAttribute("role", "img")
+      expect(barra).toHaveAttribute("aria-label", frase)
+      expect(screen.getByTestId("financiero-ejecucion-caption")).toHaveTextContent(frase)
     })
 
-    it("derives the gauge bands from the server amounts, not from constants", async () => {
-      setup()
-
-      const gauge = await screen.findByTestId("financiero-gauge")
-      // P/A = 41.750.000 / 83.500.000 = 50 %; umbral_rojo/A = 45.925.000 / 83.500.000 = 55 %.
-      expect(bandas(gauge)).toEqual(["0-50:verde", "50-55:amarillo", "55-100:rojo"])
-    })
-
-    it("follows the server colour even when it contradicts the band the needle falls in", async () => {
+    it("follows the server colour even when it contradicts the executed share", async () => {
       setup({ ficha: { ...FICHA, total: { ...FICHA.total, color: "rojo" } } })
 
-      const gauge = await screen.findByTestId("financiero-gauge")
-      expect(gauge.querySelector('[data-testid="tacometro-aguja"]')).toHaveAttribute("data-color", "rojo")
+      expect(await screen.findByTestId("financiero-ejecucion")).toHaveAttribute("data-color", "rojo")
+    })
+
+    it("starts with no executed colour and no percentage while expenses are unavailable", async () => {
+      setup({ ficha: SIN_GASTOS })
+
+      const barra = await screen.findByTestId("financiero-ejecucion")
+      expect(barra).not.toHaveAttribute("data-color")
+      expect(within(barra).getByTestId("financiero-ejecucion-ejecutado")).toHaveAttribute("data-width", "0")
+      expect(screen.getByTestId("financiero-ejecucion-caption")).toHaveTextContent(
+        "Ejecutado $ 0 de $ 41.750.000 programados · Asignado $ 83.500.000",
+      )
     })
 
     it("lists one planned-vs-executed bar per rubro on a shared scale, with the server E/P and colour", async () => {
@@ -315,13 +333,10 @@ describe("ProjectFinanciero", () => {
       expect(filas[1].querySelector("[data-color]")).toHaveAttribute("data-color", "rojo")
     })
 
-    it("shows the gauge empty state and no executed bars or colours while expenses are unavailable", async () => {
+    it("shows no executed bars or colours while expenses are unavailable", async () => {
       setup({ ficha: SIN_GASTOS })
 
-      const gauge = await screen.findByTestId("financiero-gauge")
-      expect(within(gauge).getByText("Sin datos disponibles")).toBeInTheDocument()
-      expect(gauge.querySelector("svg")).toBeNull()
-
+      await screen.findByTestId("financiero-ejecucion")
       const barras = screen.getByTestId("financiero-barras")
       const primera = within(barras).getAllByTestId("financiero-barra-fila")[0]
       expect(within(primera).getByTestId("financiero-barra-ejecutado")).toHaveAttribute("data-width", "0")
@@ -329,11 +344,11 @@ describe("ProjectFinanciero", () => {
       expect(within(barras).getAllByText("E/P —").length).toBeGreaterThan(0)
     })
 
-    it("renders no gauge or bars when the project has no budget lines", async () => {
+    it("renders no execution bar and no rubro bars when the project has no budget lines", async () => {
       setup({ ficha: { ...FICHA, rubros: [] } })
 
       expect(await screen.findByText("Aún no hay presupuesto asignado a este proyecto.")).toBeInTheDocument()
-      expect(screen.queryByTestId("financiero-gauge")).not.toBeInTheDocument()
+      expect(screen.queryByTestId("financiero-ejecucion")).not.toBeInTheDocument()
       expect(screen.queryByTestId("financiero-barras")).not.toBeInTheDocument()
     })
   })
