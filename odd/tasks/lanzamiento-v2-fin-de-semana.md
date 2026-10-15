@@ -181,7 +181,7 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
   Seguimiento: resuelta en `e7c8df5`. La ruta E-05 responde 400 («El valor total debe ser mayor que cero.») cuando el valor final, del cuerpo o del prefill, es nulo o <= 0; se quitó su comprobación `fin < inicio` por redundante (el esquema compartido ya exige inicio < fin).
 - [ ] **F6** Fecha de primer contacto en formato legible (D2). Tamaño S.
 - [ ] **F7** El DTO de la tarea lleva el id y el código del proyecto, para enlazar al proyecto exacto (D3). Tamaño S.
-- [ ] **F8** Crear proyecto desde un cliente (M1, M2). Cambios:
+- [x] **F8** Crear proyecto desde un cliente (M1, M2). Cambios:
   - El formulario pide primero el cliente. Ya no hay selector de origen; el origen se deduce de si se eligió una
     oportunidad (`project-create-form.tsx:141,339-426`).
   - Al elegir el cliente aparece una tarjeta de solo lectura (NIT, sector, ciudad, contacto principal, conteo de
@@ -191,6 +191,7 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
   - La ficha del cliente lleva un botón «Crear proyecto» que abre `?cliente=<id>` con el cliente preseleccionado.
 
   Tamaño M.
+  Evidencia: `2c7e198`. Formulario cliente primero (sin selector de origen; origen derivado, mismos endpoints), tarjeta de solo lectura (`ClienteResumen`), oportunidades elegibles del cliente filtradas en el cliente con `useEligibleOpportunities`, `?cliente=` y `?oportunidad=`, botón «Crear proyecto» en la ficha para quien `canCreateProject`. Vitest de proyectos, crm, ui y app: 91 archivos, 895 pruebas en verde; tsc y eslint limpios; detector de Impeccable sin hallazgos. Pregunta abierta: el modelo `Cliente` no tiene NIT ni sector y el DTO no trae conteo de proyectos; la tarjeta muestra tipo de cliente en lugar de sector y omite NIT y proyectos (no se añadió API).
 - [ ] **F9** Descripción del proyecto (M3). Toca el esquema (R3), el zod de creación, `PROJECT_SELECT_V2`, el DTO, el
   formulario, la ficha y OpenAPI. Depende de M3. Tamaño M.
 - [ ] **F10** Ocultar las pestañas Oportunidades y Mapa de Clientes (M4). Se quitan de `CLIENTES_SECTIONS`
@@ -269,13 +270,14 @@ Mapa aprobado (UX-1):
   - Con estructura, el botón queda en la barra de Actividades.
 
   Ruta D. Evidencia: `e5f7e5e`. `ProjectEstructura` abre con «Cargar desde Excel» (primaria) y «Crear a mano» en borrador vacío para ADM/GER; otros roles ven una explicación corta; sin fechas lo dice y bloquea la descarga. `ImportDialog` acepta `open`/`onOpenChange`/`ocultarControles` y ofrece «Descargar plantilla» como primer paso. 7 pruebas nuevas, con RED previo.
-- [ ] **U7** Ayudas al crear un proyecto (UX-2):
+- [x] **U7** Ayudas al crear un proyecto (UX-2):
   - Una pista breve por paso del stepper (qué se pide y por qué).
   - Ayudas en los campos no obvios: línea estratégica principal, municipios, valor, fechas, peso de la actividad,
     programación y línea base.
   - Una guía de la plantilla Excel.
 
   Usa un componente de ayuda reutilizable y accesible. Ruta D.
+  Evidencia: `b489f40` (componente `HelpHint` e importación Excel) y `2c7e198` (pistas por paso, ayudas de campo y de peso, programación y línea base en el stepper). Pruebas de `HelpHint`: nombre accesible, clic, teclado y Escape. Las ayudas de peso y programación viven en el título del paso (3 y 4) porque sus editores pertenecen a otra unidad.
 - [ ] **U8** Integración. Pasos:
   1. Montar `FichaFinanzas`, `FichaDocumentos` y `FichaHistorial`.
   2. Quitar las pestañas viejas.
