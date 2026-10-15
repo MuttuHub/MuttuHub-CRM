@@ -183,7 +183,8 @@ describe("ProjectFicha (page)", () => {
     await user.click(await screen.findByRole("button", { name: "Ver finanzas" }))
     expect(screen.getByRole("tab", { name: "Finanzas" })).toHaveAttribute("aria-selected", "true")
 
-    await user.click(screen.getByRole("tab", { name: "Resumen" }))
+    // Finanzas has its own "Resumen" segment: the ficha tab is the first one in the document.
+    await user.click(screen.getAllByRole("tab", { name: "Resumen" })[0])
     await user.click(await screen.findByRole("button", { name: "Ver actividades" }))
     expect(screen.getByRole("tab", { name: "Actividades" })).toHaveAttribute("aria-selected", "true")
   })
@@ -315,8 +316,9 @@ describe("ProjectFicha (page)", () => {
     expect(screen.queryByTestId("estructura-plantilla")).not.toBeInTheDocument()
   })
 
-  it("mounts the Ficha financiera and the Presupuesto section in the Financiero tab, and reads them only then", async () => {
+  it("opens Finanzas on the financial summary and mounts the budget only from its segment", async () => {
     mockFichaAndAudit({ historial: [] })
+    const user = userEvent.setup()
 
     renderFicha()
     await screen.findByTestId("ficha-resumen")
@@ -325,22 +327,25 @@ describe("ProjectFicha (page)", () => {
 
     const financiero = await screen.findByTestId("financiero")
     expect(financiero).toHaveTextContent("Ficha financiera")
-    const presupuesto = await screen.findByTestId("presupuesto")
-    expect(presupuesto).toHaveTextContent("Presupuesto")
-    expect(financiero.compareDocumentPosition(presupuesto) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/budget", expect.any(Object)),
-    )
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/financial-sheet", expect.any(Object)),
     )
+    expect(screen.queryByTestId("presupuesto")).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole("tab", { name: "Presupuesto" }))
+    expect(await screen.findByTestId("presupuesto")).toHaveTextContent("Presupuesto")
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/budget", expect.any(Object)),
+    )
   })
 
-  it("mounts the Gastos section in the Legalización tab", async () => {
+  it("mounts the Gastos section from the Finanzas segment", async () => {
     mockFichaAndAudit({ historial: [] })
+    const user = userEvent.setup()
 
     renderFicha()
     await openTab("Finanzas")
+    await user.click(await screen.findByRole("tab", { name: "Gastos" }))
 
     const gastos = await screen.findByTestId("gastos")
     expect(gastos).toHaveTextContent("Gastos")
@@ -431,9 +436,10 @@ describe("ProjectFicha (page)", () => {
     }
 
     await openTab("Finanzas")
-    await screen.findByTestId("gastos")
+    await screen.findByTestId("financiero")
     expect(screen.queryByTestId("ficha-resumen")).not.toBeInTheDocument()
-    expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/expenses", expect.any(Object))
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/financial-sheet", expect.any(Object))
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/expenses"))).toBe(false)
   })
 
   it("keeps the header (code, name, estado and both semáforo chips) outside the scrolling panel", async () => {

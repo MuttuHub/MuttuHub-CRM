@@ -16,11 +16,9 @@ import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProjectSoportes } from "@/components/proyectos/project-soportes";
-import { ProjectFinanciero } from "@/components/proyectos/project-financiero";
-import { ProjectGastos } from "@/components/proyectos/project-gastos";
 import { ProjectHistorial } from "@/components/proyectos/project-historial";
 import { ProjectModificaciones } from "@/components/proyectos/project-modificaciones";
-import { ProjectPresupuesto } from "@/components/proyectos/project-presupuesto";
+import { FichaFinanzas } from "@/components/proyectos/ficha/ficha-finanzas";
 import { ProjectVersiones } from "@/components/proyectos/project-versiones";
 import { FichaActividades } from "@/components/proyectos/ficha/ficha-actividades";
 import { FichaHeader } from "@/components/proyectos/ficha/ficha-header";
@@ -114,9 +112,7 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
 
           {/* Temporal: X2 lo reemplaza por `FichaFinanzas`. */}
           <TabsContent value="finanzas" className={PANEL_CLASS}>
-            <ProjectFinanciero proyecto={proyecto} />
-            <ProjectPresupuesto proyecto={proyecto} />
-            <ProjectGastos proyecto={proyecto} />
+            <FichaFinanzas proyecto={proyecto} />
           </TabsContent>
 
           <TabsContent value="documentos" className={PANEL_CLASS}>
