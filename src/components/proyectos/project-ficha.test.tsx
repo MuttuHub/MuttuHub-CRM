@@ -106,7 +106,8 @@ describe("ProjectFicha (page)", () => {
     expect(screen.getByText("30 de mar de 2026")).toBeInTheDocument()
     expect(screen.getByText("12 semanas")).toBeInTheDocument()
     expect(screen.getByText("$ 180.000.000")).toBeInTheDocument()
-    expect(screen.getByText("1.200")).toBeInTheDocument()
+    // La meta aparece en el estado y en los datos generales.
+    expect(screen.getAllByText("1.200")).toHaveLength(2)
     expect(screen.getByText("-$ 5.000.000")).toBeInTheDocument()
 
     // Las dos líneas, con la principal marcada de forma visible.
@@ -139,50 +140,61 @@ describe("ProjectFicha (page)", () => {
     expect(within(screen.getByTestId("ficha-scroll")).queryByTestId("kpis")).not.toBeInTheDocument()
   })
 
-  it("renders the six KPI cards at the top of Resumen, above the fact sheet, reading the KPIs once", async () => {
+  it("opens the Resumen with the health rows above the attention list and the fact sheet, reading the KPIs once", async () => {
     mockFichaAndAudit({ historial: [] }, 200, PROYECTO, {
       ...KPIS_PANEL,
-      cronograma: { corte: "2026-03-15", vencidas: 4, a_tiempo: 3, atrasadas: 1, valor: 75 },
-      entregables: { corte: "2026-03-15", programados: 5, logrados: 2, valor: 40 },
-      indicadores: { corte: "2026-03-15", valor: 50, medidos: 2, en_meta: 1, sin_medir: 0, sin_medir_ids: [] },
-      beneficiarios: { corte: "2026-03-15", total: 10, meta: 100, valor: 10 },
       financiero: { corte: "2026-03-15", asignado: "100.00", programado: "50.00", ejecutado: "40.00", ea: 40, ep: 80, color: "verde", alerta_retraso: false },
     })
 
     renderFicha()
 
-    const cards = await screen.findByTestId("resumen-kpis")
-    expect(await within(cards).findByTestId("resumen-kpi-tecnico")).toHaveTextContent("30 %")
-    expect(within(cards).getAllByTestId(/^resumen-kpi-(?!dot)/)).toHaveLength(6)
-    expect(cards.compareDocumentPosition(screen.getByText("Origen")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes("/kpis"))).toHaveLength(1)
-    await openTab("Finanzas")
+    const estado = await screen.findByTestId("resumen-estado")
+    expect(await within(estado).findByTestId("salud-tecnico")).toHaveTextContent("Avance real 30 % frente a 40 % programado")
+    expect(within(estado).getByTestId("salud-financiero")).toHaveTextContent("Ejecutado 80 % de lo programado")
+    // Ya no hay la cuadrícula de seis tarjetas.
     expect(screen.queryByTestId("resumen-kpis")).not.toBeInTheDocument()
+    expect(screen.queryByTestId(/^resumen-kpi-/)).not.toBeInTheDocument()
+    const atencion = screen.getByTestId("requiere-atencion")
+    expect(estado.compareDocumentPosition(atencion) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(atencion.compareDocumentPosition(screen.getByText("Origen")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes("/kpis"))).toHaveLength(1)
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes("/attention"))).toHaveLength(1)
+    await openTab("Finanzas")
+    expect(screen.queryByTestId("ficha-resumen")).not.toBeInTheDocument()
   })
 
-  it("mounts the attention card in the Resumen, below the KPI cards and above the fact sheet", async () => {
+  it("shows the positive empty state in the attention card of the Resumen", async () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
 
     const atencion = await screen.findByTestId("requiere-atencion")
-    expect(atencion).toHaveTextContent("Requiere atención")
-    expect(await within(atencion).findByText("Sin novedades por ahora.")).toBeInTheDocument()
-    expect(
-      screen.getByTestId("resumen-kpis").compareDocumentPosition(atencion) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
-    expect(
-      atencion.compareDocumentPosition(screen.getByText("Origen")) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy()
-    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes("/attention"))).toHaveLength(1)
+    expect(await within(atencion).findByText("Nada pendiente por ahora.")).toBeInTheDocument()
   })
 
-  it("shows the Sin medir cards in the Resumen of a draft without reading the KPIs", async () => {
+  it("jumps to the tab that resolves each health row", async () => {
+    mockFichaAndAudit({ historial: [] }, 200, PROYECTO, {
+      ...KPIS_PANEL,
+      financiero: { corte: "2026-03-15", asignado: "100.00", programado: "50.00", ejecutado: "40.00", ea: 40, ep: 80, color: "verde", alerta_retraso: false },
+    })
+    const user = userEvent.setup()
+
+    renderFicha()
+    await user.click(await screen.findByRole("button", { name: "Ver finanzas" }))
+    expect(screen.getByRole("tab", { name: "Finanzas" })).toHaveAttribute("aria-selected", "true")
+
+    await user.click(screen.getByRole("tab", { name: "Resumen" }))
+    await user.click(await screen.findByRole("button", { name: "Ver actividades" }))
+    expect(screen.getByRole("tab", { name: "Actividades" })).toHaveAttribute("aria-selected", "true")
+  })
+
+  it("shows the setup checklist instead of the health rows in the Resumen of a draft, without reading the KPIs", async () => {
     mockFichaAndAudit({ historial: [] }, 200, { ...PROYECTO, estado: "BORRADOR" })
 
     renderFicha()
 
-    expect(await screen.findByTestId("resumen-kpi-tecnico")).toHaveTextContent("Sin medir")
+    expect(await screen.findByTestId("proximos-pasos")).toBeInTheDocument()
+    expect(screen.queryByTestId("resumen-estado")).not.toBeInTheDocument()
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/kpis"))).toBe(false)
   })
 
@@ -217,7 +229,7 @@ describe("ProjectFicha (page)", () => {
 
     renderFicha()
 
-    await screen.findByTestId("resumen-kpis")
+    await screen.findByTestId("ficha-resumen")
     expect(await screen.findByTestId("equipo")).toBeInTheDocument()
     expect(screen.queryByTestId("estructura")).not.toBeInTheDocument()
     await openTab("Actividades")
@@ -233,7 +245,7 @@ describe("ProjectFicha (page)", () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
-    await screen.findByTestId("resumen-kpis")
+    await screen.findByTestId("ficha-resumen")
     expect(screen.queryByTestId("cronograma")).not.toBeInTheDocument()
 
     await openTab("Actividades")
@@ -252,7 +264,7 @@ describe("ProjectFicha (page)", () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
-    await screen.findByTestId("resumen-kpis")
+    await screen.findByTestId("ficha-resumen")
     expect(screen.queryByTestId("gantt")).not.toBeInTheDocument()
 
     await openTab("Actividades")
@@ -303,7 +315,7 @@ describe("ProjectFicha (page)", () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
-    await screen.findByTestId("resumen-kpis")
+    await screen.findByTestId("ficha-resumen")
     expect(fetchMock).not.toHaveBeenCalledWith("/api/v1/projects/p1/budget", expect.any(Object))
     await openTab("Finanzas")
 
@@ -333,13 +345,21 @@ describe("ProjectFicha (page)", () => {
     )
   })
 
-  it("keeps the Beneficiarios section at the end of the Resumen for now", async () => {
+  it("keeps the Beneficiarios registry at the end of the Resumen, collapsed and unread until opened", async () => {
     mockFichaAndAudit({ historial: [] })
+    const user = userEvent.setup()
 
     renderFicha()
 
-    const total = await screen.findByTestId("ejecucion-beneficiarios-total")
-    expect(total).toHaveTextContent("1.200 beneficiarios")
+    const disclosure = await screen.findByTestId("registro-beneficiarios")
+    expect(disclosure).toHaveTextContent("Registro de beneficiarios")
+    expect(disclosure).not.toHaveAttribute("open")
+    expect(screen.queryByTestId("ejecucion-beneficiarios-total")).not.toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalledWith("/api/v1/projects/p1/beneficiaries", expect.any(Object))
+
+    await user.click(within(disclosure).getByText("Registro de beneficiarios"))
+
+    expect(await screen.findByTestId("ejecucion-beneficiarios-total")).toHaveTextContent("1.200 beneficiarios")
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/beneficiaries", expect.any(Object))
   })
 
@@ -347,7 +367,7 @@ describe("ProjectFicha (page)", () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
-    await screen.findByTestId("resumen-kpis")
+    await screen.findByTestId("ficha-resumen")
     expect(screen.queryByTestId("soportes")).not.toBeInTheDocument()
 
     await openTab("Documentos")
@@ -363,7 +383,7 @@ describe("ProjectFicha (page)", () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
-    await screen.findByTestId("resumen-kpis")
+    await screen.findByTestId("ficha-resumen")
     expect(screen.queryByTestId("ejecucion")).not.toBeInTheDocument()
 
     await openTab("Actividades")
@@ -394,7 +414,7 @@ describe("ProjectFicha (page)", () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
-    await screen.findByTestId("resumen-kpis")
+    await screen.findByTestId("ficha-resumen")
 
     for (const id of ["estructura", "cronograma", "gantt", "presupuesto", "ejecucion", "kpis", "financiero", "gastos", "modificaciones", "versiones", "historial", "soportes"]) {
       expect(screen.queryByTestId(id)).not.toBeInTheDocument()
@@ -406,7 +426,7 @@ describe("ProjectFicha (page)", () => {
 
     await openTab("Finanzas")
     await screen.findByTestId("gastos")
-    expect(screen.queryByTestId("resumen-kpis")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("ficha-resumen")).not.toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/expenses", expect.any(Object))
   })
 
@@ -510,7 +530,7 @@ describe("ProjectFicha (page)", () => {
     renderFicha()
     await screen.findByTestId("ficha-header")
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
-    await screen.findByTestId("resumen-kpis")
+    await screen.findByTestId("ficha-resumen")
     expect(screen.queryByRole("button", { name: "Registrar avance" })).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Registrar gasto" })).not.toBeInTheDocument()
   })
@@ -527,7 +547,7 @@ describe("ProjectFicha (page)", () => {
     mockWithRole("COORDINADOR", "u9")
     renderFicha()
     await screen.findByTestId("ficha-header")
-    await screen.findByTestId("resumen-kpis")
+    await screen.findByTestId("ficha-resumen")
     expect(screen.queryByRole("button", { name: "Registrar avance" })).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Registrar gasto" })).not.toBeInTheDocument()
   })
