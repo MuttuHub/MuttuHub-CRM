@@ -141,6 +141,34 @@ describe("ImportDialog", () => {
     vi.restoreAllMocks()
   })
 
+  describe("external trigger", () => {
+    it("opens when the parent sets open, and reports closing", async () => {
+      const user = userEvent.setup()
+      const onOpenChange = vi.fn()
+      fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({})))
+      render(<ImportDialog proyecto={PROYECTO} open onOpenChange={onOpenChange} ocultarControles />, { wrapper })
+
+      const dialogo = await screen.findByRole("dialog")
+      expect(dialogo).toHaveTextContent("Importar plantilla de proyecto")
+      // The toolbar buttons are the parent's business: only the dialog is rendered.
+      expect(screen.queryByTestId("estructura-plantilla")).not.toBeInTheDocument()
+
+      await user.click(within(dialogo).getByRole("button", { name: "Cancelar" }))
+      expect(onOpenChange).toHaveBeenCalledWith(false)
+    })
+
+    it("offers the template download as the first step inside the dialog", async () => {
+      const user = userEvent.setup()
+      setup()
+
+      await user.click(screen.getByRole("button", { name: /importar plantilla/i }))
+      const dialogo = await screen.findByRole("dialog")
+      await user.click(within(dialogo).getByRole("button", { name: "Descargar plantilla" }))
+
+      await waitFor(() => expect(clicked).toHaveLength(1))
+    })
+  })
+
   describe("download", () => {
     it("downloads the template named by the server", async () => {
       const user = userEvent.setup()

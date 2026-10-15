@@ -10,13 +10,18 @@
 
 "use client";
 
-import { ListTree } from "lucide-react";
+import { useState } from "react";
+import { FileSpreadsheet, ListTree } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ImportDialog } from "@/components/proyectos/import-dialog";
 import { EstructuraObjetivos } from "@/components/proyectos/estructura-objetivos";
 import { useCurrentUser } from "@/hooks/kanban";
-import type { ProjectListRow } from "@/hooks/projects";
+import { useProjectObjectives, type ProjectListRow } from "@/hooks/projects";
 import { canManageProjects } from "@/lib/permissions";
 import { SectionHeader } from "@/components/proyectos/ui";
+
+const SIN_FECHAS = "Define las fechas del proyecto para poder descargar la plantilla.";
 
 export function ProjectEstructura({ proyecto }: { proyecto: ProjectListRow }) {
   const userQuery = useCurrentUser();
@@ -25,11 +30,26 @@ export function ProjectEstructura({ proyecto }: { proyecto: ProjectListRow }) {
   const esBorrador = proyecto.estado === "BORRADOR";
   const canEdit = puedeGestionar && esBorrador;
 
+  // Misma query que la lista de objetivos (clave compartida): no añade una lectura.
+  const objetivos = useProjectObjectives(proyecto.id);
+  const [importAbierto, setImportAbierto] = useState(false);
+  const [manual, setManual] = useState(false);
+  // Sin estructura en borrador la vista abre ofreciendo el Excel; hasta conocer el rol no se decide nada.
+  const vacio = esBorrador && usuario !== undefined && objetivos.data?.length === 0 && !manual;
+  const sinFechas = !proyecto.fecha_inicio || !proyecto.fecha_fin;
+
   return (
     <section data-testid="estructura">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <SectionHeader icon={<ListTree className="size-3.5" strokeWidth={2} />}>Metas e indicadores</SectionHeader>
-        {canEdit && <ImportDialog proyecto={proyecto} />}
+        {canEdit && (
+          <ImportDialog
+            proyecto={proyecto}
+            open={importAbierto}
+            onOpenChange={setImportAbierto}
+            ocultarControles={vacio}
+          />
+        )}
       </div>
 
       {puedeGestionar && !esBorrador && (
@@ -38,7 +58,41 @@ export function ProjectEstructura({ proyecto }: { proyecto: ProjectListRow }) {
         </p>
       )}
 
-      <EstructuraObjetivos proyecto={proyecto} canEdit={canEdit} />
+      {vacio ? (
+        canEdit ? (
+          <EmptyState
+            bordered
+            data-testid="estructura-vacia"
+            className="mt-2"
+            icon={<FileSpreadsheet className="size-6 text-ink-500" strokeWidth={1.6} />}
+            title="Carga la estructura del proyecto"
+            description="Descarga la plantilla, complétala y súbela: crea objetivos, actividades, entregables y presupuesto de una vez."
+            action={
+              <div className="flex flex-col items-center gap-2">
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button type="button" className="h-11" onClick={() => setImportAbierto(true)}>
+                    Cargar desde Excel
+                  </Button>
+                  <Button type="button" variant="outline" className="h-11" onClick={() => setManual(true)}>
+                    Crear a mano
+                  </Button>
+                </div>
+                {sinFechas && <p className="max-w-[44ch] text-[12.5px] text-ink-600">{SIN_FECHAS}</p>}
+              </div>
+            }
+          />
+        ) : (
+          <EmptyState
+            bordered
+            data-testid="estructura-vacia"
+            className="mt-2"
+            title="Aún no hay estructura"
+            description="Quien gestiona proyectos carga los objetivos y las actividades desde la plantilla de Excel o a mano. Aparecerán aquí cuando estén listos."
+          />
+        )
+      ) : (
+        <EstructuraObjetivos proyecto={proyecto} canEdit={canEdit} />
+      )}
     </section>
   );
 }

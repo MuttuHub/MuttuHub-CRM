@@ -92,10 +92,33 @@ function HallazgoTabla({ errores }: { errores: ReportePlantilla["errores"] }) {
   );
 }
 
-export function ImportDialog({ proyecto }: { proyecto: ProjectListRow }) {
+const SIN_FECHAS = "Define las fechas del proyecto para poder descargar la plantilla.";
+
+/**
+ * `open`/`onOpenChange` let an external trigger (the Lista empty state) open the dialog; without them it
+ * keeps its own state. `ocultarControles` hides the Descargar/Importar buttons when that trigger is
+ * elsewhere, leaving only the dialog.
+ */
+export function ImportDialog({
+  proyecto,
+  open: openControlado,
+  onOpenChange,
+  ocultarControles = false,
+}: {
+  proyecto: ProjectListRow;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  ocultarControles?: boolean;
+}) {
   const inputId = useId();
   const importar = useImportTemplate(proyecto.id);
-  const [open, setOpen] = useState(false);
+  const [openInterno, setOpenInterno] = useState(false);
+  const open = openControlado ?? openInterno;
+  const setOpen = (abierto: boolean) => {
+    setOpenInterno(abierto);
+    onOpenChange?.(abierto);
+  };
+  const sinFechas = !proyecto.fecha_inicio || !proyecto.fecha_fin;
   const [descargando, setDescargando] = useState(false);
   const [archivo, setArchivo] = useState<File | null>(null);
   const [archivoError, setArchivoError] = useState<string | null>(null);
@@ -176,15 +199,19 @@ export function ImportDialog({ proyecto }: { proyecto: ProjectListRow }) {
   const ocupado = importar.isPending;
 
   return (
-    <div data-testid="estructura-plantilla" className="flex flex-wrap items-center gap-1.5">
-      <Button type="button" variant="outline" size="sm" disabled={descargando} onClick={() => void descargarPlantilla()}>
-        {descargando ? <LoaderCircle className="animate-spin" /> : <Download />}
-        Descargar plantilla
-      </Button>
-      <Button type="button" variant="outline" size="sm" onClick={() => cambiarApertura(true)}>
-        <Upload />
-        Importar plantilla
-      </Button>
+    <div data-testid={ocultarControles ? undefined : "estructura-plantilla"} className="flex flex-wrap items-center gap-1.5">
+      {!ocultarControles && (
+        <>
+          <Button type="button" variant="outline" size="sm" disabled={descargando} onClick={() => void descargarPlantilla()}>
+            {descargando ? <LoaderCircle className="animate-spin" /> : <Download />}
+            Descargar plantilla
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={() => cambiarApertura(true)}>
+            <Upload />
+            Importar plantilla
+          </Button>
+        </>
+      )}
 
       <Dialog open={open} onOpenChange={cambiarApertura}>
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[min(860px,calc(100%-2rem))]">
@@ -197,6 +224,21 @@ export function ImportDialog({ proyecto }: { proyecto: ProjectListRow }) {
               borrador con el contenido del Excel. Si hay errores, no se escribe nada.
             </DialogDescription>
           </DialogHeader>
+
+          <div data-testid="import-paso-plantilla" className="flex flex-wrap items-center gap-2 surface-inner p-3">
+            <p className="text-[13px] text-ink-700">¿Aún no tienes la plantilla?</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={descargando || sinFechas}
+              onClick={() => void descargarPlantilla()}
+            >
+              {descargando ? <LoaderCircle className="animate-spin" /> : <Download />}
+              Descargar plantilla
+            </Button>
+            {sinFechas && <p className="w-full text-[12.5px] text-ink-600">{SIN_FECHAS}</p>}
+          </div>
 
           <div className="flex flex-col gap-1">
             <Label htmlFor={inputId} className="text-[12px] text-ink-600">

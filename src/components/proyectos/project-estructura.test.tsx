@@ -303,8 +303,8 @@ describe("ProjectEstructura", () => {
       expect(document.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0)
     })
 
-    it("shows an empty state when the project has no objectives", async () => {
-      setup({ objetivos: [], actividades: [], entregables: [], indicadores: [] })
+    it("shows the default empty text when a project past BORRADOR has no objectives", async () => {
+      setup({ proyecto: { estado: "EN_EJECUCION" }, objetivos: [], actividades: [], entregables: [], indicadores: [] })
 
       expect(await screen.findByText("Este proyecto todavía no tiene objetivos.")).toBeInTheDocument()
     })
@@ -372,6 +372,74 @@ describe("ProjectEstructura", () => {
       await objetivo("OBJ-1")
       await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
       expect(screen.queryByRole("button", { name: /descargar plantilla/i })).not.toBeInTheDocument()
+    })
+  })
+
+  describe("empty draft: the Excel template is the primary way in (U6)", () => {
+    const VACIO = { objetivos: [], actividades: [], entregables: [], indicadores: [] }
+
+    it("offers 'Cargar desde Excel' as the primary action and 'Crear a mano' as the secondary one", async () => {
+      setup(VACIO)
+
+      const vacia = await screen.findByTestId("estructura-vacia")
+      expect(within(vacia).getByRole("button", { name: "Cargar desde Excel" })).toBeInTheDocument()
+      expect(within(vacia).getByRole("button", { name: "Crear a mano" })).toBeInTheDocument()
+      expect(vacia).toHaveTextContent("Descarga la plantilla, complétala y súbela")
+      // One set of Excel controls: the toolbar buttons wait until there is a structure.
+      expect(screen.queryByTestId("estructura-plantilla")).not.toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: "Importar plantilla" })).not.toBeInTheDocument()
+    })
+
+    it("opens the import dialog from 'Cargar desde Excel'", async () => {
+      const user = userEvent.setup()
+      setup(VACIO)
+
+      await user.click(await screen.findByRole("button", { name: "Cargar desde Excel" }))
+
+      const dialogo = await screen.findByRole("dialog")
+      expect(dialogo).toHaveTextContent("Importar plantilla de proyecto")
+      expect(within(dialogo).getByRole("button", { name: "Descargar plantilla" })).toBeEnabled()
+    })
+
+    it("falls back to the manual form with 'Crear a mano'", async () => {
+      const user = userEvent.setup()
+      setup(VACIO)
+
+      await user.click(await screen.findByRole("button", { name: "Crear a mano" }))
+
+      expect(await screen.findByRole("button", { name: "Agregar objetivo" })).toBeInTheDocument()
+      expect(screen.queryByTestId("estructura-vacia")).not.toBeInTheDocument()
+    })
+
+    it("says the dates are missing and blocks the template download until they are set", async () => {
+      const user = userEvent.setup()
+      setup({ ...VACIO, proyecto: { fecha_inicio: null, fecha_fin: null, duracion_semanas: null } })
+
+      const vacia = await screen.findByTestId("estructura-vacia")
+      expect(vacia).toHaveTextContent("Define las fechas del proyecto para poder descargar la plantilla.")
+
+      await user.click(within(vacia).getByRole("button", { name: "Cargar desde Excel" }))
+      const dialogo = await screen.findByRole("dialog")
+      expect(within(dialogo).getByRole("button", { name: "Descargar plantilla" })).toBeDisabled()
+    })
+
+    it("gives a non-manager a short explanation instead of actions", async () => {
+      setup({ ...VACIO, rol: "COORDINADOR" })
+
+      const vacia = await screen.findByTestId("estructura-vacia")
+      expect(vacia).toHaveTextContent("Aún no hay estructura")
+      expect(vacia).toHaveTextContent("Quien gestiona proyectos")
+      expect(screen.queryByRole("button", { name: "Cargar desde Excel" })).not.toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: "Crear a mano" })).not.toBeInTheDocument()
+    })
+
+    it("keeps download and import in the toolbar once there is a structure", async () => {
+      setup()
+
+      const controles = await screen.findByTestId("estructura-plantilla")
+      expect(within(controles).getByRole("button", { name: /descargar plantilla/i })).toBeInTheDocument()
+      expect(within(controles).getByRole("button", { name: /importar plantilla/i })).toBeInTheDocument()
+      expect(screen.queryByTestId("estructura-vacia")).not.toBeInTheDocument()
     })
   })
 
