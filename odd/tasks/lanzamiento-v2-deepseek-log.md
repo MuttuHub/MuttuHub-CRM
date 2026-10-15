@@ -28,3 +28,24 @@ push.
 - PREGUNTA: ninguna.
 
 LISTO PARA INTEGRAR: X1
+
+---
+
+## X2 · `FichaFinanzas`
+
+- Commit: `e21f99e` — `feat(proyectos): add the finance tab that groups summary, expenses and budget`
+- Archivos tocados:
+  - `src/components/proyectos/ficha/ficha-finanzas.tsx` — **nuevo**. Segmentado `variant="pill"` con Resumen
+    (`ProjectFinanciero`), Gastos (`ProjectGastos`) y Presupuesto (`ProjectPresupuesto`). Abre en Presupuesto si el
+    proyecto está en `BORRADOR`; en cualquier otro estado, en Resumen.
+  - `src/components/proyectos/ficha/ficha-finanzas.test.tsx` — **nuevo**. Hijos burlados: segmento por defecto según
+    estado, cambio de segmento, montaje solo del activo y teclado (flecha + Enter, activación manual de Base UI).
+- Verificaciones:
+  1. `TZ=America/Bogota npx vitest run` sobre las rutas del carril → 8 archivos, 107 pruebas, **verde**.
+  2. `npx tsc --noEmit` → **sin errores**.
+  3. `npx eslint src/components/proyectos/ficha src/components/proyectos/project-financiero.tsx
+     src/components/proyectos/project-presupuesto.tsx src/components/proyectos/project-gastos.tsx` → **sin avisos**.
+- PEDIDO A CLAUDE: ninguno (el montaje del componente en `project-ficha.tsx` es la tarea U8 de Claude).
+- PREGUNTA: ninguna.
+
+LISTO PARA INTEGRAR: X2
