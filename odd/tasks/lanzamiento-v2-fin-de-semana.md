@@ -60,7 +60,7 @@ v7 total                     65 %  (fuera del compromiso del lunes)
 | Carpeta | la carpeta principal del repo | worktree `../MuttuHub-CRM-worktrees/ficha-v7` |
 | Base | Supabase local (54322) y el contenedor de ensayo `postgres` (54330) | ninguna: solo pruebas de sus componentes |
 | Puerto | 3000 | 3001 |
-| Superficie exclusiva | `prisma/**`, `scripts/**`, `src/app/api/**`, `src/lib/**`, `src/hooks/**`, `src/components/crm/**`, `project-dashboard.tsx`, `project-list.tsx`, `project-create-form.tsx`, `nuevo-proyecto*`, `project-gastos.tsx`, `gastos-kpis.tsx`, `notification-panel.tsx`, `docs/**`, `odd/**` | `project-presupuesto.tsx`, `project-cronograma.tsx`, `estructura-gantt.tsx`, `project-financiero.tsx`, `ejecucion-beneficiarios.tsx`, el encabezado de `project-ficha.tsx`, y los `.test.tsx` de cada uno |
+| Superficie exclusiva | `prisma/**`, `scripts/**`, `src/app/api/**`, `src/lib/**`, `src/hooks/**`, `src/components/crm/**`, `project-dashboard.tsx`, `project-list.tsx`, `project-create-form.tsx`, `nuevo-proyecto*`, `project-gastos.tsx`, `gastos-kpis.tsx`, `notification-panel.tsx`, `ejecucion-beneficiarios.tsx`, `resumen-kpis.tsx`, `portafolio-kpis.tsx`, las pestañas de `project-ficha.tsx`, `src/app/(app)/proyectos/[id]/**`, `docs/**`, `odd/**` | `project-presupuesto.tsx`, `project-cronograma.tsx`, `estructura-gantt.tsx`, `project-financiero.tsx`, el encabezado de `project-ficha.tsx`, y los `.test.tsx` de cada uno |
 | No toca | la superficie de DeepSeek | todo lo demás: `package.json`, el lockfile, DTOs y API. Si falta un campo, lo pide |
 
 Claude integra la rama de DeepSeek en los puntos de sincronización: el viernes en la noche y el sábado a las 12:00.
@@ -141,15 +141,19 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
 - [ ] **F6** Fecha de primer contacto en formato legible (D2). Tamaño S.
 - [ ] **F7** El DTO de la tarea lleva el id y el código del proyecto, para enlazar al proyecto exacto (D3). Tamaño S.
 - [ ] **F8** Crear proyecto desde un cliente (M1, M2). Cambios:
-  - El formulario arranca en «independiente» (`project-create-form.tsx:141`).
-  - Al seleccionar el cliente aparece una tarjeta con su información.
+  - El formulario pide primero el cliente. Ya no hay selector de origen; el origen se deduce de si se eligió una
+    oportunidad (`project-create-form.tsx:141,339-426`).
+  - Al elegir el cliente aparece una tarjeta de solo lectura (NIT, sector, ciudad, contacto principal, conteo de
+    oportunidades y proyectos) y, debajo, la lista de oportunidades del cliente para elegir una de forma opcional.
+  - La conversión desde una oportunidad ganada (`?oportunidad=`) sigue funcionando y llega con el cliente y la
+    oportunidad ya seleccionados.
   - La ficha del cliente lleva un botón «Crear proyecto» que abre `?cliente=<id>` con el cliente preseleccionado.
 
-  Depende de M1 y M2. Tamaño S-M.
+  Tamaño M.
 - [ ] **F9** Descripción del proyecto (M3). Toca el esquema (R3), el zod de creación, `PROJECT_SELECT_V2`, el DTO, el
   formulario, la ficha y OpenAPI. Depende de M3. Tamaño M.
-- [ ] **F10** Navegación de Clientes (M4). Depende de M4: puede no requerir trabajo, o puede ocultar las pestañas vacías.
-  Tamaño S.
+- [ ] **F10** Ocultar las pestañas Oportunidades y Mapa de Clientes (M4). Se quitan de `CLIENTES_SECTIONS`
+  (`clientes-subnav.tsx:23-31`) y sus rutas redirigen a `/clientes`. Tamaño S.
 - [ ] **F11** Renombrar la etiqueta «Observado» a «Pendiente por revisión» (M6). Es solo texto: `project-gastos.tsx:51`,
   `gastos-kpis.tsx:100`, `atencion.ts:39` y sus pruebas. Tamaño S.
 - [ ] **F12** Notificar a `registrado_por_id` cuando se rechaza un gasto (M7). Toca la ruta `reject`,
