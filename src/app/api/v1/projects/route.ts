@@ -149,13 +149,19 @@ function exigirRangoFechas(
 
 export const PROJECT_CREATE_SCHEMA = z
   .object({
-  nombre: z
-    .string()
-    .trim()
-    .min(1, "El nombre no puede estar vacío.")
-    .max(200, "El nombre es muy largo."),
-  cliente_id: z.string().min(1, "El cliente no es válido."),
-  ...PROJECT_CREATE_BASE,
+    nombre: z
+      .string()
+      .trim()
+      .min(1, "El nombre no puede estar vacío.")
+      .max(200, "El nombre es muy largo."),
+    cliente_id: z.string().min(1, "El cliente no es válido."),
+    ...PROJECT_CREATE_BASE,
+    // PO-5 / REQ-ORG-04: a project is born with a positive value. E-05 (conversion) keeps the optional
+    // base field because the server prefills it from the opportunity.
+    valor_total: z
+      .number({ error: "El valor total es obligatorio." })
+      .gt(0, "El valor total debe ser mayor que cero.")
+      .max(9_999_999_999_999.99, "El valor total es demasiado alto."),
   })
   .superRefine(exigirRangoFechas);
 

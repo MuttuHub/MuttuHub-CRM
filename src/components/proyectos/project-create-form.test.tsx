@@ -125,6 +125,7 @@ describe("ProjectCreateForm", () => {
     await user.click(screen.getByRole("combobox", { name: "Cliente" }))
     await user.click(await screen.findByRole("option", { name: "Cliente Uno" }))
     await user.type(screen.getByLabelText("Nombre"), "Libre")
+    await user.type(screen.getByLabelText("Valor total"), "1000000")
     await user.click(screen.getByRole("checkbox", { name: "Municipio Barranquilla" }))
     await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
 

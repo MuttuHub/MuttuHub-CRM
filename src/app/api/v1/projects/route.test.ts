@@ -600,6 +600,24 @@ describe("POST /api/v1/projects (E-03)", () => {
     expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
   });
 
+  it("requires valor_total at creation (PO-5)", async () => {
+    const sinValor: Partial<typeof createBody> = { ...createBody };
+    delete sinValor.valor_total;
+    const res = await POST(postRequest(sinValor));
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("El valor total es obligatorio.");
+    expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
+  });
+
+  it.each([0, -1, null])("rejects valor_total %s: it must be greater than zero", async (valor) => {
+    const res = await POST(postRequest({ ...createBody, valor_total: valor }));
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/valor total/i);
+    expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
+  });
+
   it.each(PROJECT_CREATE_FORBIDDEN_FIELDS)(
     "rejects the forbidden field '%s' with 400",
     async (field) => {

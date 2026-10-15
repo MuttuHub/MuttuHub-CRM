@@ -270,6 +270,7 @@ export function ProjectCreateForm({
     if (responsableEfectivo === "") return "Selecciona el responsable.";
     if (fechaInicio === "" || fechaFin === "") return "Completa las fechas de inicio y fin.";
     if (!rangoFechasValido(fechaInicio, fechaFin)) return MENSAJE_RANGO_FECHAS;
+    if (!(Number(valorTotal.trim()) > 0)) return "El valor total debe ser mayor que cero.";
     if (origen === "OPORTUNIDAD") {
       if (!oportunidad) return "Selecciona la oportunidad ganada.";
     } else {
@@ -467,7 +468,7 @@ export function ProjectCreateForm({
             min={0}
             value={valorTotal}
             onChange={(event) => setValorTotal(event.target.value)}
-            placeholder="Opcional"
+            placeholder="Obligatorio, mayor que cero"
             className="px-3"
           />
           {diferencia !== null && (

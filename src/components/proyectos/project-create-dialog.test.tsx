@@ -298,6 +298,44 @@ describe("ProjectCreateDialog", () => {
     expect(createFromOpportunity.mutateAsync).not.toHaveBeenCalled()
   })
 
+  it.each([
+    ["empty", ""],
+    ["zero", "0"],
+  ])("refuses a %s valor total and fires no request (PO-5)", async (_caso, valor) => {
+    const user = userEvent.setup()
+    renderDialog()
+
+    await elegirOportunidad(user)
+    await elegirMunicipio(user)
+    fireEvent.change(screen.getByLabelText("Valor total"), { target: { value: valor } })
+    await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("El valor total debe ser mayor que cero.")
+    expect(createFromOpportunity.mutateAsync).not.toHaveBeenCalled()
+  })
+
+  it("makes the user enter the value when the converted opportunity has none", async () => {
+    useEligibleOpportunitiesMock.mockReturnValue({
+      data: [OPORTUNIDAD_2],
+      isLoading: false,
+      isError: false,
+    } satisfies QueryState<EligibleOpportunity[]>)
+    const user = userEvent.setup()
+    renderDialog()
+
+    await user.click(screen.getByRole("button", { name: /Segunda oportunidad ganada/ }))
+    await elegirMunicipio(user)
+    expect(screen.getByLabelText("Valor total")).toHaveValue(null)
+    await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent("El valor total debe ser mayor que cero.")
+    expect(createFromOpportunity.mutateAsync).not.toHaveBeenCalled()
+
+    fireEvent.change(screen.getByLabelText("Valor total"), { target: { value: "50000000" } })
+    await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
+    await waitFor(() => expect(createFromOpportunity.mutateAsync).toHaveBeenCalled())
+    expect(createFromOpportunity.mutateAsync.mock.calls[0][0].valor_total).toBe(50000000)
+  })
+
   it("sends no forbidden field on the opportunity path", async () => {
     const user = userEvent.setup()
     renderDialog()
@@ -385,6 +423,7 @@ describe("ProjectCreateDialog", () => {
     await user.click(screen.getByRole("combobox", { name: "Cliente" }))
     await user.click(await screen.findByRole("option", { name: "Cliente Uno" }))
     await user.type(screen.getByLabelText("Nombre"), "Proyecto propio")
+    await user.type(screen.getByLabelText("Valor total"), "1000000")
     await elegirMunicipio(user)
     await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
 
@@ -392,6 +431,7 @@ describe("ProjectCreateDialog", () => {
     const body = createProject.mutateAsync.mock.calls[0][0]
     expect(body.cliente_id).toBe("c1")
     expect(body.nombre).toBe("Proyecto propio")
+    expect(body.valor_total).toBe(1000000)
     expect(createFromOpportunity.mutateAsync).not.toHaveBeenCalled()
   })
 
