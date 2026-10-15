@@ -94,7 +94,7 @@ function CurvaAvance({ query }: { query: ReturnType<typeof useProjectCurve> }) {
  * Decisión 3: control de escritura para gestores, o un COORDINADOR que sea integrante activo (su lectura de
  * `/members` está permitida). Anular es solo de gestores. La API sigue siendo la autoridad final.
  */
-function useEjecucionPermisos(proyectoId: string): { canWrite: boolean; canVoid: boolean } {
+export function useEjecucionPermisos(proyectoId: string): { canWrite: boolean; canVoid: boolean } {
   const userQuery = useCurrentUser();
   const membersQuery = useProjectMembers(proyectoId);
   const usuario = userQuery.data;

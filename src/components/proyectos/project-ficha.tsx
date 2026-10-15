@@ -1,6 +1,6 @@
 // Ficha de proyecto (E-06), de solo lectura salvo las secciones Equipo (E-07) y
-// Estructura técnica (S3). Desde S10 se organiza en pestañas (las 10 del prototipo v7 más Cambios) bajo un encabezado fijo con código,
-// nombre, estado y semáforos; cada panel se monta
+// Estructura técnica (S3). Desde U2 se organiza en 5 pestañas (Resumen, Actividades, Finanzas, Documentos e
+// Historial) bajo un encabezado fijo con código, nombre, estado, semáforos y acciones; cada panel se monta
 // (y consulta) solo cuando su pestaña está activa. Desde S12 es una página propia (`/proyectos/[id]`),
 // que el listado y el tablero abren en una pestaña nueva. Monta su propia consulta (`useProject`): el estado del request (loading, error, data) sale
 // entero de la query, sin `useEffect` de carga ni controles de escritura propios.
@@ -13,19 +13,17 @@
 
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ArrowLeft } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatusChip } from "@/components/ui/status-chip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FieldValue } from "@/components/crm/shared";
 import {
-  ESTADO_PROYECTO_META,
   ORIGEN_PROYECTO_META,
   formatFechaCalendario,
 } from "@/components/proyectos/project-display";
-import { BaselineApproval } from "@/components/proyectos/baseline-approval";
 import { EstructuraGantt } from "@/components/proyectos/estructura-gantt";
 import { ProjectCronograma } from "@/components/proyectos/project-cronograma";
 import { ProjectEstructura } from "@/components/proyectos/project-estructura";
@@ -36,7 +34,6 @@ import {
 } from "@/components/proyectos/project-ejecucion";
 import { ProjectSoportes } from "@/components/proyectos/project-soportes";
 import { ProjectFinanciero } from "@/components/proyectos/project-financiero";
-import { ProjectKpisPanel } from "@/components/proyectos/project-kpis-panel";
 import { ResumenKpis } from "@/components/proyectos/resumen-kpis";
 import { RequiereAtencion } from "@/components/proyectos/requiere-atencion";
 import { ProjectGastos } from "@/components/proyectos/project-gastos";
@@ -45,9 +42,9 @@ import { ProjectModificaciones } from "@/components/proyectos/project-modificaci
 import { ProjectPresupuesto } from "@/components/proyectos/project-presupuesto";
 import { ProjectTeam } from "@/components/proyectos/project-team";
 import { ProjectVersiones } from "@/components/proyectos/project-versiones";
-import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
 import { EmptyBlock, SectionHeader } from "@/components/proyectos/ui";
-import { useProject, useProjectKpis, type ProjectListRow } from "@/hooks/projects";
+import { FichaHeader } from "@/components/proyectos/ficha/ficha-header";
+import { useProject, type ProjectListRow } from "@/hooks/projects";
 import { ApiError } from "@/lib/api/http";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { cn } from "@/lib/utils";
@@ -108,54 +105,35 @@ export function ProjectFicha({ projectId, backHref }: { projectId: string; backH
 
 const FICHA_TABS = [
   { value: "resumen", label: "Resumen" },
-  { value: "metas", label: "Metas e indicadores" },
-  { value: "cronograma", label: "Cronograma" },
-  { value: "gantt", label: "Gantt" },
-  { value: "seguimiento", label: "Ficha de seguimiento" },
-  { value: "financiero", label: "Financiero" },
-  { value: "legalizacion", label: "Legalización" },
-  { value: "beneficiarios", label: "Beneficiarios" },
-  { value: "soportes", label: "Soportes" },
-  { value: "equipo", label: "Equipo" },
-  // Not in the v7 prototype, kept so the change history, versions and modifications stay reachable.
-  { value: "cambios", label: "Cambios" },
+  { value: "actividades", label: "Actividades" },
+  { value: "finanzas", label: "Finanzas" },
+  { value: "documentos", label: "Documentos" },
+  { value: "historial", label: "Historial" },
 ] as const;
+
+type FichaTab = (typeof FICHA_TABS)[number]["value"];
 
 const PANEL_CLASS = "mt-0 flex flex-col gap-6";
 
 function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
-  const estado = ESTADO_PROYECTO_META[proyecto.estado];
+  // Controlada: los semáforos y las acciones del encabezado también cambian de pestaña.
+  const [tab, setTab] = useState<FichaTab>("resumen");
 
   return (
     <div className="flex flex-col">
-      <Tabs defaultValue="resumen" className="flex flex-col gap-0">
+      <Tabs
+        value={tab}
+        onValueChange={(value) => setTab(value as FichaTab)}
+        className="flex flex-col gap-0"
+      >
         {/* Encabezado fijo: pegajoso y fuera del panel de contenido, así estado y semáforos siempre se ven. */}
         <div className="sticky top-0 z-10 rounded-t-card bg-panel">
-          <header
-            data-testid="ficha-header"
-            className="flex flex-wrap items-start justify-between gap-3 border-b border-ink-200 p-5 sm:p-6"
-          >
-            <div className="min-w-0">
-              <span className="font-mono text-[12px] font-semibold text-ink-600 tabular-nums">
-                {proyecto.codigo}
-              </span>
-              <h1 className="mt-0.5 font-display text-[19px] font-bold tracking-[-0.02em] text-ink-950">
-                {proyecto.nombre}
-              </h1>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <BaselineApproval proyecto={proyecto} />
-              <StatusChip tone={estado.tone}>{estado.label}</StatusChip>
-              {proyecto.estado !== "BORRADOR" && <FichaSemaforos proyectoId={proyecto.id} />}
-            </div>
-          </header>
-          <div
-            className="no-scrollbar overflow-x-auto border-b border-ink-200 px-5 sm:px-6"
-          >
+          <FichaHeader proyecto={proyecto} onIrA={setTab} />
+          <div className="no-scrollbar overflow-x-auto border-b border-ink-200 px-5 sm:px-6">
             <TabsList variant="line" className="w-full justify-start gap-1">
-              {FICHA_TABS.map((tab) => (
-                <TabsTrigger key={tab.value} value={tab.value} className="flex-none px-3">
-                  {tab.label}
+              {FICHA_TABS.map((item) => (
+                <TabsTrigger key={item.value} value={item.value} className="flex-none px-3">
+                  {item.label}
                 </TabsTrigger>
               ))}
             </TabsList>
@@ -164,71 +142,39 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
         <div data-testid="ficha-scroll" className="p-5 sm:p-6">
           <TabsContent value="resumen" className={PANEL_CLASS}>
             <ResumenPanel proyecto={proyecto} />
-          </TabsContent>
-
-          <TabsContent value="metas" className={PANEL_CLASS}>
-            <ProjectEstructura proyecto={proyecto} />
-            <ProjectIndicadores proyecto={proyecto} />
-          </TabsContent>
-
-          <TabsContent value="cronograma" className={PANEL_CLASS}>
-            <ProjectCronograma proyecto={proyecto} />
-          </TabsContent>
-
-          <TabsContent value="gantt" className={PANEL_CLASS}>
-            <EstructuraGantt proyecto={proyecto} />
-          </TabsContent>
-
-          <TabsContent value="seguimiento" className={PANEL_CLASS}>
-            <ProjectEjecucion proyecto={proyecto} seguimiento />
-          </TabsContent>
-
-          <TabsContent value="financiero" className={PANEL_CLASS}>
-            <ProjectFinanciero proyecto={proyecto} />
-            <ProjectPresupuesto proyecto={proyecto} />
-          </TabsContent>
-
-          <TabsContent value="legalizacion" className={PANEL_CLASS}>
-            <ProjectGastos proyecto={proyecto} />
-          </TabsContent>
-
-          <TabsContent value="beneficiarios" className={PANEL_CLASS}>
+            <ProjectTeam proyectoId={proyecto.id} />
+            {/* Temporal: F14 retira Beneficiarios; mientras tanto no se pierde la función. */}
             <ProjectBeneficiarios proyecto={proyecto} />
           </TabsContent>
 
-          <TabsContent value="soportes" className={PANEL_CLASS}>
+          {/* Temporal: U4 reemplaza estas secciones por las vistas Lista, Gantt y Tablero. */}
+          <TabsContent value="actividades" className={PANEL_CLASS}>
+            <ProjectEstructura proyecto={proyecto} />
+            <ProjectIndicadores proyecto={proyecto} />
+            <ProjectCronograma proyecto={proyecto} />
+            <EstructuraGantt proyecto={proyecto} />
+            <ProjectEjecucion proyecto={proyecto} seguimiento />
+          </TabsContent>
+
+          {/* Temporal: X2 lo reemplaza por `FichaFinanzas`. */}
+          <TabsContent value="finanzas" className={PANEL_CLASS}>
+            <ProjectFinanciero proyecto={proyecto} />
+            <ProjectPresupuesto proyecto={proyecto} />
+            <ProjectGastos proyecto={proyecto} />
+          </TabsContent>
+
+          <TabsContent value="documentos" className={PANEL_CLASS}>
             <ProjectSoportes proyectoId={proyecto.id} />
           </TabsContent>
 
-          <TabsContent value="equipo" className={PANEL_CLASS}>
-            <ProjectTeam proyectoId={proyecto.id} />
-          </TabsContent>
-
-          <TabsContent value="cambios" className={PANEL_CLASS}>
+          <TabsContent value="historial" className={PANEL_CLASS}>
             <ProjectModificaciones proyecto={proyecto} />
             <ProjectVersiones proyecto={proyecto} />
             <ProjectHistorial proyecto={proyecto} />
-            <ProjectKpisPanel proyecto={proyecto} soloExportar />
           </TabsContent>
         </div>
       </Tabs>
     </div>
-  );
-}
-
-/**
- * Semáforos del encabezado. Reutilizan la consulta de la sección Indicadores (misma clave: sin corte, base
- * vigente), así que no se pide dos veces ni se recalcula nada: el color llega del servidor. Un proyecto fuera de
- * ejecución (`medible: false`) no tiene semáforo.
- */
-function FichaSemaforos({ proyectoId }: { proyectoId: string }) {
-  const kpis = useProjectKpis(proyectoId, null, "vigente").data;
-  if (!kpis || !kpis.medible) return null;
-  return (
-    <>
-      {kpis.tecnico && <SemaforoChip color={kpis.tecnico.color} prefix="Semáforo técnico" />}
-      {kpis.financiero && <SemaforoChip color={kpis.financiero.color} prefix="Semáforo financiero" />}
-    </>
   );
 }
 

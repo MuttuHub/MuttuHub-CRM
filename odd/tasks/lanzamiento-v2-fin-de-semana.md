@@ -218,13 +218,15 @@ Mapa aprobado (UX-1):
 
 - [x] **U1** Extraer `ProjectHistorial` a `project-historial.tsx`, para que X6 lo componga. Ruta I. Evidencia:
   `fe8b992`. `tsc` limpio y `project-ficha` con 38/38 pruebas en verde.
-- [ ] **U2** Encabezado. Cambios:
+- [x] **U2** Encabezado. Cambios:
   - Los semáforos viven solo aquí, como chips que llevan a la pestaña correspondiente.
   - Acciones principales según rol y estado: «Registrar avance» y «Registrar gasto».
   - Menú `⋯` con Exportar Excel, Imprimir/PDF (F13) y Aprobar línea base (en borrador).
   - Barra de 5 pestañas.
 
-  Ruta D.
+  Ruta D. Evidencia: @@HASH@@. Vitest `project-ficha`, `ficha` y `project-ejecucion` con 58/58 en verde (RED previo: 27
+  fallos), `tsc` y `eslint` limpios, detector de Impeccable sin hallazgos. Pendiente (F13): Imprimir/PDF en el menú
+  `⋯`, hoy solo tiene Exportar a Excel.
 - [ ] **U3** Resumen. Cambios:
   - Frase de causa por semáforo, a partir de los datos de `kpis` y `attention` que ya existen. No requiere API nueva.
   - 3 KPI: avance técnico (real contra plan), ejecución financiera (ejecutado contra programado) y beneficiarios.
