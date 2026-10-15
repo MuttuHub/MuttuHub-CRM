@@ -254,21 +254,21 @@ Mapa aprobado (UX-1):
   - Se elimina el panel de KPI duplicado de Cambios.
 
   Ruta D. Evidencia: nuevo `ficha/ficha-resumen.tsx` (salud técnica y financiera con una frase de causa, «Requiere atención» con enlaces «Ver actividades»/«Ver finanzas», «Próximos pasos» en borrador, datos generales, equipo y registro de beneficiarios plegado). Se elimina `resumen-kpis.tsx` y su prueba. Vitest `src/components/proyectos` y `api/v1/clients` 780/780, `tsc` y eslint limpios, detector de Impeccable sin hallazgos. Pendiente: la edición de datos generales en un diálogo no se hizo (queda para F14, que hace editable «Beneficiarios»). El texto vacío de «Requiere atención» pasa a «Nada pendiente por ahora.».
-- [ ] **U4** Actividades. Una sola estructura con el selector Lista · Gantt · Tablero.
+- [x] **U4** Actividades. Una sola estructura con el selector Lista · Gantt · Tablero.
   - En borrador: edición de objetivos, actividades, entregables e indicadores, más la carga por Excel.
   - En ejecución: avance por actividad e indicadores.
   - Los selectores de línea base y de corte quedan en «Opciones avanzadas», con vigente y hoy por defecto.
 
-  Ruta D.
-- [ ] **U5** Vista Tablero, de solo lectura. Columnas Por iniciar, En curso, Atrasada y Terminada, derivadas de
+  Ruta D. Evidencia: `54007e9`. Nuevo `ficha/ficha-actividades.tsx` con Lista · Gantt · Tablero (solo la vista activa se monta; sin Tablero en borrador). Lista en ejecución: `ProjectEjecucion lista` sin panel del semáforo, actividades agrupadas por meta con plan, real, semáforo, días y soporte, «Opciones avanzadas» plegado (base y curva S) e «Indicadores» plegado. `ProjectCronograma` sale de la ficha pero el archivo se queda (lo usa el paso de creación). Vitest `src/components/proyectos` y `src/lib/proyectos` 1028/1028 (RED previo en los módulos nuevos), `tsc`, eslint y detector de Impeccable limpios. Pendiente: el selector de corte no existe en la UI actual (solo base); queda el corte de hoy como texto.
+- [x] **U5** Vista Tablero, de solo lectura. Columnas Por iniciar, En curso, Atrasada y Terminada, derivadas de
   `progreso`, `programado`, `color` y las fechas de `technical-status`. Al hacer clic en una tarjeta se abre «Registrar
-  avance». No requiere migración ni toca el modelo `Tarea`. Ruta D.
-- [ ] **U6** Excel visible:
+  avance». No requiere migración ni toca el modelo `Tarea`. Ruta D. Evidencia: `470697d`. Regla pura `columnaTablero`/`vencidaSinTerminar` en `lib/proyectos/estado-actividad.ts` (8 pruebas con límites; `progreso` es porcentaje 0..100) reutilizada por `atencion.ts`. Cambio de diseño: al hacer clic en una tarjeta se pasa a la Lista y se enfoca la fila de la actividad (no se abre el formulario), porque el formulario vive por entregable.
+- [x] **U6** Excel visible:
   - En borrador sin estructura, el estado vacío ofrece «Cargar desde Excel» como acción principal y «Crear a mano» como
     secundaria.
   - Con estructura, el botón queda en la barra de Actividades.
 
-  Ruta D.
+  Ruta D. Evidencia: `e5f7e5e`. `ProjectEstructura` abre con «Cargar desde Excel» (primaria) y «Crear a mano» en borrador vacío para ADM/GER; otros roles ven una explicación corta; sin fechas lo dice y bloquea la descarga. `ImportDialog` acepta `open`/`onOpenChange`/`ocultarControles` y ofrece «Descargar plantilla» como primer paso. 7 pruebas nuevas, con RED previo.
 - [ ] **U7** Ayudas al crear un proyecto (UX-2):
   - Una pista breve por paso del stepper (qué se pide y por qué).
   - Ayudas en los campos no obvios: línea estratégica principal, municipios, valor, fechas, peso de la actividad,
