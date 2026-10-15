@@ -3,8 +3,7 @@
 // pinta; el cliente NUNCA recalcula un color. El alcance (todos, o solo los proyectos del COORDINADOR) lo
 // aplica la API. Solo agregados: sin gastos individuales ni soportes. Desde S14 P9 el tablero es gerencial:
 // tacómetro, curva S, radar por línea estratégica (`agregado.por_linea`), barras por proyecto de cronograma
-// y entregables, y la semaforización territorial (D7: un proyecto cuenta en cada departamento que toca,
-// fusionando el agregado con la lista por id — el payload NO trae desglose por territorio). Mientras los
+// y entregables. El municipio es solo un filtro: no hay desglose territorial (REQ-DSH-04). Mientras los
 // parámetros del semáforo no estén confirmados se muestra la insignia "No confirmado".
 
 "use client";
@@ -14,7 +13,7 @@ import Link from "next/link";
 import { Download, Eye, FolderKanban } from "lucide-react";
 import { toast } from "sonner";
 import { ToneBadge } from "@/components/crm/shared";
-import { BarRow, StatTile, TONE_DOT } from "@/components/dashboard/shared";
+import { BarRow, StatTile } from "@/components/dashboard/shared";
 import { CurveSChart } from "@/components/proyectos/curve-s-chart";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { InlineError, SELECT_CLASS } from "@/components/proyectos/ui";
@@ -22,28 +21,24 @@ import { Radar } from "@/components/proyectos/radar";
 import { Tacometro } from "@/components/proyectos/tacometro";
 import { ESTADO_PROYECTO_META, formatFechaCalendario } from "@/components/proyectos/project-display";
 import { formatPct } from "@/components/proyectos/project-kpis-panel";
-import { SemaforoChip, SEMAFORO_LABEL } from "@/components/proyectos/semaforo-chip";
+import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useIsMobile } from "@/components/proyectos/capture-surface";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { toneFromSemaforo } from "@/lib/estado-tone";
 import { useClientOptions } from "@/hooks/kanban";
 import { useUsers } from "@/hooks/crm";
 import {
   downloadPortfolioExport,
   useMunicipalities,
   useProjectCurve,
-  useProjects,
   useProjectsPortfolio,
   useStrategicLines,
   type ColorSemaforo,
   type PortfolioFilters,
   type PortfolioProject,
-  type ProjectFilters,
-  type ProjectListRow,
 } from "@/hooks/projects";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { cn } from "@/lib/utils";
@@ -75,18 +70,6 @@ export function ProjectDashboard() {
   const municipios = useMunicipalities().data ?? [];
   const clientes = useClientOptions().data ?? [];
   const responsables = useUsers().data ?? [];
-  // La lista alimenta la semaforización territorial (D7): el agregado del portafolio no trae municipios.
-  const listFilters = useMemo<ProjectFilters>(
-    () => ({
-      estado: valores.estado || undefined,
-      cliente_id: valores.cliente_id || undefined,
-      linea_id: valores.linea_id || undefined,
-      municipio_id: valores.municipio_id || undefined,
-      responsable_id: valores.responsable_id || undefined,
-    }),
-    [valores],
-  );
-  const lista = useProjects(listFilters).data?.proyectos ?? [];
   const set = (key: FiltroKey) => (event: { target: { value: string } }) =>
     setValores((previo) => ({ ...previo, [key]: event.target.value }));
 
@@ -176,7 +159,6 @@ export function ProjectDashboard() {
           <div className="flex flex-col gap-4 p-4 lg:p-5">
             <Resumen data={data} />
             <TableroGerencial data={data} />
-            <Territorio proyectos={data.proyectos} lista={lista} />
             <TablaProyectos proyectos={data.proyectos} />
           </div>
         )}
@@ -548,76 +530,3 @@ function FilaBarra({
   );
 }
 
-/* ── Semaforización territorial (D7) ────────────────────────────────────── */
-
-/** D7: un proyecto cuenta en cada departamento que toca; el agregado no trae municipios, así que se
- *  fusiona con la lista por id. Los colores son los del servidor, contados — nunca recalculados. */
-function Territorio({ proyectos, lista }: { proyectos: PortfolioProject[]; lista: readonly ProjectListRow[] }) {
-  const municipiosPorId = new Map(lista.map((row) => [row.id, row.municipios]));
-  const porDepartamento = new Map<string, PortfolioProject[]>();
-  for (const proyecto of proyectos) {
-    const departamentos = new Set((municipiosPorId.get(proyecto.id) ?? []).map((municipio) => municipio.departamento));
-    for (const departamento of departamentos) {
-      porDepartamento.set(departamento, [...(porDepartamento.get(departamento) ?? []), proyecto]);
-    }
-  }
-  const filas = [...porDepartamento.entries()].sort(
-    (a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0], "es"),
-  );
-
-  return (
-    <section data-testid="tablero-territorio" className="surface min-w-0 overflow-hidden">
-      <h3 className="p-4 text-[13px] font-semibold text-ink-700 lg:p-5">Semaforización territorial</h3>
-      {filas.length === 0 ? (
-        <p className="px-4 pb-4 text-[12.5px] text-ink-500 lg:px-5 lg:pb-5">Ningún proyecto visible tiene territorio asignado.</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <Table className="min-w-[640px]">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Departamento</TableHead>
-                <TableHead numeric>Proyectos</TableHead>
-                <TableHead>Semáforo técnico</TableHead>
-                <TableHead>Semáforo financiero</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filas.map(([departamento, items]) => (
-                <TableRow key={departamento} data-testid={`territorio-${departamento}`}>
-                  <TableCell className="font-semibold text-ink-950">{departamento}</TableCell>
-                  <TableCell numeric className="font-mono text-[12.5px] tabular-nums">{items.length}</TableCell>
-                  <TableCell>
-                    <ConteoSemaforo colores={items.map((proyecto) => proyecto.semaforo_tecnico)} />
-                  </TableCell>
-                  <TableCell>
-                    <ConteoSemaforo colores={items.map((proyecto) => proyecto.semaforo_financiero)} />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-    </section>
-  );
-}
-
-/** Counts the SERVER colours present in a department; each colour keeps its word, never colour alone. */
-function ConteoSemaforo({ colores }: { colores: (ColorSemaforo | null)[] }) {
-  const conteo = new Map<ColorSemaforo | null, number>();
-  for (const color of colores) conteo.set(color, (conteo.get(color) ?? 0) + 1);
-  return (
-    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-      {[...conteo.entries()].map(([color, cantidad]) => (
-        <span key={color ?? "sin"} className="inline-flex items-center gap-1 text-[12px] text-ink-700">
-          <span
-            aria-hidden
-            className={cn("size-2 rounded-full", color === null ? "bg-ink-300" : TONE_DOT[toneFromSemaforo(color)])}
-          />
-          {color === null ? "Sin medir" : SEMAFORO_LABEL[color]}
-          {cantidad > 1 ? ` ${cantidad}` : ""}
-        </span>
-      ))}
-    </span>
-  );
-}

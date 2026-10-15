@@ -4,7 +4,7 @@
 import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import type { PortfolioFilters, ProjectCurve, ProjectKpis, ProjectListRow, ProjectsPortfolio } from "@/hooks/projects"
+import type { PortfolioFilters, ProjectCurve, ProjectKpis, ProjectsPortfolio } from "@/hooks/projects"
 import { mockViewport } from "@/test/viewport"
 import { ProjectDashboard } from "./project-dashboard"
 
@@ -20,7 +20,6 @@ const { toast, usePortfolio, useCurve, downloadPortfolioExport, state } = vi.hoi
       isError: boolean
       error: unknown
     },
-    list: [] as unknown[],
     curva: undefined as ProjectCurve | undefined,
   },
 }))
@@ -35,7 +34,6 @@ vi.mock("@/hooks/projects", () => ({
     useCurve(id)
     return { data: state.curva, isLoading: false, isError: false }
   },
-  useProjects: () => ({ data: { proyectos: state.list }, isLoading: false, isError: false }),
   downloadPortfolioExport: (...args: unknown[]) => downloadPortfolioExport(...args),
   useStrategicLines: () => ({ data: [{ id: "l1", codigo: "LE01", nombre: "Educación", activo: true }] }),
   useMunicipalities: () => ({ data: [{ id: "m1", nombre: "Barranquilla", departamento: "Atlántico", activo: true }] }),
@@ -128,50 +126,6 @@ const PORTAFOLIO: ProjectsPortfolio = {
   por_estado: { EN_EJECUCION: 1, BORRADOR: 1 },
 }
 
-/** `useProjects` (the list) feeds the territory table (D7) by id. */
-const LISTA: ProjectListRow[] = [
-  {
-    id: "p1",
-    codigo: "PRY-2026-001",
-    nombre: "Fortalecimiento",
-    estado: "EN_EJECUCION",
-    origen: null,
-    cliente: { id: "c1", nombre: "Alcaldía" },
-    responsable: { id: "u1", nombre: "Ana Pérez" },
-    fecha_inicio: "2026-01-05",
-    fecha_fin: "2026-06-30",
-    duracion_semanas: 25,
-    valor_total: "1000",
-    diferencia_valor_oportunidad: null,
-    alertas: [],
-    beneficiarios_meta: 100,
-    lineas: [],
-    // The same project touches two departments: D7 counts it in both.
-    municipios: [
-      { id: "m1", nombre: "Barranquilla", departamento: "Atlántico" },
-      { id: "m2", nombre: "Cartagena", departamento: "Bolívar" },
-    ],
-  },
-  {
-    id: "p2",
-    codigo: "PRY-2026-002",
-    nombre: "Borrador",
-    estado: "BORRADOR",
-    origen: null,
-    cliente: { id: "c1", nombre: "Alcaldía" },
-    responsable: null,
-    fecha_inicio: null,
-    fecha_fin: null,
-    duracion_semanas: null,
-    valor_total: null,
-    diferencia_valor_oportunidad: null,
-    alertas: [],
-    beneficiarios_meta: null,
-    lineas: [],
-    municipios: [],
-  },
-]
-
 const CURVA: ProjectCurve = {
   base: "vigente",
   corte: "2026-03",
@@ -186,7 +140,6 @@ const CURVA: ProjectCurve = {
 beforeEach(() => {
   vi.clearAllMocks()
   state.query = { data: PORTAFOLIO, isLoading: false, isError: false, error: null }
-  state.list = LISTA
   state.curva = CURVA
 })
 
@@ -208,7 +161,7 @@ describe("ProjectDashboard", () => {
     try {
       const user = userEvent.setup()
       render(<ProjectDashboard />)
-      // El listado de proyectos pasa a tarjetas; las tablas del tablero gerencial (curva, territorio) siguen.
+      // El listado de proyectos pasa a tarjetas; las tablas del tablero gerencial (curva) siguen.
       expect(screen.queryByRole("columnheader", { name: "Acciones" })).toBeNull()
       const fila = screen.getByTestId("tablero-fila-p1")
       expect(fila.tagName).toBe("LI")
@@ -250,26 +203,11 @@ describe("ProjectDashboard", () => {
     expect(screen.queryByText("No confirmado")).not.toBeInTheDocument()
   })
 
-  it("groups the territory by department, counting a project in every department it touches (D7)", () => {
+  it("does not render a territorial traffic light: municipio is only a filter (REQ-DSH-04)", () => {
     render(<ProjectDashboard />)
-    const territorio = screen.getByTestId("tablero-territorio")
-    expect(territorio).toHaveTextContent("Atlántico")
-    expect(territorio).toHaveTextContent("Bolívar")
-    const atlantico = within(territorio).getByTestId("territorio-Atlántico")
-    const bolivar = within(territorio).getByTestId("territorio-Bolívar")
-    // The same project p1 is counted in both departments it touches.
-    expect(atlantico).toHaveTextContent("1")
-    expect(bolivar).toHaveTextContent("1")
-    // The dots/words come from the server semáforos, verbatim.
-    expect(atlantico).toHaveTextContent("Rojo")
-    expect(atlantico).toHaveTextContent("Verde")
-  })
-
-  it("keeps the territory table out of the payload: no por_territorio aggregate is requested", () => {
-    render(<ProjectDashboard />)
-    expect(screen.getByTestId("tablero-territorio")).toBeInTheDocument()
-    // The dashboard derives the territory by merging the list by id, not from the aggregate.
-    expect(state.query.data).not.toHaveProperty("por_territorio")
+    expect(screen.queryByTestId("tablero-territorio")).toBeNull()
+    expect(screen.queryByText("Semaforización territorial")).toBeNull()
+    expect(screen.getByLabelText("Municipio")).toBeInTheDocument()
   })
 
   it("changing a filter changes the query filters (the query key)", async () => {
