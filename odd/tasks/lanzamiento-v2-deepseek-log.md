@@ -130,3 +130,42 @@ LISTO PARA INTEGRAR: X4
 - PREGUNTA: ninguna.
 
 LISTO PARA INTEGRAR: X5
+
+---
+
+## X6 · `FichaHistorial`
+
+- Commit: `7ad07c1` — `feat(proyectos): add the history tab with modifications, versions and audit`
+- Archivos tocados:
+  - `src/components/proyectos/ficha/ficha-historial.tsx` — **nuevo**. Segmentado `variant="pill"` con
+    Modificaciones (`ProjectModificaciones`), Versiones (`ProjectVersiones`) y Auditoría (`ProjectHistorial`,
+    desde `@/components/proyectos/project-historial`). Abre en Modificaciones.
+  - `src/components/proyectos/ficha/ficha-historial.test.tsx` — **nuevo**. Hijos burlados: orden de las
+    opciones, segmento por defecto, cambio de segmento, montaje solo del activo y teclado (flecha + Enter).
+- Verificaciones:
+  1. `TZ=America/Bogota npx vitest run` sobre las rutas del carril **más** las guardas de código → 17 archivos,
+     153 pruebas, **verde**.
+  2. `npx tsc --noEmit` → **sin errores**.
+  3. `npx eslint src/components/proyectos/ficha src/components/proyectos/project-financiero.tsx
+     src/components/proyectos/project-presupuesto.tsx src/components/proyectos/project-gastos.tsx` → **sin avisos**.
+- PEDIDO A CLAUDE: ninguno. Nota para U8: la pestaña vieja «Cambios» se retira; su panel de KPI (`soloExportar`)
+  queda a cargo de U2/U4 (el menú `⋯` del encabezado).
+- PREGUNTA: ninguna.
+
+LISTO PARA INTEGRAR: X6
+
+---
+
+## Cierre del carril X
+
+Las tareas X1–X6 están terminadas en `feat/ficha-ux-finanzas`, una tarea por commit, cada una con su entrada en
+este log. Para integrar (U8) basta montar `FichaFinanzas`, `FichaDocumentos` y `FichaHistorial` en sus
+`TabsContent`:
+
+- `FichaFinanzas` → pestaña «Finanzas» (sustituye `ProjectFinanciero` + `ProjectPresupuesto` y `ProjectGastos`).
+- `FichaDocumentos` → pestaña «Documentos» (sustituye la pestaña vieja «Soportes»).
+- `FichaHistorial` → pestaña «Historial» (sustituye la pestaña vieja «Cambios»).
+
+Sin migraciones, sin dependencias nuevas y sin cambios fuera de la superficie del carril.
+
+LISTO PARA INTEGRAR: TODO
