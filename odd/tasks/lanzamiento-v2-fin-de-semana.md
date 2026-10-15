@@ -152,14 +152,17 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
 
 ### Carril F: requerimientos y reunión (Claude)
 
-- [ ] **F1** Quitar la semaforización territorial del tablero gerencial (REQ-DSH-04, PO-1). El municipio queda solo como
+- [x] **F1** Quitar la semaforización territorial del tablero gerencial (REQ-DSH-04, PO-1). El municipio queda solo como
   filtro. Archivo: `project-dashboard.tsx`. Tamaño S.
+  Evidencia: `7e15028` (+ `095bb3a` guarda responsive). RED previo en `project-dashboard.test.tsx`; se quitó también la lista que solo alimentaba la sección. API del portafolio sin campo territorial. Ruta D (inline).
 - [x] ~~**F2** Tarjeta «Beneficiarios atendidos / meta» en el tablero gerencial (C5).~~ Cancelada por M5: ya no se
   miden atendidos.
 - [ ] **F3** Filtros del portafolio por cliente, línea, municipio y responsable (RF-31). La API ya los acepta
   (`src/app/api/v1/projects/route.ts:61-65`). Archivo: `project-list.tsx`. Tamaño S.
-- [ ] **F4** V-03 estricto: inicio < fin (C1). Depende de PO-4. Tamaño S.
-- [ ] **F5** `valor_total > 0` al crear (C2). Depende de PO-5. Tamaño S.
+- [x] **F4** V-03 estricto: inicio < fin (C1). Depende de PO-4. Tamaño S.
+  Evidencia: `d03a56c`. Validador compartido `src/lib/proyectos/rango-fechas.ts` (API crear y convertir, PATCH, modificaciones, formulario). Verificación: vitest src/components/proyectos, api/v1/{projects,dashboard,clients}, lib/{proyectos,api,openapi} 1958/1959 (el fallo era responsive-guards, corregido en `095bb3a`), `tsc --noEmit` y eslint sin errores.
+- [x] **F5** `valor_total > 0` al crear (C2). Depende de PO-5. Tamaño S.
+  Evidencia: `d1a6ef6`. `valor_total` obligatorio y > 0 solo en `PROJECT_CREATE_SCHEMA` y en el formulario; la conversión (E-05) conserva su prefill desde la oportunidad en el servidor, pero el formulario exige > 0. Pregunta abierta: ¿exigir también > 0 en la ruta E-05 cuando la oportunidad no trae valor?
 - [ ] **F6** Fecha de primer contacto en formato legible (D2). Tamaño S.
 - [ ] **F7** El DTO de la tarea lleva el id y el código del proyecto, para enlazar al proyecto exacto (D3). Tamaño S.
 - [ ] **F8** Crear proyecto desde un cliente (M1, M2). Cambios:
@@ -176,8 +179,9 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
   formulario, la ficha y OpenAPI. Depende de M3. Tamaño M.
 - [ ] **F10** Ocultar las pestañas Oportunidades y Mapa de Clientes (M4). Se quitan de `CLIENTES_SECTIONS`
   (`clientes-subnav.tsx:23-31`) y sus rutas redirigen a `/clientes`. Tamaño S.
-- [ ] **F11** Renombrar «Observado» en `atencion.ts:39` («Gasto observado» → «Gasto pendiente por revisión»). Las
+- [x] **F11** Renombrar «Observado» en `atencion.ts:39` («Gasto observado» → «Gasto pendiente por revisión»). Las
   etiquetas de `project-gastos.tsx` y `gastos-kpis.tsx` pasan a X1 (DeepSeek). Tamaño S.
+  Evidencia: `518f48b`. `ATENCION_TITULO.gasto_observado` renombrado, claves intactas; `atencion.test.ts` y `requiere-atencion.test.tsx` en verde.
 - [ ] **F12** Notificar a `registrado_por_id` cuando se rechaza un gasto (M7). Toca la ruta `reject`,
   `notificaciones-proyecto.ts`, la lectura de notificaciones para roles no gerenciales, `notification-panel.tsx` y
   OpenAPI. Depende de M7 y R3. Tamaño M.
