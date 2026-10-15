@@ -49,3 +49,33 @@ LISTO PARA INTEGRAR: X1
 - PREGUNTA: ninguna.
 
 LISTO PARA INTEGRAR: X2
+
+---
+
+## X3 · Finanzas más simples
+
+- Commit: `52d9ff3` — `refactor(proyectos): simplify the finance view with a progress bar and advanced options`
+- Archivos tocados:
+  - `src/components/proyectos/project-financiero.tsx` — tacómetro reemplazado por una barra horizontal (avance
+    E/A, marca de programado P/A y total asignado) con la frase «Ejecutado … de … programados (… %) · Asignado …»
+    debajo, que es también su `aria-label` (`role="img"`). El color sale del servidor (`total.color`); con
+    `ejecucion_disponible: false` no hay color ni porcentaje. Corte y Base pasan a un bloque «Opciones avanzadas»
+    plegable, cerrado por defecto y operable con teclado, con sus valores por defecto actuales (corte del servidor,
+    base vigente). Se conserva la insignia «No confirmado» a la vista.
+  - `src/components/proyectos/project-gastos.tsx` — se quita la fila de KPI (`gastos-kpis`), que repetía totales del
+    Resumen; quedan los conteos por estado de los chips de filtro. La carga y el error de la consulta se muestran
+    dentro de la sección (antes los pintaba la fila de KPI).
+  - `src/components/proyectos/project-financiero.test.tsx` — pruebas de la barra y del plegable (RED → GREEN).
+  - `src/components/proyectos/project-gastos.test.tsx` — la prueba de la fila de KPI pasa a verificar que ya no está
+    y que los conteos del filtro se mantienen.
+- Verificaciones:
+  1. `TZ=America/Bogota npx vitest run` sobre las rutas del carril → 8 archivos, 108 pruebas, **verde**. Extra:
+     guardas de código (`surface`, `control`, `design`, `table`, `a11y`, `responsive`) → 6 archivos, 30 pruebas,
+     verde. `tacometro.tsx` y sus pruebas quedan intactos (el tablero lo sigue usando).
+  2. `npx tsc --noEmit` → **sin errores**.
+  3. `npx eslint src/components/proyectos/ficha src/components/proyectos/project-financiero.tsx
+     src/components/proyectos/project-presupuesto.tsx src/components/proyectos/project-gastos.tsx` → **sin avisos**.
+- PEDIDO A CLAUDE: ninguno.
+- PREGUNTA: ninguna.
+
+LISTO PARA INTEGRAR: X3

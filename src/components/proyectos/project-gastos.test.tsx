@@ -275,11 +275,12 @@ describe("ProjectGastos", () => {
       expect(monto?.className).toContain("text-right")
     })
 
-    it("shows the KPI row from the server numbers", async () => {
+    it("leaves the duplicated totals to the summary: no KPI row, only the filter counts", async () => {
       setup({ gastos: MIXTO() })
-      const kpis = await screen.findByTestId("gastos-kpis")
-      expect(within(kpis).getByTestId("gastos-kpi-observados")).toHaveTextContent("2")
-      expect(within(kpis).getByTestId("gastos-kpi-con-soporte")).toHaveTextContent("3 de 4")
+      await screen.findByTestId("gastos-lista")
+      expect(screen.queryByTestId("gastos-kpis")).not.toBeInTheDocument()
+      // Los conteos por estado del filtro se quedan: sirven para filtrar.
+      expect(screen.getByRole("button", { name: /^Registrado/ })).toHaveTextContent("3")
     })
 
     it("marks the support column: a button per support, or 'Sin soporte' when the viewer has none", async () => {

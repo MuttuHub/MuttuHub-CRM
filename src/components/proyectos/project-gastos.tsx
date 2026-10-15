@@ -13,9 +13,10 @@ import { StatusChip } from "@/components/ui/status-chip";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { VoidControl, errorMessage } from "@/components/proyectos/estructura-ui";
 import { EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/ui";
-import { GastosKpis } from "@/components/proyectos/gastos-kpis";
+import { GASTOS_ERROR } from "@/components/proyectos/gastos-kpis";
 import { GastoForm, TIPO_SOPORTE_LABELS } from "@/components/proyectos/gasto-form";
 import { ValidacionControles } from "@/components/proyectos/gasto-acciones";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import { useCurrentUser } from "@/hooks/kanban";
 import {
@@ -116,13 +117,13 @@ export function ProjectGastos({ proyecto }: { proyecto: ProjectListRow }) {
     <section data-testid="gastos">
       <SectionHeader icon={<Receipt className="size-3.5" strokeWidth={2} />}>Gastos</SectionHeader>
 
-      <div className="mt-2">
-        <GastosKpis data={query.data} isLoading={query.isLoading} isError={query.isError} error={query.error} />
-      </div>
-
-      {query.data && (
+      {query.isError ? (
+        <InlineError className="mt-2" message={errorMessage(query.error, GASTOS_ERROR)} />
+      ) : !query.data ? (
+        <Skeleton className="mt-2 h-24 w-full rounded-[14px]" />
+      ) : (
         <>
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
             {gastos.length > 0 ? <FiltrosGasto gastos={gastos} filtro={filtro} onChange={setFiltro} /> : <span />}
             {puedeRegistrar && !registrando && (
               <Button type="button" variant="outline" size="sm" onClick={() => setRegistrando(true)}>
