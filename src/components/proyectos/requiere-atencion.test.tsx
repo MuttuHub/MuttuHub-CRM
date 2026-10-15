@@ -21,7 +21,7 @@ function jsonResponse(body: unknown, status = 200) {
 
 const ITEMS = [
   { tipo: "alerta_retraso", titulo: "Posible retraso", detalle: "El gasto va por debajo de lo programado." },
-  { tipo: "gasto_observado", titulo: "Gasto observado", detalle: "Compra: supera lo asignado al rubro.", gasto_id: "g1" },
+  { tipo: "gasto_observado", titulo: "Gasto pendiente por revisión", detalle: "Compra: supera lo asignado al rubro.", gasto_id: "g1" },
 ]
 
 function renderCard(estado = "EN_EJECUCION") {

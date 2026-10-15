@@ -36,7 +36,7 @@ export const ATENCION_TITULO: Record<AtencionTipo, string> = {
   actividad_atrasada: "Actividad atrasada",
   avance_sin_soporte: "Avance sin soporte",
   indicador_bajo_meta: "Indicador bajo la meta",
-  gasto_observado: "Gasto observado",
+  gasto_observado: "Gasto pendiente por revisión",
 }
 
 /**

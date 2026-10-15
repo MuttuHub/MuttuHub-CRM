@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest"
 import { toCents } from "./money"
-import { construirAtencion, type AtencionInput, type AtencionItem } from "./atencion"
+import { ATENCION_TITULO, construirAtencion, type AtencionInput, type AtencionItem } from "./atencion"
 
 const CORTE = "2026-03-31"
 
@@ -181,5 +181,9 @@ describe("construirAtencion", () => {
       expect(item.titulo.length).toBeGreaterThan(0)
       expect(item.detalle.length).toBeGreaterThan(0)
     }
+  })
+
+  it("labels the observed-expense item as pending review (M6) without renaming its key", () => {
+    expect(ATENCION_TITULO.gasto_observado).toBe("Gasto pendiente por revisión")
   })
 })
