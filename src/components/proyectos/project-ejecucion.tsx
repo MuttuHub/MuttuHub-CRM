@@ -5,12 +5,12 @@
 
 "use client";
 
-import { useState } from "react";
-import { ClipboardList, Gauge } from "lucide-react";
+import { useId, useState, type ReactNode } from "react";
+import { ChevronRight, ClipboardList, Gauge } from "lucide-react";
 import { useCurrentUser } from "@/hooks/kanban";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
-import { InlineError, MetricRow, SectionHeader } from "@/components/proyectos/ui";
+import { InlineError, MetricRow, SELECT_CLASS, SectionHeader } from "@/components/proyectos/ui";
 import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import { EjecucionAvance } from "@/components/proyectos/ejecucion-avance";
@@ -27,15 +27,18 @@ import {
   useProjectDeliverables,
   useProjectMembers,
   useProjectTechnicalStatus,
+  type ProjectActivity,
   type ProjectBase,
   type ProjectCurve,
   type ProjectDeliverableProgress,
+  type ProjectObjective,
   type ProjectTechnicalStatusV6,
   type ProjectListRow,
 } from "@/hooks/projects";
 import { formatMillones } from "@/lib/format/millones";
 import { toCents } from "@/lib/proyectos/money";
 import { canManageProjects } from "@/lib/permissions";
+import { cn } from "@/lib/utils";
 
 const TECNICO_ERROR = "No pudimos cargar el semáforo técnico. Inténtalo de nuevo.";
 const ACTIVIDADES_ERROR = "No pudimos cargar las actividades. Inténtalo de nuevo.";
@@ -45,6 +48,10 @@ export const EJECUCION_BORRADOR_HINT =
   "La ejecución técnica estará disponible cuando el proyecto tenga su línea base aprobada.";
 
 /**
+ * `lista` is the execution Lista of the Actividades tab (U4): only the activities, grouped by goal, without the
+ * semáforo panel (the header owns it), with the S-curve and the Base selector inside a collapsed "Opciones
+ * avanzadas" disclosure. `enfocarId` scrolls to and focuses one activity row (the Tablero card click).
+ *
  * `seguimiento` is the v7 "Ficha de seguimiento" tab: the chart, the period/time/budget cards, progress per goal
  * and the activities, without the indicators and beneficiaries (those have their own tabs: see
  * `ProjectIndicadores` and `ProjectBeneficiarios`). Without it the section keeps all of them.
@@ -52,14 +59,18 @@ export const EJECUCION_BORRADOR_HINT =
 export function ProjectEjecucion({
   proyecto,
   seguimiento = false,
+  lista = false,
+  enfocarId = null,
 }: {
   proyecto: ProjectListRow;
   seguimiento?: boolean;
+  lista?: boolean;
+  enfocarId?: string | null;
 }) {
   if (proyecto.estado === "BORRADOR") {
     return (
       <section data-testid="ejecucion">
-        <EjecucionHeader seguimiento={seguimiento} />
+        {!lista && <EjecucionHeader seguimiento={seguimiento} />}
         <p className="mt-1.5 text-[12.5px] text-ink-500">{EJECUCION_BORRADOR_HINT}</p>
       </section>
     );
@@ -67,9 +78,42 @@ export function ProjectEjecucion({
 
   return (
     <section data-testid="ejecucion">
-      <EjecucionHeader seguimiento={seguimiento} />
-      <EjecucionContent proyecto={proyecto} seguimiento={seguimiento} />
+      {!lista && <EjecucionHeader seguimiento={seguimiento} />}
+      <EjecucionContent proyecto={proyecto} seguimiento={seguimiento} lista={lista} enfocarId={enfocarId} />
     </section>
+  );
+}
+
+/** Collapsed-by-default section: its children mount (and fetch) only once it is opened. */
+export function Disclosure({
+  titulo,
+  testId,
+  children,
+}: {
+  titulo: string;
+  testId?: string;
+  children: ReactNode;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const panelId = useId();
+  return (
+    <div data-testid={testId}>
+      <button
+        type="button"
+        aria-expanded={abierto}
+        aria-controls={panelId}
+        onClick={() => setAbierto((value) => !value)}
+        className="flex min-h-11 items-center gap-1.5 rounded-12 text-[13px] font-semibold text-ink-700 outline-none hover:text-ink-950 focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <ChevronRight className={cn("size-4 transition-transform", abierto && "rotate-90")} strokeWidth={2} />
+        {titulo}
+      </button>
+      {abierto && (
+        <div id={panelId} className="mt-1">
+          {children}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -78,6 +122,65 @@ function EjecucionHeader({ seguimiento }: { seguimiento: boolean }) {
     <SectionHeader icon={<ClipboardList className="size-3.5" strokeWidth={2} />}>Ficha de seguimiento</SectionHeader>
   ) : (
     <SectionHeader icon={<Gauge className="size-3.5" strokeWidth={2} />}>Ejecución técnica</SectionHeader>
+  );
+}
+
+/**
+ * La curva S y, en la ficha de seguimiento, las tarjetas laterales. Es su propio componente para que la
+ * curva solo se lea cuando se monta (en la lista vive dentro de "Opciones avanzadas", plegada).
+ */
+function CurvaSeccion({
+  proyecto,
+  base,
+  corte,
+  seguimiento,
+}: {
+  proyecto: ProjectListRow;
+  base: ProjectBase;
+  corte: string;
+  seguimiento: boolean;
+}) {
+  const curvaQuery = useProjectCurve(proyecto.id, base);
+  if (!seguimiento) return <CurvaAvance query={curvaQuery} />;
+  return (
+    <div className="mt-3 grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <CurvaAvance query={curvaQuery} />
+      <SeguimientoLateral proyecto={proyecto} corte={corte} curva={curvaQuery.data ?? null} />
+    </div>
+  );
+}
+
+/** Opciones avanzadas de la lista: línea base y corte (por defecto vigente y hoy) y la curva S. */
+function OpcionesAvanzadas({
+  proyecto,
+  base,
+  corte,
+  onBaseChange,
+}: {
+  proyecto: ProjectListRow;
+  base: ProjectBase;
+  corte: string;
+  onBaseChange: (base: ProjectBase) => void;
+}) {
+  return (
+    <Disclosure titulo="Opciones avanzadas" testId="ejecucion-avanzadas">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[12.5px] text-ink-600">
+        <label className="flex items-center gap-1.5">
+          Base
+          <select
+            aria-label="Base"
+            value={base}
+            onChange={(event) => onBaseChange(event.target.value as ProjectBase)}
+            className={SELECT_CLASS}
+          >
+            <option value="vigente">Vigente</option>
+            <option value="original">Original (v0)</option>
+          </select>
+        </label>
+        <span>Corte al {formatFechaCalendario(corte)} (hoy)</span>
+      </div>
+      <CurvaSeccion proyecto={proyecto} base={base} corte={corte} seguimiento />
+    </Disclosure>
   );
 }
 
@@ -123,11 +226,21 @@ export function ProjectBeneficiarios({ proyecto }: { proyecto: ProjectListRow })
   return <EjecucionBeneficiarios proyecto={proyecto} canWrite={canWrite} canVoid={canVoid} />;
 }
 
-function EjecucionContent({ proyecto, seguimiento }: { proyecto: ProjectListRow; seguimiento: boolean }) {
+function EjecucionContent({
+  proyecto,
+  seguimiento,
+  lista,
+  enfocarId,
+}: {
+  proyecto: ProjectListRow;
+  seguimiento: boolean;
+  lista: boolean;
+  enfocarId: string | null;
+}) {
   const [base, setBase] = useState<ProjectBase>("vigente");
   const tecnicoQuery = useProjectTechnicalStatus(proyecto.id, base);
-  const curvaQuery = useProjectCurve(proyecto.id, base);
   const activitiesQuery = useProjectActivities(proyecto.id);
+  const objetivosQuery = useProjectObjectives(proyecto.id);
   const deliverablesQuery = useProjectDeliverables(proyecto.id);
 
   const { canWrite, canVoid } = useEjecucionPermisos(proyecto.id);
@@ -159,19 +272,17 @@ function EjecucionContent({ proyecto, seguimiento }: { proyecto: ProjectListRow;
   const tecnicas = new Map(tecnico.actividades.map((actividad) => [actividad.id, actividad]));
 
   return (
-    <div className="mt-2">
-      <SemaforoTecnico tecnico={tecnico} onBaseChange={setBase} />
-
-      {seguimiento ? (
-        <div className="mt-3 grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <CurvaAvance query={curvaQuery} />
-          <SeguimientoLateral proyecto={proyecto} corte={tecnico.corte} curva={curvaQuery.data ?? null} />
-        </div>
+    <div className={lista ? "mt-0" : "mt-2"}>
+      {lista ? (
+        <OpcionesAvanzadas proyecto={proyecto} base={base} corte={tecnico.corte} onBaseChange={setBase} />
       ) : (
-        <CurvaAvance query={curvaQuery} />
+        <>
+          <SemaforoTecnico tecnico={tecnico} onBaseChange={setBase} />
+          <CurvaSeccion proyecto={proyecto} base={base} corte={tecnico.corte} seguimiento={seguimiento} />
+        </>
       )}
 
-      {seguimiento && <AvancePorMeta proyectoId={proyecto.id} tecnico={tecnico} />}
+      {seguimiento && !lista && <AvancePorMeta proyectoId={proyecto.id} tecnico={tecnico} />}
 
       {activitiesQuery.isError ? (
         <InlineError
@@ -183,8 +294,11 @@ function EjecucionContent({ proyecto, seguimiento }: { proyecto: ProjectListRow;
       ) : actividades.length === 0 ? (
         <p className="mt-2 text-[12.5px] text-ink-500">Este proyecto todavía no tiene actividades.</p>
       ) : (
-        <ul className="mt-3 flex flex-col gap-2.5">
-          {actividades.map((actividad) => {
+        <ListaActividades
+          actividades={actividades}
+          objetivos={objetivosQuery.data ?? []}
+          agrupar={lista}
+          fila={(actividad) => {
             const tecnica = tecnicas.get(actividad.id);
             if (!tecnica) return null;
             return (
@@ -199,19 +313,54 @@ function EjecucionContent({ proyecto, seguimiento }: { proyecto: ProjectListRow;
                 progreso={progreso}
                 canWrite={canWrite}
                 canVoid={canVoid}
+                enfocar={enfocarId === actividad.id}
               />
             );
-          })}
-        </ul>
+          }}
+        />
       )}
 
-      {!seguimiento && (
+      {!seguimiento && !lista && (
         <>
           <EjecucionIndicadores proyectoId={proyecto.id} canWrite={canWrite} canVoid={canVoid} />
 
           <EjecucionBeneficiarios proyecto={proyecto} canWrite={canWrite} canVoid={canVoid} />
         </>
       )}
+    </div>
+  );
+}
+
+/** Las actividades en una lista plana o, en la pestaña Actividades, agrupadas bajo su meta. */
+function ListaActividades({
+  actividades,
+  objetivos,
+  agrupar,
+  fila,
+}: {
+  actividades: ProjectActivity[];
+  objetivos: ProjectObjective[];
+  agrupar: boolean;
+  fila: (actividad: ProjectActivity) => ReactNode;
+}) {
+  const grupos = [...objetivos]
+    .sort((a, b) => a.orden - b.orden)
+    .map((objetivo) => ({ objetivo, filas: actividades.filter((a) => a.objetivo_id === objetivo.id) }))
+    .filter((grupo) => grupo.filas.length > 0);
+  // Sin metas legibles (cargando o con error) la lista no se pierde: cae a la versión plana.
+  if (!agrupar || grupos.reduce((n, grupo) => n + grupo.filas.length, 0) !== actividades.length) {
+    return <ul className="mt-3 flex flex-col gap-2.5">{actividades.map(fila)}</ul>;
+  }
+  return (
+    <div className="mt-3 flex flex-col gap-4">
+      {grupos.map(({ objetivo, filas }) => (
+        <section key={objetivo.id} data-testid={`ejecucion-objetivo-${objetivo.codigo}`}>
+          <h4 className="text-[13px] font-semibold text-ink-800">
+            <span className="font-mono text-[11.5px] text-ink-500">{objetivo.codigo}</span> {objetivo.descripcion}
+          </h4>
+          <ul className="mt-1.5 flex flex-col gap-2.5">{filas.map(fila)}</ul>
+        </section>
+      ))}
     </div>
   );
 }

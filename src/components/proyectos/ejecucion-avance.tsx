@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProgressBar } from "@/components/ui/progress-bar";
@@ -15,6 +15,7 @@ import { CaptureSurface } from "@/components/proyectos/capture-surface";
 import { EjecucionAvanceForm } from "@/components/proyectos/ejecucion-avance-form";
 import { VoidControl, errorMessage, plural } from "@/components/proyectos/estructura-ui";
 import { InlineError } from "@/components/proyectos/ui";
+import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
 import {
   useVoidAvance,
   type EstadoActividad,
@@ -23,6 +24,7 @@ import {
   type ProjectDeliverable,
   type ProjectDeliverableProgress,
   type ProjectTechnicalActivity,
+  type ProjectTechnicalActivityV6,
 } from "@/hooks/projects";
 import type { UiTone } from "@/lib/catalogs";
 
@@ -42,6 +44,10 @@ function formatMeta(meta: string): string {
   return Number.isFinite(n) ? formatNumero(n) : meta;
 }
 
+/** The v6 enrichment (plan, days, support, colour) is optional: callers that only have the base row keep working. */
+type TecnicoFila = ProjectTechnicalActivity &
+  Partial<Pick<ProjectTechnicalActivityV6, "programado" | "dias" | "al_corte" | "color" | "sin_soporte">>;
+
 export function EjecucionAvance({
   proyectoId,
   actividad,
@@ -50,28 +56,44 @@ export function EjecucionAvance({
   progreso,
   canWrite,
   canVoid,
+  enfocar = false,
 }: {
   proyectoId: string;
   actividad: ProjectActivity;
-  tecnico: ProjectTechnicalActivity;
+  tecnico: TecnicoFila;
   entregables: ProjectDeliverable[];
   progreso: Map<string, ProjectDeliverableProgress>;
   canWrite: boolean;
   canVoid: boolean;
+  /** Scroll to this row and move the keyboard focus to it (the Tablero sends the user here). */
+  enfocar?: boolean;
 }) {
   const estado = ESTADO_META[tecnico.estado];
+  const fila = useRef<HTMLLIElement>(null);
+
+  useEffect(() => {
+    if (!enfocar) return;
+    fila.current?.scrollIntoView?.({ block: "center" });
+    fila.current?.focus({ preventScroll: true });
+  }, [enfocar]);
 
   return (
     <li
+      ref={fila}
+      id={`actividad-${actividad.id}`}
+      tabIndex={-1}
       data-testid="ejecucion-actividad"
-      className="rounded-inner border border-border bg-panel p-2.5"
+      className="rounded-inner border border-border bg-panel p-2.5 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
     >
       <div className="flex items-start justify-between gap-2">
         <p className="text-[13px] text-ink-900">
           <span className="font-mono text-[11px] text-ink-500 tabular-nums">{actividad.codigo}</span>{" "}
           <span className="font-semibold">{actividad.nombre}</span>
         </p>
-        <ToneBadge tone={estado.tone} label={estado.label} />
+        <span className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+          {tecnico.color && <SemaforoChip color={tecnico.color} />}
+          <ToneBadge tone={estado.tone} label={estado.label} />
+        </span>
       </div>
 
       <div className="mt-1.5 flex items-center gap-2">
@@ -81,9 +103,18 @@ export function EjecucionAvance({
           value={tecnico.progreso}
         />
         <span className="shrink-0 text-[12px] text-ink-600 tabular-nums">
-          {`${formatNumero(tecnico.progreso)} %`}
+          {tecnico.programado === undefined
+            ? `${formatNumero(tecnico.progreso)} %`
+            : `${formatNumero(tecnico.progreso)} % real · ${formatNumero(tecnico.programado)} % plan`}
         </span>
       </div>
+      {tecnico.dias !== undefined && (
+        <p className="mt-1 text-[12px] text-ink-600">
+          {plural(tecnico.dias, "día", "días")}
+          {tecnico.al_corte !== undefined && ` · ${tecnico.al_corte} al corte`}
+          {tecnico.sin_soporte !== undefined && ` · ${tecnico.sin_soporte ? "Sin soporte" : "Con soporte"}`}
+        </p>
+      )}
 
       {entregables.length > 0 && (
         <ul className="mt-2 flex flex-col gap-1.5">

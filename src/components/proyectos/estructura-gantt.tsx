@@ -35,13 +35,16 @@ function etiquetaSemana(fechaInicio: string, semana: number): string {
   return `${day} ${mes}`;
 }
 
-export function EstructuraGantt({ proyecto }: { proyecto: ProjectListRow }) {
+/** `sinTitulo`: dentro de la pestaña Actividades el selector de vistas ya titula el Gantt. */
+export function EstructuraGantt({ proyecto, sinTitulo = false }: { proyecto: ProjectListRow; sinTitulo?: boolean }) {
   const objetivos = useProjectObjectives(proyecto.id);
   const actividades = useProjectActivities(proyecto.id);
 
   return (
-    <div data-testid="gantt" className="mt-4">
-      <SectionHeader as="h4" icon={<ChartGantt className="size-3.5" strokeWidth={2} />}>Cronograma por semanas</SectionHeader>
+    <div data-testid="gantt" className={sinTitulo ? undefined : "mt-4"}>
+      {!sinTitulo && (
+        <SectionHeader as="h4" icon={<ChartGantt className="size-3.5" strokeWidth={2} />}>Cronograma por semanas</SectionHeader>
+      )}
       <GanttBody
         proyecto={proyecto}
         objetivos={objetivos.data}

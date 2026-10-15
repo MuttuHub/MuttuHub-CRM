@@ -5,7 +5,7 @@
 // que el listado y el tablero abren en una pestaña nueva. Monta su propia consulta (`useProject`): el estado del request (loading, error, data) sale
 // entero de la query, sin `useEffect` de carga ni controles de escritura propios.
 //
-// El panel Resumen vive en `ficha/ficha-resumen.tsx` (U3).
+// El panel Resumen vive en `ficha/ficha-resumen.tsx` (U3) y Actividades en `ficha/ficha-actividades.tsx` (U4).
 
 "use client";
 
@@ -15,10 +15,6 @@ import { AlertTriangle, ArrowLeft } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { EstructuraGantt } from "@/components/proyectos/estructura-gantt";
-import { ProjectCronograma } from "@/components/proyectos/project-cronograma";
-import { ProjectEstructura } from "@/components/proyectos/project-estructura";
-import { ProjectEjecucion, ProjectIndicadores } from "@/components/proyectos/project-ejecucion";
 import { ProjectSoportes } from "@/components/proyectos/project-soportes";
 import { ProjectFinanciero } from "@/components/proyectos/project-financiero";
 import { ProjectGastos } from "@/components/proyectos/project-gastos";
@@ -26,6 +22,7 @@ import { ProjectHistorial } from "@/components/proyectos/project-historial";
 import { ProjectModificaciones } from "@/components/proyectos/project-modificaciones";
 import { ProjectPresupuesto } from "@/components/proyectos/project-presupuesto";
 import { ProjectVersiones } from "@/components/proyectos/project-versiones";
+import { FichaActividades } from "@/components/proyectos/ficha/ficha-actividades";
 import { FichaHeader } from "@/components/proyectos/ficha/ficha-header";
 import { FichaResumen } from "@/components/proyectos/ficha/ficha-resumen";
 import { useProject, type ProjectListRow } from "@/hooks/projects";
@@ -111,13 +108,8 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
             <FichaResumen proyecto={proyecto} onIrA={setTab} />
           </TabsContent>
 
-          {/* Temporal: U4 reemplaza estas secciones por las vistas Lista, Gantt y Tablero. */}
           <TabsContent value="actividades" className={PANEL_CLASS}>
-            <ProjectEstructura proyecto={proyecto} />
-            <ProjectIndicadores proyecto={proyecto} />
-            <ProjectCronograma proyecto={proyecto} />
-            <EstructuraGantt proyecto={proyecto} />
-            <ProjectEjecucion proyecto={proyecto} seguimiento />
+            <FichaActividades proyecto={proyecto} />
           </TabsContent>
 
           {/* Temporal: X2 lo reemplaza por `FichaFinanzas`. */}

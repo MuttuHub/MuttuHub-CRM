@@ -224,60 +224,63 @@ describe("ProjectFicha (page)", () => {
     expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/modifications") || String(url).endsWith("/versions"))).toBe(false)
   })
 
-  it("mounts the team in the Resumen and the technical structure only in the Actividades tab", async () => {
-    mockFichaAndAudit({ historial: [] })
+  it("mounts the team in the Resumen and the activities structure only in the Actividades tab", async () => {
+    mockFichaAndAudit({ historial: [] }, 200, { ...PROYECTO, estado: "BORRADOR" })
 
     renderFicha()
 
     await screen.findByTestId("ficha-resumen")
     expect(await screen.findByTestId("equipo")).toBeInTheDocument()
+    expect(screen.queryByTestId("actividades")).not.toBeInTheDocument()
     expect(screen.queryByTestId("estructura")).not.toBeInTheDocument()
     await openTab("Actividades")
+    // In a draft the Lista is the editable structure; the Gantt is another view, not stacked below it.
     const estructura = await screen.findByTestId("estructura")
     expect(estructura).toHaveTextContent("Metas e indicadores")
     expect(screen.queryByTestId("equipo")).not.toBeInTheDocument()
-    // El Gantt es su propia sección dentro de Actividades, no parte de la estructura.
-    expect(within(estructura).queryByTestId("gantt")).not.toBeInTheDocument()
-    expect(await screen.findByTestId("gantt")).toBeInTheDocument()
+    expect(screen.queryByTestId("gantt")).not.toBeInTheDocument()
   })
 
-  it("mounts the read-only v6 schedule in the Cronograma tab, lazily", async () => {
+  it("shows the same activities once in Actividades: the old cronograma, gantt and seguimiento stack is gone", async () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
     await screen.findByTestId("ficha-resumen")
-    expect(screen.queryByTestId("cronograma")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("ejecucion")).not.toBeInTheDocument()
 
     await openTab("Actividades")
 
-    const cronograma = await screen.findByTestId("cronograma")
-    expect(cronograma).toHaveTextContent("Cronograma")
+    const ejecucion = await screen.findByTestId("ejecucion")
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/technical-status", expect.any(Object)),
     )
-    // Solo lectura: la vista de cronograma no ofrece ningún control de escritura.
-    expect(within(cronograma).queryByRole("button")).not.toBeInTheDocument()
-    expect(within(cronograma).queryByRole("form")).not.toBeInTheDocument()
+    for (const id of ["cronograma", "gantt", "estructura", "semaforo-tecnico", "seguimiento-lateral"]) {
+      expect(screen.queryByTestId(id)).not.toBeInTheDocument()
+    }
+    expect(within(ejecucion).queryByRole("heading", { name: "Ficha de seguimiento" })).not.toBeInTheDocument()
   })
 
-  it("mounts the week Gantt in its own Gantt tab", async () => {
+  it("mounts the week Gantt as a view of Actividades, only on request", async () => {
     mockFichaAndAudit({ historial: [] })
+    const user = userEvent.setup()
 
     renderFicha()
     await screen.findByTestId("ficha-resumen")
+    await openTab("Actividades")
     expect(screen.queryByTestId("gantt")).not.toBeInTheDocument()
 
-    await openTab("Actividades")
+    await user.click(await screen.findByRole("tab", { name: "Gantt" }))
 
-    const gantt = await screen.findByTestId("gantt")
-    expect(gantt).toHaveTextContent("Cronograma por semanas")
+    expect(await screen.findByTestId("gantt")).toBeInTheDocument()
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/objectives", expect.any(Object)),
     )
   })
 
   it("offers the Excel template controls in the structure header only for a manager on a draft", async () => {
-    mockFichaAndAudit({ historial: [] }, 200, { ...PROYECTO, estado: "BORRADOR" })
+    mockFichaAndAudit({ historial: [] }, 200, { ...PROYECTO, estado: "BORRADOR" }, KPIS_PANEL, {
+      objetivos: [OBJETIVO_BASE],
+    })
 
     renderFicha()
     await openTab("Actividades")
@@ -306,8 +309,9 @@ describe("ProjectFicha (page)", () => {
     renderFicha()
     await openTab("Actividades")
 
-    await screen.findByTestId("estructura")
+    await screen.findByTestId("ejecucion")
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
+    expect(screen.queryByTestId("estructura")).not.toBeInTheDocument()
     expect(screen.queryByTestId("estructura-plantilla")).not.toBeInTheDocument()
   })
 
@@ -379,8 +383,9 @@ describe("ProjectFicha (page)", () => {
     )
   })
 
-  it("mounts the technical execution section in the Ficha de seguimiento tab, with its side cards, lazily", async () => {
+  it("mounts the execution Lista in Actividades, with the S-curve behind 'Opciones avanzadas', lazily", async () => {
     mockFichaAndAudit({ historial: [] })
+    const user = userEvent.setup()
 
     renderFicha()
     await screen.findByTestId("ficha-resumen")
@@ -388,10 +393,11 @@ describe("ProjectFicha (page)", () => {
 
     await openTab("Actividades")
 
-    const ejecucion = await screen.findByTestId("ejecucion")
-    expect(ejecucion).toHaveTextContent("Ficha de seguimiento")
-    expect(await within(ejecucion).findByTestId("semaforo-tecnico")).toBeInTheDocument()
-    expect(await within(ejecucion).findByTestId("seguimiento-lateral")).toBeInTheDocument()
+    await screen.findByTestId("ejecucion")
+    expect(screen.queryByTestId("curve-s-chart")).not.toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalledWith("/api/v1/projects/p1/curve", expect.any(Object))
+
+    await user.click(await screen.findByRole("button", { name: "Opciones avanzadas" }))
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/curve", expect.any(Object)),
     )
@@ -564,7 +570,7 @@ describe("ProjectFicha (page)", () => {
     expect(screen.getByRole("tab", { name: "Actividades" })).toHaveFocus()
     await user.keyboard("{Enter}")
     expect(screen.getByRole("tab", { name: "Actividades" })).toHaveAttribute("aria-selected", "true")
-    expect(await screen.findByTestId("estructura")).toBeInTheDocument()
+    expect(await screen.findByTestId("actividades")).toBeInTheDocument()
   })
 
   it("omits the difference field when it is null (nothing writes it yet)", async () => {
@@ -715,6 +721,16 @@ describe("ProjectFicha (page)", () => {
     },
   ]
 
+  const OBJETIVO_BASE = {
+    id: "o1",
+    proyecto_id: "p1",
+    codigo: "OBJ-1",
+    descripcion: "Fortalecer capacidades",
+    orden: 1,
+    created_at: "2026-10-08T00:00:00.000Z",
+    updated_at: "2026-10-08T00:00:00.000Z",
+  }
+
   const TECNICO = {
     base: "vigente",
     corte: "2026-10-25",
@@ -742,7 +758,13 @@ describe("ProjectFicha (page)", () => {
     parametros: { tolerancia: 10, retraso: 70, confirmado: false },
   }
 
-  function mockFichaAndAudit(auditBody: unknown, auditStatus = 200, proyecto: unknown = PROYECTO, kpis: unknown = KPIS_PANEL) {
+  function mockFichaAndAudit(
+    auditBody: unknown,
+    auditStatus = 200,
+    proyecto: unknown = PROYECTO,
+    kpis: unknown = KPIS_PANEL,
+    estructuraLista: { objetivos?: unknown[] } = {},
+  ) {
     fetchMock.mockImplementation((input: unknown) => {
       if (String(input).endsWith("/audit")) {
         return Promise.resolve(jsonResponse(auditBody, auditStatus))
@@ -805,7 +827,8 @@ describe("ProjectFicha (page)", () => {
       const estructura = /\/(objectives|activities|deliverables|indicators)$/.exec(String(input))
       if (estructura) {
         const campo = { objectives: "objetivos", activities: "actividades", deliverables: "entregables", indicators: "indicadores" }[estructura[1]]
-        return Promise.resolve(jsonResponse({ [campo as string]: [] }))
+        const filas = campo === "objetivos" ? (estructuraLista.objetivos ?? []) : []
+        return Promise.resolve(jsonResponse({ [campo as string]: filas }))
       }
       if (String(input).endsWith("/api/v1/auth/me")) {
         return Promise.resolve(
