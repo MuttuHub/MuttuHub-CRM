@@ -224,7 +224,7 @@ Mapa aprobado (UX-1):
   - Menú `⋯` con Exportar Excel, Imprimir/PDF (F13) y Aprobar línea base (en borrador).
   - Barra de 5 pestañas.
 
-  Ruta D. Evidencia: @@HASH@@. Vitest `project-ficha`, `ficha` y `project-ejecucion` con 58/58 en verde (RED previo: 27
+  Ruta D. Evidencia: `d6e73d1`. Vitest `project-ficha`, `ficha` y `project-ejecucion` con 58/58 en verde (RED previo: 27
   fallos), `tsc` y `eslint` limpios, detector de Impeccable sin hallazgos. Pendiente (F13): Imprimir/PDF en el menú
   `⋯`, hoy solo tiene Exportar a Excel.
 - [ ] **U3** Resumen. Cambios:
