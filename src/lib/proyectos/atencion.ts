@@ -12,6 +12,7 @@ import {
   calcularTecnico,
   type ActividadTecnicaInput,
 } from "./avance"
+import { vencidaSinTerminar } from "./estado-actividad"
 import { esObservado, type EstadoGasto } from "./gastos"
 import { formatCOP, type Cents } from "./money"
 import type { MedicionInput } from "./kpis"
@@ -176,7 +177,7 @@ export function construirAtencion(input: AtencionInput): AtencionItem[] {
   const progresoDe = new Map(tecnico.actividades.map((actividad) => [actividad.id, actividad.progreso]))
   for (const actividad of input.actividades) {
     const progreso = progresoDe.get(actividad.id) ?? 0
-    if (actividad.fin <= corte && progreso < 1) {
+    if (vencidaSinTerminar({ fin: actividad.fin, corte, terminada: progreso >= 1 })) {
       items.push({
         tipo: "actividad_atrasada",
         titulo: ATENCION_TITULO.actividad_atrasada,
