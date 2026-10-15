@@ -70,16 +70,16 @@ Claude integra la rama de DeepSeek en los puntos de sincronización: el viernes 
 | ID | Pregunta | Estado | Respuesta | Bloquea |
 |---|---|---|---|---|
 | PO-1 | Semaforización territorial | ✅ 2026-10-15 | Quitarla. El municipio queda solo como filtro (RF v2, REQ-DSH-04) | F1 |
-| PO-2 | PDF en el lanzamiento o solo Excel | pendiente | | F13 |
-| PO-4 | ¿Se admiten proyectos de un día (inicio = fin)? | pendiente | | F4 |
-| PO-5 | ¿`valor_total > 0` desde la creación? | pendiente | | F5 |
-| M1 | Crear desde cliente: ¿por defecto «independiente» u ocultar el camino por oportunidad? | pendiente | | F8 |
-| M2 | ¿Qué datos del cliente muestra la tarjeta al seleccionarlo? | pendiente | | F8 |
-| M3 | ¿El proyecto lleva descripción en el lanzamiento? Requiere migración aditiva | pendiente | | F9, R3 |
-| M4 | «Primero clientes, luego oportunidades»: ¿orden de menú (ya se cumple) o flujo? ¿Se ocultan las 6 pestañas vacías de Clientes? | pendiente | | F10 |
-| M5 | Beneficiarios «solo cantidad»: ¿la meta, los atendidos o ambos? ¿Se quita el historial por actividad? | pendiente | | D5 |
-| M6 | «Observado» → «Pendiente por revisión»: ¿renombrar solo la etiqueta? | pendiente | | F11 |
-| M7 | Notificar el rechazo de un gasto: ¿con el motivo? ¿también al anular? Requiere migración aditiva (enum) | pendiente | | F12, R3 |
+| PO-2 | PDF en el lanzamiento o solo Excel | ✅ 2026-10-15 | El PDF sale de la impresión del navegador: una vista imprimible de la ficha que el usuario guarda como PDF. No hay motor en el servidor. `formato=pdf` de la API sigue sin soporte | F13 |
+| PO-4 | ¿Se admiten proyectos de un día (inicio = fin)? | ✅ 2026-10-15 | No. Inicio estrictamente anterior al fin (V-03), igual que en la importación | F4 |
+| PO-5 | ¿`valor_total > 0` desde la creación? | ✅ 2026-10-15 | Sí. Es obligatorio y > 0 al crear (REQ-ORG-04) | F5 |
+| M1 | Crear desde cliente: ¿por defecto «independiente» u ocultar el camino por oportunidad? | ✅ 2026-10-15 | Siempre se elige primero el cliente. Después se puede elegir, de forma opcional, una oportunidad de ese cliente (la FK compuesta ya lo garantiza). La conversión desde una oportunidad ganada se mantiene | F8 |
+| M2 | ¿Qué datos del cliente muestra la tarjeta al seleccionarlo? | ✅ 2026-10-15 | Una tarjeta de solo lectura con NIT, sector, ciudad, contacto principal y conteo de oportunidades y proyectos. Debajo, la lista de oportunidades del cliente para elegir una (opcional, M1). Tamaño M | F8 |
+| M3 | ¿El proyecto lleva descripción en el lanzamiento? Requiere migración aditiva | ✅ 2026-10-15 | Sí, opcional: columna `descripcion` nula, se captura al crear y se edita en la ficha | F9, R3 |
+| M4 | «Primero clientes, luego oportunidades»: ¿orden de menú (ya se cumple) o flujo? ¿Se ocultan las pestañas vacías de Clientes? | ✅ 2026-10-15 | El orden del menú ya se cumple. Se ocultan las pestañas vacías, que son solo Oportunidades y Mapa (`ClientesSectionPlaceholder`) | F10 |
+| M5 | Beneficiarios «solo cantidad»: ¿la meta, los atendidos o ambos? ¿Se quita el historial por actividad? | ✅ 2026-10-15 | Beneficiarios deja de ser sección. Queda un solo número editable, «Beneficiarios», en los datos generales. Desaparecen el registro de atendidos y el KPI atendidos/meta | F14 (D5 y F2 cancelados) |
+| M6 | «Observado» → «Pendiente por revisión»: ¿renombrar solo la etiqueta? | ✅ 2026-10-15 | Solo la etiqueta, en el filtro, el KPI y la alerta. Se mantiene el criterio (sobregasto o datos incompletos) | F11 |
+| M7 | Notificar el rechazo de un gasto: ¿con el motivo? ¿también al anular? Requiere migración aditiva (enum) | ✅ 2026-10-15 | Solo al rechazar, con el motivo en el mensaje y enlace al gasto. Nuevo `GASTO_RECHAZADO`; las notificaciones de proyecto se abren a quien registró el gasto | F12, R3 |
 | G-1 | La gerencia acepta un merge grande sin PRs encadenados | pendiente (usuario) | | R6, R9 |
 | G-2 | Ventana de lanzamiento (propuesta: domingo 2026-10-18 en la mañana) | pendiente (usuario) | | R9 |
 
@@ -132,8 +132,8 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
 
 - [ ] **F1** Quitar la semaforización territorial del tablero gerencial (REQ-DSH-04, PO-1). El municipio queda solo como
   filtro. Archivo: `project-dashboard.tsx`. Tamaño S.
-- [ ] **F2** Tarjeta «Beneficiarios atendidos / meta» en el tablero gerencial (C5). Usa `agregado.beneficiarios`.
-  Tamaño S.
+- [x] ~~**F2** Tarjeta «Beneficiarios atendidos / meta» en el tablero gerencial (C5).~~ Cancelada por M5: ya no se
+  miden atendidos.
 - [ ] **F3** Filtros del portafolio por cliente, línea, municipio y responsable (RF-31). La API ya los acepta
   (`src/app/api/v1/projects/route.ts:61-65`). Archivo: `project-list.tsx`. Tamaño S.
 - [ ] **F4** V-03 estricto: inicio < fin (C1). Depende de PO-4. Tamaño S.
@@ -155,8 +155,23 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
 - [ ] **F12** Notificar a `registrado_por_id` cuando se rechaza un gasto (M7). Toca la ruta `reject`,
   `notificaciones-proyecto.ts`, la lectura de notificaciones para roles no gerenciales, `notification-panel.tsx` y
   OpenAPI. Depende de M7 y R3. Tamaño M.
-- [ ] **F13** Exportación a PDF (RF-32). Depende de PO-2. Si se lanza solo con Excel, queda registrado como decisión.
-  Tamaño L.
+- [ ] **F13** PDF por impresión del navegador (RF-32, PO-2). Cambios:
+  - Una vista imprimible de la ficha del proyecto y de su resumen financiero, con hoja de estilos `@media print`.
+  - Respeta el rol, igual que la ficha.
+  - Lleva un botón «Imprimir / Guardar PDF».
+  - Toma como referencia la `print-ficha.tsx` que ya existe para clientes.
+
+  Ruta nueva bajo `src/app/(app)/proyectos/[id]/` (superficie de Claude). Tamaño M.
+- [ ] **F14** Beneficiarios como un solo número (M5). Cambios:
+  - Quitar la pestaña Beneficiarios de la ficha (`project-ficha.tsx:127,205`) y su registro
+    (`ejecucion-beneficiarios.tsx`).
+  - Reutilizar `Proyecto.beneficiarios_meta` como el campo «Beneficiarios», editable en los datos generales. No requiere
+    migración. La tabla `RegistroBeneficiario` se conserva sin uso y sin borrar datos.
+  - Ajustar los KPI que comparan atendidos contra la meta (`resumen-kpis.tsx:162`, `portafolio-kpis.tsx:86`, el tablero
+    y el agregado de la API).
+  - Verificar si la línea base congela `beneficiarios_meta`. Si lo congela, se pregunta al PO si debe seguir editable.
+
+  Se pasa del carril D al F porque toca la API y los agregados. Tamaño M.
 
 ### Carril D: ficha de proyecto v7 (DeepSeek)
 
@@ -165,16 +180,16 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
   a Claude. Tamaño S.
 - [ ] **D3** (B3) Cronograma: 4 KPI, leyenda de umbrales y columnas «Días», «Al corte» y soporte. Tamaño M.
 - [ ] **D4** (B4) Gantt: relleno del avance real y línea de «Corte». Tamaño M.
-- [ ] **D5** (B5 + M5) Beneficiarios: solo cantidad, sin desglose por grupo poblacional. Se ajusta según M5. Tamaño S.
+- [x] ~~**D5** (B5) Beneficiarios: KPI y desglose.~~ Cancelada por M5. El trabajo pasa a F14 (Claude).
 - [ ] **D6** (B7) Financiero: alertas del semáforo financiero y nota de «rubros sin asignación». Tamaño S.
 
 ## Calendario
 
 | Día | Claude | DeepSeek | Usuario |
 |---|---|---|---|
-| Jueves 15 | R1, R2, F1, F11 | D1, D5, D6 | Destrabar el push, responder las decisiones, conseguir G-1 y sacar el dump de producción |
-| Viernes 16 | R3 (12:00), R4, R5, F2, F3, F6, F7, F8, y F4/F5 si hay respuesta | D3, D4, D2 | Probar en el navegador |
-| Sábado 17 | F9, F12, F10 → **congelamiento a las 12:00** → R6, R7, R8 | Solo correcciones que Claude le marque | Probar la versión candidata |
+| Jueves 15 | R1, R2, F1, F11, F4, F5 | D1, D6 | Destrabar el push, conseguir G-1 y sacar el dump de producción |
+| Viernes 16 | R3 (12:00), R4, R5, F3, F6, F7, F8, F14, F10 | D3, D4, D2 | Probar en el navegador |
+| Sábado 17 | F9, F12, F13 → **congelamiento a las 12:00** → R6, R7, R8 | Solo correcciones que Claude le marque | Probar la versión candidata |
 | Domingo 18 | R9 acompañado, después monitoreo | Margen para correcciones de UI | Ventana de lanzamiento (G-2) y decisión de mantener o revertir |
 
 ## Vuelta atrás
@@ -198,7 +213,13 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
   - «Observado» es una etiqueta derivada (`esObservado`), no un estado del enum.
   - `Proyecto` no tiene descripción.
   - El rechazo de un gasto no notifica a nadie.
+- 2026-10-15: el usuario respondió, en nombre del PO, PO-2, PO-4, PO-5 y M1 a M7. Cambios en el plan:
+  - D5 y F2 quedan cancelados por M5.
+  - Se agrega F14.
+  - F13 baja de L a M, porque el PDF sale de la impresión del navegador.
+  - Corrección: Clientes tiene solo 2 pestañas vacías (Oportunidades y Mapa), no 6.
+  - R3 queda con dos migraciones aditivas: `descripcion` y `GASTO_RECHAZADO`.
 
 ## Siguiente paso
 
-Responder las decisiones pendientes, una a una. Luego R1 y R2, para arrancar a DeepSeek con D1, D5 y D6.
+Faltan G-1 (aceptación de la gerencia) y G-2 (ventana). Luego R1 y R2, para arrancar a DeepSeek con D1 y D6.
