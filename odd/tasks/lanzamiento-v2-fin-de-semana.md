@@ -121,8 +121,11 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
       no traen `valor_total` desde F5. Se corrige en R1c.
   - Red: `git ls-remote` y `git push --dry-run` funcionan desde la red actual. `origin/feat/projects-v2` está en
     `42b8da0`.
-- [ ] **R1c** Ajustar los datos de prueba de las invariantes a F4/F5 (`valor_total > 0`, inicio < fin) y correr todas
+- [x] **R1c** Ajustar los datos de prueba de las invariantes a F4/F5 (`valor_total > 0`, inicio < fin) y correr todas
   las invariantes en secuencia. Ruta D.
+  - Evidencia: commit `547392b`. Se agregó `valor_total: 1000000` a 6 payloads de `proyecto-create-flow`; el caso de
+    conversión con valor en la oportunidad quedó intacto. `prisma` en secuencia: 29 archivos, 210/210 pruebas; `tsc` y
+    `eslint` limpios. Ninguna prueba cambió de intención.
 - [x] **R2** Worktree y rama de DeepSeek, y su prompt listo para pegar (`odd/tasks/lanzamiento-v2-deepseek-prompt.md`).
   Ruta I.
 - [ ] **R3** Migración aditiva de lanzamiento. Contiene `Proyecto.descripcion String?` si M3 la aprueba, y
