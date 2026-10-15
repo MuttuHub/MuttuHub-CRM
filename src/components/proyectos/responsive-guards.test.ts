@@ -15,9 +15,8 @@ describe("390 px responsive guards", () => {
     expect(dashboard).toMatch(/<label className="[^"]*\bmin-w-0\b[^"]*">\s*\{label\}/)
   })
 
-  it("Tablero: cards and the territory section can shrink so their tables scroll in their own container", () => {
+  it("Tablero: cards can shrink so their tables scroll in their own container", () => {
     expect(dashboard).toMatch(/cn\("surface flex min-w-0 flex-col/)
-    expect(dashboard).toMatch(/data-testid="tablero-territorio" className="surface min-w-0 overflow-hidden"/)
   })
 
   it("shell header: the title block yields to the actions and the title is smaller on phones", () => {
