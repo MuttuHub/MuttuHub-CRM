@@ -188,6 +188,15 @@ tarea en `feat/ficha-ux-finanzas`, y no hagas push.
 ## Log de entrega
 
 Lleva `odd/tasks/lanzamiento-v2-deepseek-log.md` con una entrada por tarea. Cada entrada tiene el ID, el hash del commit,
-los archivos tocados, el resultado de las tres verificaciones y los «PEDIDO A CLAUDE». Al terminar X6 escribe
-«LISTO PARA INTEGRAR» y detente. Si encuentras una decisión de producto que no está en el plan, anótala como «PREGUNTA»
-y sigue con lo que no dependa de ella.
+los archivos tocados, el resultado de las tres verificaciones y los «PEDIDO A CLAUDE».
+
+La integración es **progresiva**: Claude incorpora a su rama cada tarea apenas termina.
+
+- Cierra cada tarea con su commit del código **y** la entrada del log en el mismo commit, terminada en
+  `LISTO PARA INTEGRAR: Xn`.
+- Nunca dejes un commit a medias en la rama: cada commit tiene que compilar y pasar sus pruebas.
+- No hagas merge ni rebase desde `feat/projects-v2`. Tu superficie no se cruza con la de Claude, así que no lo
+  necesitas.
+
+Al terminar X6 escribe «LISTO PARA INTEGRAR: TODO» y detente. Si encuentras una decisión de producto que no está en el
+plan, anótala como «PREGUNTA» y sigue con lo que no dependa de ella.

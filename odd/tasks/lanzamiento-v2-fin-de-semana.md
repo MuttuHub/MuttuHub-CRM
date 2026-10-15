@@ -67,8 +67,15 @@ v7 total                     65 %  (fuera del compromiso del lunes)
 | Superficie exclusiva | Todo lo que no es de DeepSeek. En particular: `project-ficha.tsx`, `src/components/proyectos/ficha/ficha-resumen*`, `ficha/ficha-actividades*`, `ficha/actividades-*`, el resto de `src/components/proyectos/**`, `prisma/**`, `scripts/**`, `src/app/**`, `src/lib/**`, `src/hooks/**`, `src/components/crm/**`, `docs/**`, `odd/tasks/lanzamiento-v2-fin-de-semana.md` | `src/components/proyectos/ficha/ficha-finanzas*`, `ficha/ficha-documentos*`, `ficha/ficha-historial*`, `project-financiero*`, `project-presupuesto*`, `presupuesto-programacion*`, `tacometro*`, `project-gastos*`, `gastos-kpis*`, `gasto-*`, `project-soportes*`, `project-modificaciones*`, `project-versiones*`, `odd/tasks/lanzamiento-v2-deepseek-log.md` |
 | No toca | la superficie de DeepSeek | todo lo demás: `package.json`, el lockfile, `src/hooks/**`, `src/lib/**` y la API. Si falta un dato, lo pide |
 
-Claude integra la rama de DeepSeek y monta sus tres componentes en la ficha. Hay dos puntos de sincronización: el viernes
-en la noche y el sábado a las 12:00.
+La integración es **progresiva y en un solo sentido**.
+
+- Cada vez que DeepSeek cierra una tarea (`LISTO PARA INTEGRAR: Xn` en su log), Claude hace
+  `git merge --no-ff feat/ficha-ux-finanzas` sobre `feat/projects-v2`. Después corre las pruebas de los archivos tocados
+  y `tsc`.
+- Los worktrees comparten el repositorio, así que no hace falta push.
+- DeepSeek nunca trae la rama de Claude.
+- Claude solo hace merge entre sus propias tareas, nunca con un escritor suyo editando.
+- Claude monta los componentes de DeepSeek en la ficha cuando U2 deja lista la barra de 5 pestañas.
 
 ## Decisiones
 
