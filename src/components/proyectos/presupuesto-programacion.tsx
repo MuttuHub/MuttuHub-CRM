@@ -9,19 +9,72 @@ import { LoaderCircle } from "lucide-react";
 import { ToneBadge } from "@/components/crm/shared";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { InlineError } from "@/components/proyectos/ui";
-import {
-  MONTO_INVALIDO,
-  MoneyInput,
-  montoToInput,
-  parseMontoInput,
-} from "@/components/proyectos/presupuesto-ui";
+import { MONTO_INVALIDO, montoToInput, parseMontoInput } from "@/components/proyectos/presupuesto-ui";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProjectProgramming, useUpdateProgramming, type ProjectListRow, type ProjectProgramming } from "@/hooks/projects";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const PROGRAMMING_ERROR = "No pudimos cargar la programación. Inténtalo de nuevo.";
+
+const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+/** `"2026-10"` -> `"oct 2026"` (X4); lo que no tenga forma de periodo se muestra tal cual. */
+export function mesLegible(periodo: string): string {
+  const match = /^(\d{4})-(\d{2})$/.exec(periodo);
+  const mes = match ? MESES_CORTOS[Number(match[2]) - 1] : undefined;
+  return match && mes ? `${mes} ${match[1]}` : periodo;
+}
+
+/** `"1234567.5"` -> `"1.234.567,5"`: separador de miles para el campo, con coma decimal. */
+export function montoConMiles(texto: string): string {
+  if (!/^[\d.,]*$/.test(texto) || texto === "") return texto;
+  const corte = Math.max(texto.lastIndexOf(","), texto.lastIndexOf("."));
+  const cola = corte === -1 ? "" : texto.slice(corte + 1);
+  const decimales = corte !== -1 && /^\d{0,2}$/.test(cola) ? cola : null;
+  const entero = (decimales === null ? texto : texto.slice(0, corte)).replace(/[.,]/g, "");
+  const agrupado = entero.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return decimales === null ? agrupado : `${agrupado},${decimales}`;
+}
+
+/** `"1.234.567,5"` -> `"1234567.5"`: lo que se envía (y lo que validan los `parseMontoInput`) sigue siendo numérico. */
+export function montoSinMiles(texto: string): string {
+  if (!/^[\d.,]*$/.test(texto)) return texto;
+  const corte = Math.max(texto.lastIndexOf(","), texto.lastIndexOf("."));
+  if (corte === -1) return texto;
+  const entero = texto.slice(0, corte).replace(/[.,]/g, "") || "0";
+  const cola = texto.slice(corte + 1);
+  return /^\d{0,2}$/.test(cola) ? `${entero}.${cola}` : `${entero}${cola}`;
+}
+
+/**
+ * Campo de monto compartido con la tabla de asignación (`project-presupuesto.tsx`, X4): muestra el
+ * valor con separador de miles mientras se escribe y entrega al `onChange` el valor numérico que
+ * esperan la validación y la API. Un texto que no es un monto se deja intacto para poder avisarlo.
+ */
+export function MontoInput({
+  label,
+  value,
+  onChange,
+  className,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  className?: string;
+}) {
+  return (
+    <Input
+      aria-label={label}
+      inputMode="decimal"
+      value={montoConMiles(value)}
+      onChange={(event) => onChange(montoSinMiles(event.target.value))}
+      className={className ?? "w-full min-w-24 px-2 text-right text-base md:text-[12.5px] tabular-nums"}
+    />
+  );
+}
 
 export function PresupuestoProgramacion({ proyecto, canEdit }: { proyecto: ProjectListRow; canEdit: boolean }) {
   const query = useProjectProgramming(proyecto.id);
@@ -88,7 +141,7 @@ function ProgramacionGrid({
       for (const periodo of data.periodos) {
         const valor = valorCelda(c.rubro_id, periodo);
         if (valor === null) {
-          setLocalError(`${MONTO_INVALIDO} (${c.codigo ?? c.nombre} ${periodo})`);
+          setLocalError(`${MONTO_INVALIDO} (${c.codigo ?? c.nombre} ${mesLegible(periodo)})`);
           return;
         }
         if (toCents(valor) > ZERO) filas.push({ rubro_id: c.rubro_id, periodo, valor });
@@ -110,7 +163,7 @@ function ProgramacionGrid({
             <TableRow>
               <TableHead scope="col">Rubro</TableHead>
               {data.periodos.map((periodo) => (
-                <TableHead key={periodo} scope="col" numeric>{periodo}</TableHead>
+                <TableHead key={periodo} scope="col" numeric>{mesLegible(periodo)}</TableHead>
               ))}
               <TableHead scope="col" numeric>Control</TableHead>
             </TableRow>
@@ -126,8 +179,8 @@ function ProgramacionGrid({
                   {data.periodos.map((periodo) => (
                     <TableCell key={periodo} numeric>
                       {canEdit ? (
-                        <MoneyInput
-                          label={`Programado ${c.codigo ?? c.nombre} ${periodo}`}
+                        <MontoInput
+                          label={`Programado ${c.codigo ?? c.nombre} ${mesLegible(periodo)}`}
                           value={celda(c.rubro_id, periodo)}
                           onChange={(value) => setDrafts((prev) => ({ ...prev, [cellKey(c.rubro_id, periodo)]: value }))}
                         />

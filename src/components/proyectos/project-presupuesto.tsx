@@ -11,13 +11,8 @@ import { LoaderCircle, Wallet } from "lucide-react";
 import { ToneBadge } from "@/components/crm/shared";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { InlineError, SectionHeader } from "@/components/proyectos/ui";
-import {
-  MONTO_INVALIDO,
-  MoneyInput,
-  montoToInput,
-  parseMontoInput,
-} from "@/components/proyectos/presupuesto-ui";
-import { PresupuestoProgramacion } from "@/components/proyectos/presupuesto-programacion";
+import { MONTO_INVALIDO, montoToInput, parseMontoInput } from "@/components/proyectos/presupuesto-ui";
+import { MontoInput, PresupuestoProgramacion } from "@/components/proyectos/presupuesto-programacion";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrentUser } from "@/hooks/kanban";
@@ -132,7 +127,7 @@ function PresupuestoEditor({
                 </TableCell>
                 <TableCell numeric>
                   {canEdit ? (
-                    <MoneyInput
+                    <MontoInput
                       label={`Asignado ${r.codigo ?? r.nombre}`}
                       value={drafts[r.rubro_id] ?? ""}
                       onChange={(value) => setDrafts((prev) => ({ ...prev, [r.rubro_id]: value }))}

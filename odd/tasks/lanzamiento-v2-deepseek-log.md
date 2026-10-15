@@ -79,3 +79,29 @@ LISTO PARA INTEGRAR: X2
 - PREGUNTA: ninguna.
 
 LISTO PARA INTEGRAR: X3
+
+---
+
+## X4 · Montos legibles en Presupuesto
+
+- Commit: `20883d9` — `feat(proyectos): format money inputs and months in the budget`
+- Archivos tocados:
+  - `src/components/proyectos/presupuesto-programacion.tsx` — nuevo campo compartido `MontoInput` (separador de
+    miles al escribir, valor numérico hacia `parseMontoInput`/API), `mesLegible` («oct 2026») en encabezados,
+    etiquetas accesibles y el mensaje de error local. Vive aquí porque `presupuesto-ui.tsx` está fuera de la
+    superficie del carril; `project-presupuesto.tsx` ya importa de este archivo.
+  - `src/components/proyectos/project-presupuesto.tsx` — usa `MontoInput` en la tabla de asignación.
+  - `src/components/proyectos/project-presupuesto.test.tsx` — valores con miles en pantalla, meses legibles y
+    envío numérico intacto.
+  - `src/components/proyectos/presupuesto-programacion.test.tsx` — **nuevo**. Meses legibles, miles al escribir con
+    control numérico y lectura sin edición.
+- Verificaciones:
+  1. `TZ=America/Bogota npx vitest run` sobre las rutas del carril → 9 archivos, 111 pruebas, **verde**.
+  2. `npx tsc --noEmit` → **sin errores**.
+  3. `npx eslint src/components/proyectos/ficha src/components/proyectos/project-financiero.tsx
+     src/components/proyectos/project-presupuesto.tsx src/components/proyectos/project-gastos.tsx` → **sin avisos**.
+- PEDIDO A CLAUDE: ninguno. Nota: `MoneyInput` de `presupuesto-ui.tsx` queda sin uso (ese archivo no es de mi
+  superficie; no lo toco).
+- PREGUNTA: ninguna.
+
+LISTO PARA INTEGRAR: X4
