@@ -106,6 +106,14 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
 
 - [ ] **R1** Base en verde sobre `feat/projects-v2`: `npx tsc --noEmit`, `TZ=America/Bogota npx vitest run` y
   `npm run build`. Ruta D (ejecución). Aceptación: los tres en verde, con el resultado anotado aquí.
+  - Corrida 1 (2026-10-15, sobre `8be1e13`):
+    - `tsc`: exit 0.
+    - `vitest`: 320/348 archivos y 3523/3718 pruebas pasan. Las 28 suites que fallan son todas
+      `prisma/*.invariant.test.ts`, por «Can't reach database server at 127.0.0.1:54322»: Docker Desktop está apagado y
+      `docker` no existe en WSL.
+    - `build`: falla por `next/font`, que no puede descargar Google Fonts. Es el bloqueo de red de Fortinet.
+
+    **Pendiente:** levantar Docker y repetir las invariantes, y luego decidir si se alojan las fuentes localmente (R1b).
 - [x] **R2** Worktree y rama de DeepSeek, y su prompt listo para pegar (`odd/tasks/lanzamiento-v2-deepseek-prompt.md`).
   Ruta I.
 - [ ] **R3** Migración aditiva de lanzamiento. Contiene `Proyecto.descripcion String?` si M3 la aprueba, y
