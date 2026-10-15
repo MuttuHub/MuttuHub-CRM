@@ -323,9 +323,9 @@ describe("ProjectGastos", () => {
       expect(chip(/^Registrado/)).toHaveTextContent("3")
       expect(chip(/^Validado/)).toHaveTextContent("1")
       expect(chip(/^Rechazado/)).toHaveTextContent("1")
-      expect(chip(/^Observados/)).toHaveTextContent("2")
+      expect(chip(/^Pendiente por revisión/)).toHaveTextContent("2")
       expect(chip(/^Todos/)).toHaveAttribute("aria-pressed", "true")
-      expect(chip(/^Observados/)).toHaveAttribute("aria-pressed", "false")
+      expect(chip(/^Pendiente por revisión/)).toHaveAttribute("aria-pressed", "false")
       expect(screen.queryByRole("button", { name: /^Anulado/ })).not.toBeInTheDocument()
     })
 
@@ -341,11 +341,11 @@ describe("ProjectGastos", () => {
       expect(fetchMock.mock.calls.length).toBe(antes)
     })
 
-    it("Observados keeps REGISTRADO expenses with the overspend alert or incomplete data (D5)", async () => {
+    it("Pendiente por revisión keeps REGISTRADO expenses with the overspend alert or incomplete data (D5)", async () => {
       const user = userEvent.setup()
       setup({ gastos: MIXTO() })
       await screen.findByTestId("gastos-lista")
-      await user.click(chip(/^Observados/))
+      await user.click(chip(/^Pendiente por revisión/))
       const filas = screen.getAllByTestId("gasto-fila")
       expect(filas).toHaveLength(2)
       expect(filas[0]).toHaveTextContent("Supera el asignado")

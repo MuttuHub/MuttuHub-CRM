@@ -48,7 +48,7 @@ const FILTRO_LABEL: Record<Filtro, string> = {
   VALIDADO: "Validado",
   RECHAZADO: "Rechazado",
   ANULADO: "Anulado",
-  OBSERVADOS: "Observados",
+  OBSERVADOS: "Pendiente por revisión",
 };
 
 /** D5: el filtro "Observados" no es un estado; los demás coinciden con el estado del gasto. */

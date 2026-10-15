@@ -18,7 +18,7 @@ const DATOS: ProjectExpenses = {
 }
 
 describe("GastosKpis", () => {
-  it("shows total, validated, pending, with-support share and observed from the server numbers", () => {
+  it("shows total, validated, pending, with-support share and pending-review from the server numbers", () => {
     render(<GastosKpis data={DATOS} isLoading={false} isError={false} />)
     const total = screen.getByTestId("gastos-kpi-total")
     expect(total).toHaveTextContent("Total registrado")
@@ -34,7 +34,7 @@ describe("GastosKpis", () => {
     const soporte = screen.getByTestId("gastos-kpi-con-soporte")
     expect(soporte).toHaveTextContent("4 de 5")
     const observados = screen.getByTestId("gastos-kpi-observados")
-    expect(observados).toHaveTextContent("Observados")
+    expect(observados).toHaveTextContent("Pendiente por revisión")
     expect(observados).toHaveTextContent("2")
     expect(observados).toHaveTextContent("$ 450.000")
   })
@@ -45,7 +45,7 @@ describe("GastosKpis", () => {
     expect(monto).toHaveTextContent("$ 32,7 M")
   })
 
-  it("flags observed expenses with the alert tone only when there are some", () => {
+  it("flags pending-review expenses with the alert tone only when there are some", () => {
     const { rerender } = render(<GastosKpis data={DATOS} isLoading={false} isError={false} />)
     expect(screen.getByTestId("gastos-kpi-observados")).toHaveAttribute("data-tone", "alerta")
     rerender(

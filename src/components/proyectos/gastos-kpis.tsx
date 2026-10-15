@@ -97,7 +97,7 @@ export function GastosKpis({
       <KpiTile
         data-testid="gastos-kpi-observados"
         className={TILE}
-        label="Observados"
+        label="Pendiente por revisión"
         tone={resumen.observados.cantidad > 0 ? "alerta" : undefined}
         value={numero.format(resumen.observados.cantidad)}
         hint={<Dinero cents={toCents(resumen.observados.valor)} />}
