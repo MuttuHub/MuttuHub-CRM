@@ -16,6 +16,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { MENSAJE_RANGO_FECHAS, rangoFechasValido } from "@/lib/proyectos/rango-fechas";
 import { LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -268,7 +269,7 @@ export function ProjectCreateForm({
     if (municipioIds.length === 0) return "Selecciona al menos un municipio.";
     if (responsableEfectivo === "") return "Selecciona el responsable.";
     if (fechaInicio === "" || fechaFin === "") return "Completa las fechas de inicio y fin.";
-    if (fechaFin < fechaInicio) return "La fecha de fin no puede ser anterior a la de inicio.";
+    if (!rangoFechasValido(fechaInicio, fechaFin)) return MENSAJE_RANGO_FECHAS;
     if (origen === "OPORTUNIDAD") {
       if (!oportunidad) return "Selecciona la oportunidad ganada.";
     } else {

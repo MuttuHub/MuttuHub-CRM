@@ -193,6 +193,9 @@ describe("validarModificacion", () => {
     expect(codigos(valida(liveF_V1(), "CRONOGRAMA", [acortar]))).toContain("PERIODO_FUERA_DE_RANGO")
     const invertida = { ...acortar, despues: "2026-09-01" }
     expect(codigos(valida(liveF_V1(), "CRONOGRAMA", [invertida]))).toContain("FECHAS_INVALIDAS")
+    // V-03 strict (PO-4): an end equal to the start is not a valid range either.
+    const igual = { ...acortar, despues: "2026-10-05" }
+    expect(codigos(valida(liveF_V1(), "CRONOGRAMA", [igual]))).toContain("FECHAS_INVALIDAS")
   })
 
   it("validates ENTREGABLES quantities", () => {

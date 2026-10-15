@@ -13,6 +13,7 @@
 // `miembro_ids` (S2.6) and any UI.
 
 import { NextResponse } from "next/server";
+import { MENSAJE_RANGO_FECHAS, rangoFechasValido } from "@/lib/proyectos/rango-fechas";
 import { OrigenProyecto, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -258,11 +259,11 @@ export const PATCH = withApiErrorHandling(
       }
     }
 
-    // Cross-field rule the column cannot express: fecha_fin > fecha_inicio.
+    // Cross-field rule the column cannot express: fecha_inicio < fecha_fin (V-03, strict).
     const inicio = "fecha_inicio" in patch ? patch.fecha_inicio : existente.fecha_inicio;
     const fin = "fecha_fin" in patch ? patch.fecha_fin : existente.fecha_fin;
-    if (inicio && fin && fin.getTime() < inicio.getTime()) {
-      return apiError("La fecha de fin no puede ser anterior a la de inicio.", 400, "VALIDATION_ERROR");
+    if (inicio && fin && !rangoFechasValido(inicio, fin)) {
+      return apiError(MENSAJE_RANGO_FECHAS, 400, "VALIDATION_ERROR");
     }
 
     if (lineas !== undefined) {

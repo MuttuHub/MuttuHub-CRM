@@ -585,7 +585,18 @@ describe("POST /api/v1/projects (E-03)", () => {
     const json = await res.json();
 
     expect(res.status).toBe(400);
-    expect(json.error).toBe("La fecha de fin no puede ser anterior a la de inicio.");
+    expect(json.error).toBe("La fecha de fin debe ser posterior a la fecha de inicio.");
+    expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects fecha_fin equal to fecha_inicio (V-03 strict, PO-4)", async () => {
+    const res = await POST(
+      postRequest({ ...createBody, fecha_inicio: "2026-10-05", fecha_fin: "2026-10-05" }),
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toBe("La fecha de fin debe ser posterior a la fecha de inicio.");
     expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
   });
 

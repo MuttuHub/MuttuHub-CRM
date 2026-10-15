@@ -371,8 +371,12 @@ describe("PATCH /api/v1/projects/:id", () => {
 
     expect(res.status).toBe(400);
     expect(json.code).toBe("VALIDATION_ERROR");
-    expect(json.error).toBe("La fecha de fin no puede ser anterior a la de inicio.");
+    expect(json.error).toBe("La fecha de fin debe ser posterior a la fecha de inicio.");
     expect(mocks.txUpdate).not.toHaveBeenCalled();
+
+    const igual = await PATCH(patchRequest({ fecha_inicio: "2027-01-29" }), routeContext);
+    expect(igual.status).toBe(400);
+    expect((await igual.json()).error).toBe("La fecha de fin debe ser posterior a la fecha de inicio.");
 
     const ok = await PATCH(patchRequest({ fecha_inicio: "2026-11-02" }), routeContext);
     expect(ok.status).toBe(200);

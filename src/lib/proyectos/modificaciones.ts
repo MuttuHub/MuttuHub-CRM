@@ -8,6 +8,7 @@
 import { resolvePeso, validarSemanas } from "./actividad"
 import { precondicionesPresupuesto } from "./ficha-financiera"
 import { formatCOP, fromCents, sumCents, toCents, type Cents } from "./money"
+import { MENSAJE_RANGO_FECHAS, rangoFechasValido } from "./rango-fechas"
 import { decimal, money, type LiveProyecto } from "./versiones"
 import { assertIsoDate, durationWeeks, projectPeriods, type Periodo } from "./weeks"
 
@@ -292,9 +293,9 @@ export function validarModificacion(
   const ZERO = BigInt(0)
 
   const fechasCambian = s.detalle.some((i) => i.elemento === "proyecto")
-  const fechasValidas = despues.proyecto.fecha_fin >= despues.proyecto.fecha_inicio
+  const fechasValidas = rangoFechasValido(despues.proyecto.fecha_inicio, despues.proyecto.fecha_fin)
   if (!fechasValidas) {
-    errores.push({ codigo: "FECHAS_INVALIDAS", clave: "proyecto", mensaje: "La fecha de fin no puede ser anterior a la de inicio." })
+    errores.push({ codigo: "FECHAS_INVALIDAS", clave: "proyecto", mensaje: MENSAJE_RANGO_FECHAS })
   }
 
   // Budget deltas per rubro.

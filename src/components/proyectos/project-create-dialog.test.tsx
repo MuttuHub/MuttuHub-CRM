@@ -279,8 +279,22 @@ describe("ProjectCreateDialog", () => {
     await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "La fecha de fin no puede ser anterior a la de inicio.",
+      "La fecha de fin debe ser posterior a la fecha de inicio.",
     )
+    expect(createFromOpportunity.mutateAsync).not.toHaveBeenCalled()
+  })
+
+  it("refuses fecha_fin equal to fecha_inicio and fires no request (V-03 strict)", async () => {
+    const user = userEvent.setup()
+    renderDialog()
+
+    await elegirOportunidad(user)
+    await elegirMunicipio(user)
+    fireEvent.change(screen.getByLabelText("Fecha de inicio"), { target: { value: "2026-10-05" } })
+    fireEvent.change(screen.getByLabelText("Fecha de fin"), { target: { value: "2026-10-05" } })
+    await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("La fecha de fin debe ser posterior a la fecha de inicio.")
     expect(createFromOpportunity.mutateAsync).not.toHaveBeenCalled()
   })
 

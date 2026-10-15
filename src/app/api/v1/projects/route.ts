@@ -27,6 +27,7 @@ import { canCreateProject } from "@/lib/permissions";
 import { nextProjectCode } from "@/lib/api/project-code";
 import { logChanges } from "@/lib/api/audit-cambios";
 import { validarLineas, miembrosInicialesProyecto } from "@/lib/proyectos/proyecto-general";
+import { MENSAJE_RANGO_FECHAS, rangoFechasValido } from "@/lib/proyectos/rango-fechas";
 import {
   PROJECT_SELECT_V2,
   addProyectoMiembros,
@@ -136,7 +137,18 @@ const PROJECT_CREATE_BASE = {
   miembro_ids: z.array(z.string().min(1, "El usuario no es válido.")).optional(),
 } as const;
 
-export const PROJECT_CREATE_SCHEMA = z.object({
+/** V-03 (PO-4): start strictly before end. Runs once both dates parsed, so it never masks a bad-date error. */
+function exigirRangoFechas(
+  data: { fecha_inicio: string; fecha_fin: string },
+  ctx: z.RefinementCtx,
+) {
+  if (!rangoFechasValido(data.fecha_inicio, data.fecha_fin)) {
+    ctx.addIssue({ code: "custom", message: MENSAJE_RANGO_FECHAS, path: ["fecha_fin"] });
+  }
+}
+
+export const PROJECT_CREATE_SCHEMA = z
+  .object({
   nombre: z
     .string()
     .trim()
@@ -144,22 +156,25 @@ export const PROJECT_CREATE_SCHEMA = z.object({
     .max(200, "El nombre es muy largo."),
   cliente_id: z.string().min(1, "El cliente no es válido."),
   ...PROJECT_CREATE_BASE,
-});
+  })
+  .superRefine(exigirRangoFechas);
 
 /**
  * E-05 shares the E-03 body minus `cliente_id` (derived from the URL) and with
  * `nombre` optional: the server prefills it from the opportunity when the
  * client omits it, and an explicit value overrides the prefill.
  */
-export const PROJECT_CREATE_FROM_OPPORTUNITY_SCHEMA = z.object({
-  nombre: z
-    .string()
-    .trim()
-    .min(1, "El nombre no puede estar vacío.")
-    .max(200, "El nombre es muy largo.")
-    .optional(),
-  ...PROJECT_CREATE_BASE,
-});
+export const PROJECT_CREATE_FROM_OPPORTUNITY_SCHEMA = z
+  .object({
+    nombre: z
+      .string()
+      .trim()
+      .min(1, "El nombre no puede estar vacío.")
+      .max(200, "El nombre es muy largo.")
+      .optional(),
+    ...PROJECT_CREATE_BASE,
+  })
+  .superRefine(exigirRangoFechas);
 
 /**
  * Fields that must not be settable at creation: `codigo` belongs to S2.2,
@@ -227,13 +242,6 @@ export const POST = withApiErrorHandling(
 
     const inicio = normalizeProjectDate(parsed.data.fecha_inicio);
     const fin = normalizeProjectDate(parsed.data.fecha_fin);
-    if (fin.getTime() < inicio.getTime()) {
-      return apiError(
-        "La fecha de fin no puede ser anterior a la de inicio.",
-        400,
-        "VALIDATION_ERROR",
-      );
-    }
 
     const cliente = await db.cliente.findFirst({
       where: { id: parsed.data.cliente_id, deleted_at: null },
