@@ -2,12 +2,24 @@
 // which ones can be opened and the URLs the page navigates to. No React here so it is trivially testable.
 
 export const PASOS = [
-  { numero: 1, etiqueta: "General", titulo: "Información general", descripcion: "Datos base del proyecto. El código se asigna solo." },
-  { numero: 2, etiqueta: "Metas", titulo: "Metas e indicadores", descripcion: "Cada meta tiene indicadores de resultado con línea base y meta." },
-  { numero: 3, etiqueta: "Cronograma", titulo: "Cronograma de actividades", descripcion: "Toda actividad declara su meta asociada y su entregable." },
+  { numero: 1, etiqueta: "General", titulo: "Información general", descripcion: "Pide los datos base para crear el proyecto en borrador; el código se asigna solo." },
+  { numero: 2, etiqueta: "Metas", titulo: "Metas e indicadores", descripcion: "Define qué se quiere lograr: cada meta tiene indicadores con línea base y meta para medir el avance." },
+  { numero: 3, etiqueta: "Cronograma", titulo: "Cronograma de actividades", descripcion: "Planifica qué se hace y cuándo: cada actividad declara su meta asociada y su entregable." },
   { numero: 4, etiqueta: "Presupuesto", titulo: "Presupuesto proyectado por rubros", descripcion: "Reparte el valor total por rubro y programa los desembolsos por mes." },
   { numero: 5, etiqueta: "Revisión", titulo: "Revisar y aprobar", descripcion: "Confirma lo capturado. Puedes guardar el borrador o aprobar la línea base." },
 ] as const
+
+/** Extra explanation of a step, shown behind a help button next to its title. Steps without one have none. */
+const AYUDA_PASOS: Record<number, string> = {
+  3: "El peso de una actividad indica cuánto cuenta en el avance. Si no lo escribes, se calcula con su duración en semanas.",
+  4: "La programación reparte lo asignado a cada rubro en los meses en que esperas ejecutarlo.",
+  5: "Al aprobar la línea base, la estructura y el presupuesto quedan congelados y el proyecto pasa a En ejecución.",
+}
+
+export function ayudaDePaso(numero: number, aprobado: boolean): string | null {
+  if (aprobado && numero === TOTAL_PASOS) return null
+  return AYUDA_PASOS[numero] ?? null
+}
 
 export type NumeroPaso = (typeof PASOS)[number]["numero"]
 export type EstadoPaso = "hecho" | "activo" | "pendiente"
@@ -71,14 +83,17 @@ export function hrefNuevoProyecto({
   proyecto,
   paso,
   oportunidad,
+  cliente,
 }: {
   proyecto?: string
   paso?: number
   oportunidad?: string
+  cliente?: string
 }): string {
   const params: string[] = []
   if (proyecto) params.push(`proyecto=${encodeURIComponent(proyecto)}`)
   if (paso !== undefined) params.push(`paso=${paso}`)
   if (oportunidad) params.push(`oportunidad=${encodeURIComponent(oportunidad)}`)
+  if (cliente) params.push(`cliente=${encodeURIComponent(cliente)}`)
   return params.length > 0 ? `${RUTA_NUEVO_PROYECTO}?${params.join("&")}` : RUTA_NUEVO_PROYECTO
 }

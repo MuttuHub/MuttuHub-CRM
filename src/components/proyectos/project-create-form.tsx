@@ -1,7 +1,8 @@
 // Create-project form body (S2.4, unit 2), shared by the dialog (`project-create-dialog.tsx`) and the
-// stepper page (`/proyectos/nuevo`). The first question is the origin (REQ-ORG-01): "desde una
-// oportunidad ganada" (the demo path, default) or "independiente". The second path reuses the same
-// pieces and only changes where `cliente_id` comes from.
+// stepper page (`/proyectos/nuevo`). The first question is the CLIENT (M1): once chosen, a read-only card
+// shows what we know about it and an optional select lists only that client's won opportunities without a
+// project. The origin (REQ-ORG-01) is derived, never asked: an opportunity chosen => it is created through
+// the conversion endpoint; none => it is an independent project with the chosen `cliente_id`.
 //
 // The body that is sent NEVER includes `codigo`, `estado`, `oportunidad_id`, `cliente_id` (on the
 // opportunity path), `deleted_at`, `umbrales_override`, `programacion_pendiente`,
@@ -18,6 +19,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { MENSAJE_RANGO_FECHAS, rangoFechasValido } from "@/lib/proyectos/rango-fechas";
 import { LoaderCircle } from "lucide-react";
+import { ClienteResumen } from "@/components/proyectos/nuevo-proyecto/cliente-resumen";
+import { HelpHint } from "@/components/ui/help-hint";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DialogFooter } from "@/components/ui/dialog";
@@ -43,9 +46,12 @@ import {
 } from "@/hooks/projects";
 import { formatCOP, fromCents, toCents } from "@/lib/proyectos/money";
 import { diferenciaValor, validarLineas } from "@/lib/proyectos/proyecto-general";
-import { cn } from "@/lib/utils";
 /** Filtro estable del picker de clientes: el mismo objeto en cada render. */
 const CLIENT_PICKER_FILTERS = { limit: 200 } as const;
+/** Valor interno de la opción «sin oportunidad» del selector (un Select no admite `null`). */
+const SIN_OPORTUNIDAD = "sin-oportunidad";
+/** Con más clientes que esto aparece un campo para buscar por nombre. */
+const CLIENTES_PARA_BUSCAR = 8;
 
 type OrigenForm = "OPORTUNIDAD" | "INDEPENDIENTE";
 
@@ -112,6 +118,8 @@ export type ProjectCreateFormProps = {
    * validation are unchanged; the user can still pick another one.
    */
   initialOportunidadId?: string;
+  /** Client to preselect (`?cliente=<id>`, the "Crear proyecto" button of the client sheet). */
+  initialClienteId?: string;
   /** Called once with the created project (it always has an id here). */
   onCreated: (proyecto: CreatedProject) => void;
   /** The server accepted the creation but returned no project id (nothing to open). */
@@ -124,8 +132,26 @@ export type ProjectCreateFormProps = {
   variant?: "dialog" | "page";
 };
 
+function Etiqueta({
+  htmlFor,
+  ayuda,
+  children,
+}: {
+  htmlFor: string;
+  ayuda: { label: string; texto: string };
+  children: string;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <Label htmlFor={htmlFor}>{children}</Label>
+      <HelpHint label={ayuda.label}>{ayuda.texto}</HelpHint>
+    </div>
+  );
+}
+
 export function ProjectCreateForm({
   initialOportunidadId,
+  initialClienteId,
   onCreated,
   onCreatedWithoutId,
   onCancel,
@@ -139,10 +165,10 @@ export function ProjectCreateForm({
   const linesQuery = useStrategicLines();
   const municipalitiesQuery = useMunicipalities();
 
-  const [origen, setOrigen] = useState<OrigenForm>("OPORTUNIDAD");
   const [oportunidad, setOportunidad] = useState<EligibleOpportunity | null>(null);
   const [nombre, setNombre] = useState("");
-  const [clienteId, setClienteId] = useState("");
+  const [clienteId, setClienteId] = useState(initialClienteId ?? "");
+  const [busquedaCliente, setBusquedaCliente] = useState("");
   const [valorTotal, setValorTotal] = useState("");
   const [beneficiariosMeta, setBeneficiariosMeta] = useState("");
   const [responsableId, setResponsableId] = useState("");
@@ -161,6 +187,8 @@ export function ProjectCreateForm({
     if (error) errorRef.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
   }, [error]);
 
+  // El origen no se pregunta: lo decide la oportunidad elegida.
+  const origen: OrigenForm = oportunidad ? "OPORTUNIDAD" : "INDEPENDIENTE";
   const createProject = useCreateProject();
   const createFromOpportunity = useCreateProjectFromOpportunity(
     oportunidad?.cliente_id ?? "",
@@ -172,6 +200,12 @@ export function ProjectCreateForm({
   const municipios = municipalitiesQuery.data ?? [];
   const usuarios = usersQuery.data ?? [];
   const clientes = clientsQuery.data?.items ?? [];
+  const oportunidadesDelCliente = oportunidades.filter((op) => op.cliente_id === clienteId);
+  const termino = busquedaCliente.trim().toLowerCase();
+  const clientesVisibles =
+    termino === ""
+      ? clientes
+      : clientes.filter((c) => c.id === clienteId || c.nombre.toLowerCase().includes(termino));
   // Prefijos derivados, sin efectos: el usuario logueado y la primera línea del
   // catálogo como principal mientras el usuario no los haya tocado.
   const responsableEfectivo = responsableId !== "" ? responsableId : (userQuery.data?.id ?? "");
@@ -183,20 +217,25 @@ export function ProjectCreateForm({
   const pendiente =
     origen === "OPORTUNIDAD" ? createFromOpportunity.isPending : createProject.isPending;
 
-  function elegirOrigen(next: OrigenForm) {
-    if (next === origen) return;
-    setOrigen(next);
-    setOportunidad(null);
-    setNombre("");
-    setClienteId("");
-    setValorTotal("");
+  function elegirCliente(id: string) {
+    if (id === clienteId) return;
+    setClienteId(id);
+    // Lo que vino de la oportunidad anterior ya no corresponde a este cliente.
+    if (oportunidad) {
+      setOportunidad(null);
+      setNombre("");
+      setValorTotal("");
+    }
     setError(null);
   }
 
-  function elegirOportunidad(op: EligibleOpportunity) {
+  function elegirOportunidad(op: EligibleOpportunity | null) {
     setOportunidad(op);
-    setNombre(op.nombre);
-    setValorTotal(valorDesdeDecimal(op.valor_estimado_cop));
+    if (op) {
+      setClienteId(op.cliente_id);
+      setNombre(op.nombre);
+      setValorTotal(valorDesdeDecimal(op.valor_estimado_cop));
+    }
     setError(null);
   }
 
@@ -262,6 +301,7 @@ export function ProjectCreateForm({
 
   /** Validación previa al submit: nunca se dispara una petición inválida. */
   function validar(): string | null {
+    if (clienteId === "") return "Selecciona el cliente.";
     const validacion = validarLineas(
       lineaIds.map((id) => ({ id, principal: principalIds.includes(id) })),
     );
@@ -271,12 +311,7 @@ export function ProjectCreateForm({
     if (fechaInicio === "" || fechaFin === "") return "Completa las fechas de inicio y fin.";
     if (!rangoFechasValido(fechaInicio, fechaFin)) return MENSAJE_RANGO_FECHAS;
     if (!(Number(valorTotal.trim()) > 0)) return "El valor total debe ser mayor que cero.";
-    if (origen === "OPORTUNIDAD") {
-      if (!oportunidad) return "Selecciona la oportunidad ganada.";
-    } else {
-      if (clienteId === "") return "Selecciona el cliente.";
-      if (nombre.trim() === "") return "El nombre del proyecto es obligatorio.";
-    }
+    if (origen === "INDEPENDIENTE" && nombre.trim() === "") return "El nombre del proyecto es obligatorio.";
     return null;
   }
 
@@ -337,96 +372,84 @@ export function ProjectCreateForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-      <fieldset className="flex flex-col gap-2">
-        <legend className="text-sm leading-none font-medium">Origen</legend>
-        <div className="flex flex-wrap gap-2">
-          {(
-            [
-              { value: "OPORTUNIDAD", label: "Desde una oportunidad ganada" },
-              { value: "INDEPENDIENTE", label: "Proyecto independiente" },
-            ] as const
-          ).map((opcion) => (
-            <button
-              key={opcion.value}
-              type="button"
-              aria-pressed={origen === opcion.value}
-              onClick={() => elegirOrigen(opcion.value)}
-              className={cn(
-                "rounded-12 border px-3 py-2 text-[13px] font-medium transition-colors",
-                origen === opcion.value
-                  ? "border-rose-500 bg-rose-50 text-accent-soft dark:bg-rose-500/10"
-                  : "border-ink-200 bg-panel text-ink-700 hover:bg-ink-050",
-              )}
-            >
-              {opcion.label}
-            </button>
-          ))}
-        </div>
-      </fieldset>
+      <div className="flex flex-col gap-2">
+        <Etiqueta
+          htmlFor="proyecto-cliente"
+          ayuda={{
+            label: "Cliente",
+            texto:
+              "El proyecto pertenece a un cliente. Al elegirlo ves sus datos y sus oportunidades ganadas sin proyecto.",
+          }}
+        >
+          Cliente
+        </Etiqueta>
+        {clientes.length > CLIENTES_PARA_BUSCAR && (
+          <Input
+            type="search"
+            value={busquedaCliente}
+            onChange={(event) => setBusquedaCliente(event.target.value)}
+            aria-label="Buscar cliente"
+            placeholder="Buscar cliente por nombre"
+            className="px-3"
+          />
+        )}
+        <Select value={clienteId} onValueChange={(value) => elegirCliente(value ?? "")}>
+          <SelectTrigger id="proyecto-cliente" aria-label="Cliente" className="w-full px-3">
+            <SelectValue placeholder="Selecciona el cliente" />
+          </SelectTrigger>
+          <SelectContent>
+            {clientesVisibles.map((cliente) => (
+              <SelectItem key={cliente.id} value={cliente.id}>
+                {cliente.nombre}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-      {origen === "OPORTUNIDAD" ? (
-        <div className="flex flex-col gap-2">
-          <span className="text-sm leading-none font-medium">Oportunidad ganada</span>
-          {oportunidades.length === 0 ? (
-            <p className="rounded-12 border border-ink-200 bg-ink-050 px-3 py-2 text-[13px] text-ink-600">
-              No hay oportunidades ganadas sin proyecto.
-            </p>
-          ) : (
-            <div className="grid gap-2 sm:grid-cols-2">
-              {oportunidades.map((op) => (
-                <button
-                  key={op.id}
-                  type="button"
-                  aria-pressed={oportunidad?.id === op.id}
-                  onClick={() => elegirOportunidad(op)}
-                  className={cn(
-                    "flex flex-col gap-0.5 rounded-12 border px-3 py-2 text-left transition-colors",
-                    oportunidad?.id === op.id
-                      ? "border-rose-500 bg-rose-50 dark:bg-rose-500/10"
-                      : "border-ink-200 bg-panel hover:bg-ink-050",
-                  )}
-                >
-                  <span className="font-semibold text-ink-950">{op.nombre}</span>
-                  <span className="text-[12px] text-ink-600">{op.cliente_nombre}</span>
-                  <span className="text-[12px] text-ink-700">
-                    {op.valor_estimado_cop
-                      ? formatCOP(toCents(op.valor_estimado_cop))
-                      : "Sin valor estimado"}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-          {oportunidad && (
-            <div className="flex flex-col gap-1">
-              <span className="text-sm leading-none font-medium">Cliente</span>
-              <p className="rounded-12 border border-ink-200 bg-ink-050 px-3 py-2 text-[13px] text-ink-700">
-                {oportunidad.cliente_nombre}
-              </p>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="proyecto-cliente">Cliente</Label>
-          <Select value={clienteId} onValueChange={(value) => setClienteId(value ?? "")}>
-            <SelectTrigger
-              id="proyecto-cliente"
-              aria-label="Cliente"
-              className="w-full px-3"
-            >
-              <SelectValue placeholder="Selecciona el cliente" />
-            </SelectTrigger>
-            <SelectContent>
-              {clientes.map((cliente) => (
-                <SelectItem key={cliente.id} value={cliente.id}>
-                  {cliente.nombre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
+      {clienteId !== "" && <ClienteResumen clienteId={clienteId} />}
+
+      <div className="flex flex-col gap-2">
+        <Etiqueta
+          htmlFor="proyecto-oportunidad"
+          ayuda={{
+            label: "Oportunidad",
+            texto:
+              "Opcional. Si eliges una, el proyecto toma su nombre y su valor y queda vinculado a ella. Sin oportunidad, el proyecto es independiente.",
+          }}
+        >
+          Oportunidad
+        </Etiqueta>
+        <Select
+          value={oportunidad?.id ?? SIN_OPORTUNIDAD}
+          disabled={clienteId === ""}
+          onValueChange={(value) =>
+            elegirOportunidad(
+              value === SIN_OPORTUNIDAD
+                ? null
+                : (oportunidadesDelCliente.find((op) => op.id === value) ?? null),
+            )
+          }
+        >
+          <SelectTrigger id="proyecto-oportunidad" aria-label="Oportunidad" className="w-full px-3">
+            <SelectValue placeholder="Selecciona primero el cliente" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={SIN_OPORTUNIDAD}>Sin oportunidad (proyecto independiente)</SelectItem>
+            {oportunidadesDelCliente.map((op) => (
+              <SelectItem key={op.id} value={op.id}>
+                {op.nombre}
+                {op.valor_estimado_cop ? ` · ${formatCOP(toCents(op.valor_estimado_cop))}` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {clienteId !== "" && oportunidadesDelCliente.length === 0 && (
+          <p className="text-[12px] text-ink-600">
+            Este cliente no tiene oportunidades ganadas sin proyecto.
+          </p>
+        )}
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-2 sm:col-span-2">
@@ -461,7 +484,15 @@ export function ProjectCreateForm({
         </div>
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor="proyecto-valor">Valor total</Label>
+          <Etiqueta
+            htmlFor="proyecto-valor"
+            ayuda={{
+              label: "Valor total",
+              texto: "Valor total del contrato o convenio; debe ser mayor que cero.",
+            }}
+          >
+            Valor total
+          </Etiqueta>
           <Input
             id="proyecto-valor"
             type="number"
@@ -494,7 +525,15 @@ export function ProjectCreateForm({
         </div>
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor="proyecto-fecha-fin">Fecha de fin</Label>
+          <Etiqueta
+            htmlFor="proyecto-fecha-fin"
+            ayuda={{
+              label: "Fechas",
+              texto: "Las dos fechas son obligatorias. La fecha de inicio debe ser anterior a la de fin.",
+            }}
+          >
+            Fecha de fin
+          </Etiqueta>
           <Input
             id="proyecto-fecha-fin"
             type="date"
@@ -505,7 +544,15 @@ export function ProjectCreateForm({
         </div>
 
         <div className="flex flex-col gap-2 sm:col-span-2">
-          <Label htmlFor="proyecto-beneficiarios">Meta de beneficiarios</Label>
+          <Etiqueta
+            htmlFor="proyecto-beneficiarios"
+            ayuda={{
+              label: "Meta de beneficiarios",
+              texto: "Número de personas que el proyecto espera atender. Es opcional.",
+            }}
+          >
+            Meta de beneficiarios
+          </Etiqueta>
           <Input
             id="proyecto-beneficiarios"
             type="number"
@@ -519,8 +566,13 @@ export function ProjectCreateForm({
       </div>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="text-sm leading-none font-medium">
-          Líneas estratégicas <span className="text-rose-500 dark:text-rose-400">*</span>
+        <legend className="flex items-center gap-1 text-sm leading-none font-medium">
+          <span>
+            Líneas estratégicas <span className="text-rose-500 dark:text-rose-400">*</span>
+          </span>
+          <HelpHint label="Línea estratégica principal">
+            Marca las líneas en las que trabaja el proyecto. Exactamente una debe ser la principal.
+          </HelpHint>
         </legend>
         <p className="text-[12px] text-ink-600">
           Marca al menos una y exactamente una como principal.
@@ -556,8 +608,13 @@ export function ProjectCreateForm({
       </fieldset>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="text-sm leading-none font-medium">
-          Municipios <span className="text-rose-500 dark:text-rose-400">*</span>
+        <legend className="flex items-center gap-1 text-sm leading-none font-medium">
+          <span>
+            Municipios <span className="text-rose-500 dark:text-rose-400">*</span>
+          </span>
+          <HelpHint label="Municipios">
+            Marca los municipios donde se ejecuta el proyecto. Debes elegir al menos uno.
+          </HelpHint>
         </legend>
         <div className="grid gap-2 sm:grid-cols-3">
           {municipios.map((municipio) => (

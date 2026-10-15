@@ -17,6 +17,7 @@ import { StatusChip } from "@/components/ui/status-chip";
 import { PasoGeneralCreado, PasoGeneralForm } from "@/components/proyectos/nuevo-proyecto/paso-general";
 import { NuevoProyectoStepper } from "@/components/proyectos/nuevo-proyecto/nuevo-proyecto-stepper";
 import {
+  ayudaDePaso,
   datosDePaso,
   esProyectoAprobado,
   hrefNuevoProyecto,
@@ -28,6 +29,7 @@ import { useProyectoNuevo } from "@/components/proyectos/nuevo-proyecto/use-proy
 import { PasoSiguientes } from "@/components/proyectos/nuevo-proyecto/paso-siguientes";
 import { ESTADO_PROYECTO_META } from "@/components/proyectos/project-display";
 import type { CreatedProject } from "@/components/proyectos/project-create-form";
+import { HelpHint } from "@/components/ui/help-hint";
 import { useCurrentUser } from "@/hooks/kanban";
 import { canCreateProject } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
@@ -40,6 +42,7 @@ export function NuevoProyecto() {
 
   const proyectoId = search.get("proyecto") ?? "";
   const oportunidadId = search.get("oportunidad") ?? undefined;
+  const clienteId = search.get("cliente") ?? undefined;
   const hayProyecto = proyectoId !== "";
   const paso = resolverPaso(search.get("paso"), hayProyecto);
   const proyectoQuery = useProyectoNuevo(proyectoId);
@@ -59,6 +62,7 @@ export function NuevoProyecto() {
   const siguiente = pasoSiguiente(paso);
   const aprobado = proyecto ? esProyectoAprobado(proyecto.estado) : false;
   const datosPaso = datosDePaso(paso, aprobado);
+  const ayudaPaso = ayudaDePaso(paso, aprobado);
   const estado = proyecto ? ESTADO_PROYECTO_META[proyecto.estado] : null;
 
   return (
@@ -101,7 +105,7 @@ export function NuevoProyecto() {
                 </h1>
                 {!proyecto && (
                   <p className="mt-1 text-[13px] text-ink-600">
-                    Desde una oportunidad ganada o como proyecto independiente. Queda en borrador.
+                    Empieza por el cliente; la oportunidad es opcional. El proyecto queda en borrador.
                   </p>
                 )}
               </div>
@@ -114,14 +118,17 @@ export function NuevoProyecto() {
 
             <div data-testid="nuevo-proyecto-paso" className="flex flex-col gap-5 p-5 sm:p-6">
               <div>
-                <h2 className="font-display text-[16px] font-bold tracking-[-0.01em] text-ink-950">
-                  {datosPaso.titulo}
-                </h2>
+                <div className="flex items-center gap-1.5">
+                  <h2 className="font-display text-[16px] font-bold tracking-[-0.01em] text-ink-950">
+                    {datosPaso.titulo}
+                  </h2>
+                  {ayudaPaso && <HelpHint label={datosPaso.titulo}>{ayudaPaso}</HelpHint>}
+                </div>
                 <p className="mt-1 text-[13px] text-ink-600">{datosPaso.descripcion}</p>
               </div>
 
               {paso === 1 && !hayProyecto ? (
-                <PasoGeneralForm oportunidadId={oportunidadId} onCreated={alCrear} />
+                <PasoGeneralForm oportunidadId={oportunidadId} clienteId={clienteId} onCreated={alCrear} />
               ) : !proyecto ? null : paso === 1 ? (
                 <PasoGeneralCreado proyecto={proyecto} />
               ) : (

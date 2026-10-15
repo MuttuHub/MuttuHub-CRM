@@ -24,9 +24,9 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/hooks/kanban", () => ({ useCurrentUser: useCurrentUserMock }))
 vi.mock("@/components/proyectos/nuevo-proyecto/use-proyecto-nuevo", () => ({ useProyectoNuevo: useProjectMock }))
 vi.mock("@/components/proyectos/nuevo-proyecto/paso-general", () => ({
-  PasoGeneralForm: ({ oportunidadId, onCreated }: { oportunidadId?: string; onCreated: (p: { id: string; codigo: string | null; nombre: string | null }) => void }) => (
+  PasoGeneralForm: ({ oportunidadId, clienteId, onCreated }: { oportunidadId?: string; clienteId?: string; onCreated: (p: { id: string; codigo: string | null; nombre: string | null }) => void }) => (
     <div data-testid="paso-general-form">
-      oportunidad:{oportunidadId ?? "ninguna"}
+      oportunidad:{oportunidadId ?? "ninguna"} cliente:{clienteId ?? "ninguno"}
       <button type="button" onClick={() => onCreated({ id: "p-new", codigo: "PRY-1", nombre: "Nuevo" })}>
         simular creación
       </button>
@@ -97,6 +97,21 @@ describe("NuevoProyecto", () => {
     nav.search = "oportunidad=op-9"
     render(<NuevoProyecto />)
     expect(screen.getByTestId("paso-general-form")).toHaveTextContent("oportunidad:op-9")
+  })
+
+  it("preselects the client from ?cliente", () => {
+    nav.search = "cliente=c-7"
+    render(<NuevoProyecto />)
+    expect(screen.getByTestId("paso-general-form")).toHaveTextContent("cliente:c-7")
+  })
+
+  it("shows a help button next to the title of steps that need extra explanation", async () => {
+    const user = userEvent.setup()
+    nav.search = "proyecto=p1&paso=3"
+    useProjectMock.mockReturnValue({ data: PROYECTO, isError: false, error: null })
+    render(<NuevoProyecto />)
+    await user.click(screen.getByRole("button", { name: "Ayuda: Cronograma de actividades" }))
+    expect(await screen.findByText(/El peso de una actividad/)).toBeInTheDocument()
   })
 
   it("moves to step 2 of the created project with replace, so the blank form is not one back-press away", async () => {

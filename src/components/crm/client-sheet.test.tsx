@@ -9,6 +9,13 @@ import { ClientSheet } from "./client-sheet"
 // cliente" modal. The General tab fields are now inline-editable (click,
 // change, save on blur/select — no modal).
 
+const { useCurrentUserMock } = vi.hoisted(() => ({ useCurrentUserMock: vi.fn() }))
+
+vi.mock("@/hooks/kanban", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/hooks/kanban")>()
+  return { ...actual, useCurrentUser: useCurrentUserMock }
+})
+
 const { updateMutation, clienteQuery, oportunidadesQuery, bitacoraQuery, addLogMutation } =
   vi.hoisted(() => ({
     updateMutation: { isPending: false, mutateAsync: vi.fn() },
@@ -88,6 +95,7 @@ function renderSheet() {
 
 describe("ClientSheet — General tab inline editing (QA audit finding #3)", () => {
   beforeEach(() => {
+    useCurrentUserMock.mockReturnValue({ data: { id: "u1", nombre: "Ana", rol: "ADMINISTRADOR" } })
     updateMutation.mutateAsync.mockReset()
     updateMutation.mutateAsync.mockResolvedValue({ cliente: CLIENTE })
     clienteQuery.data = CLIENTE
@@ -98,6 +106,26 @@ describe("ClientSheet — General tab inline editing (QA audit finding #3)", () 
     bitacoraQuery.isError = false
     addLogMutation.mutateAsync.mockReset()
     addLogMutation.mutateAsync.mockResolvedValue({})
+  })
+
+  it("links 'Crear proyecto' to the creation page with the client preselected", () => {
+    renderSheet()
+    expect(screen.getByRole("link", { name: "Crear proyecto" })).toHaveAttribute(
+      "href",
+      "/proyectos/nuevo?cliente=c1",
+    )
+  })
+
+  it.each(["COORDINADOR", "COLABORADOR"])("hides 'Crear proyecto' for a %s", (rol) => {
+    useCurrentUserMock.mockReturnValue({ data: { id: "u1", nombre: "Ana", rol } })
+    renderSheet()
+    expect(screen.queryByRole("link", { name: "Crear proyecto" })).not.toBeInTheDocument()
+  })
+
+  it("hides 'Crear proyecto' while the current user is unknown", () => {
+    useCurrentUserMock.mockReturnValue({ data: undefined })
+    renderSheet()
+    expect(screen.queryByRole("link", { name: "Crear proyecto" })).not.toBeInTheDocument()
   })
 
   it("saves a text field on blur without opening a modal", async () => {

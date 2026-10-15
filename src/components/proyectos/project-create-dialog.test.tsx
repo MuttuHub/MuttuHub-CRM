@@ -1,6 +1,6 @@
-// Diálogo de creación de proyectos (S2.4, unidad 2). El caso central del demo
-// es la conversión de una oportunidad GANADA; el camino "independiente" queda
-// como la excepción. Estas pruebas fijan el contrato observable: qué se
+// Diálogo de creación de proyectos (S2.4, unidad 2). Se elige primero el cliente
+// (M1); la conversión de una oportunidad GANADA y el proyecto independiente son
+// la misma pantalla y el origen se deduce. Estas pruebas fijan el contrato observable: qué se
 // muestra, qué se prefija, qué se valida antes de disparar la petición y qué
 // campos viajan (o no viajan) en el cuerpo.
 
@@ -24,6 +24,8 @@ const {
   useUsersMock,
   useClientsMock,
   useCurrentUserMock,
+  useClientDetailMock,
+  useContactsMock,
 } = vi.hoisted(() => ({
   useEligibleOpportunitiesMock: vi.fn(),
   useStrategicLinesMock: vi.fn(),
@@ -33,6 +35,8 @@ const {
   useUsersMock: vi.fn(),
   useClientsMock: vi.fn(),
   useCurrentUserMock: vi.fn(),
+  useClientDetailMock: vi.fn(),
+  useContactsMock: vi.fn(),
 }))
 
 vi.mock("@/hooks/projects", () => ({
@@ -46,6 +50,8 @@ vi.mock("@/hooks/projects", () => ({
 vi.mock("@/hooks/crm", () => ({
   useUsers: useUsersMock,
   useClients: useClientsMock,
+  useClientDetail: useClientDetailMock,
+  useContacts: useContactsMock,
 }))
 
 vi.mock("@/hooks/kanban", () => ({
@@ -80,7 +86,13 @@ const MUNICIPIOS: Municipality[] = [
 ]
 
 const CLIENTES: { data: { items: Pick<ClientListRow, "id" | "nombre">[] } } = {
-  data: { items: [{ id: "c1", nombre: "Cliente Uno" }] },
+  data: {
+    items: [
+      { id: "c1", nombre: "Cliente Uno" },
+      { id: "cli-1", nombre: "Alcaldía de Barranquilla" },
+      { id: "cli-2", nombre: "Gobernación del Atlántico" },
+    ],
+  },
 }
 
 let createProject: MutationState
@@ -99,8 +111,22 @@ function renderDialog(
   )
 }
 
-async function elegirOportunidad(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole("button", { name: /Consultoría línea base/ }))
+type User = ReturnType<typeof userEvent.setup>
+
+async function elegirCliente(user: User, nombre: string) {
+  await user.click(screen.getByRole("combobox", { name: "Cliente" }))
+  await user.click(await screen.findByRole("option", { name: nombre }))
+}
+
+/** Cliente primero y luego la oportunidad de ese cliente (por defecto la primera, de «Alcaldía de Barranquilla»). */
+async function elegirOportunidad(
+  user: User,
+  cliente = "Alcaldía de Barranquilla",
+  oportunidad: RegExp = /Consultoría línea base/,
+) {
+  await elegirCliente(user, cliente)
+  await user.click(screen.getByRole("combobox", { name: "Oportunidad" }))
+  await user.click(await screen.findByRole("option", { name: oportunidad }))
 }
 
 async function elegirMunicipio(user: ReturnType<typeof userEvent.setup>) {
@@ -117,6 +143,12 @@ describe("ProjectCreateDialog", () => {
     useMunicipalitiesMock.mockReturnValue({ data: MUNICIPIOS, isLoading: false, isError: false } satisfies QueryState<Municipality[]>)
     useUsersMock.mockReturnValue({ data: [{ id: "u1", nombre: "Ana Pérez" }, { id: "u2", nombre: "Beto Ruiz" }], isLoading: false, isError: false })
     useClientsMock.mockReturnValue(CLIENTES)
+    useClientDetailMock.mockReturnValue({
+      data: { id: "cli-1", nombre: "Alcaldía de Barranquilla", empresa: null, tipo_cliente: "GOBIERNO_LOCAL", ubicacion: null, oportunidades_count: 1 },
+      isLoading: false,
+      isError: false,
+    })
+    useContactsMock.mockReturnValue({ data: [], isLoading: false, isError: false })
     useCurrentUserMock.mockReturnValue({ data: USER })
     useCreateProjectMock.mockReturnValue(createProject)
     useCreateProjectFromOpportunityMock.mockReturnValue(createFromOpportunity)
@@ -131,8 +163,8 @@ describe("ProjectCreateDialog", () => {
 
     renderDialog(vi.fn(), "op-1")
 
-    expect(screen.getByRole("button", { name: /Consultoría línea base/ })).toHaveAttribute("aria-pressed", "true")
-    expect(screen.getByRole("button", { name: /Segunda oportunidad ganada/ })).toHaveAttribute("aria-pressed", "false")
+    expect(screen.getByRole("combobox", { name: "Cliente" })).toHaveTextContent("Alcaldía de Barranquilla")
+    expect(screen.getByRole("combobox", { name: "Oportunidad" })).toHaveTextContent("Consultoría línea base")
     expect(screen.getByLabelText("Nombre")).toHaveValue("Consultoría línea base")
     expect(screen.getByLabelText("Valor total")).toHaveValue(180000000)
   })
@@ -158,29 +190,31 @@ describe("ProjectCreateDialog", () => {
     expect(createFromOpportunity.mutateAsync).not.toHaveBeenCalled()
   })
 
-  it("opens on the GANADA-opportunity origin by default", () => {
+  it("opens asking for the client, with no origin toggle and the opportunity select disabled", () => {
     renderDialog()
 
-    expect(screen.getByRole("button", { name: /Consultoría línea base/ })).toBeInTheDocument()
-    expect(screen.queryByRole("combobox", { name: "Cliente" })).not.toBeInTheDocument()
+    expect(screen.getByRole("combobox", { name: "Cliente" })).toBeInTheDocument()
+    expect(screen.getByRole("combobox", { name: "Oportunidad" })).toBeDisabled()
+    expect(screen.queryByRole("button", { name: "Proyecto independiente" })).not.toBeInTheDocument()
   })
 
-  it("lists only the opportunities the endpoint returned, with client and value", () => {
+  it("lists only the chosen client's opportunities returned by the endpoint, with their value", async () => {
     useEligibleOpportunitiesMock.mockReturnValue({
       data: [OPORTUNIDAD, OPORTUNIDAD_2],
       isLoading: false,
       isError: false,
     } satisfies QueryState<EligibleOpportunity[]>)
-
+    const user = userEvent.setup()
     renderDialog()
 
-    expect(screen.getByRole("button", { name: /Consultoría línea base/ })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: /Segunda oportunidad ganada/ })).toBeInTheDocument()
-    expect(screen.getByText("Alcaldía de Barranquilla")).toBeInTheDocument()
-    expect(screen.queryByText(/Oportunidad fantasma/)).not.toBeInTheDocument()
+    await elegirCliente(user, "Alcaldía de Barranquilla")
+    await user.click(screen.getByRole("combobox", { name: "Oportunidad" }))
+
+    expect(await screen.findByRole("option", { name: /Consultoría línea base.*\$ 180\.000\.000/ })).toBeInTheDocument()
+    expect(screen.queryByRole("option", { name: /Segunda oportunidad ganada/ })).not.toBeInTheDocument()
   })
 
-  it("prefills nombre and valor from the chosen opportunity and shows the client read-only", async () => {
+  it("prefills nombre and valor from the chosen opportunity and keeps the client chosen", async () => {
     const user = userEvent.setup()
     renderDialog()
 
@@ -188,9 +222,7 @@ describe("ProjectCreateDialog", () => {
 
     expect(screen.getByLabelText("Nombre")).toHaveValue("Consultoría línea base")
     expect(screen.getByLabelText("Valor total")).toHaveValue(180000000)
-    // El cliente aparece en el selector y, además, en la vista de solo lectura.
-    expect(screen.getAllByText("Alcaldía de Barranquilla")).toHaveLength(2)
-    expect(screen.queryByRole("combobox", { name: "Cliente" })).not.toBeInTheDocument()
+    expect(screen.getByRole("combobox", { name: "Cliente" })).toHaveTextContent("Alcaldía de Barranquilla")
   })
 
   it("prefills responsable with the current user, today/today+3m and the first line as principal", () => {
@@ -323,7 +355,7 @@ describe("ProjectCreateDialog", () => {
     const user = userEvent.setup()
     renderDialog()
 
-    await user.click(screen.getByRole("button", { name: /Segunda oportunidad ganada/ }))
+    await elegirOportunidad(user, "Gobernación del Atlántico", /Segunda oportunidad ganada/)
     await elegirMunicipio(user)
     expect(screen.getByLabelText("Valor total")).toHaveValue(null)
     await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
@@ -419,9 +451,7 @@ describe("ProjectCreateDialog", () => {
     const user = userEvent.setup()
     renderDialog()
 
-    await user.click(screen.getByRole("button", { name: "Proyecto independiente" }))
-    await user.click(screen.getByRole("combobox", { name: "Cliente" }))
-    await user.click(await screen.findByRole("option", { name: "Cliente Uno" }))
+    await elegirCliente(user, "Cliente Uno")
     await user.type(screen.getByLabelText("Nombre"), "Proyecto propio")
     await user.type(screen.getByLabelText("Valor total"), "1000000")
     await elegirMunicipio(user)
@@ -474,7 +504,7 @@ describe("ProjectCreateDialog", () => {
       const user = userEvent.setup()
       renderDialog()
 
-      await user.click(screen.getByRole("button", { name: "Proyecto independiente" }))
+      await elegirCliente(user, "Cliente Uno")
       fireEvent.change(screen.getByLabelText("Valor total"), { target: { value: "180050000" } })
 
       expect(screen.queryByText(/Diferencia con la oportunidad/)).not.toBeInTheDocument()

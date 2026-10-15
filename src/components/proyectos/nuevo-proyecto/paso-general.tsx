@@ -1,4 +1,4 @@
-// Step 1 "General". Without a project it renders the shared create form (both origins); once the project
+// Step 1 "General". Without a project it renders the shared create form (client first, origin derived); once the project
 // exists it shows what was created, read-only: the data is edited in the ficha, and creating a second
 // project from here would be a mistake.
 
@@ -20,15 +20,18 @@ const SIN_DATO = "—";
 
 export function PasoGeneralForm({
   oportunidadId,
+  clienteId,
   onCreated,
 }: {
   oportunidadId?: string;
+  clienteId?: string;
   onCreated: (proyecto: CreatedProject) => void;
 }) {
   return (
     <ProjectCreateForm
       variant="page"
       initialOportunidadId={oportunidadId}
+      initialClienteId={clienteId}
       onCreated={onCreated}
       submitLabel="Crear proyecto y continuar"
     />

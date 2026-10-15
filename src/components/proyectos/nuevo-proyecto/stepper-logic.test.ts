@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest"
 import {
   PASOS,
+  ayudaDePaso,
   datosDePaso,
   estadoDePaso,
   esProyectoAprobado,
@@ -86,6 +87,10 @@ describe("hrefNuevoProyecto", () => {
     expect(hrefNuevoProyecto({ oportunidad: "op-1" })).toBe("/proyectos/nuevo?oportunidad=op-1")
   })
 
+  it("carries the preselected client on the entry URL", () => {
+    expect(hrefNuevoProyecto({ cliente: "c-1" })).toBe("/proyectos/nuevo?cliente=c-1")
+  })
+
   it("encodes the ids", () => {
     expect(hrefNuevoProyecto({ proyecto: "a b" })).toBe("/proyectos/nuevo?proyecto=a%20b")
   })
@@ -107,6 +112,23 @@ describe("esProyectoAprobado", () => {
   it("is true for any state past BORRADOR and false while still a draft", () => {
     expect(esProyectoAprobado("BORRADOR")).toBe(false)
     expect(esProyectoAprobado("EN_EJECUCION")).toBe(true)
+  })
+})
+
+describe("ayudaDePaso", () => {
+  it("has extra help for Cronograma (peso), Presupuesto (programación) and Revisión (línea base)", () => {
+    expect(ayudaDePaso(3, false)).toMatch(/peso/i)
+    expect(ayudaDePaso(4, false)).toMatch(/programación/i)
+    expect(ayudaDePaso(5, false)).toMatch(/congelados/)
+  })
+
+  it("has none for the other steps nor for the approved Revisión", () => {
+    expect([1, 2].map((n) => ayudaDePaso(n, false))).toEqual([null, null])
+    expect(ayudaDePaso(5, true)).toBeNull()
+  })
+
+  it("every step explains what it asks in one short line", () => {
+    for (const p of PASOS) expect(p.descripcion.length).toBeGreaterThan(20)
   })
 })
 

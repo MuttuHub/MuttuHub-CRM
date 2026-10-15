@@ -10,6 +10,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { EstadoCliente, PrioridadCliente, TipoCliente, TipoInteraccion } from "@prisma/client";
 import {
@@ -17,6 +18,7 @@ import {
   Download,
   ExternalLink,
   FileText,
+  FolderPlus,
   MessageSquarePlus,
   Pencil,
   Send,
@@ -26,7 +28,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { useCurrentUser } from "@/hooks/kanban";
+import { canCreateProject } from "@/lib/permissions";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -131,6 +135,8 @@ export function ClientSheet({
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
 
   const cliente = clienteQuery.data;
+  const usuario = useCurrentUser().data;
+  const puedeCrearProyecto = usuario ? canCreateProject({ id: usuario.id, rol: usuario.rol }) : false;
 
   return (
     <Dialog
@@ -153,6 +159,7 @@ export function ClientSheet({
                 cliente={cliente}
                 onEditar={() => setEditOpen(true)}
                 onDesactivar={() => setDeactivateOpen(true)}
+                puedeCrearProyecto={puedeCrearProyecto}
               />
 
               <Tabs defaultValue="general" className="flex min-h-0 flex-1 flex-col">
@@ -348,10 +355,12 @@ function SheetHeaderContent({
   cliente,
   onEditar,
   onDesactivar,
+  puedeCrearProyecto,
 }: {
   cliente: ClientDetail;
   onEditar: () => void;
   onDesactivar: () => void;
+  puedeCrearProyecto: boolean;
 }) {
   const vencido = cliente.next_compromiso
     ? esVencida(cliente.next_compromiso.fecha_entrega)
@@ -389,6 +398,15 @@ function SheetHeaderContent({
             <Pencil className="size-3.5" strokeWidth={1.9} />
             Editar
           </Button>
+        )}
+        {puedeCrearProyecto && (
+          <Link
+            href={`/proyectos/nuevo?cliente=${encodeURIComponent(cliente.id)}`}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0 px-3 text-[12.5px] font-semibold")}
+          >
+            <FolderPlus className="size-3.5" strokeWidth={1.9} />
+            Crear proyecto
+          </Link>
         )}
         <Button
           variant="outline"
