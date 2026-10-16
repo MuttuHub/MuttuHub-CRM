@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
 import type { Usuario } from "@prisma/client";
 
-const mocks = vi.hoisted(() => ({ updateMany: vi.fn(), reread: vi.fn() }));
+const mocks = vi.hoisted(() => ({ updateMany: vi.fn(), reread: vi.fn(), notifUpsert: vi.fn() }));
 
 vi.mock("@/lib/supabase/server", () => ({ requireApiUser: vi.fn(), isSupabaseConfigured: vi.fn(() => true) }));
 vi.mock("@/lib/api/audit-cambios", async (importOriginal) => {
@@ -17,7 +17,10 @@ vi.mock("@/lib/db", () => ({
     proyecto: { findFirst: vi.fn() },
     gasto: { findFirst: vi.fn() },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
-      fn({ gasto: { updateMany: mocks.updateMany, findFirstOrThrow: mocks.reread } }),
+      fn({
+        gasto: { updateMany: mocks.updateMany, findFirstOrThrow: mocks.reread },
+        notificacion: { upsert: mocks.notifUpsert },
+      }),
     ),
   },
 }));
@@ -102,6 +105,26 @@ describe("POST reject", () => {
       expect.anything(),
       expect.objectContaining({ accion: "RECHAZAR", entidad: "gasto", entidad_id: "gas-1", usuario_id: "ger-2" }),
     );
+  });
+
+  it("notifies the expense author inside the transaction, and the reason travels with the expense row", async () => {
+    await POST(post({ motivo: "Soporte ilegible" }), ctx);
+    expect(mocks.notifUpsert).toHaveBeenCalledTimes(1);
+    expect(mocks.notifUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { usuario_id_tipo_gasto_id: { usuario_id: "ger-1", tipo: "GASTO_RECHAZADO", gasto_id: "gas-1" } },
+        create: { usuario_id: "ger-1", tipo: "GASTO_RECHAZADO", proyecto_id: "pry-1", gasto_id: "gas-1" },
+      }),
+    );
+  });
+
+  it("creates no notification when the rejection is refused (own expense, racing validation)", async () => {
+    authAs(registrante);
+    expect((await POST(post({ motivo: "x" }), ctx)).status).toBe(403);
+    authAs(gerencia);
+    mocks.updateMany.mockResolvedValueOnce({ count: 0 });
+    expect((await POST(post({ motivo: "x" }), ctx)).status).toBe(409);
+    expect(mocks.notifUpsert).not.toHaveBeenCalled();
   });
 
   it("requires a non-empty motivo (400) and rejects unknown keys", async () => {

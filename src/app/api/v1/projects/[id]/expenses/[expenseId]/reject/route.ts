@@ -2,7 +2,7 @@
 //
 // ADMINISTRADOR/GERENCIA other than the registrant, with a motivo, on a REGISTRADO expense.
 // The identification is not required to reject. The registrant may correct a RECHAZADO expense
-// through PATCH (it returns to REGISTRADO). Order: 404 -> 403 -> 404 -> 403 (own) -> 400 -> 409.
+// through PATCH (it returns to REGISTRADO). The rejection notifies the registrant (M7). Order: 404 -> 403 -> 404 -> 403 (own) -> 400 -> 409.
 
 import { NextResponse } from "next/server";
 import { withApiErrorHandling } from "@/lib/api/handler";
@@ -11,6 +11,7 @@ import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/supabase/server";
 import { canValidateExpense } from "@/lib/permissions";
 import { logChange } from "@/lib/api/audit-cambios";
+import { notificarGastoRechazado } from "@/lib/api/notificaciones-proyecto";
 import { parseEstructuraBody } from "@/lib/api/estructura";
 import { GASTO_FORBIDDEN_MESSAGE, GASTO_INCLUDE, toGastoView } from "@/lib/api/gastos";
 import {
@@ -67,6 +68,13 @@ export const POST = withApiErrorHandling(
         campo: "estado",
         valor_anterior: "REGISTRADO",
         valor_nuevo: { estado: "RECHAZADO", motivo },
+      });
+      // M7: the author learns of the rejection in the same commit that records it.
+      await notificarGastoRechazado(tx, {
+        gastoId: expenseId,
+        proyectoId: id,
+        autorId: gasto.registrado_por_id,
+        rechazadoPorId: auth.usuario.id,
       });
       return tx.gasto.findFirstOrThrow({ where: { id: expenseId }, include: GASTO_INCLUDE });
     });

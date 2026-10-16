@@ -113,6 +113,20 @@ describe("Project notifications (live DB)", () => {
     expect(row.leida).toBe(false)
   })
 
+  it("a repeated rejection upserts the same GASTO_RECHAZADO row and re-arms it as unread", async () => {
+    const result = await runAndRollback(async (tx) => {
+      const { usuario, proyecto, gasto } = await fixture(tx)
+      const where = { usuario_id_tipo_gasto_id: { usuario_id: usuario.id, tipo: "GASTO_RECHAZADO" as const, gasto_id: gasto.id } }
+      const create = { usuario_id: usuario.id, tipo: "GASTO_RECHAZADO" as const, proyecto_id: proyecto.id, gasto_id: gasto.id }
+      const first = await tx.notificacion.upsert({ where, create, update: { leida: false } })
+      await tx.notificacion.update({ where: { id: first.id }, data: { leida: true } })
+      const second = await tx.notificacion.upsert({ where, create, update: { leida: false } })
+      const total = await tx.notificacion.count({ where: { usuario_id: usuario.id, gasto_id: gasto.id } })
+      return { same: first.id === second.id, leida: second.leida, total }
+    })
+    expect(result).toEqual({ same: true, leida: false, total: 1 })
+  })
+
   it("keeps one notification per (usuario, tipo, gasto): skipDuplicates adds nothing", async () => {
     const total = await runAndRollback(async (tx) => {
       const { usuario, proyecto, gasto } = await fixture(tx)

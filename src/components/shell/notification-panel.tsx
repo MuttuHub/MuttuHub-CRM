@@ -33,10 +33,10 @@ export type AlertItemNotificacion = {
   notificacion_id: string | null;
 };
 
-/** v2 (S6): overspend notification of a project (GERENCIA only). */
+/** v2 (S6/M7): project notification: overspend (GERENCIA only) or a rejected expense (its author). */
 export type NotificacionProyecto = {
   notificacion_id: string;
-  tipo: "SOBREGASTO_RUBRO";
+  tipo: "SOBREGASTO_RUBRO" | "GASTO_RECHAZADO";
   mensaje: string;
   proyecto_id: string | null;
   proyecto_codigo: string | null;
@@ -236,7 +236,8 @@ export function NotificationPanel() {
   function abrirProyecto(item: NotificacionProyecto) {
     setOpen(false);
     markRead.mutate(item.notificacion_id);
-    router.push("/proyectos");
+    // A rejected expense opens its project (the ficha opens on Resumen); overspend keeps the list.
+    router.push(item.tipo === "GASTO_RECHAZADO" && item.proyecto_id ? `/proyectos/${item.proyecto_id}` : "/proyectos");
   }
 
   const allItems = snapshot
@@ -402,6 +403,7 @@ function ProyectoRow({
   item: NotificacionProyecto;
   onOpen: (item: NotificacionProyecto) => void;
 }) {
+  const rechazado = item.tipo === "GASTO_RECHAZADO";
   return (
     <li>
       <button
@@ -413,15 +415,16 @@ function ProyectoRow({
           <span
             className={`truncate text-[13px] text-ink-800 ${item.leida ? "font-medium" : "font-semibold"}`}
           >
-            {item.mensaje}
+            {rechazado ? "Gasto rechazado" : item.mensaje}
           </span>
         </span>
+        {rechazado && <span className="line-clamp-2 text-[12px] text-ink-700">{item.mensaje}</span>}
         <span className="flex min-w-0 items-center gap-2 text-[11.5px] text-ink-600">
           <span className="truncate">
             {[item.proyecto_codigo, fechaCorta(item.created_at)].filter(Boolean).join(" · ")}
           </span>
           <span className="ml-auto shrink-0 rounded-md bg-ink-100 px-1.5 py-0.5 text-[9.5px] font-bold tracking-wide text-ink-700 uppercase">
-            Sobregasto
+            {rechazado ? "Rechazo" : "Sobregasto"}
           </span>
         </span>
       </button>

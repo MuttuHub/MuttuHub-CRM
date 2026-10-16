@@ -12,7 +12,7 @@
 //     leidas_ids: string[], proyectos: NotificacionProyectoItem[] }
 //
 // `proyectos` (v2, S6) lleva las notificaciones de sobregasto del propio usuario
-// (solo GERENCIA); `total` las incluye.
+// (GERENCIA; los demás roles solo reciben las de gasto rechazado); `total` las incluye.
 //
 // Cada item lleva `notificacion_id` (id de la fila Notificacion del snapshot,
 // null si la reconciliación falló) para que el UI llame a
@@ -44,7 +44,7 @@ export type NotificationsSnapshot = {
   hoy: AlertItemNotificacion[];
   proximos3: AlertItemNotificacion[];
   leidas_ids: string[];
-  /** v2 (S6): project notifications (overspend), GERENCIA only; empty for everyone else. */
+  /** v2 (S6/M7): project notifications. Overspend is GERENCIA only; a rejected expense reaches its author in any role. */
   proyectos: NotificacionProyectoItem[];
 };
 

@@ -8,7 +8,8 @@ import {
   type NotificationsSnapshot,
 } from "./notification-panel"
 
-const { toast, apiDelete, apiPatch, apiGet } = vi.hoisted(() => ({
+const { toast, apiDelete, apiPatch, apiGet, push } = vi.hoisted(() => ({
+  push: vi.fn(),
   toast: { success: vi.fn(), error: vi.fn() },
   apiDelete: vi.fn<(path: string) => Promise<unknown>>(async () => ({})),
   apiPatch: vi.fn<(path: string) => Promise<unknown>>(async () => ({})),
@@ -24,7 +25,7 @@ vi.mock("@/lib/api/http", () => ({
 }))
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push }),
 }))
 
 const UNREAD_ITEM: AlertItemNotificacion = {
@@ -177,6 +178,34 @@ describe("NotificationPanel: grupo PROYECTOS (S6)", () => {
 
     await user.click(screen.getByRole("button", { name: /Gasto supera el asignado del rubro/ }))
     await waitFor(() => expect(apiPatch).toHaveBeenCalledWith("/api/v1/notifications/np-1/read"))
+  })
+
+  it("renders a rejected-expense item with its title and reason, and opens the project", async () => {
+    apiGet.mockImplementation(async () => ({
+      total: 1,
+      vencidos: [],
+      hoy: [],
+      proximos3: [],
+      leidas_ids: [],
+      proyectos: [
+        {
+          ...PROYECTO_ITEM,
+          notificacion_id: "np-2",
+          tipo: "GASTO_RECHAZADO" as const,
+          mensaje: "Proveedor SAS · FE-1 · $ 1.000.000. Motivo: Soporte ilegible",
+        },
+      ],
+    }))
+    const user = userEvent.setup()
+    renderPanel()
+
+    await user.click(await screen.findByRole("button", { name: "Notificaciones, 1 sin leer" }))
+    expect(screen.getByText("Gasto rechazado")).toBeInTheDocument()
+    expect(screen.getByText(/Motivo: Soporte ilegible/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: /Gasto rechazado/ }))
+    await waitFor(() => expect(apiPatch).toHaveBeenCalledWith("/api/v1/notifications/np-2/read"))
+    expect(push).toHaveBeenCalledWith("/proyectos/pry-1")
   })
 
   it("keeps working with a snapshot that has no proyectos key", async () => {
