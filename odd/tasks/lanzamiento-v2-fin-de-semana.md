@@ -97,6 +97,9 @@ La integración es **progresiva y en un solo sentido**.
 | UX-3 | Editar los datos generales después de crear el proyecto | ✅ 2026-10-15 | Botón «Editar datos generales» en Resumen, para quien gestiona el proyecto. En borrador: nombre, descripción, fechas, valor, responsable, beneficiarios, líneas y municipios. En ejecución: solo descripción y beneficiarios; fechas y valor siguen por Modificaciones, porque cambian la línea base. El usuario delegó la decisión en la recomendación de Claude | F15 |
 | G-1 | La gerencia acepta un merge grande sin PRs encadenados | ✅ 2026-10-15 | La gerencia delegó la decisión en el usuario. El merge a `main` se hace solo si la revisión de Claude sale sin hallazgos graves. La revisión tiene tres capas: suite completa, `tsc` y build en verde; el ensayo de migraciones R4/R7; y una revisión dirigida a permisos por rol, migraciones y datos, dinero, y borrado o anulación (R6b) | R6, R6b, R9 |
 | G-2 | Ventana de lanzamiento (propuesta: domingo 2026-10-18 en la mañana) | pendiente (usuario) | | R9 |
+| P1 | Feeds `GET /contacts` e `/interactions`: ¿globales o acotados? | ✅ 2026-10-16 | Acotados: los roles que no son ADMINISTRADOR ni GERENCIA ven solo los clientes de los que son responsables, igual que `loadClientScoped` en la ficha del cliente | R6d |
+| P2 | Sub-puntaje «proyectos» de `clients/health` para roles sin lectura del portafolio | ✅ 2026-10-16 | Se oculta (`proyectos: null`) y el puntaje total se calcula sin esa parte para quien no tiene `canReadProjectList` | R6d |
+| D1 | Validar, rechazar y anular gastos según el estado del proyecto | ✅ 2026-10-16 | Validar y rechazar exigen EN_EJECUCION o SUSPENDIDO. Anular se permite en cualquier estado, con motivo y auditoría | R6d |
 
 ## Tareas
 
@@ -206,6 +209,8 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
   - `.gt(0)` en el PATCH de `valor_total`.
 
   Ruta D (writer con test-first).
+- [ ] **R6d** Aplicar las decisiones P1, P2 y D1. Se escribe después de R6c, que es el mismo escritor, para no tener dos
+  escritores a la vez. Ruta D (test-first).
 - [ ] **R7** Ensayo 2 con el código final, más el humo de la app sobre la copia. Ruta D.
 - [ ] **R8** Runbook de lanzamiento, checklist de humo y plan de vuelta atrás (`docs/runbook-lanzamiento-v2.md`). Ruta D.
 - [ ] **R9** Lanzamiento, que ejecuta el usuario. Pasos:
