@@ -388,6 +388,21 @@ creada desde `feat/projects-v2` después de integrar X6. Estas tareas reemplazan
     no tienen vínculo con proyectos.
   - El rediseño no requiere migración.
 
+- 2026-10-15: revisión del carril X. Hallazgos corregidos:
+  - Monto (bloqueante y mayor): el campo cambiaba el valor al borrar (`1.234` pasaba a 1,23) y leía un tercer decimal
+    como miles. Ahora el punto es siempre separador de miles, la coma es el único decimal y un texto ambiguo se rechaza
+    con «usa coma para los decimales» en vez de reinterpretarse; el campo muestra lo escrito mientras tiene el foco y
+    agrupa miles al salir (también corrige el salto del cursor). Aplica a la programación y a la asignación. Commit `6899a86`.
+  - Gastos: una línea de resumen con los conteos del servidor sustituye a los KPI quitados. Ficha financiera: chip
+    «Base original · Corte …» con «Restablecer»; meses legibles en el selector de corte (`mesLegible` pasa a
+    `project-display.ts`); leyenda de tolerancia con el parámetro del servidor; barra y frase comparan E contra P.
+    «Abrir» se deshabilita sin archivo ni enlace. Commit `34075a1`.
+  - API y lib: `url_externa` ya se validaba (solo https, mediante `validarSoporte`); se agregó la prueba de la ruta de
+    gastos. El mensaje de aprobación ahora dice «El número de beneficiarios debe ser mayor que cero.». Commit `9873764`.
+  - Limpieza: se eliminan `MoneyInput` y `ProjectSoportes` (`formatoSoporte` pasa a `soportes-format.ts`) y el comentario
+    obsoleto de `project-ficha.tsx`; la guarda de `responsive-guards.test.ts` sobre los KPI de gastos se adapta a la línea
+    de resumen. Commit `7b6c5f3`.
+
 ## Siguiente paso
 
 Faltan G-1 (aceptación de la gerencia) y G-2 (ventana). Siguen R2 (el worktree de DeepSeek), R1 y U2.
