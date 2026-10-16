@@ -284,7 +284,7 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
   Evidencia: `283c5e9` (P1, `clienteFeedScope`), `709e4e2` (P2, `proyectos: null` y se omite `loadKpisPortafolio`) y
   `6bc9595` (D1, `gateGastoDecision` con 409 y una nueva verificación `FOR SHARE` dentro de la transacción; anular
   sigue libre). Se integró con el merge `b133b62`. 1020/1020 pruebas pasan; `tsc` y `eslint` limpios.
-- [ ] **R6e** Dos ajustes tras R6d:
+- [x] **R6e** Dos ajustes tras R6d:
   - P1 refinado por el usuario el 2026-10-16: los feeds usan la misma regla que `loadClientScoped`
     (`isFullAccess`), así que COORDINADOR ve todo y COLABORADOR solo lo suyo.
   - La cola `expense-validations` y `nav/counts` filtran por proyectos EN_EJECUCION o SUSPENDIDO.
