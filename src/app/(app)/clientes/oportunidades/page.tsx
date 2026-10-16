@@ -1,17 +1,8 @@
-import type { Metadata } from "next";
-import { ClientesSectionPlaceholder } from "@/components/crm/clientes-section-placeholder";
-
-export const metadata: Metadata = {
-  title: "Oportunidades · Clientes",
-};
+// M4 (Y3): la sección Oportunidades aún no está construida; su ruta redirige al listado de aliados.
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default function ClientesOportunidadesPage() {
-  return (
-    <ClientesSectionPlaceholder
-      title="Oportunidades"
-      description="El tablero comercial con las siete etapas y las oportunidades de todos los aliados, con su monto y responsable. Llega en la siguiente entrega."
-    />
-  );
+  return redirect("/clientes");
 }

@@ -184,6 +184,32 @@ describe("ClientSheet — General tab inline editing (QA audit finding #3)", () 
     expect(trigger).not.toHaveTextContent("deactivated-1")
   })
 
+  // Carril Y · Y2 (D2): la ficha mostraba la fecha de primer contacto en ISO crudo. Es un día de
+  // calendario capturado por `<input type="date">` (UTC), así que se muestra con `formatFechaDia`,
+  // igual que la ficha imprimible.
+  it("renders the first contact date as its UTC calendar day, not the raw ISO", () => {
+    renderSheet()
+
+    expect(screen.getByText("01 de ago de 2026")).toBeInTheDocument()
+    expect(screen.queryByText("2026-08-01T12:00:00.000Z")).not.toBeInTheDocument()
+  })
+
+  it("also formats the first contact date in the read-only rendering", () => {
+    clienteQuery.data = { ...CLIENTE, puede_editar: false }
+    renderSheet()
+
+    expect(screen.getByText("01 de ago de 2026")).toBeInTheDocument()
+    expect(screen.queryByText("2026-08-01T12:00:00.000Z")).not.toBeInTheDocument()
+  })
+
+  it("opens the date editor with the calendar day as YYYY-MM-DD, ready to save", async () => {
+    const user = userEvent.setup()
+    renderSheet()
+
+    await user.click(screen.getByRole("button", { name: "01 de ago de 2026" }))
+    expect(screen.getByDisplayValue("2026-08-01")).toBeInTheDocument()
+  })
+
   // Production data gotcha: every open compromiso arrived with
   // fecha_entrega = null (empty Excel column). The header must surface the
   // undated compromiso ("… · sin fecha") instead of the lying

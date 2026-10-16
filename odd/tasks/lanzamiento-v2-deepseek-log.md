@@ -169,3 +169,98 @@ este log. Para integrar (U8) basta montar `FichaFinanzas`, `FichaDocumentos` y `
 Sin migraciones, sin dependencias nuevas y sin cambios fuera de la superficie del carril.
 
 LISTO PARA INTEGRAR: TODO
+
+---
+
+# Lote 2
+
+Rama: `feat/deepseek-lote-2` · Worktree: `../MuttuHub-CRM-worktrees/ficha-ux`. Superficie del lote: filtros del
+portafolio (`project-list*`, `portafolio-filtros*`), Clientes (`clientes-subnav*`, las páginas de Oportunidades y Mapa,
+`client-sheet*` y `client-form*`) y este log. Mismas verificaciones por tarea: (1) `TZ=America/Bogota npx vitest run`
+sobre las rutas del lote, (2) `npx tsc --noEmit`, (3) `npx eslint` sobre los archivos tocados. Misma convención de
+hash: el hash anotado es el del commit antes del `--amend` final que incrusta el texto.
+
+## Y1 · Filtros del portafolio (RF-31)
+
+- Commit: `b55704c` — `feat(proyectos): filter the portfolio by client, line, municipality and owner`
+- Archivos tocados:
+  - `src/components/proyectos/portafolio-filtros.tsx` — **nuevo**. Barra controlada con cinco filtros (estado,
+    cliente, línea estratégica, municipio y responsable); los catálogos salen de `useClientOptions`,
+    `useStrategicLines`, `useMunicipalities` y `useUsers`; emite el set completo omitiendo claves vacías;
+    «Limpiar filtros» solo con algún filtro activo; en móvil un plegable «Filtros (n)» y de `sm` en adelante la
+    fila a la vista.
+  - `src/components/proyectos/project-list.tsx` — el estado de filtros pasa a un solo `ProjectFilters` que va a
+    `useProjects` y a `useProjectsPortfolio`; el select de estado se muda a `PortafolioFiltros`; el texto del vacío
+    habla de «estos filtros» (antes solo del estado). `kpiLista = useProjects({})` queda intacto.
+  - `src/components/proyectos/portafolio-filtros.test.tsx` — **nuevo**. Cinco pruebas: selects y catálogos, set
+    completo sin claves vacías, etiquetas seleccionadas, limpiar y plegable con conteo.
+  - `src/components/proyectos/project-list.test.tsx` — integración de los cuatro filtros nuevos (lista y
+    portafolio), el botón de limpiar y el invariante de la fila de KPIs sin filtro; textos del vacío actualizados.
+- Verificaciones:
+  1. `TZ=America/Bogota npx vitest run src/components/proyectos/project-list src/components/proyectos/portafolio-filtros
+     src/components/crm "src/app/(app)/clientes"` → 15 archivos, 200 pruebas, **verde**. Extra: guardas de código
+     (`surface`, `control`, `design`, `table`, `a11y`, `responsive`) → 6 archivos, 30 pruebas, verde.
+  2. `npx tsc --noEmit` → **sin errores**.
+  3. `npx eslint` sobre los cuatro archivos → **sin avisos**.
+- PEDIDO A CLAUDE: ninguno. Nota: `ESTADOS` (orden del enum) se movió a `portafolio-filtros.tsx`.
+- PREGUNTA: ninguna.
+
+LISTO PARA INTEGRAR: Y1
+
+---
+
+## Y2 · Fecha de primer contacto legible (D2)
+
+- Commit: `3c9aadb` — `fix(crm): show the first contact date as a readable day`
+- Archivos tocados:
+  - `src/components/crm/client-sheet.tsx` — `InlineDate` muestra el día UTC con `formatFechaDia` (el mismo
+    formateador de la ficha imprimible) en sus dos rutas de lectura (editable y de solo lectura). De paso, el
+    borrador de edición parte de la forma `YYYY-MM-DD` (`asInputValue`) y no del ISO crudo: el `<input type="date">`
+    no aceptaba el valor crudo y un “guardar sin tocar” podía enviar el ISO completo.
+  - `src/components/crm/client-sheet.test.tsx` — tres pruebas nuevas: día UTC en la vista editable, en la de solo
+    lectura y el editor abriendo con `YYYY-MM-DD`.
+  - `src/components/crm/client-form.tsx` — **revisado, sin cambios**: la fecha solo vive en un `<input type="date">`,
+    no se muestra en crudo en ningún otro punto.
+- Verificaciones:
+  1. `TZ=America/Bogota npx vitest run …` sobre las rutas del lote → 15 archivos, 203 pruebas, **verde**.
+  2. `npx tsc --noEmit` → **sin errores**.
+  3. `npx eslint src/components/crm/client-sheet.tsx src/components/crm/client-sheet.test.tsx` → **sin avisos**.
+- PEDIDO A CLAUDE: ninguno.
+- PREGUNTA: ninguna.
+
+LISTO PARA INTEGRAR: Y2
+
+---
+
+## Y3 · Ocultar las pestañas vacías de Clientes (M4)
+
+- Commit: `54f2631` — `feat(crm): hide the client sections that are not built yet`
+- Archivos tocados:
+  - `src/components/crm/clientes-subnav.tsx` — `CLIENTES_SECTIONS` queda con las cinco secciones construidas
+    (Aliados, Interacciones, Relaciones, Salud y Automatizaciones); Oportunidades y Mapa salen de la navegación.
+  - `src/app/(app)/clientes/oportunidades/page.tsx` y `mapa/page.tsx` — las páginas pasan a `return redirect("/clientes")`
+    (`redirect` de `next/navigation`; el retorno `never` es el que espera React 19 con TS, y la guía de Next lo admite).
+  - `src/components/crm/clientes-subnav.test.tsx` — cinco secciones (y Oportunidades/Mapa/Convocatorias ausentes);
+    las dos pruebas del placeholder pasan a probar la redirección con `redirect` burlado.
+- Verificaciones:
+  1. `TZ=America/Bogota npx vitest run …` sobre las rutas del lote **más** las guardas de código → 21 archivos,
+     231 pruebas, **verde**.
+  2. `npx tsc --noEmit` → **sin errores**.
+  3. `npx eslint` sobre los cuatro archivos → **sin avisos**.
+- PEDIDO A CLAUDE: ninguno. Nota: `clientes-section-placeholder.tsx` queda sin uso (no está en mi superficie; no lo
+  toco).
+- PREGUNTA: ninguna.
+
+LISTO PARA INTEGRAR: Y3
+
+---
+
+## Cierre del lote 2
+
+Y1–Y3 terminadas en `feat/deepseek-lote-2`, una tarea por commit, cada una con su entrada en este log y sin push.
+Resumen para la integración: (Y1) filtros del portafolio por cliente, línea, municipio y responsable, con
+«Limpiar filtros» y plegable en móvil, y el vacío hablando de «estos filtros»; (Y2) la fecha de primer contacto
+como día UTC legible en la ficha del cliente; (Y3) Oportunidades y Mapa fuera del subnav de Clientes y sus rutas
+redirigiendo a `/clientes`.
+
+LISTO PARA INTEGRAR: TODO LOTE 2

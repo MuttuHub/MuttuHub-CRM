@@ -1,17 +1,8 @@
-import type { Metadata } from "next";
-import { ClientesSectionPlaceholder } from "@/components/crm/clientes-section-placeholder";
-
-export const metadata: Metadata = {
-  title: "Mapa · Clientes",
-};
+// M4 (Y3): la sección Mapa aún no está construida; su ruta redirige al listado de aliados.
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default function ClientesMapaPage() {
-  return (
-    <ClientesSectionPlaceholder
-      title="Mapa"
-      description="La cobertura de aliados por departamento, con el detalle de cada territorio. Llega en una entrega posterior."
-    />
-  );
+  return redirect("/clientes");
 }
