@@ -3,15 +3,16 @@
 // creation stays on the per-client POST /clients/:id/log and there are
 // intentionally NO PATCH/DELETE routes here (same immutability contract).
 //
-// Read scope mirrors the client list reads, which are GLOBAL (PR 3): every
-// signed-in role sees every client's interactions; only soft-deleted clients
-// are hidden. Filters: `cliente_id` and `tipo` (the TipoInteraccion catalog).
+// Read scope: ADMINISTRADOR and GERENCIA see every client's interactions; every
+// other role only those of the clients they are the responsable of (see
+// `clienteFeedScope`). Soft-deleted clients are always hidden. Filters: `cliente_id` and `tipo` (the TipoInteraccion catalog).
 
 import { NextResponse } from "next/server";
 import type { Prisma, TipoInteraccion } from "@prisma/client";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
+import { clienteFeedScope } from "@/lib/api/crm";
 import { requireApiUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +22,8 @@ export const dynamic = "force-dynamic";
 const TIPOS_INTERACCION = ["REUNION", "CORREO", "LLAMADA", "VISITA", "OTRO"] as const;
 
 export type InteractionFeedFilters = {
+  /** Read scope of the caller; when omitted the feed is unscoped (managers). */
+  scope?: Prisma.ClienteWhereInput;
   cliente_id?: string;
   tipo?: string;
 };
@@ -41,13 +44,15 @@ export const INTERACTION_FEED_SELECT = {
 } as const;
 
 /**
- * Shared feed `where`: soft-deleted clients are always hidden. Reads are
- * global, matching the client list (PR 3) — no per-role rewrite.
+ * Shared feed `where`: soft-deleted clients are always hidden and
+ * `filters.scope` narrows the owning client (responsable) for non-managers.
  */
 export function buildInteractionWhere(
   filters: InteractionFeedFilters,
 ): Prisma.BitacoraEntradaWhereInput {
-  const where: Prisma.BitacoraEntradaWhereInput = { cliente: { deleted_at: null } };
+  const where: Prisma.BitacoraEntradaWhereInput = {
+    cliente: { deleted_at: null, ...filters.scope },
+  };
   if (filters.cliente_id) where.cliente_id = filters.cliente_id;
   if (filters.tipo) where.tipo = filters.tipo as TipoInteraccion;
   return where;
@@ -68,7 +73,7 @@ export const GET = withApiErrorHandling(
     const cliente_id = url.searchParams.get("cliente_id")?.trim() || undefined;
 
     const rows = await db.bitacoraEntrada.findMany({
-      where: buildInteractionWhere({ cliente_id, tipo }),
+      where: buildInteractionWhere({ scope: clienteFeedScope(auth.usuario), cliente_id, tipo }),
       select: INTERACTION_FEED_SELECT,
       orderBy: { created_at: "desc" },
     });
