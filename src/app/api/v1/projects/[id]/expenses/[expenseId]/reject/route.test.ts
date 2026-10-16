@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
 import type { Usuario } from "@prisma/client";
 
-const mocks = vi.hoisted(() => ({ updateMany: vi.fn(), reread: vi.fn(), notifUpsert: vi.fn() }));
+const mocks = vi.hoisted(() => ({ updateMany: vi.fn(), reread: vi.fn(), notifUpsert: vi.fn(), queryRaw: vi.fn() }));
 
 vi.mock("@/lib/supabase/server", () => ({ requireApiUser: vi.fn(), isSupabaseConfigured: vi.fn(() => true) }));
 vi.mock("@/lib/api/audit-cambios", async (importOriginal) => {
@@ -18,6 +18,7 @@ vi.mock("@/lib/db", () => ({
     gasto: { findFirst: vi.fn() },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
       fn({
+        $queryRaw: mocks.queryRaw,
         gasto: { updateMany: mocks.updateMany, findFirstOrThrow: mocks.reread },
         notificacion: { upsert: mocks.notifUpsert },
       }),
@@ -68,6 +69,7 @@ const existente = (data: Record<string, unknown> = {}) => ({
 });
 
 let current = existente();
+let estadoProyectoBajoLock: string | null = "EN_EJECUCION";
 function authAs(usuario: Usuario) {
   vi.mocked(requireApiUser).mockResolvedValue({ ok: true, usuario, supabaseUser: {} as never });
 }
@@ -80,6 +82,10 @@ const post = (body: unknown) =>
 
 beforeEach(() => {
   current = existente();
+  estadoProyectoBajoLock = "EN_EJECUCION";
+  mocks.queryRaw.mockImplementation(async () =>
+    estadoProyectoBajoLock === null ? [] : [{ estado: estadoProyectoBajoLock }],
+  );
   authAs(gerencia);
   vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "pry-1", estado: "EN_EJECUCION" } as never);
   vi.mocked(db.gasto.findFirst).mockImplementation((async () => current) as never);
@@ -152,5 +158,30 @@ describe("POST reject", () => {
   it("answers 409 when a racing validation won (guarded write updates nothing)", async () => {
     mocks.updateMany.mockResolvedValueOnce({ count: 0 });
     expect((await POST(post({ motivo: "x" }), ctx)).status).toBe(409);
+  });
+});
+
+describe("POST reject: project estado gate (D1)", () => {
+  it.each(["BORRADOR", "CERRADO", "CANCELADO"])("answers 409 when the project is %s and touches nothing", async (estado) => {
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "pry-1", estado } as never);
+    const res = await POST(post({ motivo: "Soporte ilegible" }), ctx);
+    const json = await res.json();
+    expect(res.status).toBe(409);
+    expect(json.error).toMatch(/ejecución o suspendido/);
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects while the project is SUSPENDIDO", async () => {
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "pry-1", estado: "SUSPENDIDO" } as never);
+    estadoProyectoBajoLock = "SUSPENDIDO";
+    expect((await POST(post({ motivo: "x" }), ctx)).status).toBe(200);
+  });
+
+  it("re-checks the project estado under lock: a close that raced the gate answers 409 and writes nothing", async () => {
+    estadoProyectoBajoLock = "CERRADO";
+    const res = await POST(post({ motivo: "x" }), ctx);
+    expect(res.status).toBe(409);
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+    expect(mocks.notifUpsert).not.toHaveBeenCalled();
   });
 });

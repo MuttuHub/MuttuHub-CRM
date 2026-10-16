@@ -26,6 +26,12 @@ export const SOLO_VALIDADO_MESSAGE = "Solo se puede anular un gasto validado.";
 export const DATOS_INCOMPLETOS_MESSAGE = "Completa el tipo y número de identificación del tercero antes de validar.";
 export const OVERSPEND_MESSAGE = "Validar este gasto superaría el valor asignado al rubro. Se notificó a Gerencia.";
 
+export const GASTO_PROYECTO_ESTADO_MESSAGE =
+  "Solo se pueden validar o rechazar gastos de proyectos en ejecución o suspendido.";
+
+/** Project estados in which an expense can be validated or rejected (void is allowed in any estado). */
+export const ESTADOS_PROYECTO_VALIDACION: readonly string[] = ["EN_EJECUCION", "SUSPENDIDO"];
+
 export const MOTIVO_GASTO_SCHEMA = z
   .object({
     motivo: z
@@ -36,12 +42,11 @@ export const MOTIVO_GASTO_SCHEMA = z
   })
   .strict();
 
-/** 404 (project) -> 403 (managers only) -> 404 (expense of that project). */
-export async function gateGastoGestion(
+async function cargarGastoGestion(
   usuario: Usuario,
   proyectoId: string,
   gastoId: string,
-): Promise<GateResult<GastoConRelaciones>> {
+): Promise<GateResult<{ gasto: GastoConRelaciones; proyectoEstado: string }>> {
   const gate = await gateEjecucionVoid(usuario, proyectoId);
   if (!gate.ok) return gate;
   const gasto = await db.gasto.findFirst({
@@ -49,14 +54,57 @@ export async function gateGastoGestion(
     include: GASTO_INCLUDE,
   });
   if (!gasto) return { ok: false, response: apiError(GASTO_NO_EXISTE, 404, "NOT_FOUND") };
-  return { ok: true, value: gasto };
+  return { ok: true, value: { gasto, proyectoEstado: gate.value.estado } };
+}
+
+/** 404 (project) -> 403 (managers only) -> 404 (expense of that project). Any project estado (void). */
+export async function gateGastoGestion(
+  usuario: Usuario,
+  proyectoId: string,
+  gastoId: string,
+): Promise<GateResult<GastoConRelaciones>> {
+  const gate = await cargarGastoGestion(usuario, proyectoId, gastoId);
+  return gate.ok ? { ok: true, value: gate.value.gasto } : gate;
+}
+
+/**
+ * 404 -> 403 -> 404 -> 409 for validate / reject: the gate of `gateGastoGestion` plus the project estado
+ * (EN_EJECUCION or SUSPENDIDO). VOID keeps using `gateGastoGestion`: a mistake stays correctable in any estado.
+ */
+export async function gateGastoDecision(
+  usuario: Usuario,
+  proyectoId: string,
+  gastoId: string,
+): Promise<GateResult<GastoConRelaciones>> {
+  const gate = await cargarGastoGestion(usuario, proyectoId, gastoId);
+  if (!gate.ok) return gate;
+  if (!ESTADOS_PROYECTO_VALIDACION.includes(gate.value.proyectoEstado)) {
+    return { ok: false, response: apiError(GASTO_PROYECTO_ESTADO_MESSAGE, 409, "INVALID_STATE") };
+  }
+  return { ok: true, value: gate.value.gasto };
+}
+
+/**
+ * Re-checks the project estado inside the transaction under a shared row lock: a close / cancel that raced the
+ * gate holds the exclusive lock until it commits, so this read sees its result. False = no longer actionable.
+ */
+export async function proyectoPermiteValidacion(
+  tx: Parameters<Parameters<typeof db.$transaction>[0]>[0],
+  proyectoId: string,
+): Promise<boolean> {
+  const filas = await tx.$queryRaw<{ estado: string }[]>`
+    SELECT "estado"::text AS "estado" FROM "proyectos"
+    WHERE "id" = ${proyectoId} AND "deleted_at" IS NULL FOR SHARE`;
+  const fila = filas[0];
+  return !!fila && ESTADOS_PROYECTO_VALIDACION.includes(fila.estado);
 }
 
 export type ResultadoValidacion =
   | { blocked: false; gasto: GastoConRelaciones }
   | { blocked: true }
   | { stale: true }
-  | { stale: true; incompleto: true };
+  | { stale: true; incompleto: true }
+  | { stale: true; proyectoNoActivo: true };
 
 /**
  * The transaction body of POST validate. Returns instead of throwing (see the header).
@@ -70,6 +118,8 @@ export async function validarEnTransaccion(
   input: { gasto: GastoConRelaciones; validadorId: string },
 ): Promise<ResultadoValidacion> {
   const { gasto, validadorId } = input;
+
+  if (!(await proyectoPermiteValidacion(tx, gasto.proyecto_id))) return { stale: true, proyectoNoActivo: true };
 
   const filas = await tx.$queryRaw<
     {
