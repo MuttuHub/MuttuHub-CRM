@@ -195,14 +195,14 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
   Evidencia: `7e15028` (+ `095bb3a` guarda responsive). RED previo en `project-dashboard.test.tsx`; se quitó también la lista que solo alimentaba la sección. API del portafolio sin campo territorial. Ruta D (inline).
 - [x] ~~**F2** Tarjeta «Beneficiarios atendidos / meta» en el tablero gerencial (C5).~~ Cancelada por M5: ya no se
   miden atendidos.
-- [ ] **F3** Filtros del portafolio por cliente, línea, municipio y responsable (RF-31). La API ya los acepta
+- [x] **F3** Filtros del portafolio por cliente, línea, municipio y responsable (RF-31). La API ya los acepta
   (`src/app/api/v1/projects/route.ts:61-65`). Archivo: `project-list.tsx`. Tamaño S.
 - [x] **F4** V-03 estricto: inicio < fin (C1). Depende de PO-4. Tamaño S.
   Evidencia: `d03a56c`. Validador compartido `src/lib/proyectos/rango-fechas.ts` (API crear y convertir, PATCH, modificaciones, formulario). Verificación: vitest src/components/proyectos, api/v1/{projects,dashboard,clients}, lib/{proyectos,api,openapi} 1958/1959 (el fallo era responsive-guards, corregido en `095bb3a`), `tsc --noEmit` y eslint sin errores.
 - [x] **F5** `valor_total > 0` al crear (C2). Depende de PO-5. Tamaño S.
   Evidencia: `d1a6ef6`. `valor_total` obligatorio y > 0 solo en `PROJECT_CREATE_SCHEMA` y en el formulario; la conversión (E-05) conserva su prefill desde la oportunidad en el servidor, pero el formulario exige > 0. Pregunta abierta: ¿exigir también > 0 en la ruta E-05 cuando la oportunidad no trae valor?
   Seguimiento: resuelta en `e7c8df5`. La ruta E-05 responde 400 («El valor total debe ser mayor que cero.») cuando el valor final, del cuerpo o del prefill, es nulo o <= 0; se quitó su comprobación `fin < inicio` por redundante (el esquema compartido ya exige inicio < fin).
-- [ ] **F6** Fecha de primer contacto en formato legible (D2). Tamaño S.
+- [x] **F6** Fecha de primer contacto en formato legible (D2). Tamaño S.
 - [x] **F7** El DTO de la tarea lleva el id y el código del proyecto, para enlazar al proyecto exacto (D3). Tamaño S.
   Evidencia: `87526b5`. `TASK_SELECT` trae `oportunidad.proyecto { id, codigo, deleted_at }` en la misma consulta; el DTO expone `proyecto: { id, codigo } | null` (null si no hay proyecto o está eliminado), en el tipo del hook (opcional, por los fixtures), OpenAPI y `cardAction`: la tarjeta convertida enlaza a `/proyectos/<id>` con «✓ Proyecto <código> · abrir ficha» (sin proyecto, vuelve a `/proyectos`). El acceso lo decide `GET /projects/{id}`: la ficha responde 403 «No tienes acceso a este proyecto» o 404; el enlace puede mostrar el código aunque el usuario no sea miembro. Toca fuera de la superficie prevista: `lib/api/crm.ts` (donde vive `TASK_SELECT`), `hooks/crm.ts` y `kanban-board.tsx` (`CardActionView` tenía el `href` fijo).
 - [x] **F8** Crear proyecto desde un cliente (M1, M2). Cambios:
@@ -219,7 +219,7 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
 - [x] **F9** Descripción del proyecto (M3). Toca el esquema (R3), el zod de creación, `PROJECT_SELECT_V2`, el DTO, el
   formulario, la ficha y OpenAPI. Depende de M3. Tamaño M.
   Evidencia: `07b0a8d`. `descripcion` opcional (recortada, máx. 2000, vacía = null) en creación, conversión y PATCH (auditada), en `PROJECT_SELECT_V2`, DTO y OpenAPI; textarea con ayuda en el formulario de creación; párrafo en Resumen › Datos generales (oculto si es null). Sin diálogo de edición (pendiente de decisión de producto). `ProjectListRow.descripcion` es opcional en el tipo para no tocar los fixtures ajenos.
-- [ ] **F10** Ocultar las pestañas Oportunidades y Mapa de Clientes (M4). Se quitan de `CLIENTES_SECTIONS`
+- [x] **F10** Ocultar las pestañas Oportunidades y Mapa de Clientes (M4). Se quitan de `CLIENTES_SECTIONS`
   (`clientes-subnav.tsx:23-31`) y sus rutas redirigen a `/clientes`. Tamaño S.
 - [x] **F11** Renombrar «Observado» en `atencion.ts:39` («Gasto observado» → «Gasto pendiente por revisión»). Las
   etiquetas de `project-gastos.tsx` y `gastos-kpis.tsx` pasan a X1 (DeepSeek). Tamaño S.
@@ -356,9 +356,34 @@ El prompt completo está en `odd/tasks/lanzamiento-v2-deepseek-prompt.md`.
 El prompt está en `odd/tasks/lanzamiento-v2-deepseek-prompt-2.md`. DeepSeek trabaja en la rama `feat/deepseek-lote-2`,
 creada desde `feat/projects-v2` después de integrar X6. Estas tareas reemplazan F3, F6 y F10 del carril F.
 
-- [ ] **Y1** (F3) Filtros del portafolio: cliente, línea, municipio y responsable.
-- [ ] **Y2** (F6) Fecha de primer contacto en formato legible.
-- [ ] **Y3** (F10) Ocultar las pestañas Oportunidades y Mapa de Clientes, y redirigir sus rutas a `/clientes`.
+- [x] **Y1** (F3) Filtros del portafolio: cliente, línea, municipio y responsable.
+- [x] **Y2** (F6) Fecha de primer contacto en formato legible.
+- [x] **Y3** (F10) Ocultar las pestañas Oportunidades y Mapa de Clientes, y redirigir sus rutas a `/clientes`.
+
+Evidencia (2026-10-16): commits `b427419`, `3684d33` y `af231df`, integrados con el merge `--no-ff` de
+`feat/deepseek-lote-2`. Verificación delegada sobre el merge:
+- `vitest` de `src/components/proyectos`, `src/components/crm` y `src/test`: 919 de 920 pruebas pasan.
+- `tsc`: exit 0.
+- `eslint` de los 10 archivos de código: sin avisos.
+
+La única falla, `src/test/selected-state-contrast.test.ts` («project-create-dialog: the selected origin pill…»), viene
+de antes del merge. `79029fd` movió el formulario fuera de `project-create-dialog.tsx` y el regex de la guarda ya no
+encuentra nada. Se corrige en R1d.
+
+- [ ] **R1d** Apuntar la guarda `selected-state-contrast` al archivo que hoy tiene la píldora de origen. Ruta I.
+
+### Carril Z: lote 3 de DeepSeek (revisión de solo lectura)
+
+El prompt está en `odd/tasks/lanzamiento-v2-deepseek-prompt-3.md`. DeepSeek trabaja en la rama `feat/deepseek-revision`,
+creada desde `feat/projects-v2`, y solo escribe su log. Revisa lo que R6b no cubre: textos, accesibilidad, estados de
+carga, vacío y error, ancho de 390 px y calidad de las pruebas. Claude integra el log y tría los hallazgos antes del
+congelamiento.
+
+- [ ] **Z1** Textos de la interfaz.
+- [ ] **Z2** Accesibilidad.
+- [ ] **Z3** Estados de carga, vacío y error, y formatos.
+- [ ] **Z4** Ancho angosto (390 px).
+- [ ] **Z5** Calidad de las pruebas nuevas.
 
 ## Calendario
 
