@@ -485,11 +485,20 @@ creada desde `feat/projects-v2`, y solo escribe su log. Revisa lo que R6b no cub
 carga, vacío y error, ancho de 390 px y calidad de las pruebas. Claude integra el log y tría los hallazgos antes del
 congelamiento.
 
-- [ ] **Z1** Textos de la interfaz.
-- [ ] **Z2** Accesibilidad.
-- [ ] **Z3** Estados de carga, vacío y error, y formatos.
-- [ ] **Z4** Ancho angosto (390 px).
-- [ ] **Z5** Calidad de las pruebas nuevas.
+- [x] **Z1** Textos de la interfaz.
+- [x] **Z2** Accesibilidad.
+- [x] **Z3** Estados de carga, vacío y error, y formatos.
+- [x] **Z4** Ancho angosto (390 px).
+- [x] **Z5** Calidad de las pruebas nuevas.
+
+Evidencia: commits `e4380db` a `31b4018`, integrados en el merge `838ee26`. Solo cambió el log de DeepSeek. Hay 53
+hallazgos: 1 alta, 25 medias y 27 bajas.
+
+La alta: con `puede_editar === false`, `client-sheet.tsx:559` muestra «—» en todos los campos de texto de la pestaña
+General, porque usa `formatFecha`. Parece venir de Y2.
+
+- [ ] **ZF** Verificar y corregir las altas y medias de Z1–Z5, más las bajas triviales, en el worktree
+  `fix/z-review-findings`. El hallazgo de `salud-vista` espera a R6d. Ruta D (test-first).
 
 ## Calendario
 
