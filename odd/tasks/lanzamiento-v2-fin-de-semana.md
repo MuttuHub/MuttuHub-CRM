@@ -172,7 +172,7 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
     - `s1-rubros --dry-run`: crea 13, actualiza 1 y omite 1. **Hace falta en producción**, y `_guard.ts` no lo permite.
     - El humo de la app no se verificó: `node_modules` está instalado desde Windows y `npx` ignora el env en línea.
     - La segunda restauración salió idéntica: el respaldo sirve.
-- [ ] **R4b** Hacer que las migraciones apliquen sobre la forma real de producción, sin editar migraciones ya aplicadas.
+- [x] **R4b** Hacer que las migraciones apliquen sobre la forma real de producción, sin editar migraciones ya aplicadas.
   Ruta D (writer). Hay que:
   1. Agregar una migración previa a `20260930181056` con guardas:
      - si existen las FK con nombre del fantasma, devolverlas al nombre que espera v2;
@@ -182,6 +182,24 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
   2. Agregar una migración final que concilie el drift: `rubros_nombre_key`, los `deleted_at` y el nombre del check.
   3. Dar a `s1-rubros` una vía explícita a producción: host exacto declarado y `--expect-hash`.
   4. Repetir R4 desde una restauración limpia, con `migrate diff` vacío y las invariantes en verde.
+
+  Evidencia (2026-10-16): cuatro commits.
+  - `a27e35d`: migración previa con guardas. Devuelve las FK solo si `20260930181056` no está aplicada. Borra las 6
+    tablas v1, cada una detectada por una columna propia de v1, sin CASCADE, y lanza un error si alguna tiene filas.
+    `EstadoProyecto` se borra solo si le falta BORRADOR.
+  - `5f03f3d`: migración de conciliación, para `rubros_nombre_key`, los `deleted_at` y el doble CHECK de montos.
+  - `89cddc0`: invariante `prisma/v1-production-shape.invariant.test.ts` con 13 casos, en un esquema desechable con
+    rollback.
+  - `51058ff`: `_guard.ts` acepta un host remoto solo si `MIGRATE_V2_ALLOW_REMOTE_HOST` es exacto, y un `--apply`
+    remoto exige `--expect-hash`.
+
+  Resultados en la base local:
+  - `migrate deploy` aplicó las dos migraciones sin cambios.
+  - `migrate status` está al día.
+  - `migrate diff` está vacío.
+  - `prisma` en secuencia: 228/228. `scripts/migrate-v2`: 37/37.
+
+  La corrida 2 de R4 sobre la copia de producción está en curso.
 - [x] **R5** Checklist de infraestructura: variables de entorno nuevas de v2, buckets de Storage, cron y alcance de las
   variables en Vercel. Ruta D. Resultado (2026-10-15, explorador de solo lectura sobre `main..HEAD`):
   - **Variables:** son las mismas 12 en `main` y en HEAD; no hay ninguna nueva. `ENABLE_DEV_ROUTES` no debe estar en
