@@ -86,6 +86,12 @@ Anota lo que se vea raro o confuso y pásaselo a Claude, mejor con una captura.
 - [ ] **Supabase → Authentication → URL Configuration:** la URL de producción `/auth/confirm` está en la lista.
 - [ ] **Vercel → Settings → Environment Variables:** `ENABLE_DEV_ROUTES` **no** está en `true`.
 - [ ] **Vercel → Settings → General:** anota la versión de Node.
+- [ ] **Vercel → Environment Variables (Production) → `EMAIL_FROM`:** debe ser una dirección de un dominio
+  **verificado** en Resend, por ejemplo `noreply@muttu.co`, y **no** `@gmail.com`. Por eso el resumen diario falla
+  todos los días desde el 2026-08-12. Resend responde 403: «The gmail.com domain is not verified». Si lo cambias,
+  vuelve a desplegar.
+- [ ] **Resend → Domains:** el dominio del remitente (`muttu.co`) aparece como *Verified* (SPF y DKIM), y la
+  `RESEND_API_KEY` de Vercel es de esa misma cuenta.
 
 ## 4. DeepSeek (opencode)
 
