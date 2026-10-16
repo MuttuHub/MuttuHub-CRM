@@ -115,7 +115,7 @@ describe("ProjectPresupuesto", () => {
     expect(filas).toHaveLength(3)
     expect(filas[0]).toHaveTextContent("R01")
     expect(filas[0]).toHaveTextContent("Personal")
-    expect(within(tabla).getByLabelText("Asignado R01")).toHaveValue("59500000")
+    expect(within(tabla).getByLabelText("Asignado R01")).toHaveValue("59.500.000")
     expect(within(tabla).getByLabelText("Asignado R02")).toHaveValue("0")
   })
 
@@ -138,6 +138,7 @@ describe("ProjectPresupuesto", () => {
     const campo = screen.getByLabelText("Asignado R02")
     await user.clear(campo)
     await user.type(campo, "40200000")
+    expect(campo).toHaveValue("40.200.000")
     expect(resumen).toHaveTextContent("Diferencia")
     expect(resumen).toHaveTextContent("$ 0")
     expect(resumen).not.toHaveTextContent("-$ 40.200.000")
@@ -196,14 +197,14 @@ describe("ProjectPresupuesto", () => {
     expect(screen.queryByRole("button", { name: "Igualar valor total a Σ A" })).not.toBeInTheDocument()
   })
 
-  it("renders one programming column per project month and the control per rubro", async () => {
+  it("renders one programming column per project month, with legible months, and the control per rubro", async () => {
     setup()
 
     const grid = await screen.findByTestId("programacion-grid")
     expect(within(grid).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(
-      expect.arrayContaining(["2026-10", "2026-11", "2026-12"]),
+      expect.arrayContaining(["oct 2026", "nov 2026", "dic 2026"]),
     )
-    expect(within(grid).getByLabelText("Programado R01 2026-10")).toHaveValue("20000000")
+    expect(within(grid).getByLabelText("Programado R01 oct 2026")).toHaveValue("20.000.000")
     const fila = within(grid).getAllByTestId("programacion-fila")[0]
     expect(fila).toHaveTextContent("-$ 39.500.000")
   })
@@ -215,12 +216,13 @@ describe("ProjectPresupuesto", () => {
     expect(screen.getByText(/informativo/i)).toBeInTheDocument()
   })
 
-  it("submits programming cells above $0 as strings", async () => {
+  it("submits programming cells above $0 as strings, with the typed thousands separators", async () => {
     const user = userEvent.setup()
     setup()
 
-    const celda = await screen.findByLabelText("Programado R01 2026-11")
+    const celda = await screen.findByLabelText("Programado R01 nov 2026")
     await user.type(celda, "7500,25")
+    expect(celda).toHaveValue("7.500,25")
     await user.click(screen.getByRole("button", { name: "Guardar programación" }))
 
     await waitFor(() => expect(writes("PUT").some(([u]) => String(u).endsWith("/programming"))).toBe(true))
@@ -247,7 +249,7 @@ describe("ProjectPresupuesto", () => {
       const tabla = await screen.findByTestId("presupuesto-tabla")
       expect(tabla).toHaveTextContent("$ 59.500.000")
       expect(screen.queryByLabelText("Asignado R01")).not.toBeInTheDocument()
-      expect(screen.queryByLabelText("Programado R01 2026-11")).not.toBeInTheDocument()
+      expect(screen.queryByLabelText("Programado R01 nov 2026")).not.toBeInTheDocument()
       expect(screen.queryByRole("button", { name: "Guardar presupuesto" })).not.toBeInTheDocument()
       expect(screen.queryByRole("button", { name: "Igualar valor total a Σ A" })).not.toBeInTheDocument()
     })

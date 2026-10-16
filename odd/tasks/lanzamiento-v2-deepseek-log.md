@@ -79,3 +79,93 @@ LISTO PARA INTEGRAR: X2
 - PREGUNTA: ninguna.
 
 LISTO PARA INTEGRAR: X3
+
+---
+
+## X4 · Montos legibles en Presupuesto
+
+- Commit: `20883d9` — `feat(proyectos): format money inputs and months in the budget`
+- Archivos tocados:
+  - `src/components/proyectos/presupuesto-programacion.tsx` — nuevo campo compartido `MontoInput` (separador de
+    miles al escribir, valor numérico hacia `parseMontoInput`/API), `mesLegible` («oct 2026») en encabezados,
+    etiquetas accesibles y el mensaje de error local. Vive aquí porque `presupuesto-ui.tsx` está fuera de la
+    superficie del carril; `project-presupuesto.tsx` ya importa de este archivo.
+  - `src/components/proyectos/project-presupuesto.tsx` — usa `MontoInput` en la tabla de asignación.
+  - `src/components/proyectos/project-presupuesto.test.tsx` — valores con miles en pantalla, meses legibles y
+    envío numérico intacto.
+  - `src/components/proyectos/presupuesto-programacion.test.tsx` — **nuevo**. Meses legibles, miles al escribir con
+    control numérico y lectura sin edición.
+- Verificaciones:
+  1. `TZ=America/Bogota npx vitest run` sobre las rutas del carril → 9 archivos, 111 pruebas, **verde**.
+  2. `npx tsc --noEmit` → **sin errores**.
+  3. `npx eslint src/components/proyectos/ficha src/components/proyectos/project-financiero.tsx
+     src/components/proyectos/project-presupuesto.tsx src/components/proyectos/project-gastos.tsx` → **sin avisos**.
+- PEDIDO A CLAUDE: ninguno. Nota: `MoneyInput` de `presupuesto-ui.tsx` queda sin uso (ese archivo no es de mi
+  superficie; no lo toco).
+- PREGUNTA: ninguna.
+
+LISTO PARA INTEGRAR: X4
+
+---
+
+## X5 · `FichaDocumentos`
+
+- Commit: `486f9ea` — `feat(proyectos): add the documents tab with every project support grouped by origin`
+- Archivos tocados:
+  - `src/components/proyectos/ficha/ficha-documentos.tsx` — **nuevo**. Una lista con todos los soportes de
+    `useProjectSupports`, agrupada en Actividades (avance), Indicadores, Gastos y Proyecto; filtro por origen con
+    chips (`aria-pressed`) y buscador por nombre (insensible a mayúsculas); estados de carga (esqueleto), error
+    (en línea) y vacío (proyecto sin documentos / filtro sin resultados). Reutiliza `formatoSoporte` y las mismas
+    acciones de descarga de `project-soportes.tsx` (URL firmada por origen; enlace externo directo; «Abrir»
+    deshabilitado para un indicador sin enlace).
+  - `src/components/proyectos/ficha/ficha-documentos.test.tsx` — **nuevo**. Agrupación, filtro, buscador, vacíos,
+    error/carga y apertura (gasto por URL firmada; enlace directo).
+- Verificaciones:
+  1. `TZ=America/Bogota npx vitest run` sobre las rutas del carril **más** las guardas de código → 16 archivos,
+     149 pruebas, **verde**.
+  2. `npx tsc --noEmit` → **sin errores**.
+  3. `npx eslint src/components/proyectos/ficha src/components/proyectos/project-financiero.tsx
+     src/components/proyectos/project-presupuesto.tsx src/components/proyectos/project-gastos.tsx` → **sin avisos**.
+- PEDIDO A CLAUDE: ninguno. La pestaña vieja «Soportes» sigue montada hasta que U8 la retire.
+- PREGUNTA: ninguna.
+
+LISTO PARA INTEGRAR: X5
+
+---
+
+## X6 · `FichaHistorial`
+
+- Commit: `7ad07c1` — `feat(proyectos): add the history tab with modifications, versions and audit`
+- Archivos tocados:
+  - `src/components/proyectos/ficha/ficha-historial.tsx` — **nuevo**. Segmentado `variant="pill"` con
+    Modificaciones (`ProjectModificaciones`), Versiones (`ProjectVersiones`) y Auditoría (`ProjectHistorial`,
+    desde `@/components/proyectos/project-historial`). Abre en Modificaciones.
+  - `src/components/proyectos/ficha/ficha-historial.test.tsx` — **nuevo**. Hijos burlados: orden de las
+    opciones, segmento por defecto, cambio de segmento, montaje solo del activo y teclado (flecha + Enter).
+- Verificaciones:
+  1. `TZ=America/Bogota npx vitest run` sobre las rutas del carril **más** las guardas de código → 17 archivos,
+     153 pruebas, **verde**.
+  2. `npx tsc --noEmit` → **sin errores**.
+  3. `npx eslint src/components/proyectos/ficha src/components/proyectos/project-financiero.tsx
+     src/components/proyectos/project-presupuesto.tsx src/components/proyectos/project-gastos.tsx` → **sin avisos**.
+- PEDIDO A CLAUDE: ninguno. Nota para U8: la pestaña vieja «Cambios» se retira; su panel de KPI (`soloExportar`)
+  queda a cargo de U2/U4 (el menú `⋯` del encabezado).
+- PREGUNTA: ninguna.
+
+LISTO PARA INTEGRAR: X6
+
+---
+
+## Cierre del carril X
+
+Las tareas X1–X6 están terminadas en `feat/ficha-ux-finanzas`, una tarea por commit, cada una con su entrada en
+este log. Para integrar (U8) basta montar `FichaFinanzas`, `FichaDocumentos` y `FichaHistorial` en sus
+`TabsContent`:
+
+- `FichaFinanzas` → pestaña «Finanzas» (sustituye `ProjectFinanciero` + `ProjectPresupuesto` y `ProjectGastos`).
+- `FichaDocumentos` → pestaña «Documentos» (sustituye la pestaña vieja «Soportes»).
+- `FichaHistorial` → pestaña «Historial» (sustituye la pestaña vieja «Cambios»).
+
+Sin migraciones, sin dependencias nuevas y sin cambios fuera de la superficie del carril.
+
+LISTO PARA INTEGRAR: TODO
