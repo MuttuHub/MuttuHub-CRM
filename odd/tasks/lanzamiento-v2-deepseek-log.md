@@ -378,3 +378,52 @@ Revisión de solo lectura terminada: Z1–Z5 verificados en el código, con `tsc
 - No se pudo navegar en el puerto 3001 (sin Supabase local); Z4 se verificó por clases, como permite el prompt. Sin commits de código y sin push.
 
 LISTO PARA INTEGRAR: TODO LOTE 3
+
+---
+
+# Lote 4 — revisión de migraciones y runbook (carril W)
+
+Rama: `feat/deepseek-revision-2`, creada desde `feat/projects-v2` (`b8cce20`) · Worktree: `../MuttuHub-CRM-worktrees/ficha-ux`. Sin commits de código: este lote solo escribe este log.
+
+Contexto leído: tareas R4 (corridas 1 y 2) y R4b del plan; las dos migraciones nuevas (`20260930000000_v2_adopt_production_v1_shape` y `20261016120000_v2_reconcile_adopted_v1_drift`); `prisma/v1-production-shape.invariant.test.ts`; `scripts/migrate-v2/_guard.ts`, `_harness.ts` y `s1-rubros.ts`; `prisma/local-env.ts` y `prisma.config.ts`; el runbook; el DDL v1 del commit `6e4c6c8`; `schema.prisma` y las migraciones v2 vecinas.
+
+Verificaciones del lote (sin conectarse a ninguna base ni leer el `.env`):
+- Marcadores de forma v1 contra la forma v2 real: `territorio` (no existe en `proyectos` v2), `concepto` (no en `gastos` v2), `meta_valor` (no en `indicadores` v2), `actividad_id` (no en `soportes_proyecto` v2), `meta_id`+`objetivo_id` (v2 tiene `objetivo_id` y no `meta_id`), `metas` (ninguna migración del repo la crea). Sin falsos positivos encontrados.
+- Orden de DROP del adopt: hijos antes que padres (`soportes_proyecto`→`gastos`→`indicadores`→`actividades`→`metas`→`proyectos`, y la FK de `lineas_presupuestales` a `proyectos` se quita antes). Sin bloqueos por FK en la forma real.
+- Enums: los tres v1 quedan sin uso tras los DROP; la rama «en uso» existe pero no se activa en ninguna de las dos formas conocidas.
+- `bash -n` sobre los 16 bloques bash del runbook (extraídos a `/tmp`): 14 en verde; 2 fallan solo por los placeholders `<…>` (ver W2-5).
+- Entorno del WSL del operador: `command -v` → `eza`, `rg`, `supabase` (v2.110.0), `docker`, `node` presentes; **`psql` ausente**. `docker images` → hay `public.ecr.aws/supabase/postgres:17.6.1.143` pero **no** `postgres:17`.
+- Dump del viernes (`~/muttu-backups/2026-10-16`, inspeccionado solo por metadatos y conteos, nunca por contenido de filas): `schema.sql` = 28 `CREATE TABLE` (todas de `public`, con `IF NOT EXISTS`) + extensiones; `data.sql` = 61 `COPY` (28 de `public`, 26 de `auth`, 7 de `storage`), con `session_replication_role = replica`.
+
+## W1 · Las dos migraciones nuevas
+
+| # | Gravedad | Archivo:línea | Problema | Consecuencia el domingo | Arreglo sugerido (una línea) |
+|---|---|---|---|---|---|
+| 1 | media | prisma/migrations/20260930000000_v2_adopt_production_v1_shape/migration.sql:107-119 · prisma/v1-production-shape.invariant.test.ts:36-50 | El RAISE «tabla v1 con filas» vive en el mismo bucle que los DROP: si la tabla con filas es tardía (p. ej. `proyectos`, ord 6), las cinco anteriores ya se borraron. En `migrate deploy` no hay transacción que lo revierta (el propio runbook 3.4 dice «deja la migración parcialmente aplicada»; R4 corrida 1 lo vivió como «a medias» + P3009). El arnés de la prueba envuelve siempre en una transacción y hace rollback, así que no puede observar ese estado | Con la forma real verificada no se activa (las 6 tablas tienen 0 filas), pero si se activara la base queda a medias y hay que saltar al respaldo sin que el mensaje del RAISE lo diga | Dos fases: recorrer las 6 tablas y validar filas primero; borrar solo si ninguna tiene filas |
+| 2 | baja | prisma/migrations/20260930000000_v2_adopt_production_v1_shape/migration.sql:138-154 vs prisma/migrations/20261006120000_v2_proyecto_general/migration.sql:25-30 · prisma/v1-production-shape.invariant.test.ts:289-300 | La rama que OMITE el DROP de un enum en uso no tiene ninguna prueba (la invariante solo cubre el caso «sin uso»). Si se activara, el enum v1 sobrevive; el `CREATE TYPE` v2 va guardado con `duplicate_object` (20261006120000:25-30), así que lo traga y la app recibe `EstadoProyecto` sin `BORRADOR` | Ninguna con la forma verificada (tras los DROP los tres enums quedan libres y el ensayo confirmó «solo enums v2»); el hueco es de la red de seguridad | Añadir a la invariante un caso con una tabla que use el enum y exigir que el DROP se omita (y el contraste con el enum v2 presente) |
+| 3 | baja | prisma/v1-production-shape.invariant.test.ts:270-300,346-367 · prisma/migrations/20260930000000_v2_adopt_production_v1_shape/migration.sql:37-39,97-102 | Diferencias de cobertura frente a lo que la migración hace: el RAISE se prueba solo con `proyectos` y `metas` (faltan `gastos`, `indicadores`, `soportes_proyecto`, `actividades`); no se prueba la exclusión por `v2_column` (actividades con `meta_id` y `objetivo_id`); no se prueba la rama sin `_prisma_migrations` (adopt:37-39); la conciliación solo prueba el RAISE de `rubros`, no el de `lineas_presupuestales` | Ninguna directa el domingo (el ensayo cubrió la forma real completa); son huecos de la red de seguridad que se cierran con el mismo patrón ya escrito | Añadir los 4-5 casos que faltan (mismo estilo, esquema desechable + rollback) |
+
+LISTO PARA INTEGRAR: W1
+
+## W2 · El runbook como operador
+
+| # | Gravedad | Archivo:línea | Problema | Consecuencia el domingo | Arreglo sugerido (una línea) |
+|---|---|---|---|---|---|
+| 1 | alta | docs/runbook-lanzamiento-v2.md:492-516 (con 3.1:121-130) | El dump de 3.1 no es consistente consigo mismo: `schema.sql` trae solo `public` (28 tablas, verificado en el dump del viernes), pero `data.sql` trae 61 `COPY` con 26 de `auth` y 7 de `storage`. 5.3 solo vacía `public`, así que al restaurar los `COPY` de `auth.*`/`storage.*` chocan con las filas que ya están en producción (clave duplicada; `session_replication_role=replica` desactiva triggers/FK, no los índices únicos) y `ON_ERROR_STOP=1` corta la restauración a medias. Es exactamente el filtrado que el ensayo tuvo que hacer («hubo que filtrar algunas tablas de auth.* y storage.*») y que el runbook no incluye como paso | En la vuelta atrás por dump: `public` recién vaciado, datos de `public` a medio cargar y el resto detenido; la app queda caída hasta PITR | Generar el respaldo con `--schema public` (o `--exclude` de auth/storage en los datos) o retirar la vía manual y dejar PITR como única documentada |
+| 2 | media | docs/runbook-lanzamiento-v2.md:266-274 vs 501-516 | `psql` no existe en este WSL (verificado con `command -v`) y la función de reemplazo `docker run --rm -i postgres:17 psql "$@"` tiene dos problemas: (a) la imagen `postgres:17` no está local (verificado con `docker images`; sí está `public.ecr.aws/supabase/postgres:17.6.1.143`), así que el primer uso intenta bajar de Docker Hub con el riesgo de red de Fortinet; (b) no monta ningún directorio, así que `-f "$BACKUP_DIR/..."` no puede leer los archivos del host. En 5.3 el `DROP` va con `-c` (sí corre si el contenedor arranca) y los tres `-f` fallan después | Restauración detenida tras el `DROP SCHEMA public CASCADE`, con la base sin datos y sin `_prisma_migrations` | Usar la imagen supabase ya presente y montar el directorio (`-v "$HOME:$HOME"`) o pasar los archivos por stdin (`docker run -i <imagen> psql "$URL" … < archivo`) |
+| 3 | baja | docs/runbook-lanzamiento-v2.md:228-229 vs 234-237 | 3.4 afirma que si una tabla v1 tuviera filas la adopción «aborta con un mensaje y no borra nada», pero su propio bloque de error dice que Prisma deja la migración «parcialmente aplicada»: el RAISE llega después de los `DROP` anteriores del mismo archivo (adopt:107-119) | Expectativa equivocada del estado de la base justo cuando hay que decidir entre reintentar y restaurar | Corregir la frase («borra solo lo anterior del mismo archivo; restaura desde el respaldo») o hacer la migración en dos fases |
+| 4 | baja | docs/runbook-lanzamiento-v2.md:128,132 vs 503-515 | `BACKUP_DIR` nunca se asigna como variable: 3.1 solo imprime `BACKUP_DIR=$B` y pide «guardar el valor»; 5.3 usa `"$BACKUP_DIR"` en todas las órdenes | En la vuelta atrás, `eza -l ""` y `-f "/schema.sql"` fallan con mensajes confusos | `export BACKUP_DIR="$B"` en el bloque de 3.1 |
+| 5 | baja | docs/runbook-lanzamiento-v2.md:359,542 | Los bloques de `--apply` y `--revert` llevan placeholders `<PEGA_AQUÍ_EL_PLAN_HASH_COMPLETO>` y `<LOTE_ANOTADO>` que, pegados sin reemplazar, son un error de sintaxis de bash (verificado con `bash -n`: «syntax error near unexpected token `newline`»), no una redirección silenciosa | Un pegado accidental en plena ventana (o en la vuelta atrás) da un error críptico | Guardar el hash y el lote en variables (`$PLAN_HASH`, `$LOTE`) y usarlas en los comandos |
+| 6 | baja | docs/runbook-lanzamiento-v2.md:273 | La función psql por docker pasa la URI completa (con contraseña) en el argv del contenedor; queda visible en `ps`/`docker inspect` del equipo | Exposición local de la credencial de producción, contra el espíritu de la regla 1 | Pasar la conexión por variables de entorno del contenedor o por stdin |
+
+LISTO PARA INTEGRAR: W2
+
+## Cierre del lote 4
+
+Revisión de solo lectura terminada. W1: la adopción está bien construida para las dos formas conocidas (sin falsos positivos contra la forma v2, sin fallos de orden de FK, idempotente, `migrate diff` vacío en el ensayo); lo que queda es la semántica de aplicación parcial del RAISE y huecos de cobertura de la invariante. W2: el paso a paso del lanzamiento es ejecutable salvo en la vuelta atrás por dump, que tiene tres bloqueos mecánicos verificados (colisión de `auth.*`/`storage.*`, fallback de `psql` sin montaje/imagen, `BACKUP_DIR` sin asignar); PITR sigue siendo la primera opción documentada.
+
+- Comando de pánico ya presente en el runbook: 5.2 (árbol de decisión) y 5.3 (PITR primero) — correcto.
+- El ensayo R4 corrida 2 coincide punto por punto con lo que el runbook espera en 3.3, 3.5, 3.7 y la sección 4 (25 pendientes, hash `1894d2b9…932f`, 14 acciones, 17 rubros/15 activos, guarda que rechaza hosts). Sin incoherencias encontradas.
+- **Nota de base:** la revisión se hizo sobre `feat/projects-v2` en `b8cce20`. Después llegaron 5 commits del carril R6e (cola de validación, scope de feeds, plan) que **no tocan** `prisma/migrations/**`, `prisma/v1-production-shape.invariant.test.ts`, `scripts/migrate-v2/**` ni `docs/runbook-lanzamiento-v2.md`: las citas de este lote siguen vigentes.
+
+LISTO PARA INTEGRAR: TODO LOTE 4
