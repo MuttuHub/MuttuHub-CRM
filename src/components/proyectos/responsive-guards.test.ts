@@ -25,10 +25,10 @@ describe("390 px responsive guards", () => {
     expect(header).toMatch(/gap-1\.5 sm:gap-2\.5/)
   })
 
-  it("Gastos KPIs: one column on phones and money values never wrap", () => {
-    const kpis = read("gastos-kpis.tsx")
-    expect(kpis).toMatch(/grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5/)
-    expect(kpis).toMatch(/<span className="whitespace-nowrap" title=/)
+  it("Gastos summary: one compact line that wraps on phones instead of a fixed grid", () => {
+    const resumen = read("gastos-kpis.tsx")
+    expect(resumen).toMatch(/<p data-testid="gastos-resumen" className="[^"]*text-\[13px\]/)
+    expect(resumen).not.toMatch(/whitespace-nowrap|grid-cols-/)
   })
 
   it("Avance monthly table: scrolls inside its own container with a minimum width", () => {

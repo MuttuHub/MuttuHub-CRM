@@ -108,7 +108,6 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
             <FichaActividades proyecto={proyecto} />
           </TabsContent>
 
-          {/* Temporal: X2 lo reemplaza por `FichaFinanzas`. */}
           <TabsContent value="finanzas" className={PANEL_CLASS}>
             <FichaFinanzas proyecto={proyecto} />
           </TabsContent>

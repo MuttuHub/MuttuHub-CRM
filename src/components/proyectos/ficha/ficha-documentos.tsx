@@ -1,7 +1,7 @@
 // Pestaña "Documentos" de la ficha (carril X, UX-1): una sola lista con todos los soportes del proyecto,
 // agrupada por origen (Actividades, Indicadores, Gastos y Proyecto), con filtro por origen y buscador por
-// nombre. Reutiliza el formato y las acciones de `project-soportes.tsx`: la lista es la misma fuente
-// (`GET /projects/:id/supports`) y abrir un soporte pasa por la URL firmada de su origen (la API audita
+// nombre. Usa `soportes-format.ts` para el formato: la lista sale de
+// `GET /projects/:id/supports` y abrir un soporte pasa por la URL firmada de su origen (la API audita
 // cada emisión). Los soportes de gasto solo llegan si la API los deja ver (RNF-03).
 
 "use client";
@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
-import { formatoSoporte } from "@/components/proyectos/project-soportes";
+import { formatoSoporte } from "@/components/proyectos/soportes-format";
 import { EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/ui";
 import {
   downloadAvanceSoporte,
