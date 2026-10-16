@@ -562,11 +562,11 @@ export function ProjectCreateForm({
           <Etiqueta
             htmlFor="proyecto-beneficiarios"
             ayuda={{
-              label: "Meta de beneficiarios",
+              label: "Beneficiarios",
               texto: "Número de personas que el proyecto espera atender. Es opcional.",
             }}
           >
-            Meta de beneficiarios
+            Beneficiarios
           </Etiqueta>
           <Input
             id="proyecto-beneficiarios"

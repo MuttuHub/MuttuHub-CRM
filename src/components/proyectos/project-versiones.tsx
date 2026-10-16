@@ -39,7 +39,7 @@ export const CAMPO_LABEL: Record<string, string> = {
   valor_total: "Valor total",
   fecha_inicio: "Fecha de inicio",
   fecha_fin: "Fecha de fin",
-  beneficiarios_meta: "Meta de beneficiarios",
+  beneficiarios_meta: "Beneficiarios",
   rubro_nombre: "Nombre del rubro",
   asignado: "Asignado",
   valor: "Programado",

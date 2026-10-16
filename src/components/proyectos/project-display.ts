@@ -198,7 +198,7 @@ const CAMPO_AUDITORIA_META: Record<string, string> = {
   medicion: "Medición",
   linea_base: "Línea base",
   version: "Versión",
-  beneficiarios_meta: "Beneficiarios meta",
+  beneficiarios_meta: "Beneficiarios",
   responsable_id: "Responsable",
   lineas: "Líneas estratégicas",
   municipios: "Municipios",

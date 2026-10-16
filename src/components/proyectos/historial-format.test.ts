@@ -92,7 +92,7 @@ describe("resumirCambio", () => {
 
   it("keeps plain numbers of non-money fields as numbers", () => {
     expect(resumirCambio({ campo: "beneficiarios_meta", valor_anterior: 1200, valor_nuevo: 1500 }, NOMBRES)).toEqual({
-      campo: "Beneficiarios meta",
+      campo: "Beneficiarios",
       anterior: "1200",
       nuevo: "1500",
     })

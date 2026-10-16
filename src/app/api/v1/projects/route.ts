@@ -128,9 +128,9 @@ const PROJECT_CREATE_BASE = {
     .optional(),
   beneficiarios_meta: z
     .number()
-    .int("La meta de beneficiarios debe ser un número entero.")
-    .min(0, "La meta de beneficiarios no puede ser negativa.")
-    .max(2_147_483_647, "La meta de beneficiarios es demasiado alta.")
+    .int("El número de beneficiarios debe ser un entero.")
+    .min(0, "El número de beneficiarios no puede ser negativo.")
+    .max(2_147_483_647, "El número de beneficiarios es demasiado alto.")
     .nullable()
     .optional(),
   // E-03/E-05 (S2.6 T4): team members added at creation. Only active

@@ -411,7 +411,7 @@ describe("ProjectCreateForm", () => {
       ["Oportunidad", /Sin oportunidad, el proyecto es independiente/],
       ["Línea estratégica principal", /Exactamente una debe ser la principal/],
       ["Municipios", /al menos uno/],
-      ["Meta de beneficiarios", /personas/],
+      ["Beneficiarios", /personas/],
       ["Descripción", /Alcance|objetivo/],
     ] as const) {
       await user.click(screen.getByRole("button", { name: `Ayuda: ${nombre}` }))
