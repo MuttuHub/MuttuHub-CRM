@@ -432,4 +432,7 @@ creada desde `feat/projects-v2` después de integrar X6. Estas tareas reemplazan
 
 ## Siguiente paso
 
+**Viernes 2026-10-16, primera tarea del usuario:** seguir `odd/tasks/lanzamiento-v2-pendientes-viernes.md` (dump de
+producción, recorrido de la ficha en el navegador y checklist de los paneles).
+
 Faltan G-1 (aceptación de la gerencia) y G-2 (ventana). Siguen R2 (el worktree de DeepSeek), R1 y U2.
