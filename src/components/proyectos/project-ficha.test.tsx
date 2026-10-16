@@ -77,6 +77,12 @@ async function openTab(name: string) {
   await user.click(await screen.findByRole("tab", { name }))
 }
 
+/** Historial groups modifications, versions and audit as segments; the audit log lives in "Auditoría". */
+async function openAuditoria() {
+  await openTab("Historial")
+  await openTab("Auditoría")
+}
+
 const TAB_NAMES = ["Resumen", "Actividades", "Finanzas", "Documentos", "Historial"]
 
 describe("ProjectFicha (page)", () => {
@@ -199,18 +205,20 @@ describe("ProjectFicha (page)", () => {
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/kpis"))).toBe(false)
   })
 
-  it("mounts the modifications queue, the versions and the historial in the Historial tab", async () => {
+  it("opens Historial on the modifications and mounts versions and audit from their segments", async () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
     await openTab("Historial")
 
-    const modificaciones = await screen.findByTestId("modificaciones")
-    const versiones = screen.getByTestId("versiones")
-    expect(modificaciones).toHaveTextContent("Modificaciones")
-    expect(versiones).toHaveTextContent("Versiones")
-    expect(modificaciones.compareDocumentPosition(versiones) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(versiones.compareDocumentPosition(screen.getByTestId("historial")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(await screen.findByTestId("modificaciones")).toHaveTextContent("Modificaciones")
+    expect(screen.queryByTestId("versiones")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("historial")).not.toBeInTheDocument()
+
+    await openTab("Versiones")
+    expect(await screen.findByTestId("versiones")).toHaveTextContent("Versiones")
+    await openTab("Auditoría")
+    expect(await screen.findByTestId("historial")).toBeInTheDocument()
     expect(screen.queryByTestId("gastos")).not.toBeInTheDocument()
   })
 
@@ -220,8 +228,9 @@ describe("ProjectFicha (page)", () => {
     renderFicha()
     await openTab("Historial")
 
+    expect(await screen.findByText(/línea base esté aprobada/i)).toBeInTheDocument()
+    await openTab("Versiones")
     expect(await screen.findByText("La línea base aún no está aprobada.")).toBeInTheDocument()
-    expect(screen.getByText(/línea base esté aprobada/i)).toBeInTheDocument()
     expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/modifications") || String(url).endsWith("/versions"))).toBe(false)
   })
 
@@ -372,17 +381,16 @@ describe("ProjectFicha (page)", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/beneficiaries", expect.any(Object))
   })
 
-  it("mounts the Soportes section in its own tab, lazily", async () => {
+  it("mounts every project support in the Documentos tab, lazily", async () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
     await screen.findByTestId("ficha-resumen")
-    expect(screen.queryByTestId("soportes")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("documentos")).not.toBeInTheDocument()
 
     await openTab("Documentos")
 
-    const soportes = await screen.findByTestId("soportes")
-    expect(soportes).toHaveTextContent("Soportes")
+    expect(await screen.findByTestId("documentos")).toBeInTheDocument()
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/supports", expect.any(Object)),
     )
@@ -849,7 +857,7 @@ describe("ProjectFicha (page)", () => {
     mockFichaAndAudit({ historial: AUDITORIA })
 
     renderFicha()
-    await openTab("Historial")
+    await openAuditoria()
 
     expect(await screen.findByTestId("historial")).toHaveTextContent("Historial")
     await waitFor(() => expect(screen.getAllByTestId("historial-paso")).toHaveLength(1))
@@ -880,7 +888,7 @@ describe("ProjectFicha (page)", () => {
     })
 
     renderFicha()
-    await openTab("Historial")
+    await openAuditoria()
 
     await waitFor(() => expect(screen.getAllByTestId("historial-paso")).toHaveLength(2))
     const historial = screen.getByTestId("historial")
@@ -898,7 +906,7 @@ describe("ProjectFicha (page)", () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
-    await openTab("Historial")
+    await openAuditoria()
 
     expect(await screen.findByText("Sin movimientos registrados.")).toBeInTheDocument()
     expect(screen.queryAllByTestId("historial-paso")).toHaveLength(0)
@@ -911,7 +919,7 @@ describe("ProjectFicha (page)", () => {
     )
 
     renderFicha()
-    await openTab("Historial")
+    await openAuditoria()
 
     expect(await screen.findByText(PROYECTO.nombre)).toBeInTheDocument()
     const alerta = await screen.findByRole("alert")
@@ -940,7 +948,7 @@ describe("ProjectFicha (page)", () => {
     })
 
     renderFicha()
-    await openTab("Historial")
+    await openAuditoria()
 
     const paso = await screen.findByTestId("historial-paso")
     expect(paso).toHaveTextContent("Edición")

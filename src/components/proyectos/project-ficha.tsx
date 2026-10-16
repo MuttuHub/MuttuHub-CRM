@@ -15,11 +15,9 @@ import { AlertTriangle, ArrowLeft } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ProjectSoportes } from "@/components/proyectos/project-soportes";
-import { ProjectHistorial } from "@/components/proyectos/project-historial";
-import { ProjectModificaciones } from "@/components/proyectos/project-modificaciones";
+import { FichaDocumentos } from "@/components/proyectos/ficha/ficha-documentos";
 import { FichaFinanzas } from "@/components/proyectos/ficha/ficha-finanzas";
-import { ProjectVersiones } from "@/components/proyectos/project-versiones";
+import { FichaHistorial } from "@/components/proyectos/ficha/ficha-historial";
 import { FichaActividades } from "@/components/proyectos/ficha/ficha-actividades";
 import { FichaHeader } from "@/components/proyectos/ficha/ficha-header";
 import { FichaResumen } from "@/components/proyectos/ficha/ficha-resumen";
@@ -116,13 +114,11 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
           </TabsContent>
 
           <TabsContent value="documentos" className={PANEL_CLASS}>
-            <ProjectSoportes proyectoId={proyecto.id} />
+            <FichaDocumentos proyecto={proyecto} />
           </TabsContent>
 
           <TabsContent value="historial" className={PANEL_CLASS}>
-            <ProjectModificaciones proyecto={proyecto} />
-            <ProjectVersiones proyecto={proyecto} />
-            <ProjectHistorial proyecto={proyecto} />
+            <FichaHistorial proyecto={proyecto} />
           </TabsContent>
         </div>
       </Tabs>
