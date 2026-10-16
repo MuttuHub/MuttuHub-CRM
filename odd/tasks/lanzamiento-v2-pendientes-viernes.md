@@ -93,6 +93,13 @@ Anota lo que se vea raro o confuso y pásaselo a Claude, mejor con una captura.
   apenas DeepSeek marca «LISTO». Revisa en el plan si quedó integrado durante la noche.
 - Si DeepSeek se detuvo con una «PREGUNTA» o un «PEDIDO A CLAUDE» en
   `odd/tasks/lanzamiento-v2-deepseek-log.md`, pásaselo a Claude.
+- **Estado al cierre del jueves (22:30 aprox.):**
+  - DeepSeek quedó detenido en **Y1, sin commit**. En su worktree hay `portafolio-filtros.tsx` y
+    `portafolio-filtros.test.tsx`, que son nuevos, y cambios en `project-list.test.tsx`.
+  - Para retomarlo, ábrelo en la misma carpeta y dile: «Continúa con Y1 desde donde quedaste, corre las tres
+    verificaciones y haz el commit con su entrada en el log; luego sigue con Y2 e Y3».
+  - En esa carpeta hay una carpeta suelta, `node_modules_stale_…/`, que quedó de un `npm ci`. Dile que **no** la
+    agregue a ningún commit (nada de `git add -A`) y que la borre.
 
 ## Lo que sigue después (lo lleva Claude)
 
