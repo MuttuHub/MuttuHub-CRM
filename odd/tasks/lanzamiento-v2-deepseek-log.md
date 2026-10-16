@@ -264,3 +264,37 @@ como día UTC legible en la ficha del cliente; (Y3) Oportunidades y Mapa fuera d
 redirigiendo a `/clientes`.
 
 LISTO PARA INTEGRAR: TODO LOTE 2
+
+---
+
+# Lote 3 — revisión de solo lectura (carril Z)
+
+Rama: `feat/deepseek-revision`, creada desde `feat/projects-v2` (`ab60d3c`) · Worktree: `../MuttuHub-CRM-worktrees/ficha-ux` · Locator: `odd/tasks/lanzamiento-v2-deepseek-log.md`.
+Sin commits de código: este lote solo escribe este log. Alcance: `git diff main..feat/projects-v2 -- src/components src/app/(app)`, con prioridad en la ficha de proyecto (`src/components/proyectos/ficha/**`, `project-ficha.tsx`), el stepper (`src/components/proyectos/nuevo-proyecto/**`), el portafolio (`project-list.tsx`, `portafolio-filtros.tsx`) y Clientes (`src/components/crm/**`).
+
+Preparación y verificaciones del lote:
+- `git status` limpio; rama nueva desde `feat/projects-v2`; `npm ci` sin tocar el lockfile; `npx prisma generate` sin tocar la base. No hubo `prisma migrate`, seeds ni suite completa.
+- `npx tsc --noEmit` → exit 0.
+- Suite puntual: `TZ=America/Bogota npx vitest run src/components/proyectos/ficha/ficha-documentos.test.tsx src/components/crm/client-sheet.test.tsx` → 2 archivos, 27 pruebas, verde. Confirma que los dos defectos de datos de Z3 sobreviven a la suite actual.
+- Navegación en el puerto 3001: **no** fue posible; la Supabase local (127.0.0.1:54322) no está arriba en este entorno y el lote no permite levantarla. Z4 quedó verificado leyendo clases de Tailwind y estructura (el prompt lo admite como alternativa).
+- Fuera de alcance por reparto (revisión de Claude): permisos por rol, migraciones y datos, dinero (validación), borrado o anulación. No se detectó nada grave de ese tipo que merezca una línea aparte.
+
+## Z1 · Textos de la interfaz
+
+| # | Gravedad | Archivo:línea | Problema | Qué ve el usuario | Arreglo sugerido (una línea) |
+|---|---|---|---|---|---|
+| 1 | media | src/components/proyectos/project-ficha.tsx:143 · ficha/editar-datos-generales.tsx:181 · nuevo-proyecto.tsx:202 · project-list.tsx:121 · project-historial.tsx:36 · print/project-print-sheet.tsx:107 | Ante un fallo de red, `error.message` es el error crudo del navegador (`TypeError`), no un `ApiError`, y se pinta tal cual; el fallback en español solo cubre errores que no son `Error` | «Failed to fetch» (Chrome) bajo «No pudimos abrir la ficha», en inglés y sin explicación | Mostrar `message` solo si es `ApiError`; en cualquier otro caso, el texto en español |
+| 2 | media | src/components/crm/print-ficha.tsx:380 · print-list.tsx:291 | Con 401 (sesión vencida) o 500 se muestra texto de desarrollador: «Configura el archivo .env con Supabase o inicia sesión…» | Un usuario cualquiera con la sesión vencida lee que configure un archivo `.env` para imprimir | Reemplazar por «Tu sesión expiró. Inicia sesión de nuevo»; quitar `.env` y Supabase del mensaje |
+| 3 | media | src/components/crm/clientes-subnav.tsx:25 vs src/lib/nav.ts:31,69 · interaccion-form-dialog.tsx:145 · salud-vista.tsx:162 | La misma entidad y la misma ruta se llaman «Aliados» (subnav, diálogo de interacción, salud) y «Clientes» (menú lateral); el título intenta cubrirlo con «Aliados y clientes» | El menú dice «Clientes», la subnavegación «Aliados» y el encabezado «Aliados y clientes» para la misma lista | Unificar a «Clientes» en `CLIENTES_SECTIONS`, `PAGE_HEADERS` y los textos de CRM |
+| 4 | media | src/components/crm/task-dialogs.tsx:174 vs src/components/kanban/task-dialog.tsx:246 · src/lib/nav.ts:104 | La misma entidad `Tarea` se llama «compromiso» en la ficha del cliente («Nuevo compromiso») y «tarea» en el tablero («Nueva tarea»); el mismo subtítulo del menú mezcla ambos | Mismo objeto con dos nombres según la pantalla; los dos diálogos conviven en la app | Elegir «Tarea» (o «Compromiso») y aplicarlo en ambos módulos |
+| 5 | media | src/components/proyectos/project-estructura.tsx:44 · estructura-objetivos.tsx:75,97 · nuevo-proyecto/paso-revision.tsx:57 · nuevo-proyecto/stepper-logic.ts:6 | La sección se titula «Metas e indicadores» pero su contenido y acciones dicen «objetivos» («Agregar objetivo», «no tiene objetivos»), y el paso 5 cuenta «Objetivos» | Dentro de «Metas» se crean «objetivos»; el conteo del resumen no dice «Metas» | Unificar la etiqueta visible (p. ej. «Objetivos» en sección, botones y conteos) |
+| 6 | baja | src/components/proyectos/nuevo-proyecto/paso-revision.tsx:74-79 | «Guardar borrador» no guarda nada: es un enlace que abre la ficha (ya está todo persistido) | Un botón que promete guardar y solo navega; sugiere que hay cambios pendientes | Renombrar a «Abrir la ficha» (o «Revisar en la ficha») |
+| 7 | baja | src/components/proyectos/ficha/ficha-header.tsx:84 · print/project-print-sheet.tsx:94 · src/components/crm/print-ficha.tsx:114 | La misma acción tiene tres rótulos: «Imprimir / PDF», «Imprimir / Guardar PDF» e «Imprimir» | El botón de la ficha imprime distinto según desde dónde se abra | Unificar a «Imprimir / Guardar PDF» en los tres puntos |
+| 8 | baja | src/components/proyectos/ejecucion-avance.tsx:251 · project-cronograma.tsx:113 · ficha/ficha-resumen.tsx:83 | El mismo hecho (avance sin archivo) se llama «Pendiente de soporte», «Sin soporte» y «avance sin soporte» | Tres nombres para el mismo estado de un avance | Fijar una frase única, p. ej. «Sin soporte», en chip, resumen y cronograma |
+| 9 | baja | src/components/proyectos/curve-s-chart.tsx:90 · project-kpis-panel.tsx:130 · ejecucion-avance.tsx:108 | El mismo valor técnico se rotula «Planeado» (leyenda de la curva), «Avance programado» y «% plan» | La pestaña Actividades usa tres nombres para lo mismo | Unificar a «Programado» (o «Plan») en leyenda, métrica y filas |
+| 10 | baja | src/components/proyectos/ficha/ficha-resumen.tsx:252 | En BORRADOR, «Próximos pasos» le pide a cualquiera usar «Aprobar línea base», pero el botón solo existe para ADM/GER (`canApproveBaseline` ⇒ `canManageProjects`) | Un colaborador busca un botón que no ve | Condicionar la pista al rol o redactarla «pídele a Administración o Gerencia que la apruebe» |
+| 11 | baja | src/components/proyectos/project-financiero.tsx:36 = project-kpis-panel.tsx:30 | `ALERTA_RETRASO_TEXT` está duplicado literal en dos módulos | Dos copias del mismo aviso visible que pueden divergir al editarlo | Exportarlo una sola vez e importarlo en el otro módulo |
+| 12 | baja | src/components/proyectos/project-list.tsx:170 · project-financiero.tsx:99 | El chip «No confirmado» no dice a qué se refiere (umbrales del semáforo sin confirmar) y no tiene descripción asociada | «12 proyectos · No confirmado» sin contexto | Añadir `title` o texto corto («Umbrales sin confirmar») |
+| 13 | baja | src/components/dashboard/dashboard-page.tsx:2 | Único `TODO` del alcance: `TODO: rango custom` en un comentario; además hay bloques de comentario en inglés en archivos nuevos | No visible para el usuario; rompe la convención del repo | Convertirlo en tarea o quitarlo antes del congelamiento |
+
+LISTO PARA INTEGRAR: Z1
