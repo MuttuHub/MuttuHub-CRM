@@ -541,6 +541,19 @@ El prompt está en `odd/tasks/lanzamiento-v2-deepseek-prompt-4.md`. Se integró 
 
   Ruta D.
 
+  Evidencia: `8387ea3`. Ensayo sobre `rollback_test`: dump completo, `migrate deploy` y una fila marcador, y luego §5.3
+  copiada literal.
+  - Sin errores, con `ON_ERROR_STOP` y en una transacción.
+  - Las 28 tablas de `public` coinciden con los conteos previos.
+  - `_prisma_migrations` vuelve a 12 filas.
+  - Se recuperan las tablas v1 y desaparece la fila marcador.
+  - Esquema, permisos y RLS quedan idénticos a una restauración limpia.
+  - `auth.users` sigue en 15, y `pg_net` y los event triggers quedan intactos.
+  - Las 19 piezas de bash pasan `bash -n`.
+
+  El ensayo corrigió dos errores del primer borrador: el `DROP SCHEMA public CASCADE` borraba `pg_net`, y los
+  privilegios por defecto daban acceso de más a `anon` y `authenticated`.
+
 ## Calendario
 
 | Día | Claude | DeepSeek | Usuario |
