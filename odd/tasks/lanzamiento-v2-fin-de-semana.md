@@ -238,7 +238,7 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
       medias:
       - un `prisma.config.ts` que carga `.env.local` puede desviar un deploy (va al runbook);
       - `_guard.ts` no permite `s1-rubros` en producción.
-- [ ] **R6c** Corregir los hallazgos de R6b que no necesitan decisión:
+- [x] **R6c** Corregir los hallazgos de R6b que no necesitan decisión:
   - el grave de validación de gastos (releer el gasto bajo lock);
   - `Boolean()` en `users/[id]`;
   - `gasto-form` con `parseMontoInput`;
