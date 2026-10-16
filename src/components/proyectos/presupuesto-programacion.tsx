@@ -8,6 +8,7 @@ import { useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { ToneBadge } from "@/components/crm/shared";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
+import { mesLegible } from "@/components/proyectos/project-display";
 import { InlineError } from "@/components/proyectos/ui";
 import { MONTO_INVALIDO, formatMontoInput, montoToInput, parseMontoInput } from "@/components/proyectos/presupuesto-ui";
 import { Button } from "@/components/ui/button";
@@ -18,15 +19,6 @@ import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const PROGRAMMING_ERROR = "No pudimos cargar la programación. Inténtalo de nuevo.";
-
-const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
-
-/** `"2026-10"` -> `"oct 2026"` (X4); lo que no tenga forma de periodo se muestra tal cual. */
-export function mesLegible(periodo: string): string {
-  const match = /^(\d{4})-(\d{2})$/.exec(periodo);
-  const mes = match ? MESES_CORTOS[Number(match[2]) - 1] : undefined;
-  return match && mes ? `${mes} ${match[1]}` : periodo;
-}
 
 /**
  * Campo de monto compartido con la tabla de asignación (`project-presupuesto.tsx`, X4). Mientras tiene

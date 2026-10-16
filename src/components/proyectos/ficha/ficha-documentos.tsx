@@ -33,6 +33,12 @@ const GRUPOS: readonly { origen: ProjectSupport["origen"]; titulo: string }[] = 
   { origen: "proyecto", titulo: "Proyecto" },
 ];
 
+/** Hay algo que abrir: el archivo de un avance o gasto (por su origen) o un enlace externo. */
+function puedeAbrir(soporte: ProjectSupport): boolean {
+  const viaOrigen = (soporte.origen === "avance" || soporte.origen === "gasto") && Boolean(soporte.origen_id);
+  return viaOrigen || Boolean(soporte.url_externa);
+}
+
 type Filtro = "TODOS" | ProjectSupport["origen"];
 
 export function FichaDocumentos({ proyecto }: { proyecto: ProjectListRow }) {
@@ -145,7 +151,8 @@ export function FichaDocumentos({ proyecto }: { proyecto: ProjectListRow }) {
                         <Button
                           variant="outline"
                           size="sm"
-                          disabled={abriendo === soporte.id || (soporte.origen === "indicador" && !soporte.url_externa)}
+                          disabled={abriendo === soporte.id || !puedeAbrir(soporte)}
+                          title={puedeAbrir(soporte) ? undefined : "Este documento no tiene archivo ni enlace para abrir."}
                           onClick={() => void abrir(soporte)}
                         >
                           <ExternalLink className="size-3.5" strokeWidth={1.8} />

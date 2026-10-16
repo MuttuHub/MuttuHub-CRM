@@ -318,3 +318,12 @@ export function formatDiferenciaPp(desviacionPp: number): string {
   const value = rounded === 0 ? 0 : rounded;
   return `${value > 0 ? "+" : ""}${PP.format(value)} pp`;
 }
+
+const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+/** `"2026-10"` -> `"oct 2026"`; lo que no tenga forma de periodo (AAAA-MM) se muestra tal cual. */
+export function mesLegible(periodo: string): string {
+  const match = /^(\d{4})-(\d{2})$/.exec(periodo);
+  const mes = match ? MESES_CORTOS[Number(match[2]) - 1] : undefined;
+  return match && mes ? `${mes} ${match[1]}` : periodo;
+}

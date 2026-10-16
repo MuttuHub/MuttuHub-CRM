@@ -13,7 +13,7 @@ import { StatusChip } from "@/components/ui/status-chip";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { VoidControl, errorMessage } from "@/components/proyectos/estructura-ui";
 import { EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/ui";
-import { GASTOS_ERROR } from "@/components/proyectos/gastos-kpis";
+import { GASTOS_ERROR, GastosResumen } from "@/components/proyectos/gastos-kpis";
 import { GastoForm, TIPO_SOPORTE_LABELS } from "@/components/proyectos/gasto-form";
 import { ValidacionControles } from "@/components/proyectos/gasto-acciones";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -123,6 +123,7 @@ export function ProjectGastos({ proyecto }: { proyecto: ProjectListRow }) {
         <Skeleton className="mt-2 h-24 w-full rounded-[14px]" />
       ) : (
         <>
+          <GastosResumen data={query.data} />
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
             {gastos.length > 0 ? <FiltrosGasto gastos={gastos} filtro={filtro} onChange={setFiltro} /> : <span />}
             {puedeRegistrar && !registrando && (

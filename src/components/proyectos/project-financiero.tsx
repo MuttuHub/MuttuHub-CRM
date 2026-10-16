@@ -13,6 +13,7 @@ import { useState } from "react";
 import { AlertTriangle, ChevronDown, PiggyBank } from "lucide-react";
 import { ToneBadge } from "@/components/crm/shared";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
+import { mesLegible } from "@/components/proyectos/project-display";
 import { EmptyBlock, InlineError, SELECT_CLASS, SectionHeader } from "@/components/proyectos/ui";
 import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
 import { Button } from "@/components/ui/button";
@@ -70,6 +71,15 @@ function FinancieroContent({ proyecto, inicio, fin }: { proyecto: ProjectListRow
   const ficha = query.data;
   // The server picks the default corte; the selector then shows the one it used.
   const corteActual = corte ?? ficha?.corte ?? "";
+  // Opciones avanzadas puede estar plegado: lo que no es el valor por defecto se anuncia aparte.
+  const filtros = [
+    ...(base === "original" ? ["Base original"] : []),
+    ...(corte !== null ? [`Corte ${mesLegible(corte)}`] : []),
+  ];
+  const restablecer = () => {
+    setCorte(null);
+    setBase("vigente");
+  };
 
   return (
     <div className="mt-2 flex flex-col gap-2.5">
@@ -86,6 +96,14 @@ function FinancieroContent({ proyecto, inicio, fin }: { proyecto: ProjectListRow
           Opciones avanzadas
         </Button>
         {ficha && !ficha.parametros.confirmado && <ToneBadge tone="neutro" label="No confirmado" />}
+        {filtros.length > 0 && (
+          <span data-testid="financiero-filtros" className="flex items-center gap-1.5 text-[12px] text-ink-700">
+            <span className="rounded-full border border-border bg-panel px-2.5 py-1">{filtros.join(" · ")}</span>
+            <Button type="button" variant="ghost" size="sm" onClick={restablecer}>
+              Restablecer
+            </Button>
+          </span>
+        )}
       </div>
 
       {opciones && (
@@ -100,7 +118,7 @@ function FinancieroContent({ proyecto, inicio, fin }: { proyecto: ProjectListRow
             >
               {periodos.map((periodo) => (
                 <option key={periodo} value={periodo}>
-                  {periodo}
+                  {mesLegible(periodo)}
                 </option>
               ))}
             </select>
@@ -204,24 +222,26 @@ const COLOR_BARRA: Record<ColorSemaforo, string> = {
 };
 
 /**
- * Barra horizontal de ejecución (X3): el avance (E/A) con una marca en lo programado (P/A) sobre el
- * total asignado, y la frase «Ejecutado … de … programados (… %) · Asignado …» debajo. El color sale
- * del servidor (`color` de la ficha); el cliente nunca lo recalcula (D11). La frase es también el
- * nombre accesible de la barra.
+ * Barra horizontal de ejecución (X3): lo ejecutado (E) frente a lo programado (P), con una marca en P, y la
+ * frase «Ejecutado … de … programados (… %) · Asignado …» debajo. La escala es la mayor de E y P, así un
+ * sobrecumplimiento se ve (la barra pasa de la marca). El color sale del servidor (`color` de la ficha); el
+ * cliente nunca lo recalcula (D11). La frase es también el nombre accesible de la barra.
  */
 function BarraEjecucion({ ficha }: { ficha: ProjectFinancialSheet }) {
   const disponible = ficha.ejecucion_disponible;
   const ejecutado = toCents(ficha.total.ejecutado);
   const programado = toCents(ficha.total.programado);
   const asignado = toCents(ficha.total.asignado);
-  const anchoEjecutado = pct1(ejecutado, asignado);
-  const anchoProgramado = pct1(programado, asignado);
+  const escala = ejecutado > programado ? ejecutado : programado;
+  const anchoEjecutado = pct1(ejecutado, escala);
+  const anchoProgramado = pct1(programado, escala);
   const ep = ficha.total.ep_decimas === null ? null : Math.round(ficha.total.ep_decimas / 10);
   const frase = [
     `Ejecutado ${formatCOP(ejecutado)} de ${formatCOP(programado)} programados${ep === null ? "" : ` (${ep} %)`}`,
     `Asignado ${formatCOP(asignado)}`,
   ].join(" · ");
   const color = disponible ? ficha.total.color : null;
+  const tolerancia = ficha.parametros.tolerancia;
 
   return (
     <div data-testid="financiero-ejecucion-bloque" className="surface-inner p-3">
@@ -248,6 +268,9 @@ function BarraEjecucion({ ficha }: { ficha: ProjectFinancialSheet }) {
       </div>
       <p data-testid="financiero-ejecucion-caption" className="mt-2 text-[12.5px] text-ink-600">
         {frase}
+      </p>
+      <p data-testid="financiero-ejecucion-leyenda" className="mt-1 text-[12px] text-ink-500">
+        {`Verde: lo ejecutado no supera lo programado. Amarillo: lo supera hasta un ${tolerancia} %. Rojo: lo supera en más o excede lo asignado.`}
       </p>
     </div>
   );

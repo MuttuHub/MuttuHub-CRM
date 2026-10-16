@@ -192,4 +192,15 @@ describe("FichaDocumentos", () => {
     const grupo = await screen.findByTestId("documentos-grupo-indicador")
     expect(within(grupo).getByRole("button", { name: "Abrir" })).toBeDisabled()
   })
+
+  it.each([
+    ["proyecto", { tipo: "enlace", origen_id: null, url_externa: null }],
+    ["avance", { origen_id: null, url_externa: null }],
+    ["gasto", { origen_id: null, url_externa: null }],
+  ] as const)("disables Abrir for a %s support with nothing to open", async (origen, over) => {
+    setup({ soportes: [soporte("x1", origen, "sin-nada.pdf", over)] })
+
+    const fila = (await screen.findByText("sin-nada.pdf")).closest("li")!
+    expect(within(fila).getByRole("button", { name: "Abrir" })).toBeDisabled()
+  })
 })

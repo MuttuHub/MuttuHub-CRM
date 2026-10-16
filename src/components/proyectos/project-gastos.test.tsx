@@ -275,10 +275,11 @@ describe("ProjectGastos", () => {
       expect(monto?.className).toContain("text-right")
     })
 
-    it("leaves the duplicated totals to the summary: no KPI row, only the filter counts", async () => {
+    it("shows one compact summary line above the list, plus the filter counts", async () => {
       setup({ gastos: MIXTO() })
       await screen.findByTestId("gastos-lista")
       expect(screen.queryByTestId("gastos-kpis")).not.toBeInTheDocument()
+      expect(screen.getByTestId("gastos-resumen")).toHaveTextContent(/^\d+ gastos?/)
       // Los conteos por estado del filtro se quedan: sirven para filtrar.
       expect(screen.getByRole("button", { name: /^Registrado/ })).toHaveTextContent("3")
     })

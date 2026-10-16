@@ -192,11 +192,54 @@ describe("ProjectFinanciero", () => {
     expect(within(corte).getAllByRole("option").map((o) => o.getAttribute("value"))).toEqual([
       "2026-10", "2026-11", "2026-12", "2027-01",
     ])
+    // Legible months, never the raw period.
+    expect(within(corte).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "oct 2026", "nov 2026", "dic 2026", "ene 2027",
+    ])
 
     await user.selectOptions(corte, "2026-12")
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/financial-sheet?corte=2026-12", expect.any(Object)),
     )
+  })
+
+  it("announces a non-default corte or base with a chip while the options are collapsed, and resets them", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    await screen.findByTestId("financiero-tabla")
+    expect(screen.queryByTestId("financiero-filtros")).not.toBeInTheDocument()
+
+    await user.click(await screen.findByRole("button", { name: "Opciones avanzadas" }))
+    await user.selectOptions(await screen.findByRole("combobox", { name: "Corte" }), "2026-12")
+    await user.selectOptions(screen.getByRole("combobox", { name: "Base" }), "original")
+    await user.click(screen.getByRole("button", { name: "Opciones avanzadas" }))
+    expect(screen.queryByRole("combobox", { name: "Corte" })).not.toBeInTheDocument()
+    expect(screen.getByTestId("financiero-filtros")).toHaveTextContent("Base original · Corte dic 2026")
+
+    await user.click(screen.getByRole("button", { name: "Restablecer" }))
+    expect(screen.queryByTestId("financiero-filtros")).not.toBeInTheDocument()
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenLastCalledWith("/api/v1/projects/p1/financial-sheet", expect.any(Object)),
+    )
+  })
+
+  it("explains what green, yellow and red mean with the project tolerance", async () => {
+    setup()
+
+    const leyenda = await screen.findByTestId("financiero-ejecucion-leyenda")
+    expect(leyenda).toHaveTextContent("Verde: lo ejecutado no supera lo programado.")
+    expect(leyenda).toHaveTextContent("Amarillo: lo supera hasta un 10 %.")
+    expect(leyenda).toHaveTextContent("Rojo")
+  })
+
+  it("scales the bar so an overspend past P shows beyond the programmed marker", async () => {
+    setup({ ficha: { ...FICHA, total: { ...FICHA.total, ejecutado: "50100000.00", ep_decimas: 1200, color: "rojo" } } })
+
+    const barra = await screen.findByTestId("financiero-ejecucion")
+    // E/P = 120 %: E fills the scale, P sits at 41.750.000 / 50.100.000 = 83,3 %.
+    expect(within(barra).getByTestId("financiero-ejecucion-ejecutado")).toHaveAttribute("data-width", "100")
+    expect(within(barra).getByTestId("financiero-ejecucion-programado")).toHaveAttribute("data-width", "83.3")
   })
 
   it("keeps the base selector disabled while the baseline is not approved (BORRADOR)", async () => {
@@ -279,9 +322,9 @@ describe("ProjectFinanciero", () => {
 
       const barra = await screen.findByTestId("financiero-ejecucion")
       expect(barra).toHaveAttribute("data-color", "verde")
-      // E/A = 40.500.000 / 83.500.000 = 48,5 %; P/A = 41.750.000 / 83.500.000 = 50 %.
-      expect(within(barra).getByTestId("financiero-ejecucion-ejecutado")).toHaveAttribute("data-width", "48.5")
-      expect(within(barra).getByTestId("financiero-ejecucion-programado")).toHaveAttribute("data-width", "50")
+      // E y P comparten escala (la mayor): E/P = 40.500.000 / 41.750.000 = 97 %; la marca de P va al 100 %.
+      expect(within(barra).getByTestId("financiero-ejecucion-ejecutado")).toHaveAttribute("data-width", "97")
+      expect(within(barra).getByTestId("financiero-ejecucion-programado")).toHaveAttribute("data-width", "100")
     })
 
     it("describes the bar and repeats the same sentence as its accessible name", async () => {
