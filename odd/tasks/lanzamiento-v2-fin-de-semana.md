@@ -290,6 +290,13 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
   - La cola `expense-validations` y `nav/counts` filtran por proyectos EN_EJECUCION o SUSPENDIDO.
 
   Ruta D (test-first).
+  Evidencia: tres commits.
+  - `5c03c54`: un solo helper, `clientReadScope`, sobre `isFullAccess`, para `loadClientScoped` y para los feeds.
+  - `0fa3a28`: la cola solo muestra gastos de proyectos EN_EJECUCION o SUSPENDIDO, reusando
+    `ESTADOS_PROYECTO_VALIDACION`.
+  - `8ffabe4`: limpia un import.
+
+  Resultados: 405/405 pruebas y `tsc` y `eslint` limpios. `nav/counts` no cuenta la cola, así que no se tocó.
 - [ ] **R7** Ensayo 2 con el código final, más el humo de la app sobre la copia. Ruta D.
 - [x] **R8** Runbook de lanzamiento, checklist de humo y plan de vuelta atrás (`docs/runbook-lanzamiento-v2.md`). Ruta D. Evidencia: `864f9e0` (borrador) + `6b0100c` y el commit de rubros, con los datos de la corrida 2 de R4. Quedan 5 ⚠: Node en Vercel, `psql` en el WSL del operador, `WSLENV` contra producción (no se usa), restaurar sobre producción (preferir PITR o el panel) y `psql -f` con docker en la vuelta atrás.
 - [ ] **R9** Lanzamiento, que ejecuta el usuario. Pasos:
