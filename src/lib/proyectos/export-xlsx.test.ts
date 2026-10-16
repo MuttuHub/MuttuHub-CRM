@@ -131,7 +131,8 @@ describe("xlsxFichaProyecto", () => {
     const estructura = filas(wb.getWorksheet("Estructura") as ExcelJS.Worksheet)
     expect(estructura).toContainEqual(["Actividades", 10])
     const k = filas(wb.getWorksheet("KPIs") as ExcelJS.Worksheet)
-    expect(k.find((r) => r[0] === "Beneficiarios vs meta (%)")?.[1]).toBe(10)
+    expect(k.find((r) => String(r[0]).startsWith("Beneficiarios"))).toBeUndefined()
+    expect(general).toContainEqual(["Beneficiarios", 100])
     expect(k.find((r) => r[0] === "Asignado")?.[1]).toBe(1000)
   })
 
@@ -147,7 +148,7 @@ describe("xlsxFichaProyecto", () => {
     const k = filas(wb.getWorksheet("KPIs") as ExcelJS.Worksheet)
     expect(k[0]).toEqual(["Indicador", "Valor", "Detalle"])
     const sinMedir = k.filter((r) => r[2] === "No medible")
-    expect(sinMedir).toHaveLength(15)
+    expect(sinMedir).toHaveLength(14)
     expect(sinMedir.every((r) => r[1] === "" || r[1] === undefined || r[1] === null)).toBe(true)
   })
 

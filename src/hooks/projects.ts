@@ -2116,8 +2116,8 @@ export type ProjectsPortfolio = {
     };
     /** Σ de actividades atrasadas (D3) de los proyectos medibles. */
     atrasadas: number;
-    /** Σ registrados y Σ meta de los proyectos medibles; meta null si ninguno tiene meta. */
-    beneficiarios: { total: number; meta: number | null };
+    /** Σ del número «Beneficiarios» de los proyectos medibles (M5). */
+    beneficiarios: { total: number };
     /** Agregado por línea estratégica principal (S14 P9, D7): el radar del Tablero gerencial. */
     por_linea: {
       linea: { id: string; codigo: string; nombre: string } | null;

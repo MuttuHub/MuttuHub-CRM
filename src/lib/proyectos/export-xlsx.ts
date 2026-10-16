@@ -195,7 +195,6 @@ function filasKpis(k: KpisXlsx): Celda[][] {
     ["Cumplimiento del cronograma (%)", numero(k.cronograma?.valor), detalle(k.cronograma && `${k.cronograma.a_tiempo} a tiempo de ${k.cronograma.vencidas} vencidas`)],
     ["Entregables logrados (%)", numero(k.entregables?.valor), detalle(k.entregables && `${k.entregables.logrados} de ${k.entregables.programados} programados`)],
     ["Cumplimiento de indicadores (%)", numero(k.indicadores?.valor), detalle(k.indicadores && `${k.indicadores.medidos} medidos, ${k.indicadores.sin_medir} sin medir`)],
-    ["Beneficiarios vs meta (%)", numero(k.beneficiarios?.valor), detalle(k.beneficiarios && `${k.beneficiarios.total} de ${k.beneficiarios.meta ?? "sin meta"}`)],
     ["Avance financiero E/A (%)", numero(f?.ea), ""],
     ["Ejecución vs programado E/P (%)", numero(f?.ep), ""],
     ["Semáforo financiero", colorTexto(f?.color), ""],
@@ -260,7 +259,7 @@ export async function xlsxFichaProyecto(p: FichaProyectoXlsx): Promise<Buffer> {
     ["Fecha de fin", p.fecha_fin ?? ""],
     ["Duración (semanas)", numero(p.duracion_semanas)],
     ["Valor total", dinero(p.valor_total)],
-    ["Meta de beneficiarios", numero(p.beneficiarios_meta)],
+    ["Beneficiarios", numero(p.beneficiarios_meta)],
     ["Líneas estratégicas", celdaTexto(p.lineas.join("; "))],
     ["Municipios", celdaTexto(p.municipios.join("; "))],
   ])
@@ -289,7 +288,7 @@ export async function xlsxPortafolio(p: PortafolioXlsx): Promise<Buffer> {
       "Código", "Proyecto", "Cliente", "Estado", "Responsable", "Línea principal",
       "Avance real (%)", "Avance programado (%)", "Desviación (pp)", "Semáforo técnico",
       "Asignado", "Programado", "Ejecutado", "E/A (%)", "E/P (%)", "Semáforo financiero", "Alerta de retraso",
-      "Cumplimiento del cronograma (%)", "Entregables logrados (%)", "Cumplimiento de indicadores (%)", "Beneficiarios vs meta (%)",
+      "Cumplimiento del cronograma (%)", "Entregables logrados (%)", "Cumplimiento de indicadores (%)", "Beneficiarios",
     ],
     p.proyectos.map((r) => [
       r.codigo,
@@ -312,7 +311,7 @@ export async function xlsxPortafolio(p: PortafolioXlsx): Promise<Buffer> {
       numero(r.kpis.cronograma?.valor),
       numero(r.kpis.entregables?.valor),
       numero(r.kpis.indicadores?.valor),
-      numero(r.kpis.beneficiarios?.valor),
+      numero(r.kpis.beneficiarios?.meta),
     ]),
     { 7: FORMATO_PCT, 8: FORMATO_PCT, 9: FORMATO_PCT, 11: FORMATO_DINERO, 12: FORMATO_DINERO, 13: FORMATO_DINERO, 14: FORMATO_PCT, 15: FORMATO_PCT },
   )

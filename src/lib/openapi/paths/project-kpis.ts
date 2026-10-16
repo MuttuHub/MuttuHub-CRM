@@ -83,8 +83,8 @@ const PortafolioSchema = registry.register(
         ep: PCT.openapi({ description: "ΣE / ΣP, ponderado por monto." }),
       }),
       atrasadas: z.number().int().openapi({ description: "Suma de actividades atrasadas de los proyectos medibles." }),
-      beneficiarios: z.object({ total: z.number().int(), meta: z.number().int().nullable() }).openapi({
-        description: "Suma de beneficiarios registrados y de metas de los proyectos medibles; meta es null si ninguno tiene meta.",
+      beneficiarios: z.object({ total: z.number().int() }).openapi({
+        description: "Suma del número «Beneficiarios» de los proyectos medibles (los sin número cuentan 0).",
       }),
       por_linea: z
         .array(

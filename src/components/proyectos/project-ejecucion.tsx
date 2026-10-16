@@ -14,7 +14,6 @@ import { InlineError, MetricRow, SELECT_CLASS, SectionHeader } from "@/component
 import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import { EjecucionAvance } from "@/components/proyectos/ejecucion-avance";
-import { EjecucionBeneficiarios } from "@/components/proyectos/ejecucion-beneficiarios";
 import { EjecucionIndicadores } from "@/components/proyectos/ejecucion-indicadores";
 import { SemaforoTecnico } from "@/components/proyectos/semaforo-tecnico";
 import { CurveSChart } from "@/components/proyectos/curve-s-chart";
@@ -53,8 +52,8 @@ export const EJECUCION_BORRADOR_HINT =
  * avanzadas" disclosure. `enfocarId` scrolls to and focuses one activity row (the Tablero card click).
  *
  * `seguimiento` is the v7 "Ficha de seguimiento" tab: the chart, the period/time/budget cards, progress per goal
- * and the activities, without the indicators and beneficiaries (those have their own tabs: see
- * `ProjectIndicadores` and `ProjectBeneficiarios`). Without it the section keeps all of them.
+ * and the activities, without the indicators (they have their own tab: see
+ * `ProjectIndicadores`). Beneficiaries are a single project number (M5), not a section. Without it the section keeps all of them.
  */
 export function ProjectEjecucion({
   proyecto,
@@ -217,15 +216,6 @@ export function ProjectIndicadores({ proyecto }: { proyecto: ProjectListRow }) {
   return <EjecucionIndicadores proyectoId={proyecto.id} canWrite={canWrite} canVoid={canVoid} />;
 }
 
-/** Pestaña "Beneficiarios" (v7). */
-export function ProjectBeneficiarios({ proyecto }: { proyecto: ProjectListRow }) {
-  const { canWrite, canVoid } = useEjecucionPermisos(proyecto.id);
-  if (proyecto.estado === "BORRADOR") {
-    return <p className="text-[12.5px] text-ink-500">{EJECUCION_BORRADOR_HINT}</p>;
-  }
-  return <EjecucionBeneficiarios proyecto={proyecto} canWrite={canWrite} canVoid={canVoid} />;
-}
-
 function EjecucionContent({
   proyecto,
   seguimiento,
@@ -323,8 +313,6 @@ function EjecucionContent({
       {!seguimiento && !lista && (
         <>
           <EjecucionIndicadores proyectoId={proyecto.id} canWrite={canWrite} canVoid={canVoid} />
-
-          <EjecucionBeneficiarios proyecto={proyecto} canWrite={canWrite} canVoid={canVoid} />
         </>
       )}
     </div>

@@ -278,8 +278,8 @@ export type KpisPortafolio = {
   }
   /** Σ of the per-project `atrasadas` (D3) over the measured projects. */
   atrasadas: number
-  /** Σ registered and Σ goal over the measured projects; `meta` is null when none has a goal. */
-  beneficiarios: { total: number; meta: number | null }
+  /** Σ of the project beneficiaries number (`beneficiarios_meta`) over the measured projects (M5); null counts as 0. */
+  beneficiarios: { total: number }
   por_estado: Record<string, number>
   por_color_tecnico: Record<ColorSemaforo, number>
   por_color_financiero: Record<ColorSemaforo, number>
@@ -300,7 +300,6 @@ export function kpisPortafolio(proyectos: readonly KpisProyecto[], corte: IsoDat
   const ejecutado = sumCents(financieros.map((f) => f.ejecutado))
 
   const medidos = proyectos.flatMap((k) => (k.beneficiarios ? [k.beneficiarios] : []))
-  const metas = medidos.flatMap((b) => (b.meta === null ? [] : [b.meta]))
 
   const porEstado: Record<string, number> = {}
   for (const k of proyectos) porEstado[k.estado] = (porEstado[k.estado] ?? 0) + 1
@@ -327,8 +326,7 @@ export function kpisPortafolio(proyectos: readonly KpisProyecto[], corte: IsoDat
     },
     atrasadas: proyectos.reduce((sum, k) => sum + (k.cronograma?.atrasadas ?? 0), 0),
     beneficiarios: {
-      total: medidos.reduce((sum, b) => sum + b.total, 0),
-      meta: metas.length === 0 ? null : metas.reduce((sum, m) => sum + m, 0),
+      total: medidos.reduce((sum, b) => sum + (b.meta ?? 0), 0),
     },
     por_estado: porEstado,
     por_color_tecnico: colores(tecnicos),

@@ -119,7 +119,7 @@ export function ProjectKpisPanel({ proyecto, soloExportar = false }: { proyecto:
 }
 
 function KpiTiles({ kpis }: { kpis: ProjectKpis }) {
-  const { tecnico, financiero, cronograma, entregables, indicadores, beneficiarios } = kpis;
+  const { tecnico, financiero, cronograma, entregables, indicadores } = kpis;
   return (
     <div className="mt-2 flex flex-col gap-2.5">
       <p className="text-[12px] text-ink-500">Corte al {formatFechaCalendario(kpis.corte)}</p>
@@ -166,19 +166,6 @@ function KpiTiles({ kpis }: { kpis: ProjectKpis }) {
             value={formatPct(indicadores.valor)}
             percent={indicadores.valor}
             hint={`${indicadores.medidos} medidos${indicadores.sin_medir > 0 ? `, ${indicadores.sin_medir} sin medir` : ""}`}
-          />
-        )}
-        {beneficiarios && (
-          <KpiCard
-            testId="kpi-beneficiarios"
-            label="Beneficiarios vs meta"
-            value={formatPct(beneficiarios.valor)}
-            percent={beneficiarios.valor}
-            hint={
-              beneficiarios.meta === null
-                ? `${beneficiarios.total} registrados, sin meta`
-                : `${beneficiarios.total} de ${beneficiarios.meta}`
-            }
           />
         )}
       </div>

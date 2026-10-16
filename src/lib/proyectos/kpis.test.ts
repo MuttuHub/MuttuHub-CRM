@@ -279,14 +279,15 @@ describe("kpisPortafolio", () => {
     const borrador = kpisProyecto(proyecto({ estado: "BORRADOR" }))
     const p = kpisPortafolio([a, b, borrador], CORTE)
     expect(p.atrasadas).toBe(3)
-    expect(p.beneficiarios).toEqual({ total: 50, meta: 100 })
+    // M5: the aggregate is the sum of the project numbers (goal field), never the attended count.
+    expect(p.beneficiarios).toEqual({ total: 100 })
   })
-  it("beneficiaries meta is null when no measured project has a goal; empty portfolio is 0", () => {
+  it("beneficiaries total is 0 when no measured project has a number; empty portfolio is 0", () => {
     const sinMeta = kpisProyecto(proyecto({ beneficiarios: { total: 5, meta: null } }))
-    expect(kpisPortafolio([sinMeta], CORTE).beneficiarios).toEqual({ total: 5, meta: null })
+    expect(kpisPortafolio([sinMeta], CORTE).beneficiarios).toEqual({ total: 0 })
     const vacio = kpisPortafolio([], CORTE)
     expect(vacio.atrasadas).toBe(0)
-    expect(vacio.beneficiarios).toEqual({ total: 0, meta: null })
+    expect(vacio.beneficiarios).toEqual({ total: 0 })
   })
   it("empty portfolio yields nulls", () => {
     const p = kpisPortafolio([], CORTE)

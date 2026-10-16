@@ -128,7 +128,7 @@ describe("GET dashboard/portfolio: atrasadas and beneficiarios", () => {
     expect(body.proyectos[0].kpis.cronograma.atrasadas).toBe(1)
     expect(body.proyectos[1].atrasadas).toBeNull()
     expect(body.agregado.atrasadas).toBe(1)
-    expect(body.agregado.beneficiarios).toEqual({ total: 30, meta: 100 })
+    expect(body.agregado.beneficiarios).toEqual({ total: 100 })
   })
 })
 

@@ -19,7 +19,7 @@ const PORTAFOLIO = {
   corte: "2026-10-11",
   confirmado: false,
   proyectos: [],
-  agregado: { atrasadas: 2, beneficiarios: { total: 1850, meta: 3200 } },
+  agregado: { atrasadas: 2, beneficiarios: { total: 1850 } },
   por_estado: {},
 } as unknown as ProjectsPortfolio
 
@@ -40,7 +40,8 @@ describe("PortafolioKpis", () => {
 
     expect(within(tile("kpi-beneficiarios")).getByText("Beneficiarios")).toBeInTheDocument()
     expect(within(tile("kpi-beneficiarios")).getByText("1.850")).toBeInTheDocument()
-    expect(within(tile("kpi-beneficiarios")).getByText("de 3.200")).toBeInTheDocument()
+    expect(within(tile("kpi-beneficiarios")).getByText("Suma de los proyectos")).toBeInTheDocument()
+    expect(within(tile("kpi-beneficiarios")).queryByText(/^de /)).toBeNull()
 
     expect(within(tile("kpi-atrasadas")).getByText("Actividades atrasadas")).toBeInTheDocument()
     expect(within(tile("kpi-atrasadas")).getByText("2")).toBeInTheDocument()
@@ -50,12 +51,6 @@ describe("PortafolioKpis", () => {
   it("keeps the standard money format below one million", () => {
     render(<PortafolioKpis lista={[fila("1", "EN_EJECUCION", "250000.00")]} portafolio={PORTAFOLIO} isLoading={false} isError={false} />)
     expect(within(tile("kpi-presupuesto")).getByText("$ 250.000")).toBeInTheDocument()
-  })
-
-  it("says so when no project has a beneficiaries goal", () => {
-    const sinMeta = { ...PORTAFOLIO, agregado: { ...PORTAFOLIO.agregado, beneficiarios: { total: 0, meta: null } } }
-    render(<PortafolioKpis lista={LISTA} portafolio={sinMeta} isLoading={false} isError={false} />)
-    expect(within(tile("kpi-beneficiarios")).getByText("Sin meta definida")).toBeInTheDocument()
   })
 
   it("renders the four tiles as surfaces in a 2-column grid that becomes 4 from lg", () => {

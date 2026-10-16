@@ -105,7 +105,7 @@ const PORTAFOLIO: ProjectsPortfolio = {
     tecnico: { proyectos: 1, avance_real: 21.4, avance_programado: 25 },
     financiero: { proyectos: 1, asignado: "1000", programado: "500", ejecutado: "100", ea: 10, ep: 20 },
     atrasadas: 1,
-    beneficiarios: { total: 30, meta: 100 },
+    beneficiarios: { total: 100 },
     por_linea: [
       {
         linea: { id: "l1", codigo: "LE01", nombre: "Educación" },

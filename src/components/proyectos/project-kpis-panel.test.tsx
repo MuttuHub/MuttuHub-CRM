@@ -99,9 +99,8 @@ describe("ProjectKpisPanel", () => {
     const cronograma = await screen.findByTestId("kpi-cronograma")
     expect(cronograma.querySelector("[data-slot='kpi-tile']")).not.toBeNull()
     expect(within(cronograma).getByRole("progressbar", { name: "Cumplimiento del cronograma" })).toHaveAttribute("aria-valuenow", "80")
-    const beneficiarios = screen.getByTestId("kpi-beneficiarios")
-    expect(beneficiarios.querySelector("[data-slot='kpi-tile']")).not.toBeNull()
-    expect(within(beneficiarios).queryByRole("progressbar")).toBeNull()
+    // M5: no attended-vs-goal tile any more.
+    expect(screen.queryByTestId("kpi-beneficiarios")).toBeNull()
   })
 
   it("is a labelled region and uses EmptyState when the project is not measurable", async () => {
@@ -121,8 +120,7 @@ describe("ProjectKpisPanel", () => {
     expect(screen.getByTestId("kpi-cronograma")).toHaveTextContent("4 de 5 actividades a tiempo")
     expect(screen.getByTestId("kpi-entregables")).toHaveTextContent("3 de 10 programados")
     expect(screen.getByTestId("kpi-indicadores")).toHaveTextContent("2 sin medir")
-    expect(screen.getByTestId("kpi-beneficiarios")).toHaveTextContent("—")
-    expect(screen.getByTestId("kpi-beneficiarios")).toHaveTextContent("10 registrados, sin meta")
+    expect(screen.queryByText(/Beneficiarios vs meta/)).toBeNull()
   })
 
   it("shows the 'No confirmado' badge only while the parameters are not confirmed", async () => {

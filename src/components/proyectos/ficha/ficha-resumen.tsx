@@ -7,7 +7,7 @@
 
 "use client";
 
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Check, Circle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,7 +15,6 @@ import { StatusChip } from "@/components/ui/status-chip";
 import { FieldValue } from "@/components/crm/shared";
 import { KPIS_NO_MEDIBLE_NOTE, formatPct } from "@/components/proyectos/project-kpis-panel";
 import { ORIGEN_PROYECTO_META, formatFechaCalendario } from "@/components/proyectos/project-display";
-import { ProjectBeneficiarios } from "@/components/proyectos/project-ejecucion";
 import { ProjectTeam } from "@/components/proyectos/project-team";
 import { RequiereAtencion } from "@/components/proyectos/requiere-atencion";
 import { EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/ui";
@@ -382,30 +381,6 @@ function DatosGenerales({ proyecto }: { proyecto: ProjectListRow }) {
   );
 }
 
-/* ── Registro de beneficiarios (temporal, F14 lo retira) ───────────────── */
-
-/** Cerrado por defecto y sin montar el registro (ni pedirlo) hasta que se abre, para que no sume ruido. */
-function RegistroBeneficiarios({ proyecto }: { proyecto: ProjectListRow }) {
-  const [abierto, setAbierto] = useState(false);
-  return (
-    <details
-      data-testid="registro-beneficiarios"
-      open={abierto}
-      onToggle={(event) => setAbierto(event.currentTarget.open)}
-      className="group"
-    >
-      <summary className="cursor-pointer text-[13px] font-semibold text-ink-700 outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/50">
-        Registro de beneficiarios
-      </summary>
-      {abierto && (
-        <div className="mt-3">
-          <ProjectBeneficiarios proyecto={proyecto} />
-        </div>
-      )}
-    </details>
-  );
-}
-
 /* ── Panel ─────────────────────────────────────────────────────────────── */
 
 export function FichaResumen({
@@ -428,7 +403,6 @@ export function FichaResumen({
       )}
       <DatosGenerales proyecto={proyecto} />
       <ProjectTeam proyectoId={proyecto.id} />
-      <RegistroBeneficiarios proyecto={proyecto} />
     </div>
   );
 }

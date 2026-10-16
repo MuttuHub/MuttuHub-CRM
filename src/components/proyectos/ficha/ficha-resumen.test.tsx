@@ -231,7 +231,7 @@ describe("FichaResumen", () => {
     expect(onIrA.mock.calls.map(([destino]) => destino)).toEqual(["actividades", "finanzas"])
   })
 
-  it("keeps the general data, the team and the collapsed beneficiaries registry at the end", async () => {
+  it("keeps the general data and the team at the end, with no beneficiaries registry (M5)", async () => {
     mockApi()
 
     renderResumen()
@@ -240,8 +240,10 @@ describe("FichaResumen", () => {
     expect(datos).toHaveTextContent("Alcaldía")
     expect(datos).toHaveTextContent("$ 180.000.000")
     const equipo = await screen.findByTestId("equipo")
-    const registro = screen.getByTestId("registro-beneficiarios")
     expect(datos.compareDocumentPosition(equipo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(equipo.compareDocumentPosition(registro) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.queryByTestId("registro-beneficiarios")).not.toBeInTheDocument()
+    expect(screen.queryByText("Registro de beneficiarios")).not.toBeInTheDocument()
+    expect(datos).toHaveTextContent("Beneficiarios")
+    expect(datos).toHaveTextContent("1.200")
   })
 })

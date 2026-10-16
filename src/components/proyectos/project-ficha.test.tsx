@@ -363,22 +363,14 @@ describe("ProjectFicha (page)", () => {
     )
   })
 
-  it("keeps the Beneficiarios registry at the end of the Resumen, collapsed and unread until opened", async () => {
+  it("has no Beneficiarios registry in the Resumen and never reads the beneficiaries records (M5)", async () => {
     mockFichaAndAudit({ historial: [] })
-    const user = userEvent.setup()
 
     renderFicha()
 
-    const disclosure = await screen.findByTestId("registro-beneficiarios")
-    expect(disclosure).toHaveTextContent("Registro de beneficiarios")
-    expect(disclosure).not.toHaveAttribute("open")
-    expect(screen.queryByTestId("ejecucion-beneficiarios-total")).not.toBeInTheDocument()
+    await screen.findByTestId("ficha-resumen")
+    expect(screen.queryByTestId("registro-beneficiarios")).not.toBeInTheDocument()
     expect(fetchMock).not.toHaveBeenCalledWith("/api/v1/projects/p1/beneficiaries", expect.any(Object))
-
-    await user.click(within(disclosure).getByText("Registro de beneficiarios"))
-
-    expect(await screen.findByTestId("ejecucion-beneficiarios-total")).toHaveTextContent("1.200 beneficiarios")
-    expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/beneficiaries", expect.any(Object))
   })
 
   it("mounts every project support in the Documentos tab, lazily", async () => {

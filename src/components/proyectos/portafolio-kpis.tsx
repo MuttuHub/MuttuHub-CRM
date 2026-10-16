@@ -87,7 +87,7 @@ export function PortafolioKpis({
         className={TILE}
         label="Beneficiarios"
         value={numero.format(beneficiarios.total)}
-        hint={beneficiarios.meta === null ? "Sin meta definida" : `de ${numero.format(beneficiarios.meta)}`}
+        hint="Suma de los proyectos"
       />
       <KpiTile
         data-testid="kpi-atrasadas"
