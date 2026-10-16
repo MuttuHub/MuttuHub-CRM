@@ -193,10 +193,8 @@ describe("GET /api/v1/contacts", () => {
     expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
   });
 
-  it.each([
-    ["COLABORADOR", colaborador],
-    ["COORDINADOR", coordinador],
-  ])("scopes a %s to the clients they are responsable of (P1)", async (_rol, usuario) => {
+  it("scopes a COLABORADOR to the clients they are responsable of (P1)", async () => {
+    const usuario = colaborador;
     authAs(usuario);
     vi.mocked(db.contacto.findMany).mockResolvedValue([]);
 
@@ -224,6 +222,7 @@ describe("GET /api/v1/contacts", () => {
   it.each([
     ["GERENCIA", gerencia],
     ["ADMINISTRADOR", admin],
+    ["COORDINADOR", coordinador],
   ])("a %s sees every client's contacts (no responsable scope)", async (_rol, usuario) => {
     authAs(usuario);
     vi.mocked(db.contacto.findMany).mockResolvedValue([]);

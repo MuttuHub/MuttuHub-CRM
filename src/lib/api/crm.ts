@@ -30,33 +30,37 @@ export function isFullAccess(rol: RolUsuario): boolean {
 }
 
 /**
+ * Single read-scope rule for clients: full-access roles (ADMINISTRADOR,
+ * GERENCIA, COORDINADOR) read every client; COLABORADOR only the clients where
+ * they are the responsable. Shared by the per-client sub-resources
+ * (`loadClientScoped`) and the cross-client feeds (`clienteFeedScope`) so the
+ * two cannot drift apart.
+ */
+function clientReadScope(usuario: Pick<Usuario, "id" | "rol">): Prisma.ClienteWhereInput {
+  return isFullAccess(usuario.rol) ? {} : { responsable_id: usuario.id };
+}
+
+/**
  * Read-scope client load: returns the id when the client exists, is not
  * deleted and is inside the caller's scope (COLABORADOR -> responsable self).
  * Null means "404 NOT_FOUND" for the caller.
  */
 export async function loadClientScoped(id: string, usuario: Usuario) {
   return db.cliente.findFirst({
-    where: {
-      id,
-      deleted_at: null,
-      ...(isFullAccess(usuario.rol) ? {} : { responsable_id: usuario.id }),
-    },
+    where: { id, deleted_at: null, ...clientReadScope(usuario) },
     select: { id: true },
   });
 }
 
 /**
  * Client-side read scope for the cross-client feeds (contacts, interactions):
- * ADMINISTRADOR and GERENCIA read every client; every other role only the
- * clients where they are the responsable. Spread it into the `cliente`
- * relation filter of the feed `where`.
- *
- * Deliberately narrower than `isFullAccess` (which `loadClientScoped` still
- * uses for the per-client sub-resources and which includes COORDINADOR): the
- * product decision for the global feeds is that a COORDINADOR is scoped too.
+ * exactly the same rule as the per-client sub-resources (`loadClientScoped`),
+ * i.e. full-access roles incl. COORDINADOR read every client and COLABORADOR
+ * only the clients where they are the responsable. Spread it into the
+ * `cliente` relation filter of the feed `where`.
  */
 export function clienteFeedScope(usuario: Pick<Usuario, "id" | "rol">): Prisma.ClienteWhereInput {
-  return canManageProjects(usuario) ? {} : { responsable_id: usuario.id };
+  return clientReadScope(usuario);
 }
 
 /**
