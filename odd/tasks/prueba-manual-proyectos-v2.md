@@ -221,8 +221,8 @@ Para el coordinador y el colaborador, abre las fichas por URL (los identificador
 - [ ] **Ficha del cliente, pestaña General en solo lectura (nuevo hoy):** abre un cliente con el colaborador (en un
   cliente que no es suyo) o sin pulsar «Editar». **Esperado:** se ven los valores (tipo, prioridad, estado,
   responsable, fecha); ningún campo sale vacío.
-- [ ] **Fecha de primer contacto (nuevo hoy):** **Esperado:** se lee en formato legible (por ejemplo «12 de marzo de
-  2026»), no como fecha ISO.
+- [ ] **Fecha de primer contacto (nuevo hoy):** **Esperado:** se lee en formato legible (día y mes abreviado, por
+  ejemplo «12 mar 2026»), no como fecha ISO.
 - [ ] **«Crear proyecto»:** en la ficha del cliente, con administración o gerencia. **Esperado:** abre el asistente con
   el cliente elegido; el coordinador y el colaborador no ven el botón.
 - [ ] **Conversión:** en «Universidad Central del Valle», crea el proyecto desde la oportunidad «Demo · Programa de
