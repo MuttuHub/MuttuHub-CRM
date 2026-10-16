@@ -40,7 +40,7 @@ export function precondicionesLineaBase(entrada: EntradaLineaBase): Precondicion
   if (entrada.beneficiariosMeta === null || entrada.beneficiariosMeta <= 0) {
     fallas.push({
       codigo: "META_BENEFICIARIOS_INVALIDA",
-      mensaje: "La meta de beneficiarios debe ser mayor que cero.",
+      mensaje: "El número de beneficiarios debe ser mayor que cero.",
     })
   }
 

@@ -50,6 +50,13 @@ describe("precondicionesLineaBase", () => {
     expect(codigos({ ...valida(), beneficiariosMeta: 0 })).toContain("META_BENEFICIARIOS_INVALIDA")
   })
 
+  it("names the number of beneficiaries in the approval message", () => {
+    const falla = precondicionesLineaBase({ ...valida(), beneficiariosMeta: 0 }).find(
+      (f) => f.codigo === "META_BENEFICIARIOS_INVALIDA",
+    )
+    expect(falla?.mensaje).toBe("El número de beneficiarios debe ser mayor que cero.")
+  })
+
   it("SIN_OBJETIVOS when the project has none", () => {
     const entrada = { ...valida(), objetivos: [], actividades: [], entregables: [] }
     expect(codigos(entrada)).toContain("SIN_OBJETIVOS")

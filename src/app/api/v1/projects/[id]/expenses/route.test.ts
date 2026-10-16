@@ -209,6 +209,15 @@ describe("POST expenses: registration", () => {
     expect(mocks.info).not.toHaveBeenCalled();
   });
 
+  it("rejects a link soporte that is not https (javascript:, data:, http:, ftp:) and stores nothing", async () => {
+    for (const url_externa of ["javascript:alert(1)", "data:text/html,<b>x</b>", "http://example.com/x", "ftp://example.com/x", "no es una url"]) {
+      const res = await POST(post({ ...valido, soportes: [{ ...enlace, url_externa }] }), ctx);
+      expect(res.status, url_externa).toBe(400);
+      expect((await res.json()).error).toContain("https");
+    }
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
   it("answers 400 without a soporte", async () => {
     for (const soportes of [undefined, []]) {
       const res = await POST(post({ ...valido, soportes }), ctx);
