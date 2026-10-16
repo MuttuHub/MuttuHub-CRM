@@ -77,6 +77,16 @@ describe("GastoForm", () => {
     vi.unstubAllGlobals()
   })
 
+  // Z3-5: with no funded rubro the select was empty and the only feedback was "Elige el rubro."
+  it("explains that a rubro needs an assigned amount when none has one", async () => {
+    const user = userEvent.setup()
+    render(<GastoForm proyecto={PROYECTO} rubros={[]} onDone={onDone} />, { wrapper: createWrapper() })
+
+    expect(screen.getByText(/Asigna primero un monto a un rubro/)).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Registrar" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent("Asigna primero un monto a un rubro")
+  })
+
   it("only offers rubros with an assigned amount above zero", () => {
     setup()
     const select = screen.getByLabelText("Rubro")

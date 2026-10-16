@@ -45,6 +45,7 @@ import {
   type EligibleOpportunity,
   type ProjectLineaInput,
 } from "@/hooks/projects";
+import { MONTO_INVALIDO, formatMontoInput, montoToInput, parseMontoInput } from "@/components/proyectos/presupuesto-ui";
 import { formatCOP, fromCents, toCents } from "@/lib/proyectos/money";
 import { alternarLinea, alternarPrincipal, diferenciaValor, validarLineas } from "@/lib/proyectos/proyecto-general";
 /** Filtro estable del picker de clientes: el mismo objeto en cada render. */
@@ -107,7 +108,9 @@ function diferenciaCreacion(
 ): string | null {
   if (origen !== "OPORTUNIDAD" || !oportunidad || valorTotal.trim() === "") return null;
   try {
-    const diferencia = diferenciaValor(valorTotal.trim(), oportunidad.valor_estimado_cop);
+    const normalizado = parseMontoInput(valorTotal);
+    if (normalizado === null) return null;
+    const diferencia = diferenciaValor(normalizado, oportunidad.valor_estimado_cop);
     return diferencia === null || toCents(diferencia) === BigInt(0) ? null : diferencia;
   } catch {
     return null;
@@ -176,6 +179,7 @@ export function ProjectCreateForm({
   const [clienteId, setClienteId] = useState(initialClienteId ?? "");
   const [busquedaCliente, setBusquedaCliente] = useState("");
   const [valorTotal, setValorTotal] = useState("");
+  const [valorEnfocado, setValorEnfocado] = useState(false);
   const [beneficiariosMeta, setBeneficiariosMeta] = useState("");
   const [responsableId, setResponsableId] = useState("");
   const [fechaInicio, setFechaInicio] = useState(() => fechaDeHoy());
@@ -240,7 +244,7 @@ export function ProjectCreateForm({
     if (op) {
       setClienteId(op.cliente_id);
       setNombre(op.nombre);
-      setValorTotal(valorDesdeDecimal(op.valor_estimado_cop));
+      setValorTotal(montoToInput(valorDesdeDecimal(op.valor_estimado_cop)));
     }
     setError(null);
   }
@@ -284,8 +288,8 @@ export function ProjectCreateForm({
     };
     const descripcionLimpia = descripcion.trim();
     if (descripcionLimpia !== "") cuerpo.descripcion = descripcionLimpia;
-    const valor = valorTotal.trim();
-    if (valor !== "") cuerpo.valor_total = Number(valor);
+    const valor = parseMontoInput(valorTotal);
+    if (valor !== null && valorTotal.trim() !== "") cuerpo.valor_total = Number(valor);
     const beneficiarios = beneficiariosMeta.trim();
     if (beneficiarios !== "") cuerpo.beneficiarios_meta = Number(beneficiarios);
     return cuerpo;
@@ -302,7 +306,9 @@ export function ProjectCreateForm({
     if (responsableEfectivo === "") return "Selecciona el responsable.";
     if (fechaInicio === "" || fechaFin === "") return "Completa las fechas de inicio y fin.";
     if (!rangoFechasValido(fechaInicio, fechaFin)) return MENSAJE_RANGO_FECHAS;
-    if (!(Number(valorTotal.trim()) > 0)) return "El valor total debe ser mayor que cero.";
+    const valorNormal = parseMontoInput(valorTotal);
+    if (valorNormal === null) return MONTO_INVALIDO;
+    if (toCents(valorNormal) <= BigInt(0)) return "El valor total debe ser mayor que cero.";
     if (origen === "INDEPENDIENTE" && nombre.trim() === "") return "El nombre del proyecto es obligatorio.";
     return null;
   }
@@ -510,9 +516,10 @@ export function ProjectCreateForm({
           </Etiqueta>
           <Input
             id="proyecto-valor"
-            type="number"
-            min={0}
-            value={valorTotal}
+            inputMode="decimal"
+            value={valorEnfocado ? valorTotal : formatMontoInput(valorTotal)}
+            onFocus={() => setValorEnfocado(true)}
+            onBlur={() => setValorEnfocado(false)}
             onChange={(event) => setValorTotal(event.target.value)}
             placeholder="Obligatorio, mayor que cero"
             className="px-3"

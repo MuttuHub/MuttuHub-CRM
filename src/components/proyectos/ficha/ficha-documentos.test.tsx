@@ -95,6 +95,15 @@ describe("FichaDocumentos", () => {
     vi.unstubAllGlobals()
   })
 
+  // Z3-2: `created_at` is a full ISO timestamp; the row used a calendar-day parser and always showed "—".
+  it("shows the upload date of each document", async () => {
+    setup()
+
+    const lista = await screen.findByTestId("documentos-lista")
+    const fila = within(lista).getAllByTestId("documento-fila")[0]
+    expect(fila).toHaveTextContent(/Actividad 1\.1 · Ana · 16 de oct de 2026/)
+  })
+
   it("groups every support by origin, in a single list", async () => {
     setup()
 
