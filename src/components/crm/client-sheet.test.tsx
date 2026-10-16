@@ -202,6 +202,28 @@ describe("ClientSheet — General tab inline editing (QA audit finding #3)", () 
     expect(screen.queryByText("2026-08-01T12:00:00.000Z")).not.toBeInTheDocument()
   })
 
+  // Z3-1: read-only text fields were routed through the date formatter and rendered as "—".
+  it("shows the text fields of the General tab to a user who cannot edit", () => {
+    clienteQuery.data = { ...CLIENTE, puede_editar: false }
+    renderSheet()
+
+    expect(screen.getByText("Alcaldía Distrital")).toBeInTheDocument()
+    expect(screen.getByText("50–200 personas")).toBeInTheDocument()
+    expect(screen.getByText("Barranquilla, Atlántico")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Alcaldía Distrital" })).not.toBeInTheDocument()
+  })
+
+  // Z2-2: the inline edit controls need an accessible name that is the field, not the value.
+  it("names the inline edit input after the field and describes the entry button with it", async () => {
+    const user = userEvent.setup()
+    renderSheet()
+
+    const entry = screen.getByRole("button", { name: "Alcaldía Distrital" })
+    expect(entry).toHaveAccessibleDescription("Empresa u organización")
+    await user.click(entry)
+    expect(screen.getByRole("textbox", { name: "Empresa u organización" })).toHaveValue("Alcaldía Distrital")
+  })
+
   it("opens the date editor with the calendar day as YYYY-MM-DD, ready to save", async () => {
     const user = userEvent.setup()
     renderSheet()
