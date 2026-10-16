@@ -532,7 +532,7 @@ El prompt está en `odd/tasks/lanzamiento-v2-deepseek-prompt-4.md`. Se integró 
   - Media: `psql` no existe en WSL y la función con docker no monta archivos y usa `postgres:17`, que no está local.
   - Bajas: `BACKUP_DIR` sin asignar, dos placeholders `<…>` que fallan en `bash -n`, y la contraseña visible en el
     argv de docker.
-- [ ] **R8b** Rehacer §5.3, la vuelta atrás con el dump: restaurar solo `public` y dejar `auth` y `storage` intactos.
+- [x] **R8b** Rehacer §5.3, la vuelta atrás con el dump: restaurar solo `public` y dejar `auth` y `storage` intactos.
   Además:
   - un `psql` con la imagen local `supabase/postgres:17.6.1.143`, el directorio montado en solo lectura y la URL por
     el entorno;
