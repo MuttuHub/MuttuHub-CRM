@@ -175,6 +175,37 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
 - [ ] **R6b** Revisión de entrega (G-1). Es una revisión dirigida de `main..feat/projects-v2` sobre permisos por rol y
   alcance, migraciones y datos, dinero (gastos, presupuesto y validación) y operaciones de borrado o anulación. Se usan
   revisores frescos en paralelo. Un hallazgo grave bloquea el merge hasta corregirlo. Ruta D.
+  - Corrida 1 (2026-10-16, sobre `ab60d3c`): 4 revisores de solo lectura en paralelo.
+    - **Borrados y anulaciones:** nada grave. Todos los borrados nuevos son lógicos y auditados, no hay `Cascade` y la
+      importación de Excel es transaccional y rechaza si hay historia. Hay dos bajas:
+      - los conteos de hijos van fuera del lock en los DELETE de estructura;
+      - `gateEjecucionVoid` no mira el estado del proyecto.
+    - **Permisos:** nada grave. Hay dos medias que son decisión de producto:
+      - P1: `GET /contacts` e `/interactions` son globales, mientras que los sub-recursos por cliente están acotados al
+        responsable;
+      - P2: `clients/health` deja inferir el semáforo de proyectos sin `canReadProjectList`.
+      Hay una baja que se corrige: `users/[id]:79` usa `Boolean(body.puede_ver_tablero_gerencial)`, y con eso `"false"`
+      vale `true`.
+    - **Dinero:** un **grave** de baja probabilidad.
+      - `validarEnTransaccion` (`validacion-gastos.ts:55-76`) bajo lock solo vuelve a leer `estado`. Monto, línea y
+        tercero vienen del gate, así que un PATCH concurrente del registrante evade el bloqueo de sobregasto.
+      - Hay además una media: validar y rechazar funcionan en cualquier estado del proyecto. Es la decisión D1 de abajo.
+      - Y bajas: alerta de sobregasto vieja tras una Modificación; `gasto-form` interpreta montos distinto que
+        `parseMontoInput`; el PATCH en BORRADOR acepta `valor_total` 0 o null, cosa que la línea base atrapa.
+    - **Migraciones:** un **grave por confirmar en R4**. Producción tendría 8 tablas v1 (`proyectos`, `actividades`,
+      `gastos`, `indicadores`, `soportes_proyecto`…) que chocan con migraciones v2 `CREATE TABLE IF NOT EXISTS` más
+      índices sobre columnas inexistentes: `20261008121000`, `20261008122000`, `20261008140000` y `20261010120000`
+      abortarían. El arreglo candidato es D-10, el DROP de v1 antes del deploy, y se prueba en R4. Hay además dos
+      medias:
+      - un `prisma.config.ts` que carga `.env.local` puede desviar un deploy (va al runbook);
+      - `_guard.ts` no permite `s1-rubros` en producción.
+- [ ] **R6c** Corregir los hallazgos de R6b que no necesitan decisión:
+  - el grave de validación de gastos (releer el gasto bajo lock);
+  - `Boolean()` en `users/[id]`;
+  - `gasto-form` con `parseMontoInput`;
+  - `.gt(0)` en el PATCH de `valor_total`.
+
+  Ruta D (writer con test-first).
 - [ ] **R7** Ensayo 2 con el código final, más el humo de la app sobre la copia. Ruta D.
 - [ ] **R8** Runbook de lanzamiento, checklist de humo y plan de vuelta atrás (`docs/runbook-lanzamiento-v2.md`). Ruta D.
 - [ ] **R9** Lanzamiento, que ejecuta el usuario. Pasos:
