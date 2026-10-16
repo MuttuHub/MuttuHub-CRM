@@ -282,7 +282,7 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
 - [ ] **R6d** Aplicar las decisiones P1, P2 y D1. Se escribe después de R6c, que es el mismo escritor, para no tener dos
   escritores a la vez. Ruta D (test-first).
 - [ ] **R7** Ensayo 2 con el código final, más el humo de la app sobre la copia. Ruta D.
-- [ ] **R8** Runbook de lanzamiento, checklist de humo y plan de vuelta atrás (`docs/runbook-lanzamiento-v2.md`). Ruta D.
+- [x] **R8** Runbook de lanzamiento, checklist de humo y plan de vuelta atrás (`docs/runbook-lanzamiento-v2.md`). Ruta D. Evidencia: `864f9e0` (borrador) + `6b0100c` y el commit de rubros, con los datos de la corrida 2 de R4. Quedan 5 ⚠: Node en Vercel, `psql` en el WSL del operador, `WSLENV` contra producción (no se usa), restaurar sobre producción (preferir PITR o el panel) y `psql -f` con docker en la vuelta atrás.
 - [ ] **R9** Lanzamiento, que ejecuta el usuario. Pasos:
   1. Respaldo verificado.
   2. `migrate deploy`.
