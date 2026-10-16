@@ -93,7 +93,7 @@ const BASE_OPORTUNIDAD: Oportunidad = {
   fecha_ultima_gestion: null,
   fase: "PROSPECCION",
   fecha_adjudicacion: null,
-  fecha_envio_propuesta: "2026-01-05T00:00:00.000Z",
+  fecha_envio_propuesta: "2026-01-05T15:00:00.000Z",
   proyectos_relacionados: null,
   created_at: "2025-01-01T00:00:00.000Z",
 }
@@ -119,6 +119,7 @@ describe("OportunidadLifecycleDialog", () => {
 
     expect(screen.getByText("Prospección")).toBeInTheDocument()
     expect(screen.getAllByText(/Ganada/i).length).toBeGreaterThan(0)
+    expect(screen.getByText("05 de ene de 2026")).toBeInTheDocument()
   })
 
   it("shows the Convertir action when estado is GANADA, fase is PROSPECCION, and not read-only", () => {

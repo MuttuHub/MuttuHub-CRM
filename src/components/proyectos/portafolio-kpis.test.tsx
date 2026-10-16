@@ -37,6 +37,9 @@ describe("PortafolioKpis", () => {
     // D8: only EN_EJECUCION projects, exact money (never through a float)
     const monto = within(tile("kpi-presupuesto")).getByText("$ 177,4 M")
     expect(monto).toHaveAttribute("title", "$ 177.400.000,50")
+    // Z4-2: a long amount is clipped inside its tile instead of overflowing it on a 390 px screen.
+    expect(monto).toHaveClass("truncate")
+    expect(monto).not.toHaveClass("whitespace-nowrap")
 
     expect(within(tile("kpi-beneficiarios")).getByText("Beneficiarios")).toBeInTheDocument()
     expect(within(tile("kpi-beneficiarios")).getByText("1.850")).toBeInTheDocument()

@@ -9,7 +9,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { EstadoCliente, PrioridadCliente, TipoCliente, TipoInteraccion } from "@prisma/client";
@@ -523,6 +523,7 @@ function InlineText({
    */
   disabled?: boolean;
 }) {
+  const labelId = useId();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? "");
   const [saving, setSaving] = useState(false);
@@ -554,22 +555,23 @@ function InlineText({
     if (disabled) {
       return (
         <div className="min-w-0">
-          <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+          <dt id={labelId} className={INLINE_LABEL_CLASS}>{label}</dt>
           <p className="mt-1 px-1.5 py-0.5 text-[13.5px] leading-snug text-ink-900">
-            {formatFecha(value)}
+            {value || "—"}
           </p>
         </div>
       );
     }
     return (
       <div className="min-w-0">
-        <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+        <dt id={labelId} className={INLINE_LABEL_CLASS}>{label}</dt>
         <button
           type="button"
           onClick={() => {
             setDraft(value ?? "");
             setEditing(true);
           }}
+          aria-describedby={labelId}
           className={INLINE_DISPLAY_CLASS}
         >
           <span className="min-w-0 flex-1">{value || "—"}</span>
@@ -584,9 +586,10 @@ function InlineText({
 
   return (
     <div className="min-w-0">
-      <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+      <dt id={labelId} className={INLINE_LABEL_CLASS}>{label}</dt>
       <Input
         autoFocus
+        aria-label={label}
         value={draft}
         disabled={saving}
         onChange={(e) => setDraft(e.target.value)}
@@ -620,6 +623,7 @@ function InlineTextarea({
   /** PR 4: when true, the field renders as plain text (no edit button). */
   disabled?: boolean;
 }) {
+  const labelId = useId();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? "");
   const [saving, setSaving] = useState(false);
@@ -646,7 +650,7 @@ function InlineTextarea({
     if (disabled) {
       return (
         <div className="min-w-0">
-          <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+          <dt id={labelId} className={INLINE_LABEL_CLASS}>{label}</dt>
           <p className="mt-1 px-1.5 py-0.5 text-[13.5px] leading-snug whitespace-pre-wrap text-ink-900">
             {value || "—"}
           </p>
@@ -655,13 +659,14 @@ function InlineTextarea({
     }
     return (
       <div className="min-w-0">
-        <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+        <dt id={labelId} className={INLINE_LABEL_CLASS}>{label}</dt>
         <button
           type="button"
           onClick={() => {
             setDraft(value ?? "");
             setEditing(true);
           }}
+          aria-describedby={labelId}
           className={INLINE_DISPLAY_CLASS}
         >
           <span className="min-w-0 flex-1 whitespace-pre-wrap">{value || "—"}</span>
@@ -676,9 +681,10 @@ function InlineTextarea({
 
   return (
     <div className="min-w-0">
-      <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+      <dt id={labelId} className={INLINE_LABEL_CLASS}>{label}</dt>
       <textarea
         autoFocus
+        aria-label={label}
         rows={2}
         value={draft}
         disabled={saving}
@@ -709,6 +715,7 @@ function InlineDate({
   /** PR 4: when true, the field renders as plain text (no edit button). */
   disabled?: boolean;
 }) {
+  const labelId = useId();
   const [editing, setEditing] = useState(false);
   const asInputValue = value && !Number.isNaN(new Date(value).getTime())
     ? new Date(value).toISOString().slice(0, 10)
@@ -740,7 +747,7 @@ function InlineDate({
     if (disabled) {
       return (
         <div className="min-w-0">
-          <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+          <dt id={labelId} className={INLINE_LABEL_CLASS}>{label}</dt>
           <p className="mt-1 px-1.5 py-0.5 text-[13.5px] leading-snug text-ink-900">
             {formatFechaDia(value)}
           </p>
@@ -749,13 +756,14 @@ function InlineDate({
     }
     return (
       <div className="min-w-0">
-        <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+        <dt id={labelId} className={INLINE_LABEL_CLASS}>{label}</dt>
         <button
           type="button"
           onClick={() => {
             setDraft(asInputValue);
             setEditing(true);
           }}
+          aria-describedby={labelId}
           className={INLINE_DISPLAY_CLASS}
         >
           <span className="min-w-0 flex-1 whitespace-pre-wrap">{formatFechaDia(value)}</span>
@@ -770,9 +778,10 @@ function InlineDate({
 
   return (
     <div className="min-w-0">
-      <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+      <dt id={labelId} className={INLINE_LABEL_CLASS}>{label}</dt>
       <Input
         autoFocus
+        aria-label={label}
         type="date"
         value={draft}
         disabled={saving}
@@ -811,6 +820,7 @@ function InlineSelect<T extends string>({
    *  user can't open the popup to change the value. */
   disabled?: boolean;
 }) {
+  const labelId = useId();
   async function handleChange(next: string | null) {
     if (!next || next === value) return;
     await onSave(next === CLEAR_PRIORIDAD ? null : (next as T));
@@ -818,7 +828,7 @@ function InlineSelect<T extends string>({
 
   return (
     <div className="min-w-0">
-      <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+      <dt id={labelId} className={INLINE_LABEL_CLASS}>{label}</dt>
       <Select
         value={value || (clearLabel ? CLEAR_PRIORIDAD : "")}
         onValueChange={(v) => void handleChange(v)}
@@ -826,6 +836,7 @@ function InlineSelect<T extends string>({
       >
         <SelectTrigger
           disabled={disabled}
+          aria-label={label}
           className={INLINE_SELECT_TRIGGER_CLASS}
         >
           <SelectValue />
@@ -1385,6 +1396,7 @@ function BitacoraTab({ clientId, readOnly }: { clientId: string; readOnly?: bool
                 value={texto}
                 onChange={(e) => setTexto(e.target.value)}
                 placeholder="Agrega una nota de seguimiento…"
+                aria-label="Nota de seguimiento"
                 className="w-full resize-none rounded-12 border border-border-strong bg-input-bg px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               />
               <div className="mt-2 flex items-center justify-between gap-3">

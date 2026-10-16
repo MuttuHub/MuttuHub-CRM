@@ -223,7 +223,7 @@ export function TareaFormDialog({
                 value={form.responsable_id}
                 onValueChange={(v) => set("responsable_id", v ?? "")}
               >
-                <SelectTrigger className="w-full px-3">
+                <SelectTrigger aria-label="Responsable" className="w-full px-3">
                   <SelectValue placeholder="Selecciona el responsable" />
                 </SelectTrigger>
                 <SelectContent>
@@ -253,7 +253,7 @@ export function TareaFormDialog({
                 value={form.prioridad}
                 onValueChange={(v) => set("prioridad", v as PrioridadTarea | "")}
               >
-                <SelectTrigger className="w-full px-3">
+                <SelectTrigger aria-label="Prioridad" className="w-full px-3">
                   <SelectValue placeholder="Sin prioridad" />
                 </SelectTrigger>
                 <SelectContent>
@@ -272,7 +272,7 @@ export function TareaFormDialog({
                 value={form.estado}
                 onValueChange={(v) => set("estado", v as EstadoTarea)}
               >
-                <SelectTrigger className="w-full px-3">
+                <SelectTrigger aria-label="Estado" className="w-full px-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

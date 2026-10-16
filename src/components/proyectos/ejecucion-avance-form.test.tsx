@@ -8,7 +8,6 @@ import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { ProjectAvance, ProjectDeliverable } from "@/hooks/projects"
 import { expectTouchTargets } from "@/test/viewport"
-import { todayInBogota } from "@/lib/proyectos/weeks"
 import { EjecucionAvanceForm } from "./ejecucion-avance-form"
 
 function createWrapper() {
@@ -117,6 +116,7 @@ describe("EjecucionAvanceForm", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    vi.useRealTimers()
   })
 
   it("uses 44 px touch targets on phones and no fixed width over 360 px", () => {
@@ -127,11 +127,14 @@ describe("EjecucionAvanceForm", () => {
   })
 
   it("caps the date at today in Bogota and blocks a future date locally", async () => {
+    // 2026-10-16 23:30 in Bogota is already 2026-10-17 in UTC: the cap must follow the Bogota day.
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date("2026-10-17T04:30:00.000Z"))
     const user = userEvent.setup()
     setup()
 
     const fecha = screen.getByLabelText("Fecha") as HTMLInputElement
-    expect(fecha.max).toBe(todayInBogota())
+    expect(fecha.max).toBe("2026-10-16")
 
     // El input date no impide escribir por teclado; el guard local sí lo bloquea.
     const futuro = "2099-01-01"

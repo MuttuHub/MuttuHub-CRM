@@ -21,6 +21,7 @@ const { toast, usePortfolio, useCurve, downloadPortfolioExport, state } = vi.hoi
       error: unknown
     },
     curva: undefined as ProjectCurve | undefined,
+    curvaError: null as Error | null,
   },
 }))
 
@@ -32,7 +33,7 @@ vi.mock("@/hooks/projects", () => ({
   },
   useProjectCurve: (id: string) => {
     useCurve(id)
-    return { data: state.curva, isLoading: false, isError: false }
+    return { data: state.curva, isLoading: false, isError: state.curvaError !== null, error: state.curvaError }
   },
   downloadPortfolioExport: (...args: unknown[]) => downloadPortfolioExport(...args),
   useStrategicLines: () => ({ data: [{ id: "l1", codigo: "LE01", nombre: "Educación", activo: true }] }),
@@ -141,6 +142,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   state.query = { data: PORTAFOLIO, isLoading: false, isError: false, error: null }
   state.curva = CURVA
+  state.curvaError = null
 })
 
 describe("ProjectDashboard", () => {
@@ -357,6 +359,19 @@ describe("ProjectDashboard: Tablero gerencial (S14 P9)", () => {
     const user = userEvent.setup()
     await user.selectOptions(screen.getByLabelText("Proyecto de la curva"), "p2")
     expect(useCurve).toHaveBeenLastCalledWith("p2")
+  })
+
+  // Z3-4: a pending or failed curve used to read as "Sin datos de avance todavía".
+  it("does not claim there is no progress data while the curve has not loaded, or when it failed", () => {
+    state.curva = undefined
+    const { unmount } = render(<ProjectDashboard />)
+    expect(screen.queryByText(/Sin datos de avance/)).not.toBeInTheDocument()
+    unmount()
+
+    state.curvaError = new Error("No pudimos cargar la curva S. Inténtalo de nuevo.")
+    render(<ProjectDashboard />)
+    expect(within(screen.getByTestId("tablero-curva")).getByText("No pudimos cargar la curva S. Inténtalo de nuevo.")).toBeInTheDocument()
+    expect(screen.queryByText(/Sin datos de avance/)).not.toBeInTheDocument()
   })
 
   it("renders nothing chart-related when the portfolio is empty", () => {

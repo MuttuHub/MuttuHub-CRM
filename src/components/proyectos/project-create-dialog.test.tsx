@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ApiError } from "@/lib/api/http"
 import type { ClientListRow } from "@/hooks/crm"
 import type { EligibleOpportunity, Municipality, StrategicLine } from "@/hooks/projects"
-import { ProjectCreateDialog, fechaDeHoy, fechaMasMeses } from "./project-create-dialog"
+import { ProjectCreateDialog } from "./project-create-dialog"
 
 type QueryState<T> = { data: T | undefined; isLoading: boolean; isError: boolean }
 type MutationState = { isPending: boolean; mutateAsync: ReturnType<typeof vi.fn> }
@@ -166,7 +166,7 @@ describe("ProjectCreateDialog", () => {
     expect(screen.getByRole("combobox", { name: "Cliente" })).toHaveTextContent("Alcaldía de Barranquilla")
     expect(screen.getByRole("combobox", { name: "Oportunidad" })).toHaveTextContent("Consultoría línea base")
     expect(screen.getByLabelText("Nombre")).toHaveValue("Consultoría línea base")
-    expect(screen.getByLabelText("Valor total")).toHaveValue(180000000)
+    expect(screen.getByLabelText("Valor total")).toHaveValue("180.000.000")
   })
 
   it("preselects once the eligible list arrives after the first render", () => {
@@ -221,16 +221,23 @@ describe("ProjectCreateDialog", () => {
     await elegirOportunidad(user)
 
     expect(screen.getByLabelText("Nombre")).toHaveValue("Consultoría línea base")
-    expect(screen.getByLabelText("Valor total")).toHaveValue(180000000)
+    expect(screen.getByLabelText("Valor total")).toHaveValue("180.000.000")
     expect(screen.getByRole("combobox", { name: "Cliente" })).toHaveTextContent("Alcaldía de Barranquilla")
   })
 
   it("prefills responsable with the current user, today/today+3m and the first line as principal", () => {
-    renderDialog()
+    // Pinned clock (10:00 in Bogota) and literal dates: the expectation no longer uses the component's own helpers.
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date("2026-10-16T15:00:00.000Z"))
+    try {
+      renderDialog()
+    } finally {
+      vi.useRealTimers()
+    }
 
     expect(screen.getByRole("combobox", { name: "Responsable" })).toHaveTextContent("Ana Pérez")
-    expect(screen.getByLabelText("Fecha de inicio")).toHaveValue(fechaDeHoy())
-    expect(screen.getByLabelText("Fecha de fin")).toHaveValue(fechaMasMeses(fechaDeHoy(), 3))
+    expect(screen.getByLabelText("Fecha de inicio")).toHaveValue("2026-10-16")
+    expect(screen.getByLabelText("Fecha de fin")).toHaveValue("2027-01-16")
     expect(screen.getByRole("checkbox", { name: "Incluir Educación" })).toBeChecked()
     expect(screen.getByRole("checkbox", { name: "Principal Educación" })).toBeChecked()
     // Sin territorio inventado: hay que elegir el municipio.
@@ -357,7 +364,7 @@ describe("ProjectCreateDialog", () => {
 
     await elegirOportunidad(user, "Gobernación del Atlántico", /Segunda oportunidad ganada/)
     await elegirMunicipio(user)
-    expect(screen.getByLabelText("Valor total")).toHaveValue(null)
+    expect(screen.getByLabelText("Valor total")).toHaveValue("")
     await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
     expect(await screen.findByRole("alert")).toHaveTextContent("El valor total debe ser mayor que cero.")
     expect(createFromOpportunity.mutateAsync).not.toHaveBeenCalled()
@@ -463,6 +470,35 @@ describe("ProjectCreateDialog", () => {
     expect(body.nombre).toBe("Proyecto propio")
     expect(body.valor_total).toBe(1000000)
     expect(createFromOpportunity.mutateAsync).not.toHaveBeenCalled()
+  })
+
+  // Z3-6: "250.000" used to be read as 250 (JS decimal point), silently saving a value 1000x smaller.
+  it("reads the valor total with es-CO separators and rejects an ambiguous amount", async () => {
+    const user = userEvent.setup()
+    renderDialog()
+
+    await elegirCliente(user, "Cliente Uno")
+    await user.type(screen.getByLabelText("Nombre"), "Proyecto propio")
+    await elegirMunicipio(user)
+    await user.type(screen.getByLabelText("Valor total"), "250.000,50")
+    await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
+
+    await waitFor(() => expect(createProject.mutateAsync).toHaveBeenCalled())
+    expect(createProject.mutateAsync.mock.calls[0][0].valor_total).toBe(250000.5)
+  })
+
+  it("refuses a valor total that is not a valid es-CO amount and fires no request", async () => {
+    const user = userEvent.setup()
+    renderDialog()
+
+    await elegirCliente(user, "Cliente Uno")
+    await user.type(screen.getByLabelText("Nombre"), "Proyecto propio")
+    await elegirMunicipio(user)
+    await user.type(screen.getByLabelText("Valor total"), "250.00")
+    await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Ingresa un monto válido")
+    expect(createProject.mutateAsync).not.toHaveBeenCalled()
   })
 
   describe("value difference against the opportunity (S2.4)", () => {

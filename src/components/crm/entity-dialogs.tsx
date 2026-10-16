@@ -320,7 +320,7 @@ export function ContactoFormDialog({
                 value={form.rol_decision}
                 onValueChange={(v) => set("rol_decision", v as RolContacto | "")}
               >
-                <SelectTrigger className="w-full px-3">
+                <SelectTrigger aria-label="Rol en la decisión" className="w-full px-3">
                   <SelectValue placeholder="Sin rol definido" />
                 </SelectTrigger>
                 <SelectContent>
@@ -653,7 +653,7 @@ export function OportunidadFormDialog({
                 value={form.estado}
                 onValueChange={(v) => set("estado", v as EstadoOportunidad)}
               >
-                <SelectTrigger className="w-full px-3">
+                <SelectTrigger aria-label="Estado" className="w-full px-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -890,7 +890,7 @@ export function OportunidadLifecycleDialog({
             {!readOnly && (
               <div className="flex items-center gap-2">
                 <Select value={selectedTaskId} onValueChange={(v) => setSelectedTaskId(v ?? "")}>
-                  <SelectTrigger size="sm" className="w-full px-3 text-base md:text-[12.5px]">
+                  <SelectTrigger size="sm" aria-label="Vincular tarea" className="w-full px-3 text-base md:text-[12.5px]">
                     <SelectValue placeholder="Vincular una tarea existente del cliente" />
                   </SelectTrigger>
                   <SelectContent>
@@ -936,6 +936,7 @@ export function OportunidadLifecycleDialog({
                   value={nota}
                   onChange={(e) => setNota(e.target.value)}
                   placeholder="Agregar una nota de comunicación"
+                  aria-label="Nota de comunicación"
                   className="h-10 px-3 text-base md:text-[12.5px]"
                 />
                 <Button

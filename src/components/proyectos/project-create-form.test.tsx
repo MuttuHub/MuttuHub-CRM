@@ -266,7 +266,7 @@ describe("ProjectCreateForm", () => {
   it("preselects initialOportunidadId together with its client", () => {
     renderForm({ initialOportunidadId: "op-1" })
     expect(screen.getByLabelText("Nombre")).toHaveValue("Consultoría línea base")
-    expect(screen.getByLabelText("Valor total")).toHaveValue(180000000)
+    expect(screen.getByLabelText("Valor total")).toHaveValue("180.000.000")
     expect(screen.getByRole("combobox", { name: "Cliente" })).toHaveTextContent("Alcaldía de Barranquilla")
     expect(screen.getByRole("combobox", { name: "Oportunidad" })).toHaveTextContent("Consultoría línea base")
   })
@@ -336,7 +336,7 @@ describe("ProjectCreateForm", () => {
     renderForm()
     await crearDesdeOportunidad(user)
     expect(screen.getByLabelText("Nombre")).toHaveValue("Consultoría línea base")
-    expect(screen.getByLabelText("Valor total")).toHaveValue(180000000)
+    expect(screen.getByLabelText("Valor total")).toHaveValue("180.000.000")
     await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
 
     await waitFor(() => expect(createFromOpportunity.mutateAsync).toHaveBeenCalled())
@@ -374,7 +374,7 @@ describe("ProjectCreateForm", () => {
     await elegirOportunidad(user, /Consultoría línea base/)
     await elegirCliente(user, "Cliente Uno")
     expect(screen.getByLabelText("Nombre")).toHaveValue("")
-    expect(screen.getByLabelText("Valor total")).toHaveValue(null)
+    expect(screen.getByLabelText("Valor total")).toHaveValue("")
     expect(screen.getByRole("combobox", { name: "Oportunidad" })).toHaveTextContent("Sin oportunidad")
   })
 

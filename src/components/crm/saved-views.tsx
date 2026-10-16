@@ -185,19 +185,13 @@ export function SavedViewsMenu({
               >
                 {view.nombre}
               </DropdownMenuItem>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
+              <DropdownMenuItem
                 aria-label={`Eliminar vista ${view.nombre}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setDeleteTarget(view);
-                }}
-                className="mr-1 text-ink-500 opacity-0 hover:text-destructivo group-hover:opacity-100 after:-inset-1"
+                onClick={() => setDeleteTarget(view)}
+                className="mr-1 size-6 shrink-0 justify-center p-0 text-ink-500 opacity-0 hover:text-destructivo focus-visible:opacity-100 data-highlighted:opacity-100 group-hover:opacity-100"
               >
                 <Trash2 className="size-3.5" strokeWidth={1.8} />
-              </Button>
+              </DropdownMenuItem>
             </div>
           ))}
           <DropdownMenuSeparator />

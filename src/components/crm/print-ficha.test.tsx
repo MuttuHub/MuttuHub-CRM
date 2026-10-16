@@ -7,7 +7,7 @@
 import { render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { ClientDetail, Oportunidad } from "@/hooks/crm"
-import { apiGet } from "@/lib/api/http"
+import { ApiError, apiGet } from "@/lib/api/http"
 import { PrintFicha } from "./print-ficha"
 
 vi.mock("@/lib/api/http", async (importOriginal) => {
@@ -77,5 +77,29 @@ describe("PrintFicha — Oportunidades", () => {
 
     const line = await screen.findByText(/última gestión:/)
     expect(line).toHaveTextContent("01 de ago de 2026")
+  })
+})
+
+// Z1-2: a 401/500 used to tell any user to configure a `.env` file with Supabase.
+describe("PrintFicha — load errors", () => {
+  beforeEach(() => {
+    window.print = vi.fn()
+  })
+
+  it("asks for a new login on 401, without developer text", async () => {
+    vi.mocked(apiGet).mockRejectedValue(new ApiError("Unauthorized", 401, "UNAUTHORIZED"))
+    render(<PrintFicha clientId="c1" />)
+
+    expect(await screen.findByText("Sesión vencida")).toBeInTheDocument()
+    expect(screen.getByText(/Tu sesión expiró\. Inicia sesión de nuevo/)).toBeInTheDocument()
+    expect(screen.queryByText(/\.env|Supabase/)).not.toBeInTheDocument()
+  })
+
+  it("shows a generic Spanish message on 500 without leaking the raw error", async () => {
+    vi.mocked(apiGet).mockRejectedValue(new ApiError("Internal error: prisma", 500, "INTERNAL_ERROR"))
+    render(<PrintFicha clientId="c1" />)
+
+    expect(await screen.findByText("No pudimos cargar la ficha. Inténtalo de nuevo.")).toBeInTheDocument()
+    expect(screen.queryByText(/prisma|\.env|Supabase/)).not.toBeInTheDocument()
   })
 })

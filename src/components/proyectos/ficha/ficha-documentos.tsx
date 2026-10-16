@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
-import { formatFechaCalendario } from "@/components/proyectos/project-display";
+import { formatFechaHora } from "@/components/proyectos/project-display";
 import { formatoSoporte } from "@/components/proyectos/soportes-format";
 import { EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/ui";
 import {
@@ -143,7 +143,7 @@ export function FichaDocumentos({ proyecto }: { proyecto: ProjectListRow }) {
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13px] font-semibold text-ink-900">{soporte.nombre}</span>
                           <span className="block truncate text-[12px] text-ink-500">
-                            {[soporte.vinculo, soporte.subido_por, formatFechaCalendario(soporte.created_at)]
+                            {[soporte.vinculo, soporte.subido_por, formatFechaHora(soporte.created_at)]
                               .filter(Boolean)
                               .join(" · ")}
                           </span>

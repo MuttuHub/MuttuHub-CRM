@@ -79,7 +79,7 @@ export function PortafolioKpis({
         data-testid="kpi-presupuesto"
         className={TILE}
         label="Presupuesto activo"
-        value={<span title={formatCOP(presupuesto)} className="whitespace-nowrap text-[24px] sm:text-[28px]">{formatMillones(presupuesto)}</span>}
+        value={<span title={formatCOP(presupuesto)} className="block max-w-full truncate text-[24px] sm:text-[28px]">{formatMillones(presupuesto)}</span>}
         hint="Valor total en ejecución"
       />
       <KpiTile

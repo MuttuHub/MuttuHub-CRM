@@ -476,7 +476,7 @@ describe("ProjectList", () => {
     it("shows skeleton bars while the portfolio loads, and 'Sin medir' (not a crash) when it fails", () => {
       projectsQuery.data = { proyectos: [PROYECTO] }
       portfolioQuery.isLoading = true
-      const { container, unmount } = render(<ProjectList />)
+      const { unmount } = render(<ProjectList />)
       const fila = screen.getByTestId("proyecto-fila-p1")
       expect(fila.querySelectorAll('[data-slot="skeleton"]').length).toBe(2)
       expect(within(fila).queryByText("Sin medir")).toBeNull()
@@ -486,7 +486,8 @@ describe("ProjectList", () => {
       portfolioQuery.error = new Error("boom")
       const second = render(<ProjectList />)
       expect(within(screen.getByTestId("proyecto-fila-p1")).getAllByText("Sin medir")).toHaveLength(2)
-      void container
+      // Z3-3: the failure is announced, so it is not read as "these projects are not measurable".
+      expect(screen.getByText(/No pudimos cargar el avance del portafolio/)).toBeInTheDocument()
       second.unmount()
     })
 
@@ -678,6 +679,18 @@ describe("ProjectList", () => {
     render(<ProjectList />)
 
     expect(screen.getByText(PROYECTO.nombre)).toBeInTheDocument()
+  })
+
+  // Z1-1: a network failure arrives as a raw browser TypeError, never shown as is.
+  it("shows a Spanish toast, not the raw browser error, on a network failure", () => {
+    projectsQuery.isError = true
+    projectsQuery.error = new TypeError("Failed to fetch")
+    projectsQuery.data = undefined
+
+    render(<ProjectList />)
+
+    expect(toast.error).toHaveBeenCalledWith("No pudimos cargar los proyectos. Inténtalo de nuevo.")
+    expect(toast.error).not.toHaveBeenCalledWith("Failed to fetch")
   })
 
   it("surfaces an API error as a toast, not as a screen", () => {

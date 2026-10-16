@@ -64,6 +64,8 @@ function normalizarValor(texto: string): string | null {
   return monto !== null && toCents(monto) > BigInt(0) ? monto : null;
 }
 
+const SIN_RUBROS = "Aún no hay rubros con monto asignado. Asigna primero un monto a un rubro en Presupuesto.";
+
 export function GastoForm({
   proyecto,
   rubros,
@@ -96,6 +98,7 @@ export function GastoForm({
 
   function submit() {
     const valorNormal = normalizarValor(valor);
+    if (conAsignado.length === 0) return setLocal(SIN_RUBROS);
     if (rubroId === "") return setLocal("Elige el rubro.");
     if (fecha === "") return setLocal("La fecha del documento es obligatoria.");
     if (valorNormal === null) return setLocal(VALOR_INVALIDO);
@@ -168,6 +171,10 @@ export function GastoForm({
       }}
       className="mt-2 grid gap-2.5 rounded-inner border border-border bg-panel p-3 sm:grid-cols-2"
     >
+      {conAsignado.length === 0 && (
+        <p className="text-[12.5px] text-ink-600 sm:col-span-2">{SIN_RUBROS}</p>
+      )}
+
       <Campo id={`${p}-rubro`} label="Rubro">
         <select id={`${p}-rubro`} value={rubroId} onChange={(e) => setRubroId(e.target.value)} className={SELECT}>
           <option value="">Elige un rubro</option>

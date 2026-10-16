@@ -89,14 +89,22 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
         {/* Encabezado fijo: pegajoso y fuera del panel de contenido, así estado y semáforos siempre se ven. */}
         <div className="sticky top-0 z-10 rounded-t-card bg-panel">
           <FichaHeader proyecto={proyecto} onIrA={setTab} />
-          <div className="no-scrollbar overflow-x-auto border-b border-ink-200 px-5 sm:px-6">
-            <TabsList variant="line" className="w-full justify-start gap-1">
-              {FICHA_TABS.map((item) => (
-                <TabsTrigger key={item.value} value={item.value} className="flex-none px-3">
-                  {item.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+          <div className="relative border-b border-ink-200">
+            <div className="no-scrollbar overflow-x-auto px-5 sm:px-6">
+              <TabsList variant="line" className="w-full justify-start gap-1">
+                {FICHA_TABS.map((item) => (
+                  <TabsTrigger key={item.value} value={item.value} className="flex-none px-3">
+                    {item.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
+            {/* Degradado que insinúa las pestañas fuera de pantalla en móvil (la barra nativa está oculta). */}
+            <span
+              aria-hidden="true"
+              data-testid="ficha-tabs-fade"
+              className="pointer-events-none absolute top-0 right-0 h-full w-6 bg-gradient-to-l from-panel to-transparent sm:hidden"
+            />
           </div>
         </div>
         <div data-testid="ficha-scroll" className="p-5 sm:p-6">
@@ -141,7 +149,7 @@ function FichaSkeleton() {
 
 function FichaError({ error }: { error: unknown }) {
   const message =
-    error instanceof Error
+    error instanceof ApiError
       ? error.message
       : "No pudimos cargar el proyecto. Inténtalo de nuevo.";
 

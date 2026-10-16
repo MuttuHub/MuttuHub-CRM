@@ -272,9 +272,19 @@ describe("FichaResumen", () => {
       expect(screen.queryByRole("button", BOTON)).not.toBeInTheDocument()
     })
 
-    it("hides the button while the user is unknown and in states that allow no edits", async () => {
+    it("hides the button in a state that allows no edits, even for GERENCIA", async () => {
       mockApi({ rol: "GERENCIA" })
       renderResumen({ ...PROYECTO, estado: "CERRADO" })
+      await screen.findByTestId("datos-generales")
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
+
+      expect(screen.queryByRole("button", BOTON)).not.toBeInTheDocument()
+    })
+
+    // Z5-6: the unknown-user case (`usuario: null`) on a state that does allow edits was never mounted.
+    it("hides the button while the user is unknown, in a state that allows edits", async () => {
+      mockApi()
+      renderResumen({ ...PROYECTO, estado: "BORRADOR" })
       await screen.findByTestId("datos-generales")
       await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
 

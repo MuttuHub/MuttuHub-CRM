@@ -1,7 +1,7 @@
 // Ficha completa imprimible de un cliente (PRD §4.6): cabecera, General,
 // Contactos, Oportunidades, Bitácora y Compromisos. Se auto-imprime al
-// cargar; 404 → "Cliente no encontrado", 500/401 (plataforma no configurada
-// o sesión inválida) → tarjeta de "Plataforma no conectada".
+// cargar; 404 → "Cliente no encontrado", 401 (sesión vencida) → tarjeta de
+// "Sesión vencida"; cualquier otro fallo → mensaje genérico en español.
 
 "use client";
 
@@ -30,7 +30,7 @@ import { apiGet, ApiError } from "@/lib/api/http";
 
 type LoadState =
   | { kind: "loading" }
-  | { kind: "error"; clave: "sin-conexion" | "404" | "otro"; message: string }
+  | { kind: "error"; clave: "sesion" | "404" | "otro"; message: string }
   | { kind: "ready"; data: FichaData };
 
 type FichaData = {
@@ -78,14 +78,16 @@ export function PrintFicha({ clientId }: { clientId: string }) {
         if (!alive) return;
         if (err instanceof ApiError && err.status === 404) {
           setState({ kind: "error", clave: "404", message: err.message });
-        } else if (err instanceof ApiError && (err.status === 500 || err.status === 401)) {
-          setState({ kind: "error", clave: "sin-conexion", message: err.message });
+        } else if (err instanceof ApiError && err.status === 401) {
+          setState({ kind: "error", clave: "sesion", message: err.message });
         } else {
           setState({
             kind: "error",
             clave: "otro",
             message:
-              err instanceof ApiError ? err.message : "No pudimos cargar la ficha.",
+              err instanceof ApiError && err.status !== 500
+                ? err.message
+                : "No pudimos cargar la ficha. Inténtalo de nuevo.",
           });
         }
       }
@@ -356,7 +358,7 @@ function Factura({ label, value }: { label: string; value: string }) {
 
 function FichaError({ clave, message }: { clave: string; message: string }) {
   const notFound = clave === "404";
-  const sinConexion = clave === "sin-conexion";
+  const sesionVencida = clave === "sesion";
 
   return (
     <div className="grid min-h-[380px] place-items-center">
@@ -371,13 +373,13 @@ function FichaError({ clave, message }: { clave: string; message: string }) {
           )}
         </span>
         <h2 className="mt-4 font-display text-[19px] font-bold tracking-[-0.02em] text-ink-950">
-          {notFound ? "Cliente no encontrado" : sinConexion ? "Plataforma no conectada" : "No pudimos cargar la ficha"}
+          {notFound ? "Cliente no encontrado" : sesionVencida ? "Sesión vencida" : "No pudimos cargar la ficha"}
         </h2>
         <p className="mt-2 text-[13.5px] leading-relaxed text-ink-600">
           {notFound
             ? "El cliente no existe o fue eliminado. Vuelve al listado y elige otro."
-            : sinConexion
-              ? "Configura el archivo .env con Supabase o inicia sesión para imprimir la ficha."
+            : sesionVencida
+              ? "Tu sesión expiró. Inicia sesión de nuevo para imprimir la ficha."
               : message}
         </p>
         <Button
