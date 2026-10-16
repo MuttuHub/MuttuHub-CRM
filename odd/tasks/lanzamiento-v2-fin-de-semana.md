@@ -94,6 +94,7 @@ La integración es **progresiva y en un solo sentido**.
 | M7 | Notificar el rechazo de un gasto: ¿con el motivo? ¿también al anular? Requiere migración aditiva (enum) | ✅ 2026-10-15 | Solo al rechazar, con el motivo en el mensaje y enlace al gasto. Nuevo `GASTO_RECHAZADO`; las notificaciones de proyecto se abren a quien registró el gasto | F12, R3 |
 | UX-1 | Rediseño de la ficha | ✅ 2026-10-15 | Mapa de 5 pestañas aprobado: Resumen, Actividades, Finanzas, Documentos e Historial. El semáforo vive solo en el encabezado; Resumen explica la causa. La ficha la usan el ejecutor y gerencia por igual: abre en Resumen, con «Registrar avance» y «Registrar gasto» en el encabezado | U2–U8, X2–X6 |
 | UX-2 | Ayudas al crear un proyecto | ✅ 2026-10-15 | Pistas contextuales en cada paso y en cada campo no obvio del stepper, y en la carga por Excel | U7 |
+| UX-3 | Editar los datos generales después de crear el proyecto | ✅ 2026-10-15 | Botón «Editar datos generales» en Resumen, para quien gestiona el proyecto. En borrador: nombre, descripción, fechas, valor, responsable, beneficiarios, líneas y municipios. En ejecución: solo descripción y beneficiarios; fechas y valor siguen por Modificaciones, porque cambian la línea base. El usuario delegó la decisión en la recomendación de Claude | F15 |
 | G-1 | La gerencia acepta un merge grande sin PRs encadenados | ✅ 2026-10-15 | La gerencia delegó la decisión en el usuario. El merge a `main` se hace solo si la revisión de Claude sale sin hallazgos graves. La revisión tiene tres capas: suite completa, `tsc` y build en verde; el ensayo de migraciones R4/R7; y una revisión dirigida a permisos por rol, migraciones y datos, dinero, y borrado o anulación (R6b) | R6, R6b, R9 |
 | G-2 | Ventana de lanzamiento (propuesta: domingo 2026-10-18 en la mañana) | pendiente (usuario) | | R9 |
 
@@ -310,6 +311,15 @@ El prompt completo está en `odd/tasks/lanzamiento-v2-deepseek-prompt.md`.
   Tamaño S-M. Evidencia: `5da32bf`, integrado en `345987b` y montado en `8e61954`.
 - [x] **X6** `FichaHistorial`, con selector Modificaciones · Versiones · Auditoría. Compone `ProjectModificaciones`,
   `ProjectVersiones` y `ProjectHistorial`. Tamaño S. Evidencia: `a81a4ba`, integrado en `345987b` y montado en `8e61954`.
+
+### Carril F (continuación)
+
+- [ ] **F15** «Editar datos generales» (UX-3). Un diálogo en Resumen que usa el PATCH existente.
+  - En borrador se pueden editar todos los datos generales.
+  - En ejecución solo la descripción y los beneficiarios. Habilitar eso en el PATCH requiere ampliar su regla, que hoy
+    solo acepta borrador, únicamente para esos dos campos y con auditoría.
+  - Fechas y valor muestran un enlace a «Solicitar modificación».
+  - Va después de F14, porque los dos tocan `ficha-resumen.tsx`. Ruta D.
 
 ### Carril Y: lote 2 de DeepSeek
 
