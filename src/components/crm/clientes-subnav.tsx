@@ -1,14 +1,15 @@
 "use client";
 
-// v7 alignment, unit C1a: the Clientes sub-navigation shell. Seven sections —
-// the user's list, so v7's extra "Convocatorias" is intentionally left out —
-// each backed by its own route under `/clientes`. These items navigate between
-// pages, so they are links carrying `aria-current="page"` (the app's route
-// convention, see `shell/sidebar.tsx`), not an ARIA tablist: tabs own in-page
-// panels, and every section here is its own route with its own content.
+// v7 alignment, unit C1a: the Clientes sub-navigation shell. Five sections — the
+// user's list, so v7's extra "Convocatorias" is intentionally left out, and M4
+// (Y3) hides the two that are not built yet (Oportunidades and Mapa: their
+// routes redirect to /clientes). Each item navigates between pages, so they are
+// links carrying `aria-current="page"` (the app's route convention, see
+// `shell/sidebar.tsx`), not an ARIA tablist: tabs own in-page panels, and every
+// section here is its own route with its own content.
 //
-// Only Aliados has real content today; the other six routes render the honest
-// placeholder in `clientes-section-placeholder.tsx` until units C2..C7 land.
+// Interacciones (C3b), Relaciones (C4b), Salud (C5b) and Automatizaciones (C7b)
+// render their real sections.
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -19,14 +20,12 @@ export type ClientesSection = {
   label: string;
 };
 
-/** The v7 CRM sections, in the order the user asked for them. */
+/** The v7 CRM sections that are built, in the order the user asked for them. */
 export const CLIENTES_SECTIONS: readonly ClientesSection[] = [
   { href: "/clientes", label: "Aliados" },
-  { href: "/clientes/oportunidades", label: "Oportunidades" },
   { href: "/clientes/interacciones", label: "Interacciones" },
   { href: "/clientes/relaciones", label: "Relaciones" },
   { href: "/clientes/salud", label: "Salud" },
-  { href: "/clientes/mapa", label: "Mapa" },
   { href: "/clientes/automatizaciones", label: "Automatizaciones" },
 ];
 

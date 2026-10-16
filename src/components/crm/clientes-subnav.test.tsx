@@ -1,19 +1,19 @@
 // v7 alignment, unit C1a: the Clientes sub-navigation shell. These tests pin the
-// three behaviours the shell owes: (1) the seven sections render in the v7 order
-// (and NOT Convocatorias, which v7 has but the user's list does not), (2) the
+// three behaviours the shell owes: (1) the five remaining sections render in the
+// v7 order — NOT Convocatorias (which v7 has but the user's list does not) and
+// NOT the two empty sections (Oportunidades and Mapa, hidden by M4), (2) the
 // active item follows the current route exactly, and (3) Aliados still renders
 // the untouched ClientList. Interacciones (C3b), Relaciones (C4b), Salud (C5b)
-// and Automatizaciones (C7b) left the placeholder set and now render their real
-// sections; the remaining two still show the honest "en construcción"
-// placeholder until units C2 and C6 land.
+// and Automatizaciones (C7b) render their real sections; the hidden routes
+// redirect to `/clientes`.
 
 import { render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { CLIENTES_SECTIONS, ClientesSubNav } from "./clientes-subnav"
 
-const { pathname } = vi.hoisted(() => ({ pathname: { value: "/clientes" } }))
+const { pathname, redirect } = vi.hoisted(() => ({ pathname: { value: "/clientes" }, redirect: vi.fn() }))
 
-vi.mock("next/navigation", () => ({ usePathname: () => pathname.value }))
+vi.mock("next/navigation", () => ({ usePathname: () => pathname.value, redirect }))
 
 // jsdom cannot run Next's router; a plain anchor keeps the link semantics.
 vi.mock("next/link", () => ({
@@ -67,27 +67,28 @@ import ClientesSaludPage from "@/app/(app)/clientes/salud/page"
 import ClientesMapaPage from "@/app/(app)/clientes/mapa/page"
 import ClientesAutomatizacionesPage from "@/app/(app)/clientes/automatizaciones/page"
 
-const PLACEHOLDER_PAGES = [
-  ["Oportunidades", ClientesOportunidadesPage],
-  ["Mapa", ClientesMapaPage],
+const REDIRECTED_PAGES = [
+  { label: "Oportunidades", Page: ClientesOportunidadesPage },
+  { label: "Mapa", Page: ClientesMapaPage },
 ] as const
 
 beforeEach(() => {
   pathname.value = "/clientes"
+  redirect.mockClear()
 })
 
 describe("ClientesSubNav", () => {
-  it("lists the seven v7 sections in order and leaves Convocatorias out", () => {
+  it("lists the five remaining sections in order, without Oportunidades, Mapa or Convocatorias", () => {
     expect(CLIENTES_SECTIONS.map((section) => section.label)).toEqual([
       "Aliados",
-      "Oportunidades",
       "Interacciones",
       "Relaciones",
       "Salud",
-      "Mapa",
       "Automatizaciones",
     ])
     render(<ClientesSubNav />)
+    expect(screen.queryByRole("link", { name: "Oportunidades" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("link", { name: "Mapa" })).not.toBeInTheDocument()
     expect(screen.queryByRole("link", { name: "Convocatorias" })).not.toBeInTheDocument()
   })
 
@@ -120,9 +121,9 @@ describe("Clientes sections", () => {
     expect(screen.getByTestId("client-list-stub")).toBeInTheDocument()
   })
 
-  it.each(PLACEHOLDER_PAGES)("%s renders an honest 'en construcción' placeholder", (label, Page) => {
+  it.each(REDIRECTED_PAGES)("$label redirects to /clientes instead of a placeholder", ({ Page }) => {
     render(<Page />)
-    expect(screen.getByText(new RegExp(`${label}.*en construcción`, "i"))).toBeInTheDocument()
+    expect(redirect).toHaveBeenCalledWith("/clientes")
   })
 
   it("Interacciones renders the real feed instead of the placeholder", () => {

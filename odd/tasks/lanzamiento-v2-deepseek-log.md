@@ -229,3 +229,38 @@ LISTO PARA INTEGRAR: Y1
 - PREGUNTA: ninguna.
 
 LISTO PARA INTEGRAR: Y2
+
+---
+
+## Y3 · Ocultar las pestañas vacías de Clientes (M4)
+
+- Commit: `54f2631` — `feat(crm): hide the client sections that are not built yet`
+- Archivos tocados:
+  - `src/components/crm/clientes-subnav.tsx` — `CLIENTES_SECTIONS` queda con las cinco secciones construidas
+    (Aliados, Interacciones, Relaciones, Salud y Automatizaciones); Oportunidades y Mapa salen de la navegación.
+  - `src/app/(app)/clientes/oportunidades/page.tsx` y `mapa/page.tsx` — las páginas pasan a `return redirect("/clientes")`
+    (`redirect` de `next/navigation`; el retorno `never` es el que espera React 19 con TS, y la guía de Next lo admite).
+  - `src/components/crm/clientes-subnav.test.tsx` — cinco secciones (y Oportunidades/Mapa/Convocatorias ausentes);
+    las dos pruebas del placeholder pasan a probar la redirección con `redirect` burlado.
+- Verificaciones:
+  1. `TZ=America/Bogota npx vitest run …` sobre las rutas del lote **más** las guardas de código → 21 archivos,
+     231 pruebas, **verde**.
+  2. `npx tsc --noEmit` → **sin errores**.
+  3. `npx eslint` sobre los cuatro archivos → **sin avisos**.
+- PEDIDO A CLAUDE: ninguno. Nota: `clientes-section-placeholder.tsx` queda sin uso (no está en mi superficie; no lo
+  toco).
+- PREGUNTA: ninguna.
+
+LISTO PARA INTEGRAR: Y3
+
+---
+
+## Cierre del lote 2
+
+Y1–Y3 terminadas en `feat/deepseek-lote-2`, una tarea por commit, cada una con su entrada en este log y sin push.
+Resumen para la integración: (Y1) filtros del portafolio por cliente, línea, municipio y responsable, con
+«Limpiar filtros» y plegable en móvil, y el vacío hablando de «estos filtros»; (Y2) la fecha de primer contacto
+como día UTC legible en la ficha del cliente; (Y3) Oportunidades y Mapa fuera del subnav de Clientes y sus rutas
+redirigiendo a `/clientes`.
+
+LISTO PARA INTEGRAR: TODO LOTE 2
