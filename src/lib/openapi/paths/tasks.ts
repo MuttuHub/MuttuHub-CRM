@@ -60,6 +60,9 @@ const TaskItemSchema = registry.register(
     oportunidad_fase: z.enum(["PROSPECCION", "EJECUCION"]).nullable().openapi({
       description: "RNF-C01: alimenta el chip ámbar/esmeralda del tablero. Null si no hay oportunidad vinculada.",
     }),
+    proyecto: z.object({ id: z.string().uuid(), codigo: z.string() }).nullable().openapi({
+      description: "D3: proyecto en que se convirtió la oportunidad de la tarea (relación 1:1). Null si no hay proyecto o fue eliminado. El acceso al proyecto lo decide `GET /projects/{id}` (403/404).",
+    }),
     estado: EstadoTareaSchema,
     origen: OrigenTareaSchema,
     prioridad: PrioridadTareaSchema.nullable(),
@@ -115,6 +118,7 @@ const TaskDetailSchema = registry.register(
     }),
     oportunidad_nombre: z.string().nullable(),
     oportunidad_fase: z.enum(["PROSPECCION", "EJECUCION"]).nullable(),
+    proyecto: z.object({ id: z.string().uuid(), codigo: z.string() }).nullable(),
     estado: EstadoTareaSchema,
     origen: OrigenTareaSchema,
     prioridad: PrioridadTareaSchema.nullable(),

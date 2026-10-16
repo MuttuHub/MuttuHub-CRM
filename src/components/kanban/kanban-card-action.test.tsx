@@ -17,6 +17,17 @@ describe("CardActionView", () => {
     )
   })
 
+  it("links 'open-project' to the exact project ficha (F7)", () => {
+    render(
+      <CardActionView
+        action={{ kind: "open-project", href: "/proyectos/p-7", label: "✓ Proyecto PRY-2026-007 · abrir ficha" }}
+        onRun={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole("link", { name: "✓ Proyecto PRY-2026-007 · abrir ficha" })).toHaveAttribute("href", "/proyectos/p-7")
+  })
+
   it("keeps the 'advance' action as a button that runs the handler", () => {
     const onRun = vi.fn()
     render(<CardActionView action={{ kind: "advance", to: "EN_CURSO", label: "Avanzar →" }} onRun={onRun} />)

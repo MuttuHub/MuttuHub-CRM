@@ -697,7 +697,7 @@ export function CardActionView({ action, onRun }: { action: CardAction; onRun: (
   if (action.kind === "open-project") {
     return (
       <Link
-        href="/proyectos"
+        href={action.href}
         {...isolate}
         className="inline-flex h-9 items-center rounded-12 border border-exito/50 px-3 text-[13px] font-semibold text-exito outline-none hover:bg-exito/10 focus-visible:ring-3 focus-visible:ring-ring/50"
       >

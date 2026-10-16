@@ -261,6 +261,8 @@ export type TaskItem = {
   oportunidad_id: string | null;
   oportunidad_nombre: string | null;
   oportunidad_fase: FaseOportunidad | null;
+  /** D3: el proyecto en que se convirtió la oportunidad de la tarea; null si no hay (o se eliminó). Opcional en el tipo para no obligar a todos los fixtures. */
+  proyecto?: { id: string; codigo: string } | null;
   estado: EstadoTarea;
   origen: OrigenTarea;
   prioridad: PrioridadTarea | null;

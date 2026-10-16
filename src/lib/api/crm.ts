@@ -361,7 +361,16 @@ export const TASK_SELECT = {
   cliente: { select: { nombre: true, responsable_id: true } },
   // RNF-C01 (opportunity-task-linking): Kanban visual differentiation needs
   // only the opportunity name + fase — one join, same pattern as `cliente`.
-  oportunidad: { select: { id: true, nombre: true, fase: true } },
+  // D3 (F7): a converted task links to its exact project through the 1:1 back-relation
+  // `Oportunidad.proyecto`; `deleted_at` only filters a soft-deleted project out of the DTO.
+  oportunidad: {
+    select: {
+      id: true,
+      nombre: true,
+      fase: true,
+      proyecto: { select: { id: true, codigo: true, deleted_at: true } },
+    },
+  },
   _count: { select: { comentarios: true, subtareas: true } },
 } as const;
 
@@ -378,6 +387,8 @@ export type TaskItem = {
   oportunidad_id: string | null;
   oportunidad_nombre: string | null;
   oportunidad_fase: FaseOportunidad | null;
+  /** The project this task's opportunity became (D3); null when it has none or it was deleted. */
+  proyecto: { id: string; codigo: string } | null;
   estado: Tarea["estado"];
   origen: Tarea["origen"];
   prioridad: Tarea["prioridad"];
@@ -408,6 +419,10 @@ export function toTaskItem(
     oportunidad_id: tarea.oportunidad_id,
     oportunidad_nombre: tarea.oportunidad?.nombre ?? null,
     oportunidad_fase: tarea.oportunidad?.fase ?? null,
+    proyecto:
+      tarea.oportunidad?.proyecto && !tarea.oportunidad.proyecto.deleted_at
+        ? { id: tarea.oportunidad.proyecto.id, codigo: tarea.oportunidad.proyecto.codigo }
+        : null,
     estado: tarea.estado,
     origen: tarea.origen,
     prioridad: tarea.prioridad,

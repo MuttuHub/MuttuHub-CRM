@@ -120,4 +120,27 @@ describe("cardAction", () => {
     const converted = task({ estado: "COMPLETADA", oportunidad_id: "o1", oportunidad_fase: "EJECUCION" })
     expect(cardAction(converted, none)?.kind).toBe("open-project")
   })
+
+  it("links a converted task to its exact project and shows the code (F7)", () => {
+    const converted = task({
+      estado: "COMPLETADA",
+      oportunidad_id: "o1",
+      oportunidad_fase: "EJECUCION",
+      proyecto: { id: "p-7", codigo: "PRY-2026-007" },
+    })
+    expect(cardAction(converted, none)).toEqual({
+      kind: "open-project",
+      href: "/proyectos/p-7",
+      label: "✓ Proyecto PRY-2026-007 · abrir ficha",
+    })
+  })
+
+  it("falls back to the project list when the project is unknown (F7)", () => {
+    const converted = task({ estado: "COMPLETADA", oportunidad_id: "o1", oportunidad_fase: "EJECUCION", proyecto: null })
+    expect(cardAction(converted, none)).toEqual({
+      kind: "open-project",
+      href: "/proyectos",
+      label: "✓ Proyecto creado · ver proyectos",
+    })
+  })
 })

@@ -91,7 +91,7 @@ export type CardAction =
   | { kind: "advance"; to: EstadoTarea; label: string }
   | { kind: "convert"; oportunidadId: string; label: string }
   | { kind: "hint"; text: string }
-  | { kind: "open-project"; label: string };
+  | { kind: "open-project"; label: string; href: string };
 
 /**
  * What a card offers besides opening its dialog.
@@ -103,7 +103,12 @@ export function cardAction(
   task: CardTask,
   eligibleOpportunityIds: ReadonlySet<string>,
 ): CardAction | null {
-  if (isConvertedToProject(task)) return { kind: "open-project", label: "✓ Proyecto creado · ver proyectos" };
+  if (isConvertedToProject(task)) {
+    // D3: link the exact project when the DTO carries it; otherwise the project list.
+    return task.proyecto
+      ? { kind: "open-project", href: `/proyectos/${encodeURIComponent(task.proyecto.id)}`, label: `✓ Proyecto ${task.proyecto.codigo} · abrir ficha` }
+      : { kind: "open-project", href: "/proyectos", label: "✓ Proyecto creado · ver proyectos" };
+  }
   if (task.puede_editar === false) return null;
 
   if (task.estado === "COMPLETADA") {

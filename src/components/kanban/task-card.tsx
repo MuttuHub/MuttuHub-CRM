@@ -39,6 +39,8 @@ export type CardTask = {
   oportunidad_id?: string | null;
   oportunidad_nombre?: string | null;
   oportunidad_fase?: FaseOportunidad | null;
+  /** D3: the project the task's opportunity became (id + code), for the converted card's link. */
+  proyecto?: { id: string; codigo: string } | null;
   /**
    * PR 2 + PR 4 (Slice B2): server-authoritative write flag. `false` ⇒
    * the current user would 403 on PATCH/DELETE, so the kanban card is
