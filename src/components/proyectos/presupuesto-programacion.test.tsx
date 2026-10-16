@@ -3,7 +3,7 @@
 // solo se burla `fetch`.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen, within } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -87,16 +87,54 @@ describe("PresupuestoProgramacion", () => {
     expect(within(grid).getByLabelText("Programado R01 oct 2026")).toBeInTheDocument()
   })
 
-  it("groups thousands while typing and keeps the control numeric", async () => {
+  it("keeps the typed text while focused and groups thousands on blur", async () => {
     const user = userEvent.setup()
     setup()
 
     const celda = await screen.findByLabelText("Programado R01 oct 2026")
     await user.type(celda, "1234567")
+    expect(celda).toHaveValue("1234567")
+    await user.tab()
     expect(celda).toHaveValue("1.234.567")
 
     const fila = within(await screen.findByTestId("programacion-grid")).getAllByTestId("programacion-fila")[0]
     expect(fila).toHaveTextContent("-$ 58.265.433")
+  })
+
+  // Lo que el usuario ve y lo que se calcula nunca difiere: un borrado no puede cambiar el valor.
+  it.each([
+    ["1234", "1.234", "1234"],
+    ["1234{backspace}", "123", "123"],
+    ["1.234{backspace}", "1.23", null],
+    ["1.234.567{backspace}", "1.234.56", null],
+    ["1234567,50", "1.234.567,50", "1234567.50"],
+    ["1.234.567,50", "1.234.567,50", "1234567.50"],
+    ["1.500,505", "1.500,505", null],
+    ["1234.50", "1234.50", null],
+    ["12abc", "12abc", null],
+    ["-5", "-5", null],
+  ])("typing %j shows %j after blur and submits %j", async (typed, shown, submitted) => {
+    const user = userEvent.setup()
+    setup()
+
+    const celda = await screen.findByLabelText("Programado R01 nov 2026")
+    await user.type(celda, typed)
+    await user.tab()
+    expect(celda).toHaveValue(shown)
+
+    await user.click(screen.getByRole("button", { name: "Guardar programación" }))
+    if (submitted === null) {
+      expect(await screen.findByRole("alert")).toHaveTextContent("Ingresa un monto válido")
+      expect(fetchMock.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === "PUT")).toBe(false)
+      return
+    }
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === "PUT")).toBe(true))
+    const put = fetchMock.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === "PUT")!
+    expect(JSON.parse(String((put[1] as RequestInit).body)).filas).toContainEqual(
+      expect.objectContaining({ periodo: "2026-11", valor: expect.stringMatching(/^\d+\.\d{2}$/) }),
+    )
+    const enviado = JSON.parse(String((put[1] as RequestInit).body)).filas.find((f: { periodo: string }) => f.periodo === "2026-11")
+    expect(enviado.valor).toBe(Number(submitted).toFixed(2))
   })
 
   it("shows formatted amounts read-only when the user cannot edit", async () => {

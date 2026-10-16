@@ -9,7 +9,7 @@ import { LoaderCircle } from "lucide-react";
 import { ToneBadge } from "@/components/crm/shared";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { InlineError } from "@/components/proyectos/ui";
-import { MONTO_INVALIDO, montoToInput, parseMontoInput } from "@/components/proyectos/presupuesto-ui";
+import { MONTO_INVALIDO, formatMontoInput, montoToInput, parseMontoInput } from "@/components/proyectos/presupuesto-ui";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,31 +28,11 @@ export function mesLegible(periodo: string): string {
   return match && mes ? `${mes} ${match[1]}` : periodo;
 }
 
-/** `"1234567.5"` -> `"1.234.567,5"`: separador de miles para el campo, con coma decimal. */
-export function montoConMiles(texto: string): string {
-  if (!/^[\d.,]*$/.test(texto) || texto === "") return texto;
-  const corte = Math.max(texto.lastIndexOf(","), texto.lastIndexOf("."));
-  const cola = corte === -1 ? "" : texto.slice(corte + 1);
-  const decimales = corte !== -1 && /^\d{0,2}$/.test(cola) ? cola : null;
-  const entero = (decimales === null ? texto : texto.slice(0, corte)).replace(/[.,]/g, "");
-  const agrupado = entero.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return decimales === null ? agrupado : `${agrupado},${decimales}`;
-}
-
-/** `"1.234.567,5"` -> `"1234567.5"`: lo que se envía (y lo que validan los `parseMontoInput`) sigue siendo numérico. */
-export function montoSinMiles(texto: string): string {
-  if (!/^[\d.,]*$/.test(texto)) return texto;
-  const corte = Math.max(texto.lastIndexOf(","), texto.lastIndexOf("."));
-  if (corte === -1) return texto;
-  const entero = texto.slice(0, corte).replace(/[.,]/g, "") || "0";
-  const cola = texto.slice(corte + 1);
-  return /^\d{0,2}$/.test(cola) ? `${entero}.${cola}` : `${entero}${cola}`;
-}
-
 /**
- * Campo de monto compartido con la tabla de asignación (`project-presupuesto.tsx`, X4): muestra el
- * valor con separador de miles mientras se escribe y entrega al `onChange` el valor numérico que
- * esperan la validación y la API. Un texto que no es un monto se deja intacto para poder avisarlo.
+ * Campo de monto compartido con la tabla de asignación (`project-presupuesto.tsx`, X4). Mientras tiene
+ * el foco muestra exactamente lo que se escribe (sin reformatear: el cursor no salta y un borrado
+ * nunca cambia el valor); al salir agrupa los miles. Un texto que no es un monto se deja intacto
+ * para que `parseMontoInput` lo rechace con un aviso.
  */
 export function MontoInput({
   label,
@@ -65,12 +45,15 @@ export function MontoInput({
   onChange: (value: string) => void;
   className?: string;
 }) {
+  const [enfocado, setEnfocado] = useState(false);
   return (
     <Input
       aria-label={label}
       inputMode="decimal"
-      value={montoConMiles(value)}
-      onChange={(event) => onChange(montoSinMiles(event.target.value))}
+      value={enfocado ? value : formatMontoInput(value)}
+      onFocus={() => setEnfocado(true)}
+      onBlur={() => setEnfocado(false)}
+      onChange={(event) => onChange(event.target.value)}
       className={className ?? "w-full min-w-24 px-2 text-right text-base md:text-[12.5px] tabular-nums"}
     />
   );

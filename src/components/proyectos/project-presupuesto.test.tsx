@@ -138,6 +138,7 @@ describe("ProjectPresupuesto", () => {
     const campo = screen.getByLabelText("Asignado R02")
     await user.clear(campo)
     await user.type(campo, "40200000")
+    await user.tab()
     expect(campo).toHaveValue("40.200.000")
     expect(resumen).toHaveTextContent("Diferencia")
     expect(resumen).toHaveTextContent("$ 0")
@@ -163,6 +164,41 @@ describe("ProjectPresupuesto", () => {
         { rubro_id: "pop", asignado: "300000.00" },
       ],
     })
+  })
+
+  it.each([
+    ["1.234{backspace}", "1.23"],
+    ["1.234.567{backspace}", "1.234.56"],
+    ["1.500,505", "1.500,505"],
+    ["1234.50", "1234.50"],
+  ])("never reinterprets the allocation %j: it is rejected and not sent", async (typed, shown) => {
+    const user = userEvent.setup()
+    setup()
+
+    const campo = await screen.findByLabelText("Asignado R02")
+    await user.clear(campo)
+    await user.type(campo, typed)
+    await user.tab()
+    expect(campo).toHaveValue(shown)
+    await user.click(screen.getByRole("button", { name: "Guardar presupuesto" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("usa coma")
+    expect(writes("PUT")).toHaveLength(0)
+  })
+
+  it("submits a pasted es-CO amount with thousands and decimals as the exact value", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    const campo = await screen.findByLabelText("Asignado R02")
+    await user.clear(campo)
+    await user.click(campo)
+    await user.paste("1.234.567,50")
+    await user.click(screen.getByRole("button", { name: "Guardar presupuesto" }))
+
+    await waitFor(() => expect(writes("PUT").length).toBeGreaterThan(0))
+    const [, init] = writes("PUT").find(([u]) => String(u).endsWith("/budget"))!
+    expect(JSON.parse(String((init as RequestInit).body)).rubros).toContainEqual({ rubro_id: "r2", asignado: "1234567.50" })
   })
 
   it("rejects an invalid amount locally and does not call the API", async () => {
@@ -222,6 +258,7 @@ describe("ProjectPresupuesto", () => {
 
     const celda = await screen.findByLabelText("Programado R01 nov 2026")
     await user.type(celda, "7500,25")
+    await user.tab()
     expect(celda).toHaveValue("7.500,25")
     await user.click(screen.getByRole("button", { name: "Guardar programación" }))
 
