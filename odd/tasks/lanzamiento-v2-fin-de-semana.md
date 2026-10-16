@@ -279,8 +279,17 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
   Evidencia: `7362e23`, `f8a181b`, `f8a871b` y `5ddfaf4`. Cada commit tiene su RED observado. `projects`, `users` y la
   invariante `modificaciones`: 604/604 en secuencia. `tsc` y `eslint` limpios. El control del padre sobre `validate` y
   `gasto-form` dio 36/36.
-- [ ] **R6d** Aplicar las decisiones P1, P2 y D1. Se escribe después de R6c, que es el mismo escritor, para no tener dos
+- [x] **R6d** Aplicar las decisiones P1, P2 y D1. Se escribe después de R6c, que es el mismo escritor, para no tener dos
   escritores a la vez. Ruta D (test-first).
+  Evidencia: `283c5e9` (P1, `clienteFeedScope`), `709e4e2` (P2, `proyectos: null` y se omite `loadKpisPortafolio`) y
+  `6bc9595` (D1, `gateGastoDecision` con 409 y una nueva verificación `FOR SHARE` dentro de la transacción; anular
+  sigue libre). Se integró con el merge `b133b62`. 1020/1020 pruebas pasan; `tsc` y `eslint` limpios.
+- [ ] **R6e** Dos ajustes tras R6d:
+  - P1 refinado por el usuario el 2026-10-16: los feeds usan la misma regla que `loadClientScoped`
+    (`isFullAccess`), así que COORDINADOR ve todo y COLABORADOR solo lo suyo.
+  - La cola `expense-validations` y `nav/counts` filtran por proyectos EN_EJECUCION o SUSPENDIDO.
+
+  Ruta D (test-first).
 - [ ] **R7** Ensayo 2 con el código final, más el humo de la app sobre la copia. Ruta D.
 - [x] **R8** Runbook de lanzamiento, checklist de humo y plan de vuelta atrás (`docs/runbook-lanzamiento-v2.md`). Ruta D. Evidencia: `864f9e0` (borrador) + `6b0100c` y el commit de rubros, con los datos de la corrida 2 de R4. Quedan 5 ⚠: Node en Vercel, `psql` en el WSL del operador, `WSLENV` contra producción (no se usa), restaurar sobre producción (preferir PITR o el panel) y `psql -f` con docker en la vuelta atrás.
 - [ ] **R9** Lanzamiento, que ejecuta el usuario. Pasos:
