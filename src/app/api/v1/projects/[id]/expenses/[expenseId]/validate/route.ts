@@ -48,6 +48,7 @@ export const POST = withApiErrorHandling(
     const resultado = await db.$transaction((tx) =>
       validarEnTransaccion(tx, { gasto, validadorId: auth.usuario.id }),
     );
+    if ("incompleto" in resultado) return conflict(DATOS_INCOMPLETOS_MESSAGE);
     if ("stale" in resultado) return apiError(SOLO_REGISTRADO_MESSAGE, 409, "INVALID_STATE");
     if (resultado.blocked) return apiError(OVERSPEND_MESSAGE, 409, "OVERSPEND_BLOCKED");
 

@@ -1,8 +1,8 @@
 // Validation workflow of the S6 expenses (RF-22): the gate shared by validate / reject / void
 // and the overspend transaction (ADR-11).
 //
-// Overspend: the validation locks the budget line row (`lineas_presupuestales`), re-reads the
-// expense under its own lock, sums the VALIDADO total of the line and applies
+// Overspend: the validation locks the expense row first and re-reads its amount, line and third-party
+// data, then locks that budget line row (`lineas_presupuestales`), sums the VALIDADO total of the line and applies
 // `excederiaAsignado` (strict `>`). When it would exceed A, the transaction COMMITS the flag and the
 // notifications and RETURNS `{ blocked: true }`: it must never throw (a throw rolls both back).
 
@@ -16,6 +16,7 @@ import { GASTO_INCLUDE, GASTO_NO_EXISTE, type GastoConRelaciones } from "@/lib/a
 import { notificarSobregasto } from "@/lib/api/notificaciones-proyecto";
 import type { GateResult } from "@/lib/api/estructura";
 import { excederiaAsignado } from "@/lib/proyectos/ficha-financiera";
+import { datosIncompletos } from "@/lib/proyectos/gastos";
 import { toCents } from "@/lib/proyectos/money";
 
 export const VALIDAR_PROPIO_MESSAGE = "No puedes validar un gasto que tú registraste.";
@@ -51,27 +52,49 @@ export async function gateGastoGestion(
   return { ok: true, value: gasto };
 }
 
-export type ResultadoValidacion = { blocked: false; gasto: GastoConRelaciones } | { blocked: true } | { stale: true };
+export type ResultadoValidacion =
+  | { blocked: false; gasto: GastoConRelaciones }
+  | { blocked: true }
+  | { stale: true }
+  | { stale: true; incompleto: true };
 
-/** The transaction body of POST validate. Returns instead of throwing (see the header). */
+/**
+ * The transaction body of POST validate. Returns instead of throwing (see the header).
+ *
+ * The gate snapshot (`input.gasto`) is only used for identity and audit: the amount, the budget
+ * line and the third-party data that decide the outcome are re-read from the expense row under its
+ * own lock, because the registrant's PATCH can change them between the gate and this transaction.
+ */
 export async function validarEnTransaccion(
   tx: Parameters<Parameters<typeof db.$transaction>[0]>[0],
   input: { gasto: GastoConRelaciones; validadorId: string },
 ): Promise<ResultadoValidacion> {
   const { gasto, validadorId } = input;
-  const nuevo = toCents(gasto.monto_cop);
+
+  const filas = await tx.$queryRaw<
+    {
+      estado: string;
+      monto: string;
+      linea_id: string;
+      tercero_tipo_id: string | null;
+      tercero_numero_id: string | null;
+    }[]
+  >`
+    SELECT "estado"::text AS "estado", "monto_cop"::text AS "monto", "linea_id",
+           "tercero_tipo_id"::text AS "tercero_tipo_id", "tercero_numero_id"
+    FROM "gastos" WHERE "id" = ${gasto.id} FOR UPDATE`;
+  const fila = filas[0];
+  if (!fila || fila.estado !== "REGISTRADO") return { stale: true };
+  if (datosIncompletos(fila)) return { stale: true, incompleto: true };
+  const nuevo = toCents(fila.monto);
 
   const lineas = await tx.$queryRaw<{ monto: string }[]>`
-    SELECT "monto_proyectado_cop"::text AS "monto" FROM "lineas_presupuestales" WHERE "id" = ${gasto.linea_id} FOR UPDATE`;
+    SELECT "monto_proyectado_cop"::text AS "monto" FROM "lineas_presupuestales" WHERE "id" = ${fila.linea_id} FOR UPDATE`;
   const linea = lineas[0];
   if (!linea) return { stale: true };
 
-  const filas = await tx.$queryRaw<{ estado: string }[]>`
-    SELECT "estado"::text AS "estado" FROM "gastos" WHERE "id" = ${gasto.id} FOR UPDATE`;
-  if (filas[0]?.estado !== "REGISTRADO") return { stale: true };
-
   const sumas = await tx.$queryRaw<{ total: string }[]>`
-    SELECT COALESCE(SUM("monto_cop"), 0)::text AS "total" FROM "gastos" WHERE "linea_id" = ${gasto.linea_id} AND "estado" = 'VALIDADO'`;
+    SELECT COALESCE(SUM("monto_cop"), 0)::text AS "total" FROM "gastos" WHERE "linea_id" = ${fila.linea_id} AND "estado" = 'VALIDADO'`;
   const validado = toCents(sumas[0]?.total ?? "0");
 
   const guard = { id: gasto.id, proyecto_id: gasto.proyecto_id, estado: "REGISTRADO" as const };

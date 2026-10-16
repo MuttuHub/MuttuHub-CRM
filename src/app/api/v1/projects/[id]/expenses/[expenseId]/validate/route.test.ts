@@ -84,6 +84,9 @@ let current = existente();
 let asignado = "24000000.00";
 let validado = "23500000.00";
 let estadoBajoLock = "REGISTRADO";
+// What the expense row looks like under FOR UPDATE; overrides simulate a PATCH that landed after the gate read.
+let filaBajoLock: Record<string, unknown> = {};
+let lineaBloqueada: string | null = null;
 
 function authAs(usuario: Usuario) {
   vi.mocked(requireApiUser).mockResolvedValue({ ok: true, usuario, supabaseUser: {} as never });
@@ -96,13 +99,29 @@ beforeEach(() => {
   asignado = "24000000.00";
   validado = "23500000.00";
   estadoBajoLock = "REGISTRADO";
+  filaBajoLock = {};
+  lineaBloqueada = null;
   authAs(gerencia);
   vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "pry-1", estado: "EN_EJECUCION" } as never);
   vi.mocked(db.gasto.findFirst).mockImplementation((async () => current) as never);
-  mocks.queryRaw.mockImplementation(async (strings: TemplateStringsArray) => {
+  mocks.queryRaw.mockImplementation(async (strings: TemplateStringsArray, ...values: unknown[]) => {
     const sql = sqlOf(strings);
-    if (sql.includes('FROM "lineas_presupuestales"') && sql.includes("FOR UPDATE")) return [{ monto: asignado }];
-    if (sql.includes('FROM "gastos"') && sql.includes("FOR UPDATE")) return [{ estado: estadoBajoLock }];
+    if (sql.includes('FROM "lineas_presupuestales"') && sql.includes("FOR UPDATE")) {
+      lineaBloqueada = String(values[0]);
+      return [{ monto: asignado }];
+    }
+    if (sql.includes('FROM "gastos"') && sql.includes("FOR UPDATE")) {
+      return [
+        {
+          estado: estadoBajoLock,
+          monto: current.monto_cop.toString(),
+          linea_id: current.linea_id,
+          tercero_tipo_id: current.tercero_tipo_id,
+          tercero_numero_id: current.tercero_numero_id,
+          ...filaBajoLock,
+        },
+      ];
+    }
     if (sql.includes("SUM")) return [{ total: validado }];
     return [];
   });
@@ -186,6 +205,37 @@ describe("POST validate: permissions and guards", () => {
     const res = await POST(post(), ctx);
     expect(res.status).toBe(409);
     expect((await res.json()).code).toBe("INVALID_STATE");
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST validate: data re-read under the expense lock", () => {
+  it("judges the overspend with the amount of the locked row, not the gate snapshot", async () => {
+    asignado = "10000000.00";
+    validado = "9900000.00";
+    current = existente({ monto_cop: new Prisma.Decimal("50000") }); // gate sees 50,000
+    filaBajoLock = { monto: "5000000.00" }; // a PATCH raised it to 5,000,000 before the lock
+    const res = await POST(post(), ctx);
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe("OVERSPEND_BLOCKED");
+    expect(mocks.updateMany).toHaveBeenCalledWith({
+      where: { id: "gas-1", proyecto_id: "pry-1", estado: "REGISTRADO" },
+      data: { alerta_sobregasto: true },
+    });
+  });
+
+  it("locks and sums the budget line of the locked row when the line changed after the gate", async () => {
+    filaBajoLock = { linea_id: "lin-2" };
+    validado = "0.00";
+    await POST(post(), ctx);
+    expect(lineaBloqueada).toBe("lin-2");
+  });
+
+  it("refuses with 409 when the third-party data was cleared after the gate", async () => {
+    filaBajoLock = { tercero_numero_id: null };
+    const res = await POST(post(), ctx);
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe("Completa el tipo y número de identificación del tercero antes de validar.");
     expect(mocks.updateMany).not.toHaveBeenCalled();
   });
 });
