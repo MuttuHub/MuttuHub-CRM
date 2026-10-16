@@ -281,7 +281,7 @@ Mapa aprobado (UX-1):
 
   Usa un componente de ayuda reutilizable y accesible. Ruta D.
   Evidencia: `b489f40` (componente `HelpHint` e importación Excel) y `2c7e198` (pistas por paso, ayudas de campo y de peso, programación y línea base en el stepper). Pruebas de `HelpHint`: nombre accesible, clic, teclado y Escape. Las ayudas de peso y programación viven en el título del paso (3 y 4) porque sus editores pertenecen a otra unidad.
-- [ ] **U8** Integración. Pasos:
+- [x] **U8** Integración. Pasos:
   1. Montar `FichaFinanzas`, `FichaDocumentos` y `FichaHistorial`.
   2. Quitar las pestañas viejas.
   3. Actualizar `project-ficha.test.tsx`.
@@ -289,25 +289,27 @@ Mapa aprobado (UX-1):
 
   Ruta I.
 
+  Evidencia: `0c8e6fe` (Finanzas) y `8e61954` (Documentos e Historial). La ficha tiene 108/108 pruebas en verde, `tsc` y `eslint` limpios, y el detector de Impeccable devolvió `[]`.
+
 ### Carril X: rediseño de la ficha, parte 2 (DeepSeek)
 
 El prompt completo está en `odd/tasks/lanzamiento-v2-deepseek-prompt.md`.
 
-- [ ] **X1** Renombrar la etiqueta «Observado» a «Pendiente por revisión» en `project-gastos.tsx:51` y
-  `gastos-kpis.tsx:100`, con sus pruebas (M6). Tamaño S.
-- [ ] **X2** `FichaFinanzas`, con selector Resumen · Gastos · Presupuesto. Compone `ProjectFinanciero`, `ProjectGastos` y
-  `ProjectPresupuesto`. Tamaño M.
-- [ ] **X3** Finanzas simplificadas. Cambios:
+- [x] **X1** Renombrar la etiqueta «Observado» a «Pendiente por revisión» en `project-gastos.tsx:51` y
+  `gastos-kpis.tsx:100`, con sus pruebas (M6). Tamaño S. Evidencia: `91d8dcb`, integrado en `56df1e3`.
+- [x] **X2** `FichaFinanzas`, con selector Resumen · Gastos · Presupuesto. Compone `ProjectFinanciero`, `ProjectGastos` y
+  `ProjectPresupuesto`. Tamaño M. Evidencia: `0842272`, integrado en `c10234e` y montado en `0c8e6fe`.
+- [x] **X3** Finanzas simplificadas. Cambios:
   - El tacómetro pasa a una barra de ejecutado, programado y asignado.
   - Los selectores de corte y base quedan en «Opciones avanzadas».
-  - Se quita la fila de KPI duplicada de gastos.
+  - Se quita la fila de KPI duplicada de gastos. Evidencia: `1e2fb26`, integrado en `15bd5c3`.
 
   Tamaño M.
-- [ ] **X4** Formato de miles en los campos de dinero de Presupuesto y meses legibles (antes D1). Tamaño S.
-- [ ] **X5** `FichaDocumentos`: soportes de actividades más adjuntos de gastos en una sola lista. No requiere API nueva.
-  Tamaño S-M.
-- [ ] **X6** `FichaHistorial`, con selector Modificaciones · Versiones · Auditoría. Compone `ProjectModificaciones`,
-  `ProjectVersiones` y `ProjectHistorial`. Tamaño S.
+- [x] **X4** Formato de miles en los campos de dinero de Presupuesto y meses legibles (antes D1). Tamaño S. Evidencia: `e30b403`, integrado en `345987b`.
+- [x] **X5** `FichaDocumentos`: soportes de actividades más adjuntos de gastos en una sola lista. No requiere API nueva.
+  Tamaño S-M. Evidencia: `5da32bf`, integrado en `345987b` y montado en `8e61954`.
+- [x] **X6** `FichaHistorial`, con selector Modificaciones · Versiones · Auditoría. Compone `ProjectModificaciones`,
+  `ProjectVersiones` y `ProjectHistorial`. Tamaño S. Evidencia: `a81a4ba`, integrado en `345987b` y montado en `8e61954`.
 
 ## Calendario
 
