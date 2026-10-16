@@ -374,6 +374,7 @@ Revisión de solo lectura terminada: Z1–Z5 verificados en el código, con `tsc
 - **Alta (datos en pantalla):** `client-sheet.tsx:559` — quien no puede editar ve «—» en Nombre, Empresa, Tamaño y Ubicación de la ficha del cliente.
 - **Medias con datos visibles:** la fecha de subida de los documentos siempre es «—» (Z3-2); el valor total de la creación no normaliza separadores de miles (Z3-6); los chips de fecha del filtro de Clientes muestran el día anterior (Z3-7); un fallo del portafolio se disfraza de «Sin medir» (Z3-3); la curva del tablero muestra un falso vacío mientras carga o falla (Z3-4); y los selects obligatorios de los diálogos de CRM quedan sin nombre accesible (Z2-1).
 - **Resto:** textos inconsistentes, accesibilidad y pulido de 390 px, ordenados por gravedad en cada sección.
+- **Nota de base:** la revisión se hizo sobre `feat/projects-v2` en `ab60d3c`. Mientras corría, la rama sumó commits del carril R que no tocan la UI citada salvo `gasto-form.tsx` (parser de valor es-CO, `f8a871b`): allí los números de línea corren +3 (el select de Rubro quedó en 171-179 y «Mes del documento» en 192). Los demás archivos citados no cambiaron en esa ventana.
 - No se pudo navegar en el puerto 3001 (sin Supabase local); Z4 se verificó por clases, como permite el prompt. Sin commits de código y sin push.
 
 LISTO PARA INTEGRAR: TODO LOTE 3
