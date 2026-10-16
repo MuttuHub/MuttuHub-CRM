@@ -289,8 +289,11 @@ psql "$DIRECT_URL" -X -A -t -c "SELECT count(*) FROM rubros;" \
 **Se espera:**
 
 - `rubros`: **4** filas en total antes de `s1-rubros`, con la columna `codigo` y **sin** `deleted_at`; índices
-  `rubros_pkey` y `rubros_codigo_key`. ⚠ El ensayo no registró cuántas de las 4 tienen código ni cuántas están activas:
-  anota los valores que veas aquí antes de seguir: `______`.
+  `rubros_pkey` y `rubros_codigo_key`. De las 4 filas:
+  - 2 tienen código y están activas: `R01` Personal y `R12` Transporte.
+  - 2 quedan suspendidas, con `activo = false` y `codigo` nulo: Material POP y Operación logística.
+
+  Si ves otros números, **detente y avisa a Claude**: producción cambió desde el dump del 2026-10-16.
 - Enums: solo los v2, **21** en total, y no existen `LineaEstrategica` ni `TipoSoporte` (`sin_linea = t`,
   `sin_tipo_soporte = t`).
 - `EstadoProyecto` es exactamente `PLANIFICACION, BORRADOR, EN_EJECUCION, SUSPENDIDO, CERRADO, CANCELADO`.
