@@ -317,12 +317,18 @@ El prompt completo está en `odd/tasks/lanzamiento-v2-deepseek-prompt.md`.
 
 ### Carril F (continuación)
 
-- [ ] **F15** «Editar datos generales» (UX-3). Un diálogo en Resumen que usa el PATCH existente.
+- [x] **F15** «Editar datos generales» (UX-3). Un diálogo en Resumen que usa el PATCH existente.
   - En borrador se pueden editar todos los datos generales.
   - En ejecución solo la descripción y los beneficiarios. Habilitar eso en el PATCH requiere ampliar su regla, que hoy
     solo acepta borrador, únicamente para esos dos campos y con auditoría.
   - Fechas y valor muestran un enlace a «Solicitar modificación».
   - Va después de F14, porque los dos tocan `ficha-resumen.tsx`. Ruta D.
+  - Hecho. El PATCH acepta en EN_EJECUCION solo `descripcion` y `beneficiarios_meta` (> 0, no se vacía); lo demás da 409
+    `INVALID_STATE`. El estado se vuelve a comprobar bajo el bloqueo de fila. Versiones y modificaciones no tenían ninguna
+    comprobación «vivo contra snapshot» sobre los beneficiarios, así que no hubo cambio de lógica: lo guarda una invariante
+    (v0 conserva 50, v1 congela 80). `diffSnapshots` solo es informativo. Solo ADM/GER ven el botón.
+    Evidencia: `ed9dd88` (servidor), `767644b` (guía y comentario), `f98c7c0` (diálogo). Vitest proyectos, API y lib:
+    174 archivos, 2138 pruebas; prisma: 30 archivos, 215 pruebas; tsc y eslint limpios.
 
 ### Carril Y: lote 2 de DeepSeek
 
