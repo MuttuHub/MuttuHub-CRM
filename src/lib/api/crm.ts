@@ -15,7 +15,6 @@ import {
   canEditClient,
   canEditTask,
   canManageOpportunity,
-  canManageProjects,
   hasCommercialAccess,
 } from "@/lib/permissions";
 
