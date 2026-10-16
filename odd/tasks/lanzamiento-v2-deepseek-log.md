@@ -347,3 +347,33 @@ LISTO PARA INTEGRAR: Z3
 | 6 | baja | src/components/proyectos/ejecucion-avance.tsx:99-108 | La fila de avance no envuelve: el texto `% real · % plan` va con `shrink-0` junto a la barra | Con «100 % real · 100 % plan» la barra queda reducida al mínimo y la fila muy apretada | `flex-wrap` en la fila o mostrar solo el % real en móvil |
 
 LISTO PARA INTEGRAR: Z4
+
+## Z5 · Calidad de las pruebas nuevas
+
+| # | Gravedad | Archivo:línea | Problema | Qué ve el usuario | Arreglo sugerido (una línea) |
+|---|---|---|---|---|---|
+| 1 | media | src/components/crm/client-list.test.tsx:53-79 | `vi.mock("@/hooks/crm")` sin `importOriginal` reescribe `esVencida`, `formatCOP`, `formatFecha` e `iniciales` con copias a mano: los asertos de «Vencido» y de montos prueban las copias, no la lógica real (y `esVencida` no se ejercita en ninguna otra prueba) | Nada directo; una regresión real de esos helpers pasaría la suite | Mock parcial: `vi.mock("@/hooks/crm", async (io) => ({ ...(await io()), useClients: …, useUsers: … }))` |
+| 2 | media | src/components/proyectos/project-create-dialog.test.tsx:232-233 | Depende del reloj real sin fijarlo y usa la misma función del componente como oráculo (`fechaDeHoy()`/`fechaMasMeses`, importadas en :13): un default equivocado (p. ej. mañana) pasaría, y es frágil a medianoche | Nada directo; el «hoy» del formulario no está realmente verificado | `vi.useFakeTimers(); vi.setSystemTime(...)` y asertar fechas literales |
+| 3 | media | src/components/proyectos/ejecucion-avance-form.test.tsx:134 · ejecucion-indicadores.test.tsx:125 | Igual que Z5-2: `expect(fecha.max).toBe(todayInBogota())`, sin fake timers y contra la propia función | Nada directo; el tope «hoy Bogotá» no queda anclado a una fecha fija | Fijar el sistema y comparar contra el ISO literal esperado |
+| 4 | media | src/components/crm/entity-dialogs.test.tsx:117-121 | El título promete «the fixed fecha_envio_propuesta», pero el cuerpo solo asevera «Prospección» y /Ganada/; la fecha del fixture (:96) no se comprueba en ningún expect | Nada directo; un render que omitiera la fecha pasaría la prueba | Añadir el aserto de la fecha formateada |
+| 5 | media | src/components/crm/salud-vista.test.tsx:88,117 | Oráculos tautológicos: `toBe(new Intl.NumberFormat(...).format(90.7))` y `getByText(formatearPuntaje(56))`; si `formatearPuntaje` devolviera siempre «Sin datos», seguirían en verde | Nada directo; el formato del puntaje no queda demostrado | Asertar literales («90,7», «56») |
+| 6 | media | src/components/proyectos/ficha/ficha-resumen.test.tsx:275-282 | El título anuncia «while the user is unknown and in states that allow no edits», pero solo se monta el caso de estado (CERRADO con rol GERENCIA); el caso `usuario: null` (default de `mockApi`, :73) no se ejercita | Nada directo; el botón reapareciendo con usuario desconocido pasaría la suite | Montar con `mockApi()` y asertar la ausencia del botón |
+| 7 | baja | src/components/crm/client-form.test.tsx:166-168 | «does not fetch documents until the picker is opened» solo comprueba que el encabezado no está; si el componente llamara a `useDocuments` al montar, seguiría verde | Nada directo | `expect(useDocumentsMock).not.toHaveBeenCalled()` |
+| 8 | baja | src/components/proyectos/project-list.test.tsx:839-849 | Repite los cuatro asertos de :543-551 sobre el mismo enlace; lo único nuevo es el `queryByRole` final | Nada directo; duplica mantenimiento | Fusionar ambos casos |
+| 9 | baja | src/components/crm/client-sheet.test.tsx:197-201 | Repite los asertos de :188-195 cambiando solo `puede_editar`; sin `it.each` | Nada directo | Unificar con `it.each([true, false])` |
+| 10 | baja | src/components/crm/saved-views.test.tsx:65 | `getByText("0")` es global: pasaría con cualquier cero del DOM y no verifica el contador del botón «Vistas» | Nada directo | Acotar al botón: `expect(getByRole("button", { name: /Vistas/ })).toHaveTextContent("0")` |
+| 11 | baja | src/components/proyectos/project-list.test.tsx:347 | `toBeGreaterThanOrEqual(6)` cuando el comentario espera 10 (6 filas + 4 tiles): pasaría aunque desaparecieran los tiles | Nada directo | Asertar el total exacto (10) o contar por región |
+| 12 | baja | src/components/proyectos/project-list.test.tsx:489 | `void container`: binding muerto, residuo de un aserto eliminado (declarado en :479) | Nada directo | Eliminar el binding |
+
+LISTO PARA INTEGRAR: Z5
+
+## Cierre del lote 3
+
+Revisión de solo lectura terminada: Z1–Z5 verificados en el código, con `tsc` en verde y dos corridas puntuales de vitest. Resumen para el triaje de Claude antes del congelamiento:
+
+- **Alta (datos en pantalla):** `client-sheet.tsx:559` — quien no puede editar ve «—» en Nombre, Empresa, Tamaño y Ubicación de la ficha del cliente.
+- **Medias con datos visibles:** la fecha de subida de los documentos siempre es «—» (Z3-2); el valor total de la creación no normaliza separadores de miles (Z3-6); los chips de fecha del filtro de Clientes muestran el día anterior (Z3-7); un fallo del portafolio se disfraza de «Sin medir» (Z3-3); la curva del tablero muestra un falso vacío mientras carga o falla (Z3-4); y los selects obligatorios de los diálogos de CRM quedan sin nombre accesible (Z2-1).
+- **Resto:** textos inconsistentes, accesibilidad y pulido de 390 px, ordenados por gravedad en cada sección.
+- No se pudo navegar en el puerto 3001 (sin Supabase local); Z4 se verificó por clases, como permite el prompt. Sin commits de código y sin push.
+
+LISTO PARA INTEGRAR: TODO LOTE 3
