@@ -119,7 +119,7 @@ código distinto del ensayado.
 ### 3.1 Respaldo fresco y verificado
 
 ```bash
-B=~/muttu-backups/$(date +%F-%H%M) && mkdir -p "$B" && cd "$B" \
+BACKUP_DIR=~/muttu-backups/$(date +%F-%H%M) && B="$BACKUP_DIR" && mkdir -p "$B" && cd "$B" \
  && U="$(cat ~/.muttu-prod-url)" \
  && supabase db dump --db-url "$U" -f roles.sql --role-only \
  && supabase db dump --db-url "$U" -f schema.sql \
@@ -129,7 +129,8 @@ B=~/muttu-backups/$(date +%F-%H%M) && mkdir -p "$B" && cd "$B" \
  && cd /mnt/c/Users/Adrian/Documents/MuttuHub-CRM
 ```
 
-Guarda el valor de `BACKUP_DIR` (lo usarás en la vuelta atrás). Después verifica contenido:
+Anota el valor de `BACKUP_DIR` (lo usarás en la vuelta atrás, paso 5.3, donde se vuelve a definir a mano). Después verifica
+contenido (si abriste otro shell, vuelve a definir `B="$BACKUP_DIR"` con esa carpeta):
 
 ```bash
 for f in roles.sql schema.sql data.sql; do printf '%s  %s bytes\n' "$f" "$(stat -c %s "$B/$f")"; done
@@ -266,15 +267,19 @@ domingo:
 command -v psql || echo "no hay psql"
 ```
 
-Si no hay `psql`, usa un contenedor desechable (Docker Desktop ya debe estar arriba) o el editor SQL de Supabase. Para el
-contenedor, define esta función en el mismo shell y los comandos de abajo funcionan igual:
+Si no hay `psql`, usa un contenedor desechable con la imagen **local** de Postgres 17 (Docker Desktop ya debe estar
+arriba; la red restringida no permite descargar imágenes nuevas, por eso no se usa `postgres:17`). Define estas funciones
+en el mismo shell; los comandos de abajo funcionan igual con `pg` en lugar de `psql`. La URL **no** va en los argumentos
+(se vería en `ps`/`docker`): viaja por la variable de entorno `PGURL`, y el respaldo se monta solo lectura en `/backup`:
 
 ```bash
-psql() { docker run --rm -i postgres:17 psql "$@"; }
+PGIMG=public.ecr.aws/supabase/postgres:17.6.1.143
+export PGURL="$DIRECT_URL"
+pg() { docker run --rm -i --network host -e PGURL -v "${BACKUP_DIR:-$PWD}":/backup:ro "$PGIMG" sh -c 'exec psql "$PGURL" "$@"' psql "$@"; }
 ```
 
 ```bash
-psql "$DIRECT_URL" -X -A -t -c "SELECT count(*) FROM rubros;" \
+pg -X -A -t -c "SELECT count(*) FROM rubros;" \
   -c "SELECT count(*) FILTER (WHERE codigo IS NOT NULL), count(*) FILTER (WHERE activo) FROM rubros;" \
   -c "SELECT string_agg(enumlabel, ',' ORDER BY enumsortorder) FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname='EstadoProyecto';" \
   -c "SELECT string_agg(enumlabel, ',' ORDER BY enumsortorder) FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname='TipoNotificacion';" \
@@ -356,7 +361,8 @@ node node_modules/tsx/dist/cli.mjs scripts/migrate-v2/s1-rubros.ts --dry-run
 **b) Aplicar** (solo si el dry-run coincide con el ensayo):
 
 ```bash
-node node_modules/tsx/dist/cli.mjs scripts/migrate-v2/s1-rubros.ts --apply --expect-hash <PEGA_AQUÍ_EL_PLAN_HASH_COMPLETO>
+HASH=PEGA_AQUI_EL_PLAN_HASH_COMPLETO_DEL_DRY_RUN   # el hash completo que imprimió el dry-run de producción
+node node_modules/tsx/dist/cli.mjs scripts/migrate-v2/s1-rubros.ts --apply --expect-hash "$HASH"
 ```
 
 **Se espera:** «Applied N action(s) … lote s1-rubros-AAAAMMDD-HHMMSS». En el ensayo fueron **14 acciones**. **Anota el
@@ -459,7 +465,7 @@ según la sección 5.
 | Cambio | ¿Reversible? | Nota |
 |---|---|---|
 | Código (deploy de Vercel) | **Sí, de inmediato** | Instant Rollback al deploy anterior. La base queda migrada y es compatible con `main` (las migraciones son aditivas) |
-| Esquema y datos completos | **Sí, con el respaldo** | Restaurar el dump o el PITR de Supabase; se pierde lo escrito después del respaldo |
+| Esquema y datos de `public` | **Sí, con el respaldo** | PITR de Supabase (preferido) o restaurar `public` desde el dump (5.3); se pierde lo escrito después del respaldo |
 | Valores añadidos a un enum (`GASTO_RECHAZADO`, etc.) | **No** | PostgreSQL no permite quitar valores de un enum. Quedan; son inocuos para `main` |
 | Las 6 tablas v1 vacías y sus enums, eliminados por la migración de adopción | **Solo con el respaldo** | Estaban vacías; no hay datos que perder, pero la forma v1 solo vuelve restaurando |
 | Tablas de auditoría (`auditoria_cambios`) y notificaciones, una vez que hay uso | **No se «deshacen»** | Son de solo escritura (append-only); la restauración del respaldo es lo único que las retrotrae |
@@ -489,40 +495,122 @@ según la sección 5.
 **Primera opción: PITR / restauración de Supabase** desde el panel (Database → Backups), al instante previo al paso 3.4.
 Es más segura que restaurar a mano. Apunta la hora exacta del paso 3.1.
 
-**Segunda opción (solo si PITR no sirve): restaurar el dump.** ⚠ **Sin verificar sobre producción.** En el ensayo solo
-se restauró en un contenedor limpio, y aun así hubo que filtrar algunas tablas de `auth.*` y `storage.*` porque las
-imágenes locales son más antiguas que las de producción. El vaciado de `public` sobre la base remota y qué hacer con los
-esquemas `auth` y `storage` (que las migraciones no tocan) no se ensayaron: se decide **con Claude**, nunca solo.
+**Segunda opción (solo si PITR no sirve): restaurar el dump, solo el esquema `public`.** Las migraciones de v2 únicamente
+cambian `public` (y `_prisma_migrations`, que vive ahí). Por eso la vuelta atrás por dump **restaura únicamente `public`**
+y deja `auth` y `storage` como están: el `data.sql` trae también los `COPY` de unas 26 tablas de `auth` y 7 de
+`storage`, que chocarían con las filas existentes y abortarían la carga a medias. Esos `COPY` se **filtran**.
 
-Orden obligatorio: **roles → esquema → datos.** El archivo `data.sql` empieza con
-`SET session_replication_role = replica`, que desactiva los disparadores y las comprobaciones de FK durante la carga; por
-eso hay que cargarlo **después** del esquema y en una sola sesión.
+Dos detalles que el procedimiento respeta, y por qué **no** se hace `DROP SCHEMA public CASCADE`:
+
+- `pg_net` está instalada **dentro** de `public` y varios disparadores de evento de Supabase dependen de ella (y de
+  `rls_auto_enable`). Un `DROP SCHEMA … CASCADE` los eliminaría y el dump no los recrea. Se borran solo los objetos de la
+  aplicación (tablas, vistas, secuencias, enums y funciones), conservando los de extensiones y las dos funciones que el
+  `schema.sql` redefine (`muttu_cron_daily`, `rls_auto_enable`).
+- Al conservar el esquema se conservan sus permisos (`USAGE` para `anon`, `authenticated` y `service_role`). Los permisos
+  **por defecto** de `public` sí se quitan un momento antes de recrear las tablas (paso 3): producción tiene casi todas
+  las tablas solo para `postgres` y `service_role`, y sin ese paso las tablas nuevas nacerían con `ALL` para `anon` y
+  `authenticated`. El `schema.sql` aplica después los `GRANT` exactos, las políticas, el RLS y las funciones, y deja los
+  permisos por defecto como estaban.
+
+No hace falta restaurar `roles.sql` (la migración no toca roles).
+
+Perdería lo escrito en `public` después del respaldo; el paso 1 guarda una copia de lo actual por si hay que recuperar algo.
 
 ```bash
-# 0) Confirma el host (paso 3.2) y el respaldo
-echo "$BACKUP_DIR"; eza -l "$BACKUP_DIR"
+# 0) Variables y funciones. Ajusta BACKUP_DIR a la carpeta del paso 3.1 (AAAA-MM-DD-HHMM) y confirma el host (paso 3.2)
+BACKUP_DIR=~/muttu-backups/2026-10-16
+PGIMG=public.ecr.aws/supabase/postgres:17.6.1.143
+export PGURL="$DIRECT_URL"   # la URL va por entorno, nunca en los argumentos
+pg()     { docker run --rm -i --network host -e PGURL -v "$BACKUP_DIR":/backup:ro "$PGIMG" sh -c 'exec psql "$PGURL" "$@"' psql "$@"; }
+pgdump() { docker run --rm -i --network host -e PGURL "$PGIMG" sh -c 'exec pg_dump "$PGURL" "$@"' pg_dump "$@"; }
+echo "host=$(printf '%s' "$PGURL" | rg -o '@([^:/?]+)' -r '$1')"; eza -l "$BACKUP_DIR"
+test -s "$BACKUP_DIR/schema.sql" && test -s "$BACKUP_DIR/data.sql" && echo "OK: respaldo presente" || echo "STOP: falta el respaldo"
 
-# 1) SOLO tras confirmarlo con Claude: vaciar el esquema public (destructivo)
-psql "$DIRECT_URL" -X -v ON_ERROR_STOP=1 -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;'
+# 1) Copia de lo que hay ahora en public (forense; contiene datos reales, queda con permisos 600 junto al respaldo)
+( umask 077; pgdump --schema=public > "$BACKUP_DIR/forense-public-$(date +%F-%H%M).sql" ) && eza -l "$BACKUP_DIR"
 
-# 2) Roles (puede avisar de roles que ya existen; es normal, por eso no lleva ON_ERROR_STOP)
-psql "$DIRECT_URL" -X -f "$BACKUP_DIR/roles.sql"
+# 2) SOLO tras confirmarlo con Claude: vaciar los objetos de la aplicación en public (destructivo; conserva extensiones)
+pg -X -v ON_ERROR_STOP=1 <<'SQL'
+DO $$
+DECLARE r record;
+BEGIN
+  FOR r IN
+    SELECT c.relkind, c.relname FROM pg_class c
+    WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r','p','v','m','f','S')
+      AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_class'::regclass AND d.objid = c.oid AND d.deptype = 'e')
+    ORDER BY (c.relkind = 'S')
+  LOOP
+    EXECUTE format('DROP %s IF EXISTS public.%I CASCADE',
+      CASE r.relkind WHEN 'v' THEN 'VIEW' WHEN 'm' THEN 'MATERIALIZED VIEW' WHEN 'f' THEN 'FOREIGN TABLE'
+                     WHEN 'S' THEN 'SEQUENCE' ELSE 'TABLE' END, r.relname);
+  END LOOP;
+  FOR r IN
+    SELECT t.typname FROM pg_type t
+    WHERE t.typnamespace = 'public'::regnamespace AND t.typtype IN ('e','d')
+      AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_type'::regclass AND d.objid = t.oid AND d.deptype = 'e')
+  LOOP
+    EXECUTE format('DROP TYPE IF EXISTS public.%I CASCADE', r.typname);
+  END LOOP;
+  FOR r IN
+    SELECT p.oid::regprocedure AS firma FROM pg_proc p
+    WHERE p.pronamespace = 'public'::regnamespace AND p.prokind IN ('f','p')
+      AND p.proname NOT IN ('muttu_cron_daily','rls_auto_enable')
+      AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_proc'::regclass AND d.objid = p.oid AND d.deptype = 'e')
+  LOOP
+    EXECUTE format('DROP ROUTINE IF EXISTS %s CASCADE', r.firma);
+  END LOOP;
+END $$;
+SQL
 
-# 3) Esquema
-psql "$DIRECT_URL" -X -v ON_ERROR_STOP=1 -f "$BACKUP_DIR/schema.sql"
+# 3) Esquema (todo public: tablas, enums, índices, RLS, políticas, funciones y GRANT); una sola transacción.
+#    Antes se quitan los permisos por defecto de public: si no, las tablas nacen con ALL para anon y authenticated y el
+#    dump (que solo suma GRANT) no los quita. El propio schema.sql los restablece al final.
+pg -X -v ON_ERROR_STOP=1 \
+  -c "ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON TABLES FROM anon, authenticated, service_role" \
+  -c "ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON SEQUENCES FROM anon, authenticated, service_role" \
+  -c "ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON FUNCTIONS FROM anon, authenticated, service_role"
+pg -X -v ON_ERROR_STOP=1 --single-transaction -f /backup/schema.sql
 
-# 4) Datos
-psql "$DIRECT_URL" -X -v ON_ERROR_STOP=1 -f "$BACKUP_DIR/data.sql"
+# 4) Datos, FILTRADOS: el preámbulo (SET …), los COPY de public y los setval de public. Se descartan auth y storage
+awk '
+inblk                { if (keep) print; if ($0 == "\\.") inblk = 0; next }
+/^COPY /             { seen = 1; inblk = 1; keep = ($0 ~ /^COPY ("public"|public)\./); if (keep) print; next }
+!seen                { print; next }
+/^SELECT pg_catalog\.setval\(.("public"|public)\./ { print; next }
+/^RESET ALL;/        { print }
+' "$BACKUP_DIR/data.sql" | pg -X -v ON_ERROR_STOP=1 --single-transaction -f -
+
+# 5) Comprobación: 28 tablas, 12 migraciones (incluida la fantasma) y conteos de antes de migrar
+pg -X -A -t -c "SELECT count(*) FROM pg_tables WHERE schemaname='public';" \
+  -c "SELECT count(*) FROM _prisma_migrations;" \
+  -c "SELECT (SELECT count(*) FROM clientes), (SELECT count(*) FROM oportunidades), (SELECT count(*) FROM tareas), (SELECT count(*) FROM usuarios), (SELECT count(*) FROM rubros), (SELECT count(*) FROM auth.users);"
 ```
 
-**Se espera:** sin errores en 3 y 4; los conteos del paso 3.5 vuelven a ser los de antes de migrar y
-`migrate status` vuelve a mostrar las **25** migraciones pendientes y la advertencia esperada del fantasma.
+**Se espera:** sin errores en los pasos 2, 3 y 4 (todo corre con `ON_ERROR_STOP=1` y en una transacción: si algo falla,
+no queda a medias). El paso 5 imprime `28`, `12` y los conteos del dump (el del viernes: 21 clientes, 20 oportunidades,
+123 tareas, 15 usuarios, 4 rubros, 15 `auth.users`). Después, `migrate status` vuelve a mostrar las **25** migraciones
+pendientes y la advertencia esperada del fantasma, y las tablas v1 (`proyectos`, `metas`, `actividades`, `gastos`,
+`indicadores`, `lineas_presupuestales`, `soportes_proyecto`) vuelven a existir.
 
 **Después:** la app de `main` sigue siendo la de producción; no se hace el merge. Se avisa a los usuarios, y se
 reprograma con Claude tras entender la causa.
 
 **Si el esquema `public` restaurado no coincide o hay errores:** no sigas improvisando. Detén, copia el error a Claude y
 usa PITR.
+
+**Ensayo (2026-10-16, contenedor local `muttu-rehearsal`, base `rollback_test`):** se restauró el dump del viernes, se
+corrió `migrate deploy` (37 migraciones, 43 tablas en `public`) y se añadió una fila marcador en `lineas_estrategicas`
+para simular escrituras posteriores al lanzamiento. Luego se ejecutó este procedimiento, tal cual, sin errores. Resultado:
+las 28 tablas de `public` con los mismos conteos que antes de migrar (por ejemplo `accesos` 93, `auditoria` 560,
+`notificaciones` 583, `clientes` 21, `oportunidades` 20, `tareas` 123, `usuarios` 15, `rubros` 4); `_prisma_migrations`
+de vuelta en 12 filas (con la fantasma) y `migrate status` con las 25 pendientes más la advertencia del fantasma; tablas
+v1 de vuelta y `lineas_estrategicas` inexistente (la fila marcador desapareció); tipos, índices, restricciones, RLS,
+`GRANT` de tablas y funciones, y permisos por defecto idénticos a los de una restauración limpia; `pg_net` y los 6
+disparadores de evento intactos; `auth.users` sin cambios (15, mismos ids). En ese ensayo se descubrieron y corrigieron
+dos fallos del primer borrador: los permisos por defecto de `public` daban `ALL` a `anon` y `authenticated` en las tablas
+recreadas, y `DROP SCHEMA public CASCADE` habría borrado `pg_net`. **Lo que el ensayo no cubre:** que el rol `postgres`
+de Supabase sea dueño de `public` (en el ensayo lo era) y el pooler de sesión de producción; por eso la primera opción
+sigue siendo PITR y esta se ejecuta solo tras confirmarla con Claude.
 
 ### 5.4 La app nueva está rota: revertir Vercel
 
@@ -539,7 +627,8 @@ usa PITR.
 Revertir con el lote anotado en el paso 3.7:
 
 ```bash
-node node_modules/tsx/dist/cli.mjs scripts/migrate-v2/s1-rubros.ts --revert <LOTE_ANOTADO>
+LOTE=PEGA_AQUI_EL_LOTE_ANOTADO   # p. ej. s1-rubros-AAAAMMDD-HHMMSS, el que anotaste en el paso 3.7
+node node_modules/tsx/dist/cli.mjs scripts/migrate-v2/s1-rubros.ts --revert "$LOTE"
 ```
 
 **Límites del `--revert`:** borra **solo los rubros que ese lote creó** (registrados con acción `IMPORTAR` en
