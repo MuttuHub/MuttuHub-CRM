@@ -37,6 +37,7 @@ vi.mock("@/lib/db", () => ({
 import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/supabase/server";
 import { logChange } from "@/lib/api/audit-cambios";
+import { gateGastoGestion } from "@/lib/api/validacion-gastos";
 import { POST } from "./route";
 
 const gerencia = { id: "ger-2", rol: "GERENCIA" } as Usuario;
@@ -84,6 +85,7 @@ let current = existente();
 let asignado = "24000000.00";
 let validado = "23500000.00";
 let estadoBajoLock = "REGISTRADO";
+let estadoProyectoBajoLock: string | null = "EN_EJECUCION";
 // What the expense row looks like under FOR UPDATE; overrides simulate a PATCH that landed after the gate read.
 let filaBajoLock: Record<string, unknown> = {};
 let lineaBloqueada: string | null = null;
@@ -99,6 +101,7 @@ beforeEach(() => {
   asignado = "24000000.00";
   validado = "23500000.00";
   estadoBajoLock = "REGISTRADO";
+  estadoProyectoBajoLock = "EN_EJECUCION";
   filaBajoLock = {};
   lineaBloqueada = null;
   authAs(gerencia);
@@ -106,6 +109,9 @@ beforeEach(() => {
   vi.mocked(db.gasto.findFirst).mockImplementation((async () => current) as never);
   mocks.queryRaw.mockImplementation(async (strings: TemplateStringsArray, ...values: unknown[]) => {
     const sql = sqlOf(strings);
+    if (sql.includes('FROM "proyectos"')) {
+      return estadoProyectoBajoLock === null ? [] : [{ estado: estadoProyectoBajoLock }];
+    }
     if (sql.includes('FROM "lineas_presupuestales"') && sql.includes("FOR UPDATE")) {
       lineaBloqueada = String(values[0]);
       return [{ monto: asignado }];
@@ -307,5 +313,37 @@ describe("POST validate: overspend", () => {
     const res = await POST(post(), ctx);
     expect(res.status).toBe(409);
     expect(mocks.notifCreateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST validate: project estado gate (D1)", () => {
+  it.each(["BORRADOR", "CERRADO", "CANCELADO"])("answers 409 when the project is %s and touches nothing", async (estado) => {
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "pry-1", estado } as never);
+    const res = await POST(post(), ctx);
+    const json = await res.json();
+    expect(res.status).toBe(409);
+    expect(json.error).toMatch(/ejecución o suspendido/);
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+    expect(mocks.queryRaw).not.toHaveBeenCalled();
+  });
+
+  it("validates while the project is SUSPENDIDO", async () => {
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "pry-1", estado: "SUSPENDIDO" } as never);
+    estadoProyectoBajoLock = "SUSPENDIDO";
+    validado = "0.00";
+    expect((await POST(post(), ctx)).status).toBe(200);
+  });
+
+  it("re-checks the project estado under lock: a close that raced the gate answers 409 and writes nothing", async () => {
+    estadoProyectoBajoLock = "CERRADO";
+    const res = await POST(post(), ctx);
+    expect(res.status).toBe(409);
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+  });
+
+  it.each(["CERRADO", "CANCELADO"])("void keeps its gate: gateGastoGestion still passes for a %s project", async (estado) => {
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "pry-1", estado } as never);
+    const gate = await gateGastoGestion(gerencia, "pry-1", "gas-1");
+    expect(gate.ok).toBe(true);
   });
 });

@@ -15,10 +15,11 @@ import { conflict } from "@/lib/api/estructura";
 import { GASTO_FORBIDDEN_MESSAGE, toGastoView } from "@/lib/api/gastos";
 import {
   DATOS_INCOMPLETOS_MESSAGE,
+  GASTO_PROYECTO_ESTADO_MESSAGE,
   OVERSPEND_MESSAGE,
   SOLO_REGISTRADO_MESSAGE,
   VALIDAR_PROPIO_MESSAGE,
-  gateGastoGestion,
+  gateGastoDecision,
   validarEnTransaccion,
 } from "@/lib/api/validacion-gastos";
 import { datosIncompletos } from "@/lib/proyectos/gastos";
@@ -35,7 +36,7 @@ export const POST = withApiErrorHandling(
     if (!auth.ok) return auth.response;
     const { id, expenseId } = await ctx.params;
 
-    const gate = await gateGastoGestion(auth.usuario, id, expenseId);
+    const gate = await gateGastoDecision(auth.usuario, id, expenseId);
     if (!gate.ok) return gate.response;
     const gasto = gate.value;
 
@@ -48,6 +49,7 @@ export const POST = withApiErrorHandling(
     const resultado = await db.$transaction((tx) =>
       validarEnTransaccion(tx, { gasto, validadorId: auth.usuario.id }),
     );
+    if ("proyectoNoActivo" in resultado) return apiError(GASTO_PROYECTO_ESTADO_MESSAGE, 409, "INVALID_STATE");
     if ("incompleto" in resultado) return conflict(DATOS_INCOMPLETOS_MESSAGE);
     if ("stale" in resultado) return apiError(SOLO_REGISTRADO_MESSAGE, 409, "INVALID_STATE");
     if (resultado.blocked) return apiError(OVERSPEND_MESSAGE, 409, "OVERSPEND_BLOCKED");

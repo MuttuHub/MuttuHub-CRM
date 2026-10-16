@@ -26,7 +26,8 @@ import { PARAMETROS_V2_DEFAULT } from "@/lib/proyectos/semaforo-v2";
 import { GET } from "./route";
 
 const gerencia = { id: "gerencia-1", rol: "GERENCIA" } as Usuario;
-const colaborador = { id: "colab-1", rol: "COLABORADOR" } as Usuario;
+const colaborador = { id: "colab-1", rol: "COLABORADOR", puede_ver_tablero_gerencial: false } as Usuario;
+const conTablero = { id: "colab-2", rol: "COLABORADOR", puede_ver_tablero_gerencial: true } as Usuario;
 
 /** A Date exactly `dias` days before now (no Bogota DST, so the calendar gap is exact). */
 const hace = (dias: number): Date => new Date(Date.now() - dias * 86_400_000);
@@ -263,6 +264,77 @@ describe("GET /api/v1/clients/health", () => {
       sin_datos: 1,
       total: 2,
       promedio: 20,
+    });
+  });
+
+  describe("projects subscore visibility (P2)", () => {
+    const proyectoVivo = {
+      id: "proj-1",
+      cliente_id: "cli-1",
+      estado: "EN_EJECUCION",
+      fecha_inicio: new Date("2026-01-01"),
+      fecha_fin: new Date("2026-06-01"),
+      beneficiarios_meta: null,
+    };
+
+    function seed() {
+      vi.mocked(db.cliente.findMany).mockResolvedValue([{ id: "cli-1", nombre: "Aliado A" }] as never);
+      vi.mocked(db.bitacoraEntrada.groupBy).mockResolvedValue([
+        { cliente_id: "cli-1", _max: { created_at: hace(5) } },
+      ] as never);
+      vi.mocked(getAlertBuckets).mockResolvedValue({
+        vencidos: [alertItem("cli-1")],
+        hoy: [],
+        proximos3: [],
+      } as never);
+      vi.mocked(db.proyecto.findMany).mockResolvedValue([proyectoVivo] as never);
+      vi.mocked(loadKpisPortafolio).mockResolvedValue(
+        new Map([["proj-1", { tecnico: { color: "rojo" } }]]) as never,
+      );
+    }
+
+    it("hides the projects subscore for a user without portfolio read and never loads the portfolio KPIs", async () => {
+      authAs(colaborador);
+      seed();
+
+      const json = await (await GET()).json();
+
+      expect(json.data.clientes[0].subscores.proyectos).toBeNull();
+      expect(db.proyecto.findMany).not.toHaveBeenCalled();
+      expect(loadKpisPortafolio).not.toHaveBeenCalled();
+    });
+
+    it("re-normalizes the score over contacto and compromisos only (same 0-100 scale)", async () => {
+      authAs(colaborador);
+      seed();
+
+      const json = await (await GET()).json();
+
+      // contacto 100 (w40) + compromisos 80 (w35) -> (4000 + 2800) / 75 = 90.7; a red project would drag it down.
+      expect(json.data.clientes[0]).toMatchObject({
+        score: 90.7,
+        bucket: "SANA",
+        subscores: { contacto: 100, compromisos: 80, proyectos: null },
+      });
+    });
+
+    it("keeps the projects subscore for a manager", async () => {
+      authAs(gerencia);
+      seed();
+
+      const json = await (await GET()).json();
+
+      expect(json.data.clientes[0].subscores.proyectos).toBe(20);
+      expect(loadKpisPortafolio).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps the projects subscore for a user with the gerencial board flag", async () => {
+      authAs(conTablero);
+      seed();
+
+      const json = await (await GET()).json();
+
+      expect(json.data.clientes[0].subscores.proyectos).toBe(20);
     });
   });
 });

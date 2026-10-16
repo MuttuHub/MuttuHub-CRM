@@ -2,9 +2,9 @@
 // Relaciones). READ-ONLY: creation and editing stay on the per-client routes
 // (POST/PATCH/DELETE /clients/:id/contacts), so only GET is registered here.
 //
-// Read scope mirrors the client list reads, which are GLOBAL (PR 3): every
-// signed-in role sees every client's contacts; only soft-deleted contacts and
-// soft-deleted clients are hidden. Filters: `cliente_id` and, optionally, the
+// Read scope: ADMINISTRADOR and GERENCIA see every client's contacts; every
+// other role only those of the clients they are the responsable of (see
+// `clienteFeedScope`). Soft-deleted contacts and clients are always hidden. Filters: `cliente_id` and, optionally, the
 // power × interest quadrant (`con_quadrante`, or the exact `poder`/`interes`).
 
 import { NextResponse } from "next/server";
@@ -12,11 +12,14 @@ import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
+import { clienteFeedScope } from "@/lib/api/crm";
 import { requireApiUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export type ContactFeedFilters = {
+  /** Read scope of the caller; when omitted the feed is unscoped (managers). */
+  scope?: Prisma.ClienteWhereInput;
   cliente_id?: string;
   poder?: number;
   interes?: number;
@@ -44,14 +47,14 @@ export const CONTACT_FEED_SELECT = {
 
 /**
  * Shared feed `where`: soft-deleted contacts and clients are always hidden.
- * Reads are global, matching the client list (PR 3) — no per-role rewrite.
+ * `filters.scope` narrows the owning client (responsable) for non-managers.
  * `con_quadrante` narrows to contacts that have both axes set; otherwise the
  * exact `poder`/`interes` values filter the list.
  */
 export function buildContactWhere(filters: ContactFeedFilters): Prisma.ContactoWhereInput {
   const where: Prisma.ContactoWhereInput = {
     deleted_at: null,
-    cliente: { deleted_at: null },
+    cliente: { deleted_at: null, ...filters.scope },
   };
   if (filters.cliente_id) where.cliente_id = filters.cliente_id;
   if (filters.con_quadrante) {
@@ -94,6 +97,7 @@ export const GET = withApiErrorHandling(
 
     const rows = await db.contacto.findMany({
       where: buildContactWhere({
+        scope: clienteFeedScope(auth.usuario),
         cliente_id,
         poder: poder ?? undefined,
         interes: interes ?? undefined,

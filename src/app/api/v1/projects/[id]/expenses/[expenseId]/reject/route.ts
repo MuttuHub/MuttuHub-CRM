@@ -16,9 +16,11 @@ import { parseEstructuraBody } from "@/lib/api/estructura";
 import { GASTO_FORBIDDEN_MESSAGE, GASTO_INCLUDE, toGastoView } from "@/lib/api/gastos";
 import {
   MOTIVO_GASTO_SCHEMA,
+  GASTO_PROYECTO_ESTADO_MESSAGE,
   RECHAZAR_PROPIO_MESSAGE,
   SOLO_REGISTRADO_MESSAGE,
-  gateGastoGestion,
+  gateGastoDecision,
+  proyectoPermiteValidacion,
 } from "@/lib/api/validacion-gastos";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +35,7 @@ export const POST = withApiErrorHandling(
     if (!auth.ok) return auth.response;
     const { id, expenseId } = await ctx.params;
 
-    const gate = await gateGastoGestion(auth.usuario, id, expenseId);
+    const gate = await gateGastoDecision(auth.usuario, id, expenseId);
     if (!gate.ok) return gate.response;
     const gasto = gate.value;
 
@@ -49,6 +51,8 @@ export const POST = withApiErrorHandling(
     if (gasto.estado !== "REGISTRADO") return apiError(SOLO_REGISTRADO_MESSAGE, 409, "INVALID_STATE");
 
     const actualizado = await db.$transaction(async (tx) => {
+      // The project estado that allowed this is re-checked under lock (a close may have raced the gate).
+      if (!(await proyectoPermiteValidacion(tx, id))) return "proyecto-no-activo" as const;
       const { count } = await tx.gasto.updateMany({
         where: { id: expenseId, proyecto_id: id, estado: "REGISTRADO" },
         data: {
@@ -78,6 +82,7 @@ export const POST = withApiErrorHandling(
       });
       return tx.gasto.findFirstOrThrow({ where: { id: expenseId }, include: GASTO_INCLUDE });
     });
+    if (actualizado === "proyecto-no-activo") return apiError(GASTO_PROYECTO_ESTADO_MESSAGE, 409, "INVALID_STATE");
     if (!actualizado) return apiError(SOLO_REGISTRADO_MESSAGE, 409, "INVALID_STATE");
 
     return NextResponse.json({ gasto: toGastoView(actualizado, { puedeVerSoportes: true }) });

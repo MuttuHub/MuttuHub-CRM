@@ -22,7 +22,7 @@ const SaludSubscoresSchema = registry.register(
     }),
     proyectos: z.number().nullable().openapi({
       description:
-        "Media del semáforo de los proyectos vivos (VERDE 100 / AMARILLO 60 / ROJO 20). null = sin proyecto vivo derivable.",
+        "Media del semáforo de los proyectos vivos (VERDE 100 / AMARILLO 60 / ROJO 20). null = sin proyecto vivo derivable, o el usuario no puede leer la cartera de proyectos (en ese caso el score excluye este componente).",
     }),
   }),
 );
@@ -62,7 +62,7 @@ registry.registerPath({
   tags: ["Clientes"],
   summary: "Salud de la cartera de clientes (score por aliado)",
   description:
-    "Lectura global, igual que GET /api/v1/clients (PR 3): cualquier rol autenticado ve la cartera completa, sin filtro por responsable. " +
+    "Cualquier rol autenticado ve la cartera completa de clientes, sin filtro por responsable, pero el componente Proyectos solo se calcula para quien puede leer la cartera de proyectos (ADMINISTRADOR, GERENCIA o tablero gerencial); para el resto subscores.proyectos es null y el score se renormaliza sobre Contacto y Compromisos. " +
     "El score se calcula en el servidor: Contacto (última bitácora) 40, Compromisos (buckets de alertas) 35, Proyectos (semáforo de los proyectos vivos) 25; " +
     "un componente sin datos se descarta y los pesos restantes se renormalizan. Buckets: ≥75 SANA, 45-74.99 ATENCION, <45 RIESGO, null SIN_DATOS. " +
     "Ordenado de peor a mejor (SIN_DATOS al final). Solo lectura: no escribe en la base de datos.",

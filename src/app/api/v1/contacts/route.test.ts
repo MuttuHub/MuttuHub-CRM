@@ -19,6 +19,8 @@ import { GET } from "./route";
 
 const gerencia = { id: "gerencia-1", rol: "GERENCIA" } as Usuario;
 const colaborador = { id: "colab-1", rol: "COLABORADOR" } as Usuario;
+const coordinador = { id: "coord-1", rol: "COORDINADOR" } as Usuario;
+const admin = { id: "admin-1", rol: "ADMINISTRADOR" } as Usuario;
 
 function authAs(usuario: Usuario) {
   vi.mocked(requireApiUser).mockResolvedValue({
@@ -191,16 +193,44 @@ describe("GET /api/v1/contacts", () => {
     expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
   });
 
-  it("reads are global: a COLABORADOR sees every client's contacts, like the client list (PR 3)", async () => {
-    authAs(colaborador);
+  it.each([
+    ["COLABORADOR", colaborador],
+    ["COORDINADOR", coordinador],
+  ])("scopes a %s to the clients they are responsable of (P1)", async (_rol, usuario) => {
+    authAs(usuario);
     vi.mocked(db.contacto.findMany).mockResolvedValue([]);
 
     const res = await GET(getRequest());
 
     expect(res.status).toBe(200);
     const call = vi.mocked(db.contacto.findMany).mock.calls[0][0];
-    expect(call?.where?.cliente).toEqual({ deleted_at: null });
-    expect(call?.where?.cliente).not.toHaveProperty("responsable_id");
+    expect(call?.where?.cliente).toEqual({ deleted_at: null, responsable_id: usuario.id });
     expect(call?.where?.deleted_at).toBeNull();
+  });
+
+  it("keeps the responsable scope when cliente_id targets another user's client", async () => {
+    authAs(colaborador);
+    vi.mocked(db.contacto.findMany).mockResolvedValue([]);
+
+    await GET(getRequest("?cliente_id=cli-ajeno"));
+
+    const call = vi.mocked(db.contacto.findMany).mock.calls[0][0];
+    expect(call?.where).toMatchObject({
+      cliente_id: "cli-ajeno",
+      cliente: { deleted_at: null, responsable_id: "colab-1" },
+    });
+  });
+
+  it.each([
+    ["GERENCIA", gerencia],
+    ["ADMINISTRADOR", admin],
+  ])("a %s sees every client's contacts (no responsable scope)", async (_rol, usuario) => {
+    authAs(usuario);
+    vi.mocked(db.contacto.findMany).mockResolvedValue([]);
+
+    await GET(getRequest());
+
+    const call = vi.mocked(db.contacto.findMany).mock.calls[0][0];
+    expect(call?.where?.cliente).toEqual({ deleted_at: null });
   });
 });

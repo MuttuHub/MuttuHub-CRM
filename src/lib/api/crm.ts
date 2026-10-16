@@ -11,7 +11,13 @@ import type { EstadoTarea, FaseOportunidad, Prisma, RolUsuario, Tarea, Usuario }
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
-import { canEditClient, canEditTask, canManageOpportunity, hasCommercialAccess } from "@/lib/permissions";
+import {
+  canEditClient,
+  canEditTask,
+  canManageOpportunity,
+  canManageProjects,
+  hasCommercialAccess,
+} from "@/lib/permissions";
 
 export const FULL_ACCESS_ROLES: readonly RolUsuario[] = [
   "ADMINISTRADOR",
@@ -37,6 +43,20 @@ export async function loadClientScoped(id: string, usuario: Usuario) {
     },
     select: { id: true },
   });
+}
+
+/**
+ * Client-side read scope for the cross-client feeds (contacts, interactions):
+ * ADMINISTRADOR and GERENCIA read every client; every other role only the
+ * clients where they are the responsable. Spread it into the `cliente`
+ * relation filter of the feed `where`.
+ *
+ * Deliberately narrower than `isFullAccess` (which `loadClientScoped` still
+ * uses for the per-client sub-resources and which includes COORDINADOR): the
+ * product decision for the global feeds is that a COORDINADOR is scoped too.
+ */
+export function clienteFeedScope(usuario: Pick<Usuario, "id" | "rol">): Prisma.ClienteWhereInput {
+  return canManageProjects(usuario) ? {} : { responsable_id: usuario.id };
 }
 
 /**
