@@ -70,9 +70,14 @@ describe("FichaResumen", () => {
     objetivos = [] as unknown[],
     actividades = [] as unknown[],
     suma = "0.00",
+    rol = null as string | null,
   } = {}) {
     fetchMock.mockImplementation((input: unknown) => {
       const url = String(input)
+      if (url.endsWith("/auth/me")) {
+        return Promise.resolve(jsonResponse({ usuario: rol ? { id: "u9", nombre: "Gestor", rol } : null }))
+      }
+      if (url.includes("/catalogs/users")) return Promise.resolve(jsonResponse({ users: [] }))
       if (url.includes("/kpis")) return Promise.resolve(jsonResponse(kpisBody))
       if (url.includes("/attention")) return Promise.resolve(jsonResponse({ corte: "2026-03-15", medible: true, items }))
       if (url.endsWith("/objectives")) return Promise.resolve(jsonResponse({ objetivos }))
@@ -245,5 +250,50 @@ describe("FichaResumen", () => {
     expect(screen.queryByText("Registro de beneficiarios")).not.toBeInTheDocument()
     expect(datos).toHaveTextContent("Beneficiarios")
     expect(datos).toHaveTextContent("1.200")
+  })
+
+  describe("Editar datos generales (UX-3)", () => {
+    const BOTON = { name: "Editar datos generales" }
+
+    it.each(["ADMINISTRADOR", "GERENCIA"])("offers the edit button to %s in a draft and while running", async (rol) => {
+      mockApi({ rol })
+
+      renderResumen({ ...PROYECTO, estado: "BORRADOR" })
+      expect(await screen.findByRole("button", BOTON)).toBeInTheDocument()
+    })
+
+    it.each(["COORDINADOR", "COLABORADOR"])("hides the edit button from %s (the PATCH is ADM/GER only)", async (rol) => {
+      mockApi({ rol })
+
+      renderResumen()
+      await screen.findByTestId("datos-generales")
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
+
+      expect(screen.queryByRole("button", BOTON)).not.toBeInTheDocument()
+    })
+
+    it("hides the button while the user is unknown and in states that allow no edits", async () => {
+      mockApi({ rol: "GERENCIA" })
+      renderResumen({ ...PROYECTO, estado: "CERRADO" })
+      await screen.findByTestId("datos-generales")
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
+
+      expect(screen.queryByRole("button", BOTON)).not.toBeInTheDocument()
+    })
+
+    it("opens the dialog with the execution fields, and its link closes it and goes to the Historial", async () => {
+      mockApi({ rol: "GERENCIA" })
+      const user = userEvent.setup()
+      const onIrA = renderResumen()
+
+      await user.click(await screen.findByRole("button", BOTON))
+      const dialog = await screen.findByRole("dialog", { name: "Editar datos generales" })
+      expect(within(dialog).queryByLabelText("Valor total")).not.toBeInTheDocument()
+
+      await user.click(within(dialog).getByRole("button", { name: "Solicitar modificación" }))
+
+      expect(onIrA).toHaveBeenCalledWith("historial")
+      await vi.waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+    })
   })
 })

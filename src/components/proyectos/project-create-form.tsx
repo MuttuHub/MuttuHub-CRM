@@ -19,11 +19,11 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { MENSAJE_RANGO_FECHAS, rangoFechasValido } from "@/lib/proyectos/rango-fechas";
 import { LoaderCircle } from "lucide-react";
+import { CampoLineas, CampoMunicipios } from "@/components/proyectos/nuevo-proyecto/campos-proyecto";
 import { ClienteResumen } from "@/components/proyectos/nuevo-proyecto/cliente-resumen";
 import { CAPTURE_TEXTAREA } from "@/components/proyectos/ui";
 import { HelpHint } from "@/components/ui/help-hint";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,7 +46,7 @@ import {
   type ProjectLineaInput,
 } from "@/hooks/projects";
 import { formatCOP, fromCents, toCents } from "@/lib/proyectos/money";
-import { diferenciaValor, validarLineas } from "@/lib/proyectos/proyecto-general";
+import { alternarLinea, alternarPrincipal, diferenciaValor, validarLineas } from "@/lib/proyectos/proyecto-general";
 /** Filtro estable del picker de clientes: el mismo objeto en cada render. */
 const CLIENT_PICKER_FILTERS = { limit: 200 } as const;
 /** Valor interno de la opción «sin oportunidad» del selector (un Select no admite `null`). */
@@ -257,31 +257,15 @@ export function ProjectCreateForm({
   }
 
   function toggleLinea(id: string, incluida: boolean) {
-    const siguientes = incluida
-      ? lineaIds.includes(id)
-        ? lineaIds
-        : [...lineaIds, id]
-      : lineaIds.filter((linea) => linea !== id);
-    setLineaIdsEstado(siguientes);
-
-    const principalesSiguientes = !incluida
-      ? principalIds.filter((linea) => linea !== id)
-      : principalIds.length === 0
-        ? [id]
-        : principalIds;
-    setPrincipalIdsEstado(principalesSiguientes);
+    const siguiente = alternarLinea({ lineaIds, principalIds }, id, incluida);
+    setLineaIdsEstado(siguiente.lineaIds);
+    setPrincipalIdsEstado(siguiente.principalIds);
   }
 
   function togglePrincipal(id: string, principal: boolean) {
-    const principalesSiguientes = principal
-      ? principalIds.includes(id)
-        ? principalIds
-        : [...principalIds, id]
-      : principalIds.filter((linea) => linea !== id);
-    setPrincipalIdsEstado(principalesSiguientes);
-    if (principal) {
-      setLineaIdsEstado(lineaIds.includes(id) ? lineaIds : [...lineaIds, id]);
-    }
+    const siguiente = alternarPrincipal({ lineaIds, principalIds }, id, principal);
+    setPrincipalIdsEstado(siguiente.principalIds);
+    if (principal) setLineaIdsEstado(siguiente.lineaIds);
   }
 
   function toggleMunicipio(id: string, incluido: boolean) {
@@ -596,71 +580,15 @@ export function ProjectCreateForm({
         </div>
       </div>
 
-      <fieldset className="flex flex-col gap-2">
-        <legend className="flex items-center gap-1 text-sm leading-none font-medium">
-          <span>
-            Líneas estratégicas <span className="text-rose-500 dark:text-rose-400">*</span>
-          </span>
-          <HelpHint label="Línea estratégica principal">
-            Marca las líneas en las que trabaja el proyecto. Exactamente una debe ser la principal.
-          </HelpHint>
-        </legend>
-        <p className="text-[12px] text-ink-600">
-          Marca al menos una y exactamente una como principal.
-        </p>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {lineas.map((linea) => (
-            <div
-              key={linea.id}
-              className="flex items-center justify-between gap-3 rounded-inner border border-border bg-panel px-3 py-2"
-            >
-              {/* The wrapping label makes the name clickable. base-ui would otherwise point aria-labelledby at it and
-                  double the accessible name, so `aria-labelledby=""` keeps the explicit aria-label as the name. */}
-              <label className="flex min-w-0 cursor-pointer items-center gap-2">
-                <Checkbox
-                  checked={lineaIds.includes(linea.id)}
-                  onCheckedChange={(checked) => toggleLinea(linea.id, checked === true)}
-                  aria-labelledby=""
-                  aria-label={`Incluir ${linea.nombre}`}
-                />
-                <span className="truncate text-[13px] text-ink-800">{linea.nombre}</span>
-              </label>
-              <div className="flex shrink-0 items-center gap-1.5">
-                <Checkbox
-                  checked={principalIds.includes(linea.id)}
-                  onCheckedChange={(checked) => togglePrincipal(linea.id, checked === true)}
-                  aria-label={`Principal ${linea.nombre}`}
-                />
-                <span className="text-[12px] text-ink-600">Principal</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </fieldset>
+      <CampoLineas
+        lineas={lineas}
+        lineaIds={lineaIds}
+        principalIds={principalIds}
+        onToggleLinea={toggleLinea}
+        onTogglePrincipal={togglePrincipal}
+      />
 
-      <fieldset className="flex flex-col gap-2">
-        <legend className="flex items-center gap-1 text-sm leading-none font-medium">
-          <span>
-            Municipios <span className="text-rose-500 dark:text-rose-400">*</span>
-          </span>
-          <HelpHint label="Municipios">
-            Marca los municipios donde se ejecuta el proyecto. Debes elegir al menos uno.
-          </HelpHint>
-        </legend>
-        <div className="grid gap-2 sm:grid-cols-3">
-          {municipios.map((municipio) => (
-            <label key={municipio.id} className="flex cursor-pointer items-center gap-2">
-              <Checkbox
-                checked={municipioIds.includes(municipio.id)}
-                onCheckedChange={(checked) => toggleMunicipio(municipio.id, checked === true)}
-                aria-labelledby=""
-                aria-label={`Municipio ${municipio.nombre}`}
-              />
-              <span className="truncate text-[13px] text-ink-800">{municipio.nombre}</span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <CampoMunicipios municipios={municipios} municipioIds={municipioIds} onToggle={toggleMunicipio} />
 
       {error && (
         <div

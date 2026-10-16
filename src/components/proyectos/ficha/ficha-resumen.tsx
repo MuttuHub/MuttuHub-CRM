@@ -7,14 +7,15 @@
 
 "use client";
 
-import type { ReactNode } from "react";
-import { Check, Circle } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { Check, Circle, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusChip } from "@/components/ui/status-chip";
 import { FieldValue } from "@/components/crm/shared";
 import { KPIS_NO_MEDIBLE_NOTE, formatPct } from "@/components/proyectos/project-kpis-panel";
 import { ORIGEN_PROYECTO_META, formatFechaCalendario } from "@/components/proyectos/project-display";
+import { EditarDatosGenerales, modoDeEdicion } from "@/components/proyectos/ficha/editar-datos-generales";
 import { ProjectTeam } from "@/components/proyectos/project-team";
 import { RequiereAtencion } from "@/components/proyectos/requiere-atencion";
 import { EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/ui";
@@ -29,12 +30,14 @@ import {
   type ProjectKpis,
   type ProjectListRow,
 } from "@/hooks/projects";
+import { useCurrentUser } from "@/hooks/kanban";
 import { toneFromSemaforo } from "@/lib/estado-tone";
+import { canManageProjects } from "@/lib/permissions";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { cn } from "@/lib/utils";
 
 /** Pestañas a las que el Resumen puede llevar. */
-export type ResumenDestino = "actividades" | "finanzas";
+export type ResumenDestino = "actividades" | "finanzas" | "historial";
 
 const SIN_DATO = "—";
 const KPIS_ERROR = "No pudimos cargar el estado del proyecto. Inténtalo de nuevo.";
@@ -299,10 +302,42 @@ function ProximosPasos({
 
 const CHIP_BASE = "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12.5px]";
 
-function DatosGenerales({ proyecto }: { proyecto: ProjectListRow }) {
+function DatosGenerales({
+  proyecto,
+  onIrA,
+}: {
+  proyecto: ProjectListRow;
+  onIrA: (destino: ResumenDestino) => void;
+}) {
+  const [editando, setEditando] = useState(false);
+  const usuario = useCurrentUser().data;
+  // Misma autoridad que el PATCH (ADM/GER); la API sigue siendo la que decide.
+  const puedeEditar =
+    modoDeEdicion(proyecto.estado) !== null &&
+    Boolean(usuario && canManageProjects({ id: usuario.id, rol: usuario.rol }));
+
   return (
     <section data-testid="datos-generales" aria-label="Datos generales" className="flex flex-col gap-4">
-      <SectionHeader>Datos generales</SectionHeader>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <SectionHeader>Datos generales</SectionHeader>
+        {puedeEditar && (
+          <Button type="button" variant="outline" size="sm" onClick={() => setEditando(true)}>
+            <Pencil className="size-3.5" strokeWidth={1.8} />
+            Editar datos generales
+          </Button>
+        )}
+      </div>
+      {puedeEditar && (
+        <EditarDatosGenerales
+          proyecto={proyecto}
+          open={editando}
+          onOpenChange={setEditando}
+          onSolicitarModificacion={() => {
+            setEditando(false);
+            onIrA("historial");
+          }}
+        />
+      )}
       {proyecto.descripcion ? (
         <div data-testid="resumen-descripcion">
           <h4 className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">Descripción</h4>
@@ -401,7 +436,7 @@ export function FichaResumen({
           <RequiereAtencion proyecto={proyecto} onIrA={onIrA} />
         </>
       )}
-      <DatosGenerales proyecto={proyecto} />
+      <DatosGenerales proyecto={proyecto} onIrA={onIrA} />
       <ProjectTeam proyectoId={proyecto.id} />
     </div>
   );

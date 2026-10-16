@@ -516,6 +516,37 @@ export function useCreateProjectFromOpportunity(
 }
 
 /**
+ * UX-3: edita los datos generales (PATCH E-06). El cuerpo trae solo lo que cambió; en ejecución el servidor
+ * acepta únicamente `descripcion` y `beneficiarios_meta`. Al guardar invalida todo el namespace `projects`
+ * (ficha, encabezado, listado, auditoría). El error del servidor se re-lanza sin toast: el diálogo lo muestra en línea.
+ */
+export type ProjectUpdateInput = {
+  nombre?: string;
+  descripcion?: string;
+  responsable_id?: string;
+  valor_total?: number;
+  fecha_inicio?: string;
+  fecha_fin?: string;
+  beneficiarios_meta?: number | null;
+  lineas?: ProjectLineaInput[];
+  municipio_ids?: string[];
+};
+
+export function useUpdateProject(
+  projectId: string,
+): UseMutationResult<{ proyecto: ProjectListRow }, Error, ProjectUpdateInput> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input) =>
+      apiPatch<{ proyecto: ProjectListRow }>(`/api/v1/projects/${projectId}`, input),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectQueryKeys.all });
+      toast.success("Datos generales guardados.");
+    },
+  });
+}
+
+/**
  * E-07: agrega un COORDINADOR al equipo. El error (409 ya es integrante, 400 no
  * es un Coordinador activo) se re-lanza como `ApiError` sin toast: quien llama
  * lo muestra en línea junto al control, con el mensaje del servidor.

@@ -28,6 +28,39 @@ export const VALIDAR_LINEAS_MESSAGES = {
   duplicated: "No repitas la misma línea estratégica.",
 } as const;
 
+/** Selection of strategic lines as the forms hold it: the included ids and, apart, the ones marked principal. */
+export type SeleccionLineas = { lineaIds: string[]; principalIds: string[] };
+
+/** Includes or drops a line. Dropping also drops its principal mark; including the first one makes it principal. */
+export function alternarLinea(seleccion: SeleccionLineas, id: string, incluida: boolean): SeleccionLineas {
+  const { lineaIds, principalIds } = seleccion;
+  const siguientes = incluida
+    ? lineaIds.includes(id)
+      ? lineaIds
+      : [...lineaIds, id]
+    : lineaIds.filter((linea) => linea !== id);
+  const principalesSiguientes = !incluida
+    ? principalIds.filter((linea) => linea !== id)
+    : principalIds.length === 0
+      ? [id]
+      : principalIds;
+  return { lineaIds: siguientes, principalIds: principalesSiguientes };
+}
+
+/** Marks or unmarks a line as principal. Marking one also includes it. */
+export function alternarPrincipal(seleccion: SeleccionLineas, id: string, principal: boolean): SeleccionLineas {
+  const { lineaIds, principalIds } = seleccion;
+  const principalesSiguientes = principal
+    ? principalIds.includes(id)
+      ? principalIds
+      : [...principalIds, id]
+    : principalIds.filter((linea) => linea !== id);
+  return {
+    lineaIds: principal && !lineaIds.includes(id) ? [...lineaIds, id] : lineaIds,
+    principalIds: principalesSiguientes,
+  };
+}
+
 /**
  * `Date` (or ISO string) -> `YYYY-MM-DD`, the calendar-date contract of the
  * `@db.Date` columns. `@db.Date` round-trips as UTC midnight, so slicing the

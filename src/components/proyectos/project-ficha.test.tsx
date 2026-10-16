@@ -237,6 +237,24 @@ describe("ProjectFicha (page)", () => {
     expect(screen.queryByTestId("gastos")).not.toBeInTheDocument()
   })
 
+  it("opens the general-data editor from the Resumen and sends the modification request to Historial (UX-3)", async () => {
+    mockFichaAndAudit({ historial: [] })
+    mockWithRole("GERENCIA")
+    const user = userEvent.setup()
+
+    renderFicha()
+    await user.click(await screen.findByRole("button", { name: "Editar datos generales" }))
+    const dialog = await screen.findByRole("dialog", { name: "Editar datos generales" })
+    expect(within(dialog).getByTestId("editar-solo-lectura")).toHaveTextContent("Cambian la línea base")
+
+    await user.click(within(dialog).getByRole("button", { name: "Solicitar modificación" }))
+
+    expect(await screen.findByRole("tab", { name: "Historial", selected: true })).toBeInTheDocument()
+    expect(await screen.findByTestId("modificaciones")).toBeInTheDocument()
+    expect(screen.queryByTestId("ficha-resumen")).not.toBeInTheDocument()
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
+
   it("explains the baseline is pending in the versions and modifications sections of a draft, without reading them", async () => {
     mockFichaAndAudit({ historial: [] }, 200, { ...PROYECTO, estado: "BORRADOR" })
 

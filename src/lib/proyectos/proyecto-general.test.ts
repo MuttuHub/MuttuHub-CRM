@@ -16,6 +16,8 @@ vi.mock("./weeks", async (importOriginal) => {
 
 import {
   alertasProyecto,
+  alternarLinea,
+  alternarPrincipal,
   diferenciaValor,
   duracionProyecto,
   isoDate,
@@ -167,3 +169,24 @@ describe("alertasProyecto (S2.4)", () => {
     expect(alertasProyecto("0.00")).toEqual([]);
   });
 });
+
+describe("alternarLinea / alternarPrincipal", () => {
+  it("makes the first included line principal and drops the mark with the line", () => {
+    const primera = alternarLinea({ lineaIds: [], principalIds: [] }, "a", true)
+    expect(primera).toEqual({ lineaIds: ["a"], principalIds: ["a"] })
+    const segunda = alternarLinea(primera, "b", true)
+    expect(segunda).toEqual({ lineaIds: ["a", "b"], principalIds: ["a"] })
+    expect(alternarLinea(segunda, "a", false)).toEqual({ lineaIds: ["b"], principalIds: [] })
+  })
+
+  it("includes a line that is marked principal", () => {
+    expect(alternarPrincipal({ lineaIds: ["a"], principalIds: [] }, "b", true)).toEqual({
+      lineaIds: ["a", "b"],
+      principalIds: ["b"],
+    })
+    expect(alternarPrincipal({ lineaIds: ["a"], principalIds: ["a"] }, "a", false)).toEqual({
+      lineaIds: ["a"],
+      principalIds: [],
+    })
+  })
+})
