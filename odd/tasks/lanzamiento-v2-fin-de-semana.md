@@ -247,7 +247,7 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
   3. Etiqueta `v2.0.0-rc1`.
 
   Ruta I.
-- [ ] **R6b** Revisión de entrega (G-1). Es una revisión dirigida de `main..feat/projects-v2` sobre permisos por rol y
+- [x] **R6b** Revisión de entrega (G-1). Es una revisión dirigida de `main..feat/projects-v2` sobre permisos por rol y
   alcance, migraciones y datos, dinero (gastos, presupuesto y validación) y operaciones de borrado o anulación. Se usan
   revisores frescos en paralelo. Un hallazgo grave bloquea el merge hasta corregirlo. Ruta D.
   - Corrida 1 (2026-10-16, sobre `ab60d3c`): 4 revisores de solo lectura en paralelo.
