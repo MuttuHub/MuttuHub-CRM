@@ -452,6 +452,8 @@ describe("ProjectFicha (page)", () => {
     expect(tabs.map((tab) => tab.textContent)).toEqual(TAB_NAMES)
     expect(screen.getByRole("tab", { name: "Resumen" })).toHaveAttribute("aria-selected", "true")
     expect(screen.getByRole("tablist")).toBeInTheDocument()
+    // Z4-1: a fade hints that more tabs are off-screen on narrow widths.
+    expect(screen.getByTestId("ficha-tabs-fade")).toHaveAttribute("aria-hidden", "true")
   })
 
   it("mounts only the active tab content and fetches per tab (lazy)", async () => {
@@ -656,6 +658,16 @@ describe("ProjectFicha (page)", () => {
     expect(await screen.findByRole("heading", { name: "Proyecto no encontrado" })).toBeInTheDocument()
     expect(screen.getByRole("link", { name: /Volver a proyectos/ })).toHaveAttribute("href", "/proyectos")
     expect(screen.queryByRole("tab")).not.toBeInTheDocument()
+  })
+
+  // Z1-1: a dropped connection is a raw browser TypeError ("Failed to fetch"), not an ApiError.
+  it("shows the Spanish fallback, not the raw browser error, on a network failure", async () => {
+    fetchMock.mockImplementation(() => Promise.reject(new TypeError("Failed to fetch")))
+
+    renderFicha()
+
+    expect(await screen.findByText("No pudimos cargar el proyecto. Inténtalo de nuevo.")).toBeInTheDocument()
+    expect(screen.queryByText("Failed to fetch")).not.toBeInTheDocument()
   })
 
   it("shows a forbidden state with the back link for a 403", async () => {

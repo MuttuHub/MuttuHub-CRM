@@ -45,6 +45,7 @@ import { cn } from "@/lib/utils";
 import type { EstadoProyecto } from "@prisma/client";
 
 const ESTADOS: EstadoProyecto[] = ["PLANIFICACION", "BORRADOR", "EN_EJECUCION", "SUSPENDIDO", "CERRADO", "CANCELADO"];
+const CURVA_ERROR = "No pudimos cargar la curva S. Inténtalo de nuevo.";
 const TABLERO_ERROR = "No pudimos cargar el tablero de proyectos. Inténtalo de nuevo.";
 
 type FiltroKey = keyof PortfolioFilters;
@@ -430,7 +431,13 @@ function TableroGerencial({ data }: { data: PortafolioData }) {
             ))}
           </select>
         </label>
-        <CurveSChart curva={curva.data ?? null} />
+        {curva.isError ? (
+          <InlineError message={errorMessage(curva.error, CURVA_ERROR)} className="mt-2" />
+        ) : !curva.data ? (
+          <Skeleton className="mt-2 h-40 w-full rounded-[14px]" />
+        ) : (
+          <CurveSChart curva={curva.data} />
+        )}
       </Tarjeta>
 
       <Tarjeta testId="tablero-radar" titulo="Indicadores por línea estratégica">

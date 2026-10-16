@@ -23,6 +23,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Eye, FolderKanban, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { ApiError } from "@/lib/api/http";
 import { buttonVariants } from "@/components/ui/button";
 import { useIsMobile } from "@/components/proyectos/capture-surface";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -119,7 +120,7 @@ export function ProjectList() {
   useEffect(() => {
     if (!query.isError) return;
     toast.error(
-      query.error instanceof Error
+      query.error instanceof ApiError
         ? query.error.message
         : "No pudimos cargar los proyectos. Inténtalo de nuevo.",
     );
@@ -183,6 +184,12 @@ export function ProjectList() {
             )}
           </div>
         </header>
+
+        {puedeResumen && portafolioQuery.isError && !query.isError && (
+          <p role="alert" className="border-b border-ink-200 bg-alerta-bg px-4 py-2 text-[12.5px] text-alerta lg:px-5">
+            No pudimos cargar el avance del portafolio. Las filas aparecen sin medir por ese motivo; recarga la página para volver a intentarlo.
+          </p>
+        )}
 
         {query.isError ? null : query.isLoading ? (
           <ProjectTableSkeleton />
