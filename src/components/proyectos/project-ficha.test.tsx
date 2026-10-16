@@ -836,7 +836,7 @@ describe("ProjectFicha (page)", () => {
       if (String(input).endsWith("/beneficiaries")) {
         return Promise.resolve(jsonResponse({ estado: "EN_EJECUCION", registros: [], total: 0 }))
       }
-      // Soportes (v7): vacíos; su comportamiento vive en project-soportes.test.tsx.
+      // Soportes (v7): vacíos; su comportamiento se prueba en los tests de la pestaña Documentos.
       if (String(input).endsWith("/supports")) {
         return Promise.resolve(jsonResponse({ soportes: [] }))
       }

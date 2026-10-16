@@ -172,6 +172,8 @@ después, el semáforo técnico saldrá más atrasado.
    (un Borrador no muestra chips de semáforo).
 2. En **Resumen** revisa datos generales, **Líneas estratégicas**, **Municipios** y la duración en semanas
    (derivada de las fechas).
+   Como admin o gerencia, pulsa **Editar datos generales** (en Borrador edita todo; en Ejecución solo la descripción y
+   los beneficiarios, y fechas y valor se piden como modificación desde el enlace del diálogo, que lleva a Historial).
 3. Abre la pestaña **Cambios**, al final **Historial**: debe verse un paso "conversión de oportunidad + creación" y otro paso separado
    "Integrante del equipo" (el responsable se agregó como miembro al crear).
 
@@ -292,7 +294,7 @@ Es la única vía real. Solo `admin@` o `gerencia@`, solo con el proyecto en **B
    las precondiciones en rojo, por ejemplo:
    - "El proyecto no tiene un valor total mayor que cero."
    - "El proyecto debe tener fechas de inicio y fin válidas."
-   - "La meta de beneficiarios debe ser mayor que cero." (se fija al crear el proyecto o con la plantilla)
+   - "El número de beneficiarios debe ser mayor que cero." (se fija al crear el proyecto, con la plantilla o desde «Editar datos generales»)
    - "El proyecto no tiene objetivos." / "El objetivo X no tiene actividades." / "La actividad X no tiene entregables."
    - "La suma del presupuesto (...) no es igual al valor total del proyecto (...); diferencia ..."
    - "Programación pendiente." / "La programación del rubro X no coincide con lo asignado; control ..."
@@ -605,7 +607,7 @@ No existe todavía, dicho sin adornos:
   soporte por gasto (la API admite hasta cinco). La notificación de sobreejecución lleva a `/proyectos`, no abre la
   ficha del proyecto. No hay notificaciones por solicitudes de modificación.
 - Modificaciones: el formulario no permite agregar ni quitar actividades, entregables o indicadores.
-- No hay edición de datos generales del proyecto desde la interfaz, ni filtro por rol en el selector del equipo.
+- No hay filtro por rol en el selector del equipo. Los datos generales se editan desde Resumen (solo admin o gerencia).
   La estructura, el presupuesto y la importación solo se tocan en Borrador y solo por admin o gerencia.
 - Un proyecto puesto en En ejecución con `scripts/set-project-estado.ts` no tiene versión 0: sin Versiones, sin
   Modificaciones y sin base Original.
