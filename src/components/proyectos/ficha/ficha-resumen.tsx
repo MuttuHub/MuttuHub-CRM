@@ -54,7 +54,7 @@ function formatDuracion(semanas: number | null): string {
 }
 
 /** Palabra de salud por color. El color es del servidor; esta etiqueta solo lo nombra en lenguaje llano. */
-const SALUD_LABEL: Record<ColorSemaforo, string> = {
+export const SALUD_LABEL: Record<ColorSemaforo, string> = {
   verde: "Al día",
   amarillo: "Atención",
   rojo: "En riesgo",
@@ -69,7 +69,7 @@ function contar(items: AtencionItem[], tipo: AtencionItem["tipo"]): number {
 }
 
 /** Causa técnica: avance real frente al programado, más lo que el servidor marcó en actividades e indicadores. */
-function fraseTecnica(tecnico: NonNullable<ProjectKpis["tecnico"]>, items: AtencionItem[]): string {
+export function fraseTecnica(tecnico: NonNullable<ProjectKpis["tecnico"]>, items: AtencionItem[]): string {
   const partes = [
     `Avance real ${formatPct(tecnico.avance_real)} frente a ${formatPct(tecnico.avance_programado)} programado`,
   ];
@@ -83,7 +83,7 @@ function fraseTecnica(tecnico: NonNullable<ProjectKpis["tecnico"]>, items: Atenc
 }
 
 /** Causa financiera: ejecutado frente a lo programado (o al presupuesto si no hay programación), más alertas. */
-function fraseFinanciera(financiero: NonNullable<ProjectKpis["financiero"]>, items: AtencionItem[]): string {
+export function fraseFinanciera(financiero: NonNullable<ProjectKpis["financiero"]>, items: AtencionItem[]): string {
   const partes = [
     financiero.ep !== null
       ? `Ejecutado ${formatPct(financiero.ep)} de lo programado`

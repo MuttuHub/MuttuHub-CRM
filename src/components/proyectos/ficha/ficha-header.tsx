@@ -1,12 +1,12 @@
 // Encabezado de la ficha (U2): código y nombre a la izquierda; a la derecha el estado, los dos semáforos
 // (únicos de la ficha, cada uno lleva a su pestaña), las acciones principales según rol y estado, y el menú
-// "⋯" con la exportación a Excel. «Aprobar línea base» es la acción principal en BORRADOR, así que queda
+// "⋯" con la exportación a Excel y la ficha imprimible. «Aprobar línea base» es la acción principal en BORRADOR, así que queda
 // como botón visible y no escondida en el menú.
 
 "use client";
 
 import { useState } from "react";
-import { Download, Ellipsis } from "lucide-react";
+import { Download, Ellipsis, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -76,6 +76,12 @@ export function FichaHeader({
             <DropdownMenuItem onClick={() => setExportando(true)}>
               <Download strokeWidth={1.8} />
               Exportar a Excel
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              render={<a href={`/proyectos/${encodeURIComponent(proyecto.id)}/imprimir`} target="_blank" rel="noopener noreferrer" />}
+            >
+              <Printer strokeWidth={1.8} />
+              Imprimir / PDF
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -146,6 +146,21 @@ describe("ProjectFicha (page)", () => {
     expect(within(screen.getByTestId("ficha-scroll")).queryByTestId("kpis")).not.toBeInTheDocument()
   })
 
+  it("offers the printable sheet from the header menu, opening the exact project in a new tab (F13)", async () => {
+    mockFichaAndAudit({ historial: [] })
+    const user = userEvent.setup()
+
+    renderFicha()
+    await screen.findByTestId("ficha-header")
+
+    await user.click(screen.getByRole("button", { name: "Más acciones" }))
+    const item = await screen.findByRole("menuitem", { name: "Imprimir / PDF" })
+
+    expect(item).toHaveAttribute("href", "/proyectos/p1/imprimir")
+    expect(item).toHaveAttribute("target", "_blank")
+    expect(item).toHaveAttribute("rel", expect.stringContaining("noopener"))
+  })
+
   it("opens the Resumen with the health rows above the attention list and the fact sheet, reading the KPIs once", async () => {
     mockFichaAndAudit({ historial: [] }, 200, PROYECTO, {
       ...KPIS_PANEL,
