@@ -227,6 +227,10 @@ const chipNumberFormatter = new Intl.NumberFormat("es-CO");
 
 /** "12/08" — compact day/month, matching the date inputs' display. */
 function chipFechaCorta(iso: string): string {
+  // `desde`/`hasta` come from `<input type="date">` as YYYY-MM-DD: read the parts, because
+  // `new Date("YYYY-MM-DD")` is UTC midnight and shows the previous day in UTC-5.
+  const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (parts) return `${parts[3]}/${parts[2]}`;
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   return date.toLocaleDateString("es-CO", { day: "2-digit", month: "2-digit" });
@@ -987,7 +991,10 @@ function SortableHeader({
 }) {
   const active = sort === column;
   return (
-    <TableHead numeric={align === "right"}>
+    <TableHead
+      numeric={align === "right"}
+      aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : undefined}
+    >
       <button
         type="button"
         onClick={() => onSort(column)}
