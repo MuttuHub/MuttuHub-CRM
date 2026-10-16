@@ -128,9 +128,10 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
     `eslint` limpios. Ninguna prueba cambió de intención.
 - [x] **R2** Worktree y rama de DeepSeek, y su prompt listo para pegar (`odd/tasks/lanzamiento-v2-deepseek-prompt.md`).
   Ruta I.
-- [ ] **R3** Migración aditiva de lanzamiento. Contiene `Proyecto.descripcion String?` si M3 la aprueba, y
+- [x] **R3** Migración aditiva de lanzamiento. Contiene `Proyecto.descripcion String?` si M3 la aprueba, y
   `TipoNotificacion.GASTO_RECHAZADO` en una migración aparte si M7 la aprueba, porque `ADD VALUE` no comparte
   transacción. Ruta D. Plazo: viernes 12:00.
+  Evidencia: `b7d8ab7`. Dos migraciones aditivas e idempotentes aplicadas a la base local (127.0.0.1:54322): `20261014120000_v2_proyecto_descripcion` (`ADD COLUMN IF NOT EXISTS "descripcion" TEXT`) y `20261014130000_v2_notificacion_gasto_rechazado_enum` (`ADD VALUE IF NOT EXISTS 'GASTO_RECHAZADO'`, sola en su migración). `migrate diff` sin diferencias; invariantes de prisma: 30 archivos, 214 pruebas en verde.
 - [ ] **R4** Ensayo 1. Pasos:
   1. Restaurar el dump de producción en el contenedor `postgres` de 54330.
   2. Correr `prisma migrate status`, que debe coincidir con `main`.
@@ -192,16 +193,18 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
 
   Tamaño M.
   Evidencia: `2c7e198`. Formulario cliente primero (sin selector de origen; origen derivado, mismos endpoints), tarjeta de solo lectura (`ClienteResumen`), oportunidades elegibles del cliente filtradas en el cliente con `useEligibleOpportunities`, `?cliente=` y `?oportunidad=`, botón «Crear proyecto» en la ficha para quien `canCreateProject`. Vitest de proyectos, crm, ui y app: 91 archivos, 895 pruebas en verde; tsc y eslint limpios; detector de Impeccable sin hallazgos. Pregunta abierta: el modelo `Cliente` no tiene NIT ni sector y el DTO no trae conteo de proyectos; la tarjeta muestra tipo de cliente en lugar de sector y omite NIT y proyectos (no se añadió API).
-- [ ] **F9** Descripción del proyecto (M3). Toca el esquema (R3), el zod de creación, `PROJECT_SELECT_V2`, el DTO, el
+- [x] **F9** Descripción del proyecto (M3). Toca el esquema (R3), el zod de creación, `PROJECT_SELECT_V2`, el DTO, el
   formulario, la ficha y OpenAPI. Depende de M3. Tamaño M.
+  Evidencia: `07b0a8d`. `descripcion` opcional (recortada, máx. 2000, vacía = null) en creación, conversión y PATCH (auditada), en `PROJECT_SELECT_V2`, DTO y OpenAPI; textarea con ayuda en el formulario de creación; párrafo en Resumen › Datos generales (oculto si es null). Sin diálogo de edición (pendiente de decisión de producto). `ProjectListRow.descripcion` es opcional en el tipo para no tocar los fixtures ajenos.
 - [ ] **F10** Ocultar las pestañas Oportunidades y Mapa de Clientes (M4). Se quitan de `CLIENTES_SECTIONS`
   (`clientes-subnav.tsx:23-31`) y sus rutas redirigen a `/clientes`. Tamaño S.
 - [x] **F11** Renombrar «Observado» en `atencion.ts:39` («Gasto observado» → «Gasto pendiente por revisión»). Las
   etiquetas de `project-gastos.tsx` y `gastos-kpis.tsx` pasan a X1 (DeepSeek). Tamaño S.
   Evidencia: `518f48b`. `ATENCION_TITULO.gasto_observado` renombrado, claves intactas; `atencion.test.ts` y `requiere-atencion.test.tsx` en verde.
-- [ ] **F12** Notificar a `registrado_por_id` cuando se rechaza un gasto (M7). Toca la ruta `reject`,
+- [x] **F12** Notificar a `registrado_por_id` cuando se rechaza un gasto (M7). Toca la ruta `reject`,
   `notificaciones-proyecto.ts`, la lectura de notificaciones para roles no gerenciales, `notification-panel.tsx` y
   OpenAPI. Depende de M7 y R3. Tamaño M.
+  Evidencia: `04b5976`. `notificarGastoRechazado` (upsert por usuario/tipo/gasto, reactiva como no leída) dentro de la transacción de `reject`; sin notificación si quien rechaza es el autor. Lectura y read-all: GERENCIA ve SOBREGASTO_RUBRO y GASTO_RECHAZADO, el resto solo sus GASTO_RECHAZADO; el mensaje (tercero, documento, valor, motivo) se arma al leer desde el gasto, porque `notificaciones` no guarda texto. Panel con título «Gasto rechazado», motivo y enlace a `/proyectos/<id>`; OpenAPI con el enum. Vitest (proyectos, clients, notifications, lib/api, openapi, shell): 149 archivos, 1611 pruebas; prisma `--no-file-parallelism`: 30 archivos, 214 pruebas; tsc y eslint limpios. Pregunta abierta: al corregir el gasto se borra `motivo_rechazo`, así que la notificación vieja queda solo con el título.
 - [ ] **F13** PDF por impresión del navegador (RF-32, PO-2). Cambios:
   - Una vista imprimible de la ficha del proyecto y de su resumen financiero, con hoja de estilos `@media print`.
   - Respeta el rol, igual que la ficha.
