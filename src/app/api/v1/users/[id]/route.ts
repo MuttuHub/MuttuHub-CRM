@@ -76,7 +76,11 @@ export const PATCH = withApiErrorHandling(
     // S9 (REQ-ACC-02): orthogonal READ-only flag for the gerencial dashboard; same lockout-free
     // reasoning as above, and ADMINISTRADOR-only through the route gate.
     if (body?.puede_ver_tablero_gerencial !== undefined) {
-      data.puede_ver_tablero_gerencial = Boolean(body.puede_ver_tablero_gerencial);
+      // Strict boolean: `Boolean("false")` would silently grant the flag.
+      if (typeof body.puede_ver_tablero_gerencial !== "boolean") {
+        return apiError("puede_ver_tablero_gerencial debe ser verdadero o falso.", 400, "VALIDATION_ERROR");
+      }
+      data.puede_ver_tablero_gerencial = body.puede_ver_tablero_gerencial;
     }
 
     if (Object.keys(data).length === 0) {
