@@ -182,7 +182,8 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
   Evidencia: `d1a6ef6`. `valor_total` obligatorio y > 0 solo en `PROJECT_CREATE_SCHEMA` y en el formulario; la conversión (E-05) conserva su prefill desde la oportunidad en el servidor, pero el formulario exige > 0. Pregunta abierta: ¿exigir también > 0 en la ruta E-05 cuando la oportunidad no trae valor?
   Seguimiento: resuelta en `e7c8df5`. La ruta E-05 responde 400 («El valor total debe ser mayor que cero.») cuando el valor final, del cuerpo o del prefill, es nulo o <= 0; se quitó su comprobación `fin < inicio` por redundante (el esquema compartido ya exige inicio < fin).
 - [ ] **F6** Fecha de primer contacto en formato legible (D2). Tamaño S.
-- [ ] **F7** El DTO de la tarea lleva el id y el código del proyecto, para enlazar al proyecto exacto (D3). Tamaño S.
+- [x] **F7** El DTO de la tarea lleva el id y el código del proyecto, para enlazar al proyecto exacto (D3). Tamaño S.
+  Evidencia: `87526b5`. `TASK_SELECT` trae `oportunidad.proyecto { id, codigo, deleted_at }` en la misma consulta; el DTO expone `proyecto: { id, codigo } | null` (null si no hay proyecto o está eliminado), en el tipo del hook (opcional, por los fixtures), OpenAPI y `cardAction`: la tarjeta convertida enlaza a `/proyectos/<id>` con «✓ Proyecto <código> · abrir ficha» (sin proyecto, vuelve a `/proyectos`). El acceso lo decide `GET /projects/{id}`: la ficha responde 403 «No tienes acceso a este proyecto» o 404; el enlace puede mostrar el código aunque el usuario no sea miembro. Toca fuera de la superficie prevista: `lib/api/crm.ts` (donde vive `TASK_SELECT`), `hooks/crm.ts` y `kanban-board.tsx` (`CardActionView` tenía el `href` fijo).
 - [x] **F8** Crear proyecto desde un cliente (M1, M2). Cambios:
   - El formulario pide primero el cliente. Ya no hay selector de origen; el origen se deduce de si se eligió una
     oportunidad (`project-create-form.tsx:141,339-426`).
@@ -206,14 +207,15 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
   `notificaciones-proyecto.ts`, la lectura de notificaciones para roles no gerenciales, `notification-panel.tsx` y
   OpenAPI. Depende de M7 y R3. Tamaño M.
   Evidencia: `04b5976`. `notificarGastoRechazado` (upsert por usuario/tipo/gasto, reactiva como no leída) dentro de la transacción de `reject`; sin notificación si quien rechaza es el autor. Lectura y read-all: GERENCIA ve SOBREGASTO_RUBRO y GASTO_RECHAZADO, el resto solo sus GASTO_RECHAZADO; el mensaje (tercero, documento, valor, motivo) se arma al leer desde el gasto, porque `notificaciones` no guarda texto. Panel con título «Gasto rechazado», motivo y enlace a `/proyectos/<id>`; OpenAPI con el enum. Vitest (proyectos, clients, notifications, lib/api, openapi, shell): 149 archivos, 1611 pruebas; prisma `--no-file-parallelism`: 30 archivos, 214 pruebas; tsc y eslint limpios. Pregunta abierta: al corregir el gasto se borra `motivo_rechazo`, así que la notificación vieja queda solo con el título.
-- [ ] **F13** PDF por impresión del navegador (RF-32, PO-2). Cambios:
+- [x] **F13** PDF por impresión del navegador (RF-32, PO-2). Cambios:
   - Una vista imprimible de la ficha del proyecto y de su resumen financiero, con hoja de estilos `@media print`.
   - Respeta el rol, igual que la ficha.
   - Lleva un botón «Imprimir / Guardar PDF».
   - Toma como referencia la `print-ficha.tsx` que ya existe para clientes.
 
   Ruta nueva bajo `src/app/(app)/proyectos/[id]/` (superficie de Claude). Tamaño M.
-- [ ] **F14** Beneficiarios como un solo número (M5). Cambios:
+  Evidencia: `4591c5e`. Ruta `/proyectos/[id]/imprimir` con `ProjectPrintSheet` (`components/proyectos/print/`): encabezado (código, nombre, cliente, estado, responsable, fechas, valor, descripción, beneficiarios, fecha de generación), estado técnico con la frase de causa, actividades por objetivo con % plan y % real, y resumen financiero por rubro (asignado, programado, ejecutado) con total. Mismas consultas que la ficha, así que el 403/404 de la API sale como mensaje legible y sin hoja. Botón «Imprimir / Guardar PDF» (`window.print`, `print-hide`) y ítem «Imprimir / PDF» en «Más acciones» que abre la ruta en una pestaña nueva. Al imprimir, `@media print` oculta el shell y deja la hoja (siempre clara). Un borrador imprime solo el encabezado. Sin verificar en un navegador real (chrome-devtools no conectó): la regla de impresión se probó solo por inspección.
+- [x] **F14** Beneficiarios como un solo número (M5). Cambios:
   - Quitar la pestaña Beneficiarios de la ficha (`project-ficha.tsx:127,205`) y su registro
     (`ejecucion-beneficiarios.tsx`).
   - Reutilizar `Proyecto.beneficiarios_meta` como el campo «Beneficiarios», editable en los datos generales. No requiere
@@ -223,6 +225,7 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
   - Verificar si la línea base congela `beneficiarios_meta`. Si lo congela, se pregunta al PO si debe seguir editable.
 
   Se pasa del carril D al F porque toca la API y los agregados. Tamaño M.
+  Evidencia: `097d830`. Se quitan el registro plegado de la ficha, `ProjectBeneficiarios`, `ejecucion-beneficiarios.tsx` y su prueba, y el montaje en `ProjectEjecucion`; la tarjeta «Beneficiarios vs meta» del panel de indicadores; la columna «Beneficiarios vs meta (%)» de los dos Excel (la ficha lista «Beneficiarios» en Proyecto y el portafolio una columna «Beneficiarios» con el número). El agregado del portafolio pasa a `beneficiarios: { total }` = Σ `beneficiarios_meta` de los proyectos medibles (OpenAPI, hook, tablero y tarjeta «Suma de los proyectos»). El KPI por proyecto (`kpis.beneficiarios`) y las rutas `/beneficiaries` quedan en el contrato sin uso en la interfaz; los hooks de registrar y anular beneficiarios quedan sin llamadas. Línea base: SÍ congela `beneficiarios_meta` (`versiones.ts:69`, comparación `versiones.ts:176`) y la aprobación exige meta > 0 (`linea-base.ts:40`, «La meta de beneficiarios debe ser mayor que cero.»). Sin cambios de semántica. Pendiente de producto: si el número debe seguir editable tras aprobar la línea base, y si el mensaje de aprobación debe decir «Beneficiarios» en lugar de «meta». Sin diálogo de edición (pendiente).
 
 ### Carril D: pulido v7 por pestaña (cancelado)
 
