@@ -51,11 +51,11 @@ describe("GastoForm", () => {
     return render(<GastoForm proyecto={PROYECTO} rubros={RUBROS} onDone={onDone} />, { wrapper: createWrapper() })
   }
 
-  async function llenarBasicos(user: ReturnType<typeof userEvent.setup>) {
+  async function llenarBasicos(user: ReturnType<typeof userEvent.setup>, valor = "1.500.000,50") {
     await user.selectOptions(screen.getByLabelText("Rubro"), "r12")
     await user.clear(screen.getByLabelText("Fecha del documento"))
     await user.type(screen.getByLabelText("Fecha del documento"), "2026-10-15")
-    await user.type(screen.getByLabelText("Valor"), "1500000.50")
+    await user.type(screen.getByLabelText("Valor"), valor)
     await user.type(screen.getByLabelText("Tercero"), "Proveedor SAS")
     await user.selectOptions(screen.getByLabelText("Tipo de identificación"), "NIT")
     await user.type(screen.getByLabelText("Número de identificación"), "900123456")
@@ -104,7 +104,7 @@ describe("GastoForm", () => {
 
     await waitFor(() => expect(postedBody()).not.toBeNull())
     const body = postedBody()
-    expect(body.valor).toBe("1500000.50")
+    expect(body.valor).toBe("1500000.50") // typed as 1.500.000,50
     expect(typeof body.valor).toBe("string")
     expect(body).toMatchObject({
       rubro_id: "r12",
@@ -119,6 +119,38 @@ describe("GastoForm", () => {
     })
     await waitFor(() => expect(onDone).toHaveBeenCalled())
   })
+
+  it.each([
+    ["1.500", "1500.00"],
+    ["1.500,50", "1500.50"],
+    ["12,5", "12.50"],
+    ["1500", "1500.00"],
+  ])("reads the valor %s with the es-CO parser and sends %s", async (typed, expected) => {
+    const user = userEvent.setup({ delay: null })
+    setup()
+    await llenarBasicos(user, typed)
+    await user.click(screen.getByRole("radio", { name: "Enlace" }))
+    await user.type(screen.getByLabelText("URL"), "https://drive.example/factura")
+    await user.type(screen.getByLabelText("Nombre del enlace"), "Factura FE-0123")
+    await user.click(screen.getByRole("button", { name: "Registrar" }))
+    await waitFor(() => expect(postedBody()).not.toBeNull())
+    expect(postedBody().valor).toBe(expected)
+  })
+
+  it.each(["1.50", "1500.50", "1,500", "0", "0,00", "abc", "1,234", "1.5.0"])(
+    "rejects the valor %s without sending anything",
+    async (typed) => {
+      const user = userEvent.setup({ delay: null })
+      setup()
+      await llenarBasicos(user, typed)
+      await user.click(screen.getByRole("radio", { name: "Enlace" }))
+      await user.type(screen.getByLabelText("URL"), "https://drive.example/factura")
+      await user.type(screen.getByLabelText("Nombre del enlace"), "Factura FE-0123")
+      await user.click(screen.getByRole("button", { name: "Registrar" }))
+      expect(await screen.findByRole("alert")).toHaveTextContent("Ingresa un valor válido")
+      expect(postedBody()).toBeNull()
+    },
+  )
 
   it("uploads a file support through sign, PUT and confirm", async () => {
     const user = userEvent.setup({ delay: null })

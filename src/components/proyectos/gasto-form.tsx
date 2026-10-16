@@ -21,11 +21,12 @@ import {
   type ProjectExpense,
   type ProjectListRow,
 } from "@/hooks/projects";
+import { parseMontoInput } from "@/components/proyectos/presupuesto-ui";
 import { toCents } from "@/lib/proyectos/money";
 import { projectPeriods, todayInBogota } from "@/lib/proyectos/weeks";
 
 export const SIN_SOPORTE_TEXT = "Adjunta al menos un soporte (archivo o enlace).";
-const VALOR_INVALIDO = "Ingresa un valor válido con máximo dos decimales.";
+const VALOR_INVALIDO = "Ingresa un valor válido con máximo dos decimales; usa coma para los decimales (1.500,50).";
 
 export const TIPO_SOPORTE_LABELS: Record<ProjectExpense["tipo_soporte"], string> = {
   FACTURA_PROVEEDOR: "Factura de proveedor",
@@ -55,10 +56,12 @@ function periodosDe(proyecto: Pick<ProjectListRow, "fecha_inicio" | "fecha_fin">
   }
 }
 
-/** "1.500.000,50" no se acepta: solo dígitos con punto o coma decimal (máx. dos). */
+/** Mismo parser es-CO que el presupuesto (punto = miles, coma = decimal); el valor debe ser mayor que cero. */
 function normalizarValor(texto: string): string | null {
-  const limpio = texto.trim().replace(",", ".");
-  return /^\d+(\.\d{1,2})?$/.test(limpio) && toCents(limpio) > BigInt(0) ? limpio : null;
+  const limpio = texto.trim();
+  if (limpio === "") return null;
+  const monto = parseMontoInput(limpio);
+  return monto !== null && toCents(monto) > BigInt(0) ? monto : null;
 }
 
 export function GastoForm({
