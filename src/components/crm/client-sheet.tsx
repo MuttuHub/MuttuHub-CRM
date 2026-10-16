@@ -742,7 +742,7 @@ function InlineDate({
         <div className="min-w-0">
           <dt className={INLINE_LABEL_CLASS}>{label}</dt>
           <p className="mt-1 px-1.5 py-0.5 text-[13.5px] leading-snug text-ink-900">
-            {value || "—"}
+            {formatFechaDia(value)}
           </p>
         </div>
       );
@@ -753,12 +753,12 @@ function InlineDate({
         <button
           type="button"
           onClick={() => {
-            setDraft(value ?? "");
+            setDraft(asInputValue);
             setEditing(true);
           }}
           className={INLINE_DISPLAY_CLASS}
         >
-          <span className="min-w-0 flex-1 whitespace-pre-wrap">{value || "—"}</span>
+          <span className="min-w-0 flex-1 whitespace-pre-wrap">{formatFechaDia(value)}</span>
           <Pencil
             className="mt-0.5 size-3 shrink-0 text-ink-400 opacity-0 group-hover:opacity-100"
             strokeWidth={2}

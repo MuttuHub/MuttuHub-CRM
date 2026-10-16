@@ -206,3 +206,26 @@ hash: el hash anotado es el del commit antes del `--amend` final que incrusta el
 - PREGUNTA: ninguna.
 
 LISTO PARA INTEGRAR: Y1
+
+---
+
+## Y2 · Fecha de primer contacto legible (D2)
+
+- Commit: `3c9aadb` — `fix(crm): show the first contact date as a readable day`
+- Archivos tocados:
+  - `src/components/crm/client-sheet.tsx` — `InlineDate` muestra el día UTC con `formatFechaDia` (el mismo
+    formateador de la ficha imprimible) en sus dos rutas de lectura (editable y de solo lectura). De paso, el
+    borrador de edición parte de la forma `YYYY-MM-DD` (`asInputValue`) y no del ISO crudo: el `<input type="date">`
+    no aceptaba el valor crudo y un “guardar sin tocar” podía enviar el ISO completo.
+  - `src/components/crm/client-sheet.test.tsx` — tres pruebas nuevas: día UTC en la vista editable, en la de solo
+    lectura y el editor abriendo con `YYYY-MM-DD`.
+  - `src/components/crm/client-form.tsx` — **revisado, sin cambios**: la fecha solo vive en un `<input type="date">`,
+    no se muestra en crudo en ningún otro punto.
+- Verificaciones:
+  1. `TZ=America/Bogota npx vitest run …` sobre las rutas del lote → 15 archivos, 203 pruebas, **verde**.
+  2. `npx tsc --noEmit` → **sin errores**.
+  3. `npx eslint src/components/crm/client-sheet.tsx src/components/crm/client-sheet.test.tsx` → **sin avisos**.
+- PEDIDO A CLAUDE: ninguno.
+- PREGUNTA: ninguna.
+
+LISTO PARA INTEGRAR: Y2
