@@ -94,4 +94,87 @@ describe("migrate-v2 guard", () => {
     expect(result.status).toBe(0)
     expect(result.stdout).toContain("ok")
   })
+
+  describe("explicit remote opt-in (production run)", () => {
+    const REMOTE_HOSTNAME = "aws-1-us-west-2.pooler.supabase.com"
+    const remote = { DATABASE_URL: REMOTE_DB, DIRECT_URL: REMOTE_DB }
+
+    it("rejects a remote target when MIGRATE_V2_ALLOW_REMOTE_HOST is missing", () => {
+      const result = runProbe(remote)
+
+      expect(result.status).not.toBe(0)
+      expect(result.stderr).toContain("Refusing to run against a non-local database")
+      expect(result.stdout).not.toContain("ok")
+    })
+
+    it.each([
+      ["a different host", "other-host.example"],
+      ["a suffix of the host", "supabase.com"],
+      ["the host with its port", REMOTE_HOST],
+      ["an empty value", ""],
+      ["a wildcard", "*"],
+    ])("rejects a remote target when the opt-in names %s", (_label, allowed) => {
+      const result = runProbe({ ...remote, MIGRATE_V2_ALLOW_REMOTE_HOST: allowed })
+
+      expect(result.status).not.toBe(0)
+      expect(result.stderr).toContain("Refusing to run against a non-local database")
+      expect(result.stderr).not.toContain(REMOTE_PASSWORD)
+      expect(result.stdout).not.toContain("ok")
+    })
+
+    it("accepts a remote target when the opt-in equals its exact host", () => {
+      const result = runProbe({ ...remote, MIGRATE_V2_ALLOW_REMOTE_HOST: REMOTE_HOSTNAME }, ["--dry-run"])
+
+      expect(result.status).toBe(0)
+      expect(result.stdout).toContain("ok")
+    })
+
+    it("still rejects a remote NEXT_PUBLIC_SUPABASE_URL, even when the database host is allowed", () => {
+      const result = runProbe({
+        ...remote,
+        NEXT_PUBLIC_SUPABASE_URL: REMOTE_API,
+        MIGRATE_V2_ALLOW_REMOTE_HOST: REMOTE_HOSTNAME,
+      })
+
+      expect(result.status).not.toBe(0)
+      expect(result.stderr).toContain("NEXT_PUBLIC_SUPABASE_URL")
+    })
+
+    it("rejects a second remote variable that is not the allowed host", () => {
+      const result = runProbe({
+        ...remote,
+        DIRECT_URL: "postgresql://postgres:x@other-host.example:5432/postgres",
+        MIGRATE_V2_ALLOW_REMOTE_HOST: REMOTE_HOSTNAME,
+      })
+
+      expect(result.status).not.toBe(0)
+      expect(result.stderr).toContain("DIRECT_URL")
+    })
+
+    it("rejects --apply without --expect-hash on an allowed remote target", () => {
+      const result = runProbe({ ...remote, MIGRATE_V2_ALLOW_REMOTE_HOST: REMOTE_HOSTNAME }, ["--apply"])
+
+      expect(result.status).not.toBe(0)
+      expect(result.stderr).toContain("--expect-hash")
+      expect(result.stdout).not.toContain("ok")
+    })
+
+    it("accepts --apply --expect-hash on an allowed remote target", () => {
+      const result = runProbe({ ...remote, MIGRATE_V2_ALLOW_REMOTE_HOST: REMOTE_HOSTNAME }, [
+        "--apply",
+        "--expect-hash",
+        "abc123",
+      ])
+
+      expect(result.status).toBe(0)
+      expect(result.stdout).toContain("ok")
+    })
+
+    it("keeps loopback behavior unchanged: --apply without a hash is not blocked by the guard", () => {
+      const result = runProbe({}, ["--apply"])
+
+      expect(result.status).toBe(0)
+      expect(result.stdout).toContain("ok")
+    })
+  })
 })

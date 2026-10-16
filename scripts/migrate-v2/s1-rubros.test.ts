@@ -5,9 +5,11 @@
  * `_guard`/`db` imports of the script are mocked away: this file covers the pure
  * planner only, exactly as S1.1a asks.
  */
+import { spawnSync } from "node:child_process"
+import { resolve } from "node:path"
 import { describe, expect, it, vi } from "vitest"
 
-vi.mock("./_guard", () => ({}))
+vi.mock("./_guard", () => ({ requireHashForRemoteApply: () => undefined }))
 vi.mock("../../src/lib/db", () => ({ db: {} }))
 
 import { planRubros, type ExistingRubro, type RubroAction } from "./s1-rubros"
@@ -110,4 +112,32 @@ describe("planRubros", () => {
     ])
     expect(plan.actions).toHaveLength(15)
   })
+})
+
+describe("s1-rubros against an allowed remote target", () => {
+  const SCRIPT = resolve(process.cwd(), "scripts/migrate-v2/s1-rubros.ts")
+  const REMOTE_DB = "postgresql://postgres.ref:S3cretP4ss@db.remote-host.example:5432/postgres"
+
+  function run(args: string[]) {
+    return spawnSync(process.execPath, ["--import", "tsx", SCRIPT, ...args], {
+      env: {
+        ...process.env,
+        DATABASE_URL: REMOTE_DB,
+        DIRECT_URL: REMOTE_DB,
+        NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321",
+        MIGRATE_V2_ALLOW_REMOTE_HOST: "db.remote-host.example",
+      },
+      encoding: "utf8",
+      cwd: process.cwd(),
+      timeout: 60_000,
+    })
+  }
+
+  it("refuses --apply without --expect-hash before touching the database", () => {
+    const result = run(["--apply"])
+
+    expect(result.status).not.toBe(0)
+    expect(result.stderr).toContain("Remote --apply requires --expect-hash")
+    expect(result.stderr).not.toContain("S3cretP4ss")
+  }, 30_000)
 })

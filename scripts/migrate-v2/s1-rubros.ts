@@ -12,7 +12,7 @@
  * tracked through one `auditoria_cambios` row per created rubro (`accion`
  * IMPORTAR, `lote_id`), so revert never touches the adopted R01/R12 rows.
  */
-import "./_guard"
+import { requireHashForRemoteApply } from "./_guard"
 
 import type { Prisma } from "@prisma/client"
 
@@ -187,6 +187,8 @@ async function revertPlan(client: unknown, loteId: string): Promise<string[]> {
 }
 
 async function main(): Promise<void> {
+  requireHashForRemoteApply()
+
   const result = await runMigration({
     name: NAME,
     db,

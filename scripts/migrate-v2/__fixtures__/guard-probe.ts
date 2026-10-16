@@ -8,9 +8,13 @@
  * Relative paths only: this runs under plain `node --import tsx` in a test, so
  * the `@/` alias is not available here.
  */
-import "../_guard"
+import { requireHashForRemoteApply } from "../_guard"
 
 import { db } from "../../../src/lib/db"
+
+// Mirrors what a real script does right after the guard: a remote target may only
+// apply a plan that carries a reviewed --expect-hash.
+requireHashForRemoteApply(process.argv.slice(2))
 
 // Touching the client proves its module body ran (and built the Prisma client).
 console.log(db ? "ok" : "no-db")
