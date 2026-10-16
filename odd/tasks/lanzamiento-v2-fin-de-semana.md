@@ -143,8 +143,29 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
 
   Ruta D. Depende de que el usuario entregue el dump. Aceptación: todo termina sin error. Si no, es **no-go** hasta
   corregirlo.
-- [ ] **R5** Checklist de infraestructura: variables de entorno nuevas de v2, buckets de Storage, cron y alcance de las
-  variables en Vercel. Ruta D.
+- [x] **R5** Checklist de infraestructura: variables de entorno nuevas de v2, buckets de Storage, cron y alcance de las
+  variables en Vercel. Ruta D. Resultado (2026-10-15, explorador de solo lectura sobre `main..HEAD`):
+  - **Variables:** son las mismas 12 en `main` y en HEAD; no hay ninguna nueva. `ENABLE_DEV_ROUTES` no debe estar en
+    `true` en producción. `DIRECT_URL` tiene que estar disponible donde se corra `migrate deploy`.
+  - **Storage:** sigue un solo bucket privado, `muttu-docs` (o el valor de `SUPABASE_STORAGE_BUCKET`), siempre con URL
+    firmada. Ningún código lo crea, así que tiene que existir.
+  - **Cron:** no hay `vercel.json`. El resumen diario corre por `pg_cron` (`scripts/cron_setup.sql`) contra
+    `/api/cron/daily` con el encabezado `x-cron-secret`, sin cambios. Ahora respeta el ajuste
+    `automatizaciones.resumen_diario`. Hay que confirmar después del deploy que sigue enviando.
+  - **Base:** 23 migraciones. Las que no son puramente aditivas:
+    - `v2_rubros_codigo` suspende (`activo=false`) los rubros heredados sin código.
+    - `lineas`, `municipios` y `proyecto_general` hacen un backfill de `updated_at` y luego `SET NOT NULL`.
+    - Se renombran 2 FK y se hace un `DROP CONSTRAINT IF EXISTS`.
+
+    No hay DROP TABLE, DROP COLUMN ni cambios de tipo.
+  - **Scripts de datos:** la guarda de `scripts/migrate-v2/_guard.ts` impide correrlos contra producción. Hay que
+    decidir en R4 si `s1-rubros` hace falta en producción y por qué vía.
+  - **Por confirmar en los paneles:**
+    - el bucket `muttu-docs` existe y es privado;
+    - los jobs de `pg_cron` están activos en producción y su `CRON_SECRET` coincide con el de Vercel;
+    - la versión de Node en Vercel;
+    - la URL de producción `/auth/confirm` está en la lista de redirecciones de Supabase Auth;
+    - hay un respaldo o PITR antes de migrar.
 - [ ] **R6** Integración del sábado a las 12:00. Pasos:
   1. Merge de `feat/ficha-v7-polish`.
   2. Suite, `tsc` y build.
