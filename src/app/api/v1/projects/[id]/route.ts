@@ -1,5 +1,7 @@
 // GET /api/v1/projects/:id — one project ficha (contract E-06, P02).
-// PATCH /api/v1/projects/:id — general data of a BORRADOR project (E-06, P06).
+// PATCH /api/v1/projects/:id — general data of a BORRADOR project (E-06, P06). An EN_EJECUCION
+// project accepts ONLY `descripcion` and `beneficiarios_meta` (UX-3): the other fields change the
+// baseline and go through a modification request instead.
 //
 // PATCH accepts nombre, descripcion, origen, fecha_inicio, fecha_fin, valor_total,
 // beneficiarios_meta, responsable_id, `lineas` (N..N replacement) and
@@ -17,13 +19,14 @@ import { MENSAJE_RANGO_FECHAS, rangoFechasValido } from "@/lib/proyectos/rango-f
 import { OrigenProyecto, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { apiError, parseJsonBody } from "@/lib/api/errors";
+import { apiError, parseJsonBody, RespuestaAbortada } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { parseDate } from "@/lib/api/crm";
 import { canManageProjects } from "@/lib/permissions";
 import { diffFields, logChanges, type CambioInput } from "@/lib/api/audit-cambios";
 import { diferenciaValor, validarLineas } from "@/lib/proyectos/proyecto-general";
+import { MENSAJE_BENEFICIARIOS } from "@/lib/proyectos/linea-base";
 import {
   AUDITED_PROJECT_FIELDS,
   PROJECT_DESCRIPCION_SCHEMA,
@@ -39,10 +42,17 @@ import {
   toProjectItemV2,
   type ProjectRowV2,
 } from "@/lib/api/projects";
-import { lockProyectoBorrador } from "@/lib/api/presupuesto";
+import { lockProyecto } from "@/lib/api/presupuesto";
 
 const PROYECTO_GENERAL_STATE_MESSAGE =
-  "Solo se pueden editar los datos generales de un proyecto en Borrador.";
+  "Los datos generales solo se pueden editar en Borrador o en Ejecución.";
+const PROYECTO_GENERAL_CAMBIO_ESTADO_MESSAGE =
+  "El proyecto cambió de estado mientras lo editabas. Recarga la ficha e inténtalo de nuevo.";
+const EJECUCION_CAMPOS_MESSAGE =
+  "En un proyecto en ejecución solo se pueden editar la descripción y los beneficiarios. Los demás datos cambian la línea base: solicítalo como modificación.";
+
+/** The only fields an EN_EJECUCION project lets the PATCH write (the rest changes the baseline). */
+const EJECUCION_CAMPOS_EDITABLES = ["descripcion", "beneficiarios_meta"] as const;
 
 export const dynamic = "force-dynamic";
 
@@ -89,9 +99,9 @@ export const PROJECT_PATCH_SCHEMA = z.object({
     .optional(),
   beneficiarios_meta: z
     .number()
-    .int("La meta de beneficiarios debe ser un número entero.")
-    .min(0, "La meta de beneficiarios no puede ser negativa.")
-    .max(2_147_483_647, "La meta de beneficiarios es demasiado alta.")
+    .int("El número de beneficiarios debe ser un número entero.")
+    .min(0, "El número de beneficiarios no puede ser negativo.")
+    .max(2_147_483_647, "El número de beneficiarios es demasiado alto.")
     .nullable()
     .optional(),
   responsable_id: z.string().min(1, "El responsable no puede estar vacío.").nullable().optional(),
@@ -179,9 +189,10 @@ export const PATCH = withApiErrorHandling(
       return apiError("No tienes permisos sobre este proyecto.", 403, "FORBIDDEN");
     }
 
-    if (existente.estado !== "BORRADOR") {
+    if (existente.estado !== "BORRADOR" && existente.estado !== "EN_EJECUCION") {
       return apiError(PROYECTO_GENERAL_STATE_MESSAGE, 409, "INVALID_STATE");
     }
+    const enEjecucion = existente.estado === "EN_EJECUCION";
 
     const body = await parseJsonBody<Record<string, unknown>>(request);
     // A syntactically valid JSON *scalar* (`"x"`, 42, false) is not a patch body:
@@ -200,6 +211,13 @@ export const PATCH = withApiErrorHandling(
       }
     }
 
+    if (enEjecucion) {
+      const permitidos: readonly string[] = EJECUCION_CAMPOS_EDITABLES;
+      if (Object.keys(body).some((field) => !permitidos.includes(field))) {
+        return apiError(EJECUCION_CAMPOS_MESSAGE, 409, "INVALID_STATE");
+      }
+    }
+
     const parsed = PROJECT_PATCH_SCHEMA.safeParse(body);
     if (!parsed.success) {
       return apiError(
@@ -207,6 +225,15 @@ export const PATCH = withApiErrorHandling(
         400,
         "VALIDATION_ERROR",
       );
+    }
+
+    // Same rule as the baseline approval; during execution it can no longer be cleared either.
+    if (
+      enEjecucion &&
+      parsed.data.beneficiarios_meta !== undefined &&
+      (parsed.data.beneficiarios_meta === null || parsed.data.beneficiarios_meta < 1)
+    ) {
+      return apiError(MENSAJE_BENEFICIARIOS, 400, "VALIDATION_ERROR");
     }
 
     const patch: ProjectPatch = {};
@@ -318,7 +345,14 @@ export const PATCH = withApiErrorHandling(
     }
 
     const row = await db.$transaction(async (tx) => {
-      await lockProyectoBorrador(tx, id, PROYECTO_GENERAL_STATE_MESSAGE);
+      // The estado that allowed this edit is re-checked under the row lock: an approval racing with it
+      // (BORRADOR -> EN_EJECUCION) must not slip a baseline-changing write in.
+      const bloqueado = await lockProyecto(tx, id);
+      if (bloqueado.estado !== existente.estado) {
+        throw new RespuestaAbortada(
+          apiError(PROYECTO_GENERAL_CAMBIO_ESTADO_MESSAGE, 409, "INVALID_STATE"),
+        );
+      }
       // Join replacements first: the re-read below then sees the new sets.
       if (lineas !== undefined) {
         await tx.proyectoLinea.deleteMany({ where: { proyecto_id: id } });

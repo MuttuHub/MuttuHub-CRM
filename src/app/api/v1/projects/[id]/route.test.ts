@@ -302,20 +302,108 @@ describe("PATCH /api/v1/projects/:id", () => {
     expect(mocks.txUpdate).not.toHaveBeenCalled();
   });
 
-  it("returns 409 INVALID_STATE when the project is no longer BORRADOR", async () => {
-    vi.mocked(db.proyecto.findFirst).mockResolvedValue({
-      ...existente,
-      estado: "EN_EJECUCION",
-    } as never);
+  it("returns 409 INVALID_STATE for a state that allows no edits (CERRADO)", async () => {
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ ...existente, estado: "CERRADO" } as never);
 
-    const res = await PATCH(patchRequest({ valor_total: 300000000 }), routeContext);
+    const res = await PATCH(patchRequest({ descripcion: "Nueva" }), routeContext);
     const json = await res.json();
 
     expect(res.status).toBe(409);
     expect(json.code).toBe("INVALID_STATE");
-    expect(json.error).toBe("Solo se pueden editar los datos generales de un proyecto en Borrador.");
+    expect(json.error).toBe("Los datos generales solo se pueden editar en Borrador o en Ejecución.");
     expect(mocks.txUpdate).not.toHaveBeenCalled();
     expect(vi.mocked(logChanges)).not.toHaveBeenCalled();
+  });
+
+  describe("EN_EJECUCION (UX-3): only descripcion and beneficiarios_meta", () => {
+    const enEjecucion = { ...existente, estado: "EN_EJECUCION" };
+    beforeEach(() => {
+      vi.mocked(db.proyecto.findFirst).mockResolvedValue(enEjecucion as never);
+      mocks.lock.mockResolvedValue([{ estado: "EN_EJECUCION", valor_total: null }] as never);
+    });
+
+    it("accepts descripcion and beneficiarios_meta and audits one row per field", async () => {
+      const res = await PATCH(
+        patchRequest({ descripcion: "  Alcance ajustado  ", beneficiarios_meta: 150 }),
+        routeContext,
+      );
+
+      expect(res.status).toBe(200);
+      expect(mocks.txUpdate).toHaveBeenCalledWith({
+        where: { id: "pry-1" },
+        data: { descripcion: "Alcance ajustado", beneficiarios_meta: 150 },
+      });
+      const [, rows] = vi.mocked(logChanges).mock.calls[0]!;
+      expect(rows.map((row) => row.campo).sort()).toEqual(["beneficiarios_meta", "descripcion"]);
+      expect(rows.every((row) => row.proyecto_id === "pry-1" && row.usuario_id === "ger-1")).toBe(true);
+    });
+
+    it.each([
+      ["nombre", { nombre: "Otro" }],
+      ["fecha_inicio", { fecha_inicio: "2026-11-01" }],
+      ["fecha_fin", { fecha_fin: "2027-02-01" }],
+      ["valor_total", { valor_total: 300000000 }],
+      ["responsable_id", { responsable_id: "user-9" }],
+      ["lineas", { lineas: [{ id: "linea-1", principal: true }] }],
+      ["municipio_ids", { municipio_ids: ["mun-1"] }],
+    ])("rejects %s with 409 and a clear message, even next to an allowed field", async (_campo, extra) => {
+      const res = await PATCH(patchRequest({ descripcion: "Nueva", ...extra }), routeContext);
+      const json = await res.json();
+
+      expect(res.status).toBe(409);
+      expect(json.code).toBe("INVALID_STATE");
+      expect(json.error).toBe(
+        "En un proyecto en ejecución solo se pueden editar la descripción y los beneficiarios. Los demás datos cambian la línea base: solicítalo como modificación.",
+      );
+      expect(mocks.txUpdate).not.toHaveBeenCalled();
+      expect(vi.mocked(logChanges)).not.toHaveBeenCalled();
+    });
+
+    it("rejects a negative beneficiarios_meta", async () => {
+      const res = await PATCH(patchRequest({ beneficiarios_meta: -3 }), routeContext);
+
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toBe("El número de beneficiarios no puede ser negativo.");
+    });
+
+    it.each([0])("rejects beneficiarios_meta %s with the baseline-approval message", async (valor) => {
+      const res = await PATCH(patchRequest({ beneficiarios_meta: valor }), routeContext);
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe("VALIDATION_ERROR");
+      expect(json.error).toBe("El número de beneficiarios debe ser mayor que cero.");
+      expect(mocks.txUpdate).not.toHaveBeenCalled();
+    });
+
+    it("does not let beneficiarios_meta be cleared", async () => {
+      const res = await PATCH(patchRequest({ beneficiarios_meta: null }), routeContext);
+
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toBe("El número de beneficiarios debe ser mayor que cero.");
+    });
+
+    it("denies a COORDINADOR even for the allowed fields", async () => {
+      authAs(coordinador);
+      const res = await PATCH(patchRequest({ descripcion: "Nueva" }), routeContext);
+
+      expect(res.status).toBe(403);
+      expect(mocks.txUpdate).not.toHaveBeenCalled();
+    });
+
+    it("answers 409 and writes nothing when the state changed under the lock", async () => {
+      mocks.lock.mockResolvedValue([{ estado: "CERRADO", valor_total: null }] as never);
+      const res = await PATCH(patchRequest({ descripcion: "Nueva" }), routeContext);
+
+      expect(res.status).toBe(409);
+      expect(mocks.txUpdate).not.toHaveBeenCalled();
+    });
+  });
+
+  it("keeps beneficiarios_meta of 0 acceptable in BORRADOR (it only blocks the baseline approval)", async () => {
+    const res = await PATCH(patchRequest({ beneficiarios_meta: 0 }), routeContext);
+
+    expect(res.status).toBe(200);
   });
 
   it("updates general data and audits one row per changed field", async () => {

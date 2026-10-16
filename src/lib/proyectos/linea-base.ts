@@ -18,6 +18,9 @@ export type EntradaLineaBase = {
   programacion: readonly { rubroId: string; periodo: Periodo; valor: Cents }[]
 }
 
+/** The number of beneficiaries must be positive: baseline approval and the execution-time edit share this copy. */
+export const MENSAJE_BENEFICIARIOS = "El número de beneficiarios debe ser mayor que cero."
+
 function periodosDelProyecto(inicio: string | null, fin: string | null): Periodo[] | null {
   if (!inicio || !fin || fin < inicio) return null
   return projectPeriods(inicio, fin)
@@ -40,7 +43,7 @@ export function precondicionesLineaBase(entrada: EntradaLineaBase): Precondicion
   if (entrada.beneficiariosMeta === null || entrada.beneficiariosMeta <= 0) {
     fallas.push({
       codigo: "META_BENEFICIARIOS_INVALIDA",
-      mensaje: "El número de beneficiarios debe ser mayor que cero.",
+      mensaje: MENSAJE_BENEFICIARIOS,
     })
   }
 

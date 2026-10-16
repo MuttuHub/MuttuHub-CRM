@@ -212,6 +212,23 @@ describe("aplicarModificacion (live DB)", () => {
     ])
   })
 
+  it("is not blocked by a beneficiarios_meta edit during execution (UX-3): v0 keeps the original, v1 freezes the current", async () => {
+    const r = await runAndRollback(async (tx) => {
+      const f = await enEjecucion(tx)
+      const sol = await solicitud(tx, f, "TRASLADO", trasladoAB(f))
+      await tx.proyecto.update({ where: { id: f.proyecto.id }, data: { beneficiarios_meta: 80 } })
+      const salida = await aplicarModificacion(tx, { ...f.ids, solicitudId: sol.id })
+      return {
+        salida,
+        versiones: await tx.versionProyecto.findMany({ where: { proyecto_id: f.proyecto.id }, orderBy: { numero: "asc" } }),
+      }
+    })
+
+    const beneficiarios = r.versiones.map((v) => (v.snapshot as { proyecto: { beneficiarios_meta: number | null } }).proyecto.beneficiarios_meta)
+    expect(r.salida.version.numero).toBe(1)
+    expect(beneficiarios).toEqual([50, 80])
+  })
+
   it("snapshot after apply equals buildSnapshot(applyModificacion(live)) for adición, cronograma and entregables", async () => {
     const r = await runAndRollback(async (tx) => {
       const f = await enEjecucion(tx)

@@ -86,7 +86,7 @@ const ProjectStateConflictSchema = registry.register(
   "ProjectStateConflict",
   z.object({
     error: z.string().openapi({
-      example: "Solo se pueden editar los datos generales de un proyecto en Borrador.",
+      example: "Los datos generales solo se pueden editar en Borrador o en Ejecución.",
     }),
     code: z.literal("INVALID_STATE"),
   }),
@@ -298,11 +298,12 @@ registry.registerPath({
   method: "patch",
   path: "/api/v1/projects/{id}",
   tags: ["Projects"],
-  summary: "Edita los datos generales de un proyecto en Borrador (P06, solo ADM/GER)",
+  summary: "Edita los datos generales de un proyecto en Borrador o en Ejecución (P06, solo ADM/GER)",
   description:
     "Acepta `nombre`, `descripcion` (máx. 2000; vacío guarda null), `origen`, `fecha_inicio`, `fecha_fin`, `valor_total`, `beneficiarios_meta`, `responsable_id`, " +
     "`lineas` (reemplazo N..N, 1..n con exactamente una principal) y `municipio_ids` (reemplazo N..N). " +
-    "Fuera de `BORRADOR` responde 409 INVALID_STATE (código compartido del envelope). Las escrituras y las filas de auditoría van en una sola " +
+    "En `EN_EJECUCION` solo acepta `descripcion` y `beneficiarios_meta` (mayor que cero, no se puede vaciar): cualquier otro campo responde 409 INVALID_STATE, porque cambia la línea base y se pide como modificación. " +
+    "En cualquier otro estado responde 409 INVALID_STATE (código compartido del envelope). Las escrituras y las filas de auditoría van en una sola " +
     "transacción: una por campo cambiado, por línea y por municipio cambiados. `codigo`, `estado`, `miembro_ids` " +
     "(S2.6) y `diferencia_valor_oportunidad` (S2.4) se rechazan con 400. En un proyecto nacido de una oportunidad, " +
     "cambiar `valor_total` recalcula y audita `diferencia_valor_oportunidad`; la respuesta trae `alertas`.",
@@ -317,7 +318,7 @@ registry.registerPath({
       content: { "application/json": { schema: z.object({ proyecto: ProjectItemV2Schema }) } },
     },
     409: {
-      description: "El proyecto ya no está en Borrador (INVALID_STATE).",
+      description: "El estado del proyecto no permite editar eso (INVALID_STATE).",
       content: { "application/json": { schema: ProjectStateConflictSchema } },
     },
     ...standardErrorResponses([400, 401, 403, 404, 500]),
