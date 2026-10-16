@@ -5,9 +5,10 @@ Locator del plan: `odd/tasks/lanzamiento-v2-fin-de-semana.md` (tarea R8, ejecuci
 Este documento lo ejecuta el operador (el usuario) paso a paso, acompañado por Claude en la terminal. Cada paso trae el
 comando exacto, lo que se espera ver y qué hacer si falla.
 
-**Marca de verificación.** Un paso marcado con `⚠ verificar en el ensayo R4 (corrida 2)` no se pudo confirmar leyendo el
-código ni la documentación. Se prueba en el ensayo 2 antes del domingo; si algo no coincide, se corrige este runbook, no
-se improvisa durante el lanzamiento.
+**Marca de verificación.** El ensayo R4 (corrida 2, 2026-10-16, restauración limpia del dump de producción en
+PostgreSQL 17) confirmó casi todos los pasos. Los que siguen marcados con `⚠` **no se pudieron verificar**; cada marca
+dice por qué y qué hacer. Si algo no coincide el domingo, se detiene y se avisa a Claude: no se improvisa durante el
+lanzamiento.
 
 ## 0. Reglas que no se negocian
 
@@ -21,6 +22,12 @@ se improvisa durante el lanzamiento.
    silencio** las variables de entorno exportadas o en línea. Por eso Prisma y `tsx` se ejecutan con `node` directo:
    - Prisma: `node node_modules/prisma/build/index.js …`
    - tsx: `node node_modules/tsx/dist/cli.mjs …`
+
+   En el ensayo, Prisma se ejecutó así en WSL (`status`, `deploy` y `diff`) sin problemas. Los procesos que corren como
+   Windows (`next dev`, vitest, o cualquier `npx`) reciben variables solo si se reenvían con `WSLENV`, por ejemplo
+   `WSLENV=DATABASE_URL/u:DIRECT_URL/u`. Un `next dev` lanzado con `npx` de Windows solo es accesible desde WSL por la IP
+   de la puerta de enlace del host Windows (`ip route`), no por `localhost`. Para el lanzamiento nada de esto aplica: se
+   usa `node` directo.
 5. **Todos los comandos se ejecutan en la carpeta principal del repositorio**
    (`/mnt/c/Users/Adrian/Documents/MuttuHub-CRM`), en una **sola terminal WSL**, porque las variables exportadas viven
    solo en ese shell. Si cierras la terminal, repite el paso 3.2.
@@ -74,8 +81,8 @@ cuesta datos.
 - [ ] **Supabase → Database → Backups:** hay respaldo diario o PITR activo. Anota la hora del último respaldo.
 - [ ] **Supabase → Authentication → URL Configuration:** la URL de producción `/auth/confirm` está en la lista de
   redirecciones.
-- [ ] **Vercel → Settings → General:** anota la versión de Node. ⚠ verificar en el ensayo R4 (corrida 2) que `package.json`
-  y Next soportan esa versión (el build de Vercel lo dirá).
+- [ ] **Vercel → Settings → General:** anota la versión de Node. ⚠ Sigue sin verificarse: depende de leer el panel de Vercel
+  (lo hace el operador). Confirma que `package.json` y Next soportan esa versión; el build de Vercel lo dirá.
 - [ ] **Vercel → Settings → Environment Variables:** `ENABLE_DEV_ROUTES` **no** está en `true` (lo mejor es que no
   exista) en Production. Las 12 variables de `main` siguen siendo las mismas; v2 no agrega ninguna.
 - [ ] Vercel conserva el deploy actual de producción (será el destino del Instant Rollback). Anota su identificador.
@@ -173,11 +180,8 @@ node -p "process.platform"
 
 - Imprime `STOP` o el host es `127.0.0.1`/`localhost`: **detente.** El `.env` no es el de producción o el puerto es 6543.
   No sigas hasta corregirlo con Claude.
-- `node -p process.platform` imprime `win32`: el `node` es el de Windows y las variables podrían perderse.
-  ⚠ verificar en el ensayo R4 (corrida 2) con qué `node` se corre y si el motor de esquema de Prisma
-  (instalado desde Windows) arranca bajo WSL. Si no arranca, la alternativa es ejecutar los pasos 3.3 a 3.5 desde
-  **PowerShell de Windows** en la misma carpeta, con `$env:DIRECT_URL` y `$env:DATABASE_URL` definidos allí, y
-  `node node_modules/prisma/build/index.js …`. Decide esto con Claude **antes** del domingo, no durante.
+- `node -p process.platform` imprime `win32`: el `node` es el de Windows y las variables podrían perderse. **Detente** y
+  avisa a Claude. (En el ensayo, `node node_modules/prisma/build/index.js …` funcionó bajo WSL.)
 
 **Para guardar el host exacto que se usará en `s1-rubros` (paso 3.7):**
 
@@ -185,8 +189,9 @@ node -p "process.platform"
 export MIGRATE_V2_ALLOW_REMOTE_HOST="$HOST_ENV"
 ```
 
-> Mientras esta variable esté exportada, los scripts de `scripts/migrate-v2` aceptan ese host remoto. Se **borra** al
-> terminar (sección 6).
+> Mientras esta variable esté exportada, los scripts de `scripts/migrate-v2` aceptan ese host remoto. Debe ser el
+> **nombre de host a secas, sin puerto**. Si no coincide con el host de la conexión, la guarda rechaza la ejecución
+> **antes de conectarse**. Se **borra** al terminar (sección 6).
 
 ### 3.3 `migrate status` antes de migrar (comprobación de host real)
 
@@ -198,8 +203,8 @@ node node_modules/prisma/build/index.js migrate status
 
 - Una línea de datasource con el host `…pooler.supabase.com:5432`. **Confirma que es el host de producción** (no
   `127.0.0.1`). Si aparece `127.0.0.1`, **STOP**: las variables se perdieron.
-- El mensaje de que hay migraciones pendientes: **25** (la de adopción `20260930000000_v2_adopt_production_v1_shape`,
-  las 23 migraciones v2 y la de conciliación `20261016120000_v2_reconcile_adopted_v1_drift`).
+- **36** migraciones encontradas y **25** pendientes (la de adopción `20260930000000_v2_adopt_production_v1_shape`,
+  las 23 migraciones v2 y la de conciliación `20261016120000_v2_reconcile_adopted_v1_drift`). Así salió sobre la copia de producción.
 - Una advertencia por `20260918153200_tablero_seguimiento_social`: «applied to the database but missing from the local
   migrations directory» o equivalente. **Es la migración fantasma. Es esperado.**
 - Ninguna migración en estado fallido.
@@ -219,6 +224,7 @@ node node_modules/prisma/build/index.js migrate deploy
 ```
 
 **Se espera:** la lista de migraciones aplicadas en orden y, al final, «All migrations have been successfully applied».
+En el ensayo se aplicaron las **25** de una vez, sin pasos manuales previos.
 La adopción `20260930000000_v2_adopt_production_v1_shape` elimina las 6 tablas v1 vacías y los enums v1 (solo si están
 **vacías**; si alguna tuviera filas, aborta con un mensaje y no borra nada).
 
@@ -238,24 +244,34 @@ La adopción `20260930000000_v2_adopt_production_v1_shape` elimina las 6 tablas 
 node node_modules/prisma/build/index.js migrate status
 ```
 
-**Se espera:** «Database schema is up to date» (más la advertencia esperada de la migración fantasma).
+**Se espera:** «Database schema is up to date!» (más la advertencia esperada de la migración fantasma).
 
 **b) Diferencia entre el esquema y la base:**
 
 ```bash
-node node_modules/prisma/build/index.js migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+node node_modules/prisma/build/index.js migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script --exit-code
 echo "exit=$?"
 ```
 
-**Se espera:** «No difference detected» y `exit=0`.
+**Se espera:** `-- This is an empty migration.` y `exit=0`. (Banderas confirmadas para la versión instalada de Prisma.)
 
 - `exit=2` o diferencias listadas: **no avances.** Muestra la salida a Claude (el ensayo R4 esperaba cero diferencias; la
   migración de conciliación existe justo para esto).
-- ⚠ verificar en el ensayo R4 (corrida 2) que estas banderas de `migrate diff` son las de la versión instalada de Prisma.
-  Si la bandera no existe, Claude indicará el equivalente.
 
-**c) Consultas de conteo y forma.** Requiere `psql` (⚠ verificar en el ensayo R4 (corrida 2) que está instalado en WSL; si no,
-Claude propone otra vía):
+**c) Consultas de conteo y forma.** Requiere `psql`. ⚠ Sin verificar: en los ensayos `psql` se corrió **dentro del
+contenedor** de Postgres (`docker exec … psql`); que exista en el WSL del operador no se comprobó. Compruébalo antes del
+domingo:
+
+```bash
+command -v psql || echo "no hay psql"
+```
+
+Si no hay `psql`, usa un contenedor desechable (Docker Desktop ya debe estar arriba) o el editor SQL de Supabase. Para el
+contenedor, define esta función en el mismo shell y los comandos de abajo funcionan igual:
+
+```bash
+psql() { docker run --rm -i postgres:17 psql "$@"; }
+```
 
 ```bash
 psql "$DIRECT_URL" -X -A -t -c "SELECT count(*) FROM rubros;" \
@@ -263,15 +279,23 @@ psql "$DIRECT_URL" -X -A -t -c "SELECT count(*) FROM rubros;" \
   -c "SELECT string_agg(enumlabel, ',' ORDER BY enumsortorder) FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname='EstadoProyecto';" \
   -c "SELECT string_agg(enumlabel, ',' ORDER BY enumsortorder) FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname='TipoNotificacion';" \
   -c "SELECT to_regclass('public.metas') IS NULL AS metas_v1_eliminada, to_regclass('public.objetivos') IS NOT NULL AS objetivos_v2_existe;" \
+  -c "SELECT count(*) FROM pg_type WHERE typtype='e' AND typnamespace='public'::regnamespace;" \
+  -c "SELECT to_regtype('public.\"LineaEstrategica\"') IS NULL AS sin_linea, to_regtype('public.\"TipoSoporte\"') IS NULL AS sin_tipo_soporte;" \
+  -c "SELECT indexname FROM pg_indexes WHERE tablename='rubros' ORDER BY 1;" \
+  -c "SELECT conname FROM pg_constraint WHERE conrelid='public.lineas_presupuestales'::regclass AND contype='c';" \
   -c "SELECT count(*) FROM clientes;" -c "SELECT count(*) FROM oportunidades;" -c "SELECT count(*) FROM tareas;" -c "SELECT count(*) FROM auth.users;"
 ```
 
 **Se espera:**
 
-- `rubros`: **4** filas en total (las del dump del viernes), con **2** con código (R01 y R12, adoptadas) y los rubros
-  heredados sin código **suspendidos** (`activo = false`). ⚠ verificar en el ensayo R4 (corrida 2) los valores exactos de
-  activos y con código, y anotarlos aquí: `______`.
-- `EstadoProyecto` incluye `BORRADOR` (es el enum v2, no el v1).
+- `rubros`: **4** filas en total antes de `s1-rubros`, con la columna `codigo` y **sin** `deleted_at`; índices
+  `rubros_pkey` y `rubros_codigo_key`. ⚠ El ensayo no registró cuántas de las 4 tienen código ni cuántas están activas:
+  anota los valores que veas aquí antes de seguir: `______`.
+- Enums: solo los v2, **21** en total, y no existen `LineaEstrategica` ni `TipoSoporte` (`sin_linea = t`,
+  `sin_tipo_soporte = t`).
+- `EstadoProyecto` es exactamente `PLANIFICACION, BORRADOR, EN_EJECUCION, SUSPENDIDO, CERRADO, CANCELADO`.
+- `lineas_presupuestales`: la única restricción CHECK es `lineas_monto_no_negativo_ck` y la tabla **no** tiene
+  `deleted_at`.
 - `TipoNotificacion` incluye `SOBREGASTO_RUBRO` y `GASTO_RECHAZADO`.
 - `metas_v1_eliminada = t` y `objetivos_v2_existe = t`.
 - Conteos de `clientes`, `oportunidades`, `tareas` y `auth.users` **iguales** a los de antes de migrar (los mismos que
@@ -311,15 +335,20 @@ node node_modules/tsx/dist/cli.mjs scripts/migrate-v2/s1-rubros.ts --dry-run
   producción.** Copia el `plan-hash` completo (no lo recortes).
 - La tabla de conteos de `rubro`: **crea 13, actualiza 1, omite 1**, igual que en el ensayo. Si los números son
   distintos: **STOP** y avisa a Claude; el estado de producción no es el ensayado.
+- Sobre la copia de producción del ensayo el `plan-hash` fue
+  `1894d2b931019f4d46e0f0583ac61717c170cd0e823b2b30b55092c49ceb932f` (igual en dos restauraciones). **Se usa siempre el
+  hash que imprime el dry-run de producción el domingo**, no este. Si los rubros de producción cambiaron desde el
+  2026-10-16 09:20, el hash será distinto: es una señal de **STOP y avisar a Claude**, no de seguir.
 
 **Si falla:**
 
 - `Refusing to run against a non-local database` o `NonLocalDatabaseError`: el host exportado no es **exactamente** el de
   `DIRECT_URL`/`DATABASE_URL`, o `MIGRATE_V2_ALLOW_REMOTE_HOST` no está exportada. Revisa el paso 3.2. No cambies la
   guarda.
-- El host mostrado es `127.0.0.1`: las variables se perdieron al pasar por Windows (ver 3.2). ⚠ verificar en el ensayo R4
-  (corrida 2) el patrón exacto de reenvío de variables si se usara `npx`: `WSLENV=DATABASE_URL:DIRECT_URL:MIGRATE_V2_ALLOW_REMOTE_HOST/u npx tsx …`.
-  Con `node …/cli.mjs` directo no hace falta.
+- El host mostrado es `127.0.0.1`: las variables se perdieron al pasar por Windows (ver regla 4 y 3.2). Con
+  `node …/cli.mjs` directo no ocurre. Si alguna vez se usara `npx`, el reenvío sería
+  `WSLENV=DATABASE_URL/u:DIRECT_URL/u:MIGRATE_V2_ALLOW_REMOTE_HOST/u`. ⚠ Ese reenvío con `npx` no se ensayó contra
+  producción; no lo uses el domingo.
 
 **b) Aplicar** (solo si el dry-run coincide con el ensayo):
 
@@ -327,7 +356,8 @@ node node_modules/tsx/dist/cli.mjs scripts/migrate-v2/s1-rubros.ts --dry-run
 node node_modules/tsx/dist/cli.mjs scripts/migrate-v2/s1-rubros.ts --apply --expect-hash <PEGA_AQUÍ_EL_PLAN_HASH_COMPLETO>
 ```
 
-**Se espera:** «Applied N action(s) … lote s1-rubros-AAAAMMDD-HHMMSS». **Anota el `lote`**: lo necesita `--revert`.
+**Se espera:** «Applied N action(s) … lote s1-rubros-AAAAMMDD-HHMMSS». En el ensayo fueron **14 acciones**. **Anota el
+`lote`**: lo necesita `--revert`.
 
 **Si falla:** `Plan hash mismatch` significa que la base cambió entre el dry-run y el apply; **no se escribió nada**. Repite
 el dry-run y compara. Cualquier otro error: STOP y avisa a Claude.
@@ -338,7 +368,7 @@ el dry-run y compara. Cualquier otro error: STOP y avisa a Claude.
 psql "$DIRECT_URL" -X -A -t -c "SELECT count(*) FILTER (WHERE codigo IS NOT NULL AND activo) FROM rubros;"
 ```
 
-**Se espera:** `15` (R01 a R15 activos). ⚠ verificar en el ensayo R4 (corrida 2).
+**Se espera:** `15` (R01 a R15 activos). En el ensayo el resultado fue **17 rubros en total, 15 activos**.
 
 ### 3.8 Merge `feat/projects-v2` → `main`
 
@@ -379,6 +409,13 @@ encadenados» ya fue aceptada (G-1).
 Recorre la sección 4 completa sobre la URL de producción.
 
 ## 4. Checklist de humo v2
+
+**Sin sesión (verificado en el ensayo sobre la copia migrada, servidor de desarrollo).** Respuestas esperadas:
+`/login` 200; `/` y `/proyectos` 307 hacia el login; `/api/v1/projects` y `/api/v1/clients` 401; `/api/openapi` 200;
+el cron: `GET` 405, `POST` sin secreto 401, `POST` con secreto 200; `/api/v1/dev/reset-token` 404.
+
+**Con sesión: NO se verificó en el ensayo.** Todas las pantallas autenticadas de la lista siguiente se prueban por
+primera vez en producción, así que son parte obligatoria del humo posterior al despliegue.
 
 Marca cada punto. Usa dos roles al menos (administrador y un rol no gerencial) para comprobar los permisos.
 
@@ -449,10 +486,10 @@ según la sección 5.
 **Primera opción: PITR / restauración de Supabase** desde el panel (Database → Backups), al instante previo al paso 3.4.
 Es más segura que restaurar a mano. Apunta la hora exacta del paso 3.1.
 
-**Segunda opción: restaurar el dump** (se ensayó dos veces en un contenedor limpio; sobre producción hay que decidirlo
-**con Claude**, porque implica vaciar el esquema `public`). ⚠ verificar en el ensayo R4 (corrida 2) el procedimiento exacto
-sobre la base remota (sobre todo el vaciado del esquema y qué hacer con los esquemas `auth` y `storage`, que las
-migraciones no tocan).
+**Segunda opción (solo si PITR no sirve): restaurar el dump.** ⚠ **Sin verificar sobre producción.** En el ensayo solo
+se restauró en un contenedor limpio, y aun así hubo que filtrar algunas tablas de `auth.*` y `storage.*` porque las
+imágenes locales son más antiguas que las de producción. El vaciado de `public` sobre la base remota y qué hacer con los
+esquemas `auth` y `storage` (que las migraciones no tocan) no se ensayaron: se decide **con Claude**, nunca solo.
 
 Orden obligatorio: **roles → esquema → datos.** El archivo `data.sql` empieza con
 `SET session_replication_role = replica`, que desactiva los disparadores y las comprobaciones de FK durante la carga; por
