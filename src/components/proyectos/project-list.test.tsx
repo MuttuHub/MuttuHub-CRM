@@ -272,6 +272,11 @@ vi.mock("@/hooks/crm", async (importOriginal) => {
 
 vi.mock("@/hooks/kanban", () => ({
   useCurrentUser: (...args: Parameters<typeof useCurrentUserMock>) => useCurrentUserMock(...args),
+  useClientOptions: () => ({
+    data: [{ id: "c1", nombre: "Alcaldía de Barranquilla" }],
+    isLoading: false,
+    isError: false,
+  }),
 }))
 
 const EMPTY: ProjectListResponse = { proyectos: [] }
@@ -640,9 +645,9 @@ describe("ProjectList", () => {
     await selectEstado("En ejecución")
 
     expect(screen.getByText("Aún no tienes proyectos visibles")).toBeInTheDocument()
-    expect(screen.queryByText("No encontramos proyectos con este estado")).not.toBeInTheDocument()
+    expect(screen.queryByText("No encontramos proyectos con estos filtros")).not.toBeInTheDocument()
     // Menciona el filtro activo, pero nunca que existan proyectos.
-    expect(screen.getByText(/El filtro por estado sigue activo/)).toBeInTheDocument()
+    expect(screen.getByText(/Algún filtro sigue activo/)).toBeInTheDocument()
   })
 
   it("stays neutral instead of the filter copy while the role is unknown and a filter is active", async () => {
@@ -653,7 +658,7 @@ describe("ProjectList", () => {
     await selectEstado("En ejecución")
 
     expect(screen.getByText("No hay proyectos para mostrar")).toBeInTheDocument()
-    expect(screen.queryByText("No encontramos proyectos con este estado")).not.toBeInTheDocument()
+    expect(screen.queryByText("No encontramos proyectos con estos filtros")).not.toBeInTheDocument()
   })
 
   it("renders a project whose date arrives as a Date object without crashing", () => {
@@ -699,11 +704,44 @@ describe("ProjectList", () => {
 
     expect(useProjectsMock).toHaveBeenLastCalledWith({ estado: "EN_EJECUCION" })
     rerender(<ProjectList />)
-    expect(screen.getByText("No encontramos proyectos con este estado")).toBeInTheDocument()
+    expect(screen.getByText("No encontramos proyectos con estos filtros")).toBeInTheDocument()
     // Con visibilidad de portafolio el filtro es la causa real: nunca el texto
     // de permisos.
     expect(screen.queryByText("Aún no tienes proyectos visibles")).not.toBeInTheDocument()
     expect(screen.queryByText("No hay proyectos para mostrar")).not.toBeInTheDocument()
+  })
+
+  // Carril Y · Y1 (RF-31): los cuatro filtros nuevos viajan a la lista y al portafolio, y se limpian de
+  // una sola vez. El texto del vacío habla de «estos filtros», no solo del estado.
+  describe("portfolio filters (Y1)", () => {
+    it("passes the client filter to the list and the portfolio, and clears everything with one click", async () => {
+      const user = userEvent.setup()
+      projectsQuery.data = { proyectos: [PROYECTO] }
+      render(<ProjectList />)
+
+      await user.click(screen.getByRole("combobox", { name: "Filtrar por cliente" }))
+      await user.click(await screen.findByRole("option", { name: "Alcaldía de Barranquilla" }))
+
+      expect(useProjectsMock).toHaveBeenLastCalledWith({ cliente_id: "c1" })
+      expect(useProjectsPortfolioMock).toHaveBeenLastCalledWith({ cliente_id: "c1" }, { enabled: true })
+
+      await user.click(screen.getByRole("button", { name: "Limpiar filtros" }))
+      expect(useProjectsMock).toHaveBeenLastCalledWith({})
+      expect(useProjectsPortfolioMock).toHaveBeenLastCalledWith({}, { enabled: true })
+    })
+
+    it("never filters the KPI row, even with a filter active", async () => {
+      const user = userEvent.setup()
+      projectsQuery.data = { proyectos: [PROYECTO] }
+      render(<ProjectList />)
+
+      await user.click(screen.getByRole("combobox", { name: "Filtrar por cliente" }))
+      await user.click(await screen.findByRole("option", { name: "Alcaldía de Barranquilla" }))
+
+      // La primera consulta del render es la fila de KPIs: siempre sin filtros.
+      expect(useProjectsMock.mock.calls[0]).toEqual([{}])
+      expect(useProjectsMock).toHaveBeenLastCalledWith({ cliente_id: "c1" })
+    })
   })
 
   it("shows the creation CTA to ADMINISTRADOR and GERENCIA", () => {

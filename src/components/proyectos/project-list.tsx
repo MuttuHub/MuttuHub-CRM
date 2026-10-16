@@ -24,13 +24,6 @@ import Link from "next/link";
 import { Eye, FolderKanban, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { buttonVariants } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useIsMobile } from "@/components/proyectos/capture-surface";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -44,6 +37,7 @@ import {
 } from "@/components/ui/table";
 import { ResponsableCell, ToneBadge } from "@/components/crm/shared";
 import { ExpenseValidationQueue } from "@/components/proyectos/expense-validation-queue";
+import { PortafolioFiltros, contarFiltros } from "@/components/proyectos/portafolio-filtros";
 import { PortafolioKpis } from "@/components/proyectos/portafolio-kpis";
 import {
   ESTADO_PROYECTO_META,
@@ -63,17 +57,6 @@ import {
 import { canCreateProject, canManageProjects, canViewPortfolio } from "@/lib/permissions";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { cn } from "@/lib/utils";
-import type { EstadoProyecto } from "@prisma/client";
-
-/** Orden de la lista del filtro: el mismo del enum `EstadoProyecto`. */
-const ESTADOS: EstadoProyecto[] = [
-  "PLANIFICACION",
-  "BORRADOR",
-  "EN_EJECUCION",
-  "SUSPENDIDO",
-  "CERRADO",
-  "CANCELADO",
-];
 
 const SIN_DATO = "—";
 
@@ -112,10 +95,9 @@ function territorio(proyecto: ProjectListRow): { municipios: string; linea: stri
 }
 
 export function ProjectList() {
-  const [estado, setEstado] = useState("");
-  // El diálogo se monta solo al abrir: así no se piden catálogos al cargar.
-  // El filtro viaja como query param: estado vacío = sin filtro.
-  const filters = useMemo<ProjectFilters>(() => (estado ? { estado } : {}), [estado]);
+  // Filtros del portafolio (RF-31): viajan como query params a la lista y al portafolio con las claves
+  // del hook. Un filtro vacío no agrega clave, así la clave de cache solo cambia cuando cambia algo.
+  const [filtros, setFiltros] = useState<ProjectFilters>({});
   const userQuery = useCurrentUser();
   const usuarioActual = userQuery.data;
   // Quién ve el portafolio: lo mismo que decide la pestaña Tablero. Es UX: la API aplica el alcance (403).
@@ -129,8 +111,8 @@ export function ProjectList() {
   // Los KPIs resumen todo el portafolio: consultas SIN filtro (con el filtro vacío son las mismas de la tabla).
   const kpiLista = useProjects({});
   const kpiPortafolio = useProjectsPortfolio({}, { enabled: puedeResumen });
-  const query = useProjects(filters);
-  const portafolioQuery = useProjectsPortfolio(filters, { enabled: puedeResumen });
+  const query = useProjects(filtros);
+  const portafolioQuery = useProjectsPortfolio(filtros, { enabled: puedeResumen });
 
   // Los 403 y los errores del servidor se avisan con toast, no con pantalla:
   // el listado no pierde su encabezado ni el filtro.
@@ -192,29 +174,7 @@ export function ProjectList() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-              Estado
-            </span>
-            <Select
-              value={estado}
-              onValueChange={(value) => setEstado(value === "todos" ? "" : (value ?? ""))}
-            >
-              <SelectTrigger
-                size="sm"
-                aria-label="Filtrar por estado"
-                className="w-[190px] px-3 text-base md:text-[13px]"
-              >
-                <SelectValue placeholder="Todos los estados" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos los estados</SelectItem>
-                {ESTADOS.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {ESTADO_PROYECTO_META[value].label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <PortafolioFiltros filtros={filtros} onChange={setFiltros} />
             {puedeCrear && (
               <Link href="/proyectos/nuevo" className={buttonVariants({ size: "lg" })}>
                 <Plus className="size-4" />
@@ -227,7 +187,7 @@ export function ProjectList() {
         {query.isError ? null : query.isLoading ? (
           <ProjectTableSkeleton />
         ) : proyectos.length === 0 ? (
-          <EmptyProjects estado={estado} puedeVerPortafolio={puedeVerPortafolio} />
+          <EmptyProjects hayFiltros={contarFiltros(filtros) > 0} puedeVerPortafolio={puedeVerPortafolio} />
         ) : (
           <ProjectTable filas={filas} cargando={cargandoPortafolio} />
         )}
@@ -447,35 +407,36 @@ function ProjectTableSkeleton() {
 
 /**
  * Cuatro mensajes para cuatro causas: el rol (que hoy puede ser la causa real
- * del vacío — REQ-ACC-02), la espera del rol, el filtro activo y el portafolio
+ * del vacío — REQ-ACC-02), la espera del rol, los filtros activos y el portafolio
  * de verdad vacío. El eje de rol gana sobre el filtro: para quien no ve el
  * portafolio, un filtro activo NO es prueba de que existan proyectos en otros
- * estados, así que ese texto nunca aparece.
+ * estados, así que ese texto nunca aparece. Desde Y1 el filtro no es solo el
+ * estado: el texto habla de «estos filtros».
  */
 function emptyCopy(
-  estado: string,
+  hayFiltros: boolean,
   puedeVerPortafolio: boolean | null,
 ): { title: string; body: string } {
   if (puedeVerPortafolio === false) {
     return {
       title: "Aún no tienes proyectos visibles",
-      body: estado
-        ? "El filtro por estado sigue activo, pero tu rol no ve el portafolio completo: hoy lo ven administración y gerencia, y tu acceso puede llegar por membresía a un proyecto."
+      body: hayFiltros
+        ? "Algún filtro sigue activo, pero tu rol no ve el portafolio completo: hoy lo ven administración y gerencia, y tu acceso puede llegar por membresía a un proyecto."
         : "Hoy el portafolio lo ven administración y gerencia; tu acceso puede llegar por membresía a un proyecto.",
     };
   }
   if (puedeVerPortafolio === null) {
     return {
       title: "No hay proyectos para mostrar",
-      body: estado
-        ? "El filtro por estado sigue activo, pero puede que todavía no exista ningún proyecto o que tu rol no vea el portafolio completo."
+      body: hayFiltros
+        ? "Hay filtros activos, pero puede que todavía no exista ningún proyecto o que tu rol no vea el portafolio completo."
         : "Puede que todavía no exista ninguno o que tu rol no vea el portafolio completo.",
     };
   }
-  if (estado) {
+  if (hayFiltros) {
     return {
-      title: "No encontramos proyectos con este estado",
-      body: "Prueba con otro estado o vuelve a «Todos los estados» para ver el portafolio completo.",
+      title: "No encontramos proyectos con estos filtros",
+      body: "Prueba con otros filtros o límpialos para ver el portafolio completo.",
     };
   }
   return {
@@ -485,13 +446,13 @@ function emptyCopy(
 }
 
 function EmptyProjects({
-  estado,
+  hayFiltros,
   puedeVerPortafolio,
 }: {
-  estado: string;
+  hayFiltros: boolean;
   puedeVerPortafolio: boolean | null;
 }) {
-  const { title, body } = emptyCopy(estado, puedeVerPortafolio);
+  const { title, body } = emptyCopy(hayFiltros, puedeVerPortafolio);
 
   return (
     <EmptyState

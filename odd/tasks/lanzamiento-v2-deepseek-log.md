@@ -169,3 +169,40 @@ este log. Para integrar (U8) basta montar `FichaFinanzas`, `FichaDocumentos` y `
 Sin migraciones, sin dependencias nuevas y sin cambios fuera de la superficie del carril.
 
 LISTO PARA INTEGRAR: TODO
+
+---
+
+# Lote 2
+
+Rama: `feat/deepseek-lote-2` · Worktree: `../MuttuHub-CRM-worktrees/ficha-ux`. Superficie del lote: filtros del
+portafolio (`project-list*`, `portafolio-filtros*`), Clientes (`clientes-subnav*`, las páginas de Oportunidades y Mapa,
+`client-sheet*` y `client-form*`) y este log. Mismas verificaciones por tarea: (1) `TZ=America/Bogota npx vitest run`
+sobre las rutas del lote, (2) `npx tsc --noEmit`, (3) `npx eslint` sobre los archivos tocados. Misma convención de
+hash: el hash anotado es el del commit antes del `--amend` final que incrusta el texto.
+
+## Y1 · Filtros del portafolio (RF-31)
+
+- Commit: `b55704c` — `feat(proyectos): filter the portfolio by client, line, municipality and owner`
+- Archivos tocados:
+  - `src/components/proyectos/portafolio-filtros.tsx` — **nuevo**. Barra controlada con cinco filtros (estado,
+    cliente, línea estratégica, municipio y responsable); los catálogos salen de `useClientOptions`,
+    `useStrategicLines`, `useMunicipalities` y `useUsers`; emite el set completo omitiendo claves vacías;
+    «Limpiar filtros» solo con algún filtro activo; en móvil un plegable «Filtros (n)» y de `sm` en adelante la
+    fila a la vista.
+  - `src/components/proyectos/project-list.tsx` — el estado de filtros pasa a un solo `ProjectFilters` que va a
+    `useProjects` y a `useProjectsPortfolio`; el select de estado se muda a `PortafolioFiltros`; el texto del vacío
+    habla de «estos filtros» (antes solo del estado). `kpiLista = useProjects({})` queda intacto.
+  - `src/components/proyectos/portafolio-filtros.test.tsx` — **nuevo**. Cinco pruebas: selects y catálogos, set
+    completo sin claves vacías, etiquetas seleccionadas, limpiar y plegable con conteo.
+  - `src/components/proyectos/project-list.test.tsx` — integración de los cuatro filtros nuevos (lista y
+    portafolio), el botón de limpiar y el invariante de la fila de KPIs sin filtro; textos del vacío actualizados.
+- Verificaciones:
+  1. `TZ=America/Bogota npx vitest run src/components/proyectos/project-list src/components/proyectos/portafolio-filtros
+     src/components/crm "src/app/(app)/clientes"` → 15 archivos, 200 pruebas, **verde**. Extra: guardas de código
+     (`surface`, `control`, `design`, `table`, `a11y`, `responsive`) → 6 archivos, 30 pruebas, verde.
+  2. `npx tsc --noEmit` → **sin errores**.
+  3. `npx eslint` sobre los cuatro archivos → **sin avisos**.
+- PEDIDO A CLAUDE: ninguno. Nota: `ESTADOS` (orden del enum) se movió a `portafolio-filtros.tsx`.
+- PREGUNTA: ninguna.
+
+LISTO PARA INTEGRAR: Y1
