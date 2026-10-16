@@ -311,6 +311,15 @@ El prompt completo está en `odd/tasks/lanzamiento-v2-deepseek-prompt.md`.
 - [x] **X6** `FichaHistorial`, con selector Modificaciones · Versiones · Auditoría. Compone `ProjectModificaciones`,
   `ProjectVersiones` y `ProjectHistorial`. Tamaño S. Evidencia: `a81a4ba`, integrado en `345987b` y montado en `8e61954`.
 
+### Carril Y: lote 2 de DeepSeek
+
+El prompt está en `odd/tasks/lanzamiento-v2-deepseek-prompt-2.md`. DeepSeek trabaja en la rama `feat/deepseek-lote-2`,
+creada desde `feat/projects-v2` después de integrar X6. Estas tareas reemplazan F3, F6 y F10 del carril F.
+
+- [ ] **Y1** (F3) Filtros del portafolio: cliente, línea, municipio y responsable.
+- [ ] **Y2** (F6) Fecha de primer contacto en formato legible.
+- [ ] **Y3** (F10) Ocultar las pestañas Oportunidades y Mapa de Clientes, y redirigir sus rutas a `/clientes`.
+
 ## Calendario
 
 | Día | Claude | DeepSeek | Usuario |
