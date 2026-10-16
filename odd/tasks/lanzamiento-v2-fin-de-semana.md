@@ -136,7 +136,7 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
   `TipoNotificacion.GASTO_RECHAZADO` en una migración aparte si M7 la aprueba, porque `ADD VALUE` no comparte
   transacción. Ruta D. Plazo: viernes 12:00.
   Evidencia: `b7d8ab7`. Dos migraciones aditivas e idempotentes aplicadas a la base local (127.0.0.1:54322): `20261014120000_v2_proyecto_descripcion` (`ADD COLUMN IF NOT EXISTS "descripcion" TEXT`) y `20261014130000_v2_notificacion_gasto_rechazado_enum` (`ADD VALUE IF NOT EXISTS 'GASTO_RECHAZADO'`, sola en su migración). `migrate diff` sin diferencias; invariantes de prisma: 30 archivos, 214 pruebas en verde.
-- [ ] **R4** Ensayo 1. Pasos:
+- [x] **R4** Ensayo 1. Pasos:
   1. Restaurar el dump de producción en el contenedor `postgres` de 54330.
   2. Correr `prisma migrate status`, que debe coincidir con `main`.
   3. Correr `prisma migrate deploy` y los invariantes.
@@ -199,7 +199,20 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
   - `migrate diff` está vacío.
   - `prisma` en secuencia: 228/228. `scripts/migrate-v2`: 37/37.
 
-  La corrida 2 de R4 sobre la copia de producción está en curso.
+  Corrida 2 de R4 (2026-10-16, restauración limpia del dump de las 09:20, migraciones de `51058ff`): **GO**.
+  - `migrate status`: 25 pendientes; el fantasma aparece como «not found locally».
+  - `migrate deploy` **sin pasos manuales**: las 25 aplicadas.
+  - `migrate diff --exit-code` vacío y status al día.
+  - Solo hay enums v2. `rubros` no tiene `rubros_nombre_key` ni `deleted_at`, y `lineas_presupuestales` tiene un único
+    CHECK `_ck`.
+  - `s1-rubros`: el dry-run crea 13, actualiza 1 y omite 1, con hash `1894d2b9…932f`, idéntico al de la corrida 1. El
+    apply con `--expect-hash` hizo 14 acciones y dejó 17 rubros, 15 activos.
+  - La guarda rechaza un host remoto distinto antes de conectarse.
+  - Invariantes contra la copia: 228/228.
+  - Humo sin sesión, en `next dev` 3005 contra la copia: login 200, rutas protegidas 307/401, cron con secreto 200 y
+    sin secreto 401, rutas dev 404.
+  - **No verificado:** páginas con sesión iniciada, porque falta un Auth local enlazado. Queda para el humo del
+    navegador y R7.
 - [x] **R5** Checklist de infraestructura: variables de entorno nuevas de v2, buckets de Storage, cron y alcance de las
   variables en Vercel. Ruta D. Resultado (2026-10-15, explorador de solo lectura sobre `main..HEAD`):
   - **Variables:** son las mismas 12 en `main` y en HEAD; no hay ninguna nueva. `ENABLE_DEV_ROUTES` no debe estar en
