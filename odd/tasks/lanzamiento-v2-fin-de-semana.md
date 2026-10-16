@@ -108,7 +108,7 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
 
 ### Carril R: lanzamiento (Claude)
 
-- [ ] **R1** Base en verde sobre `feat/projects-v2`: `npx tsc --noEmit`, `TZ=America/Bogota npx vitest run` y
+- [x] **R1** Base en verde sobre `feat/projects-v2`: `npx tsc --noEmit`, `TZ=America/Bogota npx vitest run` y
   `npm run build`. Ruta D (ejecución). Aceptación: los tres en verde, con el resultado anotado aquí.
   - Corrida 1 (2026-10-15, sobre `8be1e13`):
     - `tsc`: exit 0.
@@ -125,6 +125,11 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
       no traen `valor_total` desde F5. Se corrige en R1c.
   - Red: `git ls-remote` y `git push --dry-run` funcionan desde la red actual. `origin/feat/projects-v2` está en
     `42b8da0`.
+  - Corrida 3 (2026-10-16, sobre `fa99572`, con todo lo del viernes integrado): **verde**.
+    - `vitest` sin `prisma`: 334 archivos y 3858/3858 pruebas.
+    - Invariantes `prisma` en secuencia contra 54322: 31 archivos y 228/228.
+    - `tsc` y `eslint --quiet` en exit 0.
+    - `build` sigue bloqueado en local por Fortinet; el build real es el de Vercel.
 - [x] **R1c** Ajustar los datos de prueba de las invariantes a F4/F5 (`valor_total > 0`, inicio < fin) y correr todas
   las invariantes en secuencia. Ruta D.
   - Evidencia: commit `547392b`. Se agregó `valor_total: 1000000` a 6 payloads de `proyecto-create-flow`; el caso de
