@@ -516,6 +516,31 @@ General, porque usa `formatFecha`. Parece venir de Y2.
 - [ ] **ZF** Verificar y corregir las altas y medias de Z1–Z5, más las bajas triviales, en el worktree
   `fix/z-review-findings`. El hallazgo de `salud-vista` espera a R6d. Ruta D (test-first).
 
+### Carril W: lote 4 de DeepSeek (revisión de solo lectura de migraciones y runbook)
+
+El prompt está en `odd/tasks/lanzamiento-v2-deepseek-prompt-4.md`. Se integró con el merge `f0e6138`.
+
+- [x] **W1** Las dos migraciones nuevas: 3 hallazgos.
+  - La media es un **falso positivo**, verificado por Claude. El `RAISE` y los `DROP` están en el mismo bloque `DO`
+    (`20260930000000…/migration.sql:71-120`), que es una sola sentencia, así que un `RAISE` deshace los `DROP` del
+    bloque. Solo queda aplicado el renombre de FK del bloque anterior (P3009, sin pérdida de datos), y solo si las
+    tablas v1 reciben filas antes del lanzamiento.
+  - Las dos bajas son pruebas faltantes: la rama del enum en uso y algunas ramas del `RAISE`. Quedan como seguimiento.
+- [x] **W2** El runbook leído como operador: 6 hallazgos, confirmados.
+  - Alta: §5.3 restaura sobre producción, pero solo vacía `public`, y los `COPY` de `auth` (26) y `storage` (7)
+    chocan.
+  - Media: `psql` no existe en WSL y la función con docker no monta archivos y usa `postgres:17`, que no está local.
+  - Bajas: `BACKUP_DIR` sin asignar, dos placeholders `<…>` que fallan en `bash -n`, y la contraseña visible en el
+    argv de docker.
+- [ ] **R8b** Rehacer §5.3, la vuelta atrás con el dump: restaurar solo `public` y dejar `auth` y `storage` intactos.
+  Además:
+  - un `psql` con la imagen local `supabase/postgres:17.6.1.143`, el directorio montado en solo lectura y la URL por
+    el entorno;
+  - asignar `BACKUP_DIR` y quitar los placeholders;
+  - **ensayar la restauración encima** de una copia migrada en `muttu-rehearsal`.
+
+  Ruta D.
+
 ## Calendario
 
 | Día | Claude | DeepSeek | Usuario |
