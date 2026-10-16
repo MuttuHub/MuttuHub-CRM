@@ -370,7 +370,7 @@ La única falla, `src/test/selected-state-contrast.test.ts` («project-create-di
 de antes del merge. `79029fd` movió el formulario fuera de `project-create-dialog.tsx` y el regex de la guarda ya no
 encuentra nada. Se corrige en R1d.
 
-- [ ] **R1d** Apuntar la guarda `selected-state-contrast` al archivo que hoy tiene la píldora de origen. Ruta I.
+- [x] **R1d** Guarda `selected-state-contrast`: la píldora de origen ya no existe desde F8 (el origen lo decide la oportunidad elegida), así que el caso ahora exige que `project-create-form.tsx` no use `text-rose-700` fijo. 5/5 pruebas en verde. Ruta I.
 
 ### Carril Z: lote 3 de DeepSeek (revisión de solo lectura)
 

@@ -53,10 +53,8 @@ describe("selected origin pill contrast", () => {
 describe("selected origin classes use the theme-aware text token", () => {
   const src = (...p: string[]) => readFileSync(path.resolve(__dirname, "..", "components", ...p), "utf8")
 
-  it("project-create-dialog: the selected origin pill has no fixed text-rose-700", () => {
-    const pill = /origen === opcion\.value\s*\?\s*"([^"]*)"/.exec(src("proyectos", "project-create-form.tsx"))?.[1] ?? ""
-    expect(pill).toContain("text-accent-soft")
-    expect(pill).not.toContain("text-rose-700")
+  it("project-create-form: no fixed text-rose-700 (the origin pill was removed when the opportunity started deciding the origin)", () => {
+    expect(src("proyectos", "project-create-form.tsx")).not.toMatch(/text-rose-700/)
   })
 
   it("task-dialogs: the selected origin label has no fixed rose-700/400 text", () => {
