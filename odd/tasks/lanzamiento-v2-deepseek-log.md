@@ -378,3 +378,29 @@ Revisión de solo lectura terminada: Z1–Z5 verificados en el código, con `tsc
 - No se pudo navegar en el puerto 3001 (sin Supabase local); Z4 se verificó por clases, como permite el prompt. Sin commits de código y sin push.
 
 LISTO PARA INTEGRAR: TODO LOTE 3
+
+---
+
+# Lote 4 — revisión de migraciones y runbook (carril W)
+
+Rama: `feat/deepseek-revision-2`, creada desde `feat/projects-v2` (`b8cce20`) · Worktree: `../MuttuHub-CRM-worktrees/ficha-ux`. Sin commits de código: este lote solo escribe este log.
+
+Contexto leído: tareas R4 (corridas 1 y 2) y R4b del plan; las dos migraciones nuevas (`20260930000000_v2_adopt_production_v1_shape` y `20261016120000_v2_reconcile_adopted_v1_drift`); `prisma/v1-production-shape.invariant.test.ts`; `scripts/migrate-v2/_guard.ts`, `_harness.ts` y `s1-rubros.ts`; `prisma/local-env.ts` y `prisma.config.ts`; el runbook; el DDL v1 del commit `6e4c6c8`; `schema.prisma` y las migraciones v2 vecinas.
+
+Verificaciones del lote (sin conectarse a ninguna base ni leer el `.env`):
+- Marcadores de forma v1 contra la forma v2 real: `territorio` (no existe en `proyectos` v2), `concepto` (no en `gastos` v2), `meta_valor` (no en `indicadores` v2), `actividad_id` (no en `soportes_proyecto` v2), `meta_id`+`objetivo_id` (v2 tiene `objetivo_id` y no `meta_id`), `metas` (ninguna migración del repo la crea). Sin falsos positivos encontrados.
+- Orden de DROP del adopt: hijos antes que padres (`soportes_proyecto`→`gastos`→`indicadores`→`actividades`→`metas`→`proyectos`, y la FK de `lineas_presupuestales` a `proyectos` se quita antes). Sin bloqueos por FK en la forma real.
+- Enums: los tres v1 quedan sin uso tras los DROP; la rama «en uso» existe pero no se activa en ninguna de las dos formas conocidas.
+- `bash -n` sobre los 16 bloques bash del runbook (extraídos a `/tmp`): 14 en verde; 2 fallan solo por los placeholders `<…>` (ver W2-5).
+- Entorno del WSL del operador: `command -v` → `eza`, `rg`, `supabase` (v2.110.0), `docker`, `node` presentes; **`psql` ausente**. `docker images` → hay `public.ecr.aws/supabase/postgres:17.6.1.143` pero **no** `postgres:17`.
+- Dump del viernes (`~/muttu-backups/2026-10-16`, inspeccionado solo por metadatos y conteos, nunca por contenido de filas): `schema.sql` = 28 `CREATE TABLE` (todas de `public`, con `IF NOT EXISTS`) + extensiones; `data.sql` = 61 `COPY` (28 de `public`, 26 de `auth`, 7 de `storage`), con `session_replication_role = replica`.
+
+## W1 · Las dos migraciones nuevas
+
+| # | Gravedad | Archivo:línea | Problema | Consecuencia el domingo | Arreglo sugerido (una línea) |
+|---|---|---|---|---|---|
+| 1 | media | prisma/migrations/20260930000000_v2_adopt_production_v1_shape/migration.sql:107-119 · prisma/v1-production-shape.invariant.test.ts:36-50 | El RAISE «tabla v1 con filas» vive en el mismo bucle que los DROP: si la tabla con filas es tardía (p. ej. `proyectos`, ord 6), las cinco anteriores ya se borraron. En `migrate deploy` no hay transacción que lo revierta (el propio runbook 3.4 dice «deja la migración parcialmente aplicada»; R4 corrida 1 lo vivió como «a medias» + P3009). El arnés de la prueba envuelve siempre en una transacción y hace rollback, así que no puede observar ese estado | Con la forma real verificada no se activa (las 6 tablas tienen 0 filas), pero si se activara la base queda a medias y hay que saltar al respaldo sin que el mensaje del RAISE lo diga | Dos fases: recorrer las 6 tablas y validar filas primero; borrar solo si ninguna tiene filas |
+| 2 | baja | prisma/migrations/20260930000000_v2_adopt_production_v1_shape/migration.sql:138-154 vs prisma/migrations/20261006120000_v2_proyecto_general/migration.sql:25-30 · prisma/v1-production-shape.invariant.test.ts:289-300 | La rama que OMITE el DROP de un enum en uso no tiene ninguna prueba (la invariante solo cubre el caso «sin uso»). Si se activara, el enum v1 sobrevive; el `CREATE TYPE` v2 va guardado con `duplicate_object` (20261006120000:25-30), así que lo traga y la app recibe `EstadoProyecto` sin `BORRADOR` | Ninguna con la forma verificada (tras los DROP los tres enums quedan libres y el ensayo confirmó «solo enums v2»); el hueco es de la red de seguridad | Añadir a la invariante un caso con una tabla que use el enum y exigir que el DROP se omita (y el contraste con el enum v2 presente) |
+| 3 | baja | prisma/v1-production-shape.invariant.test.ts:270-300,346-367 · prisma/migrations/20260930000000_v2_adopt_production_v1_shape/migration.sql:37-39,97-102 | Diferencias de cobertura frente a lo que la migración hace: el RAISE se prueba solo con `proyectos` y `metas` (faltan `gastos`, `indicadores`, `soportes_proyecto`, `actividades`); no se prueba la exclusión por `v2_column` (actividades con `meta_id` y `objetivo_id`); no se prueba la rama sin `_prisma_migrations` (adopt:37-39); la conciliación solo prueba el RAISE de `rubros`, no el de `lineas_presupuestales` | Ninguna directa el domingo (el ensayo cubrió la forma real completa); son huecos de la red de seguridad que se cierran con el mismo patrón ya escrito | Añadir los 4-5 casos que faltan (mismo estilo, esquema desechable + rollback) |
+
+LISTO PARA INTEGRAR: W1
