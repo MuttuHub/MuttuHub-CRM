@@ -5,12 +5,14 @@
 // (RNF-04); `propio` marks the actor's own expenses, which they cannot validate.
 
 import { NextResponse } from "next/server";
+import type { EstadoProyecto } from "@prisma/client";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { apiError } from "@/lib/api/errors";
 import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/supabase/server";
 import { canManageProjects } from "@/lib/permissions";
 import { GASTO_FORBIDDEN_MESSAGE } from "@/lib/api/gastos";
+import { ESTADOS_PROYECTO_VALIDACION } from "@/lib/api/validacion-gastos";
 import { datosIncompletos } from "@/lib/proyectos/gastos";
 import { fromCents, toCents } from "@/lib/proyectos/money";
 import { isoDate } from "@/lib/proyectos/proyecto-general";
@@ -44,7 +46,7 @@ export const GET = withApiErrorHandling(
     }
 
     const rows = await db.gasto.findMany({
-      where: { estado, proyecto: { deleted_at: null } },
+      where: { estado, proyecto: { deleted_at: null, estado: { in: [...ESTADOS_PROYECTO_VALIDACION] as EstadoProyecto[] } } },
       select: {
         id: true,
         proyecto_id: true,
