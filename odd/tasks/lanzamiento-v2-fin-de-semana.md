@@ -245,6 +245,9 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
   - `.gt(0)` en el PATCH de `valor_total`.
 
   Ruta D (writer con test-first).
+  Evidencia: `7362e23`, `f8a181b`, `f8a871b` y `5ddfaf4`. Cada commit tiene su RED observado. `projects`, `users` y la
+  invariante `modificaciones`: 604/604 en secuencia. `tsc` y `eslint` limpios. El control del padre sobre `validate` y
+  `gasto-form` dio 36/36.
 - [ ] **R6d** Aplicar las decisiones P1, P2 y D1. Se escribe después de R6c, que es el mismo escritor, para no tener dos
   escritores a la vez. Ruta D (test-first).
 - [ ] **R7** Ensayo 2 con el código final, más el humo de la app sobre la copia. Ruta D.
