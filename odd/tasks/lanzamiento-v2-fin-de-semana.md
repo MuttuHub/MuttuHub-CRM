@@ -513,8 +513,29 @@ hallazgos: 1 alta, 25 medias y 27 bajas.
 La alta: con `puede_editar === false`, `client-sheet.tsx:559` muestra «—» en todos los campos de texto de la pestaña
 General, porque usa `formatFecha`. Parece venir de Y2.
 
-- [ ] **ZF** Verificar y corregir las altas y medias de Z1–Z5, más las bajas triviales, en el worktree
+- [x] **ZF** Verificar y corregir las altas y medias de Z1–Z5, más las bajas triviales, en el worktree
   `fix/z-review-findings`. El hallazgo de `salud-vista` espera a R6d. Ruta D (test-first).
+  Evidencia: 7 commits, de `f977b92` a `5ffe207`, integrados con el merge `fa99572`. De las 26 altas y medias:
+  - 17 quedaron corregidas, incluida la alta: la pestaña General en solo lectura ya muestra los valores.
+  - 2 quedaron parciales: Z2-1 y Z3-5.
+  - Ninguna fue falso positivo.
+
+  Verificación:
+  - RED observado en 26 pruebas.
+  - Los 16 archivos de prueba que cambiaron pasan 311/311.
+  - `tsc` y `eslint` limpios.
+  - Hubo dos ajustes de aserciones fuera de la superficie, en `client-sheet-write-gate.test.tsx` y
+    `project-create-form.test.tsx`. La prueba vieja pasaba gracias al bug.
+
+  **Pendientes después del lanzamiento:**
+  - Decisiones de producto sobre nombres, que cruzan `nav.ts`, kanban y otras zonas:
+    - Z1-3: Aliados o Clientes;
+    - Z1-4: Tarea o compromiso;
+    - Z1-5: Metas u objetivos.
+  - Z3-8: paginación, que necesita `take`/`skip` en la API.
+  - Z5-5: `salud-vista.test`.
+  - Las mitades fuera de la superficie de Z1-1, Z2-1, Z3-5 y Z5-3.
+  - Las bajas: Z1-6 a Z1-13, Z2-6 a Z2-10, Z3-9 a Z3-12, Z4-3 a Z4-6, y Z5-7, Z5-8, Z5-9 y Z5-11.
 
 ### Carril W: lote 4 de DeepSeek (revisión de solo lectura de migraciones y runbook)
 
