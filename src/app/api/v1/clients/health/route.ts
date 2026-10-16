@@ -1,7 +1,9 @@
 // GET /api/v1/clients/health — v7 alignment C5a "Salud" (client health).
 //
-// READ-ONLY global read: same scope as the client list (PR 3) — every signed-in
-// role sees every non-deleted client's score, no per-role `responsable` rewrite.
+// READ-ONLY: every signed-in role sees every non-deleted client's score, but the
+// Proyectos component is only computed for users who can read the project
+// portfolio (`canReadProjectList`); for everyone else `subscores.proyectos` is
+// null and the score is renormalised over Contacto and Compromisos.
 // The score itself is pure math (src/lib/clientes/salud.ts); this route only
 // assembles the inputs server-side:
 //   - Contacto   → days since the client's most recent BitacoraEntrada.
@@ -20,6 +22,7 @@ import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { getAlertBuckets } from "@/lib/alerts";
 import { getSemaforoParametrosV2 } from "@/lib/settings";
+import { canReadProjectList } from "@/lib/api/projects";
 import { loadKpisPortafolio } from "@/lib/api/kpis-portafolio";
 import { todayInBogota, toDayNumber } from "@/lib/proyectos/weeks";
 import type { ColorSemaforo } from "@/lib/proyectos/semaforo-v2";
@@ -75,6 +78,8 @@ export const GET = withApiErrorHandling(
     const auth = await requireApiUser();
     if (!auth.ok) return auth.response;
 
+    const verProyectos = canReadProjectList(auth.usuario);
+
     const [clientes, ultimasEntradas, buckets, proyectos, parametros] = await Promise.all([
       db.cliente.findMany({
         where: { deleted_at: null },
@@ -87,22 +92,28 @@ export const GET = withApiErrorHandling(
       }),
       // Global scope ("all"): the health panel is portfolio-wide, like the client list.
       getAlertBuckets("all", auth.usuario),
-      db.proyecto.findMany({
-        where: { deleted_at: null, estado: { notIn: ESTADOS_NO_VIVOS } },
-        select: {
-          id: true,
-          cliente_id: true,
-          estado: true,
-          fecha_inicio: true,
-          fecha_fin: true,
-          beneficiarios_meta: true,
-        },
-      }),
+      // Portfolio data only for users with portfolio read: otherwise the projects
+      // subscore (a derived view of other people's projects) stays hidden.
+      verProyectos
+        ? db.proyecto.findMany({
+            where: { deleted_at: null, estado: { notIn: ESTADOS_NO_VIVOS } },
+            select: {
+              id: true,
+              cliente_id: true,
+              estado: true,
+              fecha_inicio: true,
+              fecha_fin: true,
+              beneficiarios_meta: true,
+            },
+          })
+        : Promise.resolve([] as never[]),
       getSemaforoParametrosV2(),
     ]);
 
     // One batched KPI load for every live project (constant number of queries).
-    const kpis = await loadKpisPortafolio({ proyectos, corte: todayInBogota(), parametros });
+    const kpis = verProyectos
+      ? await loadKpisPortafolio({ proyectos, corte: todayInBogota(), parametros })
+      : null;
 
     const ultimaPorCliente = new Map<string, Date | null>();
     for (const row of ultimasEntradas) {
@@ -122,7 +133,7 @@ export const GET = withApiErrorHandling(
 
     const coloresPorCliente = new Map<string, ColorSemaforo[]>();
     for (const proyecto of proyectos) {
-      const color = kpis.get(proyecto.id)?.tecnico?.color;
+      const color = kpis?.get(proyecto.id)?.tecnico?.color;
       if (!color) continue;
       coloresPorCliente.set(proyecto.cliente_id, [
         ...(coloresPorCliente.get(proyecto.cliente_id) ?? []),
