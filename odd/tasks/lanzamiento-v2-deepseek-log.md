@@ -424,5 +424,6 @@ Revisión de solo lectura terminada. W1: la adopción está bien construida para
 
 - Comando de pánico ya presente en el runbook: 5.2 (árbol de decisión) y 5.3 (PITR primero) — correcto.
 - El ensayo R4 corrida 2 coincide punto por punto con lo que el runbook espera en 3.3, 3.5, 3.7 y la sección 4 (25 pendientes, hash `1894d2b9…932f`, 14 acciones, 17 rubros/15 activos, guarda que rechaza hosts). Sin incoherencias encontradas.
+- **Nota de base:** la revisión se hizo sobre `feat/projects-v2` en `b8cce20`. Después llegaron 5 commits del carril R6e (cola de validación, scope de feeds, plan) que **no tocan** `prisma/migrations/**`, `prisma/v1-production-shape.invariant.test.ts`, `scripts/migrate-v2/**` ni `docs/runbook-lanzamiento-v2.md`: las citas de este lote siguen vigentes.
 
 LISTO PARA INTEGRAR: TODO LOTE 4
