@@ -334,3 +334,16 @@ LISTO PARA INTEGRAR: Z2
 | 12 | baja | src/components/proyectos/project-financiero.tsx:238-241 | La frase de la barra redondea E/P a entero (`Math.round(ep_decimas/10)`) mientras la tabla y los KPI muestran un decimal | «Ejecutado … (56 %)» en la barra y «56,2 %» en la tabla, para el mismo dato | Usar `formatPercent` con `ep_decimas` en la frase |
 
 LISTO PARA INTEGRAR: Z3
+
+## Z4 · Ancho angosto (390 px)
+
+| # | Gravedad | Archivo:línea | Problema | Qué ve el usuario | Arreglo sugerido (una línea) |
+|---|---|---|---|---|---|
+| 1 | media | src/components/proyectos/project-ficha.tsx:92-99 | Las 5 pestañas (`flex-none px-3`, 15.5 px) suman más que el ancho útil de 390 px (~310) y el contenedor usa `overflow-x-auto` + `no-scrollbar`: «Documentos» e «Historial» quedan fuera de pantalla sin barra ni degradado que lo insinúe | Cree que la ficha tiene tres pestañas; las otras dos existen pero no hay pista visual | Copiar las máscaras de degradado de `client-sheet.tsx:183-184` o mostrar la barra de scroll |
+| 2 | media | src/components/proyectos/portafolio-kpis.tsx:82 | El valor de «Presupuesto activo» es `whitespace-nowrap` en un grid de 2 columnas (interior ~141 px) y sin `truncate`/`min-w-0`: un monto largo (`$ 999.999 M`, `$ 5.000.000 M`) no puede envolver ni recortarse y se sale del tile | El número se desborda del recuadro y arrastra el ancho de la página en móvil | Quitar `whitespace-nowrap` o añadir `truncate` + `title` con el monto completo |
+| 3 | baja | src/components/proyectos/ficha/actividades-tablero.tsx:119-120 | Kanban con `min-w-[44rem]` dentro de `overflow-x-auto`: en 390 px solo se ven 2 de 4 columnas y no hay indicador ni snap | El tablero parece tener dos columnas; no se descubre que hay más a la derecha | Carrusel con snap o segmentado de columna en móvil |
+| 4 | baja | src/components/proyectos/estructura-gantt.tsx:103-105 | La cabecera de semanas (`gantt-header`) no es `sticky` dentro del scroll horizontal de la propia Carta Gantt | Al desplazarse a la derecha se pierden las etiquetas de semana (S1…Sn) y las barras quedan sin referencia | `sticky top-0` en la cabecera (o agrupar por mes en móvil) |
+| 5 | baja | src/components/crm/client-list.tsx:783-810,1029 | La vista «Detalles» (9 columnas, `min-w-[880px]`) no se oculta en móvil, a diferencia de Tarjetas/Lista que sí tienen fallback; en 390 px solo queda scroll lateral dentro del contenedor de la tabla | Una tabla de 9 columnas apretada con scroll horizontal, sin la vista compacta que ofrecen las otras dos | Ocultar «Detalles» bajo `md` en el selector de vista |
+| 6 | baja | src/components/proyectos/ejecucion-avance.tsx:99-108 | La fila de avance no envuelve: el texto `% real · % plan` va con `shrink-0` junto a la barra | Con «100 % real · 100 % plan» la barra queda reducida al mínimo y la fila muy apretada | `flex-wrap` en la fila o mostrar solo el % real en móvil |
+
+LISTO PARA INTEGRAR: Z4
