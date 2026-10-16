@@ -146,6 +146,42 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
 
   Ruta D. Depende de que el usuario entregue el dump. Aceptación: todo termina sin error. Si no, es **no-go** hasta
   corregirlo.
+  - Corrida 1 (2026-10-16, dump de producción de las 09:20, contenedor `muttu-rehearsal`, `supabase/postgres:17.6.1.143`
+    en 54330): **NO-GO**.
+    - Restauración: `public` y `auth.users` completos. El dump tiene 15 usuarios, 21 clientes, 20 oportunidades, 123
+      tareas y 4 rubros. Hubo que filtrar algunas tablas de `auth.*` y `storage.*`, porque las imágenes locales de
+      gotrue y storage son más viejas que producción.
+    - Las 7 tablas v1 de proyectos existen con **0 filas**: `proyectos`, `metas`, `actividades`, `gastos`,
+      `indicadores`, `lineas_presupuestales` y `soportes_proyecto`. También existen los enums v1. `rubros` tiene 4
+      filas activas y ninguna línea ni gasto las referencia.
+    - `_prisma_migrations` tiene la migración fantasma `20260918153200_tablero_seguimiento_social`, que no está en el
+      repo. Ya renombró las FK `bitacora_entradas_oportunidad_id_cliente_id_fkey` y
+      `tareas_oportunidad_id_cliente_id_fkey`.
+    - Falla 1: `20260930181056_v2_auditoria_cambios`, porque el `RENAME CONSTRAINT bitacora_oportunidad_cliente_fkey`
+      no existe. Prisma deja la migración a medias y hay que hacer `migrate resolve`.
+    - Falla 2, con la anterior sorteada: `20261008121000_v2_actividades`, porque `objetivo_id` no existe.
+      `CREATE TABLE IF NOT EXISTS` no hace nada sobre la tabla v1. Lo mismo pasa en `20261008122000` y
+      `20261008140000`.
+    - Experimento D-10 en una copia aparte: con el DROP de las tablas v1 vacías y de sus enums, y las FK devueltas a su
+      nombre viejo, **las 23 migraciones aplican**.
+    - Después del deploy, `migrate diff` no queda vacío: sobran `rubros_nombre_key` y `deleted_at` en `rubros` y
+      `lineas_presupuestales`.
+    - Invariantes con `s1-rubros --apply` en la copia: 213/215. Las dos fallas son ese drift:
+      - `rubros_nombre_key`;
+      - el check `lineas_monto_no_negativo` en lugar de `lineas_monto_no_negativo_ck`.
+    - `s1-rubros --dry-run`: crea 13, actualiza 1 y omite 1. **Hace falta en producción**, y `_guard.ts` no lo permite.
+    - El humo de la app no se verificó: `node_modules` está instalado desde Windows y `npx` ignora el env en línea.
+    - La segunda restauración salió idéntica: el respaldo sirve.
+- [ ] **R4b** Hacer que las migraciones apliquen sobre la forma real de producción, sin editar migraciones ya aplicadas.
+  Ruta D (writer). Hay que:
+  1. Agregar una migración previa a `20260930181056` con guardas:
+     - si existen las FK con nombre del fantasma, devolverlas al nombre que espera v2;
+     - si una tabla de proyectos tiene la forma v1 (por ejemplo `actividades.meta_id`), hacer el DROP de las tablas v1
+       y de sus enums **solo si están vacías**; si no, `RAISE EXCEPTION`;
+     - en una base v2 no debe hacer nada.
+  2. Agregar una migración final que concilie el drift: `rubros_nombre_key`, los `deleted_at` y el nombre del check.
+  3. Dar a `s1-rubros` una vía explícita a producción: host exacto declarado y `--expect-hash`.
+  4. Repetir R4 desde una restauración limpia, con `migrate diff` vacío y las invariantes en verde.
 - [x] **R5** Checklist de infraestructura: variables de entorno nuevas de v2, buckets de Storage, cron y alcance de las
   variables en Vercel. Ruta D. Resultado (2026-10-15, explorador de solo lectura sobre `main..HEAD`):
   - **Variables:** son las mismas 12 en `main` y en HEAD; no hay ninguna nueva. `ENABLE_DEV_ROUTES` no debe estar en
