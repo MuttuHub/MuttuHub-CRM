@@ -765,6 +765,15 @@ describe("PATCH /api/v1/projects/:id", () => {
     expect(mocks.txUpdate).not.toHaveBeenCalled();
   });
 
+  it.each([[0], [-1], [null]])("rejects valor_total %j with 400 (PO-5: a project value is positive)", async (value) => {
+    const res = await PATCH(patchRequest({ valor_total: value }), routeContext);
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.code).toBe("VALIDATION_ERROR");
+    expect(mocks.txUpdate).not.toHaveBeenCalled();
+  });
+
   it("rejects an out-of-range beneficiarios_meta with 400 instead of a 500", async () => {
     const res = await PATCH(patchRequest({ beneficiarios_meta: 3_000_000_000 }), routeContext);
     const json = await res.json();

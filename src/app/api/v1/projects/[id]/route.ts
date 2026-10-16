@@ -93,9 +93,8 @@ export const PROJECT_PATCH_SCHEMA = z.object({
   // which would surface as a 500 instead of a 400.
   valor_total: z
     .number()
-    .min(0, "El valor total no puede ser negativo.")
+    .gt(0, "El valor total debe ser mayor que cero.")
     .max(9_999_999_999_999.99, "El valor total es demasiado alto.")
-    .nullable()
     .optional(),
   beneficiarios_meta: z
     .number()
@@ -253,10 +252,7 @@ export const PATCH = withApiErrorHandling(
     if (parsed.data.valor_total !== undefined) {
       // The column is Decimal(15,2); rounding here keeps the audited value
       // equal to the one the record ends up holding.
-      patch.valor_total =
-        parsed.data.valor_total === null
-          ? null
-          : new Prisma.Decimal(parsed.data.valor_total).toDecimalPlaces(2);
+      patch.valor_total = new Prisma.Decimal(parsed.data.valor_total).toDecimalPlaces(2);
     }
     // S2.4: only a project born from an opportunity has a reference value.
     // INDEPENDIENTE projects keep it null and never raise the alert.
