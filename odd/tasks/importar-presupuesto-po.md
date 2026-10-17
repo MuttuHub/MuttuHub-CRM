@@ -48,8 +48,10 @@ Decisions T4 and T6 from `lanzamiento-v2-fin-de-semana.md` (2026-10-17) apply:
 
 ## Tasks
 
-- [ ] **P1** Parser and matcher (pure, test-first): read the workbook and return rows `{ fila, rubroTexto,
+- [x] **P1** Parser and matcher (pure, test-first): read the workbook and return rows `{ fila, rubroTexto,
   rubroId | null, cents | null, error | null }` plus the file-level errors (missing sheet or headers).
+  Commit `2e436ac`. Route: delegated writer. RED: `vitest run src/lib/proyectos/presupuesto-po/parse.test.ts` failed
+  to resolve `./parse` (no tests ran). GREEN: 17/17 passed. `tsc`: no error in the P1 files; `eslint`: clean.
 - [ ] **P2** API: validate and apply endpoint for the project budget import, plus a GET for the blank template. Route
   tests cover roles, state, file guards, preview and apply, and the audit entries.
 - [ ] **P3** UI: «Importar presupuesto» in Finanzas → Presupuesto (BORRADOR, managers only), with the dialog flow
@@ -71,6 +73,16 @@ Each task: RED, then GREEN, then a work-unit commit, then evidence recorded here
 - 2026-10-17: document created; worktree from `feat/projects-v2` at `c6bd644`.
 - Route: delegated direct, one writer, because of the 2+ non-trivial files trigger.
 
+## Decisions taken while implementing
+
+- The import covers every ACTIVE rubro, like the manual `PUT /budget`: an active rubro missing from the file goes to
+  $0 (the preview shows it). Suspended rubros never match, so their lines stay as they are.
+- A null `valor_total` takes the sum on apply (N-17), exactly as the manual edit does.
+- Matching also accepts the rubro code (`R10`), and a `Total` row is skipped. Up to 100 data rows.
+- The PUT route and `src/lib/api/presupuesto.ts` are outside this feature's edit surface, so the writer
+  `src/lib/proyectos/presupuesto-po/server.ts` mirrors the PUT write instead of sharing it. Follow-up: extract a shared
+  writer once the surface allows it.
+
 ## Next step
 
-P1.
+P2.
