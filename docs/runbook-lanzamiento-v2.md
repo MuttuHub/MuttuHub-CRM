@@ -57,7 +57,7 @@ código**. La base se migra con la app vieja (`main`) todavía arriba, y luego s
 
 **Criterios de go / no-go (todos deben cumplirse antes de empezar).**
 
-- [ ] Ensayo R4, corrida 2, **verde**: las 25 migraciones aplican sobre la copia de producción, `migrate diff` vacío,
+- [ ] Ensayo R4, corrida 2, **verde**: las 26 migraciones aplican sobre la copia de producción, `migrate diff` vacío,
   invariantes en verde, `s1-rubros` con el mismo resultado que el que se espera en el paso 5.
 - [ ] R6b (revisión de entrega) sin hallazgos graves abiertos.
 - [ ] Suite completa y `tsc` en verde sobre el commit que se lanza. (El build local está bloqueado por Fortinet por
@@ -204,8 +204,9 @@ node node_modules/prisma/build/index.js migrate status
 
 - Una línea de datasource con el host `…pooler.supabase.com:5432`. **Confirma que es el host de producción** (no
   `127.0.0.1`). Si aparece `127.0.0.1`, **STOP**: las variables se perdieron.
-- **36** migraciones encontradas y **25** pendientes (la de adopción `20260930000000_v2_adopt_production_v1_shape`,
-  las 23 migraciones v2 y la de conciliación `20261016120000_v2_reconcile_adopted_v1_drift`). Así salió sobre la copia de producción.
+- **37** migraciones encontradas y **26** pendientes (la de adopción `20260930000000_v2_adopt_production_v1_shape`,
+  las 23 migraciones v2, la de conciliación `20261016120000_v2_reconcile_adopted_v1_drift` y la de documentos del
+  proyecto `20261017120000_v2_soportes_proyecto_origen`). Así debe salir sobre la copia de producción (ensayo R7).
 - Una advertencia por `20260918153200_tablero_seguimiento_social`: «applied to the database but missing from the local
   migrations directory» o equivalente. **Es la migración fantasma. Es esperado.**
 - Ninguna migración en estado fallido.
@@ -214,7 +215,7 @@ node node_modules/prisma/build/index.js migrate status
 
 - Host local o error de conexión: **STOP.** Revisa el paso 3.2.
 - Una migración «failed» o «P3009» ya presente antes de empezar: **STOP**, avisa a Claude. No se resuelve a ciegas.
-- El número de pendientes no es 25: **STOP**, avisa a Claude (el código no es el ensayado).
+- El número de pendientes no es 26: **STOP**, avisa a Claude (el código no es el ensayado).
 
 ### 3.4 `migrate deploy`
 
@@ -225,7 +226,7 @@ node node_modules/prisma/build/index.js migrate deploy
 ```
 
 **Se espera:** la lista de migraciones aplicadas en orden y, al final, «All migrations have been successfully applied».
-En el ensayo se aplicaron las **25** de una vez, sin pasos manuales previos.
+Se aplican las **26** de una vez, sin pasos manuales previos.
 La adopción `20260930000000_v2_adopt_production_v1_shape` elimina las 6 tablas v1 vacías y los enums v1 (solo si están
 **vacías**; si alguna tuviera filas, aborta con un mensaje y no borra nada).
 
@@ -588,7 +589,7 @@ pg -X -A -t -c "SELECT count(*) FROM pg_tables WHERE schemaname='public';" \
 
 **Se espera:** sin errores en los pasos 2, 3 y 4 (todo corre con `ON_ERROR_STOP=1` y en una transacción: si algo falla,
 no queda a medias). El paso 5 imprime `28`, `12` y los conteos del dump (el del viernes: 21 clientes, 20 oportunidades,
-123 tareas, 15 usuarios, 4 rubros, 15 `auth.users`). Después, `migrate status` vuelve a mostrar las **25** migraciones
+123 tareas, 15 usuarios, 4 rubros, 15 `auth.users`). Después, `migrate status` vuelve a mostrar las **26** migraciones
 pendientes y la advertencia esperada del fantasma, y las tablas v1 (`proyectos`, `metas`, `actividades`, `gastos`,
 `indicadores`, `lineas_presupuestales`, `soportes_proyecto`) vuelven a existir.
 
