@@ -32,7 +32,7 @@ import {
 } from "@/hooks/projects";
 import { useCurrentUser } from "@/hooks/kanban";
 import { toneFromSemaforo } from "@/lib/estado-tone";
-import { canManageProjects } from "@/lib/permissions";
+import { canApproveBaseline, canManageProjects } from "@/lib/permissions";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { cn } from "@/lib/utils";
 
@@ -218,6 +218,9 @@ function ProximosPasos({
   const objetivos = useProjectObjectives(proyecto.id);
   const actividades = useProjectActivities(proyecto.id);
   const presupuesto = useProjectBudget(proyecto.id);
+  // Z1-10: la pista nombra «Aprobar línea base» solo a quien de verdad ve ese botón en el encabezado.
+  const usuario = useCurrentUser().data;
+  const puedeAprobar = Boolean(usuario && canApproveBaseline({ id: usuario.id, rol: usuario.rol }));
 
   const datosListos =
     Boolean(proyecto.fecha_inicio) &&
@@ -249,7 +252,9 @@ function ProximosPasos({
       id: "linea-base",
       titulo: "Aprobar la línea base",
       hecho: false,
-      pista: "Cuando lo anterior esté listo, usa «Aprobar línea base» en el encabezado.",
+      pista: puedeAprobar
+        ? "Cuando lo anterior esté listo, usa «Aprobar línea base» en el encabezado."
+        : "Cuando lo anterior esté listo, pídele a Administración o Gerencia que apruebe la línea base.",
     },
   ];
 

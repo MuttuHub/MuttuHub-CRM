@@ -217,8 +217,20 @@ describe("FichaResumen", () => {
     await vi.waitFor(() => expect(screen.getByTestId("paso-estructura")).toHaveAttribute("data-hecho", "true"))
     await vi.waitFor(() => expect(screen.getByTestId("paso-presupuesto")).toHaveAttribute("data-hecho", "true"))
     expect(screen.getByTestId("paso-linea-base")).toHaveAttribute("data-hecho", "false")
-    expect(screen.getByTestId("paso-linea-base")).toHaveTextContent(/Aprobar línea base/)
+    // Z1-10: with an unknown user the header action is hidden, so the hint follows the role.
+    expect(screen.getByTestId("paso-linea-base")).toHaveTextContent(
+      /pídele a Administración o Gerencia que apruebe la línea base/,
+    )
     expect(screen.queryByRole("button", { name: /Aprobar línea base/ })).not.toBeInTheDocument()
+  })
+
+  it("points a manager at the header approval action in the draft checklist", async () => {
+    mockApi({ objetivos: [{ id: "o1" }], actividades: [{ id: "a1" }], suma: "1000.00", rol: "GERENCIA" })
+
+    renderResumen({ ...PROYECTO, estado: "BORRADOR" })
+
+    await screen.findByTestId("proximos-pasos")
+    expect(await screen.findByText(/usa «Aprobar línea base» en el encabezado/)).toBeInTheDocument()
   })
 
   it("flags pending steps, hints the Excel load and links them to their tab", async () => {

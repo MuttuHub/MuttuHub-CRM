@@ -1,5 +1,5 @@
 // Dashboard (Hito 6, PRD §7): contenedor con las 4 "caras" del dashboard,
-// barra de filtros comunes sticky (§7.2, presets de rango TODO: rango custom)
+// barra de filtros comunes sticky (§7.2, presets de rango; el rango custom queda pendiente)
 // y el botón "Generar reporte" que abre el PDF imprimible por cara con los
 // filtros aplicados. El estado de filtros vive aquí (useState) y se pasa a
 // cada cara; el remount por tab hace que las queries (key = filtros)

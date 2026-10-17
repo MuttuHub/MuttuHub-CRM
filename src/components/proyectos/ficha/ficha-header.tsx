@@ -81,7 +81,7 @@ export function FichaHeader({
               render={<a href={`/proyectos/${encodeURIComponent(proyecto.id)}/imprimir`} target="_blank" rel="noopener noreferrer" />}
             >
               <Printer strokeWidth={1.8} />
-              Imprimir / PDF
+              Imprimir / Guardar PDF
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

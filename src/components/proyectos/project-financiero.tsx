@@ -95,7 +95,9 @@ function FinancieroContent({ proyecto, inicio, fin }: { proyecto: ProjectListRow
           <ChevronDown className={cn("size-3.5 transition-transform", opciones && "rotate-180")} aria-hidden />
           Opciones avanzadas
         </Button>
-        {ficha && !ficha.parametros.confirmado && <ToneBadge tone="neutro" label="No confirmado" />}
+        {ficha && !ficha.parametros.confirmado && (
+          <ToneBadge tone="neutro" label="No confirmado" title="Umbrales sin confirmar" />
+        )}
         {filtros.length > 0 && (
           <span data-testid="financiero-filtros" className="flex items-center gap-1.5 text-[12px] text-ink-700">
             <span className="rounded-full border border-border bg-panel px-2.5 py-1">{filtros.join(" · ")}</span>

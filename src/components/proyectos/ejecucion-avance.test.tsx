@@ -135,6 +135,40 @@ describe("EjecucionAvance", () => {
     expect(barra.tagName).not.toBe("PROGRESS")
   })
 
+  it("shows the programmed percentage with the same term as the curve legend", () => {
+    render(
+      <EjecucionAvance
+        proyectoId="p1"
+        actividad={ACTIVIDAD}
+        canWrite={false}
+        canVoid={false}
+        tecnico={{ ...TECNICO, programado: 100 }}
+        entregables={[ENTREGABLE]}
+        progreso={new Map()}
+      />,
+      { wrapper: createWrapper() },
+    )
+
+    expect(screen.getByTestId("ejecucion-actividad")).toHaveTextContent("100 % real · 100 % programado")
+  })
+
+  it("labels an avance without a support file as 'Sin soporte', like the cronograma", () => {
+    render(
+      <EjecucionAvance
+        proyectoId="p1"
+        actividad={ACTIVIDAD}
+        canWrite={false}
+        canVoid={false}
+        tecnico={TECNICO}
+        entregables={[ENTREGABLE]}
+        progreso={new Map([["e1", { estado: "EN_EJECUCION", meta: "2.00", avances: [avance({ cuenta: false })] }]])}
+      />,
+      { wrapper: createWrapper() },
+    )
+
+    expect(screen.getByTestId("ejecucion-avance")).toHaveTextContent("Sin soporte")
+  })
+
   it("shows each deliverable's goal and counted quantity", () => {
     render(
       <EjecucionAvance

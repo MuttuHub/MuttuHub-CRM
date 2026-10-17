@@ -21,14 +21,18 @@ const TONE_BADGE: Record<UiTone, string> = {
 export function ToneBadge({
   tone,
   label,
+  title,
   className,
 }: {
   tone: UiTone;
   label: string;
+  /** Optional tooltip: the short label alone can be ambiguous (e.g. "No confirmado"). */
+  title?: string;
   className?: string;
 }) {
   return (
     <span
+      title={title}
       className={cn(
         "inline-flex h-[24px] items-center rounded-full px-2.5 text-[11px] font-bold whitespace-nowrap",
         TONE_BADGE[tone],

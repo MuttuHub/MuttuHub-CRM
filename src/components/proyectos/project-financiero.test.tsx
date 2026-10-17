@@ -145,7 +145,7 @@ describe("ProjectFinanciero", () => {
   it("shows the 'No confirmado' badge while the thresholds are unconfirmed", async () => {
     setup({ ficha: { ...FICHA, parametros: { tolerancia: 10, retraso: 70, confirmado: false } } })
 
-    expect(await screen.findByText("No confirmado")).toBeInTheDocument()
+    expect(await screen.findByText("No confirmado")).toHaveAttribute("title", "Umbrales sin confirmar")
   })
 
   it("does not show it once confirmed", async () => {

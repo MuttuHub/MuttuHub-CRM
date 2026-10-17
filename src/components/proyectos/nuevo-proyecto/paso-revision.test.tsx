@@ -1,7 +1,7 @@
 // Step 5 "Revisión": a read-only summary of what exists for the project (general data, counts of objetivos,
 // actividades, entregables and indicadores, Σ presupuesto vs valor total) plus the existing "Aprobar línea
 // base" action (stubbed here: it has its own suite and decides permissions and preconditions by itself) and
-// "Guardar borrador", which just opens the ficha because every step already persisted.
+// "Abrir la ficha", which only navigates because every step already persisted.
 
 import { render, screen, within } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -133,18 +133,18 @@ describe("PasoRevision", () => {
     expect(within(fila("Indicadores")).getByText("No se pudo cargar")).toBeInTheDocument()
   })
 
-  it("offers the existing approval action and a 'Guardar borrador' link to the ficha while in BORRADOR", () => {
+  it("offers the existing approval action and an 'Abrir la ficha' link while in BORRADOR", () => {
     render(<PasoRevision proyecto={PROYECTO} />)
 
     expect(screen.getByRole("button", { name: "Aprobar línea base" })).toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "Guardar borrador" })).toHaveAttribute("href", "/proyectos/p1")
+    expect(screen.getByRole("link", { name: "Abrir la ficha" })).toHaveAttribute("href", "/proyectos/p1")
   })
 
   it("once the baseline is approved, drops both actions and offers to open the project", () => {
     render(<PasoRevision proyecto={{ ...PROYECTO, estado: "EN_EJECUCION" }} />)
 
     expect(screen.queryByRole("button", { name: "Aprobar línea base" })).not.toBeInTheDocument()
-    expect(screen.queryByRole("link", { name: "Guardar borrador" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("link", { name: "Abrir la ficha" })).not.toBeInTheDocument()
     expect(screen.getByRole("status")).toHaveTextContent(/línea base aprobada/i)
     expect(screen.getByRole("link", { name: "Abrir proyecto" })).toHaveAttribute("href", "/proyectos/p1")
   })

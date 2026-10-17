@@ -171,7 +171,9 @@ export function ProjectList() {
             <span className="rounded-full bg-ink-100 px-2.5 py-1 text-[11.5px] font-bold text-ink-600">
               {conteo}
             </span>
-            {portafolio && !portafolio.confirmado && <ToneBadge tone="neutro" label="No confirmado" />}
+            {portafolio && !portafolio.confirmado && (
+              <ToneBadge tone="neutro" label="No confirmado" title="Umbrales sin confirmar" />
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">

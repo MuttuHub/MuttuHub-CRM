@@ -1,6 +1,6 @@
 // Step 5 "Revisión" of the new-project stepper: a read-only summary of what exists for the project plus the
 // two ways out. Everything captured in steps 1-4 is already persisted (each editor saves through its own
-// endpoint), so "Guardar borrador" only opens the ficha. "Aprobar línea base" is the existing control of the
+// endpoint), so "Abrir la ficha" only opens the ficha. "Aprobar línea base" is the existing control of the
 // ficha header, untouched: it decides by itself who sees it (`canApproveBaseline`, BORRADOR only), asks for
 // confirmation and lists, inline, the pending preconditions the API returns on a 409. This step never
 // re-implements those validations; it only counts what exists and points out a budget that does not add up.
@@ -75,7 +75,7 @@ export function PasoRevision({ proyecto }: { proyecto: ProjectListRow }) {
               href={`/proyectos/${proyecto.id}`}
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >
-              Guardar borrador
+              Abrir la ficha
             </Link>
           </div>
         </section>

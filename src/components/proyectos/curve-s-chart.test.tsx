@@ -49,6 +49,13 @@ describe("CurveSChart", () => {
     }
   });
 
+  it("names the planned series 'Programado', the same term as the metric and the activity rows", () => {
+    render(<CurveSChart curva={CURVA} />);
+    expect(screen.getByText("Programado")).toBeInTheDocument();
+    expect(screen.queryByText("Planeado")).not.toBeInTheDocument();
+    expect(screen.getByTestId("curve-s-tecnico-svg").getAttribute("aria-label")).toContain("programado");
+  });
+
   it("labels the SVG for assistive tech and draws with a shared 0..100 axis", () => {
     render(<CurveSChart curva={CURVA} />);
     expect(screen.getByTestId("curve-s-tecnico-svg")).toHaveAttribute(

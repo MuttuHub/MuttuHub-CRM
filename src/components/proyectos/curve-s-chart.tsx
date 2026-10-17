@@ -87,7 +87,7 @@ export function CurveSChart({ curva }: { curva: ProjectCurve | null }) {
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-ink-600">
             <span className="flex items-center gap-1.5">
               <span aria-hidden className="inline-block h-0.5 w-4 rounded-full bg-ink-300" />
-              Planeado
+              Programado
             </span>
             <span className="flex items-center gap-1.5">
               <span aria-hidden className="inline-block h-0.5 w-4 rounded-full bg-rose-500" />
@@ -102,7 +102,7 @@ export function CurveSChart({ curva }: { curva: ProjectCurve | null }) {
             <CurvaPanel
               panel="tecnico"
               titulo="Avance técnico"
-              ariaLabel={`Curva S técnica: avance planeado y ejecutado por mes, corte ${curva.corte}`}
+              ariaLabel={`Curva S técnica: avance programado y ejecutado por mes, corte ${curva.corte}`}
               puntos={puntos}
               valor={(p) => p.tecnico}
             />
@@ -220,10 +220,10 @@ function CurvaMensualTable({ puntos, corte }: { puntos: readonly ProjectCurvePoi
       <TableHeader>
         <TableRow>
           <TableHead>Periodo</TableHead>
-          <TableHead numeric>Téc. plan</TableHead>
+          <TableHead numeric>Téc. programado</TableHead>
           <TableHead numeric>Téc. ejec</TableHead>
           <TableHead numeric>Dif.</TableHead>
-          <TableHead numeric>Fin. plan</TableHead>
+          <TableHead numeric>Fin. programado</TableHead>
           <TableHead numeric>Fin. ejec</TableHead>
         </TableRow>
       </TableHeader>

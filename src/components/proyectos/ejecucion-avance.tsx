@@ -1,6 +1,6 @@
 // Progreso de una actividad dentro de "Ejecución técnica" (S4 U6/U7): barra de
 // avance, insignia de estado y, por cada entregable, meta, cantidad contada, el
-// contador de avances "pendiente de soporte", su historial de avances, el
+// contador de avances "sin soporte", su historial de avances, el
 // control de anulación (solo gestores) y el alta de un avance.
 
 "use client";
@@ -105,7 +105,7 @@ export function EjecucionAvance({
         <span className="shrink-0 text-[12px] text-ink-600 tabular-nums">
           {tecnico.programado === undefined
             ? `${formatNumero(tecnico.progreso)} %`
-            : `${formatNumero(tecnico.progreso)} % real · ${formatNumero(tecnico.programado)} % plan`}
+            : `${formatNumero(tecnico.progreso)} % real · ${formatNumero(tecnico.programado)} % programado`}
         </span>
       </div>
       {tecnico.dias !== undefined && (
@@ -248,7 +248,7 @@ function AvanceRow({
     ? { tone: "neutro" as const, label: "Anulado" }
     : avance.cuenta
       ? { tone: "exito" as const, label: "Cuenta" }
-      : { tone: "alerta" as const, label: "Pendiente de soporte" };
+      : { tone: "alerta" as const, label: "Sin soporte" };
 
   return (
     <li

@@ -504,7 +504,7 @@ describe("ProjectList", () => {
       projectsQuery.data = { proyectos: [PROYECTO] }
       portfolioQuery.data = portafolio([MEDIBLE], false)
       const { unmount } = render(<ProjectList />)
-      expect(screen.getByText("No confirmado")).toBeInTheDocument()
+      expect(screen.getByText("No confirmado")).toHaveAttribute("title", "Umbrales sin confirmar")
       unmount()
       portfolioQuery.data = portafolio([MEDIBLE], true)
       render(<ProjectList />)
