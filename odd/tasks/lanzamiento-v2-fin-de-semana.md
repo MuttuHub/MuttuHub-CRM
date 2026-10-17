@@ -720,6 +720,27 @@ Preguntas para la PO:
 
 Hay un paso intermedio sin migración: que la vista de presupuesto oculte los rubros en $0, con un interruptor.
 
+## Después del lanzamiento: v2 de MuttuHub (UI/UX, limpieza y VPS)
+
+Pedido del usuario del 2026-10-17. Son tres frentes:
+- simplificar la UI/UX del módulo de proyectos y del resto de MuttuHub;
+- limpiar el código;
+- migrar **todo** a un VPS con dominio propio.
+
+**Decisión:** el VPS incluye Supabase autoalojado con Docker (Postgres, Auth, Storage, `pg_cron` y `pg_net`), además de
+la app Next.js, que sale de Vercel. Antes de implementar hace falta un plan propio, que cubra:
+- el tamaño del VPS;
+- respaldos con PITR o dumps programados, probados con restauración;
+- actualizaciones y seguridad de la plataforma;
+- dominio, DNS y TLS;
+- la migración de los usuarios de Auth sin cambiar sus contraseñas;
+- la copia de los objetos de Storage;
+- los cron y el remitente de correo (Resend, con dominio propio verificado);
+- monitoreo;
+- un plan de vuelta atrás a Supabase Cloud.
+
+Va después del lanzamiento de v2 y de los pendientes de la PO.
+
 ## Después del lanzamiento: subir documentos generales del proyecto
 
 Hallazgo del recorrido manual del 2026-10-17; el usuario decidió dejarlo para después del lanzamiento.
