@@ -652,7 +652,41 @@ El prompt está en `odd/tasks/lanzamiento-v2-deepseek-prompt-4.md`. Se integró 
 
 ## Siguiente paso
 
-**Viernes 2026-10-16, primera tarea del usuario:** seguir `odd/tasks/lanzamiento-v2-pendientes-viernes.md` (dump de
-producción, recorrido de la ficha en el navegador y checklist de los paneles).
+**Sábado 2026-10-17:**
+- **Usuario, antes de las 12:00:**
+  - el recorrido en el navegador con `odd/tasks/prueba-manual-proyectos-v2.md`;
+  - el checklist de paneles de `lanzamiento-v2-pendientes-viernes.md` §3, que incluye `EMAIL_FROM` y PITR;
+  - la decisión G-2 (la ventana);
+  - autorizar el push de la rama.
+- **Claude:** triar los hallazgos del recorrido, y luego R6 (congelamiento y `v2.0.0-rc1`; el paso «merge de
+  `feat/ficha-v7-polish`» ya no aplica porque el carril D se canceló) y R7 (ensayo 2 con el rc1, idealmente con un
+  dump nuevo).
 
-Faltan G-1 (aceptación de la gerencia) y G-2 (ventana). Siguen R2 (el worktree de DeepSeek), R1 y U2.
+## Después del lanzamiento: importar las plantillas de la PO
+
+La PO envió `proyecto.xlsx` (hojas Modelo0/Ejemplo0 para objetivo, indicador y meta, y Modelo1/Ejemplo1 para
+objetivo, actividad, entregable y semanas de inicio y fin) y `presupuesto.xlsx` (rubro y valor), con una nota de voz.
+
+Análisis del 2026-10-16:
+- **El modelo de v2 ya soporta todo**, sin cambios de esquema:
+  - N indicadores por objetivo;
+  - una actividad con N entregables;
+  - semanas enteras, que se corresponden con `semana_inicio` y `semana_fin`;
+  - los 15 rubros, iguales al catálogo R01–R15.
+- **El importador actual no acepta el formato.** Las hojas y los encabezados son otros, y faltan códigos, cantidad,
+  unidad y medio.
+
+Decisiones (usuario, como vocero de la PO, 2026-10-17):
+
+| ID | Decisión |
+|---|---|
+| T1 | La plantilla del proyecto agrega columnas separadas para **cantidad**, **unidad** y **medio de verificación** de cada entregable; no se interpreta texto libre |
+| T2 | **Una fila por entregable**. Las filas con la misma actividad, dentro del mismo objetivo, se agrupan en una actividad con N entregables |
+| T3 | Los indicadores llevan una columna **«Unidad»** junto a «Resultados (meta)» |
+| T4 | El presupuesto trae solo **rubro y valor**. La programación mensual se hace en la pantalla. Los rubros se emparejan por nombre normalizado, sin tildes ni mayúsculas |
+| T5 | Los datos del proyecto (cliente, fechas, valor total) se cargan en el stepper; el Excel solo trae la estructura y el presupuesto |
+| T6 | Los códigos (O1, A1.1, E1.1.1, IND-01) los **genera el sistema** |
+
+Plan: un adaptador del formato de la PO al formato interno que reuse `importarPlantilla`, su validación y su vista previa
+(`dry_run`). Primero el de presupuesto (tamaño S) y después el de proyecto (tamaño M). También hay que preparar las
+plantillas actualizadas con las columnas nuevas para la PO. Va en su propio documento de feature cuando arranque.
