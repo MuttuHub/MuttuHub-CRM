@@ -79,7 +79,20 @@ Each task: RED, then GREEN, then a work-unit commit, then evidence here.
 ## Progress
 
 - 2026-10-17: document created; worktree from `feat/projects-v2` at `42fa9d2`. Route: delegated direct, one writer.
+- 2026-10-17: **BLOCKED before DOC1a RED.** The database refuses project-origin rows. CHECK
+  `soportes_proyecto_padre_check` is `num_nonnulls(avance_id, medicion_id, gasto_id) = 1`
+  (`prisma/migrations/20261010120000_v2_gastos_validacion/migration.sql:145-147`; no later migration changes it), and the
+  invariant test `prisma/gastos.invariant.test.ts:262` asserts that a soporte without any parent is rejected. A create
+  endpoint would fail on every insert. The «proyecto» branch of `GET /supports` is unreachable for the same reason.
+  Building the feature needs a migration that relaxes the CHECK to `<= 1`, plus an update to that invariant test, which
+  the constraints forbid. No source was written.
 
 ## Next step
 
-DOC1a.
+**Decision (user, 2026-10-17): allow the migration.** It is migration 26,
+`20261017120000_v2_soportes_proyecto_origen`, idempotent, relaxing the CHECK to
+`num_nonnulls(avance_id, medicion_id, gasto_id) <= 1`. A row with two or more parents is still rejected. The
+invariant tests change to accept a parentless row and still reject two parents. The launch runbook goes from 25 to 26
+pending migrations, and the R7 rehearsal on a production copy covers it.
+
+Next: DOC1a, starting with the migration and its invariant RED.
