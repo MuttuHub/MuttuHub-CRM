@@ -52,8 +52,13 @@ Decisions T4 and T6 from `lanzamiento-v2-fin-de-semana.md` (2026-10-17) apply:
   rubroId | null, cents | null, error | null }` plus the file-level errors (missing sheet or headers).
   Commit `2e436ac`. Route: delegated writer. RED: `vitest run src/lib/proyectos/presupuesto-po/parse.test.ts` failed
   to resolve `./parse` (no tests ran). GREEN: 17/17 passed. `tsc`: no error in the P1 files; `eslint`: clean.
-- [ ] **P2** API: validate and apply endpoint for the project budget import, plus a GET for the blank template. Route
+- [x] **P2** API: validate and apply endpoint for the project budget import, plus a GET for the blank template. Route
   tests cover roles, state, file guards, preview and apply, and the audit entries.
+  Commit `19fa1b6`. Route: delegated writer. `POST /api/v1/projects/:id/budget/import` and
+  `GET /api/v1/projects/:id/budget/template`, registered in `src/lib/openapi/paths/project-budget.ts`. RED: the 4 new test
+  files failed to resolve `./preview`, `./template` and `./route` (no tests ran). GREEN: `presupuesto-po` + `budget`
+  routes 5 files / 42 tests passed, plus the existing budget route 23/23 rerun alone (a worker-start timeout in the
+  combined run, not a test failure) and `src/lib/openapi` 27/27. `tsc`: no error outside the P3 drafts; `eslint`: clean.
 - [ ] **P3** UI: «Importar presupuesto» in Finanzas → Presupuesto (BORRADOR, managers only), with the dialog flow
   choose → validate → preview table with the differences and the warning → confirm, and «Descargar plantilla».
 - [ ] **P4** Verification: the full suites of the touched areas, `tsc` and `eslint`, plus a manual check with the
@@ -85,4 +90,4 @@ Each task: RED, then GREEN, then a work-unit commit, then evidence recorded here
 
 ## Next step
 
-P2.
+P3.
