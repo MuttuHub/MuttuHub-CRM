@@ -690,3 +690,10 @@ Decisiones (usuario, como vocero de la PO, 2026-10-17):
 Plan: un adaptador del formato de la PO al formato interno que reuse `importarPlantilla`, su validación y su vista previa
 (`dry_run`). Primero el de presupuesto (tamaño S) y después el de proyecto (tamaño M). También hay que preparar las
 plantillas actualizadas con las columnas nuevas para la PO. Va en su propio documento de feature cuando arranque.
+
+**Hallazgo (2026-10-17, prueba manual del usuario):** la importación exige el paquete completo. V-12
+(`validate.ts:945-969`) es un **error**: el presupuesto debe sumar exactamente el `valor_total`. V-13 exige además la
+programación mensual. Por eso **no se pueden cargar solo metas y actividades** en un proyecto nuevo sin presupuesto,
+que es justo el flujo que pide la PO: primero la estructura, después el presupuesto. Para el adaptador hay que decidir
+si la importación de estructura deja de exigir presupuesto, por ejemplo con un modo «solo estructura» que conserve el
+presupuesto existente.
