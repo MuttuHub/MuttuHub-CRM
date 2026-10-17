@@ -289,6 +289,7 @@ describe("ProjectPresupuesto", () => {
       expect(screen.queryByLabelText("Programado R01 nov 2026")).not.toBeInTheDocument()
       expect(screen.queryByRole("button", { name: "Guardar presupuesto" })).not.toBeInTheDocument()
       expect(screen.queryByRole("button", { name: "Igualar valor total a Σ A" })).not.toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: "Importar presupuesto" })).not.toBeInTheDocument()
     })
 
     it("are read-only once the project is out of BORRADOR, even for a manager", async () => {
@@ -298,6 +299,14 @@ describe("ProjectPresupuesto", () => {
       expect(screen.queryByLabelText("Asignado R01")).not.toBeInTheDocument()
       expect(screen.queryByRole("button", { name: "Guardar presupuesto" })).not.toBeInTheDocument()
       expect(screen.queryByRole("button", { name: "Guardar programación" })).not.toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: "Importar presupuesto" })).not.toBeInTheDocument()
+    })
+
+    it("offer «Importar presupuesto» to a manager while the project is in BORRADOR", async () => {
+      setup()
+
+      await screen.findByTestId("presupuesto-tabla")
+      expect(screen.getByRole("button", { name: "Importar presupuesto" })).toBeInTheDocument()
     })
   })
 })
