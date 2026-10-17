@@ -100,6 +100,7 @@ La integración es **progresiva y en un solo sentido**.
 | P1 | Feeds `GET /contacts` e `/interactions`: ¿globales o acotados? | ✅ 2026-10-16 | Acotados: los roles que no son ADMINISTRADOR ni GERENCIA ven solo los clientes de los que son responsables, igual que `loadClientScoped` en la ficha del cliente | R6d |
 | P2 | Sub-puntaje «proyectos» de `clients/health` para roles sin lectura del portafolio | ✅ 2026-10-16 | Se oculta (`proyectos: null`) y el puntaje total se calcula sin esa parte para quien no tiene `canReadProjectList` | R6d |
 | D1 | Validar, rechazar y anular gastos según el estado del proyecto | ✅ 2026-10-16 | Validar y rechazar exigen EN_EJECUCION o SUSPENDIDO. Anular se permite en cualquier estado, con motivo y auditoría | R6d |
+| DOC1 | Subir documentos generales del proyecto antes del lanzamiento | ✅ 2026-10-17 | Sí. Requiere la migración 26 (`20261017120000_v2_soportes_proyecto_origen`), que relaja `soportes_proyecto_padre_check` de `= 1` a `<= 1`. Con eso pasan a 26 las migraciones pendientes, el runbook se actualiza y R7 la ensaya | R7, R9 |
 
 ## Tareas
 
