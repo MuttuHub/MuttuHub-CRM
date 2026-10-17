@@ -245,6 +245,23 @@ it("shows the pagination footer and pages through results", () => {
     })
   })
 
+  it("names the four filter selects so choosing a value does not rename the field", async () => {
+    vi.useRealTimers()
+    render(<ClientList />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole("button", { name: /Filtros/ }))
+
+    expect(screen.getByRole("combobox", { name: "Tipo de cliente" })).toBeInTheDocument()
+    expect(screen.getByRole("combobox", { name: "Estado" })).toBeInTheDocument()
+    expect(screen.getByRole("combobox", { name: "Prioridad" })).toBeInTheDocument()
+    expect(screen.getByRole("combobox", { name: "Responsable" })).toBeInTheDocument()
+
+    // Z2-6: the accessible name must survive the value; the placeholder is not a name.
+    await user.click(screen.getByRole("combobox", { name: "Tipo de cliente" }))
+    await user.click(await screen.findByRole("option", { name: "Gobierno local" }))
+    expect(screen.getByRole("combobox", { name: "Tipo de cliente" })).toBeInTheDocument()
+  })
+
   it("keeps the debounce timer from leaking between tests", () => {
     render(<ClientList />)
     act(() => {

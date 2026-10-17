@@ -116,6 +116,15 @@ describe("ClientSheet — General tab inline editing (QA audit finding #3)", () 
     )
   })
 
+  it("offers the client print sheet as a real link, not a window.open button", () => {
+    renderSheet()
+    const enlace = screen.getByRole("link", { name: "Exportar PDF" })
+    expect(enlace).toHaveAttribute("href", "/print/clientes/c1")
+    expect(enlace).toHaveAttribute("target", "_blank")
+    expect(enlace.getAttribute("rel")).toMatch(/noopener/)
+    expect(enlace.getAttribute("rel")).toMatch(/noreferrer/)
+  })
+
   it.each(["COORDINADOR", "COLABORADOR"])("hides 'Crear proyecto' for a %s", (rol) => {
     useCurrentUserMock.mockReturnValue({ data: { id: "u1", nombre: "Ana", rol } })
     renderSheet()

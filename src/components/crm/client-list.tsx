@@ -612,7 +612,7 @@ function FiltersCard({
 
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Select value={draft.tipo} onValueChange={(v) => patchDraft({ tipo: v === "todos" ? "" : (v ?? "") })}>
-                <SelectTrigger className={cn(SELECT_CLASS)}>
+                <SelectTrigger aria-label="Tipo de cliente" className={cn(SELECT_CLASS)}>
                   <SelectValue placeholder="Tipo de cliente" />
                 </SelectTrigger>
                 <SelectContent>
@@ -626,7 +626,7 @@ function FiltersCard({
               </Select>
 
               <Select value={draft.estado} onValueChange={(v) => patchDraft({ estado: v === "todos" ? "" : (v ?? "") })}>
-                <SelectTrigger className={cn(SELECT_CLASS)}>
+                <SelectTrigger aria-label="Estado" className={cn(SELECT_CLASS)}>
                   <SelectValue placeholder="Estado" />
                 </SelectTrigger>
                 <SelectContent>
@@ -640,7 +640,7 @@ function FiltersCard({
               </Select>
 
               <Select value={draft.prioridad} onValueChange={(v) => patchDraft({ prioridad: v === "todos" ? "" : (v ?? "") })}>
-                <SelectTrigger className={cn(SELECT_CLASS)}>
+                <SelectTrigger aria-label="Prioridad" className={cn(SELECT_CLASS)}>
                   <SelectValue placeholder="Prioridad" />
                 </SelectTrigger>
                 <SelectContent>
@@ -657,7 +657,7 @@ function FiltersCard({
                 value={draft.responsable}
                 onValueChange={(v) => patchDraft({ responsable: v === "todos" ? "" : (v ?? "") })}
               >
-                <SelectTrigger className={cn(SELECT_CLASS)}>
+                <SelectTrigger aria-label="Responsable" className={cn(SELECT_CLASS)}>
                   <SelectValue placeholder={loadingUsers ? "Cargando…" : "Responsable"} />
                 </SelectTrigger>
                 <SelectContent>
