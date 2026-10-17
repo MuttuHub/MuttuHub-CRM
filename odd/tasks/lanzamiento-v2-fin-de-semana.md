@@ -697,3 +697,24 @@ programación mensual. Por eso **no se pueden cargar solo metas y actividades** 
 que es justo el flujo que pide la PO: primero la estructura, después el presupuesto. Para el adaptador hay que decidir
 si la importación de estructura deja de exigir presupuesto, por ejemplo con un modo «solo estructura» que conserve el
 presupuesto existente.
+
+## Después del lanzamiento: rubros editables por proyecto
+
+Es un pedido de la PO del 2026-10-17. El usuario decidió dejarlo para después del lanzamiento. Dentro de un proyecto se
+quiere:
+- **deshabilitar** los rubros que no se usan;
+- **agregar rubros personalizados**.
+
+Hoy el catálogo R01–R15 es global y fijo, sin alta (`src/components/admin/catalogos-v2-section.tsx:6`). El
+administrador solo puede renombrar o suspender rubros, y eso afecta a todos los proyectos. Dentro de un proyecto, un
+rubro sin uso queda en $0 y se sigue mostrando.
+
+El cambio requiere una migración, porque el rubro tendría que poder pertenecer a un proyecto, y toca presupuesto,
+modificaciones, importación, reportes y `s1-rubros`. Va junto al adaptador de plantillas.
+
+Preguntas para la PO:
+1. ¿El rubro personalizado existe solo en su proyecto o se suma al catálogo general?
+2. En los reportes de varios proyectos, ¿cómo se agrupan los rubros personalizados?
+3. ¿Qué pasa al deshabilitar en un proyecto un rubro que ya tiene gastos: se bloquea o solo se oculta?
+
+Hay un paso intermedio sin migración: que la vista de presupuesto oculte los rubros en $0, con un interruptor.
