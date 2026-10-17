@@ -718,3 +718,19 @@ Preguntas para la PO:
 3. ¿Qué pasa al deshabilitar en un proyecto un rubro que ya tiene gastos: se bloquea o solo se oculta?
 
 Hay un paso intermedio sin migración: que la vista de presupuesto oculte los rubros en $0, con un interruptor.
+
+## Después del lanzamiento: subir documentos generales del proyecto
+
+Hallazgo del recorrido manual del 2026-10-17; el usuario decidió dejarlo para después del lanzamiento.
+
+La pestaña Documentos (`ficha-documentos.tsx`) junta los soportes de avances, mediciones y gastos, y además tiene un
+grupo «Proyecto» para documentos generales: contrato, convenio, acta de inicio. El servidor ya soporta subirlos (el
+tipo `proyecto_soporte` en `src/lib/api/signed-upload.ts:19` y `src/lib/api/soportes.ts`), pero **ninguna pantalla lo
+usa**. Hoy ese grupo siempre queda vacío.
+
+Falta un botón «Subir documento» en la pestaña Documentos, con el permiso adecuado, sobre la API existente. No hace
+falta migración.
+
+Resultados del recorrido del 2026-10-17:
+- La importación de la plantilla de la PO en PRY-2026-005 funcionó: objetivos, Gantt y cronograma.
+- `/administracion` ya no muestra la pantalla negra.
