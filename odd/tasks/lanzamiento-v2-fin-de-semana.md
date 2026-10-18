@@ -701,6 +701,8 @@ El prompt está en `odd/tasks/lanzamiento-v2-deepseek-prompt-4.md`. Se integró 
 - Integrado al rc1: DOC1 (`e134f47`) y la suite e2e (`67e4939`, `f81ea50`). Fuera del rc1, como estaba previsto:
   `feat/po-presupuesto-import` (P4 manual pendiente) y `feat/deepseek-lote-5` (lote 5, post-lanzamiento).
 - Todos los worktrees quedaron limpios; sin push.
+- Plan de emergencia del push, el PR/CI y la ventana: `odd/tasks/plan-emergencia-lanzamiento-v2.md` (la vuelta atrás
+  completa sigue en el runbook §5).
 - Notas de entorno (para no repetir el diagnóstico):
   - con la máquina cargada, los workers de vitest pueden expirar al arrancar; se corrió con `--maxWorkers=2` (o
     `--no-file-parallelism`) y un parche local **no versionado** del timeout de arranque en `node_modules/vitest`
