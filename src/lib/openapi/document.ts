@@ -21,6 +21,7 @@ import "@/lib/openapi/paths/municipalities";
 import "@/lib/openapi/paths/projects";
 import "@/lib/openapi/paths/project-structure";
 import "@/lib/openapi/paths/project-execution";
+import "@/lib/openapi/paths/project-documents";
 import "@/lib/openapi/paths/project-budget";
 import "@/lib/openapi/paths/project-template";
 import "@/lib/openapi/paths/project-baseline";

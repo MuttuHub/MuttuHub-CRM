@@ -175,14 +175,22 @@ describe("SoporteProyecto invariants (live DB)", () => {
     return { ...base, avance, otroAvance, datos }
   }
 
-  it("requires exactly one parent (soportes_proyecto_padre_check)", async () => {
-    for (const parent of [{ avance_id: null }, { medicion_id: randomUUID() }]) {
-      const error = await captureError(async (tx) => {
-        const { datos } = await soporteFixture(tx)
-        await tx.soporteProyecto.create({ data: { ...datos, ...parent } })
-      })
-      expect(driverMessage(error)).toContain("soportes_proyecto_padre_check")
-    }
+  it("rejects a soporte with two parents (soportes_proyecto_padre_check)", async () => {
+    const error = await captureError(async (tx) => {
+      const { datos } = await soporteFixture(tx)
+      await tx.soporteProyecto.create({ data: { ...datos, medicion_id: randomUUID() } })
+    })
+    expect(driverMessage(error)).toContain("soportes_proyecto_padre_check")
+  })
+
+  it("accepts a soporte without any parent: a project-origin document (migration 26)", async () => {
+    const row = await runAndRollback(async (tx) => {
+      const { datos } = await soporteFixture(tx)
+      return tx.soporteProyecto.create({ data: { ...datos, avance_id: null } })
+    })
+    expect(row.avance_id).toBeNull()
+    expect(row.medicion_id).toBeNull()
+    expect(row.gasto_id).toBeNull()
   })
 
   it("requires exactly one source: file or external link (soportes_proyecto_fuente_check)", async () => {

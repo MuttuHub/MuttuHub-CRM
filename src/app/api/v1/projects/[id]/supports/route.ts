@@ -1,15 +1,32 @@
 // GET /api/v1/projects/:id/supports — read-only list of every live soporte of the project (v7 "Soportes" tab).
+// POST — create a project-origin document (contract, agreement, minutes) as a confirmed file or an https link.
 //
 // Metadata only: the storage key is never exposed and downloads keep going through the signed-URL routes of
-// each origin (avance attachments, expense attachments). Read access follows the ficha (404 -> 403). Supports
-// attached to expenses are financial (RNF-03): they are omitted for actors who cannot view them. Measurement
-// supports have no download route yet, so they are listed with `url_externa` only when they are links.
+// each origin (avance attachments, expense attachments, project documents). Read access follows the ficha
+// (404 -> 403). Supports attached to expenses are financial (RNF-03): they are omitted for actors who cannot
+// view them. Measurement supports have no download route yet, so they are listed with `url_externa` only when
+// they are links.
+//
+// Write (POST): managers or an active-member COORDINADOR on a BORRADOR/EN_EJECUCION/SUSPENDIDO project
+// (404 -> 403 -> 409). A file is confirmed only when its key sits under THIS project's `soportes` prefix, the
+// object exists in storage and is not larger than declared or than the app limit; the stored row keeps the
+// REAL size. Create is audited inside the same transaction.
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { parseJsonBody } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
+import { logChange } from "@/lib/api/audit-cambios";
+import { conflict, isUniqueViolation } from "@/lib/api/estructura";
 import { gateGastoRead } from "@/lib/api/gastos";
+import {
+  DOCUMENTO_DUPLICADO_MESSAGE,
+  STORAGE_PATH_INDEX,
+  gateSoporteProyectoWrite,
+  toDocumentoProyectoView,
+  validarSoporte,
+} from "@/lib/api/soportes";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +48,8 @@ export type SoporteListView = {
   /** Only for link supports that are not financial. */
   url_externa: string | null;
   subido_por: string | null;
+  /** Uploader id: the ficha uses it to decide who may delete their own project documents. */
+  subido_por_id: string;
   created_at: string;
 };
 
@@ -92,10 +111,55 @@ export const GET = withApiErrorHandling(
         vinculo,
         url_externa: origen === "gasto" ? null : row.url_externa,
         subido_por: nombrePorId.get(row.subido_por_id) ?? null,
+        subido_por_id: row.subido_por_id,
         created_at: row.created_at.toISOString(),
       };
     });
 
     return NextResponse.json({ soportes });
+  },
+);
+
+export const POST = withApiErrorHandling(
+  "projects",
+  "No pudimos guardar el documento. Inténtalo de nuevo.",
+  async (request: Request, ctx: RouteContext) => {
+    const auth = await requireApiUser();
+    if (!auth.ok) return auth.response;
+    const { id } = await ctx.params;
+
+    const gate = await gateSoporteProyectoWrite(auth.usuario, id);
+    if (!gate.ok) return gate.response;
+
+    const body = await parseJsonBody<unknown>(request);
+    const soporte = await validarSoporte(id, body);
+    if (!soporte.ok) return soporte.response;
+
+    try {
+      const documento = await db.$transaction(async (tx) => {
+        const created = await tx.soporteProyecto.create({
+          data: { proyecto_id: id, subido_por_id: auth.usuario.id, ...soporte.value },
+        });
+        await logChange(tx, {
+          usuario_id: auth.usuario.id,
+          accion: "CREAR",
+          entidad: "proyecto",
+          entidad_id: id,
+          proyecto_id: id,
+          campo: "documento",
+          valor_nuevo: {
+            documento_id: created.id,
+            nombre: created.nombre,
+            tipo: created.storage_path ? "archivo" : "enlace",
+          },
+        });
+        return created;
+      });
+
+      return NextResponse.json({ soporte: toDocumentoProyectoView(documento) }, { status: 201 });
+    } catch (err) {
+      if (isUniqueViolation(err, STORAGE_PATH_INDEX)) return conflict(DOCUMENTO_DUPLICADO_MESSAGE);
+      throw err;
+    }
   },
 );

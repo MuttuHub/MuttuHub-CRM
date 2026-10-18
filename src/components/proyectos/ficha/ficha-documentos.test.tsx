@@ -52,6 +52,7 @@ const soporte = (id: string, origen: ProjectSupport["origen"], nombre: string, o
   vinculo: null,
   url_externa: null,
   subido_por: "Ana",
+  subido_por_id: "u-ana",
   created_at: "2026-10-16T12:00:00.000Z",
   ...over,
 })
@@ -211,5 +212,122 @@ describe("FichaDocumentos", () => {
 
     const fila = (await screen.findByText("sin-nada.pdf")).closest("li")!
     expect(within(fila).getByRole("button", { name: "Abrir" })).toBeDisabled()
+  })
+})
+
+describe("FichaDocumentos: project documents (upload, open, delete)", () => {
+  const fetchMock = vi.fn()
+
+  type Usuario = { id: string; rol: string }
+  const GERENTE: Usuario = { id: "u-ger", rol: "GERENCIA" }
+  const COORDINADORA: Usuario = { id: "u-coord", rol: "COORDINADOR" }
+  const COLABORADOR: Usuario = { id: "u-col", rol: "COLABORADOR" }
+
+  const PROPIOS: ProjectSupport[] = [
+    soporte("a1", "avance", "acta-visita.pdf", { subido_por_id: "u-coord" }),
+    soporte("d1", "proyecto", "contrato.pdf", { origen_id: null, subido_por_id: "u-coord" }),
+    soporte("d2", "proyecto", "convenio.pdf", { origen_id: null, subido_por_id: "u-ger" }),
+  ]
+
+  function setup({
+    usuario = GERENTE,
+    miembro = false,
+    estado = "EN_EJECUCION",
+    soportes = PROPIOS,
+  }: { usuario?: Usuario; miembro?: boolean; estado?: string; soportes?: ProjectSupport[] } = {}) {
+    fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
+      const url = String(input)
+      if (url === "/api/v1/auth/me") return Promise.resolve(jsonResponse({ usuario: { ...usuario, nombre: "Yo" } }))
+      if (url.endsWith("/members")) {
+        const miembros = miembro
+          ? [{ id: "m1", usuario: { id: usuario.id, nombre: "Yo", rol: usuario.rol }, agregado_por_id: "x", created_at: "", removed_at: null }]
+          : []
+        return Promise.resolve(jsonResponse({ miembros }))
+      }
+      if (url.endsWith("/supports")) return Promise.resolve(jsonResponse({ soportes }))
+      if (url.endsWith("/download")) {
+        return Promise.resolve(jsonResponse({ tipo: "archivo", url: "https://s.example/doc", expires_in: 60 }))
+      }
+      if (init?.method === "DELETE") return Promise.resolve(jsonResponse({ soporte: { id: "d1" } }))
+      return Promise.resolve(jsonResponse({}))
+    })
+    return render(<FichaDocumentos proyecto={{ ...PROYECTO, estado } as ProjectListRow} />, { wrapper: createWrapper() })
+  }
+
+  beforeEach(() => {
+    fetchMock.mockReset()
+    vi.stubGlobal("fetch", fetchMock)
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it("offers «Subir documento» to a manager in an editable estado, also when the list is empty", async () => {
+    setup({ soportes: [] })
+    expect(await screen.findByRole("button", { name: "Subir documento" })).toBeInTheDocument()
+    expect(screen.getByText("Este proyecto todavía no tiene documentos.")).toBeInTheDocument()
+  })
+
+  it("opens the upload dialog", async () => {
+    const user = userEvent.setup()
+    setup()
+    await user.click(await screen.findByRole("button", { name: "Subir documento" }))
+    expect(await screen.findByRole("dialog")).toHaveTextContent("Subir documento")
+  })
+
+  it.each([
+    ["a COLABORADOR", { usuario: COLABORADOR }],
+    ["a COORDINADOR who is not a member", { usuario: COORDINADORA }],
+    ["a manager on a CERRADO project", { estado: "CERRADO" }],
+    ["a manager on a CANCELADO project", { estado: "CANCELADO" }],
+  ] as const)("hides «Subir documento» and Eliminar from %s", async (_caso, opciones) => {
+    setup(opciones)
+    await screen.findByTestId("documentos-lista")
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
+    expect(screen.queryByRole("button", { name: "Subir documento" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: /^Eliminar/ })).not.toBeInTheDocument()
+  })
+
+  it("opens a project file through its own download route", async () => {
+    const user = userEvent.setup()
+    const open = vi.fn()
+    vi.stubGlobal("open", open)
+    setup()
+
+    const fila = (await screen.findByText("contrato.pdf")).closest("li")!
+    await user.click(within(fila).getByRole("button", { name: "Abrir" }))
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/supports/d1/download", expect.any(Object)),
+    )
+    await waitFor(() => expect(open).toHaveBeenCalledWith("https://s.example/doc", "_blank", "noopener,noreferrer"))
+  })
+
+  it("lets a manager delete any project document, after confirming, and never other origins", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    const grupo = await screen.findByTestId("documentos-grupo-proyecto")
+    await waitFor(() => expect(within(grupo).getAllByRole("button", { name: /^Eliminar/ })).toHaveLength(2))
+    expect(within(screen.getByTestId("documentos-grupo-avance")).queryByRole("button", { name: /^Eliminar/ })).not.toBeInTheDocument()
+
+    await user.click(within(grupo).getByRole("button", { name: "Eliminar contrato.pdf" }))
+    const dialogo = await screen.findByRole("dialog")
+    expect(dialogo).toHaveTextContent("Eliminar documento")
+    expect(fetchMock).not.toHaveBeenCalledWith("/api/v1/projects/p1/supports/d1", expect.anything())
+    await user.click(within(dialogo).getByRole("button", { name: "Eliminar" }))
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/v1/projects/p1/supports/d1",
+        expect.objectContaining({ method: "DELETE" }),
+      ),
+    )
+  })
+
+  it("lets a member COORDINADOR delete only their own uploads", async () => {
+    setup({ usuario: COORDINADORA, miembro: true })
+
+    const grupo = await screen.findByTestId("documentos-grupo-proyecto")
+    expect(await within(grupo).findByRole("button", { name: "Eliminar contrato.pdf" })).toBeInTheDocument()
+    expect(within(grupo).queryByRole("button", { name: "Eliminar convenio.pdf" })).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Subir documento" })).toBeInTheDocument()
   })
 })

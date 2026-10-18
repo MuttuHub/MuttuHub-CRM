@@ -259,12 +259,14 @@ describe("SoporteProyecto gasto parent (live DB)", () => {
     expect(driverMessage(error)).toContain("soportes_proyecto_padre_check")
   })
 
-  it("rejects a soporte without any parent (soportes_proyecto_padre_check)", async () => {
-    const error = await captureError(async (tx) => {
+  it("accepts a soporte without any parent: a project-origin document (migration 26)", async () => {
+    const row = await runAndRollback(async (tx) => {
       const { soporte } = await soporteFixture(tx)
-      await tx.soporteProyecto.create({ data: soporte })
+      return tx.soporteProyecto.create({ data: soporte })
     })
-    expect(driverMessage(error)).toContain("soportes_proyecto_padre_check")
+    expect(row.avance_id).toBeNull()
+    expect(row.medicion_id).toBeNull()
+    expect(row.gasto_id).toBeNull()
   })
 
   it("makes a cross-project gasto impossible (composite foreign key)", async () => {
