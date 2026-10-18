@@ -116,7 +116,7 @@ export function ActividadesTablero({
   }
 
   return (
-    <div data-testid="tablero" className="min-w-0 overflow-x-auto pb-1">
+    <div data-testid="tablero" className="min-w-0 snap-x snap-mandatory overflow-x-auto pb-1">
       <div className="grid min-w-[44rem] grid-cols-4 gap-3">
         {COLUMNAS_TABLERO.map((columna) => {
           const tarjetas = columnas.get(columna)!;
@@ -124,7 +124,7 @@ export function ActividadesTablero({
             <section
               key={columna}
               data-testid={`tablero-col-${columna}`}
-              className="flex min-w-0 flex-col gap-2 rounded-inner bg-ink-100/60 p-2"
+              className="snap-start flex min-w-0 flex-col gap-2 rounded-inner bg-ink-100/60 p-2"
             >
               <h4 className="px-1 text-[12.5px] font-semibold text-ink-800">
                 {COLUMNA_TITULO[columna]} <span className="font-normal text-ink-500 tabular-nums">{tarjetas.length}</span>

@@ -112,6 +112,9 @@ describe("EstructuraGantt", () => {
     const header = screen.getByTestId("gantt-header")
     expect(within(header).getByText(/^0?5\s+ene/i)).toBeInTheDocument()
     expect(within(header).getByText(/^0?12\s+ene/i)).toBeInTheDocument()
+    // Z4-4: the week header stays visible while the gantt scrolls inside its mobile box.
+    expect(header).toHaveClass("sticky", "top-0")
+    expect(header.closest(".overflow-x-auto")).toHaveClass("max-md:max-h-[65vh]", "max-md:overflow-y-auto")
   })
 
   it("groups the bars by objective", async () => {

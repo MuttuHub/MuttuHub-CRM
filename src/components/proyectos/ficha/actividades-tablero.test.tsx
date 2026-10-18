@@ -153,6 +153,15 @@ describe("ActividadesTablero", () => {
     expect(within(tablero).getAllByTestId("tablero-tarjeta")).toHaveLength(5)
   })
 
+  it("scrolls as a snap carousel on narrow screens (Z4-3)", async () => {
+    setup()
+
+    await screen.findByTestId("tablero-col-por_iniciar")
+    const tablero = screen.getByTestId("tablero")
+    expect(tablero).toHaveClass("snap-x", "snap-mandatory", "overflow-x-auto")
+    expect(within(tablero).getByTestId("tablero-col-por_iniciar")).toHaveClass("snap-start")
+  })
+
   it("titles the columns in the agreed order with their counts", async () => {
     setup()
 

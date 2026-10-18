@@ -804,6 +804,8 @@ function ViewSelector({
             aria-pressed={active}
             className={cn(
               "flex items-center gap-1.5 rounded-[9px] px-3 py-1.5 text-[12px] font-bold whitespace-nowrap transition-colors",
+              // Z4-5: the 9-column table is desktop-only; the selector hides its option under md.
+              o.value === "detalles" && "max-md:hidden",
               active
                 ? "bg-card text-ink-950 shadow-sm"
                 : "text-ink-600 hover:text-ink-900",

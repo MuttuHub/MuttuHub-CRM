@@ -96,7 +96,7 @@ export function EjecucionAvance({
         </span>
       </div>
 
-      <div className="mt-1.5 flex items-center gap-2">
+      <div className="mt-1.5 flex flex-wrap items-center gap-2">
         <ProgressBar
           data-testid="ejecucion-progreso"
           aria-label={`Avance de la actividad ${actividad.codigo}`}

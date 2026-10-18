@@ -435,6 +435,8 @@ expect(useClientsMock).toHaveBeenLastCalledWith({
       "aria-pressed",
       "false",
     )
+    // Z4-5: the 9-column table is not offered on narrow screens.
+    expect(screen.getByRole("button", { name: /Detalles/ })).toHaveClass("max-md:hidden")
   })
 
   it("keeps the selected view across rerenders via the store", () => {

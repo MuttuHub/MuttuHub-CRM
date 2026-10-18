@@ -150,6 +150,9 @@ describe("EjecucionAvance", () => {
     )
 
     expect(screen.getByTestId("ejecucion-actividad")).toHaveTextContent("100 % real · 100 % programado")
+    // Z4-6: the row wraps instead of squeezing the bar when the percentages are long.
+    const barra = screen.getByRole("progressbar", { name: "Avance de la actividad 1.1" })
+    expect(barra.parentElement).toHaveClass("flex-wrap")
   })
 
   it("labels an avance without a support file as 'Sin soporte', like the cronograma", () => {
