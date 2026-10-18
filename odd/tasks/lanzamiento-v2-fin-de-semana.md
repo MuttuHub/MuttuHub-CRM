@@ -242,12 +242,19 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
     - la versión de Node en Vercel;
     - la URL de producción `/auth/confirm` está en la lista de redirecciones de Supabase Auth;
     - hay un respaldo o PITR antes de migrar.
-- [ ] **R6** Integración del sábado a las 12:00. Pasos:
-  1. Merge de `feat/ficha-v7-polish`.
+- [x] **R6** Integración del sábado a las 12:00. Pasos:
+  1. Merge de `feat/ficha-v7-polish` (ya no aplica: el carril D se canceló).
   2. Suite, `tsc` y build.
   3. Etiqueta `v2.0.0-rc1`.
 
   Ruta I.
+  Evidencia (2026-10-18, ejecutada por la sesión que continuó a Claude tras su límite):
+  - merges `e134f47` (DOC1: `feat/project-documents-upload`) y `67e4939` (suite e2e: `test/e2e-proyectos-v2`);
+  - suite completa en verde: **370 archivos / 4134 pruebas**; `tsc --noEmit` sin errores; `npm run build` (prisma
+    generate + next build) en verde, `BUILD_ID` `nyFFUSV8SEcNR814bTHYG`;
+  - etiqueta anotada `v2.0.0-rc1` en `67e4939`.
+  - Fuera del rc1, como estaba previsto: `feat/po-presupuesto-import` (post-lanzamiento) y `feat/deepseek-lote-5`
+    (lote 5 de DeepSeek, post-lanzamiento).
 - [x] **R6b** Revisión de entrega (G-1). Es una revisión dirigida de `main..feat/projects-v2` sobre permisos por rol y
   alcance, migraciones y datos, dinero (gastos, presupuesto y validación) y operaciones de borrado o anulación. Se usan
   revisores frescos en paralelo. Un hallazgo grave bloquea el merge hasta corregirlo. Ruta D.
@@ -304,6 +311,11 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
 
   Resultados: 405/405 pruebas y `tsc` y `eslint` limpios. `nav/counts` no cuenta la cola, así que no se tocó.
 - [ ] **R7** Ensayo 2 con el código final, más el humo de la app sobre la copia. Ruta D.
+  Preparado para el rc1 (2026-10-18): la suite e2e `test/e2e-proyectos-v2` ya está integrada y documentada
+  (`odd/tasks/e2e-proyectos-v2.md`); corre contra un dev server encendido con
+  `PLAYWRIGHT_BASE_URL=http://<host>:3000 npx playwright test --config playwright.verify.config.ts`.
+  Notas para el ensayo: D1 sigue fallando a propósito (los 3 reintentos de `useProject` en 403/404 tardan ~11 s);
+  la migración 26 entra en el deploy. Falta un dump nuevo de producción y correr el ensayo.
 - [x] **R8** Runbook de lanzamiento, checklist de humo y plan de vuelta atrás (`docs/runbook-lanzamiento-v2.md`). Ruta D. Evidencia: `864f9e0` (borrador) + `6b0100c` y el commit de rubros, con los datos de la corrida 2 de R4. Quedan 5 ⚠: Node en Vercel, `psql` en el WSL del operador, `WSLENV` contra producción (no se usa), restaurar sobre producción (preferir PITR o el panel) y `psql -f` con docker en la vuelta atrás.
 - [ ] **R9** Lanzamiento, que ejecuta el usuario. Pasos:
   1. Respaldo verificado.
@@ -650,6 +662,22 @@ El prompt está en `odd/tasks/lanzamiento-v2-deepseek-prompt-4.md`. Se integró 
   - Limpieza: se eliminan `MoneyInput` y `ProjectSoportes` (`formatoSoporte` pasa a `soportes-format.ts`) y el comentario
     obsoleto de `project-ficha.tsx`; la guarda de `responsive-guards.test.ts` sobre los KPI de gastos se adapta a la línea
     de resumen. Commit `7b6c5f3`.
+
+- 2026-10-18 (madrugada): la sesión de Claude se quedó sin límite a mitad de camino. La sesión siguiente revisó y
+  terminó lo pendiente:
+  - **DOC1** (subir documentos generales del proyecto): las pruebas RED ya estaban escritas; se implementaron la API
+    (`25d46ab`: crear, firmar, eliminar y descargar, con gate propio y OpenAPI) y la UI (`84d2eb8`: diálogo
+    «Subir documento», botón, borrado con confirmación y apertura por la ruta de descarga). 121/121 pruebas de los
+    archivos tocados más guardas y OpenAPI; `tsc` y `eslint` limpios. Evidencia en `subir-documentos-proyecto.md`
+    (DOC1c queda a cargo del usuario: prueba manual en el navegador).
+  - **Import PO**: P3 ya estaba commiteado (`b374976`) sin evidencia; se verificó (49 + 75 pruebas, `tsc` y `eslint`
+    limpios) y se anotó en `importar-presupuesto-po.md`. P4 (prueba manual con el archivo real de la PO) sigue
+    pendiente, y la rama no se integra hasta después del lanzamiento.
+  - **Suite e2e de verificación** (`test/e2e-proyectos-v2`): estaba sin commitear; se commitearon los 8 specs, el
+    fixture de la plantilla, la configuración de verificación y su doc `e2e-proyectos-v2.md`. D1 queda fallando a
+    propósito; el spec de DOC1 dejó de estar en `fixme` al integrarse la feature.
+  - **R6** ejecutado: merges de DOC1 y de la suite e2e; suite completa 370 archivos / 4134 pruebas en verde; `tsc` y
+    `npm run build` limpios; etiqueta `v2.0.0-rc1`.
 
 ## Siguiente paso
 
