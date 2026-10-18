@@ -318,6 +318,23 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
   `PLAYWRIGHT_BASE_URL=http://<host>:3000 npx playwright test --config playwright.verify.config.ts`.
   Notas para el ensayo: D1 sigue fallando a propósito (los 3 reintentos de `useProject` en 403/404 tardan ~11 s);
   la migración 26 entra en el deploy. Falta un dump nuevo de producción y correr el ensayo.
+
+  **Evidencia del ensayo de migraciones (2026-10-18, con el dump del viernes; contenedor `muttu-rehearsal` fresco,
+  `supabase/postgres:17.6.1.143` en 54330, restauración solo `public` con el método de §5.3):**
+  - Restauración: 28 tablas en `public` y los conteos del dump (21 clientes, 20 oportunidades, 123 tareas,
+    15 usuarios, 4 rubros, 12 filas de `_prisma_migrations`).
+  - `migrate status`: **26 pendientes** + la advertencia del fantasma; `migrate deploy`: **las 26 aplicadas sin pasos
+    manuales**.
+  - `migrate diff --from-schema prisma/schema.prisma --to-config-datasource --exit-code`: «No difference detected» y
+    status al día (los flags cambiaron en esta versión de Prisma: `--from-schema`/`--to-config-datasource`).
+  - Estructura: solo enums v2, sin `rubros_nombre_key` ni `deleted_at` en `rubros`/`lineas_presupuestales`, único CHECK
+    `lineas_monto_no_negativo_ck`.
+  - `s1-rubros --dry-run` contra la copia: **13 crea / 1 actualiza / 1 omite** y plan-hash
+    `1894d2b9…932f`, **idéntico al de R4** (mismo dump).
+  - Invariantes contra la copia: **31 archivos / 229 pruebas en verde** (con el vitest de Windows y `DATABASE_URL`
+    exportada por `cmd.exe`, porque el `node_modules` del repo principal es de Windows).
+  - **Pendiente de decisión:** el humo de la app sobre la copia (vía local-stack vs. dejar el humo de UI para la
+    producción tras R9; el humo de UI ya está cubierto funcionalmente por la suite e2e sobre la base demo).
 - [x] **R8** Runbook de lanzamiento, checklist de humo y plan de vuelta atrás (`docs/runbook-lanzamiento-v2.md`). Ruta D. Evidencia: `864f9e0` (borrador) + `6b0100c` y el commit de rubros, con los datos de la corrida 2 de R4. Quedan 5 ⚠: Node en Vercel, `psql` en el WSL del operador, `WSLENV` contra producción (no se usa), restaurar sobre producción (preferir PITR o el panel) y `psql -f` con docker en la vuelta atrás.
 - [ ] **R9** Lanzamiento, que ejecuta el usuario. Pasos:
   1. Respaldo verificado.
