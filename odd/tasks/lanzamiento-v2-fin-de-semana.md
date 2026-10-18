@@ -252,8 +252,10 @@ Ruta: **I** = inline, **D** = delegada (un escritor acotado). Todas las tareas d
   - merges `e134f47` (DOC1: `feat/project-documents-upload`) y `67e4939` (suite e2e: `test/e2e-proyectos-v2`);
   - suite completa en verde: **370 archivos / 4134 pruebas**; `tsc --noEmit` sin errores; `npm run build` (prisma
     generate + next build) en verde, `BUILD_ID` `nyFFUSV8SEcNR814bTHYG`;
-  - etiqueta anotada `v2.0.0-rc1` en `67e4939`.
-  - Fuera del rc1, como estaba previsto: `feat/po-presupuesto-import` (post-lanzamiento) y `feat/deepseek-lote-5`
+  - etiqueta anotada `v2.0.0-rc1`, repuntada a `f81ea50` (el merge que corrige el selector e2e de DOC1);
+  - el spec e2e `documentos-proyecto.spec.ts` corrió **3/3 en verde** contra el código mergeado (dev server en
+    `172.30.48.1:3000`): subir archivo por URL firmada, guardar enlace y permisos del COORDINADOR;
+  - fuera del rc1, como estaba previsto: `feat/po-presupuesto-import` (post-lanzamiento) y `feat/deepseek-lote-5`
     (lote 5 de DeepSeek, post-lanzamiento).
 - [x] **R6b** Revisión de entrega (G-1). Es una revisión dirigida de `main..feat/projects-v2` sobre permisos por rol y
   alcance, migraciones y datos, dinero (gastos, presupuesto y validación) y operaciones de borrado o anulación. Se usan
@@ -681,15 +683,17 @@ El prompt está en `odd/tasks/lanzamiento-v2-deepseek-prompt-4.md`. Se integró 
 
 ## Siguiente paso
 
-**Sábado 2026-10-17:**
-- **Usuario, antes de las 12:00:**
-  - el recorrido en el navegador con `odd/tasks/prueba-manual-proyectos-v2.md`;
-  - el checklist de paneles de `lanzamiento-v2-pendientes-viernes.md` §3, que incluye `EMAIL_FROM` y PITR;
-  - la decisión G-2 (la ventana);
-  - autorizar el push de la rama.
-- **Claude:** triar los hallazgos del recorrido, y luego R6 (congelamiento y `v2.0.0-rc1`; el paso «merge de
-  `feat/ficha-v7-polish`» ya no aplica porque el carril D se canceló) y R7 (ensayo 2 con el rc1, idealmente con un
-  dump nuevo).
+**Domingo 2026-10-18 (ventana G-2, antes de la medianoche):**
+- **Usuario:**
+  - un dump nuevo de producción y correr **R7** (ensayo 2 con el rc1 y el humo; la suite e2e ya está integrada y
+    documentada en `e2e-proyectos-v2.md`);
+  - la prueba manual de DOC1 en el navegador (**DOC1c**) — el spec e2e ya cubre lo automatizable;
+  - **R9** (lanzamiento): respaldo verificado, `migrate deploy` (26 pendientes), humo de la app vieja,
+    `s1-rubros --dry-run` y después `--apply --expect-hash`, merge a `main`, deploy en Vercel y humo final.
+- **Congelamiento:** el rc1 está etiquetado; solo correcciones críticas entran después.
+- **Diferido (documentado):** D1 (`useProject` reintenta 403/404 y el mensaje de acceso tarda ~11 s; arreglo
+  candidato en `e2e-proyectos-v2.md`) y los pendientes post-lanzamiento (import PO, rubros por proyecto, lote 5 de
+  DeepSeek, VPS).
 
 ## Después del lanzamiento: importar las plantillas de la PO
 
