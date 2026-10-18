@@ -187,6 +187,13 @@ const constraintsOn = (tx: Tx, table: string) =>
     `SELECT c.conname AS n FROM pg_constraint c JOIN pg_class t ON t.oid = c.conrelid
       WHERE t.relnamespace = current_schema()::regnamespace AND t.relname = '${table}' ORDER BY 1`,
   )
+const enumLabels = (tx: Tx, name: string) =>
+  names(
+    tx,
+    `SELECT e.enumlabel AS n FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid
+      WHERE t.typnamespace = current_schema()::regnamespace AND t.typname = '${name}'
+      ORDER BY e.enumsortorder`,
+  )
 
 const V1_TABLES = ["actividades", "gastos", "indicadores", "metas", "proyectos", "soportes_proyecto"]
 
@@ -267,24 +274,50 @@ describe("v1 production shape adoption (20260930000000)", () => {
     })
   })
 
-  it.each([
-    ["proyectos", false],
-    ["metas", true],
-  ])("raises naming v1 table %s when it holds rows", async (table, withMeta) => {
-    await inThrowawaySchema(async (tx) => {
-      await baseTables(tx, "phantom")
-      await v1Tables(tx)
-      await tx.$executeRawUnsafe(`INSERT INTO "clientes" ("id") VALUES ('c1')`)
+  /** One row in the v1 table under test, with whatever that row depends on. */
+  async function seedV1Row(tx: Tx, table: string) {
+    await tx.$executeRawUnsafe(`INSERT INTO "clientes" ("id") VALUES ('c1')`)
+    await tx.$executeRawUnsafe(
+      `INSERT INTO "proyectos" ("id","codigo","cliente_id","territorio","linea_estrategica") VALUES ('p','c','c1','t','SOCIAL')`,
+    )
+    if (table === "metas" || table === "actividades") {
+      await tx.$executeRawUnsafe(`INSERT INTO "metas" ("id","proyecto_id") VALUES ('m','p')`)
+    }
+    if (table === "actividades") {
+      await tx.$executeRawUnsafe(`INSERT INTO "actividades" ("id","proyecto_id","meta_id") VALUES ('a','p','m')`)
+    }
+    if (table === "gastos") {
       await tx.$executeRawUnsafe(
-        `INSERT INTO "proyectos" ("id","codigo","cliente_id","territorio","linea_estrategica") VALUES ('p','c','c1','t','SOCIAL')`,
+        `INSERT INTO "lineas_presupuestales" ("id","proyecto_id","rubro_id","monto_proyectado_cop") VALUES ('l','p','r1',10)`,
       )
-      if (withMeta) await tx.$executeRawUnsafe(`INSERT INTO "metas" ("id","proyecto_id") VALUES ('m','p')`)
+      await tx.$executeRawUnsafe(`INSERT INTO "gastos" ("id","proyecto_id","linea_id","concepto") VALUES ('g','p','l','pago')`)
+    }
+    if (table === "indicadores") {
+      await tx.$executeRawUnsafe(
+        `INSERT INTO "indicadores" ("id","proyecto_id","meta_id","meta_valor") VALUES ('i','p',NULL,10)`,
+      )
+    }
+    if (table === "soportes_proyecto") {
+      await tx.$executeRawUnsafe(
+        `INSERT INTO "soportes_proyecto" ("id","proyecto_id","actividad_id","gasto_id","tipo") VALUES ('s','p',NULL,NULL,'VERIFICACION')`,
+      )
+    }
+  }
 
-      const message = await failure(tx, ADOPT_SQL)
+  it.each([["proyectos"], ["metas"], ["actividades"], ["gastos"], ["indicadores"], ["soportes_proyecto"]])(
+    "raises naming v1 table %s when it holds rows",
+    async (table) => {
+      await inThrowawaySchema(async (tx) => {
+        await baseTables(tx, "phantom")
+        await v1Tables(tx)
+        await seedV1Row(tx, table)
 
-      expect(message).toContain(`v1 table "${table}" is not empty`)
-    })
-  })
+        const message = await failure(tx, ADOPT_SQL)
+
+        expect(message).toContain(`v1 table "${table}" is not empty`)
+      })
+    },
+  )
 
   it("keeps a v2-shaped database untouched (no-op), including the v2 EstadoProyecto enum", async () => {
     await inThrowawaySchema(async (tx) => {
@@ -296,6 +329,80 @@ describe("v1 production shape adoption (20260930000000)", () => {
       await tx.$executeRawUnsafe(ADOPT_SQL)
 
       expect(await catalog(tx)).toBe(before)
+    })
+  })
+
+  it("renames the phantom FKs when _prisma_migrations is absent (the adopt:37-39 branch)", async () => {
+    await inThrowawaySchema(async (tx) => {
+      await baseTables(tx, "phantom")
+      await tx.$executeRawUnsafe(`DROP TABLE "_prisma_migrations"`)
+
+      await tx.$executeRawUnsafe(ADOPT_SQL)
+
+      expect(await constraintsOn(tx, "bitacora_entradas")).toContain("bitacora_oportunidad_cliente_fkey")
+      expect(await constraintsOn(tx, "tareas")).toContain("tareas_oportunidad_cliente_fkey")
+    })
+  })
+
+  it("skips a table that already carries the v2 marker column, even when it holds rows", async () => {
+    await inThrowawaySchema(async (tx) => {
+      await baseTables(tx, "phantom")
+      await v1Tables(tx)
+      // `actividades` with both markers looks v2: the migration must neither drop it nor raise.
+      await tx.$executeRawUnsafe(`
+        ALTER TABLE "actividades" ADD COLUMN "objetivo_id" TEXT;
+        ALTER TABLE "actividades" DROP CONSTRAINT "actividades_meta_id_proyecto_id_fkey";
+        ALTER TABLE "actividades" DROP CONSTRAINT "actividades_proyecto_id_fkey";
+        INSERT INTO "actividades" ("id","proyecto_id","meta_id","objetivo_id") VALUES ('a','p','m','o');
+      `)
+
+      await tx.$executeRawUnsafe(ADOPT_SQL)
+
+      const tables = await tablesNow(tx)
+      expect(tables).toContain("actividades")
+      expect(await names(tx, `SELECT id AS n FROM "actividades" ORDER BY 1`)).toEqual(["a"])
+      // The genuinely v1 tables still go.
+      expect(tables).not.toContain("metas")
+      expect(tables).not.toContain("proyectos")
+    })
+  })
+
+  it("keeps a v1 enum while a surviving table still uses it, and never drops the v2 EstadoProyecto", async () => {
+    // (a) The v1 enum in use by a table outside the drop list must survive: the DROP is omitted.
+    await inThrowawaySchema(async (tx) => {
+      await baseTables(tx, "phantom")
+      await v1Tables(tx)
+      await tx.$executeRawUnsafe(
+        `CREATE TABLE "config_estados" ("id" TEXT PRIMARY KEY, "estado" "EstadoProyecto" NOT NULL)`,
+      )
+
+      await tx.$executeRawUnsafe(ADOPT_SQL)
+
+      const enums = await enumsNow(tx)
+      expect(enums).toContain("EstadoProyecto")
+      // The surviving variant is the v1 one (no BORRADOR): the exact risk this branch carries.
+      expect(await enumLabels(tx, "EstadoProyecto")).toEqual([
+        "PLANIFICACION",
+        "EN_EJECUCION",
+        "SUSPENDIDO",
+        "CERRADO",
+        "CANCELADO",
+      ])
+      // The two unused v1 enums still go, and the user table keeps working.
+      expect(enums).not.toContain("LineaEstrategica")
+      expect(enums).not.toContain("TipoSoporte")
+      await tx.$executeRawUnsafe(`INSERT INTO "config_estados" ("id","estado") VALUES ('e1','EN_EJECUCION')`)
+    })
+
+    // (b) Contrast: the v2 EstadoProyecto (with BORRADOR) is present and is never dropped either.
+    await inThrowawaySchema(async (tx) => {
+      await baseTables(tx, "v2")
+      await v2Tables(tx)
+
+      await tx.$executeRawUnsafe(ADOPT_SQL)
+
+      expect(await enumsNow(tx)).toContain("EstadoProyecto")
+      expect(await enumLabels(tx, "EstadoProyecto")).toContain("BORRADOR")
     })
   })
 })
@@ -362,6 +469,21 @@ describe("adopted v1 drift reconciliation (20261016120000)", () => {
 
       const message = await failure(tx, RECONCILE_SQL)
 
+      expect(message).toContain("soft-deleted")
+    })
+  })
+
+  it("refuses to drop deleted_at while a linea_presupuestal is soft-deleted", async () => {
+    await inThrowawaySchema(async (tx) => {
+      await adoptedV1(tx)
+      await tx.$executeRawUnsafe(
+        `INSERT INTO "lineas_presupuestales" ("id","proyecto_id","rubro_id","monto_proyectado_cop","deleted_at")
+         VALUES ('l1','p','r1',10, now())`,
+      )
+
+      const message = await failure(tx, RECONCILE_SQL)
+
+      expect(message).toContain('"lineas_presupuestales".deleted_at')
       expect(message).toContain("soft-deleted")
     })
   })
