@@ -72,3 +72,7 @@ scripts/migrate-v2/out/
 
 # Local S7 template pilot output (scripts/import-plantilla-demo.ts)
 tmp/plantilla-demo/
+
+# Verify suite outputs (playwright.verify.config.ts)
+/test-results-verify/
+/playwright-report-verify/
