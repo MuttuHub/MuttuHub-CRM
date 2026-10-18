@@ -427,3 +427,51 @@ Revisión de solo lectura terminada. W1: la adopción está bien construida para
 - **Nota de base:** la revisión se hizo sobre `feat/projects-v2` en `b8cce20`. Después llegaron 5 commits del carril R6e (cola de validación, scope de feeds, plan) que **no tocan** `prisma/migrations/**`, `prisma/v1-production-shape.invariant.test.ts`, `scripts/migrate-v2/**` ni `docs/runbook-lanzamiento-v2.md`: las citas de este lote siguen vigentes.
 
 LISTO PARA INTEGRAR: TODO LOTE 4
+
+---
+
+# Lote 5 — correcciones menores de las bajas de Z y W (carril V)
+
+Rama: `feat/deepseek-lote-5`, creada desde `feat/projects-v2` (`c6bd644`) · Worktree: `../MuttuHub-CRM-worktrees/ficha-ux`. Superficie: solo los archivos del prompt del lote. Un commit por grupo coherente, con sus pruebas. Este lote no entra en el lanzamiento del domingo.
+
+Preparación y verificaciones del lote:
+- `git status` limpio; rama nueva desde `feat/projects-v2`; `npm ci` sin tocar el lockfile; `npx prisma generate`; `npx tsc --noEmit` en verde como línea base.
+- RED observado en los grupos con prueba ejecutable: Z1 (8 fallos en 7 archivos), Z2-CRM (2), Z2-proyectos (7), Z3 (4) y Z4 (4). Los grupos Z5 y W1 solo endurecen o agregan pruebas sobre código correcto: no hay RED posible sin tocar el código (en W1 la migración no se edita).
+- Cada commit se verificó con `TZ=America/Bogota npx vitest run --no-file-parallelism` sobre sus archivos (verde), `npx tsc --noEmit` (exit 0) y `npx eslint` (sin avisos). La prueba invariante de W1 corrió sola contra la base local (54322): 21/21.
+- Entorno: el WSL tenía otras sesiones con `npm ci` y Playwright a la vez, y los arranques de worker de vitest expiraban (>60 s). Se usó `--no-file-parallelism` y, como parche local **no versionado**, se subió el timeout de arranque en `node_modules/vitest` (no toca el repo, el lockfile ni el código).
+
+## V · Correcciones menores
+
+| Hallazgo | Veredicto | Commit | Nota |
+|---|---|---|---|
+| Z1-6 | corregido | `a459a14` | «Guardar borrador» → «Abrir la ficha» (enlace y comentario); prueba actualizada. |
+| Z1-7 | PEDIDO A CLAUDE | `a459a14` | `ficha-header.tsx` alineado a «Imprimir / Guardar PDF» (la hoja imprimible ya lo decía). `src/components/crm/print-ficha.tsx:116` sigue en «Imprimir»: fuera de superficie. |
+| Z1-8 | corregido | `a459a14` | El chip del avance dice «Sin soporte». El resumen conserva la frase contada «avance(s) sin soporte» y `project-cronograma.tsx` (fuera de superficie) ya decía «Sin soporte». |
+| Z1-9 | corregido | `a459a14` | Leyenda de la curva, `aria-label`, encabezados de la tabla mensual y filas de avance unificados en «Programado»; `project-kpis-panel.tsx` (fuera de superficie) ya decía «Avance programado». |
+| Z1-10 | corregido | `a459a14` | Pista condicionada por rol (`canApproveBaseline`): gestor → «usa «Aprobar línea base»…»; usuario desconocido o sin rol gestor → «pídele a Administración o Gerencia…». |
+| Z1-11 | PEDIDO A CLAUDE | — | El literal de `ALERTA_RETRASO_TEXT` está duplicado en `project-kpis-panel.tsx:30` (fuera de superficie); unificar exige exportar en un módulo e importar en el otro. |
+| Z1-12 | corregido | `a459a14` | `ToneBadge` acepta `title`; los dos chips «No confirmado» explican «Umbrales sin confirmar». |
+| Z1-13 | corregido | `a459a14` | El comentario de `dashboard-page.tsx` ya no lleva `TODO`. |
+| Z2-6 | corregido | `496c923` | `aria-label` en los cuatro selects del popover de filtros; prueba que elige un valor y el nombre no cambia. |
+| Z2-7 | corregido | `1705ed6` | `aria-controls` solo mientras el panel existe (Disclosure de ejecución y plegable de finanzas). |
+| Z2-8 | corregido | `1705ed6` | La razón del «Abrir» deshabilitado viaja en `aria-describedby` + texto `.sr-only` (el `title` se conserva). |
+| Z2-9 | PEDIDO A CLAUDE | `1705ed6` | `project-ficha.tsx` ya lleva «Secciones del proyecto»; `ficha-finanzas.tsx:22` y `ficha-historial.tsx:19` siguen sin nombre accesible: fuera de superficie. |
+| Z2-10 | corregido | `496c923` | «Exportar PDF» pasa a `Link` con `target="_blank"` y `rel="noopener noreferrer"`. |
+| Z3-9 | corregido | `f205d59` | Tarjeta con aviso `role="alert"` y botón «Reintentar» (`refetch`); la prueba tolera las dos alertas posibles de la pantalla. |
+| Z3-10 | PEDIDO A CLAUDE | `f205d59` | Hoja imprimible con `mesLegible` («Corte mar 2026.»). El select de Periodo de `gasto-form.tsx:198` (fuera de superficie) sigue mostrando el período crudo. |
+| Z3-11 | corregido | `f205d59` | Prioridad desconocida = valor crudo en tono neutro, nunca «Baja»; `shared.test.tsx` nuevo. |
+| Z3-12 | corregido | `f205d59` | La frase de la barra usa `formatPercent` («97,0 %»), igual que la tabla y los KPI. |
+| Z4-3 | corregido | `9917d29` | Carrusel con `snap-x snap-mandatory` y columnas `snap-start` (una de las dos opciones sugeridas). |
+| Z4-4 | corregido | `9917d29` | `sticky top-0` a secas no fija nada dentro de un scroller horizontal (el scrollport por eje sigue siendo el contenedor); en móvil el cronograma se acota (`max-md:max-h-[65vh]`) y scrollea dentro, con la cabecera fija. |
+| Z4-5 | corregido | `9917d29` | La opción «Detalles» se oculta bajo `md` (`max-md:hidden`). |
+| Z4-6 | corregido | `9917d29` | La fila de avance envuelve (`flex-wrap`) en vez de apretar la barra. |
+| Z5-7 | corregido | `1ab0f7f` | `expect(useDocumentsMock).not.toHaveBeenCalled()` en la prueba del selector de Brief. |
+| Z5-8 | corregido | `1ab0f7f` | Un solo caso «Ver detalle» (conserva el aserto del botón); el duplicado se elimina. |
+| Z5-9 | corregido | `1ab0f7f` | `it.each([true, false])` para la fecha de primer contacto. |
+| Z5-11 | corregido | `1ab0f7f` | Conteo exacto: 10 esqueletos (6 filas + 4 tiles); confirmado por la corrida. |
+| W1-2 | corregido | `9b9a9e5` | Caso con enum v1 en uso por una tabla superviviente: el DROP se omite (etiquetas v1, sin `BORRADOR`) y contraste con el enum v2 presente. |
+| W1-3 | corregido | `9b9a9e5` | Matriz del RAISE completa (las 6 tablas v1), exclusión por `v2_column` con filas, rama sin `_prisma_migrations` y RAISE de conciliación de `lineas_presupuestales`. |
+
+Sin cambios fuera de la superficie permitida, sin migraciones y sin push. Las bajas de W2 (runbook) no se tocaron.
+
+LISTO PARA INTEGRAR: TODO LOTE 5
