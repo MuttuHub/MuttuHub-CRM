@@ -62,6 +62,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { requireApiUser } from "@/lib/supabase/server";
+import { RUBROS_V2 } from "@/lib/catalogs";
 import { RespuestaAbortada } from "@/lib/api/presupuesto";
 import { importarPlantilla } from "@/lib/api/plantilla-import";
 import { POST } from "@/app/api/v1/projects/[id]/import/route";
@@ -170,8 +171,19 @@ async function fixture(tx: Tx, estado: "BORRADOR" | "EN_EJECUCION" = "BORRADOR")
       tipo_medio_exigido: "PDF",
     },
   });
+  // A CI database only ran the migrations: the R01–R15 catalog comes from the seed, not from a
+  // migration, so the fixture creates any missing rubro (idempotent: the whole test rolls back).
+  await tx.rubro.createMany({
+    data: RUBROS_V2.map((rubro) => ({
+      codigo: rubro.codigo,
+      nombre: rubro.nombre,
+      orden: rubro.orden,
+      activo: true,
+    })),
+    skipDuplicates: true,
+  });
   const rubro = await tx.rubro.findFirst({ where: { codigo: "R02", activo: true } });
-  if (!rubro) throw new Error("The local DB has no active rubro R02: run the migrations first.");
+  if (!rubro) throw new Error("The fixture could not ensure an active rubro R02.");
   await tx.lineaPresupuestal.create({
     data: { proyecto_id: proyecto.id, rubro_id: rubro.id, monto_proyectado_cop: new Prisma.Decimal("5.00") },
   });
