@@ -1614,6 +1614,8 @@ export type ProjectSupport = {
   vinculo: string | null;
   url_externa: string | null;
   subido_por: string | null;
+  /** Uploader id: the ficha uses it to decide who may delete their own project documents. */
+  subido_por_id: string;
   created_at: string;
 };
 
@@ -1623,6 +1625,61 @@ export function useProjectSupports(id: string): UseQueryResult<ProjectSupport[]>
     enabled: id !== "",
     queryFn: async () => (await apiGet<{ soportes: ProjectSupport[] }>(`/api/v1/projects/${id}/supports`)).soportes,
   });
+}
+
+/* ── Documentos generales del proyecto (DOC1) ───────────────────────────── */
+
+/** Un documento general: o un archivo (firma/subida/confirmación) o un enlace https con nombre. */
+export type ProjectDocumentoInput =
+  | { tipo: "archivo"; file: File }
+  | { tipo: "enlace"; url_externa: string; nombre: string };
+
+/** Crea un documento del proyecto y refresca la lista de soportes. */
+export function useCreateProjectDocument(
+  projectId: string,
+): UseMutationResult<{ soporte: ProjectSupport }, Error, ProjectDocumentoInput> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input) => {
+      if (input.tipo === "archivo") {
+        const payload = await uploadSoporteFile(`/api/v1/projects/${projectId}/supports/sign`, input.file);
+        return apiPost<{ soporte: ProjectSupport }>(`/api/v1/projects/${projectId}/supports`, payload);
+      }
+      return apiPost<{ soporte: ProjectSupport }>(`/api/v1/projects/${projectId}/supports`, {
+        url_externa: input.url_externa,
+        nombre: input.nombre,
+      });
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectQueryKeys.supports(projectId) });
+    },
+  });
+}
+
+/** Baja lógica de un documento del proyecto (gestores, o el COORDINADOR dueño; lo decide la API). */
+export function useDeleteProjectDocument(
+  projectId: string,
+): UseMutationResult<{ soporte: { id: string } }, Error, string> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (supportId) =>
+      apiDelete<{ soporte: { id: string } }>(`/api/v1/projects/${projectId}/supports/${supportId}`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectQueryKeys.supports(projectId) });
+    },
+  });
+}
+
+/**
+ * Pide la URL firmada (60 s) o el enlace de un documento del proyecto y lo abre en otra pestaña. La API
+ * registra cada emisión en la bitácora de accesos (RNF-04), así que NO se cachea ni se reutiliza la URL.
+ */
+export async function downloadProjectDocument(projectId: string, supportId: string): Promise<void> {
+  const res = await apiGet<{ tipo: "archivo" | "enlace"; url: string | null }>(
+    `/api/v1/projects/${projectId}/supports/${supportId}/download`,
+  );
+  if (!res.url) throw new ApiError("El documento no tiene un enlace disponible.", 404);
+  window.open(res.url, "_blank", "noopener,noreferrer");
 }
 
 /* ── Plantilla Excel (S7 U6) ───────────────────────────────────────────── */

@@ -3,28 +3,47 @@
 // nombre. Usa `soportes-format.ts` para el formato: la lista sale de
 // `GET /projects/:id/supports` y abrir un soporte pasa por la URL firmada de su origen (la API audita
 // cada emisión). Los soportes de gasto solo llegan si la API los deja ver (RNF-03).
+//
+// DOC1: los documentos generales del proyecto (origen "proyecto") se crean con «Subir documento» (archivo
+// o enlace) y se eliminan con confirmación. Gestores, o un COORDINADOR integrante sobre lo que subió, y
+// solo con el proyecto en BORRADOR/EN_EJECUCION/SUSPENDIDO; la API sigue siendo la autoridad.
 
 "use client";
 
 import { useState } from "react";
-import { ExternalLink, Paperclip, Search } from "lucide-react";
+import { ExternalLink, Paperclip, Search, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { formatFechaHora } from "@/components/proyectos/project-display";
 import { formatoSoporte } from "@/components/proyectos/soportes-format";
 import { EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/ui";
+import { SubirDocumentoDialog } from "@/components/proyectos/ficha/subir-documento-dialog";
+import { useCurrentUser } from "@/hooks/kanban";
+import { canManageProjects } from "@/lib/permissions";
 import {
   downloadAvanceSoporte,
   downloadExpenseSoporte,
+  downloadProjectDocument,
+  useDeleteProjectDocument,
+  useProjectMembers,
   useProjectSupports,
   type ProjectListRow,
   type ProjectSupport,
 } from "@/hooks/projects";
 
 const ERROR = "No pudimos cargar los documentos. Inténtalo de nuevo.";
+const ESTADOS_ESCRITURA: readonly string[] = ["BORRADOR", "EN_EJECUCION", "SUSPENDIDO"];
 
 const GRUPOS: readonly { origen: ProjectSupport["origen"]; titulo: string }[] = [
   { origen: "avance", titulo: "Actividades" },
@@ -33,24 +52,43 @@ const GRUPOS: readonly { origen: ProjectSupport["origen"]; titulo: string }[] = 
   { origen: "proyecto", titulo: "Proyecto" },
 ];
 
-/** Hay algo que abrir: el archivo de un avance o gasto (por su origen) o un enlace externo. */
+/** Hay algo que abrir: el archivo de un avance, gasto o documento del proyecto, o un enlace externo. */
 function puedeAbrir(soporte: ProjectSupport): boolean {
   const viaOrigen = (soporte.origen === "avance" || soporte.origen === "gasto") && Boolean(soporte.origen_id);
-  return viaOrigen || Boolean(soporte.url_externa);
+  const viaProyecto = soporte.origen === "proyecto" && (soporte.tipo === "archivo" || Boolean(soporte.url_externa));
+  return viaOrigen || viaProyecto || Boolean(soporte.url_externa);
 }
 
 type Filtro = "TODOS" | ProjectSupport["origen"];
 
 export function FichaDocumentos({ proyecto }: { proyecto: ProjectListRow }) {
   const query = useProjectSupports(proyecto.id);
+  const usuario = useCurrentUser().data;
+  const miembros = useProjectMembers(proyecto.id).data;
+  const borrar = useDeleteProjectDocument(proyecto.id);
   const [filtro, setFiltro] = useState<Filtro>("TODOS");
   const [busqueda, setBusqueda] = useState("");
   const [abriendo, setAbriendo] = useState<string | null>(null);
+  const [subiendo, setSubiendo] = useState(false);
+  const [eliminando, setEliminando] = useState<ProjectSupport | null>(null);
+
+  // Mismo gate que la API (DOC1): gestores, o un COORDINADOR integrante, en estados editables.
+  const esGestor = usuario ? canManageProjects({ id: usuario.id, rol: usuario.rol }) : false;
+  const esCoordinadorMiembro = Boolean(
+    usuario &&
+      usuario.rol === "COORDINADOR" &&
+      (miembros ?? []).some((miembro) => miembro.usuario.id === usuario.id),
+  );
+  const puedeEscribir = (esGestor || esCoordinadorMiembro) && ESTADOS_ESCRITURA.includes(proyecto.estado);
+  const puedeEliminar = (soporte: ProjectSupport) =>
+    soporte.origen === "proyecto" && puedeEscribir && (esGestor || soporte.subido_por_id === usuario?.id);
 
   const abrir = async (soporte: ProjectSupport) => {
     setAbriendo(soporte.id);
     try {
-      if (soporte.origen === "avance" && soporte.origen_id) {
+      if (soporte.origen === "proyecto" && soporte.tipo === "archivo") {
+        await downloadProjectDocument(proyecto.id, soporte.id);
+      } else if (soporte.origen === "avance" && soporte.origen_id) {
         await downloadAvanceSoporte(proyecto.id, soporte.origen_id, soporte.id);
       } else if (soporte.origen === "gasto" && soporte.origen_id) {
         await downloadExpenseSoporte(proyecto.id, soporte.origen_id, soporte.id);
@@ -61,6 +99,17 @@ export function FichaDocumentos({ proyecto }: { proyecto: ProjectListRow }) {
       toast.error(errorMessage(error, "No pudimos abrir el soporte. Inténtalo de nuevo."));
     } finally {
       setAbriendo(null);
+    }
+  };
+
+  const confirmarEliminar = async () => {
+    if (!eliminando) return;
+    try {
+      await borrar.mutateAsync(eliminando.id);
+      setEliminando(null);
+      toast.success("Documento eliminado.");
+    } catch (error) {
+      toast.error(errorMessage(error, "No pudimos eliminar el documento. Inténtalo de nuevo."));
     }
   };
 
@@ -80,7 +129,15 @@ export function FichaDocumentos({ proyecto }: { proyecto: ProjectListRow }) {
 
   return (
     <section data-testid="documentos">
-      <SectionHeader icon={<Paperclip className="size-3.5" strokeWidth={2} />}>Documentos</SectionHeader>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <SectionHeader icon={<Paperclip className="size-3.5" strokeWidth={2} />}>Documentos</SectionHeader>
+        {puedeEscribir && (
+          <Button type="button" size="sm" onClick={() => setSubiendo(true)}>
+            <Upload className="size-3.5" strokeWidth={1.8} />
+            Subir documento
+          </Button>
+        )}
+      </div>
       <p className="mt-1 text-[12.5px] text-ink-500">
         Todos los soportes del proyecto en una sola lista: los de las actividades y los indicadores, los de los
         gastos y los del proyecto.
@@ -158,6 +215,17 @@ export function FichaDocumentos({ proyecto }: { proyecto: ProjectListRow }) {
                           <ExternalLink className="size-3.5" strokeWidth={1.8} />
                           Abrir
                         </Button>
+                        {puedeEliminar(soporte) && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            aria-label={`Eliminar ${soporte.nombre}`}
+                            onClick={() => setEliminando(soporte)}
+                            className="shrink-0 text-ink-500 hover:border-destructivo/40 hover:text-destructivo"
+                          >
+                            <Trash2 className="size-3.5" strokeWidth={1.8} />
+                          </Button>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -167,6 +235,37 @@ export function FichaDocumentos({ proyecto }: { proyecto: ProjectListRow }) {
           </div>
         </>
       )}
+
+      <SubirDocumentoDialog projectId={proyecto.id} open={subiendo} onOpenChange={setSubiendo} />
+
+      <Dialog
+        open={eliminando !== null}
+        onOpenChange={(abierto) => {
+          if (!abierto) setEliminando(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-[min(440px,calc(100%-2rem))]">
+          <DialogHeader>
+            <DialogTitle>Eliminar documento</DialogTitle>
+            <DialogDescription>
+              «{eliminando?.nombre}» dejará de aparecer en la lista. El archivo queda en el almacenamiento.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setEliminando(null)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => void confirmarEliminar()}
+              disabled={borrar.isPending}
+            >
+              {borrar.isPending ? "Eliminando…" : "Eliminar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
