@@ -59,10 +59,16 @@ Decisions T4 and T6 from `lanzamiento-v2-fin-de-semana.md` (2026-10-17) apply:
   files failed to resolve `./preview`, `./template` and `./route` (no tests ran). GREEN: `presupuesto-po` + `budget`
   routes 5 files / 42 tests passed, plus the existing budget route 23/23 rerun alone (a worker-start timeout in the
   combined run, not a test failure) and `src/lib/openapi` 27/27. `tsc`: no error outside the P3 drafts; `eslint`: clean.
-- [ ] **P3** UI: «Importar presupuesto» in Finanzas → Presupuesto (BORRADOR, managers only), with the dialog flow
+- [x] **P3** UI: «Importar presupuesto» in Finanzas → Presupuesto (BORRADOR, managers only), with the dialog flow
   choose → validate → preview table with the differences and the warning → confirm, and «Descargar plantilla».
+  Commit `b374976`. Evidence recorded on 2026-10-18 (continuation of the same writer after the session limit):
+  the dialog, its hooks and the budget screen rerun green — `presupuesto-import-dialog` + `projects-presupuesto-import`
+  + `project-presupuesto` + `presupuesto-po/parse` 4 files / 49 tests, and `budget/import` + `budget` + `budget/template`
+  + `presupuesto-po/{preview,template}` + `openapi/document` 6 files / 75 tests. `tsc --noEmit` and `eslint` clean.
 - [ ] **P4** Verification: the full suites of the touched areas, `tsc` and `eslint`, plus a manual check with the
   PO's real `presupuesto.xlsx`, once filled with values, on a local BORRADOR project.
+  Automated part done (see P3 evidence, 2026-10-18). The manual check and the merge are pending: this branch is not
+  merged until v2 is in production.
 
 Each task: RED, then GREEN, then a work-unit commit, then evidence recorded here.
 
@@ -77,6 +83,8 @@ Each task: RED, then GREEN, then a work-unit commit, then evidence recorded here
 
 - 2026-10-17: document created; worktree from `feat/projects-v2` at `c6bd644`.
 - Route: delegated direct, one writer, because of the 2+ non-trivial files trigger.
+- 2026-10-18: P3 (commit `b374976`, written on 2026-10-17) verified by the next session after the limit ran out:
+  its suites, `tsc` and `eslint` are green (see the P3 evidence above). No source changes were needed.
 
 ## Decisions taken while implementing
 
@@ -90,4 +98,5 @@ Each task: RED, then GREEN, then a work-unit commit, then evidence recorded here
 
 ## Next step
 
-P3.
+**P4:** the manual check by the user with the PO's real `presupuesto.xlsx` on a local BORRADOR project (the dialog
+also offers «Descargar plantilla»). The branch stays unmerged until v2 is in production; then it merges and P4 closes.
