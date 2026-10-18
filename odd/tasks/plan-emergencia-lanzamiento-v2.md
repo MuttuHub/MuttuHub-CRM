@@ -26,6 +26,10 @@ No hay nada que deshacer: la rama local queda igual y se reintenta.
    (§5.4); la base no se toca.
 4. Nunca saltarse el CI con permisos de admin sin una decisión explícita del usuario.
 
+**Nota conocida:** el check `e2e` (workflow TestSprite) falla porque la acción externa `TestSprite/run-action` ya no
+existe en GitHub (404). Es infraestructura, no código, y no bloquea el merge (main sin protección de rama). No
+perseguirlo durante la ventana; queda como limpieza post-lanzamiento.
+
 **A3. `gh pr create` falla (auth o red).**
 `gh auth status` para confirmar sesión; si la red lo impide, crear el PR desde la UI de GitHub (el push ya dejó la
 rama arriba). Alternativa menor: no bloquear la ventana por el PR.

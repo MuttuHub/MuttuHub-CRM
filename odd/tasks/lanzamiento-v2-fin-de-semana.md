@@ -680,6 +680,16 @@ El prompt está en `odd/tasks/lanzamiento-v2-deepseek-prompt-4.md`. Se integró 
     propósito; el spec de DOC1 dejó de estar en `fixme` al integrarse la feature.
   - **R6** ejecutado: merges de DOC1 y de la suite e2e; suite completa 370 archivos / 4134 pruebas en verde; `tsc` y
     `npm run build` limpios; etiqueta `v2.0.0-rc1`.
+  - **PR #72** abierto hacia `main` (https://github.com/MuttuHub/MuttuHub-CRM/pull/72) tras autorizar el push de la rama.
+    La primera corrida del gate `unit` falló solo por `prisma/plantilla-import.invariant.test.ts` (11 pruebas): el
+    catálogo de rubros R01–R15 viene del seed, no de las migraciones, y la base de CI solo está migrada. Arreglado en
+    `0483fcf` (la fixture crea los rubros que falten, idempotente, dentro de su transacción que siempre revierte),
+    verificado reproduciendo el fallo y después el verde contra un Postgres desechable migrado. `unit` en verde (4m3s)
+    y preview de Vercel en verde.
+  - El check `e2e` del PR queda en rojo por infraestructura externa: la acción `TestSprite/run-action` ya no existe en
+    GitHub (404) desde después del 30-sep. No bloquea (main sin protección de rama) y queda como limpieza
+    post-lanzamiento.
+  - La etiqueta `v2.0.0-rc1` se repunta a `0483fcf` (el mismo candidato con el arreglo de CI).
 
 ## Siguiente paso
 
@@ -697,10 +707,11 @@ El prompt está en `odd/tasks/lanzamiento-v2-deepseek-prompt-4.md`. Se integró 
 
 **Estado para retomar (2026-10-18, madrugada):**
 - `feat/projects-v2` (repo principal, worktree limpio) tiene integrado todo el lanzamiento y la etiqueta anotada
-  `v2.0.0-rc1` apunta a `f81ea50`. El plan queda actualizado hasta aquí.
+  `v2.0.0-rc1` apunta a `0483fcf`. El plan queda actualizado hasta aquí.
 - Integrado al rc1: DOC1 (`e134f47`) y la suite e2e (`67e4939`, `f81ea50`). Fuera del rc1, como estaba previsto:
   `feat/po-presupuesto-import` (P4 manual pendiente) y `feat/deepseek-lote-5` (lote 5, post-lanzamiento).
-- Todos los worktrees quedaron limpios; sin push.
+- Rama empujada y **PR #72 abierto** con `unit` y Vercel en verde; el merge espera a la ventana R9 (tras
+  `migrate deploy`). El check `e2e`/TestSprite queda rojo por infra externa y no bloquea.
 - Plan de emergencia del push, el PR/CI y la ventana: `odd/tasks/plan-emergencia-lanzamiento-v2.md` (la vuelta atrás
   completa sigue en el runbook §5).
 - Notas de entorno (para no repetir el diagnóstico):
