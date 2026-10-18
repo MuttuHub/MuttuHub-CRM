@@ -325,7 +325,7 @@ describe("ProjectFinanciero", () => {
 
       const barra = await screen.findByTestId("financiero-ejecucion")
       expect(barra).toHaveAttribute("data-color", "verde")
-      // E y P comparten escala (la mayor): E/P = 40.500.000 / 41.750.000 = 97 %; la marca de P va al 100 %.
+      // E y P comparten escala (la mayor): E/P = 40.500.000 / 41.750.000 = 97,0 %; la marca de P va al 100 %.
       expect(within(barra).getByTestId("financiero-ejecucion-ejecutado")).toHaveAttribute("data-width", "97")
       expect(within(barra).getByTestId("financiero-ejecucion-programado")).toHaveAttribute("data-width", "100")
     })
@@ -333,7 +333,7 @@ describe("ProjectFinanciero", () => {
     it("describes the bar and repeats the same sentence as its accessible name", async () => {
       setup()
 
-      const frase = "Ejecutado $ 40.500.000 de $ 41.750.000 programados (97 %) · Asignado $ 83.500.000"
+      const frase = "Ejecutado $ 40.500.000 de $ 41.750.000 programados (97,0 %) · Asignado $ 83.500.000"
       const barra = await screen.findByTestId("financiero-ejecucion")
       expect(barra).toHaveAttribute("role", "img")
       expect(barra).toHaveAttribute("aria-label", frase)

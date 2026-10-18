@@ -705,6 +705,22 @@ describe("ProjectList", () => {
     expect(screen.queryByText("PRY-2026-001")).not.toBeInTheDocument()
   })
 
+  // Z3-9: the card itself must say the list failed and offer a retry, not only the toast.
+  it("shows an in-card error with a retry when the projects read fails", async () => {
+    const user = userEvent.setup()
+    projectsQuery.isError = true
+    projectsQuery.error = new TypeError("Failed to fetch")
+    projectsQuery.data = undefined
+
+    render(<ProjectList />)
+
+    // Two alerts can coexist (the KPI row has its own); the card message must be the list one.
+    const aviso = screen.getByText("No pudimos cargar los proyectos. Inténtalo de nuevo.")
+    expect(aviso).toHaveAttribute("role", "alert")
+    await user.click(screen.getByRole("button", { name: "Reintentar" }))
+    expect(projectsQuery.refetch).toHaveBeenCalled()
+  })
+
   it("passes the selected estado to the query and names the active filter when empty", async () => {
     const user = userEvent.setup()
     const { rerender } = render(<ProjectList />)

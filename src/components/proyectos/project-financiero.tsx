@@ -237,9 +237,9 @@ function BarraEjecucion({ ficha }: { ficha: ProjectFinancialSheet }) {
   const escala = ejecutado > programado ? ejecutado : programado;
   const anchoEjecutado = pct1(ejecutado, escala);
   const anchoProgramado = pct1(programado, escala);
-  const ep = ficha.total.ep_decimas === null ? null : Math.round(ficha.total.ep_decimas / 10);
+  const ep = ficha.total.ep_decimas === null ? null : formatPercent(BigInt(ficha.total.ep_decimas));
   const frase = [
-    `Ejecutado ${formatCOP(ejecutado)} de ${formatCOP(programado)} programados${ep === null ? "" : ` (${ep} %)`}`,
+    `Ejecutado ${formatCOP(ejecutado)} de ${formatCOP(programado)} programados${ep === null ? "" : ` (${ep})`}`,
     `Asignado ${formatCOP(asignado)}`,
   ].join(" · ");
   const color = disponible ? ficha.total.color : null;

@@ -170,6 +170,8 @@ describe("ProjectPrintSheet", () => {
     expect(row).toHaveTextContent("$ 45.000,50")
     expect(within(finanzas).getByTestId("imprimir-finanzas-total")).toHaveTextContent("$ 45.000,50")
     expect(finanzas).toHaveTextContent("Ejecutado 83 % de lo programado")
+    // Z3-10: the corte month reads as a month, never as the raw period.
+    expect(within(finanzas).getByText("Corte mar 2026.")).toBeInTheDocument()
   })
 
   it("has a print button that calls window.print and is hidden when printing", async () => {

@@ -14,7 +14,7 @@ import {
   fraseFinanciera,
   fraseTecnica,
 } from "@/components/proyectos/ficha/ficha-resumen";
-import { ESTADO_PROYECTO_META, formatFechaCalendario } from "@/components/proyectos/project-display";
+import { ESTADO_PROYECTO_META, formatFechaCalendario, mesLegible } from "@/components/proyectos/project-display";
 import { KPIS_NO_MEDIBLE_NOTE, formatPct } from "@/components/proyectos/project-kpis-panel";
 import {
   useProject,
@@ -359,7 +359,7 @@ function ResumenFinanciero({ proyectoId }: { proyectoId: string }) {
             </tr>
           </tbody>
         </table>
-        <p className="mt-1.5 text-[11px] text-ink-600">Corte {hoja.corte}.</p>
+        <p className="mt-1.5 text-[11px] text-ink-600">Corte {mesLegible(hoja.corte)}.</p>
       </>
     );
   }

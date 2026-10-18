@@ -51,8 +51,28 @@ export const PRIORIDAD_CHIP: Record<string, UiTone> = {
   BAJA: "info",
 };
 
+const PRIORIDAD_META: Record<string, { label: string; dot: string }> = {
+  ALTA: { label: "Alta", dot: "bg-destructivo" },
+  MEDIA: { label: "Media", dot: "bg-alerta" },
+  BAJA: { label: "Baja", dot: "bg-info" },
+};
+
 export function PrioridadChip({ prioridad }: { prioridad: string | null }) {
   if (!prioridad) return <span className="text-[12.5px] text-ink-500">—</span>;
+  const meta = PRIORIDAD_META[prioridad];
+  // Z3-11: an unexpected value is shown as itself; it must never pass as a valid priority.
+  if (!meta) {
+    return (
+      <span
+        className={cn(
+          "inline-flex h-[24px] items-center rounded-full px-2.5 text-[11px] font-bold whitespace-nowrap",
+          TONE_BADGE.neutro,
+        )}
+      >
+        {prioridad}
+      </span>
+    );
+  }
   return (
     <span
       className={cn(
@@ -60,17 +80,8 @@ export function PrioridadChip({ prioridad }: { prioridad: string | null }) {
         TONE_BADGE[PRIORIDAD_CHIP[prioridad] ?? "neutro"],
       )}
     >
-      <span
-        className={cn(
-          "size-[6px] rounded-full",
-          prioridad === "ALTA"
-            ? "bg-destructivo"
-            : prioridad === "MEDIA"
-              ? "bg-alerta"
-              : "bg-info",
-        )}
-      />
-      {prioridad === "ALTA" ? "Alta" : prioridad === "MEDIA" ? "Media" : "Baja"}
+      <span className={cn("size-[6px] rounded-full", meta.dot)} />
+      {meta.label}
     </span>
   );
 }

@@ -24,7 +24,7 @@ import Link from "next/link";
 import { Eye, FolderKanban, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { ApiError } from "@/lib/api/http";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { useIsMobile } from "@/components/proyectos/capture-surface";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -193,7 +193,16 @@ export function ProjectList() {
           </p>
         )}
 
-        {query.isError ? null : query.isLoading ? (
+        {query.isError ? (
+          <div className="p-4 lg:p-5">
+            <p role="alert" className="text-[13px] text-alerta">
+              No pudimos cargar los proyectos. Inténtalo de nuevo.
+            </p>
+            <Button variant="outline" className="mt-3" onClick={() => void query.refetch()}>
+              Reintentar
+            </Button>
+          </div>
+        ) : query.isLoading ? (
           <ProjectTableSkeleton />
         ) : proyectos.length === 0 ? (
           <EmptyProjects hayFiltros={contarFiltros(filtros) > 0} puedeVerPortafolio={puedeVerPortafolio} />
