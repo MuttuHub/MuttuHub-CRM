@@ -128,6 +128,7 @@ type Setup = {
   rol?: string
   miembros?: unknown[]
   seguimiento?: boolean
+  lista?: boolean
 }
 
 describe("ProjectEjecucion", () => {
@@ -144,6 +145,7 @@ describe("ProjectEjecucion", () => {
     rol = "ADMINISTRADOR",
     miembros = [],
     seguimiento = false,
+    lista = false,
   }: Setup = {}) {
     fetchMock.mockImplementation((input: unknown) => {
       const url = String(input)
@@ -176,7 +178,7 @@ describe("ProjectEjecucion", () => {
       }
       return Promise.resolve(jsonResponse({}))
     })
-    return render(<ProjectEjecucion proyecto={{ ...PROYECTO, ...proyecto }} seguimiento={seguimiento} />, {
+    return render(<ProjectEjecucion proyecto={{ ...PROYECTO, ...proyecto }} seguimiento={seguimiento} lista={lista} />, {
       wrapper: createWrapper(),
     })
   }
@@ -213,6 +215,20 @@ describe("ProjectEjecucion", () => {
     )
     expect(screen.getByRole("combobox", { name: "Base" })).toHaveValue("original")
     expect(screen.getByTestId("semaforo-tecnico")).toBeInTheDocument()
+  })
+
+  it("points aria-controls at the advanced panel only while it is open (Z2-7)", async () => {
+    const user = userEvent.setup()
+    setup({ lista: true })
+
+    const boton = await screen.findByRole("button", { name: "Opciones avanzadas" })
+    expect(boton).toHaveAttribute("aria-expanded", "false")
+    expect(boton).not.toHaveAttribute("aria-controls")
+
+    await user.click(boton)
+    expect(boton).toHaveAttribute("aria-expanded", "true")
+    expect(boton).toHaveAttribute("aria-controls")
+    expect(screen.getByRole("combobox", { name: "Base" })).toBeInTheDocument()
   })
 
   it("renders the technical semáforo with the API color for an EN_EJECUCION project", async () => {

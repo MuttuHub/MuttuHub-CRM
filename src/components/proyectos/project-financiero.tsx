@@ -89,7 +89,7 @@ function FinancieroContent({ proyecto, inicio, fin }: { proyecto: ProjectListRow
           variant="outline"
           size="sm"
           aria-expanded={opciones}
-          aria-controls="financiero-opciones-avanzadas"
+          aria-controls={opciones ? "financiero-opciones-avanzadas" : undefined}
           onClick={() => setOpciones((abiertas) => !abiertas)}
         >
           <ChevronDown className={cn("size-3.5 transition-transform", opciones && "rotate-180")} aria-hidden />

@@ -199,7 +199,11 @@ describe("FichaDocumentos", () => {
     setup()
 
     const grupo = await screen.findByTestId("documentos-grupo-indicador")
-    expect(within(grupo).getByRole("button", { name: "Abrir" })).toBeDisabled()
+    const boton = within(grupo).getByRole("button", { name: "Abrir" })
+    expect(boton).toBeDisabled()
+    // Z2-8: the reason is exposed to assistive tech, not only as a tooltip.
+    expect(boton).toHaveAttribute("aria-describedby", expect.stringContaining("documento-sin-archivo"))
+    expect(within(grupo).getByText("Este documento no tiene archivo ni enlace para abrir.")).toBeInTheDocument()
   })
 
   it.each([
@@ -210,6 +214,9 @@ describe("FichaDocumentos", () => {
     setup({ soportes: [soporte("x1", origen, "sin-nada.pdf", over)] })
 
     const fila = (await screen.findByText("sin-nada.pdf")).closest("li")!
-    expect(within(fila).getByRole("button", { name: "Abrir" })).toBeDisabled()
+    const boton = within(fila).getByRole("button", { name: "Abrir" })
+    expect(boton).toBeDisabled()
+    expect(boton).toHaveAttribute("aria-describedby", expect.stringContaining("documento-sin-archivo"))
+    expect(within(fila).getByText("Este documento no tiene archivo ni enlace para abrir.")).toBeInTheDocument()
   })
 })

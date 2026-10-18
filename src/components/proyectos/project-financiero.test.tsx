@@ -173,12 +173,15 @@ describe("ProjectFinanciero", () => {
 
     const boton = await screen.findByRole("button", { name: "Opciones avanzadas" })
     expect(boton).toHaveAttribute("aria-expanded", "false")
+    // Z2-7: closed, the control must not point at a panel that does not exist.
+    expect(boton).not.toHaveAttribute("aria-controls")
     expect(screen.queryByRole("combobox", { name: "Corte" })).not.toBeInTheDocument()
     expect(screen.queryByRole("combobox", { name: "Base" })).not.toBeInTheDocument()
 
     boton.focus()
     await user.keyboard("{Enter}")
     expect(boton).toHaveAttribute("aria-expanded", "true")
+    expect(boton).toHaveAttribute("aria-controls", "financiero-opciones-avanzadas")
     expect(await screen.findByRole("combobox", { name: "Corte" })).toBeInTheDocument()
     expect(screen.getByRole("combobox", { name: "Base" })).toBeInTheDocument()
   })

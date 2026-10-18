@@ -100,7 +100,7 @@ export function Disclosure({
       <button
         type="button"
         aria-expanded={abierto}
-        aria-controls={panelId}
+        aria-controls={abierto ? panelId : undefined}
         onClick={() => setAbierto((value) => !value)}
         className="flex min-h-11 items-center gap-1.5 rounded-12 text-[13px] font-semibold text-ink-700 outline-none hover:text-ink-950 focus-visible:ring-3 focus-visible:ring-ring/50"
       >

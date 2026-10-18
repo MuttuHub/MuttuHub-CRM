@@ -154,11 +154,19 @@ describe("ProjectFicha (page)", () => {
     await screen.findByTestId("ficha-header")
 
     await user.click(screen.getByRole("button", { name: "Más acciones" }))
-    const item = await screen.findByRole("menuitem", { name: "Imprimir / PDF" })
+    const item = await screen.findByRole("menuitem", { name: "Imprimir / Guardar PDF" })
 
     expect(item).toHaveAttribute("href", "/proyectos/p1/imprimir")
     expect(item).toHaveAttribute("target", "_blank")
     expect(item).toHaveAttribute("rel", expect.stringContaining("noopener"))
+  })
+
+  it("names the main tab list so assistive tech knows which block it switches", async () => {
+    mockFichaAndAudit({ historial: [] })
+
+    renderFicha()
+
+    expect(await screen.findByRole("tablist", { name: "Secciones del proyecto" })).toBeInTheDocument()
   })
 
   it("opens the Resumen with the health rows above the attention list and the fact sheet, reading the KPIs once", async () => {

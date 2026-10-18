@@ -91,7 +91,7 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
           <FichaHeader proyecto={proyecto} onIrA={setTab} />
           <div className="relative border-b border-ink-200">
             <div className="no-scrollbar overflow-x-auto px-5 sm:px-6">
-              <TabsList variant="line" className="w-full justify-start gap-1">
+              <TabsList variant="line" aria-label="Secciones del proyecto" className="w-full justify-start gap-1">
                 {FICHA_TABS.map((item) => (
                   <TabsTrigger key={item.value} value={item.value} className="flex-none px-3">
                     {item.label}

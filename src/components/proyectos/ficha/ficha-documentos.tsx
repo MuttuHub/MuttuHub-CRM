@@ -148,10 +148,16 @@ export function FichaDocumentos({ proyecto }: { proyecto: ProjectListRow }) {
                               .join(" · ")}
                           </span>
                         </span>
+                        {!puedeAbrir(soporte) && (
+                          <span id={`documento-sin-archivo-${soporte.id}`} className="sr-only">
+                            Este documento no tiene archivo ni enlace para abrir.
+                          </span>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"
                           disabled={abriendo === soporte.id || !puedeAbrir(soporte)}
+                          aria-describedby={puedeAbrir(soporte) ? undefined : `documento-sin-archivo-${soporte.id}`}
                           title={puedeAbrir(soporte) ? undefined : "Este documento no tiene archivo ni enlace para abrir."}
                           onClick={() => void abrir(soporte)}
                         >
