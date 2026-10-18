@@ -343,8 +343,8 @@ describe("ProjectList", () => {
 
     const { container } = render(<ProjectList />)
 
-    // 6 rows of the table (+ the 4 tiles of the KPI row, which also wait for the projects)
-    expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThanOrEqual(6)
+    // Exactly 10: 6 table rows + the 4 KPI tiles that also wait for the projects.
+    expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBe(10)
     expect(screen.queryByText(PROYECTO.nombre)).not.toBeInTheDocument()
     expect(screen.queryByText("Todavía no hay proyectos")).not.toBeInTheDocument()
   })
@@ -549,6 +549,7 @@ describe("ProjectList", () => {
     expect(enlace).toHaveAttribute("target", "_blank")
     expect(enlace.getAttribute("rel")).toMatch(/noopener/)
     expect(enlace.getAttribute("rel")).toMatch(/noreferrer/)
+    expect(screen.queryByRole("button", { name: /Ver detalle/ })).toBeNull()
   })
 
   it("renders table rows on desktop and no card list", () => {
@@ -863,19 +864,6 @@ describe("ProjectList", () => {
     expect(screen.getByRole("link", { name: "Nuevo proyecto" })).toHaveAttribute("href", "/proyectos/nuevo")
     await userEvent.setup().click(screen.getByRole("link", { name: "Nuevo proyecto" }))
     expect(screen.queryByRole("dialog")).toBeNull()
-  })
-
-  it("links 'Ver detalle' on a table row to the ficha page in a new tab", async () => {
-    projectsQuery.data = { proyectos: [PROYECTO] }
-
-    render(<ProjectList />)
-    const enlace = screen.getByRole("link", { name: /Ver detalle/ })
-
-    expect(enlace).toHaveAttribute("href", "/proyectos/p1")
-    expect(enlace).toHaveAttribute("target", "_blank")
-    expect(enlace.getAttribute("rel")).toMatch(/noopener/)
-    expect(enlace.getAttribute("rel")).toMatch(/noreferrer/)
-    expect(screen.queryByRole("button", { name: /Ver detalle/ })).toBeNull()
   })
 
   it("does not open a ficha dialog or read the project when 'Ver detalle' is clicked", async () => {

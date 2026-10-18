@@ -195,16 +195,9 @@ describe("ClientSheet — General tab inline editing (QA audit finding #3)", () 
 
   // Carril Y · Y2 (D2): la ficha mostraba la fecha de primer contacto en ISO crudo. Es un día de
   // calendario capturado por `<input type="date">` (UTC), así que se muestra con `formatFechaDia`,
-  // igual que la ficha imprimible.
-  it("renders the first contact date as its UTC calendar day, not the raw ISO", () => {
-    renderSheet()
-
-    expect(screen.getByText("01 de ago de 2026")).toBeInTheDocument()
-    expect(screen.queryByText("2026-08-01T12:00:00.000Z")).not.toBeInTheDocument()
-  })
-
-  it("also formats the first contact date in the read-only rendering", () => {
-    clienteQuery.data = { ...CLIENTE, puede_editar: false }
+  // igual que la ficha imprimible. Z5-9: una sola prueba paramétrica para editable y solo lectura.
+  it.each([true, false])("renders the first contact date as its UTC calendar day (puede_editar=%s)", (puedeEditar) => {
+    clienteQuery.data = { ...CLIENTE, puede_editar: puedeEditar }
     renderSheet()
 
     expect(screen.getByText("01 de ago de 2026")).toBeInTheDocument()

@@ -166,6 +166,8 @@ describe("ClientFormDialog — Cargar desde Brief existente (QA audit finding #5
   it("does not fetch documents until the picker is opened", () => {
     render(<ClientFormDialog open onOpenChange={vi.fn()} users={USERS} onSaved={vi.fn()} />)
     expect(screen.queryByRole("heading", { name: "Cargar desde Brief existente" })).not.toBeInTheDocument()
+    // Z5-7: the absence of the heading is not enough; the query must not even be called.
+    expect(useDocumentsMock).not.toHaveBeenCalled()
   })
 
   it("fills nombre with the picked document's título and closes the picker", async () => {
