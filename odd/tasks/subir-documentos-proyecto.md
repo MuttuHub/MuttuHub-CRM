@@ -53,7 +53,7 @@ Missing:
 
 ## Tasks
 
-- [ ] **DOC1a** API:
+- [x] **DOC1a** API:
   - `POST /api/v1/projects/[id]/supports` creates a project-origin support (file or link) through
     `signarSubidaSoporte` and `validarSoporte`;
   - a download route returns the signed URL of a project-origin file;
@@ -61,7 +61,8 @@ Missing:
 
   Route tests cover roles, states, membership, validation, audit, and the 404 for supports of other projects or
   origins. Register the routes in OpenAPI.
-- [ ] **DOC1b** UI:
+  Commit `25d46ab` (migration 26 was `fbb3d83`; the runbook went to 26 pending migrations in `e52a500`).
+- [x] **DOC1b** UI:
   - a «Subir documento» button in the Documentos tab, for allowed users and states;
   - a dialog to pick a file or paste a link, with a name;
   - project-origin documents open from the tab;
@@ -69,6 +70,7 @@ Missing:
   - invalidate the supports query after changes.
 
   Component and hook tests.
+  Commit `84d2eb8`.
 - [ ] **DOC1c** Verification:
   - the full suites of the touched areas;
   - `tsc` and `eslint`;
@@ -86,13 +88,21 @@ Each task: RED, then GREEN, then a work-unit commit, then evidence here.
   endpoint would fail on every insert. The «proyecto» branch of `GET /supports` is unreachable for the same reason.
   Building the feature needs a migration that relaxes the CHECK to `<= 1`, plus an update to that invariant test, which
   the constraints forbid. No source was written.
+- 2026-10-17: migration 26 (`20261017120000_v2_soportes_proyecto_origen`) and its invariant updates committed in
+  `fbb3d83`; the runbook moves to 26 pending migrations (`e52a500`). The RED tests of DOC1a and DOC1b were written
+  before the session hit its limit.
+- 2026-10-18: DOC1a and DOC1b implemented from those RED tests (continuation of the same writer).
+  - RED observed first: 4 modules missing (sign, `[supportId]`, `[supportId]/download`,
+    `subir-documento-dialog`) and 14 failing tests in the hooks, the POST and the tab.
+  - GREEN: 121/121 across 14 files — the 7 target files plus the proyectos guards, the OpenAPI document test and
+    the `no-storage-delete` guard. `tsc --noEmit` and `eslint` clean.
+  - Design note: only project **files** open through the download route; project **links** keep opening directly,
+    as the tab already did (the route still supports and audits links for API clients).
+  - The write gate lives in `src/lib/api/soportes.ts` (`gateSoporteProyectoWrite`): managers or an active-member
+    COORDINADOR, BORRADOR/EN_EJECUCION/SUSPENDIDO, 404 -> 403 -> 409.
 
 ## Next step
 
-**Decision (user, 2026-10-17): allow the migration.** It is migration 26,
-`20261017120000_v2_soportes_proyecto_origen`, idempotent, relaxing the CHECK to
-`num_nonnulls(avance_id, medicion_id, gasto_id) <= 1`. A row with two or more parents is still rejected. The
-invariant tests change to accept a parentless row and still reject two parents. The launch runbook goes from 25 to 26
-pending migrations, and the R7 rehearsal on a production copy covers it.
-
-Next: DOC1a, starting with the migration and its invariant RED.
+**DOC1c:** the manual check by the user in the browser on PRY-2026-005 (upload a file, paste a link, open both,
+delete one as a manager and one as a member COORDINADOR). Then the branch merges into `feat/projects-v2` before
+the rc1 tag (R6) and the R7 rehearsal on a production copy covers migration 26.
