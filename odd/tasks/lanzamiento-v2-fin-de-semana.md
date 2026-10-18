@@ -695,6 +695,21 @@ El prompt está en `odd/tasks/lanzamiento-v2-deepseek-prompt-4.md`. Se integró 
   candidato en `e2e-proyectos-v2.md`) y los pendientes post-lanzamiento (import PO, rubros por proyecto, lote 5 de
   DeepSeek, VPS).
 
+**Estado para retomar (2026-10-18, madrugada):**
+- `feat/projects-v2` (repo principal, worktree limpio) tiene integrado todo el lanzamiento y la etiqueta anotada
+  `v2.0.0-rc1` apunta a `f81ea50`. El plan queda actualizado hasta aquí.
+- Integrado al rc1: DOC1 (`e134f47`) y la suite e2e (`67e4939`, `f81ea50`). Fuera del rc1, como estaba previsto:
+  `feat/po-presupuesto-import` (P4 manual pendiente) y `feat/deepseek-lote-5` (lote 5, post-lanzamiento).
+- Todos los worktrees quedaron limpios; sin push.
+- Notas de entorno (para no repetir el diagnóstico):
+  - con la máquina cargada, los workers de vitest pueden expirar al arrancar; se corrió con `--maxWorkers=2` (o
+    `--no-file-parallelism`) y un parche local **no versionado** del timeout de arranque en `node_modules/vitest`
+    (ya aplicado en el repo principal, `ficha-ux` y `po-presupuesto`);
+  - hay un dev server del repo principal corriendo en Windows; desde WSL se llega en `http://172.30.48.1:3000`;
+  - la suite e2e se corre desde un worktree con `node_modules` (el de `e2e` es un enlace al del repo principal) con
+    `PLAYWRIGHT_BASE_URL=http://172.30.48.1:3000 node node_modules/playwright/cli.js test --config <e2e>/playwright.verify.config.ts`;
+  - el humo del ensayo 2 puede usar esa suite: todo pasa salvo el test D1, que falla a propósito.
+
 ## Después del lanzamiento: importar las plantillas de la PO
 
 La PO envió `proyecto.xlsx` (hojas Modelo0/Ejemplo0 para objetivo, indicador y meta, y Modelo1/Ejemplo1 para
