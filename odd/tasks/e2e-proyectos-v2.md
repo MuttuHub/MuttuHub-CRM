@@ -43,7 +43,6 @@ Con eso, la prueba pasa sin cambios.
 
 ## Pendiente
 
-- Quitar el `test.fixme` de `documentos-proyecto.spec.ts` cuando DOC1 se integre a `feat/projects-v2` y reverificar
-  los selectores contra la UI integrada.
 - D1 (arreglo de app, fuera de la superficie de este worktree): con eso la suite queda 100 % verde.
-- Correrla contra la copia de producción como parte del humo de R7.
+- Correr la suite completa contra la copia de producción como parte del humo de R7 (incluye ya
+  `documentos-proyecto.spec.ts`, que dejó de estar en `test.fixme` al integrarse DOC1).
