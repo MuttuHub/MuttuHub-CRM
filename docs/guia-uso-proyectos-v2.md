@@ -379,3 +379,52 @@ Estas funciones **no** están en el lanzamiento y se trabajarán después:
 - **Semáforo financiero**: el estado del gasto frente al presupuesto y su programación.
 - **Medio de verificación**: el archivo o enlace que prueba un avance.
 - **Modificación**: el cambio solicitado después de aprobar la línea base.
+
+---
+
+## Anexo A. Validación en 15 minutos (para la PO)
+
+Este anexo no explica el módulo: sirve para **comprobarlo**. Cada fila dice qué hacer y qué debe verse. Si algo no
+coincide, es un hallazgo que conviene anotar con el paso, la pantalla y lo que apareció.
+
+**Antes de empezar**
+
+- Entrar con un usuario **Administrador** o **Gerencia**.
+- Tener un cliente con una oportunidad en estado **Ganada** (hoy hay una disponible).
+- Para los puntos de permisos, un segundo usuario con rol **Coordinador** que no sea integrante, y un **Colaborador**.
+
+| # | Qué hacer | Qué debe verse |
+|---|---|---|
+| 1 | Abrir **Proyectos** con el portafolio vacío | El mensaje **«Todavía no hay proyectos»** y los indicadores en cero |
+| 2 | **Nuevo proyecto → Desde una oportunidad ganada** | Solo aparecen oportunidades **Ganadas** sin proyecto; nombre y valor precargados; al guardar, código **PRY-AAAA-NNN** y estado **Borrador** |
+| 3 | **Nuevo proyecto → Proyecto independiente** | Cliente y nombre obligatorios; sin aviso de diferencia de valor |
+| 4 | Abrir el **Resumen** del borrador | **Próximos pasos** con fechas y valor, estructura, presupuesto y línea base, cada uno con su enlace |
+| 5 | **Actividades → Lista**: crear objetivo, actividad con semanas, entregable e indicador | Los códigos se generan solos (O1, A1.1, E1.1.1); el **Gantt** refleja las semanas; en Borrador no hay **Tablero** |
+| 6 | **Descargar plantilla** e **Importar plantilla** con un error deliberado | La vista previa lista **regla, fila, columna, valor y mensaje**, y no escribe nada hasta corregir |
+| 7 | **Finanzas → Presupuesto**: asignar rubros con una suma distinta al valor total | Aviso de la diferencia; **Igualar valor total a Σ A**; la programación mensual muestra **«Programación pendiente»** si no cuadra |
+| 8 | **Aprobar línea base** con algo pendiente | Lista las **precondiciones** que faltan; al completarlas y aprobar, el proyecto pasa a **En ejecución** y se crea la versión `v0` |
+| 9 | **Actividades → Registrar avance** | La fecha no puede ser futura; exige archivo o enlace; si el avance excede lo planeado, pide **justificación del exceso** |
+| 10 | **Finanzas → Gastos → Registrar gasto** | El **soporte es obligatorio**; el gasto queda en **Registrado** |
+| 11 | Validar ese gasto con **la misma** cuenta | No se puede: la validación exige otra persona con permiso |
+| 12 | **Rechazar** el gasto desde otra cuenta | Pide el **motivo**; quien lo registró recibe **«Gasto rechazado»** con el motivo y el enlace |
+| 13 | **Documentos**: subir un archivo y un enlace, y abrirlos | Descarga por **URL firmada**; **Eliminar** solo aparece en documentos del grupo **Proyecto** |
+| 14 | **Historial**: ver **Versiones** y **Auditoría** | Comparación `v0` contra la versión actual; la auditoría muestra usuario y fecha |
+| 15 | Menú **«⋯»** | **Imprimir / PDF** sale sin menú lateral; **Exportar a Excel** descarga con corte y base elegidos |
+| 16 | Abrir el proyecto con un **Coordinador que no es integrante** y con un **Colaborador** | No lo ven: **«No tienes permisos sobre este proyecto»** |
+| 17 | Abrir la ficha en una ventana de **390 px** | Nada se sale de la pantalla |
+
+### Decisiones de producto que conviene confirmar con la PO
+
+Estos puntos están **fuera** del lanzamiento o dependen de una definición, y conviene cerrarlos antes de la siguiente
+iteración:
+
+1. **Importar solo estructura, sin presupuesto.** Hoy la importación exige que el presupuesto cuadre con el valor total,
+   así que no se pueden cargar primero metas y actividades y después el presupuesto, que es el flujo que pidió la PO.
+2. **Rubros personalizados o deshabilitados por proyecto.** Hoy el catálogo R01 a R15 es global: un rubro sin uso queda
+   en $0 y se sigue mostrando.
+3. **Cerrar, suspender o cancelar** un proyecto desde la interfaz: no está en esta versión.
+4. **Importar gastos** desde Excel: no está en esta versión.
+5. **Correos automáticos.** Las notificaciones dentro de la aplicación funcionan; el envío de correo depende de verificar
+   el dominio de envío.
+6. **Plantillas de la PO** (`proyecto.xlsx`, `presupuesto.xlsx`): el modelo de datos ya las soporta, falta el adaptador
+   para leer su formato exacto.

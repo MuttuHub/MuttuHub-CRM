@@ -221,6 +221,7 @@
     <li><a href="#problemas">Problemas frecuentes</a></li>
     <li><a href="#limites">Límites de esta versión</a></li>
     <li><a href="#glosario">Glosario</a></li>
+    <li><a href="#po-checklist">Anexo: validación de la PO</a></li>
   </ol>
 </nav>
 
@@ -545,6 +546,54 @@
       <tr><th>Modificación</th><td>El cambio solicitado después de aprobar la línea base.</td></tr>
     </tbody>
   </table></div>
+</section>
+
+<section id="po-checklist">
+  <h2>Anexo A. Validación en 15 minutos (para la PO)</h2>
+  <p>Este anexo no explica el módulo: sirve para <strong>comprobarlo</strong>. Cada fila dice qué hacer y qué debe verse. Si algo no coincide, es un hallazgo que conviene anotar con el paso, la pantalla y lo que apareció.</p>
+  <div class="card">
+    <h3 style="margin-top:0">Antes de empezar</h3>
+    <ul>
+      <li>Entrar con un usuario <strong>Administrador</strong> o <strong>Gerencia</strong>.</li>
+      <li>Tener un cliente con una oportunidad en estado <strong>Ganada</strong> (hoy hay una disponible).</li>
+      <li>Para los puntos de permisos, un segundo usuario <strong>Coordinador</strong> que no sea integrante, y un <strong>Colaborador</strong>.</li>
+    </ul>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>Qué hacer</th><th>Qué debe verse</th></tr></thead>
+      <tbody>
+      <tr><td>1</td><td>Abrir <strong>Proyectos</strong> con el portafolio vacío</td><td>El mensaje <strong>«Todavía no hay proyectos»</strong> y los indicadores en cero</td></tr>
+      <tr><td>2</td><td><strong>Nuevo proyecto → Desde una oportunidad ganada</strong></td><td>Solo aparecen oportunidades <strong>Ganadas</strong> sin proyecto; nombre y valor precargados; al guardar, código <strong>PRY-AAAA-NNN</strong> y estado <strong>Borrador</strong></td></tr>
+      <tr><td>3</td><td><strong>Nuevo proyecto → Proyecto independiente</strong></td><td>Cliente y nombre obligatorios; sin aviso de diferencia de valor</td></tr>
+      <tr><td>4</td><td>Abrir el <strong>Resumen</strong> del borrador</td><td><strong>Próximos pasos</strong> con fechas y valor, estructura, presupuesto y línea base, cada uno con su enlace</td></tr>
+      <tr><td>5</td><td><strong>Actividades → Lista</strong>: crear objetivo, actividad con semanas, entregable e indicador</td><td>Los códigos se generan solos (O1, A1.1, E1.1.1); el <strong>Gantt</strong> refleja las semanas; en Borrador no hay <strong>Tablero</strong></td></tr>
+      <tr><td>6</td><td><strong>Descargar plantilla</strong> e <strong>Importar plantilla</strong> con un error deliberado</td><td>La vista previa lista <strong>regla, fila, columna, valor y mensaje</strong>, y no escribe nada hasta corregir</td></tr>
+      <tr><td>7</td><td><strong>Finanzas → Presupuesto</strong>: asignar rubros con una suma distinta al valor total</td><td>Aviso de la diferencia; <strong>Igualar valor total a Σ A</strong>; la programación mensual muestra <strong>«Programación pendiente»</strong> si no cuadra</td></tr>
+      <tr><td>8</td><td><strong>Aprobar línea base</strong> con algo pendiente</td><td>Lista las <strong>precondiciones</strong> que faltan; al completarlas y aprobar, el proyecto pasa a <strong>En ejecución</strong> y se crea la versión <code>v0</code></td></tr>
+      <tr><td>9</td><td><strong>Actividades → Registrar avance</strong></td><td>La fecha no puede ser futura; exige archivo o enlace; si el avance excede lo planeado, pide <strong>justificación del exceso</strong></td></tr>
+      <tr><td>10</td><td><strong>Finanzas → Gastos → Registrar gasto</strong></td><td>El <strong>soporte es obligatorio</strong>; el gasto queda en <strong>Registrado</strong></td></tr>
+      <tr><td>11</td><td>Validar ese gasto con <strong>la misma</strong> cuenta</td><td>No se puede: la validación exige otra persona con permiso</td></tr>
+      <tr><td>12</td><td><strong>Rechazar</strong> el gasto desde otra cuenta</td><td>Pide el <strong>motivo</strong>; quien lo registró recibe <strong>«Gasto rechazado»</strong> con el motivo y el enlace</td></tr>
+      <tr><td>13</td><td><strong>Documentos</strong>: subir un archivo y un enlace, y abrirlos</td><td>Descarga por <strong>URL firmada</strong>; <strong>Eliminar</strong> solo aparece en documentos del grupo <strong>Proyecto</strong></td></tr>
+      <tr><td>14</td><td><strong>Historial</strong>: ver <strong>Versiones</strong> y <strong>Auditoría</strong></td><td>Comparación <code>v0</code> contra la versión actual; la auditoría muestra usuario y fecha</td></tr>
+      <tr><td>15</td><td>Menú <strong>«⋯»</strong></td><td><strong>Imprimir / PDF</strong> sale sin menú lateral; <strong>Exportar a Excel</strong> descarga con corte y base elegidos</td></tr>
+      <tr><td>16</td><td>Abrir el proyecto con un <strong>Coordinador que no es integrante</strong> y con un <strong>Colaborador</strong></td><td>No lo ven: <strong>«No tienes permisos sobre este proyecto»</strong></td></tr>
+      <tr><td>17</td><td>Abrir la ficha en una ventana de <strong>390 px</strong></td><td>Nada se sale de la pantalla</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Decisiones de producto que conviene confirmar con la PO</h3>
+  <p>Estos puntos están <strong>fuera</strong> del lanzamiento o dependen de una definición, y conviene cerrarlos antes de la siguiente iteración:</p>
+  <ol>
+    <li><strong>Importar solo estructura, sin presupuesto.</strong> Hoy la importación exige que el presupuesto cuadre con el valor total, así que no se pueden cargar primero metas y actividades y después el presupuesto, que es el flujo que pidió la PO.</li>
+    <li><strong>Rubros personalizados o deshabilitados por proyecto.</strong> Hoy el catálogo R01 a R15 es global: un rubro sin uso queda en $0 y se sigue mostrando.</li>
+    <li><strong>Cerrar, suspender o cancelar</strong> un proyecto desde la interfaz: no está en esta versión.</li>
+    <li><strong>Importar gastos</strong> desde Excel: no está en esta versión.</li>
+    <li><strong>Correos automáticos.</strong> Las notificaciones dentro de la aplicación funcionan; el envío de correo depende de verificar el dominio de envío.</li>
+    <li><strong>Plantillas de la PO</strong> (<code>proyecto.xlsx</code>, <code>presupuesto.xlsx</code>): el modelo de datos ya las soporta, falta el adaptador para leer su formato exacto.</li>
+  </ol>
 </section>
 
 <footer class="end">
