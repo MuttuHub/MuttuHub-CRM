@@ -93,7 +93,7 @@ export const POST = withApiErrorHandling(
     // every role may read every client to do it. The commercial WRITE gate is
     // deliberately not applied here: creating a project is not editing the
     // commercial cycle.
-    const access = await loadClientForProjectCreation(id, auth.usuario);
+    const access = await loadClientForProjectCreation(id);
     if (!access.ok) {
       return apiError(
         access.code === "NOT_FOUND"

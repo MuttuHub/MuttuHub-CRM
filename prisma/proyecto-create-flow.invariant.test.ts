@@ -552,8 +552,8 @@ describe("membership on creation (S2.6 T4, live DB, forced rollback)", () => {
   it("rejects an invalid miembro_ids entry with 400 and leaves no half-created project", async () => {
     const result = await runAndRollback(async (tx) => {
       const { suffix, usuario, cliente, linea, municipio } = await seedFixture(tx);
-      const colaborador = await tx.usuario.create({
-        data: { email: `colab-${suffix}@example.test`, nombre: "colab-x", rol: "COLABORADOR" },
+      const gerente = await tx.usuario.create({
+        data: { email: `ger-${suffix}@example.test`, nombre: "ger-x", rol: "GERENCIA" },
       });
       const inactivo = await tx.usuario.create({
         data: {
@@ -569,7 +569,7 @@ describe("membership on creation (S2.6 T4, live DB, forced rollback)", () => {
       const miembrosAntes = await tx.proyectoMiembro.count();
 
       const casos: [string, string][] = [
-        [colaborador.id, "Solo un Coordinador puede ser integrante del equipo del proyecto."],
+        [gerente.id, "Solo un Coordinador o un Colaborador puede ser integrante del equipo del proyecto."],
         [inactivo.id, "El usuario no existe o está inactivo."],
         [randomUUID(), "El usuario no existe."],
       ];
@@ -598,11 +598,11 @@ describe("membership on creation (S2.6 T4, live DB, forced rollback)", () => {
   it("E-05 rejects an invalid miembro_ids without converting the opportunity", async () => {
     const result = await runAndRollback(async (tx) => {
       const { suffix, usuario, cliente, linea, municipio } = await seedFixture(tx);
-      const colaborador = await tx.usuario.create({
+      const gerente = await tx.usuario.create({
         data: {
-          email: `colab-e05-${suffix}@example.test`,
-          nombre: "colab-e05",
-          rol: "COLABORADOR",
+          email: `ger-e05-${suffix}@example.test`,
+          nombre: "ger-e05",
+          rol: "GERENCIA",
         },
       });
       const oportunidad = await tx.oportunidad.create({
@@ -621,14 +621,14 @@ describe("membership on creation (S2.6 T4, live DB, forced rollback)", () => {
             fecha_inicio: "2026-01-05",
             fecha_fin: "2026-03-30",
             valor_total: 1000000,
-            miembro_ids: [colaborador.id],
+            miembro_ids: [gerente.id],
           },
         ),
         { params: Promise.resolve({ id: cliente.id, opportunityId: oportunidad.id }) },
       );
       expect(res.status).toBe(400);
       expect((await res.json()).error).toBe(
-        "Solo un Coordinador puede ser integrante del equipo del proyecto.",
+        "Solo un Coordinador o un Colaborador puede ser integrante del equipo del proyecto.",
       );
 
       const stored = await tx.oportunidad.findUnique({ where: { id: oportunidad.id } });

@@ -259,7 +259,7 @@ describe("project membership read scope (live DB, forced rollback)", () => {
     expect(result.ids).toContain(result.ajenoId);
   });
 
-  it("a COLABORADOR with a stray membership row still sees nothing (membership grants COORDINADOR only)", async () => {
+  it("a COLABORADOR member sees their project and not the foreign one (S3)", async () => {
     const result = await runAndRollback(async (tx) => {
       const { miembro, ajeno, gerencia } = await seedFixture(tx);
       const colaborador = await tx.usuario.create({
@@ -292,8 +292,8 @@ describe("project membership read scope (live DB, forced rollback)", () => {
       };
     });
 
-    expect(result.ids).not.toContain(result.miembroId);
+    expect(result.ids).toContain(result.miembroId);
     expect(result.ids).not.toContain(result.ajenoId);
-    expect(result.detailStatus).toBe(403);
+    expect(result.detailStatus).toBe(200);
   });
 });

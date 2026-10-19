@@ -116,10 +116,10 @@ describe("ClientSheet — General tab inline editing (QA audit finding #3)", () 
     )
   })
 
-  it.each(["COORDINADOR", "COLABORADOR"])("hides 'Crear proyecto' for a %s", (rol) => {
+  it.each(["COORDINADOR", "COLABORADOR"])("shows 'Crear proyecto' to a %s (S1)", (rol) => {
     useCurrentUserMock.mockReturnValue({ data: { id: "u1", nombre: "Ana", rol } })
     renderSheet()
-    expect(screen.queryByRole("link", { name: "Crear proyecto" })).not.toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Crear proyecto" })).toBeInTheDocument()
   })
 
   it("hides 'Crear proyecto' while the current user is unknown", () => {

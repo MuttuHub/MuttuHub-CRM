@@ -7,7 +7,6 @@
 
 import { Prisma, type Usuario } from "@prisma/client";
 import { apiError, RespuestaAbortada } from "@/lib/api/errors";
-import { db } from "@/lib/db";
 import { canEditProjectData } from "@/lib/permissions";
 import { canReadProject, loadProjectScoped, projectReadActor } from "@/lib/api/projects";
 import type { GateResult } from "@/lib/api/estructura";

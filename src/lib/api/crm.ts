@@ -38,7 +38,7 @@ export function isFullAccess(rol: RolUsuario): boolean {
  * Shared by the per-client sub-resources (`loadClientScoped`) and the
  * cross-client feeds (`clienteFeedScope`) so the two cannot drift apart.
  */
-function clientReadScope(_usuario: Pick<Usuario, "id" | "rol">): Prisma.ClienteWhereInput {
+function clientReadScope(): Prisma.ClienteWhereInput {
   return {};
 }
 
@@ -47,9 +47,9 @@ function clientReadScope(_usuario: Pick<Usuario, "id" | "rol">): Prisma.ClienteW
  * deleted and is inside the caller's scope (COLABORADOR -> responsable self).
  * Null means "404 NOT_FOUND" for the caller.
  */
-export async function loadClientScoped(id: string, usuario: Usuario) {
+export async function loadClientScoped(id: string) {
   return db.cliente.findFirst({
-    where: { id, deleted_at: null, ...clientReadScope(usuario) },
+    where: { id, deleted_at: null, ...clientReadScope() },
     select: { id: true },
   });
 }
@@ -61,8 +61,8 @@ export async function loadClientScoped(id: string, usuario: Usuario) {
  * only the clients where they are the responsable. Spread it into the
  * `cliente` relation filter of the feed `where`.
  */
-export function clienteFeedScope(usuario: Pick<Usuario, "id" | "rol">): Prisma.ClienteWhereInput {
-  return clientReadScope(usuario);
+export function clienteFeedScope(): Prisma.ClienteWhereInput {
+  return clientReadScope();
 }
 
 /**
@@ -156,7 +156,7 @@ export async function loadClientForOpportunityRead(id: string, usuario: Usuario)
  * creating a project must not depend on the commercial write boundary: the
  * route still checks that the opportunity belongs to the client and is GANADA.
  */
-export async function loadClientForProjectCreation(id: string, _usuario: Usuario) {
+export async function loadClientForProjectCreation(id: string) {
   const cliente = await db.cliente.findFirst({
     where: { id, deleted_at: null },
     select: { id: true },
