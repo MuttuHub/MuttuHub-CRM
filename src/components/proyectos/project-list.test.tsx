@@ -530,15 +530,12 @@ describe("ProjectList", () => {
     })
   })
 
-  it("does not mount the KPI row nor ask the portfolio for a role that cannot read it", () => {
+  it("mounts the KPI row for a COLABORADOR and asks the portfolio for their scope (S4)", () => {
     userQuery.data = { id: "u9", nombre: "Carlos Ruiz", rol: "COLABORADOR" }
     useCurrentUserMock.mockReturnValue(userQuery)
     projectsQuery.data = { proyectos: [PROYECTO] }
     render(<ProjectList />)
-    expect(screen.queryByTestId("portafolio-kpis")).toBeNull()
-    expect(screen.queryByTestId("portafolio-kpis-cargando")).toBeNull()
-    expect(useProjectsPortfolioMock).toHaveBeenCalledWith({}, { enabled: false })
-    expect(within(screen.getByTestId("proyecto-fila-p1")).getAllByText("Sin medir")).toHaveLength(2)
+    expect(useProjectsPortfolioMock).toHaveBeenCalledWith({}, { enabled: true })
   })
 
   it("keeps 'Ver detalle' opening the ficha in a new tab, safely", () => {

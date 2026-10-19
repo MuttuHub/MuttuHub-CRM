@@ -410,7 +410,7 @@ coincide, es un hallazgo que conviene anotar con el paso, la pantalla y lo que a
 | 13 | **Documentos**: subir un archivo y un enlace, y abrirlos | Descarga por **URL firmada**; **Eliminar** solo aparece en documentos del grupo **Proyecto** |
 | 14 | **Historial**: ver **Versiones** y **Auditoría** | Comparación `v0` contra la versión actual; la auditoría muestra usuario y fecha |
 | 15 | Menú **«⋯»** | **Imprimir / PDF** sale sin menú lateral; **Exportar a Excel** descarga con corte y base elegidos |
-| 16 | Abrir el proyecto con un **Coordinador que no es integrante** y con un **Colaborador** | No lo ven: **«No tienes permisos sobre este proyecto»** |
+| 16 | Abrir el proyecto con un **Coordinador y un Colaborador que no sean integrantes** | No lo ven: **«No tienes permisos sobre este proyecto»** |
 | 17 | Abrir la ficha en una ventana de **390 px** | Nada se sale de la pantalla |
 
 ### Decisiones de producto que conviene confirmar con la PO
