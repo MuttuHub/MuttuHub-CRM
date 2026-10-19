@@ -338,6 +338,8 @@ export function useProjects(filters: ProjectFilters): UseQueryResult<ProjectList
  * que la lista (`GET /api/v1/projects/:id` → `{ proyecto }`), así que el DTO
  * reutilizado es `ProjectListRow` y no se declara una copia. `enabled` evita
  * disparar la petición con un id vacío (409/404 evitables desde el cliente).
+ * Los reintentos vienen de la política global (`shouldRetryQuery`): un 4xx no
+ * se reintenta, así que el mensaje de acceso aparece de inmediato (D1).
  */
 export function useProject(id: string): UseQueryResult<ProjectListRow> {
   return useQuery({
