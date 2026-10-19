@@ -9,7 +9,10 @@
 // la campana). Respuesta:
 //
 //   { total, vencidos: AlertItemNotif[], hoy: [], proximos3: [],
-//     leidas_ids: string[] }
+//     leidas_ids: string[], proyectos: NotificacionProyectoItem[] }
+//
+// `proyectos` (v2, S6) lleva las notificaciones de sobregasto del propio usuario
+// (GERENCIA; los demás roles solo reciben las de gasto rechazado); `total` las incluye.
 //
 // Cada item lleva `notificacion_id` (id de la fila Notificacion del snapshot,
 // null si la reconciliación falló) para que el UI llame a
@@ -25,6 +28,7 @@ import {
   reconcileAlertas,
   type AlertItem,
 } from "@/lib/alerts";
+import { listarNotificacionesProyecto, type NotificacionProyectoItem } from "@/lib/api/notificaciones-proyecto";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +44,8 @@ export type NotificationsSnapshot = {
   hoy: AlertItemNotificacion[];
   proximos3: AlertItemNotificacion[];
   leidas_ids: string[];
+  /** v2 (S6/M7): project notifications. Overspend is GERENCIA only; a rejected expense reaches its author in any role. */
+  proyectos: NotificacionProyectoItem[];
 };
 
 /**
@@ -70,13 +76,15 @@ export async function buildSnapshot(usuario: Usuario, scope: "own" | "all"): Pro
   const vencidos = decorate(buckets.vencidos);
   const hoy = decorate(buckets.hoy);
   const proximos3 = decorate(buckets.proximos3);
+  const proyectos = await listarNotificacionesProyecto(usuario);
 
   return {
-    total: vencidos.length + hoy.length + proximos3.length,
+    total: vencidos.length + hoy.length + proximos3.length + proyectos.length,
     vencidos,
     hoy,
     proximos3,
     leidas_ids: [...rows.values()].filter((r) => r.leida).map((r) => r.notificacion_id),
+    proyectos,
   };
 }
 
@@ -102,13 +110,15 @@ export const GET = withApiErrorHandling(
     const vencidos = filter(snapshot.vencidos);
     const hoy = filter(snapshot.hoy);
     const proximos3 = filter(snapshot.proximos3);
+    const proyectos = soloNoLeidas ? snapshot.proyectos.filter((p) => !p.leida) : snapshot.proyectos;
 
     return NextResponse.json({
-      total: vencidos.length + hoy.length + proximos3.length,
+      total: vencidos.length + hoy.length + proximos3.length + proyectos.length,
       vencidos,
       hoy,
       proximos3,
       leidas_ids: snapshot.leidas_ids,
+      proyectos,
     });
   },
 );

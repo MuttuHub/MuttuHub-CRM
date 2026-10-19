@@ -1,0 +1,476 @@
+// Listado de proyectos v2 (Portafolio, diseño v6): fila de KPIs, y debajo la tabla con proyecto
+// (código · cliente y título), territorio · línea, responsable, avance técnico y financiero (barra con la
+// banda del SERVIDOR más el porcentaje) y estado, además del filtro por estado y el CTA de creación.
+// Las filas del listado (`GET projects`) se fusionan por id con las del portafolio (`GET dashboard/portfolio`):
+// sin datos del portafolio (BORRADOR u otro estado no medible) la fila dice "Sin medir". Avance financiero =
+// `kpis.financiero.ea` (ejecutado / asignado), el mismo número que muestra el Tablero. Los KPIs resumen todo el
+// portafolio visible (consultas sin filtro); la tabla sí obedece al filtro de estado. La cola de gastos por
+// validar va DESPUÉS de la tabla (orden v6: KPIs, tabla, cola).
+//
+// Alcance de lectura (S2.6 pendiente): hoy solo ADMINISTRADOR y GERENCIA ven
+// el portafolio; cualquier otro rol recibe una lista vacía. Por eso el estado
+// vacío no afirma "no hay proyectos" cuando el rol puede ser la causa: el
+// servidor es la autoridad del alcance y el cliente solo elige las palabras.
+//
+// Permisos en el cliente: el rol del usuario actual sale de `useCurrentUser`
+// (GET /api/v1/auth/me, ya cacheado por el header); con él y con el predicado
+// puro `canViewPortfolio` se decide únicamente QUÉ TEXTO mostrar, nunca el
+// acceso a datos.
+
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { Eye, FolderKanban, Plus } from "lucide-react";
+import { toast } from "sonner";
+import { ApiError } from "@/lib/api/http";
+import { buttonVariants } from "@/components/ui/button";
+import { useIsMobile } from "@/components/proyectos/capture-surface";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ResponsableCell, ToneBadge } from "@/components/crm/shared";
+import { ExpenseValidationQueue } from "@/components/proyectos/expense-validation-queue";
+import { PortafolioFiltros, contarFiltros } from "@/components/proyectos/portafolio-filtros";
+import { PortafolioKpis } from "@/components/proyectos/portafolio-kpis";
+import {
+  ESTADO_PROYECTO_META,
+  formatFechaCalendario,
+} from "@/components/proyectos/project-display";
+import { formatPct } from "@/components/proyectos/project-kpis-panel";
+import { ProgressBar } from "@/components/ui/progress-bar";
+import { useCurrentUser } from "@/hooks/kanban";
+import {
+  useProjects,
+  useProjectsPortfolio,
+  type ColorSemaforo,
+  type PortfolioProject,
+  type ProjectFilters,
+  type ProjectListRow,
+} from "@/hooks/projects";
+import { canCreateProject, canManageProjects, canViewPortfolio } from "@/lib/permissions";
+import { formatCOP, toCents } from "@/lib/proyectos/money";
+import { cn } from "@/lib/utils";
+
+const SIN_DATO = "—";
+
+function formatRango(inicio: string | null, fin: string | null): string {
+  return `${formatFechaCalendario(inicio)} – ${formatFechaCalendario(fin)}`;
+}
+
+/** Los decimales llegan como string: `toCents` los pasa a centavos exactos. */
+function formatValorTotal(value: string | null): string {
+  return value === null ? SIN_DATO : formatCOP(toCents(value));
+}
+
+/** Fila del listado con su par del portafolio (null si el servidor no lo devolvió). */
+type Fila = { proyecto: ProjectListRow; portafolio: PortfolioProject | null };
+
+/** Lo que pinta una celda de avance: `null` = sin dato medible; `value` null = medible pero sin razón. */
+type Avance = { value: number | null; band: ColorSemaforo | null } | null;
+
+function avanceTecnico(pf: PortfolioProject | null): Avance {
+  const tecnico = pf?.kpis.medible ? pf.kpis.tecnico : null;
+  return pf && tecnico ? { value: tecnico.avance_real, band: pf.semaforo_tecnico ?? tecnico.color } : null;
+}
+
+function avanceFinanciero(pf: PortfolioProject | null): Avance {
+  const financiero = pf?.kpis.medible ? pf.kpis.financiero : null;
+  return pf && financiero ? { value: financiero.ea, band: pf.semaforo_financiero ?? financiero.color } : null;
+}
+
+/** Territorio: municipios sin repetir (máximo 2, luego «+N») y la línea principal (o la primera). */
+function territorio(proyecto: ProjectListRow): { municipios: string; linea: string | null } {
+  const nombres = [...new Set(proyecto.municipios.map((m) => m.nombre))];
+  const visibles = nombres.slice(0, 2).join(", ");
+  const resto = nombres.length - 2;
+  const linea = proyecto.lineas.find((l) => l.principal) ?? proyecto.lineas[0] ?? null;
+  return { municipios: nombres.length === 0 ? SIN_DATO : resto > 0 ? `${visibles} +${resto}` : visibles, linea: linea?.nombre ?? null };
+}
+
+export function ProjectList() {
+  // Filtros del portafolio (RF-31): viajan como query params a la lista y al portafolio con las claves
+  // del hook. Un filtro vacío no agrega clave, así la clave de cache solo cambia cuando cambia algo.
+  const [filtros, setFiltros] = useState<ProjectFilters>({});
+  const userQuery = useCurrentUser();
+  const usuarioActual = userQuery.data;
+  // Quién ve el portafolio: lo mismo que decide la pestaña Tablero. Es UX: la API aplica el alcance (403).
+  const puedeResumen = usuarioActual
+    ? canViewPortfolio({
+        id: usuarioActual.id,
+        rol: usuarioActual.rol,
+        puede_ver_tablero_gerencial: usuarioActual.puede_ver_tablero_gerencial ?? false,
+      }) || usuarioActual.rol === "COORDINADOR"
+    : false;
+  // Los KPIs resumen todo el portafolio: consultas SIN filtro (con el filtro vacío son las mismas de la tabla).
+  const kpiLista = useProjects({});
+  const kpiPortafolio = useProjectsPortfolio({}, { enabled: puedeResumen });
+  const query = useProjects(filtros);
+  const portafolioQuery = useProjectsPortfolio(filtros, { enabled: puedeResumen });
+
+  // Los 403 y los errores del servidor se avisan con toast, no con pantalla:
+  // el listado no pierde su encabezado ni el filtro.
+  useEffect(() => {
+    if (!query.isError) return;
+    toast.error(
+      query.error instanceof ApiError
+        ? query.error.message
+        : "No pudimos cargar los proyectos. Inténtalo de nuevo.",
+    );
+  }, [query.isError, query.error]);
+
+  const usuario = userQuery.data;
+  // La bandera `puede_ver_tablero_gerencial` viaja en `/auth/me` (S9). Un falso negativo solo
+  // cambia el texto del estado vacío, nunca el acceso: el alcance real lo aplica la API.
+  const puedeVerPortafolio = usuario
+    ? canViewPortfolio({
+        id: usuario.id,
+        rol: usuario.rol,
+        puede_ver_tablero_gerencial: usuario.puede_ver_tablero_gerencial ?? false,
+      })
+    : null;
+  // Ocultar el CTA para quien no es ADMINISTRADOR/GERENCIA es solo UX: la
+  // autoridad sigue siendo la API, que responde 403 a cualquier otro rol tanto
+  // en la creación como en el listado de elegibles.
+  const puedeCrear = usuario ? canCreateProject({ id: usuario.id, rol: usuario.rol }) : false;
+  // La cola de gastos por validar es solo de gestores (la API responde 403 al resto).
+  const puedeValidar = usuario ? canManageProjects({ id: usuario.id, rol: usuario.rol }) : false;
+
+  const proyectos = useMemo(() => query.data?.proyectos ?? [], [query.data]);
+  const portafolio = portafolioQuery.data;
+  const filas = useMemo<Fila[]>(() => {
+    const porId = new Map((portafolio?.proyectos ?? []).map((p) => [p.id, p] as const));
+    return proyectos.map((proyecto) => ({ proyecto, portafolio: porId.get(proyecto.id) ?? null }));
+  }, [proyectos, portafolio]);
+  const cargandoPortafolio = puedeResumen && portafolioQuery.isLoading;
+  const total = proyectos.length;
+  const conteo = query.isError ? SIN_DATO : query.data ? (total === 1 ? "1 proyecto" : `${total} proyectos`) : "…";
+
+  return (
+    <div className="flex min-w-0 flex-col gap-4">
+      {puedeResumen && (
+        <PortafolioKpis
+          lista={kpiLista.data?.proyectos}
+          portafolio={kpiPortafolio.data}
+          isLoading={kpiLista.isLoading || kpiPortafolio.isLoading}
+          isError={kpiLista.isError || kpiPortafolio.isError}
+        />
+      )}
+
+      <section className="surface">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-200 p-4 lg:p-5">
+          {/* Barra de herramientas, no un segundo título: el h1 lo pone el shell. */}
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-ink-100 px-2.5 py-1 text-[11.5px] font-bold text-ink-600">
+              {conteo}
+            </span>
+            {portafolio && !portafolio.confirmado && <ToneBadge tone="neutro" label="No confirmado" />}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <PortafolioFiltros filtros={filtros} onChange={setFiltros} />
+            {puedeCrear && (
+              <Link href="/proyectos/nuevo" className={buttonVariants({ size: "lg" })}>
+                <Plus className="size-4" />
+                Nuevo proyecto
+              </Link>
+            )}
+          </div>
+        </header>
+
+        {puedeResumen && portafolioQuery.isError && !query.isError && (
+          <p role="alert" className="border-b border-ink-200 bg-alerta-bg px-4 py-2 text-[12.5px] text-alerta lg:px-5">
+            No pudimos cargar el avance del portafolio. Las filas aparecen sin medir por ese motivo; recarga la página para volver a intentarlo.
+          </p>
+        )}
+
+        {query.isError ? null : query.isLoading ? (
+          <ProjectTableSkeleton />
+        ) : proyectos.length === 0 ? (
+          <EmptyProjects hayFiltros={contarFiltros(filtros) > 0} puedeVerPortafolio={puedeVerPortafolio} />
+        ) : (
+          <ProjectTable filas={filas} cargando={cargandoPortafolio} />
+        )}
+      </section>
+
+      {puedeValidar && <ExpenseValidationQueue />}
+    </div>
+  );
+}
+
+/* ── Tabla ─────────────────────────────────────────────────────────────── */
+
+function ProjectTable({ filas, cargando }: { filas: Fila[]; cargando: boolean }) {
+  // Debajo de `md` la tabla se vuelve una lista de tarjetas (S10 WU4).
+  const mobile = useIsMobile();
+  if (mobile) return <ProjectCards filas={filas} cargando={cargando} />;
+  return (
+    <Table className="min-w-[1040px]">
+      <TableHeader>
+        <TableRow>
+          <TableHead>Proyecto</TableHead>
+          <TableHead>Territorio · línea</TableHead>
+          <TableHead>Responsable</TableHead>
+          <TableHead>Avance técnico</TableHead>
+          <TableHead>Avance financiero</TableHead>
+          <TableHead>Estado</TableHead>
+          <TableHead numeric>Acciones</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {filas.map(({ proyecto, portafolio }) => {
+          const lugar = territorio(proyecto);
+          return (
+            <TableRow key={proyecto.id} data-testid={`proyecto-fila-${proyecto.id}`}>
+              <TableCell className="max-w-[340px] whitespace-normal">
+                <p className="text-[11.5px] text-ink-600">
+                  <span className="font-mono font-semibold text-ink-700 tabular-nums">{proyecto.codigo}</span>
+                  <span> · {proyecto.cliente.nombre}</span>
+                </p>
+                <p className="font-semibold text-ink-950">{proyecto.nombre}</p>
+              </TableCell>
+              <TableCell className="max-w-[200px] whitespace-normal text-[13px] text-ink-800">
+                <p>{lugar.municipios}</p>
+                {lugar.linea && <p className="text-[11.5px] text-ink-600">{lugar.linea}</p>}
+              </TableCell>
+              <TableCell>
+                {proyecto.responsable ? (
+                  <ResponsableCell nombre={proyecto.responsable.nombre} />
+                ) : (
+                  <span className="text-[12.5px] text-ink-500">Sin asignar</span>
+                )}
+              </TableCell>
+              <TableCell className="min-w-[170px]">
+                <AvanceCell
+                  testId={`avance-tecnico-${proyecto.id}`}
+                  label={`Avance técnico de ${proyecto.codigo}`}
+                  avance={avanceTecnico(portafolio)}
+                  cargando={cargando}
+                />
+              </TableCell>
+              <TableCell className="min-w-[170px]">
+                <AvanceCell
+                  testId={`avance-financiero-${proyecto.id}`}
+                  label={`Avance financiero de ${proyecto.codigo}`}
+                  avance={avanceFinanciero(portafolio)}
+                  cargando={cargando}
+                />
+              </TableCell>
+              <TableCell>
+                <ToneBadge
+                  tone={ESTADO_PROYECTO_META[proyecto.estado].tone}
+                  label={ESTADO_PROYECTO_META[proyecto.estado].label}
+                />
+              </TableCell>
+              <TableCell className="text-right">
+                <Link
+                  href={`/proyectos/${proyecto.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "sm" }),
+                    "px-3 text-[12px] font-semibold text-ink-700 hover:bg-ink-100",
+                  )}
+                >
+                  <Eye className="size-3.5" strokeWidth={1.8} />
+                  Ver detalle
+                </Link>
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
+  );
+}
+
+/** Barra con la banda del servidor y el porcentaje; sin dato medible dice «Sin medir». */
+function AvanceCell({
+  testId,
+  label,
+  avance,
+  cargando,
+}: {
+  testId: string;
+  label: string;
+  avance: Avance;
+  cargando: boolean;
+}) {
+  if (cargando) return <Skeleton data-testid={testId} className="h-2 w-full" />;
+  if (!avance) {
+    return (
+      <span data-testid={testId} className="text-[12.5px] text-ink-500">
+        Sin medir
+      </span>
+    );
+  }
+  return (
+    <div data-testid={testId} className="flex items-center gap-2">
+      <ProgressBar
+        aria-label={label}
+        value={avance.value ?? 0}
+        band={avance.value === null ? undefined : (avance.band ?? undefined)}
+        className="min-w-[72px] flex-1"
+      />
+      <span className="w-[54px] text-right font-mono text-[12px] text-ink-800 tabular-nums">
+        {formatPct(avance.value)}
+      </span>
+    </div>
+  );
+}
+
+function ProjectCards({ filas, cargando }: { filas: Fila[]; cargando: boolean }) {
+  return (
+    <ul data-testid="proyecto-cards" className="flex flex-col gap-2.5 p-3">
+      {filas.map(({ proyecto, portafolio }) => (
+        <li
+          key={proyecto.id}
+          data-testid={`proyecto-card-${proyecto.id}`}
+          className="flex min-w-0 flex-col gap-2 rounded-inner border border-border bg-panel p-3"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <span className="font-mono text-[12px] font-semibold text-ink-700 tabular-nums">{proyecto.codigo}</span>
+            <ToneBadge
+              tone={ESTADO_PROYECTO_META[proyecto.estado].tone}
+              label={ESTADO_PROYECTO_META[proyecto.estado].label}
+            />
+          </div>
+          <div className="min-w-0">
+            <p className="font-semibold text-ink-950">{proyecto.nombre}</p>
+            <p className="text-[12px] text-ink-600">{proyecto.cliente.nombre}</p>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <div>
+              <p className="text-[11.5px] text-ink-500">Avance técnico</p>
+              <AvanceCell
+                testId={`avance-tecnico-${proyecto.id}`}
+                label={`Avance técnico de ${proyecto.codigo}`}
+                avance={avanceTecnico(portafolio)}
+                cargando={cargando}
+              />
+            </div>
+            <div>
+              <p className="text-[11.5px] text-ink-500">Avance financiero</p>
+              <AvanceCell
+                testId={`avance-financiero-${proyecto.id}`}
+                label={`Avance financiero de ${proyecto.codigo}`}
+                avance={avanceFinanciero(portafolio)}
+                cargando={cargando}
+              />
+            </div>
+          </div>
+          <dl className="grid grid-cols-1 gap-1 text-[12.5px]">
+            <div className="flex justify-between gap-2">
+              <dt className="text-ink-500">Responsable</dt>
+              <dd className="text-right text-ink-800">{proyecto.responsable?.nombre ?? "Sin asignar"}</dd>
+            </div>
+            <div className="flex justify-between gap-2">
+              <dt className="text-ink-500">Fechas</dt>
+              <dd className="text-right font-mono text-[12px] text-ink-600 tabular-nums">
+                {formatRango(proyecto.fecha_inicio, proyecto.fecha_fin)}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-2">
+              <dt className="text-ink-500">Valor total</dt>
+              <dd className="font-mono font-medium text-ink-900 tabular-nums">{formatValorTotal(proyecto.valor_total)}</dd>
+            </div>
+          </dl>
+          <Link
+            href={`/proyectos/${proyecto.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "h-11 w-full text-[13px] font-semibold text-ink-700 hover:bg-ink-100",
+            )}
+          >
+            <Eye className="size-3.5" strokeWidth={1.8} />
+            Ver detalle
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ProjectTableSkeleton() {
+  return (
+    <div className="space-y-3 p-4 lg:p-5">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <Skeleton key={i} className="h-10 w-full rounded-[10px]" />
+      ))}
+    </div>
+  );
+}
+
+/* ── Estado vacío ──────────────────────────────────────────────────────── */
+
+/**
+ * Cuatro mensajes para cuatro causas: el rol (que hoy puede ser la causa real
+ * del vacío — REQ-ACC-02), la espera del rol, los filtros activos y el portafolio
+ * de verdad vacío. El eje de rol gana sobre el filtro: para quien no ve el
+ * portafolio, un filtro activo NO es prueba de que existan proyectos en otros
+ * estados, así que ese texto nunca aparece. Desde Y1 el filtro no es solo el
+ * estado: el texto habla de «estos filtros».
+ */
+function emptyCopy(
+  hayFiltros: boolean,
+  puedeVerPortafolio: boolean | null,
+): { title: string; body: string } {
+  if (puedeVerPortafolio === false) {
+    return {
+      title: "Aún no tienes proyectos visibles",
+      body: hayFiltros
+        ? "Algún filtro sigue activo, pero tu rol no ve el portafolio completo: hoy lo ven administración y gerencia, y tu acceso puede llegar por membresía a un proyecto."
+        : "Hoy el portafolio lo ven administración y gerencia; tu acceso puede llegar por membresía a un proyecto.",
+    };
+  }
+  if (puedeVerPortafolio === null) {
+    return {
+      title: "No hay proyectos para mostrar",
+      body: hayFiltros
+        ? "Hay filtros activos, pero puede que todavía no exista ningún proyecto o que tu rol no vea el portafolio completo."
+        : "Puede que todavía no exista ninguno o que tu rol no vea el portafolio completo.",
+    };
+  }
+  if (hayFiltros) {
+    return {
+      title: "No encontramos proyectos con estos filtros",
+      body: "Prueba con otros filtros o límpialos para ver el portafolio completo.",
+    };
+  }
+  return {
+    title: "Todavía no hay proyectos",
+    body: "Cuando se registre el primer proyecto aparecerá en este listado.",
+  };
+}
+
+function EmptyProjects({
+  hayFiltros,
+  puedeVerPortafolio,
+}: {
+  hayFiltros: boolean;
+  puedeVerPortafolio: boolean | null;
+}) {
+  const { title, body } = emptyCopy(hayFiltros, puedeVerPortafolio);
+
+  return (
+    <EmptyState
+      className="min-h-[300px] py-12"
+      icon={
+        <span className="grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-rose-100 text-rose-700 dark:text-rose-400">
+          <FolderKanban className="size-6" strokeWidth={1.7} />
+        </span>
+      }
+      title={title}
+      description={body}
+    />
+  );
+}

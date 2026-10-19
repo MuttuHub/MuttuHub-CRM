@@ -66,6 +66,8 @@ export type UsuarioRow = {
   // meaningful for COLABORADOR — full-access roles already pass the gate via
   // isFullAccess. Ships in this PR to avoid the seed-lockout risk in design.md.
   gestiona_oportunidades: boolean;
+  // S9 (REQ-ACC-02): read-only access to the gerencial project dashboard, orthogonal to `rol`.
+  puede_ver_tablero_gerencial: boolean;
   created_at: Date | string;
 };
 
@@ -164,6 +166,27 @@ export function UsersTable({
     }
   }
 
+  async function patchTableroGerencial(id: string, puede_ver_tablero_gerencial: boolean) {
+    setBusyId(id);
+    setNotice(null);
+    try {
+      const res = await fetch(`/api/v1/users/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ puede_ver_tablero_gerencial }),
+      });
+      if (!res.ok) {
+        setNotice(await readError(res, "No pudimos actualizar el acceso al tablero gerencial."));
+        return;
+      }
+      router.refresh();
+    } catch {
+      setNotice("No pudimos actualizar el acceso al tablero gerencial.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function deactivate(id: string) {
     setBusyId(id);
     setNotice(null);
@@ -200,7 +223,7 @@ export function UsersTable({
         onSuccess={() => router.refresh()}
       />
 
-      <div className="overflow-hidden rounded-[22px] border border-ink-200 bg-panel">
+      <div className="overflow-hidden surface">
         {usuarios.length === 0 ? (
           <div className="grid min-h-[220px] place-items-center px-6 py-12 text-center">
             <div>
@@ -219,16 +242,16 @@ export function UsersTable({
           <Table className="min-w-[760px]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="pl-5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead className="pl-5">
                   Usuario
                 </TableHead>
-                <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead>
                   Rol
                 </TableHead>
-                <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead>
                   Estado
                 </TableHead>
-                <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead>
                   Ingreso
                 </TableHead>
                 <TableHead className="w-12" />
@@ -298,6 +321,9 @@ export function UsersTable({
                         onPatchGestionaOportunidades={(v) =>
                           void patchGestionaOportunidades(usuario.id, v)
                         }
+                        onPatchTableroGerencial={(v) =>
+                          void patchTableroGerencial(usuario.id, v)
+                        }
                         onDeactivate={() => void deactivate(usuario.id)}
                       />
                     </TableCell>
@@ -318,6 +344,7 @@ function RowMenu({
   busy,
   onPatchRole,
   onPatchGestionaOportunidades,
+  onPatchTableroGerencial,
   onDeactivate,
 }: {
   usuario: UsuarioRow;
@@ -325,6 +352,7 @@ function RowMenu({
   busy: boolean;
   onPatchRole: (rol: RolUsuario) => void;
   onPatchGestionaOportunidades: (gestiona_oportunidades: boolean) => void;
+  onPatchTableroGerencial: (puede_ver_tablero_gerencial: boolean) => void;
   onDeactivate: () => void;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -374,6 +402,15 @@ function RowMenu({
               >
                 Gestiona oportunidades
               </DropdownMenuCheckboxItem>
+              <DropdownMenuLabel>Acceso a proyectos</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem
+                checked={usuario.puede_ver_tablero_gerencial}
+                onCheckedChange={(checked) =>
+                  onPatchTableroGerencial(checked === true)
+                }
+              >
+                Ve el tablero gerencial
+              </DropdownMenuCheckboxItem>
             </>
           )}
           {usuario.activo && !isSelf && (
@@ -395,7 +432,7 @@ function RowMenu({
         open={rolPendiente !== null}
         onOpenChange={(open) => !open && setRolPendiente(null)}
       >
-        <DialogContent className="rounded-[20px] sm:max-w-[min(400px,calc(100%-2rem))]">
+        <DialogContent className="sm:max-w-[min(400px,calc(100%-2rem))]">
           <DialogHeader>
             <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
               Cambiar el rol de {usuario.nombre}
@@ -429,7 +466,7 @@ function RowMenu({
       </Dialog>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent className="rounded-[20px] sm:max-w-[min(400px,calc(100%-2rem))]">
+        <DialogContent className="sm:max-w-[min(400px,calc(100%-2rem))]">
           <DialogHeader>
             <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
               Desactivar a {usuario.nombre}
@@ -532,13 +569,13 @@ function NewUserDialog({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger
           render={
-            <Button className="rounded-lg px-4 font-bold">
+            <Button className="px-4 font-bold">
               <Plus />
               Nuevo usuario
             </Button>
           }
         />
-        <DialogContent className="rounded-[20px] sm:max-w-[min(420px,calc(100%-2rem))]">
+        <DialogContent className="sm:max-w-[min(420px,calc(100%-2rem))]">
           <DialogHeader>
             <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
               Nuevo usuario
@@ -556,7 +593,7 @@ function NewUserDialog({
                 id="nuevo-nombre"
                 required
                 placeholder="Nombre y apellido"
-                className="h-10 rounded-12 bg-panel px-3"
+                className="px-3"
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
               />
@@ -568,7 +605,7 @@ function NewUserDialog({
                 type="email"
                 required
                 placeholder="nombre@muttu.co"
-                className="h-10 rounded-12 bg-panel px-3"
+                className="px-3"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -576,7 +613,7 @@ function NewUserDialog({
             <div className="flex flex-col gap-2">
               <Label>Rol</Label>
               <Select value={rol} onValueChange={(v) => setRol(v as RolUsuario)}>
-                <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+                <SelectTrigger className="w-full px-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -594,7 +631,7 @@ function NewUserDialog({
                 value={invite ? "invite" : "password"}
                 onValueChange={(v) => setInvite(v === "invite")}
               >
-                <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+                <SelectTrigger className="w-full px-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

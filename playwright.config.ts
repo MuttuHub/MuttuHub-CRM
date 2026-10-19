@@ -16,7 +16,8 @@ export default defineConfig({
   retries: 0,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: "http://localhost:3000",
+    // Dev server sometimes runs on Windows, where WSL only reaches it via the NAT gateway; override with PLAYWRIGHT_BASE_URL. The default is unchanged.
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000",
     video: "on",
     trace: "retain-on-failure",
     actionTimeout: 15_000,

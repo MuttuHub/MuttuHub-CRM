@@ -48,7 +48,9 @@ import {
   TASK_TAGS,
 } from "@/lib/catalogs";
 import { formatFechaHora, iniciales } from "@/hooks/crm";
+import { MAX_FILE_MB } from "@/lib/api/files";
 import {
+  ALLOWED_ATTACHMENT_LABEL,
   attachmentValidationError,
   formatBytes,
   useAddComment,
@@ -232,7 +234,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[88dvh] gap-0 overflow-y-auto rounded-[24px] p-0 sm:max-w-[min(680px,calc(100%-2rem))]">
+      <DialogContent className="max-h-[88dvh] gap-0 overflow-y-auto p-0 sm:max-w-[min(680px,calc(100%-2rem))]">
         {isLoading ? (
           <div className="grid min-h-[320px] place-items-center text-[13px] text-ink-500">
             Cargando la tarea…
@@ -255,7 +257,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
             {error && !readOnly && (
               <div
                 role="alert"
-                className="rounded-xl border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
+                className="rounded-inner border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
               >
                 {error}
               </div>
@@ -273,7 +275,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                   value={form.titulo}
                   onChange={(e) => set("titulo", e.target.value)}
                   placeholder="Ej. Entregar informe trimestral"
-                  className="h-10 rounded-12 bg-panel px-3"
+                  className="px-3"
                 />
               </div>
 
@@ -301,7 +303,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                 >
                   <SelectTrigger
                     disabled={readOnly}
-                    className="h-10 w-full rounded-12 bg-panel px-3"
+                    className="w-full px-3"
                   >
                     <SelectValue placeholder="Selecciona un responsable" />
                   </SelectTrigger>
@@ -326,7 +328,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                 >
                   <SelectTrigger
                     disabled={readOnly}
-                    className="h-10 w-full rounded-12 bg-panel px-3"
+                    className="w-full px-3"
                   >
                     <SelectValue placeholder="Sin cliente" />
                   </SelectTrigger>
@@ -349,7 +351,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                   disabled={readOnly}
                   value={form.fecha_entrega}
                   onChange={(e) => set("fecha_entrega", e.target.value)}
-                  className="h-10 rounded-12 bg-panel px-3"
+                  className="px-3"
                 />
               </div>
 
@@ -362,7 +364,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                 >
                   <SelectTrigger
                     disabled={readOnly}
-                    className="h-10 w-full rounded-12 bg-panel px-3"
+                    className="w-full px-3"
                   >
                     <SelectValue placeholder="Sin prioridad" />
                   </SelectTrigger>
@@ -410,7 +412,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                     >
                       <SelectTrigger
                         disabled={readOnly}
-                        className="h-10 w-full rounded-12 bg-panel px-3"
+                        className="w-full px-3"
                       >
                         <SelectValue />
                       </SelectTrigger>
@@ -455,7 +457,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
             </div>
 
             {isEdit && task && !readOnly && (
-              <div className="flex flex-col gap-6 rounded-[16px] border border-ink-200 bg-ink-100/50 p-4">
+              <div className="flex flex-col gap-6 surface-inner p-4">
                 <SubtaskSection taskId={task.id} />
                 <CommentSection taskId={task.id} />
                 <AttachmentSection taskId={task.id} />
@@ -476,7 +478,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
                   <Button
                     type="submit"
                     disabled={pendingMutation}
-                    className="rounded-lg px-4 font-bold"
+                    className="px-4 font-bold"
                   >
                     {pendingMutation && <LoaderCircle className="size-4 animate-spin" />}
                     {pendingMutation ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear tarea"}
@@ -527,14 +529,14 @@ function SubtaskSection({ taskId }: { taskId: string }) {
             }
           }}
           placeholder="Nueva subtarea…"
-          className="h-9 rounded-10 bg-panel px-3 text-[13px]"
+          className="h-10 bg-panel px-3 text-[13px]"
         />
         <Button
           type="button"
           size="sm"
           disabled={!texto.trim() || addSubtarea.isPending}
           onClick={() => void agregar()}
-          className="h-9 shrink-0 rounded-10 px-3 font-bold"
+          className="shrink-0 px-3 font-bold"
         >
           <Plus className="size-4" strokeWidth={2} />
           Agregar
@@ -632,14 +634,14 @@ function CommentSection({ taskId }: { taskId: string }) {
             }
           }}
           placeholder="Escribe un comentario…"
-          className="h-9 rounded-10 bg-panel px-3 text-[13px]"
+          className="h-10 bg-panel px-3 text-[13px]"
         />
         <Button
           type="button"
           size="sm"
           disabled={!texto.trim() || addComment.isPending}
           onClick={() => void enviar()}
-          className="h-9 shrink-0 rounded-10 px-3 font-bold"
+          className="shrink-0 px-3 font-bold"
         >
           <MessageSquarePlus className="size-4" strokeWidth={1.9} />
           Comentar
@@ -659,7 +661,7 @@ function CommentSection({ taskId }: { taskId: string }) {
   }
 }
 
-/* ── Adjuntos (validación cliente: tipo + 25 MB) ───────────────────────── */
+/* ── Adjuntos (validación cliente: política única compartida — tipo + MAX_FILE_MB) ── */
 
 function AttachmentSection({ taskId }: { taskId: string }) {
   const { data: adjuntos = [], isLoading } = useAttachments(taskId);
@@ -713,7 +715,7 @@ function AttachmentSection({ taskId }: { taskId: string }) {
           size="sm"
           disabled={upload.isPending}
           onClick={() => inputRef.current?.click()}
-          className="h-9 rounded-10 px-3 font-semibold"
+          className="px-3 font-semibold"
         >
           {upload.isPending ? (
             <LoaderCircle className="size-4 animate-spin" />
@@ -723,8 +725,7 @@ function AttachmentSection({ taskId }: { taskId: string }) {
           Subir archivo
         </Button>
         <span className="text-[11.5px] text-ink-600">
-          PDF, Word, Excel, PowerPoint, CSV, TXT, ZIP, JPG, JPEG, PNG o HEIC · máx 25 MB · o
-          arrastra el archivo aquí
+          {ALLOWED_ATTACHMENT_LABEL} · máx {MAX_FILE_MB} MB · o arrastra el archivo aquí
         </span>
       </div>
     </section>
@@ -788,7 +789,7 @@ function DangerZone({ taskId, onDeleted }: { taskId: string; onDeleted: () => vo
         type="button"
         variant="destructive"
         onClick={() => setConfirmOpen(true)}
-        className="self-start rounded-10 px-3 font-semibold"
+        className="self-start px-3 font-semibold"
       >
         <Trash2 className="size-4" strokeWidth={1.8} />
         Eliminar tarea
@@ -822,7 +823,7 @@ function ConfirmDeleteDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-[22px] sm:max-w-[min(380px,calc(100%-2rem))]">
+      <DialogContent className="sm:max-w-[min(380px,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="font-display text-[17px] font-bold tracking-[-0.02em] text-ink-950">
             Eliminar tarea
@@ -841,7 +842,7 @@ function ConfirmDeleteDialog({
             variant="destructive"
             disabled={pending}
             onClick={onConfirm}
-            className="rounded-12 font-bold"
+            className="font-bold"
           >
             {pending && <LoaderCircle className="size-4 animate-spin" />}
             Eliminar

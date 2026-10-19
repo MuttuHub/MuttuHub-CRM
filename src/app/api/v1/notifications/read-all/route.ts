@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { markSnapshotRead } from "@/lib/alerts";
+import { marcarNotificacionesProyectoLeidas } from "@/lib/api/notificaciones-proyecto";
 import { buildSnapshot } from "@/app/api/v1/notifications/route";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +29,8 @@ export const PATCH = withApiErrorHandling(
       ...snapshot.proximos3,
     ].map((item) => item.id);
 
-    const updated = await markSnapshotRead(auth.usuario, tareaIds);
+    const updated =
+      (await markSnapshotRead(auth.usuario, tareaIds)) + (await marcarNotificacionesProyectoLeidas(auth.usuario));
     return NextResponse.json({ ok: true, updated });
   },
 );

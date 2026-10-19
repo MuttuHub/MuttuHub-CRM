@@ -91,7 +91,7 @@ export function AuditLogSection() {
   }
 
   return (
-    <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
+    <section className="surface p-5 lg:p-6">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-display text-[17px] font-bold tracking-[-0.02em] text-ink-950">
@@ -111,7 +111,7 @@ export function AuditLogSection() {
             setMoreError(null);
           }}
         >
-          <SelectTrigger className="h-9 w-[170px] rounded-10 bg-panel px-3 text-[12.5px]">
+          <SelectTrigger size="sm" className="w-[170px] px-3 text-base md:text-[12.5px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -131,7 +131,7 @@ export function AuditLogSection() {
           <Skeleton className="mt-2 h-10 w-full" />
         </>
       ) : query.isError ? (
-        <div className="grid min-h-[220px] place-items-center rounded-[18px] border border-ink-200 p-8">
+        <div className="grid min-h-[220px] place-items-center rounded-inner border border-border p-8">
           <div className="max-w-[46ch] text-center">
             <span className="mx-auto grid size-11 place-items-center rounded-[15px_15px_15px_5px] bg-alerta-bg text-alerta">
               <AlertTriangle className="size-5" strokeWidth={1.7} />
@@ -142,14 +142,14 @@ export function AuditLogSection() {
             <Button
               onClick={() => void query.refetch()}
               variant="outline"
-              className="mt-4 rounded-lg px-4 font-semibold"
+              className="mt-4 px-4 font-semibold"
             >
               Reintentar
             </Button>
           </div>
         </div>
       ) : registros.length === 0 ? (
-        <div className="grid min-h-[180px] place-items-center rounded-[18px] border border-dashed border-ink-200 px-6 py-10 text-center">
+        <div className="grid min-h-[180px] place-items-center rounded-inner border border-dashed border-border px-6 py-10 text-center">
           <div>
             <span className="mx-auto grid size-11 place-items-center rounded-[15px_15px_15px_5px] bg-ink-100 text-ink-700">
               <ShieldCheck className="size-5" strokeWidth={1.7} />
@@ -164,24 +164,24 @@ export function AuditLogSection() {
           </div>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-[18px] border border-ink-200">
+        <div className="overflow-hidden rounded-inner border border-border">
           {/* Patrón C (plan Fase 5): min-w para que scrollee en vez de aplastarse */}
           <Table className="min-w-[860px]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="pl-5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead className="pl-5">
                   Fecha
                 </TableHead>
-                <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead>
                   Usuario
                 </TableHead>
-                <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead>
                   Entidad
                 </TableHead>
-                <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead>
                   Acción
                 </TableHead>
-                <TableHead className="pr-5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead className="pr-5">
                   Campos
                 </TableHead>
               </TableRow>
@@ -247,7 +247,7 @@ export function AuditLogSection() {
               onClick={() => void loadMore()}
               variant="outline"
               disabled={query.isFetchingNextPage}
-              className="rounded-lg px-4 font-semibold"
+              className="px-4 font-semibold"
             >
               {query.isFetchingNextPage ? (
                 <LoaderCircle className="size-4 animate-spin" />

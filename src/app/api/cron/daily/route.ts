@@ -5,20 +5,25 @@
 // `x-cron-secret` == env CRON_SECRET.
 //
 // Flujo por usuario activo (ADMINISTRADOR excluido, PRD §4.4.1):
-//   buckets via el motor compartido (scope own para COLABORADOR, all para
-//   el resto) → sin alertas en ninguna categoría → NO se manda correo
-//   (no-mail-if-empty); con alertas → resumen Resend.
-// Cada corrida queda registrada en cron_logs (OK / ERROR / SKIPPED_NO_CONFIG)
-// y el guard de idempotencia evita re-enviar si la corrida del día ya terminó
-// OK (así el reintento de las 8:30 solo actúa si el de las 8:00 falló).
+//   setting `automatizaciones` → si `resumen_diario` está apagado se registra
+//   SKIPPED_DISABLED y no se envía nada; si está encendido, buckets via el
+//   motor compartido (scope own para COLABORADOR, all para el resto) con la
+//   ventana `dias_por_vencer` y solo las categorías activas → sin alertas en
+//   ninguna categoría → NO se manda correo (no-mail-if-empty); con alertas →
+//   resumen Resend.
+// Cada corrida queda registrada en cron_logs (OK / ERROR / SKIPPED_NO_CONFIG /
+// SKIPPED_DISABLED) y el guard de idempotencia evita re-enviar si la corrida
+// del día ya terminó OK (así el reintento de las 8:30 solo actúa si el de las
+// 8:00 falló).
 
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import type { Usuario } from "@prisma/client";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
-import { getAlertBuckets, startOfLocalDay } from "@/lib/alerts";
+import { filterBucketsByCategorias, getAlertBuckets, startOfLocalDay } from "@/lib/alerts";
 import { sendDailySummary } from "@/lib/email";
+import { getAutomatizaciones } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +32,7 @@ export const JOB_NAME = "daily-notifications";
 type CronUsuario = Pick<Usuario, "id" | "nombre" | "email" | "rol">;
 
 async function recordJobLog(
-  estado: "OK" | "ERROR" | "SKIPPED_NO_CONFIG",
+  estado: "OK" | "ERROR" | "SKIPPED_NO_CONFIG" | "SKIPPED_DISABLED",
   detalle: string,
 ): Promise<void> {
   try {
@@ -48,7 +53,24 @@ export async function POST() {
     return apiError("No autorizado.", 401, "UNAUTHORIZED");
   }
 
-  // 2) Resend sin configurar → correo no posible: se registra y se responde
+  // 2) Automatizaciones: si el resumen diario está apagado, no hay nada que
+  // mandar. Se registra SKIPPED_DISABLED y se responde 200 sin tocar Resend
+  // ni la lista de destinatarios.
+  const automatizaciones = await getAutomatizaciones();
+  if (!automatizaciones.resumen_diario) {
+    await recordJobLog("SKIPPED_DISABLED", "resumen_diario=false; envío omitido");
+    return NextResponse.json({
+      ok: true,
+      processed: 0,
+      sent: 0,
+      failed: 0,
+      skipped_empty: 0,
+      already_sent_today: false,
+      note: "Resumen diario desactivado en Automatizaciones — corrida SKIPPED_DISABLED.",
+    });
+  }
+
+  // 3) Resend sin configurar → correo no posible: se registra y se responde
   // 200 con nota (sin crash, PRD §8.4 graceful). El REintento 8:30 repetirá.
   if (!process.env.RESEND_API_KEY) {
     await recordJobLog(
@@ -79,7 +101,7 @@ export async function POST() {
   const failureDetails: string[] = [];
 
   try {
-    // 3) Idempotencia: la corrida de hoy ya cerró OK (reintento 8:30) → no
+    // 4) Idempotencia: la corrida de hoy ya cerró OK (reintento 8:30) → no
     // re-enviar. Basado en cron_logs de hoy, mismo día local del servidor.
     const today = startOfLocalDay();
     const lastOk = await db.cronLog.findFirst({
@@ -95,7 +117,7 @@ export async function POST() {
       });
     }
 
-    // 4) Destinatarios: usuarios activos, todos menos ADMINISTRADOR.
+    // 5) Destinatarios: usuarios activos, todos menos ADMINISTRADOR.
     const usuarios = await db.usuario.findMany({
       where: { activo: true, rol: { not: "ADMINISTRADOR" } },
       select: { id: true, nombre: true, email: true, rol: true },
@@ -103,7 +125,9 @@ export async function POST() {
 
     for (const usuario of usuarios as CronUsuario[]) {
       const scope: "own" | "all" = usuario.rol === "COLABORADOR" ? "own" : "all";
-      const buckets = await getAlertBuckets(scope, usuario);
+      const rawBuckets = await getAlertBuckets(scope, usuario, automatizaciones.dias_por_vencer);
+      // Omite las categorías que el admin desactivó en Automatizaciones.
+      const buckets = filterBucketsByCategorias(rawBuckets, automatizaciones.categorias);
       const total = buckets.vencidos.length + buckets.hoy.length + buckets.proximos3.length;
 
       if (total === 0) {

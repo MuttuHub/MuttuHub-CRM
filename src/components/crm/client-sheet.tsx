@@ -9,14 +9,16 @@
 
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { EstadoCliente, PrioridadCliente, TipoCliente } from "@prisma/client";
+import type { EstadoCliente, PrioridadCliente, TipoCliente, TipoInteraccion } from "@prisma/client";
 import {
   CalendarClock,
   Download,
   ExternalLink,
   FileText,
+  FolderPlus,
   MessageSquarePlus,
   Pencil,
   Send,
@@ -26,7 +28,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { useCurrentUser } from "@/hooks/kanban";
+import { canCreateProject } from "@/lib/permissions";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -36,6 +40,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatusChip } from "@/components/ui/status-chip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
@@ -51,6 +56,7 @@ import {
   esVencida,
   formatCOP,
   formatFecha,
+  formatFechaDia,
   formatFechaHora,
   iniciales,
   useAddLogEntry,
@@ -86,6 +92,11 @@ import {
   OportunidadLifecycleDialog,
 } from "@/components/crm/entity-dialogs";
 import { TareaFormDialog } from "@/components/crm/task-dialogs";
+import {
+  TIPO_INTERACCION_LABELS,
+  TIPO_INTERACCION_ORDER,
+  TIPO_INTERACCION_TONES,
+} from "@/components/crm/interacciones-feed";
 import {
   downloadActiveVersion,
   extensionOf,
@@ -124,6 +135,8 @@ export function ClientSheet({
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
 
   const cliente = clienteQuery.data;
+  const usuario = useCurrentUser().data;
+  const puedeCrearProyecto = usuario ? canCreateProject({ id: usuario.id, rol: usuario.rol }) : false;
 
   return (
     <Dialog
@@ -146,6 +159,7 @@ export function ClientSheet({
                 cliente={cliente}
                 onEditar={() => setEditOpen(true)}
                 onDesactivar={() => setDeactivateOpen(true)}
+                puedeCrearProyecto={puedeCrearProyecto}
               />
 
               <Tabs defaultValue="general" className="flex min-h-0 flex-1 flex-col">
@@ -341,10 +355,12 @@ function SheetHeaderContent({
   cliente,
   onEditar,
   onDesactivar,
+  puedeCrearProyecto,
 }: {
   cliente: ClientDetail;
   onEditar: () => void;
   onDesactivar: () => void;
+  puedeCrearProyecto: boolean;
 }) {
   const vencido = cliente.next_compromiso
     ? esVencida(cliente.next_compromiso.fecha_entrega)
@@ -377,11 +393,20 @@ function SheetHeaderContent({
             variant="outline"
             size="sm"
             onClick={onEditar}
-            className="shrink-0 rounded-10 px-3 text-[12.5px] font-semibold"
+            className="shrink-0 px-3 text-[12.5px] font-semibold"
           >
             <Pencil className="size-3.5" strokeWidth={1.9} />
             Editar
           </Button>
+        )}
+        {puedeCrearProyecto && (
+          <Link
+            href={`/proyectos/nuevo?cliente=${encodeURIComponent(cliente.id)}`}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0 px-3 text-[12.5px] font-semibold")}
+          >
+            <FolderPlus className="size-3.5" strokeWidth={1.9} />
+            Crear proyecto
+          </Link>
         )}
         <Button
           variant="outline"
@@ -389,7 +414,7 @@ function SheetHeaderContent({
           onClick={() =>
             window.open(`/print/clientes/${cliente.id}`, "_blank", "noopener")
           }
-          className="shrink-0 rounded-10 px-3 text-[12.5px] font-semibold"
+          className="shrink-0 px-3 text-[12.5px] font-semibold"
         >
           <FileText className="size-3.5 text-destructivo" strokeWidth={1.9} />
           Exportar PDF
@@ -399,7 +424,7 @@ function SheetHeaderContent({
             variant="outline"
             size="sm"
             onClick={onDesactivar}
-            className="shrink-0 rounded-10 px-3 text-[12.5px] font-semibold text-ink-500 hover:border-destructivo/40 hover:text-destructivo"
+            className="shrink-0 px-3 text-[12.5px] font-semibold text-ink-500 hover:border-destructivo/40 hover:text-destructivo"
           >
             <UserX className="size-3.5" strokeWidth={1.9} />
             Desactivar cliente
@@ -465,9 +490,9 @@ function SheetHeaderContent({
 const INLINE_LABEL_CLASS = "text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase";
 const INLINE_DISPLAY_CLASS =
   "group mt-1 -mx-1.5 flex w-full items-start gap-1.5 rounded-md px-1.5 py-0.5 text-left text-[13.5px] leading-snug text-ink-900 hover:bg-ink-100 disabled:opacity-60";
-const INLINE_INPUT_CLASS = "mt-1 h-8 rounded-md bg-panel px-2 text-[13.5px]";
+const INLINE_INPUT_CLASS = "mt-1 h-10 px-2 text-[13.5px]";
 const INLINE_SELECT_TRIGGER_CLASS =
-  "mt-1 h-8 w-full justify-start rounded-md border-transparent bg-transparent px-1.5 font-normal text-ink-900 hover:border-ink-200 hover:bg-ink-100 data-[popup-open]:border-ink-200 data-[popup-open]:bg-ink-100";
+  "mt-1 h-10 w-full justify-start border-transparent bg-transparent px-1.5 font-normal text-ink-900 hover:border-ink-200 hover:bg-ink-100 data-[popup-open]:border-ink-200 data-[popup-open]:bg-ink-100";
 
 function useInlineClientField<K extends keyof ClientInput>(
   clientId: string,
@@ -498,6 +523,7 @@ function InlineText({
    */
   disabled?: boolean;
 }) {
+  const labelId = useId();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? "");
   const [saving, setSaving] = useState(false);
@@ -529,22 +555,23 @@ function InlineText({
     if (disabled) {
       return (
         <div className="min-w-0">
-          <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+          <dt id={labelId} className={INLINE_LABEL_CLASS}>{label}</dt>
           <p className="mt-1 px-1.5 py-0.5 text-[13.5px] leading-snug text-ink-900">
-            {formatFecha(value)}
+            {value || "—"}
           </p>
         </div>
       );
     }
     return (
       <div className="min-w-0">
-        <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+        <dt id={labelId} className={INLINE_LABEL_CLASS}>{label}</dt>
         <button
           type="button"
           onClick={() => {
             setDraft(value ?? "");
             setEditing(true);
           }}
+          aria-describedby={labelId}
           className={INLINE_DISPLAY_CLASS}
         >
           <span className="min-w-0 flex-1">{value || "—"}</span>
@@ -559,9 +586,10 @@ function InlineText({
 
   return (
     <div className="min-w-0">
-      <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+      <dt id={labelId} className={INLINE_LABEL_CLASS}>{label}</dt>
       <Input
         autoFocus
+        aria-label={label}
         value={draft}
         disabled={saving}
         onChange={(e) => setDraft(e.target.value)}
@@ -595,6 +623,7 @@ function InlineTextarea({
   /** PR 4: when true, the field renders as plain text (no edit button). */
   disabled?: boolean;
 }) {
+  const labelId = useId();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? "");
   const [saving, setSaving] = useState(false);
@@ -621,7 +650,7 @@ function InlineTextarea({
     if (disabled) {
       return (
         <div className="min-w-0">
-          <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+          <dt id={labelId} className={INLINE_LABEL_CLASS}>{label}</dt>
           <p className="mt-1 px-1.5 py-0.5 text-[13.5px] leading-snug whitespace-pre-wrap text-ink-900">
             {value || "—"}
           </p>
@@ -630,13 +659,14 @@ function InlineTextarea({
     }
     return (
       <div className="min-w-0">
-        <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+        <dt id={labelId} className={INLINE_LABEL_CLASS}>{label}</dt>
         <button
           type="button"
           onClick={() => {
             setDraft(value ?? "");
             setEditing(true);
           }}
+          aria-describedby={labelId}
           className={INLINE_DISPLAY_CLASS}
         >
           <span className="min-w-0 flex-1 whitespace-pre-wrap">{value || "—"}</span>
@@ -651,9 +681,10 @@ function InlineTextarea({
 
   return (
     <div className="min-w-0">
-      <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+      <dt id={labelId} className={INLINE_LABEL_CLASS}>{label}</dt>
       <textarea
         autoFocus
+        aria-label={label}
         rows={2}
         value={draft}
         disabled={saving}
@@ -666,7 +697,7 @@ function InlineTextarea({
             setEditing(false);
           }
         }}
-        className="mt-1 w-full resize-none rounded-md border border-input bg-panel px-2 py-1.5 text-[13.5px] text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="mt-1 w-full resize-none rounded-md border border-border-strong bg-input-bg px-2 py-1.5 text-[13.5px] text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
       />
     </div>
   );
@@ -684,6 +715,7 @@ function InlineDate({
   /** PR 4: when true, the field renders as plain text (no edit button). */
   disabled?: boolean;
 }) {
+  const labelId = useId();
   const [editing, setEditing] = useState(false);
   const asInputValue = value && !Number.isNaN(new Date(value).getTime())
     ? new Date(value).toISOString().slice(0, 10)
@@ -715,25 +747,26 @@ function InlineDate({
     if (disabled) {
       return (
         <div className="min-w-0">
-          <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+          <dt id={labelId} className={INLINE_LABEL_CLASS}>{label}</dt>
           <p className="mt-1 px-1.5 py-0.5 text-[13.5px] leading-snug text-ink-900">
-            {value || "—"}
+            {formatFechaDia(value)}
           </p>
         </div>
       );
     }
     return (
       <div className="min-w-0">
-        <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+        <dt id={labelId} className={INLINE_LABEL_CLASS}>{label}</dt>
         <button
           type="button"
           onClick={() => {
-            setDraft(value ?? "");
+            setDraft(asInputValue);
             setEditing(true);
           }}
+          aria-describedby={labelId}
           className={INLINE_DISPLAY_CLASS}
         >
-          <span className="min-w-0 flex-1 whitespace-pre-wrap">{value || "—"}</span>
+          <span className="min-w-0 flex-1 whitespace-pre-wrap">{formatFechaDia(value)}</span>
           <Pencil
             className="mt-0.5 size-3 shrink-0 text-ink-400 opacity-0 group-hover:opacity-100"
             strokeWidth={2}
@@ -745,9 +778,10 @@ function InlineDate({
 
   return (
     <div className="min-w-0">
-      <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+      <dt id={labelId} className={INLINE_LABEL_CLASS}>{label}</dt>
       <Input
         autoFocus
+        aria-label={label}
         type="date"
         value={draft}
         disabled={saving}
@@ -786,6 +820,7 @@ function InlineSelect<T extends string>({
    *  user can't open the popup to change the value. */
   disabled?: boolean;
 }) {
+  const labelId = useId();
   async function handleChange(next: string | null) {
     if (!next || next === value) return;
     await onSave(next === CLEAR_PRIORIDAD ? null : (next as T));
@@ -793,7 +828,7 @@ function InlineSelect<T extends string>({
 
   return (
     <div className="min-w-0">
-      <dt className={INLINE_LABEL_CLASS}>{label}</dt>
+      <dt id={labelId} className={INLINE_LABEL_CLASS}>{label}</dt>
       <Select
         value={value || (clearLabel ? CLEAR_PRIORIDAD : "")}
         onValueChange={(v) => void handleChange(v)}
@@ -801,6 +836,7 @@ function InlineSelect<T extends string>({
       >
         <SelectTrigger
           disabled={disabled}
+          aria-label={label}
           className={INLINE_SELECT_TRIGGER_CLASS}
         >
           <SelectValue />
@@ -967,7 +1003,7 @@ function ContactosTab({
             : `${contactos.length} contacto${contactos.length === 1 ? "" : "s"}`}
         </p>
         {!readOnly && (
-          <Button size="sm" onClick={onNew} className="rounded-10 font-bold">
+          <Button size="sm" onClick={onNew} className="font-bold">
             Agregar contacto
           </Button>
         )}
@@ -982,7 +1018,7 @@ function ContactosTab({
         {contactos.map((c) => (
           <li
             key={c.id}
-            className="flex items-start gap-3.5 rounded-14 border border-ink-200 bg-panel p-4"
+            className="flex items-start gap-3.5 rounded-inner border border-border bg-panel p-4"
           >
             <InitialsAvatar nombre={c.nombre} />
             <div className="min-w-0 flex-1">
@@ -1065,7 +1101,7 @@ function OportunidadesTab({
             : `${oportunidades.length} oportunidad${oportunidades.length === 1 ? "" : "es"}`}
         </p>
         {!readOnly && (
-          <Button size="sm" onClick={onNew} className="rounded-10 font-bold">
+          <Button size="sm" onClick={onNew} className="font-bold">
             Nueva oportunidad
           </Button>
         )}
@@ -1080,7 +1116,7 @@ function OportunidadesTab({
         {oportunidades.map((o) => {
           const abierta = expandida === o.id;
           return (
-            <li key={o.id} className="rounded-14 border border-ink-200 bg-panel p-4">
+            <li key={o.id} className="rounded-inner border border-border bg-panel p-4">
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -1100,7 +1136,7 @@ function OportunidadesTab({
                     <span className="font-mono font-medium text-ink-800">
                       {formatCOP(o.valor_estimado_cop)}
                     </span>
-                    <span>Última gestión: {formatFecha(o.fecha_ultima_gestion)}</span>
+                    <span>Última gestión: {formatFechaDia(o.fecha_ultima_gestion)}</span>
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-2">
@@ -1109,7 +1145,7 @@ function OportunidadesTab({
                     size="sm"
                     aria-label={`Ver ciclo comercial de ${o.nombre}`}
                     onClick={() => onViewLifecycle(o)}
-                    className="rounded-10 px-2 text-[12px] font-semibold"
+                    className="px-2 text-[12px] font-semibold"
                   >
                     Ver ciclo
                   </Button>
@@ -1197,7 +1233,7 @@ function CompromisosTab({
             : `${tasks.length} compromiso${tasks.length === 1 ? "" : "s"}`}
         </p>
         {!readOnly && (
-          <Button size="sm" onClick={onNew} className="rounded-10 font-bold">
+          <Button size="sm" onClick={onNew} className="font-bold">
             Nuevo compromiso
           </Button>
         )}
@@ -1213,7 +1249,7 @@ function CompromisosTab({
           const vencida = t.fecha_entrega ? esVencida(t.fecha_entrega) : false;
           const abierta = t.estado !== "COMPLETADA" && t.estado !== "CANCELADA";
           return (
-            <li key={t.id} className="rounded-14 border border-ink-200 bg-panel p-4">
+            <li key={t.id} className="rounded-inner border border-border bg-panel p-4">
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -1258,7 +1294,7 @@ function CompromisosTab({
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-7 rounded-[9px] px-2.5 text-[11.5px] font-bold text-exito hover:bg-exito-bg hover:text-exito after:-inset-1"
+                        className="px-2.5 text-[11.5px] font-bold text-exito hover:bg-exito-bg hover:text-exito after:-inset-1"
                         onClick={() => statusMutation.mutate({ taskId: t.id, estado: "COMPLETADA" })}
                         disabled={statusMutation.isPending}
                       >
@@ -1298,13 +1334,21 @@ function BitacoraTab({ clientId, readOnly }: { clientId: string; readOnly?: bool
   const query = useBitacora(clientId);
   const addMutation = useAddLogEntry(clientId);
   const [texto, setTexto] = useState("");
+  const [tipo, setTipo] = useState<TipoInteraccion>("OTRO");
+  const [proximoPaso, setProximoPaso] = useState("");
   const entradas = query.data ?? [];
 
   async function submit() {
     if (!texto.trim()) return;
     try {
-      await addMutation.mutateAsync({ texto: texto.trim() });
+      await addMutation.mutateAsync({
+        texto: texto.trim(),
+        tipo,
+        proximo_paso: proximoPaso.trim() || null,
+      });
       setTexto("");
+      setProximoPaso("");
+      setTipo("OTRO");
     } catch {
       /* toast handled by the hook */
     }
@@ -1315,18 +1359,45 @@ function BitacoraTab({ clientId, readOnly }: { clientId: string; readOnly?: bool
       {/* PR 4: composer is the write path — hide when the server says the
        *  user can't add bitácora entries. The list below stays visible. */}
       {!readOnly && (
-        <div className="sticky bottom-0 z-20 rounded-14 border border-ink-200 bg-panel/95 p-4 shadow-[0_-8px_24px_rgba(25,17,19,0.05)] backdrop-blur">
+        <div className="sticky bottom-0 z-20 rounded-inner border border-border bg-panel/95 p-4 backdrop-blur">
           <div className="flex items-start gap-3">
             <span className="mt-1 grid size-8 shrink-0 place-items-center rounded-full bg-rose-100 text-rose-700 dark:text-rose-400">
               <MessageSquarePlus className="size-4" strokeWidth={1.8} />
             </span>
             <div className="min-w-0 flex-1">
+              <div className="mb-2 grid gap-2 sm:grid-cols-[minmax(0,180px)_minmax(0,1fr)]">
+                <Select
+                  value={tipo}
+                  onValueChange={(v) => {
+                    if (v) setTipo(v as TipoInteraccion);
+                  }}
+                >
+                  <SelectTrigger size="sm" aria-label="Tipo de interacción" className="w-full px-3">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIPO_INTERACCION_ORDER.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {TIPO_INTERACCION_LABELS[t]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  value={proximoPaso}
+                  onChange={(e) => setProximoPaso(e.target.value)}
+                  placeholder="Próximo paso (opcional)"
+                  aria-label="Próximo paso"
+                  className="px-3"
+                />
+              </div>
               <textarea
                 rows={3}
                 value={texto}
                 onChange={(e) => setTexto(e.target.value)}
                 placeholder="Agrega una nota de seguimiento…"
-                className="w-full resize-none rounded-12 border border-input bg-panel px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                aria-label="Nota de seguimiento"
+                className="w-full resize-none rounded-12 border border-border-strong bg-input-bg px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               />
               <div className="mt-2 flex items-center justify-between gap-3">
                 <p className="text-[11.5px] text-ink-500">
@@ -1336,7 +1407,7 @@ function BitacoraTab({ clientId, readOnly }: { clientId: string; readOnly?: bool
                   size="sm"
                   onClick={() => void submit()}
                   disabled={!texto.trim() || addMutation.isPending}
-                  className="rounded-10 font-bold"
+                  className="font-bold"
                 >
                   {addMutation.isPending ? (
                     <span className="size-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -1357,21 +1428,35 @@ function BitacoraTab({ clientId, readOnly }: { clientId: string; readOnly?: bool
       )}
 
       <ul className="flex flex-col gap-2.5">
-        {[...entradas].reverse().map((e) => (
-          <li key={e.id} className="rounded-14 border border-ink-200 bg-panel p-4">
-            <div className="flex items-center gap-2 text-[11.5px] text-ink-500">
-              <span className="grid size-6 place-items-center rounded-full bg-ink-100 text-[9.5px] font-bold text-ink-700">
-                {iniciales(e.autor_nombre) || "?"}
-              </span>
-              <span className="font-semibold text-ink-800">{e.autor_nombre}</span>
-              <span aria-hidden="true">·</span>
-              <span className="font-mono">{formatFechaHora(e.created_at)}</span>
-            </div>
-            <p className="mt-2 text-[13px] leading-relaxed whitespace-pre-wrap text-ink-800">
-              {e.texto}
-            </p>
-          </li>
-        ))}
+        {[...entradas].reverse().map((e) => {
+          const tipoEntrada = e.tipo ?? "OTRO";
+          return (
+            <li key={e.id} className="rounded-inner border border-border bg-panel p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusChip tone={TIPO_INTERACCION_TONES[tipoEntrada]}>
+                  {TIPO_INTERACCION_LABELS[tipoEntrada]}
+                </StatusChip>
+                <span className="grid size-6 place-items-center rounded-full bg-ink-100 text-[9.5px] font-bold text-ink-700">
+                  {iniciales(e.autor_nombre) || "?"}
+                </span>
+                <span className="text-[11.5px] font-semibold text-ink-800">{e.autor_nombre}</span>
+                <span aria-hidden="true" className="text-[11.5px] text-ink-500">·</span>
+                <span className="font-mono text-[11.5px] text-ink-500">{formatFechaHora(e.created_at)}</span>
+              </div>
+              <p className="mt-2 text-[13px] leading-relaxed whitespace-pre-wrap text-ink-800">
+                {e.texto}
+              </p>
+              {e.proximo_paso && (
+                <div className="mt-3 rounded-inner border border-border bg-muted px-3 py-2">
+                  <p className="text-[11px] font-bold tracking-[0.06em] text-ink-500 uppercase">
+                    Próximo paso
+                  </p>
+                  <p className="mt-0.5 text-[12.5px] text-ink-800">{e.proximo_paso}</p>
+                </div>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
@@ -1405,7 +1490,7 @@ function DocumentosTab({ clientId, readOnly }: { clientId: string; readOnly?: bo
       </p>
       {query.isLoading &&
         Array.from({ length: 2 }).map((_, i) => (
-          <Skeleton key={i} className="h-12 w-full rounded-14" />
+          <Skeleton key={i} className="h-12 w-full rounded-inner" />
         ))}
       {query.isError && (
         <p className="text-[12.5px] text-ink-600">
@@ -1419,7 +1504,7 @@ function DocumentosTab({ clientId, readOnly }: { clientId: string; readOnly?: bo
         {items.map((doc) => (
           <li
             key={doc.id}
-            className="flex items-center justify-between gap-3 rounded-14 border border-ink-200 bg-panel px-4 py-3"
+            className="flex items-center justify-between gap-3 rounded-inner border border-border bg-panel px-4 py-3"
           >
             <div className="flex min-w-0 items-center gap-3">
               <span className="grid size-8 shrink-0 place-items-center rounded-[11px_11px_11px_4px] bg-ink-100 text-[9px] font-bold text-ink-700">
@@ -1457,7 +1542,7 @@ function DocumentosTab({ clientId, readOnly }: { clientId: string; readOnly?: bo
           variant="outline"
           size="sm"
           onClick={irAlRepositorio}
-          className="h-9 rounded-12 border-ink-200 bg-panel px-3 text-[12.5px] font-semibold text-ink-800 hover:bg-ink-100"
+          className="px-3 text-[12.5px] font-semibold text-ink-800"
         >
           <ExternalLink className="size-3.5 text-ink-500" strokeWidth={1.8} />
           Ver todos
@@ -1467,7 +1552,7 @@ function DocumentosTab({ clientId, readOnly }: { clientId: string; readOnly?: bo
             variant="outline"
             size="sm"
             onClick={subirVinculado}
-            className="h-9 rounded-12 border-ink-200 bg-panel px-3 text-[12.5px] font-semibold text-ink-800 hover:bg-ink-100"
+            className="px-3 text-[12.5px] font-semibold text-ink-800"
           >
             <Upload className="size-4 text-exito" strokeWidth={1.8} />
             Subir documento vinculado
@@ -1491,7 +1576,7 @@ function TareasRelacionadasTab({ clientId }: { clientId: string }) {
       </p>
       {query.isLoading &&
         Array.from({ length: 2 }).map((_, i) => (
-          <Skeleton key={i} className="h-14 w-full rounded-14" />
+          <Skeleton key={i} className="h-14 w-full rounded-inner" />
         ))}
       {query.isError && <ErrorState message="No pudimos cargar las tareas." />}
       {!query.isLoading && !query.isError && tasks.length === 0 && (
@@ -1501,7 +1586,7 @@ function TareasRelacionadasTab({ clientId }: { clientId: string }) {
         {tasks.map((t) => (
           <li
             key={t.id}
-            className="flex items-center justify-between gap-3 rounded-14 border border-ink-200 bg-panel px-4 py-3"
+            className="flex items-center justify-between gap-3 rounded-inner border border-border bg-panel px-4 py-3"
           >
             <div className="min-w-0">
               <p className="truncate text-[13.5px] font-semibold text-ink-950">{t.titulo}</p>
@@ -1616,7 +1701,7 @@ function DeactivateClientDialog({
 
 function EmptyState({ copy }: { copy: string }) {
   return (
-    <div className="grid min-h-[140px] place-items-center rounded-14 border border-dashed border-ink-300 bg-ink-100/40 px-6 py-8 text-center">
+    <div className="grid min-h-[140px] place-items-center rounded-inner border border-dashed border-ink-300 bg-ink-100/40 px-6 py-8 text-center">
       <p className="max-w-[36ch] text-[13px] leading-relaxed text-ink-600">{copy}</p>
     </div>
   );
@@ -1626,7 +1711,7 @@ function ErrorState({ message }: { message: string }) {
   return (
     <div
       role="alert"
-      className="rounded-14 border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
+      className="rounded-inner border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
     >
       {message}
     </div>

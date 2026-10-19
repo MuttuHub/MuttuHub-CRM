@@ -143,6 +143,26 @@ export type ClienteAsignado = {
   prioridad: PrioridadCliente | null;
 };
 
+/** S2.7: proyecto EN_EJECUCION visible para quien llama. */
+export type ProyectoEnEjecucion = {
+  id: string;
+  codigo: string;
+  nombre: string;
+  cliente_id: string;
+  cliente_nombre: string;
+};
+
+/** S2.7: oportunidad abierta en fase PROSPECCION de mis clientes. */
+export type OportunidadEnProspeccion = {
+  id: string;
+  nombre: string;
+  estado: EstadoOportunidad;
+  /** Decimal serializado: string, nunca número. */
+  valor_estimado_cop: string | null;
+  cliente_id: string;
+  cliente_nombre: string;
+};
+
 export type DashboardMySummary = {
   scope: "own";
   activas: { count: number; items: TareaResumen[] };
@@ -150,6 +170,8 @@ export type DashboardMySummary = {
   hoy: { count: number };
   compromisos_pendientes: { count: number; vencidos: number };
   clientes_asignados: { count: number; items: ClienteAsignado[] };
+  proyectos_en_ejecucion: { count: number; items: ProyectoEnEjecucion[] };
+  oportunidades_en_prospeccion: { count: number; items: OportunidadEnProspeccion[] };
 };
 
 /* ── Query keys (filters included → refetch per change) ─────────────────── */

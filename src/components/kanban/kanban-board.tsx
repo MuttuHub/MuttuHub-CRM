@@ -11,7 +11,8 @@
 
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -37,12 +38,13 @@ import {
   Plus,
   Printer,
   RotateCcw,
+  SlidersHorizontal,
   SquareKanban,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import type { EstadoTarea, PrioridadTarea } from "@prisma/client";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -74,32 +76,34 @@ import {
   buildTaskQueryString,
   taskQueryKeys,
   useClientOptions,
+  useCurrentUser,
   useMoveTask,
   useTasks,
   type TaskFilters,
 } from "@/hooks/kanban";
+import { useEligibleOpportunities } from "@/hooks/projects";
+import { canCreateProject } from "@/lib/permissions";
 import { TaskCard, SortableTaskCard, type CardTask } from "@/components/kanban/task-card";
+import {
+  BOARD_ESTADOS,
+  BOARD_PILLS,
+  cardAction,
+  filterByPill,
+  groupByColumn,
+  type BoardPill,
+  type CardAction,
+} from "@/components/kanban/board-logic";
 import { TaskDialog } from "@/components/kanban/task-dialog";
 import { ReportView } from "@/components/kanban/report-view";
 import { TruncationBanner } from "@/components/kanban/truncation-banner";
 import { SinConexionCard } from "@/components/shared/sin-conexion-card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 // True when the Supabase env vars are missing (dev-only signal): the API
 // returns 500 "Plataforma no configurada" — show the technical card.
 const unconfigured =
   !process.env.NEXT_PUBLIC_SUPABASE_URL ||
   !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-// Columnas visibles en el tablero en el orden del PRD §5.1; CANCELADA se
-// mantiene oculta aquí y aparece en Lista/Reporte.
-const BOARD_COLUMNS: EstadoTarea[] = [
-  "POR_HACER",
-  "EN_CURSO",
-  "EN_REVISION",
-  "BLOQUEADA",
-  "EN_ESPERA",
-  "COMPLETADA",
-];
 
 type View = "tablero" | "lista" | "reporte";
 
@@ -135,6 +139,9 @@ function patchItemInPages(
 export function KanbanBoard() {
   const qc = useQueryClient();
   const [view, setView] = useState<View>("tablero");
+  // v7 filter pills (Todas / Prospección / Ejecución / Mías).
+  const [pill, setPill] = useState<BoardPill>("todas");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [cliente, setCliente] = useState<string>("");
   const [responsableEquipo, setResponsableEquipo] = useState<string>("");
   const [local, setLocal] = useState({
@@ -172,6 +179,17 @@ export function KanbanBoard() {
   const users = usersQuery.data ?? [];
   const clientOptionsQuery = useClientOptions();
   const clients = clientOptionsQuery.data ?? [];
+  const meQuery = useCurrentUser();
+  const me = meQuery.data ?? null;
+  // GANADA opportunities with no project yet: the cards of their completed
+  // tasks offer "Pasar a nuevo proyecto →". Only managers may read the list
+  // (the endpoint 403s for everyone else), so it stays off for them.
+  const puedeCrearProyecto = me ? canCreateProject({ id: me.id, rol: me.rol }) : false;
+  const eligiblesQuery = useEligibleOpportunities({ enabled: puedeCrearProyecto });
+  const eligibleIds = useMemo(
+    () => new Set((eligiblesQuery.data ?? []).map((o) => o.id)),
+    [eligiblesQuery.data],
+  );
 
   /* Params que sí soporta el servidor. PR 6: prioridad / etiqueta /
      fecha_entrega_* pasaron del cliente al servidor — el `local` state del
@@ -181,14 +199,15 @@ export function KanbanBoard() {
   const serverParams: TaskFilters = useMemo(
     () => ({
       cliente: cliente || undefined,
-      responsable: responsableEquipo || undefined,
+      // "Mías" is resolved on the server so the truncation banner stays honest.
+      responsable: (pill === "mias" ? me?.id : responsableEquipo) || undefined,
       prioridad: local.prioridad || undefined,
       etiqueta: local.etiqueta || undefined,
       fecha_entrega_desde: local.desde || undefined,
       fecha_entrega_hasta: local.hasta || undefined,
       limit: 100,
     }),
-    [cliente, responsableEquipo, local.prioridad, local.etiqueta, local.desde, local.hasta],
+    [cliente, responsableEquipo, pill, me?.id, local.prioridad, local.etiqueta, local.desde, local.hasta],
   );
 
   const tasksQuery = useTasks(serverParams);
@@ -324,47 +343,73 @@ export function KanbanBoard() {
     setLocal(next);
   }
 
-  const columns: Record<EstadoTarea, CardTask[]> = useMemo(() => {
-    const grouped: Record<EstadoTarea, CardTask[]> = {
-      POR_HACER: [],
-      EN_CURSO: [],
-      EN_REVISION: [],
-      BLOQUEADA: [],
-      EN_ESPERA: [],
-      COMPLETADA: [],
-      CANCELADA: [],
-    };
-    for (const task of items) {
-      (grouped[task.estado] ??= []).push(task);
-    }
-    return grouped;
-  }, [items]);
+  const columns = useMemo(
+    () => groupByColumn(filterByPill(items, pill, me?.id ?? null)),
+    [items, pill, me?.id],
+  );
+
+  function handleCardAction(task: CardTask, action: CardAction) {
+    if (action.kind === "advance") commitMove(task.id, task.estado, action.to);
+  }
+
+  function actionFor(task: CardTask) {
+    const action = cardAction(task, eligibleIds);
+    return action ? <CardActionView action={action} onRun={() => handleCardAction(task, action)} /> : undefined;
+  }
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      {/* Tabs Tablero / Lista / Reporte */}
+      {/* v7 header: filter pills, right-aligned. The page title lives in the
+          app shell header, so it is not repeated here. */}
+      {view === "tablero" || view === "lista" ? (
+        <div role="group" aria-label="Filtrar tareas" className="flex flex-wrap gap-2 sm:justify-end">
+          {BOARD_PILLS.map((p) => (
+            <button
+              key={p.value}
+              type="button"
+              aria-pressed={pill === p.value}
+              onClick={() => setPill(p.value)}
+              className={cn(
+                "h-10 rounded-full border px-4 text-[14px] font-semibold whitespace-nowrap transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                pill === p.value
+                  ? "border-rose-500 bg-rose-500 text-white"
+                  : "border-border-strong bg-transparent text-ink-800 hover:bg-muted",
+              )}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {/* Secondary tools kept from the previous board: Lista / Reporte views,
+          new task, exports and the advanced filters. */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Segmented
           value={view}
           onChange={(v) => setView(v as View)}
           options={VISTAS}
-          className="w-full max-w-md"
+          className="w-full max-w-xs"
         />
 
         {view === "tablero" || view === "lista" ? (
           <div className="flex flex-wrap items-center gap-2">
             <Button
-              onClick={() => setDialogTaskId("nueva")}
-              className="h-9 rounded-lg px-4 font-bold"
+              variant="outline"
+              size="sm"
+              aria-expanded={filtersOpen || localActive}
+              onClick={() => setFiltersOpen((open) => !open)}
+              className="px-3.5 text-[13px] font-semibold text-ink-800"
             >
-              <Plus className="size-4" strokeWidth={2} />
-              Nueva tarea
+              <SlidersHorizontal className="size-4 text-ink-600" strokeWidth={1.8} />
+              Filtros
+              {localActive ? <span className="size-1.5 rounded-full bg-rose-500" aria-label="Filtros activos" /> : null}
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => void exportExcel()}
-              className="h-9 rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+              className="px-3.5 text-[13px] font-semibold text-ink-800"
             >
               <FileSpreadsheet className="size-4 text-exito" strokeWidth={1.8} />
               Excel
@@ -373,17 +418,25 @@ export function KanbanBoard() {
               variant="outline"
               size="sm"
               onClick={openPrint}
-              className="h-9 rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
+              className="px-3.5 text-[13px] font-semibold text-ink-800"
             >
               <Printer className="size-4 text-ink-600" strokeWidth={1.8} />
               Imprimir
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setDialogTaskId("nueva")}
+              className="px-4 font-bold"
+            >
+              <Plus className="size-4" strokeWidth={2} />
+              Nueva tarea
             </Button>
           </div>
         ) : null}
       </div>
 
-      {/* Filtros */}
-      {view === "tablero" || view === "lista" ? (
+      {/* Filtros avanzados (colapsados por defecto, visibles si hay alguno activo) */}
+      {(view === "tablero" || view === "lista") && (filtersOpen || localActive) ? (
         <FiltersRow
           responsable={responsableEquipo}
           cliente={cliente}
@@ -427,21 +480,28 @@ export function KanbanBoard() {
               <p role="status" aria-live="polite" className="sr-only">
                 {moveAnnouncement}
               </p>
-              {/* Patrón F (plan Fase 5): 6 columnas con scroll lateral arriba,
-                  grupos apilados debajo de lg — mismo DOM, mismo SortableContext. */}
-              <div className="flex flex-col gap-3 pb-3 lg:flex-row lg:overflow-x-auto">
-                {BOARD_COLUMNS.map((estado) => (
+              {/* v7: 7 columnas de 264 px con scroll lateral arriba de lg, grupos
+                  apilados debajo — mismo DOM, mismo SortableContext. La séptima
+                  ("Nuevo proyecto") es derivada y no recibe drops. */}
+              <div className="flex flex-col gap-3 pb-3 lg:flex-row lg:items-start lg:overflow-x-auto">
+                {BOARD_ESTADOS.map((estado) => (
                   <BoardColumn
                     key={estado}
                     estado={estado}
                     tareas={columns[estado]}
                     onOpen={(id) => setDialogTaskId(id)}
+                    actionFor={actionFor}
                   />
                 ))}
+                <ProjectColumn
+                  tareas={columns.NUEVO_PROYECTO}
+                  onOpen={(id) => setDialogTaskId(id)}
+                  actionFor={actionFor}
+                />
               </div>
               <DragOverlay dropAnimation={null}>
                 {draggedTask ? (
-                  <div className="w-[240px]">
+                  <div className="w-[264px]">
                     <TaskCard task={draggedTask} overlay onClick={() => undefined} />
                   </div>
                 ) : null}
@@ -461,7 +521,7 @@ export function KanbanBoard() {
                 size="sm"
                 onClick={() => void tasksQuery.fetchNextPage()}
                 disabled={isFetchingNextPage}
-                className="h-9 rounded-lg border-ink-200 bg-panel px-4 text-[12.5px] font-semibold text-ink-800 hover:bg-ink-100"
+                className="px-4 text-[12.5px] font-semibold text-ink-800"
                 data-testid="kanban-load-more"
               >
                 {isFetchingNextPage ? (
@@ -491,7 +551,7 @@ export function KanbanBoard() {
           if (!open) setBlockPrompt(null);
         }}
       >
-        <DialogContent className="rounded-[20px] sm:max-w-[min(420px,calc(100%-2rem))]">
+        <DialogContent className="sm:max-w-[min(420px,calc(100%-2rem))]">
           <DialogHeader>
             <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
               Bloquear tarea
@@ -528,16 +588,35 @@ export function KanbanBoard() {
   );
 }
 
-/* ── Columna del tablero (droppable) ───────────────────────────────────── */
+/* ── Columnas del tablero ──────────────────────────────────────────────── */
 
+const COLUMN_BASE = "flex w-full shrink-0 flex-col gap-2 rounded-card border p-3 transition-colors lg:w-[264px]";
+
+function ColumnHeader({ label, count, dot }: { label: string; count: number; dot: string }) {
+  return (
+    <div className="flex items-center justify-between px-1 pb-0.5">
+      <span className="flex items-center gap-2">
+        <span className={cn("size-[9px] rounded-full", dot)} />
+        <span className="text-[14.5px] font-semibold whitespace-nowrap text-ink-950">{label}</span>
+      </span>
+      <span className="rounded-full bg-muted px-2.5 py-0.5 font-mono text-[12.5px] text-ink-700 tabular-nums">
+        {count}
+      </span>
+    </div>
+  );
+}
+
+/** A real state column: droppable, cards are sortable (dnd-kit drag stays available). */
 function BoardColumn({
   estado,
   tareas,
   onOpen,
+  actionFor,
 }: {
   estado: EstadoTarea;
   tareas: CardTask[];
   onOpen: (id: string) => void;
+  actionFor: (task: CardTask) => ReactNode;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `col:${estado}` });
   const label = ESTADO_TAREA_LABELS[estado]?.label ?? estado;
@@ -546,30 +625,113 @@ function BoardColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        // Patrón F: ancho fluido abajo (grupos apilados), columna fija arriba.
-        "flex w-full shrink-0 flex-col rounded-[18px] border border-ink-200 bg-ink-100/70 p-2.5 transition-colors lg:w-[248px]",
-        isOver && "border-rose-200 bg-rose-50/70 ring-2 ring-rose-200",
+        COLUMN_BASE,
+        "min-h-[120px] border-border bg-panel lg:min-h-[320px]",
+        isOver && "border-rose-300 bg-rose-50/70 ring-2 ring-rose-200",
       )}
     >
-      <div className="flex items-center justify-between px-1.5 pb-2">
-        <span className="flex items-center gap-2">
-          <span className={cn("size-2 rounded-full", dotTone(estado))} />
-          <span className="text-[12.5px] font-bold text-ink-800">{label}</span>
-        </span>
-        <span className="rounded-full bg-panel px-2 py-0.5 font-mono text-[10.5px] font-bold text-ink-600 tabular-nums">
-          {tareas.length}
-        </span>
-      </div>
-      <div className="flex min-h-[80px] flex-1 flex-col gap-2 overflow-y-auto pb-1">
+      <ColumnHeader label={label} count={tareas.length} dot={dotTone(estado)} />
+      <div className="flex min-h-[80px] flex-1 flex-col gap-2 pb-1">
         <SortableContext items={tareas.map((t) => `task:${t.id}`)} strategy={verticalListSortingStrategy}>
           {tareas.map((t) => (
-            <SortableTaskCard key={t.id} task={t} onClick={() => onOpen(t.id)} />
+            <SortableTaskCard key={t.id} task={t} onClick={() => onOpen(t.id)} action={actionFor(t)} />
           ))}
           {tareas.length === 0 && (
-            <p className="py-6 text-center text-[11.5px] text-ink-600">Sin tareas</p>
+            <p className="rounded-12 border border-dashed border-border-strong px-2 py-5 text-center text-[13px] text-ink-600">
+              Sin tareas
+            </p>
           )}
         </SortableContext>
       </div>
+    </div>
+  );
+}
+
+/**
+ * v7 7th column: "Nuevo proyecto". Dashed and tinted; it only shows the tasks
+ * already converted (derived, see board-logic.ts) and is not a drop target.
+ */
+function ProjectColumn({
+  tareas,
+  onOpen,
+  actionFor,
+}: {
+  tareas: CardTask[];
+  onOpen: (id: string) => void;
+  actionFor: (task: CardTask) => ReactNode;
+}) {
+  return (
+    <div
+      data-testid="kanban-col-nuevo-proyecto"
+      className={cn(COLUMN_BASE, "min-h-[120px] border-dashed border-rose-400/50 bg-rose-500/[0.07] lg:min-h-[320px]")}
+    >
+      <ColumnHeader label="Nuevo proyecto" count={tareas.length} dot="bg-rose-600" />
+      <p className="px-1 pb-1 text-[12.5px] leading-snug text-ink-700">
+        Cada tarjeta crea el proyecto en Seguimiento con los datos del cliente y la propuesta.
+      </p>
+      <div className="flex min-h-[80px] flex-1 flex-col gap-2 pb-1">
+        {tareas.map((t) => (
+          <TaskCard key={t.id} task={t} onClick={() => onOpen(t.id)} action={actionFor(t)} />
+        ))}
+        {tareas.length === 0 && (
+          <p className="rounded-12 border border-dashed border-border-strong px-2 py-5 text-center text-[13px] text-ink-600">
+            Completa una tarea comercial de una oportunidad aceptada
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** The footer of a card: the v7 "Avanzar →" family, a hint, or the link to the project. */
+export function CardActionView({ action, onRun }: { action: CardAction; onRun: () => void }) {
+  // The card sits inside a dnd-kit draggable: keep pointer/keyboard events on
+  // the button from reaching its sensors so a click never starts a drag.
+  const isolate = {
+    onPointerDown: (e: React.PointerEvent) => e.stopPropagation(),
+    onKeyDown: (e: React.KeyboardEvent) => e.stopPropagation(),
+  };
+  if (action.kind === "hint") {
+    return <p className="px-0.5 text-[12.5px] leading-snug text-ink-600">{action.text}</p>;
+  }
+  if (action.kind === "open-project") {
+    return (
+      <Link
+        href={action.href}
+        {...isolate}
+        className="inline-flex h-9 items-center rounded-12 border border-exito/50 px-3 text-[13px] font-semibold text-exito outline-none hover:bg-exito/10 focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        {action.label}
+      </Link>
+    );
+  }
+  if (action.kind === "convert") {
+    // "Pasar a nuevo proyecto →" opens the stepper page with the opportunity preselected.
+    return (
+      <div {...isolate}>
+        <Link
+          href={`/proyectos/nuevo?oportunidad=${encodeURIComponent(action.oportunidadId)}`}
+          className={cn(
+            buttonVariants({ size: "sm" }),
+            "w-full justify-start px-3 text-[13px] font-semibold",
+          )}
+        >
+          {action.label}
+        </Link>
+      </div>
+    );
+  }
+  return (
+    <div {...isolate}>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={onRun}
+        className="w-full justify-start px-3 text-[13px] font-semibold"
+      >
+        {action.label}
+      </Button>
     </div>
   );
 }
@@ -590,24 +752,21 @@ function dotTone(estado: EstadoTarea): string {
 
 function ListaView({ items, onOpen }: { items: CardTask[]; onOpen: (id: string) => void }) {
   return (
-    <section className="overflow-hidden rounded-[22px] border border-ink-200 bg-panel">
+    <section className="overflow-hidden surface">
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-[12.5px]">
-          <thead>
-            <tr className="border-b border-ink-200 text-left">
+        <Table className="text-[12.5px]">
+          <TableHeader>
+            <TableRow>
               {["Título", "Responsable", "Cliente", "Estado", "Prioridad", "Fecha entrega", "Etiquetas", ""].map((h) => (
-                <th
-                  key={h}
-                  className="px-5 py-3 text-[10.5px] font-bold tracking-[0.09em] text-ink-500 uppercase"
-                >
+                <TableHead key={h}>
                   {h}
-                </th>
+                </TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {items.map((t) => (
-              <tr
+              <TableRow
                 key={t.id}
                 onClick={() => onOpen(t.id)}
                 onKeyDown={(e) => {
@@ -617,31 +776,31 @@ function ListaView({ items, onOpen }: { items: CardTask[]; onOpen: (id: string) 
                   }
                 }}
                 tabIndex={0}
-                className="cursor-pointer border-t border-ink-200 first:border-t-0 hover:bg-rose-50/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50 outline-none"
+                className="cursor-pointer focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50 outline-none"
               >
-                <td className="px-5 py-3 font-semibold text-ink-950">{t.titulo}</td>
-                <td className="px-5 py-3">
+                <TableCell className="font-semibold text-ink-950">{t.titulo}</TableCell>
+                <TableCell>
                   <span className="flex items-center gap-2 text-[12.5px] text-ink-700">
                     <span className="grid size-6 place-items-center rounded-[8px] bg-ink-100 text-[9.5px] font-bold text-ink-700">
                       {iniciales(t.responsable_nombre)}
                     </span>
                     {t.responsable_nombre}
                   </span>
-                </td>
-                <td className="px-5 py-3 text-[12.5px] text-ink-700">{t.cliente_nombre ?? "—"}</td>
-                <td className="px-5 py-3">
+                </TableCell>
+                <TableCell className="text-[12.5px] text-ink-700 whitespace-normal">{t.cliente_nombre ?? "—"}</TableCell>
+                <TableCell>
                   <ToneBadge
                     tone={ESTADO_TAREA_LABELS[t.estado]?.tone ?? "neutro"}
                     label={ESTADO_TAREA_LABELS[t.estado]?.label ?? t.estado}
                   />
-                </td>
-                <td className="px-5 py-3">
+                </TableCell>
+                <TableCell>
                   <PrioridadChip prioridad={t.prioridad} />
-                </td>
-                <td className="px-5 py-3">
+                </TableCell>
+                <TableCell>
                   <FechaCell fecha={t.fecha_entrega} />
-                </td>
-                <td className="px-5 py-3">
+                </TableCell>
+                <TableCell>
                   <div className="flex flex-wrap gap-1">
                     {t.etiquetas.slice(0, 2).map((etq) => (
                       <span
@@ -652,16 +811,16 @@ function ListaView({ items, onOpen }: { items: CardTask[]; onOpen: (id: string) 
                       </span>
                     ))}
                   </div>
-                </td>
-                <td className="px-4 py-3 text-right">
+                </TableCell>
+                <TableCell numeric>
                   <span className="grid size-7 place-items-center rounded-10 text-ink-500 hover:bg-rose-50 hover:text-rose-700 dark:hover:text-rose-400">
                     <Eye className="size-4" strokeWidth={1.8} />
                   </span>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </section>
   );
@@ -698,14 +857,14 @@ type FiltersRowProps = {
   onClear: () => void;
 };
 
-const SEL_CLASS = "h-9 flex-1 basis-0 rounded-12 border-ink-200 bg-panel px-3 text-[12.5px]";
+const SEL_CLASS = "h-10 flex-1 basis-0 px-3 text-base md:text-[12.5px]";
 
 // FiltersRow real (definida debajo)
 
 function FiltersRow(props: FiltersRowProps) {
   const { responsable, cliente, local, users, clients, onResponsable, onCliente, onLocal, hasActive, onClear } = props;
   return (
-    <section className="rounded-[20px] border border-ink-200 bg-panel p-3.5">
+    <section className="surface p-3.5">
       <div className="flex flex-wrap items-center gap-2.5">
         <Select value={responsable} onValueChange={(v) => onResponsable(v === "todos" ? "" : (v ?? ""))}>
           <SelectTrigger className={cn(SEL_CLASS, "min-w-[160px]")}>
@@ -753,15 +912,15 @@ function FiltersRow(props: FiltersRowProps) {
         </Select>
         <div className="flex items-center gap-1.5">
           <Label htmlFor="kanban-desde" className="sr-only">Entrega desde</Label>
-          <Input id="kanban-desde" type="date" value={local.desde} onChange={(e) => onLocal({ desde: e.target.value })} aria-label="Entrega desde" className="h-9 w-[148px] rounded-12 border-ink-200 bg-panel px-3 text-[12px]" />
+          <Input id="kanban-desde" type="date" value={local.desde} onChange={(e) => onLocal({ desde: e.target.value })} aria-label="Entrega desde" className="h-10 w-[148px] px-3 text-base md:text-[12px]" />
           <span className="text-[12px] text-ink-500">a</span>
           <Label htmlFor="kanban-hasta" className="sr-only">Entrega hasta</Label>
-          <Input id="kanban-hasta" type="date" value={local.hasta} onChange={(e) => onLocal({ hasta: e.target.value })} aria-label="Entrega hasta" className="h-9 w-[148px] rounded-12 border-ink-200 bg-panel px-3 text-[12px]" />
+          <Input id="kanban-hasta" type="date" value={local.hasta} onChange={(e) => onLocal({ hasta: e.target.value })} aria-label="Entrega hasta" className="h-10 w-[148px] px-3 text-base md:text-[12px]" />
         </div>
       </div>
       {hasActive && (
         <div className="mt-2.5 flex items-center justify-end">
-          <Button variant="ghost" size="sm" onClick={onClear} className="h-8 px-2 text-[12.5px] font-semibold text-ink-600">
+          <Button variant="ghost" size="sm" onClick={onClear} className="px-2 text-[12.5px] font-semibold text-ink-600">
             <RotateCcw className="size-3" strokeWidth={1.9} />
             Limpiar filtros
           </Button>
@@ -807,7 +966,7 @@ function Segmented<T extends string>({
 
 function TableroVacio({ vista }: { vista: "tablero" | "lista" }) {
   return (
-    <section className="grid min-h-[320px] place-items-center rounded-[24px] border border-ink-200 bg-panel p-8">
+    <section className="grid min-h-[320px] place-items-center surface p-8">
       <div className="max-w-[44ch] text-center">
         <span className="mx-auto grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-rose-100 text-rose-700 dark:text-rose-400">
           <SquareKanban className="size-6" strokeWidth={1.7} />
@@ -828,7 +987,7 @@ function TableroVacio({ vista }: { vista: "tablero" | "lista" }) {
 function BoardSkeleton({ vista }: { vista: "board" | "lista" }) {
   if (vista === "lista") {
     return (
-      <section className="rounded-[22px] border border-ink-200 bg-panel p-5">
+      <section className="surface p-5">
         <div className="space-y-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-11 w-full rounded-12" />
@@ -839,8 +998,8 @@ function BoardSkeleton({ vista }: { vista: "board" | "lista" }) {
   }
   return (
     <div className="flex flex-col gap-3 overflow-hidden lg:flex-row">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="w-full shrink-0 space-y-2 rounded-[18px] bg-ink-100/70 p-2.5 lg:w-[248px]">
+      {Array.from({ length: 7 }).map((_, i) => (
+        <div key={i} className="w-full shrink-0 space-y-2 rounded-card bg-muted p-3 lg:w-[264px]">
           <Skeleton className="h-5 w-24" />
           {Array.from({ length: 2 }).map((_, j) => (
             <Skeleton key={j} className="h-[110px] w-full rounded-14" />

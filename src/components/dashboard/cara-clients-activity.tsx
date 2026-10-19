@@ -24,6 +24,7 @@ import {
   esEnvelopeNoConfigurado,
 } from "@/components/dashboard/shared";
 import { DemoFallback } from "@/components/dashboard/demo-fallback";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const DIAS_OPTIONS = [7, 14, 30, 60] as const;
 
@@ -88,36 +89,33 @@ export function CaraClientesActividad({
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] border-collapse text-[12.5px]">
-              <thead>
-                <tr className="border-b border-ink-200 text-left">
+            <Table className="min-w-[640px] text-[12.5px]">
+              <TableHeader>
+                <TableRow>
                   {["Cliente", "Estado", "Prioridad", "Responsable", "Sin gestión"].map((h) => (
-                    <th
-                      key={h}
-                      className="py-2 pr-4 text-[10.5px] font-bold tracking-[0.09em] text-ink-500 uppercase"
-                    >
+                    <TableHead key={h}>
                       {h}
-                    </th>
+                    </TableHead>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {sin_gestion.clientes.map((c, i) => {
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sin_gestion.clientes.map((c) => {
                   const estado = ESTADO_CLIENTE_LABELS[c.estado];
                   const prioridad = c.prioridad ? PRIORIDAD_CLIENTE_LABELS[c.prioridad] : null;
                   const sinDias = diasDesde(c.ultima_gestion);
                   const critico = sinDias !== null && sinDias > umbral;
                   return (
-                    <tr key={c.cliente_id} className={cn(i !== 0 && "border-t border-ink-100")}>
-                      <td className="py-2.5 pr-4">
+                    <TableRow key={c.cliente_id}>
+                      <TableCell>
                         <span className="font-bold text-ink-950">{c.nombre}</span>
                         {c.ultima_gestion && (
                           <span className="block text-[11px] text-ink-600">
                             última gestión: {formatFecha(c.ultima_gestion)}
                           </span>
                         )}
-                      </td>
-                      <td className="py-2.5 pr-4">
+                      </TableCell>
+                      <TableCell>
                         <span
                           className={cn(
                             "inline-flex h-[23px] items-center rounded-full px-2.5 text-[11px] font-bold whitespace-nowrap",
@@ -131,8 +129,8 @@ export function CaraClientesActividad({
                         >
                           {estado?.label ?? c.estado}
                         </span>
-                      </td>
-                      <td className="py-2.5 pr-4">
+                      </TableCell>
+                      <TableCell>
                         {prioridad ? (
                           <span
                             className={cn(
@@ -149,11 +147,11 @@ export function CaraClientesActividad({
                         ) : (
                           <span className="text-ink-500">—</span>
                         )}
-                      </td>
-                      <td className="py-2.5 pr-4 font-medium text-ink-800">
+                      </TableCell>
+                      <TableCell className="font-medium text-ink-800 whitespace-normal">
                         {c.responsable_nombre}
-                      </td>
-                      <td className="py-2.5">
+                      </TableCell>
+                      <TableCell>
                         {sinDias === null ? (
                           <span className="text-[12px] font-semibold text-destructivo">
                             Nunca gestionado
@@ -171,12 +169,12 @@ export function CaraClientesActividad({
                             {sinDias} días
                           </span>
                         )}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
             {sin_gestion.clientes.length >= 25 && (
               <p className="mt-3 text-[12px] text-ink-600">
                 Mostrando los primeros 25 · ajusta el filtro de días para acotar.

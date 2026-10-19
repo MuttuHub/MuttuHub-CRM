@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Usuario } from "@prisma/client";
 import { startOfLocalDay } from "@/lib/alerts";
 
@@ -12,6 +12,12 @@ vi.mock("@/lib/db", () => ({
       findMany: vi.fn(),
     },
     cliente: {
+      findMany: vi.fn(),
+    },
+    proyecto: {
+      findMany: vi.fn(),
+    },
+    oportunidad: {
       findMany: vi.fn(),
     },
   },
@@ -39,6 +45,11 @@ function mockAuth(usuario: Usuario) {
 function get(qs = ""): Request {
   return new Request(`http://localhost/api/v1/dashboard/my-summary${qs}`);
 }
+
+beforeEach(() => {
+  vi.mocked(db.proyecto.findMany).mockResolvedValue([]);
+  vi.mocked(db.oportunidad.findMany).mockResolvedValue([]);
+});
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -147,5 +158,101 @@ describe("GET /api/v1/dashboard/my-summary", () => {
 
     expect(res.status).toBe(400);
     expect(db.tarea.findMany).not.toHaveBeenCalled();
+  });
+
+  describe("RNF-C01 panel separation (S2.7)", () => {
+    const coordinador = { id: "coord-1", rol: "COORDINADOR" } as Usuario;
+    const colaborador = { id: "colab-1", rol: "COLABORADOR" } as Usuario;
+
+    function withEmptyBase(usuario: Usuario) {
+      mockAuth(usuario);
+      vi.mocked(db.tarea.findMany).mockResolvedValue([]);
+      vi.mocked(db.cliente.findMany).mockResolvedValue([]);
+    }
+
+    it("lists EN_EJECUCION projects for a manager, BORRADOR excluded by the query", async () => {
+      withEmptyBase(administrador);
+      vi.mocked(db.proyecto.findMany).mockResolvedValue([
+        { id: "p1", codigo: "PRY-2026-001", nombre: "CedeTextil", cliente: { id: "c1", nombre: "CedeTextil S.A." } },
+      ] as never);
+
+      const json = await (await GET(get())).json();
+
+      const where = vi.mocked(db.proyecto.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
+      expect(where).toEqual({ deleted_at: null, estado: "EN_EJECUCION" });
+      expect(json.proyectos_en_ejecucion).toEqual({
+        count: 1,
+        items: [
+          {
+            id: "p1",
+            codigo: "PRY-2026-001",
+            nombre: "CedeTextil",
+            cliente_id: "c1",
+            cliente_nombre: "CedeTextil S.A.",
+          },
+        ],
+      });
+    });
+
+    it("a COORDINADOR only sees their member projects in the group", async () => {
+      withEmptyBase(coordinador);
+
+      await GET(get());
+
+      const where = vi.mocked(db.proyecto.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
+      expect(where).toEqual({
+        deleted_at: null,
+        estado: "EN_EJECUCION",
+        miembros: { some: { usuario_id: "coord-1", removed_at: null } },
+      });
+    });
+
+    it("any other role gets an empty projects group", async () => {
+      withEmptyBase(colaborador);
+
+      const json = await (await GET(get())).json();
+
+      const where = vi.mocked(db.proyecto.findMany).mock.calls[0]?.[0]?.where as
+        | Record<string, unknown>
+        | undefined;
+      if (where) expect(where.id).toEqual({ in: [] });
+      expect(json.proyectos_en_ejecucion).toEqual({ count: 0, items: [] });
+    });
+
+    it("lists prospecting opportunities of my clients in a separate group", async () => {
+      withEmptyBase(administrador);
+      vi.mocked(db.oportunidad.findMany).mockResolvedValue([
+        {
+          id: "o1",
+          nombre: "Propuesta X",
+          estado: "PRESENTADA",
+          valor_estimado_cop: "1000000",
+          cliente: { id: "c1", nombre: "Cliente A" },
+        },
+      ] as never);
+
+      const json = await (await GET(get())).json();
+
+      const where = vi.mocked(db.oportunidad.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
+      expect(where).toMatchObject({
+        deleted_at: null,
+        fase: "PROSPECCION",
+        estado: { notIn: ["GANADA", "PERDIDA"] },
+        cliente: { deleted_at: null, responsable_id: "admin-1" },
+      });
+      expect(json.oportunidades_en_prospeccion).toEqual({
+        count: 1,
+        items: [
+          {
+            id: "o1",
+            nombre: "Propuesta X",
+            estado: "PRESENTADA",
+            valor_estimado_cop: "1000000",
+            cliente_id: "c1",
+            cliente_nombre: "Cliente A",
+          },
+        ],
+      });
+    });
   });
 });

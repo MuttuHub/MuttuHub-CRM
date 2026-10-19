@@ -128,6 +128,55 @@ export const RESTRICTED_DOC_CATEGORIES: readonly string[] = [
   "Administrativo-financiero",
 ];
 
+// Catálogo único de rubros del módulo v2 de proyectos (REQ-CAT-01, codes
+// PO-P). Fuente de verdad en TypeScript: la migración adoptiva, el seed, el
+// script de importación y la API derivan de esta constante — la lista NUNCA
+// se duplica. Los códigos R01..R15 son inmutables (trigger en la base de
+// datos) y `orden` fija la secuencia R01..R15. "Material POP" y "Operación
+// logística" quedan fuera del catálogo (suspendidos, sin código) en la
+// migración adoptiva; no forman parte de RUBROS_V2.
+export type RubroV2 = { codigo: string; nombre: string; orden: number };
+
+export const RUBROS_V2: readonly RubroV2[] = [
+  { codigo: "R01", nombre: "Personal", orden: 1 },
+  { codigo: "R02", nombre: "Consultor", orden: 2 },
+  { codigo: "R03", nombre: "Subsidio arriendo", orden: 3 },
+  { codigo: "R04", nombre: "Promoción y divulgación", orden: 4 },
+  { codigo: "R05", nombre: "Alistamiento", orden: 5 },
+  { codigo: "R06", nombre: "Caracterización", orden: 6 },
+  { codigo: "R07", nombre: "Acompañamiento", orden: 7 },
+  { codigo: "R08", nombre: "Formación", orden: 8 },
+  { codigo: "R09", nombre: "Capital semilla", orden: 9 },
+  { codigo: "R10", nombre: "Viáticos", orden: 10 },
+  { codigo: "R11", nombre: "Varios", orden: 11 },
+  { codigo: "R12", nombre: "Transporte", orden: 12 },
+  { codigo: "R13", nombre: "Suministros", orden: 13 },
+  { codigo: "R14", nombre: "Oficina", orden: 14 },
+  { codigo: "R15", nombre: "Dotación", orden: 15 },
+];
+
+// Strategic-lines catalog for the v2 projects module (REQ-CAT-03, codes
+// LE01..LE08). Single TS source of truth: the migration, the seed and the API
+// all derive from this constant — the list is NEVER duplicated in the
+// application. LE01..LE08 are immutable (database trigger) and `orden` fixes
+// the LE01..LE08 sequence.
+//
+// There is deliberately NO `LineaEstrategica` enum here: REQ-CAT-03 cited one
+// from an earlier branch and that citation is false (this schema declares no
+// such enum), so the codes are assigned by this constant instead.
+export type LineaEstrategicaV2 = { codigo: string; nombre: string; orden: number };
+
+export const LINEAS_ESTRATEGICAS_V2: readonly LineaEstrategicaV2[] = [
+  { codigo: "LE01", nombre: "Empleabilidad", orden: 1 },
+  { codigo: "LE02", nombre: "Emprendimiento", orden: 2 },
+  { codigo: "LE03", nombre: "Productividad", orden: 3 },
+  { codigo: "LE04", nombre: "Cultural", orden: 4 },
+  { codigo: "LE05", nombre: "Social", orden: 5 },
+  { codigo: "LE06", nombre: "Cívico-político", orden: 6 },
+  { codigo: "LE07", nombre: "Método Muttu", orden: 7 },
+  { codigo: "LE08", nombre: "Ambiental", orden: 8 },
+];
+
 export const ENUM_VALUES = {
   EstadoCliente: Object.keys(ESTADO_CLIENTE_LABELS),
   TipoCliente: Object.keys(TIPO_CLIENTE_LABELS),

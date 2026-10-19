@@ -33,6 +33,23 @@ describe("Select", () => {
     expect(screen.getByRole("combobox")).toHaveTextContent("Responsable")
   })
 
+  it("sizes the trigger at 44px (default) and 40px (sm)", () => {
+    render(<BasicSelect />)
+    expect(screen.getByRole("combobox")).toHaveClass("data-[size=default]:h-11")
+    expect(screen.getByRole("combobox")).toHaveClass("data-[size=sm]:h-10")
+  })
+
+  it("uses 16px text below md so touch browsers do not zoom, 14px from md", () => {
+    render(<BasicSelect />)
+    expect(screen.getByRole("combobox")).toHaveClass("text-base", "md:text-sm")
+  })
+
+  it("uses the v6 radius (12px) and control surface tokens on the trigger", () => {
+    render(<BasicSelect />)
+    expect(screen.getByRole("combobox")).toHaveClass("rounded-12", "border-border-strong", "bg-input-bg")
+    expect(screen.getByRole("combobox")).not.toHaveClass("rounded-lg")
+  })
+
   it("shows the item's label instead of the raw value once selected (BUG #7)", async () => {
     const user = userEvent.setup()
     render(<BasicSelect />)
@@ -57,5 +74,14 @@ describe("Select", () => {
     const trigger = screen.getByRole("combobox")
     expect(trigger).toHaveTextContent("Etiqueta manual")
     expect(trigger).not.toHaveTextContent("Ana Pérez")
+  })
+
+  it("renders the listbox without a drop shadow (v6: none except toast)", async () => {
+    render(<BasicSelect />)
+    await userEvent.click(screen.getByRole("combobox"))
+    const list = await screen.findByRole("listbox")
+    const content = list.closest("[data-slot=select-content]")
+    expect(content).toBeInTheDocument()
+    expect(content?.className).not.toMatch(/shadow-/)
   })
 })

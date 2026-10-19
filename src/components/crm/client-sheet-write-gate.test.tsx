@@ -137,8 +137,8 @@ describe("ClientSheet — PR 4 UI gate (puede_editar=false)", () => {
     // When the gate is closed, the value is plain text.
     const nombreButton = screen.queryByRole("button", { name: CLIENTE.nombre })
     expect(nombreButton).not.toBeInTheDocument()
-    // The value is still visible (read-only).
-    expect(screen.getByText(CLIENTE.nombre)).toBeInTheDocument()
+    // The value is still visible (read-only): the sheet title plus the static Nombre field.
+    expect(screen.getAllByText(CLIENTE.nombre)).toHaveLength(2)
   })
 
   it("disables the inline catalog Selects (Tipo, Estado, Prioridad, Responsable)", () => {

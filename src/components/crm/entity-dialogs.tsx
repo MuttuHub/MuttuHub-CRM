@@ -3,10 +3,12 @@
 
 "use client";
 
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { LoaderCircle, Rocket, Target } from "lucide-react";
 import type { EstadoOportunidad, RolContacto } from "@prisma/client";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -41,12 +43,16 @@ import {
   useUpdateContacto,
   useUpdateOportunidad,
   useUpdateTarea,
+  useUsers,
   type Contacto,
   type Oportunidad,
   type OportunidadInput,
   type TaskItem,
 } from "@/hooks/crm";
 import { ToneBadge } from "@/components/crm/shared";
+import { useCurrentUser } from "@/hooks/kanban";
+import { useEligibleOpportunities } from "@/hooks/projects";
+import { canCreateProject } from "@/lib/permissions";
 
 /* ── Confirm dialog (shared delete guard) ──────────────────────────────── */
 
@@ -69,7 +75,7 @@ export function ConfirmDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="rounded-[20px] sm:max-w-[min(400px,calc(100%-2rem))]">
+      <DialogContent className="sm:max-w-[min(400px,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
             {title}
@@ -99,6 +105,22 @@ export function ConfirmDialog({
 
 /* ── Contacto ──────────────────────────────────────────────────────────── */
 
+/**
+ * The base-ui Select cannot carry an empty-string value, so "none" is the
+ * sentinel for "sin definir"; it maps back to `null` in the payload.
+ */
+const SIN_VALOR = "none";
+
+/** 1..5 options for the poder/interés axes (v7 C4b). */
+const NIVELES_PODER_INTERES = [1, 2, 3, 4, 5] as const;
+
+/** 1..3 options for fuerza_relacion, labelled so the value is not a bare number. */
+const NIVELES_FUERZA: readonly { value: string; label: string }[] = [
+  { value: "1", label: "Baja" },
+  { value: "2", label: "Media" },
+  { value: "3", label: "Alta" },
+];
+
 export type ContactoFormState = {
   nombre: string;
   cargo: string;
@@ -106,6 +128,11 @@ export type ContactoFormState = {
   telefono: string;
   rol_decision: RolContacto | "";
   notas: string;
+  /** v7 C4b: quadrant axes, strength and owner, kept as Select strings. */
+  poder: string;
+  interes: string;
+  fuerza_relacion: string;
+  owner_id: string;
 };
 
 export function ContactoFormDialog({
@@ -124,6 +151,9 @@ export function ContactoFormDialog({
   const updateMutation = useUpdateContacto(clientId, contacto?.id ?? "");
   const pending = isEdit ? updateMutation.isPending : createMutation.isPending;
 
+  const usersQuery = useUsers();
+  const users = usersQuery.data ?? [];
+
   const [form, setForm] = useState<ContactoFormState>({
     nombre: "",
     cargo: "",
@@ -131,6 +161,10 @@ export function ContactoFormDialog({
     telefono: "",
     rol_decision: "",
     notas: "",
+    poder: SIN_VALOR,
+    interes: SIN_VALOR,
+    fuerza_relacion: SIN_VALOR,
+    owner_id: SIN_VALOR,
   });
   const [error, setError] = useState<string | null>(null);
 
@@ -148,12 +182,36 @@ export function ContactoFormDialog({
           telefono: contacto.telefono ?? "",
           rol_decision: contacto.rol_decision ?? "",
           notas: contacto.notas ?? "",
+          poder: contacto.poder === null ? SIN_VALOR : String(contacto.poder),
+          interes: contacto.interes === null ? SIN_VALOR : String(contacto.interes),
+          fuerza_relacion:
+            contacto.fuerza_relacion === null ? SIN_VALOR : String(contacto.fuerza_relacion),
+          owner_id: contacto.owner_id ?? SIN_VALOR,
         });
       } else {
-        setForm({ nombre: "", cargo: "", correo: "", telefono: "", rol_decision: "", notas: "" });
+        setForm({
+          nombre: "",
+          cargo: "",
+          correo: "",
+          telefono: "",
+          rol_decision: "",
+          notas: "",
+          poder: SIN_VALOR,
+          interes: SIN_VALOR,
+          fuerza_relacion: SIN_VALOR,
+          owner_id: SIN_VALOR,
+        });
       }
     }
   }
+
+  // `users` only lists active users; if the assigned owner was deactivated the
+  // Select would fall back to the raw UUID, so the current owner is kept as an
+  // extra option (mirrors the client-sheet responsable fix).
+  const ownerOptions =
+    form.owner_id === SIN_VALOR || users.some((u) => u.id === form.owner_id)
+      ? users
+      : [...users, { id: form.owner_id, nombre: "Usuario no disponible" }];
 
   function set<K extends keyof ContactoFormState>(key: K, value: ContactoFormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -171,6 +229,10 @@ export function ContactoFormDialog({
       telefono: form.telefono.trim() || null,
       rol_decision: form.rol_decision ? (form.rol_decision as RolContacto) : null,
       notas: form.notas.trim() || null,
+      poder: form.poder === SIN_VALOR ? null : Number(form.poder),
+      interes: form.interes === SIN_VALOR ? null : Number(form.interes),
+      fuerza_relacion: form.fuerza_relacion === SIN_VALOR ? null : Number(form.fuerza_relacion),
+      owner_id: form.owner_id === SIN_VALOR ? null : form.owner_id,
     };
 
     try {
@@ -187,7 +249,7 @@ export function ContactoFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88dvh] overflow-y-auto rounded-[22px] sm:max-w-[min(520px,calc(100%-2rem))]">
+      <DialogContent className="max-h-[88dvh] overflow-y-auto sm:max-w-[min(520px,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
             {isEdit ? "Editar contacto" : "Agregar contacto"}
@@ -218,7 +280,7 @@ export function ContactoFormDialog({
                 value={form.nombre}
                 onChange={(e) => set("nombre", e.target.value)}
                 placeholder="Nombre y apellido"
-                className="h-10 rounded-12 bg-panel px-3"
+                className="px-3"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -228,7 +290,7 @@ export function ContactoFormDialog({
                 value={form.cargo}
                 onChange={(e) => set("cargo", e.target.value)}
                 placeholder="Ej. Secretaria de Gobierno"
-                className="h-10 rounded-12 bg-panel px-3"
+                className="px-3"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -239,7 +301,7 @@ export function ContactoFormDialog({
                 value={form.correo}
                 onChange={(e) => set("correo", e.target.value)}
                 placeholder="nombre@entidad.co"
-                className="h-10 rounded-12 bg-panel px-3"
+                className="px-3"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -249,7 +311,7 @@ export function ContactoFormDialog({
                 value={form.telefono}
                 onChange={(e) => set("telefono", e.target.value)}
                 placeholder="+57 300 000 0000"
-                className="h-10 rounded-12 bg-panel px-3"
+                className="px-3"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -258,7 +320,7 @@ export function ContactoFormDialog({
                 value={form.rol_decision}
                 onValueChange={(v) => set("rol_decision", v as RolContacto | "")}
               >
-                <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+                <SelectTrigger aria-label="Rol en la decisión" className="w-full px-3">
                   <SelectValue placeholder="Sin rol definido" />
                 </SelectTrigger>
                 <SelectContent>
@@ -270,7 +332,84 @@ export function ContactoFormDialog({
                 </SelectContent>
               </Select>
             </div>
+
+            {/* v7 C4b: the Relaciones axes, the strength and the internal owner. */}
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="contacto-poder">Poder</Label>
+              <Select value={form.poder} onValueChange={(v) => set("poder", v ?? SIN_VALOR)}>
+                <SelectTrigger id="contacto-poder" className="w-full px-3">
+                  <SelectValue placeholder="Sin definir" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SIN_VALOR}>Sin definir</SelectItem>
+                  {NIVELES_PODER_INTERES.map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {n}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="contacto-interes">Interés</Label>
+              <Select value={form.interes} onValueChange={(v) => set("interes", v ?? SIN_VALOR)}>
+                <SelectTrigger id="contacto-interes" className="w-full px-3">
+                  <SelectValue placeholder="Sin definir" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SIN_VALOR}>Sin definir</SelectItem>
+                  {NIVELES_PODER_INTERES.map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {n}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="contacto-fuerza">Fuerza de la relación</Label>
+              <Select
+                value={form.fuerza_relacion}
+                onValueChange={(v) => set("fuerza_relacion", v ?? SIN_VALOR)}
+              >
+                <SelectTrigger id="contacto-fuerza" className="w-full px-3">
+                  <SelectValue placeholder="Sin definir" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SIN_VALOR}>Sin definir</SelectItem>
+                  {NIVELES_FUERZA.map((n) => (
+                    <SelectItem key={n.value} value={n.value}>
+                      {n.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="contacto-owner">Relación</Label>
+              <Select value={form.owner_id} onValueChange={(v) => set("owner_id", v ?? SIN_VALOR)}>
+                <SelectTrigger id="contacto-owner" className="w-full px-3">
+                  <SelectValue placeholder="Sin responsable" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SIN_VALOR}>Sin responsable</SelectItem>
+                  {ownerOptions.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+
+          <p className="text-[12px] text-ink-500">
+            Poder e interés se miden de 1 (bajo) a 5 (alto): desde 4 el contacto entra
+            en un cuadrante del mapa. La fuerza de la relación va de baja a alta.
+          </p>
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="contacto-notas">Notas</Label>
@@ -280,7 +419,7 @@ export function ContactoFormDialog({
               value={form.notas}
               onChange={(e) => set("notas", e.target.value)}
               placeholder="Detalles de la relación con este contacto"
-              className="w-full resize-none rounded-12 border border-input bg-panel px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="w-full resize-none rounded-12 border border-border-strong bg-input-bg px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             />
           </div>
 
@@ -288,7 +427,7 @@ export function ContactoFormDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={pending} className="rounded-lg px-4 font-bold">
+            <Button type="submit" disabled={pending} className="px-4 font-bold">
               {pending && <LoaderCircle className="size-4 animate-spin" />}
               {pending ? "Guardando…" : isEdit ? "Guardar cambios" : "Agregar contacto"}
             </Button>
@@ -423,7 +562,7 @@ export function OportunidadFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88dvh] overflow-y-auto rounded-[22px] sm:max-w-[min(560px,calc(100%-2rem))]">
+      <DialogContent className="max-h-[88dvh] overflow-y-auto sm:max-w-[min(560px,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
             {isEdit ? "Editar oportunidad" : "Nueva oportunidad"}
@@ -455,7 +594,7 @@ export function OportunidadFormDialog({
                 value={form.nombre}
                 onChange={(e) => set("nombre", e.target.value)}
                 placeholder="Ej. Consultoría línea base 2026"
-                className="h-10 rounded-12 bg-panel px-3"
+                className="px-3"
               />
             </div>
 
@@ -467,7 +606,7 @@ export function OportunidadFormDialog({
                 value={form.problema_detectado}
                 onChange={(e) => set("problema_detectado", e.target.value)}
                 placeholder="Necesidad o dolor que detectamos en el cliente"
-                className="w-full resize-none rounded-12 border border-input bg-panel px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="w-full resize-none rounded-12 border border-border-strong bg-input-bg px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               />
             </div>
 
@@ -479,7 +618,7 @@ export function OportunidadFormDialog({
                 value={form.solucion_propuesta}
                 onChange={(e) => set("solucion_propuesta", e.target.value)}
                 placeholder="Cómo la resolveríamos"
-                className="w-full resize-none rounded-12 border border-input bg-panel px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="w-full resize-none rounded-12 border border-border-strong bg-input-bg px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               />
             </div>
 
@@ -490,7 +629,7 @@ export function OportunidadFormDialog({
                 value={form.servicios_interes}
                 onChange={(e) => set("servicios_interes", e.target.value)}
                 placeholder="Ej. Medición, formaciones"
-                className="h-10 rounded-12 bg-panel px-3"
+                className="px-3"
               />
             </div>
 
@@ -504,7 +643,7 @@ export function OportunidadFormDialog({
                 value={form.valor_estimado_cop}
                 onChange={(e) => set("valor_estimado_cop", e.target.value)}
                 placeholder="0"
-                className="h-10 rounded-12 bg-panel px-3 font-mono text-[13px]"
+                className="px-3 font-mono text-base md:text-[13px]"
               />
             </div>
 
@@ -514,7 +653,7 @@ export function OportunidadFormDialog({
                 value={form.estado}
                 onValueChange={(v) => set("estado", v as EstadoOportunidad)}
               >
-                <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+                <SelectTrigger aria-label="Estado" className="w-full px-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -534,7 +673,7 @@ export function OportunidadFormDialog({
                 type="date"
                 value={form.fecha_ultima_gestion}
                 onChange={(e) => set("fecha_ultima_gestion", e.target.value)}
-                className="h-10 rounded-12 bg-panel px-3"
+                className="px-3"
               />
             </div>
           </div>
@@ -555,7 +694,7 @@ export function OportunidadFormDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={pending} className="rounded-lg px-4 font-bold">
+            <Button type="submit" disabled={pending} className="px-4 font-bold">
               {pending && <LoaderCircle className="size-4 animate-spin" />}
               {pending ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear oportunidad"}
             </Button>
@@ -583,6 +722,32 @@ function FaseBadge({ fase }: { fase: Oportunidad["fase"] }) {
       <Target className="size-3" strokeWidth={1.9} />
       Prospección
     </span>
+  );
+}
+
+/**
+ * "Convertir en proyecto": links to the new-project stepper page with this won
+ * opportunity preselected. Shown only for a GANADA opportunity that has no
+ * project yet (it is in the eligible list, which excludes any `proyectos` row,
+ * soft-deleted included) and a user who can create projects. Hidden otherwise;
+ * the API stays the authority (403/409).
+ */
+function ConvertirEnProyectoAction({ oportunidad }: { oportunidad: Oportunidad }) {
+  const userQuery = useCurrentUser();
+  const usuario = userQuery.data;
+  const puedeCrear = usuario ? canCreateProject({ id: usuario.id, rol: usuario.rol }) : false;
+  const eligiblesQuery = useEligibleOpportunities({ enabled: puedeCrear });
+
+  const sinProyecto = (eligiblesQuery.data ?? []).some((op) => op.id === oportunidad.id);
+  if (!puedeCrear || !sinProyecto) return null;
+
+  return (
+    <Link
+      href={`/proyectos/nuevo?oportunidad=${encodeURIComponent(oportunidad.id)}`}
+      className={cn(buttonVariants({ variant: "outline" }), "w-fit px-4 font-bold")}
+    >
+      Convertir en proyecto
+    </Link>
   );
 }
 
@@ -646,7 +811,7 @@ export function OportunidadLifecycleDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88dvh] overflow-y-auto rounded-[22px] sm:max-w-[min(620px,calc(100%-2rem))]">
+      <DialogContent className="max-h-[88dvh] overflow-y-auto sm:max-w-[min(620px,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
             {oportunidad.nombre}
@@ -695,12 +860,14 @@ export function OportunidadLifecycleDialog({
             <Button
               onClick={() => void convertMutation.mutateAsync()}
               disabled={convertMutation.isPending}
-              className="w-fit rounded-lg px-4 font-bold"
+              className="w-fit px-4 font-bold"
             >
               {convertMutation.isPending && <LoaderCircle className="size-4 animate-spin" />}
               Convertir a ejecución
             </Button>
           )}
+
+          {oportunidad.estado === "GANADA" && <ConvertirEnProyectoAction oportunidad={oportunidad} />}
 
           <div className="flex flex-col gap-2">
             <p className="text-[13px] font-bold text-ink-900">
@@ -713,7 +880,7 @@ export function OportunidadLifecycleDialog({
                 {tareas.map((t) => (
                   <li
                     key={t.id}
-                    className="rounded-10 border border-ink-200 bg-panel px-3 py-2 text-[12.5px] text-ink-800"
+                    className="surface-inner px-3 py-2 text-[12.5px] text-ink-800"
                   >
                     {t.titulo}
                   </li>
@@ -723,7 +890,7 @@ export function OportunidadLifecycleDialog({
             {!readOnly && (
               <div className="flex items-center gap-2">
                 <Select value={selectedTaskId} onValueChange={(v) => setSelectedTaskId(v ?? "")}>
-                  <SelectTrigger className="h-9 w-full rounded-10 bg-panel px-3 text-[12.5px]">
+                  <SelectTrigger size="sm" aria-label="Vincular tarea" className="w-full px-3 text-base md:text-[12.5px]">
                     <SelectValue placeholder="Vincular una tarea existente del cliente" />
                   </SelectTrigger>
                   <SelectContent>
@@ -739,7 +906,7 @@ export function OportunidadLifecycleDialog({
                   variant="outline"
                   disabled={!selectedTaskId || linkTaskMutation.isPending}
                   onClick={() => void handleVincular()}
-                  className="shrink-0 rounded-10 px-3 text-[12.5px] font-semibold"
+                  className="shrink-0 px-3 text-[12.5px] font-semibold"
                 >
                   Vincular
                 </Button>
@@ -756,7 +923,7 @@ export function OportunidadLifecycleDialog({
                 {bitacora.map((e) => (
                   <li
                     key={e.id}
-                    className="rounded-10 border border-ink-200 bg-panel px-3 py-2 text-[12.5px] text-ink-700"
+                    className="surface-inner px-3 py-2 text-[12.5px] text-ink-700"
                   >
                     <span className="font-semibold text-ink-900">{e.autor_nombre}:</span> {e.texto}
                   </li>
@@ -769,14 +936,15 @@ export function OportunidadLifecycleDialog({
                   value={nota}
                   onChange={(e) => setNota(e.target.value)}
                   placeholder="Agregar una nota de comunicación"
-                  className="h-9 rounded-10 bg-panel px-3 text-[12.5px]"
+                  aria-label="Nota de comunicación"
+                  className="h-10 px-3 text-base md:text-[12.5px]"
                 />
                 <Button
                   size="sm"
                   variant="outline"
                   disabled={!nota.trim() || addLogMutation.isPending}
                   onClick={() => void handleAgregarNota()}
-                  className="shrink-0 rounded-10 px-3 text-[12.5px] font-semibold"
+                  className="shrink-0 px-3 text-[12.5px] font-semibold"
                 >
                   Agregar
                 </Button>

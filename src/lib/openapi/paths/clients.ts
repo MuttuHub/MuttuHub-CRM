@@ -20,6 +20,8 @@ import { CONTACT_PATCH_SCHEMA } from "@/app/api/v1/clients/[id]/contacts/[contac
 import { LOG_ENTRY_SCHEMA } from "@/app/api/v1/clients/[id]/log/route";
 import { OPORTUNIDAD_SCHEMA } from "@/app/api/v1/clients/[id]/opportunities/route";
 import { OPORTUNIDAD_PATCH_SCHEMA } from "@/app/api/v1/clients/[id]/opportunities/[opportunityId]/route";
+import { PROJECT_CREATE_FROM_OPPORTUNITY_SCHEMA } from "@/app/api/v1/projects/route";
+import { ProjectItemV2Schema } from "@/lib/openapi/paths/projects";
 import { TASK_SCHEMA } from "@/app/api/v1/tasks/route";
 
 const SCOPE_NOTE =
@@ -70,6 +72,12 @@ const EstadoOportunidadSchema = z
 // oportunidades-comerciales (D2): distingue prospección de ejecución tras la
 // conversión explícita y auditada de una oportunidad GANADA (D5/D6).
 const FaseOportunidadSchema = z.enum(["PROSPECCION", "EJECUCION"]).openapi("FaseOportunidad");
+
+// v7 alignment C3a (Interacciones): the kind of a bitácora entry. Registered
+// once here and reused by the cross-client feed (paths/interactions.ts).
+export const TipoInteraccionSchema = z
+  .enum(["REUNION", "CORREO", "LLAMADA", "VISITA", "OTRO"])
+  .openapi("TipoInteraccion");
 
 const NextCompromisoSchema = z
   .object({
@@ -163,7 +171,7 @@ const ClienteDetailSchema = registry.register(
   }),
 );
 
-const ContactoSchema = registry.register(
+export const ContactoSchema = registry.register(
   "Contacto",
   z.object({
     id: z.string().uuid(),
@@ -174,6 +182,18 @@ const ContactoSchema = registry.register(
     telefono: z.string().nullable(),
     rol_decision: RolContactoSchema.nullable(),
     notas: z.string().nullable(),
+    poder: z.number().int().min(1).max(5).nullable().openapi({
+      description: "v7 C4a: eje de poder en la matriz poder × interés (1..5). Null = sin cuadrante asignado.",
+    }),
+    interes: z.number().int().min(1).max(5).nullable().openapi({
+      description: "v7 C4a: eje de interés en la matriz poder × interés (1..5). Null = sin cuadrante asignado.",
+    }),
+    fuerza_relacion: z.number().int().min(1).max(3).nullable().openapi({
+      description: "v7 C4a: fuerza de la relación (1..3). Null = sin medir.",
+    }),
+    owner_id: z.string().uuid().nullable().openapi({
+      description: "v7 C4a: propietario interno opcional ('Relación: owner'). Null = sin owner asignado.",
+    }),
     created_at: z.string().datetime(),
     deleted_at: z.string().datetime().nullable(),
   }),
@@ -265,6 +285,12 @@ const BitacoraEntradaSchema = registry.register(
     texto: z.string(),
     oportunidad_id: z.string().uuid().nullable().openapi({
       description: "RF-C03: vínculo opcional al ciclo comercial de la oportunidad.",
+    }),
+    tipo: TipoInteraccionSchema.openapi({
+      description: "v7 C3a: tipo de interacción (REUNION, CORREO, LLAMADA, VISITA, OTRO); OTRO por defecto.",
+    }),
+    proximo_paso: z.string().nullable().openapi({
+      description: "v7 C3a: próximo paso acordado en la interacción (texto libre, opcional).",
     }),
     created_at: z.string().datetime(),
   }),
@@ -664,6 +690,44 @@ registry.registerPath({
       content: { "application/json": { schema: z.object({ oportunidad: OportunidadSchema }) } },
     },
     ...standardErrorResponses([401, 403, 404, 409, 500]),
+  },
+});
+
+// ── POST /api/v1/clients/{id}/opportunities/{opportunityId}/project ─────
+registry.registerPath({
+  method: "post",
+  path: "/api/v1/clients/{id}/opportunities/{opportunityId}/project",
+  tags: ["Clientes"],
+  summary: "Crea un proyecto desde una oportunidad GANADA en un solo paso (E-05)",
+  description:
+    `${SCOPE_NOTE} Requiere ` + "`canCreateProject` (ADM/GER) y el acceso comercial sobre el cliente. " +
+    "En una sola transacción convierte la oportunidad (`fase = EJECUCION`, fijando `fecha_adjudicacion` solo si " +
+    "todavía es null) y crea el proyecto con `cliente_id`, `nombre` y `valor_total` precargados desde la " +
+    "oportunidad; un valor explícito en el body los reemplaza. `miembro_ids` (S2.6) se acepta: cada id debe ser " +
+    "un COORDINADOR activo (400 si no existe, está inactivo o no es COORDINADOR) y el responsable siempre entra " +
+    "como integrante, de modo que una entrada que lo nombre se colapsa en su única membresía; el equipo inicial " +
+    "se audita como `CREAR proyecto_miembro` en su propio lote, aparte del lote `CONVERTIR` + `CREAR` de la " +
+    "conversión. 409 si la oportunidad no está en `GANADA` o si ya tiene un proyecto (un proyecto con borrado " +
+    "lógico también bloquea). 404 si el cliente o la oportunidad no existen o no pertenecen al cliente. Las " +
+    "líneas estratégicas y los municipios deben existir y estar activos (V-04); uno suspendido responde 400. " +
+    "`cliente_id`, `codigo`, `estado`, `oportunidad_id` y los demás campos derivados se rechazan con 400. " +
+    "S2.4: guarda `diferencia_valor_oportunidad = valor_total − valor_estimado_cop` y responde 201 con " +
+    "`alertas: [{ codigo: \"DIFERENCIA_VALOR\" }]` cuando no es cero; la alerta nunca bloquea la creación.",
+  security: [{ sessionCookie: [] }],
+  request: {
+    // Opaque Postgres `text` ids: a malformed value is a 404, not a 400, so the
+    // params are deliberately NOT declared as `uuid`.
+    params: z.object({ id: z.string(), opportunityId: z.string() }),
+    body: {
+      content: { "application/json": { schema: PROJECT_CREATE_FROM_OPPORTUNITY_SCHEMA } },
+    },
+  },
+  responses: {
+    201: {
+      description: "Proyecto creado; la oportunidad queda en EJECUCION.",
+      content: { "application/json": { schema: z.object({ proyecto: ProjectItemV2Schema }) } },
+    },
+    ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
   },
 });
 

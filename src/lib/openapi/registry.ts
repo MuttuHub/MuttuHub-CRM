@@ -30,7 +30,9 @@ export const ErrorEnvelopeSchema = registry.register(
         "INACTIVE",
         "NOT_FOUND",
         "CONFLICT",
+        "INVALID_STATE",
         "FILE_TOO_LARGE",
+        "OVERSPEND_BLOCKED",
         "INTERNAL_ERROR",
       ])
       .openapi({ example: "VALIDATION_ERROR" }),

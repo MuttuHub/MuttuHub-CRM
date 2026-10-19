@@ -1,8 +1,7 @@
 # Pendientes por corregir y oportunidades de mejora — Muttu Hub CRM
 
-> Última actualización: 2026-09-16 (entrega de `oportunidades-comerciales`, PRs #44/#45/#46 abiertas).
-> Estado del pipeline: PR #2 mergeado — unit (Vitest 212) ✅, typecheck 0 errores ✅,
-> preview deploy Vercel (integración Git) ✅, E2E TestSprite informativo ✅.
+> Última actualización: 2026-10-19 (retiro del workflow de TestSprite y gate de tipos en CI).
+> Estado del pipeline: PR #72 (release v2) — unit ✅, typecheck ✅, Vercel ✅, e2e retirado (ver deuda #2).
 
 ## Pendientes por corregir (deuda técnica)
 
@@ -13,11 +12,19 @@
 - **Acción futura**: cuando la suite de componentes/hooks crezca, correr `npx vitest run --coverage`, verificar el % real y reactivar thresholds cerca del valor real con meta 60%.
 - No existe script `test:coverage` en `package.json` (los scripts son dev/build/start/lint/db). Opcional: agregarlo cuando se reactive el gate.
 
-### 2. E2E TestSprite — informativo, no bloquea
+### 2. E2E — sin workflow (retirado 2026-10-19)
 
-- **Estado**: `testsprite.yml` corre `TestSprite/run-action@v1` (High priority) contra el preview deploy del PR (o producción en main). Comenta resultados en el PR. Los 5-14 tests del suite generado por el MCP **fallan determinísticamente en el sandbox** (~24 s, sin testError) por incompatibilidad del sandbox con los tests generados por el MCP (verificado: la app y credenciales QA funcionan contra prod con Playwright local).
-- **Decisión**: `blocking: false` — el gate real de PRs es `ci.yml` (unit).
-- **Acción futura**: cuando TestSprite soporte los tests del MCP en su action, volver a `blocking: true` y validar el suite completo.
+- **Estado**: `.github/workflows/testsprite.yml` se **eliminó**. Ejecutaba `TestSprite/run-action@v1`, una acción de
+  terceros que **ya no existe** en GitHub: toda corrida falla en el paso «Set up job» con
+  `Unable to resolve action testsprite/run-action, not found`. Un check permanentemente rojo que nunca ejecuta pruebas
+  entrena a ignorar el CI, así que se retiró en lugar de dejarlo como estaba.
+- **Qué queda como gate de PR**: `ci.yml` corre migraciones sobre un Postgres desechable, `prisma generate`,
+  **`tsc --noEmit`** (agregado el 2026-10-19), `eslint` y Vitest.
+- **La suite E2E real existe y es local**: `e2e/` con Playwright y `playwright.verify.config.ts`. Necesita un servidor
+  levantado y una base sembrada (la demo local), por eso no corre en CI todavía.
+- **Acción futura (post-lanzamiento)**: conectar esa suite a CI con un entorno reproducible (Supabase local o un
+  servicio de Postgres + seed + `next start`) y publicarla como check informativo; solo entonces volver a exigirla en
+  PRs. No se reintroduce TestSprite.
 
 ### 3. Templates de email con marca — listos en repo, NO pegados en Supabase
 
@@ -53,7 +60,7 @@
 ### Técnica
 
 4. **Cobertura de tests hacia 60%** (ver deuda #1): priorizar hooks (`useClientsQuery`, dashboard) y componentes de alta criticidad (tablero, pipeline).
-5. **Reactivar gate E2E de TestSprite** (ver deuda #2) cuando el sandbox lo soporte.
+5. **Conectar la suite E2E de Playwright a CI** (ver deuda #2): hoy es local; el gate de PRs es `ci.yml` (unit, tipos y lint).
 6. **Supabase Pro** cuando haya uso real: backups diarios, pausa automática, >500 MB storage / 5 GB egress. Hoy Free sobra con margen (evaluación 2026-08-09).
 
 ### Infraestructura

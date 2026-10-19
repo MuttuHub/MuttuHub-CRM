@@ -1,0 +1,210 @@
+# Muttu Hub v2 — S13 v6 UI base (app-wide), light and dark
+
+Parent plan: `odd/tasks/v2-projects-sdd.md`. Previous: S12 (`v2-projects-ficha-page.md`). Delivery chain: `odd/tasks/v2-projects-delivery-chain.md`.
+Branch: `feat/projects-v2`. Feature id: `v2-ui-v6-base`. Engram mirror topic: `odd/v2-ui-v6-base/tasks`.
+Design source: the user's Claude Design export `Muttu Hub v6.dc.html` (`/mnt/c/Users/Adrian/Downloads/Web app views creation/`), dark-only.
+
+## Objective
+
+The user judged the UI "not aligned" with the v6 prototype. A visual comparison (design vs app, 2026-10-09) found the palette and fonts already close and the
+real gaps in structure, density and shared primitives. The user decided to apply the COMMON BASE app-wide (not only Projects) and requires that the app
+stays usable in BOTH light and dark mode. Section-by-section work on the Projects screens (portafolio, ficha tabs) follows after the base.
+
+## Problem (verified 2026-10-09 by a read-only mapping)
+
+- `src/components/ui/*` are stock shadcn: Button default h-8 (sm h-7, xs h-6, lg h-9, radius ~13 px), Input/Select h-8, Card `rounded-xl ring-1`, Table head
+  `h-10 font-medium`, Tabs default is a pill, Dialog `rounded-xl p-4 max-w-sm`.
+- v6 target: controls 44/40/36 px, radius 12 px; cards 20-22 px with surface + border (no ring); table head uppercase 12 px bold +0.1em `#A08A91`; tabs underline
+  with accent, 15.5 px, no pill; sidebar ~220 px, active item = surface `#1B1316` + 3 px left bar `#CD1560` (not the solid pink pill); a single `<h1>` on the
+  ficha showing the project NAME.
+- Branch `feat/v6-primitives` (6 commits on top of `11e9bc1`, not an ancestor of HEAD) already has most of this: `ae464c6` V0.1 tokens, `3a5d662` V0.2 PageHeader,
+  `869d739` V0.3 StatusChip/KpiTile/ProgressBar, `68968a4` V0.4 sizes 44/40/36, `904f15e` V0.5 card/dialog/sheet surfaces, `53dd5d2` V0.6 table + tabs rail.
+  Gaps on that branch: radius still `rounded-lg` (13 px) instead of 12; Tabs default still a pill and 15.5 px not set; `--shell-surface` is `#221a1c` not `#1B1316`;
+  its light theme is deliberately FROZEN (its decision D1); sidebar width unchanged. Do NOT merge `feat/v6-visual-alignment` (287 files, conflicts).
+- `ui/card.tsx` has ZERO importers: real cards are hard-coded (~279 `bg-panel` uses in 73 files, ~85 `rounded-[20-26px]` in 40 files).
+- 35 `TableHead` call sites hard-code `text-[11px] tracking-[0.08em]` (they override the primitive); 16 files use raw `<table>`.
+- 117 uses of `size="sm|xs|icon-*"` (28/24 px today -> 40/36 with the branch sizes) in 37 files; ~25 explicit `h-6..h-10` overrides on controls.
+- The ficha shows two `<h1>`: the shell header's fallback "Muttu Hub" (`src/components/shell/header.tsx:73`, `PAGE_HEADERS[pathname] ?? ...` keyed by exact pathname in
+  `src/lib/nav.ts`) and the ficha's own project-name heading (`project-ficha.tsx:~138`).
+- The theme comes from `localStorage["muttu-theme"]`, else the system preference (`src/app/layout.tsx:57`); the `.dark` class goes on `<html>`.
+- Visual baseline ("before"): 52 PNGs (13 screens x 2 themes x 2 widths) in the session scratchpad `.../scratchpad/uibase/before-<slug>-<theme>-<width>.png`.
+
+## Decisions
+
+- D1 (user): app-wide base, not Projects-only. D2 (user): light AND dark must both work.
+- D3: dark follows v6 literally. Light was first DERIVED (U1). SUPERSEDED 2026-10-09 by the user's brand manual "Muttu Hub - Manual de identidad v2" (and the
+  "Video novedades v2"), which define BOTH palettes with the same token names and make LIGHT the default theme. Adopt the manual's real values (see D6).
+- D6 (user confirmed the defaults 2026-10-09): (1) light palette = the manual's: `bg #F6F1F3`, sidebar `#FFFFFF`, surface `#FFFFFF`/`#1B1316`, surface-2 `#F7F3F4`/`#241A1E`,
+  border `#ECE5E7`/`#2E2227`, text `#281D20`/`#F8F2F4`, text-2 `#5A474C`/`#C4B2B8`, text-3 `#725D62`/`#A08A91`, primary `#CD1560`, accent `#B41153`/`#EB3F85`,
+  accent-soft `#940D44`/`#F5BAD2`, ok `#127C4A`/`#4CC38A`, warn `#B45309`/`#F0A04B`, bad `#B3261E`/`#F07163`, info `#1E5FA8`/`#6AA6F0`, `--radius` 0.75rem, ring `#CD1560`/`#EB3F85`;
+  (2) the sidebar is WHITE in light theme (as in the manual and the video); (3) input/control border (`--border-strong`) keeps U1's accessible `#9b8c91`
+  (>= 3:1) instead of the manual's `#DDD2D5` (below 3:1; the manual's own a11y section requires AA); (4) progress bars take the semáforo color (manual), not ink (video);
+  (5) the app opens in LIGHT by default, ignoring the system preference unless the user already stored a theme in `muttu-theme`; (6) the manual's own open items
+  (yellow ficha threshold -15 vs -20 pp, "En curso" magenta vs yellow) are product decisions, out of scope here.
+- D4: reuse `feat/v6-primitives` V0.1 and V0.4-V0.6 by cherry-pick (or by porting the diff by hand if a cherry-pick conflicts), then fix the gaps above.
+- D5: CHECKPOINT: after U1 (and before U3), the parent shows the user dark + light before/after shots and waits for approval of the palette.
+
+## Tasks
+
+- [x] **U2** (commit `7948b40`, 4 files, +91/-9; RED 3 failed / 7 passed; shell tests 59/59 + nav; tsc/eslint clean; parent re-ran 10 tests) One `<h1>` on the ficha: the shell header must not print "Muttu Hub" on `/proyectos/<id>`; show a breadcrumb/"Proyectos" label as `<p>` (or no title)
+  and keep controls on the same row; the project name stays the page `<h1>`. ~40 lines + test asserting exactly one `h1`. Route: delegated.
+- [x] **U1** (commits `6fb8b0d` V0.1+V0.4 ported, `fcc97ce` V0.5+V0.6 ported, `cd48a1b` radius 12 + underline tabs + DERIVED light palette; ported with
+  `git checkout <sha> -- <allowed files>` because plain cherry-pick touched files outside the surface; not ported: fixed-light ThemeToaster consumer, dropdown/popover shadow removal,
+  client-sheet EmptyState swap. RED: 18 tests failed before the code. GREEN: `src/components src/app src/lib` 247/247 files, tsc 0 errors, eslint clean; parent re-ran ui + tokens + design-guards:
+  22 files / 175 tests and `tsc`. After-shots: 50 of 52 in the scratchpad `uiafter-u1/` (no ficha at 390). Its LIGHT palette is superseded by U1b. D5 checkpoint: the user paused it to bring the brand manual.)
+  Tokens + primitives: V0.1, V0.4, V0.5, V0.6 (+ V0.2/V0.3 only if their files are required by the tokens), radius 12 px on button/input/select, Tabs underline
+  default at 15.5 px, `--shell-surface` `#1B1316` (dark), and a derived light palette per D3 with coherent light variants of `--ink-500`, `--card`, `--border`, `--primary` usage.
+  Update tests (`button.test.tsx`, `proyectos/ui.test.tsx`, `dashboard/shared.test.tsx` as needed). Checks: vitest full suites of ui/crm/proyectos/dashboard/admin/documents,
+  `tsc`, eslint, after-shots in both themes. Route: delegated. Then D5 checkpoint.
+- [x] **U1b** (commits `d3f1ac8` tokens, `57b6aad` light default, `7b19b54` outline destructive; accepted 2026-10-09, brand manual v2) Align `src/app/globals.css` and the primitives with D6: replace the derived light values with the manual's, `--background`/`--page`
+  `#F6F1F3`, `--radius` 0.75rem, accent/accent-soft per theme, dark `--destructive` `#F07163`, `--ring`, `--foreground` `#F8F2F4`, `--muted-foreground` `#A08A91`, `--input` `#34272C`,
+  `--color-rose-400` `#EB3F85`, keep `--border-strong` light `#9b8c91`; the manual's `--accent` shadcn token as an alpha tint; `--sidebar*` light tokens white (the sidebar component itself is U3);
+  default theme LIGHT in `src/app/layout.tsx` + `src/hooks/use-theme.ts` (stored value still wins); destructive buttons are OUTLINE (fill only on hover; solid fill is reserved for the primary brand button);
+  update `globals.tokens.test.ts` contrast assertions and any class/hex assertions. Verify contrast of every changed pair (AA text, 3:1 non-text) and take after-shots in both themes. Route: delegated.
+- [x] **U3** (commit `16fdd6b`, 4 files, +191/-53) Sidebar: ~220 px, active item surface + 3 px left bar, WHITE in light theme (manual + video), dark `#0D0809`, nav-active tint `rgba(205,21,96,.08)` light / `#1B1316` dark;
+  logo variants (the tagline "Innovación social" must stay with the logo per the manual: check if the asset exists); `sidebar.test.tsx`. Route: delegated.
+- [x] **U4** (commits `21e36c3` 18 files +262/-261, `3b7fb1b` guard test, `982b120` sortable header uppercase) Tables: delete the 35 hard-coded `TableHead` classes, convert the raw tables that matter; update `proyectos/ui.test.tsx`. Route: delegated.
+- [x] **U5** (commits `196a601` crm+dashboard, `7837acf` kanban+documents, `8d3ccbd` admin+reportes+shell, `e2ef1f7` proyectos + guard) Controls sweep: audit the 117 `size="sm"` buttons and ~25 height overrides; keep dense toolbars usable (Kanban, documents, clientes). Route: delegated.
+- [x] **U6** (U6a `eb2ab86` `8f1c6e4` `c9f4444`, U6b `4efdd0d` `6ec9b62` `a9ac5d1`, U6c `a99bf22` `67409b6` `22c7d29` `0461101`) Cards/surfaces: one shared surface class or `Card` consumers, then migrate the ~85 hard-coded surfaces in batches (crm, dashboard, kanban, proyectos, admin, documents).
+  Route: delegated, one writer per area batch.
+
+Each unit: strict test-first where a runnable test fits (class/structure assertions; jsdom cannot measure layout), then an "after" screenshot run with the same
+temporary spec protocol against the seeded demo (same slugs, themes, widths), compared to the "before" PNGs; focus on 390 px, light theme and the Kanban/Clientes/Dashboard
+screens (pixels at risk). Never leave temp specs or screenshots in git.
+
+## Authorized scope (allowed edit surfaces, per unit; the writer stops and reports if another file is needed)
+
+U2: `src/components/shell/header.tsx`, `src/components/shell/header*.test.tsx`, `src/lib/nav.ts`, `src/lib/nav*.test.ts`.
+U1: `src/app/globals.css`, `src/components/ui/{button,input,select,card,dialog,sheet,table,tabs,progress-bar,status-chip,kpi-tile,empty-state,page-header,typography}.tsx` and their
+`*.test.tsx`, `src/lib/estado-tone.ts` (+ test), and test files that assert the changed classes (named in the report).
+U3: `src/components/shell/sidebar*.tsx`, `src/components/shell/sidebar*.test.tsx`, `src/app/globals.css` (shell tokens only), `src/lib/nav.ts` only if needed.
+U4-U6: the files of the area being migrated, listed by the parent in each delegation.
+
+## Constraints
+
+- Local DB only; the Next dev server runs on Windows (`http://172.30.48.1:3000` from WSL; Playwright via Windows npx ignores `PLAYWRIGHT_BASE_URL` set in WSL, hardcode the URL in temp specs;
+  its `/tmp` writes land in `C:\tmp` = `/mnt/c/tmp`). Read-only browsing for screenshots; no data writes.
+- Next 16.3.0 has breaking changes (`AGENTS.md`); read `node_modules/next/dist/docs/` before Next-specific code (U2 touches a client shell component only).
+- Artifacts in English; UI copy stays Spanish. Conventional commits, no AI attribution lines. No push, no PR.
+- ~400 authored changed lines per task is a planning heuristic only.
+
+## Acceptance criteria
+
+- Dark: controls 44/40/36, cards 20-22 px with border, table heads eyebrow style, tabs underline, sidebar active style, matching the v6 screenshots; light: same structure with a coherent
+  derived palette (no unreadable text, no stale dark values, contrast of text/chips/semáforos kept); the user approves both at the D5 checkpoint.
+- A single `<h1>` on `/proyectos/<id>` equal to the project name.
+- No regression in CRM, Kanban, Dashboard, Documentos, Admin: before/after shots reviewed; full unit suites, `tsc` and eslint green.
+
+## Delivery strategy
+
+`ask-on-risk`, `chain_strategy = feature-branch-chain` (see the delivery chain doc). New slices after US12: US13 = U2 + U1 (+ D5), US14 = U3 + U4, US15 = U5, US16.. = U6 batches.
+Forecast well above 400 lines in total; each unit stays near 400 where possible. Local work-unit commits only; no push, no PR. Native review per slice (medium/high consent asked as usual).
+
+## Progress
+
+- 2026-10-09: document created after the visual comparison and the read-only mapping (blast radius, baseline shots). User decisions D1 and D2 recorded.
+
+- 2026-10-09: U2 done (`7948b40`), U1 done (`6fb8b0d`, `fcc97ce`, `cd48a1b`), both delegated. The user paused the D5 checkpoint to bring the brand manual and the video; a read-only
+  analysis (manual rendered in an isolated browser, 15 sections, light + dark; the MP4 is 46 s without audio, captions burned in) found the manual defines both palettes with LIGHT as the
+  default and white sidebar, superseding the derived light palette. Parent verified the manual's color/changes sections and two video frames. The user confirmed the D6 defaults.
+- Review state: the slice since the last reviewed boundary `3d174b9` (tablero fix + U2 + U1) is medium, 29 files, ~1,092 lines, `slice_budget_reached`: the native review is DEFERRED until U1b lands,
+  so one candidate is reviewed.
+
+- 2026-10-09: U1b done, delegated route. Applied the manual's palette in both themes (light page `#F6F1F3`, tertiary text `#725D62`, accent `#B41153`, chip tints; dark destructive `#F07163`,
+  ring `#EB3F85`, foreground `#F8F2F4`); `--radius` 0.75rem (`rounded-12` is a fixed 12 px); default theme LIGHT via the inline init script in `layout.tsx` (`var d=t==="dark"`, never
+  consults `matchMedia`; `use-theme.ts` unchanged); destructive Button is an outline (11 call sites, none edited). Deviation: the light `--sidebar*` tokens stay DARK (a white `--sidebar` would make
+  `sidebar.tsx`'s fixed light-on-dark text unreadable); they flip together with the component in U3, a test pins the dark values. RED: 16 failed / 200 passed. GREEN: `src/components src/app src/lib
+  src/hooks` 259 files / 2818 tests, tsc 0 errors, eslint clean; parent re-ran tokens + use-theme + button: 3 files / 108 tests, `tsc` clean. After-shots: 55 PNGs in the scratchpad `uiafter-u1b/`;
+  the no-stored-theme run (emulated dark colorScheme) came out light. `--border-strong` light `#9B8C91` is 3.2:1 on white but 2.87:1 on the `#F6F1F3` page (fields sit on white; D6-3).
+  Observed: `login/page.tsx:56` hard-codes `#EFEAEB` as a Suspense fallback background (outside the surfaces, untouched); Kanban date chips wrap to two lines; the "Proyectos" h1 is clipped by the
+  theme button at 390 px (also in the before baseline); the clientes Lista/Detalles toggles were not confirmed in the shots.
+- 2026-10-09: native review of the consolidated slice `3d174b9..7b19b54` (tablero fix + U2 + U1 + U1b; medium, 32 files, 1402 lines): consent GRANTED, one lens (`review-reliability`),
+  APPROVED, acknowledged (lineage `review-11bd620b6afa4bc8`, authority burned). One advisory WARNING (inferential, non-blocking): `R3-tabs-default-flip` at `tabs.tsx:31-36` — the default TabsList variant
+  flipped from pill to underline app-wide. Parent verified: only 3 non-test `TabsList` consumers exist and each sets its variant explicitly (`client-sheet.tsx:155` line, `proyectos-vista.tsx:42` line,
+  `reportes-page.tsx:70` pill), so nothing changes silently today. Review boundary advances to `7b19b54`.
+- Data finding (not touched): the local DB holds test-pollution clients named "sdd-invariant-linea-base-cliente-..." left by the Prisma invariant tests (the sidebar shows 14 clients, the seed makes 12).
+
+- 2026-10-11: U3 done (`16fdd6b`), delegated route. The `--color-shell-*` tokens (fixed dark hex in `@theme`) now point to per-theme `--shell-*` variables (`:root` / `.dark`); active item = tint + 3 px rounded
+  rail (`--accent-bar`) + primary-colour text + `aria-current="page"` (the solid pink pill is gone); light sidebar `#FFFFFF`, dark `#0D0809`, nav-active `rgba(205,21,96,.08)` / `#1B1316`, chip `#F1EAED` / `#2E2225`;
+  single expanded width 220 px (was 200, 244 at xl), collapsed 72 px, row height 44 px; search field border `border-border-strong`; drawer uses `bg-sidebar`; the dead class `hover:text-shell` (undefined token)
+  became `hover:text-shell-text`. Logo: `public/brand/` already has `logo-color.svg`, `logo-blanco.svg`, `logo-iso.svg`: colour in light (`dark:hidden`), white in dark (`hidden dark:block`), isotipo when collapsed;
+  there is NO tagline asset ("Innovación social") and no magenta-mono variant, so the tagline is not shown. Contrast (computed): text on sidebar/active 16.3/14.3 light, 18.0/16.5 dark; text-2 8.6/7.5 and 9.9/9.0;
+  text-3 6.1/5.3 and 6.2/5.7; rail 6.7/5.8 light, 3.67/3.36 dark (>= 3:1; `#EB3F85` would give 4.85/5.29, the user may prefer it); search border 3.2 on white (dark `#2E2227` on `#0D0809` is only ~1.4:1, left subtle as before).
+  RED: 25 failed / 96 passed (sidebar + tokens tests, new tests against the old code). GREEN: `src/components src/app src/lib src/hooks` 259 files / 2841 tests, tsc 0 errors, eslint clean; parent re-ran shell +
+  tokens: 6 files / 139 tests and `tsc`. After-shots: 54 PNGs in the scratchpad `uiafter-u3/`; the parent viewed inicio light 1440, clientes-tarjetas dark 1440 and the collapsed light rail. The `ficha-resumen` after-shots
+  are INVALID (the spec's click did not reach the ficha: they show the Proyectos list); the "Sesión" card from the manual was not built. Assessed since `7b19b54`: medium, 398 lines, `review_due=false` (`under_budget`).
+- Review state: U3 is pending inside the next slice (boundary stays `7b19b54`) until U4+ reach the budget or the user asks.
+
+- 2026-10-11: U4 done, delegated. 35 `TableHead` sites lost the hard-coded `text-[11px] ... tracking-[0.08em]` override (repository-list, users-table, solicitudes x2, audit-log, accesos), 11 raw tables in 10 files were
+  converted to `Table/TableRow/TableCell` (catalogos-v2, project-versiones x2, project-presupuesto, project-financiero, modificacion-form, presupuesto-programacion, import-dialog, kanban Lista, report-view,
+  cara-clients-activity); `numeric` prop for right-aligned columns; the 4 print tables and the HTML email table were left on purpose; the sticky "Ver detalle" column was untouched. New guard
+  `src/components/proyectos/table-guards.test.ts` (RED: 2 failed with 55 offenders). GREEN: 260 files / 2843 tests, tsc and eslint clean; parent re-ran guard + crm: 8 files / 86 tests and `tsc`. Parent found the
+  sortable headers (Cliente, Estado, Prioridad) rendered in mixed case (the inner button does not inherit `text-transform` under preflight): fixed in `982b120` (`uppercase` on the button). Pre-existing, not a
+  regression: at 390 px the Clientes "Detalles" table only shows its first column and scrolls horizontally (same in the U3 shots); the Documentos table clips its "Acciones" column at 1440 px (same in the U3 and U5 shots).
+- 2026-10-11: U5 done, delegated, 4 commits. ~290 control tags audited; 191 primitive tags lost explicit `h-6..h-10` / radius overrides (dialog/form fields now 44 px, toolbar/inline controls compact 40 px via
+  `size="sm"` for selects and explicit `h-10` for inputs, which have no size prop); 11 hand-rolled controls aligned to the primitive tokens (`SELECT_CLASS*`, `CAPTURE_FIELD/TEXTAREA/BUTTON` (now 44), client-sheet `INLINE_*`,
+  `CELDA_CLASS`, the `SEL_CLASS` constants, semaforo-tecnico select, sidebar search 38 -> 40); 2 `folder-tree` chevrons kept at `h-6 w-6` with `/* v6-compact */`; `select.tsx` got `text-base md:text-sm` (RED: 1 failed / 12
+  passed). New guard `src/components/proyectos/control-guards.test.ts` (RED against HEAD sources: 5 failed). Not touched (outside the surfaces): `src/app/auth/*` (5 `h-11 rounded-lg` sites), `shared/sin-conexion-card.tsx`;
+  outline buttons/inputs still carry `border-ink-200 bg-panel` overrides (left for U6). GREEN: 261 files / 2850 tests, tsc and eslint clean; parent re-ran guards + ui: 22 files / 116 tests and `tsc`. The worker viewed 22 of 73
+  shots (the ficha tabs were shot after ~900 ms so some show skeletons; no ficha at 390 in light).
+- 2026-10-11: native review of `7b19b54..e2ef1f7` (U3 + U4 + U5: medium, 60 files, 1,490 lines, `slice_budget_reached`): the WHOLE slice failed at preflight with `lens_context_budget_exceeded` (no authority was created, nothing to
+  repair). Per the contract it was split into three candidates, each with its own consent (the user chose "Revisar en 3 candidatos"). `gentle-ai review start/assess` only accept a base and assume HEAD as the end, so the two
+  earlier candidates were reviewed from detached `git worktree`s at their end commits (created under `../MuttuHub-CRM-worktrees/`, removed afterwards; the pre-existing `csv-export` worktree was not touched):
+  - C (U5 part 2, `07bf8c4..e2ef1f7`, 27 files, 221 lines; lineage `review-ec578e8e4b629e49`): APPROVED + acknowledged. Advisory (inferential, non-blocking): `R3-select-textsize-override` — callers that pass an arbitrary
+    font size (`text-[12.5px]` in `audit-log-section.tsx:114`, `text-[13px]` in the project-list estado filter) replace only the base `text-base`, so from `md` up the trigger renders 14 px (`md:text-sm`) instead of 12.5/13 px and
+    below `md` stays under 16 px; `R3-input-test-unproved` (suggestion): the new Input test asserts classes `input.tsx` already had, and small-font Input callers (VoidControl/RejectControl `text-[12px]`) lose the 16 px mobile size.
+  - B (U5 part 1, `982b120..7837acf`, 21 files, 297 lines; lineage `review-fde283093dbe40ba`): APPROVED + acknowledged. Advisory suggestion `R3-size-default-dependency`: sizes now depend on the primitives' variants, no visual test.
+  - A (U3 + U4, `7b19b54..982b120`, 26 files, 974 lines; lineage `review-fc79e13f417f9a71`): APPROVED, zero findings, acknowledged.
+  Authority burned for the three lineages. The review boundary is now `e2ef1f7` (HEAD).
+
+- 2026-10-11: U6 done in three batches, all delegated. Vocabulary in `globals.css`: `--radius-card: 20px` (`rounded-card`), `--radius-inner: 14px` (`rounded-inner`), `@utility surface` (card radius + 1 px
+  border token + `--panel`, no shadow) and `@utility surface-inner` (inner radius + border + `--muted`); the 26 px shell radius already existed. Cards that hold chips/avatars use the inner panel set
+  `rounded-inner border border-border bg-panel` because `bg-muted` equals the ink-100 chip background in light. tailwind-merge does not know `@utility` classes: conditional states swap whole class sets.
+  - U6a (crm + dashboard, 15 files; guard `surface-guards.test.ts`, RED 24 offenders): 14 outer, 5 inner + 7 inner-panel; shadows removed; ~30 control overrides removed.
+  - U6b (kanban, documents, reportes, admin): 30 outer + 4 inner, kanban task cards = inner panels (drag ring/overlay unchanged), 42 control overrides removed, 11 font sizes -> `text-base md:text-[Npx]`
+    (guard rule added, RED 11 offenders), Documentos table fixed (`min-w` 760, sticky opaque "Acciones" cell with row-hover colour, truncated title/client/version cells; "ACCIONES" fully visible at 1440,
+    reachable at 1280). Surface guard RED: 33 offenders.
+  - U6c (proyectos + shell + shared + auth): 8 outer + ~24 inner-panel + 3 `surface-inner`, ~45 control overrides, 10 font sizes, 5 auth `h-11 rounded-lg` sites and the login Suspense `#EFEAEB` -> `bg-background`;
+    guards widened to ALL of `src/components` (except `ui/` and `print-*`) and `src/app` routes (RED: 3 failed, 20 + 6 + 15 offenders). Left on purpose: chips/pills/avatars, print views, the sidebar 26 px radius,
+    the notification panel `shadow-xl` (floating).
+  Verification: full suite after each batch (262 files / 2856-2857 tests), tsc 0 errors, eslint clean; parent re-ran guards, tsc and the full suite for U6a (262/2856), and guards + area suites + tsc for U6b and U6c.
+- 2026-10-11: native reviews of U6 (three candidates, each with its own consent; the earlier two from detached worktrees, removed afterwards):
+  - U6c (`a9ac5d1..0461101`, 40 files, 278 lines, HIGH risk only because `src/app/auth/confirm/page.tsx` is a hot path (auth); four lenses; lineage `review-017cb931a1b3f2af`): APPROVED + acknowledged. risk and resilience: no
+    findings (auth edits are className-only). readability: 3 SUGGESTIONS (`R2-duplicated-sources`: the directory walker/print exclusion/`rel()` are duplicated in the two guard tests; `R2-guard-path-mismatch`: `rel()` is
+    src-relative but `SKIPPED_DIRS` is ROOT-relative in `control-guards.test.ts`; `R2-guard-scope-comment`: the header comment overstates the scope vs the PENDING list). reliability: `R3-change-password-input-radius`
+    WARNING (inferential): the 3 Inputs in `change-password-dialog.tsx` keep a redundant `rounded-12`; the parent verified the guard is green (6/6), so it is cosmetic only.
+  - U6b (`c9f4444..a9ac5d1`, 19 files, 254 lines, medium; lineage `review-7580a3c2830f72bb`): APPROVED + acknowledged. Two WARNINGS: `R3-select-class-lone-size` (`SELECT_CLASS` in
+    `documents/repository-list.tsx:455` keeps a lone `text-[13px]`) and `R3-sel-class-lone-size` (`SEL_CLASS` in `kanban/kanban-board.tsx:700` keeps `text-[12.5px]`); both are passed to `SelectTrigger` as variables, so
+    the guard's tag regex never sees them (real gap).
+  - U6a (`14f6dc3..c9f4444`, 18 files, 312 lines, medium; lineage `review-89cbc036528e104c`): APPROVED + acknowledged. One SUGGESTION `R3-guard-tag-regex`: the guard's TAG regex ends a tag at the first bare `>`
+    outside braces, so a static className with a variant such as `[&>svg]:` would end the match early and miss a later offender.
+  Authority burned for the three lineages. The review boundary is now `0461101` (HEAD).
+- Seen in the U6c shots (not fixed): in the dark "Nuevo proyecto" dialog the SELECTED origin pill has dark-rose text on a dark-rose fill (`text-rose-700` with no dark variant); at 390 px the notification panel
+  clips on the left and the "Proyectos" page title wraps under the header buttons; `ui/dialog.tsx`/`sheet.tsx` still hard-code `rounded-[22px]`; 8 lone `text-[Npx]` sites remain in `crm/client-list.tsx` and
+  `crm/entity-dialogs.tsx` (the guard has a PENDING scope for crm and `(app)`). Resolved doubt: the "No hay oportunidades ganadas sin proyecto" message seen once in the dialog was capture timing; the U6c shot lists the
+  free GANADA opportunity.
+
+- 2026-10-11: U7 done (cleanup from the U6 review advisories), delegated, 4 commits. `dc07a72`: 11 lone `text-[Npx]` -> `text-base md:text-[Npx]` (constants `SELECT_CLASS` in repository-list and client-list,
+  `SEL_CLASS` in kanban-board; 4 + 3 crm tag sites). `189c524`: shared guard helper `src/test/guard-utils.ts` (+8 tests; walker, print exclusion, one src-relative `rel()`/skip list, a quote/template/brace-aware tag
+  tokenizer `scanTags`, the class-constant reader `classConstants`); the three guards use it; new rules: class constants with a height and a lone size fail (`/* v6-compact */` escape), the tag rule now also covers
+  `Input`/`SelectTrigger`/`select`/`input`; the crm PENDING scope was removed (the `app/(app)` and `app/api` pending scope remains). `2ec2da1`: the 3 password fields lost `h-10 rounded-12 px-3` (44 px primitive;
+  `px-3` was overriding the `pr-10` that clears the eye button). `9e017d1`: selected origin pills use `text-accent-soft` (create dialog and `task-dialogs.tsx`; contrast dark 1.97 -> 10.54, light 7.93) +
+  `src/test/selected-state-contrast.test.ts`. RED: tokenizer test failed on the missing module (and proves the old regex stops at `[&>svg]:`); constants + tokenizer on the real tree: 3 failed (3 constants + 8
+  crm sites); pill classes: 2 failed. GREEN: 264 files / 2871 tests, tsc and eslint clean; parent re-ran guards + `src/test` (5 files / 24 tests), `tsc` and viewed the dark "Nuevo proyecto" shot (pill legible).
+  The tokenizer surfaced 3 offenders outside the surface that the old regex missed, kept as explicit PENDING entries: a `rounded-lg` Button in `documents/document-dialog.tsx` (~336), two `Input ... text-[13px]` in
+  `kanban/task-dialog.tsx` (~522, ~627) and the `INLINE_INPUT_CLASS` constant in `crm/client-sheet.tsx` (`text-[13.5px]`). The constants rule only fails constants that set a height (not every constant).
+- 2026-10-11: native review of U7 (`0461101..9e017d1`, 14 files, 543 lines, medium; lineage `review-636f9376482a51ca`): APPROVED + acknowledged, one SUGGESTION `R3-selected-secondary-text-contrast-unproved`: the contrast
+  test checks the accent-soft label on the selected fills but not the secondary hint text (now `text-ink-700`) in either theme. The review boundary is now `9e017d1` (HEAD). The whole S13 stack (U1..U7) is reviewed.
+
+## Next step
+
+U7 is DONE (see above); remaining small items: (a) assert the secondary hint contrast of the selected pills in both themes; (b) clear the three PENDING offenders (kanban/task-dialog, documents/document-dialog,
+crm/client-sheet) and the `app/(app)` pending scope; (c) Solicitudes at 390 px, Clientes "Detalles" at 390 px, Documentos checkbox column. Then the Proyectos sections against v6 (needs product/design decisions).
+Original list of the cleanup task (superseded, kept for reference): (1) rewrite the lone font sizes in `SELECT_CLASS` (documents) and `SEL_CLASS` (kanban) and the 8 crm sites, and make the control guard also read class
+CONSTANTS; (2) dedupe the guard helpers (shared walker/`rel()`/skip list), fix the `rel()`/`SKIPPED_DIRS` base mismatch and the header comment, and harden the tag regex against `[&>svg]:` variants; (3) drop the redundant
+`rounded-12` in `change-password-dialog.tsx`; (4) fix the dark contrast of the selected origin pill in the "Nuevo proyecto" dialog. Then the Proyectos sections against v6. Earlier follow-ups: per-call font sizes
+(done in U6b/U6c except the crm sites), Clientes "Detalles" at 390 px shows one column, Solicitudes table at 390 px keeps Aprobar/Rechazar off-screen, Documentos checkbox column renders as a thin bar. Pending the user's
+go-ahead on removing the "sdd-invariant" test clients from the LOCAL DB and on the dark rail colour. Old next step (superseded): (1) per-call font-size overrides on `SelectTrigger`/`Input` vs `text-base md:text-sm` (audit-log, project-list estado filter,
+VoidControl/RejectControl); (2) Documentos table clips "Acciones" at 1440 px; (3) Clientes "Detalles" at 390 px shows one column. Pending the user's go-ahead on removing the "sdd-invariant" test clients from the LOCAL DB with a guarded
+script, and on the dark rail colour (`#CD1560` vs `#EB3F85`). Unverified: the "Nuevo proyecto" dialog showed "No hay oportunidades ganadas sin proyecto" in one capture although a read-only query confirmed one eligible GANADA opportunity
+(most likely the shot was taken before the list loaded).
