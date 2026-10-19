@@ -169,3 +169,21 @@ test("S8: every role reads every client, so the contact feeds are global", async
     }
   }
 });
+
+test("D1: a non-member ficha explains «No tienes acceso» within 5 s", async ({ page }) => {
+  // Resolve the ids with a manager session: the colaborador cannot list a
+  // project they do not belong to.
+  await login(page, "gerencia");
+  await resolveIds(page);
+  const p002 = ids.p002!;
+  await page.context().clearCookies();
+  await login(page, "colaborador", "/proyectos");
+
+  const t0 = Date.now();
+  await page.goto(`/proyectos/${p002}`);
+  await expect(page.getByRole("heading", { name: SIN_ACCESO })).toBeVisible({ timeout: 5_000 });
+  test.info().annotations.push({
+    type: "time-to-no-access-message",
+    description: `${Date.now() - t0} ms`,
+  });
+});

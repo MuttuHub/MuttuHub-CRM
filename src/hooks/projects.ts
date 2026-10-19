@@ -334,15 +334,27 @@ export function useProjects(filters: ProjectFilters): UseQueryResult<ProjectList
 }
 
 /**
+ * D1: un 4xx es una decisión, no un fallo transitorio. Los reintentos por
+ * defecto de react-query gastaban tres intentos (~11 s) antes de poder mostrar
+ * el mensaje de «sin acceso»; un 5xx o un fallo de red sí se reintentan.
+ */
+export function shouldRetryProjectQuery(failureCount: number, error: Error): boolean {
+  if (error instanceof ApiError && error.status >= 400 && error.status < 500) return false;
+  return failureCount < 3;
+}
+
+/**
  * E-06: ficha de un solo proyecto. La respuesta es el mismo `ProjectItemV2`
  * que la lista (`GET /api/v1/projects/:id` → `{ proyecto }`), así que el DTO
  * reutilizado es `ProjectListRow` y no se declara una copia. `enabled` evita
  * disparar la petición con un id vacío (409/404 evitables desde el cliente).
+ * `retry` aplica D1: un 403/404 se muestra de inmediato.
  */
 export function useProject(id: string): UseQueryResult<ProjectListRow> {
   return useQuery({
     queryKey: projectQueryKeys.detail(id),
     enabled: id !== "",
+    retry: shouldRetryProjectQuery,
     queryFn: async () => {
       const res = await apiGet<{ proyecto: ProjectListRow }>(`/api/v1/projects/${id}`);
       return res.proyecto;
