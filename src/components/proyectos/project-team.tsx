@@ -152,10 +152,10 @@ function AddMember({
       <div className="flex items-center gap-2">
         <Select value={usuarioId} onValueChange={(value) => setUsuarioId(value ?? "")}>
           <SelectTrigger
-            aria-label="Agregar coordinador"
+            aria-label="Agregar integrante"
             className="min-w-0 flex-1 px-3"
           >
-            <SelectValue placeholder="Selecciona un coordinador" />
+            <SelectValue placeholder="Selecciona un integrante" />
           </SelectTrigger>
           <SelectContent>
             {candidatos.map((usuario) => (

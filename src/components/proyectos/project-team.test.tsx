@@ -130,7 +130,7 @@ describe("ProjectTeam", () => {
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)),
     )
-    expect(screen.queryByRole("combobox", { name: "Agregar coordinador" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("combobox", { name: "Agregar integrante" })).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: /Quitar/ })).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Agregar" })).not.toBeInTheDocument()
   })
@@ -140,7 +140,7 @@ describe("ProjectTeam", () => {
     setup()
 
     await screen.findByText("Carla Ruiz")
-    await user.click(await screen.findByRole("combobox", { name: "Agregar coordinador" }))
+    await user.click(await screen.findByRole("combobox", { name: "Agregar integrante" }))
     // Carla is already a member: she is not offered again.
     expect(screen.queryByRole("option", { name: "Carla Ruiz" })).not.toBeInTheDocument()
     await user.click(await screen.findByRole("option", { name: "Diego Mora" }))
@@ -159,7 +159,7 @@ describe("ProjectTeam", () => {
     })
 
     await screen.findByText("Carla Ruiz")
-    await user.click(await screen.findByRole("combobox", { name: "Agregar coordinador" }))
+    await user.click(await screen.findByRole("combobox", { name: "Agregar integrante" }))
     await user.click(await screen.findByRole("option", { name: "Diego Mora" }))
     await user.click(screen.getByRole("button", { name: "Agregar" }))
 
@@ -177,7 +177,7 @@ describe("ProjectTeam", () => {
     })
 
     await screen.findByText("Carla Ruiz")
-    await user.click(await screen.findByRole("combobox", { name: "Agregar coordinador" }))
+    await user.click(await screen.findByRole("combobox", { name: "Agregar integrante" }))
     await user.click(await screen.findByRole("option", { name: "Elena Soto" }))
     await user.click(screen.getByRole("button", { name: "Agregar" }))
 

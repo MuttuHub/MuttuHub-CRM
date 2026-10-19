@@ -1,12 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { login } from "./helpers";
+import { loginToProject } from "./helpers";
 
 // Guide §3 (Más acciones / Imprimir) and §8 (Historial segments). Read-only.
 // The modification request/approval flow (§8) is intentionally NOT automated: it changes the baseline of PRY-2026-001.
-const ID = "ad060dca-de1c-4c74-a2ac-4b2493ef852e";
 
 test("Historial has Modificaciones, Versiones and Auditoría segments that each render", async ({ page }) => {
-  await login(page, "gerencia", `/proyectos/${ID}`);
+  await loginToProject(page, "gerencia", "PRY-2026-001");
   await page.getByRole("tablist").first().getByRole("tab", { name: "Historial", exact: true }).click();
   const panel = page.getByRole("tabpanel", { name: "Historial" });
   await expect(panel.getByRole("tab", { name: "Modificaciones", selected: true })).toBeVisible();
@@ -21,7 +20,7 @@ test("Historial has Modificaciones, Versiones and Auditoría segments that each 
 });
 
 test("Más acciones: Exportar a Excel dialog and Imprimir / PDF opens the print view", async ({ page, context }) => {
-  await login(page, "gerencia", `/proyectos/${ID}`);
+  const id = await loginToProject(page, "gerencia", "PRY-2026-001");
   await page.getByRole("button", { name: "Más acciones" }).click();
   await expect(page.getByRole("menuitem", { name: "Exportar a Excel" })).toBeVisible();
   await page.getByRole("menuitem", { name: "Exportar a Excel" }).click();
@@ -34,7 +33,7 @@ test("Más acciones: Exportar a Excel dialog and Imprimir / PDF opens the print 
     page.getByRole("menuitem", { name: "Imprimir / PDF" }).click(),
   ]);
   await print.waitForLoadState("domcontentloaded");
-  await expect(print).toHaveURL(new RegExp(`/proyectos/${ID}/imprimir$`));
+  await expect(print).toHaveURL(new RegExp(`/proyectos/${id}/imprimir$`));
   await expect(print.getByRole("button", { name: "Imprimir / Guardar PDF" })).toBeVisible({ timeout: 60_000 });
   const ficha = print.getByRole("article");
   await expect(ficha.getByText("PRY-2026-001")).toBeVisible();

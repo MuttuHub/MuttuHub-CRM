@@ -1,9 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
-import { login } from "./helpers";
+import { login, loginToProject } from "./helpers";
 
 // Guide §3, §5, §6, §7, §11 on PRY-2026-001 (EN_EJECUCION). Serial: the expense lifecycle spans roles.
 // Every run creates uniquely named expenses/avances so reruns never collide.
-const ID = "ad060dca-de1c-4c74-a2ac-4b2493ef852e";
 const RUN = Date.now();
 const DOC_VALIDAR = `E2E-V-${RUN}`;
 const DOC_SOBRE = `E2E-S-${RUN}`;
@@ -49,7 +48,7 @@ async function registrarGasto(
 }
 
 test("header: semáforos link to tabs; header actions go to Actividades / Finanzas", async ({ page }) => {
-  await login(page, "coordinador", `/proyectos/${ID}`);
+  await loginToProject(page, "coordinador", "PRY-2026-001");
   await expect(page.getByRole("heading", { name: "Demo CedeTextil · En ejecución", level: 1 })).toBeVisible();
   await page.getByRole("button", { name: /^Semáforo técnico/ }).click();
   await expect(tab(page, "Actividades", true)).toBeVisible();
@@ -65,7 +64,7 @@ test("header: semáforos link to tabs; header actions go to Actividades / Finanz
 });
 
 test("Registrar avance with a generated file → Documentos (Actividades) → opens via signed URL", async ({ page }) => {
-  await login(page, "coordinador", `/proyectos/${ID}`);
+  await loginToProject(page, "coordinador", "PRY-2026-001");
   await tab(page, "Actividades").click();
   // 1.4-E2 has target 4 and 0 counted: room for several runs; the form asks for a justification past the target.
   await page.getByRole("button", { name: "Registrar avance 1.4-E2" }).click();
@@ -105,7 +104,7 @@ test("Registrar avance with a generated file → Documentos (Actividades) → op
 });
 
 test("Finanzas (coordinador): es-CO value, bad format error, overspend → Pendiente por revisión", async ({ page }) => {
-  await login(page, "coordinador", `/proyectos/${ID}`);
+  await loginToProject(page, "coordinador", "PRY-2026-001");
   await openGastos(page);
 
   // invalid format
@@ -143,7 +142,7 @@ test("Finanzas (coordinador): es-CO value, bad format error, overspend → Pendi
 });
 
 test("gerencia validates one expense and rejects another with a reason; annuls the validated one", async ({ page }) => {
-  await login(page, "gerencia", `/proyectos/${ID}`);
+  await loginToProject(page, "gerencia", "PRY-2026-001");
   await openGastos(page);
 
   const filaV = page.getByRole("row", { name: new RegExp(DOC_VALIDAR) });
@@ -180,7 +179,7 @@ test("M7: the coordinador receives the «Gasto rechazado» notification with the
 });
 
 test("a manager cannot validate their own expense (admin registers, sees «Tú lo registraste»)", async ({ page }) => {
-  await login(page, "admin", `/proyectos/${ID}`);
+  await loginToProject(page, "admin", "PRY-2026-001");
   await openGastos(page);
   const doc = `E2E-P-${RUN}`;
   const form = await registrarGasto(page, { rubro: /R13/, valor: "5.000", doc, tercero: `E2E Propio ${RUN}` });

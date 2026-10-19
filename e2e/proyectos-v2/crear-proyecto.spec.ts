@@ -14,17 +14,19 @@ test("stepper starts with the client; client card; opportunity gated by client",
   await expect(page.getByRole("searchbox", { name: "Buscar cliente" })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Oportunidad" })).toBeDisabled();
 
-  await pickOption(page, "Cliente", "Universidad Central del Valle");
+  await pickOption(page, "Cliente", "Agencia de Cooperación Nórdica");
   const card = page.getByLabel("Datos del cliente");
   await expect(card).toBeVisible();
   for (const dato of ["Tipo de cliente", "Oportunidades", "Contacto principal"]) {
     await expect(card.getByText(dato)).toBeVisible();
   }
+  // The opportunity select unlocks once a client is chosen and always offers the
+  // independent path; this client also has a won opportunity without a project.
   const opp = page.getByRole("combobox", { name: "Oportunidad" });
   await expect(opp).toBeEnabled();
   await opp.click();
   await expect(page.getByRole("option", { name: /Sin oportunidad \(proyecto independiente\)/ })).toBeVisible();
-  await expect(page.getByRole("option", { name: /Programa de formación técnica/ })).toBeVisible();
+  expect(await page.getByRole("option").count()).toBeGreaterThan(1);
   await page.keyboard.press("Escape");
 });
 
@@ -76,7 +78,9 @@ test("validations: valor total, date range; then create lands on the new draft",
   await expect(page.getByText("$ 250.000").first()).toBeVisible();
 });
 
-test("coordinador cannot create projects", async ({ page }) => {
+test("coordinador reaches the creation stepper (S1: any role creates)", async ({ page }) => {
   await login(page, "coordinador", "/proyectos/nuevo");
-  await expect(page.getByText("No tienes acceso para crear proyectos")).toBeVisible();
+  await expect(page.getByText("No tienes acceso para crear proyectos")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Nuevo proyecto", level: 1 })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("navigation", { name: "Pasos para crear el proyecto" })).toBeVisible();
 });
