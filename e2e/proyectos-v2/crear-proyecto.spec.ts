@@ -76,7 +76,9 @@ test("validations: valor total, date range; then create lands on the new draft",
   await expect(page.getByText("$ 250.000").first()).toBeVisible();
 });
 
-test("coordinador cannot create projects", async ({ page }) => {
+test("coordinador reaches the creation stepper (S1: any role creates)", async ({ page }) => {
   await login(page, "coordinador", "/proyectos/nuevo");
-  await expect(page.getByText("No tienes acceso para crear proyectos")).toBeVisible();
+  await expect(page.getByText("No tienes acceso para crear proyectos")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Nuevo proyecto", level: 1 })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("navigation", { name: "Pasos para crear el proyecto" })).toBeVisible();
 });

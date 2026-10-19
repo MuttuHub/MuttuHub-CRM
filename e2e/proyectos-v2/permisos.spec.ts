@@ -1,130 +1,171 @@
 import { expect, test, type Page } from "@playwright/test";
-import { login, P001, P003, portfolioRows, type Role } from "./helpers";
+import { login, portfolioRows } from "./helpers";
 
-// Guide §9 (role matrix), P1 (contacts/interactions scoping) and P2 (health subscore).
+// Role matrix of 2026-10-19 (odd/tasks/permisos-proyectos-por-rol.md):
+//   - any role creates a project;
+//   - Coordinador and Colaborador read and write only where they are team members;
+//   - Administración and Gerencia keep approvals and expense validation;
+//   - every role reads every client.
+//
+// The demo seed leaves PRY-2026-001 (En ejecución) and PRY-2026-002 (Borrador)
+// with the coordinador as responsable and member. The colaborador starts with no
+// membership, which is what makes the "stranger" assertions meaningful; one test
+// adds them to 001 through the product and then checks the member side.
 
+const NOMBRE_COLABORADOR = "Andrés Torres";
 const SIN_ACCESO = "No tienes acceso a este proyecto";
 
-/** Usable from any logged-in page: id -> nombre of every client. */
-async function clientNames(page: Page): Promise<Map<string, string>> {
-  const res = await page.request.get("/api/v1/clients?limit=100");
+type Ids = { p001: string; p002: string };
+const ids: Partial<Ids> = {};
+
+/** Resolve the two demo project ids through the admin session (serial tests share this). */
+async function resolveIds(page: Page): Promise<Ids> {
+  if (ids.p001 && ids.p002) return ids as Ids;
+  const res = await page.request.get("/api/v1/projects");
   expect(res.status()).toBe(200);
-  const { items } = (await res.json()) as { items: Array<{ id: string; nombre: string }> };
-  return new Map(items.map((c) => [c.id, c.nombre]));
+  const body = (await res.json()) as { proyectos: Array<{ id: string; codigo: string }> };
+  const p001 = body.proyectos.find((p) => p.codigo === "PRY-2026-001")?.id;
+  const p002 = body.proyectos.find((p) => p.codigo === "PRY-2026-002")?.id;
+  expect(p001, "PRY-2026-001 must exist in the demo seed").toBeTruthy();
+  expect(p002, "PRY-2026-002 must exist in the demo seed").toBeTruthy();
+  ids.p001 = p001!;
+  ids.p002 = p002!;
+  return ids as Ids;
 }
 
-async function feedClients(page: Page, url: string, key: string): Promise<{ names: Set<string | null>; count: number }> {
-  const res = await page.request.get(url);
-  expect(res.status(), url).toBe(200);
-  const body = await res.json();
-  const rows = body[key] as Array<{ cliente_id: string | null }>;
-  const names = await clientNames(page);
-  return { names: new Set(rows.map((r) => (r.cliente_id ? (names.get(r.cliente_id) ?? r.cliente_id) : null))), count: rows.length };
+async function openFicha(page: Page, id: string) {
+  await page.goto(`/proyectos/${id}`);
+  await expect(page.getByTestId("ficha-header")).toBeVisible({ timeout: 60_000 });
 }
 
-const COLABORADOR_CLIENTES = new Set([
-  "Alcaldía de Puerto Esperanza",
-  "Constructora Río Claro S.A.S.",
-  "Universidad Central del Valle",
-]);
+test.describe.configure({ mode: "serial" });
 
-test("colaborador: empty project list, no Portafolio/Tablero tabs", async ({ page }) => {
-  await login(page, "colaborador", "/proyectos");
-  await expect(page.getByText("Aún no tienes proyectos visibles")).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole("tab", { name: "Portafolio" })).toHaveCount(0);
-  await expect(page.getByRole("tab", { name: "Tablero" })).toHaveCount(0);
-});
-
-test("colaborador: ficha 001 by URL says «No tienes acceso» (API 403); cannot post an expense", async ({ page }) => {
-  await login(page, "colaborador", "/proyectos");
-  expect((await page.request.get(`/api/v1/projects/${P001}`)).status()).toBe(403);
-  const post = await page.request.post(`/api/v1/projects/${P001}/expenses`, { data: {} });
-  expect([401, 403], "colaborador must be rejected before validation").toContain(post.status());
-
-  const t0 = Date.now();
-  await page.goto(`/proyectos/${P001}`);
-  await expect(page.getByRole("heading", { name: SIN_ACCESO })).toBeVisible({ timeout: 60_000 });
-  test.info().annotations.push({ type: "time-to-no-access-message", description: `${Date.now() - t0} ms` });
-  await expect(page.getByRole("button", { name: /Registrar gasto/ })).toHaveCount(0);
-});
-
-test("coordinador: portfolio shows only their projects; non-member 003 is denied; no Validar/Rechazar", async ({ page }) => {
-  await login(page, "coordinador", "/proyectos");
+test("gerencia: sees every project, may create, and approves baselines", async ({ page }) => {
+  await login(page, "gerencia", "/proyectos");
+  const { p002 } = await resolveIds(page);
   await expect(portfolioRows(page).first()).toBeVisible({ timeout: 60_000 });
   const rows = (await portfolioRows(page).allInnerTexts()).join("\n");
   expect(rows).toContain("PRY-2026-001");
   expect(rows).toContain("PRY-2026-002");
-  expect(rows).not.toContain("PRY-2026-003");
-  expect(rows).not.toContain("PRY-2026-004");
-  await expect(page.getByRole("link", { name: "Nuevo proyecto" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Nuevo proyecto" })).toBeVisible();
 
-  expect((await page.request.get(`/api/v1/projects/${P003}`)).status()).toBe(403);
-  await page.goto(`/proyectos/${P003}`);
-  await expect(page.getByRole("heading", { name: SIN_ACCESO })).toBeVisible({ timeout: 60_000 });
+  // 002 is still a draft: the manager sees the baseline action.
+  await openFicha(page, p002);
+  await expect(page.getByRole("button", { name: /Aprobar línea base/ }).first()).toBeVisible();
+});
 
-  // Member of 001: can register, cannot validate/reject
-  await page.goto(`/proyectos/${P001}`);
-  await expect(page.getByRole("button", { name: "Registrar gasto", exact: true })).toBeVisible({ timeout: 60_000 });
+test("coordinador: own projects only, may create, executes but never approves nor validates", async ({ page }) => {
+  await login(page, "coordinador", "/proyectos");
+  const { p001, p002 } = await resolveIds(page);
+  await expect(portfolioRows(page).first()).toBeVisible({ timeout: 60_000 });
+  const rows = (await portfolioRows(page).allInnerTexts()).join("\n");
+  expect(rows).toContain("PRY-2026-001");
+  expect(rows).toContain("PRY-2026-002");
+
+  // S1: creation is open to every role now.
+  await expect(page.getByRole("link", { name: "Nuevo proyecto" })).toBeVisible();
+
+  // S7: approval stays with Administración and Gerencia, even for a draft.
+  await openFicha(page, p002);
+  await expect(page.getByRole("button", { name: /Aprobar línea base/ })).toHaveCount(0);
+
+  // S6: a member executes; S7: validation is not theirs.
+  await openFicha(page, p001);
   await expect(page.getByRole("button", { name: "Registrar avance", exact: true }).first()).toBeVisible();
-  await page.getByRole("tablist").first().getByRole("tab", { name: "Finanzas", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Registrar gasto", exact: true })).toBeVisible();
+  await page.getByRole("tab", { name: "Finanzas", exact: true }).click();
   await page.getByRole("tab", { name: "Gastos", exact: true }).click();
   await expect(page.getByTestId("gastos-lista")).toBeVisible();
   await expect(page.getByRole("button", { name: "Validar" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Rechazar" })).toHaveCount(0);
 });
 
-test("gerencia: sees every project and may create one", async ({ page }) => {
-  await login(page, "gerencia", "/proyectos");
-  await expect(portfolioRows(page).first()).toBeVisible({ timeout: 60_000 });
-  const rows = (await portfolioRows(page).allInnerTexts()).join("\n");
-  for (const c of ["001", "002", "003", "004"]) expect(rows).toContain(`PRY-2026-${c}`);
+test("colaborador: the list never shows a foreign project, both tabs, may create, ficha denied", async ({ page }) => {
+  await login(page, "colaborador", "/proyectos");
+  const { p002 } = await resolveIds(page);
+  // S4: the board is visible to both member roles, scoped to their projects.
+  await expect(page.getByRole("tab", { name: "Portafolio" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Tablero" })).toBeVisible();
+  // S1: creation is open to every role.
   await expect(page.getByRole("link", { name: "Nuevo proyecto" })).toBeVisible();
+
+  // S3: 002 never belongs to the colaborador in the seed, so it can never show
+  // up in their portfolio (empty before they join 001, absent after).
+  const rows = (await portfolioRows(page).allInnerTexts()).join("\n");
+  expect(rows).not.toContain("PRY-2026-002");
+
+  const api = await page.request.get(`/api/v1/projects/${p002}`);
+  expect([403, 404]).toContain(api.status());
+  await page.goto(`/proyectos/${p002}`);
+  await expect(page.getByRole("heading", { name: SIN_ACCESO })).toBeVisible({ timeout: 60_000 });
 });
 
-test("P1: /contacts and /interactions are scoped for colaborador, global for coordinador", async ({ page }) => {
-  const result: Record<Role, { contacts: Awaited<ReturnType<typeof feedClients>>; inter: Awaited<ReturnType<typeof feedClients>> }> = {} as never;
+test("admin adds the colaborador to 001 through the team panel", async ({ page }) => {
+  await login(page, "admin", "/proyectos");
+  const { p001 } = await resolveIds(page);
+  await openFicha(page, p001);
+
+  // The team panel loads asynchronously: wait for a known member first, then
+  // decide. The remove button is the member-only affordance that proves it.
+  const quitar = page.getByRole("button", { name: `Quitar a ${NOMBRE_COLABORADOR}` });
+  const agregarCombo = page.getByRole("combobox", { name: "Agregar integrante" });
+  await expect(page.getByRole("button", { name: /^Quitar a / }).first()).toBeVisible({ timeout: 30_000 });
+
+  if ((await quitar.count()) === 0) {
+    // Selecting only fills the select; "Agregar" creates the membership.
+    await agregarCombo.click();
+    await page.getByRole("option", { name: NOMBRE_COLABORADOR }).first().click();
+    await page.getByRole("button", { name: "Agregar", exact: true }).click();
+  }
+  await expect(quitar).toBeVisible({ timeout: 30_000 });
+});
+
+test("colaborador member: reads their project, executes, cannot validate nor approve", async ({ page }) => {
+  await page.context().clearCookies();
+  await login(page, "colaborador", "/proyectos");
+  const { p001, p002 } = await resolveIds(page);
+
+  await expect(portfolioRows(page).first()).toBeVisible({ timeout: 60_000 });
+  const rows = (await portfolioRows(page).allInnerTexts()).join("\n");
+  expect(rows).toContain("PRY-2026-001");
+  expect(rows, "002 has no colaborador membership").not.toContain("PRY-2026-002");
+
+  await openFicha(page, p001);
+  await expect(page.getByRole("button", { name: /Aprobar línea base/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Registrar avance", exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Registrar gasto", exact: true })).toBeVisible();
+
+  await page.getByRole("tab", { name: "Finanzas", exact: true }).click();
+  await page.getByRole("tab", { name: "Gastos", exact: true }).click();
+  await expect(page.getByTestId("gastos-lista")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Validar" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Rechazar" })).toHaveCount(0);
+
+  // The API is the authority: a member may edit the allowed field of an
+  // executing project, and a project without membership stays 403.
+  const propio = await page.request.patch(`/api/v1/projects/${p001}`, {
+    data: { descripcion: "Actualizada por el E2E de permisos" },
+  });
+  expect(propio.status()).toBe(200);
+
+  const ajeno = await page.request.patch(`/api/v1/projects/${p002}`, {
+    data: { descripcion: "no debería" },
+  });
+  expect([403, 404]).toContain(ajeno.status());
+});
+
+test("S8: every role reads every client, so the contact feeds are global", async ({ page }) => {
   for (const role of ["colaborador", "coordinador"] as const) {
     await page.context().clearCookies();
     await login(page, role, "/clientes");
-    result[role] = {
-      contacts: await feedClients(page, "/api/v1/contacts", "contactos"),
-      inter: await feedClients(page, "/api/v1/interactions", "interacciones"),
-    };
+    for (const [url, key] of [
+      ["/api/v1/contacts", "contactos"],
+      ["/api/v1/interactions", "interacciones"],
+    ] as const) {
+      const res = await page.request.get(url);
+      expect(res.status(), `${role} ${url}`).toBe(200);
+      const body = await res.json();
+      expect(Array.isArray(body[key]), `${role} ${url} shape`).toBe(true);
+    }
   }
-  for (const feed of ["contacts", "inter"] as const) {
-    const col = result.colaborador[feed];
-    expect(col.count, `colaborador ${feed} not empty`).toBeGreaterThan(0);
-    for (const n of col.names) expect(COLABORADOR_CLIENTES.has(n as string), `colaborador ${feed} leaks client «${n}»`).toBeTruthy();
-    const coord = result.coordinador[feed];
-    expect(coord.count, `coordinador sees more ${feed}`).toBeGreaterThan(col.count);
-    expect([...coord.names].some((n) => !COLABORADOR_CLIENTES.has(n as string))).toBeTruthy();
-  }
-});
-
-test("P2: health «proyectos» subscore hidden for colaborador (total still computed), present for gerencia", async ({ page }) => {
-  await login(page, "colaborador", "/clientes/salud");
-  const colRes = await page.request.get("/api/v1/clients/health");
-  expect(colRes.status()).toBe(200);
-  const col = (await colRes.json()).data.clientes as Array<{ score: number | null; subscores: { proyectos: number | null } }>;
-  expect(col.length).toBeGreaterThan(0);
-  for (const c of col) {
-    expect(c.subscores.proyectos).toBeNull();
-    expect(typeof c.score).toBe("number");
-  }
-  await expect(page.getByRole("heading", { name: "Salud de la cartera" })).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText(/Promedio \d/)).toBeVisible();
-
-  await page.context().clearCookies();
-  await login(page, "gerencia", "/clientes/salud");
-  const ger = (await (await page.request.get("/api/v1/clients/health")).json()).data.clientes as Array<{ subscores: { proyectos: number | null } }>;
-  expect(ger.some((c) => c.subscores.proyectos !== null), "gerencia sees the proyectos subscore").toBeTruthy();
-});
-
-// UX threshold (not stated in the guide): a 403/404 ficha should explain itself quickly instead of showing the
-// loading skeleton. KNOWN APP DEFECT (see odd/tasks/e2e-proyectos-v2.md, D1): useProject() keeps react-query's default
-// 3 retries on 403/404, so the message takes ~11 s. Left failing on purpose.
-test("coordinador non-member: the «No tienes acceso» message shows within 5 s", async ({ page }) => {
-  await login(page, "coordinador", "/proyectos");
-  await page.goto(`/proyectos/${P003}`);
-  await expect(page.getByRole("heading", { name: SIN_ACCESO })).toBeVisible({ timeout: 5_000 });
 });

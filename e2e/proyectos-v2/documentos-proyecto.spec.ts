@@ -7,8 +7,8 @@ import { login, P001 } from "./helpers";
 // (dialog heading + submit button «Subir documento», radios «Subir un archivo»/«Enlace», fields «Archivo», «URL» and
 // «Nombre del enlace», errors «Selecciona el archivo.» and «Completa el enlace y su nombre.»). Note the file field
 // needs `exact: true`: Playwright's getByLabel matches substrings and «Subir un archivo» also contains «archivo».
-// Rules: managers and member coordinadores may upload in BORRADOR / EN_EJECUCION / SUSPENDIDO; a coordinador deletes
-// only their own; colaborador has no access to the ficha at all.
+// Rules: managers and members of either role may upload in BORRADOR / EN_EJECUCION / SUSPENDIDO; a member deletes
+// only their own; a colaborador without membership has no access to the ficha at all.
 const STAMP = Date.now();
 const ARCHIVO = `contrato-e2e-${STAMP}.pdf`;
 const ENLACE = `Acta de inicio e2e ${STAMP}`;

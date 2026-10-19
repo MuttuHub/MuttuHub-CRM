@@ -33,7 +33,7 @@ test("gerencia: first-contact date is human readable; «Crear proyecto» opens t
   await expect(page.getByLabel("Datos del cliente")).toBeVisible();
 });
 
-test("colaborador: read-only General tab shows values (not «—») and no «Crear proyecto»", async ({ page }) => {
+test("colaborador: reads any client, General tab shows values (not «—»), and may create a project", async ({ page }) => {
   await login(page, "colaborador", "/clientes");
   // A client the colaborador does NOT own (responsable: Laura Jiménez).
   const dialog = await openCliente(page, "Grupo Empresarial Hilos del Valle de Aburrá");
@@ -50,12 +50,14 @@ test("colaborador: read-only General tab shows values (not «—») and no «Cre
     expect(t, `${label} must not be «—»`).not.toBe("—");
   }
   await expect(dialog.getByRole("button", { name: "Editar" })).toHaveCount(0);
-  await expect(dialog.getByRole("link", { name: "Crear proyecto" })).toHaveCount(0);
+  // S1/S8: every role creates projects and reads every client.
+  await expect(dialog.getByRole("link", { name: "Crear proyecto" })).toBeVisible();
+  // The commercial cycle keeps its own gate.
   await expect(dialog.getByRole("tab", { name: "Oportunidades" })).toHaveCount(0);
 });
 
-test("coordinador does not see «Crear proyecto» on a client ficha", async ({ page }) => {
+test("coordinador sees «Crear proyecto» on a client ficha (S1)", async ({ page }) => {
   await login(page, "coordinador", "/clientes");
   const dialog = await openCliente(page, "Universidad Central del Valle");
-  await expect(dialog.getByRole("link", { name: "Crear proyecto" })).toHaveCount(0);
+  await expect(dialog.getByRole("link", { name: "Crear proyecto" })).toBeVisible();
 });
