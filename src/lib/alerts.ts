@@ -7,8 +7,7 @@
 //   (OPEN_TASK_STATES) → bucket según su fecha_entrega:
 //     vencidos  = fecha < inicio de hoy (local)
 //     hoy       = [inicio de hoy, inicio de mañana)
-//     proximos3 = [inicio de mañana, +diasPorVencer días) (default 3; el cron
-//                 lo toma del setting `automatizaciones`)
+//     proximos3 = [inicio de mañana, +3 días)
 //
 // Timezone: los límites de día se calculan con el reloj local del servidor
 // (deploy Vercel = UTC). El cron de PRD §4.4.1 corre '0 13 * * *' (UTC) que
@@ -53,40 +52,9 @@ export type AlertBuckets = {
   proximos3: AlertItem[];
 };
 
-/** Toggles del setting `automatizaciones` aplicados a los buckets. */
-export type CategoriasAlerta = {
-  vencidos: boolean;
-  hoy: boolean;
-  proximos: boolean;
-};
-
 /** Empty snapshot (no touches the DB) — útil para respuestas "vacías". */
 export function emptyAlertBuckets(): AlertBuckets {
   return { vencidos: [], hoy: [], proximos3: [] };
-}
-
-/**
- * Aplica los toggles del setting `automatizaciones`: una categoría desactivada
- * se vacía (no se cuenta ni entra al resumen) sin tocar las demás. Devuelve un
- * objeto nuevo; no muta el snapshot de entrada.
- */
-export function filterBucketsByCategorias(
-  buckets: AlertBuckets,
-  categorias: CategoriasAlerta,
-): AlertBuckets {
-  return {
-    vencidos: categorias.vencidos ? buckets.vencidos : [],
-    hoy: categorias.hoy ? buckets.hoy : [],
-    proximos3: categorias.proximos ? buckets.proximos3 : [],
-  };
-}
-
-/**
- * Fin del bucket "próximos": inicio de mañana + `diasPorVencer` días. Antes
- * fijo en 3; ahora lo aporta el setting `automatizaciones` (dias_por_vencer).
- */
-export function proximosEnd(start: Date, diasPorVencer: number): Date {
-  return addLocalDays(start, 1 + diasPorVencer);
 }
 
 function bucketDeFecha(fecha: Date, start: Date, endToday: Date, end3: Date): BucketKey | null {
@@ -118,17 +86,14 @@ export function alertWhere(scope: "own" | "all", usuario: AlertUsuario): Prisma.
  * devuelve las tareas alertables ordenadas por fecha asc repartidas en
  * vencidos / hoy / proximos3. Un solo query + bucket en JS (los límites son
  * locales del servidor y no se pueden expresar en el WHERE de forma estable).
- * `diasPorVencer` es la ventana del bucket "próximos" (default 3; el cron la
- * toma del setting `automatizaciones`).
  */
 export async function getAlertBuckets(
   scope: "own" | "all",
   usuario: AlertUsuario,
-  diasPorVencer = 3,
 ): Promise<AlertBuckets> {
   const start = startOfLocalDay();
   const todayEnd = addLocalDays(start, 1);
-  const endProximos = proximosEnd(start, diasPorVencer);
+  const end3 = addLocalDays(start, 4);
 
   const rows = await db.tarea.findMany({
     where: alertWhere(scope, usuario),
@@ -149,7 +114,7 @@ export async function getAlertBuckets(
   const buckets: AlertBuckets = { vencidos: [], hoy: [], proximos3: [] };
   for (const row of rows) {
     const fecha = row.fecha_entrega!;
-    const key = bucketDeFecha(fecha, start, todayEnd, endProximos);
+    const key = bucketDeFecha(fecha, start, todayEnd, end3);
     if (!key) continue;
     buckets[key].push({
       id: row.id,

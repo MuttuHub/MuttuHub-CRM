@@ -1,15 +1,9 @@
 // GET/POST /api/v1/tasks/:id/attachments — adjuntos de la tarjeta (PRD §5.2,
 // contract §8.2 "POST /tasks/:id/attachments").
-// POST: multipart/form-data con el campo `file`. Validación: política ÚNICA
-// compartida con el Repositorio (src/lib/api/files.ts, S0.9a) — tamaño máximo
+// POST: multipart/form-data con el campo `file`. Validación: tamaño máximo
 // configurable vía MAX_FILE_SIZE_MB (default 25 MB si no está seteada o es
-// inválida; 413 FILE_TOO_LARGE) y extensión PDF/DOCX/XLSX/PPTX/JPG/JPEG/PNG
-// (400). Alternativa ADR-13 (S0.9b): `application/json` con
-// `{ storage_path, nombre, tamano_bytes, tipo_mime? }` confirma un objeto ya
-// subido directo a Storage con un signed URL de POST /api/v1/uploads/sign; el
-// servidor revalida el permiso, que la ruta empiece por tareas/{id}/ y que el
-// objeto exista y no supere el tamaño declarado, y luego inserta la misma fila
-// (y hace el mismo espejo al Repositorio). Se sube al
+// inválida; 413 FILE_TOO_LARGE) y extensión/MIME en PDF/DOC/DOCX/XLSX/PPT/PPTX/CSV/TXT/ZIP/
+// JPG/JPEG/PNG/HEIC (400). Se sube al
 // bucket SUPABASE_STORAGE_BUCKET (default "muttu-docs") con el cliente de
 // service role (src/lib/supabase/admin.ts — solo servidor) en
 // `tareas/{tarea_id}/{uuid}_{nombre}` (convención análoga a /documentos/ del
@@ -21,28 +15,60 @@
 
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
-import type { Usuario } from "@prisma/client";
 import { db } from "@/lib/db";
-import { apiError, parseJsonBody } from "@/lib/api/errors";
+import { apiError } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { isSupabaseConfigured, requireApiUser } from "@/lib/supabase/server";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { getTaskForWrite, loadTaskScoped } from "@/lib/api/crm";
 import { loadDocCategories } from "@/lib/api/documents";
-import {
-  MAX_FILE_BYTES,
-  MAX_FILE_MB,
-  isAllowedFileType,
-  isAllowedNameAndMime,
-  sanitizeFileName,
-} from "@/lib/api/files";
-import { assertKeyBelongsToTarget, storedObjectSize } from "@/lib/api/signed-upload";
+import { sanitizeFileName } from "@/lib/api/files";
 import { logAudit } from "@/lib/api/audit";
 
 export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
+// PRD §8.4: tamaño máx configurable vía MAX_FILE_SIZE_MB (Vercel env var),
+// default 25 MB si no está seteada o no es un número válido.
+const DEFAULT_MAX_FILE_MB = 25;
+const configuredMaxFileMb = Number.parseInt(process.env.MAX_FILE_SIZE_MB ?? "", 10);
+const MAX_FILE_MB =
+  Number.isFinite(configuredMaxFileMb) && configuredMaxFileMb > 0
+    ? configuredMaxFileMb
+    : DEFAULT_MAX_FILE_MB;
+const MAX_FILE_BYTES = MAX_FILE_MB * 1024 * 1024;
+const ALLOWED_EXT = new Set([
+  "pdf",
+  "docx",
+  "xlsx",
+  "jpg",
+  "png",
+  "doc",
+  "ppt",
+  "pptx",
+  "csv",
+  "txt",
+  "jpeg",
+  "heic",
+  "zip",
+]); // PRD §8.4 + lista ampliada aprobada por el cliente.
+const ALLOWED_MIME = new Set([
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "image/jpeg",
+  "image/png",
+  "application/msword",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "text/csv",
+  "text/plain",
+  "image/heic",
+  "image/heif",
+  "application/zip",
+  "application/x-zip-compressed",
+]);
 const STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "muttu-docs";
 
 /**
@@ -120,107 +146,6 @@ async function mirrorAttachmentAsDocument(params: {
   }
 }
 
-type ConfirmBody = {
-  storage_path?: unknown;
-  nombre?: unknown;
-  tamano_bytes?: unknown;
-  tipo_mime?: unknown;
-};
-
-/**
- * ADR-13 confirm mode (S0.9b): the browser already uploaded the bytes straight
- * to Storage, so this request carries metadata only. It authorises exactly
- * like the multipart path (getTaskForWrite), rejects a key that is not this
- * task's, verifies the object exists in Storage and is not larger than
- * declared/MAX_FILE_BYTES, then inserts the same row (same mirror, same audit,
- * same response shape).
- */
-async function confirmSignedAttachment(
-  request: Request,
-  tareaId: string,
-  usuario: Usuario,
-): Promise<Response> {
-  const body = await parseJsonBody<ConfirmBody>(request);
-  const storagePath = body?.storage_path;
-  const nombre = body?.nombre;
-  const tamanoBytes = body?.tamano_bytes;
-  const tipoMime = typeof body?.tipo_mime === "string" ? body.tipo_mime : null;
-  if (
-    typeof storagePath !== "string" ||
-    typeof nombre !== "string" ||
-    typeof tamanoBytes !== "number" ||
-    !Number.isInteger(tamanoBytes) ||
-    tamanoBytes <= 0
-  ) {
-    return apiError("Cuerpo de la solicitud no válido.", 400, "VALIDATION_ERROR");
-  }
-  if (!isAllowedNameAndMime(nombre, tipoMime)) {
-    return apiError(
-      "Solo se aceptan PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), JPG/JPEG o PNG.",
-      400,
-      "VALIDATION_ERROR",
-    );
-  }
-
-  const access = await getTaskForWrite(tareaId, usuario);
-  if (!access.ok) {
-    return apiError(
-      access.code === "NOT_FOUND" ? "La tarea no existe." : "No tienes permisos sobre esta tarea.",
-      access.code === "NOT_FOUND" ? 404 : 403,
-      access.code,
-    );
-  }
-
-  if (!assertKeyBelongsToTarget(storagePath, { kind: "tarea", tareaId })) {
-    return apiError(
-      "La ruta del archivo no corresponde a esta tarea.",
-      400,
-      "VALIDATION_ERROR",
-    );
-  }
-
-  const supabase = createSupabaseAdmin();
-  const realSize = await storedObjectSize(supabase, STORAGE_BUCKET, storagePath);
-  if (realSize === null || realSize > tamanoBytes || realSize > MAX_FILE_BYTES) {
-    return apiError(
-      "El archivo no está disponible o supera el tamaño declarado.",
-      400,
-      "VALIDATION_ERROR",
-    );
-  }
-
-  const adjunto = await db.adjuntoTarea.create({
-    data: {
-      tarea_id: tareaId,
-      storage_path: storagePath,
-      nombre,
-      tamano_bytes: realSize,
-    },
-    select: { id: true, nombre: true, tamano_bytes: true, created_at: true },
-  });
-
-  await mirrorAttachmentAsDocument({
-    tareaId,
-    clienteId: access.tarea.cliente_id,
-    adjuntoId: adjunto.id,
-    storagePath,
-    fileName: nombre,
-    fileSize: realSize,
-    fileType: tipoMime ?? "application/octet-stream",
-    usuarioId: usuario.id,
-  });
-
-  const { data: signedUrlData, error: urlError } = await supabase.storage
-    .from(STORAGE_BUCKET)
-    .createSignedUrl(storagePath, 60);
-  if (urlError) console.error("[tasks] attachment signed url failed:", urlError);
-
-  return NextResponse.json(
-    { adjunto: { ...adjunto, download_url: signedUrlData?.signedUrl ?? null } },
-    { status: 201 },
-  );
-}
-
 export const GET = withApiErrorHandling(
   "tasks",
   "No pudimos cargar los adjuntos. Inténtalo de nuevo.",
@@ -259,11 +184,6 @@ export const POST = withApiErrorHandling(
       );
     }
 
-    // ADR-13 confirm mode (JSON metadata) vs the multipart path (bytes).
-    if ((request.headers.get("content-type") ?? "").toLowerCase().includes("application/json")) {
-      return confirmSignedAttachment(request, id, auth.usuario);
-    }
-
     let form: FormData;
     try {
       form = await request.formData();
@@ -274,12 +194,12 @@ export const POST = withApiErrorHandling(
     if (!(file instanceof File)) {
       return apiError("Adjunta un archivo en el campo 'file'.", 400, "VALIDATION_ERROR");
     }
-    // Política única (S0.9a): extensión permitida Y MIME permitido o vacío.
-    // Antes de unificar, esta ruta tenía su propia lista ancha (doc, ppt, csv,
-    // txt, heic, zip) que la UI ya no puede prometer.
-    if (!isAllowedFileType(file)) {
+    const ext = (file.name.split(".").pop() ?? "").toLowerCase();
+    // Extensión O MIME en el set permitido: clientes (p.ej. curl) mandan
+    // application/octet-stream incluso para archivos válidos.
+    if (!ALLOWED_EXT.has(ext) && !ALLOWED_MIME.has(file.type)) {
       return apiError(
-        "Solo se aceptan PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), JPG/JPEG o PNG.",
+        "Solo se aceptan PDF, Word, Excel, PowerPoint, CSV, TXT, ZIP, JPG, JPEG, PNG o HEIC.",
         400,
         "VALIDATION_ERROR",
       );

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Usuario } from "@prisma/client";
 
 vi.mock("next/headers", () => ({
@@ -17,28 +17,19 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-vi.mock("@/lib/alerts", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/alerts")>();
-  return {
-    ...actual,
-    getAlertBuckets: vi.fn(),
-    startOfLocalDay: vi.fn(() => new Date("2026-01-01T00:00:00.000Z")),
-  };
-});
+vi.mock("@/lib/alerts", () => ({
+  getAlertBuckets: vi.fn(),
+  startOfLocalDay: vi.fn(() => new Date("2026-01-01T00:00:00.000Z")),
+}));
 
 vi.mock("@/lib/email", () => ({
   sendDailySummary: vi.fn(),
-}));
-
-vi.mock("@/lib/settings", () => ({
-  getAutomatizaciones: vi.fn(),
 }));
 
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { getAlertBuckets } from "@/lib/alerts";
 import { sendDailySummary } from "@/lib/email";
-import { getAutomatizaciones } from "@/lib/settings";
 import { POST } from "./route";
 
 function mockHeader(value: string | null) {
@@ -54,12 +45,6 @@ const nonEmptyBuckets = {
   proximos3: [],
 };
 
-const automatizacionesEnabled = {
-  resumen_diario: true,
-  dias_por_vencer: 3,
-  categorias: { vencidos: true, hoy: true, proximos: true },
-};
-
 function usuario(overrides: Partial<Usuario> = {}): Usuario {
   return {
     id: "u1",
@@ -72,10 +57,6 @@ function usuario(overrides: Partial<Usuario> = {}): Usuario {
     ...overrides,
   } as Usuario;
 }
-
-beforeEach(() => {
-  vi.mocked(getAutomatizaciones).mockResolvedValue(automatizacionesEnabled);
-});
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -200,101 +181,6 @@ describe("POST /api/cron/daily", () => {
     expect(db.cronLog.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ estado: "ERROR" }) }),
     );
-  });
-
-  it("skips the send and records SKIPPED_DISABLED when resumen_diario is off", async () => {
-    vi.stubEnv("CRON_SECRET", "the-secret");
-    vi.stubEnv("RESEND_API_KEY", "re_test_key");
-    mockHeader("the-secret");
-    vi.mocked(getAutomatizaciones).mockResolvedValue({
-      ...automatizacionesEnabled,
-      resumen_diario: false,
-    });
-
-    const res = await POST();
-    const json = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(json).toMatchObject({ ok: true, processed: 0, sent: 0, failed: 0 });
-    expect(db.usuario.findMany).not.toHaveBeenCalled();
-    expect(sendDailySummary).not.toHaveBeenCalled();
-    expect(db.cronLog.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ estado: "SKIPPED_DISABLED" }),
-      }),
-    );
-  });
-
-  it("threads dias_por_vencer into the alert buckets window", async () => {
-    vi.stubEnv("CRON_SECRET", "the-secret");
-    vi.stubEnv("RESEND_API_KEY", "re_test_key");
-    mockHeader("the-secret");
-    vi.mocked(db.cronLog.findFirst).mockResolvedValue(null);
-    vi.mocked(db.usuario.findMany).mockResolvedValue([
-      usuario({ id: "u1", rol: "COORDINADOR" }),
-    ] as never);
-    vi.mocked(getAutomatizaciones).mockResolvedValue({
-      ...automatizacionesEnabled,
-      dias_por_vencer: 7,
-    });
-    vi.mocked(getAlertBuckets).mockResolvedValueOnce(emptyBuckets as never);
-
-    await POST();
-
-    expect(getAlertBuckets).toHaveBeenCalledWith(
-      "all",
-      expect.objectContaining({ id: "u1" }),
-      7,
-    );
-  });
-
-  it("omits the categories the setting disables before sending", async () => {
-    vi.stubEnv("CRON_SECRET", "the-secret");
-    vi.stubEnv("RESEND_API_KEY", "re_test_key");
-    mockHeader("the-secret");
-    vi.mocked(db.cronLog.findFirst).mockResolvedValue(null);
-    vi.mocked(db.usuario.findMany).mockResolvedValue([
-      usuario({ id: "u1", rol: "COORDINADOR" }),
-    ] as never);
-    vi.mocked(getAutomatizaciones).mockResolvedValue({
-      resumen_diario: true,
-      dias_por_vencer: 3,
-      categorias: { vencidos: false, hoy: true, proximos: false },
-    });
-    vi.mocked(getAlertBuckets).mockResolvedValueOnce({
-      vencidos: [{ id: "v" }],
-      hoy: [{ id: "h" }],
-      proximos3: [{ id: "p" }],
-    } as never);
-    vi.mocked(sendDailySummary).mockResolvedValue({ ok: true });
-
-    const json = await (await POST()).json();
-
-    expect(json).toMatchObject({ processed: 1, sent: 1, skipped_empty: 0 });
-    expect(sendDailySummary).toHaveBeenCalledWith(expect.objectContaining({ id: "u1" }), {
-      vencidos: [],
-      hoy: [{ id: "h" }],
-      proximos3: [],
-    });
-  });
-
-  it("counts a user as skipped_empty when their only alerts fall in disabled categories", async () => {
-    vi.stubEnv("CRON_SECRET", "the-secret");
-    vi.stubEnv("RESEND_API_KEY", "re_test_key");
-    mockHeader("the-secret");
-    vi.mocked(db.cronLog.findFirst).mockResolvedValue(null);
-    vi.mocked(db.usuario.findMany).mockResolvedValue([usuario({ id: "u1" })] as never);
-    vi.mocked(getAutomatizaciones).mockResolvedValue({
-      resumen_diario: true,
-      dias_por_vencer: 3,
-      categorias: { vencidos: false, hoy: false, proximos: false },
-    });
-    vi.mocked(getAlertBuckets).mockResolvedValueOnce(nonEmptyBuckets as never);
-
-    const json = await (await POST()).json();
-
-    expect(json).toMatchObject({ processed: 0, sent: 0, skipped_empty: 1 });
-    expect(sendDailySummary).not.toHaveBeenCalled();
   });
 
   it("catches an unhandled failure, records it and responds 200 with ok:false for the retry", async () => {

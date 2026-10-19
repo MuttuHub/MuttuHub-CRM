@@ -53,7 +53,7 @@ function LoginRoute() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+    <Suspense fallback={<div style={{ minHeight: "100vh", background: "#EFEAEB" }} />}>
       <LoginRoute />
     </Suspense>
   );

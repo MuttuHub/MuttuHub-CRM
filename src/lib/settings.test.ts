@@ -1,11 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { DOC_CATEGORIES, RESTRICTED_DOC_CATEGORIES } from "./catalogs"
 import {
-  AUTOMATIZACIONES_DEFAULT,
   defaultDocCategories,
   flattenDocCategories,
-  parseAutomatizaciones,
-  SETTING_AUTOMATIZACIONES,
   SETTING_DOC_CATEGORIES,
   SETTING_TASK_TAGS,
 } from "./settings"
@@ -77,74 +74,5 @@ describe("setting keys", () => {
   it("exposes the documented setting keys", () => {
     expect(SETTING_TASK_TAGS).toBe("task_tags")
     expect(SETTING_DOC_CATEGORIES).toBe("doc_categories")
-    expect(SETTING_AUTOMATIZACIONES).toBe("automatizaciones")
-  })
-})
-
-describe("parseAutomatizaciones", () => {
-  it("returns the documented defaults when nothing is stored", () => {
-    expect(parseAutomatizaciones(null)).toEqual({
-      resumen_diario: true,
-      dias_por_vencer: 3,
-      categorias: { vencidos: true, hoy: true, proximos: true },
-    })
-    expect(AUTOMATIZACIONES_DEFAULT).toEqual({
-      resumen_diario: true,
-      dias_por_vencer: 3,
-      categorias: { vencidos: true, hoy: true, proximos: true },
-    })
-  })
-
-  it.each([undefined, "garbage", 42, true, []])(
-    "falls back to the defaults for a non-object value (%s)",
-    (raw) => {
-      expect(parseAutomatizaciones(raw)).toEqual(AUTOMATIZACIONES_DEFAULT)
-    },
-  )
-
-  it("keeps a fully valid stored value", () => {
-    const stored = {
-      resumen_diario: false,
-      dias_por_vencer: 7,
-      categorias: { vencidos: false, hoy: true, proximos: false },
-    }
-    expect(parseAutomatizaciones(stored)).toEqual(stored)
-  })
-
-  it("falls back per field when a single field is malformed", () => {
-    expect(
-      parseAutomatizaciones({
-        resumen_diario: "si",
-        dias_por_vencer: "7",
-        categorias: "nope",
-      }),
-    ).toEqual(AUTOMATIZACIONES_DEFAULT)
-  })
-
-  it("fills only the missing categorias flags with their defaults", () => {
-    expect(parseAutomatizaciones({ categorias: { hoy: false } })).toEqual({
-      resumen_diario: true,
-      dias_por_vencer: 3,
-      categorias: { vencidos: true, hoy: false, proximos: true },
-    })
-  })
-
-  it.each([0, -1, 1.5, 31, NaN, Infinity])(
-    "rejects an out-of-range dias_por_vencer (%s) and keeps the default",
-    (dias) => {
-      expect(parseAutomatizaciones({ dias_por_vencer: dias }).dias_por_vencer).toBe(3)
-    },
-  )
-
-  it("accepts a valid dias_por_vencer at the window bounds", () => {
-    expect(parseAutomatizaciones({ dias_por_vencer: 1 }).dias_por_vencer).toBe(1)
-    expect(parseAutomatizaciones({ dias_por_vencer: 30 }).dias_por_vencer).toBe(30)
-  })
-
-  it("does not mutate the shared default object and returns a fresh copy", () => {
-    const parsed = parseAutomatizaciones({ resumen_diario: false })
-    parsed.categorias.hoy = false
-    expect(AUTOMATIZACIONES_DEFAULT.resumen_diario).toBe(true)
-    expect(AUTOMATIZACIONES_DEFAULT.categorias.hoy).toBe(true)
   })
 })

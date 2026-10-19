@@ -1,8 +1,6 @@
 // Diálogo "Subir documento" del Repositorio (PRD §6.2): dropzone con
-// drag&drop o clic (política única de archivo de la app, src/lib/api/files.ts:
-// PDF/DOCX/XLSX/PPTX/JPG/JPEG/PNG hasta 25 MB configurables — la UI deriva de
-// ahí tanto el texto como el `accept`, para no prometer algo que la API
-// rechaza), título autocompletado desde el nombre del archivo (editable),
+// drag&drop o clic (mismas reglas de archivo que la API: PDF/DOCX/XLSX/JPG/PNG
+// hasta 10 MB), título autocompletado desde el nombre del archivo (editable),
 // categoría obligatoria, etiquetas en chips (Enter/comma, máx 8) y cliente
 // vinculable opcional. FileDropzone se reutiliza en el diálogo "Subir nueva
 // versión" de la ficha (document-dialog.tsx).
@@ -31,9 +29,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { DOC_CATEGORIES } from "@/lib/catalogs";
-import { ALLOWED_FILE_EXTENSIONS, MAX_FILE_MB } from "@/lib/api/files";
 import {
-  ALLOWED_ATTACHMENT_LABEL,
   attachmentValidationError,
   formatBytes,
   useClientOptions,
@@ -46,10 +42,6 @@ import {
 } from "@/hooks/documents";
 
 /* ── Dropzone compartida (crear documento y nueva versión) ─────────────── */
-
-// Built from the shared allowlist so the file picker can never advertise a
-// type the API rejects.
-const FILE_ACCEPT = [...ALLOWED_FILE_EXTENSIONS].map((ext) => `.${ext}`).join(",");
 
 export function FileDropzone({
   file,
@@ -138,13 +130,13 @@ export function FileDropzone({
           Arrastra el archivo aquí o haz clic para seleccionarlo
         </span>
         <span className="text-[12px] text-ink-500">
-          {ALLOWED_ATTACHMENT_LABEL} · máx. {MAX_FILE_MB} MB
+          PDF · Word (.docx) · Excel (.xlsx) · PowerPoint (.pptx) · JPG · PNG · máx. 10 MB
         </span>
       </button>
       <input
         ref={inputRef}
         type="file"
-        accept={FILE_ACCEPT}
+        accept=".pdf,.docx,.xlsx,.pptx,.jpg,.jpeg,.png"
         className="hidden"
         onChange={(e) => accept(e.target.files?.[0] ?? null)}
       />
@@ -213,7 +205,7 @@ export function EtiquetasInput({
         onKeyDown={onKeyDown}
         placeholder="Escribe y presiona Enter para agregar…"
         aria-label="Agregar etiqueta"
-        className="h-10 px-3 text-base md:text-[13px]"
+        className="h-9 rounded-10 bg-panel px-3 text-[13px]"
       />
       <p className="text-[11.5px] text-ink-500">
         {etiquetas.length}/8 etiquetas · separa con Enter o coma
@@ -325,7 +317,7 @@ export function UploadDocumentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] gap-0 overflow-y-auto p-0 sm:max-w-[min(560px,calc(100%-2rem))]">
+      <DialogContent className="max-h-[90dvh] gap-0 overflow-y-auto rounded-[24px] p-0 sm:max-w-[min(560px,calc(100%-2rem))]">
         <div className="flex flex-col gap-5 p-6">
           <DialogHeader className="gap-1">
             <DialogTitle className="font-display text-[19px] font-bold tracking-[-0.02em] text-ink-950">
@@ -339,7 +331,7 @@ export function UploadDocumentDialog({
           {error && (
             <div
               role="alert"
-              className="rounded-inner border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
+              className="rounded-xl border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
             >
               {error}
             </div>
@@ -348,7 +340,7 @@ export function UploadDocumentDialog({
           {duplicate && (
             <div
               role="alert"
-              className="flex flex-col gap-3 rounded-inner border border-alerta/30 bg-alerta-bg px-4 py-3.5 text-[13px] text-ink-800"
+              className="flex flex-col gap-3 rounded-xl border border-alerta/30 bg-alerta-bg px-4 py-3.5 text-[13px] text-ink-800"
             >
               <p>
                 Ya existe un documento llamado <strong>&ldquo;{duplicate.titulo}&rdquo;</strong>.
@@ -361,7 +353,7 @@ export function UploadDocumentDialog({
                   variant="ghost"
                   size="sm"
                   onClick={() => setDuplicate(null)}
-                  className="font-semibold text-ink-700"
+                  className="rounded-lg font-semibold text-ink-700"
                 >
                   Volver
                 </Button>
@@ -371,7 +363,7 @@ export function UploadDocumentDialog({
                   size="sm"
                   onClick={() => void handleCreateSeparate()}
                   disabled={upload.isPending}
-                  className="font-semibold"
+                  className="rounded-lg font-semibold"
                 >
                   Crear aparte
                 </Button>
@@ -380,7 +372,7 @@ export function UploadDocumentDialog({
                   size="sm"
                   onClick={() => void handleUploadAsVersion()}
                   disabled={versionUpload.isPending}
-                  className="font-bold"
+                  className="rounded-lg font-bold"
                 >
                   {versionUpload.isPending && <LoaderCircle className="size-4 animate-spin" />}
                   Subir como nueva versión
@@ -400,7 +392,7 @@ export function UploadDocumentDialog({
               value={titulo}
               onChange={(e) => handleTitulo(e.target.value)}
               placeholder="Nombre del documento"
-              className="px-3"
+              className="h-10 rounded-12 bg-panel px-3"
             />
           </div>
 
@@ -409,7 +401,7 @@ export function UploadDocumentDialog({
               Categoría <span className="text-rose-500">*</span>
             </Label>
             <Select value={categoria} onValueChange={(v) => setCategoria(v ?? "")}>
-              <SelectTrigger className="w-full px-3">
+              <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
                 <SelectValue placeholder="Selecciona una categoría" />
               </SelectTrigger>
               <SelectContent>
@@ -433,7 +425,7 @@ export function UploadDocumentDialog({
               value={clienteId}
               onValueChange={(v) => setClienteId(v === "ninguno" ? "" : (v ?? ""))}
             >
-              <SelectTrigger className="w-full px-3">
+              <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
                 <SelectValue placeholder="Sin cliente" />
               </SelectTrigger>
               <SelectContent>
@@ -452,7 +444,7 @@ export function UploadDocumentDialog({
               type="button"
               variant="ghost"
               onClick={() => onOpenChange(false)}
-              className="px-4 font-semibold"
+              className="rounded-lg px-4 font-semibold"
             >
               Cancelar
             </Button>
@@ -460,7 +452,7 @@ export function UploadDocumentDialog({
               type="button"
               onClick={() => void handleSubmit()}
               disabled={upload.isPending || Boolean(duplicate)}
-              className="px-4 font-bold"
+              className="rounded-lg px-4 font-bold"
             >
               {upload.isPending && <LoaderCircle className="size-4 animate-spin" />}
               {upload.isPending ? "Subiendo…" : "Subir"}

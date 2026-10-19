@@ -14,11 +14,9 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { apiGet, apiPatch, apiPost, apiPut, ApiError } from "@/lib/api/http";
+import { apiGet, apiPut, ApiError } from "@/lib/api/http";
 import type { DocCategoriaSetting } from "@/lib/settings";
 import { documentQueryKeys } from "@/hooks/documents";
-import { projectQueryKeys } from "@/hooks/projects";
-import type { ParametroKey, ParametrosV2 } from "@/lib/proyectos/semaforo-v2";
 
 /* ── DTOs (server response shapes) ─────────────────────────────────────── */
 
@@ -63,51 +61,11 @@ export type AuditoriaResponse = {
   next_before: string | null;
 };
 
-/* ── Catálogos v2 (rubros, líneas estratégicas, municipios) ─────────────── */
-
-export type CatalogoKind = "rubros" | "strategic-lines" | "municipalities";
-
-export type RubroAdmin = {
-  id: string;
-  codigo: string | null;
-  nombre: string;
-  activo: boolean;
-  orden: number;
-};
-
-export type LineaAdmin = {
-  id: string;
-  codigo: string;
-  nombre: string;
-  activo: boolean;
-  orden: number;
-};
-
-export type MunicipioAdmin = {
-  id: string;
-  nombre: string;
-  departamento: string;
-  codigo_dane: string | null;
-  activo: boolean;
-  orden: number;
-};
-
-export type CatalogoPatch = { nombre?: string; activo?: boolean };
-export type LineaCreateInput = { codigo: string; nombre: string };
-export type MunicipioCreateInput = {
-  nombre: string;
-  departamento: string;
-  codigo_dane?: string | null;
-};
-
 /* ── Query keys ────────────────────────────────────────────────────────── */
 
 export const adminQueryKeys = {
   settings: ["admin", "settings"],
   accesos: ["admin", "accesos"],
-  semaforoV2: ["admin", "semaforo-v2"] as const,
-  catalogosV2: ["admin", "catalogos-v2"] as const,
-  catalogoV2: (kind: CatalogoKind) => ["admin", "catalogos-v2", kind] as const,
   auditoria: (entidad?: AuditEntidad) => ["admin", "auditoria", entidad ?? "todas"] as const,
 } as const;
 
@@ -118,31 +76,6 @@ export function useSettings(): UseQueryResult<SettingsSnapshot> {
     queryKey: adminQueryKeys.settings,
     queryFn: () => apiGet<SettingsSnapshot>("/api/v1/settings"),
   });
-}
-
-/** Catálogos v2 con filas suspendidas (`?incluir_inactivos=true`, solo ADMIN). */
-function useCatalogoAdmin<T>(kind: CatalogoKind, key: string): UseQueryResult<T[]> {
-  return useQuery({
-    queryKey: adminQueryKeys.catalogoV2(kind),
-    queryFn: async () => {
-      const res = await apiGet<Record<string, T[]>>(
-        `/api/v1/${kind}?incluir_inactivos=true`,
-      );
-      return res[key];
-    },
-  });
-}
-
-export function useAdminRubros(): UseQueryResult<RubroAdmin[]> {
-  return useCatalogoAdmin<RubroAdmin>("rubros", "rubros");
-}
-
-export function useAdminLineas(): UseQueryResult<LineaAdmin[]> {
-  return useCatalogoAdmin<LineaAdmin>("strategic-lines", "lineas");
-}
-
-export function useAdminMunicipios(): UseQueryResult<MunicipioAdmin[]> {
-  return useCatalogoAdmin<MunicipioAdmin>("municipalities", "municipios");
 }
 
 // Bitácora de accesos con paginación por keyset (created_at desc):
@@ -207,75 +140,6 @@ export function useSaveSettings(): UseMutationResult<
       // el próximo refetch natural (foco de ventana, remount, etc.).
       void qc.invalidateQueries({ queryKey: documentQueryKeys.categories });
       toast.success("Catálogos guardados.");
-    },
-  });
-}
-
-// Los catálogos v2 los consumen los formularios de proyecto (solo activos):
-// tras cualquier cambio se refrescan ambas vistas. Los errores se re-lanzan
-// sin toast: la sección los muestra en línea con el mensaje del servidor.
-function useInvalidateCatalogos() {
-  const qc = useQueryClient();
-  return () => {
-    void qc.invalidateQueries({ queryKey: adminQueryKeys.catalogosV2 });
-    void qc.invalidateQueries({ queryKey: projectQueryKeys.strategicLines });
-    void qc.invalidateQueries({ queryKey: projectQueryKeys.municipalities });
-  };
-}
-
-export function useUpdateCatalogo() {
-  const invalidate = useInvalidateCatalogos();
-  return useMutation({
-    mutationFn: (v: { kind: CatalogoKind; id: string; data: CatalogoPatch }) =>
-      apiPatch<unknown>(`/api/v1/${v.kind}/${v.id}`, v.data),
-    onSuccess: invalidate,
-  });
-}
-
-export function useCreateLinea() {
-  const invalidate = useInvalidateCatalogos();
-  return useMutation({
-    mutationFn: (input: LineaCreateInput) => apiPost<unknown>("/api/v1/strategic-lines", input),
-    onSuccess: invalidate,
-  });
-}
-
-export function useCreateMunicipio() {
-  const invalidate = useInvalidateCatalogos();
-  return useMutation({
-    mutationFn: (input: MunicipioCreateInput) => apiPost<unknown>("/api/v1/municipalities", input),
-    onSuccess: invalidate,
-  });
-}
-
-/* ── Parámetros del semáforo v2 ────────────────────────────────────────── */
-
-/** Cuerpo del PATCH: solo los campos que cambian; `confirmado` solo si se envía. */
-export type SemaforoParametrosPatch = {
-  [K in ParametroKey]?: { valor?: ParametrosV2[K]["valor"]; confirmado?: boolean };
-};
-
-export function useSemaforoParametros(): UseQueryResult<ParametrosV2> {
-  return useQuery({
-    queryKey: adminQueryKeys.semaforoV2,
-    queryFn: async () => {
-      const res = await apiGet<{ parametros: ParametrosV2 }>("/api/v1/settings/semaforo-v2");
-      return res.parametros;
-    },
-  });
-}
-
-// Los errores se re-lanzan sin toast: la sección los muestra en línea.
-export function useSaveSemaforoParametros() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (patch: SemaforoParametrosPatch) => {
-      const res = await apiPatch<{ parametros: ParametrosV2 }>("/api/v1/settings/semaforo-v2", patch);
-      return res.parametros;
-    },
-    onSuccess: (parametros) => {
-      qc.setQueryData(adminQueryKeys.semaforoV2, parametros);
-      toast.success("Parámetros guardados.");
     },
   });
 }

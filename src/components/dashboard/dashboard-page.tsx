@@ -87,7 +87,7 @@ export function DashboardTabs({ notice }: { notice?: string }) {
   return (
     <div className="flex min-w-0 flex-col gap-4">
       {notice === "admin_only" && (
-        <div className="flex items-center gap-2.5 rounded-inner border border-alerta/30 bg-alerta-bg px-4 py-3 text-[13px] font-medium text-alerta">
+        <div className="flex items-center gap-2.5 rounded-14 border border-alerta/30 bg-alerta-bg px-4 py-3 text-[13px] font-medium text-alerta">
           <Flag className="size-4 shrink-0" strokeWidth={1.9} />
           Solo los administradores pueden acceder a Usuarios y permisos.
         </div>
@@ -115,7 +115,7 @@ export function DashboardTabs({ notice }: { notice?: string }) {
       </div>
 
       {/* Filtros comunes (§7.2) + Generar reporte */}
-      <div className="sticky top-2 z-20 rounded-inner border border-border bg-panel/95 p-3 backdrop-blur">
+      <div className="sticky top-2 z-20 rounded-[16px] border border-ink-200 bg-panel/95 p-3 backdrop-blur">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5">
           <div className="flex items-center gap-2">
             <span className="hidden text-[11.5px] font-bold tracking-[0.08em] text-ink-500 uppercase sm:inline">
@@ -125,7 +125,7 @@ export function DashboardTabs({ notice }: { notice?: string }) {
           </div>
 
           <Select value={responsable} onValueChange={(v) => v !== null && setResponsable(v)}>
-            <SelectTrigger size="sm">
+            <SelectTrigger size="sm" className="h-8 rounded-11 bg-panel">
               <SelectValue placeholder="Todos los responsables" />
             </SelectTrigger>
             <SelectContent>
@@ -139,7 +139,7 @@ export function DashboardTabs({ notice }: { notice?: string }) {
           </Select>
 
           <Select value={tipoCliente} onValueChange={(v) => v !== null && setTipoCliente(v)}>
-            <SelectTrigger size="sm">
+            <SelectTrigger size="sm" className="h-8 rounded-11 bg-panel">
               <SelectValue placeholder="Todos los tipos" />
             </SelectTrigger>
             <SelectContent>
@@ -154,9 +154,8 @@ export function DashboardTabs({ notice }: { notice?: string }) {
 
           <div className="ml-auto">
             <Button
-              size="sm"
               onClick={generarReporte}
-              className="px-4 font-bold"
+              className="h-9 rounded-lg px-4 font-bold"
             >
               <Printer className="size-4" strokeWidth={1.9} />
               Generar reporte

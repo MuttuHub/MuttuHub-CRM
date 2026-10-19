@@ -34,7 +34,7 @@
 
 import "./require-local-db";
 import { db } from "../src/lib/db";
-import { DOC_CATEGORIES, LINEAS_ESTRATEGICAS_V2, RESTRICTED_DOC_CATEGORIES, RUBROS_V2, TASK_TAGS } from "../src/lib/catalogs";
+import { DOC_CATEGORIES, RESTRICTED_DOC_CATEGORIES, TASK_TAGS } from "../src/lib/catalogs";
 import { ensureDefaultSettings } from "../src/lib/settings";
 import { createSupabaseAdmin } from "../src/lib/supabase/admin";
 import { documentStoragePath, STORAGE_BUCKET } from "../src/lib/api/files";
@@ -58,9 +58,6 @@ const ENTITY_CODE = {
   version: "a00a",
   acceso: "a00b",
   solicitud: "a00c",
-  rubro: "a00d",
-  linea: "a00e",
-  municipio: "a00f",
 } as const;
 
 type Entity = keyof typeof ENTITY_CODE;
@@ -83,27 +80,6 @@ function daysFromNow(days: number): Date {
 
 function daysAgo(days: number): Date {
   return daysFromNow(-days);
-}
-
-/**
- * UTC midnight of the intended local calendar day `days` from now.
- *
- * Calendar-day columns written through the form (`fecha_primer_contacto`,
- * `fecha_ultima_gestion`) receive a `YYYY-MM-DD` string that the API resolves
- * with `parseDate` to UTC midnight. `daysFromNow`/`daysAgo` return real
- * instants, which would render on the previous calendar day in UTC-5, so only
- * those two date-input columns are normalized here.
- *
- * Task due dates (`fechaEntrega`) deliberately keep `daysFromNow`/`daysAgo`:
- * the alert engine compares instants (`esVencida`, the tasks report) and the
- * demo needs its overdue/today/upcoming spread, so they must stay real
- * instants. The same holds for `bitacora.created_at`, `revisado_at` and
- * `solicitudes.created_at`.
- */
-function calendarDayFromNow(days: number): Date {
-  const local = new Date();
-  local.setDate(local.getDate() + days);
-  return new Date(Date.UTC(local.getFullYear(), local.getMonth(), local.getDate()));
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -382,7 +358,7 @@ async function seedClientes(usuarios: Record<string, { id: string }>) {
         tamano_org: def.tamano_org,
         ubicacion: def.ubicacion,
         canal_contacto_inicial: def.canal_contacto_inicial,
-        fecha_primer_contacto: calendarDayFromNow(-(120 - i * 5)),
+        fecha_primer_contacto: daysAgo(120 - i * 5),
         responsable_id: usuarios[def.responsableKey].id,
         resumen_relacion: def.resumen_relacion,
         riesgos_barreras: def.riesgos_barreras,
@@ -484,12 +460,12 @@ async function seedOportunidades(clienteIds: string[]) {
         servicios_interes: "Consultoría, formación, acompañamiento en implementación.",
         valor_estimado_cop: def.valor,
         estado: def.estado as never,
-        fecha_ultima_gestion: calendarDayFromNow(-(i + 1)),
+        fecha_ultima_gestion: daysAgo(i + 1),
       },
       update: {
         estado: def.estado as never,
         valor_estimado_cop: def.valor,
-        fecha_ultima_gestion: calendarDayFromNow(-(i + 1)),
+        fecha_ultima_gestion: daysAgo(i + 1),
       },
     });
   }
@@ -972,127 +948,6 @@ async function seedAccesos(usuarios: Record<string, { id: string }>) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Section: Rubro (catálogo único v2 R01–R15, REQ-CAT-01)
-// ─────────────────────────────────────────────────────────────────────────
-
-async function seedRubros() {
-  console.log("\n[rubros] Catálogo único R01–R15...");
-
-  let seq = 0;
-  for (const rubro of RUBROS_V2) {
-    seq += 1;
-    // Natural-key upsert: by `codigo`, not by id. An adopted database already
-    // has R01/R12 with random v1 ids, so the fixed id is used only when the row
-    // is created; re-running the seed refreshes the same 15 rows and never
-    // duplicates or collides.
-    await db.rubro.upsert({
-      where: { codigo: rubro.codigo },
-      create: {
-        id: fixedId("rubro", rubro.orden),
-        codigo: rubro.codigo,
-        nombre: rubro.nombre,
-        orden: rubro.orden,
-        activo: true,
-      },
-      // Only nombre/orden: a re-seed must not override an administrator's suspension (activo=false).
-      update: {
-        nombre: rubro.nombre,
-        orden: rubro.orden,
-      },
-    });
-  }
-  console.log(`  ${seq} rubros R01–R15 upserted.`);
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// Section: Línea estratégica (catálogo v2 LE01–LE08, REQ-CAT-03)
-// ─────────────────────────────────────────────────────────────────────────
-
-async function seedLineasEstrategicas() {
-  console.log("\n[lineas] Catálogo de líneas estratégicas LE01–LE08...");
-
-  let seq = 0;
-  for (const linea of LINEAS_ESTRATEGICAS_V2) {
-    seq += 1;
-    // Natural-key upsert: by `codigo`, so re-running the seed refreshes the
-    // same 8 rows instead of duplicating them.
-    await db.lineaEstrategicaCatalogo.upsert({
-      where: { codigo: linea.codigo },
-      create: {
-        id: fixedId("linea", linea.orden),
-        codigo: linea.codigo,
-        nombre: linea.nombre,
-        orden: linea.orden,
-        activo: true,
-      },
-      // Only nombre/orden: a re-seed must not override an administrator's
-      // suspension (activo=false + fecha_suspension).
-      update: {
-        nombre: linea.nombre,
-        orden: linea.orden,
-      },
-    });
-  }
-  console.log(`  ${seq} líneas estratégicas LE01–LE08 upserted.`);
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// Section: Municipio (catálogo demo v2, REQ-CAT-04)
-// ─────────────────────────────────────────────────────────────────────────
-
-/**
- * Small CURATED demo set of REAL Colombian municipios with their real DANE
- * codes, across 7 departments. DEMO DATA ONLY: the S1.3 migration deliberately
- * seeds nothing (there is no legacy `territorio` to normalise and a full
- * national list would be invented data), so a recording needs a few real rows
- * to show. `codigo_dane` is optional and unique only when present.
- */
-const MUNICIPIOS_DEMO = [
-  { nombre: "Medellín", departamento: "Antioquia", codigo_dane: "05001" },
-  { nombre: "Barranquilla", departamento: "Atlántico", codigo_dane: "08001" },
-  { nombre: "Bogotá D.C.", departamento: "Bogotá D.C.", codigo_dane: "11001" },
-  { nombre: "Cartagena de Indias", departamento: "Bolívar", codigo_dane: "13001" },
-  { nombre: "Manizales", departamento: "Caldas", codigo_dane: "17001" },
-  { nombre: "Bucaramanga", departamento: "Santander", codigo_dane: "68001" },
-  { nombre: "Cali", departamento: "Valle del Cauca", codigo_dane: "76001" },
-] as const;
-
-async function seedMunicipios() {
-  console.log("\n[municipios] Catálogo demo de municipios...");
-
-  let seq = 0;
-  for (const municipio of MUNICIPIOS_DEMO) {
-    seq += 1;
-    // Natural-key upsert by `(nombre, departamento)`, the catalog's own unique
-    // pair, so re-running the seed refreshes the same rows instead of
-    // duplicating them.
-    await db.municipio.upsert({
-      where: {
-        nombre_departamento: {
-          nombre: municipio.nombre,
-          departamento: municipio.departamento,
-        },
-      },
-      create: {
-        id: fixedId("municipio", seq),
-        nombre: municipio.nombre,
-        departamento: municipio.departamento,
-        codigo_dane: municipio.codigo_dane,
-        orden: seq,
-        activo: true,
-      },
-      // Only codigo_dane/orden: a re-seed must not override an administrator's
-      // suspension (activo=false + fecha_suspension).
-      update: {
-        codigo_dane: municipio.codigo_dane,
-        orden: seq,
-      },
-    });
-  }
-  console.log(`  ${seq} municipios demo upserted.`);
-}
-
-// ─────────────────────────────────────────────────────────────────────────
 // main
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -1120,9 +975,6 @@ async function main() {
   await seedDocumentos(admin, usuarios, clienteIds);
   await seedSolicitudesAcceso(usuarios);
   await seedAccesos(usuarios);
-  await seedRubros();
-  await seedLineasEstrategicas();
-  await seedMunicipios();
 
   console.log("\n[settings] Catálogos por defecto (task_tags, doc_categories)...");
   await ensureDefaultSettings();
@@ -1135,10 +987,7 @@ async function main() {
       `  - Clientes: ${CLIENTES.length}\n` +
       `  - Oportunidades: ${OPORTUNIDADES.length}\n` +
       `  - Tareas: ${TAREAS.length}\n` +
-      `  - Documentos: ${DOC_CATEGORIES.length}\n` +
-      `  - Rubros: ${RUBROS_V2.length}\n` +
-      `  - Líneas estratégicas: ${LINEAS_ESTRATEGICAS_V2.length}\n` +
-      `  - Municipios (demo): ${MUNICIPIOS_DEMO.length}\n\n` +
+      `  - Documentos: ${DOC_CATEGORIES.length}\n\n` +
       "Credenciales demo (NUNCA reutilizar fuera de este proyecto de desarrollo):\n" +
       PERSONAS.map((p) => `  - ${p.rol.padEnd(14)} ${p.email}  /  ${DEMO_PASSWORD}`).join("\n") +
       "\n",

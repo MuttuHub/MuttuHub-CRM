@@ -270,7 +270,7 @@ export function RepositoryList() {
         </p>
         <Button
           onClick={() => setUploadOpen(true)}
-          className="px-4 font-bold"
+          className="h-9 rounded-lg px-4 font-bold"
         >
           <FileUp className="size-4" strokeWidth={1.9} />
           Subir documento
@@ -304,7 +304,7 @@ export function RepositoryList() {
       </div>
 
       <div className="flex min-w-0 flex-col gap-4 lg:grid lg:grid-cols-[240px_1fr]">
-        <aside className="flex min-w-0 flex-col gap-3 surface p-3">
+        <aside className="flex min-w-0 flex-col gap-3 rounded-[22px] border border-ink-200 bg-panel p-3">
           <div className="flex items-center justify-between gap-2 px-1">
             <span className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
               Carpetas
@@ -312,10 +312,10 @@ export function RepositoryList() {
             <Button
               type="button"
               variant="ghost"
-              size="icon-sm"
+              size="sm"
               onClick={() => setCreateFolderOpen(true)}
               aria-label="Crear carpeta"
-              className="text-ink-500 hover:text-ink-800"
+              className="h-7 w-7 rounded-lg p-0 text-ink-500 hover:bg-ink-100 hover:text-ink-800"
             >
               <FolderPlus className="size-4" strokeWidth={1.9} />
             </Button>
@@ -348,7 +348,7 @@ export function RepositoryList() {
           />
 
           {selected.size > 0 && (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-inner border border-rose-200 bg-rose-50 px-4 py-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-rose-200 bg-rose-50 px-4 py-2.5">
               <span className="text-[13px] font-semibold text-ink-800">
                 {selected.size} {selected.size === 1 ? "documento seleccionado" : "documentos seleccionados"}
               </span>
@@ -358,7 +358,7 @@ export function RepositoryList() {
                   size="sm"
                   disabled={zipPending}
                   onClick={() => void descargarSeleccion()}
-                  className="px-3.5 text-[13px] font-semibold text-ink-800"
+                  className="h-9 rounded-12 border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
                 >
                   {zipPending ? (
                     <LoaderCircle className="size-4 animate-spin" />
@@ -371,7 +371,7 @@ export function RepositoryList() {
                   variant="ghost"
                   size="sm"
                   onClick={() => setSelected(new Set())}
-                  className="px-2.5 text-[12.5px] font-semibold text-ink-600"
+                  className="h-9 px-2.5 text-[12.5px] font-semibold text-ink-600"
                 >
                   Limpiar
                 </Button>
@@ -452,7 +452,7 @@ function FolderActionDialogs({
 /* ── Fila de filtros ───────────────────────────────────────────────────── */
 
 const SELECT_CLASS =
-  "h-10 flex-1 basis-0 px-3 text-base md:text-[13px]";
+  "h-9 flex-1 basis-0 rounded-12 border-ink-200 bg-panel px-3 text-[13px]";
 
 function SectionFilters({
   local,
@@ -489,7 +489,7 @@ function SectionFilters({
   );
 
   return (
-    <section className="surface p-4 lg:p-5">
+    <section className="rounded-[22px] border border-ink-200 bg-panel p-4 lg:p-5">
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative min-w-[220px] flex-1">
           <Search
@@ -501,7 +501,7 @@ function SectionFilters({
             onChange={(e) => onChange({ q: e.target.value })}
             placeholder="Buscar por nombre, categoría, etiqueta, cliente o autor…"
             aria-label="Buscar documentos"
-            className="h-10 pl-9 text-base md:text-[13px]"
+            className="h-10 rounded-lg border-ink-200 bg-panel pl-9 text-[13px]"
           />
         </div>
 
@@ -510,7 +510,7 @@ function SectionFilters({
             render={
               <Button
                 variant="outline"
-                className="px-3.5 text-[13px] font-semibold text-ink-800"
+                className="h-10 rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
               >
                 <SlidersHorizontal className="size-4 text-ink-600" strokeWidth={1.8} />
                 Filtros{" "}
@@ -609,7 +609,7 @@ function SectionFilters({
                   value={local.desde}
                   onChange={(e) => onChange({ desde: e.target.value })}
                   aria-label="Documentos desde"
-                  className="h-10 min-w-0 flex-1 px-3 text-base md:text-[12.5px]"
+                  className="h-10 min-w-0 flex-1 rounded-lg border-ink-200 bg-panel px-3 text-[12.5px]"
                 />
                 <span className="text-[12px] text-ink-500">a</span>
                 <Label htmlFor="doc-hasta" className="sr-only">
@@ -621,7 +621,7 @@ function SectionFilters({
                   value={local.hasta}
                   onChange={(e) => onChange({ hasta: e.target.value })}
                   aria-label="Documentos hasta"
-                  className="h-10 min-w-0 flex-1 px-3 text-base md:text-[12.5px]"
+                  className="h-10 min-w-0 flex-1 rounded-lg border-ink-200 bg-panel px-3 text-[12.5px]"
                 />
               </div>
             </div>
@@ -632,7 +632,7 @@ function SectionFilters({
                   variant="ghost"
                   size="sm"
                   onClick={onClear}
-                  className="px-2 text-[12.5px] font-semibold text-ink-600"
+                  className="h-8 px-2 text-[12.5px] font-semibold text-ink-600"
                 >
                   <RotateCcw className="size-3" strokeWidth={1.9} />
                   Limpiar filtros
@@ -681,7 +681,7 @@ function DocumentsTableCard({
   const isEmpty = !query.isLoading && items.length === 0;
 
   return (
-    <section className="overflow-hidden surface">
+    <section className="overflow-hidden rounded-[22px] border border-ink-200 bg-panel">
       {query.isLoading ? (
         <div className="space-y-3 p-6">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -694,7 +694,7 @@ function DocumentsTableCard({
         <>
           <div className="overflow-x-auto">
             {/* Patrón C (plan Fase 5): min-w para que scrollee en vez de aplastarse */}
-            <Table className="min-w-[760px]">
+            <Table className="min-w-[920px]">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="w-10 pl-5">
@@ -704,16 +704,16 @@ function DocumentsTableCard({
                       aria-label="Seleccionar todos los de la página"
                     />
                   </TableHead>
-                  <TableHead>
+                  <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
                     Documento
                   </TableHead>
-                  <TableHead>
+                  <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
                     Cliente
                   </TableHead>
-                  <TableHead>
+                  <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
                     Versión activa
                   </TableHead>
-                  <TableHead numeric className="sticky right-0 w-24 bg-panel">
+                  <TableHead className="w-24 text-right text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
                     Acciones
                   </TableHead>
                 </TableRow>
@@ -761,7 +761,7 @@ function DocumentRow({
   return (
     <TableRow
       onClick={onOpen}
-      className="group/fila cursor-pointer hover:bg-muted"
+      className="cursor-pointer hover:bg-rose-50/40"
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -787,8 +787,8 @@ function DocumentRow({
           >
             {extensionOf(activa?.tipo_archivo ?? "")?.toUpperCase() ?? "—"}
           </span>
-          <div className="min-w-0 max-w-[260px] xl:max-w-[320px]">
-            <div className="truncate text-[13.5px] font-semibold text-ink-950" title={doc.titulo}>
+          <div className="min-w-0 max-w-[340px]">
+            <div className="truncate text-[13.5px] font-semibold text-ink-950">
               {doc.titulo}
             </div>
             <div className="mt-0.5 flex flex-wrap items-center gap-1">
@@ -824,10 +824,7 @@ function DocumentRow({
       </TableCell>
       <TableCell>
         {doc.clientes[0] ? (
-          <span
-            className="line-clamp-1 max-w-[140px] text-[13px] font-medium text-ink-800 xl:max-w-[180px]"
-            title={doc.clientes.map((c) => c.nombre).join(", ")}
-          >
+          <span className="line-clamp-1 max-w-[180px] text-[13px] font-medium text-ink-800">
             {doc.clientes[0].nombre}
             {doc.clientes.length > 1 && ` · +${doc.clientes.length - 1}`}
           </span>
@@ -837,10 +834,7 @@ function DocumentRow({
       </TableCell>
       <TableCell>
         {activa ? (
-          <span
-            className="inline-block h-[24px] max-w-[260px] truncate rounded-full bg-ink-100 px-2.5 align-middle text-[11px] leading-[24px] font-semibold text-ink-700"
-            title={`v${activa.numero_version} · ${formatVersionFecha(activa.created_at)} · ${activa.subido_por_nombre}`}
-          >
+          <span className="inline-flex h-[24px] items-center gap-1.5 rounded-full bg-ink-100 px-2.5 text-[11px] font-semibold whitespace-nowrap text-ink-700">
             v{activa.numero_version} · {formatVersionFecha(activa.created_at)} ·{" "}
             {activa.subido_por_nombre}
           </span>
@@ -848,7 +842,7 @@ function DocumentRow({
           <span className="text-[12.5px] text-ink-500">Sin versión</span>
         )}
       </TableCell>
-      <TableCell className="sticky right-0 bg-panel pr-4 text-right group-hover/fila:bg-muted">
+      <TableCell className="pr-4 text-right">
         <div className="flex items-center justify-end gap-0.5">
           <Button
             variant="ghost"
@@ -923,7 +917,7 @@ function PaginationFooter({
           size="sm"
           disabled={page <= 1}
           onClick={() => onPage(page - 1)}
-          className="px-2.5 text-[12.5px] font-semibold after:-inset-2"
+          className="h-8 rounded-10 px-2.5 text-[12.5px] font-semibold after:-inset-2"
         >
           Anterior
         </Button>
@@ -935,7 +929,7 @@ function PaginationFooter({
               size="sm"
               onClick={() => onPage(p)}
               className={cn(
-                "min-w-8 px-2 text-[12.5px] font-bold after:-inset-2",
+                "h-8 min-w-8 rounded-10 px-2 text-[12.5px] font-bold after:-inset-2",
                 p === page && "bg-ink-950 text-white hover:bg-ink-800 dark:bg-ink-100 dark:text-white dark:hover:bg-ink-200",
               )}
             >
@@ -952,7 +946,7 @@ function PaginationFooter({
           size="sm"
           disabled={page >= totalPages}
           onClick={() => onPage(page + 1)}
-          className="px-2.5 text-[12.5px] font-semibold after:-inset-2"
+          className="h-8 rounded-10 px-2.5 text-[12.5px] font-semibold after:-inset-2"
         >
           Siguiente
         </Button>
@@ -978,7 +972,7 @@ function EmptyDocuments({ onOpenUpload }: { onOpenUpload: () => void }) {
           <span className="font-semibold text-ink-900">{'"Subir documento"'}</span> o
           ajusta los filtros para ver más resultados.
         </p>
-        <Button onClick={onOpenUpload} className="mt-5 px-4 font-bold">
+        <Button onClick={onOpenUpload} className="mt-5 rounded-lg px-4 font-bold">
           <FileUp className="size-4" strokeWidth={1.9} />
           Subir documento
         </Button>

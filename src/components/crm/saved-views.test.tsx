@@ -61,7 +61,8 @@ describe("SavedViewsMenu", () => {
 
   it("renders the trigger with a view count badge", () => {
     render(<SavedViewsMenu filters={{}} onApply={vi.fn()} />)
-    expect(screen.getByRole("button", { name: /Vistas/ })).toHaveTextContent("0")
+    expect(screen.getByRole("button", { name: /Vistas/ })).toBeInTheDocument()
+    expect(screen.getByText("0")).toBeInTheDocument()
   })
 
   it("shows the empty state when there are no saved views", async () => {
@@ -110,7 +111,7 @@ describe("SavedViewsMenu", () => {
     ])
     render(<SavedViewsMenu filters={{}} onApply={vi.fn()} />)
     await user.click(screen.getByRole("button", { name: /Vistas/ }))
-    await user.click(await screen.findByRole("menuitem", { name: "Eliminar vista Activos" }))
+    await user.click(await screen.findByRole("button", { name: "Eliminar vista Activos" }))
 
     const dialog = await screen.findByRole("dialog")
     expect(dialog).toHaveTextContent('Eliminar vista "Activos"')
@@ -133,7 +134,7 @@ describe("SavedViewsMenu", () => {
     seedViews([{ id: "v1", nombre: "Activos", filtros: { estado: "activo" } }])
     render(<SavedViewsMenu filters={{}} onApply={vi.fn()} />)
     await user.click(screen.getByRole("button", { name: /Vistas/ }))
-    await user.click(await screen.findByRole("menuitem", { name: "Eliminar vista Activos" }))
+    await user.click(await screen.findByRole("button", { name: "Eliminar vista Activos" }))
     await user.click(await screen.findByRole("button", { name: "Cancelar" }))
 
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]") as SavedView[]
@@ -149,7 +150,7 @@ describe("SavedViewsMenu", () => {
     ])
     render(<SavedViewsMenu filters={{}} onApply={vi.fn()} />)
     await user.click(screen.getByRole("button", { name: /Vistas/ }))
-    await user.click(await screen.findByRole("menuitem", { name: "Eliminar vista Activos" }))
+    await user.click(await screen.findByRole("button", { name: "Eliminar vista Activos" }))
     await user.click(screen.getByRole("button", { name: "Eliminar" }))
 
     await waitFor(() => expect(toast.success).toHaveBeenCalled())
@@ -171,7 +172,7 @@ describe("SavedViewsMenu", () => {
     seedViews([{ id: "v1", nombre: "Activos", filtros: { estado: "activo" } }])
     render(<SavedViewsMenu filters={{}} onApply={vi.fn()} />)
     await user.click(screen.getByRole("button", { name: /Vistas/ }))
-    await user.click(await screen.findByRole("menuitem", { name: "Eliminar vista Activos" }))
+    await user.click(await screen.findByRole("button", { name: "Eliminar vista Activos" }))
     await user.click(screen.getByRole("button", { name: "Eliminar" }))
 
     await waitFor(() => expect(toast.success).toHaveBeenCalled())

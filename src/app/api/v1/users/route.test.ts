@@ -111,17 +111,6 @@ describe("GET /api/v1/users", () => {
     expect(res.status).toBe(200);
     expect(json.usuarios).toHaveLength(1);
   });
-
-  it("selects the gerencial flag so the admin table can render it (S9 U2)", async () => {
-    mockAuth();
-    vi.mocked(db.usuario.findMany).mockResolvedValue([] as never);
-
-    await GET();
-
-    expect(db.usuario.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ select: expect.objectContaining({ puede_ver_tablero_gerencial: true }) }),
-    );
-  });
 });
 
 describe("POST /api/v1/users", () => {

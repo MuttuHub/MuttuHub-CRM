@@ -158,9 +158,8 @@ export function SavedViewsMenu({
         <DropdownMenuTrigger
           render={
             <Button
-              size="sm"
               variant="outline"
-              className="px-3.5 text-[13px] font-semibold text-ink-800"
+              className="h-9 rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
             >
               <LayoutList className="size-4 text-ink-600" strokeWidth={1.8} />
               Vistas
@@ -185,13 +184,19 @@ export function SavedViewsMenu({
               >
                 {view.nombre}
               </DropdownMenuItem>
-              <DropdownMenuItem
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
                 aria-label={`Eliminar vista ${view.nombre}`}
-                onClick={() => setDeleteTarget(view)}
-                className="mr-1 size-6 shrink-0 justify-center p-0 text-ink-500 opacity-0 hover:text-destructivo focus-visible:opacity-100 data-highlighted:opacity-100 group-hover:opacity-100"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeleteTarget(view);
+                }}
+                className="mr-1 text-ink-500 opacity-0 hover:text-destructivo group-hover:opacity-100 after:-inset-1"
               >
                 <Trash2 className="size-3.5" strokeWidth={1.8} />
-              </DropdownMenuItem>
+              </Button>
             </div>
           ))}
           <DropdownMenuSeparator />
@@ -218,7 +223,7 @@ export function SavedViewsMenu({
       />
 
       <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
-        <DialogContent className="sm:max-w-[min(380px,calc(100%-2rem))]">
+        <DialogContent className="rounded-[20px] sm:max-w-[min(380px,calc(100%-2rem))]">
           <DialogHeader>
             <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
               Guardar vista
@@ -242,7 +247,7 @@ export function SavedViewsMenu({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ej. Gobierno local activo"
-                className="px-3"
+                className="h-10 rounded-12 bg-panel px-3"
               />
             </div>
             <DialogFooter>

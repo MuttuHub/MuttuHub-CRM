@@ -12,7 +12,7 @@
 // `label` and `message` stay per-route (the Spanish user-facing message
 // differs by endpoint on purpose) so no route silently changes its copy.
 
-import { apiError, RespuestaAbortada } from "@/lib/api/errors";
+import { apiError } from "@/lib/api/errors";
 
 // Route handlers take varying (request, ctx?) shapes — `unknown[]` (not
 // `any[]`) keeps this fully typed while forwarding whatever args the
@@ -28,8 +28,6 @@ export function withApiErrorHandling<Args extends unknown[]>(
     try {
       return await handler(...args);
     } catch (err) {
-      // A transaction that aborted on purpose (row lock found a changed estado, ...).
-      if (err instanceof RespuestaAbortada) return err.response;
       console.error(`[${label}] failed:`, err);
       return apiError(message, 500, "INTERNAL_ERROR");
     }

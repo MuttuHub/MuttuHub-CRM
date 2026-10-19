@@ -59,7 +59,7 @@ export default function ResetPasswordPage() {
         className="mb-7 w-[124px]"
       />
 
-      <div className="w-full surface p-7">
+      <div className="w-full rounded-[26px] border border-ink-200 bg-panel p-7 shadow-[0_18px_50px_-28px_rgba(25,17,19,0.35)]">
         {unconfigured ? (
           <>
             <h1 className="font-display text-[22px] font-bold tracking-[-0.02em] text-ink-950">
@@ -111,7 +111,7 @@ export default function ResetPasswordPage() {
                   autoComplete="email"
                   required
                   placeholder="nombre@muttu.co"
-                  className="px-3.5"
+                  className="h-11 rounded-lg bg-panel px-3.5"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
@@ -120,7 +120,7 @@ export default function ResetPasswordPage() {
               <Button
                 type="submit"
                 disabled={status === "loading"}
-                className="mt-1 text-[14px] font-bold"
+                className="mt-1 h-11 rounded-lg text-[14px] font-bold"
               >
                 {status === "loading" && (
                   <LoaderCircle className="size-4 animate-spin" strokeWidth={2} />

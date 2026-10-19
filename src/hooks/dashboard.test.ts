@@ -115,8 +115,6 @@ const SUMMARY: DashboardMySummary = {
   hoy: { count: 2 },
   compromisos_pendientes: { count: 1, vencidos: 0 },
   clientes_asignados: { count: 0, items: [] },
-  proyectos_en_ejecucion: { count: 0, items: [] },
-  oportunidades_en_prospeccion: { count: 0, items: [] },
 }
 
 describe("useDashboardPipeline", () => {

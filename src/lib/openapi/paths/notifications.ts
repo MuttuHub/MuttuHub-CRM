@@ -27,20 +27,6 @@ const AlertItemSchema = registry.register(
   }),
 );
 
-const NotificacionProyectoSchema = registry.register(
-  "NotificacionProyecto",
-  z.object({
-    notificacion_id: z.string().uuid(),
-    tipo: z.enum(["SOBREGASTO_RUBRO", "GASTO_RECHAZADO"]),
-    mensaje: z.string().openapi({ example: "Gasto supera el asignado del rubro", description: "En GASTO_RECHAZADO: tercero, documento, valor y motivo del rechazo (solo el título si el gasto ya fue corregido)." }),
-    proyecto_id: z.string().uuid().nullable(),
-    proyecto_codigo: z.string().nullable(),
-    gasto_id: z.string().uuid().nullable(),
-    leida: z.boolean(),
-    created_at: z.string().datetime(),
-  }),
-);
-
 const NotificationsSnapshotSchema = registry.register(
   "NotificationsSnapshot",
   z.object({
@@ -49,10 +35,6 @@ const NotificationsSnapshotSchema = registry.register(
     hoy: z.array(AlertItemSchema),
     proximos3: z.array(AlertItemSchema),
     leidas_ids: z.array(z.string().uuid()),
-    proyectos: z.array(NotificacionProyectoSchema).openapi({
-      description:
-        "v2 (S6/M7): notificaciones de proyecto del propio usuario. SOBREGASTO_RUBRO solo para GERENCIA; GASTO_RECHAZADO para quien registró el gasto rechazado, con cualquier rol. `total` las incluye.",
-    }),
   }),
 );
 

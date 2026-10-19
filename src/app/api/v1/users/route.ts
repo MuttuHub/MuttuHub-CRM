@@ -31,7 +31,6 @@ const USER_SELECT = {
   rol: true,
   activo: true,
   gestiona_oportunidades: true,
-  puede_ver_tablero_gerencial: true,
   created_at: true,
 } as const;
 

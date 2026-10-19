@@ -69,7 +69,7 @@ describe("GET /api/v1/settings", () => {
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(db.setting.upsert).toHaveBeenCalledTimes(3);
+    expect(db.setting.upsert).toHaveBeenCalledTimes(2);
     expect(json.task_tags).toEqual(["Comercial", "Administrativo", "Proyecto", "Interno"]);
   });
 });

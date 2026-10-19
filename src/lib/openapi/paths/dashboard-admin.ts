@@ -262,10 +262,7 @@ registry.registerPath({
     "cliente. `vencidas` = activas con fecha_entrega antes de hoy; `hoy` = fecha_entrega dentro de [hoy, mañana) " +
     "(mismo bucket del motor de alertas, enlaza con la campana de notificaciones). `compromisos_pendientes` = " +
     "tareas propias abiertas con origen CRM o AMBOS; `vencidos` es su subconjunto vencido. `clientes_asignados` " +
-    "son los clientes sin borrar donde el usuario actual es responsable. S2.7 (RNF-C01): `proyectos_en_ejecucion` " +
-    "lista proyectos EN_EJECUCION (BORRADOR excluido) según el alcance de lectura de proyectos — ADM/GER todos, " +
-    "un COORDINADOR solo con membresía activa, el resto ninguno; `oportunidades_en_prospeccion` lista las " +
-    "oportunidades de fase PROSPECCION, ni GANADA ni PERDIDA, de los clientes del usuario.",
+    "son los clientes sin borrar donde el usuario actual es responsable.",
   security: [{ sessionCookie: [] }],
   request: { query: DashboardQuerySchema },
   responses: {
@@ -311,31 +308,6 @@ registry.registerPath({
                     nombre: z.string(),
                     estado: EstadoClienteSchema,
                     prioridad: PrioridadClienteSchema,
-                  }),
-                ),
-              }),
-              proyectos_en_ejecucion: z.object({
-                count: z.number().int(),
-                items: z.array(
-                  z.object({
-                    id: z.string().uuid(),
-                    codigo: z.string(),
-                    nombre: z.string(),
-                    cliente_id: z.string().uuid(),
-                    cliente_nombre: z.string(),
-                  }),
-                ),
-              }),
-              oportunidades_en_prospeccion: z.object({
-                count: z.number().int(),
-                items: z.array(
-                  z.object({
-                    id: z.string().uuid(),
-                    nombre: z.string(),
-                    estado: z.string(),
-                    valor_estimado_cop: z.string().nullable(),
-                    cliente_id: z.string().uuid(),
-                    cliente_nombre: z.string(),
                   }),
                 ),
               }),

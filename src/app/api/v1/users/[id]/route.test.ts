@@ -203,48 +203,6 @@ describe("PATCH /api/v1/users/:id", () => {
     );
   });
 
-  it("accepts puede_ver_tablero_gerencial in the PATCH body (S9 U2)", async () => {
-    vi.mocked(db.usuario.findUnique).mockResolvedValue(other);
-    vi.mocked(db.usuario.update).mockResolvedValue({ ...other, puede_ver_tablero_gerencial: true });
-
-    const res = await PATCH(patchRequest({ puede_ver_tablero_gerencial: true }), routeContext);
-
-    expect(res.status).toBe(200);
-    expect(db.usuario.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "user-2" },
-        data: { puede_ver_tablero_gerencial: true },
-        select: expect.objectContaining({ puede_ver_tablero_gerencial: true }),
-      }),
-    );
-  });
-
-  it.each([["false"], ["true"], [0], [1], [null]])(
-    "rejects a non-boolean puede_ver_tablero_gerencial (%j) with 400 and writes nothing",
-    async (value) => {
-      vi.mocked(db.usuario.findUnique).mockResolvedValue(other);
-
-      const res = await PATCH(patchRequest({ puede_ver_tablero_gerencial: value }), routeContext);
-
-      expect(res.status).toBe(400);
-      expect((await res.json()).code).toBe("VALIDATION_ERROR");
-      expect(db.usuario.update).not.toHaveBeenCalled();
-    },
-  );
-
-  it("only an ADMINISTRADOR can set the gerencial flag", async () => {
-    vi.mocked(requireApiRole).mockResolvedValue({
-      ok: false,
-      response: new Response(JSON.stringify({ error: "x", code: "FORBIDDEN" }), { status: 403 }),
-    });
-
-    const res = await PATCH(patchRequest({ puede_ver_tablero_gerencial: true }), routeContext);
-
-    expect(res.status).toBe(403);
-    expect(requireApiRole).toHaveBeenCalledWith(["ADMINISTRADOR"]);
-    expect(db.usuario.update).not.toHaveBeenCalled();
-  });
-
   it("does not run admin guards when updating a non-admin user", async () => {
     vi.mocked(db.usuario.findUnique).mockResolvedValue(other);
     vi.mocked(db.usuario.update).mockResolvedValue({

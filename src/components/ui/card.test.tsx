@@ -49,19 +49,4 @@ describe("Card", () => {
     )
     expect(screen.getByRole("button", { name: "Acción" }).closest("[data-slot=card-action]")).toBeInTheDocument()
   })
-
-  it("uses the v6 surface: 20px radius, border instead of ring, 20px spacing", () => {
-    const { container } = render(<Card />)
-    const card = container.firstElementChild
-    expect(card).toHaveClass("rounded-[20px]", "border", "border-border", "[--card-spacing:--spacing(5)]")
-    expect(card).not.toHaveClass("rounded-xl", "ring-1", "ring-foreground/10")
-    expect(card?.className).not.toMatch(/shadow-/)
-  })
-
-  it("keeps the compact size at 12px spacing and lets callers override the radius", () => {
-    const { container } = render(<Card size="sm" className="rounded-[22px]" />)
-    const card = container.firstElementChild
-    expect(card).toHaveClass("data-[size=sm]:[--card-spacing:--spacing(3)]", "rounded-[22px]")
-    expect(card).not.toHaveClass("rounded-[20px]")
-  })
 })

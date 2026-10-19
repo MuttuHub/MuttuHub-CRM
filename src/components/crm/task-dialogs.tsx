@@ -168,7 +168,7 @@ export function TareaFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88dvh] overflow-y-auto sm:max-w-[min(540px,calc(100%-2rem))]">
+      <DialogContent className="max-h-[88dvh] overflow-y-auto rounded-[22px] sm:max-w-[min(540px,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
             {isEdit ? "Editar compromiso" : "Nuevo compromiso"}
@@ -199,7 +199,7 @@ export function TareaFormDialog({
                 value={form.titulo}
                 onChange={(e) => set("titulo", e.target.value)}
                 placeholder="Ej. Entregar informe trimestral"
-                className="px-3"
+                className="h-10 rounded-12 bg-panel px-3"
               />
             </div>
 
@@ -211,7 +211,7 @@ export function TareaFormDialog({
                 value={form.descripcion}
                 onChange={(e) => set("descripcion", e.target.value)}
                 placeholder="Detalle del compromiso"
-                className="w-full resize-none rounded-12 border border-border-strong bg-input-bg px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="w-full resize-none rounded-12 border border-input bg-panel px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               />
             </div>
 
@@ -223,7 +223,7 @@ export function TareaFormDialog({
                 value={form.responsable_id}
                 onValueChange={(v) => set("responsable_id", v ?? "")}
               >
-                <SelectTrigger aria-label="Responsable" className="w-full px-3">
+                <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
                   <SelectValue placeholder="Selecciona el responsable" />
                 </SelectTrigger>
                 <SelectContent>
@@ -243,7 +243,7 @@ export function TareaFormDialog({
                 type="date"
                 value={form.fecha_entrega}
                 onChange={(e) => set("fecha_entrega", e.target.value)}
-                className="px-3"
+                className="h-10 rounded-12 bg-panel px-3"
               />
             </div>
 
@@ -253,7 +253,7 @@ export function TareaFormDialog({
                 value={form.prioridad}
                 onValueChange={(v) => set("prioridad", v as PrioridadTarea | "")}
               >
-                <SelectTrigger aria-label="Prioridad" className="w-full px-3">
+                <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
                   <SelectValue placeholder="Sin prioridad" />
                 </SelectTrigger>
                 <SelectContent>
@@ -272,7 +272,7 @@ export function TareaFormDialog({
                 value={form.estado}
                 onValueChange={(v) => set("estado", v as EstadoTarea)}
               >
-                <SelectTrigger aria-label="Estado" className="w-full px-3">
+                <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -306,17 +306,12 @@ export function TareaFormDialog({
                     <span
                       className={cn(
                         "block text-[13px] font-bold",
-                        form.origen === option.value ? "text-accent-soft" : "text-ink-800",
+                        form.origen === option.value ? "text-rose-700 dark:text-rose-400" : "text-ink-800",
                       )}
                     >
                       {option.label}
                     </span>
-                    <span
-                      className={cn(
-                        "mt-0.5 block text-[11.5px]",
-                        form.origen === option.value ? "text-ink-700" : "text-ink-600",
-                      )}
-                    >
+                    <span className="mt-0.5 block text-[11.5px] text-ink-600">
                       {option.hint}
                     </span>
                   </button>
@@ -335,7 +330,7 @@ export function TareaFormDialog({
                   value={form.motivo_bloqueo}
                   onChange={(e) => set("motivo_bloqueo", e.target.value)}
                   placeholder="Por qué está bloqueado este compromiso"
-                  className="w-full resize-none rounded-12 border border-border-strong bg-input-bg px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  className="w-full resize-none rounded-12 border border-input bg-panel px-3 py-2 text-sm text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 />
               </div>
             )}
@@ -345,7 +340,7 @@ export function TareaFormDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={pending} className="px-4 font-bold">
+            <Button type="submit" disabled={pending} className="rounded-lg px-4 font-bold">
               {pending && <LoaderCircle className="size-4 animate-spin" />}
               {pending ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear compromiso"}
             </Button>

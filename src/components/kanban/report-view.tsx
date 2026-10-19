@@ -29,7 +29,6 @@ import {
   StatTile,
 } from "@/components/dashboard/shared";
 import { TrendFigure } from "@/components/dashboard/trend-figure";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const RANGOS: { value: ReportFilters["rango"]; label: string }[] = [
   { value: "week", label: "Semana" },
@@ -93,7 +92,7 @@ export function ReportView({ responsable, cliente }: ReportViewProps) {
             variant="outline"
             size="sm"
             onClick={() => void exportExcel()}
-            className="px-3.5 text-[13px] font-semibold text-ink-800"
+            className="h-9 rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
           >
             <FileSpreadsheet className="size-4 text-exito" strokeWidth={1.8} />
             Excel
@@ -102,7 +101,7 @@ export function ReportView({ responsable, cliente }: ReportViewProps) {
             variant="outline"
             size="sm"
             onClick={openPdf}
-            className="px-3.5 text-[13px] font-semibold text-ink-800"
+            className="h-9 rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
           >
             <FileText className="size-4 text-destructivo" strokeWidth={1.8} />
             PDF
@@ -113,7 +112,7 @@ export function ReportView({ responsable, cliente }: ReportViewProps) {
       {reportQuery.isLoading && <DashboardSkeleton />}
 
       {reportQuery.isError && (
-        <section className="grid min-h-[320px] place-items-center surface p-8">
+        <section className="grid min-h-[320px] place-items-center rounded-[24px] border border-ink-200 bg-panel p-8">
           <div className="max-w-[46ch] text-center">
             <span className="mx-auto grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-alerta-bg text-alerta">
               <LoaderCircle className="size-6" strokeWidth={1.7} />
@@ -127,7 +126,7 @@ export function ReportView({ responsable, cliente }: ReportViewProps) {
             <Button
               onClick={() => void reportQuery.refetch()}
               variant="outline"
-              className="mt-5 px-4 font-semibold"
+              className="mt-5 rounded-lg px-4 font-semibold"
             >
               Reintentar
             </Button>
@@ -143,7 +142,7 @@ export function ReportView({ responsable, cliente }: ReportViewProps) {
           <SummaryCards resumen={report.resumen} rango={RANGO_LABEL[report.rango]} />
 
           {report.resumen.total_asignadas === 0 ? (
-            <section className="grid min-h-[220px] place-items-center rounded-card border border-dashed border-border-strong bg-panel p-8 text-center">
+            <section className="grid min-h-[220px] place-items-center rounded-[24px] border border-dashed border-ink-300 bg-panel p-8 text-center">
               <div className="max-w-[42ch]">
                 <h3 className="font-display text-[17px] font-bold tracking-[-0.02em] text-ink-950">
                   Sin tareas en este período
@@ -241,25 +240,28 @@ function TableCard({
   children: ReactNode;
 }) {
   return (
-    <section className="overflow-hidden surface">
+    <section className="overflow-hidden rounded-[22px] border border-ink-200 bg-panel">
       <div className="border-b border-ink-200 px-5 py-3">
         <h3 className="font-display text-[14.5px] font-bold tracking-[-0.01em] text-ink-950">
           {title}
         </h3>
       </div>
       <div className="overflow-x-auto">
-        <Table className="text-[12.5px]">
-          <TableHeader>
-            <TableRow>
+        <table className="w-full border-collapse text-[12.5px]">
+          <thead>
+            <tr className="border-b border-ink-200 text-left">
               {headers.map((h) => (
-                <TableHead key={h}>
+                <th
+                  key={h}
+                  className="px-5 py-2.5 text-[10.5px] font-bold tracking-[0.09em] text-ink-500 uppercase"
+                >
                   {h}
-                </TableHead>
+                </th>
               ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>{children}</TableBody>
-        </Table>
+            </tr>
+          </thead>
+          <tbody>{children}</tbody>
+        </table>
       </div>
     </section>
   );
@@ -267,11 +269,11 @@ function TableCard({
 
 function MonoCell({ value, tone }: { value: number | string; tone?: string }) {
   return (
-    <TableCell>
+    <td className="px-5 py-2.5">
       <span className={cn("font-mono text-[12px] font-medium tabular-nums", tone ?? "text-ink-900")}>
         {value}
       </span>
-    </TableCell>
+    </td>
   );
 }
 
@@ -288,15 +290,15 @@ function PersonTable({
       headers={["Persona", "Asignadas", "En curso", "Vencidas", "Completadas", "A tiempo", "Tarde"]}
     >
       {porPersona.map((p) => (
-        <TableRow key={p.id}>
-          <TableCell className="font-semibold text-ink-900">{p.nombre}</TableCell>
+        <tr key={p.id} className="border-t border-ink-200 first:border-t-0 hover:bg-ink-100/40">
+          <td className="px-5 py-2.5 font-semibold text-ink-900">{p.nombre}</td>
           <MonoCell value={p.asignadas} />
           <MonoCell value={p.en_curso} />
           <MonoCell value={p.vencidas} tone={p.vencidas > 0 ? "text-destructivo" : "text-ink-900"} />
           <MonoCell value={p.completadas} tone="text-exito" />
           <MonoCell value={p.a_tiempo} tone="text-exito" />
           <MonoCell value={p.tarde} tone={p.tarde > 0 ? "text-alerta" : "text-ink-900"} />
-        </TableRow>
+        </tr>
       ))}
     </TableCard>
   );
@@ -315,7 +317,7 @@ function CargaPersonaCard({
   if (conTareas.length === 0) return null;
 
   return (
-    <section className="surface p-5 lg:p-6">
+    <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
       <h3 className="mb-4 font-display text-[14.5px] font-bold tracking-[-0.01em] text-ink-950">
         Carga por persona
       </h3>
@@ -351,7 +353,7 @@ function VencimientosCard({
     bucket === "más de 1 mes" ? "destructivo" : bucket === "1 a 4 semanas" ? "alerta" : bucket === "menos de 1 semana" ? "info" : "neutro";
 
   return (
-    <section className="surface p-5 lg:p-6">
+    <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
       <h3 className="mb-1 font-display text-[14.5px] font-bold tracking-[-0.01em] text-ink-950">
         Vencimientos por antigüedad
       </h3>
@@ -388,7 +390,7 @@ function CargaSemanalCard({ carga }: { carga: { semana: string; cantidad: number
     ultima.toLocaleDateString("es-CO", { day: "numeric", month: "short" });
 
   return (
-    <section className="surface p-5 lg:p-6">
+    <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
       <h3 className="mb-1 font-display text-[14.5px] font-bold tracking-[-0.01em] text-ink-950">
         Carga por semana de entrega
       </h3>
@@ -416,7 +418,7 @@ function TendenciaCierreCard({ tendencia }: { tendencia: { semana: string; canti
   const ultimaLabel = ultima.toLocaleDateString("es-CO", { day: "numeric", month: "short" });
 
   return (
-    <section className="surface p-5 lg:p-6">
+    <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
       <h3 className="mb-1 font-display text-[14.5px] font-bold tracking-[-0.01em] text-ink-950">
         Tendencia de cierre
       </h3>
@@ -444,7 +446,7 @@ function EstadoCard({ porEstado }: { porEstado: { estado: string; cantidad: numb
   const total = porEstado.reduce((acc, e) => acc + e.cantidad, 0);
 
   return (
-    <section className="surface p-5 lg:p-6">
+    <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
       <h3 className="mb-4 font-display text-[14.5px] font-bold tracking-[-0.01em] text-ink-950">
         Por estado
       </h3>
@@ -487,7 +489,7 @@ function ClienteCard({ porCliente }: { porCliente: { nombre: string; cantidad: n
   const restantes = porCliente.length - top.length;
 
   return (
-    <section className="surface p-5 lg:p-6">
+    <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
       <h3 className="mb-4 font-display text-[14.5px] font-bold tracking-[-0.01em] text-ink-950">
         Por cliente
       </h3>

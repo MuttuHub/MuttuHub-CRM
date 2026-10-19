@@ -70,21 +70,14 @@ function SidebarContent({ rail, inDrawer = false }: { rail: boolean; inDrawer?: 
             rail ? "flex-col gap-2" : "gap-2.5",
           )}
         >
-          {/* Logo variants: isotipo (pink bubble) reads on both themes; the wordmark
-              swaps colour (white sidebar) / white (dark sidebar). */}
-          {rail ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src="/brand/logo-iso.svg" alt="Muttu" className="h-auto w-7" />
-          ) : (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/brand/logo-color.svg" alt="Muttu" className="h-auto w-[86px] dark:hidden" />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/brand/logo-blanco.svg" alt="Muttu" className="hidden h-auto w-[86px] dark:block" />
-            </>
-          )}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={rail ? "/brand/logo-iso.svg" : "/brand/logo-blanco.svg"}
+            alt="Muttu"
+            className={cn("h-auto", rail ? "w-7" : "w-[86px]")}
+          />
           {!rail && (
-            <span className="rounded-full bg-shell-chip px-2 py-0.5 font-display text-[15px] font-bold tracking-tight text-shell-text">
+            <span className="rounded-full bg-shell-chip px-2 py-0.5 font-display text-[15px] font-bold tracking-tight text-white">
               Hub
             </span>
           )}
@@ -115,9 +108,9 @@ function SidebarContent({ rail, inDrawer = false }: { rail: boolean; inDrawer?: 
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar en el Hub"
             aria-label="Buscar en el Hub"
-            className="h-10 w-full rounded-12 border border-border-strong bg-shell-surface pr-10 pl-9 text-base md:text-[13px] text-shell-text placeholder:text-shell-faint focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus:outline-none"
+            className="h-[38px] w-full rounded-12 border border-shell-chip bg-shell-surface pr-10 pl-9 text-[13px] text-shell-text placeholder:text-shell-faint focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus:outline-none"
           />
-          <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded-md border border-shell-border bg-sidebar px-1.5 py-0.5 font-mono text-[10px] text-shell-muted">
+          <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded-md border border-shell-border bg-shell-chip px-1.5 py-0.5 font-mono text-[10px] text-shell-muted">
             ⌘K
           </kbd>
         </div>
@@ -140,19 +133,18 @@ function SidebarContent({ rail, inDrawer = false }: { rail: boolean; inDrawer?: 
               const link = (
                 <Link
                   href={item.href}
-                  aria-current={active ? "page" : undefined}
                   className={cn(
-                    "relative flex h-[44px] w-full items-center gap-2.5 transition-colors after:absolute after:content-[''] after:-inset-y-px focus-visible:ring-3 focus-visible:ring-ring/50",
+                    "relative flex h-[36px] w-full items-center gap-2.5 rounded-11 transition-colors after:absolute after:content-[''] after:-inset-y-px focus-visible:ring-3 focus-visible:ring-ring/50",
                     rail ? "justify-center" : "px-3",
                     active
-                      ? "bg-shell-active font-semibold text-shell-text before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-accent-bar before:content-['']"
-                      : "font-medium text-shell-muted hover:bg-shell-hover hover:text-shell-text",
+                      ? "bg-rose-500 font-semibold text-white"
+                      : "font-medium text-shell-muted hover:bg-shell-chip hover:text-shell",
                   )}
                 >
                   <Icon
                     className={cn(
                       rail ? "size-[19px]" : "size-[16px]",
-                      active ? "text-shell-text" : "text-shell-muted",
+                      active ? "text-white" : "text-shell-muted",
                     )}
                     strokeWidth={1.7}
                   />
@@ -166,8 +158,8 @@ function SidebarContent({ rail, inDrawer = false }: { rail: boolean; inDrawer?: 
                           className={cn(
                             "rounded-full px-1.5 py-px font-mono text-[10px] font-semibold",
                             active
-                              ? "bg-sidebar text-shell-text"
-                              : "bg-shell-chip text-shell-text",
+                              ? "bg-white/20 text-white"
+                              : "bg-shell-chip text-shell",
                           )}
                         >
                           {count}
@@ -243,9 +235,10 @@ export function Sidebar() {
       <aside
         className={cn(
           "sticky top-[14px] hidden h-[calc(100vh-28px)] shrink-0 flex-col rounded-[26px] border border-shell-border bg-sidebar lg:flex",
-          // U3 (manual v2): un solo ancho de ~220px (antes 200px / 244px en xl);
-          // colapsado queda el rail de 72px.
-          collapsed ? "w-[72px] px-2.5 py-3.5" : "w-[220px] px-3 py-3.5",
+          // PR 31 (plan Fase 5): rail de 200px hasta xl — el acantilado del
+          // iPad horizontal (1024px) no puede pagar 244px. En xl+ vuelve a
+          // 244px, donde el ancho sobra.
+          collapsed ? "w-[72px] px-2.5 py-3.5" : "w-[200px] px-3 py-3.5 xl:w-[244px] xl:px-3.5",
         )}
       >
         <SidebarContent rail={collapsed} />
@@ -259,7 +252,7 @@ export function Sidebar() {
             onClick={() => setMobileOpen(false)}
             className="absolute inset-0 bg-[#191113]/50 backdrop-blur-[2px]"
           />
-          <aside id="sidebar-drawer" className="absolute inset-y-0 left-0 flex w-[264px] flex-col rounded-r-[26px] border-r border-shell-border bg-sidebar px-3.5 py-3.5">
+          <aside id="sidebar-drawer" className="absolute inset-y-0 left-0 flex w-[264px] flex-col rounded-r-[26px] border-r border-shell-border bg-shell-surface px-3.5 py-3.5">
             <SidebarContent rail={false} inDrawer />
           </aside>
         </div>

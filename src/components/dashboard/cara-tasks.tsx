@@ -125,9 +125,8 @@ export function CaraTareas({ filters }: { filters: DashboardFilters }) {
           action={
             <Link href="/tablero">
               <Button
-                size="xs"
                 variant="ghost"
-                className="px-2.5 text-[12px] font-semibold text-ink-700 hover:bg-ink-100"
+                className="h-[29px] rounded-[9px] px-2.5 text-[12px] font-semibold text-ink-700 hover:bg-ink-100"
               >
                 Ver tablero
                 <ArrowUpRight className="size-3.5" strokeWidth={1.9} />
@@ -136,7 +135,7 @@ export function CaraTareas({ filters }: { filters: DashboardFilters }) {
           }
         >
           <div className="flex flex-col gap-4">
-            <div className="flex items-end gap-3 rounded-inner bg-destructivo-bg p-4">
+            <div className="flex items-end gap-3 rounded-[16px] bg-destructivo-bg p-4">
               <CalendarClock className="size-6 text-destructivo" strokeWidth={1.8} />
               <div>
                 <p className="font-display text-[30px] leading-none font-extrabold tabular-nums text-destructivo">

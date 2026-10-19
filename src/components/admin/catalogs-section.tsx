@@ -76,7 +76,7 @@ export function CatalogsSection() {
     // El segundo caso cubre el pase en el que el snapshot recién llegó y el
     // borrador todavía no se hidrató (ajuste durante el render, ver arriba).
     return (
-      <section className="surface p-5 lg:p-6">
+      <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
         <Skeleton className="h-5 w-44" />
         <Skeleton className="mt-3 h-3.5 w-72" />
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
@@ -93,7 +93,7 @@ export function CatalogsSection() {
         ? query.error.message
         : "No pudimos cargar los catálogos. Inténtalo de nuevo.";
     return (
-      <section className="grid min-h-[280px] place-items-center surface p-8">
+      <section className="grid min-h-[280px] place-items-center rounded-[22px] border border-ink-200 bg-panel p-8">
         <div className="max-w-[46ch] text-center">
           <span className="mx-auto grid size-11 place-items-center rounded-[15px_15px_15px_5px] bg-alerta-bg text-alerta">
             <AlertTriangle className="size-5" strokeWidth={1.7} />
@@ -105,7 +105,7 @@ export function CatalogsSection() {
           <Button
             onClick={() => void query.refetch()}
             variant="outline"
-            className="mt-4 px-4 font-semibold"
+            className="mt-4 rounded-lg px-4 font-semibold"
           >
             Reintentar
           </Button>
@@ -224,7 +224,7 @@ export function CatalogsSection() {
   const saving = save.isPending;
 
   return (
-    <section className="surface p-5 lg:p-6">
+    <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h2 className="font-display text-[17px] font-bold tracking-[-0.02em] text-ink-950">
@@ -238,7 +238,7 @@ export function CatalogsSection() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Etiquetas de tarea */}
-        <div className="flex flex-col surface-inner p-4">
+        <div className="flex flex-col rounded-[18px] border border-ink-200 bg-ink-100/50 p-4">
           <div className="mb-3 flex items-center justify-between gap-2">
             <h3 className="flex items-center gap-1.5 text-[13.5px] font-bold text-ink-950">
               <Tags className="size-4 text-rose-500" strokeWidth={1.8} />
@@ -250,7 +250,7 @@ export function CatalogsSection() {
           </div>
 
           {draft!.task_tags.length === 0 ? (
-            <p className="rounded-inner border border-dashed border-border-strong px-4 py-6 text-center text-[12.5px] text-ink-600">
+            <p className="rounded-14 border border-dashed border-ink-300 px-4 py-6 text-center text-[12.5px] text-ink-600">
               Sin etiquetas — agregá al menos una
             </p>
           ) : (
@@ -280,13 +280,13 @@ export function CatalogsSection() {
               onChange={(e) => setTagInput(e.target.value)}
               placeholder="Nueva etiqueta…"
               aria-label="Nueva etiqueta de tarea"
-              className="h-10 px-3"
+              className="h-9 rounded-12 border-ink-200 bg-panel px-3"
               maxLength={MAX_TAG_LENGTH}
             />
             <Button
               type="submit"
               variant="secondary"
-              className="shrink-0 px-3 font-semibold"
+              className="shrink-0 rounded-12 px-3 font-semibold"
             >
               <Plus className="size-3.5" strokeWidth={2.2} />
               Agregar
@@ -295,7 +295,7 @@ export function CatalogsSection() {
         </div>
 
         {/* Categorías de documentos */}
-        <div className="flex flex-col surface-inner p-4">
+        <div className="flex flex-col rounded-[18px] border border-ink-200 bg-ink-100/50 p-4">
           <div className="mb-3 flex items-center justify-between gap-2">
             <h3 className="flex items-center gap-1.5 text-[13.5px] font-bold text-ink-950">
               <FolderLock className="size-4 text-rose-500" strokeWidth={1.8} />
@@ -311,7 +311,7 @@ export function CatalogsSection() {
           </p>
 
           {draft!.doc_categories.length === 0 ? (
-            <p className="rounded-inner border border-dashed border-border-strong px-4 py-6 text-center text-[12.5px] text-ink-600">
+            <p className="rounded-14 border border-dashed border-ink-300 px-4 py-6 text-center text-[12.5px] text-ink-600">
               Sin categorías — agregá al menos una
             </p>
           ) : (
@@ -323,7 +323,7 @@ export function CatalogsSection() {
                     onChange={(e) => setCategoryName(index, e.target.value)}
                     placeholder="Nombre de la categoría"
                     aria-label={`Nombre de la categoría ${index + 1}`}
-                    className="h-10 min-w-0 flex-1 px-3"
+                    className="h-9 min-w-0 flex-1 rounded-12 border-ink-200 bg-panel px-3"
                     maxLength={MAX_CATEGORY_LENGTH}
                   />
                   <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[12px] font-medium text-ink-700">
@@ -364,14 +364,14 @@ export function CatalogsSection() {
           variant="outline"
           disabled={!dirty || saving}
           onClick={handleDiscard}
-          className="px-4 font-semibold"
+          className="rounded-lg px-4 font-semibold"
         >
           Descartar
         </Button>
         <Button
           disabled={!dirty || saving}
           onClick={handleSave}
-          className="px-4 font-bold"
+          className="rounded-lg px-4 font-bold"
         >
           {saving ? (
             <LoaderCircle className="size-4 animate-spin" />

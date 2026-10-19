@@ -134,44 +134,6 @@ describe("PATCH /api/v1/clients/:id/contacts/:contactId", () => {
     expect(await res.json()).toMatchObject({ code: "NOT_FOUND" });
     expect(db.contacto.update).not.toHaveBeenCalled();
   });
-
-  it("updates the v7 Relaciones quadrant fields", async () => {
-    authAs(gerencia);
-    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
-    vi.mocked(db.contacto.findFirst).mockResolvedValue({ id: "con-1", cliente_id: "cli-1" } as never);
-    vi.mocked(db.contacto.update).mockResolvedValue({ id: "con-1" } as never);
-
-    const res = await PATCH(
-      patchRequest({ poder: 2, interes: 3, fuerza_relacion: 1, owner_id: null }),
-      routeContext,
-    );
-
-    expect(res.status).toBe(200);
-    expect(db.contacto.update).toHaveBeenCalledWith({
-      where: { id: "con-1" },
-      data: expect.objectContaining({ poder: 2, interes: 3, fuerza_relacion: 1, owner_id: null }),
-    });
-  });
-
-  it("returns 400 when poder is outside 1..5", async () => {
-    authAs(gerencia);
-
-    const res = await PATCH(patchRequest({ nombre: "Juan", poder: 6 }), routeContext);
-
-    expect(res.status).toBe(400);
-    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
-    expect(db.contacto.update).not.toHaveBeenCalled();
-  });
-
-  it("returns 400 when fuerza_relacion is outside 1..3", async () => {
-    authAs(gerencia);
-
-    const res = await PATCH(patchRequest({ nombre: "Juan", fuerza_relacion: 4 }), routeContext);
-
-    expect(res.status).toBe(400);
-    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
-    expect(db.contacto.update).not.toHaveBeenCalled();
-  });
 });
 
 describe("DELETE /api/v1/clients/:id/contacts/:contactId", () => {

@@ -1,7 +1,7 @@
 // Ficha completa imprimible de un cliente (PRD §4.6): cabecera, General,
 // Contactos, Oportunidades, Bitácora y Compromisos. Se auto-imprime al
-// cargar; 404 → "Cliente no encontrado", 401 (sesión vencida) → tarjeta de
-// "Sesión vencida"; cualquier otro fallo → mensaje genérico en español.
+// cargar; 404 → "Cliente no encontrado", 500/401 (plataforma no configurada
+// o sesión inválida) → tarjeta de "Plataforma no conectada".
 
 "use client";
 
@@ -18,7 +18,6 @@ import {
 import {
   formatCOP,
   formatFecha,
-  formatFechaDia,
   formatFechaHora,
   type BitacoraEntrada,
   type ClientDetail,
@@ -30,7 +29,7 @@ import { apiGet, ApiError } from "@/lib/api/http";
 
 type LoadState =
   | { kind: "loading" }
-  | { kind: "error"; clave: "sesion" | "404" | "otro"; message: string }
+  | { kind: "error"; clave: "sin-conexion" | "404" | "otro"; message: string }
   | { kind: "ready"; data: FichaData };
 
 type FichaData = {
@@ -78,16 +77,14 @@ export function PrintFicha({ clientId }: { clientId: string }) {
         if (!alive) return;
         if (err instanceof ApiError && err.status === 404) {
           setState({ kind: "error", clave: "404", message: err.message });
-        } else if (err instanceof ApiError && err.status === 401) {
-          setState({ kind: "error", clave: "sesion", message: err.message });
+        } else if (err instanceof ApiError && (err.status === 500 || err.status === 401)) {
+          setState({ kind: "error", clave: "sin-conexion", message: err.message });
         } else {
           setState({
             kind: "error",
             clave: "otro",
             message:
-              err instanceof ApiError && err.status !== 500
-                ? err.message
-                : "No pudimos cargar la ficha. Inténtalo de nuevo.",
+              err instanceof ApiError ? err.message : "No pudimos cargar la ficha.",
           });
         }
       }
@@ -107,11 +104,11 @@ export function PrintFicha({ clientId }: { clientId: string }) {
 
   return (
     <main className="min-h-screen bg-white px-6 py-6 text-ink-900 sm:px-10 print:bg-white print:p-0">
-      <div /* v6-surface */ className="print-hide mb-6 flex items-center justify-between rounded-[16px] border border-ink-200 bg-panel px-5 py-4">
+      <div className="print-hide mb-6 flex items-center justify-between rounded-[16px] border border-ink-200 bg-panel px-5 py-4">
         <p className="text-[13px] text-ink-600">
           Vista de impresión de la ficha completa.
         </p>
-        <Button onClick={() => window.print()} className="px-4 font-bold">
+        <Button onClick={() => window.print()} className="rounded-12 px-4 font-bold">
           <Printer className="size-4" />
           Imprimir
         </Button>
@@ -176,7 +173,7 @@ function FichaReporte({ data }: { data: FichaData }) {
           <Campo label="Tamaño de la organización" value={cliente.tamano_org ?? "—"} />
           <Campo label="Ubicación" value={cliente.ubicacion ?? "—"} />
           <Campo label="Canal de contacto inicial" value={cliente.canal_contacto_inicial ?? "—"} />
-          <Campo label="Fecha de primer contacto" value={formatFechaDia(cliente.fecha_primer_contacto)} />
+          <Campo label="Fecha de primer contacto" value={formatFecha(cliente.fecha_primer_contacto)} />
           <Campo label="Valor potencial" value={formatCOP(cliente.valor_potencial)} mono />
           <Campo label="Compromisos abiertos" value={String(cliente.compromisos_abiertos)} mono />
           <Campo label="Oportunidades" value={String(cliente.oportunidades_count)} mono />
@@ -241,7 +238,7 @@ function FichaReporte({ data }: { data: FichaData }) {
                 </div>
                 <p className="mt-0.5 text-[11.5px] text-ink-600">
                   {ESTADO_OPORTUNIDAD_LABELS[o.estado]?.label ?? o.estado} · última gestión:{" "}
-                  {formatFechaDia(o.fecha_ultima_gestion)}
+                  {formatFecha(o.fecha_ultima_gestion)}
                 </p>
                 <div className="mt-2 space-y-1 text-[12px] text-ink-700">
                   <p><span className="font-bold text-ink-900">Problema:</span> {o.problema_detectado ?? "—"}</p>
@@ -358,7 +355,7 @@ function Factura({ label, value }: { label: string; value: string }) {
 
 function FichaError({ clave, message }: { clave: string; message: string }) {
   const notFound = clave === "404";
-  const sesionVencida = clave === "sesion";
+  const sinConexion = clave === "sin-conexion";
 
   return (
     <div className="grid min-h-[380px] place-items-center">
@@ -373,19 +370,19 @@ function FichaError({ clave, message }: { clave: string; message: string }) {
           )}
         </span>
         <h2 className="mt-4 font-display text-[19px] font-bold tracking-[-0.02em] text-ink-950">
-          {notFound ? "Cliente no encontrado" : sesionVencida ? "Sesión vencida" : "No pudimos cargar la ficha"}
+          {notFound ? "Cliente no encontrado" : sinConexion ? "Plataforma no conectada" : "No pudimos cargar la ficha"}
         </h2>
         <p className="mt-2 text-[13.5px] leading-relaxed text-ink-600">
           {notFound
             ? "El cliente no existe o fue eliminado. Vuelve al listado y elige otro."
-            : sesionVencida
-              ? "Tu sesión expiró. Inicia sesión de nuevo para imprimir la ficha."
+            : sinConexion
+              ? "Configura el archivo .env con Supabase o inicia sesión para imprimir la ficha."
               : message}
         </p>
         <Button
           onClick={() => window.location.reload()}
           variant="outline"
-          className="mt-5 px-4 font-semibold"
+          className="mt-5 rounded-lg px-4 font-semibold"
         >
           Reintentar
         </Button>

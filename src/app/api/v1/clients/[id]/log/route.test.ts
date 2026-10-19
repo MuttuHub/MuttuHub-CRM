@@ -59,8 +59,6 @@ describe("GET /api/v1/clients/:id/log", () => {
         autor_id: "gerencia-1",
         autor: { nombre: "Gerencia Uno" },
         texto: "Nota inicial",
-        tipo: "REUNION",
-        proximo_paso: "Enviar propuesta",
         created_at: new Date("2026-01-01"),
       },
     ] as never);
@@ -75,8 +73,6 @@ describe("GET /api/v1/clients/:id/log", () => {
         autor_id: "gerencia-1",
         autor_nombre: "Gerencia Uno",
         texto: "Nota inicial",
-        tipo: "REUNION",
-        proximo_paso: "Enviar propuesta",
         created_at: new Date("2026-01-01").toISOString(),
       },
     ]);
@@ -151,81 +147,6 @@ describe("POST /api/v1/clients/:id/log", () => {
     expect(db.bitacoraEntrada.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ autor_id: "gerencia-1" }) }),
     );
-  });
-
-  // v7-alignment C3a (Interacciones): the entry carries a `tipo` (default
-  // OTRO) and an optional free-text `proximo_paso`. Both are echoed back.
-  it("defaults tipo to OTRO when the body omits it", async () => {
-    authAs(gerencia);
-    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
-    vi.mocked(db.bitacoraEntrada.create).mockResolvedValue({
-      id: "bit-1",
-      autor_id: "gerencia-1",
-      autor: { nombre: "Gerencia Uno" },
-      texto: "Nota",
-      tipo: "OTRO",
-      proximo_paso: null,
-      created_at: new Date("2026-01-01"),
-    } as never);
-
-    const res = await POST(postRequest({ texto: "Nota" }), routeContext);
-
-    expect(res.status).toBe(201);
-    expect(db.bitacoraEntrada.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ tipo: "OTRO", proximo_paso: undefined }),
-      }),
-    );
-  });
-
-  it("persists an explicit tipo and proximo_paso", async () => {
-    authAs(gerencia);
-    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", responsable_id: "colab-1" } as never);
-    vi.mocked(db.bitacoraEntrada.create).mockResolvedValue({
-      id: "bit-1",
-      autor_id: "gerencia-1",
-      autor: { nombre: "Gerencia Uno" },
-      texto: "Visita a terreno",
-      tipo: "VISITA",
-      proximo_paso: "Agendar reunión",
-      created_at: new Date("2026-01-01"),
-    } as never);
-
-    const res = await POST(
-      postRequest({ texto: "Visita a terreno", tipo: "VISITA", proximo_paso: "Agendar reunión" }),
-      routeContext,
-    );
-
-    expect(res.status).toBe(201);
-    const json = await res.json();
-    expect(json.entrada).toMatchObject({ tipo: "VISITA", proximo_paso: "Agendar reunión" });
-    expect(db.bitacoraEntrada.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ tipo: "VISITA", proximo_paso: "Agendar reunión" }),
-      }),
-    );
-  });
-
-  it("returns 400 for an unknown tipo", async () => {
-    authAs(gerencia);
-
-    const res = await POST(postRequest({ texto: "Nota", tipo: "FAX" }), routeContext);
-
-    expect(res.status).toBe(400);
-    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
-    expect(db.bitacoraEntrada.create).not.toHaveBeenCalled();
-  });
-
-  it("returns 400 when proximo_paso exceeds the 2000-char limit", async () => {
-    authAs(gerencia);
-
-    const res = await POST(
-      postRequest({ texto: "Nota", proximo_paso: "a".repeat(2001) }),
-      routeContext,
-    );
-
-    expect(res.status).toBe(400);
-    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
   });
 
   // opportunity-task-linking / commercial-opportunities spec: bitácora

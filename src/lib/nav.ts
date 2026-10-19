@@ -1,6 +1,5 @@
 import {
   FileText,
-  FolderKanban,
   FolderOpen,
   House,
   Settings,
@@ -29,7 +28,6 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/", label: "Inicio", icon: House },
       { href: "/clientes", label: "Clientes", icon: Users },
-      { href: "/proyectos", label: "Proyectos", icon: FolderKanban },
       { href: "/tablero", label: "Tablero", icon: SquareKanban },
       { href: "/documentos", label: "Documentos", icon: FolderOpen },
       { href: "/reportes", label: "Reportes", icon: FileText },
@@ -70,35 +68,6 @@ export const PAGE_HEADERS: Record<string, PageHeader> = {
     subtitle:
       "Busca, filtra y abre la ficha completa de cada cliente.",
   },
-  "/clientes/oportunidades": {
-    title: "Oportunidades",
-    subtitle: "El embudo comercial: oportunidades por etapa, valor y responsable.",
-  },
-  "/clientes/interacciones": {
-    title: "Interacciones",
-    subtitle: "El historial de contacto con cada aliado: reuniones, correos, llamadas y visitas.",
-  },
-  "/clientes/relaciones": {
-    title: "Relaciones",
-    subtitle: "El mapa de poder e interés de los contactos de cada aliado.",
-  },
-  "/clientes/salud": {
-    title: "Salud",
-    subtitle: "La salud de la cartera: contactos, compromisos y proyectos por aliado.",
-  },
-  "/clientes/mapa": {
-    title: "Mapa",
-    subtitle: "Cobertura por departamento: aliados y proyectos por territorio.",
-  },
-  "/clientes/automatizaciones": {
-    title: "Automatizaciones",
-    subtitle: "Reglas de seguimiento automático y plantillas de correo.",
-  },
-  "/proyectos": {
-    title: "Proyectos",
-    subtitle:
-      "Portafolio v2: estado, responsable, duración e inversión de cada proyecto.",
-  },
   "/tablero": {
     title: "Tablero del equipo",
     subtitle: "Tareas y compromisos del equipo en un solo tablero.",
@@ -120,11 +89,6 @@ export const PAGE_HEADERS: Record<string, PageHeader> = {
     subtitle: "Revisa quién pidió entrar al Hub y asigna el rol antes de aprobar.",
   },
 };
-
-/** True for the project ficha route `/proyectos/<id>` (exactly one segment). */
-export function isProjectFichaPath(pathname: string): boolean {
-  return /^\/proyectos\/[^/]+$/.test(pathname);
-}
 
 export function isNavActive(pathname: string, href: string, exact = false): boolean {
   if (!exact) {

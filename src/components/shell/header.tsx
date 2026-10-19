@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, Menu, Moon, Sun } from "lucide-react";
-import { PAGE_HEADERS, isProjectFichaPath } from "@/lib/nav";
+import { PAGE_HEADERS } from "@/lib/nav";
 import { useCurrentUser, type CurrentUser } from "@/hooks/kanban";
 import { useTheme } from "@/hooks/use-theme";
 import { apiGet } from "@/lib/api/http";
@@ -84,10 +84,6 @@ export function Header({ initialUser }: { initialUser?: CurrentUser | null }) {
   const subtitle =
     pathname === "/" ? subtituloInicio(notificationsQuery.data) : page.subtitle;
 
-  // The ficha renders the project name as the page's only <h1>; the shell
-  // keeps an empty left block so the controls do not shift.
-  const sinTitulo = isProjectFichaPath(pathname);
-
   // The global date-range store is only consumed on Inicio and Reportes
   // (dashboard-page.tsx, reportes-page.tsx); elsewhere the dropdown is dead.
   const rangoActivo = pathname === "/" || pathname === "/reportes";
@@ -101,28 +97,24 @@ export function Header({ initialUser }: { initialUser?: CurrentUser | null }) {
           aria-label="Abrir menú"
           aria-expanded={mobileOpen}
           aria-controls="sidebar-drawer"
-          className="relative mt-1 grid size-9 shrink-0 place-items-center rounded-12 border border-border-strong bg-input-bg text-ink-700 transition-colors after:absolute after:content-[''] after:-inset-1 hover:bg-muted lg:hidden"
+          className="relative mt-1 grid size-9 shrink-0 place-items-center rounded-12 border border-ink-200 bg-panel text-ink-700 transition-colors after:absolute after:content-[''] after:-inset-1 hover:bg-ink-100 lg:hidden"
         >
           <Menu className="size-4" strokeWidth={1.8} />
         </button>
-        {sinTitulo ? (
-          <div className="min-w-0" />
-        ) : (
-          <div className="min-w-0">
-            <h1 className="font-display text-[26px] leading-none tracking-[-0.03em] font-extrabold text-ink-950 sm:text-[31px] lg:text-[34px]">
-              {title}
-            </h1>
-            <p className="mt-2 text-[14px] text-ink-600">{subtitle}</p>
-          </div>
-        )}
+        <div className="min-w-0">
+          <h1 className="font-display text-[31px] leading-none tracking-[-0.03em] font-extrabold text-ink-950 lg:text-[34px]">
+            {title}
+          </h1>
+          <p className="mt-2 text-[14px] text-ink-600">{subtitle}</p>
+        </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
+      <div className="flex shrink-0 items-center gap-2.5">
         {rangoActivo && (
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label="Rango de fechas"
-              className="relative hidden h-10 cursor-pointer items-center gap-2 rounded-12 border border-border-strong bg-input-bg px-3.5 text-[13px] font-semibold text-ink-800 transition-colors after:absolute after:content-[''] after:-inset-0.5 hover:bg-muted sm:inline-flex"
+              className="relative hidden h-10 cursor-pointer items-center gap-2 rounded-lg border border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 transition-colors after:absolute after:content-[''] after:-inset-0.5 hover:bg-ink-100 sm:inline-flex"
             >
               {RANGO_HEADER_LABELS[rango]}
               <ChevronDown className="size-3 text-ink-600" strokeWidth={1.8} />
@@ -146,7 +138,7 @@ export function Header({ initialUser }: { initialUser?: CurrentUser | null }) {
           type="button"
           onClick={toggleTheme}
           aria-label={theme === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
-          className="relative grid size-10 place-items-center rounded-12 border border-border-strong bg-input-bg text-ink-700 transition-colors after:absolute after:content-[''] after:-inset-0.5 hover:bg-muted"
+          className="relative grid size-10 place-items-center rounded-lg border border-ink-200 bg-panel text-ink-700 transition-colors after:absolute after:content-[''] after:-inset-0.5 hover:bg-ink-100"
         >
           {theme === "dark" ? (
             <Sun className="size-4" strokeWidth={1.8} />

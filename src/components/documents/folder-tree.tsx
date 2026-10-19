@@ -53,7 +53,6 @@ function FolderBranch({
             type="button"
             variant="ghost"
             size="sm"
-            /* v6-compact: tree-row chevron, a 24 px affordance inside a dense row (hit area extends via after:) */
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
             className="h-6 w-6 shrink-0 rounded-md p-0 text-ink-500 hover:bg-transparent hover:text-ink-800"
@@ -90,7 +89,6 @@ function FolderBranch({
                 type="button"
                 variant="ghost"
                 size="sm"
-                /* v6-compact: tree-row actions trigger, same dense row */
                 aria-label={`Acciones de ${node.nombre}`}
                 className="h-6 w-6 shrink-0 rounded-md p-0 text-ink-400 opacity-0 hover:bg-transparent hover:text-ink-800 group-hover:opacity-100 focus-visible:opacity-100"
               >

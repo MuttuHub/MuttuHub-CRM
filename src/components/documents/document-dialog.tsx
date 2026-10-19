@@ -61,7 +61,7 @@ export function DocumentDialog({
 
   return (
     <Dialog open={documentId !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[88dvh] gap-0 overflow-y-auto p-0 sm:max-w-[min(620px,calc(100%-2rem))]">
+      <DialogContent className="max-h-[88dvh] gap-0 overflow-y-auto rounded-[24px] p-0 sm:max-w-[min(620px,calc(100%-2rem))]">
         {!documento ? (
           <div className="flex flex-col gap-3 p-6">
             <Skeleton className="h-8 w-3/4 rounded-10" />
@@ -131,7 +131,7 @@ export function DocumentDialog({
               )}
             </DialogHeader>
 
-            <div className="surface-inner px-4 py-3 text-[12.5px] leading-relaxed text-ink-600">
+            <div className="rounded-[16px] border border-ink-200 bg-ink-100/40 px-4 py-3 text-[12.5px] leading-relaxed text-ink-600">
               Creado por{" "}
               <span className="font-semibold text-ink-800">{documento.autor_nombre}</span> el{" "}
               {formatVersionFecha(documento.created_at)} · Actualizado con la v
@@ -144,7 +144,7 @@ export function DocumentDialog({
                 type="button"
                 disabled={!activa}
                 onClick={() => void downloadActiveVersion(documento).catch(() => undefined)}
-                className="px-4 font-bold"
+                className="h-9 rounded-lg px-4 font-bold"
               >
                 <Download className="size-4" strokeWidth={2} />
                 {activa ? `Descargar v${activa.numero_version}` : "Sin versión"}
@@ -153,7 +153,7 @@ export function DocumentDialog({
                 type="button"
                 variant="outline"
                 onClick={() => setVersionUploadOpen(true)}
-                className="px-4 text-[13px] font-semibold text-ink-800"
+                className="h-9 rounded-lg border-ink-200 bg-panel px-4 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
               >
                 <Upload className="size-4 text-exito" strokeWidth={1.9} />
                 Subir nueva versión
@@ -299,7 +299,7 @@ function VersionUploadDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88dvh] gap-0 overflow-y-auto p-0 sm:max-w-[min(520px,calc(100%-2rem))]">
+      <DialogContent className="max-h-[88dvh] gap-0 overflow-y-auto rounded-[24px] p-0 sm:max-w-[min(520px,calc(100%-2rem))]">
         <div className="flex flex-col gap-5 p-6">
           <DialogHeader className="gap-1">
             <DialogTitle className="font-display text-[19px] font-bold tracking-[-0.02em] text-ink-950">
@@ -313,7 +313,7 @@ function VersionUploadDialog({
           {error && (
             <div
               role="alert"
-              className="rounded-inner border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
+              className="rounded-xl border border-destructivo/25 bg-destructivo-bg px-4 py-3 text-[13px] font-medium text-destructivo"
             >
               {error}
             </div>
@@ -329,7 +329,7 @@ function VersionUploadDialog({
                 reset();
                 onOpenChange(false);
               }}
-              className="px-4 font-semibold"
+              className="rounded-lg px-4 font-semibold"
             >
               Cancelar
             </Button>

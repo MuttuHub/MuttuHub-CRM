@@ -89,7 +89,7 @@ export function PrintDashboardCara({ cara }: { cara: CaraPrint }) {
 
   return (
     <main className="min-h-screen bg-white px-6 py-6 text-ink-900 sm:px-10 print:bg-white print:p-0">
-      <div /* v6-surface */ className="print-hide mb-6 flex items-center justify-between rounded-[16px] border border-ink-200 bg-panel px-5 py-4">
+      <div className="print-hide mb-6 flex items-center justify-between rounded-[16px] border border-ink-200 bg-panel px-5 py-4">
         <div className="flex items-center gap-3">
           <Link
             href="/"
@@ -102,7 +102,7 @@ export function PrintDashboardCara({ cara }: { cara: CaraPrint }) {
             Vista de impresión: los filtros que aplicaste se respetan.
           </p>
         </div>
-        <Button onClick={() => window.print()} className="px-4 font-bold">
+        <Button onClick={() => window.print()} className="rounded-12 px-4 font-bold">
           <Printer className="size-4" />
           Imprimir
         </Button>
@@ -479,7 +479,7 @@ function MySummaryBody({ data }: { data: DashboardMySummary }) {
 
 function PrintKpi({ label, value }: { label: string; value: string }) {
   return (
-    <div /* v6-surface */ className="rounded-14 border border-ink-200 bg-panel p-3.5">
+    <div className="rounded-14 border border-ink-200 bg-panel p-3.5">
       <p className="text-[10.5px] font-bold tracking-[0.08em] text-ink-500 uppercase">{label}</p>
       <p className="mt-1.5 font-display text-[19px] font-extrabold tracking-[-0.02em] text-ink-950">
         {value}
@@ -513,7 +513,7 @@ function PrintError({
             ? "Conéctate a la plataforma e inicia sesión para exportar el reporte."
             : message}
         </p>
-        <Button onClick={onRetry} variant="outline" className="mt-5 px-4 font-semibold">
+        <Button onClick={onRetry} variant="outline" className="mt-5 rounded-lg px-4 font-semibold">
           Reintentar
         </Button>
       </div>

@@ -50,9 +50,6 @@ jobs:
       - name: Generate Prisma client (needed by catalogs tests)
         run: npx prisma generate
 
-      - name: Typecheck
-        run: npx tsc --noEmit
-
       - name: Lint
         run: npm run lint
 

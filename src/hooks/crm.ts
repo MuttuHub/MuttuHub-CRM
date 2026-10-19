@@ -19,7 +19,6 @@ import {
   apiGet,
   apiPatch,
   apiPost,
-  apiPut,
   ApiError,
   type ApiVoid,
 } from "@/lib/api/http";
@@ -33,7 +32,6 @@ import type {
   PrioridadTarea,
   RolContacto,
   TipoCliente,
-  TipoInteraccion,
 } from "@prisma/client";
 import { taskQueryKeys } from "@/hooks/kanban";
 
@@ -103,52 +101,7 @@ export type Contacto = {
   telefono: string | null;
   rol_decision: RolContacto | null;
   notas: string | null;
-  /** v7 alignment C4a: power axis of the power × interest matrix (1..5). */
-  poder: number | null;
-  /** v7 C4a: interest axis of the power × interest matrix (1..5). */
-  interes: number | null;
-  /** v7 C4a: relationship strength (1..3). */
-  fuerza_relacion: number | null;
-  /** v7 C4a: optional internal owner ("Relación: owner"). */
-  owner_id: string | null;
   created_at: string;
-};
-
-/** v7 C4a: a contact as it appears in the cross-client Relaciones feed. */
-export type ContactoFeedItem = Contacto & {
-  /** The API projection carries the client id too; the chips key on it. */
-  cliente_id: string;
-  cliente_nombre: string;
-  owner_nombre: string | null;
-};
-
-export type ContactoFilters = {
-  cliente_id?: string;
-  /** true ⇒ only contacts with both poder and interes set. */
-  con_quadrante?: boolean;
-  poder?: number;
-  interes?: number;
-};
-
-/** v7 alignment C7a: categorías del resumen diario que se pueden activar/desactivar. */
-export type AutomatizacionesCategorias = {
-  vencidos: boolean;
-  hoy: boolean;
-  proximos: boolean;
-};
-
-/** v7 C7a: configuración del seguimiento automático que lee el cron diario. */
-export type Automatizaciones = {
-  resumen_diario: boolean;
-  dias_por_vencer: number;
-  categorias: AutomatizacionesCategorias;
-};
-
-/** v7 C7a: cuerpo del PUT — actualización parcial de `Automatizaciones`. */
-export type AutomatizacionesInput = {
-  resumen_diario?: boolean;
-  dias_por_vencer?: number;
-  categorias?: Partial<AutomatizacionesCategorias>;
 };
 
 export type Oportunidad = {
@@ -182,71 +135,7 @@ export type BitacoraEntrada = {
   texto: string;
   /** RF-C03: optional link to the client's commercial cycle. */
   oportunidad_id: string | null;
-  /**
-   * v7 alignment C3a: kind of interaction; the server always sends it (OTRO
-   * default). Optional here so pre-existing consumers (the C3b UI and its
-   * fixtures) keep compiling without a coordinated edit.
-   */
-  tipo?: TipoInteraccion;
-  /** v7 C3a: optional next step agreed in the interaction. */
-  proximo_paso?: string | null;
   created_at: string;
-};
-
-/** v7 C3a: a bitácora entry as it appears in the cross-client feed. */
-export type InteractionFeedItem = {
-  id: string;
-  cliente_id: string;
-  cliente_nombre: string;
-  oportunidad_id: string | null;
-  oportunidad_nombre: string | null;
-  autor_id: string;
-  autor_nombre: string;
-  texto: string;
-  tipo: TipoInteraccion;
-  proximo_paso: string | null;
-  created_at: string;
-};
-
-export type InteractionFilters = {
-  cliente_id?: string;
-  tipo?: TipoInteraccion;
-};
-
-/** v7 alignment C5a: bucket de salud de un aliado. */
-export type SaludBucket = "SANA" | "ATENCION" | "RIESGO" | "SIN_DATOS";
-
-/** v7 C5a: sub-scores del score de salud (null = componente sin datos). */
-export type SaludSubscores = {
-  contacto: number | null;
-  compromisos: number | null;
-  proyectos: number | null;
-};
-
-/** v7 C5a: score de salud de un aliado en el feed de la cartera. */
-export type SaludClienteRow = {
-  cliente_id: string;
-  cliente_nombre: string;
-  score: number | null;
-  bucket: SaludBucket;
-  subscores: SaludSubscores;
-  motivo: string;
-};
-
-/** v7 C5a: resumen de la cartera completa. */
-export type SaludCartera = {
-  sana: number;
-  atencion: number;
-  riesgo: number;
-  sin_datos: number;
-  total: number;
-  promedio: number | null;
-};
-
-/** v7 C5a: payload de GET /api/v1/clients/health. */
-export type SaludCarteraData = {
-  clientes: SaludClienteRow[];
-  cartera: SaludCartera;
 };
 
 export type TaskItem = {
@@ -261,8 +150,6 @@ export type TaskItem = {
   oportunidad_id: string | null;
   oportunidad_nombre: string | null;
   oportunidad_fase: FaseOportunidad | null;
-  /** D3: el proyecto en que se convirtió la oportunidad de la tarea; null si no hay (o se eliminó). Opcional en el tipo para no obligar a todos los fixtures. */
-  proyecto?: { id: string; codigo: string } | null;
   estado: EstadoTarea;
   origen: OrigenTarea;
   prioridad: PrioridadTarea | null;
@@ -334,15 +221,7 @@ export const clientQueryKeys = {
     ["clients", clientId, "opportunities", oportunidadId, "tasks"] as const,
   tasks: (clientId: string) => ["tasks", "client", clientId] as const,
   log: (id: string) => ["clients", id, "log"] as const,
-  interactions: (filters: InteractionFilters) => ["interactions", "list", filters] as const,
-  contactsFeed: (filters: ContactoFilters) => ["contacts", "list", filters] as const,
-  saludCartera: () => ["clients", "salud"] as const,
   users: () => ["catalogs", "users"] as const,
-};
-
-/** v7 C7a: settings query keys (automatizaciones). */
-export const automatizacionesQueryKeys = {
-  detail: () => ["settings", "automatizaciones"] as const,
 };
 
 /* ── Queries ───────────────────────────────────────────────────────────── */
@@ -451,109 +330,6 @@ export function useBitacora(id: string | null): UseQueryResult<BitacoraEntrada[]
   });
 }
 
-/**
- * v7 alignment C3a: the cross-client Interacciones feed. Optional filters by
- * cliente and tipo; the server applies the read scope (a COLABORADOR only sees
- * the clients they are responsable for).
- */
-export function useInteractions(
-  filters: InteractionFilters = {},
-): UseQueryResult<InteractionFeedItem[]> {
-  return useQuery({
-    queryKey: clientQueryKeys.interactions(filters),
-    queryFn: async () => {
-      const sp = new URLSearchParams();
-      if (filters.cliente_id) sp.set("cliente_id", filters.cliente_id);
-      if (filters.tipo) sp.set("tipo", filters.tipo);
-      const qs = sp.toString();
-      const res = await apiGet<{ interacciones: InteractionFeedItem[] }>(
-        `/api/v1/interactions${qs ? `?${qs}` : ""}`,
-      );
-      return res.interacciones;
-    },
-  });
-}
-
-/**
- * v7 alignment C4a: the cross-client Relaciones contact list. Optional filters
- * by cliente and quadrant; reads are global, matching the client list (PR 3).
- */
-export function useGlobalContacts(
-  filters: ContactoFilters = {},
-): UseQueryResult<ContactoFeedItem[]> {
-  return useQuery({
-    queryKey: clientQueryKeys.contactsFeed(filters),
-    queryFn: async () => {
-      const sp = new URLSearchParams();
-      if (filters.cliente_id) sp.set("cliente_id", filters.cliente_id);
-      if (filters.con_quadrante) sp.set("con_quadrante", "true");
-      if (filters.poder !== undefined) sp.set("poder", String(filters.poder));
-      if (filters.interes !== undefined) sp.set("interes", String(filters.interes));
-      const qs = sp.toString();
-      const res = await apiGet<{ contactos: ContactoFeedItem[] }>(
-        `/api/v1/contacts${qs ? `?${qs}` : ""}`,
-      );
-      return res.contactos;
-    },
-  });
-}
-
-/**
- * v7 alignment C5a: the global "Salud de la cartera" read. The server computes
- * every score (contacto, compromisos, proyectos) and the portfolio summary; the
- * client only renders the ranked list. Reads are global, matching the client
- * list (PR 3).
- */
-export function useSaludCartera(): UseQueryResult<SaludCarteraData> {
-  return useQuery({
-    queryKey: clientQueryKeys.saludCartera(),
-    queryFn: async () => {
-      const res = await apiGet<{ data: SaludCarteraData }>("/api/v1/clients/health");
-      return res.data;
-    },
-  });
-}
-
-/**
- * v7 alignment C7a: the Automatizaciones settings (admin-only on the server).
- * Reads the daily-summary configuration that the cron consumes.
- */
-export function useAutomatizaciones(): UseQueryResult<Automatizaciones> {
-  return useQuery({
-    queryKey: automatizacionesQueryKeys.detail(),
-    queryFn: async () => {
-      const res = await apiGet<{ automatizaciones: Automatizaciones }>(
-        "/api/v1/settings/automatizaciones",
-      );
-      return res.automatizaciones;
-    },
-  });
-}
-
-/**
- * v7 C7a: partial update of the Automatizaciones settings. Seeds the cache with
- * the server's fresh value and invalidates so every consumer re-reads it.
- */
-export function useUpdateAutomatizaciones(): UseMutationResult<
-  { automatizaciones: Automatizaciones },
-  Error,
-  AutomatizacionesInput
-> {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input) =>
-      apiPut<{ automatizaciones: Automatizaciones }>(
-        "/api/v1/settings/automatizaciones",
-        input,
-      ),
-    onError: (err) => toastError(err, "No pudimos guardar las automatizaciones."),
-    onSuccess: (data) => {
-      qc.setQueryData(automatizacionesQueryKeys.detail(), data.automatizaciones);
-      void qc.invalidateQueries({ queryKey: automatizacionesQueryKeys.detail() });
-    },
-  });
-}
-
 /* ── Mutations ─────────────────────────────────────────────────────────── */
 
 // Los campos de texto libre son nullable (no solo opcionales): el PATCH del
@@ -642,11 +418,6 @@ export type ContactoInput = {
   telefono?: string | null;
   rol_decision?: RolContacto | null;
   notas?: string | null;
-  /** v7 C4a: quadrant + strength + owner (all optional, nullable to clear). */
-  poder?: number | null;
-  interes?: number | null;
-  fuerza_relacion?: number | null;
-  owner_id?: string | null;
 };
 
 export function useCreateContacto(clientId: string): UseMutationResult<
@@ -669,7 +440,6 @@ export function useCreateContacto(clientId: string): UseMutationResult<
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: clientQueryKeys.contacts(clientId) });
       void qc.invalidateQueries({ queryKey: clientQueryKeys.detail(clientId) });
-      void qc.invalidateQueries({ queryKey: ["contacts"] });
       toast.success("Contacto agregado.");
     },
   });
@@ -694,7 +464,6 @@ export function useUpdateContacto(clientId: string, contactId: string): UseMutat
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: clientQueryKeys.contacts(clientId) });
-      void qc.invalidateQueries({ queryKey: ["contacts"] });
       toast.success("Contacto actualizado.");
     },
   });
@@ -717,7 +486,6 @@ export function useDeleteContacto(clientId: string, contactId: string): UseMutat
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: clientQueryKeys.contacts(clientId) });
       void qc.invalidateQueries({ queryKey: clientQueryKeys.detail(clientId) });
-      void qc.invalidateQueries({ queryKey: ["contacts"] });
       toast.success("Contacto eliminado.");
     },
   });
@@ -954,20 +722,15 @@ export function useDeleteTarea(clientId: string, taskId: string): UseMutationRes
 export function useAddLogEntry(clientId: string): UseMutationResult<
   { entrada: BitacoraEntrada },
   string,
-  { texto: string; oportunidad_id?: string | null; tipo?: TipoInteraccion; proximo_paso?: string | null }
+  { texto: string; oportunidad_id?: string | null }
 > {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ texto, oportunidad_id, tipo, proximo_paso }) => {
+    mutationFn: async ({ texto, oportunidad_id }) => {
       try {
         return await apiPost<{ entrada: BitacoraEntrada }>(
           `/api/v1/clients/${clientId}/log`,
-          {
-            texto,
-            ...(oportunidad_id !== undefined ? { oportunidad_id } : {}),
-            ...(tipo !== undefined ? { tipo } : {}),
-            ...(proximo_paso !== undefined ? { proximo_paso } : {}),
-          },
+          { texto, ...(oportunidad_id !== undefined ? { oportunidad_id } : {}) },
         );
       } catch (err) {
         return toastError(err, "No pudimos guardar la nota.");
@@ -976,8 +739,6 @@ export function useAddLogEntry(clientId: string): UseMutationResult<
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: clientQueryKeys.log(clientId) });
       void qc.invalidateQueries({ queryKey: clientQueryKeys.detail(clientId) });
-      // v7 C3a: the new entry also lands in the cross-client feed.
-      void qc.invalidateQueries({ queryKey: ["interactions"] });
       toast.success("Nota agregada a la bitácora.");
     },
   });
@@ -1003,30 +764,6 @@ export function formatFecha(value: string | Date | null | undefined): string {
     day: "2-digit",
     month: "short",
     year: "numeric",
-  });
-}
-
-/**
- * Calendar day captured with a date input and normalized to UTC midnight
- * (`fecha_primer_contacto`, `fecha_ultima_gestion`): formatted in UTC so the
- * day the user picked is the day that shows. `formatFecha` would show the
- * previous day in UTC-5.
- *
- * Do NOT use it for `Tarea.fecha_entrega`: those rows can hold real instants
- * (the seed writes `daysFromNow`/`daysAgo`, and `esVencida` plus the tasks
- * report compare the column with `Date.now()`), so they must follow the
- * viewer's zone via `formatFecha`. The same applies to other real instants
- * such as `updated_at`.
- */
-export function formatFechaDia(value: string | Date | null | undefined): string {
-  if (!value) return "—";
-  const date = typeof value === "string" ? new Date(value) : value;
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString("es-CO", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
   });
 }
 

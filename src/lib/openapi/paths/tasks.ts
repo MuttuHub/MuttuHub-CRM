@@ -60,9 +60,6 @@ const TaskItemSchema = registry.register(
     oportunidad_fase: z.enum(["PROSPECCION", "EJECUCION"]).nullable().openapi({
       description: "RNF-C01: alimenta el chip ámbar/esmeralda del tablero. Null si no hay oportunidad vinculada.",
     }),
-    proyecto: z.object({ id: z.string().uuid(), codigo: z.string() }).nullable().openapi({
-      description: "D3: proyecto en que se convirtió la oportunidad de la tarea (relación 1:1). Null si no hay proyecto o fue eliminado. El acceso al proyecto lo decide `GET /projects/{id}` (403/404).",
-    }),
     estado: EstadoTareaSchema,
     origen: OrigenTareaSchema,
     prioridad: PrioridadTareaSchema.nullable(),
@@ -118,7 +115,6 @@ const TaskDetailSchema = registry.register(
     }),
     oportunidad_nombre: z.string().nullable(),
     oportunidad_fase: z.enum(["PROSPECCION", "EJECUCION"]).nullable(),
-    proyecto: z.object({ id: z.string().uuid(), codigo: z.string() }).nullable(),
     estado: EstadoTareaSchema,
     origen: OrigenTareaSchema,
     prioridad: PrioridadTareaSchema.nullable(),
@@ -476,18 +472,14 @@ registry.registerPath({
   method: "post",
   path: "/api/v1/tasks/{id}/attachments",
   tags: ["Tareas"],
-  summary: "Sube un adjunto a la tarea (multipart/form-data o JSON de confirmación)",
+  summary: "Sube un adjunto a la tarea (multipart/form-data)",
   description:
-    `${WRITE_SCOPE_NOTE} Límite 25 MB por defecto (configurable vía MAX_FILE_SIZE_MB; 413 FILE_TOO_LARGE por encima). ` +
-    "Solo se aceptan PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), JPG, JPEG o PNG: validado por extensión " +
-    "Y por MIME (400 VALIDATION_ERROR si alguno no matchea; se aceptan MIME vacío o application/octet-stream para " +
-    "clientes como curl, que mandan ese valor aunque el archivo sea válido). Se sube al bucket " +
+    `${WRITE_SCOPE_NOTE} Límite 10 MB (413 FILE_TOO_LARGE por encima); solo se aceptan PDF, Word (.docx), ` +
+    "Excel (.xlsx), JPG o PNG — validado por extensión O por MIME (400 VALIDATION_ERROR si ninguno matchea; " +
+    "algunos clientes como curl mandan application/octet-stream aunque el archivo sea válido). Se sube al bucket " +
     "de Supabase Storage con el cliente de service role; sin credenciales de Supabase configuradas, 500 " +
     "INTERNAL_ERROR (el storage no puede funcionar sin ellas). `download_url` en la respuesta es un signed URL " +
-    "de 60 s (string plano; ver nota en TaskAttachmentCreated). Alternativa ADR-13: `application/json` con " +
-    "`{ storage_path, nombre, tamano_bytes, tipo_mime? }` confirma un objeto subido directamente a Storage con un " +
-    "signed URL de POST /api/v1/uploads/sign (el servidor verifica que la ruta pertenezca a esta tarea y que el " +
-    "objeto exista y no supere lo declarado).",
+    "de 60 s (string plano; ver nota en TaskAttachmentCreated).",
   security: [{ sessionCookie: [] }],
   request: {
     params: TaskIdParams,
@@ -495,17 +487,6 @@ registry.registerPath({
       content: {
         "multipart/form-data": {
           schema: z.object({ file: z.string().openapi({ format: "binary", description: "Campo de formulario 'file'." }) }),
-        },
-        "application/json": {
-          schema: z.object({
-            storage_path: z.string().openapi({
-              description:
-                "Key elegido por el servidor al firmar (POST /api/v1/uploads/sign); debe empezar por tareas/{id}/.",
-            }),
-            nombre: z.string(),
-            tamano_bytes: z.number().int().positive(),
-            tipo_mime: z.string().optional(),
-          }),
         },
       },
     },

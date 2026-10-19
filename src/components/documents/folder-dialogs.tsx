@@ -110,7 +110,7 @@ export function CreateFolderDialog({
               onKeyDown={(e) => {
                 if (e.key === "Enter") void submit();
               }}
-              className="text-base md:text-[13px]"
+              className="h-10 rounded-lg border-ink-200 bg-panel text-[13px]"
             />
           </div>
 
@@ -124,7 +124,7 @@ export function CreateFolderDialog({
                 <SelectTrigger
                   id="folder-parent"
                   className={cn(
-                    "w-full px-3 text-base md:text-[13px]",
+                    "h-10 w-full rounded-lg border-ink-200 bg-panel px-3 text-[13px]",
                   )}
                 >
                   <SelectValue placeholder={defaultParentId ? "Carpeta seleccionada" : "Raíz del repositorio"} />
@@ -151,7 +151,7 @@ export function CreateFolderDialog({
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
-            className="px-4 text-[13px] font-semibold text-ink-800"
+            className="h-9 rounded-lg border-ink-200 bg-panel px-4 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
           >
             Cancelar
           </Button>
@@ -159,7 +159,7 @@ export function CreateFolderDialog({
             type="button"
             disabled={!nombre.trim() || createFolder.isPending}
             onClick={() => void submit()}
-            className="px-4 font-bold"
+            className="h-9 rounded-lg px-4 font-bold"
           >
             {createFolder.isPending ? "Creando…" : "Crear carpeta"}
           </Button>
@@ -207,7 +207,7 @@ export function RenameFolderDialog({
             onKeyDown={(e) => {
               if (e.key === "Enter") void submit();
             }}
-            className="text-base md:text-[13px]"
+            className="h-10 rounded-lg border-ink-200 bg-panel text-[13px]"
           />
         </div>
         <DialogFooter>
@@ -215,7 +215,7 @@ export function RenameFolderDialog({
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
-            className="px-4 text-[13px] font-semibold text-ink-800"
+            className="h-9 rounded-lg border-ink-200 bg-panel px-4 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
           >
             Cancelar
           </Button>
@@ -223,7 +223,7 @@ export function RenameFolderDialog({
             type="button"
             disabled={!nombre.trim() || renameFolder.isPending}
             onClick={() => void submit()}
-            className="px-4 font-bold"
+            className="h-9 rounded-lg px-4 font-bold"
           >
             {renameFolder.isPending ? "Guardando…" : "Guardar"}
           </Button>
@@ -278,7 +278,7 @@ export function MoveFolderDialog({
           <Select value={parentId} onValueChange={(v) => setParentId(v ?? "")}>
             <SelectTrigger
               id="folder-move"
-              className="w-full px-3 text-base md:text-[13px]"
+              className="h-10 w-full rounded-lg border-ink-200 bg-panel px-3 text-[13px]"
             >
               <SelectValue placeholder="Elige destino" />
             </SelectTrigger>
@@ -297,7 +297,7 @@ export function MoveFolderDialog({
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
-            className="px-4 text-[13px] font-semibold text-ink-800"
+            className="h-9 rounded-lg border-ink-200 bg-panel px-4 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
           >
             Cancelar
           </Button>
@@ -305,7 +305,7 @@ export function MoveFolderDialog({
             type="button"
             disabled={moveFolder.isPending}
             onClick={() => void submit()}
-            className="px-4 font-bold"
+            className="h-9 rounded-lg px-4 font-bold"
           >
             {moveFolder.isPending ? "Moviendo…" : "Mover"}
           </Button>
@@ -350,7 +350,7 @@ export function DeleteFolderDialog({
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
-            className="px-4 text-[13px] font-semibold text-ink-800"
+            className="h-9 rounded-lg border-ink-200 bg-panel px-4 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
           >
             Cancelar
           </Button>
@@ -359,7 +359,7 @@ export function DeleteFolderDialog({
             variant="destructive"
             disabled={deleteFolder.isPending}
             onClick={() => void submit()}
-            className="px-4 font-bold"
+            className="h-9 rounded-lg px-4 font-bold"
           >
             {deleteFolder.isPending ? "Eliminando…" : "Eliminar"}
           </Button>

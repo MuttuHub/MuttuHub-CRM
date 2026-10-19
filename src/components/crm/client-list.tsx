@@ -227,10 +227,6 @@ const chipNumberFormatter = new Intl.NumberFormat("es-CO");
 
 /** "12/08" — compact day/month, matching the date inputs' display. */
 function chipFechaCorta(iso: string): string {
-  // `desde`/`hasta` come from `<input type="date">` as YYYY-MM-DD: read the parts, because
-  // `new Date("YYYY-MM-DD")` is UTC midnight and shows the previous day in UTC-5.
-  const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-  if (parts) return `${parts[3]}/${parts[2]}`;
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   return date.toLocaleDateString("es-CO", { day: "2-digit", month: "2-digit" });
@@ -457,7 +453,7 @@ export function ClientList() {
             variant="outline"
             size="sm"
             onClick={() => void exportExcel()}
-            className="px-3.5 text-[13px] font-semibold text-ink-800"
+            className="h-9 rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
           >
             <FileSpreadsheet className="size-4 text-exito" strokeWidth={1.8} />
             Excel
@@ -466,7 +462,7 @@ export function ClientList() {
             variant="outline"
             size="sm"
             onClick={openPdf}
-            className="px-3.5 text-[13px] font-semibold text-ink-800"
+            className="h-9 rounded-lg border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
           >
             <FileText className="size-4 text-destructivo" strokeWidth={1.8} />
             PDF
@@ -508,7 +504,7 @@ export function ClientList() {
 /* ── Fila de filtros ───────────────────────────────────────────────────── */
 
 const SELECT_CLASS =
-  "h-10 w-full px-3 text-base md:text-[13px]";
+  "h-9 w-full rounded-12 border-ink-200 bg-panel px-3 text-[13px]";
 
 function FiltersCard({
   local,
@@ -568,7 +564,7 @@ function FiltersCard({
   const draftEmpty = filtersEmpty(toFilters(draft));
 
   return (
-    <section className="surface p-4 lg:p-5">
+    <section className="rounded-[22px] border border-ink-200 bg-panel p-4 lg:p-5">
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative min-w-[220px] flex-1">
           <Search
@@ -580,7 +576,7 @@ function FiltersCard({
             onChange={(e) => onChange({ q: e.target.value })}
             placeholder="Buscar por nombre, contacto o bitácora…"
             aria-label="Buscar clientes"
-            className="h-10 pl-9 text-base md:text-[13px]"
+            className="h-10 rounded-12 border-ink-200 bg-panel pl-9 text-[13px]"
           />
         </div>
 
@@ -588,9 +584,8 @@ function FiltersCard({
           <PopoverTrigger
             render={
               <Button
-                size="sm"
                 variant="outline"
-                className="px-3.5 text-[13px] font-semibold text-ink-800"
+                className="h-10 rounded-12 border-ink-200 bg-panel px-3.5 text-[13px] font-semibold text-ink-800 hover:bg-ink-100"
               >
                 <SlidersHorizontal className="size-4 text-ink-600" strokeWidth={1.8} />
                 Filtros{" "}
@@ -680,7 +675,7 @@ function FiltersCard({
                   value={draft.desde}
                   onChange={(e) => patchDraft({ desde: e.target.value })}
                   aria-label="Primer contacto desde"
-                  className="h-10 min-w-0 flex-1 px-3 text-base md:text-[12.5px]"
+                  className="h-10 min-w-0 flex-1 rounded-12 border-ink-200 bg-panel px-3 text-[12.5px]"
                 />
                 <span className="text-[12px] text-ink-500">a</span>
                 <Label htmlFor="fecha-hasta" className="sr-only">
@@ -692,7 +687,7 @@ function FiltersCard({
                   value={draft.hasta}
                   onChange={(e) => patchDraft({ hasta: e.target.value })}
                   aria-label="Primer contacto hasta"
-                  className="h-10 min-w-0 flex-1 px-3 text-base md:text-[12.5px]"
+                  className="h-10 min-w-0 flex-1 rounded-12 border-ink-200 bg-panel px-3 text-[12.5px]"
                 />
               </div>
 
@@ -708,7 +703,7 @@ function FiltersCard({
                   value={draft.valorMin}
                   onChange={(e) => patchDraft({ valorMin: e.target.value })}
                   placeholder="Valor min"
-                  className="h-10 min-w-0 flex-1 px-3 font-mono text-base md:text-[12px]"
+                  className="h-10 min-w-0 flex-1 rounded-12 border-ink-200 bg-panel px-3 font-mono text-[12px]"
                 />
                 <span className="text-[12px] text-ink-500">a</span>
                 <Label htmlFor="valor-max" className="sr-only">
@@ -722,7 +717,7 @@ function FiltersCard({
                   value={draft.valorMax}
                   onChange={(e) => patchDraft({ valorMax: e.target.value })}
                   placeholder="Valor max"
-                  className="h-10 min-w-0 flex-1 px-3 font-mono text-base md:text-[12px]"
+                  className="h-10 min-w-0 flex-1 rounded-12 border-ink-200 bg-panel px-3 font-mono text-[12px]"
                 />
               </div>
             </div>
@@ -733,12 +728,12 @@ function FiltersCard({
                 size="sm"
                 onClick={clearAll}
                 disabled={draftEmpty}
-                className="px-2 text-[12.5px] font-semibold text-ink-600"
+                className="h-8 px-2 text-[12.5px] font-semibold text-ink-600"
               >
                 <RotateCcw className="size-3" strokeWidth={1.9} />
                 Limpiar todo
               </Button>
-              <Button size="sm" onClick={applyDraft} className="px-4 text-[13px] font-semibold">
+              <Button size="sm" onClick={applyDraft} className="h-8 rounded-lg px-4 text-[13px] font-semibold">
                 Aplicar
               </Button>
             </div>
@@ -847,7 +842,7 @@ function ClientResults({
   const hasta = Math.min(page * PAGE_SIZE, total);
 
   return (
-    <section className="surface">
+    <section className="rounded-[22px] border border-ink-200 bg-panel">
       {isLoading ? (
         view === "detalles" ? (
           <div className="space-y-3 p-4 lg:p-5">
@@ -858,7 +853,7 @@ function ClientResults({
         ) : (
           <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3 lg:p-5">
             {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-44 w-full rounded-card" />
+              <Skeleton key={i} className="h-44 w-full rounded-[18px]" />
             ))}
           </div>
         )
@@ -991,16 +986,13 @@ function SortableHeader({
 }) {
   const active = sort === column;
   return (
-    <TableHead
-      numeric={align === "right"}
-      aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : undefined}
-    >
+    <TableHead className={align === "right" ? "text-right" : undefined}>
       <button
         type="button"
         onClick={() => onSort(column)}
         aria-label={`Ordenar por ${column === "nombre" ? "Cliente" : children}`}
         className={cn(
-          "inline-flex items-center gap-1 uppercase transition-colors hover:text-ink-950",
+          "inline-flex items-center gap-1 font-semibold text-ink-700 transition-colors hover:text-ink-950",
           align === "right" && "justify-end",
         )}
       >
@@ -1166,7 +1158,7 @@ function ClientCard({
         }
       }}
       aria-label={`Abrir ficha de ${cliente.nombre}`}
-      className="flex cursor-pointer flex-col gap-3.5 rounded-inner border border-border bg-panel p-4 transition-colors hover:border-rose-200 hover:bg-rose-50/30 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+      className="flex cursor-pointer flex-col gap-3.5 rounded-[18px] border border-ink-200 bg-panel p-4 shadow-[0_1px_2px_rgba(16,16,32,0.04)] transition-colors hover:border-rose-200 hover:bg-rose-50/30 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
     >
       <div className="flex items-start gap-3">
         <InitialsAvatar nombre={cliente.nombre} />
@@ -1251,7 +1243,7 @@ function ClientCard({
             e.stopPropagation();
             onOpen();
           }}
-          className="px-3 text-[12px] font-semibold text-ink-700"
+          className="h-8 rounded-11 border-ink-200 bg-panel px-3 text-[12px] font-semibold text-ink-700 hover:bg-ink-100"
         >
           <Eye className="size-3.5" strokeWidth={1.8} />
           Ver detalle
@@ -1303,7 +1295,7 @@ function PaginationFooter({
           size="sm"
           disabled={page <= 1}
           onClick={() => onPage(page - 1)}
-          className="px-2.5 text-[12.5px] font-semibold"
+          className="h-8 rounded-10 px-2.5 text-[12.5px] font-semibold"
         >
           Anterior
         </Button>
@@ -1315,7 +1307,7 @@ function PaginationFooter({
               size="sm"
               onClick={() => onPage(p)}
               className={cn(
-                "min-w-8 px-2 text-[12.5px] font-bold",
+                "h-8 min-w-8 rounded-10 px-2 text-[12.5px] font-bold",
                 p === page && "bg-ink-950 text-white hover:bg-ink-800 dark:bg-ink-100 dark:text-white dark:hover:bg-ink-200",
               )}
             >
@@ -1332,7 +1324,7 @@ function PaginationFooter({
           size="sm"
           disabled={page >= totalPages}
           onClick={() => onPage(page + 1)}
-          className="px-2.5 text-[12.5px] font-semibold"
+          className="h-8 rounded-10 px-2.5 text-[12.5px] font-semibold"
         >
           Siguiente
         </Button>

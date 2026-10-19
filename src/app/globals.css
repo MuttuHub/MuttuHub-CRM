@@ -14,22 +14,15 @@
   --color-rose-50: var(--rose-50);
   --color-rose-100: var(--rose-100);
   --color-rose-200: var(--rose-200);
-  --color-rose-400: #eb3f85;
+  --color-rose-400: #e4569a;
   --color-rose-500: #cd1560;
   --color-rose-700: #940d44;
-  /* Manual v2 "accent-soft": #940D44 on light, #F5BAD2 on dark (flips). */
-  --color-accent-soft: var(--accent-soft);
-  /* v6 3px active rail (sidebar item, tabs): brand pink in both themes. */
-  --color-accent-bar: var(--accent-bar);
-  /* v6 control surface: field border + fill (Input, Select, outline Button). */
-  --color-border-strong: var(--border-strong);
-  --color-input-bg: var(--input-bg);
 
   /* Ink (warm neutral) scale */
   --color-ink-100: var(--ink-100);
   --color-ink-200: var(--ink-200);
   --color-ink-300: var(--ink-300);
-  /* Manual v2 text-3: #725d62 (light) is 6.1:1 on white, 5.4:1 on the page. */
+  /* #846f74: darkened from #8c757b for WCAG AA (4.66:1 on white). */
   --color-ink-500: var(--ink-500);
   --color-ink-600: var(--ink-600);
   --color-ink-700: var(--ink-700);
@@ -37,17 +30,15 @@
   --color-ink-900: var(--ink-900);
   --color-ink-950: var(--ink-950);
 
-  /* Shell (sidebar) tones: theme-aware since U3 (white sidebar in light, near-black
-     in dark). Values live in :root / .dark as --shell-*. */
-  --color-shell-border: var(--shell-border);
-  --color-shell-surface: var(--shell-surface);
-  --color-shell-chip: var(--shell-chip);
-  --color-shell-kbd: var(--shell-kbd);
-  --color-shell-hover: var(--shell-hover);
-  --color-shell-active: var(--shell-active);
-  --color-shell-text: var(--shell-text);
-  --color-shell-muted: var(--shell-muted);
-  --color-shell-faint: var(--shell-faint);
+  /* Dark shell (sidebar) extended tones from the mockup — fixed */
+  --color-shell-border: #241a1c;
+  --color-shell-surface: #221a1c;
+  --color-shell-chip: #2e2225;
+  --color-shell-kbd: #382a2e;
+  --color-shell-text: #c9bcc0;
+  --color-shell-muted: #9c8a8f;
+  /* #947f84: lightened from #7a6569 for WCAG AA on shell surfaces (4.57:1). */
+  --color-shell-faint: #947f84;
 
   /* Semantic */
   --color-exito: var(--exito);
@@ -114,35 +105,10 @@
   --radius-11: 11px;
   --radius-12: 12px;
   --radius-14: 14px;
-  /* v6 shell radius (sidebar + app frame): still hard-coded as
-     rounded-[26px] at the call sites (sidebar.tsx, app layout) — V1.1 wires
-     this token in; kept here so it exists ahead of that migration. */
-  --radius-26: 26px;
-  /* v6 surfaces (manual "Forma"): outer cards/panels 20 px, inner cards and
-     tiles 14 px. Used through `rounded-card` / `rounded-inner` and the
-     `surface` / `surface-inner` utilities below. */
-  --radius-card: 20px;
-  --radius-inner: 14px;
-}
-
-/* One shared surface vocabulary (no shadows; every colour is a theme token, so
-   both themes flip). `surface` = outer card/panel, `surface-inner` = a tile or
-   field group nested inside a surface. Do not combine them with other
-   rounded-*, border-* or bg-* classes: pick a state class instead. */
-@utility surface {
-  border-radius: var(--radius-card);
-  border: 1px solid var(--border);
-  background-color: var(--panel);
-}
-
-@utility surface-inner {
-  border-radius: var(--radius-inner);
-  border: 1px solid var(--border);
-  background-color: var(--muted);
 }
 
 :root {
-  --background: #f6f1f3;
+  --background: #fdfbfb;
   --foreground: #281d20;
   --card: #ffffff;
   --card-foreground: #281d20;
@@ -154,8 +120,7 @@
   --secondary-foreground: #3f2f33;
   --muted: #f7f3f4;
   --muted-foreground: #725d62;
-  /* Manual v2 shadcn accent: a soft alpha tint of the brand pink. */
-  --accent: rgba(205, 21, 96, 0.08);
+  --accent: #fcf1f5;
   --accent-foreground: #940d44;
   --destructive: #b3261e;
   --border: #ece5e7;
@@ -166,35 +131,23 @@
   --chart-3: #f5bad2;
   --chart-4: #ddd2d5;
   --chart-5: #8c757b;
-  --radius: 0.75rem;
-  /* Manual v2: WHITE sidebar in light (U3 flipped the tokens together with
-     sidebar.tsx, which now reads the --shell-* tones below). */
-  --sidebar: #ffffff;
-  --sidebar-foreground: #281d20;
+  --radius: 0.8125rem;
+  --sidebar: #191113;
+  --sidebar-foreground: #c9bcc0;
   --sidebar-primary: #cd1560;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgba(205, 21, 96, 0.08);
-  --sidebar-accent-foreground: #281d20;
-  --sidebar-border: #ece5e7;
+  --sidebar-accent: #241a1c;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #241a1c;
   --sidebar-ring: #cd1560;
-  /* Shell tones (light): text / text-2 / text-3 of the manual; active = accent tint. */
-  --shell-border: #ece5e7;
-  --shell-surface: #f7f3f4;
-  --shell-chip: #f1eaed;
-  --shell-kbd: #ddd2d5;
-  --shell-hover: rgba(205, 21, 96, 0.04);
-  --shell-active: rgba(205, 21, 96, 0.08);
-  --shell-text: #281d20;
-  --shell-muted: #5a474c;
-  --shell-faint: #725d62;
 
   /* Brand tokens (light) — source of the @theme indirections above. */
-  --page: #f6f1f3;
-  --panel: #ffffff;
+  --page: #efeaeb;
+  --panel: #fdfbfb;
   --ink-100: #f7f3f4;
   --ink-200: #ece5e7;
   --ink-300: #ddd2d5;
-  --ink-500: #725d62;
+  --ink-500: #846f74;
   --ink-600: #725d62;
   --ink-700: #5a474c;
   --ink-800: #3f2f33;
@@ -217,83 +170,40 @@
      dark surfaces, rose-400 is the dark-ready accent. */
   --login-enlace-fg: var(--color-rose-500);
   --login-activo-fg: var(--color-rose-700);
-
-  /* --- v6 tokens, light values from the brand manual v2 (U1b, decision D6) ---
-     Same semantic names as .dark. WCAG >= 4.5:1 for text (see
-     globals.tokens.test.ts) and >= 3:1 for control borders / focus / accent
-     rails. --border-strong keeps U1's accessible value (D6-3). */
-  /* Field boundary: #9b8c91 is 3.2:1 on white (WCAG 1.4.11); the decorative
-     --border hairline stays the soft #ece5e7. */
-  --border-strong: #9b8c91;
-  --input-bg: #ffffff;
-  /* Warm-ink scrim (the dark theme's is a near-black plum). */
-  --overlay: rgba(40, 29, 32, 0.45);
-  /* Manual v2 "accent" (links, rail, dots): 6.7:1 on white, 6.0:1 on the page. */
-  --accent-brand: #b41153;
-  --accent-soft: #940d44;
-  --accent-tint: var(--rose-50);
-  /* 3px active rail color. */
-  --accent-bar: #b41153;
-  /* Sonner toast: FIXED light card regardless of app theme (README "Toast"
-     contract) — identical to the current (frozen) light card/border/text. */
-  --toast-bg: #ffffff;
-  --toast-fg: #281d20;
-  --toast-border: #ece5e7;
 }
 
 .dark {
-  /* v6 "bg" (#120C0E) applies to both the shadcn --background and the
-     brand --page token below — the app had two lighter surfaces standing
-     in for the same v6 concept. */
-  --background: #120c0e;
-  --foreground: #f8f2f4;
-  /* v6 "surface" (#1B1316). */
-  --card: #1b1316;
+  --background: #191113;
+  --foreground: #f7f3f4;
+  --card: #241a1c;
   --card-foreground: #f7f3f4;
-  --popover: #1b1316;
+  --popover: #241a1c;
   --popover-foreground: #f7f3f4;
-  /* Decision D1: v6 primary (#CD1560) with a WHITE foreground, not the
-     rose-400/dark-text pairing this app shipped with. */
-  --primary: #cd1560;
-  --primary-foreground: #ffffff;
-  /* v6 "surface-2" (#241A1E). */
-  --secondary: #241a1e;
+  --primary: #e4569a;
+  --primary-foreground: #191113;
+  --secondary: #2e2225;
   --secondary-foreground: #f7f3f4;
-  --muted: #241a1e;
-  --muted-foreground: #a08a91;
-  --accent: rgba(235, 63, 133, 0.14);
+  --muted: #2e2225;
+  --muted-foreground: #9c8a8f;
+  --accent: #2e2225;
   --accent-foreground: #f9dfe9;
-  --destructive: #f07163;
-  /* v6 "border" (#2E2227). --input keeps its current value: it is still
-     used as BOTH border and translucent background at existing call sites
-     until V0.4 splits it into --border-strong / --input-bg. */
-  --border: #2e2227;
-  --input: #34272c;
-  --ring: #eb3f85;
+  --destructive: #b3261e;
+  --border: #382a2e;
+  --input: #382a2e;
+  --ring: #e4569a;
   --chart-1: #e4569a;
   --chart-2: #cd1560;
   --chart-3: #f5bad2;
   --chart-4: #8c757b;
   --chart-5: #ddd2d5;
-  /* v6 "sidebar" (#0D0809). */
-  --sidebar: #0d0809;
-  --sidebar-foreground: #f8f2f4;
+  --sidebar: #191113;
+  --sidebar-foreground: #c9bcc0;
   --sidebar-primary: #cd1560;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1b1316;
-  --sidebar-accent-foreground: #f8f2f4;
-  --sidebar-border: #2e2227;
+  --sidebar-accent: #241a1c;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #241a1c;
   --sidebar-ring: #cd1560;
-  /* Shell tones (dark): active item = surface #1b1316 (v6). */
-  --shell-border: #2e2227;
-  --shell-surface: #1b1316;
-  --shell-chip: #2e2225;
-  --shell-kbd: #382a2e;
-  --shell-hover: #150e11;
-  --shell-active: #1b1316;
-  --shell-text: #f8f2f4;
-  --shell-muted: #c4b2b8;
-  --shell-faint: #a08a91;
 
   /* Brand tokens (dark): the ink scale inverts — low numbers are dark
      surfaces, high numbers are light text (shell-text #c9bcc0 family).
@@ -301,50 +211,31 @@
      text on a light pill (1.2:1), so it uses the shell-chip tone instead.
      Rose chip backgrounds are slightly darker than the plan draft so
      text-rose-400 passes 4.5:1 on them. All semantic text/bg pairs were
-     verified with the WCAG formula (>= 4.5:1, warm values).
-     V0.1: --page adopts v6 "bg" (#120C0E); --ink-700/--ink-500 adopt v6
-     "text-2"/"text-3" (#C4B2B8/#A08A91) — both re-verified for AA (see
-     scripts/… contrast check in the V0.1 commit evidence). */
-  --page: #120c0e;
+     verified with the WCAG formula (>= 4.5:1, warm values). */
+  --page: #161113;
   --panel: #1a1316;
   --ink-100: #2e2225;
   --ink-200: #3f3337;
   --ink-300: #4a3d41;
-  --ink-500: #a08a91;
+  --ink-500: #9c8a8f;
   --ink-600: #947f84;
-  --ink-700: #c4b2b8;
+  --ink-700: #c9bcc0;
   --ink-800: #f7f3f4;
   --ink-900: #f7f3f4;
   --ink-950: #ffffff;
-  /* v6 "accent-tint": alpha mix of the accent-brand color instead of an
-     opaque hex (this is what --color-rose-50 / --accent-tint resolve to). */
-  --rose-50: color-mix(in srgb, var(--accent-brand) 14%, transparent);
+  --rose-50: #331a24;
   --rose-100: #351c24;
   --rose-200: #5a2f42;
-  /* v6 "ok"/"warn"/"bad"/"info"; *-bg tokens move from an opaque hex to a
-     15%-alpha mix of the solid color, per the v6 "chip bg" contract. */
-  --exito: #4cc38a;
-  --exito-bg: color-mix(in srgb, var(--exito) 15%, transparent);
-  --alerta: #f0a04b;
-  --alerta-bg: color-mix(in srgb, var(--alerta) 15%, transparent);
-  --destructivo: #f07163;
-  --destructivo-bg: color-mix(in srgb, var(--destructivo) 15%, transparent);
-  --info: #6aa6f0;
-  --info-bg: color-mix(in srgb, var(--info) 15%, transparent);
+  --exito: #4caf7d;
+  --exito-bg: #123124;
+  --alerta: #e08c2e;
+  --alerta-bg: #33230f;
+  --destructivo: #e5736b;
+  --destructivo-bg: #351a18;
+  --info: #6ba6d9;
+  --info-bg: #142a3d;
   --login-enlace-fg: var(--color-rose-400);
   --login-activo-fg: var(--color-rose-400);
-
-  /* --- v6 tokens added by V0.1: dark values (see :root for the light
-     reproduction of each). --toast-* are intentionally NOT redefined here —
-     the toast stays a fixed light card in both themes. --accent-soft lives
-     in @theme (fixed, non-flipping). */
-  --border-strong: #34272c;
-  --accent-bar: #cd1560;
-  --input-bg: #120c0e;
-  --overlay: rgba(12, 6, 9, 0.66);
-  --accent-brand: #eb3f85;
-  --accent-soft: #f5bad2;
-  --accent-tint: var(--rose-50);
 }
 
 @layer base {

@@ -11,23 +11,6 @@ describe("Input", () => {
     expect(input).toHaveAttribute("data-slot", "input")
   })
 
-  it("is 44px tall", () => {
-    render(<Input aria-label="alto" />)
-    expect(screen.getByRole("textbox", { name: "alto" })).toHaveClass("h-11")
-  })
-
-  it("uses 16px text below md so touch browsers do not zoom, 14px from md", () => {
-    render(<Input aria-label="zoom" />)
-    expect(screen.getByRole("textbox", { name: "zoom" })).toHaveClass("text-base", "md:text-sm")
-  })
-
-  it("uses the v6 radius (12px) and control surface tokens", () => {
-    render(<Input aria-label="v6" />)
-    const input = screen.getByRole("textbox", { name: "v6" })
-    expect(input).toHaveClass("rounded-12", "border-border-strong", "bg-input-bg")
-    expect(input).not.toHaveClass("rounded-lg")
-  })
-
   it("reports typed values through onChange", async () => {
     const user = userEvent.setup()
     const onChange = vi.fn()

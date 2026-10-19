@@ -43,7 +43,7 @@ export function AccesosSection() {
 
   if (query.isLoading) {
     return (
-      <section className="surface p-5 lg:p-6">
+      <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
         <Skeleton className="h-5 w-40" />
         <Skeleton className="mt-3 h-3.5 w-64" />
         <Skeleton className="mt-5 h-10 w-full" />
@@ -60,7 +60,7 @@ export function AccesosSection() {
         ? query.error.message
         : "No pudimos cargar la bitácora de accesos. Inténtalo de nuevo.";
     return (
-      <section className="grid min-h-[280px] place-items-center surface p-8">
+      <section className="grid min-h-[280px] place-items-center rounded-[22px] border border-ink-200 bg-panel p-8">
         <div className="max-w-[46ch] text-center">
           <span className="mx-auto grid size-11 place-items-center rounded-[15px_15px_15px_5px] bg-alerta-bg text-alerta">
             <AlertTriangle className="size-5" strokeWidth={1.7} />
@@ -72,7 +72,7 @@ export function AccesosSection() {
           <Button
             onClick={() => void query.refetch()}
             variant="outline"
-            className="mt-4 px-4 font-semibold"
+            className="mt-4 rounded-lg px-4 font-semibold"
           >
             Reintentar
           </Button>
@@ -95,7 +95,7 @@ export function AccesosSection() {
   }
 
   return (
-    <section className="surface p-5 lg:p-6">
+    <section className="rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h2 className="font-display text-[17px] font-bold tracking-[-0.02em] text-ink-950">
@@ -115,7 +115,7 @@ export function AccesosSection() {
       </div>
 
       {accesos.length === 0 ? (
-        <div className="grid min-h-[180px] place-items-center rounded-inner border border-dashed border-border px-6 py-10 text-center">
+        <div className="grid min-h-[180px] place-items-center rounded-[18px] border border-dashed border-ink-200 px-6 py-10 text-center">
           <div>
             <span className="mx-auto grid size-11 place-items-center rounded-[15px_15px_15px_5px] bg-ink-100 text-ink-700">
               <Fingerprint className="size-5" strokeWidth={1.7} />
@@ -130,21 +130,21 @@ export function AccesosSection() {
           </div>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-inner border border-border">
+        <div className="overflow-hidden rounded-[18px] border border-ink-200">
           {/* Patrón C (plan Fase 5): min-w para que scrollee en vez de aplastarse */}
           <Table className="min-w-[760px]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="pl-5">
+                <TableHead className="pl-5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
                   Fecha
                 </TableHead>
-                <TableHead>
+                <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
                   Usuario
                 </TableHead>
-                <TableHead>
+                <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
                   IP
                 </TableHead>
-                <TableHead className="pr-5">
+                <TableHead className="pr-5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
                   Agente
                 </TableHead>
               </TableRow>
@@ -229,7 +229,7 @@ export function AccesosSection() {
               onClick={() => void loadMore()}
               variant="outline"
               disabled={query.isFetchingNextPage}
-              className="px-4 font-semibold"
+              className="rounded-lg px-4 font-semibold"
             >
               {query.isFetchingNextPage ? (
                 <LoaderCircle className="size-4 animate-spin" />

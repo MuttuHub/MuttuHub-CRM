@@ -67,17 +67,6 @@ enum FaseOportunidad {
   EJECUCION
 }
 
-// v7 alignment C3a (Interacciones): the kind of a bitácora entry. `OTRO` is
-// the default so every pre-existing row (and any writer that predates this
-// unit) keeps working unchanged.
-enum TipoInteraccion {
-  REUNION
-  CORREO
-  LLAMADA
-  VISITA
-  OTRO
-}
-
 enum EstadoTarea {
   POR_HACER
   EN_CURSO
@@ -104,28 +93,6 @@ enum TipoNotificacion {
   COMPROMISO_VENCIDO
   TAREA_VENCIDA
   POR_VENCER
-  SOBREGASTO_RUBRO
-  GASTO_RECHAZADO
-}
-
-// v2 projects module (RF-04) — lifecycle of a project. New enum on this branch:
-// the v1 projects module never shipped, so the migration creates it together
-// with the tables (there is no separate ADD VALUE migration).
-enum EstadoProyecto {
-  PLANIFICACION
-  BORRADOR
-  EN_EJECUCION
-  SUSPENDIDO
-  CERRADO
-  CANCELADO
-}
-
-// v2 projects module (ADR-09) — how a project came to exist: converted from a
-// GANADA opportunity (OPORTUNIDAD, with `oportunidad_id` set) or created
-// directly (INDEPENDIENTE, with `oportunidad_id` null).
-enum OrigenProyecto {
-  OPORTUNIDAD
-  INDEPENDIENTE
 }
 
 // ─────────────────────────────────────────
@@ -142,23 +109,16 @@ model Usuario {
   // por la migración para los COLABORADORES responsables de clientes con al
   // menos una oportunidad viva, así el deploy no deja a nadie sin acceso.
   gestiona_oportunidades Boolean    @default(false)
-  // Eje de lectura gerencial ortogonal a `rol` (v2 S9, REQ-ACC-02): habilita el tablero
-  // de portafolio y solo lectura; nunca concede escritura ni soportes financieros.
-  puede_ver_tablero_gerencial Boolean @default(false)
   created_at             DateTime   @default(now())
   updated_at             DateTime   @updatedAt
 
   clientes_asignados Cliente[]
   tareas_asignadas   Tarea[]
   bitacora_entradas  BitacoraEntrada[]
-  contactos_propietario Contacto[] @relation("ContactoOwner")
   documentos_subidos Documento[]
   notificaciones     Notificacion[]
   accesos            Acceso[] // PRD §3.3
   auditorias         Auditoria[]
-  proyectos_responsable Proyecto[] @relation("ProyectoResponsable")
-  proyectos_miembro ProyectoMiembro[] @relation("MiembroProyecto")
-  actividades_responsable Actividad[] @relation("ActividadResponsable")
 
   @@map("usuarios")
 }
@@ -188,7 +148,6 @@ model Cliente {
   tareas        Tarea[]
   bitacora      BitacoraEntrada[]
   documentos    DocumentoCliente[]
-  proyectos     Proyecto[]
 
   @@map("clientes")
 }
@@ -202,20 +161,10 @@ model Contacto {
   telefono     String?
   rol_decision RolContacto?
   notas        String?
-  // v7 alignment C4a (Relaciones): the power × interest matrix. Both axes are
-  // 1..5 and the relationship strength is 1..3. Nullable so every pre-existing
-  // row keeps working — a contact without a quadrant is valid.
-  poder           Int?
-  interes         Int?
-  fuerza_relacion Int?
-  // v7 C4a: optional internal owner ("Relación: owner" in the v7 contact list).
-  // Nullable and not required; when set the global feed exposes the owner name.
-  owner_id        String?
   created_at   DateTime     @default(now())
   deleted_at   DateTime?
 
-  cliente Cliente  @relation(fields: [cliente_id], references: [id])
-  owner   Usuario? @relation("ContactoOwner", fields: [owner_id], references: [id])
+  cliente Cliente @relation(fields: [cliente_id], references: [id])
 
   @@map("contactos")
 }
@@ -249,7 +198,6 @@ model Oportunidad {
   cliente  Cliente           @relation(fields: [cliente_id], references: [id])
   tareas   Tarea[]
   bitacora BitacoraEntrada[]
-  proyecto Proyecto?
 
   // Objetivo de la FK compuesta de Tarea/BitacoraEntrada (D1): garantiza a
   // nivel de base de datos que una tarea u entrada de bitácora vinculada a
@@ -317,11 +265,6 @@ model BitacoraEntrada {
   // Comunicación específica de una oportunidad (oportunidades-comerciales).
   // Nullable: las entradas atadas solo al cliente no se ven afectadas.
   oportunidad_id String?
-  // v7 alignment C3a (Interacciones): the kind of interaction. Defaults to
-  // OTRO so legacy rows and old writers stay valid — this column is additive.
-  tipo           TipoInteraccion @default(OTRO)
-  // v7 C3a: optional next step agreed in the interaction (free text).
-  proximo_paso   String?
   created_at     DateTime @default(now())
 
   cliente     Cliente      @relation(fields: [cliente_id], references: [id])
@@ -332,7 +275,6 @@ model BitacoraEntrada {
   // `tareas`.
   oportunidad Oportunidad? @relation(fields: [oportunidad_id, cliente_id], references: [id, cliente_id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@index([cliente_id])
   @@map("bitacora_entradas")
 }
 
@@ -458,20 +400,12 @@ model Notificacion {
   usuario_id String
   tipo       TipoNotificacion
   tarea_id   String?
-  // v2 (S6): project notifications (overspend). Task rows keep both NULL; NULLs never
-  // collide in the unique key, so there is one project row per (usuario, tipo, gasto).
-  proyecto_id String?
-  gasto_id    String?
   leida      Boolean          @default(false)
   created_at DateTime         @default(now())
 
-  usuario  Usuario   @relation(fields: [usuario_id], references: [id])
-  tarea    Tarea?    @relation(fields: [tarea_id], references: [id])
-  proyecto Proyecto? @relation(fields: [proyecto_id], references: [id], onDelete: SetNull)
-  gasto    Gasto?    @relation(fields: [gasto_id], references: [id], onDelete: SetNull)
+  usuario Usuario @relation(fields: [usuario_id], references: [id])
+  tarea   Tarea?  @relation(fields: [tarea_id], references: [id])
 
-  @@unique([usuario_id, tipo, gasto_id])
-  @@index([usuario_id, leida])
   @@map("notificaciones")
 }
 
@@ -558,700 +492,4 @@ model Setting {
   created_at DateTime @default(now())
 
   @@map("settings")
-}
-
-// v2 projects module (RF-04, RNF-05, est §7.4) — audit con antes/después por
-// campo. Es *append-only a nivel de base de datos*: la migración
-// `v2_auditoria_cambios` instala un trigger que rechaza UPDATE, DELETE y
-// TRUNCATE, así que la aplicación no puede alterar el registro ni por error.
-//
-// `usuario_id` no lleva FK a propósito (a diferencia del modelo v1
-// `Auditoria`, que sí la tiene): el libro debe sobrevivir a cambios de usuario.
-// `proyecto_id` tampoco la lleva, para que el histórico de un proyecto
-// eliminado siga siendo legible.
-enum AccionAuditoria {
-  CREAR
-  EDITAR
-  IMPORTAR
-  APROBAR
-  VALIDAR
-  RECHAZAR
-  SUSPENDER
-  CAMBIAR_PARAMETRO
-  ANULAR
-  SOLICITAR
-  EXPORTAR
-  CONVERTIR
-}
-
-model AuditoriaCambio {
-  id             String          @id @default(uuid())
-  created_at     DateTime        @default(now())
-  usuario_id     String
-  accion         AccionAuditoria
-  entidad        String // "proyecto" | "objetivo" | "actividad" | ...
-  entidad_id     String
-  proyecto_id    String?
-  campo          String?
-  valor_anterior Json?
-  valor_nuevo    Json?
-  lote_id        String? // agrupa una operación completa (import, aprobación)
-
-  @@index([proyecto_id, created_at])
-  @@index([entidad, entidad_id])
-  @@map("auditoria_cambios")
-}
-
-// v2 projects module (REQ-CAT-01, REQ-CAT-02) — catálogo único de rubros
-// R01..R15. `codigo` es `String?` a propósito: la migración adoptiva reutiliza
-// la tabla v1 `rubros` que producción ya tiene, cuyas filas "Material POP" y
-// "Operación logística" quedan suspendidas y SIN código (no se ofrecen a
-// ningún proyecto). El índice único admite varios NULL, y el trigger
-// `rubros_codigo_inmutable` (ver la migración) rechaza cambiar un código
-// existente. `orden` fija la secuencia R01..R15. Sin FKs especulativas: hoy
-// nada referencia un rubro (las líneas presupuestales llegan en S5.x).
-model Rubro {
-  id         String   @id @default(uuid())
-  codigo     String?  @unique
-  nombre     String
-  activo     Boolean  @default(true)
-  orden      Int      @default(0)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  lineas LineaPresupuestal[]
-
-  @@map("rubros")
-}
-
-// v2 projects module (REQ-CAT-03) — catálogo de líneas estratégicas LE01..LE08.
-// Greenfield on this branch: no `lineas_estrategicas` table exists in any
-// environment, so `codigo` is NOT NULL (unlike `rubros`, whose adopted legacy
-// rows keep a NULL code). `codigo` is immutable — the trigger
-// `lineas_estrategicas_codigo_inmutable` (see the migration) rejects changing
-// an existing code — and `orden` fixes the LE01..LE08 sequence.
-// `fecha_suspension` records WHEN a line was suspended (`activo=false`):
-// suspension is the only way out, because rows are never deleted. No FKs yet:
-// `ProyectoLinea` arrives with S2.1.
-model LineaEstrategicaCatalogo {
-  id               String    @id @default(uuid())
-  codigo           String    @unique
-  nombre           String
-  activo           Boolean   @default(true)
-  fecha_suspension DateTime?
-  orden            Int       @default(0)
-  created_at       DateTime  @default(now())
-  updated_at       DateTime  @updatedAt
-
-  lineas ProyectoLinea[]
-  @@map("lineas_estrategicas")
-}
-
-// v2 projects module (REQ-CAT-04) — catálogo administrable de municipios.
-// Greenfield on this branch: no `municipios` table exists in any environment,
-// so the migration creates it and seeds NOTHING. N-21 asked for the catalog to
-// be filled from the normalised legacy `territorio` values, but no `territorio`
-// field or enum exists in this repository: there is nothing to normalise and a
-// national list would be invented data. `codigo_dane` is optional and unique
-// only WHEN PRESENT: the unique index admits several NULLs (Postgres treats
-// them as distinct). `(nombre, departamento)` is unique together, so the same
-// municipality name may repeat across departments but never inside one.
-// `fecha_suspension` records WHEN a municipio was suspended (`activo=false`):
-// suspension is the only way out, because rows are never deleted. No FKs yet:
-// `Proyecto` arrives with S2.1.
-model Municipio {
-  id               String    @id @default(uuid())
-  nombre           String
-  departamento     String
-  codigo_dane      String?   @unique
-  activo           Boolean   @default(true)
-  fecha_suspension DateTime?
-  orden            Int       @default(0)
-  created_at       DateTime  @default(now())
-  updated_at       DateTime  @updatedAt
-
-  @@unique([nombre, departamento])
-  proyectos ProyectoMunicipio[]
-  @@map("municipios")
-}
-
-// v2 projects module (RF-04, ADR-09) — the `Proyecto` aggregate. Greenfield on
-// this branch: the v1 module never shipped, so this is the first definition.
-//
-// `codigo` (PRY-AAAA-NNN) is generated by the later S2.2 sequence; the column
-// and its unique index exist now. `oportunidad_id` is the 1:1 link to a GANADA
-// opportunity and is null for an INDEPENDIENTE project; `origen` distinguishes
-// the two paths. `umbrales_override` holds per-project threshold overrides as
-// free-form JSON, never a CHECK-constrained shape.
-//
-// `oportunidad` is a COMPOSITE optional relation sharing `cliente_id` with
-// `cliente`, exactly like `Tarea.oportunidad`: the shared scalar makes it
-// impossible for a project to point at an opportunity of a different client.
-// `NoAction` is required because two relations sharing a scalar cannot have
-// conflicting cascade paths. `Cliente`, `Oportunidad` and `Usuario` carry the
-// matching back-relations (`proyectos`, `proyecto`, `proyectos_responsable`).
-model Proyecto {
-  id                           String          @id @default(uuid())
-  codigo                       String          @unique // PRY-AAAA-NNN; generated by the later S2.2
-  nombre                       String
-  descripcion                  String?
-  cliente_id                   String
-  oportunidad_id               String?         @unique // 1:1 with a GANADA opportunity; null when INDEPENDIENTE
-  responsable_id               String?
-  estado                       EstadoProyecto  @default(BORRADOR)
-  origen                       OrigenProyecto?
-  fecha_inicio                 DateTime?       @db.Date
-  fecha_fin                    DateTime?       @db.Date
-  valor_total                  Decimal?        @db.Decimal(15, 2)
-  diferencia_valor_oportunidad Decimal?        @db.Decimal(15, 2)
-  beneficiarios_meta           Int?
-  umbrales_override            Json?
-  programacion_pendiente       Boolean         @default(false)
-  created_at                   DateTime        @default(now())
-  updated_at                   DateTime        @updatedAt
-  deleted_at                   DateTime?
-
-  cliente     Cliente       @relation(fields: [cliente_id], references: [id])
-  oportunidad Oportunidad?  @relation(fields: [oportunidad_id, cliente_id], references: [id, cliente_id], onDelete: NoAction, onUpdate: NoAction)
-  responsable Usuario?      @relation("ProyectoResponsable", fields: [responsable_id], references: [id])
-  lineas      ProyectoLinea[]
-  municipios  ProyectoMunicipio[]
-  miembros    ProyectoMiembro[]
-  objetivos   Objetivo[]
-  actividades Actividad[]
-  entregables Entregable[]
-  indicadores Indicador[]
-  avances_entregable AvanceEntregable[]
-  mediciones_indicador MedicionIndicador[]
-  registros_beneficiarios RegistroBeneficiario[]
-  soportes_proyecto  SoporteProyecto[]
-  lineas_presupuestales LineaPresupuestal[]
-  programacion_periodos ProgramacionPeriodo[]
-  gastos                Gasto[]
-  notificaciones        Notificacion[]
-  versiones             VersionProyecto[]
-  solicitudes           SolicitudModificacion[]
-
-  @@unique([oportunidad_id, cliente_id])
-  @@index([cliente_id])
-  @@index([estado])
-  @@map("proyectos")
-}
-
-// v2 projects module (DP-05) — N..N between a project and the strategic-line
-// catalog, with AT MOST ONE principal per project enforced by the partial
-// unique index `proyecto_lineas_principal_uq` in the migration (Prisma cannot
-// express a partial index). Exactly one principal is a service-layer rule.
-model ProyectoLinea {
-  proyecto_id String
-  linea_id    String
-  principal   Boolean @default(false)
-
-  proyecto Proyecto                 @relation(fields: [proyecto_id], references: [id])
-  linea    LineaEstrategicaCatalogo @relation(fields: [linea_id], references: [id])
-
-  @@id([proyecto_id, linea_id])
-  @@map("proyecto_lineas")
-}
-
-// v2 projects module (REQ-CAT-04) — N..N between a project and the municipio
-// catalog.
-model ProyectoMunicipio {
-  proyecto_id  String
-  municipio_id String
-
-  proyecto  Proyecto  @relation(fields: [proyecto_id], references: [id])
-  municipio Municipio @relation(fields: [municipio_id], references: [id])
-
-  @@id([proyecto_id, municipio_id])
-  @@map("proyecto_municipios")
-}
-
-// v2 projects module (S2.6, ADR-09, DP-06, N-20) — project team membership. A
-// membership is never hard-deleted: `removed_at` soft-revokes access while the
-// row is kept for history, and a removed member can be re-added later. That is
-// why `id` is a surrogate primary key and `(proyecto_id, usuario_id)` cannot
-// be: the same pair legitimately repeats over time. The migration adds the
-// partial unique index `proyecto_miembros_activo_uq` over
-// `(proyecto_id, usuario_id) WHERE removed_at IS NULL` — Prisma cannot express
-// a partial index, and it is the only DB-level guard for "at most one active
-// membership per pair". `(usuario_id, removed_at)` is indexed because
-// `es_miembro` probes exactly that pair. `agregado_por_id` and
-// `removido_por_id` are the audit trail of who granted and revoked the
-// membership: they are plain columns with NO relation and NO foreign key on
-// purpose, mirroring `auditoria_cambios.usuario_id` — an audit pointer must
-// outlive the actor it names. `puede_ver_tablero_gerencial` is intentionally
-// absent: the managerial-board flag belongs to a later slice.
-model ProyectoMiembro {
-  id              String    @id @default(uuid())
-  proyecto_id     String
-  usuario_id      String
-  agregado_por_id String
-  created_at      DateTime  @default(now())
-  removed_at      DateTime?
-  removido_por_id String?
-
-  proyecto Proyecto @relation(fields: [proyecto_id], references: [id])
-  usuario  Usuario  @relation("MiembroProyecto", fields: [usuario_id], references: [id])
-
-  @@index([proyecto_id])
-  @@index([usuario_id, removed_at])
-  @@map("proyecto_miembros")
-}
-
-// v2 projects module (S2.2, SDD §4.2) — per-year counter that issues the
-// `PRY-AAAA-NNN` project codes. `anio` is the primary key, so the upsert in
-// `src/lib/api/project-code.ts` locks one row per year and two concurrent
-// creations can never share a sequence. Deliberately standalone: it has no
-// relation because `anio` is not a project column, and the migration seeds no
-// rows — the first allocation initialises the counter from `proyectos`.
-model ProyectoSecuencia {
-  anio   Int  @id
-  ultimo Int  @default(0)
-
-  @@map("proyecto_secuencias")
-}
-
-// v2 projects module (S3, SDD §4.8) — a specific objective of a project's
-// technical structure. Soft-deleted through `deleted_at`. The migration adds
-// the partial unique index `objetivos_codigo_activo_uq` over
-// `(proyecto_id, lower(codigo)) WHERE deleted_at IS NULL` (Prisma cannot
-// express it): the code is unique per project, ignoring case, among live rows.
-// `@@unique([id, proyecto_id])` is the target of the composite same-project
-// foreign keys of `Actividad` and `Indicador`, so a child can never point at an
-// objective of another project.
-model Objetivo {
-  id          String    @id @default(uuid())
-  proyecto_id String
-  codigo      String
-  descripcion String
-  orden       Int       @default(0)
-  created_at  DateTime  @default(now())
-  updated_at  DateTime  @updatedAt
-  deleted_at  DateTime?
-
-  proyecto    Proyecto    @relation(fields: [proyecto_id], references: [id])
-  actividades Actividad[]
-  indicadores Indicador[]
-
-  @@unique([id, proyecto_id])
-  @@index([proyecto_id])
-  @@map("objetivos")
-}
-
-// v2 projects module (S3, SDD §4.8, REQ-STR-02..04) — an activity placed in the
-// project's relative weeks. Dates are NEVER stored: `fecha_inicio`/`fecha_fin`
-// are derived on read from `semana_inicio`/`semana_fin` and the project start
-// (`src/lib/proyectos/weeks.ts`). The migration adds what Prisma cannot
-// express: CHECK `actividades_semanas_check` (1 <= inicio <= fin), CHECK
-// `actividades_peso_check` (peso > 0) and the partial unique index
-// `actividades_codigo_activo_uq` over `(proyecto_id, lower(codigo)) WHERE
-// deleted_at IS NULL`. The composite relation `[objetivo_id, proyecto_id]`
-// makes an objective of another project unreferenceable. `peso_manual` marks a
-// weight the user typed; otherwise the weight is the duration in weeks.
-model Actividad {
-  id             String    @id @default(uuid())
-  proyecto_id    String
-  objetivo_id    String
-  codigo         String
-  nombre         String
-  semana_inicio  Int
-  semana_fin     Int
-  peso           Decimal   @db.Decimal(9, 2)
-  peso_manual    Boolean   @default(false)
-  responsable_id String?
-  created_at     DateTime  @default(now())
-  updated_at     DateTime  @updatedAt
-  deleted_at     DateTime?
-
-  proyecto    Proyecto @relation(fields: [proyecto_id], references: [id])
-  objetivo    Objetivo @relation(fields: [objetivo_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
-  responsable Usuario? @relation("ActividadResponsable", fields: [responsable_id], references: [id])
-  entregables Entregable[]
-  beneficiarios RegistroBeneficiario[]
-
-  @@unique([id, proyecto_id])
-  @@index([proyecto_id])
-  @@index([objetivo_id])
-  @@map("actividades")
-}
-
-// v2 projects module (S3, SDD §4.8, REQ-STR-05) — one measurable product of an
-// activity. `proyecto_id` is denormalised on purpose: the code is unique per
-// PROJECT (`1.4-E1`), and the composite relation `[actividad_id, proyecto_id]`
-// makes an activity of another project unreferenceable. The migration adds
-// CHECK `entregables_cantidad_meta_check` (cantidad_meta > 0) and the partial
-// unique index `entregables_codigo_activo_uq` over `(proyecto_id, lower(codigo))
-// WHERE deleted_at IS NULL`. `tipo_medio_exigido` is free text (decision 5).
-model Entregable {
-  id                 String    @id @default(uuid())
-  proyecto_id        String
-  actividad_id       String
-  codigo             String
-  descripcion        String
-  cantidad_meta      Decimal   @db.Decimal(15, 2)
-  unidad             String
-  tipo_medio_exigido String
-  created_at         DateTime  @default(now())
-  updated_at         DateTime  @updatedAt
-  deleted_at         DateTime?
-
-  proyecto  Proyecto  @relation(fields: [proyecto_id], references: [id])
-  actividad Actividad @relation(fields: [actividad_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
-  avances   AvanceEntregable[]
-
-  @@unique([id, proyecto_id])
-  @@index([proyecto_id])
-  @@index([actividad_id])
-  @@map("entregables")
-}
-
-// v2 projects module (S4, SDD §4.8, REQ-EXE-01..07) — one progress record of a
-// deliverable. Never deleted: a void sets `anulado_at` + `motivo_anulacion`
-// (CHECK `avances_entregable_anulacion_check` keeps them together) and the row is
-// excluded from every calculation. `cantidad > 0` is
-// `avances_entregable_cantidad_check`; the composite relation
-// `[entregable_id, proyecto_id]` keeps the deliverable in the same project.
-// `registrado_por_id` / `anulado_por_id` are audit pointers without an FK.
-model AvanceEntregable {
-  id                   String    @id @default(uuid())
-  proyecto_id          String
-  entregable_id        String
-  fecha                DateTime  @db.Date
-  cantidad             Decimal   @db.Decimal(15, 2)
-  observacion          String?
-  justificacion_exceso String?
-  registrado_por_id    String
-  created_at           DateTime  @default(now())
-  anulado_at           DateTime?
-  anulado_por_id       String?
-  motivo_anulacion     String?
-
-  proyecto   Proyecto   @relation(fields: [proyecto_id], references: [id])
-  entregable Entregable @relation(fields: [entregable_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
-  soportes   SoporteProyecto[]
-
-  @@unique([id, proyecto_id])
-  @@index([entregable_id, fecha])
-  @@index([proyecto_id])
-  @@map("avances_entregable")
-}
-
-// v2 projects module (S4 U3, SDD §4.8, REQ-EXE-03) — a medio de verificación of
-// an execution record: an uploaded file (`storage_path`, signed upload, never
-// deleted from storage) or an external https link (`url_externa`). CHECKs
-// `soportes_proyecto_padre_check` (exactly one of avance_id / medicion_id),
-// `soportes_proyecto_fuente_check` (exactly one of storage_path / url_externa) and
-// `soportes_proyecto_tamano_check`; `storage_path` is unique so one stored object
-// backs one medio. `avance_id` is a same-project composite FK; `medicion_id` is a
-// same-project composite FK to the measurements table (S4 U4). Soft delete only (`deleted_at`).
-// S6 adds `gasto_id` (same-project composite FK to `gastos`); the CHECK keeps the same name and
-// now reads `num_nonnulls(avance_id, medicion_id, gasto_id) = 1`. Every consultation of an
-// expense support is logged in `acceso_soportes`.
-model SoporteProyecto {
-  id            String    @id @default(uuid())
-  proyecto_id   String
-  avance_id     String?
-  medicion_id   String?
-  gasto_id      String?
-  nombre        String
-  storage_path  String?   @unique
-  url_externa   String?
-  tipo_mime     String?
-  tamano_bytes  Int?
-  subido_por_id String
-  created_at    DateTime  @default(now())
-  deleted_at    DateTime?
-
-  proyecto Proyecto          @relation(fields: [proyecto_id], references: [id])
-  avance   AvanceEntregable? @relation(fields: [avance_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
-  medicion MedicionIndicador? @relation(fields: [medicion_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
-  gasto    Gasto?            @relation(fields: [gasto_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
-  accesos  AccesoSoporte[]
-
-  @@index([avance_id])
-  @@index([medicion_id])
-  @@index([gasto_id])
-  @@index([proyecto_id])
-  @@map("soportes_proyecto")
-}
-
-// v2 projects module (S3, SDD §4.8, REQ-STR-06) — a result indicator attached
-// to one objective. The code (`IND-01`) is unique per project among live rows
-// (`indicadores_codigo_activo_uq`); CHECKs `indicadores_meta_check` (meta > 0)
-// and `indicadores_linea_base_check` (linea_base IS NULL OR linea_base >= 0);
-// the composite relation `[objetivo_id, proyecto_id]` keeps the objective in the
-// same project.
-model Indicador {
-  id          String    @id @default(uuid())
-  proyecto_id String
-  objetivo_id String
-  codigo      String
-  nombre      String
-  meta        Decimal   @db.Decimal(15, 2)
-  unidad      String
-  linea_base  Decimal?  @db.Decimal(15, 2)
-  created_at  DateTime  @default(now())
-  updated_at  DateTime  @updatedAt
-  deleted_at  DateTime?
-
-  proyecto Proyecto @relation(fields: [proyecto_id], references: [id])
-  objetivo Objetivo @relation(fields: [objetivo_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
-  mediciones MedicionIndicador[]
-
-  @@unique([id, proyecto_id])
-  @@index([proyecto_id])
-  @@index([objetivo_id])
-  @@map("indicadores")
-}
-
-// v2 projects module (S4 U4, SDD §4.8, REQ-EXE-04/07) — one measurement of a
-// result indicator. Voided, never deleted (CHECK `mediciones_indicador_anulacion_check`
-// keeps `anulado_at` + `motivo_anulacion` together); `valor >= 0` is
-// `mediciones_indicador_valor_check`; the composite relation
-// `[indicador_id, proyecto_id]` keeps the indicator in the same project. Audit
-// pointers carry no FK.
-model MedicionIndicador {
-  id                String    @id @default(uuid())
-  proyecto_id       String
-  indicador_id      String
-  fecha             DateTime  @db.Date
-  valor             Decimal   @db.Decimal(15, 2)
-  observacion       String?
-  registrado_por_id String
-  created_at        DateTime  @default(now())
-  anulado_at        DateTime?
-  anulado_por_id    String?
-  motivo_anulacion  String?
-
-  proyecto  Proyecto   @relation(fields: [proyecto_id], references: [id])
-  indicador Indicador  @relation(fields: [indicador_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
-  soportes  SoporteProyecto[]
-
-  @@unique([id, proyecto_id])
-  @@index([indicador_id, fecha])
-  @@index([proyecto_id])
-  @@map("mediciones_indicador")
-}
-
-// v2 projects module (S4 U4, SDD §4.8, REQ-EXE-05/07) — a beneficiary count
-// registered on a date, optionally tied to one activity of the same project
-// (composite relation; a null `actividad_id` skips the key). `cantidad > 0` is
-// `registros_beneficiarios_cantidad_check`. Voided, never deleted.
-model RegistroBeneficiario {
-  id                String    @id @default(uuid())
-  proyecto_id       String
-  actividad_id      String?
-  fecha             DateTime  @db.Date
-  cantidad          Int
-  observacion       String?
-  registrado_por_id String
-  created_at        DateTime  @default(now())
-  anulado_at        DateTime?
-  anulado_por_id    String?
-  motivo_anulacion  String?
-
-  proyecto  Proyecto   @relation(fields: [proyecto_id], references: [id])
-  actividad Actividad? @relation(fields: [actividad_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@unique([id, proyecto_id])
-  @@index([proyecto_id, fecha])
-  @@index([actividad_id])
-  @@map("registros_beneficiarios")
-}
-
-// v2 projects module (S5, SDD §3.7, REQ-BUD-01..05) — assigned amount (A) of one
-// rubro in one project. Adoptive: production may still hold the v1 table, so the
-// migration is idempotent. Lines are never deleted ($0 is the "off" state, and
-// rubros are never deleted either), hence no `deleted_at`. CHECK
-// `lineas_monto_no_negativo_ck` keeps the amount >= 0; `@@unique([id, proyecto_id])`
-// is the FK target for programming now and expenses in S6.
-model LineaPresupuestal {
-  id                   String   @id @default(uuid())
-  proyecto_id          String
-  rubro_id             String
-  monto_proyectado_cop Decimal  @db.Decimal(15, 2)
-  created_at           DateTime @default(now())
-  updated_at           DateTime @updatedAt
-
-  proyecto     Proyecto               @relation(fields: [proyecto_id], references: [id])
-  rubro        Rubro                  @relation(fields: [rubro_id], references: [id])
-  programacion ProgramacionPeriodo[]
-  gastos       Gasto[]
-
-  @@unique([proyecto_id, rubro_id])
-  @@unique([id, proyecto_id])
-  @@index([proyecto_id])
-  @@map("lineas_presupuestales")
-}
-
-// v2 projects module (S5, SDD §3.7, REQ-BUD-03) — programmed amount (P) of one
-// budget line in one month (`periodo` "AAAA-MM", CHECK `programacion_periodo_ck`).
-// The composite relation keeps the line in the same project. Written by diff in
-// BORRADOR: a cell that becomes 0 is deleted; history lives in `auditoria_cambios`.
-model ProgramacionPeriodo {
-  id          String   @id @default(uuid())
-  proyecto_id String
-  linea_id    String
-  periodo     String   @db.Char(7)
-  valor       Decimal  @db.Decimal(15, 2)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-
-  proyecto Proyecto          @relation(fields: [proyecto_id], references: [id])
-  linea    LineaPresupuestal @relation(fields: [linea_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@unique([linea_id, periodo])
-  @@index([proyecto_id, periodo])
-  @@map("programacion_periodo")
-}
-
-enum EstadoGasto {
-  REGISTRADO
-  VALIDADO
-  RECHAZADO
-  ANULADO
-}
-
-enum TipoSoporteGasto {
-  FACTURA_PROVEEDOR
-  CUENTA_COBRO_PERSONA_NATURAL
-  OTRO
-}
-
-enum TipoIdentificacion {
-  NIT
-  CC
-  CE
-}
-
-// v2 projects module (S6, SDD §3.9, RF-20..22) — one expense against a budget line. The
-// composite relation `[linea_id, proyecto_id]` keeps the line in the same project. CHECKs
-// (the invariant test asserts these names): `gastos_monto_positivo_ck`, `gastos_periodo_ck`,
-// `gastos_validador_ck` (validator <> registrant), `gastos_rechazo_ck`, `gastos_rechazador_ck`,
-// `gastos_validado_ck` (VALIDADO needs validator, date and the third-party id: N-15) and
-// `gastos_anulado_ck` (ANULADO <=> the three anulado_* columns). `datos_incompletos` is derived
-// (tercero_tipo_id or tercero_numero_id null), never stored. `*_norm` columns are written by the
-// app from `lib/proyectos/gastos.ts` and used only for the duplicate lookup (RF-21). Actor ids
-// carry no FK (same choice as S4). The third-party number never goes to the audit ledger.
-model Gasto {
-  id                    String             @id @default(uuid())
-  proyecto_id           String
-  linea_id              String
-  fecha_documento       DateTime           @db.Date
-  periodo               String             @db.Char(7)
-  tipo_soporte          TipoSoporteGasto
-  tercero_nombre        String
-  tercero_tipo_id       TipoIdentificacion?
-  tercero_numero_id     String?
-  tercero_id_norm       String?
-  numero_documento      String
-  numero_documento_norm String
-  descripcion           String
-  monto_cop             Decimal            @db.Decimal(15, 2)
-  estado                EstadoGasto        @default(REGISTRADO)
-  alerta_sobregasto     Boolean            @default(false)
-  registrado_por_id     String
-  created_at            DateTime           @default(now())
-  updated_at            DateTime           @updatedAt
-  validado_por_id       String?
-  validado_at           DateTime?
-  rechazado_por_id      String?
-  rechazado_at          DateTime?
-  motivo_rechazo        String?
-  anulado_por_id        String?
-  anulado_at            DateTime?
-  motivo_anulacion      String?
-
-  proyecto Proyecto          @relation(fields: [proyecto_id], references: [id])
-  linea    LineaPresupuestal @relation(fields: [linea_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
-  soportes SoporteProyecto[]
-  notificaciones Notificacion[]
-
-  @@unique([id, proyecto_id])
-  @@index([proyecto_id, estado, periodo])
-  @@index([linea_id, estado])
-  @@index([tercero_id_norm, numero_documento_norm])
-  @@index([estado, created_at])
-  @@map("gastos")
-}
-
-// v2 projects module (S6, RNF-04) — append-only log of every issued download of an expense
-// support. Triggers reject UPDATE/DELETE/TRUNCATE (`acceso_soportes_inmutable()`). The soporte
-// FK is RESTRICT; the actor id carries no FK.
-model AccesoSoporte {
-  id          String   @id @default(uuid())
-  soporte_id  String
-  proyecto_id String
-  usuario_id  String
-  created_at  DateTime @default(now())
-
-  soporte SoporteProyecto @relation(fields: [soporte_id], references: [id], onDelete: Restrict)
-
-  @@index([proyecto_id, created_at])
-  @@index([soporte_id])
-  @@map("acceso_soportes")
-}
-
-// v2 projects module (S8, RF-05/RF-26..29) — baseline and modification versions.
-enum TipoVersion {
-  LINEA_BASE
-  MODIFICACION
-}
-
-enum TipoModificacion {
-  TRASLADO
-  ADICION
-  REDUCCION
-  REPROGRAMACION
-  CRONOGRAMA
-  ENTREGABLES
-}
-
-enum EstadoSolicitud {
-  PENDIENTE
-  APROBADA
-  RECHAZADA
-}
-
-// Immutable JSON snapshot of the approved structure + budget. Triggers reject UPDATE/DELETE/
-// TRUNCATE (`versiones_proyecto_inmutable()`); CHECKs tie `numero = 0` to LINEA_BASE and
-// MODIFICACION to a `solicitud_id`. The approver id carries no FK (like other audit pointers).
-model VersionProyecto {
-  id              String      @id @default(uuid())
-  proyecto_id     String
-  numero          Int
-  tipo            TipoVersion
-  solicitud_id    String?     @unique
-  aprobado_por_id String
-  aprobado_at     DateTime    @default(now())
-  snapshot        Json
-
-  proyecto  Proyecto               @relation(fields: [proyecto_id], references: [id], onDelete: Restrict)
-  solicitud SolicitudModificacion? @relation(fields: [solicitud_id], references: [id], onDelete: Restrict)
-
-  @@unique([proyecto_id, numero])
-  @@index([proyecto_id])
-  @@map("versiones_proyecto")
-}
-
-model SolicitudModificacion {
-  id                  String           @id @default(uuid())
-  proyecto_id         String
-  tipo                TipoModificacion
-  motivo              String
-  detalle             Json
-  version_base_numero Int
-  estado              EstadoSolicitud  @default(PENDIENTE)
-  solicitado_por_id   String
-  solicitado_at       DateTime         @default(now())
-  decidido_por_id     String?
-  decidido_at         DateTime?
-  comentario_decision String?
-
-  proyecto Proyecto         @relation(fields: [proyecto_id], references: [id], onDelete: Restrict)
-  version  VersionProyecto?
-
-  @@index([proyecto_id, estado])
-  @@map("solicitudes_modificacion")
 }
