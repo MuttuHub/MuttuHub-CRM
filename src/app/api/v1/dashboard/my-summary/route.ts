@@ -27,6 +27,7 @@ import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { OPEN_TASK_STATES } from "@/lib/api/crm";
 import { canReadProjectList, projectListWhere } from "@/lib/api/projects";
+import { PROJECT_MEMBER_ROLES } from "@/lib/permissions";
 import { addLocalDays, startOfLocalDay } from "@/lib/alerts";
 import {
   clienteScopeWhere,
@@ -61,9 +62,10 @@ export const GET = withApiErrorHandling(
       ...(rango && { fecha_entrega: rango }),
     });
 
-    // Roles with no project read scope never reach the database for projects.
+    // S4 (PO matrix 2026-10-19): both member roles see their projects; the
+    // membership clause below keeps the group scoped to them.
     const veProyectos =
-      canReadProjectList(auth.usuario) || auth.usuario.rol === "COORDINADOR";
+      canReadProjectList(auth.usuario) || PROJECT_MEMBER_ROLES.includes(auth.usuario.rol);
 
     const [tareas, clientes, proyectos, oportunidades] = await Promise.all([
       db.tarea.findMany({

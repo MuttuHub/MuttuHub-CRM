@@ -6,6 +6,7 @@ import { EstadoProyecto, type Usuario } from "@prisma/client";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
 import { canReadProjectList, projectListWhere, type ProjectListFilters } from "@/lib/api/projects";
+import { PROJECT_MEMBER_ROLES } from "@/lib/permissions";
 import { loadKpisPortafolio } from "@/lib/api/kpis-portafolio";
 import { parseCorteFecha, serializeAgregado, serializeKpis } from "@/lib/api/kpis-http";
 import { getSemaforoParametrosV2 } from "@/lib/settings";
@@ -48,9 +49,13 @@ export function parsePortafolioFilters(url: URL): { ok: true; filters: ProjectLi
   };
 }
 
-/** Who reads the dashboard: the portfolio scope (all) or a COORDINADOR (their member projects). */
+/**
+ * Who reads the portfolio dashboard. S4 (PO matrix 2026-10-19) opens it to every
+ * role; `projectListWhere` scopes the rows to the projects where the actor is an
+ * active member, so the aggregates are never portfolio-wide for a member role.
+ */
 export function puedeVerPortafolio(usuario: Usuario): boolean {
-  return canReadProjectList(usuario) || usuario.rol === "COORDINADOR";
+  return canReadProjectList(usuario) || PROJECT_MEMBER_ROLES.includes(usuario.rol);
 }
 
 /** 403 -> 400 (filters, corte) -> the portfolio. */
