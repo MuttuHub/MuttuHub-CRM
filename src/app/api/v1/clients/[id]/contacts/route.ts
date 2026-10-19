@@ -43,6 +43,31 @@ export const CONTACT_SCHEMA = z.object({
     .nullable()
     .optional(),
   notas: z.string().nullable().optional(),
+  // v7 alignment C4a (Relaciones): power × interest matrix. poder/interes are
+  // 1..5 and fuerza_relacion is 1..3; all nullable so a contact without a
+  // quadrant stays valid.
+  poder: z
+    .number()
+    .int("El poder debe ser un número entero.")
+    .min(1, "El poder debe estar entre 1 y 5.")
+    .max(5, "El poder debe estar entre 1 y 5.")
+    .nullable()
+    .optional(),
+  interes: z
+    .number()
+    .int("El interés debe ser un número entero.")
+    .min(1, "El interés debe estar entre 1 y 5.")
+    .max(5, "El interés debe estar entre 1 y 5.")
+    .nullable()
+    .optional(),
+  fuerza_relacion: z
+    .number()
+    .int("La fuerza de la relación debe ser un número entero.")
+    .min(1, "La fuerza de la relación debe estar entre 1 y 3.")
+    .max(3, "La fuerza de la relación debe estar entre 1 y 3.")
+    .nullable()
+    .optional(),
+  owner_id: z.string().min(1, "El propietario no es válido.").nullable().optional(),
 });
 
 export const GET = withApiErrorHandling(
@@ -98,6 +123,10 @@ export const POST = withApiErrorHandling(
         telefono: parsed.data.telefono,
         rol_decision: parsed.data.rol_decision,
         notas: parsed.data.notas,
+        poder: parsed.data.poder,
+        interes: parsed.data.interes,
+        fuerza_relacion: parsed.data.fuerza_relacion,
+        owner_id: parsed.data.owner_id,
       },
     });
     return NextResponse.json({ contacto }, { status: 201 });

@@ -58,7 +58,7 @@ function taskRow(overrides: Partial<Record<string, unknown>> = {}) {
       ? { nombre: "Cliente Uno", responsable_id: overrides.cliente_responsable_id ?? "other-user" }
       : null,
     oportunidad: overrides.oportunidad_id
-      ? { id: overrides.oportunidad_id, nombre: "Oportunidad Uno", fase: overrides.oportunidad_fase ?? "PROSPECCION" }
+      ? { id: overrides.oportunidad_id, nombre: "Oportunidad Uno", fase: overrides.oportunidad_fase ?? "PROSPECCION", proyecto: overrides.proyecto ?? null }
       : null,
     _count: { comentarios: 0, subtareas: 0 },
   };
@@ -114,6 +114,42 @@ describe("GET /api/v1/tasks", () => {
     expect(json.items[0]).toMatchObject({ id: "task-1", responsable_nombre: "Colab Uno" });
     const where = vi.mocked(db.tarea.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
     expect(where.responsable_id).toBeUndefined();
+  });
+
+  // D3 (F7): a converted task links to its exact project through Oportunidad.proyecto (1:1 back-relation).
+  describe("proyecto link (F7)", () => {
+    it("selects the project id and code through the opportunity, in the same query", async () => {
+      authAs(gerencia);
+      vi.mocked(db.tarea.findMany).mockResolvedValue([taskRow()] as never);
+      vi.mocked(db.tarea.count).mockResolvedValue(1);
+
+      await GET(new Request("http://localhost/api/v1/tasks"));
+
+      const select = vi.mocked(db.tarea.findMany).mock.calls[0]![0]!.select as {
+        oportunidad: { select: { proyecto: { select: Record<string, boolean> } } };
+      };
+      expect(select.oportunidad.select.proyecto.select).toMatchObject({ id: true, codigo: true });
+    });
+
+    it("exposes proyecto { id, codigo } for a converted task and null otherwise", async () => {
+      authAs(gerencia);
+      vi.mocked(db.tarea.findMany).mockResolvedValue([
+        taskRow({ id: "t-conv", oportunidad_id: "op-1", oportunidad_fase: "EJECUCION", proyecto: { id: "p-1", codigo: "PRY-2026-001", deleted_at: null } }),
+        taskRow({ id: "t-open", oportunidad_id: "op-2" }),
+        taskRow({ id: "t-none" }),
+        taskRow({ id: "t-del", oportunidad_id: "op-3", oportunidad_fase: "EJECUCION", proyecto: { id: "p-9", codigo: "PRY-2026-009", deleted_at: new Date("2026-02-01") } }),
+      ] as never);
+      vi.mocked(db.tarea.count).mockResolvedValue(4);
+
+      const json = await (await GET(new Request("http://localhost/api/v1/tasks"))).json();
+
+      const byId = Object.fromEntries(json.items.map((i: { id: string }) => [i.id, i]));
+      expect(byId["t-conv"].proyecto).toEqual({ id: "p-1", codigo: "PRY-2026-001" });
+      expect(byId["t-open"].proyecto).toBeNull();
+      expect(byId["t-none"].proyecto).toBeNull();
+      expect(byId["t-del"].proyecto).toBeNull();
+      expect(JSON.stringify(byId["t-conv"])).not.toContain("deleted_at");
+    });
   });
 
   // PR 2 (Slice A): every task row carries `puede_editar` so the UI can gate

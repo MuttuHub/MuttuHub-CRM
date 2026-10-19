@@ -5,10 +5,11 @@
 // when the caller is read-only.
 
 import { render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { describe, expect, it, vi } from "vitest"
-import type { BitacoraEntrada, Oportunidad, TaskItem } from "@/hooks/crm"
-import { OportunidadLifecycleDialog } from "./entity-dialogs"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import type { BitacoraEntrada, Contacto, Oportunidad, TaskItem } from "@/hooks/crm"
+import { ContactoFormDialog, OportunidadLifecycleDialog } from "./entity-dialogs"
 
 const noopMutation = {
   isPending: false,
@@ -20,13 +21,49 @@ const noopMutation = {
 // vitest) can reference these mocks, and individual tests can override their
 // return value per-case with mockReturnValueOnce without touching the
 // baseline empty-list behavior every other test relies on.
-const { useTasksByOportunidadMock, useBitacoraMock } = vi.hoisted(() => ({
+const { useTasksByOportunidadMock, useBitacoraMock, useEligibleOpportunitiesMock, useCurrentUserMock, contactoMocks } =
+  vi.hoisted(() => ({
+  // Default: nobody logged in and nothing eligible, so the project-conversion
+  // button stays hidden for every pre-existing test.
+  useEligibleOpportunitiesMock: vi.fn<
+    (options?: { enabled?: boolean }) => { data: { id: string }[] | undefined }
+  >(() => ({ data: [] })),
+  useCurrentUserMock: vi.fn<() => { data: { id: string; rol: string } | null }>(() => ({ data: null })),
   useTasksByOportunidadMock: vi.fn<() => { data: TaskItem[]; isLoading: boolean; isError: boolean }>(
     () => ({ data: [], isLoading: false, isError: false }),
   ),
   useBitacoraMock: vi.fn<() => { data: BitacoraEntrada[]; isLoading: boolean; isError: boolean }>(
     () => ({ data: [], isLoading: false, isError: false }),
   ),
+  // v7 C4b: ContactoFormDialog now reads the user catalog and writes contacts;
+  // both mutations are stubbed so the test can assert the payload mapping.
+  contactoMocks: {
+    create: { isPending: false, mutateAsync: vi.fn().mockResolvedValue({}) },
+    update: { isPending: false, mutateAsync: vi.fn().mockResolvedValue({}) },
+    users: [
+      { id: "u1", nombre: "Ana Pérez" },
+      { id: "u2", nombre: "Bruno Díaz" },
+    ],
+  },
+}))
+
+vi.mock("@/hooks/projects", () => ({
+  useEligibleOpportunities: useEligibleOpportunitiesMock,
+}))
+
+vi.mock("@/hooks/kanban", () => ({
+  useCurrentUser: useCurrentUserMock,
+}))
+
+vi.mock("@/components/proyectos/project-create-dialog", () => ({
+  ProjectCreateDialog: ({
+    open,
+    initialOportunidadId,
+  }: {
+    open: boolean
+    initialOportunidadId?: string
+  }) =>
+    open ? <div data-testid="project-create-dialog">preselected:{initialOportunidadId}</div> : null,
 }))
 
 vi.mock("@/hooks/crm", async (importOriginal) => {
@@ -39,6 +76,9 @@ vi.mock("@/hooks/crm", async (importOriginal) => {
     useConvertOportunidad: () => noopMutation,
     useUpdateTarea: () => noopMutation,
     useAddLogEntry: () => noopMutation,
+    useUsers: () => ({ data: contactoMocks.users }),
+    useCreateContacto: () => contactoMocks.create,
+    useUpdateContacto: () => contactoMocks.update,
   }
 })
 
@@ -53,7 +93,7 @@ const BASE_OPORTUNIDAD: Oportunidad = {
   fecha_ultima_gestion: null,
   fase: "PROSPECCION",
   fecha_adjudicacion: null,
-  fecha_envio_propuesta: "2026-01-05T00:00:00.000Z",
+  fecha_envio_propuesta: "2026-01-05T15:00:00.000Z",
   proyectos_relacionados: null,
   created_at: "2025-01-01T00:00:00.000Z",
 }
@@ -79,6 +119,7 @@ describe("OportunidadLifecycleDialog", () => {
 
     expect(screen.getByText("Prospección")).toBeInTheDocument()
     expect(screen.getAllByText(/Ganada/i).length).toBeGreaterThan(0)
+    expect(screen.getByText("05 de ene de 2026")).toBeInTheDocument()
   })
 
   it("shows the Convertir action when estado is GANADA, fase is PROSPECCION, and not read-only", () => {
@@ -136,6 +177,8 @@ describe("OportunidadLifecycleDialog", () => {
       autor_nombre: "Ana Ríos",
       texto: "Llamada de seguimiento con el cliente",
       oportunidad_id: BASE_OPORTUNIDAD.id,
+      tipo: "LLAMADA",
+      proximo_paso: null,
       created_at: "2026-01-06T00:00:00.000Z",
     }
     useTasksByOportunidadMock.mockReturnValueOnce({
@@ -158,5 +201,173 @@ describe("OportunidadLifecycleDialog", () => {
     expect(
       screen.queryByText("Sin entradas de bitácora para esta oportunidad."),
     ).not.toBeInTheDocument()
+  })
+
+  describe("Convertir en proyecto (S11 U1)", () => {
+    function asManager(eligibleIds: string[] = [BASE_OPORTUNIDAD.id]) {
+      useCurrentUserMock.mockReturnValue({ data: { id: "u-1", rol: "GERENCIA" } })
+      useEligibleOpportunitiesMock.mockReturnValue({ data: eligibleIds.map((id) => ({ id })) })
+    }
+
+    it("shows the action for a GANADA opportunity without a project and a permitted user", () => {
+      asManager()
+      renderDialog(BASE_OPORTUNIDAD)
+
+      expect(screen.getByRole("link", { name: "Convertir en proyecto" })).toBeInTheDocument()
+    })
+
+    it("keeps the existing 'Convertir a ejecución' button next to it", () => {
+      asManager()
+      renderDialog(BASE_OPORTUNIDAD)
+
+      expect(screen.getByRole("button", { name: "Convertir a ejecución" })).toBeInTheDocument()
+    })
+
+    it("hides it when the opportunity already has a project (not in the eligible list)", () => {
+      asManager([])
+      renderDialog({ ...BASE_OPORTUNIDAD, fase: "EJECUCION" })
+
+      expect(screen.queryByRole("link", { name: "Convertir en proyecto" })).not.toBeInTheDocument()
+    })
+
+    it("hides it when the opportunity is not GANADA", () => {
+      asManager()
+      renderDialog({ ...BASE_OPORTUNIDAD, estado: "EN_NEGOCIACION" })
+
+      expect(screen.queryByRole("link", { name: "Convertir en proyecto" })).not.toBeInTheDocument()
+    })
+
+    it("hides it for a role that cannot create projects", () => {
+      useCurrentUserMock.mockReturnValue({ data: { id: "u-2", rol: "COORDINADOR" } })
+      useEligibleOpportunitiesMock.mockReturnValue({ data: [{ id: BASE_OPORTUNIDAD.id }] })
+      renderDialog(BASE_OPORTUNIDAD)
+
+      expect(screen.queryByRole("link", { name: "Convertir en proyecto" })).not.toBeInTheDocument()
+    })
+
+    it("does not fetch the eligible list for a role that cannot create projects", () => {
+      useCurrentUserMock.mockReturnValue({ data: { id: "u-2", rol: "COORDINADOR" } })
+      renderDialog(BASE_OPORTUNIDAD)
+
+      expect(useEligibleOpportunitiesMock).toHaveBeenLastCalledWith({ enabled: false })
+    })
+
+    it("links to the stepper page with this opportunity preselected", () => {
+      asManager()
+      renderDialog(BASE_OPORTUNIDAD)
+
+      expect(screen.getByRole("link", { name: "Convertir en proyecto" })).toHaveAttribute(
+        "href",
+        `/proyectos/nuevo?oportunidad=${BASE_OPORTUNIDAD.id}`,
+      )
+      expect(screen.queryByTestId("project-create-dialog")).not.toBeInTheDocument()
+    })
+  })
+})
+
+// v7 alignment, unit C4b: ContactoFormDialog gains the four Relaciones fields
+// (poder, interés, fuerza_relacion, owner). They must prefill from the contact,
+// be editable, and map back to the nullable API payload (sentinel "none" → null)
+// without disturbing the pre-existing fields.
+const BASE_CONTACTO: Contacto = {
+  id: "ct-1",
+  nombre: "Laura Gómez",
+  cargo: "Secretaria de Gobierno",
+  correo: null,
+  telefono: null,
+  rol_decision: "DECISOR",
+  notas: null,
+  poder: 5,
+  interes: 2,
+  fuerza_relacion: 3,
+  owner_id: "u2",
+  created_at: "2026-01-05T00:00:00.000Z",
+}
+
+function renderContactoDialog(contacto: Contacto | null) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const tree = (open: boolean) => (
+    <QueryClientProvider client={qc}>
+      <ContactoFormDialog
+        clientId="cli-1"
+        open={open}
+        onOpenChange={vi.fn()}
+        contacto={contacto}
+      />
+    </QueryClientProvider>
+  )
+  // The dialog prefills its form on the closed → open transition (the real
+  // mount path: the sheet renders it closed, then opens it on edit), so the
+  // helper walks that transition instead of mounting it already open.
+  const view = render(tree(false))
+  view.rerender(tree(true))
+  return view
+}
+
+describe("ContactoFormDialog (v7 C4b)", () => {
+  beforeEach(() => {
+    contactoMocks.create.mutateAsync.mockClear()
+    contactoMocks.update.mutateAsync.mockClear()
+  })
+
+  it("exposes the four Relaciones fields", () => {
+    renderContactoDialog(null)
+
+    expect(screen.getByLabelText("Poder")).toBeInTheDocument()
+    expect(screen.getByLabelText("Interés")).toBeInTheDocument()
+    expect(screen.getByLabelText("Fuerza de la relación")).toBeInTheDocument()
+    expect(screen.getByLabelText("Relación")).toBeInTheDocument()
+  })
+
+  it("sends the v7 fields when editing an existing contact", async () => {
+    const user = userEvent.setup()
+    renderContactoDialog(BASE_CONTACTO)
+
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }))
+
+    expect(contactoMocks.update.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nombre: "Laura Gómez",
+        rol_decision: "DECISOR",
+        poder: 5,
+        interes: 2,
+        fuerza_relacion: 3,
+        owner_id: "u2",
+      }),
+    )
+  })
+
+  it("sends nulls for a new contact with nothing set", async () => {
+    const user = userEvent.setup()
+    renderContactoDialog(null)
+
+    await user.type(screen.getByLabelText(/Nombre/), "Nuevo Contacto")
+    await user.click(screen.getByRole("button", { name: "Agregar contacto" }))
+
+    expect(contactoMocks.create.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        nombre: "Nuevo Contacto",
+        poder: null,
+        interes: null,
+        fuerza_relacion: null,
+        owner_id: null,
+      }),
+    )
+  })
+
+  it("lets the user set the power level and the relationship owner", async () => {
+    const user = userEvent.setup()
+    renderContactoDialog(null)
+
+    await user.type(screen.getByLabelText(/Nombre/), "Nuevo Contacto")
+    await user.click(screen.getByLabelText("Poder"))
+    await user.click(await screen.findByRole("option", { name: "5" }))
+    await user.click(screen.getByLabelText("Relación"))
+    await user.click(await screen.findByRole("option", { name: "Bruno Díaz" }))
+    await user.click(screen.getByRole("button", { name: "Agregar contacto" }))
+
+    expect(contactoMocks.create.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ poder: 5, owner_id: "u2" }),
+    )
   })
 })

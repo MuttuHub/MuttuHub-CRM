@@ -33,12 +33,26 @@ export type AlertItemNotificacion = {
   notificacion_id: string | null;
 };
 
+/** v2 (S6/M7): project notification: overspend (GERENCIA only) or a rejected expense (its author). */
+export type NotificacionProyecto = {
+  notificacion_id: string;
+  tipo: "SOBREGASTO_RUBRO" | "GASTO_RECHAZADO";
+  mensaje: string;
+  proyecto_id: string | null;
+  proyecto_codigo: string | null;
+  gasto_id: string | null;
+  leida: boolean;
+  created_at: string;
+};
+
 export type NotificationsSnapshot = {
   total: number;
   vencidos: AlertItemNotificacion[];
   hoy: AlertItemNotificacion[];
   proximos3: AlertItemNotificacion[];
   leidas_ids: string[];
+  /** Absent in older payloads; the panel tolerates it. */
+  proyectos?: NotificacionProyecto[];
 };
 
 // Shared query key: the header home greeting reads the same snapshot to show
@@ -97,6 +111,7 @@ export function NotificationPanel() {
     refetchInterval: REFETCH_INTERVAL_MS,
   });
   const snapshot = query.data;
+  const proyectos = snapshot?.proyectos ?? [];
 
   const markRead = useMutation({
     mutationFn: (notificacionId: string) =>
@@ -141,14 +156,11 @@ export function NotificationPanel() {
     if (!snapshot) return;
     const leidasSet = new Set(snapshot.leidas_ids);
     unreadSnapshotRef.current = [
-      ...snapshot.vencidos,
-      ...snapshot.hoy,
-      ...snapshot.proximos3,
-    ]
-      .filter(
-        (item) => item.notificacion_id !== null && !leidasSet.has(item.notificacion_id),
-      )
-      .map((item) => item.notificacion_id!);
+      ...[...snapshot.vencidos, ...snapshot.hoy, ...snapshot.proximos3]
+        .filter((item) => item.notificacion_id !== null && !leidasSet.has(item.notificacion_id))
+        .map((item) => item.notificacion_id!),
+      ...proyectos.filter((item) => !item.leida).map((item) => item.notificacion_id),
+    ];
     markAllRead.mutate();
   }
 
@@ -221,13 +233,20 @@ export function NotificationPanel() {
     }
   }
 
+  function abrirProyecto(item: NotificacionProyecto) {
+    setOpen(false);
+    markRead.mutate(item.notificacion_id);
+    // A rejected expense opens its project (the ficha opens on Resumen); overspend keeps the list.
+    router.push(item.tipo === "GASTO_RECHAZADO" && item.proyecto_id ? `/proyectos/${item.proyecto_id}` : "/proyectos");
+  }
+
   const allItems = snapshot
     ? [...snapshot.vencidos, ...snapshot.hoy, ...snapshot.proximos3]
     : [];
   const leidasSet = new Set(snapshot?.leidas_ids ?? []);
-  const unread = allItems.filter(
-    (item) => item.notificacion_id === null || !leidasSet.has(item.notificacion_id),
-  ).length;
+  const unread =
+    allItems.filter((item) => item.notificacion_id === null || !leidasSet.has(item.notificacion_id))
+      .length + proyectos.filter((item) => !item.leida).length;
 
   return (
     <div ref={rootRef} className="relative">
@@ -238,7 +257,7 @@ export function NotificationPanel() {
         aria-label={unread > 0 ? `Notificaciones, ${unread} sin leer` : "Notificaciones"}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className="relative grid size-10 place-items-center rounded-lg border border-ink-200 bg-panel text-ink-700 transition-colors after:absolute after:content-[''] after:-inset-0.5 hover:bg-ink-100"
+        className="relative grid size-10 place-items-center rounded-12 border border-border-strong bg-input-bg text-ink-700 transition-colors after:absolute after:content-[''] after:-inset-0.5 hover:bg-muted"
       >
         <Bell className="size-4" strokeWidth={1.7} />
         {unread > 0 && (
@@ -257,7 +276,7 @@ export function NotificationPanel() {
           onKeyDown={trapPanelFocus}
           role="dialog"
           aria-label="Notificaciones"
-          className="absolute top-[calc(100%+10px)] right-0 z-50 w-[360px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-ink-200 bg-panel shadow-xl"
+          className="absolute top-[calc(100%+10px)] right-0 z-50 w-[360px] max-w-[calc(100vw-2rem)] overflow-hidden surface shadow-xl"
         >
           <div className="flex items-center justify-between gap-2 border-b border-ink-200 px-4 py-3">
             <h2 className="text-[14px] font-bold text-ink-900">Notificaciones</h2>
@@ -304,6 +323,21 @@ export function NotificationPanel() {
                     </section>
                   );
                 })}
+                {proyectos.length > 0 && (
+                  <section className="flex flex-col gap-1.5">
+                    <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-[0.08em] uppercase text-rose-700 dark:text-rose-400">
+                      PROYECTOS
+                      <span className="font-sans text-[10.5px] font-semibold tracking-normal normal-case text-ink-500">
+                        · {proyectos.length}
+                      </span>
+                    </h3>
+                    <ul className="flex flex-col gap-0.5">
+                      {proyectos.map((item) => (
+                        <ProyectoRow key={item.notificacion_id} item={item} onOpen={abrirProyecto} />
+                      ))}
+                    </ul>
+                  </section>
+                )}
               </div>
               <div className="border-t border-ink-200 p-3">
                 <button
@@ -355,6 +389,42 @@ function AlertRow({
           <span className="truncate">{meta}</span>
           <span className="ml-auto shrink-0 rounded-md bg-ink-100 px-1.5 py-0.5 text-[9.5px] font-bold tracking-wide text-ink-700 uppercase">
             {chipOrigen(item.origen)}
+          </span>
+        </span>
+      </button>
+    </li>
+  );
+}
+
+function ProyectoRow({
+  item,
+  onOpen,
+}: {
+  item: NotificacionProyecto;
+  onOpen: (item: NotificacionProyecto) => void;
+}) {
+  const rechazado = item.tipo === "GASTO_RECHAZADO";
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => onOpen(item)}
+        className="flex w-full flex-col gap-1 rounded-12 px-3 py-2.5 text-left transition-colors hover:bg-ink-100/70"
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <span
+            className={`truncate text-[13px] text-ink-800 ${item.leida ? "font-medium" : "font-semibold"}`}
+          >
+            {rechazado ? "Gasto rechazado" : item.mensaje}
+          </span>
+        </span>
+        {rechazado && <span className="line-clamp-2 text-[12px] text-ink-700">{item.mensaje}</span>}
+        <span className="flex min-w-0 items-center gap-2 text-[11.5px] text-ink-600">
+          <span className="truncate">
+            {[item.proyecto_codigo, fechaCorta(item.created_at)].filter(Boolean).join(" · ")}
+          </span>
+          <span className="ml-auto shrink-0 rounded-md bg-ink-100 px-1.5 py-0.5 text-[9.5px] font-bold tracking-wide text-ink-700 uppercase">
+            {rechazado ? "Rechazo" : "Sobregasto"}
           </span>
         </span>
       </button>

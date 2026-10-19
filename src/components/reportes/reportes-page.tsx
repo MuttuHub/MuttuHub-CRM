@@ -67,7 +67,7 @@ export function ReportesPage() {
             justify-center; con overflow-x-auto eso recorta los triggers y hace
             inalcanzable el arranque scrolleando. La importancia gana al orden
             del CSS de Tailwind. */}
-        <TabsList className="no-scrollbar flex !h-auto w-full !justify-start items-center gap-1 overflow-x-auto rounded-lg bg-ink-100 p-1 lg:flex-wrap">
+        <TabsList variant="pill" className="no-scrollbar flex !h-auto w-full !justify-start items-center gap-1 overflow-x-auto rounded-lg bg-ink-100 p-1 lg:flex-wrap">
           <TabTareasTrigger />
           {CARAS.map((cara) => (
             <TabsTrigger
@@ -144,7 +144,7 @@ function FiltrosCara({
   const setRango = useFiltersStore((s) => s.setRango);
 
   return (
-    <div className="rounded-[16px] border border-ink-200 bg-panel p-3">
+    <div className="surface p-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2.5">
         <div className="flex items-center gap-2">
           <span className="text-[11.5px] font-bold tracking-[0.08em] text-ink-500 uppercase">
@@ -154,7 +154,7 @@ function FiltrosCara({
         </div>
 
         <Select value={responsable} onValueChange={(v) => v !== null && onResponsable(v)}>
-          <SelectTrigger size="sm" className="h-8 rounded-11 bg-panel">
+          <SelectTrigger size="sm">
             <SelectValue placeholder="Todos los responsables" />
           </SelectTrigger>
           <SelectContent>
@@ -168,7 +168,7 @@ function FiltrosCara({
         </Select>
 
         <Select value={tipoCliente} onValueChange={(v) => v !== null && onTipoCliente(v)}>
-          <SelectTrigger size="sm" className="h-8 rounded-11 bg-panel">
+          <SelectTrigger size="sm">
             <SelectValue placeholder="Todos los tipos" />
           </SelectTrigger>
           <SelectContent>
@@ -195,7 +195,7 @@ function GenerarReporte({ href }: { href: string }) {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex h-9 items-center gap-2 rounded-lg bg-rose-500 px-4 text-[13px] font-bold text-white transition-colors hover:bg-rose-700"
+      className="inline-flex h-10 items-center gap-2 rounded-12 bg-rose-500 px-4 text-[13px] font-bold text-white transition-colors hover:bg-rose-700"
     >
       <Printer className="size-4" strokeWidth={1.9} />
       Generar reporte

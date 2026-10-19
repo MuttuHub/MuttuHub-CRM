@@ -107,7 +107,7 @@ function InvalidLinkCard({ email }: { email: string }) {
             type="button"
             onClick={() => void handleResend()}
             disabled={resend === "sending"}
-            className="mt-5 h-11 w-full rounded-lg text-[14px] font-bold"
+            className="mt-5 w-full text-[14px] font-bold"
           >
             {resend === "sending" && (
               <LoaderCircle className="size-4 animate-spin" strokeWidth={2} />
@@ -120,7 +120,7 @@ function InvalidLinkCard({ email }: { email: string }) {
       ) : (
         <Link
           href="/login"
-          className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary text-[14px] font-bold text-primary-foreground transition-colors hover:bg-primary/80"
+          className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-12 bg-primary text-[14px] font-bold text-primary-foreground transition-colors hover:bg-primary/80"
         >
           Volver a iniciar sesión
         </Link>
@@ -358,7 +358,7 @@ function ConfirmInner() {
         </p>
         <Link
           href="/login"
-          className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary text-[14px] font-bold text-primary-foreground transition-colors hover:bg-primary/80"
+          className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-12 bg-primary text-[14px] font-bold text-primary-foreground transition-colors hover:bg-primary/80"
         >
           Volver a iniciar sesión
         </Link>
@@ -396,7 +396,7 @@ function ConfirmInner() {
               autoComplete="new-password"
               required
               placeholder="••••••••"
-              className="h-11 rounded-lg bg-panel px-3.5"
+              className="px-3.5"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -409,7 +409,7 @@ function ConfirmInner() {
               autoComplete="new-password"
               required
               placeholder="••••••••"
-              className="h-11 rounded-lg bg-panel px-3.5"
+              className="px-3.5"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
             />
@@ -418,7 +418,7 @@ function ConfirmInner() {
           <Button
             type="submit"
             disabled={submitting}
-            className="mt-1 h-11 rounded-lg text-[14px] font-bold"
+            className="mt-1 text-[14px] font-bold"
           >
             {submitting && (
               <LoaderCircle className="size-4 animate-spin" strokeWidth={2} />
@@ -447,7 +447,7 @@ function ConfirmInner() {
         </p>
         <Link
           href="/"
-          className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary text-[14px] font-bold text-primary-foreground transition-colors hover:bg-primary/80"
+          className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-12 bg-primary text-[14px] font-bold text-primary-foreground transition-colors hover:bg-primary/80"
         >
           Ir al panel ahora
         </Link>
@@ -478,7 +478,7 @@ export default function ConfirmPage() {
   return (
     <Suspense
       fallback={
-        <div className="w-full rounded-[26px] border border-ink-200 bg-panel p-7">
+        <div className="w-full surface p-7">
           Cargando…
         </div>
       }
@@ -490,7 +490,7 @@ export default function ConfirmPage() {
           alt="Muttu"
           className="mb-7 w-[124px]"
         />
-        <div className="w-full rounded-[26px] border border-ink-200 bg-panel p-7 text-center shadow-[0_18px_50px_-28px_rgba(25,17,19,0.35)]">
+        <div className="w-full surface p-7 text-center">
           <ConfirmInner />
         </div>
       </div>

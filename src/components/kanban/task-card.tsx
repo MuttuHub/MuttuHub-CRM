@@ -7,12 +7,13 @@
 
 "use client";
 
-import { CalendarDays, Hexagon, Rocket, Target } from "lucide-react";
+import type { ReactNode } from "react";
+import { Hexagon, Rocket, Target } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { EstadoTarea, FaseOportunidad } from "@prisma/client";
 import { cn } from "@/lib/utils";
-import { esVencida, formatFecha, iniciales } from "@/hooks/crm";
+import { esVencida, formatFecha } from "@/hooks/crm";
 import { useSubtareas } from "@/hooks/kanban";
 import { PrioridadChip } from "@/components/crm/shared";
 
@@ -23,6 +24,7 @@ export type CardTask = {
   prioridad: "ALTA" | "MEDIA" | "BAJA" | null;
   etiquetas: string[];
   cliente_nombre: string | null;
+  responsable_id?: string;
   responsable_nombre: string;
   fecha_entrega: string | null;
   motivo_bloqueo: string | null;
@@ -37,6 +39,8 @@ export type CardTask = {
   oportunidad_id?: string | null;
   oportunidad_nombre?: string | null;
   oportunidad_fase?: FaseOportunidad | null;
+  /** D3: the project the task's opportunity became (id + code), for the converted card's link. */
+  proyecto?: { id: string; codigo: string } | null;
   /**
    * PR 2 + PR 4 (Slice B2): server-authoritative write flag. `false` ⇒
    * the current user would 403 on PATCH/DELETE, so the kanban card is
@@ -51,70 +55,73 @@ export function TaskCard({
   task,
   overlay = false,
   onClick,
+  action,
 }: {
   task: CardTask;
   overlay?: boolean;
   onClick: () => void;
+  /** v7 footer: the "Avanzar →" button or a hint. Sits outside the card's click target. */
+  action?: ReactNode;
 }) {
   const bloqueada = task.estado === "BLOQUEADA";
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onClick();
-        }
-      }}
-      className={cn(
-        "group relative cursor-pointer rounded-14 border border-ink-200 bg-panel p-3 text-left shadow-sm transition-shadow hover:shadow-md",
-        "focus-visible:ring-3 focus-visible:ring-ring/50 outline-none",
-        overlay && "rotate-2 shadow-xl ring-2 ring-rose-200",
-      )}
-    >
-      <p className="font-display text-[13.5px] leading-snug font-bold tracking-[-0.01em] text-ink-950">
-        {task.titulo}
-      </p>
-
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        <PrioridadChip prioridad={task.prioridad} />
-        {task.etiquetas.slice(0, 3).map((etq) => (
-          <span
-            key={etq}
-            className="inline-flex h-[20px] items-center rounded-full bg-ink-100 px-2 text-[10.5px] font-semibold text-ink-700"
-          >
-            {etq}
-          </span>
-        ))}
-        {task.cliente_nombre && (
-          <span className="inline-flex h-[20px] items-center rounded-full bg-rose-100 px-2 text-[10.5px] font-semibold text-rose-700 dark:text-rose-400">
-            <Hexagon className="mr-1 size-2.5" strokeWidth={1.8} />
-            {task.cliente_nombre}
-          </span>
+    <div className="flex flex-col gap-2">
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onClick}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onClick();
+          }
+        }}
+        className={cn(
+          "group relative cursor-pointer rounded-inner border border-border bg-muted p-3 text-left transition-colors hover:border-border-strong",
+          "focus-visible:ring-3 focus-visible:ring-ring/50 outline-none",
+          overlay && "rotate-2 shadow-xl ring-2 ring-rose-200",
         )}
-        <OpportunityPhaseChip fase={task.oportunidad_fase} />
-      </div>
+      >
+        <p className="font-display text-[13.5px] leading-snug font-bold tracking-[-0.01em] text-ink-950">
+          {task.titulo}
+        </p>
 
-      <div className="mt-3 flex items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <TaskDate fecha={task.fecha_entrega} />
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <PrioridadChip prioridad={task.prioridad} />
+          {task.etiquetas.slice(0, 3).map((etq) => (
+            <span
+              key={etq}
+              className="inline-flex h-[20px] items-center rounded-full bg-ink-100 px-2 text-[10.5px] font-semibold text-ink-700"
+            >
+              {etq}
+            </span>
+          ))}
+          {task.cliente_nombre && (
+            <span className="inline-flex h-[20px] items-center rounded-full bg-rose-100 px-2 text-[10.5px] font-semibold text-rose-700 dark:text-rose-400">
+              <Hexagon className="mr-1 size-2.5" strokeWidth={1.8} />
+              {task.cliente_nombre}
+            </span>
+          )}
+          <OpportunityPhaseChip fase={task.oportunidad_fase} reference={task.oportunidad_nombre} />
         </div>
-        <span className="grid size-6 shrink-0 place-items-center rounded-[8px] bg-ink-100 text-[9.5px] font-bold text-ink-700">
-          {iniciales(task.responsable_nombre)}
-        </span>
-      </div>
 
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <SubtaskBadge task={task} />
-        {bloqueada && (
-          <span className="max-w-[14rem] truncate rounded-[8px] bg-alerta-bg px-2 py-1 text-[10.5px] font-bold text-alerta">
-            Bloqueada: {task.motivo_bloqueo || "sin motivo"}
-          </span>
-        )}
+        <p className="mt-3 text-[12.5px] leading-snug text-ink-600">
+          <span className="text-ink-800">{task.responsable_nombre}</span>
+          {" · "}
+          <TaskDate fecha={task.fecha_entrega} />
+        </p>
+
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <SubtaskBadge task={task} />
+          {bloqueada && (
+            <span className="max-w-[14rem] truncate rounded-[8px] bg-alerta-bg px-2 py-1 text-[10.5px] font-bold text-alerta">
+              Bloqueada: {task.motivo_bloqueo || "sin motivo"}
+            </span>
+          )}
+        </div>
       </div>
+      {action}
     </div>
   );
 }
@@ -124,46 +131,42 @@ export function TaskCard({
  * one on the board — amber "prospecting" vs emerald "executing", nothing
  * when there is no linked opportunity (or it wasn't fetched at all).
  */
-function OpportunityPhaseChip({ fase }: { fase?: FaseOportunidad | null }) {
-  if (fase === "PROSPECCION") {
-    return (
-      <span className="inline-flex h-[20px] items-center rounded-full bg-amber-100 px-2 text-[10.5px] font-semibold text-amber-700 dark:text-amber-400">
-        <Target className="mr-1 size-2.5" strokeWidth={1.8} />
-        Prospección
-      </span>
-    );
-  }
-  if (fase === "EJECUCION") {
-    return (
-      <span className="inline-flex h-[20px] items-center rounded-full bg-emerald-100 px-2 text-[10.5px] font-semibold text-emerald-700 dark:text-emerald-400">
-        <Rocket className="mr-1 size-2.5" strokeWidth={1.8} />
-        Ejecución
-      </span>
-    );
-  }
-  return null;
-}
-
-function TaskDate({ fecha }: { fecha: string | null }) {
-  if (!fecha) {
-    return (
-      <span className="inline-flex h-[20px] items-center rounded-full bg-ink-100 px-2 text-[10.5px] font-semibold text-ink-600">
-        <CalendarDays className="mr-1 size-2.5" strokeWidth={1.8} />
-        Sin fecha
-      </span>
-    );
-  }
-  const vencida = esVencida(fecha);
+function OpportunityPhaseChip({
+  fase,
+  reference,
+}: {
+  fase?: FaseOportunidad | null;
+  /** v7 "Prospección · ref": the opportunity name, truncated inside the chip. */
+  reference?: string | null;
+}) {
+  if (fase !== "PROSPECCION" && fase !== "EJECUCION") return null;
+  const prospeccion = fase === "PROSPECCION";
+  const Icon = prospeccion ? Target : Rocket;
   return (
     <span
       className={cn(
-        "inline-flex h-[20px] items-center gap-1 rounded-full px-2 font-mono text-[10.5px] font-semibold tabular-nums",
-        vencida ? "bg-destructivo-bg text-destructivo" : "bg-ink-100 text-ink-700",
+        "inline-flex h-[20px] max-w-full items-center rounded-full px-2 text-[10.5px] font-semibold",
+        // v7: prospecting is the accent (rose), execution is the success green.
+        prospeccion
+          ? "bg-rose-100 text-rose-700 dark:text-rose-400"
+          : "bg-emerald-100 text-emerald-700 dark:text-emerald-400",
       )}
     >
-      <CalendarDays className="size-2.5" strokeWidth={1.8} />
+      <Icon className="mr-1 size-2.5 shrink-0" strokeWidth={1.8} />
+      <span>{prospeccion ? "Prospección" : "Ejecución"}</span>
+      {reference ? <span className="ml-1 min-w-0 truncate font-medium opacity-80">· {reference}</span> : null}
+    </span>
+  );
+}
+
+/** v7 "responsable · fecha": plain text, red once the due date has passed. */
+function TaskDate({ fecha }: { fecha: string | null }) {
+  if (!fecha) return <span>Sin fecha</span>;
+  const vencida = esVencida(fecha);
+  return (
+    <span className={cn("tabular-nums", vencida && "font-semibold text-destructivo")}>
       {formatFecha(fecha)}
-      {vencida && <b>· vencido</b>}
+      {vencida && " · vencida"}
     </span>
   );
 }
@@ -235,9 +238,11 @@ function LiveSubtaskBadge({ taskId }: { taskId: string }) {
 export function SortableTaskCard({
   task,
   onClick,
+  action,
 }: {
   task: CardTask;
   onClick: () => void;
+  action?: ReactNode;
 }) {
   // PR 4 (Slice B2): gate the drag source on the server-emitted
   // `puede_editar`. dnd-kit's `useSortable({ disabled })` blocks BOTH
@@ -266,7 +271,7 @@ export function SortableTaskCard({
       aria-disabled={!puedeEditar}
       className={cn(isDragging && "opacity-30")}
     >
-      <TaskCard task={task} onClick={onClick} />
+      <TaskCard task={task} onClick={onClick} action={action} />
     </div>
   );
 }

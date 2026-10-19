@@ -16,6 +16,11 @@ export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
+// v7 alignment C3a (Interacciones): the catalog of interaction kinds, mirrored
+// from the Prisma `TipoInteraccion` enum. Kept local to the route because the
+// shared ENUM_VALUES catalog lives outside this unit's edit surface.
+const TIPOS_INTERACCION = ["REUNION", "CORREO", "LLAMADA", "VISITA", "OTRO"] as const;
+
 export const LOG_ENTRY_SCHEMA = z.object({
   texto: z
     .string()
@@ -25,6 +30,15 @@ export const LOG_ENTRY_SCHEMA = z.object({
   // RF-C03 (commercial-opportunities spec): optional link to the client's
   // commercial cycle — same client-consistency invariant as Tarea (D1/D2).
   oportunidad_id: z.string().nullable().optional(),
+  // v7 C3a: the kind of interaction; OTRO when omitted.
+  tipo: z.enum(TIPOS_INTERACCION, { error: "Tipo de interacción no válido." }).optional(),
+  // v7 C3a: optional next step agreed in the interaction.
+  proximo_paso: z
+    .string()
+    .trim()
+    .max(2000, "El próximo paso no puede superar los 2000 caracteres.")
+    .nullable()
+    .optional(),
 });
 
 export const GET = withApiErrorHandling(
@@ -48,6 +62,8 @@ export const GET = withApiErrorHandling(
         autor: { select: { nombre: true } },
         texto: true,
         oportunidad_id: true,
+        tipo: true,
+        proximo_paso: true,
         created_at: true,
       },
     });
@@ -96,6 +112,8 @@ export const POST = withApiErrorHandling(
         autor_id: auth.usuario.id,
         texto: parsed.data.texto,
         oportunidad_id: parsed.data.oportunidad_id ?? undefined,
+        tipo: parsed.data.tipo ?? "OTRO",
+        proximo_paso: parsed.data.proximo_paso?.trim() || undefined,
       },
       select: {
         id: true,
@@ -103,6 +121,8 @@ export const POST = withApiErrorHandling(
         autor: { select: { nombre: true } },
         texto: true,
         oportunidad_id: true,
+        tipo: true,
+        proximo_paso: true,
         created_at: true,
       },
     });

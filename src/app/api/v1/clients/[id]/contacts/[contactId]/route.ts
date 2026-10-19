@@ -33,6 +33,29 @@ export const CONTACT_PATCH_SCHEMA = z
       .nullable()
       .optional(),
     notas: z.string().nullable().optional(),
+    // v7 alignment C4a (Relaciones): same ranges as CONTACT_SCHEMA.
+    poder: z
+      .number()
+      .int("El poder debe ser un número entero.")
+      .min(1, "El poder debe estar entre 1 y 5.")
+      .max(5, "El poder debe estar entre 1 y 5.")
+      .nullable()
+      .optional(),
+    interes: z
+      .number()
+      .int("El interés debe ser un número entero.")
+      .min(1, "El interés debe estar entre 1 y 5.")
+      .max(5, "El interés debe estar entre 1 y 5.")
+      .nullable()
+      .optional(),
+    fuerza_relacion: z
+      .number()
+      .int("La fuerza de la relación debe ser un número entero.")
+      .min(1, "La fuerza de la relación debe estar entre 1 y 3.")
+      .max(3, "La fuerza de la relación debe estar entre 1 y 3.")
+      .nullable()
+      .optional(),
+    owner_id: z.string().min(1, "El propietario no es válido.").nullable().optional(),
   })
   .partial()
   .refine((d) => Object.keys(d).length > 0, "Envía al menos un campo para actualizar.");
@@ -77,6 +100,10 @@ export const PATCH = withApiErrorHandling(
         telefono: parsed.data.telefono,
         rol_decision: parsed.data.rol_decision,
         notas: parsed.data.notas,
+        poder: parsed.data.poder,
+        interes: parsed.data.interes,
+        fuerza_relacion: parsed.data.fuerza_relacion,
+        owner_id: parsed.data.owner_id,
       },
     });
     return NextResponse.json({ contacto });

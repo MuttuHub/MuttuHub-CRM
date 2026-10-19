@@ -172,7 +172,7 @@ export function SolicitudesSection({
         </div>
       )}
 
-      <section className="overflow-hidden rounded-[22px] border border-ink-200 bg-panel">
+      <section className="overflow-hidden surface">
         <div className="flex items-center gap-2.5 border-b border-ink-100 px-5 py-4">
           <Inbox className="size-4 text-ink-600" strokeWidth={1.8} />
           <h3 className="font-display text-[15px] font-bold tracking-[-0.02em] text-ink-950">
@@ -200,16 +200,16 @@ export function SolicitudesSection({
           <Table className="min-w-[820px]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="pl-5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead className="pl-5">
                   Solicitante
                 </TableHead>
-                <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead>
                   Origen
                 </TableHead>
-                <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead>
                   Recibida
                 </TableHead>
-                <TableHead className="w-[210px] pr-5 text-right" />
+                <TableHead numeric className="w-[210px] pr-5" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -265,7 +265,7 @@ export function SolicitudesSection({
         )}
       </section>
 
-      <section className="overflow-hidden rounded-[22px] border border-ink-200 bg-panel">
+      <section className="overflow-hidden surface">
         <div className="flex items-center gap-2.5 border-b border-ink-100 px-5 py-4">
           <UserRoundCheck className="size-4 text-ink-600" strokeWidth={1.8} />
           <h3 className="font-display text-[15px] font-bold tracking-[-0.02em] text-ink-950">
@@ -285,16 +285,16 @@ export function SolicitudesSection({
           <Table className="min-w-[820px]">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="pl-5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead className="pl-5">
                   Solicitante
                 </TableHead>
-                <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead>
                   Origen
                 </TableHead>
-                <TableHead className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead>
                   Resolución
                 </TableHead>
-                <TableHead className="pr-5 text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+                <TableHead className="pr-5">
                   Revisada
                 </TableHead>
               </TableRow>
@@ -391,13 +391,13 @@ function AprobarDialog({
             variant="outline"
             size="sm"
             disabled={disabled}
-            className="rounded-10 font-semibold after:-inset-1"
+            className="font-semibold after:-inset-1"
           >
             Aprobar
           </Button>
         }
       />
-      <DialogContent className="rounded-[20px] sm:max-w-[min(420px,calc(100%-2rem))]">
+      <DialogContent className="sm:max-w-[min(420px,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
             Aprobar acceso de {solicitud.nombre}
@@ -415,7 +415,7 @@ function AprobarDialog({
               value={rol}
               onValueChange={(v) => setRol(v as RolUsuario)}
             >
-              <SelectTrigger className="h-10 w-full rounded-12 bg-panel px-3">
+              <SelectTrigger className="w-full px-3">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -465,13 +465,13 @@ function RechazarDialog({
             variant="ghost"
             size="sm"
             disabled={disabled}
-            className="rounded-10 font-semibold text-destructivo hover:text-destructivo after:-inset-1"
+            className="font-semibold text-destructivo hover:text-destructivo after:-inset-1"
           >
             Rechazar
           </Button>
         }
       />
-      <DialogContent className="rounded-[20px] sm:max-w-[min(400px,calc(100%-2rem))]">
+      <DialogContent className="sm:max-w-[min(400px,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
             Rechazar a {solicitud.nombre}

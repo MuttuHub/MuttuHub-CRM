@@ -106,6 +106,111 @@ docker exec supabase_db_MUTTU_HUB psql -U postgres -d postgres \
 - Historial de accesos de los 4 usuarios demo (para que la tabla de
   Administración no arranque vacía).
 
+### 1.5. Reiniciar la demo antes de cada ensayo
+
+La demo crea un proyecto a partir de una oportunidad `GANADA`, y `PRY-2026-001`
+es un recurso que se consume: solo hay dos oportunidades `GANADA`, así que cada
+ensayo necesita volver al estado inicial.
+
+```bash
+npm run db:demo:reset:local            # ensayo en seco: muestra el plan, no escribe nada
+npm run db:demo:reset:local -- --apply # aplica el plan, todo en una sola transacción
+```
+
+El reset borra los proyectos que todavía están en `BORRADOR` (con sus líneas y
+municipios) y la fila de `proyecto_secuencias` de los años que quedan sin
+proyectos, y devuelve a `PROSPECCION` las oportunidades convertidas. Un proyecto
+que ya salió de `BORRADOR` no se toca: solo se reporta con el motivo. Corre
+únicamente contra una base local (loopback) y nunca toca `auditoria_cambios`.
+Cada ensayo: primero el ensayo en seco, y recién después `--apply`.
+
+### 1.5.1. Datos de relleno para el flujo de creación de proyectos
+
+Para que el stepper `/proyectos/nuevo` ("Desde una oportunidad ganada" y
+"Proyecto independiente") se vea vivo, `scripts/seed-demo-flujo.ts` agrega datos
+**ficticios** (organizaciones y personas inventadas, correos `@demo.muttuhub.local`):
+6 clientes con 1-2 contactos, 12 oportunidades en todos los estados, 18
+interacciones en la bitácora y **4 oportunidades `GANADA` sin proyecto**. No crea
+proyectos. Solo corre contra la base local (usa `prisma/require-local-db`) y es
+idempotente: un segundo `--apply` no cambia nada.
+
+Orden obligatorio (siempre después de los proyectos demo, para que el seed de
+proyectos no consuma estas oportunidades):
+
+```bash
+npm run db:demo:reset:local                      # solo si venís de un ensayo (opcional)
+npm run db:seed:local
+npm run db:demo:seed-projects:local -- --apply
+npm run db:demo:seed-flujo:local                 # ensayo en seco: no escribe nada
+npm run db:demo:seed-flujo:local -- --apply
+```
+
+Oportunidades `GANADA` libres para mostrar "Convertir en proyecto":
+
+| Oportunidad | Cliente | Valor (COP) |
+| --- | --- | --- |
+| Fortalecimiento de unidades productivas textiles del Caribe | Fundación Tejiendo Caribe | 185.000.000 |
+| Programa de asociatividad y comercialización agroproductiva | Cooperativa Agroproductiva Alto Cauca | 120.000.000 |
+| Escuela de formación técnica en confección | Instituto Andino de Innovación Productiva | 210.000.000 |
+| Diagnóstico de cadena de valor de economía circular | Agencia de Cooperación Delta Verde | 48.000.000 |
+
+Si una ya se convirtió en un ensayo y el proyecto sigue en `BORRADOR`,
+`db:demo:reset:local -- --apply` la devuelve a `PROSPECCION`.
+
+### 1.6. Ensayo grabado (Playwright)
+
+Antes de grabar, ensayá el camino real del demo —proyecto desde oportunidad
+ganada— tal como lo va a hacer el operador. El ensayo corre contra el dev
+server ya levantado (Playwright no lo arranca ni lo detiene) y deja un video.
+
+```bash
+# 1. Estado inicial: primero el ensayo en seco, después aplicá
+npm run db:demo:reset:local            # muestra el plan, no escribe nada
+npm run db:demo:reset:local -- --apply # aplica el plan (una sola transacción)
+
+# 2. Dev server (en otra terminal)
+npm run dev
+
+# 3. Ensayo grabado
+npx playwright test e2e/proyectos-demo.spec.ts
+```
+
+Si el dev server se levantó **desde Windows**, `http://localhost:3000` no
+responde desde WSL: apuntá Playwright a la puerta de enlace de la NAT.
+
+```bash
+GW=$(ip route show default | awk '{print $3}' | head -1)
+curl -s -o /dev/null -w '%{http_code}\n' --max-time 30 "http://$GW:3000/login"  # esperá 200
+PLAYWRIGHT_BASE_URL="http://$GW:3000" npx playwright test e2e/proyectos-demo.spec.ts
+```
+
+El video queda en `test-results/<nombre-del-test>/video.webm` (esa carpeta está
+en `.gitignore`; el video no se commitea). El ensayo es **repetible**: después
+de cada corrida volvé a hacer `npm run db:demo:reset:local -- --apply` para
+dejar `proyectos` en 0 y la oportunidad de vuelta en `PROSPECCION`.
+
+### 1.7. Piloto local de la plantilla Excel (S7)
+
+Sirve para probar la importación con un libro real (el ejemplo sintético
+"CedeTextil", cifras ilustrativas). Necesita un proyecto **en Borrador** ya
+creado desde la ficha. Carga `.env.local` y se niega a correr contra una base
+que no sea local, igual que `reset-demo`.
+
+```bash
+# Ensayo en seco (por defecto): valida las dos variantes contra los catálogos locales, no escribe nada
+npx tsx scripts/import-plantilla-demo.ts --project PRY-2026-001
+
+# Escribe los dos .xlsx en tmp/plantilla-demo/ e importa el válido (un solo lote de auditoría)
+npx tsx scripts/import-plantilla-demo.ts --project PRY-2026-001 --actor admin@demo.muttuhub.local --apply
+```
+
+Deja `PRY-2026-001-valida.xlsx` (se importa) y `PRY-2026-001-error-v12.xlsx`
+(el total del proyecto no coincide con la suma del presupuesto por $50.000):
+sube este último en el diálogo **Importar plantilla** de la ficha para mostrar
+la tabla de errores agrupada por hoja y el reporte en CSV.
+
+Para probar a mano todo lo de Proyectos (S3 a S8) paso a paso, ver `docs/guia-prueba-proyectos.md`.
+
 ---
 
 ## 2. Guion sugerido por bloque de funcionalidad

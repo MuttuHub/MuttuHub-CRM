@@ -1,0 +1,192 @@
+# Muttu Hub v2 — S7 Excel template: generate and import (RF-03, RF-04, XLS §3.10, SDD §4.10/§5.8)
+
+Parent plan: `odd/tasks/v2-projects-sdd.md` (§4.10, §5.8), ledger `odd/tasks/v2-projects-execution.md`, verified
+mapping `odd/tasks/v2-projects-s7-map.md` (read it: it holds the 9-sheet layout, the V-rule table, the route table
+and the per-unit RED detail). Branch: `feat/projects-v2`.
+
+## Objective
+
+An ADM/GER user downloads the official Excel template for a project that already has start/end dates, fills its nine
+sheets, and imports the workbook to replace the project's structure (objetivos, actividades, entregables,
+indicadores), budget, monthly programming, dates, líneas and municipios in one atomic operation — reporting per-rule
+validation errors instead of writing anything partially.
+
+## Decisions (defaults from the map §8; revisit with PO feedback)
+
+- D-1 Template download requires project dates (409 otherwise).
+- D-2 Import only while `BORRADOR`, ADM/GER only; a re-import replaces structure + budget + programming + dates +
+  líneas + municipios entirely (S7.6 is the same code path, not a separate feature).
+- D-3 An unknown `Responsable (correo)` is warning W-01, not blocking.
+- D-4 The download writes an `EXPORTAR` audit row (best-effort).
+- D-5 The error report is downloaded as CSV built client-side; `exceljs` never enters the browser bundle.
+- D-6 Import cap 4 MB (Vercel multipart limit, not the SDD's stale 25 MB); the file is not stored.
+- D-7 Lines are matched by `codigo`; municipios by `Nombre (Departamento)` / DANE code.
+- D-8 `Cliente` and `Rubro` name columns are informative and ignored on import.
+- D-9 Empty `Peso` means the default duration; non-empty sets `peso_manual = true` (DP-08).
+- D-10 The pilot uses the synthetic F-X1 (CedeTextil structural example, illustrative figures, N-22).
+- D-11 **Takeover boundary (recorded)**: the branch arrived at S7 with 118 commits and no native review ever
+  acknowledged. That history is explicit inherited debt; the review boundary for slices produced from here is
+  `1432907` (the S6 tip). Anything before it stays unreviewed by decision, not by accident.
+- D-12 **Import route rejection order (kept, deviates from map §4)**: the implementation rejects a declared
+  oversized body (413) before the extension/MIME check (400), while the map prescribes formData 400 -> type 400 ->
+  size 413. Keeping it: refusing an oversized upload before parsing the body is deliberate, and the OpenAPI
+  description and the route tests already document the 409 -> 413 -> 400 order. Consequence: an oversized `.pdf`
+  answers 413, not 400.
+- D-13 **Zip guard residual (accepted)**: `inspeccionarZip` trusts the archive's declared uncompressed sizes, so a
+  forged central directory can slip past it; JSZip's own length probe then rejects the archive and the route answers
+  400. Residual risk is transient memory while JSZip inflates. Accepted rather than hardened.
+
+## Constraints
+
+- Local only; no push, PR or remote write. Every DB command loads `.env.local` explicitly.
+- Artifacts in English; user-facing messages in Spanish. Conventional commits, no attribution.
+- TDD **on**. Runner: `TZ=America/Bogota npx vitest run <path>`; typecheck `npx tsc --noEmit`.
+- Per-unit gates: focused vitest, `npx tsc --noEmit`, eslint on touched files; one commit per unit.
+- `exceljs@^4.4.0` and `jszip@^3.10.1` are already dependencies — do not add or bump anything.
+- `exceljs` is Node-only: never import it from a `"use client"` file.
+- **Native review is unavailable in this runtime (recorded)**: RDD is on (global), but
+  `gentle-ai review assess --committed-only --base-ref <boundary>` returns
+  `risk: "high"` / `reason: unassessable` — "the active runtime is not eligible for immutable receipt review", and
+  only `claude-code` and `codex` are supported. This is a typed capability boundary, not a defect. Per the parent
+  contract, a high/unassessable tier is verified by writer self-verification **plus an independent verifier**; that
+  substitute ran for round 1 (see Progress). Do not disable RDD from here: the switch is the user's.
+
+## Tasks
+
+Route: delegated writer per round (round 1: U1-U2, round 2: U3-U4, round 3: U5, round 4: U6, round 5: U7).
+
+- [x] **U1** Columns + generator (~380): `src/lib/proyectos/plantilla/columns.ts`, `generate.ts`, fixture
+  `__fixtures__/plantilla-cedetextil.ts` (F-X1 builder, valid and V-12-failing variants). RED: nine sheets with the
+  exact names/order, B2 version, prefilled code/client, 15 rubros, `Mes k (AAAA-MM)` columns, named ranges + data
+  validation surviving a reload, `9. Catálogos` protected, every formula carrying `result`. (ae2881d)
+- [x] **U2** Parser (`src/lib/proyectos/plantilla/parse.ts`): reads every sheet into cells with hoja/fila/columna,
+  formula values via `.result`, Colombian numbers, dates (Date / `DD/MM/AAAA` / ISO), `;` lists keeping order,
+  round-trip `parsePlantilla(await generarPlantilla(x))` equals input, garbage buffer throws `PlantillaIlegible`,
+  row cap. (bf7bcd6; round-trip assertions strengthened and the empty-catalog range guarded in 6f8b6a3)
+- [x] **U3** Validators V-01..V-07 + V-H1 (`src/lib/proyectos/plantilla/validate.ts`): one `describe` per rule with a
+  passing and a failing fixture. (90d7776)
+- [x] **U4** Validators V-08..V-14 + W-01 + `validarPlantilla` + `construirPlan` (`src/lib/proyectos/plantilla/mapear.ts`):
+  V-12 to the cent, ordering, 500-error truncation, multi-error reporting; `construirPlan` of the valid F-X1 yields
+  1/4/7 with weights 1/1/1/4. (5b9b9bb; the V-H2 guards and the non-finite-cell crash were closed in 4b6c565)
+- [x] **U5** Template route + import route + atomic write: `GET /projects/:id/template`, `POST /projects/:id/import`
+  (404/403/409/413/400 ordering, dry run writes nothing, apply calls the writer once), `src/lib/api/plantilla-import.ts`
+  (`importarPlantilla(tx, ...)`, `cargarContexto`, `cargarPlantillaInput`, zip guard), `apiError` extended with an `extra`
+  record for `reporte`; live-DB `prisma/plantilla-import.invariant.test.ts` (8 tests). (b68d0da)
+- [x] **U6** UI + hooks + OpenAPI: `import-dialog.tsx` mounted in the Estructura header (canManageProjects + BORRADOR),
+  validate -> summary, error table by sheet, confirm, client-side CSV (`plantilla-reporte.ts`), hooks
+  (`useImportTemplate`, `downloadProjectTemplate`), `paths/project-template.ts` + document test, and the hook stubs in
+  the list test (the ficha and estructura tests use the real hooks with a fetch mock, they do not mock the hooks
+  module). (eb96b31)
+- [x] **U7** (S7.7) local pilot: `scripts/import-plantilla-demo.ts` (anti-production guard, dry run by default,
+  `--apply` writes the two workbooks and imports the valid one) + fakes-based unit test + note in `docs/guia-demo.md`.
+  (ed4dd96)
+
+## Acceptance
+
+- Every RED test exists, was observed failing, then passes. `tsc` clean; eslint clean on touched files; full vitest
+  green under `TZ=America/Bogota` (known load-flakes recorded honestly).
+- The import is atomic: a failing workbook leaves the previous draft byte-identical, with no audit rows for the lote.
+
+## Progress
+
+- 2026-10-08 (14:55): document created at takeover, from the map the previous session left uncommitted (it stopped
+  right after the mapping: no S7 execution document and no S7 code existed). The map and this document are committed
+  together. `exceljs`/`jszip` verified present; no S7 file existed yet.
+- 2026-10-08 (14:51) inherited state: S4, S5 and S6 are closed locally with 78 commits unpushed, no PR, and no native
+  review acknowledged anywhere in the branch (see D-11).
+
+- 2026-10-08 (15:30): round 1 (U1-U2) by one bounded writer, plus one scoped correction.
+  - U1 (ae2881d): `plantilla/columns.ts` (9 sheets, headers, caps), `plantilla/generate.ts` (`generarPlantilla`),
+    `__fixtures__/plantilla-cedetextil.ts` (F-X1 valid 177.360.000 and V-12 177.410.000). RED: missing modules, then
+    GREEN. 19 tests.
+  - U2 (bf7bcd6): `plantilla/parse.ts` (`parsePlantilla`, `parseNumeroColombiano`, `parseFechaCelda`,
+    `PlantillaIlegible`) + the round-trip. RED: missing module; one genuine inner RED (`"1.440.000,50"` parsed as
+    `"1.440.000.50"` until the dot-grouping branch stripped the thousands dots). 17 tests.
+  - Gates: focused vitest 4 files / 36 tests green; `tsc --noEmit` clean; eslint clean on touched files. Parent spot
+    check re-ran the focused command: 36 green.
+  - **Native review (RDD) could not run**: `gentle-ai review assess --base-ref 1432907 --committed-only --json`
+    returned `risk: "high"`, `review_due: true`, `review_due_reason: "high_risk"` with
+    `unassessable — the active runtime is not eligible for immutable receipt review` (only `claude-code` and `codex`
+    qualify). Recorded as a typed unavailability; RDD was NOT disabled and no PASS was invented.
+  - **Independent verification** (the contract's substitute for a high/unassessable tier) found: (a) minor — the
+    round-trip test asserted only counts/budget/programming, so a silently dropped actividad/entregable/indicador
+    field would have stayed green; (b) advisory — `ref()` wrote a reversed defined name (`$C$2:$C$1`, normalized by
+    ExcelJS to `$C$1:$C$2`, wrongly including the header) when a catalog list was empty; plus three notes
+    (`1e5` -> `"15"`, the generator trusts the caller for the 15 rubros, and the map's "7 entregables of F-T1"
+    cross-reference is loose — the golden F-T1 fixture has 8 entregables and no `unidad` column).
+  - Scoped correction (6f8b6a3): the round-trip test now asserts every parsed field of F-X1 (with observed sabotage
+    RED evidence), and `ref()` clamps to `$C$2` so an empty catalog never emits an invalid range (+2 tests, 38 total).
+    Parent spot check: 4 files / 38 tests green, no trace of the sabotage left in the source.
+- Inherited debt carried into this feature (D-11): the branch reached S7 with 118 commits vs `main` (78 unpushed) and
+  no native review acknowledged anywhere. With S7 rounds 1-2 the branch is at 127 commits vs `main` / 87 unpushed, all
+  of it local. Nothing is lost: every unit is committed and the worktree is clean.
+
+- 2026-10-08 (16:35): round 2 (U3-U4) by one bounded writer, plus one scoped correction.
+  - U3 (90d7776): `plantilla/validate.ts` with `ContextoValidacion`, `ErrorPlantilla` and `v01`..`v07`, `vH1`; the
+    F-X1 validation context added to the existing fixture. RED: missing module, then GREEN. 22 tests.
+  - U4 (5b9b9bb): `v08`..`v14`, `w01`, `validarPlantilla` (ordering by sheet/row/column, `MAX_ERRORES` cap and
+    `truncado`, `resumen` counted before the cap) and `plantilla/mapear.ts` with `PlanImportacion` +
+    `construirPlan`. RED: missing functions/module. GREEN: 48 tests (42 + 6).
+  - Gates: `src/lib/proyectos/plantilla/` 5 files / 81 tests green; `tsc --noEmit` clean; eslint clean on touched
+    files. Parent spot check: reproduces.
+  - **Independent verification** (the substitute for the unavailable native review) found a real crash and a spec gap:
+    (a) **major** — `validarPlantilla` THREW on numeric cells in scientific notation (`1e21`/`1e-7`) instead of
+    reporting them, so a crafted workbook would have crashed the import route with a 500; (b) **major** — the V-H2
+    guards required by map §3 line 57 were absent, and the row/month caps in `parse.ts` truncated silently, so an
+    oversized workbook could validate "clean" while rows and columns were discarded; (c) **minor** — V-01's
+    project-sheet check only inspected headers, letting a missing label row cascade into V-03; (d) **advisory** —
+    column ordering used `localeCompare` (misorders `AA` after `Z`); (e) five test-coverage gaps that would have
+    stayed green under sabotage.
+  - Scoped correction (4b6c565): a plain-decimal guard closes every `toCents`/`BigInt` path, `vH2` reports the
+    truncation and the Excel error cells (surfaced through `excesoFilas`/`excesoMeses` on `ParsedTemplate`), V-01 now
+    gates the project sheet on its required labels, ordering uses the Excel column index, and the uncovered paths got
+    assertions with sabotage RED evidence for each fix. Plantilla suite: **100 tests green**; `tsc`/eslint clean.
+    Parent spot check: 5 files / 100 tests green, tree clean, no sabotage left.
+
+- 2026-10-08 (21:05): round 3 (U5-U7) by one bounded writer, one commit per unit.
+  - U5 (b68d0da). RED: five test files failing (missing modules, `apiError` ignoring `reporte`); GREEN: errors 3,
+    plantilla-import 5, import route 17, template route 6, live-DB invariant 8. Atomic-rollback sabotage check: removing
+    the `ROLLBACK TO SAVEPOINT` in the injected-failure test turned it RED, then restored. One real bug found by the
+    tests: the zip guard rejected every real xlsx because directory entries carry no `_data` (now skipped).
+  - U6 (eb96b31). RED: reporte lib/dialog missing, controls absent in Estructura, OpenAPI paths absent. GREEN: 13 dialog
+    tests, 5 CSV tests, 3 control tests, 2 ficha tests, document test. Two test-side fixes: `userEvent` `applyAccept:false`
+    for the non-.xlsx check, `FileReader` to read a jsdom Blob.
+  - U7 (ed4dd96). RED: module missing; GREEN 9 tests (dry run inert, apply once, guard is the first import).
+  - Gates: `tsc --noEmit` clean, eslint clean on touched files, **full suite 245 files / 2484 tests green** under
+    `TZ=America/Bogota` (165 s). No migration; no remote; nothing pushed.
+  - Deviations: (1) the live-DB test does NOT really commit: `auditoria_cambios` is append-only (DELETE trigger), so a
+    committed run could never be cleaned. The test runs in one ambient transaction that always rolls back and emulates the
+    route's `$transaction` with a SAVEPOINT (`ROLLBACK TO SAVEPOINT` is the same Postgres semantics); a stub injects a
+    failure on `entregable.createMany` after objectives and activities were inserted. (2) The writer takes no `hook`
+    parameter: the failure is injected by wrapping the tx in the test. (3) `gateEstructuraWrite` gained an optional
+    `stateMessage` so the 409 copy names the download/import action. (4) Dry run of the script is fully read-only (no
+    files); `--apply` writes the two .xlsx into `tmp/plantilla-demo/` (gitignored).
+  - Native review: unavailable in this runtime (see Constraints); not run, not disabled.
+
+- 2026-10-08 (22:55): independent verification of U5-U7 (the substitute for the unavailable native review) and one
+  scoped correction.
+  - Verifier ran 11 focused files / 149 tests plus the live-DB invariant (8 tests) and `tsc`: the route gates, the
+    single `$transaction` and its write order, the audit lote, the dry run writing nothing, the zip guard, the CSV
+    guard and the pilot all CONFIRMED. It also independently proved production atomicity with a real
+    `db.$transaction` probe (late injected failure -> zero rows).
+  - Findings: (a) **major, about the proof itself** — the "atomic rollback" invariant test performed its own
+    `SAVEPOINT`, so removing the route's `$transaction` would have left it green: it proved the writer's writes are
+    undoable, not that production wraps them; (b) advisory — the CSV injection guard missed a leading space and a
+    line feed; (c) advisory — the confirm POST never asserted the file was re-sent; (d) advisory — the defensive 409
+    only exercised an avance; (e) advisory — no positive proof that a pre-existing gasto/soporte survives an import.
+  - Correction (3a05c6c): a route-level test now drives the real `db.$transaction` with a late failure (Proxy on the
+    last write) and asserts zero rows, zero audit rows and the previous draft intact — sabotage RED captured by
+    removing the route's `$transaction`; the old savepoint test is relabelled as the undoability proof. The CSV guard
+    now covers leading whitespace and LF, the confirm POST asserts `archivo`, a medición exercises a second
+    defensive-409 path, and a gasto + soporte are now positively asserted to survive. Invariant file 8 -> 11 tests;
+    `plantilla-reporte` 5 -> 6. Parent spot check: 3 files / 30 tests green, tree clean.
+  - Deviations recorded as D-12 (import rejection order) and D-13 (zip guard residual); the U6 stub wording was
+    corrected (F7).
+
+## Next step
+
+S7 is complete except for the manual pilot, which is blocked in this shell: `tsx` cannot run here (win32 esbuild), so
+`scripts/import-plantilla-demo.ts` was verified by reading and by its fakes-based unit test only. Run it from a shell
+where `tsx` works (`npx tsx scripts/import-plantilla-demo.ts --project <codigo>`, dry run first).
+Inherited and still open: independent verification of S8 (the version writer, baseline approval and the modification
+flow) — the previous session recorded it as its next step and never ran it. Then S9 U1 (the KPI pure libs).

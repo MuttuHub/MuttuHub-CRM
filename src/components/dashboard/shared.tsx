@@ -48,8 +48,9 @@ export function CardSection({
 }) {
   return (
     <section
+      aria-label={title}
       className={cn(
-        "rounded-[22px] border border-ink-200 bg-panel p-5 lg:p-6",
+        "surface p-5 lg:p-6",
         className,
       )}
     >
@@ -85,8 +86,8 @@ export function StatTile({
   return (
     <div
       className={cn(
-        "rounded-[20px] border p-[18px]",
-        acento ? "border-rose-500 bg-rose-500" : "border-ink-200 bg-panel",
+        "p-[18px]",
+        acento ? "rounded-card border border-rose-500 bg-rose-500" : "surface",
       )}
     >
       <span
@@ -240,7 +241,7 @@ export function ChipSelector<T extends string>({
 
 export function SinConexionCard({ onRetry }: { onRetry: () => void }) {
   return (
-    <section className="grid min-h-[320px] place-items-center rounded-[24px] border border-ink-200 bg-panel p-8">
+    <section className="grid min-h-[320px] place-items-center surface p-8">
       <div className="max-w-[46ch] text-center">
         <span className="mx-auto grid size-12 place-items-center rounded-[16px_16px_16px_6px] bg-alerta-bg text-alerta">
           <TriangleAlert className="size-6" strokeWidth={1.7} />
@@ -251,7 +252,7 @@ export function SinConexionCard({ onRetry }: { onRetry: () => void }) {
         <p className="mt-2 text-[13.5px] leading-relaxed text-ink-600">
           Comprueba tu conexión e inténtalo de nuevo.
         </p>
-        <Button onClick={onRetry} variant="outline" className="mt-5 rounded-lg px-4 font-semibold">
+        <Button onClick={onRetry} variant="outline" className="mt-5 px-4 font-semibold">
           Reintentar
         </Button>
       </div>
@@ -264,7 +265,7 @@ export function DashboardSkeleton() {
     <div className="flex min-w-0 flex-col gap-4">
       <div className="grid grid-cols-2 gap-[14px] xl:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="rounded-[20px] border border-ink-200 bg-panel p-[18px]">
+          <div key={i} className="surface p-[18px]">
             <Skeleton className="h-3 w-24" />
             <Skeleton className="mt-3 h-7 w-28" />
             <Skeleton className="mt-3 h-3 w-20" />
@@ -273,7 +274,7 @@ export function DashboardSkeleton() {
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         {Array.from({ length: 2 }).map((_, i) => (
-          <div key={i} className="rounded-[22px] border border-ink-200 bg-panel p-6">
+          <div key={i} className="surface p-6">
             <Skeleton className="h-5 w-40" />
             <div className="mt-5 space-y-4">
               {Array.from({ length: 4 }).map((__, j) => (

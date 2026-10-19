@@ -4,11 +4,25 @@
 // con su distribución por estado. Enlaces directos a /tablero y /clientes.
 
 import Link from "next/link";
-import { ArrowUpRight, CalendarClock, CheckCircle2, FileClock, ListChecks, UsersRound } from "lucide-react";
-import type { DashboardFilters } from "@/hooks/dashboard";
+import {
+  ArrowUpRight,
+  CalendarClock,
+  CheckCircle2,
+  FileClock,
+  FolderKanban,
+  ListChecks,
+  Target,
+  UsersRound,
+} from "lucide-react";
+import type {
+  DashboardFilters,
+  OportunidadEnProspeccion,
+  ProyectoEnEjecucion,
+} from "@/hooks/dashboard";
 import { useDashboardMySummary } from "@/hooks/dashboard";
 import { formatFecha } from "@/hooks/crm";
 import { ESTADO_CLIENTE_LABELS, ESTADO_TAREA_LABELS } from "@/lib/catalogs";
+import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { cn } from "@/lib/utils";
 import {
   CardSection,
@@ -47,8 +61,15 @@ export function CaraMiResumen({ filters }: { filters: DashboardFilters }) {
   }
 
   const data = query.data!;
-  const { activas, vencidas, hoy, compromisos_pendientes, clientes_asignados } =
-    data;
+  const {
+    activas,
+    vencidas,
+    hoy,
+    compromisos_pendientes,
+    clientes_asignados,
+    proyectos_en_ejecucion,
+    oportunidades_en_prospeccion,
+  } = data;
 
   const porEstado = clientes_asignados.items.reduce<Record<string, number>>(
     (acc, c) => {
@@ -111,7 +132,7 @@ export function CaraMiResumen({ filters }: { filters: DashboardFilters }) {
           <TareaLista items={activas.items} max={MAX_LISTA} empty="No tienes tareas abiertas." />
 
           {hoy.count > 0 && (
-            <div className="mt-4 rounded-14 border border-alerta/25 bg-alerta-bg p-3.5">
+            <div className="mt-4 rounded-inner border border-alerta/25 bg-alerta-bg p-3.5">
               <p className="text-[12px] font-bold text-alerta">Vencen hoy</p>
               <TareaLista items={activas.items.filter((t) => esDeHoy(t.fecha_entrega))} max={4} />
             </div>
@@ -124,7 +145,7 @@ export function CaraMiResumen({ filters }: { filters: DashboardFilters }) {
             title="Vencidas"
             subtitle="Cierralas cuanto antes"
           >
-            <div className="flex items-end gap-3 rounded-[16px] bg-destructivo-bg p-4">
+            <div className="flex items-end gap-3 rounded-inner bg-destructivo-bg p-4">
               <FileClock className="size-6 shrink-0 text-destructivo" strokeWidth={1.8} />
               <div>
                 <p className="font-display text-[30px] leading-none font-extrabold tabular-nums text-destructivo">
@@ -148,6 +169,40 @@ export function CaraMiResumen({ filters }: { filters: DashboardFilters }) {
             </p>
           </CardSection>
         </div>
+      </div>
+
+      {/* RNF-C01 (S2.7): proyectos en ejecución y oportunidades en prospección,
+          siempre en grupos separados, nunca en una lista mezclada. */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <CardSection
+          title="Proyectos en ejecución"
+          subtitle={`${proyectos_en_ejecucion.count} ${proyectos_en_ejecucion.count === 1 ? "proyecto" : "proyectos"}`}
+          action={
+            <Link href="/proyectos">
+              <span className="inline-flex h-[29px] items-center rounded-[9px] px-2.5 text-[12px] font-semibold text-ink-700 transition-colors hover:bg-ink-100">
+                Ver proyectos
+                <ArrowUpRight className="size-3.5" strokeWidth={1.9} />
+              </span>
+            </Link>
+          }
+        >
+          <ProyectoLista items={proyectos_en_ejecucion.items} max={MAX_LISTA} />
+        </CardSection>
+
+        <CardSection
+          title="Oportunidades en prospección"
+          subtitle={`${oportunidades_en_prospeccion.count} ${oportunidades_en_prospeccion.count === 1 ? "oportunidad" : "oportunidades"}`}
+          action={
+            <Link href="/clientes">
+              <span className="inline-flex h-[29px] items-center rounded-[9px] px-2.5 text-[12px] font-semibold text-ink-700 transition-colors hover:bg-ink-100">
+                Ver clientes
+                <ArrowUpRight className="size-3.5" strokeWidth={1.9} />
+              </span>
+            </Link>
+          }
+        >
+          <OportunidadLista items={oportunidades_en_prospeccion.items} max={MAX_LISTA} />
+        </CardSection>
       </div>
 
       {/* Clientes asignados */}
@@ -222,12 +277,12 @@ function ResumenTile({
   return (
     <div
       className={cn(
-        "rounded-[20px] border p-[18px]",
+        "p-[18px]",
         tone === "rojo"
-          ? "border-destructivo/40 bg-destructivo-bg"
+          ? "rounded-card border border-destructivo/40 bg-destructivo-bg"
           : tone === "alerta"
-            ? "border-alerta/40 bg-alerta-bg"
-            : "border-ink-200 bg-panel",
+            ? "rounded-card border border-alerta/40 bg-alerta-bg"
+            : "surface",
       )}
     >
       <span className="flex items-center gap-2 text-[12px] font-semibold text-ink-600">
@@ -311,6 +366,87 @@ function TareaLista({
         <p className="pt-2 text-[12px] text-ink-600">
           +{restantes} más · verlas todas en el tablero.
         </p>
+      )}
+    </div>
+  );
+}
+/** Lista compacta de proyectos en ejecución (código, nombre y cliente). */
+function ProyectoLista({ items, max }: { items: ProyectoEnEjecucion[]; max: number }) {
+  const visibles = items.slice(0, max);
+  const restantes = items.length - visibles.length;
+
+  if (visibles.length === 0) {
+    return (
+      <p className="flex items-center justify-center gap-2 py-4 text-center text-[12.5px] text-ink-500">
+        <FolderKanban className="size-4" strokeWidth={1.7} />
+        No tienes proyectos en ejecución.
+      </p>
+    );
+  }
+
+  return (
+    <div>
+      <ul className="flex flex-col">
+        {visibles.map((p, i) => (
+          <li
+            key={p.id}
+            className={cn("flex items-center gap-3 py-2.5", i !== 0 && "border-t border-ink-100")}
+          >
+            <span className="shrink-0 font-mono text-[11.5px] tabular-nums text-ink-600">
+              {p.codigo}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink-900">
+              {p.nombre}
+            </span>
+            <span className="max-w-[40%] shrink-0 truncate text-[12px] text-ink-600">
+              {p.cliente_nombre}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {restantes > 0 && (
+        <p className="pt-2 text-[12px] text-ink-600">+{restantes} más · verlos todos en proyectos.</p>
+      )}
+    </div>
+  );
+}
+
+/** Lista compacta de oportunidades en prospección (nombre, cliente y valor). */
+function OportunidadLista({ items, max }: { items: OportunidadEnProspeccion[]; max: number }) {
+  const visibles = items.slice(0, max);
+  const restantes = items.length - visibles.length;
+
+  if (visibles.length === 0) {
+    return (
+      <p className="flex items-center justify-center gap-2 py-4 text-center text-[12.5px] text-ink-500">
+        <Target className="size-4" strokeWidth={1.7} />
+        No tienes oportunidades en prospección.
+      </p>
+    );
+  }
+
+  return (
+    <div>
+      <ul className="flex flex-col">
+        {visibles.map((o, i) => (
+          <li
+            key={o.id}
+            className={cn("flex items-center gap-3 py-2.5", i !== 0 && "border-t border-ink-100")}
+          >
+            <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink-900">
+              {o.nombre}
+            </span>
+            <span className="max-w-[35%] shrink-0 truncate text-[12px] text-ink-600">
+              {o.cliente_nombre}
+            </span>
+            <span className="shrink-0 font-mono text-[11.5px] tabular-nums text-ink-600">
+              {o.valor_estimado_cop ? formatCOP(toCents(o.valor_estimado_cop)) : "Sin valor"}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {restantes > 0 && (
+        <p className="pt-2 text-[12px] text-ink-600">+{restantes} más · verlas en cada cliente.</p>
       )}
     </div>
   );

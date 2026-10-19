@@ -149,7 +149,7 @@ export function CaraPipeline({ filters }: { filters: DashboardFilters }) {
         subtitle="Potencial activo vs. ganado histórico"
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-          <div className="rounded-[16px] border border-ink-100 bg-ink-100/50 p-4">
+          <div className="surface-inner p-4">
             <span className="flex items-center gap-2 text-[12px] font-semibold text-ink-600">
               <Wallet className="size-3.5" strokeWidth={1.9} />
               Potencial activo
@@ -158,7 +158,7 @@ export function CaraPipeline({ filters }: { filters: DashboardFilters }) {
               {formatCOP(comparativo.potencial_activo)}
             </p>
           </div>
-          <div className="rounded-[16px] border border-ink-100 bg-ink-100/50 p-4">
+          <div className="surface-inner p-4">
             <span className="flex items-center gap-2 text-[12px] font-semibold text-ink-600">
               <DollarSign className="size-3.5 text-exito" strokeWidth={1.9} />
               Ganado histórico

@@ -106,7 +106,7 @@ export function ChangePasswordDialog({
         }
       }}
     >
-      <DialogContent className="rounded-[20px] sm:max-w-[min(400px,calc(100%-2rem))]">
+      <DialogContent className="sm:max-w-[min(400px,calc(100%-2rem))]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 font-display text-[17px] font-bold text-ink-950">
             <KeyRound className="size-4" strokeWidth={1.8} />
@@ -131,7 +131,6 @@ export function ChangePasswordDialog({
               id="current-password"
               autoComplete="current-password"
               required
-              className="h-10 rounded-12 bg-panel px-3"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
             />
@@ -143,7 +142,6 @@ export function ChangePasswordDialog({
               id="new-password"
               autoComplete="new-password"
               required
-              className="h-10 rounded-12 bg-panel px-3"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
             />
@@ -155,7 +153,6 @@ export function ChangePasswordDialog({
               id="confirm-new-password"
               autoComplete="new-password"
               required
-              className="h-10 rounded-12 bg-panel px-3"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
             />
