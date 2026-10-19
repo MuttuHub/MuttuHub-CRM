@@ -34,24 +34,24 @@ Los permisos dependen del rol y de la pertenencia al proyecto (el **Equipo** del
 
 | Acción | Administrador | Gerencia | Coordinador | Colaborador |
 |---|---|---|---|---|
-| Ver todo el portafolio y la pestaña Tablero | Sí | Sí | No | No (solo con la bandera gerencial) |
-| Ver un proyecto | Todos | Todos | Solo donde es integrante | Solo con la bandera gerencial |
-| Crear un proyecto | Sí | Sí | No | No |
-| Editar datos generales | Sí | Sí | No | No |
-| Cargar o editar la estructura (solo en Borrador) | Sí | Sí | No | No |
+| Ver el portafolio y la pestaña Tablero | Sí | Sí | Sí, solo sus proyectos | Sí, solo sus proyectos |
+| Ver un proyecto | Todos | Todos | Solo donde es integrante | Solo donde es integrante |
+| Crear un proyecto | Sí | Sí | Sí | Sí |
+| Editar datos generales | Sí | Sí | Sí, donde es integrante | Sí, donde es integrante |
+| Cargar o editar la estructura (solo en Borrador) | Sí | Sí | Sí, donde es integrante | Sí, donde es integrante |
 | Aprobar la línea base | Sí | Sí | No | No |
-| Registrar avance de actividades | Sí | Sí | Sí, si es integrante | No |
-| Registrar gastos | Sí | Sí | Sí, si es integrante | No |
+| Registrar avance de actividades | Sí | Sí | Sí, si es integrante | Sí, si es integrante |
+| Registrar gastos | Sí | Sí | Sí, si es integrante | Sí, si es integrante |
 | Validar o rechazar un gasto | Sí, salvo los que registró | Sí, salvo los que registró | No | No |
-| Subir o eliminar documentos del proyecto | Sí | Sí | Sí, si es integrante | No |
-| Solicitar una modificación | — | — | Sí, si es integrante | No |
+| Subir o eliminar documentos del proyecto | Sí | Sí | Sí, si es integrante | Sí, si es integrante |
+| Solicitar una modificación | — | — | Sí, si es integrante | Sí, si es integrante |
 | Aprobar una modificación | Sí | Sí | No | No |
 
 Notas:
 
 - **Segregación de funciones:** nadie puede validar un gasto que registró. Si un administrador registra un gasto, otro
   administrador o alguien de Gerencia debe validarlo.
-- Un **Coordinador** que no está en el **Equipo** del proyecto no lo ve, ni siquiera abriendo el enlace directo.
+- Un **Coordinador o un Colaborador** que no está en el **Equipo** del proyecto no lo ve, ni siquiera abriendo el enlace directo.
 - La **bandera gerencial** se asigna en **Administración → Usuarios**. Da lectura del portafolio y de las fichas, nunca
   escritura ni acceso a los soportes financieros.
 - Si una pantalla dice **«No tienes permisos sobre este proyecto»** o **«No tienes acceso a este proyecto»**, falta el
@@ -76,7 +76,7 @@ La página tiene dos pestañas:
 - La tabla muestra: **Proyecto** (código, cliente y nombre), **Territorio · línea**, **Responsable**, **Avance
   técnico**, **Avance financiero** y **Estado**.
 - **Ver detalle** abre la ficha del proyecto en una pestaña nueva del navegador.
-- El botón **Nuevo proyecto** (solo Administrador y Gerencia) abre el asistente de creación.
+- El botón **Nuevo proyecto** abre el asistente de creación; lo ve cualquier rol.
 
 Si la tabla aparece vacía:
 
@@ -188,10 +188,10 @@ En el encabezado, siempre visible:
   se resuelve.
 - **Datos generales**: origen, cliente, responsable, fechas, duración, valor total, beneficiarios y, si aplica, la
   diferencia con la oportunidad; también las **Líneas estratégicas** y los **Municipios**.
-  - **Editar datos generales** (Administrador y Gerencia) abre el formulario. Si el proyecto ya salió de Borrador,
+  - **Editar datos generales** (Administración, Gerencia o un integrante) abre el formulario. Si el proyecto ya salió de Borrador,
     algunos cambios se convierten en una **solicitud de modificación** en lugar de aplicarse de inmediato.
-- **Equipo**: quiénes participan y con qué rol. Administrador y Gerencia agregan o quitan integrantes. Solo se pueden
-  agregar usuarios con rol **Coordinador**.
+- **Equipo**: quiénes participan y con qué rol. Administrador y Gerencia agregan o quitan integrantes. Se pueden
+  agregar usuarios con rol **Coordinador** o **Colaborador**.
 
 En **Borrador**, el Resumen muestra en su lugar **Próximos pasos**: fechas y valor, objetivos y actividades, presupuesto
 y aprobación de la línea base, cada uno con su enlace.
@@ -263,7 +263,7 @@ Reúne en una sola lista todos los soportes del proyecto, con su origen: **Activ
 
 - **Filtrar documentos** por origen y **Buscar por nombre**.
 - Al abrir un documento, la descarga usa una **URL firmada**: el archivo no es público.
-- **Subir documento** (Administrador, Gerencia y Coordinador integrante, en estados editables) permite un **archivo** o
+- **Subir documento** (Administrador, Gerencia o un integrante, en estados editables) permite un **archivo** o
   un **enlace con su nombre**.
 - **Eliminar** solo está disponible para documentos del grupo **Proyecto**, y solo para quien los subió o para
   Administrador y Gerencia.
@@ -274,8 +274,8 @@ Los soportes de avances y gastos se administran desde su propia pantalla: aquí 
 
 Tres segmentos: **Modificaciones**, **Versiones** y **Auditoría**.
 
-- **Modificaciones**: la cola de solicitudes con estado **Pendiente**, **Aprobada** o **Rechazada**. Un Coordinador
-  integrante solicita; Administrador y Gerencia aprueban o rechazan (el rechazo lleva **Comentario del rechazo**).
+- **Modificaciones**: la cola de solicitudes con estado **Pendiente**, **Aprobada** o **Rechazada**. Un integrante
+  solicita; Administrador y Gerencia aprueban o rechazan (el rechazo lleva **Comentario del rechazo**).
   Mientras una solicitud está pendiente, el cambio no se aplica.
 - **Versiones**: la `v0` de la línea base y las versiones siguientes, con comparación campo por campo (proyecto,
   presupuesto, programación, actividades, entregables e indicadores).

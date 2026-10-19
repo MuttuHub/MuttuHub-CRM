@@ -15,7 +15,7 @@ import { INDICADOR_CREATE_SCHEMA } from "@/app/api/v1/projects/[id]/indicators/r
 import { INDICADOR_PATCH_SCHEMA } from "@/app/api/v1/projects/[id]/indicators/[indicatorId]/route";
 
 const WRITE_NOTE =
-  "Solo `ADMINISTRADOR`/`GERENCIA` (`canManageProjects`) y solo mientras el proyecto está en Borrador. El orden de " +
+  "Administración, Gerencia o un integrante del equipo (`canEditProjectData`), y solo mientras el proyecto está en Borrador. El orden de " +
   "las respuestas es 404 (proyecto desconocido o con borrado lógico) -> 403 -> 409 INVALID_STATE -> 400. La " +
   "escritura y sus filas de auditoría comparten una transacción.";
 

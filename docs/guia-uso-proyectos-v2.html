@@ -251,17 +251,17 @@
       <tr><th>Acción</th><th>Administrador</th><th>Gerencia</th><th>Coordinador</th><th>Colaborador</th></tr>
     </thead>
     <tbody>
-      <tr><td>Ver todo el portafolio y la pestaña Tablero</td><td>Sí</td><td>Sí</td><td>No</td><td>No (solo con la bandera gerencial)</td></tr>
-      <tr><td>Ver un proyecto</td><td>Todos</td><td>Todos</td><td>Solo donde es integrante</td><td>Solo con la bandera gerencial</td></tr>
-      <tr><td>Crear un proyecto</td><td>Sí</td><td>Sí</td><td>No</td><td>No</td></tr>
-      <tr><td>Editar datos generales</td><td>Sí</td><td>Sí</td><td>No</td><td>No</td></tr>
-      <tr><td>Cargar o editar la estructura (solo en Borrador)</td><td>Sí</td><td>Sí</td><td>No</td><td>No</td></tr>
+      <tr><td>Ver el portafolio y la pestaña Tablero</td><td>Sí</td><td>Sí</td><td>Sí, solo sus proyectos</td><td>Sí, solo sus proyectos</td></tr>
+      <tr><td>Ver un proyecto</td><td>Todos</td><td>Todos</td><td>Solo donde es integrante</td><td>Solo donde es integrante</td></tr>
+      <tr><td>Crear un proyecto</td><td>Sí</td><td>Sí</td><td>Sí</td><td>Sí</td></tr>
+      <tr><td>Editar datos generales</td><td>Sí</td><td>Sí</td><td>Sí, donde es integrante</td><td>Sí, donde es integrante</td></tr>
+      <tr><td>Cargar o editar la estructura (solo en Borrador)</td><td>Sí</td><td>Sí</td><td>Sí, donde es integrante</td><td>Sí, donde es integrante</td></tr>
       <tr><td>Aprobar la línea base</td><td>Sí</td><td>Sí</td><td>No</td><td>No</td></tr>
-      <tr><td>Registrar avance de actividades</td><td>Sí</td><td>Sí</td><td>Sí, si es integrante</td><td>No</td></tr>
-      <tr><td>Registrar gastos</td><td>Sí</td><td>Sí</td><td>Sí, si es integrante</td><td>No</td></tr>
+      <tr><td>Registrar avance de actividades</td><td>Sí</td><td>Sí</td><td>Sí, si es integrante</td><td>Sí, si es integrante</td></tr>
+      <tr><td>Registrar gastos</td><td>Sí</td><td>Sí</td><td>Sí, si es integrante</td><td>Sí, si es integrante</td></tr>
       <tr><td>Validar o rechazar un gasto</td><td>Sí, salvo los que registró</td><td>Sí, salvo los que registró</td><td>No</td><td>No</td></tr>
-      <tr><td>Subir o eliminar documentos del proyecto</td><td>Sí</td><td>Sí</td><td>Sí, si es integrante</td><td>No</td></tr>
-      <tr><td>Solicitar una modificación</td><td>—</td><td>—</td><td>Sí, si es integrante</td><td>No</td></tr>
+      <tr><td>Subir o eliminar documentos del proyecto</td><td>Sí</td><td>Sí</td><td>Sí, si es integrante</td><td>Sí, si es integrante</td></tr>
+      <tr><td>Solicitar una modificación</td><td>—</td><td>—</td><td>Sí, si es integrante</td><td>Sí, si es integrante</td></tr>
       <tr><td>Aprobar una modificación</td><td>Sí</td><td>Sí</td><td>No</td><td>No</td></tr>
     </tbody>
   </table></div>
@@ -269,7 +269,7 @@
     <p><strong>Segregación de funciones:</strong> nadie puede validar un gasto que registró. Si un administrador registra un gasto, otro administrador o alguien de Gerencia debe validarlo.</p>
   </div>
   <ul>
-    <li>Un <strong>Coordinador</strong> que no está en el <strong>Equipo</strong> del proyecto no lo ve, ni siquiera abriendo el enlace directo.</li>
+    <li>Un <strong>Coordinador o un Colaborador</strong> que no está en el <strong>Equipo</strong> del proyecto no lo ve, ni siquiera abriendo el enlace directo.</li>
     <li>La <strong>bandera gerencial</strong> se asigna en <strong>Administración → Usuarios</strong>. Da lectura del portafolio y de las fichas, nunca escritura ni acceso a los soportes financieros.</li>
     <li>Si una pantalla dice <strong>«No tienes permisos sobre este proyecto»</strong> o <strong>«No tienes acceso a este proyecto»</strong>, falta el rol o la pertenencia.</li>
   </ul>
@@ -289,7 +289,7 @@
     <li><strong>Filtros</strong> por <strong>Estado</strong>, <strong>Cliente</strong>, <strong>Línea</strong>, <strong>Municipio</strong> y <strong>Responsable</strong>. En pantallas angostas se pliegan en el botón <span class="pill">Filtros</span>; <span class="pill">Limpiar filtros</span> los borra todos.</li>
     <li>La tabla muestra <strong>Proyecto</strong> (código, cliente y nombre), <strong>Territorio · línea</strong>, <strong>Responsable</strong>, <strong>Avance técnico</strong>, <strong>Avance financiero</strong> y <strong>Estado</strong>.</li>
     <li><strong>Ver detalle</strong> abre la ficha en una pestaña nueva del navegador.</li>
-    <li><strong>Nuevo proyecto</strong> (solo Administrador y Gerencia) abre el asistente de creación.</li>
+    <li><strong>Nuevo proyecto</strong> abre el asistente de creación; lo ve cualquier rol.</li>
   </ul>
   <div class="table-wrap"><table>
     <caption>Si la tabla aparece vacía</caption>
@@ -377,8 +377,8 @@
     <li><strong>Estado del proyecto</strong> (fuera de Borrador): el semáforo <strong>Técnico</strong> y el <strong>Financiero</strong>, cada uno con una frase que explica el color (<strong>Al día</strong>, <strong>Atención</strong> o <strong>En riesgo</strong>) y un enlace a la pestaña correspondiente.</li>
     <li><strong>Requiere atención</strong>: lo que necesita acción, ordenado por gravedad, con enlace a la pantalla donde se resuelve.</li>
     <li><strong>Datos generales</strong>: origen, cliente, responsable, fechas, duración, valor total, beneficiarios y, si aplica, la diferencia con la oportunidad; también <strong>Líneas estratégicas</strong> y <strong>Municipios</strong>.</li>
-    <li><strong>Editar datos generales</strong> (Administrador y Gerencia). Si el proyecto ya salió de Borrador, algunos cambios se convierten en una <strong>solicitud de modificación</strong> en lugar de aplicarse de inmediato.</li>
-    <li><strong>Equipo</strong>: quiénes participan y con qué rol. Administrador y Gerencia agregan o quitan integrantes; solo se pueden agregar usuarios con rol <strong>Coordinador</strong>.</li>
+    <li><strong>Editar datos generales</strong> (Administración, Gerencia o un integrante). Si el proyecto ya salió de Borrador, algunos cambios se convierten en una <strong>solicitud de modificación</strong> en lugar de aplicarse de inmediato.</li>
+    <li><strong>Equipo</strong>: quiénes participan y con qué rol. Administrador y Gerencia agregan o quitan integrantes; se pueden agregar usuarios con rol <strong>Coordinador</strong> o <strong>Colaborador</strong>.</li>
   </ul>
   <p>En <strong>Borrador</strong>, el Resumen muestra en su lugar <strong>Próximos pasos</strong>: fechas y valor, objetivos y actividades, presupuesto y aprobación de la línea base, cada uno con su enlace.</p>
 
@@ -433,7 +433,7 @@
   <ul>
     <li><strong>Filtrar documentos</strong> por origen y <strong>Buscar por nombre</strong>.</li>
     <li>Al abrir un documento, la descarga usa una <strong>URL firmada</strong>: el archivo no es público.</li>
-    <li><strong>Subir documento</strong> (Administrador, Gerencia y Coordinador integrante, en estados editables) permite un <strong>archivo</strong> o un <strong>enlace con su nombre</strong>.</li>
+    <li><strong>Subir documento</strong> (Administrador, Gerencia o un integrante, en estados editables) permite un <strong>archivo</strong> o un <strong>enlace con su nombre</strong>.</li>
     <li><strong>Eliminar</strong> solo está disponible para documentos del grupo <strong>Proyecto</strong>, y solo para quien los subió o para Administrador y Gerencia.</li>
   </ul>
   <p>Los soportes de avances y gastos se administran desde su propia pantalla: aquí solo se consultan.</p>
@@ -441,7 +441,7 @@
   <h3>5.5 Historial</h3>
   <p>Tres segmentos: <strong>Modificaciones</strong>, <strong>Versiones</strong> y <strong>Auditoría</strong>.</p>
   <ul>
-    <li><strong>Modificaciones</strong>: solicitudes con estado <strong>Pendiente</strong>, <strong>Aprobada</strong> o <strong>Rechazada</strong>. Un Coordinador integrante solicita; Administrador y Gerencia aprueban o rechazan (el rechazo lleva <strong>Comentario del rechazo</strong>). Mientras una solicitud está pendiente, el cambio no se aplica.</li>
+    <li><strong>Modificaciones</strong>: solicitudes con estado <strong>Pendiente</strong>, <strong>Aprobada</strong> o <strong>Rechazada</strong>. Un integrante solicita; Administrador y Gerencia aprueban o rechazan (el rechazo lleva <strong>Comentario del rechazo</strong>). Mientras una solicitud está pendiente, el cambio no se aplica.</li>
     <li><strong>Versiones</strong>: la <code>v0</code> de la línea base y las siguientes, con comparación campo por campo (proyecto, presupuesto, programación, actividades, entregables e indicadores).</li>
     <li><strong>Auditoría</strong>: el registro de cambios del proyecto, con usuario y fecha.</li>
   </ul>

@@ -36,19 +36,19 @@ Cada `S#` cita el pedido literal y no agrega requisitos que no estén en la matr
 
 ## Tasks
 
-- [ ] **T1** Predicados en `src/lib/permissions.ts`: creación para todos, lectura y escritura por pertenencia, roles
+- [x] **T1** (a439f53) Predicados en `src/lib/permissions.ts`: creación para todos, lectura y escritura por pertenencia, roles
   integrantes, validación y aprobaciones sin cambios. Pruebas unitarias de cada predicado. Ruta I.
-- [ ] **T2** Creación: `POST /api/v1/projects` y la conversión desde oportunidad aceptan cualquier rol y dejan al creador
+- [x] **T2** (4bafaaf) Creación: `POST /api/v1/projects` y la conversión desde oportunidad aceptan cualquier rol y dejan al creador
   como responsable e integrante. `checkMiembrosValidos` acepta Coordinador y Colaborador. Ruta I.
-- [ ] **T3** Lectura: lista y ficha por pertenencia para Coordinador y Colaborador; soportes financieros; clientes
+- [x] **T3** (1416ba1) Lectura: lista y ficha por pertenencia para Coordinador y Colaborador; soportes financieros; clientes
   legibles para todos; oportunidades elegibles para crear. Ruta I.
-- [ ] **T4** Escritura: datos generales (PATCH), estructura y presupuesto para integrantes. Ruta I.
-- [ ] **T5** Ejecución: avances, gastos, documentos y solicitudes de modificación para integrantes; validación,
+- [x] **T4** (86e2ae0) Escritura: datos generales (PATCH), estructura y presupuesto para integrantes. Ruta I.
+- [x] **T5** (c632d0c) Ejecución: avances, gastos, documentos y solicitudes de modificación para integrantes; validación,
   línea base y aprobación de modificaciones solo Administración y Gerencia. Ruta I.
-- [ ] **T6** Tablero y portafolio: indicadores agregados acotados a los proyectos donde el usuario es integrante. Ruta I.
-- [ ] **T7** Interfaz: portafolio, ficha, equipo, presupuesto, gastos, documentos y modificaciones con las nuevas
+- [x] **T6** (39e6567) Tablero y portafolio: indicadores agregados acotados a los proyectos donde el usuario es integrante. Ruta I.
+- [x] **T7** (41cdf3c) Interfaz: portafolio, ficha, equipo, presupuesto, gastos, documentos y modificaciones con las nuevas
   compuertas; pruebas de componente. Ruta I.
-- [ ] **T8** Documentación: OpenAPI, guía de usuario (tabla de roles y anexo de la PO) y runbook si cambia un
+- [x] **T8** Documentación: OpenAPI, guía de usuario (tabla de roles y anexo de la PO) y runbook si cambia un
   procedimiento; verificación completa (vitest, `tsc`, eslint). Ruta I.
 
 ## Log
@@ -66,3 +66,13 @@ Cada `S#` cita el pedido literal y no agrega requisitos que no estén en la matr
 - **L3 (2026-10-19, nota de riesgo).** Es un cambio de autorización en producción: se implementa en rama, con pruebas por
   compuerta, y el merge se decide aparte. «Validar actividades» no corresponde a una acción existente: hoy se validan
   gastos y se aprueban línea base y modificaciones; si la PO quiere un paso de aprobación de avances, es otra feature.
+- **L4 (creación).** El creador es el responsable **por defecto**; si el cuerpo nombra a otro responsable, se respeta y
+  el creador igual entra al equipo cuando su rol lo necesita. Un gestor no se agrega: ya ve todo y solo añadiría ruido
+  al equipo y a su auditoría.
+- **L5 (clientes).** Abrir los clientes a todos los roles es una ampliación real del alcance de lectura: alcanza la
+  lista, la ficha del cliente y los feeds que usan el mismo predicado. La escritura sobre clientes y el ciclo comercial
+  (`gestiona_oportunidades`) no cambian; la confidencialidad de documentos restringidos tampoco.
+- **L6 (límites).** La bandera `puede_ver_tablero_gerencial` sigue dando lectura de todo el portafolio; la matriz no la
+  menciona y retirarla no fue pedido. El Tablero se abre a los dos roles y sus cifras se acotan por pertenencia.
+- **L7 (entrega).** Rama `feat/permisos-proyectos`, 7 commits por tarea y ~730 líneas de autoría: se entrega como una
+  sola unidad revisable, no en cortes de 400 líneas, siguiendo la excepción de entrega ya aceptada para el módulo.

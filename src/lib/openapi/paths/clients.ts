@@ -700,7 +700,7 @@ registry.registerPath({
   tags: ["Clientes"],
   summary: "Crea un proyecto desde una oportunidad GANADA en un solo paso (E-05)",
   description:
-    `${SCOPE_NOTE} Requiere ` + "`canCreateProject` (ADM/GER) y el acceso comercial sobre el cliente. " +
+    `${SCOPE_NOTE} Requiere ` + "`canCreateProject` (cualquier rol) y que el cliente exista; el acceso comercial de escritura ya no es requisito. " +
     "En una sola transacción convierte la oportunidad (`fase = EJECUCION`, fijando `fecha_adjudicacion` solo si " +
     "todavía es null) y crea el proyecto con `cliente_id`, `nombre` y `valor_total` precargados desde la " +
     "oportunidad; un valor explícito en el body los reemplaza. `miembro_ids` (S2.6) se acepta: cada id debe ser " +
