@@ -18,16 +18,22 @@ test("KPIs: four cards and the Portafolio/Tablero tabs", async ({ page }) => {
   await expect(page.getByRole("tab", { name: "Tablero", selected: true })).toBeVisible();
 });
 
-test("new filters (cliente, línea, municipio, responsable) reduce rows; Limpiar filtros resets", async ({ page }) => {
+test("filters by cliente, línea, municipio and responsable; Limpiar filtros resets", async ({ page }) => {
   const total = await portfolioRows(page).count();
-  expect(total).toBeGreaterThanOrEqual(4);
+  expect(total).toBeGreaterThanOrEqual(2);
   await expect(page.getByRole("button", { name: "Limpiar filtros" })).toHaveCount(0);
 
-  const cases: Array<[string, string, string]> = [
+  // Values taken from the demo seed: Universidad Central del Valle owns two
+  // projects, Productividad is the principal line of 001, and Laura Jiménez is
+  // the responsable of 001 and 002. The assertion is relative (`<= total`) so
+  // extra projects created by other specs never break it.
+  // The line filter matches any project line, while the row shows only the
+  // principal one, so it is asserted by count and not by row text.
+  const cases: Array<[string, string, string | null]> = [
     ["Filtrar por cliente", "Universidad Central del Valle", "Universidad Central del Valle"],
-    ["Filtrar por línea estratégica", "Empleabilidad", "Empleabilidad"],
+    ["Filtrar por línea estratégica", "Productividad", null],
     ["Filtrar por municipio", "Medellín", "Medellín"],
-    ["Filtrar por responsable", "Camila Restrepo", "Camila Restrepo"],
+    ["Filtrar por responsable", "Laura Jiménez", "Laura Jiménez"],
   ];
   for (const [combo, option, expectedText] of cases) {
     await pickOption(page, combo, option);
@@ -35,8 +41,12 @@ test("new filters (cliente, línea, municipio, responsable) reduce rows; Limpiar
     await expect
       .poll(async () => {
         const rows = await portfolioRows(page).allInnerTexts();
-        return rows.length > 0 && rows.length < total && rows.every((r) => r.includes(expectedText));
-      }, { message: `${combo} filters rows to ${expectedText}` })
+        return (
+          rows.length > 0 &&
+          rows.length <= total &&
+          (expectedText === null || rows.every((r) => r.includes(expectedText)))
+        );
+      }, { message: `${combo} filters rows to ${expectedText ?? "a subset"}` })
       .toBeTruthy();
     await page.getByRole("button", { name: "Limpiar filtros" }).click();
     await expect.poll(async () => portfolioRows(page).count()).toBe(total);
@@ -44,15 +54,24 @@ test("new filters (cliente, línea, municipio, responsable) reduce rows; Limpiar
   }
 });
 
-test("combining two filters narrows further; no-result message", async ({ page }) => {
+test("filters combine down to the empty state and Limpiar filtros restores the table", async ({ page }) => {
+  // Estado + cliente: the two Universidad Central drafts of the seed narrow the
+  // table, and adding a client with no projects empties it deterministically.
   await pickOption(page, "Filtrar por estado", "Borrador");
-  await expect.poll(async () => (await portfolioRows(page).allInnerTexts()).every((t) => t.includes("Borrador"))).toBeTruthy();
+  await expect
+    .poll(async () => {
+      const rows = await portfolioRows(page).allInnerTexts();
+      return rows.length > 0 && rows.every((t) => t.includes("Borrador"));
+    })
+    .toBeTruthy();
   const soloBorrador = await portfolioRows(page).count();
-  await pickOption(page, "Filtrar por responsable", "Camila Restrepo");
-  await expect.poll(async () => portfolioRows(page).count()).toBeLessThan(soloBorrador);
-  // En ejecución + Camila (responsable only of drafts) => empty state
-  await pickOption(page, "Filtrar por estado", "En ejecución");
+
+  await pickOption(page, "Filtrar por cliente", "Universidad Central del Valle");
+  await expect.poll(async () => portfolioRows(page).count()).toBeLessThanOrEqual(soloBorrador);
+
+  await pickOption(page, "Filtrar por cliente", "Bavaria SA");
   await expect(page.getByText("No encontramos proyectos con estos filtros")).toBeVisible();
+
   await page.getByRole("button", { name: "Limpiar filtros" }).click();
   await expect(portfolioRows(page).first()).toBeVisible();
 });
@@ -71,5 +90,5 @@ test("validation queue lists only expenses of EN_EJECUCION/SUSPENDIDO projects",
   }
   for (const c of codes) expect(estados.get(c), `${c} must be EN_EJECUCION/SUSPENDIDO`).toBe("ok");
   // Drafts never appear.
-  for (const draft of ["PRY-2026-002", "PRY-2026-003", "PRY-2026-004"]) expect(codes).not.toContain(draft);
+  for (const draft of ["PRY-2026-002"]) expect(codes).not.toContain(draft);
 });

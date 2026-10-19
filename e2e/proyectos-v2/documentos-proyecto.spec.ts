@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { login, P001 } from "./helpers";
+import { loginToProject } from "./helpers";
 
 // DOC1 «Subir documento» (project-level documents, group «Proyecto» of the Documentos tab).
 //
@@ -18,7 +18,7 @@ test.describe("DOC1: subir documento del proyecto", () => {
   test.describe.configure({ mode: "serial" });
 
   async function openDocumentos(page: import("@playwright/test").Page, role: "gerencia" | "coordinador") {
-    await login(page, role, `/proyectos/${P001}`);
+    await loginToProject(page, role, "PRY-2026-001");
     await page.getByRole("tablist").first().getByRole("tab", { name: "Documentos", exact: true }).click();
   }
 

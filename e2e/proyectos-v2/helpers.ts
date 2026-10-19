@@ -37,16 +37,47 @@ export async function fichaHref(page: Page, codigo: string): Promise<string> {
   return href;
 }
 
-export const P001 = "ad060dca-de1c-4c74-a2ac-4b2493ef852e";
-export const P003 = "e15511fb-bebd-4924-8a21-387178212fb2";
+/** Resolve a project id by its code through the API the session already reads. */
+export async function projectId(page: Page, codigo: string): Promise<string> {
+  const res = await page.request.get("/api/v1/projects");
+  if (!res.ok()) throw new Error(`projects API answered ${res.status()}`);
+  const { proyectos } = (await res.json()) as {
+    proyectos: Array<{ id: string; codigo: string }>;
+  };
+  const found = proyectos.find((p) => p.codigo === codigo);
+  if (!found) throw new Error(`project ${codigo} not found for this session`);
+  return found.id;
+}
+
+/** Log in and land on a ficha resolved by code: the seed ids change on every reseed. */
+export async function loginToProject(page: Page, role: Role, codigo: string): Promise<string> {
+  await login(page, role, "/proyectos");
+  const id = await projectId(page, codigo);
+  await page.goto(`/proyectos/${id}`);
+  return id;
+}
 
 /** Open the client ficha dialog from the /clientes cards (search first so the card is in the DOM). */
 export async function openCliente(page: Page, nombre: string) {
   await page.goto("/clientes");
+  // The list hydrates late on the dev server: wait for its cards before typing.
+  await expect(page.getByRole("article").first()).toBeVisible({ timeout: 60_000 });
   await page.getByRole("textbox", { name: "Buscar clientes" }).fill(nombre);
   const card = page.getByRole("article", { name: `Abrir ficha de ${nombre}` });
-  await card.getByRole("button", { name: "Ver detalle" }).click();
+  await expect(card).toBeVisible({ timeout: 30_000 });
+
   const dialog = page.getByRole("dialog", { name: `Ficha de ${nombre}` });
+  // Opening is URL-driven (?cliente=...); a search re-render can swallow the
+  // first click, so the click is retried once.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await card.getByRole("button", { name: "Ver detalle" }).click();
+    try {
+      await expect(page).toHaveURL(/cliente=/, { timeout: 10_000 });
+      break;
+    } catch {
+      if (attempt === 1) throw new Error(`the ficha of ${nombre} did not open`);
+    }
+  }
   await expect(dialog).toBeVisible({ timeout: 30_000 });
   return dialog;
 }
