@@ -1,0 +1,381 @@
+# Guía de uso — Módulo de Proyectos
+
+Guía para las personas que van a trabajar con el módulo **Proyectos** de Muttu Hub.
+Está escrita para el uso diario, no para probar la aplicación. Los textos entre comillas son los que muestra la
+pantalla.
+
+Versión: v2 (lanzamiento 2026). Fuente de este documento: `docs/guia-uso-proyectos-v2.md`. La versión para compartir
+con los usuarios es `docs/guia-uso-proyectos-v2.html`.
+
+---
+
+## 1. Qué es el módulo de Proyectos
+
+El módulo reúne en un solo lugar el ciclo completo de un proyecto:
+
+- la información general y el equipo;
+- la estructura técnica (objetivos, actividades, entregables e indicadores);
+- el presupuesto por rubros y su programación mensual;
+- los gastos y sus soportes;
+- los documentos;
+- el historial de cambios y versiones.
+
+El proyecto nace en **Borrador**, se completa y se aprueba su **línea base**. Desde ese momento queda **En ejecución** y
+empieza el seguimiento: avances, gastos, semáforos y alertas.
+
+> **Idea clave:** en Borrador todo se puede editar libremente. Al aprobar la línea base, la estructura y el presupuesto
+> quedan congelados; los cambios posteriores se piden como **modificación** y deben aprobarse.
+
+---
+
+## 2. Quién puede hacer qué
+
+Los permisos dependen del rol y de la pertenencia al proyecto (el **Equipo** del proyecto).
+
+| Acción | Administrador | Gerencia | Coordinador | Colaborador |
+|---|---|---|---|---|
+| Ver todo el portafolio y la pestaña Tablero | Sí | Sí | No | No (solo con la bandera gerencial) |
+| Ver un proyecto | Todos | Todos | Solo donde es integrante | Solo con la bandera gerencial |
+| Crear un proyecto | Sí | Sí | No | No |
+| Editar datos generales | Sí | Sí | No | No |
+| Cargar o editar la estructura (solo en Borrador) | Sí | Sí | No | No |
+| Aprobar la línea base | Sí | Sí | No | No |
+| Registrar avance de actividades | Sí | Sí | Sí, si es integrante | No |
+| Registrar gastos | Sí | Sí | Sí, si es integrante | No |
+| Validar o rechazar un gasto | Sí, salvo los que registró | Sí, salvo los que registró | No | No |
+| Subir o eliminar documentos del proyecto | Sí | Sí | Sí, si es integrante | No |
+| Solicitar una modificación | — | — | Sí, si es integrante | No |
+| Aprobar una modificación | Sí | Sí | No | No |
+
+Notas:
+
+- **Segregación de funciones:** nadie puede validar un gasto que registró. Si un administrador registra un gasto, otro
+  administrador o alguien de Gerencia debe validarlo.
+- Un **Coordinador** que no está en el **Equipo** del proyecto no lo ve, ni siquiera abriendo el enlace directo.
+- La **bandera gerencial** se asigna en **Administración → Usuarios**. Da lectura del portafolio y de las fichas, nunca
+  escritura ni acceso a los soportes financieros.
+- Si una pantalla dice **«No tienes permisos sobre este proyecto»** o **«No tienes acceso a este proyecto»**, falta el
+  rol o la pertenencia. Se resuelve desde **Administración** o agregando a la persona al **Equipo**.
+
+---
+
+## 3. Cómo llegar
+
+**Menú lateral → Proyectos.**
+
+La página tiene dos pestañas:
+
+- **Portafolio** (la vista principal): los indicadores del portafolio, los filtros y la tabla de proyectos.
+- **Tablero**: indicadores gerenciales agregados. Solo aparece si el rol o la bandera lo permiten.
+
+### 3.1 Portafolio
+
+- Arriba, los indicadores del portafolio (totales por estado, avance técnico y financiero).
+- **Filtros** por **Estado**, **Cliente**, **Línea**, **Municipio** y **Responsable**. En pantallas angostas los filtros
+  se pliegan en el botón **«Filtros»**; **«Limpiar filtros»** los borra todos.
+- La tabla muestra: **Proyecto** (código, cliente y nombre), **Territorio · línea**, **Responsable**, **Avance
+  técnico**, **Avance financiero** y **Estado**.
+- **Ver detalle** abre la ficha del proyecto en una pestaña nueva del navegador.
+- El botón **Nuevo proyecto** (solo Administrador y Gerencia) abre el asistente de creación.
+
+Si la tabla aparece vacía:
+
+- **«Aún no tienes proyectos visibles»**: tu rol ve solo los proyectos donde eres integrante.
+- **«Todavía no hay proyectos»**: el portafolio está vacío; se crea el primero.
+- **«No encontramos proyectos con estos filtros»**: usa **Limpiar filtros**.
+
+### 3.2 Otras entradas al proyecto
+
+- **Desde un cliente:** ficha del cliente → la oportunidad ganada → **Convertir en proyecto**. El proyecto hereda el
+  cliente, el nombre y el valor estimado.
+- **Desde el Tablero de tareas:** una tarea comercial completada de una oportunidad ganada muestra la tarjeta
+  **«Pasar a nuevo proyecto →»**.
+
+---
+
+## 4. Crear un proyecto
+
+La creación es un asistente de cinco pasos en `/proyectos/nuevo`:
+
+**General → Metas → Cronograma → Presupuesto → Revisión**
+
+Los pasos 2 a 5 quedan deshabilitados hasta que el paso 1 crea el proyecto. Después se puede saltar entre pasos con las
+píldoras de arriba.
+
+### Paso 1 — General (Información general)
+
+1. Elige el **Origen**:
+   - **Desde una oportunidad ganada** (recomendado): el proyecto queda enlazado al ciclo comercial. Solo aparecen las
+     oportunidades en estado **Ganada** que aún no tienen proyecto.
+   - **Proyecto independiente**: se elige el cliente a mano.
+2. Completa **Nombre**, **Responsable**, **Valor total**, **Fecha de inicio**, **Fecha de fin**, **Meta de
+   beneficiarios**, **Líneas estratégicas** y **Municipios**.
+3. Pulsa **Crear proyecto y continuar**.
+
+Al guardar, el proyecto nace en **Borrador** con un código automático **PRY-AAAA-NNN** (por ejemplo `PRY-2026-001`). El
+paso 1 no se puede repetir: si vuelves, muestra un resumen de solo lectura. Para cambiar esos datos después, se usa
+**Editar datos generales** en la ficha.
+
+Si el valor total difiere del valor estimado de la oportunidad, aparece el aviso **«Diferencia con la oportunidad»**.
+Es informativo: no impide crear el proyecto.
+
+### Paso 2 — Metas (Metas e indicadores)
+
+Aquí se carga la estructura:
+
+- **Objetivos** (O1, O2…), cada uno con sus **actividades** (A1.1…) y sus **entregables** (E1.1.1…).
+- Cada actividad declara su **semana de inicio** y **semana de fin**.
+- Los **indicadores** de resultado llevan línea base y meta.
+
+Dos formas de cargarla:
+
+- **A mano**, con los botones de agregar de cada nivel.
+- **Desde Excel:** **Descargar plantilla**, llenarla y **Importar plantilla**. La importación muestra una vista previa y
+  valida antes de escribir; si hay errores, indica **regla, fila, columna, valor y mensaje**. Se acepta `.xlsx` de hasta
+  4 MB.
+
+> La plantilla solo se puede descargar cuando el proyecto ya tiene **fechas de inicio y fin**.
+
+### Paso 3 — Cronograma
+
+Vista de solo lectura: el **Cronograma** por semanas y el **Gantt**. Las actividades se editan en el paso 2.
+
+### Paso 4 — Presupuesto
+
+1. Revisa el **Valor total**.
+2. Asigna un monto a cada **rubro** (R01 a R15) y pulsa **Guardar presupuesto**.
+3. La suma **Σ asignado** debe igualar el valor total. Si no cuadra, usa **Igualar valor total a Σ A** o ajusta los
+   montos.
+4. Programa los desembolsos por mes en **Programación mensual** y pulsa **Guardar programación**. Mientras no cuadre
+   con lo asignado, verás **«Programación pendiente»**.
+
+### Paso 5 — Revisión
+
+Resumen de solo lectura: proyecto, cliente, responsable, fechas y conteos de objetivos, indicadores, actividades,
+entregables y presupuesto.
+
+Dos salidas:
+
+- **Aprobar línea base**: congela estructura y presupuesto, crea la versión `v0` y deja el proyecto **En ejecución**. No
+  se puede deshacer.
+- **Guardar borrador**: abre la ficha para seguir después. No se pierde nada: cada paso ya guardó lo suyo.
+
+Si la suma del presupuesto no coincide con el valor total, el aviso lo indica; hay que corregirlo en **Finanzas** antes
+de aprobar.
+
+---
+
+## 5. La ficha del proyecto
+
+**Ver detalle** abre `/proyectos/<id>` con un encabezado fijo y cinco pestañas: **Resumen**, **Actividades**,
+**Finanzas**, **Documentos** e **Historial**.
+
+En el encabezado, siempre visible:
+
+- **Código** y **nombre**.
+- El **estado**: Borrador, En ejecución, Suspendido, Cerrado o Cancelado.
+- Los chips **Semáforo técnico** y **Semáforo financiero** (desde En ejecución). Cada chip lleva a la pestaña que explica
+  su causa.
+- Las acciones según rol y estado: **Aprobar línea base** (en Borrador), **Registrar avance** y **Registrar gasto** (en
+  ejecución).
+- El menú **«⋯» → «Más acciones»** con **Exportar a Excel** e **Imprimir / PDF**.
+
+### 5.1 Resumen
+
+- **Estado del proyecto** (fuera de Borrador): el semáforo **Técnico** y el **Financiero**, cada uno con una frase que
+  explica el color (**Al día**, **Atención** o **En riesgo**) y un enlace a la pestaña correspondiente.
+- **Requiere atención**: la lista de lo que necesita acción, ordenada por gravedad. Cada punto lleva a la pantalla donde
+  se resuelve.
+- **Datos generales**: origen, cliente, responsable, fechas, duración, valor total, beneficiarios y, si aplica, la
+  diferencia con la oportunidad; también las **Líneas estratégicas** y los **Municipios**.
+  - **Editar datos generales** (Administrador y Gerencia) abre el formulario. Si el proyecto ya salió de Borrador,
+    algunos cambios se convierten en una **solicitud de modificación** en lugar de aplicarse de inmediato.
+- **Equipo**: quiénes participan y con qué rol. Administrador y Gerencia agregan o quitan integrantes. Solo se pueden
+  agregar usuarios con rol **Coordinador**.
+
+En **Borrador**, el Resumen muestra en su lugar **Próximos pasos**: fechas y valor, objetivos y actividades, presupuesto
+y aprobación de la línea base, cada uno con su enlace.
+
+### 5.2 Actividades
+
+Una sola estructura con tres vistas: **Lista**, **Gantt** y **Tablero**.
+
+**En Borrador**
+
+- **Lista**: la estructura editable (objetivos, actividades, entregables, indicadores) y la carga por Excel.
+- **Gantt**: lectura por semanas.
+- No hay **Tablero** todavía, porque aún no hay nada que seguir.
+
+**Desde En ejecución**
+
+- **Lista**: el seguimiento por actividad, con lo planeado, lo real, el semáforo y el botón **Registrar avance**.
+- **Gantt**: la programación por semanas.
+- **Tablero**: columnas **Por iniciar**, **En curso**, **Atrasada** y **Terminada**. Al abrir una tarjeta, la Lista se
+  posiciona en esa actividad.
+- Al final, el bloque **Indicadores** permite registrar el avance de cada indicador.
+
+**Registrar un avance**
+
+1. Abre **Registrar avance** en la actividad.
+2. Indica la fecha (no puede ser futura) y el avance.
+3. Adjunta el **medio de verificación**: un **archivo** o un **enlace** con su nombre.
+4. Si el avance excede lo planeado, escribe la **justificación del exceso**.
+5. Guarda. El avance queda con su soporte y aparece en **Documentos**.
+
+### 5.3 Finanzas
+
+Tres segmentos: **Resumen**, **Gastos** y **Presupuesto**. En Borrador abre en **Presupuesto**, que es lo único editable
+en ese estado.
+
+**Resumen**
+
+- La **ficha financiera**: presupuesto asignado, programado y ejecutado por rubro.
+- La comparación contra la **base original (v0)** cuando la línea base está aprobada.
+- Filtros de **Corte** y **Base** para ver la foto de una fecha.
+
+**Gastos**
+
+- Los KPI de gastos y la tabla con **Registrado**, **Validado**, **Rechazado** y **Anulado**.
+- Filtros por estado (incluye **Pendiente por revisión**) y un buscador.
+- **Registrar gasto** abre el formulario: **Rubro**, **Valor**, **Fecha del documento**, **Periodo**, **Tipo de
+  soporte** (factura de proveedor, cuenta de cobro de persona natural u otro), **Número de documento**, **Tercero**,
+  **Tipo y número de identificación**, **Descripción** y el **soporte** (archivo o enlace).
+- El soporte es obligatorio: un gasto sin soporte no se registra.
+- **Validar** y **Rechazar** están disponibles para Administrador y Gerencia, y nunca sobre un gasto propio. Al
+  rechazar se escribe el **motivo**.
+- **Anular** un gasto es una acción aparte, con su propio motivo.
+
+**Presupuesto**
+
+- El **valor total** y el monto **Asignado** por rubro, con la suma **Σ asignado**.
+- **Programación mensual** por rubro, con **Guardar programación**.
+- Si un rubro está suspendido y tiene monto asignado, aparece el aviso **«Rubro suspendido pendiente de reasignación»**.
+
+**Notificaciones relacionadas**
+
+- Quien registró un gasto rechazado recibe **«Gasto rechazado»** con el motivo y el enlace.
+- Gerencia recibe el aviso de **rubro sobreejecutado** y el proyecto lo muestra en **Requiere atención**.
+
+### 5.4 Documentos
+
+Reúne en una sola lista todos los soportes del proyecto, con su origen: **Actividades**, **Indicadores**, **Gastos** y
+**Proyecto**.
+
+- **Filtrar documentos** por origen y **Buscar por nombre**.
+- Al abrir un documento, la descarga usa una **URL firmada**: el archivo no es público.
+- **Subir documento** (Administrador, Gerencia y Coordinador integrante, en estados editables) permite un **archivo** o
+  un **enlace con su nombre**.
+- **Eliminar** solo está disponible para documentos del grupo **Proyecto**, y solo para quien los subió o para
+  Administrador y Gerencia.
+
+Los soportes de avances y gastos se administran desde su propia pantalla: aquí solo se consultan.
+
+### 5.5 Historial
+
+Tres segmentos: **Modificaciones**, **Versiones** y **Auditoría**.
+
+- **Modificaciones**: la cola de solicitudes con estado **Pendiente**, **Aprobada** o **Rechazada**. Un Coordinador
+  integrante solicita; Administrador y Gerencia aprueban o rechazan (el rechazo lleva **Comentario del rechazo**).
+  Mientras una solicitud está pendiente, el cambio no se aplica.
+- **Versiones**: la `v0` de la línea base y las versiones siguientes, con comparación campo por campo (proyecto,
+  presupuesto, programación, actividades, entregables e indicadores).
+- **Auditoría**: el registro de cambios del proyecto, con usuario y fecha.
+
+---
+
+## 6. Aprobar la línea base
+
+Es el paso que convierte un borrador en un proyecto en ejecución. Solo Administrador y Gerencia, y solo en Borrador.
+
+Antes de aprobar, el sistema verifica:
+
+- el proyecto tiene un **valor total mayor que cero**;
+- tiene **fechas de inicio y fin válidas**;
+- tiene **beneficiarios mayor que cero**;
+- tiene **objetivos**, y cada objetivo tiene **actividades**;
+- cada actividad tiene **entregables**;
+- la **suma del presupuesto** es igual al valor total (si no, indica la diferencia);
+- la **programación** existe y cuadra con lo asignado por rubro;
+- no hay **rubros suspendidos con monto asignado**.
+
+Si falta algo, la confirmación lista las precondiciones pendientes y no deja aprobar. Al aprobar, la estructura y el
+presupuesto se congelan, se crea la versión `v0` y el proyecto pasa a **En ejecución**.
+
+> **No se puede deshacer.** Para cambiar algo después, se usa una **solicitud de modificación**.
+
+---
+
+## 7. Imprimir, PDF y Excel
+
+En el encabezado de la ficha, menú **«⋯»**:
+
+- **Exportar a Excel**: elige el **corte** y la **base** y descarga la ficha.
+- **Imprimir / PDF**: abre una hoja limpia, sin el menú lateral. Con **Ctrl+P** se imprime o se guarda como PDF.
+
+---
+
+## 8. Rutina recomendada
+
+**Al crear un proyecto**
+
+1. Verificar cliente, responsable, fechas, valor y beneficiarios.
+2. Cargar objetivos, actividades y entregables (a mano o con la plantilla).
+3. Asignar el presupuesto por rubro y programarlo por mes.
+4. Revisar y **Aprobar línea base**.
+
+**Cada semana**
+
+1. Revisar **Resumen → Requiere atención**.
+2. Registrar los avances con su medio de verificación.
+3. Registrar los gastos con su soporte.
+4. Administrador o Gerencia: validar o rechazar los gastos pendientes.
+5. Revisar los semáforos y explicar los rojos.
+
+**Cada mes**
+
+1. Revisar la **ficha financiera** contra la base `v0`.
+2. Ajustar lo que corresponda con una **solicitud de modificación**.
+
+---
+
+## 9. Problemas frecuentes
+
+| Lo que ves | Qué significa | Qué hacer |
+|---|---|---|
+| «No tienes acceso para crear proyectos» | Tu rol no crea proyectos | Pedirlo a Administración o Gerencia |
+| «No tienes permisos sobre este proyecto» | No eres integrante ni tienes el rol | Pedir que te agreguen al **Equipo** |
+| La tabla del portafolio está vacía | Tu rol ve solo tus proyectos, o hay filtros activos | **Limpiar filtros**; si sigue vacía, revisar el **Equipo** |
+| «Aprobar línea base» no aparece | No estás en Borrador o no tienes el rol | Verificar estado y rol |
+| La aprobación lista precondiciones | Falta completar estructura, presupuesto o programación | Resolver cada punto y volver a intentar |
+| No puedo validar un gasto | Lo registraste tú, o no tienes el rol | Que lo valide otra persona con permiso |
+| «Programación pendiente» | La programación no cuadra con lo asignado | Ajustar meses o montos en **Presupuesto** |
+| «Rubro suspendido pendiente de reasignación» | Un rubro suspendido tiene dinero asignado | Reasignar el monto a otro rubro |
+| No puedo editar la estructura | El proyecto ya salió de Borrador | Usar una **solicitud de modificación** |
+| El documento no abre | El archivo ya no está o no tienes permiso sobre los soportes | Verificar el origen del documento y el rol |
+
+---
+
+## 10. Límites de esta versión
+
+Estas funciones **no** están en el lanzamiento y se trabajarán después:
+
+- **Cerrar, suspender o cancelar** un proyecto desde la interfaz.
+- **Importar gastos** desde Excel.
+- **Adaptador de las plantillas de la PO** (`proyecto.xlsx` y `presupuesto.xlsx`) con la estructura y el presupuesto.
+- **Rubros personalizados o deshabilitados por proyecto**: hoy el catálogo R01 a R15 es global.
+- **Correos automáticos con marca**: las notificaciones dentro de la aplicación funcionan; el envío de correo depende del
+  dominio y se configurará después.
+
+---
+
+## 11. Glosario
+
+- **Línea base**: la foto aprobada de la estructura y el presupuesto. Versión `v0`.
+- **Rubro**: categoría de gasto del catálogo (R01 a R15).
+- **Asignado**: el monto que el proyecto destina a un rubro.
+- **Programado**: el monto de ese rubro repartido por mes.
+- **Ejecutado**: lo efectivamente gastado y validado.
+- **Semáforo técnico**: el estado del avance de actividades y entregables (**Al día**, **Atención**, **En riesgo**).
+- **Semáforo financiero**: el estado del gasto frente al presupuesto y su programación.
+- **Medio de verificación**: el archivo o enlace que prueba un avance.
+- **Modificación**: el cambio solicitado después de aprobar la línea base.

@@ -708,6 +708,23 @@ El prompt está en `odd/tasks/lanzamiento-v2-deepseek-prompt-4.md`. Se integró 
     post-lanzamiento.
   - La etiqueta `v2.0.0-rc1` se repunta a `0483fcf` (el mismo candidato con el arreglo de CI).
 
+## Progreso y evidencia — 2026-10-19 (lunes)
+
+- La ventana G-2 (domingo 2026-10-18) **pasó sin lanzar**: PR #72 sigue abierto, `main` intacto en `6bee83f` y la
+  rama `feat/projects-v2` sin mergear. El lanzamiento queda pendiente de una ventana nueva.
+- **Check `e2e` del PR (rojo permanente):** `TestSprite/run-action@v1` ya no existe en GitHub, así que el job falla en
+  «Set up job» sin ejecutar pruebas. Se **eliminó** `.github/workflows/testsprite.yml` (un check que nunca corre y
+  siempre falla entrena a ignorar el CI) y `ci.yml` ahora corre **`tsc --noEmit`** antes de lint y Vitest. La suite E2E
+  real es la de `e2e/` con Playwright, local; conectarla a CI queda post-lanzamiento
+  (`docs/pendientes/pendientes-y-mejoras.md`, deuda #2).
+- **Guía de usuario del módulo de Proyectos:** `docs/guia-uso-proyectos-v2.md` (fuente),
+  `docs/guia-uso-proyectos-v2.html` (compartible e imprimible) y `docs/guia-uso-proyectos-v2.pdf`. Cubre roles,
+  creación en 5 pasos, las 5 pestañas de la ficha, línea base, documentos, notificaciones, problemas frecuentes y
+  límites de la versión.
+- La etiqueta `v2.0.0-rc1` queda **dos commits de docs por detrás de HEAD** (`9e30c30`, `21c13a5`): el paso 3.0 del
+  runbook (`git describe --tags --exact-match HEAD`) fallaría. Antes de R9 hay que repuntarla al commit que se lance o
+  ajustar la comprobación; los dos commits no tocan código.
+
 ## Siguiente paso
 
 **Domingo 2026-10-18 (ventana G-2, antes de la medianoche):**
