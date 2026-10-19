@@ -12,6 +12,7 @@ Leyenda: **Vigente** (describe el estado actual) · **Referencia** (sigue siendo
 | [`../README.md`](../README.md) | **Vigente** | Stack, módulos, permisos, puesta en marcha, variables, pruebas y despliegue |
 | [`despliegue-y-portabilidad.md`](despliegue-y-portabilidad.md) | **Vigente** | Servicios, acoplamientos a Supabase y plan de migración (Railway Pro) |
 | [`pendientes-v7.md`](pendientes-v7.md) | **Vigente** | Lo que queda abierto de v7 y del lanzamiento, con estado |
+| [`plan-trabajo-restante.md`](plan-trabajo-restante.md) | **Vigente** | Orden, tamaño, dependencias y criterios de aceptación de todo lo pendiente |
 | [`guia-uso-proyectos-v2.md`](guia-uso-proyectos-v2.md) · [`.html`](guia-uso-proyectos-v2.html) · [`.pdf`](guia-uso-proyectos-v2.pdf) | **Vigente** | Guía de usuario del módulo de Proyectos + anexo de validación para la PO |
 
 ## Producto y requisitos
