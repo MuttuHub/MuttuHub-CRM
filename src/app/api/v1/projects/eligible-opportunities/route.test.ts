@@ -70,15 +70,13 @@ describe("GET /api/v1/projects/eligible-opportunities", () => {
     expect(mocks.oportunidadFindMany).not.toHaveBeenCalled();
   });
 
-  it("returns 403 for a role without canCreateProject", async () => {
+  it("lets a COLABORADOR read the eligible opportunities (S1: any role creates)", async () => {
     authAs(colaborador);
 
     const res = await GET();
-    const json = await res.json();
 
-    expect(res.status).toBe(403);
-    expect(json.code).toBe("FORBIDDEN");
-    expect(mocks.oportunidadFindMany).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(mocks.oportunidadFindMany).toHaveBeenCalled();
   });
 
   it("lists only GANADA opportunities without a live project", async () => {

@@ -19,8 +19,8 @@ import { db } from "@/lib/db";
 import { apiError, parseJsonBody } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
-import { canCreateProject } from "@/lib/permissions";
-import { getClientForOpportunityWrite } from "@/lib/api/crm";
+import { canCreateProject, canManageProjects } from "@/lib/permissions";
+import { loadClientForProjectCreation } from "@/lib/api/crm";
 import { nextProjectCode } from "@/lib/api/project-code";
 import { logChanges } from "@/lib/api/audit-cambios";
 import { diferenciaValor, validarLineas, miembrosInicialesProyecto } from "@/lib/proyectos/proyecto-general";
@@ -89,7 +89,11 @@ export const POST = withApiErrorHandling(
     const inicio = normalizeProjectDate(parsed.data.fecha_inicio);
     const fin = normalizeProjectDate(parsed.data.fecha_fin);
 
-    const access = await getClientForOpportunityWrite(id, auth.usuario);
+    // S1/S8 (PO matrix 2026-10-19): any role converts a won opportunity, and
+    // every role may read every client to do it. The commercial WRITE gate is
+    // deliberately not applied here: creating a project is not editing the
+    // commercial cycle.
+    const access = await loadClientForProjectCreation(id, auth.usuario);
     if (!access.ok) {
       return apiError(
         access.code === "NOT_FOUND"
@@ -131,19 +135,22 @@ export const POST = withApiErrorHandling(
       onlyActive: true,
     });
     if (missingMunicipios) return missingMunicipios;
-    const inactiveResponsable = await checkResponsableActivo(parsed.data.responsable_id);
+    // S2 (PO matrix 2026-10-19): the creator is the responsable unless the body
+    // names someone else and, when their role needs it, joins the team.
+    const responsableId = parsed.data.responsable_id ?? auth.usuario.id;
+    const inactiveResponsable = await checkResponsableActivo(responsableId);
     if (inactiveResponsable) return inactiveResponsable;
 
     // ADR-09: the responsable is a member from the moment the project exists,
     // and a `miembro_ids` entry naming them collapses into that membership.
     // Validated before the transaction so an invalid entry answers 400 without
     // converting the opportunity or creating a half-built project.
-    const equipo = miembrosInicialesProyecto(
-      parsed.data.responsable_id,
-      parsed.data.miembro_ids ?? [],
-    );
+    const equipo = miembrosInicialesProyecto(responsableId, [
+      ...(canManageProjects(auth.usuario) ? [] : [auth.usuario.id]),
+      ...(parsed.data.miembro_ids ?? []),
+    ]);
     const invalidMiembros = await checkMiembrosValidos(
-      equipo.filter((id) => id !== parsed.data.responsable_id),
+      equipo.filter((id) => id !== responsableId && id !== auth.usuario.id),
     );
     if (invalidMiembros) return invalidMiembros;
 
@@ -181,7 +188,7 @@ export const POST = withApiErrorHandling(
             descripcion: parsed.data.descripcion ?? null,
             cliente_id: id,
             oportunidad_id: opportunityId,
-            responsable_id: parsed.data.responsable_id,
+            responsable_id: responsableId,
             origen: "OPORTUNIDAD",
             fecha_inicio: inicio,
             fecha_fin: fin,

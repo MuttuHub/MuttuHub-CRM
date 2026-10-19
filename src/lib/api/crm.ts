@@ -148,6 +148,21 @@ export async function loadClientForOpportunityRead(id: string, usuario: Usuario)
 }
 
 /**
+ * Existence gate for creating a project from one of a client's opportunities.
+ * S8 (PO matrix 2026-10-19) gives every role read access to every client, so
+ * creating a project must not depend on the commercial write boundary: the
+ * route still checks that the opportunity belongs to the client and is GANADA.
+ */
+export async function loadClientForProjectCreation(id: string, _usuario: Usuario) {
+  const cliente = await db.cliente.findFirst({
+    where: { id, deleted_at: null },
+    select: { id: true },
+  });
+  if (!cliente) return { ok: false as const, code: "NOT_FOUND" as const };
+  return { ok: true as const, cliente };
+}
+
+/**
  * Write access to a client's opportunities (D4): commercial access AND the
  * existing client write boundary (`canManageOpportunity`). Same NOT_FOUND /
  * FORBIDDEN shape as `getClientForWrite`.

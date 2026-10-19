@@ -13,7 +13,13 @@
 
 import { z } from "zod";
 import { Prisma, type EstadoProyecto, type OrigenProyecto, type RolUsuario, type Usuario } from "@prisma/client";
-import { canViewPortfolio, canViewProjectV2, type ProjectActor, type ProjectMembershipActor } from "@/lib/permissions";
+import {
+  PROJECT_MEMBER_ROLES,
+  canViewPortfolio,
+  canViewProjectV2,
+  type ProjectActor,
+  type ProjectMembershipActor,
+} from "@/lib/permissions";
 import {
   alertasProyecto,
   duracionProyecto,
@@ -275,12 +281,14 @@ export function toProyectoMiembroItemV2(row: ProyectoMiembroRowV2): ProyectoMiem
 // ---------------------------------------------------------------------------
 
 /**
- * The single copy of the REQ-ACC-07 message for a non-COORDINADOR target,
- * exported so the E-07 members route and both creation routes share it and the
- * copy cannot drift.
+ * The single copy of the REQ-ACC-07 message for a target outside the member
+ * roles, exported so the E-07 members route and both creation routes share it
+ * and the copy cannot drift. The PO matrix of 2026-10-19 added COLABORADOR to
+ * the roles a project team accepts; the constant keeps its name because the
+ * route and its callers refer to it.
  */
 export const MIEMBRO_NOT_COORDINADOR_MESSAGE =
-  "Solo un Coordinador puede ser integrante del equipo del proyecto.";
+  "Solo un Coordinador o un Colaborador puede ser integrante del equipo del proyecto.";
 
 /**
  * Validates the `miembro_ids` of a creation body exactly the way the E-07
@@ -314,7 +322,7 @@ export async function checkMiembrosValidos(
     if (!usuario.activo) {
       return apiError("El usuario no existe o está inactivo.", 400, "VALIDATION_ERROR");
     }
-    if (usuario.rol !== "COORDINADOR") {
+    if (!PROJECT_MEMBER_ROLES.includes(usuario.rol)) {
       return apiError(MIEMBRO_NOT_COORDINADOR_MESSAGE, 400, "VALIDATION_ERROR");
     }
   }
