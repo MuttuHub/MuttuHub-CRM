@@ -312,16 +312,22 @@ describe("GET /api/v1/projects", () => {
     expect(mocks.proyectoFindMany).not.toHaveBeenCalled();
   });
 
-  it("narrows a COLABORADOR to nothing (REQ-ACC-02: no flag, no membership)", async () => {
+  it("scopes a COLABORADOR to their active memberships (S3 PO matrix 2026-10-19)", async () => {
     authAs(colaborador);
+    dbReturns([proyectoRow], { "colab-1": ["pry-1"] });
 
     const res = await GET(listRequest());
     const json = await res.json();
 
     expect(mocks.proyectoFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { deleted_at: null, id: { in: [] } } }),
+      expect.objectContaining({
+        where: {
+          deleted_at: null,
+          miembros: { some: { usuario_id: "colab-1", removed_at: null } },
+        },
+      }),
     );
-    expect(json.proyectos).toEqual([]);
+    expect(json.proyectos).toHaveLength(1);
   });
 
   it("scopes a COORDINADOR to their active memberships inside the where clause", async () => {

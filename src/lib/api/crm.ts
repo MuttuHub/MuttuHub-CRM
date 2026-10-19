@@ -29,14 +29,17 @@ export function isFullAccess(rol: RolUsuario): boolean {
 }
 
 /**
- * Single read-scope rule for clients: full-access roles (ADMINISTRADOR,
- * GERENCIA, COORDINADOR) read every client; COLABORADOR only the clients where
- * they are the responsable. Shared by the per-client sub-resources
- * (`loadClientScoped`) and the cross-client feeds (`clienteFeedScope`) so the
- * two cannot drift apart.
+ * Single read-scope rule for clients. S8 (PO matrix 2026-10-19) opens the client
+ * catalog to every role, because a Coordinador or Colaborador must be able to
+ * pick any client when creating a project. This is a READ scope only: writes
+ * still go through `canEditClient`, and the commercial cycle (opportunities,
+ * `gestiona_oportunidades`) keeps its own gate.
+ *
+ * Shared by the per-client sub-resources (`loadClientScoped`) and the
+ * cross-client feeds (`clienteFeedScope`) so the two cannot drift apart.
  */
-function clientReadScope(usuario: Pick<Usuario, "id" | "rol">): Prisma.ClienteWhereInput {
-  return isFullAccess(usuario.rol) ? {} : { responsable_id: usuario.id };
+function clientReadScope(_usuario: Pick<Usuario, "id" | "rol">): Prisma.ClienteWhereInput {
+  return {};
 }
 
 /**

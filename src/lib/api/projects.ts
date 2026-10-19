@@ -399,11 +399,9 @@ export function projectListWhere(
 ): Prisma.ProyectoWhereInput {
   const where: Prisma.ProyectoWhereInput = { deleted_at: null };
 
+  // S3 (PO matrix 2026-10-19): without full portfolio read, the list is the
+  // projects where the actor is an active member — for both member roles.
   if (!canReadProjectList(usuario)) {
-    if (usuario.rol !== "COORDINADOR") {
-      where.id = { in: [] };
-      return where;
-    }
     where.miembros = { some: { usuario_id: usuario.id, removed_at: null } };
   }
 
