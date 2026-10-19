@@ -826,11 +826,11 @@ describe("ProjectList", () => {
     })
   })
 
-  it("hides the creation CTA for a role without canCreateProject", () => {
+  it("shows the creation CTA to every role (S1: any role creates)", () => {
     userQuery.data = { id: "u9", nombre: "Carlos Ruiz", rol: "COLABORADOR" }
     render(<ProjectList />)
 
-    expect(screen.queryByRole("link", { name: "Nuevo proyecto" })).not.toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Nuevo proyecto" })).toBeInTheDocument()
   })
 
   it("hides the creation CTA while the current user is unknown", () => {

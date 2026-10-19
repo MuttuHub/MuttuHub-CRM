@@ -30,7 +30,7 @@ import { formatoSoporte } from "@/components/proyectos/soportes-format";
 import { EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/ui";
 import { SubirDocumentoDialog } from "@/components/proyectos/ficha/subir-documento-dialog";
 import { useCurrentUser } from "@/hooks/kanban";
-import { canManageProjects } from "@/lib/permissions";
+import { PROJECT_MEMBER_ROLES, canManageProjects } from "@/lib/permissions";
 import {
   downloadAvanceSoporte,
   downloadExpenseSoporte,
@@ -72,14 +72,14 @@ export function FichaDocumentos({ proyecto }: { proyecto: ProjectListRow }) {
   const [subiendo, setSubiendo] = useState(false);
   const [eliminando, setEliminando] = useState<ProjectSupport | null>(null);
 
-  // Mismo gate que la API (DOC1): gestores, o un COORDINADOR integrante, en estados editables.
+  // Mismo gate que la API (DOC1): gestores o un integrante del equipo, en estados editables.
   const esGestor = usuario ? canManageProjects({ id: usuario.id, rol: usuario.rol }) : false;
-  const esCoordinadorMiembro = Boolean(
+  const esMiembroDelEquipo = Boolean(
     usuario &&
-      usuario.rol === "COORDINADOR" &&
+      PROJECT_MEMBER_ROLES.includes(usuario.rol) &&
       (miembros ?? []).some((miembro) => miembro.usuario.id === usuario.id),
   );
-  const puedeEscribir = (esGestor || esCoordinadorMiembro) && ESTADOS_ESCRITURA.includes(proyecto.estado);
+  const puedeEscribir = (esGestor || esMiembroDelEquipo) && ESTADOS_ESCRITURA.includes(proyecto.estado);
   const puedeEliminar = (soporte: ProjectSupport) =>
     soporte.origen === "proyecto" && puedeEscribir && (esGestor || soporte.subido_por_id === usuario?.id);
 

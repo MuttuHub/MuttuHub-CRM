@@ -1,6 +1,6 @@
 // Sección "Presupuesto" de la ficha (S5 U5): monto asignado (A) por rubro y
 // programación mensual (P). Todos los que ven la ficha lo leen; solo quien
-// gestiona proyectos (`canManageProjects`) y mientras el proyecto está en
+// pertenece al equipo del proyecto (`useEjecucionPermisos`) y mientras el proyecto está en
 // BORRADOR ve los controles de edición. Esa visibilidad es comodidad de
 // interfaz: la autoridad es la API (403 / 409 INVALID_STATE).
 
@@ -15,7 +15,6 @@ import { MONTO_INVALIDO, montoToInput, parseMontoInput } from "@/components/proy
 import { MontoInput, PresupuestoProgramacion } from "@/components/proyectos/presupuesto-programacion";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCurrentUser } from "@/hooks/kanban";
 import {
   useProjectBudget,
   useSetValorTotal,
@@ -23,15 +22,15 @@ import {
   type ProjectBudget,
   type ProjectListRow,
 } from "@/hooks/projects";
-import { canManageProjects } from "@/lib/permissions";
+import { useEjecucionPermisos } from "@/components/proyectos/project-ejecucion";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const BUDGET_ERROR = "No pudimos cargar el presupuesto. Inténtalo de nuevo.";
 
 export function ProjectPresupuesto({ proyecto }: { proyecto: ProjectListRow }) {
-  const usuario = useCurrentUser().data;
-  const puedeGestionar = usuario ? canManageProjects({ id: usuario.id, rol: usuario.rol }) : false;
+  // S5 (PO matrix 2026-10-19): the budget belongs to the project's team.
+  const { canWrite: puedeGestionar } = useEjecucionPermisos(proyecto.id);
   const canEdit = puedeGestionar && proyecto.estado === "BORRADOR";
   const query = useProjectBudget(proyecto.id);
 

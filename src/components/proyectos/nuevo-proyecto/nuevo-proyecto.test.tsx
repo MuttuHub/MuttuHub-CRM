@@ -210,12 +210,12 @@ describe("NuevoProyecto", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Revisar y aprobar" })).toBeInTheDocument()
   })
 
-  it("shows the no-access block, and no form, to users who cannot create projects", () => {
+  it("renders the form to a COLABORADOR (S1: any role creates)", () => {
     useCurrentUserMock.mockReturnValue({ data: { id: "u2", nombre: "Beto", rol: "COLABORADOR" } })
     render(<NuevoProyecto />)
 
-    expect(screen.getByRole("heading", { name: "No tienes acceso para crear proyectos" })).toBeInTheDocument()
-    expect(screen.queryByTestId("paso-general-form")).not.toBeInTheDocument()
+    expect(screen.queryByRole("heading", { name: "No tienes acceso para crear proyectos" })).not.toBeInTheDocument()
+    expect(screen.getByTestId("paso-general-form")).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Volver a proyectos" })).toBeInTheDocument()
   })
 

@@ -11,7 +11,6 @@ import { ProjectDashboard } from "@/components/proyectos/project-dashboard";
 import { ProjectList } from "@/components/proyectos/project-list";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCurrentUser } from "@/hooks/kanban";
-import { canViewPortfolio } from "@/lib/permissions";
 
 const VISTA_TABLERO = "tablero";
 const VISTA_PORTAFOLIO = "portafolio";
@@ -22,13 +21,9 @@ export function ProyectosVista() {
   const pathname = usePathname();
   const search = useSearchParams();
 
-  const puedeVerTablero = usuario
-    ? canViewPortfolio({
-        id: usuario.id,
-        rol: usuario.rol,
-        puede_ver_tablero_gerencial: usuario.puede_ver_tablero_gerencial ?? false,
-      }) || usuario.rol === "COORDINADOR"
-    : false;
+  // S4 (PO matrix 2026-10-19): every role sees the board; the API scopes its
+  // aggregates to the projects where the actor is a member.
+  const puedeVerTablero = Boolean(usuario);
 
   if (!puedeVerTablero) return <ProjectList />;
 

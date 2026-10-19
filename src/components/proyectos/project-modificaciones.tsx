@@ -27,7 +27,7 @@ import {
   type ProjectListRow,
   type ProjectModificacion,
 } from "@/hooks/projects";
-import { canApproveModification, canManageProjects } from "@/lib/permissions";
+import { PROJECT_MEMBER_ROLES, canApproveModification, canManageProjects } from "@/lib/permissions";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import type { UiTone } from "@/lib/catalogs";
 
@@ -80,10 +80,12 @@ function ModificacionesContent({ proyecto }: { proyecto: ProjectListRow }) {
 
   const usuario = userQuery.data;
   const esGestor = usuario ? canManageProjects({ id: usuario.id, rol: usuario.rol }) : false;
-  const esMiembroCoordinador = Boolean(
-    usuario && usuario.rol === "COORDINADOR" && (membersQuery.data ?? []).some((m) => m.usuario.id === usuario.id),
+  const esMiembro = Boolean(
+    usuario &&
+      PROJECT_MEMBER_ROLES.includes(usuario.rol) &&
+      (membersQuery.data ?? []).some((m) => m.usuario.id === usuario.id),
   );
-  const puedeSolicitar = proyecto.estado === "EN_EJECUCION" && (esGestor || esMiembroCoordinador);
+  const puedeSolicitar = proyecto.estado === "EN_EJECUCION" && (esGestor || esMiembro);
   const puedeDecidir = proyecto.estado === "EN_EJECUCION" && usuario ? canApproveModification({ id: usuario.id, rol: usuario.rol }) : false;
 
   function registrarFallo(id: string, err: unknown) {

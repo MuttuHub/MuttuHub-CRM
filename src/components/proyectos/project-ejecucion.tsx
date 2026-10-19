@@ -36,7 +36,7 @@ import {
 } from "@/hooks/projects";
 import { formatMillones } from "@/lib/format/millones";
 import { toCents } from "@/lib/proyectos/money";
-import { canManageProjects } from "@/lib/permissions";
+import { PROJECT_MEMBER_ROLES, canManageProjects } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
 const TECNICO_ERROR = "No pudimos cargar el semáforo técnico. Inténtalo de nuevo.";
@@ -201,12 +201,13 @@ export function useEjecucionPermisos(proyectoId: string): { canWrite: boolean; c
   const membersQuery = useProjectMembers(proyectoId);
   const usuario = userQuery.data;
   const esGestor = usuario ? canManageProjects({ id: usuario.id, rol: usuario.rol }) : false;
-  const esMiembroCoordinador = Boolean(
+  // S6 (PO matrix 2026-10-19): membership is the axis for both member roles.
+  const esMiembro = Boolean(
     usuario &&
-      usuario.rol === "COORDINADOR" &&
+      PROJECT_MEMBER_ROLES.includes(usuario.rol) &&
       (membersQuery.data ?? []).some((miembro) => miembro.usuario.id === usuario.id),
   );
-  return { canWrite: esGestor || esMiembroCoordinador, canVoid: esGestor };
+  return { canWrite: esGestor || esMiembro, canVoid: esGestor };
 }
 
 /** Pestaña "Metas e indicadores" (v7): el registro de avance de indicador vive junto a las metas. */
