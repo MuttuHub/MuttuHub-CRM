@@ -1,6 +1,6 @@
 # Pendientes de v7 y del lanzamiento
 
-Inventario consolidado al **2026-10-19**. Cada fila dice el estado real, no el deseado: **Hecho**, **Pendiente**,
+Inventario consolidado al **2026-10-19**. El orden, el tamaño y los criterios de aceptación de cada tarea están en [`plan-trabajo-restante.md`](plan-trabajo-restante.md). Cada fila dice el estado real, no el deseado: **Hecho**, **Pendiente**,
 **Sin verificar** (no hay evidencia reciente) o **Fuera de alcance**. Las fuentes son
 `odd/tasks/v7-gap-analysis.md`, `odd/tasks/ux-audit-report-2026-09-23.md`, `PENDIENTES-MENORES.md`,
 `odd/tasks/lanzamiento-v2-fin-de-semana.md` y `docs/analisis/`.
