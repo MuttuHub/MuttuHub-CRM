@@ -725,6 +725,42 @@ El prompt está en `odd/tasks/lanzamiento-v2-deepseek-prompt-4.md`. Se integró 
   runbook (`git describe --tags --exact-match HEAD`) fallaría. Antes de R9 hay que repuntarla al commit que se lance o
   ajustar la comprobación; los dos commits no tocan código.
 
+### Incidente de producción 2026-10-19 (código antes que base)
+
+**Qué pasó.** El PR #72 se mergeó (squash `723464f`, 09:09) **sin migrar la base**. Vercel desplegó v2 a producción y el
+módulo de Proyectos devolvió 500 en `strategic-lines`, `municipalities`, `projects` y `dashboard/portfolio`; sin sesión
+las mismas rutas devolvían 401 (existían, fallaba la consulta). Se invirtió el orden del runbook: el código llegó antes
+que las migraciones.
+
+**Contención.** `Instant Rollback` de Vercel estaba deshabilitado en la interfaz. Se revirtió el squash en `main`
+(`7b29fca`, árbol idéntico a `6bee83f`) y producción volvió a 404 en `/api/v1/strategic-lines` con `/login` 200. El
+push estuvo bloqueado un rato por Fortinet *Application Control* (403 a `github.com`, 200 a Vercel y otros sitios); se
+resolvió al cambiar de red. Sin escrituras parciales: los 500 ocurrieron antes de escribir.
+
+**Respaldo.** `~/muttu-backups/2026-10-19-1024` (permisos 600): `roles.sql` 370 B, `schema.sql` 42 KB (28
+`CREATE TABLE`, incluye `_prisma_migrations`), `data.sql` 1.03 MB (61 `COPY`, `session_replication_role`), `SHA256SUMS`.
+Conteos del dump: `clientes` 21, `oportunidades` 20, `tareas` 126, `usuarios` 15, `auth.users` 15, `rubros` 4,
+`lineas_presupuestales` 0, `accesos` 95, `auditoria` 565, `notificaciones` 591.
+
+**Migración (§3.4–3.7).** `migrate deploy` aplicó las **26** pendientes (status al día; la fantasma
+`20260918153200` sigue avisando, es esperada). `migrate diff --from-schema prisma/schema.prisma --to-config-datasource
+--exit-code` → «No difference detected», exit 0. Verificación: 21 enums, `EstadoProyecto` exacto,
+`TipoNotificacion` con `SOBREGASTO_RUBRO` y `GASTO_RECHAZADO`, `metas` v1 eliminada, `objetivos` v2 presente, sin
+`LineaEstrategica` ni `TipoSoporte`, `rubros` con `rubros_pkey`+`rubros_codigo_key` y solo
+`lineas_monto_no_negativo_ck` en `lineas_presupuestales`. Conteos **idénticos** al dump (21/20/126/15/15).
+
+**`s1-rubros`.** Dry-run contra el session pooler 5432: `plan-hash`
+`1894d2b931019f4d46e0f0583ac61717c170cd0e823b2b30b55092c49ceb932f` (idéntico a R4 y R7), 13 crea / 1 actualiza /
+1 omite. Apply: **14 acciones**, lote `s1-rubros-20261019-153024`. Verificación: **17 rubros, 15 activos con código
+R01–R15**.
+
+**Reaplicación del código.** `main` recupera v2 con el revert del revert: `6b1b2ad` (árbol idéntico a `723464f`) y
+push a `main`. Pendiente: humo v2 con sesión y etiqueta definitiva.
+
+**Nota de entorno.** El `node_modules` del repo es de Windows, así que `tsx` falla bajo WSL (binario de esbuild
+win32) y `WSLENV` no reenvió variables en este WSL. `s1-rubros` se corrió con `node.exe` (Windows) más un archivo
+`.env.prod-run` temporal con permisos 600, borrado al terminar; nunca se imprimió la URL.
+
 ## Siguiente paso
 
 **Domingo 2026-10-18 (ventana G-2, antes de la medianoche):**
