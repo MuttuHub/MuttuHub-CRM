@@ -1,5 +1,5 @@
 // GET /api/v1/projects/:id/members — ACTIVE team members (contract E-07, P02).
-// POST /api/v1/projects/:id/members — add a COORDINADOR to the team (E-07, P07).
+// POST /api/v1/projects/:id/members — add a COORDINADOR or COLABORADOR to the team (E-07, P07).
 //
 // Authorization follows the other project routes: the project is read first, so
 // a missing or soft-deleted one answers 404, and only then the actor is
@@ -22,7 +22,7 @@ import { db } from "@/lib/db";
 import { apiError, parseJsonBody } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
-import { canManageProjects } from "@/lib/permissions";
+import { PROJECT_MEMBER_ROLES, canManageProjects } from "@/lib/permissions";
 import { logChange } from "@/lib/api/audit-cambios";
 import {
   MIEMBRO_NOT_COORDINADOR_MESSAGE,
@@ -123,7 +123,7 @@ export const POST = withApiErrorHandling(
     if (!usuario.activo) {
       return apiError("El usuario no existe o está inactivo.", 400, "VALIDATION_ERROR");
     }
-    if (usuario.rol !== "COORDINADOR") {
+    if (!PROJECT_MEMBER_ROLES.includes(usuario.rol)) {
       return apiError(MIEMBRO_NOT_COORDINADOR_MESSAGE, 400, "VALIDATION_ERROR");
     }
 

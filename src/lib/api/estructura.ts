@@ -9,8 +9,8 @@ import { Prisma, type Usuario } from "@prisma/client";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { apiError, parseJsonBody } from "@/lib/api/errors";
-import { canManageProjects } from "@/lib/permissions";
-import { canReadProject, loadProjectScoped } from "@/lib/api/projects";
+import { canEditProjectData } from "@/lib/permissions";
+import { canReadProject, loadProjectScoped, projectReadActor } from "@/lib/api/projects";
 
 export const ESTRUCTURA_STATE_MESSAGE =
   "Solo se puede editar la estructura técnica de un proyecto en Borrador.";
@@ -35,16 +35,20 @@ export async function gateEstructuraWrite(
   proyectoId: string,
   stateMessage: string = ESTRUCTURA_STATE_MESSAGE,
 ): Promise<GateResult<EstructuraProyecto>> {
-  const proyecto = await db.proyecto.findFirst({
-    where: { id: proyectoId, deleted_at: null },
-    select: { id: true, estado: true, fecha_inicio: true, fecha_fin: true },
+  const scoped = await loadProjectScoped(usuario, proyectoId, {
+    id: true,
+    estado: true,
+    fecha_inicio: true,
+    fecha_fin: true,
   });
-  if (!proyecto) {
+  if (!scoped) {
     return { ok: false, response: apiError("El proyecto no existe.", 404, "NOT_FOUND") };
   }
-  if (!canManageProjects(usuario)) {
+  // S5: the team loads the structure; managers keep the unconditional path.
+  if (!canEditProjectData(projectReadActor(usuario, scoped.es_miembro))) {
     return { ok: false, response: apiError(ESTRUCTURA_FORBIDDEN_MESSAGE, 403, "FORBIDDEN") };
   }
+  const proyecto = scoped.row;
   if (proyecto.estado !== "BORRADOR") {
     return {
       ok: false,

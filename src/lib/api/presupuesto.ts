@@ -7,9 +7,8 @@
 
 import { Prisma, type Usuario } from "@prisma/client";
 import { apiError, RespuestaAbortada } from "@/lib/api/errors";
-import { db } from "@/lib/db";
-import { canManageProjects } from "@/lib/permissions";
-import { canReadProject, loadProjectScoped } from "@/lib/api/projects";
+import { canEditProjectData } from "@/lib/permissions";
+import { canReadProject, loadProjectScoped, projectReadActor } from "@/lib/api/projects";
 import type { GateResult } from "@/lib/api/estructura";
 import { fromCents, sumCents, toCents, type Cents } from "@/lib/proyectos/money";
 
@@ -42,14 +41,16 @@ export async function gatePresupuestoWrite(
   usuario: Usuario,
   proyectoId: string,
 ): Promise<GateResult<PresupuestoProyecto & { oportunidad: { valor_estimado_cop: Prisma.Decimal | null } | null }>> {
-  const proyecto = await db.proyecto.findFirst({
-    where: { id: proyectoId, deleted_at: null },
-    select: { ...PRESUPUESTO_SELECT, oportunidad: { select: { valor_estimado_cop: true } } },
+  const scoped = await loadProjectScoped(usuario, proyectoId, {
+    ...PRESUPUESTO_SELECT,
+    oportunidad: { select: { valor_estimado_cop: true } },
   });
-  if (!proyecto) return { ok: false, response: apiError(PROYECTO_NO_EXISTE, 404, "NOT_FOUND") };
-  if (!canManageProjects(usuario)) {
+  if (!scoped) return { ok: false, response: apiError(PROYECTO_NO_EXISTE, 404, "NOT_FOUND") };
+  // S5: the budget is part of the structure, so the team writes it.
+  if (!canEditProjectData(projectReadActor(usuario, scoped.es_miembro))) {
     return { ok: false, response: apiError(PRESUPUESTO_FORBIDDEN_MESSAGE, 403, "FORBIDDEN") };
   }
+  const proyecto = scoped.row;
   if (proyecto.estado !== "BORRADOR") {
     return { ok: false, response: apiError(PRESUPUESTO_STATE_MESSAGE, 409, "INVALID_STATE") };
   }

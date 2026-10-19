@@ -140,7 +140,7 @@ registry.registerPath({
   tags: ["Projects"],
   summary: "Crea un proyecto independiente (E-03, solo ADM/GER)",
   description:
-    "Solo `ADMINISTRADOR`/`GERENCIA` (`canCreateProject`) pueden crear. Crea un proyecto `origen = INDEPENDIENTE` " +
+    "Cualquier rol autenticado (`canCreateProject`) puede crear; el creador queda como responsable e integrante. Crea un proyecto `origen = INDEPENDIENTE` " +
     "(`oportunidad_id` null) en `BORRADOR` con un `codigo` autogenerado `PRY-AAAA-NNN`; la creación, las líneas, " +
     "los municipios y la fila de auditoría `CREAR` van en una sola transacción. `miembro_ids` (S2.6) se acepta: " +
     "cada id debe ser un COORDINADOR activo (400 si no existe, está inactivo o no es COORDINADOR) y el responsable " +
@@ -181,7 +181,7 @@ registry.registerPath({
   tags: ["Projects"],
   summary: "Oportunidades GANADA sin proyecto (E-04, solo ADM/GER)",
   description:
-    "Solo `ADMINISTRADOR`/`GERENCIA` (`canCreateProject`) pueden leerla. Devuelve las oportunidades " +
+    "Cualquier rol (`canCreateProject`) puede leerla. Devuelve las oportunidades " +
     "`estado = GANADA` que no tienen ningún proyecto; `oportunidad_id` está indexado como único sin predicado " +
     "parcial, así que un proyecto con borrado lógico sigue bloqueando la creación y su oportunidad no aparece aquí.",
   security: [{ sessionCookie: [] }],
@@ -380,7 +380,7 @@ registry.registerPath({
   tags: ["Projects"],
   summary: "Agrega un COORDINADOR al equipo del proyecto (E-07, solo ADM/GER)",
   description:
-    "Solo `ADMINISTRADOR`/`GERENCIA` (`canManageProjects`, P07) pueden agregar integrantes. El cuerpo es " +
+    "Solo `ADMINISTRADOR`/`GERENCIA` (`canManageProjects`, P07) agregan integrantes; el objetivo debe ser Coordinador o Colaborador. El cuerpo es " +
     "`{ usuario_id }`; el usuario debe existir, estar activo y tener `rol = COORDINADOR`, o responde 400 " +
     "VALIDATION_ERROR. Un usuario que ya es integrante activo responde 409 CONFLICT desde el índice único parcial " +
     "`proyecto_miembros_activo_uq`, no desde una verificación de lectura-y-escritura; un integrante retirado se " +

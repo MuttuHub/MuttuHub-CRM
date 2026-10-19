@@ -32,19 +32,18 @@ beforeEach(() => {
 })
 
 describe("ProyectosVista", () => {
-  it("hides the Tablero tab for an unflagged COLABORADOR and keeps the list", () => {
+  it("shows the Tablero tab to a COLABORADOR (S4: scoped board)", () => {
     como("COLABORADOR")
     render(<ProyectosVista />)
-    expect(screen.queryByRole("tab", { name: "Tablero" })).not.toBeInTheDocument()
+    expect(screen.getByRole("tab", { name: "Tablero" })).toBeInTheDocument()
     expect(screen.getByTestId("lista-stub")).toBeInTheDocument()
   })
 
-  it("an unflagged COLABORADOR who opens ?vista=tablero still gets the list", () => {
+  it("a COLABORADOR who opens ?vista=tablero gets the board", () => {
     como("COLABORADOR")
     search.value = "vista=tablero"
     render(<ProyectosVista />)
-    expect(screen.queryByTestId("tablero-stub")).not.toBeInTheDocument()
-    expect(screen.getByTestId("lista-stub")).toBeInTheDocument()
+    expect(screen.getByTestId("tablero-stub")).toBeInTheDocument()
   })
 
   it("hides the tab while the user is still loading or unknown", () => {

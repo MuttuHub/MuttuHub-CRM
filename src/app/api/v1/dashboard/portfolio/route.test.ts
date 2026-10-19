@@ -62,11 +62,16 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks())
 
 describe("GET dashboard/portfolio: access", () => {
-  it("403 for a COLABORADOR without the gerencial flag, before touching the database", async () => {
+  it("200 for an unflagged COLABORADOR, scoped to their memberships (S4)", async () => {
     auth(user("COLABORADOR"))
     const res = await GET(get())
-    expect(res.status).toBe(403)
-    expect(db.proyecto.findMany).not.toHaveBeenCalled()
+    expect(res.status).toBe(200)
+    const where = vi.mocked(db.proyecto.findMany).mock.calls[0]?.[0]?.where as
+      | Record<string, unknown>
+      | undefined
+    expect(where?.miembros).toEqual({
+      some: { usuario_id: "COLABORADOR-1", removed_at: null },
+    })
   })
 
   it("200 for a COLABORADOR with the flag, over every project", async () => {

@@ -30,7 +30,7 @@ import {
   type ProjectListRow,
 } from "@/hooks/projects";
 import type { UiTone } from "@/lib/catalogs";
-import { canManageProjects } from "@/lib/permissions";
+import { PROJECT_MEMBER_ROLES, canManageProjects } from "@/lib/permissions";
 import { esObservado } from "@/lib/proyectos/gastos";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 
@@ -102,13 +102,13 @@ export function ProjectGastos({ proyecto }: { proyecto: ProjectListRow }) {
 
   const usuario = userQuery.data;
   const esGestor = usuario ? canManageProjects({ id: usuario.id, rol: usuario.rol }) : false;
-  const esMiembroCoordinador = Boolean(
+  // S6 (PO matrix 2026-10-19): membership, not the role, grants registering.
+  const esMiembroDelEquipo = Boolean(
     usuario &&
-      usuario.rol === "COORDINADOR" &&
+      PROJECT_MEMBER_ROLES.includes(usuario.rol) &&
       (membersQuery.data ?? []).some((miembro) => miembro.usuario.id === usuario.id),
   );
-  // Registrar: gestor o COORDINADOR integrante, y solo con el proyecto en ejecución.
-  const puedeRegistrar = (esGestor || esMiembroCoordinador) && proyecto.estado === "EN_EJECUCION";
+  const puedeRegistrar = (esGestor || esMiembroDelEquipo) && proyecto.estado === "EN_EJECUCION";
 
   const gastos = query.data?.gastos ?? [];
   const visibles = gastos.filter((gasto) => coincide(gasto, filtro));

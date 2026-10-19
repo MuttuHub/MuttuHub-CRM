@@ -33,11 +33,15 @@ describe("gateEjecucionWrite", () => {
     }
   });
 
-  it("answers 403 for a non-member COORDINADOR and a COLABORADOR (member or not)", async () => {
-    for (const [rol, miembro] of [["COORDINADOR", false], ["COLABORADOR", true], ["COLABORADOR", false]] as const) {
+  it("answers 403 for non-members of either role and allows both member roles (S6)", async () => {
+    for (const [rol, miembro] of [["COORDINADOR", false], ["COLABORADOR", false]] as const) {
       const gate = await write(rol, "EN_EJECUCION", miembro);
       expect(gate.ok, rol).toBe(false);
       if (!gate.ok) expect(gate.response.status).toBe(403);
+    }
+    for (const rol of ["COORDINADOR", "COLABORADOR"] as const) {
+      const gate = await write(rol, "EN_EJECUCION", true);
+      expect(gate.ok, rol).toBe(true);
     }
   });
 

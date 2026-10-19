@@ -5,11 +5,11 @@ import {
   canApproveModification,
   canCreateProject,
   canEditClient,
+  canEditProjectData,
   canEditTask,
   canExecuteProject,
   canManageAny,
   canManageOpportunity,
-  canManageProject,
   canManageProjects,
   canReadRestrictedDocs,
   canValidateExpense,
@@ -156,49 +156,66 @@ describe("project permissions (v2, S0.7)", () => {
     "COLABORADOR",
   ] as const satisfies readonly RolUsuario[]
 
-  it("canCreateProject is true only for ADMINISTRADOR and GERENCIA", () => {
-    // Exhaustive over the closed RolUsuario union: no role other than the two
-    // project managers may create a project (COORDINADOR lost this in v2).
+  it("canCreateProject is true for every role (PO matrix 2026-10-19)", () => {
+    // S1: any authenticated role creates a project. The creator becomes the
+    // responsable and a member, so the project stays visible to them.
     for (const rol of allRoles) {
-      const expected = rol === "ADMINISTRADOR" || rol === "GERENCIA"
-      expect(canCreateProject({ id: "me", rol })).toBe(expected)
+      expect(canCreateProject({ id: "me", rol })).toBe(true)
     }
   })
 
-  it("canManageProject denies a COORDINADOR on a project they are not responsable of", () => {
-    expect(
-      canManageProject(
-        { responsable_id: "someone-else" },
-        { id: "me", rol: "COORDINADOR" },
-      ),
-    ).toBe(false)
+  it("canEditProjectData allows managers anywhere and member roles only as members", () => {
+    // S5: general data and structure belong to the team of the project;
+    // managers keep the unconditional path and the gerencial flag never grants
+    // a write.
+    for (const rol of allRoles) {
+      const manager = rol === "ADMINISTRADOR" || rol === "GERENCIA"
+      const actor = {
+        id: "me",
+        rol,
+        puede_ver_tablero_gerencial: true,
+        es_miembro: false,
+      }
+      expect(canEditProjectData(actor)).toBe(manager)
+      expect(canEditProjectData({ ...actor, es_miembro: true })).toBe(true)
+    }
   })
 
-  it("canManageProject allows the COORDINADOR responsable (v1 path) and denies a COLABORADOR responsable", () => {
-    expect(
-      canManageProject({ responsable_id: "me" }, { id: "me", rol: "COORDINADOR" }),
-    ).toBe(true)
-    // Behaviour change vs v1: ownership alone no longer grants management to a
-    // non-manager role.
-    expect(
-      canManageProject({ responsable_id: "me" }, { id: "me", rol: "COLABORADOR" }),
-    ).toBe(false)
-    // Managers keep the unconditional path.
-    expect(
-      canManageProject(
-        { responsable_id: "someone-else" },
-        { id: "me", rol: "ADMINISTRADOR" },
-      ),
-    ).toBe(true)
-    expect(
-      canManageProject(
-        { responsable_id: "someone-else" },
-        { id: "me", rol: "GERENCIA" },
-      ),
-    ).toBe(true)
+  it("canViewProjectV2 keeps the gerencial flag as the only portfolio-wide read for non-managers", () => {
+    // S3 + S11: member roles read the projects they belong to; the flag remains
+    // an explicit administrative grant of portfolio-wide read.
+    for (const rol of allRoles) {
+      const manager = rol === "ADMINISTRADOR" || rol === "GERENCIA"
+      expect(
+        canViewProjectV2({
+          id: "me",
+          rol,
+          puede_ver_tablero_gerencial: false,
+          es_miembro: false,
+        }),
+      ).toBe(manager)
+      expect(
+        canViewProjectV2({
+          id: "me",
+          rol,
+          puede_ver_tablero_gerencial: false,
+          es_miembro: true,
+        }),
+      ).toBe(true)
+      expect(
+        canViewProjectV2({
+          id: "me",
+          rol,
+          puede_ver_tablero_gerencial: true,
+          es_miembro: false,
+        }),
+      ).toBe(true)
+    }
   })
 
-  it("canExecuteProject requires COORDINADOR membership unless the actor is a project manager", () => {
+  it("canExecuteProject allows managers anywhere and member roles only as members", () => {
+    // S6: a COLABORADOR who belongs to the team executes like a COORDINADOR;
+    // membership is the axis, not the role.
     expect(
       canExecuteProject({
         id: "me",
@@ -232,13 +249,21 @@ describe("project permissions (v2, S0.7)", () => {
         es_miembro: false,
       }),
     ).toBe(true)
-    // Membership alone does not let a COLABORADOR execute.
+    // A COLABORADOR member executes; the gerencial flag still grants no write.
     expect(
       canExecuteProject({
         id: "me",
         rol: "COLABORADOR",
         puede_ver_tablero_gerencial: false,
         es_miembro: true,
+      }),
+    ).toBe(true)
+    expect(
+      canExecuteProject({
+        id: "me",
+        rol: "COLABORADOR",
+        puede_ver_tablero_gerencial: true,
+        es_miembro: false,
       }),
     ).toBe(false)
   })
@@ -255,10 +280,9 @@ describe("project permissions (v2, S0.7)", () => {
     }
   })
 
-  it("canViewFinancialSupports excludes the Visualizador flag", () => {
-    // A COORDINADOR without membership has no financial visibility, even when
-    // the gerencial board flag is set: the flag is a read axis of its own and
-    // never a financial one.
+  it("canViewFinancialSupports excludes the Visualizador flag but follows membership for both member roles", () => {
+    // S6: a COLABORADOR member now sees the financial supports of their own
+    // project; the flag is a read axis of its own and never a financial one.
     expect(
       canViewFinancialSupports({
         id: "me",
@@ -272,9 +296,17 @@ describe("project permissions (v2, S0.7)", () => {
         id: "me",
         rol: "COLABORADOR",
         puede_ver_tablero_gerencial: true,
-        es_miembro: true,
+        es_miembro: false,
       }),
     ).toBe(false)
+    expect(
+      canViewFinancialSupports({
+        id: "me",
+        rol: "COLABORADOR",
+        puede_ver_tablero_gerencial: false,
+        es_miembro: true,
+      }),
+    ).toBe(true)
     // Membership, not the flag, is what opens the financial axis to a COORDINADOR.
     expect(
       canViewFinancialSupports({
@@ -357,9 +389,10 @@ describe("project permissions (v2, S0.7)", () => {
     }
 
     for (const actor of [flaggedCoordinador, flaggedColaborador]) {
+      const asMemberless = { ...actor, es_miembro: false }
       expect(canManageProjects(actor)).toBe(false)
-      expect(canCreateProject(actor)).toBe(false)
-      expect(canManageProject({ responsable_id: "someone-else" }, actor)).toBe(false)
+      expect(canEditProjectData(asMemberless)).toBe(false)
+      expect(canExecuteProject(asMemberless)).toBe(false)
       expect(canValidateExpense({ registrado_por_id: "someone-else" }, actor)).toBe(false)
       expect(canApproveBaseline(actor)).toBe(false)
       expect(canApproveModification(actor)).toBe(false)
@@ -407,7 +440,7 @@ describe("project permissions (v2, S0.7)", () => {
     ).toBe(true)
   })
 
-  it("canViewProjectV2: a COORDINADOR non-member does not", () => {
+  it("canViewProjectV2: a non-member of a member role does not see it", () => {
     const nonMember: ProjectMembershipActor = {
       id: "me",
       rol: "COORDINADOR",
@@ -415,6 +448,7 @@ describe("project permissions (v2, S0.7)", () => {
       es_miembro: false,
     }
     expect(canViewProjectV2(nonMember)).toBe(false)
+    // S3: membership is the axis, so a COLABORADOR member reads the project.
     expect(
       canViewProjectV2({
         id: "me",
@@ -422,7 +456,7 @@ describe("project permissions (v2, S0.7)", () => {
         puede_ver_tablero_gerencial: false,
         es_miembro: true,
       }),
-    ).toBe(false)
+    ).toBe(true)
   })
 
   it("canViewPortfolio: a COORDINADOR without the flag does not get global portfolio access", () => {

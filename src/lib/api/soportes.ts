@@ -172,8 +172,8 @@ export const ESTADOS_DOCUMENTO_ESCRITURA: readonly string[] = ["BORRADOR", "EN_E
 export const SOPORTE_ORIGEN_PROYECTO = { avance_id: null, medicion_id: null, gasto_id: null } as const;
 
 /**
- * 404 -> 403 -> 409 for a project-document write (create, sign, delete): managers or an active-member
- * COORDINADOR, allowed in BORRADOR/EN_EJECUCION/SUSPENDIDO and refused in the closed states.
+ * 404 -> 403 -> 409 for a project-document write (create, sign, delete): managers or an active team
+ * member, allowed in BORRADOR/EN_EJECUCION/SUSPENDIDO and refused in the closed states.
  */
 export async function gateSoporteProyectoWrite(
   usuario: Usuario,

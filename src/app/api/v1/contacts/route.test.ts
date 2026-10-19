@@ -193,20 +193,19 @@ describe("GET /api/v1/contacts", () => {
     expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
   });
 
-  it("scopes a COLABORADOR to the clients they are responsable of (P1)", async () => {
-    const usuario = colaborador;
-    authAs(usuario);
+  it("lets a COLABORADOR read every client's contacts (S8: all clients)", async () => {
+    authAs(colaborador);
     vi.mocked(db.contacto.findMany).mockResolvedValue([]);
 
     const res = await GET(getRequest());
 
     expect(res.status).toBe(200);
     const call = vi.mocked(db.contacto.findMany).mock.calls[0][0];
-    expect(call?.where?.cliente).toEqual({ deleted_at: null, responsable_id: usuario.id });
+    expect(call?.where?.cliente).toEqual({ deleted_at: null });
     expect(call?.where?.deleted_at).toBeNull();
   });
 
-  it("keeps the responsable scope when cliente_id targets another user's client", async () => {
+  it("keeps the cliente_id filter without a responsable scope", async () => {
     authAs(colaborador);
     vi.mocked(db.contacto.findMany).mockResolvedValue([]);
 
@@ -215,7 +214,7 @@ describe("GET /api/v1/contacts", () => {
     const call = vi.mocked(db.contacto.findMany).mock.calls[0][0];
     expect(call?.where).toMatchObject({
       cliente_id: "cli-ajeno",
-      cliente: { deleted_at: null, responsable_id: "colab-1" },
+      cliente: { deleted_at: null },
     });
   });
 

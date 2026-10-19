@@ -1,6 +1,6 @@
 // DELETE /api/v1/projects/:id/supports/:supportId — soft-deletes a project-origin document (DOC1).
 //
-// Managers delete any project document; an active-member COORDINADOR only their own uploads. The
+// Managers delete any project document; an active team member only their own uploads. The
 // project must be BORRADOR/EN_EJECUCION/SUSPENDIDO (404 -> 403 -> 409). Supports of avances,
 // measurements and expenses are not addressable here (404). The row keeps living (deleted_at) and the
 // deletion is audited inside the same transaction as the update; a concurrent delete that won the race

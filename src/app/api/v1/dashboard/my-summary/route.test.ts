@@ -207,7 +207,7 @@ describe("GET /api/v1/dashboard/my-summary", () => {
       });
     });
 
-    it("any other role gets an empty projects group", async () => {
+    it("a COLABORADOR sees only the projects where they are a member (S4)", async () => {
       withEmptyBase(colaborador);
 
       const json = await (await GET(get())).json();
@@ -215,7 +215,9 @@ describe("GET /api/v1/dashboard/my-summary", () => {
       const where = vi.mocked(db.proyecto.findMany).mock.calls[0]?.[0]?.where as
         | Record<string, unknown>
         | undefined;
-      if (where) expect(where.id).toEqual({ in: [] });
+      expect(where?.miembros).toEqual({
+        some: { usuario_id: "colab-1", removed_at: null },
+      });
       expect(json.proyectos_en_ejecucion).toEqual({ count: 0, items: [] });
     });
 

@@ -29,14 +29,17 @@ export function isFullAccess(rol: RolUsuario): boolean {
 }
 
 /**
- * Single read-scope rule for clients: full-access roles (ADMINISTRADOR,
- * GERENCIA, COORDINADOR) read every client; COLABORADOR only the clients where
- * they are the responsable. Shared by the per-client sub-resources
- * (`loadClientScoped`) and the cross-client feeds (`clienteFeedScope`) so the
- * two cannot drift apart.
+ * Single read-scope rule for clients. S8 (PO matrix 2026-10-19) opens the client
+ * catalog to every role, because a Coordinador or Colaborador must be able to
+ * pick any client when creating a project. This is a READ scope only: writes
+ * still go through `canEditClient`, and the commercial cycle (opportunities,
+ * `gestiona_oportunidades`) keeps its own gate.
+ *
+ * Shared by the per-client sub-resources (`loadClientScoped`) and the
+ * cross-client feeds (`clienteFeedScope`) so the two cannot drift apart.
  */
-function clientReadScope(usuario: Pick<Usuario, "id" | "rol">): Prisma.ClienteWhereInput {
-  return isFullAccess(usuario.rol) ? {} : { responsable_id: usuario.id };
+function clientReadScope(): Prisma.ClienteWhereInput {
+  return {};
 }
 
 /**
@@ -44,9 +47,9 @@ function clientReadScope(usuario: Pick<Usuario, "id" | "rol">): Prisma.ClienteWh
  * deleted and is inside the caller's scope (COLABORADOR -> responsable self).
  * Null means "404 NOT_FOUND" for the caller.
  */
-export async function loadClientScoped(id: string, usuario: Usuario) {
+export async function loadClientScoped(id: string) {
   return db.cliente.findFirst({
-    where: { id, deleted_at: null, ...clientReadScope(usuario) },
+    where: { id, deleted_at: null, ...clientReadScope() },
     select: { id: true },
   });
 }
@@ -58,8 +61,8 @@ export async function loadClientScoped(id: string, usuario: Usuario) {
  * only the clients where they are the responsable. Spread it into the
  * `cliente` relation filter of the feed `where`.
  */
-export function clienteFeedScope(usuario: Pick<Usuario, "id" | "rol">): Prisma.ClienteWhereInput {
-  return clientReadScope(usuario);
+export function clienteFeedScope(): Prisma.ClienteWhereInput {
+  return clientReadScope();
 }
 
 /**
@@ -144,6 +147,21 @@ export async function loadClientForOpportunityRead(id: string, usuario: Usuario)
   ) {
     return { ok: false as const, code: "FORBIDDEN" as const };
   }
+  return { ok: true as const, cliente };
+}
+
+/**
+ * Existence gate for creating a project from one of a client's opportunities.
+ * S8 (PO matrix 2026-10-19) gives every role read access to every client, so
+ * creating a project must not depend on the commercial write boundary: the
+ * route still checks that the opportunity belongs to the client and is GANADA.
+ */
+export async function loadClientForProjectCreation(id: string) {
+  const cliente = await db.cliente.findFirst({
+    where: { id, deleted_at: null },
+    select: { id: true },
+  });
+  if (!cliente) return { ok: false as const, code: "NOT_FOUND" as const };
   return { ok: true as const, cliente };
 }
 

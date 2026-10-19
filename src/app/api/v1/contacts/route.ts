@@ -97,7 +97,7 @@ export const GET = withApiErrorHandling(
 
     const rows = await db.contacto.findMany({
       where: buildContactWhere({
-        scope: clienteFeedScope(auth.usuario),
+        scope: clienteFeedScope(),
         cliente_id,
         poder: poder ?? undefined,
         interes: interes ?? undefined,

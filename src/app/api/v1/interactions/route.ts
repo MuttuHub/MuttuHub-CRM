@@ -73,7 +73,7 @@ export const GET = withApiErrorHandling(
     const cliente_id = url.searchParams.get("cliente_id")?.trim() || undefined;
 
     const rows = await db.bitacoraEntrada.findMany({
-      where: buildInteractionWhere({ scope: clienteFeedScope(auth.usuario), cliente_id, tipo }),
+      where: buildInteractionWhere({ scope: clienteFeedScope(), cliente_id, tipo }),
       select: INTERACTION_FEED_SELECT,
       orderBy: { created_at: "desc" },
     });

@@ -191,15 +191,16 @@ describe("POST /api/v1/clients/:id/opportunities/:opportunityId/project (E-05)",
     expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
   });
 
-  it("returns 403 for a role without canCreateProject", async () => {
+  it("converts as a COLABORADOR: any role creates and the creator joins the team", async () => {
     authAs(colaborador);
 
     const res = await POST(postRequest(prefillBody), routeContext);
-    const json = await res.json();
 
-    expect(res.status).toBe(403);
-    expect(json.code).toBe("FORBIDDEN");
-    expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
+    expect(res.status).toBe(201);
+    const usuarioIds = mocks.txMiembroCreate.mock.calls.map(
+      ([args]) => (args as { data: { usuario_id: string } }).data.usuario_id,
+    );
+    expect(usuarioIds).toEqual(["user-2", "colab-1"]);
   });
 
   it("creating from a GANADA opportunity converts it (fase EJECUCION, fecha_adjudicacion) in the same transaction", async () => {
@@ -298,21 +299,18 @@ describe("POST /api/v1/clients/:id/opportunities/:opportunityId/project (E-05)",
     });
   });
 
-  it("rejects a COLABORADOR miembro_ids entry with 400 before converting the opportunity", async () => {
+  it("accepts a COLABORADOR miembro_ids entry before converting the opportunity", async () => {
     mocks.usuarioFindMany.mockResolvedValue([
       { id: "colab-9", rol: "COLABORADOR", activo: true },
     ]);
 
     const res = await POST(postRequest({ ...prefillBody, miembro_ids: ["colab-9"] }), routeContext);
-    const json = await res.json();
 
-    expect(res.status).toBe(400);
-    expect(json.error).toBe(
-      "Solo un Coordinador puede ser integrante del equipo del proyecto.",
+    expect(res.status).toBe(201);
+    const usuarioIds = mocks.txMiembroCreate.mock.calls.map(
+      ([args]) => (args as { data: { usuario_id: string } }).data.usuario_id,
     );
-    expect(mocks.transaction).not.toHaveBeenCalled();
-    expect(mocks.txOportunidadUpdate).not.toHaveBeenCalled();
-    expect(mocks.txProyectoCreate).not.toHaveBeenCalled();
+    expect(usuarioIds).toContain("colab-9");
   });
 
   it("does not overwrite fecha_adjudicacion of an already converted opportunity", async () => {

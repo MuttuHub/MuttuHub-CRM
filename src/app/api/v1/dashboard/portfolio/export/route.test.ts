@@ -64,11 +64,11 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks())
 
 describe("GET dashboard/portfolio/export", () => {
-  it("403 for an unflagged COLABORADOR even with formato=pdf, and no audit row", async () => {
+  it("a COLABORADOR exports their own portfolio scope (S4)", async () => {
     auth(user("COLABORADOR"))
-    expect((await GET(get("?formato=pdf"))).status).toBe(403)
-    expect((await GET(get())).status).toBe(403)
-    expect(logChange).not.toHaveBeenCalled()
+    expect((await GET(get("?formato=pdf"))).status).toBe(400)
+    expect((await GET(get())).status).toBe(200)
+    expect(logChange).toHaveBeenCalled()
   })
 
   it("400 for formato=pdf and for a bad corte", async () => {

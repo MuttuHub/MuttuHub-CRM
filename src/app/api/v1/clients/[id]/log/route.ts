@@ -49,7 +49,7 @@ export const GET = withApiErrorHandling(
     if (!auth.ok) return auth.response;
     const { id } = await ctx.params;
 
-    const cliente = await loadClientScoped(id, auth.usuario);
+    const cliente = await loadClientScoped(id);
     if (!cliente) {
       return apiError("El cliente no existe.", 404, "NOT_FOUND");
     }

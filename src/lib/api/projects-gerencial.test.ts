@@ -31,11 +31,16 @@ describe("gerencial flag through the real project actor", () => {
 
   it("the flag lifts the list scope of a COLABORADOR to every project", () => {
     expect(projectListWhere(user("COLABORADOR", true), {})).toEqual({ deleted_at: null })
-    expect(projectListWhere(user("COLABORADOR", false), {})).toEqual({ deleted_at: null, id: { in: [] } })
+    // S3: without the flag the list is the memberships, never an empty list.
+    expect(projectListWhere(user("COLABORADOR", false), {})).toEqual({
+      deleted_at: null,
+      miembros: { some: { usuario_id: "u-1", removed_at: null } },
+    })
   })
 
   it("the flag never opens a write, execute, approve or validate gate", () => {
-    const actor = projectReadActor(user("COLABORADOR", true), true)
+    // es_miembro: false isolates the flag: membership is what grants execution.
+    const actor = projectReadActor(user("COLABORADOR", true), false)
     expect(canManageProjects(actor)).toBe(false)
     expect(canExecuteProject(actor)).toBe(false)
     expect(canApproveBaseline(actor)).toBe(false)

@@ -23,7 +23,7 @@ import { apiError, parseJsonBody } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { parseDate } from "@/lib/api/crm";
-import { canCreateProject } from "@/lib/permissions";
+import { canCreateProject, canManageProjects } from "@/lib/permissions";
 import { nextProjectCode } from "@/lib/api/project-code";
 import { logChanges } from "@/lib/api/audit-cambios";
 import { validarLineas, miembrosInicialesProyecto } from "@/lib/proyectos/proyecto-general";
@@ -98,7 +98,9 @@ const INVALID_DATE_MESSAGES = {
 /** Fields both creation paths (E-03 and E-05) share. */
 const PROJECT_CREATE_BASE = {
   descripcion: PROJECT_DESCRIPCION_SCHEMA,
-  responsable_id: z.string().min(1, "El responsable no puede estar vacío."),
+  // PO matrix 2026-10-19: the creator is the default responsable; an explicit
+  // id still lets a manager create on behalf of someone else.
+  responsable_id: z.string().min(1, "El responsable no puede estar vacío.").optional(),
   lineas: z
     .array(
       z.object({
@@ -267,18 +269,24 @@ export const POST = withApiErrorHandling(
       onlyActive: true,
     });
     if (missingMunicipios) return missingMunicipios;
-    const inactiveResponsable = await checkResponsableActivo(parsed.data.responsable_id);
+    // S2 (PO matrix 2026-10-19): the creator is the responsable unless the body
+    // names someone else. A creator whose role needs membership to keep seeing
+    // the project is added to the team too; a manager already sees everything,
+    // so adding them would only add noise to the team and its audit trail.
+    const responsableId = parsed.data.responsable_id ?? auth.usuario.id;
+    const inactiveResponsable = await checkResponsableActivo(responsableId);
     if (inactiveResponsable) return inactiveResponsable;
 
     // ADR-09: the responsable is a member from the moment the project exists,
     // and a `miembro_ids` entry naming them collapses into that membership.
-    // Only the other ids are held to the active-COORDINADOR rule.
-    const equipo = miembrosInicialesProyecto(
-      parsed.data.responsable_id,
-      parsed.data.miembro_ids ?? [],
-    );
+    // Only the other ids are held to the member-role rule; the responsable and
+    // the authenticated creator are never re-validated.
+    const equipo = miembrosInicialesProyecto(responsableId, [
+      ...(canManageProjects(auth.usuario) ? [] : [auth.usuario.id]),
+      ...(parsed.data.miembro_ids ?? []),
+    ]);
     const invalidMiembros = await checkMiembrosValidos(
-      equipo.filter((id) => id !== parsed.data.responsable_id),
+      equipo.filter((id) => id !== responsableId && id !== auth.usuario.id),
     );
     if (invalidMiembros) return invalidMiembros;
 
@@ -295,7 +303,7 @@ export const POST = withApiErrorHandling(
           descripcion: parsed.data.descripcion ?? null,
           cliente_id: parsed.data.cliente_id,
           oportunidad_id: null,
-          responsable_id: parsed.data.responsable_id,
+          responsable_id: responsableId,
           origen: "INDEPENDIENTE",
           fecha_inicio: inicio,
           fecha_fin: fin,

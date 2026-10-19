@@ -78,6 +78,28 @@ export const PROJECT_MANAGER_ROLES: readonly RolUsuario[] = [
   "GERENCIA",
 ]
 
+/**
+ * Roles that can belong to a project's team and therefore work inside it. The
+ * PO matrix of 2026-10-19 makes membership, not the role, the axis that grants
+ * read and write inside one project; these are the two roles the team accepts.
+ */
+export const PROJECT_MEMBER_ROLES: readonly RolUsuario[] = [
+  "COORDINADOR",
+  "COLABORADOR",
+]
+
+/**
+ * Roles allowed to create a project. The 2026-10-19 matrix opens creation to
+ * every role; the creation routes make the creator the responsable and a
+ * member, which is what keeps the new project visible to them.
+ */
+export const PROJECT_CREATE_ROLES: readonly RolUsuario[] = [
+  "ADMINISTRADOR",
+  "GERENCIA",
+  "COORDINADOR",
+  "COLABORADOR",
+]
+
 /** Actor carrying the gerencial read flag (tablero-seguimiento-social). Orthogonal to `rol` and READ-only. */
 export type ProjectActor = PermissionActor & { puede_ver_tablero_gerencial: boolean }
 
@@ -95,63 +117,63 @@ export function canManageProjects(actor: PermissionActor): boolean {
 }
 
 /**
- * Creation is restricted to project managers. Behaviour change vs v1: a
- * COORDINADOR can no longer create projects, because creating one cannot rely
- * on the ownership/membership axes that grant them authority over an existing
- * project.
+ * Creation is open to every role (PO matrix 2026-10-19). It used to be
+ * manager-only; the creator is added to the team by the creation routes, so a
+ * COORDINADOR or COLABORADOR can keep working on what they just created.
  */
 export function canCreateProject(actor: PermissionActor): boolean {
-  return canManageProjects(actor)
+  return PROJECT_CREATE_ROLES.includes(actor.rol)
 }
 
 /**
- * Write authority over one project and everything hanging from it. Managers
- * pass unconditionally; a COORDINADOR passes only as the responsable of that
- * project. Behaviour change vs v1: ownership alone no longer grants writing,
- * so a COLABORADOR responsable is denied instead of silently promoted.
+ * Access to the interior of one project: its data, structure, execution and
+ * documents. Project managers pass unconditionally; a member role (COORDINADOR
+ * or COLABORADOR) passes only as a member of that project. The gerencial flag
+ * is deliberately absent: it is a read axis and never grants work inside a
+ * project.
  */
-export function canManageProject(
-  proyecto: { responsable_id: string },
-  actor: PermissionActor,
-): boolean {
+export function canAccessProject(actor: ProjectMembershipActor): boolean {
   return (
     canManageProjects(actor) ||
-    (proyecto.responsable_id === actor.id && actor.rol === "COORDINADOR")
+    (PROJECT_MEMBER_ROLES.includes(actor.rol) && actor.es_miembro)
   )
 }
 
 /**
- * Execution (loading progress and closing activities) requires explicit
- * membership for a COORDINADOR; managers execute regardless. Kept separate
- * from `canManageProject` because editing project data is not the same right
- * as executing it, and the loader resolves membership per project.
+ * Editing general data, structure and budget follows the same membership axis
+ * as execution: whoever belongs to the team may complete the project they are
+ * responsible for (PO matrix, items 4 and 5). State rules (only BORRADOR) stay
+ * in the route gates.
+ */
+export function canEditProjectData(actor: ProjectMembershipActor): boolean {
+  return canAccessProject(actor)
+}
+
+/**
+ * Execution (progress, expenses, documents, modification requests) requires
+ * explicit membership for a member role; managers execute regardless.
  */
 export function canExecuteProject(actor: ProjectMembershipActor): boolean {
-  return canManageProjects(actor) || (actor.rol === "COORDINADOR" && actor.es_miembro)
+  return canAccessProject(actor)
 }
 
 /**
- * Read axis of a single project: managers and holders of the gerencial flag
- * see everything, and a COORDINADOR sees the projects they belong to. The flag
- * is the only reason it is not narrowed to `canManageProjects`, so this
- * predicate must never be reused as a write gate.
+ * Read axis of a single project: the interior, plus the gerencial flag, which
+ * remains an explicit administrative grant of portfolio-wide read. It must
+ * never be reused as a write gate.
  */
 export function canViewProjectV2(actor: ProjectMembershipActor): boolean {
-  return (
-    canManageProjects(actor) ||
-    actor.puede_ver_tablero_gerencial ||
-    (actor.rol === "COORDINADOR" && actor.es_miembro)
-  )
+  return canAccessProject(actor) || actor.puede_ver_tablero_gerencial
 }
 
 /**
- * Financial supports are the most sensitive project artifact, so the
- * gerencial flag must NOT grant them: a Visualizador with
- * `puede_ver_tablero_gerencial` reports totals without inspecting the
- * supporting documents. Only managers and COORDINADOR members qualify.
+ * Financial supports are the most sensitive project artifact, so the gerencial
+ * flag must NOT grant them: a Visualizador with `puede_ver_tablero_gerencial`
+ * reports totals without inspecting the supporting documents. Membership or a
+ * manager role is required.
  */
 export function canViewFinancialSupports(actor: ProjectMembershipActor): boolean {
-  return canManageProjects(actor) || (actor.rol === "COORDINADOR" && actor.es_miembro)
+  return canAccessProject(actor)
 }
 
 /**

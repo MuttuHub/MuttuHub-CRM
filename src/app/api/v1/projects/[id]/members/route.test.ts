@@ -217,16 +217,37 @@ describe("POST /api/v1/projects/:id/members", () => {
     expect(json.code).toBe("VALIDATION_ERROR");
   });
 
-  it("only COORDINADOR users can be added as members", async () => {
-    vi.mocked(db.usuario.findFirst).mockResolvedValue({ id: "colab-9", rol: "COLABORADOR", activo: true } as never);
+  it("accepts a COLABORADOR member and rejects a role outside the member set", async () => {
+    vi.mocked(db.usuario.findFirst).mockResolvedValue({
+      id: "colab-9",
+      rol: "COLABORADOR",
+      activo: true,
+    } as never);
 
-    const res = await POST(postRequest({ usuario_id: "colab-9" }), routeContext);
+    const ok = await POST(postRequest({ usuario_id: "colab-9" }), routeContext);
+    expect(ok.status).toBe(201);
+
+    vi.mocked(db.usuario.findFirst).mockResolvedValue({
+      id: "ger-9",
+      rol: "GERENCIA",
+      activo: true,
+    } as never);
+
+    const res = await POST(postRequest({ usuario_id: "ger-9" }), routeContext);
     const json = await res.json();
 
     expect(res.status).toBe(400);
     expect(json.code).toBe("VALIDATION_ERROR");
-    expect(json.error).toBe("Solo un Coordinador puede ser integrante del equipo del proyecto.");
-    expect(mocks.txCreate).not.toHaveBeenCalled();
+    expect(json.error).toBe(
+      "Solo un Coordinador o un Colaborador puede ser integrante del equipo del proyecto.",
+    );
+
+    // Restore the file's default target so later tests are independent.
+    vi.mocked(db.usuario.findFirst).mockResolvedValue({
+      id: "coord-9",
+      rol: "COORDINADOR",
+      activo: true,
+    } as never);
   });
 
   it("returns 400 when the target user does not exist", async () => {

@@ -93,18 +93,17 @@ describe("GET /api/v1/clients/:id/log", () => {
     expect(db.bitacoraEntrada.findMany).not.toHaveBeenCalled();
   });
 
-  it("returns 404 for a COLABORADOR who is NOT the client's responsable", async () => {
+  it("reads a COLABORADOR's client without a responsable filter (S8) and still 404s when it is missing", async () => {
     authAs(colaborador);
+    // The scope no longer narrows by responsable: a missing row is the only 404.
     vi.mocked(db.cliente.findFirst).mockResolvedValue(null);
 
     const res = await GET(new Request("http://localhost/api/v1/clients/cli-1/log"), routeContext);
 
     expect(res.status).toBe(404);
-    expect(db.cliente.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ id: "cli-1", responsable_id: "colab-1" }),
-      }),
-    );
+    const call = vi.mocked(db.cliente.findFirst).mock.calls[0]![0] as { where?: Record<string, unknown> };
+    expect(call.where).toMatchObject({ id: "cli-1" });
+    expect(call.where).not.toHaveProperty("responsable_id");
   });
 
   it("allows a COLABORADOR who IS the client's responsable to read the bitácora", async () => {

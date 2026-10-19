@@ -169,9 +169,19 @@ describe("PUT programming: gates", () => {
 
     for (const usuario of [coordinador, colaborador]) {
       authAs(usuario);
-      vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto("BORRADOR", true));
+      vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto("BORRADOR", false));
       expect((await PUT(put(cuerpo), ctx)).status, usuario.rol).toBe(403);
     }
+
+    // S5: a member of either role writes the monthly programming. The writes
+    // of this loop are cleared so the "not called" assertion below still
+    // refers to the blocked case that follows it.
+    for (const usuario of [coordinador, colaborador]) {
+      authAs(usuario);
+      vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto("BORRADOR", true));
+      expect((await PUT(put(cuerpo), ctx)).status, usuario.rol).not.toBe(403);
+    }
+    mocks.celdaCreate.mockClear();
 
     authAs(gerencia);
     vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto("EN_EJECUCION"));

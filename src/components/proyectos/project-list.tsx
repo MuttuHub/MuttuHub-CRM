@@ -55,7 +55,12 @@ import {
   type ProjectFilters,
   type ProjectListRow,
 } from "@/hooks/projects";
-import { canCreateProject, canManageProjects, canViewPortfolio } from "@/lib/permissions";
+import {
+  PROJECT_MEMBER_ROLES,
+  canCreateProject,
+  canManageProjects,
+  canViewPortfolio,
+} from "@/lib/permissions";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { cn } from "@/lib/utils";
 
@@ -107,7 +112,7 @@ export function ProjectList() {
         id: usuarioActual.id,
         rol: usuarioActual.rol,
         puede_ver_tablero_gerencial: usuarioActual.puede_ver_tablero_gerencial ?? false,
-      }) || usuarioActual.rol === "COORDINADOR"
+      }) || PROJECT_MEMBER_ROLES.includes(usuarioActual.rol)
     : false;
   // Los KPIs resumen todo el portafolio: consultas SIN filtro (con el filtro vacío son las mismas de la tabla).
   const kpiLista = useProjects({});

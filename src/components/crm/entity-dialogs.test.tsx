@@ -237,19 +237,19 @@ describe("OportunidadLifecycleDialog", () => {
       expect(screen.queryByRole("link", { name: "Convertir en proyecto" })).not.toBeInTheDocument()
     })
 
-    it("hides it for a role that cannot create projects", () => {
+    it("shows it to a COORDINADOR (S1: any role creates)", () => {
       useCurrentUserMock.mockReturnValue({ data: { id: "u-2", rol: "COORDINADOR" } })
       useEligibleOpportunitiesMock.mockReturnValue({ data: [{ id: BASE_OPORTUNIDAD.id }] })
       renderDialog(BASE_OPORTUNIDAD)
 
-      expect(screen.queryByRole("link", { name: "Convertir en proyecto" })).not.toBeInTheDocument()
+      expect(screen.getByRole("link", { name: "Convertir en proyecto" })).toBeInTheDocument()
     })
 
-    it("does not fetch the eligible list for a role that cannot create projects", () => {
+    it("fetches the eligible list for a COORDINADOR", () => {
       useCurrentUserMock.mockReturnValue({ data: { id: "u-2", rol: "COORDINADOR" } })
       renderDialog(BASE_OPORTUNIDAD)
 
-      expect(useEligibleOpportunitiesMock).toHaveBeenLastCalledWith({ enabled: false })
+      expect(useEligibleOpportunitiesMock).toHaveBeenLastCalledWith({ enabled: true })
     })
 
     it("links to the stepper page with this opportunity preselected", () => {
