@@ -23,7 +23,7 @@ import { apiError, parseJsonBody, RespuestaAbortada } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { parseDate } from "@/lib/api/crm";
-import { canManageProjects } from "@/lib/permissions";
+import { canEditProjectData } from "@/lib/permissions";
 import { diffFields, logChanges, type CambioInput } from "@/lib/api/audit-cambios";
 import { diferenciaValor, validarLineas } from "@/lib/proyectos/proyecto-general";
 import { MENSAJE_BENEFICIARIOS } from "@/lib/proyectos/linea-base";
@@ -38,6 +38,7 @@ import {
   diffLineas,
   diffMunicipios,
   loadProjectScoped,
+  projectReadActor,
   normalizeProjectDate,
   toProjectItemV2,
   type ProjectRowV2,
@@ -173,20 +174,21 @@ export const PATCH = withApiErrorHandling(
     if (!auth.ok) return auth.response;
     const { id } = await ctx.params;
 
-    const existente = await db.proyecto.findFirst({
-      where: { id, deleted_at: null },
+    // S5 (PO matrix 2026-10-19): general data belongs to the project's team.
+    // The scoped read resolves membership in the same query, so the 404 still
+    // runs before the permission decision.
+    const scoped = await loadProjectScoped(auth.usuario, id, {
+      ...PROJECT_SELECT_V2,
       // The opportunity's estimate is the reference of the S2.4 difference.
-      select: { ...PROJECT_SELECT_V2, oportunidad: { select: { valor_estimado_cop: true } } },
+      oportunidad: { select: { valor_estimado_cop: true } },
     });
-    if (!existente) {
+    if (!scoped) {
       return apiError("El proyecto no existe.", 404, "NOT_FOUND");
     }
-
-    // P06: editing general data is ADM/GER authority — a COORDINADOR needs no
-    // membership lookup to be denied here (REQ-ACC-01).
-    if (!canManageProjects(auth.usuario)) {
+    if (!canEditProjectData(projectReadActor(auth.usuario, scoped.es_miembro))) {
       return apiError("No tienes permisos sobre este proyecto.", 403, "FORBIDDEN");
     }
+    const existente = scoped.row;
 
     if (existente.estado !== "BORRADOR" && existente.estado !== "EN_EJECUCION") {
       return apiError(PROYECTO_GENERAL_STATE_MESSAGE, 409, "INVALID_STATE");

@@ -167,14 +167,21 @@ describe("GET budget", () => {
 });
 
 describe("PUT budget: gates", () => {
-  it("answers 404, then 403 for non-managers (even a member COORDINADOR), then 409 outside BORRADOR", async () => {
+  it("answers 404, then 403 for non-members, then 409 outside BORRADOR", async () => {
     vi.mocked(db.proyecto.findFirst).mockResolvedValueOnce(null);
     expect((await PUT(put(cuerpo()), ctx)).status).toBe(404);
 
     for (const usuario of [coordinador, colaborador]) {
       authAs(usuario);
-      vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto("BORRADOR", true));
+      vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto("BORRADOR", false));
       expect((await PUT(put(cuerpo()), ctx)).status, usuario.rol).toBe(403);
+    }
+
+    // S5: a member of either role writes the budget.
+    for (const usuario of [coordinador, colaborador]) {
+      authAs(usuario);
+      vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto("BORRADOR", true));
+      expect((await PUT(put(cuerpo()), ctx)).status, usuario.rol).not.toBe(403);
     }
 
     authAs(gerencia);

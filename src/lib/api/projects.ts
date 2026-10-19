@@ -230,7 +230,9 @@ export async function loadProjectScoped<S extends Prisma.ProyectoSelect>(
   const { miembros, ...row } = scoped;
   return {
     row: row as unknown as Prisma.ProyectoGetPayload<{ select: S }>,
-    es_miembro: miembros.length > 0,
+    // Tests and narrow fakes may omit the probe; a missing array means "not a
+    // member", never "member".
+    es_miembro: (miembros ?? []).length > 0,
   };
 }
 
