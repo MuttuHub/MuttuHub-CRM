@@ -130,7 +130,9 @@ const TECNICO = (objetivos: ProjectTechnicalObjective[]) => ({
 })
 
 type Setup = {
-  rol?: "ADMINISTRADOR" | "GERENCIA" | "COORDINADOR"
+  rol?: "ADMINISTRADOR" | "GERENCIA" | "COORDINADOR" | "COLABORADOR"
+  /** Si el usuario actual es integrante activo del proyecto. */
+  miembro?: boolean
   proyecto?: Partial<ProjectListRow>
   objetivos?: unknown[]
   actividades?: unknown[]
@@ -150,6 +152,7 @@ describe("ProjectEstructura", () => {
 
   function setup({
     rol = "ADMINISTRADOR",
+    miembro = false,
     proyecto = {},
     objetivos = [OBJ1, OBJ2],
     actividades = [ACT1, ACT2],
@@ -165,6 +168,23 @@ describe("ProjectEstructura", () => {
       const method = init?.method ?? "GET"
       if (url.endsWith("/api/v1/auth/me")) {
         return Promise.resolve(jsonResponse({ usuario: { id: "u1", nombre: "Ana", rol } }))
+      }
+      if (url.endsWith("/projects/p1/members")) {
+        return Promise.resolve(
+          jsonResponse({
+            miembros: miembro
+              ? [
+                  {
+                    id: "m1",
+                    usuario: { id: "u1", nombre: "Ana", rol },
+                    agregado_por_id: "u1",
+                    created_at: "2026-01-01T00:00:00.000Z",
+                    removed_at: null,
+                  },
+                ]
+              : [],
+          }),
+        )
       }
       if (url.endsWith("/api/v1/catalogs/users")) return Promise.resolve(jsonResponse({ users: USERS }))
       if (url.endsWith("/projects/p1/technical-status")) {
@@ -355,6 +375,22 @@ describe("ProjectEstructura", () => {
       const controles = await screen.findByTestId("estructura-plantilla")
       expect(within(controles).getByRole("button", { name: /descargar plantilla/i })).toBeInTheDocument()
       expect(within(controles).getByRole("button", { name: /importar plantilla/i })).toBeInTheDocument()
+    })
+
+    it("shows them to a COLABORADOR member of the project (S5)", async () => {
+      setup({ rol: "COLABORADOR", miembro: true })
+
+      await objetivo("OBJ-1")
+      const controles = await screen.findByTestId("estructura-plantilla")
+      expect(within(controles).getByRole("button", { name: /descargar plantilla/i })).toBeInTheDocument()
+      expect(within(controles).getByRole("button", { name: /importar plantilla/i })).toBeInTheDocument()
+    })
+
+    it("shows the Excel/manual entry points to a COLABORADOR member of an empty draft", async () => {
+      setup({ rol: "COLABORADOR", miembro: true, objetivos: [], actividades: [], entregables: [], indicadores: [] })
+
+      expect(await screen.findByRole("button", { name: "Cargar desde Excel" })).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: "Crear a mano" })).toBeInTheDocument()
     })
 
     it("hides them from a non-manager role", async () => {
