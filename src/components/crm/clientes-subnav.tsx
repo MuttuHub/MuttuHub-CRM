@@ -38,10 +38,11 @@ export function ClientesSubNav() {
   const pathname = usePathname();
 
   return (
-    <nav
-      aria-label="Secciones de clientes"
-      className="no-scrollbar overflow-x-auto border-b border-ink-200"
-    >
+    <div className="relative">
+      <nav
+        aria-label="Secciones de clientes"
+        className="no-scrollbar overflow-x-auto border-b border-ink-200"
+      >
       <ul className="flex w-max items-center gap-5">
         {CLIENTES_SECTIONS.map((section) => {
           const active = clientesSectionActive(pathname, section.href);
@@ -62,7 +63,13 @@ export function ClientesSubNav() {
             </li>
           );
         })}
-      </ul>
-    </nav>
+        </ul>
+      </nav>
+      {/* N1: el desborde se desplaza pero no lo parecía; el degradado lo insinúa en móvil. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-[var(--color-page)] to-transparent sm:hidden"
+      />
+    </div>
   );
 }

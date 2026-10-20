@@ -72,11 +72,11 @@ Sheet, Gantt, tabla de usuarios, Curva S, ruta vieja, IP/Agente, cronograma y to
 
 | ID | Tarea | Tamaño | Depende de | Terminado cuando |
 |---|---|---|---|---|
-| U1 | Categoría de documento duplicada por fila (C7) | S | — | Cada fila muestra la categoría una sola vez |
-| U2 | Leyenda del Gantt (C9) | S | — | Leyenda con texto y contraste AA, no solo color |
-| U3 | Entidad `dashboard` en la bitácora de auditoría (C12) | S | — | Sin warning en consola y la entidad traducida en la tabla |
+| U1 | Categoría de documento duplicada por fila (C7) | S | — | **Hecho**: seed corregido + etiquetas filtradas |
+| U2 | Leyenda del Gantt (C9) | S | — | **Hecho**: leyenda con texto |
+| U3 | Entidad `dashboard` en la bitácora de auditoría (C12) | S | — | **Hecho**: «Tablero», sin warning |
 | U4 | Quitar los estilos inline del login (C6) | M | — | Sin `style={{}}` en el login y humo de login verde |
-| U5 | Indicador de scroll en subnavegación y pestañas del sheet (N1, N2) | S | — | Degradado o flecha como el de la ficha |
+| U5 | Indicador de scroll en subnavegación (N1) | S | — | **Hecho**: degradado en móvil |
 
 ## 5. Frente E — Plataforma y calidad
 
