@@ -17,6 +17,8 @@ const SIN_ACCESO = "No tienes acceso a este proyecto";
 
 type Ids = { p001: string; p002: string };
 const ids: Partial<Ids> = {};
+/** Proyecto que el colaborador NO integra; se calcula en cada corrida (la base persiste). */
+let ajeno: { id: string; codigo: string } | null = null;
 
 /** Resolve the two demo project ids through the admin session (serial tests share this). */
 async function resolveIds(page: Page): Promise<Ids> {
@@ -39,6 +41,39 @@ async function openFicha(page: Page, id: string) {
 }
 
 test.describe.configure({ mode: "serial" });
+
+/** Un proyecto cuyo equipo no incluye al colaborador. Requiere sesión de administrador. */
+async function proyectoAjenoAlColaborador(page: Page): Promise<{ id: string; codigo: string } | null> {
+  const res = await page.request.get("/api/v1/projects");
+  const { proyectos } = (await res.json()) as {
+    proyectos: Array<{ id: string; codigo: string }>;
+  };
+  for (const proyecto of proyectos) {
+    const miembrosRes = await page.request.get(`/api/v1/projects/${proyecto.id}/members`);
+    const { miembros } = (await miembrosRes.json()) as {
+      miembros: Array<{ usuario: { nombre: string } }>;
+    };
+    if (!miembros.some((m) => m.usuario.nombre === NOMBRE_COLABORADOR)) {
+      return { id: proyecto.id, codigo: proyecto.codigo };
+    }
+  }
+  return null;
+}
+/** Añade al colaborador al equipo desde el panel (idempotente entre corridas). */
+async function agregarIntegrante(page: Page, projectId: string) {
+  await openFicha(page, projectId);
+  const quitar = page.getByRole("button", { name: `Quitar a ${NOMBRE_COLABORADOR}` });
+  const agregarCombo = page.getByRole("combobox", { name: "Agregar integrante" });
+  // El panel carga asíncrono: espera a un integrante conocido antes de decidir.
+  await expect(page.getByRole("button", { name: /^Quitar a / }).first()).toBeVisible({ timeout: 30_000 });
+  if ((await quitar.count()) === 0) {
+    await agregarCombo.click();
+    await page.getByRole("option", { name: NOMBRE_COLABORADOR }).first().click();
+    await page.getByRole("button", { name: "Agregar", exact: true }).click();
+  }
+  await expect(quitar).toBeVisible({ timeout: 30_000 });
+}
+
 
 test("gerencia: sees every project, may create, and approves baselines", async ({ page }) => {
   await login(page, "gerencia", "/proyectos");
@@ -81,43 +116,35 @@ test("coordinador: own projects only, may create, executes but never approves no
 });
 
 test("colaborador: the list never shows a foreign project, both tabs, may create, ficha denied", async ({ page }) => {
+  // La base local persiste entre corridas, así que el "ajeno" se calcula: un
+  // proyecto cuyo equipo no incluya al colaborador.
+  await login(page, "admin", "/proyectos");
+  const candidato = await proyectoAjenoAlColaborador(page);
+  test.skip(!candidato, "no hay un proyecto ajeno disponible en esta base");
+  ajeno = candidato;
+  await page.context().clearCookies();
   await login(page, "colaborador", "/proyectos");
-  const { p002 } = await resolveIds(page);
+
   // S4: the board is visible to both member roles, scoped to their projects.
   await expect(page.getByRole("tab", { name: "Portafolio" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Tablero" })).toBeVisible();
   // S1: creation is open to every role.
   await expect(page.getByRole("link", { name: "Nuevo proyecto" })).toBeVisible();
 
-  // S3: 002 never belongs to the colaborador in the seed, so it can never show
-  // up in their portfolio (empty before they join 001, absent after).
+  // S3: un proyecto sin pertenencia nunca aparece en su portafolio.
   const rows = (await portfolioRows(page).allInnerTexts()).join("\n");
-  expect(rows).not.toContain("PRY-2026-002");
+  expect(rows).not.toContain(ajeno!.codigo);
 
-  const api = await page.request.get(`/api/v1/projects/${p002}`);
+  const api = await page.request.get(`/api/v1/projects/${ajeno!.id}`);
   expect([403, 404]).toContain(api.status());
-  await page.goto(`/proyectos/${p002}`);
+  await page.goto(`/proyectos/${ajeno!.id}`);
   await expect(page.getByRole("heading", { name: SIN_ACCESO })).toBeVisible({ timeout: 60_000 });
 });
 
 test("admin adds the colaborador to 001 through the team panel", async ({ page }) => {
   await login(page, "admin", "/proyectos");
   const { p001 } = await resolveIds(page);
-  await openFicha(page, p001);
-
-  // The team panel loads asynchronously: wait for a known member first, then
-  // decide. The remove button is the member-only affordance that proves it.
-  const quitar = page.getByRole("button", { name: `Quitar a ${NOMBRE_COLABORADOR}` });
-  const agregarCombo = page.getByRole("combobox", { name: "Agregar integrante" });
-  await expect(page.getByRole("button", { name: /^Quitar a / }).first()).toBeVisible({ timeout: 30_000 });
-
-  if ((await quitar.count()) === 0) {
-    // Selecting only fills the select; "Agregar" creates the membership.
-    await agregarCombo.click();
-    await page.getByRole("option", { name: NOMBRE_COLABORADOR }).first().click();
-    await page.getByRole("button", { name: "Agregar", exact: true }).click();
-  }
-  await expect(quitar).toBeVisible({ timeout: 30_000 });
+  await agregarIntegrante(page, p001);
 });
 
 test("colaborador member: reads their project, executes, cannot validate nor approve", async ({ page }) => {
@@ -128,7 +155,7 @@ test("colaborador member: reads their project, executes, cannot validate nor app
   await expect(portfolioRows(page).first()).toBeVisible({ timeout: 60_000 });
   const rows = (await portfolioRows(page).allInnerTexts()).join("\n");
   expect(rows).toContain("PRY-2026-001");
-  expect(rows, "002 has no colaborador membership").not.toContain("PRY-2026-002");
+  expect(rows, "the foreign project stays out").not.toContain(ajeno!.codigo);
 
   await openFicha(page, p001);
   await expect(page.getByRole("button", { name: /Aprobar línea base/ })).toHaveCount(0);
@@ -148,10 +175,11 @@ test("colaborador member: reads their project, executes, cannot validate nor app
   });
   expect(propio.status()).toBe(200);
 
-  const ajeno = await page.request.patch(`/api/v1/projects/${p002}`, {
+  // El proyecto sin pertenencia se calcula: p002 puede ser suyo en otra corrida.
+  const rechazado = await page.request.patch(`/api/v1/projects/${ajeno!.id}`, {
     data: { descripcion: "no debería" },
   });
-  expect([403, 404]).toContain(ajeno.status());
+  expect([403, 404]).toContain(rechazado.status());
 });
 
 test("S8: every role reads every client, so the contact feeds are global", async ({ page }) => {
@@ -171,19 +199,42 @@ test("S8: every role reads every client, so the contact feeds are global", async
 });
 
 test("D1: a non-member ficha explains «No tienes acceso» within 5 s", async ({ page }) => {
-  // Resolve the ids with a manager session: the colaborador cannot list a
-  // project they do not belong to.
-  await login(page, "gerencia");
-  await resolveIds(page);
-  const p002 = ids.p002!;
+  // El proyecto ajeno se calcula con sesión de administrador: el colaborador no
+  // puede listar uno que no integra, y la base local persiste entre corridas.
+  await login(page, "admin", "/proyectos");
+  const ajenoProyecto = await proyectoAjenoAlColaborador(page);
+  test.skip(!ajenoProyecto, "no hay un proyecto ajeno disponible en esta base");
   await page.context().clearCookies();
   await login(page, "colaborador", "/proyectos");
 
   const t0 = Date.now();
-  await page.goto(`/proyectos/${p002}`);
+  await page.goto(`/proyectos/${ajenoProyecto!.id}`);
   await expect(page.getByRole("heading", { name: SIN_ACCESO })).toBeVisible({ timeout: 5_000 });
   test.info().annotations.push({
     type: "time-to-no-access-message",
     description: `${Date.now() - t0} ms`,
   });
+});
+
+test("colaborador member of a draft sees the structure controls (S5)", async ({ page }) => {
+  // El admin agrega al colaborador a 002 (Borrador); sin eso el panel no aparece.
+  await login(page, "admin", "/proyectos");
+  await resolveIds(page);
+  const p002 = ids.p002!;
+  await agregarIntegrante(page, p002);
+
+  await page.context().clearCookies();
+  await login(page, "colaborador", "/proyectos");
+  await openFicha(page, p002);
+  await page.getByRole("tab", { name: "Actividades", exact: true }).click();
+
+  // S5: el integrante ve la plantilla y las entradas del borrador.
+  await expect(page.getByRole("button", { name: /Importar plantilla/ })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("button", { name: /Descargar plantilla/ })).toBeVisible();
+
+  // En ejecución la estructura no se edita: la pestaña muestra el seguimiento y no la plantilla.
+  const p001 = ids.p001!;
+  await openFicha(page, p001);
+  await page.getByRole("tab", { name: "Actividades", exact: true }).click();
+  await expect(page.getByRole("button", { name: /Importar plantilla/ })).toHaveCount(0);
 });
