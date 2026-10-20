@@ -132,6 +132,21 @@ function GanttBody({
           </div>
         ))}
       </div>
+
+      {/* C9: el color no basta. La barra fuera de rango ya lleva icono y aria-label; esta leyenda lo explica. */}
+      <div
+        data-testid="gantt-leyenda"
+        className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11.5px] text-ink-600"
+      >
+        <span className="inline-flex items-center gap-1.5">
+          <span aria-hidden className="size-3 rounded-sm border border-rose-200 bg-rose-100" />
+          Dentro de la duración del proyecto
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span aria-hidden className="size-3 rounded-sm border border-destructivo/50 bg-destructivo-bg" />
+          Fuera de la duración del proyecto
+        </span>
+      </div>
     </div>
   );
 }

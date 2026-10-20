@@ -88,6 +88,15 @@ describe("EstructuraGantt", () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
+  it("explains what the bar colours mean (C9: never colour alone)", async () => {
+    setup()
+
+    await screen.findByText("OBJ-1")
+    const leyenda = screen.getByTestId("gantt-leyenda")
+    expect(leyenda).toHaveTextContent("Dentro de la duración del proyecto")
+    expect(leyenda).toHaveTextContent("Fuera de la duración del proyecto")
+  })
+
   it("renders one bar per activity from semana_inicio to semana_fin", async () => {
     setup()
 

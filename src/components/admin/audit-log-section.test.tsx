@@ -48,6 +48,24 @@ describe("AuditLogSection", () => {
     auditoriaQuery.fetchNextPage.mockReset();
   });
 
+  it("shows the Tablero label for a dashboard row and does not warn", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    const original = auditoriaQuery.data.pages[0].registros
+    auditoriaQuery.data.pages[0].registros = [
+      { ...original[0], id: "aud-dash", entidad: "dashboard", accion: "exportar" } as AuditoriaRow,
+    ]
+    try {
+      render(<AuditLogSection />)
+
+      expect(await screen.findByText("Tablero")).toBeInTheDocument()
+      expect(screen.getByText("Exportó")).toBeInTheDocument()
+      expect(warn).not.toHaveBeenCalled()
+    } finally {
+      auditoriaQuery.data.pages[0].registros = original
+      warn.mockRestore()
+    }
+  })
+
   // Code review finding: moreError is local state that survived a filter
   // change, leaving a stale "Cargar más" error banner under a freshly
   // switched (and successful) entidad table.

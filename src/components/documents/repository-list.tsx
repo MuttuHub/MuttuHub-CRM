@@ -73,6 +73,7 @@ import {
   RenameFolderDialog,
 } from "@/components/documents/folder-dialogs";
 import { SinConexionCard } from "@/components/shared/sin-conexion-card";
+import { etiquetasVisibles } from "@/lib/documents/etiquetas";
 
 // True when the Supabase env vars are missing (dev-only signal): the API
 // returns 500 "Plataforma no configurada" — show the technical card.
@@ -793,7 +794,7 @@ function DocumentRow({
             </div>
             <div className="mt-0.5 flex flex-wrap items-center gap-1">
               <ToneBadge tone="neutro" label={doc.categoria} />
-              {doc.etiquetas.slice(0, 3).map((tag) => (
+              {etiquetasVisibles(doc.etiquetas, doc.categoria).slice(0, 3).map((tag) => (
                 <span
                   key={tag}
                   className="inline-flex h-[20px] items-center rounded-full bg-ink-100 px-2 text-[10.5px] font-medium text-ink-600"
@@ -801,9 +802,9 @@ function DocumentRow({
                   {tag}
                 </span>
               ))}
-              {doc.etiquetas.length > 3 && (
+              {etiquetasVisibles(doc.etiquetas, doc.categoria).length > 3 && (
                 <span className="text-[10.5px] text-ink-500">
-                  +{doc.etiquetas.length - 3}
+                  +{etiquetasVisibles(doc.etiquetas, doc.categoria).length - 3}
                 </span>
               )}
             </div>

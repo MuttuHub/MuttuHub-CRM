@@ -26,7 +26,7 @@ import { db } from "@/lib/db";
 // oportunidades-comerciales (D9): "oportunidad"/"convertir" let the auditoria
 // reader filter conversions without parsing `cambios` — same precedent as the
 // close-phase-1 "exportar" widening above.
-export type AuditEntidad = "cliente" | "tarea" | "documento" | "oportunidad";
+export type AuditEntidad = "cliente" | "tarea" | "documento" | "oportunidad" | "dashboard";
 export type AuditAccion = "crear" | "editar" | "eliminar" | "exportar" | "convertir";
 
 export async function logAudit(params: {

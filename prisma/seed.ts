@@ -833,8 +833,8 @@ async function seedDocumentos(admin: SupabaseAdmin, usuarios: Record<string, { i
 
     await db.documento.upsert({
       where: { id: documentoId },
-      create: { id: documentoId, titulo, categoria, etiquetas: [categoria], autor_id: usuarios.administrador.id },
-      update: { titulo, categoria, etiquetas: [categoria] },
+      create: { id: documentoId, titulo, categoria, etiquetas: [], autor_id: usuarios.administrador.id },
+      update: { titulo, categoria, etiquetas: [] },
     });
 
     if (clienteId) {
