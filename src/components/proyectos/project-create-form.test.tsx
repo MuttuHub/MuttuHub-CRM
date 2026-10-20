@@ -117,7 +117,19 @@ async function elegirOportunidad(user: User, nombre: RegExp | string) {
 async function crearDesdeOportunidad(user: User) {
   await elegirCliente(user, "Alcaldía de Barranquilla")
   await elegirOportunidad(user, /Consultoría línea base/)
-  await user.click(screen.getByRole("checkbox", { name: "Municipio Barranquilla" }))
+  await elegirMunicipio(user)
+}
+
+/** El catálogo se elige en dos pasos: departamento y después municipio. */
+async function elegirMunicipio(
+  user: ReturnType<typeof userEvent.setup>,
+  nombre = "Barranquilla",
+  departamento = "Atlántico",
+) {
+  await user.click(screen.getByRole("combobox", { name: "Departamento" }))
+  await user.click(await screen.findByRole("option", { name: departamento }))
+  await user.click(screen.getByRole("combobox", { name: "Municipio" }))
+  await user.click(await screen.findByRole("option", { name: nombre }))
 }
 
 describe("ProjectCreateForm", () => {
@@ -175,7 +187,7 @@ describe("ProjectCreateForm", () => {
     await elegirCliente(user, "Cliente Uno")
     await user.type(screen.getByLabelText("Nombre"), "Libre")
     await user.type(screen.getByLabelText("Valor total"), "1000000")
-    await user.click(screen.getByRole("checkbox", { name: "Municipio Barranquilla" }))
+    await elegirMunicipio(user)
     await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
 
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith({ id: "p-ind", codigo: "PRY-2026-010", nombre: "Libre" }))
@@ -187,7 +199,7 @@ describe("ProjectCreateForm", () => {
     await elegirCliente(user, "Cliente Uno")
     await user.type(screen.getByLabelText("Nombre"), "Libre")
     await user.type(screen.getByLabelText("Valor total"), "1000000")
-    await user.click(screen.getByRole("checkbox", { name: "Municipio Barranquilla" }))
+    await elegirMunicipio(user)
     await user.type(screen.getByLabelText("Descripción (opcional)"), "  Alcance del convenio  ")
     await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
     await waitFor(() => expect(createProject.mutateAsync).toHaveBeenCalled())
@@ -200,23 +212,21 @@ describe("ProjectCreateForm", () => {
     await elegirCliente(user, "Cliente Uno")
     await user.type(screen.getByLabelText("Nombre"), "Libre")
     await user.type(screen.getByLabelText("Valor total"), "1000000")
-    await user.click(screen.getByRole("checkbox", { name: "Municipio Barranquilla" }))
+    await elegirMunicipio(user)
     await user.type(screen.getByLabelText("Descripción (opcional)"), "   ")
     await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
     await waitFor(() => expect(createProject.mutateAsync).toHaveBeenCalled())
     expect(createProject.mutateAsync.mock.calls[0][0]).not.toHaveProperty("descripcion")
   })
 
-  it("toggles the municipio and línea checkboxes from their visible names (clickable labels)", async () => {
+  it("selects a municipio by searching and removes it from its chip", async () => {
     const user = userEvent.setup()
     renderForm()
 
-    const municipio = screen.getByRole("checkbox", { name: "Municipio Barranquilla" })
-    expect(municipio).not.toBeChecked()
-    await user.click(screen.getByText("Barranquilla"))
-    expect(municipio).toBeChecked()
-    await user.click(screen.getByText("Barranquilla"))
-    expect(municipio).not.toBeChecked()
+    await elegirMunicipio(user)
+    expect(screen.getByRole("button", { name: "Quitar Barranquilla" })).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Quitar Barranquilla" }))
+    expect(screen.queryByRole("button", { name: "Quitar Barranquilla" })).not.toBeInTheDocument()
 
     const linea = screen.getByRole("checkbox", { name: "Incluir Salud" })
     expect(linea).not.toBeChecked()
@@ -354,7 +364,7 @@ describe("ProjectCreateForm", () => {
     await elegirCliente(user, "Alcaldía de Barranquilla")
     await user.type(screen.getByLabelText("Nombre"), "Proyecto propio")
     await user.type(screen.getByLabelText("Valor total"), "2500000")
-    await user.click(screen.getByRole("checkbox", { name: "Municipio Barranquilla" }))
+    await elegirMunicipio(user)
     await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
 
     await waitFor(() => expect(createProject.mutateAsync).toHaveBeenCalled())
@@ -384,7 +394,7 @@ describe("ProjectCreateForm", () => {
     renderForm()
     await elegirCliente(user, "Gobernación del Atlántico")
     await elegirOportunidad(user, /Oportunidad de otro cliente/)
-    await user.click(screen.getByRole("checkbox", { name: "Municipio Barranquilla" }))
+    await elegirMunicipio(user)
     await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
     expect(await screen.findByRole("alert")).toHaveTextContent("El valor total debe ser mayor que cero.")
     expect(createFromOpportunity.mutateAsync).not.toHaveBeenCalled()

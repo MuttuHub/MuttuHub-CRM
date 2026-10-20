@@ -5,8 +5,9 @@
 
 import { HelpHint } from "@/components/ui/help-hint";
 import { Checkbox } from "@/components/ui/checkbox";
+import { MunicipioPicker } from "@/components/proyectos/municipio-picker";
 
-export type OpcionCatalogo = { id: string; nombre: string };
+export type OpcionCatalogo = { id: string; nombre: string; departamento?: string | null };
 
 export function CampoLineas({
   lineas,
@@ -100,13 +101,11 @@ export function CampoMunicipios({
           Municipios <span className="text-rose-500 dark:text-rose-400">*</span>
         </span>
         <HelpHint label="Municipios">
-          Marca los municipios donde se ejecuta el proyecto. Debes elegir al menos uno.
+          Busca por municipio o departamento y marca donde se ejecuta el proyecto. Debes elegir al menos uno.
         </HelpHint>
       </legend>
       {municipios.length === 0 ? (
-        // Production shipped with an empty catalog: the fieldset rendered no
-        // options and creation was impossible with no explanation. Name the
-        // cause and where to fix it instead of leaving a dead control.
+        // Una instalación sin catálogo no debe dejar un control muerto: se explica la causa.
         <p
           role="alert"
           className="rounded-12 border border-alerta-border bg-alerta-bg px-3 py-2 text-[13px] text-alerta"
@@ -115,19 +114,13 @@ export function CampoMunicipios({
           antes de que se pueda crear un proyecto.
         </p>
       ) : (
-        <div className="grid gap-2 sm:grid-cols-3">
-          {municipios.map((municipio) => (
-            <label key={municipio.id} className="flex cursor-pointer items-center gap-2">
-              <Checkbox
-                checked={municipioIds.includes(municipio.id)}
-                onCheckedChange={(checked) => onToggle(municipio.id, checked === true)}
-                aria-labelledby=""
-                aria-label={`Municipio ${municipio.nombre}`}
-              />
-              <span className="truncate text-[13px] text-ink-800">{municipio.nombre}</span>
-            </label>
-          ))}
-        </div>
+        <MunicipioPicker
+          municipios={municipios}
+          seleccionados={municipioIds}
+          onToggle={onToggle}
+          invalid={invalid}
+          describedBy={describedBy}
+        />
       )}
     </fieldset>
   );

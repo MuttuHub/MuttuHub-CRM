@@ -17,6 +17,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ESTADO_PROYECTO_META } from "@/components/proyectos/project-display";
+import { MunicipioPicker } from "@/components/proyectos/municipio-picker";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useClientOptions } from "@/hooks/kanban";
 import { useMunicipalities, useStrategicLines, type ProjectFilters } from "@/hooks/projects";
 import { useUsers } from "@/hooks/crm";
@@ -83,6 +85,70 @@ function FiltroSelect({
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+
+/**
+ * Filtro de municipio con búsqueda. El catálogo de Colombia tiene 1122 filas, así que un Select con una
+ * opción por municipio abre una lista inmanejable; este popover reutiliza el buscador del asistente.
+ */
+function FiltroMunicipio({
+  municipios,
+  value,
+  onChange,
+  className,
+}: {
+  municipios: readonly { id: string; nombre: string; departamento?: string | null }[];
+  value: string;
+  onChange: (value: string) => void;
+  className?: string;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const actual = municipios.find((municipio) => municipio.id === value)?.nombre;
+
+  return (
+    <Popover open={abierto} onOpenChange={setAbierto}>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            aria-label="Filtrar por municipio"
+            className={cn("w-full justify-start px-3 text-base md:text-[13px] sm:w-auto", className)}
+          >
+            {actual ?? "Todos los municipios"}
+          </Button>
+        }
+      />
+      <PopoverContent className="w-72 p-3">
+        <MunicipioPicker
+          municipios={municipios}
+          seleccionados={value ? [value] : []}
+          multiple={false}
+          onToggle={(id, incluido) => {
+            onChange(incluido ? id : "");
+            setAbierto(false);
+          }}
+        />
+        {value !== "" && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="mt-2"
+            onClick={() => {
+              onChange("");
+              setAbierto(false);
+            }}
+          >
+            <X className="size-3.5" strokeWidth={2} />
+            Quitar filtro de municipio
+          </Button>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -156,11 +222,9 @@ export function PortafolioFiltros({
           onChange={cambiar("linea_id")}
           className="sm:w-[190px]"
         />
-        <FiltroSelect
-          nombre="municipio"
-          placeholder="Todos los municipios"
+        <FiltroMunicipio
+          municipios={municipios.data ?? []}
           value={filtros.municipio_id ?? ""}
-          options={(municipios.data ?? []).map((municipio) => ({ value: municipio.id, label: municipio.nombre }))}
           onChange={cambiar("municipio_id")}
           className="sm:w-[190px]"
         />

@@ -68,7 +68,12 @@ describe("EditarDatosGenerales", () => {
       }
       if (url.includes("/municipalities")) {
         return Promise.resolve(
-          jsonResponse({ municipios: [{ id: "m1", nombre: "Barranquilla" }, { id: "m2", nombre: "Soledad" }] }),
+          jsonResponse({
+            municipios: [
+              { id: "m1", nombre: "Barranquilla", departamento: "Atlántico" },
+              { id: "m2", nombre: "Soledad", departamento: "Atlántico" },
+            ],
+          }),
         )
       }
       return Promise.resolve(jsonResponse({}))
@@ -114,7 +119,7 @@ describe("EditarDatosGenerales", () => {
       expect(await within(dialog).findByRole("combobox", { name: "Responsable" })).toBeInTheDocument()
       expect(await within(dialog).findByRole("checkbox", { name: "Incluir Innovación" })).not.toBeChecked()
       expect(within(dialog).getByRole("checkbox", { name: "Principal Empleabilidad" })).toBeChecked()
-      expect(within(dialog).getByRole("checkbox", { name: "Municipio Barranquilla" })).toBeChecked()
+      expect(within(dialog).getByRole("button", { name: "Quitar Barranquilla" })).toBeInTheDocument()
       expect(within(dialog).queryByTestId("editar-solo-lectura")).not.toBeInTheDocument()
     })
 
@@ -127,7 +132,10 @@ describe("EditarDatosGenerales", () => {
       const nombre = within(dialog).getByLabelText("Nombre")
       await user.clear(nombre)
       await user.type(nombre, "Fortalecimiento v2")
-      await user.click(await within(dialog).findByRole("checkbox", { name: "Municipio Soledad" }))
+      await user.click(within(dialog).getByRole("combobox", { name: "Departamento" }))
+      await user.click(await screen.findByRole("option", { name: "Atlántico" }))
+      await user.click(within(dialog).getByRole("combobox", { name: "Municipio" }))
+      await user.click(await screen.findByRole("option", { name: "Soledad" }))
       await user.click(within(dialog).getByRole("button", { name: "Guardar cambios" }))
 
       await waitFor(() => expect(patches()).toHaveLength(1))
@@ -195,7 +203,8 @@ describe("EditarDatosGenerales", () => {
       expect(await within(dialog).findByRole("alert")).toHaveTextContent("Marca una línea estratégica como principal.")
 
       await user.click(within(dialog).getByRole("checkbox", { name: "Principal Empleabilidad" }))
-      await user.click(within(dialog).getByRole("checkbox", { name: "Municipio Barranquilla" }))
+      // El proyecto ya tiene Barranquilla: se quita con su chip para dejar la selección vacía.
+      await user.click(within(dialog).getByRole("button", { name: "Quitar Barranquilla" }))
       await user.click(within(dialog).getByRole("button", { name: "Guardar cambios" }))
       expect(await within(dialog).findByRole("alert")).toHaveTextContent("Selecciona al menos un municipio.")
       expect(patches()).toHaveLength(0)

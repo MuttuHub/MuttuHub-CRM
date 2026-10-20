@@ -63,11 +63,15 @@ function datosDelProyecto(proyecto: ProjectListRow): DatosGenerales {
 
 /** El catálogo trae solo lo activo: lo que el proyecto ya tiene sigue visible aunque se haya suspendido. */
 function conLoDelProyecto<T extends { id: string; nombre: string }>(
-  catalogo: T[],
-  delProyecto: { id: string; nombre: string }[],
-): { id: string; nombre: string }[] {
-  const extra = delProyecto.filter((item) => !catalogo.some((opcion) => opcion.id === item.id));
-  return [...catalogo, ...extra].map((item) => ({ id: item.id, nombre: item.nombre }));
+  catalogo: readonly T[],
+  delProyecto: readonly { id: string; nombre: string }[],
+): T[] {
+  // Conserva el objeto del catálogo (el municipio trae `departamento` para el selector en dos pasos).
+  // Una fila del proyecto que ya no esté en el catálogo se agrega con lo mínimo disponible.
+  const extra = delProyecto
+    .filter((item) => !catalogo.some((opcion) => opcion.id === item.id))
+    .map((item) => ({ id: item.id, nombre: item.nombre }) as T);
+  return [...catalogo, ...extra];
 }
 
 export function EditarDatosGenerales({

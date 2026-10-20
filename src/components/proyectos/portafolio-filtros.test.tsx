@@ -44,6 +44,15 @@ function Harness({ inicial, onChange }: { inicial?: ProjectFilters; onChange?: (
 }
 
 async function elegir(user: ReturnType<typeof userEvent.setup>, etiqueta: string, opcion: string) {
+  if (etiqueta === "Filtrar por municipio") {
+    // El municipio se elige en dos pasos dentro de un popover: departamento y municipio.
+    await user.click(screen.getByRole("button", { name: etiqueta }))
+    await user.click(screen.getByRole("combobox", { name: "Departamento" }))
+    await user.click(await screen.findByRole("option", { name: "Atlántico" }))
+    await user.click(screen.getByRole("combobox", { name: "Municipio" }))
+    await user.click(await screen.findByRole("option", { name: opcion }))
+    return
+  }
   await user.click(screen.getByRole("combobox", { name: etiqueta }))
   await user.click(await screen.findByRole("option", { name: opcion }))
 }
@@ -57,11 +66,12 @@ describe("PortafolioFiltros", () => {
       "Filtrar por estado",
       "Filtrar por cliente",
       "Filtrar por línea estratégica",
-      "Filtrar por municipio",
       "Filtrar por responsable",
     ]) {
       expect(screen.getByRole("combobox", { name: nombre })).toBeInTheDocument()
     }
+    // El municipio es un botón que abre el buscador (catálogo de 1122 filas).
+    expect(screen.getByRole("button", { name: "Filtrar por municipio" })).toBeInTheDocument()
 
     await user.click(screen.getByRole("combobox", { name: "Filtrar por estado" }))
     expect(await screen.findByRole("option", { name: "En ejecución" })).toBeInTheDocument()
@@ -76,7 +86,11 @@ describe("PortafolioFiltros", () => {
     expect(await screen.findByRole("option", { name: "Educación" })).toBeInTheDocument()
     await user.keyboard("{Escape}")
 
-    await user.click(screen.getByRole("combobox", { name: "Filtrar por municipio" }))
+    await user.click(screen.getByRole("button", { name: "Filtrar por municipio" }))
+    await user.click(screen.getByRole("combobox", { name: "Departamento" }))
+    expect(await screen.findByRole("option", { name: "Atlántico" })).toBeInTheDocument()
+    await user.click(screen.getByRole("option", { name: "Atlántico" }))
+    await user.click(screen.getByRole("combobox", { name: "Municipio" }))
     expect(await screen.findByRole("option", { name: "Barranquilla" })).toBeInTheDocument()
     await user.keyboard("{Escape}")
 
