@@ -18,17 +18,18 @@ import { ImportDialog } from "@/components/proyectos/import-dialog";
 import { EstructuraObjetivos } from "@/components/proyectos/estructura-objetivos";
 import { useCurrentUser } from "@/hooks/kanban";
 import { useProjectObjectives, type ProjectListRow } from "@/hooks/projects";
-import { canManageProjects } from "@/lib/permissions";
+import { useEjecucionPermisos } from "@/components/proyectos/project-ejecucion";
 import { SectionHeader } from "@/components/proyectos/ui";
 
 const SIN_FECHAS = "Define las fechas del proyecto para poder descargar la plantilla.";
 
 export function ProjectEstructura({ proyecto }: { proyecto: ProjectListRow }) {
-  const userQuery = useCurrentUser();
-  const usuario = userQuery.data;
-  const puedeGestionar = usuario ? canManageProjects({ id: usuario.id, rol: usuario.rol }) : false;
+  // S5: el equipo carga la estructura; la pertenencia la resuelve el hook.
+  const { canWrite } = useEjecucionPermisos(proyecto.id);
+  // El estado vacío se decide cuando ya se sabe quién es el usuario, pero las acciones dependen de `canWrite`.
+  const usuario = useCurrentUser().data;
   const esBorrador = proyecto.estado === "BORRADOR";
-  const canEdit = puedeGestionar && esBorrador;
+  const canEdit = canWrite && esBorrador;
 
   // Misma query que la lista de objetivos (clave compartida): no añade una lectura.
   const objetivos = useProjectObjectives(proyecto.id);
@@ -52,7 +53,7 @@ export function ProjectEstructura({ proyecto }: { proyecto: ProjectListRow }) {
         )}
       </div>
 
-      {puedeGestionar && !esBorrador && (
+      {canWrite && !esBorrador && (
         <p className="mt-1.5 text-[12.5px] text-ink-500">
           La estructura solo se edita mientras el proyecto está en borrador.
         </p>
