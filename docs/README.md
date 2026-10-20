@@ -65,7 +65,8 @@ casillas de cada tarea, no aquí.
 | [`../odd/tasks/documentacion-vigente-y-portabilidad.md`](../odd/tasks/documentacion-vigente-y-portabilidad.md) | Esta actualización documental |
 | [`../odd/tasks/e2e-proyectos-v2.md`](../odd/tasks/e2e-proyectos-v2.md) | Suite e2e de Proyectos |
 | [`../odd/tasks/subir-documentos-proyecto.md`](../odd/tasks/subir-documentos-proyecto.md) | DOC1 |
-| [`../odd/tasks/ux-audit-report-2026-09-23.md`](../odd/tasks/ux-audit-report-2026-09-23.md) | Auditoría UX/UI C1–C12 |
+| [`../odd/tasks/ux-audit-2026-10-19.md`](../odd/tasks/ux-audit-2026-10-19.md) | **Vigente**: re-auditoría UX con estado por hallazgo |
+| [`../odd/tasks/ux-audit-report-2026-09-23.md`](../odd/tasks/ux-audit-report-2026-09-23.md) | Auditoría UX/UI original (histórico) |
 
 ## Artefactos que no son documentación
 
