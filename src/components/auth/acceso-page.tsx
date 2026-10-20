@@ -306,19 +306,6 @@ export function AccesoPage({
       error: errorCampo,
       malo,
       puedeVer: k === "password",
-      inputStyle: {
-        width: "100%",
-        height: 46,
-        padding: `0 ${k === "password" ? 86 : 14}px 0 14px`,
-        fontFamily: "inherit",
-        fontSize: 14,
-        color: "var(--color-ink-900)",
-        background: malo ? "var(--color-destructivo-bg)" : "var(--color-card)",
-        border: `1px solid ${malo ? "var(--color-destructivo)" : "var(--color-ink-300)"}`,
-        borderRadius: 13,
-        // focus-visible ring via the shared .login-focus rule (globals.css).
-        outline: "none",
-      } as React.CSSProperties,
     };
   });
 
@@ -561,8 +548,9 @@ export function AccesoPage({
                         onChange={campo(f.k)}
                         autoComplete={f.autoComplete}
                         placeholder={f.placeholder}
-                        className="login-focus"
-                        style={f.inputStyle}
+                        className="login-focus login-input"
+                        data-malo={f.malo || undefined}
+                        data-password={f.puedeVer || undefined}
                       />
                       {f.puedeVer && (
                         <button
