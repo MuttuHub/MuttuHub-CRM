@@ -53,27 +53,33 @@ Del análisis de brechas v6 → v7. Son pantallas o backends que el prototipo mu
 
 ---
 
-## 4. Auditoría UX/UI del 2026-09-23 (C1–C12)
+## 4. Auditoría UX/UI
 
-Estado **sin verificar** desde entonces: el rediseño de la ficha pudo resolver algunos, pero nadie lo confirmó. No se
-marcan como hechos.
+**Re-auditada el 2026-10-19** contra el build de producción y 390 px: **10 de los 16 hallazgos ya no se reproducen**.
+Quedan cuatro vigentes, todos pequeños, y dos observaciones nuevas. Detalle y evidencia en
+`odd/tasks/ux-audit-2026-10-19.md`; el trabajo está en el plan como U1–U5.
 
-| # | Hallazgo | Severidad | Pantalla |
-|---|---|---|---|
-| C1 | Header de página truncado en mobile | Crítica | Proyectos, Documentos |
-| C2 | Vista «Tarjetas» de clientes no responsive | Crítica | Clientes |
-| C3 | Client Sheet no es full-screen en mobile | Crítica | Clientes |
-| C4 | Gantt casi inutilizable en mobile | Crítica | Proyectos |
-| C5 | Rol truncado ambiguo («Co») | Crítica | Administración |
-| C6 | Hydration mismatch en login | Importante | Login |
-| C7 | Labels de auditoría sin mapear en consola | Importante | Administración |
-| C8 | Categoría de documento duplicada por fila | Importante | Documentos |
-| C9 | Etiquetas del eje Y superpuestas en Curva S | Importante | Dashboard, Proyectos |
-| C10 | Gantt sin leyenda de colores (WCAG) | Importante | Proyectos |
-| C11 | Touch targets de indicadores < 44 px | Importante | Proyectos |
-| C12 | Columnas IP/Agente ausentes en mobile | Importante | Administración |
+| # | Hallazgo | Estado |
+|---|---|---|
+| C1 | Tarjetas de clientes no responsive | Resuelto |
+| C2 | Client Sheet no full-screen en mobile | Resuelto |
+| C3 | Gantt inutilizable en mobile | Resuelto |
+| C4 | Header de página truncado en mobile | Resuelto |
+| C5 | Rol truncado a «Co» | Resuelto |
+| C6 | Hydration mismatch en el login | **Vigente** (56 estilos inline) |
+| C7 | Categoría de documento duplicada | **Vigente** |
+| C8 | Etiquetas del eje Y de la Curva S | Resuelto (gráfico reescrito) |
+| C9 | Gantt sin leyenda de colores | **Vigente** |
+| C10 | Botones de indicador < 44 px | Resuelto (área de clic ~56 px) |
+| C11 | Redundancia `/` vs `/tablero-gerencial` | Resuelto (ruta 404) |
+| C12 | Label `dashboard` sin mapear en auditoría | **Vigente** |
+| C13 | Columnas IP/Agente en mobile | Resuelto |
+| C14 | Cronograma solo por color | Resuelto (chip de texto) |
+| C15 | Cliente truncado sin tooltip | Resuelto (`title`) |
+| C16 | Badge «N» del dev server | No aplica (entorno) |
 
----
+Nuevos y menores: N1 subnavegación de Clientes sin indicador de scroll; N2 pestañas del Client Sheet con el mismo
+patrón.
 
 ## 5. Calidad e infraestructura
 

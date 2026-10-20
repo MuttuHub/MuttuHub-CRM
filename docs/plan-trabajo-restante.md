@@ -3,8 +3,9 @@
 Estado de partida: **2026-10-19**, `main` en `add9df0`, v2 del módulo de Proyectos en producción con la matriz de
 permisos vigente, 4136 pruebas unitarias y 29 e2e en verde.
 
-IDs: **A** operación, **B** producto, **V** v7 CRM, **U** auditoría UX (sus hallazgos conservan `C1–C12`), **E** plataforma. **Estado de ejecución (2026-10-19):** A1 (etiqueta `v2.0.0`), A5 (credenciales) y B1/D1 (mensaje de acceso) están
-**hechos**; U0 es el siguiente paso. Detalle en `odd/tasks/fase-0-ejecucion.md`.
+IDs: **A** operación, **B** producto, **V** v7 CRM, **U** auditoría UX (sus hallazgos conservan `C1–C12`), **E** plataforma. **Estado de ejecución (2026-10-19):** A1 (etiqueta `v2.0.0`), A5 (credenciales), B1/D1 (mensaje de acceso) y **U0
+(re-auditoría UX)** están **hechos**. La re-auditoría encontró 10 de 16 hallazgos ya resueltos y dejó cuatro vigentes,
+todos pequeños: `odd/tasks/ux-audit-2026-10-19.md`. Detalle de la fase en `odd/tasks/fase-0-ejecucion.md`.
 
 Este plan ordena lo que queda en cinco frentes. Cada tarea trae tamaño (**S** ≤ 1 día, **M** 2–4 días, **L** 1–2
 semanas), de qué depende y cómo se sabe que está terminada. Las decisiones que bloquean trabajo están en la sección 5.
@@ -63,19 +64,19 @@ riesgo de reconstruir lo que ya está.
 
 ---
 
-## 4. Frente D — Auditoría UX/UI (C1–C12)
+## 4. Frente U — Auditoría UX/UI (re-auditada el 2026-10-19)
 
-Los 12 hallazgos son del 2026-09-23 y **nadie verificó** cuáles siguen vivos tras el rediseño de la ficha.
+Resultado de **U0**: 10 de los 16 hallazgos de 2026-09-23 ya no se reproducen (header, tarjetas de clientes, Client
+Sheet, Gantt, tabla de usuarios, Curva S, ruta vieja, IP/Agente, cronograma y tooltip de cliente). Evidencia en
+`odd/tasks/ux-audit-2026-10-19.md`.
 
 | ID | Tarea | Tamaño | Depende de | Terminado cuando |
 |---|---|---|---|---|
-| U0 | **Re-auditoría** de los 12 hallazgos con el código actual (2–3 h) | S | — | Cada hallazgo marcado «vigente» o «resuelto», con captura o línea de código |
-| U1 | Mobile crítico: header (C1), tarjetas de clientes (C2), Client Sheet (C3), Gantt (C4), columnas de admin (C12) | M | U0 | Ninguna de esas pantallas se sale ni se corta a 390 px |
-| U2 | Accesibilidad y consistencia: leyenda del Gantt (C10), touch targets (C11), eje Y de la Curva S (C9) | S–M | U0 | Contraste/leyenda verificados y objetivos táctiles ≥ 44 px |
-| U3 | Bugs de código: hydration del login (C6), labels de auditoría (C7), categoría duplicada (C8) | S | U0 | Consola sin errores de hydration ni labels sin mapear |
-| U4 | Rol truncado en Administración (C5) | S | U0 | El rol se lee completo o con tooltip accesible |
-
----
+| U1 | Categoría de documento duplicada por fila (C7) | S | — | Cada fila muestra la categoría una sola vez |
+| U2 | Leyenda del Gantt (C9) | S | — | Leyenda con texto y contraste AA, no solo color |
+| U3 | Entidad `dashboard` en la bitácora de auditoría (C12) | S | — | Sin warning en consola y la entidad traducida en la tabla |
+| U4 | Quitar los estilos inline del login (C6) | M | — | Sin `style={{}}` en el login y humo de login verde |
+| U5 | Indicador de scroll en subnavegación y pestañas del sheet (N1, N2) | S | — | Degradado o flecha como el de la ficha |
 
 ## 5. Frente E — Plataforma y calidad
 
@@ -94,8 +95,8 @@ Los 12 hallazgos son del 2026-09-23 y **nadie verificó** cuáles siguen vivos t
 
 | Fase | Contenido | Por qué |
 |---|---|---|
-| **Fase 0** (esta semana) | A1, A3, A5, B1, V0, U0 | Cierra el lanzamiento y evita construir sobre supuestos |
-| **Fase 1** (siguiente) | A2, A4, U1, U3, E3 | Riesgo operativo y mobile, que es donde más se usa |
+| **Fase 0** (hecha) | A1, A5, B1, U0 | Etiqueta, credenciales, D1 y re-auditoría UX |
+| **Fase 1** (siguiente) | A2, A4, U1–U3, E3 | Riesgo operativo y los cuatro hallazgos vigentes, que son pequeños |
 | **Fase 2** | B2 → B3 → B4 → B5 | Es el flujo que pidió la PO y se puede entregar por partes |
 | **Fase 3** | B6, B7, B8 y V1–V3 según decisiones | Cada uno con su documento de feature y su migración |
 | **Fase 4** | V4–V9, D2, D4, E1, E2, E4 | Mejora continua y plataforma |

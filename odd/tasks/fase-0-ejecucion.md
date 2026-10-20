@@ -14,11 +14,12 @@ Plan de referencia: `docs/plan-trabajo-restante.md` (fases y criterios de acepta
 | **A1** Etiqueta `v2.0.0` | Tag anotado sobre `8f0377a`, empujado |
 | **A5** Limpieza de credenciales | `~/.muttu-prod-url` borrado |
 | **B1 / D1** Mensaje de «sin acceso» | PR #77 (`8f0377a`): política global `shouldRetryQuery` (4xx no se reintenta); e2e en 2.7 s |
+| **U0** Re-auditoría UX | `odd/tasks/ux-audit-2026-10-19.md`: 10 de 16 resueltos; quedan C6, C7, C9 y C12 (U1–U4) |
 
 ## Lo siguiente (en orden)
 
-1. **U0 — Re-auditoría UX** de los 12 hallazgos (`C1–C12`) del 2026-09-23 contra el código actual y el navegador a
-   390 px. Salida: `odd/tasks/ux-audit-2026-10-19.md` con «vigente / resuelto» y evidencia por hallazgo.
+1. **U1–U3** (una tarde): categoría duplicada, leyenda del Gantt y entidad `dashboard` en la bitácora. Luego U4
+   (estilos inline del login) y U5 (indicador de scroll).
 2. **A3 — Humo en producción** con un Coordinador y un Colaborador reales (runbook §4).
 3. **A2 — Resend**: verificar `muttu.co` y ajustar `EMAIL_FROM` cuando haya acceso al DNS.
 4. **A4 — Respaldos automáticos** y una restauración de prueba.
