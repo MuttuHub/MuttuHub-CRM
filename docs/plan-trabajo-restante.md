@@ -75,7 +75,7 @@ Sheet, Gantt, tabla de usuarios, Curva S, ruta vieja, IP/Agente, cronograma y to
 | U1 | Categoría de documento duplicada por fila (C7) | S | — | **Hecho**: seed corregido + etiquetas filtradas |
 | U2 | Leyenda del Gantt (C9) | S | — | **Hecho**: leyenda con texto |
 | U3 | Entidad `dashboard` en la bitácora de auditoría (C12) | S | — | **Hecho**: «Tablero», sin warning |
-| U4 | Quitar los estilos inline del login (C6) | M | — | Sin `style={{}}` en el login y humo de login verde |
+| U4 | Quitar los estilos inline del login (C6) | M | — | **Hecho**: inputs con clases; sin warning de hidratación |
 | U5 | Indicador de scroll en subnavegación (N1) | S | — | **Hecho**: degradado en móvil |
 
 ## 5. Frente E — Plataforma y calidad

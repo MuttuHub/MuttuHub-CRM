@@ -379,6 +379,29 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-rose-500) 50%, transparent);
 }
 
+/* Campos del login como clases, no como objetos `style` (hallazgo C6): el
+   navegador normaliza el atributo del HTML del servidor y React volvía a
+   serializar el objeto en el cliente, lo que producía hydration mismatch. */
+.login-input {
+  width: 100%;
+  height: 46px;
+  padding: 0 14px;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--color-ink-900);
+  background: var(--color-card);
+  border: 1px solid var(--color-ink-300);
+  border-radius: 13px;
+  outline: none;
+}
+.login-input[data-malo="true"] {
+  background: var(--color-destructivo-bg);
+  border-color: var(--color-destructivo);
+}
+.login-input[data-password="true"] {
+  padding-right: 86px;
+}
+
 /* Login password-toggle: enlarges the clickable area (44px hit target)
    without changing the visible 32px button. It sits absolutely inside the
    password field, so the ::after anchors to it directly. */
