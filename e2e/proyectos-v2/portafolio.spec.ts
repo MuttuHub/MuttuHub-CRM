@@ -36,7 +36,14 @@ test("filters by cliente, línea, municipio and responsable; Limpiar filtros res
     ["Filtrar por responsable", "Laura Jiménez", "Laura Jiménez"],
   ];
   for (const [combo, option, expectedText] of cases) {
-    await pickOption(page, combo, option);
+    if (combo === "Filtrar por municipio") {
+      // El municipio vive en un popover y se elige en dos pasos.
+      await page.getByRole("button", { name: combo }).click();
+      await pickOption(page, "Departamento", "Antioquia");
+      await pickOption(page, "Municipio", option);
+    } else {
+      await pickOption(page, combo, option);
+    }
     await expect(page.getByRole("button", { name: "Limpiar filtros" })).toBeVisible();
     await expect
       .poll(async () => {

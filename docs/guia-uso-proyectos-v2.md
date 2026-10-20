@@ -110,6 +110,9 @@ píldoras de arriba.
    - **Proyecto independiente**: se elige el cliente a mano.
 2. Completa **Nombre**, **Responsable**, **Valor total**, **Fecha de inicio**, **Fecha de fin**, **Meta de
    beneficiarios**, **Líneas estratégicas** y **Municipios**.
+   **Municipios** se elige en dos pasos: primero el **departamento** y después el **municipio** dentro de ese
+   departamento. Puedes marcar varios; cada uno queda como una ficha que se puede quitar. Están cargados **los 1122
+   municipios de Colombia**; si alguno no aparece, un administrador puede agregarlo en **Administración → Catálogos**.
 3. Pulsa **Crear proyecto y continuar**.
 
 Al guardar, el proyecto nace en **Borrador** con un código automático **PRY-AAAA-NNN** (por ejemplo `PRY-2026-001`). El

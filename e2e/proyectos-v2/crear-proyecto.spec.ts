@@ -35,7 +35,9 @@ test("validations: valor total, date range; then create lands on the new draft",
   await pickOption(page, "Cliente", "Universidad Central del Valle");
   const nombre = `E2E borrador ${Date.now()}`;
   await page.getByRole("textbox", { name: "Nombre" }).fill(nombre);
-  await page.getByRole("checkbox", { name: "Municipio Medellín" }).check();
+  // El catálogo se elige en dos pasos: departamento y después municipio.
+  await pickOption(page, "Departamento", "Antioquia");
+  await pickOption(page, "Municipio", "Medellín");
   const submit = page.getByRole("button", { name: "Crear proyecto y continuar" });
   const valor = page.getByRole("textbox", { name: "Valor total" });
   const inicio = page.getByRole("textbox", { name: "Fecha de inicio" });

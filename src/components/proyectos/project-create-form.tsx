@@ -1,4 +1,4 @@
-// Create-project form body (S2.4, unit 2), shared by the dialog (`project-create-dialog.tsx`) and the
+// Create-project form body (S2.4, unit 2), used by the creation stepper page and the
 // stepper page (`/proyectos/nuevo`). The first question is the CLIENT (M1): once chosen, a read-only card
 // shows what we know about it and an optional select lists only that client's won opportunities without a
 // project. The origin (REQ-ORG-01) is derived, never asked: an opportunity chosen => it is created through

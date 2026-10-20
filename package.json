@@ -24,7 +24,8 @@
     "docs:backfill": "tsx scripts/backfill-document-text.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "db:municipios:import": "tsx scripts/import-municipios.ts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^9.1.0",
