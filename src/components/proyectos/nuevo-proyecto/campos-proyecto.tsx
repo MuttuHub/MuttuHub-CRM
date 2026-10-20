@@ -103,19 +103,32 @@ export function CampoMunicipios({
           Marca los municipios donde se ejecuta el proyecto. Debes elegir al menos uno.
         </HelpHint>
       </legend>
-      <div className="grid gap-2 sm:grid-cols-3">
-        {municipios.map((municipio) => (
-          <label key={municipio.id} className="flex cursor-pointer items-center gap-2">
-            <Checkbox
-              checked={municipioIds.includes(municipio.id)}
-              onCheckedChange={(checked) => onToggle(municipio.id, checked === true)}
-              aria-labelledby=""
-              aria-label={`Municipio ${municipio.nombre}`}
-            />
-            <span className="truncate text-[13px] text-ink-800">{municipio.nombre}</span>
-          </label>
-        ))}
-      </div>
+      {municipios.length === 0 ? (
+        // Production shipped with an empty catalog: the fieldset rendered no
+        // options and creation was impossible with no explanation. Name the
+        // cause and where to fix it instead of leaving a dead control.
+        <p
+          role="alert"
+          className="rounded-12 border border-alerta-border bg-alerta-bg px-3 py-2 text-[13px] text-alerta"
+        >
+          No hay municipios activos en el catálogo. Un administrador debe cargarlos en Administración → Catálogos
+          antes de que se pueda crear un proyecto.
+        </p>
+      ) : (
+        <div className="grid gap-2 sm:grid-cols-3">
+          {municipios.map((municipio) => (
+            <label key={municipio.id} className="flex cursor-pointer items-center gap-2">
+              <Checkbox
+                checked={municipioIds.includes(municipio.id)}
+                onCheckedChange={(checked) => onToggle(municipio.id, checked === true)}
+                aria-labelledby=""
+                aria-label={`Municipio ${municipio.nombre}`}
+              />
+              <span className="truncate text-[13px] text-ink-800">{municipio.nombre}</span>
+            </label>
+          ))}
+        </div>
+      )}
     </fieldset>
   );
 }

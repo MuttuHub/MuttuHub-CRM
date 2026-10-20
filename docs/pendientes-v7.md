@@ -17,6 +17,7 @@ Inventario consolidado al **2026-10-19**. El orden, el tamaño y los criterios d
 | L4 | Monitoreo de las primeras 24 h (Vercel Logs, cron del día siguiente) | **Pendiente** | Runbook §6 |
 | L5 | Borrar `~/.muttu-prod-url` y decidir retención de `~/muttu-backups` | **Pendiente** | Runbook §6 |
 | L6 | Respaldos automáticos (Supabase Pro con PITR o dumps programados) | **Pendiente**: hoy depende de un dump manual | `docs/pendientes/pendientes-y-mejoras.md` |
+| L7 | Catálogo de municipios en producción | **Hecho** (2026-10-19): estaba vacío y bloqueaba la creación; se cargaron 7 y el asistente explica el vacío si vuelve a pasar | `odd/tasks/fase-0-ejecucion.md` |
 
 ---
 

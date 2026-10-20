@@ -73,6 +73,9 @@ cuesta datos.
 
 ### 2.1 T-24h (sábado)
 
+- [ ] **Catálogos con datos:** `municipios` con **al menos uno activo**, `lineas_estrategicas` con al menos una y los
+  **15 rubros** activos. Sin municipios, el asistente de creación no deja crear ningún proyecto (pasó el 2026-10-19:
+  producción tenía 0 y se cargaron 7).
 - [ ] **Supabase → Storage:** el bucket `muttu-docs` existe y es **privado** (o el valor de `SUPABASE_STORAGE_BUCKET`).
   Ningún código lo crea.
 - [ ] **Supabase → Database → Cron:** los jobs `muttu-daily-8am` y `muttu-retry-830` están **activos**.
