@@ -13,6 +13,7 @@ Plan de referencia: `docs/plan-trabajo-restante.md` (fases y criterios de acepta
 | Plan de trabajo restante | PR #76 (`b945135`): cinco frentes, tamaños, dependencias y decisiones abiertas |
 | **A1** Etiqueta `v2.0.0` | Tag anotado sobre `8f0377a`, empujado |
 | **A5** Limpieza de credenciales | `~/.muttu-prod-url` borrado |
+| **Bloqueo de producción: municipios** | El catálogo estaba vacío en producción y ningún rol podía crear proyectos. Se cargaron 7 municipios (DANE 05001, 08001, 11001, 13001, 17001, 68001, 76001) y el asistente ahora explica el vacío (`CampoMunicipios`) |
 | **B1 / D1** Mensaje de «sin acceso» | PR #77 (`8f0377a`): política global `shouldRetryQuery` (4xx no se reintenta); e2e en 2.7 s |
 
 ## Lo siguiente (en orden)
