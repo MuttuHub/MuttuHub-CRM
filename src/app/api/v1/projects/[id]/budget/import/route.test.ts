@@ -49,6 +49,7 @@ import { POST } from "./route";
 const gerencia = { id: "ger-1", rol: "GERENCIA" } as Usuario;
 const admin = { id: "adm-1", rol: "ADMINISTRADOR" } as Usuario;
 const coordinador = { id: "coord-1", rol: "COORDINADOR" } as Usuario;
+const colaborador = { id: "colab-1", rol: "COLABORADOR" } as Usuario;
 
 const ctx = { params: Promise.resolve({ id: "pry-1" }) };
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -134,10 +135,22 @@ describe("POST budget/import — gate order (same as the manual budget write)", 
     expect(response.status).toBe(404);
   });
 
-  it("403 for a non-manager, even a member COORDINADOR", async () => {
-    authAs(coordinador);
-    const response = await POST(subida(await libroPO()), ctx);
-    expect(response.status).toBe(403);
+  it("403 for a COORDINADOR or COLABORADOR who is not a member", async () => {
+    for (const usuario of [coordinador, colaborador]) {
+      authAs(usuario);
+      const response = await POST(subida(await libroPO()), ctx);
+      expect(response.status, usuario.rol).toBe(403);
+    }
+  });
+
+  // S5 (PO matrix 2026-10-19): the budget belongs to the team, so a member imports it.
+  it("lets a member COORDINADOR or COLABORADOR import", async () => {
+    for (const usuario of [coordinador, colaborador]) {
+      authAs(usuario);
+      mocks.proyectoFindFirst.mockResolvedValue(proyecto("BORRADOR", { miembros: [{ id: "m-1" }] }));
+      const response = await POST(subida(await libroPO()), ctx);
+      expect(response.status, usuario.rol).toBe(200);
+    }
   });
 
   it("409 INVALID_STATE outside BORRADOR, before reading the file", async () => {

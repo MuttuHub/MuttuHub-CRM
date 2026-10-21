@@ -10,11 +10,12 @@ import { PROGRAMMING_PUT_SCHEMA } from "@/app/api/v1/projects/[id]/programming/r
 const ProjectParams = z.object({ id: z.string().uuid() });
 
 const READ_NOTE =
-  "Lee quien puede leer la ficha del proyecto (ADMINISTRADOR/GERENCIA, COORDINADOR integrante activo o el visualizador " +
-  "con la bandera); un proyecto desconocido responde 404 antes del 403. Se puede leer en cualquier estado.";
+  "Lee quien puede leer la ficha del proyecto (ADMINISTRADOR/GERENCIA, COORDINADOR o COLABORADOR integrante activo, o el " +
+  "visualizador con la bandera); un proyecto desconocido responde 404 antes del 403. Se puede leer en cualquier estado.";
 
 const WRITE_NOTE =
-  "Solo `ADMINISTRADOR`/`GERENCIA` y solo mientras el proyecto está en `BORRADOR` (404 -> 403 -> 409 INVALID_STATE -> 400); " +
+  "`ADMINISTRADOR`/`GERENCIA` en cualquier proyecto, y `COORDINADOR`/`COLABORADOR` solo como integrantes activos (S5), " +
+  "siempre mientras el proyecto está en `BORRADOR` (404 -> 403 -> 409 INVALID_STATE -> 400); " +
   "el estado se vuelve a comprobar bajo bloqueo de fila dentro de la transacción. Ninguna ruta cambia el estado del proyecto.";
 
 export const BudgetViewSchema = registry.register(

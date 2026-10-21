@@ -1,7 +1,8 @@
 # Importar presupuesto con la plantilla de la PO
 
-Feature for after the v2 launch. Branch `feat/po-presupuesto-import`, worktree
-`MuttuHub-CRM-worktrees/po-presupuesto`. It is not merged until v2 is in production.
+Feature for after the v2 launch (B2 in `docs/plan-trabajo-restante.md`). Built on `feat/po-presupuesto-import`
+(worktree `MuttuHub-CRM-worktrees/po-presupuesto`); on 2026-10-21 its seven commits were replayed onto `main` as
+`feat/po-budget-import`, since v2.0.0 is in production.
 
 ## Objective
 
@@ -59,7 +60,7 @@ Decisions T4 and T6 from `lanzamiento-v2-fin-de-semana.md` (2026-10-17) apply:
   files failed to resolve `./preview`, `./template` and `./route` (no tests ran). GREEN: `presupuesto-po` + `budget`
   routes 5 files / 42 tests passed, plus the existing budget route 23/23 rerun alone (a worker-start timeout in the
   combined run, not a test failure) and `src/lib/openapi` 27/27. `tsc`: no error outside the P3 drafts; `eslint`: clean.
-- [x] **P3** UI: «Importar presupuesto» in Finanzas → Presupuesto (BORRADOR, managers only), with the dialog flow
+- [x] **P3** UI: «Importar presupuesto» in Finanzas → Presupuesto (BORRADOR, whoever may edit the budget), with the dialog flow
   choose → validate → preview table with the differences and the warning → confirm, and «Descargar plantilla».
   Commit `b374976`. Evidence recorded on 2026-10-18 (continuation of the same writer after the session limit):
   the dialog, its hooks and the budget screen rerun green — `presupuesto-import-dialog` + `projects-presupuesto-import`
@@ -77,7 +78,8 @@ Each task: RED, then GREEN, then a work-unit commit, then evidence recorded here
 - The PO's `presupuesto.xlsx`, filled with values, imports without edits, `Viaticos` without an accent included.
 - The preview shows each rubro with its current and new amount and the sum against `valor_total`.
 - Apply changes only the assigned amounts and writes audit entries.
-- Non-BORRADOR projects and non-manager roles are refused.
+- Non-BORRADOR projects are refused, and so is anyone who may not edit the budget: since the 2026-10-19 matrix (S5,
+  #73) managers anywhere plus a COORDINADOR or COLABORADOR who is an active member.
 
 ## Progress
 
@@ -85,6 +87,13 @@ Each task: RED, then GREEN, then a work-unit commit, then evidence recorded here
 - Route: delegated direct, one writer, because of the 2+ non-trivial files trigger.
 - 2026-10-18: P3 (commit `b374976`, written on 2026-10-17) verified by the next session after the limit ran out:
   its suites, `tsc` and `eslint` are green (see the P3 evidence above). No source changes were needed.
+- 2026-10-21: the branch had been left unmerged after v2 shipped. Replayed onto `main` as `feat/po-budget-import`
+  (clean cherry-pick). Since the fork, #73 opened budget writes to team members (S5). The import route uses the shared
+  `gatePresupuestoWrite`, so it inherited the rule, but its test claimed «403 even for a member COORDINADOR» while the
+  fixture had no membership. The test now pins both sides: non-members get 403, members of either role import. The
+  budget OpenAPI notes were aligned with S5 too.
+- Decision D-A (user, 2026-10-21): the structure import gets a «structure only» mode that keeps an existing budget.
+  That is the next feature (B3/B5).
 
 ## Decisions taken while implementing
 
