@@ -336,4 +336,31 @@ describe("POST budget/import — apply", () => {
       expect.objectContaining({ entidad: "proyecto", campo: "valor_total", valor_anterior: null, valor_nuevo: "1000.00" }),
     );
   });
+
+  it("also refreshes the opportunity difference when it fills valor_total, like the manual edit", async () => {
+    mocks.proyectoFindFirst.mockResolvedValue(
+      proyecto("BORRADOR", { valor_total: null, oportunidad: { valor_estimado_cop: new Prisma.Decimal(1500) } }),
+    );
+    mocks.queryRaw.mockResolvedValue([{ estado: "BORRADOR", valor_total: null }]);
+    mocks.lineaFindMany.mockResolvedValue([]);
+    const response = await POST(subida(await libroPO({ Personal: 1000 })), ctx);
+    expect(response.status).toBe(200);
+    expect(mocks.proyectoUpdate).toHaveBeenCalledWith({
+      where: { id: "pry-1" },
+      data: { valor_total: new Prisma.Decimal("1000.00"), diferencia_valor_oportunidad: new Prisma.Decimal("-500.00") },
+    });
+  });
+
+  it("409 when the catalog changes between parsing and the locked write, writing nothing", async () => {
+    // The parse sees Personal active; under the row lock it is no longer active.
+    mocks.rubroFindMany
+      .mockResolvedValueOnce(rubros)
+      .mockResolvedValueOnce(rubros.map((r) => (r.id === "r-R01" ? { ...r, activo: false } : r)));
+    const response = await POST(subida(await libroPO({ Personal: 10_000_000 })), ctx);
+    expect(response.status).toBe(409);
+    expect(mocks.lineaUpdate).not.toHaveBeenCalled();
+    expect(mocks.lineaCreate).not.toHaveBeenCalled();
+    expect(mocks.proyectoUpdate).not.toHaveBeenCalled();
+    expect(logChanges).not.toHaveBeenCalled();
+  });
 });
