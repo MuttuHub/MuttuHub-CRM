@@ -387,7 +387,8 @@ describe("POST /api/v1/projects (E-03)", () => {
   it("creates as a COLABORADOR, who becomes the responsable and a member", async () => {
     authAs(colaborador);
     mocks.usuarioFindFirst.mockResolvedValue({ id: "colab-1" });
-    const { responsable_id: _omit, ...body } = createBody;
+    // JSON.stringify drops undefined keys: the request carries no responsable_id.
+    const body = { ...createBody, responsable_id: undefined };
 
     const res = await POST(postRequest(body));
 
