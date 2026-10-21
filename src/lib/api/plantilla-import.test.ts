@@ -34,7 +34,8 @@ describe("inspeccionarZip", () => {
     const bomba = await zipDe({ "xl/sheet.xml": Buffer.alloc(ZIP_MAX_DESCOMPRIMIDO + 1, 0) });
     expect(bomba.length).toBeLessThan(1024 * 1024);
     await expect(inspeccionarZip(bomba)).resolves.toBe(false);
-  });
+    // Compressing the bomb is CPU-bound and exceeds 5 s under a loaded run with coverage.
+  }, 20_000);
 
   it("rejects a zip with too many entries", async () => {
     const entradas: Record<string, string> = {};

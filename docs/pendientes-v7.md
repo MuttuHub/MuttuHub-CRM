@@ -87,7 +87,7 @@ patrón.
 | # | Tarea | Estado |
 |---|---|---|
 | Q1 | Conectar la suite Playwright a CI con un entorno reproducible | **Pendiente** (hoy corre en local contra build de producción) |
-| Q2 | Cobertura de pruebas con umbral (hoy ~13–15 %, thresholds desactivados) | **Pendiente** |
+| Q2 | Cobertura de pruebas con umbral (piso 73/72/68/63 con ratchet, en CI) | **Hecho** (E2, 2026-10-21) |
 | Q3 | `npm run lint` reproducible en local (el análisis detectó fallo por `.next-stale-*`) | **Sin verificar** |
 | Q4 | Migración a Railway Pro o equivalente | **Documentada, no ejecutada**: `docs/despliegue-y-portabilidad.md` |
 | Q5 | Limpieza de artefactos del repositorio (zip del prototipo, PDFs duplicados, HTML sueltos) | **Pendiente de decisión** (ver `odd/tasks/documentacion-vigente-y-portabilidad.md`, L3) |

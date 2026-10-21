@@ -5,12 +5,11 @@
 
 ## Pendientes por corregir (deuda técnica)
 
-### 1. Cobertura de tests — gate desactivado, meta 60% 📉
+### 1. Cobertura de tests — piso activo con ratchet ✅ (2026-10-21, E2)
 
-- **Estado**: la config de coverage estaba muerta (top-level, inválida en Vitest 4). Al corregirla (dentro de `test`, sin `all: true`), el coverage real resultó **~13-15%** vs los thresholds 60/60/60/50 que se habían autorizado.
-- **Decisión**: thresholds **desactivados** (comentados en `vitest.config.ts`). El reporte `text`/`html` sigue generándose.
-- **Acción futura**: cuando la suite de componentes/hooks crezca, correr `npx vitest run --coverage`, verificar el % real y reactivar thresholds cerca del valor real con meta 60%.
-- No existe script `test:coverage` en `package.json` (los scripts son dev/build/start/lint/db). Opcional: agregarlo cuando se reactive el gate.
+- **Estado**: medido el 2026-10-21 con `npm run test:coverage` (`src` + `scripts`, el mismo alcance que CI): líneas 73 %, sentencias 72 %, funciones 68 %, ramas 63 %. La cifra de ~13-15 % de esta sección era de una suite mucho más chica.
+- **Decisión**: esos valores son el **piso** en `vitest.config.ts`. Una corrida por debajo falla, y CI corre `npm run test:coverage` en cada PR.
+- **Cómo sube**: `autoUpdate` reescribe los umbrales hacia arriba (redondeados hacia abajo) cuando la cobertura mejora; ese cambio se commitea junto con las pruebas que lo lograron. Bajar un valor es una edición explícita que se revisa en el PR.
 
 ### 2. E2E — sin workflow (retirado 2026-10-19)
 

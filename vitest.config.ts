@@ -47,17 +47,19 @@ export default defineConfig({
         "src/lib/db.ts",
         "src/lib/email.ts",
       ],
-      reporter: ["text", "html"],
-      // Thresholds desactivados a propósito: la cobertura real es ~13-15% y un
-      // gate de 60% que no se cumple solo genera ruido. Meta documentada en
-      // docs/pendientes/pendientes-y-mejoras.md — reactivar cuando la suite
-      // de componentes/hooks crezca y el porcentaje real se acerque a la meta.
-      // thresholds: {
-      //   lines: 60,
-      //   statements: 60,
-      //   functions: 60,
-      //   branches: 50,
-      // },
+      reporter: ["text-summary", "html"],
+      // Ratchet (E2): the floor is the coverage measured on 2026-10-21 with
+      // `npm run test:coverage` (src + scripts, the same scope CI runs). A run
+      // below it fails. When coverage rises, autoUpdate rewrites these values
+      // upwards (rounded down) and the change is committed with the tests that
+      // earned it. Lowering a value is a deliberate, reviewable edit.
+      thresholds: {
+        autoUpdate: (newThreshold) => Math.floor(newThreshold),
+        lines: 73,
+        statements: 72,
+        functions: 68,
+        branches: 63,
+      },
     },
   },
   resolve: {
