@@ -60,7 +60,7 @@ Camino feliz más corto que muestra más valor. Prepáralo ANTES (ver §0 y §A)
 Antes de la reunión (5 min, una sola vez):
 1. §0 completo (migraciones, reset de la demo, `npm run dev`).
 2. Crea un proyecto (§1) y corre el piloto de la plantilla con `--apply` (§A.3). Deja ese proyecto en Borrador.
-3. Si quieres mostrar el flujo de errores en vivo, deja el segundo archivo (`...-error-v12.xlsx`) a mano.
+3. Si quieres mostrar el flujo de errores en vivo, deja el segundo archivo (`...-error-v13.xlsx`) a mano.
 
 En la reunión (como `admin@`, salvo donde se indica):
 1. **Proyectos > Ver detalle** del proyecto en Borrador (abre en una pestaña nueva del navegador, en **Resumen**: datos y **Equipo**; **Volver a proyectos** regresa a la lista). Pestaña
@@ -260,7 +260,7 @@ npx tsx scripts/import-plantilla-demo.ts --project PRY-2026-001
 npx tsx scripts/import-plantilla-demo.ts --project PRY-2026-001 --actor admin@demo.muttuhub.local --apply
 ```
 Con `--apply` escribe en `tmp/plantilla-demo/` el libro válido (`PRY-2026-001-valida.xlsx`, se importa) y el que
-falla (`PRY-2026-001-error-v12.xlsx`: el total no cuadra con el presupuesto por $50.000). Sube el segundo en el
+falla (`PRY-2026-001-error-v13.xlsx`: la programación de R12 no cuadra con lo asignado por $50.000). Sube el segundo en el
 diálogo para mostrar la tabla de errores. Ojo: el libro válido fija fechas 2026-10-05 a 2027-01-29, valor total
 $177.360.000 y responsable `ana@muttu.co` (no existe en la demo: sale la advertencia). Ver también
 `docs/guia-demo.md` §1.7.

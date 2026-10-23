@@ -7,9 +7,11 @@
  * seven deliverables. Figures are illustrative (decision D-10, N-22).
  *
  * The budget sums 177.360.000; the `v12` variant keeps the same lines but
- * declares a `valor_total` of 177.410.000, i.e. V-12 is off by exactly 50.000
- * (map §3 V-12). The fixture carries the full 15-rubro catalog so the
- * generator always emits every active row.
+ * declares a `valor_total` of 177.410.000, off by exactly 50.000 (since the PO
+ * feedback of 2026-10-23 that is the W-02 warning, not a V-12 error). The `v13`
+ * variant moves R12's first month up by 50.000, so its programming no longer
+ * sums to the assigned amount (one V-13 error). The fixture carries the full
+ * 15-rubro catalog so the generator always emits every active row.
  */
 import { LINEAS_ESTRATEGICAS_V2, RUBROS_V2 } from "@/lib/catalogs"
 import { fromCents, toCents } from "../money"
@@ -17,7 +19,7 @@ import type { Periodo } from "../weeks"
 import type { PlantillaInput } from "../plantilla/generate"
 import type { ContextoValidacion } from "../plantilla/validate"
 
-export type F_X1_Variante = "valido" | "v12"
+export type F_X1_Variante = "valido" | "v12" | "v13"
 
 export const F_X1_CODIGO = "PRY-2026-001"
 export const F_X1_CLIENTE = "CedeTextil S.A.S."
@@ -200,9 +202,18 @@ export function fixtureF_X1(variante: F_X1_Variante = "valido"): PlantillaInput 
     },
     presupuesto: { ...F_X1_PRESUPUESTO },
     programacion: Object.fromEntries(
-      Object.entries(F_X1_PROGRAMACION).map(([codigo, periodos]) => [codigo, { ...periodos }]),
+      Object.entries(F_X1_PROGRAMACION).map(([codigo, periodos]) => [
+        codigo,
+        variante === "v13" && codigo === "R12" ? desfasarPrimerMes(periodos) : { ...periodos },
+      ]),
     ),
   }
+}
+
+/** R12 with its first month raised by 50.000 (the `v13` variant). */
+function desfasarPrimerMes(periodos: Readonly<Record<Periodo, string>>): Record<Periodo, string> {
+  const primero = F_X1_PERIODOS[0]
+  return { ...periodos, [primero]: fromCents(toCents(periodos[primero]) + toCents("50000")) }
 }
 
 /** The eight funded amounts sum to the valid project total. */

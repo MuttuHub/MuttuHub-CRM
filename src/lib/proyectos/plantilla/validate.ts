@@ -939,32 +939,56 @@ export function v11(p: ParsedTemplate, c: ContextoValidacion): ErrorPlantilla[] 
 }
 
 // ---------------------------------------------------------------------------
-// V-12 — the budget sum equals the project total
+// V-12 / W-02 — the budget sum against the project total
 // ---------------------------------------------------------------------------
 
-export function v12(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[] {
-  void _c
-  if (!estructuraOk(p, "presupuesto") || !estructuraOk(p, "proyecto")) return []
+/** The template total and the budget sum, or `null` when either cannot be read. */
+function totalYSuma(p: ParsedTemplate): { total: Cents; suma: Cents } | null {
+  if (!estructuraOk(p, "presupuesto") || !estructuraOk(p, "proyecto")) return null
   const total = leerDecimal(p.proyecto.valorTotal.valor)
-  if (!total.ok) return []
+  if (!total.ok) return null
 
   const asignados: Cents[] = []
   for (const fila of p.presupuesto) {
     const asignado = leerDecimal(celdaDe(fila, "Valor asignado")?.valor)
     if (asignado.ok && asignado.cents >= ZERO) asignados.push(asignado.cents)
   }
-  const suma = sumCents(asignados)
-  if (suma === total.cents) return []
+  return { total: total.cents, suma: sumCents(asignados) }
+}
 
-  const diferencia = total.cents - suma
+function mensajeDiferencia(total: Cents, suma: Cents): string {
+  return `El presupuesto suma ${formatCOP(suma)} y el valor total es ${formatCOP(total)} (diferencia ${formatCOP(total - suma)}).`
+}
+
+/**
+ * V-12: an empty budget cannot back the project total. A funded budget that
+ * differs from the total is not an error (PO feedback 2026-10-23): the executed
+ * budget is the value the project tracks, so the import takes its sum (W-02).
+ */
+export function v12(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[] {
+  void _c
+  const cifras = totalYSuma(p)
+  if (!cifras || cifras.suma !== ZERO || cifras.total === ZERO) return []
+
+  return [
+    error("V-12", HOJAS.presupuesto, null, "C", fromCents(cifras.total - cifras.suma), mensajeDiferencia(cifras.total, cifras.suma)),
+  ]
+}
+
+/** W-02 (warning, never blocking): the budget sum replaces a different template total. */
+export function w02(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[] {
+  void _c
+  const cifras = totalYSuma(p)
+  if (!cifras || cifras.suma === ZERO || cifras.suma === cifras.total) return []
+
   return [
     error(
-      "V-12",
-      HOJAS.presupuesto,
-      null,
-      "C",
-      fromCents(diferencia),
-      `El presupuesto suma ${formatCOP(suma)} y el valor total es ${formatCOP(total.cents)} (diferencia ${formatCOP(diferencia)}).`,
+      "W-02",
+      HOJAS.proyecto,
+      p.proyecto.valorTotal.fila,
+      "B",
+      fromCents(cifras.total),
+      `${mensajeDiferencia(cifras.total, cifras.suma)} Se importará ${formatCOP(cifras.suma)} como valor total del proyecto.`,
     ),
   ]
 }
@@ -1154,7 +1178,7 @@ export function validarPlantilla(p: ParsedTemplate, c: ContextoValidacion): Resu
   ]
   const errores: ErrorPlantilla[] = []
   for (const regla of reglas) errores.push(...regla(p, c))
-  const advertencias = w01(p, c)
+  const advertencias = [...w01(p, c), ...w02(p, c)]
 
   errores.sort(compararError)
   advertencias.sort(compararError)

@@ -19,6 +19,7 @@ import {
   vH1,
   vH2,
   w01,
+  w02,
   validarPlantilla,
   type ContextoValidacion,
 } from "./validate"
@@ -314,17 +315,52 @@ describe("V-11 budget rubros", () => {
   })
 })
 
-describe("V-12 budget sum equals the project total", () => {
+/** The parsed F-X1 with every "Valor asignado" set to zero. */
+async function parsedSinPresupuesto(): Promise<ParsedTemplate> {
+  const parsed = await parsedValido()
+  for (const filaPres of parsed.presupuesto) filaPres.celdas["Valor asignado"].valor = 0
+  return parsed
+}
+
+describe("V-12 an empty budget cannot back the project total", () => {
   it("accepts the generated F-X1", async () => {
     expect(v12(await parsedValido(), contexto())).toEqual([])
   })
 
-  it("reports the CedeTextil $50.000 difference to the cent", async () => {
-    const errores = v12(await parsePlantilla(bufferV12), contexto()).filter((e) => e.regla === "V-12")
+  it("does not block a funded budget that differs from the total (PO feedback 2026-10-23)", async () => {
+    expect(v12(await parsePlantilla(bufferV12), contexto())).toEqual([])
+  })
+
+  it("reports a budget that sums $0 against a positive total", async () => {
+    const errores = v12(await parsedSinPresupuesto(), contexto())
     expect(errores).toHaveLength(1)
-    expect(errores[0].valor).toBe("50000.00")
-    expect(toCents(errores[0].valor ?? "0")).toBe(toCents("50000"))
-    expect(errores[0].mensaje).toContain("50.000")
+    expect(errores[0].regla).toBe("V-12")
+    expect(errores[0].hoja).toBe(HOJAS.presupuesto)
+    expect(errores[0].valor).toBe("177360000.00")
+    expect(toCents(errores[0].valor ?? "0")).toBe(toCents("177360000"))
+    expect(errores[0].mensaje).toContain("177.360.000")
+  })
+})
+
+describe("W-02 the budget sum replaces a different project total", () => {
+  it("is silent when the budget equals the total", async () => {
+    expect(w02(await parsedValido(), contexto())).toEqual([])
+  })
+
+  it("is silent for an empty budget (V-12 reports it)", async () => {
+    expect(w02(await parsedSinPresupuesto(), contexto())).toEqual([])
+  })
+
+  it("warns that the CedeTextil budget becomes the total, with the difference to the cent", async () => {
+    const advertencias = w02(await parsePlantilla(bufferV12), contexto())
+    expect(advertencias).toHaveLength(1)
+    expect(advertencias[0].regla).toBe("W-02")
+    expect(advertencias[0].hoja).toBe(HOJAS.proyecto)
+    expect(advertencias[0].columna).toBe("B")
+    expect(advertencias[0].valor).toBe("177410000.00")
+    expect(advertencias[0].mensaje).toContain("diferencia")
+    expect(advertencias[0].mensaje).toContain("50.000")
+    expect(advertencias[0].mensaje).toMatch(/Se importará .*177\.360\.000 como valor total del proyecto\.$/)
   })
 })
 
@@ -506,6 +542,13 @@ describe("validarPlantilla", () => {
     const resultado = validarPlantilla(parsed, contexto())
     expect(resultado.errores.some((e) => e.regla === "W-01")).toBe(false)
     expect(resultado.advertencias.some((e) => e.regla === "W-01")).toBe(true)
+  })
+
+  it("lets a budget that differs from the total through with only the W-02 warning", async () => {
+    const resultado = validarPlantilla(await parsePlantilla(bufferV12), contexto())
+    expect(resultado.errores).toEqual([])
+    expect(resultado.advertencias.map((e) => e.regla)).toEqual(["W-02"])
+    expect(resultado.resumen).toEqual({ "W-02": 1 })
   })
 
   it("caps the report at 500 errors and sets truncado", async () => {

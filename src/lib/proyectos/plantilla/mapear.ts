@@ -9,7 +9,7 @@
  */
 import { parseFechaCelda, parseNumeroColombiano, type Celda, type Fila, type ParsedTemplate } from "./parse"
 import { resolverLineaToken, resolverMunicipioToken, type ContextoValidacion } from "./validate"
-import { fromCents, toCents, type Cents } from "../money"
+import { fromCents, sumCents, toCents, type Cents } from "../money"
 import { defaultWeight, type IsoDate, type Periodo } from "../weeks"
 
 export type PlanImportacion = {
@@ -201,11 +201,15 @@ export function construirPlan(p: ParsedTemplate, c: ContextoValidacion): PlanImp
     }
   }
 
+  // A funded budget is the value the project tracks (W-02, PO feedback 2026-10-23);
+  // an empty one keeps the template total.
+  const sumaPresupuesto = sumCents(presupuesto.map((linea) => linea.cents))
+
   return {
     proyecto: {
       fechaInicio,
       fechaFin,
-      valorTotalCents: toCents(valorTotal),
+      valorTotalCents: sumaPresupuesto > ZERO ? sumaPresupuesto : toCents(valorTotal),
       beneficiariosMeta,
       lineas,
       municipioIds,

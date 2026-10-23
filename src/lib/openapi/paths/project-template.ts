@@ -16,7 +16,7 @@ const WRITE_NOTE =
 const HallazgoSchema = registry.register(
   "HallazgoPlantilla",
   z.object({
-    regla: z.string().openapi({ example: "V-12", description: "Regla de validación (V-01..V-14, V-H1, V-H2) o advertencia (W-01)." }),
+    regla: z.string().openapi({ example: "V-12", description: "Regla de validación (V-01..V-14, V-H1, V-H2) o advertencia (W-01, W-02)." }),
     hoja: z.string().openapi({ example: "7. Presupuesto" }),
     fila: z.number().int().nullable().openapi({ description: "Fila de Excel (base 1); nula si el hallazgo es de la hoja." }),
     columna: z.string().nullable(),

@@ -16,6 +16,19 @@ async function plan() {
   return construirPlan(await parsePlantilla(bufferValido), fixtureContextoFX1())
 }
 
+describe("construirPlan project total", () => {
+  it("takes the budget sum when the template total differs (PO feedback 2026-10-23)", async () => {
+    const p = construirPlan(await parsePlantilla(await generarPlantilla(fixtureF_X1("v12"))), fixtureContextoFX1())
+    expect(p.proyecto.valorTotalCents).toBe(toCents("177360000"))
+  })
+
+  it("keeps the template total when the budget is empty", async () => {
+    const parsed = await parsePlantilla(bufferValido)
+    for (const fila of parsed.presupuesto) fila.celdas["Valor asignado"].valor = 0
+    expect(construirPlan(parsed, fixtureContextoFX1()).proyecto.valorTotalCents).toBe(toCents("177360000"))
+  })
+})
+
 describe("construirPlan of the valid F-X1", () => {
   it("maps the project identity, total and beneficiaries", async () => {
     const p = await plan()

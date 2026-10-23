@@ -2,7 +2,7 @@
  * WHY: S7.7 pilot. The Excel template import is only proven when a real workbook
  * goes through the real catalogs. This is a LOCAL-ONLY manual-QA tool, not a
  * feature: it builds the synthetic F-X1 "CedeTextil" workbook (illustrative
- * figures) in its valid form and in a V-12-failing form (total off by $50.000),
+ * figures) in its valid form and in a V-13-failing form (one month of R12 off by $50.000),
  * validates both against the local catalogs, and with `--apply` writes both
  * files and imports the VALID one into an existing local BORRADOR project through
  * the same atomic writer the API uses. The failing file is for trying the error
@@ -110,7 +110,7 @@ export function elegirMunicipios(contexto: ContextoValidacion) {
 
 /** The F-X1 input rebound to this project and to what the local catalogs actually hold. */
 export function entradaDemo(
-  variante: "valido" | "v12",
+  variante: "valido" | "v13",
   codigo: string,
   contexto: ContextoValidacion,
   responsable: string,
@@ -185,8 +185,8 @@ export async function runImportPlantillaDemo(
   const contexto = await cargarContexto(client, proyecto.id)
   const responsable = args.actor ?? F_X1_RESPONSABLE
 
-  const construidas = new Map<"valido" | "v12", { buffer: Buffer; errores: string[]; plan: ReturnType<typeof construirPlan> | null }>()
-  for (const variante of ["valido", "v12"] as const) {
+  const construidas = new Map<"valido" | "v13", { buffer: Buffer; errores: string[]; plan: ReturnType<typeof construirPlan> | null }>()
+  for (const variante of ["valido", "v13"] as const) {
     const buffer = await generarPlantilla(entradaDemo(variante, proyecto.codigo, contexto, responsable))
     const parsed = await parsePlantilla(buffer)
     const resultado = validarPlantilla(parsed, contexto)
@@ -198,12 +198,12 @@ export async function runImportPlantillaDemo(
   }
 
   const valida = construidas.get("valido")!
-  const fallida = construidas.get("v12")!
+  const fallida = construidas.get("v13")!
   if (valida.errores.length > 0 || !valida.plan) {
     throw new Error(`The valid variant failed validation (${valida.errores.join(", ")}): the local catalogs do not match F-X1.`)
   }
-  if (!fallida.errores.includes("V-12")) {
-    throw new Error("The V-12 variant did not fail V-12: the demo fixture is out of sync with the validators.")
+  if (!fallida.errores.includes("V-13")) {
+    throw new Error("The V-13 variant did not fail V-13: the demo fixture is out of sync with the validators.")
   }
   const resumen: ResumenImportacion = resumenDePlan(valida.plan)
   print(
@@ -212,7 +212,7 @@ export async function runImportPlantillaDemo(
       `${resumen.celdas_programacion} celdas`,
   )
   const nErrores = fallida.errores.length
-  print(`  V-12 variant: ${nErrores} ${nErrores === 1 ? "error" : "errors"} (${[...new Set(fallida.errores)].join(", ")}) — for the error table`)
+  print(`  V-13 variant: ${nErrores} ${nErrores === 1 ? "error" : "errors"} (${[...new Set(fallida.errores)].join(", ")}) — for the error table`)
 
   if (args.mode !== "apply") {
     print("Dry run: nothing was written. Re-run with --actor <email> --apply to write the files and import.")
@@ -221,7 +221,7 @@ export async function runImportPlantillaDemo(
 
   await files.mkdir(args.out)
   const validaRuta = join(args.out, `${proyecto.codigo}-valida.xlsx`)
-  const fallidaRuta = join(args.out, `${proyecto.codigo}-error-v12.xlsx`)
+  const fallidaRuta = join(args.out, `${proyecto.codigo}-error-v13.xlsx`)
   await files.writeFile(validaRuta, valida.buffer)
   await files.writeFile(fallidaRuta, fallida.buffer)
   print(`  wrote ${validaRuta}`)
