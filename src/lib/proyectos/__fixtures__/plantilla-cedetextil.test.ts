@@ -25,6 +25,14 @@ describe("fixture F-X1 (CedeTextil)", () => {
     expect({ ...v12, proyecto: { ...v12.proyecto, valorTotal: F_X1_VALOR_VALIDO } }).toEqual(fixtureF_X1())
   })
 
+  it("the v13 variant only moves R12's first month, by exactly 50.000", () => {
+    const v13 = fixtureF_X1("v13")
+    const valido = fixtureF_X1()
+    const primero = F_X1_PERIODOS[0]
+    expect(toCents(v13.programacion.R12[primero]) - toCents(valido.programacion.R12[primero])).toBe(toCents("50000"))
+    expect({ ...v13, programacion: { ...v13.programacion, R12: valido.programacion.R12 } }).toEqual(valido)
+  })
+
   it("programming splits each funded rubro into four equal periods", () => {
     const input = fixtureF_X1()
     for (const [codigo, valor] of Object.entries(F_X1_PRESUPUESTO)) {

@@ -135,7 +135,8 @@ Dos formas de cargarla:
 - **A mano**, con los botones de agregar de cada nivel.
 - **Desde Excel:** **Descargar plantilla**, llenarla y **Importar plantilla**. La importación muestra una vista previa y
   valida antes de escribir; si hay errores, indica **regla, fila, columna, valor y mensaje**. Se acepta `.xlsx` de hasta
-  4 MB.
+  4 MB. Si el presupuesto suma distinto del **Valor total** de la hoja Proyecto, no es un error: se importa la suma
+  del presupuesto como valor total (advertencia **W-02**) y se recalcula la diferencia con la oportunidad.
 
 > La plantilla solo se puede descargar cuando el proyecto ya tiene **fechas de inicio y fin**.
 

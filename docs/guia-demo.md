@@ -204,8 +204,8 @@ npx tsx scripts/import-plantilla-demo.ts --project PRY-2026-001
 npx tsx scripts/import-plantilla-demo.ts --project PRY-2026-001 --actor admin@demo.muttuhub.local --apply
 ```
 
-Deja `PRY-2026-001-valida.xlsx` (se importa) y `PRY-2026-001-error-v12.xlsx`
-(el total del proyecto no coincide con la suma del presupuesto por $50.000):
+Deja `PRY-2026-001-valida.xlsx` (se importa) y `PRY-2026-001-error-v13.xlsx`
+(la programación mensual de R12 no suma lo asignado por $50.000):
 sube este último en el diálogo **Importar plantilla** de la ficha para mostrar
 la tabla de errores agrupada por hoja y el reporte en CSV.
 

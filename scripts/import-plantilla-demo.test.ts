@@ -2,7 +2,7 @@
 /**
  * WHY: S7.7 pilot. The template import is only proven when a real workbook goes
  * through the real catalogs, so this LOCAL-ONLY tool generates the valid F-X1
- * workbook and its V-12-failing twin and imports the valid one into a local
+ * workbook and its V-13-failing twin and imports the valid one into a local
  * BORRADOR project. It must stay inert by default: a dry run issues zero writes
  * (no files, no transaction), `--apply` needs an actor for the audit lote, and
  * the `require-local-db` guard (mocked here) is what refuses a non-loopback
@@ -118,7 +118,7 @@ describe("runImportPlantillaDemo", () => {
     const salida = lines.join("\n")
     expect(salida).toMatch(/Dry run/)
     expect(salida).toMatch(/valid variant: 0 errors/)
-    expect(salida).toMatch(/V-12 variant: 1 error/)
+    expect(salida).toMatch(/V-13 variant: 1 error/)
   })
 
   it("on --apply writes both workbooks and imports ONLY the valid one, once, in one transaction", async () => {
@@ -142,7 +142,7 @@ describe("runImportPlantillaDemo", () => {
 
     expect(written.map((w) => w.ruta.replace(/\\/g, "/"))).toEqual([
       "tmp/plantilla-demo/PRY-2026-007-valida.xlsx",
-      "tmp/plantilla-demo/PRY-2026-007-error-v12.xlsx",
+      "tmp/plantilla-demo/PRY-2026-007-error-v13.xlsx",
     ])
     expect(written.every((w) => w.bytes > 1000)).toBe(true)
     expect(transaction).toHaveBeenCalledTimes(1)

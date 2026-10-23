@@ -48,10 +48,12 @@ const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.s
 
 let valido: Buffer;
 let v12: Buffer;
+let v13: Buffer;
 
 beforeAll(async () => {
   valido = await generarPlantilla(fixtureF_X1("valido"));
   v12 = await generarPlantilla(fixtureF_X1("v12"));
+  v13 = await generarPlantilla(fixtureF_X1("v13"));
 });
 
 function proyecto(estado = "BORRADOR") {
@@ -172,22 +174,45 @@ describe("POST /projects/:id/import — gate order", () => {
 });
 
 describe("POST /projects/:id/import — validation report", () => {
-  it("400 VALIDATION_ERROR with the report when V-12 fails, and nothing is written", async () => {
-    const response = await POST(subida(v12), ctx);
+  it("400 VALIDATION_ERROR with the report when V-13 fails, and nothing is written", async () => {
+    const response = await POST(subida(v13), ctx);
     expect(response.status).toBe(400);
     const body = await response.json();
     expect(body.code).toBe("VALIDATION_ERROR");
-    expect(body.reporte.errores.map((e: { regla: string }) => e.regla)).toContain("V-12");
+    expect(body.reporte.errores.map((e: { regla: string }) => e.regla)).toEqual(["V-13"]);
     expect(body.reporte.truncado).toBe(false);
-    expect(body.reporte.resumen["V-12"]).toBe(1);
+    expect(body.reporte.resumen["V-13"]).toBe(1);
     expect(mocks.transaction).not.toHaveBeenCalled();
     expect(mocks.importarPlantilla).not.toHaveBeenCalled();
   });
 
   it("applies the same report to a dry run", async () => {
-    const response = await POST(subida(v12, { modo: "validar" }), ctx);
+    const response = await POST(subida(v13, { modo: "validar" }), ctx);
     expect(response.status).toBe(400);
     expect((await response.json()).reporte.errores.length).toBeGreaterThan(0);
+  });
+});
+
+describe("POST /projects/:id/import — budget that differs from the total (PO feedback 2026-10-23)", () => {
+  it("the dry run is valid and reports only the W-02 warning", async () => {
+    const response = await POST(subida(v12, { modo: "validar" }), ctx);
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.valido).toBe(true);
+    expect(body.importado).toBe(false);
+    expect(body.advertencias.map((a: { regla: string }) => a.regla)).toEqual(["W-02"]);
+    expect(mocks.importarPlantilla).not.toHaveBeenCalled();
+  });
+
+  it("imports with the budget sum as the project total", async () => {
+    const response = await POST(subida(v12), ctx);
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.importado).toBe(true);
+    expect(body.advertencias.map((a: { regla: string }) => a.regla)).toEqual(["W-02"]);
+    expect(mocks.importarPlantilla).toHaveBeenCalledTimes(1);
+    const [, args] = mocks.importarPlantilla.mock.calls[0] as [unknown, { plan: { proyecto: { valorTotalCents: bigint } } }];
+    expect(args.plan.proyecto.valorTotalCents).toBe(BigInt(17_736_000_000));
   });
 });
 
