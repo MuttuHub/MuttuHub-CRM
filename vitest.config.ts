@@ -52,9 +52,10 @@ export default defineConfig({
       // `npm run test:coverage` (src + scripts, the same scope CI runs). A run
       // below it fails. When coverage rises, autoUpdate rewrites these values
       // upwards (rounded down) and the change is committed with the tests that
-      // earned it. Lowering a value is a deliberate, reviewable edit.
+      // earned it. Lowering a value is a deliberate, reviewable edit. CI only
+      // checks the floor: a rewrite there would be discarded, so it is off.
       thresholds: {
-        autoUpdate: (newThreshold) => Math.floor(newThreshold),
+        autoUpdate: process.env.CI ? false : (newThreshold) => Math.floor(newThreshold),
         lines: 73,
         statements: 72,
         functions: 68,

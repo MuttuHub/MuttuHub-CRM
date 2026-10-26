@@ -7,7 +7,7 @@
 
 ### 1. Cobertura de tests — piso activo con ratchet ✅ (2026-10-21, E2)
 
-- **Estado**: medido el 2026-10-21 con `npm run test:coverage` (`src` + `scripts`, el mismo alcance que CI): líneas 73 %, sentencias 72 %, funciones 68 %, ramas 63 %. La cifra de ~13-15 % de esta sección era de una suite mucho más chica.
+- **Estado**: medido el 2026-10-21 con `npm run test:coverage` (`src` + `scripts`, el mismo alcance que CI): líneas 73 %, sentencias 72 %, funciones 68 %, ramas 63 %; el 2026-10-26 el ratchet subió ramas a 64 %. La cifra de ~13-15 % de esta sección era de una suite mucho más chica.
 - **Decisión**: esos valores son el **piso** en `vitest.config.ts`. Una corrida por debajo falla, y CI corre `npm run test:coverage` en cada PR.
 - **Cómo sube**: `autoUpdate` reescribe los umbrales hacia arriba (redondeados hacia abajo) cuando la cobertura mejora; ese cambio se commitea junto con las pruebas que lo lograron. Bajar un valor es una edición explícita que se revisa en el PR.
 
