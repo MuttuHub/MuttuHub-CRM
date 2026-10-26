@@ -1821,6 +1821,98 @@ export function useImportTemplate(
   });
 }
 
+/* ── Presupuesto desde el Excel simple de la PO (importar-presupuesto-po) ── */
+
+/** Error por fila (`fila` nula si es del archivo) del 400 de `POST /budget/import`. */
+export type BudgetImportError = { fila: number | null; rubro: string | null; mensaje: string };
+
+/** `POST /budget/import` con `modo=validar`: nada se escribió. */
+export type BudgetImportPreview = {
+  importado: false;
+  valido: true;
+  rubros: {
+    rubro_id: string;
+    codigo: string | null;
+    nombre: string;
+    actual: string;
+    nuevo: string;
+    diferencia: string;
+    en_archivo: boolean;
+  }[];
+  suma_actual: string;
+  suma_nueva: string;
+  valor_total: string | null;
+  /** Σ nuevo − valor_total; nulo sin valor total. */
+  diferencia: string | null;
+  cambios: number;
+};
+
+/** `POST /budget/import` aplicado. */
+export type BudgetImportApplied = { importado: true; cambios: number; presupuesto: ProjectBudget };
+
+export type BudgetImportInput = { archivo: File; validar: boolean };
+
+/** El 400 con los errores por fila del archivo. */
+export class BudgetImportReportError extends ApiError {
+  readonly errores: BudgetImportError[];
+
+  constructor(message: string, errores: BudgetImportError[]) {
+    super(message, 400, "VALIDATION_ERROR");
+    this.name = "BudgetImportReportError";
+    this.errores = errores;
+  }
+}
+
+function budgetImportFailure(res: Response, body: Record<string, unknown>, fallback: string): ApiError {
+  const errores = (body.reporte as { errores?: unknown } | undefined)?.errores;
+  if (Array.isArray(errores)) {
+    return new BudgetImportReportError(typeof body.error === "string" ? body.error : fallback, errores as BudgetImportError[]);
+  }
+  return new ApiError(typeof body.error === "string" ? body.error : fallback, res.status, typeof body.code === "string" ? body.code : undefined);
+}
+
+/** Baja la plantilla vacía del presupuesto en el formato de la PO. */
+export async function downloadBudgetTemplate(projectId: string): Promise<void> {
+  const res = await fetch(`/api/v1/projects/${projectId}/budget/template`, { method: "GET" });
+  if (!res.ok) {
+    throw budgetImportFailure(res, await readJsonBody(res), "No pudimos descargar la plantilla. Inténtalo de nuevo.");
+  }
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? "plantilla-presupuesto.xlsx";
+  saveBlobAs(await res.blob(), filename);
+}
+
+/**
+ * Valida (`validar: true`, no escribe) o aplica el presupuesto del Excel de la PO.
+ * El 400 con errores por fila llega como `BudgetImportReportError`.
+ */
+export function useImportBudget(
+  projectId: string,
+): UseMutationResult<BudgetImportPreview | BudgetImportApplied, Error, BudgetImportInput> {
+  const refresh = useRefreshPresupuesto(projectId);
+  return useMutation({
+    mutationFn: async ({ archivo, validar }) => {
+      const form = new FormData();
+      form.set("archivo", archivo);
+      if (validar) form.set("modo", "validar");
+      // Sin Content-Type: el navegador pone el boundary del multipart.
+      const res = await fetch(`/api/v1/projects/${projectId}/budget/import`, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        body: form,
+      });
+      const body = await readJsonBody(res);
+      if (!res.ok) throw budgetImportFailure(res, body, "No pudimos importar el presupuesto. Inténtalo de nuevo.");
+      return body as BudgetImportPreview | BudgetImportApplied;
+    },
+    onSuccess: (data) => {
+      if (!data.importado) return;
+      refresh();
+      toast.success("Presupuesto importado.");
+    },
+  });
+}
+
 // ── S8: aprobación de la línea base (E-25) ─────────────────────────────
 
 export type BaselinePrecondicion = { codigo: string; mensaje: string; rubroId?: string };

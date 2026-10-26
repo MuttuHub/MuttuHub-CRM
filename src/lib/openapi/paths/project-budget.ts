@@ -10,11 +10,12 @@ import { PROGRAMMING_PUT_SCHEMA } from "@/app/api/v1/projects/[id]/programming/r
 const ProjectParams = z.object({ id: z.string().uuid() });
 
 const READ_NOTE =
-  "Lee quien puede leer la ficha del proyecto (ADMINISTRADOR/GERENCIA, COORDINADOR integrante activo o el visualizador " +
-  "con la bandera); un proyecto desconocido responde 404 antes del 403. Se puede leer en cualquier estado.";
+  "Lee quien puede leer la ficha del proyecto (ADMINISTRADOR/GERENCIA, COORDINADOR o COLABORADOR integrante activo, o el " +
+  "visualizador con la bandera); un proyecto desconocido responde 404 antes del 403. Se puede leer en cualquier estado.";
 
 const WRITE_NOTE =
-  "Solo `ADMINISTRADOR`/`GERENCIA` y solo mientras el proyecto está en `BORRADOR` (404 -> 403 -> 409 INVALID_STATE -> 400); " +
+  "`ADMINISTRADOR`/`GERENCIA` en cualquier proyecto, y `COORDINADOR`/`COLABORADOR` solo como integrantes activos (S5), " +
+  "siempre mientras el proyecto está en `BORRADOR` (404 -> 403 -> 409 INVALID_STATE -> 400); " +
   "el estado se vuelve a comprobar bajo bloqueo de fila dentro de la transacción. Ninguna ruta cambia el estado del proyecto.";
 
 export const BudgetViewSchema = registry.register(
@@ -177,5 +178,122 @@ registry.registerPath({
   responses: {
     200: { description: "Ficha financiera al corte.", content: { "application/json": { schema: FinancialSheetSchema } } },
     ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Budget import in the PO's simple format (feature importar-presupuesto-po)
+// ---------------------------------------------------------------------------
+
+const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+const BudgetImportErrorSchema = registry.register(
+  "ErrorImportacionPresupuesto",
+  z.object({
+    fila: z.number().int().nullable().openapi({ description: "Fila de Excel (base 1); nula si el error es del archivo." }),
+    rubro: z.string().nullable().openapi({ description: "El rubro tal como está escrito en el archivo." }),
+    mensaje: z.string(),
+  }),
+);
+
+const BudgetImportPreviewSchema = registry.register(
+  "VistaPreviaImportacionPresupuesto",
+  z.object({
+    importado: z.literal(false),
+    valido: z.literal(true),
+    rubros: z.array(
+      z.object({
+        rubro_id: z.string().uuid(),
+        codigo: z.string().nullable(),
+        nombre: z.string(),
+        actual: z.string(),
+        nuevo: z.string(),
+        diferencia: z.string().openapi({ description: "nuevo − actual." }),
+        en_archivo: z.boolean().openapi({
+          description: "Falso para un rubro activo ausente del archivo (pasa a $0) y para un rubro suspendido (no cambia).",
+        }),
+      }),
+    ),
+    suma_actual: z.string(),
+    suma_nueva: z.string(),
+    valor_total: z.string().nullable(),
+    diferencia: z.string().nullable().openapi({ description: "suma_nueva − valor_total; nulo sin valor_total." }),
+    cambios: z.number().int().openapi({ description: "Rubros cuyo monto cambia." }),
+  }),
+);
+
+const BudgetImportAppliedSchema = registry.register(
+  "ImportacionPresupuestoAplicada",
+  z.object({
+    importado: z.literal(true),
+    cambios: z.number().int().openapi({ description: "Líneas creadas o actualizadas (una auditoría por cada una)." }),
+    presupuesto: BudgetViewSchema,
+  }),
+);
+
+registry.registerPath({
+  method: "post",
+  path: "/api/v1/projects/{id}/budget/import",
+  tags: ["Projects"],
+  summary: "Importa el presupuesto desde el Excel simple de la PO (Rubro | Valor (COP))",
+  description:
+    `${WRITE_NOTE} Multipart con el archivo en \`archivo\` (.xlsx, máximo 4 MB; no se almacena). Los rubros se emparejan por ` +
+    "nombre normalizado (mayúsculas, tildes y símbolos sueltos no importan) o por código, solo contra los rubros activos. Los " +
+    "montos son celdas numéricas o texto es-CO (`1.500.000,50`); vacío es $0. Con `modo=validar` solo devuelve la vista previa " +
+    "(actual y nuevo por rubro, suma contra `valor_total`) sin escribir. Aplicar escribe en una transacción lo mismo que el `PUT` " +
+    "del presupuesto: cubre todos los rubros activos (uno ausente del archivo queda en $0), una auditoría por línea cambiada y, si " +
+    "`valor_total` es nulo, toma la suma. La programación mensual no cambia. Orden de errores: 404 -> 403 -> 409 -> 413 -> 400.",
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: ProjectParams,
+    body: {
+      content: {
+        "multipart/form-data": {
+          schema: z.object({
+            archivo: z.string().openapi({ format: "binary", description: "Presupuesto .xlsx con las columnas Rubro y Valor (COP)." }),
+            modo: z.literal("validar").optional().openapi({ description: "Solo valida y devuelve la vista previa; no escribe." }),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Vista previa o importación aplicada.",
+      content: {
+        "application/json": { schema: z.union([BudgetImportPreviewSchema, BudgetImportAppliedSchema]) },
+      },
+    },
+    400: {
+      description: "Archivo ilegible, tipo no válido o con errores por fila (VALIDATION_ERROR, con `reporte` cuando se leyó).",
+      content: {
+        "application/json": {
+          schema: z.object({
+            error: z.string(),
+            code: z.literal("VALIDATION_ERROR"),
+            reporte: z.object({ errores: z.array(BudgetImportErrorSchema) }).optional(),
+          }),
+        },
+      },
+    },
+    ...standardErrorResponses([401, 403, 404, 409, 413, 500]),
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/v1/projects/{id}/budget/template",
+  tags: ["Projects"],
+  summary: "Descarga la plantilla vacía del presupuesto en el formato de la PO",
+  description:
+    `Una hoja con los encabezados \`Rubro | Valor (COP)\` y una fila por rubro activo, con los valores vacíos. ${READ_NOTE}`,
+  security: [{ sessionCookie: [] }],
+  request: { params: ProjectParams },
+  responses: {
+    200: {
+      description: "Libro de Excel como adjunto `plantilla-presupuesto.xlsx`.",
+      content: { [XLSX_MIME]: { schema: z.string().openapi({ format: "binary" }) } },
+    },
+    ...standardErrorResponses([401, 403, 404, 500]),
   },
 });

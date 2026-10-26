@@ -13,6 +13,7 @@ import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { InlineError, SectionHeader } from "@/components/proyectos/ui";
 import { MONTO_INVALIDO, montoToInput, parseMontoInput } from "@/components/proyectos/presupuesto-ui";
 import { MontoInput, PresupuestoProgramacion } from "@/components/proyectos/presupuesto-programacion";
+import { PresupuestoImportDialog } from "@/components/proyectos/presupuesto-import-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -182,6 +183,7 @@ function PresupuestoEditor({
               Igualar valor total a Σ A
             </Button>
           )}
+          <PresupuestoImportDialog proyectoId={proyectoId} />
         </div>
       )}
       <InlineError message={errorPut} />
