@@ -272,8 +272,6 @@ function TablaProyectos({ proyectos }: { proyectos: PortfolioProject[] }) {
               <TableCell className="sticky right-0 bg-panel text-right group-hover/fila:bg-muted">
                 <Link
                   href={`/proyectos/${proyecto.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
                   className={cn(
                     buttonVariants({ variant: "outline", size: "sm" }),
                     "h-8 px-3 text-[12px] font-semibold text-ink-700 hover:bg-ink-100",
@@ -325,8 +323,6 @@ function TarjetasProyectos({ proyectos }: { proyectos: PortfolioProject[] }) {
           </dl>
           <Link
             href={`/proyectos/${proyecto.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
             className={cn(
               buttonVariants({ variant: "outline" }),
               "h-11 w-full text-[13px] font-semibold text-ink-700 hover:bg-ink-100",

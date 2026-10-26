@@ -173,9 +173,7 @@ describe("ProjectDashboard", () => {
       const enlace = within(fila).getByRole("link", { name: /Ver detalle/ })
       expect(enlace.className).toMatch(/(^|\s)h-11(\s|$)/)
       expect(enlace).toHaveAttribute("href", "/proyectos/p1")
-      expect(enlace).toHaveAttribute("target", "_blank")
-      expect(enlace.getAttribute("rel")).toMatch(/noopener/)
-      expect(enlace.getAttribute("rel")).toMatch(/noreferrer/)
+      expect(enlace).not.toHaveAttribute("target")
       await user.click(enlace)
       expect(screen.queryByRole("dialog")).toBeNull()
     } finally {
@@ -263,13 +261,11 @@ describe("ProjectDashboard", () => {
     expect(toast.error).toHaveBeenCalledWith("Formato no disponible.")
   })
 
-  it("links the 'Ver detalle' of a table row to the ficha page in a new tab, without a dialog", async () => {
+  it("links the 'Ver detalle' of a table row to the ficha page in the same window, without a dialog", async () => {
     render(<ProjectDashboard />)
     const enlace = within(screen.getByTestId("tablero-fila-p1")).getByRole("link", { name: "Ver detalle" })
     expect(enlace).toHaveAttribute("href", "/proyectos/p1")
-    expect(enlace).toHaveAttribute("target", "_blank")
-    expect(enlace.getAttribute("rel")).toMatch(/noopener/)
-    expect(enlace.getAttribute("rel")).toMatch(/noreferrer/)
+    expect(enlace).not.toHaveAttribute("target")
     await userEvent.setup().click(enlace)
     expect(screen.queryByRole("dialog")).toBeNull()
   })

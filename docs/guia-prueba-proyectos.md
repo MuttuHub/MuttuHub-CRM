@@ -15,8 +15,8 @@ los que renderiza la interfaz (verificados contra el código el 2026-10-09).
 
 ## Cómo está organizada la ficha (pestañas)
 
-**Ver detalle** abre la ficha en su propia página, `/proyectos/<id>`, en una **pestaña nueva del navegador**
-(es un enlace con `target="_blank"`; Ctrl o clic central también funcionan). La página tiene el botón
+**Ver detalle** abre la ficha en su propia página, `/proyectos/<id>`, en la **misma ventana**
+(es un enlace normal; Ctrl o clic central lo abren en otra pestaña si se quiere). La página tiene el botón
 **Volver a proyectos** (lleva a `/proyectos`), un **encabezado fijo** y once pestañas. No hay diálogo. Un id que no
 existe muestra "Proyecto no encontrado"; un proyecto que el usuario no puede ver muestra "No tienes acceso a este
 proyecto". Para no confundir: las pestañas de abajo son las de la ficha; la pestaña del navegador es otra cosa.
@@ -63,7 +63,7 @@ Antes de la reunión (5 min, una sola vez):
 3. Si quieres mostrar el flujo de errores en vivo, deja el segundo archivo (`...-error-v13.xlsx`) a mano.
 
 En la reunión (como `admin@`, salvo donde se indica):
-1. **Proyectos > Ver detalle** del proyecto en Borrador (abre en una pestaña nueva del navegador, en **Resumen**: datos y **Equipo**; **Volver a proyectos** regresa a la lista). Pestaña
+1. **Proyectos > Ver detalle** del proyecto en Borrador (abre en la misma ventana, en **Resumen**: datos y **Equipo**; **Volver a proyectos** regresa a la lista). Pestaña
    **Cronograma**: el **Cronograma** por semanas. Pestaña **Gantt**: el **Gantt** por semanas. Pestaña **Financiero**: **Presupuesto** (Σ asignado =
    Valor total). (1 min)
 2. En la pestaña **Metas e indicadores**, **Importar plantilla** con el archivo de error: se ve la tabla por hoja y
@@ -167,8 +167,8 @@ después, el semáforo técnico saldrá más atrasado.
 
 ## 2. Ficha del proyecto
 
-1. En la fila, usa **Ver detalle**. Se abre la ficha en su propia página (`/proyectos/<id>`) en una pestaña nueva del
-   navegador, en la pestaña **Resumen**; la lista queda abierta en la pestaña anterior, sin diálogo. El encabezado muestra código, nombre y estado
+1. En la fila, usa **Ver detalle**. Se abre la ficha en su propia página (`/proyectos/<id>`) en la misma ventana, en la
+   pestaña **Resumen**, sin diálogo; **Volver a proyectos** regresa a la lista. El encabezado muestra código, nombre y estado
    (un Borrador no muestra chips de semáforo).
 2. En **Resumen** revisa datos generales, **Líneas estratégicas**, **Municipios** y la duración en semanas
    (derivada de las fechas).
@@ -489,7 +489,7 @@ Quién ve la pestaña **Tablero** (junto a **Portafolio**): `admin@`, `gerencia@
    asignado** (con "Ejecutado / programado ...") y **Ejecutado** (con "Asignado ..."), más el bloque **Proyectos por
    estado**.
 4. Tabla: Código, Proyecto (con cliente), Estado, **Semáforo técnico**, **Semáforo financiero** (más la insignia
-   **Posible retraso** si aplica), **Avance real**, **Ejecutado / asignado** y **Ver detalle** (abre la ficha en una pestaña nueva del navegador). Un
+   **Posible retraso** si aplica), **Avance real**, **Ejecutado / asignado** y **Ver detalle** (abre la ficha en la misma ventana). Un
    proyecto sin indicadores (Borrador) muestra "Sin medir" y "—".
 5. Insignia **No confirmado** junto a **Exportar Excel**: aparece mientras los parámetros del semáforo no estén
    confirmados (§H). Es lo esperado hoy.
@@ -557,7 +557,7 @@ Hay dos specs y **necesitan estados de base distintos**; no corren sobre la mism
 
 | Spec | Estado de la base que exige | Escribe datos |
 |---|---|---|
-| `e2e/proyectos-demo.spec.ts` | Demo **limpia**: cero proyectos y dos oportunidades Ganada sin proyecto. Crea `PRY-2026-001` desde una oportunidad y abre su ficha en la pestaña nueva. | Sí |
+| `e2e/proyectos-demo.spec.ts` | Demo **limpia**: cero proyectos y dos oportunidades Ganada sin proyecto. Crea `PRY-2026-001` desde una oportunidad y abre su ficha en la misma ventana. | Sí |
 | `e2e/proyectos-ficha-pagina.spec.ts` | Semilla **S11** (`npm run db:demo:seed-projects:local -- --apply` en una base local nueva): necesita `PRY-2026-001` En ejecución. | No (solo lee) |
 
 ```bash
@@ -570,7 +570,7 @@ npx playwright test e2e/proyectos-ficha-pagina.spec.ts
 ```
 
 El reset no puede borrar proyectos aprobados: si la base ya tiene la semilla S11, `proyectos-demo.spec.ts` no
-tiene su precondición y falla en el paso 4. `proyectos-ficha-pagina.spec.ts` sigue la pestaña nueva, comprueba
+tiene su precondición y falla en el paso 4. `proyectos-ficha-pagina.spec.ts` abre la ficha en la misma pestaña, comprueba
 encabezado, chips de semáforo, "Volver a proyectos", las once pestañas y el estado "Proyecto no encontrado", y guarda
 capturas (ficha a 1440 y 390 px, Tablero a 1440 px) en el directorio indicado por `SCREENSHOT_DIR`.
 

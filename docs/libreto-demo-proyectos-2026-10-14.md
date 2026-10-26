@@ -102,7 +102,7 @@ manualmente."
 
 ### Escena 5. Aprobar la línea base de PRY-2026-002 desde su ficha (2 min)
 
-1. **Proyectos** > **Ver detalle** de PRY-2026-002 (abre en una pestaña nueva del navegador).
+1. **Proyectos** > **Ver detalle** de PRY-2026-002 (abre la ficha en la misma ventana).
 2. Botón **Aprobar línea base** en el encabezado > **Aprobar**. El proyecto pasa a **En ejecución** y aparecen los
    chips **Semáforo técnico** y **Semáforo financiero**.
 3. El **Semáforo técnico** sale **Rojo**: 0 % real contra 20,4 % de plan y la actividad 1.1 atrasada.

@@ -75,7 +75,7 @@ La página tiene dos pestañas:
   se pliegan en el botón **«Filtros»**; **«Limpiar filtros»** los borra todos.
 - La tabla muestra: **Proyecto** (código, cliente y nombre), **Territorio · línea**, **Responsable**, **Avance
   técnico**, **Avance financiero** y **Estado**.
-- **Ver detalle** abre la ficha del proyecto en una pestaña nueva del navegador.
+- **Ver detalle** abre la ficha del proyecto en la misma ventana; **Volver a proyectos** regresa a la lista.
 - El botón **Nuevo proyecto** abre el asistente de creación; lo ve cualquier rol.
 
 Si la tabla aparece vacía:

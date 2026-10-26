@@ -46,7 +46,6 @@ test.setTimeout(300_000);
 
 test("Projects demo: convert a won opportunity into PRY-2026-001 and see it listed", async ({
   page,
-  context,
 }) => {
   await test.step("1. Login as gerencia (full project access)", async () => {
     // ?next=/proyectos sends the redirect straight to the module, so this
@@ -182,17 +181,14 @@ test("Projects demo: convert a won opportunity into PRY-2026-001 and see it list
     await beat(page, 1200);
   });
 
-  await test.step("8. Open the ficha in a new tab and see conversion + creation as ONE audited step", async () => {
-    // The row asserted in step 7 has a read-only ficha behind "Ver detalle". Since S12 the ficha is its own page
-    // (/proyectos/<id>) and "Ver detalle" is a target=_blank link, so it opens in a NEW browser tab.
+  await test.step("8. Open the ficha and see conversion + creation as ONE audited step", async () => {
+    // The row asserted in step 7 has a read-only ficha behind "Ver detalle". The ficha is its own page
+    // (/proyectos/<id>) and "Ver detalle" navigates to it in the SAME tab (PO feedback 2026-10-23).
     const row = page.getByRole("row", { name: /PRY-2026-001/ });
-    const [ficha] = await Promise.all([
-      context.waitForEvent("page"),
-      row.getByRole("link", { name: "Ver detalle" }).click(),
-    ]);
-    await ficha.waitForLoadState("domcontentloaded", { timeout: 90_000 });
+    await row.getByRole("link", { name: "Ver detalle" }).click();
+    const ficha = page;
     await expect(ficha).toHaveURL(/\/proyectos\/[0-9a-f-]{36}$/, { timeout: 60_000 });
-    // No dialog opened on the list tab, and the ficha page has no dialog either.
+    // The ficha page has no dialog.
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(ficha.getByText("PRY-2026-001").first()).toBeVisible({ timeout: 60_000 });
     for (const tab of ["Resumen", "Estructura", "Avance", "Presupuesto", "Gastos", "Cambios"]) {
