@@ -3,16 +3,11 @@ import { defineConfig, devices } from "@playwright/test";
 // E2E suite in CI (E1). Unlike playwright.config.ts (demo-paced, recorded,
 // against an already-running dev server), this config starts the production
 // build itself and runs at full speed against the seeded local Supabase that
-// the `e2e` job brings up. It is never pointed at a remote environment.
+// the `e2e` job brings up. It runs only the maintained suite (e2e/proyectos-v2);
+// the root legacy specs are a documented follow-up (odd/tasks/e2e-proyectos-v2.md).
+// It is never pointed at a remote environment.
 export default defineConfig({
-  testDir: "./e2e",
-  testIgnore: [
-    // Needs a clean demo (zero projects) and conflicts with the S11 seed the
-    // rest of the suite uses; it stays a manual run (docs/guia-prueba-proyectos.md).
-    "**/proyectos-demo.spec.ts",
-    // Needs a real QA account (QA_TEST_EMAIL / QA_TEST_PASSWORD) and skips without it.
-    "**/change-password.spec.ts",
-  ],
+  testDir: "./e2e/proyectos-v2",
   timeout: 180_000,
   expect: { timeout: 15_000 },
   // Several specs are serial and mutate shared seed state (permisos, ficha-ejecucion).
