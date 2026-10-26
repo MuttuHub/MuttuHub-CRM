@@ -63,3 +63,20 @@ Con eso, la prueba pasa sin cambios.
 - D1 (arreglo de app, fuera de la superficie de este worktree): con eso la suite queda 100 % verde.
 - Correr la suite completa contra la copia de producción como parte del humo de R7 (incluye ya
   `documentos-proyecto.spec.ts`, que dejó de estar en `test.fixme` al integrarse DOC1).
+
+## CI (E1, 2026-10-26)
+
+El job `e2e` de `.github/workflows/ci.yml` corre solo `e2e/proyectos-v2` (`playwright.ci.config.ts`) sobre la
+semilla del repo. Se movieron los datos que solo existían en la base local del autor: «Bavaria SA» pasó a
+«Textiles del Caribe S.A.» (clientes, portafolio), la oportunidad Ganada libre pasó de «Agencia de Cooperación
+Nórdica» a «Fundación Tejiendo Caribe», y el «ajeno» de permisos nunca es PRY-2026-001 (era la flakiness: el orden de
+`/api/v1/projects` no está garantizado). `openCliente` espera el `?q=` de la URL (debounce de 350 ms) antes de abrir
+la ficha, porque su `router.replace` pisaba la navegación de «Crear proyecto».
+
+### Seguimiento: specs legacy fuera de CI (fallos observados en la corrida 40358916147)
+
+- `invitation-flow`: no encuentra el botón «Crear usuario».
+- `oportunidad-ciclo`: no encuentra la pestaña «Oportunidades» del diálogo.
+- `permisos-colaborador`: la tarjeta del kanban está `aria-disabled` para el colaborador.
+- `proyectos-ficha-pagina`: espera 6 pestañas y la ficha tiene 5.
+- `crm-demo`, `proyectos-demo` (exige demo sin proyectos) y `change-password` (exige cuenta QA real) no se ejecutan en CI.

@@ -574,6 +574,22 @@ tiene su precondición y falla en el paso 4. `proyectos-ficha-pagina.spec.ts` ab
 encabezado, chips de semáforo, "Volver a proyectos", las once pestañas y el estado "Proyecto no encontrado", y guarda
 capturas (ficha a 1440 y 390 px, Tablero a 1440 px) en el directorio indicado por `SCREENSHOT_DIR`.
 
+### 5.1 En CI (job `e2e`)
+
+Cada PR corre la suite mantenida (`e2e/proyectos-v2`, 31 pruebas, ~1,2 min de pruebas y ~5 min de job) contra una
+base **efímera**, nunca contra Supabase remoto. El job: levanta `supabase start` (sin studio, imgproxy,
+edge-runtime, logflare ni vector), toma las llaves de `supabase status -o json`, crea el bucket `muttu-docs`,
+aplica `prisma migrate deploy` y siembra en este orden: `prisma db seed` (usuarios demo, 13 clientes, catálogos),
+`scripts/seed-projects-demo.ts --apply` (PRY-2026-001/002 y gastos) y `scripts/seed-demo-flujo.ts --apply`
+(clientes, oportunidades Ganadas libres y contactos extra). Después hace `npm run build`, y corre
+`npx playwright test --config playwright.ci.config.ts` (servidor `npm start`, 1 worker, 1 reintento). Si falla,
+sube `playwright-report-ci/` como artefacto.
+
+Las pruebas deben apoyarse solo en datos que esas tres semillas crean (p. ej. «Textiles del Caribe S.A.» para un
+cliente ajeno al colaborador, «Fundación Tejiendo Caribe» para una Ganada sin proyecto). Los specs sueltos de la raíz
+de `e2e/` (invitation-flow, oportunidad-ciclo, permisos-colaborador, proyectos-ficha-pagina, crm-demo,
+proyectos-demo, change-password) quedan fuera de CI hasta alinearlos con la UI actual.
+
 ## 6. Límites conocidos (para decirlo en la reunión)
 
 No existe todavía, dicho sin adornos:
