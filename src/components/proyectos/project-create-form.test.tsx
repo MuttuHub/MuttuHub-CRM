@@ -11,6 +11,10 @@ import type { ClientListRow } from "@/hooks/crm"
 import type { EligibleOpportunity, Municipality, StrategicLine } from "@/hooks/projects"
 import { ProjectCreateForm } from "./project-create-form"
 
+// The client-first flow drives a dozen userEvent interactions per test; under a loaded
+// full-suite run with coverage instrumentation the 5 s default is not enough.
+vi.setConfig({ testTimeout: 20000 })
+
 type MutationState = { isPending: boolean; mutateAsync: ReturnType<typeof vi.fn> }
 
 const {

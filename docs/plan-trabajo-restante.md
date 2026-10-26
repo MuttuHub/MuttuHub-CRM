@@ -83,7 +83,7 @@ Sheet, Gantt, tabla de usuarios, Curva S, ruta vieja, IP/Agente, cronograma y to
 | ID | Tarea | Tamaño | Depende de | Terminado cuando |
 |---|---|---|---|---|
 | E1 | Conectar Playwright a CI (build + base sembrada) | M | Infra de CI | La suite de 29 pruebas corre en cada PR |
-| E2 | Umbral de cobertura realista y creciente | L | — | `test:coverage` publica el número y el umbral no se puede bajar |
+| E2 | Umbral de cobertura realista y creciente | L | — | **Hecho**: piso 73/72/68/64 en CI con `autoUpdate` hacia arriba (solo en local) |
 | E3 | `npm run lint` reproducible en local | S | — | **Hecho**: artefactos locales ignorados y 0 problemas |
 | E4 | Migración a Railway — **Opción A** (app en Railway, Supabase se queda) | S–M | Acceso a Railway | Producción sirviendo desde Railway con el mismo dominio |
 | E5 | Migración a Railway — **Opción B** (stack completo, Auth propio) | L | E4, decisión **D-F** | Paridad del humo completa y una semana de estabilidad |

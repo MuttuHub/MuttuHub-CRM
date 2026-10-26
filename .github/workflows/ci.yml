@@ -59,8 +59,10 @@ jobs:
       # The invariant files open a live connection and run DDL/DML. Two of them
       # in parallel can deadlock on Postgres (40P01, seen on 2026-10-20), so
       # they run alone and after the rest of the suite.
-      - name: Unit tests (Vitest)
-        run: npx vitest run src scripts
+      # Same scope as before (src + scripts) plus the coverage floor in
+      # vitest.config.ts; the report lands in coverage/ for the upload below.
+      - name: Unit tests with coverage floor (Vitest)
+        run: npm run test:coverage
 
       - name: Live-DB invariants (Vitest, no file parallelism)
         run: npx vitest run prisma --no-file-parallelism
