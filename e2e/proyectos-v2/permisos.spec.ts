@@ -48,7 +48,10 @@ async function proyectoAjenoAlColaborador(page: Page): Promise<{ id: string; cod
   const { proyectos } = (await res.json()) as {
     proyectos: Array<{ id: string; codigo: string }>;
   };
+  // PRY-2026-001 never qualifies: a later test adds the colaborador to it, and
+  // the API gives no ordering guarantee, so the first listed project may be it.
   for (const proyecto of proyectos) {
+    if (proyecto.codigo === "PRY-2026-001") continue;
     const miembrosRes = await page.request.get(`/api/v1/projects/${proyecto.id}/members`);
     const { miembros } = (await miembrosRes.json()) as {
       miembros: Array<{ usuario: { nombre: string } }>;
