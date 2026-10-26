@@ -14,6 +14,13 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Generated artifacts
     "coverage/**",
+    // Local-only artifacts that are not tracked but break a local lint run:
+    // Next moves an outdated build aside as `.next-stale-<timestamp>`,
+    // the Supabase CLI caches into `supabase/.temp`, and the design
+    // handoff prototype lives outside the app.
+    ".next-*/**",
+    "supabase/.temp/**",
+    "Web app views creation/**",
   ]),
 ]);
 

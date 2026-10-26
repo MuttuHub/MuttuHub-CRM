@@ -150,7 +150,7 @@ test("admin adds the colaborador to 001 through the team panel", async ({ page }
 test("colaborador member: reads their project, executes, cannot validate nor approve", async ({ page }) => {
   await page.context().clearCookies();
   await login(page, "colaborador", "/proyectos");
-  const { p001, p002 } = await resolveIds(page);
+  const { p001 } = await resolveIds(page);
 
   await expect(portfolioRows(page).first()).toBeVisible({ timeout: 60_000 });
   const rows = (await portfolioRows(page).allInnerTexts()).join("\n");

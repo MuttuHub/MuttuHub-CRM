@@ -153,7 +153,6 @@ function ConfirmInner() {
   const [status, setStatus] = useState<
     "loading" | "set-password" | "done" | "error"
   >("loading");
-  const [invite, setInvite] = useState(false);
 
   const unconfigured =
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
