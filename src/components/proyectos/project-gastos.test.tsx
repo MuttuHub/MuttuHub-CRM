@@ -196,6 +196,37 @@ describe("ProjectGastos", () => {
     })
   })
 
+  describe("import control (B8)", () => {
+    it("is shown next to Registrar gasto: managers and active members on an EN_EJECUCION project", async () => {
+      for (const config of [{ rol: "GERENCIA" }, { rol: "ADMINISTRADOR" }, { rol: "COORDINADOR", miembro: true }]) {
+        const { unmount } = setup(config)
+        expect(await screen.findByRole("button", { name: "Importar gastos" })).toBeInTheDocument()
+        expect(screen.getByRole("button", { name: "Registrar gasto" })).toBeInTheDocument()
+        unmount()
+      }
+    })
+
+    it("is hidden wherever Registrar gasto is hidden", async () => {
+      for (const config of [{ rol: "COORDINADOR" }, { rol: "COLABORADOR" }, { proyecto: { estado: "CERRADO" as const } }, { proyecto: { estado: "SUSPENDIDO" as const } }]) {
+        const { unmount } = setup(config)
+        await screen.findByTestId("gastos-lista")
+        expect(screen.queryByRole("button", { name: "Importar gastos" })).not.toBeInTheDocument()
+        expect(screen.queryByRole("button", { name: "Registrar gasto" })).not.toBeInTheDocument()
+        unmount()
+      }
+    })
+
+    it("opens the import dialog and leaves Registrar gasto working as before", async () => {
+      const user = userEvent.setup()
+      setup({ rol: "GERENCIA" })
+      await user.click(await screen.findByRole("button", { name: "Importar gastos" }))
+      expect(await screen.findByRole("dialog", { name: "Importar gastos" })).toBeInTheDocument()
+      await user.click(screen.getByRole("button", { name: "Cancelar" }))
+      await user.click(screen.getByRole("button", { name: "Registrar gasto" }))
+      expect(screen.getByRole("form", { name: "Registrar gasto" })).toBeInTheDocument()
+    })
+  })
+
   describe("list", () => {
     it("shows state chips, the amount and the red overspend flag", async () => {
       setup({

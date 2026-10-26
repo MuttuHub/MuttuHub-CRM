@@ -245,6 +245,12 @@ en ese estado.
   soporte** (factura de proveedor, cuenta de cobro de persona natural u otro), **Número de documento**, **Tercero**,
   **Tipo y número de identificación**, **Descripción** y el **soporte** (archivo o enlace).
 - El soporte es obligatorio: un gasto sin soporte no se registra.
+- **Importar gastos** carga varios gastos desde un Excel (una fila por gasto) para quienes pueden registrar gastos, solo
+  con el proyecto en ejecución. **Descargar plantilla** baja el formato con los rubros del proyecto. **Validar** muestra
+  cada fila como válida o con error y su motivo, sin guardar nada; **Importar** crea solo las filas válidas como
+  **Registrado** y lista las rechazadas. Un duplicado dentro del archivo (mismo tercero y número de documento) se rechaza.
+  El archivo no lleva soportes: cada gasto importado aparece **Sin soporte** y quien lo registró lo adjunta con
+  **Adjuntar soporte** (archivo o enlace, hasta 5). Un gasto sin soporte no se puede validar.
 - **Validar** y **Rechazar** están disponibles para Administrador y Gerencia, y nunca sobre un gasto propio. Al
   rechazar se escribe el **motivo**.
 - **Anular** un gasto es una acción aparte, con su propio motivo.
@@ -364,7 +370,6 @@ En el encabezado de la ficha, menú **«⋯»**:
 Estas funciones **no** están en el lanzamiento y se trabajarán después:
 
 - **Cerrar, suspender o cancelar** un proyecto desde la interfaz.
-- **Importar gastos** desde Excel.
 - **Adaptador de las plantillas de la PO** (`proyecto.xlsx` y `presupuesto.xlsx`) con la estructura y el presupuesto.
 - **Rubros personalizados o deshabilitados por proyecto**: hoy el catálogo R01 a R15 es global.
 - **Correos automáticos con marca**: las notificaciones dentro de la aplicación funcionan; el envío de correo depende del
@@ -427,8 +432,7 @@ iteración:
 2. **Rubros personalizados o deshabilitados por proyecto.** Hoy el catálogo R01 a R15 es global: un rubro sin uso queda
    en $0 y se sigue mostrando.
 3. **Cerrar, suspender o cancelar** un proyecto desde la interfaz: no está en esta versión.
-4. **Importar gastos** desde Excel: no está en esta versión.
-5. **Correos automáticos.** Las notificaciones dentro de la aplicación funcionan; el envío de correo depende de verificar
+4. **Correos automáticos.** Las notificaciones dentro de la aplicación funcionan; el envío de correo depende de verificar
    el dominio de envío.
 6. **Plantillas de la PO** (`proyecto.xlsx`, `presupuesto.xlsx`): el modelo de datos ya las soporta, falta el adaptador
    para leer su formato exacto.

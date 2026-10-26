@@ -41,8 +41,8 @@ Objective: register a project's expenses from one Excel file instead of one by o
 |---|---|---|---|---|
 | T1 | S1, S4, S6 | delegated (context backstop) | done | 5496102 |
 | T2 | S5, S7 | delegated | done | 527c4be |
-| T3 | S2, S3 | delegated | done | see Log L6 |
-| T4 | S1, S5, S8 | delegated | todo | |
+| T3 | S2, S3 | delegated | done | 26be04b |
+| T4 | S1, S5, S8 | delegated | done | see git log (unit 4) |
 
 ## Log
 
@@ -73,3 +73,7 @@ Objective: register a project's expenses from one Excel file instead of one by o
   reason in the Gastos tab; `AdjuntarSoporte` in the Soporte cell. Gap: the cross-project validation queue
   (`expense-validation-queue.tsx`, `/expense-validations`) is outside the allowed surfaces, so its Validar stays enabled
   and shows the API 409 inline.
+- **L7 (T4):** `GastosImportDialog` (Importar gastos: template, validate preview per row, import valid rows, result with
+  rejected rows and the attach-support reminder) mounted next to "Registrar gasto" with the same visibility; hooks
+  `useImportExpenses` / `downloadExpensesTemplate`; OpenAPI paths for import, template and attachments (validate 409
+  documented); guide (limits entry removed, new paragraph) in `.md` and `.html` (the `.pdf` is not regenerated) and plan row B8.

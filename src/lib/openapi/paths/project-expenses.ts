@@ -223,7 +223,8 @@ registry.registerPath({
   summary: "Valida un gasto registrado",
   description:
     `${GestionNote} Quien registró el gasto no puede validarlo (403; también lo impide una restricción de la base de datos). ` +
-    "409 INVALID_STATE si no está REGISTRADO o si el tercero no tiene tipo y número de identificación. Si el total validado " +
+    "409 INVALID_STATE si no está REGISTRADO; 409 CONFLICT si el tercero no tiene tipo y número de identificación o si el gasto " +
+    "no tiene ningún soporte vigente (los gastos importados desde Excel nacen sin soporte). Si el total validado " +
     "del rubro más este gasto superaría el valor asignado (estricto), se bloquea: responde 409 `OVERSPEND_BLOCKED`, el gasto " +
     "sigue REGISTRADO con `alerta_sobregasto` en true y se notifica una sola vez a cada usuario GERENCIA activo. Tras " +
     "aumentar el asignado, la misma llamada valida y limpia la bandera.",
@@ -347,5 +348,151 @@ registry.registerPath({
       },
     },
     ...standardErrorResponses([401, 403, 404, 500]),
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Expenses import from Excel and supports attached later (feature importar-gastos, B8)
+// ---------------------------------------------------------------------------
+
+const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+const ExpensesImportErrorSchema = registry.register(
+  "ErrorImportacionGastos",
+  z.object({
+    fila: z.number().int().nullable().openapi({ description: "Fila de Excel (base 1); nula si el error es del archivo." }),
+    rubro: z.string().nullable().openapi({ description: "El rubro tal como está escrito en el archivo." }),
+    mensaje: z.string(),
+  }),
+);
+
+const ExpensesImportPreviewSchema = registry.register(
+  "VistaPreviaImportacionGastos",
+  z.object({
+    importado: z.literal(false),
+    resumen: z.object({
+      total: z.number().int(),
+      validas: z.number().int(),
+      invalidas: z.number().int(),
+      valor_validas: z.string().openapi({ description: "Suma de las filas válidas (decimal como string)." }),
+    }),
+    filas: z.array(
+      z.object({
+        fila: z.number().int().openapi({ description: "Fila de Excel (base 1)." }),
+        rubro: z.string().nullable(),
+        tercero: z.string().nullable(),
+        numero_documento: z.string().nullable(),
+        valor: z.string().nullable(),
+        periodo: z.string().nullable(),
+        valida: z.boolean(),
+        mensaje: z.string().nullable().openapi({ description: "Motivo cuando la fila no es válida." }),
+        alertas: z.array(AlertaSchema),
+      }),
+    ),
+  }),
+);
+
+const ExpensesImportAppliedSchema = registry.register(
+  "ImportacionGastosAplicada",
+  z.object({
+    importado: z.literal(true),
+    creados: z.number().int(),
+    lote_id: z.string().uuid().openapi({ description: "Lote de auditoría compartido por todos los gastos importados." }),
+    valor_total: z.string(),
+    gastos: z.array(z.object({ fila: z.number().int(), id: z.string().uuid() })),
+    rechazadas: z.array(ExpensesImportErrorSchema),
+    alertas: z.array(z.object({ fila: z.number().int(), alertas: z.array(AlertaSchema) })),
+  }),
+);
+
+registry.registerPath({
+  method: "post",
+  path: "/api/v1/projects/{id}/expenses/import",
+  tags: ["Projects"],
+  summary: "Importa gastos desde un Excel (una fila por gasto, sin soportes)",
+  description:
+    `${WRITE_NOTE} Multipart con el archivo en \`archivo\` (.xlsx, máximo 4 MB, máximo 200 filas con datos; no se almacena). ` +
+    "Columnas: `Rubro`, `Fecha del documento`, `Tipo de soporte`, `Tercero`, `Tipo de identificación` (opcional), " +
+    "`Número de identificación` (opcional), `Número de documento`, `Descripción`, `Valor (COP)` y `Periodo` (opcional, AAAA-MM). " +
+    "Cada fila pasa por las mismas reglas que un gasto individual (rubro con valor asignado, valor positivo con máximo dos " +
+    "decimales, periodo dentro del proyecto, límites de texto). El archivo no lleva soportes: los gastos se crean REGISTRADO " +
+    "sin soportes y se adjuntan después (`POST /expenses/{expenseId}/attachments`); sin soporte no se pueden validar. Dos filas " +
+    "con el mismo tercero y número de documento normalizados: la segunda es inválida. Con `modo=validar` devuelve cada fila como " +
+    "válida o inválida con su motivo, más las alertas no bloqueantes, sin escribir. Aplicar crea solo las filas válidas en una " +
+    "transacción, con un único `lote_id` de auditoría, y devuelve las rechazadas; no notifica. Errores del archivo completo " +
+    "(no es Excel, faltan encabezados, sin filas, más de 200) y la ausencia de filas válidas al aplicar responden 400 con " +
+    "`reporte`. Orden de errores: 404 -> 403 -> 409 -> 413 -> 400.",
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: ProjectParams,
+    body: {
+      content: {
+        "multipart/form-data": {
+          schema: z.object({
+            archivo: z.string().openapi({ format: "binary", description: "Gastos .xlsx con las columnas de la plantilla." }),
+            modo: z.literal("validar").optional().openapi({ description: "Solo valida y devuelve la vista previa; no escribe." }),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Vista previa o importación aplicada.",
+      content: { "application/json": { schema: z.union([ExpensesImportPreviewSchema, ExpensesImportAppliedSchema]) } },
+    },
+    400: {
+      description: "Archivo ilegible, tipo no válido, errores del archivo o ninguna fila válida (VALIDATION_ERROR, con `reporte` cuando se leyó).",
+      content: {
+        "application/json": {
+          schema: z.object({
+            error: z.string(),
+            code: z.literal("VALIDATION_ERROR"),
+            reporte: z.object({ errores: z.array(ExpensesImportErrorSchema) }).optional(),
+          }),
+        },
+      },
+    },
+    ...standardErrorResponses([401, 403, 404, 409, 413, 500]),
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/v1/projects/{id}/expenses/template",
+  tags: ["Projects"],
+  summary: "Descarga la plantilla vacía de gastos",
+  description:
+    "Una hoja `Gastos` con los encabezados de la importación y una hoja `Rubros` con los rubros del proyecto que admiten gastos " +
+    `(valor asignado mayor que cero). ${READ_NOTE}`,
+  security: [{ sessionCookie: [] }],
+  request: { params: ProjectParams },
+  responses: {
+    200: {
+      description: "Libro de Excel como adjunto `plantilla-gastos.xlsx`.",
+      content: { [XLSX_MIME]: { schema: z.string().openapi({ format: "binary" }) } },
+    },
+    ...standardErrorResponses([401, 403, 404, 500]),
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: "/api/v1/projects/{id}/expenses/{expenseId}/attachments",
+  tags: ["Projects"],
+  summary: "Adjunta un soporte a un gasto existente",
+  description:
+    `${WRITE_NOTE} Solo quien registró el gasto (403 para otro), mientras esté REGISTRADO o RECHAZADO (409 INVALID_STATE si ` +
+    "está VALIDADO o ANULADO). El cuerpo es un elemento de `soportes` de `POST /expenses`: archivo confirmado tras la firma en " +
+    "`/expenses/sign` y la subida directa, o un enlace https. Máximo 5 soportes vigentes por gasto (400). Auditoría: una fila " +
+    "`EDITAR` sobre el campo `soportes`.",
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: ExpenseParams,
+    body: { content: { "application/json": { schema: z.union([MEDIO_ARCHIVO_SCHEMA, MEDIO_ENLACE_SCHEMA]) } } },
+  },
+  responses: {
+    201: { description: "Soporte adjuntado; devuelve el gasto con sus soportes.", content: { "application/json": { schema: GastoResponse } } },
+    ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
   },
 });

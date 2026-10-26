@@ -16,6 +16,7 @@ import { EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/u
 import { GASTOS_ERROR, GastosResumen } from "@/components/proyectos/gastos-kpis";
 import { GastoForm, TIPO_SOPORTE_LABELS } from "@/components/proyectos/gasto-form";
 import { ValidacionControles } from "@/components/proyectos/gasto-acciones";
+import { GastosImportDialog } from "@/components/proyectos/gastos-import-dialog";
 import { AdjuntarSoporte, MAX_SOPORTES_POR_GASTO } from "@/components/proyectos/gasto-soportes";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
@@ -128,10 +129,13 @@ export function ProjectGastos({ proyecto }: { proyecto: ProjectListRow }) {
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
             {gastos.length > 0 ? <FiltrosGasto gastos={gastos} filtro={filtro} onChange={setFiltro} /> : <span />}
             {puedeRegistrar && !registrando && (
-              <Button type="button" variant="outline" size="sm" onClick={() => setRegistrando(true)}>
-                <Plus className="size-3.5" />
-                Registrar gasto
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <GastosImportDialog proyectoId={proyecto.id} />
+                <Button type="button" variant="outline" size="sm" onClick={() => setRegistrando(true)}>
+                  <Plus className="size-3.5" />
+                  Registrar gasto
+                </Button>
+              </div>
             )}
           </div>
 
