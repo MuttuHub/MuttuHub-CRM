@@ -63,6 +63,9 @@ export async function openCliente(page: Page, nombre: string) {
   // The list hydrates late on the dev server: wait for its cards before typing.
   await expect(page.getByRole("article").first()).toBeVisible({ timeout: 60_000 });
   await page.getByRole("textbox", { name: "Buscar clientes" }).fill(nombre);
+  // The search box mirrors itself into the URL after a 350 ms debounce
+  // (router.replace); clicking before that can lose a later navigation to it.
+  await expect(page).toHaveURL(/[?&]q=/);
   const card = page.getByRole("article", { name: `Abrir ficha de ${nombre}` });
   await expect(card).toBeVisible({ timeout: 30_000 });
 
