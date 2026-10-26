@@ -77,3 +77,9 @@ Objective: register a project's expenses from one Excel file instead of one by o
   rejected rows and the attach-support reminder) mounted next to "Registrar gasto" with the same visibility; hooks
   `useImportExpenses` / `downloadExpensesTemplate`; OpenAPI paths for import, template and attachments (validate 409
   documented); guide (limits entry removed, new paragraph) in `.md` and `.html` (the `.pdf` is not regenerated) and plan row B8.
+- **L8 (2026-10-26, parent):** Closed the L6 gap: the cross-project validation queue reports `sin_soporte` and disables
+  Validar with the reason (`92cc23a`). Independent verification (item 2, permissions/guards): no blockers, S1–S8 pass.
+  Its probes are committed as regression tests (`attachments/route.guard.test.ts`, `validate/route.soporte.test.ts`,
+  `import/route.rules.test.ts`, 83 tests). Advisories kept for later: `modo` other than `validar` applies the import
+  (same as B2); the 5-support re-check has no row lock (same as progress attachments); a member COLABORADOR may
+  import, like POST /expenses (`canAccessProject`); attach is registrant-only (L6 assumption, a possible product question).
