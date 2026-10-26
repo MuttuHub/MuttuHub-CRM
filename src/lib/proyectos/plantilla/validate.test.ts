@@ -27,7 +27,7 @@ import { generarPlantilla } from "./generate"
 import { MAX_MESES, parsePlantilla, type Celda, type Fila, type ParsedTemplate } from "./parse"
 import { HOJAS, MAX_FILAS_HOJA } from "./columns"
 import { toCents } from "../money"
-import { fixtureContextoFX1, fixtureF_X1 } from "../__fixtures__/plantilla-cedetextil"
+import { fixtureContextoFX1, fixtureF_X1, plantillaFormatoAnterior } from "../__fixtures__/plantilla-cedetextil"
 
 let bufferValido: Buffer
 let bufferV12: Buffer
@@ -237,12 +237,27 @@ describe("V-H1 required text and DB limits", () => {
     expect(vH1(excedido, contexto()).some((e) => e.regla === "V-H1" && /Descripción.*2000/.test(e.mensaje))).toBe(true)
   })
 
-  it("enforces the 200-char Tipo de medio exigido limit", async () => {
-    const limite = await parsedValido()
+  it("does not ask for Tipo de medio exigido nor the indicator Unidad (PO 2026-10-23)", async () => {
+    const parsed = await parsedValido()
+    expect(parsed.encabezados.entregables).not.toContain("Tipo de medio exigido")
+    expect(parsed.encabezados.indicadores).not.toContain("Unidad")
+    const vacios = await parsePlantilla(
+      await plantillaFormatoAnterior(bufferValido, { tipoMedio: "", unidadIndicador: "" }),
+    )
+    expect(validarPlantilla(vacios, contexto()).errores).toEqual([])
+  })
+
+  it("accepts a template downloaded in the previous layout", async () => {
+    const anterior = await parsePlantilla(await plantillaFormatoAnterior(bufferValido))
+    expect(validarPlantilla(anterior, contexto()).errores).toEqual([])
+  })
+
+  it("enforces the 200-char Tipo de medio exigido limit of the previous layout", async () => {
+    const limite = await parsePlantilla(await plantillaFormatoAnterior(bufferValido))
     limite.entregables[0].celdas["Tipo de medio exigido"].valor = "x".repeat(200)
     expect(vH1(limite, contexto()).some((e) => e.regla === "V-H1" && /Tipo de medio exigido/.test(e.mensaje))).toBe(false)
 
-    const excedido = await parsedValido()
+    const excedido = await parsePlantilla(await plantillaFormatoAnterior(bufferValido))
     excedido.entregables[0].celdas["Tipo de medio exigido"].valor = "x".repeat(201)
     expect(vH1(excedido, contexto()).some((e) => e.regla === "V-H1" && /Tipo de medio exigido.*200/.test(e.mensaje))).toBe(true)
   })
@@ -560,7 +575,6 @@ describe("validarPlantilla", () => {
         Descripción: "x",
         Cantidad: 1,
         Unidad: "Informe",
-        "Tipo de medio exigido": "Documento PDF",
       }),
     )
     const resultado = validarPlantilla(parsed, contexto())
@@ -579,7 +593,6 @@ describe("validarPlantilla", () => {
           Descripción: "x",
           Cantidad: 1,
           Unidad: "Informe",
-          "Tipo de medio exigido": "Documento PDF",
         }),
       )
       return parsed

@@ -42,8 +42,9 @@ describe("plantilla columns", () => {
         "Responsable (correo)",
         "Peso (opcional)",
       ],
-      entregables: ["Código", "Código actividad", "Descripción", "Cantidad", "Unidad", "Tipo de medio exigido"],
-      indicadores: ["Código", "Código objetivo", "Nombre", "Meta", "Unidad", "Línea base"],
+      // PO 2026-10-23: the templates no longer ask for "Tipo de medio exigido" nor the indicator "Unidad".
+      entregables: ["Código", "Código actividad", "Descripción", "Cantidad", "Unidad"],
+      indicadores: ["Código", "Código objetivo", "Nombre", "Meta", "Línea base"],
       presupuesto: ["Código rubro", "Rubro", "Valor asignado"],
     })
   })

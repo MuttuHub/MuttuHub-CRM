@@ -13,6 +13,7 @@
  */
 import {
   ENCABEZADOS,
+  ENCABEZADOS_ANTERIORES,
   ENCABEZADO_PROYECTO,
   ENCABEZADOS_PROGRAMACION,
   HOJAS,
@@ -212,10 +213,16 @@ function normalizarEncabezados(valores: string[] | undefined): string[] {
   return normal
 }
 
+function coincideEncabezado(actual: string[], esperado: readonly string[] | undefined): boolean {
+  if (!esperado) return false
+  const normal = esperado.map((valor) => valor.trim().toLowerCase())
+  return actual.length === normal.length && actual.every((valor, i) => valor === normal[i])
+}
+
+/** The current layout, or the previous one (`ENCABEZADOS_ANTERIORES`) still accepted. */
 function encabezadosOk(p: ParsedTemplate, key: (typeof HOJAS_DATOS)[number]): boolean {
   const actual = normalizarEncabezados(p.encabezados[key])
-  const esperado = ENCABEZADOS[key].map((valor) => valor.trim().toLowerCase())
-  return actual.length === esperado.length && actual.every((valor, i) => valor === esperado[i])
+  return coincideEncabezado(actual, ENCABEZADOS[key]) || coincideEncabezado(actual, ENCABEZADOS_ANTERIORES[key])
 }
 
 function programacionEstructuraOk(p: ParsedTemplate): boolean {
@@ -332,7 +339,7 @@ export function v01(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
   }
 
   for (const key of HOJAS_DATOS) {
-    if (presentes.has(HOJAS[key])) {
+    if (presentes.has(HOJAS[key]) && !encabezadosOk(p, key)) {
       errores.push(...compararEncabezados(HOJAS[key], p.encabezados[key], ENCABEZADOS[key]))
     }
   }
@@ -667,8 +674,12 @@ const TEXTOS_REQUERIDOS: { key: (typeof HOJAS_CODIGO)[number]; encabezado: strin
   { key: "actividades", encabezado: "Nombre", max: 300 },
   { key: "entregables", encabezado: "Descripción", max: 2000 },
   { key: "entregables", encabezado: "Unidad", max: 100 },
-  { key: "entregables", encabezado: "Tipo de medio exigido", max: 200 },
   { key: "indicadores", encabezado: "Nombre", max: 300 },
+]
+
+/** Columns only the previous layout has: optional, but still bounded by the DB limit. */
+const TEXTOS_OPCIONALES: { key: (typeof HOJAS_CODIGO)[number]; encabezado: string; max: number }[] = [
+  { key: "entregables", encabezado: "Tipo de medio exigido", max: 200 },
   { key: "indicadores", encabezado: "Unidad", max: 100 },
 ]
 
@@ -684,6 +695,19 @@ export function vH1(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
       if (texto === "") {
         errores.push(error("V-H1", HOJAS[key], fila.fila, celda?.columna ?? null, null, `${encabezado} es obligatorio.`))
       } else if (texto.length > max) {
+        errores.push(
+          error("V-H1", HOJAS[key], fila.fila, celda?.columna ?? null, texto, `${encabezado} es demasiado largo (máximo ${max} caracteres).`),
+        )
+      }
+    }
+  }
+
+  for (const { key, encabezado, max } of TEXTOS_OPCIONALES) {
+    if (!estructuraOk(p, key)) continue
+    for (const fila of p[key]) {
+      const celda = celdaDe(fila, encabezado)
+      const texto = textoDe(celda?.valor)
+      if (texto.length > max) {
         errores.push(
           error("V-H1", HOJAS[key], fila.fila, celda?.columna ?? null, texto, `${encabezado} es demasiado largo (máximo ${max} caracteres).`),
         )

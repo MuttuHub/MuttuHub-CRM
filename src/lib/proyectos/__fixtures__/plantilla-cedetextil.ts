@@ -13,9 +13,11 @@
  * sums to the assigned amount (one V-13 error). The fixture carries the full
  * 15-rubro catalog so the generator always emits every active row.
  */
+import ExcelJS from "exceljs"
 import { LINEAS_ESTRATEGICAS_V2, RUBROS_V2 } from "@/lib/catalogs"
 import { fromCents, toCents } from "../money"
 import type { Periodo } from "../weeks"
+import { HOJAS } from "../plantilla/columns"
 import type { PlantillaInput } from "../plantilla/generate"
 import type { ContextoValidacion } from "../plantilla/validate"
 
@@ -130,7 +132,6 @@ export function fixtureF_X1(variante: F_X1_Variante = "valido"): PlantillaInput 
           descripcion: "Informe de caracterización",
           cantidad: "1",
           unidad: "Informe",
-          tipoMedio: "Documento PDF",
         },
         {
           codigo: "1.1-E2",
@@ -138,7 +139,6 @@ export function fixtureF_X1(variante: F_X1_Variante = "valido"): PlantillaInput 
           descripcion: "Memoria de la jornada de caracterización",
           cantidad: "1",
           unidad: "Memoria",
-          tipoMedio: "Documento PDF",
         },
         {
           codigo: "1.2-E1",
@@ -146,7 +146,6 @@ export function fixtureF_X1(variante: F_X1_Variante = "valido"): PlantillaInput 
           descripcion: "Mapa de unidades productivas",
           cantidad: "1",
           unidad: "Mapa",
-          tipoMedio: "Documento PDF",
         },
         {
           codigo: "1.3-E1",
@@ -154,7 +153,6 @@ export function fixtureF_X1(variante: F_X1_Variante = "valido"): PlantillaInput 
           descripcion: "Acta de acompañamiento",
           cantidad: "4",
           unidad: "Acta",
-          tipoMedio: "Documento PDF",
         },
         {
           codigo: "1.3-E2",
@@ -162,7 +160,6 @@ export function fixtureF_X1(variante: F_X1_Variante = "valido"): PlantillaInput 
           descripcion: "Estatuto del emprendimiento",
           cantidad: "1",
           unidad: "Estatuto",
-          tipoMedio: "Documento PDF",
         },
         {
           codigo: "1.4-E1",
@@ -170,7 +167,6 @@ export function fixtureF_X1(variante: F_X1_Variante = "valido"): PlantillaInput 
           descripcion: "Certificado de formación",
           cantidad: "4",
           unidad: "Certificado",
-          tipoMedio: "Documento PDF",
         },
         {
           codigo: "1.4-E2",
@@ -178,7 +174,6 @@ export function fixtureF_X1(variante: F_X1_Variante = "valido"): PlantillaInput 
           descripcion: "RUT actualizado de la unidad productiva",
           cantidad: "4",
           unidad: "RUT",
-          tipoMedio: "Documento PDF",
         },
       ],
       indicadores: [
@@ -187,7 +182,6 @@ export function fixtureF_X1(variante: F_X1_Variante = "valido"): PlantillaInput 
           objetivoCodigo: "OE1",
           nombre: "Unidades productivas fortalecidas",
           meta: "30",
-          unidad: "Unidades",
           lineaBase: "0",
         },
         {
@@ -195,7 +189,6 @@ export function fixtureF_X1(variante: F_X1_Variante = "valido"): PlantillaInput 
           objetivoCodigo: "OE1",
           nombre: "Personas formadas",
           meta: "60",
-          unidad: "Personas",
           lineaBase: "0",
         },
       ],
@@ -229,6 +222,31 @@ export const F_X1_SUMA_VALIDA = Object.values(F_X1_PRESUPUESTO).reduce(
  * exercise an unknown-code case against a catalog that still has other entries.
  * Fresh object per call: tests mutate the context without leaking state.
  */
+/**
+ * Rewrites a generated template into the layout downloaded before 2026-10-26, which
+ * still had "Tipo de medio exigido" (Entregables, column F) and "Unidad" (Indicadores,
+ * column E). Every data row gets the given values; `""` leaves the cells empty.
+ */
+export async function plantillaFormatoAnterior(
+  buffer: Buffer,
+  valores: { tipoMedio: string; unidadIndicador: string } = { tipoMedio: "Documento PDF", unidadIndicador: "Unidades" },
+): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook()
+  await workbook.xlsx.load(buffer as unknown as ArrayBuffer)
+  const insertar = (hoja: string, columna: number, encabezado: string, valor: string) => {
+    const sheet = workbook.getWorksheet(hoja)
+    if (!sheet) throw new Error(`Missing sheet ${hoja}`)
+    sheet.spliceColumns(columna, 0, [])
+    sheet.getCell(1, columna).value = encabezado
+    for (let fila = 2; fila <= sheet.actualRowCount; fila++) {
+      sheet.getCell(fila, columna).value = valor === "" ? null : valor
+    }
+  }
+  insertar(HOJAS.entregables, 6, "Tipo de medio exigido", valores.tipoMedio)
+  insertar(HOJAS.indicadores, 5, "Unidad", valores.unidadIndicador)
+  return Buffer.from(await workbook.xlsx.writeBuffer())
+}
+
 export function fixtureContextoFX1(): ContextoValidacion {
   return {
     proyecto: { codigo: F_X1_CODIGO, estado: "BORRADOR" },
