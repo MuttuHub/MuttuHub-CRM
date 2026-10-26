@@ -277,8 +277,6 @@ function ProjectTable({ filas, cargando }: { filas: Fila[]; cargando: boolean })
               <TableCell className="text-right">
                 <Link
                   href={`/proyectos/${proyecto.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
                   className={cn(
                     buttonVariants({ variant: "outline", size: "sm" }),
                     "px-3 text-[12px] font-semibold text-ink-700 hover:bg-ink-100",
@@ -389,8 +387,6 @@ function ProjectCards({ filas, cargando }: { filas: Fila[]; cargando: boolean })
           </dl>
           <Link
             href={`/proyectos/${proyecto.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
             className={cn(
               buttonVariants({ variant: "outline" }),
               "h-11 w-full text-[13px] font-semibold text-ink-700 hover:bg-ink-100",

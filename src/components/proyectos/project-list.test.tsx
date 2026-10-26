@@ -538,14 +538,12 @@ describe("ProjectList", () => {
     expect(useProjectsPortfolioMock).toHaveBeenCalledWith({}, { enabled: true })
   })
 
-  it("keeps 'Ver detalle' opening the ficha in a new tab, safely", () => {
+  it("keeps 'Ver detalle' opening the ficha in the same window", () => {
     projectsQuery.data = { proyectos: [PROYECTO] }
     render(<ProjectList />)
     const enlace = within(screen.getByTestId("proyecto-fila-p1")).getByRole("link", { name: /Ver detalle/ })
     expect(enlace).toHaveAttribute("href", "/proyectos/p1")
-    expect(enlace).toHaveAttribute("target", "_blank")
-    expect(enlace.getAttribute("rel")).toMatch(/noopener/)
-    expect(enlace.getAttribute("rel")).toMatch(/noreferrer/)
+    expect(enlace).not.toHaveAttribute("target")
   })
 
   it("renders table rows on desktop and no card list", () => {
@@ -573,9 +571,7 @@ describe("ProjectList", () => {
       expect(enlace.className).toMatch(/(^|\s)h-11(\s|$)/)
       expect(cards.innerHTML).not.toMatch(/min-w-\[\d{3,}px\]/)
       expect(enlace).toHaveAttribute("href", `/proyectos/${PROYECTO.id}`)
-      expect(enlace).toHaveAttribute("target", "_blank")
-      expect(enlace.getAttribute("rel")).toMatch(/noopener/)
-      expect(enlace.getAttribute("rel")).toMatch(/noreferrer/)
+      expect(enlace).not.toHaveAttribute("target")
       await user.click(enlace)
       expect(screen.queryByRole("dialog")).toBeNull()
       expect(useProjectMock).not.toHaveBeenCalled()
@@ -846,16 +842,14 @@ describe("ProjectList", () => {
     expect(screen.queryByRole("dialog")).toBeNull()
   })
 
-  it("links 'Ver detalle' on a table row to the ficha page in a new tab", async () => {
+  it("links 'Ver detalle' on a table row to the ficha page in the same window", async () => {
     projectsQuery.data = { proyectos: [PROYECTO] }
 
     render(<ProjectList />)
     const enlace = screen.getByRole("link", { name: /Ver detalle/ })
 
     expect(enlace).toHaveAttribute("href", "/proyectos/p1")
-    expect(enlace).toHaveAttribute("target", "_blank")
-    expect(enlace.getAttribute("rel")).toMatch(/noopener/)
-    expect(enlace.getAttribute("rel")).toMatch(/noreferrer/)
+    expect(enlace).not.toHaveAttribute("target")
     expect(screen.queryByRole("button", { name: /Ver detalle/ })).toBeNull()
   })
 

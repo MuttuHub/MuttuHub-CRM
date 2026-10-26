@@ -33,7 +33,7 @@ const TABS: Array<{ tab: string; section: string }> = [
   { tab: "Cambios", section: "Historial" },
 ];
 
-test("Ficha page: opens in a new tab with header, semaforos, six tabs and not-found state", async ({
+test("Ficha page: opens in the same tab with header, semaforos, six tabs and not-found state", async ({
   page,
   context,
 }) => {
@@ -50,20 +50,19 @@ test("Ficha page: opens in a new tab with header, semaforos, six tabs and not-fo
 
   const row = page.getByRole("row", { name: new RegExp(CODIGO) });
 
-  const ficha = await test.step("2. Ver detalle opens the ficha page in a NEW tab", async () => {
+  const ficha = await test.step("2. Ver detalle opens the ficha page in the SAME tab", async () => {
     await expect(row).toBeVisible({
       timeout: 60_000,
     });
     const link = row.getByRole("link", { name: "Ver detalle" });
-    await expect(link).toHaveAttribute("target", "_blank");
-    const [popup] = await Promise.all([context.waitForEvent("page"), link.click()]);
-    await popup.waitForLoadState("domcontentloaded", { timeout: 90_000 });
-    await expect(popup).toHaveURL(UUID_URL, { timeout: 60_000 });
-    // The original tab still shows the list and no dialog.
-    await expect(page).toHaveURL(/\/proyectos(\?.*)?$/);
-    await expect(row).toBeVisible();
+    await expect(link).not.toHaveAttribute("target");
+    const pages = context.pages().length;
+    await link.click();
+    await expect(page).toHaveURL(UUID_URL, { timeout: 60_000 });
+    // Same tab, no dialog, no extra browser page.
+    expect(context.pages()).toHaveLength(pages);
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    return popup;
+    return page;
   });
 
   await test.step("3. Header: codigo, estado, semaforo chips, back link", async () => {
