@@ -108,7 +108,7 @@ muestra "Diferencia con la oportunidad: ... Se guarda en el proyecto y no impide
 Para proyectos que no nacen de una oportunidad del CRM.
 
 1. **Nuevo proyecto** y, en **Origen**, elige **Proyecto independiente**.
-2. Elige el **Cliente** en el selector ("Selecciona el cliente").
+2. Elige el **Cliente**: escribe parte del nombre en el campo ("Busca o selecciona el cliente") y elígelo de la lista.
 3. Escribe el **Nombre** (obligatorio, máximo 200 caracteres).
 4. Completa los campos comunes (sección 5) y pulsa **Crear proyecto y continuar**.
 

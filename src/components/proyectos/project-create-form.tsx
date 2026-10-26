@@ -20,6 +20,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { MENSAJE_RANGO_FECHAS, rangoFechasValido } from "@/lib/proyectos/rango-fechas";
 import { LoaderCircle } from "lucide-react";
 import { CampoLineas, CampoMunicipios } from "@/components/proyectos/nuevo-proyecto/campos-proyecto";
+import { ClienteCombobox } from "@/components/proyectos/cliente-combobox";
 import { ClienteResumen } from "@/components/proyectos/nuevo-proyecto/cliente-resumen";
 import { CAPTURE_TEXTAREA } from "@/components/proyectos/ui";
 import { HelpHint } from "@/components/ui/help-hint";
@@ -52,8 +53,6 @@ import { alternarLinea, alternarPrincipal, diferenciaValor, validarLineas } from
 const CLIENT_PICKER_FILTERS = { limit: 200 } as const;
 /** Valor interno de la opción «sin oportunidad» del selector (un Select no admite `null`). */
 const SIN_OPORTUNIDAD = "sin-oportunidad";
-/** Con más clientes que esto aparece un campo para buscar por nombre. */
-const CLIENTES_PARA_BUSCAR = 8;
 
 /** Mirrors the server cap (`DESCRIPCION_MAX` in `src/lib/api/projects.ts`, which is server-only). */
 const DESCRIPCION_MAX = 2000;
@@ -177,7 +176,6 @@ export function ProjectCreateForm({
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [clienteId, setClienteId] = useState(initialClienteId ?? "");
-  const [busquedaCliente, setBusquedaCliente] = useState("");
   const [valorTotal, setValorTotal] = useState("");
   const [valorEnfocado, setValorEnfocado] = useState(false);
   const [beneficiariosMeta, setBeneficiariosMeta] = useState("");
@@ -211,11 +209,6 @@ export function ProjectCreateForm({
   const usuarios = usersQuery.data ?? [];
   const clientes = clientsQuery.data?.items ?? [];
   const oportunidadesDelCliente = oportunidades.filter((op) => op.cliente_id === clienteId);
-  const termino = busquedaCliente.trim().toLowerCase();
-  const clientesVisibles =
-    termino === ""
-      ? clientes
-      : clientes.filter((c) => c.id === clienteId || c.nombre.toLowerCase().includes(termino));
   // Prefijos derivados, sin efectos: el usuario logueado y la primera línea del
   // catálogo como principal mientras el usuario no los haya tocado.
   const responsableEfectivo = responsableId !== "" ? responsableId : (userQuery.data?.id ?? "");
@@ -381,28 +374,12 @@ export function ProjectCreateForm({
         >
           Cliente
         </Etiqueta>
-        {clientes.length > CLIENTES_PARA_BUSCAR && (
-          <Input
-            type="search"
-            value={busquedaCliente}
-            onChange={(event) => setBusquedaCliente(event.target.value)}
-            aria-label="Buscar cliente"
-            placeholder="Buscar cliente por nombre"
-            className="px-3"
-          />
-        )}
-        <Select value={clienteId} onValueChange={(value) => elegirCliente(value ?? "")}>
-          <SelectTrigger id="proyecto-cliente" aria-label="Cliente" className="w-full px-3">
-            <SelectValue placeholder="Selecciona el cliente" />
-          </SelectTrigger>
-          <SelectContent>
-            {clientesVisibles.map((cliente) => (
-              <SelectItem key={cliente.id} value={cliente.id}>
-                {cliente.nombre}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <ClienteCombobox
+          id="proyecto-cliente"
+          clientes={clientes}
+          value={clienteId}
+          onChange={elegirCliente}
+        />
       </div>
 
       {clienteId !== "" && <ClienteResumen clienteId={clienteId} />}

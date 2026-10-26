@@ -94,7 +94,7 @@ preseleccionada."
 ### Escena 4. Proyecto independiente (1 min, solo mostrar)
 
 1. En `/proyectos/nuevo`, **Origen**: **Proyecto independiente**.
-2. Muestra que ahora se elige el **Cliente** ("Selecciona el cliente") y se escribe el **Nombre** (obligatorio).
+2. Muestra que ahora se elige el **Cliente** en un solo campo que busca y selecciona ("Busca o selecciona el cliente") y se escribe el **Nombre** (obligatorio).
    No guardes.
 
 **Qué decir:** "Para proyectos que no nacen de una oportunidad del CRM, se elige el cliente y se nombra
