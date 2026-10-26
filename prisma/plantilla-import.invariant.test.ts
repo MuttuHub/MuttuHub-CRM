@@ -4,7 +4,7 @@
 //
 //   - the valid F-X1 workbook replaces the draft with the exact counts, weights,
 //     budget, programming and ONE audit lote;
-//   - a V-12 failure writes nothing (counts before == after);
+//   - a blocking V-13 failure writes nothing (counts before == after);
 //   - the PRODUCTION path is atomic: a late failure injected at the last audit
 //     insert while the route wraps the writer in its own `db.$transaction`
 //     leaves zero new rows, zero audit rows and the previous draft intact;
@@ -109,7 +109,7 @@ type Contexto = {
   tx: Tx;
   gerente: Usuario;
   proyecto: { id: string; codigo: string };
-  input: (variante: "valido" | "v12") => PlantillaInput;
+  input: (variante: "valido" | "v13") => PlantillaInput;
   antiguo: { objetivoId: string };
 };
 
@@ -188,7 +188,7 @@ async function fixture(tx: Tx, estado: "BORRADOR" | "EN_EJECUCION" = "BORRADOR")
     data: { proyecto_id: proyecto.id, rubro_id: rubro.id, monto_proyectado_cop: new Prisma.Decimal("5.00") },
   });
 
-  const input = (variante: "valido" | "v12"): PlantillaInput => {
+  const input = (variante: "valido" | "v13"): PlantillaInput => {
     const base = fixtureF_X1(variante);
     return {
       ...base,
@@ -273,7 +273,7 @@ beforeEach(() => {
 async function plantillas(ctx: Contexto) {
   return {
     valido: await generarPlantilla(ctx.input("valido")),
-    v12: await generarPlantilla(ctx.input("v12")),
+    v13: await generarPlantilla(ctx.input("v13")),
   };
 }
 
@@ -356,17 +356,18 @@ describe("template import (live DB)", () => {
     });
   });
 
-  it("a V-12 failure answers 400 and writes nothing", async () => {
+  // V-12 became the non-blocking W-02 (#85); V-13 (programming != assigned) still blocks.
+  it("a V-13 failure answers 400 and writes nothing", async () => {
     await runAndRollback(async (tx) => {
       const ctx = await fixture(tx);
       autenticar(ctx.gerente);
-      const { v12 } = await plantillas(ctx);
+      const { v13 } = await plantillas(ctx);
       const antes = await snapshot(tx, ctx.proyecto.id);
 
-      const respuesta = await POST(...peticion(ctx.proyecto.id, v12));
+      const respuesta = await POST(...peticion(ctx.proyecto.id, v13));
       expect(respuesta.status).toBe(400);
       const cuerpo = await respuesta.json();
-      expect(cuerpo.reporte.errores.map((e: { regla: string }) => e.regla)).toContain("V-12");
+      expect(cuerpo.reporte.errores.map((e: { regla: string }) => e.regla)).toContain("V-13");
 
       expect(holder.transacciones).toBe(0);
       expect(await snapshot(tx, ctx.proyecto.id)).toEqual(antes);
