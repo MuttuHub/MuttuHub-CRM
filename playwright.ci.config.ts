@@ -13,7 +13,9 @@ export default defineConfig({
   // Several specs are serial and mutate shared seed state (permisos, ficha-ejecucion).
   fullyParallel: false,
   workers: 1,
-  retries: 1,
+  // No retries: the serial specs mutate the seed, so a retry would rerun them against
+  // state the failed attempt already changed and could pass or fail for the wrong reason.
+  retries: 0,
   outputDir: "test-results-ci",
   reporter: [["list"], ["html", { open: "never", outputFolder: "playwright-report-ci" }]],
   use: {

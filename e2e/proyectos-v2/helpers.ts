@@ -65,7 +65,7 @@ export async function openCliente(page: Page, nombre: string) {
   await page.getByRole("textbox", { name: "Buscar clientes" }).fill(nombre);
   // The search box mirrors itself into the URL after a 350 ms debounce
   // (router.replace); clicking before that can lose a later navigation to it.
-  await expect(page).toHaveURL(/[?&]q=/);
+  await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBe(nombre);
   const card = page.getByRole("article", { name: `Abrir ficha de ${nombre}` });
   await expect(card).toBeVisible({ timeout: 30_000 });
 

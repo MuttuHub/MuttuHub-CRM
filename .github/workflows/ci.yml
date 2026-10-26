@@ -96,19 +96,26 @@ jobs:
           node-version: 24
           cache: npm
 
+      # Pinned: a new CLI release can rename `start -x` services or `status -o json` keys.
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.122.0
 
       - name: Start local Supabase (Postgres, Auth, Storage)
-        run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector
+        run: |
+          supabase --version
+          supabase start -x studio,imgproxy,edge-runtime,logflare,vector
 
       - name: Export the local Supabase keys
         run: |
           supabase status -o json > /tmp/supabase-status.json
-          echo "NEXT_PUBLIC_SUPABASE_URL=$(jq -r '.API_URL' /tmp/supabase-status.json)" >> "$GITHUB_ENV"
-          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$(jq -r '.ANON_KEY' /tmp/supabase-status.json)" >> "$GITHUB_ENV"
-          echo "SUPABASE_SERVICE_ROLE_KEY=$(jq -r '.SERVICE_ROLE_KEY' /tmp/supabase-status.json)" >> "$GITHUB_ENV"
+          # -e fails the step when a key is missing instead of exporting the string "null".
+          api_url=$(jq -er '.API_URL' /tmp/supabase-status.json)
+          anon_key=$(jq -er '.ANON_KEY' /tmp/supabase-status.json)
+          service_key=$(jq -er '.SERVICE_ROLE_KEY' /tmp/supabase-status.json)
+          echo "NEXT_PUBLIC_SUPABASE_URL=$api_url" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$anon_key" >> "$GITHUB_ENV"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$service_key" >> "$GITHUB_ENV"
 
       - name: Create the storage bucket
         run: |
