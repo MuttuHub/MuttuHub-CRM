@@ -307,6 +307,7 @@ registry.registerPath({
                 estado: EstadoGastoSchema,
                 alerta_sobregasto: z.boolean(),
                 datos_incompletos: z.boolean(),
+                sin_soporte: z.boolean().openapi({ description: "Sin soportes vivos (gasto importado): no se puede validar todavía." }),
                 registrado_por_id: z.string(),
                 registrado_por_nombre: z.string().nullable(),
                 propio: z.boolean(),

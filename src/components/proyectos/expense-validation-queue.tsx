@@ -63,6 +63,7 @@ export function ExpenseValidationQueue() {
               gastoId={gasto.id}
               propio={gasto.propio}
               datosIncompletos={gasto.datos_incompletos}
+              sinSoporte={gasto.sin_soporte}
             />
           </li>
         ))}

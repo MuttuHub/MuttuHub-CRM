@@ -1482,6 +1482,8 @@ export type ExpenseQueueRow = {
   estado: ProjectExpenseEstado;
   alerta_sobregasto: boolean;
   datos_incompletos: boolean;
+  /** No live support yet (an imported expense): it cannot be validated until one is attached. */
+  sin_soporte: boolean;
   registrado_por_id: string;
   registrado_por_nombre: string | null;
   propio: boolean;
