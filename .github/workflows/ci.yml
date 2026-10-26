@@ -124,6 +124,9 @@ jobs:
       - name: Apply migrations
         run: npx prisma migrate deploy
 
+      - name: Generate Prisma client (needed by the seed scripts)
+        run: npx prisma generate
+
       # Same order as scripts/seed-demo-flujo.ts documents: base seed, then the
       # S11 projects, then the flow demo (flujo before projects breaks it).
       - name: Seed the demo data
