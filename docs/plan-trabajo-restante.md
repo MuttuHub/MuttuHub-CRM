@@ -109,9 +109,9 @@ Cada tarea que toque esquema, permisos o dinero entra con documento en `odd/task
 
 | ID | Decisión | Quién | Bloquea |
 |---|---|---|---|
-| **D-A** | ¿La importación de estructura deja de exigir el presupuesto completo? ¿Modo «solo estructura» que conserve el existente? | PO | **Decidida (2026-10-21)**: modo «solo estructura» que conserva el presupuesto existente. Destraba B3 y B5 |
-| **D-B** | ¿El rubro personalizado vive solo en su proyecto o se suma al catálogo global? ¿Cómo se agrupa en reportes? ¿Qué pasa al deshabilitar un rubro con gastos? | PO | B6 |
-| **D-C** | Al cerrar o suspender: ¿se congela todo, se permite registrar gastos, quién puede hacerlo? | PO | B7 |
+| **D-A** | ¿La importación de estructura deja de exigir el presupuesto completo? ¿Modo «solo estructura» que conserve el existente? | PO | **Decidida (2026-10-21)**: modo «solo estructura» que conserva el presupuesto existente. **Precisada (2026-10-26)**: «La idea es subir un solo documento, si no tiene presupuesto se crea la estructura con presupuesto cero. se debe conversvar tal cual la estrucutra en caso tal exista una importacion posterior.» Destraba B3 y B5 |
+| **D-B** | ¿El rubro personalizado vive solo en su proyecto o se suma al catálogo global? ¿Cómo se agrupa en reportes? ¿Qué pasa al deshabilitar un rubro con gastos? | PO | **Decidida (2026-10-26)**: «Los 15 rubros están bien, deben ser editables y modificables por si depronto para un proyecto no aplican, se puedan deseleccionar o inhabilitar para ese proyecto en concreto». Sin rubros propios. Destraba B6 |
+| **D-C** | Al cerrar o suspender: ¿se congela todo, se permite registrar gastos, quién puede hacerlo? | PO | **Decidida (2026-10-26)**: «si se suspende queda congelado. Si se cierra puede volver a abrirse, quedaria temporalmente solo lectura mientras no deba reactivarse. Solo gerencia y adminsitracion pueden suspender o cancelar.» Destraba B7 |
 | **D-D** | ¿Convocatorias, propuesta económica y oportunidades globales entran en el alcance del negocio? | Negocio | **Decidida (2026-10-21)**: entran oportunidades globales (V1, V2) e interacciones con feed (V3); quedan fuera convocatorias (V4) y propuesta económica (V10) |
 | **D-E** | Acceso al DNS de `muttu.co` para verificar Resend | Negocio / TI | A2 |
 | **D-F** | ¿Railway reemplaza a Vercel solo (Opción A) o también a Supabase (Opción B)? | Usuario | E4, E5 |
