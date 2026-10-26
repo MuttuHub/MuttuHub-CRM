@@ -1536,6 +1536,27 @@ export function useCreateExpense(
   });
 }
 
+/**
+ * Adjunta un soporte a un gasto que ya existe (los importados nacen sin soporte, B8): archivo
+ * (firma -> subida -> confirmación en `attachments`) o enlace https. El error del servidor se
+ * relanza sin toast: el control lo muestra en línea.
+ */
+export function useAttachExpenseSupport(
+  projectId: string,
+): UseMutationResult<{ gasto: ProjectExpense }, Error, { id: string; soporte: AvanceMedioInput }> {
+  const refresh = useRefreshGastos();
+  return useMutation({
+    mutationFn: async ({ id, soporte }) => {
+      const confirmado =
+        soporte.tipo === "archivo"
+          ? await uploadSoporteFile(`/api/v1/projects/${projectId}/expenses/sign`, soporte.file)
+          : { url_externa: soporte.url_externa, nombre: soporte.nombre };
+      return apiPost<{ gasto: ProjectExpense }>(`/api/v1/projects/${projectId}/expenses/${id}/attachments`, confirmado);
+    },
+    onSuccess: refresh,
+  });
+}
+
 type ExpenseTarget = { projectId: string; id: string };
 
 /** Valida un gasto (ADM/GER distinto de quien lo registró). 409 OVERSPEND_BLOCKED refresca la bandera. */

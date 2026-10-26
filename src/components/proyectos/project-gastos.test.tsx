@@ -403,6 +403,19 @@ describe("ProjectGastos", () => {
       expect(within(fila).getByRole("button", { name: "Rechazar" })).toBeInTheDocument()
     })
 
+    it("disables Validar with the reason when the expense has no support (S3), and keeps Rechazar", async () => {
+      const user = userEvent.setup()
+      setup({ gastos: [gasto("g1", { soportes: [], soportes_count: 0 })] })
+      const fila = await screen.findByTestId("gasto-fila")
+      const validar = within(fila).getByRole("button", { name: "Validar" })
+      expect(validar).toBeDisabled()
+      expect(validar).toHaveAttribute("title", "Adjunta un soporte para poder validarlo.")
+      expect(fila).toHaveTextContent("Adjunta un soporte para poder validarlo.")
+      expect(within(fila).getByRole("button", { name: "Rechazar" })).toBeEnabled()
+      await user.click(validar)
+      expect(posts()).toHaveLength(0)
+    })
+
     it("never shows validation controls to a COORDINADOR member", async () => {
       setup({ rol: "COORDINADOR", miembro: true, gastos: [gasto("g1")] })
       const fila = await screen.findByTestId("gasto-fila")
@@ -474,6 +487,59 @@ describe("ProjectGastos", () => {
       await waitFor(() => expect(open).toHaveBeenCalledWith("https://s.example/dl", "_blank", "noopener,noreferrer"))
       expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/expenses/g1/attachments/s1/download", expect.any(Object))
       expect(posts()).toHaveLength(0)
+    })
+  })
+
+  describe("attach a support later (S2)", () => {
+    const propio = (over: Record<string, unknown> = {}) => gasto("g1", { registrado_por_id: "yo", soportes: [], soportes_count: 0, ...over })
+
+    it("offers Adjuntar soporte to the registrant on a REGISTRADO or RECHAZADO expense", async () => {
+      setup({ usuarioId: "yo", gastos: [propio(), propio({ id: "g2", estado: "RECHAZADO", motivo_rechazo: "Falta el soporte" })] })
+      const filas = await screen.findAllByTestId("gasto-fila")
+      expect(within(filas[0]).getByRole("button", { name: "Adjuntar soporte" })).toBeInTheDocument()
+      expect(within(filas[1]).getByRole("button", { name: "Adjuntar soporte" })).toBeInTheDocument()
+    })
+
+    it("keeps the support control also for a member COORDINADOR who registered the expense", async () => {
+      setup({ rol: "COORDINADOR", miembro: true, usuarioId: "yo", gastos: [propio()] })
+      expect(await screen.findByRole("button", { name: "Adjuntar soporte" })).toBeInTheDocument()
+    })
+
+    it("hides it on other users' expenses, VALIDADO and ANULADO ones, and at 5 supports", async () => {
+      const cinco = Array.from({ length: 5 }, (_, i) => ({
+        id: `s${i}`, nombre: `f${i}.pdf`, tipo: "archivo", url_externa: null, tipo_mime: "application/pdf", tamano_bytes: 1, subido_por_id: "yo", created_at: "2026-10-16T12:00:00.000Z",
+      }))
+      setup({
+        usuarioId: "yo",
+        gastos: [
+          propio({ id: "a", registrado_por_id: "otro" }),
+          propio({ id: "b", estado: "VALIDADO" }),
+          propio({ id: "c", estado: "ANULADO" }),
+          propio({ id: "d", soportes: cinco, soportes_count: 5 }),
+        ],
+      })
+      await screen.findAllByTestId("gasto-fila")
+      expect(screen.queryByRole("button", { name: "Adjuntar soporte" })).not.toBeInTheDocument()
+    })
+
+    it("hides it when the project is not EN_EJECUCION", async () => {
+      setup({ usuarioId: "yo", proyecto: { estado: "CERRADO" }, gastos: [propio()] })
+      await screen.findByTestId("gasto-fila")
+      expect(screen.queryByRole("button", { name: "Adjuntar soporte" })).not.toBeInTheDocument()
+    })
+
+    it("attaches a link from the row and refreshes the list", async () => {
+      const user = userEvent.setup()
+      setup({ usuarioId: "yo", gastos: [propio()] })
+      await user.click(await screen.findByRole("button", { name: "Adjuntar soporte" }))
+      await user.click(screen.getByRole("radio", { name: "Enlace" }))
+      await user.type(screen.getByLabelText("URL"), "https://drive.example.com/f/1")
+      await user.type(screen.getByLabelText("Nombre del enlace"), "Carpeta")
+      await user.click(screen.getByRole("button", { name: "Adjuntar" }))
+      await waitFor(() =>
+        expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/expenses/g1/attachments", expect.objectContaining({ method: "POST" })),
+      )
+      await waitFor(() => expect(fetchMock.mock.calls.filter(([url, init]) => String(url).endsWith("/expenses") && (init as RequestInit | undefined)?.method !== "POST").length).toBeGreaterThan(1))
     })
   })
 })

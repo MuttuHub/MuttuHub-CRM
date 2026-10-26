@@ -36,6 +36,8 @@ import { isoDate } from "@/lib/proyectos/proyecto-general";
 export const GASTO_FORBIDDEN_MESSAGE = "No tienes permisos sobre este proyecto.";
 export const GASTO_NO_EXISTE = "El gasto no existe.";
 export const SIN_SOPORTE_MESSAGE = "Adjunta al menos un soporte (archivo o enlace).";
+/** An expense without a live support cannot be validated (imported expenses start without one). */
+export const SIN_SOPORTE_VALIDAR_MESSAGE = "Adjunta al menos un soporte al gasto antes de validarlo.";
 export const MAX_SOPORTES = 5;
 export const MAX_SOPORTES_MESSAGE = `Puedes adjuntar máximo ${MAX_SOPORTES} soportes.`;
 export const RUBRO_SIN_ASIGNADO_MESSAGE = "Solo puedes registrar gastos en rubros con valor asignado.";

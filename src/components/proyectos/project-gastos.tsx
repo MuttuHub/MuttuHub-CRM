@@ -16,6 +16,7 @@ import { EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/u
 import { GASTOS_ERROR, GastosResumen } from "@/components/proyectos/gastos-kpis";
 import { GastoForm, TIPO_SOPORTE_LABELS } from "@/components/proyectos/gasto-form";
 import { ValidacionControles } from "@/components/proyectos/gasto-acciones";
+import { AdjuntarSoporte, MAX_SOPORTES_POR_GASTO } from "@/components/proyectos/gasto-soportes";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import { useCurrentUser } from "@/hooks/kanban";
@@ -155,6 +156,7 @@ export function ProjectGastos({ proyecto }: { proyecto: ProjectListRow }) {
                 gastos={visibles}
                 usuarioId={usuario?.id ?? null}
                 esGestor={esGestor}
+                puedeRegistrar={puedeRegistrar}
               />
             )}
           </div>
@@ -169,6 +171,8 @@ type FilaProps = {
   gasto: ProjectExpense;
   usuarioId: string | null;
   esGestor: boolean;
+  /** Mismo permiso que "Registrar gasto": gestor o integrante del equipo, solo EN_EJECUCION. */
+  puedeRegistrar: boolean;
 };
 
 /** Debajo de `md` el libro se vuelve una lista de tarjetas (misma convención que el Portafolio). */
@@ -177,18 +181,27 @@ function GastosListado({
   gastos,
   usuarioId,
   esGestor,
+  puedeRegistrar,
 }: {
   proyectoId: string;
   gastos: readonly ProjectExpense[];
   usuarioId: string | null;
   esGestor: boolean;
+  puedeRegistrar: boolean;
 }) {
   const mobile = useIsMobile();
   if (mobile) {
     return (
       <ul data-testid="gastos-cards" className="flex flex-col gap-2">
         {gastos.map((gasto) => (
-          <GastoTarjeta key={gasto.id} proyectoId={proyectoId} gasto={gasto} usuarioId={usuarioId} esGestor={esGestor} />
+          <GastoTarjeta
+            key={gasto.id}
+            proyectoId={proyectoId}
+            gasto={gasto}
+            usuarioId={usuarioId}
+            esGestor={esGestor}
+            puedeRegistrar={puedeRegistrar}
+          />
         ))}
       </ul>
     );
@@ -210,7 +223,14 @@ function GastosListado({
         </TableHeader>
         <TableBody>
           {gastos.map((gasto) => (
-            <GastoFila key={gasto.id} proyectoId={proyectoId} gasto={gasto} usuarioId={usuarioId} esGestor={esGestor} />
+            <GastoFila
+              key={gasto.id}
+              proyectoId={proyectoId}
+              gasto={gasto}
+              usuarioId={usuarioId}
+              esGestor={esGestor}
+              puedeRegistrar={puedeRegistrar}
+            />
           ))}
         </TableBody>
       </Table>
@@ -252,6 +272,7 @@ function AccionesGasto({ proyectoId, gasto, usuarioId, esGestor }: FilaProps) {
         gastoId={gasto.id}
         propio={gasto.registrado_por_id === usuarioId}
         datosIncompletos={gasto.datos_incompletos}
+        sinSoporte={gasto.soportes !== undefined && gasto.soportes.length === 0}
       />
     );
   }
@@ -269,11 +290,23 @@ function AccionesGasto({ proyectoId, gasto, usuarioId, esGestor }: FilaProps) {
 }
 
 /** Un botón por soporte, o "Sin soporte"; sin acceso a soportes (RNF-03) no se dice nada. */
-function SoporteGasto({ gasto, onVer }: { gasto: ProjectExpense; onVer: (soporteId: string) => void }) {
+function SoporteGasto({
+  proyectoId,
+  gasto,
+  usuarioId,
+  puedeRegistrar,
+  onVer,
+}: Pick<FilaProps, "proyectoId" | "gasto" | "usuarioId" | "puedeRegistrar"> & { onVer: (soporteId: string) => void }) {
   if (!gasto.soportes) return <span className="text-ink-500">—</span>;
-  if (gasto.soportes.length === 0) return <StatusChip tone="alerta">Sin soporte</StatusChip>;
+  // S2: el soporte de un gasto importado viene aparte; lo adjunta quien lo registró mientras sea editable.
+  const puedeAdjuntar =
+    puedeRegistrar &&
+    gasto.registrado_por_id === usuarioId &&
+    (gasto.estado === "REGISTRADO" || gasto.estado === "RECHAZADO") &&
+    gasto.soportes.length < MAX_SOPORTES_POR_GASTO;
   return (
     <div className="flex flex-col items-start gap-1">
+      {gasto.soportes.length === 0 && <StatusChip tone="alerta">Sin soporte</StatusChip>}
       {gasto.soportes.map((soporte) => (
         <Button
           key={soporte.id}
@@ -287,6 +320,7 @@ function SoporteGasto({ gasto, onVer }: { gasto: ProjectExpense; onVer: (soporte
           <span className="max-w-[96px] truncate">{soporte.nombre}</span>
         </Button>
       ))}
+      {puedeAdjuntar && <AdjuntarSoporte projectId={proyectoId} gastoId={gasto.id} />}
     </div>
   );
 }
@@ -342,7 +376,13 @@ function GastoFila(props: FilaProps) {
         <EstadoGasto gasto={gasto} />
       </TableCell>
       <TableCell className="align-top whitespace-normal">
-        <SoporteGasto gasto={gasto} onVer={(id) => void ver(id)} />
+        <SoporteGasto
+          proyectoId={proyectoId}
+          gasto={gasto}
+          usuarioId={props.usuarioId}
+          puedeRegistrar={props.puedeRegistrar}
+          onVer={(id) => void ver(id)}
+        />
         <InlineError message={error} />
       </TableCell>
       {esGestor && (
@@ -381,7 +421,13 @@ function GastoTarjeta(props: FilaProps) {
           .filter(Boolean)
           .join(" · ")}
       </p>
-      <SoporteGasto gasto={gasto} onVer={(id) => void ver(id)} />
+      <SoporteGasto
+        proyectoId={proyectoId}
+        gasto={gasto}
+        usuarioId={props.usuarioId}
+        puedeRegistrar={props.puedeRegistrar}
+        onVer={(id) => void ver(id)}
+      />
       <InlineError message={error} />
       <AccionesGasto {...props} />
     </li>

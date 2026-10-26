@@ -40,8 +40,8 @@ Objective: register a project's expenses from one Excel file instead of one by o
 | ID | Specs | Route | Status | Evidence |
 |---|---|---|---|---|
 | T1 | S1, S4, S6 | delegated (context backstop) | done | 5496102 |
-| T2 | S5, S7 | delegated | done | see Log L5 |
-| T3 | S2, S3 | delegated | todo | |
+| T2 | S5, S7 | delegated | done | 527c4be |
+| T3 | S2, S3 | delegated | done | see Log L6 |
 | T4 | S1, S5, S8 | delegated | todo | |
 
 ## Log
@@ -63,3 +63,13 @@ Objective: register a project's expenses from one Excel file instead of one by o
   with invalid rows; applying with zero valid rows is a 400 `VALIDATION_ERROR` with the row report and writes nothing;
   the response carries `lote_id`, `gastos[{fila,id}]`, `rechazadas[]` and per-row `alertas[]`. Lines are read in one
   query and filtered with the shared `tieneAsignado` predicate (instead of one `resolverLinea` call per row).
+- **L6 (T3):** `POST expenses/[expenseId]/attachments` attaches one support (same body and `validarSoporte` as an
+  item of `soportes[]`; sign route reused as is). Assumptions: only the registrant may attach (same rule as PATCH),
+  while the expense is REGISTRADO or RECHAZADO and the project EN_EJECUCION; the 5-support limit answers 400 like the
+  create schema and is re-checked under the transaction; audit is one `EDITAR`/`gasto` row on field `soportes`
+  (count before -> after). Validate answers 409 `Adjunta al menos un soporte al gasto antes de validarlo.` with no live
+  support (checked in the route from `GASTO_INCLUDE`; supports are never removed from an expense, so no lock re-check).
+  The existing validate fixtures now carry one support (single creation always has 1-5). UI: `Validar` disabled with the
+  reason in the Gastos tab; `AdjuntarSoporte` in the Soporte cell. Gap: the cross-project validation queue
+  (`expense-validation-queue.tsx`, `/expense-validations`) is outside the allowed surfaces, so its Validar stays enabled
+  and shows the API 409 inline.
