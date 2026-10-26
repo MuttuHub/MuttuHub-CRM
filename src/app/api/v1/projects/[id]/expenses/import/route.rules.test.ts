@@ -42,6 +42,7 @@ vi.mock("@/lib/db", () => {
 import { requireApiUser } from "@/lib/supabase/server";
 import { logChanges } from "@/lib/api/audit-cambios";
 import { ENCABEZADOS_GASTOS, MAX_FILAS_GASTOS } from "@/lib/proyectos/gastos-import/parse";
+import { ZIP_MAX_DESCOMPRIMIDO, ZIP_MAX_ENTRADAS } from "@/lib/api/plantilla-import";
 import { POST } from "@/app/api/v1/projects/[id]/expenses/import/route";
 
 const gerencia = { id: "ger-1", rol: "GERENCIA" } as Usuario;
@@ -244,20 +245,24 @@ describe("VERIFIER import", () => {
     expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
-  it("zip bomb (huge uncompressed entries) rejected before parsing", async () => {
+  // Just past the limits of inspeccionarZip; compressing the bomb is slow under coverage, hence the timeout.
+  it("zip bomb (uncompressed size over the limit) rejected before parsing", async () => {
     const zip = new JSZip();
     zip.file("[Content_Types].xml", "<x/>");
-    zip.file("xl/big.xml", Buffer.alloc(120 * 1024 * 1024, 0x61), { compression: "DEFLATE" });
+    zip.file("xl/big.xml", Buffer.alloc(ZIP_MAX_DESCOMPRIMIDO + 1, 0x61), { compression: "DEFLATE" });
     const buf = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
     const res = await POST(subida(buf), ctx);
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe("El archivo no es un Excel válido.");
     expect(mocks.rubroFindMany).not.toHaveBeenCalled();
-    // many entries
-    const z2 = new JSZip();
-    for (let i = 0; i < 3000; i++) z2.file(`f${i}.xml`, "a");
-    const r2 = await POST(subida(await z2.generateAsync({ type: "nodebuffer" })), ctx);
-    expect(r2.status).toBe(400);
+  }, 30_000);
+
+  it("zip with too many entries rejected before parsing", async () => {
+    const zip = new JSZip();
+    for (let i = 0; i <= ZIP_MAX_ENTRADAS; i++) zip.file(`f${i}.xml`, "a");
+    const res = await POST(subida(await zip.generateAsync({ type: "nodebuffer" })), ctx);
+    expect(res.status).toBe(400);
+    expect(mocks.rubroFindMany).not.toHaveBeenCalled();
   });
 
   it("mime/extension guards: .xls, .xlsm, double extension, wrong mime", async () => {
