@@ -11,7 +11,9 @@ test("stepper starts with the client; client card; opportunity gated by client",
   for (const paso of ["General", "Metas", "Cronograma", "Presupuesto", "Revisión"]) {
     await expect(nav.getByRole("button", { name: paso })).toBeVisible();
   }
-  await expect(page.getByRole("searchbox", { name: "Buscar cliente" })).toBeVisible();
+  // One field searches and selects the client (PO 2026-10-23): no separate search box.
+  await expect(page.getByRole("searchbox", { name: "Buscar cliente" })).toHaveCount(0);
+  await expect(page.getByRole("combobox", { name: "Cliente" })).toBeEditable();
   await expect(page.getByRole("combobox", { name: "Oportunidad" })).toBeDisabled();
 
   await pickOption(page, "Cliente", "Agencia de Cooperación Nórdica");

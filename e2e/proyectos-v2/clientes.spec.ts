@@ -29,7 +29,7 @@ test("gerencia: first-contact date is human readable; «Crear proyecto» opens t
 
   await dialog.getByRole("link", { name: "Crear proyecto" }).click();
   await expect(page).toHaveURL(/\/proyectos\/nuevo\?cliente=/);
-  await expect(page.getByRole("combobox", { name: "Cliente" })).toContainText("Universidad Central del Valle");
+  await expect(page.getByRole("combobox", { name: "Cliente" })).toHaveValue("Universidad Central del Valle");
   await expect(page.getByLabel("Datos del cliente")).toBeVisible();
 });
 

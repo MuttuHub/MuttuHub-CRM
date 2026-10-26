@@ -277,13 +277,13 @@ describe("ProjectCreateForm", () => {
     renderForm({ initialOportunidadId: "op-1" })
     expect(screen.getByLabelText("Nombre")).toHaveValue("Consultoría línea base")
     expect(screen.getByLabelText("Valor total")).toHaveValue("180.000.000")
-    expect(screen.getByRole("combobox", { name: "Cliente" })).toHaveTextContent("Alcaldía de Barranquilla")
+    expect(screen.getByRole("combobox", { name: "Cliente" })).toHaveValue("Alcaldía de Barranquilla")
     expect(screen.getByRole("combobox", { name: "Oportunidad" })).toHaveTextContent("Consultoría línea base")
   })
 
   it("preselects initialClienteId and shows its card, without choosing an opportunity", () => {
     renderForm({ initialClienteId: "cli-1" })
-    expect(screen.getByRole("combobox", { name: "Cliente" })).toHaveTextContent("Alcaldía de Barranquilla")
+    expect(screen.getByRole("combobox", { name: "Cliente" })).toHaveValue("Alcaldía de Barranquilla")
     expect(screen.getByRole("region", { name: "Datos del cliente" })).toBeInTheDocument()
     expect(screen.getByRole("combobox", { name: "Oportunidad" })).toHaveTextContent("Sin oportunidad")
     expect(screen.getByLabelText("Nombre")).toHaveValue("")
@@ -400,15 +400,26 @@ describe("ProjectCreateForm", () => {
     expect(createFromOpportunity.mutateAsync).not.toHaveBeenCalled()
   })
 
-  it("offers a name search once the client list is long, keeping the selected client", async () => {
+  it("searches and selects the client in one field (PO 2026-10-23)", async () => {
     const user = userEvent.setup()
     const muchos = Array.from({ length: 10 }, (_, i) => ({ id: `x${i}`, nombre: `Entidad ${i}` }))
     useClientsMock.mockReturnValue({ data: { items: [...muchos, { id: "z", nombre: "Zeta Final" }] } })
     renderForm()
-    await user.type(screen.getByRole("searchbox", { name: "Buscar cliente" }), "zeta")
-    await user.click(screen.getByRole("combobox", { name: "Cliente" }))
+    expect(screen.queryByRole("searchbox", { name: "Buscar cliente" })).not.toBeInTheDocument()
+    const cliente = screen.getByRole("combobox", { name: "Cliente" })
+    await user.type(cliente, "zeta")
     expect(await screen.findAllByRole("option")).toHaveLength(1)
-    expect(screen.getByRole("option", { name: "Zeta Final" })).toBeInTheDocument()
+    await user.click(screen.getByRole("option", { name: "Zeta Final" }))
+    expect(cliente).toHaveValue("Zeta Final")
+    expect(screen.getByRole("combobox", { name: "Oportunidad" })).toBeEnabled()
+  })
+
+  it("says so when no client matches the search", async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await user.type(screen.getByRole("combobox", { name: "Cliente" }), "no existe")
+    expect(await screen.findByText("Ningún cliente coincide.")).toBeInTheDocument()
+    expect(screen.queryAllByRole("option")).toHaveLength(0)
   })
 
   it("explains the non-obvious fields with accessible help buttons", async () => {
