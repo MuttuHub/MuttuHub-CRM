@@ -57,10 +57,10 @@ export function normalizarTexto(texto: string): string {
     .trim()
 }
 
-type ValorCelda = string | number | Date | boolean | null
+export type ValorCelda = string | number | Date | boolean | null
 
 /** A cell's value, with formulas resolved to their cached result and rich text joined. */
-function leerCelda(cell: ExcelJS.Cell): ValorCelda {
+export function leerCelda(cell: ExcelJS.Cell): ValorCelda {
   const value = cell.value
   if (value === null || value === undefined) return null
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return value
@@ -144,7 +144,7 @@ function buscarEncabezado(hoja: ExcelJS.Worksheet): Encabezado | null {
   return null
 }
 
-function vacio(valor: ValorCelda): boolean {
+export function vacio(valor: ValorCelda): boolean {
   return valor === null || (typeof valor === "string" && valor.trim() === "")
 }
 
@@ -153,7 +153,7 @@ function resultadoArchivo(error: string): ResultadoPresupuestoPO {
 }
 
 /** Index of the catalog by normalized name and by code. */
-function indiceCatalogo(rubros: readonly RubroCatalogo[]): Map<string, RubroCatalogo> {
+export function indiceCatalogo(rubros: readonly RubroCatalogo[]): Map<string, RubroCatalogo> {
   const indice = new Map<string, RubroCatalogo>()
   for (const rubro of rubros) {
     indice.set(normalizarTexto(rubro.nombre), rubro)

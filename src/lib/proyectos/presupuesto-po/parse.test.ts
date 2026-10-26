@@ -7,7 +7,9 @@ import { RUBROS_V2 } from "@/lib/catalogs"
 import { toCents } from "../money"
 import {
   MAX_FILAS_PRESUPUESTO_PO,
+  indiceCatalogo,
   normalizarTexto,
+  vacio,
   parseMontoCelda,
   parsePresupuestoPO,
   type RubroCatalogo,
@@ -214,5 +216,18 @@ describe("parsePresupuestoPO — row errors", () => {
     for (let i = 0; i <= MAX_FILAS_PRESUPUESTO_PO; i++) filas.push([`Rubro ${i}`, 1])
     const resultado = await parsePresupuestoPO(await libro([{ nombre: "Hoja1", filas }]), catalogo)
     expect(resultado.erroresArchivo).toEqual([expect.stringMatching(/más de/)])
+  })
+})
+
+describe("helpers shared with the expenses import", () => {
+  it("indexes the catalog by normalized name and by code", () => {
+    const indice = indiceCatalogo(catalogo)
+    const primero = catalogo[0]
+    expect(indice.get(normalizarTexto(primero.nombre))).toBe(primero)
+    expect(primero.codigo && indice.get(normalizarTexto(primero.codigo))).toBe(primero)
+  })
+
+  it("treats null and blank text as empty, and a number as a value", () => {
+    expect([vacio(null), vacio("   "), vacio("x"), vacio(0)]).toEqual([true, true, false, false])
   })
 })
