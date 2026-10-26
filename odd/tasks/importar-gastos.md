@@ -39,8 +39,8 @@ Objective: register a project's expenses from one Excel file instead of one by o
 
 | ID | Specs | Route | Status | Evidence |
 |---|---|---|---|---|
-| T1 | S1, S4, S6 | delegated (context backstop) | todo | |
-| T2 | S5, S7 | delegated | todo | |
+| T1 | S1, S4, S6 | delegated (context backstop) | done | 5496102 |
+| T2 | S5, S7 | delegated | done | see Log L5 |
 | T3 | S2, S3 | delegated | todo | |
 | T4 | S1, S5, S8 | delegated | todo | |
 
@@ -51,3 +51,15 @@ Objective: register a project's expenses from one Excel file instead of one by o
 - **L3:** Mapping done (B2 as reference: `src/lib/proyectos/presupuesto-po/*`, `budget/import` and `budget/template`
   routes, `presupuesto-import-dialog.tsx`). Single-expense rules live in `src/lib/api/gastos.ts`. Route: one writer
   because the parent context passed the ~150k backstop.
+- **L4 (T1, 5496102):** Pure helpers extracted in `src/lib/api/gastos.ts` so the import reuses the single-expense rules
+  without HTTP: `evaluarValorGasto`, `evaluarPeriodo`, `tieneAsignado`, `GASTO_FILA_SCHEMA` (create schema without
+  supports); `parseValorGasto`, `resolverPeriodo`, `resolverLinea` delegate to them (route tests unchanged and green).
+  Assumptions: the rubro catalog a file may name is the ACTIVE catalog plus the project's own lines; a rubro without
+  assigned value gets `RUBRO_SIN_ASIGNADO_MESSAGE`; accepted dates are Excel dates, `AAAA-MM-DD` and `DD/MM/AAAA`;
+  the in-file duplicate message is `Duplicado dentro del archivo (ya aparece en la fila N).` and only applies when the
+  third-party id is present (same as `buscarDuplicados`). The template route is gated like the expenses read
+  (404 -> 403) and lists the project's rubros with an assigned value.
+- **L5 (T2):** `POST expenses/import`. Assumptions: the preview is 200 `{importado:false, resumen, filas[]}` even
+  with invalid rows; applying with zero valid rows is a 400 `VALIDATION_ERROR` with the row report and writes nothing;
+  the response carries `lote_id`, `gastos[{fila,id}]`, `rechazadas[]` and per-row `alertas[]`. Lines are read in one
+  query and filtered with the shared `tieneAsignado` predicate (instead of one `resolverLinea` call per row).
