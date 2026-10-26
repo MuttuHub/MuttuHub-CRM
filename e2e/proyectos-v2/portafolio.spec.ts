@@ -76,7 +76,7 @@ test("filters combine down to the empty state and Limpiar filtros restores the t
   await pickOption(page, "Filtrar por cliente", "Universidad Central del Valle");
   await expect.poll(async () => portfolioRows(page).count()).toBeLessThanOrEqual(soloBorrador);
 
-  await pickOption(page, "Filtrar por cliente", "Bavaria SA");
+  await pickOption(page, "Filtrar por cliente", "Textiles del Caribe S.A.");
   await expect(page.getByText("No encontramos proyectos con estos filtros")).toBeVisible();
 
   await page.getByRole("button", { name: "Limpiar filtros" }).click();

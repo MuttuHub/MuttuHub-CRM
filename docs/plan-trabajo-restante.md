@@ -82,7 +82,7 @@ Sheet, Gantt, tabla de usuarios, Curva S, ruta vieja, IP/Agente, cronograma y to
 
 | ID | Tarea | Tamaño | Depende de | Terminado cuando |
 |---|---|---|---|---|
-| E1 | Conectar Playwright a CI (build + base sembrada) | M | Infra de CI | La suite de 29 pruebas corre en cada PR |
+| E1 | Conectar Playwright a CI (build + base sembrada) | M | Infra de CI | **Hecho**: la suite mantenida `e2e/proyectos-v2` (31 pruebas) corre en cada PR contra una base sembrada (job `e2e`); los specs legacy de la raíz quedan fuera como seguimiento |
 | E2 | Umbral de cobertura realista y creciente | L | — | **Hecho**: piso 73/72/68/64 en CI con `autoUpdate` hacia arriba (solo en local) |
 | E3 | `npm run lint` reproducible en local | S | — | **Hecho**: artefactos locales ignorados y 0 problemas |
 | E4 | Migración a Railway — **Opción A** (app en Railway, Supabase se queda) | S–M | Acceso a Railway | Producción sirviendo desde Railway con el mismo dominio |

@@ -48,7 +48,10 @@ async function proyectoAjenoAlColaborador(page: Page): Promise<{ id: string; cod
   const { proyectos } = (await res.json()) as {
     proyectos: Array<{ id: string; codigo: string }>;
   };
+  // PRY-2026-001 never qualifies: a later test adds the colaborador to it, and
+  // the API gives no ordering guarantee, so the first listed project may be it.
   for (const proyecto of proyectos) {
+    if (proyecto.codigo === "PRY-2026-001") continue;
     const miembrosRes = await page.request.get(`/api/v1/projects/${proyecto.id}/members`);
     const { miembros } = (await miembrosRes.json()) as {
       miembros: Array<{ usuario: { nombre: string } }>;
@@ -120,6 +123,8 @@ test("colaborador: the list never shows a foreign project, both tabs, may create
   // proyecto cuyo equipo no incluya al colaborador.
   await login(page, "admin", "/proyectos");
   const candidato = await proyectoAjenoAlColaborador(page);
+  // The CI seed always has one (PRY-2026-002): there a missing candidate is a failure, not a skip.
+  if (process.env.CI) expect(candidato, "the seed must provide a project without the colaborador").not.toBeNull();
   test.skip(!candidato, "no hay un proyecto ajeno disponible en esta base");
   ajeno = candidato;
   await page.context().clearCookies();
@@ -203,6 +208,8 @@ test("D1: a non-member ficha explains «No tienes acceso» within 5 s", async ({
   // puede listar uno que no integra, y la base local persiste entre corridas.
   await login(page, "admin", "/proyectos");
   const ajenoProyecto = await proyectoAjenoAlColaborador(page);
+  // The CI seed always has one (PRY-2026-002): there a missing candidate is a failure, not a skip.
+  if (process.env.CI) expect(ajenoProyecto, "the seed must provide a project without the colaborador").not.toBeNull();
   test.skip(!ajenoProyecto, "no hay un proyecto ajeno disponible en esta base");
   await page.context().clearCookies();
   await login(page, "colaborador", "/proyectos");

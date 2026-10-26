@@ -16,7 +16,7 @@ test("stepper starts with the client; client card; opportunity gated by client",
   await expect(page.getByRole("combobox", { name: "Cliente" })).toBeEditable();
   await expect(page.getByRole("combobox", { name: "Oportunidad" })).toBeDisabled();
 
-  await pickOption(page, "Cliente", "Agencia de Cooperación Nórdica");
+  await pickOption(page, "Cliente", "Fundación Tejiendo Caribe");
   const card = page.getByLabel("Datos del cliente");
   await expect(card).toBeVisible();
   for (const dato of ["Tipo de cliente", "Oportunidades", "Contacto principal"]) {
