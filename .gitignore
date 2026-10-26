@@ -76,3 +76,5 @@ tmp/plantilla-demo/
 # Verify suite outputs (playwright.verify.config.ts)
 /test-results-verify/
 /playwright-report-verify/
+/test-results-ci/
+/playwright-report-ci/
