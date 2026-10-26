@@ -156,7 +156,8 @@ Orden recomendado:
    unidad y tipo de medio), y los **Indicadores** (código, nombre, meta y unidad). Con plantilla Excel:
    **Descargar plantilla**, llénala e **Importar plantilla** (**Validar plantilla** y **Confirmar importación**);
    reemplaza estructura, presupuesto, programación, fechas, líneas y municipios del borrador y, si hay errores, no
-   escribe nada.
+   escribe nada. La plantilla no pide el tipo de medio de los entregables ni la unidad de los indicadores; una
+   plantilla descargada antes, que todavía trae esas columnas, se sigue aceptando y esas celdas son opcionales.
 2. **Cronograma** y **Gantt** (o paso 3): solo lectura.
 3. **Presupuesto** (o paso 4): monto **Asignado** por rubro, **Guardar presupuesto**, **Igualar valor total a
    Σ A** si la suma no cuadra, **Programación mensual** y **Guardar programación**.

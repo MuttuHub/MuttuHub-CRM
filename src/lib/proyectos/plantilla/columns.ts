@@ -40,9 +40,21 @@ export const ENCABEZADOS: Record<
     "Responsable (correo)",
     "Peso (opcional)",
   ],
+  // PO 2026-10-23: the templates no longer ask for "Tipo de medio exigido" (Entregables)
+  // nor "Unidad" (Indicadores).
+  entregables: ["Código", "Código actividad", "Descripción", "Cantidad", "Unidad"],
+  indicadores: ["Código", "Código objetivo", "Nombre", "Meta", "Línea base"],
+  presupuesto: ["Código rubro", "Rubro", "Valor asignado"],
+}
+
+/**
+ * Header rows of templates downloaded before 2026-10-26. They are still accepted so a
+ * template filled in with the previous layout imports as before; their extra columns
+ * are optional.
+ */
+export const ENCABEZADOS_ANTERIORES: Partial<Record<keyof typeof ENCABEZADOS, readonly string[]>> = {
   entregables: ["Código", "Código actividad", "Descripción", "Cantidad", "Unidad", "Tipo de medio exigido"],
   indicadores: ["Código", "Código objetivo", "Nombre", "Meta", "Unidad", "Línea base"],
-  presupuesto: ["Código rubro", "Rubro", "Valor asignado"],
 }
 
 export const ENCABEZADO_PROYECTO = ["Campo", "Valor"] as const

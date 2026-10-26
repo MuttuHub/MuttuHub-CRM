@@ -4,7 +4,7 @@ import { construirPlan } from "./mapear"
 import { generarPlantilla } from "./generate"
 import { parsePlantilla } from "./parse"
 import { toCents } from "../money"
-import { fixtureContextoFX1, fixtureF_X1 } from "../__fixtures__/plantilla-cedetextil"
+import { fixtureContextoFX1, fixtureF_X1, plantillaFormatoAnterior } from "../__fixtures__/plantilla-cedetextil"
 
 let bufferValido: Buffer
 
@@ -73,15 +73,22 @@ describe("construirPlan of the valid F-X1", () => {
       actividadCodigo: "1.1",
       cantidadMeta: "1.00",
       unidad: "Informe",
-      tipoMedio: "Documento PDF",
+      tipoMedio: "",
     })
     expect(p.indicadores[0]).toMatchObject({
       codigo: "IND-01",
       objetivoCodigo: "OE1",
       meta: "30.00",
-      unidad: "Unidades",
+      unidad: "",
       lineaBase: "0.00",
     })
+  })
+
+  it("keeps the medium and the indicator unit of a template in the previous layout", async () => {
+    const anterior = await plantillaFormatoAnterior(await generarPlantilla(fixtureF_X1()))
+    const p = construirPlan(await parsePlantilla(anterior), fixtureContextoFX1())
+    expect(p.entregables[0]).toMatchObject({ codigo: "1.1-E1", unidad: "Informe", tipoMedio: "Documento PDF" })
+    expect(p.indicadores[0]).toMatchObject({ codigo: "IND-01", unidad: "Unidades", lineaBase: "0.00" })
   })
 
   it("fills every active rubro and the monthly programming in exact cents", async () => {

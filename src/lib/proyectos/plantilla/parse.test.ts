@@ -134,7 +134,7 @@ describe("parsePlantilla of the generated F-X1", () => {
       { codigo: "1.4", objetivoCodigo: "OE1", nombre: "Entrega de dotación y certificación", semanaInicio: 3, semanaFin: 6, responsable: "ana@muttu.co", peso: null },
     ])
 
-    // Entregables: code, activity link, description, quantity, unit and medium.
+    // Entregables: code, activity link, description, quantity and unit.
     expect(
       parsed.entregables.map((f) => ({
         codigo: f.celdas["Código"].valor,
@@ -142,31 +142,29 @@ describe("parsePlantilla of the generated F-X1", () => {
         descripcion: f.celdas["Descripción"].valor,
         cantidadMeta: f.celdas["Cantidad"].valor,
         unidad: f.celdas["Unidad"].valor,
-        tipoMedio: f.celdas["Tipo de medio exigido"].valor,
       })),
     ).toEqual([
-      { codigo: "1.1-E1", actividadCodigo: "1.1", descripcion: "Informe de caracterización", cantidadMeta: 1, unidad: "Informe", tipoMedio: "Documento PDF" },
-      { codigo: "1.1-E2", actividadCodigo: "1.1", descripcion: "Memoria de la jornada de caracterización", cantidadMeta: 1, unidad: "Memoria", tipoMedio: "Documento PDF" },
-      { codigo: "1.2-E1", actividadCodigo: "1.2", descripcion: "Mapa de unidades productivas", cantidadMeta: 1, unidad: "Mapa", tipoMedio: "Documento PDF" },
-      { codigo: "1.3-E1", actividadCodigo: "1.3", descripcion: "Acta de acompañamiento", cantidadMeta: 4, unidad: "Acta", tipoMedio: "Documento PDF" },
-      { codigo: "1.3-E2", actividadCodigo: "1.3", descripcion: "Estatuto del emprendimiento", cantidadMeta: 1, unidad: "Estatuto", tipoMedio: "Documento PDF" },
-      { codigo: "1.4-E1", actividadCodigo: "1.4", descripcion: "Certificado de formación", cantidadMeta: 4, unidad: "Certificado", tipoMedio: "Documento PDF" },
-      { codigo: "1.4-E2", actividadCodigo: "1.4", descripcion: "RUT actualizado de la unidad productiva", cantidadMeta: 4, unidad: "RUT", tipoMedio: "Documento PDF" },
+      { codigo: "1.1-E1", actividadCodigo: "1.1", descripcion: "Informe de caracterización", cantidadMeta: 1, unidad: "Informe" },
+      { codigo: "1.1-E2", actividadCodigo: "1.1", descripcion: "Memoria de la jornada de caracterización", cantidadMeta: 1, unidad: "Memoria" },
+      { codigo: "1.2-E1", actividadCodigo: "1.2", descripcion: "Mapa de unidades productivas", cantidadMeta: 1, unidad: "Mapa" },
+      { codigo: "1.3-E1", actividadCodigo: "1.3", descripcion: "Acta de acompañamiento", cantidadMeta: 4, unidad: "Acta" },
+      { codigo: "1.3-E2", actividadCodigo: "1.3", descripcion: "Estatuto del emprendimiento", cantidadMeta: 1, unidad: "Estatuto" },
+      { codigo: "1.4-E1", actividadCodigo: "1.4", descripcion: "Certificado de formación", cantidadMeta: 4, unidad: "Certificado" },
+      { codigo: "1.4-E2", actividadCodigo: "1.4", descripcion: "RUT actualizado de la unidad productiva", cantidadMeta: 4, unidad: "RUT" },
     ])
 
-    // Indicadores: code, objective link, name, goal, unit and baseline.
+    // Indicadores: code, objective link, name, goal and baseline.
     expect(
       parsed.indicadores.map((f) => ({
         codigo: f.celdas["Código"].valor,
         objetivoCodigo: f.celdas["Código objetivo"].valor,
         nombre: f.celdas["Nombre"].valor,
         meta: f.celdas["Meta"].valor,
-        unidad: f.celdas["Unidad"].valor,
         lineaBase: f.celdas["Línea base"].valor,
       })),
     ).toEqual([
-      { codigo: "IND-01", objetivoCodigo: "OE1", nombre: "Unidades productivas fortalecidas", meta: 30, unidad: "Unidades", lineaBase: 0 },
-      { codigo: "IND-02", objetivoCodigo: "OE1", nombre: "Personas formadas", meta: 60, unidad: "Personas", lineaBase: 0 },
+      { codigo: "IND-01", objetivoCodigo: "OE1", nombre: "Unidades productivas fortalecidas", meta: 30, lineaBase: 0 },
+      { codigo: "IND-02", objetivoCodigo: "OE1", nombre: "Personas formadas", meta: 60, lineaBase: 0 },
     ])
 
     // Project: municipality list, total value and beneficiary goal.

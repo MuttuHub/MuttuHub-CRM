@@ -43,7 +43,6 @@ export type EntregableInput = {
   descripcion: string
   cantidad: string
   unidad: string
-  tipoMedio: string
 }
 
 export type IndicadorInput = {
@@ -51,7 +50,6 @@ export type IndicadorInput = {
   objetivoCodigo: string
   nombre: string
   meta: string
-  unidad: string
   lineaBase: string | null
 }
 
@@ -191,7 +189,6 @@ function escribirEntregables(workbook: ExcelJS.Workbook, input: PlantillaInput):
       entregable.descripcion,
       Number(entregable.cantidad),
       entregable.unidad,
-      entregable.tipoMedio,
     ])
   }
   return hoja
@@ -206,7 +203,6 @@ function escribirIndicadores(workbook: ExcelJS.Workbook, input: PlantillaInput):
       indicador.objetivoCodigo,
       indicador.nombre,
       Number(indicador.meta),
-      indicador.unidad,
       indicador.lineaBase === null ? null : Number(indicador.lineaBase),
     ])
   }
