@@ -36,6 +36,8 @@ import { isoDate } from "@/lib/proyectos/proyecto-general";
 export const GASTO_FORBIDDEN_MESSAGE = "No tienes permisos sobre este proyecto.";
 export const GASTO_NO_EXISTE = "El gasto no existe.";
 export const SIN_SOPORTE_MESSAGE = "Adjunta al menos un soporte (archivo o enlace).";
+/** An expense without a live support cannot be validated (imported expenses start without one). */
+export const SIN_SOPORTE_VALIDAR_MESSAGE = "Adjunta al menos un soporte al gasto antes de validarlo.";
 export const MAX_SOPORTES = 5;
 export const MAX_SOPORTES_MESSAGE = `Puedes adjuntar máximo ${MAX_SOPORTES} soportes.`;
 export const RUBRO_SIN_ASIGNADO_MESSAGE = "Solo puedes registrar gastos en rubros con valor asignado.";
@@ -127,12 +129,22 @@ export const GASTO_PATCH_SCHEMA = z
   })
   .strict();
 
+/** One row of an expense: the create body without its supports (the Excel import carries none). */
+export const GASTO_FILA_SCHEMA = GASTO_CREATE_SCHEMA.omit({ soportes: true });
+
+/** A strictly positive amount in exact cents (decimal string or number, max two decimals), without HTTP. */
+export function evaluarValorGasto(value: unknown): { ok: true; cents: Cents } | { ok: false; message: string } {
+  const parsed = parseMonto(value);
+  if (!parsed.ok) return { ok: false, message: parsed.message };
+  if (parsed.cents <= BigInt(0)) return { ok: false, message: VALOR_POSITIVO_MESSAGE };
+  return { ok: true, cents: parsed.cents };
+}
+
 /** A strictly positive amount in exact cents (decimal string or number, max two decimals). */
 export function parseValorGasto(value: unknown): { ok: true; cents: Cents } | { ok: false; response: Response } {
-  const parsed = parseMonto(value);
-  if (!parsed.ok) return { ok: false, response: apiError(parsed.message, 400, "VALIDATION_ERROR") };
-  if (parsed.cents <= BigInt(0)) return { ok: false, response: apiError(VALOR_POSITIVO_MESSAGE, 400, "VALIDATION_ERROR") };
-  return { ok: true, cents: parsed.cents };
+  const evaluated = evaluarValorGasto(value);
+  if (!evaluated.ok) return { ok: false, response: apiError(evaluated.message, 400, "VALIDATION_ERROR") };
+  return evaluated;
 }
 
 // ---------------------------------------------------------------------------
@@ -180,6 +192,11 @@ export type LineaGasto = {
   rubro: { id: string; codigo: string | null; nombre: string };
 };
 
+/** A rubro only takes expenses while its assigned amount is above zero. */
+export function tieneAsignado(monto: { toString(): string }): boolean {
+  return toCents(monto) > BigInt(0);
+}
+
 /** The budget line of a rubro in the project; the rubro needs an assigned amount above zero. */
 export async function resolverLinea(
   proyectoId: string,
@@ -189,10 +206,23 @@ export async function resolverLinea(
     where: { proyecto_id: proyectoId, rubro_id: rubroId },
     select: { id: true, monto_proyectado_cop: true, rubro: { select: { id: true, codigo: true, nombre: true } } },
   });
-  if (!linea || toCents(linea.monto_proyectado_cop) <= BigInt(0)) {
+  if (!linea || !tieneAsignado(linea.monto_proyectado_cop)) {
     return { ok: false, response: apiError(RUBRO_SIN_ASIGNADO_MESSAGE, 400, "VALIDATION_ERROR") };
   }
   return { ok: true, value: { id: linea.id, asignado: toCents(linea.monto_proyectado_cop), rubro: linea.rubro } };
+}
+
+/** The period must be a month of the project; it defaults to the month of the document date. Without HTTP. */
+export function evaluarPeriodo(
+  proyecto: Pick<GastoProyecto, "fecha_inicio" | "fecha_fin">,
+  fechaDocumento: string,
+  periodo: string | undefined,
+): { ok: true; value: string } | { ok: false; message: string } {
+  if (!proyecto.fecha_inicio || !proyecto.fecha_fin) return { ok: false, message: PROYECTO_SIN_FECHAS_MESSAGE };
+  const periodos = projectPeriods(isoDate(proyecto.fecha_inicio), isoDate(proyecto.fecha_fin));
+  const elegido = periodo ?? periodoPorDefecto(fechaDocumento);
+  if (!periodoEnProyecto(elegido, periodos)) return { ok: false, message: PERIODO_FUERA_MESSAGE };
+  return { ok: true, value: elegido };
 }
 
 /** The period must be a month of the project; it defaults to the month of the document date. */
@@ -201,15 +231,9 @@ export function resolverPeriodo(
   fechaDocumento: string,
   periodo: string | undefined,
 ): { ok: true; value: string } | { ok: false; response: Response } {
-  if (!proyecto.fecha_inicio || !proyecto.fecha_fin) {
-    return { ok: false, response: apiError(PROYECTO_SIN_FECHAS_MESSAGE, 400, "VALIDATION_ERROR") };
-  }
-  const periodos = projectPeriods(isoDate(proyecto.fecha_inicio), isoDate(proyecto.fecha_fin));
-  const elegido = periodo ?? periodoPorDefecto(fechaDocumento);
-  if (!periodoEnProyecto(elegido, periodos)) {
-    return { ok: false, response: apiError(PERIODO_FUERA_MESSAGE, 400, "VALIDATION_ERROR") };
-  }
-  return { ok: true, value: elegido };
+  const evaluated = evaluarPeriodo(proyecto, fechaDocumento, periodo);
+  if (!evaluated.ok) return { ok: false, response: apiError(evaluated.message, 400, "VALIDATION_ERROR") };
+  return evaluated;
 }
 
 /** Early warning: would the VALIDADO total of the line plus `nuevo` exceed the assigned amount. */

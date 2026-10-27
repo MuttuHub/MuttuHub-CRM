@@ -1482,6 +1482,8 @@ export type ExpenseQueueRow = {
   estado: ProjectExpenseEstado;
   alerta_sobregasto: boolean;
   datos_incompletos: boolean;
+  /** No live support yet (an imported expense): it cannot be validated until one is attached. */
+  sin_soporte: boolean;
   registrado_por_id: string;
   registrado_por_nombre: string | null;
   propio: boolean;
@@ -1531,6 +1533,27 @@ export function useCreateExpense(
         `/api/v1/projects/${projectId}/expenses`,
         { ...datos, soportes: [confirmado] },
       );
+    },
+    onSuccess: refresh,
+  });
+}
+
+/**
+ * Adjunta un soporte a un gasto que ya existe (los importados nacen sin soporte, B8): archivo
+ * (firma -> subida -> confirmación en `attachments`) o enlace https. El error del servidor se
+ * relanza sin toast: el control lo muestra en línea.
+ */
+export function useAttachExpenseSupport(
+  projectId: string,
+): UseMutationResult<{ gasto: ProjectExpense }, Error, { id: string; soporte: AvanceMedioInput }> {
+  const refresh = useRefreshGastos();
+  return useMutation({
+    mutationFn: async ({ id, soporte }) => {
+      const confirmado =
+        soporte.tipo === "archivo"
+          ? await uploadSoporteFile(`/api/v1/projects/${projectId}/expenses/sign`, soporte.file)
+          : { url_externa: soporte.url_externa, nombre: soporte.nombre };
+      return apiPost<{ gasto: ProjectExpense }>(`/api/v1/projects/${projectId}/expenses/${id}/attachments`, confirmado);
     },
     onSuccess: refresh,
   });
@@ -1909,6 +1932,106 @@ export function useImportBudget(
       if (!data.importado) return;
       refresh();
       toast.success("Presupuesto importado.");
+    },
+  });
+}
+
+/* ── Gastos desde Excel (importar-gastos, B8) ─────────────────────────── */
+
+/** Error por fila (`fila` nula si es del archivo) del 400 y de las filas rechazadas de `POST /expenses/import`. */
+export type ExpensesImportError = { fila: number | null; rubro: string | null; mensaje: string };
+
+/** Una fila del archivo en la vista previa: válida o no, con su motivo y los avisos que no bloquean. */
+export type ExpensesImportRow = {
+  fila: number;
+  rubro: string | null;
+  tercero: string | null;
+  numero_documento: string | null;
+  /** Decimal como string; nulo si la fila es inválida. */
+  valor: string | null;
+  periodo: string | null;
+  valida: boolean;
+  mensaje: string | null;
+  alertas: ExpenseAlert[];
+};
+
+/** `POST /expenses/import` con `modo=validar`: nada se escribió. */
+export type ExpensesImportPreview = {
+  importado: false;
+  resumen: { total: number; validas: number; invalidas: number; valor_validas: string };
+  filas: ExpensesImportRow[];
+};
+
+/** `POST /expenses/import` aplicado: solo se crearon las filas válidas. */
+export type ExpensesImportApplied = {
+  importado: true;
+  creados: number;
+  lote_id: string;
+  valor_total: string;
+  gastos: { fila: number; id: string }[];
+  rechazadas: ExpensesImportError[];
+  alertas: { fila: number; alertas: ExpenseAlert[] }[];
+};
+
+export type ExpensesImportInput = { archivo: File; validar: boolean };
+
+/** El 400 con los errores del archivo (o de todas las filas cuando ninguna es válida). */
+export class ExpensesImportReportError extends ApiError {
+  readonly errores: ExpensesImportError[];
+
+  constructor(message: string, errores: ExpensesImportError[]) {
+    super(message, 400, "VALIDATION_ERROR");
+    this.name = "ExpensesImportReportError";
+    this.errores = errores;
+  }
+}
+
+function expensesImportFailure(res: Response, body: Record<string, unknown>, fallback: string): ApiError {
+  const errores = (body.reporte as { errores?: unknown } | undefined)?.errores;
+  if (Array.isArray(errores)) {
+    return new ExpensesImportReportError(typeof body.error === "string" ? body.error : fallback, errores as ExpensesImportError[]);
+  }
+  return new ApiError(typeof body.error === "string" ? body.error : fallback, res.status, typeof body.code === "string" ? body.code : undefined);
+}
+
+/** Baja la plantilla de gastos (con los rubros del proyecto que admiten gastos). */
+export async function downloadExpensesTemplate(projectId: string): Promise<void> {
+  const res = await fetch(`/api/v1/projects/${projectId}/expenses/template`, { method: "GET" });
+  if (!res.ok) {
+    throw expensesImportFailure(res, await readJsonBody(res), "No pudimos descargar la plantilla. Inténtalo de nuevo.");
+  }
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? "plantilla-gastos.xlsx";
+  saveBlobAs(await res.blob(), filename);
+}
+
+/**
+ * Valida (`validar: true`, no escribe) o aplica el Excel de gastos. Las filas inválidas no bloquean:
+ * se importan las válidas. El 400 con errores del archivo llega como `ExpensesImportReportError`.
+ */
+export function useImportExpenses(
+  projectId: string,
+): UseMutationResult<ExpensesImportPreview | ExpensesImportApplied, Error, ExpensesImportInput> {
+  const refresh = useRefreshGastos();
+  return useMutation({
+    mutationFn: async ({ archivo, validar }) => {
+      const form = new FormData();
+      form.set("archivo", archivo);
+      if (validar) form.set("modo", "validar");
+      // Sin Content-Type: el navegador pone el boundary del multipart.
+      const res = await fetch(`/api/v1/projects/${projectId}/expenses/import`, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        body: form,
+      });
+      const body = await readJsonBody(res);
+      if (!res.ok) throw expensesImportFailure(res, body, "No pudimos importar los gastos. Inténtalo de nuevo.");
+      return body as ExpensesImportPreview | ExpensesImportApplied;
+    },
+    onSuccess: (data) => {
+      if (!data.importado) return;
+      refresh();
+      toast.success(data.creados === 1 ? "1 gasto importado." : `${data.creados} gastos importados.`);
     },
   });
 }

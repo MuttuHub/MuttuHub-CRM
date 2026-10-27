@@ -16,6 +16,7 @@ import { InlineError } from "@/components/proyectos/ui";
 import { useRejectExpense, useValidateExpense } from "@/hooks/projects";
 
 export const PROPIO_TEXT = "Tú lo registraste";
+export const SIN_SOPORTE_HINT = "Adjunta un soporte para poder validarlo.";
 export const INCOMPLETO_HINT = "Completa el tipo y número de identificación del tercero antes de validar.";
 
 /** Rechazo en línea: un botón que revela un motivo obligatorio y confirma. */
@@ -75,12 +76,15 @@ export function ValidacionControles({
   gastoId,
   propio,
   datosIncompletos,
+  sinSoporte = false,
 }: {
   projectId: string;
   gastoId: string;
   /** El gasto lo registró quien consulta: no puede validarlo ni rechazarlo. */
   propio: boolean;
   datosIncompletos: boolean;
+  /** Sin soportes vivos no se puede validar (la API responde 409); Rechazar sigue disponible. */
+  sinSoporte?: boolean;
 }) {
   const validar = useValidateExpense();
   const rechazar = useRejectExpense();
@@ -102,8 +106,8 @@ export function ValidacionControles({
         <Button
           type="button"
           size="sm"
-          disabled={pending || datosIncompletos}
-          title={datosIncompletos ? INCOMPLETO_HINT : undefined}
+          disabled={pending || datosIncompletos || sinSoporte}
+          title={datosIncompletos ? INCOMPLETO_HINT : sinSoporte ? SIN_SOPORTE_HINT : undefined}
           onClick={() => validar.mutate({ projectId, id: gastoId })}
         >
           {validar.isPending && <LoaderCircle className="size-4 animate-spin" />}
@@ -114,6 +118,7 @@ export function ValidacionControles({
           onConfirm={(motivo) => rechazar.mutate({ projectId, id: gastoId, motivo })}
         />
       </div>
+      {sinSoporte && !datosIncompletos && <p className="text-[12px] text-ink-600">{SIN_SOPORTE_HINT}</p>}
       <InlineError message={error} />
     </div>
   );

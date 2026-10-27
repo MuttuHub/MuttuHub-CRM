@@ -415,6 +415,7 @@
     <li>Filtros por estado (incluye <strong>Pendiente por revisión</strong>) y buscador.</li>
     <li><strong>Registrar gasto</strong>: <strong>Rubro</strong>, <strong>Valor</strong>, <strong>Fecha del documento</strong>, <strong>Periodo</strong>, <strong>Tipo de soporte</strong> (factura de proveedor, cuenta de cobro de persona natural u otro), <strong>Número de documento</strong>, <strong>Tercero</strong>, <strong>Tipo y número de identificación</strong>, <strong>Descripción</strong> y el <strong>soporte</strong> (archivo o enlace).</li>
     <li>El soporte es obligatorio: un gasto sin soporte no se registra.</li>
+    <li><strong>Importar gastos</strong> carga varios gastos desde un Excel (una fila por gasto) para quienes pueden registrar gastos, solo con el proyecto en ejecución. <strong>Descargar plantilla</strong> baja el formato con los rubros del proyecto. <strong>Validar</strong> muestra cada fila como válida o con error y su motivo, sin guardar nada; <strong>Importar</strong> crea solo las filas válidas como <strong>Registrado</strong> y lista las rechazadas. Un duplicado dentro del archivo (mismo tercero y número de documento) se rechaza. El archivo no lleva soportes: cada gasto importado aparece <strong>Sin soporte</strong> y quien lo registró lo adjunta con <strong>Adjuntar soporte</strong> (archivo o enlace, hasta 5). Un gasto sin soporte no se puede validar.</li>
     <li><strong>Validar</strong> y <strong>Rechazar</strong> son de Administrador y Gerencia, nunca sobre un gasto propio. Al rechazar se escribe el <strong>motivo</strong>.</li>
     <li><strong>Anular</strong> un gasto es una acción aparte, con su propio motivo.</li>
   </ul>
@@ -524,7 +525,6 @@
   <p>Estas funciones <strong>no</strong> están en el lanzamiento y se trabajarán después:</p>
   <ul>
     <li><strong>Cerrar, suspender o cancelar</strong> un proyecto desde la interfaz.</li>
-    <li><strong>Importar gastos</strong> desde Excel.</li>
     <li><strong>Adaptador de las plantillas de la PO</strong> (<code>proyecto.xlsx</code> y <code>presupuesto.xlsx</code>) con la estructura y el presupuesto.</li>
     <li><strong>Rubros personalizados o deshabilitados por proyecto</strong>: hoy el catálogo R01 a R15 es global.</li>
     <li><strong>Correos automáticos con marca</strong>: las notificaciones dentro de la aplicación funcionan; el envío de correo depende del dominio y se configurará después.</li>
@@ -590,7 +590,6 @@
     <li><strong>Importar solo estructura, sin presupuesto.</strong> Hoy la importación exige que el presupuesto cuadre con el valor total, así que no se pueden cargar primero metas y actividades y después el presupuesto, que es el flujo que pidió la PO.</li>
     <li><strong>Rubros personalizados o deshabilitados por proyecto.</strong> Hoy el catálogo R01 a R15 es global: un rubro sin uso queda en $0 y se sigue mostrando.</li>
     <li><strong>Cerrar, suspender o cancelar</strong> un proyecto desde la interfaz: no está en esta versión.</li>
-    <li><strong>Importar gastos</strong> desde Excel: no está en esta versión.</li>
     <li><strong>Correos automáticos.</strong> Las notificaciones dentro de la aplicación funcionan; el envío de correo depende de verificar el dominio de envío.</li>
     <li><strong>Plantillas de la PO</strong> (<code>proyecto.xlsx</code>, <code>presupuesto.xlsx</code>): el modelo de datos ya las soporta, falta el adaptador para leer su formato exacto.</li>
   </ol>

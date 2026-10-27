@@ -37,6 +37,7 @@ const fila = (id: string, data: Record<string, unknown> = {}) => ({
   alerta_sobregasto: false,
   registrado_por_id: "ger-1",
   created_at: new Date("2026-10-16T12:00:00.000Z"),
+  _count: { soportes: 1 },
   ...data,
 });
 
@@ -81,7 +82,20 @@ describe("GET expense-validations", () => {
       propio: false,
       datos_incompletos: false,
       alerta_sobregasto: false,
+      sin_soporte: false,
     });
+  });
+
+  it("marks expenses without a live support, which cannot be validated yet (B8)", async () => {
+    vi.mocked(db.gasto.findMany).mockResolvedValue([fila("gas-1", { _count: { soportes: 0 } })] as never);
+    const json = await (await GET(get())).json();
+    expect(db.gasto.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({ _count: { select: { soportes: { where: { deleted_at: null } } } } }),
+      }),
+    );
+    expect(json.gastos[0]).toMatchObject({ id: "gas-1", sin_soporte: true });
+    expect(json.gastos[0]).not.toHaveProperty("_count");
   });
 
   it("marks the actor's own expenses and the incomplete ones", async () => {

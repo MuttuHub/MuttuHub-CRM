@@ -64,6 +64,8 @@ export const GET = withApiErrorHandling(
         alerta_sobregasto: true,
         registrado_por_id: true,
         created_at: true,
+        // B8: an imported expense has no support until one is attached; it cannot be validated yet.
+        _count: { select: { soportes: { where: { deleted_at: null } } } },
       },
       orderBy: [{ created_at: "asc" }, { id: "asc" }],
       take: limit,
@@ -92,6 +94,7 @@ export const GET = withApiErrorHandling(
         estado: row.estado,
         alerta_sobregasto: row.alerta_sobregasto,
         datos_incompletos: datosIncompletos(row),
+        sin_soporte: row._count.soportes === 0,
         registrado_por_id: row.registrado_por_id,
         registrado_por_nombre: nombres.get(row.registrado_por_id) ?? null,
         propio: row.registrado_por_id === auth.usuario.id,
