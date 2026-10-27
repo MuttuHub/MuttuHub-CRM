@@ -165,15 +165,18 @@ export const DOCUMENTO_NO_EXISTE = "El documento no existe.";
 export const DOCUMENTO_FORBIDDEN_MESSAGE = "No tienes permiso para cambiar los documentos de este proyecto.";
 export const DOCUMENTO_STATE_MESSAGE = "No se pueden cambiar los documentos del proyecto en su estado actual.";
 
-/** Estados where project documents can be created or deleted (managers and member COORDINADORs). */
-export const ESTADOS_DOCUMENTO_ESCRITURA: readonly string[] = ["BORRADOR", "EN_EJECUCION", "SUSPENDIDO"];
+/**
+ * Estados where project documents can be created or deleted (managers and member COORDINADORs).
+ * SUSPENDIDO, CERRADO and CANCELADO are frozen (B7, PO decision D-C).
+ */
+export const ESTADOS_DOCUMENTO_ESCRITURA: readonly string[] = ["BORRADOR", "EN_EJECUCION"];
 
 /** A project-origin row: no avance, measurement or expense parent. */
 export const SOPORTE_ORIGEN_PROYECTO = { avance_id: null, medicion_id: null, gasto_id: null } as const;
 
 /**
  * 404 -> 403 -> 409 for a project-document write (create, sign, delete): managers or an active team
- * member, allowed in BORRADOR/EN_EJECUCION/SUSPENDIDO and refused in the closed states.
+ * member, allowed in BORRADOR/EN_EJECUCION and refused in the frozen and closed states.
  */
 export async function gateSoporteProyectoWrite(
   usuario: Usuario,

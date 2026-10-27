@@ -25,9 +25,10 @@ same as B8; forecast ~800 authored lines). Test runner: `npx vitest run`. Mirror
   accion. The estado write and its audit go in ONE transaction: two `AuditoriaCambio` rows in one lote, `campo: "estado"`
   (`valor_anterior` → `valor_nuevo`) and `campo: "motivo"`, entidad `proyecto`. The project history shows both.
 - **S5 — Frozen (from S1: «queda congelado», «solo lectura»).** In SUSPENDIDO, CERRADO and CANCELADO no project write
-  is accepted (409 `INVALID_STATE`); reads stay. Today SUSPENDIDO still allows validating/rejecting expenses and
-  writing documents, and some writes have no estado check (voids, members); all of them close. The estado endpoint
-  itself is the only way out.
+  is accepted (409 `INVALID_STATE`); reads stay. Validating/rejecting expenses and writing documents leave SUSPENDIDO;
+  team changes (members POST/DELETE) and modification decisions (approve/reject) close too. **Voids stay allowed in any
+  estado** (user decision 2026-10-27, L4): they are audited corrections by management, not new work. The estado
+  endpoint itself is the only way out.
 - **S6 — UI.** For ADMINISTRADOR/GERENCIA the ficha header offers the actions valid for the current estado; each asks for
   the motivo in a dialog and refreshes the ficha. Other roles see no action. The ficha shows the frozen/read-only estado.
 - **S7 — Docs.** OpenAPI for the new endpoint, the permissions matrix (`odd/tasks/permisos-proyectos-por-rol.md`) and the
@@ -38,8 +39,8 @@ same as B8; forecast ~800 authored lines). Test runner: `npx vitest run`. Mirror
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
 | T1 | S2, S3, S4 | inline | done (RED→GREEN, 24 tests) | see git log (unit 1) |
-| T2 | S5 | inline | pending | |
-| T3 | S6 | inline | pending | |
+| T2 | S5 | inline | done (RED→GREEN; 5 old SUSPENDIDO tests rewritten) | see git log (unit 2) |
+| T3 | S6 (+ client mirrors of S5: `ficha-documentos`, `gasto-acciones`, `project-team`) | inline | pending | |
 | T4 | S7 | inline | pending | |
 
 Route evidence: no Writer trigger (units depend on T1; no parallel work), so the parent writes inline. Risk: item 2
@@ -53,3 +54,5 @@ Route evidence: no Writer trigger (units depend on T1; no parallel work), so the
   (`validacion-gastos.ts:74`) and `gateSoporteProyectoWrite` (`soportes.ts:178`); `gateEjecucionVoid`, `gateGastoGestion`
   and the members routes check no estado. `AuditoriaCambio` has no motivo column (expense void stores it in JSON).
 - **L3 (2026-10-27, user):** close and reopen → «Gerencia y admin (Recomendado)».
+- **L4 (2026-10-27, user):** voids in a frozen project → «Siguen permitidas (Recomendado)». T1 review (risk +
+  reliability) approved; its one warning (freeze not enforced yet) is T2, shipped in the same PR.

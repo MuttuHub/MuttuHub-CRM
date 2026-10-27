@@ -63,7 +63,9 @@ describe("cambiarEstadoProyecto", () => {
   it("404 when the project disappeared before the lock", async () => {
     const tx = fakeTx(null);
     expect((await abortada(cambiarEstadoProyecto(tx as never, entrada))).status).toBe(404);
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
     expect(tx.proyecto.update).not.toHaveBeenCalled();
+    expect(tx.auditoriaCambio.createMany).not.toHaveBeenCalled();
   });
 });
 

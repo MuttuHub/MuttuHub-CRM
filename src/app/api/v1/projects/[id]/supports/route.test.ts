@@ -203,13 +203,13 @@ describe("POST /projects/:id/supports", () => {
     expect(mocks.create).not.toHaveBeenCalled();
   });
 
-  it("accepts BORRADOR, EN_EJECUCION and SUSPENDIDO; answers 409 in CERRADO, CANCELADO and PLANIFICACION", async () => {
-    for (const estado of ["BORRADOR", "EN_EJECUCION", "SUSPENDIDO"]) {
+  it("accepts BORRADOR and EN_EJECUCION; answers 409 in SUSPENDIDO, CERRADO, CANCELADO and PLANIFICACION", async () => {
+    for (const estado of ["BORRADOR", "EN_EJECUCION"]) {
       vi.mocked(db.proyecto.findFirst).mockResolvedValue(conEstado(estado));
       expect((await POST(post(enlace), ctx)).status, estado).toBe(201);
     }
     mocks.create.mockClear();
-    for (const estado of ["CERRADO", "CANCELADO", "PLANIFICACION"]) {
+    for (const estado of ["SUSPENDIDO", "CERRADO", "CANCELADO", "PLANIFICACION"]) {
       vi.mocked(db.proyecto.findFirst).mockResolvedValue(conEstado(estado));
       const res = await POST(post(enlace), ctx);
       expect(res.status, estado).toBe(409);

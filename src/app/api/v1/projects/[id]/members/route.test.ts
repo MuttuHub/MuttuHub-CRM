@@ -195,6 +195,20 @@ describe("POST /api/v1/projects/:id/members", () => {
     expect(res.status).toBe(403);
   });
 
+  it.each(["SUSPENDIDO", "CERRADO", "CANCELADO"])("returns 409 when the project is %s (frozen, B7)", async (estado) => {
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "pry-1", estado } as never);
+
+    const res = await POST(postRequest({ usuario_id: "coord-9" }), routeContext);
+    const json = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(json).toMatchObject({
+      code: "INVALID_STATE",
+      error: "No se puede cambiar el equipo de un proyecto suspendido, cerrado o cancelado.",
+    });
+    expect(mocks.txCreate).not.toHaveBeenCalled();
+  });
+
   it("returns 400 when the body is not a JSON object", async () => {
     const res = await POST(
       new Request("http://localhost/api/v1/projects/pry-1/members", {

@@ -74,12 +74,14 @@ describe("POST supports/sign", () => {
     expect(mocks.createSignedUploadUrl).not.toHaveBeenCalled();
   });
 
-  it("signs for a member COORDINADOR in BORRADOR and SUSPENDIDO", async () => {
+  it("signs for a member COORDINADOR in BORRADOR and EN_EJECUCION, and answers 409 once SUSPENDIDO (B7)", async () => {
     authAs(coordinador);
-    for (const estado of ["BORRADOR", "SUSPENDIDO"]) {
+    for (const estado of ["BORRADOR", "EN_EJECUCION"]) {
       vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto(estado, true));
       expect((await POST(post(valido), ctx)).status, estado).toBe(200);
     }
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto("SUSPENDIDO", true));
+    expect((await POST(post(valido), ctx)).status).toBe(409);
   });
 
   it("rejects a disallowed type and answers 413 for an oversize file", async () => {

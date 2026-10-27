@@ -98,6 +98,17 @@ describe("DELETE /api/v1/projects/:id/members/:userId", () => {
     expect(db.proyectoMiembro.findFirst).not.toHaveBeenCalled();
   });
 
+  it.each(["SUSPENDIDO", "CERRADO", "CANCELADO"])("returns 409 when the project is %s (frozen, B7)", async (estado) => {
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "pry-1", estado } as never);
+
+    const res = await DELETE(deleteRequest(), routeContext);
+    const json = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(json.error).toBe("No se puede cambiar el equipo de un proyecto suspendido, cerrado o cancelado.");
+    expect(mocks.txUpdate).not.toHaveBeenCalled();
+  });
+
   it("returns 403 for a COORDINADOR and never touches the membership", async () => {
     authAs(coordinador);
 

@@ -27,10 +27,13 @@ export const DATOS_INCOMPLETOS_MESSAGE = "Completa el tipo y número de identifi
 export const OVERSPEND_MESSAGE = "Validar este gasto superaría el valor asignado al rubro. Se notificó a Gerencia.";
 
 export const GASTO_PROYECTO_ESTADO_MESSAGE =
-  "Solo se pueden validar o rechazar gastos de proyectos en ejecución o suspendido.";
+  "Solo se pueden validar o rechazar gastos de proyectos en ejecución.";
 
-/** Project estados in which an expense can be validated or rejected (void is allowed in any estado). */
-export const ESTADOS_PROYECTO_VALIDACION: readonly string[] = ["EN_EJECUCION", "SUSPENDIDO"];
+/**
+ * Project estados in which an expense can be validated or rejected (void is allowed in any estado).
+ * A suspended project is frozen (B7, PO decision D-C), so only EN_EJECUCION.
+ */
+export const ESTADOS_PROYECTO_VALIDACION: readonly string[] = ["EN_EJECUCION"];
 
 export const MOTIVO_GASTO_SCHEMA = z
   .object({
@@ -69,7 +72,7 @@ export async function gateGastoGestion(
 
 /**
  * 404 -> 403 -> 404 -> 409 for validate / reject: the gate of `gateGastoGestion` plus the project estado
- * (EN_EJECUCION or SUSPENDIDO). VOID keeps using `gateGastoGestion`: a mistake stays correctable in any estado.
+ * (EN_EJECUCION). VOID keeps using `gateGastoGestion`: a mistake stays correctable in any estado.
  */
 export async function gateGastoDecision(
   usuario: Usuario,

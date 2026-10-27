@@ -67,6 +67,17 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe("POST /api/v1/projects/:id/modifications/:modificationId/reject", () => {
+  it.each(["SUSPENDIDO", "CERRADO", "CANCELADO"])("answers 409 when the project is %s (frozen, B7)", async (estado) => {
+    mocks.proyectoFindFirst.mockResolvedValue({ id: "pry-1", estado });
+    const res = await POST(request(), ctx);
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({
+      code: "INVALID_STATE",
+      error: "Solo se pueden aprobar o rechazar modificaciones de un proyecto en ejecución.",
+    });
+    expect(mocks.rechazar).not.toHaveBeenCalled();
+  });
+
   it("answers 404 / 403 / 404 / 409 in that order", async () => {
     mocks.proyectoFindFirst.mockResolvedValue(null);
     expect((await POST(request(), ctx)).status).toBe(404);

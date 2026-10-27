@@ -1,7 +1,7 @@
 // B7 (S3): the project estado transitions, as pure data shared by the API and the ficha.
 
 import { describe, expect, it } from "vitest";
-import { ACCIONES_ESTADO, accionesDisponibles, destinoDeAccion } from "./transiciones-estado";
+import { ACCIONES_ESTADO, accionesDisponibles, destinoDeAccion, estaCongelado } from "./transiciones-estado";
 
 describe("destinoDeAccion", () => {
   it.each([
@@ -33,6 +33,13 @@ describe("destinoDeAccion", () => {
         expect(destinoDeAccion(accion, estado), `${accion} from ${estado}`).toBeNull();
       }
     }
+  });
+});
+
+describe("estaCongelado", () => {
+  it("is true only for SUSPENDIDO, CERRADO and CANCELADO (S5)", () => {
+    expect(["SUSPENDIDO", "CERRADO", "CANCELADO"].every((e) => estaCongelado(e))).toBe(true);
+    expect(["PLANIFICACION", "BORRADOR", "EN_EJECUCION"].some((e) => estaCongelado(e))).toBe(false);
   });
 });
 

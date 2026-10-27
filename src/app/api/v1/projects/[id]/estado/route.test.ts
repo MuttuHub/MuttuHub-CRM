@@ -106,6 +106,10 @@ describe("POST /api/v1/projects/:id/estado", () => {
     authAs(administrador);
     proyectoEn("CERRADO");
     expect((await POST(request({ accion: "REABRIR", motivo: "Informe pendiente" }), ctx)).status).toBe(200);
+    expect(cambiarEstadoProyecto).toHaveBeenLastCalledWith(
+      { marker: "tx" },
+      { proyectoId: "pry-1", usuarioId: "adm-1", accion: "REABRIR", motivo: "Informe pendiente" },
+    );
   });
 
   it("returns the writer's 409 when the estado changed before the lock", async () => {
@@ -114,5 +118,9 @@ describe("POST /api/v1/projects/:id/estado", () => {
     );
     const res = await POST(request({ accion: "SUSPENDER", motivo: "x" }), ctx);
     expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({
+      code: "INVALID_STATE",
+      error: "Solo se puede suspender un proyecto en ejecución.",
+    });
   });
 });
