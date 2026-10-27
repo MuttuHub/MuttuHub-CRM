@@ -1,7 +1,7 @@
 // POST /api/v1/projects/:id/expenses/:expenseId/validate (S6 U4, RF-22).
 //
 // ADMINISTRADOR/GERENCIA other than the registrant (segregation of duties, also a DB CHECK).
-// Order: 404 -> 403 -> 404 -> 403 (own) -> 409 -> transaction. Validating beyond the assigned
+// Order: 404 -> 403 -> 404 -> 403 (own) -> 409 (estado, incomplete data, no support) -> transaction. Validating beyond the assigned
 // amount of the rubro is blocked: the flag and the notifications are committed and the answer is
 // 409 OVERSPEND_BLOCKED (the transaction RETURNS a blocked result, it never throws).
 
@@ -12,7 +12,7 @@ import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/supabase/server";
 import { canValidateExpense } from "@/lib/permissions";
 import { conflict } from "@/lib/api/estructura";
-import { GASTO_FORBIDDEN_MESSAGE, toGastoView } from "@/lib/api/gastos";
+import { GASTO_FORBIDDEN_MESSAGE, SIN_SOPORTE_VALIDAR_MESSAGE, toGastoView } from "@/lib/api/gastos";
 import {
   DATOS_INCOMPLETOS_MESSAGE,
   GASTO_PROYECTO_ESTADO_MESSAGE,
@@ -45,6 +45,9 @@ export const POST = withApiErrorHandling(
     }
     if (gasto.estado !== "REGISTRADO") return apiError(SOLO_REGISTRADO_MESSAGE, 409, "INVALID_STATE");
     if (datosIncompletos(gasto)) return conflict(DATOS_INCOMPLETOS_MESSAGE);
+    // Live supports only (`GASTO_INCLUDE` skips the deleted ones). Supports are only ever added to a
+    // REGISTRADO expense, so there is no race to re-check under the lock.
+    if (gasto.soportes.length === 0) return conflict(SIN_SOPORTE_VALIDAR_MESSAGE);
 
     const resultado = await db.$transaction((tx) =>
       validarEnTransaccion(tx, { gasto, validadorId: auth.usuario.id }),

@@ -35,13 +35,13 @@ test("gerencia: first-contact date is human readable; «Crear proyecto» opens t
 
 test("colaborador: reads any client, General tab shows values (not «—»), and may create a project", async ({ page }) => {
   await login(page, "colaborador", "/clientes");
-  // A client the colaborador does NOT own (responsable: Laurina Bruges Ballesteros).
-  const dialog = await openCliente(page, "Bavaria SA");
+  // A client the colaborador does NOT own (seed: responsable Laura Jiménez, EMPRESA_PRIVADA).
+  const dialog = await openCliente(page, "Textiles del Caribe S.A.");
   const general = dialog.getByRole("tabpanel", { name: "General" });
   await expect(general.getByRole("combobox", { name: "Tipo de cliente" })).toBeDisabled();
   await expect(general.getByRole("combobox", { name: "Tipo de cliente" })).toContainText("Empresa privada");
   await expect(general.getByRole("combobox", { name: "Responsable interno" })).toContainText(
-    "Laurina Bruges Ballesteros",
+    "Laura Jiménez",
   );
   for (const label of ["Nombre", "Ubicación", "Canal de contacto inicial", "Fecha de primer contacto"]) {
     const dd = general.locator("dt", { hasText: label, }).first().locator("xpath=following-sibling::*[1]");

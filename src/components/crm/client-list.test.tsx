@@ -190,6 +190,19 @@ it("shows the pagination footer and pages through results", () => {
     expect(router.replace).toHaveBeenCalledWith("/clientes?cliente=c1", { scroll: false })
   })
 
+  it("does not rewrite the URL after the ficha opens when the search did not change", () => {
+    clientsQuery.data = { page: 1, limit: 25, total: 1, items: [CLIENTE] }
+    const { rerender } = render(<ClientList />)
+    act(() => vi.advanceTimersByTime(400))
+    router.replace.mockClear()
+    // The ficha opened (?cliente=c1): a late replace here would cancel a navigation
+    // started from the ficha, e.g. «Crear proyecto».
+    searchParamsMap.set("cliente", "c1")
+    rerender(<ClientList />)
+    act(() => vi.advanceTimersByTime(400))
+    expect(router.replace).not.toHaveBeenCalled()
+  })
+
   it("opens the ficha when pressing Enter on a card", () => {
     clientsQuery.data = { page: 1, limit: 25, total: 1, items: [CLIENTE] }
     render(<ClientList />)

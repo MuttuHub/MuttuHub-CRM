@@ -35,6 +35,7 @@ const fila = (id: string, over: Record<string, unknown> = {}) => ({
   estado: "REGISTRADO",
   alerta_sobregasto: false,
   datos_incompletos: false,
+  sin_soporte: false,
   registrado_por_id: "otro",
   registrado_por_nombre: "Ana",
   propio: false,
@@ -92,6 +93,15 @@ describe("ExpenseValidationQueue", () => {
     expect(filas[0]).toHaveTextContent("Tú lo registraste")
     expect(within(filas[1]).getByRole("button", { name: "Validar" })).toBeDisabled()
     expect(within(filas[2]).getByRole("button", { name: "Validar" })).toBeEnabled()
+  })
+
+  it("disables validation on a row without a support and says why (B8)", async () => {
+    setup([fila("1", { sin_soporte: true }), fila("2")])
+    const filas = await screen.findAllByTestId("cola-fila")
+    expect(within(filas[0]).getByRole("button", { name: "Validar" })).toBeDisabled()
+    expect(within(filas[0]).getByText("Adjunta un soporte para poder validarlo.")).toBeInTheDocument()
+    expect(within(filas[0]).getByRole("button", { name: "Rechazar" })).toBeEnabled()
+    expect(within(filas[1]).getByRole("button", { name: "Validar" })).toBeEnabled()
   })
 
   it("validates a row with the project of that row", async () => {

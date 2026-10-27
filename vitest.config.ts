@@ -56,10 +56,10 @@ export default defineConfig({
       // checks the floor: a rewrite there would be discarded, so it is off.
       thresholds: {
         autoUpdate: process.env.CI ? false : (newThreshold) => Math.floor(newThreshold),
-        lines: 73,
-        statements: 72,
-        functions: 68,
-        branches: 64,
+        lines: 74,
+        statements: 73,
+        functions: 69,
+        branches: 65,
       },
     },
   },

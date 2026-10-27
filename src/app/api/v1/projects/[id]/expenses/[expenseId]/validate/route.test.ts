@@ -77,7 +77,8 @@ const existente = (data: Record<string, unknown> = {}) => ({
   anulado_at: null,
   motivo_anulacion: null,
   linea: { rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" } },
-  soportes: [],
+  // A single expense is always created with 1-5 supports; the imported ones start with none (S3).
+  soportes: [{ id: "sop-1", nombre: "factura.pdf", storage_path: "k", url_externa: null, tipo_mime: null, tamano_bytes: 1, subido_por_id: "ger-1", created_at: new Date("2026-10-16T12:00:00.000Z") }],
   ...data,
 });
 
@@ -179,6 +180,28 @@ describe("POST validate: permissions and guards", () => {
       expect((await POST(post(), ctx)).status).toBe(403);
     }
     expect(mocks.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("answers 409 and writes nothing when the expense has no live support (S3)", async () => {
+    current = existente({ soportes: [] });
+    const res = await POST(post(), ctx);
+    expect(res.status).toBe(409);
+    const json = await res.json();
+    expect(json.error).toBe("Adjunta al menos un soporte al gasto antes de validarlo.");
+    expect(json.code).toBe("CONFLICT");
+    expect(mocks.queryRaw).not.toHaveBeenCalled();
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+    expect(logChange).not.toHaveBeenCalled();
+  });
+
+  it("validates once the expense has a support, with the same effects as before (S3)", async () => {
+    current = existente({ soportes: [] });
+    expect((await POST(post(), ctx)).status).toBe(409);
+    current = existente();
+    validado = "0.00";
+    const res = await POST(post(), ctx);
+    expect(res.status).toBe(200);
+    expect(mocks.updateMany).toHaveBeenCalledTimes(1);
   });
 
   it("answers 404 for a missing project or expense", async () => {

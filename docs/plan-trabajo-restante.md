@@ -37,7 +37,7 @@ Ordenado por lo que la PO pidió y por lo que desbloquea más trabajo.
 | B5 | Importar **solo estructura** sin presupuesto | S–M | Decisión **D-A** | Un proyecto con presupuesto ya cargado puede importar estructura sin tocarlo |
 | B6 | **Rubros editables por proyecto** (deshabilitar y agregar) | M–L | Decisión **D-B**, migración | El presupuesto de un proyecto oculta rubros deshabilitados y acepta uno propio, sin afectar a otros proyectos |
 | B7 | **Cerrar / suspender / cancelar** proyecto | M | Decisión **D-C** | La ficha cambia de estado con motivo, auditoría y reglas de quién puede hacerlo |
-| B8 | Importar **gastos** desde Excel | M | B2 como referencia | Un archivo de gastos entra con validación por fila y queda en `REGISTRADO` |
+| B8 | Importar **gastos** desde Excel | M | B2 como referencia | **Hecho**: un archivo de gastos entra con validación por fila y queda en `REGISTRADO` sin soportes; el soporte se adjunta después y sin él no se valida |
 
 > B1 es el único de este frente que no depende de una decisión: puede entrar en la primera semana.
 
@@ -82,7 +82,7 @@ Sheet, Gantt, tabla de usuarios, Curva S, ruta vieja, IP/Agente, cronograma y to
 
 | ID | Tarea | Tamaño | Depende de | Terminado cuando |
 |---|---|---|---|---|
-| E1 | Conectar Playwright a CI (build + base sembrada) | M | Infra de CI | La suite de 29 pruebas corre en cada PR |
+| E1 | Conectar Playwright a CI (build + base sembrada) | M | Infra de CI | **Hecho**: la suite mantenida `e2e/proyectos-v2` (31 pruebas) corre en cada PR contra una base sembrada (job `e2e`); los specs legacy de la raíz quedan fuera como seguimiento |
 | E2 | Umbral de cobertura realista y creciente | L | — | **Hecho**: piso 73/72/68/64 en CI con `autoUpdate` hacia arriba (solo en local) |
 | E3 | `npm run lint` reproducible en local | S | — | **Hecho**: artefactos locales ignorados y 0 problemas |
 | E4 | Migración a Railway — **Opción A** (app en Railway, Supabase se queda) | S–M | Acceso a Railway | Producción sirviendo desde Railway con el mismo dominio |

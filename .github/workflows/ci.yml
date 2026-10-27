@@ -74,3 +74,89 @@ jobs:
           name: coverage
           path: coverage/
           if-no-files-found: ignore
+
+  # E1: the Playwright suite against the production build and a seeded local
+  # Supabase (Postgres + Auth + Storage) started inside the runner. Nothing
+  # here reaches a remote environment and no repository secret is needed: the
+  # keys come from `supabase status` and die with the runner.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      SUPABASE_STORAGE_BUCKET: muttu-docs
+      ENABLE_DEV_ROUTES: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # Pinned: a new CLI release can rename `start -x` services or `status -o json` keys.
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
+
+      - name: Start local Supabase (Postgres, Auth, Storage)
+        run: |
+          supabase --version
+          supabase start -x studio,imgproxy,edge-runtime,logflare,vector
+
+      - name: Export the local Supabase keys
+        run: |
+          supabase status -o json > /tmp/supabase-status.json
+          # -e fails the step when a key is missing instead of exporting the string "null".
+          api_url=$(jq -er '.API_URL' /tmp/supabase-status.json)
+          anon_key=$(jq -er '.ANON_KEY' /tmp/supabase-status.json)
+          service_key=$(jq -er '.SERVICE_ROLE_KEY' /tmp/supabase-status.json)
+          echo "NEXT_PUBLIC_SUPABASE_URL=$api_url" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$anon_key" >> "$GITHUB_ENV"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$service_key" >> "$GITHUB_ENV"
+
+      - name: Create the storage bucket
+        run: |
+          curl -fsS -X POST "$NEXT_PUBLIC_SUPABASE_URL/storage/v1/bucket" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"id\":\"$SUPABASE_STORAGE_BUCKET\",\"name\":\"$SUPABASE_STORAGE_BUCKET\",\"public\":false}"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: Generate Prisma client (needed by the seed scripts)
+        run: npx prisma generate
+
+      # Same order as scripts/seed-demo-flujo.ts documents: base seed, then the
+      # S11 projects, then the flow demo (flujo before projects breaks it).
+      - name: Seed the demo data
+        run: |
+          npx prisma db seed
+          npx tsx scripts/seed-projects-demo.ts --apply
+          npx tsx scripts/seed-demo-flujo.ts --apply
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E suite (Playwright)
+        run: npx playwright test --config playwright.ci.config.ts
+
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-ci
+          path: |
+            playwright-report-ci/
+            test-results-ci/
+          if-no-files-found: ignore
