@@ -186,6 +186,22 @@ describe("POST expenses/import — gate and file guards", () => {
     expect((await falso.json()).error).toBe("El archivo no es un Excel válido.");
     expect(mocks.transaction).not.toHaveBeenCalled();
   });
+
+  it("400 for a `modo` other than validar or aplicar, writing nothing", async () => {
+    const res = await POST(subida(await libro([fila()]), { modo: "validate" }), ctx);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe("VALIDATION_ERROR");
+    expect(body.error).toBe("El campo 'modo' solo acepta 'validar' o 'aplicar'.");
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+
+  it("applies with an explicit modo=aplicar, as without modo", async () => {
+    const res = await POST(subida(await libro([fila()]), { modo: "aplicar" }), ctx);
+    expect(res.status).toBe(200);
+    expect((await res.json()).importado).toBe(true);
+    expect(mocks.transaction).toHaveBeenCalled();
+  });
 });
 
 describe("POST expenses/import — file-level errors reject the whole file (S5)", () => {

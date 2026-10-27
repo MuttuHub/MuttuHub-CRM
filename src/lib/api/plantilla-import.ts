@@ -66,6 +66,19 @@ export async function inspeccionarZip(buffer: Buffer): Promise<boolean> {
   }
 }
 
+export const MODO_INVALIDO_MESSAGE = "El campo 'modo' solo acepta 'validar' o 'aplicar'.";
+
+/**
+ * The multipart `modo` of the budget and expense imports: `validar` previews,
+ * `aplicar` (or no `modo` at all, what the client sends) writes. Any other value
+ * is `null` so the route rejects it instead of silently applying the import.
+ */
+export function leerModoImportacion(form: FormData): "validar" | "aplicar" | null {
+  const modo = form.get("modo");
+  if (modo === null || modo === "aplicar") return "aplicar";
+  return modo === "validar" ? "validar" : null;
+}
+
 export type ResumenImportacion = {
   objetivos: number;
   actividades: number;

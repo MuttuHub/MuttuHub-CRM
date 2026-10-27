@@ -19,7 +19,7 @@ import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/supabase/server";
 import { isAllowedNameAndMime } from "@/lib/api/files";
 import { gateEjecucionWrite } from "@/lib/api/ejecucion";
-import { inspeccionarZip } from "@/lib/api/plantilla-import";
+import { MODO_INVALIDO_MESSAGE, inspeccionarZip, leerModoImportacion } from "@/lib/api/plantilla-import";
 import { superaAsignado, type AlertaGasto, type LineaGasto } from "@/lib/api/gastos";
 import { IMPORT_MAX_BYTES } from "@/lib/proyectos/plantilla/columns";
 import { parseGastosImport, type DatosGastoImport, type FilaGastoImport } from "@/lib/proyectos/gastos-import/parse";
@@ -79,7 +79,9 @@ export const POST = withApiErrorHandling(
     if (!/\.xlsx$/i.test(archivo.name) || !isAllowedNameAndMime(archivo.name, archivo.type)) {
       return apiError("Solo se aceptan los gastos en formato Excel (.xlsx).", 400, "VALIDATION_ERROR");
     }
-    const soloValidar = form.get("modo") === "validar";
+    const modo = leerModoImportacion(form);
+    if (modo === null) return apiError(MODO_INVALIDO_MESSAGE, 400, "VALIDATION_ERROR");
+    const soloValidar = modo === "validar";
 
     const buffer = Buffer.from(await archivo.arrayBuffer());
     if (!(await inspeccionarZip(buffer))) return apiError(GASTOS_EXCEL_INVALIDO, 400, "VALIDATION_ERROR");

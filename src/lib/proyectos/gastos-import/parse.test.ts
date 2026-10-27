@@ -227,8 +227,8 @@ describe("parseGastosImport — rows (same rules as a single expense)", () => {
   it("applies the text limits and required texts of the single expense", async () => {
     expect((await unaFila({ Tercero: null })).error).toBe("El nombre del tercero es obligatorio.")
     expect((await unaFila({ "Número de documento": null })).error).toBe("El número de documento es obligatorio.")
-    expect((await unaFila({ Descripción: null })).error).toBe("La descripción es obligatorio.")
-    expect((await unaFila({ Descripción: "x".repeat(1001) })).error).toBe("La descripción es demasiado largo.")
+    expect((await unaFila({ Descripción: null })).error).toBe("La descripción es obligatoria.")
+    expect((await unaFila({ Descripción: "x".repeat(1001) })).error).toBe("La descripción es demasiado larga.")
     expect((await unaFila({ Tercero: "x".repeat(201) })).error).toBe("El nombre del tercero es demasiado largo.")
   })
 

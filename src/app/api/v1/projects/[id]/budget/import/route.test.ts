@@ -204,6 +204,24 @@ describe("POST budget/import — file guards", () => {
     expect((await POST(sinArchivo, ctx)).status).toBe(400);
   });
 
+  it("400 for a `modo` other than validar or aplicar, writing nothing", async () => {
+    const response = await POST(subida(await libroPO({ Personal: 10_000_000 }), { modo: "validate" }), ctx);
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.code).toBe("VALIDATION_ERROR");
+    expect(body.error).toBe("El campo 'modo' solo acepta 'validar' o 'aplicar'.");
+    expect(mocks.lineaUpdate).not.toHaveBeenCalled();
+    expect(mocks.lineaCreate).not.toHaveBeenCalled();
+    expect(logChanges).not.toHaveBeenCalled();
+  });
+
+  it("applies with an explicit modo=aplicar, as without modo", async () => {
+    const response = await POST(subida(await libroPO({ Personal: 10_000_000 }), { modo: "aplicar" }), ctx);
+    expect(response.status).toBe(200);
+    expect((await response.json()).importado).toBe(true);
+    expect(mocks.lineaUpdate).toHaveBeenCalled();
+  });
+
   it("400 for a file that is not .xlsx (name or type)", async () => {
     const libro = await libroPO();
     expect((await POST(subida(libro, { nombre: "presupuesto.pdf", tipo: "application/pdf" }), ctx)).status).toBe(400);
