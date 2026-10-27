@@ -74,7 +74,7 @@ describe("POST /api/v1/projects/:id/modifications/:modificationId/approve", () =
     const res = await POST(request(), ctx);
     expect(res.status).toBe(409);
     expect((await res.json()).error).toBe(
-      "Solo se pueden aprobar o rechazar modificaciones de un proyecto en ejecución.",
+      "No se pueden aprobar o rechazar modificaciones de un proyecto suspendido, cerrado o cancelado.",
     );
     expect(mocks.aplicar).not.toHaveBeenCalled();
   });

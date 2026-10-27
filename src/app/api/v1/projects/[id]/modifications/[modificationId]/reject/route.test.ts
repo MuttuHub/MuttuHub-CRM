@@ -73,7 +73,7 @@ describe("POST /api/v1/projects/:id/modifications/:modificationId/reject", () =>
     expect(res.status).toBe(409);
     expect(await res.json()).toMatchObject({
       code: "INVALID_STATE",
-      error: "Solo se pueden aprobar o rechazar modificaciones de un proyecto en ejecución.",
+      error: "No se pueden aprobar o rechazar modificaciones de un proyecto suspendido, cerrado o cancelado.",
     });
     expect(mocks.rechazar).not.toHaveBeenCalled();
   });

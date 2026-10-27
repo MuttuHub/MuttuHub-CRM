@@ -20,6 +20,10 @@ import { isoDate } from "@/lib/proyectos/proyecto-general";
 export const dynamic = "force-dynamic";
 
 const ESTADOS = ["REGISTRADO", "VALIDADO", "RECHAZADO", "ANULADO"] as const;
+
+// The REGISTRADO queue lists only actionable expenses (a suspended project is frozen, B7); the other views are
+// reads and keep showing suspended projects.
+const ESTADOS_PROYECTO_LECTURA: readonly string[] = ["EN_EJECUCION", "SUSPENDIDO"];
 type EstadoCola = (typeof ESTADOS)[number];
 const LIMITE_DEFECTO = 50;
 const LIMITE_MAXIMO = 200;
@@ -45,8 +49,9 @@ export const GET = withApiErrorHandling(
       }
     }
 
+    const estadosProyecto = estado === "REGISTRADO" ? ESTADOS_PROYECTO_VALIDACION : ESTADOS_PROYECTO_LECTURA;
     const rows = await db.gasto.findMany({
-      where: { estado, proyecto: { deleted_at: null, estado: { in: [...ESTADOS_PROYECTO_VALIDACION] as EstadoProyecto[] } } },
+      where: { estado, proyecto: { deleted_at: null, estado: { in: [...estadosProyecto] as EstadoProyecto[] } } },
       select: {
         id: true,
         proyecto_id: true,

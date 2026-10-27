@@ -123,7 +123,7 @@ describe("GET expense-validations", () => {
     expect((await GET(get("?limit=0"))).status).toBe(400);
     await GET(get("?estado=RECHAZADO&limit=10"));
     expect(db.gasto.findMany).toHaveBeenLastCalledWith(
-      expect.objectContaining({ where: { estado: "RECHAZADO", proyecto: { deleted_at: null, estado: { in: ["EN_EJECUCION"] } } }, take: 10 }),
+      expect.objectContaining({ where: { estado: "RECHAZADO", proyecto: { deleted_at: null, estado: { in: ["EN_EJECUCION", "SUSPENDIDO"] } } }, take: 10 }),
     );
   });
 });

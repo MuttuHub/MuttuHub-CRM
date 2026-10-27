@@ -36,7 +36,7 @@ export const SOLICITUD_NO_EXISTE = "La solicitud no existe.";
 export const SOLICITUD_DECIDIDA_MESSAGE = "La solicitud ya fue decidida.";
 export const SOLICITUD_OBSOLETA_MESSAGE = "La solicitud se basa en una versión anterior; vuelve a crearla.";
 export const APLICAR_ESTADO_MESSAGE = "Solo se pueden aplicar modificaciones a un proyecto en ejecución.";
-export const DECISION_ESTADO_MESSAGE = "Solo se pueden aprobar o rechazar modificaciones de un proyecto en ejecución.";
+export const DECISION_ESTADO_MESSAGE = "No se pueden aprobar o rechazar modificaciones de un proyecto suspendido, cerrado o cancelado.";
 export const APLICAR_REGLAS_MESSAGE = "La modificación ya no cumple las reglas.";
 
 export const TIPOS_MODIFICACION = ["TRASLADO", "ADICION", "REDUCCION", "REPROGRAMACION", "CRONOGRAMA", "ENTREGABLES"] as const;

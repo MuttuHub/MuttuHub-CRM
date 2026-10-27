@@ -56,3 +56,8 @@ Route evidence: no Writer trigger (units depend on T1; no parallel work), so the
 - **L3 (2026-10-27, user):** close and reopen → «Gerencia y admin (Recomendado)».
 - **L4 (2026-10-27, user):** voids in a frozen project → «Siguen permitidas (Recomendado)». T1 review (risk +
   reliability) approved; its one warning (freeze not enforced yet) is T2, shipped in the same PR.
+- **L5 (2026-10-27):** T2 review (risk + reliability) approved with warnings. Fixed: the expense-validations
+  RECHAZADO/VALIDADO/ANULADO read views keep showing SUSPENDIDO projects (only the REGISTRADO queue narrows), and the
+  modification-decision message names the frozen estados. **Known residual race (not a regression; there was no check
+  before):** members POST/DELETE and modification reject read the estado before their transaction, so a suspension that
+  commits in between lets one change through. Expense validate/reject re-check under a row lock.
