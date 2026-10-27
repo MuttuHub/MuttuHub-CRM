@@ -28,6 +28,7 @@ import { ESTADO_PROYECTO_META } from "@/components/proyectos/project-display";
 import { ProjectKpisPanel } from "@/components/proyectos/project-kpis-panel";
 import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
 import { useProjectKpis, type ProjectListRow } from "@/hooks/projects";
+import { AvisoCongelado, EstadoProyectoAcciones } from "@/components/proyectos/estado-proyecto-acciones";
 
 /** Pestañas a las que el encabezado puede llevar. */
 export type FichaDestino = "actividades" | "finanzas";
@@ -57,6 +58,7 @@ export function FichaHeader({
         <h1 className="mt-0.5 font-display text-[19px] font-bold tracking-[-0.02em] text-ink-950">
           {proyecto.nombre}
         </h1>
+        <AvisoCongelado estado={proyecto.estado} />
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <StatusChip tone={estado.tone}>{estado.label}</StatusChip>
@@ -150,6 +152,7 @@ function FichaAcciones({
   return (
     <>
       <BaselineApproval proyecto={proyecto} triggerVariant="default" />
+      <EstadoProyectoAcciones proyecto={proyecto} />
       {puedeEjecutar && (
         <>
           <Button type="button" size="sm" onClick={() => onIrA("actividades")}>

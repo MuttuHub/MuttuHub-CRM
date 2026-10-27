@@ -266,10 +266,13 @@ function nombreRubro(gasto: ProjectExpense): string {
   return gasto.rubro.codigo ? `${gasto.rubro.codigo} · ${gasto.rubro.nombre}` : gasto.rubro.nombre;
 }
 
-/** Validar / Rechazar (REGISTRADO) o Anular (VALIDADO), solo para quien gestiona proyectos. */
-function AccionesGasto({ proyectoId, gasto, usuarioId, esGestor }: FilaProps) {
+/**
+ * Validar / Rechazar (REGISTRADO, solo con el proyecto en ejecución: para un gestor eso es `puedeRegistrar`) o
+ * Anular (VALIDADO, en cualquier estado: es una corrección), solo para quien gestiona proyectos.
+ */
+function AccionesGasto({ proyectoId, gasto, usuarioId, esGestor, puedeRegistrar }: FilaProps) {
   const anular = useVoidExpense();
-  if (esGestor && gasto.estado === "REGISTRADO") {
+  if (esGestor && puedeRegistrar && gasto.estado === "REGISTRADO") {
     return (
       <ValidacionControles
         projectId={proyectoId}

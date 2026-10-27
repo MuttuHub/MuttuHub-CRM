@@ -40,7 +40,7 @@ same as B8; forecast ~800 authored lines). Test runner: `npx vitest run`. Mirror
 |---|---|---|---|---|
 | T1 | S2, S3, S4 | inline | done (RED→GREEN, 24 tests) | see git log (unit 1) |
 | T2 | S5 | inline | done (RED→GREEN; 5 old SUSPENDIDO tests rewritten) | see git log (unit 2) |
-| T3 | S6 (+ client mirrors of S5: `ficha-documentos`, `gasto-acciones`, `project-team`) | inline | pending | |
+| T3 | S6 (+ client mirrors of S5: `ficha-documentos`, `project-gastos`, `project-team`) | inline | done (RED→GREEN, 14 new UI tests) | see git log (unit 3) |
 | T4 | S7 | inline | pending | |
 
 Route evidence: no Writer trigger (units depend on T1; no parallel work), so the parent writes inline. Risk: item 2
