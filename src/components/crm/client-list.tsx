@@ -333,7 +333,11 @@ export function ClientList() {
   useEffect(() => {
     if (qTimer.current) clearTimeout(qTimer.current);
     qTimer.current = setTimeout(() => {
-      const next = { ...appliedRef.current, q: local.q.trim() || undefined };
+      const q = local.q.trim() || undefined;
+      // Re-runs when `cliente` changes too; with the same search there is nothing to
+      // write, and a late replace would cancel a navigation started from the ficha.
+      if (q === appliedRef.current.q) return;
+      const next = { ...appliedRef.current, q };
       setApplied(next);
       setPage(1);
       syncUrl(next);
