@@ -36,7 +36,7 @@ Ordenado por lo que la PO pidió y por lo que desbloquea más trabajo.
 | B4 | Plantillas actualizadas para la PO (con las columnas nuevas) | S | B3 | Archivos entregados y probados por la PO |
 | B5 | Importar **solo estructura** sin presupuesto | S–M | Decisión **D-A** | Un proyecto con presupuesto ya cargado puede importar estructura sin tocarlo |
 | B6 | **Rubros editables por proyecto** (deshabilitar y agregar) | M–L | Decisión **D-B**, migración | El presupuesto de un proyecto oculta rubros deshabilitados y acepta uno propio, sin afectar a otros proyectos |
-| B7 | **Cerrar / suspender / cancelar** proyecto | M | Decisión **D-C** | La ficha cambia de estado con motivo, auditoría y reglas de quién puede hacerlo |
+| B7 | **Cerrar / suspender / cancelar** proyecto | M | Decisión **D-C** | **Hecho**: la ficha cambia de estado con motivo, auditoría y reglas de quién puede hacerlo (solo Administración y Gerencia); suspendido, cerrado o cancelado quedan congelados, salvo las anulaciones |
 | B8 | Importar **gastos** desde Excel | M | B2 como referencia | **Hecho**: un archivo de gastos entra con validación por fila y queda en `REGISTRADO` sin soportes; el soporte se adjunta después y sin él no se valida |
 
 > B1 es el único de este frente que no depende de una decisión: puede entrar en la primera semana.
