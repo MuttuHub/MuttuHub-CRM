@@ -41,7 +41,7 @@ same as B8; forecast ~800 authored lines). Test runner: `npx vitest run`. Mirror
 | T1 | S2, S3, S4 | inline | done (RED→GREEN, 24 tests) | see git log (unit 1) |
 | T2 | S5 | inline | done (RED→GREEN; 5 old SUSPENDIDO tests rewritten) | see git log (unit 2) |
 | T3 | S6 (+ client mirrors of S5: `ficha-documentos`, `project-gastos`, `project-team`) | inline | done (RED→GREEN, 14 new UI tests) | see git log (unit 3) |
-| T4 | S7 | inline | pending | |
+| T4 | S7 | inline | done (OpenAPI test green; matrix L8; guide §C2) | see git log (unit 4) |
 
 Route evidence: no Writer trigger (units depend on T1; no parallel work), so the parent writes inline. Risk: item 2
 (permissions/guards) for T1 and T2 → independent verifier at the feature's end.
@@ -61,3 +61,7 @@ Route evidence: no Writer trigger (units depend on T1; no parallel work), so the
   modification-decision message names the frozen estados. **Known residual race (not a regression; there was no check
   before):** members POST/DELETE and modification reject read the estado before their transaction, so a suspension that
   commits in between lets one change through. Expense validate/reject re-check under a row lock.
+- **L6 (2026-10-28):** T4 docs: OpenAPI `POST /projects/{id}/estado` (body `CambioEstadoProyecto`, 200/400/401/403/404/409/500)
+  plus the frozen-estado notes on documents, expenses, members and modifications; matrix L8; guide §C2. `src/` suite
+  green and `tsc` clean; the 31 `prisma/*.invariant.test.ts` files could not run (local Docker Postgres unreachable from
+  WSL), so DB invariants stay unverified in this session.

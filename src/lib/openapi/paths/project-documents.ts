@@ -8,7 +8,7 @@ import { MEDIO_ARCHIVO_SCHEMA, MEDIO_ENLACE_SCHEMA, MEDIO_SIGN_SCHEMA } from "@/
 
 const WRITE_NOTE =
   "Solo `ADMINISTRADOR`/`GERENCIA` o un `COORDINADOR` integrante activo del proyecto, y solo mientras el proyecto " +
-  "está `BORRADOR`, `EN_EJECUCION` o `SUSPENDIDO` (`CERRADO`, `CANCELADO` y `PLANIFICACION` responden 409). " +
+  "está `BORRADOR` o `EN_EJECUCION` (`SUSPENDIDO`, `CERRADO`, `CANCELADO` y `PLANIFICACION` responden 409). " +
   "Orden: 404 -> 403 -> 409 INVALID_STATE -> 400.";
 
 const READ_NOTE =

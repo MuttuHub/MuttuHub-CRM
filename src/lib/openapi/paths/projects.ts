@@ -385,7 +385,8 @@ registry.registerPath({
     "VALIDATION_ERROR. Un usuario que ya es integrante activo responde 409 CONFLICT desde el índice único parcial " +
     "`proyecto_miembros_activo_uq`, no desde una verificación de lectura-y-escritura; un integrante retirado se " +
     "puede agregar de nuevo. Un proyecto desconocido o con borrado lógico responde 404 antes del 403, y la " +
-    "escritura y su fila de auditoría `CREAR proyecto_miembro` comparten una transacción.",
+    "escritura y su fila de auditoría `CREAR proyecto_miembro` comparten una transacción. Un proyecto `SUSPENDIDO`, " +
+    "`CERRADO` o `CANCELADO` responde 409 INVALID_STATE (está congelado).",
   security: [{ sessionCookie: [] }],
   request: {
     params: ProjectIdParams,
@@ -409,7 +410,8 @@ registry.registerPath({
     "Solo `ADMINISTRADOR`/`GERENCIA` (P07). Establece `removed_at` y `removido_por_id`; la fila nunca se elimina " +
     "y el integrante pierde el acceso de lectura de inmediato porque el alcance de lectura solo cuenta " +
     "pertenencias activas. Retirar a un usuario que no es integrante activo responde 404. Un proyecto desconocido " +
-    "o con borrado lógico responde 404 antes del 403, y la actualización y sus filas de auditoría " +
+    "o con borrado lógico responde 404 antes del 403, y un proyecto `SUSPENDIDO`, `CERRADO` o `CANCELADO` responde 409 " +
+    "INVALID_STATE (está congelado). La actualización y sus filas de auditoría " +
     "`EDITAR proyecto_miembro` comparten una transacción.",
   security: [{ sessionCookie: [] }],
   request: { params: ProjectMemberParams },
