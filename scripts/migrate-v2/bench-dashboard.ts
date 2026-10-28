@@ -96,7 +96,7 @@ async function seed() {
         id: randomUUID(), proyecto_id, linea_id: linea.id, fecha_documento: D("2026-03-15"), periodo: `2026-0${(g % 6) + 1}`,
         tipo_soporte: "FACTURA_PROVEEDOR", tercero_nombre: MARKER, tercero_tipo_id: "NIT", tercero_numero_id: "900123456",
         tercero_id_norm: "900123456", numero_documento: `FE-${g}`, numero_documento_norm: `FE${g}`, descripcion: MARKER,
-        monto_cop: "1500000", estado: "VALIDADO", registrado_por_id: registrador.id, validado_por_id: validador.id, validado_at: new Date(),
+        monto_cop: "1500000", subtotal_cop: "1500000", iva_cop: "0", estado: "VALIDADO", registrado_por_id: registrador.id, validado_por_id: validador.id, validado_at: new Date(),
       })
     }
   }

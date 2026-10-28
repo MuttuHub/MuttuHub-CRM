@@ -749,6 +749,8 @@ async function registrarGasto(
         numero_documento: g.numeroDocumento,
         descripcion: g.descripcion,
         monto_cop: decimalFromCents(cents),
+        subtotal_cop: decimalFromCents(cents),
+        iva_cop: decimalFromCents(BigInt(0)),
         alerta_sobregasto: sobregasto,
         registrado_por_id: actores.coordinador,
       },

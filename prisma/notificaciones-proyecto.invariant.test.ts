@@ -79,6 +79,8 @@ async function fixture(tx: Tx) {
       numero_documento_norm: "FE1",
       descripcion: "Tiquetes",
       monto_cop: 100,
+      subtotal_cop: 100,
+      iva_cop: 0,
       registrado_por_id: usuario.id,
     },
   })

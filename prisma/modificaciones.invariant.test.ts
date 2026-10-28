@@ -157,6 +157,8 @@ async function crearGasto(tx: Tx, f: Fixture, over: { monto: number; estado?: "R
     numero_documento_norm: `FE${suffix}`,
     descripcion: "Gasto",
     monto_cop: over.monto,
+    subtotal_cop: over.monto,
+    iva_cop: 0,
     registrado_por_id: f.usuario.id,
   }
   const estado = over.estado ?? "REGISTRADO"
