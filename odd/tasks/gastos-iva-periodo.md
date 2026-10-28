@@ -34,7 +34,7 @@ commits (module exception, as B7/B8; forecast ~900 authored lines). Test runner:
 
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
-| T1 | S3 (migration, Prisma schema, invariant test) | delegated (context backstop) | pending | |
+| T1 | S3 (migration, Prisma schema, invariant test) | delegated (context backstop) | done (migration and invariant tests not run: no DB; `prisma generate` ok) | see git log |
 | T2 | S1, S2 (Subtotal/IVA/Total end to end: API create/edit/view, hook types, form, table/detail) | delegated (context backstop) | pending | |
 | T3 | S1, S2, S4 (import template and parser: Subtotal, IVA, optional Total check, old template rejected) | delegated (context backstop) | pending | |
 | T4 | S5, S6 (period from the document date: API rule, form autofill, import, «Periodo modificado») | delegated (context backstop) | pending | |
@@ -59,3 +59,9 @@ sequence. Risk: item 1 for T1 (migration on money data) and item 3 for T2 (the e
   decisions recorded separately (Engram `po/ajustes-proyectos-261028`).
 - **Local DB:** Docker Postgres is not reachable from WSL in this session, so the migration and `prisma/*.invariant`
   tests cannot run here; they must run against `.env.local` before merge.
+- **L4 (T1):** Migration `20261028120000_v2_gastos_subtotal_iva` (idempotent: columns, guarded backfill, three named
+  CHECKs) and Prisma `subtotal_cop`/`iva_cop`. Invariant tests added to `prisma/gastos.invariant.test.ts`; they need
+  Docker Postgres and were not run here. `subtotal_cop` is required in Prisma, so every other `gasto.create` caller must
+  now pass it: `src/app/.../expenses/route.ts` (T2), `gastos-import/server.ts` (T3), and outside this feature's surface
+  `scripts/seed-projects-demo.ts`, `scripts/migrate-v2/bench-dashboard.ts` and the invariant fixtures in
+  `prisma/{modificaciones,notificaciones-proyecto,plantilla-import}.invariant.test.ts`.
