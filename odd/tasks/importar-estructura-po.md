@@ -48,7 +48,7 @@ forecast ~900 authored lines). Test runner: `npx vitest run`. Mirror: Engram `od
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
 | T1 | S2, S3, S4, S5, S7 (pure parse, grouping, codes, row errors) | inline | done (RED: module missing → GREEN 14 tests) | see git log (unit 1) |
-| T2 | S6, S7 (writer + `POST /projects/{id}/structure/import`) | inline | pending | |
+| T2 | S6, S7 (writer + `POST /projects/{id}/structure/import`) | inline | done (RED: route missing → GREEN 12 tests; differential trace identical) | see git log (unit 2) |
 | T3 | S8 (dialog + hook) | inline | pending | |
 | T4 | S8 (OpenAPI, guide, plan row) | inline | pending | |
 
@@ -68,3 +68,12 @@ Risk: item 1 for T2 (the import soft-deletes the live structure of a draft) → 
   with no behavior change). Probe with the real file: as is → only the two missing-column errors («Cantidad»,
   «Unidad»); with both columns added → 3 objetivos, 4 indicadores, 12 actividades, 15 entregables, 0 errors.
   `src/lib/proyectos` + template import suites 554/554, `tsc` and `eslint` clean.
+- **L4 (2026-10-28):** T2. `importarPlantilla`'s history guard, soft-delete and structure creation became
+  `exigirSinHistorial`, `borrarEstructura` and `crearEstructura` (`plantilla-import.ts`), reused by the new
+  `importarEstructuraPO` (`src/lib/api/estructura-po-import.ts`). Differential check: a recording fake transaction
+  run against `importarPlantilla` at `HEAD` and after the refactor gave identical traces (24 DB calls, the same audit
+  lote and result); the template route test mocks the writer, so this was the only non-DB proof. Route
+  `POST /projects/{id}/structure/import`: 12 tests (gates 404/403/409, member COORDINADOR allowed, 413/400 guards, 400
+  report, weeks bounded by the project dates, preview with codes and `reemplaza`, structure-only apply with one lote,
+  budget/programming/project never touched, history 409, BORRADOR re-checked under the lock). `src/lib/api`,
+  `src/app/api/v1/projects`, `src/lib/proyectos`: 1453/1453; `tsc`, `eslint` clean. Not run: `prisma/*.invariant`.
