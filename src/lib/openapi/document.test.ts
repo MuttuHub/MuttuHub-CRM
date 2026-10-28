@@ -235,6 +235,36 @@ describe("buildOpenApiDocument", () => {
     expect(codes(one?.get)).toEqual(expect.arrayContaining(["200", "403", "404"]))
     expect(codes(one?.patch)).toEqual(expect.arrayContaining(["200", "400", "403", "404", "409"]))
   })
+  it("documents the expense Subtotal + IVA = Total split and the period rules (AJ-04, AJ-05)", () => {
+    const doc = buildOpenApiDocument()
+    const paths = doc.paths ?? {}
+    type Schema = { properties?: Record<string, unknown>; required?: string[] }
+    const body = (op: unknown): Schema =>
+      (op as { requestBody: { content: { "application/json": { schema: Schema } } } }).requestBody.content[
+        "application/json"
+      ].schema
+    const create = body(paths["/api/v1/projects/{id}/expenses"]?.post)
+    expect(create.properties).toHaveProperty("subtotal")
+    expect(create.properties).toHaveProperty("iva")
+    expect(create.properties).not.toHaveProperty("valor")
+    expect(create.required).toEqual(expect.arrayContaining(["subtotal", "iva"]))
+    const patch = body(paths["/api/v1/projects/{id}/expenses/{expenseId}"]?.patch)
+    expect(patch.properties).toHaveProperty("subtotal")
+    expect(patch.properties).toHaveProperty("iva")
+    expect(patch.properties).not.toHaveProperty("valor")
+    const gasto = (doc.components?.schemas?.Gasto ?? {}) as Schema
+    expect(Object.keys(gasto.properties ?? {})).toEqual(
+      expect.arrayContaining(["valor", "subtotal", "iva", "periodo", "periodo_modificado"]),
+    )
+    const text = (op: unknown) => (op as { description?: string }).description ?? ""
+    expect(text(paths["/api/v1/projects/{id}/expenses"]?.post)).toContain("Subtotal + IVA")
+    expect(text(paths["/api/v1/projects/{id}/expenses"]?.post)).toContain("elige el periodo")
+    const importar = text(paths["/api/v1/projects/{id}/expenses/import"]?.post)
+    for (const fragmento of ["`Subtotal`", "`IVA`", "`Total` (opcional)", "Esta plantilla es anterior"]) {
+      expect(importar).toContain(fragmento)
+    }
+    expect(importar).not.toContain("Valor (COP)` y `Periodo")
+  })
   it("registers the S6 validation workflow and the queue", () => {
     const paths = buildOpenApiDocument().paths ?? {}
     const codes = (op: { responses?: object } | undefined) => Object.keys(op?.responses ?? {})

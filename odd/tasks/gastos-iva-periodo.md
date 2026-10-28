@@ -38,7 +38,7 @@ commits (module exception, as B7/B8; forecast ~900 authored lines). Test runner:
 | T2 | S1, S2 (Subtotal/IVA/Total end to end: API create/edit/view, hook types, form, table/detail) | delegated (context backstop) | done | see git log |
 | T3 | S1, S2, S4 (import template and parser: Subtotal, IVA, optional Total check, old template rejected) | delegated (context backstop) | done | see git log |
 | T4 | S5, S6 (period from the document date: API rule, form autofill, import, «Periodo modificado») | delegated (context backstop) | done | see git log |
-| T5 | S7 | delegated (context backstop) | pending | |
+| T5 | S7 | delegated (context backstop) | done | see git log |
 
 Route evidence: the units depend on T1, and T2 to T4 share `src/lib/api/gastos.ts`, so there is no parallel-writer
 reason; the parent context passed the ~150k backstop in this session, so each unit goes to one bounded writer in
@@ -83,3 +83,6 @@ sequence. Risk: item 1 for T1 (migration on money data) and item 3 for T2 (the e
   periodo...») when the month is not a project month. Period edits were already audited per field by the edit route
   (`campo: "periodo"`); a test pins it. Route and parse tests for T4 passed on first run because `evaluarPeriodo` was
   covered RED at the lib level (`src/lib/api/gastos.test.ts`) before the implementation.
+- **L8 (T5):** OpenAPI (`Gasto` view: `subtotal`, `iva`, `periodo_modificado`, `valor` = Total; create/patch bodies come from the
+  schemas; import columns and the old-template message), user guide and test guide updated. The plan
+  (`docs/plan-trabajo-restante.md`) has no row for the AJ items and no obvious place for them, so it was left unchanged.
