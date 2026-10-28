@@ -89,3 +89,15 @@ Risk: item 1 for T2 (the import soft-deletes the live structure of a draft) → 
 - **L7 (2026-10-28):** T4. OpenAPI `POST /projects/{id}/structure/import` (`paths/project-structure-import.ts`: multipart
   body, 200 preview/applied, 400 with `reporte`, 401/403/404/409/413/500); test guide §A.4 with the real PO file's
   expected results; user guide Paso 2 and §10; plan row B3 marked done. OpenAPI suite 28/28.
+- **L8 (2026-10-28):** Feature-end independent verifier (Risk item 1): S1–S8 PASS, no blockers. Confirmed by reading:
+  structure-only writes, one transaction, row lock + history guard, `importarPlantilla` call order unchanged after the
+  refactor, and no budget/programming foreign key to the structure tables (a structure replace orphans nothing). Probes
+  (scratch copy, removed): normalized objetivo merge, an actividad re-appearing after another, conflicting weeks → min/max
+  with V-07 on the aggregate, indicator-only objetivo numbered first, header on row 11 → `SIN_ACTIVIDADES`, formula
+  cells, Date/decimal weeks rejected. Parent spot check: route test 12/12. Advisories (not fixed): dates read before the
+  lock (same shape as the template import); a duplicated required header silently takes the first column; merged-cell
+  slaves read as empty (shared `leerCelda`).
+- **L9 (2026-10-28):** Native review of the whole branch (`51c957a..43437d5`, lenses risk + reliability, user granted)
+  approved and acknowledged. One non-blocking suggestion: a row skipped for another error (e.g. missing Cantidad) does
+  not feed its weeks into the grouped actividad, so the actividad can also get a secondary «no tiene semana de inicio»
+  error; it disappears once the row is fixed. Next: user decides push and PR.
