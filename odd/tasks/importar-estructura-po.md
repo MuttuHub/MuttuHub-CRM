@@ -50,7 +50,7 @@ forecast ~900 authored lines). Test runner: `npx vitest run`. Mirror: Engram `od
 | T1 | S2, S3, S4, S5, S7 (pure parse, grouping, codes, row errors) | inline | done (RED: module missing → GREEN 14 tests) | see git log (unit 1) |
 | T2 | S6, S7 (writer + `POST /projects/{id}/structure/import`) | inline | done (RED: route missing → GREEN 12 tests; differential trace identical) | see git log (unit 2) |
 | T3 | S8 (dialog + hook) | inline | done (RED → GREEN: 5 dialog + 4 mount tests) | see git log (unit 3) |
-| T4 | S8 (OpenAPI, guide, plan row) | inline | pending | |
+| T4 | S8 (OpenAPI, guide, plan row) | inline | done (RED → GREEN OpenAPI test; guides §A.4 and Paso 2; plan row B3) | see git log (unit 4) |
 
 Route evidence: units depend on each other (T2 on T1, T3 on T2), so no Writer trigger; the parent writes inline.
 Risk: item 1 for T2 (the import soft-deletes the live structure of a draft) → independent verifier at the feature's end.
@@ -86,3 +86,6 @@ Risk: item 1 for T2 (the import soft-deletes the live structure of a draft) → 
   (…). El presupuesto no cambia.» → confirm; 400 errors listed by sheet and cell. Mounted in the Estructura header
   under the same `canEdit` as the template import, also on an empty draft. `src/components/proyectos` + `src/hooks`
   934/934; `tsc`, `eslint` clean.
+- **L7 (2026-10-28):** T4. OpenAPI `POST /projects/{id}/structure/import` (`paths/project-structure-import.ts`: multipart
+  body, 200 preview/applied, 400 with `reporte`, 401/403/404/409/413/500); test guide §A.4 with the real PO file's
+  expected results; user guide Paso 2 and §10; plan row B3 marked done. OpenAPI suite 28/28.

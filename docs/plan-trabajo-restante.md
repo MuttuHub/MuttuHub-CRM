@@ -33,7 +33,7 @@ Ordenado por lo que la PO pidió y por lo que desbloquea más trabajo.
 |---|---|---|---|---|
 | B1 | **D1**: no reintentar 403/404 en `useProject()` | S | — | El mensaje de «sin acceso» aparece en < 2 s y la prueba e2e correspondiente pasa |
 | B2 | Adaptador de **presupuesto** de la PO (`rubro | valor`) | S | Acceso a `presupuesto.xlsx` real | **Código listo** en `feat/po-budget-import` (P1–P3); falta la prueba manual con el archivo real de la PO (P4) |
-| B3 | Adaptador de **estructura** de la PO (objetivos, actividades, entregables con cantidad/unidad/medio) | M | B2, decisión **D-A** | Importar `proyecto.xlsx` crea O/A/E con códigos generados y la vista previa lista los errores |
+| B3 | Adaptador de **estructura** de la PO (objetivos, actividades, entregables con cantidad/unidad/medio) | M | B2, decisión **D-A** | **Hecho**: importar `proyecto.xlsx` crea O/A/E (e indicadores) con códigos generados, solo estructura y sin tocar el presupuesto, y la vista previa lista los errores por hoja y celda; el archivo actual de la PO necesita las columnas «Cantidad» y «Unidad» (B4) |
 | B4 | Plantillas actualizadas para la PO (con las columnas nuevas) | S | B3 | Archivos entregados y probados por la PO |
 | B5 | Importar **solo estructura** sin presupuesto | S–M | Decisión **D-A** | Un proyecto con presupuesto ya cargado puede importar estructura sin tocarlo |
 | B6 | **Rubros editables por proyecto** (deshabilitar y agregar) | M–L | Decisión **D-B**, migración | El presupuesto de un proyecto oculta rubros deshabilitados y acepta uno propio, sin afectar a otros proyectos |

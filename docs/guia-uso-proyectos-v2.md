@@ -138,6 +138,13 @@ Dos formas de cargarla:
   4 MB. Si el presupuesto suma distinto del **Valor total** de la hoja Proyecto, no es un error: se importa la suma
   del presupuesto como valor total (advertencia **W-02**) y se recalcula la diferencia con la oportunidad.
 
+- **Desde el Excel de la PO:** **Importar estructura (formato PO)** lee el `proyecto.xlsx` de la PO: una hoja con
+  **Objetivo especifico**, **Resultados (indicador)** y **Resultados (meta)**, y otra con una fila por entregable y las
+  columnas **Actividad**, **Entregables**, **Inicio (semana)**, **Fin (semana)**, **Cantidad** y **Unidad**. Las filas
+  con la misma actividad del mismo objetivo forman una actividad con varios entregables, y los códigos los genera el
+  sistema. **Validar** muestra la vista previa o los errores por hoja y celda; **Confirmar importación** reemplaza la
+  estructura y **no toca el presupuesto**.
+
 > La plantilla solo se puede descargar cuando el proyecto ya tiene **fechas de inicio y fin**.
 
 ### Paso 3 — Cronograma
@@ -370,7 +377,8 @@ En el encabezado de la ficha, menú **«⋯»**:
 Estas funciones **no** están en el lanzamiento y se trabajarán después:
 
 - **Cerrar, suspender o cancelar** un proyecto desde la interfaz.
-- **Adaptador de las plantillas de la PO** (`proyecto.xlsx` y `presupuesto.xlsx`) con la estructura y el presupuesto.
+- **Plantillas actualizadas para la PO**: el `proyecto.xlsx` ya se importa (estructura) y el `presupuesto.xlsx` también
+  (presupuesto), pero el formato de la PO todavía no trae las columnas **Cantidad** y **Unidad** de cada entregable.
 - **Rubros personalizados o deshabilitados por proyecto**: hoy el catálogo R01 a R15 es global.
 - **Correos automáticos con marca**: las notificaciones dentro de la aplicación funcionan; el envío de correo depende del
   dominio y se configurará después.

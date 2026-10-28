@@ -265,6 +265,27 @@ diálogo para mostrar la tabla de errores. Ojo: el libro válido fija fechas 202
 $177.360.000 y responsable `ana@muttu.co` (no existe en la demo: sale la advertencia). Ver también
 `docs/guia-demo.md` §1.7.
 
+### A.4 Estructura desde el Excel de la PO (B3)
+
+**Importar estructura (formato PO)** está junto a **Importar plantilla**, con los mismos roles y solo en Borrador
+(también con la estructura vacía). Lee el `proyecto.xlsx` de la PO: una hoja de indicadores (`Objetivo especifico |
+Resultados (indicador) | Resultados (meta)`) y una de actividades con una fila por entregable (`Objetivo especifico |
+Actividad | Entregables | Inicio (semana) | Fin (semana) | Cantidad | Unidad`). No toca el presupuesto.
+
+1. Sube el `proyecto.xlsx` de la PO **tal cual** y pulsa **Validar**. Esperado: "El archivo tiene 2 errores. No se
+   importó nada", con «La hoja «Ejemplo1» no tiene la columna «Cantidad»…» y «…«Unidad»…». La cantidad no se lee del
+   texto del entregable.
+2. Agrega en la hoja `Ejemplo1` las columnas **Cantidad** y **Unidad** con un valor por fila y valida de nuevo.
+   Esperado con el archivo de la PO: "El archivo es válido: 3 objetivos, 12 actividades, 15 entregables y 4
+   indicadores." y el árbol O1 → IND-01 → A1.1 → E1.1.1… Las filas con la misma actividad quedan en una sola
+   (A1.4, semanas 3–6, con tres entregables). Si el borrador ya tiene estructura, aparece "Reemplaza la estructura actual
+   (…). El presupuesto no cambia."
+3. Con fechas de proyecto más cortas que las semanas del archivo, la validación marca la celda de **Fin (semana)**:
+   "La semana final no puede superar la duración del proyecto (N semanas)."
+4. **Confirmar importación**: toast "Estructura importada."; **Metas e indicadores** muestra los códigos generados y
+   **Presupuesto** sigue igual. **Historial** → **Cambios**: un lote `IMPORTAR` con una fila por objetivo, actividad,
+   entregable e indicador, más la fila `reemplazo`.
+
 ## B. Presupuesto y programación mensual (S5)
 
 Pestaña **Financiero** de la ficha, sección **Presupuesto** (arriba; la **Ficha financiera** va debajo, §F). Se edita solo en **Borrador** y solo `admin@` o

@@ -24,6 +24,7 @@ import "@/lib/openapi/paths/project-execution";
 import "@/lib/openapi/paths/project-documents";
 import "@/lib/openapi/paths/project-budget";
 import "@/lib/openapi/paths/project-template";
+import "@/lib/openapi/paths/project-structure-import";
 import "@/lib/openapi/paths/project-baseline";
 import "@/lib/openapi/paths/project-estado";
 import "@/lib/openapi/paths/project-modifications";
