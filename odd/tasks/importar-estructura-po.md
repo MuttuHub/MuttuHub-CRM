@@ -49,7 +49,7 @@ forecast ~900 authored lines). Test runner: `npx vitest run`. Mirror: Engram `od
 |---|---|---|---|---|
 | T1 | S2, S3, S4, S5, S7 (pure parse, grouping, codes, row errors) | inline | done (RED: module missing → GREEN 14 tests) | see git log (unit 1) |
 | T2 | S6, S7 (writer + `POST /projects/{id}/structure/import`) | inline | done (RED: route missing → GREEN 12 tests; differential trace identical) | see git log (unit 2) |
-| T3 | S8 (dialog + hook) | inline | pending | |
+| T3 | S8 (dialog + hook) | inline | done (RED → GREEN: 5 dialog + 4 mount tests) | see git log (unit 3) |
 | T4 | S8 (OpenAPI, guide, plan row) | inline | pending | |
 
 Route evidence: units depend on each other (T2 on T1, T3 on T2), so no Writer trigger; the parent writes inline.
@@ -77,3 +77,12 @@ Risk: item 1 for T2 (the import soft-deletes the live structure of a draft) → 
   report, weeks bounded by the project dates, preview with codes and `reemplaza`, structure-only apply with one lote,
   budget/programming/project never touched, history 409, BORRADOR re-checked under the lock). `src/lib/api`,
   `src/app/api/v1/projects`, `src/lib/proyectos`: 1453/1453; `tsc`, `eslint` clean. Not run: `prisma/*.invariant`.
+- **L5 (2026-10-28):** Native review of T1+T2 (`51c957a..6f4bbc3`, escalated item 1, lenses risk + reliability, user
+  granted) approved and acknowledged. Its two advisories were fixed in `80fa303`: a committed test pins
+  `importarPlantilla`'s write order and audit lote (it passes against the writer before and after the refactor), and
+  the parser's 500-error cut and «demasiado alta» bound are tested.
+- **L6 (2026-10-28):** T3. `useImportStructurePO` (`src/hooks/projects.ts`) and `EstructuraPOImportDialog`: validate →
+  preview as the O/IND/A/E tree with generated codes, weeks, quantity and unit, plus «Reemplaza la estructura actual
+  (…). El presupuesto no cambia.» → confirm; 400 errors listed by sheet and cell. Mounted in the Estructura header
+  under the same `canEdit` as the template import, also on an empty draft. `src/components/proyectos` + `src/hooks`
+  934/934; `tsc`, `eslint` clean.

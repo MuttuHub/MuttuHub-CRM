@@ -1845,6 +1845,84 @@ export function useImportTemplate(
   });
 }
 
+/* ── Estructura desde el Excel de la PO (importar-estructura-po, B3) ─────── */
+
+/** Error del 400 de `POST /structure/import`: `fila` y `columna` nulas si es de la hoja o del archivo. */
+export type StructureImportError = { hoja: string | null; fila: number | null; columna: string | null; mensaje: string };
+
+export type StructureImportCounts = { objetivos: number; actividades: number; entregables: number; indicadores: number };
+
+/** El plan con los códigos que genera el sistema (O1, A1.1, E1.1.1, IND-01). */
+export type StructureImportPlan = {
+  objetivos: { codigo: string; descripcion: string }[];
+  indicadores: { codigo: string; objetivoCodigo: string; nombre: string; meta: string }[];
+  actividades: { codigo: string; objetivoCodigo: string; nombre: string; semanaInicio: number; semanaFin: number }[];
+  entregables: { codigo: string; actividadCodigo: string; descripcion: string; cantidadMeta: string; unidad: string }[];
+};
+
+/** `POST /structure/import` con `modo=validar`: nada se escribió. */
+export type StructureImportPreview = {
+  importado: false;
+  valido: true;
+  resumen: StructureImportCounts & { errores: number };
+  plan: StructureImportPlan;
+  /** Filas vivas que la importación reemplazaría. */
+  reemplaza: StructureImportCounts;
+};
+
+/** `POST /structure/import` aplicado. */
+export type StructureImportApplied = { importado: true; lote_id: string; resumen: StructureImportCounts };
+
+export type StructureImportInput = { archivo: File; validar: boolean };
+
+/** El 400 con los errores del archivo. */
+export class StructureImportReportError extends ApiError {
+  readonly errores: StructureImportError[];
+
+  constructor(message: string, errores: StructureImportError[]) {
+    super(message, 400, "VALIDATION_ERROR");
+    this.name = "StructureImportReportError";
+    this.errores = errores;
+  }
+}
+
+/**
+ * Valida (`validar: true`, no escribe) o aplica la estructura del Excel de la PO.
+ * El 400 con errores llega como `StructureImportReportError`.
+ */
+export function useImportStructurePO(
+  projectId: string,
+): UseMutationResult<StructureImportPreview | StructureImportApplied, Error, StructureImportInput> {
+  const refresh = useRefreshAfterImport(projectId);
+  return useMutation({
+    mutationFn: async ({ archivo, validar }) => {
+      const form = new FormData();
+      form.set("archivo", archivo);
+      if (validar) form.set("modo", "validar");
+      // Sin Content-Type: el navegador pone el boundary del multipart.
+      const res = await fetch(`/api/v1/projects/${projectId}/structure/import`, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+        body: form,
+      });
+      const body = await readJsonBody(res);
+      if (!res.ok) {
+        const fallback = "No pudimos importar la estructura. Inténtalo de nuevo.";
+        const message = typeof body.error === "string" ? body.error : fallback;
+        const errores = (body.reporte as { errores?: unknown } | undefined)?.errores;
+        if (Array.isArray(errores)) throw new StructureImportReportError(message, errores as StructureImportError[]);
+        throw new ApiError(message, res.status, typeof body.code === "string" ? body.code : undefined);
+      }
+      return body as StructureImportPreview | StructureImportApplied;
+    },
+    onSuccess: (data) => {
+      if (!data.importado) return;
+      refresh();
+      toast.success("Estructura importada.");
+    },
+  });
+}
+
 /* ── Presupuesto desde el Excel simple de la PO (importar-presupuesto-po) ── */
 
 /** Error por fila (`fila` nula si es del archivo) del 400 de `POST /budget/import`. */
