@@ -231,6 +231,23 @@ describe("parseEstructuraPO", () => {
     ])
   })
 
+  it("rejects a quantity or meta above the column maximum", async () => {
+    const r = await parse({
+      Ejemplo0: [IND, [OBJ1, "Indicador", 1e14]],
+      Ejemplo1: [ACT, [OBJ1, "Act", "Ent", 1, 1, 1e14, "u"]],
+    })
+    expect(mensajes(r)).toEqual(["La meta es demasiado alta.", "La cantidad es demasiado alta."])
+  })
+
+  it("cuts the error list at 500 and still counts every error", async () => {
+    const filas: Celdas[] = [ACT]
+    for (let i = 0; i < 501; i++) filas.push([OBJ1, "Act", `Ent ${i}`, 1, 1, 1, ""])
+    const r = await parse({ Ejemplo1: filas })
+    expect(r.errores).toHaveLength(500)
+    expect(r.truncado).toBe(true)
+    expect(r.resumen.errores).toBe(501)
+  })
+
   it("skips empty rows and rejects a sheet with too many rows", async () => {
     const vacias = await parse({ Ejemplo1: [ACT, [], [null, null, null], [OBJ1, "Act", "Ent", 1, 1, 1, "u"]] })
     expect(vacias.errores).toEqual([])
