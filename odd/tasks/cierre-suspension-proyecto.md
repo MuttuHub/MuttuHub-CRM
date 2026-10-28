@@ -65,3 +65,8 @@ Route evidence: no Writer trigger (units depend on T1; no parallel work), so the
   plus the frozen-estado notes on documents, expenses, members and modifications; matrix L8; guide §C2. `src/` suite
   green and `tsc` clean; the 31 `prisma/*.invariant.test.ts` files could not run (local Docker Postgres unreachable from
   WSL), so DB invariants stay unverified in this session.
+- **L7 (2026-10-28):** Feature-end independent verifier (Risk item 2): S1–S7 PASS, no blockers, `src/` 4096 tests green.
+  Native review of the whole branch (`51c957a..f32b3d1`, lenses risk + reliability, user granted) approved and
+  acknowledged. Non-blocking follow-ups: the known freeze race in members POST/DELETE and modification decisions
+  (re-check under a row lock), an untested read branch in `expense-validations/route.ts:52`, and the confirm-enabled
+  case in `estado-proyecto-acciones.test.tsx`. Next: user decides push and PR.
