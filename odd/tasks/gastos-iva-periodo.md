@@ -86,3 +86,11 @@ sequence. Risk: item 1 for T1 (migration on money data) and item 3 for T2 (the e
 - **L8 (T5):** OpenAPI (`Gasto` view: `subtotal`, `iva`, `periodo_modificado`, `valor` = Total; create/patch bodies come from the
   schemas; import columns and the old-template message), user guide and test guide updated. The plan
   (`docs/plan-trabajo-restante.md`) has no row for the AJ items and no obvious place for them, so it was left unchanged.
+- **L9 (2026-10-28):** Parent fixed the five `gasto.create` callers outside the writer's surface (`572a5e8`: demo seed,
+  dashboard bench, three invariant fixtures get `subtotal_cop = monto_cop`, `iva_cop = 0`); `tsc` clean.
+  Feature-end independent verifier (items 1 and 3): S1–S7 PASS, no blockers. Confirmed by reading: idempotent
+  migration with the backfill before NOT NULL; every executed-amount aggregate byte-identical to `51c957a`; the old
+  `valor` body answers 400 (`.strict()` schemas), never silently ignored; partial PATCH merges stored values; the S2
+  examples and the old-template message are pinned. Advisories: deploy the migration together with the new build
+  (`subtotal_cop` has no DB default, so an old build's inserts fail after it); history shows `subtotal`/`iva` with the
+  generic label; the migration and `prisma/*.invariant` still have to run against `.env.local` before merge.
