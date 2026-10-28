@@ -71,7 +71,8 @@ const valido = {
   tercero_numero_id: "900.123.456-7",
   numero_documento: "FE-0123",
   descripcion: "Tiquetes del equipo",
-  valor: "1500000.50",
+  subtotal: "1500000.50",
+  iva: "0",
   soportes: [archivo],
 };
 const linea = (asignado = "24000000") => ({
@@ -94,6 +95,8 @@ const gastoRow = (data: Record<string, unknown> = {}) => ({
   numero_documento: "FE-0123",
   numero_documento_norm: "FE0123",
   descripcion: "Tiquetes del equipo",
+  subtotal_cop: new Prisma.Decimal("1500000.50"),
+  iva_cop: new Prisma.Decimal("0"),
   monto_cop: new Prisma.Decimal("1500000.50"),
   estado: "REGISTRADO",
   alerta_sobregasto: false,
@@ -248,11 +251,45 @@ describe("POST expenses: registration", () => {
     expect(mocks.create).not.toHaveBeenCalled();
   });
 
-  it("answers 400 for a non-positive, float-noise or non-numeric valor", async () => {
-    for (const valor of ["0", "-5", "abc", "10.001", 0.1 + 0.2, null]) {
-      expect((await POST(post({ ...valido, valor }), ctx)).status).toBe(400);
+  it("answers 400 for a non-positive, float-noise or non-numeric subtotal", async () => {
+    for (const subtotal of ["0", "-5", "abc", "10.001", 0.1 + 0.2, null]) {
+      expect((await POST(post({ ...valido, subtotal }), ctx)).status).toBe(400);
     }
     expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("answers 400 for a negative, float-noise, non-numeric or missing IVA, and for the old valor field", async () => {
+    for (const iva of ["-1", "abc", "10.001", 0.1 + 0.2, null, undefined]) {
+      expect((await POST(post({ ...valido, iva }), ctx)).status, String(iva)).toBe(400);
+    }
+    const negativo = await POST(post({ ...valido, iva: "-1" }), ctx);
+    expect((await negativo.json()).error).toBe("El IVA no puede ser negativo.");
+    const sinMontos: Record<string, unknown> = { ...valido };
+    delete sinMontos.subtotal;
+    delete sinMontos.iva;
+    expect((await POST(post({ ...sinMontos, valor: "1500000.50" }), ctx)).status).toBe(400);
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("stores Subtotal 1.000.000 + IVA 190.000 as a Total of 1.190.000 and shows the three amounts (S2)", async () => {
+    const res = await POST(post({ ...valido, subtotal: "1000000", iva: "190000" }), ctx);
+    const json = await res.json();
+    expect(res.status).toBe(201);
+    expect(createdData()).toMatchObject({
+      subtotal_cop: new Prisma.Decimal("1000000"),
+      iva_cop: new Prisma.Decimal("190000"),
+      monto_cop: new Prisma.Decimal("1190000"),
+    });
+    expect(json.gasto).toMatchObject({ subtotal: "1000000.00", iva: "190000.00", valor: "1190000.00" });
+    expect(vi.mocked(logChange).mock.calls[0][1]).toMatchObject({
+      valor_nuevo: expect.objectContaining({ subtotal: "1000000.00", iva: "190000.00", valor: "1190000.00" }),
+    });
+  });
+
+  it("accepts an IVA of 0 and stores the Total equal to the Subtotal (S1)", async () => {
+    const res = await POST(post({ ...valido, subtotal: "250000", iva: 0 }), ctx);
+    expect(res.status).toBe(201);
+    expect(createdData()).toMatchObject({ iva_cop: new Prisma.Decimal("0"), monto_cop: new Prisma.Decimal("250000") });
   });
 
   it("rejects an unknown tipo_soporte and any attempt to choose the estado", async () => {
@@ -306,7 +343,7 @@ describe("POST expenses: access and state", () => {
 describe("POST expenses: alerts", () => {
   it("flags the early overspend warning without blocking and without notifying", async () => {
     mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: new Prisma.Decimal("23500000") } });
-    const res = await POST(post({ ...valido, valor: "1000000" }), ctx);
+    const res = await POST(post({ ...valido, subtotal: "1000000" }), ctx);
     const json = await res.json();
     expect(res.status).toBe(201);
     expect(createdData().alerta_sobregasto).toBe(true);
@@ -316,9 +353,16 @@ describe("POST expenses: alerts", () => {
     );
   });
 
+  it("checks the overspend with the Total, IVA included", async () => {
+    mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: new Prisma.Decimal("23500000") } });
+    const res = await POST(post({ ...valido, subtotal: "400000", iva: "100001" }), ctx);
+    expect(res.status).toBe(201);
+    expect(createdData().alerta_sobregasto).toBe(true);
+  });
+
   it("does not flag when reaching the assigned amount exactly", async () => {
     mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: new Prisma.Decimal("23500000") } });
-    const res = await POST(post({ ...valido, valor: "500000" }), ctx);
+    const res = await POST(post({ ...valido, subtotal: "500000" }), ctx);
     expect(createdData().alerta_sobregasto).toBe(false);
     expect((await res.json()).alertas).toEqual([]);
   });

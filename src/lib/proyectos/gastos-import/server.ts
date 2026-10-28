@@ -127,6 +127,8 @@ export async function aplicarGastosImport(tx: Prisma.TransactionClient, input: A
         ...claves,
         numero_documento: datos.numero_documento,
         descripcion: datos.descripcion,
+        subtotal_cop: decimalFromCents(datos.subtotal),
+        iva_cop: decimalFromCents(datos.iva),
         monto_cop: decimalFromCents(datos.cents),
         alerta_sobregasto: sobregasto,
         registrado_por_id: input.usuarioId,

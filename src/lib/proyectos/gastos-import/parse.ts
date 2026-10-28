@@ -135,6 +135,9 @@ export type DatosGastoImport = {
   tercero_numero_id: string | null
   numero_documento: string
   descripcion: string
+  subtotal: Cents
+  iva: Cents
+  /** The Total (Subtotal + IVA): the executed amount. */
   cents: Cents
 }
 
@@ -247,7 +250,9 @@ function validarFila(
     tercero_numero_id: textoDe(cruda.numeroId) ?? null,
     numero_documento: textoDe(cruda.numeroDocumento),
     descripcion: textoDe(cruda.descripcion),
-    valor: valor.ok ? fromCents(valor.cents) : "0",
+    // Interim until the template carries Subtotal and IVA columns (T3): the old single amount is the Subtotal.
+    subtotal: valor.ok ? fromCents(valor.cents) : "0",
+    iva: "0",
   }
   const parsed = GASTO_FILA_SCHEMA.safeParse(candidato)
   if (!parsed.success) return falla(parsed.error.issues[0]?.message ?? "Datos no válidos.", rubro.id)
@@ -272,6 +277,8 @@ function validarFila(
       ...tercero,
       numero_documento: data.numero_documento,
       descripcion: data.descripcion,
+      subtotal: valor.cents,
+      iva: BigInt(0),
       cents: valor.cents,
     },
   }

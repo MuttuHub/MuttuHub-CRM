@@ -1412,7 +1412,11 @@ export type ProjectExpense = {
   tercero_numero_id?: string | null;
   numero_documento: string;
   descripcion: string;
+  /** El Total (Subtotal + IVA): el valor ejecutado que consume el presupuesto del rubro. */
   valor: string;
+  subtotal: string;
+  /** Se muestra aparte solo como información; puede ser "0.00". */
+  iva: string;
   estado: ProjectExpenseEstado;
   alerta_sobregasto: boolean;
   datos_incompletos: boolean;
@@ -1461,8 +1465,10 @@ export type ProjectExpenseInput = {
   tercero_numero_id: string | null;
   numero_documento: string;
   descripcion: string;
-  /** Decimal como string ("1500000.50"). */
-  valor: string;
+  /** Decimal como string ("1000000"). */
+  subtotal: string;
+  /** Decimal como string; puede ser "0", nunca negativo. El Total lo calcula el servidor. */
+  iva: string;
   /** Un soporte: archivo (firma -> subida -> confirmación) o enlace https. */
   soporte: AvanceMedioInput;
 };

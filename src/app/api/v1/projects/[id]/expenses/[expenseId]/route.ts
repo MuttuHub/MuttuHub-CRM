@@ -34,7 +34,7 @@ import {
   clavesNormalizadas,
   gastoAuditable,
   gateGastoRead,
-  parseValorGasto,
+  parseMontosGasto,
   resolverLinea,
   resolverPeriodo,
   superaAsignado,
@@ -42,7 +42,7 @@ import {
   type AlertaGasto,
 } from "@/lib/api/gastos";
 import { isoDate } from "@/lib/proyectos/proyecto-general";
-import { toCents } from "@/lib/proyectos/money";
+import { fromCents, toCents } from "@/lib/proyectos/money";
 
 export const dynamic = "force-dynamic";
 
@@ -97,12 +97,13 @@ export const PATCH = withApiErrorHandling(
     const input = body.value;
     if (Object.keys(input).length === 0) return apiError(NOTHING_TO_UPDATE, 400, "VALIDATION_ERROR");
 
-    let valor = toCents(actual.monto_cop);
-    if (input.valor !== undefined) {
-      const parsed = parseValorGasto(input.valor);
-      if (!parsed.ok) return parsed.response;
-      valor = parsed.cents;
-    }
+    // The Total is never typed: it is always the new Subtotal plus the new IVA (each defaults to the stored one).
+    const montos = parseMontosGasto(
+      input.subtotal ?? fromCents(toCents(actual.subtotal_cop)),
+      input.iva ?? fromCents(toCents(actual.iva_cop)),
+    );
+    if (!montos.ok) return montos.response;
+    const valor = montos.total;
 
     const rubroActual = actual.linea.rubro.id;
     const resuelta = await resolverLinea(id, input.rubro_id ?? rubroActual);
@@ -133,6 +134,8 @@ export const PATCH = withApiErrorHandling(
       ...claves,
       numero_documento: numeroDocumento,
       descripcion: input.descripcion ?? actual.descripcion,
+      subtotal_cop: decimalFromCents(montos.subtotal),
+      iva_cop: decimalFromCents(montos.iva),
       monto_cop: decimalFromCents(valor),
     };
 

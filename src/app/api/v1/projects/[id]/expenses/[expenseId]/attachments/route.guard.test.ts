@@ -37,7 +37,7 @@ const archivo = (storage_path = KEY) => ({ storage_path, nombre: "factura.pdf", 
 const gasto = (d: Record<string, unknown> = {}) => ({
   id: "gas-1", proyecto_id: "pry-1", linea_id: "l", fecha_documento: new Date("2026-10-15"), periodo: "2026-10", tipo_soporte: "FACTURA_PROVEEDOR",
   tercero_nombre: "P", tercero_tipo_id: null, tercero_numero_id: null, tercero_id_norm: null, numero_documento: "1", numero_documento_norm: "1",
-  descripcion: "d", monto_cop: new Prisma.Decimal("10"), estado: "REGISTRADO", alerta_sobregasto: false, registrado_por_id: "reg-1",
+  descripcion: "d", subtotal_cop: new Prisma.Decimal("10"), iva_cop: new Prisma.Decimal("0"), monto_cop: new Prisma.Decimal("10"), estado: "REGISTRADO", alerta_sobregasto: false, registrado_por_id: "reg-1",
   created_at: new Date(), updated_at: new Date(), validado_por_id: null, validado_at: null, rechazado_por_id: null, rechazado_at: null,
   motivo_rechazo: null, anulado_por_id: null, anulado_at: null, motivo_anulacion: null,
   linea: { rubro: { id: "r", codigo: "R1", nombre: "T" } }, soportes: [] as unknown[], ...d,

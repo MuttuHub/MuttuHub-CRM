@@ -28,7 +28,7 @@ import {
   clavesNormalizadas,
   gastoAuditable,
   gateGastoRead,
-  parseValorGasto,
+  parseMontosGasto,
   resolverLinea,
   resumenGastos,
   resolverPeriodo,
@@ -84,8 +84,8 @@ export const POST = withApiErrorHandling(
     if (!body.ok) return body.response;
     const input = body.value;
 
-    const valor = parseValorGasto(input.valor);
-    if (!valor.ok) return valor.response;
+    const montos = parseMontosGasto(input.subtotal, input.iva);
+    if (!montos.ok) return montos.response;
     const linea = await resolverLinea(id, input.rubro_id);
     if (!linea.ok) return linea.response;
     const periodo = resolverPeriodo(proyecto, input.fecha_documento, input.periodo);
@@ -108,7 +108,7 @@ export const POST = withApiErrorHandling(
 
     try {
       const { gasto, soportesCreados, sobregasto } = await db.$transaction(async (tx) => {
-        const sobregasto = await superaAsignado(tx, linea.value, valor.cents);
+        const sobregasto = await superaAsignado(tx, linea.value, montos.total);
         const created = await tx.gasto.create({
           data: {
             proyecto_id: id,
@@ -121,7 +121,9 @@ export const POST = withApiErrorHandling(
             ...claves,
             numero_documento: input.numero_documento,
             descripcion: input.descripcion,
-            monto_cop: decimalFromCents(valor.cents),
+            subtotal_cop: decimalFromCents(montos.subtotal),
+            iva_cop: decimalFromCents(montos.iva),
+            monto_cop: decimalFromCents(montos.total),
             alerta_sobregasto: sobregasto,
             registrado_por_id: auth.usuario.id,
           },

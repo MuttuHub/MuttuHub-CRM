@@ -91,6 +91,8 @@ describe("parseGastosImport — file", () => {
       tercero_numero_id: "900.123.456-7",
       numero_documento: "FE-0123",
       descripcion: "Tiquetes del equipo",
+      subtotal: toCents("1500000.50"),
+      iva: BigInt(0),
       cents: toCents("1500000.50"),
     })
     expect(r.resumen).toEqual({ validas: 1, errores: 0 })

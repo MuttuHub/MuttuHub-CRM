@@ -55,6 +55,8 @@ const gasto = (id: string, over: Record<string, unknown> = {}) => ({
   numero_documento: "FE-0123",
   descripcion: "Tiquetes del equipo",
   valor: "1500000.00",
+  subtotal: "1500000.00",
+  iva: "0.00",
   estado: "REGISTRADO",
   alerta_sobregasto: false,
   datos_incompletos: false,
@@ -243,6 +245,16 @@ describe("ProjectGastos", () => {
       expect(filas[0]).toHaveTextContent("Supera el asignado")
       expect(filas[1]).toHaveTextContent("Validado")
       expect(filas[1]).not.toHaveTextContent("Supera el asignado")
+    })
+
+    it("shows the IVA apart, for information, under the Total (S1, S2)", async () => {
+      setup({ gastos: [gasto("g1", { valor: "1190000.00", subtotal: "1000000.00", iva: "190000.00" }), gasto("g2")] })
+      const lista = await screen.findByTestId("gastos-lista")
+      const filas = await within(lista).findAllByTestId("gasto-fila")
+      expect(filas[0]).toHaveTextContent("$ 1.190.000")
+      expect(within(filas[0]).getByText("IVA $ 190.000")).toBeInTheDocument()
+      expect(within(filas[0]).getByText("$ 1.190.000").closest("td")?.className).toContain("text-right")
+      expect(within(filas[1]).getByText("IVA $ 0")).toBeInTheDocument()
     })
 
     it("shows the third-party number and the support control only when the API sent them", async () => {

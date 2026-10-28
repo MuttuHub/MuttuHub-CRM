@@ -1,5 +1,6 @@
 // Formulario de registro de gasto (S6 U6): rubro (solo con valor asignado), fecha, periodo,
-// tercero, número de documento, descripción, valor (string, nunca Number) y UN soporte
+// tercero, número de documento, descripción, subtotal e IVA (strings, nunca Number; el Total lo
+// calcula el sistema y solo se muestra) y UN soporte
 // obligatorio: archivo (firma -> subida -> confirmación) o enlace https. Tras registrar, las
 // alertas que devuelve la API (duplicado, sobregasto temprano) se muestran y esperan a que la
 // persona las cierre: nunca bloquean, pero tampoco pasan inadvertidas.
@@ -22,11 +23,15 @@ import {
   type ProjectListRow,
 } from "@/hooks/projects";
 import { parseMontoInput } from "@/components/proyectos/presupuesto-ui";
-import { toCents } from "@/lib/proyectos/money";
+import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { projectPeriods, todayInBogota } from "@/lib/proyectos/weeks";
 
 export const SIN_SOPORTE_TEXT = "Adjunta al menos un soporte (archivo o enlace).";
-const VALOR_INVALIDO = "Ingresa un valor válido con máximo dos decimales; usa coma para los decimales (1.500,50).";
+const SUBTOTAL_INVALIDO =
+  "Ingresa un subtotal válido con máximo dos decimales; usa coma para los decimales (1.500,50).";
+const IVA_VACIO = "Ingresa el IVA (puede ser 0).";
+const IVA_INVALIDO =
+  "Ingresa un IVA válido con máximo dos decimales; usa coma para los decimales (1.500,50). Puede ser 0.";
 
 export const TIPO_SOPORTE_LABELS: Record<ProjectExpense["tipo_soporte"], string> = {
   FACTURA_PROVEEDOR: "Factura de proveedor",
@@ -56,12 +61,18 @@ function periodosDe(proyecto: Pick<ProjectListRow, "fecha_inicio" | "fecha_fin">
   }
 }
 
-/** Mismo parser es-CO que el presupuesto (punto = miles, coma = decimal); el valor debe ser mayor que cero. */
-function normalizarValor(texto: string): string | null {
+/** Mismo parser es-CO que el presupuesto (punto = miles, coma = decimal); el subtotal debe ser mayor que cero. */
+function normalizarSubtotal(texto: string): string | null {
   const limpio = texto.trim();
   if (limpio === "") return null;
   const monto = parseMontoInput(limpio);
   return monto !== null && toCents(monto) > BigInt(0) ? monto : null;
+}
+
+/** El IVA puede ser 0, pero hay que escribirlo: vacío no cuenta como 0. */
+function normalizarIva(texto: string): string | null {
+  const limpio = texto.trim();
+  return limpio === "" ? null : parseMontoInput(limpio);
 }
 
 const SIN_RUBROS = "Aún no hay rubros con monto asignado. Asigna primero un monto a un rubro en Presupuesto.";
@@ -88,7 +99,8 @@ export function GastoForm({
   const [numeroId, setNumeroId] = useState("");
   const [numeroDoc, setNumeroDoc] = useState("");
   const [descripcion, setDescripcion] = useState("");
-  const [valor, setValor] = useState("");
+  const [subtotal, setSubtotal] = useState("");
+  const [iva, setIva] = useState("0");
   const [tipoMedio, setTipoMedio] = useState<"archivo" | "enlace">("archivo");
   const [archivo, setArchivo] = useState<File | null>(null);
   const [url, setUrl] = useState("");
@@ -97,11 +109,14 @@ export function GastoForm({
   const [alertas, setAlertas] = useState<ExpenseAlert[] | null>(null);
 
   function submit() {
-    const valorNormal = normalizarValor(valor);
+    const subtotalNormal = normalizarSubtotal(subtotal);
+    const ivaNormal = normalizarIva(iva);
     if (conAsignado.length === 0) return setLocal(SIN_RUBROS);
     if (rubroId === "") return setLocal("Elige el rubro.");
     if (fecha === "") return setLocal("La fecha del documento es obligatoria.");
-    if (valorNormal === null) return setLocal(VALOR_INVALIDO);
+    if (subtotalNormal === null) return setLocal(SUBTOTAL_INVALIDO);
+    if (iva.trim() === "") return setLocal(IVA_VACIO);
+    if (ivaNormal === null) return setLocal(IVA_INVALIDO);
     if (tercero.trim() === "") return setLocal("El nombre del tercero es obligatorio.");
     if (numeroDoc.trim() === "") return setLocal("El número de documento es obligatorio.");
     if (descripcion.trim() === "") return setLocal("La descripción es obligatoria.");
@@ -127,7 +142,8 @@ export function GastoForm({
         tercero_numero_id: numeroId.trim() === "" ? null : numeroId.trim(),
         numero_documento: numeroDoc.trim(),
         descripcion: descripcion.trim(),
-        valor: valorNormal,
+        subtotal: subtotalNormal,
+        iva: ivaNormal,
         soporte,
       },
       {
@@ -161,6 +177,12 @@ export function GastoForm({
   }
 
   const p = `gasto-${proyecto.id}`;
+  // The Total is always Subtotal + IVA and is never typed; it stays $ 0 until both amounts read as valid.
+  const subtotalCents = normalizarSubtotal(subtotal);
+  const ivaCents = normalizarIva(iva);
+  const totalTexto = formatCOP(
+    (subtotalCents === null ? BigInt(0) : toCents(subtotalCents)) + (ivaCents === null ? BigInt(0) : toCents(ivaCents)),
+  );
   return (
     <form
       aria-label="Registrar gasto"
@@ -186,8 +208,22 @@ export function GastoForm({
         </select>
       </Campo>
 
-      <Campo id={`${p}-valor`} label="Valor">
-        <Input id={`${p}-valor`} inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} className={FIELD} />
+      <Campo id={`${p}-subtotal`} label="Subtotal">
+        <Input
+          id={`${p}-subtotal`}
+          inputMode="decimal"
+          value={subtotal}
+          onChange={(e) => setSubtotal(e.target.value)}
+          className={FIELD}
+        />
+      </Campo>
+
+      <Campo id={`${p}-iva`} label="IVA">
+        <Input id={`${p}-iva`} inputMode="decimal" value={iva} onChange={(e) => setIva(e.target.value)} className={FIELD} />
+      </Campo>
+
+      <Campo id={`${p}-total`} label="Total">
+        <Input id={`${p}-total`} readOnly tabIndex={-1} value={totalTexto} className={FIELD} />
       </Campo>
 
       <Campo id={`${p}-fecha`} label="Fecha del documento">

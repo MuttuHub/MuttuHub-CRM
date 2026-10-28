@@ -35,7 +35,7 @@ commits (module exception, as B7/B8; forecast ~900 authored lines). Test runner:
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
 | T1 | S3 (migration, Prisma schema, invariant test) | delegated (context backstop) | done (migration and invariant tests not run: no DB; `prisma generate` ok) | see git log |
-| T2 | S1, S2 (Subtotal/IVA/Total end to end: API create/edit/view, hook types, form, table/detail) | delegated (context backstop) | pending | |
+| T2 | S1, S2 (Subtotal/IVA/Total end to end: API create/edit/view, hook types, form, table/detail) | delegated (context backstop) | done | see git log |
 | T3 | S1, S2, S4 (import template and parser: Subtotal, IVA, optional Total check, old template rejected) | delegated (context backstop) | pending | |
 | T4 | S5, S6 (period from the document date: API rule, form autofill, import, «Periodo modificado») | delegated (context backstop) | pending | |
 | T5 | S7 | delegated (context backstop) | pending | |
@@ -65,3 +65,8 @@ sequence. Risk: item 1 for T1 (migration on money data) and item 3 for T2 (the e
   now pass it: `src/app/.../expenses/route.ts` (T2), `gastos-import/server.ts` (T3), and outside this feature's surface
   `scripts/seed-projects-demo.ts`, `scripts/migrate-v2/bench-dashboard.ts` and the invariant fixtures in
   `prisma/{modificaciones,notificaciones-proyecto,plantilla-import}.invariant.test.ts`.
+- **L5 (T2):** API create/edit take `subtotal` + `iva` (both required on create; on edit each defaults to the stored value)
+  and no longer take `valor`; the server writes `subtotal_cop`, `iva_cop`, `monto_cop = subtotal + iva` through
+  `evaluarMontosGasto`. View keeps `valor` (Total) and adds `subtotal`, `iva`; audit records `subtotal`, `iva`, `valor`.
+  Form: Subtotal, IVA (starts at 0, must be typed: empty is an error, assumption) and a read-only Total; table/card show
+  `IVA $ x` under the Total. The import keeps its single amount column as an interim Subtotal with IVA 0 until T3.
