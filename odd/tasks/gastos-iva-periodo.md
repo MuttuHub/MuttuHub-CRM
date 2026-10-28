@@ -37,7 +37,7 @@ commits (module exception, as B7/B8; forecast ~900 authored lines). Test runner:
 | T1 | S3 (migration, Prisma schema, invariant test) | delegated (context backstop) | done (migration and invariant tests not run: no DB; `prisma generate` ok) | see git log |
 | T2 | S1, S2 (Subtotal/IVA/Total end to end: API create/edit/view, hook types, form, table/detail) | delegated (context backstop) | done | see git log |
 | T3 | S1, S2, S4 (import template and parser: Subtotal, IVA, optional Total check, old template rejected) | delegated (context backstop) | done | see git log |
-| T4 | S5, S6 (period from the document date: API rule, form autofill, import, «Periodo modificado») | delegated (context backstop) | pending | |
+| T4 | S5, S6 (period from the document date: API rule, form autofill, import, «Periodo modificado») | delegated (context backstop) | done | see git log |
 | T5 | S7 | delegated (context backstop) | pending | |
 
 Route evidence: the units depend on T1, and T2 to T4 share `src/lib/api/gastos.ts`, so there is no parallel-writer
@@ -75,3 +75,11 @@ sequence. Risk: item 1 for T1 (migration on money data) and item 3 for T2 (the e
   accepting a written 0, and the same rule applies in the form (IVA starts at 0, cleared is an error). Row errors name the
   column («Subtotal», «IVA», «Total») and the dialog prefixes the Excel row. A header row with «Valor (COP)» (or «Valor»,
   «Monto») and no «Subtotal» yields the single file error `PLANTILLA_ANTERIOR_MESSAGE`, before any missing-columns message.
+- **L7 (T4):** `evaluarPeriodo` answers «La fecha del documento está fuera de los meses del proyecto: elige el periodo.» only
+  when no `periodo` was sent and the document month is outside the project (create, edit with a new date, import row);
+  an explicit period outside the project keeps «El periodo debe corresponder a un mes del proyecto.». The view carries the
+  derived `periodo_modificado`; the table/card show «Periodo modificado» (title «Periodo AAAA-MM»). The form always sends
+  `periodo`, prefills it from the date, resets it when the date changes and leaves it empty and required (error «Elige el
+  periodo...») when the month is not a project month. Period edits were already audited per field by the edit route
+  (`campo: "periodo"`); a test pins it. Route and parse tests for T4 passed on first run because `evaluarPeriodo` was
+  covered RED at the lib level (`src/lib/api/gastos.test.ts`) before the implementation.

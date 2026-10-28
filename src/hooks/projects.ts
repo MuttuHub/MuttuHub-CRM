@@ -1419,6 +1419,8 @@ export type ProjectExpense = {
   iva: string;
   estado: ProjectExpenseEstado;
   alerta_sobregasto: boolean;
+  /** Derivado: el periodo difiere del mes de la fecha del documento (AJ-05). */
+  periodo_modificado: boolean;
   datos_incompletos: boolean;
   registrado_por_id: string;
   created_at: string;
@@ -1458,7 +1460,8 @@ export type ExpenseAlert =
 export type ProjectExpenseInput = {
   rubro_id: string;
   fecha_documento: string;
-  periodo?: string;
+  /** Mes del proyecto AAAA-MM; el formulario lo rellena con el mes de la fecha del documento. */
+  periodo: string;
   tipo_soporte: ProjectExpense["tipo_soporte"];
   tercero_nombre: string;
   tercero_tipo_id: "NIT" | "CC" | "CE" | null;

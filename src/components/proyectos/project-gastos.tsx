@@ -356,6 +356,16 @@ function IvaGasto({ gasto, className }: { gasto: ProjectExpense; className?: str
   return <span className={`text-ink-600 ${className ?? ""}`}>IVA {formatCOP(toCents(gasto.iva))}</span>;
 }
 
+/** AJ-05: the period was edited away from the month of the document date. The change is in the audit ledger. */
+function PeriodoModificado({ gasto, className }: { gasto: ProjectExpense; className?: string }) {
+  if (!gasto.periodo_modificado) return null;
+  return (
+    <span title={`Periodo ${gasto.periodo}`} className={`font-sans text-[11.5px] text-ink-600 ${className ?? ""}`}>
+      Periodo modificado
+    </span>
+  );
+}
+
 function GastoFila(props: FilaProps) {
   const { proyectoId, gasto, esGestor } = props;
   const { error, ver } = useVerSoporte(proyectoId, gasto.id);
@@ -368,6 +378,7 @@ function GastoFila(props: FilaProps) {
     >
       <TableCell className="align-top font-mono text-[12.5px] text-ink-700">
         <span title={formatFechaCalendario(gasto.fecha_documento)}>{fechaCorta(gasto.fecha_documento)}</span>
+        <PeriodoModificado gasto={gasto} className="block" />
       </TableCell>
       <TableCell className="min-w-[150px] max-w-[240px] align-top whitespace-normal">
         <p className="text-[13px] font-semibold text-ink-950">{nombreRubro(gasto)}</p>
@@ -437,6 +448,7 @@ function GastoTarjeta(props: FilaProps) {
           .filter(Boolean)
           .join(" · ")}
       </p>
+      <PeriodoModificado gasto={gasto} />
       <SoporteGasto
         proyectoId={proyectoId}
         gasto={gasto}

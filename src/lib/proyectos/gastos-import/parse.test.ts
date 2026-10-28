@@ -273,7 +273,15 @@ describe("parseGastosImport — rows (same rules as a single expense)", () => {
     expect((await unaFila({ Periodo: "2027-01" })).datos?.periodo).toBe("2027-01")
     expect((await unaFila({ Periodo: "2030-01" })).error).toBe(PERIODO_FUERA_MESSAGE)
     expect((await unaFila({ Periodo: "enero" })).error).toBe("El periodo no es válido (AAAA-MM).")
-    expect((await unaFila({ "Fecha del documento": "2025-01-10" })).error).toBe(PERIODO_FUERA_MESSAGE)
+    expect((await unaFila({ "Fecha del documento": "2025-01-10", Periodo: "2025-01" })).error).toBe(PERIODO_FUERA_MESSAGE)
+  })
+
+  it("uses the document month for a blank Periodo and asks to choose one when that month is outside the project (S5)", async () => {
+    expect((await unaFila({ "Fecha del documento": "2026-10-28", Periodo: null })).datos?.periodo).toBe("2026-10")
+    const fuera = await unaFila({ "Fecha del documento": "2025-01-10", Periodo: null })
+    expect(fuera.datos).toBeNull()
+    expect(fuera.error).toBe("La fecha del documento está fuera de los meses del proyecto: elige el periodo.")
+    expect((await unaFila({ "Fecha del documento": "2025-01-10", Periodo: "2026-12" })).datos?.periodo).toBe("2026-12")
   })
 
   it("maps the support type text and rejects an unknown one", async () => {

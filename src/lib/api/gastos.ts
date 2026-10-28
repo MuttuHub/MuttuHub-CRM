@@ -248,7 +248,10 @@ export async function resolverLinea(
   return { ok: true, value: { id: linea.id, asignado: toCents(linea.monto_proyectado_cop), rubro: linea.rubro } };
 }
 
-/** The period must be a month of the project; it defaults to the month of the document date. Without HTTP. */
+/**
+ * The period must be a month of the project; it defaults to the month of the document date (and asks to be
+ * chosen when that month is outside the project). Without HTTP.
+ */
 export function evaluarPeriodo(
   proyecto: Pick<GastoProyecto, "fecha_inicio" | "fecha_fin">,
   fechaDocumento: string,
@@ -257,7 +260,10 @@ export function evaluarPeriodo(
   if (!proyecto.fecha_inicio || !proyecto.fecha_fin) return { ok: false, message: PROYECTO_SIN_FECHAS_MESSAGE };
   const periodos = projectPeriods(isoDate(proyecto.fecha_inicio), isoDate(proyecto.fecha_fin));
   const elegido = periodo ?? periodoPorDefecto(fechaDocumento);
-  if (!periodoEnProyecto(elegido, periodos)) return { ok: false, message: PERIODO_FUERA_MESSAGE };
+  if (!periodoEnProyecto(elegido, periodos)) {
+    // Defaulted from a date outside the project: the person has to choose the period (AJ-05).
+    return { ok: false, message: periodo === undefined ? PERIODO_DOCUMENTO_FUERA_MESSAGE : PERIODO_FUERA_MESSAGE };
+  }
   return { ok: true, value: elegido };
 }
 
@@ -405,6 +411,8 @@ export type GastoView = {
   iva: string;
   estado: EstadoGasto;
   alerta_sobregasto: boolean;
+  /** Derived: the period differs from the month of the document date (AJ-05). */
+  periodo_modificado: boolean;
   /** Derived: the third-party type or number is missing, so the expense cannot be validated yet. */
   datos_incompletos: boolean;
   registrado_por_id: string;
@@ -457,6 +465,7 @@ export function toGastoView(row: GastoConRelaciones, opts: { puedeVerSoportes: b
     iva: fromCents(toCents(row.iva_cop)),
     estado: row.estado,
     alerta_sobregasto: row.alerta_sobregasto,
+    periodo_modificado: row.periodo !== periodoPorDefecto(isoDate(row.fecha_documento)),
     datos_incompletos: datosIncompletos(row),
     registrado_por_id: row.registrado_por_id,
     created_at: row.created_at.toISOString(),

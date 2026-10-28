@@ -7,7 +7,10 @@ import {
   CAMPOS_AUDITABLES_GASTO,
   GASTO_CREATE_SCHEMA,
   GASTO_PATCH_SCHEMA,
+  PERIODO_DOCUMENTO_FUERA_MESSAGE,
+  PERIODO_FUERA_MESSAGE,
   evaluarMontosGasto,
+  evaluarPeriodo,
   gastoAuditable,
   toGastoView,
 } from "@/lib/api/gastos";
@@ -115,6 +118,39 @@ describe("toGastoView", () => {
   it("keeps valor as the Total and adds subtotal and iva", () => {
     const view = toGastoView(row, { puedeVerSoportes: true });
     expect(view).toMatchObject({ valor: "1190000.00", subtotal: "1000000.00", iva: "190000.00" });
+  });
+});
+
+describe("periodo from the document date (AJ-05)", () => {
+  it("marks the view «periodo_modificado» only when the period differs from the month of the document date (S6)", () => {
+    expect(toGastoView(row, { puedeVerSoportes: true }).periodo_modificado).toBe(false);
+    expect(toGastoView({ ...row, periodo: "2026-12" }, { puedeVerSoportes: true })).toMatchObject({
+      periodo: "2026-12",
+      periodo_modificado: true,
+    });
+  });
+
+  const proyecto = { fecha_inicio: new Date("2026-10-05"), fecha_fin: new Date("2027-01-29") };
+
+  it("defaults to the document month: 28/10/2026 gives 2026-10 with nothing done (S6)", () => {
+    expect(evaluarPeriodo(proyecto, "2026-10-28", undefined)).toEqual({ ok: true, value: "2026-10" });
+  });
+
+  it("asks to choose the period when the document month is not a project month and none was sent (S5)", () => {
+    expect(evaluarPeriodo(proyecto, "2027-03-10", undefined)).toEqual({
+      ok: false,
+      message: "La fecha del documento está fuera de los meses del proyecto: elige el periodo.",
+    });
+    expect(PERIODO_DOCUMENTO_FUERA_MESSAGE).toBe("La fecha del documento está fuera de los meses del proyecto: elige el periodo.");
+  });
+
+  it("accepts a chosen project month for a document outside the project, and one different from the date's", () => {
+    expect(evaluarPeriodo(proyecto, "2027-03-10", "2026-12")).toEqual({ ok: true, value: "2026-12" });
+    expect(evaluarPeriodo(proyecto, "2026-10-28", "2026-12")).toEqual({ ok: true, value: "2026-12" });
+  });
+
+  it("keeps rejecting an explicit period outside the project months", () => {
+    expect(evaluarPeriodo(proyecto, "2026-10-28", "2027-03")).toEqual({ ok: false, message: PERIODO_FUERA_MESSAGE });
   });
 });
 

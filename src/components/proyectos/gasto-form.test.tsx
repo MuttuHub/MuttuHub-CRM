@@ -166,6 +166,75 @@ describe("GastoForm", () => {
     },
   )
 
+  // AJ-05: the period follows the document date.
+  describe("periodo", () => {
+    const periodo = () => screen.getByLabelText("Periodo") as HTMLSelectElement
+
+    async function enlace(user: ReturnType<typeof userEvent.setup>) {
+      await user.click(screen.getByRole("radio", { name: "Enlace" }))
+      await user.type(screen.getByLabelText("URL"), "https://drive.example/factura")
+      await user.type(screen.getByLabelText("Nombre del enlace"), "Factura FE-0123")
+    }
+
+    it("no longer offers «Mes del documento»", () => {
+      setup()
+      expect(screen.queryByRole("option", { name: "Mes del documento" })).not.toBeInTheDocument()
+    })
+
+    it("fills itself with the month of the date: 28/10/2026 gives 2026-10 without doing anything (S6)", async () => {
+      const user = userEvent.setup({ delay: null })
+      setup()
+      await user.clear(screen.getByLabelText("Fecha del documento"))
+      await user.type(screen.getByLabelText("Fecha del documento"), "2026-10-28")
+      expect(periodo().value).toBe("2026-10")
+    })
+
+    it("changes with the date, and a hand-picked period is reset by a new date (S5)", async () => {
+      const user = userEvent.setup({ delay: null })
+      setup()
+      await user.clear(screen.getByLabelText("Fecha del documento"))
+      await user.type(screen.getByLabelText("Fecha del documento"), "2026-10-28")
+      await user.selectOptions(periodo(), "2026-12")
+      expect(periodo().value).toBe("2026-12")
+      await user.clear(screen.getByLabelText("Fecha del documento"))
+      await user.type(screen.getByLabelText("Fecha del documento"), "2026-11-03")
+      expect(periodo().value).toBe("2026-11")
+    })
+
+    it("offers only the project months", () => {
+      setup()
+      const opciones = Array.from(periodo().options).map((o) => o.value).filter(Boolean)
+      expect(opciones).toEqual(["2026-10", "2026-11", "2026-12", "2027-01"])
+    })
+
+    it("is empty and required when the date's month is not a project month (S5)", async () => {
+      const user = userEvent.setup({ delay: null })
+      setup()
+      await llenarBasicos(user)
+      await user.clear(screen.getByLabelText("Fecha del documento"))
+      await user.type(screen.getByLabelText("Fecha del documento"), "2026-03-10")
+      expect(periodo().value).toBe("")
+      await enlace(user)
+      await user.click(screen.getByRole("button", { name: "Registrar" }))
+      expect(await screen.findByRole("alert")).toHaveTextContent("Elige el periodo")
+      expect(postedBody()).toBeNull()
+      await user.selectOptions(periodo(), "2026-12")
+      await user.click(screen.getByRole("button", { name: "Registrar" }))
+      await waitFor(() => expect(postedBody()).not.toBeNull())
+      expect(postedBody()).toMatchObject({ fecha_documento: "2026-03-10", periodo: "2026-12" })
+    })
+
+    it("sends the filled period with the expense", async () => {
+      const user = userEvent.setup({ delay: null })
+      setup()
+      await llenarBasicos(user)
+      await enlace(user)
+      await user.click(screen.getByRole("button", { name: "Registrar" }))
+      await waitFor(() => expect(postedBody()).not.toBeNull())
+      expect(postedBody()).toMatchObject({ fecha_documento: "2026-10-15", periodo: "2026-10" })
+    })
+  })
+
   // AJ-04: the Total is computed (Subtotal + IVA), shown read-only and never typed.
   it("shows the Total as Subtotal plus IVA, read-only, and updates it while typing (S1, S2)", async () => {
     const user = userEvent.setup({ delay: null })

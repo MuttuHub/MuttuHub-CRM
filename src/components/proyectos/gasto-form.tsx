@@ -24,11 +24,12 @@ import {
 } from "@/hooks/projects";
 import { parseMontoInput } from "@/components/proyectos/presupuesto-ui";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
-import { projectPeriods, todayInBogota } from "@/lib/proyectos/weeks";
+import { periodOf, projectPeriods, todayInBogota } from "@/lib/proyectos/weeks";
 
 export const SIN_SOPORTE_TEXT = "Adjunta al menos un soporte (archivo o enlace).";
 const SUBTOTAL_INVALIDO =
   "Ingresa un subtotal válido con máximo dos decimales; usa coma para los decimales (1.500,50).";
+const PERIODO_REQUERIDO = "Elige el periodo: la fecha del documento está fuera de los meses del proyecto.";
 const IVA_VACIO = "Ingresa el IVA (puede ser 0).";
 const IVA_INVALIDO =
   "Ingresa un IVA válido con máximo dos decimales; usa coma para los decimales (1.500,50). Puede ser 0.";
@@ -40,6 +41,17 @@ export const TIPO_SOPORTE_LABELS: Record<ProjectExpense["tipo_soporte"], string>
 };
 
 const FIELD = CAPTURE_FIELD;
+
+/** AJ-05: the month of the document date when it is a project month; otherwise empty, and the person must choose. */
+function periodoDeFecha(fecha: string, periodos: readonly string[]): string {
+  if (fecha === "") return "";
+  try {
+    const mes = periodOf(fecha);
+    return periodos.includes(mes) ? mes : "";
+  } catch {
+    return "";
+  }
+}
 
 function Campo({ id, label, children, className }: { id: string; label: string; children: React.ReactNode; className?: string }) {
   return (
@@ -92,7 +104,7 @@ export function GastoForm({
 
   const [rubroId, setRubroId] = useState("");
   const [fecha, setFecha] = useState(todayInBogota());
-  const [periodo, setPeriodo] = useState("");
+  const [periodo, setPeriodo] = useState(() => periodoDeFecha(todayInBogota(), periodos));
   const [tipoSoporte, setTipoSoporte] = useState<ProjectExpense["tipo_soporte"]>("FACTURA_PROVEEDOR");
   const [tercero, setTercero] = useState("");
   const [tipoId, setTipoId] = useState<"" | "NIT" | "CC" | "CE">("");
@@ -114,6 +126,7 @@ export function GastoForm({
     if (conAsignado.length === 0) return setLocal(SIN_RUBROS);
     if (rubroId === "") return setLocal("Elige el rubro.");
     if (fecha === "") return setLocal("La fecha del documento es obligatoria.");
+    if (periodo === "") return setLocal(PERIODO_REQUERIDO);
     if (subtotalNormal === null) return setLocal(SUBTOTAL_INVALIDO);
     if (iva.trim() === "") return setLocal(IVA_VACIO);
     if (ivaNormal === null) return setLocal(IVA_INVALIDO);
@@ -135,7 +148,7 @@ export function GastoForm({
       {
         rubro_id: rubroId,
         fecha_documento: fecha,
-        ...(periodo ? { periodo } : {}),
+        periodo,
         tipo_soporte: tipoSoporte,
         tercero_nombre: tercero.trim(),
         tercero_tipo_id: tipoId === "" ? null : tipoId,
@@ -227,12 +240,22 @@ export function GastoForm({
       </Campo>
 
       <Campo id={`${p}-fecha`} label="Fecha del documento">
-        <Input id={`${p}-fecha`} type="date" max={todayInBogota()} value={fecha} onChange={(e) => setFecha(e.target.value)} className={FIELD} />
+        <Input
+          id={`${p}-fecha`}
+          type="date"
+          max={todayInBogota()}
+          value={fecha}
+          onChange={(e) => {
+            setFecha(e.target.value);
+            setPeriodo(periodoDeFecha(e.target.value, periodos));
+          }}
+          className={FIELD}
+        />
       </Campo>
 
       <Campo id={`${p}-periodo`} label="Periodo">
         <select id={`${p}-periodo`} value={periodo} onChange={(e) => setPeriodo(e.target.value)} className={SELECT}>
-          <option value="">Mes del documento</option>
+          <option value="">Elige el periodo</option>
           {periodos.map((mes) => (
             <option key={mes} value={mes}>
               {mes}

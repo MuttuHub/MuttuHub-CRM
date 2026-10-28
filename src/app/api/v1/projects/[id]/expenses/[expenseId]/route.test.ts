@@ -204,6 +204,40 @@ describe("PATCH expenses/:expenseId", () => {
     expect(updatedData()).toMatchObject({ subtotal_cop: new Prisma.Decimal("1000000"), monto_cop: new Prisma.Decimal("1000000") });
   });
 
+  it("audits a periodo change and marks the edited expense «periodo_modificado» (S5, S6)", async () => {
+    const res = await PATCH(patch({ periodo: "2026-12" }), ctx);
+    expect(res.status).toBe(200);
+    expect(updatedData().periodo).toBe("2026-12");
+    expect((await res.json()).gasto).toMatchObject({ periodo: "2026-12", periodo_modificado: true });
+    expect(vi.mocked(logChanges).mock.calls[0][1]).toEqual([
+      expect.objectContaining({ accion: "EDITAR", entidad: "gasto", campo: "periodo", valor_anterior: "2026-10", valor_nuevo: "2026-12" }),
+    ]);
+  });
+
+  it("resets the periodo to the new document month when the date changes without a periodo (S5)", async () => {
+    current = existente({ periodo: "2026-12" });
+    const res = await PATCH(patch({ fecha_documento: "2026-11-20" }), ctx);
+    expect(res.status).toBe(200);
+    expect(updatedData().periodo).toBe("2026-11");
+    expect((await res.json()).gasto.periodo_modificado).toBe(false);
+  });
+
+  it("asks to choose the periodo when the new date is outside the project months and none is sent (S5)", async () => {
+    const res = await PATCH(patch({ fecha_documento: "2027-03-10" }), ctx);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("La fecha del documento está fuera de los meses del proyecto: elige el periodo.");
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+    const elegido = await PATCH(patch({ fecha_documento: "2027-03-10", periodo: "2027-01" }), ctx);
+    expect(elegido.status).toBe(200);
+    expect(updatedData().periodo).toBe("2027-01");
+  });
+
+  it("keeps the stored periodo when other fields change", async () => {
+    current = existente({ periodo: "2026-12" });
+    await PATCH(patch({ descripcion: "Otra" }), ctx);
+    expect(updatedData().periodo).toBe("2026-12");
+  });
+
   it("never audits the third-party number in clear (RNF-04)", async () => {
     await PATCH(patch({ tercero_numero_id: "800.555.111-2" }), ctx);
     const audit = JSON.stringify(vi.mocked(logChanges).mock.calls);

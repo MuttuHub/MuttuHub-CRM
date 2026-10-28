@@ -245,8 +245,37 @@ describe("POST expenses: registration", () => {
     expect(mocks.create).not.toHaveBeenCalled();
   });
 
+  it("fills the periodo 2026-10 for a document of 28/10/2026 and exposes no mark (S6)", async () => {
+    const res = await POST(post({ ...valido, fecha_documento: "2026-10-28" }), ctx);
+    expect(res.status).toBe(201);
+    expect(createdData().periodo).toBe("2026-10");
+    expect((await res.json()).gasto).toMatchObject({ periodo: "2026-10", periodo_modificado: false });
+  });
+
+  it("stores a chosen project month and marks the expense «periodo_modificado» (S6)", async () => {
+    const res = await POST(post({ ...valido, fecha_documento: "2026-10-15", periodo: "2026-12" }), ctx);
+    expect(res.status).toBe(201);
+    expect(createdData().periodo).toBe("2026-12");
+    expect((await res.json()).gasto).toMatchObject({ periodo: "2026-12", periodo_modificado: true });
+  });
+
+  it("answers 400 asking to choose the periodo when the document month is outside the project and none is sent (S5)", async () => {
+    const res = await POST(post({ ...valido, fecha_documento: "2027-03-10" }), ctx);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("La fecha del documento está fuera de los meses del proyecto: elige el periodo.");
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("accepts a document outside the project when a project month is chosen", async () => {
+    const res = await POST(post({ ...valido, fecha_documento: "2027-03-10", periodo: "2027-01" }), ctx);
+    expect(res.status).toBe(201);
+    expect(createdData().periodo).toBe("2027-01");
+  });
+
   it("answers 400 for a periodo outside the project months", async () => {
-    expect((await POST(post({ ...valido, periodo: "2027-03" }), ctx)).status).toBe(400);
+    const explicito = await POST(post({ ...valido, periodo: "2027-03" }), ctx);
+    expect(explicito.status).toBe(400);
+    expect((await explicito.json()).error).toBe("El periodo debe corresponder a un mes del proyecto.");
     expect((await POST(post({ ...valido, fecha_documento: "2027-03-10" }), ctx)).status).toBe(400);
     expect(mocks.create).not.toHaveBeenCalled();
   });

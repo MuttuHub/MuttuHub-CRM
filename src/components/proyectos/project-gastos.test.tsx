@@ -59,6 +59,7 @@ const gasto = (id: string, over: Record<string, unknown> = {}) => ({
   iva: "0.00",
   estado: "REGISTRADO",
   alerta_sobregasto: false,
+  periodo_modificado: false,
   datos_incompletos: false,
   registrado_por_id: "otro",
   created_at: "2026-10-16T12:00:00.000Z",
@@ -255,6 +256,15 @@ describe("ProjectGastos", () => {
       expect(within(filas[0]).getByText("IVA $ 190.000")).toBeInTheDocument()
       expect(within(filas[0]).getByText("$ 1.190.000").closest("td")?.className).toContain("text-right")
       expect(within(filas[1]).getByText("IVA $ 0")).toBeInTheDocument()
+    })
+
+    it("marks «Periodo modificado» only on an expense whose period differs from its document month (S5, S6)", async () => {
+      setup({ gastos: [gasto("g1", { periodo: "2026-12", periodo_modificado: true }), gasto("g2")] })
+      const lista = await screen.findByTestId("gastos-lista")
+      const filas = await within(lista).findAllByTestId("gasto-fila")
+      const marca = within(filas[0]).getByText("Periodo modificado")
+      expect(marca).toHaveAttribute("title", "Periodo 2026-12")
+      expect(within(filas[1]).queryByText("Periodo modificado")).not.toBeInTheDocument()
     })
 
     it("shows the third-party number and the support control only when the API sent them", async () => {
