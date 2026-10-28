@@ -1,7 +1,8 @@
 /**
  * Reads the expenses workbook (one row per expense, B8) into rows that follow the SAME rules as the
- * single-expense form: `GASTO_FILA_SCHEMA` (required texts and limits), `evaluarValorGasto` (> 0, max
- * two decimals), a rubro with an assigned value and `evaluarPeriodo` (a month of the project). The
+ * single-expense form: `GASTO_FILA_SCHEMA` (required texts and limits), `evaluarMontosGasto` (Subtotal > 0,
+ * IVA >= 0 and may be 0, max two decimals; the Total is Subtotal + IVA, an optional «Total» column must
+ * agree with it), a rubro with an assigned value and `evaluarPeriodo` (a month of the project). The
  * file carries no support: those come separately (S2).
  *
  * Pure and Node-only (`exceljs`, same boundary as `../presupuesto-po/parse.ts`, whose cell and rubro
@@ -12,13 +13,14 @@
 import ExcelJS from "exceljs"
 import {
   GASTO_FILA_SCHEMA,
+  IVA_NEGATIVO_MESSAGE,
   RUBRO_SIN_ASIGNADO_MESSAGE,
   clavesNormalizadas,
   evaluarPeriodo,
-  evaluarValorGasto,
+  evaluarMontosGasto,
   type GastoProyecto,
 } from "@/lib/api/gastos"
-import { fromCents, type Cents } from "../money"
+import { formatCOP, fromCents, type Cents } from "../money"
 import {
   ARCHIVO_ILEGIBLE,
   indiceCatalogo,
@@ -40,9 +42,11 @@ const FILAS_BUSQUEDA_ENCABEZADO = 10
 const MAX_COLUMNAS = 20
 
 export const DUPLICADO_EN_ARCHIVO_MESSAGE = "Duplicado dentro del archivo"
+/** The pre-AJ-04 template had a single «Valor (COP)» column: it is never read as Subtotal with IVA 0. */
+export const PLANTILLA_ANTERIOR_MESSAGE = "Esta plantilla es anterior: descarga la nueva, que separa Subtotal e IVA."
 export const SIN_FILAS_GASTOS = "El archivo no tiene filas con datos: agrega al menos un gasto debajo de los encabezados."
 
-/** Headers of the template, in order (the first seven are required; the other three optional). */
+/** Headers of the template, in order. Required: Rubro, Fecha, Tipo de soporte, Tercero, Número de documento, Descripción, Subtotal and IVA. */
 export const ENCABEZADOS_GASTOS = [
   "Rubro",
   "Fecha del documento",
@@ -52,7 +56,9 @@ export const ENCABEZADOS_GASTOS = [
   "Número de identificación",
   "Número de documento",
   "Descripción",
-  "Valor (COP)",
+  "Subtotal",
+  "IVA",
+  "Total",
   "Periodo",
 ] as const
 
@@ -65,8 +71,12 @@ type Campo =
   | "numeroId"
   | "numeroDocumento"
   | "descripcion"
-  | "valor"
+  | "subtotal"
+  | "iva"
+  | "total"
   | "periodo"
+  /** Header only: the old single amount column, which makes the file an old template. */
+  | "valorAnterior"
 
 /** Accepted spellings of each header, normalized (`normalizarTexto`). */
 const ALIAS: Record<Campo, readonly string[]> = {
@@ -78,7 +88,10 @@ const ALIAS: Record<Campo, readonly string[]> = {
   numeroId: ["numero de identificacion", "numero identificacion", "identificacion"],
   numeroDocumento: ["numero de documento", "numero documento", "documento"],
   descripcion: ["descripcion"],
-  valor: ["valor cop", "valor", "monto"],
+  subtotal: ["subtotal", "sub total"],
+  iva: ["iva"],
+  total: ["total", "total cop"],
+  valorAnterior: ["valor cop", "valor", "monto"],
   periodo: ["periodo"],
 }
 
@@ -91,11 +104,17 @@ const ETIQUETA: Record<Campo, string> = {
   numeroId: "Número de identificación",
   numeroDocumento: "Número de documento",
   descripcion: "Descripción",
-  valor: "Valor (COP)",
+  subtotal: "Subtotal",
+  iva: "IVA",
+  total: "Total",
+  valorAnterior: "Valor (COP)",
   periodo: "Periodo",
 }
 
-const OBLIGATORIOS: readonly Campo[] = ["rubro", "fecha", "tipoSoporte", "tercero", "numeroDocumento", "descripcion", "valor"]
+const OBLIGATORIOS: readonly Campo[] = ["rubro", "fecha", "tipoSoporte", "tercero", "numeroDocumento", "descripcion", "subtotal", "iva"]
+
+/** The columns that carry row data (the old amount column is only a header marker). */
+const CAMPOS_DATOS = (Object.keys(ALIAS) as Campo[]).filter((campo) => campo !== "valorAnterior")
 
 const TIPOS_SOPORTE: Record<string, string> = {
   "factura de proveedor": "FACTURA_PROVEEDOR",
@@ -165,7 +184,13 @@ function resultadoArchivo(error: string): ResultadoGastosImport {
 
 type Encabezado = { hoja: ExcelJS.Worksheet; fila: number; columnas: Partial<Record<Campo, number>> }
 
-function buscarEncabezado(workbook: ExcelJS.Workbook): { encabezado: Encabezado | null; faltan: Campo[] } {
+function buscarEncabezado(workbook: ExcelJS.Workbook): {
+  encabezado: Encabezado | null
+  faltan: Campo[]
+  /** A header row has the old «Valor (COP)» column and no «Subtotal»: the pre-AJ-04 template. */
+  anterior: boolean
+} {
+  let anterior = false
   let mejor: Encabezado | null = null
   let mejorFaltan: Campo[] = [...OBLIGATORIOS]
   for (const hoja of workbook.worksheets) {
@@ -179,15 +204,16 @@ function buscarEncabezado(workbook: ExcelJS.Workbook): { encabezado: Encabezado 
         const campo = (Object.keys(ALIAS) as Campo[]).find((k) => !columnas[k] && ALIAS[k].includes(texto))
         if (campo) columnas[campo] = c
       }
+      if (columnas.valorAnterior && !columnas.subtotal) anterior = true
       const faltan = OBLIGATORIOS.filter((campo) => !columnas[campo])
-      if (faltan.length === 0) return { encabezado: { hoja, fila: r, columnas }, faltan: [] }
+      if (faltan.length === 0) return { encabezado: { hoja, fila: r, columnas }, faltan: [], anterior: false }
       if (faltan.length < mejorFaltan.length) {
         mejor = { hoja, fila: r, columnas }
         mejorFaltan = faltan
       }
     }
   }
-  return { encabezado: mejor && mejorFaltan.length === 0 ? mejor : null, faltan: mejorFaltan }
+  return { encabezado: mejor && mejorFaltan.length === 0 ? mejor : null, faltan: mejorFaltan, anterior }
 }
 
 const comillas = (campos: readonly Campo[]) => campos.map((c) => `«${ETIQUETA[c]}»`).join(", ")
@@ -221,7 +247,40 @@ function mapear(valor: ValorCelda, tabla: Record<string, string>): string | unde
   return tabla[normalizarTexto(texto)] ?? texto
 }
 
-type FilaCruda = { fila: number } & Record<Campo, ValorCelda>
+type FilaCruda = { fila: number } & Record<Exclude<Campo, "valorAnterior">, ValorCelda>
+
+const enColumna = (campo: Campo, mensaje: string) => `«${ETIQUETA[campo]}»: ${mensaje}`
+const IVA_VACIO_MESSAGE = "Ingresa el IVA (puede ser 0)."
+
+type MontosFila = { ok: true; subtotal: Cents; iva: Cents; total: Cents } | { ok: false; message: string }
+
+/**
+ * Subtotal and IVA through the same rules as the single expense (`evaluarMontosGasto`); the IVA must be
+ * written (an empty cell is an error, 0 is fine) and the optional «Total» must equal Subtotal + IVA.
+ * Every message names its column; the caller reports it with the Excel row.
+ */
+function leerMontos(cruda: FilaCruda): MontosFila {
+  const subtotal = parseMontoCelda(cruda.subtotal)
+  if (!subtotal.ok) return { ok: false, message: enColumna("subtotal", subtotal.message) }
+  if (vacio(cruda.iva)) return { ok: false, message: enColumna("iva", IVA_VACIO_MESSAGE) }
+  const iva = parseMontoCelda(cruda.iva)
+  if (!iva.ok) return { ok: false, message: enColumna("iva", iva.message.includes("negativo") ? IVA_NEGATIVO_MESSAGE : iva.message) }
+  const evaluados = evaluarMontosGasto(fromCents(subtotal.cents), fromCents(iva.cents))
+  if (!evaluados.ok) {
+    return { ok: false, message: enColumna(evaluados.campo === "Subtotal" ? "subtotal" : evaluados.campo === "IVA" ? "iva" : "total", evaluados.message) }
+  }
+  if (!vacio(cruda.total)) {
+    const total = parseMontoCelda(cruda.total)
+    if (!total.ok) return { ok: false, message: enColumna("total", total.message) }
+    if (total.cents !== evaluados.total) {
+      return {
+        ok: false,
+        message: enColumna("total", `no coincide con Subtotal + IVA (${formatCOP(evaluados.total)}). Corrígelo o deja la columna vacía.`),
+      }
+    }
+  }
+  return evaluados
+}
 
 function validarFila(
   cruda: FilaCruda,
@@ -236,8 +295,7 @@ function validarFila(
   if (!rubro) return falla(`No encontramos el rubro «${rubroTexto}» en el catálogo.`)
   if (!contexto.rubrosConAsignado.has(rubro.id)) return falla(RUBRO_SIN_ASIGNADO_MESSAGE, rubro.id)
 
-  const monto = parseMontoCelda(cruda.valor)
-  const valor = monto.ok ? evaluarValorGasto(fromCents(monto.cents)) : monto
+  const montos = leerMontos(cruda)
 
   const tipoIdTexto = mapear(cruda.tipoId, TIPOS_ID)
   const candidato = {
@@ -250,13 +308,12 @@ function validarFila(
     tercero_numero_id: textoDe(cruda.numeroId) ?? null,
     numero_documento: textoDe(cruda.numeroDocumento),
     descripcion: textoDe(cruda.descripcion),
-    // Interim until the template carries Subtotal and IVA columns (T3): the old single amount is the Subtotal.
-    subtotal: valor.ok ? fromCents(valor.cents) : "0",
-    iva: "0",
+    subtotal: montos.ok ? fromCents(montos.subtotal) : "0",
+    iva: montos.ok ? fromCents(montos.iva) : "0",
   }
   const parsed = GASTO_FILA_SCHEMA.safeParse(candidato)
   if (!parsed.success) return falla(parsed.error.issues[0]?.message ?? "Datos no válidos.", rubro.id)
-  if (!valor.ok) return falla(valor.message, rubro.id)
+  if (!montos.ok) return falla(montos.message, rubro.id)
   const data = parsed.data
 
   const periodo = evaluarPeriodo(contexto.proyecto, data.fecha_documento, data.periodo)
@@ -277,9 +334,9 @@ function validarFila(
       ...tercero,
       numero_documento: data.numero_documento,
       descripcion: data.descripcion,
-      subtotal: valor.cents,
-      iva: BigInt(0),
-      cents: valor.cents,
+      subtotal: montos.subtotal,
+      iva: montos.iva,
+      cents: montos.total,
     },
   }
 }
@@ -295,8 +352,9 @@ export async function parseGastosImport(
     return resultadoArchivo(ARCHIVO_ILEGIBLE)
   }
 
-  const { encabezado, faltan } = buscarEncabezado(workbook)
+  const { encabezado, faltan, anterior } = buscarEncabezado(workbook)
   if (!encabezado) {
+    if (anterior) return resultadoArchivo(PLANTILLA_ANTERIOR_MESSAGE)
     return resultadoArchivo(`Faltan las columnas obligatorias ${comillas(faltan)}. Usa la plantilla de gastos.`)
   }
 
@@ -309,8 +367,8 @@ export async function parseGastosImport(
   const crudas: FilaCruda[] = []
   for (let r = encabezado.fila + 1; r <= hoja.rowCount; r++) {
     const cruda = { fila: r } as FilaCruda
-    for (const campo of Object.keys(ALIAS) as Campo[]) cruda[campo] = celda(r, campo)
-    if ((Object.keys(ALIAS) as Campo[]).every((campo) => vacio(cruda[campo]))) continue
+    for (const campo of CAMPOS_DATOS) cruda[campo] = celda(r, campo)
+    if (CAMPOS_DATOS.every((campo) => vacio(cruda[campo]))) continue
     if (crudas.length === MAX_FILAS_GASTOS) {
       return resultadoArchivo(`El archivo tiene más de ${MAX_FILAS_GASTOS} filas con datos: divídelo en varios archivos.`)
     }

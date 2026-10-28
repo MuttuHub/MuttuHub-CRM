@@ -4,9 +4,10 @@
 import { describe, expect, it } from "vitest"
 import ExcelJS from "exceljs"
 import {
+  IVA_NEGATIVO_MESSAGE,
   PERIODO_FUERA_MESSAGE,
   RUBRO_SIN_ASIGNADO_MESSAGE,
-  VALOR_POSITIVO_MESSAGE,
+  SUBTOTAL_POSITIVO_MESSAGE,
 } from "@/lib/api/gastos"
 import { toCents } from "../money"
 import type { RubroCatalogo } from "../presupuesto-po/parse"
@@ -15,6 +16,7 @@ import {
   DUPLICADO_EN_ARCHIVO_MESSAGE,
   ENCABEZADOS_GASTOS,
   MAX_FILAS_GASTOS,
+  PLANTILLA_ANTERIOR_MESSAGE,
   SIN_FILAS_GASTOS,
   parseGastosImport,
   type ContextoImportGastos,
@@ -43,7 +45,9 @@ const ENCABEZADO = [
   "Número de identificación",
   "Número de documento",
   "Descripción",
-  "Valor (COP)",
+  "Subtotal",
+  "IVA",
+  "Total",
   "Periodo",
 ]
 
@@ -57,7 +61,9 @@ const fila = (data: Partial<Record<(typeof ENCABEZADO)[number], Celda>> = {}): C
     "Número de identificación": "900.123.456-7",
     "Número de documento": "FE-0123",
     Descripción: "Tiquetes del equipo",
-    "Valor (COP)": 1500000.5,
+    Subtotal: 1500000.5,
+    IVA: 0,
+    Total: null,
     Periodo: null,
     ...data,
   }
@@ -105,7 +111,7 @@ describe("parseGastosImport — file", () => {
   })
 
   it("rejects a file without the required headers and names the missing ones", async () => {
-    const r = await parseGastosImport(await libro([["x", 1]], ["Rubro", "Valor (COP)"]), contexto)
+    const r = await parseGastosImport(await libro([["x", 1]], ["Rubro", "Subtotal"]), contexto)
     expect(r.filas).toEqual([])
     expect(r.erroresArchivo).toHaveLength(1)
     expect(r.erroresArchivo[0]).toContain("Fecha del documento")
@@ -128,9 +134,9 @@ describe("parseGastosImport — file", () => {
   })
 
   it("accepts the optional columns missing and the columns in any order", async () => {
-    const encabezado = ["Valor (COP)", "Descripción", "Número de documento", "Tercero", "Tipo de soporte", "Fecha del documento", "Rubro"]
+    const encabezado = ["IVA", "Subtotal", "Descripción", "Número de documento", "Tercero", "Tipo de soporte", "Fecha del documento", "Rubro"]
     const r = await parseGastosImport(
-      await libro([[1000, "Taxi", "D-1", "Pedro", "Otro", "2026-11-02", "R12"]], encabezado),
+      await libro([[190, 1000, "Taxi", "D-1", "Pedro", "Otro", "2026-11-02", "R12"]], encabezado),
       contexto,
     )
     expect(r.filas[0].error).toBeNull()
@@ -140,6 +146,9 @@ describe("parseGastosImport — file", () => {
       tercero_tipo_id: null,
       tercero_numero_id: null,
       periodo: "2026-11",
+      subtotal: toCents("1000"),
+      iva: toCents("190"),
+      cents: toCents("1190"),
     })
   })
 
@@ -171,7 +180,7 @@ describe("parseGastosImport — rows (same rules as a single expense)", () => {
   })
 
   it("accepts es-CO text amounts and Date cells", async () => {
-    const f = await unaFila({ "Valor (COP)": "1.500.000,50", "Fecha del documento": new Date("2026-10-20T00:00:00Z") })
+    const f = await unaFila({ Subtotal: "1.500.000,50", "Fecha del documento": new Date("2026-10-20T00:00:00Z") })
     expect(f.error).toBeNull()
     expect(f.datos?.cents).toBe(toCents("1500000.50"))
     expect(f.datos?.fecha_documento).toBe("2026-10-20")
@@ -182,11 +191,76 @@ describe("parseGastosImport — rows (same rules as a single expense)", () => {
     expect(f.datos?.fecha_documento).toBe("2026-11-05")
   })
 
-  it("rejects a zero, negative or three-decimal amount", async () => {
-    expect((await unaFila({ "Valor (COP)": 0 })).error).toBe(VALOR_POSITIVO_MESSAGE)
-    expect((await unaFila({ "Valor (COP)": null })).error).toBe(VALOR_POSITIVO_MESSAGE)
-    expect((await unaFila({ "Valor (COP)": -5 })).error).toBe("El valor no puede ser negativo.")
-    expect((await unaFila({ "Valor (COP)": 10.123 })).error).toContain("no es un monto válido")
+  it("rejects a zero, empty, negative or three-decimal Subtotal naming the column", async () => {
+    expect((await unaFila({ Subtotal: 0 })).error).toBe(`«Subtotal»: ${SUBTOTAL_POSITIVO_MESSAGE}`)
+    expect((await unaFila({ Subtotal: null })).error).toBe(`«Subtotal»: ${SUBTOTAL_POSITIVO_MESSAGE}`)
+    expect((await unaFila({ Subtotal: -5 })).error).toBe("«Subtotal»: El valor no puede ser negativo.")
+    expect((await unaFila({ Subtotal: 10.123 })).error).toContain("«Subtotal»: El valor no es un monto válido")
+  })
+
+  // AJ-04 (S1, S2): Subtotal + IVA = Total, the Total is computed.
+  it("reads Subtotal 1.000.000 + IVA 190.000 as a Total of 1.190.000", async () => {
+    const f = await unaFila({ Subtotal: 1000000, IVA: 190000 })
+    expect(f.error).toBeNull()
+    expect(f.datos).toMatchObject({
+      subtotal: toCents("1000000"),
+      iva: toCents("190000"),
+      cents: toCents("1190000"),
+    })
+  })
+
+  it("accepts an IVA of 0 and es-CO text amounts in IVA", async () => {
+    expect((await unaFila({ Subtotal: 250000, IVA: 0 })).datos).toMatchObject({ iva: BigInt(0), cents: toCents("250000") })
+    expect((await unaFila({ Subtotal: 1000, IVA: "190,50" })).datos).toMatchObject({ cents: toCents("1190.50") })
+  })
+
+  it("requires the IVA to be written (0 is fine, an empty cell is not) and rejects a negative or malformed one", async () => {
+    expect((await unaFila({ IVA: null })).error).toBe("«IVA»: Ingresa el IVA (puede ser 0).")
+    expect((await unaFila({ IVA: -1 })).error).toBe(`«IVA»: ${IVA_NEGATIVO_MESSAGE}`)
+    expect((await unaFila({ IVA: "abc" })).error).toContain("«IVA»: El valor no es un monto válido")
+    expect((await unaFila({ IVA: 1.234 })).error).toContain("«IVA»: El valor no es un monto válido")
+  })
+
+  it("accepts an optional Total equal to Subtotal + IVA", async () => {
+    const f = await unaFila({ Subtotal: 1000000, IVA: 190000, Total: 1190000 })
+    expect(f.error).toBeNull()
+    expect(f.datos?.cents).toBe(toCents("1190000"))
+    expect((await unaFila({ Subtotal: 1000, IVA: 190, Total: "1.190" })).error).toBeNull()
+  })
+
+  it("rejects Subtotal 500.000, IVA 95.000 and Total 600.000 naming the Total column (S2)", async () => {
+    const r = await parseGastosImport(await libro([fila(), fila({ "Número de documento": "FE-2", Subtotal: 500000, IVA: 95000, Total: 600000 })]), contexto)
+    expect(r.filas[0].error).toBeNull()
+    expect(r.filas[1]).toMatchObject({ fila: 3, datos: null })
+    expect(r.filas[1].error).toBe("«Total»: no coincide con Subtotal + IVA ($ 595.000). Corrígelo o deja la columna vacía.")
+    expect(r.resumen).toEqual({ validas: 1, errores: 1 })
+  })
+
+  it("rejects a malformed Total naming the Total column", async () => {
+    expect((await unaFila({ Total: "abc" })).error).toContain("«Total»: El valor no es un monto válido")
+  })
+
+  it("rejects a file with the old «Valor (COP)» column and no Subtotal, whatever its other headers (S4)", async () => {
+    const antiguo = ["Rubro", "Fecha del documento", "Tipo de soporte", "Tercero", "Número de documento", "Descripción", "Valor (COP)"]
+    const fila1 = ["Transporte", "2026-10-15", "Otro", "Proveedor SAS", "FE-1", "Tiquetes", 1190000]
+    const r = await parseGastosImport(await libro([fila1], antiguo), contexto)
+    expect(r.filas).toEqual([])
+    expect(r.erroresArchivo).toEqual(["Esta plantilla es anterior: descarga la nueva, que separa Subtotal e IVA."])
+    expect(PLANTILLA_ANTERIOR_MESSAGE).toBe(r.erroresArchivo[0])
+    for (const alias of ["Valor", "Monto"]) {
+      const otra = await parseGastosImport(await libro([fila1], antiguo.map((h) => (h === "Valor (COP)" ? alias : h))), contexto)
+      expect(otra.erroresArchivo).toEqual([PLANTILLA_ANTERIOR_MESSAGE])
+    }
+    const soloValor = await parseGastosImport(await libro([["x", 1]], ["Rubro", "Valor (COP)"]), contexto)
+    expect(soloValor.erroresArchivo).toEqual([PLANTILLA_ANTERIOR_MESSAGE])
+  })
+
+  it("never reads the old amount as a Subtotal with IVA 0", async () => {
+    const antiguo = [...ENCABEZADO.filter((h) => !["Subtotal", "IVA", "Total"].includes(h)), "Valor (COP)"]
+    const fila2 = antiguo.map((h) => ({ Rubro: "Transporte", "Fecha del documento": "2026-10-15", "Tipo de soporte": "Otro", Tercero: "P", "Número de documento": "D", Descripción: "d", "Valor (COP)": 100 })[h as string] ?? null)
+    const r = await parseGastosImport(await libro([fila2 as Celda[]], antiguo), contexto)
+    expect(r.filas).toEqual([])
+    expect(r.erroresArchivo).toEqual([PLANTILLA_ANTERIOR_MESSAGE])
   })
 
   it("rejects an invalid date and a missing one", async () => {
@@ -271,8 +345,8 @@ describe("parseGastosImport — duplicates inside the file", () => {
   })
 
   it("does not take an invalid row as the first occurrence", async () => {
-    const r = await parseGastosImport(await libro([fila({ "Valor (COP)": 0 }), fila()]), contexto)
-    expect(r.filas[0].error).toBe(VALOR_POSITIVO_MESSAGE)
+    const r = await parseGastosImport(await libro([fila({ Subtotal: 0 }), fila()]), contexto)
+    expect(r.filas[0].error).toBe(`«Subtotal»: ${SUBTOTAL_POSITIVO_MESSAGE}`)
     expect(r.filas[1].error).toBeNull()
   })
 })

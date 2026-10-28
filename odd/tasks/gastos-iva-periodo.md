@@ -36,7 +36,7 @@ commits (module exception, as B7/B8; forecast ~900 authored lines). Test runner:
 |---|---|---|---|---|
 | T1 | S3 (migration, Prisma schema, invariant test) | delegated (context backstop) | done (migration and invariant tests not run: no DB; `prisma generate` ok) | see git log |
 | T2 | S1, S2 (Subtotal/IVA/Total end to end: API create/edit/view, hook types, form, table/detail) | delegated (context backstop) | done | see git log |
-| T3 | S1, S2, S4 (import template and parser: Subtotal, IVA, optional Total check, old template rejected) | delegated (context backstop) | pending | |
+| T3 | S1, S2, S4 (import template and parser: Subtotal, IVA, optional Total check, old template rejected) | delegated (context backstop) | done | see git log |
 | T4 | S5, S6 (period from the document date: API rule, form autofill, import, «Periodo modificado») | delegated (context backstop) | pending | |
 | T5 | S7 | delegated (context backstop) | pending | |
 
@@ -70,3 +70,8 @@ sequence. Risk: item 1 for T1 (migration on money data) and item 3 for T2 (the e
   `evaluarMontosGasto`. View keeps `valor` (Total) and adds `subtotal`, `iva`; audit records `subtotal`, `iva`, `valor`.
   Form: Subtotal, IVA (starts at 0, must be typed: empty is an error, assumption) and a read-only Total; table/card show
   `IVA $ x` under the Total. The import keeps its single amount column as an interim Subtotal with IVA 0 until T3.
+- **L6 (T3):** Import template columns are now Subtotal, IVA, Total (optional), Periodo. **Assumption:** an empty IVA cell
+  is a row error («IVA»: Ingresa el IVA (puede ser 0).), 0 must be written; the S1 «El IVA puede ser 0» is honoured by
+  accepting a written 0, and the same rule applies in the form (IVA starts at 0, cleared is an error). Row errors name the
+  column («Subtotal», «IVA», «Total») and the dialog prefixes the Excel row. A header row with «Valor (COP)» (or «Valor»,
+  «Monto») and no «Subtotal» yields the single file error `PLANTILLA_ANTERIOR_MESSAGE`, before any missing-columns message.

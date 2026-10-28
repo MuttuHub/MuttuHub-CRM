@@ -9,7 +9,7 @@ import { ENCABEZADOS_GASTOS, MAX_FILAS_GASTOS } from "./parse"
 export const HOJA_PLANTILLA_GASTOS = "Gastos"
 export const HOJA_RUBROS_GASTOS = "Rubros"
 
-const ANCHOS = [28, 20, 32, 28, 22, 24, 22, 40, 18, 12]
+const ANCHOS = [28, 20, 32, 28, 22, 24, 22, 40, 18, 16, 18, 12]
 const TIPOS_SOPORTE = '"Factura de proveedor,Cuenta de cobro persona natural,Otro"'
 const TIPOS_ID = '"NIT,CC,CE"'
 
@@ -19,7 +19,8 @@ export async function generarPlantillaGastos(rubros: readonly string[]): Promise
   hoja.columns = ENCABEZADOS_GASTOS.map((header, i) => ({ header, key: String(i), width: ANCHOS[i] }))
   hoja.getRow(1).font = { bold: true }
   hoja.getColumn(2).numFmt = "yyyy-mm-dd"
-  hoja.getColumn(9).numFmt = "#,##0.00"
+  // Subtotal, IVA and the optional Total.
+  for (const columna of [9, 10, 11]) hoja.getColumn(columna).numFmt = "#,##0.00"
 
   const lista = workbook.addWorksheet(HOJA_RUBROS_GASTOS)
   lista.columns = [{ header: "Rubro", key: "rubro", width: 40 }]

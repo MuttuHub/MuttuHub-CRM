@@ -77,7 +77,9 @@ const fila = (data: Partial<Record<(typeof ENCABEZADOS_GASTOS)[number], Celda>> 
     "Número de identificación": "900.123.456-7",
     "Número de documento": "FE-0123",
     Descripción: "Tiquetes del equipo",
-    "Valor (COP)": 1500000.5,
+    Subtotal: 1500000.5,
+    IVA: 0,
+    Total: null,
     Periodo: null,
     ...data,
   };
@@ -191,13 +193,28 @@ describe("POST expenses/import — gate and file guards", () => {
 describe("POST expenses/import — file-level errors reject the whole file (S5)", () => {
   it("400 with the report when the headers are missing", async () => {
     const workbook = new ExcelJS.Workbook();
-    workbook.addWorksheet("Hoja1").addRow(["Rubro", "Valor (COP)"]);
+    workbook.addWorksheet("Hoja1").addRow(["Rubro", "Subtotal"]);
     const res = await POST(subida(Buffer.from(await workbook.xlsx.writeBuffer())), ctx);
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.code).toBe("VALIDATION_ERROR");
     expect(body.reporte.errores).toEqual([{ fila: null, rubro: null, mensaje: expect.stringContaining("Fecha del documento") }]);
     expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+
+  it("400 with the single old-template message when the file only has «Valor (COP)» (S4)", async () => {
+    const workbook = new ExcelJS.Workbook();
+    const hoja = workbook.addWorksheet("Gastos");
+    hoja.addRow(["Rubro", "Fecha del documento", "Tipo de soporte", "Tercero", "Número de documento", "Descripción", "Valor (COP)"]);
+    hoja.addRow(["Transporte", "2026-10-15", "Otro", "Proveedor SAS", "FE-1", "Tiquetes", 1190000]);
+    const res = await POST(subida(Buffer.from(await workbook.xlsx.writeBuffer())), ctx);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.reporte.errores).toEqual([
+      { fila: null, rubro: null, mensaje: "Esta plantilla es anterior: descarga la nueva, que separa Subtotal e IVA." },
+    ]);
+    expect(mocks.transaction).not.toHaveBeenCalled();
+    expect(mocks.create).not.toHaveBeenCalled();
   });
 
   it("400 when the file has no rows, and when it has more than the cap", async () => {
@@ -215,8 +232,8 @@ describe("POST expenses/import — validate-only preview", () => {
     const libroMixto = await libro([
       fila(),
       fila({ Rubro: "Sin asignar", "Número de documento": "FE-2" }),
-      fila({ "Valor (COP)": 0, "Número de documento": "FE-3" }),
-      fila({ Rubro: "Viáticos", "Número de documento": "FE-4", "Valor (COP)": 200000 }),
+      fila({ Subtotal: 0, "Número de documento": "FE-3" }),
+      fila({ Rubro: "Viáticos", "Número de documento": "FE-4", Subtotal: 200000 }),
     ]);
     const res = await POST(subida(libroMixto, { modo: "validar" }), ctx);
     expect(res.status).toBe(200);
@@ -226,7 +243,7 @@ describe("POST expenses/import — validate-only preview", () => {
     expect(body.filas.map((f: { fila: number; valida: boolean; mensaje: string | null }) => [f.fila, f.valida, f.mensaje])).toEqual([
       [2, true, null],
       [3, false, RUBRO_SIN_ASIGNADO_MESSAGE],
-      [4, false, "El valor debe ser mayor que cero."],
+      [4, false, "«Subtotal»: El subtotal debe ser mayor que cero."],
       [5, true, null],
     ]);
     expect(body.filas[0]).toMatchObject({
@@ -302,6 +319,33 @@ describe("POST expenses/import — apply", () => {
     expect(mocks.create.mock.calls[0][0].data.estado).toBeUndefined();
   });
 
+  it("stores Subtotal 1.000.000 + IVA 190.000 as a Total of 1.190.000 and audits the three amounts (S2)", async () => {
+    const res = await POST(subida(await libro([fila({ Subtotal: 1000000, IVA: 190000 })])), ctx);
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.valor_total).toBe("1190000.00");
+    const data = mocks.create.mock.calls[0][0].data;
+    expect([String(data.subtotal_cop), String(data.iva_cop), String(data.monto_cop)]).toEqual(["1000000", "190000", "1190000"]);
+    expect(vi.mocked(logChanges).mock.calls[0][1][0].valor_nuevo).toMatchObject({
+      subtotal: "1000000.00",
+      iva: "190000.00",
+      valor: "1190000.00",
+    });
+  });
+
+  it("rejects the row Subtotal 500.000, IVA 95.000, Total 600.000 with its row and column, and keeps the valid ones (S2)", async () => {
+    const res = await POST(
+      subida(await libro([fila(), fila({ "Número de documento": "FE-2", Subtotal: 500000, IVA: 95000, Total: 600000 })])),
+      ctx,
+    );
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.creados).toBe(1);
+    expect(body.rechazadas).toEqual([
+      { fila: 3, rubro: "Transporte", mensaje: "«Total»: no coincide con Subtotal + IVA ($ 595.000). Corrígelo o deja la columna vacía." },
+    ]);
+  });
+
   it("logs one CREAR/gasto row per expense, all in ONE shared batch id that the response returns", async () => {
     const body = await (await POST(subida(await libro([fila(), fila({ "Número de documento": "FE-2" })])), ctx)).json();
     expect(logChanges).toHaveBeenCalledTimes(1);
@@ -338,7 +382,7 @@ describe("POST expenses/import — apply", () => {
   });
 
   it("answers 400 with the row report and writes nothing when no row is valid", async () => {
-    const res = await POST(subida(await libro([fila({ Rubro: "Inventado" }), fila({ "Valor (COP)": 0, "Número de documento": "FE-2" })])), ctx);
+    const res = await POST(subida(await libro([fila({ Rubro: "Inventado" }), fila({ Subtotal: 0, "Número de documento": "FE-2" })])), ctx);
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.code).toBe("VALIDATION_ERROR");
