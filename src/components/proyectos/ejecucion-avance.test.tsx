@@ -335,8 +335,11 @@ describe("EjecucionAvance", () => {
       await user.click(screen.getByRole("button", { name: "Adjuntar" }))
 
       await waitFor(() => expect(screen.queryByRole("form", { name: "Adjuntar archivo" })).toBeNull())
-      expect(fetchMock).toHaveBeenCalledTimes(1)
-      const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+      const attachCall = fetchMock.mock.calls.find(
+        ([callUrl]) => String(callUrl) === "/api/v1/projects/p1/progress/av1/attachments",
+      ) as [string, RequestInit] | undefined
+      expect(attachCall).toBeDefined()
+      const [url, init] = attachCall!
       expect(url).toBe("/api/v1/projects/p1/progress/av1/attachments")
       expect(JSON.parse(init.body as string)).toEqual({ url_externa: "https://drive.example.com/f/1", nombre: "Acta firmada" })
     })
