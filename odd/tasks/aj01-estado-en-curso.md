@@ -112,7 +112,7 @@ feature's new table and get their own documents/branches/PRs afterward, per that
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
 | T1 | S7 (migration: `ReporteActividad` table, `reporte_actividad_id` on `SoporteProyecto`, CHECK update, Prisma schema, fixtures/seed callers outside this surface) | delegated (context backstop) | pending | |
-| T2 | S6 (new `tope_en_curso` setting: `semaforo-v2.ts`, `settings.ts`, `umbrales-section.tsx`) | delegated (parallel, disjoint surface) | pending | |
+| T2 | S6 (new `tope_en_curso` setting: `semaforo-v2.ts`, `settings.ts`, `umbrales-section.tsx`) | delegated (parallel, disjoint surface) | done | `b7fb3aa` |
 | T3 | S8, S9.1-S9.4 (domain logic: `avance.ts`'s `estadoActividad`/`avanceActividad`/`calcularTecnico` — new per-activity inputs/outputs, `entregables_completos` flag, submission validation helpers) | delegated (context backstop) | pending | |
 | T4 | S9.5, S10, S11 (API routes: list/create/edit/void a report, the 3 attachment routes, responsable-only gate, wired to T1/T3) | delegated (context backstop) | pending | |
 | T5 | S2, S3 (UI: `ejecucion-avance.tsx` activity-level "Registrar avance" action, history, badge/progress wired to T3/T4; new hooks in `hooks/projects.ts`) | delegated (context backstop) | pending | |
@@ -137,3 +137,10 @@ activities must be a byte-for-byte no-op (S5.2) — pin with a regression test, 
   `AdjuntarArchivoControl` (AJ-06) are the UI templates to adapt, not reuse directly (this is activity-scoped, not
   deliverable-scoped, and `observación` must be mandatory here vs. optional there). `pesoEfectivo`/`resolvePeso`
   (AJ-02) and `cumplimientoCronograma`/color/curva (AJ-03) are confirmed out of this document's scope per S12.
+- **L3 (T2):** "tope_en_curso" added end to end (PARAMETRO_KEYS, ParametrosV2, PARAMETROS_V2_DEFAULT = 90,
+  NUMERIC_KEYS, umbrales-section.tsx's META, OpenAPI). No new cross-field check needed - the existing generic
+  0-100 range validation already covers it. One file outside T2's declared surface needed a one-line fix:
+  src/app/api/v1/settings/semaforo-v2/route.ts's hardcoded .strict() PATCH schema would have 400'd any save of
+  this field and failed tsc otherwise - added "tope_en_curso: patchItem(porcentaje)", identical to its 4 siblings.
+  RED-then-GREEN observed (6 failing before, all green after). Parent spot check: 4 files / 67 tests green. Risk:
+  none (additive setting, no migration, no existing-key behavior change).
