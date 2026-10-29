@@ -43,7 +43,7 @@ recomendado en `docs/plan-trabajo-restante.md:69` (AJ-06 antes que AJ-01).
 |---|---|---|---|---|
 | T1 | S1, S6, S7 (extract a generic `AdjuntarSoporte` attach-after-creation control, reusable by gasto/avance/medición; filename+remove affordance) | delegated (context backstop) | done | `fe08e8b` |
 | T2 | S2, S3 (wire the generic control into the avance/entregable card; show every medio in the history, not just a count) | delegated (context backstop) | done | `71fa225` |
-| T3 | S2, S3 (new `mediciones/[medicionId]/attachments` API routes — GET/POST/sign/download, mirroring `progress/[progressId]/attachments`; wire the generic control into `ejecucion-indicadores.tsx`) | delegated (context backstop) | pending | |
+| T3 | S2, S3 (new attachments API routes — GET/POST/sign/download, mirroring `progress/[progressId]/attachments`; wire the generic control into `ejecucion-indicadores.tsx`) | delegated (context backstop) | done | `cd3a47e` |
 | T4 | S6, S7 (rename gasto's button to "Adjuntar archivo", add the filename+remove row to `gasto-form.tsx`'s own file input) | delegated (parallel, disjoint surface) | done | `69afba1` |
 | T5 | S2, S3 (import template: "Enlace del soporte" column, parse `;`-separated links validating `http(s)://`, create one `SoporteProyecto` per link on the created gasto) | delegated (parallel, disjoint surface) | done | `45fb30c` |
 | T6 | Docs (OpenAPI for the new medición-attachments paths and the import column; user guide; test guide; flip AJ-06 to Hecho in `docs/plan-trabajo-restante.md`) | delegated (context backstop) | pending | |
@@ -108,3 +108,13 @@ verifier.
   instead of a "· N medios" count. No cap exists for avance soportes server-side (confirmed in `soportes.ts`), so none
   was added client-side. Full repo suite: 4560/4562 green; the 2 failures are pre-existing live-DB invariant tests
   unrelated to this change. Risk: none (additive API field, no migration/auth/concurrency change).
+- **L7 (T3):** the task brief guessed the URL segment "mediciones/[medicionId]"; the real, already-established
+  convention is "measurements/[measurementId]" under "indicators/[indicatorId]", confirmed by grepping the existing
+  void route before creating new ones. Three new routes (attachments GET/POST, sign, download), mirroring the avance
+  ones with no migration ("medicion_id" already on SoporteProyecto); gateEjecucionRead/Write, validarSoporte,
+  toMedioView, signarSubidaSoporte were already parent-agnostic and needed zero changes. A medición has no
+  semáforo/"cuenta" concept, so its POST response omits that field. The mediciones-list route gained an additive
+  "soportes" field via a spread in the route handler, without touching the shared toMedicionView.
+  ejecucion-indicadores.tsx wires T1's control per medición (gated canWrite && !anulada). Full repo suite: 4590/4592
+  green (same 2 pre-existing, unrelated live-DB invariant failures as T2). Risk: none (additive endpoints/field, no
+  migration, reused gating).
