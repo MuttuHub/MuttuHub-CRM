@@ -16,12 +16,17 @@ import type { TaskItem } from "@/hooks/crm"
 import type { TaskDetail } from "@/hooks/kanban"
 import { TaskDialog } from "./task-dialog"
 
-const { taskQuery, subtareasQuery, comentariosQuery, adjuntosQuery } = vi.hoisted(
+const { taskQuery, subtareasQuery, comentariosQuery, adjuntosQuery, taskTagsQuery } = vi.hoisted(
   () => ({
     taskQuery: { data: null as TaskDetail | null, isLoading: false, error: null as unknown },
     subtareasQuery: { data: [] as { id: string; titulo: string; completada: boolean; tarea_id: string }[], isLoading: false, isError: false },
     comentariosQuery: { data: [] as { id: string; autor_id: string; autor_nombre: string; texto: string; created_at: string }[], isLoading: false, isError: false },
     adjuntosQuery: { data: [] as { id: string; nombre: string; tamano_bytes: number | null; created_at: string }[], isLoading: false, isError: false },
+    // Jefe 2026-10-28 lane 1 task 1.1 (S1): live task-tags catalog consumed
+    // by the dialog's Etiquetas chips. `null` = hook still loading → the
+    // dialog falls back to the factory TASK_TAGS (old describes keep the
+    // pre-1.1 rendering).
+    taskTagsQuery: { data: null as string[] | null, isLoading: false, error: null as unknown },
   }),
 )
 
@@ -44,6 +49,14 @@ vi.mock("@/hooks/kanban", async (importOriginal) => {
     useCreateTask: () => noopMutation,
     useDeleteTask: () => noopMutation,
     useMoveTask: () => noopMutation,
+  }
+})
+
+vi.mock("@/hooks/admin", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/hooks/admin")>()
+  return {
+    ...actual,
+    useTaskTags: () => taskTagsQuery,
   }
 })
 
@@ -244,5 +257,61 @@ describe("TaskDialog — Adjuntos drag & drop", () => {
     fireEvent.drop(getDropzone(), { dataTransfer: { files: [file] } })
 
     expect(noopMutation.mutateAsync).not.toHaveBeenCalled()
+  })
+})
+
+describe("TaskDialog — live task-tags catalog (jefe 1.1 / S1)", () => {
+  beforeEach(() => {
+    taskQuery.data = makeTask({ puede_editar: true })
+    taskQuery.isLoading = false
+    taskQuery.error = null
+    subtareasQuery.data = []
+    comentariosQuery.data = []
+    adjuntosQuery.data = []
+    taskTagsQuery.data = null
+  })
+
+  it("offers a tag created in admin that is not in the factory TASK_TAGS", () => {
+    // The boss's report: tags created in the admin panel appeared in the
+    // tag list but never in the task form. The form must render the LIVE
+    // catalog, not the TASK_TAGS constant.
+    taskTagsQuery.data = ["Comercial", "Alianza regional"]
+    renderDialog("t1")
+
+    expect(screen.getByRole("button", { name: "Alianza regional" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Comercial" })).toBeInTheDocument()
+  })
+
+  it("keeps a stored tag that is no longer in the catalog when editing (S1)", () => {
+    // S1: a task keeps any tag it already has even if it is no longer in
+    // the catalog — the stored tag must stay visible (and toggleable) so
+    // saving does not silently drop it.
+    // The dialog carries task.etiquetas into the form only through the
+    // formKey sync ("nueva:…" → "t1:…"), and the mocked useTask never
+    // re-renders by itself — so mount in new-task mode and rerender
+    // pointing at t1, which is what clicking a card does in production.
+    taskTagsQuery.data = ["Comercial"]
+    taskQuery.data = makeTask({ etiquetas: ["Etiqueta retirada"] })
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const dialog = (id: string | null) => (
+      <QueryClientProvider client={qc}>
+        <TaskDialog taskId={id} onClose={() => undefined} users={USERS} clients={CLIENTS} />
+      </QueryClientProvider>
+    )
+    const view = render(dialog(null))
+    view.rerender(dialog("t1"))
+
+    const staleChip = screen.getByRole("button", { name: "Etiqueta retirada" })
+    expect(staleChip).toHaveAttribute("aria-pressed", "true")
+    expect(screen.getByRole("button", { name: "Comercial" })).toBeInTheDocument()
+  })
+
+  it("falls back to the factory TASK_TAGS while the catalog loads", () => {
+    taskTagsQuery.data = null
+    renderDialog("t1")
+
+    // TASK_TAGS constants (src/lib/catalogs.ts) — pre-1.1 behavior.
+    expect(screen.getByRole("button", { name: "Comercial" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Alianza regional" })).not.toBeInTheDocument()
   })
 })

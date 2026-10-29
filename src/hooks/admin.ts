@@ -109,6 +109,10 @@ export const adminQueryKeys = {
   catalogosV2: ["admin", "catalogos-v2"] as const,
   catalogoV2: (kind: CatalogoKind) => ["admin", "catalogos-v2", kind] as const,
   auditoria: (entidad?: AuditEntidad) => ["admin", "auditoria", entidad ?? "todas"] as const,
+  // Jefe 2026-10-28 lane 1 task 1.1: catálogo LIVE de etiquetas de tarea
+  // (task_tags) — lo consumen los formularios de tarea y el filtro del
+  // tablero, sin rol de administrador (mismo endpoint que useDocCategories).
+  taskTags: ["catalogs", "task-tags"] as const,
 } as const;
 
 /* ── Queries ───────────────────────────────────────────────────────────── */
@@ -117,6 +121,25 @@ export function useSettings(): UseQueryResult<SettingsSnapshot> {
   return useQuery({
     queryKey: adminQueryKeys.settings,
     queryFn: () => apiGet<SettingsSnapshot>("/api/v1/settings"),
+  });
+}
+
+/* Catálogo de etiquetas de tarea EN VIVO (setting `task_tags`, con fallback
+   a las constantes de fábrica) vía GET /api/v1/catalogs/settings — el mismo
+   endpoint que lee el admin, sin requerir su rol. Espejo de useDocCategories
+   (hooks/documents.ts): los formularios de tarea (tablero y CRM) y el filtro
+   de etiqueta del tablero deben ofrecer exactamente lo que el servidor
+   valida en POST/PATCH /tasks, no el arreglo estático TASK_TAGS — bug del
+   jefe 2026-10-28: «le muestra que se crean y están en el listado de
+   etiquetas, pero no aparecen al momento de crear un cliente o asignar una
+   tarea». */
+export function useTaskTags(): UseQueryResult<string[]> {
+  return useQuery({
+    queryKey: adminQueryKeys.taskTags,
+    queryFn: async () => {
+      const res = await apiGet<{ task_tags: string[] }>("/api/v1/catalogs/settings");
+      return res.task_tags;
+    },
   });
 }
 
@@ -206,6 +229,11 @@ export function useSaveSettings(): UseMutationResult<
       // ya montados en esta sesión seguían mostrando el catálogo viejo hasta
       // el próximo refetch natural (foco de ventana, remount, etc.).
       void qc.invalidateQueries({ queryKey: documentQueryKeys.categories });
+      // Jefe 2026-10-28 lane 1 task 1.1: igual que con las categorías de
+      // documentos, guardar el catálogo debe refrescar los consumidores del
+      // catálogo LIVE de etiquetas (formularios de tarea y filtro del
+      // tablero) ya montados en esta sesión.
+      void qc.invalidateQueries({ queryKey: adminQueryKeys.taskTags });
       toast.success("Catálogos guardados.");
     },
   });

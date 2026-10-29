@@ -48,6 +48,7 @@ import {
   TASK_TAGS,
 } from "@/lib/catalogs";
 import { formatFechaHora, iniciales } from "@/hooks/crm";
+import { useTaskTags } from "@/hooks/admin";
 import { MAX_FILE_MB } from "@/lib/api/files";
 import {
   ALLOWED_ATTACHMENT_LABEL,
@@ -115,6 +116,18 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
 
   const [form, setForm] = useState<FormState>({ ...EMPTY_FORM });
   const [error, setError] = useState<string | null>(null);
+
+  // Jefe 2026-10-28 lane 1 task 1.1 (S1): etiquetas desde el catálogo LIVE
+  // (task_tags) — un tag creado en el panel de administración debe aparecer
+  // aquí sin recargar. Mientras carga, fallback a las de fábrica. Al editar
+  // se conservan como chips las etiquetas guardadas que ya no están en el
+  // catálogo (S1: la tarea no pierde lo que ya tiene).
+  const tagsQuery = useTaskTags();
+  const catalogTags = tagsQuery.data ?? [...TASK_TAGS];
+  const storedNotInCatalog = form.etiquetas.filter((t) => !catalogTags.includes(t));
+  const chipTags = storedNotInCatalog.length
+    ? [...catalogTags, ...storedNotInCatalog]
+    : catalogTags;
 
   /* Sincroniza el formulario cuando cambia la tarea abierta (editar) o al
      crear desde cero. Sigue el patrón de task-dialogs.tsx. */
@@ -381,7 +394,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
               <div className="flex flex-col gap-2 sm:col-span-2">
                 <Label>Etiquetas</Label>
                 <div className="flex flex-wrap gap-2">
-                  {TASK_TAGS.map((tag) => (
+                  {chipTags.map((tag) => (
                     <button
                       key={tag}
                       type="button"

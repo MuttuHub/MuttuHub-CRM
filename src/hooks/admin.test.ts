@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act, renderHook, waitFor } from "@testing-library/react"
 import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { adminQueryKeys, useSaveSettings, type SettingsSnapshot } from "./admin"
+import { adminQueryKeys, useSaveSettings, useTaskTags, type SettingsSnapshot } from "./admin"
 import { documentQueryKeys } from "./documents"
 
 function createWrapper() {
@@ -55,5 +55,34 @@ describe("useSaveSettings", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: adminQueryKeys.settings })
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: documentQueryKeys.categories })
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: adminQueryKeys.taskTags })
+  })
+})
+
+describe("useTaskTags", () => {
+  const fetchMock = vi.fn()
+
+  beforeEach(() => {
+    fetchMock.mockReset()
+    vi.stubGlobal("fetch", fetchMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  // Jefe 2026-10-28 lane 1 task 1.1 (S1): a tag created in admin must reach
+  // the task forms without a reload. useTaskTags reads the same public
+  // catalogs endpoint as useDocCategories — no admin role required — so the
+  // chips always mirror what the server validates on POST/PATCH /tasks.
+  it("serves the live task-tags catalog from the public catalogs endpoint", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ task_tags: ["Legal", "Alianza regional"], doc_categories: [] }),
+    )
+    const { wrapper } = createWrapper()
+
+    const { result } = renderHook(() => useTaskTags(), { wrapper })
+
+    await waitFor(() => expect(result.current.data).toEqual(["Legal", "Alianza regional"]))
   })
 })
