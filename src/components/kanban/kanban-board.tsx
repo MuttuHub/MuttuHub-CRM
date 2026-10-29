@@ -82,6 +82,7 @@ import {
   type TaskFilters,
 } from "@/hooks/kanban";
 import { useEligibleOpportunities } from "@/hooks/projects";
+import { useTaskTags } from "@/hooks/admin";
 import { canCreateProject } from "@/lib/permissions";
 import { TaskCard, SortableTaskCard, type CardTask } from "@/components/kanban/task-card";
 import {
@@ -181,6 +182,11 @@ export function KanbanBoard() {
   const clients = clientOptionsQuery.data ?? [];
   const meQuery = useCurrentUser();
   const me = meQuery.data ?? null;
+  // Jefe 2026-10-28 lane 1 task 1.1 (S1): el filtro de etiqueta usa el
+  // catálogo LIVE (task_tags) — un tag creado en el panel de administración
+  // debe aparecer aquí sin recargar. Fallback a las de fábrica mientras carga.
+  const tagsQuery = useTaskTags();
+  const tagOptions = tagsQuery.data ?? [...TASK_TAGS];
   // GANADA opportunities with no project yet: the cards of their completed
   // tasks offer "Pasar a nuevo proyecto →". Only managers may read the list
   // (the endpoint 403s for everyone else), so it stays off for them.
@@ -443,6 +449,7 @@ export function KanbanBoard() {
           local={local}
           users={users}
           clients={clients}
+          tags={tagOptions}
           onResponsable={setResponsableEquipo}
           onCliente={setCliente}
           onLocal={applyLocalFilter}
@@ -850,6 +857,7 @@ type FiltersRowProps = {
   local: LocalState;
   users: { id: string; nombre: string }[];
   clients: { id: string; nombre: string }[];
+  tags: string[];
   onResponsable: (id: string) => void;
   onCliente: (id: string) => void;
   onLocal: (patch: Partial<LocalState>) => void;
@@ -862,7 +870,7 @@ const SEL_CLASS = "h-10 flex-1 basis-0 px-3 text-base md:text-[12.5px]";
 // FiltersRow real (definida debajo)
 
 function FiltersRow(props: FiltersRowProps) {
-  const { responsable, cliente, local, users, clients, onResponsable, onCliente, onLocal, hasActive, onClear } = props;
+  const { responsable, cliente, local, users, clients, tags, onResponsable, onCliente, onLocal, hasActive, onClear } = props;
   return (
     <section className="surface p-3.5">
       <div className="flex flex-wrap items-center gap-2.5">
@@ -905,7 +913,7 @@ function FiltersRow(props: FiltersRowProps) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todas">Todas las etiquetas</SelectItem>
-            {TASK_TAGS.map((etq) => (
+            {tags.map((etq) => (
               <SelectItem key={etq} value={etq}>{etq}</SelectItem>
             ))}
           </SelectContent>

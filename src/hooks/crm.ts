@@ -852,6 +852,9 @@ export type TareaInput = {
   prioridad?: PrioridadTarea | null;
   fecha_entrega?: string | null;
   motivo_bloqueo?: string | null;
+  // Jefe 2026-10-28 lane 1 task 1.1: el diálogo de compromisos del CRM
+  // ahora asigna etiquetas (catálogo LIVE task_tags) como el tablero.
+  etiquetas?: string[];
 };
 
 export function useCreateTarea(): UseMutationResult<

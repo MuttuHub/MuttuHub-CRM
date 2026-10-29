@@ -30,12 +30,14 @@ import {
   ENUM_VALUES,
   ESTADO_TAREA_LABELS,
   PRIORIDAD_TAREA_LABELS,
+  TASK_TAGS,
 } from "@/lib/catalogs";
 import {
   useCreateTarea,
   useUpdateTarea,
   type TaskItem,
 } from "@/hooks/crm";
+import { useTaskTags } from "@/hooks/admin";
 
 function toDateValue(value: string | null | undefined): string {
   if (!value) return "";
@@ -52,6 +54,7 @@ export type TareaFormState = {
   estado: EstadoTarea;
   origen: "CRM" | "AMBOS";
   motivo_bloqueo: string;
+  etiquetas: string[];
 };
 
 type TareaFormDialogProps = {
@@ -83,8 +86,20 @@ export function TareaFormDialog({
     estado: "POR_HACER",
     origen: "CRM",
     motivo_bloqueo: "",
+    etiquetas: [],
   });
   const [error, setError] = useState<string | null>(null);
+
+  // Jefe 2026-10-28 lane 1 task 1.1 (S1): etiquetas desde el catálogo LIVE
+  // (task_tags) — el mismo que edita el panel de administración. Fallback a
+  // las de fábrica mientras carga; al editar se conservan como chips las
+  // etiquetas guardadas que ya no están en el catálogo.
+  const tagsQuery = useTaskTags();
+  const catalogTags = tagsQuery.data ?? [...TASK_TAGS];
+  const storedNotInCatalog = form.etiquetas.filter((t) => !catalogTags.includes(t));
+  const chipTags = storedNotInCatalog.length
+    ? [...catalogTags, ...storedNotInCatalog]
+    : catalogTags;
 
   const formKey = `${open ? "open" : "closed"}:${tarea?.id ?? "nuevo"}`;
   const [lastKey, setLastKey] = useState(formKey);
@@ -102,6 +117,7 @@ export function TareaFormDialog({
           estado: tarea.estado,
           origen: tarea.origen === "CRM" || tarea.origen === "AMBOS" ? tarea.origen : "CRM",
           motivo_bloqueo: tarea.motivo_bloqueo ?? "",
+          etiquetas: [...(tarea.etiquetas ?? [])],
         });
       } else {
         setForm({
@@ -113,6 +129,7 @@ export function TareaFormDialog({
           estado: "POR_HACER",
           origen: "CRM",
           motivo_bloqueo: "",
+          etiquetas: [],
         });
       }
     }
@@ -120,6 +137,15 @@ export function TareaFormDialog({
 
   function set<K extends keyof TareaFormState>(key: K, value: TareaFormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  function toggleEtiqueta(tag: string) {
+    setForm((f) => ({
+      ...f,
+      etiquetas: f.etiquetas.includes(tag)
+        ? f.etiquetas.filter((t) => t !== tag)
+        : [...f.etiquetas, tag],
+    }));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -140,6 +166,7 @@ export function TareaFormDialog({
       estado: form.estado,
       origen: form.origen as OrigenTarea,
       motivo_bloqueo: form.estado === "BLOQUEADA" ? form.motivo_bloqueo.trim() : null,
+      etiquetas: form.etiquetas,
       cliente_id: clientId,
     };
 
@@ -319,6 +346,28 @@ export function TareaFormDialog({
                     >
                       {option.hint}
                     </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 sm:col-span-2">
+              <Label>Etiquetas</Label>
+              <div className="flex flex-wrap gap-2">
+                {chipTags.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => toggleEtiqueta(tag)}
+                    aria-pressed={form.etiquetas.includes(tag)}
+                    className={cn(
+                      "inline-flex h-7 items-center rounded-full border px-3 text-[12px] font-semibold transition-colors",
+                      form.etiquetas.includes(tag)
+                        ? "border-rose-500 bg-rose-50 text-rose-700"
+                        : "border-ink-200 bg-panel hover:bg-ink-100/60",
+                    )}
+                  >
+                    {tag}
                   </button>
                 ))}
               </div>
