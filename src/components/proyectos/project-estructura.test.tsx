@@ -411,6 +411,35 @@ describe("ProjectEstructura", () => {
     })
   })
 
+  describe("PO structure import (B3)", () => {
+    const PO = { name: "Importar estructura (formato PO)" }
+
+    it("offers it to a manager on a BORRADOR project with structure", async () => {
+      setup()
+      expect(await screen.findByRole("button", PO)).toBeInTheDocument()
+    })
+
+    it("offers it on an empty draft next to the template entry points", async () => {
+      setup({ objetivos: [], actividades: [], entregables: [], indicadores: [] })
+      await screen.findByTestId("estructura-vacia")
+      expect(screen.getByRole("button", PO)).toBeInTheDocument()
+    })
+
+    it("hides it from a non-member COORDINADOR", async () => {
+      setup({ rol: "COORDINADOR" })
+      await objetivo("OBJ-1")
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
+      expect(screen.queryByRole("button", PO)).not.toBeInTheDocument()
+    })
+
+    it("hides it once the project left BORRADOR", async () => {
+      setup({ proyecto: { estado: "EN_EJECUCION" } })
+      await objetivo("OBJ-1")
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
+      expect(screen.queryByRole("button", PO)).not.toBeInTheDocument()
+    })
+  })
+
   describe("empty draft: the Excel template is the primary way in (U6)", () => {
     const VACIO = { objetivos: [], actividades: [], entregables: [], indicadores: [] }
 

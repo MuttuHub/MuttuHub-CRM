@@ -125,7 +125,7 @@ function textoCelda(fila: Fila, encabezado: string): string {
  * notation (`1e21` -> `"1e+21"`), which `toCents`/`BigInt` cannot read; those
  * cells are reported as invalid input instead of throwing.
  */
-function decimalDeCelda(valor: Celda["valor"] | undefined): string | null {
+export function decimalDeCelda(valor: Celda["valor"] | undefined): string | null {
   if (typeof valor === "number") {
     if (!Number.isFinite(valor)) return null
     const texto = String(valor)
@@ -141,7 +141,7 @@ function contarDecimales(dec: string): number {
 }
 
 /** Integer cell, or `null` when blank or not an integer. */
-function enteroDeCelda(valor: Celda["valor"] | undefined): number | null {
+export function enteroDeCelda(valor: Celda["valor"] | undefined): number | null {
   const dec = decimalDeCelda(valor)
   if (dec === null || !RE_ENTERO.test(dec)) return null
   const numero = Number(dec)
@@ -161,7 +161,7 @@ function leerDecimal(valor: Celda["valor"] | undefined): DecimalLeido {
 }
 
 /** Rounds a canonical decimal string half-up to two decimals. */
-function redondear2(dec: string): string {
+export function redondear2(dec: string): string {
   const negativo = dec.startsWith("-")
   const cuerpo = negativo ? dec.slice(1) : dec
   const [entero = "0", fraccion = ""] = cuerpo.split(".")

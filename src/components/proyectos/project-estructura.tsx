@@ -15,6 +15,7 @@ import { FileSpreadsheet, ListTree } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ImportDialog } from "@/components/proyectos/import-dialog";
+import { EstructuraPOImportDialog } from "@/components/proyectos/estructura-po-import-dialog";
 import { EstructuraObjetivos } from "@/components/proyectos/estructura-objetivos";
 import { useCurrentUser } from "@/hooks/kanban";
 import { useProjectObjectives, type ProjectListRow } from "@/hooks/projects";
@@ -44,12 +45,15 @@ export function ProjectEstructura({ proyecto }: { proyecto: ProjectListRow }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <SectionHeader icon={<ListTree className="size-3.5" strokeWidth={2} />}>Metas e indicadores</SectionHeader>
         {canEdit && (
-          <ImportDialog
-            proyecto={proyecto}
-            open={importAbierto}
-            onOpenChange={setImportAbierto}
-            ocultarControles={vacio}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <EstructuraPOImportDialog proyectoId={proyecto.id} />
+            <ImportDialog
+              proyecto={proyecto}
+              open={importAbierto}
+              onOpenChange={setImportAbierto}
+              ocultarControles={vacio}
+            />
+          </div>
         )}
       </div>
 

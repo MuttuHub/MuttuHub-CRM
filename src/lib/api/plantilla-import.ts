@@ -341,20 +341,8 @@ function buscar(mapa: Map<string, string>, codigo: string, que: string): string 
   return id;
 }
 
-/**
- * Replaces the project's structure, budget, programming, dates, líneas and
- * municipios with the (already validated) plan. It must run inside ONE
- * `$transaction` supplied by the caller: every statement below commits or rolls
- * back together, including the audit lote. Throws `RespuestaAbortada` (404/409)
- * for a project that is gone, left BORRADOR, or already carries execution history.
- */
-export async function importarPlantilla(
-  tx: Prisma.TransactionClient,
-  { proyectoId: id, usuarioId, plan, loteId }: ImportarArgs,
-): Promise<ResumenImportacion> {
-  await lockProyectoBorrador(tx, id);
-
-  // Never orphan history: in BORRADOR none exists today, but fail closed if it does.
+/** Never orphan history: in BORRADOR none exists today, but fail closed if it does. */
+export async function exigirSinHistorial(tx: Prisma.TransactionClient, id: string): Promise<void> {
   const [avances, mediciones, beneficiarios] = await Promise.all([
     tx.avanceEntregable.count({ where: { proyecto_id: id } }),
     tx.medicionIndicador.count({ where: { proyecto_id: id } }),
@@ -363,87 +351,36 @@ export async function importarPlantilla(
   if (avances + mediciones + beneficiarios > 0) {
     throw new RespuestaAbortada(apiError(HISTORIAL_MESSAGE, 409, "CONFLICT"));
   }
+}
 
-  const antes = await tx.proyecto.findUniqueOrThrow({
-    where: { id },
-    select: {
-      fecha_inicio: true,
-      fecha_fin: true,
-      valor_total: true,
-      beneficiarios_meta: true,
-      oportunidad: { select: { valor_estimado_cop: true } },
-      lineas: { select: { linea_id: true, principal: true } },
-      municipios: { select: { municipio_id: true } },
-    },
-  });
-
-  const cambios: CambioInput[] = [];
-  const base = { usuario_id: usuarioId, accion: "IMPORTAR", proyecto_id: id, lote_id: loteId } as const;
-
-  // 1. Soft-delete the live structure (the partial unique indexes only cover live rows).
-  const ahora = new Date();
-  const borrado = { deleted_at: ahora };
+/** Soft-deletes the live structure; the counts feed the `reemplazo` audit row. */
+export async function borrarEstructura(tx: Prisma.TransactionClient, id: string): Promise<ConteoReemplazo> {
+  const borrado = { deleted_at: new Date() };
   const where = { proyecto_id: id, deleted_at: null };
-  const reemplazados = {
+  return {
     entregables: (await tx.entregable.updateMany({ where, data: borrado })).count,
     actividades: (await tx.actividad.updateMany({ where, data: borrado })).count,
     indicadores: (await tx.indicador.updateMany({ where, data: borrado })).count,
     objetivos: (await tx.objetivo.updateMany({ where, data: borrado })).count,
   };
+}
 
-  // 2. Project fields (+ the opportunity difference, like the project PATCH).
-  const valorTotal = decimalFromCents(plan.proyecto.valorTotalCents);
-  const patch = {
-    fecha_inicio: diaUtc(plan.proyecto.fechaInicio),
-    fecha_fin: diaUtc(plan.proyecto.fechaFin),
-    valor_total: valorTotal,
-    beneficiarios_meta: plan.proyecto.beneficiariosMeta,
-  };
-  const diferencia = antes.oportunidad
-    ? diferenciaValor(fromCents(plan.proyecto.valorTotalCents), antes.oportunidad.valor_estimado_cop)
-    : null;
-  await tx.proyecto.update({
-    where: { id },
-    data: {
-      ...patch,
-      ...(antes.oportunidad
-        ? { diferencia_valor_oportunidad: diferencia === null ? null : new Prisma.Decimal(diferencia) }
-        : {}),
-    },
-  });
-  const auditoriaProyecto = { ...base, entidad: "proyecto", entidad_id: id } as const;
-  for (const cambio of diffFields(antes, patch, [
-    "fecha_inicio",
-    "fecha_fin",
-    "valor_total",
-    "beneficiarios_meta",
-  ] as const)) {
-    cambios.push({ ...auditoriaProyecto, ...cambio });
-  }
+export type EstructuraPlan = Pick<PlanImportacion, "objetivos" | "actividades" | "entregables" | "indicadores">;
+export type AuditoriaImportacion = { usuario_id: string; accion: "IMPORTAR"; proyecto_id: string; lote_id: string };
 
-  // 3. Líneas estratégicas and municipios (full replacement).
-  await tx.proyectoLinea.deleteMany({ where: { proyecto_id: id } });
-  await tx.proyectoLinea.createMany({
-    data: plan.proyecto.lineas.map((linea) => ({ proyecto_id: id, linea_id: linea.id, principal: linea.principal })),
-  });
-  await tx.proyectoMunicipio.deleteMany({ where: { proyecto_id: id } });
-  await tx.proyectoMunicipio.createMany({
-    data: plan.proyecto.municipioIds.map((municipioId) => ({ proyecto_id: id, municipio_id: municipioId })),
-  });
-  for (const cambio of [
-    ...diffLineas(
-      antes.lineas.map((link) => ({ id: link.linea_id, principal: link.principal })),
-      plan.proyecto.lineas,
-    ),
-    ...diffMunicipios(
-      antes.municipios.map((link) => link.municipio_id),
-      plan.proyecto.municipioIds,
-    ),
-  ]) {
-    cambios.push({ ...auditoriaProyecto, ...cambio });
-  }
-
-  // 4. Structure: ids are generated here so each table is ONE createMany.
+/**
+ * Creates the plan's objetivos, actividades, entregables and indicadores (one
+ * createMany per table) and appends one `IMPORTAR` audit row per created row to
+ * `cambios`. Runs after `borrarEstructura`, inside the caller's transaction.
+ */
+export async function crearEstructura(
+  tx: Prisma.TransactionClient,
+  id: string,
+  plan: EstructuraPlan,
+  base: AuditoriaImportacion,
+  cambios: CambioInput[],
+): Promise<void> {
+  // Ids are generated here so each table is ONE createMany.
   const objetivoIds = new Map(plan.objetivos.map((o) => [clave(o.codigo), randomUUID()]));
   await tx.objetivo.createMany({
     data: plan.objetivos.map((o) => ({
@@ -548,6 +485,95 @@ export async function importarPlantilla(
       },
     });
   }
+}
+
+/**
+ * Replaces the project's structure, budget, programming, dates, líneas and
+ * municipios with the (already validated) plan. It must run inside ONE
+ * `$transaction` supplied by the caller: every statement below commits or rolls
+ * back together, including the audit lote. Throws `RespuestaAbortada` (404/409)
+ * for a project that is gone, left BORRADOR, or already carries execution history.
+ */
+export async function importarPlantilla(
+  tx: Prisma.TransactionClient,
+  { proyectoId: id, usuarioId, plan, loteId }: ImportarArgs,
+): Promise<ResumenImportacion> {
+  await lockProyectoBorrador(tx, id);
+  await exigirSinHistorial(tx, id);
+
+  const antes = await tx.proyecto.findUniqueOrThrow({
+    where: { id },
+    select: {
+      fecha_inicio: true,
+      fecha_fin: true,
+      valor_total: true,
+      beneficiarios_meta: true,
+      oportunidad: { select: { valor_estimado_cop: true } },
+      lineas: { select: { linea_id: true, principal: true } },
+      municipios: { select: { municipio_id: true } },
+    },
+  });
+
+  const cambios: CambioInput[] = [];
+  const base = { usuario_id: usuarioId, accion: "IMPORTAR", proyecto_id: id, lote_id: loteId } as const;
+
+  // 1. Soft-delete the live structure (the partial unique indexes only cover live rows).
+  const reemplazados = await borrarEstructura(tx, id);
+
+  // 2. Project fields (+ the opportunity difference, like the project PATCH).
+  const valorTotal = decimalFromCents(plan.proyecto.valorTotalCents);
+  const patch = {
+    fecha_inicio: diaUtc(plan.proyecto.fechaInicio),
+    fecha_fin: diaUtc(plan.proyecto.fechaFin),
+    valor_total: valorTotal,
+    beneficiarios_meta: plan.proyecto.beneficiariosMeta,
+  };
+  const diferencia = antes.oportunidad
+    ? diferenciaValor(fromCents(plan.proyecto.valorTotalCents), antes.oportunidad.valor_estimado_cop)
+    : null;
+  await tx.proyecto.update({
+    where: { id },
+    data: {
+      ...patch,
+      ...(antes.oportunidad
+        ? { diferencia_valor_oportunidad: diferencia === null ? null : new Prisma.Decimal(diferencia) }
+        : {}),
+    },
+  });
+  const auditoriaProyecto = { ...base, entidad: "proyecto", entidad_id: id } as const;
+  for (const cambio of diffFields(antes, patch, [
+    "fecha_inicio",
+    "fecha_fin",
+    "valor_total",
+    "beneficiarios_meta",
+  ] as const)) {
+    cambios.push({ ...auditoriaProyecto, ...cambio });
+  }
+
+  // 3. Líneas estratégicas and municipios (full replacement).
+  await tx.proyectoLinea.deleteMany({ where: { proyecto_id: id } });
+  await tx.proyectoLinea.createMany({
+    data: plan.proyecto.lineas.map((linea) => ({ proyecto_id: id, linea_id: linea.id, principal: linea.principal })),
+  });
+  await tx.proyectoMunicipio.deleteMany({ where: { proyecto_id: id } });
+  await tx.proyectoMunicipio.createMany({
+    data: plan.proyecto.municipioIds.map((municipioId) => ({ proyecto_id: id, municipio_id: municipioId })),
+  });
+  for (const cambio of [
+    ...diffLineas(
+      antes.lineas.map((link) => ({ id: link.linea_id, principal: link.principal })),
+      plan.proyecto.lineas,
+    ),
+    ...diffMunicipios(
+      antes.municipios.map((link) => link.municipio_id),
+      plan.proyecto.municipioIds,
+    ),
+  ]) {
+    cambios.push({ ...auditoriaProyecto, ...cambio });
+  }
+
+  // 4. Structure.
+  await crearEstructura(tx, id, plan, base, cambios);
 
   // 5. Budget: update an existing line (even to $0, never delete: `Gasto` points at
   //    it), create a new one only above $0 — exactly like the budget PUT.
