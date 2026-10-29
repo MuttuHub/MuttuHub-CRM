@@ -223,7 +223,8 @@ Una sola estructura con tres vistas: **Lista**, **Gantt** y **Tablero**.
 - **Gantt**: la programación por semanas.
 - **Tablero**: columnas **Por iniciar**, **En curso**, **Atrasada** y **Terminada**. Al abrir una tarjeta, la Lista se
   posiciona en esa actividad.
-- Al final, el bloque **Indicadores** permite registrar el avance de cada indicador.
+- Al final, el bloque **Indicadores** permite registrar el avance de cada indicador. Cada medición ya registrada
+  admite además varios archivos o enlaces con el botón **Adjuntar archivo**.
 
 **Registrar un avance**
 
@@ -232,6 +233,8 @@ Una sola estructura con tres vistas: **Lista**, **Gantt** y **Tablero**.
 3. Adjunta el **medio de verificación**: un **archivo** o un **enlace** con su nombre.
 4. Si el avance excede lo planeado, escribe la **justificación del exceso**.
 5. Guarda. El avance queda con su soporte y aparece en **Documentos**.
+6. Ya guardado, el avance admite seguir sumando archivos y enlaces con el botón **Adjuntar archivo**: cada uno
+   aparece listado por separado (no solo como un conteo).
 
 ### 5.3 Finanzas
 
@@ -250,7 +253,8 @@ en ese estado.
 - Filtros por estado (incluye **Pendiente por revisión**) y un buscador.
 - **Registrar gasto** abre el formulario: **Rubro**, **Subtotal**, **IVA**, **Total**, **Fecha del documento**,
   **Periodo**, **Tipo de soporte** (factura de proveedor, cuenta de cobro de persona natural u otro), **Número de
-  documento**, **Tercero**, **Tipo y número de identificación**, **Descripción** y el **soporte** (archivo o enlace).
+  documento**, **Tercero**, **Tipo y número de identificación**, **Descripción** y el **soporte** (archivo o enlace);
+  al elegir un archivo se ve su nombre con la opción de **Quitar**.
 - **Subtotal, IVA y Total:** el **Total** lo calcula el sistema (Subtotal + IVA) y no se digita. El valor ejecutado que
   consume el presupuesto del rubro es siempre el Total. El **IVA** puede ser 0 (por ejemplo, en cuentas de cobro de
   personas naturales no responsables de IVA), pero hay que escribirlo. En la tabla el IVA se muestra aparte, debajo del
@@ -268,8 +272,11 @@ en ese estado.
   **Periodo** vacío usa el mes de la fecha del documento; si ese mes no es del proyecto, la fila se rechaza hasta que se
   indique el periodo. Una plantilla anterior (con la columna **Valor (COP)** y sin **Subtotal**) se rechaza completa con
   «Esta plantilla es anterior: descarga la nueva, que separa Subtotal e IVA.»
-  El archivo no lleva soportes: cada gasto importado aparece **Sin soporte** y quien lo registró lo adjunta con
-  **Adjuntar soporte** (archivo o enlace, hasta 5). Un gasto sin soporte no se puede validar.
+  La columna **Enlace del soporte** es opcional y admite uno o varios enlaces en la misma celda, separados por punto
+  y coma; cada uno debe empezar por `http://` o `https://` o la fila se rechaza indicando la fila y la columna. Una
+  fila con dos enlaces válidos crea el gasto con dos soportes. Si la fila no trae enlaces, el gasto importado aparece
+  **Sin soporte** y quien lo registró lo adjunta con **Adjuntar archivo** (archivo o enlace, hasta 5); al elegir un
+  archivo se ve su nombre con la opción de **Quitar**. Un gasto sin soporte no se puede validar.
 - **Validar** y **Rechazar** están disponibles para Administrador y Gerencia, y nunca sobre un gasto propio. Al
   rechazar se escribe el **motivo**.
 - **Anular** un gasto es una acción aparte, con su propio motivo.

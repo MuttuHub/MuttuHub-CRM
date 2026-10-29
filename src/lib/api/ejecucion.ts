@@ -112,6 +112,8 @@ export type AvanceView = {
   medios: number;
   /** True when the avance counts towards the deliverable (not voided and, when required, supported). */
   cuenta: boolean;
+  /** Live medios, in detail (AJ-06 S3: "3 archivos y 1 enlace muestra los 4"), oldest first. */
+  soportes: MedioView[];
 };
 
 /** An avance counts when it is not voided and, if the parameter requires it, has a live medio. */
@@ -119,7 +121,7 @@ export function avanceCuenta(anulado: boolean, requiereMedio: boolean, medios: n
   return !anulado && (!requiereMedio || medios > 0);
 }
 
-export function toAvanceView(row: AvanceRow, requiereMedio: boolean, medios = 0): AvanceView {
+export function toAvanceView(row: AvanceRow, requiereMedio: boolean, medios = 0, soportes: MedioView[] = []): AvanceView {
   return {
     id: row.id,
     proyecto_id: row.proyecto_id,
@@ -135,6 +137,7 @@ export function toAvanceView(row: AvanceRow, requiereMedio: boolean, medios = 0)
     motivo_anulacion: row.motivo_anulacion,
     medios,
     cuenta: avanceCuenta(row.anulado_at !== null, requiereMedio, medios),
+    soportes,
   };
 }
 
@@ -155,6 +158,26 @@ export async function contarMediosVivos(avanceIds: string[]): Promise<Map<string
     if (row.avance_id) counts.set(row.avance_id, row._count._all);
   }
   return counts;
+}
+
+/**
+ * Live medios of several avances, in detail (not just a count), oldest first — backs the
+ * `soportes` field of `AvanceView` (AJ-06 T2, S3).
+ */
+export async function listarSoportesVivos(avanceIds: string[]): Promise<Map<string, MedioView[]>> {
+  if (avanceIds.length === 0) return new Map();
+  const rows = await db.soporteProyecto.findMany({
+    where: { avance_id: { in: avanceIds }, deleted_at: null },
+    orderBy: [{ created_at: "asc" }, { id: "asc" }],
+  });
+  const grouped = new Map<string, MedioView[]>();
+  for (const row of rows) {
+    if (!row.avance_id) continue;
+    const vistos = grouped.get(row.avance_id) ?? [];
+    vistos.push(toMedioView(row));
+    grouped.set(row.avance_id, vistos);
+  }
+  return grouped;
 }
 
 export type MedioRow = {
@@ -216,4 +239,52 @@ export async function loadAvanceParaMedio(
     return { ok: false, response: apiError(AVANCE_ANULADO_MEDIO_MESSAGE, 409, "CONFLICT") };
   }
   return { ok: true, value: { id: avance.id } };
+}
+
+// ---------------------------------------------------------------------------
+// Medios (supports) of a medición (AJ-06 T3) — same shape as the avance medios above.
+// ---------------------------------------------------------------------------
+
+export const MEDICION_NO_EXISTE = "La medición no existe.";
+export const MEDICION_ANULADA_MEDIO_MESSAGE = "No se pueden adjuntar medios a una medición anulada.";
+
+/**
+ * Live medios of several mediciones, in detail (AJ-06 T3, same pattern as `listarSoportesVivos`
+ * for avances), oldest first, grouped by `medicion_id`.
+ */
+export async function listarSoportesVivosMedicion(medicionIds: string[]): Promise<Map<string, MedioView[]>> {
+  if (medicionIds.length === 0) return new Map();
+  const rows = await db.soporteProyecto.findMany({
+    where: { medicion_id: { in: medicionIds }, deleted_at: null },
+    orderBy: [{ created_at: "asc" }, { id: "asc" }],
+  });
+  const grouped = new Map<string, MedioView[]>();
+  for (const row of rows) {
+    if (!row.medicion_id) continue;
+    const vistos = grouped.get(row.medicion_id) ?? [];
+    vistos.push(toMedioView(row));
+    grouped.set(row.medicion_id, vistos);
+  }
+  return grouped;
+}
+
+/**
+ * The medición must belong to this project and indicator (404); a voided one cannot receive
+ * medios (409). Mirrors `loadAvanceParaMedio`.
+ */
+export async function loadMedicionParaMedio(
+  proyectoId: string,
+  indicatorId: string,
+  medicionId: string,
+  { permitirAnulado = false }: { permitirAnulado?: boolean } = {},
+): Promise<{ ok: true; value: { id: string } } | { ok: false; response: Response }> {
+  const medicion = await db.medicionIndicador.findFirst({
+    where: { id: medicionId, indicador_id: indicatorId, proyecto_id: proyectoId },
+    select: { id: true, anulado_at: true },
+  });
+  if (!medicion) return { ok: false, response: apiError(MEDICION_NO_EXISTE, 404, "NOT_FOUND") };
+  if (medicion.anulado_at !== null && !permitirAnulado) {
+    return { ok: false, response: apiError(MEDICION_ANULADA_MEDIO_MESSAGE, 409, "CONFLICT") };
+  }
+  return { ok: true, value: { id: medicion.id } };
 }

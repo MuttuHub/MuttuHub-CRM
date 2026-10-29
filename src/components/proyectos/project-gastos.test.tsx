@@ -558,16 +558,16 @@ describe("ProjectGastos", () => {
   describe("attach a support later (S2)", () => {
     const propio = (over: Record<string, unknown> = {}) => gasto("g1", { registrado_por_id: "yo", soportes: [], soportes_count: 0, ...over })
 
-    it("offers Adjuntar soporte to the registrant on a REGISTRADO or RECHAZADO expense", async () => {
+    it("offers Adjuntar archivo to the registrant on a REGISTRADO or RECHAZADO expense", async () => {
       setup({ usuarioId: "yo", gastos: [propio(), propio({ id: "g2", estado: "RECHAZADO", motivo_rechazo: "Falta el soporte" })] })
       const filas = await screen.findAllByTestId("gasto-fila")
-      expect(within(filas[0]).getByRole("button", { name: "Adjuntar soporte" })).toBeInTheDocument()
-      expect(within(filas[1]).getByRole("button", { name: "Adjuntar soporte" })).toBeInTheDocument()
+      expect(within(filas[0]).getByRole("button", { name: "Adjuntar archivo" })).toBeInTheDocument()
+      expect(within(filas[1]).getByRole("button", { name: "Adjuntar archivo" })).toBeInTheDocument()
     })
 
     it("keeps the support control also for a member COORDINADOR who registered the expense", async () => {
       setup({ rol: "COORDINADOR", miembro: true, usuarioId: "yo", gastos: [propio()] })
-      expect(await screen.findByRole("button", { name: "Adjuntar soporte" })).toBeInTheDocument()
+      expect(await screen.findByRole("button", { name: "Adjuntar archivo" })).toBeInTheDocument()
     })
 
     it("hides it on other users' expenses, VALIDADO and ANULADO ones, and at 5 supports", async () => {
@@ -584,19 +584,19 @@ describe("ProjectGastos", () => {
         ],
       })
       await screen.findAllByTestId("gasto-fila")
-      expect(screen.queryByRole("button", { name: "Adjuntar soporte" })).not.toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: "Adjuntar archivo" })).not.toBeInTheDocument()
     })
 
     it("hides it when the project is not EN_EJECUCION", async () => {
       setup({ usuarioId: "yo", proyecto: { estado: "CERRADO" }, gastos: [propio()] })
       await screen.findByTestId("gasto-fila")
-      expect(screen.queryByRole("button", { name: "Adjuntar soporte" })).not.toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: "Adjuntar archivo" })).not.toBeInTheDocument()
     })
 
     it("attaches a link from the row and refreshes the list", async () => {
       const user = userEvent.setup()
       setup({ usuarioId: "yo", gastos: [propio()] })
-      await user.click(await screen.findByRole("button", { name: "Adjuntar soporte" }))
+      await user.click(await screen.findByRole("button", { name: "Adjuntar archivo" }))
       await user.click(screen.getByRole("radio", { name: "Enlace" }))
       await user.type(screen.getByLabelText("URL"), "https://drive.example.com/f/1")
       await user.type(screen.getByLabelText("Nombre del enlace"), "Carpeta")

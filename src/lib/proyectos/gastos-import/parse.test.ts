@@ -49,6 +49,7 @@ const ENCABEZADO = [
   "IVA",
   "Total",
   "Periodo",
+  "Enlace del soporte",
 ]
 
 const fila = (data: Partial<Record<(typeof ENCABEZADO)[number], Celda>> = {}): Celda[] => {
@@ -65,6 +66,7 @@ const fila = (data: Partial<Record<(typeof ENCABEZADO)[number], Celda>> = {}): C
     IVA: 0,
     Total: null,
     Periodo: null,
+    "Enlace del soporte": null,
     ...data,
   }
   return ENCABEZADO.map((h) => base[h] ?? null)
@@ -100,6 +102,7 @@ describe("parseGastosImport — file", () => {
       subtotal: toCents("1500000.50"),
       iva: BigInt(0),
       cents: toCents("1500000.50"),
+      enlaces: [],
     })
     expect(r.resumen).toEqual({ validas: 1, errores: 0 })
   })
@@ -324,6 +327,69 @@ describe("parseGastosImport — rows (same rules as a single expense)", () => {
   it("flags a project without dates on every row", async () => {
     const r = await parseGastosImport(await libro([fila()]), { ...contexto, proyecto: { fecha_inicio: null, fecha_fin: null } })
     expect(r.filas[0].error).toBe("El proyecto no tiene fechas definidas.")
+  })
+})
+
+describe("parseGastosImport — enlace del soporte (AJ-06, S2, S3)", () => {
+  async function unaFila(data: Partial<Record<string, Celda>>) {
+    const r = await parseGastosImport(await libro([fila(data)]), contexto)
+    return r.filas[0]
+  }
+
+  it("accepts an empty cell with no supports, unchanged from before (S2)", async () => {
+    const f = await unaFila({ "Enlace del soporte": null })
+    expect(f.error).toBeNull()
+    expect(f.datos?.enlaces).toEqual([])
+  })
+
+  it("reads one valid http(s) link into one support", async () => {
+    const f = await unaFila({ "Enlace del soporte": "https://drive.google.com/a" })
+    expect(f.error).toBeNull()
+    expect(f.datos?.enlaces).toEqual(["https://drive.google.com/a"])
+  })
+
+  it("splits two semicolon-separated links into two supports (S3's accept-if example)", async () => {
+    const f = await unaFila({ "Enlace del soporte": "https://drive.google.com/a ; http://example.com/b" })
+    expect(f.error).toBeNull()
+    expect(f.datos?.enlaces).toEqual(["https://drive.google.com/a", "http://example.com/b"])
+  })
+
+  it("rejects a row where a piece does not start with http:// or https://, naming the row and the column", async () => {
+    const r = await parseGastosImport(
+      await libro([fila(), fila({ "Número de documento": "FE-2", "Enlace del soporte": "https://ok.com; ftp://no.com" })]),
+      contexto,
+    )
+    expect(r.filas[0].error).toBeNull()
+    expect(r.filas[1]).toMatchObject({ fila: 3, datos: null })
+    expect(r.filas[1].error).toBe('«Enlace del soporte»: "ftp://no.com" no empieza por http:// o https://.')
+  })
+
+  it("accepts http:// case-insensitively and trims blank pieces from a trailing separator", async () => {
+    const f = await unaFila({ "Enlace del soporte": "HTTPS://Drive.com/a;" })
+    expect(f.error).toBeNull()
+    expect(f.datos?.enlaces).toEqual(["HTTPS://Drive.com/a"])
+  })
+
+  it("still imports an old-format file without the «Enlace del soporte» column (no regression)", async () => {
+    const antiguo = ENCABEZADO.filter((h) => h !== "Enlace del soporte")
+    const filaAntigua = [
+      "Transporte",
+      "2026-10-15",
+      "Factura de proveedor",
+      "Proveedor SAS",
+      "NIT",
+      "900.123.456-7",
+      "FE-0123",
+      "Tiquetes del equipo",
+      1500000.5,
+      0,
+      null,
+      null,
+    ]
+    const r = await parseGastosImport(await libro([filaAntigua], antiguo), contexto)
+    expect(r.erroresArchivo).toEqual([])
+    expect(r.filas[0].error).toBeNull()
+    expect(r.filas[0].datos?.enlaces).toEqual([])
   })
 })
 

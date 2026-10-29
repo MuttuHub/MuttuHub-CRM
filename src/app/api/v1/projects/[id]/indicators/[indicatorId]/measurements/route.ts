@@ -15,7 +15,7 @@ import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { logChange } from "@/lib/api/audit-cambios";
 import { cantidadNoNegativaField, parseEstructuraBody, toDecimal2 } from "@/lib/api/estructura";
-import { gateEjecucionRead, gateEjecucionWrite } from "@/lib/api/ejecucion";
+import { gateEjecucionRead, gateEjecucionWrite, listarSoportesVivosMedicion } from "@/lib/api/ejecucion";
 import { resumenMediciones, toMedicionView } from "@/lib/api/mediciones";
 import { todayInBogota } from "@/lib/proyectos/weeks";
 import { fechaField } from "@/app/api/v1/projects/[id]/deliverables/[deliverableId]/progress/route";
@@ -61,6 +61,7 @@ export const GET = withApiErrorHandling(
       orderBy: [{ fecha: "asc" }, { created_at: "asc" }],
     });
     const { ultima, tendencia } = resumenMediciones(rows);
+    const soportes = await listarSoportesVivosMedicion(rows.map((row) => row.id));
 
     return NextResponse.json({
       estado: gate.value.estado,
@@ -71,7 +72,8 @@ export const GET = withApiErrorHandling(
         meta: indicador.meta.toString(),
         unidad: indicador.unidad,
       },
-      mediciones: rows.map(toMedicionView),
+      // AJ-06 T3, S3: "3 archivos y 1 enlace muestra los 4" — additive per medición, oldest first.
+      mediciones: rows.map((row) => ({ ...toMedicionView(row), soportes: soportes.get(row.id) ?? [] })),
       ultima,
       tendencia,
     });

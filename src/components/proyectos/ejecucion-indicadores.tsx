@@ -13,9 +13,12 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToneBadge } from "@/components/crm/shared";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
+import { AdjuntarArchivoControl, type AdjuntarArchivoMutation } from "@/components/proyectos/adjuntar-soporte";
+import { SIN_SOPORTE_TEXT } from "@/components/proyectos/gasto-form";
 import { VoidControl, errorMessage, formError, parseNumber } from "@/components/proyectos/estructura-ui";
 import { CAPTURE_BUTTON, CAPTURE_FIELD, CAPTURE_TEXTAREA, EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/ui";
 import {
+  useAttachMedicionMedio,
   useCreateMedicion,
   useIndicatorMeasurements,
   useProjectIndicators,
@@ -25,6 +28,9 @@ import {
   type Tendencia,
 } from "@/hooks/projects";
 import { todayInBogota } from "@/lib/proyectos/weeks";
+
+/** Mensaje de respaldo cuando `useAttachMedicionMedio` falla sin `Error.message` propio. */
+const ADJUNTAR_MEDIO_ERROR = "No pudimos adjuntar el medio. Inténtalo de nuevo.";
 
 const MEDICIONES_ERROR = "No pudimos cargar las mediciones. Inténtalo de nuevo.";
 
@@ -146,8 +152,11 @@ function IndicadorCard({
               {mediciones.map((medicion) => (
                 <MedicionRow
                   key={medicion.id}
+                  proyectoId={proyectoId}
+                  indicatorId={indicador.id}
                   medicion={medicion}
                   unidad={indicador.unidad}
+                  canWrite={canWrite}
                   canVoid={canVoid}
                   deleting={remove.isPending && remove.variables?.id === medicion.id}
                   error={
@@ -184,41 +193,74 @@ function IndicadorCard({
 }
 
 function MedicionRow({
+  proyectoId,
+  indicatorId,
   medicion,
   unidad,
+  canWrite,
   canVoid,
   deleting,
   error,
   onVoid,
 }: {
+  proyectoId: string;
+  indicatorId: string;
   medicion: ProjectMedicion;
   unidad: string;
+  canWrite: boolean;
   canVoid: boolean;
   deleting: boolean;
   error: string | null;
   onVoid: (motivo: string) => void;
 }) {
   const anulada = medicion.anulado_at !== null;
+  const adjuntarMedio = useAttachMedicionMedio(proyectoId, indicatorId);
+  const adjuntar: AdjuntarArchivoMutation = {
+    mutate: (variables, options) =>
+      adjuntarMedio.mutate({ medicionId: medicion.id, soporte: variables.soporte }, options),
+    isPending: adjuntarMedio.isPending,
+    isError: adjuntarMedio.isError,
+    error: adjuntarMedio.error,
+    reset: () => adjuntarMedio.reset(),
+  };
+  const soportes = medicion.soportes ?? [];
+
   return (
     <li
       data-testid="ejecucion-medicion"
-      className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-[10px] bg-ink-100 px-2.5 py-1.5 text-[12.5px]"
+      className="flex flex-col gap-1 rounded-[10px] bg-ink-100 px-2.5 py-1.5 text-[12.5px]"
     >
-      <span className="text-ink-700">
-        <span className="font-mono text-[11px] text-ink-500 tabular-nums">
-          {formatFechaCalendario(medicion.fecha)}
-        </span>{" "}
-        <span className={anulada ? "text-ink-500 line-through" : "font-semibold text-ink-900"}>
-          {formatNumero(medicion.valor)} {unidad}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <span className="text-ink-700">
+          <span className="font-mono text-[11px] text-ink-500 tabular-nums">
+            {formatFechaCalendario(medicion.fecha)}
+          </span>{" "}
+          <span className={anulada ? "text-ink-500 line-through" : "font-semibold text-ink-900"}>
+            {formatNumero(medicion.valor)} {unidad}
+          </span>
         </span>
-      </span>
-      <span className="flex items-center gap-2">
-        {anulada && <ToneBadge tone="neutro" label="Anulada" />}
-        {error && <InlineError message={error} />}
-        {canVoid && !anulada && (
-          <VoidControl nombre={`medición ${formatFechaCalendario(medicion.fecha)}`} pending={deleting} error={null} onConfirm={onVoid} />
-        )}
-      </span>
+        <span className="flex items-center gap-2">
+          {anulada && <ToneBadge tone="neutro" label="Anulada" />}
+          {error && <InlineError message={error} />}
+          {canVoid && !anulada && (
+            <VoidControl nombre={`medición ${formatFechaCalendario(medicion.fecha)}`} pending={deleting} error={null} onConfirm={onVoid} />
+          )}
+        </span>
+      </div>
+
+      {soportes.length > 0 && (
+        <ul data-testid="ejecucion-medicion-soportes" className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11.5px] text-ink-500">
+          {soportes.map((soporte) => (
+            <li key={soporte.id} className="max-w-[160px] truncate">
+              {soporte.nombre}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {canWrite && !anulada && (
+        <AdjuntarArchivoControl adjuntar={adjuntar} errorFallback={ADJUNTAR_MEDIO_ERROR} sinSoporteText={SIN_SOPORTE_TEXT} />
+      )}
     </li>
   );
 }

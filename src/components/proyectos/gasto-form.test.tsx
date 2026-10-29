@@ -289,6 +289,25 @@ describe("GastoForm", () => {
     expect(postedBody()).toBeNull()
   })
 
+  // S7: selecting a file shows its name and a Quitar control that clears the native input.
+  it("shows the selected filename and a Quitar button that clears it without closing the form", async () => {
+    const user = userEvent.setup({ delay: null })
+    setup()
+    await user.click(screen.getByRole("radio", { name: "Archivo" }))
+    await user.upload(
+      screen.getByLabelText("Archivo del soporte"),
+      new File([new Uint8Array(1)], "factura.pdf", { type: "application/pdf" }),
+    )
+
+    expect(screen.getByText("factura.pdf")).toBeInTheDocument()
+    expect(screen.queryByLabelText("Archivo del soporte")).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Quitar" }))
+
+    expect(screen.queryByText("factura.pdf")).not.toBeInTheDocument()
+    expect(screen.getByLabelText("Archivo del soporte")).toBeInTheDocument()
+  })
+
   it("uploads a file support through sign, PUT and confirm", async () => {
     const user = userEvent.setup({ delay: null })
     setup()

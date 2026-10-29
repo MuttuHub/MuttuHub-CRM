@@ -372,8 +372,11 @@ admin/gerencia.
    tres opciones: **Sin medio**, **Archivo** o **Enlace** (URL https + "Nombre del enlace").
    - Con archivo o enlace, el avance queda **Cuenta** y mueve el semáforo.
    - **Sin medio** queda como **Pendiente de soporte** y NO cuenta (el entregable muestra "N pendiente de soporte").
+   - Con el avance ya guardado, **Adjuntar archivo** suma más archivos o enlaces sin tope adicional; cada uno queda
+     listado por separado (AJ-06: un entregable con 3 archivos y 1 enlace muestra los 4).
 5. **Registrar medición** en un indicador (Fecha, Valor, Observación) y **Registrar beneficiarios** (Fecha,
-   Cantidad, Actividad opcional). Se ven en sus listas con la última medición.
+   Cantidad, Actividad opcional). Se ven en sus listas con la última medición. Una medición ya registrada también
+   admite **Adjuntar archivo** (archivo o enlace); a diferencia del avance, no tiene semáforo ni **Cuenta**.
 6. **Anular** (solo admin/gerencia): pide "Motivo de anulación"; el registro queda con insignia **Anulado/Anulada**
    y deja de contar. Nada se borra; el Historial lo audita.
 7. Negativos:
@@ -394,8 +397,8 @@ gasto que tú registraste.
 
 1. Como `admin@`, en la pestaña **Legalización**: **Registrar gasto**. Campos: Rubro (solo rubros con monto asignado), Subtotal, IVA, Total (solo
    lectura: Subtotal + IVA), Fecha del documento, Periodo, Tipo de soporte (Factura de proveedor, Cuenta de cobro de persona natural, ...), Número de documento,
-   Tipo y Número de identificación, Nombre del tercero, Descripción y soporte (**Archivo** o **Enlace**).
-   Pulsa **Registrar**.
+   Tipo y Número de identificación, Nombre del tercero, Descripción y soporte (**Archivo** o **Enlace**); al elegir
+   un archivo se ve su nombre con la opción de **Quitar**. Pulsa **Registrar**.
 2. Esperado: el gasto aparece como **Registrado** con el resumen por estado ("Registrado: 1 gasto · $ ...").
    - **Subtotal e IVA:** con Subtotal 1.000.000 e IVA 190.000 el formulario muestra Total $ 1.190.000 sin digitarlo y la
      tabla muestra $ 1.190.000 con "IVA $ 190.000" debajo. Con IVA 0 el Total es igual al Subtotal. Dejar el IVA vacío,
@@ -404,9 +407,12 @@ gasto que tú registraste.
      Cambiar la fecha cambia el Periodo. Elegir 2026-12 para un documento de octubre registra el gasto con la marca
      **Periodo modificado**. La edición de un gasto (por la API, sin pantalla todavía) audita el cambio de periodo. Con una
      fecha fuera de los meses del proyecto el Periodo queda vacío y **Registrar** pide elegirlo.
-   - **Importar gastos:** descarga la plantilla nueva (columnas Subtotal, IVA, Total opcional, Periodo). Una fila con
-     Subtotal 500.000, IVA 95.000 y Total 600.000 se rechaza con la fila y la columna Total; un archivo con la columna
-     antigua "Valor (COP)" se rechaza completo con "Esta plantilla es anterior: descarga la nueva, que separa Subtotal e IVA."
+   - **Importar gastos:** descarga la plantilla nueva (columnas Subtotal, IVA, Total opcional, Periodo, Enlace del
+     soporte opcional). Una fila con Subtotal 500.000, IVA 95.000 y Total 600.000 se rechaza con la fila y la columna
+     Total; un archivo con la columna antigua "Valor (COP)" se rechaza completo con "Esta plantilla es anterior:
+     descarga la nueva, que separa Subtotal e IVA." Una fila con dos enlaces en la columna "Enlace del soporte"
+     (separados por `;`) crea el gasto con dos soportes y sin la marca **Sin soporte**; un enlace que no empiece por
+     `http://` o `https://` rechaza la fila con su fila y columna.
 3. **Alerta de duplicado**: registra otro con el mismo número de identificación y número de documento. Aparece
    "Gasto registrado, con avisos" con "Ya existe un gasto con el mismo NIT/cédula y número de documento (...)". No
    bloquea; pulsa **Entendido**.
@@ -431,7 +437,9 @@ gasto que tú registraste.
    4. Solo se notifica a usuarios Gerencia; `admin@` ve la marca en la lista y en la cola pero no recibe campana.
 9. **Soporte**: en cada gasto, el botón con el nombre del soporte ("Ver soporte <nombre>") descarga el archivo por su
    URL firmada (60 s), directo y sin abrir otra pestaña; si el soporte es un enlace externo, ese sí se abre aparte. Cada acceso se registra. Si falla: "No pudimos abrir el soporte. Inténtalo de nuevo." Un `coordinador@`
-   integrante ve los soportes de su proyecto; `colaborador@` no ve la sección de gestión.
+   integrante ve los soportes de su proyecto; `colaborador@` no ve la sección de gestión. El botón para sumar más
+   soportes se llama **Adjuntar archivo** (antes "Adjuntar soporte") y, al elegir un archivo, muestra su nombre con
+   la opción de **Quitar**.
 10. Negativos: sin soporte, "Adjunta al menos un soporte (archivo o enlace)."; rubro sin asignado, "Solo puedes
     registrar gastos en rubros con valor asignado."; validar un gasto que ya no está registrado, 409 "Solo se pueden
     validar o rechazar gastos en estado registrado."; el registrante que fuerza la llamada recibe 403 "No puedes

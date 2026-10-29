@@ -49,18 +49,18 @@ describe("AdjuntarSoporte", () => {
   it("shows only the button until it is opened, and Cancelar closes the form", async () => {
     const user = userEvent.setup()
     setup()
-    expect(screen.queryByRole("form", { name: "Adjuntar soporte" })).toBeNull()
-    await user.click(screen.getByRole("button", { name: "Adjuntar soporte" }))
-    expect(screen.getByRole("form", { name: "Adjuntar soporte" })).toBeInTheDocument()
+    expect(screen.queryByRole("form", { name: "Adjuntar archivo" })).toBeNull()
+    await user.click(screen.getByRole("button", { name: "Adjuntar archivo" }))
+    expect(screen.getByRole("form", { name: "Adjuntar archivo" })).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Cancelar" }))
-    expect(screen.queryByRole("form", { name: "Adjuntar soporte" })).toBeNull()
+    expect(screen.queryByRole("form", { name: "Adjuntar archivo" })).toBeNull()
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it("asks for a support before sending anything", async () => {
     const user = userEvent.setup()
     setup()
-    await user.click(screen.getByRole("button", { name: "Adjuntar soporte" }))
+    await user.click(screen.getByRole("button", { name: "Adjuntar archivo" }))
     await user.click(screen.getByRole("button", { name: "Adjuntar" }))
     expect(screen.getByRole("alert")).toHaveTextContent(SIN_SOPORTE_TEXT)
     await user.click(screen.getByRole("radio", { name: "Enlace" }))
@@ -73,27 +73,41 @@ describe("AdjuntarSoporte", () => {
   it("attaches a link with one POST to the expense attachments and closes the form", async () => {
     const user = userEvent.setup()
     setup()
-    await user.click(screen.getByRole("button", { name: "Adjuntar soporte" }))
+    await user.click(screen.getByRole("button", { name: "Adjuntar archivo" }))
     await user.click(screen.getByRole("radio", { name: "Enlace" }))
     await user.type(screen.getByLabelText("URL"), "https://drive.example.com/f/1")
     await user.type(screen.getByLabelText("Nombre del enlace"), "Carpeta")
     await user.click(screen.getByRole("button", { name: "Adjuntar" }))
 
-    await waitFor(() => expect(screen.queryByRole("form", { name: "Adjuntar soporte" })).toBeNull())
+    await waitFor(() => expect(screen.queryByRole("form", { name: "Adjuntar archivo" })).toBeNull())
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect(url).toBe("/api/v1/projects/p1/expenses/g1/attachments")
     expect(JSON.parse(init.body as string)).toEqual({ url_externa: "https://drive.example.com/f/1", nombre: "Carpeta" })
   })
 
+  it("shows the selected filename and a Quitar button before signing and uploading it", async () => {
+    const user = userEvent.setup()
+    setup()
+    await user.click(screen.getByRole("button", { name: "Adjuntar archivo" }))
+    await user.upload(screen.getByLabelText("Archivo del soporte"), new File([new Uint8Array(4)], "factura.pdf", { type: "application/pdf" }))
+
+    expect(screen.getByText("factura.pdf")).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole("button", { name: "Quitar" }))
+    expect(screen.queryByText("factura.pdf")).not.toBeInTheDocument()
+    expect(screen.getByLabelText("Archivo del soporte")).toBeInTheDocument()
+  })
+
   it("signs, uploads and confirms a file", async () => {
     const user = userEvent.setup()
     setup()
-    await user.click(screen.getByRole("button", { name: "Adjuntar soporte" }))
+    await user.click(screen.getByRole("button", { name: "Adjuntar archivo" }))
     await user.upload(screen.getByLabelText("Archivo del soporte"), new File([new Uint8Array(4)], "factura.pdf", { type: "application/pdf" }))
     await user.click(screen.getByRole("button", { name: "Adjuntar" }))
 
-    await waitFor(() => expect(screen.queryByRole("form", { name: "Adjuntar soporte" })).toBeNull())
+    await waitFor(() => expect(screen.queryByRole("form", { name: "Adjuntar archivo" })).toBeNull())
     expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
       "/api/v1/projects/p1/expenses/sign",
       "https://s.example/up",
@@ -104,13 +118,13 @@ describe("AdjuntarSoporte", () => {
   it("shows the server error inline and keeps the form open (for example the 5-support limit)", async () => {
     const user = userEvent.setup()
     setup(400, { error: "Puedes adjuntar máximo 5 soportes.", code: "VALIDATION_ERROR" })
-    await user.click(screen.getByRole("button", { name: "Adjuntar soporte" }))
+    await user.click(screen.getByRole("button", { name: "Adjuntar archivo" }))
     await user.click(screen.getByRole("radio", { name: "Enlace" }))
     await user.type(screen.getByLabelText("URL"), "https://drive.example.com/f/1")
     await user.type(screen.getByLabelText("Nombre del enlace"), "Carpeta")
     await user.click(screen.getByRole("button", { name: "Adjuntar" }))
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Puedes adjuntar máximo 5 soportes.")
-    expect(screen.getByRole("form", { name: "Adjuntar soporte" })).toBeInTheDocument()
+    expect(screen.getByRole("form", { name: "Adjuntar archivo" })).toBeInTheDocument()
   })
 })

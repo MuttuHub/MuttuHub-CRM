@@ -13,10 +13,13 @@ import { ToneBadge } from "@/components/crm/shared";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import { CaptureSurface } from "@/components/proyectos/capture-surface";
 import { EjecucionAvanceForm } from "@/components/proyectos/ejecucion-avance-form";
+import { AdjuntarArchivoControl, type AdjuntarArchivoMutation } from "@/components/proyectos/adjuntar-soporte";
+import { SIN_SOPORTE_TEXT } from "@/components/proyectos/gasto-form";
 import { VoidControl, errorMessage, plural } from "@/components/proyectos/estructura-ui";
 import { InlineError } from "@/components/proyectos/ui";
 import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
 import {
+  useAttachAvanceMedio,
   useVoidAvance,
   type EstadoActividad,
   type ProjectActivity,
@@ -27,6 +30,9 @@ import {
   type ProjectTechnicalActivityV6,
 } from "@/hooks/projects";
 import type { UiTone } from "@/lib/catalogs";
+
+/** Mensaje de respaldo cuando `useAttachAvanceMedio` falla sin `Error.message` propio. */
+const ADJUNTAR_MEDIO_ERROR = "No pudimos adjuntar el medio. Inténtalo de nuevo.";
 
 const ESTADO_META: Record<EstadoActividad, { tone: UiTone; label: string }> = {
   FINALIZADA: { tone: "exito", label: "Finalizada" },
@@ -186,9 +192,12 @@ function EntregableRow({
           {avances.map((avance) => (
             <AvanceRow
               key={avance.id}
+              proyectoId={proyectoId}
+              deliverableId={entregable.id}
               avance={avance}
               unidad={entregable.unidad}
               canVoid={canVoid}
+              canWrite={canWrite}
               deleting={remove.isPending && remove.variables?.id === avance.id}
               error={
                 remove.isError && remove.variables?.id === avance.id
@@ -229,16 +238,22 @@ function EntregableRow({
 }
 
 function AvanceRow({
+  proyectoId,
+  deliverableId,
   avance,
   unidad,
   canVoid,
+  canWrite,
   deleting,
   error,
   onVoid,
 }: {
+  proyectoId: string;
+  deliverableId: string;
   avance: ProjectAvance;
   unidad: string;
   canVoid: boolean;
+  canWrite: boolean;
   deleting: boolean;
   error: string | null;
   onVoid: (motivo: string) => void;
@@ -250,32 +265,58 @@ function AvanceRow({
       ? { tone: "exito" as const, label: "Cuenta" }
       : { tone: "alerta" as const, label: "Pendiente de soporte" };
 
+  const adjuntarMedio = useAttachAvanceMedio(proyectoId, deliverableId);
+  const adjuntar: AdjuntarArchivoMutation = {
+    mutate: (variables, options) =>
+      adjuntarMedio.mutate({ avanceId: avance.id, soporte: variables.soporte }, options),
+    isPending: adjuntarMedio.isPending,
+    isError: adjuntarMedio.isError,
+    error: adjuntarMedio.error,
+    reset: () => adjuntarMedio.reset(),
+  };
+  const soportes = avance.soportes ?? [];
+
   return (
     <li
       data-testid="ejecucion-avance"
-      className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-[8px] bg-panel px-2.5 py-1 text-[12px]"
+      className="flex flex-col gap-1 rounded-[8px] bg-panel px-2.5 py-1 text-[12px]"
     >
-      <span className="text-ink-700">
-        <span className="font-mono text-[11px] text-ink-500 tabular-nums">
-          {formatFechaCalendario(avance.fecha)}
-        </span>{" "}
-        <span className={anulado ? "text-ink-500 line-through" : "font-semibold text-ink-900"}>
-          {formatNumero(Number(avance.cantidad))} {unidad}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <span className="text-ink-700">
+          <span className="font-mono text-[11px] text-ink-500 tabular-nums">
+            {formatFechaCalendario(avance.fecha)}
+          </span>{" "}
+          <span className={anulado ? "text-ink-500 line-through" : "font-semibold text-ink-900"}>
+            {formatNumero(Number(avance.cantidad))} {unidad}
+          </span>
         </span>
-        {avance.medios > 0 && <span className="text-ink-500"> · {plural(avance.medios, "medio", "medios")}</span>}
-      </span>
-      <span className="flex items-center gap-2">
-        <ToneBadge tone={badge.tone} label={badge.label} />
-        {error && <InlineError message={error} />}
-        {canVoid && !anulado && (
-          <VoidControl
-            nombre={`avance ${formatFechaCalendario(avance.fecha)}`}
-            pending={deleting}
-            error={null}
-            onConfirm={onVoid}
-          />
-        )}
-      </span>
+        <span className="flex items-center gap-2">
+          <ToneBadge tone={badge.tone} label={badge.label} />
+          {error && <InlineError message={error} />}
+          {canVoid && !anulado && (
+            <VoidControl
+              nombre={`avance ${formatFechaCalendario(avance.fecha)}`}
+              pending={deleting}
+              error={null}
+              onConfirm={onVoid}
+            />
+          )}
+        </span>
+      </div>
+
+      {soportes.length > 0 && (
+        <ul data-testid="ejecucion-avance-soportes" className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11.5px] text-ink-500">
+          {soportes.map((soporte) => (
+            <li key={soporte.id} className="max-w-[160px] truncate">
+              {soporte.nombre}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {canWrite && !anulado && (
+        <AdjuntarArchivoControl adjuntar={adjuntar} errorFallback={ADJUNTAR_MEDIO_ERROR} sinSoporteText={SIN_SOPORTE_TEXT} />
+      )}
     </li>
   );
 }
