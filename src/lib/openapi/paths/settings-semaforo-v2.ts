@@ -17,6 +17,9 @@ const ParametrosSchema = registry.register(
     retraso: NumericParametro.openapi({ description: "Porcentaje 0–100." }),
     avance_requiere_medio: BooleanParametro,
     modificacion_bloquea_periodos_pasados: BooleanParametro,
+    tope_en_curso: NumericParametro.openapi({
+      description: "Porcentaje 0–100; tope de avance mientras los entregables no estén completos.",
+    }),
   }),
 );
 
