@@ -112,6 +112,8 @@ export type AvanceView = {
   medios: number;
   /** True when the avance counts towards the deliverable (not voided and, when required, supported). */
   cuenta: boolean;
+  /** Live medios, in detail (AJ-06 S3: "3 archivos y 1 enlace muestra los 4"), oldest first. */
+  soportes: MedioView[];
 };
 
 /** An avance counts when it is not voided and, if the parameter requires it, has a live medio. */
@@ -119,7 +121,7 @@ export function avanceCuenta(anulado: boolean, requiereMedio: boolean, medios: n
   return !anulado && (!requiereMedio || medios > 0);
 }
 
-export function toAvanceView(row: AvanceRow, requiereMedio: boolean, medios = 0): AvanceView {
+export function toAvanceView(row: AvanceRow, requiereMedio: boolean, medios = 0, soportes: MedioView[] = []): AvanceView {
   return {
     id: row.id,
     proyecto_id: row.proyecto_id,
@@ -135,6 +137,7 @@ export function toAvanceView(row: AvanceRow, requiereMedio: boolean, medios = 0)
     motivo_anulacion: row.motivo_anulacion,
     medios,
     cuenta: avanceCuenta(row.anulado_at !== null, requiereMedio, medios),
+    soportes,
   };
 }
 
@@ -155,6 +158,26 @@ export async function contarMediosVivos(avanceIds: string[]): Promise<Map<string
     if (row.avance_id) counts.set(row.avance_id, row._count._all);
   }
   return counts;
+}
+
+/**
+ * Live medios of several avances, in detail (not just a count), oldest first — backs the
+ * `soportes` field of `AvanceView` (AJ-06 T2, S3).
+ */
+export async function listarSoportesVivos(avanceIds: string[]): Promise<Map<string, MedioView[]>> {
+  if (avanceIds.length === 0) return new Map();
+  const rows = await db.soporteProyecto.findMany({
+    where: { avance_id: { in: avanceIds }, deleted_at: null },
+    orderBy: [{ created_at: "asc" }, { id: "asc" }],
+  });
+  const grouped = new Map<string, MedioView[]>();
+  for (const row of rows) {
+    if (!row.avance_id) continue;
+    const vistos = grouped.get(row.avance_id) ?? [];
+    vistos.push(toMedioView(row));
+    grouped.set(row.avance_id, vistos);
+  }
+  return grouped;
 }
 
 export type MedioRow = {

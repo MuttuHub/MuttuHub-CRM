@@ -24,7 +24,7 @@ vi.mock("@/lib/db", () => ({
     proyecto: { findFirst: vi.fn() },
     entregable: { findFirst: vi.fn() },
     avanceEntregable: { findMany: vi.fn() },
-    soporteProyecto: { groupBy: vi.fn() },
+    soporteProyecto: { groupBy: vi.fn(), findMany: vi.fn() },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
       fn({ $queryRaw: mocks.queryRaw, avanceEntregable: { aggregate: mocks.aggregate, create: mocks.create } }),
     ),
@@ -80,6 +80,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date("2026-10-08T15:00:00.000Z"));
   mocks.requiereMedio = { valor: true, confirmado: false };
   vi.mocked(db.soporteProyecto.groupBy).mockResolvedValue([] as never);
+  vi.mocked(db.soporteProyecto.findMany).mockResolvedValue([] as never);
   authAs(gerencia);
   vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto());
   vi.mocked(db.entregable.findFirst).mockResolvedValue(entregable as never);
@@ -254,6 +255,36 @@ describe("GET progress", () => {
     expect(json.avances[0]).toMatchObject({ id: "av-1", medios: 2, cuenta: true });
     expect(json.avances[1]).toMatchObject({ id: "av-2", medios: 0, cuenta: false });
     expect(db.soporteProyecto.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { avance_id: { in: ["av-1", "av-2"] }, deleted_at: null } }),
+    );
+  });
+
+  it("exposes every live medio of an avance in detail, not just a count (S3: 3 archivos y 1 enlace -> 4)", async () => {
+    const medio = (over: object) => ({
+      id: "m-0",
+      proyecto_id: "pry-1",
+      avance_id: "av-1",
+      nombre: "archivo.pdf",
+      storage_path: "proyectos/pry-1/soportes/archivo.pdf",
+      url_externa: null,
+      tipo_mime: "application/pdf",
+      tamano_bytes: 10,
+      subido_por_id: "ger-1",
+      created_at: new Date("2026-10-08T12:00:00.000Z"),
+      ...over,
+    });
+    vi.mocked(db.soporteProyecto.findMany).mockResolvedValue([
+      medio({ id: "m-1" }),
+      medio({ id: "m-2" }),
+      medio({ id: "m-3" }),
+      medio({ id: "m-4", nombre: "Carpeta", storage_path: null, url_externa: "https://drive.example/f" }),
+    ] as never);
+    const json = await (await GET(get(), ctx)).json();
+    expect(json.avances[0].soportes).toHaveLength(4);
+    expect(json.avances[0].soportes.map((s: { id: string }) => s.id)).toEqual(["m-1", "m-2", "m-3", "m-4"]);
+    expect(json.avances[0].soportes[3]).toMatchObject({ tipo: "enlace", nombre: "Carpeta", url_externa: "https://drive.example/f" });
+    expect(json.avances[1].soportes).toEqual([]);
+    expect(db.soporteProyecto.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { avance_id: { in: ["av-1", "av-2"] }, deleted_at: null } }),
     );
   });

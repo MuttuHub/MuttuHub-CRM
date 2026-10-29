@@ -2,9 +2,9 @@
 // y el progreso llegan derivados del servidor.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen, within } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import { createElement, type ReactNode } from "react"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import userEvent from "@testing-library/user-event"
 import { mockViewport } from "@/test/viewport"
 import type {
@@ -83,8 +83,13 @@ function avance(overrides: Partial<ProjectDeliverableProgress["avances"][number]
     motivo_anulacion: null,
     medios: 1,
     cuenta: true,
+    soportes: [],
     ...overrides,
   }
+}
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } })
 }
 
 describe("EjecucionAvance", () => {
@@ -213,5 +218,108 @@ describe("EjecucionAvance", () => {
     expect(screen.getByTestId("ejecucion-actividad")).toHaveTextContent("No iniciada")
     const entregable = screen.getByTestId("ejecucion-entregable")
     expect(entregable).toHaveTextContent("Contado 0 actas")
+  })
+
+  describe("adjuntar medio a un avance existente (AJ-06 T2)", () => {
+    const fetchMock = vi.fn()
+
+    beforeEach(() => {
+      fetchMock.mockReset()
+      fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({})))
+      vi.stubGlobal("fetch", fetchMock)
+    })
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    it("shows an Adjuntar archivo control for each avance when canWrite", () => {
+      render(
+        <EjecucionAvance
+          proyectoId="p1"
+          actividad={ACTIVIDAD}
+          canWrite
+          canVoid={false}
+          tecnico={TECNICO}
+          entregables={[ENTREGABLE]}
+          progreso={new Map([["e1", { estado: "EN_EJECUCION", meta: "2.00", avances: [avance(), avance({ id: "av2" })] }]])}
+        />,
+        { wrapper: createWrapper() },
+      )
+
+      const filas = screen.getAllByTestId("ejecucion-avance")
+      expect(filas).toHaveLength(2)
+      for (const fila of filas) {
+        expect(within(fila).getByRole("button", { name: "Adjuntar archivo" })).toBeInTheDocument()
+      }
+    })
+
+    it("does not show the attach control when the user cannot write, or on a voided avance", () => {
+      render(
+        <EjecucionAvance
+          proyectoId="p1"
+          actividad={ACTIVIDAD}
+          canWrite={false}
+          canVoid={false}
+          tecnico={TECNICO}
+          entregables={[ENTREGABLE]}
+          progreso={new Map([["e1", { estado: "EN_EJECUCION", meta: "2.00", avances: [avance()] }]])}
+        />,
+        { wrapper: createWrapper() },
+      )
+      expect(screen.queryByRole("button", { name: "Adjuntar archivo" })).not.toBeInTheDocument()
+    })
+
+    it("attaches a second medio (link) to an existing avance with one POST to its attachments", async () => {
+      const user = userEvent.setup()
+      render(
+        <EjecucionAvance
+          proyectoId="p1"
+          actividad={ACTIVIDAD}
+          canWrite
+          canVoid={false}
+          tecnico={TECNICO}
+          entregables={[ENTREGABLE]}
+          progreso={new Map([["e1", { estado: "EN_EJECUCION", meta: "2.00", avances: [avance()] }]])}
+        />,
+        { wrapper: createWrapper() },
+      )
+
+      await user.click(screen.getByRole("button", { name: "Adjuntar archivo" }))
+      await user.click(screen.getByRole("radio", { name: "Enlace" }))
+      await user.type(screen.getByLabelText("URL"), "https://drive.example.com/f/1")
+      await user.type(screen.getByLabelText("Nombre del enlace"), "Acta firmada")
+      await user.click(screen.getByRole("button", { name: "Adjuntar" }))
+
+      await waitFor(() => expect(screen.queryByRole("form", { name: "Adjuntar archivo" })).toBeNull())
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+      expect(url).toBe("/api/v1/projects/p1/progress/av1/attachments")
+      expect(JSON.parse(init.body as string)).toEqual({ url_externa: "https://drive.example.com/f/1", nombre: "Acta firmada" })
+    })
+
+    it("shows every soporte of an avance individually, not just a count (2 archivos + 1 enlace -> 3)", () => {
+      const soportes = [
+        { id: "m-1", proyecto_id: "p1", avance_id: "av1", nombre: "acta-1.pdf", tipo: "archivo" as const, url_externa: null, tipo_mime: "application/pdf", tamano_bytes: 10, subido_por_id: "u1", created_at: "2026-10-20T00:00:00.000Z" },
+        { id: "m-2", proyecto_id: "p1", avance_id: "av1", nombre: "acta-2.pdf", tipo: "archivo" as const, url_externa: null, tipo_mime: "application/pdf", tamano_bytes: 12, subido_por_id: "u1", created_at: "2026-10-20T00:00:01.000Z" },
+        { id: "m-3", proyecto_id: "p1", avance_id: "av1", nombre: "Carpeta Drive", tipo: "enlace" as const, url_externa: "https://drive.example/f", tipo_mime: null, tamano_bytes: null, subido_por_id: "u1", created_at: "2026-10-20T00:00:02.000Z" },
+      ]
+      render(
+        <EjecucionAvance
+          proyectoId="p1"
+          actividad={ACTIVIDAD}
+          canWrite={false}
+          canVoid={false}
+          tecnico={TECNICO}
+          entregables={[ENTREGABLE]}
+          progreso={new Map([["e1", { estado: "EN_EJECUCION", meta: "2.00", avances: [avance({ medios: 3, soportes })] }]])}
+        />,
+        { wrapper: createWrapper() },
+      )
+
+      const fila = screen.getByTestId("ejecucion-avance")
+      expect(within(fila).getByText("acta-1.pdf")).toBeInTheDocument()
+      expect(within(fila).getByText("acta-2.pdf")).toBeInTheDocument()
+      expect(within(fila).getByText("Carpeta Drive")).toBeInTheDocument()
+    })
   })
 })
