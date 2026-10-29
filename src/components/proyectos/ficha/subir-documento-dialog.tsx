@@ -155,7 +155,7 @@ export function SubirDocumentoDialog({
         )}
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => cerrar(false)}>
+          <Button type="button" variant="outline" onClick={() => cerrar(false)} disabled={crear.isPending}>
             Cancelar
           </Button>
           <Button type="button" onClick={() => void enviar()} disabled={crear.isPending}>

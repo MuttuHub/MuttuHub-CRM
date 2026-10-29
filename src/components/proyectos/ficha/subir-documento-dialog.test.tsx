@@ -114,6 +114,20 @@ describe("SubirDocumentoDialog", () => {
     expect(onOpenChange).not.toHaveBeenCalledWith(false)
   })
 
+  it("locks Cancelar while the upload is in flight, like the other project dialogs", async () => {
+    fetchMock.mockImplementation(() => new Promise(() => {}))
+    const user = userEvent.setup()
+    setup()
+
+    await user.click(screen.getByRole("radio", { name: "Enlace" }))
+    await user.type(screen.getByLabelText("URL"), "https://drive.example/acta")
+    await user.type(screen.getByLabelText("Nombre del enlace"), "Acta")
+    await user.click(screen.getByRole("button", { name: "Subir documento" }))
+
+    expect(await screen.findByRole("button", { name: "Subiendo…" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: "Cancelar" })).toBeDisabled()
+  })
+
   it("closes on Cancelar without calling the API", async () => {
     const user = userEvent.setup()
     setup()

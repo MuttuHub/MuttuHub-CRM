@@ -323,6 +323,23 @@ describe("FichaDocumentos: project documents (upload, open, delete)", () => {
     )
   })
 
+  it("locks Cancelar while the delete is in flight", async () => {
+    const user = userEvent.setup()
+    setup()
+    const responder = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation((input: unknown, init?: RequestInit) =>
+      init?.method === "DELETE" ? new Promise(() => {}) : responder(input, init),
+    )
+
+    const grupo = await screen.findByTestId("documentos-grupo-proyecto")
+    await user.click(await within(grupo).findByRole("button", { name: "Eliminar contrato.pdf" }))
+    const dialogo = await screen.findByRole("dialog")
+    await user.click(within(dialogo).getByRole("button", { name: "Eliminar" }))
+
+    expect(await within(dialogo).findByRole("button", { name: "Eliminando…" })).toBeDisabled()
+    expect(within(dialogo).getByRole("button", { name: "Cancelar" })).toBeDisabled()
+  })
+
   it("lets a member COORDINADOR delete only their own uploads", async () => {
     setup({ usuario: COORDINADORA, miembro: true })
 

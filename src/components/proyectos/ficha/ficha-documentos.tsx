@@ -253,7 +253,7 @@ export function FichaDocumentos({ proyecto }: { proyecto: ProjectListRow }) {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setEliminando(null)}>
+            <Button type="button" variant="outline" onClick={() => setEliminando(null)} disabled={borrar.isPending}>
               Cancelar
             </Button>
             <Button
