@@ -112,7 +112,7 @@ píldoras de arriba.
    beneficiarios**, **Líneas estratégicas** y **Municipios**.
    **Municipios** se elige en dos pasos: primero el **departamento** y después el **municipio** dentro de ese
    departamento. Puedes marcar varios; cada uno queda como una ficha que se puede quitar. Están cargados **los 1122
-   municipios de Colombia**; si alguno no aparece, un administrador puede agregarlo en **Administración → Catálogos**.
+   municipios de Colombia** (catálogo DANE fijo; no se administra desde **Administración**).
 3. Pulsa **Crear proyecto y continuar**.
 
 Al guardar, el proyecto nace en **Borrador** con un código automático **PRY-AAAA-NNN** (por ejemplo `PRY-2026-001`). El
