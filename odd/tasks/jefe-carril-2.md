@@ -43,14 +43,14 @@ rules, verbatim requests (R1–R3), assumptions (A1–A5), root causes and file 
 
 | ID | Specs | Task | Depends | Route | Status | Commit / evidence |
 |---|---|---|---|---|---|---|
-| 2.1 | S1 | `docs/proceso-proyectos-desde-cero.md` (+ HTML/PDF like the other guides); fix B7 in `guia-uso-proyectos-v2.md`. Docs only. | — | inline | done | branch `docs/proceso-proyectos-desde-cero`, commit 99a14fe (not yet pushed/PR'd) |
-| 2.2 | S2 | Edit-user panel in `users-table.tsx` (name, role, flags), reactivate, resend invite / reset password via `src/lib/supabase/admin.ts`; new hooks in `src/hooks/users.ts` (not `hooks/admin.ts`). | — | inline | done | branch `feat/admin-editar-usuarios`, commit 4ce90d3 (not yet pushed/PR'd) |
-| 2.3 | S3 | Remove the municipalities sub-table from `catalogos-v2-section.tsx` (+ test). Delete now-unused admin hooks only after 1.1 is merged. | — | inline | done (hooks cleanup pending 1.1) | branch `feat/admin-sin-municipios`, commit 9bf0059 (not yet pushed/PR'd) |
+| 2.1 | S1 | `docs/proceso-proyectos-desde-cero.md` (+ HTML/PDF like the other guides); fix B7 in `guia-uso-proyectos-v2.md`. Docs only. | — | inline | done | branch `docs/proceso-proyectos-desde-cero`, commit 99a14fe, PR #104 |
+| 2.2 | S2 | Edit-user panel in `users-table.tsx` (name, role, flags), reactivate, resend invite / reset password via `src/lib/supabase/admin.ts`; new hooks in `src/hooks/users.ts` (not `hooks/admin.ts`). | — | inline | done | branch `feat/admin-editar-usuarios`, commit 4ce90d3, PR #105 |
+| 2.3 | S3 | Remove the municipalities sub-table from `catalogos-v2-section.tsx` (+ test). Delete now-unused admin hooks only after 1.1 is merged. | — | inline | done (hooks cleanup pending 1.1) | branch `feat/admin-sin-municipios`, commit 9bf0059, PR #106 |
 | 2.4 | S4 | Reproduce first; then replace internal `window.open`/`_blank` (sites in the index) with same-tab navigation + «Volver» on print pages; direct downloads in `hooks/projects.ts`. | 1.1 merged | inline | todo | |
 | 2.5 | S5 | Weekly report tab + `/print/reportes/semanal` + Excel, reusing management-board hooks; fix task Excel period. | 2.4 | inline | todo | |
 | 2.6 | S6 | Client tags in `client-form.tsx`, clients API, list filter; reuse `useTaskTags()`. | 1.0, 1.1 merged | inline | todo | |
 | 2.7 | S7 | Modal UX review (clients first). | 2.6 | inline | todo | |
-| 2.8 | S8 | `docs/pendientes/mejoras-ux-reunion-2026-10-28.md`. | — | inline | done (modal findings appended after 1.5/2.7) | branch `docs/backlog-mejoras-ux`, commit 611685d (not yet pushed/PR'd) |
+| 2.8 | S8 | `docs/pendientes/mejoras-ux-reunion-2026-10-28.md`. | — | inline | done (modal findings appended after 1.5/2.7) | branch `docs/backlog-mejoras-ux`, commit 611685d, PR #107 |
 
 ### Already-detected improvements for 2.8
 
@@ -97,3 +97,6 @@ rules, verbatim requests (R1–R3), assumptions (A1–A5), root causes and file 
   (`reportes-page.tsx:70,76`); `DialogFooter` at `project-create-form.tsx:588`; project print lives at
   `/proyectos/[id]/imprimir` vs `/print/*`. A section for modal-review findings (1.5, 2.7) is left as pending.
   Next: lane 2 is blocked until #102/#103 merge (2.4, 2.6); 2.1/2.2/2.3/2.8 await push + PR (user decision).
+- **L7 (2026-10-29).** Pushed and opened PRs: 2.1 → #104, 2.2 → #105 (flagged security-sensitive: returns invite/recovery
+  links), 2.3 → #106, 2.8 → #107. Suggested merge order: #107, #104, #105, #106. Next: 2.4 split (lane-2 sites now,
+  Kanban sites after #103), 2.5 backend, 2.7 for Admin/Projects modals.
