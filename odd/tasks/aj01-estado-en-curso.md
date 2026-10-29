@@ -116,7 +116,7 @@ feature's new table and get their own documents/branches/PRs afterward, per that
 | T3 | S8, S9.1-S9.4 (domain logic: `avance.ts`'s `estadoActividad`/`avanceActividad`/`calcularTecnico` — new per-activity inputs/outputs, `entregables_completos` flag, submission validation helpers) | delegated (context backstop) | done | `2e7e1d1` |
 | T4 | S9.5, S10, S11 (API routes: list/create/edit/void a report, the 3 attachment routes, responsable-only gate, wired to T1/T3) | delegated (context backstop) | done | `33462bb` |
 | T5 | S2, S3 (UI: `ejecucion-avance.tsx` activity-level "Registrar avance" action, history, badge/progress wired to T3/T4; new hooks in `hooks/projects.ts`) | delegated (context backstop) | done | `2db7288` |
-| T6 | Docs (OpenAPI, user guide, test guide, flip AJ-01 to Hecho in `docs/plan-trabajo-restante.md`) | delegated (context backstop) | pending | |
+| T6 | Docs (OpenAPI, user guide, test guide, flip AJ-01 to Hecho in `docs/plan-trabajo-restante.md`) | delegated (context backstop) | done | `4f2b709` |
 
 Route evidence: T1 (migration) is the foundation every other task's types depend on; T3/T4/T5 share
 `src/lib/proyectos/avance.ts`/`src/hooks/projects.ts`, so no parallel-writer reason beyond T2 (fully disjoint
@@ -186,3 +186,12 @@ activities must be a byte-for-byte no-op (S5.2) — pin with a regression test, 
   canWrite/canVoid split deliverable avances use). History renders fecha/porcentaje/observacion/usuario per
   S2/S3; void shown only on the last (chronologically latest) report. 17 files / 164 tests green across the
   whole feature so far; tsc clean. Risk: none (pure UI, every rule enforced server-side by T3/T4).
+- **L8 (T6, close):** Docs landed in `4f2b709`: OpenAPI paths for the activity progress + attachments family (+226
+  lines in `project-execution.ts`), user guide (+50) and test guide (+42) sections for the activity-level "Registrar
+  avance", and AJ-01 flipped to **Hecho** in `docs/plan-trabajo-restante.md:52`. Parent re-ran
+  `npx vitest run src/lib/openapi/document.test.ts` at close: 30/30 green. Two gaps found while closing: (1) this
+  document had not been updated with T6's status and log entry at the time (fixed by this commit); (2) the
+  independent verifier scheduled for the feature's end (Risk items 1 and 2: the `ReporteActividad` migration and the
+  responsable-only write gate) has NOT run — it stays the blocking gap before push/PR. Branch still local-only (no
+  push, no PR). Before closing, the working tree's CRLF noise from Windows editing (26 files modified,
+  `git diff --ignore-cr-at-eol` empty) was discarded with `git restore .` — no content lost.
