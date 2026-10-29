@@ -51,11 +51,13 @@ describe("GastoForm", () => {
     return render(<GastoForm proyecto={PROYECTO} rubros={RUBROS} onDone={onDone} />, { wrapper: createWrapper() })
   }
 
-  async function llenarBasicos(user: ReturnType<typeof userEvent.setup>, valor = "1.500.000,50") {
+  async function llenarBasicos(user: ReturnType<typeof userEvent.setup>, subtotal = "1.500.000,50", iva = "0") {
     await user.selectOptions(screen.getByLabelText("Rubro"), "r12")
     await user.clear(screen.getByLabelText("Fecha del documento"))
     await user.type(screen.getByLabelText("Fecha del documento"), "2026-10-15")
-    await user.type(screen.getByLabelText("Valor"), valor)
+    await user.type(screen.getByLabelText("Subtotal"), subtotal)
+    await user.clear(screen.getByLabelText("IVA"))
+    if (iva !== "") await user.type(screen.getByLabelText("IVA"), iva)
     await user.type(screen.getByLabelText("Tercero"), "Proveedor SAS")
     await user.selectOptions(screen.getByLabelText("Tipo de identificación"), "NIT")
     await user.type(screen.getByLabelText("Número de identificación"), "900123456")
@@ -103,7 +105,7 @@ describe("GastoForm", () => {
     expect(postedBody()).toBeNull()
   })
 
-  it("registers with an https link support and sends the valor as a string", async () => {
+  it("registers with an https link support and sends subtotal and iva as strings, never a valor", async () => {
     const user = userEvent.setup({ delay: null })
     setup()
     await llenarBasicos(user)
@@ -114,8 +116,10 @@ describe("GastoForm", () => {
 
     await waitFor(() => expect(postedBody()).not.toBeNull())
     const body = postedBody()
-    expect(body.valor).toBe("1500000.50") // typed as 1.500.000,50
-    expect(typeof body.valor).toBe("string")
+    expect(body.subtotal).toBe("1500000.50") // typed as 1.500.000,50
+    expect(body.iva).toBe("0.00")
+    expect(typeof body.subtotal).toBe("string")
+    expect(body).not.toHaveProperty("valor")
     expect(body).toMatchObject({
       rubro_id: "r12",
       fecha_documento: "2026-10-15",
@@ -135,7 +139,7 @@ describe("GastoForm", () => {
     ["1.500,50", "1500.50"],
     ["12,5", "12.50"],
     ["1500", "1500.00"],
-  ])("reads the valor %s with the es-CO parser and sends %s", async (typed, expected) => {
+  ])("reads the subtotal %s with the es-CO parser and sends %s", async (typed, expected) => {
     const user = userEvent.setup({ delay: null })
     setup()
     await llenarBasicos(user, typed)
@@ -144,11 +148,11 @@ describe("GastoForm", () => {
     await user.type(screen.getByLabelText("Nombre del enlace"), "Factura FE-0123")
     await user.click(screen.getByRole("button", { name: "Registrar" }))
     await waitFor(() => expect(postedBody()).not.toBeNull())
-    expect(postedBody().valor).toBe(expected)
+    expect(postedBody().subtotal).toBe(expected)
   })
 
   it.each(["1.50", "1500.50", "1,500", "0", "0,00", "abc", "1,234", "1.5.0"])(
-    "rejects the valor %s without sending anything",
+    "rejects the subtotal %s without sending anything",
     async (typed) => {
       const user = userEvent.setup({ delay: null })
       setup()
@@ -157,10 +161,133 @@ describe("GastoForm", () => {
       await user.type(screen.getByLabelText("URL"), "https://drive.example/factura")
       await user.type(screen.getByLabelText("Nombre del enlace"), "Factura FE-0123")
       await user.click(screen.getByRole("button", { name: "Registrar" }))
-      expect(await screen.findByRole("alert")).toHaveTextContent("Ingresa un valor válido")
+      expect(await screen.findByRole("alert")).toHaveTextContent("Ingresa un subtotal válido")
       expect(postedBody()).toBeNull()
     },
   )
+
+  // AJ-05: the period follows the document date.
+  describe("periodo", () => {
+    const periodo = () => screen.getByLabelText("Periodo") as HTMLSelectElement
+
+    async function enlace(user: ReturnType<typeof userEvent.setup>) {
+      await user.click(screen.getByRole("radio", { name: "Enlace" }))
+      await user.type(screen.getByLabelText("URL"), "https://drive.example/factura")
+      await user.type(screen.getByLabelText("Nombre del enlace"), "Factura FE-0123")
+    }
+
+    it("no longer offers «Mes del documento»", () => {
+      setup()
+      expect(screen.queryByRole("option", { name: "Mes del documento" })).not.toBeInTheDocument()
+    })
+
+    it("fills itself with the month of the date: 28/10/2026 gives 2026-10 without doing anything (S6)", async () => {
+      const user = userEvent.setup({ delay: null })
+      setup()
+      await user.clear(screen.getByLabelText("Fecha del documento"))
+      await user.type(screen.getByLabelText("Fecha del documento"), "2026-10-28")
+      expect(periodo().value).toBe("2026-10")
+    })
+
+    it("changes with the date, and a hand-picked period is reset by a new date (S5)", async () => {
+      const user = userEvent.setup({ delay: null })
+      setup()
+      await user.clear(screen.getByLabelText("Fecha del documento"))
+      await user.type(screen.getByLabelText("Fecha del documento"), "2026-10-28")
+      await user.selectOptions(periodo(), "2026-12")
+      expect(periodo().value).toBe("2026-12")
+      await user.clear(screen.getByLabelText("Fecha del documento"))
+      await user.type(screen.getByLabelText("Fecha del documento"), "2026-11-03")
+      expect(periodo().value).toBe("2026-11")
+    })
+
+    it("offers only the project months", () => {
+      setup()
+      const opciones = Array.from(periodo().options).map((o) => o.value).filter(Boolean)
+      expect(opciones).toEqual(["2026-10", "2026-11", "2026-12", "2027-01"])
+    })
+
+    it("is empty and required when the date's month is not a project month (S5)", async () => {
+      const user = userEvent.setup({ delay: null })
+      setup()
+      await llenarBasicos(user)
+      await user.clear(screen.getByLabelText("Fecha del documento"))
+      await user.type(screen.getByLabelText("Fecha del documento"), "2026-03-10")
+      expect(periodo().value).toBe("")
+      await enlace(user)
+      await user.click(screen.getByRole("button", { name: "Registrar" }))
+      expect(await screen.findByRole("alert")).toHaveTextContent("Elige el periodo")
+      expect(postedBody()).toBeNull()
+      await user.selectOptions(periodo(), "2026-12")
+      await user.click(screen.getByRole("button", { name: "Registrar" }))
+      await waitFor(() => expect(postedBody()).not.toBeNull())
+      expect(postedBody()).toMatchObject({ fecha_documento: "2026-03-10", periodo: "2026-12" })
+    })
+
+    it("sends the filled period with the expense", async () => {
+      const user = userEvent.setup({ delay: null })
+      setup()
+      await llenarBasicos(user)
+      await enlace(user)
+      await user.click(screen.getByRole("button", { name: "Registrar" }))
+      await waitFor(() => expect(postedBody()).not.toBeNull())
+      expect(postedBody()).toMatchObject({ fecha_documento: "2026-10-15", periodo: "2026-10" })
+    })
+  })
+
+  // AJ-04: the Total is computed (Subtotal + IVA), shown read-only and never typed.
+  it("shows the Total as Subtotal plus IVA, read-only, and updates it while typing (S1, S2)", async () => {
+    const user = userEvent.setup({ delay: null })
+    setup()
+    const total = screen.getByLabelText("Total")
+    expect(total).toHaveAttribute("readonly")
+    expect(total).toHaveValue("$ 0")
+    await user.type(screen.getByLabelText("Subtotal"), "1.000.000")
+    await user.clear(screen.getByLabelText("IVA"))
+    await user.type(screen.getByLabelText("IVA"), "190.000")
+    expect(total).toHaveValue("$ 1.190.000")
+    await user.clear(screen.getByLabelText("IVA"))
+    await user.type(screen.getByLabelText("IVA"), "0")
+    expect(total).toHaveValue("$ 1.000.000")
+  })
+
+  it("starts the IVA at 0 and does not offer a typed Total or a Valor field", () => {
+    setup()
+    expect(screen.getByLabelText("IVA")).toHaveValue("0")
+    expect(screen.queryByLabelText("Valor")).not.toBeInTheDocument()
+    expect(screen.getByLabelText("Total")).toHaveAttribute("readonly")
+  })
+
+  it("sends Subtotal 1.000.000 and IVA 190.000 and no total (S2)", async () => {
+    const user = userEvent.setup({ delay: null })
+    setup()
+    await llenarBasicos(user, "1.000.000", "190.000")
+    await user.click(screen.getByRole("radio", { name: "Enlace" }))
+    await user.type(screen.getByLabelText("URL"), "https://drive.example/factura")
+    await user.type(screen.getByLabelText("Nombre del enlace"), "Factura FE-0123")
+    await user.click(screen.getByRole("button", { name: "Registrar" }))
+    await waitFor(() => expect(postedBody()).not.toBeNull())
+    expect(postedBody()).toMatchObject({ subtotal: "1000000.00", iva: "190000.00" })
+    expect(postedBody()).not.toHaveProperty("valor")
+    expect(postedBody()).not.toHaveProperty("total")
+  })
+
+  it.each([
+    ["", "Ingresa el IVA"],
+    ["-5", "Ingresa un IVA válido"],
+    ["abc", "Ingresa un IVA válido"],
+    ["1.50", "Ingresa un IVA válido"],
+  ])("rejects the IVA %j without sending anything", async (typed, message) => {
+    const user = userEvent.setup({ delay: null })
+    setup()
+    await llenarBasicos(user, "1.000.000", typed)
+    await user.click(screen.getByRole("radio", { name: "Enlace" }))
+    await user.type(screen.getByLabelText("URL"), "https://drive.example/factura")
+    await user.type(screen.getByLabelText("Nombre del enlace"), "Factura FE-0123")
+    await user.click(screen.getByRole("button", { name: "Registrar" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent(message)
+    expect(postedBody()).toBeNull()
+  })
 
   it("uploads a file support through sign, PUT and confirm", async () => {
     const user = userEvent.setup({ delay: null })

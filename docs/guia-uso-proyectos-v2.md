@@ -248,14 +248,26 @@ en ese estado.
 
 - Los KPI de gastos y la tabla con **Registrado**, **Validado**, **Rechazado** y **Anulado**.
 - Filtros por estado (incluye **Pendiente por revisión**) y un buscador.
-- **Registrar gasto** abre el formulario: **Rubro**, **Valor**, **Fecha del documento**, **Periodo**, **Tipo de
-  soporte** (factura de proveedor, cuenta de cobro de persona natural u otro), **Número de documento**, **Tercero**,
-  **Tipo y número de identificación**, **Descripción** y el **soporte** (archivo o enlace).
+- **Registrar gasto** abre el formulario: **Rubro**, **Subtotal**, **IVA**, **Total**, **Fecha del documento**,
+  **Periodo**, **Tipo de soporte** (factura de proveedor, cuenta de cobro de persona natural u otro), **Número de
+  documento**, **Tercero**, **Tipo y número de identificación**, **Descripción** y el **soporte** (archivo o enlace).
+- **Subtotal, IVA y Total:** el **Total** lo calcula el sistema (Subtotal + IVA) y no se digita. El valor ejecutado que
+  consume el presupuesto del rubro es siempre el Total. El **IVA** puede ser 0 (por ejemplo, en cuentas de cobro de
+  personas naturales no responsables de IVA), pero hay que escribirlo. En la tabla el IVA se muestra aparte, debajo del
+  Total, solo como información. Ejemplo: Subtotal $1.000.000 + IVA $190.000 registra $1.190.000 ejecutados.
+- **Periodo:** se llena solo con el mes de la **Fecha del documento** y cambia si cambia la fecha. Se puede cambiar, solo
+  eligiendo meses del proyecto. Si se cambia, el gasto muestra la marca **Periodo modificado** y el cambio queda en la
+  auditoría. Si el mes de la fecha está fuera de los meses del proyecto, el periodo queda vacío y es obligatorio elegirlo.
 - El soporte es obligatorio: un gasto sin soporte no se registra.
 - **Importar gastos** carga varios gastos desde un Excel (una fila por gasto) para quienes pueden registrar gastos, solo
   con el proyecto en ejecución. **Descargar plantilla** baja el formato con los rubros del proyecto. **Validar** muestra
   cada fila como válida o con error y su motivo, sin guardar nada; **Importar** crea solo las filas válidas como
   **Registrado** y lista las rechazadas. Un duplicado dentro del archivo (mismo tercero y número de documento) se rechaza.
+  Las columnas obligatorias de la plantilla son **Subtotal** e **IVA** (el IVA puede ser 0, pero se escribe); **Total**
+  es opcional y, si viene, debe ser igual a Subtotal + IVA o la fila se rechaza indicando la fila y la columna. Un
+  **Periodo** vacío usa el mes de la fecha del documento; si ese mes no es del proyecto, la fila se rechaza hasta que se
+  indique el periodo. Una plantilla anterior (con la columna **Valor (COP)** y sin **Subtotal**) se rechaza completa con
+  «Esta plantilla es anterior: descarga la nueva, que separa Subtotal e IVA.»
   El archivo no lleva soportes: cada gasto importado aparece **Sin soporte** y quien lo registró lo adjunta con
   **Adjuntar soporte** (archivo o enlace, hasta 5). Un gasto sin soporte no se puede validar.
 - **Validar** y **Rechazar** están disponibles para Administrador y Gerencia, y nunca sobre un gasto propio. Al

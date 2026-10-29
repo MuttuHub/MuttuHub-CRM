@@ -45,6 +45,8 @@ const existente = (data: Record<string, unknown> = {}) => ({
   numero_documento: "FE-1",
   numero_documento_norm: "FE1",
   descripcion: "Tiquetes",
+  subtotal_cop: new Prisma.Decimal("1000000"),
+  iva_cop: new Prisma.Decimal("0"),
   monto_cop: new Prisma.Decimal("1000000"),
   estado: "VALIDADO",
   alerta_sobregasto: false,

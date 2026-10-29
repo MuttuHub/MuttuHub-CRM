@@ -92,6 +92,8 @@ async function fixture(tx: Tx) {
     numero_documento: "FE-0123",
     numero_documento_norm: "FE0123",
     descripcion: "Tiquetes",
+    subtotal_cop: 100,
+    iva_cop: 0,
     monto_cop: 100,
     registrado_por_id: usuario.id,
   }
@@ -111,9 +113,47 @@ describe("Gasto invariants (live DB)", () => {
   it("rejects a non-positive amount (gastos_monto_positivo_ck)", async () => {
     const error = await captureError(async (tx) => {
       const { datos } = await fixture(tx)
-      await tx.gasto.create({ data: { ...datos, monto_cop: 0 } })
+      await tx.gasto.create({ data: { ...datos, subtotal_cop: 0, monto_cop: 0 } })
     })
     expect(driverMessage(error)).toContain("gastos_monto_positivo_ck")
+  })
+
+  // AJ-04: monto_cop is the Total and the database enforces Subtotal + IVA = Total.
+  it("accepts Subtotal 1.000.000 + IVA 190.000 = Total 1.190.000 and IVA 0", async () => {
+    const rows = await runAndRollback(async (tx) => {
+      const { datos } = await fixture(tx)
+      const conIva = await tx.gasto.create({
+        data: { ...datos, subtotal_cop: 1_000_000, iva_cop: 190_000, monto_cop: 1_190_000 },
+      })
+      const sinIva = await tx.gasto.create({ data: { ...datos, subtotal_cop: 250, iva_cop: 0, monto_cop: 250 } })
+      return { conIva, sinIva }
+    })
+    expect(rows.conIva.monto_cop.toString()).toBe("1190000")
+    expect(rows.sinIva.iva_cop.toString()).toBe("0")
+  })
+
+  it("rejects a Total that is not Subtotal + IVA (gastos_total_cuadra_ck)", async () => {
+    const error = await captureError(async (tx) => {
+      const { datos } = await fixture(tx)
+      await tx.gasto.create({ data: { ...datos, subtotal_cop: 500_000, iva_cop: 95_000, monto_cop: 600_000 } })
+    })
+    expect(driverMessage(error)).toContain("gastos_total_cuadra_ck")
+  })
+
+  it("rejects a negative IVA (gastos_iva_no_negativo_ck)", async () => {
+    const error = await captureError(async (tx) => {
+      const { datos } = await fixture(tx)
+      await tx.gasto.create({ data: { ...datos, subtotal_cop: 110, iva_cop: -10, monto_cop: 100 } })
+    })
+    expect(driverMessage(error)).toContain("gastos_iva_no_negativo_ck")
+  })
+
+  it("rejects a non-positive Subtotal (gastos_subtotal_positivo_ck)", async () => {
+    const error = await captureError(async (tx) => {
+      const { datos } = await fixture(tx)
+      await tx.gasto.create({ data: { ...datos, subtotal_cop: 0, iva_cop: 100, monto_cop: 100 } })
+    })
+    expect(driverMessage(error)).toContain("gastos_subtotal_positivo_ck")
   })
 
   it("rejects a malformed periodo (gastos_periodo_ck)", async () => {
@@ -337,11 +377,12 @@ describe("E seam (live DB)", () => {
     const fuente = await runAndRollback(async (tx) => {
       const { datos, validador, proyecto, rubro, usuario } = await fixture(tx)
       const validado = { validado_por_id: validador.id, validado_at: new Date() }
-      await tx.gasto.create({ data: { ...datos, monto_cop: 100, estado: "VALIDADO", ...validado } })
-      await tx.gasto.create({ data: { ...datos, monto_cop: 40 } })
+      await tx.gasto.create({ data: { ...datos, subtotal_cop: 100, monto_cop: 100, estado: "VALIDADO", ...validado } })
+      await tx.gasto.create({ data: { ...datos, subtotal_cop: 40, monto_cop: 40 } })
       await tx.gasto.create({
         data: {
           ...datos,
+          subtotal_cop: 30,
           monto_cop: 30,
           estado: "RECHAZADO",
           rechazado_por_id: validador.id,
@@ -352,6 +393,7 @@ describe("E seam (live DB)", () => {
       await tx.gasto.create({
         data: {
           ...datos,
+          subtotal_cop: 20,
           monto_cop: 20,
           estado: "ANULADO",
           ...validado,

@@ -392,11 +392,21 @@ Pestaña **Legalización** de la ficha (sección **Gastos**). Registran `admin@`
 **En ejecución**. Validan y rechazan solo `admin@` y `gerencia@`. Regla central: no puedes validar ni rechazar un
 gasto que tú registraste.
 
-1. Como `admin@`, en la pestaña **Legalización**: **Registrar gasto**. Campos: Rubro (solo rubros con monto asignado), Valor, Fecha del documento,
-   Periodo, Tipo de soporte (Factura de proveedor, Cuenta de cobro de persona natural, ...), Número de documento,
+1. Como `admin@`, en la pestaña **Legalización**: **Registrar gasto**. Campos: Rubro (solo rubros con monto asignado), Subtotal, IVA, Total (solo
+   lectura: Subtotal + IVA), Fecha del documento, Periodo, Tipo de soporte (Factura de proveedor, Cuenta de cobro de persona natural, ...), Número de documento,
    Tipo y Número de identificación, Nombre del tercero, Descripción y soporte (**Archivo** o **Enlace**).
    Pulsa **Registrar**.
 2. Esperado: el gasto aparece como **Registrado** con el resumen por estado ("Registrado: 1 gasto · $ ...").
+   - **Subtotal e IVA:** con Subtotal 1.000.000 e IVA 190.000 el formulario muestra Total $ 1.190.000 sin digitarlo y la
+     tabla muestra $ 1.190.000 con "IVA $ 190.000" debajo. Con IVA 0 el Total es igual al Subtotal. Dejar el IVA vacío,
+     negativo o con letras no envía nada y muestra el error.
+   - **Periodo:** con fecha 28/10/2026 el Periodo aparece como 2026-10 sin hacer nada y no ofrece "Mes del documento".
+     Cambiar la fecha cambia el Periodo. Elegir 2026-12 para un documento de octubre registra el gasto con la marca
+     **Periodo modificado**. La edición de un gasto (por la API, sin pantalla todavía) audita el cambio de periodo. Con una
+     fecha fuera de los meses del proyecto el Periodo queda vacío y **Registrar** pide elegirlo.
+   - **Importar gastos:** descarga la plantilla nueva (columnas Subtotal, IVA, Total opcional, Periodo). Una fila con
+     Subtotal 500.000, IVA 95.000 y Total 600.000 se rechaza con la fila y la columna Total; un archivo con la columna
+     antigua "Valor (COP)" se rechaza completo con "Esta plantilla es anterior: descarga la nueva, que separa Subtotal e IVA."
 3. **Alerta de duplicado**: registra otro con el mismo número de identificación y número de documento. Aparece
    "Gasto registrado, con avisos" con "Ya existe un gasto con el mismo NIT/cédula y número de documento (...)". No
    bloquea; pulsa **Entendido**.
@@ -410,7 +420,7 @@ gasto que tú registraste.
    "Rechazado: <motivo>". No hay pantalla para corregir un rechazado (ver Límites).
 7. **Anular un gasto validado** (admin/gerencia): botón **Anular** con motivo; queda **Anulado**.
 8. **Sobreejecución**:
-   1. Como `admin@` registra un gasto con Valor mayor que el asignado del rubro (o mayor que lo que queda).
+   1. Como `admin@` registra un gasto con Total (Subtotal + IVA) mayor que el asignado del rubro (o mayor que lo que queda).
       Sale el aviso "Este gasto, sumado a los gastos validados, superaría el valor asignado al rubro." (si la API lo
       devuelve) y la fila lleva **Supera el asignado**.
    2. Como `gerencia@` pulsa **Validar**: error 409 en la fila, "Validar este gasto superaría el valor asignado al

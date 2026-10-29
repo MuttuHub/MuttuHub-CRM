@@ -16,7 +16,7 @@ import {
 } from "@/lib/permissions";
 import { canReadProject, loadProjectScoped, projectReadActor } from "@/lib/api/projects";
 import type { GateResult } from "@/lib/api/estructura";
-import { parseMonto } from "@/lib/api/presupuesto";
+import { MONTO_MAXIMO_CENTS, parseMonto } from "@/lib/api/presupuesto";
 import { PROYECTO_NO_EXISTE } from "@/lib/api/ejecucion";
 import { excederiaAsignado } from "@/lib/proyectos/ficha-financiera";
 import {
@@ -46,6 +46,11 @@ export const PROYECTO_SIN_FECHAS_MESSAGE = "El proyecto no tiene fechas definida
 export const GASTO_VALIDADO_MESSAGE = "Un gasto validado no se puede editar.";
 export const GASTO_ANULADO_MESSAGE = "Un gasto anulado no se puede editar.";
 export const VALOR_POSITIVO_MESSAGE = "El valor debe ser mayor que cero.";
+export const SUBTOTAL_POSITIVO_MESSAGE = "El subtotal debe ser mayor que cero.";
+export const IVA_NEGATIVO_MESSAGE = "El IVA no puede ser negativo.";
+export const TOTAL_ALTO_MESSAGE = "El total (subtotal más IVA) es demasiado alto.";
+export const PERIODO_DOCUMENTO_FUERA_MESSAGE =
+  "La fecha del documento está fuera de los meses del proyecto: elige el periodo.";
 
 export const ESTADOS_EDITABLES: EstadoGasto[] = ["REGISTRADO", "RECHAZADO"];
 const ESTADOS_VIVOS: EstadoGasto[] = ["REGISTRADO", "VALIDADO"];
@@ -92,7 +97,8 @@ const GASTO_FIELDS = {
     .nullable(),
   numero_documento: texto("El número de documento", 100),
   descripcion: texto("La descripción", 1000),
-  valor: z.union([z.string(), z.number()], { error: "Ingresa un monto válido." }),
+  subtotal: z.union([z.string(), z.number()], { error: "Ingresa un subtotal válido." }),
+  iva: z.union([z.string(), z.number()], { error: "Ingresa un IVA válido (puede ser 0)." }),
 };
 
 export const GASTO_CREATE_SCHEMA = z
@@ -106,7 +112,8 @@ export const GASTO_CREATE_SCHEMA = z
     tercero_numero_id: GASTO_FIELDS.tercero_numero_id.optional(),
     numero_documento: GASTO_FIELDS.numero_documento,
     descripcion: GASTO_FIELDS.descripcion,
-    valor: GASTO_FIELDS.valor,
+    subtotal: GASTO_FIELDS.subtotal,
+    iva: GASTO_FIELDS.iva,
     soportes: z
       .array(z.unknown(), { error: SIN_SOPORTE_MESSAGE })
       .min(1, SIN_SOPORTE_MESSAGE)
@@ -125,12 +132,41 @@ export const GASTO_PATCH_SCHEMA = z
     tercero_numero_id: GASTO_FIELDS.tercero_numero_id.optional(),
     numero_documento: GASTO_FIELDS.numero_documento.optional(),
     descripcion: GASTO_FIELDS.descripcion.optional(),
-    valor: GASTO_FIELDS.valor.optional(),
+    subtotal: GASTO_FIELDS.subtotal.optional(),
+    iva: GASTO_FIELDS.iva.optional(),
   })
   .strict();
 
 /** One row of an expense: the create body without its supports (the Excel import carries none). */
 export const GASTO_FILA_SCHEMA = GASTO_CREATE_SCHEMA.omit({ soportes: true });
+
+export type MontosGasto = { ok: true; subtotal: Cents; iva: Cents; total: Cents };
+export type MontosGastoError = { ok: false; campo: "Subtotal" | "IVA" | "Total"; message: string };
+
+/**
+ * AJ-04: Subtotal (> 0) plus IVA (>= 0, may be 0) in exact cents; the Total is always their sum and is never
+ * typed. The error names the column so the import can answer with row and column. Without HTTP.
+ */
+export function evaluarMontosGasto(subtotal: unknown, iva: unknown): MontosGasto | MontosGastoError {
+  const sub = parseMonto(subtotal);
+  if (!sub.ok) return { ok: false, campo: "Subtotal", message: sub.message };
+  if (sub.cents <= BigInt(0)) return { ok: false, campo: "Subtotal", message: SUBTOTAL_POSITIVO_MESSAGE };
+  const imp = parseMonto(iva);
+  if (!imp.ok) {
+    const negativo = imp.message === "El monto no puede ser negativo.";
+    return { ok: false, campo: "IVA", message: negativo ? IVA_NEGATIVO_MESSAGE : imp.message };
+  }
+  const total = sub.cents + imp.cents;
+  if (total > MONTO_MAXIMO_CENTS) return { ok: false, campo: "Total", message: TOTAL_ALTO_MESSAGE };
+  return { ok: true, subtotal: sub.cents, iva: imp.cents, total };
+}
+
+/** Same as `evaluarMontosGasto`, answering 400. */
+export function parseMontosGasto(subtotal: unknown, iva: unknown): MontosGasto | { ok: false; response: Response } {
+  const evaluated = evaluarMontosGasto(subtotal, iva);
+  if (!evaluated.ok) return { ok: false, response: apiError(evaluated.message, 400, "VALIDATION_ERROR") };
+  return evaluated;
+}
 
 /** A strictly positive amount in exact cents (decimal string or number, max two decimals), without HTTP. */
 export function evaluarValorGasto(value: unknown): { ok: true; cents: Cents } | { ok: false; message: string } {
@@ -212,7 +248,10 @@ export async function resolverLinea(
   return { ok: true, value: { id: linea.id, asignado: toCents(linea.monto_proyectado_cop), rubro: linea.rubro } };
 }
 
-/** The period must be a month of the project; it defaults to the month of the document date. Without HTTP. */
+/**
+ * The period must be a month of the project; it defaults to the month of the document date (and asks to be
+ * chosen when that month is outside the project). Without HTTP.
+ */
 export function evaluarPeriodo(
   proyecto: Pick<GastoProyecto, "fecha_inicio" | "fecha_fin">,
   fechaDocumento: string,
@@ -221,7 +260,10 @@ export function evaluarPeriodo(
   if (!proyecto.fecha_inicio || !proyecto.fecha_fin) return { ok: false, message: PROYECTO_SIN_FECHAS_MESSAGE };
   const periodos = projectPeriods(isoDate(proyecto.fecha_inicio), isoDate(proyecto.fecha_fin));
   const elegido = periodo ?? periodoPorDefecto(fechaDocumento);
-  if (!periodoEnProyecto(elegido, periodos)) return { ok: false, message: PERIODO_FUERA_MESSAGE };
+  if (!periodoEnProyecto(elegido, periodos)) {
+    // Defaulted from a date outside the project: the person has to choose the period (AJ-05).
+    return { ok: false, message: periodo === undefined ? PERIODO_DOCUMENTO_FUERA_MESSAGE : PERIODO_FUERA_MESSAGE };
+  }
   return { ok: true, value: elegido };
 }
 
@@ -362,9 +404,15 @@ export type GastoView = {
   tercero_numero_id?: string | null;
   numero_documento: string;
   descripcion: string;
+  /** The Total (Subtotal + IVA): the executed amount. */
   valor: string;
+  subtotal: string;
+  /** Shown apart for information only; the budget always consumes the Total. */
+  iva: string;
   estado: EstadoGasto;
   alerta_sobregasto: boolean;
+  /** Derived: the period differs from the month of the document date (AJ-05). */
+  periodo_modificado: boolean;
   /** Derived: the third-party type or number is missing, so the expense cannot be validated yet. */
   datos_incompletos: boolean;
   registrado_por_id: string;
@@ -413,8 +461,11 @@ export function toGastoView(row: GastoConRelaciones, opts: { puedeVerSoportes: b
     numero_documento: row.numero_documento,
     descripcion: row.descripcion,
     valor: fromCents(toCents(row.monto_cop)),
+    subtotal: fromCents(toCents(row.subtotal_cop)),
+    iva: fromCents(toCents(row.iva_cop)),
     estado: row.estado,
     alerta_sobregasto: row.alerta_sobregasto,
+    periodo_modificado: row.periodo !== periodoPorDefecto(isoDate(row.fecha_documento)),
     datos_incompletos: datosIncompletos(row),
     registrado_por_id: row.registrado_por_id,
     created_at: row.created_at.toISOString(),
@@ -501,6 +552,8 @@ export type GastoAuditable = {
   tercero_numero_id: string | null;
   numero_documento: string;
   descripcion: string;
+  subtotal: string;
+  iva: string;
   valor: string;
 };
 
@@ -514,6 +567,8 @@ export const CAMPOS_AUDITABLES_GASTO = [
   "tercero_numero_id",
   "numero_documento",
   "descripcion",
+  "subtotal",
+  "iva",
   "valor",
 ] as const satisfies readonly (keyof GastoAuditable)[];
 
@@ -527,6 +582,8 @@ export function gastoAuditable(input: {
   tercero_numero_id: string | null;
   numero_documento: string;
   descripcion: string;
+  subtotal_cop: { toString(): string };
+  iva_cop: { toString(): string };
   monto_cop: { toString(): string };
 }): GastoAuditable {
   return {
@@ -539,6 +596,8 @@ export function gastoAuditable(input: {
     tercero_numero_id: mascara(input.tercero_numero_id),
     numero_documento: input.numero_documento,
     descripcion: input.descripcion,
+    subtotal: fromCents(toCents(input.subtotal_cop)),
+    iva: fromCents(toCents(input.iva_cop)),
     valor: fromCents(toCents(input.monto_cop)),
   };
 }

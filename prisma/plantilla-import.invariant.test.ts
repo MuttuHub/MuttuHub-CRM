@@ -596,6 +596,8 @@ describe("template import (live DB)", () => {
           numero_documento_norm: "FE0123",
           descripcion: "Tiquetes",
           monto_cop: new Prisma.Decimal("100"),
+          subtotal_cop: new Prisma.Decimal("100"),
+          iva_cop: new Prisma.Decimal("0"),
           registrado_por_id: ctx.gerente.id,
         },
       });

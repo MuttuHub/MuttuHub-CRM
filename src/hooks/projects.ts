@@ -1412,9 +1412,15 @@ export type ProjectExpense = {
   tercero_numero_id?: string | null;
   numero_documento: string;
   descripcion: string;
+  /** El Total (Subtotal + IVA): el valor ejecutado que consume el presupuesto del rubro. */
   valor: string;
+  subtotal: string;
+  /** Se muestra aparte solo como información; puede ser "0.00". */
+  iva: string;
   estado: ProjectExpenseEstado;
   alerta_sobregasto: boolean;
+  /** Derivado: el periodo difiere del mes de la fecha del documento (AJ-05). */
+  periodo_modificado: boolean;
   datos_incompletos: boolean;
   registrado_por_id: string;
   created_at: string;
@@ -1454,15 +1460,18 @@ export type ExpenseAlert =
 export type ProjectExpenseInput = {
   rubro_id: string;
   fecha_documento: string;
-  periodo?: string;
+  /** Mes del proyecto AAAA-MM; el formulario lo rellena con el mes de la fecha del documento. */
+  periodo: string;
   tipo_soporte: ProjectExpense["tipo_soporte"];
   tercero_nombre: string;
   tercero_tipo_id: "NIT" | "CC" | "CE" | null;
   tercero_numero_id: string | null;
   numero_documento: string;
   descripcion: string;
-  /** Decimal como string ("1500000.50"). */
-  valor: string;
+  /** Decimal como string ("1000000"). */
+  subtotal: string;
+  /** Decimal como string; puede ser "0", nunca negativo. El Total lo calcula el servidor. */
+  iva: string;
   /** Un soporte: archivo (firma -> subida -> confirmación) o enlace https. */
   soporte: AvanceMedioInput;
 };

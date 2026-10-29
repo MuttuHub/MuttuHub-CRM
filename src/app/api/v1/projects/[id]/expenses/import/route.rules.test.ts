@@ -76,7 +76,9 @@ const fila = (data: Partial<Record<(typeof ENCABEZADOS_GASTOS)[number], Celda>> 
     "Número de identificación": "900.123.456-7",
     "Número de documento": "FE-0123",
     Descripción: "Tiquetes del equipo",
-    "Valor (COP)": 1500000.5,
+    Subtotal: 1500000.5,
+    IVA: 0,
+    Total: null,
     Periodo: null,
     ...data,
   };
@@ -169,7 +171,7 @@ describe("VERIFIER import", () => {
   });
 
   it("preview writes nothing (no transaction, no create, no audit)", async () => {
-    const res = await POST(subida(await libro([ok(), ok({ "Número de documento": "FE-2", "Valor (COP)": -5 })]), { modo: "validar" }), ctx);
+    const res = await POST(subida(await libro([ok(), ok({ "Número de documento": "FE-2", Subtotal: -5 })]), { modo: "validar" }), ctx);
     expect(res.status).toBe(200);
     const j = await res.json();
     expect(j.importado).toBe(false);
@@ -183,13 +185,13 @@ describe("VERIFIER import", () => {
   it("apply: one transaction, only valid rows written, one shared lote_id, registrant = importer, estado default, zero supports", async () => {
     const buf = await libro([
       ok(),
-      ok({ "Número de documento": "FE-2", "Valor (COP)": 0 }),
-      ok({ Rubro: "Viáticos", "Número de documento": "FE-3", "Valor (COP)": 200000 }),
+      ok({ "Número de documento": "FE-2", Subtotal: 0 }),
+      ok({ Rubro: "Viáticos", "Número de documento": "FE-3", Subtotal: 200000 }),
       ok({ Rubro: "Sin asignar", "Número de documento": "FE-4" }),
       ok({ "Fecha del documento": "2025-01-01", "Número de documento": "FE-5" }),
       ok({ "Fecha del documento": "2030-01-01", "Número de documento": "FE-6" }),
       ok({ Rubro: "Inexistente", "Número de documento": "FE-7" }),
-      ok({ "Valor (COP)": 10.123, "Número de documento": "FE-8" }),
+      ok({ Subtotal: 10.123, "Número de documento": "FE-8" }),
     ]);
     const res = await POST(subida(buf), ctx);
     const j = await res.json();
@@ -239,7 +241,7 @@ describe("VERIFIER import", () => {
   });
 
   it("zero valid rows on apply -> 400 and no write; empty sheet -> 400", async () => {
-    const r = await POST(subida(await libro([ok({ "Valor (COP)": -1 })])), ctx);
+    const r = await POST(subida(await libro([ok({ Subtotal: -1 })])), ctx);
     expect(r.status).toBe(400);
     expect((await POST(subida(await libro([])), ctx)).status).toBe(400);
     expect(mocks.transaction).not.toHaveBeenCalled();
@@ -273,7 +275,7 @@ describe("VERIFIER import", () => {
 
   it("overspend flag computed like single create: value > assigned flags alerta_sobregasto and still imports", async () => {
     mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: new Prisma.Decimal("23500000") } });
-    const res = await POST(subida(await libro([ok({ "Valor (COP)": 1000000 })])), ctx);
+    const res = await POST(subida(await libro([ok({ Subtotal: 1000000 })])), ctx);
     expect(res.status).toBe(200);
     expect(mocks.create.mock.calls[0][0].data.alerta_sobregasto).toBe(true);
   });

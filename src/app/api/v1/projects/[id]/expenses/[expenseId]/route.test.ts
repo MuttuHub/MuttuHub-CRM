@@ -68,6 +68,8 @@ const existente = (data: Record<string, unknown> = {}) => ({
   numero_documento: "FE-0123",
   numero_documento_norm: "FE0123",
   descripcion: "Tiquetes del equipo",
+  subtotal_cop: new Prisma.Decimal("1500000.50"),
+  iva_cop: new Prisma.Decimal("0"),
   monto_cop: new Prisma.Decimal("1500000.50"),
   estado: "REGISTRADO",
   alerta_sobregasto: false,
@@ -149,7 +151,7 @@ describe("GET expenses/:expenseId", () => {
 
 describe("PATCH expenses/:expenseId", () => {
   it("lets the registrant edit a REGISTRADO expense and audits the changed fields", async () => {
-    const res = await PATCH(patch({ descripcion: "Tiquetes aéreos", valor: "2000000" }), ctx);
+    const res = await PATCH(patch({ descripcion: "Tiquetes aéreos", subtotal: "2000000" }), ctx);
     expect(res.status).toBe(200);
     expect(updatedData()).toMatchObject({ descripcion: "Tiquetes aéreos", monto_cop: expect.anything() });
     expect(mocks.updateMany).toHaveBeenCalledWith(
@@ -162,6 +164,78 @@ describe("PATCH expenses/:expenseId", () => {
         expect.objectContaining({ accion: "EDITAR", campo: "valor", valor_nuevo: "2000000.00" }),
       ]),
     );
+  });
+
+  it("recomputes the Total from the new Subtotal and IVA and audits both (S1, S2)", async () => {
+    const res = await PATCH(patch({ subtotal: "1000000", iva: "190000" }), ctx);
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(updatedData()).toMatchObject({
+      subtotal_cop: new Prisma.Decimal("1000000"),
+      iva_cop: new Prisma.Decimal("190000"),
+      monto_cop: new Prisma.Decimal("1190000"),
+    });
+    expect(json.gasto).toMatchObject({ subtotal: "1000000.00", iva: "190000.00", valor: "1190000.00" });
+    const rows = vi.mocked(logChanges).mock.calls[0][1];
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ campo: "subtotal", valor_anterior: "1500000.50", valor_nuevo: "1000000.00" }),
+        expect.objectContaining({ campo: "iva", valor_anterior: "0.00", valor_nuevo: "190000.00" }),
+        expect.objectContaining({ campo: "valor", valor_anterior: "1500000.50", valor_nuevo: "1190000.00" }),
+      ]),
+    );
+  });
+
+  it("keeps the stored IVA when only the Subtotal is sent, and the Subtotal when only the IVA is sent", async () => {
+    current = existente({
+      subtotal_cop: new Prisma.Decimal("1000000"),
+      iva_cop: new Prisma.Decimal("190000"),
+      monto_cop: new Prisma.Decimal("1190000"),
+    });
+    await PATCH(patch({ subtotal: "2000000" }), ctx);
+    expect(updatedData()).toMatchObject({ iva_cop: new Prisma.Decimal("190000"), monto_cop: new Prisma.Decimal("2190000") });
+    mocks.updateMany.mockClear();
+    current = existente({
+      subtotal_cop: new Prisma.Decimal("1000000"),
+      iva_cop: new Prisma.Decimal("190000"),
+      monto_cop: new Prisma.Decimal("1190000"),
+    });
+    await PATCH(patch({ iva: "0" }), ctx);
+    expect(updatedData()).toMatchObject({ subtotal_cop: new Prisma.Decimal("1000000"), monto_cop: new Prisma.Decimal("1000000") });
+  });
+
+  it("audits a periodo change and marks the edited expense «periodo_modificado» (S5, S6)", async () => {
+    const res = await PATCH(patch({ periodo: "2026-12" }), ctx);
+    expect(res.status).toBe(200);
+    expect(updatedData().periodo).toBe("2026-12");
+    expect((await res.json()).gasto).toMatchObject({ periodo: "2026-12", periodo_modificado: true });
+    expect(vi.mocked(logChanges).mock.calls[0][1]).toEqual([
+      expect.objectContaining({ accion: "EDITAR", entidad: "gasto", campo: "periodo", valor_anterior: "2026-10", valor_nuevo: "2026-12" }),
+    ]);
+  });
+
+  it("resets the periodo to the new document month when the date changes without a periodo (S5)", async () => {
+    current = existente({ periodo: "2026-12" });
+    const res = await PATCH(patch({ fecha_documento: "2026-11-20" }), ctx);
+    expect(res.status).toBe(200);
+    expect(updatedData().periodo).toBe("2026-11");
+    expect((await res.json()).gasto.periodo_modificado).toBe(false);
+  });
+
+  it("asks to choose the periodo when the new date is outside the project months and none is sent (S5)", async () => {
+    const res = await PATCH(patch({ fecha_documento: "2027-03-10" }), ctx);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("La fecha del documento está fuera de los meses del proyecto: elige el periodo.");
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+    const elegido = await PATCH(patch({ fecha_documento: "2027-03-10", periodo: "2027-01" }), ctx);
+    expect(elegido.status).toBe(200);
+    expect(updatedData().periodo).toBe("2027-01");
+  });
+
+  it("keeps the stored periodo when other fields change", async () => {
+    current = existente({ periodo: "2026-12" });
+    await PATCH(patch({ descripcion: "Otra" }), ctx);
+    expect(updatedData().periodo).toBe("2026-12");
   });
 
   it("never audits the third-party number in clear (RNF-04)", async () => {
@@ -231,9 +305,11 @@ describe("PATCH expenses/:expenseId", () => {
     expect(updatedData().linea_id).toBe("lin-9");
   });
 
-  it("validates the periodo, the valor and an empty body", async () => {
+  it("validates the periodo, the subtotal, the IVA and an empty body", async () => {
     expect((await PATCH(patch({ periodo: "2027-05" }), ctx)).status).toBe(400);
-    expect((await PATCH(patch({ valor: "0" }), ctx)).status).toBe(400);
+    expect((await PATCH(patch({ subtotal: "0" }), ctx)).status).toBe(400);
+    expect((await PATCH(patch({ iva: "-1" }), ctx)).status).toBe(400);
+    expect((await PATCH(patch({ valor: "1" }), ctx)).status).toBe(400);
     expect((await PATCH(patch({ estado: "VALIDADO" }), ctx)).status).toBe(400);
     expect((await PATCH(patch({}), ctx)).status).toBe(400);
     expect(mocks.updateMany).not.toHaveBeenCalled();

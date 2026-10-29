@@ -52,7 +52,7 @@ describe("GET expenses/template", () => {
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load((await response.arrayBuffer()) as never);
     expect(workbook.worksheets[0].getCell("A1").value).toBe("Rubro");
-    expect(workbook.worksheets[0].getCell("I1").value).toBe("Valor (COP)");
+    expect(["I1", "J1", "K1"].map((c) => workbook.worksheets[0].getCell(c).value)).toEqual(["Subtotal", "IVA", "Total"]);
     const rubros = workbook.worksheets[1];
     expect([1, 2, 3, 4].map((r) => rubros.getRow(r).getCell(1).value)).toEqual(["Rubro", "Transporte", "Viáticos", null]);
   });

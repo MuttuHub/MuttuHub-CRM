@@ -50,9 +50,20 @@ export const GastoSchema = registry.register(
     tercero_numero_id: z.string().nullable().optional().openapi({ description: "Omitido sin acceso a soportes financieros (RNF-03)." }),
     numero_documento: z.string(),
     descripcion: z.string(),
-    valor: z.string().openapi({ example: "1500000.50", description: "Decimal(15,2) como string." }),
+    valor: z.string().openapi({
+      example: "1190000.00",
+      description: "El Total (Subtotal + IVA): el valor ejecutado que consume el presupuesto del rubro. Decimal(15,2) como string.",
+    }),
+    subtotal: z.string().openapi({ example: "1000000.00", description: "Decimal(15,2) como string." }),
+    iva: z.string().openapi({
+      example: "190000.00",
+      description: "Decimal(15,2) como string; puede ser 0. Se muestra aparte solo como información.",
+    }),
     estado: EstadoGastoSchema,
     alerta_sobregasto: z.boolean(),
+    periodo_modificado: z.boolean().openapi({
+      description: "Derivado: el periodo difiere del mes de la fecha del documento (se muestra como «Periodo modificado»).",
+    }),
     datos_incompletos: z.boolean().openapi({ description: "Derivado: falta el tipo o el número de identificación del tercero." }),
     registrado_por_id: z.string(),
     created_at: z.string(),
@@ -120,8 +131,11 @@ registry.registerPath({
   tags: ["Projects"],
   summary: "Registra un gasto contra un rubro del proyecto",
   description:
-    `${WRITE_NOTE} El rubro debe tener valor asignado mayor que cero y el periodo (por defecto el mes de la fecha del ` +
-    "documento) debe ser un mes del proyecto. El valor es un string decimal positivo con máximo dos decimales. Exige de 1 a 5 " +
+    `${WRITE_NOTE} El rubro debe tener valor asignado mayor que cero y el periodo debe ser un mes del proyecto: sin ` +
+    "`periodo` se usa el mes de la fecha del documento y, si ese mes no es del proyecto, responde 400 «La fecha del documento " +
+    "está fuera de los meses del proyecto: elige el periodo.». `subtotal` (mayor que cero) e `iva` (cero o mayor) son strings " +
+    "decimales con máximo dos decimales; el Total no se envía: el servidor lo calcula (Subtotal + IVA) y es el valor ejecutado " +
+    "(`valor` en la vista). Ya no se acepta `valor`. Exige de 1 a 5 " +
     "soportes en modo confirmación (firma en `/expenses/sign`, subida directa, y aquí `storage_path` o `url_externa`). El " +
     "estado siempre es REGISTRADO. Las alertas no bloquean: `SOBREGASTO` (aviso temprano contra lo validado) y `DUPLICADO` " +
     "(mismo tercero y número de documento normalizados en cualquier proyecto; el código solo se revela si se puede leer ese proyecto).",
@@ -199,7 +213,10 @@ registry.registerPath({
   description:
     `${WRITE_NOTE} Solo quien lo registró (403 para cualquiera más, incluidos los administradores). Solo en REGISTRADO o ` +
     "RECHAZADO; un gasto validado o anulado responde 409. Editar un RECHAZADO lo devuelve a REGISTRADO y limpia el rechazo. " +
-    "Audita un registro EDITAR por campo cambiado; el número de identificación solo se audita enmascarado.",
+    "Audita un registro EDITAR por campo cambiado (incluidos `subtotal`, `iva`, `valor` y `periodo`); el número de " +
+    "identificación solo se audita enmascarado. `subtotal` e `iva` se envían juntos o por separado (el que falta conserva el " +
+    "guardado) y el Total siempre es su suma. Si cambia `fecha_documento` sin `periodo`, el periodo vuelve al mes de la nueva " +
+    "fecha (400 si ese mes no es del proyecto).",
   security: [{ sessionCookie: [] }],
   request: { params: ExpenseParams, body: { content: { "application/json": { schema: GASTO_PATCH_SCHEMA } } } },
   responses: {
@@ -417,8 +434,12 @@ registry.registerPath({
   description:
     `${WRITE_NOTE} Multipart con el archivo en \`archivo\` (.xlsx, máximo 4 MB, máximo 200 filas con datos; no se almacena). ` +
     "Columnas: `Rubro`, `Fecha del documento`, `Tipo de soporte`, `Tercero`, `Tipo de identificación` (opcional), " +
-    "`Número de identificación` (opcional), `Número de documento`, `Descripción`, `Valor (COP)` y `Periodo` (opcional, AAAA-MM). " +
-    "Cada fila pasa por las mismas reglas que un gasto individual (rubro con valor asignado, valor positivo con máximo dos " +
+    "`Número de identificación` (opcional), `Número de documento`, `Descripción`, `Subtotal`, `IVA`, " +
+    "`Total` (opcional) y `Periodo` (opcional, AAAA-MM; vacío usa el mes de la fecha del documento). `Subtotal` e `IVA` son " +
+    "obligatorios: el IVA puede ser 0 pero debe escribirse. Si viene `Total`, debe ser igual a Subtotal + IVA o la fila se " +
+    "rechaza con su fila y columna. Un archivo con la columna antigua `Valor (COP)` y sin `Subtotal` se rechaza completo: " +
+    "«Esta plantilla es anterior: descarga la nueva, que separa Subtotal e IVA.». " +
+    "Cada fila pasa por las mismas reglas que un gasto individual (rubro con valor asignado, subtotal positivo con máximo dos " +
     "decimales, periodo dentro del proyecto, límites de texto). El archivo no lleva soportes: los gastos se crean REGISTRADO " +
     "sin soportes y se adjuntan después (`POST /expenses/{expenseId}/attachments`); sin soporte no se pueden validar. Dos filas " +
     "con el mismo tercero y número de documento normalizados: la segunda es inválida. Con `modo=validar` devuelve cada fila como " +

@@ -75,7 +75,7 @@ function VistaPrevia({ preview }: { preview: ExpensesImportPreview }) {
                 </TableHead>
               ))}
               <TableHead scope="col" numeric>
-                Valor
+                Total
               </TableHead>
               <TableHead scope="col">Observaciones</TableHead>
             </TableRow>

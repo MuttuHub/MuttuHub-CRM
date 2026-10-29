@@ -351,6 +351,21 @@ function EstadoGasto({ gasto }: { gasto: ProjectExpense }) {
   );
 }
 
+/** The IVA is shown apart and only for information: the budget always consumes the Total (`valor`). */
+function IvaGasto({ gasto, className }: { gasto: ProjectExpense; className?: string }) {
+  return <span className={`text-ink-600 ${className ?? ""}`}>IVA {formatCOP(toCents(gasto.iva))}</span>;
+}
+
+/** AJ-05: the period was edited away from the month of the document date. The change is in the audit ledger. */
+function PeriodoModificado({ gasto, className }: { gasto: ProjectExpense; className?: string }) {
+  if (!gasto.periodo_modificado) return null;
+  return (
+    <span title={`Periodo ${gasto.periodo}`} className={`font-sans text-[11.5px] text-ink-600 ${className ?? ""}`}>
+      Periodo modificado
+    </span>
+  );
+}
+
 function GastoFila(props: FilaProps) {
   const { proyectoId, gasto, esGestor } = props;
   const { error, ver } = useVerSoporte(proyectoId, gasto.id);
@@ -363,6 +378,7 @@ function GastoFila(props: FilaProps) {
     >
       <TableCell className="align-top font-mono text-[12.5px] text-ink-700">
         <span title={formatFechaCalendario(gasto.fecha_documento)}>{fechaCorta(gasto.fecha_documento)}</span>
+        <PeriodoModificado gasto={gasto} className="block" />
       </TableCell>
       <TableCell className="min-w-[150px] max-w-[240px] align-top whitespace-normal">
         <p className="text-[13px] font-semibold text-ink-950">{nombreRubro(gasto)}</p>
@@ -377,7 +393,8 @@ function GastoFila(props: FilaProps) {
         <p className="text-[12px] text-ink-600">{TIPO_SOPORTE_LABELS[gasto.tipo_soporte]}</p>
       </TableCell>
       <TableCell numeric className="align-top font-mono text-[13px] font-semibold text-ink-900">
-        {formatCOP(toCents(gasto.valor))}
+        <span>{formatCOP(toCents(gasto.valor))}</span>
+        <IvaGasto gasto={gasto} className="block text-[11.5px] font-normal" />
       </TableCell>
       <TableCell className="max-w-[200px] align-top whitespace-normal">
         <EstadoGasto gasto={gasto} />
@@ -409,8 +426,11 @@ function GastoTarjeta(props: FilaProps) {
     <li data-testid="gasto-fila" className="surface-inner flex flex-col gap-1.5 p-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <EstadoGasto gasto={gasto} />
-        <span className="font-mono text-[13px] font-semibold text-ink-900 tabular-nums">
-          {formatCOP(toCents(gasto.valor))}
+        <span className="flex flex-col items-end">
+          <span className="font-mono text-[13px] font-semibold text-ink-900 tabular-nums">
+            {formatCOP(toCents(gasto.valor))}
+          </span>
+          <IvaGasto gasto={gasto} className="text-[11.5px]" />
         </span>
       </div>
       <p className="text-[13px] text-ink-900">
@@ -428,6 +448,7 @@ function GastoTarjeta(props: FilaProps) {
           .filter(Boolean)
           .join(" · ")}
       </p>
+      <PeriodoModificado gasto={gasto} />
       <SoporteGasto
         proyectoId={proyectoId}
         gasto={gasto}

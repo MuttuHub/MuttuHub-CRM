@@ -1148,6 +1148,9 @@ model Gasto {
   numero_documento      String
   numero_documento_norm String
   descripcion           String
+  subtotal_cop          Decimal            @db.Decimal(15, 2)
+  iva_cop               Decimal            @default(0) @db.Decimal(15, 2)
+  /// Total = subtotal_cop + iva_cop (enforced by `gastos_total_cuadra_ck`); the executed amount.
   monto_cop             Decimal            @db.Decimal(15, 2)
   estado                EstadoGasto        @default(REGISTRADO)
   alerta_sobregasto     Boolean            @default(false)
