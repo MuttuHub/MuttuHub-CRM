@@ -123,3 +123,18 @@ rules, verbatim requests (R1–R3), assumptions (A1–A5), root causes and file 
   CI of #105 failed on `control-guards` (`users-table.tsx:429` `text-[12px]` on an Input) → fixed in 8bfa897
   (`text-base md:text-[12px]`, same as `client-list.tsx:715`). Remaining: 2.4b + task-Excel period and 2.6 + 2.7
   Clients wait for #102/#103; after #103 delete `useAdminMunicipios`/`useCreateMunicipio`.
+- **L10 (2026-10-29).** Merged (squash) to `main`: #107, #104, #105, #106, #110, #109 (e2e `historial-impresion` updated
+  to expect the print view in the same tab with «Volver», 1eb452e). #111 retargeted to `main` (REST; `gh pr edit` fails
+  on the Projects-classic deprecation), conflicts from #109's squash resolved in cd6b8aa (reportes-page: 2.5 superset;
+  guía §7.1 kept); merge pending its CI.
+  **#102 production migration** (user: «si no se daña nada en produccion, haz la migración, de todos modos pruyeba en
+  local antes»): prod backup `~/muttu-backups/2026-10-29-1333-jefe102` (runbook §3.1: 3 files, 43 CREATE TABLE, 76 COPY,
+  `_prisma_migrations` present, SHA256SUMS). Rehearsal on that real data restored locally (`ensayo_prod_102`, realtime
+  publication and cluster-only extensions filtered): status 1 pending + known phantom → deploy OK → status up to date,
+  diff empty, md5 of clientes/carpetas/tareas identical before/after. Production (from worktree of #102's branch, never
+  the main checkout, which holds other branches' migrations): same status → `migrate deploy` applied
+  `20261029120000_jefe_clientes_aliados_carpetas` → up to date, diff empty; read-only check: 25 clientes (all
+  `etiquetas = {}`), 11 carpetas (0 with client), 143 tareas, 15 usuarios, enum has ALIADO_ESTRATEGICO. Local copy of
+  prod data dropped afterwards. Then merged #102 and #103. Advisory for another session: local branch
+  `feat/aj01-estado-en-curso` has migration `20261029120000_v2_reportes_actividad` with the same timestamp.
+  Unblocked now: 2.4b, 2.6, 2.7 Clients, admin hooks cleanup.
