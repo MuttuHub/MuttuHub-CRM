@@ -19,6 +19,7 @@ vi.mock("@/lib/db", () => ({
     proyecto: { findFirst: vi.fn() },
     actividad: { findMany: vi.fn() },
     avanceEntregable: { findMany: vi.fn() },
+    reporteActividad: { findMany: vi.fn(async () => []) },
     soporteProyecto: { groupBy: vi.fn() },
     versionProyecto: { findFirst: vi.fn() },
   },
