@@ -1,7 +1,9 @@
 "use client";
 
 // Reportes (Hito 6, PRD §5.4 + §7): tabs entre el reporte de tareas (el mismo
-// ReportView del tablero, con exportación Excel/PDF y alcance por rol) y las 4
+// ReportView del tablero, con exportación Excel/PDF y alcance por rol), el
+// reporte semanal (S5: portafolio, actividades atrasadas, tareas de la semana
+// contra la anterior, «Requiere atención» y gastos por validar) y las 4
 // caras del dashboard, cada una con su barra de filtros comunes (§7.2) y un
 // bloque "Generar reporte" que abre la vista de impresión por cara. El estado
 // de filtros vive acá (hoisted) para que cambiar de cara no los pierda; el
@@ -10,7 +12,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Gauge, ListChecks, Printer, UserRound, UsersRound } from "lucide-react";
+import { CalendarRange, Gauge, ListChecks, Printer, UserRound, UsersRound } from "lucide-react";
 import {
   buildDashboardQuery,
   rangoMesActual,
@@ -20,6 +22,7 @@ import { useUsers } from "@/hooks/crm";
 import { ENUM_VALUES, TIPO_CLIENTE_LABELS } from "@/lib/catalogs";
 import { RANGO_OPCIONES, useFiltersStore } from "@/store/filters";
 import { ReportView } from "@/components/kanban/report-view";
+import { ReporteSemanalTab } from "@/components/reportes/reporte-semanal";
 import {
   Select,
   SelectContent,
@@ -43,6 +46,9 @@ const CARAS = [
 
 type CaraId = (typeof CARAS)[number]["id"];
 
+const TAB_TRIGGER_CLASS =
+  "flex !h-auto !flex-none items-center justify-center gap-2 rounded-[9px] px-3 py-2 text-[12.5px] font-bold whitespace-nowrap text-ink-600 transition-colors hover:text-ink-900 data-active:bg-card data-active:text-ink-950 data-active:shadow-sm !lg:flex-1";
+
 export function ReportesPage() {
   const [responsable, setResponsable] = useState("");
   const [tipoCliente, setTipoCliente] = useState("");
@@ -63,18 +69,22 @@ export function ReportesPage() {
       <Tabs defaultValue="tareas" className="flex min-w-0 flex-col gap-4">
         {/* Patrón A (plan Fase 5): tira con scroll abajo (flex-none +
             overflow-x-auto), ancho igual arriba (lg:flex-wrap + lg:flex-1).
-            5 tabs → el umbral de "ancho igual" es lg.
+            6 tabs → el umbral de "ancho igual" es lg.
             !h-auto/!justify-start: el primitivo base fuerza h-8 (32px) y
             justify-center; con overflow-x-auto eso recorta los triggers y hace
             inalcanzable el arranque scrolleando. La importancia gana al orden
             del CSS de Tailwind. */}
         <TabsList variant="pill" className="no-scrollbar flex !h-auto w-full !justify-start items-center gap-1 overflow-x-auto rounded-lg bg-ink-100 p-1 lg:flex-wrap">
           <TabTareasTrigger />
+          <TabsTrigger value="semanal" className={TAB_TRIGGER_CLASS}>
+            <CalendarRange className="size-4" strokeWidth={1.9} />
+            Semanal
+          </TabsTrigger>
           {CARAS.map((cara) => (
             <TabsTrigger
               key={cara.id}
               value={cara.id}
-              className="flex !h-auto !flex-none items-center justify-center gap-2 rounded-[9px] px-3 py-2 text-[12.5px] font-bold whitespace-nowrap text-ink-600 transition-colors hover:text-ink-900 data-active:bg-card data-active:text-ink-950 data-active:shadow-sm !lg:flex-1"
+              className={TAB_TRIGGER_CLASS}
             >
               <cara.icon className="size-4" strokeWidth={1.9} />
               {cara.label}
@@ -84,6 +94,10 @@ export function ReportesPage() {
 
         <TabsContent value="tareas" className="mt-0">
           <ReportView responsable={undefined} cliente={undefined} />
+        </TabsContent>
+
+        <TabsContent value="semanal" className="mt-0">
+          <ReporteSemanalTab />
         </TabsContent>
 
         {CARAS.map((cara) => (
@@ -120,7 +134,7 @@ function TabTareasTrigger() {
   return (
     <TabsTrigger
       value="tareas"
-      className="flex !h-auto !flex-none items-center justify-center gap-2 rounded-[9px] px-3 py-2 text-[12.5px] font-bold whitespace-nowrap text-ink-600 transition-colors hover:text-ink-900 data-active:bg-card data-active:text-ink-950 data-active:shadow-sm !lg:flex-1"
+      className={TAB_TRIGGER_CLASS}
     >
       Tareas
     </TabsTrigger>

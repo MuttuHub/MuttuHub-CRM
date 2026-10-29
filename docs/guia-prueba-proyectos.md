@@ -601,6 +601,18 @@ consulta): deben coincidir en color con las tarjetas de abajo.
 - Corte inválido en la API: 400. Proyecto en Borrador: Indicadores explica por qué no hay cifras.
 - El tablero no muestra gastos individuales, terceros, soportes ni "territorio".
 
+### J.6 Reporte semanal (Reportes › Semanal)
+1. Como `gerencia@`: **Reportes**, pestaña **Semanal**. Esperado: "Semana del <lunes> al <domingo>" de la semana en
+   curso, y las secciones Portafolio por proyecto, Portafolio por cliente, Tareas, Actividades atrasadas, Requiere
+   atención y Gastos por validar. Los semáforos y montos coinciden con el **Tablero** de proyectos.
+2. **Semana anterior**: cambia la semana y las tareas cerradas/vencidas. **Semana siguiente** se desactiva en la
+   semana en curso.
+3. **Generar reporte**: abre `/print/reportes/semanal?semana=<lunes>` en la **misma pestaña**; **Volver** regresa a
+   Reportes.
+4. **Exportar Excel**: baja `reporte-semanal-<lunes>.xlsx` con las hojas `Resumen`, `Proyectos`, `Por cliente`,
+   `Actividades atrasadas`, `Requiere atención` y `Gastos por validar`. Sin gastos individuales, terceros ni soportes.
+5. Como `coordinador@`: solo sus proyectos y **sin** la sección ni la hoja "Gastos por validar".
+
 ## 5. Ensayo automatizado (opcional)
 
 Hay dos specs y **necesitan estados de base distintos**; no corren sobre la misma base sin reiniciarla:
