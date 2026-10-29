@@ -41,7 +41,7 @@ recomendado en `docs/plan-trabajo-restante.md:69` (AJ-06 antes que AJ-01).
 
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
-| T1 | S1, S6, S7 (extract a generic `AdjuntarSoporte` attach-after-creation control, reusable by gasto/avance/medición; filename+remove affordance) | delegated (context backstop) | pending | |
+| T1 | S1, S6, S7 (extract a generic `AdjuntarSoporte` attach-after-creation control, reusable by gasto/avance/medición; filename+remove affordance) | delegated (context backstop) | done | `fe08e8b` |
 | T2 | S2, S3 (wire the generic control into the avance/entregable card; show every medio in the history, not just a count) | delegated (context backstop) | pending | |
 | T3 | S2, S3 (new `mediciones/[medicionId]/attachments` API routes — GET/POST/sign/download, mirroring `progress/[progressId]/attachments`; wire the generic control into `ejecucion-indicadores.tsx`) | delegated (context backstop) | pending | |
 | T4 | S6, S7 (rename gasto's button to "Adjuntar archivo", add the filename+remove row to `gasto-form.tsx`'s own file input) | delegated (context backstop) | pending | |
@@ -69,3 +69,15 @@ verifier.
   mediciones (`MedicionForm` in `ejecucion-indicadores.tsx` has no medio field, no attach UI). No "Enlace del soporte"
   column exists in `src/lib/proyectos/plantilla/columns.ts`; the import parser (`src/lib/proyectos/gastos-import/`)
   does not read support links.
+- **L3 (T1):** `src/components/proyectos/adjuntar-soporte.tsx` exports `AdjuntarArchivoControl`, parameterized by an
+  `adjuntar` mutation of shape `{ mutate: (vars: { soporte: AvanceMedioInput }, opts) => void; isPending; isError;
+  error }` — each caller (gasto today, avance/medición next) wraps its own mutation hook to fold in its own parent id
+  before handing it to the control. Visible button text is fixed at "Adjuntar archivo"; only the accessible
+  `ariaLabel` is caller-configurable. `gasto-soportes.tsx`'s `AdjuntarSoporte` now wraps it, keeping
+  `MAX_SOPORTES_POR_GASTO`/`ADJUNTAR_ERROR`/`{projectId, gastoId}` unchanged for `project-gastos.tsx`. File clearing
+  uses a ref (`<input type="file">` can't be reset via state alone) — the pattern T4 reuses for `gasto-form.tsx`'s own
+  file input. `project-gastos.test.tsx` needed a text-only rename (6 assertions + 1 description) as a direct
+  consequence of the S6 button rename; no production code outside the declared surface changed. RED→GREEN observed on
+  the filename+Quitar row; parent spot check: `npx vitest run adjuntar-soporte.test.tsx gasto-soportes.test.tsx
+  project-gastos.test.tsx` → 3 files / 56 tests green; `tsc --noEmit` clean. Risk: none (pure UI refactor, no
+  data/auth/contract/concurrency change).
