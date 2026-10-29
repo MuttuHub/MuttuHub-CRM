@@ -10,29 +10,30 @@ Origen: sesión del 29-oct que revisó el documento de la PO «Ajustes al módul
 
 ## 0. Estado en una línea
 
-La cadena de AJ-01 está **completa, verde por rebanada y lista para mergear**. Quedan dos cosas: confirmar la
-suite completa y mergear. Nada está bloqueado por trabajo pendiente, solo por revisión y decisión.
+La cadena de AJ-01 está **completa, verificada y lista para mergear**. Suite completa confirmada en
+**4734/4735** (el único fallo es un test de DB viva preexistente, ajeno a esta rama).
+**Lo único que falta es mergear y cerrar #112.** Nada está bloqueado por trabajo pendiente.
 
 ---
 
 ## 1. Lo primero al llegar (5 minutos)
 
-### 1.1 Confirmar la suite completa
+### 1.1 Suite completa — YA CONFIRMADA ✅
 
-La última corrida (`job-3`) quedó en curso al cerrar la sesión. Comprobar:
+La corrida final cerró antes de dejar la oficina: **4734/4735 en verde (422 de 423 archivos).**
 
-```bash
-cd /mnt/c/Users/Adrian/Documents/MuttuHub-CRM
-cat /tmp/gpcseaUU/gentle-jobs-9i07oO/job-3.log 2>/dev/null | tail -12
-```
+El único fallo es `prisma/municipios.invariant.test.ts` → «accepts INSERT into municipios», un test de
+**base de datos viva**. Es el mismo fallo preexistente que ya registró AJ-06 en su cierre (`odd/tasks/
+aj06-soportes-multiples.md`, entrada L9), y esta rama **no toca ese archivo**
+(`git diff --name-only origin/main HEAD | grep municipios` → vacío).
 
-**Esperado:** ~4731/4735 con 4 fallos si el entorno está cargado, o 4735/4735 si está limpio.
+**No es una regresión. No hay nada que arreglar acá.**
 
-**Si hay fallos, no asumir regresión.** La corrida anterior dio 4 fallos y se rastrearon completos:
-todos eran `Test timed out in 5000ms` en `src/components/proyectos/ficha/editar-datos-generales.test.tsx`,
-un archivo que **esta rama no toca** (`git diff --name-only origin/main HEAD | grep editar-datos` → vacío).
-Esa corrida tardó 586 s contra los 396 s normales, señal de carga del entorno. Aislado pasó 12/12.
-Si reaparecen, correr ese archivo solo antes de sospechar del código.
+> Contexto por si vuelve a aparecer: la corrida intermedia había dado 4 fallos, todos `Test timed out in
+> 5000ms` en `src/components/proyectos/ficha/editar-datos-generales.test.tsx` (archivo no tocado por esta
+> rama; aislado pasa 12/12). Era carga del entorno — esa corrida tardó 586 s contra 396 s normales. La
+> corrida final, más tranquila, los pasó todos. Lección: antes de sospechar del código, correr el archivo
+> solo.
 
 ### 1.2 Confirmar el estado de los PRs
 
@@ -164,9 +165,10 @@ git worktree prune
 
 ## 8. Orden sugerido de la noche
 
-1. Confirmar `job-3` (sección 1.1) — 1 min.
-2. Mergear #117 (independiente, sin riesgo) — 1 min.
-3. Mergear la cadena #113 → #114 → #119 → #120 — 5 min.
-4. Cerrar #112 (sección 3) — 1 min.
-5. Podar los dos worktrees de verificación (sección 5) — 1 min.
-6. Si hay energía: abrir la rama de AJ-02 y empezar T1 (migración de pesos por duración).
+1. Mergear #117 (independiente, sin riesgo) — 1 min.
+2. Mergear la cadena #113 → #114 → #119 → #120 — 5 min.
+3. Cerrar #112 (sección 3) — 1 min.
+4. Podar los dos worktrees de verificación (sección 5) — 1 min.
+5. Si hay energía: abrir la rama de AJ-02 y empezar T1 (migración de pesos por duración).
+
+Total: menos de 10 minutos hasta tener AJ-01 entregado.
