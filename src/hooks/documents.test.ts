@@ -289,6 +289,52 @@ describe("folder-aware document hooks (S3–S5)", () => {
     expect(JSON.parse(String(fetchMock.mock.calls[2]![1].body))).not.toHaveProperty("carpeta_id")
   })
 
+  // 1.5 (S7): a batch upload toasts once for the whole batch, so each file
+  // of the batch asks the hook not to toast its own success.
+  it("a silent upload does not toast its own success and sends no extra field", async () => {
+    fetchMock
+      .mockResolvedValueOnce(signedResponse(docId))
+      .mockResolvedValueOnce(new Response(null, { status: 200 }))
+      .mockResolvedValueOnce(jsonResponse(UPLOADED, 201))
+    const { wrapper } = createWrapper()
+    const { result } = renderHook(() => useUploadDocument(), { wrapper })
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        file: new File(["x"], "informe.pdf"),
+        titulo: "Informe final",
+        categoria: "Comercial",
+        etiquetas: [],
+        silent: true,
+      })
+    })
+
+    expect(toastSuccess).not.toHaveBeenCalled()
+    expect(JSON.parse(String(fetchMock.mock.calls[0]![1].body))).not.toHaveProperty("silent")
+    expect(JSON.parse(String(fetchMock.mock.calls[2]![1].body))).not.toHaveProperty("silent")
+  })
+
+  // Existing behavior: a single upload still toasts «Documento subido.».
+  it("a regular upload still toasts «Documento subido.»", async () => {
+    fetchMock
+      .mockResolvedValueOnce(signedResponse(docId))
+      .mockResolvedValueOnce(new Response(null, { status: 200 }))
+      .mockResolvedValueOnce(jsonResponse(UPLOADED, 201))
+    const { wrapper } = createWrapper()
+    const { result } = renderHook(() => useUploadDocument(), { wrapper })
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        file: new File(["x"], "informe.pdf"),
+        titulo: "Informe final",
+        categoria: "Comercial",
+        etiquetas: [],
+      })
+    })
+
+    expect(toastSuccess).toHaveBeenCalledWith("Documento subido.")
+  })
+
   // S5: «Existing documents can be moved by dragging them onto a folder.»
   it("useMoveDocument PATCHes carpeta_id and refreshes documents and folders", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ documento: { ...UPLOADED, id: "doc-1" } }))

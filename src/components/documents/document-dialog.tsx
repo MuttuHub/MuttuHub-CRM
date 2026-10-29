@@ -18,6 +18,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -297,8 +298,15 @@ function VersionUploadDialog({
     setError(null);
   }
 
+  // Cerrar por cualquier vía (Cancelar, X, Esc, fuera) olvida el archivo
+  // elegido, para no reabrir con un archivo de antes.
+  function close(next: boolean) {
+    if (!next) reset();
+    onOpenChange(next);
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={close}>
       <DialogContent className="max-h-[88dvh] gap-0 overflow-y-auto p-0 sm:max-w-[min(520px,calc(100%-2rem))]">
         <div className="flex flex-col gap-5 p-6">
           <DialogHeader className="gap-1">
@@ -321,14 +329,12 @@ function VersionUploadDialog({
 
           <FileDropzone file={file} onChange={setFile} />
 
-          <div className="flex justify-end gap-2">
+          <DialogFooter className="gap-2">
             <Button
               type="button"
               variant="ghost"
-              onClick={() => {
-                reset();
-                onOpenChange(false);
-              }}
+              onClick={() => close(false)}
+              disabled={upload.isPending}
               className="px-4 font-semibold"
             >
               Cancelar
@@ -340,10 +346,7 @@ function VersionUploadDialog({
                 setError(null);
                 void upload
                   .mutateAsync({ file: file! })
-                  .then(() => {
-                    reset();
-                    onOpenChange(false);
-                  })
+                  .then(() => close(false))
                   .catch(() => undefined);
               }}
               className="rounded-lg px-4 font-bold"
@@ -351,7 +354,7 @@ function VersionUploadDialog({
               {upload.isPending && <LoaderCircle className="size-4 animate-spin" />}
               {upload.isPending ? "Subiendo…" : "Subir versión"}
             </Button>
-          </div>
+          </DialogFooter>
         </div>
       </DialogContent>
     </Dialog>

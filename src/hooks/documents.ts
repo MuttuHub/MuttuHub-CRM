@@ -409,6 +409,9 @@ export type UploadDocumentInput = {
   /** Salta la verificación de título duplicado (el usuario ya decidió crear
    * un documento aparte pese a la advertencia). */
   force?: boolean;
+  /** No muestra el toast de éxito de este archivo (no se envía a la API):
+   * una subida en lote muestra un solo resumen al terminar (1.5). */
+  silent?: boolean;
 };
 
 /**
@@ -507,14 +510,14 @@ export function useUploadDocument(): UseMutationResult<
       toast.error(err.message);
       throw err;
     },
-    onSuccess: () => {
+    onSuccess: (_data, input) => {
       void qc.invalidateQueries({ queryKey: documentQueryKeys.all });
       // Bug report: creating a document (directly here, or mirrored from a
       // task attachment via useUploadAttachment in kanban.ts) never bumped
       // the "documentos" badge in the sidebar — GET /api/v1/nav/counts just
       // counts Documento rows, but nothing invalidated ["nav","counts"].
       void qc.invalidateQueries({ queryKey: ["nav", "counts"] });
-      toast.success("Documento subido.");
+      if (!input.silent) toast.success("Documento subido.");
     },
   });
 }
