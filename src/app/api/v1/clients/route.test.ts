@@ -393,6 +393,31 @@ describe("POST /api/v1/clients", () => {
     expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
   });
 
+  it("accepts the allies category ALIADO_ESTRATEGICO", async () => {
+    authAs(gerencia);
+    vi.mocked(db.usuario.findFirst).mockResolvedValue({ id: "colab-1", nombre: "Colab Uno" } as never);
+    vi.mocked(db.cliente.create).mockResolvedValue({
+      ...baseClientRow,
+      tipo_cliente: "ALIADO_ESTRATEGICO",
+      tamano_org: null,
+      canal_contacto_inicial: null,
+      fecha_primer_contacto: null,
+      prioridades_identificadas: null,
+      riesgos_barreras: null,
+      resumen_relacion: null,
+      created_at: new Date("2026-01-01"),
+    } as never);
+
+    const res = await POST(
+      postRequest({ nombre: "Aliado", tipo_cliente: "ALIADO_ESTRATEGICO", responsable_id: "colab-1" }),
+    );
+
+    expect(res.status).toBe(201);
+    expect(db.cliente.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ tipo_cliente: "ALIADO_ESTRATEGICO" }) }),
+    );
+  });
+
   it("returns 400 when nombre exceeds the 200-char limit", async () => {
     authAs(gerencia);
 

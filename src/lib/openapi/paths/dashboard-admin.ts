@@ -23,6 +23,7 @@ const TipoClienteSchema = z.enum([
   "EMPRESA_PRIVADA",
   "FUNDACION",
   "ALIADO_ACADEMICO",
+  "ALIADO_ESTRATEGICO",
   "OTRO",
 ]);
 const EstadoClienteSchema = z.enum([
