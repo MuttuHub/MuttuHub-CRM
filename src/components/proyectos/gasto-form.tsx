@@ -7,7 +7,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -99,6 +99,7 @@ export function GastoForm({
   onDone: () => void;
 }) {
   const create = useCreateExpense(proyecto.id);
+  const inputArchivoRef = useRef<HTMLInputElement>(null);
   const conAsignado = rubros.filter((rubro) => rubro.linea_id !== null && toCents(rubro.asignado) > BigInt(0));
   const periodos = periodosDe(proyecto);
 
@@ -119,6 +120,12 @@ export function GastoForm({
   const [nombreEnlace, setNombreEnlace] = useState("");
   const [local, setLocal] = useState<string | null>(null);
   const [alertas, setAlertas] = useState<ExpenseAlert[] | null>(null);
+
+  /** S7: quita el archivo elegido y limpia el `<input>` nativo (no se resetea solo con el estado). */
+  function quitarArchivo() {
+    setArchivo(null);
+    if (inputArchivoRef.current) inputArchivoRef.current.value = "";
+  }
 
   function submit() {
     const subtotalNormal = normalizarSubtotal(subtotal);
@@ -339,12 +346,22 @@ export function GastoForm({
 
       {tipoMedio === "archivo" ? (
         <Campo id={`${p}-archivo`} label="Archivo del soporte" className="sm:col-span-2">
-          <input
-            id={`${p}-archivo`}
-            type="file"
-            onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
-            className="min-h-11 text-base md:text-[12.5px] text-ink-800 md:min-h-0"
-          />
+          {archivo ? (
+            <div className="flex min-h-11 items-center gap-2 text-[12.5px] text-ink-800 md:min-h-0">
+              <span className="truncate">{archivo.name}</span>
+              <Button type="button" size="sm" variant="ghost" className={CAPTURE_BUTTON} onClick={quitarArchivo}>
+                Quitar
+              </Button>
+            </div>
+          ) : (
+            <input
+              id={`${p}-archivo`}
+              ref={inputArchivoRef}
+              type="file"
+              onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
+              className="min-h-11 text-base md:text-[12.5px] text-ink-800 md:min-h-0"
+            />
+          )}
         </Campo>
       ) : (
         <>
