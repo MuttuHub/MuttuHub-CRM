@@ -19,19 +19,9 @@ const h = vi.hoisted(() => {
     lineas: q([
       { id: "l1", codigo: "LE01", nombre: "Innovación", activo: true, orden: 1 },
     ]),
-    municipios: q([
-      {
-        id: "m1",
-        nombre: "Medellín",
-        departamento: "Antioquia",
-        codigo_dane: "05001",
-        activo: true,
-        orden: 1,
-      },
-    ]),
     update: vi.fn(),
     createLinea: vi.fn(),
-    createMunicipio: vi.fn(),
+    useAdminMunicipios: vi.fn(),
   };
 });
 
@@ -41,10 +31,9 @@ vi.mock("@/hooks/admin", async (importOriginal) => {
     ...actual,
     useAdminRubros: () => h.rubros,
     useAdminLineas: () => h.lineas,
-    useAdminMunicipios: () => h.municipios,
+    useAdminMunicipios: h.useAdminMunicipios,
     useUpdateCatalogo: () => ({ mutateAsync: h.update, isPending: false }),
     useCreateLinea: () => ({ mutateAsync: h.createLinea, isPending: false }),
-    useCreateMunicipio: () => ({ mutateAsync: h.createMunicipio, isPending: false }),
   };
 });
 
@@ -56,10 +45,10 @@ describe("CatalogosV2Section", () => {
   beforeEach(() => {
     h.update.mockReset().mockResolvedValue({});
     h.createLinea.mockReset().mockResolvedValue({});
-    h.createMunicipio.mockReset().mockResolvedValue({});
+    h.useAdminMunicipios.mockReset();
   });
 
-  it("renders the three sub-tables with read-only codes and a badge on suspended rows", () => {
+  it("renders the rubros and lines sub-tables with read-only codes and a badge on suspended rows", () => {
     render(<CatalogosV2Section />);
 
     const rubros = within(table(/rubros/i));
@@ -69,15 +58,21 @@ describe("CatalogosV2Section", () => {
     expect(rubros.getByRole("button", { name: /restaurar alimentación/i })).toBeInTheDocument();
     expect(rubros.getByRole("button", { name: /suspender logística/i })).toBeInTheDocument();
     expect(within(table(/líneas estratégicas/i)).getByText("LE01")).toBeInTheDocument();
-    expect(within(table(/municipios/i)).getByText("05001")).toBeInTheDocument();
   });
 
-  it("has no add form for rubros but has one for lines and municipios", () => {
+  it("does not list municipalities: selectors read them straight from the API", () => {
+    render(<CatalogosV2Section />);
+
+    expect(screen.queryByRole("region", { name: /municipios/i })).toBeNull();
+    expect(screen.queryByText(/municipios/i)).toBeNull();
+    expect(h.useAdminMunicipios).not.toHaveBeenCalled();
+  });
+
+  it("has no add form for rubros but has one for lines", () => {
     render(<CatalogosV2Section />);
 
     expect(within(table(/rubros/i)).queryByRole("button", { name: /agregar/i })).toBeNull();
     expect(within(table(/líneas estratégicas/i)).getByRole("button", { name: /agregar/i })).toBeInTheDocument();
-    expect(within(table(/municipios/i)).getByRole("button", { name: /agregar/i })).toBeInTheDocument();
   });
 
   it("suspends and restores through PATCH activo", async () => {
@@ -126,29 +121,5 @@ describe("CatalogosV2Section", () => {
     expect(await lineas.findByRole("alert")).toHaveTextContent(
       "Ya existe una línea estratégica con ese código.",
     );
-  });
-
-  it("validates the 5-digit DANE code before creating a municipio", async () => {
-    const user = userEvent.setup();
-    render(<CatalogosV2Section />);
-    const muni = within(table(/municipios/i));
-
-    await user.type(muni.getByLabelText(/^nombre/i), "Envigado");
-    await user.type(muni.getByLabelText(/^departamento/i), "Antioquia");
-    await user.type(muni.getByLabelText(/dane/i), "123");
-    await user.click(muni.getByRole("button", { name: /agregar/i }));
-
-    expect(h.createMunicipio).not.toHaveBeenCalled();
-    expect(muni.getByRole("alert")).toHaveTextContent("El código DANE debe tener 5 dígitos.");
-
-    await user.clear(muni.getByLabelText(/dane/i));
-    await user.type(muni.getByLabelText(/dane/i), "05266");
-    await user.click(muni.getByRole("button", { name: /agregar/i }));
-
-    expect(h.createMunicipio).toHaveBeenCalledWith({
-      nombre: "Envigado",
-      departamento: "Antioquia",
-      codigo_dane: "05266",
-    });
   });
 });

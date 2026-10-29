@@ -1,20 +1,19 @@
 "use client";
 
-// Administración de los catálogos v2 (REQ-CAT-01..04): rubros, líneas
-// estratégicas y municipios en una sola sección con tres subtablas. Cada fila
-// se renombra y se suspende/restaura por PATCH (`nombre`, `activo`); el código
-// es de solo lectura. Rubros no tiene alta (R01–R15 son fijos); líneas y
-// municipios sí. Los errores del servidor (p. ej. 409 de duplicado) se
-// muestran en línea, en español.
+// Administración de los catálogos v2 (REQ-CAT-01..04): rubros y líneas
+// estratégicas en una sola sección con dos subtablas. Cada fila se renombra y
+// se suspende/restaura por PATCH (`nombre`, `activo`); el código es de solo
+// lectura. Rubros no tiene alta (R01–R15 son fijos); líneas sí. Los errores del
+// servidor (p. ej. 409 de duplicado) se muestran en línea, en español.
+// Los municipios no se administran aquí: son un catálogo fijo que los
+// selectores leen directo de `GET /api/v1/municipalities`.
 
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Check, Pencil, Plus, RotateCcw, X } from "lucide-react";
 import {
   useAdminLineas,
-  useAdminMunicipios,
   useAdminRubros,
   useCreateLinea,
-  useCreateMunicipio,
   useUpdateCatalogo,
   type CatalogoKind,
 } from "@/hooks/admin";
@@ -24,16 +23,12 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-const DANE_REGEX = /^\d{5}$/;
-
 type Row = {
   id: string;
   nombre: string;
   activo: boolean;
   /** Identificador de solo lectura mostrado en la primera columna. */
   codigo: string | null;
-  /** Texto secundario (departamento en municipios). */
-  detalle?: string;
 };
 
 function errorMessage(err: unknown): string {
@@ -49,7 +44,6 @@ function CatalogoTable({
   isLoading,
   isError,
   codeHeader,
-  detailHeader,
   addForm,
 }: {
   kind: CatalogoKind;
@@ -58,7 +52,6 @@ function CatalogoTable({
   isLoading: boolean;
   isError: boolean;
   codeHeader: string;
-  detailHeader?: string;
   addForm?: (onError: (message: string | null) => void) => ReactNode;
 }) {
   const update = useUpdateCatalogo();
@@ -98,9 +91,6 @@ function CatalogoTable({
               <TableRow>
                 <TableHead>{codeHeader}</TableHead>
                 <TableHead>Nombre</TableHead>
-                {detailHeader ? (
-                  <TableHead>{detailHeader}</TableHead>
-                ) : null}
                 <TableHead>Estado</TableHead>
                 <TableHead numeric>Acciones</TableHead>
               </TableRow>
@@ -125,9 +115,6 @@ function CatalogoTable({
                         row.nombre
                       )}
                     </TableCell>
-                    {detailHeader ? (
-                      <TableCell className="text-ink-700 whitespace-normal">{row.detalle ?? "—"}</TableCell>
-                    ) : null}
                     <TableCell>
                       {row.activo ? (
                         <Badge variant="secondary">Activo</Badge>
@@ -245,72 +232,9 @@ function LineaAddForm({ onError }: { onError: (message: string | null) => void }
   );
 }
 
-function MunicipioAddForm({ onError }: { onError: (message: string | null) => void }) {
-  const create = useCreateMunicipio();
-  const [nombre, setNombre] = useState("");
-  const [departamento, setDepartamento] = useState("");
-  const [dane, setDane] = useState("");
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    onError(null);
-    if (!nombre.trim() || !departamento.trim()) {
-      onError("El nombre y el departamento son obligatorios.");
-      return;
-    }
-    const codigoDane = dane.trim();
-    if (codigoDane && !DANE_REGEX.test(codigoDane)) {
-      onError("El código DANE debe tener 5 dígitos.");
-      return;
-    }
-    try {
-      await create.mutateAsync({
-        nombre: nombre.trim(),
-        departamento: departamento.trim(),
-        codigo_dane: codigoDane || null,
-      });
-      setNombre("");
-      setDepartamento("");
-      setDane("");
-    } catch (err) {
-      onError(errorMessage(err));
-    }
-  }
-
-  return (
-    <form onSubmit={(e) => void submit(e)} className="mt-4 flex flex-wrap items-end gap-2">
-      <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink-700">
-        Nombre
-        <Input value={nombre} onChange={(e) => setNombre(e.target.value)} className="h-10 w-48" />
-      </label>
-      <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink-700">
-        Departamento
-        <Input
-          value={departamento}
-          onChange={(e) => setDepartamento(e.target.value)}
-          className="h-10 w-48"
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink-700">
-        Código DANE (opcional)
-        <Input
-          value={dane}
-          inputMode="numeric"
-          onChange={(e) => setDane(e.target.value)}
-          className="h-10 w-40"
-        />
-      </label>
-      <Button type="submit" size="sm" disabled={create.isPending}>
-        <Plus className="size-3.5" /> Agregar
-      </Button>
-    </form>
-  );
-}
-
 export function CatalogosV2Section() {
   const rubros = useAdminRubros();
   const lineas = useAdminLineas();
-  const municipios = useAdminMunicipios();
 
   return (
     <div className="flex flex-col gap-4">
@@ -319,7 +243,7 @@ export function CatalogosV2Section() {
           Catálogos de proyectos
         </h2>
         <p className="mt-0.5 text-[13px] text-ink-600">
-          Renombra o suspende rubros, líneas estratégicas y municipios. Nada se elimina: lo
+          Renombra o suspende rubros y líneas estratégicas. Nada se elimina: lo
           suspendido deja de ofrecerse en proyectos nuevos y puede restaurarse.
         </p>
       </div>
@@ -350,22 +274,6 @@ export function CatalogosV2Section() {
           activo: l.activo,
         }))}
         addForm={(onError) => <LineaAddForm onError={onError} />}
-      />
-      <CatalogoTable
-        kind="municipalities"
-        title="Municipios"
-        codeHeader="Código DANE"
-        detailHeader="Departamento"
-        isLoading={municipios.isLoading}
-        isError={municipios.isError}
-        rows={municipios.data?.map((m) => ({
-          id: m.id,
-          codigo: m.codigo_dane,
-          nombre: m.nombre,
-          activo: m.activo,
-          detalle: m.departamento,
-        }))}
-        addForm={(onError) => <MunicipioAddForm onError={onError} />}
       />
     </div>
   );
