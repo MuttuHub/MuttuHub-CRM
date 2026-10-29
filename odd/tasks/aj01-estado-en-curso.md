@@ -114,7 +114,7 @@ feature's new table and get their own documents/branches/PRs afterward, per that
 | T1 | S7 (migration: `ReporteActividad` table, `reporte_actividad_id` on `SoporteProyecto`, CHECK update, Prisma schema, fixtures/seed callers outside this surface) | delegated (context backstop) | done | `bd5c3c3` |
 | T2 | S6 (new `tope_en_curso` setting: `semaforo-v2.ts`, `settings.ts`, `umbrales-section.tsx`) | delegated (parallel, disjoint surface) | done | `b7fb3aa` |
 | T3 | S8, S9.1-S9.4 (domain logic: `avance.ts`'s `estadoActividad`/`avanceActividad`/`calcularTecnico` — new per-activity inputs/outputs, `entregables_completos` flag, submission validation helpers) | delegated (context backstop) | done | `2e7e1d1` |
-| T4 | S9.5, S10, S11 (API routes: list/create/edit/void a report, the 3 attachment routes, responsable-only gate, wired to T1/T3) | delegated (context backstop) | pending | |
+| T4 | S9.5, S10, S11 (API routes: list/create/edit/void a report, the 3 attachment routes, responsable-only gate, wired to T1/T3) | delegated (context backstop) | done | `33462bb` |
 | T5 | S2, S3 (UI: `ejecucion-avance.tsx` activity-level "Registrar avance" action, history, badge/progress wired to T3/T4; new hooks in `hooks/projects.ts`) | delegated (context backstop) | pending | |
 | T6 | Docs (OpenAPI, user guide, test guide, flip AJ-01 to Hecho in `docs/plan-trabajo-restante.md`) | delegated (context backstop) | pending | |
 
@@ -168,3 +168,13 @@ activities must be a byte-for-byte no-op (S5.2) — pin with a regression test, 
   the hasReports=false path (decision S5.2) computes byte-for-byte identically via an independent recomputation,
   not just a new test passing. 40/40 green, tsc --noEmit clean repo-wide (zero ripple outside this file). Risk:
   none (every signature change is additive).
+- L6 (T4): routes match S11 exactly (no deviation). gateReporteActividadWrite (ejecucion.ts, additive) checks
+  responsable_id against the acting user, with the same ADMINISTRADOR/GERENCIA override every other gate has
+  (S9.5). S10 implemented as void-only (mirrors AvanceEntregable, which also has no edit route) - "edit" means
+  void + register a new corrected report via POST; documented in the void route itself. Wired reports into
+  loadTecnicoStatus (tecnico.ts) rather than entradaTecnica directly, so curva.ts/kpis.ts/atencion.ts stay
+  untouched per S12. Two test-fixture mocks outside the declared surface needed one line each (reporteActividad:
+  findMany returning []) since tecnico.ts now unconditionally queries it - both pin the hasReports=false regression
+  (S5.2) at the route-mock level too, not just inside avance.ts. 63/63 green on touched files; full suite
+  4595/4596 (1 pre-existing unrelated live-DB failure). tsc clean. Risk: item 2 (new responsable-only write gate) -
+  independent verifier scheduled for the feature's end (T6), per this document's own risk routing.
