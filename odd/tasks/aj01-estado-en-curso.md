@@ -113,7 +113,7 @@ feature's new table and get their own documents/branches/PRs afterward, per that
 |---|---|---|---|---|
 | T1 | S7 (migration: `ReporteActividad` table, `reporte_actividad_id` on `SoporteProyecto`, CHECK update, Prisma schema, fixtures/seed callers outside this surface) | delegated (context backstop) | done | `bd5c3c3` |
 | T2 | S6 (new `tope_en_curso` setting: `semaforo-v2.ts`, `settings.ts`, `umbrales-section.tsx`) | delegated (parallel, disjoint surface) | done | `b7fb3aa` |
-| T3 | S8, S9.1-S9.4 (domain logic: `avance.ts`'s `estadoActividad`/`avanceActividad`/`calcularTecnico` — new per-activity inputs/outputs, `entregables_completos` flag, submission validation helpers) | delegated (context backstop) | pending | |
+| T3 | S8, S9.1-S9.4 (domain logic: `avance.ts`'s `estadoActividad`/`avanceActividad`/`calcularTecnico` — new per-activity inputs/outputs, `entregables_completos` flag, submission validation helpers) | delegated (context backstop) | done | `2e7e1d1` |
 | T4 | S9.5, S10, S11 (API routes: list/create/edit/void a report, the 3 attachment routes, responsable-only gate, wired to T1/T3) | delegated (context backstop) | pending | |
 | T5 | S2, S3 (UI: `ejecucion-avance.tsx` activity-level "Registrar avance" action, history, badge/progress wired to T3/T4; new hooks in `hooks/projects.ts`) | delegated (context backstop) | pending | |
 | T6 | Docs (OpenAPI, user guide, test guide, flip AJ-01 to Hecho in `docs/plan-trabajo-restante.md`) | delegated (context backstop) | pending | |
@@ -156,4 +156,15 @@ activities must be a byte-for-byte no-op (S5.2) — pin with a regression test, 
   pre-existing drift was left untouched, no reset). The new invariant test (`reportes-actividad.invariant.test.ts`)
   ran for real against this DB: 8/9 green first run, 1 failing on a test-authoring bug (`Decimal.toString()` doesn't
   pad to the column's declared scale — "100" not "100.00" — not a product bug), fixed inline by the parent
-  (compare `Number(row.porcentaje)` instead of a padded string); 9/9 green after. `npx tsc --noEmit`: clean.
+  (compare Number(row.porcentaje) instead of a padded string); 9/9 green after. npx tsc --noEmit: clean.
+- L5 (T3): avance.ts gained entregableCompleto/entregablesCompletos (mirrors kpis.ts's entregablesLogrados
+  criterion exactly: meta reached AND a live medio, the medio check independent of avance_requiere_medio),
+  validarNuevoReporte (one composed function running S9.1 through S9.4 in order, exact messages), and optional
+  hasReports/entregablesCompletos params on estadoActividad (omitted means byte-for-byte old behavior).
+  ActividadTecnicaResultado gained a new required entregables_completos field (additive - tsc confirms nothing
+  else constructs this type). Critical finding: once every entregable's ratio reaches 1, the OLD avanceActividad
+  mean also reaches exactly 1 even if one entregable lacks a live medio - so FINALIZADA cannot keep relying on
+  progreso >= 1 alone once reports exist; it now gates explicitly on entregablesCompletos. Regression test proves
+  the hasReports=false path (decision S5.2) computes byte-for-byte identically via an independent recomputation,
+  not just a new test passing. 40/40 green, tsc --noEmit clean repo-wide (zero ripple outside this file). Risk:
+  none (every signature change is additive).
