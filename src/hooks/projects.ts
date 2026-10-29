@@ -905,6 +905,26 @@ export type ProjectMedicion = {
   anulado_at: string | null;
   anulado_por_id: string | null;
   motivo_anulacion: string | null;
+  /**
+   * Medios vivos, en detalle (AJ-06 S3: "3 archivos y 1 enlace muestra los 4"). Opcional para no
+   * romper fixtures existentes que aún no lo incluyen; la API siempre lo envía en `mediciones[]`
+   * (no en `ultima`).
+   */
+  soportes?: ProjectMedicionSoporte[];
+};
+
+/** Un medio (archivo/enlace) de una medición, en detalle (`toMedioView`). */
+export type ProjectMedicionSoporte = {
+  id: string;
+  proyecto_id: string;
+  avance_id: string | null;
+  nombre: string;
+  tipo: "archivo" | "enlace";
+  url_externa: string | null;
+  tipo_mime: string | null;
+  tamano_bytes: number | null;
+  subido_por_id: string;
+  created_at: string;
 };
 
 /** Respuesta de `GET .../indicators/:indicatorId/measurements`. */
@@ -1214,6 +1234,52 @@ export function useVoidMedicion(
         `/api/v1/projects/${projectId}/indicators/${indicatorId}/measurements/${id}/void`,
         { motivo },
       ),
+    onSuccess: () => {
+      void qc.invalidateQueries({
+        queryKey: projectQueryKeys.indicatorMeasurements(projectId, indicatorId),
+      });
+    },
+  });
+}
+
+/** Medio de una medición: firmar -> subir -> confirmar. */
+async function uploadMedicionMedioFile(
+  projectId: string,
+  indicatorId: string,
+  measurementId: string,
+  file: File,
+): Promise<void> {
+  const payload = await uploadSoporteFile(
+    `/api/v1/projects/${projectId}/indicators/${indicatorId}/measurements/${measurementId}/attachments/sign`,
+    file,
+  );
+  await apiPost(
+    `/api/v1/projects/${projectId}/indicators/${indicatorId}/measurements/${measurementId}/attachments`,
+    payload,
+  );
+}
+
+/**
+ * Adjunta un medio a una medición que ya existe (S4 U4, AJ-06 T3): archivo (firma -> subida ->
+ * confirmación, reusando `uploadMedicionMedioFile`) o enlace https. Mismo patrón que
+ * `useAttachAvanceMedio`; refresca la lista de mediciones del indicador.
+ */
+export function useAttachMedicionMedio(
+  projectId: string,
+  indicatorId: string,
+): UseMutationResult<void, Error, { medicionId: string; soporte: AvanceMedioInput }> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ medicionId, soporte }) => {
+      if (soporte.tipo === "archivo") {
+        await uploadMedicionMedioFile(projectId, indicatorId, medicionId, soporte.file);
+      } else {
+        await apiPost(
+          `/api/v1/projects/${projectId}/indicators/${indicatorId}/measurements/${medicionId}/attachments`,
+          { url_externa: soporte.url_externa, nombre: soporte.nombre },
+        );
+      }
+    },
     onSuccess: () => {
       void qc.invalidateQueries({
         queryKey: projectQueryKeys.indicatorMeasurements(projectId, indicatorId),

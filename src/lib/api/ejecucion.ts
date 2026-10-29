@@ -240,3 +240,51 @@ export async function loadAvanceParaMedio(
   }
   return { ok: true, value: { id: avance.id } };
 }
+
+// ---------------------------------------------------------------------------
+// Medios (supports) of a medición (AJ-06 T3) — same shape as the avance medios above.
+// ---------------------------------------------------------------------------
+
+export const MEDICION_NO_EXISTE = "La medición no existe.";
+export const MEDICION_ANULADA_MEDIO_MESSAGE = "No se pueden adjuntar medios a una medición anulada.";
+
+/**
+ * Live medios of several mediciones, in detail (AJ-06 T3, same pattern as `listarSoportesVivos`
+ * for avances), oldest first, grouped by `medicion_id`.
+ */
+export async function listarSoportesVivosMedicion(medicionIds: string[]): Promise<Map<string, MedioView[]>> {
+  if (medicionIds.length === 0) return new Map();
+  const rows = await db.soporteProyecto.findMany({
+    where: { medicion_id: { in: medicionIds }, deleted_at: null },
+    orderBy: [{ created_at: "asc" }, { id: "asc" }],
+  });
+  const grouped = new Map<string, MedioView[]>();
+  for (const row of rows) {
+    if (!row.medicion_id) continue;
+    const vistos = grouped.get(row.medicion_id) ?? [];
+    vistos.push(toMedioView(row));
+    grouped.set(row.medicion_id, vistos);
+  }
+  return grouped;
+}
+
+/**
+ * The medición must belong to this project and indicator (404); a voided one cannot receive
+ * medios (409). Mirrors `loadAvanceParaMedio`.
+ */
+export async function loadMedicionParaMedio(
+  proyectoId: string,
+  indicatorId: string,
+  medicionId: string,
+  { permitirAnulado = false }: { permitirAnulado?: boolean } = {},
+): Promise<{ ok: true; value: { id: string } } | { ok: false; response: Response }> {
+  const medicion = await db.medicionIndicador.findFirst({
+    where: { id: medicionId, indicador_id: indicatorId, proyecto_id: proyectoId },
+    select: { id: true, anulado_at: true },
+  });
+  if (!medicion) return { ok: false, response: apiError(MEDICION_NO_EXISTE, 404, "NOT_FOUND") };
+  if (medicion.anulado_at !== null && !permitirAnulado) {
+    return { ok: false, response: apiError(MEDICION_ANULADA_MEDIO_MESSAGE, 409, "CONFLICT") };
+  }
+  return { ok: true, value: { id: medicion.id } };
+}

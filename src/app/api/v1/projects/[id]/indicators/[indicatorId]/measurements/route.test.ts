@@ -16,6 +16,7 @@ vi.mock("@/lib/db", () => ({
     proyecto: { findFirst: vi.fn() },
     indicador: { findFirst: vi.fn() },
     medicionIndicador: { findMany: vi.fn() },
+    soporteProyecto: { findMany: vi.fn() },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
       fn({ medicionIndicador: { create: mocks.create } }),
     ),
@@ -71,6 +72,7 @@ beforeEach(() => {
   vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto());
   vi.mocked(db.indicador.findFirst).mockResolvedValue(indicador as never);
   vi.mocked(db.medicionIndicador.findMany).mockResolvedValue([] as never);
+  vi.mocked(db.soporteProyecto.findMany).mockResolvedValue([] as never);
   mocks.create.mockImplementation(async ({ data }: { data: object }) => fila(data));
 });
 afterEach(() => {
@@ -173,5 +175,41 @@ describe("GET measurements", () => {
     authAs(gerencia);
     vi.mocked(db.indicador.findFirst).mockResolvedValueOnce(null);
     expect((await GET(get(), ctx)).status).toBe(404);
+  });
+
+  it("includes each medición's soportes additively (AJ-06 S3: 3 archivos y 1 enlace muestra los 4)", async () => {
+    vi.mocked(db.medicionIndicador.findMany).mockResolvedValue([fila({ id: "a" })] as never);
+    const medioRow = (over: object) => ({
+      id: "sop-1",
+      proyecto_id: "pry-1",
+      avance_id: null,
+      medicion_id: "a",
+      nombre: "soporte.pdf",
+      storage_path: "proyectos/pry-1/soportes/u_1.pdf",
+      url_externa: null,
+      tipo_mime: "application/pdf",
+      tamano_bytes: 100,
+      subido_por_id: "ger-1",
+      created_at: new Date("2026-10-08T12:00:00.000Z"),
+      deleted_at: null,
+      ...over,
+    });
+    vi.mocked(db.soporteProyecto.findMany).mockResolvedValue([
+      medioRow({ id: "sop-1" }),
+      medioRow({ id: "sop-2" }),
+      medioRow({ id: "sop-3" }),
+      medioRow({ id: "sop-4", storage_path: null, url_externa: "https://x.example/1", tipo_mime: null, tamano_bytes: null, nombre: "Enlace" }),
+    ] as never);
+    const body = await (await GET(get(), ctx)).json();
+    expect(body.mediciones[0].soportes).toHaveLength(4);
+    expect(db.soporteProyecto.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { medicion_id: { in: ["a"] }, deleted_at: null } }),
+    );
+  });
+
+  it("answers an empty soportes array for a medición with none", async () => {
+    vi.mocked(db.medicionIndicador.findMany).mockResolvedValue([fila()] as never);
+    const body = await (await GET(get(), ctx)).json();
+    expect(body.mediciones[0].soportes).toEqual([]);
   });
 });
