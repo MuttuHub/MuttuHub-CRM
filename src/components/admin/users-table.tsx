@@ -9,12 +9,18 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
+  Copy,
+  KeyRound,
   LoaderCircle,
+  Mail,
+  Pencil,
   Plus,
+  RotateCcw,
   ShieldOff,
   UserRoundPlus,
 } from "lucide-react";
 import type { RolUsuario } from "@prisma/client";
+import { useResendInvite, useResetUserPassword } from "@/hooks/users";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -112,6 +118,9 @@ export function UsersTable({
   const router = useRouter();
   const [notice, setNotice] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [linkResult, setLinkResult] = useState<{ title: string; url: string } | null>(null);
+  const resendInvite = useResendInvite();
+  const resetPassword = useResetUserPassword();
 
   if (unconfigured || loadError) {
     // unconfigured (dev sin env) → card técnica; loadError → copy de usuario
@@ -184,6 +193,66 @@ export function UsersTable({
       setNotice("No pudimos actualizar el acceso al tablero gerencial.");
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function patchNombre(id: string, nombre: string) {
+    setBusyId(id);
+    setNotice(null);
+    try {
+      const res = await fetch(`/api/v1/users/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre }),
+      });
+      if (!res.ok) {
+        setNotice(await readError(res, "No pudimos actualizar el nombre."));
+        return;
+      }
+      router.refresh();
+    } catch {
+      setNotice("No pudimos actualizar el nombre.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function reactivate(id: string) {
+    setBusyId(id);
+    setNotice(null);
+    try {
+      const res = await fetch(`/api/v1/users/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activo: true }),
+      });
+      if (!res.ok) {
+        setNotice(await readError(res, "No pudimos reactivar el usuario."));
+        return;
+      }
+      router.refresh();
+    } catch {
+      setNotice("No pudimos reactivar el usuario.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleResendInvite(usuario: UsuarioRow) {
+    try {
+      const { inviteUrl } = await resendInvite.mutateAsync(usuario.id);
+      setLinkResult({ title: `Invitación para ${usuario.nombre}`, url: inviteUrl });
+    } catch {
+      // El hook ya muestra el toast de error.
+    }
+  }
+
+  async function handleResetPassword(usuario: UsuarioRow) {
+    try {
+      const { resetUrl } = await resetPassword.mutateAsync(usuario.id);
+      setLinkResult({ title: `Restablecer contraseña de ${usuario.nombre}`, url: resetUrl });
+    } catch {
+      // El hook ya muestra el toast de error.
     }
   }
 
@@ -318,13 +387,17 @@ export function UsersTable({
                         isSelf={isSelf}
                         busy={busyId === usuario.id}
                         onPatchRole={(rol) => void patchRole(usuario.id, rol)}
+                        onPatchNombre={(nombre) => void patchNombre(usuario.id, nombre)}
                         onPatchGestionaOportunidades={(v) =>
                           void patchGestionaOportunidades(usuario.id, v)
                         }
                         onPatchTableroGerencial={(v) =>
                           void patchTableroGerencial(usuario.id, v)
                         }
+                        onReactivate={() => void reactivate(usuario.id)}
                         onDeactivate={() => void deactivate(usuario.id)}
+                        onResendInvite={() => void handleResendInvite(usuario)}
+                        onResetPassword={() => void handleResetPassword(usuario)}
                       />
                     </TableCell>
                   </TableRow>
@@ -334,6 +407,45 @@ export function UsersTable({
           </Table>
         )}
       </div>
+
+      <Dialog
+        open={linkResult !== null}
+        onOpenChange={(open) => !open && setLinkResult(null)}
+      >
+        <DialogContent className="sm:max-w-[min(480px,calc(100%-2rem))]">
+          <DialogHeader>
+            <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
+              {linkResult?.title}
+            </DialogTitle>
+            <DialogDescription>
+              Copia este enlace y envíaselo a la persona: generarlo no envía el correo
+              automáticamente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-2">
+            <Input
+              readOnly
+              value={linkResult?.url ?? ""}
+              className="px-3 font-mono text-[12px]"
+              onFocus={(e) => e.currentTarget.select()}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              aria-label="Copiar enlace"
+              onClick={() => {
+                if (linkResult) void navigator.clipboard.writeText(linkResult.url);
+              }}
+            >
+              <Copy />
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setLinkResult(null)}>Listo</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -343,21 +455,31 @@ function RowMenu({
   isSelf,
   busy,
   onPatchRole,
+  onPatchNombre,
   onPatchGestionaOportunidades,
   onPatchTableroGerencial,
+  onReactivate,
   onDeactivate,
+  onResendInvite,
+  onResetPassword,
 }: {
   usuario: UsuarioRow;
   isSelf: boolean;
   busy: boolean;
   onPatchRole: (rol: RolUsuario) => void;
+  onPatchNombre: (nombre: string) => void;
   onPatchGestionaOportunidades: (gestiona_oportunidades: boolean) => void;
   onPatchTableroGerencial: (puede_ver_tablero_gerencial: boolean) => void;
+  onReactivate: () => void;
   onDeactivate: () => void;
+  onResendInvite: () => void;
+  onResetPassword: () => void;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   // Pending role change waiting for confirmation (null = no dialog).
   const [rolPendiente, setRolPendiente] = useState<RolUsuario | null>(null);
+  const [editingNombre, setEditingNombre] = useState(false);
+  const [nombreDraft, setNombreDraft] = useState(usuario.nombre);
 
   return (
     <div className="flex items-center justify-end gap-1">
@@ -373,6 +495,16 @@ function RowMenu({
           }
         />
         <DropdownMenuContent align="end" alignOffset={-8}>
+          <DropdownMenuItem
+            onClick={() => {
+              setNombreDraft(usuario.nombre);
+              setEditingNombre(true);
+            }}
+          >
+            <Pencil />
+            Editar nombre
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuLabel>Cambiar rol</DropdownMenuLabel>
           {ALL_ROLES.map((rol) => (
             <DropdownMenuItem
@@ -413,20 +545,75 @@ function RowMenu({
               </DropdownMenuCheckboxItem>
             </>
           )}
-          {usuario.activo && !isSelf && (
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>Acceso</DropdownMenuLabel>
+          <DropdownMenuItem onClick={onResendInvite}>
+            <Mail />
+            Reenviar invitación
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onResetPassword}>
+            <KeyRound />
+            Restablecer contraseña
+          </DropdownMenuItem>
+          {!isSelf && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                variant="destructive"
-                onClick={() => setConfirmOpen(true)}
-              >
-                <ShieldOff />
-                Desactivar
-              </DropdownMenuItem>
+              {usuario.activo ? (
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => setConfirmOpen(true)}
+                >
+                  <ShieldOff />
+                  Desactivar
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={onReactivate}>
+                  <RotateCcw />
+                  Reactivar
+                </DropdownMenuItem>
+              )}
             </>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <Dialog open={editingNombre} onOpenChange={setEditingNombre}>
+        <DialogContent className="sm:max-w-[min(400px,calc(100%-2rem))]">
+          <DialogHeader>
+            <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
+              Editar nombre
+            </DialogTitle>
+            <DialogDescription>
+              Cambia el nombre que se muestra para {usuario.email}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor={`nombre-${usuario.id}`}>Nombre completo</Label>
+            <Input
+              id={`nombre-${usuario.id}`}
+              className="px-3"
+              value={nombreDraft}
+              onChange={(e) => setNombreDraft(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingNombre(false)}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={busy || !nombreDraft.trim()}
+              onClick={() => {
+                const nombre = nombreDraft.trim();
+                setEditingNombre(false);
+                if (nombre) onPatchNombre(nombre);
+              }}
+            >
+              {busy && <LoaderCircle className="size-4 animate-spin" />}
+              Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={rolPendiente !== null}
