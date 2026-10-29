@@ -50,7 +50,7 @@ rules, verbatim requests (R1–R3), assumptions (A1–A5), root causes and file 
 | 2.5 | S5 | Weekly report tab + `/print/reportes/semanal` + Excel, reusing management-board hooks; fix task Excel period. | 2.4 | inline | todo | |
 | 2.6 | S6 | Client tags in `client-form.tsx`, clients API, list filter; reuse `useTaskTags()`. | 1.0, 1.1 merged | inline | todo | |
 | 2.7 | S7 | Modal UX review (clients first). | 2.6 | inline | todo | |
-| 2.8 | S8 | `docs/pendientes/mejoras-ux-reunion-2026-10-28.md`. | — | inline | todo | |
+| 2.8 | S8 | `docs/pendientes/mejoras-ux-reunion-2026-10-28.md`. | — | inline | done (modal findings appended after 1.5/2.7) | branch `docs/backlog-mejoras-ux`, commit 611685d (not yet pushed/PR'd) |
 
 ### Already-detected improvements for 2.8
 
@@ -90,3 +90,10 @@ rules, verbatim requests (R1–R3), assumptions (A1–A5), root causes and file 
   tests not run: Docker is not available in this WSL session (they target 127.0.0.1:54322). Native assess: medium,
   not due (under_budget). Pending after #103 merges: delete `useAdminMunicipios`/`useCreateMunicipio` from
   `hooks/admin.ts`. Next step: 2.8 (2.4 and 2.6 wait for #103/#102).
+- **L6 (2026-10-29).** 2.8 done: backlog doc with 8 items, each re-verified in code with path:line. Dropped
+  «missing empty states in Contactos/Oportunidades»: false — `client-sheet.tsx:1014,1112` already render them
+  (Subtareas not verified, left out). Confirmed: Reportes «Gestión de tareas» passes `responsable`/`cliente` as
+  `undefined` (`reportes-page.tsx:85`); portfolio export `formato=pdf` → 400; `!important` tab patch
+  (`reportes-page.tsx:70,76`); `DialogFooter` at `project-create-form.tsx:588`; project print lives at
+  `/proyectos/[id]/imprimir` vs `/print/*`. A section for modal-review findings (1.5, 2.7) is left as pending.
+  Next: lane 2 is blocked until #102/#103 merge (2.4, 2.6); 2.1/2.2/2.3/2.8 await push + PR (user decision).
