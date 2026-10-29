@@ -22,12 +22,14 @@ vi.mock("@/lib/db", () => ({
       findMany: vi.fn(),
       deleteMany: vi.fn(),
       create: vi.fn(),
+      upsert: vi.fn(),
     },
     carpeta: {
       findFirst: vi.fn(),
     },
     cliente: {
       findMany: vi.fn(),
+      findFirst: vi.fn(),
     },
     usuario: {
       findMany: vi.fn(),
@@ -330,5 +332,111 @@ describe("PATCH /api/v1/documents/:id", () => {
     const res = await PATCH(patchRequest({}), routeContext());
 
     expect(res.status).toBe(400);
+  });
+
+  describe("moving between folders keeps the client link in sync (S3-S5)", () => {
+    beforeEach(() => {
+      vi.mocked(db.documento.update).mockResolvedValue(docRow() as never);
+      vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1" } as never);
+    });
+
+    it("moving into a client folder files it there and links the document to that client", async () => {
+      mockPatchReads();
+      vi.mocked(db.carpeta.findFirst).mockResolvedValue({ id: "f-cli", cliente_id: "cli-1" } as never);
+
+      const res = await PATCH(patchRequest({ carpeta_id: "f-cli" }), routeContext());
+
+      expect(res.status).toBe(200);
+      expect(db.carpeta.findFirst).toHaveBeenCalledWith({
+        where: { id: "f-cli", deleted_at: null },
+        select: { id: true, cliente_id: true },
+      });
+      expect(db.documento.update).toHaveBeenCalledWith({ where: { id: "doc-1" }, data: { carpeta_id: "f-cli" } });
+      expect(db.documentoCliente.upsert).toHaveBeenCalledWith({
+        where: { documento_id_cliente_id: { documento_id: "doc-1", cliente_id: "cli-1" } },
+        create: { documento_id: "doc-1", cliente_id: "cli-1" },
+        update: {},
+      });
+      // Additive: existing links are never removed by a move.
+      expect(db.documentoCliente.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it("moving into a folder without client keeps the existing client links untouched", async () => {
+      mockPatchReads();
+      vi.mocked(db.carpeta.findFirst).mockResolvedValue({ id: "f-plain", cliente_id: null } as never);
+
+      const res = await PATCH(patchRequest({ carpeta_id: "f-plain" }), routeContext());
+
+      expect(res.status).toBe(200);
+      expect(db.documento.update).toHaveBeenCalledWith({ where: { id: "doc-1" }, data: { carpeta_id: "f-plain" } });
+      expect(db.documentoCliente.upsert).not.toHaveBeenCalled();
+      expect(db.documentoCliente.deleteMany).not.toHaveBeenCalled();
+      expect(db.documentoCliente.create).not.toHaveBeenCalled();
+    });
+
+    it("previous behavior: carpeta_id null moves to the root without touching client links", async () => {
+      mockPatchReads();
+
+      const res = await PATCH(patchRequest({ carpeta_id: null }), routeContext());
+
+      expect(res.status).toBe(200);
+      expect(db.carpeta.findFirst).not.toHaveBeenCalled();
+      expect(db.documento.update).toHaveBeenCalledWith({ where: { id: "doc-1" }, data: { carpeta_id: null } });
+      expect(db.documentoCliente.upsert).not.toHaveBeenCalled();
+    });
+
+    it("rejects 400 in Spanish when cliente_ids leaves out the client of the target folder", async () => {
+      mockPatchReads();
+      vi.mocked(db.carpeta.findFirst).mockResolvedValue({ id: "f-cli", cliente_id: "cli-1" } as never);
+      vi.mocked(db.cliente.findMany).mockResolvedValue([{ id: "cli-2" }] as never);
+
+      const res = await PATCH(patchRequest({ carpeta_id: "f-cli", cliente_ids: ["cli-2"] }), routeContext());
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({
+        error: "El cliente indicado no coincide con el cliente de la carpeta.",
+        code: "VALIDATION_ERROR",
+      });
+      expect(db.documento.update).not.toHaveBeenCalled();
+      expect(db.$transaction).not.toHaveBeenCalled();
+      expect(db.documentoCliente.upsert).not.toHaveBeenCalled();
+    });
+
+    it("answers 404 for a missing or deleted folder and writes nothing", async () => {
+      mockPatchReads();
+      vi.mocked(db.carpeta.findFirst).mockResolvedValue(null);
+
+      const res = await PATCH(patchRequest({ carpeta_id: "ghost" }), routeContext());
+
+      expect(res.status).toBe(404);
+      expect(await res.json()).toEqual({ error: "La carpeta no existe.", code: "NOT_FOUND" });
+      expect(db.documento.update).not.toHaveBeenCalled();
+      expect(db.documentoCliente.upsert).not.toHaveBeenCalled();
+    });
+
+    it("answers 400 when the folder's client was deleted and links nothing", async () => {
+      mockPatchReads();
+      vi.mocked(db.carpeta.findFirst).mockResolvedValue({ id: "f-cli", cliente_id: "cli-1" } as never);
+      vi.mocked(db.cliente.findFirst).mockResolvedValue(null);
+
+      const res = await PATCH(patchRequest({ carpeta_id: "f-cli" }), routeContext());
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "El cliente no existe o fue eliminado.", code: "VALIDATION_ERROR" });
+      expect(db.documento.update).not.toHaveBeenCalled();
+      expect(db.documentoCliente.upsert).not.toHaveBeenCalled();
+    });
+
+    it("denies a COLABORADOR moving someone else's document into a client folder (403)", async () => {
+      vi.mocked(requireApiUser).mockResolvedValue({ ok: true, usuario: colaborador, supabaseUser: {} as never });
+      mockPatchReads("otro-usuario", "Comercial");
+      vi.mocked(db.carpeta.findFirst).mockResolvedValue({ id: "f-cli", cliente_id: "cli-1" } as never);
+
+      const res = await PATCH(patchRequest({ carpeta_id: "f-cli" }), routeContext());
+
+      expect(res.status).toBe(403);
+      expect(db.documento.update).not.toHaveBeenCalled();
+      expect(db.documentoCliente.upsert).not.toHaveBeenCalled();
+    });
   });
 });

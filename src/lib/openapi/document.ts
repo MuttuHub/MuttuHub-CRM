@@ -14,6 +14,7 @@ import "@/lib/openapi/paths/contacts";
 import "@/lib/openapi/paths/interactions";
 import "@/lib/openapi/paths/tasks";
 import "@/lib/openapi/paths/documents";
+import "@/lib/openapi/paths/folders";
 import "@/lib/openapi/paths/dashboard-admin";
 import "@/lib/openapi/paths/rubros";
 import "@/lib/openapi/paths/strategic-lines";

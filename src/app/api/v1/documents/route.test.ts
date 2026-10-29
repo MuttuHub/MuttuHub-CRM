@@ -43,6 +43,9 @@ vi.mock("@/lib/db", () => ({
     cliente: {
       findFirst: vi.fn(),
     },
+    carpeta: {
+      findFirst: vi.fn(),
+    },
     $queryRaw: vi.fn(),
     // Array-form $transaction (confirm branch, R3-1): resolve the ops so the
     // handler reads the created rows exactly as Prisma would after a real
@@ -66,6 +69,7 @@ import { isSupabaseConfigured, requireApiUser } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/api/audit";
 import { extractForVersion } from "@/lib/api/extract-text";
 import { GET, POST } from "./route";
+import { POST as SIGN } from "../uploads/sign/route";
 
 const colaborador = {
   id: "user-1",
@@ -291,6 +295,10 @@ describe("POST /api/v1/documents", () => {
     expect(db.documento.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ categoria: "Comercial", autor_id: "admin-1" }) }),
     );
+    // Previous behavior without carpeta_id: the row stays out of every folder
+    // («Todas») and no folder is looked up.
+    expect(vi.mocked(db.documento.create).mock.calls[0]![0]!.data).not.toHaveProperty("carpeta_id");
+    expect(db.carpeta.findFirst).not.toHaveBeenCalled();
     expect(logAudit).toHaveBeenCalledWith(
       expect.objectContaining({ entidad: "documento", entidad_id: "doc-new", accion: "crear" }),
     );
@@ -974,5 +982,284 @@ describe("POST /api/v1/documents — signed-upload confirm mode", () => {
     expect(await res.json()).toMatchObject({ code: "INTERNAL_ERROR" });
     expect(logAudit).not.toHaveBeenCalled();
     expect(db.documentoVersion.update).not.toHaveBeenCalled();
+  });
+});
+
+// S3: «si el crea una carpeta por ejemplo para un cliente, no se guarda dentro
+// de esa carpeta y para ese cliente sino que queda en la carpeta "Todas"». A
+// document uploaded with a folder selected lands in that folder; a client
+// folder also links the document to its client, and the SAME client drives the
+// storage key at sign time and the link at confirm time.
+describe("POST /api/v1/documents — folder placement (S3)", () => {
+  const CLIENT_FOLDER = { id: "f-cli", cliente_id: "cli-1" };
+  const PLAIN_FOLDER = { id: "f-plain", cliente_id: null };
+  const MISMATCH = { error: "El cliente indicado no coincide con el cliente de la carpeta.", code: "VALIDATION_ERROR" };
+
+  let upload: ReturnType<typeof vi.fn>;
+  let createSignedUploadUrl: ReturnType<typeof vi.fn>;
+
+  function versionRow(storagePath: string, documentoId: string) {
+    return {
+      id: "v-1",
+      documento_id: documentoId,
+      numero_version: 1,
+      storage_path: storagePath,
+      tamano_bytes: 3,
+      tipo_archivo: "application/pdf",
+      subido_por_id: "admin-1",
+      created_at: new Date("2026-01-01"),
+      contenido_texto: null,
+      texto_estado: null,
+    };
+  }
+
+  function jsonRequest(url: string, body: unknown): Request {
+    return new Request(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  beforeEach(() => {
+    upload = vi.fn().mockResolvedValue({ error: null });
+    createSignedUploadUrl = vi.fn().mockImplementation(async (path: string) => ({
+      data: { signedUrl: `https://x.supabase.co/sign/${path}`, token: "tok", path },
+      error: null,
+    }));
+    vi.mocked(createSupabaseAdmin).mockReturnValue({
+      storage: {
+        from: vi.fn().mockReturnValue({
+          upload,
+          createSignedUploadUrl,
+          info: vi.fn().mockResolvedValue({ data: { size: 3 }, error: null }),
+          download: vi.fn().mockResolvedValue({ data: new Blob([new Uint8Array([1, 2, 3])]), error: null }),
+        }),
+      },
+    } as never);
+    vi.mocked(db.documento.findFirst).mockResolvedValue(null);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1" } as never);
+    vi.mocked(db.documentoCliente.findMany).mockResolvedValue([]);
+    vi.mocked(db.documentoVersion.update).mockResolvedValue({} as never);
+    vi.mocked(db.documento.create).mockImplementation((async (args: { data: { id?: string } }) =>
+      docRow({ id: args.data.id ?? "doc-new" })) as never);
+    vi.mocked(db.documentoVersion.create).mockImplementation((async (args: {
+      data: { storage_path: string; documento_id: string };
+    }) => versionRow(args.data.storage_path, args.data.documento_id)) as never);
+  });
+
+  describe("multipart", () => {
+    it("stores the document in a client folder and links it to that folder's client", async () => {
+      vi.mocked(db.carpeta.findFirst).mockResolvedValue(CLIENT_FOLDER as never);
+
+      const res = await POST(postRequest(uploadForm({ categoria: "Comercial", carpeta_id: "f-cli" })));
+
+      expect(res.status).toBe(201);
+      expect(db.carpeta.findFirst).toHaveBeenCalledWith({
+        where: { id: "f-cli", deleted_at: null },
+        select: { id: true, cliente_id: true },
+      });
+      expect(db.documento.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { titulo: "informe", categoria: "Comercial", etiquetas: [], autor_id: "admin-1", carpeta_id: "f-cli" },
+        }),
+      );
+      expect(db.documentoCliente.create).toHaveBeenCalledWith({
+        data: { documento_id: "doc-new", cliente_id: "cli-1" },
+      });
+      expect(upload.mock.calls[0]![0]).toBe("documentos/cli-1/doc-new/v1_informe.pdf");
+      expect(logAudit).toHaveBeenCalledWith(
+        expect.objectContaining({ cambios: expect.objectContaining({ cliente_id: "cli-1", carpeta_id: "f-cli" }) }),
+      );
+    });
+
+    it("stores the document in a folder without client and links no client", async () => {
+      vi.mocked(db.carpeta.findFirst).mockResolvedValue(PLAIN_FOLDER as never);
+
+      const res = await POST(postRequest(uploadForm({ categoria: "Comercial", carpeta_id: "f-plain" })));
+
+      expect(res.status).toBe(201);
+      expect(vi.mocked(db.documento.create).mock.calls[0]![0]!.data).toMatchObject({ carpeta_id: "f-plain" });
+      expect(db.documentoCliente.create).not.toHaveBeenCalled();
+      expect(upload.mock.calls[0]![0]).toBe("documentos/general/doc-new/v1_informe.pdf");
+    });
+
+    it("accepts an explicit cliente_id equal to the folder's client", async () => {
+      vi.mocked(db.carpeta.findFirst).mockResolvedValue(CLIENT_FOLDER as never);
+
+      const res = await POST(
+        postRequest(uploadForm({ categoria: "Comercial", carpeta_id: "f-cli", cliente_id: "cli-1" })),
+      );
+
+      expect(res.status).toBe(201);
+      expect(db.documentoCliente.create).toHaveBeenCalledWith({
+        data: { documento_id: "doc-new", cliente_id: "cli-1" },
+      });
+    });
+
+    it("rejects 400 in Spanish when cliente_id disagrees with the folder's client, creating nothing", async () => {
+      vi.mocked(db.carpeta.findFirst).mockResolvedValue(CLIENT_FOLDER as never);
+
+      const res = await POST(
+        postRequest(uploadForm({ categoria: "Comercial", carpeta_id: "f-cli", cliente_id: "cli-2" })),
+      );
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual(MISMATCH);
+      expect(db.documento.create).not.toHaveBeenCalled();
+      expect(upload).not.toHaveBeenCalled();
+    });
+
+    it("answers 404 in Spanish for a missing or deleted folder, creating nothing", async () => {
+      vi.mocked(db.carpeta.findFirst).mockResolvedValue(null);
+
+      const res = await POST(postRequest(uploadForm({ categoria: "Comercial", carpeta_id: "ghost" })));
+
+      expect(res.status).toBe(404);
+      expect(await res.json()).toEqual({ error: "La carpeta no existe.", code: "NOT_FOUND" });
+      expect(db.documento.create).not.toHaveBeenCalled();
+    });
+
+    it("answers 400 when the folder's client was deleted, creating nothing", async () => {
+      vi.mocked(db.carpeta.findFirst).mockResolvedValue(CLIENT_FOLDER as never);
+      vi.mocked(db.cliente.findFirst).mockResolvedValue(null);
+
+      const res = await POST(postRequest(uploadForm({ categoria: "Comercial", carpeta_id: "f-cli" })));
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "El cliente no existe o fue eliminado.", code: "VALIDATION_ERROR" });
+      expect(db.documento.create).not.toHaveBeenCalled();
+    });
+
+    it("keeps denying a COLABORADOR a restricted category even inside a client folder (403)", async () => {
+      vi.mocked(requireApiUser).mockResolvedValue({ ok: true, usuario: colaborador, supabaseUser: {} as never });
+      vi.mocked(db.carpeta.findFirst).mockResolvedValue(CLIENT_FOLDER as never);
+
+      const res = await POST(postRequest(uploadForm({ categoria: "Legal", carpeta_id: "f-cli" })));
+
+      expect(res.status).toBe(403);
+      expect(db.documento.create).not.toHaveBeenCalled();
+      expect(db.documentoCliente.create).not.toHaveBeenCalled();
+    });
+
+    it("answers 401 without a session and touches nothing", async () => {
+      vi.mocked(requireApiUser).mockResolvedValue({
+        ok: false,
+        response: Response.json({ error: "No autenticado.", code: "UNAUTHORIZED" }, { status: 401 }),
+      } as never);
+
+      const res = await POST(postRequest(uploadForm({ categoria: "Comercial", carpeta_id: "f-cli" })));
+
+      expect(res.status).toBe(401);
+      expect(db.carpeta.findFirst).not.toHaveBeenCalled();
+      expect(db.documento.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("signed upload (sign then confirm)", () => {
+    function signBody(overrides: Record<string, unknown> = {}) {
+      return {
+        kind: "documento_nuevo",
+        nombre: "informe.pdf",
+        tamano_bytes: 3,
+        tipo_mime: "application/pdf",
+        titulo: "Informe final",
+        categoria: "Comercial",
+        ...overrides,
+      };
+    }
+
+    function confirmFrom(signed: { storage_path: string; documento_id: string }, overrides: Record<string, unknown> = {}) {
+      return {
+        storage_path: signed.storage_path,
+        documento_id: signed.documento_id,
+        nombre: "informe.pdf",
+        tamano_bytes: 3,
+        tipo_mime: "application/pdf",
+        titulo: "Informe final",
+        categoria: "Comercial",
+        ...overrides,
+      };
+    }
+
+    it("uses the folder's client for the signed key AND for the link created at confirm", async () => {
+      vi.mocked(db.carpeta.findFirst).mockResolvedValue(CLIENT_FOLDER as never);
+
+      const signRes = await SIGN(jsonRequest("http://localhost/api/v1/uploads/sign", signBody({ carpeta_id: "f-cli" })));
+      expect(signRes.status).toBe(200);
+      const signed = await signRes.json();
+      expect(signed.storage_path).toBe(`documentos/cli-1/${signed.documento_id}/v1_informe.pdf`);
+      expect(createSignedUploadUrl).toHaveBeenCalledWith(signed.storage_path);
+
+      const res = await POST(
+        jsonRequest("http://localhost/api/v1/documents", confirmFrom(signed, { carpeta_id: "f-cli" })),
+      );
+
+      expect(res.status).toBe(201);
+      expect(vi.mocked(db.documento.create).mock.calls[0]![0]!.data).toMatchObject({
+        id: signed.documento_id,
+        carpeta_id: "f-cli",
+      });
+      expect(db.documentoCliente.create).toHaveBeenCalledWith({
+        data: { documento_id: signed.documento_id, cliente_id: "cli-1" },
+      });
+    });
+
+    it("rejects a confirm whose folder belongs to a client the signed key was not issued for", async () => {
+      vi.mocked(db.carpeta.findFirst).mockResolvedValue(CLIENT_FOLDER as never);
+
+      const res = await POST(
+        jsonRequest(
+          "http://localhost/api/v1/documents",
+          confirmFrom({ storage_path: CONFIRM_PATH, documento_id: DOC_ID }, { carpeta_id: "f-cli" }),
+        ),
+      );
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual(MISMATCH);
+      expect(db.documento.create).not.toHaveBeenCalled();
+    });
+
+    it("confirms into a folder without client on a general key", async () => {
+      vi.mocked(db.carpeta.findFirst).mockResolvedValue(PLAIN_FOLDER as never);
+
+      const res = await POST(
+        jsonRequest(
+          "http://localhost/api/v1/documents",
+          confirmFrom({ storage_path: CONFIRM_PATH, documento_id: DOC_ID }, { carpeta_id: "f-plain" }),
+        ),
+      );
+
+      expect(res.status).toBe(201);
+      expect(vi.mocked(db.documento.create).mock.calls[0]![0]!.data).toMatchObject({ id: DOC_ID, carpeta_id: "f-plain" });
+      expect(db.documentoCliente.create).not.toHaveBeenCalled();
+    });
+
+    it("answers 404 for an unknown folder at confirm, creating nothing", async () => {
+      vi.mocked(db.carpeta.findFirst).mockResolvedValue(null);
+
+      const res = await POST(
+        jsonRequest(
+          "http://localhost/api/v1/documents",
+          confirmFrom({ storage_path: CONFIRM_PATH, documento_id: DOC_ID }, { carpeta_id: "ghost" }),
+        ),
+      );
+
+      expect(res.status).toBe(404);
+      expect(await res.json()).toEqual({ error: "La carpeta no existe.", code: "NOT_FOUND" });
+      expect(db.documento.create).not.toHaveBeenCalled();
+    });
+
+    it("rejects a non-string carpeta_id at confirm (400)", async () => {
+      const res = await POST(
+        jsonRequest(
+          "http://localhost/api/v1/documents",
+          confirmFrom({ storage_path: CONFIRM_PATH, documento_id: DOC_ID }, { carpeta_id: 7 }),
+        ),
+      );
+
+      expect(res.status).toBe(400);
+      expect(db.documento.create).not.toHaveBeenCalled();
+    });
   });
 });

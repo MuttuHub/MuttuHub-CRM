@@ -37,6 +37,9 @@ vi.mock("@/lib/db", () => ({
     cliente: {
       findFirst: vi.fn(),
     },
+    carpeta: {
+      findFirst: vi.fn(),
+    },
   },
 }));
 
@@ -339,6 +342,78 @@ describe("POST /api/v1/uploads/sign", () => {
       `documentos/general/${body.documento_id}/v1_informe.pdf`,
     );
     expect(createSignedUploadUrl).toHaveBeenCalledWith(body.storage_path);
+    // Previous behavior without carpeta_id: no folder is looked up.
+    expect(db.carpeta.findFirst).not.toHaveBeenCalled();
+  });
+
+  describe("carpeta_id on a new document (S3)", () => {
+    const newDoc = {
+      kind: "documento_nuevo",
+      nombre: "informe.pdf",
+      tamano_bytes: 3,
+      tipo_mime: "application/pdf",
+      titulo: "Informe final",
+      categoria: "Comercial",
+    };
+
+    it("signs the key under the folder's client", async () => {
+      const createSignedUploadUrl = mockSignOk();
+      vi.mocked(db.carpeta.findFirst).mockResolvedValue({ id: "f-cli", cliente_id: "cli-1" } as never);
+      vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1" } as never);
+
+      const res = await POST(signRequest({ ...newDoc, carpeta_id: "f-cli" }));
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.storage_path).toBe(`documentos/cli-1/${body.documento_id}/v1_informe.pdf`);
+      expect(createSignedUploadUrl).toHaveBeenCalledWith(body.storage_path);
+      expect(db.carpeta.findFirst).toHaveBeenCalledWith({
+        where: { id: "f-cli", deleted_at: null },
+        select: { id: true, cliente_id: true },
+      });
+    });
+
+    it("rejects 400 in Spanish when cliente_id disagrees with the folder's client, without signing", async () => {
+      const createSignedUploadUrl = mockSignOk();
+      vi.mocked(db.carpeta.findFirst).mockResolvedValue({ id: "f-cli", cliente_id: "cli-1" } as never);
+      vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-2" } as never);
+
+      const res = await POST(signRequest({ ...newDoc, carpeta_id: "f-cli", cliente_id: "cli-2" }));
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({
+        error: "El cliente indicado no coincide con el cliente de la carpeta.",
+        code: "VALIDATION_ERROR",
+      });
+      expect(createSignedUploadUrl).not.toHaveBeenCalled();
+    });
+
+    it("answers 404 for a missing or deleted folder without signing", async () => {
+      const createSignedUploadUrl = mockSignOk();
+      vi.mocked(db.carpeta.findFirst).mockResolvedValue(null);
+
+      const res = await POST(signRequest({ ...newDoc, carpeta_id: "ghost" }));
+
+      expect(res.status).toBe(404);
+      expect(await res.json()).toEqual({ error: "La carpeta no existe.", code: "NOT_FOUND" });
+      expect(createSignedUploadUrl).not.toHaveBeenCalled();
+    });
+
+    it("rejects carpeta_id on targets other than a new document, without signing", async () => {
+      const createSignedUploadUrl = mockSignOk();
+      vi.mocked(db.tarea.findFirst).mockResolvedValue(writeTareaRow() as never);
+
+      const res = await POST(
+        signRequest({ kind: "tarea_adjunto", ref_id: "task-1", nombre: "informe.pdf", tamano_bytes: 3, carpeta_id: "f-cli" }),
+      );
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({
+        error: "carpeta_id solo aplica a documentos nuevos.",
+        code: "VALIDATION_ERROR",
+      });
+      expect(createSignedUploadUrl).not.toHaveBeenCalled();
+    });
   });
 
   it("sign rejects an unknown cliente for a new document without signing", async () => {
