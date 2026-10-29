@@ -45,7 +45,7 @@ rules, verbatim requests (R1–R3), assumptions (A1–A5), root causes and file 
 |---|---|---|---|---|---|---|
 | 2.1 | S1 | `docs/proceso-proyectos-desde-cero.md` (+ HTML/PDF like the other guides); fix B7 in `guia-uso-proyectos-v2.md`. Docs only. | — | inline | done | branch `docs/proceso-proyectos-desde-cero`, commit 99a14fe (not yet pushed/PR'd) |
 | 2.2 | S2 | Edit-user panel in `users-table.tsx` (name, role, flags), reactivate, resend invite / reset password via `src/lib/supabase/admin.ts`; new hooks in `src/hooks/users.ts` (not `hooks/admin.ts`). | — | inline | done | branch `feat/admin-editar-usuarios`, commit 4ce90d3 (not yet pushed/PR'd) |
-| 2.3 | S3 | Remove the municipalities sub-table from `catalogos-v2-section.tsx` (+ test). Delete now-unused admin hooks only after 1.1 is merged. | — | inline | todo | |
+| 2.3 | S3 | Remove the municipalities sub-table from `catalogos-v2-section.tsx` (+ test). Delete now-unused admin hooks only after 1.1 is merged. | — | inline | done (hooks cleanup pending 1.1) | branch `feat/admin-sin-municipios`, commit 9bf0059 (not yet pushed/PR'd) |
 | 2.4 | S4 | Reproduce first; then replace internal `window.open`/`_blank` (sites in the index) with same-tab navigation + «Volver» on print pages; direct downloads in `hooks/projects.ts`. | 1.1 merged | inline | todo | |
 | 2.5 | S5 | Weekly report tab + `/print/reportes/semanal` + Excel, reusing management-board hooks; fix task Excel period. | 2.4 | inline | todo | |
 | 2.6 | S6 | Client tags in `client-form.tsx`, clients API, list filter; reuse `useTaskTags()`. | 1.0, 1.1 merged | inline | todo | |
@@ -82,3 +82,11 @@ rules, verbatim requests (R1–R3), assumptions (A1–A5), root causes and file 
   their existing raw-`fetch` style to avoid an unrelated refactor. Verified end to end against the local Docker/
   Supabase stack (admin demo login): name edit, reactivate→deactivate round trip, and a real recovery link generated
   for an existing user. Next step: 2.3.
+- **L5 (2026-10-29).** 2.3 done: removed the municipalities sub-table, its add form and the detail column (only it used
+  it) from `catalogos-v2-section.tsx`; RED test asserts no «Municipios» region and that `useAdminMunicipios` is never
+  called. The selectors keep reading `GET /api/v1/municipalities`, and the API endpoints stay. Updated
+  `guia-uso-proyectos-v2.md:115` and `guia-prueba-proyectos.md` §H. Checks: focused test 6/6, unit suite 367 files /
+  4307 tests green, eslint clean, `tsc` clean in `src/` (only stale `.next/dev/types` errors). `prisma/*.invariant`
+  tests not run: Docker is not available in this WSL session (they target 127.0.0.1:54322). Native assess: medium,
+  not due (under_budget). Pending after #103 merges: delete `useAdminMunicipios`/`useCreateMunicipio` from
+  `hooks/admin.ts`. Next step: 2.8 (2.4 and 2.6 wait for #103/#102).
