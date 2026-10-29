@@ -36,6 +36,24 @@ export type ClientListRow = Prisma.ClienteGetPayload<{
   select: typeof CLIENT_BASE_SELECT;
 }>;
 
+/**
+ * Jefe 2026-10-28 lane 2 task 2.6 (S6): client tags, picked from the same
+ * live `task_tags` catalog as tasks (assumption A1). Same per-tag rules as
+ * the tasks API (POST/PATCH /tasks: trim, non-empty, <= 50 chars, <= 20
+ * tags), plus dedupe keeping the first occurrence's order. Shared by
+ * POST /clients and PATCH /clients/:id.
+ */
+export const CLIENT_ETIQUETAS_SCHEMA = z
+  .array(z.string().trim().min(1, "Hay una etiqueta vacía.").max(50, "Etiqueta muy larga."))
+  .max(20, "Demasiadas etiquetas (máximo 20).")
+  .transform((tags) => [...new Set(tags)]);
+
+/** List row projection: the shared base select plus the client's tags. */
+export const CLIENT_LIST_SELECT = { ...CLIENT_BASE_SELECT, etiquetas: true } as const;
+
+/** Detail/create/update projection: the shared full select plus the tags. */
+export const CLIENT_DETAIL_SELECT = { ...CLIENT_FULL_SELECT, etiquetas: true } as const;
+
 export const POST_CLIENT_SCHEMA = z.object({
   nombre: z
     .string()
@@ -68,6 +86,7 @@ export const POST_CLIENT_SCHEMA = z.object({
   prioridades_identificadas: z.string().optional(),
   riesgos_barreras: z.string().optional(),
   resumen_relacion: z.string().optional(),
+  etiquetas: CLIENT_ETIQUETAS_SCHEMA.optional(),
 });
 
 /** Builds the shared list/export `where`. Reads are global (PR 3): no
@@ -83,6 +102,8 @@ export function buildClientWhere(
     responsable_id?: string;
     desde?: string;
     hasta?: string;
+    /** Exact tag (2.6); only the list GET passes it — the export ignores it. */
+    etiqueta?: string;
   },
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for future audit-log additions
   _usuario: Usuario,
@@ -92,6 +113,7 @@ export function buildClientWhere(
   if (filters.estado) where.estado = filters.estado as EstadoCliente;
   if (filters.prioridad) where.prioridad = filters.prioridad as PrioridadCliente;
   if (filters.responsable_id) where.responsable_id = filters.responsable_id;
+  if (filters.etiqueta) where.etiquetas = { has: filters.etiqueta };
 
   const q = filters.q;
   if (q) {
@@ -227,7 +249,10 @@ export const GET = withApiErrorHandling(
     if (!sort.ok) return sort.response;
     const dir = sort.dir;
 
-    const where = buildClientWhere(filters.filters, auth.usuario);
+    // 2.6 (S6): `?etiqueta=` narrows the list to clients carrying that exact
+    // tag — same param name and `has` semantics as GET /tasks.
+    const etiqueta = url.searchParams.get("etiqueta")?.trim() || undefined;
+    const where = buildClientWhere({ ...filters.filters, etiqueta }, auth.usuario);
 
     // Value range filters are applied in JS because valor_potencial is a
     // per-client aggregation; fetching base fields first keeps the query light.
@@ -237,7 +262,7 @@ export const GET = withApiErrorHandling(
 
     const rows = await db.cliente.findMany({
       where,
-      select: CLIENT_BASE_SELECT,
+      select: CLIENT_LIST_SELECT,
       orderBy,
     });
 
@@ -284,6 +309,7 @@ export const GET = withApiErrorHandling(
           estado: r.estado,
           prioridad: r.prioridad,
           ubicacion: r.ubicacion,
+          etiquetas: r.etiquetas,
           responsable_id: r.responsable_id,
           responsable_nombre: r.responsable.nombre,
           valor_potencial: e.valor_potencial,
@@ -365,8 +391,9 @@ export const POST = withApiErrorHandling(
         prioridades_identificadas: parsed.data.prioridades_identificadas,
         riesgos_barreras: parsed.data.riesgos_barreras,
         resumen_relacion: parsed.data.resumen_relacion,
+        etiquetas: parsed.data.etiquetas ?? [],
       },
-      select: CLIENT_FULL_SELECT,
+      select: CLIENT_DETAIL_SELECT,
     });
     await logAudit({
       entidad: "cliente",

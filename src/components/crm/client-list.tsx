@@ -51,8 +51,10 @@ import {
   ENUM_VALUES,
   ESTADO_CLIENTE_LABELS,
   PRIORIDAD_CLIENTE_LABELS,
+  TASK_TAGS,
   TIPO_CLIENTE_LABELS,
 } from "@/lib/catalogs";
+import { useTaskTags } from "@/hooks/admin";
 import type { EstadoCliente, PrioridadCliente, TipoCliente } from "@prisma/client";
 import {
   esVencida,
@@ -102,6 +104,7 @@ type LocalFilters = {
   estado: string;
   prioridad: string;
   responsable: string;
+  etiqueta: string;
   desde: string;
   hasta: string;
   valorMin: string;
@@ -114,6 +117,7 @@ const EMPTY_LOCAL: LocalFilters = {
   estado: "",
   prioridad: "",
   responsable: "",
+  etiqueta: "",
   desde: "",
   hasta: "",
   valorMin: "",
@@ -127,6 +131,7 @@ function toFilters(local: LocalFilters): ClientFilters {
   if (local.estado) out.estado = local.estado;
   if (local.prioridad) out.prioridad = local.prioridad;
   if (local.responsable) out.responsable = local.responsable;
+  if (local.etiqueta) out.etiqueta = local.etiqueta;
   if (local.desde) out.desde = local.desde;
   if (local.hasta) out.hasta = local.hasta;
   if (local.valorMin) out.valorMin = local.valorMin;
@@ -141,6 +146,7 @@ function toLocal(f: ClientFilters): LocalFilters {
     estado: f.estado ?? "",
     prioridad: f.prioridad ?? "",
     responsable: f.responsable ?? "",
+    etiqueta: f.etiqueta ?? "",
     desde: f.desde ?? "",
     hasta: f.hasta ?? "",
     valorMin: f.valorMin ?? "",
@@ -164,6 +170,7 @@ const URL_PARAM_KEYS: { local: keyof LocalFilters; url: string }[] = [
   { local: "estado", url: "estado" },
   { local: "prioridad", url: "prioridad" },
   { local: "responsable", url: "responsable" },
+  { local: "etiqueta", url: "etiqueta" },
   { local: "desde", url: "desde" },
   { local: "hasta", url: "hasta" },
   { local: "valorMin", url: "vmin" },
@@ -214,6 +221,7 @@ function countActiveFilters(filters: ClientFilters): number {
   if (filters.estado) n += 1;
   if (filters.prioridad) n += 1;
   if (filters.responsable) n += 1;
+  if (filters.etiqueta) n += 1;
   if (filters.desde || filters.hasta) n += 1;
   if (filters.valorMin || filters.valorMax) n += 1;
   return n;
@@ -276,11 +284,46 @@ function buildActiveChips(
       label: `Responsable: ${nombre ?? applied.responsable}`,
     });
   }
+  if (applied.etiqueta) chips.push({ key: "etiqueta", label: `Etiqueta: ${applied.etiqueta}` });
   if (applied.desde) chips.push({ key: "desde", label: `Desde: ${chipFechaCorta(applied.desde)}` });
   if (applied.hasta) chips.push({ key: "hasta", label: `Hasta: ${chipFechaCorta(applied.hasta)}` });
   if (applied.valorMin) chips.push({ key: "valorMin", label: `Valor min: ${chipValor(applied.valorMin)}` });
   if (applied.valorMax) chips.push({ key: "valorMax", label: `Valor max: ${chipValor(applied.valorMax)}` });
   return chips;
+}
+
+/**
+ * Jefe 2026-10-28 lane 2 task 2.6 (S6): filtro por etiqueta con el catálogo
+ * LIVE `task_tags` (compartido con las tareas, A1). Componente propio para
+ * pedir el catálogo solo con el popover de filtros abierto. Una etiqueta
+ * aplicada que ya no está en el catálogo (URL o vista guardada) se sigue
+ * ofreciendo para que el select muestre su valor.
+ */
+function EtiquetaFilterSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (etiqueta: string) => void;
+}) {
+  const tagsQuery = useTaskTags();
+  const catalogTags = tagsQuery.data ?? [...TASK_TAGS];
+  const options = value && !catalogTags.includes(value) ? [...catalogTags, value] : catalogTags;
+  return (
+    <Select value={value} onValueChange={(v) => onChange(v === "todas" ? "" : (v ?? ""))}>
+      <SelectTrigger aria-label="Etiqueta" className={cn(SELECT_CLASS)}>
+        <SelectValue placeholder="Etiqueta" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="todas">Todas las etiquetas</SelectItem>
+        {options.map((tag) => (
+          <SelectItem key={tag} value={tag}>
+            {tag}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 }
 
 export function ClientList() {
@@ -675,6 +718,11 @@ function FiltersCard({
                   ))}
                 </SelectContent>
               </Select>
+
+              <EtiquetaFilterSelect
+                value={draft.etiqueta}
+                onChange={(etiqueta) => patchDraft({ etiqueta })}
+              />
 
               <div className="flex items-center gap-1.5">
                 <Label htmlFor="fecha-desde" className="sr-only">
