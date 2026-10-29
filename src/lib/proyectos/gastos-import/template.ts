@@ -9,7 +9,7 @@ import { ENCABEZADOS_GASTOS, MAX_FILAS_GASTOS } from "./parse"
 export const HOJA_PLANTILLA_GASTOS = "Gastos"
 export const HOJA_RUBROS_GASTOS = "Rubros"
 
-const ANCHOS = [28, 20, 32, 28, 22, 24, 22, 40, 18, 16, 18, 12]
+const ANCHOS = [28, 20, 32, 28, 22, 24, 22, 40, 18, 16, 18, 12, 50]
 const TIPOS_SOPORTE = '"Factura de proveedor,Cuenta de cobro persona natural,Otro"'
 const TIPOS_ID = '"NIT,CC,CE"'
 

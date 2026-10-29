@@ -3,10 +3,15 @@
  *
  * `aplicarGastosImport` runs inside the caller's transaction and writes each row exactly as
  * `POST /expenses` writes a single expense (same fields, same normalized keys, same early-overspend
- * flag, same `CREAR`/`gasto` audit shape with the id masked), minus the supports (S2: they come
- * separately) and with ONE shared `lote_id` for the whole import (S7). The single-expense route writes
- * inline and is deliberately not refactored from here: a change to its write must be mirrored in this
- * function (the route tests of both pin the same fields).
+ * flag, same `CREAR`/`gasto` audit shape with the id masked), with ONE shared `lote_id` for the whole
+ * import (S7). The single-expense route writes inline and is deliberately not refactored from here: a
+ * change to its write must be mirrored in this function (the route tests of both pin the same fields).
+ *
+ * AJ-06 (S2, S3): a row's «Enlace del soporte» links (already split and http(s)-validated by
+ * `parse.ts`) become one `SoporteProyecto` per link, created in the SAME transaction right after the
+ * gasto it belongs to — so a row with two links creates a gasto with exactly two soportes atomically.
+ * A row with no links keeps the previous behaviour: the gasto is created with zero soportes and still
+ * needs one attached by hand (B8, unaffected).
  */
 import type { Prisma, Usuario } from "@prisma/client"
 import { db } from "@/lib/db"
@@ -134,6 +139,21 @@ export async function aplicarGastosImport(tx: Prisma.TransactionClient, input: A
         registrado_por_id: input.usuarioId,
       },
     })
+    for (let i = 0; i < datos.enlaces.length; i++) {
+      await tx.soporteProyecto.create({
+        data: {
+          proyecto_id: input.proyectoId,
+          gasto_id: created.id,
+          subido_por_id: input.usuarioId,
+          nombre: `Enlace ${i + 1}`,
+          storage_path: null,
+          url_externa: datos.enlaces[i],
+          tipo_mime: null,
+          tamano_bytes: null,
+        },
+      })
+    }
+
     auditoria.push({
       usuario_id: input.usuarioId,
       accion: "CREAR",
@@ -144,7 +164,7 @@ export async function aplicarGastosImport(tx: Prisma.TransactionClient, input: A
       valor_nuevo: {
         ...gastoAuditable({ ...created, rubro_id: linea.rubro.id }),
         estado: created.estado,
-        soportes: 0,
+        soportes: datos.enlaces.length,
       },
     })
     creados.push({ fila, id: created.id, datos, sobregasto })

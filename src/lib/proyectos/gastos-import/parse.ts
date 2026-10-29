@@ -60,6 +60,7 @@ export const ENCABEZADOS_GASTOS = [
   "IVA",
   "Total",
   "Periodo",
+  "Enlace del soporte",
 ] as const
 
 type Campo =
@@ -75,6 +76,8 @@ type Campo =
   | "iva"
   | "total"
   | "periodo"
+  /** AJ-06 (S2, S3), optional: one or more links, separated by `;`, each http(s)://. */
+  | "enlaces"
   /** Header only: the old single amount column, which makes the file an old template. */
   | "valorAnterior"
 
@@ -93,6 +96,7 @@ const ALIAS: Record<Campo, readonly string[]> = {
   total: ["total", "total cop"],
   valorAnterior: ["valor cop", "valor", "monto"],
   periodo: ["periodo"],
+  enlaces: ["enlace del soporte", "enlace de soporte", "enlaces del soporte", "enlaces"],
 }
 
 const ETIQUETA: Record<Campo, string> = {
@@ -109,6 +113,7 @@ const ETIQUETA: Record<Campo, string> = {
   total: "Total",
   valorAnterior: "Valor (COP)",
   periodo: "Periodo",
+  enlaces: "Enlace del soporte",
 }
 
 const OBLIGATORIOS: readonly Campo[] = ["rubro", "fecha", "tipoSoporte", "tercero", "numeroDocumento", "descripcion", "subtotal", "iva"]
@@ -158,6 +163,8 @@ export type DatosGastoImport = {
   iva: Cents
   /** The Total (Subtotal + IVA): the executed amount. */
   cents: Cents
+  /** AJ-06 (S2, S3): the valid http(s) links read from «Enlace del soporte», empty when the cell is blank. */
+  enlaces: string[]
 }
 
 export type FilaGastoImport = {
@@ -282,6 +289,28 @@ function leerMontos(cruda: FilaCruda): MontosFila {
   return evaluados
 }
 
+type EnlacesFila = { ok: true; enlaces: string[] } | { ok: false; message: string }
+
+/**
+ * AJ-06 (S2, S3): several links in the same cell, separated by `;`; each non-empty piece must start
+ * with http:// or https:// (case-insensitive). An empty cell is valid and yields no links — the
+ * column stays optional, unlike Subtotal/IVA.
+ */
+function leerEnlaces(valor: ValorCelda): EnlacesFila {
+  const texto = textoDe(valor)
+  if (texto === undefined) return { ok: true, enlaces: [] }
+  const piezas = texto
+    .split(";")
+    .map((pieza) => pieza.trim())
+    .filter((pieza) => pieza !== "")
+  for (const pieza of piezas) {
+    if (!/^https?:\/\//i.test(pieza)) {
+      return { ok: false, message: enColumna("enlaces", `"${pieza}" no empieza por http:// o https://.`) }
+    }
+  }
+  return { ok: true, enlaces: piezas }
+}
+
 function validarFila(
   cruda: FilaCruda,
   contexto: ContextoImportGastos,
@@ -319,6 +348,9 @@ function validarFila(
   const periodo = evaluarPeriodo(contexto.proyecto, data.fecha_documento, data.periodo)
   if (!periodo.ok) return falla(periodo.message, rubro.id)
 
+  const enlaces = leerEnlaces(cruda.enlaces)
+  if (!enlaces.ok) return falla(enlaces.message, rubro.id)
+
   const tercero = { tercero_tipo_id: data.tercero_tipo_id ?? null, tercero_numero_id: data.tercero_numero_id || null }
   return {
     rubroTexto,
@@ -337,6 +369,7 @@ function validarFila(
       subtotal: montos.subtotal,
       iva: montos.iva,
       cents: montos.total,
+      enlaces: enlaces.enlaces,
     },
   }
 }

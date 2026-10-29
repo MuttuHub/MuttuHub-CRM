@@ -32,6 +32,13 @@ describe("generarPlantillaGastos", () => {
     expect(hoja.getColumn(encabezados.indexOf("Fecha del documento") + 1).numFmt).toBe("yyyy-mm-dd")
   })
 
+  it("adds the optional «Enlace del soporte» column (AJ-06)", async () => {
+    const workbook = await cargar(await generarPlantillaGastos(["Transporte"]))
+    const hoja = workbook.getWorksheet(HOJA_PLANTILLA_GASTOS)!
+    const encabezados = (hoja.getRow(1).values as unknown[]).slice(1)
+    expect(encabezados).toContain("Enlace del soporte")
+  })
+
   it("lists the rubros that take expenses in their own sheet", async () => {
     const workbook = await cargar(await generarPlantillaGastos(["Transporte", "Viáticos"]))
     const rubros = workbook.getWorksheet(HOJA_RUBROS_GASTOS)
