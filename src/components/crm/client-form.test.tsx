@@ -369,3 +369,21 @@ describe("ClientFormDialog — etiquetas (2.6)", () => {
     expect(screen.queryByRole("button", { name: "Aliado clave" })).not.toBeInTheDocument()
   })
 })
+
+describe("ClientFormDialog — modal review (2.7)", () => {
+  it("disables Cancelar while the client is being saved", () => {
+    createMutation.isPending = true
+    try {
+      render(<ClientFormDialog open onOpenChange={vi.fn()} users={USERS} onSaved={vi.fn()} />)
+      expect(screen.getByRole("button", { name: "Guardando…" })).toBeDisabled()
+      expect(screen.getByRole("button", { name: "Cancelar" })).toBeDisabled()
+    } finally {
+      createMutation.isPending = false
+    }
+  })
+
+  it("keeps Cancelar enabled when nothing is saving", () => {
+    render(<ClientFormDialog open onOpenChange={vi.fn()} users={USERS} onSaved={vi.fn()} />)
+    expect(screen.getByRole("button", { name: "Cancelar" })).toBeEnabled()
+  })
+})

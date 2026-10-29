@@ -373,3 +373,50 @@ describe("ClientSheet — Bitácora tipo and próximo paso (C3b)", () => {
     })
   })
 })
+
+describe("ClientSheet — dialogs stacked over the client file (2.7)", () => {
+  beforeEach(() => {
+    useCurrentUserMock.mockReturnValue({ data: { id: "u1", nombre: "Ana", rol: "ADMINISTRADOR" } })
+    clienteQuery.data = CLIENTE
+    clienteQuery.error = null
+    oportunidadesQuery.data = []
+  })
+
+  function renderWithOnClose() {
+    const onClose = vi.fn()
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={qc}>
+        <ClientSheet clientId="c1" onClose={onClose} />
+      </QueryClientProvider>,
+    )
+    return onClose
+  }
+
+  it("closes only the edit dialog on Escape and keeps the client file open", async () => {
+    const user = userEvent.setup()
+    const onClose = renderWithOnClose()
+
+    await user.click(screen.getByRole("button", { name: "Editar" }))
+    expect(await screen.findByRole("dialog", { name: "Editar cliente" })).toBeInTheDocument()
+
+    await user.keyboard("{Escape}")
+
+    expect(screen.queryByRole("dialog", { name: "Editar cliente" })).not.toBeInTheDocument()
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByRole("dialog", { name: /Ficha de Alcaldía de Barranquilla/ })).toBeInTheDocument()
+  })
+
+  it("closes only the deactivate confirmation on Cancelar and keeps the client file open", async () => {
+    const user = userEvent.setup()
+    const onClose = renderWithOnClose()
+
+    await user.click(screen.getByRole("button", { name: "Desactivar cliente" }))
+    const confirm = await screen.findByRole("dialog", { name: "Desactivar cliente" })
+    await user.click(within(confirm).getByRole("button", { name: "Cancelar" }))
+
+    expect(screen.queryByRole("dialog", { name: "Desactivar cliente" })).not.toBeInTheDocument()
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByRole("dialog", { name: /Ficha de Alcaldía de Barranquilla/ })).toBeInTheDocument()
+  })
+})
