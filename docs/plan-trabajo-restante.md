@@ -54,7 +54,7 @@ octubre. Según el documento, cada «cambio de regla» prevalece sobre la regla 
 | AJ-03 | El atraso se mide por la ejecución (llegar al tope en la fecha fin), no por los soportes | Alta | Pendiente; depende de AJ-01 |
 | AJ-04 | IVA discriminado: Subtotal + IVA = Total; el ejecutado es el Total | Alta | **Hecho** (#99, migración aplicada en producción el 2026-10-28) |
 | AJ-05 | Periodo del gasto tomado de la fecha del documento, con la marca «Periodo modificado» | Media | **Hecho** (#99) |
-| AJ-06 | Varios archivos y enlaces por avance y por gasto, columna «Enlace del soporte», botón «Adjuntar archivo» | Alta | Pendiente; sin migración |
+| AJ-06 | Varios archivos y enlaces por avance y por gasto, columna «Enlace del soporte», botón «Adjuntar archivo» | Alta | **Hecho** (rama `feat/aj06-soportes-multiples`, sin migración) |
 
 **Decisiones del usuario, como vocero de la PO (2026-10-28):**
 

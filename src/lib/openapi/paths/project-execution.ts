@@ -21,6 +21,24 @@ const READ_NOTE =
 
 const ProjectDeliverableParams = z.object({ id: z.string().uuid(), deliverableId: z.string().uuid() });
 
+// Shared shape of a medio/soporte (file or link) attached to an avance or a medición — moved above
+// AvanceSchema so the latter can reference it directly in its additive `soportes` field (AJ-06).
+export const MedioSchema = registry.register(
+  "MedioProyecto",
+  z.object({
+    id: z.string().uuid(),
+    proyecto_id: z.string().uuid(),
+    avance_id: z.string().uuid().nullable(),
+    nombre: z.string(),
+    tipo: z.enum(["archivo", "enlace"]),
+    url_externa: z.string().nullable().openapi({ description: "Solo para `tipo: enlace`; siempre https." }),
+    tipo_mime: z.string().nullable(),
+    tamano_bytes: z.number().int().nullable().openapi({ description: "Tamaño real leído de storage." }),
+    subido_por_id: z.string().uuid(),
+    created_at: z.string(),
+  }),
+);
+
 export const AvanceSchema = registry.register(
   "Avance",
   z.object({
@@ -40,6 +58,10 @@ export const AvanceSchema = registry.register(
     cuenta: z.boolean().openapi({
       description:
         "true cuando el avance suma al entregable: no está anulado y, si el parámetro `avance_requiere_medio` lo exige, tiene al menos un medio vivo.",
+    }),
+    soportes: z.array(MedioSchema).openapi({
+      description:
+        "Medios vivos en detalle, del más antiguo al más reciente (AJ-06, S3: \"3 archivos y 1 enlace muestra los 4\").",
     }),
   }),
 );
@@ -108,24 +130,9 @@ registry.registerPath({
 });
 
 // ---------------------------------------------------------------------------
-// Medios de verificación of an avance (S4 U3)
+// Medios de verificación of an avance (S4 U3). `MedioSchema` itself is
+// registered above, next to `AvanceSchema`.
 // ---------------------------------------------------------------------------
-
-export const MedioSchema = registry.register(
-  "MedioProyecto",
-  z.object({
-    id: z.string().uuid(),
-    proyecto_id: z.string().uuid(),
-    avance_id: z.string().uuid().nullable(),
-    nombre: z.string(),
-    tipo: z.enum(["archivo", "enlace"]),
-    url_externa: z.string().nullable().openapi({ description: "Solo para `tipo: enlace`; siempre https." }),
-    tipo_mime: z.string().nullable(),
-    tamano_bytes: z.number().int().nullable().openapi({ description: "Tamaño real leído de storage." }),
-    subido_por_id: z.string().uuid(),
-    created_at: z.string(),
-  }),
-);
 
 const AvanceMedioParams = z.object({ id: z.string().uuid(), progressId: z.string().uuid() });
 
@@ -302,7 +309,9 @@ registry.registerPath({
               meta: z.string(),
               unidad: z.string(),
             }),
-            mediciones: z.array(MedicionSchema),
+            // AJ-06 T3, S3: additive per medición (spread in the route handler, oldest first);
+            // `ultima` is computed before that enrichment and never carries `soportes`.
+            mediciones: z.array(MedicionSchema.extend({ soportes: z.array(MedioSchema) })),
             ultima: MedicionSchema.nullable(),
             tendencia: TendenciaSchema,
           }),
@@ -354,6 +363,122 @@ registry.registerPath({
   responses: {
     200: { description: "Medición anulada.", content: { "application/json": { schema: z.object({ medicion: MedicionSchema }) } } },
     ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Medios de verificación of a medición (S4 U4, AJ-06 T3). Mirrors
+// progress/{progressId}/attachments exactly, scoped to `medicion_id` instead
+// of `avance_id`; a medición has no semáforo/"cuenta" concept, so its POST
+// response omits that field.
+// ---------------------------------------------------------------------------
+
+const MedicionMedioParams = IndicadorMedicionParams.extend({ measurementId: z.string().uuid() });
+const MEDICION_ATTACHMENTS_PATH = `${MEDICIONES_PATH}/{measurementId}/attachments`;
+
+registry.registerPath({
+  method: "get",
+  path: MEDICION_ATTACHMENTS_PATH,
+  tags: ["Projects"],
+  summary: "Lista los medios vivos de una medición",
+  description: `Nunca expone la clave de storage: la descarga va por su ruta firmada. ${READ_NOTE}`,
+  security: [{ sessionCookie: [] }],
+  request: { params: MedicionMedioParams },
+  responses: {
+    200: {
+      description: "Medios vivos de la medición.",
+      content: { "application/json": { schema: z.object({ medios: z.array(MedioSchema) }) } },
+    },
+    ...standardErrorResponses([401, 403, 404, 500]),
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: `${MEDICION_ATTACHMENTS_PATH}/sign`,
+  tags: ["Projects"],
+  summary: "Firma la subida directa de un archivo de soporte de una medición (ADR-13)",
+  description:
+    `${WRITE_NOTE} La medición no puede estar anulada (409). La política de archivo es la única de la app (PDF, ` +
+    "DOCX, XLSX, PPTX, JPG/JPEG, PNG; 413 FILE_TOO_LARGE sobre el máximo). El servidor elige la clave " +
+    "`proyectos/{id}/soportes/{uuid}_{nombre}`; el cliente nunca envía una. Después de subir, confirma con POST " +
+    ".../attachments. Los objetos nunca se eliminan de storage.",
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: MedicionMedioParams,
+    body: { content: { "application/json": { schema: MEDIO_SIGN_SCHEMA } } },
+  },
+  responses: {
+    200: {
+      description: "URL firmada de subida y límites de la política.",
+      content: {
+        "application/json": {
+          schema: z.object({
+            storage_path: z.string(),
+            token: z.string(),
+            signed_url: z.string(),
+            max_bytes: z.number().int(),
+            allowed_extensions: z.array(z.string()),
+          }),
+        },
+      },
+    },
+    ...standardErrorResponses([400, 401, 403, 404, 409, 413, 500]),
+  },
+});
+
+registry.registerPath({
+  method: "post",
+  path: MEDICION_ATTACHMENTS_PATH,
+  tags: ["Projects"],
+  summary: "Adjunta un medio a una medición (archivo confirmado o enlace https)",
+  description:
+    `${WRITE_NOTE} Dos formas de cuerpo: confirmar un archivo ya subido (\`storage_path\`, \`nombre\`, \`tamano_bytes\`, ` +
+    "`tipo_mime?`; la clave debe estar bajo `proyectos/{id}/soportes/`, el objeto debe existir y no superar lo " +
+    "declarado ni el máximo de la app; se guarda el tamaño real) o enlazar una URL externa (`url_externa` https de " +
+    "hasta 2000 caracteres, `nombre`). Una medición anulada responde 409; el mismo objeto no puede respaldar dos " +
+    "medios (409). A diferencia de un avance, una medición no tiene concepto de semáforo/\"cuenta\": la respuesta " +
+    "solo trae el medio creado.",
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: MedicionMedioParams,
+    body: {
+      content: {
+        "application/json": { schema: z.union([MEDIO_ARCHIVO_SCHEMA, MEDIO_ENLACE_SCHEMA]) },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: "Medio adjunto.",
+      content: { "application/json": { schema: z.object({ medio: MedioSchema }) } },
+    },
+    ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: `${MEDICION_ATTACHMENTS_PATH}/{attachmentId}/download`,
+  tags: ["Projects"],
+  summary: "Descarga de un medio de una medición (URL firmada de 60 s o enlace https)",
+  description: READ_NOTE,
+  security: [{ sessionCookie: [] }],
+  request: { params: MedicionMedioParams.extend({ attachmentId: z.string().uuid() }) },
+  responses: {
+    200: {
+      description: "URL de descarga.",
+      content: {
+        "application/json": {
+          schema: z.object({
+            tipo: z.enum(["archivo", "enlace"]),
+            url: z.string(),
+            expires_in: z.number().int().nullable().openapi({ description: "60 para un archivo; null para un enlace." }),
+          }),
+        },
+      },
+    },
+    ...standardErrorResponses([401, 403, 404, 500]),
   },
 });
 

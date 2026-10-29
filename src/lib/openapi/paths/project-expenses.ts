@@ -430,18 +430,23 @@ registry.registerPath({
   method: "post",
   path: "/api/v1/projects/{id}/expenses/import",
   tags: ["Projects"],
-  summary: "Importa gastos desde un Excel (una fila por gasto, sin soportes)",
+  summary: "Importa gastos desde un Excel (una fila por gasto, soportes por enlace opcionales)",
   description:
     `${WRITE_NOTE} Multipart con el archivo en \`archivo\` (.xlsx, máximo 4 MB, máximo 200 filas con datos; no se almacena). ` +
     "Columnas: `Rubro`, `Fecha del documento`, `Tipo de soporte`, `Tercero`, `Tipo de identificación` (opcional), " +
     "`Número de identificación` (opcional), `Número de documento`, `Descripción`, `Subtotal`, `IVA`, " +
-    "`Total` (opcional) y `Periodo` (opcional, AAAA-MM; vacío usa el mes de la fecha del documento). `Subtotal` e `IVA` son " +
+    "`Total` (opcional), `Periodo` (opcional, AAAA-MM; vacío usa el mes de la fecha del documento) y `Enlace del " +
+    "soporte` (opcional, AJ-06). `Subtotal` e `IVA` son " +
     "obligatorios: el IVA puede ser 0 pero debe escribirse. Si viene `Total`, debe ser igual a Subtotal + IVA o la fila se " +
     "rechaza con su fila y columna. Un archivo con la columna antigua `Valor (COP)` y sin `Subtotal` se rechaza completo: " +
     "«Esta plantilla es anterior: descarga la nueva, que separa Subtotal e IVA.». " +
     "Cada fila pasa por las mismas reglas que un gasto individual (rubro con valor asignado, subtotal positivo con máximo dos " +
-    "decimales, periodo dentro del proyecto, límites de texto). El archivo no lleva soportes: los gastos se crean REGISTRADO " +
-    "sin soportes y se adjuntan después (`POST /expenses/{expenseId}/attachments`); sin soporte no se pueden validar. Dos filas " +
+    "decimales, periodo dentro del proyecto, límites de texto). `Enlace del soporte` admite uno o varios enlaces en la misma " +
+    "celda separados por `;`; cada uno debe empezar por `http://` o `https://` (sin distinguir mayúsculas) o la fila se " +
+    "rechaza con su fila y columna. Un archivo sin esa columna, o con la celda vacía, importa igual que antes (sin soportes). " +
+    "Cada enlace válido crea un soporte sobre el gasto creado, dentro de la misma transacción que el gasto (ej.: dos enlaces " +
+    "en la celda crean un gasto con dos soportes). Un gasto importado sin soporte se crea REGISTRADO y se adjunta después " +
+    "(`POST /expenses/{expenseId}/attachments`); sin soporte no se puede validar. Dos filas " +
     "con el mismo tercero y número de documento normalizados: la segunda es inválida. Con `modo=validar` devuelve cada fila como " +
     "válida o inválida con su motivo, más las alertas no bloqueantes, sin escribir. Aplicar crea solo las filas válidas en una " +
     "transacción, con un único `lote_id` de auditoría, y devuelve las rechazadas; no notifica. Errores del archivo completo " +
