@@ -1,14 +1,17 @@
 // Reporte imprimible de tareas (PRD §5.4): página fuera del shell (sin
 // sidebar) que re-descarga /api/v1/tasks/report con los mismos filtros del
 // tablero (rango, responsable, cliente). Se auto-imprime al cargar; en
-// pantalla muestra una barra con el botón "Imprimir" y la vista previa.
+// pantalla muestra la barra compartida de impresión («Volver» + «Imprimir»,
+// S4: se abre en la misma pestaña desde el tablero y desde Reportes; si se
+// abrió directo, «Volver» lleva a /reportes) y la vista previa.
 
 "use client";
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Printer, TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PrintToolbar } from "@/components/print/print-toolbar";
 import { ESTADO_TAREA_LABELS } from "@/lib/catalogs";
 import { apiGet, ApiError } from "@/lib/api/http";
 import type { TaskReportResponse } from "@/hooks/kanban";
@@ -65,15 +68,10 @@ export function PrintReportes() {
 
   return (
     <main className="min-h-screen bg-white px-6 py-6 text-ink-900 sm:px-10 print:bg-white print:p-0">
-      <div /* v6-surface */ className="print-hide mb-6 flex items-center justify-between rounded-[16px] border border-ink-200 bg-panel px-5 py-4">
-        <p className="text-[13px] text-ink-600">
-          Vista de impresión: los filtros que aplicaste se respetan.
-        </p>
-        <Button onClick={() => window.print()} className="px-4 font-bold">
-          <Printer className="size-4" />
-          Imprimir
-        </Button>
-      </div>
+      <PrintToolbar
+        description="Vista de impresión: los filtros que aplicaste se respetan."
+        fallbackHref="/reportes"
+      />
 
       {state.kind === "loading" && (
         <p className="py-20 text-center text-[13px] text-ink-500">

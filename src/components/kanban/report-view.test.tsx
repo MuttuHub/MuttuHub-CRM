@@ -1,5 +1,6 @@
-import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TaskReportResponse } from "@/hooks/kanban";
 import { ReportView } from "./report-view";
 
@@ -204,5 +205,57 @@ describe("ReportView — tendencia de cierre (PR 22)", () => {
     expect(screen.getByText(/Tendencia de cierre: 6 tareas completadas en 3 semanas/)).toBeInTheDocument();
     expect(screen.getByText("2026-08-03: 1")).toBeInTheDocument();
     expect(screen.getByText("2026-08-10: 3")).toBeInTheDocument();
+  });
+});
+// Jefe 2026-10-28, lane 2 task 2.4b: the PDF opens in the same tab (S4) and
+// the Excel exports the period the report shows (S5), like the PDF already did.
+describe("ReportView — PDF and Excel follow the selected period (2.4b)", () => {
+  const open = vi.fn();
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    open.mockReset();
+    fetchMock.mockReset();
+    fetchMock.mockImplementation(async () => new Response(new Blob(["xlsx"]), { status: 200 }));
+    vi.stubGlobal("open", open);
+    vi.stubGlobal("fetch", fetchMock);
+    URL.createObjectURL = vi.fn(() => "blob:tareas");
+    URL.revokeObjectURL = vi.fn();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("links the PDF to the print view of the selected period in the same tab (S4)", async () => {
+    const user = userEvent.setup();
+    render(<ReportView responsable="u1" cliente={undefined} />);
+
+    await user.click(screen.getByRole("button", { name: "Semana" }));
+
+    const pdf = screen.getByRole("link", { name: "PDF" });
+    expect(pdf).toHaveAttribute("href", "/print/reportes/tareas?rango=week&responsable=u1");
+    expect(pdf).not.toHaveAttribute("target");
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it("exports the Excel of the selected period, downloading in place (S5)", async () => {
+    const user = userEvent.setup();
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    render(<ReportView responsable={undefined} cliente="c1" />);
+
+    await user.click(screen.getByRole("button", { name: "Excel" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/v1/tasks/export?cliente=c1&rango=month");
+
+    await user.click(screen.getByRole("button", { name: "Semana" }));
+    await user.click(screen.getByRole("button", { name: "Excel" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(fetchMock.mock.calls[1][0]).toBe("/api/v1/tasks/export?cliente=c1&rango=week");
+
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(2));
+    expect((click.mock.contexts[0] as HTMLAnchorElement).download).toBe("tareas.xlsx");
+    expect(open).not.toHaveBeenCalled();
   });
 });
