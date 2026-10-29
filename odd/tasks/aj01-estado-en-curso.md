@@ -115,7 +115,7 @@ feature's new table and get their own documents/branches/PRs afterward, per that
 | T2 | S6 (new `tope_en_curso` setting: `semaforo-v2.ts`, `settings.ts`, `umbrales-section.tsx`) | delegated (parallel, disjoint surface) | done | `b7fb3aa` |
 | T3 | S8, S9.1-S9.4 (domain logic: `avance.ts`'s `estadoActividad`/`avanceActividad`/`calcularTecnico` — new per-activity inputs/outputs, `entregables_completos` flag, submission validation helpers) | delegated (context backstop) | done | `2e7e1d1` |
 | T4 | S9.5, S10, S11 (API routes: list/create/edit/void a report, the 3 attachment routes, responsable-only gate, wired to T1/T3) | delegated (context backstop) | done | `33462bb` |
-| T5 | S2, S3 (UI: `ejecucion-avance.tsx` activity-level "Registrar avance" action, history, badge/progress wired to T3/T4; new hooks in `hooks/projects.ts`) | delegated (context backstop) | pending | |
+| T5 | S2, S3 (UI: `ejecucion-avance.tsx` activity-level "Registrar avance" action, history, badge/progress wired to T3/T4; new hooks in `hooks/projects.ts`) | delegated (context backstop) | done | `2db7288` |
 | T6 | Docs (OpenAPI, user guide, test guide, flip AJ-01 to Hecho in `docs/plan-trabajo-restante.md`) | delegated (context backstop) | pending | |
 
 Route evidence: T1 (migration) is the foundation every other task's types depend on; T3/T4/T5 share
@@ -178,3 +178,11 @@ activities must be a byte-for-byte no-op (S5.2) — pin with a regression test, 
   (S5.2) at the route-mock level too, not just inside avance.ts. 63/63 green on touched files; full suite
   4595/4596 (1 pre-existing unrelated live-DB failure). tsc clean. Risk: item 2 (new responsable-only write gate) -
   independent verifier scheduled for the feature's end (T6), per this document's own risk routing.
+- L7 (T5): AJ-06 (PR #108) is not merged into main or this branch, so the generic AdjuntarArchivoControl
+  does not exist here - built a local, self-contained attach control instead (same archivo/enlace flow as
+  gasto-soportes.tsx, same button text), flagged as a deliberate deviation rather than copying another
+  branch's file. esResponsable (canManageProjects OR actividad.responsable_id === current user) gates
+  create/void/attach together, matching gateReporteActividadWrite's single combined gate (not the separate
+  canWrite/canVoid split deliverable avances use). History renders fecha/porcentaje/observacion/usuario per
+  S2/S3; void shown only on the last (chronologically latest) report. 17 files / 164 tests green across the
+  whole feature so far; tsc clean. Risk: none (pure UI, every rule enforced server-side by T3/T4).
