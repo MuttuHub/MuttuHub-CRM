@@ -93,5 +93,71 @@ el botón «Volver» que se agrega en la tarea 2.4.
 
 ## Hallazgos de la revisión de modales
 
-*Pendiente: se agrega al terminar las tareas 1.5 (Documentos) y 2.7 (Clientes,
-Tareas, Proyectos y Administración).*
+### Administración y Proyectos (tarea 2.7, 2026-10-29)
+
+Se revisaron 13 diálogos. Ya se corrigieron en la misma tarea: borrar un elemento de la estructura pide
+confirmación; «Cancelar» se desactiva mientras se sube o elimina un documento; «Solicitar modificación»
+tiene «Cancelar»; las solicitudes de acceso con Google ya no prometen un correo que no se envía.
+
+### 9. Esc, clic fuera o la X cierran el diálogo con la operación en curso
+
+`presupuesto-import-dialog.tsx:146`, `import-dialog.tsx:136`, `gastos-import-dialog.tsx:205`,
+`estructura-po-import-dialog.tsx:180`, `baseline-approval.tsx:58`, `estado-proyecto-acciones.tsx:72`,
+`ficha/subir-documento-dialog.tsx:49`. «Cancelar» se desactiva mientras la petición corre, pero Esc, el
+clic fuera y la X siguen cerrando: el diálogo se reinicia y el usuario no ve el resultado ni el error.
+
+**Propuesta:** ignorar el cierre mientras la operación esté pendiente, con un helper compartido.
+
+### 10. Los formularios largos pierden lo escrito al cerrarse, sin aviso
+
+`ficha/editar-datos-generales.tsx:92` y `modificacion-form.tsx:58`. En «Solicitar modificación» pueden
+perderse decenas de valores.
+
+**Propuesta:** si hay cambios, pedir «¿Descartar los cambios?» antes de cerrar.
+
+### 11. «Cancelar» no tiene el mismo estilo en todos los diálogos
+
+Unos usan botón de texto (`ghost`: línea base, cambio de estado, importaciones, modificación) y otros
+botón con borde (`outline`: documentos, datos generales, solicitudes, eliminar elemento).
+
+**Propuesta:** fijar una convención y documentarla junto al componente `Dialog`.
+
+### 12. El tamaño del título varía entre diálogos
+
+`ficha/subir-documento-dialog.tsx:86` y `ficha/ficha-documentos.tsx:250` usan el título por defecto
+(26 px); el resto de Proyectos usa 18 px y Solicitudes 17 px.
+
+**Propuesta:** alinear todos al estilo de Proyectos o llevarlo al componente base.
+
+### 13. «Cambiar estado» confirma con un botón genérico, incluso al cancelar el proyecto
+
+`estado-proyecto-acciones.tsx:150`. El botón dice «Confirmar» aunque cancelar sea irreversible, sin
+estilo destructivo, y el motivo es obligatorio sin indicarlo.
+
+**Propuesta:** que el botón diga la acción («Cancelar proyecto»), con estilo destructivo, y
+que el campo diga «Motivo (obligatorio)».
+
+### 14. Los diálogos no limitan su altura
+
+`src/components/ui/dialog.tsx` (`DialogContent`). Subir y eliminar documento y Solicitudes no añaden
+altura máxima con desplazamiento y pueden quedar cortados en un teléfono en horizontal.
+
+**Propuesta:** poner la altura máxima con desplazamiento por defecto en el componente base.
+
+### 15. Aprobar una solicitud no muestra el resultado dentro del diálogo
+
+`admin/solicitudes-section.tsx:375,443`. El diálogo se cierra de inmediato y, si falla, el error
+aparece arriba de la página.
+
+**Propuesta:** esperar la respuesta en el diálogo, con botón en carga y error en línea.
+
+### 16. «Subir documento» no dice qué archivos acepta
+
+`ficha/subir-documento-dialog.tsx:122`. No indica tipos ni tamaño; el usuario se entera cuando el
+servidor rechaza el archivo.
+
+**Propuesta:** mostrar tipos y tamaño máximo («.xlsx, máx. 4 MB») y validar antes de subir.
+
+### Pendiente
+
+Se agregan al terminar la tarea 1.5 (Documentos) y la parte de Clientes y Tareas de la 2.7.
