@@ -100,3 +100,10 @@ sequence. Risk: item 1 for T1 (migration on money data) and item 3 for T2 (the e
   continuar») an occurrence comment was added to the canonical issue Gentleman-Programming/gentle-ai#5422, and the
   provider's decline was run once for this candidate (`declined_this_candidate`). No native review receipt exists for
   this branch; the independent verifier (L9) is the review of record. Next: user decides push and PR.
+- **L11 (2026-10-28, release):** Rebased on `main` with B7 and B3 (no text conflicts; 209 files / 2537 tests green).
+  PR #99: CI `unit` applied the migration and ran `prisma/*.invariant` on its ephemeral Postgres; `e2e` first failed
+  because `e2e/proyectos-v2/ficha-ejecucion.spec.ts` still filled «Valor», fixed in `7517329`, then green. With the
+  user's authorization: production backup `~/muttu-backups/2026-10-28-2046-ajgastos` verified per the runbook (§3.1),
+  `migrate status` showed only this migration pending, `migrate deploy` applied
+  `20261028120000_v2_gastos_subtotal_iva`, then status up to date and `migrate diff` empty. Merged as `1f45afd`; Vercel
+  deployed it to production. Feature closed.
