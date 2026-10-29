@@ -533,10 +533,11 @@ describe("ProjectGastos", () => {
       expect(within(filas[1]).queryByRole("button", { name: "Anular" })).not.toBeInTheDocument()
     })
 
-    it("downloads a support by fetching its signed URL", async () => {
+    it("downloads a support by fetching its signed URL, in the same tab (S4)", async () => {
       const user = userEvent.setup()
       const open = vi.fn()
       vi.stubGlobal("open", open)
+      const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {})
       setup({ gastos: [gasto("g1")] })
       const base = fetchMock.getMockImplementation()!
       fetchMock.mockImplementation((input: unknown, init?: RequestInit) =>
@@ -545,9 +546,12 @@ describe("ProjectGastos", () => {
           : base(input, init),
       )
       await user.click(await screen.findByRole("button", { name: "Ver soporte factura.pdf" }))
-      await waitFor(() => expect(open).toHaveBeenCalledWith("https://s.example/dl", "_blank", "noopener,noreferrer"))
+      await waitFor(() => expect(click).toHaveBeenCalledTimes(1))
+      expect((click.mock.contexts[0] as HTMLAnchorElement).href).toBe("https://s.example/dl?download=")
+      expect(open).not.toHaveBeenCalled()
       expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/expenses/g1/attachments/s1/download", expect.any(Object))
       expect(posts()).toHaveLength(0)
+      click.mockRestore()
     })
   })
 

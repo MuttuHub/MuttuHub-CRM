@@ -408,17 +408,14 @@ function SheetHeaderContent({
             Crear proyecto
           </Link>
         )}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() =>
-            window.open(`/print/clientes/${cliente.id}`, "_blank", "noopener")
-          }
-          className="shrink-0 px-3 text-[12.5px] font-semibold"
+        {/* Misma pestaña (S4): la vista de impresión trae «Volver», que regresa a esta ficha. */}
+        <Link
+          href={`/print/clientes/${encodeURIComponent(cliente.id)}`}
+          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0 px-3 text-[12.5px] font-semibold")}
         >
           <FileText className="size-3.5 text-destructivo" strokeWidth={1.9} />
           Exportar PDF
-        </Button>
+        </Link>
         {cliente.puede_editar && (
           <Button
             variant="outline"

@@ -441,9 +441,11 @@ export function ClientList() {
     }
   }
 
+  // Misma pestaña (S4): la vista de impresión trae «Volver», que regresa a este
+  // listado con sus filtros (viven en la URL).
   function openPdf() {
     const qs = buildQueryString(applied);
-    window.open(`/print/clientes?${qs}`, "_blank", "noopener");
+    router.push(`/print/clientes?${qs}`);
   }
 
   const activeCount = countActiveFilters(applied);

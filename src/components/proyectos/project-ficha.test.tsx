@@ -146,7 +146,7 @@ describe("ProjectFicha (page)", () => {
     expect(within(screen.getByTestId("ficha-scroll")).queryByTestId("kpis")).not.toBeInTheDocument()
   })
 
-  it("offers the printable sheet from the header menu, opening the exact project in a new tab (F13)", async () => {
+  it("offers the printable sheet from the header menu, opening the exact project in the same tab (F13, S4)", async () => {
     mockFichaAndAudit({ historial: [] })
     const user = userEvent.setup()
 
@@ -157,8 +157,8 @@ describe("ProjectFicha (page)", () => {
     const item = await screen.findByRole("menuitem", { name: "Imprimir / PDF" })
 
     expect(item).toHaveAttribute("href", "/proyectos/p1/imprimir")
-    expect(item).toHaveAttribute("target", "_blank")
-    expect(item).toHaveAttribute("rel", expect.stringContaining("noopener"))
+    // S4: la hoja imprimible se abre en la misma pestaña (trae su propio «Volver»).
+    expect(item).not.toHaveAttribute("target")
   })
 
   it("opens the Resumen with the health rows above the attention list and the fact sheet, reading the KPIs once", async () => {

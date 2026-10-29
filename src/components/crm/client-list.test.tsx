@@ -31,7 +31,7 @@ const { router, toast, useClientsMock, useUsersMock, clientsQuery, searchParamsM
   }
   const searchParamsMap = new Map<string, string>()
   return {
-    router: { replace: vi.fn() },
+    router: { replace: vi.fn(), push: vi.fn() },
     toast: { error: vi.fn(), success: vi.fn() },
     useClientsMock: vi.fn<(filters?: ClientFilters) => ClientsQueryState>(() => clientsQuery),
     useUsersMock: vi.fn<(_filters?: unknown) => UsersQueryState>(() => ({
@@ -91,6 +91,7 @@ describe("ClientList", () => {
 beforeEach(() => {
     vi.useFakeTimers()
     router.replace.mockClear()
+    router.push.mockClear()
     toast.error.mockClear()
     toast.success.mockClear()
     useClientsMock.mockClear()
@@ -308,6 +309,22 @@ it("shows the pagination footer and pages through results", () => {
       { scroll: false },
     )
     expect(toast.error).not.toHaveBeenCalled()
+  })
+
+  it("opens the PDF report in the same tab with the applied filters, never with window.open (S4)", () => {
+    const open = vi.fn()
+    vi.stubGlobal("open", open)
+    searchParamsMap.set("tipo", "GOBIERNO_LOCAL")
+    render(<ClientList />)
+
+    fireEvent.click(screen.getByRole("button", { name: "PDF" }))
+
+    expect(router.push).toHaveBeenCalledTimes(1)
+    const destino = String(router.push.mock.calls[0][0])
+    expect(destino.startsWith("/print/clientes?")).toBe(true)
+    expect(new URLSearchParams(destino.split("?")[1]).get("tipo")).toBe("GOBIERNO_LOCAL")
+    expect(open).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
   })
 
   /* ── URL persistence (Lote 6) ────────────────────────────────────────── */

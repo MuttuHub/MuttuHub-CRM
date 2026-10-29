@@ -6,8 +6,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Printer, TriangleAlert, UserX } from "lucide-react";
+import { TriangleAlert, UserX } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PrintToolbar } from "@/components/print/print-toolbar";
 import {
   ESTADO_CLIENTE_LABELS,
   ESTADO_OPORTUNIDAD_LABELS,
@@ -107,15 +108,10 @@ export function PrintFicha({ clientId }: { clientId: string }) {
 
   return (
     <main className="min-h-screen bg-white px-6 py-6 text-ink-900 sm:px-10 print:bg-white print:p-0">
-      <div /* v6-surface */ className="print-hide mb-6 flex items-center justify-between rounded-[16px] border border-ink-200 bg-panel px-5 py-4">
-        <p className="text-[13px] text-ink-600">
-          Vista de impresión de la ficha completa.
-        </p>
-        <Button onClick={() => window.print()} className="px-4 font-bold">
-          <Printer className="size-4" />
-          Imprimir
-        </Button>
-      </div>
+      <PrintToolbar
+        description="Vista de impresión de la ficha completa."
+        fallbackHref={`/clientes?cliente=${encodeURIComponent(clientId)}`}
+      />
 
       {state.kind === "loading" && (
         <p className="py-20 text-center text-[13px] text-ink-500">

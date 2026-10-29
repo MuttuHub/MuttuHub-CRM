@@ -4,6 +4,9 @@ import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ApiError } from "@/lib/api/http"
 import {
+  downloadAvanceSoporte,
+  downloadExpenseSoporte,
+  downloadProjectDocument,
   projectQueryKeys,
   useCreateProject,
   useCreateProjectFromOpportunity,
@@ -495,5 +498,67 @@ describe("project team hooks", () => {
     expect(url).toBe("/api/v1/projects/p1/members/u9")
     expect(init.method).toBe("DELETE")
     expect(invalidate).toHaveBeenCalledWith({ queryKey: projectQueryKeys.members("p1") })
+  })
+})
+
+// S4 (sin pestañas nuevas): un soporte en Storage se descarga directo, sin abrir otra pestaña; un enlace externo
+// (Drive, etc.) sí sigue abriéndose aparte (A4). La URL firmada lleva `download`, lo mismo que añade
+// `createSignedUrl(..., { download: true })`, para que Storage responda con Content-Disposition: attachment.
+describe("descarga de soportes (S4)", () => {
+  const fetchMock = vi.fn()
+  const openMock = vi.fn()
+  let clicked: HTMLAnchorElement[]
+
+  beforeEach(() => {
+    fetchMock.mockReset()
+    openMock.mockReset()
+    vi.stubGlobal("fetch", fetchMock)
+    vi.stubGlobal("open", openMock)
+    clicked = []
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      clicked.push(this)
+    })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  const casos = [
+    ["un documento del proyecto", () => downloadProjectDocument("p1", "d1"), "/api/v1/projects/p1/supports/d1/download"],
+    ["el soporte de un gasto", () => downloadExpenseSoporte("p1", "g1", "s1"), "/api/v1/projects/p1/expenses/g1/attachments/s1/download"],
+    ["el soporte de un avance", () => downloadAvanceSoporte("p1", "a1", "s1"), "/api/v1/projects/p1/progress/a1/attachments/s1/download"],
+  ] as const
+
+  it.each(casos)("descarga %s en la misma pestaña, sin window.open", async (_caso, descargar, ruta) => {
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(jsonResponse({ tipo: "archivo", url: "https://s.example/dl?token=abc", expires_in: 60 })),
+    )
+
+    await descargar()
+
+    expect(String(fetchMock.mock.calls[0][0])).toBe(ruta)
+    expect(openMock).not.toHaveBeenCalled()
+    expect(clicked).toHaveLength(1)
+    const enlace = new URL(clicked[0].href)
+    expect(`${enlace.origin}${enlace.pathname}`).toBe("https://s.example/dl")
+    expect(enlace.searchParams.get("token")).toBe("abc")
+    expect(enlace.searchParams.get("download")).toBe("")
+    expect(clicked[0].hasAttribute("download")).toBe(true)
+    expect(clicked[0].getAttribute("target")).toBeNull()
+    // El ancla temporal no queda colgando del documento.
+    expect(clicked[0].isConnected).toBe(false)
+  })
+
+  it.each(casos)("sigue abriendo en otra pestaña %s cuando es un enlace externo (A4)", async (_caso, descargar) => {
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(jsonResponse({ tipo: "enlace", url: "https://drive.example/f/1", expires_in: null })),
+    )
+
+    await descargar()
+
+    expect(openMock).toHaveBeenCalledWith("https://drive.example/f/1", "_blank", "noopener,noreferrer")
+    expect(clicked).toHaveLength(0)
   })
 })

@@ -1,13 +1,14 @@
 // Dashboard (Hito 6, PRD §7): contenedor con las 4 "caras" del dashboard,
 // barra de filtros comunes sticky (§7.2, presets de rango TODO: rango custom)
 // y el botón "Generar reporte" que abre el PDF imprimible por cara con los
-// filtros aplicados. El estado de filtros vive aquí (useState) y se pasa a
+// filtros aplicados, en la misma pestaña (S4). El estado de filtros vive aquí (useState) y se pasa a
 // cada cara; el remount por tab hace que las queries (key = filtros)
 // refetcheen solas.
 
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Flag,
   Gauge,
@@ -57,6 +58,7 @@ function fechaDesde(dias: number): string {
 }
 
 export function DashboardTabs({ notice }: { notice?: string }) {
+  const router = useRouter();
   const [cara, setCara] = useState<CaraId>("pipeline");
   const rango = useFiltersStore((s) => s.rango);
   const setRango = useFiltersStore((s) => s.setRango);
@@ -79,9 +81,10 @@ export function DashboardTabs({ notice }: { notice?: string }) {
     };
   }, [rango, responsable, tipoCliente]);
 
+  // Misma pestaña (S4): la vista de impresión trae «Volver», que regresa aquí.
   function generarReporte() {
     const qs = buildDashboardQuery(filters, { dias_sin_gestion: dias });
-    window.open(`/print/dashboard/${cara}${qs ? `?${qs}` : ""}`, "_blank", "noopener");
+    router.push(`/print/dashboard/${cara}${qs ? `?${qs}` : ""}`);
   }
 
   return (

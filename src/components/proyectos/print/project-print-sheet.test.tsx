@@ -184,6 +184,17 @@ describe("ProjectPrintSheet", () => {
     expect(printMock).toHaveBeenCalledTimes(1)
   })
 
+  it("has Volver next to the print button, falling back to the project's ficha (S4)", async () => {
+    mockApi()
+
+    render(<ProjectPrintSheet projectId="p1" />, { wrapper: createWrapper() })
+
+    const volver = await screen.findByRole("link", { name: "Volver" })
+    expect(volver).toHaveAttribute("href", "/proyectos/p1")
+    expect(volver).not.toHaveAttribute("target")
+    expect(volver.closest("[data-testid='imprimir-barra']")).toHaveClass("print-hide")
+  })
+
   it("skips the technical and financial blocks for a draft and says why", async () => {
     mockApi({ proyecto: { ...PROYECTO, estado: "BORRADOR" } })
 

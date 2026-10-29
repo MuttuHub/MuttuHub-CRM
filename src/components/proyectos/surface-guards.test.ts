@@ -21,7 +21,8 @@ const subdirs = (root: string) =>
     .filter((dir) => statSync(dir).isDirectory())
 
 const AREA_DIRS = [
-  ...subdirs(COMPONENTS_ROOT).filter((dir) => rel(dir) !== PRIMITIVES_DIR),
+  // `print/` only holds print-* files, which are out of scope (see walkSources).
+  ...subdirs(COMPONENTS_ROOT).filter((dir) => rel(dir) !== PRIMITIVES_DIR && path.basename(dir) !== "print"),
   ...subdirs(APP_ROOT).filter((dir) => !PENDING_DIRS.includes(rel(dir))),
 ]
 

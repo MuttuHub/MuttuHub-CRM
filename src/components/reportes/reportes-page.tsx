@@ -9,6 +9,7 @@
 // todo).
 
 import { useState } from "react";
+import Link from "next/link";
 import { Gauge, ListChecks, Printer, UserRound, UsersRound } from "lucide-react";
 import {
   buildDashboardQuery,
@@ -189,17 +190,16 @@ function FiltrosCara({
   );
 }
 
+// La vista de impresión se abre en la misma pestaña (S4) y trae su propio «Volver».
 function GenerarReporte({ href }: { href: string }) {
   return (
-    <a
+    <Link
       href={href}
-      target="_blank"
-      rel="noopener noreferrer"
       className="inline-flex h-10 items-center gap-2 rounded-12 bg-rose-500 px-4 text-[13px] font-bold text-white transition-colors hover:bg-rose-700"
     >
       <Printer className="size-4" strokeWidth={1.9} />
       Generar reporte
-    </a>
+    </Link>
   );
 }
 

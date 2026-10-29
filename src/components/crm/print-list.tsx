@@ -1,14 +1,15 @@
 // Reporte imprimible del listado de clientes (PRD §4.6): página fuera del
 // shell (sin sidebar), lee los mismos filtros del listado y re-descarga con
 // page=1&limit=200 (max del API, ver parsePagination). Se auto-imprime apenas cargan los datos; en pantalla
-// muestra una barra con el botón "Imprimir" y la vista de pre-impresión.
+// muestra la barra compartida con "Volver" + "Imprimir" (S4) y la vista de pre-impresión.
 
 "use client";
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Printer, TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PrintToolbar } from "@/components/print/print-toolbar";
 import {
   ESTADO_CLIENTE_LABELS,
   PRIORIDAD_CLIENTE_LABELS,
@@ -74,15 +75,10 @@ export function PrintClientes() {
 
   return (
     <main className="min-h-screen bg-white px-6 py-6 text-ink-900 sm:px-10 print:bg-white print:p-0">
-      <div /* v6-surface */ className="print-hide mb-6 flex items-center justify-between rounded-[16px] border border-ink-200 bg-panel px-5 py-4">
-        <p className="text-[13px] text-ink-600">
-          Vista de impresión: los filtros que aplicaste se respetan.
-        </p>
-        <Button onClick={() => window.print()} className="px-4 font-bold">
-          <Printer className="size-4" />
-          Imprimir
-        </Button>
-      </div>
+      <PrintToolbar
+        description="Vista de impresión: los filtros que aplicaste se respetan."
+        fallbackHref="/clientes"
+      />
 
       {state.kind === "loading" && (
         <p className="py-20 text-center text-[13px] text-ink-500">
