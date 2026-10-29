@@ -343,6 +343,31 @@ En el encabezado de la ficha, menú **«⋯»**:
 - **Imprimir / PDF**: abre una hoja limpia, sin el menú lateral, en la **misma pestaña**. Con **Ctrl+P** (o el botón
   **Imprimir / Guardar PDF**) se imprime o se guarda como PDF; **Volver** regresa a la ficha.
 
+### 7.1 Reporte semanal (Reportes › Semanal)
+
+En **Reportes**, la pestaña **Semanal** arma el informe para presentar cada semana. La semana va de **lunes a
+domingo** (hora de Colombia); por defecto es la semana en curso y las flechas **Semana anterior / Semana siguiente**
+cambian de semana. Los indicadores se calculan al **domingo** de la semana elegida (o a hoy, si la semana está en
+curso), con los mismos números del Tablero de proyectos.
+
+| Sección | Qué muestra |
+| --- | --- |
+| Resumen | Proyectos, avance real promedio, ejecutado frente a asignado y actividades atrasadas. |
+| Portafolio por proyecto | Semáforo técnico y financiero, avance real y programado, y presupuesto asignado, programado y ejecutado. |
+| Portafolio por cliente | Lo mismo agregado por cliente, con cuántos proyectos tiene en cada color. |
+| Tareas | Tareas cerradas y vencidas de la semana frente a la semana anterior, con la diferencia. |
+| Actividades atrasadas | Actividades vencidas con avance menor al 100 %. |
+| Requiere atención | Lo mismo que la ficha (rubros sobreejecutados, avances sin soporte, indicadores bajo la meta, posible retraso); los gastos observados se cuentan, sin detalle. |
+| Gastos por validar | Solo Administrador y Gerencia: cantidad, monto y fecha del registro más antiguo, por proyecto. |
+
+Cada rol ve los proyectos que ve en el Tablero. Una tarea **vencida** en la semana es la que tenía entrega esa
+semana y no se cerró a tiempo; una **cerrada** es la que se completó esa semana.
+
+- **Generar reporte** abre la versión para imprimir en la **misma pestaña**; **Imprimir** la imprime o la guarda
+  como PDF y **Volver** regresa a Reportes.
+- **Exportar Excel** baja `reporte-semanal-<lunes>.xlsx`, con una hoja por sección. Solo agregados: sin gastos
+  individuales, terceros ni soportes.
+
 ---
 
 ## 8. Rutina recomendada
@@ -356,7 +381,7 @@ En el encabezado de la ficha, menú **«⋯»**:
 
 **Cada semana**
 
-1. Revisar **Resumen → Requiere atención**.
+1. Revisar **Resumen → Requiere atención**, o el consolidado en **Reportes › Semanal**.
 2. Registrar los avances con su medio de verificación.
 3. Registrar los gastos con su soporte.
 4. Administrador o Gerencia: validar o rechazar los gastos pendientes.

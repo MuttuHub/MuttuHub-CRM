@@ -15,6 +15,13 @@ vi.mock("@/components/dashboard/cara-pipeline", () => ({ CaraPipeline: () => nul
 vi.mock("@/components/dashboard/cara-tasks", () => ({ CaraTareas: () => null }))
 vi.mock("@/components/dashboard/cara-clients-activity", () => ({ CaraClientesActividad: () => null }))
 vi.mock("@/components/dashboard/cara-my-summary", () => ({ CaraMiResumen: () => null }))
+vi.mock("@/hooks/reportes", async (importOriginal) => {
+  const { REPORTE_SEMANAL } = await import("./reporte-semanal.fixture")
+  return {
+    ...(await importOriginal<typeof import("@/hooks/reportes")>()),
+    useReporteSemanal: () => ({ data: REPORTE_SEMANAL, isLoading: false, isError: false, error: null }),
+  }
+})
 
 describe("ReportesPage", () => {
   it("opens the printable report of a cara in the same tab (S4)", async () => {
@@ -26,5 +33,17 @@ describe("ReportesPage", () => {
 
     expect(generar.getAttribute("href")).toMatch(/^\/print\/dashboard\/pipeline(\?|$)/)
     expect(generar).not.toHaveAttribute("target")
+  })
+
+  it("has a Semanal tab whose printable report opens in the same tab (S5)", async () => {
+    const user = userEvent.setup()
+    render(<ReportesPage />)
+
+    await user.click(screen.getByRole("tab", { name: "Semanal" }))
+    const generar = await screen.findByRole("link", { name: "Generar reporte" })
+
+    expect(generar).toHaveAttribute("href", "/print/reportes/semanal?semana=2026-10-19")
+    expect(generar).not.toHaveAttribute("target")
+    expect(screen.getByRole("region", { name: "Portafolio por proyecto" })).toBeInTheDocument()
   })
 })
