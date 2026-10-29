@@ -46,10 +46,10 @@ rules, verbatim requests (R1–R3), assumptions (A1–A5), root causes and file 
 | 2.1 | S1 | `docs/proceso-proyectos-desde-cero.md` (+ HTML/PDF like the other guides); fix B7 in `guia-uso-proyectos-v2.md`. Docs only. | — | inline | done | branch `docs/proceso-proyectos-desde-cero`, commit 99a14fe, PR #104 |
 | 2.2 | S2 | Edit-user panel in `users-table.tsx` (name, role, flags), reactivate, resend invite / reset password via `src/lib/supabase/admin.ts`; new hooks in `src/hooks/users.ts` (not `hooks/admin.ts`). | — | inline | done | branch `feat/admin-editar-usuarios`, commit 4ce90d3, PR #105 |
 | 2.3 | S3 | Remove the municipalities sub-table from `catalogos-v2-section.tsx` (+ test). Delete now-unused admin hooks only after 1.1 is merged. | — | inline | done (hooks cleanup pending 1.1) | branch `feat/admin-sin-municipios`, commit 9bf0059, PR #106 |
-| 2.4 | S4 | Reproduce first; then replace internal `window.open`/`_blank` (sites in the index) with same-tab navigation + «Volver» on print pages; direct downloads in `hooks/projects.ts`. | 1.1 merged | inline | todo | |
-| 2.5 | S5 | Weekly report tab + `/print/reportes/semanal` + Excel, reusing management-board hooks; fix task Excel period. | 2.4 | inline | todo | |
+| 2.4 | S4 | Reproduce first; then replace internal `window.open`/`_blank` (sites in the index) with same-tab navigation + «Volver» on print pages; direct downloads in `hooks/projects.ts`. | 1.1 merged | delegated (parallel with 2.7) | 2.4a done; 2.4b (kanban sites) pending #103 | branch `feat/sin-pestanas-nuevas`, commit 17a168c (push blocked: TLS) |
+| 2.5 | S5 | Weekly report tab + `/print/reportes/semanal` + Excel, reusing management-board hooks; fix task Excel period. | 2.4 | delegated (context backstop) | doing | branch `feat/reporte-semanal` stacked on 17a168c |
 | 2.6 | S6 | Client tags in `client-form.tsx`, clients API, list filter; reuse `useTaskTags()`. | 1.0, 1.1 merged | inline | todo | |
-| 2.7 | S7 | Modal UX review (clients first). | 2.6 | inline | todo | |
+| 2.7 | S7 | Modal UX review (clients first). | 2.6 | delegated (parallel with 2.4a) | Admin+Projects done; Clients after 2.6 | branch `fix/modales-admin-proyectos`, commit 44753a2 (push blocked: TLS) |
 | 2.8 | S8 | `docs/pendientes/mejoras-ux-reunion-2026-10-28.md`. | — | inline | done (modal findings appended after 1.5/2.7) | branch `docs/backlog-mejoras-ux`, commit 611685d, PR #107 |
 
 ### Already-detected improvements for 2.8
@@ -100,3 +100,14 @@ rules, verbatim requests (R1–R3), assumptions (A1–A5), root causes and file 
 - **L7 (2026-10-29).** Pushed and opened PRs: 2.1 → #104, 2.2 → #105 (flagged security-sensitive: returns invite/recovery
   links), 2.3 → #106, 2.8 → #107. Suggested merge order: #107, #104, #105, #106. Next: 2.4 split (lane-2 sites now,
   Kanban sites after #103), 2.5 backend, 2.7 for Admin/Projects modals.
+- **L8 (2026-10-29).** 2.4a done by a delegated writer (17a168c): shared `PrintToolbar` («Volver» + «Imprimir») on all
+  print views; client ficha/list, dashboard, ficha-header and Reportes open print views in the same tab; file
+  downloads append `download=` to the signed URL and click a temporary `<a download>`; external URLs keep a new tab
+  (A4). Left for 2.4b: `kanban-board.tsx:325`, `report-view.tsx:77`, `task-dialog.tsx:765`, `kanban/print-report.tsx`.
+  Reproduction: `project-list.tsx` opened the detail with `target="_blank"` until #86 (8720170, 2026-10-26), which is
+  NOT in tag v2.0.0 (2026-10-19) — the writer claimed otherwise; verified with `git merge-base --is-ancestor`.
+  Production build unknown. 2.7 (Admin + Projects) done by a parallel writer (44753a2): 4 fixes (confirm structure
+  deletes, Cancelar disabled while pending in document dialogs, Cancelar in «Solicitar modificación», Google access
+  approvals no longer promise an email); 8 findings appended to the backlog as items 9–16 (4d8c1cc on
+  `docs/backlog-mejoras-ux`). Parent spot checks: 48/48 and 36/36 focused tests green. Push blocked: `git push` and
+  `gh` fail with "SSL certificate verification failed: certificate signer not trusted". 2.5 launched (delegated).
