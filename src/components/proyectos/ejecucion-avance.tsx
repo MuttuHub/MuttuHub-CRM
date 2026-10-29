@@ -299,9 +299,9 @@ function ReporteRow({
 }
 
 /**
- * Adjuntar-después (S11), autocontenido porque `AdjuntarArchivoControl` (AJ-06) todavía no
- * existe en esta rama (PR #108 sin fusionar): mismo flujo archivo/enlace que
- * `gasto-soportes.tsx`'s `AdjuntarSoporte` usaba antes de esa extracción genérica.
+ * Adjuntar-después (S11). Deliberadamente autocontenido (nació cuando `AdjuntarArchivoControl`
+ * (AJ-06, PR #108) aún no estaba fusionado): mismo flujo archivo/enlace. Unificarlo con el
+ * control genérico ahora disponible es un follow-up, no parte de AJ-01.
  */
 function AdjuntarMedioReporte({
   proyectoId,
