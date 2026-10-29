@@ -54,7 +54,9 @@ next-env.d.ts
 # local agent caches
 .atl/
 .agents/
-.claude/
+# Local Claude Code state stays out of git; project skills are shared.
+.claude/*
+!.claude/skills/
 skills-lock.json
 
 # TestSprite suite — tests ARE committed (the GitHub Action needs them);
