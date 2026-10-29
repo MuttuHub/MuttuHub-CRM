@@ -44,8 +44,8 @@ recomendado en `docs/plan-trabajo-restante.md:69` (AJ-06 antes que AJ-01).
 | T1 | S1, S6, S7 (extract a generic `AdjuntarSoporte` attach-after-creation control, reusable by gasto/avance/medición; filename+remove affordance) | delegated (context backstop) | done | `fe08e8b` |
 | T2 | S2, S3 (wire the generic control into the avance/entregable card; show every medio in the history, not just a count) | delegated (context backstop) | pending | |
 | T3 | S2, S3 (new `mediciones/[medicionId]/attachments` API routes — GET/POST/sign/download, mirroring `progress/[progressId]/attachments`; wire the generic control into `ejecucion-indicadores.tsx`) | delegated (context backstop) | pending | |
-| T4 | S6, S7 (rename gasto's button to "Adjuntar archivo", add the filename+remove row to `gasto-form.tsx`'s own file input) | delegated (context backstop) | pending | |
-| T5 | S2, S3 (import template: "Enlace del soporte" column, parse `;`-separated links validating `http(s)://`, create one `SoporteProyecto` per link on the created gasto) | delegated (context backstop) | pending | |
+| T4 | S6, S7 (rename gasto's button to "Adjuntar archivo", add the filename+remove row to `gasto-form.tsx`'s own file input) | delegated (parallel, disjoint surface) | done | `69afba1` |
+| T5 | S2, S3 (import template: "Enlace del soporte" column, parse `;`-separated links validating `http(s)://`, create one `SoporteProyecto` per link on the created gasto) | delegated (parallel, disjoint surface) | done | `45fb30c` |
 | T6 | Docs (OpenAPI for the new medición-attachments paths and the import column; user guide; test guide; flip AJ-06 to Hecho in `docs/plan-trabajo-restante.md`) | delegated (context backstop) | pending | |
 
 Route evidence: T1 is used by T2, T3 and T4 (shared component), and T2/T3 both touch `src/hooks/projects.ts` to add
@@ -81,3 +81,22 @@ verifier.
   the filename+Quitar row; parent spot check: `npx vitest run adjuntar-soporte.test.tsx gasto-soportes.test.tsx
   project-gastos.test.tsx` → 3 files / 56 tests green; `tsc --noEmit` clean. Risk: none (pure UI refactor, no
   data/auth/contract/concurrency change).
+- **L4 (T4):** `gasto-form.tsx`'s own file input (the one-support-at-creation radio field, out of scope for T1) now
+  shows the selected filename and a "Quitar" control (ref-reset, same pattern as T1) instead of the bare native input
+  once a file is chosen. No button to rename here — this form has no literal "Adjuntar soporte"/"archivo" button
+  (it's an inline radio field, not a popover control), so S6 needed no change in this file. One-support-at-creation
+  behavior (`SIN_SOPORTE_TEXT`, `submit()`) is untouched. Parent spot check: `npx vitest run gasto-form.test.tsx` → 33
+  tests green. Risk: none (client-side-only affordance, no API/data/contract change).
+- **L5 (T5):** `src/lib/proyectos/plantilla/columns.ts` turned out to be the wrong file — it's the project-structure
+  template, not the gastos one; the gastos import headers live in `gastos-import/parse.ts`'s `ENCABEZADOS_GASTOS`.
+  Added "Enlace del soporte" as a 13th, OPTIONAL header; `leerEnlaces()` splits on `;`, trims, drops blank pieces,
+  validates each non-empty piece against an http(s):// regex (not the stricter `isValidExternalUrl` from
+  `@/lib/api/files`, which only allows `https:`), rejecting with the row+column-named error convention already used
+  for Subtotal/IVA/Total. `server.ts`'s `aplicarGastosImport` creates one `SoporteProyecto` per valid link inside the
+  same transaction as `gasto.create` (S3's literal "two links, two soportes" example, atomic). `project-gastos.tsx`'s
+  `sinSoporte` gate needed no change — it already reads the live `soportes` relation. A regression test pins that an
+  old-format file (12 headers, no new column) still imports with `enlaces: []`. OpenAPI for this column is left for
+  T6 (`project-expenses.ts` still says the import carries no soportes). Parent spot check: `npx vitest run
+  parse.test.ts template.test.ts` → 2 files / 44 tests green. Risk: none (no migration — `gasto_id`/`url_externa`
+  already existed; URLs validated against http(s):// before any DB write, additive optional column, same
+  transaction boundary as before).
