@@ -44,7 +44,7 @@ rules, verbatim requests (R1–R3), assumptions (A1–A5), root causes and file 
 | ID | Specs | Task | Depends | Route | Status | Commit / evidence |
 |---|---|---|---|---|---|---|
 | 2.1 | S1 | `docs/proceso-proyectos-desde-cero.md` (+ HTML/PDF like the other guides); fix B7 in `guia-uso-proyectos-v2.md`. Docs only. | — | inline | done | branch `docs/proceso-proyectos-desde-cero`, commit 99a14fe (not yet pushed/PR'd) |
-| 2.2 | S2 | Edit-user panel in `users-table.tsx` (name, role, flags), reactivate, resend invite / reset password via `src/lib/supabase/admin.ts`; new hooks in `src/hooks/users.ts` (not `hooks/admin.ts`). | — | inline | todo | |
+| 2.2 | S2 | Edit-user panel in `users-table.tsx` (name, role, flags), reactivate, resend invite / reset password via `src/lib/supabase/admin.ts`; new hooks in `src/hooks/users.ts` (not `hooks/admin.ts`). | — | inline | done | branch `feat/admin-editar-usuarios`, commit 4ce90d3 (not yet pushed/PR'd) |
 | 2.3 | S3 | Remove the municipalities sub-table from `catalogos-v2-section.tsx` (+ test). Delete now-unused admin hooks only after 1.1 is merged. | — | inline | todo | |
 | 2.4 | S4 | Reproduce first; then replace internal `window.open`/`_blank` (sites in the index) with same-tab navigation + «Volver» on print pages; direct downloads in `hooks/projects.ts`. | 1.1 merged | inline | todo | |
 | 2.5 | S5 | Weekly report tab + `/print/reportes/semanal` + Excel, reusing management-board hooks; fix task Excel period. | 2.4 | inline | todo | |
@@ -73,3 +73,12 @@ rules, verbatim requests (R1–R3), assumptions (A1–A5), root causes and file 
   who-does-what table. Fixed the stale B7 statements in `guia-uso-proyectos-v2.md:391,454` (B7 shipped in #97) and the
   self-contradiction at `:392` about the PO template's Cantidad/Unidad columns (already imported since B3, #98); added
   a real §5.6 documenting the state-change dialog. Next step: 2.2.
+- **L4 (2026-10-28).** 2.2 done: `users-table.tsx` gets an "Editar nombre" dialog (PATCH already supported it) and a
+  "Reactivar" action next to Desactivar (PATCH `activo: true`, no new guard needed — only demoting/deactivating an
+  admin is guarded). Added two ADMINISTRADOR-only endpoints, `POST /api/v1/users/:id/resend-invite` and
+  `.../reset-password`, both calling `supabaseAdmin.auth.admin.generateLink` (service role) and returning the link in
+  a copyable dialog, since outbound email isn't configured — mirrors the existing duplicate-invite fallback in
+  `POST /api/v1/users`. New `src/hooks/users.ts` holds the two mutation hooks for those; role/flags/deactivate kept
+  their existing raw-`fetch` style to avoid an unrelated refactor. Verified end to end against the local Docker/
+  Supabase stack (admin demo login): name edit, reactivate→deactivate round trip, and a real recovery link generated
+  for an existing user. Next step: 2.3.
