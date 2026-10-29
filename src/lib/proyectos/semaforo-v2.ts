@@ -11,6 +11,7 @@ export const PARAMETRO_KEYS = [
   "retraso",
   "avance_requiere_medio",
   "modificacion_bloquea_periodos_pasados",
+  "tope_en_curso",
 ] as const;
 
 export type ParametroKey = (typeof PARAMETRO_KEYS)[number];
@@ -28,6 +29,8 @@ export type ParametrosV2 = {
   retraso: Parametro<number>;
   avance_requiere_medio: Parametro<boolean>;
   modificacion_bloquea_periodos_pasados: Parametro<boolean>;
+  /** Tope de avance (%) mientras los entregables de la actividad no estén completos (AJ-01/AJ-03). */
+  tope_en_curso: Parametro<number>;
 };
 
 export const PARAMETROS_V2_DEFAULT: ParametrosV2 = {
@@ -37,9 +40,10 @@ export const PARAMETROS_V2_DEFAULT: ParametrosV2 = {
   retraso: { valor: 70, confirmado: false },
   avance_requiere_medio: { valor: true, confirmado: false },
   modificacion_bloquea_periodos_pasados: { valor: true, confirmado: false },
+  tope_en_curso: { valor: 90, confirmado: false },
 };
 
-const NUMERIC_KEYS = ["umbral1", "umbral2", "tolerancia", "retraso"] as const;
+const NUMERIC_KEYS = ["umbral1", "umbral2", "tolerancia", "retraso", "tope_en_curso"] as const;
 
 function isNumericValue(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100;

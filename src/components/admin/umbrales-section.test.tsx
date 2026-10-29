@@ -32,10 +32,10 @@ describe("UmbralesSection", () => {
     h.save.mockReset().mockResolvedValue({});
   });
 
-  it("shows the six parameters with a 'No confirmado' badge each", () => {
+  it("shows the seven parameters with a 'No confirmado' badge each", () => {
     render(<UmbralesSection />);
 
-    expect(screen.getAllByText("No confirmado")).toHaveLength(6);
+    expect(screen.getAllByText("No confirmado")).toHaveLength(7);
     expect(screen.getByLabelText("Umbral 1 (pp)")).toHaveValue(10);
     expect(screen.getByLabelText("Umbral 2 (pp)")).toHaveValue(20);
     expect(screen.getByLabelText("Tolerancia (%)")).toHaveValue(10);
@@ -44,6 +44,22 @@ describe("UmbralesSection", () => {
     expect(
       screen.getByRole("checkbox", { name: "Modificación bloquea periodos pasados" }),
     ).toBeChecked();
+    expect(screen.getByLabelText("Tope de avance sin entregables completos (%)")).toHaveValue(90);
+  });
+
+  it("saves a changed tope_en_curso value", async () => {
+    const user = userEvent.setup();
+    render(<UmbralesSection />);
+
+    const tope = screen.getByLabelText("Tope de avance sin entregables completos (%)");
+    await user.clear(tope);
+    await user.type(tope, "85");
+    await user.click(
+      screen.getByRole("checkbox", { name: "Confirmar Tope de avance sin entregables completos (%)" }),
+    );
+    await user.click(screen.getByRole("button", { name: /guardar/i }));
+
+    expect(h.save).toHaveBeenCalledWith({ tope_en_curso: { valor: 85, confirmado: true } });
   });
 
   it("disables save until something changes and sends only the changed fields", async () => {
@@ -67,7 +83,7 @@ describe("UmbralesSection", () => {
 
     await user.click(screen.getByRole("checkbox", { name: "Confirmar Tolerancia (%)" }));
 
-    expect(screen.getAllByText("No confirmado")).toHaveLength(5);
+    expect(screen.getAllByText("No confirmado")).toHaveLength(6);
   });
 
   it("blocks save inline when umbral 1 is not below umbral 2", async () => {
