@@ -111,7 +111,7 @@ feature's new table and get their own documents/branches/PRs afterward, per that
 
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
-| T1 | S7 (migration: `ReporteActividad` table, `reporte_actividad_id` on `SoporteProyecto`, CHECK update, Prisma schema, fixtures/seed callers outside this surface) | delegated (context backstop) | pending | |
+| T1 | S7 (migration: `ReporteActividad` table, `reporte_actividad_id` on `SoporteProyecto`, CHECK update, Prisma schema, fixtures/seed callers outside this surface) | delegated (context backstop) | done | `bd5c3c3` |
 | T2 | S6 (new `tope_en_curso` setting: `semaforo-v2.ts`, `settings.ts`, `umbrales-section.tsx`) | delegated (parallel, disjoint surface) | done | `b7fb3aa` |
 | T3 | S8, S9.1-S9.4 (domain logic: `avance.ts`'s `estadoActividad`/`avanceActividad`/`calcularTecnico` — new per-activity inputs/outputs, `entregables_completos` flag, submission validation helpers) | delegated (context backstop) | pending | |
 | T4 | S9.5, S10, S11 (API routes: list/create/edit/void a report, the 3 attachment routes, responsable-only gate, wired to T1/T3) | delegated (context backstop) | pending | |
@@ -144,3 +144,16 @@ activities must be a byte-for-byte no-op (S5.2) — pin with a regression test, 
   this field and failed tsc otherwise - added "tope_en_curso: patchItem(porcentaje)", identical to its 4 siblings.
   RED-then-GREEN observed (6 failing before, all green after). Parent spot check: 4 files / 67 tests green. Risk:
   none (additive setting, no migration, no existing-key behavior change).
+- **L4 (T1):** `ReporteActividad` added (void-only, mirrors `AvanceEntregable`'s shape: fecha/porcentaje/observacion
+  required/registrado_por_id/anulado_* + a DB CHECK `porcentaje > 0 AND porcentaje <= 100`). Correction to the task
+  brief: the `soportes_proyecto` parent CHECK was already `<= 1` (allows zero parents, changed 2026-10-17 for
+  project-origin documents), not `= 1` as assumed — the writer verified this against the actual migration/invariant
+  tests before extending it to four parents with `<= 1`, avoiding a regression. Local Docker Postgres (`.env.local`,
+  `127.0.0.1:54322`) turned out reachable this session; `migrate status` showed **unrelated drift** — two migrations
+  applied locally that don't exist in this repo (`20260918153200_tablero_seguimiento_social`,
+  `20261029120000_jefe_clientes_aliados_carpetas`, presumably from another branch/session) — flagged to the user,
+  who asked for a recommendation; applied only the new migration with `migrate deploy` (never `dev`, so the
+  pre-existing drift was left untouched, no reset). The new invariant test (`reportes-actividad.invariant.test.ts`)
+  ran for real against this DB: 8/9 green first run, 1 failing on a test-authoring bug (`Decimal.toString()` doesn't
+  pad to the column's declared scale — "100" not "100.00" — not a product bug), fixed inline by the parent
+  (compare `Number(row.porcentaje)` instead of a padded string); 9/9 green after. `npx tsc --noEmit`: clean.
