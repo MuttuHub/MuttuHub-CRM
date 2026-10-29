@@ -83,22 +83,8 @@ export type LineaAdmin = {
   orden: number;
 };
 
-export type MunicipioAdmin = {
-  id: string;
-  nombre: string;
-  departamento: string;
-  codigo_dane: string | null;
-  activo: boolean;
-  orden: number;
-};
-
 export type CatalogoPatch = { nombre?: string; activo?: boolean };
 export type LineaCreateInput = { codigo: string; nombre: string };
-export type MunicipioCreateInput = {
-  nombre: string;
-  departamento: string;
-  codigo_dane?: string | null;
-};
 
 /* ── Query keys ────────────────────────────────────────────────────────── */
 
@@ -162,10 +148,6 @@ export function useAdminRubros(): UseQueryResult<RubroAdmin[]> {
 
 export function useAdminLineas(): UseQueryResult<LineaAdmin[]> {
   return useCatalogoAdmin<LineaAdmin>("strategic-lines", "lineas");
-}
-
-export function useAdminMunicipios(): UseQueryResult<MunicipioAdmin[]> {
-  return useCatalogoAdmin<MunicipioAdmin>("municipalities", "municipios");
 }
 
 // Bitácora de accesos con paginación por keyset (created_at desc):
@@ -264,14 +246,6 @@ export function useCreateLinea() {
   const invalidate = useInvalidateCatalogos();
   return useMutation({
     mutationFn: (input: LineaCreateInput) => apiPost<unknown>("/api/v1/strategic-lines", input),
-    onSuccess: invalidate,
-  });
-}
-
-export function useCreateMunicipio() {
-  const invalidate = useInvalidateCatalogos();
-  return useMutation({
-    mutationFn: (input: MunicipioCreateInput) => apiPost<unknown>("/api/v1/municipalities", input),
     onSuccess: invalidate,
   });
 }
