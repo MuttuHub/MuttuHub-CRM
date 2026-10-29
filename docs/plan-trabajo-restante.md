@@ -6,6 +6,7 @@ permisos vigente, 4136 pruebas unitarias y 29 e2e en verde.
 IDs: **A** operación, **B** producto, **V** v7 CRM, **U** auditoría UX (sus hallazgos conservan `C1–C12`), **E** plataforma. **Estado de ejecución (2026-10-19):** A1 (etiqueta `v2.0.0`), A5 (credenciales), B1/D1 (mensaje de acceso) y **U0
 (re-auditoría UX)** están **hechos**. La re-auditoría encontró 10 de 16 hallazgos ya resueltos y dejó cuatro vigentes,
 todos pequeños: `odd/tasks/ux-audit-2026-10-19.md`. Detalle de la fase en `odd/tasks/fase-0-ejecucion.md`.
+**Último corte: 2026-10-26** — ver la sección 10 (hecho, pendientes y orden recomendado para retomar).
 
 Este plan ordena lo que queda en cinco frentes. Cada tarea trae tamaño (**S** ≤ 1 día, **M** 2–4 días, **L** 1–2
 semanas), de qué depende y cómo se sabe que está terminada. Las decisiones que bloquean trabajo están en la sección 5.
@@ -83,7 +84,7 @@ Sheet, Gantt, tabla de usuarios, Curva S, ruta vieja, IP/Agente, cronograma y to
 | ID | Tarea | Tamaño | Depende de | Terminado cuando |
 |---|---|---|---|---|
 | E1 | Conectar Playwright a CI (build + base sembrada) | M | Infra de CI | **Hecho**: la suite mantenida `e2e/proyectos-v2` (31 pruebas) corre en cada PR contra una base sembrada (job `e2e`); los specs legacy de la raíz quedan fuera como seguimiento |
-| E2 | Umbral de cobertura realista y creciente | L | — | **Hecho**: piso 73/72/68/64 en CI con `autoUpdate` hacia arriba (solo en local) |
+| E2 | Umbral de cobertura realista y creciente | L | — | **Hecho**: piso en CI con `autoUpdate` hacia arriba (solo en local); hoy 74/73/69/65 (líneas/sentencias/funciones/ramas) |
 | E3 | `npm run lint` reproducible en local | S | — | **Hecho**: artefactos locales ignorados y 0 problemas |
 | E4 | Migración a Railway — **Opción A** (app en Railway, Supabase se queda) | S–M | Acceso a Railway | Producción sirviendo desde Railway con el mismo dominio |
 | E5 | Migración a Railway — **Opción B** (stack completo, Auth propio) | L | E4, decisión **D-F** | Paridad del humo completa y una semana de estabilidad |
@@ -109,9 +110,9 @@ Cada tarea que toque esquema, permisos o dinero entra con documento en `odd/task
 
 | ID | Decisión | Quién | Bloquea |
 |---|---|---|---|
-| **D-A** | ¿La importación de estructura deja de exigir el presupuesto completo? ¿Modo «solo estructura» que conserve el existente? | PO | **Decidida (2026-10-21)**: modo «solo estructura» que conserva el presupuesto existente. Destraba B3 y B5 |
-| **D-B** | ¿El rubro personalizado vive solo en su proyecto o se suma al catálogo global? ¿Cómo se agrupa en reportes? ¿Qué pasa al deshabilitar un rubro con gastos? | PO | B6 |
-| **D-C** | Al cerrar o suspender: ¿se congela todo, se permite registrar gastos, quién puede hacerlo? | PO | B7 |
+| **D-A** | ¿La importación de estructura deja de exigir el presupuesto completo? ¿Modo «solo estructura» que conserve el existente? | PO | **Decidida (2026-10-21)**: modo «solo estructura» que conserva el presupuesto existente. **Precisada (2026-10-26)**: «La idea es subir un solo documento, si no tiene presupuesto se crea la estructura con presupuesto cero. se debe conversvar tal cual la estrucutra en caso tal exista una importacion posterior.» Destraba B3 y B5 |
+| **D-B** | ¿El rubro personalizado vive solo en su proyecto o se suma al catálogo global? ¿Cómo se agrupa en reportes? ¿Qué pasa al deshabilitar un rubro con gastos? | PO | **Decidida (2026-10-26)**: «Los 15 rubros están bien, deben ser editables y modificables por si depronto para un proyecto no aplican, se puedan deseleccionar o inhabilitar para ese proyecto en concreto». Sin rubros propios. Destraba B6 |
+| **D-C** | Al cerrar o suspender: ¿se congela todo, se permite registrar gastos, quién puede hacerlo? | PO | **Decidida (2026-10-26)**: «si se suspende queda congelado. Si se cierra puede volver a abrirse, quedaria temporalmente solo lectura mientras no deba reactivarse. Solo gerencia y adminsitracion pueden suspender o cancelar.» Destraba B7 |
 | **D-D** | ¿Convocatorias, propuesta económica y oportunidades globales entran en el alcance del negocio? | Negocio | **Decidida (2026-10-21)**: entran oportunidades globales (V1, V2) e interacciones con feed (V3); quedan fuera convocatorias (V4) y propuesta económica (V10) |
 | **D-E** | Acceso al DNS de `muttu.co` para verificar Resend | Negocio / TI | A2 |
 | **D-F** | ¿Railway reemplaza a Vercel solo (Opción A) o también a Supabase (Opción B)? | Usuario | E4, E5 |
@@ -125,8 +126,9 @@ Cada tarea que toque esquema, permisos o dinero entra con documento en `odd/task
 - **Autorización:** B7 y V1 tocan quién puede hacer qué; se tratan como cambio de seguridad con su matriz y sus pruebas.
 - **Alcance de v7:** el prototipo no es requisito. Antes de construir V1–V10 hay que confirmar **D-D**, o se repetirá el
   patrón de trabajo sin validación.
-- **Deuda de pruebas:** sin E1, la suite e2e solo corre a mano; cualquier regresión visual o de permisos depende de que
-  alguien la ejecute.
+- **Deuda de pruebas:** E1 ya corre la suite `e2e/proyectos-v2` en cada PR. Quedan fuera de CI los specs legacy de la
+  raíz (`invitation-flow`, `oportunidad-ciclo`, `permisos-colaborador`, `proyectos-ficha-pagina`); una regresión en
+  esos flujos sigue dependiendo de que alguien los ejecute a mano.
 
 ---
 
@@ -135,3 +137,51 @@ Cada tarea que toque esquema, permisos o dinero entra con documento en `odd/task
 Una tarea se considera terminada cuando: el comportamiento está implementado, hay pruebas que lo fijan (unitarias y,
 si es de UI, componente o e2e), `tsc` y lint están limpios, la documentación afectada se actualizó y el cambio está en
 `main` con su PR revisado. Las tareas con migración añaden el respaldo verificado y la comprobación de conteos.
+
+---
+
+## 10. Corte del 2026-10-26 y próximos pasos
+
+`main` en `51c957a`. CI de `main` en verde (jobs `unit` y `e2e`).
+
+### Hecho en esta jornada
+
+| PR | Qué |
+|---|---|
+| #85, #89 | La suma del presupuesto importado pasa a ser el total del proyecto (V-12 deja de bloquear); el invariante en vivo fija el bloqueo en V-13 |
+| #86, #87, #88 | Ajustes de la PO (`Hub-proyectos.docx`, 2026-10-23): ficha en la misma ventana, cliente en un solo campo con búsqueda, plantilla sin «Tipo de medio exigido» ni «Unidad» (el formato anterior se sigue aceptando). Departamento → municipio ya estaba (#80) |
+| #90 | E3 (lint reproducible) y V0 (paridad v7) |
+| #91 | E2 (piso de cobertura que solo sube) |
+| #92 | B2 (importar presupuesto desde el libro de la PO) |
+| #94 | E1 (Playwright en CI contra una base sembrada) |
+| #95 | B8 (importar gastos desde Excel; el soporte se adjunta después y sin soporte no se valida). Detalle: `odd/tasks/importar-gastos.md` |
+| #96 | La búsqueda de clientes ya no reescribe la URL al abrir la ficha (cancelaba «Crear proyecto»; hacía inestable el e2e) |
+
+Abierto: este PR de documentación (#93), con las decisiones D-A, D-B y D-C de la PO.
+
+### Orden recomendado para retomar
+
+1. **Arreglos chicos (< 1 h):**
+   - Corregir el mensaje «La descripción es obligatorio.» → «obligatoria».
+   - Los imports de presupuesto (B2) y gastos (B8) solo deben aceptar `modo=validar` o `modo=aplicar`; hoy cualquier
+     otro valor aplica el import.
+2. **B7 — cerrar / suspender / cancelar.** D-C está decidida sin ambigüedad: suspendido = congelado; cerrado = solo
+   lectura y se puede reabrir; solo gerencia y administración suspenden o cancelan. Toca permisos: documento de feature,
+   matriz y pruebas primero.
+3. **B6 — rubros editables por proyecto** (D-B decidida; requiere migración).
+4. **B3 → B4 → B5**, después de aclarar con la PO la pregunta 1 de abajo.
+5. A2 y A4 cuando haya acceso al DNS de `muttu.co` y al plan de Supabase; V1–V3 según D-D.
+
+### Preguntas para la PO
+
+1. **D-A:** «se debe conservar tal cual la estructura en caso exista una importación posterior»: en una segunda
+   importación del mismo proyecto, ¿se conserva la estructura existente y solo se carga el presupuesto, o se reemplaza
+   la estructura?
+2. **Soportes de gastos (B8):** hoy solo quien registró el gasto puede adjuntarle el soporte. ¿Debe poder hacerlo
+   cualquier miembro del proyecto (o el coordinador)?
+
+### Seguimientos técnicos de B8 (no bloquean)
+
+- El tope de 5 soportes por gasto se re-verifica sin bloqueo de fila (igual que los adjuntos de avance).
+- Un miembro COLABORADOR puede importar gastos, igual que puede registrar uno (`canAccessProject`).
+- Specs e2e legacy fuera de CI (ver Riesgos).

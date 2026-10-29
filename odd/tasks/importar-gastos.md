@@ -83,3 +83,7 @@ Objective: register a project's expenses from one Excel file instead of one by o
   `import/route.rules.test.ts`, 83 tests). Advisories kept for later: `modo` other than `validar` applies the import
   (same as B2); the 5-support re-check has no row lock (same as progress attachments); a member COLABORADOR may
   import, like POST /expenses (`canAccessProject`); attach is registrant-only (L6 assumption, a possible product question).
+- **L9 (2026-10-26, close):** Guards-only RDD review (`26be04b` + `92cc23a`, lenses risk + reliability) approved and
+  acknowledged. Merged as #95 (`29a5082`) after one e2e rerun; the failing spec (`clientes.spec.ts:21`) was an
+  unrelated race in the clients search debounce, fixed in #96 (`51c957a`). Feature closed; follow-ups live in
+  `docs/plan-trabajo-restante.md` §10.
