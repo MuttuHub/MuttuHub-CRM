@@ -196,6 +196,12 @@ describe("GET /api/v1/reports/weekly", () => {
     })
   })
 
+  it("also fetches completed tasks without completed_at by their updated_at in the two-week window", async () => {
+    await GET(get())
+    const where = JSON.stringify(vi.mocked(db.tarea.findMany).mock.calls[0][0]?.where)
+    expect(where).toContain('{"estado":"COMPLETADA","completed_at":null,"updated_at":{"gte":"2026-10-12T05:00:00.000Z","lt":"2026-10-26T05:00:00.000Z"}}')
+  })
+
   it("aggregates the expenses pending validation per project for a manager", async () => {
     const body = await (await GET(get())).json()
     expect(body.gastos_por_validar).toEqual({

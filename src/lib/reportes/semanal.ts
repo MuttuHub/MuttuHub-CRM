@@ -274,6 +274,12 @@ async function contarTareas(usuario: Usuario, semana: Semana, anterior: Semana, 
       OR: [
         { fecha_entrega: { gte: new Date(`${anterior.desde}T00:00:00.000Z`), lt: new Date(`${diaSiguiente(semana.hasta)}T00:00:00.000Z`) } },
         { completed_at: { gte: inicioDiaBogota(anterior.desde), lt: inicioDiaBogota(diaSiguiente(semana.hasta)) } },
+        // Completadas antes del backfill de `completed_at`: su cierre se toma de `updated_at` (ver `contar`).
+        {
+          estado: "COMPLETADA",
+          completed_at: null,
+          updated_at: { gte: inicioDiaBogota(anterior.desde), lt: inicioDiaBogota(diaSiguiente(semana.hasta)) },
+        },
       ],
     }),
     select: { estado: true, fecha_entrega: true, completed_at: true, updated_at: true },
