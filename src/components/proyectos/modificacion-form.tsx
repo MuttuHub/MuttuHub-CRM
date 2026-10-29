@@ -336,6 +336,9 @@ function Formulario({ proyecto, onDone }: { proyecto: ProjectListRow; onDone: ()
       )}
 
       <DialogFooter>
+        <Button type="button" variant="ghost" onClick={onDone} disabled={solicitar.isPending}>
+          Cancelar
+        </Button>
         <Button
           type="button"
           disabled={solicitar.isPending || cargando || motivo.trim() === "" || detalle.length === 0}

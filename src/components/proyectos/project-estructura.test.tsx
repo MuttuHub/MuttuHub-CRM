@@ -147,6 +147,12 @@ type Setup = {
   overrides?: Record<string, Response>
 }
 
+/** Deleting a structure row asks first: confirm it in the dialog the trash button opens. */
+async function confirmarEliminacion(user: ReturnType<typeof userEvent.setup>, nombre: string) {
+  const dialogo = await screen.findByRole("dialog", { name: `¿Eliminar ${nombre}?` })
+  await user.click(within(dialogo).getByRole("button", { name: "Eliminar" }))
+}
+
 describe("ProjectEstructura", () => {
   const fetchMock = vi.fn()
 
@@ -609,6 +615,7 @@ describe("ProjectEstructura", () => {
       })
 
       await user.click(await screen.findByRole("button", { name: "Eliminar objetivo OBJ-2" }))
+      await confirmarEliminacion(user, "objetivo OBJ-2")
 
       const alerta = await screen.findByRole("alert")
       expect(alerta).toHaveTextContent("No puedes eliminar un objetivo que tiene actividades.")
@@ -728,6 +735,7 @@ describe("ProjectEstructura", () => {
       })
 
       await user.click(await screen.findByRole("button", { name: "Eliminar actividad ACT-1" }))
+      await confirmarEliminacion(user, "actividad ACT-1")
 
       expect(await screen.findByRole("alert")).toHaveTextContent(
         "No puedes eliminar una actividad que tiene entregables.",
@@ -784,8 +792,23 @@ describe("ProjectEstructura", () => {
       setup()
 
       await user.click(await screen.findByRole("button", { name: "Eliminar entregable ENT-1" }))
+      await confirmarEliminacion(user, "entregable ENT-1")
 
       await waitFor(() => expect(mutationCall("DELETE", "/deliverables/e1")).toBeDefined())
+    })
+
+    it("asks before deleting and keeps the deliverable when the user cancels", async () => {
+      const user = userEvent.setup()
+      setup()
+
+      await user.click(await screen.findByRole("button", { name: "Eliminar entregable ENT-1" }))
+
+      const dialogo = await screen.findByRole("dialog", { name: "¿Eliminar entregable ENT-1?" })
+      expect(mutationCall("DELETE", "/deliverables/e1")).toBeUndefined()
+      await user.click(within(dialogo).getByRole("button", { name: "Cancelar" }))
+
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+      expect(mutationCall("DELETE", "/deliverables/e1")).toBeUndefined()
     })
   })
 
