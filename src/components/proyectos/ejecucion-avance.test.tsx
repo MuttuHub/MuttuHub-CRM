@@ -96,10 +96,6 @@ function avance(overrides: Partial<ProjectDeliverableProgress["avances"][number]
   }
 }
 
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } })
-}
-
 function reporte(overrides: Partial<ProjectActivityReport> = {}): ProjectActivityReport {
   return {
     id: "r1",
