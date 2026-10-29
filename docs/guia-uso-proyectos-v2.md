@@ -40,7 +40,8 @@ Los permisos dependen del rol y de la pertenencia al proyecto (el **Equipo** del
 | Editar datos generales | Sí | Sí | Sí, donde es integrante | Sí, donde es integrante |
 | Cargar o editar la estructura (solo en Borrador) | Sí | Sí | Sí, donde es integrante | Sí, donde es integrante |
 | Aprobar la línea base | Sí | Sí | No | No |
-| Registrar avance de actividades | Sí | Sí | Sí, si es integrante | Sí, si es integrante |
+| Registrar avance de un entregable | Sí | Sí | Sí, si es integrante | Sí, si es integrante |
+| Registrar el avance de la actividad (la pasa a En curso) | Sí | Sí | Solo si es el responsable de la actividad | Solo si es el responsable de la actividad |
 | Registrar gastos | Sí | Sí | Sí, si es integrante | Sí, si es integrante |
 | Validar o rechazar un gasto | Sí, salvo los que registró | Sí, salvo los que registró | No | No |
 | Subir o eliminar documentos del proyecto | Sí | Sí | Sí, si es integrante | Sí, si es integrante |
@@ -56,6 +57,9 @@ Notas:
   escritura ni acceso a los soportes financieros.
 - Si una pantalla dice **«No tienes permisos sobre este proyecto»** o **«No tienes acceso a este proyecto»**, falta el
   rol o la pertenencia. Se resuelve desde **Administración** o agregando a la persona al **Equipo**.
+- Registrar el avance de un entregable y registrar el avance de la actividad son dos acciones distintas: la primera
+  suma cantidades contra la meta de un entregable; la segunda es un reporte de porcentaje a nivel de toda la
+  actividad y solo puede hacerla su responsable (o Administración/Gerencia).
 
 ---
 
@@ -194,7 +198,9 @@ En el encabezado, siempre visible:
 ### 5.1 Resumen
 
 - **Estado del proyecto** (fuera de Borrador): el semáforo **Técnico** y el **Financiero**, cada uno con una frase que
-  explica el color (**Al día**, **Atención** o **En riesgo**) y un enlace a la pestaña correspondiente.
+  explica el color (**Al día**, **Atención** o **En riesgo**) y un enlace a la pestaña correspondiente. Los umbrales de
+  color (**umbral1**, **umbral2**) y el tope de avance mientras una actividad tiene entregables incompletos
+  (**tope_en_curso**, 90 % por defecto) los configura Administración; no se editan desde la ficha del proyecto.
 - **Requiere atención**: la lista de lo que necesita acción, ordenada por gravedad. Cada punto lleva a la pantalla donde
   se resuelve.
 - **Datos generales**: origen, cliente, responsable, fechas, duración, valor total, beneficiarios y, si aplica, la
@@ -226,15 +232,43 @@ Una sola estructura con tres vistas: **Lista**, **Gantt** y **Tablero**.
 - Al final, el bloque **Indicadores** permite registrar el avance de cada indicador. Cada medición ya registrada
   admite además varios archivos o enlaces con el botón **Adjuntar archivo**.
 
-**Registrar un avance**
+**Registrar un avance (por entregable)**
 
-1. Abre **Registrar avance** en la actividad.
+1. Abre **Registrar avance** en el entregable.
 2. Indica la fecha (no puede ser futura) y el avance.
 3. Adjunta el **medio de verificación**: un **archivo** o un **enlace** con su nombre.
 4. Si el avance excede lo planeado, escribe la **justificación del exceso**.
 5. Guarda. El avance queda con su soporte y aparece en **Documentos**.
 6. Ya guardado, el avance admite seguir sumando archivos y enlaces con el botón **Adjuntar archivo**: cada uno
    aparece listado por separado (no solo como un conteo).
+
+**Registrar el avance de la actividad (estados Sin iniciar, En curso y Terminada)**
+
+Una actividad llega a **En curso** únicamente registrando un avance; no hay un cambio de estado manual aparte. Solo el
+**responsable** de la actividad (o Administración/Gerencia) puede registrar, anular y adjuntar medios a sus reportes.
+
+1. Abre **Registrar avance** en la actividad (no confundir con el **Registrar avance** de un entregable, arriba).
+2. Indica la fecha (no puede ser futura), el **porcentaje de avance** (0-100) y una **observación** — siempre
+   obligatoria, explica qué se ejecutó y qué falta.
+3. Guarda. El primer reporte pasa la actividad a **En curso** automáticamente.
+
+Reglas del reporte:
+
+- Cada nuevo reporte debe ser **mayor** que el último registrado; uno igual o menor se rechaza con el mensaje «El
+  avance debe ser mayor que el último reportado (X %)».
+- Mientras los entregables de la actividad no estén todos completos (meta alcanzada y con al menos un medio de
+  verificación cada uno), el porcentaje no puede superar el tope configurado por Administración (90 % por defecto);
+  si se supera, el mensaje es «El avance máximo sin entregables completos es X %».
+- La actividad solo llega a **100 % y Terminada** cuando **todos** sus entregables alcanzan su meta y cada uno tiene
+  al menos un medio de verificación — sin importar el porcentaje reportado. Si un entregable no se puede cumplir
+  (por ejemplo, 48 de 50 personas), la actividad nunca llegará a Terminada por esta vía; la salida es que Gerencia
+  apruebe una modificación de la meta.
+- El **historial** de la actividad muestra todos los reportes (fecha, porcentaje, observación y usuario), incluidos
+  los anulados.
+- Para corregir un error de digitación, **anula** el último reporte (pide un motivo) y registra uno nuevo con el
+  valor correcto. Solo se puede anular el reporte más reciente; uno ya anulado no se puede volver a anular.
+- Un reporte admite adjuntar después un **medio de verificación** (archivo o enlace), igual que un avance de
+  entregable.
 
 ### 5.3 Finanzas
 
@@ -437,6 +471,10 @@ semana y no se cerró a tiempo; una **cerrada** es la que se completó esa seman
 | «Rubro suspendido pendiente de reasignación» | Un rubro suspendido tiene dinero asignado | Reasignar el monto a otro rubro |
 | No puedo editar la estructura | El proyecto ya salió de Borrador | Usar una **solicitud de modificación** |
 | El documento no abre | El archivo ya no está o no tienes permiso sobre los soportes | Verificar el origen del documento y el rol |
+| «El avance debe ser mayor que el último reportado (X %)» | El nuevo reporte de la actividad es igual o menor que el anterior | Reportar un porcentaje mayor que el último |
+| «El avance máximo sin entregables completos es X %» | Los entregables de la actividad no están todos completos | Completar los entregables (meta y medio) o reportar hasta el tope |
+| No veo **Registrar avance** en la actividad | No eres el responsable de esa actividad | Pedir al responsable que lo registre, o a Administración/Gerencia |
+| «Solo se puede anular el último reporte registrado de la actividad» | Intentas anular un reporte que ya fue superado por uno más reciente | Anular primero el reporte más reciente |
 
 ---
 
@@ -461,6 +499,10 @@ Estas funciones **no** están en el lanzamiento y se trabajarán después:
 - **Semáforo financiero**: el estado del gasto frente al presupuesto y su programación.
 - **Medio de verificación**: el archivo o enlace que prueba un avance.
 - **Modificación**: el cambio solicitado después de aprobar la línea base.
+- **Reporte de avance**: el porcentaje y la observación que el responsable de una actividad registra para llevarla a
+  **En curso**; distinto del avance por entregable, que suma cantidades contra una meta.
+- **tope_en_curso**: el porcentaje máximo (90 % por defecto, configurable) que admite un reporte de avance mientras
+  los entregables de la actividad no estén todos completos.
 
 ---
 
