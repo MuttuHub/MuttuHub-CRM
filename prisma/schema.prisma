@@ -36,6 +36,7 @@ enum TipoCliente {
   EMPRESA_PRIVADA
   FUNDACION
   ALIADO_ACADEMICO
+  ALIADO_ESTRATEGICO
   OTRO
 }
 
@@ -177,6 +178,8 @@ model Cliente {
   riesgos_barreras          String?
   resumen_relacion          String?
   estado                    EstadoCliente     @default(PROSPECTO)
+  // Mismo catálogo que las tareas (setting `task_tags`).
+  etiquetas                 String[]          @default([])
   responsable_id            String
   created_at                DateTime          @default(now())
   updated_at                DateTime          @updatedAt
@@ -189,6 +192,7 @@ model Cliente {
   bitacora      BitacoraEntrada[]
   documentos    DocumentoCliente[]
   proyectos     Proyecto[]
+  carpeta       Carpeta?
 
   @@map("clientes")
 }
@@ -344,12 +348,16 @@ model Carpeta {
   id            String    @id @default(uuid())
   nombre        String
   parent_id     String? // null = raíz; no hay fila "root"
+  // Carpeta de cliente: a lo sumo una por cliente. Subir o soltar un archivo aquí
+  // lo vincula a ese cliente; los permisos siguen saliendo de `categoria`.
+  cliente_id    String?   @unique
   creado_por_id String
   created_at    DateTime  @default(now())
   deleted_at    DateTime?
 
   parent     Carpeta?    @relation("CarpetaArbol", fields: [parent_id], references: [id])
   hijas      Carpeta[]   @relation("CarpetaArbol")
+  cliente    Cliente?    @relation(fields: [cliente_id], references: [id], onDelete: SetNull)
   documentos Documento[]
 
   @@index([parent_id])

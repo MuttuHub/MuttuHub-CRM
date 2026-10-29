@@ -44,6 +44,7 @@ export const TIPO_CLIENTE_LABELS: Catalog<TipoCliente> = {
   EMPRESA_PRIVADA: { label: "Empresa privada", tone: "exito" },
   FUNDACION: { label: "Fundación", tone: "activo" },
   ALIADO_ACADEMICO: { label: "Aliado académico", tone: "info" },
+  ALIADO_ESTRATEGICO: { label: "Aliado estratégico", tone: "info" },
   OTRO: { label: "Otro", tone: "neutro" },
 };
 
