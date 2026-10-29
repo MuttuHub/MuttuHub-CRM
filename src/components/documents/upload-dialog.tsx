@@ -6,6 +6,10 @@
 // categoría obligatoria, etiquetas en chips (Enter/comma, máx 8) y cliente
 // vinculable opcional. FileDropzone se reutiliza en el diálogo "Subir nueva
 // versión" de la ficha (document-dialog.tsx).
+// Carpeta destino (S3): el documento se guarda en la carpeta abierta; si es la
+// carpeta de un cliente, el cliente lo pone la carpeta (no se envía otro).
+// Varios archivos soltados sobre el listado o una carpeta (S5) se suben en
+// lote con este mismo flujo firmado, uno por archivo, con su nombre de título.
 
 "use client";
 
@@ -222,18 +226,84 @@ export function EtiquetasInput({
   );
 }
 
+/* ── Lote de archivos soltados (S5) ────────────────────────────────────── */
+
+function tituloDesdeArchivo(name: string): string {
+  const dot = name.lastIndexOf(".");
+  return dot > 0 ? name.slice(0, dot) : name;
+}
+
+/** Separa los archivos soltados en aceptados y rechazados (con su motivo). */
+function splitArchivos(files: File[]): { validos: File[]; rechazados: string[] } {
+  const validos: File[] = [];
+  const rechazados: string[] = [];
+  for (const f of files) {
+    const motivo = attachmentValidationError(f);
+    if (motivo) rechazados.push(`${f.name} (${motivo})`);
+    else validos.push(f);
+  }
+  return { validos, rechazados };
+}
+
+function LoteArchivos({
+  files,
+  disabled,
+  onRemove,
+}: {
+  files: File[];
+  disabled: boolean;
+  onRemove: (file: File) => void;
+}) {
+  return (
+    <ul aria-label="Archivos a subir" className="flex flex-col gap-1.5">
+      {files.map((f) => (
+        <li
+          key={`${f.name}-${f.size}-${f.lastModified}`}
+          className="flex items-center justify-between gap-3 rounded-12 border border-ink-200 px-3 py-2"
+        >
+          <div className="min-w-0">
+            <p className="truncate text-[13px] font-semibold text-ink-900">{f.name}</p>
+            <p className="text-[12px] text-ink-600">{formatBytes(f.size)}</p>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Quitar ${f.name}`}
+            disabled={disabled}
+            onClick={() => onRemove(f)}
+            className="shrink-0 text-ink-500 hover:text-destructivo"
+          >
+            <X className="size-4" strokeWidth={2} />
+          </Button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /* ── Diálogo de creación de documento ──────────────────────────────────── */
+
+/** Carpeta donde se guardará el documento (la abierta en el repositorio). */
+export type UploadFolder = { id: string; nombre: string; cliente_id?: string | null };
 
 export function UploadDocumentDialog({
   open,
   onOpenChange,
   prefilledClienteId,
   onSaved,
+  folder,
+  initialFiles,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   prefilledClienteId?: string;
   onSaved?: () => void;
+  /** Carpeta destino (S3); sin carpeta el documento queda en «Todas». */
+  folder?: UploadFolder | null;
+  /** Archivos soltados sobre el listado o una carpeta (S5); con más de uno
+   * el diálogo sube en lote. */
+  initialFiles?: File[];
 }) {
   const upload = useUploadDocument();
   const clientsQuery = useClientOptions();
@@ -244,12 +314,27 @@ export function UploadDocumentDialog({
   const categoriesQuery = useDocCategories();
   const categories = categoriesQuery.data?.map((c) => c.nombre) ?? [...DOC_CATEGORIES];
 
-  const [file, setFile] = useState<File | null>(null);
-  const [titulo, setTitulo] = useState("");
+  const [inicial] = useState(() => splitArchivos(initialFiles ?? []));
+  const unico = inicial.validos.length === 1 ? inicial.validos[0]! : null;
+  const [file, setFile] = useState<File | null>(unico);
+  const [titulo, setTitulo] = useState(unico ? tituloDesdeArchivo(unico.name) : "");
+  // Lote (S5): sin título por archivo — cada uno toma el nombre de su
+  // archivo; categoría, etiquetas y cliente son comunes.
+  const [lote, setLote] = useState<File[]>(inicial.validos.length > 1 ? inicial.validos : []);
+  const [loteDuplicados, setLoteDuplicados] = useState<File[]>([]);
+  const [lotePending, setLotePending] = useState(false);
+  const enLote = lote.length > 0;
   const [categoria, setCategoria] = useState("");
   const [etiquetas, setEtiquetas] = useState<string[]>([]);
   const [clienteId, setClienteId] = useState(prefilledClienteId ?? "");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    inicial.rechazados.length > 0 ? `No se pueden subir: ${inicial.rechazados.join(", ")}.` : null,
+  );
+  // Una carpeta de cliente impone su cliente (el servidor rechaza otro).
+  const clienteDeCarpeta = folder?.cliente_id ?? null;
+  const nombreClienteDeCarpeta = clienteDeCarpeta
+    ? (clients.find((c) => c.id === clienteDeCarpeta)?.nombre ?? "el cliente")
+    : null;
   // Título duplicado (QA audit #4): en vez de crear un documento aparte en
   // silencio, se muestra esta advertencia con el documento existente y se
   // deja que el usuario elija.
@@ -258,10 +343,7 @@ export function UploadDocumentDialog({
 
   function handleFile(next: File | null) {
     setFile(next);
-    if (next && !titulo) {
-      const dot = next.name.lastIndexOf(".");
-      setTitulo(dot > 0 ? next.name.slice(0, dot) : next.name);
-    }
+    if (next && !titulo) setTitulo(tituloDesdeArchivo(next.name));
   }
 
   function handleTitulo(next: string) {
@@ -269,14 +351,56 @@ export function UploadDocumentDialog({
     if (duplicate) setDuplicate(null);
   }
 
-  function uploadInput() {
+  function sharedInput() {
     return {
-      file: file!,
-      titulo: titulo.trim() || file!.name,
       categoria,
       etiquetas,
-      ...(clienteId ? { cliente_id: clienteId } : {}),
+      ...(!clienteDeCarpeta && clienteId ? { cliente_id: clienteId } : {}),
+      ...(folder ? { carpeta_id: folder.id } : {}),
     };
+  }
+
+  function uploadInput() {
+    return { ...sharedInput(), file: file!, titulo: titulo.trim() || file!.name };
+  }
+
+  /** Sube los archivos uno por uno con el flujo firmado de siempre; los que
+   * fallan quedan en la lista (los de título duplicado, para crear aparte). */
+  async function subirLote(files: File[], force: boolean) {
+    setLotePending(true);
+    const fallidos: File[] = [];
+    const duplicados: File[] = [];
+    for (const f of files) {
+      try {
+        await upload.mutateAsync({
+          ...sharedInput(),
+          file: f,
+          titulo: tituloDesdeArchivo(f.name),
+          ...(force ? { force: true } : {}),
+        });
+      } catch (err) {
+        fallidos.push(f);
+        if (err instanceof DocumentDuplicateTitleError) duplicados.push(f);
+        /* el resto de errores los toastean los hooks */
+      }
+    }
+    setLotePending(false);
+    const restantes = lote.filter((f) => !files.includes(f) || fallidos.includes(f));
+    setLote(restantes);
+    setLoteDuplicados(duplicados);
+    if (restantes.length === 0) {
+      onOpenChange(false);
+      onSaved?.();
+    }
+  }
+
+  async function handleSubmitLote() {
+    setError(null);
+    if (!categoria) {
+      setError("La categoría es obligatoria.");
+      return;
+    }
+    await subirLote(lote, false);
   }
 
   async function handleSubmit() {
@@ -332,7 +456,10 @@ export function UploadDocumentDialog({
               Subir documento
             </DialogTitle>
             <DialogDescription>
-              El archivo se registra como versión v1 del documento.
+              {enLote
+                ? "Cada archivo se registra como un documento nuevo (versión v1), con el nombre del archivo como título."
+                : "El archivo se registra como versión v1 del documento."}
+              {folder && ` Se guardará en la carpeta «${folder.nombre}».`}
             </DialogDescription>
           </DialogHeader>
 
@@ -389,20 +516,66 @@ export function UploadDocumentDialog({
             </div>
           )}
 
-          <FileDropzone file={file} onChange={handleFile} />
+          {loteDuplicados.length > 0 && (
+            <div
+              role="alert"
+              className="flex flex-col gap-3 rounded-inner border border-alerta/30 bg-alerta-bg px-4 py-3.5 text-[13px] text-ink-800"
+            >
+              <p>
+                {`Ya existen documentos con estos títulos: ${loteDuplicados
+                  .map((f) => tituloDesdeArchivo(f.name))
+                  .join(", ")}. ¿Querés crearlos como documentos aparte o quitarlos de la lista?`}
+              </p>
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setLoteDuplicados([])}
+                  className="font-semibold text-ink-700"
+                >
+                  Volver
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => void subirLote(loteDuplicados, true)}
+                  disabled={lotePending}
+                  className="font-bold"
+                >
+                  Crear aparte
+                </Button>
+              </div>
+            </div>
+          )}
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="doc-titulo">
-              Título <span className="text-rose-500">*</span>
-            </Label>
-            <Input
-              id="doc-titulo"
-              value={titulo}
-              onChange={(e) => handleTitulo(e.target.value)}
-              placeholder="Nombre del documento"
-              className="px-3"
+          {enLote ? (
+            <LoteArchivos
+              files={lote}
+              disabled={lotePending}
+              onRemove={(f) => {
+                setLote((prev) => prev.filter((x) => x !== f));
+                setLoteDuplicados((prev) => prev.filter((x) => x !== f));
+              }}
             />
-          </div>
+          ) : (
+            <>
+              <FileDropzone file={file} onChange={handleFile} />
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="doc-titulo">
+                  Título <span className="text-rose-500">*</span>
+                </Label>
+                <Input
+                  id="doc-titulo"
+                  value={titulo}
+                  onChange={(e) => handleTitulo(e.target.value)}
+                  placeholder="Nombre del documento"
+                  className="px-3"
+                />
+              </div>
+            </>
+          )}
 
           <div className="flex flex-col gap-2">
             <Label>
@@ -429,22 +602,28 @@ export function UploadDocumentDialog({
 
           <div className="flex flex-col gap-2">
             <Label>Cliente vinculado</Label>
-            <Select
-              value={clienteId}
-              onValueChange={(v) => setClienteId(v === "ninguno" ? "" : (v ?? ""))}
-            >
-              <SelectTrigger className="w-full px-3">
-                <SelectValue placeholder="Sin cliente" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ninguno">Sin cliente</SelectItem>
-                {clients.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.nombre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {nombreClienteDeCarpeta ? (
+              <p className="rounded-12 border border-ink-200 bg-ink-100/40 px-3 py-2.5 text-[13px] text-ink-700">
+                {`Se vincula a ${nombreClienteDeCarpeta}, el cliente de esta carpeta.`}
+              </p>
+            ) : (
+              <Select
+                value={clienteId}
+                onValueChange={(v) => setClienteId(v === "ninguno" ? "" : (v ?? ""))}
+              >
+                <SelectTrigger className="w-full px-3">
+                  <SelectValue placeholder="Sin cliente" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ninguno">Sin cliente</SelectItem>
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           <DialogFooter className="mt-1 gap-2">
@@ -456,15 +635,29 @@ export function UploadDocumentDialog({
             >
               Cancelar
             </Button>
-            <Button
-              type="button"
-              onClick={() => void handleSubmit()}
-              disabled={upload.isPending || Boolean(duplicate)}
-              className="px-4 font-bold"
-            >
-              {upload.isPending && <LoaderCircle className="size-4 animate-spin" />}
-              {upload.isPending ? "Subiendo…" : "Subir"}
-            </Button>
+            {enLote ? (
+              <Button
+                type="button"
+                onClick={() => void handleSubmitLote()}
+                disabled={lotePending || loteDuplicados.length > 0}
+                className="px-4 font-bold"
+              >
+                {lotePending && <LoaderCircle className="size-4 animate-spin" />}
+                {lotePending
+                  ? "Subiendo…"
+                  : `Subir ${lote.length} ${lote.length === 1 ? "documento" : "documentos"}`}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                onClick={() => void handleSubmit()}
+                disabled={upload.isPending || Boolean(duplicate)}
+                className="px-4 font-bold"
+              >
+                {upload.isPending && <LoaderCircle className="size-4 animate-spin" />}
+                {upload.isPending ? "Subiendo…" : "Subir"}
+              </Button>
+            )}
           </DialogFooter>
         </div>
       </DialogContent>

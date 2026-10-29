@@ -81,6 +81,8 @@ export type FolderNode = {
   id: string;
   nombre: string;
   parent_id: string | null;
+  /** Cliente dueño de la carpeta (A5: una carpeta por cliente); null si no es de cliente. */
+  cliente_id?: string | null;
   created_at: string;
   hijos: FolderNode[];
   documentos_count: number;
@@ -90,6 +92,7 @@ export type FolderItem = {
   id: string;
   nombre: string;
   parent_id: string | null;
+  cliente_id?: string | null;
   created_at: string;
 };
 
@@ -213,6 +216,62 @@ export function useDeleteFolder(): UseMutationResult<ApiVoid, Error, string> {
       void qc.invalidateQueries({ queryKey: documentQueryKeys.folders });
       void qc.invalidateQueries({ queryKey: documentQueryKeys.all });
       toast.success("Carpeta eliminada.");
+    },
+  });
+}
+
+/**
+ * «Carpeta de cliente» (S4, A5): POST /api/v1/clients/:id/folder abre la
+ * carpeta del cliente o la crea si no existe (201 creada / 200 existente).
+ */
+export function useClientFolder(): UseMutationResult<
+  { carpeta: FolderItem; creada: boolean },
+  Error,
+  string
+> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (clienteId) => {
+      try {
+        return await apiPost<{ carpeta: FolderItem; creada: boolean }>(
+          `/api/v1/clients/${clienteId}/folder`,
+        );
+      } catch (err) {
+        if (err instanceof ApiError) toast.error(err.message);
+        throw err;
+      }
+    },
+    onSuccess: (res) => {
+      void qc.invalidateQueries({ queryKey: documentQueryKeys.folders });
+      if (res.creada) toast.success("Carpeta del cliente creada.");
+    },
+  });
+}
+
+/**
+ * Mover un documento a otra carpeta (S5, arrastrar a una carpeta) o a la raíz
+ * («Todas», carpeta_id null). El servidor vincula el documento al cliente
+ * cuando la carpeta destino es de un cliente.
+ */
+export function useMoveDocument(): UseMutationResult<
+  unknown,
+  Error,
+  { id: string; carpeta_id: string | null }
+> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, carpeta_id }) => {
+      try {
+        return await apiPatch<unknown>(`/api/v1/documents/${id}`, { carpeta_id });
+      } catch (err) {
+        if (err instanceof ApiError) toast.error(err.message);
+        throw err;
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: documentQueryKeys.folders });
+      void qc.invalidateQueries({ queryKey: documentQueryKeys.all });
+      toast.success("Documento movido.");
     },
   });
 }
@@ -344,6 +403,9 @@ export type UploadDocumentInput = {
   categoria: string;
   etiquetas: string[];
   cliente_id?: string;
+  /** Carpeta destino (S3): si es la carpeta de un cliente, el servidor
+   * vincula el documento a ese cliente. Sin carpeta queda en «Todas». */
+  carpeta_id?: string;
   /** Salta la verificación de título duplicado (el usuario ya decidió crear
    * un documento aparte pese a la advertencia). */
   force?: boolean;
@@ -392,6 +454,7 @@ export function useUploadDocument(): UseMutationResult<
           tamano_bytes: file.size,
           ...(file.type ? { tipo_mime: file.type } : {}),
           ...(input.cliente_id ? { cliente_id: input.cliente_id } : {}),
+          ...(input.carpeta_id ? { carpeta_id: input.carpeta_id } : {}),
           titulo: input.titulo,
           categoria: input.categoria,
           ...(input.force ? { force: true } : {}),
@@ -430,6 +493,7 @@ export function useUploadDocument(): UseMutationResult<
           categoria: input.categoria,
           etiquetas: input.etiquetas,
           ...(input.cliente_id ? { cliente_id: input.cliente_id } : {}),
+          ...(input.carpeta_id ? { carpeta_id: input.carpeta_id } : {}),
           ...(input.force ? { force: true } : {}),
         }),
       });
