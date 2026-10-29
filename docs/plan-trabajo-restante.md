@@ -42,6 +42,32 @@ Ordenado por lo que la PO pidió y por lo que desbloquea más trabajo.
 
 > B1 es el único de este frente que no depende de una decisión: puede entrar en la primera semana.
 
+### 2.1 Ajustes de la PO del 2026-10-28 (AJ)
+
+Fuente: documento «Ajustes al módulo Proyectos» v1.1 (28 de octubre de 2026), observaciones de las pruebas del 27 de
+octubre. Según el documento, cada «cambio de regla» prevalece sobre la regla de la v2.0.
+
+| ID | Ajuste | Prioridad | Estado |
+|---|---|---|---|
+| AJ-01 | Estado **En curso** con reporte de avance de la actividad (porcentaje + observación, tope configurable, historial) | Alta | Pendiente; necesita una tabla nueva |
+| AJ-02 | Peso de cada actividad = su duración en semanas, no editable | Alta | Pendiente; depende de AJ-01 |
+| AJ-03 | El atraso se mide por la ejecución (llegar al tope en la fecha fin), no por los soportes | Alta | Pendiente; depende de AJ-01 |
+| AJ-04 | IVA discriminado: Subtotal + IVA = Total; el ejecutado es el Total | Alta | **Hecho** (#99, migración aplicada en producción el 2026-10-28) |
+| AJ-05 | Periodo del gasto tomado de la fecha del documento, con la marca «Periodo modificado» | Media | **Hecho** (#99) |
+| AJ-06 | Varios archivos y enlaces por avance y por gasto, columna «Enlace del soporte», botón «Adjuntar archivo» | Alta | Pendiente; sin migración |
+
+**Decisiones del usuario, como vocero de la PO (2026-10-28):**
+
+1. Si una actividad tiene reportes y entregables, su avance es **el mayor** entre el último reporte y el promedio de los
+   entregables.
+2. Las actividades con avances de entregables pero sin reportes conservan el cálculo anterior.
+3. Los pesos manuales ya guardados se recalculan por duración. Las líneas base aprobadas conservan su foto histórica.
+4. El reporte de avance lo registra el **responsable** de la actividad.
+5. El tope del 90 % sobre lo programado aplica al color del proyecto, al color de cada actividad y a la curva S.
+6. Las plantillas de gastos con «Valor (COP)» se rechazan con un mensaje que pide la plantilla nueva (hecho en AJ-04).
+
+Orden recomendado: AJ-06, luego AJ-01 → AJ-02 → AJ-03, cada uno con su documento en `odd/tasks/` y su PR.
+
 ---
 
 ## 3. Frente C — v7 en CRM
