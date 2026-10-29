@@ -212,8 +212,10 @@ registry.registerPath({
 });
 
 const GestionNote =
-  "Solo ADMINISTRADOR/GERENCIA, en cualquier estado del proyecto (404 -> 403 -> 404 del gasto). Ninguna ruta cambia el " +
-  "estado del proyecto.";
+  "Solo ADMINISTRADOR/GERENCIA (404 -> 403 -> 404 del gasto). Ninguna ruta cambia el estado del proyecto.";
+const DecisionNote =
+  "Solo con el proyecto `EN_EJECUCION` (409 INVALID_STATE; suspendido, cerrado o cancelado está congelado), verificado " +
+  "también bajo bloqueo.";
 const GastoResponse = z.object({ gasto: GastoSchema });
 
 registry.registerPath({
@@ -222,7 +224,7 @@ registry.registerPath({
   tags: ["Projects"],
   summary: "Valida un gasto registrado",
   description:
-    `${GestionNote} Quien registró el gasto no puede validarlo (403; también lo impide una restricción de la base de datos). ` +
+    `${GestionNote} ${DecisionNote} Quien registró el gasto no puede validarlo (403; también lo impide una restricción de la base de datos). ` +
     "409 INVALID_STATE si no está REGISTRADO; 409 CONFLICT si el tercero no tiene tipo y número de identificación o si el gasto " +
     "no tiene ningún soporte vigente (los gastos importados desde Excel nacen sin soporte). Si el total validado " +
     "del rubro más este gasto superaría el valor asignado (estricto), se bloquea: responde 409 `OVERSPEND_BLOCKED`, el gasto " +
@@ -242,7 +244,7 @@ registry.registerPath({
   tags: ["Projects"],
   summary: "Rechaza un gasto registrado con motivo",
   description:
-    `${GestionNote} El motivo es obligatorio (400). Quien registró el gasto no puede rechazarlo (403). Solo desde REGISTRADO ` +
+    `${GestionNote} ${DecisionNote} El motivo es obligatorio (400). Quien registró el gasto no puede rechazarlo (403). Solo desde REGISTRADO ` +
     "(409). Quien lo registró puede corregirlo con PATCH y vuelve a REGISTRADO.",
   security: [{ sessionCookie: [] }],
   request: { params: ExpenseParams, body: { content: { "application/json": { schema: MOTIVO_GASTO_SCHEMA } } } },
@@ -258,7 +260,7 @@ registry.registerPath({
   tags: ["Projects"],
   summary: "Anula un gasto validado con motivo",
   description:
-    `${GestionNote} Solo desde VALIDADO (409). La fila se conserva con estado ANULADO y las columnas anulado_*; deja de ` +
+    `${GestionNote} En cualquier estado del proyecto: es una corrección. Solo desde VALIDADO (409). La fila se conserva con estado ANULADO y las columnas anulado_*; deja de ` +
     "contar en la ejecución (E) de la ficha financiera.",
   security: [{ sessionCookie: [] }],
   request: { params: ExpenseParams, body: { content: { "application/json": { schema: MOTIVO_GASTO_SCHEMA } } } },
@@ -274,7 +276,8 @@ registry.registerPath({
   tags: ["Projects"],
   summary: "Cola de validación de gastos entre proyectos",
   description:
-    "Solo ADMINISTRADOR/GERENCIA (403 para el resto). Más antiguos primero, sin proyectos eliminados. `estado` (por defecto " +
+    "Solo ADMINISTRADOR/GERENCIA (403 para el resto). Más antiguos primero, sin proyectos eliminados. La cola REGISTRADO " +
+    "solo incluye proyectos `EN_EJECUCION`; las demás vistas incluyen también los `SUSPENDIDO`. `estado` (por defecto " +
     "REGISTRADO) y `limit` (1..200, por defecto 50) se validan (400). `propio` marca los gastos que registró quien consulta. " +
     "Nunca devuelve el número de identificación del tercero.",
   security: [{ sessionCookie: [] }],

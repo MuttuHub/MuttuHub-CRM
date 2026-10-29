@@ -69,6 +69,16 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe("POST /api/v1/projects/:id/modifications/:modificationId/approve", () => {
+  it.each(["SUSPENDIDO", "CERRADO", "CANCELADO"])("answers 409 when the project is %s (frozen, B7)", async (estado) => {
+    mocks.proyectoFindFirst.mockResolvedValue({ id: "pry-1", estado });
+    const res = await POST(request(), ctx);
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe(
+      "No se pueden aprobar o rechazar modificaciones de un proyecto suspendido, cerrado o cancelado.",
+    );
+    expect(mocks.aplicar).not.toHaveBeenCalled();
+  });
+
   it("answers 404 for a missing project before anything else", async () => {
     mocks.proyectoFindFirst.mockResolvedValue(null);
     authAs(coordinador);

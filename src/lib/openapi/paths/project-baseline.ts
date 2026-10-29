@@ -47,7 +47,7 @@ registry.registerPath({
   tags: ["Projects"],
   summary: "Aprueba la línea base: congela la versión 0 y pasa el proyecto a En ejecución",
   description:
-    "Única vía de la API para llegar a `EN_EJECUCION`. Solo `ADMINISTRADOR`/`GERENCIA`, solo desde `BORRADOR` " +
+    "Única vía de la API para pasar de `BORRADOR` a `EN_EJECUCION`. Solo `ADMINISTRADOR`/`GERENCIA`, solo desde `BORRADOR` " +
     "(404 -> 403 -> 409). En una sola transacción, con el proyecto bloqueado: verifica las precondiciones " +
     "(valor total, fechas, meta de beneficiarios, objetivos con actividades y entregables, presupuesto igual al valor " +
     "total, programación cuadrada), guarda la versión 0 (inmutable), cambia el estado y registra la auditoría `APROBAR`. " +

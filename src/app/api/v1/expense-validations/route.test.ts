@@ -60,12 +60,12 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe("GET expense-validations", () => {
-  it("lists REGISTRADO expenses of live EN_EJECUCION/SUSPENDIDO projects across projects, oldest first", async () => {
+  it("lists REGISTRADO expenses of live EN_EJECUCION projects across projects, oldest first", async () => {
     const res = await GET(get());
     expect(res.status).toBe(200);
     expect(db.gasto.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { estado: "REGISTRADO", proyecto: { deleted_at: null, estado: { in: ["EN_EJECUCION", "SUSPENDIDO"] } } },
+        where: { estado: "REGISTRADO", proyecto: { deleted_at: null, estado: { in: ["EN_EJECUCION"] } } },
         orderBy: [{ created_at: "asc" }, { id: "asc" }],
         take: 50,
       }),

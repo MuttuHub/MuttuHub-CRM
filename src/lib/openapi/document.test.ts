@@ -278,6 +278,15 @@ describe("buildOpenApiDocument", () => {
     ]?.schema
     expect(JSON.stringify(conflict)).toContain("precondiciones")
   })
+  it("registers the B7 estado change operation with its body and every status", () => {
+    const doc = buildOpenApiDocument()
+    const op = doc.paths?.["/api/v1/projects/{id}/estado"]?.post
+    expect(Object.keys(op?.responses ?? {})).toEqual(expect.arrayContaining(["200", "400", "401", "403", "404", "409", "500"]))
+    expect(JSON.stringify(op?.requestBody)).toContain("CambioEstadoProyecto")
+    const cuerpo = JSON.stringify(doc.components?.schemas?.CambioEstadoProyecto)
+    for (const accion of ["SUSPENDER", "REACTIVAR", "CERRAR", "REABRIR", "CANCELAR"]) expect(cuerpo).toContain(accion)
+    expect(cuerpo).toContain("motivo")
+  })
   it("registers the S8 modification request operations", () => {
     const paths = buildOpenApiDocument().paths ?? {}
     const ruta = paths["/api/v1/projects/{id}/modifications"]

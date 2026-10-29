@@ -1,0 +1,72 @@
+# Close / suspend / cancel a project (B7)
+
+Objective: let management change a project's estado with a motivo and an audit trail, and freeze it accordingly. Branch
+`feat/proyecto-cierre-suspension` from `main` (`51c957a`). Delivery: one PR with work-unit commits (`ask-on-risk`,
+same as B8; forecast ~800 authored lines). Test runner: `npx vitest run`. Mirror: Engram `odd/cierre-suspension-proyecto/tasks`.
+
+## Specs
+
+- **S1 — PO decision D-C (2026-10-26), verbatim.** «si se suspende queda congelado. Si se cierra puede volver a abrirse,
+  quedaria temporalmente solo lectura mientras no deba reactivarse. Solo gerencia y adminsitracion pueden suspender o
+  cancelar.»
+- **S2 — Who closes and reopens (user decision 2026-10-27).** «Gerencia y admin»: the four actions (suspend, cancel,
+  close, reopen) plus reactivate are for ADMINISTRADOR and GERENCIA only (`canManageProjects`). COORDINADOR and
+  COLABORADOR get 403, members or not.
+- **S3 — Transitions (assumption, derived from S1).** One endpoint `POST /api/v1/projects/:id/estado` with
+  `{ accion, motivo }`:
+  - `SUSPENDER`: EN_EJECUCION → SUSPENDIDO
+  - `REACTIVAR`: SUSPENDIDO → EN_EJECUCION
+  - `CERRAR`: EN_EJECUCION → CERRADO
+  - `REABRIR`: CERRADO → EN_EJECUCION
+  - `CANCELAR`: BORRADOR, EN_EJECUCION or SUSPENDIDO → CANCELADO (terminal: nothing leaves CANCELADO)
+  Any other pair answers 409 `INVALID_STATE` and writes nothing. Order: 404 → 403 → 400 (body) → 409 (estado, re-read
+  under the row lock).
+- **S4 — Motivo and audit (plan B7: «con motivo, auditoría»).** `motivo` is required (trimmed, 1–1000 chars) for every
+  accion. The estado write and its audit go in ONE transaction: two `AuditoriaCambio` rows in one lote, `campo: "estado"`
+  (`valor_anterior` → `valor_nuevo`) and `campo: "motivo"`, entidad `proyecto`. The project history shows both.
+- **S5 — Frozen (from S1: «queda congelado», «solo lectura»).** In SUSPENDIDO, CERRADO and CANCELADO no project write
+  is accepted (409 `INVALID_STATE`); reads stay. Validating/rejecting expenses and writing documents leave SUSPENDIDO;
+  team changes (members POST/DELETE) and modification decisions (approve/reject) close too. **Voids stay allowed in any
+  estado** (user decision 2026-10-27, L4): they are audited corrections by management, not new work. The estado
+  endpoint itself is the only way out.
+- **S6 — UI.** For ADMINISTRADOR/GERENCIA the ficha header offers the actions valid for the current estado; each asks for
+  the motivo in a dialog and refreshes the ficha. Other roles see no action. The ficha shows the frozen/read-only estado.
+- **S7 — Docs.** OpenAPI for the new endpoint, the permissions matrix (`odd/tasks/permisos-proyectos-por-rol.md`) and the
+  test guide (`docs/guia-prueba-proyectos.md`).
+
+## Tasks
+
+| ID | Specs | Route | Status | Commit |
+|---|---|---|---|---|
+| T1 | S2, S3, S4 | inline | done (RED→GREEN, 24 tests) | see git log (unit 1) |
+| T2 | S5 | inline | done (RED→GREEN; 5 old SUSPENDIDO tests rewritten) | see git log (unit 2) |
+| T3 | S6 (+ client mirrors of S5: `ficha-documentos`, `project-gastos`, `project-team`) | inline | done (RED→GREEN, 14 new UI tests) | see git log (unit 3) |
+| T4 | S7 | inline | done (OpenAPI test green; matrix L8; guide §C2) | see git log (unit 4) |
+
+Route evidence: no Writer trigger (units depend on T1; no parallel work), so the parent writes inline. Risk: item 2
+(permissions/guards) for T1 and T2 → independent verifier at the feature's end.
+
+## Log
+
+- **L1 (2026-10-27, user, verbatim):** «hola continua el desarrollo de los pendientes» → «empienza» (B7 after the small fixes).
+- **L2 (2026-10-27):** Map: the only estado write today is baseline approve (BORRADOR → EN_EJECUCION,
+  `src/lib/api/versiones.ts:188`). Gates are per family; SUSPENDIDO is still allowed by `gateGastoDecision`
+  (`validacion-gastos.ts:74`) and `gateSoporteProyectoWrite` (`soportes.ts:178`); `gateEjecucionVoid`, `gateGastoGestion`
+  and the members routes check no estado. `AuditoriaCambio` has no motivo column (expense void stores it in JSON).
+- **L3 (2026-10-27, user):** close and reopen → «Gerencia y admin (Recomendado)».
+- **L4 (2026-10-27, user):** voids in a frozen project → «Siguen permitidas (Recomendado)». T1 review (risk +
+  reliability) approved; its one warning (freeze not enforced yet) is T2, shipped in the same PR.
+- **L5 (2026-10-27):** T2 review (risk + reliability) approved with warnings. Fixed: the expense-validations
+  RECHAZADO/VALIDADO/ANULADO read views keep showing SUSPENDIDO projects (only the REGISTRADO queue narrows), and the
+  modification-decision message names the frozen estados. **Known residual race (not a regression; there was no check
+  before):** members POST/DELETE and modification reject read the estado before their transaction, so a suspension that
+  commits in between lets one change through. Expense validate/reject re-check under a row lock.
+- **L6 (2026-10-28):** T4 docs: OpenAPI `POST /projects/{id}/estado` (body `CambioEstadoProyecto`, 200/400/401/403/404/409/500)
+  plus the frozen-estado notes on documents, expenses, members and modifications; matrix L8; guide §C2. `src/` suite
+  green and `tsc` clean; the 31 `prisma/*.invariant.test.ts` files could not run (local Docker Postgres unreachable from
+  WSL), so DB invariants stay unverified in this session.
+- **L7 (2026-10-28):** Feature-end independent verifier (Risk item 2): S1–S7 PASS, no blockers, `src/` 4096 tests green.
+  Native review of the whole branch (`51c957a..f32b3d1`, lenses risk + reliability, user granted) approved and
+  acknowledged. Non-blocking follow-ups: the known freeze race in members POST/DELETE and modification decisions
+  (re-check under a row lock), an untested read branch in `expense-validations/route.ts:52`, and the confirm-enabled
+  case in `estado-proyecto-acciones.test.tsx`. Next: user decides push and PR.

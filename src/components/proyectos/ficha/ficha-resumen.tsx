@@ -33,6 +33,7 @@ import {
 import { useCurrentUser } from "@/hooks/kanban";
 import { toneFromSemaforo } from "@/lib/estado-tone";
 import { canManageProjects } from "@/lib/permissions";
+import { estaCongelado } from "@/lib/proyectos/transiciones-estado";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { cn } from "@/lib/utils";
 
@@ -437,7 +438,7 @@ export function FichaResumen({
         </>
       )}
       <DatosGenerales proyecto={proyecto} onIrA={onIrA} />
-      <ProjectTeam proyectoId={proyecto.id} />
+      <ProjectTeam proyectoId={proyecto.id} congelado={estaCongelado(proyecto.estado)} />
     </div>
   );
 }

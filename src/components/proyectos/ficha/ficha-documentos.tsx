@@ -6,7 +6,8 @@
 //
 // DOC1: los documentos generales del proyecto (origen "proyecto") se crean con «Subir documento» (archivo
 // o enlace) y se eliminan con confirmación. Gestores, o un COORDINADOR integrante sobre lo que subió, y
-// solo con el proyecto en BORRADOR/EN_EJECUCION/SUSPENDIDO; la API sigue siendo la autoridad.
+// solo con el proyecto en BORRADOR/EN_EJECUCION (suspendido, cerrado o cancelado está congelado, B7); la API
+// sigue siendo la autoridad.
 
 "use client";
 
@@ -43,7 +44,7 @@ import {
 } from "@/hooks/projects";
 
 const ERROR = "No pudimos cargar los documentos. Inténtalo de nuevo.";
-const ESTADOS_ESCRITURA: readonly string[] = ["BORRADOR", "EN_EJECUCION", "SUSPENDIDO"];
+const ESTADOS_ESCRITURA: readonly string[] = ["BORRADOR", "EN_EJECUCION"];
 
 const GRUPOS: readonly { origen: ProjectSupport["origen"]; titulo: string }[] = [
   { origen: "avance", titulo: "Actividades" },

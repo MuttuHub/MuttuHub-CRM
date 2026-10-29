@@ -46,12 +46,13 @@ type Setup = {
   membersStatus?: number
   post?: Response
   del?: Response
+  congelado?: boolean
 }
 
 describe("ProjectTeam", () => {
   const fetchMock = vi.fn()
 
-  function setup({ rol = "ADMINISTRADOR", miembros = [CARLA], membersStatus = 200, post, del }: Setup = {}) {
+  function setup({ rol = "ADMINISTRADOR", miembros = [CARLA], membersStatus = 200, post, del, congelado = false }: Setup = {}) {
     let current = miembros
     fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
       const url = String(input)
@@ -80,7 +81,7 @@ describe("ProjectTeam", () => {
       }
       return Promise.resolve(jsonResponse({}, 404))
     })
-    return render(<ProjectTeam proyectoId="p1" />, { wrapper: createWrapper() })
+    return render(<ProjectTeam proyectoId="p1" congelado={congelado} />, { wrapper: createWrapper() })
   }
 
   beforeEach(() => {
@@ -133,6 +134,17 @@ describe("ProjectTeam", () => {
     expect(screen.queryByRole("combobox", { name: "Agregar integrante" })).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: /Quitar/ })).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Agregar" })).not.toBeInTheDocument()
+  })
+
+  it("gives a manager a read-only list on a frozen project (B7)", async () => {
+    setup({ congelado: true })
+
+    expect(await screen.findByText("Carla Ruiz")).toBeInTheDocument()
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)),
+    )
+    expect(screen.queryByRole("combobox", { name: "Agregar integrante" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: /Quitar/ })).not.toBeInTheDocument()
   })
 
   it("lets a manager add a coordinator who is not already a member", async () => {

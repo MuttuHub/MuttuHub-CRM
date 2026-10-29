@@ -434,6 +434,14 @@ describe("ProjectGastos", () => {
       expect(within(fila).getByRole("button", { name: "Rechazar" })).toBeInTheDocument()
     })
 
+    it("hides Validar and Rechazar on a SUSPENDIDO project but keeps Anular (B7)", async () => {
+      setup({ proyecto: { estado: "SUSPENDIDO" }, gastos: [gasto("g1", { estado: "VALIDADO" }), gasto("g2")] })
+      const filas = await screen.findAllByTestId("gasto-fila")
+      expect(within(filas[0]).getByRole("button", { name: "Anular" })).toBeInTheDocument()
+      expect(within(filas[1]).queryByRole("button", { name: "Validar" })).not.toBeInTheDocument()
+      expect(within(filas[1]).queryByRole("button", { name: "Rechazar" })).not.toBeInTheDocument()
+    })
+
     it("disables Validar with the reason when the expense has no support (S3), and keeps Rechazar", async () => {
       const user = userEvent.setup()
       setup({ gastos: [gasto("g1", { soportes: [], soportes_count: 0 })] })

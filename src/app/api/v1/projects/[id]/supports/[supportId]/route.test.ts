@@ -109,13 +109,13 @@ describe("DELETE /projects/:id/supports/:supportId", () => {
     expect(mocks.updateMany).not.toHaveBeenCalled();
   });
 
-  it("answers 409 in CERRADO and CANCELADO, and 200 in BORRADOR and SUSPENDIDO", async () => {
-    for (const estado of ["CERRADO", "CANCELADO"]) {
+  it("answers 409 in SUSPENDIDO, CERRADO and CANCELADO, and 200 in BORRADOR and EN_EJECUCION", async () => {
+    for (const estado of ["SUSPENDIDO", "CERRADO", "CANCELADO"]) {
       vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto(estado));
       expect((await DELETE(del(), ctx)).status, estado).toBe(409);
     }
     expect(mocks.updateMany).not.toHaveBeenCalled();
-    for (const estado of ["BORRADOR", "SUSPENDIDO"]) {
+    for (const estado of ["BORRADOR", "EN_EJECUCION"]) {
       vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto(estado));
       expect((await DELETE(del(), ctx)).status, estado).toBe(200);
     }

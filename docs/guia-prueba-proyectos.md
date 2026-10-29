@@ -286,7 +286,7 @@ Pestaña **Financiero** de la ficha, sección **Presupuesto** (arriba; la **Fich
 
 ## C. Aprobar línea base (S8): cómo un proyecto llega a EN EJECUCIÓN
 
-Es la única vía real. Solo `admin@` o `gerencia@`, solo con el proyecto en **Borrador**.
+Es la única vía real para salir de Borrador. Solo `admin@` o `gerencia@`, solo con el proyecto en **Borrador**.
 
 1. En el encabezado fijo de la ficha (visible en cualquier pestaña) aparece **Aprobar línea base**. Se abre un diálogo: "Al aprobar, la estructura y el
    presupuesto quedan congelados (versión 0) y el proyecto pasa a En ejecución. Esta acción no se puede deshacer."
@@ -312,6 +312,26 @@ Es la única vía real. Solo `admin@` o `gerencia@`, solo con el proyecto en **B
    "La línea base aún no está aprobada.", Modificaciones falla ("El proyecto no tiene línea base aprobada.") y el
    selector Base en **Original (v0)** da "La versión original aún no existe.". Para la reunión usa la aprobación real.
 6. `coordinador@` y `colaborador@` no ven el botón.
+
+## C2. Suspender, reactivar, cerrar, reabrir o cancelar (B7)
+
+Solo `admin@` o `gerencia@`. Decisión de la PO (D-C): suspendido = congelado; cerrado = solo lectura y se puede
+reabrir; cancelado no se puede deshacer.
+
+1. Con un proyecto **En ejecución**, el encabezado de la ficha muestra **Cambiar estado**. El diálogo ofrece solo las
+   acciones válidas para el estado actual (en ejecución: Suspender, Cerrar, Cancelar; suspendido: Reactivar, Cancelar;
+   cerrado: Reabrir; borrador: Cancelar; cancelado: ninguna, el botón no aparece).
+2. Elige **Suspender**, escribe un motivo y pulsa **Confirmar** (sin motivo el botón queda deshabilitado). Esperado:
+   toast "Proyecto suspendido.", el chip pasa a **Suspendido** y bajo el nombre aparece "Proyecto suspendido: está
+   congelado hasta que Gerencia o Administración lo reactive."
+3. Con el proyecto suspendido: desaparecen **Registrar avance**, **Registrar gasto**, **Subir documento**, los botones
+   **Validar**/**Rechazar** de los gastos registrados y los controles del **Equipo**. **Anular** sigue disponible en los
+   gastos validados. La cola de validación de gastos ya no lista los gastos de ese proyecto.
+4. **Historial** (pestaña **Cambios**): una edición con dos filas en un lote, **Estado** (En ejecución → Suspendido) y
+   **Motivo**.
+5. **Reactivar** devuelve el proyecto a En ejecución. Repite con **Cerrar** (chip Cerrado, aviso de solo lectura) y
+   **Reabrir**. **Cancelar** deja el proyecto en Cancelado sin acciones posibles.
+6. `coordinador@` y `colaborador@` no ven **Cambiar estado**; por API (`POST /api/v1/projects/:id/estado`) responden 403.
 
 ## D. Ejecución técnica y semáforo (S4)
 

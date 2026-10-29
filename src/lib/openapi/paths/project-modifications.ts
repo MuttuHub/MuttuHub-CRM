@@ -142,7 +142,11 @@ registry.registerPath({
   responses: {
     200: { description: "Modificación aprobada.", content: { "application/json": { schema: AprobacionModificacionSchema } } },
     400: { description: "La modificación ya no cumple las reglas (`reglas`).", content: { "application/json": { schema: ReglasError } } },
-    409: { description: "La solicitud ya fue decidida, se basa en una versión anterior o el proyecto no está en ejecución." },
+    409: {
+      description:
+        "La solicitud ya fue decidida, se basa en una versión anterior o el proyecto no está en ejecución (suspendido, " +
+        "cerrado o cancelado está congelado).",
+    },
     ...standardErrorResponses([401, 403, 404, 500]),
   },
 });
@@ -163,7 +167,7 @@ registry.registerPath({
   responses: {
     200: { description: "Solicitud rechazada.", content: { "application/json": { schema: z.object({ solicitud: SolicitudModificacionSchema }) } } },
     400: { description: "Falta el comentario." },
-    409: { description: "La solicitud ya fue decidida." },
+    409: { description: "La solicitud ya fue decidida o el proyecto está suspendido, cerrado o cancelado." },
     ...standardErrorResponses([401, 403, 404, 500]),
   },
 });

@@ -1,6 +1,6 @@
 // POST /api/v1/projects/:id/baseline/approve — approve the baseline (S8 U3, E-25).
 //
-// The ONLY API way a project reaches EN_EJECUCION: BORRADOR -> EN_EJECUCION with version 0 frozen,
+// The ONLY API way a project leaves BORRADOR for EN_EJECUCION, with version 0 frozen,
 // the estado change and the audit lote in one transaction (`aprobarLineaBase`). ADM/GER only.
 // Order: project (404) -> permission (403) -> estado (409) -> preconditions under the row lock (409
 // with `precondiciones`). No body.

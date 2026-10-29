@@ -26,6 +26,7 @@ import {
 } from "@/lib/proyectos/modificaciones";
 import { buildSnapshot, diffSnapshots, type LiveProyecto, type SnapshotV1 } from "@/lib/proyectos/versiones";
 import { periodOf, todayInBogota } from "@/lib/proyectos/weeks";
+import { estaCongelado } from "@/lib/proyectos/transiciones-estado";
 
 export const MODIFICACION_FORBIDDEN_MESSAGE = "No tienes permisos sobre este proyecto.";
 export const MODIFICACION_ESTADO_MESSAGE = "Solo se pueden solicitar modificaciones de un proyecto en ejecución.";
@@ -35,6 +36,7 @@ export const SOLICITUD_NO_EXISTE = "La solicitud no existe.";
 export const SOLICITUD_DECIDIDA_MESSAGE = "La solicitud ya fue decidida.";
 export const SOLICITUD_OBSOLETA_MESSAGE = "La solicitud se basa en una versión anterior; vuelve a crearla.";
 export const APLICAR_ESTADO_MESSAGE = "Solo se pueden aplicar modificaciones a un proyecto en ejecución.";
+export const DECISION_ESTADO_MESSAGE = "No se pueden aprobar o rechazar modificaciones de un proyecto suspendido, cerrado o cancelado.";
 export const APLICAR_REGLAS_MESSAGE = "La modificación ya no cumple las reglas.";
 
 export const TIPOS_MODIFICACION = ["TRASLADO", "ADICION", "REDUCCION", "REPROGRAMACION", "CRONOGRAMA", "ENTREGABLES"] as const;
@@ -111,16 +113,25 @@ export async function gateModificacionRead(
   return { ok: true, value: scoped.row };
 }
 
-/** 404 (project) -> 403 (ADM/GER) -> 404 (request of that project) -> 409 (still PENDIENTE). */
+/**
+ * 404 (project) -> 403 (ADM/GER) -> 409 (project frozen, B7) -> 404 (request of that project) -> 409 (still
+ * PENDIENTE).
+ */
 export async function gateModificacionDecision(
   usuario: Usuario,
   proyectoId: string,
   solicitudId: string,
 ): Promise<GateResult<{ id: string }>> {
-  const proyecto = await db.proyecto.findFirst({ where: { id: proyectoId, deleted_at: null }, select: { id: true } });
+  const proyecto = await db.proyecto.findFirst({
+    where: { id: proyectoId, deleted_at: null },
+    select: { id: true, estado: true },
+  });
   if (!proyecto) return { ok: false, response: apiError(PROYECTO_NO_EXISTE, 404, "NOT_FOUND") };
   if (!canApproveModification(usuario)) {
     return { ok: false, response: apiError(MODIFICACION_FORBIDDEN_MESSAGE, 403, "FORBIDDEN") };
+  }
+  if (estaCongelado(proyecto.estado)) {
+    return { ok: false, response: apiError(DECISION_ESTADO_MESSAGE, 409, "INVALID_STATE") };
   }
   const solicitud = await db.solicitudModificacion.findFirst({
     where: { id: solicitudId, proyecto_id: proyectoId },

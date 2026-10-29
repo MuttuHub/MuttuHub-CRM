@@ -76,3 +76,9 @@ Cada `S#` cita el pedido literal y no agrega requisitos que no estén en la matr
   menciona y retirarla no fue pedido. El Tablero se abre a los dos roles y sus cifras se acotan por pertenencia.
 - **L7 (entrega).** Rama `feat/permisos-proyectos`, 7 commits por tarea y ~730 líneas de autoría: se entrega como una
   sola unidad revisable, no en cortes de 400 líneas, siguiendo la excepción de entrega ya aceptada para el módulo.
+- **L8 (2026-10-27, B7, `odd/tasks/cierre-suspension-proyecto.md`).** La matriz suma el estado del proyecto:
+  - **Suspender, reactivar, cerrar, reabrir y cancelar**: solo Administrador y Gerencia (D-C de la PO y decisión del
+    usuario para cerrar y reabrir), siempre con motivo. Coordinador y Colaborador no, aunque sean integrantes.
+  - **Proyecto suspendido, cerrado o cancelado**: nadie registra avances, mediciones, gastos ni documentos, ni valida o
+    rechaza gastos, ni cambia el equipo, ni solicita o decide modificaciones (409). Las **anulaciones** de
+    Administración y Gerencia siguen disponibles en cualquier estado. La lectura no cambia.

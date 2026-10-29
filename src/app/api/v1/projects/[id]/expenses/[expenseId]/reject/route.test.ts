@@ -162,19 +162,19 @@ describe("POST reject", () => {
 });
 
 describe("POST reject: project estado gate (D1)", () => {
-  it.each(["BORRADOR", "CERRADO", "CANCELADO"])("answers 409 when the project is %s and touches nothing", async (estado) => {
+  it.each(["BORRADOR", "SUSPENDIDO", "CERRADO", "CANCELADO"])("answers 409 when the project is %s and touches nothing", async (estado) => {
     vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "pry-1", estado } as never);
     const res = await POST(post({ motivo: "Soporte ilegible" }), ctx);
     const json = await res.json();
     expect(res.status).toBe(409);
-    expect(json.error).toMatch(/ejecución o suspendido/);
+    expect(json.error).toBe("Solo se pueden validar o rechazar gastos de proyectos en ejecución.");
     expect(mocks.updateMany).not.toHaveBeenCalled();
   });
 
-  it("rejects while the project is SUSPENDIDO", async () => {
-    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "pry-1", estado: "SUSPENDIDO" } as never);
+  it("re-checks the project estado under lock: a suspension that raced the gate answers 409 (B7)", async () => {
     estadoProyectoBajoLock = "SUSPENDIDO";
-    expect((await POST(post({ motivo: "x" }), ctx)).status).toBe(200);
+    expect((await POST(post({ motivo: "x" }), ctx)).status).toBe(409);
+    expect(mocks.updateMany).not.toHaveBeenCalled();
   });
 
   it("re-checks the project estado under lock: a close that raced the gate answers 409 and writes nothing", async () => {

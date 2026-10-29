@@ -276,6 +276,7 @@ describe("FichaDocumentos: project documents (upload, open, delete)", () => {
   it.each([
     ["a COLABORADOR", { usuario: COLABORADOR }],
     ["a COORDINADOR who is not a member", { usuario: COORDINADORA }],
+    ["a manager on a SUSPENDIDO project (frozen, B7)", { estado: "SUSPENDIDO" }],
     ["a manager on a CERRADO project", { estado: "CERRADO" }],
     ["a manager on a CANCELADO project", { estado: "CANCELADO" }],
   ] as const)("hides «Subir documento» and Eliminar from %s", async (_caso, opciones) => {

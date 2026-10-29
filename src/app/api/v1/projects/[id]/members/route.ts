@@ -23,6 +23,7 @@ import { apiError, parseJsonBody } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { PROJECT_MEMBER_ROLES, canManageProjects } from "@/lib/permissions";
+import { EQUIPO_CONGELADO_MESSAGE, estaCongelado } from "@/lib/proyectos/transiciones-estado";
 import { logChange } from "@/lib/api/audit-cambios";
 import {
   MIEMBRO_NOT_COORDINADOR_MESSAGE,
@@ -84,7 +85,7 @@ export const POST = withApiErrorHandling(
     // and a non-manager is denied with 403 after the 404.
     const proyecto = await db.proyecto.findFirst({
       where: { id, deleted_at: null },
-      select: { id: true },
+      select: { id: true, estado: true },
     });
     if (!proyecto) {
       return apiError("El proyecto no existe.", 404, "NOT_FOUND");
@@ -92,6 +93,9 @@ export const POST = withApiErrorHandling(
 
     if (!canManageProjects(auth.usuario)) {
       return apiError("No tienes permisos sobre este proyecto.", 403, "FORBIDDEN");
+    }
+    if (estaCongelado(proyecto.estado)) {
+      return apiError(EQUIPO_CONGELADO_MESSAGE, 409, "INVALID_STATE");
     }
 
     const body = await parseJsonBody<Record<string, unknown>>(request);

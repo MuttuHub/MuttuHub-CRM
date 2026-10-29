@@ -21,6 +21,7 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import type { TipoModificacion } from "@/lib/proyectos/modificaciones";
+import type { AccionEstado } from "@/lib/proyectos/transiciones-estado";
 import { toast } from "sonner";
 import { clientQueryKeys } from "@/hooks/crm";
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut, ApiError } from "@/lib/api/http";
@@ -2098,6 +2099,44 @@ export function useApproveBaseline(projectId: string): UseMutationResult<Baselin
         void qc.invalidateQueries({ queryKey: key });
       }
       toast.success("Línea base aprobada.");
+    },
+  });
+}
+
+// ── B7: suspender, reactivar, cerrar, reabrir o cancelar el proyecto ─────
+
+export type CambioEstadoProyecto = { accion: AccionEstado; motivo: string };
+
+const ESTADO_CAMBIADO: Record<AccionEstado, string> = {
+  SUSPENDER: "Proyecto suspendido.",
+  REACTIVAR: "Proyecto reactivado.",
+  CERRAR: "Proyecto cerrado.",
+  REABRIR: "Proyecto reabierto.",
+  CANCELAR: "Proyecto cancelado.",
+};
+
+/**
+ * `POST /api/v1/projects/:id/estado`. Los errores llegan como `ApiError` SIN toast: el diálogo los
+ * muestra en línea. Al cambiar el estado cambia qué se puede editar en toda la ficha.
+ */
+export function useChangeProjectEstado(
+  projectId: string,
+): UseMutationResult<{ proyecto: { id: string; estado: EstadoProyecto } }, Error, CambioEstadoProyecto> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input) =>
+      apiPost<{ proyecto: { id: string; estado: EstadoProyecto } }>(`/api/v1/projects/${projectId}/estado`, input),
+    onSuccess: (_data, { accion }) => {
+      for (const key of [
+        projectQueryKeys.detail(projectId),
+        projectQueryKeys.technicalStatus(projectId),
+        ["projects", "financial-sheet", projectId],
+        ["projects", "audit", projectId],
+        ["projects", "list"],
+      ]) {
+        void qc.invalidateQueries({ queryKey: key });
+      }
+      toast.success(ESTADO_CAMBIADO[accion]);
     },
   });
 }

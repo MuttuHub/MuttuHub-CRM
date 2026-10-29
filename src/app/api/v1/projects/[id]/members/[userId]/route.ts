@@ -17,6 +17,7 @@ import { apiError } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { canManageProjects } from "@/lib/permissions";
+import { EQUIPO_CONGELADO_MESSAGE, estaCongelado } from "@/lib/proyectos/transiciones-estado";
 import { logChanges } from "@/lib/api/audit-cambios";
 import { PROYECTO_MIEMBRO_SELECT, toProyectoMiembroItemV2 } from "@/lib/api/projects";
 
@@ -36,7 +37,7 @@ export const DELETE = withApiErrorHandling(
     // membership probe.
     const proyecto = await db.proyecto.findFirst({
       where: { id, deleted_at: null },
-      select: { id: true },
+      select: { id: true, estado: true },
     });
     if (!proyecto) {
       return apiError("El proyecto no existe.", 404, "NOT_FOUND");
@@ -44,6 +45,9 @@ export const DELETE = withApiErrorHandling(
 
     if (!canManageProjects(auth.usuario)) {
       return apiError("No tienes permisos sobre este proyecto.", 403, "FORBIDDEN");
+    }
+    if (estaCongelado(proyecto.estado)) {
+      return apiError(EQUIPO_CONGELADO_MESSAGE, 409, "INVALID_STATE");
     }
 
     const membresia = await db.proyectoMiembro.findFirst({

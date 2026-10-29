@@ -38,11 +38,12 @@ function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
-export function ProjectTeam({ proyectoId }: { proyectoId: string }) {
+/** `congelado`: el proyecto está suspendido, cerrado o cancelado (B7) y el equipo no se puede cambiar. */
+export function ProjectTeam({ proyectoId, congelado = false }: { proyectoId: string; congelado?: boolean }) {
   const members = useProjectMembers(proyectoId);
   const userQuery = useCurrentUser();
   const usuario = userQuery.data;
-  const puedeGestionar = usuario ? canManageProjects({ id: usuario.id, rol: usuario.rol }) : false;
+  const puedeGestionar = !congelado && (usuario ? canManageProjects({ id: usuario.id, rol: usuario.rol }) : false);
   const remove = useRemoveProjectMember(proyectoId);
 
   return (
