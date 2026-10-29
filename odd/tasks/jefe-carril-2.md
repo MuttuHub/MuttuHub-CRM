@@ -46,10 +46,10 @@ rules, verbatim requests (R1–R3), assumptions (A1–A5), root causes and file 
 | 2.1 | S1 | `docs/proceso-proyectos-desde-cero.md` (+ HTML/PDF like the other guides); fix B7 in `guia-uso-proyectos-v2.md`. Docs only. | — | inline | done | branch `docs/proceso-proyectos-desde-cero`, commit 99a14fe, PR #104 |
 | 2.2 | S2 | Edit-user panel in `users-table.tsx` (name, role, flags), reactivate, resend invite / reset password via `src/lib/supabase/admin.ts`; new hooks in `src/hooks/users.ts` (not `hooks/admin.ts`). | — | inline | done | branch `feat/admin-editar-usuarios`, commit 4ce90d3, PR #105 |
 | 2.3 | S3 | Remove the municipalities sub-table from `catalogos-v2-section.tsx` (+ test). Delete now-unused admin hooks only after 1.1 is merged. | — | inline | done (hooks cleanup pending 1.1) | branch `feat/admin-sin-municipios`, commit 9bf0059, PR #106 |
-| 2.4 | S4 | Reproduce first; then replace internal `window.open`/`_blank` (sites in the index) with same-tab navigation + «Volver» on print pages; direct downloads in `hooks/projects.ts`. | 1.1 merged | delegated (parallel with 2.7) | 2.4a done; 2.4b (kanban sites) pending #103 | branch `feat/sin-pestanas-nuevas`, commit 17a168c (push blocked: TLS) |
-| 2.5 | S5 | Weekly report tab + `/print/reportes/semanal` + Excel, reusing management-board hooks; fix task Excel period. | 2.4 | delegated (context backstop) | doing | branch `feat/reporte-semanal` stacked on 17a168c |
+| 2.4 | S4 | Reproduce first; then replace internal `window.open`/`_blank` (sites in the index) with same-tab navigation + «Volver» on print pages; direct downloads in `hooks/projects.ts`. | 1.1 merged | delegated (parallel with 2.7) | 2.4a done; 2.4b (kanban sites) pending #103 | branch `feat/sin-pestanas-nuevas`, commits 17a168c + 03b9ef1, PR #109 |
+| 2.5 | S5 | Weekly report tab + `/print/reportes/semanal` + Excel, reusing management-board hooks; fix task Excel period. | 2.4 | delegated (context backstop) | done | branch `feat/reporte-semanal` 72505c8 + 1d0c7c9, PR #111 (stacked on #109) |
 | 2.6 | S6 | Client tags in `client-form.tsx`, clients API, list filter; reuse `useTaskTags()`. | 1.0, 1.1 merged | inline | todo | |
-| 2.7 | S7 | Modal UX review (clients first). | 2.6 | delegated (parallel with 2.4a) | Admin+Projects done; Clients after 2.6 | branch `fix/modales-admin-proyectos`, commit 44753a2 (push blocked: TLS) |
+| 2.7 | S7 | Modal UX review (clients first). | 2.6 | delegated (parallel with 2.4a) | Admin+Projects done; Clients after 2.6 | branch `fix/modales-admin-proyectos`, commit 44753a2, PR #110 |
 | 2.8 | S8 | `docs/pendientes/mejoras-ux-reunion-2026-10-28.md`. | — | inline | done (modal findings appended after 1.5/2.7) | branch `docs/backlog-mejoras-ux`, commit 611685d, PR #107 |
 
 ### Already-detected improvements for 2.8
@@ -111,3 +111,15 @@ rules, verbatim requests (R1–R3), assumptions (A1–A5), root causes and file 
   approvals no longer promise an email); 8 findings appended to the backlog as items 9–16 (4d8c1cc on
   `docs/backlog-mejoras-ux`). Parent spot checks: 48/48 and 36/36 focused tests green. Push blocked: `git push` and
   `gh` fail with "SSL certificate verification failed: certificate signer not trusted". 2.5 launched (delegated).
+- **L9 (2026-10-29).** 2.5 done by a delegated writer (72505c8): «Semanal» tab, `/print/reportes/semanal` with
+  `PrintToolbar`, Excel (6 sheets), new `GET /api/v1/reports/weekly` + `/export` reusing `cargarPortafolio`,
+  `kpisPortafolio`, `cargarAtencion`; week = Monday–Sunday America/Bogota. Writer Risk: item 6 → independent verifier
+  ran the real builder against the local Docker DB (`.env.local`, read-only probes) vs SQL: all MATCH except closed
+  tasks without `completed_at` (seed rows) → fixed inline in 1d0c7c9 (RED test on the `where`, then DB re-probe: last
+  week 4 closed = SQL). Verifier's other "blocker" (task Excel ignoring the period, `report-view.tsx:65`) is deferred to
+  2.4b: Kanban files belong to lane 1 until #103. The writer's report also surfaced that 2.4a broke
+  `surface-guards` (empty `components/print` area) despite reporting green → fixed in 03b9ef1 and 2.5 rebased.
+  Push restored; PRs: 2.4a #109, 2.7 #110, 2.5 #111 (base `feat/sin-pestanas-nuevas`), backlog update pushed to #107.
+  CI of #105 failed on `control-guards` (`users-table.tsx:429` `text-[12px]` on an Input) → fixed in 8bfa897
+  (`text-base md:text-[12px]`, same as `client-list.tsx:715`). Remaining: 2.4b + task-Excel period and 2.6 + 2.7
+  Clients wait for #102/#103; after #103 delete `useAdminMunicipios`/`useCreateMunicipio`.
