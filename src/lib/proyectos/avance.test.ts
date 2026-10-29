@@ -8,11 +8,16 @@ import {
   calcularTecnico,
   desviacionPp,
   diferenciaRealPlanPp,
+  entregableCompleto,
+  entregablesCompletos,
   estadoActividad,
   fechaCumplimiento,
   fraccionTiempo,
   tendencia,
+  validarNuevoReporte,
+  type ActividadTecnicaInput,
   type AvanceInput,
+  type ReporteActividadInput,
 } from "./avance"
 import { colorTecnicoV2 } from "./semaforo-v2"
 import { F_T1_CORTE, fixtureF_T1, fixtureF_T1b } from "./__fixtures__/tecnico"
@@ -117,6 +122,181 @@ describe("estadoActividad", () => {
     expect(estadoActividad({ ...base, progreso: 0, corte: "2026-10-05", fechaCumplimiento: null })).toBe("EN_CURSO")
     expect(estadoActividad({ ...base, progreso: 0.3, corte: "2026-10-04", fechaCumplimiento: null })).toBe("EN_CURSO")
   })
+
+  it("never returns to NO_INICIADA once there is a report, even before the elapsed-time trigger (S2/S3)", () => {
+    expect(
+      estadoActividad({
+        ...base,
+        progreso: 0.3,
+        corte: "2026-10-01",
+        fechaCumplimiento: null,
+        hasReports: true,
+        entregablesCompletos: false,
+      }),
+    ).toBe("EN_CURSO")
+  })
+
+  it("only finishes once entregablesCompletos is true, regardless of the reported percentage (S8)", () => {
+    expect(
+      estadoActividad({
+        ...base,
+        progreso: 1,
+        corte: "2026-10-12",
+        fechaCumplimiento: null,
+        hasReports: true,
+        entregablesCompletos: false,
+      }),
+    ).toBe("EN_CURSO")
+    expect(
+      estadoActividad({
+        ...base,
+        progreso: 1,
+        corte: "2026-10-12",
+        fechaCumplimiento: "2026-10-11",
+        hasReports: true,
+        entregablesCompletos: true,
+      }),
+    ).toBe("FINALIZADA")
+    expect(
+      estadoActividad({
+        ...base,
+        progreso: 1,
+        corte: "2026-10-20",
+        fechaCumplimiento: "2026-10-12",
+        hasReports: true,
+        entregablesCompletos: true,
+      }),
+    ).toBe("FINALIZADA_CON_RETRASO")
+  })
+})
+
+describe("entregableCompleto / entregablesCompletos (S8)", () => {
+  const completo = { id: "e1", meta: 2, avances: [av("2026-10-06", 2)] }
+  const sinMedio = { id: "e2", meta: 2, avances: [av("2026-10-06", 2, { tieneMedio: false })] }
+  const cantidadIncompleta = { id: "e3", meta: 2, avances: [av("2026-10-06", 1)] }
+
+  it("is complete only when the goal is reached AND there is a live medio", () => {
+    expect(entregableCompleto(completo, true)).toBe(true)
+    // reaches the quantity but has no live medio at all — "whatever avance_requiere_medio says" (mirrors kpis.ts)
+    expect(entregableCompleto(sinMedio, false)).toBe(false)
+    expect(entregableCompleto(cantidadIncompleta, true)).toBe(false)
+  })
+
+  it("requires every deliverable complete, and is false without deliverables", () => {
+    expect(entregablesCompletos([completo], true)).toBe(true)
+    expect(entregablesCompletos([completo, cantidadIncompleta], true)).toBe(false)
+    expect(entregablesCompletos([], true)).toBe(false)
+  })
+})
+
+describe("validarNuevoReporte (S9.1-S9.4)", () => {
+  it("accepts the exact accepted sequence 30% -> 70% -> 90% while incomplete (S3)", () => {
+    expect(
+      validarNuevoReporte({ porcentaje: 30, observacion: "inicio", reportes: [], entregablesCompletos: false, tope: 90 }),
+    ).toEqual({ ok: true })
+    expect(
+      validarNuevoReporte({
+        porcentaje: 70,
+        observacion: "avance",
+        reportes: [{ fecha: "2026-10-06", porcentaje: 30 }],
+        entregablesCompletos: false,
+        tope: 90,
+      }),
+    ).toEqual({ ok: true })
+    expect(
+      validarNuevoReporte({
+        porcentaje: 90,
+        observacion: "avance",
+        reportes: [
+          { fecha: "2026-10-06", porcentaje: 30 },
+          { fecha: "2026-10-13", porcentaje: 70 },
+        ],
+        entregablesCompletos: false,
+        tope: 90,
+      }),
+    ).toEqual({ ok: true })
+  })
+
+  it("rejects 70% and 50% against a last report of 70%, naming it exactly (S3)", () => {
+    const reportes: ReporteActividadInput[] = [{ fecha: "2026-10-13", porcentaje: 70 }]
+    expect(
+      validarNuevoReporte({ porcentaje: 70, observacion: "x", reportes, entregablesCompletos: false, tope: 90 }),
+    ).toEqual({ ok: false, message: "El avance debe ser mayor que el último reportado (70%)." })
+    expect(
+      validarNuevoReporte({ porcentaje: 50, observacion: "x", reportes, entregablesCompletos: false, tope: 90 }),
+    ).toEqual({ ok: false, message: "El avance debe ser mayor que el último reportado (70%)." })
+  })
+
+  it("accepts the tope exactly and rejects over it while incomplete, naming the tope (S3)", () => {
+    expect(
+      validarNuevoReporte({ porcentaje: 90, observacion: "x", reportes: [], entregablesCompletos: false, tope: 90 }),
+    ).toEqual({ ok: true })
+    expect(
+      validarNuevoReporte({ porcentaje: 95, observacion: "x", reportes: [], entregablesCompletos: false, tope: 90 }),
+    ).toEqual({ ok: false, message: "El avance máximo sin entregables completos es 90%." })
+  })
+
+  it("allows exceeding the tope once deliverables are complete", () => {
+    expect(
+      validarNuevoReporte({ porcentaje: 100, observacion: "x", reportes: [], entregablesCompletos: true, tope: 90 }),
+    ).toEqual({ ok: true })
+  })
+
+  it("rejects a missing or out-of-range percentage", () => {
+    expect(
+      validarNuevoReporte({ porcentaje: 0, observacion: "x", reportes: [], entregablesCompletos: false, tope: 90 }).ok,
+    ).toBe(false)
+    expect(
+      validarNuevoReporte({ porcentaje: 101, observacion: "x", reportes: [], entregablesCompletos: false, tope: 90 }).ok,
+    ).toBe(false)
+  })
+
+  it("rejects a missing observación (blank after trim)", () => {
+    expect(
+      validarNuevoReporte({ porcentaje: 30, observacion: "   ", reportes: [], entregablesCompletos: false, tope: 90 }).ok,
+    ).toBe(false)
+  })
+})
+
+describe("calcularTecnico with reportes (S8, full S3 accept-if list)", () => {
+  function actividadConReportes(
+    reportes: ReporteActividadInput[],
+    entregables: ActividadTecnicaInput["entregables"],
+  ): ActividadTecnicaInput {
+    return { id: "x", codigo: "9.1", peso: 1, inicio: "2026-10-05", fin: "2026-10-11", entregables, reportes }
+  }
+
+  it("a 30% report on a Sin-iniciar activity moves it to En curso at 30%", () => {
+    const actividades = [actividadConReportes([{ fecha: "2026-10-06", porcentaje: 30 }], [{ id: "e1", meta: 2, avances: [] }])]
+    const r = calcularTecnico({ corte: "2026-10-07", requiereMedio: true, actividades })
+    expect(r.actividades[0].progreso).toBe(0.3)
+    expect(r.actividades[0].estado).toBe("EN_CURSO")
+  })
+
+  it("1 of 2 deliverables complete never reaches Terminada, even at a 100% report", () => {
+    const actividades = [
+      actividadConReportes(
+        [{ fecha: "2026-10-06", porcentaje: 100 }],
+        [
+          { id: "e1", meta: 2, avances: [av("2026-10-06", 2)] },
+          { id: "e2", meta: 2, avances: [av("2026-10-06", 1)] },
+        ],
+      ),
+    ]
+    const r = calcularTecnico({ corte: "2026-10-07", requiereMedio: true, actividades })
+    expect(r.actividades[0].entregables_completos).toBe(false)
+    expect(r.actividades[0].estado).toBe("EN_CURSO")
+  })
+
+  it("finishes once every deliverable is complete, progreso is the max of the report and the deliverable average", () => {
+    const actividades = [
+      actividadConReportes([{ fecha: "2026-10-06", porcentaje: 80 }], [{ id: "e1", meta: 2, avances: [av("2026-10-06", 2)] }]),
+    ]
+    const r = calcularTecnico({ corte: "2026-10-07", requiereMedio: true, actividades })
+    expect(r.actividades[0].progreso).toBe(1)
+    expect(r.actividades[0].entregables_completos).toBe(true)
+    expect(r.actividades[0].estado).toBe("FINALIZADA")
+  })
 })
 
 describe("tendencia", () => {
@@ -187,5 +367,31 @@ describe("F-T1 golden", () => {
   it("returns zeros, not NaN, for a project without activities", () => {
     const r = calcularTecnico({ corte: F_T1_CORTE, requiereMedio: true, actividades: [] })
     expect(r).toMatchObject({ avance_real: 0, avance_programado: 0, desviacion_pp: 0, actividades: [] })
+  })
+})
+
+describe("regression: hasReports=false computes byte-for-byte like before AJ-01 (S5.2)", () => {
+  it("F-T1 (no `reportes` field on any activity) matches a recomputation via the pre-AJ-01 two-field path", () => {
+    const requiereMedio = true
+    const actividadesInput = fixtureF_T1()
+    const nuevo = calcularTecnico({ corte: F_T1_CORTE, requiereMedio, actividades: actividadesInput })
+
+    // Recomputed independently, the way `calcularTecnico` worked before this feature: plain
+    // entregable-average progreso, and `estadoActividad` called with only its original fields
+    // (no `hasReports`/`entregablesCompletos`), so this is the old EN_CURSO trigger verbatim.
+    const viejo = actividadesInput.map((a) => {
+      const progreso = avanceActividad(
+        a.entregables.map((e) => avanceEntregable(acumuladoContable(e.avances, requiereMedio), e.meta)),
+      )
+      const fechas = a.entregables.map((e) => fechaCumplimiento(e.avances, e.meta, requiereMedio))
+      const done = fechas.length > 0 && fechas.every((f) => f !== null)
+      const cumplimiento = done ? (fechas as string[]).reduce((max, f) => ((f as string) > max ? (f as string) : max)) : null
+      return {
+        progreso,
+        estado: estadoActividad({ progreso, inicio: a.inicio, fin: a.fin, corte: F_T1_CORTE, fechaCumplimiento: cumplimiento }),
+      }
+    })
+
+    expect(nuevo.actividades.map((a) => ({ progreso: a.progreso, estado: a.estado }))).toEqual(viejo)
   })
 })
