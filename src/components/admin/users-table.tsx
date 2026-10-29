@@ -426,7 +426,7 @@ export function UsersTable({
             <Input
               readOnly
               value={linkResult?.url ?? ""}
-              className="px-3 font-mono text-[12px]"
+              className="px-3 font-mono text-base md:text-[12px]"
               onFocus={(e) => e.currentTarget.select()}
             />
             <Button
