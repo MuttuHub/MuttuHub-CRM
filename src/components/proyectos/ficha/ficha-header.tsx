@@ -6,6 +6,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Download, Ellipsis, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -80,7 +81,7 @@ export function FichaHeader({
               Exportar a Excel
             </DropdownMenuItem>
             <DropdownMenuItem
-              render={<a href={`/proyectos/${encodeURIComponent(proyecto.id)}/imprimir`} target="_blank" rel="noopener noreferrer" />}
+              render={<Link href={`/proyectos/${encodeURIComponent(proyecto.id)}/imprimir`} />}
             >
               <Printer strokeWidth={1.8} />
               Imprimir / PDF

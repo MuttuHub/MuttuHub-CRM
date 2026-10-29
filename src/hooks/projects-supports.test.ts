@@ -1,5 +1,5 @@
 // Project-origin documents of the Documentos tab: create (signed upload or link), delete and open.
-// Real hooks, only `fetch` and `window.open` are mocked, same as projects.test.ts.
+// Real hooks, only `fetch`, `window.open` and the anchor click of a download are mocked, same as projects.test.ts.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act, renderHook, waitFor } from "@testing-library/react"
@@ -118,7 +118,8 @@ describe("project documents hooks", () => {
     await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: projectQueryKeys.supports("p1") }))
   })
 
-  it("opens a project document through its download route, never caching the URL", async () => {
+  it("downloads a project document through its download route, never caching the URL", async () => {
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {})
     fetchMock.mockImplementation(() =>
       Promise.resolve(jsonResponse({ tipo: "archivo", url: "https://s.example/dl", expires_in: 60 })),
     )
@@ -126,6 +127,10 @@ describe("project documents hooks", () => {
     await downloadProjectDocument("p1", "d1")
     expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(String(fetchMock.mock.calls[0][0])).toBe("/api/v1/projects/p1/supports/d1/download")
-    expect(openMock).toHaveBeenCalledWith("https://s.example/dl", "_blank", "noopener,noreferrer")
+    // S4: a stored file downloads in the same tab (the signed URL with `download`), no new tab.
+    expect(click).toHaveBeenCalledTimes(2)
+    expect((click.mock.contexts[0] as HTMLAnchorElement).href).toBe("https://s.example/dl?download=")
+    expect(openMock).not.toHaveBeenCalled()
+    click.mockRestore()
   })
 })

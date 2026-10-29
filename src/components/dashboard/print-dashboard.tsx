@@ -8,10 +8,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, Printer, TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PrintToolbar } from "@/components/print/print-toolbar";
 import { apiGet, ApiError } from "@/lib/api/http";
 import {
   ESTADO_CLIENTE_LABELS,
@@ -89,24 +89,10 @@ export function PrintDashboardCara({ cara }: { cara: CaraPrint }) {
 
   return (
     <main className="min-h-screen bg-white px-6 py-6 text-ink-900 sm:px-10 print:bg-white print:p-0">
-      <div /* v6-surface */ className="print-hide mb-6 flex items-center justify-between rounded-[16px] border border-ink-200 bg-panel px-5 py-4">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/"
-            className="inline-flex h-[34px] items-center gap-1.5 rounded-11 border border-ink-200 bg-white px-3 text-[12.5px] font-semibold text-ink-800 transition-colors hover:bg-ink-100"
-          >
-            <ArrowLeft className="size-3.5" strokeWidth={1.9} />
-            Volver al dashboard
-          </Link>
-          <p className="hidden text-[13px] text-ink-600 sm:block">
-            Vista de impresión: los filtros que aplicaste se respetan.
-          </p>
-        </div>
-        <Button onClick={() => window.print()} className="px-4 font-bold">
-          <Printer className="size-4" />
-          Imprimir
-        </Button>
-      </div>
+      <PrintToolbar
+        description="Vista de impresión: los filtros que aplicaste se respetan."
+        fallbackHref="/"
+      />
 
       {state.kind === "loading" && (
         <p className="py-20 text-center text-[13px] text-ink-500">

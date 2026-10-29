@@ -429,8 +429,8 @@ gasto que tú registraste.
       del rubro" y el código del proyecto. Refresca si no aparece. Al abrir la campana se marcan como leídas. Hoy la
       notificación lleva a `/proyectos` (no abre la ficha).
    4. Solo se notifica a usuarios Gerencia; `admin@` ve la marca en la lista y en la cola pero no recibe campana.
-9. **Soporte**: en cada gasto, el botón con el nombre del soporte ("Ver soporte <nombre>") abre la descarga firmada
-   (60 s). Cada acceso se registra. Si falla: "No pudimos abrir el soporte. Inténtalo de nuevo." Un `coordinador@`
+9. **Soporte**: en cada gasto, el botón con el nombre del soporte ("Ver soporte <nombre>") descarga el archivo por su
+   URL firmada (60 s), directo y sin abrir otra pestaña; si el soporte es un enlace externo, ese sí se abre aparte. Cada acceso se registra. Si falla: "No pudimos abrir el soporte. Inténtalo de nuevo." Un `coordinador@`
    integrante ve los soportes de su proyecto; `colaborador@` no ve la sección de gestión.
 10. Negativos: sin soporte, "Adjunta al menos un soporte (archivo o enlace)."; rubro sin asignado, "Solo puedes
     registrar gastos en rubros con valor asignado."; validar un gasto que ya no está registrado, 409 "Solo se pueden
@@ -694,7 +694,8 @@ Tampoco se verificó en S9: que el enlace **Proyectos** del menú lateral sea vi
 bandera (se verificó la página, no el menú), ni los libros de Excel abiertos en Excel real (solo lo que prueban los
 tests con `exceljs`).
 Al pasar la ficha a su propia página (S12) se verificó en un navegador real (Playwright sobre la semilla S11, solo
-lectura, 2026-10-09): "Ver detalle" abre `/proyectos/<id>` en una pestaña nueva, el encabezado muestra código, estado
+lectura, 2026-10-09): "Ver detalle" abría entonces `/proyectos/<id>` en una pestaña nueva (desde #86 abre en la misma
+ventana; ver arriba), el encabezado muestra código, estado
 y los dos chips de semáforo con la palabra del color, "Volver a proyectos" apunta a `/proyectos`, las once pestañas
 abren su sección y un id inexistente muestra "Proyecto no encontrado"; también se miraron capturas a 1440 y 390 px.
 **No** se verificó: que `proyectos-demo.spec.ts` corra con la ficha nueva (necesita una demo limpia y la base tenía la

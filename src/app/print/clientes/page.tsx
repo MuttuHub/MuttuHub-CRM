@@ -1,7 +1,7 @@
 // Reporte imprimible del listado de clientes (PRD §4.6): página fuera del
 // shell (sin sidebar), lee los mismos filtros que el listado y los re-descarga
 // con page=1&limit=500. Se auto-imprime al cargar; en pantalla muestra una
-// barra con el botón "Imprimir".
+// barra con "Volver" (misma pestaña, S4) e "Imprimir".
 
 import { Suspense } from "react";
 import type { Metadata } from "next";

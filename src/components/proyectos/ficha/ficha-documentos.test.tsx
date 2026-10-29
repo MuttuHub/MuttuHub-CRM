@@ -176,10 +176,11 @@ describe("FichaDocumentos", () => {
     expect(screen.getByTestId("documentos-cargando")).toBeInTheDocument()
   })
 
-  it("opens an expense support through its signed URL and an external link directly", async () => {
+  it("downloads an expense support through its signed URL in the same tab and opens an external link apart", async () => {
     const user = userEvent.setup()
     const open = vi.fn()
     vi.stubGlobal("open", open)
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {})
     setup()
 
     await screen.findByTestId("documentos-lista")
@@ -189,11 +190,14 @@ describe("FichaDocumentos", () => {
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/expenses/gasto-1/attachments/s2/download", expect.any(Object)),
     )
-    await waitFor(() => expect(open).toHaveBeenCalledWith("https://s.example/dl", "_blank", "noopener,noreferrer"))
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1))
+    expect((click.mock.contexts[0] as HTMLAnchorElement).href).toBe("https://s.example/dl?download=")
+    expect(open).not.toHaveBeenCalled()
 
     const convenio = within(screen.getByTestId("documentos-grupo-proyecto")).getByText("convenio-2026.pdf").closest("li")!
     await user.click(within(convenio).getByRole("button", { name: "Abrir" }))
     expect(open).toHaveBeenCalledWith("https://docs.example/convenio", "_blank", "noopener,noreferrer")
+    click.mockRestore()
   })
 
   it("disables Abrir for an indicator without a link (enough to read its metadata)", async () => {
@@ -287,10 +291,11 @@ describe("FichaDocumentos: project documents (upload, open, delete)", () => {
     expect(screen.queryByRole("button", { name: /^Eliminar/ })).not.toBeInTheDocument()
   })
 
-  it("opens a project file through its own download route", async () => {
+  it("downloads a project file through its own download route, in the same tab (S4)", async () => {
     const user = userEvent.setup()
     const open = vi.fn()
     vi.stubGlobal("open", open)
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {})
     setup()
 
     const fila = (await screen.findByText("contrato.pdf")).closest("li")!
@@ -298,7 +303,10 @@ describe("FichaDocumentos: project documents (upload, open, delete)", () => {
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/supports/d1/download", expect.any(Object)),
     )
-    await waitFor(() => expect(open).toHaveBeenCalledWith("https://s.example/doc", "_blank", "noopener,noreferrer"))
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1))
+    expect((click.mock.contexts[0] as HTMLAnchorElement).href).toBe("https://s.example/doc?download=")
+    expect(open).not.toHaveBeenCalled()
+    click.mockRestore()
   })
 
   it("lets a manager delete any project document, after confirming, and never other origins", async () => {

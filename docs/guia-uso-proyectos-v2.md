@@ -291,7 +291,8 @@ Reúne en una sola lista todos los soportes del proyecto, con su origen: **Activ
 **Proyecto**.
 
 - **Filtrar documentos** por origen y **Buscar por nombre**.
-- Al abrir un documento, la descarga usa una **URL firmada**: el archivo no es público.
+- Al abrir un documento, la descarga usa una **URL firmada**: el archivo no es público. El archivo se **descarga
+  directo**, sin abrir otra pestaña; un **enlace** externo (por ejemplo Drive) sí se abre en otra pestaña.
 - **Subir documento** (Administrador, Gerencia o un integrante, en estados editables) permite un **archivo** o
   un **enlace con su nombre**.
 - **Eliminar** solo está disponible para documentos del grupo **Proyecto**, y solo para quien los subió o para
@@ -339,7 +340,8 @@ presupuesto se congelan, se crea la versión `v0` y el proyecto pasa a **En ejec
 En el encabezado de la ficha, menú **«⋯»**:
 
 - **Exportar a Excel**: elige el **corte** y la **base** y descarga la ficha.
-- **Imprimir / PDF**: abre una hoja limpia, sin el menú lateral. Con **Ctrl+P** se imprime o se guarda como PDF.
+- **Imprimir / PDF**: abre una hoja limpia, sin el menú lateral, en la **misma pestaña**. Con **Ctrl+P** (o el botón
+  **Imprimir / Guardar PDF**) se imprime o se guarda como PDF; **Volver** regresa a la ficha.
 
 ---
 

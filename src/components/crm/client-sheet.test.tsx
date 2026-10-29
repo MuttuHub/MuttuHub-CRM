@@ -116,6 +116,18 @@ describe("ClientSheet — General tab inline editing (QA audit finding #3)", () 
     )
   })
 
+  it("opens 'Exportar PDF' in the same tab, never with window.open (S4)", () => {
+    const open = vi.fn()
+    vi.stubGlobal("open", open)
+    renderSheet()
+
+    const exportar = screen.getByRole("link", { name: "Exportar PDF" })
+    expect(exportar).toHaveAttribute("href", "/print/clientes/c1")
+    expect(exportar).not.toHaveAttribute("target")
+    expect(open).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
+  })
+
   it.each(["COORDINADOR", "COLABORADOR"])("shows 'Crear proyecto' to a %s (S1)", (rol) => {
     useCurrentUserMock.mockReturnValue({ data: { id: "u1", nombre: "Ana", rol } })
     renderSheet()

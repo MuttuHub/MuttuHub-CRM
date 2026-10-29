@@ -1608,8 +1608,34 @@ export function useVoidExpense(): UseMutationResult<
   });
 }
 
+/** Respuesta común de las rutas `.../download` de soportes: archivo en Storage o enlace externo. */
+type SoporteDownload = { tipo: "archivo" | "enlace"; url: string | null };
+
 /**
- * Pide la URL firmada (60 s) o el enlace de un soporte y la abre en otra pestaña. La API registra
+ * Entrega un soporte sin sacar al usuario de la app (S4): un archivo (URL firmada de Storage) se descarga directo
+ * en la misma pestaña; un enlace externo (Drive, etc.) sí se abre en otra pestaña (A4). A la URL firmada se le
+ * pone `download`, lo mismo que añade `createSignedUrl(..., { download: true })`: Storage responde entonces con
+ * `Content-Disposition: attachment` y el navegador baja el archivo sin navegar. El atributo `download` del ancla
+ * no basta solo, porque la URL es de otro origen.
+ */
+function entregarSoporte(res: SoporteDownload & { url: string }): void {
+  if (res.tipo === "enlace") {
+    window.open(res.url, "_blank", "noopener,noreferrer");
+    return;
+  }
+  const url = new URL(res.url, window.location.origin);
+  url.searchParams.set("download", "");
+  const a = document.createElement("a");
+  a.href = url.toString();
+  a.download = "";
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+/**
+ * Pide la URL firmada (60 s) o el enlace de un soporte y lo entrega con `entregarSoporte`. La API registra
  * cada emisión en la bitácora de accesos (RNF-04), así que NO se cachea ni se reutiliza la URL.
  */
 export async function downloadExpenseSoporte(
@@ -1617,23 +1643,23 @@ export async function downloadExpenseSoporte(
   expenseId: string,
   soporteId: string,
 ): Promise<void> {
-  const res = await apiGet<{ tipo: "archivo" | "enlace"; url: string | null }>(
+  const res = await apiGet<SoporteDownload>(
     `/api/v1/projects/${projectId}/expenses/${expenseId}/attachments/${soporteId}/download`,
   );
   if (!res.url) throw new ApiError("El soporte no tiene un enlace disponible.", 404);
-  window.open(res.url, "_blank", "noopener,noreferrer");
+  entregarSoporte({ tipo: res.tipo, url: res.url });
 }
 
 /**
- * Opens the support of an avance (file via a 60 s signed URL, or its external link) in another tab.
+ * Downloads the support of an avance (file via a 60 s signed URL) or opens its external link in another tab.
  * Same contract as `downloadExpenseSoporte`: never cache the URL, the API logs every issuance.
  */
 export async function downloadAvanceSoporte(projectId: string, avanceId: string, soporteId: string): Promise<void> {
-  const res = await apiGet<{ tipo: "archivo" | "enlace"; url: string | null }>(
+  const res = await apiGet<SoporteDownload>(
     `/api/v1/projects/${projectId}/progress/${avanceId}/attachments/${soporteId}/download`,
   );
   if (!res.url) throw new ApiError("El soporte no tiene un enlace disponible.", 404);
-  window.open(res.url, "_blank", "noopener,noreferrer");
+  entregarSoporte({ tipo: res.tipo, url: res.url });
 }
 
 /* ── Soportes del proyecto (pestaña Soportes, solo lectura) ─────────────── */
@@ -1706,15 +1732,15 @@ export function useDeleteProjectDocument(
 }
 
 /**
- * Pide la URL firmada (60 s) o el enlace de un documento del proyecto y lo abre en otra pestaña. La API
- * registra cada emisión en la bitácora de accesos (RNF-04), así que NO se cachea ni se reutiliza la URL.
+ * Pide la URL firmada (60 s) o el enlace de un documento del proyecto y lo entrega con `entregarSoporte`. La
+ * API registra cada emisión en la bitácora de accesos (RNF-04), así que NO se cachea ni se reutiliza la URL.
  */
 export async function downloadProjectDocument(projectId: string, supportId: string): Promise<void> {
-  const res = await apiGet<{ tipo: "archivo" | "enlace"; url: string | null }>(
+  const res = await apiGet<SoporteDownload>(
     `/api/v1/projects/${projectId}/supports/${supportId}/download`,
   );
   if (!res.url) throw new ApiError("El documento no tiene un enlace disponible.", 404);
-  window.open(res.url, "_blank", "noopener,noreferrer");
+  entregarSoporte({ tipo: res.tipo, url: res.url });
 }
 
 /* ── Plantilla Excel (S7 U6) ───────────────────────────────────────────── */

@@ -7,8 +7,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { AlertTriangle, Printer } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { AlertTriangle } from "lucide-react";
+import { PrintToolbar } from "@/components/print/print-toolbar";
 import {
   SALUD_LABEL,
   fraseFinanciera,
@@ -84,16 +84,11 @@ export function ProjectPrintSheet({ projectId }: { projectId: string }) {
         <ImprimirError error={query.error} />
       ) : proyecto ? (
         <>
-          <div
-            data-testid="imprimir-barra"
-            className="print-hide mb-6 flex items-center justify-between gap-3 rounded-[16px] border border-ink-200 bg-panel px-5 py-4"
-          >
-            <p className="text-[13px] text-ink-600">Vista de impresión de la ficha del proyecto.</p>
-            <Button type="button" onClick={() => window.print()} className="px-4 font-bold">
-              <Printer className="size-4" strokeWidth={1.8} />
-              Imprimir / Guardar PDF
-            </Button>
-          </div>
+          <PrintToolbar
+            description="Vista de impresión de la ficha del proyecto."
+            fallbackHref={`/proyectos/${encodeURIComponent(projectId)}`}
+            printLabel="Imprimir / Guardar PDF"
+          />
           <Hoja proyecto={proyecto} />
         </>
       ) : (
