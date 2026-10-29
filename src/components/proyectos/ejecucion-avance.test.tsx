@@ -291,8 +291,13 @@ describe("EjecucionAvance", () => {
       await user.click(screen.getByRole("button", { name: "Adjuntar" }))
 
       await waitFor(() => expect(screen.queryByRole("form", { name: "Adjuntar archivo" })).toBeNull())
-      expect(fetchMock).toHaveBeenCalledTimes(1)
-      const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+      // Count only the POST: the component also GETs the activity report list on mount (AJ-01),
+      // so a bare call count would assert on unrelated reads. This test is about "one POST".
+      const posts = fetchMock.mock.calls.filter(
+        ([, init]) => (init as RequestInit | undefined)?.method === "POST",
+      )
+      expect(posts).toHaveLength(1)
+      const [url, init] = posts[0] as [string, RequestInit]
       expect(url).toBe("/api/v1/projects/p1/progress/av1/attachments")
       expect(JSON.parse(init.body as string)).toEqual({ url_externa: "https://drive.example.com/f/1", nombre: "Acta firmada" })
     })
