@@ -138,3 +138,11 @@ rules, verbatim requests (R1–R3), assumptions (A1–A5), root causes and file 
   prod data dropped afterwards. Then merged #102 and #103. Advisory for another session: local branch
   `feat/aj01-estado-en-curso` has migration `20261029120000_v2_reportes_actividad` with the same timestamp.
   Unblocked now: 2.4b, 2.6, 2.7 Clients, admin hooks cleanup.
+- **L11 (2026-10-29).** #111 merged; #108 (AJ-06, another session) merged too. Main CI re-running on the latest commits.
+  Launched in parallel (delegated, disjoint surfaces, worktrees from main 982658e/6a0d1b6): 2.4b
+  (`fix/kanban-sin-pestanas`) and 2.6 (`feat/etiquetas-clientes`). User: «tomalo tu» → this account takes lane 1 tasks
+  1.2–1.5 (documents per client; specs S3–S7 of `jefe-carril-1.md`). 1.2 + 1.4 (backend, one delegated unit, two
+  commits) launched on `feat/documentos-carpeta-cliente-api`; 1.3 (UI) follows 1.2; 1.5 (Documents modal review)
+  follows 1.3. The backfill script for existing mirrored attachments runs only against local; a production run is a
+  separate user decision (risk item 1).
+
