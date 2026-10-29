@@ -46,7 +46,7 @@ recomendado en `docs/plan-trabajo-restante.md:69` (AJ-06 antes que AJ-01).
 | T3 | S2, S3 (new attachments API routes — GET/POST/sign/download, mirroring `progress/[progressId]/attachments`; wire the generic control into `ejecucion-indicadores.tsx`) | delegated (context backstop) | done | `cd3a47e` |
 | T4 | S6, S7 (rename gasto's button to "Adjuntar archivo", add the filename+remove row to `gasto-form.tsx`'s own file input) | delegated (parallel, disjoint surface) | done | `69afba1` |
 | T5 | S2, S3 (import template: "Enlace del soporte" column, parse `;`-separated links validating `http(s)://`, create one `SoporteProyecto` per link on the created gasto) | delegated (parallel, disjoint surface) | done | `45fb30c` |
-| T6 | Docs (OpenAPI for the new medición-attachments paths and the import column; user guide; test guide; flip AJ-06 to Hecho in `docs/plan-trabajo-restante.md`) | delegated (context backstop) | pending | |
+| T6 | Docs (OpenAPI for the new medición-attachments paths and the import column; user guide; test guide; flip AJ-06 to Hecho in `docs/plan-trabajo-restante.md`) | delegated (context backstop) | done | `0f08fcf` |
 
 Route evidence: T1 is used by T2, T3 and T4 (shared component), and T2/T3 both touch `src/hooks/projects.ts` to add
 their mutation hooks — no parallel-writer reason, so every task goes to one bounded writer in sequence (context
@@ -118,3 +118,21 @@ verifier.
   ejecucion-indicadores.tsx wires T1's control per medición (gated canWrite && !anulada). Full repo suite: 4590/4592
   green (same 2 pre-existing, unrelated live-DB invariant failures as T2). Risk: none (additive endpoints/field, no
   migration, reused gating).
+- **L8 (T6):** OpenAPI updated for the new medición-attachments endpoints (no "cuenta" field, mediciones have no
+  semáforo concept) and the additive "soportes" field on avances and mediciones lists; the import column documented
+  with its real validation rule. Guides updated for the new "Adjuntar archivo" wording, the post-creation multi-attach
+  flow, and the import column. `docs/plan-trabajo-restante.md`'s AJ-06 row flipped to Hecho. `docs/guia-uso-proyectos-v2.html`
+  is now stale versus the updated .md — no generation script was found in package.json/scripts, so it is left as a
+  known follow-up, not part of this feature's scope. `npx vitest run src/lib/openapi/document.test.ts`: 30/30 green.
+- **L9 (2026-10-29, close):** Full `npx vitest run`: 4591/4592 green; the 1 failure (`prisma/municipios.invariant.test.ts`)
+  is the same pre-existing live-DB unique-constraint race T2/T3 already flagged as unrelated (a live-DB invariant test,
+  not touched by this feature; the sibling flake T2 saw in `proyecto-create-flow.invariant.test.ts` did not reproduce
+  this run, consistent with it being a live-DB race, not a regression). `npx tsc --noEmit`: clean across the whole
+  repo. Native review (RDD) was attempted three times across this feature's commits; each time the reviewer-capture
+  step failed for environment reasons (an installed Claude Code CLI rejecting the Gentle AI reviewer's `model: auto`
+  request, and once a 64KB internal git-diff limit while a writer was mid-edit) — never a code finding. The user
+  consented once to report the second failure; the GitHub lookup itself could not run (same proxy/certificate issue
+  blocking `git fetch`/`gh` all session), so the captured decline was run instead per the provider-defect protocol. No
+  native review receipt exists for this branch; this independent full-suite/type-check run is the review of record,
+  consistent with the AJ-04/AJ-05 precedent (L10) when native review was unavailable. Feature complete: AJ-01 is next
+  per the team's own recommended order (`docs/plan-trabajo-restante.md:69`). Next: user decides push and PR.
