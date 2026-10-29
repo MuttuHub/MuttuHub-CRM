@@ -28,12 +28,13 @@ async function openGastos(page: Page) {
 
 async function registrarGasto(
   page: Page,
-  v: { rubro: RegExp; valor: string; doc: string; tercero: string },
+  v: { rubro: RegExp; subtotal: string; doc: string; tercero: string },
 ) {
   await page.getByTestId("gastos").getByRole("button", { name: "Registrar gasto" }).click();
   const form = page.getByRole("form", { name: "Registrar gasto" });
   await form.getByLabel("Rubro").selectOption({ label: (await form.getByLabel("Rubro").locator("option").allTextContents()).find((t) => v.rubro.test(t))! });
-  await form.getByLabel("Valor", { exact: true }).fill(v.valor);
+  // AJ-04: the total is Subtotal + IVA; IVA starts at 0, so the total equals the subtotal here.
+  await form.getByLabel("Subtotal", { exact: true }).fill(v.subtotal);
   await form.getByLabel("Fecha del documento").fill(new Date().toISOString().slice(0, 10));
   await form.getByLabel("Número de documento").fill(v.doc);
   await form.getByLabel("Tercero", { exact: true }).fill(v.tercero);
@@ -108,12 +109,12 @@ test("Finanzas (coordinador): es-CO value, bad format error, overspend → Pendi
   await openGastos(page);
 
   // invalid format
-  let form = await registrarGasto(page, { rubro: /R13/, valor: "1500000.50", doc: DOC_VALIDAR, tercero: `E2E Proveedor ${RUN}` });
+  let form = await registrarGasto(page, { rubro: /R13/, subtotal: "1500000.50", doc: DOC_VALIDAR, tercero: `E2E Proveedor ${RUN}` });
   await form.getByRole("button", { name: "Registrar", exact: true }).click();
-  await expect(page.getByText(/Ingresa un valor válido con máximo dos decimales/)).toBeVisible();
+  await expect(page.getByText(/Ingresa un subtotal válido con máximo dos decimales/)).toBeVisible();
 
   // valid small expense (to be validated later)
-  await form.getByLabel("Valor", { exact: true }).fill("10.000,50");
+  await form.getByLabel("Subtotal", { exact: true }).fill("10.000,50");
   await form.getByRole("button", { name: "Registrar", exact: true }).click();
   await expect(page.getByRole("form", { name: "Registrar gasto" })).toBeHidden({ timeout: 30_000 });
   const filaV = page.getByRole("row", { name: new RegExp(DOC_VALIDAR) });
@@ -122,7 +123,7 @@ test("Finanzas (coordinador): es-CO value, bad format error, overspend → Pendi
   await expect(filaV).toContainText("10.000");
 
   // overspend: R11 Varios is assigned only 300.000
-  form = await registrarGasto(page, { rubro: /R11/, valor: "1.500.000,50", doc: DOC_SOBRE, tercero: `E2E Proveedor ${RUN}` });
+  form = await registrarGasto(page, { rubro: /R11/, subtotal: "1.500.000,50", doc: DOC_SOBRE, tercero: `E2E Proveedor ${RUN}` });
   await form.getByRole("button", { name: "Registrar", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "Gasto registrado, con avisos" })).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "Entendido" }).click();
@@ -182,7 +183,7 @@ test("a manager cannot validate their own expense (admin registers, sees «Tú l
   await loginToProject(page, "admin", "PRY-2026-001");
   await openGastos(page);
   const doc = `E2E-P-${RUN}`;
-  const form = await registrarGasto(page, { rubro: /R13/, valor: "5.000", doc, tercero: `E2E Propio ${RUN}` });
+  const form = await registrarGasto(page, { rubro: /R13/, subtotal: "5.000", doc, tercero: `E2E Propio ${RUN}` });
   await form.getByRole("button", { name: "Registrar", exact: true }).click();
   const fila = page.getByRole("row", { name: new RegExp(doc) });
   await expect(fila).toBeVisible({ timeout: 30_000 });
