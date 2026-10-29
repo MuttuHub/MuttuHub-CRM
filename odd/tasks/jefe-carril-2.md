@@ -43,7 +43,7 @@ rules, verbatim requests (R1–R3), assumptions (A1–A5), root causes and file 
 
 | ID | Specs | Task | Depends | Route | Status | Commit / evidence |
 |---|---|---|---|---|---|---|
-| 2.1 | S1 | `docs/proceso-proyectos-desde-cero.md` (+ HTML/PDF like the other guides); fix B7 in `guia-uso-proyectos-v2.md`. Docs only. | — | inline | todo | |
+| 2.1 | S1 | `docs/proceso-proyectos-desde-cero.md` (+ HTML/PDF like the other guides); fix B7 in `guia-uso-proyectos-v2.md`. Docs only. | — | inline | done | branch `docs/proceso-proyectos-desde-cero`, commit 99a14fe (not yet pushed/PR'd) |
 | 2.2 | S2 | Edit-user panel in `users-table.tsx` (name, role, flags), reactivate, resend invite / reset password via `src/lib/supabase/admin.ts`; new hooks in `src/hooks/users.ts` (not `hooks/admin.ts`). | — | inline | todo | |
 | 2.3 | S3 | Remove the municipalities sub-table from `catalogos-v2-section.tsx` (+ test). Delete now-unused admin hooks only after 1.1 is merged. | — | inline | todo | |
 | 2.4 | S4 | Reproduce first; then replace internal `window.open`/`_blank` (sites in the index) with same-tab navigation + «Volver» on print pages; direct downloads in `hooks/projects.ts`. | 1.1 merged | inline | todo | |
@@ -68,3 +68,8 @@ rules, verbatim requests (R1–R3), assumptions (A1–A5), root causes and file 
 
 - **L1 (2026-10-28) — original request.** See R1–R3 in `odd/tasks/jefe-requerimientos-2026-10-28.md` (verbatim).
 - **L2 (2026-10-28).** Plan approved by the user with assumptions A1–A5. Lane created; next step: 2.1.
+- **L3 (2026-10-28).** 2.1 done: `docs/proceso-proyectos-desde-cero.md` (+ HTML/PDF) walks the full lifecycle (opportunity →
+  creation → baseline → weekly follow-up → modifications → B7 states) for a non-technical reader, with a
+  who-does-what table. Fixed the stale B7 statements in `guia-uso-proyectos-v2.md:391,454` (B7 shipped in #97) and the
+  self-contradiction at `:392` about the PO template's Cantidad/Unidad columns (already imported since B3, #98); added
+  a real §5.6 documenting the state-change dialog. Next step: 2.2.
