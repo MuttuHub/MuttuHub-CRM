@@ -27,13 +27,13 @@ test("Más acciones: Exportar a Excel dialog and Imprimir / PDF opens the print 
   await expect(page.getByText("Elige el corte y la base, y descarga la ficha.")).toBeVisible();
   await page.keyboard.press("Escape");
 
+  // The print view opens in the same tab (no new browser tab) and «Volver» returns to the ficha.
   await page.getByRole("button", { name: "Más acciones" }).click();
-  const [print] = await Promise.all([
-    context.waitForEvent("page"),
-    page.getByRole("menuitem", { name: "Imprimir / PDF" }).click(),
-  ]);
-  await print.waitForLoadState("domcontentloaded");
+  await page.getByRole("menuitem", { name: "Imprimir / PDF" }).click();
+  const print = page;
   await expect(print).toHaveURL(new RegExp(`/proyectos/${id}/imprimir$`));
+  expect(context.pages()).toHaveLength(1);
+  await expect(print.getByRole("link", { name: "Volver" })).toBeVisible({ timeout: 60_000 });
   await expect(print.getByRole("button", { name: "Imprimir / Guardar PDF" })).toBeVisible({ timeout: 60_000 });
   const ficha = print.getByRole("article");
   await expect(ficha.getByText("PRY-2026-001")).toBeVisible();
@@ -45,4 +45,8 @@ test("Más acciones: Exportar a Excel dialog and Imprimir / PDF opens the print 
   await expect(print.getByRole("complementary")).toBeHidden();
   await expect(print.getByRole("button", { name: "Imprimir / Guardar PDF" })).toBeHidden();
   await expect(ficha).toBeVisible();
+
+  await print.emulateMedia({ media: "screen" });
+  await print.getByRole("link", { name: "Volver" }).click();
+  await expect(page).toHaveURL(new RegExp(`/proyectos/${id}$`));
 });
