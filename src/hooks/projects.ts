@@ -294,6 +294,9 @@ export const projectQueryKeys = {
       : ["projects", "technical-status", id, base]) as readonly string[],
   deliverableProgress: (id: string, deliverableId: string) =>
     ["projects", "deliverable-progress", id, deliverableId] as const,
+  /** AJ-01: reportes de avance de una actividad (`ReporteActividad`), separado del progreso por entregable. */
+  activityReports: (id: string, activityId: string) =>
+    ["projects", "activity-reports", id, activityId] as const,
   indicatorMeasurements: (id: string, indicatorId: string) =>
     ["projects", "indicator-measurements", id, indicatorId] as const,
   beneficiaries: (id: string) => ["projects", "beneficiaries", id] as const,
@@ -1190,6 +1193,152 @@ export function useAttachAvanceMedio(
     onSuccess: () => {
       void qc.invalidateQueries({
         queryKey: projectQueryKeys.deliverableProgress(projectId, deliverableId),
+      });
+      void qc.invalidateQueries({ queryKey: projectQueryKeys.technicalStatus(projectId) });
+    },
+  });
+}
+
+/* ── Reportes de avance de actividad (AJ-01, S2/S3/S11) ─────────────────── */
+//
+// Separado de `ProjectAvance` (que es por ENTREGABLE): `ReporteActividad` es el reporte de
+// avance de la ACTIVIDAD completa (porcentaje + observación obligatoria), sin `medio` en la
+// creación — el medio se adjunta después, por el mismo patrón "crear" / "adjuntar más" que
+// `AvanceMedioInput` ya usa para gasto/avance/medición.
+
+/** Fila de `reportes[]` (`toReporteView`): `porcentaje` es `Decimal` y viaja STRING. */
+export type ProjectActivityReport = {
+  id: string;
+  proyecto_id: string;
+  actividad_id: string;
+  fecha: string;
+  porcentaje: string;
+  observacion: string;
+  registrado_por_id: string;
+  created_at: string;
+  anulado_at: string | null;
+  anulado_por_id: string | null;
+  motivo_anulacion: string | null;
+  /** Medios vivos adjuntos. */
+  medios: number;
+};
+
+/** Respuesta de `GET .../activities/:activityId/progress`: orden cronológico (más antiguo primero). */
+export type ProjectActivityReports = {
+  estado: EstadoProyecto;
+  reportes: ProjectActivityReport[];
+};
+
+/** Historial de reportes de avance de una actividad (S2: "historial visible... fecha, porcentaje, observación, usuario"). */
+export function useActivityReports(
+  projectId: string,
+  activityId: string,
+): UseQueryResult<ProjectActivityReports> {
+  return useQuery({
+    queryKey: projectQueryKeys.activityReports(projectId, activityId),
+    enabled: projectId !== "" && activityId !== "",
+    queryFn: () =>
+      apiGet<ProjectActivityReports>(
+        `/api/v1/projects/${projectId}/activities/${activityId}/progress`,
+      ),
+  });
+}
+
+export type ProjectActivityReportInput = {
+  /** Calendario `YYYY-MM-DD`, nunca posterior a hoy. */
+  fecha: string;
+  porcentaje: number;
+  observacion: string;
+};
+
+/**
+ * Registra un reporte de avance de actividad. El servidor es la única autoridad de las reglas
+ * de negocio (S9.1-S9.4: mayor que el último, tope sin entregables completos, campos
+ * obligatorios) y responde 409 con el mensaje exacto a mostrar en línea — este hook no
+ * duplica esa validación, solo relanza el error para que el formulario lo muestre.
+ */
+export function useCreateActivityReport(
+  projectId: string,
+  activityId: string,
+): UseMutationResult<{ reporte: ProjectActivityReport }, Error, ProjectActivityReportInput> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input) =>
+      apiPost<{ reporte: ProjectActivityReport }>(
+        `/api/v1/projects/${projectId}/activities/${activityId}/progress`,
+        input,
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({
+        queryKey: projectQueryKeys.activityReports(projectId, activityId),
+      });
+      void qc.invalidateQueries({ queryKey: projectQueryKeys.technicalStatus(projectId) });
+    },
+  });
+}
+
+/** Anula el último reporte de avance de la actividad (S10: conserva la fila, solo el más reciente). */
+export function useVoidActivityReport(
+  projectId: string,
+  activityId: string,
+): UseMutationResult<{ reporte: ProjectActivityReport }, Error, { id: string; motivo: string }> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, motivo }) =>
+      apiPost<{ reporte: ProjectActivityReport }>(
+        `/api/v1/projects/${projectId}/activities/${activityId}/progress/${id}/void`,
+        { motivo },
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({
+        queryKey: projectQueryKeys.activityReports(projectId, activityId),
+      });
+      void qc.invalidateQueries({ queryKey: projectQueryKeys.technicalStatus(projectId) });
+    },
+  });
+}
+
+/** Medio de un reporte de actividad: firmar -> subir -> confirmar (ADR-13, igual que `uploadAvanceMedioFile`). */
+async function uploadActivityReportMedioFile(
+  projectId: string,
+  activityId: string,
+  reportId: string,
+  file: File,
+): Promise<void> {
+  const payload = await uploadSoporteFile(
+    `/api/v1/projects/${projectId}/activities/${activityId}/progress/${reportId}/attachments/sign`,
+    file,
+  );
+  await apiPost(
+    `/api/v1/projects/${projectId}/activities/${activityId}/progress/${reportId}/attachments`,
+    payload,
+  );
+}
+
+/**
+ * Adjunta un medio a un reporte de avance que ya existe (S11): archivo (firma -> subida ->
+ * confirmación) o enlace https. Acotado a `{ reportId, soporte }` para envolverse en
+ * `AdjuntarArchivoControl` (AJ-06), igual que `useAttachAvanceMedio`.
+ */
+export function useAttachActivityReportMedio(
+  projectId: string,
+  activityId: string,
+): UseMutationResult<void, Error, { reportId: string; soporte: AvanceMedioInput }> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ reportId, soporte }) => {
+      if (soporte.tipo === "archivo") {
+        await uploadActivityReportMedioFile(projectId, activityId, reportId, soporte.file);
+      } else {
+        await apiPost(
+          `/api/v1/projects/${projectId}/activities/${activityId}/progress/${reportId}/attachments`,
+          { url_externa: soporte.url_externa, nombre: soporte.nombre },
+        );
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({
+        queryKey: projectQueryKeys.activityReports(projectId, activityId),
       });
       void qc.invalidateQueries({ queryKey: projectQueryKeys.technicalStatus(projectId) });
     },

@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useId, useState, type ReactNode } from "react";
+import { useId, useMemo, useState, type ReactNode } from "react";
 import { ChevronRight, ClipboardList, Gauge } from "lucide-react";
 import { useCurrentUser } from "@/hooks/kanban";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -236,6 +236,27 @@ function EjecucionContent({
 
   const { canWrite, canVoid } = useEjecucionPermisos(proyecto.id);
 
+  // AJ-01 (S9.5): "Registrar avance" de la actividad es solo para su responsable, o un
+  // ADMINISTRADOR/GERENCIA (el mismo override que todo otro gate de escritura ya tiene) — no
+  // es el mismo eje que `canWrite`/`canVoid` (membresía/gestor), por eso se calcula aparte.
+  // El historial también necesita el nombre de quien registró cada reporte (S2): se resuelve
+  // desde la misma lista de integrantes que ya se lee para los permisos.
+  const usuarioActualQuery = useCurrentUser();
+  const miembrosQuery = useProjectMembers(proyecto.id);
+  const usuarioActual = usuarioActualQuery.data;
+  const esGestor = usuarioActual
+    ? canManageProjects({ id: usuarioActual.id, rol: usuarioActual.rol })
+    : false;
+  const nombrePorUsuario = useMemo(() => {
+    const mapa = new Map<string, string>();
+    for (const miembro of miembrosQuery.data ?? []) mapa.set(miembro.usuario.id, miembro.usuario.nombre);
+    if (usuarioActual) mapa.set(usuarioActual.id, usuarioActual.nombre);
+    return mapa;
+  }, [miembrosQuery.data, usuarioActual]);
+  const nombreUsuario = (id: string) => nombrePorUsuario.get(id) ?? id;
+  const esResponsableDe = (actividad: ProjectActivity): boolean =>
+    esGestor || Boolean(usuarioActual && actividad.responsable_id === usuarioActual.id);
+
   // Decisión 2: los entregables se leen UNA vez y los avances se abren con
   // `useQueries`, solo mientras la sección está montada.
   const deliverables = deliverablesQuery.data ?? [];
@@ -304,6 +325,8 @@ function EjecucionContent({
                 progreso={progreso}
                 canWrite={canWrite}
                 canVoid={canVoid}
+                esResponsable={esResponsableDe(actividad)}
+                nombreUsuario={nombreUsuario}
                 enfocar={enfocarId === actividad.id}
               />
             );

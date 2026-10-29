@@ -340,5 +340,37 @@ describe("ProjectEjecucion", () => {
       await screen.findByTestId("ejecucion-entregable")
       expect(screen.queryByRole("button", { name: "Anular" })).not.toBeInTheDocument()
     })
+
+    // AJ-01 (S9.5): "Registrar avance" a nivel ACTIVIDAD exige además ser el responsable
+    // (o un ADMINISTRADOR/GERENCIA) — un eje distinto al de `canWrite` por membresía.
+    it("offers the activity-level avance action to the activity's own responsable", async () => {
+      setup({
+        rol: "COORDINADOR",
+        miembros: [MIEMBRO_COORDINADOR],
+        actividades: [{ ...ACTIVIDAD, responsable_id: "u1" }],
+      })
+
+      expect(await screen.findByRole("button", { name: "Registrar avance 1.1" })).toBeInTheDocument()
+    })
+
+    it("hides the activity-level avance action from a member who isn't the responsable", async () => {
+      setup({
+        rol: "COORDINADOR",
+        miembros: [MIEMBRO_COORDINADOR],
+        actividades: [{ ...ACTIVIDAD, responsable_id: "otro-usuario" }],
+      })
+
+      await screen.findByTestId("ejecucion-actividad")
+      expect(screen.queryByRole("button", { name: "Registrar avance 1.1" })).not.toBeInTheDocument()
+    })
+
+    it("offers it to an ADMINISTRADOR even when they aren't the responsable (S9.5 override)", async () => {
+      setup({
+        rol: "ADMINISTRADOR",
+        actividades: [{ ...ACTIVIDAD, responsable_id: "otro-usuario" }],
+      })
+
+      expect(await screen.findByRole("button", { name: "Registrar avance 1.1" })).toBeInTheDocument()
+    })
   })
 })
