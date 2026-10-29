@@ -94,3 +94,9 @@ sequence. Risk: item 1 for T1 (migration on money data) and item 3 for T2 (the e
   examples and the old-template message are pinned. Advisories: deploy the migration together with the new build
   (`subtotal_cop` has no DB default, so an old build's inserts fail after it); history shows `subtotal`/`iva` with the
   generic label; the migration and `prisma/*.invariant` still have to run against `.env.local` before merge.
+- **L10 (2026-10-28):** Full `src` + `scripts` suite: 360 files, 4213 tests passed. Native review (granted by the user,
+  lenses risk, readability, reliability) was created, but its bound STATUS hit `operation_timeout` twice and stopped
+  with `manual_action_required` (a Gentle AI defect, not a code finding). With the user's consent («Reportar y
+  continuar») an occurrence comment was added to the canonical issue Gentleman-Programming/gentle-ai#5422, and the
+  provider's decline was run once for this candidate (`declined_this_candidate`). No native review receipt exists for
+  this branch; the independent verifier (L9) is the review of record. Next: user decides push and PR.
