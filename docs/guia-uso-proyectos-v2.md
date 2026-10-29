@@ -112,7 +112,7 @@ píldoras de arriba.
    beneficiarios**, **Líneas estratégicas** y **Municipios**.
    **Municipios** se elige en dos pasos: primero el **departamento** y después el **municipio** dentro de ese
    departamento. Puedes marcar varios; cada uno queda como una ficha que se puede quitar. Están cargados **los 1122
-   municipios de Colombia**; si alguno no aparece, un administrador puede agregarlo en **Administración → Catálogos**.
+   municipios de Colombia** (catálogo DANE fijo; no se administra desde **Administración**).
 3. Pulsa **Crear proyecto y continuar**.
 
 Al guardar, el proyecto nace en **Borrador** con un código automático **PRY-AAAA-NNN** (por ejemplo `PRY-2026-001`). El
@@ -311,6 +311,28 @@ Tres segmentos: **Modificaciones**, **Versiones** y **Auditoría**.
   presupuesto, programación, actividades, entregables e indicadores).
 - **Auditoría**: el registro de cambios del proyecto, con usuario y fecha.
 
+### 5.6 Cambiar el estado: suspender, reactivar, cerrar, reabrir o cancelar
+
+Solo **Administrador** o **Gerencia**. En el encabezado de la ficha, el botón **Cambiar estado** abre un diálogo con
+las acciones válidas para el estado actual y un **motivo** obligatorio:
+
+| Estado actual | Acciones disponibles |
+|---|---|
+| Borrador | Cancelar |
+| En ejecución | Suspender, Cerrar, Cancelar |
+| Suspendido | Reactivar, Cancelar |
+| Cerrado | Reabrir |
+| Cancelado | Ninguna (el botón no aparece) |
+
+- **Suspendido** y **Cerrado** congelan el proyecto: desaparecen **Registrar avance**, **Registrar gasto**, **Subir
+  documento** y las decisiones sobre modificaciones y gastos pendientes; esas acciones responden «No se puede
+  modificar un proyecto en este estado» (409) si se intentan por API. Las **anulaciones** de gastos siguen permitidas
+  en cualquier estado, como corrección auditada.
+- **Reactivar** devuelve un proyecto suspendido a **En ejecución**; **Reabrir** hace lo mismo desde **Cerrado**.
+- **Cancelar** es el único cambio sin vuelta atrás: el proyecto queda en **Cancelado** sin acciones posibles.
+- Cada cambio de estado y su motivo quedan en **Historial → Auditoría**.
+- Un Coordinador o un Colaborador no ve **Cambiar estado**.
+
 ---
 
 ## 6. Aprobar la línea base
@@ -415,9 +437,6 @@ semana y no se cerró a tiempo; una **cerrada** es la que se completó esa seman
 
 Estas funciones **no** están en el lanzamiento y se trabajarán después:
 
-- **Cerrar, suspender o cancelar** un proyecto desde la interfaz.
-- **Plantillas actualizadas para la PO**: el `proyecto.xlsx` ya se importa (estructura) y el `presupuesto.xlsx` también
-  (presupuesto), pero el formato de la PO todavía no trae las columnas **Cantidad** y **Unidad** de cada entregable.
 - **Rubros personalizados o deshabilitados por proyecto**: hoy el catálogo R01 a R15 es global.
 - **Correos automáticos con marca**: las notificaciones dentro de la aplicación funcionan; el envío de correo depende del
   dominio y se configurará después.
@@ -474,12 +493,10 @@ coincide, es un hallazgo que conviene anotar con el paso, la pantalla y lo que a
 Estos puntos están **fuera** del lanzamiento o dependen de una definición, y conviene cerrarlos antes de la siguiente
 iteración:
 
-1. **Importar solo estructura, sin presupuesto.** Hoy la importación exige que el presupuesto cuadre con el valor total,
-   así que no se pueden cargar primero metas y actividades y después el presupuesto, que es el flujo que pidió la PO.
+1. **Importar solo estructura, sin presupuesto, con la plantilla genérica.** Esa plantilla sigue exigiendo que el
+   presupuesto cuadre con el valor total. El flujo que pidió la PO (estructura primero, presupuesto después) ya existe
+   con **Importar estructura (formato PO)** (sección 4, paso 2), que no toca el presupuesto.
 2. **Rubros personalizados o deshabilitados por proyecto.** Hoy el catálogo R01 a R15 es global: un rubro sin uso queda
    en $0 y se sigue mostrando.
-3. **Cerrar, suspender o cancelar** un proyecto desde la interfaz: no está en esta versión.
-4. **Correos automáticos.** Las notificaciones dentro de la aplicación funcionan; el envío de correo depende de verificar
+3. **Correos automáticos.** Las notificaciones dentro de la aplicación funcionan; el envío de correo depende de verificar
    el dominio de envío.
-6. **Plantillas de la PO** (`proyecto.xlsx`, `presupuesto.xlsx`): el modelo de datos ya las soporta, falta el adaptador
-   para leer su formato exacto.

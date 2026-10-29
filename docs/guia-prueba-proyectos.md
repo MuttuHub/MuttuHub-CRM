@@ -491,13 +491,12 @@ base esté aprobada." y "La línea base aún no está aprobada."
 
 Menú **Administración** (otros roles son redirigidos). Más abajo en la página están las dos secciones.
 
-1. **Catálogos de proyectos**: "Renombra o suspende rubros, líneas estratégicas y municipios. Nada se elimina: lo
-   suspendido deja de ofrecerse en proyectos nuevos y puede restaurarse." Tres tablas: **Rubros**,
-   **Líneas estratégicas**, **Municipios**.
+1. **Catálogos de proyectos**: "Renombra o suspende rubros y líneas estratégicas. Nada se elimina: lo
+   suspendido deja de ofrecerse en proyectos nuevos y puede restaurarse." Dos tablas: **Rubros** y
+   **Líneas estratégicas**. Los municipios ya no aparecen aquí: el selector de municipios los lee directo de la API.
 2. Cada fila muestra **Activo** o **Suspendido**. Botones **Renombrar <nombre>**, **Suspender <nombre>** y
-   **Restaurar <nombre>**. Alta de rubro/línea con Código y Nombre; alta de municipio con Nombre, Departamento y
-   Código DANE (opcional).
-3. Prueba: suspende un municipio, abre el paso **General** de crear un proyecto o la pestaña **Metas e indicadores**: ya no se ofrece. Restáuralo y
+   **Restaurar <nombre>**. Alta de línea con Código y Nombre (los rubros son fijos).
+3. Prueba: suspende una línea estratégica, abre el paso **General** de crear un proyecto: ya no se ofrece. Restáurala y
    vuelve. Los inactivos siguen visibles en esta pantalla con su insignia.
 4. Negativo: renombrar un rubro que ya tiene presupuesto responde "El rubro tiene datos asociados: no se puede
    renombrar, solo suspender." Un rubro nunca se elimina. Suspender un rubro con monto asignado en un borrador

@@ -118,7 +118,7 @@ export function SolicitudesSection({
   const pendientes = solicitudes.filter((s) => s.estado === "PENDIENTE");
   const historial = solicitudes.filter((s) => s.estado !== "PENDIENTE");
 
-  async function aprobar(id: string, rol: RolUsuario) {
+  async function aprobar(id: string, rol: RolUsuario, origen: string) {
     setBusyId(id);
     setNotice(null);
     try {
@@ -131,7 +131,12 @@ export function SolicitudesSection({
         setNotice(await readError(res, "No pudimos aprobar la solicitud."));
         return;
       }
-      toast.success("Solicitud aprobada. La invitación va en camino.");
+      // Google requests already have their account: the API sends no invitation for them.
+      toast.success(
+        origen === "google"
+          ? "Solicitud aprobada. Ya puede entrar con su cuenta de Google."
+          : "Solicitud aprobada. La invitación va en camino.",
+      );
       router.refresh();
     } catch {
       setNotice("No pudimos aprobar la solicitud.");
@@ -249,7 +254,7 @@ export function SolicitudesSection({
                       <AprobarDialog
                         solicitud={s}
                         disabled={busyId !== null}
-                        onAprobar={(rol) => void aprobar(s.id, rol)}
+                        onAprobar={(rol) => void aprobar(s.id, rol, s.origen)}
                       />
                       <RechazarDialog
                         solicitud={s}
@@ -437,7 +442,7 @@ function AprobarDialog({
             </Button>
             <Button type="submit" disabled={loading}>
               {loading && <LoaderCircle className="size-4 animate-spin" />}
-              Aprobar y enviar invitación
+              {esGoogle ? "Aprobar acceso" : "Aprobar y enviar invitación"}
             </Button>
           </DialogFooter>
         </form>

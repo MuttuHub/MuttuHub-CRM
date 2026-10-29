@@ -7,6 +7,14 @@
 import { useId, useState, type ReactNode } from "react";
 import { LoaderCircle, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { InlineError } from "@/components/proyectos/ui";
@@ -130,6 +138,9 @@ export function RowActions({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  // Borrar es un clic al lado de Editar: se confirma antes, como «Eliminar documento» en la ficha.
+  // Al confirmar el diálogo se cierra y la fila muestra el progreso; el error lo pinta la sección.
+  const [confirmando, setConfirmando] = useState(false);
   return (
     <div className="flex shrink-0 items-center gap-0.5">
       <Button type="button" variant="ghost" size="icon-sm" aria-label={`Editar ${nombre}`} onClick={onEdit}>
@@ -141,10 +152,35 @@ export function RowActions({
         size="icon-sm"
         aria-label={`Eliminar ${nombre}`}
         disabled={deleting}
-        onClick={onDelete}
+        onClick={() => setConfirmando(true)}
       >
         {deleting ? <LoaderCircle className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
       </Button>
+      <Dialog open={confirmando} onOpenChange={setConfirmando}>
+        <DialogContent className="sm:max-w-[min(440px,calc(100%-2rem))]">
+          <DialogHeader>
+            <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
+              ¿Eliminar {nombre}?
+            </DialogTitle>
+            <DialogDescription>Se quita de la estructura del proyecto.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setConfirmando(false)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                setConfirmando(false);
+                onDelete();
+              }}
+            >
+              Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -126,6 +126,18 @@ describe("SolicitarModificacion", () => {
     expect(within(dialogo).queryByLabelText(/R99|Material POP/)).not.toBeInTheDocument() // legacy rubro without a code
   })
 
+  it("closes on Cancelar without sending anything, like the other project dialogs", async () => {
+    const user = userEvent.setup()
+    setup()
+    const dialogo = await abrir(user)
+
+    await user.type(within(dialogo).getByLabelText("Motivo"), "Borrador")
+    await user.click(within(dialogo).getByRole("button", { name: "Cancelar" }))
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+    expect(posts()).toHaveLength(0)
+  })
+
   it("sends only what changed, with the value shown as `antes`, and closes on success", async () => {
     const user = userEvent.setup()
     setup()

@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>El proceso de un proyecto, de principio a fin | Muttu Hub</title>
+<style>
+  :root {
+    --ink-950: #17140f;
+    --ink-900: #2b2620;
+    --ink-700: #4a443b;
+    --ink-600: #6b6458;
+    --ink-500: #8a8275;
+    --ink-300: #d6d0c4;
+    --ink-200: #e7e2d8;
+    --ink-100: #f2eee6;
+    --panel: #ffffff;
+    --bg: #faf8f4;
+    --accent: #a3541f;
+    --accent-soft: #fdf3e9;
+    --info: #1f5f8b;
+    --info-soft: #eef6fc;
+    --warn: #8a5a00;
+    --warn-soft: #fdf6e3;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink-900);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 940px; margin: 0 auto; padding: 40px 24px 96px; }
+  header.cover {
+    background: var(--panel);
+    border: 1px solid var(--ink-200);
+    border-radius: 22px;
+    padding: 36px 32px;
+    margin-bottom: 32px;
+    box-shadow: 0 1px 2px rgba(23, 20, 15, .04);
+  }
+  .eyebrow {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 999px;
+    padding: 4px 12px;
+  }
+  header.cover h1 {
+    font-size: clamp(28px, 4vw, 40px);
+    line-height: 1.12;
+    letter-spacing: -.02em;
+    margin: 16px 0 10px;
+    color: var(--ink-950);
+  }
+  header.cover p { margin: 0; color: var(--ink-700); max-width: 62ch; }
+  header.cover .meta {
+    margin-top: 20px;
+    font-size: 13px;
+    color: var(--ink-600);
+    border-top: 1px solid var(--ink-200);
+    padding-top: 14px;
+  }
+  nav.toc {
+    background: var(--panel);
+    border: 1px solid var(--ink-200);
+    border-radius: var(--radius);
+    padding: 22px 26px;
+    margin-bottom: 36px;
+  }
+  nav.toc h2 { font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-600); margin: 0 0 12px; }
+  nav.toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 36px; }
+  nav.toc li { margin: 4px 0; break-inside: avoid; }
+  nav.toc a { color: var(--ink-900); text-decoration: none; border-bottom: 1px solid transparent; }
+  nav.toc a:hover { border-bottom-color: var(--accent); }
+  section { margin: 0 0 40px; }
+  h2 {
+    font-size: 24px;
+    letter-spacing: -.01em;
+    color: var(--ink-950);
+    margin: 0 0 14px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--ink-200);
+  }
+  h3 { font-size: 18px; color: var(--ink-950); margin: 26px 0 10px; }
+  h4 { font-size: 15px; color: var(--ink-900); margin: 20px 0 8px; }
+  p { margin: 0 0 12px; }
+  ul, ol { margin: 0 0 14px; padding-left: 22px; }
+  li { margin: 5px 0; }
+  strong { color: var(--ink-950); }
+  code, .mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .9em;
+    background: var(--ink-100);
+    border: 1px solid var(--ink-200);
+    border-radius: 6px;
+    padding: 1px 6px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--ink-200);
+    border-radius: var(--radius);
+    padding: 22px 24px;
+    margin: 18px 0;
+  }
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-soft);
+    border-radius: 0 10px 10px 0;
+    padding: 14px 18px;
+    margin: 18px 0;
+  }
+  .callout.info { border-left-color: var(--info); background: var(--info-soft); }
+  .callout.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+  .callout p:last-child { margin-bottom: 0; }
+  .table-wrap { overflow-x: auto; margin: 16px 0 22px; }
+  table { width: 100%; border-collapse: collapse; margin: 0; font-size: 14.5px; background: var(--panel); }
+  caption { text-align: left; font-size: 13px; color: var(--ink-600); padding-bottom: 8px; }
+  th, td { border: 1px solid var(--ink-200); padding: 9px 12px; text-align: left; vertical-align: top; }
+  thead th { background: var(--ink-100); font-size: 13px; letter-spacing: .02em; color: var(--ink-700); }
+  tbody tr:nth-child(even) { background: #fcfbf8; }
+  .steps { counter-reset: step; list-style: none; padding: 0; }
+  .steps > li {
+    counter-increment: step;
+    position: relative;
+    padding: 14px 16px 14px 58px;
+    background: var(--panel);
+    border: 1px solid var(--ink-200);
+    border-radius: 12px;
+    margin: 10px 0;
+  }
+  .steps > li::before {
+    content: counter(step);
+    position: absolute;
+    left: 16px;
+    top: 14px;
+    width: 28px; height: 28px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 800;
+    font-size: 13px;
+    display: grid;
+    place-items: center;
+  }
+  .pill {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink-700);
+    background: var(--ink-100);
+    border: 1px solid var(--ink-200);
+    border-radius: 999px;
+    padding: 2px 10px;
+    margin: 0 4px 4px 0;
+  }
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0 22px; }
+  .flow span { font-size: 13.5px; font-weight: 700; color: var(--ink-800, #322c24); background: var(--panel); border: 1px solid var(--ink-300); border-radius: 999px; padding: 6px 14px; }
+  .flow b { color: var(--ink-500); font-weight: 400; }
+  footer.end {
+    margin-top: 48px;
+    border-top: 1px solid var(--ink-200);
+    padding-top: 18px;
+    font-size: 13px;
+    color: var(--ink-600);
+  }
+  @page { margin: 16mm 14mm; }
+  @media print {
+    body { background: #fff; font-size: 11.5pt; }
+    .page { max-width: none; padding: 0; }
+    header.cover, .card, nav.toc { box-shadow: none; }
+    nav.toc { break-after: page; }
+    section { break-inside: auto; }
+    h2, h3, h4 { break-after: avoid; }
+    table, .callout, .steps > li { break-inside: avoid; }
+    .no-print { display: none !important; }
+    a { color: inherit; text-decoration: none; }
+  }
+  @media (max-width: 640px) {
+    .page { padding: 20px 14px 64px; }
+    header.cover { padding: 24px 20px; }
+    nav.toc ol { columns: 1; }
+    table { font-size: 13px; }
+    th, td { padding: 7px 8px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="cover">
+  <span class="eyebrow">Muttu Hub · Módulo de Proyectos</span>
+  <h1>El proceso de un proyecto, de principio a fin</h1>
+  <p>Cómo nace un proyecto, cómo se arma su presupuesto y su estructura de trabajo, y cómo se le hace seguimiento semana a semana hasta que termina.</p>
+  <div class="meta">
+    Versión 2026-10-28 · Documento ejecutivo, no reemplaza el manual técnico del módulo.
+  </div>
+</header>
+
+<nav class="toc no-print" aria-label="Contenido">
+  <h2>Contenido</h2>
+  <ol>
+    <li><a href="#ciclo">El ciclo de vida en una imagen</a></li>
+    <li><a href="#oportunidad">Antes de que exista el proyecto</a></li>
+    <li><a href="#crear">Crear el proyecto: cinco pasos</a></li>
+    <li><a href="#linea-base">Aprobar la línea base</a></li>
+    <li><a href="#seguimiento">En ejecución: el seguimiento semanal</a></li>
+    <li><a href="#modificaciones">Cambios después de la línea base</a></li>
+    <li><a href="#estados">Suspender, cerrar, reabrir o cancelar</a></li>
+    <li><a href="#roles">Quién hace qué</a></li>
+    <li><a href="#panorama">Dónde se ve el panorama completo</a></li>
+    <li><a href="#glosario">Glosario mínimo</a></li>
+    <li><a href="#mas">Para profundizar</a></li>
+  </ol>
+</nav>
+
+<section id="ciclo">
+  <h2>1. El ciclo de vida en una imagen</h2>
+  <p>Un proyecto pasa por cinco estados. El camino normal es lineal; <strong>Suspendido</strong> y <strong>Cancelado</strong> son desvíos que Administrador o Gerencia activan a propósito, en cualquier momento de la ejecución.</p>
+  <div class="flow">
+    <span>Borrador</span><b>→</b><span>En ejecución</span><b>→</b><span>Cerrado</span>
+  </div>
+  <p>Desde <strong>En ejecución</strong> hay dos salidas posibles: <strong>Suspendido</strong> (temporal, se reactiva) y <strong>Cancelado</strong> (definitivo, sin vuelta atrás). La tabla completa de quién puede pasar a dónde está en la sección 7.</p>
+  <ul>
+    <li><strong>Borrador</strong>: se está armando, todo se edita libremente. Solo se puede <strong>cancelar</strong> o <strong>aprobar la línea base</strong>.</li>
+    <li><strong>En ejecución</strong>: el proyecto está vivo. Se registran avances y gastos, y los semáforos empiezan a hablar. Se puede <strong>suspender</strong>, <strong>cerrar</strong> o <strong>cancelar</strong>.</li>
+    <li><strong>Suspendido</strong>: congelado temporalmente. Se puede <strong>reactivar</strong> o <strong>cancelar</strong>.</li>
+    <li><strong>Cerrado</strong>: terminó, queda de solo lectura, pero se puede <strong>reabrir</strong> si hace falta corregir o completar algo.</li>
+    <li><strong>Cancelado</strong>: el único estado sin salida. No se puede deshacer.</li>
+  </ul>
+  <div class="callout">
+    <p>Solo <strong>Administrador</strong> o <strong>Gerencia</strong> cambian el estado, y siempre con un <strong>motivo</strong> obligatorio que queda en el historial de auditoría.</p>
+  </div>
+</section>
+
+<section id="oportunidad">
+  <h2>2. Antes de que exista el proyecto: la oportunidad comercial</h2>
+  <p>La mayoría de los proyectos nace de una <strong>oportunidad</strong> que ya se trabajó en el CRM y que llegó al estado <strong>Ganada</strong>. Convertir esa oportunidad en proyecto:</p>
+  <ul>
+    <li>precarga el <strong>cliente</strong>, el <strong>nombre</strong> y el <strong>valor estimado</strong>;</li>
+    <li>deja la oportunidad enlazada al proyecto (no se puede volver a usar para crear otro);</li>
+    <li>es el camino recomendado, porque mantiene la trazabilidad comercial completa.</li>
+  </ul>
+  <p>También existe el camino de <strong>proyecto independiente</strong>, para trabajo que no nace de una oportunidad del CRM (se elige el cliente a mano). Ambos caminos llegan al mismo asistente de creación.</p>
+</section>
+
+<section id="crear">
+  <h2>3. Crear el proyecto: cinco pasos hasta tener un borrador completo</h2>
+  <p>Solo <strong>Administrador</strong> y <strong>Gerencia</strong> pueden crear proyectos.</p>
+  <div class="flow">
+    <span>1 · General</span><b>→</b><span>2 · Metas</span><b>→</b><span>3 · Cronograma</span><b>→</b><span>4 · Presupuesto</span><b>→</b><span>5 · Revisión</span>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Paso</th><th>Qué se define</th><th>Notas</th></tr></thead>
+    <tbody>
+      <tr><td><strong>1. General</strong></td><td>Cliente u oportunidad, nombre, responsable, valor total, fechas, meta de beneficiarios, líneas estratégicas, municipios</td><td>Al guardar, el proyecto nace en <strong>Borrador</strong> con un código automático (<code>PRY-2026-001</code>, por ejemplo). Este paso no se repite.</td></tr>
+      <tr><td><strong>2. Metas</strong></td><td>Objetivos, actividades (con semana de inicio y fin), entregables e indicadores</td><td>A mano, con una plantilla Excel genérica, o importando directamente el Excel de estructura de la PO (no toca el presupuesto).</td></tr>
+      <tr><td><strong>3. Cronograma</strong></td><td>Solo lectura: cronograma por semanas y Gantt</td><td>Se arma automáticamente con lo cargado en el paso 2.</td></tr>
+      <tr><td><strong>4. Presupuesto</strong></td><td>Monto asignado por rubro (catálogo R01 a R15) y su programación mes a mes</td><td>La suma de los rubros debe igualar el valor total del proyecto.</td></tr>
+      <tr><td><strong>5. Revisión</strong></td><td>Resumen de todo lo anterior</td><td>Desde aquí se <strong>aprueba la línea base</strong> o se <strong>guarda el borrador</strong> para continuar después.</td></tr>
+    </tbody>
+  </table></div>
+  <p>Mientras el proyecto está en Borrador se puede editar todo sin restricciones: estructura, presupuesto, fechas, equipo. Esa libertad se pierde en cuanto se aprueba la línea base.</p>
+</section>
+
+<section id="linea-base">
+  <h2>4. Aprobar la línea base: el punto sin retorno</h2>
+  <p>Aprobar la línea base es lo que convierte un borrador en un proyecto que se está ejecutando de verdad. Antes de dejar aprobar, el sistema revisa que el proyecto tenga:</p>
+  <ul>
+    <li>valor total mayor que cero y fechas válidas;</li>
+    <li>meta de beneficiarios mayor que cero;</li>
+    <li>al menos un objetivo, con sus actividades y entregables;</li>
+    <li>el presupuesto exactamente igual al valor total;</li>
+    <li>la programación mensual cuadrada con lo asignado por rubro;</li>
+    <li>ningún rubro suspendido con dinero asignado.</li>
+  </ul>
+  <p>Si falta algo, el sistema lista exactamente qué falta y no deja seguir. Al aprobar:</p>
+  <ul>
+    <li>la <strong>estructura</strong> y el <strong>presupuesto</strong> quedan congelados como la versión <code>v0</code> (la foto de referencia);</li>
+    <li>el proyecto pasa a <strong>En ejecución</strong>;</li>
+    <li><strong>no se puede deshacer</strong>. Cualquier cambio después de este punto se pide como <strong>solicitud de modificación</strong>.</li>
+  </ul>
+</section>
+
+<section id="seguimiento">
+  <h2>5. En ejecución: el seguimiento semanal</h2>
+  <p>Una vez aprobada la línea base, el trabajo diario y semanal gira en torno a tres cosas: <strong>avance de actividades</strong>, <strong>gastos</strong> y <strong>semáforos</strong>.</p>
+
+  <h3>5.1 Avances</h3>
+  <p>Cada actividad se sigue desde <strong>Registrar avance</strong>: fecha (no puede ser futura), porcentaje de avance y un <strong>medio de verificación</strong> (archivo o enlace) que respalde ese avance. Si el avance supera lo planeado, hay que explicar por qué (<strong>justificación del exceso</strong>). Ese soporte queda visible en la pestaña <strong>Documentos</strong> del proyecto.</p>
+
+  <h3>5.2 Gastos</h3>
+  <p>Cada gasto se registra con su <strong>rubro</strong>, <strong>Subtotal</strong>, <strong>IVA</strong> y <strong>Total</strong> (el Total lo calcula el sistema; el IVA puede ser cero, pero hay que escribirlo), la fecha del documento, el periodo contable y un <strong>soporte obligatorio</strong> (factura, cuenta de cobro u otro). Sin soporte, el gasto no se puede registrar ni validar.</p>
+  <div class="callout info">
+    <p>Control de doble llave: <strong>quien registra un gasto nunca puede validarlo</strong>, ni siquiera un administrador sobre su propio registro. Lo valida o rechaza otro Administrador o Gerencia, con motivo si lo rechaza.</p>
+  </div>
+
+  <h3>5.3 Semáforos y «Requiere atención»</h3>
+  <p>Cada proyecto en ejecución muestra dos semáforos en su encabezado:</p>
+  <ul>
+    <li><strong>Semáforo técnico</strong>: qué tan al día va el avance de actividades y entregables.</li>
+    <li><strong>Semáforo financiero</strong>: qué tan alineado está el gasto frente al presupuesto y su programación mensual.</li>
+  </ul>
+  <p>Cada semáforo (Al día, Atención, En riesgo) lleva directo a la pestaña que explica la causa. El bloque <strong>Resumen → Requiere atención</strong> junta todo lo que necesita acción —gastos pendientes de validar, programación sin cuadrar, rubros sobreejecutados— ordenado por gravedad, para no tener que recorrer todas las pestañas buscando qué falta.</p>
+
+  <h3>5.4 Rutina recomendada</h3>
+  <ul>
+    <li><strong>Cada semana</strong>: revisar «Requiere atención», registrar avances con su soporte, registrar gastos con su soporte, validar o rechazar los gastos pendientes, y revisar los semáforos en rojo.</li>
+    <li><strong>Cada mes</strong>: comparar la ficha financiera contra la línea base (<code>v0</code>) y ajustar lo que corresponda con una solicitud de modificación.</li>
+  </ul>
+</section>
+
+<section id="modificaciones">
+  <h2>6. Cambios después de la línea base: las modificaciones</h2>
+  <p>Después de aprobada la línea base, la estructura y el presupuesto no se editan directamente. Un integrante del equipo <strong>solicita una modificación</strong>; queda en una cola con estado <strong>Pendiente</strong>, y solo Administrador o Gerencia la <strong>aprueba</strong> o la <strong>rechaza</strong> (con comentario si la rechaza). Mientras está pendiente, el cambio no se aplica. Cada versión aprobada queda comparable campo a campo contra la anterior en <strong>Historial → Versiones</strong>.</p>
+</section>
+
+<section id="estados">
+  <h2>7. Suspender, reactivar, cerrar, reabrir o cancelar un proyecto</h2>
+  <p>Esta es la pieza que hasta ahora faltaba y que el jefe pidió directamente: poder cambiar el estado del proyecto desde la interfaz, sin tocar la base de datos. Ya está disponible. Solo Administrador o Gerencia, desde el botón <strong>Cambiar estado</strong> en el encabezado de la ficha, con un motivo obligatorio.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Si el proyecto está en...</th><th>Puede pasar a...</th></tr></thead>
+    <tbody>
+      <tr><td>Borrador</td><td>Cancelado</td></tr>
+      <tr><td>En ejecución</td><td>Suspendido, Cerrado o Cancelado</td></tr>
+      <tr><td>Suspendido</td><td>En ejecución (reactivar) o Cancelado</td></tr>
+      <tr><td>Cerrado</td><td>En ejecución (reabrir)</td></tr>
+      <tr><td>Cancelado</td><td>Ningún otro estado: es definitivo</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout warn">
+    <p><strong>Qué cambia al suspender o cerrar un proyecto:</strong> se congela. No se pueden registrar avances, gastos ni documentos nuevos, y no se pueden aprobar ni rechazar modificaciones o gastos pendientes mientras dure esa suspensión o cierre. La única excepción son las <strong>anulaciones</strong> de gastos ya registrados, que siguen permitidas en cualquier estado como corrección auditada. Todo cambio de estado, con su motivo y quién lo hizo, queda en <strong>Historial → Auditoría</strong>.</p>
+  </div>
+</section>
+
+<section id="roles">
+  <h2>8. Quién hace qué</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Acción</th><th>Administrador</th><th>Gerencia</th><th>Coordinador</th><th>Colaborador</th></tr></thead>
+    <tbody>
+      <tr><td>Crear un proyecto</td><td>Sí</td><td>Sí</td><td>Sí</td><td>Sí</td></tr>
+      <tr><td>Editar estructura y presupuesto (solo en Borrador)</td><td>Sí</td><td>Sí</td><td>Sí, si es del equipo</td><td>Sí, si es del equipo</td></tr>
+      <tr><td>Aprobar la línea base</td><td>Sí</td><td>Sí</td><td>No</td><td>No</td></tr>
+      <tr><td>Registrar avances y gastos</td><td>Sí</td><td>Sí</td><td>Sí, si es del equipo</td><td>Sí, si es del equipo</td></tr>
+      <tr><td>Validar o rechazar un gasto (nunca el propio)</td><td>Sí</td><td>Sí</td><td>No</td><td>No</td></tr>
+      <tr><td>Solicitar una modificación</td><td>—</td><td>—</td><td>Sí, si es del equipo</td><td>Sí, si es del equipo</td></tr>
+      <tr><td>Aprobar una modificación</td><td>Sí</td><td>Sí</td><td>No</td><td>No</td></tr>
+      <tr><td>Cambiar el estado del proyecto</td><td>Sí</td><td>Sí</td><td>No</td><td>No</td></tr>
+    </tbody>
+  </table></div>
+  <p>Un Coordinador o un Colaborador que <strong>no</strong> es integrante del proyecto no lo ve, ni siquiera con el enlace directo. La pertenencia al <strong>Equipo</strong> del proyecto es lo que abre o cierra el acceso para esos dos roles.</p>
+</section>
+
+<section id="panorama">
+  <h2>9. Dónde se ve el panorama completo</h2>
+  <ul>
+    <li><strong>Proyectos → Portafolio</strong>: la lista completa con filtros por estado, cliente, línea, municipio y responsable, y los indicadores agregados arriba.</li>
+    <li><strong>Proyectos → Tablero</strong>: la vista gerencial agregada (solo visible según el rol o la bandera de Gerencia).</li>
+    <li>Cada proyecto se puede <strong>exportar a Excel</strong> o <strong>imprimir / generar PDF</strong> desde su propia ficha.</li>
+  </ul>
+</section>
+
+<section id="glosario">
+  <h2>10. Glosario mínimo</h2>
+  <div class="table-wrap"><table>
+    <tbody>
+      <tr><th>Línea base</th><td>La foto aprobada de la estructura y el presupuesto (versión <code>v0</code>).</td></tr>
+      <tr><th>Rubro</th><td>Categoría de gasto del catálogo (R01 a R15).</td></tr>
+      <tr><th>Asignado / Programado / Ejecutado</th><td>Lo que el presupuesto destina a un rubro, cómo se reparte por mes, y lo efectivamente gastado y validado.</td></tr>
+      <tr><th>Semáforo técnico / financiero</th><td>El estado de avance de actividades o de ejecución presupuestal.</td></tr>
+      <tr><th>Modificación</th><td>El cambio solicitado y aprobado después de la línea base.</td></tr>
+      <tr><th>Medio de verificación</th><td>El archivo o enlace que respalda un avance.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="mas">
+  <h2>11. Para profundizar</h2>
+  <ul>
+    <li>Manual completo, pantalla por pantalla: <code>docs/guia-uso-proyectos-v2.md</code> (versión navegable: <code>docs/guia-uso-proyectos-v2.html</code>).</li>
+    <li>Guía de creación con cada campo y mensaje de validación: <code>docs/paso-a-paso-crear-proyecto.md</code>.</li>
+  </ul>
+</section>
+
+<footer class="end">
+  Muttu Hub · El proceso de un proyecto, de principio a fin · 2026-10-28.<br />
+  Para imprimir o guardar como PDF: <strong>Ctrl+P</strong> → <em>Guardar como PDF</em>.
+</footer>
+
+</div>
+</body>
+</html>
