@@ -166,10 +166,10 @@ const ActividadSchema = registry.register(
       example: "2026-11-15",
     }),
     peso: z.number().openapi({
-      description: "Duración en semanas salvo `peso_manual`; entonces el peso escrito.",
+      description:
+        "DERIVADO, nunca almacenado ni editable (AJ-02): `semana_fin - semana_inicio + 1`.",
       example: 4,
     }),
-    peso_manual: z.boolean(),
     responsable_id: z.string().uuid().nullable(),
     fuera_de_duracion: z.boolean().openapi({
       description:
@@ -193,8 +193,9 @@ registerStructureResource({
   patch: ACTIVIDAD_PATCH_SCHEMA,
   createExtra:
     "Las semanas deben cumplir `1 <= semana_inicio <= semana_fin <= duración del proyecto` y el objetivo debe ser uno " +
-    "vivo del mismo proyecto, o responde 400. Un proyecto sin fechas responde 400. Sin `peso` se usa la duración en " +
-    "semanas; un `peso` enviado queda como manual. Las fechas no se aceptan: se derivan de las semanas.",
+    "vivo del mismo proyecto, o responde 400. Un proyecto sin fechas responde 400. El peso no se envía ni se edita " +
+    "(AJ-02): es siempre la duración en semanas, y enviar `peso` responde 400 como campo desconocido. Las fechas no se " +
+    "aceptan: se derivan de las semanas.",
   deleteConflict:
     "Responde 409 CONFLICT mientras la actividad tenga entregables vivos o registros de beneficiarios no anulados.",
 });

@@ -157,7 +157,6 @@ export type ProjectActivity = {
   fecha_inicio: string | null;
   fecha_fin: string | null;
   peso: number;
-  peso_manual: boolean;
   responsable_id: string | null;
   /** Las semanas superan la duración actual del proyecto (el proyecto se acortó). */
   fuera_de_duracion: boolean;
@@ -202,8 +201,6 @@ export type ProjectActivityInput = {
   nombre: string;
   semana_inicio: number;
   semana_fin: number;
-  /** Número = peso manual; `null` = volver al peso por defecto (duración en semanas). */
-  peso?: number | null;
   responsable_id?: string | null;
 };
 
