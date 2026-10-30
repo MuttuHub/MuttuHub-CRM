@@ -16,6 +16,7 @@ const store = vi.hoisted(() => ({
   lineas: [] as Row[],
   programacion: [] as Row[],
   gastos: [] as Row[],
+  reportes: [] as Row[],
 }))
 
 vi.mock("@/lib/db", async () => {
@@ -62,6 +63,7 @@ vi.mock("@/lib/db", async () => {
         ),
       },
       avanceEntregable: { findMany: findMany(() => store.avances) },
+      reporteActividad: { findMany: findMany(() => store.reportes) },
       soporteProyecto: { groupBy: groupBy(store.soportes) },
       indicador: {
         findMany: findMany(
