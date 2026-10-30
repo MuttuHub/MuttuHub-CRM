@@ -92,6 +92,8 @@ beforeEach(() => {
     umbral1: { valor: 10, confirmado: false },
     umbral2: { valor: 20, confirmado: false },
     avance_requiere_medio: { valor: true, confirmado: false },
+    // 100 keeps the F-T1 goldens on the uncapped plan; the AJ-03 cap has its own test below.
+    tope_en_curso: { valor: 100, confirmado: false },
   };
   authAs(gerencia);
   vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto());
@@ -118,6 +120,7 @@ describe("GET technical-status: F-T1 golden", () => {
       desviacion_pp: 35.7,
       color: "rojo",
       umbrales: { umbral1: 10, umbral2: 20, confirmado: false },
+      tope_en_curso: 100,
     });
     expect(body.actividades.map((a: { codigo: string; progreso: number; estado: string; fecha_cumplimiento: string | null }) => [
       a.codigo,
@@ -131,6 +134,17 @@ describe("GET technical-status: F-T1 golden", () => {
       ["1.4", 0, "EN_CURSO", null],
     ]);
     expect(body.actividades[0]).toMatchObject({ id: "a11", peso: 1 });
+  });
+
+  it("caps each activity's plan at tope_en_curso and answers it (AJ-03)", async () => {
+    const libre = await (await GET(get(), ctx)).json();
+    mocks.parametros.tope_en_curso = { valor: 90, confirmado: true };
+    const body = await (await GET(get(), ctx)).json();
+    expect(body.tope_en_curso).toBe(90);
+    expect(libre.actividades[0].programado).toBe(100);
+    expect(body.actividades[0].programado).toBe(90);
+    expect(body.avance_programado).toBeLessThan(libre.avance_programado);
+    expect(body.avance_real).toBe(libre.avance_real);
   });
 
   it("confirmado is true only when both thresholds are confirmed", async () => {

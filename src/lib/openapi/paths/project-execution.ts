@@ -602,7 +602,7 @@ registry.registerPath({
                 objetivo_codigo: z.string().openapi({ description: "Código del objetivo al que pertenece la actividad." }),
                 peso: z.number(),
                 progreso: z.number(),
-                programado: z.number().openapi({ description: "Porcentaje 0..100 planeado al corte (la columna «% plan»)." }),
+                programado: z.number().openapi({ description: "Porcentaje 0..100 planeado al corte (la columna «% plan»): la fracción transcurrida, como máximo el tope (AJ-03)." }),
                 dias: z.number().int().openapi({ description: "Duración de la actividad en días calendario (la columna «Días»)." }),
                 al_corte: z.number().int().openapi({ description: "Días transcurridos al corte, con tope en `dias` (la columna «Al corte»)." }),
                 estado: EstadoActividadSchema,
@@ -625,6 +625,11 @@ registry.registerPath({
               }),
             ),
             umbrales: z.object({ umbral1: z.number(), umbral2: z.number(), confirmado: z.boolean() }),
+            tope_en_curso: z.number().openapi({
+              description:
+                "Tope de avance (porcentaje) del parámetro `tope_en_curso`. Una actividad vencida que llegó al tope " +
+                "en su fecha fin no cuenta como atrasada, aunque sus soportes lleguen después (AJ-03).",
+            }),
           }),
         },
       },

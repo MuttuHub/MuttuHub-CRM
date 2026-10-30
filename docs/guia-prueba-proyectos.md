@@ -425,6 +425,15 @@ entregables para el recorrido completo.
 11. Negativos de acceso: un `coordinador@`/`colaborador@` integrante que **no** es el responsable de la actividad no
     ve el botón **Registrar avance** de la actividad (sí puede seguir viendo el historial); `admin@`/`gerencia@`
     siempre lo ven, sean o no el responsable.
+12. **Atraso por ejecución (AJ-03)**, con el tope inicial de 90 %. Toma una actividad cuya fecha fin ya pasó:
+    - Con un reporte de **90 %** fechado en su fecha fin o antes y los entregables todavía sin soporte, la actividad
+      **no** aparece en «Requiere atención» como atrasada, en el Tablero queda en **En curso** (no en **Atrasada**),
+      su color es verde y **Cumplimiento del cronograma** (§J) la cuenta «a tiempo». Completar los entregables
+      después de la fecha fin no cambia eso.
+    - Con un reporte de **50 %** a la fecha fin, la actividad aparece como **Actividad atrasada**, va a la columna
+      **Atrasada** y no cuenta «a tiempo».
+    - Si el 90 % se reporta **después** de la fecha fin, deja de estar atrasada pero tampoco cuenta «a tiempo».
+    - En la **Curva S**, la línea técnica planeada termina en 90 %, no en 100 %.
 
 ## E. Gastos y validación (S6)
 

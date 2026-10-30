@@ -13,6 +13,7 @@ import {
   estadoActividad,
   fechaCumplimiento,
   fraccionTiempo,
+  programadoActividad,
   tendencia,
   validarNuevoReporte,
   type ActividadTecnicaInput,
@@ -37,6 +38,7 @@ describe("calcularTecnico — the project advance weights each activity by its w
     const tecnico = calcularTecnico({
       corte: "2026-02-16",
       requiereMedio: false,
+      tope: 1,
       actividades: [
         {
           id: "a1",
@@ -93,7 +95,7 @@ describe("fraccionTiempo / avanceProgramado / desviacionPp", () => {
   })
 
   it("returns 0 programmed with no weight and the weighted fraction otherwise", () => {
-    expect(avanceProgramado([], "2026-10-25")).toBe(0)
+    expect(avanceProgramado([], "2026-10-25", 1)).toBe(0)
     expect(
       avanceProgramado(
         [
@@ -101,8 +103,37 @@ describe("fraccionTiempo / avanceProgramado / desviacionPp", () => {
           { peso: 3, inicio: "2026-10-26", fin: "2026-11-01" },
         ],
         "2026-10-25",
+        1,
       ),
     ).toBe(0.25)
+  })
+
+  it("caps each activity's planned fraction at the tope (AJ-03 S4: «llega como máximo al tope en su fecha fin»)", () => {
+    // Fully elapsed: 100 % becomes the tope. Half elapsed (7 of 14 days): 50 %, under the tope, unchanged.
+    expect(avanceProgramado([{ peso: 1, inicio: "2026-10-19", fin: "2026-10-25" }], "2026-11-30", 0.9)).toBeCloseTo(0.9)
+    expect(avanceProgramado([{ peso: 1, inicio: "2026-10-19", fin: "2026-11-01" }], "2026-10-25", 0.9)).toBeCloseTo(0.5)
+    expect(programadoActividad("2026-11-30", "2026-10-19", "2026-10-25", 0.9)).toBeCloseTo(0.9)
+  })
+
+  it("an activity at the tope waiting for soportes after its fin has no deviation (AJ-03)", () => {
+    const r = calcularTecnico({
+      corte: "2026-11-30",
+      requiereMedio: true,
+      tope: 0.9,
+      actividades: [
+        {
+          id: "a1",
+          codigo: "1.1",
+          peso: 1,
+          inicio: "2026-10-19",
+          fin: "2026-10-25",
+          entregables: [{ id: "e1", meta: 10, avances: [] }],
+          reportes: [{ fecha: "2026-10-25", porcentaje: 90 }],
+        },
+      ],
+    })
+    expect(r.avance_programado).toBeCloseTo(0.9)
+    expect(r.desviacion_pp).toBeCloseTo(0)
   })
 
   it("expresses the deviation in percentage points (negative when ahead)", () => {
@@ -301,7 +332,7 @@ describe("calcularTecnico with reportes (S8, full S3 accept-if list)", () => {
 
   it("a 30% report on a Sin-iniciar activity moves it to En curso at 30%", () => {
     const actividades = [actividadConReportes([{ fecha: "2026-10-06", porcentaje: 30 }], [{ id: "e1", meta: 2, avances: [] }])]
-    const r = calcularTecnico({ corte: "2026-10-07", requiereMedio: true, actividades })
+    const r = calcularTecnico({ corte: "2026-10-07", requiereMedio: true, tope: 1, actividades })
     expect(r.actividades[0].progreso).toBe(0.3)
     expect(r.actividades[0].estado).toBe("EN_CURSO")
   })
@@ -316,7 +347,7 @@ describe("calcularTecnico with reportes (S8, full S3 accept-if list)", () => {
         ],
       ),
     ]
-    const r = calcularTecnico({ corte: "2026-10-07", requiereMedio: true, actividades })
+    const r = calcularTecnico({ corte: "2026-10-07", requiereMedio: true, tope: 1, actividades })
     expect(r.actividades[0].entregables_completos).toBe(false)
     expect(r.actividades[0].estado).toBe("EN_CURSO")
   })
@@ -325,7 +356,7 @@ describe("calcularTecnico with reportes (S8, full S3 accept-if list)", () => {
     const actividades = [
       actividadConReportes([{ fecha: "2026-10-06", porcentaje: 80 }], [{ id: "e1", meta: 2, avances: [av("2026-10-06", 2)] }]),
     ]
-    const r = calcularTecnico({ corte: "2026-10-07", requiereMedio: true, actividades })
+    const r = calcularTecnico({ corte: "2026-10-07", requiereMedio: true, tope: 1, actividades })
     expect(r.actividades[0].progreso).toBe(1)
     expect(r.actividades[0].entregables_completos).toBe(true)
     expect(r.actividades[0].estado).toBe("FINALIZADA")
@@ -361,7 +392,7 @@ describe("colorTecnicoV2 boundaries (float-safe)", () => {
 
 describe("F-T1 golden", () => {
   it("is rojo: real 21.4 %, programmed 57.1 %, deviation 35.7 pp", () => {
-    const r = calcularTecnico({ corte: F_T1_CORTE, requiereMedio: true, actividades: fixtureF_T1() })
+    const r = calcularTecnico({ corte: F_T1_CORTE, requiereMedio: true, tope: 1, actividades: fixtureF_T1() })
     expect(r.avance_real).toBeCloseTo(1.5 / 7, 10)
     expect(r.avance_programado).toBeCloseTo(4 / 7, 10)
     expect(Math.round(r.avance_real * 1000) / 10).toBe(21.4)
@@ -377,18 +408,18 @@ describe("F-T1 golden", () => {
   })
 
   it("F-T1b: an uncounted avance changes nothing when a medio is required", () => {
-    const r = calcularTecnico({ corte: F_T1_CORTE, requiereMedio: true, actividades: fixtureF_T1b() })
+    const r = calcularTecnico({ corte: F_T1_CORTE, requiereMedio: true, tope: 1, actividades: fixtureF_T1b() })
     expect(r.avance_real).toBeCloseTo(1.5 / 7, 10)
   })
 
   it("F-T1b: with requiereMedio=false the avance counts (1.3 = 0.25, real = 0.25)", () => {
-    const r = calcularTecnico({ corte: F_T1_CORTE, requiereMedio: false, actividades: fixtureF_T1b() })
+    const r = calcularTecnico({ corte: F_T1_CORTE, requiereMedio: false, tope: 1, actividades: fixtureF_T1b() })
     expect(r.actividades.find((a) => a.codigo === "1.3")!.progreso).toBe(0.25)
     expect(r.avance_real).toBeCloseTo(0.25, 10)
   })
 
   it("reports the date each finished activity was completed (latest deliverable), null otherwise", () => {
-    const r = calcularTecnico({ corte: F_T1_CORTE, requiereMedio: true, actividades: fixtureF_T1() })
+    const r = calcularTecnico({ corte: F_T1_CORTE, requiereMedio: true, tope: 1, actividades: fixtureF_T1() })
     expect(r.actividades.map((a) => [a.codigo, a.fecha_cumplimiento])).toEqual([
       ["1.1", "2026-10-09"],
       ["1.2", null],
@@ -398,7 +429,7 @@ describe("F-T1 golden", () => {
   })
 
   it("returns zeros, not NaN, for a project without activities", () => {
-    const r = calcularTecnico({ corte: F_T1_CORTE, requiereMedio: true, actividades: [] })
+    const r = calcularTecnico({ corte: F_T1_CORTE, requiereMedio: true, tope: 1, actividades: [] })
     expect(r).toMatchObject({ avance_real: 0, avance_programado: 0, desviacion_pp: 0, actividades: [] })
   })
 })
@@ -407,7 +438,7 @@ describe("regression: hasReports=false computes byte-for-byte like before AJ-01 
   it("F-T1 (no `reportes` field on any activity) matches a recomputation via the pre-AJ-01 two-field path", () => {
     const requiereMedio = true
     const actividadesInput = fixtureF_T1()
-    const nuevo = calcularTecnico({ corte: F_T1_CORTE, requiereMedio, actividades: actividadesInput })
+    const nuevo = calcularTecnico({ corte: F_T1_CORTE, requiereMedio, tope: 1, actividades: actividadesInput })
 
     // Recomputed independently, the way `calcularTecnico` worked before this feature: plain
     // entregable-average progreso, and `estadoActividad` called with only its original fields

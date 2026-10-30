@@ -201,6 +201,10 @@ En el encabezado, siempre visible:
   explica el color (**Al día**, **Atención** o **En riesgo**) y un enlace a la pestaña correspondiente. Los umbrales de
   color (**umbral1**, **umbral2**) y el tope de avance mientras una actividad tiene entregables incompletos
   (**tope_en_curso**, 90 % por defecto) los configura Administración; no se editan desde la ficha del proyecto.
+- **Cuándo una actividad está atrasada**: cuenta como ejecutada a tiempo si su avance llegó al tope en su fecha fin
+  o antes, aunque los soportes lleguen después. Una actividad vencida está **atrasada** mientras su avance siga por
+  debajo del tope. Por eso el avance programado de cada actividad llega como máximo al tope: una actividad al 90 %
+  que solo espera soportes no pone el semáforo en amarillo ni en rojo, y la curva S planeada termina en el tope.
 - **Requiere atención**: la lista de lo que necesita acción, ordenada por gravedad. Cada punto lleva a la pantalla donde
   se resuelve.
 - **Datos generales**: origen, cliente, responsable, fechas, duración, valor total, beneficiarios y, si aplica, la
@@ -422,7 +426,7 @@ curso), con los mismos números del Tablero de proyectos.
 | Portafolio por proyecto | Semáforo técnico y financiero, avance real y programado, y presupuesto asignado, programado y ejecutado. |
 | Portafolio por cliente | Lo mismo agregado por cliente, con cuántos proyectos tiene en cada color. |
 | Tareas | Tareas cerradas y vencidas de la semana frente a la semana anterior, con la diferencia. |
-| Actividades atrasadas | Actividades vencidas con avance menor al 100 %. |
+| Actividades atrasadas | Actividades vencidas cuyo avance sigue por debajo del tope (**tope_en_curso**). |
 | Requiere atención | Lo mismo que la ficha (rubros sobreejecutados, avances sin soporte, indicadores bajo la meta, posible retraso); los gastos observados se cuentan, sin detalle. |
 | Gastos por validar | Solo Administrador y Gerencia: cantidad, monto y fecha del registro más antiguo, por proyecto. |
 
@@ -513,7 +517,8 @@ Estas funciones **no** están en el lanzamiento y se trabajarán después:
 - **Reporte de avance**: el porcentaje y la observación que el responsable de una actividad registra para llevarla a
   **En curso**; distinto del avance por entregable, que suma cantidades contra una meta.
 - **tope_en_curso**: el porcentaje máximo (90 % por defecto, configurable) que admite un reporte de avance mientras
-  los entregables de la actividad no estén todos completos.
+  los entregables de la actividad no estén todos completos. También mide el atraso: llegar al tope en la fecha fin es
+  ejecutar a tiempo, y es el máximo del avance programado de cada actividad.
 
 ---
 

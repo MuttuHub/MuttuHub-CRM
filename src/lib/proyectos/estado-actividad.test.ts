@@ -14,7 +14,7 @@ describe("vencidaSinTerminar", () => {
 })
 
 describe("columnaTablero", () => {
-  const base = { color: "verde" as const, fin: "2026-06-30", corte: "2026-03-15" }
+  const base = { color: "verde" as const, fin: "2026-06-30", corte: "2026-03-15", tope: 90 }
 
   it("puts a finished activity (progreso >= 100) in Terminada, even if it ended before the corte or is red", () => {
     expect(columnaTablero({ ...base, progreso: 100 })).toBe("terminada")
@@ -29,6 +29,12 @@ describe("columnaTablero", () => {
   it("puts an unfinished activity whose end is on or before the corte in Atrasada", () => {
     expect(columnaTablero({ ...base, progreso: 40, fin: "2026-03-15" })).toBe("atrasada")
     expect(columnaTablero({ ...base, progreso: 0, fin: "2026-03-14" })).toBe("atrasada")
+  })
+
+  it("keeps a due activity that reached the tope out of Atrasada: it only waits for soportes (AJ-03)", () => {
+    expect(columnaTablero({ ...base, progreso: 90, fin: "2026-03-01" })).toBe("en_curso")
+    expect(columnaTablero({ ...base, progreso: 89.9, fin: "2026-03-01" })).toBe("atrasada")
+    expect(columnaTablero({ ...base, progreso: 85, fin: "2026-03-01", tope: 80 })).toBe("en_curso")
   })
 
   it("puts a started, not-late activity in En curso (the boundary is progreso > 0)", () => {

@@ -831,6 +831,8 @@ export type ProjectTechnicalStatus = {
   color: ColorSemaforo;
   actividades: ProjectTechnicalActivity[];
   umbrales: { umbral1: number; umbral2: number; confirmado: boolean };
+  /** `tope_en_curso` en porcentaje: una actividad vencida que llegó al tope no está atrasada (AJ-03). */
+  tope_en_curso: number;
 };
 
 /**

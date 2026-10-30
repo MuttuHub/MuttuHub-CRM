@@ -102,7 +102,13 @@ export function ActividadesTablero({
     const tecnica = tecnicas.get(actividad.id);
     const progreso = tecnica?.progreso ?? 0;
     const color = tecnica?.color ?? null;
-    const columna = columnaTablero({ progreso, color, fin: finDe(actividad, proyecto.fecha_inicio), corte });
+    const columna = columnaTablero({
+      progreso,
+      color,
+      fin: finDe(actividad, proyecto.fecha_inicio),
+      corte,
+      tope: tecnico.data.tope_en_curso,
+    });
     columnas.get(columna)!.push({
       id: actividad.id,
       codigo: actividad.codigo,

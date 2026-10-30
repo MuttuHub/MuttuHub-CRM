@@ -21,6 +21,7 @@ function input(over: Partial<AtencionInput> = {}): AtencionInput {
     corte: CORTE,
     alerta_retraso: false,
     requiere_medio: false,
+    tope: 0.9,
     actividades: [],
     avances: [],
     indicadores: [],
@@ -59,7 +60,7 @@ describe("construirAtencion", () => {
     })
   })
 
-  describe("actividad_atrasada (D3)", () => {
+  describe("actividad_atrasada (AJ-03)", () => {
     const actividad = (id: string, fin: string, cantidad: number, meta = 10) => ({
       id,
       codigo: id,
@@ -80,6 +81,18 @@ describe("construirAtencion", () => {
     it("ignores an activity due after the corte and one already finished", () => {
       expect(construirAtencion(input({ actividades: [actividad("a1", "2026-04-30", 5)] }))).toEqual([])
       expect(construirAtencion(input({ actividades: [actividad("a1", "2026-02-28", 10)] }))).toEqual([])
+    })
+
+    it("ignores a due activity at the tope that only waits for its soportes", () => {
+      expect(construirAtencion(input({ actividades: [actividad("a1", "2026-02-28", 9)] }))).toEqual([])
+      expect(tipos(construirAtencion(input({ actividades: [actividad("a1", "2026-02-28", 8)] })))).toEqual([
+        "actividad_atrasada",
+      ])
+    })
+
+    it("reads the tope from the input", () => {
+      const items = construirAtencion(input({ tope: 0.8, actividades: [actividad("a1", "2026-02-28", 8)] }))
+      expect(items).toEqual([])
     })
   })
 

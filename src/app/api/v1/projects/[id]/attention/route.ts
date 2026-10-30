@@ -1,7 +1,7 @@
 // GET /api/v1/projects/:id/attention?corte=AAAA-MM-DD — server-derived attention list (S14 P5).
 //
 // The server owns the whole reading: which budget lines overspent (E > A), which activities are due
-// and below 100 % (D3), which avances lack a support, which indicators are below their target, the
+// and still below the tope (AJ-03), which avances lack a support, which indicators are below their target, the
 // financial delay alert and the D5 "observed" expenses. Copy and reference ids come from the server;
 // the client only renders (D11). Whoever can read the project reads it, in any estado
 // (404 -> 403 -> 409 -> 400); a project outside the measurable states answers 200 with `medible: false`

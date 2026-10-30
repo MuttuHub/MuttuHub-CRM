@@ -22,8 +22,16 @@ const KpisProyectoSchema = registry.register(
       .object({
         corte: CORTE,
         vencidas: z.number().int(),
-        a_tiempo: z.number().int(),
-        atrasadas: z.number().int().openapi({ description: "Vencidas (fin <= corte) con progreso < 100 %; las terminadas con retraso no cuentan." }),
+        a_tiempo: z.number().int().openapi({
+          description:
+            "Vencidas cuyo avance llegó al tope (`tope_en_curso`) en su fecha fin o antes, aunque los soportes lleguen " +
+            "después (AJ-03).",
+        }),
+        atrasadas: z.number().int().openapi({
+          description:
+            "Vencidas (fin <= corte) cuyo avance sigue por debajo del tope; las que llegaron al tope después de su fecha " +
+            "fin no cuentan (AJ-03).",
+        }),
         valor: PCT,
       })
       .nullable(),
@@ -67,7 +75,7 @@ const PortafolioSchema = registry.register(
         semaforo_tecnico: SEMAFORO.nullable(),
         semaforo_financiero: SEMAFORO.nullable(),
         alerta_retraso: z.boolean().nullable(),
-        atrasadas: z.number().int().nullable().openapi({ description: "Actividades atrasadas (D3); null si el proyecto no es medible." }),
+        atrasadas: z.number().int().nullable().openapi({ description: "Actividades atrasadas (AJ-03); null si el proyecto no es medible." }),
         kpis: KpisProyectoSchema,
       }),
     ),

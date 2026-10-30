@@ -122,6 +122,7 @@ export async function calcularCurva(
 
   // Technical executed: the real progress at each period's measurement date.
   const requiereMedio = parametros.avance_requiere_medio.valor;
+  const tope = parametros.tope_en_curso.valor / 100;
   const tecnicoEjecutado = periodos.map((periodo) => {
     const fecha = fechaMedicion(periodo, corteFecha);
     const hasta = entrada.map((actividad) => ({
@@ -131,7 +132,7 @@ export async function calcularCurva(
         avances: entregable.avances.filter((avance) => avance.fecha <= fecha),
       })),
     }));
-    return calcularTecnico({ corte: fecha, requiereMedio, actividades: hasta }).avance_real;
+    return calcularTecnico({ corte: fecha, requiereMedio, tope, actividades: hasta }).avance_real;
   });
 
   // Financial curve: cumulative programmed (A base) and validated (E) per period.
@@ -165,7 +166,7 @@ export async function calcularCurva(
       periodos: construirCurva({
         periodos,
         corte,
-        tecnico: { planeado: tecnicoPlaneado(entrada, periodos, { periodo: corte, fecha: corteFecha }), ejecutado: tecnicoEjecutado },
+        tecnico: { planeado: tecnicoPlaneado(entrada, periodos, tope, { periodo: corte, fecha: corteFecha }), ejecutado: tecnicoEjecutado },
         financiero: { planeado: fraccion(programadoCum), ejecutado: fraccion(ejecutadoCum) },
       }),
     },

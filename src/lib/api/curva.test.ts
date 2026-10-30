@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
     umbral1: { valor: 10, confirmado: false },
     umbral2: { valor: 20, confirmado: false },
     avance_requiere_medio: { valor: true, confirmado: false },
+    // 100 keeps these goldens on the uncapped plan; the AJ-03 cap is pinned in curva.test.ts.
+    tope_en_curso: { valor: 100, confirmado: false },
   } as Record<string, { valor: number | boolean; confirmado: boolean }>,
 }));
 
@@ -93,6 +95,7 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-11-20T15:00:00.000Z"));
   mocks.parametros.avance_requiere_medio = { valor: true, confirmado: false };
+  mocks.parametros.tope_en_curso = { valor: 100, confirmado: false };
   vi.mocked(db.actividad.findMany).mockResolvedValue(actividades as never);
   vi.mocked(db.avanceEntregable.findMany).mockResolvedValue(avances as never);
   vi.mocked(db.soporteProyecto.groupBy).mockResolvedValue(conMedio(avances.map((a) => a.id)) as never);
@@ -163,6 +166,18 @@ describe("calcularCurva: vigente golden", () => {
     // Corte 2026-11-20: a3 (10-26..12-20, peso 8 of 20) has run 26 of 56 days -> (4 + 8 + 8 * 26/56) / 20 = 78.57 %.
     // At the month end (11-30) it would be 85.7 %: the planned point must NOT reach that far.
     expect(result.value.periodos.map((p) => p.tecnico.planeado)).toEqual([20.7, 42.1, 64.3, 78.6, 100]);
+  });
+
+  it("tops the planned technical curve out at tope_en_curso (AJ-03, decision 5)", async () => {
+    const libre = await calcularCurva(input());
+    mocks.parametros.tope_en_curso = { valor: 90, confirmado: true };
+    const result = await calcularCurva(input());
+    if (!result.ok || !libre.ok) throw new Error("expected ok");
+    const planeado = result.value.periodos.map((p) => p.tecnico.planeado);
+    // Every month loses 10 % of the activities already ended by then: August 20.7 -> 18.7 (a1, weight 4 of 20).
+    // Corte 2026-11-20: a1 and a2 ended (capped at 0.9), a3 at 26/56 -> (4 * 0.9 + 8 * 0.9 + 8 * 26/56) / 20 = 72.6 %.
+    expect(planeado).toEqual([18.7, 40.1, 58.3, 72.6, 90]);
+    expect(result.value.periodos.map((p) => p.tecnico.ejecutado)).toEqual(libre.value.periodos.map((p) => p.tecnico.ejecutado));
   });
 
   it("applies the same corte rule to the planned technical value of base=original", async () => {

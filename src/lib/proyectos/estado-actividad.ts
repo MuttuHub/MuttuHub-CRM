@@ -4,6 +4,7 @@
  * Tablero only reads it, and the date rule is the same one `atencion.ts` already applies.
  */
 
+import { alcanzaTope } from "./avance"
 import type { IsoDate } from "./weeks"
 
 /** Board columns, in the order the Tablero shows them. */
@@ -23,7 +24,8 @@ export function vencidaSinTerminar(input: {
 /**
  * Column of one activity on the Tablero. `progreso` is a PERCENTAGE 0..100 (the shape
  * `technical-status` returns, not the 0..1 fraction `calcularTecnico` works with).
- * Terminada wins; then Atrasada (server colour red or overdue by date); then En curso; else Por iniciar.
+ * Terminada wins; then Atrasada (server colour red, or overdue by date and still below the tope — AJ-03: an
+ * activity at the tope only waits for soportes); then En curso; else Por iniciar.
  */
 export function columnaTablero(input: {
   progreso: number
@@ -31,11 +33,13 @@ export function columnaTablero(input: {
   /** Last day of the activity; null when unknown (then only the server colour can mark it late). */
   fin: IsoDate | null
   corte: IsoDate
+  /** `tope_en_curso`, as a PERCENTAGE 0..100 like `progreso`. */
+  tope: number
 }): ColumnaTablero {
-  const terminada = input.progreso >= 100
-  if (terminada) return "terminada"
+  if (input.progreso >= 100) return "terminada"
   const vencida =
-    input.fin !== null && vencidaSinTerminar({ fin: input.fin, corte: input.corte, terminada })
+    input.fin !== null &&
+    vencidaSinTerminar({ fin: input.fin, corte: input.corte, terminada: alcanzaTope(input.progreso, input.tope) })
   if (input.color === "rojo" || vencida) return "atrasada"
   if (input.progreso > 0) return "en_curso"
   return "por_iniciar"

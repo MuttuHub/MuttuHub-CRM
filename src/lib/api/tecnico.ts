@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { contarMediosVivos } from "@/lib/api/ejecucion";
 import {
   calcularTecnico,
-  fraccionTiempo,
+  programadoActividad,
   type ActividadTecnicaInput,
   type ActividadTecnicaResultado,
   type ReporteActividadInput,
@@ -56,7 +56,7 @@ export async function loadTecnicoStatus(input: {
   proyectoId: string;
   fechaInicio: Date;
   corte: IsoDate;
-  parametros: Pick<ParametrosV2, "umbral1" | "umbral2" | "avance_requiere_medio">;
+  parametros: Pick<ParametrosV2, "umbral1" | "umbral2" | "avance_requiere_medio" | "tope_en_curso">;
   /**
    * `base=original` (S8): the weeks, weights and quantities of this frozen version replace the live
    * structure. The avances stay the live ones, matched to the version's deliverables by code.
@@ -104,9 +104,11 @@ export async function loadTecnicoStatus(input: {
     reportes: reportesPorActividad.get(actividad.id) ?? [],
   }));
 
+  const tope = parametros.tope_en_curso.valor / 100;
   const tecnico = calcularTecnico({
     corte,
     requiereMedio: parametros.avance_requiere_medio.valor,
+    tope,
     actividades: entrada,
   });
   const umbrales = { umbral1: parametros.umbral1.valor, umbral2: parametros.umbral2.valor };
@@ -117,7 +119,7 @@ export async function loadTecnicoStatus(input: {
   const actividadesEnriquecidas: TecnicoActividad[] = tecnico.actividades.map((resultado) => {
     const fechas = fechasDe.get(resultado.id) ?? { inicio: corte, fin: corte };
     const origen = fuenteDe.get(resultado.id);
-    const programado = fraccionTiempo(corte, fechas.inicio, fechas.fin);
+    const programado = programadoActividad(corte, fechas.inicio, fechas.fin, tope);
     const tieneSoporte =
       origen?.entregables.some((entregable) =>
         (porEntregable.get(entregable.id) ?? []).some((avance) => (medios.get(avance.id) ?? 0) > 0),

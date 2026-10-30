@@ -110,6 +110,17 @@ export function entregablesCompletos(entregables: EntregableTecnicoInput[], requ
   return entregables.length > 0 && entregables.every((e) => entregableCompleto(e, requiereMedio))
 }
 
+/** Float slack so a progress equal to the tope (e.g. 9 of 10 deliverables against 90 %) reaches it. */
+const EPSILON_TOPE = 1e-9
+
+/**
+ * AJ-03: whether a progress reached the tope (`tope_en_curso`), inclusive. Both in the same unit
+ * (0..1 fractions, or 0..100 percentages).
+ */
+export function alcanzaTope(avance: number, tope: number): boolean {
+  return avance + EPSILON_TOPE >= tope
+}
+
 /** Weighted mean of the activity progresses; zero total weight yields 0. */
 export function avanceReal(actividades: { peso: number; progreso: number }[]): number {
   const total = actividades.reduce((sum, a) => sum + a.peso, 0)
@@ -125,15 +136,25 @@ export function fraccionTiempo(corte: IsoDate, inicio: IsoDate, fin: IsoDate): n
   return Math.min(1, Math.max(0, elapsed / total))
 }
 
-/** Weighted mean of the elapsed fractions; zero total weight yields 0. */
+/**
+ * Planned fraction of one activity at `corte` (AJ-03, decision 5): its elapsed fraction, capped at the
+ * tope (`tope_en_curso` as a 0..1 fraction) — «el avance programado de cada actividad llega como máximo
+ * al tope en su fecha fin», so an activity at the tope waiting for soportes shows no deviation.
+ */
+export function programadoActividad(corte: IsoDate, inicio: IsoDate, fin: IsoDate, tope: number): number {
+  return Math.min(tope, fraccionTiempo(corte, inicio, fin))
+}
+
+/** Weighted mean of the activities' planned fractions (capped at the tope); zero total weight yields 0. */
 export function avanceProgramado(
   actividades: { peso: number; inicio: IsoDate; fin: IsoDate }[],
   corte: IsoDate,
+  tope: number,
 ): number {
   const total = actividades.reduce((sum, a) => sum + a.peso, 0)
   if (total <= 0) return 0
   return (
-    actividades.reduce((sum, a) => sum + a.peso * fraccionTiempo(corte, a.inicio, a.fin), 0) / total
+    actividades.reduce((sum, a) => sum + a.peso * programadoActividad(corte, a.inicio, a.fin, tope), 0) / total
   )
 }
 
@@ -197,12 +218,37 @@ export type ActividadTecnicaResultado = {
   fecha_cumplimiento: IsoDate | null
   /** S8: whether every deliverable of the activity is complete (AJ-01; consumed by AJ-03 later). */
   entregables_completos: boolean
+  /**
+   * AJ-03: the same progress (decision 1) computed only from the avances and reports dated on or
+   * before the activity's fin — what «llegó al tope en su fecha fin» is measured against.
+   */
+  avance_al_fin: number
+}
+
+/**
+ * Decision S5.1 progress of one activity: the greater of the last report and the deliverable
+ * average; a report-less activity keeps the deliverable average (S5.2). With `hasta`, only the
+ * avances and reports dated on or before it count.
+ */
+function progresoActividad(a: ActividadTecnicaInput, requiereMedio: boolean, hasta?: IsoDate): number {
+  const vigente = (fecha: IsoDate) => hasta === undefined || fecha <= hasta
+  const progresoEntregables = avanceActividad(
+    a.entregables.map((e) =>
+      avanceEntregable(acumuladoContable(e.avances.filter((av) => vigente(av.fecha)), requiereMedio), e.meta),
+    ),
+  )
+  const reportes = (a.reportes ?? []).filter((r) => vigente(r.fecha))
+  return reportes.length > 0
+    ? Math.max(reportes[reportes.length - 1].porcentaje / 100, progresoEntregables)
+    : progresoEntregables
 }
 
 /** Composes the whole technical read: real, programmed, deviation and per-activity estado. */
 export function calcularTecnico(input: {
   corte: IsoDate
   requiereMedio: boolean
+  /** `tope_en_curso` as a 0..1 fraction: each activity's planned fraction caps at it (AJ-03). */
+  tope: number
   actividades: ActividadTecnicaInput[]
 }): {
   avance_real: number
@@ -212,20 +258,13 @@ export function calcularTecnico(input: {
 } {
   const { corte, requiereMedio } = input
   const actividades = input.actividades.map((a) => {
-    const progresoEntregables = avanceActividad(
-      a.entregables.map((e) => avanceEntregable(acumuladoContable(e.avances, requiereMedio), e.meta)),
-    )
     const fechas = a.entregables.map((e) => fechaCumplimiento(e.avances, e.meta, requiereMedio))
     const done = fechas.length > 0 && fechas.every((f) => f !== null)
     const cumplimiento = done ? (fechas as IsoDate[]).reduce((max, f) => (f > max ? f : max)) : null
 
     const completos = entregablesCompletos(a.entregables, requiereMedio)
-    const reportes = a.reportes ?? []
-    const hasReports = reportes.length > 0
-    // decision S5.1: the greater of the last report and the deliverable average.
-    const progreso = hasReports
-      ? Math.max(reportes[reportes.length - 1].porcentaje / 100, progresoEntregables)
-      : progresoEntregables
+    const hasReports = (a.reportes ?? []).length > 0
+    const progreso = progresoActividad(a, requiereMedio)
 
     return {
       id: a.id,
@@ -243,11 +282,12 @@ export function calcularTecnico(input: {
       }),
       fecha_cumplimiento: cumplimiento,
       entregables_completos: completos,
+      avance_al_fin: progresoActividad(a, requiereMedio, a.fin),
     }
   })
 
   const real = avanceReal(actividades)
-  const programado = avanceProgramado(input.actividades, corte)
+  const programado = avanceProgramado(input.actividades, corte, input.tope)
   return {
     avance_real: real,
     avance_programado: programado,

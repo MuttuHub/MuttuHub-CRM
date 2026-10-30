@@ -55,44 +55,104 @@ function proyecto(over: Partial<KpiProyectoInput> = {}): KpiProyectoInput {
 }
 
 describe("cumplimientoCronograma", () => {
-  const base = { corte: CORTE }
+  const TOPE = 0.9
+  const fila = (fin: string, avance_al_fin: number, avance = avance_al_fin) => ({ fin, avance_al_fin, avance })
   it("ignores activities ending after the corte", () => {
-    const r = cumplimientoCronograma([{ fin: "2026-02-28", estado: "FINALIZADA" }, { fin: "2026-04-30", estado: "NO_INICIADA" }], base.corte)
+    const r = cumplimientoCronograma([fila("2026-02-28", 1), fila("2026-04-30", 0)], CORTE, TOPE)
     expect(r.vencidas).toBe(1)
     expect(r.valor).toBe(100)
   })
-  it("counts FINALIZADA_CON_RETRASO as late (not on time)", () => {
-    const r = cumplimientoCronograma([{ fin: "2026-02-28", estado: "FINALIZADA" }, { fin: "2026-03-01", estado: "FINALIZADA_CON_RETRASO" }], base.corte)
+  it("an activity that reached the tope only after its fin is not on time", () => {
+    const r = cumplimientoCronograma([fila("2026-02-28", 1), fila("2026-03-01", 0.5, 1)], CORTE, TOPE)
     expect(r).toMatchObject({ vencidas: 2, a_tiempo: 1, valor: 50, corte: CORTE })
   })
   it("denominator 0 yields null, never 0", () => {
-    expect(cumplimientoCronograma([{ fin: "2026-04-30", estado: "EN_CURSO" }], base.corte).valor).toBeNull()
-    expect(cumplimientoCronograma([], base.corte).valor).toBeNull()
+    expect(cumplimientoCronograma([fila("2026-04-30", 0.5)], CORTE, TOPE).valor).toBeNull()
+    expect(cumplimientoCronograma([], CORTE, TOPE).valor).toBeNull()
   })
   it("the corte day itself is due", () => {
-    expect(cumplimientoCronograma([{ fin: CORTE, estado: "EN_CURSO" }], CORTE).vencidas).toBe(1)
+    expect(cumplimientoCronograma([fila(CORTE, 0.5)], CORTE, TOPE).vencidas).toBe(1)
+  })
+  it("reaching exactly the tope at the fin counts as on time (inclusive)", () => {
+    expect(cumplimientoCronograma([fila("2026-02-28", 0.9)], CORTE, TOPE).a_tiempo).toBe(1)
   })
 })
 
-describe("atrasadas (D3)", () => {
-  it("counts due activities below 100 % and never the ones finished late", () => {
+describe("atrasadas (AJ-03)", () => {
+  it("counts due activities still below the tope and never the ones that reached it late", () => {
     const r = cumplimientoCronograma(
       [
-        { fin: "2026-02-28", estado: "FINALIZADA" },
-        { fin: "2026-02-28", estado: "FINALIZADA_CON_RETRASO" },
-        { fin: "2026-03-10", estado: "EN_CURSO" },
-        { fin: "2026-03-31", estado: "NO_INICIADA" },
-        { fin: "2026-04-30", estado: "EN_CURSO" },
+        { fin: "2026-02-28", avance_al_fin: 1, avance: 1 },
+        { fin: "2026-02-28", avance_al_fin: 0.5, avance: 0.95 },
+        { fin: "2026-03-10", avance_al_fin: 0.4, avance: 0.4 },
+        { fin: "2026-03-31", avance_al_fin: 0, avance: 0 },
+        { fin: "2026-04-30", avance_al_fin: 0.2, avance: 0.2 },
       ],
       CORTE,
+      0.9,
     )
     expect(r).toMatchObject({ vencidas: 4, a_tiempo: 1, atrasadas: 2 })
   })
-  it("kpisProyecto exposes it, 0 when everything due is finished", () => {
+  it("kpisProyecto exposes it, 0 when everything due reached the tope", () => {
     const tarde = actividad({ id: "T", fin: "2026-03-01", entregables: [{ id: "T-e", meta: 10, avances: [avance("2026-03-20", 10)] }] })
     const abierta = actividad({ id: "O", fin: "2026-03-15", entregables: [{ id: "O-e", meta: 10, avances: [avance("2026-03-10", 4)] }] })
     expect(kpisProyecto(proyecto({ actividades: [tarde, abierta] })).cronograma?.atrasadas).toBe(1)
     expect(kpisProyecto(proyecto()).cronograma?.atrasadas).toBe(0)
+  })
+})
+
+describe("cronograma por ejecución (AJ-03)", () => {
+  // «Programada hasta la semana 6»: weeks 1-6 run 2026-01-05..2026-02-15.
+  const semana6 = { inicio: "2026-01-05", fin: "2026-02-15" }
+  const entregable = (id: string, avances: ReturnType<typeof avance>[]) => [{ id: `${id}-e`, meta: 10, avances }]
+  const cronograma = (over: Partial<KpiActividadInput>, parametros = PARAMETROS_V2_DEFAULT) =>
+    kpisProyecto(proyecto({ parametros, actividades: [actividad({ id: "A", ...semana6, ...over })] })).cronograma
+
+  it("S5: 90 % in week 6 and Terminada in week 8 is on time", () => {
+    const r = cronograma({
+      reportes: [{ fecha: "2026-02-12", porcentaje: 90 }],
+      entregables: entregable("A", [avance("2026-02-26", 10)]),
+    })
+    expect(r).toMatchObject({ vencidas: 1, a_tiempo: 1, atrasadas: 0, valor: 100 })
+  })
+  it("S5: 50 % in week 6 is not on time", () => {
+    const r = cronograma({ reportes: [{ fecha: "2026-02-12", porcentaje: 50 }], entregables: entregable("A", []) })
+    expect(r).toMatchObject({ vencidas: 1, a_tiempo: 0, atrasadas: 1, valor: 0 })
+  })
+  it("soportes arriving after the fin never turn an on-time activity late", () => {
+    const r = cronograma({
+      reportes: [{ fecha: "2026-02-15", porcentaje: 90 }],
+      entregables: entregable("A", [avance("2026-03-20", 10, false)]),
+    })
+    expect(r).toMatchObject({ a_tiempo: 1, atrasadas: 0 })
+  })
+  it("reaching the tope after the fin is neither on time nor late", () => {
+    const r = cronograma({ reportes: [{ fecha: "2026-02-20", porcentaje: 90 }], entregables: entregable("A", []) })
+    expect(r).toMatchObject({ vencidas: 1, a_tiempo: 0, atrasadas: 0, valor: 0 })
+  })
+  it("a report-less activity is measured by its deliverables: complete by the fin is on time", () => {
+    const r = cronograma({ entregables: entregable("A", [avance("2026-02-10", 10)]) })
+    expect(r).toMatchObject({ a_tiempo: 1, atrasadas: 0 })
+  })
+  it("a report-less activity with partial deliverables never reached the tope", () => {
+    const r = cronograma({ entregables: entregable("A", [avance("2026-02-10", 8)]) })
+    expect(r).toMatchObject({ a_tiempo: 0, atrasadas: 1 })
+  })
+  it("the technical semáforo stays verde for an activity at the tope that only waits for soportes", () => {
+    const k = kpisProyecto(
+      proyecto({
+        actividades: [
+          actividad({ id: "A", ...semana6, reportes: [{ fecha: "2026-02-12", porcentaje: 90 }], entregables: entregable("A", []) }),
+        ],
+      }),
+    )
+    expect(k.tecnico).toMatchObject({ avance_real: 90, avance_programado: 90, desviacion_pp: 0, color: "verde" })
+  })
+  it("the tope comes from tope_en_curso", () => {
+    const tope80 = { ...PARAMETROS_V2_DEFAULT, tope_en_curso: { valor: 80, confirmado: true } }
+    const over = { reportes: [{ fecha: "2026-02-12", porcentaje: 85 }], entregables: entregable("A", []) }
+    expect(cronograma(over, tope80)).toMatchObject({ a_tiempo: 1, atrasadas: 0 })
+    expect(cronograma(over)).toMatchObject({ a_tiempo: 0, atrasadas: 1 })
   })
 })
 
