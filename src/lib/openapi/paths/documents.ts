@@ -145,6 +145,12 @@ const CreateDocumentFormSchema = z.object({
   cliente_id: z.string().optional().openapi({
     description: "Id de un cliente existente y no eliminado; vincula el documento a ese cliente.",
   }),
+  carpeta_id: z.string().optional().openapi({
+    description:
+      "Opcional (S3): id de una carpeta activa donde queda el documento (sin ella, queda en «Todas»). Si es la " +
+      "carpeta de un cliente, el documento se vincula a ese cliente; un `cliente_id` distinto → 400 VALIDATION_ERROR " +
+      "«El cliente indicado no coincide con el cliente de la carpeta.»; carpeta inexistente o eliminada → 404.",
+  }),
 });
 
 // JSON confirm body para CREAR un documento (ADR-13, S0.9b item 1): el navegador
@@ -182,6 +188,12 @@ const ConfirmCreateDocumentBodySchema = z.object({
   }),
   cliente_id: z.string().optional().openapi({
     description: "Opcional; si se envía debe coincidir con la carpeta de `storage_path`.",
+  }),
+  carpeta_id: z.string().optional().openapi({
+    description:
+      "Opcional (S3): la misma carpeta enviada al firmar. Si es la carpeta de un cliente, ese cliente debe ser el " +
+      "codificado en `storage_path` (el sign lo eligió desde la carpeta); si no coincide → 400 VALIDATION_ERROR. " +
+      "Carpeta inexistente o eliminada → 404.",
   }),
   force: z.boolean().optional().openapi({
     description: "true para crear un documento aparte pese a un título duplicado.",
@@ -359,6 +371,52 @@ registry.registerPath({
   responses: {
     204: { description: "Documento eliminado (soft delete)." },
     ...standardErrorResponses([401, 403, 404, 500]),
+  },
+});
+
+// ---------------------------------------------------------------------------
+// PATCH /api/v1/documents/{id}
+// ---------------------------------------------------------------------------
+registry.registerPath({
+  method: "patch",
+  path: "/api/v1/documents/{id}",
+  tags: ["Documentos"],
+  summary: "Edita metadatos de un documento y lo mueve entre carpetas",
+  description:
+    "Al menos un campo. Permiso: roles completos (ADMINISTRADOR, GERENCIA, COORDINADOR) o el autor; una categoría " +
+    "entrante restringida tampoco es válida para un COLABORADOR (403). `cliente_ids` reemplaza todos los vínculos " +
+    "dentro de una transacción. `carpeta_id` mueve el documento (null = raíz, «Todas»): mover a la carpeta de un " +
+    "cliente lo vincula también a ese cliente (aditivo, conserva otros vínculos); mover a una carpeta sin cliente o " +
+    "a la raíz conserva los vínculos existentes. Si también se envía `cliente_ids`, debe incluir al cliente de la " +
+    "carpeta destino (400 si no). Carpeta inexistente o eliminada → 404; cliente de la carpeta eliminado → 400. " +
+    RESTRICTED_CATEGORY_NOTE,
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: z.object({ id: z.string().uuid() }),
+    body: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            titulo: z.string().max(200).optional(),
+            categoria: z.string().optional().openapi({ description: "Debe existir en el catálogo vigente." }),
+            etiquetas: z.array(z.string()).optional().openapi({ description: "Máximo 8 de 40 caracteres." }),
+            carpeta_id: z.string().nullable().optional().openapi({
+              description: "Carpeta destino; null mueve a la raíz. Ver la regla de cliente en la descripción.",
+            }),
+            cliente_ids: z.array(z.string()).optional().openapi({
+              description: "Reemplazo completo de los clientes vinculados (existentes y no eliminados).",
+            }),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Documento actualizado con su historial de versiones.",
+      content: { "application/json": { schema: DocumentDetailResponseSchema } },
+    },
+    ...standardErrorResponses([400, 401, 403, 404, 500]),
   },
 });
 
@@ -551,6 +609,13 @@ registry.registerPath({
               description:
                 "Solo `documento_nuevo`: cliente dueño del documento; elige la carpeta `documentos/{cliente}/...` " +
                 "del key (sin cliente, `documentos/general/...`). Un cliente desconocido/eliminado → 400.",
+            }),
+            carpeta_id: z.string().optional().openapi({
+              description:
+                "Solo `documento_nuevo` (S3; en otro `kind` → 400): carpeta destino. Si es la carpeta de un cliente, " +
+                "ese cliente elige el key `documentos/{cliente}/...` y el confirm debe reenviar la misma carpeta; un " +
+                "`cliente_id` distinto → 400 «El cliente indicado no coincide con el cliente de la carpeta.»; carpeta " +
+                "inexistente o eliminada → 404.",
             }),
             titulo: z.string().optional().openapi({
               description:

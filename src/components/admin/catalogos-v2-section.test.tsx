@@ -21,7 +21,6 @@ const h = vi.hoisted(() => {
     ]),
     update: vi.fn(),
     createLinea: vi.fn(),
-    useAdminMunicipios: vi.fn(),
   };
 });
 
@@ -31,7 +30,6 @@ vi.mock("@/hooks/admin", async (importOriginal) => {
     ...actual,
     useAdminRubros: () => h.rubros,
     useAdminLineas: () => h.lineas,
-    useAdminMunicipios: h.useAdminMunicipios,
     useUpdateCatalogo: () => ({ mutateAsync: h.update, isPending: false }),
     useCreateLinea: () => ({ mutateAsync: h.createLinea, isPending: false }),
   };
@@ -45,7 +43,6 @@ describe("CatalogosV2Section", () => {
   beforeEach(() => {
     h.update.mockReset().mockResolvedValue({});
     h.createLinea.mockReset().mockResolvedValue({});
-    h.useAdminMunicipios.mockReset();
   });
 
   it("renders the rubros and lines sub-tables with read-only codes and a badge on suspended rows", () => {
@@ -65,7 +62,6 @@ describe("CatalogosV2Section", () => {
 
     expect(screen.queryByRole("region", { name: /municipios/i })).toBeNull();
     expect(screen.queryByText(/municipios/i)).toBeNull();
-    expect(h.useAdminMunicipios).not.toHaveBeenCalled();
   });
 
   it("has no add form for rubros but has one for lines", () => {

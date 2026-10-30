@@ -6,7 +6,7 @@
 // `doc_categories` (fallback RESTRICTED_DOC_CATEGORIES; también aplicado al
 // count).
 // POST /api/v1/documents — multipart/form-data (file, titulo?, categoria,
-// etiquetas? JSON, cliente_id?, force?) crea el Documento + sube la versión v1
+// etiquetas? JSON, cliente_id?, carpeta_id?, force?) crea el Documento + sube la versión v1
 // a Supabase Storage. Flujo transaccional-ish: fila primero, upload después,
 // versión al final; si el upload falla se hace soft delete del documento
 // huérfano y se responde 500 (nunca crash). Las tres decisiones de creación
@@ -14,6 +14,9 @@
 // salvo `force` en true — y 500 si el catálogo live no carga) viven en
 // guardDocumentCreate, compartido con el sign endpoint y con la rama de
 // confirmación; este branch solo valida la forma del formulario.
+// carpeta_id (S3): el documento queda en esa carpeta; si es la carpeta de un
+// cliente, el cliente del documento es el de la carpeta (resolveDocumentPlacement,
+// compartido con el sign endpoint, la confirmación y el PATCH de mover).
 
 import { NextResponse } from "next/server";
 import type { Usuario } from "@prisma/client";
@@ -43,6 +46,12 @@ import {
   toDocumentItem,
   type DocumentRow,
 } from "@/lib/api/documents";
+import {
+  CARPETA_ID_INVALID_MESSAGE,
+  FOLDER_CLIENT_MISMATCH_MESSAGE,
+  parseCarpetaId,
+  resolveDocumentPlacement,
+} from "@/lib/documents/client-folder";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30; // la extracción de texto agrega trabajo a la subida (plan 4B)
@@ -73,6 +82,7 @@ type ConfirmDocumentBody = {
   categoria?: unknown;
   etiquetas?: unknown;
   cliente_id?: unknown;
+  carpeta_id?: unknown;
   force?: unknown;
 };
 
@@ -154,6 +164,8 @@ async function confirmSignedDocument(
   if (rawClienteId !== null && rawClienteId !== clienteId) {
     return apiError(BAD_KEY_MESSAGE, 400, "VALIDATION_ERROR");
   }
+  const carpetaParsed = parseCarpetaId(body?.carpeta_id);
+  if (!carpetaParsed.ok) return apiError(CARPETA_ID_INVALID_MESSAGE, 400, "VALIDATION_ERROR");
   // The key was signed for THIS name: rebuilding it from the payload must be
   // byte-identical, otherwise the payload disagrees with the path.
   if (storagePath !== documentStoragePath(clienteId, documentoId, 1, nombre)) {
@@ -214,15 +226,18 @@ async function confirmSignedDocument(
     if (!gate.ok) return gate.response;
     const titulo = gate.titulo;
 
-    if (clienteId) {
-      const cliente = await db.cliente.findFirst({
-        where: { id: clienteId, deleted_at: null },
-        select: { id: true },
-      });
-      if (!cliente) {
-        return apiError("El cliente no existe o fue eliminado.", 400, "VALIDATION_ERROR");
-      }
+    // Same folder/client rule as the sign endpoint: the key was signed for the
+    // client the folder imposes, so the client resolved here from the folder
+    // must be exactly the one encoded in the key (S3).
+    const placement = await resolveDocumentPlacement({
+      carpetaId: carpetaParsed.carpetaId,
+      clienteId,
+    });
+    if (!placement.ok) return placement.response;
+    if (placement.clienteId !== clienteId) {
+      return apiError(FOLDER_CLIENT_MISMATCH_MESSAGE, 400, "VALIDATION_ERROR");
     }
+    const carpetaId = placement.carpetaId;
 
     // R3-1: the three inserts are ONE atomic transaction. They used to be three
     // independent awaits, so an error after the first left a Documento row with
@@ -234,7 +249,14 @@ async function confirmSignedDocument(
     // Explicit id: the one the sign endpoint pre-generated and encoded in the
     // key (validated above), never a value the client could choose freely.
     const documentoOp = db.documento.create({
-      data: { id: documentoId, titulo, categoria, etiquetas, autor_id: usuario.id },
+      data: {
+        id: documentoId,
+        titulo,
+        categoria,
+        etiquetas,
+        autor_id: usuario.id,
+        ...(carpetaId ? { carpeta_id: carpetaId } : {}),
+      },
       select: DOCUMENT_BASE_SELECT,
     });
     const versionOp = db.documentoVersion.create({
@@ -286,7 +308,14 @@ async function confirmSignedDocument(
       entidad_id: documento.id,
       accion: "crear",
       usuario_id: usuario.id,
-      cambios: { titulo, categoria, etiquetas, cliente_id: clienteId, nombre_archivo: nombre },
+      cambios: {
+        titulo,
+        categoria,
+        etiquetas,
+        cliente_id: clienteId,
+        ...(carpetaId ? { carpeta_id: carpetaId } : {}),
+        nombre_archivo: nombre,
+      },
     });
 
     return NextResponse.json(
@@ -308,6 +337,8 @@ type UploadedFile = {
   categoria: string;
   etiquetas: string[];
   clienteId: string | null;
+  /** Raw `carpeta_id` field; only POST /documents validates and uses it. */
+  carpetaIdRaw: FormDataEntryValue | null;
   force: boolean;
 };
 
@@ -385,13 +416,17 @@ export async function parseUploadForm(
   const rawClienteId = form.get("cliente_id");
   const clienteId = typeof rawClienteId === "string" && rawClienteId.trim() ? rawClienteId.trim() : null;
 
+  // Carpeta destino (S3), sin validar acá: solo POST /documents la usa (la
+  // versión nueva la ignora, como ignora titulo/categoria/cliente_id).
+  const carpetaIdRaw = form.get("carpeta_id");
+
   // Solo relevante para POST /documents (QA audit #4): el diálogo lo manda
   // en true cuando el usuario ya decidió crear un documento aparte pese a la
   // advertencia de nombre duplicado. La versión nueva (POST /:id/versions)
   // lo ignora.
   const force = form.get("force") === "true";
 
-  return { ok: true, data: { titulo, categoria, etiquetas, clienteId, file, force } };
+  return { ok: true, data: { titulo, categoria, etiquetas, clienteId, carpetaIdRaw, file, force } };
 }
 
 export const GET = withApiErrorHandling(
@@ -511,8 +546,18 @@ export async function POST(request: Request) {
     categorias: [],
   });
   if (!form.ok) return form.response;
-  const { file, titulo: tituloRaw, categoria: categoriaRaw, etiquetas, clienteId, force } =
-    form.data;
+  const {
+    file,
+    titulo: tituloRaw,
+    categoria: categoriaRaw,
+    etiquetas,
+    clienteId: clienteIdRaw,
+    carpetaIdRaw,
+    force,
+  } = form.data;
+  // FormData only carries strings or Files: a File is never a folder id.
+  const carpetaParsed = parseCarpetaId(carpetaIdRaw);
+  if (!carpetaParsed.ok) return apiError(CARPETA_ID_INVALID_MESSAGE, 400, "VALIDATION_ERROR");
 
   try {
     // The three create gates in one call: 400 invalid categoria, 403 restricted
@@ -532,19 +577,24 @@ export async function POST(request: Request) {
     if (!gate.ok) return gate.response;
     const titulo = gate.titulo;
 
-    if (clienteId) {
-      const cliente = await db.cliente.findFirst({
-        where: { id: clienteId, deleted_at: null },
-        select: { id: true },
-      });
-      if (!cliente) {
-        return apiError("El cliente no existe o fue eliminado.", 400, "VALIDATION_ERROR");
-      }
-    }
+    // Folder + client (S3): a client folder imposes its client, which then
+    // drives the link AND the storage key below.
+    const placement = await resolveDocumentPlacement({
+      carpetaId: carpetaParsed.carpetaId,
+      clienteId: clienteIdRaw,
+    });
+    if (!placement.ok) return placement.response;
+    const { carpetaId, clienteId } = placement;
 
     // 1) Fila del documento primero (autor = sesión, nunca del cliente).
     const documento = await db.documento.create({
-      data: { titulo, categoria, etiquetas, autor_id: auth.usuario.id },
+      data: {
+        titulo,
+        categoria,
+        etiquetas,
+        autor_id: auth.usuario.id,
+        ...(carpetaId ? { carpeta_id: carpetaId } : {}),
+      },
       select: DOCUMENT_BASE_SELECT,
     });
     if (clienteId) {
@@ -610,7 +660,14 @@ export async function POST(request: Request) {
       entidad_id: documento.id,
       accion: "crear",
       usuario_id: auth.usuario.id,
-      cambios: { titulo, categoria, etiquetas, cliente_id: clienteId, nombre_archivo: file.name },
+      cambios: {
+        titulo,
+        categoria,
+        etiquetas,
+        cliente_id: clienteId,
+        ...(carpetaId ? { carpeta_id: carpetaId } : {}),
+        nombre_archivo: file.name,
+      },
     });
 
     return NextResponse.json(

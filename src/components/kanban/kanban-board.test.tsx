@@ -7,7 +7,7 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { KanbanBoard } from "./kanban-board"
 
 const { usersQuery, clientsQuery, meQuery, eligiblesQuery, tasksQuery, moveMutation, taskTagsQuery } =
@@ -106,5 +106,25 @@ describe("KanbanBoard — live tag filter (jefe 1.1 / S1)", () => {
     expect(await screen.findByRole("option", { name: "Todas las etiquetas" })).toBeInTheDocument()
     expect(screen.getByRole("option", { name: "Comercial" })).toBeInTheDocument()
     expect(screen.queryByRole("option", { name: "Alianza regional" })).not.toBeInTheDocument()
+  })
+})
+
+// Jefe 2026-10-28, lane 2 task 2.4b (S4): «Imprimir» opens the task report's
+// print view in the same tab (the view brings its own «Volver»), never with
+// window.open.
+describe("KanbanBoard — Imprimir in the same tab (jefe 2.4b / S4)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it("links Imprimir to the task report print view without a new tab", () => {
+    const open = vi.fn()
+    vi.stubGlobal("open", open)
+    renderBoard()
+
+    const imprimir = screen.getByRole("link", { name: "Imprimir" })
+    expect(imprimir).toHaveAttribute("href", "/print/reportes/tareas?rango=month")
+    expect(imprimir).not.toHaveAttribute("target")
+    expect(open).not.toHaveBeenCalled()
   })
 })

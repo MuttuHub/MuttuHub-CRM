@@ -24,6 +24,7 @@ export const AUDIT_ENTIDADES_V2 = [
   "actividad",
   "entregable",
   "avance",
+  "reporte_actividad",
   "indicador",
   "medicion",
   "beneficiarios",

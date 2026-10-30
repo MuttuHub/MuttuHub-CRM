@@ -3,9 +3,13 @@
 // Cada nodo lleva su conteo de documentos (hijos directos, no recursivo),
 // excluyendo categorías restringidas para COLABORADOR para que el sidebar no
 // le filtre cuánto es lo que no puede ver.
-// POST /api/v1/folders — crea una carpeta { nombre, parent_id? }. La carpeta
-// es el eje de ORGANIZACIÓN, nunca de permisos: cualquier usuario autenticado
-// puede crear; parent_id válido, sin ciclos, profundidad <= 8.
+// POST /api/v1/folders — crea una carpeta { nombre, parent_id?, cliente_id? }.
+// La carpeta es el eje de ORGANIZACIÓN, nunca de permisos: cualquier usuario
+// autenticado puede crear; parent_id válido, sin ciclos, profundidad <= 8.
+// cliente_id (opcional, A5) la vuelve la carpeta de ese cliente: el cliente
+// debe existir dentro del alcance de lectura de clientes (404 si no) y solo
+// puede haber una por cliente — el índice único responde 409, nunca 500. Para
+// "abrir o crear" la carpeta de un cliente está POST /clients/:id/folder.
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -15,6 +19,8 @@ import { requireApiUser } from "@/lib/supabase/server";
 import { canReadRestrictedDocs } from "@/lib/permissions";
 import { loadDocCategories } from "@/lib/api/documents";
 import { FOLDER_MAX_DEPTH, validateFolderParent } from "@/lib/api/folders";
+import { loadClientScoped } from "@/lib/api/crm";
+import { FOLDER_SELECT, isUniqueViolation } from "@/lib/documents/client-folder";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +28,7 @@ type CarpetaNode = {
   id: string;
   nombre: string;
   parent_id: string | null;
+  cliente_id: string | null;
   created_at: Date;
   hijos: CarpetaNode[];
   documentos_count: number;
@@ -38,7 +45,7 @@ export const GET = withApiErrorHandling(
       db.carpeta.findMany({
         where: { deleted_at: null },
         orderBy: { nombre: "asc" },
-        select: { id: true, nombre: true, parent_id: true, created_at: true },
+        select: FOLDER_SELECT,
       }),
       db.documento.groupBy({
         by: ["carpeta_id"],
@@ -82,6 +89,7 @@ export const GET = withApiErrorHandling(
         id: c.id,
         nombre: c.nombre,
         parent_id: c.parent_id,
+        cliente_id: c.cliente_id ?? null,
         created_at: c.created_at,
         hijos: [],
         documentos_count: countByFolder.get(c.id) ?? 0,
@@ -105,7 +113,9 @@ export const POST = withApiErrorHandling(
     const auth = await requireApiUser();
     if (!auth.ok) return auth.response;
 
-    const body = await parseJsonBody<{ nombre?: string; parent_id?: string | null }>(request);
+    const body = await parseJsonBody<{ nombre?: string; parent_id?: string | null; cliente_id?: unknown }>(
+      request,
+    );
     const nombre = body?.nombre?.trim();
     if (!nombre) {
       return apiError("El nombre de la carpeta es obligatorio.", 400, "VALIDATION_ERROR");
@@ -114,6 +124,14 @@ export const POST = withApiErrorHandling(
       return apiError("El nombre no puede superar los 120 caracteres.", 400, "VALIDATION_ERROR");
     }
     const parentId = body?.parent_id ?? null;
+    const rawClienteId = body?.cliente_id;
+    if (rawClienteId !== undefined && rawClienteId !== null && typeof rawClienteId !== "string") {
+      return apiError("cliente_id debe ser el id de un cliente.", 400, "VALIDATION_ERROR");
+    }
+    const clienteId = typeof rawClienteId === "string" && rawClienteId.trim() ? rawClienteId.trim() : null;
+    if (clienteId !== null && !(await loadClientScoped(clienteId))) {
+      return apiError("El cliente no existe.", 404, "NOT_FOUND");
+    }
 
     if (parentId !== null) {
       const parent = await db.carpeta.findFirst({
@@ -133,12 +151,25 @@ export const POST = withApiErrorHandling(
       }
     }
 
-    const carpeta = await db.carpeta.create({
-      data: { nombre, parent_id: parentId, creado_por_id: auth.usuario.id },
-      select: { id: true, nombre: true, parent_id: true, created_at: true },
-    });
-
-    return NextResponse.json({ carpeta }, { status: 201 });
+    try {
+      const carpeta = await db.carpeta.create({
+        data: {
+          nombre,
+          parent_id: parentId,
+          creado_por_id: auth.usuario.id,
+          ...(clienteId !== null ? { cliente_id: clienteId } : {}),
+        },
+        select: FOLDER_SELECT,
+      });
+      return NextResponse.json({ carpeta }, { status: 201 });
+    } catch (err) {
+      // carpetas.cliente_id is unique (A5): a second folder for the same
+      // client — or a concurrent create — is a conflict the user can act on.
+      if (clienteId !== null && isUniqueViolation(err)) {
+        return apiError("Este cliente ya tiene una carpeta. Usa la carpeta existente.", 409, "CONFLICT");
+      }
+      throw err;
+    }
   },
 );
 

@@ -28,7 +28,7 @@ Todos los pasos de esta guía nombran la pestaña de la ficha donde está cada c
 | **Metas e indicadores** | **Metas e indicadores** (objetivos, actividades, entregables), **Indicadores** (registro de avance por indicador) y **Descargar plantilla** / **Importar plantilla** |
 | **Cronograma** | **Cronograma** por semanas (solo lectura) |
 | **Gantt** | **Gantt** por semanas |
-| **Ficha de seguimiento** | Semáforo técnico, **curva S** (técnica y financiera), tarjetas laterales del corte y **avance por meta**; los entregables se registran con **Registrar avance** |
+| **Ficha de seguimiento** | Semáforo técnico, **curva S** (técnica y financiera), tarjetas laterales del corte y **avance por meta**; los entregables se registran con **Registrar avance** y, a nivel de cada actividad, su propio **Registrar avance** (estado En curso, AJ-01) |
 | **Financiero** | **Presupuesto** (con programación mensual, **gauge** y barras por rubro) y **Ficha financiera** |
 | **Legalización** | **Gastos** (libro mayor con KPIs, filtros y tabla) |
 | **Beneficiarios** | **Beneficiarios** (registro de beneficiarios del proyecto) |
@@ -389,6 +389,42 @@ admin/gerencia.
    - `colaborador@` ve todo sin controles; un `coordinador@` que NO es integrante tampoco los ve.
    - Borrar un entregable con avances (en la pestaña **Metas e indicadores**) responde 409.
 
+## D2. Registrar el avance de la actividad (estado En curso) — AJ-01
+
+Misma pestaña **Ficha de seguimiento**, por actividad. A diferencia de §D.4 (avance por entregable, suma
+cantidades), esta acción es un reporte de **porcentaje** a nivel de toda la actividad y solo la registra el
+**responsable** asignado a esa actividad (o `admin@`/`gerencia@`). Elige una actividad **Sin iniciar** con dos
+entregables para el recorrido completo.
+
+1. Como el `responsable_id` de la actividad (o `admin@`): abre **Registrar avance** en la actividad (no la del
+   entregable). Campos: Fecha (tope hoy), Porcentaje de avance, Observación (siempre obligatoria).
+2. Sin porcentaje o sin observación: no guarda ("El porcentaje debe ser mayor que 0 y menor o igual a 100." /
+   "La observación es obligatoria.").
+3. Registra **30 %** con una observación. La actividad pasa de **Sin iniciar** a **En curso** (no hay ningún cambio
+   de estado manual aparte: esta es la única forma de llegar a En curso). El historial muestra el reporte con
+   fecha, porcentaje, observación y usuario.
+4. Registra **70 %** y luego **90 %** (ambos con observación). El historial muestra los tres reportes, del más
+   antiguo al más reciente, y la barra de progreso de la actividad sigue el último valor.
+5. Con el último reporte en 70 %, intenta registrar **70 %** y luego **50 %**: ambos se rechazan con "El avance
+   debe ser mayor que el último reportado (70 %)".
+6. Con los entregables de la actividad incompletos (al menos uno sin meta alcanzada o sin medio), **90 %** se
+   acepta pero **95 %** se rechaza con "El avance máximo sin entregables completos es 90 %" (el tope es el
+   configurado en §H.5; con el valor inicial es 90).
+7. Completa un entregable (meta alcanzada + al menos un medio vivo) dejando el otro incompleto. Aunque el último
+   reporte esté en el tope (90 %), la actividad sigue **En curso**, nunca pasa a Terminada mientras quede un
+   entregable incompleto — sin importar el porcentaje reportado.
+8. Completa también el segundo entregable (meta + medio). La actividad pasa a **100 % y Finalizada** (o
+   **Finalizada con retraso**, según la fecha) sin necesidad de un nuevo reporte: la condición es que todos los
+   entregables estén completos, no el porcentaje del último reporte.
+9. **Adjuntar medio**: sobre un reporte ya guardado, adjunta un archivo o un enlace (misma mecánica que el avance
+   de entregable, §D.4): el medio queda listado y se puede descargar.
+10. **Anular** el último reporte: pide "Motivo de anulación"; queda con insignia **Anulado** y sale del historial de
+    vigentes. Intentar anular uno que ya no es el más reciente responde "Solo se puede anular el último reporte
+    registrado de la actividad."; intentar anular uno ya anulado responde "El reporte ya está anulado.".
+11. Negativos de acceso: un `coordinador@`/`colaborador@` integrante que **no** es el responsable de la actividad no
+    ve el botón **Registrar avance** de la actividad (sí puede seguir viendo el historial); `admin@`/`gerencia@`
+    siempre lo ven, sean o no el responsable.
+
 ## E. Gastos y validación (S6)
 
 Pestaña **Legalización** de la ficha (sección **Gastos**). Registran `admin@`, `gerencia@` o `coordinador@` integrante, solo con el proyecto
@@ -511,8 +547,8 @@ Menú **Administración** (otros roles son redirigidos). Más abajo en la págin
    marca la fila de **Presupuesto** (pestaña **Financiero**) con "Rubro suspendido pendiente de reasignación" y bloquea la línea base.
 5. **Umbrales del semáforo**: "Valores provisionales hasta que el equipo de producto los confirme. Marca cada
    parámetro como confirmado solo cuando esté validado." Parámetros: Umbral 1 (pp), Umbral 2 (pp), Tolerancia (%),
-   Retraso (%), Avance requiere medio, Modificación bloquea periodos pasados. Cada uno con insignia **Confirmado**
-   o **No confirmado**.
+   Retraso (%), Avance requiere medio, Modificación bloquea periodos pasados, **Tope de avance sin entregables
+   completos (%)** (AJ-01; valor inicial 90). Cada uno con insignia **Confirmado** o **No confirmado**.
 6. Cambia un valor, marca **Confirmar <parámetro>** y pulsa **Guardar parámetros**. Vuelve a la ficha, pestaña
    **Ficha de seguimiento** o **Financiero** (**Ficha financiera**): la insignia **No confirmado** del semáforo desaparece cuando los parámetros que usa quedan
    confirmados. (No verificado qué parámetros exactos controlan cada insignia.)

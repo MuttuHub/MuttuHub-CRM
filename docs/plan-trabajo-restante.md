@@ -49,7 +49,7 @@ octubre. Según el documento, cada «cambio de regla» prevalece sobre la regla 
 
 | ID | Ajuste | Prioridad | Estado |
 |---|---|---|---|
-| AJ-01 | Estado **En curso** con reporte de avance de la actividad (porcentaje + observación, tope configurable, historial) | Alta | Pendiente; necesita una tabla nueva |
+| AJ-01 | Estado **En curso** con reporte de avance de la actividad (porcentaje + observación, tope configurable, historial) | Alta | **Hecho** (rama `feat/aj01-estado-en-curso`, tabla nueva ReporteActividad) |
 | AJ-02 | Peso de cada actividad = su duración en semanas, no editable | Alta | Pendiente; depende de AJ-01 |
 | AJ-03 | El atraso se mide por la ejecución (llegar al tope en la fecha fin), no por los soportes | Alta | Pendiente; depende de AJ-01 |
 | AJ-04 | IVA discriminado: Subtotal + IVA = Total; el ejecutado es el Total | Alta | **Hecho** (#99, migración aplicada en producción el 2026-10-28) |

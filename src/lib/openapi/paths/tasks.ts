@@ -251,7 +251,17 @@ const TaskListQuerySchema = z.object({
   ...TaskFilterQueryFields,
 });
 
-const TaskExportQuerySchema = z.object({ ...TaskFilterQueryFields });
+const TaskExportQuerySchema = z.object({
+  rango: z
+    .enum(["week", "month", "quarter", "all"])
+    .optional()
+    .openapi({
+      description:
+        "Período, con la misma semántica que GET /tasks/report: week=7d, month=30d, quarter=90d; las COMPLETADA " +
+        "por completed_at y las abiertas por updated_at. Sin `rango` (o con all) no se filtra por fechas.",
+    }),
+  ...TaskFilterQueryFields,
+});
 
 const TaskReportQuerySchema = z.object({
   rango: z
@@ -671,7 +681,8 @@ registry.registerPath({
     "filtrado, orden updated_at desc) — no hay paginación en este endpoint. Columnas en español; subtareas " +
     "como 'completadas/total'. PR 6: cada exportación escribe una fila en `auditoria` con `accion='exportar'`, " +
     "usuario_id, cantidad de filas y filtros aplicados en `cambios` (best-effort — un fallo de auditoría NO " +
-    "falla la exportación).",
+    "falla la exportación). `rango` (opcional) acota al mismo período que el reporte de Reportes › Tareas y " +
+    "queda registrado en los filtros auditados; un valor fuera de week|month|quarter|all responde 400.",
   security: [{ sessionCookie: [] }],
   request: { query: TaskExportQuerySchema },
   responses: {

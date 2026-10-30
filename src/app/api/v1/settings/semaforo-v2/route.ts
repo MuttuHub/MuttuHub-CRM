@@ -47,6 +47,7 @@ export const SEMAFORO_V2_PATCH_SCHEMA = z
     retraso: patchItem(porcentaje),
     avance_requiere_medio: patchItem(z.boolean()),
     modificacion_bloquea_periodos_pasados: patchItem(z.boolean()),
+    tope_en_curso: patchItem(porcentaje),
   })
   .partial()
   .strict()

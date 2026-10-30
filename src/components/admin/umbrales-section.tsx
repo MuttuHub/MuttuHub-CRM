@@ -42,6 +42,11 @@ const META: Record<ParametroKey, Meta> = {
     hint: "Impide editar periodos que ya cerraron.",
     kind: "boolean",
   },
+  tope_en_curso: {
+    label: "Tope de avance sin entregables completos (%)",
+    hint: "Avance máximo que se puede reportar mientras los entregables de la actividad no estén completos.",
+    kind: "number",
+  },
 };
 
 /** Borrador: los numéricos se guardan como texto para poder borrar y reescribir. */
