@@ -144,7 +144,7 @@ export type ProjectObjective = {
 /**
  * Fila de `{ actividades }` (`toActividadV2View`). Las fechas son DERIVADAS de
  * las semanas y la fecha de inicio del proyecto (nunca se envían); `peso` es
- * número y `peso_manual` indica que lo escribió una persona.
+ * número y se DERIVA de las semanas (AJ-02): no se escribe ni se envía.
  */
 export type ProjectActivity = {
   id: string;
