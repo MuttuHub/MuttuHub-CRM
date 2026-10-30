@@ -8,10 +8,10 @@
 // (a COLABORADOR needs to be able to READ the foreign task — see
 // global-task-board spec scenarios).
 
-import { render, screen, act, fireEvent } from "@testing-library/react"
+import { render, screen, act, fireEvent, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { TaskItem } from "@/hooks/crm"
 import type { TaskDetail } from "@/hooks/kanban"
 import { TaskDialog } from "./task-dialog"
@@ -29,6 +29,9 @@ const { taskQuery, subtareasQuery, comentariosQuery, adjuntosQuery, taskTagsQuer
     taskTagsQuery: { data: null as string[] | null, isLoading: false, error: null as unknown },
   }),
 )
+
+const { toastError } = vi.hoisted(() => ({ toastError: vi.fn() }))
+vi.mock("sonner", () => ({ toast: { error: toastError, success: vi.fn() } }))
 
 const noopMutation = { isPending: false, mutateAsync: vi.fn().mockResolvedValue({}) }
 
@@ -257,6 +260,66 @@ describe("TaskDialog — Adjuntos drag & drop", () => {
     fireEvent.drop(getDropzone(), { dataTransfer: { files: [file] } })
 
     expect(noopMutation.mutateAsync).not.toHaveBeenCalled()
+  })
+})
+
+// Jefe 2026-10-28, lane 2 task 2.4b (S4): «Descargar» downloads the attachment
+// in place — the download route redirects to a signed Storage URL, so the
+// dialog fetches it and saves it with an <a download> named after the file,
+// instead of opening a new tab with window.open.
+describe("TaskDialog — Adjuntos download in place (jefe 2.4b / S4)", () => {
+  const open = vi.fn()
+  const fetchMock = vi.fn()
+
+  beforeEach(() => {
+    taskQuery.data = makeTask({ puede_editar: true })
+    taskQuery.isLoading = false
+    taskQuery.error = null
+    subtareasQuery.data = []
+    comentariosQuery.data = []
+    adjuntosQuery.data = [{ id: "a1", nombre: "contrato.pdf", tamano_bytes: 2048, created_at: "2026-08-01T00:00:00.000Z" }]
+    open.mockReset()
+    fetchMock.mockReset()
+    vi.stubGlobal("open", open)
+    vi.stubGlobal("fetch", fetchMock)
+    URL.createObjectURL = vi.fn(() => "blob:contrato")
+    URL.revokeObjectURL = vi.fn()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it("downloads the file through its download route with an <a download>, never a new tab", async () => {
+    fetchMock.mockResolvedValue(new Response(new Blob(["%PDF"]), { status: 200 }))
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {})
+    const user = userEvent.setup()
+    renderDialog("t1")
+
+    await user.click(screen.getByRole("button", { name: "Descargar contrato.pdf" }))
+
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1))
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/tasks/t1/attachments/a1/download")
+    const a = click.mock.contexts[0] as HTMLAnchorElement
+    expect(a.download).toBe("contrato.pdf")
+    expect(a.href).toBe("blob:contrato")
+    expect(open).not.toHaveBeenCalled()
+  })
+
+  it("shows the API error and downloads nothing when the route refuses", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ error: "No tienes permisos sobre este documento." }), { status: 403 }),
+    )
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {})
+    const user = userEvent.setup()
+    renderDialog("t1")
+
+    await user.click(screen.getByRole("button", { name: "Descargar contrato.pdf" }))
+
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith("No tienes permisos sobre este documento."))
+    expect(click).not.toHaveBeenCalled()
+    expect(open).not.toHaveBeenCalled()
   })
 })
 

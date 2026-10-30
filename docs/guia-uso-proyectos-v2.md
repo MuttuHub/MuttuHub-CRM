@@ -431,6 +431,14 @@ semana y no se cerró a tiempo; una **cerrada** es la que se completó esa seman
 - **Exportar Excel** baja `reporte-semanal-<lunes>.xlsx`, con una hoja por sección. Solo agregados: sin gastos
   individuales, terceros ni soportes.
 
+### 7.2 Reporte de tareas (Reportes › Tareas y Tablero de tareas)
+
+- **PDF** (en el reporte) e **Imprimir** (en el Tablero de tareas) abren la versión para imprimir en la **misma
+  pestaña**; **Volver** regresa a donde estabas (o a Reportes, si la abriste directo).
+- **Excel** del reporte baja `tareas.xlsx` con el **mismo período** que muestra (Semana, Mes, Trimestre o Todo). El
+  **Excel** de la cabecera del Tablero de tareas no tiene período: exporta las tareas con los filtros del tablero.
+- En una tarea, **Descargar** un adjunto lo baja directo, sin abrir otra pestaña.
+
 ---
 
 ## 8. Rutina recomendada
