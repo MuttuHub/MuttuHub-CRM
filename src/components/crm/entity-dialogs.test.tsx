@@ -9,7 +9,7 @@ import userEvent from "@testing-library/user-event"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { BitacoraEntrada, Contacto, Oportunidad, TaskItem } from "@/hooks/crm"
-import { ContactoFormDialog, OportunidadLifecycleDialog } from "./entity-dialogs"
+import { ContactoFormDialog, OportunidadFormDialog, OportunidadLifecycleDialog } from "./entity-dialogs"
 
 const noopMutation = {
   isPending: false,
@@ -40,6 +40,8 @@ const { useTasksByOportunidadMock, useBitacoraMock, useEligibleOpportunitiesMock
   contactoMocks: {
     create: { isPending: false, mutateAsync: vi.fn().mockResolvedValue({}) },
     update: { isPending: false, mutateAsync: vi.fn().mockResolvedValue({}) },
+    createOportunidad: { isPending: false, mutateAsync: vi.fn().mockResolvedValue({}) },
+    updateOportunidad: { isPending: false, mutateAsync: vi.fn().mockResolvedValue({}) },
     users: [
       { id: "u1", nombre: "Ana Pérez" },
       { id: "u2", nombre: "Bruno Díaz" },
@@ -79,6 +81,8 @@ vi.mock("@/hooks/crm", async (importOriginal) => {
     useUsers: () => ({ data: contactoMocks.users }),
     useCreateContacto: () => contactoMocks.create,
     useUpdateContacto: () => contactoMocks.update,
+    useCreateOportunidad: () => contactoMocks.createOportunidad,
+    useUpdateOportunidad: () => contactoMocks.updateOportunidad,
   }
 })
 
@@ -369,5 +373,39 @@ describe("ContactoFormDialog (v7 C4b)", () => {
     expect(contactoMocks.create.mutateAsync).toHaveBeenCalledWith(
       expect.objectContaining({ poder: 5, owner_id: "u2" }),
     )
+  })
+})
+
+describe("CRM form dialogs lock Cancelar while saving (modal review 2.7)", () => {
+  it("disables Cancelar on the contact dialog while the save is in flight", () => {
+    contactoMocks.create.isPending = true
+    try {
+      renderContactoDialog(null)
+      expect(screen.getByRole("button", { name: "Guardando…" })).toBeDisabled()
+      expect(screen.getByRole("button", { name: "Cancelar" })).toBeDisabled()
+    } finally {
+      contactoMocks.create.isPending = false
+    }
+  })
+
+  it("disables Cancelar on the opportunity dialog while the save is in flight", () => {
+    contactoMocks.createOportunidad.isPending = true
+    try {
+      const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      render(
+        <QueryClientProvider client={qc}>
+          <OportunidadFormDialog clientId="cli-1" open onOpenChange={vi.fn()} oportunidad={null} />
+        </QueryClientProvider>,
+      )
+      expect(screen.getByRole("button", { name: "Guardando…" })).toBeDisabled()
+      expect(screen.getByRole("button", { name: "Cancelar" })).toBeDisabled()
+    } finally {
+      contactoMocks.createOportunidad.isPending = false
+    }
+  })
+
+  it("keeps Cancelar enabled on the contact dialog when nothing is saving", () => {
+    renderContactoDialog(null)
+    expect(screen.getByRole("button", { name: "Cancelar" })).toBeEnabled()
   })
 })

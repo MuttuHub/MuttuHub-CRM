@@ -4,7 +4,7 @@
 // edits — instead of not offering tags at all. Stored tags that are no longer
 // in the catalog stay visible so saving does not silently drop them.
 
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -177,5 +177,35 @@ describe("TareaFormDialog — tags field (jefe 1.1 / S1)", () => {
     // TASK_TAGS constants (src/lib/catalogs.ts) — the pre-1.1 kanban set.
     expect(screen.getByRole("button", { name: "Comercial" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Alianza regional" })).not.toBeInTheDocument()
+  })
+})
+
+describe("TareaFormDialog — modal review (2.7)", () => {
+  beforeEach(() => {
+    taskTagsQuery.data = ["Comercial", "Alianza regional"]
+  })
+
+  it("groups the tag chips under the «Etiquetas» label, like the client form", () => {
+    renderDialog()
+
+    const group = screen.getByRole("group", { name: "Etiquetas" })
+    expect(within(group).getByRole("button", { name: "Comercial" })).toBeInTheDocument()
+    expect(within(group).getByRole("button", { name: "Alianza regional" })).toBeInTheDocument()
+  })
+
+  it("disables Cancelar while the commitment is being saved", () => {
+    createMutation.isPending = true
+    try {
+      renderDialog()
+      expect(screen.getByRole("button", { name: "Guardando…" })).toBeDisabled()
+      expect(screen.getByRole("button", { name: "Cancelar" })).toBeDisabled()
+    } finally {
+      createMutation.isPending = false
+    }
+  })
+
+  it("keeps Cancelar enabled when nothing is saving", () => {
+    renderDialog()
+    expect(screen.getByRole("button", { name: "Cancelar" })).toBeEnabled()
   })
 })

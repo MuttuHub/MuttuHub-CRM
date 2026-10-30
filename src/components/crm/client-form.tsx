@@ -572,6 +572,7 @@ export function ClientFormDialog({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
+              disabled={pending}
             >
               Cancelar
             </Button>

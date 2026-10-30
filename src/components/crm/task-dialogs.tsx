@@ -352,8 +352,8 @@ export function TareaFormDialog({
             </div>
 
             <div className="flex flex-col gap-2 sm:col-span-2">
-              <Label>Etiquetas</Label>
-              <div className="flex flex-wrap gap-2">
+              <Label id="tarea-etiquetas-label">Etiquetas</Label>
+              <div role="group" aria-labelledby="tarea-etiquetas-label" className="flex flex-wrap gap-2">
                 {chipTags.map((tag) => (
                   <button
                     key={tag}
@@ -391,7 +391,7 @@ export function TareaFormDialog({
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
               Cancelar
             </Button>
             <Button type="submit" disabled={pending} className="px-4 font-bold">

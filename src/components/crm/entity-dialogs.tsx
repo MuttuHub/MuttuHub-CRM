@@ -424,7 +424,7 @@ export function ContactoFormDialog({
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
               Cancelar
             </Button>
             <Button type="submit" disabled={pending} className="px-4 font-bold">
@@ -691,7 +691,7 @@ export function OportunidadFormDialog({
           )}
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
               Cancelar
             </Button>
             <Button type="submit" disabled={pending} className="px-4 font-bold">
