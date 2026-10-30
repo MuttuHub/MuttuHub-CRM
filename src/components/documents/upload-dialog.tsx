@@ -9,12 +9,14 @@
 // Carpeta destino (S3): el documento se guarda en la carpeta abierta; si es la
 // carpeta de un cliente, el cliente lo pone la carpeta (no se envía otro).
 // Varios archivos soltados sobre el listado o una carpeta (S5) se suben en
-// lote con este mismo flujo firmado, uno por archivo, con su nombre de título.
+// lote con este mismo flujo firmado, uno por archivo, con su nombre de título,
+// y un solo toast de resumen al terminar (no uno por archivo).
 
 "use client";
 
 import { useRef, useState, type DragEvent } from "react";
 import { LoaderCircle, Upload, X } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -370,6 +372,7 @@ export function UploadDocumentDialog({
     setLotePending(true);
     const fallidos: File[] = [];
     const duplicados: File[] = [];
+    let subidos = 0;
     for (const f of files) {
       try {
         await upload.mutateAsync({
@@ -377,7 +380,9 @@ export function UploadDocumentDialog({
           file: f,
           titulo: tituloDesdeArchivo(f.name),
           ...(force ? { force: true } : {}),
+          silent: true,
         });
+        subidos += 1;
       } catch (err) {
         fallidos.push(f);
         if (err instanceof DocumentDuplicateTitleError) duplicados.push(f);
@@ -385,6 +390,9 @@ export function UploadDocumentDialog({
       }
     }
     setLotePending(false);
+    if (subidos > 0) {
+      toast.success(subidos === 1 ? "Documento subido." : `${subidos} documentos subidos.`);
+    }
     const restantes = lote.filter((f) => !files.includes(f) || fallidos.includes(f));
     setLote(restantes);
     setLoteDuplicados(duplicados);
@@ -479,7 +487,7 @@ export function UploadDocumentDialog({
             >
               <p>
                 Ya existe un documento llamado <strong>&ldquo;{duplicate.titulo}&rdquo;</strong>.
-                ¿Querés subir este archivo como una nueva versión de ese documento, o crear uno
+                ¿Quieres subir este archivo como una nueva versión de ese documento, o crear uno
                 aparte?
               </p>
               <div className="flex flex-wrap justify-end gap-2">
@@ -497,7 +505,7 @@ export function UploadDocumentDialog({
                   variant="outline"
                   size="sm"
                   onClick={() => void handleCreateSeparate()}
-                  disabled={upload.isPending}
+                  disabled={upload.isPending || versionUpload.isPending}
                   className="font-semibold"
                 >
                   Crear aparte
@@ -506,7 +514,7 @@ export function UploadDocumentDialog({
                   type="button"
                   size="sm"
                   onClick={() => void handleUploadAsVersion()}
-                  disabled={versionUpload.isPending}
+                  disabled={upload.isPending || versionUpload.isPending}
                   className="font-bold"
                 >
                   {versionUpload.isPending && <LoaderCircle className="size-4 animate-spin" />}
@@ -524,7 +532,7 @@ export function UploadDocumentDialog({
               <p>
                 {`Ya existen documentos con estos títulos: ${loteDuplicados
                   .map((f) => tituloDesdeArchivo(f.name))
-                  .join(", ")}. ¿Querés crearlos como documentos aparte o quitarlos de la lista?`}
+                  .join(", ")}. ¿Quieres crearlos como documentos aparte o quitarlos de la lista?`}
               </p>
               <div className="flex flex-wrap justify-end gap-2">
                 <Button
@@ -631,6 +639,7 @@ export function UploadDocumentDialog({
               type="button"
               variant="ghost"
               onClick={() => onOpenChange(false)}
+              disabled={lotePending || upload.isPending || versionUpload.isPending}
               className="px-4 font-semibold"
             >
               Cancelar

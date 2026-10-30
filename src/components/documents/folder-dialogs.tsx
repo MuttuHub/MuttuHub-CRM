@@ -77,11 +77,17 @@ export function CreateFolderDialog({
   const flat = flattenFolderOptions(folders);
 
   async function submit() {
-    if (!nombre.trim()) return;
-    await createFolder.mutateAsync({
-      nombre: nombre.trim(),
-      parent_id: parentId === "" ? defaultParentId : parentId,
-    });
+    // Enter no pasa por el botón deshabilitado: sin este guard, dos Enter
+    // seguidos creaban la carpeta dos veces.
+    if (!nombre.trim() || createFolder.isPending) return;
+    try {
+      await createFolder.mutateAsync({
+        nombre: nombre.trim(),
+        parent_id: parentId === "" ? defaultParentId : parentId,
+      });
+    } catch {
+      return; /* el hook muestra el error; el diálogo sigue abierto */
+    }
     setNombre("");
     setParentId("");
     onOpenChange(false);
@@ -154,6 +160,7 @@ export function CreateFolderDialog({
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
+            disabled={createFolder.isPending}
             className="px-4 text-[13px] font-semibold text-ink-800"
           >
             Cancelar
@@ -185,8 +192,12 @@ export function RenameFolderDialog({
   const renameFolder = useUpdateFolder();
 
   async function submit() {
-    if (!nombre.trim()) return;
-    await renameFolder.mutateAsync({ id: folder.id, nombre: nombre.trim() });
+    if (!nombre.trim() || renameFolder.isPending) return;
+    try {
+      await renameFolder.mutateAsync({ id: folder.id, nombre: nombre.trim() });
+    } catch {
+      return; /* el hook muestra el error; el diálogo sigue abierto */
+    }
     onOpenChange(false);
   }
 
@@ -218,6 +229,7 @@ export function RenameFolderDialog({
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
+            disabled={renameFolder.isPending}
             className="px-4 text-[13px] font-semibold text-ink-800"
           >
             Cancelar
@@ -256,10 +268,14 @@ export function MoveFolderDialog({
   const options = flattenFolderOptions(folders).filter((f) => !excluded.has(f.id));
 
   async function submit() {
-    await moveFolder.mutateAsync({
-      id: folder.id,
-      parent_id: parentId === "" ? null : parentId,
-    });
+    try {
+      await moveFolder.mutateAsync({
+        id: folder.id,
+        parent_id: parentId === "" ? null : parentId,
+      });
+    } catch {
+      return; /* el hook muestra el error; el diálogo sigue abierto */
+    }
     onOpenChange(false);
   }
 
@@ -300,6 +316,7 @@ export function MoveFolderDialog({
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
+            disabled={moveFolder.isPending}
             className="px-4 text-[13px] font-semibold text-ink-800"
           >
             Cancelar
@@ -330,7 +347,11 @@ export function DeleteFolderDialog({
   const deleteFolder = useDeleteFolder();
 
   async function submit() {
-    await deleteFolder.mutateAsync(folder.id);
+    try {
+      await deleteFolder.mutateAsync(folder.id);
+    } catch {
+      return; /* el hook muestra el error; el diálogo sigue abierto */
+    }
     onOpenChange(false);
   }
 
@@ -353,6 +374,7 @@ export function DeleteFolderDialog({
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
+            disabled={deleteFolder.isPending}
             className="px-4 text-[13px] font-semibold text-ink-800"
           >
             Cancelar
@@ -432,6 +454,7 @@ export function ClientFolderDialog({
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
+            disabled={clientFolder.isPending}
             className="px-4 text-[13px] font-semibold text-ink-800"
           >
             Cancelar

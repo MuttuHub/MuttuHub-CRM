@@ -332,6 +332,9 @@ export function RepositoryList() {
       return;
     }
     const carpetaId = overId === ROOT_DROP_ID ? null : overId.slice(FOLDER_DROP_PREFIX.length);
+    // Con una carpeta abierta, todo lo listado ya está en ella: soltarlo ahí
+    // no cambia nada (ni PATCH ni toast «Documento movido.»).
+    if (applied.carpeta && carpetaId === applied.carpeta) return;
     moveDocument.mutate({ id: activeId.slice(DOC_DRAG_PREFIX.length), carpeta_id: carpetaId });
   }
 

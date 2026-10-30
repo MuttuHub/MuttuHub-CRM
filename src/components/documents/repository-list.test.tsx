@@ -220,6 +220,33 @@ describe("RepositoryList — folders, client folders and drag and drop (S3–S5)
     expect(moveMutation.mutate).toHaveBeenCalledWith({ id: "doc-1", carpeta_id: null })
   })
 
+  // 1.5 (S7): dropping a document on the folder it already sits in used to
+  // PATCH and toast «Documento movido.» for a move that changed nothing.
+  it("dragging a document onto the folder it is already in does nothing", async () => {
+    const user = userEvent.setup()
+    render(<RepositoryList />)
+
+    await user.click(folderNode("Contratos"))
+    expect(lastFilters().carpeta).toBe("f-contratos")
+    act(() => {
+      dnd.onDragEnd!({ active: { id: "doc:doc-1" }, over: { id: "carpeta:f-contratos" } })
+    })
+
+    expect(moveMutation.mutate).not.toHaveBeenCalled()
+  })
+
+  it("with a folder open, dragging a document onto another folder still moves it", async () => {
+    const user = userEvent.setup()
+    render(<RepositoryList />)
+
+    await user.click(folderNode("Contratos"))
+    act(() => {
+      dnd.onDragEnd!({ active: { id: "doc:doc-1" }, over: { id: "carpeta:f-acme" } })
+    })
+
+    expect(moveMutation.mutate).toHaveBeenCalledWith({ id: "doc-1", carpeta_id: "f-acme" })
+  })
+
   it("dropping a document outside any folder does nothing", () => {
     render(<RepositoryList />)
 

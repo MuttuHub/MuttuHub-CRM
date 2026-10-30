@@ -9,10 +9,13 @@ import { UploadDocumentDialog } from "./upload-dialog"
 // the user choose between versioning the existing document or creating a
 // separate one.
 
-const { uploadMutation, versionUploadMutation } = vi.hoisted(() => ({
+const { uploadMutation, versionUploadMutation, toastSuccess } = vi.hoisted(() => ({
   uploadMutation: { isPending: false, mutateAsync: vi.fn() },
   versionUploadMutation: { isPending: false, mutateAsync: vi.fn() },
+  toastSuccess: vi.fn(),
 }))
+
+vi.mock("sonner", () => ({ toast: { success: toastSuccess, error: vi.fn() } }))
 
 vi.mock("@/hooks/documents", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/hooks/documents")>()
@@ -245,5 +248,104 @@ describe("UploadDocumentDialog — several dropped files (S5)", () => {
       expect.objectContaining({ file: B, titulo: "balance", force: true }),
     )
     expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+})
+
+// Lane 1, task 1.5 (S7): modal UX review of the Documents dialogs.
+describe("UploadDocumentDialog — modal review (1.5)", () => {
+  const A = new File(["a"], "acta.pdf", { type: "application/pdf" })
+  const B = new File(["b"], "balance.pdf", { type: "application/pdf" })
+
+  beforeEach(() => {
+    uploadMutation.mutateAsync.mockReset()
+    uploadMutation.isPending = false
+    versionUploadMutation.mutateAsync.mockReset()
+    versionUploadMutation.isPending = false
+    toastSuccess.mockReset()
+  })
+
+  it("the duplicate-title banner speaks tú like the rest of the app", async () => {
+    const user = userEvent.setup()
+    uploadMutation.mutateAsync.mockRejectedValueOnce(
+      new DocumentDuplicateTitleError({ id: "doc-existing", titulo: "Informe final" }),
+    )
+    render(<UploadDocumentDialog open onOpenChange={vi.fn()} />)
+
+    await fillAndSubmit(user)
+
+    expect(screen.getByText(/¿Quieres subir este archivo como una nueva versión/)).toBeInTheDocument()
+    expect(screen.queryByText(/Querés/)).not.toBeInTheDocument()
+  })
+
+  it("the batch duplicate banner speaks tú like the rest of the app", async () => {
+    const user = userEvent.setup()
+    uploadMutation.mutateAsync
+      .mockResolvedValueOnce({ id: "doc-a", version: 1 })
+      .mockRejectedValueOnce(new DocumentDuplicateTitleError({ id: "doc-old", titulo: "balance" }))
+    render(<UploadDocumentDialog open onOpenChange={vi.fn()} initialFiles={[A, B]} />)
+
+    await pickCategoria(user)
+    await user.click(screen.getByRole("button", { name: "Subir 2 documentos" }))
+
+    expect(screen.getByText(/¿Quieres crearlos como documentos aparte/)).toBeInTheDocument()
+    expect(screen.queryByText(/Querés/)).not.toBeInTheDocument()
+  })
+
+  it("a batch shows one summary toast instead of one per file", async () => {
+    const user = userEvent.setup()
+    uploadMutation.mutateAsync.mockResolvedValue({ id: "doc-new", version: 1 })
+    render(<UploadDocumentDialog open onOpenChange={vi.fn()} initialFiles={[A, B]} />)
+
+    await pickCategoria(user)
+    await user.click(screen.getByRole("button", { name: "Subir 2 documentos" }))
+
+    expect(uploadMutation.mutateAsync).toHaveBeenCalledTimes(2)
+    for (const call of uploadMutation.mutateAsync.mock.calls) {
+      expect(call[0]).toMatchObject({ silent: true })
+    }
+    expect(toastSuccess).toHaveBeenCalledTimes(1)
+    expect(toastSuccess).toHaveBeenCalledWith("2 documentos subidos.")
+  })
+
+  it("a single upload keeps the hook's own «Documento subido.» toast", async () => {
+    const user = userEvent.setup()
+    uploadMutation.mutateAsync.mockResolvedValueOnce({ id: "doc-new", version: 1 })
+    render(<UploadDocumentDialog open onOpenChange={vi.fn()} />)
+
+    await fillAndSubmit(user)
+
+    expect(uploadMutation.mutateAsync.mock.calls[0]![0]).not.toHaveProperty("silent")
+    expect(toastSuccess).not.toHaveBeenCalled()
+  })
+
+  it("locks Cancelar while a single upload is in flight", () => {
+    uploadMutation.isPending = true
+    render(<UploadDocumentDialog open onOpenChange={vi.fn()} />)
+
+    expect(screen.getByRole("button", { name: "Subiendo…" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: "Cancelar" })).toBeDisabled()
+  })
+
+  it("locks Cancelar while a batch is uploading", async () => {
+    const user = userEvent.setup()
+    uploadMutation.mutateAsync.mockImplementation(() => new Promise(() => {}))
+    render(<UploadDocumentDialog open onOpenChange={vi.fn()} initialFiles={[A, B]} />)
+
+    await pickCategoria(user)
+    await user.click(screen.getByRole("button", { name: "Subir 2 documentos" }))
+
+    expect(await screen.findByRole("button", { name: "Subiendo…" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: "Cancelar" })).toBeDisabled()
+  })
+
+  it("Cancelar still closes the dialog when nothing is uploading", async () => {
+    const user = userEvent.setup()
+    const onOpenChange = vi.fn()
+    render(<UploadDocumentDialog open onOpenChange={onOpenChange} />)
+
+    await user.click(screen.getByRole("button", { name: "Cancelar" }))
+
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+    expect(uploadMutation.mutateAsync).not.toHaveBeenCalled()
   })
 })
