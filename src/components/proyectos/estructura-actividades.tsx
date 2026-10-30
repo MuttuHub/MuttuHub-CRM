@@ -1,6 +1,6 @@
 // Actividades de un objetivo (S3 U4). Se ubican por SEMANAS del proyecto; las
-// fechas que se muestran las deriva el servidor (nunca se envían). El peso por
-// defecto es la duración en semanas: un peso escrito a mano queda marcado.
+// fechas que se muestran las deriva el servidor (nunca se envían). El peso tampoco se
+// envía ni se edita (AJ-02): siempre es la duración en semanas de la actividad.
 
 "use client";
 
@@ -14,7 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ToneBadge } from "@/components/crm/shared";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import { EstructuraEntregables } from "@/components/proyectos/estructura-entregables";
 import { AddButton, INVALID_NUMBER, RowActions, StructureForm, TextField, errorMessage, formError, parseNumber } from "@/components/proyectos/estructura-ui";
@@ -158,7 +157,6 @@ export function ActivitySummary({
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[12px] text-ink-600">
           <span>Peso {formatPeso(actividad.peso)}</span>
-          {actividad.peso_manual && <ToneBadge tone="info" label="Peso manual" />}
           {responsable && <span>· {responsable}</span>}
           {actividad.fuera_de_duracion && (
             <span className="inline-flex items-center gap-1 text-alerta">
@@ -192,15 +190,13 @@ function ActivityForm({
   const [nombre, setNombre] = useState(actividad?.nombre ?? "");
   const [inicio, setInicio] = useState(actividad ? String(actividad.semana_inicio) : "");
   const [fin, setFin] = useState(actividad ? String(actividad.semana_fin) : "");
-  const [peso, setPeso] = useState(actividad?.peso_manual ? String(actividad.peso) : "");
   const [responsable, setResponsable] = useState(actividad?.responsable_id ?? SIN_RESPONSABLE);
   const [local, setLocal] = useState<string | null>(null);
 
   function submit() {
     const semana_inicio = parseNumber(inicio);
     const semana_fin = parseNumber(fin);
-    const pesoNum = parseNumber(peso);
-    if (semana_inicio === null || semana_fin === null || (peso.trim() !== "" && pesoNum === null)) {
+    if (semana_inicio === null || semana_fin === null) {
       setLocal(INVALID_NUMBER);
       return;
     }
@@ -208,9 +204,8 @@ function ActivityForm({
     const responsable_id = responsable === SIN_RESPONSABLE ? null : responsable;
     const base = { codigo, nombre, semana_inicio, semana_fin };
     if (actividad) {
-      // Editar: un peso vacío vuelve al peso por defecto (`null`).
       update.mutate(
-        { id: actividad.id, data: { ...base, peso: pesoNum, responsable_id } },
+        { id: actividad.id, data: { ...base, responsable_id } },
         { onSuccess: onDone },
       );
     } else {
@@ -218,7 +213,6 @@ function ActivityForm({
         {
           objetivo_id: objetivoId,
           ...base,
-          ...(pesoNum === null ? {} : { peso: pesoNum }),
           ...(responsable_id === null ? {} : { responsable_id }),
         },
         { onSuccess: onDone },
@@ -240,7 +234,6 @@ function ActivityForm({
       <TextField label="Nombre" value={nombre} onChange={setNombre} />
       <TextField label="Semana inicial" value={inicio} onChange={setInicio} type="number" />
       <TextField label="Semana final" value={fin} onChange={setFin} type="number" />
-      <TextField label="Peso (opcional)" value={peso} onChange={setPeso} inputMode="decimal" />
       <div className="flex min-w-0 flex-col gap-1">
         <span className="text-[12px] font-medium text-ink-600">Responsable</span>
         <Select value={responsable} onValueChange={(value) => setResponsable(value ?? SIN_RESPONSABLE)}>
@@ -259,7 +252,7 @@ function ActivityForm({
       </div>
       <p className="text-[12px] text-ink-500 sm:col-span-2">
         {duracion !== null ? `El proyecto dura ${duracion} semanas. ` : ""}
-        Las fechas se calculan a partir de las semanas; sin peso, vale su duración en semanas.
+        El peso de cada actividad es su duración en semanas y las fechas se calculan a partir de ellas.
       </p>
     </StructureForm>
   );

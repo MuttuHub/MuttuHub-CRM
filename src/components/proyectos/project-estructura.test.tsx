@@ -283,7 +283,8 @@ describe("ProjectEstructura", () => {
       expect(act).toHaveTextContent("05 de ene de 2026")
       expect(act).toHaveTextContent("25 de ene de 2026")
       expect(act).toHaveTextContent("Peso 2,5")
-      expect(act).toHaveTextContent("Peso manual")
+      // AJ-02: the weight is its duration in weeks, so there is nothing a «Peso manual» badge could mark.
+      expect(act).not.toHaveTextContent("Peso manual")
       await waitFor(() => expect(act).toHaveTextContent("Luis Gómez"))
     })
 
@@ -647,25 +648,29 @@ describe("ProjectEstructura", () => {
       })
     })
 
-    it("sends a manual weight and the chosen responsable", async () => {
+    it("offers no weight field and sends the chosen responsable (S4: the weight is not editable)", async () => {
       const user = userEvent.setup()
       setup()
 
       const o2 = await objetivo("OBJ-2")
       await user.click(within(o2).getByRole("button", { name: "Agregar actividad" }))
       const form = within(o2).getByRole("form", { name: "Nueva actividad" })
+      expect(within(form).queryByLabelText("Peso (opcional)")).not.toBeInTheDocument()
       await user.type(within(form).getByLabelText("Código"), "ACT-9")
       await user.type(within(form).getByLabelText("Nombre"), "Seguimiento")
-      await user.type(within(form).getByLabelText("Semana inicial"), "1")
-      await user.type(within(form).getByLabelText("Semana final"), "1")
-      await user.type(within(form).getByLabelText("Peso (opcional)"), "3.5")
+      await user.type(within(form).getByLabelText("Semana inicial"), "2")
+      await user.type(within(form).getByLabelText("Semana final"), "4")
       await user.click(within(form).getByRole("combobox", { name: "Responsable" }))
       await user.click(await screen.findByRole("option", { name: "Luis Gómez" }))
       await user.click(within(form).getByRole("button", { name: "Guardar" }))
 
       await waitFor(() => expect(mutationCall("POST", "/activities")).toBeDefined())
-      expect(mutationCall("POST", "/activities")?.body).toMatchObject({
-        peso: 3.5,
+      expect(mutationCall("POST", "/activities")?.body).toEqual({
+        objetivo_id: "o2",
+        codigo: "ACT-9",
+        nombre: "Seguimiento",
+        semana_inicio: 2,
+        semana_fin: 4,
         responsable_id: "u2",
       })
     })
@@ -698,19 +703,17 @@ describe("ProjectEstructura", () => {
       )
     })
 
-    it("clears a manual weight on edit by sending null", async () => {
+    it("keeps the weight out of the edit payload", async () => {
       const user = userEvent.setup()
       setup()
 
       await user.click(await screen.findByRole("button", { name: "Editar actividad ACT-1" }))
       const form = screen.getByRole("form", { name: "Editar actividad ACT-1" })
-      const peso = within(form).getByLabelText("Peso (opcional)")
-      expect(peso).toHaveValue("2.5")
-      await user.clear(peso)
+      expect(within(form).queryByLabelText("Peso (opcional)")).not.toBeInTheDocument()
       await user.click(within(form).getByRole("button", { name: "Guardar" }))
 
       await waitFor(() => expect(mutationCall("PATCH", "/activities/a1")).toBeDefined())
-      expect(mutationCall("PATCH", "/activities/a1")?.body).toMatchObject({ peso: null })
+      expect(mutationCall("PATCH", "/activities/a1")?.body).not.toHaveProperty("peso")
     })
 
     it("replaces the activity form with a hint when the project has no dates", async () => {

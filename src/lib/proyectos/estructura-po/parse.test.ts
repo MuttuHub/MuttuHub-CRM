@@ -72,6 +72,21 @@ describe("parseEstructuraPO", () => {
     expect(r.truncado).toBe(false)
   })
 
+  it("ignores a «Peso» column: the template carries none because the weight is the duration in weeks (AJ-02, S4)", async () => {
+    const r = await parse({
+      Ejemplo1: [
+        [...ACT, "Peso"],
+        [OBJ1, "Levantar línea base", "Memorias de socialización", 2, 4, 1, "memorias", 99],
+      ],
+    })
+
+    expect(r.errores).toEqual([])
+    // The parsed activity has no weight field at all, and the «Peso» column cannot enter the plan.
+    expect(r.plan.actividades).toEqual([
+      { codigo: "A1.1", objetivoCodigo: "O1", nombre: "Levantar línea base", semanaInicio: 2, semanaFin: 4 },
+    ])
+  })
+
   it("matches objetivos and actividades by normalized text, and keeps the first spelling", async () => {
     const r = await parse({
       Ejemplo1: [
