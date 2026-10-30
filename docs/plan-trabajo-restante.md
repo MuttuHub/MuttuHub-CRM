@@ -51,7 +51,7 @@ octubre. Según el documento, cada «cambio de regla» prevalece sobre la regla 
 |---|---|---|---|
 | AJ-01 | Estado **En curso** con reporte de avance de la actividad (porcentaje + observación, tope configurable, historial) | Alta | **Hecho** (rama `feat/aj01-estado-en-curso`, tabla nueva ReporteActividad) |
 | AJ-02 | Peso de cada actividad = su duración en semanas, no editable | Alta | **Hecho** (rama `feat/aj02-peso-duracion`: migración que retira `peso` y `peso_manual`, peso derivado en todo el servidor, formulario sin campo de peso) |
-| AJ-03 | El atraso se mide por la ejecución (llegar al tope en la fecha fin), no por los soportes | Alta | Pendiente; depende de AJ-01 |
+| AJ-03 | El atraso se mide por la ejecución (llegar al tope en la fecha fin), no por los soportes | Alta | **Hecho** (rama `feat/aj03-atraso-por-ejecucion`, sobre AJ-02: cumplimiento del cronograma, actividades atrasadas, «Requiere atención» y Tablero miden contra el tope; lo programado de cada actividad llega como máximo al tope, en colores y curva S; sin migración) |
 | AJ-04 | IVA discriminado: Subtotal + IVA = Total; el ejecutado es el Total | Alta | **Hecho** (#99, migración aplicada en producción el 2026-10-28) |
 | AJ-05 | Periodo del gasto tomado de la fecha del documento, con la marca «Periodo modificado» | Media | **Hecho** (#99) |
 | AJ-06 | Varios archivos y enlaces por avance y por gasto, columna «Enlace del soporte», botón «Adjuntar archivo» | Alta | **Hecho** (rama `feat/aj06-soportes-multiples`, sin migración) |

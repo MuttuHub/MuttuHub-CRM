@@ -602,7 +602,7 @@ registry.registerPath({
                 objetivo_codigo: z.string().openapi({ description: "Código del objetivo al que pertenece la actividad." }),
                 peso: z.number(),
                 progreso: z.number(),
-                programado: z.number().openapi({ description: "Porcentaje 0..100 planeado al corte (la columna «% plan»)." }),
+                programado: z.number().openapi({ description: "Porcentaje 0..100 planeado al corte (la columna «% plan»): la fracción transcurrida, como máximo el tope (AJ-03)." }),
                 dias: z.number().int().openapi({ description: "Duración de la actividad en días calendario (la columna «Días»)." }),
                 al_corte: z.number().int().openapi({ description: "Días transcurridos al corte, con tope en `dias` (la columna «Al corte»)." }),
                 estado: EstadoActividadSchema,

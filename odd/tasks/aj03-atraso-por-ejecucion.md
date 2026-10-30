@@ -73,9 +73,9 @@ Mirror: Engram `odd/aj03-atraso-por-ejecucion/tasks`. Source: PO document «Ajus
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
 | T1 | S4.1, S5, S8, S10 (domain: the execution-based a tiempo/atrasada rule in `kpis.ts`'s `cumplimientoCronograma`, consuming `tope_en_curso` + the per-activity progress from `avance.ts`; the attention list's «Actividad atrasada» and the activity board follow the same rule) | inline | done | `53d77ae` |
-| T2 | S4.3, S6.2, S6.3, S10 (planned series: cap each activity's `avanceProgramado` at the tope at its fin — flows into `colorTecnicoV2` inputs and `tecnicoPlaneado`) | inline | done | this commit |
-| T3 | S2 (curva S + colors: pin the capped plan through `src/lib/api/curva.ts` / `curva.ts` and the 7 `colorTecnicoV2` call sites) | inline | done | this commit |
-| T4 | Docs (OpenAPI, user guide, test guide, flip AJ-03 to Hecho in `docs/plan-trabajo-restante.md`) | inline | pending | |
+| T2 | S4.3, S6.2, S6.3, S10 (planned series: cap each activity's `avanceProgramado` at the tope at its fin — flows into `colorTecnicoV2` inputs and `tecnicoPlaneado`) | inline | done | `687242f` |
+| T3 | S2 (curva S + colors: pin the capped plan through `src/lib/api/curva.ts` / `curva.ts` and the 7 `colorTecnicoV2` call sites) | inline | done | `687242f` |
+| T4 | Docs (OpenAPI, user guide, test guide, flip AJ-03 to Hecho in `docs/plan-trabajo-restante.md`) | inline | done | this commit |
 
 Route evidence: no writer trigger holds — one behavior over shared domain files (`avance.ts`, `kpis.ts`), so no
 disjoint parallel units; the parent writes inline. Branch actually used: `feat/aj03-atraso-por-ejecucion` stacked on
@@ -107,3 +107,8 @@ once AJ-02 merges.
   and `tecnicoPlaneado`; `tope` is a required argument so no caller can silently keep the uncapped plan. The route
   and curve goldens pin `tope_en_curso = 100` to keep their uncapped values; dedicated tests pin 90. Advisory, not
   changed (pre-existing, out of scope): the curve's executed technical line ignores AJ-01 reports.
+- **L7 (2026-10-30):** T4 — OpenAPI (kpis `a_tiempo`/`atrasadas`, technical-status `programado`/`tope_en_curso`, curve),
+  user guide (when an activity is late, weekly-report table, glossary), test guide §D step 12 (S5's examples) and the
+  remaining-work table. Closing checks on the branch: `tsc` 0 errors, `eslint` clean, `npx vitest run` against the
+  local DB 4877/4878 — the only failure is the pre-existing `prisma/municipios.invariant.test.ts`. Next: push and PR
+  once GitHub is reachable, after AJ-02's PR (this branch stacks on it).

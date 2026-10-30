@@ -39,6 +39,7 @@ registry.registerPath({
   summary: "Curva S del proyecto (técnica y financiera)",
   description:
     "Dos curvas separadas que nunca se mezclan: la técnica (planeado lineal por días al fin de mes, D1, y en la fecha de corte para el mes de corte, D13; " +
+    "cada actividad aporta como máximo el tope `tope_en_curso`, así que la línea planeada termina en el tope, AJ-03; " +
     "ejecutado = avance real por periodo) y la financiera (planeado = programado acumulado / asignado; ejecutado = validado " +
     "acumulado / asignado). `ejecutado` es null en los periodos posteriores al corte. `base=vigente` (por defecto) lee " +
     "la estructura y el presupuesto vivos; `base=original` las semanas, pesos y A/P congelados en la versión 0 con los " +
