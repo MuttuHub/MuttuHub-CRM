@@ -138,3 +138,14 @@ Field-level decisions, so the worker does not have to re-decide them:
   `peso_manual` + `pesoField` in `activities/route.ts:48`, input and «Peso manual» badge in
   `estructura-actividades.tsx:161,243`). S8's storage question was decided as recorded above (drop both
   columns) and T1 started with its RED test. No requirement changed: S1–S7 stand as written.
+- **L6 (2026-10-30, user, verbatim):** «listo has lo recomendado» — approves splitting the AJ-02 migration
+  into expand/contract so production never breaks. Evidence: the Vercel build does not migrate
+  (`package.json` `build` = `prisma generate && next build`), so deploy and migration always leave a gap; a
+  single `DROP COLUMN peso` breaks the old code (it reads `peso`) and deploying first breaks the new code
+  (`peso` was `NOT NULL` without default). Change: `20261030120000_v2_actividades_peso_por_duracion` now only
+  drops `actividades_peso_check` and `peso`'s `NOT NULL`; `schema.prisma` keeps both legacy columns with
+  `@ignore`; `prisma/actividades-peso.invariant.test.ts` asserts «optional or absent» plus no CHECK. A
+  follow-up migration drops both columns once AJ-02 is live. Rollback to pre-AJ-02 code after new rows were
+  created needs `UPDATE actividades SET peso = semana_fin - semana_inicio + 1 WHERE peso IS NULL;` first.
+  Checks: clean-DB `migrate deploy` of all 41 migrations OK and `migrate diff` empty; local DB realigned
+  (columns re-added, checksum updated) with empty diff; tsc 0, lint clean, invariant test 3/3.
