@@ -68,6 +68,12 @@ describe("V-01 structural", () => {
     expect(errores.some((e) => e.regla === "V-01" && e.hoja === HOJAS.entregables)).toBe(true)
   })
 
+  it("accepts an activities sheet filled in with the layout before AJ-02 (trailing «Peso (opcional)»)", async () => {
+    const parsed = await parsedValido()
+    parsed.encabezados.actividades = [...parsed.encabezados.actividades, "Peso (opcional)"]
+    expect(v01(parsed, contexto())).toEqual([])
+  })
+
   it("reports a header mismatch with expected and found", async () => {
     const parsed = await parsedValido()
     parsed.encabezados.entregables = parsed.encabezados.entregables.map((h) =>

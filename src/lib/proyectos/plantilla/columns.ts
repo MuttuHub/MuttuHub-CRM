@@ -39,7 +39,8 @@ export const ENCABEZADOS: Record<
     "Semana fin",
     "Responsable (correo)",
     // AJ-02: the weight is the duration in weeks, so the sheet no longer asks for it. A template
-    // filled in with the previous layout still imports: an unmatched extra column is simply not read.
+    // filled in with the previous layout still imports (see ENCABEZADOS_ANTERIORES): its weight
+    // column is accepted and never read.
   ],
   // PO 2026-10-23: the templates no longer ask for "Tipo de medio exigido" (Entregables)
   // nor "Unidad" (Indicadores).
@@ -56,6 +57,16 @@ export const ENCABEZADOS: Record<
 export const ENCABEZADOS_ANTERIORES: Partial<Record<keyof typeof ENCABEZADOS, readonly string[]>> = {
   entregables: ["Código", "Código actividad", "Descripción", "Cantidad", "Unidad", "Tipo de medio exigido"],
   indicadores: ["Código", "Código objetivo", "Nombre", "Meta", "Unidad", "Línea base"],
+  // AJ-02: before the weight became the duration in weeks, the sheet asked for it.
+  actividades: [
+    "Código",
+    "Código objetivo",
+    "Nombre",
+    "Semana inicio",
+    "Semana fin",
+    "Responsable (correo)",
+    "Peso (opcional)",
+  ],
 }
 
 export const ENCABEZADO_PROYECTO = ["Campo", "Valor"] as const
