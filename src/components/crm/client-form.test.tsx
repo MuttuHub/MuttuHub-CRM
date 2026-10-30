@@ -4,7 +4,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { ClientDetail } from "@/hooks/crm"
 import { ClientFormDialog, NewClientButton } from "./client-form"
 
-const { createMutation, updateMutation, documentsQuery, useDocumentsMock } = vi.hoisted(() => ({
+const { createMutation, updateMutation, documentsQuery, useDocumentsMock, taskTagsQuery } = vi.hoisted(() => ({
+  // Live task_tags catalog (2.6, A1): includes "Aliado clave", a tag the
+  // factory list does not have — i.e. one created in the admin panel.
+  taskTagsQuery: { data: ["Urgente", "Aliado clave"] as string[] | undefined },
   createMutation: { isPending: false, mutateAsync: vi.fn() },
   updateMutation: { isPending: false, mutateAsync: vi.fn() },
   documentsQuery: { data: undefined as { items: unknown[] } | undefined, isLoading: false },
@@ -14,6 +17,10 @@ const { createMutation, updateMutation, documentsQuery, useDocumentsMock } = vi.
 vi.mock("@/hooks/crm", () => ({
   useCreateClient: () => createMutation,
   useUpdateClient: () => updateMutation,
+}))
+
+vi.mock("@/hooks/admin", () => ({
+  useTaskTags: () => taskTagsQuery,
 }))
 
 vi.mock("@/hooks/documents", () => ({
@@ -125,6 +132,7 @@ describe("ClientFormDialog (create)", () => {
       prioridades_identificadas: undefined,
       riesgos_barreras: undefined,
       resumen_relacion: undefined,
+      etiquetas: [],
     })
     expect(onOpenChange).toHaveBeenCalledWith(false)
     expect(onSaved).toHaveBeenCalledTimes(1)
@@ -279,6 +287,7 @@ describe("ClientFormDialog (edit)", () => {
       prioridades_identificadas: "Transición energética",
       riesgos_barreras: "Presupuesto 2027",
       resumen_relacion: "Relación desde 2024",
+      etiquetas: [],
     })
     expect(onOpenChange).toHaveBeenCalledWith(false)
     expect(onSaved).toHaveBeenCalledTimes(1)
@@ -294,4 +303,87 @@ describe("NewClientButton", () => {
     expect(await screen.findByRole("dialog")).toBeInTheDocument()
     expect(screen.getByRole("heading", { name: "Nuevo cliente" })).toBeInTheDocument()
 })
+})
+
+// Jefe 2026-10-28 lane 2 task 2.6 (S6): «no aparecen al momento de crear un
+// cliente». The form offers the LIVE task_tags catalog (shared with tasks, A1).
+describe("ClientFormDialog — etiquetas (2.6)", () => {
+  beforeEach(() => {
+    taskTagsQuery.data = ["Urgente", "Aliado clave"]
+    createMutation.mutateAsync.mockReset()
+    createMutation.mutateAsync.mockResolvedValue({ cliente: {} })
+    updateMutation.mutateAsync.mockReset()
+    updateMutation.mutateAsync.mockResolvedValue({ cliente: {} })
+  })
+
+  it("offers every live catalog tag as an unpressed chip, including one created in admin", () => {
+    render(<ClientFormDialog open onOpenChange={vi.fn()} users={USERS} onSaved={vi.fn()} />)
+    const group = screen.getByRole("group", { name: "Etiquetas" })
+    const chips = Array.from(group.querySelectorAll("button")).map((b) => b.textContent)
+    expect(chips).toEqual(["Urgente", "Aliado clave"])
+    expect(screen.getByRole("button", { name: "Aliado clave" })).toHaveAttribute("aria-pressed", "false")
+  })
+
+  it("sends the picked tags in catalog-click order when creating", async () => {
+    const user = userEvent.setup()
+    render(<ClientFormDialog open onOpenChange={vi.fn()} users={USERS} onSaved={vi.fn()} />)
+    await user.type(screen.getByLabelText(/Nombre \*/), "Alcaldía de Prueba")
+    await pickResponsable(user)
+    await user.click(screen.getByRole("button", { name: "Aliado clave" }))
+    await user.click(screen.getByRole("button", { name: "Urgente" }))
+    expect(screen.getByRole("button", { name: "Aliado clave" })).toHaveAttribute("aria-pressed", "true")
+    await user.click(screen.getByRole("button", { name: "Crear cliente" }))
+
+    expect(createMutation.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ nombre: "Alcaldía de Prueba", etiquetas: ["Aliado clave", "Urgente"] }),
+    )
+  })
+
+  it("prefills stored tags on edit, keeps one no longer in the catalog and lets it be removed", async () => {
+    const user = userEvent.setup()
+    const cliente = { ...CLIENTE, etiquetas: ["Urgente", "Etiqueta retirada"] }
+    const { rerender } = render(
+      <ClientFormDialog open={false} cliente={cliente} users={USERS} onOpenChange={vi.fn()} onSaved={vi.fn()} />,
+    )
+    rerender(<ClientFormDialog open cliente={cliente} users={USERS} onOpenChange={vi.fn()} onSaved={vi.fn()} />)
+
+    const group = screen.getByRole("group", { name: "Etiquetas" })
+    const chips = Array.from(group.querySelectorAll("button")).map((b) => b.textContent)
+    expect(chips).toEqual(["Urgente", "Aliado clave", "Etiqueta retirada"])
+    expect(screen.getByRole("button", { name: "Urgente" })).toHaveAttribute("aria-pressed", "true")
+    expect(screen.getByRole("button", { name: "Etiqueta retirada" })).toHaveAttribute("aria-pressed", "true")
+
+    await user.click(screen.getByRole("button", { name: "Etiqueta retirada" }))
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }))
+
+    expect(updateMutation.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ etiquetas: ["Urgente"] }),
+    )
+  })
+
+  it("falls back to the factory tags while the live catalog loads", () => {
+    taskTagsQuery.data = undefined
+    render(<ClientFormDialog open onOpenChange={vi.fn()} users={USERS} onSaved={vi.fn()} />)
+    const group = screen.getByRole("group", { name: "Etiquetas" })
+    expect(group.querySelectorAll("button").length).toBeGreaterThan(0)
+    expect(screen.queryByRole("button", { name: "Aliado clave" })).not.toBeInTheDocument()
+  })
+})
+
+describe("ClientFormDialog — modal review (2.7)", () => {
+  it("disables Cancelar while the client is being saved", () => {
+    createMutation.isPending = true
+    try {
+      render(<ClientFormDialog open onOpenChange={vi.fn()} users={USERS} onSaved={vi.fn()} />)
+      expect(screen.getByRole("button", { name: "Guardando…" })).toBeDisabled()
+      expect(screen.getByRole("button", { name: "Cancelar" })).toBeDisabled()
+    } finally {
+      createMutation.isPending = false
+    }
+  })
+
+  it("keeps Cancelar enabled when nothing is saving", () => {
+    render(<ClientFormDialog open onOpenChange={vi.fn()} users={USERS} onSaved={vi.fn()} />)
+    expect(screen.getByRole("button", { name: "Cancelar" })).toBeEnabled()
+  })
 })

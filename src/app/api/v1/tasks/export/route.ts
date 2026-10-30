@@ -4,6 +4,9 @@
 // Columnas en español; estados/origenes/prioridades con etiqueta del catálogo.
 // Subtareas como "completadas/total" (dos groupBy sobre el conjunto filtrado).
 // Cap: primeras 500 filas del conjunto filtrado (PRD §8.4).
+// Jefe 2.4b (S5): `rango` opcional con la semántica de GET /tasks/report
+// (reusa leerRango + aplicarRango), para que el Excel de Reportes › Tareas
+// exporte el período que muestra el reporte. Sin `rango`, sin filtro de fechas.
 // "A tiempo/tarde" comparte el proxy del reporte de equipo (updated_at <=
 // fecha_entrega para COMPLETADA) — el xlsx no los expone como columnas, pero
 // el criterio queda documentado en el README (Hito 3).
@@ -23,6 +26,7 @@ import {
   PRIORIDAD_TAREA_LABELS,
 } from "@/lib/catalogs";
 import { buildTaskWhere, parseTaskFilters } from "@/app/api/v1/tasks/route";
+import { aplicarRango, leerRango } from "@/app/api/v1/tasks/report/route";
 import { logAudit } from "@/lib/api/audit";
 
 export const dynamic = "force-dynamic";
@@ -37,10 +41,15 @@ export const GET = withApiErrorHandling(
     if (!auth.ok) return auth.response;
 
     const url = new URL(request.url);
+    const rangoLeido = leerRango(url);
+    if (!rangoLeido.ok) return rangoLeido.response;
+    const rango = rangoLeido.rango;
+
     const filters = parseTaskFilters(url);
     if (!filters.ok) return filters.response;
 
     const where = buildTaskWhere(filters.filters, auth.usuario);
+    if (rango) aplicarRango(where, rango);
     const rows = await db.tarea.findMany({
       where,
       select: {
@@ -74,7 +83,10 @@ export const GET = withApiErrorHandling(
         usuario_id: auth.usuario.id,
         cambios: {
           rows: rows.length,
-          filters: filters.filters as unknown as Record<string, unknown>,
+          filters: {
+            ...(filters.filters as unknown as Record<string, unknown>),
+            ...(rango ? { rango } : {}),
+          },
         },
       });
     } catch (err) {

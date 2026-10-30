@@ -3,21 +3,38 @@
 // con descarga .zip (POST /documents/zip), ficha en diálogo y subida de
 // documentos. La pestaña Documentos de la ficha de cliente deep-linkea acá
 // con ?cliente=<id> (el filtro se precarga desde el query param).
+// Carpetas (S3–S5): "Subir documento" guarda en la carpeta abierta; "Carpeta
+// de cliente" abre (o crea) la carpeta de un cliente; soltar archivos sobre
+// el listado o sobre una carpeta los sube ahí; y un documento arrastrado de
+// su asa a una carpeta se mueve (PATCH carpeta_id vía useMoveDocument).
 
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useSearchParams } from "next/navigation";
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  useDraggable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
 import {
   Download,
   Eye,
   FileUp,
   FolderOpen,
   FolderPlus,
+  GripVertical,
   LoaderCircle,
   RotateCcw,
   Search,
   SlidersHorizontal,
+  UserRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -58,6 +75,7 @@ import {
   useDocCategories,
   useDocuments,
   useFolders,
+  useMoveDocument,
   type DocumentFilters,
   type DocumentItem,
   type FolderNode,
@@ -65,8 +83,14 @@ import {
 import { ToneBadge } from "@/components/crm/shared";
 import { DocumentDialog } from "@/components/documents/document-dialog";
 import { UploadDocumentDialog } from "@/components/documents/upload-dialog";
-import { FolderTree, type FolderAction } from "@/components/documents/folder-tree";
 import {
+  FOLDER_DROP_PREFIX,
+  FolderTree,
+  ROOT_DROP_ID,
+  type FolderAction,
+} from "@/components/documents/folder-tree";
+import {
+  ClientFolderDialog,
   CreateFolderDialog,
   DeleteFolderDialog,
   MoveFolderDialog,
@@ -144,6 +168,14 @@ function folderPath(nodes: FolderNode[], id: string): string[] {
   return [];
 }
 
+/** Id de @dnd-kit de un documento arrastrable del listado. */
+const DOC_DRAG_PREFIX = "doc:";
+
+/** Archivos del sistema soltados (drop nativo); vacío si se arrastró otra cosa. */
+function droppedFiles(event: DragEvent): File[] {
+  return Array.from(event.dataTransfer?.files ?? []);
+}
+
 function findFolder(nodes: FolderNode[], id: string): FolderNode | null {
   for (const n of nodes) {
     if (n.id === id) return n;
@@ -167,6 +199,13 @@ export function RepositoryList() {
   const [fichaId, setFichaId] = useState<string | null>(null);
   const [zipPending, setZipPending] = useState(false);
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
+  const [clientFolderOpen, setClientFolderOpen] = useState(false);
+  // Archivos soltados (S5) y la carpeta destino; abre el diálogo de subida.
+  const [dropUpload, setDropUpload] = useState<{
+    files: File[];
+    folderId: string | null;
+  } | null>(null);
+  const [draggedDoc, setDraggedDoc] = useState<DocumentItem | null>(null);
   const [folderAction, setFolderAction] = useState<{
     id: string;
     action: FolderAction;
@@ -178,6 +217,11 @@ export function RepositoryList() {
   const clientsQuery = useClientOptions();
   const foldersQuery = useFolders();
   const folders = foldersQuery.data ?? [];
+  const moveDocument = useMoveDocument();
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor),
+  );
 
   // Debounce del buscador (350 ms, mismo patrón que el listado de clientes).
   const qTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -261,6 +305,38 @@ export function RepositoryList() {
   const activeFolderName = local.carpeta
     ? folderPath(folders, local.carpeta).join(" / ")
     : "";
+  const activeFolder = local.carpeta ? findFolder(folders, local.carpeta) : null;
+  const uploadFolder = dropUpload
+    ? dropUpload.folderId
+      ? findFolder(folders, dropUpload.folderId)
+      : null
+    : activeFolder;
+
+  /** Archivos soltados sobre una carpeta (o el listado): se suben ahí. */
+  function handleDropFiles(folderId: string | null, files: File[]) {
+    if (folderId !== (local.carpeta || null)) commit({ carpeta: folderId ?? "" });
+    setDropUpload({ files, folderId });
+  }
+
+  function handleDragStart(event: DragStartEvent) {
+    const id = String(event.active.id).slice(DOC_DRAG_PREFIX.length);
+    setDraggedDoc(items.find((d) => d.id === id) ?? null);
+  }
+
+  /** Documento soltado sobre una carpeta del rail ("Todas" = raíz). */
+  function handleDragEnd(event: DragEndEvent) {
+    setDraggedDoc(null);
+    const activeId = String(event.active.id);
+    const overId = event.over ? String(event.over.id) : null;
+    if (!overId || !activeId.startsWith(DOC_DRAG_PREFIX) || !overId.startsWith(FOLDER_DROP_PREFIX)) {
+      return;
+    }
+    const carpetaId = overId === ROOT_DROP_ID ? null : overId.slice(FOLDER_DROP_PREFIX.length);
+    // Con una carpeta abierta, todo lo listado ya está en ella: soltarlo ahí
+    // no cambia nada (ni PATCH ni toast «Documento movido.»).
+    if (applied.carpeta && carpetaId === applied.carpeta) return;
+    moveDocument.mutate({ id: activeId.slice(DOC_DRAG_PREFIX.length), carpeta_id: carpetaId });
+  }
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -304,6 +380,12 @@ export function RepositoryList() {
         )}
       </div>
 
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragCancel={() => setDraggedDoc(null)}
+      >
       <div className="flex min-w-0 flex-col gap-4 lg:grid lg:grid-cols-[240px_1fr]">
         <aside className="flex min-w-0 flex-col gap-3 surface p-3">
           <div className="flex items-center justify-between gap-2 px-1">
@@ -321,6 +403,16 @@ export function RepositoryList() {
               <FolderPlus className="size-4" strokeWidth={1.9} />
             </Button>
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setClientFolderOpen(true)}
+            className="justify-start px-2.5 text-[12.5px] font-semibold text-ink-800"
+          >
+            <UserRound className="size-3.5 text-exito" strokeWidth={1.9} />
+            Carpeta de cliente
+          </Button>
           {foldersQuery.isLoading ? (
             <div className="space-y-2 p-1">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -333,6 +425,7 @@ export function RepositoryList() {
               activeId={local.carpeta || null}
               onSelect={(id) => commit({ carpeta: id ?? "" })}
               onAction={(id, action) => setFolderAction({ id, action })}
+              onDropFiles={handleDropFiles}
             />
           )}
         </aside>
@@ -397,16 +490,41 @@ export function RepositoryList() {
               onPage={setPage}
               onOpenFicha={setFichaId}
               onOpenUpload={() => setUploadOpen(true)}
+              onDropFiles={(files) => handleDropFiles(local.carpeta || null, files)}
+              dropFolderName={activeFolder?.nombre ?? null}
             />
           )}
         </div>
       </div>
+      <DragOverlay dropAnimation={null}>
+        {draggedDoc ? (
+          <div className="inline-flex max-w-[280px] items-center gap-2 rounded-12 border border-ink-200 bg-panel px-3 py-2 text-[13px] font-semibold text-ink-900 shadow-lg">
+            <GripVertical className="size-4 shrink-0 text-ink-400" strokeWidth={1.8} />
+            <span className="truncate">{draggedDoc.titulo}</span>
+          </div>
+        ) : null}
+      </DragOverlay>
+      </DndContext>
 
-      {uploadOpen && (
+      {(uploadOpen || dropUpload) && (
         <UploadDocumentDialog
           open
-          onOpenChange={setUploadOpen}
+          onOpenChange={(next) => {
+            if (next) return;
+            setUploadOpen(false);
+            setDropUpload(null);
+          }}
           prefilledClienteId={local.cliente}
+          folder={uploadFolder}
+          initialFiles={dropUpload?.files}
+        />
+      )}
+      {clientFolderOpen && (
+        <ClientFolderDialog
+          open
+          onOpenChange={setClientFolderOpen}
+          clientes={clientes}
+          onOpened={(carpetaId) => commit({ carpeta: carpetaId })}
         />
       )}
       <DocumentDialog documentId={fichaId} onClose={() => setFichaId(null)} />
@@ -663,6 +781,8 @@ function DocumentsTableCard({
   onPage,
   onOpenFicha,
   onOpenUpload,
+  onDropFiles,
+  dropFolderName,
 }: {
   query: { isLoading: boolean; data?: { items: DocumentItem[]; total: number } | undefined };
   page: number;
@@ -677,12 +797,43 @@ function DocumentsTableCard({
   onPage: (p: number) => void;
   onOpenFicha: (id: string) => void;
   onOpenUpload: () => void;
+  /** Archivos soltados sobre el listado (S5): se suben a la carpeta abierta. */
+  onDropFiles: (files: File[]) => void;
+  dropFolderName: string | null;
 }) {
   const items = query.data?.items ?? [];
   const isEmpty = !query.isLoading && items.length === 0;
+  const [filesOver, setFilesOver] = useState(false);
 
   return (
-    <section className="overflow-hidden surface">
+    <section
+      aria-label="Listado de documentos"
+      onDragOver={(e) => {
+        if (!Array.from(e.dataTransfer?.types ?? []).includes("Files")) return;
+        e.preventDefault();
+        setFilesOver(true);
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFilesOver(false);
+      }}
+      onDrop={(e) => {
+        const files = droppedFiles(e);
+        if (files.length === 0) return;
+        e.preventDefault();
+        setFilesOver(false);
+        onDropFiles(files);
+      }}
+      className={cn("relative overflow-hidden surface", filesOver && "ring-2 ring-exito/50")}
+    >
+      {filesOver && (
+        <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-exito-bg/85 text-center">
+          <p className="px-6 text-[14px] font-semibold text-ink-900">
+            {dropFolderName
+              ? `Suelta los archivos para subirlos a «${dropFolderName}»`
+              : "Suelta los archivos para subirlos al repositorio"}
+          </p>
+        </div>
+      )}
       {query.isLoading ? (
         <div className="space-y-3 p-6">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -759,6 +910,9 @@ function DocumentRow({
   onOpen: () => void;
 }) {
   const activa = doc.version_activa;
+  const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
+    id: `${DOC_DRAG_PREFIX}${doc.id}`,
+  });
   return (
     <TableRow
       onClick={onOpen}
@@ -772,11 +926,27 @@ function DocumentRow({
       }}
     >
       <TableCell className="pl-5" onClick={(e) => e.stopPropagation()}>
-        <Checkbox
-          checked={selected}
-          onCheckedChange={onToggle}
-          aria-label={`Seleccionar ${doc.titulo}`}
-        />
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            ref={setNodeRef}
+            {...listeners}
+            {...attributes}
+            aria-label={`Mover ${doc.titulo} a una carpeta`}
+            title="Arrastra a una carpeta para moverlo"
+            className={cn(
+              "-ml-3 grid h-7 w-4 shrink-0 cursor-grab touch-none place-items-center rounded text-ink-400 hover:text-ink-700 active:cursor-grabbing",
+              isDragging && "opacity-40",
+            )}
+          >
+            <GripVertical className="size-3.5" strokeWidth={1.8} />
+          </button>
+          <Checkbox
+            checked={selected}
+            onCheckedChange={onToggle}
+            aria-label={`Seleccionar ${doc.titulo}`}
+          />
+        </div>
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-3">

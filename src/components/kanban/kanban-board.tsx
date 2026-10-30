@@ -323,13 +323,12 @@ export function KanbanBoard() {
     void descargarExcel(`/api/v1/tasks/export?${qs}`);
   }
 
-  function openPrint() {
-    const sp = new URLSearchParams();
-    sp.set("rango", "month");
-    if (responsableEquipo) sp.set("responsable", responsableEquipo);
-    if (cliente) sp.set("cliente", cliente);
-    window.open(`/print/reportes/tareas?${sp.toString()}`, "_blank", "noopener");
-  }
+  // «Imprimir» abre la vista de impresión en la misma pestaña (S4); la vista trae «Volver», que regresa aquí.
+  const printQuery = new URLSearchParams();
+  printQuery.set("rango", "month");
+  if (responsableEquipo) printQuery.set("responsable", responsableEquipo);
+  if (cliente) printQuery.set("cliente", cliente);
+  const printHref = `/print/reportes/tareas?${printQuery.toString()}`;
 
   function clearFilters() {
     setResponsableEquipo("");
@@ -420,15 +419,16 @@ export function KanbanBoard() {
               <FileSpreadsheet className="size-4 text-exito" strokeWidth={1.8} />
               Excel
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={openPrint}
-              className="px-3.5 text-[13px] font-semibold text-ink-800"
+            <Link
+              href={printHref}
+              className={cn(
+                buttonVariants({ variant: "outline", size: "sm" }),
+                "px-3.5 text-[13px] font-semibold text-ink-800",
+              )}
             >
               <Printer className="size-4 text-ink-600" strokeWidth={1.8} />
               Imprimir
-            </Button>
+            </Link>
             <Button
               size="sm"
               onClick={() => setDialogTaskId("nueva")}

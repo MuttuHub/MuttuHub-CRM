@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Usuario } from "@prisma/client";
+import { Prisma, type Usuario } from "@prisma/client";
 
 vi.mock("@/lib/supabase/server", () => ({
   requireApiUser: vi.fn(),
@@ -17,6 +17,9 @@ vi.mock("@/lib/db", () => ({
     documento: {
       groupBy: vi.fn(),
       count: vi.fn(),
+    },
+    cliente: {
+      findFirst: vi.fn(),
     },
   },
 }));
@@ -66,6 +69,23 @@ describe("GET /api/v1/folders", () => {
     expect(body.carpetas[0].hijos[0]).toMatchObject({ id: "child", documentos_count: 3 });
   });
 
+  it("exposes cliente_id on each node so the UI can tell client folders apart", async () => {
+    vi.mocked(db.carpeta.findMany).mockResolvedValue([
+      { id: "plain", nombre: "Legal", parent_id: null, cliente_id: null, created_at: new Date("2026-01-01") },
+      { id: "f-cli", nombre: "Acme", parent_id: null, cliente_id: "cli-1", created_at: new Date("2026-01-02") },
+    ] as never);
+    vi.mocked(db.documento.groupBy).mockResolvedValue([] as never);
+
+    const res = await GET();
+    const body = await res.json();
+
+    expect(vi.mocked(db.carpeta.findMany).mock.calls[0]![0]!.select).toMatchObject({ cliente_id: true });
+    expect(body.carpetas).toEqual([
+      expect.objectContaining({ id: "plain", cliente_id: null }),
+      expect.objectContaining({ id: "f-cli", cliente_id: "cli-1" }),
+    ]);
+  });
+
   it("excludes restricted categories from counts for a COLABORADOR", async () => {
     authAs(colaborador);
     vi.mocked(db.carpeta.findMany).mockResolvedValue([
@@ -111,10 +131,93 @@ describe("POST /api/v1/folders", () => {
     );
 
     expect(res.status).toBe(201);
+    // Previous behavior without cliente_id: the row carries no client link
+    // (the select now also echoes cliente_id, null for a plain folder).
     expect(db.carpeta.create).toHaveBeenCalledWith({
       data: { nombre: "Legal", parent_id: null, creado_por_id: "admin-1" },
-      select: { id: true, nombre: true, parent_id: true, created_at: true },
+      select: { id: true, nombre: true, parent_id: true, cliente_id: true, created_at: true },
     });
+    expect(db.cliente.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("creates a client folder when cliente_id is sent (201)", async () => {
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1" } as never);
+    vi.mocked(db.carpeta.create).mockResolvedValue({
+      id: "f-cli",
+      nombre: "Acme",
+      parent_id: null,
+      cliente_id: "cli-1",
+      created_at: new Date("2026-01-01"),
+    } as never);
+
+    const res = await POST(
+      new Request("http://localhost/api/v1/folders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre: "Acme", cliente_id: "cli-1" }),
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    expect((await res.json()).carpeta).toMatchObject({ id: "f-cli", cliente_id: "cli-1" });
+    expect(db.carpeta.create).toHaveBeenCalledWith({
+      data: { nombre: "Acme", parent_id: null, creado_por_id: "admin-1", cliente_id: "cli-1" },
+      select: { id: true, nombre: true, parent_id: true, cliente_id: true, created_at: true },
+    });
+  });
+
+  it("answers 409 in Spanish when the client already has a folder (unique index, never a 500)", async () => {
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1" } as never);
+    vi.mocked(db.carpeta.create).mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+        code: "P2002",
+        clientVersion: "test",
+        meta: { modelName: "Carpeta", target: ["cliente_id"] },
+      }),
+    );
+
+    const res = await POST(
+      new Request("http://localhost/api/v1/folders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre: "Acme 2", cliente_id: "cli-1" }),
+      }),
+    );
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({
+      error: "Este cliente ya tiene una carpeta. Usa la carpeta existente.",
+      code: "CONFLICT",
+    });
+  });
+
+  it("answers 404 for a missing or deleted client and creates nothing", async () => {
+    vi.mocked(db.cliente.findFirst).mockResolvedValue(null);
+
+    const res = await POST(
+      new Request("http://localhost/api/v1/folders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre: "Acme", cliente_id: "ghost" }),
+      }),
+    );
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "El cliente no existe.", code: "NOT_FOUND" });
+    expect(db.carpeta.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a non-string cliente_id (400)", async () => {
+    const res = await POST(
+      new Request("http://localhost/api/v1/folders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre: "Acme", cliente_id: 42 }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(db.carpeta.create).not.toHaveBeenCalled();
   });
 
   it("rejects a folder whose parent does not exist (404)", async () => {

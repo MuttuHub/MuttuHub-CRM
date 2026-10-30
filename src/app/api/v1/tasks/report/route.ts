@@ -18,7 +18,7 @@
 // sola query agrupada por id cada uno.
 
 import { NextResponse } from "next/server";
-import type { EstadoTarea } from "@prisma/client";
+import type { EstadoTarea, Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
@@ -28,7 +28,7 @@ import { buildTaskWhere, parseTaskFilters } from "@/app/api/v1/tasks/route";
 
 export const dynamic = "force-dynamic";
 
-type Rango = "week" | "month" | "quarter" | "all";
+export type Rango = "week" | "month" | "quarter" | "all";
 
 const RANGOS: readonly Rango[] = ["week", "month", "quarter", "all"];
 const RANGO_DAYS: Partial<Record<Rango, number>> = {
@@ -36,6 +36,49 @@ const RANGO_DAYS: Partial<Record<Rango, number>> = {
   month: 30,
   quarter: 90,
 };
+
+/** Lee `rango` de la URL. Sin `rango` devuelve `porDefecto` (el reporte usa "month"; el Excel de tareas,
+ *  ninguno = sin filtro de fechas). Un valor fuera del catálogo es un 400. */
+export function leerRango(
+  url: URL,
+  porDefecto?: Rango,
+): { ok: true; rango: Rango | undefined } | { ok: false; response: Response } {
+  const rangoRaw = url.searchParams.get("rango") ?? porDefecto;
+  if (rangoRaw === undefined) return { ok: true, rango: undefined };
+  if (!RANGOS.includes(rangoRaw as Rango)) {
+    return {
+      ok: false,
+      response: apiError("Rango no válido (week | month | quarter | all).", 400, "VALIDATION_ERROR"),
+    };
+  }
+  return { ok: true, rango: rangoRaw as Rango };
+}
+
+/** Aplica el período al `where` de tareas (lo comparten el reporte y el Excel de tareas, S5 jefe 2.4b). */
+export function aplicarRango(where: Prisma.TareaWhereInput, rango: Rango): void {
+  const days = rango === "all" ? undefined : RANGO_DAYS[rango];
+  if (!days) return;
+  const desde = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  // PR 23 (plan 3B): el rango NO corre sobre updated_at para todo. Para
+  // las COMPLETADA usa completed_at (la marca real de cierre) y para las
+  // abiertas updated_at (su actividad). Antes "Semana" significaba
+  // "tareas tocadas en 7 días" — renombrar una tarea completada hace un
+  // año la traía al reporte de la semana. Ahora una COMPLETADA solo
+  // aparece si se cerró en el período. Cambia TODOS los números de la
+  // pantalla (nota de release) y la UI declara el criterio en `meta`.
+  const rangoOr = [
+    { estado: { not: "COMPLETADA" as EstadoTarea }, updated_at: { gte: desde } },
+    { estado: "COMPLETADA" as EstadoTarea, completed_at: { gte: desde } },
+  ];
+  // buildTaskWhere puede ya haber puesto un OR (con q): en vez de
+  // pisarlo, se combinan — `(q OR ...) AND (rango)`.
+  if (where.OR) {
+    where.AND = [{ OR: where.OR }, { OR: rangoOr }];
+    delete where.OR;
+  } else {
+    where.OR = rangoOr;
+  }
+}
 
 const MS_DIA = 24 * 60 * 60 * 1000;
 
@@ -57,39 +100,15 @@ export const GET = withApiErrorHandling(
     if (!auth.ok) return auth.response;
 
     const url = new URL(request.url);
-    const rangoRaw = url.searchParams.get("rango") ?? "month";
-    if (!RANGOS.includes(rangoRaw as Rango)) {
-      return apiError("Rango no válido (week | month | quarter | all).", 400, "VALIDATION_ERROR");
-    }
-    const rango = rangoRaw as Rango;
+    const rangoLeido = leerRango(url, "month");
+    if (!rangoLeido.ok) return rangoLeido.response;
+    const rango = rangoLeido.rango ?? "month";
 
     const filters = parseTaskFilters(url);
     if (!filters.ok) return filters.response;
 
     const where = buildTaskWhere(filters.filters, auth.usuario);
-    const days = rango === "all" ? undefined : RANGO_DAYS[rango];
-    if (days) {
-      const desde = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-      // PR 23 (plan 3B): el rango NO corre sobre updated_at para todo. Para
-      // las COMPLETADA usa completed_at (la marca real de cierre) y para las
-      // abiertas updated_at (su actividad). Antes "Semana" significaba
-      // "tareas tocadas en 7 días" — renombrar una tarea completada hace un
-      // año la traía al reporte de la semana. Ahora una COMPLETADA solo
-      // aparece si se cerró en el período. Cambia TODOS los números de la
-      // pantalla (nota de release) y la UI declara el criterio en `meta`.
-      const rangoOr = [
-        { estado: { not: "COMPLETADA" as EstadoTarea }, updated_at: { gte: desde } },
-        { estado: "COMPLETADA" as EstadoTarea, completed_at: { gte: desde } },
-      ];
-      // buildTaskWhere puede ya haber puesto un OR (con q): en vez de
-      // pisarlo, se combinan — `(q OR ...) AND (rango)`.
-      if (where.OR) {
-        where.AND = [{ OR: where.OR }, { OR: rangoOr }];
-        delete where.OR;
-      } else {
-        where.OR = rangoOr;
-      }
-    }
+    aplicarRango(where, rango);
 
     const [rows, personas] = await Promise.all([
       db.tarea.findMany({

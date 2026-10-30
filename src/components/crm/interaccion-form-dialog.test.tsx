@@ -150,3 +150,21 @@ describe("InteraccionFormDialog", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(/resumen/i)
   })
 })
+
+describe("InteraccionFormDialog — modal review (2.7)", () => {
+  it("disables Cancelar while the interaction is being saved", () => {
+    addLogMutation.isPending = true
+    try {
+      renderDialog()
+      expect(screen.getByRole("button", { name: "Guardando…" })).toBeDisabled()
+      expect(screen.getByRole("button", { name: "Cancelar" })).toBeDisabled()
+    } finally {
+      addLogMutation.isPending = false
+    }
+  })
+
+  it("keeps Cancelar enabled when nothing is saving", () => {
+    renderDialog()
+    expect(screen.getByRole("button", { name: "Cancelar" })).toBeEnabled()
+  })
+})

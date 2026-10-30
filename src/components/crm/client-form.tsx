@@ -34,8 +34,11 @@ import {
   ENUM_VALUES,
   ESTADO_CLIENTE_LABELS,
   PRIORIDAD_CLIENTE_LABELS,
+  TASK_TAGS,
   TIPO_CLIENTE_LABELS,
 } from "@/lib/catalogs";
+import { cn } from "@/lib/utils";
+import { useTaskTags } from "@/hooks/admin";
 import {
   useCreateClient,
   useUpdateClient,
@@ -148,6 +151,53 @@ function BriefPickerDialog({
   );
 }
 
+/* ── Etiquetas (jefe 2026-10-28, lane 2 task 2.6 / S6) ────────────────────
+ * Chips del catálogo LIVE `task_tags` — el mismo de las tareas (A1) y el que
+ * edita el panel de administración. Fallback a las de fábrica mientras
+ * carga; al editar se conservan como chips (presionados, quitables) las
+ * etiquetas guardadas que ya no están en el catálogo — mismo patrón que
+ * TareaFormDialog (task-dialogs.tsx). Vive en su propio componente para que
+ * el catálogo se pida solo con el diálogo abierto (el contenido del Dialog
+ * no se monta cerrado), no en cada render de "Nuevo cliente". */
+function ClientTagsField({
+  selected,
+  onToggle,
+}: {
+  selected: string[];
+  onToggle: (tag: string) => void;
+}) {
+  const tagsQuery = useTaskTags();
+  const catalogTags = tagsQuery.data ?? [...TASK_TAGS];
+  const storedNotInCatalog = selected.filter((t) => !catalogTags.includes(t));
+  const chipTags = storedNotInCatalog.length
+    ? [...catalogTags, ...storedNotInCatalog]
+    : catalogTags;
+
+  return (
+    <div className="flex flex-col gap-2 sm:col-span-2">
+      <Label id="cliente-etiquetas-label">Etiquetas</Label>
+      <div role="group" aria-labelledby="cliente-etiquetas-label" className="flex flex-wrap gap-2">
+        {chipTags.map((tag) => (
+          <button
+            key={tag}
+            type="button"
+            onClick={() => onToggle(tag)}
+            aria-pressed={selected.includes(tag)}
+            className={cn(
+              "inline-flex h-7 items-center rounded-full border px-3 text-[12px] font-semibold transition-colors",
+              selected.includes(tag)
+                ? "border-rose-500 bg-rose-50 text-rose-700"
+                : "border-ink-200 bg-panel hover:bg-ink-100/60",
+            )}
+          >
+            {tag}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export type ClientFormState = {
   nombre: string;
   empresa: string;
@@ -162,6 +212,7 @@ export type ClientFormState = {
   prioridades_identificadas: string;
   riesgos_barreras: string;
   resumen_relacion: string;
+  etiquetas: string[];
 };
 
 export const EMPTY_CLIENT_STATE: ClientFormState = {
@@ -178,6 +229,7 @@ export const EMPTY_CLIENT_STATE: ClientFormState = {
   prioridades_identificadas: "",
   riesgos_barreras: "",
   resumen_relacion: "",
+  etiquetas: [],
 };
 
 export function ClientFormDialog({
@@ -226,6 +278,7 @@ export function ClientFormDialog({
           prioridades_identificadas: cliente.prioridades_identificadas ?? "",
           riesgos_barreras: cliente.riesgos_barreras ?? "",
           resumen_relacion: cliente.resumen_relacion ?? "",
+          etiquetas: [...(cliente.etiquetas ?? [])],
         });
       } else {
         setForm({ ...EMPTY_CLIENT_STATE });
@@ -235,6 +288,15 @@ export function ClientFormDialog({
 
   function set<K extends keyof ClientFormState>(key: K, value: ClientFormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  function toggleEtiqueta(tag: string) {
+    setForm((f) => ({
+      ...f,
+      etiquetas: f.etiquetas.includes(tag)
+        ? f.etiquetas.filter((t) => t !== tag)
+        : [...f.etiquetas, tag],
+    }));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -258,6 +320,7 @@ export function ClientFormDialog({
       prioridades_identificadas: form.prioridades_identificadas.trim() || undefined,
       riesgos_barreras: form.riesgos_barreras.trim() || undefined,
       resumen_relacion: form.resumen_relacion.trim() || undefined,
+      etiquetas: form.etiquetas,
     };
 
     if (isEdit && cliente) {
@@ -464,6 +527,8 @@ export function ClientFormDialog({
                 </SelectContent>
               </Select>
             </div>
+
+            <ClientTagsField selected={form.etiquetas} onToggle={toggleEtiqueta} />
           </div>
 
           <div className="flex flex-col gap-4 surface-inner p-4">
@@ -507,6 +572,7 @@ export function ClientFormDialog({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
+              disabled={pending}
             >
               Cancelar
             </Button>

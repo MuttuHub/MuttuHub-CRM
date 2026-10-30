@@ -15,6 +15,10 @@ vi.mock("@/lib/supabase/admin", () => ({
   createSupabaseAdmin: vi.fn(),
 }));
 
+vi.mock("@/lib/documents/client-folder", () => ({
+  findOrCreateClientFolder: vi.fn(),
+}));
+
 vi.mock("@/lib/db", () => {
   // $transaction calls the callback with `db` itself as `tx`, so tests keep
   // asserting on the same db.xxx.create mocks regardless of whether the
@@ -52,6 +56,7 @@ import { db } from "@/lib/db";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { isSupabaseConfigured, requireApiUser } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/api/audit";
+import { findOrCreateClientFolder } from "@/lib/documents/client-folder";
 import { GET, POST } from "./route";
 
 const gerencia = { id: "gerencia-1", rol: "GERENCIA" } as Usuario;
@@ -109,6 +114,8 @@ beforeEach(() => {
   // No setting row -> loadDocCategories() falls back to the factory
   // constants, which include "Otro" (the category the mirror prefers).
   vi.mocked(db.setting.findUnique).mockResolvedValue(null);
+  // Client deleted / not found unless a test says otherwise.
+  vi.mocked(findOrCreateClientFolder).mockResolvedValue(null);
 });
 
 afterEach(() => {
@@ -476,6 +483,9 @@ describe("POST /api/v1/tasks/:id/attachments", () => {
         data: { documento_id: "doc-1" },
       });
       expect(db.documentoCliente.create).not.toHaveBeenCalled();
+      // No client -> no client folder: the document stays in «Todas».
+      expect(findOrCreateClientFolder).not.toHaveBeenCalled();
+      expect(vi.mocked(db.documento.create).mock.calls[0]![0]!.data).toMatchObject({ carpeta_id: null });
       expect(logAudit).toHaveBeenCalledWith(
         expect.objectContaining({ entidad: "documento", entidad_id: "doc-1", accion: "crear" }),
       );
@@ -500,6 +510,64 @@ describe("POST /api/v1/tasks/:id/attachments", () => {
       const res = await POST(postRequest(uploadForm()), routeContext);
 
       expect(res.status).toBe(201);
+      expect(db.documentoCliente.create).toHaveBeenCalledWith({
+        data: { documento_id: "doc-1", cliente_id: "cli-1" },
+      });
+    });
+
+    // S6 (task 1.4): «si se crea una tarea para ese cliente y se adjunta un
+    // documento debe aparecer en su carpeta de la sección de documentos».
+    it("files the mirrored document into the task client's folder (S6)", async () => {
+      authAs(gerencia);
+      vi.mocked(isSupabaseConfigured).mockReturnValue(true);
+      vi.mocked(db.tarea.findFirst).mockResolvedValue({
+        ...writeTareaRow({ responsable_id: "gerencia-1" }),
+        cliente_id: "cli-1",
+      } as never);
+      vi.mocked(db.adjuntoTarea.create).mockResolvedValue({
+        id: "a-1",
+        nombre: "informe.pdf",
+        tamano_bytes: 3,
+        created_at: new Date("2026-01-01"),
+      } as never);
+      vi.mocked(findOrCreateClientFolder).mockResolvedValue({
+        carpeta: { id: "folder-cli-1" },
+        creada: false,
+      } as never);
+      vi.mocked(db.documento.create).mockResolvedValue({ id: "doc-1" } as never);
+      mockUploadOk();
+
+      const res = await POST(postRequest(uploadForm()), routeContext);
+
+      expect(res.status).toBe(201);
+      expect(findOrCreateClientFolder).toHaveBeenCalledWith("cli-1", "gerencia-1");
+      expect(vi.mocked(db.documento.create).mock.calls[0]![0]!.data).toMatchObject({ carpeta_id: "folder-cli-1" });
+      expect(db.documentoCliente.create).toHaveBeenCalledWith({
+        data: { documento_id: "doc-1", cliente_id: "cli-1" },
+      });
+    });
+
+    it("still mirrors the document (without folder) when the client folder cannot be resolved", async () => {
+      authAs(gerencia);
+      vi.mocked(isSupabaseConfigured).mockReturnValue(true);
+      vi.mocked(db.tarea.findFirst).mockResolvedValue({
+        ...writeTareaRow({ responsable_id: "gerencia-1" }),
+        cliente_id: "cli-1",
+      } as never);
+      vi.mocked(db.adjuntoTarea.create).mockResolvedValue({
+        id: "a-1",
+        nombre: "informe.pdf",
+        tamano_bytes: 3,
+        created_at: new Date("2026-01-01"),
+      } as never);
+      vi.mocked(findOrCreateClientFolder).mockRejectedValue(new Error("db hiccup"));
+      vi.mocked(db.documento.create).mockResolvedValue({ id: "doc-1" } as never);
+      mockUploadOk();
+
+      const res = await POST(postRequest(uploadForm()), routeContext);
+
+      expect(res.status).toBe(201);
+      expect(vi.mocked(db.documento.create).mock.calls[0]![0]!.data).toMatchObject({ carpeta_id: null });
       expect(db.documentoCliente.create).toHaveBeenCalledWith({
         data: { documento_id: "doc-1", cliente_id: "cli-1" },
       });

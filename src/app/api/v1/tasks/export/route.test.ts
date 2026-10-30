@@ -136,6 +136,74 @@ describe("GET /api/v1/tasks/export", () => {
     expect(row.getCell(11).value).toBe("1/4");
   });
 
+  // Jefe 2026-10-28, lane 2 task 2.4b (S5): the Reportes › Tareas Excel must
+  // export the period the report shows. `rango` has the same semantics as
+  // GET /tasks/report (completadas by completed_at, open ones by updated_at);
+  // without `rango` the export keeps exporting every task, as before.
+  describe("period filter (rango, S5)", () => {
+    it("filters by the same period as the report when rango is given", async () => {
+      authAs(gerencia);
+      vi.mocked(db.tarea.findMany).mockResolvedValue([]);
+      vi.mocked(db.subtarea.groupBy).mockResolvedValue([]);
+      const antes = Date.now();
+
+      const res = await GET(new Request("http://localhost/api/v1/tasks/export?rango=week"));
+
+      expect(res.status).toBe(200);
+      const where = vi.mocked(db.tarea.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
+      const or = where.OR as { updated_at?: { gte: Date }; completed_at?: { gte: Date } }[];
+      expect(or).toEqual([
+        { estado: { not: "COMPLETADA" }, updated_at: { gte: expect.any(Date) } },
+        { estado: "COMPLETADA", completed_at: { gte: expect.any(Date) } },
+      ]);
+      const desde = or[1].completed_at!.gte.getTime();
+      const sieteDias = 7 * 24 * 60 * 60 * 1000;
+      expect(desde).toBeGreaterThanOrEqual(antes - sieteDias);
+      expect(desde).toBeLessThanOrEqual(Date.now() - sieteDias);
+      expect(logAudit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cambios: expect.objectContaining({ filters: expect.objectContaining({ rango: "week" }) }),
+        }),
+      );
+    });
+
+    it("keeps exporting every task (no date filter) when rango is absent", async () => {
+      authAs(gerencia);
+      vi.mocked(db.tarea.findMany).mockResolvedValue([]);
+      vi.mocked(db.subtarea.groupBy).mockResolvedValue([]);
+
+      const res = await GET(new Request("http://localhost/api/v1/tasks/export"));
+
+      expect(res.status).toBe(200);
+      const where = vi.mocked(db.tarea.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
+      expect(where).toEqual({ deleted_at: null });
+      const cambios = vi.mocked(logAudit).mock.calls[0]![0]!.cambios as { filters: Record<string, unknown> };
+      expect(cambios.filters).not.toHaveProperty("rango");
+    });
+
+    it("does not filter by date for rango=all", async () => {
+      authAs(gerencia);
+      vi.mocked(db.tarea.findMany).mockResolvedValue([]);
+      vi.mocked(db.subtarea.groupBy).mockResolvedValue([]);
+
+      await GET(new Request("http://localhost/api/v1/tasks/export?rango=all"));
+
+      const where = vi.mocked(db.tarea.findMany).mock.calls[0]![0]!.where as Record<string, unknown>;
+      expect(where.OR).toBeUndefined();
+      expect(where.AND).toBeUndefined();
+    });
+
+    it("returns 400 for an invalid rango, without querying", async () => {
+      authAs(gerencia);
+
+      const res = await GET(new Request("http://localhost/api/v1/tasks/export?rango=NOT_REAL"));
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+      expect(db.tarea.findMany).not.toHaveBeenCalled();
+    });
+  });
+
   // PR 6: exports are audited (global-task-board spec §"Exports are audited").
   // The audit row carries quien/cuando/cuantas filas/filtros. logAudit is
   // best-effort (it swallows its own errors), so a throw in the audit path

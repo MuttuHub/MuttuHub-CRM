@@ -4,7 +4,9 @@
 // la raíz; omiter el campo no cambia la posición.
 // DELETE /api/v1/folders/:id — soft-delete SOLO si está vacía. Con subcarpetas
 // o documentos devuelve 409 (la app no tiene papelera: ni cascada que borre en
-// silencio ni huérfanos que se esparzan por la raíz).
+// silencio ni huérfanos que se esparzan por la raíz). Una carpeta de cliente
+// libera además su cliente_id: el índice único cubre también las filas
+// borradas, y sin liberarlo el cliente nunca podría tener otra carpeta.
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -105,7 +107,7 @@ export const DELETE = withApiErrorHandling(
 
     const carpeta = await db.carpeta.findFirst({
       where: { id, deleted_at: null },
-      select: { id: true },
+      select: { id: true, cliente_id: true },
     });
     if (!carpeta) {
       return apiError("La carpeta no existe.", 404, "NOT_FOUND");
@@ -129,7 +131,7 @@ export const DELETE = withApiErrorHandling(
 
     await db.carpeta.update({
       where: { id },
-      data: { deleted_at: new Date() },
+      data: { deleted_at: new Date(), ...(carpeta.cliente_id ? { cliente_id: null } : {}) },
     });
     return new NextResponse(null, { status: 204 });
   },

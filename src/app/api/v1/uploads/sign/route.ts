@@ -34,6 +34,11 @@ import { taskAttachmentStoragePath } from "@/lib/api/signed-upload";
 import { db } from "@/lib/db";
 import { createSupabaseAdmin } from "@/lib/supabase/admin";
 import { isSupabaseConfigured, requireApiUser } from "@/lib/supabase/server";
+import {
+  CARPETA_ID_INVALID_MESSAGE,
+  parseCarpetaId,
+  resolveDocumentPlacement,
+} from "@/lib/documents/client-folder";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +49,7 @@ type SignBody = {
   tamano_bytes?: unknown;
   tipo_mime?: unknown;
   cliente_id?: unknown;
+  carpeta_id?: unknown;
   titulo?: unknown;
   categoria?: unknown;
   force?: unknown;
@@ -105,6 +111,15 @@ export const POST = withApiErrorHandling(
     const titulo = typeof body.titulo === "string" ? body.titulo : "";
     const categoria = typeof body.categoria === "string" ? body.categoria : "";
     const force = body.force === true;
+    // S3: the folder a NEW document will land in. A client folder imposes its
+    // client on the key below, and the confirm re-derives the same client.
+    // Other targets already exist, so a folder there would be silently ignored:
+    // reject it instead.
+    const carpetaParsed = parseCarpetaId(body.carpeta_id);
+    if (!carpetaParsed.ok) return apiError(CARPETA_ID_INVALID_MESSAGE, 400, "VALIDATION_ERROR");
+    if (carpetaParsed.carpetaId !== null && kind !== "documento_nuevo") {
+      return apiError("carpeta_id solo aplica a documentos nuevos.", 400, "VALIDATION_ERROR");
+    }
     // Creating a document also has to describe the row it will create: the
     // create gates in the authorise phase run before any URL is issued
     // (correction B1), so the shape phase must require titulo and categoria.
@@ -174,17 +189,10 @@ export const POST = withApiErrorHandling(
       });
       if (!gate.ok) return gate.response;
 
-      if (clienteId) {
-        const cliente = await db.cliente.findFirst({
-          where: { id: clienteId, deleted_at: null },
-          select: { id: true },
-        });
-        if (!cliente) {
-          return apiError("El cliente no existe o fue eliminado.", 400, "VALIDATION_ERROR");
-        }
-      }
+      const placement = await resolveDocumentPlacement({ carpetaId: carpetaParsed.carpetaId, clienteId });
+      if (!placement.ok) return placement.response;
       documentoId = randomUUID();
-      storagePath = documentStoragePath(clienteId, documentoId, 1, nombre);
+      storagePath = documentStoragePath(placement.clienteId, documentoId, 1, nombre);
     }
 
     const supabase = createSupabaseAdmin();

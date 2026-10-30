@@ -14,10 +14,11 @@
 
 "use client";
 
+import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { FileSpreadsheet, FileText, LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ESTADO_TAREA_LABELS } from "@/lib/catalogs";
 import { useTaskReport, buildTaskQueryString, useCurrentUser, type ReportFilters } from "@/hooks/kanban";
@@ -61,21 +62,20 @@ export function ReportView({ responsable, cliente }: ReportViewProps) {
   // reporte"; en Reportes (sin filtro) => "del equipo".
   const misTareas = Boolean(responsable) && responsable === meQuery.data?.id;
 
+  // El Excel exporta el mismo período que muestra el reporte (S5, jefe 2.4b): el export acepta `rango` con la
+  // semántica de /tasks/report.
   function exportExcel() {
-    const qs = buildTaskQueryString({
-      responsable,
-      cliente,
-    });
-    void descargarExcel(`/api/v1/tasks/export?${qs}`);
+    const qs = new URLSearchParams(buildTaskQueryString({ responsable, cliente }));
+    qs.set("rango", rango);
+    void descargarExcel(`/api/v1/tasks/export?${qs.toString()}`);
   }
 
-  function openPdf() {
-    const sp = new URLSearchParams();
-    sp.set("rango", rango);
-    if (responsable) sp.set("responsable", responsable);
-    if (cliente) sp.set("cliente", cliente);
-    window.open(`/print/reportes/tareas?${sp.toString()}`, "_blank", "noopener");
-  }
+  // El PDF abre la vista de impresión en la misma pestaña (S4); la vista trae «Volver», que regresa aquí.
+  const pdfQuery = new URLSearchParams();
+  pdfQuery.set("rango", rango);
+  if (responsable) pdfQuery.set("responsable", responsable);
+  if (cliente) pdfQuery.set("cliente", cliente);
+  const pdfHref = `/print/reportes/tareas?${pdfQuery.toString()}`;
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -98,15 +98,16 @@ export function ReportView({ responsable, cliente }: ReportViewProps) {
             <FileSpreadsheet className="size-4 text-exito" strokeWidth={1.8} />
             Excel
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={openPdf}
-            className="px-3.5 text-[13px] font-semibold text-ink-800"
+          <Link
+            href={pdfHref}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "px-3.5 text-[13px] font-semibold text-ink-800",
+            )}
           >
             <FileText className="size-4 text-destructivo" strokeWidth={1.8} />
             PDF
-          </Button>
+          </Link>
         </div>
       </div>
 

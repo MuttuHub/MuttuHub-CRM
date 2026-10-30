@@ -45,6 +45,11 @@ describe("snapshotFilters", () => {
     expect(snap).toEqual({ q: "x" })
   })
 
+  // Jefe 2.6: a saved view must keep the tag filter of the client list.
+  it("keeps the etiqueta filter", () => {
+    expect(snapshotFilters({ q: "x", etiqueta: "Aliado clave" })).toEqual({ q: "x", etiqueta: "Aliado clave" })
+  })
+
   it("returns an empty object (not undefined) for empty filters", () => {
     expect(snapshotFilters({ q: "", estado: "" })).toEqual({})
   })

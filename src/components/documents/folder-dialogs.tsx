@@ -1,11 +1,12 @@
 // Diálogos de carpetas en el Repositorio (plan Fase 2, 4A): crear, renombrar,
 // mover y eliminar. El rail permite crear en la raíz o dentro de la carpeta
 // seleccionada. Renombrar/mover/eliminar salen del menú de acciones del nodo.
+// "Carpeta de cliente" (S4, A5) abre la carpeta de un cliente o la crea.
 
 "use client";
 
 import { useState } from "react";
-import { FolderPlus, Folder, Pencil, Trash2 } from "lucide-react";
+import { FolderPlus, Folder, LoaderCircle, Pencil, Trash2, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,7 +26,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { ClienteCombobox, type ClienteOpcion } from "@/components/proyectos/cliente-combobox";
 import {
+  useClientFolder,
   useCreateFolder,
   useDeleteFolder,
   useUpdateFolder,
@@ -74,11 +77,17 @@ export function CreateFolderDialog({
   const flat = flattenFolderOptions(folders);
 
   async function submit() {
-    if (!nombre.trim()) return;
-    await createFolder.mutateAsync({
-      nombre: nombre.trim(),
-      parent_id: parentId === "" ? defaultParentId : parentId,
-    });
+    // Enter no pasa por el botón deshabilitado: sin este guard, dos Enter
+    // seguidos creaban la carpeta dos veces.
+    if (!nombre.trim() || createFolder.isPending) return;
+    try {
+      await createFolder.mutateAsync({
+        nombre: nombre.trim(),
+        parent_id: parentId === "" ? defaultParentId : parentId,
+      });
+    } catch {
+      return; /* el hook muestra el error; el diálogo sigue abierto */
+    }
     setNombre("");
     setParentId("");
     onOpenChange(false);
@@ -151,6 +160,7 @@ export function CreateFolderDialog({
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
+            disabled={createFolder.isPending}
             className="px-4 text-[13px] font-semibold text-ink-800"
           >
             Cancelar
@@ -182,8 +192,12 @@ export function RenameFolderDialog({
   const renameFolder = useUpdateFolder();
 
   async function submit() {
-    if (!nombre.trim()) return;
-    await renameFolder.mutateAsync({ id: folder.id, nombre: nombre.trim() });
+    if (!nombre.trim() || renameFolder.isPending) return;
+    try {
+      await renameFolder.mutateAsync({ id: folder.id, nombre: nombre.trim() });
+    } catch {
+      return; /* el hook muestra el error; el diálogo sigue abierto */
+    }
     onOpenChange(false);
   }
 
@@ -215,6 +229,7 @@ export function RenameFolderDialog({
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
+            disabled={renameFolder.isPending}
             className="px-4 text-[13px] font-semibold text-ink-800"
           >
             Cancelar
@@ -253,10 +268,14 @@ export function MoveFolderDialog({
   const options = flattenFolderOptions(folders).filter((f) => !excluded.has(f.id));
 
   async function submit() {
-    await moveFolder.mutateAsync({
-      id: folder.id,
-      parent_id: parentId === "" ? null : parentId,
-    });
+    try {
+      await moveFolder.mutateAsync({
+        id: folder.id,
+        parent_id: parentId === "" ? null : parentId,
+      });
+    } catch {
+      return; /* el hook muestra el error; el diálogo sigue abierto */
+    }
     onOpenChange(false);
   }
 
@@ -297,6 +316,7 @@ export function MoveFolderDialog({
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
+            disabled={moveFolder.isPending}
             className="px-4 text-[13px] font-semibold text-ink-800"
           >
             Cancelar
@@ -327,7 +347,11 @@ export function DeleteFolderDialog({
   const deleteFolder = useDeleteFolder();
 
   async function submit() {
-    await deleteFolder.mutateAsync(folder.id);
+    try {
+      await deleteFolder.mutateAsync(folder.id);
+    } catch {
+      return; /* el hook muestra el error; el diálogo sigue abierto */
+    }
     onOpenChange(false);
   }
 
@@ -350,6 +374,7 @@ export function DeleteFolderDialog({
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
+            disabled={deleteFolder.isPending}
             className="px-4 text-[13px] font-semibold text-ink-800"
           >
             Cancelar
@@ -362,6 +387,86 @@ export function DeleteFolderDialog({
             className="px-4 font-bold"
           >
             {deleteFolder.isPending ? "Eliminando…" : "Eliminar"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * «Carpeta de cliente» (S4): eliges un cliente y se abre su carpeta; si aún
+ * no tiene, se crea en la raíz con su nombre (una carpeta por cliente, A5).
+ */
+export function ClientFolderDialog({
+  open,
+  onOpenChange,
+  clientes,
+  onOpened,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  clientes: ClienteOpcion[];
+  /** Recibe el id de la carpeta del cliente para abrirla en el repositorio. */
+  onOpened: (carpetaId: string) => void;
+}) {
+  const [clienteId, setClienteId] = useState("");
+  const clientFolder = useClientFolder();
+
+  async function submit() {
+    if (!clienteId) return;
+    try {
+      const res = await clientFolder.mutateAsync(clienteId);
+      onOpened(res.carpeta.id);
+      onOpenChange(false);
+    } catch {
+      /* el hook muestra el error */
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[min(440px,calc(100%-2rem))]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <UserRound className="size-5 text-exito" strokeWidth={1.9} />
+            Carpeta de cliente
+          </DialogTitle>
+          <DialogDescription>
+            Abre la carpeta de un cliente, o créala si todavía no tiene. Los
+            documentos que subas o arrastres a esa carpeta quedan vinculados al
+            cliente.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="carpeta-cliente">Cliente</Label>
+          <ClienteCombobox
+            id="carpeta-cliente"
+            clientes={clientes}
+            value={clienteId}
+            onChange={setClienteId}
+          />
+        </div>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={clientFolder.isPending}
+            className="px-4 text-[13px] font-semibold text-ink-800"
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            onClick={() => void submit()}
+            disabled={!clienteId || clientFolder.isPending}
+            className="px-4 font-bold"
+          >
+            {clientFolder.isPending && <LoaderCircle className="size-4 animate-spin" />}
+            Abrir carpeta
           </Button>
         </DialogFooter>
       </DialogContent>

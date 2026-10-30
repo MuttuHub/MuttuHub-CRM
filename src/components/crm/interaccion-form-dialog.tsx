@@ -211,7 +211,12 @@ export function InteraccionFormDialog({
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={addMutation.isPending}
+            >
               Cancelar
             </Button>
             <Button type="submit" disabled={addMutation.isPending} className="px-4 font-bold">
