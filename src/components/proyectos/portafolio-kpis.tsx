@@ -1,6 +1,6 @@
 // Fila de KPIs del Portafolio (v6): proyectos, presupuesto activo, beneficiarios y actividades atrasadas.
 // Lee dos fuentes ya cargadas por el listado: las filas (`GET projects`: conteo y `valor_total`) y el
-// agregado del servidor (`GET dashboard/portfolio`: beneficiarios y atrasadas por D3). Aquí solo se pinta:
+// agregado del servidor (`GET dashboard/portfolio`: beneficiarios y atrasadas por AJ-03). Aquí solo se pinta:
 // el cliente no recalcula ningún semáforo ni cuenta actividades.
 // Presupuesto activo (D8) = suma del `valor_total` de los proyectos EN_EJECUCION, en centavos exactos.
 

@@ -10,9 +10,9 @@
 
 import {
   acumuladoContable,
+  alcanzaTope,
   calcularTecnico,
   type ActividadTecnicaInput,
-  type EstadoActividad,
 } from "./avance"
 import { percentTenths, sumCents, type Cents } from "./money"
 import {
@@ -50,20 +50,31 @@ export type CumplimientoCronograma = {
   corte: IsoDate
   /** Activities whose end date is on or before the corte. */
   vencidas: number
-  /** Of those, the ones finished within their dates (FINALIZADA, never _CON_RETRASO). */
+  /** AJ-03: of those, the ones whose progress reached the tope on or before their fin, whatever came later. */
   a_tiempo: number
-  /** D3: due by the corte (`fin <= corte`) and below 100 %. Activities finished late are NOT counted. */
+  /**
+   * AJ-03: due by the corte (`fin <= corte`) and still below the tope. An activity that reached the tope
+   * after its fin is neither on time nor counted here, as D3 never counted the ones finished late.
+   */
   atrasadas: number
   valor: number | null
 }
 
+/** One activity as schedule compliance reads it: progress at its fin and at the corte, both 0..1. */
+export type CronogramaActividadInput = { fin: IsoDate; avance_al_fin: number; avance: number }
+
+/**
+ * AJ-03 schedule compliance: «actividades ejecutadas a tiempo / actividades cuya fecha fin ya pasó», where
+ * on time means the progress reached the tope (`tope_en_curso`, as a 0..1 fraction) by the fin.
+ */
 export function cumplimientoCronograma(
-  actividades: readonly { fin: IsoDate; estado: EstadoActividad }[],
+  actividades: readonly CronogramaActividadInput[],
   corte: IsoDate,
+  tope: number,
 ): CumplimientoCronograma {
   const vencidas = actividades.filter((a) => a.fin <= corte)
-  const aTiempo = vencidas.filter((a) => a.estado === "FINALIZADA").length
-  const atrasadas = vencidas.filter((a) => a.estado === "NO_INICIADA" || a.estado === "EN_CURSO").length
+  const aTiempo = vencidas.filter((a) => alcanzaTope(a.avance_al_fin, tope)).length
+  const atrasadas = vencidas.filter((a) => !alcanzaTope(a.avance, tope)).length
   return { corte, vencidas: vencidas.length, a_tiempo: aTiempo, atrasadas, valor: pct(aTiempo, vencidas.length) }
 }
 
@@ -240,8 +251,13 @@ export function kpisProyecto(input: KpiProyectoInput): KpisProyecto {
       color,
     },
     cronograma: cumplimientoCronograma(
-      resultado.actividades.map((a) => ({ fin: fin.get(a.id) as IsoDate, estado: a.estado })),
+      resultado.actividades.map((a) => ({
+        fin: fin.get(a.id) as IsoDate,
+        avance_al_fin: a.avance_al_fin,
+        avance: a.progreso,
+      })),
       corte,
+      p.tope_en_curso.valor / 100,
     ),
     entregables: entregablesLogrados(input.actividades, corte, requiereMedio),
     indicadores: cumplimientoIndicadores(input.indicadores, corte),
@@ -276,7 +292,7 @@ export type KpisPortafolio = {
     /** ΣE / ΣP, money-weighted. */
     ep: number | null
   }
-  /** Σ of the per-project `atrasadas` (D3) over the measured projects. */
+  /** Σ of the per-project `atrasadas` (AJ-03) over the measured projects. */
   atrasadas: number
   /** Σ of the project beneficiaries number (`beneficiarios_meta`) over the measured projects (M5); null counts as 0. */
   beneficiarios: { total: number }

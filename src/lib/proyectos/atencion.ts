@@ -9,6 +9,7 @@
  */
 
 import {
+  alcanzaTope,
   calcularTecnico,
   type ActividadTecnicaInput,
 } from "./avance"
@@ -100,6 +101,8 @@ export type AtencionInput = {
   alerta_retraso: boolean
   /** `avance_requiere_medio`: progress counts a support only while the parameter holds. */
   requiere_medio: boolean
+  /** `tope_en_curso` as a 0..1 fraction: a due activity at the tope only waits for soportes (AJ-03). */
+  tope: number
   actividades: readonly AtencionActividadInput[]
   avances: readonly AtencionAvanceInput[]
   indicadores: readonly AtencionIndicadorInput[]
@@ -177,7 +180,7 @@ export function construirAtencion(input: AtencionInput): AtencionItem[] {
   const progresoDe = new Map(tecnico.actividades.map((actividad) => [actividad.id, actividad.progreso]))
   for (const actividad of input.actividades) {
     const progreso = progresoDe.get(actividad.id) ?? 0
-    if (vencidaSinTerminar({ fin: actividad.fin, corte, terminada: progreso >= 1 })) {
+    if (vencidaSinTerminar({ fin: actividad.fin, corte, terminada: alcanzaTope(progreso, input.tope) })) {
       items.push({
         tipo: "actividad_atrasada",
         titulo: ATENCION_TITULO.actividad_atrasada,

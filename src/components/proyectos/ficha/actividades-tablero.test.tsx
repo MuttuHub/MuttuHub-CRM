@@ -87,6 +87,7 @@ const TECNICO = {
   desviacion_pp: 10,
   color: "amarillo",
   umbrales: { umbral1: 10, umbral2: 20, confirmado: true },
+  tope_en_curso: 90,
   objetivos: [],
   actividades: [
     tec("a1", "1.1", "Convocatoria", 0, "verde", 0),
@@ -100,10 +101,10 @@ const TECNICO = {
 describe("ActividadesTablero", () => {
   const fetchMock = vi.fn()
 
-  function setup(onAbrirActividad = vi.fn(), proyecto: Partial<ProjectListRow> = {}) {
+  function setup(onAbrirActividad = vi.fn(), proyecto: Partial<ProjectListRow> = {}, tecnico: typeof TECNICO = TECNICO) {
     fetchMock.mockImplementation((input: unknown) => {
       const url = String(input).split("?")[0]
-      if (url.endsWith("/technical-status")) return Promise.resolve(jsonResponse(TECNICO))
+      if (url.endsWith("/technical-status")) return Promise.resolve(jsonResponse(tecnico))
       if (url.endsWith("/activities")) return Promise.resolve(jsonResponse({ actividades: ACTIVIDADES }))
       if (url.endsWith("/objectives")) return Promise.resolve(jsonResponse({ objetivos: [OBJ1] }))
       if (url.endsWith("/members")) {
@@ -151,6 +152,17 @@ describe("ActividadesTablero", () => {
     expect(col("atrasada").getByText("Informe")).toBeInTheDocument()
     expect(col("terminada").getByText("Cierre")).toBeInTheDocument()
     expect(within(tablero).getAllByTestId("tablero-tarjeta")).toHaveLength(5)
+  })
+
+  it("keeps a due activity at the tope out of Atrasada: it only waits for soportes (AJ-03)", async () => {
+    const actividades = TECNICO.actividades.map((a) => (a.id === "a3" ? tec("a3", "1.3", "Visita", 90, "verde", 90) : a))
+    setup(undefined, {}, { ...TECNICO, actividades })
+
+    await screen.findByTestId("tablero-col-en_curso")
+    const tablero = screen.getByTestId("tablero")
+    const col = (id: string) => within(within(tablero).getByTestId(`tablero-col-${id}`))
+    expect(await col("en_curso").findByText("Visita")).toBeInTheDocument()
+    expect(col("atrasada").queryByText("Visita")).toBeNull()
   })
 
   it("titles the columns in the agreed order with their counts", async () => {

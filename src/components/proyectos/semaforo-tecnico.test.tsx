@@ -17,6 +17,7 @@ const TECNICO: ProjectTechnicalStatus = {
   color: "rojo",
   actividades: [],
   umbrales: { umbral1: 10, umbral2: 20, confirmado: false },
+  tope_en_curso: 90,
 }
 
 describe("SemaforoTecnico", () => {

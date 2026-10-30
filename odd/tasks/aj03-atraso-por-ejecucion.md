@@ -59,16 +59,28 @@ Mirror: Engram `odd/aj03-atraso-por-ejecucion/tasks`. Source: PO document «Ajus
   activity with entregables loaded but no report never «llegó al tope» by report ⇒ not a tiempo; pin with a test
   so the S5.2 byte-for-byte rule for report-less activities stays intact elsewhere. (c) The comparison is
   `avance >= tope` at `fin` («llegó al tope»), inclusive.
+- **S10 — Readings fixed at implementation (assumptions, 2026-10-30).** (a) «Avance at the fin» = decision 1's
+  value computed only from avances and reports dated on or before the fin. (b) `atrasadas` = past-due activities
+  whose current avance is still below the tope — an activity that reached the tope after its fin is neither
+  a tiempo nor atrasada, the same exclusion D3 made for finished-late activities. (c) «llega como máximo al tope»
+  reads as a cap: an activity's planned fraction is `min(tope, elapsed fraction)`, so the plan is unchanged until
+  the elapsed fraction passes the tope. (d) The attention list's «Actividad atrasada» uses (b) instead of
+  «progreso < 100 %», so an activity at the tope waiting for soportes is not listed as late.
 - **S9 — Out of scope.** AJ-01 (done) and AJ-02 (own document, `odd/tasks/aj02-peso-duracion.md`).
 
 ## Tasks
 
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
-| T1 | S4.1, S5, S8 (domain: the execution-based a tiempo/atrasada rule in `kpis.ts`'s `cumplimientoCronograma`, consuming `tope_en_curso` + the per-activity progress from `avance.ts`) | TBD | pending | |
-| T2 | S4.3, S6.2, S6.3 (planned series: cap each activity's `avanceProgramado` at the tope at its fin — flows into `colorTecnicoV2` inputs and `tecnicoPlaneado`) | TBD | pending | |
-| T3 | S2 (curva S + colors: pin the capped plan through `src/lib/api/curva.ts` / `curva.ts` and the 7 `colorTecnicoV2` call sites) | TBD | pending | |
-| T4 | Docs (OpenAPI, user guide, test guide, flip AJ-03 to Hecho in `docs/plan-trabajo-restante.md`) | TBD | pending | |
+| T1 | S4.1, S5, S8, S10 (domain: the execution-based a tiempo/atrasada rule in `kpis.ts`'s `cumplimientoCronograma`, consuming `tope_en_curso` + the per-activity progress from `avance.ts`; the attention list's «Actividad atrasada» follows the same rule) | inline | pending | |
+| T2 | S4.3, S6.2, S6.3, S10 (planned series: cap each activity's `avanceProgramado` at the tope at its fin — flows into `colorTecnicoV2` inputs and `tecnicoPlaneado`) | inline | pending | |
+| T3 | S2 (curva S + colors: pin the capped plan through `src/lib/api/curva.ts` / `curva.ts` and the 7 `colorTecnicoV2` call sites) | inline | pending | |
+| T4 | Docs (OpenAPI, user guide, test guide, flip AJ-03 to Hecho in `docs/plan-trabajo-restante.md`) | inline | pending | |
+
+Route evidence: no writer trigger holds — one behavior over shared domain files (`avance.ts`, `kpis.ts`), so no
+disjoint parallel units; the parent writes inline. Branch actually used: `feat/aj03-atraso-por-ejecucion` stacked on
+`feat/aj02-peso-duracion` (AJ-02 is not in `main` yet and touches the same weighting code); retarget to `main`
+once AJ-02 merges.
 
 ## Log
 

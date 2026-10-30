@@ -181,6 +181,7 @@ export async function cargarAtencion(input: {
     corte,
     alerta_retraso: alertaRetraso,
     requiere_medio: parametros.avance_requiere_medio.valor,
+    tope: parametros.tope_en_curso.valor / 100,
     actividades: actividadesInput,
     avances: avancesInput,
     indicadores: indicadoresInput,

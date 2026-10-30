@@ -96,6 +96,7 @@ export const GET = withApiErrorHandling(
         color: objetivo.color,
       })),
       umbrales: { ...umbrales, confirmado: parametros.umbral1.confirmado && parametros.umbral2.confirmado },
+      tope_en_curso: parametros.tope_en_curso.valor,
     });
   },
 );

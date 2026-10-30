@@ -625,6 +625,11 @@ registry.registerPath({
               }),
             ),
             umbrales: z.object({ umbral1: z.number(), umbral2: z.number(), confirmado: z.boolean() }),
+            tope_en_curso: z.number().openapi({
+              description:
+                "Tope de avance (porcentaje) del parámetro `tope_en_curso`. Una actividad vencida que llegó al tope " +
+                "en su fecha fin no cuenta como atrasada, aunque sus soportes lleguen después (AJ-03).",
+            }),
           }),
         },
       },

@@ -92,6 +92,7 @@ beforeEach(() => {
     umbral1: { valor: 10, confirmado: false },
     umbral2: { valor: 20, confirmado: false },
     avance_requiere_medio: { valor: true, confirmado: false },
+    tope_en_curso: { valor: 90, confirmado: false },
   };
   authAs(gerencia);
   vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto());
@@ -118,6 +119,7 @@ describe("GET technical-status: F-T1 golden", () => {
       desviacion_pp: 35.7,
       color: "rojo",
       umbrales: { umbral1: 10, umbral2: 20, confirmado: false },
+      tope_en_curso: 90,
     });
     expect(body.actividades.map((a: { codigo: string; progreso: number; estado: string; fecha_cumplimiento: string | null }) => [
       a.codigo,
