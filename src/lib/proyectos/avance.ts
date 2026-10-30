@@ -21,6 +21,9 @@ export type AvanceInput = {
 
 export type EntregableTecnicoInput = { id: string; meta: number; avances: AvanceInput[] }
 
+/** One non-voided ReporteActividad (AJ-01). */
+export type ReporteActividadInput = { fecha: IsoDate; porcentaje: number }
+
 export type ActividadTecnicaInput = {
   id: string
   codigo: string
@@ -28,6 +31,14 @@ export type ActividadTecnicaInput = {
   inicio: IsoDate
   fin: IsoDate
   entregables: EntregableTecnicoInput[]
+  /**
+   * Non-voided reports (AJ-01), chronologically sorted by the caller — the last entry is
+   * the latest. Kept as the full history (not just the latest) so a later feature (AJ-03)
+   * can find when the activity first reached a given percentage without a breaking change
+   * here. Omitted or empty means the activity has never had a report (S5.2: every
+   * computation below then matches today's behavior byte-for-byte).
+   */
+  reportes?: ReporteActividadInput[]
 }
 
 export type EstadoActividad = "NO_INICIADA" | "EN_CURSO" | "FINALIZADA" | "FINALIZADA_CON_RETRASO"
@@ -77,6 +88,28 @@ export function avanceActividad(progresos: number[]): number {
   return progresos.reduce((sum, p) => sum + p, 0) / progresos.length
 }
 
+/**
+ * Whether one deliverable is complete: its counted quantity reached the goal AND it has at
+ * least one live (non-voided, supported) avance — identical to `kpis.ts`'s
+ * `entregablesLogrados` criterion, applied per deliverable instead of aggregated across many
+ * so this and that stay consistent.
+ */
+export function entregableCompleto(entregable: EntregableTecnicoInput, requiereMedio: boolean): boolean {
+  return (
+    entregable.meta > 0 &&
+    acumuladoContable(entregable.avances, requiereMedio) >= entregable.meta &&
+    entregable.avances.some((a) => !a.anulado && a.tieneMedio)
+  )
+}
+
+/**
+ * Whether every deliverable of an activity is complete (S8). An activity without
+ * deliverables is never complete (mirrors the existing `fecha_cumplimiento` "done" gate).
+ */
+export function entregablesCompletos(entregables: EntregableTecnicoInput[], requiereMedio: boolean): boolean {
+  return entregables.length > 0 && entregables.every((e) => entregableCompleto(e, requiereMedio))
+}
+
 /** Weighted mean of the activity progresses; zero total weight yields 0. */
 export function avanceReal(actividades: { peso: number; progreso: number }[]): number {
   const total = actividades.reduce((sum, a) => sum + a.peso, 0)
@@ -123,7 +156,21 @@ export function estadoActividad(input: {
   fin: IsoDate
   corte: IsoDate
   fechaCumplimiento: IsoDate | null
+  /** S8: whether the activity has at least one non-voided ReporteActividad (AJ-01). */
+  hasReports?: boolean
+  /** S8: whether every deliverable of the activity is complete (only read when `hasReports`). */
+  entregablesCompletos?: boolean
 }): EstadoActividad {
+  if (input.hasReports) {
+    // Once there is a report, there is no going back to NO_INICIADA (S2/S3): the activity
+    // only finishes once every deliverable is actually complete, regardless of the reported
+    // percentage — never "stays Sin iniciar" and never finishes on the report alone.
+    if (input.entregablesCompletos) {
+      const late = input.fechaCumplimiento !== null && input.fechaCumplimiento > input.fin
+      return late ? "FINALIZADA_CON_RETRASO" : "FINALIZADA"
+    }
+    return "EN_CURSO"
+  }
   if (input.progreso >= 1) {
     const late = input.fechaCumplimiento !== null && input.fechaCumplimiento > input.fin
     return late ? "FINALIZADA_CON_RETRASO" : "FINALIZADA"
@@ -148,6 +195,8 @@ export type ActividadTecnicaResultado = {
   estado: EstadoActividad
   /** Date the last deliverable reached its goal; null while any is open (or there are none). */
   fecha_cumplimiento: IsoDate | null
+  /** S8: whether every deliverable of the activity is complete (AJ-01; consumed by AJ-03 later). */
+  entregables_completos: boolean
 }
 
 /** Composes the whole technical read: real, programmed, deviation and per-activity estado. */
@@ -163,19 +212,37 @@ export function calcularTecnico(input: {
 } {
   const { corte, requiereMedio } = input
   const actividades = input.actividades.map((a) => {
-    const progreso = avanceActividad(
+    const progresoEntregables = avanceActividad(
       a.entregables.map((e) => avanceEntregable(acumuladoContable(e.avances, requiereMedio), e.meta)),
     )
     const fechas = a.entregables.map((e) => fechaCumplimiento(e.avances, e.meta, requiereMedio))
     const done = fechas.length > 0 && fechas.every((f) => f !== null)
     const cumplimiento = done ? (fechas as IsoDate[]).reduce((max, f) => (f > max ? f : max)) : null
+
+    const completos = entregablesCompletos(a.entregables, requiereMedio)
+    const reportes = a.reportes ?? []
+    const hasReports = reportes.length > 0
+    // decision S5.1: the greater of the last report and the deliverable average.
+    const progreso = hasReports
+      ? Math.max(reportes[reportes.length - 1].porcentaje / 100, progresoEntregables)
+      : progresoEntregables
+
     return {
       id: a.id,
       codigo: a.codigo,
       peso: a.peso,
       progreso,
-      estado: estadoActividad({ progreso, inicio: a.inicio, fin: a.fin, corte, fechaCumplimiento: cumplimiento }),
+      estado: estadoActividad({
+        progreso,
+        inicio: a.inicio,
+        fin: a.fin,
+        corte,
+        fechaCumplimiento: cumplimiento,
+        hasReports,
+        entregablesCompletos: completos,
+      }),
       fecha_cumplimiento: cumplimiento,
+      entregables_completos: completos,
     }
   })
 
@@ -187,4 +254,50 @@ export function calcularTecnico(input: {
     desviacion_pp: desviacionPp(programado, real),
     actividades,
   }
+}
+
+// ---------------------------------------------------------------------------
+// ReporteActividad submission validation (S9.1-S9.4)
+// ---------------------------------------------------------------------------
+
+/** Pure check result: `{ ok: true }` or `{ ok: false; message }`. HTTP-shaping (404/403/409) happens one layer up. */
+export type ValidacionReporte = { ok: true } | { ok: false; message: string }
+
+/**
+ * Pure submission validation for a new ReporteActividad (S9.1-S9.4). Takes already-loaded
+ * data: the activity's non-voided reports (chronologically sorted by the caller — the last
+ * entry is the latest), its `entregablesCompletos` flag, the `tope_en_curso` value, and the
+ * new submission. Checks run in order and stop at the first failure, matching S3's examples:
+ *
+ *  1. `porcentaje` in `(0, 100]`.
+ *  2. `observacion` non-empty after trim.
+ *  3. Strictly greater than the latest non-voided report, else the exact message naming it.
+ *  4. `porcentaje <= tope` while `entregablesCompletos` is false, else the exact message
+ *     naming the tope (this also means 100% is only ever accepted once deliverables are
+ *     already complete).
+ */
+export function validarNuevoReporte(input: {
+  porcentaje: number
+  observacion: string
+  /** Non-voided reports, chronologically sorted; the last entry is the latest. */
+  reportes: ReporteActividadInput[]
+  entregablesCompletos: boolean
+  tope: number
+}): ValidacionReporte {
+  const { porcentaje, observacion, reportes, entregablesCompletos: completos, tope } = input
+
+  if (!(porcentaje > 0 && porcentaje <= 100)) {
+    return { ok: false, message: "El porcentaje debe ser mayor que 0 y menor o igual a 100." }
+  }
+  if (observacion.trim().length === 0) {
+    return { ok: false, message: "La observación es obligatoria." }
+  }
+  const anterior = reportes.length > 0 ? reportes[reportes.length - 1] : null
+  if (anterior !== null && porcentaje <= anterior.porcentaje) {
+    return { ok: false, message: `El avance debe ser mayor que el último reportado (${anterior.porcentaje}%).` }
+  }
+  if (!completos && porcentaje > tope) {
+    return { ok: false, message: `El avance máximo sin entregables completos es ${tope}%.` }
+  }
+  return { ok: true }
 }

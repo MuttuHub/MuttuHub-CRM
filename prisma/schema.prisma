@@ -730,6 +730,7 @@ model Proyecto {
   entregables Entregable[]
   indicadores Indicador[]
   avances_entregable AvanceEntregable[]
+  reportes_actividad ReporteActividad[]
   mediciones_indicador MedicionIndicador[]
   registros_beneficiarios RegistroBeneficiario[]
   soportes_proyecto  SoporteProyecto[]
@@ -877,6 +878,7 @@ model Actividad {
   responsable Usuario? @relation("ActividadResponsable", fields: [responsable_id], references: [id])
   entregables Entregable[]
   beneficiarios RegistroBeneficiario[]
+  reportes    ReporteActividad[]
 
   @@unique([id, proyecto_id])
   @@index([proyecto_id])
@@ -945,41 +947,79 @@ model AvanceEntregable {
   @@map("avances_entregable")
 }
 
+// v2 projects module (AJ-01, S7) — one activity-level progress report (distinct from
+// `AvanceEntregable`, which stays deliverable-level and untouched). Never hard-deleted: a
+// void sets `anulado_at` + `motivo_anulacion` (same void-only pattern as `AvanceEntregable`).
+// `observacion` is required here (unlike `AvanceEntregable.observacion`, which stays optional) —
+// AJ-01 mandates an explanation on every report. `porcentaje > 0 AND porcentaje <= 100` is
+// enforced by `reportes_actividad_porcentaje_check` (Postgres CHECK; Prisma cannot express a
+// range, so this comment documents it the way `gastos_total_cuadra_ck` is documented on `Gasto`).
+// The composite relation `[actividad_id, proyecto_id]` keeps the activity in the same project,
+// mirroring `AvanceEntregable`'s relation to `Entregable`.
+model ReporteActividad {
+  id                 String    @id @default(uuid())
+  proyecto_id        String
+  actividad_id       String
+  fecha              DateTime  @db.Date
+  porcentaje         Decimal   @db.Decimal(5, 2)
+  observacion        String
+  registrado_por_id  String
+  created_at         DateTime  @default(now())
+  anulado_at         DateTime?
+  anulado_por_id     String?
+  motivo_anulacion   String?
+
+  proyecto  Proyecto  @relation(fields: [proyecto_id], references: [id])
+  actividad Actividad @relation(fields: [actividad_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
+  soportes  SoporteProyecto[]
+
+  @@unique([id, proyecto_id])
+  @@index([actividad_id, fecha])
+  @@index([proyecto_id])
+  @@map("reportes_actividad")
+}
+
 // v2 projects module (S4 U3, SDD §4.8, REQ-EXE-03) — a medio de verificación of
 // an execution record: an uploaded file (`storage_path`, signed upload, never
 // deleted from storage) or an external https link (`url_externa`). CHECKs
-// `soportes_proyecto_padre_check` (exactly one of avance_id / medicion_id),
+// `soportes_proyecto_padre_check` (at most one of avance_id / medicion_id / gasto_id /
+// reporte_actividad_id — zero means the soporte is a project-origin document, migration 26),
 // `soportes_proyecto_fuente_check` (exactly one of storage_path / url_externa) and
 // `soportes_proyecto_tamano_check`; `storage_path` is unique so one stored object
 // backs one medio. `avance_id` is a same-project composite FK; `medicion_id` is a
 // same-project composite FK to the measurements table (S4 U4). Soft delete only (`deleted_at`).
-// S6 adds `gasto_id` (same-project composite FK to `gastos`); the CHECK keeps the same name and
-// now reads `num_nonnulls(avance_id, medicion_id, gasto_id) = 1`. Every consultation of an
-// expense support is logged in `acceso_soportes`.
+// S6 adds `gasto_id` (same-project composite FK to `gastos`). AJ-01 (T1) adds
+// `reporte_actividad_id` (same-project composite FK to the new `reportes_actividad` table) as a
+// fourth possible parent; the CHECK keeps the same name and now reads
+// `num_nonnulls(avance_id, medicion_id, gasto_id, reporte_actividad_id) <= 1`. Every consultation
+// of an expense support is logged in `acceso_soportes`.
 model SoporteProyecto {
-  id            String    @id @default(uuid())
-  proyecto_id   String
-  avance_id     String?
-  medicion_id   String?
-  gasto_id      String?
-  nombre        String
-  storage_path  String?   @unique
-  url_externa   String?
-  tipo_mime     String?
-  tamano_bytes  Int?
-  subido_por_id String
-  created_at    DateTime  @default(now())
-  deleted_at    DateTime?
+  id                  String    @id @default(uuid())
+  proyecto_id         String
+  avance_id           String?
+  medicion_id         String?
+  gasto_id            String?
+  reporte_actividad_id String?
+  nombre              String
+  storage_path        String?   @unique
+  url_externa         String?
+  tipo_mime           String?
+  tamano_bytes        Int?
+  subido_por_id       String
+  created_at          DateTime  @default(now())
+  deleted_at          DateTime?
 
-  proyecto Proyecto          @relation(fields: [proyecto_id], references: [id])
-  avance   AvanceEntregable? @relation(fields: [avance_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
-  medicion MedicionIndicador? @relation(fields: [medicion_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
-  gasto    Gasto?            @relation(fields: [gasto_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
-  accesos  AccesoSoporte[]
+  proyecto          Proyecto           @relation(fields: [proyecto_id], references: [id])
+  avance            AvanceEntregable?  @relation(fields: [avance_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
+  medicion          MedicionIndicador? @relation(fields: [medicion_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
+  gasto             Gasto?             @relation(fields: [gasto_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
+  reporte_actividad ReporteActividad?  @relation(fields: [reporte_actividad_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
+  accesos           AccesoSoporte[]
 
   @@index([avance_id])
   @@index([medicion_id])
   @@index([gasto_id])
+  @@index([reporte_actividad_id])
   @@index([proyecto_id])
   @@map("soportes_proyecto")
 }
