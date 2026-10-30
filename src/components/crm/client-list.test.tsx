@@ -62,6 +62,12 @@ vi.mock("@/hooks/crm", async (importOriginal) => ({
 
 vi.mock("@/components/crm/client-sheet", () => ({ ClientSheet: () => null }))
 
+// 2.6 (S6): live task_tags catalog (shared with tasks, A1); "Aliado clave" is
+// a tag created in the admin panel (not in the factory list).
+vi.mock("@/hooks/admin", () => ({
+  useTaskTags: () => ({ data: ["Urgente", "Aliado clave"] }),
+}))
+
 const USERS = [{ id: "u1", nombre: "Ana Pérez" }]
 
 const showing = (desde: number, hasta: number, total: number) => (_content: string, element?: Element | null) =>
@@ -325,6 +331,33 @@ it("shows the pagination footer and pages through results", () => {
     expect(new URLSearchParams(destino.split("?")[1]).get("tipo")).toBe("GOBIERNO_LOCAL")
     expect(open).not.toHaveBeenCalled()
     vi.unstubAllGlobals()
+  })
+
+  /* ── Etiqueta filter (jefe 2026-10-28, lane 2 task 2.6 / S6) ─────────── */
+
+  it("filters by a live catalog tag via Aplicar: query, URL, chip and count", async () => {
+    vi.useRealTimers()
+    render(<ClientList />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole("button", { name: /Filtros/ }))
+    await user.click(await screen.findByRole("combobox", { name: "Etiqueta" }))
+    await user.click(await screen.findByRole("option", { name: "Aliado clave" }))
+    expect(useClientsMock).toHaveBeenLastCalledWith({ page: 1 })
+    await user.click(screen.getByRole("button", { name: "Aplicar" }))
+
+    expect(useClientsMock).toHaveBeenLastCalledWith({ etiqueta: "Aliado clave", page: 1 })
+    expect(router.replace).toHaveBeenLastCalledWith("/clientes?etiqueta=Aliado+clave", {
+      scroll: false,
+    })
+    expect(screen.getByText("Etiqueta: Aliado clave")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Filtros 1 filtro" })).toBeInTheDocument()
+  })
+
+  it("seeds the etiqueta filter from the URL at mount", () => {
+    searchParamsMap.set("etiqueta", "Urgente")
+    render(<ClientList />)
+    expect(useClientsMock).toHaveBeenLastCalledWith({ etiqueta: "Urgente", page: 1 })
+    expect(screen.getByText("Etiqueta: Urgente")).toBeInTheDocument()
   })
 
   /* ── URL persistence (Lote 6) ────────────────────────────────────────── */

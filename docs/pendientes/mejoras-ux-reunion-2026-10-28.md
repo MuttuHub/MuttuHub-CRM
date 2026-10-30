@@ -4,8 +4,8 @@
 > lo guardamos como mejora futura». Esta lista recoge lo que se encontró al revisar
 > los requerimientos de esa reunión. Son mejoras **futuras**: ninguna bloquea el uso
 > diario y ninguna está en curso. Cada punto se verificó en el código el 2026-10-29.
-> Los hallazgos de la revisión de modales (Documentos y Clientes/Tareas/Proyectos/Admin)
-> se agregan al final cuando esa revisión termine.
+> Al final están los hallazgos de la revisión de modales (Administración, Proyectos,
+> Documentos y Clientes).
 
 ---
 
@@ -158,6 +158,70 @@ servidor rechaza el archivo.
 
 **Propuesta:** mostrar tipos y tamaño máximo («.xlsx, máx. 4 MB») y validar antes de subir.
 
-### Pendiente
+### Documentos (tarea 1.5, 2026-10-29)
 
-Se agregan al terminar la tarea 1.5 (Documentos) y la parte de Clientes y Tareas de la 2.7.
+Ya se corrigieron en la misma tarea: los avisos de título duplicado hablan de «tú»; una subida de varios
+archivos muestra un solo aviso; arrastrar un documento a la carpeta abierta no hace nada; «Cancelar» se
+desactiva mientras corre la petición; Enter dos veces ya no crea ni renombra la carpeta dos veces.
+
+### 17. Soltar archivos siempre abre el diálogo de subida
+
+Al soltar archivos sobre la lista o una carpeta se abre el diálogo porque la categoría es obligatoria.
+Es una decisión de producto: subir directo con una categoría por defecto o con la última usada.
+
+**Propuesta:** definir la categoría por defecto y subir sin diálogo cuando no haga falta preguntar.
+
+### 18. «Carpeta de cliente» solo encuentra los primeros 100 clientes
+
+`src/hooks/kanban.ts:278` pide `/api/v1/clients?page=1&limit=100` y el buscador filtra en el
+navegador. La API ya acepta `q`.
+
+**Propuesta:** buscar en el servidor con `q` mientras se escribe.
+
+### 19. Soltar un documento en su propia carpeta sin carpeta abierta igual lo mueve
+
+Con la vista «Todas», los elementos de la lista no traen `carpeta_id`, así que soltar un documento en la
+carpeta donde ya está envía un PATCH y muestra «Documento movido.».
+
+**Propuesta:** incluir `carpeta_id` en la lista y omitir el movimiento cuando no cambia.
+
+### 20. El asa para arrastrar documentos es muy pequeña
+
+Mide 16×28 px, por debajo del mínimo recomendado de 44×44 px en pantallas táctiles.
+
+**Propuesta:** agrandar el área de toque sin cambiar el ícono.
+
+### Clientes (tarea 2.7, 2026-10-29)
+
+Ya se corrigieron en la misma tarea: «Cancelar» se desactiva mientras se guarda en los diálogos de
+cliente, contacto, oportunidad, compromiso e interacción; Esc y «Cancelar» en un diálogo sobre la ficha
+del cliente cierran solo ese diálogo.
+
+### 21. Los diálogos largos del CRM no fijan el pie
+
+`client-form.tsx`, `entity-dialogs.tsx`, `interaccion-form-dialog.tsx`, `task-dialogs.tsx`. Ocupan hasta
+el 88 % de la pantalla y los botones quedan al final del desplazamiento.
+
+**Propuesta:** decidirlo en el sistema de diseño (pie fijo en `DialogContent`) y aplicarlo a todos.
+
+### 22. La confirmación se cierra antes de terminar la operación
+
+`ConfirmDialog` (`entity-dialogs.tsx`) se cierra antes de la petición: el indicador de carga nunca se ve
+y, si falla, el error solo aparece como aviso flotante.
+
+**Propuesta:** esperar la respuesta dentro del diálogo, como en el punto 15.
+
+### 23. El formulario de cliente siempre está montado
+
+`ClientFormDialog` (`client-form.tsx`) se monta aunque esté cerrado y conserva estado entre aperturas.
+
+**Propuesta:** montarlo solo al abrir o reiniciar su estado al cerrar.
+
+### 24. El PDF y el Excel de clientes ignoran el filtro por etiqueta
+
+La lista filtra por etiqueta (tarea 2.6), pero las exportaciones no reciben ese filtro. Decisión de
+producto: ¿la exportación debe respetar el filtro activo?
+
+### 25. Las etiquetas del cliente no se ven fuera del formulario
+
+No aparecen en las tarjetas, las filas de la lista ni la ficha. Decisión de producto: dónde mostrarlas.

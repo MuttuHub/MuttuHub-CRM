@@ -472,3 +472,131 @@ describe("POST /api/v1/clients", () => {
     );
   });
 });
+
+// Jefe 2026-10-28 lane 2 task 2.6 (S6): «no aparecen al momento de crear un
+// cliente». Clients carry tags from the shared task_tags catalog (A1).
+describe("client tags — etiquetas (2.6)", () => {
+  const createdRow = {
+    ...baseClientRow,
+    tamano_org: null,
+    canal_contacto_inicial: null,
+    prioridades_identificadas: null,
+    riesgos_barreras: null,
+    resumen_relacion: null,
+    created_at: new Date("2026-01-01"),
+  };
+
+  it("POST saves normalized etiquetas (trim, dedupe, keep order) and returns them", async () => {
+    authAs(gerencia);
+    vi.mocked(db.usuario.findFirst).mockResolvedValue({ id: "colab-1", nombre: "Colab Uno" } as never);
+    vi.mocked(db.cliente.create).mockResolvedValue({
+      ...createdRow,
+      etiquetas: ["Aliado clave", "Urgente"],
+    } as never);
+
+    const res = await POST(
+      postRequest({
+        nombre: "Acme",
+        tipo_cliente: "EMPRESA_PRIVADA",
+        responsable_id: "colab-1",
+        etiquetas: [" Aliado clave ", "Urgente", "Aliado clave"],
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    const call = vi.mocked(db.cliente.create).mock.calls[0][0] as {
+      data: { etiquetas?: string[] };
+      select: Record<string, unknown>;
+    };
+    expect(call.data.etiquetas).toEqual(["Aliado clave", "Urgente"]);
+    expect(call.select.etiquetas).toBe(true);
+    const json = await res.json();
+    expect(json.cliente.etiquetas).toEqual(["Aliado clave", "Urgente"]);
+  });
+
+  it("POST without etiquetas creates the client with an empty tag list (previous behavior)", async () => {
+    authAs(gerencia);
+    vi.mocked(db.usuario.findFirst).mockResolvedValue({ id: "colab-1", nombre: "Colab Uno" } as never);
+    vi.mocked(db.cliente.create).mockResolvedValue({ ...createdRow, etiquetas: [] } as never);
+
+    const res = await POST(
+      postRequest({ nombre: "Acme", tipo_cliente: "EMPRESA_PRIVADA", responsable_id: "colab-1" }),
+    );
+
+    expect(res.status).toBe(201);
+    const call = vi.mocked(db.cliente.create).mock.calls[0][0] as { data: { etiquetas?: string[] } };
+    expect(call.data.etiquetas).toEqual([]);
+  });
+
+  it("POST rejects an empty tag with 400 and a clear message", async () => {
+    authAs(gerencia);
+
+    const res = await POST(
+      postRequest({
+        nombre: "Acme",
+        tipo_cliente: "EMPRESA_PRIVADA",
+        responsable_id: "colab-1",
+        etiquetas: ["Urgente", "   "],
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ code: "VALIDATION_ERROR", error: "Hay una etiqueta vacía." });
+    expect(db.cliente.create).not.toHaveBeenCalled();
+  });
+
+  it("POST rejects etiquetas that is not an array of strings with 400", async () => {
+    authAs(gerencia);
+
+    const res = await POST(
+      postRequest({
+        nombre: "Acme",
+        tipo_cliente: "EMPRESA_PRIVADA",
+        responsable_id: "colab-1",
+        etiquetas: "Urgente",
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(db.cliente.create).not.toHaveBeenCalled();
+  });
+
+  it("GET returns each row's etiquetas", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findMany).mockResolvedValue([
+      { ...baseClientRow, etiquetas: ["Urgente"] },
+    ] as never);
+
+    const res = await GET(new Request("http://localhost/api/v1/clients"));
+
+    expect(res.status).toBe(200);
+    const call = vi.mocked(db.cliente.findMany).mock.calls[0][0] as { select: Record<string, unknown> };
+    expect(call.select.etiquetas).toBe(true);
+    expect((await res.json()).items[0].etiquetas).toEqual(["Urgente"]);
+  });
+
+  it("GET ?etiqueta= filters the list to clients carrying that tag", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findMany).mockResolvedValue([] as never);
+
+    const res = await GET(new Request("http://localhost/api/v1/clients?etiqueta=%20Urgente%20"));
+
+    expect(res.status).toBe(200);
+    expect(db.cliente.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ etiquetas: { has: "Urgente" } }),
+      }),
+    );
+  });
+
+  it("GET without ?etiqueta= adds no tag condition (previous behavior)", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findMany).mockResolvedValue([] as never);
+
+    await GET(new Request("http://localhost/api/v1/clients"));
+
+    const call = vi.mocked(db.cliente.findMany).mock.calls[0][0] as { where: Record<string, unknown> };
+    expect(call.where).toEqual({ deleted_at: null });
+  });
+});

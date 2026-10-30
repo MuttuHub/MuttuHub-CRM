@@ -3,7 +3,13 @@
 
 import { db } from "@/lib/db";
 import { contarMediosVivos } from "@/lib/api/ejecucion";
-import { calcularTecnico, fraccionTiempo, type ActividadTecnicaInput, type ActividadTecnicaResultado } from "@/lib/proyectos/avance";
+import {
+  calcularTecnico,
+  fraccionTiempo,
+  type ActividadTecnicaInput,
+  type ActividadTecnicaResultado,
+  type ReporteActividadInput,
+} from "@/lib/proyectos/avance";
 import { diasAlCorte, duracionDias, pesoEfectivo, resumenObjetivos, type ObjetivoResumen } from "@/lib/proyectos/actividad";
 import { isoDate } from "@/lib/proyectos/proyecto-general";
 import { colorTecnicoV2, type ColorSemaforo, type ParametrosV2 } from "@/lib/proyectos/semaforo-v2";
@@ -59,7 +65,7 @@ export async function loadTecnicoStatus(input: {
 }): Promise<TecnicoStatus> {
   const { proyectoId, corte, parametros } = input;
   const inicio = isoDate(input.fechaInicio);
-  const [actividades, avances] = await Promise.all([
+  const [actividades, avances, reportes] = await Promise.all([
     db.actividad.findMany({
       where: { proyecto_id: proyectoId, deleted_at: null },
       orderBy: [{ semana_inicio: "asc" }, { codigo: "asc" }],
@@ -79,14 +85,26 @@ export async function loadTecnicoStatus(input: {
       where: { proyecto_id: proyectoId, anulado_at: null, fecha: { lte: new Date(`${corte}T00:00:00.000Z`) } },
       select: { id: true, entregable_id: true, fecha: true, cantidad: true, created_at: true },
     }),
+    // AJ-01: non-voided activity-level reports up to the corte, so a historical (or `base=original`)
+    // read stays consistent with the avances above. Chronologically sorted (fecha, then creation),
+    // same as `validarNuevoReporte`/`calcularTecnico` expect — the last entry per activity is the latest.
+    db.reporteActividad.findMany({
+      where: { proyecto_id: proyectoId, anulado_at: null, fecha: { lte: new Date(`${corte}T00:00:00.000Z`) } },
+      orderBy: [{ fecha: "asc" }, { created_at: "asc" }],
+      select: { actividad_id: true, fecha: true, porcentaje: true },
+    }),
   ]);
 
   const medios = await contarMediosVivos(avances.map((avance) => avance.id));
   const porEntregable = agruparAvancesPorEntregable(avances);
+  const reportesPorActividad = agruparReportesPorActividad(reportes);
 
   const vivas = mapearActividadesFuente(actividades);
   const fuente = input.estructura ? desdeSnapshot(input.estructura, vivas) : vivas;
-  const entrada = entradaTecnica(fuente, inicio, porEntregable, medios);
+  const entrada = entradaTecnica(fuente, inicio, porEntregable, medios).map((actividad) => ({
+    ...actividad,
+    reportes: reportesPorActividad.get(actividad.id) ?? [],
+  }));
 
   const tecnico = calcularTecnico({
     corte,
@@ -189,6 +207,29 @@ export function agruparAvancesPorEntregable(
     porEntregable.set(avance.entregable_id, [...(porEntregable.get(avance.entregable_id) ?? []), avance]);
   }
   return porEntregable;
+}
+
+/** One non-voided ReporteActividad row as `loadTecnicoStatus` selects it (AJ-01). */
+export type ReporteActividadTecnicoRow = {
+  actividad_id: string;
+  fecha: Date;
+  porcentaje: { toString(): string };
+};
+
+/**
+ * Groups non-voided reports by activity (AJ-01), preserving the caller's chronological
+ * order (fecha, then creation) — the shape `calcularTecnico` expects, last entry latest.
+ */
+export function agruparReportesPorActividad(
+  reportes: readonly ReporteActividadTecnicoRow[],
+): Map<string, ReporteActividadInput[]> {
+  const porActividad = new Map<string, ReporteActividadInput[]>();
+  for (const reporte of reportes) {
+    const lista = porActividad.get(reporte.actividad_id) ?? [];
+    lista.push({ fecha: isoDate(reporte.fecha), porcentaje: toNumber(reporte.porcentaje) });
+    porActividad.set(reporte.actividad_id, lista);
+  }
+  return porActividad;
 }
 
 /**

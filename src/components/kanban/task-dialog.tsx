@@ -49,6 +49,7 @@ import {
 } from "@/lib/catalogs";
 import { formatFechaHora, iniciales } from "@/hooks/crm";
 import { useTaskTags } from "@/hooks/admin";
+import { saveBlobAs } from "@/hooks/projects";
 import { MAX_FILE_MB } from "@/lib/api/files";
 import {
   ALLOWED_ATTACHMENT_LABEL,
@@ -761,6 +762,32 @@ function AttachmentSection({ taskId }: { taskId: string }) {
   }
 }
 
+/**
+ * Descarga un adjunto en la misma pestaña (S4, jefe 2.4b). La ruta de descarga responde 302 a una URL firmada de
+ * Storage (60 s); `fetch` sigue el redirect y el archivo se guarda con su nombre mediante un `<a download>`
+ * temporal (`saveBlobAs`) — mismo camino que las descargas de Documentos. Un 403/404 se muestra como toast.
+ */
+async function descargarAdjunto(taskId: string, adjunto: Adjunto): Promise<void> {
+  const fallback = "No pudimos descargar el adjunto. Inténtalo de nuevo.";
+  try {
+    const res = await fetch(`/api/v1/tasks/${taskId}/attachments/${adjunto.id}/download`);
+    if (!res.ok) {
+      let message = fallback;
+      try {
+        const body = (await res.json()) as { error?: string };
+        message = body.error ?? message;
+      } catch {
+        /* mensaje por defecto */
+      }
+      toast.error(message);
+      return;
+    }
+    saveBlobAs(await res.blob(), adjunto.nombre);
+  } catch {
+    toast.error(fallback);
+  }
+}
+
 function AdjuntoRow({ taskId, adjunto }: { taskId: string; adjunto: Adjunto }) {
   return (
     <div className="flex items-center gap-2.5 rounded-10 bg-panel px-3 py-2 text-[13px]">
@@ -774,13 +801,8 @@ function AdjuntoRow({ taskId, adjunto }: { taskId: string; adjunto: Adjunto }) {
         variant="ghost"
         size="icon-sm"
         aria-label={`Descargar ${adjunto.nombre}`}
-        onClick={() => {
-          window.open(
-            `/api/v1/tasks/${taskId}/attachments/${adjunto.id}/download`,
-            "_blank",
-            "noopener",
-          );
-        }}
+        // Descarga directa en la misma pestaña (S4), sin abrir otra pestaña del navegador.
+        onClick={() => void descargarAdjunto(taskId, adjunto)}
         className="text-ink-500 hover:text-rose-700 dark:hover:text-rose-400"
       >
         <Download className="size-3.5" strokeWidth={1.9} />

@@ -19,8 +19,9 @@ describe("PARAMETROS_V2_DEFAULT", () => {
       retraso: { valor: 70, confirmado: false },
       avance_requiere_medio: { valor: true, confirmado: false },
       modificacion_bloquea_periodos_pasados: { valor: true, confirmado: false },
+      tope_en_curso: { valor: 90, confirmado: false },
     });
-    expect(PARAMETRO_KEYS).toHaveLength(6);
+    expect(PARAMETRO_KEYS).toHaveLength(7);
   });
 });
 
@@ -41,17 +42,24 @@ describe("parseParametrosV2", () => {
     expect(parsed.retraso).toEqual(PARAMETROS_V2_DEFAULT.retraso);
   });
 
+  it("round-trips a stored tope_en_curso", () => {
+    const parsed = parseParametrosV2({ tope_en_curso: { valor: 95, confirmado: true } });
+    expect(parsed.tope_en_curso).toEqual({ valor: 95, confirmado: true });
+  });
+
   it("falls back per parameter on malformed or out-of-range data", () => {
     const parsed = parseParametrosV2({
       tolerancia: { valor: "diez", confirmado: true },
       retraso: { valor: 150, confirmado: true },
       avance_requiere_medio: { valor: "si", confirmado: "yes" },
       modificacion_bloquea_periodos_pasados: { valor: false, confirmado: true },
+      tope_en_curso: { valor: 150, confirmado: true },
     });
     expect(parsed.tolerancia).toEqual({ valor: 10, confirmado: false });
     expect(parsed.retraso).toEqual({ valor: 70, confirmado: false });
     expect(parsed.avance_requiere_medio).toEqual({ valor: true, confirmado: false });
     expect(parsed.modificacion_bloquea_periodos_pasados).toEqual({ valor: false, confirmado: true });
+    expect(parsed.tope_en_curso).toEqual({ valor: 90, confirmado: false });
   });
 
   it("restores both thresholds when umbral1 is not below umbral2", () => {

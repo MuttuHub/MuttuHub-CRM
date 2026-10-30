@@ -13,6 +13,11 @@ import { canExecuteProject, canManageProjects, type ProjectMembershipActor } fro
 import { canReadProject, loadProjectScoped, projectReadActor } from "@/lib/api/projects";
 import { isoDate } from "@/lib/proyectos/proyecto-general";
 import type { GateResult } from "@/lib/api/estructura";
+import {
+  entregablesCompletos as entregablesCompletosPuro,
+  type EntregableTecnicoInput,
+  type ReporteActividadInput,
+} from "@/lib/proyectos/avance";
 
 export const EJECUCION_FORBIDDEN_MESSAGE = "No tienes permisos sobre este proyecto.";
 export const EJECUCION_STATE_MESSAGE = "El proyecto aún no tiene línea base aprobada.";
@@ -287,4 +292,182 @@ export async function loadMedicionParaMedio(
     return { ok: false, response: apiError(MEDICION_ANULADA_MEDIO_MESSAGE, 409, "CONFLICT") };
   }
   return { ok: true, value: { id: medicion.id } };
+}
+
+// ---------------------------------------------------------------------------
+// ReporteActividad (AJ-01): activity-level progress reports
+// ---------------------------------------------------------------------------
+
+export const ACTIVIDAD_NO_EXISTE = "La actividad no existe.";
+export const REPORTE_FORBIDDEN_MESSAGE = "Solo el responsable de la actividad puede registrar su avance.";
+export const REPORTE_NO_EXISTE = "El reporte no existe.";
+export const REPORTE_ANULADO_MEDIO_MESSAGE = "No se pueden adjuntar medios a un reporte anulado.";
+
+export type ActividadReporteGate = { id: string; responsable_id: string | null };
+
+/**
+ * 404 (project) -> 403 (membership) -> 409 (EN_EJECUCION) -> 404 (activity) -> 403
+ * (S9.5, responsable-only): only the activity's own `responsable_id`, or an
+ * ADMINISTRADOR/GERENCIA override (the same override every other write gate in this
+ * codebase already has), may register, edit or void one of its reports.
+ */
+export async function gateReporteActividadWrite(
+  usuario: Usuario,
+  proyectoId: string,
+  actividadId: string,
+): Promise<GateResult<{ proyecto: EjecucionProyecto; actividad: ActividadReporteGate }>> {
+  const gate = await gateEjecucionWrite(usuario, proyectoId);
+  if (!gate.ok) return gate;
+
+  const actividad = await db.actividad.findFirst({
+    where: { id: actividadId, proyecto_id: proyectoId, deleted_at: null },
+    select: { id: true, responsable_id: true },
+  });
+  if (!actividad) return { ok: false, response: apiError(ACTIVIDAD_NO_EXISTE, 404, "NOT_FOUND") };
+
+  const esResponsable = actividad.responsable_id !== null && actividad.responsable_id === usuario.id;
+  if (!esResponsable && !canManageProjects({ id: usuario.id, rol: usuario.rol })) {
+    return { ok: false, response: apiError(REPORTE_FORBIDDEN_MESSAGE, 403, "FORBIDDEN") };
+  }
+  return { ok: true, value: { proyecto: gate.value, actividad } };
+}
+
+/** 404 for a report read: any project reader may list the history (no responsable gate). */
+export async function loadActividadParaReporte(
+  proyectoId: string,
+  actividadId: string,
+): Promise<{ ok: true; value: ActividadReporteGate } | { ok: false; response: Response }> {
+  const actividad = await db.actividad.findFirst({
+    where: { id: actividadId, proyecto_id: proyectoId, deleted_at: null },
+    select: { id: true, responsable_id: true },
+  });
+  if (!actividad) return { ok: false, response: apiError(ACTIVIDAD_NO_EXISTE, 404, "NOT_FOUND") };
+  return { ok: true, value: actividad };
+}
+
+export type ReporteRow = {
+  id: string;
+  proyecto_id: string;
+  actividad_id: string;
+  fecha: Date;
+  porcentaje: { toString(): string };
+  observacion: string;
+  registrado_por_id: string;
+  created_at: Date;
+  anulado_at: Date | null;
+  anulado_por_id: string | null;
+  motivo_anulacion: string | null;
+};
+
+export type ReporteView = {
+  id: string;
+  proyecto_id: string;
+  actividad_id: string;
+  fecha: string;
+  porcentaje: string;
+  observacion: string;
+  registrado_por_id: string;
+  created_at: string;
+  anulado_at: string | null;
+  anulado_por_id: string | null;
+  motivo_anulacion: string | null;
+  /** Live medios attached to the report. */
+  medios: number;
+};
+
+/** No `cuenta`/semáforo concept for a ReporteActividad, same as a medición (AJ-06). */
+export function toReporteView(row: ReporteRow, medios = 0): ReporteView {
+  return {
+    id: row.id,
+    proyecto_id: row.proyecto_id,
+    actividad_id: row.actividad_id,
+    fecha: isoDate(row.fecha),
+    porcentaje: row.porcentaje.toString(),
+    observacion: row.observacion,
+    registrado_por_id: row.registrado_por_id,
+    created_at: row.created_at.toISOString(),
+    anulado_at: row.anulado_at ? row.anulado_at.toISOString() : null,
+    anulado_por_id: row.anulado_por_id,
+    motivo_anulacion: row.motivo_anulacion,
+    medios,
+  };
+}
+
+/** Live (not soft-deleted) medios per ReporteActividad id (mirrors `contarMediosVivos`). */
+export async function contarMediosVivosReporte(reporteIds: string[]): Promise<Map<string, number>> {
+  if (reporteIds.length === 0) return new Map();
+  const grouped = await db.soporteProyecto.groupBy({
+    by: ["reporte_actividad_id"],
+    where: { reporte_actividad_id: { in: reporteIds }, deleted_at: null },
+    _count: { _all: true },
+  });
+  const counts = new Map<string, number>();
+  for (const row of grouped) {
+    if (row.reporte_actividad_id) counts.set(row.reporte_actividad_id, row._count._all);
+  }
+  return counts;
+}
+
+/** The ReporteActividad must belong to this project/activity (404); a voided one cannot receive medios (409). */
+export async function loadReporteParaMedio(
+  proyectoId: string,
+  actividadId: string,
+  reporteId: string,
+  { permitirAnulado = false }: { permitirAnulado?: boolean } = {},
+): Promise<{ ok: true; value: { id: string } } | { ok: false; response: Response }> {
+  const reporte = await db.reporteActividad.findFirst({
+    where: { id: reporteId, actividad_id: actividadId, proyecto_id: proyectoId },
+    select: { id: true, anulado_at: true },
+  });
+  if (!reporte) return { ok: false, response: apiError(REPORTE_NO_EXISTE, 404, "NOT_FOUND") };
+  if (reporte.anulado_at !== null && !permitirAnulado) {
+    return { ok: false, response: apiError(REPORTE_ANULADO_MEDIO_MESSAGE, 409, "CONFLICT") };
+  }
+  return { ok: true, value: { id: reporte.id } };
+}
+
+/**
+ * Non-voided reports of an activity, chronologically sorted (last entry latest) — the
+ * exact shape `validarNuevoReporte` (and `calcularTecnico`) expect.
+ */
+export async function cargarReportesVivos(proyectoId: string, actividadId: string): Promise<ReporteActividadInput[]> {
+  const rows = await db.reporteActividad.findMany({
+    where: { actividad_id: actividadId, proyecto_id: proyectoId, anulado_at: null },
+    orderBy: [{ fecha: "asc" }, { created_at: "asc" }],
+    select: { fecha: true, porcentaje: true },
+  });
+  return rows.map((row) => ({ fecha: isoDate(row.fecha), porcentaje: Number(row.porcentaje.toString()) }));
+}
+
+/**
+ * Whether every deliverable of the activity is complete (S8/S9.4): loads its entregables
+ * with their avances and live medios, in the exact shape `entregablesCompletos` (avance.ts)
+ * expects, and runs that same criterion.
+ */
+export async function cargarEntregablesCompletos(
+  proyectoId: string,
+  actividadId: string,
+  requiereMedio: boolean,
+): Promise<boolean> {
+  const entregables = await db.entregable.findMany({
+    where: { actividad_id: actividadId, proyecto_id: proyectoId, deleted_at: null },
+    select: {
+      id: true,
+      cantidad_meta: true,
+      avances: { select: { id: true, fecha: true, cantidad: true, anulado_at: true } },
+    },
+  });
+  const avanceIds = entregables.flatMap((entregable) => entregable.avances.map((avance) => avance.id));
+  const medios = await contarMediosVivos(avanceIds);
+  const entrada: EntregableTecnicoInput[] = entregables.map((entregable) => ({
+    id: entregable.id,
+    meta: Number(entregable.cantidad_meta.toString()),
+    avances: entregable.avances.map((avance) => ({
+      fecha: isoDate(avance.fecha),
+      cantidad: Number(avance.cantidad.toString()),
+      anulado: avance.anulado_at !== null,
+      tieneMedio: (medios.get(avance.id) ?? 0) > 0,
+    })),
+  }));
+  return entregablesCompletosPuro(entrada, requiereMedio);
 }
