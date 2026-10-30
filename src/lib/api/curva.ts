@@ -93,8 +93,6 @@ export async function calcularCurva(
         nombre: true,
         semana_inicio: true,
         semana_fin: true,
-        peso: true,
-        peso_manual: true,
         objetivo: { select: { codigo: true } },
         entregables: { where: { deleted_at: null }, select: { id: true, codigo: true, cantidad_meta: true } },
       },

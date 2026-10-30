@@ -83,7 +83,6 @@ async function fixture(tx: Tx) {
       nombre: "A",
       semana_inicio: 1,
       semana_fin: 1,
-      peso: 1,
     },
   })
   const datos = {
@@ -146,7 +145,6 @@ describe("ReporteActividad invariants (live DB)", () => {
           nombre: "A",
           semana_inicio: 1,
           semana_fin: 1,
-          peso: 1,
         },
       })
       void proyecto
@@ -232,7 +230,6 @@ describe("SoporteProyecto four-parent invariant (live DB)", () => {
           nombre: "A",
           semana_inicio: 1,
           semana_fin: 1,
-          peso: 1,
         },
       })
       const reporteOtro = await tx.reporteActividad.create({

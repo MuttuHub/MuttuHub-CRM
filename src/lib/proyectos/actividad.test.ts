@@ -4,8 +4,7 @@ import { F_W1 } from "./__fixtures__/weeks"
 import {
   diasAlCorte,
   duracionDias,
-  pesoEfectivo,
-  resolvePeso,
+  pesoActividad,
   resumenObjetivos,
   toActividadV2View,
   validarSemanas,
@@ -24,54 +23,16 @@ const fila = {
   nombre: "Taller de costura",
   semana_inicio: F_W1.actividad14.semanaInicio,
   semana_fin: F_W1.actividad14.semanaFin,
-  peso: 4,
-  peso_manual: false,
   responsable_id: null,
   created_at: new Date("2026-10-08T12:00:00.000Z"),
   updated_at: new Date("2026-10-08T12:00:00.000Z"),
 }
 
-describe("pesoEfectivo", () => {
-  it("uses the duration in weeks as weight unless peso_manual", () => {
-    // The stored weight is stale on purpose: a derived weight can never drift.
-    expect(pesoEfectivo({ semana_inicio: 3, semana_fin: 6, peso: 99, peso_manual: false })).toBe(F_W1.actividad14.pesoPorDefecto)
-    expect(pesoEfectivo({ semana_inicio: 3, semana_fin: 6, peso: 2.5, peso_manual: true })).toBe(2.5)
-  })
-
-  it("accepts a Decimal-like stored weight", () => {
-    expect(pesoEfectivo({ semana_inicio: 3, semana_fin: 6, peso: { toString: () => "2.50" }, peso_manual: true })).toBe(2.5)
-  })
-})
-
-describe("resolvePeso (REQ-STR-04)", () => {
-  it("defaults to the duration when no weight is supplied", () => {
-    expect(resolvePeso({ semana_inicio: 3, semana_fin: 6 })).toEqual({ peso: 4, peso_manual: false })
-  })
-
-  it("a supplied weight sets peso_manual", () => {
-    expect(resolvePeso({ semana_inicio: 3, semana_fin: 6, peso: 2.5 })).toEqual({ peso: 2.5, peso_manual: true })
-  })
-
-  it("keeps a manual weight when the weeks change", () => {
-    expect(
-      resolvePeso({ semana_inicio: 3, semana_fin: 7, actual: { peso: 2.5, peso_manual: true } }),
-    ).toEqual({ peso: 2.5, peso_manual: true })
-  })
-
-  it("recomputes a non-manual weight when the weeks change", () => {
-    expect(
-      resolvePeso({ semana_inicio: 3, semana_fin: 7, actual: { peso: 4, peso_manual: false } }),
-    ).toEqual({ peso: 5, peso_manual: false })
-  })
-
-  it("an explicit null clears a manual weight back to the default", () => {
-    expect(
-      resolvePeso({ semana_inicio: 3, semana_fin: 7, peso: null, actual: { peso: 2.5, peso_manual: true } }),
-    ).toEqual({ peso: 5, peso_manual: false })
-  })
-
-  it("rounds a manual weight to two decimals", () => {
-    expect(resolvePeso({ semana_inicio: 1, semana_fin: 1, peso: 1.005 }).peso).toBe(1.01)
+describe("pesoActividad (AJ-02)", () => {
+  it("returns the duration in weeks (semana_fin - semana_inicio + 1)", () => {
+    expect(pesoActividad({ semana_inicio: 3, semana_fin: 6 })).toBe(4)
+    expect(pesoActividad({ semana_inicio: 1, semana_fin: 1 })).toBe(1)
+    expect(pesoActividad({ semana_inicio: 5, semana_fin: 10 })).toBe(6)
   })
 })
 
@@ -166,7 +127,6 @@ describe("toActividadV2View", () => {
     expect(view.fecha_inicio).toBe(F_W1.actividad14.inicio)
     expect(view.fecha_fin).toBe(F_W1.actividad14.fin)
     expect(view.peso).toBe(F_W1.actividad14.pesoPorDefecto)
-    expect(view.peso_manual).toBe(false)
     expect(view.fuera_de_duracion).toBe(false)
     expect(view.created_at).toBe("2026-10-08T12:00:00.000Z")
   })
@@ -190,11 +150,5 @@ describe("toActividadV2View", () => {
       proyecto,
     )
     expect(view.fuera_de_duracion).toBe(true)
-  })
-
-  it("keeps a manual weight in the view", () => {
-    const view = toActividadV2View({ ...fila, peso: 2.5, peso_manual: true }, proyecto)
-    expect(view.peso).toBe(2.5)
-    expect(view.peso_manual).toBe(true)
   })
 })

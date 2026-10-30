@@ -14,7 +14,6 @@ function act(partial: Partial<GanttActividad> & { id: string }): GanttActividad 
     nombre: `Actividad ${partial.id}`,
     semana_inicio: 1,
     semana_fin: 1,
-    peso_manual: false,
     ...partial,
   }
 }
@@ -45,13 +44,13 @@ describe("ganttLayout", () => {
     expect(layout.barras.map((b) => b.id)).toEqual(["c", "a", "b"])
   })
 
-  it("carries the manual-weight marker through", () => {
+  it("returns bars in start-week order", () => {
     const layout = ganttLayout(
-      [act({ id: "a1", peso_manual: true }), act({ id: "a2", peso_manual: false })],
+      [act({ id: "a2", semana_inicio: 2 }), act({ id: "a1", semana_inicio: 1 })],
       2,
     )
 
-    expect(layout.barras.map((b) => b.pesoManual)).toEqual([true, false])
+    expect(layout.barras.map((b) => b.id)).toEqual(["a1", "a2"])
   })
 
   it("flags activities beyond the duration without clamping them", () => {

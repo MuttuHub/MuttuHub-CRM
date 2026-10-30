@@ -8,7 +8,7 @@
 import { db } from "@/lib/db";
 import { isoDate } from "@/lib/proyectos/proyecto-general";
 import { toCents, type Cents } from "@/lib/proyectos/money";
-import { pesoEfectivo } from "@/lib/proyectos/actividad";
+import { pesoActividad } from "@/lib/proyectos/actividad";
 import {
   esMedible,
   kpisNoMedible,
@@ -81,8 +81,6 @@ export async function loadKpisPortafolio(input: {
         codigo: true,
         semana_inicio: true,
         semana_fin: true,
-        peso: true,
-        peso_manual: true,
         entregables: { where: { deleted_at: null }, select: { id: true, codigo: true, cantidad_meta: true } },
       },
     }),
@@ -150,13 +148,13 @@ export async function loadKpisPortafolio(input: {
     const inicio = congelado ? congelado.proyecto.fecha_inicio : isoDate(proyecto.fecha_inicio as Date);
     const fuente = congelado
       ? desdeSnapshot(congelado, actividadesDe.get(proyecto.id) ?? [])
-      : (actividadesDe.get(proyecto.id) ?? []);
+      : (actividadesDe.get(proyecto.id) ?? []).map((a) => ({ ...a, peso: pesoActividad(a) }));
     const entrada: KpiActividadInput[] = fuente.map((actividad) => {
       const fechas = activityDates(inicio, actividad.semana_inicio, actividad.semana_fin);
       return {
         id: actividad.id,
         codigo: actividad.codigo,
-        peso: pesoEfectivo(actividad),
+        peso: actividad.peso,
         inicio: fechas.inicio,
         fin: fechas.fin,
         entregables: actividad.entregables.map((entregable) => ({
@@ -214,8 +212,7 @@ type ActividadFuente = {
   codigo: string;
   semana_inicio: number;
   semana_fin: number;
-  peso: { toString(): string };
-  peso_manual: boolean;
+  peso: number;
   entregables: { id: string; cantidad_meta: { toString(): string } }[];
 };
 
@@ -231,8 +228,7 @@ function desdeSnapshot(
     codigo: a.codigo,
     semana_inicio: a.semana_inicio,
     semana_fin: a.semana_fin,
-    peso: a.peso,
-    peso_manual: a.peso_manual,
+    peso: Number(a.peso),
     entregables: snapshot.entregables
       .filter((e) => e.actividad_codigo === a.codigo)
       .map((e) => ({ id: idEntregable.get(e.codigo) ?? e.codigo, cantidad_meta: e.cantidad_meta })),

@@ -10,7 +10,7 @@ import { calcularKpisProyecto } from "@/lib/api/kpis-proyecto";
 import type { ProyectoKpiBase } from "@/lib/api/kpis-portafolio";
 import { loadGastosValidados } from "@/lib/api/financiera";
 import { getSemaforoParametrosV2 } from "@/lib/settings";
-import { pesoEfectivo } from "@/lib/proyectos/actividad";
+import { pesoActividad } from "@/lib/proyectos/actividad";
 import { datosIncompletos } from "@/lib/proyectos/gastos";
 import { toCents, type Cents } from "@/lib/proyectos/money";
 import { isoDate } from "@/lib/proyectos/proyecto-general";
@@ -66,8 +66,6 @@ export async function cargarAtencion(input: {
           nombre: true,
           semana_inicio: true,
           semana_fin: true,
-          peso: true,
-          peso_manual: true,
           entregables: { where: { deleted_at: null }, select: { id: true, codigo: true, cantidad_meta: true } },
         },
       }),
@@ -123,7 +121,7 @@ export async function cargarAtencion(input: {
       id: actividad.id,
       codigo: actividad.codigo,
       nombre: actividad.nombre,
-      peso: pesoEfectivo(actividad),
+      peso: pesoActividad(actividad),
       inicio: fechas.inicio,
       fin: fechas.fin,
       entregables: actividad.entregables.map((entregable) => ({

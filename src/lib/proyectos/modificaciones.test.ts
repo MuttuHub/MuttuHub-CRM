@@ -85,9 +85,8 @@ describe("applyModificacion", () => {
     expect(sin.programacion.some((c) => c.rubro_codigo === "R15")).toBe(false)
   })
 
-  it("CRONOGRAMA recomputes the weight of a non-manual activity and keeps a manual one", () => {
+  it("CRONOGRAMA recomputes the weight of every activity whose weeks changed (AJ-02)", () => {
     const live = liveF_V1()
-    live.actividades[1] = { ...live.actividades[1]!, peso: "7", peso_manual: true } // 1.1 is manual now
     const despues = applyModificacion(live, {
       tipo: "CRONOGRAMA",
       detalle: [
@@ -95,8 +94,9 @@ describe("applyModificacion", () => {
         { elemento: "actividad", clave: "1.1", campo: "semana_fin", antes: "1", despues: "3" },
       ],
     })
-    expect(despues.actividades.find((a) => a.codigo === "1.4")).toMatchObject({ semana_fin: 8, peso: "6", peso_manual: false })
-    expect(despues.actividades.find((a) => a.codigo === "1.1")).toMatchObject({ semana_fin: 3, peso: "7", peso_manual: true })
+    // 1.4 spans 3..8 = 6 weeks; 1.1 spans 1..3 = 3 weeks. No weight is manual any more.
+    expect(despues.actividades.find((a) => a.codigo === "1.4")).toMatchObject({ semana_fin: 8, peso: "6" })
+    expect(despues.actividades.find((a) => a.codigo === "1.1")).toMatchObject({ semana_fin: 3, peso: "3" })
   })
 
   it("does not mutate its input", () => {

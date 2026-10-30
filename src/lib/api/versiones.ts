@@ -9,6 +9,7 @@ import { logChanges, type CambioInput } from "@/lib/api/audit-cambios";
 import { lockProyecto } from "@/lib/api/presupuesto";
 import { precondicionesLineaBase, type EntradaLineaBase } from "@/lib/proyectos/linea-base";
 import { toCents } from "@/lib/proyectos/money";
+import { pesoActividad } from "@/lib/proyectos/actividad";
 import { buildSnapshot, type LiveProyecto, type SnapshotV1 } from "@/lib/proyectos/versiones";
 import { randomUUID } from "node:crypto";
 
@@ -52,7 +53,7 @@ export async function loadLiveProyecto(client: Reader, proyectoId: string): Prom
     client.objetivo.findMany({ where: { proyecto_id: proyectoId, deleted_at: null }, select: { id: true, codigo: true } }),
     client.actividad.findMany({
       where: { proyecto_id: proyectoId, deleted_at: null },
-      select: { id: true, codigo: true, objetivo_id: true, nombre: true, semana_inicio: true, semana_fin: true, peso: true, peso_manual: true },
+      select: { id: true, codigo: true, objetivo_id: true, nombre: true, semana_inicio: true, semana_fin: true },
     }),
     client.entregable.findMany({
       where: { proyecto_id: proyectoId, deleted_at: null },
@@ -124,8 +125,7 @@ export async function loadLiveProyecto(client: Reader, proyectoId: string): Prom
       nombre: a.nombre,
       semana_inicio: a.semana_inicio,
       semana_fin: a.semana_fin,
-      peso: a.peso.toString(),
-      peso_manual: a.peso_manual,
+      peso: String(pesoActividad(a)),
     })),
     entregables: entregables.map((e) => ({
       codigo: e.codigo,

@@ -12,7 +12,6 @@
 // non-voided beneficiary records.
 
 import { NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
 import { withApiErrorHandling } from "@/lib/api/handler";
@@ -29,7 +28,7 @@ import {
   parseEstructuraBody,
   ESTRUCTURA_STATE_MESSAGE,
 } from "@/lib/api/estructura";
-import { resolvePeso, toActividadV2View } from "@/lib/proyectos/actividad";
+import { toActividadV2View } from "@/lib/proyectos/actividad";
 import {
   ACTIVIDAD_CREATE_SCHEMA,
   ACTIVIDAD_DUPLICATE_MESSAGE,
@@ -48,8 +47,6 @@ const AUDITED_ACTIVIDAD_FIELDS = [
   "nombre",
   "semana_inicio",
   "semana_fin",
-  "peso",
-  "peso_manual",
   "responsable_id",
 ] as const;
 
@@ -106,8 +103,6 @@ export const PATCH = withApiErrorHandling(
       nombre?: string;
       semana_inicio?: number;
       semana_fin?: number;
-      peso?: number;
-      peso_manual?: boolean;
       responsable_id?: string | null;
     } = {};
     if (input.objetivo_id !== undefined) data.objetivo_id = input.objetivo_id;
@@ -116,22 +111,8 @@ export const PATCH = withApiErrorHandling(
     if (input.semana_inicio !== undefined) data.semana_inicio = input.semana_inicio;
     if (input.semana_fin !== undefined) data.semana_fin = input.semana_fin;
     if (input.responsable_id !== undefined) data.responsable_id = input.responsable_id;
-    if (cambiaSemanas || input.peso !== undefined) {
-      const { peso, peso_manual } = resolvePeso({
-        semana_inicio: semanaInicio,
-        semana_fin: semanaFin,
-        peso: input.peso,
-        actual: { peso: existente.peso, peso_manual: existente.peso_manual },
-      });
-      data.peso = peso;
-      data.peso_manual = peso_manual;
-    }
 
-    // `Decimal` on both sides so the audit compares values, not number vs string.
-    const { peso: pesoNuevo, ...resto } = data;
-    const after: Partial<typeof existente> = { ...resto };
-    if (pesoNuevo !== undefined) after.peso = new Prisma.Decimal(pesoNuevo);
-    const cambios = diffFields(existente, after, AUDITED_ACTIVIDAD_FIELDS);
+    const cambios = diffFields(existente, data, AUDITED_ACTIVIDAD_FIELDS);
 
     try {
       const row = await db.$transaction(async (tx) => {

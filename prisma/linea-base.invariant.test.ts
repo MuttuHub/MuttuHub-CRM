@@ -74,7 +74,6 @@ async function fixture(tx: Tx, over: { sinObjetivos?: boolean } = {}) {
         nombre: "Actividad",
         semana_inicio: 1,
         semana_fin: 2,
-        peso: 2,
       },
     })
     await tx.entregable.create({

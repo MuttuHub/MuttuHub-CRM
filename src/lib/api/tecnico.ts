@@ -10,7 +10,7 @@ import {
   type ActividadTecnicaResultado,
   type ReporteActividadInput,
 } from "@/lib/proyectos/avance";
-import { diasAlCorte, duracionDias, pesoEfectivo, resumenObjetivos, type ObjetivoResumen } from "@/lib/proyectos/actividad";
+import { diasAlCorte, duracionDias, pesoActividad, resumenObjetivos, type ObjetivoResumen } from "@/lib/proyectos/actividad";
 import { isoDate } from "@/lib/proyectos/proyecto-general";
 import { colorTecnicoV2, type ColorSemaforo, type ParametrosV2 } from "@/lib/proyectos/semaforo-v2";
 import type { SnapshotV1 } from "@/lib/proyectos/versiones";
@@ -75,8 +75,6 @@ export async function loadTecnicoStatus(input: {
         nombre: true,
         semana_inicio: true,
         semana_fin: true,
-        peso: true,
-        peso_manual: true,
         objetivo: { select: { codigo: true } },
         entregables: { where: { deleted_at: null }, select: { id: true, codigo: true, cantidad_meta: true } },
       },
@@ -156,8 +154,7 @@ export type ActividadFuente = {
   objetivo_codigo: string;
   semana_inicio: number;
   semana_fin: number;
-  peso: { toString(): string };
-  peso_manual: boolean;
+  peso: number;
   entregables: { id: string; codigo: string; cantidad_meta: { toString(): string } }[];
 };
 
@@ -178,8 +175,6 @@ export function mapearActividadesFuente(
     nombre: string;
     semana_inicio: number;
     semana_fin: number;
-    peso: { toString(): string };
-    peso_manual: boolean;
     objetivo: { codigo: string } | null;
     entregables: { id: string; codigo: string; cantidad_meta: { toString(): string } }[];
   }[],
@@ -192,8 +187,7 @@ export function mapearActividadesFuente(
     objetivo_codigo: actividad.objetivo?.codigo ?? "",
     semana_inicio: actividad.semana_inicio,
     semana_fin: actividad.semana_fin,
-    peso: actividad.peso,
-    peso_manual: actividad.peso_manual,
+    peso: pesoActividad(actividad),
     entregables: actividad.entregables,
   }));
 }
@@ -247,7 +241,7 @@ export function entradaTecnica(
     return {
       id: actividad.id,
       codigo: actividad.codigo,
-      peso: pesoEfectivo(actividad),
+      peso: actividad.peso,
       inicio: fechas.inicio,
       fin: fechas.fin,
       entregables: actividad.entregables.map((entregable) => ({
@@ -266,7 +260,10 @@ export function entradaTecnica(
 }
 
 /** The frozen structure in the shape of the live query: ids come from the live rows with the same code. */
-export function desdeSnapshot(estructura: Pick<SnapshotV1, "actividades" | "entregables">, vivas: readonly ActividadFuente[]): ActividadFuente[] {
+export function desdeSnapshot(
+  estructura: Pick<SnapshotV1, "actividades" | "entregables">,
+  vivas: readonly { id: string; codigo: string; entregables: readonly { id: string; codigo: string }[] }[],
+): ActividadFuente[] {
   const idActividad = new Map(vivas.map((a) => [a.codigo, a.id]));
   const idEntregable = new Map(vivas.flatMap((a) => a.entregables.map((e) => [e.codigo, e.id] as const)));
   return [...estructura.actividades]
@@ -278,8 +275,7 @@ export function desdeSnapshot(estructura: Pick<SnapshotV1, "actividades" | "entr
       objetivo_codigo: a.objetivo_codigo,
       semana_inicio: a.semana_inicio,
       semana_fin: a.semana_fin,
-      peso: a.peso,
-      peso_manual: a.peso_manual,
+      peso: Number(a.peso),
       entregables: estructura.entregables
         .filter((e) => e.actividad_codigo === a.codigo)
         .map((e) => ({ id: idEntregable.get(e.codigo) ?? e.codigo, codigo: e.codigo, cantidad_meta: e.cantidad_meta })),

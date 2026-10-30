@@ -866,8 +866,8 @@ model Actividad {
   nombre         String
   semana_inicio  Int
   semana_fin     Int
-  peso           Decimal   @db.Decimal(9, 2)
-  peso_manual    Boolean   @default(false)
+  // No `peso`: the activity's weight is always `semana_fin - semana_inicio + 1` (AJ-02),
+  // derived in `src/lib/proyectos/weeks.ts`. A stored copy could only drift from the rule.
   responsable_id String?
   created_at     DateTime  @default(now())
   updated_at     DateTime  @updatedAt

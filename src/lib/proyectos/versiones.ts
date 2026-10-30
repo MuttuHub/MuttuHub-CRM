@@ -17,7 +17,7 @@ export type SnapshotV1 = {
     semana_inicio: number
     semana_fin: number
     peso: string
-    peso_manual: boolean
+    peso_manual?: boolean
   }[]
   entregables: { codigo: string; actividad_codigo: string; descripcion: string; cantidad_meta: string; unidad: string }[]
   indicadores: {
@@ -90,7 +90,7 @@ export function buildSnapshot(live: LiveProyecto): SnapshotV1 {
         semana_inicio: a.semana_inicio,
         semana_fin: a.semana_fin,
         peso: decimal(a.peso),
-        peso_manual: a.peso_manual,
+        ...(a.peso_manual !== undefined ? { peso_manual: a.peso_manual } : {}),
       }))
       .sort(byKey((a) => a.codigo)),
     entregables: live.entregables
@@ -183,7 +183,7 @@ export function diffSnapshots(a: SnapshotV1, b: SnapshotV1): Diferencia[] {
     ),
     ...compareRows(
       "actividad",
-      ["objetivo_codigo", "nombre", "semana_inicio", "semana_fin", "peso", "peso_manual"],
+      ["objetivo_codigo", "nombre", "semana_inicio", "semana_fin", "peso"],
       index(a.actividades, (x) => x.codigo),
       index(b.actividades, (x) => x.codigo),
     ),
