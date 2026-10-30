@@ -1,11 +1,12 @@
 // Diálogos de carpetas en el Repositorio (plan Fase 2, 4A): crear, renombrar,
 // mover y eliminar. El rail permite crear en la raíz o dentro de la carpeta
 // seleccionada. Renombrar/mover/eliminar salen del menú de acciones del nodo.
+// "Carpeta de cliente" (S4, A5) abre la carpeta de un cliente o la crea.
 
 "use client";
 
 import { useState } from "react";
-import { FolderPlus, Folder, Pencil, Trash2 } from "lucide-react";
+import { FolderPlus, Folder, LoaderCircle, Pencil, Trash2, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,7 +26,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { ClienteCombobox, type ClienteOpcion } from "@/components/proyectos/cliente-combobox";
 import {
+  useClientFolder,
   useCreateFolder,
   useDeleteFolder,
   useUpdateFolder,
@@ -362,6 +365,85 @@ export function DeleteFolderDialog({
             className="px-4 font-bold"
           >
             {deleteFolder.isPending ? "Eliminando…" : "Eliminar"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * «Carpeta de cliente» (S4): eliges un cliente y se abre su carpeta; si aún
+ * no tiene, se crea en la raíz con su nombre (una carpeta por cliente, A5).
+ */
+export function ClientFolderDialog({
+  open,
+  onOpenChange,
+  clientes,
+  onOpened,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  clientes: ClienteOpcion[];
+  /** Recibe el id de la carpeta del cliente para abrirla en el repositorio. */
+  onOpened: (carpetaId: string) => void;
+}) {
+  const [clienteId, setClienteId] = useState("");
+  const clientFolder = useClientFolder();
+
+  async function submit() {
+    if (!clienteId) return;
+    try {
+      const res = await clientFolder.mutateAsync(clienteId);
+      onOpened(res.carpeta.id);
+      onOpenChange(false);
+    } catch {
+      /* el hook muestra el error */
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[min(440px,calc(100%-2rem))]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <UserRound className="size-5 text-exito" strokeWidth={1.9} />
+            Carpeta de cliente
+          </DialogTitle>
+          <DialogDescription>
+            Abre la carpeta de un cliente, o créala si todavía no tiene. Los
+            documentos que subas o arrastres a esa carpeta quedan vinculados al
+            cliente.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="carpeta-cliente">Cliente</Label>
+          <ClienteCombobox
+            id="carpeta-cliente"
+            clientes={clientes}
+            value={clienteId}
+            onChange={setClienteId}
+          />
+        </div>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="px-4 text-[13px] font-semibold text-ink-800"
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            onClick={() => void submit()}
+            disabled={!clienteId || clientFolder.isPending}
+            className="px-4 font-bold"
+          >
+            {clientFolder.isPending && <LoaderCircle className="size-4 animate-spin" />}
+            Abrir carpeta
           </Button>
         </DialogFooter>
       </DialogContent>

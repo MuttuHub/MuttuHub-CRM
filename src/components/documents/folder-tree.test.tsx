@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { FolderTree } from "./folder-tree";
@@ -72,5 +72,40 @@ describe("FolderTree", () => {
     render(<FolderTree folders={folders} activeId="root-2" onSelect={vi.fn()} onAction={vi.fn()} />);
     const active = nodeButton("Legal");
     expect(active.closest("div")!.className).toContain("bg-ink-100");
+  });
+
+  // S5: files dropped on a folder node go into that folder; on «Todas», none.
+  it("hands files dropped on a node to onDropFiles with that folder", () => {
+    const onDropFiles = vi.fn();
+    const file = new File(["a"], "acta.pdf", { type: "application/pdf" });
+    render(
+      <FolderTree
+        folders={folders}
+        activeId={null}
+        onSelect={vi.fn()}
+        onAction={vi.fn()}
+        onDropFiles={onDropFiles}
+      />,
+    );
+
+    const dataTransfer = { files: [file], types: ["Files"] };
+    fireEvent.dragOver(nodeButton("Legal"), { dataTransfer });
+    fireEvent.drop(nodeButton("Legal"), { dataTransfer });
+    fireEvent.drop(screen.getByRole("button", { name: "Todas" }), { dataTransfer });
+
+    expect(onDropFiles).toHaveBeenNthCalledWith(1, "root-2", [file]);
+    expect(onDropFiles).toHaveBeenNthCalledWith(2, null, [file]);
+  });
+
+  it("marks client folders", () => {
+    render(
+      <FolderTree
+        folders={[{ ...folders[1]!, cliente_id: "cli-1" }]}
+        activeId={null}
+        onSelect={vi.fn()}
+        onAction={vi.fn()}
+      />,
+    );
+    expect(nodeButton("Legal")).toHaveAccessibleName(/carpeta de cliente/);
   });
 });
