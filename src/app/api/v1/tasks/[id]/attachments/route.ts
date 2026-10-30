@@ -38,6 +38,7 @@ import {
 } from "@/lib/api/files";
 import { assertKeyBelongsToTarget, storedObjectSize } from "@/lib/api/signed-upload";
 import { logAudit } from "@/lib/api/audit";
+import { findOrCreateClientFolder } from "@/lib/documents/client-folder";
 
 export const dynamic = "force-dynamic";
 
@@ -81,10 +82,13 @@ async function mirrorAttachmentAsDocument(params: {
   try {
     const { categorias } = await loadDocCategories();
     const categoria = categorias.includes("Otro") ? "Otro" : (categorias[0] ?? "Otro");
+    const carpetaId = params.clienteId
+      ? await resolveClientFolderId(params.clienteId, params.usuarioId)
+      : null;
 
     const documentoId = await db.$transaction(async (tx) => {
       const documento = await tx.documento.create({
-        data: { titulo: params.fileName, categoria, autor_id: params.usuarioId },
+        data: { titulo: params.fileName, categoria, autor_id: params.usuarioId, carpeta_id: carpetaId },
       });
       if (params.clienteId) {
         await tx.documentoCliente.create({
@@ -117,6 +121,23 @@ async function mirrorAttachmentAsDocument(params: {
     });
   } catch (err) {
     console.error("[tasks] failed to mirror attachment into document repository:", err);
+  }
+}
+
+/**
+ * Carpeta del cliente de la tarea (S6, tarea 1.4): el espejo queda dentro de
+ * la carpeta del cliente en /documentos, creándola la primera vez con el mismo
+ * helper que usa el Repositorio. Si no se puede resolver, el documento se
+ * espeja igual sin carpeta («Todas», el comportamiento previo) en vez de
+ * perder el espejo completo.
+ */
+async function resolveClientFolderId(clienteId: string, usuarioId: string): Promise<string | null> {
+  try {
+    const result = await findOrCreateClientFolder(clienteId, usuarioId);
+    return result?.carpeta.id ?? null;
+  } catch (err) {
+    console.error("[tasks] failed to resolve the client folder for the mirrored attachment:", err);
+    return null;
   }
 }
 

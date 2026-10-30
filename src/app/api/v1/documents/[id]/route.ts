@@ -12,6 +12,10 @@
 // restringida) + regla propia: la categoría ENTRANTE tampoco puede ser
 // restringida para un COLABORADOR (una escritura cuyo resultado no puede
 // leer). cliente_ids es reemplazo completo dentro de $transaction.
+// Mover a la carpeta de un cliente (S3-S5) vincula el documento a ese cliente
+// (aditivo: no quita otros vínculos); mover a una carpeta sin cliente o a la
+// raíz conserva los vínculos que ya tenía. Con cliente_ids explícito, debe
+// incluir al cliente de la carpeta destino (400 si no).
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -33,6 +37,7 @@ import {
   loadUserNames,
   toDocumentItem,
 } from "@/lib/api/documents";
+import { FOLDER_CLIENT_MISMATCH_MESSAGE, resolveDocumentPlacement } from "@/lib/documents/client-folder";
 
 export const dynamic = "force-dynamic";
 
@@ -181,16 +186,16 @@ export const PATCH = withApiErrorHandling(
       data.etiquetas = etiquetas;
     }
 
+    // Client of the destination folder, when it is a client folder. The same
+    // shared rule as the uploads: missing/deleted folder 404, deleted client
+    // 400, client read scope via loadClientScoped.
+    let folderClienteId: string | null = null;
     if (body.carpeta_id !== undefined) {
       const carpetaId = body.carpeta_id;
       if (carpetaId !== null) {
-        const carpeta = await db.carpeta.findFirst({
-          where: { id: carpetaId, deleted_at: null },
-          select: { id: true },
-        });
-        if (!carpeta) {
-          return apiError("La carpeta no existe.", 404, "NOT_FOUND");
-        }
+        const placement = await resolveDocumentPlacement({ carpetaId, clienteId: null });
+        if (!placement.ok) return placement.response;
+        folderClienteId = placement.clienteId;
       }
       data.carpeta_id = carpetaId;
     }
@@ -210,6 +215,11 @@ export const PATCH = withApiErrorHandling(
           return apiError("Alguno de los clientes no existe o fue eliminado.", 400, "VALIDATION_ERROR");
         }
       }
+      // An explicit client list that leaves out the destination folder's
+      // client contradicts the folder: reject instead of picking one.
+      if (folderClienteId !== null && !ids.includes(folderClienteId)) {
+        return apiError(FOLDER_CLIENT_MISMATCH_MESSAGE, 400, "VALIDATION_ERROR");
+      }
       clienteIds = ids;
     }
 
@@ -221,6 +231,17 @@ export const PATCH = withApiErrorHandling(
           db.documentoCliente.create({ data: { documento_id: id, cliente_id } }),
         ),
       ]);
+    } else if (folderClienteId !== null) {
+      // Moving INTO a client folder links the document to that client. The
+      // link is additive and idempotent (upsert on the composite key): links
+      // to other clients stay. Moving OUT of a client folder (to a folder
+      // without client or to the root) deliberately keeps the existing links:
+      // a move never silently unlinks a client; cliente_ids does that.
+      await db.documentoCliente.upsert({
+        where: { documento_id_cliente_id: { documento_id: id, cliente_id: folderClienteId } },
+        create: { documento_id: id, cliente_id: folderClienteId },
+        update: {},
+      });
     }
 
     if (Object.keys(data).length > 0) {

@@ -145,6 +145,23 @@ describe("DELETE /api/v1/folders/:id", () => {
     });
   });
 
+  // A5: carpetas.cliente_id is unique even for soft-deleted rows, so a deleted
+  // client folder must release the client or the client could never get a new
+  // folder (find-or-create would hit the unique index forever).
+  it("releases the client link when it soft-deletes an empty client folder", async () => {
+    vi.mocked(db.carpeta.findFirst).mockResolvedValue({ id: "f-1", cliente_id: "cli-1" } as never);
+    vi.mocked(db.carpeta.count).mockResolvedValue(0);
+    vi.mocked(db.documento.count).mockResolvedValue(0);
+
+    const res = await DELETE(new Request("http://localhost/api/v1/folders/f-1"), routeContext);
+
+    expect(res.status).toBe(204);
+    expect(db.carpeta.update).toHaveBeenCalledWith({
+      where: { id: "f-1" },
+      data: { deleted_at: expect.any(Date), cliente_id: null },
+    });
+  });
+
   it("blocks deletion with subfolders (409)", async () => {
     vi.mocked(db.carpeta.count).mockResolvedValue(2);
     vi.mocked(db.documento.count).mockResolvedValue(0);
