@@ -38,7 +38,8 @@ export const ENCABEZADOS: Record<
     "Semana inicio",
     "Semana fin",
     "Responsable (correo)",
-    "Peso (opcional)",
+    // AJ-02: the weight is the duration in weeks, so the sheet no longer asks for it. A template
+    // filled in with the previous layout still imports: an unmatched extra column is simply not read.
   ],
   // PO 2026-10-23: the templates no longer ask for "Tipo de medio exigido" (Entregables)
   // nor "Unidad" (Indicadores).

@@ -253,10 +253,12 @@ describe("POST /api/v1/projects/:id/structure/import — apply", () => {
     const [o1, o2] = filasCreadas("objetivo").map((o) => o.id);
     const actividades = filasCreadas("actividad");
     expect(actividades).toEqual([
-      expect.objectContaining({ codigo: "A1.1", objetivo_id: o1, nombre: "Levantar línea base", semana_inicio: 1, semana_fin: 2, peso_manual: false, responsable_id: null }),
-      expect.objectContaining({ codigo: "A2.1", objetivo_id: o2, nombre: "Estructurar el modelo", semana_inicio: 3, semana_fin: 4, peso_manual: false, responsable_id: null }),
+      expect.objectContaining({ codigo: "A1.1", objetivo_id: o1, nombre: "Levantar línea base", semana_inicio: 1, semana_fin: 2, responsable_id: null }),
+      expect.objectContaining({ codigo: "A2.1", objetivo_id: o2, nombre: "Estructurar el modelo", semana_inicio: 3, semana_fin: 4, responsable_id: null }),
     ]);
-    expect(String(actividades[0].peso)).toBe("2");
+    // AJ-02: no weight is written; it is derived from the weeks.
+    expect(actividades[0]).not.toHaveProperty("peso");
+    expect(actividades[0]).not.toHaveProperty("peso_manual");
     const entregables = filasCreadas("entregable");
     expect(entregables.map((e) => [e.codigo, e.actividad_id, String(e.cantidad_meta), e.unidad, e.tipo_medio_exigido])).toEqual([
       ["E1.1.1", actividades[0].id, "2", "memorias", ""],

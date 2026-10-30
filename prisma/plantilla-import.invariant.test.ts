@@ -157,7 +157,6 @@ async function fixture(tx: Tx, estado: "BORRADOR" | "EN_EJECUCION" = "BORRADOR")
       nombre: "Actividad anterior",
       semana_inicio: 1,
       semana_fin: 2,
-      peso: new Prisma.Decimal("2"),
     },
   });
   await tx.entregable.create({
@@ -312,15 +311,15 @@ describe("template import (live DB)", () => {
       expect(despues.actividades.find((a) => a.codigo === "OLD-A1")?.deleted_at).not.toBeNull();
       expect(despues.entregables.find((e) => e.codigo === "OLD-E1")?.deleted_at).not.toBeNull();
 
-      // Weights 1/1/1/4: empty `Peso` means the default duration, not manual.
+      // Weights 1/1/1/4: derived from duration (semana_fin - semana_inicio + 1).
       const pesos = vivos(despues.actividades)
         .sort((a, b) => a.codigo.localeCompare(b.codigo))
-        .map((a) => [a.codigo, a.peso.toString(), a.peso_manual]);
+        .map((a) => [a.codigo, a.semana_fin - a.semana_inicio + 1]);
       expect(pesos).toEqual([
-        ["1.1", "1", false],
-        ["1.2", "1", false],
-        ["1.3", "1", false],
-        ["1.4", "4", false],
+        ["1.1", 1],
+        ["1.2", 1],
+        ["1.3", 1],
+        ["1.4", 4],
       ]);
       expect(vivos(despues.actividades).every((a) => a.responsable_id !== null)).toBe(true);
 

@@ -95,7 +95,6 @@ export function fixtureF_X1(variante: F_X1_Variante = "valido"): PlantillaInput 
           semanaInicio: 1,
           semanaFin: 1,
           responsable: F_X1_RESPONSABLE,
-          peso: null,
         },
         {
           codigo: "1.2",
@@ -104,7 +103,6 @@ export function fixtureF_X1(variante: F_X1_Variante = "valido"): PlantillaInput 
           semanaInicio: 2,
           semanaFin: 2,
           responsable: F_X1_RESPONSABLE,
-          peso: null,
         },
         {
           codigo: "1.3",
@@ -113,7 +111,6 @@ export function fixtureF_X1(variante: F_X1_Variante = "valido"): PlantillaInput 
           semanaInicio: 3,
           semanaFin: 3,
           responsable: F_X1_RESPONSABLE,
-          peso: null,
         },
         {
           codigo: "1.4",
@@ -122,7 +119,6 @@ export function fixtureF_X1(variante: F_X1_Variante = "valido"): PlantillaInput 
           semanaInicio: 3,
           semanaFin: 6,
           responsable: F_X1_RESPONSABLE,
-          peso: null,
         },
       ],
       entregables: [

@@ -28,8 +28,6 @@ export type PlanImportacion = {
     nombre: string
     semanaInicio: number
     semanaFin: number
-    peso: string
-    pesoManual: boolean
     responsableId: string | null
   }[]
   entregables: {
@@ -140,10 +138,7 @@ export function construirPlan(p: ParsedTemplate, c: ContextoValidacion): PlanImp
   const actividades = p.actividades.map((fila) => {
     const semanaInicio = enteroDe(fila.celdas["Semana inicio"]?.valor) ?? 0
     const semanaFin = enteroDe(fila.celdas["Semana fin"]?.valor) ?? 0
-    const pesoManual = texto(fila, "Peso (opcional)") !== ""
-    const peso = pesoManual
-      ? decimal2(fila.celdas["Peso (opcional)"]?.valor)
-      : fromCents(toCents(String(defaultWeight(semanaInicio, semanaFin))))
+    // AJ-02: no weight is read from the sheet — it is always the duration in weeks.
     const email = texto(fila, "Responsable (correo)").toLowerCase()
     return {
       codigo: texto(fila, "Código"),
@@ -151,8 +146,6 @@ export function construirPlan(p: ParsedTemplate, c: ContextoValidacion): PlanImp
       nombre: texto(fila, "Nombre"),
       semanaInicio,
       semanaFin,
-      peso,
-      pesoManual,
       responsableId: email === "" ? null : usuarios.get(email) ?? null,
     }
   })

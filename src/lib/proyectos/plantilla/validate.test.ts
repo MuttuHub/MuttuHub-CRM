@@ -277,19 +277,29 @@ describe("V-08 activities without deliverables", () => {
   })
 })
 
-describe("V-09 positive quantities, metas and weights", () => {
+describe("V-09 positive quantities and metas (AJ-02 dropped the weight column)", () => {
   it("accepts the generated F-X1", async () => {
     expect(v09(await parsedValido(), contexto())).toEqual([])
   })
 
-  it("rejects non-positive quantities, metas and weights", async () => {
+  it("rejects non-positive quantities and metas", async () => {
     const parsed = await parsedValido()
     parsed.entregables[0].celdas["Cantidad"].valor = 0
     parsed.indicadores[0].celdas["Meta"].valor = 0
     parsed.indicadores[1].celdas["Línea base"].valor = -1
-    parsed.actividades[0].celdas["Peso (opcional)"].valor = -1
     const errores = v09(parsed, contexto()).filter((e) => e.regla === "V-09")
-    expect(errores.length).toBeGreaterThanOrEqual(4)
+    expect(errores.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it("no longer reports anything for an activity sheet cell counted as a weight", async () => {
+    const parsed = await parsedValido()
+    parsed.actividades[0].celdas["Peso (opcional)"] = {
+      hoja: HOJAS.actividades,
+      fila: parsed.actividades[0].fila,
+      columna: "G",
+      valor: -1,
+    }
+    expect(v09(parsed, contexto()).filter((e) => e.regla === "V-09")).toEqual([])
   })
 })
 
@@ -432,14 +442,18 @@ describe("F1 — scientific-notation and non-finite cells never throw", () => {
     expect(v03(parsed, contexto()).some((e) => e.regla === "V-03" && /no es un monto válido/.test(e.mensaje))).toBe(true)
   })
 
-  it("reports 1e-7 in Cantidad and 1e21 in Peso instead of throwing", async () => {
+  it("reports 1e-7 in Cantidad and does not throw on an activity weight cell", async () => {
     const parsed = await parsedValido()
     parsed.entregables[0].celdas["Cantidad"].valor = 1e-7
-    parsed.actividades[0].celdas["Peso (opcional)"].valor = 1e21
+    parsed.actividades[0].celdas["Peso (opcional)"] = {
+      hoja: HOJAS.actividades,
+      fila: parsed.actividades[0].fila,
+      columna: "G",
+      valor: 1e21,
+    }
     expect(() => validarPlantilla(parsed, contexto())).not.toThrow()
     const errores = v09(parsed, contexto()).filter((e) => e.regla === "V-09")
     expect(errores.some((e) => /cantidad no es un número válido/.test(e.mensaje))).toBe(true)
-    expect(errores.some((e) => /peso no es un número válido/.test(e.mensaje))).toBe(true)
   })
 })
 

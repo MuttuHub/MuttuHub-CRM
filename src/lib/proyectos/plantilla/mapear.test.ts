@@ -3,7 +3,9 @@ import { beforeAll, describe, expect, it } from "vitest"
 import { construirPlan } from "./mapear"
 import { generarPlantilla } from "./generate"
 import { parsePlantilla } from "./parse"
+import ExcelJS from "exceljs"
 import { toCents } from "../money"
+import { HOJAS } from "./columns"
 import { fixtureContextoFX1, fixtureF_X1, plantillaFormatoAnterior } from "../__fixtures__/plantilla-cedetextil"
 
 let bufferValido: Buffer
@@ -11,6 +13,18 @@ let bufferValido: Buffer
 beforeAll(async () => {
   bufferValido = await generarPlantilla(fixtureF_X1())
 })
+
+/** Appends the «Peso (opcional)» column the old layout had, with a value the rule must ignore. */
+async function conColumnaPeso(buffer: Buffer): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook()
+  await workbook.xlsx.load(buffer as unknown as ArrayBuffer)
+  const hoja = workbook.getWorksheet(HOJAS.actividades)
+  if (!hoja) throw new Error("Missing sheet Actividades")
+  const columna = (hoja.actualColumnCount ?? 0) + 1
+  hoja.getCell(1, columna).value = "Peso (opcional)"
+  for (let fila = 2; fila <= hoja.actualRowCount; fila++) hoja.getCell(fila, columna).value = "2,5"
+  return Buffer.from(await workbook.xlsx.writeBuffer())
+}
 
 async function plan() {
   return construirPlan(await parsePlantilla(bufferValido), fixtureContextoFX1())
@@ -53,10 +67,13 @@ describe("construirPlan of the valid F-X1", () => {
     expect(p.indicadores).toHaveLength(2)
   })
 
-  it("derives the default activity weights 1/1/1/4", async () => {
+  it("carries no weight: it is derived from the weeks wherever it is needed (AJ-02)", async () => {
     const p = await plan()
-    expect(p.actividades.map((a) => Number(a.peso))).toEqual([1, 1, 1, 4])
-    expect(p.actividades.every((a) => a.pesoManual === false)).toBe(true)
+    expect(p.actividades).toHaveLength(4)
+    for (const actividad of p.actividades) {
+      expect(actividad).not.toHaveProperty("peso")
+      expect(actividad).not.toHaveProperty("pesoManual")
+    }
   })
 
   it("resolves the responsable and the cross references", async () => {
@@ -101,13 +118,15 @@ describe("construirPlan of the valid F-X1", () => {
     expect(r01oct?.cents).toBe(toCents("14875000"))
   })
 
-  it("marks an explicit weight as manual", async () => {
-    const input = fixtureF_X1()
-    input.estructura.actividades[0].peso = "2.5"
-    const parsed = await parsePlantilla(await generarPlantilla(input))
-    const p = construirPlan(parsed, fixtureContextoFX1())
-    expect(p.actividades[0].pesoManual).toBe(true)
-    expect(p.actividades[0].peso).toBe("2.50")
+  it("ignores a «Peso (opcional)» column still present in a template filled with the previous layout", async () => {
+    // AJ-02 removed the column from the sheet the system downloads; a file already filled in with
+    // the older layout keeps importing, and its weight cells no longer reach the plan.
+    const anterior = await conColumnaPeso(await generarPlantilla(fixtureF_X1()))
+    const p = construirPlan(await parsePlantilla(anterior), fixtureContextoFX1())
+
+    expect(p.actividades).toHaveLength(4)
+    expect(p.actividades[0]).not.toHaveProperty("peso")
+    expect(p.actividades[0]).toMatchObject({ codigo: "1.1", semanaInicio: 1, semanaFin: 1 })
   })
 
   it("rejects a scientific-notation total with a domain error, not a RangeError", async () => {

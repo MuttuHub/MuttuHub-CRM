@@ -115,8 +115,8 @@ describe("parsePlantilla of the generated F-X1", () => {
       },
     ])
 
-    // Actividades: code, objective link, name, weeks (via the parsed cells),
-    // owner and weight (null in the fixture).
+    // Actividades: code, objective link, name, weeks (via the parsed cells) and owner.
+    // AJ-02: the sheet no longer carries a weight column.
     expect(
       parsed.actividades.map((f) => ({
         codigo: f.celdas["Código"].valor,
@@ -125,13 +125,12 @@ describe("parsePlantilla of the generated F-X1", () => {
         semanaInicio: f.celdas["Semana inicio"].valor,
         semanaFin: f.celdas["Semana fin"].valor,
         responsable: f.celdas["Responsable (correo)"].valor,
-        peso: f.celdas["Peso (opcional)"].valor,
       })),
     ).toEqual([
-      { codigo: "1.1", objetivoCodigo: "OE1", nombre: "Caracterización de las unidades productivas", semanaInicio: 1, semanaFin: 1, responsable: "ana@muttu.co", peso: null },
-      { codigo: "1.2", objetivoCodigo: "OE1", nombre: "Formación en prácticas de confección", semanaInicio: 2, semanaFin: 2, responsable: "ana@muttu.co", peso: null },
-      { codigo: "1.3", objetivoCodigo: "OE1", nombre: "Acompañamiento técnico a las unidades", semanaInicio: 3, semanaFin: 3, responsable: "ana@muttu.co", peso: null },
-      { codigo: "1.4", objetivoCodigo: "OE1", nombre: "Entrega de dotación y certificación", semanaInicio: 3, semanaFin: 6, responsable: "ana@muttu.co", peso: null },
+      { codigo: "1.1", objetivoCodigo: "OE1", nombre: "Caracterización de las unidades productivas", semanaInicio: 1, semanaFin: 1, responsable: "ana@muttu.co" },
+      { codigo: "1.2", objetivoCodigo: "OE1", nombre: "Formación en prácticas de confección", semanaInicio: 2, semanaFin: 2, responsable: "ana@muttu.co" },
+      { codigo: "1.3", objetivoCodigo: "OE1", nombre: "Acompañamiento técnico a las unidades", semanaInicio: 3, semanaFin: 3, responsable: "ana@muttu.co" },
+      { codigo: "1.4", objetivoCodigo: "OE1", nombre: "Entrega de dotación y certificación", semanaInicio: 3, semanaFin: 6, responsable: "ana@muttu.co" },
     ])
 
     // Entregables: code, activity link, description, quantity and unit.
