@@ -50,20 +50,37 @@ describe("tecnicoPlaneado (D1: linear by days at month end)", () => {
   const actividades = fixtureF_C1Actividades()
 
   it("weights the elapsed fraction of every activity at each month end", () => {
-    const planeado = tecnicoPlaneado(actividades, periodos).map((f) => Math.round(f * 1000) / 10)
+    const planeado = tecnicoPlaneado(actividades, periodos, 1).map((f) => Math.round(f * 1000) / 10)
     expect(planeado).toEqual([12.9, 27.1, 49.3, 70.7, 97.3])
   })
 
   it("stays within 0..1", () => {
-    for (const fraccion of tecnicoPlaneado(actividades, periodos)) {
+    for (const fraccion of tecnicoPlaneado(actividades, periodos, 1)) {
       expect(fraccion).toBeGreaterThanOrEqual(0)
       expect(fraccion).toBeLessThanOrEqual(1)
     }
   })
 
   it("is zero before the project starts and one once every activity ended", () => {
-    expect(tecnicoPlaneado(actividades, ["2026-07"])).toEqual([0])
-    expect(tecnicoPlaneado(actividades, ["2027-02"])).toEqual([1])
+    expect(tecnicoPlaneado(actividades, ["2026-07"], 1)).toEqual([0])
+    expect(tecnicoPlaneado(actividades, ["2027-02"], 1)).toEqual([1])
+  })
+})
+
+describe("tecnicoPlaneado capped at the tope (AJ-03, decision 5)", () => {
+  const actividades = fixtureF_C1Actividades()
+
+  it("tops the planned technical curve out at the tope once every activity ended", () => {
+    expect(tecnicoPlaneado(actividades, ["2027-02"], 0.9)).toEqual([0.9])
+  })
+
+  it("never plans above the uncapped curve nor above the tope", () => {
+    const tope = tecnicoPlaneado(actividades, F_C1_PERIODOS, 0.9)
+    const libre = tecnicoPlaneado(actividades, F_C1_PERIODOS, 1)
+    tope.forEach((valor, i) => {
+      expect(valor).toBeLessThanOrEqual(libre[i])
+      expect(valor).toBeLessThanOrEqual(0.9)
+    })
   })
 })
 
@@ -76,29 +93,29 @@ describe("tecnicoPlaneado with a corte (D13: the corte month is evaluated at the
   it("evaluates only the corte month at the corte date; past and future months keep the month end", () => {
     // 2026-11-15: A1 done, A2 (09-28..12-06, 70 days) 49 days in = 0.7, A3 not started
     // -> (2 * 1 + 4 * 0.7) / 8 = 60 %. Month end (11-30) would be 70.7 %.
-    expect(pct(tecnicoPlaneado(actividades, periodos, corte))).toEqual([12.9, 27.1, 49.3, 60, 97.3])
+    expect(pct(tecnicoPlaneado(actividades, periodos, 1, corte))).toEqual([12.9, 27.1, 49.3, 60, 97.3])
   })
 
   it("uses the very same formula as the technical KPI at that date", () => {
-    const fila = tecnicoPlaneado(actividades, periodos, corte)[periodos.indexOf(F_C1_CORTE)]
-    expect(fila).toBe(avanceProgramado([...actividades], "2026-11-15"))
+    const fila = tecnicoPlaneado(actividades, periodos, 1, corte)[periodos.indexOf(F_C1_CORTE)]
+    expect(fila).toBe(avanceProgramado([...actividades], "2026-11-15", 1))
   })
 
   it("is the month end when the corte is the last day of the month", () => {
-    const alFin = tecnicoPlaneado(actividades, periodos, { periodo: F_C1_CORTE, fecha: "2026-11-30" })
-    expect(alFin).toEqual(tecnicoPlaneado(actividades, periodos))
+    const alFin = tecnicoPlaneado(actividades, periodos, 1, { periodo: F_C1_CORTE, fecha: "2026-11-30" })
+    expect(alFin).toEqual(tecnicoPlaneado(actividades, periodos, 1))
   })
 
   it("never plans past the month-end value of the same month and keeps the series monotonic", () => {
-    const conCorte = tecnicoPlaneado(actividades, periodos, corte)
-    const finDeMesSerie = tecnicoPlaneado(actividades, periodos)
+    const conCorte = tecnicoPlaneado(actividades, periodos, 1, corte)
+    const finDeMesSerie = tecnicoPlaneado(actividades, periodos, 1)
     conCorte.forEach((valor, i) => expect(valor).toBeLessThanOrEqual(finDeMesSerie[i]))
     for (let i = 1; i < conCorte.length; i += 1) expect(conCorte[i]).toBeGreaterThanOrEqual(conCorte[i - 1])
   })
 
   it("leaves every month at month end when the corte period is not among the periods", () => {
-    expect(tecnicoPlaneado(actividades, periodos, { periodo: "2027-03", fecha: "2027-03-10" })).toEqual(
-      tecnicoPlaneado(actividades, periodos),
+    expect(tecnicoPlaneado(actividades, periodos, 1, { periodo: "2027-03", fecha: "2027-03-10" })).toEqual(
+      tecnicoPlaneado(actividades, periodos, 1),
     )
   })
 })
@@ -117,7 +134,7 @@ describe("construirCurva with the D13 planned technical series", () => {
       periodos: F_C1_PERIODOS,
       corte: F_C1_CORTE,
       tecnico: {
-        planeado: tecnicoPlaneado(fixtureF_C1Actividades(), F_C1_PERIODOS, { periodo: F_C1_CORTE, fecha: "2026-11-15" }),
+        planeado: tecnicoPlaneado(fixtureF_C1Actividades(), F_C1_PERIODOS, 1, { periodo: F_C1_CORTE, fecha: "2026-11-15" }),
         ejecutado: F_C1_TECNICO_EJECUTADO,
       },
       financiero: { planeado: F_C1_FINANCIERO_PLANEADO, ejecutado: F_C1_FINANCIERO_EJECUTADO },
@@ -134,7 +151,7 @@ describe("construirCurva", () => {
   const entrada = {
     periodos,
     corte: F_C1_CORTE,
-    tecnico: { planeado: tecnicoPlaneado(fixtureF_C1Actividades(), periodos), ejecutado: F_C1_TECNICO_EJECUTADO },
+    tecnico: { planeado: tecnicoPlaneado(fixtureF_C1Actividades(), periodos, 1), ejecutado: F_C1_TECNICO_EJECUTADO },
     financiero: { planeado: F_C1_FINANCIERO_PLANEADO, ejecutado: F_C1_FINANCIERO_EJECUTADO },
   }
 

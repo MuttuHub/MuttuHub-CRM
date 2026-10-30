@@ -136,15 +136,25 @@ export function fraccionTiempo(corte: IsoDate, inicio: IsoDate, fin: IsoDate): n
   return Math.min(1, Math.max(0, elapsed / total))
 }
 
-/** Weighted mean of the elapsed fractions; zero total weight yields 0. */
+/**
+ * Planned fraction of one activity at `corte` (AJ-03, decision 5): its elapsed fraction, capped at the
+ * tope (`tope_en_curso` as a 0..1 fraction) — «el avance programado de cada actividad llega como máximo
+ * al tope en su fecha fin», so an activity at the tope waiting for soportes shows no deviation.
+ */
+export function programadoActividad(corte: IsoDate, inicio: IsoDate, fin: IsoDate, tope: number): number {
+  return Math.min(tope, fraccionTiempo(corte, inicio, fin))
+}
+
+/** Weighted mean of the activities' planned fractions (capped at the tope); zero total weight yields 0. */
 export function avanceProgramado(
   actividades: { peso: number; inicio: IsoDate; fin: IsoDate }[],
   corte: IsoDate,
+  tope: number,
 ): number {
   const total = actividades.reduce((sum, a) => sum + a.peso, 0)
   if (total <= 0) return 0
   return (
-    actividades.reduce((sum, a) => sum + a.peso * fraccionTiempo(corte, a.inicio, a.fin), 0) / total
+    actividades.reduce((sum, a) => sum + a.peso * programadoActividad(corte, a.inicio, a.fin, tope), 0) / total
   )
 }
 
@@ -237,6 +247,8 @@ function progresoActividad(a: ActividadTecnicaInput, requiereMedio: boolean, has
 export function calcularTecnico(input: {
   corte: IsoDate
   requiereMedio: boolean
+  /** `tope_en_curso` as a 0..1 fraction: each activity's planned fraction caps at it (AJ-03). */
+  tope: number
   actividades: ActividadTecnicaInput[]
 }): {
   avance_real: number
@@ -275,7 +287,7 @@ export function calcularTecnico(input: {
   })
 
   const real = avanceReal(actividades)
-  const programado = avanceProgramado(input.actividades, corte)
+  const programado = avanceProgramado(input.actividades, corte, input.tope)
   return {
     avance_real: real,
     avance_programado: programado,

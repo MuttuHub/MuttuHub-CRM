@@ -175,6 +175,7 @@ export function construirAtencion(input: AtencionInput): AtencionItem[] {
   const tecnico = calcularTecnico({
     corte,
     requiereMedio: input.requiere_medio,
+    tope: input.tope,
     actividades: [...input.actividades],
   })
   const progresoDe = new Map(tecnico.actividades.map((actividad) => [actividad.id, actividad.progreso]))

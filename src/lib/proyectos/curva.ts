@@ -44,8 +44,8 @@ export type CorteMedicion = { periodo: Periodo; fecha: IsoDate }
 
 /**
  * Planned technical fraction 0..1 per period (linear by days): the weighted mean
- * of every activity's elapsed fraction, reused from the technical semáforo so the
- * curve and the KPI cannot drift. Each period is evaluated at its month end (D1),
+ * of every activity's elapsed fraction, capped at the tope (AJ-03, decision 5),
+ * reused from the technical semáforo so the curve and the KPI cannot drift. Each period is evaluated at its month end (D1),
  * except the corte month (D13) when `corte` is given: that one is evaluated at the
  * corte date, the same date the KPI `avance_programado` uses. Past and future
  * months keep the month-end rule.
@@ -53,10 +53,11 @@ export type CorteMedicion = { periodo: Periodo; fecha: IsoDate }
 export function tecnicoPlaneado(
   actividades: readonly TecnicoPlaneadoInput[],
   periodos: readonly Periodo[],
+  tope: number,
   corte?: CorteMedicion,
 ): number[] {
   return periodos.map((periodo) =>
-    avanceProgramado([...actividades], corte && periodo === corte.periodo ? corte.fecha : finDeMes(periodo)),
+    avanceProgramado([...actividades], corte && periodo === corte.periodo ? corte.fecha : finDeMes(periodo), tope),
   )
 }
 

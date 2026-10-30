@@ -138,6 +138,16 @@ describe("cronograma por ejecución (AJ-03)", () => {
     const r = cronograma({ entregables: entregable("A", [avance("2026-02-10", 8)]) })
     expect(r).toMatchObject({ a_tiempo: 0, atrasadas: 1 })
   })
+  it("the technical semáforo stays verde for an activity at the tope that only waits for soportes", () => {
+    const k = kpisProyecto(
+      proyecto({
+        actividades: [
+          actividad({ id: "A", ...semana6, reportes: [{ fecha: "2026-02-12", porcentaje: 90 }], entregables: entregable("A", []) }),
+        ],
+      }),
+    )
+    expect(k.tecnico).toMatchObject({ avance_real: 90, avance_programado: 90, desviacion_pp: 0, color: "verde" })
+  })
   it("the tope comes from tope_en_curso", () => {
     const tope80 = { ...PARAMETROS_V2_DEFAULT, tope_en_curso: { valor: 80, confirmado: true } }
     const over = { reportes: [{ fecha: "2026-02-12", porcentaje: 85 }], entregables: entregable("A", []) }

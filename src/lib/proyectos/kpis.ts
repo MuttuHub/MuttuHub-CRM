@@ -234,7 +234,8 @@ export function kpisProyecto(input: KpiProyectoInput): KpisProyecto {
   const base = { corte, estado: input.estado, confirmado: parametrosConfirmados(p) }
 
   const requiereMedio = p.avance_requiere_medio.valor
-  const resultado = calcularTecnico({ corte, requiereMedio, actividades: [...input.actividades] })
+  const tope = p.tope_en_curso.valor / 100
+  const resultado = calcularTecnico({ corte, requiereMedio, tope, actividades: [...input.actividades] })
   const color = colorTecnicoV2(resultado.desviacion_pp, { umbral1: p.umbral1.valor, umbral2: p.umbral2.valor })
   const fin = new Map(input.actividades.map((a) => [a.id, a.fin]))
 
@@ -257,7 +258,7 @@ export function kpisProyecto(input: KpiProyectoInput): KpisProyecto {
         avance: a.progreso,
       })),
       corte,
-      p.tope_en_curso.valor / 100,
+      tope,
     ),
     entregables: entregablesLogrados(input.actividades, corte, requiereMedio),
     indicadores: cumplimientoIndicadores(input.indicadores, corte),

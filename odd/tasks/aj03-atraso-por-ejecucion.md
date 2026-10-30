@@ -72,9 +72,9 @@ Mirror: Engram `odd/aj03-atraso-por-ejecucion/tasks`. Source: PO document «Ajus
 
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
-| T1 | S4.1, S5, S8, S10 (domain: the execution-based a tiempo/atrasada rule in `kpis.ts`'s `cumplimientoCronograma`, consuming `tope_en_curso` + the per-activity progress from `avance.ts`; the attention list's «Actividad atrasada» follows the same rule) | inline | pending | |
-| T2 | S4.3, S6.2, S6.3, S10 (planned series: cap each activity's `avanceProgramado` at the tope at its fin — flows into `colorTecnicoV2` inputs and `tecnicoPlaneado`) | inline | pending | |
-| T3 | S2 (curva S + colors: pin the capped plan through `src/lib/api/curva.ts` / `curva.ts` and the 7 `colorTecnicoV2` call sites) | inline | pending | |
+| T1 | S4.1, S5, S8, S10 (domain: the execution-based a tiempo/atrasada rule in `kpis.ts`'s `cumplimientoCronograma`, consuming `tope_en_curso` + the per-activity progress from `avance.ts`; the attention list's «Actividad atrasada» and the activity board follow the same rule) | inline | done | `53d77ae` |
+| T2 | S4.3, S6.2, S6.3, S10 (planned series: cap each activity's `avanceProgramado` at the tope at its fin — flows into `colorTecnicoV2` inputs and `tecnicoPlaneado`) | inline | done | this commit |
+| T3 | S2 (curva S + colors: pin the capped plan through `src/lib/api/curva.ts` / `curva.ts` and the 7 `colorTecnicoV2` call sites) | inline | done | this commit |
 | T4 | Docs (OpenAPI, user guide, test guide, flip AJ-03 to Hecho in `docs/plan-trabajo-restante.md`) | inline | pending | |
 
 Route evidence: no writer trigger holds — one behavior over shared domain files (`avance.ts`, `kpis.ts`), so no
@@ -96,3 +96,14 @@ once AJ-02 merges.
 - **L4 (2026-10-29, user, verbatim):** «comienza, si crees necesario guarda el doc» — approving the sequence and
   the S6 resolution (the tope comparison uses decision 1's «el mayor», same as the ponderado); T1 unblocked. The
   PO document was versioned at `docs/Hub-proyectos261028.docx`.
+- **L5 (2026-10-30, user, verbatim):** «dale con aj03» — authorizes AJ-03 implementation. Entry state: AJ-02 finished
+  locally (`feat/aj02-peso-duracion`, not pushed: GitHub unreachable from this machine, TLS interception), so this
+  branch stacks on it. Readings fixed in S10.
+- **L6 (2026-10-30):** T1 — RED 8 (kpis) + 3 (attention, board), GREEN; `cumplimientoCronograma` now takes
+  `{ fin, avance_al_fin, avance }` and the tope; `calcularTecnico` adds `avance_al_fin` per activity; the shared
+  `alcanzaTope` (inclusive, float slack) drives compliance, `atrasadas`, the attention list and the board column;
+  `technical-status` answers `tope_en_curso`. T2/T3 — RED 8, GREEN; `programadoActividad` = `min(tope, elapsed)`
+  feeds `avanceProgramado`, the per-activity `programado` (and so the objective roll-ups and every activity color)
+  and `tecnicoPlaneado`; `tope` is a required argument so no caller can silently keep the uncapped plan. The route
+  and curve goldens pin `tope_en_curso = 100` to keep their uncapped values; dedicated tests pin 90. Advisory, not
+  changed (pre-existing, out of scope): the curve's executed technical line ignores AJ-01 reports.

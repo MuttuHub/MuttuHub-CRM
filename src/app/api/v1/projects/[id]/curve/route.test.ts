@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
     umbral1: { valor: 10, confirmado: false },
     umbral2: { valor: 20, confirmado: false },
     avance_requiere_medio: { valor: true, confirmado: false },
+    // 100 keeps these goldens on the uncapped plan; the AJ-03 cap is pinned in curva.test.ts.
+    tope_en_curso: { valor: 100, confirmado: false },
   } as Record<string, { valor: number | boolean; confirmado: boolean }>,
 }));
 
