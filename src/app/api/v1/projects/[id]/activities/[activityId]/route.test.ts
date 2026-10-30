@@ -49,8 +49,6 @@ const fila = {
   nombre: "Taller de costura",
   semana_inicio: 3,
   semana_fin: 6,
-  peso: new Prisma.Decimal(4),
-  peso_manual: false,
   responsable_id: null,
   created_at: new Date("2026-10-08T12:00:00.000Z"),
   updated_at: new Date("2026-10-08T12:00:00.000Z"),
@@ -113,7 +111,6 @@ describe("PATCH /api/v1/projects/:id/activities/:activityId", () => {
       {},
       { fecha_inicio: "2026-10-19" },
       { proyecto_id: "x" },
-      { peso: 0 },
       { semana_inicio: 7 },
       { semana_fin: 18 },
       { semana_inicio: 0 },
@@ -123,29 +120,25 @@ describe("PATCH /api/v1/projects/:id/activities/:activityId", () => {
     expect(mocks.txUpdate).not.toHaveBeenCalled();
   });
 
-  it("recomputes a non-manual weight when the weeks change and audits the changed fields", async () => {
+  it("accepts a week change and audits only the changed week field", async () => {
     const res = await PATCH(patch({ semana_fin: 7 }), ctx);
     const json = await res.json();
     expect(res.status).toBe(200);
-    expect(mocks.txUpdate.mock.calls[0][0].data).toMatchObject({ semana_fin: 7, peso: 5, peso_manual: false });
+    expect(mocks.txUpdate.mock.calls[0][0].data).toMatchObject({ semana_fin: 7 });
     expect(json.actividad).toMatchObject({ semana_fin: 7, fecha_fin: "2026-11-22", peso: 5 });
     const rows = vi.mocked(logChanges).mock.calls[0][1];
-    expect(rows.map((row) => row.campo).sort()).toEqual(["peso", "semana_fin"]);
+    expect(rows.map((row) => row.campo)).toEqual(["semana_fin"]);
     expect(rows.every((row) => row.accion === "EDITAR" && row.entidad === "actividad" && row.proyecto_id === "pry-1")).toBe(true);
   });
 
-  it("keeps a manual weight when the weeks change", async () => {
-    vi.mocked(db.actividad.findFirst).mockResolvedValue({ ...fila, peso: new Prisma.Decimal(2.5), peso_manual: true } as never);
-    await PATCH(patch({ semana_fin: 7 }), ctx);
-    expect(mocks.txUpdate.mock.calls[0][0].data).toMatchObject({ semana_fin: 7, peso: 2.5, peso_manual: true });
-    const rows = vi.mocked(logChanges).mock.calls[0][1];
-    expect(rows.map((row) => row.campo)).toEqual(["semana_fin"]);
+  it("rejects a peso field in the patch as unknown", async () => {
+    expect((await PATCH(patch({ peso: 2.5 }), ctx)).status).toBe(400);
+    expect(mocks.txUpdate).not.toHaveBeenCalled();
   });
 
-  it("a null weight clears the manual flag back to the default", async () => {
-    vi.mocked(db.actividad.findFirst).mockResolvedValue({ ...fila, peso: new Prisma.Decimal(2.5), peso_manual: true } as never);
-    await PATCH(patch({ peso: null }), ctx);
-    expect(mocks.txUpdate.mock.calls[0][0].data).toMatchObject({ peso: 4, peso_manual: false });
+  it("rejects a null peso field in the patch as unknown", async () => {
+    expect((await PATCH(patch({ peso: null }), ctx)).status).toBe(400);
+    expect(mocks.txUpdate).not.toHaveBeenCalled();
   });
 
   it("requires the new objective to be a live one of the same project", async () => {

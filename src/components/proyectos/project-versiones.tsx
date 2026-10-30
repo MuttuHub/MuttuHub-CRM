@@ -50,7 +50,6 @@ export const CAMPO_LABEL: Record<string, string> = {
   semana_inicio: "Semana inicial",
   semana_fin: "Semana final",
   peso: "Peso",
-  peso_manual: "Peso manual",
   cantidad_meta: "Cantidad meta",
   meta: "Meta",
   unidad: "Unidad",

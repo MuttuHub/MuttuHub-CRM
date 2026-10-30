@@ -19,6 +19,7 @@ import {
   type AvanceInput,
   type ReporteActividadInput,
 } from "./avance"
+import { pesoActividad } from "./actividad"
 import { colorTecnicoV2 } from "./semaforo-v2"
 import { F_T1_CORTE, fixtureF_T1, fixtureF_T1b } from "./__fixtures__/tecnico"
 
@@ -29,6 +30,38 @@ const av = (fecha: string, cantidad: number, extra: Partial<AvanceInput> = {}): 
   tieneMedio: true,
   createdAt: `${fecha}T00:00:00Z`,
   ...extra,
+})
+
+describe("calcularTecnico — the project advance weights each activity by its weeks (AJ-02, S5)", () => {
+  it("gives 46,7 % for a 4-week activity at 20 % plus a 2-week activity at 100 %", () => {
+    const tecnico = calcularTecnico({
+      corte: "2026-02-16",
+      requiereMedio: false,
+      actividades: [
+        {
+          id: "a1",
+          codigo: "1.1",
+          peso: pesoActividad({ semana_inicio: 1, semana_fin: 4 }),
+          inicio: "2026-01-05",
+          fin: "2026-02-01",
+          entregables: [],
+          reportes: [{ fecha: "2026-01-20", porcentaje: 20 }],
+        },
+        {
+          id: "a2",
+          codigo: "1.2",
+          peso: pesoActividad({ semana_inicio: 5, semana_fin: 6 }),
+          inicio: "2026-02-02",
+          fin: "2026-02-15",
+          entregables: [],
+          reportes: [{ fecha: "2026-02-10", porcentaje: 100 }],
+        },
+      ],
+    })
+
+    // (4 × 0,20 + 2 × 1,00) / 6 = 46,67 %
+    expect(tecnico.avance_real).toBeCloseTo(0.4667, 4)
+  })
 })
 
 describe("avanceEntregable / avanceActividad / avanceReal", () => {

@@ -33,8 +33,6 @@ export type ActividadInput = {
   semanaInicio: number
   semanaFin: number
   responsable: string | null
-  /** Explicit weight; `null` means "the default duration in weeks". */
-  peso: string | null
 }
 
 export type EntregableInput = {
@@ -173,7 +171,6 @@ function escribirActividades(workbook: ExcelJS.Workbook, input: PlantillaInput):
       actividad.semanaInicio,
       actividad.semanaFin,
       actividad.responsable,
-      actividad.peso === null ? null : Number(actividad.peso),
     ])
   }
   return hoja

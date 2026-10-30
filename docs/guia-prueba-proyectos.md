@@ -195,7 +195,8 @@ gerencia:
 1. **Objetivos**: crea uno (código y descripción). Aparece con contador de actividades e indicadores.
 2. **Actividades**: dentro del objetivo, crea una con semana de inicio y fin.
    - Las fechas se muestran **calculadas** a partir de las semanas del proyecto; no se editan a mano.
-   - Sin peso, el peso es la duración en semanas. Si escribes un peso, aparece la marca **Peso manual**.
+   - El peso de la actividad es su duración en semanas y no se edita: el formulario no tiene campo de peso y
+     la API responde 400 si alguien envía `peso`.
    - Una semana fuera de la duración del proyecto responde error 400.
 3. **Entregables**: dentro de la actividad, crea uno (código, descripción, cantidad meta, unidad, tipo de medio).
    Una actividad sin entregables muestra una advertencia.
@@ -216,8 +217,8 @@ Está en la pestaña **Gantt**. Cualquier rol que vea la ficha lo ve.
    **Cronograma por semanas**.
 2. Esperado: una cabecera `S1, S2, ...` con la fecha de cada semana, y por objetivo una barra por actividad con
    su código, ubicada entre su semana inicial y final.
-3. Crea otra actividad en Metas e indicadores (§4): la barra aparece sin recargar. Una actividad con peso manual muestra el
-   icono **Peso manual**.
+3. Crea otra actividad en Metas e indicadores (§4): la barra aparece sin recargar, con el ancho de sus semanas y
+   sin ninguna marca de peso (AJ-02: el peso siempre es la duración, así que no hay peso manual que marcar).
 4. Estados vacíos: sin actividades, "Aún no hay actividades para mostrar en el cronograma."; sin fechas del
    proyecto, "Define las fechas del proyecto para ver el cronograma."
 5. Es solo lectura: no se arrastra ni se edita desde el Gantt.
@@ -737,7 +738,7 @@ No existe todavía, dicho sin adornos:
   revisión nativa aprobada. Se sustituyó por verificación independiente de un segundo agente en S7; la de S8
   (verificación independiente de la ronda 2) sigue pendiente.
 - **Valores por defecto sin confirmar por el dueño de producto**: umbrales del semáforo (de ahí la insignia
-  **No confirmado**), peso por defecto de las actividades, borrado con hijos, medio exigido, "Modificación bloquea
+  **No confirmado**), borrado con hijos, medio exigido, "Modificación bloquea
   periodos pasados", tope de importación (4 MB) y las reglas de notificación de sobreejecución. Están en los
   documentos `odd/tasks/v2-projects-s*-execution.md`.
 - Todo es local: nada está empujado ni desplegado, y la base remota no se tocó.

@@ -7,7 +7,7 @@
 
 "use client";
 
-import { ChartGantt, Scale, TriangleAlert } from "lucide-react";
+import { ChartGantt, TriangleAlert } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import {
@@ -169,9 +169,6 @@ function Barra({ barra, actividad }: { barra: GanttBarra; actividad: ProjectActi
       )}
     >
       <span className="truncate">{barra.codigo}</span>
-      {barra.pesoManual && (
-        <Scale aria-label="Peso manual" className="size-3 shrink-0" strokeWidth={2} />
-      )}
       {barra.fueraDeDuracion && (
         <TriangleAlert
           aria-label="Fuera de la duración del proyecto"

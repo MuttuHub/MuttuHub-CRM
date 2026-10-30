@@ -54,8 +54,6 @@ const filaActividad = {
   nombre: "Taller de costura",
   semana_inicio: 3,
   semana_fin: 6,
-  peso: new Prisma.Decimal(4),
-  peso_manual: false,
   responsable_id: null,
   created_at: new Date("2026-10-08T12:00:00.000Z"),
   updated_at: new Date("2026-10-08T12:00:00.000Z"),
@@ -118,7 +116,6 @@ describe("GET /api/v1/projects/:id/activities", () => {
       fecha_inicio: "2026-10-19",
       fecha_fin: "2026-11-15",
       peso: 4,
-      peso_manual: false,
       fuera_de_duracion: false,
     });
     expect(db.actividad.findMany).toHaveBeenCalledWith(
@@ -146,14 +143,12 @@ describe("POST /api/v1/projects/:id/activities", () => {
     expect(mocks.txCreate).not.toHaveBeenCalled();
   });
 
-  it("returns 400 for a scalar body, missing fields, a non-positive weight or unknown fields", async () => {
+  it("returns 400 for a scalar body, missing fields, or unknown fields", async () => {
     for (const body of [
       "x",
       { ...cuerpo, codigo: " " },
       { ...cuerpo, nombre: undefined },
       { ...cuerpo, objetivo_id: undefined },
-      { ...cuerpo, peso: 0 },
-      { ...cuerpo, peso: -1 },
       { ...cuerpo, fecha_inicio: "2026-10-19" },
       { ...cuerpo, semana_inicio: 1.5 },
     ]) {
@@ -214,8 +209,6 @@ describe("POST /api/v1/projects/:id/activities", () => {
       nombre: "Taller de costura",
       semana_inicio: 3,
       semana_fin: 6,
-      peso: 4,
-      peso_manual: false,
       responsable_id: null,
     });
     // Dates are never persisted.
@@ -233,9 +226,9 @@ describe("POST /api/v1/projects/:id/activities", () => {
     );
   });
 
-  it("a supplied weight is stored as manual", async () => {
-    await POST(post({ ...cuerpo, peso: 2.5 }), ctx);
-    expect(mocks.txCreate.mock.calls[0][0].data).toMatchObject({ peso: 2.5, peso_manual: true });
+  it("rejects a supplied weight field as unknown", async () => {
+    expect((await POST(post({ ...cuerpo, peso: 2.5 }), ctx)).status).toBe(400);
+    expect(mocks.txCreate).not.toHaveBeenCalled();
   });
 
   it("maps the partial unique index to 409 CONFLICT and rethrows other violations", async () => {

@@ -72,7 +72,7 @@ async function seed() {
     rows.objetivos.push({ id: objetivo_id, proyecto_id, codigo: "1", descripcion: MARKER })
     for (let a = 0; a < ACTIVITIES; a++) {
       const actividad_id = randomUUID()
-      rows.actividades.push({ id: actividad_id, proyecto_id, objetivo_id, codigo: `1.${a + 1}`, nombre: MARKER, semana_inicio: a + 1, semana_fin: a + 4, peso: "4", peso_manual: false })
+      rows.actividades.push({ id: actividad_id, proyecto_id, objetivo_id, codigo: `1.${a + 1}`, nombre: MARKER, semana_inicio: a + 1, semana_fin: a + 4 })
       for (let e = 0; e < DELIVERABLES; e++) {
         const entregable_id = randomUUID()
         rows.entregables.push({ id: entregable_id, proyecto_id, actividad_id, codigo: `1.${a + 1}-E${e + 1}`, descripcion: MARKER, cantidad_meta: "10", unidad: "u", tipo_medio_exigido: "acta" })

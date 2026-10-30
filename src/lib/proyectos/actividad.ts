@@ -16,53 +16,15 @@ import {
 } from "./weeks"
 import { colorTecnicoV2, type ColorSemaforo } from "./semaforo-v2"
 
-/** A value Prisma's Decimal and a plain number both satisfy. */
-type NumericLike = number | { toString(): string }
-
-function toNumber(value: NumericLike): number {
-  return typeof value === "number" ? value : Number(value.toString())
-}
-
-function round2(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100
-}
-
 /**
- * Weight the activity carries: the typed one while `peso_manual`, otherwise its
- * duration in weeks, derived rather than trusted from the stored column.
+ * AJ-02: an activity's weight is always its duration in weeks.
+ * `semana_fin − semana_inicio + 1`
  */
-export function pesoEfectivo(actividad: {
+export function pesoActividad(actividad: {
   semana_inicio: number
   semana_fin: number
-  peso: NumericLike
-  peso_manual: boolean
 }): number {
-  return actividad.peso_manual
-    ? toNumber(actividad.peso)
-    : defaultWeight(actividad.semana_inicio, actividad.semana_fin)
-}
-
-/**
- * REQ-STR-04: decides the `(peso, peso_manual)` pair to store.
- *
- * - a supplied number sets a manual weight (rounded to the column's 2 decimals);
- * - an explicit `null` clears the manual weight back to the default;
- * - nothing supplied keeps an existing manual weight untouched when the weeks
- *   change, and recomputes a non-manual one from the new weeks.
- */
-export function resolvePeso(input: {
-  semana_inicio: number
-  semana_fin: number
-  peso?: number | null
-  actual?: { peso: NumericLike; peso_manual: boolean }
-}): { peso: number; peso_manual: boolean } {
-  if (typeof input.peso === "number") {
-    return { peso: round2(input.peso), peso_manual: true }
-  }
-  if (input.peso === undefined && input.actual?.peso_manual) {
-    return { peso: toNumber(input.actual.peso), peso_manual: true }
-  }
-  return { peso: defaultWeight(input.semana_inicio, input.semana_fin), peso_manual: false }
+  return defaultWeight(actividad.semana_inicio, actividad.semana_fin)
 }
 
 /** Calendar days an activity spans, both endpoints included (the v6 "Días" column). */
@@ -171,8 +133,6 @@ export type ActividadRow = {
   nombre: string
   semana_inicio: number
   semana_fin: number
-  peso: NumericLike
-  peso_manual: boolean
   responsable_id: string | null
   created_at: Date
   updated_at: Date
@@ -191,7 +151,6 @@ export type ActividadV2View = {
   /** Derived: end of `semana_fin`; not clamped to the project end (A-03). */
   fecha_fin: IsoDate | null
   peso: number
-  peso_manual: boolean
   responsable_id: string | null
   /** True when the weeks exceed the project's current duration (it shrank after the activity was placed). */
   fuera_de_duracion: boolean
@@ -226,8 +185,7 @@ export function toActividadV2View(
     semana_fin: row.semana_fin,
     fecha_inicio: dates?.inicio ?? null,
     fecha_fin: dates?.fin ?? null,
-    peso: pesoEfectivo(row),
-    peso_manual: row.peso_manual,
+    peso: pesoActividad(row),
     responsable_id: row.responsable_id,
     fuera_de_duracion: duracion !== null && row.semana_fin > duracion,
     created_at: row.created_at.toISOString(),

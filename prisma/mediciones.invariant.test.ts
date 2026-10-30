@@ -73,7 +73,7 @@ async function fixture(tx: Tx) {
   const crear = async (proyectoId: string) => {
     const objetivo = await tx.objetivo.create({ data: { proyecto_id: proyectoId, codigo: "OE1", descripcion: "a" } })
     const actividad = await tx.actividad.create({
-      data: { proyecto_id: proyectoId, objetivo_id: objetivo.id, codigo: "1.1", nombre: "A", semana_inicio: 1, semana_fin: 1, peso: 1 },
+      data: { proyecto_id: proyectoId, objetivo_id: objetivo.id, codigo: "1.1", nombre: "A", semana_inicio: 1, semana_fin: 1 },
     })
     const indicador = await tx.indicador.create({
       data: { proyecto_id: proyectoId, objetivo_id: objetivo.id, codigo: "IND-01", nombre: "I", meta: 10, unidad: "u" },

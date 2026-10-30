@@ -40,7 +40,6 @@ describe("plantilla columns", () => {
         "Semana inicio",
         "Semana fin",
         "Responsable (correo)",
-        "Peso (opcional)",
       ],
       // PO 2026-10-23: the templates no longer ask for "Tipo de medio exigido" nor the indicator "Unidad".
       entregables: ["Código", "Código actividad", "Descripción", "Cantidad", "Unidad"],

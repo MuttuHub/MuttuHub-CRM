@@ -78,7 +78,7 @@ async function borrador(tx: Tx) {
   }
   const objetivo = await tx.objetivo.create({ data: { proyecto_id: proyecto.id, codigo: "OE1", descripcion: "Objetivo", orden: 1 } })
   const actividad = await tx.actividad.create({
-    data: { proyecto_id: proyecto.id, objetivo_id: objetivo.id, codigo: "1.1", nombre: "Actividad", semana_inicio: 1, semana_fin: 2, peso: 2 },
+    data: { proyecto_id: proyecto.id, objetivo_id: objetivo.id, codigo: "1.1", nombre: "Actividad", semana_inicio: 1, semana_fin: 2 },
   })
   await tx.entregable.create({
     data: { proyecto_id: proyecto.id, actividad_id: actividad.id, codigo: "1.1-E1", descripcion: "Entregable", cantidad_meta: 1, unidad: "Informe", tipo_medio_exigido: "Documento" },
@@ -269,8 +269,8 @@ describe("aplicarModificacion (live DB)", () => {
     for (const c of r.comparaciones) expect(c.guardado).toEqual(c.esperado)
     expect(r.numeros).toEqual([0, 1, 2, 3])
     expect(r.proyecto.valor_total?.toString()).toBe("170") // ADICION derives the total (D2)
-    expect(r.actividad).toMatchObject({ semana_fin: 4, peso_manual: false })
-    expect(r.actividad.peso.toString()).toBe("4")
+    expect(r.actividad).toMatchObject({ semana_fin: 4 })
+    expect(r.actividad.semana_fin - r.actividad.semana_inicio + 1).toBe(4)
     expect(r.entregable.cantidad_meta.toString()).toBe("3")
     expect(r.indicador.meta.toString()).toBe("12")
   })

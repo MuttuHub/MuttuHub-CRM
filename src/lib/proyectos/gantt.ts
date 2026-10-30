@@ -15,7 +15,6 @@ export type GanttActividad = {
   nombre: string
   semana_inicio: number
   semana_fin: number
-  peso_manual: boolean
 }
 
 export type GanttBarra = {
@@ -30,7 +29,6 @@ export type GanttBarra = {
   /** CSS grid line where the bar ends, exclusive (= `semana_fin + 1`). */
   columnaFin: number
   semanas: number
-  pesoManual: boolean
   fueraDeDuracion: boolean
 }
 
@@ -61,7 +59,6 @@ export function ganttLayout(
       columnaInicio: a.semana_inicio,
       columnaFin: a.semana_fin + 1,
       semanas: a.semana_fin - a.semana_inicio + 1,
-      pesoManual: a.peso_manual,
       fueraDeDuracion: a.semana_fin > duracion,
     }))
     .sort((x, y) => x.semanaInicio - y.semanaInicio || x.codigo.localeCompare(y.codigo, "es"))

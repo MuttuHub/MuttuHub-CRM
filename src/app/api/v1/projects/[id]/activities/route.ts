@@ -29,7 +29,7 @@ import {
   parseEstructuraBody,
   ESTRUCTURA_STATE_MESSAGE,
 } from "@/lib/api/estructura";
-import { resolvePeso, toActividadV2View, validarSemanas } from "@/lib/proyectos/actividad";
+import { toActividadV2View, validarSemanas } from "@/lib/proyectos/actividad";
 import { durationWeeks } from "@/lib/proyectos/weeks";
 import { lockProyectoBorrador } from "@/lib/api/presupuesto";
 
@@ -45,11 +45,6 @@ const semanaField = z
   .number({ error: "La semana debe ser un número entero." })
   .int("Las semanas deben ser números enteros.");
 
-const pesoField = z
-  .number({ error: "El peso debe ser un número." })
-  .positive("El peso debe ser mayor que 0.")
-  .max(9_999_999.99, "El peso es demasiado alto.");
-
 const nombreField = z
   .string({ error: "El nombre es obligatorio." })
   .trim()
@@ -64,7 +59,6 @@ export const ACTIVIDAD_CREATE_SCHEMA = z
     nombre: nombreField,
     semana_inicio: semanaField,
     semana_fin: semanaField,
-    peso: pesoField.nullable().optional(),
     responsable_id: z.string().min(1, "El responsable no puede estar vacío.").nullable().optional(),
   })
   .strict();
@@ -139,12 +133,6 @@ export const POST = withApiErrorHandling(
       if (inactivo) return inactivo;
     }
 
-    const { peso, peso_manual } = resolvePeso({
-      semana_inicio: input.semana_inicio,
-      semana_fin: input.semana_fin,
-      peso: input.peso,
-    });
-
     try {
       const row = await db.$transaction(async (tx) => {
         await lockProyectoBorrador(tx, id, ESTRUCTURA_STATE_MESSAGE);
@@ -156,8 +144,6 @@ export const POST = withApiErrorHandling(
             nombre: input.nombre,
             semana_inicio: input.semana_inicio,
             semana_fin: input.semana_fin,
-            peso,
-            peso_manual,
             responsable_id: input.responsable_id ?? null,
           },
         });
@@ -174,8 +160,6 @@ export const POST = withApiErrorHandling(
             nombre: created.nombre,
             semana_inicio: created.semana_inicio,
             semana_fin: created.semana_fin,
-            peso: created.peso,
-            peso_manual: created.peso_manual,
             responsable_id: created.responsable_id,
           },
         });

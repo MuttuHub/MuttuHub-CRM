@@ -128,7 +128,6 @@ async function actividadFixture(tx: Tx) {
     nombre: "Actividad",
     semana_inicio: 1,
     semana_fin: 2,
-    peso: 2,
   }
   return { ...base, objetivo, objetivoOtro, datos }
 }
@@ -145,14 +144,6 @@ describe("Actividad invariants (live DB)", () => {
       })
       expect(driverMessage(error)).toContain("actividades_semanas_check")
     }
-  })
-
-  it("rejects a non-positive weight through actividades_peso_check", async () => {
-    const error = await captureError(async (tx) => {
-      const { datos } = await actividadFixture(tx)
-      await tx.actividad.create({ data: { ...datos, peso: 0 } })
-    })
-    expect(driverMessage(error)).toContain("actividades_peso_check")
   })
 
   it("rejects a second live activity with the same codigo, ignoring case, in the same project", async () => {
@@ -196,8 +187,7 @@ describe("Actividad invariants (live DB)", () => {
       const { datos } = await actividadFixture(tx)
       return tx.actividad.create({ data: datos })
     })
-    expect(actividad.peso_manual).toBe(false)
-    expect(actividad.peso.toString()).toBe("2")
+    expect(actividad.semana_fin - actividad.semana_inicio + 1).toBe(2)
   })
 })
 

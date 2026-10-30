@@ -144,7 +144,7 @@ export type ProjectObjective = {
 /**
  * Fila de `{ actividades }` (`toActividadV2View`). Las fechas son DERIVADAS de
  * las semanas y la fecha de inicio del proyecto (nunca se envían); `peso` es
- * número y `peso_manual` indica que lo escribió una persona.
+ * número y se DERIVA de las semanas (AJ-02): no se escribe ni se envía.
  */
 export type ProjectActivity = {
   id: string;
@@ -157,7 +157,6 @@ export type ProjectActivity = {
   fecha_inicio: string | null;
   fecha_fin: string | null;
   peso: number;
-  peso_manual: boolean;
   responsable_id: string | null;
   /** Las semanas superan la duración actual del proyecto (el proyecto se acortó). */
   fuera_de_duracion: boolean;
@@ -202,8 +201,6 @@ export type ProjectActivityInput = {
   nombre: string;
   semana_inicio: number;
   semana_fin: number;
-  /** Número = peso manual; `null` = volver al peso por defecto (duración en semanas). */
-  peso?: number | null;
   responsable_id?: string | null;
 };
 

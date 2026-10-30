@@ -373,10 +373,10 @@ async function escribirCambios(tx: Aplicador, proyectoId: string, antes: LivePro
 
   for (const a of despues.actividades) {
     const previa = antes.actividades.find((x) => x.codigo === a.codigo);
-    if (!previa || (previa.semana_inicio === a.semana_inicio && previa.semana_fin === a.semana_fin && previa.peso === a.peso && previa.peso_manual === a.peso_manual)) continue;
+    if (!previa || (previa.semana_inicio === a.semana_inicio && previa.semana_fin === a.semana_fin)) continue;
     await tx.actividad.update({
       where: { id: ids.actividad.get(a.codigo) as string },
-      data: { semana_inicio: a.semana_inicio, semana_fin: a.semana_fin, peso: decimal2(a.peso), peso_manual: a.peso_manual },
+      data: { semana_inicio: a.semana_inicio, semana_fin: a.semana_fin },
     });
   }
   for (const e of despues.entregables) {

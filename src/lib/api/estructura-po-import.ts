@@ -17,9 +17,8 @@ import {
   type AuditoriaImportacion,
   type EstructuraPlan,
 } from "@/lib/api/plantilla-import";
-import { fromCents, toCents } from "@/lib/proyectos/money";
 import { isoDate } from "@/lib/proyectos/proyecto-general";
-import { defaultWeight, durationWeeks } from "@/lib/proyectos/weeks";
+import { durationWeeks } from "@/lib/proyectos/weeks";
 import type { PlanEstructuraPO } from "@/lib/proyectos/estructura-po/parse";
 
 export type ResumenEstructuraPO = { objetivos: number; actividades: number; entregables: number; indicadores: number };
@@ -38,8 +37,6 @@ export function aEstructuraPlan(plan: PlanEstructuraPO): EstructuraPlan {
       nombre: a.nombre,
       semanaInicio: a.semanaInicio,
       semanaFin: a.semanaFin,
-      peso: fromCents(toCents(String(defaultWeight(a.semanaInicio, a.semanaFin)))),
-      pesoManual: false,
       responsableId: null,
     })),
     entregables: plan.entregables.map((e) => ({

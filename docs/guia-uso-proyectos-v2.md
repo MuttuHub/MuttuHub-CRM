@@ -220,6 +220,9 @@ Una sola estructura con tres vistas: **Lista**, **Gantt** y **Tablero**.
 **En Borrador**
 
 - **Lista**: la estructura editable (objetivos, actividades, entregables, indicadores) y la carga por Excel.
+  Las fechas de una actividad se derivan de sus semanas y **el peso también**: siempre es su duración en semanas
+  (`semana fin − semana inicio + 1`) y no se edita en ningún formulario. De ahí sale el avance ponderado del
+  proyecto, con el que se mide el semáforo técnico.
 - **Gantt**: lectura por semanas.
 - No hay **Tablero** todavía, porque aún no hay nada que seguir.
 

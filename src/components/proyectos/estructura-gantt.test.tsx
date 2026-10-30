@@ -142,11 +142,11 @@ describe("EstructuraGantt", () => {
     expect(bar).toHaveAttribute("title", expect.stringMatching(/Taller de formación.*2026.*2026/))
   })
 
-  it("marks manual weights", async () => {
+  it("marks no weight: it is always the duration in weeks (AJ-02)", async () => {
     setup()
 
-    const manual = await screen.findByTestId("gantt-bar-a1")
-    expect(within(manual).getByLabelText("Peso manual")).toBeInTheDocument()
+    const barra = await screen.findByTestId("gantt-bar-a1")
+    expect(within(barra).queryByLabelText("Peso manual")).not.toBeInTheDocument()
     expect(within(screen.getByTestId("gantt-bar-a3")).queryByLabelText("Peso manual")).not.toBeInTheDocument()
   })
 

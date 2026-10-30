@@ -866,8 +866,12 @@ model Actividad {
   nombre         String
   semana_inicio  Int
   semana_fin     Int
-  peso           Decimal   @db.Decimal(9, 2)
-  peso_manual    Boolean   @default(false)
+  // The activity's weight is always `semana_fin - semana_inicio + 1` (AJ-02), derived in
+  // `src/lib/proyectos/weeks.ts`. `peso` and `peso_manual` are legacy columns kept only until
+  // the AJ-02 code is live in production (expand/contract); `@ignore` keeps them out of the
+  // Prisma Client so nothing can read or write them. A follow-up migration drops both.
+  peso           Decimal?  @db.Decimal(9, 2) @ignore
+  peso_manual    Boolean   @default(false) @ignore
   responsable_id String?
   created_at     DateTime  @default(now())
   updated_at     DateTime  @updatedAt

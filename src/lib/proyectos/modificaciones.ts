@@ -5,7 +5,7 @@
 // call the SAME functions, so what was accepted at request time is judged by the same rules at
 // approval time.
 
-import { resolvePeso, validarSemanas } from "./actividad"
+import { pesoActividad, validarSemanas } from "./actividad"
 import { precondicionesPresupuesto } from "./ficha-financiera"
 import { formatCOP, fromCents, sumCents, toCents, type Cents } from "./money"
 import { MENSAJE_RANGO_FECHAS, rangoFechasValido } from "./rango-fechas"
@@ -247,13 +247,7 @@ export function applyModificacion(
     if (!conSemanasNuevas.has(actividad.codigo)) continue
     // An impossible range is reported by the validation; there is no weight to derive from it.
     if (actividad.semana_inicio < 1 || actividad.semana_fin < actividad.semana_inicio) continue
-    const peso = resolvePeso({
-      semana_inicio: actividad.semana_inicio,
-      semana_fin: actividad.semana_fin,
-      actual: { peso: actividad.peso, peso_manual: actividad.peso_manual },
-    })
-    actividad.peso = String(peso.peso)
-    actividad.peso_manual = peso.peso_manual
+    actividad.peso = String(pesoActividad(actividad))
   }
 
   const ZERO = BigInt(0)

@@ -47,7 +47,6 @@ const ACTIVIDAD: ProjectActivity = {
   fecha_inicio: "2026-10-05",
   fecha_fin: "2026-10-25",
   peso: 1,
-  peso_manual: false,
   responsable_id: null,
   fuera_de_duracion: false,
 }

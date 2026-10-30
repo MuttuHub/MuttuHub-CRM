@@ -821,7 +821,7 @@ export function v08(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[]
 }
 
 // ---------------------------------------------------------------------------
-// V-09 — positive quantities, metas and weights
+// V-09 — positive quantities and metas (the activity weight is no longer a sheet column: AJ-02)
 // ---------------------------------------------------------------------------
 
 function revisarPositivo(
@@ -846,26 +846,6 @@ function revisarPositivo(
 export function v09(p: ParsedTemplate, _c: ContextoValidacion): ErrorPlantilla[] {
   void _c
   const errores: ErrorPlantilla[] = []
-
-  if (estructuraOk(p, "actividades")) {
-    for (const fila of p.actividades) {
-      const celda = celdaDe(fila, "Peso (opcional)")
-      const crudo = textoDe(celda?.valor)
-      if (crudo === "") continue
-      const dec = decimalDeCelda(celda?.valor)
-      const columna = celda?.columna ?? "G"
-      if (dec === null) {
-        errores.push(error("V-09", HOJAS.actividades, fila.fila, columna, crudo, "El peso no es un número válido."))
-        continue
-      }
-      const cents = toCents(redondear2(dec))
-      if (cents <= ZERO) {
-        errores.push(error("V-09", HOJAS.actividades, fila.fila, columna, crudo, "El peso debe ser mayor que cero."))
-      } else if (cents > MAX_PESO_CENTS) {
-        errores.push(error("V-09", HOJAS.actividades, fila.fila, columna, crudo, "El peso es demasiado alto."))
-      }
-    }
-  }
 
   if (estructuraOk(p, "entregables")) {
     for (const fila of p.entregables) {

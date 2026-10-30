@@ -197,8 +197,6 @@ export async function cargarPlantillaInput(client: PlantillaReader, proyectoId: 
           nombre: true,
           semana_inicio: true,
           semana_fin: true,
-          peso: true,
-          peso_manual: true,
           objetivo: { select: { codigo: true } },
           responsable: { select: { email: true } },
         },
@@ -295,7 +293,6 @@ export async function cargarPlantillaInput(client: PlantillaReader, proyectoId: 
         semanaInicio: actividad.semana_inicio,
         semanaFin: actividad.semana_fin,
         responsable: actividad.responsable?.email ?? null,
-        peso: actividad.peso_manual ? actividad.peso.toString() : null,
       })),
       entregables: entregables.map((entregable) => ({
         codigo: entregable.codigo,
@@ -409,8 +406,6 @@ export async function crearEstructura(
     nombre: a.nombre,
     semana_inicio: a.semanaInicio,
     semana_fin: a.semanaFin,
-    peso: new Prisma.Decimal(a.peso),
-    peso_manual: a.pesoManual,
     responsable_id: a.responsableId,
   }));
   await tx.actividad.createMany({ data: actividades });
@@ -425,8 +420,6 @@ export async function crearEstructura(
         nombre: a.nombre,
         semana_inicio: a.semana_inicio,
         semana_fin: a.semana_fin,
-        peso: a.peso,
-        peso_manual: a.peso_manual,
         responsable_id: a.responsable_id,
       },
     });

@@ -49,11 +49,19 @@ run`. Mirror: Engram `odd/aj02-peso-duracion/tasks`. Source: PO document «Ajust
   unidad (`src/lib/proyectos/estructura-po/parse.ts:103-106`) — no Peso column there today, so S4's last line is
   already satisfied by that template or refers to another one; T3 verifies which plantilla (if any) still shows
   Peso.
-- **S8 — Design (assumption, revisit against S6's answer).** Weight becomes always derived: the write paths stop
-  accepting a manual `peso` (create/update routes and the modification replay), `pesoEfectivo`/`resolvePeso`
-  collapse to the `defaultWeight` branch, and the UI loses the peso input and the «Peso manual» badge (the
-  summary keeps showing the derived peso). Storage choice for T1: keep the columns with `peso_manual` forced
-  false after a recalculation migration, or drop them — decide at T1; the user-visible rule is the same.
+- **S8 — Design. RESOLVED at T1 start (2026-10-30): drop the `peso` and `peso_manual` columns.** Weight becomes
+  always derived: the write paths stop accepting a manual `peso` (create/update routes and the modification
+  replay), `pesoEfectivo`/`resolvePeso` collapse to the `defaultWeight` branch, and the UI loses the peso input
+  and the «Peso manual» badge (the summary keeps showing the derived peso). **Storage decision:** rather than
+  keeping a recalculated `peso` column, both columns are dropped. Why: (a) a stored copy of a pure function of
+  (`semana_inicio`, `semana_fin`) can only drift from the function, and the reviewers would have to reason
+  about which one wins; (b) `DROP COLUMN` makes «no es editable» structurally impossible instead of merely
+  unvalidated at the API edge; (c) S2's «los pesos manuales ya guardados se recalculan por duración» is
+  satisfied identically — every weight the system reports after the migration equals
+  `semana_fin − semana_inicio + 1`, and no server answer changes except the ones that were manual;
+  (d) the historical evidence S2 protects lives in the approved-baseline JSON snapshots (`versiones`), which
+  keep their recorded `peso` untouched, so «las líneas base aprobadas conservan su foto histórica» holds.
+  The migration therefore carries no data backfill: it drops two columns and nothing reads them afterwards.
 - **S9 — Out of scope.** AJ-01 (done) and AJ-03 (own document, `odd/tasks/aj03-atraso-por-ejecucion.md` — its
   tope comparison consumes the same per-activity avance this document's S6 asks about).
 
@@ -61,10 +69,52 @@ run`. Mirror: Engram `odd/aj02-peso-duracion/tasks`. Source: PO document «Ajust
 
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
-| T1 | S2, S4 (migration: recalculate every stored peso by duration, `peso_manual` false; approved baseline snapshots untouched) | TBD | pending | |
-| T2 | S4, S5, S6 (domain + API: `resolvePeso`/`pesoEfectivo` and the activities routes stop accepting a manual peso; pin S5's weighted example against `calcularTecnico`) | TBD | pending | |
-| T3 | S4 (UI: remove the peso input and the «Peso manual» badge in `estructura-actividades.tsx`; verify no plantilla shows Peso) | TBD | pending | |
-| T4 | Docs (OpenAPI, user guide, test guide, flip AJ-02 to Hecho in `docs/plan-trabajo-restante.md`) | TBD | pending | |
+| T1 | S2, S4 (storage + domain: drop `peso`/`peso_manual`, derive the weight everywhere; approved baseline snapshots keep their own `peso`) | inline + `gentle-ai-worker` (one delegation) | done | `d19ced8` |
+| T2 | S4, S5, S6 (API contract: the activities routes reject a `peso` field; OpenAPI says the weight is derived; S5's 46,7 % example pinned against `calcularTecnico`) | inline | done | `bde801c` |
+| T3 | S4 (UI: no peso input, no «Peso manual» badge; **the Excel structure template loses its «Peso (opcional)» column and V-09's weight branch**) | inline | done | `a96a5d1` (UI) + `9f8d6f5` (plantilla) |
+| T4 | Docs (OpenAPI, user guide, test guide, flip AJ-02 to Hecho in `docs/plan-trabajo-restante.md`) | inline | done | this commit |
+
+Order actually executed: **T3 (UI + plantilla) → T1 (storage/domain) → T2 (contract + S5) → T4 (docs)**, so that every
+commit compiles: stopping offering the weight first, then removing the machinery behind it.
+
+**Delivery slice:** this feature ships as **one PR with five work-unit commits**, 709 authored lines total — past
+the ~400-line slice guide on purpose, declared here as the slice boundary. The reason is that the rule cannot
+land in smaller shippable pieces: the UI half alone leaves an editor that silently does nothing, and the storage
+half alone cannot compile without the read/write paths. If the reviewer wants smaller slices, the natural split
+is `a96a5d1` + `9f8d6f5` (product surface) then `d19ced8` + `bde801c` (storage and contract) on top.
+
+## T1 implementation notes (2026-10-30, for the worker reading this)
+
+Already in the tree and **not** to be redone: the migration
+`prisma/migrations/20261030120000_v2_actividades_peso_por_duracion/migration.sql` (drops the CHECK and both
+columns, idempotent), `prisma/schema.prisma` (Actividad without `peso`/`peso_manual`), the live-DB test
+`prisma/actividades-peso.invariant.test.ts` (green after `migrate deploy` + `prisma generate`), and T3's UI +
+template work (committed separately; `estructura-actividades.tsx` already sends no weight).
+
+Field-level decisions, so the worker does not have to re-decide them:
+
+1. `src/lib/proyectos/actividad.ts`: delete `pesoEfectivo` and `resolvePeso`; add one exported
+   `pesoActividad({ semana_inicio, semana_fin })` returning `defaultWeight(...)` from `weeks.ts`, with an AJ-02
+   doc comment. `ActividadRow` loses `peso`/`peso_manual`; `ActividadV2View` keeps `peso: number` (derived) and
+   **loses** `peso_manual`.
+2. Read paths (`src/lib/api/{atencion,curva,kpis-portafolio,tecnico,plantilla-import}.ts`): drop `peso` and
+   `peso_manual` from the Prisma `select`s, compute `pesoActividad(row)` where the weight is needed. This is what
+   makes the weighted mean (`avanceReal`) keep working unchanged.
+3. `src/lib/proyectos/modificaciones.ts` + `src/lib/api/modificaciones.ts`: the modification replay stops writing
+   the weight entirely (only the two week columns change); `despues.actividades[].peso`/`peso_manual` go away.
+4. `src/lib/api/versiones.ts` (live snapshot) writes `peso: String(pesoActividad(a))` and no `peso_manual` key.
+   The snapshot **type** (`src/lib/proyectos/versiones.ts`) keeps `peso` and makes `peso_manual` optional, because
+   already-approved baselines stored that field and must keep parsing; remove `peso_manual` from the diff field
+   list (`versiones.ts:186`) and its label in `project-versiones.tsx`, or old baselines would show a phantom
+   change.
+5. Activities create/update routes: drop `pesoField` and the `peso` request field, stop calling `resolvePeso`, and
+   answer with the derived `peso` only. `technical-status/route.ts` likewise answers the derived weight.
+6. `src/hooks/projects.ts`: the activity read model keeps `peso` and loses `peso_manual`; the write payloads lose
+   `peso`.
+7. Tests to update: the seven `prisma/*.invariant.test.ts` that create activities with `peso`
+   (`avances`, `estructura`, `linea-base`, `mediciones`, `modificaciones`, `plantilla-import`,
+   `reportes-actividad`), plus route/UI tests asserting `peso`/`peso_manual` in bodies or fixtures. Fixtures keep
+   a `peso` value only where the type still has it; delete `peso_manual` everywhere.
 
 ## Log
 
@@ -82,3 +132,20 @@ run`. Mirror: Engram `odd/aj02-peso-duracion/tasks`. Source: PO document «Ajust
   recommendation that decision 1's «el mayor» feeds the ponderado (S6 resolved above) and authorizing the
   sequence: merge #108, rebase AJ-01, verify, push/PR, then AJ-02 and AJ-03. The PO document was versioned at
   `docs/Hub-proyectos261028.docx`.
+- **L5 (2026-10-30, user, verbatim):** «listo dale vamos con aj02» — authorizes AJ-02 implementation. Entry state:
+  AJ-01 delivered to `main` (`0692169`, CI unit+e2e green) and #112 closed; the six PO rules were re-verified
+  against code, which confirmed AJ-02 as one of the two still pending (weight is still editable:
+  `peso_manual` + `pesoField` in `activities/route.ts:48`, input and «Peso manual» badge in
+  `estructura-actividades.tsx:161,243`). S8's storage question was decided as recorded above (drop both
+  columns) and T1 started with its RED test. No requirement changed: S1–S7 stand as written.
+- **L6 (2026-10-30, user, verbatim):** «listo has lo recomendado» — approves splitting the AJ-02 migration
+  into expand/contract so production never breaks. Evidence: the Vercel build does not migrate
+  (`package.json` `build` = `prisma generate && next build`), so deploy and migration always leave a gap; a
+  single `DROP COLUMN peso` breaks the old code (it reads `peso`) and deploying first breaks the new code
+  (`peso` was `NOT NULL` without default). Change: `20261030120000_v2_actividades_peso_por_duracion` now only
+  drops `actividades_peso_check` and `peso`'s `NOT NULL`; `schema.prisma` keeps both legacy columns with
+  `@ignore`; `prisma/actividades-peso.invariant.test.ts` asserts «optional or absent» plus no CHECK. A
+  follow-up migration drops both columns once AJ-02 is live. Rollback to pre-AJ-02 code after new rows were
+  created needs `UPDATE actividades SET peso = semana_fin - semana_inicio + 1 WHERE peso IS NULL;` first.
+  Checks: clean-DB `migrate deploy` of all 41 migrations OK and `migrate diff` empty; local DB realigned
+  (columns re-added, checksum updated) with empty diff; tsc 0, lint clean, invariant test 3/3.
