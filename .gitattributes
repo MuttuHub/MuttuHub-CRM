@@ -1,0 +1,58 @@
+# Normalize line endings for every tracked text file.
+# The repository is edited on Windows and built/tested on Linux (WSL), so a
+# single LF representation in the index keeps `git status` meaningful: without
+# this file every checkout produced ~80 phantom modifications with zero content
+# behind them (`git diff --ignore-cr-at-eol` was empty), which trains people to
+# ignore the diff. Keep this rule first: it applies to all text.
+* text=auto eol=lf
+
+# Explicitly text: these never carry meaningful CRLF.
+*.ts text eol=lf
+*.tsx text eol=lf
+*.mts text eol=lf
+*.mjs text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.svg text eol=lf
+*.sql text eol=lf
+*.prisma text eol=lf
+*.py text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.example text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+
+# Binary: never let Git normalize or diff these. The PO requirements document
+# and the exported guides live under docs/ and would be corrupted by an
+# end-of-line rewrite.
+*.docx binary
+*.doc binary
+*.xlsx binary
+*.xls binary
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.mp4 binary
+*.zip binary
+*.gz binary
+
+# Windows-only scripts keep their CRLF so they stay runnable.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Lockfiles are generated: keep them out of review noise.
+package-lock.json linguist-generated=true -diff
+pnpm-lock.yaml linguist-generated=true -diff
