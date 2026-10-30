@@ -100,6 +100,9 @@ const ClientListItemSchema = registry.register(
     estado: EstadoClienteSchema,
     prioridad: PrioridadClienteSchema.nullable(),
     ubicacion: z.string().nullable(),
+    etiquetas: z.array(z.string()).openapi({
+      description: "Etiquetas del cliente, del mismo catálogo que las tareas (setting task_tags).",
+    }),
     responsable_id: z.string().uuid(),
     responsable_nombre: z.string(),
     valor_potencial: z.number().openapi({
@@ -145,6 +148,9 @@ const ClienteFullSchema = registry.register(
     prioridades_identificadas: z.string().nullable(),
     riesgos_barreras: z.string().nullable(),
     resumen_relacion: z.string().nullable(),
+    etiquetas: z.array(z.string()).openapi({
+      description: "Etiquetas del cliente, del mismo catálogo que las tareas (setting task_tags).",
+    }),
     created_at: z.string().datetime(),
     responsable_nombre: z.string(),
   }),
@@ -312,6 +318,10 @@ registry.registerPath({
       estado: EstadoClienteSchema.optional(),
       prioridad: PrioridadClienteSchema.optional(),
       responsable: z.string().uuid().optional().openapi({ description: "Filtra por responsable_id." }),
+      etiqueta: z
+        .string()
+        .optional()
+        .openapi({ description: "Filtra por clientes que llevan esta etiqueta exacta (catálogo task_tags).", example: "Urgente" }),
       desde: z
         .string()
         .optional()

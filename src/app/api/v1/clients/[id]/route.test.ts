@@ -486,3 +486,73 @@ describe("DELETE /api/v1/clients/:id", () => {
     expect(res.status).toBe(204);
   });
 });
+
+// Jefe 2026-10-28 lane 2 task 2.6 (S6): client tags on the detail/edit path.
+describe("client tags — etiquetas (2.6)", () => {
+  it("GET returns the client's etiquetas", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({
+      ...baseClientRow,
+      etiquetas: ["Urgente"],
+      _count: { contactos: 0, oportunidades: 0, bitacora: 0, tareas: 0 },
+    } as never);
+
+    const res = await GET(new Request("http://localhost/api/v1/clients/cli-1"), routeContext);
+
+    expect(res.status).toBe(200);
+    const call = vi.mocked(db.cliente.findFirst).mock.calls[0][0] as { select: Record<string, unknown> };
+    expect(call.select.etiquetas).toBe(true);
+    expect((await res.json()).cliente.etiquetas).toEqual(["Urgente"]);
+  });
+
+  it("PATCH replaces etiquetas with the normalized list and returns it", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue(baseClientRow as never);
+    vi.mocked(db.cliente.update).mockResolvedValue({ ...baseClientRow, etiquetas: ["Urgente", "VIP"] } as never);
+
+    const res = await PATCH(patchRequest({ etiquetas: ["Urgente ", "VIP", "Urgente"] }), routeContext);
+
+    expect(res.status).toBe(200);
+    const call = vi.mocked(db.cliente.update).mock.calls[0][0] as {
+      data: Record<string, unknown>;
+      select: Record<string, unknown>;
+    };
+    expect(call.data).toEqual({ etiquetas: { set: ["Urgente", "VIP"] } });
+    expect(call.select.etiquetas).toBe(true);
+    expect((await res.json()).cliente.etiquetas).toEqual(["Urgente", "VIP"]);
+  });
+
+  it("PATCH with an empty array clears every tag", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue(baseClientRow as never);
+    vi.mocked(db.cliente.update).mockResolvedValue({ ...baseClientRow, etiquetas: [] } as never);
+
+    const res = await PATCH(patchRequest({ etiquetas: [] }), routeContext);
+
+    expect(res.status).toBe(200);
+    const call = vi.mocked(db.cliente.update).mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(call.data).toEqual({ etiquetas: { set: [] } });
+  });
+
+  it("PATCH without etiquetas leaves the tags untouched (previous behavior)", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue(baseClientRow as never);
+    vi.mocked(db.cliente.update).mockResolvedValue({ ...baseClientRow, nombre: "Nuevo" } as never);
+
+    const res = await PATCH(patchRequest({ nombre: "Nuevo" }), routeContext);
+
+    expect(res.status).toBe(200);
+    const call = vi.mocked(db.cliente.update).mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(call.data).toEqual({ nombre: "Nuevo" });
+  });
+
+  it("PATCH rejects a tag longer than 50 characters with 400 and a clear message", async () => {
+    authAs(gerencia);
+
+    const res = await PATCH(patchRequest({ etiquetas: ["x".repeat(51)] }), routeContext);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ code: "VALIDATION_ERROR", error: "Etiqueta muy larga." });
+    expect(db.cliente.update).not.toHaveBeenCalled();
+  });
+});

@@ -25,13 +25,16 @@ import { ENUM_VALUES } from "@/lib/catalogs";
 import { logAudit } from "@/lib/api/audit";
 import {
   catalogEnum,
-  CLIENT_FULL_SELECT,
   OPEN_TASK_STATES,
   parseDate,
   zodError,
 } from "@/lib/api/crm";
 import { canEditClient, canManageAny, canManageOpportunity } from "@/lib/permissions";
-import { enrichClients } from "@/app/api/v1/clients/route";
+import {
+  CLIENT_DETAIL_SELECT,
+  CLIENT_ETIQUETAS_SCHEMA,
+  enrichClients,
+} from "@/app/api/v1/clients/route";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +69,8 @@ export const PATCH_CLIENT_SCHEMA = z.object({
   riesgos_barreras: z.string().nullable().optional(),
   resumen_relacion: z.string().nullable().optional(),
   responsable_id: z.string().optional(),
+  // 2.6 (S6): replaces the whole tag list; `[]` clears it.
+  etiquetas: CLIENT_ETIQUETAS_SCHEMA.optional(),
 });
 
 export const GET = withApiErrorHandling(
@@ -82,7 +87,7 @@ export const GET = withApiErrorHandling(
         deleted_at: null,
       },
       select: {
-        ...CLIENT_FULL_SELECT,
+        ...CLIENT_DETAIL_SELECT,
         _count: {
           select: {
             contactos: { where: { deleted_at: null } },
@@ -185,6 +190,9 @@ export const PATCH = withApiErrorHandling(
     }
     if (parsed.data.riesgos_barreras !== undefined) data.riesgos_barreras = parsed.data.riesgos_barreras;
     if (parsed.data.resumen_relacion !== undefined) data.resumen_relacion = parsed.data.resumen_relacion;
+    if (parsed.data.etiquetas !== undefined) {
+      data.etiquetas = { set: parsed.data.etiquetas };
+    }
     if (parsed.data.fecha_primer_contacto !== undefined) {
       data.fecha_primer_contacto =
         parsed.data.fecha_primer_contacto === null
@@ -205,7 +213,7 @@ export const PATCH = withApiErrorHandling(
     const updated = await db.cliente.update({
       where: { id },
       data,
-      select: CLIENT_FULL_SELECT,
+      select: CLIENT_DETAIL_SELECT,
     });
     await logAudit({
       entidad: "cliente",

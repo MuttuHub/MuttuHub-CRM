@@ -53,6 +53,12 @@ export type ClientListRow = {
   estado: EstadoCliente;
   prioridad: PrioridadCliente | null;
   ubicacion: string | null;
+  /**
+   * Jefe 2026-10-28 lane 2 task 2.6 (S6): tags from the shared live
+   * `task_tags` catalog (same as tasks). Always sent by GET /clients and
+   * GET /clients/:id; optional here so older fixtures stay valid.
+   */
+  etiquetas?: string[];
   responsable_id: string;
   responsable_nombre: string;
   valor_potencial: number;
@@ -300,6 +306,8 @@ export type ClientFilters = {
   estado?: string;
   prioridad?: string;
   responsable?: string;
+  /** 2.6 (S6): exact tag (`?etiqueta=`). */
+  etiqueta?: string;
   desde?: string;
   hasta?: string;
   valorMin?: string;
@@ -316,6 +324,8 @@ export type ClientFiltersPatch = {
   estado?: string;
   prioridad?: string;
   responsable?: string;
+  /** 2.6 (S6): exact tag (`?etiqueta=`). */
+  etiqueta?: string;
   desde?: string;
   hasta?: string;
   valorMin?: string;
@@ -575,6 +585,8 @@ export type ClientInput = {
   prioridades_identificadas?: string | null;
   riesgos_barreras?: string | null;
   resumen_relacion?: string | null;
+  // 2.6 (S6): tags from the live task_tags catalog; PATCH replaces the list.
+  etiquetas?: string[];
 };
 
 export function useCreateClient(): UseMutationResult<{ cliente: ClientDetail }, Error, ClientInput> {
