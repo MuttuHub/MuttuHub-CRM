@@ -61,6 +61,9 @@ export type DocumentPlacement =
  * Resolves where a document goes and which client it belongs to.
  *
  * - No folder: the explicit client (if any) is kept, exactly as before.
+ *   On creation paths (`crearCarpetaDeCliente`) a document linked to a client
+ *   with no folder makes that client's folder appear: one folder per client
+ *   (A5) without the user having to create it by hand.
  * - Missing/deleted folder: 404 "La carpeta no existe." (same as the move).
  * - Client folder: its client is the document's client. An explicit, different
  *   cliente_id is a 400 — the caller must not get one of the two silently.
@@ -69,15 +72,19 @@ export type DocumentPlacement =
  *   "El cliente no existe o fue eliminado.", the message the upload routes
  *   already used.
  */
-export async function resolveDocumentPlacement(input: {
-  carpetaId: string | null;
-  clienteId: string | null;
-}): Promise<DocumentPlacement> {
+export async function resolveDocumentPlacement(
+  input: {
+    carpetaId: string | null;
+    clienteId: string | null;
+  },
+  opts?: { crearCarpetaDeCliente?: { creadoPorId: string } },
+): Promise<DocumentPlacement> {
   let clienteId = input.clienteId;
+  let carpetaId = input.carpetaId;
 
-  if (input.carpetaId !== null) {
+  if (carpetaId !== null) {
     const carpeta = await db.carpeta.findFirst({
-      where: { id: input.carpetaId, deleted_at: null },
+      where: { id: carpetaId, deleted_at: null },
       select: { id: true, cliente_id: true },
     });
     if (!carpeta) {
@@ -95,7 +102,21 @@ export async function resolveDocumentPlacement(input: {
     return { ok: false, response: apiError(CLIENT_GONE_MESSAGE, 400, "VALIDATION_ERROR") };
   }
 
-  return { ok: true, carpetaId: input.carpetaId, clienteId };
+  // Creación con cliente pero sin carpeta: la carpeta del cliente se crea (o se
+  // reutiliza) y el documento nace adentro. Los movimientos explícitos no pasan
+  // por acá: sacar un documento a «Todas» debe seguir siendo posible.
+  if (carpetaId === null && clienteId !== null && opts?.crearCarpetaDeCliente) {
+    const folder = await findOrCreateClientFolder(
+      clienteId,
+      opts.crearCarpetaDeCliente.creadoPorId,
+    );
+    if (!folder) {
+      return { ok: false, response: apiError(CLIENT_GONE_MESSAGE, 400, "VALIDATION_ERROR") };
+    }
+    carpetaId = folder.carpeta.id;
+  }
+
+  return { ok: true, carpetaId, clienteId };
 }
 
 /**

@@ -105,6 +105,8 @@ export type DocumentFilters = {
   cliente?: string;
   autor?: string;
   carpeta?: string;
+  /** "1" = solo documentos sin carpeta (vista raíz del explorador). */
+  sin_carpeta?: string;
   desde?: string;
   hasta?: string;
   page?: number;
@@ -159,7 +161,7 @@ export function useFolders(): UseQueryResult<FolderNode[]> {
 export function useCreateFolder(): UseMutationResult<
   { carpeta: FolderItem },
   Error,
-  { nombre: string; parent_id?: string | null }
+  { nombre: string; parent_id?: string | null; cliente_id?: string | null }
 > {
   const qc = useQueryClient();
   return useMutation({

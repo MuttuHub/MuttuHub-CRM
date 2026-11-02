@@ -45,6 +45,7 @@ vi.mock("@/lib/db", () => ({
     },
     carpeta: {
       findFirst: vi.fn(),
+      create: vi.fn(),
     },
     $queryRaw: vi.fn(),
     // Array-form $transaction (confirm branch, R3-1): resolve the ops so the
@@ -205,6 +206,20 @@ describe("GET /api/v1/documents", () => {
     expect(where.carpeta_id).toBe("folder-1");
   });
 
+  it("sin_carpeta restricts the listing to documents with no folder", async () => {
+    baseListMocks();
+    vi.mocked(db.documento.findMany).mockResolvedValue([]);
+    vi.mocked(db.documento.count).mockResolvedValue(0);
+
+    const res = await GET(new Request("http://localhost/api/v1/documents?sin_carpeta=1"));
+
+    expect(res.status).toBe(200);
+    const where = vi.mocked(db.documento.findMany).mock.calls[0]![0]!.where as {
+      carpeta_id?: string | null;
+    };
+    expect(where.carpeta_id).toBeNull();
+  });
+
   it("searches content via the FTS candidate query and marks the match", async () => {
     baseListMocks();
     vi.mocked(db.$queryRaw).mockResolvedValueOnce([
@@ -316,6 +331,53 @@ describe("POST /api/v1/documents", () => {
     expect(res.status).toBe(403);
     expect(await res.json()).toMatchObject({ code: "FORBIDDEN" });
     expect(db.documento.create).not.toHaveBeenCalled();
+  });
+
+  it("creates the client's folder when the upload is linked to a client with no folder", async () => {
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({
+      id: "cli-9",
+      nombre: "Fundación Horizonte Nuevo",
+    } as never);
+    vi.mocked(db.carpeta.findFirst).mockResolvedValue(null);
+    vi.mocked(db.carpeta.create).mockResolvedValue({
+      id: "f-nueva",
+      nombre: "Fundación Horizonte Nuevo",
+      parent_id: null,
+      cliente_id: "cli-9",
+      created_at: new Date("2026-01-01"),
+    } as never);
+    vi.mocked(db.documento.create).mockResolvedValue(
+      docRow({ id: "doc-folder", categoria: "Comercial" }),
+    );
+    vi.mocked(db.documentoVersion.create).mockResolvedValue({
+      id: "v-1",
+      documento_id: "doc-folder",
+      numero_version: 1,
+      storage_path: "documentos/cli-9/doc-folder/v1_informe.pdf",
+      tamano_bytes: 3,
+      tipo_archivo: "application/pdf",
+      subido_por_id: "user-1",
+      created_at: new Date("2026-01-01"),
+      contenido_texto: null,
+      texto_estado: null,
+    });
+    vi.mocked(db.documentoCliente.findMany).mockResolvedValue([]);
+
+    const res = await POST(
+      postRequest(uploadForm({ categoria: "Comercial", cliente_id: "cli-9" })),
+    );
+
+    expect(res.status).toBe(201);
+    expect(db.carpeta.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ cliente_id: "cli-9", parent_id: null }),
+      }),
+    );
+    expect(db.documento.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ carpeta_id: "f-nueva" }),
+      }),
+    );
   });
 
   it("allows a COLABORADOR to upload to a non-restricted category", async () => {
@@ -898,13 +960,22 @@ describe("POST /api/v1/documents — signed-upload confirm mode", () => {
   it("links the cliente derived from the signed key to the new document", async () => {
     mockCreateOk();
     const path = `documentos/cli-1/${DOC_ID}/v1_informe.pdf`;
-    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1" } as never);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", nombre: "Acme" } as never);
+    vi.mocked(db.carpeta.create).mockResolvedValue({
+      id: "f-cli-1",
+      nombre: "Acme",
+      parent_id: null,
+      cliente_id: "cli-1",
+      created_at: new Date("2026-01-01"),
+    } as never);
 
     const res = await POST(
       confirmRequest(confirmBody({ storage_path: path, cliente_id: "cli-1" })),
     );
 
     expect(res.status).toBe(201);
+    // Sin carpeta en el body pero con cliente: la carpeta del cliente nace (A5).
+    expect(db.carpeta.create).toHaveBeenCalled();
     expect(db.documentoCliente.create).toHaveBeenCalledWith({
       data: { documento_id: DOC_ID, cliente_id: "cli-1" },
     });
@@ -936,7 +1007,14 @@ describe("POST /api/v1/documents — signed-upload confirm mode", () => {
     mockCreateOk();
     vi.mocked(db.documentoCliente.create).mockResolvedValue({} as never);
     const path = `documentos/cli-1/${DOC_ID}/v1_informe.pdf`;
-    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1" } as never);
+    vi.mocked(db.cliente.findFirst).mockResolvedValue({ id: "cli-1", nombre: "Acme" } as never);
+    vi.mocked(db.carpeta.create).mockResolvedValue({
+      id: "f-cli-1",
+      nombre: "Acme",
+      parent_id: null,
+      cliente_id: "cli-1",
+      created_at: new Date("2026-01-01"),
+    } as never);
 
     const res = await POST(
       confirmRequest(confirmBody({ storage_path: path, cliente_id: "cli-1" })),

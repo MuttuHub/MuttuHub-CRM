@@ -253,6 +253,8 @@ export type DocumentListFilters = {
   cliente?: string;
   autor?: string;
   carpeta?: string;
+  /** "1" = solo documentos sin carpeta (vista raíz del explorador). */
+  sin_carpeta?: string;
   desde?: string;
   hasta?: string;
 };
@@ -292,6 +294,7 @@ export function parseDocumentFilters(
       cliente: sp.get("cliente") ?? undefined,
       autor: sp.get("autor") ?? undefined,
       carpeta: sp.get("carpeta") ?? undefined,
+      sin_carpeta: sp.get("sin_carpeta") ?? undefined,
       desde,
       hasta,
     },
@@ -321,6 +324,8 @@ export async function buildDocumentWhere(
   if (filters.cliente) where.clientes = { some: { cliente_id: filters.cliente } };
   if (filters.autor) where.autor_id = filters.autor;
   if (filters.carpeta) where.carpeta_id = filters.carpeta;
+  // Vista raíz del explorador: solo lo que no está archivado en ninguna carpeta.
+  else if (filters.sin_carpeta) where.carpeta_id = null;
   if (filters.desde || filters.hasta) {
     const rango: Prisma.DateTimeFilter = {};
     if (filters.desde) rango.gte = new Date(filters.desde);

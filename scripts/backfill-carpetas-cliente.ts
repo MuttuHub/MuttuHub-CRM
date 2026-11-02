@@ -1,21 +1,20 @@
 /**
- * WHY (S6, task 1.4): task attachments have always been mirrored into the
- * Document Repository linked to the task's client, but without a folder, so
- * they only show up under «Todas». From 1.4 on the mirror files them into the
- * client's folder; this backfill does the same for the mirrors that already
- * exist. Optional and one-off.
+ * WHY (S6, task 1.4 + regla 2026-11-02): the repository groups documents by
+ * client folder, but documents linked to exactly ONE client can exist without
+ * a folder (legacy mirrored task attachments, seeded documents, uploads made
+ * before the auto-create rule). This one-off backfill files them into their
+ * client's folder, creating the folder when it does not exist yet.
  *
  *   npx tsx scripts/backfill-carpetas-cliente.ts            # dry run (default, no writes)
  *   npx tsx scripts/backfill-carpetas-cliente.ts --apply    # writes
  *
- * Candidates: active documents with no folder that mirror a task attachment and
- * are linked to exactly ONE client. Documents linked to several clients are
- * reported and skipped (no folder can be chosen without guessing). Each
- * client's folder is found or created through the SAME helper the app uses
- * (findOrCreateClientFolder: one folder per client, race-safe); a created
- * folder is attributed to the author of that client's first mirrored document.
- * Idempotent: only rows still without a folder are updated, so a second run
- * finds nothing to do.
+ * Candidates: active documents with no folder and linked to exactly ONE client.
+ * Documents linked to several clients are reported and skipped (no folder can
+ * be chosen without guessing). Each client's folder is found or created
+ * through the SAME helper the app uses (findOrCreateClientFolder: one folder
+ * per client, race-safe); a created folder is attributed to the author of that
+ * client's first candidate document. Idempotent: only rows still without a
+ * folder are updated, so a second run finds nothing to do.
  *
  * The `require-local-db` guard MUST be the first import: it loads `.env.local`
  * and refuses a non-loopback database before `@/lib/db` builds a Prisma client
@@ -93,7 +92,7 @@ export async function runBackfill(
   const candidates = await deps.findCandidates()
   report.candidatos = candidates.length
 
-  // Group the single-client mirrors by client, keeping the first author.
+  // Group the single-client documents by client, keeping the first author.
   const byClient = new Map<string, { autorId: string; documentoIds: string[] }>()
   for (const candidate of candidates) {
     if (candidate.clienteIds.length !== 1) {
@@ -109,7 +108,7 @@ export async function runBackfill(
 
   const existing = await deps.existingClientFolders([...byClient.keys()])
   const toFile = [...byClient.values()].reduce((n, g) => n + g.documentoIds.length, 0)
-  print(`  mirrored documents without folder: ${report.candidatos}`)
+  print(`  documents without folder: ${report.candidatos}`)
   print(`  linked to several clients (skipped): ${report.omitidosVariosClientes}`)
   print(`  documents to file: ${toFile} across ${report.clientes} client(s)`)
   print(`  client folders: ${existing.size} existing, ${report.clientes - existing.size} to create`)
@@ -145,7 +144,6 @@ export function prismaDeps(): BackfillDeps {
         where: {
           deleted_at: null,
           carpeta_id: null,
-          adjuntos_tarea: { some: {} },
           clientes: { some: {} },
         },
         select: { id: true, autor_id: true, clientes: { select: { cliente_id: true } } },

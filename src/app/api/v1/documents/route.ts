@@ -229,10 +229,13 @@ async function confirmSignedDocument(
     // Same folder/client rule as the sign endpoint: the key was signed for the
     // client the folder imposes, so the client resolved here from the folder
     // must be exactly the one encoded in the key (S3).
-    const placement = await resolveDocumentPlacement({
-      carpetaId: carpetaParsed.carpetaId,
-      clienteId,
-    });
+    const placement = await resolveDocumentPlacement(
+      {
+        carpetaId: carpetaParsed.carpetaId,
+        clienteId,
+      },
+      { crearCarpetaDeCliente: { creadoPorId: usuario.id } },
+    );
     if (!placement.ok) return placement.response;
     if (placement.clienteId !== clienteId) {
       return apiError(FOLDER_CLIENT_MISMATCH_MESSAGE, 400, "VALIDATION_ERROR");
@@ -578,11 +581,15 @@ export async function POST(request: Request) {
     const titulo = gate.titulo;
 
     // Folder + client (S3): a client folder imposes its client, which then
-    // drives the link AND the storage key below.
-    const placement = await resolveDocumentPlacement({
-      carpetaId: carpetaParsed.carpetaId,
-      clienteId: clienteIdRaw,
-    });
+    // drives the link AND the storage key below. Sin carpeta pero con cliente
+    // en la creación: la carpeta del cliente se crea/reutiliza (A5).
+    const placement = await resolveDocumentPlacement(
+      {
+        carpetaId: carpetaParsed.carpetaId,
+        clienteId: clienteIdRaw,
+      },
+      { crearCarpetaDeCliente: { creadoPorId: auth.usuario.id } },
+    );
     if (!placement.ok) return placement.response;
     const { carpetaId, clienteId } = placement;
 
