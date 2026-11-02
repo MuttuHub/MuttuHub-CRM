@@ -9,6 +9,17 @@
 // strength). Filter chips narrow both panels by aliado, like the Interacciones
 // sibling. Reads are global, matching the client list (PR 3); nothing writes.
 
+// El filtro por aliado vive en un Select compacto (patrón del resto de
+// filtros del sistema): la fila de chips se hacía interminable con muchos
+// clientes (hallazgo del testing 2026-11-02).
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 import { useMemo, useState } from "react";
 import { ROL_CONTACTO_LABELS } from "@/lib/catalogs";
 import { cn } from "@/lib/utils";
@@ -117,20 +128,22 @@ export function RelacionesVista() {
   return (
     <div className="flex min-w-0 flex-col gap-4">
       {clientes.length > 1 && (
-        <div role="group" aria-label="Filtrar por aliado" className="flex flex-wrap gap-2">
-          <FiltroChip activo={clienteId === "todos"} onClick={() => setClienteId("todos")}>
-            Todos los aliados
-          </FiltroChip>
-          {clientes.map((c) => (
-            <FiltroChip
-              key={c.id}
-              activo={clienteId === c.id}
-              onClick={() => setClienteId(c.id)}
-            >
-              {c.nombre}
-            </FiltroChip>
-          ))}
-        </div>
+        <Select
+          value={clienteId}
+          onValueChange={(v) => setClienteId(v === "todos" ? "todos" : (v ?? "todos"))}
+        >
+          <SelectTrigger aria-label="Filtrar por aliado" className="w-full sm:w-96">
+            <SelectValue placeholder="Filtrar por aliado" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos los aliados</SelectItem>
+            {clientes.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.nombre}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       )}
 
       {query.isLoading && (
@@ -287,28 +300,3 @@ function ContactoRow({ contacto }: { contacto: ContactoFeedItem }) {
   );
 }
 
-function FiltroChip({
-  activo,
-  onClick,
-  children,
-}: {
-  activo: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={activo}
-      onClick={onClick}
-      className={cn(
-        "h-10 rounded-full border px-4 text-[14px] font-semibold whitespace-nowrap transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-        activo
-          ? "border-rose-500 bg-rose-500 text-white"
-          : "border-border-strong bg-transparent text-ink-800 hover:bg-muted",
-      )}
-    >
-      {children}
-    </button>
-  );
-}

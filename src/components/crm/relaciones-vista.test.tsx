@@ -266,7 +266,7 @@ describe("RelacionesVista — estados y filtro", () => {
     expect(screen.getByText("No hay contactos registrados")).toBeInTheDocument();
   });
 
-  it("filters the map and list by aliado with the v7 filter chips", async () => {
+  it("filters the map and list by aliado with a compact select", async () => {
     const user = userEvent.setup();
     useGlobalContactsMock.mockReturnValue({
       data: [
@@ -279,22 +279,17 @@ describe("RelacionesVista — estados y filtro", () => {
 
     renderVista();
 
-    const chips = screen.getByRole("group", { name: "Filtrar por aliado" });
-    expect(within(chips).getByRole("button", { name: "Todos los aliados" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    expect(within(chips).getByRole("button", { name: "Alcaldía A" })).toBeInTheDocument();
-    expect(within(chips).getByRole("button", { name: "Alcaldía B" })).toBeInTheDocument();
+    const combo = screen.getByRole("combobox", { name: "Filtrar por aliado" });
+    expect(combo).toBeInTheDocument();
 
-    await user.click(within(chips).getByRole("button", { name: "Alcaldía B" }));
+    await user.click(combo);
+    await user.click(await screen.findByRole("option", { name: "Alcaldía B" }));
 
     const list = screen.getByRole("list", { name: "Contactos" });
     expect(within(list).getByText("Beto B")).toBeInTheDocument();
     expect(within(list).queryByText("Ana A")).not.toBeInTheDocument();
-    expect(within(chips).getByRole("button", { name: "Alcaldía B" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
+    expect(screen.getByRole("combobox", { name: "Filtrar por aliado" })).toHaveTextContent(
+      "Alcaldía B",
     );
   });
 });
