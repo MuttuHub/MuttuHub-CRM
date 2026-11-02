@@ -1,8 +1,9 @@
 // Repositorio documental (PRD §6.2): listado con búsqueda y filtros
 // (categoría, etiqueta, cliente, autor, rango de fecha), selección múltiple
 // con descarga .zip (POST /documents/zip), ficha en diálogo y subida de
-// documentos. La pestaña Documentos de la ficha de cliente deep-linkea acá
-// con ?cliente=<id> (el filtro se precarga desde el query param).
+// documentos. Entrada SIEMPRE en la raíz limpia (decisión 2026-11-02: los
+// deep-links con ?cliente ya no precargan filtros; el botón «Ver documentos»
+// de la ficha del cliente navega al repositorio).
 // Carpetas (S3–S5): "Subir documento" guarda en la carpeta abierta; "Carpeta
 // de cliente" abre (o crea) la carpeta de un cliente; soltar archivos sobre
 // el listado o sobre una carpeta los sube ahí; y un documento arrastrado de
@@ -11,7 +12,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
-import { useSearchParams } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
@@ -24,20 +24,51 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import {
+  ArrowLeft,
+  ArrowRight,
+  ChevronRight,
   Download,
   Eye,
+  File,
+  FileArchive,
+  FileAudio,
+  FileImage,
+  FileSpreadsheet,
+  FileText,
+  FileType,
   FileUp,
+  FileVideo,
+  Folder,
   FolderOpen,
   FolderPlus,
   GripVertical,
+  LayoutGrid,
+  List,
   LoaderCircle,
+  MoreHorizontal,
+  Pencil,
+  Presentation,
   RotateCcw,
   Search,
   SlidersHorizontal,
-  UserRound,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -76,6 +107,7 @@ import {
   useDocuments,
   useFolders,
   useMoveDocument,
+  useUpdateFolder,
   type DocumentFilters,
   type DocumentItem,
   type FolderNode,
@@ -84,13 +116,13 @@ import { ToneBadge } from "@/components/crm/shared";
 import { DocumentDialog } from "@/components/documents/document-dialog";
 import { UploadDocumentDialog } from "@/components/documents/upload-dialog";
 import {
+  FOLDER_DRAG_TYPE,
   FOLDER_DROP_PREFIX,
-  FolderTree,
   ROOT_DROP_ID,
+  useFolderDropTarget,
   type FolderAction,
 } from "@/components/documents/folder-tree";
 import {
-  ClientFolderDialog,
   CreateFolderDialog,
   DeleteFolderDialog,
   MoveFolderDialog,
@@ -140,6 +172,9 @@ function toFilters(local: LocalFilters, page: number): DocumentFilters {
   // Drive): buscar dentro de una sola carpeta es un default sin sorpresas pero
   // inútil cuando no sabés dónde está el archivo.
   if (local.carpeta && !local.q.trim()) out.carpeta = local.carpeta;
+  // Raíz del explorador: solo documentos sin carpeta (los archivados viven en
+  // su carpeta). Con búsqueda activa se busca en todo el repositorio.
+  if (!local.carpeta && !local.q.trim()) out.sin_carpeta = "1";
   if (local.desde) out.desde = local.desde;
   if (local.hasta) out.hasta = local.hasta;
   return out;
@@ -158,12 +193,16 @@ function hasActive(local: LocalFilters): boolean {
   );
 }
 
-/** Path from the root to the active folder (raíz -> ... -> activa). */
-function folderPath(nodes: FolderNode[], id: string): string[] {
+/** Lo mismo que folderPath, pero con ids para navegar desde el breadcrumb. */
+function folderTrail(
+  nodes: FolderNode[],
+  id: string | null,
+): { id: string; nombre: string }[] {
+  if (!id) return [];
   for (const n of nodes) {
-    if (n.id === id) return [n.nombre];
-    const child = folderPath(n.hijos, id);
-    if (child.length > 0) return [n.nombre, ...child];
+    if (n.id === id) return [{ id: n.id, nombre: n.nombre }];
+    const child = folderTrail(n.hijos, id);
+    if (child.length > 0) return [{ id: n.id, nombre: n.nombre }, ...child];
   }
   return [];
 }
@@ -186,20 +225,20 @@ function findFolder(nodes: FolderNode[], id: string): FolderNode | null {
 }
 
 export function RepositoryList() {
-  const searchParams = useSearchParams();
-  const clienteParam = searchParams.get("cliente") ?? "";
-
-  const [local, setLocal] = useState<LocalFilters>({
-    ...EMPTY_LOCAL,
-    cliente: clienteParam,
-  });
+  const [local, setLocal] = useState<LocalFilters>(EMPTY_LOCAL);
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [uploadOpen, setUploadOpen] = useState(false);
   const [fichaId, setFichaId] = useState<string | null>(null);
   const [zipPending, setZipPending] = useState(false);
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
-  const [clientFolderOpen, setClientFolderOpen] = useState(false);
+  // Historial de navegación del explorador (atrás/adelante del breadcrumb).
+  const [folderHistory, setFolderHistory] = useState<{
+    stack: (string | null)[];
+    index: number;
+  }>({ stack: [null], index: 0 });
+  // Explorer 2026-11-02: documentos como iconos por tipo (grid) o tabla (lista).
+  const [vistaDocs, setVistaDocs] = useState<"grid" | "lista">("grid");
   // Archivos soltados (S5) y la carpeta destino; abre el diálogo de subida.
   const [dropUpload, setDropUpload] = useState<{
     files: File[];
@@ -216,8 +255,9 @@ export function RepositoryList() {
   const usersQuery = useUsers();
   const clientsQuery = useClientOptions();
   const foldersQuery = useFolders();
-  const folders = foldersQuery.data ?? [];
+  const folders = useMemo(() => foldersQuery.data ?? [], [foldersQuery.data]);
   const moveDocument = useMoveDocument();
+  const updateFolder = useUpdateFolder();
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor),
@@ -302,10 +342,34 @@ export function RepositoryList() {
     }
   }
 
-  const activeFolderName = local.carpeta
-    ? folderPath(folders, local.carpeta).join(" / ")
-    : "";
   const activeFolder = local.carpeta ? findFolder(folders, local.carpeta) : null;
+  const trail = folderTrail(folders, local.carpeta || null);
+  // Explorador: carpetas hijas de la carpeta abierta (en la raíz, las de primer nivel).
+  const subfolders = activeFolder ? activeFolder.hijos : folders;
+
+  // Guarda de movimientos de carpetas: el destino no puede estar dentro del
+  // propio subárbol del origen (ciclo) ni repetir el padre actual.
+  const canMoveFolder = useMemo(() => {
+    const pathSets = new Map<string, Set<string>>();
+    const parentOf = new Map<string, string | null>();
+    const walk = (list: FolderNode[], ancestors: string[], parentId: string | null) => {
+      for (const n of list) {
+        parentOf.set(n.id, parentId);
+        pathSets.set(n.id, new Set([...ancestors, n.id]));
+        walk(n.hijos, [...ancestors, n.id], n.id);
+      }
+    };
+    walk(folders, [], null);
+    return (sourceId: string, targetId: string | null) => {
+      if (sourceId === targetId) return false;
+      if (targetId !== null && pathSets.get(targetId)?.has(sourceId)) return false;
+      return parentOf.get(sourceId) !== targetId;
+    };
+  }, [folders]);
+
+  function moverCarpeta(id: string, parentId: string | null) {
+    void updateFolder.mutateAsync({ id, parent_id: parentId }).catch(() => {});
+  }
   const uploadFolder = dropUpload
     ? dropUpload.folderId
       ? findFolder(folders, dropUpload.folderId)
@@ -314,8 +378,25 @@ export function RepositoryList() {
 
   /** Archivos soltados sobre una carpeta (o el listado): se suben ahí. */
   function handleDropFiles(folderId: string | null, files: File[]) {
-    if (folderId !== (local.carpeta || null)) commit({ carpeta: folderId ?? "" });
+    if (folderId !== (local.carpeta || null)) navigateFolder(folderId);
     setDropUpload({ files, folderId });
+  }
+
+  /** Entra a una carpeta (o raíz) dejando rastro para atrás/adelante. */
+  function navigateFolder(id: string | null) {
+    const stack = [...folderHistory.stack.slice(0, folderHistory.index + 1), id];
+    setFolderHistory({ stack, index: stack.length - 1 });
+    // La carpeta define su propio cliente: si la página venía con un filtro de
+    // cliente (URL desde la ficha de otro cliente), arrastrarlo dejaba el
+    // listado vacío al entrar a una carpeta de un cliente distinto.
+    commit(id ? { carpeta: id, cliente: "" } : { carpeta: "" });
+  }
+
+  function goHistory(delta: number) {
+    const index = folderHistory.index + delta;
+    if (index < 0 || index >= folderHistory.stack.length) return;
+    setFolderHistory({ ...folderHistory, index });
+    commit({ carpeta: folderHistory.stack[index] ?? "" });
   }
 
   function handleDragStart(event: DragStartEvent) {
@@ -333,13 +414,31 @@ export function RepositoryList() {
     }
     const carpetaId = overId === ROOT_DROP_ID ? null : overId.slice(FOLDER_DROP_PREFIX.length);
     // Con una carpeta abierta, todo lo listado ya está en ella: soltarlo ahí
-    // no cambia nada (ni PATCH ni toast «Documento movido.»).
-    if (applied.carpeta && carpetaId === applied.carpeta) return;
+    // no cambia nada (ni PATCH ni toast «Documento movido.»). En la raíz, soltar
+    // sobre «Todas» tampoco cambia nada.
+    if (carpetaId === (applied.carpeta || null)) return;
     moveDocument.mutate({ id: activeId.slice(DOC_DRAG_PREFIX.length), carpeta_id: carpetaId });
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-4">
+    <div
+      className="flex min-w-0 flex-col gap-4"
+      onDragOver={(event) => {
+        // Red de seguridad: soltar archivos sobre un área vacía (p. ej. el grid
+        // o el fondo) NO debe navegar fuera de la app; se abre el diálogo de
+        // subida igual que sobre el listado.
+        if (Array.from(event.dataTransfer?.types ?? []).includes("Files")) {
+          event.preventDefault();
+        }
+      }}
+      onDrop={(event) => {
+        if (event.defaultPrevented) return; // un destino más específico ya lo manejó
+        const files = droppedFiles(event);
+        if (files.length === 0) return;
+        event.preventDefault();
+        handleDropFiles(local.carpeta || null, files);
+      }}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-[52ch] text-[13.5px] leading-relaxed text-ink-600">
           Biblioteca con metadatos: títulos, categorías, etiquetas, clientes y
@@ -354,29 +453,82 @@ export function RepositoryList() {
         </Button>
       </div>
 
-      <div className="flex min-w-0 items-center gap-2 text-[13px]">
-        <FolderOpen className="size-4 text-ink-500" strokeWidth={1.8} />
+      <div className="flex min-w-0 items-center gap-1.5 text-[13px]">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Atrás"
+          disabled={folderHistory.index === 0}
+          onClick={() => goHistory(-1)}
+          className="text-ink-500 hover:text-ink-800"
+        >
+          <ArrowLeft className="size-4" strokeWidth={1.9} />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Adelante"
+          disabled={folderHistory.index >= folderHistory.stack.length - 1}
+          onClick={() => goHistory(1)}
+          className="text-ink-500 hover:text-ink-800"
+        >
+          <ArrowRight className="size-4" strokeWidth={1.9} />
+        </Button>
+        <span aria-hidden="true" className="mx-1 h-5 w-px bg-border" />
+        <FolderOpen className="size-4 shrink-0 text-ink-500" strokeWidth={1.8} />
         {local.q.trim() ? (
           <span className="font-semibold text-ink-800">Resultados de búsqueda</span>
         ) : (
-          <>
-            <button
-              type="button"
-              onClick={() => commit({ carpeta: "" })}
-              className={cn(
-                "font-semibold",
-                !local.carpeta ? "text-exito" : "text-ink-600 hover:text-ink-800",
-              )}
-            >
-              Repositorio
-            </button>
-            {activeFolderName && (
+          <nav
+            aria-label="Ruta de carpetas"
+            className="flex min-w-0 items-center gap-1 overflow-x-auto"
+          >
+            {trail.length === 0 ? (
+              <RootDropTarget onMoveFolder={moverCarpeta} canMoveFolder={canMoveFolder}>
+                <span className="shrink-0 font-semibold text-exito">Todas</span>
+              </RootDropTarget>
+            ) : (
               <>
-                <span className="text-ink-400">/</span>
-                <span className="font-semibold text-ink-800">{activeFolderName}</span>
+                <RootDropTarget onMoveFolder={moverCarpeta} canMoveFolder={canMoveFolder}>
+                  <button
+                    type="button"
+                    onClick={() => navigateFolder(null)}
+                    aria-label="Ir a Todas"
+                    className="shrink-0 font-semibold text-ink-600 hover:text-ink-800"
+                  >
+                    Todas
+                  </button>
+                </RootDropTarget>
+                {trail.map((segmento, i) => {
+                  const esActual = i === trail.length - 1;
+                  return (
+                    <span key={segmento.id} className="flex min-w-0 items-center gap-1">
+                      <ChevronRight
+                        aria-hidden="true"
+                        className="size-3.5 shrink-0 text-ink-400"
+                        strokeWidth={2}
+                      />
+                      {esActual ? (
+                        <span className="truncate font-semibold text-ink-800">
+                          {segmento.nombre}
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => navigateFolder(segmento.id)}
+                          className="truncate font-semibold text-ink-600 hover:text-ink-800"
+                        >
+                          {segmento.nombre}
+                        </button>
+                      )}
+                    </span>
+                  );
+                })}
               </>
             )}
-          </>
+          </nav>
         )}
       </div>
 
@@ -386,49 +538,45 @@ export function RepositoryList() {
         onDragEnd={handleDragEnd}
         onDragCancel={() => setDraggedDoc(null)}
       >
-      <div className="flex min-w-0 flex-col gap-4 lg:grid lg:grid-cols-[240px_1fr]">
-        <aside className="flex min-w-0 flex-col gap-3 surface p-3">
-          <div className="flex items-center justify-between gap-2 px-1">
-            <span className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-              Carpetas
-            </span>
+      <div className="flex min-w-0 flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
-              variant="ghost"
-              size="icon-sm"
+              variant="outline"
+              size="sm"
               onClick={() => setCreateFolderOpen(true)}
-              aria-label="Crear carpeta"
-              className="text-ink-500 hover:text-ink-800"
+              className="px-2.5 text-[12.5px] font-semibold text-ink-800"
             >
-              <FolderPlus className="size-4" strokeWidth={1.9} />
+              <FolderPlus className="size-3.5 text-exito" strokeWidth={1.9} />
+              Nueva carpeta
             </Button>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setClientFolderOpen(true)}
-            className="justify-start px-2.5 text-[12.5px] font-semibold text-ink-800"
-          >
-            <UserRound className="size-3.5 text-exito" strokeWidth={1.9} />
-            Carpeta de cliente
-          </Button>
-          {foldersQuery.isLoading ? (
-            <div className="space-y-2 p-1">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-7 w-full rounded-10" />
-              ))}
+            <div className="flex items-center rounded-12 border border-border-strong" role="group" aria-label="Vista de documentos">
+              <Button
+                type="button"
+                variant={vistaDocs === "grid" ? "secondary" : "ghost"}
+                size="sm"
+                aria-label="Vista cuadrícula"
+                aria-pressed={vistaDocs === "grid"}
+                onClick={() => setVistaDocs("grid")}
+                className="rounded-r-none px-2.5"
+              >
+                <LayoutGrid className="size-4" strokeWidth={1.9} />
+              </Button>
+              <Button
+                type="button"
+                variant={vistaDocs === "lista" ? "secondary" : "ghost"}
+                size="sm"
+                aria-label="Vista lista"
+                aria-pressed={vistaDocs === "lista"}
+                onClick={() => setVistaDocs("lista")}
+                className="rounded-l-none px-2.5"
+              >
+                <List className="size-4" strokeWidth={1.9} />
+              </Button>
             </div>
-          ) : (
-            <FolderTree
-              folders={folders}
-              activeId={local.carpeta || null}
-              onSelect={(id) => commit({ carpeta: id ?? "" })}
-              onAction={(id, action) => setFolderAction({ id, action })}
-              onDropFiles={handleDropFiles}
-            />
-          )}
-        </aside>
+          </div>
+        </div>
 
         <div className="flex min-w-0 flex-col gap-4">
           <SectionFilters
@@ -475,6 +623,24 @@ export function RepositoryList() {
 
           {listQuery.isError ? (
             <SinConexionCard unconfigured={unconfigured} onRetry={() => void listQuery.refetch()} />
+          ) : vistaDocs === "grid" ? (
+            <DocumentsGridCard
+              query={listQuery}
+              page={page}
+              totalPages={totalPages}
+              desde={desde}
+              hasta={hasta}
+              total={total}
+              folders={local.q.trim() ? [] : subfolders}
+              onOpenFolder={navigateFolder}
+              onFolderAction={(id, action) => setFolderAction({ id, action })}
+              onFolderDropFiles={handleDropFiles}
+              onFolderMove={moverCarpeta}
+              canMoveFolder={canMoveFolder}
+              onPage={setPage}
+              onOpenFicha={setFichaId}
+              onOpenUpload={() => setUploadOpen(true)}
+            />
           ) : (
             <DocumentsTableCard
               query={listQuery}
@@ -483,6 +649,12 @@ export function RepositoryList() {
               desde={desde}
               hasta={hasta}
               total={total}
+              folders={local.q.trim() ? [] : subfolders}
+              onOpenFolder={navigateFolder}
+              onFolderAction={(id, action) => setFolderAction({ id, action })}
+              onFolderDropFiles={handleDropFiles}
+              onFolderMove={moverCarpeta}
+              canMoveFolder={canMoveFolder}
               selected={selected}
               allPageSelected={allPageSelected}
               onTogglePage={togglePage}
@@ -519,14 +691,6 @@ export function RepositoryList() {
           initialFiles={dropUpload?.files}
         />
       )}
-      {clientFolderOpen && (
-        <ClientFolderDialog
-          open
-          onOpenChange={setClientFolderOpen}
-          clientes={clientes}
-          onOpened={(carpetaId) => commit({ carpeta: carpetaId })}
-        />
-      )}
       <DocumentDialog documentId={fichaId} onClose={() => setFichaId(null)} />
       {createFolderOpen && (
         <CreateFolderDialog
@@ -534,6 +698,7 @@ export function RepositoryList() {
           onOpenChange={setCreateFolderOpen}
           defaultParentId={local.carpeta || null}
           folders={folders}
+          clientes={clientes}
         />
       )}
       {folderAction && (
@@ -767,6 +932,291 @@ function SectionFilters({
 
 /* ── Tabla de documentos ───────────────────────────────────────────────── */
 
+/* ── Explorer: icono según el tipo de documento ────────────────────────── */
+
+function documentFileMeta(doc: DocumentItem): {
+  Icon: typeof File;
+  className: string;
+  label: string;
+} {
+  const ext = (doc.titulo.split(".").pop() ?? "").toLowerCase();
+  const mime = doc.version_activa?.tipo_archivo ?? "";
+  if (mime.includes("pdf") || ext === "pdf")
+    return { Icon: FileText, className: "text-rose-600", label: "PDF" };
+  if (mime.includes("word") || ["doc", "docx", "rtf", "odt"].includes(ext))
+    return { Icon: FileType, className: "text-sky-600", label: "DOC" };
+  if (mime.includes("sheet") || mime.includes("excel") || ["xls", "xlsx", "csv", "ods"].includes(ext))
+    return { Icon: FileSpreadsheet, className: "text-emerald-600", label: "XLS" };
+  if (mime.includes("presentation") || mime.includes("powerpoint") || ["ppt", "pptx", "odp"].includes(ext))
+    return { Icon: Presentation, className: "text-orange-500", label: "PPT" };
+  if (mime.startsWith("image/") || ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"].includes(ext))
+    return { Icon: FileImage, className: "text-violet-500", label: "IMG" };
+  if (["zip", "rar", "7z", "tar", "gz"].includes(ext))
+    return { Icon: FileArchive, className: "text-amber-600", label: "ZIP" };
+  if (mime.startsWith("video/") || ["mp4", "mov", "avi", "mkv", "webm"].includes(ext))
+    return { Icon: FileVideo, className: "text-indigo-500", label: "VID" };
+  if (mime.startsWith("audio/") || ["mp3", "wav", "ogg", "m4a"].includes(ext))
+    return { Icon: FileAudio, className: "text-pink-500", label: "AUD" };
+  return { Icon: File, className: "text-ink-500", label: "FILE" };
+}
+
+/* ── Explorer: tile de carpeta (clic derecho + arrastrar/soltar) ───────── */
+
+function FolderTile({
+  node,
+  onOpen,
+  onAction,
+  onDropFiles,
+  onMoveFolder,
+  canMoveFolder,
+}: {
+  node: FolderNode;
+  onOpen: () => void;
+  onAction: (action: FolderAction) => void;
+  onDropFiles: (folderId: string | null, files: File[]) => void;
+  onMoveFolder: (folderId: string, targetId: string | null) => void;
+  canMoveFolder: (sourceId: string, targetId: string | null) => boolean;
+}) {
+  const { setNodeRef, isOver, handlers } = useFolderDropTarget(
+    node.id,
+    onDropFiles,
+    onMoveFolder,
+    canMoveFolder,
+  );
+
+  return (
+    <ContextMenu>
+      <div className="group relative">
+        <ContextMenuTrigger className="contents">
+          <div
+            ref={setNodeRef}
+            {...handlers}
+            className={cn("rounded-12", isOver && "bg-exito-bg ring-2 ring-exito/50")}
+          >
+            <button
+              type="button"
+              onClick={onOpen}
+              draggable
+              onDragStart={(event) => {
+                if (!event.dataTransfer) return;
+                event.dataTransfer.setData(FOLDER_DRAG_TYPE, node.id);
+                event.dataTransfer.effectAllowed = "move";
+              }}
+              className="flex w-full cursor-grab flex-col items-center gap-1 rounded-12 px-2 py-3 text-center transition-colors hover:bg-ink-100/70 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:cursor-grabbing"
+            >
+              <Folder
+                className="size-10 text-amber-400 transition-colors group-hover:text-amber-500"
+                strokeWidth={1.3}
+              />
+              <span className="line-clamp-2 w-full text-[12px] font-semibold text-ink-800">
+                {node.nombre}
+              </span>
+              <span className="text-[10.5px] tracking-wide text-ink-500">
+                {node.documentos_count} doc{node.documentos_count === 1 ? "" : "s"}
+              </span>
+            </button>
+          </div>
+        </ContextMenuTrigger>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label={`Acciones de ${node.nombre}`}
+                className="absolute top-0 right-0 h-6 w-6 rounded-md p-0 text-ink-400 opacity-0 group-hover:opacity-100 hover:bg-transparent hover:text-ink-800 focus-visible:opacity-100"
+              >
+                <MoreHorizontal className="size-3.5" strokeWidth={2} />
+              </Button>
+            }
+          />
+          <DropdownMenuContent align="start" className="min-w-[150px]">
+            <DropdownMenuItem onClick={() => onAction("rename")}>
+              <Pencil className="size-3.5" strokeWidth={1.9} />
+              Renombrar
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onAction("move")}>
+              <Folder className="size-3.5" strokeWidth={1.9} />
+              Mover…
+            </DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" onClick={() => onAction("delete")}>
+              <Trash2 className="size-3.5" strokeWidth={1.9} />
+              Eliminar
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      <ContextMenuContent>
+        <ContextMenuLabel className="max-w-52 truncate">{node.nombre}</ContextMenuLabel>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={() => onAction("rename")}>
+          <Pencil className="size-3.5" strokeWidth={1.9} />
+          Renombrar
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => onAction("move")}>
+          <Folder className="size-3.5" strokeWidth={1.9} />
+          Mover…
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem variant="destructive" onClick={() => onAction("delete")}>
+          <Trash2 className="size-3.5" strokeWidth={1.9} />
+          Eliminar
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  );
+}
+
+/* ── Explorer: documentos como iconos por tipo ─────────────────────────── */
+
+function GridDocTile({ doc, onOpen }: { doc: DocumentItem; onOpen: () => void }) {
+  const meta = documentFileMeta(doc);
+  const Icon = meta.Icon;
+  const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
+    id: `${DOC_DRAG_PREFIX}${doc.id}`,
+  });
+  return (
+    <button
+      type="button"
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      onClick={onOpen}
+      title={doc.titulo}
+      className={cn(
+        "flex w-full cursor-grab flex-col items-center gap-1 rounded-12 px-2 py-3 text-center transition-colors hover:bg-ink-100/70 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:cursor-grabbing",
+        isDragging && "opacity-40",
+      )}
+    >
+      <Icon className={cn("size-10", meta.className)} strokeWidth={1.3} />
+      <span className="line-clamp-2 w-full text-[12px] font-semibold text-ink-800">
+        {doc.titulo}
+      </span>
+      <span className="text-[10.5px] tracking-wide text-ink-500">{meta.label}</span>
+    </button>
+  );
+}
+
+function RootDropTarget({
+  onMoveFolder,
+  canMoveFolder,
+  children,
+}: {
+  onMoveFolder: (folderId: string, targetId: string | null) => void;
+  canMoveFolder: (sourceId: string, targetId: string | null) => boolean;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef, isOver, handlers } = useFolderDropTarget(
+    null,
+    undefined,
+    onMoveFolder,
+    canMoveFolder,
+  );
+  return (
+    <span
+      ref={setNodeRef}
+      {...handlers}
+      className={cn(
+        "inline-flex items-center rounded-6 px-1",
+        isOver && "bg-exito-bg ring-2 ring-exito/40",
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+function DocumentsGridCard({
+  query,
+  page,
+  totalPages,
+  desde,
+  hasta,
+  total,
+  folders,
+  onOpenFolder,
+  onFolderAction,
+  onFolderDropFiles,
+  onFolderMove,
+  canMoveFolder,
+  onPage,
+  onOpenFicha,
+  onOpenUpload,
+}: {
+  query: { isLoading: boolean; data?: { items: DocumentItem[]; total: number } | undefined };
+  page: number;
+  totalPages: number;
+  desde: number;
+  hasta: number;
+  total: number;
+  folders: FolderNode[];
+  onOpenFolder: (id: string) => void;
+  onFolderAction: (id: string, action: FolderAction) => void;
+  onFolderDropFiles: (folderId: string | null, files: File[]) => void;
+  onFolderMove: (folderId: string, targetId: string | null) => void;
+  canMoveFolder: (sourceId: string, targetId: string | null) => boolean;
+  onPage: (p: number) => void;
+  onOpenFicha: (id: string) => void;
+  onOpenUpload: () => void;
+}) {
+  const items = query.data?.items ?? [];
+
+  return (
+    <section aria-label="Documentos" className="surface overflow-hidden">
+      {folders.length > 0 && (
+        <ul
+          aria-label="Subcarpetas"
+          className="grid grid-cols-2 gap-2 border-b border-ink-200 px-4 py-4 sm:grid-cols-4 lg:grid-cols-6"
+        >
+          {folders.map((n) => (
+            <li key={n.id}>
+              <FolderTile
+                node={n}
+                onOpen={() => onOpenFolder(n.id)}
+                onAction={(action) => onFolderAction(n.id, action)}
+                onDropFiles={onFolderDropFiles}
+                onMoveFolder={onFolderMove}
+                canMoveFolder={canMoveFolder}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+      {query.isLoading ? (
+        <div className="grid grid-cols-2 gap-3 p-5 sm:grid-cols-4 lg:grid-cols-6">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 w-full rounded-inner" />
+          ))}
+        </div>
+      ) : items.length === 0 ? (
+        <EmptyDocuments onOpenUpload={onOpenUpload} />
+      ) : (
+        <>
+          <ul
+            aria-label="Documentos"
+            className="grid grid-cols-2 gap-2 p-4 sm:grid-cols-4 lg:grid-cols-6"
+          >
+            {items.map((doc) => (
+              <li key={doc.id}>
+                <GridDocTile doc={doc} onOpen={() => onOpenFicha(doc.id)} />
+              </li>
+            ))}
+          </ul>
+          <PaginationFooter
+            page={page}
+            totalPages={totalPages}
+            desde={desde}
+            hasta={hasta}
+            total={total}
+            onPage={onPage}
+          />
+        </>
+      )}
+    </section>
+  );
+}
+
 function DocumentsTableCard({
   query,
   page,
@@ -774,6 +1224,12 @@ function DocumentsTableCard({
   desde,
   hasta,
   total,
+  folders,
+  onOpenFolder,
+  onFolderAction,
+  onFolderDropFiles,
+  onFolderMove,
+  canMoveFolder,
   selected,
   allPageSelected,
   onTogglePage,
@@ -790,6 +1246,12 @@ function DocumentsTableCard({
   desde: number;
   hasta: number;
   total: number;
+  folders: FolderNode[];
+  onOpenFolder: (id: string) => void;
+  onFolderAction: (id: string, action: FolderAction) => void;
+  onFolderDropFiles: (folderId: string | null, files: File[]) => void;
+  onFolderMove: (folderId: string, targetId: string | null) => void;
+  canMoveFolder: (sourceId: string, targetId: string | null) => boolean;
   selected: Set<string>;
   allPageSelected: boolean;
   onTogglePage: () => void;
@@ -833,6 +1295,25 @@ function DocumentsTableCard({
               : "Suelta los archivos para subirlos al repositorio"}
           </p>
         </div>
+      )}
+      {folders.length > 0 && (
+        <ul
+          aria-label="Subcarpetas"
+          className="grid grid-cols-2 gap-2 border-b border-ink-200 px-4 py-4 sm:grid-cols-4 lg:grid-cols-6"
+        >
+          {folders.map((n) => (
+            <li key={n.id}>
+              <FolderTile
+                node={n}
+                onOpen={() => onOpenFolder(n.id)}
+                onAction={(action) => onFolderAction(n.id, action)}
+                onDropFiles={onFolderDropFiles}
+                onMoveFolder={onFolderMove}
+                canMoveFolder={canMoveFolder}
+              />
+            </li>
+          ))}
+        </ul>
       )}
       {query.isLoading ? (
         <div className="space-y-3 p-6">

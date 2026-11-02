@@ -1470,12 +1470,12 @@ function DocumentosTab({ clientId, readOnly }: { clientId: string; readOnly?: bo
   const items = query.data?.items ?? [];
 
   function irAlRepositorio() {
-    router.push(`/documentos?cliente=${clientId}`);
+    router.push("/documentos");
   }
 
   function subirVinculado() {
     toast.info("Elige \"Subir documento\" y vincula el cliente en el Repositorio.");
-    router.push(`/documentos?cliente=${clientId}`);
+    router.push("/documentos");
   }
 
   return (

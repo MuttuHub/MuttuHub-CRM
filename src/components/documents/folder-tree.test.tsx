@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { FolderTree } from "./folder-tree";
+import { FOLDER_DRAG_TYPE, FolderTree } from "./folder-tree";
 import type { FolderNode } from "@/hooks/documents";
 
 const folders: FolderNode[] = [
@@ -107,5 +107,84 @@ describe("FolderTree", () => {
       />,
     );
     expect(nodeButton("Legal")).toHaveAccessibleName(/carpeta de cliente/);
+  });
+
+  // Explorer 2026-11-02: clic derecho con acciones por carpeta.
+  it("opens a context menu on right click and deletes from it", async () => {
+    const onAction = vi.fn();
+    render(<FolderTree folders={folders} activeId={null} onSelect={vi.fn()} onAction={onAction} />);
+
+    fireEvent.contextMenu(nodeButton("Legal"));
+    await userEvent.setup().click(await screen.findByRole("menuitem", { name: /eliminar/i }));
+
+    expect(onAction).toHaveBeenCalledWith("root-2", "delete");
+  });
+
+  // Explorer 2026-11-02: arrastrar una carpeta dentro del árbol la mueve.
+  it("moves a folder dragged onto another folder", () => {
+    const onMoveFolder = vi.fn();
+    render(
+      <FolderTree
+        folders={folders}
+        activeId={null}
+        onSelect={vi.fn()}
+        onAction={vi.fn()}
+        onMoveFolder={onMoveFolder}
+      />,
+    );
+
+    const dataTransfer = {
+      types: [FOLDER_DRAG_TYPE],
+      getData: (type: string) => (type === FOLDER_DRAG_TYPE ? "root-2" : ""),
+    };
+    fireEvent.dragOver(nodeButton("Comercial"), { dataTransfer });
+    fireEvent.drop(nodeButton("Comercial"), { dataTransfer });
+
+    expect(onMoveFolder).toHaveBeenCalledWith("root-2", "root-1");
+  });
+
+  it("moves a nested folder back to the root dropping it on Todas", () => {
+    const onMoveFolder = vi.fn();
+    render(
+      <FolderTree
+        folders={folders}
+        activeId={null}
+        onSelect={vi.fn()}
+        onAction={vi.fn()}
+        onMoveFolder={onMoveFolder}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Expandir" }));
+
+    const dataTransfer = {
+      types: [FOLDER_DRAG_TYPE],
+      getData: (type: string) => (type === FOLDER_DRAG_TYPE ? "child-1" : ""),
+    };
+    fireEvent.drop(screen.getByRole("button", { name: "Todas" }), { dataTransfer });
+
+    expect(onMoveFolder).toHaveBeenCalledWith("child-1", null);
+  });
+
+  it("refuses to move a folder into its own subtree", () => {
+    const onMoveFolder = vi.fn();
+    render(
+      <FolderTree
+        folders={folders}
+        activeId={null}
+        onSelect={vi.fn()}
+        onAction={vi.fn()}
+        onMoveFolder={onMoveFolder}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Expandir" }));
+
+    const dataTransfer = {
+      types: [FOLDER_DRAG_TYPE],
+      getData: (type: string) => (type === FOLDER_DRAG_TYPE ? "root-1" : ""),
+    };
+    fireEvent.dragOver(nodeButton("Propuestas"), { dataTransfer });
+    fireEvent.drop(nodeButton("Propuestas"), { dataTransfer });
+
+    expect(onMoveFolder).not.toHaveBeenCalled();
   });
 });
