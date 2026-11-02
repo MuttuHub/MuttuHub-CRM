@@ -12,6 +12,13 @@ guía base: `docs/guia-prueba-proyectos.md`.
 > los requisitos del jefe) ni el backfill de carpetas de cliente. Si algo falla ahí, el fallo esperado
 > es «las migraciones no están aplicadas», no un bug.
 
+> **Primera pasada automatizada (2026-11-02, por el agente):** las reglas de servidor y componentes de
+> **D, E, G, H, I, J, K y L** quedaron cubiertas por sus suites (430 tests verdes en las secciones
+> restantes; 1820 en las áreas tocadas hoy, eslint/tsc limpios). Lo que **sigue siendo manual** es todo
+> lo visual/de navegador: formularios y modales en pantalla (E), pestañas/impresión (F y G4-G5), y los
+> recorridos de UI de D/I–K/L. El detalle de lo verificado por código está en el log de la sesión; esta
+> guía se recorre igual, paso a paso.
+
 ## Preparación (10 minutos)
 
 1. Levantar el stack local de base de datos (Docker). Verificar que esté el contenedor
