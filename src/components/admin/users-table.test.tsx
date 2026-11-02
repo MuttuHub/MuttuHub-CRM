@@ -131,3 +131,28 @@ describe("UsersTable — resend invite / reset password", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("UsersTable — action trigger icon", () => {
+  it("renders the actions trigger with a visible icon", () => {
+    render(<UsersTable usuarios={[usuario()]} unconfigured={false} loadError={false} />);
+
+    const trigger = screen.getByRole("button", { name: "Acciones de Pat García" });
+    expect(trigger.querySelector("svg")).not.toBeNull();
+  });
+});
+
+describe("UsersTable — role menu semantics", () => {
+  it("marks the current role as the checked radio item", async () => {
+    const user = userEvent.setup();
+    render(<UsersTable usuarios={[usuario()]} unconfigured={false} loadError={false} />);
+
+    await openMenu(user, "Pat García");
+
+    const current = screen.getByRole("menuitemradio", {
+      name: /colaborador/i,
+      checked: true,
+    });
+    expect(current).toBeInTheDocument();
+    expect(screen.getAllByRole("menuitemradio", { checked: false })).toHaveLength(3);
+  });
+});

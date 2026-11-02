@@ -13,6 +13,7 @@ import {
   KeyRound,
   LoaderCircle,
   Mail,
+  MoreHorizontal,
   Pencil,
   Plus,
   RotateCcw,
@@ -37,6 +38,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -491,10 +494,12 @@ function RowMenu({
               variant="ghost"
               size="icon-sm"
               aria-label={`Acciones de ${usuario.nombre}`}
-            />
+            >
+              <MoreHorizontal className="size-3.5" strokeWidth={2} />
+            </Button>
           }
         />
-        <DropdownMenuContent align="end" alignOffset={-8}>
+        <DropdownMenuContent align="end" alignOffset={-8} className="min-w-56">
           <DropdownMenuItem
             onClick={() => {
               setNombreDraft(usuario.nombre);
@@ -506,22 +511,19 @@ function RowMenu({
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuLabel>Cambiar rol</DropdownMenuLabel>
-          {ALL_ROLES.map((rol) => (
-            <DropdownMenuItem
-              key={rol}
-              onClick={() => setRolPendiente(rol)}
-              disabled={isSelf}
-              title={isSelf ? "No puedes cambiar tu propio rol" : undefined}
-              className={usuario.rol === rol ? "font-semibold text-rose-700 dark:text-rose-400" : ""}
-            >
-              <span
-                className={`size-2 rounded-full ${
-                  usuario.rol === rol ? "bg-rose-500" : "bg-ink-300"
-                }`}
-              />
-              {ROLE_LABELS[rol]}
-            </DropdownMenuItem>
-          ))}
+          <DropdownMenuRadioGroup value={usuario.rol}>
+            {ALL_ROLES.map((rol) => (
+              <DropdownMenuRadioItem
+                key={rol}
+                value={rol}
+                disabled={isSelf}
+                title={isSelf ? "No puedes cambiar tu propio rol" : undefined}
+                onClick={() => setRolPendiente(rol)}
+              >
+                {ROLE_LABELS[rol]}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
           {usuario.rol === "COLABORADOR" && (
             <>
               <DropdownMenuSeparator />
@@ -546,7 +548,7 @@ function RowMenu({
             </>
           )}
           <DropdownMenuSeparator />
-          <DropdownMenuLabel>Acceso</DropdownMenuLabel>
+          <DropdownMenuLabel>Cuenta</DropdownMenuLabel>
           <DropdownMenuItem onClick={onResendInvite}>
             <Mail />
             Reenviar invitación
