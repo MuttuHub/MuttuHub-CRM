@@ -6,7 +6,7 @@
 // caracteres) y guardado por PUT /api/v1/settings. Los errores de guardado
 // muestran el mensaje del envelopver del servidor vía sonner.
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   AlertTriangle,
   FolderLock,
@@ -71,6 +71,19 @@ export function CatalogsSection() {
   }
 
   const dirty = !sameSnapshot(query.data, draft);
+
+  // Pérdida silenciosa real (hallazgo del testing 2026-11-02): el botón + añade
+  // al borrador y el chips desaparecen al refrescar si nadie presionó Guardar.
+  // El navegador pedirá confirmación ante refresh/cierre con cambios pendientes.
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
 
   if (query.isLoading || (query.data && draft === null)) {
     // El segundo caso cubre el pase en el que el snapshot recién llegó y el
@@ -234,6 +247,12 @@ export function CatalogsSection() {
             Define los valores que usan los formularios de tareas y documentos.
           </p>
         </div>
+        {dirty && (
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-alerta-bg px-2.5 py-1 text-[11.5px] font-bold text-alerta">
+            <AlertTriangle className="size-3.5" strokeWidth={2.2} />
+            Cambios sin guardar
+          </span>
+        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
