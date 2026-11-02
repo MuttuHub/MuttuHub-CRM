@@ -225,3 +225,10 @@ producto: ¿la exportación debe respetar el filtro activo?
 ### 25. Las etiquetas del cliente no se ven fuera del formulario
 
 No aparecen en las tarjetas, las filas de la lista ni la ficha. Decisión de producto: dónde mostrarlas.
+
+### 26. El filtro de etiquetas del Kanban solo acepta una etiqueta
+
+`kanban-board.tsx`. Detectado en testing 2026-11-02 (A3): el desplegable **Etiqueta** es de selección
+única; para cruzar etiquetas hay que filtrar de a una. El catálogo vivo del fix 1.1 funciona bien.
+
+**Propuesta:** permitir multiselección de etiquetas (comportamiento *o* a nivel tarea, como los chips del formulario), o combinarla con el resto de filtros activos. Es UX, no bug del sprint.
