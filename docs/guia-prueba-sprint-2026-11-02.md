@@ -148,16 +148,24 @@ guía base: `docs/guia-prueba-proyectos.md`.
 ## E. Modales revisados (carril 1, 1.5 · carril 2, 2.7)
 
 Documentos:
-- [ ] **E1.** Crear/cambiar el nombre de la carpeta pulsando **Enter** rápido dos veces: **no** se
+- [x] **E1.** Crear/cambiar el nombre de la carpeta pulsando **Enter** rápido dos veces: **no** se
       crean dos carpetas y no se rompe el diálogo.
-- [ ] **E2.** En la subida, **nueva versión** y los otros 5 diálogos de carpeta: **Cancelar** queda
+      ✅ 2026-11-03 — tester: crear y renombrar con doble Enter dejan una sola carpeta; DB local
+      confirma una única fila viva («Prueba E1 Renombrada»).
+- [x] **E2.** En la subida, **nueva versión** y los otros 5 diálogos de carpeta: **Cancelar** queda
       deshabilitado mientras corre la petición; si la petición falla, el diálogo queda abierto con el
       error visible.
-- [ ] **E3.** Abrir «Nueva versión» de un documento, cancelar y volver a abrir: el diálogo NO recuerda
+      ✅ 2026-11-03 — tester, con DevTools: «Slow 3G» deja Cancelar deshabilitado en Nueva carpeta,
+      Cambiar nombre, Mover, Eliminar, Subir documento y Nueva versión; «Offline» deja el diálogo
+      abierto con el error visible.
+- [x] **E3.** Abrir «Nueva versión» de un documento, cancelar y volver a abrir: el diálogo NO recuerda
       el archivo elegido anteriormente (se borra al cerrar).
+      ✅ 2026-11-03 — tester: al reabrir «Nueva versión» el diálogo no conserva el archivo anterior.
 
 Clientes / proyectos / admin:
-- [ ] **E4.** En la ficha de cliente no hay **modales apilados** (overlay dentro de otro).
+- [x] **E4.** En la ficha de cliente no hay **modales apilados** (overlay dentro de otro).
+      ✅ 2026-11-03 — tester: Esc en Editar y Cancelar en Desactivar cierran solo el diálogo hijo; los
+      diálogos de contacto, oportunidad, compromiso e interacción cierran sin dejar overlay.
 - [ ] **E5.** En Proyectos/Admin: la **eliminación de estructura** pide confirmación; el diálogo
       «Solicitar modificación» tiene su **Cancelar**; y los diálogos de documentos deshabilitan
       Cancelar mientras corre la petición.
