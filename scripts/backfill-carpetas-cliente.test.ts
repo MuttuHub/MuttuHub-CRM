@@ -115,6 +115,18 @@ describe("remote safety", () => {
     expect(deps.fileDocuments).not.toHaveBeenCalled()
   })
 
+  it("a dry run with --expect-documents fails on a different count and passes on the same one", async () => {
+    const deps = fakeDeps(CANDIDATES)
+
+    await expect(runBackfill(deps, ["--expect-documents", "999"], silent)).rejects.toThrow(
+      "Expected 999 document(s) to file but found 3. Nothing was written; re-run the dry run.",
+    )
+    const report = await runBackfill(deps, ["--expect-documents", "3"], silent)
+
+    expect(report).toMatchObject({ mode: "dry-run", candidatos: 4 })
+    expect(deps.fileDocuments).not.toHaveBeenCalled()
+  })
+
   it("a local --apply still works without --expect-documents (previous behavior)", async () => {
     const deps = fakeDeps(CANDIDATES)
 

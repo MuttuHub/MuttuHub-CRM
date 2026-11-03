@@ -22,7 +22,8 @@
  * MIGRATE_V2_ALLOW_REMOTE_HOST with the exact production hostname (decided
  * 2026-11-03 for the production backfill). A remote `--apply` must also carry
  * `--expect-documents <n>` copied from a dry run against the same database:
- * it is checked before any read, and a different count aborts before writing.
+ * its presence is checked before any read, and a different count aborts
+ * before writing (a dry run with the flag reports the same mismatch).
  */
 import { isRemoteRun } from "./migrate-v2/_guard"
 
@@ -142,16 +143,19 @@ export async function runBackfill(
   print(`  documents to file: ${toFile} across ${report.clientes} client(s)`)
   print(`  client folders: ${existing.size} existing, ${report.clientes - existing.size} to create`)
 
-  if (mode !== "apply") {
-    print("Dry run: nothing was written. Re-run with --apply to execute.")
-    return report
-  }
-
+  // Checked in both modes: a dry run with the flag lets the operator confirm the
+  // count before the --apply, and a mismatch never reaches a write.
   if (expected !== null && expected !== toFile) {
     throw new Error(
       `Expected ${expected} document(s) to file but found ${toFile}. Nothing was written; re-run the dry run.`,
     )
   }
+
+  if (mode !== "apply") {
+    print("Dry run: nothing was written. Re-run with --apply to execute.")
+    return report
+  }
+
 
   for (const [clienteId, group] of byClient) {
     const folder = await deps.findOrCreateClientFolder(clienteId, group.autorId)
