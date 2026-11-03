@@ -115,3 +115,46 @@ describe("generarPlantilla (F-X1 round trip through ExcelJS)", () => {
     expect(control.result).toBe(0)
   })
 })
+
+describe("generarPlantilla — presentación de marca y ayudas", () => {
+  it("pinta los encabezados con el rosa de la marca", async () => {
+    const workbook = await reload()
+    const actividades = sheet(workbook, HOJAS.actividades)
+    expect(actividades.getCell("A1").fill).toMatchObject({
+      type: "pattern",
+      fgColor: { argb: "FFCD1560" },
+    })
+  })
+
+  it("deja una ayuda con ejemplo en cada encabezado de datos", async () => {
+    const workbook = await reload()
+    const actividades = sheet(workbook, HOJAS.actividades)
+    expect(JSON.stringify(actividades.getCell("A1").note)).toContain("Ejemplo: 1.1")
+    expect(JSON.stringify(actividades.getCell("F1").note)).toContain("ana@muttu.co")
+
+    const presupuesto = sheet(workbook, HOJAS.presupuesto)
+    expect(JSON.stringify(presupuesto.getCell("C1").note)).toContain("59.500.000")
+
+    const proyecto = sheet(workbook, HOJAS.proyecto)
+    expect(JSON.stringify(proyecto.getCell("B8").note)).toContain("177.360.000")
+  })
+
+  it("incluye la tabla de ejemplos en la hoja de instrucciones", async () => {
+    const workbook = await reload()
+    const instrucciones = sheet(workbook, HOJAS.instrucciones)
+    expect(instrucciones.getCell("A12").value).toContain("Ejemplos de uso")
+    expect(instrucciones.getCell("A14").value).toBe("3. Objetivos")
+  })
+})
+
+describe("generarPlantilla — comentarios en todos los encabezados", () => {
+  it("cada hoja tiene un comentario en cada celda de su fila de encabezado", async () => {
+    const workbook = await reload()
+    for (const nombre of Object.values(HOJAS)) {
+      const hoja = sheet(workbook, nombre)
+      hoja.getRow(1).eachCell({ includeEmpty: false }, (celda) => {
+        expect(JSON.stringify(celda.note), `falta comentario en ${nombre}!${celda.address}`).not.toBe("null")
+      })
+    }
+  })
+})

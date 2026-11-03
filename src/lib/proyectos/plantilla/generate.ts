@@ -96,6 +96,70 @@ function columnLetter(index: number): string {
   return letters
 }
 
+/* ── Presentación: colores de marca + ayudas para quien llena la plantilla ── */
+
+/** Paleta de la marca Muttu Hub (misma del producto: rosa #CD1560 sobre tinta). */
+const MARCA = {
+  rosa: "FFCD1560",
+  rosaOscuro: "FF940D44",
+  rosaSuave: "FFFDF2F7",
+  tinta: "FF191113",
+  gris: "FF725D62",
+  linea: "FFECE5E7",
+  blanco: "FFFFFFFF",
+  alterno: "FFF7F3F4",
+} as const
+
+type CeldaConNota = ExcelJS.Cell & { note?: string }
+
+/** Nota (comentario) que Excel muestra al pasar el mouse por la celda. */
+function nota(celda: ExcelJS.Cell, texto: string): void {
+  ;(celda as CeldaConNota).note = texto
+}
+
+/** Franja de encabezado de la fila 1 de una hoja de datos. */
+function pintarCabecera(fila: ExcelJS.Row): void {
+  fila.height = 26
+  fila.eachCell((celda) => {
+    celda.fill = { type: "pattern", pattern: "solid", fgColor: { argb: MARCA.rosa } }
+    celda.font = { bold: true, color: { argb: MARCA.blanco }, size: 11 }
+    celda.alignment = { vertical: "middle", horizontal: "left", wrapText: true }
+    celda.border = { bottom: { style: "thin", color: { argb: MARCA.rosaOscuro } } }
+  })
+}
+
+/** Filas de datos: texto legible, líneas finas y cebra suave. */
+function pintarCuerpo(hoja: ExcelJS.Worksheet, primeraFilaDatos = 2): void {
+  hoja.eachRow((fila, numero) => {
+    if (numero < primeraFilaDatos) return
+    fila.eachCell((celda) => {
+      celda.font = { color: { argb: MARCA.tinta }, size: 10.5 }
+      celda.alignment = { vertical: "top", wrapText: true }
+      celda.border = { bottom: { style: "hair", color: { argb: MARCA.linea } } }
+      if ((numero - primeraFilaDatos) % 2 === 1) {
+        celda.fill = { type: "pattern", pattern: "solid", fgColor: { argb: MARCA.alterno } }
+      }
+    })
+  })
+}
+
+function anchos(hoja: ExcelJS.Worksheet, medidas: number[]): void {
+  medidas.forEach((ancho, indice) => {
+    hoja.getColumn(indice + 1).width = ancho
+  })
+}
+
+function congelarCabecera(hoja: ExcelJS.Worksheet): void {
+  hoja.views = [{ state: "frozen", ySplit: 1 }]
+}
+
+/** Ejemplos por columna: se adjuntan como comentario en la celda del encabezado. */
+function ayudasDeCabecera(hoja: ExcelJS.Worksheet, ayudas: Record<string, string>): void {
+  for (const [columna, texto] of Object.entries(ayudas)) {
+    nota(hoja.getCell(`${columna}1`), texto)
+  }
+}
+
 /** An ISO calendar date as a UTC-midnight `Date`, so Excel stores a real date. */
 function isoToDate(iso: IsoDate): Date {
   const [year, month, day] = iso.split("-").map(Number)
@@ -112,8 +176,24 @@ function centsToNumber(cents: bigint): number {
 
 function escribirInstrucciones(workbook: ExcelJS.Workbook, input: PlantillaInput): ExcelJS.Worksheet {
   const hoja = workbook.addWorksheet(HOJAS.instrucciones)
-  hoja.getCell("A1").value = `Plantilla de importación de proyectos — ${input.proyecto.codigo}`
-  hoja.getCell("B2").value = PLANTILLA_VERSION
+  hoja.mergeCells("A1:D1")
+  const titulo = hoja.getCell("A1")
+  titulo.value = `Plantilla de importación de proyectos — ${input.proyecto.codigo}`
+  titulo.fill = { type: "pattern", pattern: "solid", fgColor: { argb: MARCA.rosa } }
+  titulo.font = { bold: true, size: 15, color: { argb: MARCA.blanco } }
+  titulo.alignment = { vertical: "middle" }
+  nota(
+    titulo,
+    "Leé esta hoja antes de llenar el libro: reglas generales, versión y ejemplos de cada hoja.",
+  )
+  hoja.getRow(1).height = 34
+
+  hoja.getCell("A2").value = "Versión de la plantilla (no cambiar):"
+  hoja.getCell("A2").font = { color: { argb: MARCA.gris }, size: 10.5 }
+  const version = hoja.getCell("B2")
+  version.value = PLANTILLA_VERSION
+  version.font = { bold: true, color: { argb: MARCA.rosaOscuro } }
+
   const texto = [
     "Cómo diligenciar esta plantilla",
     "1. No cambies los nombres de las hojas ni los encabezados de la fila 1.",
@@ -124,8 +204,60 @@ function escribirInstrucciones(workbook: ExcelJS.Workbook, input: PlantillaInput
     "6. Revisa la hoja 9. Catálogos para los valores permitidos.",
   ]
   texto.forEach((linea, i) => {
-    hoja.getCell(`A${i + 4}`).value = linea
+    const celda = hoja.getCell(`A${i + 4}`)
+    celda.value = linea
+    celda.font = i === 0
+      ? { bold: true, size: 13, color: { argb: MARCA.rosaOscuro } }
+      : { color: { argb: MARCA.tinta }, size: 10.5 }
   })
+
+  hoja.mergeCells("A12:D12")
+  const subtitulo = hoja.getCell("A12")
+  subtitulo.value = "Ejemplos de uso (así se llena cada hoja)"
+  subtitulo.fill = { type: "pattern", pattern: "solid", fgColor: { argb: MARCA.rosaOscuro } }
+  subtitulo.font = { bold: true, size: 12, color: { argb: MARCA.blanco } }
+  hoja.getRow(12).height = 24
+
+  const encabezadosEjemplo = ["Hoja", "Campo", "Ejemplo", "Para qué sirve"]
+  const filaEncabezado = hoja.getRow(13)
+  encabezadosEjemplo.forEach((encabezado, i) => {
+    const celda = filaEncabezado.getCell(i + 1)
+    celda.value = encabezado
+    celda.fill = { type: "pattern", pattern: "solid", fgColor: { argb: MARCA.rosa } }
+    celda.font = { bold: true, color: { argb: MARCA.blanco }, size: 10.5 }
+    celda.alignment = { vertical: "middle", wrapText: true }
+  })
+
+  const ejemplos: [string, string, string, string][] = [
+    ["3. Objetivos", "Código", "O1", "Identificador único del objetivo; Actividades lo referencia."],
+    ["3. Objetivos", "Descripción", "Fortalecer las capacidades productivas de las unidades textiles", "Qué logra el objetivo, en una frase."],
+    ["4. Actividades", "Semana inicio / Semana fin", "1 / 4", "Semanas del proyecto (1 a la duración); inicio ≤ fin."],
+    ["4. Actividades", "Responsable (correo)", "ana@muttu.co", "Usuario registrado; si no existe, se avisa y queda sin responsable."],
+    ["5. Entregables", "Cantidad / Unidad", "4 / Acta", "Cuántos y en qué unidad se entrega (la unidad es libre)."],
+    ["6. Indicadores", "Meta", "30", "Valor esperado del indicador (mayor que cero)."],
+    ["7. Presupuesto", "Valor asignado", "59.500.000", "Monto del rubro; la suma de los rubros forma el presupuesto."],
+    ["8. Programación", "Mes 1 (2026-10)", "14.880.000", "Monto del rubro ese mes; la fila debe sumar lo asignado."],
+  ]
+  ejemplos.forEach((fila, i) => {
+    const numero = 14 + i
+    fila.forEach((valor, columna) => {
+      const celda = hoja.getCell(numero, columna + 1)
+      celda.value = valor
+      celda.font = { color: { argb: MARCA.tinta }, size: 10.5 }
+      celda.alignment = { vertical: "top", wrapText: true }
+      celda.border = { bottom: { style: "hair", color: { argb: MARCA.linea } } }
+      if (i % 2 === 1) {
+        celda.fill = { type: "pattern", pattern: "solid", fgColor: { argb: MARCA.alterno } }
+      }
+    })
+  })
+
+  const separadores = hoja.getCell("A23")
+  separadores.value =
+    "Varias líneas o municipios se separan con punto y coma. Ejemplo: «LE-01 - Educación; LE-02 - Salud»."
+  separadores.font = { italic: true, color: { argb: MARCA.gris }, size: 10.5 }
+
+  anchos(hoja, [34, 28, 34, 56])
   return hoja
 }
 
@@ -148,6 +280,38 @@ function escribirProyecto(workbook: ExcelJS.Workbook, input: PlantillaInput): Ex
   ETIQUETAS_PROYECTO.forEach((etiqueta, i) => {
     hoja.addRow([etiqueta, valores[i]])
   })
+
+  pintarCabecera(hoja.getRow(1))
+  pintarCuerpo(hoja)
+  congelarCabecera(hoja)
+  anchos(hoja, [30, 70])
+
+  const filaDe = (etiqueta: string) => ETIQUETAS_PROYECTO.indexOf(etiqueta as never) + 2
+  nota(
+    hoja.getCell("A1"),
+    "Etiqueta fija del formato: no la cambies. Cada fila explica un dato del proyecto.",
+  )
+  nota(
+    hoja.getCell("B1"),
+    "Valor del proyecto. Pasá el mouse por cada fila para ver qué escribir y un ejemplo.",
+  )
+  const ayudaProyecto: Record<string, string> = {
+    Código: "No cambiar: debe coincidir con el código del proyecto (PRY-AAAA-NNN).",
+    Cliente: "Informativo: el cliente del proyecto no cambia al importar.",
+    "Líneas estratégicas": "Código - nombre, separados por «; ». Ejemplo: LE-01 - Educación; LE-02 - Salud.",
+    Municipios: "Nombre (Departamento), separados por «; ». Ejemplo: Manizales (Caldas).",
+    "Fecha de inicio": "Fecha real de Excel; define la semana 1. Ejemplo: 05/10/2026.",
+    "Fecha de fin": "Fecha real de Excel; define la duración en semanas. Ejemplo: 29/01/2027.",
+    "Valor total": "Valor en pesos. Ejemplo: 177.360.000. Revisa que el presupuesto sume igual.",
+    "Meta de beneficiarios": "Número entero de beneficiarios. Ejemplo: 500.",
+  }
+  for (const [etiqueta, texto] of Object.entries(ayudaProyecto)) {
+    nota(hoja.getCell(`A${filaDe(etiqueta)}`), `${etiqueta}: ${texto}`)
+    nota(hoja.getCell(`B${filaDe(etiqueta)}`), texto)
+  }
+  hoja.getCell(`B${filaDe("Fecha de inicio")}`).numFmt = "dd/mm/yyyy"
+  hoja.getCell(`B${filaDe("Fecha de fin")}`).numFmt = "dd/mm/yyyy"
+  hoja.getCell(`B${filaDe("Valor total")}`).numFmt = "#,##0"
   return hoja
 }
 
@@ -157,6 +321,14 @@ function escribirObjetivos(workbook: ExcelJS.Workbook, input: PlantillaInput): E
   for (const objetivo of input.estructura.objetivos) {
     hoja.addRow([objetivo.codigo, objetivo.descripcion])
   }
+  pintarCabecera(hoja.getRow(1))
+  pintarCuerpo(hoja)
+  congelarCabecera(hoja)
+  anchos(hoja, [14, 80])
+  ayudasDeCabecera(hoja, {
+    A: "Código único del objetivo (3 a 50 caracteres). Ejemplo: O1.",
+    B: "Qué logra el objetivo, en una frase. Ejemplo: Fortalecer las capacidades productivas de las unidades textiles.",
+  })
   return hoja
 }
 
@@ -173,6 +345,18 @@ function escribirActividades(workbook: ExcelJS.Workbook, input: PlantillaInput):
       actividad.responsable,
     ])
   }
+  pintarCabecera(hoja.getRow(1))
+  pintarCuerpo(hoja)
+  congelarCabecera(hoja)
+  anchos(hoja, [14, 16, 46, 14, 14, 32])
+  ayudasDeCabecera(hoja, {
+    A: "Código único de la actividad. Ejemplo: 1.1.",
+    B: "Debe existir en la hoja 3. Objetivos (desplegable). Ejemplo: O1.",
+    C: "Nombre de la actividad. Ejemplo: Caracterización de las unidades productivas.",
+    D: "Semana del proyecto en la que inicia (1 a la duración). Ejemplo: 1.",
+    E: "Semana en la que termina; debe ser mayor o igual a la inicial. Ejemplo: 4.",
+    F: "Correo de un usuario registrado. Ejemplo: ana@muttu.co. Si no existe, la actividad queda sin responsable (aviso).",
+  })
   return hoja
 }
 
@@ -188,6 +372,17 @@ function escribirEntregables(workbook: ExcelJS.Workbook, input: PlantillaInput):
       entregable.unidad,
     ])
   }
+  pintarCabecera(hoja.getRow(1))
+  pintarCuerpo(hoja)
+  congelarCabecera(hoja)
+  anchos(hoja, [14, 18, 60, 14, 18])
+  ayudasDeCabecera(hoja, {
+    A: "Código único del entregable. Ejemplo: 1.1-E1.",
+    B: "Debe existir en la hoja 4. Actividades (desplegable). Ejemplo: 1.1.",
+    C: "Qué se entrega. Ejemplo: Informe de caracterización.",
+    D: "Cantidad esperada, mayor que cero. Ejemplo: 4.",
+    E: "Unidad de medida (texto libre, la lista solo sugiere). Ejemplo: Acta.",
+  })
   return hoja
 }
 
@@ -203,6 +398,17 @@ function escribirIndicadores(workbook: ExcelJS.Workbook, input: PlantillaInput):
       indicador.lineaBase === null ? null : Number(indicador.lineaBase),
     ])
   }
+  pintarCabecera(hoja.getRow(1))
+  pintarCuerpo(hoja)
+  congelarCabecera(hoja)
+  anchos(hoja, [14, 18, 46, 14, 16])
+  ayudasDeCabecera(hoja, {
+    A: "Código único del indicador. Ejemplo: IND-1.",
+    B: "Debe existir en la hoja 3. Objetivos (desplegable). Ejemplo: O1.",
+    C: "Nombre del indicador. Ejemplo: Productores con plan de mejora.",
+    D: "Valor esperado, mayor que cero. Ejemplo: 30.",
+    E: "Valor inicial del indicador (opcional). Ejemplo: 0.",
+  })
   return hoja
 }
 
@@ -212,6 +418,16 @@ function escribirPresupuesto(workbook: ExcelJS.Workbook, input: PlantillaInput):
   for (const rubro of input.catalogo.rubros) {
     hoja.addRow([rubro.codigo, rubro.nombre, Number(input.presupuesto[rubro.codigo] ?? "0")])
   }
+  pintarCabecera(hoja.getRow(1))
+  pintarCuerpo(hoja)
+  congelarCabecera(hoja)
+  anchos(hoja, [16, 48, 20])
+  ayudasDeCabecera(hoja, {
+    A: "Rubro del catálogo (desplegable). Ejemplo: R01.",
+    B: "Nombre del rubro (solo lectura informativa).",
+    C: "Monto asignado en pesos; puede ser 0. Ejemplo: 59.500.000.",
+  })
+  hoja.getColumn(3).numFmt = "#,##0"
   return hoja
 }
 
@@ -256,6 +472,32 @@ function escribirProgramacion(workbook: ExcelJS.Workbook, input: PlantillaInput)
       result: centsToNumber(totalCents - asignado),
     }
   }
+
+  pintarCabecera(hoja.getRow(1))
+  pintarCuerpo(hoja)
+  congelarCabecera(hoja)
+  anchos(hoja, [16, 42, ...periodos.map(() => 15), 18, 18])
+  ayudasDeCabecera(hoja, {
+    A: "Rubro del catálogo (desplegable). Ejemplo: R01.",
+    B: "Nombre del rubro (solo lectura informativa).",
+  })
+  periodos.forEach((periodo, i) => {
+    nota(
+      hoja.getCell(1, 3 + i),
+      `Monto del rubro en ${periodo}. La suma de todos los meses de la fila debe ser igual al Valor asignado. Ejemplo: 14.880.000.`,
+    )
+  })
+  nota(
+    hoja.getCell(1, 3 + periodos.length),
+    "Fórmula: suma de los meses de la fila. No la modifiques.",
+  )
+  nota(
+    hoja.getCell(1, 4 + periodos.length),
+    "Fórmula: Total - Valor asignado del rubro. Si no es 0, revisa la programación. No la modifiques.",
+  )
+  for (let columna = 3; columna <= 4 + periodos.length; columna += 1) {
+    hoja.getColumn(columna).numFmt = "#,##0"
+  }
   return hoja
 }
 
@@ -274,6 +516,15 @@ async function escribirCatalogos(workbook: ExcelJS.Workbook, input: PlantillaInp
   })
   UNIDADES_SUGERIDAS.forEach((unidad, i) => {
     hoja.getCell(i + 2, 4).value = unidad
+  })
+
+  pintarCabecera(hoja.getRow(1))
+  anchos(hoja, [14, 40, 44, 20])
+  ayudasDeCabecera(hoja, {
+    A: "Códigos y nombres de rubros disponibles (alimenta el desplegable de la hoja 7 y 8).",
+    B: "Líneas estratégicas activas como «código - nombre»; se eligen en la hoja 2 separadas por «; ».",
+    C: "Municipios activos como «Nombre (Departamento)»; se eligen en la hoja 2 separadas por «; ».",
+    D: "Unidades sugeridas para los entregables; la unidad es texto libre.",
   })
 
   // Anchor every range on the first data row (row 2). An empty catalog used to
