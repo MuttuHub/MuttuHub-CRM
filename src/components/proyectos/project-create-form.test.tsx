@@ -87,12 +87,15 @@ const MUNICIPIOS: Municipality[] = [
   { id: "m1", nombre: "Barranquilla", departamento: "Atlántico", codigo_dane: "08001", activo: true, fecha_suspension: null, orden: 0, created_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z" },
 ]
 
-const CLIENTES: { data: { items: Pick<ClientListRow, "id" | "nombre">[] } } = {
+const CLIENTES: {
+  data: { items: (Pick<ClientListRow, "id" | "nombre"> & { oportunidades_count?: number })[] }
+} = {
   data: {
     items: [
-      { id: "c1", nombre: "Cliente Uno" },
-      { id: "cli-1", nombre: "Alcaldía de Barranquilla" },
-      { id: "cli-2", nombre: "Gobernación del Atlántico" },
+      { id: "c1", nombre: "Cliente Uno", oportunidades_count: 0 },
+      { id: "c2", nombre: "Cliente Con Oportunidades", oportunidades_count: 1 },
+      { id: "cli-1", nombre: "Alcaldía de Barranquilla", oportunidades_count: 0 },
+      { id: "cli-2", nombre: "Gobernación del Atlántico", oportunidades_count: 0 },
     ],
   },
 }
@@ -146,18 +149,20 @@ describe("ProjectCreateForm", () => {
     useMunicipalitiesMock.mockReturnValue({ data: MUNICIPIOS, isLoading: false, isError: false })
     useUsersMock.mockReturnValue({ data: [{ id: "u1", nombre: "Ana Pérez" }], isLoading: false, isError: false })
     useClientsMock.mockReturnValue(CLIENTES)
-    useClientDetailMock.mockReturnValue({
-      data: {
-        id: "cli-1",
-        nombre: "Alcaldía de Barranquilla",
-        empresa: null,
-        tipo_cliente: "GOBIERNO_LOCAL",
-        ubicacion: "Barranquilla, Atlántico",
-        oportunidades_count: 2,
-      },
+    useClientDetailMock.mockImplementation((id: string | null) => ({
+      data: id
+        ? {
+            id,
+            nombre: id === "cli-1" ? "Alcaldía de Barranquilla" : id === "c1" ? "Cliente Uno" : "Cliente Con Oportunidades",
+            empresa: null,
+            tipo_cliente: "GOBIERNO_LOCAL",
+            ubicacion: "Barranquilla, Atlántico",
+            oportunidades_count: id === "c2" ? 1 : id === "c1" ? 0 : 2,
+          }
+        : undefined,
       isLoading: false,
       isError: false,
-    })
+    }))
     useContactsMock.mockReturnValue({
       data: [{ id: "k1", nombre: "Marta Decide", cargo: null, correo: "marta@x.co", telefono: "3001234567", rol_decision: "DECISOR" }],
       isLoading: false,
@@ -291,6 +296,19 @@ describe("ProjectCreateForm", () => {
     expect(screen.getByRole("region", { name: "Datos del cliente" })).toBeInTheDocument()
     expect(screen.getByRole("combobox", { name: "Oportunidad" })).toHaveTextContent("Sin oportunidad")
     expect(screen.getByLabelText("Nombre")).toHaveValue("")
+  })
+
+  it("explains why a client with opportunities has none eligible", async () => {
+    const user = userEvent.setup()
+    renderForm()
+
+    await elegirCliente(user, "Cliente Con Oportunidades")
+
+    expect(
+      screen.getByText(
+        /tiene 1 oportunidad, pero solo se pueden convertir las que están GANADAS y sin proyecto/i,
+      ),
+    ).toBeInTheDocument()
   })
 
   it("asks for the client first: no card and a disabled opportunity select until one is chosen", () => {

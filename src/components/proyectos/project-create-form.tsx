@@ -35,7 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useClients, useUsers } from "@/hooks/crm";
+import { useClientDetail, useClients, useUsers } from "@/hooks/crm";
 import { useCurrentUser } from "@/hooks/kanban";
 import {
   useCreateProject,
@@ -209,6 +209,8 @@ export function ProjectCreateForm({
   const usuarios = usersQuery.data ?? [];
   const clientes = clientsQuery.data?.items ?? [];
   const oportunidadesDelCliente = oportunidades.filter((op) => op.cliente_id === clienteId);
+  const clienteDetalle = useClientDetail(clienteId === "" ? null : clienteId);
+  const oportunidadesTotales = clienteDetalle.data?.oportunidades_count ?? 0;
   // Prefijos derivados, sin efectos: el usuario logueado y la primera línea del
   // catálogo como principal mientras el usuario no los haya tocado.
   const responsableEfectivo = responsableId !== "" ? responsableId : (userQuery.data?.id ?? "");
@@ -421,7 +423,11 @@ export function ProjectCreateForm({
         </Select>
         {clienteId !== "" && oportunidadesDelCliente.length === 0 && (
           <p className="text-[12px] text-ink-600">
-            Este cliente no tiene oportunidades ganadas sin proyecto.
+            {oportunidadesTotales > 0
+              ? `Este cliente tiene ${oportunidadesTotales} oportunidad${
+                  oportunidadesTotales === 1 ? "" : "es"
+                }, pero solo se pueden convertir las que están GANADAS y sin proyecto.`
+              : "Este cliente no tiene oportunidades ganadas sin proyecto."}
           </p>
         )}
       </div>
