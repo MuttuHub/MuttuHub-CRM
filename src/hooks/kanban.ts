@@ -543,6 +543,31 @@ export function useUploadAttachment(taskId: string): UseMutationResult<
   });
 }
 
+/**
+ * Elimina un adjunto de la tarea. Si tenía espejo en el Repositorio, el
+ * servidor lo da de baja también: se invalidan documents y los contadores.
+ */
+export function useDeleteAttachment(taskId: string): UseMutationResult<ApiVoid, Error, string> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (attachmentId: string) => {
+      try {
+        return await apiDelete<ApiVoid>(
+          `/api/v1/tasks/${taskId}/attachments/${attachmentId}`,
+        );
+      } catch (err) {
+        return toastError(err, "No pudimos eliminar el adjunto.");
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: taskQueryKeys.attachments(taskId) });
+      void qc.invalidateQueries({ queryKey: ["documents"] });
+      void qc.invalidateQueries({ queryKey: ["nav", "counts"] });
+      toast.success("Adjunto eliminado.");
+    },
+  });
+}
+
 /* ── Formatting helpers ────────────────────────────────────────────────── */
 
 export function formatBytes(bytes: number | null | undefined): string {

@@ -102,7 +102,9 @@ export function TareaFormDialog({
     : catalogTags;
 
   const formKey = `${open ? "open" : "closed"}:${tarea?.id ?? "nuevo"}`;
-  const [lastKey, setLastKey] = useState(formKey);
+  // null: el PRIMER render siempre sincroniza (si el diálogo se monta ya
+  // abierto con la tarea en caché, el form no debe quedar vacío).
+  const [lastKey, setLastKey] = useState<string | null>(null);
   if (formKey !== lastKey) {
     setLastKey(formKey);
     if (open) {

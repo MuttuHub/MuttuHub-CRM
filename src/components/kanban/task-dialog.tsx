@@ -60,6 +60,7 @@ import {
   useAttachments,
   useComments,
   useCreateTask,
+  useDeleteAttachment,
   useDeleteSubtarea,
   useDeleteTask,
   useMoveTask,
@@ -133,7 +134,9 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
   /* Sincroniza el formulario cuando cambia la tarea abierta (editar) o al
      crear desde cero. Sigue el patrón de task-dialogs.tsx. */
   const formKey = `${taskId ?? "nueva"}:${task?.updated_at ?? "cargando"}`;
-  const [lastKey, setLastKey] = useState(formKey);
+  // null: el PRIMER render siempre sincroniza. Inicializar con formKey saltaba
+  // el sync cuando la tarea ya estaba en caché y el título quedaba vacío.
+  const [lastKey, setLastKey] = useState<string | null>(null);
   if (formKey !== lastKey) {
     setLastKey(formKey);
     setError(null);
@@ -680,7 +683,9 @@ function CommentSection({ taskId }: { taskId: string }) {
 function AttachmentSection({ taskId }: { taskId: string }) {
   const { data: adjuntos = [], isLoading } = useAttachments(taskId);
   const upload = useUploadAttachment(taskId);
+  const deleteAttachment = useDeleteAttachment(taskId);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Adjunto | null>(null);
   // Drag & drop (paridad con el dropzone de Documentos): acá se sube UN
   // archivo por tarea, así que si sueltan varios sólo tomamos el primero.
   const [isDraggingOver, setIsDraggingOver] = useState(false);
@@ -695,7 +700,12 @@ function AttachmentSection({ taskId }: { taskId: string }) {
       ) : (
         <div className="flex flex-col gap-2">
           {adjuntos.map((a) => (
-            <AdjuntoRow key={a.id} taskId={taskId} adjunto={a} />
+            <AdjuntoRow
+              key={a.id}
+              taskId={taskId}
+              adjunto={a}
+              onDelete={() => setDeleteTarget(a)}
+            />
           ))}
         </div>
       )}
@@ -742,6 +752,51 @@ function AttachmentSection({ taskId }: { taskId: string }) {
           {ALLOWED_ATTACHMENT_LABEL} · máx {MAX_FILE_MB} MB · o arrastra el archivo aquí
         </span>
       </div>
+
+      <Dialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-[min(420px,calc(100%-2rem))]">
+          <DialogHeader>
+            <DialogTitle>Eliminar adjunto</DialogTitle>
+            <DialogDescription>
+              ¿Eliminar «{deleteTarget?.nombre}»? Si tenía copia en el Repositorio de
+              Documentos, también se da de baja ahí.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              disabled={deleteAttachment.isPending}
+              className="px-4 text-[13px] font-semibold text-ink-800"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleteAttachment.isPending}
+              onClick={() => {
+                if (!deleteTarget) return;
+                void deleteAttachment
+                  .mutateAsync(deleteTarget.id)
+                  .then(() => setDeleteTarget(null))
+                  .catch(() => {
+                    /* el hook ya muestra el error */
+                  });
+              }}
+              className="px-4 font-bold"
+            >
+              {deleteAttachment.isPending ? "Eliminando…" : "Eliminar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 
@@ -788,7 +843,15 @@ async function descargarAdjunto(taskId: string, adjunto: Adjunto): Promise<void>
   }
 }
 
-function AdjuntoRow({ taskId, adjunto }: { taskId: string; adjunto: Adjunto }) {
+function AdjuntoRow({
+  taskId,
+  adjunto,
+  onDelete,
+}: {
+  taskId: string;
+  adjunto: Adjunto;
+  onDelete: () => void;
+}) {
   return (
     <div className="flex items-center gap-2.5 rounded-10 bg-panel px-3 py-2 text-[13px]">
       <Paperclip className="size-4 shrink-0 text-ink-500" strokeWidth={1.9} />
@@ -806,6 +869,16 @@ function AdjuntoRow({ taskId, adjunto }: { taskId: string; adjunto: Adjunto }) {
         className="text-ink-500 hover:text-rose-700 dark:hover:text-rose-400"
       >
         <Download className="size-3.5" strokeWidth={1.9} />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label={`Eliminar ${adjunto.nombre}`}
+        onClick={onDelete}
+        className="text-ink-500 hover:text-destructivo"
+      >
+        <Trash2 className="size-3.5" strokeWidth={1.9} />
       </Button>
     </div>
   );

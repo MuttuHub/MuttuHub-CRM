@@ -30,7 +30,10 @@ const { taskQuery, subtareasQuery, comentariosQuery, adjuntosQuery, taskTagsQuer
   }),
 )
 
-const { toastError } = vi.hoisted(() => ({ toastError: vi.fn() }))
+const { toastError, deleteAttachmentMutation } = vi.hoisted(() => ({
+  toastError: vi.fn(),
+  deleteAttachmentMutation: { isPending: false, mutateAsync: vi.fn() },
+}))
 vi.mock("sonner", () => ({ toast: { error: toastError, success: vi.fn() } }))
 
 const noopMutation = { isPending: false, mutateAsync: vi.fn().mockResolvedValue({}) }
@@ -48,6 +51,7 @@ vi.mock("@/hooks/kanban", async (importOriginal) => {
     useDeleteSubtarea: () => noopMutation,
     useAddComment: () => noopMutation,
     useUploadAttachment: () => noopMutation,
+    useDeleteAttachment: () => deleteAttachmentMutation,
     useUpdateTask: () => noopMutation,
     useCreateTask: () => noopMutation,
     useDeleteTask: () => noopMutation,
@@ -116,6 +120,8 @@ describe("TaskDialog — PR 4 UI gate (puede_editar)", () => {
     subtareasQuery.data = []
     comentariosQuery.data = []
     adjuntosQuery.data = []
+    deleteAttachmentMutation.mutateAsync.mockReset()
+    deleteAttachmentMutation.mutateAsync.mockResolvedValue(undefined)
   })
 
   it("with puede_editar=false: disables every editable form field", () => {
@@ -191,6 +197,13 @@ describe("TaskDialog — PR 4 UI gate (puede_editar)", () => {
     // The data flows into the inputs after the sync — the form is
     // present and disabled (asserted in the first test).
     expect(screen.getByLabelText(/Título/)).toBeInTheDocument()
+  })
+
+  it("editing prefills the title from the loaded task", () => {
+    taskQuery.data = makeTask({ titulo: "Tarea persistida" })
+    renderDialog("t1")
+
+    expect(screen.getByLabelText(/Título/)).toHaveValue("Tarea persistida")
   })
 
   it("with puede_editar=true: every form field is enabled and the submit button is present", () => {
