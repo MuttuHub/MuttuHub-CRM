@@ -10,9 +10,12 @@ Origen: sesión del 29-oct que revisó el documento de la PO «Ajustes al módul
 
 ## 0. Estado en una línea
 
+> **Actualizado el 30-oct:** AJ-01 **ya está entregado** — los cinco PRs están en `main` (`0692169`) y #112
+> quedó cerrado. Ver la sección 9 (ejecución y la trampa de `--delete-branch`). El siguiente frente es AJ-02.
+
 La cadena de AJ-01 está **completa, verificada y lista para mergear**. Suite completa confirmada en
 **4734/4735** (el único fallo es un test de DB viva preexistente, ajeno a esta rama).
-**Lo único que falta es mergear y cerrar #112.** Nada está bloqueado por trabajo pendiente.
+Al momento de escribir esto lo único que faltaba era mergear y cerrar #112; ya se hizo.
 
 ---
 
@@ -172,3 +175,40 @@ git worktree prune
 5. Si hay energía: abrir la rama de AJ-02 y empezar T1 (migración de pesos por duración).
 
 Total: menos de 10 minutos hasta tener AJ-01 entregado.
+
+---
+
+## 9. Ejecución — AJ-01 entregado (30-oct, 03:48–04:03 UTC)
+
+Hecho. `main` quedó en `0692169` con los cinco PRs dentro:
+
+| Paso | Resultado |
+|---|---|
+| #117 (docs AJ-02/AJ-03) | mergeado — `7bdddc3` |
+| #113 (1/4 esquema + dominio) | mergeado — `a75678b` |
+| #114 (2/4 API + gates) | mergeado — `11977bf` |
+| #119 (3/4 UI Registrar avance) | mergeado — `fda0561` |
+| #120 (4/4 docs + CRLF) | mergeado — `0692169` |
+| #112 (monolito) | **cerrado** con el comentario de la sección 3 |
+| Worktrees `aj01-verify-base` / `aj01-verify-src` | podados (solo tenían un `__scratch-s52-probe.test.ts` sin trackear) |
+| Ramas de la cadena | borradas en remoto y en local |
+
+Queda viva `feat/aj01-estado-en-curso` (la rama del #112 cerrado). No se tocó: no molesta y el borrado
+masivo de ramas es la sesión de higiene, no esta.
+
+### Lo que hay que saber para la próxima cadena de PRs
+
+**Borrar la rama base cierra los PRs que dependen de ella.** Al mergear #113 con `--delete-branch`,
+GitHub emitió `base_ref_deleted` sobre #114 y lo **cerró** en el mismo segundo, en vez de reapuntar la base.
+Reapuntar la base de un PR cerrado tampoco se puede por API («Cannot change the base branch of a closed
+pull request»). La salida fue recrear el ref borrado en su SHA viejo, reabrir, reapuntar la base a `main`
+y recién ahí seguir.
+
+**Procedimiento correcto, sin trampa:** mergear con `--squash` **sin** `--delete-branch`, reapuntar la base
+del PR siguiente con `gh api -X PATCH repos/.../pulls/<n> -f base=main`, y borrar todas las ramas al final.
+Ojo: `gh pr edit --base main` funciona, pero primero intenta traer los *projects* clásicos y hoy escupe un
+GraphQL error de deprecación — la API cruda es más limpia.
+
+**Tras reapuntar la base, el merge queda `UNSTABLE` hasta que corre CI de nuevo** (~6 min). `CLEAN` en
+`mergeStateStatus` y `MERGEABLE` en `mergeable` son las dos condiciones a esperar antes de mergear; no
+alcanza con `mergeable`.
