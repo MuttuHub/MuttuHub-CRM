@@ -2,12 +2,16 @@
  * The client-folder backfill (task 1.4) must stay inert by default: a dry run
  * issues zero writes, `--apply` files each single-client mirror into its
  * client's folder through the shared find-or-create helper, and a second run
- * has nothing left to do. The `require-local-db` guard (mocked here) is what
- * refuses a non-loopback database before the Prisma client exists.
+ * has nothing left to do. The migrate-v2 guard (mocked here) is what refuses a
+ * non-loopback database before the Prisma client exists, unless the operator
+ * allows one exact remote host; a remote --apply must then carry the document
+ * count copied from a reviewed dry run.
  */
+import { readFileSync } from "node:fs"
+import { resolve } from "node:path"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-vi.mock("../prisma/require-local-db", () => ({}))
+vi.mock("./migrate-v2/_guard", () => ({ isRemoteRun: false }))
 vi.mock("../src/lib/db", () => ({ db: {} }))
 vi.mock("../src/lib/documents/client-folder", () => ({ findOrCreateClientFolder: vi.fn() }))
 
@@ -50,6 +54,73 @@ describe("parseBackfillArgs", () => {
     expect(parseBackfillArgs(["--apply"])).toBe("apply")
     expect(parseBackfillArgs(["--help"])).toBe("help")
     expect(() => parseBackfillArgs(["--force"])).toThrow("Unknown argument(s): --force")
+  })
+
+  it("accepts --expect-documents with a non-negative integer and rejects a missing or invalid value", () => {
+    expect(parseBackfillArgs(["--apply", "--expect-documents", "52"])).toBe("apply")
+    expect(() => parseBackfillArgs(["--apply", "--expect-documents"])).toThrow(
+      "--expect-documents needs a whole number",
+    )
+    expect(() => parseBackfillArgs(["--apply", "--expect-documents", "-1"])).toThrow(
+      "--expect-documents needs a whole number",
+    )
+    expect(() => parseBackfillArgs(["--apply", "--expect-documents", "5x"])).toThrow(
+      "--expect-documents needs a whole number",
+    )
+  })
+})
+
+describe("remote safety", () => {
+  it("loads the migrate-v2 guard as the very first import, before any database client", () => {
+    const source = readFileSync(resolve(process.cwd(), "scripts/backfill-carpetas-cliente.ts"), "utf8")
+    const firstImport = source.split("\n").find((line) => line.startsWith("import "))
+    expect(firstImport).toBe('import { isRemoteRun } from "./migrate-v2/_guard"')
+    expect(source).not.toContain("require-local-db")
+  })
+
+  it("refuses a remote --apply without --expect-documents before reading anything", async () => {
+    const deps = fakeDeps(CANDIDATES)
+
+    await expect(runBackfill(deps, ["--apply"], silent, { remote: true })).rejects.toThrow(
+      "Remote --apply requires --expect-documents <n> copied from a dry run against the same database.",
+    )
+    expect(deps.findCandidates).not.toHaveBeenCalled()
+    expect(deps.fileDocuments).not.toHaveBeenCalled()
+  })
+
+  it("aborts before writing when the documents to file differ from --expect-documents", async () => {
+    const deps = fakeDeps(CANDIDATES)
+
+    await expect(
+      runBackfill(deps, ["--apply", "--expect-documents", "52"], silent, { remote: true }),
+    ).rejects.toThrow("Expected 52 document(s) to file but found 3. Nothing was written; re-run the dry run.")
+    expect(deps.findOrCreateClientFolder).not.toHaveBeenCalled()
+    expect(deps.fileDocuments).not.toHaveBeenCalled()
+  })
+
+  it("a remote --apply with the matching count files the documents", async () => {
+    const deps = fakeDeps(CANDIDATES)
+
+    const report = await runBackfill(deps, ["--apply", "--expect-documents", "3"], silent, { remote: true })
+
+    expect(report).toMatchObject({ carpetasCreadas: 1, documentosArchivados: 3 })
+  })
+
+  it("a remote dry run needs no count and writes nothing", async () => {
+    const deps = fakeDeps(CANDIDATES)
+
+    const report = await runBackfill(deps, [], silent, { remote: true })
+
+    expect(report).toMatchObject({ mode: "dry-run", candidatos: 4 })
+    expect(deps.fileDocuments).not.toHaveBeenCalled()
+  })
+
+  it("a local --apply still works without --expect-documents (previous behavior)", async () => {
+    const deps = fakeDeps(CANDIDATES)
+
+    const report = await runBackfill(deps, ["--apply"], silent)
+
+    expect(report).toMatchObject({ documentosArchivados: 3 })
   })
 })
 

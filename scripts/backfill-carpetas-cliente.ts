@@ -16,12 +16,15 @@
  * client's first candidate document. Idempotent: only rows still without a
  * folder are updated, so a second run finds nothing to do.
  *
- * The `require-local-db` guard MUST be the first import: it loads `.env.local`
- * and refuses a non-loopback database before `@/lib/db` builds a Prisma client
- * (same guard as prisma/seed.ts and the other scripts). Running it against
- * production is a separate, explicit decision outside this script.
+ * The migrate-v2 guard MUST be the first import: it loads `.env.local` and
+ * refuses a non-loopback database before `@/lib/db` builds a Prisma client.
+ * Its one way past that rule is the operator exporting
+ * MIGRATE_V2_ALLOW_REMOTE_HOST with the exact production hostname (decided
+ * 2026-11-03 for the production backfill). A remote `--apply` must also carry
+ * `--expect-documents <n>` copied from a dry run against the same database:
+ * it is checked before any read, and a different count aborts before writing.
  */
-import "../prisma/require-local-db"
+import { isRemoteRun } from "./migrate-v2/_guard"
 
 import { connectionTarget } from "../prisma/local-env"
 import { db } from "../src/lib/db"
@@ -57,11 +60,30 @@ const USAGE = [
   "Usage:",
   "  npx tsx scripts/backfill-carpetas-cliente.ts           # dry run (default, no writes)",
   "  npx tsx scripts/backfill-carpetas-cliente.ts --apply   # file the mirrored documents into their client folders",
+  "  npx tsx scripts/backfill-carpetas-cliente.ts --apply --expect-documents <n>",
+  "      # required against an allowed remote host: <n> is 'documents to file' from the dry run",
 ]
+
+const EXPECT_FLAG = "--expect-documents"
+
+/** The value after --expect-documents, or null when the flag is absent. */
+export function parseExpectedDocuments(argv: readonly string[]): number | null {
+  const index = argv.indexOf(EXPECT_FLAG)
+  if (index === -1) return null
+  const raw = argv[index + 1]
+  if (raw === undefined || !/^\d+$/.test(raw)) {
+    throw new Error(`${EXPECT_FLAG} needs a whole number (the 'documents to file' count of the dry run).`)
+  }
+  return Number(raw)
+}
 
 export function parseBackfillArgs(argv: readonly string[]): BackfillMode {
   if (argv.includes("--help")) return "help"
-  const unknown = argv.filter((arg) => arg !== "--apply")
+  parseExpectedDocuments(argv)
+  const expectIndex = argv.indexOf(EXPECT_FLAG)
+  const unknown = argv.filter(
+    (arg, i) => arg !== "--apply" && !(expectIndex !== -1 && (i === expectIndex || i === expectIndex + 1)),
+  )
   if (unknown.length > 0) throw new Error(`Unknown argument(s): ${unknown.join(" ")}. Use --help.`)
   return argv.includes("--apply") ? "apply" : "dry-run"
 }
@@ -70,8 +92,15 @@ export async function runBackfill(
   deps: BackfillDeps,
   argv: readonly string[] = process.argv.slice(2),
   print: Printer = (line) => console.log(line),
+  options: { remote?: boolean } = {},
 ): Promise<BackfillReport> {
   const mode = parseBackfillArgs(argv)
+  const expected = parseExpectedDocuments(argv)
+  if (options.remote && mode === "apply" && expected === null) {
+    throw new Error(
+      "Remote --apply requires --expect-documents <n> copied from a dry run against the same database.",
+    )
+  }
   const report: BackfillReport = {
     mode,
     candidatos: 0,
@@ -116,6 +145,12 @@ export async function runBackfill(
   if (mode !== "apply") {
     print("Dry run: nothing was written. Re-run with --apply to execute.")
     return report
+  }
+
+  if (expected !== null && expected !== toFile) {
+    throw new Error(
+      `Expected ${expected} document(s) to file but found ${toFile}. Nothing was written; re-run the dry run.`,
+    )
   }
 
   for (const [clienteId, group] of byClient) {
@@ -183,7 +218,7 @@ const invokedDirectly = (process.argv[1] ?? "")
   .endsWith("scripts/backfill-carpetas-cliente.ts")
 
 if (invokedDirectly) {
-  runBackfill(prismaDeps())
+  runBackfill(prismaDeps(), process.argv.slice(2), (line) => console.log(line), { remote: isRemoteRun })
     .catch((error: unknown) => {
       console.error(error instanceof Error ? error.message : String(error))
       process.exitCode = 1
