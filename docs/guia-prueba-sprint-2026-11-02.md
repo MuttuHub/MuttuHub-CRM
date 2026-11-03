@@ -121,10 +121,11 @@ guía base: `docs/guia-prueba-proyectos.md`.
       clic en un segmento del medio de la ruta salta a ese nivel.
       ✅ 2026-11-02 — con `Todas › Gobernación de Sierra Verde › Subcarpeta C10`: atrás/adelante y salto
       por segmento en verde.
-- [ ] **C9.** **Jerarquía arrastrando (NUEVO):** arrastrar una carpeta sobre otra → queda adentro
+- [x] **C9.** **Jerarquía arrastrando (NUEVO):** arrastrar una carpeta sobre otra → queda adentro
       (subcarpeta) y se ve el nivel en el árbol. Arrastrarla de vuelta a **«Todas»** (o «Mover…» →
       **«Raíz del repositorio»**, que debe quedar **marcada**) → vuelve al nivel superior. Soltar una
       carpeta dentro de su propia rama → no debe hacer nada (guarda de ciclo).
+      ✅ 2026-11-02/03 — cerrado por el tester (arrastre y retorno a raíz funcionando con el explorador).
 - [x] **C10.** **Crear subcarpeta y redirigir (NUEVO):** con una carpeta abierta, «Nueva carpeta» →
       elegir **«Dentro de» = Raíz del repositorio** → se crea en la raíz (no dentro de la abierta). Y
       «Mover…» de una carpeta anidada a la raíz envía el cambio de verdad (la carpeta se mueve).
@@ -134,10 +135,15 @@ guía base: `docs/guia-prueba-proyectos.md`.
 
 ## D. Adjunto de tarea → carpeta del cliente (jefe R1 · carril 1, 1.4)
 
-- [ ] **D1.** Crear una tarea con cliente «Gobernación…» y adjuntar un PDF. El documento aparece en
+- [x] **D1.** Crear una tarea con cliente «Gobernación…» y adjuntar un PDF. El documento aparece en
       **Documentos › carpeta de ese cliente**, ligado al cliente.
-- [ ] **D2.** Crear una tarea sin cliente con adjunto: el documento aparece en «Todas» (comportamiento
+      ✅ 2026-11-03 — verificado: el espejo aparece en la carpeta del cliente. Hallazgos de la misma
+      prueba (corregidos): el diálogo de tarea perdía el título al reabrir una tarea en caché (fix
+      `lastKey`) y no había forma de eliminar un adjunto (agregado DELETE con confirmación; baja también
+      el espejo del Repositorio).
+- [x] **D2.** Crear una tarea sin cliente con adjunto: el documento aparece en «Todas» (comportamiento
       previo, sin cambio).
+      ✅ 2026-11-03 — verificado: el espejo queda suelto en la raíz, sin cliente.
 
 ## E. Modales revisados (carril 1, 1.5 · carril 2, 2.7)
 

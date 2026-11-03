@@ -232,3 +232,18 @@ No aparecen en las tarjetas, las filas de la lista ni la ficha. Decisión de pro
 única; para cruzar etiquetas hay que filtrar de a una. El catálogo vivo del fix 1.1 funciona bien.
 
 **Propuesta:** permitir multiselección de etiquetas (comportamiento *o* a nivel tarea, como los chips del formulario), o combinarla con el resto de filtros activos. Es UX, no bug del sprint.
+
+### 27. La sección Proyectos se percibe compleja
+
+Pedido del tester (2026-11-03): «la UX de proyectos sea lo más sencilla posible». Dolores observados:
+el avance **% (AJ-01)** y el avance **de entregables (cantidad)** viven en la misma tarjeta y se
+confunden; la ficha acumula pestañas y acciones; el dato demo arranca con actividades ya completas,
+lo que hace pensar que un reporte nuevo cambió el estado.
+
+**Propuesta:** discovery de simplificación (jerarquía de acciones, separar «Reportar avance %» de
+«Registrar entregable» con textos guía, y un estado vacío/leyenda que explique los badges). No es bug
+del sprint; se decide en producto.
+
+Hallazgo adicional (2026-11-03): al importar una plantilla con fechas ya pasadas, el proyecto nace
+**atrasado** (semáforo rojo, plan 90 % en la semana 1) sin ningún aviso. Propuesta: detectar fechas
+anteriores a hoy durante la validación/confirmación y ofrecer ajustarlas antes de aprobar la línea base.
