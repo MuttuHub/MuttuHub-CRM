@@ -34,7 +34,7 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
 | T5b | **PR-R2b:** repetir cabecera y pie en cada página impresa (ver L12) | S2 | por definir | pendiente | — |
 | T6 | PR-M1: outbox, worker y `EmailSender` (Resend + Mailpit por HTTP) | S3 | delegado (paralelo) | hecho; verificador PASS (ítems 1, 3, 4) | `145dfb8` migración + `03513bf` código (rama `feat/email-outbox`); 16 archivos; spot check del padre 41/41; humo: 1 correo en Mailpit |
 | T7 | PR-M2 a PR-M4: plantillas, eventos y resumen v2 | S3 | por definir | pendiente | — |
-| T8 | PR-7a–d: U1–U8 (textos de Proyectos) | S1, S2 | delegado (paralelo) | hecho parcial · **falta PR-7d (U6–U8)** | `8b228fc` (PR-7a, U1–U3), `e8daa97` (PR-7b, U4), `ff222d4` (PR-7c, U5) en la rama `fix/proyectos-textos`, 37 archivos +429/−227. Verificado por el padre: 23 archivos / **369 pruebas en verde**, `tsc` 0, `eslint` 0. Sin tocar: `import-dialog.tsx` (U6, U7) y `lib/proyectos/plantilla/generate.ts` (U8). El escritor murió justo al empezar U6/U7. |
+| T8 | PR-7a–d: U1–U8 (textos de Proyectos) | S1, S2 | delegado (paralelo) | hecho · **verificado (pruebas + visual)** | `8b228fc` (PR-7a, U1–U3), `e8daa97` (PR-7b, U4), `ff222d4` (PR-7c, U5) en la rama `fix/proyectos-textos`, 37 archivos +429/−227. Verificado por el padre: 23 archivos / **369 pruebas en verde**, `tsc` 0, `eslint` 0. Sin tocar: `import-dialog.tsx` (U6, U7) y `lib/proyectos/plantilla/generate.ts` (U8). PR-7d en `c4c1ffb` (rama `fix/proyectos-textos-import`, desde `main`): 4 archivos, +82/−9, tres pruebas nuevas en RED→GREEN; 175 archivos / 2309 pruebas con 2 fallos preexistentes de `control-guards.test.ts` (`repository-list.tsx:1023`, reproducidos en `main`). |
 | T9 | PR-8: BL#13, BL#16, BL#7, N10 | S1, S2 | inline | pendiente | — |
 | T10 | PR-14, PR-15: U9–U12 (requisitos de línea base visibles) | S1, S2 | por definir | pendiente | — |
 | T11 | PR-16: U13–U16 (atajos) | S1, S2 | por definir | pendiente | — |
@@ -140,4 +140,11 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
     propia: `/clientes/<id>` da 404, la real es `/clientes?cliente=<id>`.
   - **Nota de proceso:** los verificadores delegados no arrancaron (`ELOCKED` en el runtime de subagentes); la
     verificación visual la hizo el padre en línea. El arnés quedó en `.claude/qa/capturar.mjs` + `analizar-pdf.py`.
+- **L13 (2026-11-04, PR-7d cierra T8):** `c4c1ffb` en `fix/proyectos-textos-import` (rama nueva desde `main`, sin
+  apilar; toca archivos disjuntos de PR-7a–c). U6: la tabla de errores de importación ya no muestra la columna «Regla»
+  ni los códigos `V-07`/`W-01`; el CSV del reporte los conserva para soporte. U7: la barra y el diálogo comparten
+  estado y explicación («Define las fechas del proyecto…») al descargar la plantilla. U8: las notas del Excel pasan a
+  «tú» («Lee esta hoja», «Pasa el mouse»); **el plan decía 7 voseos y eran 2**. Tres pruebas nuevas, RED observado
+  primero. Gate del área: 175 archivos / 2309 pruebas, `tsc` y `eslint` en cero; los 2 fallos de `control-guards.test.ts`
+  (`repository-list.tsx:1023`) se reprodujeron igual en `main`, así que son previos y ajenos a este cambio.
 
