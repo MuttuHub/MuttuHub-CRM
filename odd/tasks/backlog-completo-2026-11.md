@@ -31,7 +31,7 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
 | T3 | PR-1: BL#14, BL#21, BL#12, BL#11 (base de diálogos) | S1, S2 | delegado (paralelo) | hecho · **falta revisión visual** | `8a5bd9d` (rama `fix/ui-dialog-base`), 23 archivos +125/−70; RED 5 → GREEN 11/11; spot check del padre 11/11 |
 | T4 | PR-2: BL#9, BL#22, BL#15, BL#10 (diálogos con operación en curso) | S1, S2 | por definir | pendiente | — |
 | T5 | PR-R2: R9 (hoja de impresión común) | S1, S2 | por definir | pendiente | — |
-| T6 | PR-M1: outbox, worker y `EmailSender` (Resend + SMTP/Mailpit) | S3 | por definir | pendiente | — |
+| T6 | PR-M1: outbox, worker y `EmailSender` (Resend + Mailpit por HTTP) | S3 | delegado (paralelo) | en verificación independiente (ítems 1, 3, 4) | `145dfb8` migración + `03513bf` código (rama `feat/email-outbox`); 16 archivos; spot check del padre 41/41; humo: 1 correo en Mailpit |
 | T7 | PR-M2 a PR-M4: plantillas, eventos y resumen v2 | S3 | por definir | pendiente | — |
 | T8 | PR-7a–d: U1–U8 (textos de Proyectos) | S1, S2 | inline | pendiente | — |
 | T9 | PR-8: BL#13, BL#16, BL#7, N10 | S1, S2 | inline | pendiente | — |
@@ -72,4 +72,13 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
   línea que no son diálogos (fuera de BL#11); la X de cierre se desplaza con el cuerpo en diálogos altos.
   Incidente propio: un `git add` registró la mudanza del plan a `docs/ux-crm-2026-11/` como borrado; deshice ese commit
   local y restauré el estado del disco tal como lo dejó el usuario.
+- **L6 (2026-11-04):** T6 entregado por el escritor: tabla `email_outbox` (migración aditiva
+  `20261104181952_email_outbox`), reclamo con `FOR UPDATE SKIP LOCKED` y lease de 10 min, reintentos 5/10/20/40 min
+  (tope 6 h, 5 intentos), `clave_idempotencia` única + cabecera `Idempotency-Key` de Resend, puerto `EmailSender`
+  (`EMAIL_TRANSPORT=resend|mailpit`, Mailpit solo en loopback), sin dependencias nuevas; el cron diario drena la cola.
+  Humo local: 1 correo «Muttu Hub · Prueba de notificaciones» en Mailpit. **Aviso de entorno:** la migración ya está
+  aplicada en la base local pero solo existe en `feat/email-outbox`; en otras ramas `migrate dev` puede proponer un
+  reset: no aceptarlo. Preguntas abiertas: los eventos «inmediatos» (PR-M3) necesitan un disparador más frecuente que el
+  cron de las 8:00; no se construyó adaptador SMTP (Brevo/SES/M365 por HTTP o dependencia nueva, según D-M1).
+  Verificador independiente en curso.
 
