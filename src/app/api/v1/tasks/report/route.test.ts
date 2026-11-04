@@ -73,21 +73,34 @@ describe("GET /api/v1/tasks/report", () => {
     expect(db.usuario.findMany).toHaveBeenCalled();
   });
 
-  it("lists every active user, for any role (COLABORADOR included)", async () => {
+  it("hides people with no tasks in the period (R3) and keeps those with tasks, for any role", async () => {
     authAs(colaborador);
-    vi.mocked(db.tarea.findMany).mockResolvedValue([]);
     vi.mocked(db.usuario.findMany).mockResolvedValue([
       { id: "r1", nombre: "Responsable Uno" },
       { id: "r2", nombre: "Responsable Dos" },
     ] as never);
+    vi.mocked(db.tarea.findMany).mockResolvedValue([
+      {
+        id: "t1",
+        responsable_id: "r1",
+        cliente_id: null,
+        estado: "POR_HACER",
+        fecha_entrega: null,
+        updated_at: new Date("2026-01-05"),
+        completed_at: null,
+      },
+    ] as never);
 
     const res = await GET(new Request("http://localhost/api/v1/tasks/report?rango=all"));
 
+    expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.por_persona).toHaveLength(2);
+    expect(json.por_persona).toEqual([
+      expect.objectContaining({ id: "r1", nombre: "Responsable Uno", asignadas: 1, en_curso: 1 }),
+    ]);
   });
 
-  it("lists every active user for a full-access role", async () => {
+  it("returns an empty por_persona when nobody has tasks in the period (R3)", async () => {
     authAs(gerencia);
     vi.mocked(db.tarea.findMany).mockResolvedValue([]);
     vi.mocked(db.usuario.findMany).mockResolvedValue([
@@ -98,7 +111,35 @@ describe("GET /api/v1/tasks/report", () => {
     const res = await GET(new Request("http://localhost/api/v1/tasks/report?rango=all"));
 
     const json = await res.json();
-    expect(json.por_persona).toHaveLength(2);
+    expect(json.por_persona).toEqual([]);
+  });
+
+  it("counts a task closed later on its delivery day as on time, in the Bogotá calendar (R1)", async () => {
+    authAs(gerencia);
+    vi.mocked(db.usuario.findMany).mockResolvedValue([{ id: "r1", nombre: "Responsable Uno" }] as never);
+    // fecha_entrega is a date-only value stored at UTC midnight (the dialog sends "AAAA-MM-DD").
+    const entrega = new Date("2026-03-10T00:00:00.000Z");
+    const completada = (id: string, completedAt: string) => ({
+      id,
+      responsable_id: "r1",
+      cliente_id: null,
+      estado: "COMPLETADA",
+      fecha_entrega: entrega,
+      updated_at: new Date(completedAt),
+      completed_at: new Date(completedAt),
+    });
+    vi.mocked(db.tarea.findMany).mockResolvedValue([
+      completada("same-day-afternoon", "2026-03-10T20:00:00.000Z"), // 15:00 Bogotá, Mar 10
+      completada("same-day-night", "2026-03-11T03:00:00.000Z"), // 22:00 Bogotá, Mar 10
+      completada("day-before", "2026-03-09T15:00:00.000Z"), // Mar 9
+      completada("next-day", "2026-03-11T15:00:00.000Z"), // 10:00 Bogotá, Mar 11
+    ] as never);
+
+    const res = await GET(new Request("http://localhost/api/v1/tasks/report?rango=all"));
+
+    const json = await res.json();
+    expect(json.resumen).toMatchObject({ completadas: 4, a_tiempo: 3, tarde: 1 });
+    expect(json.por_persona).toEqual([expect.objectContaining({ id: "r1", a_tiempo: 3, tarde: 1 })]);
   });
 
   it("aggregates resumen, por_persona, por_estado and por_cliente correctly", async () => {
@@ -251,6 +292,8 @@ describe("GET /api/v1/tasks/report", () => {
 
     const res = await GET(new Request("http://localhost/api/v1/tasks/report?rango=month"));
     const json = await res.json();
-    expect(json.meta.criterio_rango).toContain("completed_at");
+    // R4: plain Spanish for the reader, never column names.
+    expect(json.meta.criterio_rango).not.toMatch(/completed_at|updated_at|fecha_entrega|_/);
+    expect(json.meta.criterio_rango).toContain("a tiempo");
   });
 });

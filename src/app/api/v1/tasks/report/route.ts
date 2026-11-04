@@ -12,6 +12,12 @@
 // ya completada (el reporte pasaba retroactivamente de "a tiempo" a "tarde").
 // COALESCE(completed_at, updated_at) cubre las tareas pre-migración por
 // seguridad, aunque el backfill ya congeló el proxy en completed_at.
+// R1: fecha_entrega is a calendar day (the dialog sends "AAAA-MM-DD", stored at
+// UTC midnight), so a task is on time when it closed on or before that day in
+// the Bogotá calendar — the same rule as the weekly report (lib/reportes).
+//
+// R3: `por_persona` only lists people with tasks in the period; active users
+// with no tasks would be rows of zeros.
 //
 // Sin N+1: una sola query de tareas (select liviano) + una pasada de
 // agregación en JS; los nombres de personas y clientes se resuelven con una
@@ -25,6 +31,7 @@ import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { ENUM_VALUES } from "@/lib/catalogs";
 import { buildTaskWhere, parseTaskFilters } from "@/app/api/v1/tasks/route";
+import { fechaEnBogota } from "@/lib/reportes/semana";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +98,21 @@ function inicioSemana(fecha: Date): string {
   d.setUTCDate(d.getUTCDate() - dia);
   return d.toISOString().slice(0, 10);
 }
+
+/** Delivery day of a date-only `fecha_entrega` (stored at UTC midnight), as AAAA-MM-DD. */
+function diaEntrega(fecha: Date): string {
+  return fecha.toISOString().slice(0, 10);
+}
+
+/** On time = closed on or before the delivery day, in the Bogotá calendar (not before its midnight). */
+function cerradaATiempo(cierre: Date, fechaEntrega: Date): boolean {
+  return fechaEnBogota(cierre) <= diaEntrega(fechaEntrega);
+}
+
+/** Plain-language rule shown under the report (R4): no column names. */
+const CRITERIO_RANGO =
+  "Las completadas cuentan por el día en que se cerraron y las abiertas, por su último cambio. " +
+  "Una tarea va a tiempo si se cerró a más tardar el día de su entrega.";
 
 export const GET = withApiErrorHandling(
   "tasks",
@@ -216,7 +238,7 @@ export const GET = withApiErrorHandling(
         if (t.fecha_entrega) {
           // completed_at es la marca real (3B); COALESCE cubre pre-backfill.
           const cierre = t.completed_at ?? t.updated_at;
-          if (cierre <= t.fecha_entrega) aTiempo += 1;
+          if (cerradaATiempo(cierre, t.fecha_entrega)) aTiempo += 1;
           else tarde += 1;
         }
         // Tendencia de cierre: la semana del completed_at REAL (COALESCE
@@ -237,7 +259,7 @@ export const GET = withApiErrorHandling(
         persona.completadas += 1;
         if (t.fecha_entrega) {
           const cierre = t.completed_at ?? t.updated_at;
-          if (cierre <= t.fecha_entrega) persona.a_tiempo += 1;
+          if (cerradaATiempo(cierre, t.fecha_entrega)) persona.a_tiempo += 1;
           else persona.tarde += 1;
         }
       }
@@ -298,7 +320,7 @@ export const GET = withApiErrorHandling(
     return NextResponse.json({
       rango,
       resumen,
-      por_persona: [...porPersona.values()],
+      por_persona: [...porPersona.values()].filter((p) => p.asignadas > 0),
       por_estado: porEstadoArr,
       por_cliente: porClienteArr,
       vencimientos_por_antiguedad: vencimientosPorAntiguedad,
@@ -308,8 +330,7 @@ export const GET = withApiErrorHandling(
       // el payload (no hardcodeado), para que un cambio futuro de criterio
       // desaparezca de pantalla y PDF sin editar UI.
       meta: {
-        criterio_rango:
-          "completadas por completed_at, abiertas por updated_at",
+        criterio_rango: CRITERIO_RANGO,
       },
     });
   },
