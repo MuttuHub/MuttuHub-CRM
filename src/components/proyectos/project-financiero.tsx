@@ -11,7 +11,7 @@
 
 import { useState } from "react";
 import { AlertTriangle, ChevronDown, PiggyBank } from "lucide-react";
-import { ToneBadge } from "@/components/crm/shared";
+import { AyudaBase, BASE_NO_DISPONIBLE, ETIQUETA_BASE, ETIQUETA_CORTE, NOMBRE_BASE, OpcionesBase, SemaforoProvisional } from "@/components/proyectos/vocabulario-seguimiento";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { mesLegible } from "@/components/proyectos/project-display";
 import { EmptyBlock, InlineError, SELECT_CLASS, SectionHeader } from "@/components/proyectos/ui";
@@ -73,8 +73,8 @@ function FinancieroContent({ proyecto, inicio, fin }: { proyecto: ProjectListRow
   const corteActual = corte ?? ficha?.corte ?? "";
   // Opciones avanzadas puede estar plegado: lo que no es el valor por defecto se anuncia aparte.
   const filtros = [
-    ...(base === "original" ? ["Base original"] : []),
-    ...(corte !== null ? [`Corte ${mesLegible(corte)}`] : []),
+    ...(base === "original" ? [`Comparado con el ${NOMBRE_BASE.original.toLowerCase()}`] : []),
+    ...(corte !== null ? [`Hasta ${mesLegible(corte)}`] : []),
   ];
   const restablecer = () => {
     setCorte(null);
@@ -95,7 +95,7 @@ function FinancieroContent({ proyecto, inicio, fin }: { proyecto: ProjectListRow
           <ChevronDown className={cn("size-3.5 transition-transform", opciones && "rotate-180")} aria-hidden />
           Opciones avanzadas
         </Button>
-        {ficha && !ficha.parametros.confirmado && <ToneBadge tone="neutro" label="No confirmado" />}
+        {ficha && !ficha.parametros.confirmado && <SemaforoProvisional />}
         {filtros.length > 0 && (
           <span data-testid="financiero-filtros" className="flex items-center gap-1.5 text-[12px] text-ink-700">
             <span className="rounded-full border border-border bg-panel px-2.5 py-1">{filtros.join(" · ")}</span>
@@ -109,9 +109,9 @@ function FinancieroContent({ proyecto, inicio, fin }: { proyecto: ProjectListRow
       {opciones && (
         <div id="financiero-opciones-avanzadas" className="flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-1.5 text-[12px] text-ink-600">
-            Corte
+            {ETIQUETA_CORTE}
             <select
-              aria-label="Corte"
+              aria-label={ETIQUETA_CORTE}
               value={corteActual}
               onChange={(event) => setCorte(event.target.value)}
               className={SELECT_CLASS}
@@ -123,20 +123,22 @@ function FinancieroContent({ proyecto, inicio, fin }: { proyecto: ProjectListRow
               ))}
             </select>
           </label>
-          <label className="flex items-center gap-1.5 text-[12px] text-ink-600">
-            Base
-            <select
-              aria-label="Base"
-              disabled={!baseDisponible}
-              value={base}
-              onChange={(event) => setBase(event.target.value as ProjectBase)}
-              title={baseDisponible ? undefined : "La versión original estará disponible con la línea base aprobada."}
-              className={SELECT_CLASS}
-            >
-              <option value="vigente">Vigente</option>
-              {baseDisponible && <option value="original">Original (v0)</option>}
-            </select>
-          </label>
+          <span className="flex items-center gap-1">
+            <label className="flex items-center gap-1.5 text-[12px] text-ink-600">
+              {ETIQUETA_BASE}
+              <select
+                aria-label={ETIQUETA_BASE}
+                disabled={!baseDisponible}
+                value={base}
+                onChange={(event) => setBase(event.target.value as ProjectBase)}
+                title={baseDisponible ? undefined : BASE_NO_DISPONIBLE}
+                className={SELECT_CLASS}
+              >
+                <OpcionesBase conOriginal={baseDisponible} />
+              </select>
+            </label>
+            <AyudaBase />
+          </span>
         </div>
       )}
 

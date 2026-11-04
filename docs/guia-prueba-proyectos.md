@@ -73,7 +73,7 @@ En la reunión (como `admin@`, salvo donde se indica):
    (1 min)
 4. Pestaña **Ficha de seguimiento**: **Registrar avance** en un entregable con un enlace https (URL y "Nombre del enlace", ambos obligatorios; espera a que
    el diálogo cierre solo: el enlace se guarda en una segunda petición); mira el
-   **Semáforo técnico** (también en el encabezado, con la palabra del color) y la insignia **No confirmado**.
+   **Semáforo técnico** (también en el encabezado, con la palabra del color) y la insignia **Semáforo provisional**.
    (2 min)
 5. Pestaña **Legalización** > **Registrar gasto** con soporte. Sal y entra como `gerencia@`: cola **Gastos por validar**
    (en **Proyectos**) y, en la pestaña **Legalización** de la ficha, **Validar**. Muestra que el registrante ve "Tú lo
@@ -84,7 +84,7 @@ En la reunión (como `admin@`, salvo donde se indica):
    en **Versiones** (misma pestaña, bajo Modificaciones) compara `v0` contra **Vigente**. (2 min)
 
 8. **Cierre con el Tablero** (como `admin@` o `gerencia@`): en **Proyectos** abre la pestaña **Tablero**
-   (`/proyectos?vista=tablero`): tarjetas del portafolio, semáforos por proyecto, insignia **No confirmado** y
+   (`/proyectos?vista=tablero`): tarjetas del portafolio, semáforos por proyecto, insignia **Semáforo provisional** y
    **Exportar Excel**. Abre **Ver detalle**, muestra los dos chips de semáforo del encabezado y, en la pestaña
    **Metas e indicadores**, la sección **Indicadores**. (1 min; ver §J)
 
@@ -333,7 +333,7 @@ Es la única vía real para salir de Borrador. Solo `admin@` o `gerencia@`, solo
 5. Atajo solo para QA local, SIN versión 0: `npx tsx scripts/set-project-estado.ts PRY-2026-001 EN_EJECUCION
    --actor admin@demo.muttuhub.local --apply` (en seco por defecto). Un proyecto así NO tiene v0: Versiones dice
    "La línea base aún no está aprobada.", Modificaciones falla ("El proyecto no tiene línea base aprobada.") y el
-   selector Base en **Original (v0)** da "La versión original aún no existe.". Para la reunión usa la aprobación real.
+   selector **Comparar con** en **Plan inicial** da "La versión original aún no existe.". Para la reunión usa la aprobación real.
 6. `coordinador@` y `colaborador@` no ven el botón.
 
 ## C2. Suspender, reactivar, cerrar, reabrir o cancelar (B7)
@@ -363,11 +363,11 @@ tenga su línea base aprobada." Escribe `admin@`, `gerencia@` o `coordinador@` i
 admin/gerencia.
 
 1. **Semáforo técnico**: chip "Semáforo técnico: Verde / Amarillo / Rojo" (siempre con la palabra del color; el
-   mismo color se repite en el chip del encabezado fijo), "Corte al <fecha>", y
-   **Avance real**, **Avance programado**, **Desviación** (en pp). El selector **Base** ofrece **Vigente** y
-   **Original (v0)**.
-2. Insignia **No confirmado**: aparece mientras los umbrales del semáforo no estén confirmados (ver §H). Es lo
-   esperado hoy.
+   mismo color se repite en el chip del encabezado fijo), "Datos al <fecha>", y
+   **Avance real**, **Avance programado**, **Desviación** (en puntos, p. ej. "-15 puntos"). El selector
+   **Comparar con** (con su ayuda **?**) ofrece **Plan actual** y **Plan inicial**.
+2. Insignia **Semáforo provisional** (con su ayuda **?**): aparece mientras los umbrales del semáforo no estén
+   confirmados (ver §H). Es lo esperado hoy.
 3. Por actividad: estado (No iniciada, En curso, Finalizada, Finalizada con retraso, calculado por el servidor),
    barra de progreso y sus entregables con "Meta ... / Contado ...".
 4. **Registrar avance** en un entregable: Fecha, Cantidad, Observación (opcional) y "Medio de verificación" con
@@ -498,14 +498,14 @@ Pestaña **Financiero**, sección **Ficha financiera** (debajo de **Presupuesto*
 
 1. Tabla por rubro con A (asignado), P (programado), E (ejecutado = gastos **Validados**), D y los porcentajes E/P y
    E/A, color por fila y fila de total.
-2. Selector **Corte** (mes) y selector **Base**: **Vigente** u **Original (v0)**. En Borrador la opción Original no
-   existe (tooltip: "La versión original estará disponible con la línea base aprobada.").
+2. Selector **Calcular hasta** (mes) y selector **Comparar con**: **Plan actual** o **Plan inicial**. En Borrador la
+   opción **Plan inicial** no existe (tooltip: "El plan inicial estará disponible cuando se apruebe la línea base.").
 3. Mientras no haya gastos validados: "Ejecución disponible cuando se registren gastos" (en Borrador siempre).
 4. Valida un gasto (§E, pestaña **Legalización**), vuelve a la pestaña **Financiero** y recarga la sección: E sube y el color del rubro cambia según los umbrales. Si E supera A
    el color es rojo.
-5. Cambia **Base** a **Original (v0)** tras una modificación aprobada (§G): A y P vuelven a los valores del v0
-   mientras E (los gastos) no cambia.
-6. Insignia **No confirmado** mientras los umbrales no estén confirmados (§H).
+5. Cambia **Comparar con** a **Plan inicial** tras una modificación aprobada (§G): A y P vuelven a los valores del
+   plan inicial mientras E (los gastos) no cambia.
+6. Insignia **Semáforo provisional** mientras los umbrales no estén confirmados (§H).
 7. Si el gasto va por debajo de lo programado y el avance técnico está atrasado aparece el aviso "Posible retraso:
    el gasto va por debajo de lo programado y el avance técnico está atrasado."
 8. Negativo: la API restringe la lectura a quienes pueden ver el proyecto; el comportamiento exacto de
@@ -561,7 +561,7 @@ Menú **Administración** (otros roles son redirigidos). Más abajo en la págin
    Retraso (%), Avance requiere medio, Modificación bloquea periodos pasados, **Tope de avance sin entregables
    completos (%)** (AJ-01; valor inicial 90). Cada uno con insignia **Confirmado** o **No confirmado**.
 6. Cambia un valor, marca **Confirmar <parámetro>** y pulsa **Guardar parámetros**. Vuelve a la ficha, pestaña
-   **Ficha de seguimiento** o **Financiero** (**Ficha financiera**): la insignia **No confirmado** del semáforo desaparece cuando los parámetros que usa quedan
+   **Ficha de seguimiento** o **Financiero** (**Ficha financiera**): la insignia **Semáforo provisional** desaparece cuando los parámetros que usa quedan
    confirmados. (No verificado qué parámetros exactos controlan cada insignia.)
 7. Cambiar "Avance requiere medio" altera si un avance sin medio cuenta; hazlo solo para demostrar, y déjalo como estaba.
 
@@ -588,15 +588,15 @@ Quién ve la pestaña **Tablero** (junto a **Portafolio**): `admin@`, `gerencia@
 
 1. Como `gerencia@`, abre **Proyectos** y la pestaña **Tablero** (la URL cambia a `?vista=tablero`).
 2. Filtros (cada cambio vuelve a consultar): **Estado**, **Línea estratégica**, **Municipio**, **Cliente**,
-   **Responsable** y **Corte** (fecha). Sin corte se usa hoy. El municipio es solo un filtro: no hay desglose por
+   **Responsable** y **Calcular hasta** (fecha). Sin fecha se usa hoy. El municipio es solo un filtro: no hay desglose por
    territorio.
-3. Tarjetas: **Proyectos** ("Corte al <fecha>"), **Avance real promedio** (con "Programado ..."), **Ejecutado /
+3. Tarjetas: **Proyectos** ("Datos al <fecha>"), **Avance real promedio** (con "Programado ..."), **Ejecutado /
    asignado** (con "Ejecutado / programado ...") y **Ejecutado** (con "Asignado ..."), más el bloque **Proyectos por
    estado**.
 4. Tabla: Código, Proyecto (con cliente), Estado, **Semáforo técnico**, **Semáforo financiero** (más la insignia
    **Posible retraso** si aplica), **Avance real**, **Ejecutado / asignado** y **Ver detalle** (abre la ficha en la misma ventana). Un
    proyecto sin indicadores (Borrador) muestra "Sin medir" y "—".
-5. Insignia **No confirmado** junto a **Exportar Excel**: aparece mientras los parámetros del semáforo no estén
+5. Insignia **Semáforo provisional** junto a **Exportar Excel**: aparece mientras los parámetros del semáforo no estén
    confirmados (§H). Es lo esperado hoy.
 6. Estados: cargando (filas gris claro), vacío ("No hay proyectos para mostrar", "Prueba con otros filtros. ..."),
    error ("No pudimos cargar el tablero de proyectos. Inténtalo de nuevo."). Prueba el vacío filtrando por **Estado
@@ -605,7 +605,7 @@ Quién ve la pestaña **Tablero** (junto a **Portafolio**): `admin@`, `gerencia@
    Quítalo del equipo (§3) y el proyecto sale del tablero.
 
 ### J.2 Sección Indicadores en la ficha
-En **Ver detalle**, pestaña **Cambios**, sección **Exportar fichas** (controles **Corte** y **Base** y las
+En **Ver detalle**, pestaña **Cambios**, sección **Exportar fichas** (controles **Calcular hasta** y **Comparar con** y las
 exportaciones a Excel); el registro por indicador está en la pestaña **Metas e indicadores**. La ven quienes leen el proyecto. Los
 
 > **Nota 2026-10-14:** la descripción de tarjetas de los puntos 2 y 3 de esta sección quedó de la ficha de ocho
@@ -613,21 +613,23 @@ exportaciones a Excel); el registro por indicador está en la pestaña **Metas e
 chips **Semáforo técnico** y **Semáforo financiero** del encabezado fijo salen de estos mismos datos (misma
 consulta): deben coincidir en color con las tarjetas de abajo.
 
-1. Controles: **Corte** (fecha) y **Base** (**Vigente** / **Original (v0)**; en Borrador la base está bloqueada).
-2. Tarjetas: **Semáforo técnico** (Avance real, Avance programado, Desviación en pp), **Semáforo financiero**
+1. Controles: **Calcular hasta** (fecha) y **Comparar con** (**Plan actual** / **Plan inicial**; en Borrador está
+   bloqueado).
+2. Tarjetas: **Semáforo técnico** (Avance real, Avance programado, Desviación en puntos), **Semáforo financiero**
    (Asignado, Programado, Ejecutado, E/A, E/P y el aviso "Posible retraso: ..."), **Cumplimiento del cronograma**
    ("N a tiempo de M vencidas"), **Entregables logrados** ("N de M programados"), **Cumplimiento de indicadores**
    ("N medidos, M sin medir") y **Beneficiarios vs meta**.
-3. Insignia **No confirmado** junto a los controles (solo si el proyecto es medible).
+3. Insignia **Semáforo provisional** junto a los controles (solo si el proyecto es medible).
 4. En un Borrador: "Los indicadores se calculan cuando el proyecto está en ejecución, suspendido o cerrado."
 5. Registra un avance con soporte (§D) y un gasto validado (§E), recarga y comprueba que los porcentajes se mueven.
-   Cambia **Base** a **Original (v0)** tras una modificación aprobada (§G): lo programado y asignado vuelven al v0;
+   Cambia **Comparar con** a **Plan inicial** tras una modificación aprobada (§G): lo programado y asignado vuelven
+   al plan inicial;
    los avances y gastos no cambian.
 
 ### J.3 Exportaciones a Excel
 1. En la pestaña **Cambios**, sección **Exportar fichas**: **Exportar ficha (Excel)** baja `<código>-proyecto.xlsx` (hojas `Proyecto`, `Estructura`,
    `KPIs`) y **Exportar ficha financiera (Excel)** baja `<código>-financiera.xlsx` (hojas `Financiera`, con fila
-   Total, y `Resumen`). Respetan el **Corte** y la **Base** elegidos. La financiera exige fechas del proyecto (409
+   Total, y `Resumen`). Respetan **Calcular hasta** y **Comparar con** elegidos. La financiera exige fechas del proyecto (409
    si no hay).
 2. En el **Tablero**: **Exportar Excel** baja `portafolio-<corte>.xlsx` (hojas `Portafolio` y `Resumen`) con los
    filtros activos; tope de 500 proyectos (si se corta, la hoja Resumen lo dice).

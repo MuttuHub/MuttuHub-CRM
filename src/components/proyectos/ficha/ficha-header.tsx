@@ -96,7 +96,7 @@ export function FichaHeader({
             <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
               Exportar a Excel
             </DialogTitle>
-            <DialogDescription>Elige el corte y la base, y descarga la ficha.</DialogDescription>
+            <DialogDescription>Elige hasta qué fecha calcular y con qué plan comparar, y descarga la ficha.</DialogDescription>
           </DialogHeader>
           {exportando && <ProjectKpisPanel proyecto={proyecto} soloExportar />}
         </DialogContent>

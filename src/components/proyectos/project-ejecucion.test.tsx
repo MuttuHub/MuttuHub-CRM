@@ -205,13 +205,13 @@ describe("ProjectEjecucion", () => {
     const user = userEvent.setup()
     setup()
 
-    const base = await screen.findByRole("combobox", { name: "Base" })
+    const base = await screen.findByRole("combobox", { name: "Comparar con" })
     await user.selectOptions(base, "original")
 
     await waitFor(() =>
       expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/technical-status?base=original"))).toBe(true),
     )
-    expect(screen.getByRole("combobox", { name: "Base" })).toHaveValue("original")
+    expect(screen.getByRole("combobox", { name: "Comparar con" })).toHaveValue("original")
     expect(screen.getByTestId("semaforo-tecnico")).toBeInTheDocument()
   })
 
@@ -221,7 +221,7 @@ describe("ProjectEjecucion", () => {
     const semaforo = await screen.findByTestId("semaforo-tecnico")
     expect(semaforo).toHaveAttribute("data-color", "rojo")
     expect(semaforo).toHaveTextContent("21,4 %")
-    expect(semaforo).toHaveTextContent("No confirmado")
+    expect(semaforo).toHaveTextContent("Semáforo provisional")
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/technical-status", expect.any(Object)),
     )
@@ -232,9 +232,9 @@ describe("ProjectEjecucion", () => {
     setup({ seguimiento: true, tecnico: { ...TECNICO, avance_real: 55, avance_programado: 70, desviacion_pp: 15 } })
 
     const semaforo = await screen.findByTestId("semaforo-tecnico")
-    expect(semaforo).toHaveTextContent("-15 pp")
+    expect(semaforo).toHaveTextContent("-15 puntos")
     const lateral = await screen.findByTestId("seguimiento-lateral")
-    await waitFor(() => expect(lateral).toHaveTextContent("-15 pp"))
+    await waitFor(() => expect(lateral).toHaveTextContent("-15 puntos"))
   })
 
   it("titles the per-objective progress «Avance por objetivo», not «meta» (U2)", async () => {
@@ -247,6 +247,22 @@ describe("ProjectEjecucion", () => {
     expect(within(seccion).getByText("Avance por objetivo")).toBeInTheDocument()
     expect(within(seccion).getByRole("img", { name: /^Objetivo OBJ-1: ejecutado/ })).toBeInTheDocument()
     expect(screen.queryByText("Avance por meta")).not.toBeInTheDocument()
+  })
+
+  it("uses plain words for the plan base, the date and the deviation (U5)", async () => {
+    setup({ seguimiento: true, tecnico: { ...TECNICO, avance_real: 55, avance_programado: 70, desviacion_pp: 15 } })
+
+    const semaforo = await screen.findByTestId("semaforo-tecnico")
+    expect(semaforo).toHaveTextContent("-15 puntos")
+    expect(semaforo).toHaveTextContent(/Datos al /)
+    expect(within(semaforo).getByText("Semáforo provisional")).toBeInTheDocument()
+    expect(within(semaforo).getByRole("button", { name: "Ayuda: Semáforo provisional" })).toBeInTheDocument()
+    const base = within(semaforo).getByRole("combobox", { name: "Comparar con" })
+    expect(within(base).getAllByRole("option").map((o) => o.textContent)).toEqual(["Plan actual", "Plan inicial"])
+    expect(within(semaforo).getByRole("button", { name: "Ayuda: Comparar con" })).toBeInTheDocument()
+    const lateral = await screen.findByTestId("seguimiento-lateral")
+    await waitFor(() => expect(lateral).toHaveTextContent("-15 puntos"))
+    expect(screen.getByTestId("ejecucion")).not.toHaveTextContent(/Corte|No confirmado|v0|\bpp\b|Vigente/)
   })
 
   it("mounts the S-curve with its monthly table in the Avance tab", async () => {
@@ -267,7 +283,7 @@ describe("ProjectEjecucion", () => {
     const user = userEvent.setup()
     setup()
 
-    const base = await screen.findByRole("combobox", { name: "Base" })
+    const base = await screen.findByRole("combobox", { name: "Comparar con" })
     await user.selectOptions(base, "original")
 
     await waitFor(() =>

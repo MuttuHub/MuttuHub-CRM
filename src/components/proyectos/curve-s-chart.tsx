@@ -31,9 +31,9 @@ function formatPct(value: number): string {
   return `${PCT.format(value)} %`;
 }
 
-/** Signed difference in percentage points: `3.1` -> `"+3,1 pp"`, `-4` -> `"-4 pp"`. */
+/** Signed difference in percentage points: `3.1` -> `"+3,1 puntos"`, `-4` -> `"-4 puntos"`. */
 function formatPp(value: number): string {
-  return `${value > 0 ? "+" : ""}${PCT.format(value)} pp`;
+  return `${value > 0 ? "+" : ""}${PCT.format(value)} puntos`;
 }
 
 /** `"2026-08"` -> `"ago 2026"`. */
@@ -94,7 +94,7 @@ export function CurveSChart({ curva }: { curva: ProjectCurve | null }) {
               Ejecutado
             </span>
             <span className="text-ink-500">
-              Corte al {formatPeriodo(curva.corte)}. El plan técnico de ese mes se mide a la fecha de corte.
+              Datos al {formatPeriodo(curva.corte)}. El plan técnico de ese mes se mide hasta esa fecha.
             </span>
           </div>
 
@@ -102,14 +102,14 @@ export function CurveSChart({ curva }: { curva: ProjectCurve | null }) {
             <CurvaPanel
               panel="tecnico"
               titulo="Avance técnico"
-              ariaLabel={`Curva S técnica: avance planeado y ejecutado por mes, corte ${curva.corte}`}
+              ariaLabel={`Curva S técnica: avance planeado y ejecutado por mes, datos al ${curva.corte}`}
               puntos={puntos}
               valor={(p) => p.tecnico}
             />
             <CurvaPanel
               panel="financiero"
               titulo="Avance financiero"
-              ariaLabel={`Curva S financiera: programado y validado sobre lo asignado por mes, corte ${curva.corte}`}
+              ariaLabel={`Curva S financiera: programado y validado sobre lo asignado por mes, datos al ${curva.corte}`}
               puntos={puntos}
               valor={(p) => p.financiero}
             />
@@ -230,7 +230,7 @@ function CurvaMensualTable({ puntos, corte }: { puntos: readonly ProjectCurvePoi
       <TableBody>
         {puntos.map((p) => (
           <TableRow key={p.periodo}>
-            <TableCell>{p.periodo === corte ? `${formatPeriodo(p.periodo)} (al corte)` : formatPeriodo(p.periodo)}</TableCell>
+            <TableCell>{p.periodo === corte ? `${formatPeriodo(p.periodo)} (parcial)` : formatPeriodo(p.periodo)}</TableCell>
             <TableCell numeric>{formatPct(p.tecnico.planeado)}</TableCell>
             <TableCell numeric>{p.tecnico.ejecutado === null ? "—" : formatPct(p.tecnico.ejecutado)}</TableCell>
             <TableCell numeric>

@@ -138,7 +138,7 @@ describe("ProjectFicha (page)", () => {
 
     const kpis = await screen.findByTestId("kpis")
     expect(kpis).toHaveTextContent("Exportar fichas")
-    expect(await within(kpis).findByText("No confirmado")).toBeInTheDocument()
+    expect(await within(kpis).findByText("Semáforo provisional")).toBeInTheDocument()
     expect(within(kpis).getByRole("button", { name: /Exportar ficha \(Excel\)/ })).toBeInTheDocument()
 
     await user.keyboard("{Escape}")

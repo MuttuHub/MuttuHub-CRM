@@ -16,6 +16,7 @@ import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import { EjecucionAvance } from "@/components/proyectos/ejecucion-avance";
 import { EjecucionIndicadores } from "@/components/proyectos/ejecucion-indicadores";
 import { SemaforoTecnico } from "@/components/proyectos/semaforo-tecnico";
+import { AyudaBase, ETIQUETA_BASE, OpcionesBase, datosAl } from "@/components/proyectos/vocabulario-seguimiento";
 import { CurveSChart } from "@/components/proyectos/curve-s-chart";
 import {
   useDeliverableProgress,
@@ -164,19 +165,21 @@ function OpcionesAvanzadas({
   return (
     <Disclosure titulo="Opciones avanzadas" testId="ejecucion-avanzadas">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[12.5px] text-ink-600">
-        <label className="flex items-center gap-1.5">
-          Base
-          <select
-            aria-label="Base"
-            value={base}
-            onChange={(event) => onBaseChange(event.target.value as ProjectBase)}
-            className={SELECT_CLASS}
-          >
-            <option value="vigente">Vigente</option>
-            <option value="original">Original (v0)</option>
-          </select>
-        </label>
-        <span>Corte al {formatFechaCalendario(corte)} (hoy)</span>
+        <span className="flex items-center gap-1">
+          <label className="flex items-center gap-1.5">
+            {ETIQUETA_BASE}
+            <select
+              aria-label={ETIQUETA_BASE}
+              value={base}
+              onChange={(event) => onBaseChange(event.target.value as ProjectBase)}
+              className={SELECT_CLASS}
+            >
+              <OpcionesBase />
+            </select>
+          </label>
+          <AyudaBase />
+        </span>
+        <span>{datosAl(formatFechaCalendario(corte))} (hoy)</span>
       </div>
       <CurvaSeccion proyecto={proyecto} base={base} corte={corte} seguimiento />
     </Disclosure>
@@ -383,7 +386,7 @@ const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "
 const nf = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 1 });
 
 const pct = (value: number): string => `${nf.format(value)} %`;
-const pp = (value: number): string => `${value > 0 ? "+" : ""}${nf.format(value)} pp`;
+const pp = (value: number): string => `${value > 0 ? "+" : ""}${nf.format(value)} puntos`;
 
 /** Days from the corte (the server's "today") to the project end, never negative. */
 export function diasRestantes(corte: string, fechaFin: string | null): number | null {
@@ -421,7 +424,7 @@ function SeguimientoLateral({
           Periodo del reporte{periodo ? ` · ${periodo}` : ""}
         </p>
         {ejecutado === null || planeado === null ? (
-          <p className="text-[12.5px] text-ink-500">Sin avance registrado al corte.</p>
+          <p className="text-[12.5px] text-ink-500">Sin avance registrado hasta la fecha de los datos.</p>
         ) : (
           <>
             <p className="font-display text-[26px] leading-none font-extrabold tracking-[-0.03em] text-ink-950 tabular-nums">

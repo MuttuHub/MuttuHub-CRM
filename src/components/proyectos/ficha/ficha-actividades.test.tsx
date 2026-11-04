@@ -199,14 +199,14 @@ describe("FichaActividades", () => {
       await screen.findByTestId("ejecucion-actividad")
       const boton = screen.getByRole("button", { name: "Opciones avanzadas" })
       expect(boton).toHaveAttribute("aria-expanded", "false")
-      expect(screen.queryByRole("combobox", { name: "Base" })).not.toBeInTheDocument()
+      expect(screen.queryByRole("combobox", { name: "Comparar con" })).not.toBeInTheDocument()
       expect(screen.queryByTestId("curve-s-chart")).not.toBeInTheDocument()
       expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/curve"))).toBe(false)
 
       await user.click(boton)
       expect(boton).toHaveAttribute("aria-expanded", "true")
       expect(await screen.findByTestId("curve-s-chart")).toBeInTheDocument()
-      expect(screen.getByRole("combobox", { name: "Base" })).toHaveValue("vigente")
+      expect(screen.getByRole("combobox", { name: "Comparar con" })).toHaveValue("vigente")
     })
 
     it("reads the original baseline when chosen in the advanced options", async () => {
@@ -215,7 +215,7 @@ describe("FichaActividades", () => {
 
       await screen.findByTestId("ejecucion-actividad")
       await user.click(screen.getByRole("button", { name: "Opciones avanzadas" }))
-      await user.selectOptions(await screen.findByRole("combobox", { name: "Base" }), "original")
+      await user.selectOptions(await screen.findByRole("combobox", { name: "Comparar con" }), "original")
 
       await waitFor(() =>
         expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/technical-status?base=original"))).toBe(true),

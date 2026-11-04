@@ -76,7 +76,7 @@ describe("ProjectKpisPanel", () => {
     )
     renderPanel()
     const tecnico = await screen.findByTestId("kpi-tecnico")
-    expect(within(tecnico).getByText("+11,7 pp")).toBeInTheDocument()
+    expect(within(tecnico).getByText("+11,7 puntos")).toBeInTheDocument()
   })
 
   it("exposes avance real vs programado as accessible progress bars (server band, no client semaforo)", async () => {
@@ -123,15 +123,32 @@ describe("ProjectKpisPanel", () => {
     expect(screen.queryByText(/Beneficiarios vs meta/)).toBeNull()
   })
 
-  it("shows the 'No confirmado' badge only while the parameters are not confirmed", async () => {
+  it("shows the 'Semáforo provisional' badge only while the parameters are not confirmed", async () => {
     fetchMock.mockResolvedValue(jsonResponse(KPIS))
     const { unmount } = renderPanel()
-    expect(await screen.findByText("No confirmado")).toBeInTheDocument()
+    expect(await screen.findByText("Semáforo provisional")).toBeInTheDocument()
     unmount()
     fetchMock.mockResolvedValue(jsonResponse({ ...KPIS, confirmado: true }))
     renderPanel()
     await screen.findByTestId("kpi-tecnico")
-    expect(screen.queryByText("No confirmado")).not.toBeInTheDocument()
+    expect(screen.queryByText("Semáforo provisional")).not.toBeInTheDocument()
+  })
+
+  it("uses plain words: Calcular hasta, Comparar con plan actual / inicial, puntos and Semáforo provisional (U5)", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(KPIS))
+    renderPanel()
+    const panel = await screen.findByTestId("kpis")
+    await screen.findByTestId("kpi-tecnico")
+
+    expect(screen.getByLabelText("Calcular hasta")).toHaveAttribute("type", "date")
+    const base = screen.getByRole("combobox", { name: "Comparar con" })
+    expect(within(base).getAllByRole("option").map((o) => o.textContent)).toEqual(["Plan actual", "Plan inicial"])
+    expect(screen.getByRole("button", { name: "Ayuda: Comparar con" })).toBeInTheDocument()
+    expect(screen.getByText("Semáforo provisional")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Ayuda: Semáforo provisional" })).toBeInTheDocument()
+    expect(within(panel).getByText(/^Datos al /)).toBeInTheDocument()
+    expect(within(screen.getByTestId("kpi-tecnico")).getByText("0 puntos")).toBeInTheDocument()
+    expect(panel).not.toHaveTextContent(/Corte|No confirmado|v0|\bpp\b|Vigente/)
   })
 
   it("explains a project that is not measurable yet, with no tiles", async () => {
@@ -154,9 +171,9 @@ describe("ProjectKpisPanel", () => {
     renderPanel()
     await screen.findByTestId("kpi-tecnico")
     const user = userEvent.setup()
-    await user.type(screen.getByLabelText("Corte"), "2026-03-01")
+    await user.type(screen.getByLabelText("Calcular hasta"), "2026-03-01")
     await waitFor(() => expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("corte=2026-03-01"))).toBe(true))
-    await user.selectOptions(screen.getByLabelText("Base"), "original")
+    await user.selectOptions(screen.getByLabelText("Comparar con"), "original")
     await waitFor(() => expect(fetchMock.mock.calls.some((c) => String(c[0]).includes("base=original"))).toBe(true))
   })
 

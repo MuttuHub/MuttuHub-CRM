@@ -6,8 +6,8 @@
 
 "use client";
 
-import { ToneBadge } from "@/components/crm/shared";
 import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
+import { AyudaBase, ETIQUETA_BASE, OpcionesBase, SemaforoProvisional, datosAl } from "@/components/proyectos/vocabulario-seguimiento";
 import { formatDiferenciaPp, formatFechaCalendario } from "@/components/proyectos/project-display";
 import type { ProjectBase, ProjectTechnicalStatus } from "@/hooks/projects";
 
@@ -32,23 +32,25 @@ export function SemaforoTecnico({
     >
       <div className="flex flex-wrap items-center gap-2">
         <SemaforoChip color={tecnico.color} prefix="Semáforo técnico" />
-        {tecnico.umbrales.confirmado === false && <ToneBadge tone="neutro" label="No confirmado" />}
+        {tecnico.umbrales.confirmado === false && <SemaforoProvisional />}
         <span className="text-[12px] text-ink-500">
-          Corte al {formatFechaCalendario(tecnico.corte)}
+          {datosAl(formatFechaCalendario(tecnico.corte))}
         </span>
         {onBaseChange && (
-          <label className="ml-auto flex items-center gap-1.5 text-[12px] text-ink-600">
-            Base
+          <span className="ml-auto flex items-center gap-1">
+          <label className="flex items-center gap-1.5 text-[12px] text-ink-600">
+            {ETIQUETA_BASE}
             <select
-              aria-label="Base"
+              aria-label={ETIQUETA_BASE}
               value={tecnico.base}
               onChange={(event) => onBaseChange(event.target.value as ProjectBase)}
               className="h-10 rounded-12 border border-border-strong bg-input-bg px-2.5 text-base text-ink-900 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-[12.5px]"
             >
-              <option value="vigente">Vigente</option>
-              <option value="original">Original (v0)</option>
+              <OpcionesBase />
             </select>
           </label>
+          <AyudaBase />
+          </span>
         )}
       </div>
 

@@ -312,7 +312,7 @@ en ese estado.
 
 - La **ficha financiera**: presupuesto asignado, programado y ejecutado por rubro.
 - La comparación contra la **base original (v0)** cuando la línea base está aprobada.
-- Filtros de **Corte** y **Base** para ver la foto de una fecha.
+- Filtros **Calcular hasta** y **Comparar con** (**Plan actual** o **Plan inicial**) para ver la foto de una fecha.
 
 **Gastos**
 
