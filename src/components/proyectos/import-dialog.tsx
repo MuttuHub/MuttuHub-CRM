@@ -70,7 +70,8 @@ function HallazgoTabla({ errores }: { errores: ReportePlantilla["errores"] }) {
       <Table className="text-[12.5px]">
         <TableHeader>
           <TableRow>
-            {["Regla", "Fila", "Columna", "Valor", "Mensaje"].map((titulo) => (
+            {/* U6: the internal rule code (V-07, W-01) stays in the CSV, not on screen. */}
+            {["Fila", "Columna", "Valor", "Mensaje"].map((titulo) => (
               <TableHead key={titulo} scope="col">
                 {titulo}
               </TableHead>
@@ -80,7 +81,6 @@ function HallazgoTabla({ errores }: { errores: ReportePlantilla["errores"] }) {
         <TableBody>
           {errores.map((error, indice) => (
             <TableRow key={`${error.regla}-${error.fila}-${indice}`} className="align-top">
-              <TableCell className="align-top font-mono text-[12px]">{error.regla}</TableCell>
               <TableCell className="align-top">{error.fila ?? "—"}</TableCell>
               <TableCell className="align-top">{error.columna ?? "—"}</TableCell>
               <TableCell className="max-w-[14rem] align-top break-words whitespace-normal">{error.valor ?? "—"}</TableCell>
@@ -203,7 +203,13 @@ export function ImportDialog({
     <div data-testid={ocultarControles ? undefined : "estructura-plantilla"} className="flex flex-wrap items-center gap-1.5">
       {!ocultarControles && (
         <>
-          <Button type="button" variant="outline" size="sm" disabled={descargando} onClick={() => void descargarPlantilla()}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={descargando || sinFechas}
+            onClick={() => void descargarPlantilla()}
+          >
             {descargando ? <LoaderCircle className="animate-spin" /> : <Download />}
             Descargar plantilla
           </Button>
@@ -211,6 +217,8 @@ export function ImportDialog({
             <Upload />
             Importar plantilla
           </Button>
+          {/* U7: same state and same explanation as the button inside the dialog. */}
+          {sinFechas && <p className="w-full text-[12.5px] text-ink-600">{SIN_FECHAS}</p>}
         </>
       )}
 
