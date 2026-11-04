@@ -15,6 +15,12 @@
 // SKIPPED_DISABLED) y el guard de idempotencia evita re-enviar si la corrida
 // del día ya terminó OK (así el reintento de las 8:30 solo actúa si el de las
 // 8:00 falló).
+//
+// PR-M1: antes del resumen, la misma corrida vacía el outbox de correos
+// (`processOutbox`) con el transporte configurado — también cuando el resumen
+// está apagado, porque el outbox lleva otros avisos. Es best-effort: un fallo
+// del outbox nunca cambia la respuesta ni el log del resumen. Se registra en
+// cron_logs como job `email-outbox` solo cuando hubo filas que procesar.
 
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
@@ -23,25 +29,48 @@ import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
 import { filterBucketsByCategorias, getAlertBuckets, startOfLocalDay } from "@/lib/alerts";
 import { sendDailySummary } from "@/lib/email";
+import { processOutbox } from "@/lib/email/outbox";
+import { resolveEmailTransport, type EmailSender } from "@/lib/email/sender";
 import { getAutomatizaciones } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
 export const JOB_NAME = "daily-notifications";
+export const OUTBOX_JOB_NAME = "email-outbox";
+/** Emails per cron run; the 8:30 retry run drains the next batch. */
+const OUTBOX_BATCH = 200;
 
 type CronUsuario = Pick<Usuario, "id" | "nombre" | "email" | "rol">;
 
 async function recordJobLog(
   estado: "OK" | "ERROR" | "SKIPPED_NO_CONFIG" | "SKIPPED_DISABLED",
   detalle: string,
+  jobName: string = JOB_NAME,
 ): Promise<void> {
   try {
     await db.cronLog.create({
-      data: { job_name: JOB_NAME, estado, detalle: detalle.slice(0, 400) },
+      data: { job_name: jobName, estado, detalle: detalle.slice(0, 400) },
     });
   } catch (err) {
     // Sin tabla cron_logs no se aborta la corrida: solo log local.
     console.error("[cron] cron_logs write failed:", err);
+  }
+}
+
+/** Best-effort outbox drain: never throws, never touches the summary's result. */
+async function drainOutbox(sender: EmailSender): Promise<void> {
+  try {
+    const run = await processOutbox(sender, new Date(), OUTBOX_BATCH);
+    if (run.claimed === 0) return;
+    // A retry is still scheduled; only a terminal failure makes the run an ERROR.
+    await recordJobLog(
+      run.failed === 0 ? "OK" : "ERROR",
+      `claimed=${run.claimed} sent=${run.sent} retried=${run.retried} failed=${run.failed}`,
+      OUTBOX_JOB_NAME,
+    );
+  } catch (err) {
+    console.error("[cron] email outbox drain failed:", err);
+    await recordJobLog("ERROR", (err as Error).message || String(err), OUTBOX_JOB_NAME);
   }
 }
 
@@ -52,6 +81,11 @@ export async function POST() {
   if (!expected || header !== expected) {
     return apiError("No autorizado.", 401, "UNAUTHORIZED");
   }
+
+  // 1b) Outbox: se vacía con el transporte configurado. Sin transporte no se
+  // intenta nada (las filas quedan PENDIENTE sin gastar intentos).
+  const transport = resolveEmailTransport();
+  if (transport.ok) await drainOutbox(transport.sender);
 
   // 2) Automatizaciones: si el resumen diario está apagado, no hay nada que
   // mandar. Se registra SKIPPED_DISABLED y se responde 200 sin tocar Resend
@@ -70,12 +104,15 @@ export async function POST() {
     });
   }
 
-  // 3) Resend sin configurar → correo no posible: se registra y se responde
+  // 3) Transporte sin configurar (Resend sin RESEND_API_KEY, o un
+  // EMAIL_TRANSPORT inválido) → correo no posible: se registra y se responde
   // 200 con nota (sin crash, PRD §8.4 graceful). El REintento 8:30 repetirá.
-  if (!process.env.RESEND_API_KEY) {
+  if (!transport.ok) {
     await recordJobLog(
       "SKIPPED_NO_CONFIG",
-      `missing RESEND_API_KEY${process.env.EMAIL_FROM ? "" : " y EMAIL_FROM"}`,
+      transport.name === "resend"
+        ? `missing RESEND_API_KEY${process.env.EMAIL_FROM ? "" : " y EMAIL_FROM"}`
+        : transport.reason,
     );
     return NextResponse.json({
       ok: true,
@@ -84,7 +121,10 @@ export async function POST() {
       failed: 0,
       skipped_empty: 0,
       already_sent_today: false,
-      note: "RESEND_API_KEY no configurada — corrida SKIPPED_NO_CONFIG.",
+      note:
+        transport.name === "resend"
+          ? "RESEND_API_KEY no configurada — corrida SKIPPED_NO_CONFIG."
+          : `Transporte de correo no configurado (${transport.reason}) — corrida SKIPPED_NO_CONFIG.`,
     });
   }
 
