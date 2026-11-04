@@ -25,8 +25,8 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
 
 | ID | Ítems del plan | S# | Ruta | Estado | Evidencia |
 |---|---|---|---|---|---|
-| T0 | F0.6: plan en el repo + Frente M + este documento | S1, S3 | inline | en curso | — |
-| T1 | F0.4: X1 («obligatoria»), X2 (`modo` estricto en imports) | S1, S2 | inline | pendiente | — |
+| T0 | F0.6: plan en el repo + Frente M + este documento | S1, S3 | inline | hecho | `1bbd4cc` (rama `docs/plan-backlog-completo`) |
+| T1 | F0.4: X1 («obligatoria»), X2 (`modo` estricto en imports) | S1, S2 | inline | hecho | `caf2d47` (rama `fix/x1-x2-mensajes-y-modo`); RED 1+4 → GREEN; suite de áreas tocadas 132 archivos / 1670 tests; assess medio, `under_budget` |
 | T2 | PR-R1: R1, R2, R3, R4, R6 (datos de Reportes) | S1, S2 | por definir | pendiente | — |
 | T3 | PR-1: BL#14, BL#21, BL#12, BL#11 (base de diálogos) | S1, S2 | por definir | pendiente | — |
 | T4 | PR-2: BL#9, BL#22, BL#15, BL#10 (diálogos con operación en curso) | S1, S2 | por definir | pendiente | — |
@@ -51,3 +51,11 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
   microservicio propio podemos utilizar, o herramientas opensource o gratuitas».
 - **L2 (2026-11-04):** estimación honesta: ~120 ítems y más de 40 PRs, unas 6–8 semanas; ~15 ítems esperan decisiones.
   Sin otras sesiones activas en la máquina. Mailpit del stack local corre en `localhost:54324`. Próximo: T1.
+- **L3 (2026-11-04):** T1 cerrado en `caf2d47`. X2 reproducido antes del arreglo: `modo=aplicarr` respondía 200 y
+  aplicaba en los 4 imports (plantilla, estructura, presupuesto, gastos). Ahora un helper compartido
+  (`src/lib/api/import-modo.ts`) acepta `validar`, `aplicar` o ningún `modo` (lo que la app envía para aplicar) y responde
+  400 «El modo debe ser «validar» o «aplicar».» antes de escribir; OpenAPI actualizada. X1: «La descripción es
+  obligatoria.» / «demasiado larga.»; los demás mensajes no cambian (pruebas existentes). `tsc` y eslint limpios.
+  Próximo: T2 (PR-R1) y T3 (PR-1) en paralelo, por escritores delegados en worktrees aislados (unidades
+  independientes con superficies disjuntas; contexto largo de esta sesión).
+
