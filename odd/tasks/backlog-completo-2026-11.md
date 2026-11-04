@@ -86,4 +86,8 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
   lugar de SMTP. Advertencias llevadas al plan como **PR-M1b**: carrera al vencer el lease (reproducida en local: un
   correo enviado queda PENDIENTE y se reenvía), sin timeout ni manejo de 429, drenado antes del resumen, orden de
   despliegue migración→código. Próximo: T4 (PR-2, sobre T3), T5 (PR-R2), T8 (U1–U8).
+- **L8 (2026-11-04):** revisión nativa de T6 (`feat/email-outbox`, lentes risk, resilience y reliability, consentida por el
+  usuario): **aprobada y acusada** (`authority: burned`). Sus advertencias coinciden con PR-M1b. Otras evaluaciones:
+  T1 medio `under_budget`. Próximo: T5 (PR-R2) y T8 (U1–U8) en paralelo por escritores; T4 (PR-2) espera a que T3 entre
+  a `main` porque toca los mismos diálogos.
 
