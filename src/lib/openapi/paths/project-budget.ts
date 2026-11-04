@@ -251,7 +251,7 @@ registry.registerPath({
         "multipart/form-data": {
           schema: z.object({
             archivo: z.string().openapi({ format: "binary", description: "Presupuesto .xlsx con las columnas Rubro y Valor (COP)." }),
-            modo: z.literal("validar").optional().openapi({ description: "Solo valida y devuelve la vista previa; no escribe." }),
+            modo: z.enum(["validar", "aplicar"]).optional().openapi({ description: "«validar» solo devuelve la vista previa y no escribe; «aplicar» o sin `modo` aplica. Otro valor responde 400 VALIDATION_ERROR." }),
           }),
         },
       },
