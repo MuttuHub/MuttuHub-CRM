@@ -33,7 +33,7 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
 | T5 | PR-R2: R9 (hoja de impresión común) | S1, S2 | delegado (paralelo) | hecho · **falta revisión visual** (vista previa de impresión en Chrome) | `660989a` (rama `feat/print-sheet-base`), 8 archivos; RED → GREEN 125/125; spot check del padre 67/67 |
 | T6 | PR-M1: outbox, worker y `EmailSender` (Resend + Mailpit por HTTP) | S3 | delegado (paralelo) | hecho; verificador PASS (ítems 1, 3, 4) | `145dfb8` migración + `03513bf` código (rama `feat/email-outbox`); 16 archivos; spot check del padre 41/41; humo: 1 correo en Mailpit |
 | T7 | PR-M2 a PR-M4: plantillas, eventos y resumen v2 | S3 | por definir | pendiente | — |
-| T8 | PR-7a–d: U1–U8 (textos de Proyectos) | S1, S2 | inline | pendiente | — |
+| T8 | PR-7a–d: U1–U8 (textos de Proyectos) | S1, S2 | delegado (paralelo) | hecho parcial · **falta PR-7d (U6–U8)** | `8b228fc` (PR-7a, U1–U3), `e8daa97` (PR-7b, U4), `ff222d4` (PR-7c, U5) en la rama `fix/proyectos-textos`, 37 archivos +429/−227. Verificado por el padre: 23 archivos / **369 pruebas en verde**, `tsc` 0, `eslint` 0. Sin tocar: `import-dialog.tsx` (U6, U7) y `lib/proyectos/plantilla/generate.ts` (U8). El escritor murió justo al empezar U6/U7. |
 | T9 | PR-8: BL#13, BL#16, BL#7, N10 | S1, S2 | inline | pendiente | — |
 | T10 | PR-14, PR-15: U9–U12 (requisitos de línea base visibles) | S1, S2 | por definir | pendiente | — |
 | T11 | PR-16: U13–U16 (atajos) | S1, S2 | por definir | pendiente | — |
@@ -97,4 +97,23 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
   Migrados: reporte de tareas, las 4 caras del tablero y el semanal, sin cambiar contenido. Pendiente: revisión visual en
   la vista previa de Chrome (riesgo ítem 6). **Preguntas:** ¿qué clasificación y nota llevan la lista y la ficha de
   clientes para adoptar la hoja?; el «generado el…» queda duplicado (bloque del informe + pie) hasta PR-R3–R7.
+- **L10 (2026-11-04, continuación en otra sesión):** T8 (PR-7a–c) **verificado con evidencia**, no con la palabra del
+  escritor: 23 archivos / 369 pruebas en verde, `tsc --noEmit` y `eslint` en cero, sobre `ff222d4` en un worktree
+  detached limpio. Queda PR-7d (U6: ocultar la columna «Regla» en `import-dialog.tsx:83`; U7: mismo estado y aviso en
+  los dos «Descargar plantilla», `:206` vs `:238`; U8: 7 voseos en `lib/proyectos/plantilla/generate.ts`).
+  `fix/proyectos-textos` son 3 unidades, pero `8b228fc` y `ff222d4` comparten `project-ejecucion.tsx` y
+  `project-ficha.test.tsx`: conviene PR-7a y PR-7b primero (superficies disjuntas) y rebasear PR-7c sobre el `main` nuevo.
+- **L11 (2026-11-04, entorno — leer antes de cualquier verificación):**
+  - **Vitest y `next dev` solo corren bajo `node.exe` (Windows).** `node_modules` trae los bindings nativos win32
+    (`@rolldown/binding-win32-x64-msvc`, `@next/swc-win32-x64-msvc`, `@img/sharp-win32-x64`): en WSL fallan con
+    «Cannot find module …wasi.cjs». Y `node.exe` **no sigue** los symlinks que crea `ln -s` en los worktrees (el gotcha
+    de L4); la solución es una junction de Windows: `cmd.exe /c "mklink /J <worktree>\node_modules <repo>\node_modules"`.
+  - **El stack local de Supabase corre sin puertos publicados:** `docker port` vacío para `supabase_kong_muttu-hub` y
+    `supabase_db_muttu-hub`; 54321 y 54322 rechazan conexión desde Windows y nada escucha en WSL; `supabase status`
+    responde `LegacyStatusDbInspectError`. Consecuencia: la app no alcanza auth ni la base, el login devuelve «Correo o
+    contraseña incorrectos» **por el entorno y no por la clave** (`MuttuDemo2026!` es la del seed, `prisma/seed.ts:114`).
+    Bloqueadas por esto: F0.7 (capturas «antes»), la revisión visual de T3 y la de T5. No se aplicó nada en producción.
+  - **Arnés de capturas listo para reusar:** `.claude/qa/capturar.mjs` (modos `antes`, `t3`, `t5`, `t8`) con login
+    demo, dos viewports y PDF real por plantilla. Ojo: la página de acceso tiene **dos botones «Entrar»** y los campos
+    son controlados, así que hay que esperar la hidratación y tipear con `pressSequentially` (verificado).
 
