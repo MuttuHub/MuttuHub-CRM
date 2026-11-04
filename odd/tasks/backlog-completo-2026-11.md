@@ -30,7 +30,7 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
 | T2 | PR-R1: R1, R2, R3, R4, R6 (datos de Reportes) | S1, S2 | delegado (paralelo) | hecho | `79cd586` (rama `fix/reportes-datos`); RED 4+2 → GREEN; 270 tests de áreas tocadas; spot check del padre 27/27 |
 | T3 | PR-1: BL#14, BL#21, BL#12, BL#11 (base de diálogos) | S1, S2 | delegado (paralelo) | hecho · **falta revisión visual** | `8a5bd9d` (rama `fix/ui-dialog-base`), 23 archivos +125/−70; RED 5 → GREEN 11/11; spot check del padre 11/11 |
 | T4 | PR-2: BL#9, BL#22, BL#15, BL#10 (diálogos con operación en curso) | S1, S2 | por definir | pendiente | — |
-| T5 | PR-R2: R9 (hoja de impresión común) | S1, S2 | por definir | pendiente | — |
+| T5 | PR-R2: R9 (hoja de impresión común) | S1, S2 | delegado (paralelo) | hecho · **falta revisión visual** (vista previa de impresión en Chrome) | `660989a` (rama `feat/print-sheet-base`), 8 archivos; RED → GREEN 125/125; spot check del padre 67/67 |
 | T6 | PR-M1: outbox, worker y `EmailSender` (Resend + Mailpit por HTTP) | S3 | delegado (paralelo) | hecho; verificador PASS (ítems 1, 3, 4) | `145dfb8` migración + `03513bf` código (rama `feat/email-outbox`); 16 archivos; spot check del padre 41/41; humo: 1 correo en Mailpit |
 | T7 | PR-M2 a PR-M4: plantillas, eventos y resumen v2 | S3 | por definir | pendiente | — |
 | T8 | PR-7a–d: U1–U8 (textos de Proyectos) | S1, S2 | inline | pendiente | — |
@@ -90,4 +90,11 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
   usuario): **aprobada y acusada** (`authority: burned`). Sus advertencias coinciden con PR-M1b. Otras evaluaciones:
   T1 medio `under_budget`. Próximo: T5 (PR-R2) y T8 (U1–U8) en paralelo por escritores; T4 (PR-2) espera a que T3 entre
   a `main` porque toca los mismos diálogos.
+- **L9 (2026-11-04):** T5 aceptado (`660989a`). `PrintSheet` compartido (`src/components/print/print-sheet.tsx`): carta,
+  colores exactos, cabecera con logo y clasificación («Interno · Gerencia» / «Personal · nombre»), pie con autor y fecha
+  (hora Bogotá), cabecera y pie repetidos por página (grupos de tabla CSS), «Página X de Y» con `@page` (solo
+  Chromium 131+), filas sin partir, impresión tras datos + autor + `document.fonts.ready` (reemplaza el timer de 250 ms).
+  Migrados: reporte de tareas, las 4 caras del tablero y el semanal, sin cambiar contenido. Pendiente: revisión visual en
+  la vista previa de Chrome (riesgo ítem 6). **Preguntas:** ¿qué clasificación y nota llevan la lista y la ficha de
+  clientes para adoptar la hoja?; el «generado el…» queda duplicado (bloque del informe + pie) hasta PR-R3–R7.
 
