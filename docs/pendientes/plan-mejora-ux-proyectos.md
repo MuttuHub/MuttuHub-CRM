@@ -66,6 +66,36 @@ Hoy los requisitos de la línea base solo aparecen como respuesta 409 **después
 | U20 | **Formulario de gasto agrupado** (Documento / Tercero / Valores / Soporte), obligatorios marcados y error por campo. Hoy ~14 campos en una rejilla y errores de a uno al pie. | `gasto-form.tsx:135-142,220-375,385` | M |
 | U21 | **«Solicitar cambio» en contexto** (Actividades y Presupuesto en ejecución, y en el aviso «La estructura solo se edita en borrador»); descripción de cada tipo de modificación; meses legibles. | `project-modificaciones.tsx:88,137`, `project-estructura.tsx:62`, `modificacion-form.tsx:38-45,193` | M |
 
+## Propuesta para la PO — avance por hitos (U22)
+
+> **Requiere aprobación de la PO antes de construir:** cambia cómo se mide el avance definido en AJ-01
+> (documento «Ajustes al módulo Proyectos» v1.1). Opción elegida por el equipo el 2026-11-04 entre tres
+> alternativas (hitos, híbrido, solo entregables).
+
+**Problema.** Hoy el responsable escribe el porcentaje a mano («70 %»). Es subjetivo: el mismo número
+significa cosas distintas para cada persona, y la observación obligatoria solo lo compensa a medias.
+
+**Propuesta.** Cada actividad lleva una lista de **hitos** (3 a 6, p. ej. «Convocatoria enviada»,
+«Taller 1 realizado», «Acta firmada»). El avance se **calcula**: hitos cumplidos / total de hitos.
+
+| Regla | Cómo queda |
+|-------|-----------|
+| Cálculo | % = hitos cumplidos ÷ hitos totales (redondeado a entero). |
+| Tope sin entregables (AJ-01) | Se mantiene: el % calculado se limita al tope configurado (90 %) mientras los entregables no estén completos. |
+| 100 % y «Terminada» (AJ-01) | Se mantiene: solo con todos los entregables completos (meta y medio de verificación). |
+| El avance no baja (AJ-01) | Marcar un hito es definitivo; desmarcarlo pide justificación y queda en el historial. |
+| Observación | Opcional al marcar un hito; el historial guarda fecha, hito y usuario. |
+| Actividades sin hitos | Siguen con el registro manual actual (compatibilidad con proyectos ya en ejecución). |
+| Peso en el proyecto (AJ-02) | Sin cambios: la actividad pesa su duración en semanas. |
+
+**Impacto técnico (estimado, M/L):** tabla nueva de hitos por actividad (migración aditiva), edición de
+hitos en Estructura (solo en Borrador o vía modificación), checklist en «Registrar avance», cálculo del %
+reutilizando la lógica de `ReporteActividad`, y una hoja opcional «Hitos» en la plantilla Excel (nueva
+versión de plantilla).
+
+**Preguntas abiertas para la PO:** ¿los hitos se definen al planificar o se pueden agregar en ejecución?
+¿Todos los hitos pesan igual o se ponderan? ¿Es obligatorio tener hitos para aprobar la línea base?
+
 Ya en el backlog, no se repiten aquí: pie de modal en página completa (BL#7), Esc durante una
 operación y pérdida de lo escrito (BL#9, BL#10), proyecto que nace atrasado por fechas pasadas y los
 dos «Registrar avance» (BL#27).
