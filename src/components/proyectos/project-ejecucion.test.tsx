@@ -237,6 +237,18 @@ describe("ProjectEjecucion", () => {
     await waitFor(() => expect(lateral).toHaveTextContent("-15 pp"))
   })
 
+  it("titles the per-objective progress «Avance por objetivo», not «meta» (U2)", async () => {
+    setup({
+      seguimiento: true,
+      tecnico: { ...TECNICO, objetivos: [{ codigo: "OBJ-1", programado: 60, ejecutado: 40, color: "amarillo" }] },
+    })
+
+    const seccion = await screen.findByTestId("avance-por-objetivo")
+    expect(within(seccion).getByText("Avance por objetivo")).toBeInTheDocument()
+    expect(within(seccion).getByRole("img", { name: /^Objetivo OBJ-1: ejecutado/ })).toBeInTheDocument()
+    expect(screen.queryByText("Avance por meta")).not.toBeInTheDocument()
+  })
+
   it("mounts the S-curve with its monthly table in the Avance tab", async () => {
     setup()
 

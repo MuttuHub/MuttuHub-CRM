@@ -9,7 +9,7 @@ import { NuevoProyectoStepper } from "./nuevo-proyecto-stepper"
 describe("NuevoProyectoStepper", () => {
   it("renders the five labelled steps in order", () => {
     render(<NuevoProyectoStepper actual={1} hayProyecto={false} onSeleccionar={vi.fn()} />)
-    expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual(["1General", "2Metas", "3Cronograma", "4Presupuesto", "5Revisión"])
+    expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual(["1General", "2Estructura", "3Cronograma", "4Presupuesto", "5Revisión"])
   })
 
   it("replaces the number with a check on done steps and flags them for assistive tech", () => {
@@ -26,7 +26,7 @@ describe("NuevoProyectoStepper", () => {
     const onSeleccionar = vi.fn()
     render(<NuevoProyectoStepper actual={1} hayProyecto={false} onSeleccionar={onSeleccionar} />)
 
-    await user.click(screen.getByRole("button", { name: /^Metas/ }))
+    await user.click(screen.getByRole("button", { name: /^Estructura/ }))
     expect(onSeleccionar).not.toHaveBeenCalled()
     await user.click(screen.getByRole("button", { name: /^General/ }))
     expect(onSeleccionar).toHaveBeenCalledWith(1)

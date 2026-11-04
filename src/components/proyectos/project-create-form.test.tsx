@@ -463,6 +463,26 @@ describe("ProjectCreateForm", () => {
     }
   })
 
+  it("says beneficiaries are required to approve the baseline and warns, without blocking, while empty (U1)", async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await user.click(screen.getByRole("button", { name: "Ayuda: Beneficiarios" }))
+    expect(await screen.findByText(/Obligatorio para aprobar la línea base/)).toBeInTheDocument()
+    await user.keyboard("{Escape}")
+
+    const aviso = /Sin beneficiarios no podrás aprobar la línea base/
+    expect(screen.getByText(aviso)).toBeInTheDocument()
+    await user.type(screen.getByLabelText("Beneficiarios"), "120")
+    expect(screen.queryByText(aviso)).not.toBeInTheDocument()
+
+    // Non-blocking: the project is still created without beneficiaries.
+    await user.clear(screen.getByLabelText("Beneficiarios"))
+    await crearDesdeOportunidad(user)
+    await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
+    await waitFor(() => expect(createFromOpportunity.mutateAsync).toHaveBeenCalledTimes(1))
+    expect(JSON.stringify(createFromOpportunity.mutateAsync.mock.calls[0][0])).not.toContain("beneficiarios_meta")
+  })
+
   it("renders Cancelar only when onCancel is given and honours submitLabel", async () => {
     const user = userEvent.setup()
     const first = renderForm({ submitLabel: "Crear y continuar" })

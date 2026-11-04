@@ -279,7 +279,7 @@ describe("ProjectFicha (page)", () => {
     await openTab("Actividades")
     // In a draft the Lista is the editable structure; the Gantt is another view, not stacked below it.
     const estructura = await screen.findByTestId("estructura")
-    expect(estructura).toHaveTextContent("Metas e indicadores")
+    expect(estructura).toHaveTextContent("Objetivos e indicadores")
     expect(screen.queryByTestId("equipo")).not.toBeInTheDocument()
     expect(screen.queryByTestId("gantt")).not.toBeInTheDocument()
   })

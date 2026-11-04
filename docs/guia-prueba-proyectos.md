@@ -189,7 +189,7 @@ después, el semáforo técnico saldrá más atrasado.
 
 ## 4. Estructura técnica (S3)
 
-En la ficha, pestaña **Metas e indicadores** (sección **Metas e indicadores**), de un proyecto en **Borrador**, como admin o
+En la ficha, pestaña **Metas e indicadores** (sección **Objetivos e indicadores**), de un proyecto en **Borrador**, como admin o
 gerencia:
 
 1. **Objetivos**: crea uno (código y descripción). Aparece con contador de actividades e indicadores.
@@ -283,7 +283,7 @@ Actividad | Entregables | Inicio (semana) | Fin (semana) | Cantidad | Unidad`). 
    (…). El presupuesto no cambia."
 3. Con fechas de proyecto más cortas que las semanas del archivo, la validación marca la celda de **Fin (semana)**:
    "La semana final no puede superar la duración del proyecto (N semanas)."
-4. **Confirmar importación**: toast "Estructura importada."; **Metas e indicadores** muestra los códigos generados y
+4. **Confirmar importación**: toast "Estructura importada."; **Objetivos e indicadores** muestra los códigos generados y
    **Presupuesto** sigue igual. **Historial** → **Cambios**: un lote `IMPORTAR` con una fila por objetivo, actividad,
    entregable e indicador, más la fila `reemplazo`.
 

@@ -553,7 +553,8 @@ export function ProjectCreateForm({
             htmlFor="proyecto-beneficiarios"
             ayuda={{
               label: "Beneficiarios",
-              texto: "Número de personas que el proyecto espera atender. Es opcional.",
+              texto:
+                "Número de personas que el proyecto espera atender. Obligatorio para aprobar la línea base; puedes crear el proyecto sin él y completarlo después.",
             }}
           >
             Beneficiarios
@@ -564,9 +565,14 @@ export function ProjectCreateForm({
             min={0}
             value={beneficiariosMeta}
             onChange={(event) => setBeneficiariosMeta(event.target.value)}
-            placeholder="Opcional"
             className="px-3"
           />
+          {!(Number(beneficiariosMeta) > 0) && (
+            // Non-blocking: the baseline approval (lib/proyectos/linea-base.ts) is what requires it.
+            <p className="rounded-12 border border-alerta/30 bg-alerta-bg px-3 py-2 text-[12.5px] text-ink-800">
+              Sin beneficiarios no podrás aprobar la línea base. Puedes crear el proyecto y completarlo después.
+            </p>
+          )}
         </div>
       </div>
 

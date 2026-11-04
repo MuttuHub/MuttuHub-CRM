@@ -101,7 +101,7 @@ Si la tabla aparece vacía:
 
 La creación es un asistente de cinco pasos en `/proyectos/nuevo`:
 
-**General → Metas → Cronograma → Presupuesto → Revisión**
+**General → Estructura → Cronograma → Presupuesto → Revisión**
 
 Los pasos 2 a 5 quedan deshabilitados hasta que el paso 1 crea el proyecto. Después se puede saltar entre pasos con las
 píldoras de arriba.
@@ -112,8 +112,11 @@ píldoras de arriba.
    - **Desde una oportunidad ganada** (recomendado): el proyecto queda enlazado al ciclo comercial. Solo aparecen las
      oportunidades en estado **Ganada** que aún no tienen proyecto.
    - **Proyecto independiente**: se elige el cliente a mano.
-2. Completa **Nombre**, **Responsable**, **Valor total**, **Fecha de inicio**, **Fecha de fin**, **Meta de
-   beneficiarios**, **Líneas estratégicas** y **Municipios**.
+2. Completa **Nombre**, **Responsable**, **Valor total**, **Fecha de inicio**, **Fecha de fin**, **Beneficiarios**,
+   **Líneas estratégicas** y **Municipios**.
+   **Beneficiarios** es obligatorio para aprobar la línea base. Puedes crear el proyecto sin él: mientras esté vacío, el
+   formulario muestra el aviso «Sin beneficiarios no podrás aprobar la línea base» y lo completas después con
+   **Editar datos generales**.
    **Municipios** se elige en dos pasos: primero el **departamento** y después el **municipio** dentro de ese
    departamento. Puedes marcar varios; cada uno queda como una ficha que se puede quitar. Están cargados **los 1122
    municipios de Colombia** (catálogo DANE fijo; no se administra desde **Administración**).
@@ -126,7 +129,7 @@ paso 1 no se puede repetir: si vuelves, muestra un resumen de solo lectura. Para
 Si el valor total difiere del valor estimado de la oportunidad, aparece el aviso **«Diferencia con la oportunidad»**.
 Es informativo: no impide crear el proyecto.
 
-### Paso 2 — Metas (Metas e indicadores)
+### Paso 2 — Estructura (Estructura del proyecto)
 
 Aquí se carga la estructura:
 
@@ -173,9 +176,10 @@ Al confirmar, la plantilla completa **reemplaza** la estructura, el presupuesto,
 líneas y los municipios del borrador (el cliente no cambia). Si hay errores, **no se escribe nada**: la vista previa
 los lista por hoja, fila, columna y mensaje.
 
-### Paso 3 — Cronograma
+### Paso 3 — Cronograma (Ver cronograma)
 
-Vista de solo lectura: el **Cronograma** por semanas y el **Gantt**. Las actividades se editan en el paso 2.
+Vista de solo lectura: el **Cronograma** por semanas y el **Gantt**. Las actividades se editan en el paso 2
+(**Estructura**). El peso de cada actividad es su duración en semanas; lo calcula el sistema.
 
 ### Paso 4 — Presupuesto
 

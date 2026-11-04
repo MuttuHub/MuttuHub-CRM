@@ -210,7 +210,7 @@ export function useEjecucionPermisos(proyectoId: string): { canWrite: boolean; c
   return { canWrite: esGestor || esMiembro, canVoid: esGestor };
 }
 
-/** Pestaña "Metas e indicadores" (v7): el registro de avance de indicador vive junto a las metas. */
+/** Pestaña de objetivos e indicadores (v7): el registro de avance de indicador vive junto a los objetivos. */
 export function ProjectIndicadores({ proyecto }: { proyecto: ProjectListRow }) {
   const { canWrite, canVoid } = useEjecucionPermisos(proyecto.id);
   if (proyecto.estado === "BORRADOR") return null;
@@ -294,7 +294,7 @@ function EjecucionContent({
         </>
       )}
 
-      {seguimiento && !lista && <AvancePorMeta proyectoId={proyecto.id} tecnico={tecnico} />}
+      {seguimiento && !lista && <AvancePorObjetivo proyectoId={proyecto.id} tecnico={tecnico} />}
 
       {activitiesQuery.isError ? (
         <InlineError
@@ -377,7 +377,7 @@ function ListaActividades({
   );
 }
 
-/* ── Ficha de seguimiento (v7): tarjetas laterales y avance por meta ─────── */
+/* ── Ficha de seguimiento (v7): tarjetas laterales y avance por objetivo ─────── */
 
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 const nf = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 1 });
@@ -453,15 +453,15 @@ function SeguimientoLateral({
   );
 }
 
-/** Acumulado planeado vs ejecutado por meta (objetivo). Los porcentajes y el color llegan del servidor (D11). */
-function AvancePorMeta({ proyectoId, tecnico }: { proyectoId: string; tecnico: ProjectTechnicalStatusV6 }) {
+/** Acumulado planeado vs ejecutado por objetivo. Los porcentajes y el color llegan del servidor (D11). */
+function AvancePorObjetivo({ proyectoId, tecnico }: { proyectoId: string; tecnico: ProjectTechnicalStatusV6 }) {
   const objetivos = useProjectObjectives(proyectoId).data ?? [];
   if (!tecnico.objetivos || tecnico.objetivos.length === 0) return null;
   const nombre = new Map(objetivos.map((o) => [o.codigo, o.descripcion]));
 
   return (
-    <section data-testid="avance-por-meta" className="mt-4">
-      <SectionHeader>Avance por meta</SectionHeader>
+    <section data-testid="avance-por-objetivo" className="mt-4">
+      <SectionHeader>Avance por objetivo</SectionHeader>
       <ul className="mt-2 flex flex-col gap-2">
         {tecnico.objetivos.map((objetivo) => (
           <li key={objetivo.codigo} className="surface-inner grid grid-cols-1 items-center gap-x-4 gap-y-1.5 p-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto]">
@@ -471,7 +471,7 @@ function AvancePorMeta({ proyectoId, tecnico }: { proyectoId: string; tecnico: P
             </span>
             <span
               role="img"
-              aria-label={`Meta ${objetivo.codigo}: ejecutado ${pct(objetivo.ejecutado)}, planeado ${pct(objetivo.programado)}`}
+              aria-label={`Objetivo ${objetivo.codigo}: ejecutado ${pct(objetivo.ejecutado)}, planeado ${pct(objetivo.programado)}`}
               className="relative block h-2 overflow-hidden rounded-full bg-ink-100"
             >
               <span

@@ -27,17 +27,17 @@ vi.mock("@/components/proyectos/nuevo-proyecto/paso-revision", () => ({
 const PROYECTO = { id: "p1", codigo: "PRY-1", nombre: "X", estado: "BORRADOR" } as ProjectListRow
 
 describe("PasoSiguientes", () => {
-  it("step 2 (Metas) renders the structure editor with its template buttons for the project", () => {
+  it("step 2 (Estructura) renders the structure editor with its template buttons for the project", () => {
     render(<PasoSiguientes paso={2} proyecto={PROYECTO} />)
     expect(screen.getByTestId("estructura")).toHaveTextContent("p1")
     expect(screen.queryByTestId("cronograma")).not.toBeInTheDocument()
   })
 
-  it("step 3 (Cronograma) renders the cronograma and the Gantt, and points to Metas for editing activities", () => {
+  it("step 3 (Cronograma) renders the cronograma and the Gantt, and points to Estructura for editing activities", () => {
     render(<PasoSiguientes paso={3} proyecto={PROYECTO} />)
     expect(screen.getByTestId("cronograma")).toHaveTextContent("p1")
     expect(screen.getByTestId("gantt")).toHaveTextContent("p1")
-    expect(screen.getByText(/actividades se registran en el paso Metas/i)).toBeInTheDocument()
+    expect(screen.getByText(/actividades se registran en el paso Estructura/i)).toBeInTheDocument()
   })
 
   it("step 4 (Presupuesto) renders the budget and monthly programming editor", () => {
