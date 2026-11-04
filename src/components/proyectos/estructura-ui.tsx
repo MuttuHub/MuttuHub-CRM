@@ -159,7 +159,7 @@ export function RowActions({
       <Dialog open={confirmando} onOpenChange={setConfirmando}>
         <DialogContent className="sm:max-w-[min(440px,calc(100%-2rem))]">
           <DialogHeader>
-            <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
+            <DialogTitle>
               ¿Eliminar {nombre}?
             </DialogTitle>
             <DialogDescription>Se quita de la estructura del proyecto.</DialogDescription>

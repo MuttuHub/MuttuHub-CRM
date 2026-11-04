@@ -404,7 +404,7 @@ function AprobarDialog({
       />
       <DialogContent className="sm:max-w-[min(420px,calc(100%-2rem))]">
         <DialogHeader>
-          <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
+          <DialogTitle>
             Aprobar acceso de {solicitud.nombre}
           </DialogTitle>
           <DialogDescription>
@@ -478,7 +478,7 @@ function RechazarDialog({
       />
       <DialogContent className="sm:max-w-[min(400px,calc(100%-2rem))]">
         <DialogHeader>
-          <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
+          <DialogTitle>
             Rechazar a {solicitud.nombre}
           </DialogTitle>
           <DialogDescription>

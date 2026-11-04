@@ -88,10 +88,10 @@ function BriefPickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[80dvh] gap-0 overflow-y-auto p-0 sm:max-w-[min(480px,calc(100%-2rem))]">
+      <DialogContent className="max-h-[80dvh] gap-0 p-0 sm:max-w-[min(480px,calc(100%-2rem))]">
         <div className="flex flex-col gap-4 p-6">
           <DialogHeader className="gap-1">
-            <DialogTitle className="font-display text-[17px] font-bold tracking-[-0.02em] text-ink-950">
+            <DialogTitle>
               Cargar desde Brief existente
             </DialogTitle>
             <DialogDescription>
@@ -345,9 +345,9 @@ export function ClientFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88dvh] overflow-y-auto sm:max-w-[min(640px,calc(100%-2rem))]">
+      <DialogContent className="sm:max-w-[min(640px,calc(100%-2rem))]">
         <DialogHeader>
-          <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
+          <DialogTitle>
             {isEdit ? "Editar cliente" : "Nuevo cliente"}
           </DialogTitle>
           <DialogDescription>

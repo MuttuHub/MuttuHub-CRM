@@ -263,9 +263,9 @@ export function GastosImportDialog({ proyectoId }: { proyectoId: string }) {
       </Button>
 
       <Dialog open={open} onOpenChange={cambiarApertura}>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[min(960px,calc(100%-2rem))]">
+        <DialogContent className="sm:max-w-[min(960px,calc(100%-2rem))]">
           <DialogHeader>
-            <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
+            <DialogTitle>
               Importar gastos
             </DialogTitle>
             <DialogDescription>
@@ -314,7 +314,7 @@ export function GastosImportDialog({ proyectoId }: { proyectoId: string }) {
               </Button>
             ) : (
               <>
-                <Button type="button" variant="ghost" onClick={() => cambiarApertura(false)} disabled={ocupado}>
+                <Button type="button" variant="outline" onClick={() => cambiarApertura(false)} disabled={ocupado}>
                   Cancelar
                 </Button>
                 {preview ? (
