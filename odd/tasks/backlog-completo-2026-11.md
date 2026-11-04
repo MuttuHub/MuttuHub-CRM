@@ -1,6 +1,6 @@
 # Backlog completo — ejecución en local (2026-11)
 
-Objetivo: resolver todo lo pendiente del plan `docs/pendientes/plan-trabajo-ux-crm.md`, unidad por unidad, en local.
+Objetivo: resolver todo lo pendiente del plan `docs/ux-crm-2026-11/plan-trabajo-ux-crm.md`, unidad por unidad, en local.
 Ramas: una por PR desde `main`, sin PRs apilados (plan §3); push, PR y merge los decide el usuario. Delivery: `ask-on-risk`.
 Pruebas: Vitest (`npx vitest run <archivo>`), e2e con Playwright en `e2e/`; base local Docker vía `.env.local`.
 
@@ -27,7 +27,7 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
 |---|---|---|---|---|---|
 | T0 | F0.6: plan en el repo + Frente M + este documento | S1, S3 | inline | hecho | `1bbd4cc` (rama `docs/plan-backlog-completo`) |
 | T1 | F0.4: X1 («obligatoria»), X2 (`modo` estricto en imports) | S1, S2 | inline | hecho | `caf2d47` (rama `fix/x1-x2-mensajes-y-modo`); RED 1+4 → GREEN; suite de áreas tocadas 132 archivos / 1670 tests; assess medio, `under_budget` |
-| T2 | PR-R1: R1, R2, R3, R4, R6 (datos de Reportes) | S1, S2 | por definir | pendiente | — |
+| T2 | PR-R1: R1, R2, R3, R4, R6 (datos de Reportes) | S1, S2 | delegado (paralelo) | hecho | `79cd586` (rama `fix/reportes-datos`); RED 4+2 → GREEN; 270 tests de áreas tocadas; spot check del padre 27/27 |
 | T3 | PR-1: BL#14, BL#21, BL#12, BL#11 (base de diálogos) | S1, S2 | por definir | pendiente | — |
 | T4 | PR-2: BL#9, BL#22, BL#15, BL#10 (diálogos con operación en curso) | S1, S2 | por definir | pendiente | — |
 | T5 | PR-R2: R9 (hoja de impresión común) | S1, S2 | por definir | pendiente | — |
@@ -58,4 +58,9 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
   obligatoria.» / «demasiado larga.»; los demás mensajes no cambian (pruebas existentes). `tsc` y eslint limpios.
   Próximo: T2 (PR-R1) y T3 (PR-1) en paralelo, por escritores delegados en worktrees aislados (unidades
   independientes con superficies disjuntas; contexto largo de esta sesión).
+- **L4 (2026-11-04):** T2 aceptado (`79cd586`, diff dentro de la superficie, 5 archivos +115/−25). R1 usa la convención del
+  semanal (`fechaEnBogota` del cierre contra el día UTC de `fecha_entrega`). Hallazgos anotados en el plan: R17, R18 y R19
+  (decisión). El plan se movió a `docs/ux-crm-2026-11/` (13:20, junto con los prototipos; mudanza sin commit todavía).
+  Gotcha: en los worktrees, `npx` de Windows no sigue el symlink de `node_modules`; eslint y tsc van con
+  `node node_modules/<pkg>/bin/...`.
 
