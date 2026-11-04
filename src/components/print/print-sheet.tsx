@@ -22,11 +22,54 @@ const CLASSIFICATION_NOTE: Record<PrintClassification, string> = {
   personal: "Solo para la persona indicada",
 };
 
-const PRINT_SHEET_CSS = `
+/**
+ * CSS for the printed sheet.
+ *
+ * The repeating header and footer are `@page` margin boxes, not in-flow elements: Chromium does
+ * not repeat `table-header-group` / `table-footer-group` when the page break falls inside a single
+ * anonymous row (which is what a wrapper div around arbitrary content produces), and a fixed
+ * element pinned to the content area repeats but paints over the body. Margin boxes are painted by
+ * the pager itself, in the page margin, on every page — the only mechanism that repeats without
+ * overlapping. They take plain strings, so the texts are interpolated here.
+ */
+function printSheetCss({
+  titulo,
+  etiqueta,
+  generado,
+  nota,
+}: {
+  titulo: string;
+  etiqueta: string;
+  generado: string;
+  nota: string;
+}) {
+  const texto = (valor: string) => `"${valor.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  return `
 @media print {
   @page {
     size: letter;
-    margin: 12mm 14mm 14mm;
+    margin: 24mm 14mm 20mm;
+    @top-left {
+      content: ${texto(titulo)};
+      font-size: 9pt;
+      color: #725d62;
+    }
+    @top-right {
+      content: ${texto(etiqueta)};
+      font-size: 9pt;
+      font-weight: 700;
+      color: #940d44;
+    }
+    @bottom-left {
+      content: ${texto(generado)};
+      font-size: 8.5pt;
+      color: #725d62;
+    }
+    @bottom-center {
+      content: ${texto(nota)};
+      font-size: 8pt;
+      color: #725d62;
+    }
     @bottom-right {
       content: "Página " counter(page) " de " counter(pages);
       font-size: 9pt;
@@ -38,15 +81,18 @@ const PRINT_SHEET_CSS = `
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }
-  .print-sheet { display: table; width: 100%; border-collapse: collapse; }
-  .print-sheet__head { display: table-header-group; }
-  .print-sheet__body { display: table-row-group; }
-  .print-sheet__foot { display: table-footer-group; }
+  /* The branded header and the footer live in the page margin boxes above, so the on-screen
+     versions are hidden when printing to avoid drawing them twice. */
+  .print-sheet__head, .print-sheet__foot { display: none; }
+  .print-sheet { display: block; width: 100%; }
+  .print-sheet__body { display: block; }
+  /* Real content tables keep their own repeating header row. */
   .print-sheet thead { display: table-header-group; }
   .print-sheet tr, .print-sheet li { break-inside: avoid; page-break-inside: avoid; }
   .print-sheet h2, .print-sheet h3 { break-after: avoid; page-break-after: avoid; }
 }
 `;
+}
 
 /** Prints once `ready` is true and the web fonts have loaded; never prints after unmount. */
 function useAutoPrint(ready: boolean) {
@@ -131,10 +177,17 @@ export function PrintSheet({
   const generatedLine = ready
     ? `Generado el ${formatGeneratedAt(new Date())}${me.nombre ? ` por ${me.nombre}` : ""}`
     : null;
+  const usageNote = note ?? CLASSIFICATION_NOTE[classification];
+  const css = printSheetCss({
+    titulo: `Muttu Hub · ${title}`,
+    etiqueta: label,
+    generado: generatedLine ?? "",
+    nota: usageNote,
+  });
 
   return (
     <main className="min-h-screen bg-white px-6 py-6 text-ink-900 sm:px-10 print:bg-white print:p-0">
-      <style>{PRINT_SHEET_CSS}</style>
+      <style>{css}</style>
       <PrintToolbar
         description={toolbar.description}
         fallbackHref={toolbar.fallbackHref}

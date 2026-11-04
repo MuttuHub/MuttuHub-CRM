@@ -164,8 +164,14 @@ describe("PrintSheet", () => {
     expect(css).toContain('"Página " counter(page) " de " counter(pages)')
     expect(css).toContain("print-color-adjust: exact")
     expect(css).toContain("-webkit-print-color-adjust: exact")
+    // Chromium repeats @page margin boxes on every page; table-header-group / table-footer-group
+    // do not repeat when the break falls inside a single anonymous row, and a fixed element
+    // repeats but paints over the body.
+    expect(css).toMatch(/@top-left\s*{[^}]*content:/)
+    expect(css).toMatch(/@top-right\s*{[^}]*content:/)
+    expect(css).toMatch(/@bottom-left\s*{[^}]*content:/)
+    expect(css).toMatch(/@bottom-center\s*{[^}]*content:/)
     expect(css).toContain("table-header-group")
-    expect(css).toContain("table-footer-group")
     expect(css).toMatch(/tr,\s*\.print-sheet li\s*{[^}]*break-inside:\s*avoid/)
   })
 })
