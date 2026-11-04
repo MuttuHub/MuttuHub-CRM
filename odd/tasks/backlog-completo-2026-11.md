@@ -28,7 +28,7 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
 | T0 | F0.6: plan en el repo + Frente M + este documento | S1, S3 | inline | hecho | `1bbd4cc` (rama `docs/plan-backlog-completo`) |
 | T1 | F0.4: X1 («obligatoria»), X2 (`modo` estricto en imports) | S1, S2 | inline | hecho | `caf2d47` (rama `fix/x1-x2-mensajes-y-modo`); RED 1+4 → GREEN; suite de áreas tocadas 132 archivos / 1670 tests; assess medio, `under_budget` |
 | T2 | PR-R1: R1, R2, R3, R4, R6 (datos de Reportes) | S1, S2 | delegado (paralelo) | hecho | `79cd586` (rama `fix/reportes-datos`); RED 4+2 → GREEN; 270 tests de áreas tocadas; spot check del padre 27/27 |
-| T3 | PR-1: BL#14, BL#21, BL#12, BL#11 (base de diálogos) | S1, S2 | por definir | pendiente | — |
+| T3 | PR-1: BL#14, BL#21, BL#12, BL#11 (base de diálogos) | S1, S2 | delegado (paralelo) | hecho · **falta revisión visual** | `8a5bd9d` (rama `fix/ui-dialog-base`), 23 archivos +125/−70; RED 5 → GREEN 11/11; spot check del padre 11/11 |
 | T4 | PR-2: BL#9, BL#22, BL#15, BL#10 (diálogos con operación en curso) | S1, S2 | por definir | pendiente | — |
 | T5 | PR-R2: R9 (hoja de impresión común) | S1, S2 | por definir | pendiente | — |
 | T6 | PR-M1: outbox, worker y `EmailSender` (Resend + SMTP/Mailpit) | S3 | por definir | pendiente | — |
@@ -63,4 +63,13 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
   (decisión). El plan se movió a `docs/ux-crm-2026-11/` (13:20, junto con los prototipos; mudanza sin commit todavía).
   Gotcha: en los worktrees, `npx` de Windows no sigue el symlink de `node_modules`; eslint y tsc van con
   `node node_modules/<pkg>/bin/...`.
+- **L5 (2026-11-04):** T3 aceptado (`8a5bd9d`, diff solo en `src/components/`). `DialogContent` con `max-h-[90dvh]` y
+  desplazamiento, `DialogFooter` fijo y opaco, un solo título de 18 px, «Cancelar» siempre `outline` (antes: 27 outline,
+  9 ghost), fijado por un test que escanea el código. `control-guards.test.ts` pasa de 8 fallos en `main` a 2 (previos,
+  `repository-list.tsx:1023`). Riesgo: ítem 6 (el diseño real no se prueba en jsdom) → **revisión visual pendiente**
+  en el navegador con la rama `fix/ui-dialog-base`. Advertencias: el escaneo usa `process.cwd()` (corre desde la raíz,
+  como otros tests del repo); quedan clases repetidas en `ficha/ficha-header.tsx`; «Cancelar» `ghost` en formularios en
+  línea que no son diálogos (fuera de BL#11); la X de cierre se desplaza con el cuerpo en diálogos altos.
+  Incidente propio: un `git add` registró la mudanza del plan a `docs/ux-crm-2026-11/` como borrado; deshice ese commit
+  local y restauré el estado del disco tal como lo dejó el usuario.
 
