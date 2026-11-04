@@ -28,9 +28,10 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
 | T0 | F0.6: plan en el repo + Frente M + este documento | S1, S3 | inline | hecho | `1bbd4cc` (rama `docs/plan-backlog-completo`) |
 | T1 | F0.4: X1 («obligatoria»), X2 (`modo` estricto en imports) | S1, S2 | inline | hecho | `caf2d47` (rama `fix/x1-x2-mensajes-y-modo`); RED 1+4 → GREEN; suite de áreas tocadas 132 archivos / 1670 tests; assess medio, `under_budget` |
 | T2 | PR-R1: R1, R2, R3, R4, R6 (datos de Reportes) | S1, S2 | delegado (paralelo) | hecho | `79cd586` (rama `fix/reportes-datos`); RED 4+2 → GREEN; 270 tests de áreas tocadas; spot check del padre 27/27 |
-| T3 | PR-1: BL#14, BL#21, BL#12, BL#11 (base de diálogos) | S1, S2 | delegado (paralelo) | hecho · **falta revisión visual** | `8a5bd9d` (rama `fix/ui-dialog-base`), 23 archivos +125/−70; RED 5 → GREEN 11/11; spot check del padre 11/11 |
+| T3 | PR-1: BL#14, BL#21, BL#12, BL#11 (base de diálogos) | S1, S2 | delegado (paralelo) | hecho · **verificado visualmente** | `8a5bd9d` (rama `fix/ui-dialog-base`), 23 archivos +125/−70; RED 5 → GREEN 11/11; spot check del padre 11/11. Navegador real: alto 0.65 del viewport en escritorio y 0.852 en móvil (tope 0.90), footer `sticky` y opaco, título 18 px, «Cancelar» outline. Evidencia en `docs/ux-crm-2026-11/capturas/t3/` |
 | T4 | PR-2: BL#9, BL#22, BL#15, BL#10 (diálogos con operación en curso) | S1, S2 | por definir | pendiente | — |
-| T5 | PR-R2: R9 (hoja de impresión común) | S1, S2 | delegado (paralelo) | hecho · **falta revisión visual** (vista previa de impresión en Chrome) | `660989a` (rama `feat/print-sheet-base`), 8 archivos; RED → GREEN 125/125; spot check del padre 67/67 |
+| T5 | PR-R2: R9 (hoja de impresión común) | S1, S2 | delegado (paralelo) | hecho · **verificado con PDF real; 2 defectos → T5b** | `660989a` (rama `feat/print-sheet-base`), 8 archivos; RED → GREEN 125/125; spot check del padre 67/67. PDF real: 6/6 en carta 612×792 y «Página N de M» correcto en las 6. Defectos: cabecera y pie no se repiten por página; el semanal pierde el chip de clasificación. Evidencia en `docs/ux-crm-2026-11/capturas/t5/` |
+| T5b | **PR-R2b:** repetir cabecera y pie en cada página impresa (ver L12) | S2 | por definir | pendiente | — |
 | T6 | PR-M1: outbox, worker y `EmailSender` (Resend + Mailpit por HTTP) | S3 | delegado (paralelo) | hecho; verificador PASS (ítems 1, 3, 4) | `145dfb8` migración + `03513bf` código (rama `feat/email-outbox`); 16 archivos; spot check del padre 41/41; humo: 1 correo en Mailpit |
 | T7 | PR-M2 a PR-M4: plantillas, eventos y resumen v2 | S3 | por definir | pendiente | — |
 | T8 | PR-7a–d: U1–U8 (textos de Proyectos) | S1, S2 | delegado (paralelo) | hecho parcial · **falta PR-7d (U6–U8)** | `8b228fc` (PR-7a, U1–U3), `e8daa97` (PR-7b, U4), `ff222d4` (PR-7c, U5) en la rama `fix/proyectos-textos`, 37 archivos +429/−227. Verificado por el padre: 23 archivos / **369 pruebas en verde**, `tsc` 0, `eslint` 0. Sin tocar: `import-dialog.tsx` (U6, U7) y `lib/proyectos/plantilla/generate.ts` (U8). El escritor murió justo al empezar U6/U7. |
@@ -116,4 +117,27 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
   - **Arnés de capturas listo para reusar:** `.claude/qa/capturar.mjs` (modos `antes`, `t3`, `t5`, `t8`) con login
     demo, dos viewports y PDF real por plantilla. Ojo: la página de acceso tiene **dos botones «Entrar»** y los campos
     son controlados, así que hay que esperar la hidratación y tipear con `pressSequentially` (verificado).
+- **L12 (2026-11-04, verificaciones visuales en navegador real):** con el stack restaurado (Docker Desktop estaba
+  caído; el `Exited (137)` del edge runtime confirma un OOM) y la base local respaldada (1.4 MB, 94 tablas), se
+  hicieron las tres verificaciones pendientes. Chromium 151, base demo.
+  - **T3 · PASS.** `Editar datos generales` abre a 585 px sobre 900 (0.65) en escritorio y 719 sobre 844 (0.852) en
+    móvil, ambos bajo el tope 0.90; `[data-slot=dialog-footer]` computa `position: sticky` y un fondo `oklab(…)`
+    **sin alfa**; el título mide 18 px en los dos casos; «Cancelar» sale con `border`/`bg-input-bg` y sin `bg-primary`.
+    Con el cuerpo desplazado el pie sigue visible y nada se transparenta. Cierra el riesgo ítem 6 de T3. El segundo
+    diálogo previsto (`Importar plantilla`) no se abre desde la ficha, así que se descarta como caso.
+  - **T5 · hecho con 2 defectos.** 6/6 plantillas en carta 612×792 y **«Página N de M» correcto en las 6** (el
+    chequeo que solo pasa en Chromium 131+). Pero **la cabecera y el pie no se repiten por página**: la cabecera
+    (logo + clasificación) sale solo en la página 1 y el pie solo al final, al revés de lo que afirmaba L9. Causa
+    probable: el cuerpo es una sola fila anónima dentro de `.print-sheet { display: table }`, y Chromium no repite
+    `table-header-group` / `table-footer-group` cuando el salto cae dentro de una fila; el `thead` de las tablas
+    internas sí se repite (la página 2 arranca con «CLIENTE | CANTIDAD»). Además, `impresion-semanal.pdf` **pierde el
+    chip de clasificación** en ambas páginas y su pie sale fragmentado; no es desborde (0 bloques fuera del ancho de
+    página). Va como **T5b / PR-R2b**.
+  - **T8 · PASS visual.** La ficha y el listado muestran el vocabulario llano («frente a … programado» en lugar de pp,
+    «Indicador bajo la meta», «Avance sin soporte»), sin Σ, sin v0 y sin códigos de regla. El par «antes» está en
+    `capturas/antes/` y el «después» en `capturas/t8/`.
+  - **F0.7:** 12 capturas a 1440 y 390 px en `docs/ux-crm-2026-11/capturas/antes/`. La ficha de cliente necesitó ruta
+    propia: `/clientes/<id>` da 404, la real es `/clientes?cliente=<id>`.
+  - **Nota de proceso:** los verificadores delegados no arrancaron (`ELOCKED` en el runtime de subagentes); la
+    verificación visual la hizo el padre en línea. El arnés quedó en `.claude/qa/capturar.mjs` + `analizar-pdf.py`.
 
