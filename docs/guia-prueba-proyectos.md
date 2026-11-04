@@ -64,7 +64,7 @@ Antes de la reunión (5 min, una sola vez):
 
 En la reunión (como `admin@`, salvo donde se indica):
 1. **Proyectos > Ver detalle** del proyecto en Borrador (abre en la misma ventana, en **Resumen**: datos y **Equipo**; **Volver a proyectos** regresa a la lista). Pestaña
-   **Cronograma**: el **Cronograma** por semanas. Pestaña **Gantt**: el **Gantt** por semanas. Pestaña **Financiero**: **Presupuesto** (Σ asignado =
+   **Cronograma**: el **Cronograma** por semanas. Pestaña **Gantt**: el **Gantt** por semanas. Pestaña **Financiero**: **Presupuesto** (Total asignado =
    Valor total). (1 min)
 2. En la pestaña **Metas e indicadores**, **Importar plantilla** con el archivo de error: se ve la tabla por hoja y
    **Descargar reporte (.csv)**; nada se escribió. (1 min)
@@ -293,15 +293,16 @@ Pestaña **Financiero** de la ficha, sección **Presupuesto** (arriba; la **Fich
 `gerencia@`; el resto lo ve en solo lectura.
 
 1. Tabla por rubro con columna **Asignado**. Escribe montos (acepta coma o punto) y pulsa **Guardar presupuesto**.
-2. Debajo: **Σ asignado**, **Valor total** ("Sin definir" si no hay) y **Diferencia** (Σ A menos valor total).
+2. Debajo: **Total asignado**, **Valor total** ("Sin definir" si no hay) y **Diferencia** (total asignado menos
+   valor total).
    Si el valor total estaba vacío, se fija con la suma al guardar.
-3. Si Σ A no coincide con el valor total aparece **Igualar valor total a Σ A**: al pulsarlo el valor total pasa a
+3. Si el total asignado no coincide con el valor total aparece **Usar la suma como valor total**: al pulsarlo el valor total pasa a
    ser la suma guardada y la diferencia queda en $ 0. Es lo que exige la línea base.
 4. **Programación mensual**: una columna por mes del proyecto y una fila por rubro con monto. Escribe lo
    programado y **Guardar programación**. Un rubro sin monto asignado no se puede programar ("Asigna un monto a
    algún rubro para poder programarlo."). Mientras no cuadre, aparece **Programación pendiente**.
-5. El control (Σ programación menos asignado) es informativo en borrador, pero deberá ser $ 0 para aprobar la
-   línea base.
+5. La columna **Falta por programar** (asignado menos lo programado; negativa si se programó de más) es informativa
+   en borrador, pero deberá ser $ 0 para aprobar la línea base.
 6. Negativos: un monto inválido avisa antes de guardar ("Ingresa un valor válido..."); en un proyecto ya aprobado
    la sección queda de solo lectura con "El presupuesto y la programación solo se editan mientras el proyecto está
    en borrador."; `coordinador@` o `colaborador@` no ven controles de edición.

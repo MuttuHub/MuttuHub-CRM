@@ -82,7 +82,7 @@ describe("PresupuestoProgramacion", () => {
       "oct 2026",
       "nov 2026",
       "dic 2026",
-      "Control",
+      "Falta por programar",
     ])
     expect(within(grid).getByLabelText("Programado R01 oct 2026")).toBeInTheDocument()
   })
@@ -98,7 +98,22 @@ describe("PresupuestoProgramacion", () => {
     expect(celda).toHaveValue("1.234.567")
 
     const fila = within(await screen.findByTestId("programacion-grid")).getAllByTestId("programacion-fila")[0]
-    expect(fila).toHaveTextContent("-$ 58.265.433")
+    // Falta por programar = asignado − programado: 59.500.000 − 1.234.567.
+    expect(fila).toHaveTextContent("$ 58.265.433")
+    expect(fila).not.toHaveTextContent("-$")
+  })
+
+  it("shows «Falta por programar» as assigned minus programmed, negative when over-programmed (U4)", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    const celda = await screen.findByLabelText("Programado R01 oct 2026")
+    await user.type(celda, "60000000")
+    await user.tab()
+    const fila = within(await screen.findByTestId("programacion-grid")).getAllByTestId("programacion-fila")[0]
+    expect(fila).toHaveTextContent("-$ 500.000")
+    expect(screen.getByText(/Falta por programar/, { selector: "p" })).toHaveTextContent(/deberá ser \$ 0/)
+    expect(screen.queryByText(/Σ/)).not.toBeInTheDocument()
   })
 
   // Lo que el usuario ve y lo que se calcula nunca difiere: un borrado no puede cambiar el valor.

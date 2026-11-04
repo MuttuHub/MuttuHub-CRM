@@ -185,8 +185,8 @@ Vista de solo lectura: el **Cronograma** por semanas y el **Gantt**. Las activid
 
 1. Revisa el **Valor total**.
 2. Asigna un monto a cada **rubro** (R01 a R15) y pulsa **Guardar presupuesto**.
-3. La suma **Σ asignado** debe igualar el valor total. Si no cuadra, usa **Igualar valor total a Σ A** o ajusta los
-   montos.
+3. El **Total asignado** debe igualar el valor total. Si no cuadra, usa **Usar la suma como valor total** o ajusta
+   los montos.
 4. Programa los desembolsos por mes en **Programación mensual** y pulsa **Guardar programación**. Mientras no cuadre
    con lo asignado, verás **«Programación pendiente»**.
 
@@ -350,7 +350,7 @@ en ese estado.
 
 **Presupuesto**
 
-- El **valor total** y el monto **Asignado** por rubro, con la suma **Σ asignado**.
+- El **valor total** y el monto **Asignado** por rubro, con la suma **Total asignado**.
 - **Programación mensual** por rubro, con **Guardar programación**.
 - Si un rubro está suspendido y tiene monto asignado, aparece el aviso **«Rubro suspendido pendiente de reasignación»**.
 
@@ -567,7 +567,7 @@ coincide, es un hallazgo que conviene anotar con el paso, la pantalla y lo que a
 | 4 | Abrir el **Resumen** del borrador | **Próximos pasos** con fechas y valor, estructura, presupuesto y línea base, cada uno con su enlace |
 | 5 | **Actividades → Lista**: crear objetivo, actividad con semanas, entregable e indicador | Los códigos se generan solos (O1, A1.1, E1.1.1); el **Gantt** refleja las semanas; en Borrador no hay **Tablero** |
 | 6 | **Descargar plantilla** e **Importar plantilla** con un error deliberado | La vista previa lista **regla, fila, columna, valor y mensaje**, y no escribe nada hasta corregir |
-| 7 | **Finanzas → Presupuesto**: asignar rubros con una suma distinta al valor total | Aviso de la diferencia; **Igualar valor total a Σ A**; la programación mensual muestra **«Programación pendiente»** si no cuadra |
+| 7 | **Finanzas → Presupuesto**: asignar rubros con una suma distinta al valor total | Aviso de la diferencia; **Usar la suma como valor total**; la programación mensual muestra **«Programación pendiente»** si no cuadra |
 | 8 | **Aprobar línea base** con algo pendiente | Lista las **precondiciones** que faltan; al completarlas y aprobar, el proyecto pasa a **En ejecución** y se crea la versión `v0` |
 | 9 | **Actividades → Registrar avance** | La fecha no puede ser futura; exige archivo o enlace; si el avance excede lo planeado, pide **justificación del exceso** |
 | 10 | **Finanzas → Gastos → Registrar gasto** | El **soporte es obligatorio**; el gasto queda en **Registrado** |
