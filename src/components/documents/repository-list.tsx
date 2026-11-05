@@ -1023,9 +1023,9 @@ function FolderTile({
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
+                size="icon-xs"
                 aria-label={`Acciones de ${node.nombre}`}
-                className="absolute top-0 right-0 h-6 w-6 rounded-md p-0 text-ink-400 opacity-0 group-hover:opacity-100 hover:bg-transparent hover:text-ink-800 focus-visible:opacity-100"
+                className="absolute top-0 right-0 text-ink-400 opacity-0 group-hover:opacity-100 hover:bg-transparent hover:text-ink-800 focus-visible:opacity-100"
               >
                 <MoreHorizontal className="size-3.5" strokeWidth={2} />
               </Button>
