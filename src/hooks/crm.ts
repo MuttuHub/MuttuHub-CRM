@@ -66,6 +66,13 @@ export type ClientListRow = {
   next_compromiso: NextCompromiso | null;
   updated_at: string;
   /**
+   * PR-11 (N6): most recent bitácora entry (ISO) and whole Bogotá days since
+   * it; both null when the client was never contacted. Always sent by
+   * GET /clients; optional here so older fixtures stay valid.
+   */
+  ultimo_contacto?: string | null;
+  dias_sin_gestion?: number | null;
+  /**
    * PR 2 (Slice A) + PR 4 (Slice B2): server-authoritative write flag.
    * `false` ⇒ the current user would get 403 on PATCH/DELETE. The UI hides
    * destructive controls and disables edit fields on this signal. Server is
@@ -312,6 +319,8 @@ export type ClientFilters = {
   hasta?: string;
   valorMin?: string;
   valorMax?: string;
+  /** PR-11 (N6): «sin gestión hace N días» (`?sinGestion=`), whole days. */
+  sinGestion?: string;
   page?: number;
   limit?: number;
   sort?: string;
@@ -330,6 +339,8 @@ export type ClientFiltersPatch = {
   hasta?: string;
   valorMin?: string;
   valorMax?: string;
+  /** PR-11 (N6): «sin gestión hace N días» (`?sinGestion=`), whole days. */
+  sinGestion?: string;
 };
 
 /* ── Query keys ────────────────────────────────────────────────────────── */

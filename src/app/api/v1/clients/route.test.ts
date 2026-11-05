@@ -630,7 +630,7 @@ describe("último contacto y días sin gestión (N6)", () => {
     authAs(gerencia);
     vi.mocked(db.cliente.findMany).mockResolvedValue([baseClientRow] as never);
 
-    const res = await GET(new Request("http://localhost/api/v1/clients?sin_gestion=30"));
+    const res = await GET(new Request("http://localhost/api/v1/clients?sinGestion=30"));
 
     const json = await res.json();
     expect(json.items[0].ultimo_contacto).toBeNull();
@@ -638,25 +638,25 @@ describe("último contacto y días sin gestión (N6)", () => {
     expect(json.total).toBe(1);
   });
 
-  it("?sin_gestion=N deja fuera al cliente contactado dentro del plazo", async () => {
+  it("?sinGestion=N deja fuera al cliente contactado dentro del plazo", async () => {
     authAs(gerencia);
     vi.mocked(db.cliente.findMany).mockResolvedValue([baseClientRow] as never);
     vi.mocked(db.bitacoraEntrada.groupBy).mockResolvedValue([
       { cliente_id: "cli-1", _max: { created_at: new Date(Date.now() - 2 * dia) } },
     ] as never);
 
-    const res = await GET(new Request("http://localhost/api/v1/clients?sin_gestion=30"));
+    const res = await GET(new Request("http://localhost/api/v1/clients?sinGestion=30"));
 
     const json = await res.json();
     expect(json.total).toBe(0);
     expect(json.items).toEqual([]);
   });
 
-  it("rechaza un valor de sin_gestion que no sea un entero no negativo", async () => {
+  it("rechaza un valor de sinGestion que no sea un entero no negativo", async () => {
     authAs(gerencia);
     vi.mocked(db.cliente.findMany).mockResolvedValue([baseClientRow] as never);
 
-    const res = await GET(new Request("http://localhost/api/v1/clients?sin_gestion=abc"));
+    const res = await GET(new Request("http://localhost/api/v1/clients?sinGestion=abc"));
 
     expect(res.status).toBe(400);
   });

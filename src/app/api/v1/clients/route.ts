@@ -25,6 +25,7 @@ import {
   endOfDay,
   OPEN_TASK_STATES,
   parseClientListFilters,
+  sinGestionDesde,
   parseDate,
   parsePagination,
   zodError,
@@ -286,29 +287,13 @@ export const GET = withApiErrorHandling(
       orderBy,
     });
 
-    // PR-11: «sin gestión hace N días». Como el dato es un agregado por cliente, el
-    // filtro se aplica después del enriquecimiento, igual que valor_min/max. Un cliente
-    // que nunca tuvo contacto cuenta como sin gestión.
-    const sinGestionRaw = url.searchParams.get("sin_gestion");
-    let sinGestion: number | undefined;
-    if (sinGestionRaw !== null) {
-      const dias = Number(sinGestionRaw);
-      if (!Number.isInteger(dias) || dias < 0) {
-        return apiError(
-          "El filtro «sin gestión» debe ser un número de días entero y no negativo.",
-          400,
-          "VALIDATION_ERROR",
-        );
-      }
-      sinGestion = dias;
-    }
-
     const enriched = await enrichClients(rows.map((r) => r.id), rows);
     const filtered = enriched.filter(
       (e) =>
         (filters.filters.valor_min === undefined || e.valor_potencial >= filters.filters.valor_min) &&
         (filters.filters.valor_max === undefined || e.valor_potencial <= filters.filters.valor_max) &&
-        (sinGestion === undefined || e.dias_sin_gestion === null || e.dias_sin_gestion >= sinGestion),
+        // PR-11 (N6): «sin gestión hace N días», a per-client aggregate.
+        sinGestionDesde(e.dias_sin_gestion, filters.filters.sin_gestion),
     );
 
     // PR 25: orden de agregados post-enriquecimiento (ya se filtró por

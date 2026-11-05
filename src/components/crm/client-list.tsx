@@ -109,6 +109,7 @@ type LocalFilters = {
   hasta: string;
   valorMin: string;
   valorMax: string;
+  sinGestion: string;
 };
 
 const EMPTY_LOCAL: LocalFilters = {
@@ -122,6 +123,7 @@ const EMPTY_LOCAL: LocalFilters = {
   hasta: "",
   valorMin: "",
   valorMax: "",
+  sinGestion: "",
 };
 
 function toFilters(local: LocalFilters): ClientFilters {
@@ -136,6 +138,7 @@ function toFilters(local: LocalFilters): ClientFilters {
   if (local.hasta) out.hasta = local.hasta;
   if (local.valorMin) out.valorMin = local.valorMin;
   if (local.valorMax) out.valorMax = local.valorMax;
+  if (local.sinGestion) out.sinGestion = local.sinGestion;
   return out;
 }
 
@@ -151,6 +154,7 @@ function toLocal(f: ClientFilters): LocalFilters {
     hasta: f.hasta ?? "",
     valorMin: f.valorMin ?? "",
     valorMax: f.valorMax ?? "",
+    sinGestion: f.sinGestion ?? "",
   };
 }
 
@@ -175,6 +179,7 @@ const URL_PARAM_KEYS: { local: keyof LocalFilters; url: string }[] = [
   { local: "hasta", url: "hasta" },
   { local: "valorMin", url: "vmin" },
   { local: "valorMax", url: "vmax" },
+  { local: "sinGestion", url: "sg" },
 ];
 
 /** Reads the filter params from the URL (used only at mount). */
@@ -188,6 +193,8 @@ function filtersFromParams(sp: Pick<URLSearchParams, "get">): LocalFilters {
     local.desde = "";
     local.hasta = "";
   }
+  // Same defense for N6: the server 400s anything that is not whole days.
+  if (local.sinGestion && !/^\d+$/.test(local.sinGestion)) local.sinGestion = "";
   return local;
 }
 
@@ -224,6 +231,7 @@ function countActiveFilters(filters: ClientFilters): number {
   if (filters.etiqueta) n += 1;
   if (filters.desde || filters.hasta) n += 1;
   if (filters.valorMin || filters.valorMax) n += 1;
+  if (filters.sinGestion) n += 1;
   return n;
 }
 
@@ -289,7 +297,55 @@ function buildActiveChips(
   if (applied.hasta) chips.push({ key: "hasta", label: `Hasta: ${chipFechaCorta(applied.hasta)}` });
   if (applied.valorMin) chips.push({ key: "valorMin", label: `Valor min: ${chipValor(applied.valorMin)}` });
   if (applied.valorMax) chips.push({ key: "valorMax", label: `Valor max: ${chipValor(applied.valorMax)}` });
+  if (applied.sinGestion) chips.push({ key: "sinGestion", label: `Sin gestión: ${applied.sinGestion}+ días` });
   return chips;
+}
+
+/** PR-11 (N6): preset day thresholds for «sin gestión hace N días». */
+const SIN_GESTION_OPCIONES = ["7", "15", "30", "60", "90"] as const;
+
+/**
+ * PR-11 (N6): «sin gestión hace N días». Presets instead of a free number:
+ * the server rejects anything that is not whole days with a 400. A value that
+ * is not a preset (URL or saved view) is still offered so the select shows it.
+ */
+function SinGestionFilterSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (dias: string) => void;
+}) {
+  const options: string[] =
+    value && !(SIN_GESTION_OPCIONES as readonly string[]).includes(value)
+      ? [...SIN_GESTION_OPCIONES, value]
+      : [...SIN_GESTION_OPCIONES];
+  return (
+    <Select value={value} onValueChange={(v) => onChange(v === "cualquiera" ? "" : (v ?? ""))}>
+      <SelectTrigger aria-label="Días sin gestión" className={cn(SELECT_CLASS)}>
+        <SelectValue placeholder="Días sin gestión" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="cualquiera">Cualquier gestión</SelectItem>
+        {options.map((dias) => (
+          <SelectItem key={dias} value={dias}>
+            {`${dias} días o más`}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+/**
+ * PR-11 (N6): «Hoy» / «Hace 1 día» / «Hace N días», or «Sin contacto» when
+ * the client was never contacted. `undefined` (older payloads) renders «—».
+ */
+function textoSinGestion(dias: number | null | undefined): string {
+  if (dias === undefined) return "—";
+  if (dias === null) return "Sin contacto";
+  if (dias === 0) return "Hoy";
+  return dias === 1 ? "Hace 1 día" : `Hace ${dias} días`;
 }
 
 /**
@@ -723,6 +779,10 @@ function FiltersCard({
                 value={draft.etiqueta}
                 onChange={(etiqueta) => patchDraft({ etiqueta })}
               />
+              <SinGestionFilterSelect
+                value={draft.sinGestion}
+                onChange={(sinGestion) => patchDraft({ sinGestion })}
+              />
 
               <div className="flex items-center gap-1.5">
                 <Label htmlFor="fecha-desde" className="sr-only">
@@ -1000,6 +1060,12 @@ function ClientListView({
                   {cliente.compromisos_abiertos} compromisos
                 </p>
               </div>
+              <div className="hidden w-24 shrink-0 text-right sm:block">
+                <p className="text-[10.5px] text-ink-500">Último contacto</p>
+                <p className="text-[12px] font-medium text-ink-700">
+                  {textoSinGestion(cliente.dias_sin_gestion)}
+                </p>
+              </div>
               <div className="hidden items-center gap-2 lg:flex">
                 <span
                   className={cn(
@@ -1087,7 +1153,7 @@ function ClientTableView({
   onOpen: (id: string) => void;
 }) {
   return (
-    <Table className="min-w-[880px]">
+    <Table className="min-w-[980px]">
       <TableHeader>
         <TableRow>
           <SortableHeader column="nombre" sort={sort} dir={dir} onSort={onSort}>
@@ -1122,6 +1188,7 @@ function ClientTableView({
           <SortableHeader column="next_compromiso" sort={sort} dir={dir} onSort={onSort}>
             Próximo compromiso
           </SortableHeader>
+          <TableHead>Último contacto</TableHead>
           <SortableHeader column="updated_at" sort={sort} dir={dir} onSort={onSort}>
             Última actividad
           </SortableHeader>
@@ -1185,6 +1252,16 @@ function ClientTableView({
                   </span>
                 ) : (
                   <span className="text-[12.5px] text-ink-500">—</span>
+                )}
+              </TableCell>
+              <TableCell>
+                <p className="text-[12.5px] font-medium text-ink-700">
+                  {textoSinGestion(cliente.dias_sin_gestion)}
+                </p>
+                {cliente.ultimo_contacto && (
+                  <p className="font-mono text-[11px] text-ink-500 tabular-nums">
+                    {formatFecha(cliente.ultimo_contacto)}
+                  </p>
                 )}
               </TableCell>
               <TableCell className="font-mono text-[12px] text-ink-600 tabular-nums">
@@ -1293,6 +1370,14 @@ function ClientCard({
             ) : (
               <span className="text-[12.5px] text-ink-500">—</span>
             )}
+          </dd>
+        </div>
+        <div className="col-span-2">
+          <dt className="text-[10.5px] font-bold tracking-[0.08em] text-ink-500 uppercase">
+            Último contacto
+          </dt>
+          <dd className="mt-0.5 text-[12.5px] font-medium text-ink-700">
+            {textoSinGestion(cliente.dias_sin_gestion)}
           </dd>
         </div>
       </dl>
