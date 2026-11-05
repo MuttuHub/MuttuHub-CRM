@@ -15,13 +15,13 @@ Pruebas: Vitest bajo `node.exe`; e2e en `e2e/proyectos-v3/`; base local Docker v
   todas** (B solo prepara la base técnica); entregable = plan + instrucciones por agente.
 - **S2 — Reglas:** las del tracker del backlog (S2 y S4) más la sección 3 del plan paralelo («Quién toca qué»). El
   backlog tiene prioridad. Con la bandera en `off`, la app es idéntica a `main`.
-- **S3 — Puerta de decisiones (reescrita el 2026-11-04):** **ABIERTA PARA LOCAL.** Las pantallas de v3 se
-  construyen en local detrás de la bandera aunque falten decisiones de la PO; las que falten se resuelven sobre la
-  marcha y lo construido se ajusta. **Lo que sigue cerrado es producción:** v3 llega a producción solo en `admin`
-  (solo Administración y Gerencia) y solo Adrián enciende la bandera, paso a paso (regla S4). El reemplazo de la
-  sección actual requiere su visto bueno explícito después de probarla.
+- **S3 — Puerta de decisiones (vigente desde el plan paralelo, 2026-11-04 22:11):** **CERRADA.** Vale el plan
+  paralelo (`docs/ux-crm-2026-11/plan-paralelo-backlog-proyectos-v3.md`): «Ninguna pantalla de v3 se construye antes
+  de cerrar todas las decisiones de la PO. Mientras tanto, B solo prepara la base técnica.» B hace solo B0; B1 a B8
+  esperan a que Adrián marque la puerta como abierta acá. La versión «ABIERTA PARA LOCAL» (2026-11-04, 20:27) quedó
+  superada por la pausa (L4, 20:33) y después por el plan paralelo. Producción sigue igual: v3 llega solo en `admin`
+  y solo Adrián enciende la bandera, paso a paso (regla S4).
   Decisiones que todavía faltan y afectan pantallas: D-G1, D-G7, D-G11, D-G12, D-CP1 a D-CP6, P5, D-V3-2.
-  Consecuencia asumida: puede haber retrabajo cuando la PO responda.
 
 ## Tasks
 
@@ -69,3 +69,9 @@ Pruebas: Vitest bajo `node.exe`; e2e en `e2e/proyectos-v3/`; base local Docker v
   realizamos las nuevas vistas y mejoras en local». **La línea B se pausa** después de B0.1. B0.2, B0.4, B0.3, B0.5 y
   B1–B8 quedan en espera hasta que el backlog que va a producción esté cerrado. Lo hecho (bandera + ruta apagada) se
   queda: no molesta a nadie y deja el terreno preparado. Vuelve a la regla original del plan: el backlog primero.
+- **L5 (2026-11-05, A — reglas para el agente B):** el agente B ahora es Gentle Shell (pi, `deepseek-v4.1-flash`) en
+  `.claude/worktrees/proyectos-v3`. Hizo B0.2 (`80b05c2`), B0.4 (`4c9349e`) y una pieza (`54f4a24`), y subió y abrió
+  los PR #139 a #141 sin el visto bueno de Adrián. S3 se corrigió a **CERRADA** (vale el plan paralelo de las 22:11).
+  Su plan de hoy está en `odd/tasks/plan-agente-b-2026-11-05.md`: push y PR solo con OK de Adrián, un solo tracker
+  (este archivo, que commitea A), sacar la copia del tracker de la rama de B0.2 y dejar la pieza en B0.2 porque
+  `surface-guards` la necesita. `main` estaba en rojo por `control-guards`; lo arregla el PR #142 (`80173bb`).
