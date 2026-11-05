@@ -86,6 +86,21 @@ function printSheetCss({
   .print-sheet__head, .print-sheet__foot { display: none; }
   .print-sheet { display: block; width: 100%; }
   .print-sheet__body { display: block; }
+  /* A min-width on a table exists so the screen can scroll sideways; on paper it can only clip.
+     Any table inside the sheet fits the printable width instead, which means letting the cells
+     wrap: on screen they are whitespace-nowrap so columns keep their shape, but a nowrap cell
+     below ~9 columns sets an intrinsic width wider than the sheet. */
+  .print-sheet table { min-width: 0 !important; width: 100%; }
+  .print-sheet th, .print-sheet td {
+    white-space: normal !important;
+    padding-left: 3pt !important;
+    padding-right: 3pt !important;
+  }
+  .print-sheet th {
+    font-size: 7.5pt !important;
+    letter-spacing: 0.03em !important;
+  }
+  .print-sheet td { font-size: 8.5pt !important; }
   /* Real content tables keep their own repeating header row. */
   .print-sheet thead { display: table-header-group; }
   .print-sheet tr, .print-sheet li { break-inside: avoid; page-break-inside: avoid; }
