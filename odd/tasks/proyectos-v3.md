@@ -27,7 +27,7 @@ Pruebas: Vitest bajo `node.exe`; e2e en `e2e/proyectos-v3/`; base local Docker v
 
 | ID | Qué | Rama | Espera a | Estado | Evidencia |
 |---|---|---|---|---|---|
-| B0.1 | Bandera `FEATURE_PROYECTOS_V3` y ruta «En construcción» | `feat/proyectos-v3-bandera` | — | pendiente | — |
+| B0.1 | Bandera `FEATURE_PROYECTOS_V3` y ruta «En construcción» | `feat/proyectos-v3-bandera` | — | **hecho** | `4863dd3`: 3 archivos, +121; 5 pruebas; `tsc` y `eslint` 0. Verificado en navegador: sin bandera **404** para todos; con `admin`, Gerencia **200** y Colaborador **404** |
 | B0.2 | Prueba guardiana de importaciones v1 ↔ v3 | `chore/proyectos-v3-guardas` | — | pendiente | — |
 | B0.4 | Inventario de contratos (`proyectos-v3-contratos.md`) | `docs/proyectos-v3-contratos` | — | pendiente | — |
 | B0.3 | Selectores de datos de solo lectura | `feat/proyectos-v3-datos` | Paso 0 de A | pendiente | — |
@@ -56,3 +56,12 @@ Pruebas: Vitest bajo `node.exe`; e2e en `e2e/proyectos-v3/`; base local Docker v
   en local, se prueba en producción en modo `admin` y reemplaza a la sección actual solo con su visto bueno; la sección
   viva sigue recibiendo las mejoras del backlog mientras tanto (opción «Candidata con bandera» elegida por Adrián).
   Efectos: S3 reescrita (local abierto, producción cerrada); B0.1 y B0.2 arrancan ya.
+
+- **L3 (2026-11-04, B0.1 cerrado):** `4863dd3` en `feat/proyectos-v3-bandera` (rama desde `main`, 3 archivos, +121).
+  `src/lib/flags.ts` con `leerBanderaProyectosV3` / `puedeVerProyectosV3` (puras, 5 pruebas) y
+  `src/app/(app)/proyectos-v3/page.tsx` como marcador. Regla que salió del test: **sin perfil de app no entra nadie**,
+  ni con la bandera en `on` — v3 lee datos por rol. Cuando la bandera no deja pasar, la ruta responde **404**, no
+  «sin permisos», para no anunciar la sección. Verificado en navegador real contra la base demo:
+  sin bandera → 404 para Gerencia y Colaborador; con `admin` → Gerencia 200 con el marcador y Colaborador 404.
+  El valor `on` queda cubierto por pruebas unitarias, no por el navegador. Próximo: B0.2 (guardian de importaciones)
+  y B0.4 (inventario de contratos), que no dependen de nadie; después B1 (portafolio).
