@@ -75,8 +75,21 @@ la ficha, porque su `router.replace` pisaba la navegación de «Crear proyecto»
 
 ### Seguimiento: specs legacy fuera de CI (fallos observados en la corrida 40358916147)
 
-- `invitation-flow`: no encuentra el botón «Crear usuario».
-- `oportunidad-ciclo`: no encuentra la pestaña «Oportunidades» del diálogo.
-- `permisos-colaborador`: la tarjeta del kanban está `aria-disabled` para el colaborador.
-- `proyectos-ficha-pagina`: espera 6 pestañas y la ficha tiene 5.
+Actualizado 2026-11-05 (T1/T15 del plan UX): `playwright.ci.config.ts` corre ahora `e2e/proyectos-v2` más tres
+specs legacy de la raíz (`testDir: "./e2e"` con `testMatch` explícito). Corren antes que la v2 (orden por ruta) y
+no tocan datos que la v2 use.
+
+- `invitation-flow` (en CI): el botón del diálogo en modo invitación dice «Enviar invitación» (no «Crear
+  usuario», que es el del modo contraseña) y la pantalla final dice «¡Tu cuenta fue validada!». Bajo `next start`
+  (NODE_ENV=production) la ruta dev `invite-token` responde 404, así que el spec hace el mismo `generate_link`
+  contra el Supabase local con la service key que exporta el job (rechaza URLs que no sean loopback).
+- `oportunidad-ciclo` (en CI): abre la ficha con `openCliente` (espera el debounce del `?q=`, que cerraba la
+  ficha antes de llegar a la pestaña «Oportunidades») y la ubica por nombre. Vincula una tarea sembrada: exige
+  base recién sembrada.
+- `proyectos-ficha-pagina` (en CI): la ficha tiene 5 pestañas (Resumen, Actividades, Finanzas, Documentos,
+  Historial); el paso de capturas cerraba la única página antes del paso 6.
+- `permisos-colaborador` (fuera de CI, hallazgo de app): el contenedor arrastrable de la tarjeta
+  (`src/components/kanban/task-card.tsx`, `SortableTaskCard`) lleva `aria-disabled` cuando no se puede editar, y
+  eso marca como deshabilitado también el botón que abre la tarea en solo lectura; Playwright (y un lector de
+  pantalla) lo tratan como inactivo. Requiere decisión de producto/a11y antes de volver a CI.
 - `crm-demo`, `proyectos-demo` (exige demo sin proyectos) y `change-password` (exige cuenta QA real) no se ejecutan en CI.

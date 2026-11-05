@@ -1,48 +1,44 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
+import { login } from "./proyectos-v2/helpers";
 
 // Read-only check of the project ficha as its own page (S12): "Ver detalle"
-// opens `/proyectos/<id>` in a NEW browser tab. This spec WRITES NOTHING.
+// opens `/proyectos/<id>` in the SAME browser tab. This spec WRITES NOTHING.
 //
-// Precondition: the local database holds the S11 demo seed
-// (`npm run db:demo:seed-projects:local -- --apply` on a fresh local DB), which
-// provides PRY-2026-001 (EN_EJECUCION, approved, with avances and gastos).
-// It is the counterpart of proyectos-demo.spec.ts, which needs a CLEAN demo
-// instead (zero projects); the two cannot run against the same DB state.
+// Precondition: the S11 demo seed (scripts/seed-projects-demo.ts --apply, which
+// CI runs), providing PRY-2026-001 (EN_EJECUCION, approved, with avances and
+// gastos). It is the counterpart of proyectos-demo.spec.ts, which needs a CLEAN
+// demo instead (zero projects); the two cannot run against the same DB state.
 //
 // Screenshots (ficha at 1440 and 390 px, tablero at 1440 px) go to
-// SCREENSHOT_DIR (default: os tmp dir) and are never committed.
+// SCREENSHOT_DIR when set, otherwise to the test's output directory; they are
+// never committed.
 
-const ADMIN_EMAIL = "admin@demo.muttuhub.local";
-const PASSWORD = "MuttuDemo2026!";
 const CODIGO = "PRY-2026-001";
 const UUID_URL = /\/proyectos\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-const SCREENSHOT_DIR = process.env.SCREENSHOT_DIR ?? "/tmp";
-
-// Cold Turbopack routes can take 30-60 s to compile on first load.
+// Cold routes can take 30-60 s to compile on a dev server's first load.
 test.setTimeout(300_000);
 test.describe.configure({ mode: "serial" });
 
-// First heading/text each tab renders (exact), proving the section mounted.
-const TABS: Array<{ tab: string; section: string }> = [
-  { tab: "Resumen", section: "Líneas estratégicas" },
-  { tab: "Estructura", section: "Estructura técnica" },
-  { tab: "Avance", section: "Ejecución técnica" },
-  { tab: "Presupuesto", section: "Ficha financiera" },
-  { tab: "Gastos", section: "Gastos" },
-  { tab: "Cambios", section: "Historial" },
+// The five top-level tabs of the ficha (project-ficha.tsx FICHA_TABS) and an
+// element each panel renders, proving the section mounted. Finanzas, Historial
+// and Actividades open on a default segment of their own.
+const TABS: Array<{ tab: string; proof: (panel: Locator) => Locator }> = [
+  { tab: "Resumen", proof: (panel) => panel.getByTestId("datos-generales") },
+  { tab: "Actividades", proof: (panel) => panel.getByRole("tab", { name: "Lista", selected: true }) },
+  { tab: "Finanzas", proof: (panel) => panel.getByRole("tab", { name: "Resumen", selected: true }) },
+  { tab: "Documentos", proof: (panel) => panel.getByTestId("documentos") },
+  { tab: "Historial", proof: (panel) => panel.getByRole("tab", { name: "Modificaciones", selected: true }) },
 ];
 
-test("Ficha page: opens in the same tab with header, semaforos, six tabs and not-found state", async ({
+test("Ficha page: opens in the same tab with header, semaforos, five tabs and not-found state", async ({
   page,
   context,
-}) => {
+}, testInfo) => {
+  const screenshotDir = process.env.SCREENSHOT_DIR ?? testInfo.outputDir;
   await test.step("1. Login as admin and open the project list", async () => {
-    await page.goto("/login?next=%2Fproyectos", { timeout: 90_000 });
-    await page.getByLabel("Correo corporativo").fill(ADMIN_EMAIL);
-    await page.locator('input[type="password"]').fill(PASSWORD);
-    await page.locator('button[type="submit"]', { hasText: "Entrar" }).click();
-    await page.waitForURL(/\/proyectos/, { timeout: 60_000 });
+    await login(page, "admin", "/proyectos");
+    await expect(page).toHaveURL(/\/proyectos/);
     await expect(
       page.getByRole("heading", { level: 1, name: "Proyectos" }),
     ).toBeVisible({ timeout: 60_000 });
@@ -80,40 +76,38 @@ test("Ficha page: opens in the same tab with header, semaforos, six tabs and not
     await expect(ficha.getByRole("dialog")).toHaveCount(0);
   });
 
-  await test.step("4. Six tabs, each opens and shows its section", async () => {
-    await expect(ficha.getByRole("tab")).toHaveCount(6);
+  await test.step("4. Five tabs, each opens and shows its section", async () => {
+    // The first tablist is the ficha's own; panels nest segment tablists of their own.
+    const tabs = ficha.getByRole("tablist").first();
+    await expect(tabs.getByRole("tab")).toHaveCount(TABS.length);
     for (const { tab } of TABS) {
-      await expect(ficha.getByRole("tab", { name: tab })).toBeVisible();
+      await expect(tabs.getByRole("tab", { name: tab, exact: true })).toBeVisible();
     }
-    for (const { tab, section } of TABS) {
-      await ficha.getByRole("tab", { name: tab, exact: true }).click();
-      await expect(ficha.getByRole("tab", { name: tab, exact: true })).toHaveAttribute(
-        "aria-selected",
-        "true",
-      );
-      await expect(
-        ficha.getByRole("tabpanel").getByText(section, { exact: true }).first(),
-      ).toBeVisible({ timeout: 60_000 });
+    for (const { tab, proof } of TABS) {
+      const trigger = tabs.getByRole("tab", { name: tab, exact: true });
+      await trigger.click();
+      await expect(trigger).toHaveAttribute("aria-selected", "true");
+      const panel = ficha.getByRole("tabpanel", { name: tab, exact: true });
+      await expect(proof(panel)).toBeVisible({ timeout: 60_000 });
       await expect(ficha.getByText("No pudimos abrir la ficha")).toHaveCount(0);
       await expect(ficha.getByText("Proyecto no encontrado")).toHaveCount(0);
     }
-    await ficha.getByRole("tab", { name: "Resumen", exact: true }).click();
+    await tabs.getByRole("tab", { name: "Resumen", exact: true }).click();
   });
 
   await test.step("5. Screenshots: ficha 1440 and 390, tablero 1440", async () => {
     await ficha.setViewportSize({ width: 1440, height: 900 });
     await expect(ficha.getByTestId("ficha-header")).toBeVisible();
-    await ficha.screenshot({ path: `${SCREENSHOT_DIR}/ficha-1440.png`, fullPage: true });
+    await ficha.screenshot({ path: `${screenshotDir}/ficha-1440.png`, fullPage: true });
     await ficha.setViewportSize({ width: 390, height: 844 });
     await expect(ficha.getByTestId("ficha-header")).toBeVisible();
-    await ficha.screenshot({ path: `${SCREENSHOT_DIR}/ficha-390.png`, fullPage: true });
+    await ficha.screenshot({ path: `${screenshotDir}/ficha-390.png`, fullPage: true });
 
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/proyectos?vista=tablero", { timeout: 90_000 });
     await expect(page.getByText(CODIGO).first()).toBeVisible({ timeout: 60_000 });
     await page.waitForTimeout(1500);
-    await page.screenshot({ path: `${SCREENSHOT_DIR}/tablero-1440.png`, fullPage: true });
-    await ficha.close();
+    await page.screenshot({ path: `${screenshotDir}/tablero-1440.png`, fullPage: true });
   });
 
   await test.step("6. Unknown id renders the not-found state, not a crash", async () => {
