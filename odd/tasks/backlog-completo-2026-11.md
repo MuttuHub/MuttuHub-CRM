@@ -222,3 +222,13 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
   `tsc` y `eslint` 0. **Nota de proceso:** el commit se hizo primero en `fix/proyectos-rapidos` (la rama de T9) por
   error; se separó con `git rebase --onto main` a su propia rama sin perder nada, y la rama de T9 quedó con un solo
   commit. **T13 queda a medias:** N6 sigue pendiente y necesita backend.
+
+- **L21 (2026-11-04, A2a cerrado — correo con Resend):** la clave de Resend quedó validada y el remitente de prueba
+  funciona. Prueba directa contra la API: `onboarding@resend.dev` → dueño de la cuenta, **HTTP 200**, `id
+  01a1a9ad-c480-7b1c-bf98-0963895d2906`. Dos datos del entorno: la cuenta de Resend pertenece a
+  **`crmmuttuhub@gmail.com`** (el remitente de prueba solo entrega ahí; otro destinatario da **403**), y `EMAIL_FROM`
+  puede llevar un comentario en la misma línea sin romper nada — **verificado con el cargador de Next (`@next/env`):
+  lee 36 caracteres correctos**; la confusión inicial fue de mi extractor, no del `.env.local`.
+  **A2b sigue abierta:** notificar al equipo exige un dominio verificado (D-E para `muttu.co`, o comprar uno).
+  Para la prueba desde la app falta `CRON_SECRET` en `.env.local`; el script de humo de la rama fuerza Mailpit y no
+  sirve para validar Resend.
