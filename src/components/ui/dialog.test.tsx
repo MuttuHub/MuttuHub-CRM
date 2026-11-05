@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync, statSync } from "node:fs"
+import { join } from "node:path"
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
@@ -58,17 +60,33 @@ describe("Dialog", () => {
     expect(overlay).not.toHaveClass("bg-black/10")
   })
 
-  it("renders the optional mono code slot above a 26px title", () => {
+  it("renders the optional mono code slot above the single 18px title", () => {
     renderOpen()
     const code = screen.getByText("REQ-0042")
     expect(code).toHaveAttribute("data-slot", "dialog-code")
     expect(code).toHaveClass("font-mono")
-    expect(screen.getByText("Nuevo aliado")).toHaveClass("text-[26px]")
+    const title = screen.getByText("Nuevo aliado")
+    expect(title).toHaveClass("font-display", "text-[18px]", "font-bold", "tracking-[-0.02em]", "text-ink-950")
+    expect(title).not.toHaveClass("text-[26px]")
   })
 
-  it("pads the footer to match the 26/28 content padding", () => {
+  it("caps the height to the viewport and scrolls the body", () => {
     renderOpen()
-    expect(screen.getByText("Pie")).toHaveClass("-mx-7", "-mb-[26px]", "px-7")
+    const dialog = screen.getByRole("dialog")
+    expect(dialog).toHaveClass("max-h-[90dvh]", "overflow-y-auto")
+  })
+
+  it("drops the bottom padding when a footer is present so the footer sits flush", () => {
+    renderOpen()
+    expect(screen.getByRole("dialog")).toHaveClass("has-[[data-slot=dialog-footer]]:pb-0")
+  })
+
+  it("keeps the footer pinned to the bottom with an opaque background", () => {
+    renderOpen()
+    const footer = screen.getByText("Pie")
+    expect(footer).toHaveClass("sticky", "bottom-0", "z-10", "-mx-7", "px-7")
+    expect(footer).not.toHaveClass("-mb-[26px]", "bg-muted/50")
+    expect(footer.className).toMatch(/bg-\[color-mix\(/)
   })
 
   it("closes through the close button and keeps the sr-only label", async () => {
@@ -83,5 +101,28 @@ describe("Dialog", () => {
     expect(screen.queryByRole("button", { name: "Cerrar" })).not.toBeInTheDocument()
     await userEvent.keyboard("{Escape}")
     expect(onOpenChange).toHaveBeenCalled()
+  })
+})
+
+// BL#11: every dialog uses variant="outline" for its dismiss («Cancelar») button.
+// Scans the sources so a new dialog with a ghost Cancel fails here.
+function listTsx(dir: string): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    const full = join(dir, name)
+    if (statSync(full).isDirectory()) return listTsx(full)
+    return full.endsWith(".tsx") && !full.endsWith(".test.tsx") ? [full] : []
+  })
+}
+
+describe("Dialog Cancel convention", () => {
+  it("never uses a ghost button inside a DialogFooter", () => {
+    const offenders: string[] = []
+    for (const file of listTsx(join(process.cwd(), "src", "components"))) {
+      const source = readFileSync(file, "utf8")
+      for (const match of source.matchAll(/<DialogFooter[\s\S]*?<\/DialogFooter>/g)) {
+        if (match[0].includes('variant="ghost"')) offenders.push(file)
+      }
+    }
+    expect(offenders).toEqual([])
   })
 })

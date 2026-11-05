@@ -100,9 +100,9 @@ function CambioEstadoControl({ proyectoId, acciones }: { proyectoId: string; acc
       </Button>
 
       <Dialog open={open} onOpenChange={cambiarApertura}>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[min(560px,calc(100%-2rem))]">
+        <DialogContent className="sm:max-w-[min(560px,calc(100%-2rem))]">
           <DialogHeader>
-            <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
+            <DialogTitle>
               Cambiar estado del proyecto
             </DialogTitle>
             <DialogDescription>Elige la acción y escribe el motivo; queda en el historial.</DialogDescription>
@@ -144,7 +144,7 @@ function CambioEstadoControl({ proyectoId, acciones }: { proyectoId: string; acc
           <InlineError message={error} />
 
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => cambiarApertura(false)} disabled={cambiar.isPending}>
+            <Button type="button" variant="outline" onClick={() => cambiarApertura(false)} disabled={cambiar.isPending}>
               Volver
             </Button>
             <Button type="button" disabled={!listo} onClick={() => void confirmar()}>

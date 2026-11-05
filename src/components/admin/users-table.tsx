@@ -417,7 +417,7 @@ export function UsersTable({
       >
         <DialogContent className="sm:max-w-[min(480px,calc(100%-2rem))]">
           <DialogHeader>
-            <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
+            <DialogTitle>
               {linkResult?.title}
             </DialogTitle>
             <DialogDescription>
@@ -582,7 +582,7 @@ function RowMenu({
       <Dialog open={editingNombre} onOpenChange={setEditingNombre}>
         <DialogContent className="sm:max-w-[min(400px,calc(100%-2rem))]">
           <DialogHeader>
-            <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
+            <DialogTitle>
               Editar nombre
             </DialogTitle>
             <DialogDescription>
@@ -623,7 +623,7 @@ function RowMenu({
       >
         <DialogContent className="sm:max-w-[min(400px,calc(100%-2rem))]">
           <DialogHeader>
-            <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
+            <DialogTitle>
               Cambiar el rol de {usuario.nombre}
             </DialogTitle>
             <DialogDescription>
@@ -657,7 +657,7 @@ function RowMenu({
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent className="sm:max-w-[min(400px,calc(100%-2rem))]">
           <DialogHeader>
-            <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
+            <DialogTitle>
               Desactivar a {usuario.nombre}
             </DialogTitle>
             <DialogDescription>
@@ -766,7 +766,7 @@ function NewUserDialog({
         />
         <DialogContent className="sm:max-w-[min(420px,calc(100%-2rem))]">
           <DialogHeader>
-            <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
+            <DialogTitle>
               Nuevo usuario
             </DialogTitle>
             <DialogDescription>
