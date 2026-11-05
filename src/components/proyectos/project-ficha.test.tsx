@@ -138,7 +138,7 @@ describe("ProjectFicha (page)", () => {
 
     const kpis = await screen.findByTestId("kpis")
     expect(kpis).toHaveTextContent("Exportar fichas")
-    expect(await within(kpis).findByText("No confirmado")).toBeInTheDocument()
+    expect(await within(kpis).findByText("Semáforo provisional")).toBeInTheDocument()
     expect(within(kpis).getByRole("button", { name: /Exportar ficha \(Excel\)/ })).toBeInTheDocument()
 
     await user.keyboard("{Escape}")
@@ -279,7 +279,7 @@ describe("ProjectFicha (page)", () => {
     await openTab("Actividades")
     // In a draft the Lista is the editable structure; the Gantt is another view, not stacked below it.
     const estructura = await screen.findByTestId("estructura")
-    expect(estructura).toHaveTextContent("Metas e indicadores")
+    expect(estructura).toHaveTextContent("Objetivos e indicadores")
     expect(screen.queryByTestId("equipo")).not.toBeInTheDocument()
     expect(screen.queryByTestId("gantt")).not.toBeInTheDocument()
   })

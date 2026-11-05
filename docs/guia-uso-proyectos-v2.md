@@ -101,7 +101,7 @@ Si la tabla aparece vacía:
 
 La creación es un asistente de cinco pasos en `/proyectos/nuevo`:
 
-**General → Metas → Cronograma → Presupuesto → Revisión**
+**General → Estructura → Cronograma → Presupuesto → Revisión**
 
 Los pasos 2 a 5 quedan deshabilitados hasta que el paso 1 crea el proyecto. Después se puede saltar entre pasos con las
 píldoras de arriba.
@@ -112,8 +112,11 @@ píldoras de arriba.
    - **Desde una oportunidad ganada** (recomendado): el proyecto queda enlazado al ciclo comercial. Solo aparecen las
      oportunidades en estado **Ganada** que aún no tienen proyecto.
    - **Proyecto independiente**: se elige el cliente a mano.
-2. Completa **Nombre**, **Responsable**, **Valor total**, **Fecha de inicio**, **Fecha de fin**, **Meta de
-   beneficiarios**, **Líneas estratégicas** y **Municipios**.
+2. Completa **Nombre**, **Responsable**, **Valor total**, **Fecha de inicio**, **Fecha de fin**, **Beneficiarios**,
+   **Líneas estratégicas** y **Municipios**.
+   **Beneficiarios** es obligatorio para aprobar la línea base. Puedes crear el proyecto sin él: mientras esté vacío, el
+   formulario muestra el aviso «Sin beneficiarios no podrás aprobar la línea base» y lo completas después con
+   **Editar datos generales**.
    **Municipios** se elige en dos pasos: primero el **departamento** y después el **municipio** dentro de ese
    departamento. Puedes marcar varios; cada uno queda como una ficha que se puede quitar. Están cargados **los 1122
    municipios de Colombia** (catálogo DANE fijo; no se administra desde **Administración**).
@@ -126,7 +129,7 @@ paso 1 no se puede repetir: si vuelves, muestra un resumen de solo lectura. Para
 Si el valor total difiere del valor estimado de la oportunidad, aparece el aviso **«Diferencia con la oportunidad»**.
 Es informativo: no impide crear el proyecto.
 
-### Paso 2 — Metas (Metas e indicadores)
+### Paso 2 — Estructura (Estructura del proyecto)
 
 Aquí se carga la estructura:
 
@@ -173,16 +176,17 @@ Al confirmar, la plantilla completa **reemplaza** la estructura, el presupuesto,
 líneas y los municipios del borrador (el cliente no cambia). Si hay errores, **no se escribe nada**: la vista previa
 los lista por hoja, fila, columna y mensaje.
 
-### Paso 3 — Cronograma
+### Paso 3 — Cronograma (Ver cronograma)
 
-Vista de solo lectura: el **Cronograma** por semanas y el **Gantt**. Las actividades se editan en el paso 2.
+Vista de solo lectura: el **Cronograma** por semanas y el **Gantt**. Las actividades se editan en el paso 2
+(**Estructura**). El peso de cada actividad es su duración en semanas; lo calcula el sistema.
 
 ### Paso 4 — Presupuesto
 
 1. Revisa el **Valor total**.
 2. Asigna un monto a cada **rubro** (R01 a R15) y pulsa **Guardar presupuesto**.
-3. La suma **Σ asignado** debe igualar el valor total. Si no cuadra, usa **Igualar valor total a Σ A** o ajusta los
-   montos.
+3. El **Total asignado** debe igualar el valor total. Si no cuadra, usa **Usar la suma como valor total** o ajusta
+   los montos.
 4. Programa los desembolsos por mes en **Programación mensual** y pulsa **Guardar programación**. Mientras no cuadre
    con lo asignado, verás **«Programación pendiente»**.
 
@@ -308,7 +312,7 @@ en ese estado.
 
 - La **ficha financiera**: presupuesto asignado, programado y ejecutado por rubro.
 - La comparación contra la **base original (v0)** cuando la línea base está aprobada.
-- Filtros de **Corte** y **Base** para ver la foto de una fecha.
+- Filtros **Calcular hasta** y **Comparar con** (**Plan actual** o **Plan inicial**) para ver la foto de una fecha.
 
 **Gastos**
 
@@ -346,7 +350,7 @@ en ese estado.
 
 **Presupuesto**
 
-- El **valor total** y el monto **Asignado** por rubro, con la suma **Σ asignado**.
+- El **valor total** y el monto **Asignado** por rubro, con la suma **Total asignado**.
 - **Programación mensual** por rubro, con **Guardar programación**.
 - Si un rubro está suspendido y tiene monto asignado, aparece el aviso **«Rubro suspendido pendiente de reasignación»**.
 
@@ -563,7 +567,7 @@ coincide, es un hallazgo que conviene anotar con el paso, la pantalla y lo que a
 | 4 | Abrir el **Resumen** del borrador | **Próximos pasos** con fechas y valor, estructura, presupuesto y línea base, cada uno con su enlace |
 | 5 | **Actividades → Lista**: crear objetivo, actividad con semanas, entregable e indicador | Los códigos se generan solos (O1, A1.1, E1.1.1); el **Gantt** refleja las semanas; en Borrador no hay **Tablero** |
 | 6 | **Descargar plantilla** e **Importar plantilla** con un error deliberado | La vista previa lista **regla, fila, columna, valor y mensaje**, y no escribe nada hasta corregir |
-| 7 | **Finanzas → Presupuesto**: asignar rubros con una suma distinta al valor total | Aviso de la diferencia; **Igualar valor total a Σ A**; la programación mensual muestra **«Programación pendiente»** si no cuadra |
+| 7 | **Finanzas → Presupuesto**: asignar rubros con una suma distinta al valor total | Aviso de la diferencia; **Usar la suma como valor total**; la programación mensual muestra **«Programación pendiente»** si no cuadra |
 | 8 | **Aprobar línea base** con algo pendiente | Lista las **precondiciones** que faltan; al completarlas y aprobar, el proyecto pasa a **En ejecución** y se crea la versión `v0` |
 | 9 | **Actividades → Registrar avance** | La fecha no puede ser futura; exige archivo o enlace; si el avance excede lo planeado, pide **justificación del exceso** |
 | 10 | **Finanzas → Gastos → Registrar gasto** | El **soporte es obligatorio**; el gasto queda en **Registrado** |

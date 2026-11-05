@@ -8,7 +8,7 @@ test("stepper starts with the client; client card; opportunity gated by client",
   await page.getByRole("link", { name: "Nuevo proyecto" }).click();
   await expect(page.getByRole("heading", { name: "Nuevo proyecto", level: 1 })).toBeVisible();
   const nav = page.getByRole("navigation", { name: "Pasos para crear el proyecto" });
-  for (const paso of ["General", "Metas", "Cronograma", "Presupuesto", "Revisión"]) {
+  for (const paso of ["General", "Estructura", "Cronograma", "Presupuesto", "Revisión"]) {
     await expect(nav.getByRole("button", { name: paso })).toBeVisible();
   }
   // One field searches and selects the client (PO 2026-10-23): no separate search box.
@@ -70,9 +70,9 @@ test("validations: valor total, date range; then create lands on the new draft",
   await submit.click();
   await page.waitForURL(/proyecto=[0-9a-f-]{36}/, { timeout: 60_000 });
   const id = new URL(page.url()).searchParams.get("proyecto")!;
-  // The wizard continues on the Metas step (paso=2) with the new project name as title.
+  // The wizard continues on the Estructura step (paso=2) with the new project name as title.
   await expect(page.getByRole("heading", { name: nombre, level: 1 })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Metas e indicadores", level: 2 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Estructura del proyecto", level: 2 })).toBeVisible();
 
   // The new draft: its ficha shows «Próximos pasos» and the typed name.
   await page.goto(`/proyectos/${id}`);

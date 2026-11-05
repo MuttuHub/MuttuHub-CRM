@@ -30,24 +30,24 @@ describe("SemaforoTecnico", () => {
     expect(semaforo).toHaveTextContent("21,4 %")
     expect(semaforo).toHaveTextContent("57,1 %")
     // desviacion_pp is plan - real (57,1 - 21,4); the card shows real - plan, so it is behind by -35,7.
-    expect(semaforo).toHaveTextContent("-35,7 pp")
+    expect(semaforo).toHaveTextContent("-35,7 puntos")
     expect(semaforo).toHaveTextContent("25 de oct de 2026")
   })
 
   it("shows a positive deviation when the project is ahead of the plan", () => {
     render(<SemaforoTecnico tecnico={{ ...TECNICO, avance_real: 32.1, avance_programado: 20.4, desviacion_pp: -11.7 }} />)
 
-    expect(screen.getByTestId("semaforo-tecnico")).toHaveTextContent("+11,7 pp")
+    expect(screen.getByTestId("semaforo-tecnico")).toHaveTextContent("+11,7 puntos")
   })
 
-  it("shows the 'No confirmado' badge only while the thresholds are unconfirmed", () => {
+  it("shows the 'Semáforo provisional' badge only while the thresholds are unconfirmed", () => {
     const { rerender } = render(<SemaforoTecnico tecnico={TECNICO} />)
 
-    expect(screen.getByText("No confirmado")).toBeInTheDocument()
+    expect(screen.getByText("Semáforo provisional")).toBeInTheDocument()
 
     rerender(<SemaforoTecnico tecnico={{ ...TECNICO, umbrales: { ...TECNICO.umbrales, confirmado: true } }} />)
 
-    expect(screen.queryByText("No confirmado")).not.toBeInTheDocument()
+    expect(screen.queryByText("Semáforo provisional")).not.toBeInTheDocument()
   })
 
   it("renders each API color value as its own tone, never recomputed", () => {
@@ -65,7 +65,7 @@ describe("SemaforoTecnico", () => {
 
   it("shows no base selector unless the caller wires one", () => {
     render(<SemaforoTecnico tecnico={TECNICO} />)
-    expect(screen.queryByRole("combobox", { name: "Base" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("combobox", { name: "Comparar con" })).not.toBeInTheDocument()
   })
 
   it("offers the vigente/original base when wired, and reports the change", async () => {
@@ -73,7 +73,7 @@ describe("SemaforoTecnico", () => {
     const onBaseChange = vi.fn()
     render(<SemaforoTecnico tecnico={{ ...TECNICO, base: "original" }} onBaseChange={onBaseChange} />)
 
-    const base = screen.getByRole("combobox", { name: "Base" })
+    const base = screen.getByRole("combobox", { name: "Comparar con" })
     expect(base).toHaveValue("original")
     await user.selectOptions(base, "vigente")
     expect(onBaseChange).toHaveBeenCalledWith("vigente")

@@ -24,7 +24,7 @@ test("Más acciones: Exportar a Excel dialog and Imprimir / PDF opens the print 
   await page.getByRole("button", { name: "Más acciones" }).click();
   await expect(page.getByRole("menuitem", { name: "Exportar a Excel" })).toBeVisible();
   await page.getByRole("menuitem", { name: "Exportar a Excel" }).click();
-  await expect(page.getByText("Elige el corte y la base, y descarga la ficha.")).toBeVisible();
+  await expect(page.getByText("Elige hasta qué fecha calcular y con qué plan comparar, y descarga la ficha.")).toBeVisible();
   await page.keyboard.press("Escape");
 
   // The print view opens in the same tab (no new browser tab) and «Volver» returns to the ficha.

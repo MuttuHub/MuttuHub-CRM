@@ -1,7 +1,7 @@
 // Body of steps 2-5 for the created project. Steps 2-4 embed, as they are, the editors the ficha already
 // uses while the project is in BORRADOR (the editors decide by themselves who can edit: `canManageProjects`
 // plus BORRADOR; the API stays the authority):
-//   2 Metas       -> ProjectEstructura: objectives, activities (by weeks), deliverables and indicators, with
+//   2 Estructura  -> ProjectEstructura: objectives, activities (by weeks), deliverables and indicators, with
 //                    "Descargar plantilla" / "Importar plantilla".
 //   3 Cronograma  -> ProjectCronograma + EstructuraGantt: read-only views of the activities.
 //   4 Presupuesto -> ProjectPresupuesto: valor total, rubros and the monthly programming.
@@ -32,12 +32,12 @@ export function PasoSiguientes({ paso, proyecto }: { paso: number; proyecto: Pro
       return (
         <div className={PANEL_CLASS}>
           <p className="text-[12.5px] text-ink-600">
-            Las actividades se registran en el paso Metas, dentro de cada objetivo, ubicadas por semanas.{" "}
+            Las actividades se registran en el paso Estructura, dentro de cada objetivo, ubicadas por semanas.{" "}
             <Link
               href={hrefNuevoProyecto({ proyecto: proyecto.id, paso: 2 })}
               className="font-semibold text-ink-900 underline"
             >
-              Ir a Metas
+              Ir a Estructura
             </Link>
             .
           </p>
