@@ -2,7 +2,7 @@
 
 **Fecha:** 2026-11-04 · **Para:** Adrián (producto), PO, Gerencia y TI
 **Origen:** `plan-trabajo-ux-crm.md` §4 y `rediseno-ciclo-proyecto.md` §5
-**Estado:** 24 abiertas. **3 cerradas el 2026-11-04** (D-V3-1, D-F, D-T5) y 1 nueva abierta (D-T5b).
+**Estado:** 23 abiertas. **4 cerradas el 2026-11-04** (D-V3-1, D-F, D-T5, D-T5b).
 
 ---
 
@@ -66,7 +66,7 @@ plan. Si la reunión cambia algún nombre, esos textos se ajustan después — e
 | ID | Pregunta | Desbloquea | Recomendación | Si se posterga |
 |---|---|---|---|---|
 | **D-T5** ✔ | Sign-off del dueño de los datos sobre la lectura global de clientes y tareas | T5 | **Decidida: Adrián firma como dueño técnico** (administra el acceso a Supabase); se pide una línea de gerencia que avale la lectura global | — |
-| **D-T5b** | **Nueva.** Si la lectura global se mantiene, ¿se ocultan `texto` y `próximo_paso` de la bitácora a los COLABORADOR y se pagina `/interactions` y `/contacts`? | T3 de deuda técnica | Sí: hoy la bitácora completa es visible para todo el equipo autenticado | La exposición de información de clientes sigue sin límite por rol |
+| **D-T5b** ✔ | ¿Se ocultan `texto` y `próximo_paso` de la bitácora a los COLABORADOR? | T3 de deuda técnica | **Decidida: se mantiene como está**, por pedido de la PO. La recomendación de la auditoría queda declinada a sabiendas | — |
 | **D-CP4** | El cambio de meta de un entregable, ¿es un tipo de modificación existente o uno nuevo? ¿Quién lo aprueba? | CP10 | Tipo propio, aprobado por Gerencia como una modificación | Nadie puede pedir una meta realista a mitad de proyecto |
 | **D-V3-1** ✔ | ¿La interfaz de U17–U21 se hace solo en Proyectos v3? | F4.7, B3–B7 | **Decidida: no se reserva.** Se construye en la sección viva; v3 la hereda cuando llegue | — |
 | **D-V3-2** | ¿Cuándo se retira la sección actual cuando v3 esté lista? | B8 | ⚠️ **Reformulada:** el texto original decía «retirar v1», pero en el código **v2 es lo que está en producción**. Propuesta original: 2 semanas de piloto y paridad de reglas al 100 % | Conviven dos versiones sin fecha de corte |

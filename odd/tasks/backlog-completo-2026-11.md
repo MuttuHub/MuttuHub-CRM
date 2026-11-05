@@ -186,3 +186,7 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
   - **D-V3-2 queda reformulada:** el texto decía «retirar v1», pero en el código **v2 es lo que está en producción**.
     La pregunta real es cuándo se retira la sección actual cuando v3 esté lista.
   - **La puerta de v3 sigue cerrada:** faltan D-G1, D-G7, D-G11, D-G12, D-CP1 a D-CP6, P5 y D-V3-2.
+- **L16 (2026-11-04, pedido de la PO sobre la bitácora):** **D-T5b cerrada en «se mantiene como está»**. La bitácora
+  completa —`texto` y `próximo_paso`— sigue visible para cualquier usuario autenticado. La recomendación de
+  `docs/analisis/T3-seguridad.md:291` (ocultarla a COLABORADOR y paginar `/interactions` y `/contacts`) queda
+  **declinada a sabiendas**, no olvidada. Punto de revisión si entra un cliente, un rol externo o un auditor.
