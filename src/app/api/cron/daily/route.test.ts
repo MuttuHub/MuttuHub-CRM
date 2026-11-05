@@ -34,12 +34,17 @@ vi.mock("@/lib/settings", () => ({
   getAutomatizaciones: vi.fn(),
 }));
 
+vi.mock("@/lib/email/outbox", () => ({
+  processOutbox: vi.fn(),
+}));
+
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { getAlertBuckets } from "@/lib/alerts";
 import { sendDailySummary } from "@/lib/email";
 import { getAutomatizaciones } from "@/lib/settings";
-import { POST } from "./route";
+import { processOutbox } from "@/lib/email/outbox";
+import { OUTBOX_JOB_NAME, POST } from "./route";
 
 function mockHeader(value: string | null) {
   vi.mocked(headers).mockResolvedValue(
@@ -73,8 +78,11 @@ function usuario(overrides: Partial<Usuario> = {}): Usuario {
   } as Usuario;
 }
 
+const emptyOutboxRun = { claimed: 0, sent: 0, retried: 0, failed: 0 };
+
 beforeEach(() => {
   vi.mocked(getAutomatizaciones).mockResolvedValue(automatizacionesEnabled);
+  vi.mocked(processOutbox).mockResolvedValue(emptyOutboxRun);
 });
 
 afterEach(() => {
@@ -314,5 +322,83 @@ describe("POST /api/cron/daily", () => {
         data: expect.objectContaining({ estado: "ERROR", detalle: expect.stringContaining("unhandled") }),
       }),
     );
+  });
+
+  describe("email outbox drain (PR-M1)", () => {
+    it("drains the outbox with the configured sender even when the daily summary is off", async () => {
+      vi.stubEnv("CRON_SECRET", "the-secret");
+      vi.stubEnv("RESEND_API_KEY", "re_test_key");
+      mockHeader("the-secret");
+      vi.mocked(getAutomatizaciones).mockResolvedValue({ ...automatizacionesEnabled, resumen_diario: false });
+      vi.mocked(processOutbox).mockResolvedValue({ claimed: 3, sent: 2, retried: 1, failed: 0 });
+
+      const res = await POST();
+      const json = await res.json();
+
+      expect(processOutbox).toHaveBeenCalledTimes(1);
+      const [sender, now, limit] = vi.mocked(processOutbox).mock.calls[0]!;
+      expect(typeof sender.send).toBe("function");
+      expect(now).toBeInstanceOf(Date);
+      expect(limit).toBeGreaterThan(0);
+      expect(db.cronLog.create).toHaveBeenCalledWith({
+        data: { job_name: OUTBOX_JOB_NAME, estado: "OK", detalle: "claimed=3 sent=2 retried=1 failed=0" },
+      });
+      // The summary's own response is untouched by the drain.
+      expect(json).toMatchObject({ ok: true, processed: 0, sent: 0, failed: 0 });
+      expect(json.note).toContain("SKIPPED_DISABLED");
+    });
+
+    it("does not drain the outbox when no email transport is configured, so no attempt is burnt", async () => {
+      vi.stubEnv("CRON_SECRET", "the-secret");
+      vi.stubEnv("RESEND_API_KEY", "");
+      mockHeader("the-secret");
+
+      await POST();
+
+      expect(processOutbox).not.toHaveBeenCalled();
+    });
+
+    it("keeps the summary result when the drain throws", async () => {
+      vi.stubEnv("CRON_SECRET", "the-secret");
+      vi.stubEnv("RESEND_API_KEY", "re_test_key");
+      mockHeader("the-secret");
+      vi.mocked(processOutbox).mockRejectedValue(new Error("outbox table missing"));
+      vi.mocked(db.cronLog.findFirst).mockResolvedValue(null);
+      vi.mocked(db.usuario.findMany).mockResolvedValue([usuario({ id: "u1" })] as never);
+      vi.mocked(getAlertBuckets).mockResolvedValue(nonEmptyBuckets as never);
+      vi.mocked(sendDailySummary).mockResolvedValue({ ok: true });
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const res = await POST();
+      const json = await res.json();
+
+      expect(json).toEqual({
+        ok: true,
+        processed: 1,
+        sent: 1,
+        failed: 0,
+        skipped_empty: 0,
+        already_sent_today: false,
+      });
+      expect(db.cronLog.create).toHaveBeenCalledWith({
+        data: { job_name: OUTBOX_JOB_NAME, estado: "ERROR", detalle: "outbox table missing" },
+      });
+      errorSpy.mockRestore();
+    });
+
+    it("writes no outbox log line when there was nothing to send", async () => {
+      vi.stubEnv("CRON_SECRET", "the-secret");
+      vi.stubEnv("RESEND_API_KEY", "re_test_key");
+      mockHeader("the-secret");
+      vi.mocked(getAutomatizaciones).mockResolvedValue({ ...automatizacionesEnabled, resumen_diario: false });
+
+      await POST();
+
+      expect(processOutbox).toHaveBeenCalledTimes(1);
+      expect(db.cronLog.create).toHaveBeenCalledTimes(1);
+      expect(db.cronLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ job_name: "daily-notifications" }) }),
+      );
+    });
   });
 });
