@@ -118,3 +118,8 @@ Pruebas: Vitest bajo `node.exe`; e2e en `e2e/proyectos-v3/`; base local Docker v
   L1–L4, textuales) y le suma lo mío (S4–S8, Tasks, Pedidos a A y L5–L8). Cuando se mergeen las dos ramas, este archivo
   es el que debe sobrevivir: no borra ninguna instrucción de Adrián y no repite la afirmación equivocada de que la
   puerta está cerrada.
+- **L10 (2026-11-05, espera):** Adrián: «espera respuesta de claude code». La línea B queda **en espera de la decisión
+  sobre la pausa de L4**: no abro unidades nuevas, no toco las ramas abiertas y no paso nada a producción. Pendiente de
+  Adrián: aprobar el push de esta rama (los commits `54f4a24` y `27a49cf` están solo en local; el primer intento falló
+  por SSL y el reintento lo bloqueó la política de seguridad) y decidir si los PRs #139–#141 van a draft mientras dure
+  la pausa.
