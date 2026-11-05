@@ -1066,7 +1066,7 @@ function ClientListView({
                   {textoSinGestion(cliente.dias_sin_gestion)}
                 </p>
               </div>
-              <div className="hidden items-center gap-2 lg:flex">
+              <div className="hidden w-52 shrink-0 items-center justify-end gap-2 lg:flex">
                 <span
                   className={cn(
                     "font-mono text-[12px] tabular-nums",
