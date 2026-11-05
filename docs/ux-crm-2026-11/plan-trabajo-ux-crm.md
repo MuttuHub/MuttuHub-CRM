@@ -1,8 +1,25 @@
 # Plan de trabajo — backlog completo y mejoras UX/UI del CRM
 
-**Fecha de corte:** 2026-11-04 (tarde) · **`main` en `8868f1a`** («docs(projects): propose milestone-based activity
+**Ubicación:** `docs/ux-crm-2026-11/`, junto con los prototipos y su portada `index.html`.
+
+**Fecha de corte:** 2026-11-04 (noche) · **`main` en `8868f1a`** («docs(projects): propose milestone-based activity
 progress (U22) for the PO», 2026-11-04).
 
+> **Actualización 2026-11-04 (cierre) — ciclo de un proyecto:**
+> - Entra `rediseno-ciclo-proyecto.md` con el video `ciclo-proyecto-antes-despues.mp4` (sección 9.2): el ciclo crear →
+>   poblar → aprobar → ejecutar → terminar recreado desde el código, 14 puntos complejos y un plan en 3 olas. Las olas 1
+>   y 2 ya son backlog (U4, U9–U21, BL#27); lo nuevo lleva prefijo **CP** (CP1–CP12) y las decisiones D-CP1 a D-CP6.
+>
+> **Actualización 2026-11-04 (noche) — prioridad al backlog:**
+> - **El backlog va primero.** Las Fases 0 a 3 (componentes base, arreglos rápidos, flujos y errores de datos de
+>   Reportes) se ejecutan antes que cualquier pantalla nueva. Los prototipos se prueban **en paralelo** con la PO y
+>   gerencia, pero solo se construyen en la Fase 5, cuando el backlog esté cerrado.
+> - Entran 3 prototipos para probar (sección 9): **Proyectos v2**, **Reportes v2** e **Informes PDF**, en
+>   `docs/ux-crm-2026-11/` y en el proyecto de diseño Muttu Hub. Sirven de referencia visual para los PR del backlog que
+>   tocan esas pantallas.
+> - Entran el prefijo **P** (piezas de los prototipos que no son backlog) y las decisiones D-G10 a D-G12.
+> - El **Frente M** (correo) queda después de la Fase 3, salvo PR-M1, que puede adelantarse porque no toca pantallas.
+>
 > **Actualización 2026-11-04 (tarde):**
 > - Entran la propuesta **U22** (avance por hitos), la ventana de producción del 4-nov (rama
 >   `docs/registro-ventana-prod-2026-11-04`) y lo registrado en **engram** (prefijo **G**).
@@ -26,6 +43,7 @@ unos diez ítems salen de los mismos 3–4 componentes base, y arreglarlos panta
 | **X** | Arreglos chicos anotados en el corte del 2026-10-26 | 2026-10-26 |
 | **R** | Revisión de la sección Reportes y de sus PDF + diseños de Claude Design: página «Informes PDF - Reportes» (formato de los 5 PDF) y vista «Reportes» de «Muttu Hub v7» (informes nuevos y envíos programados), en el [canvas MUTTUHUB](https://claude.ai/artifact/MGkJ1Lr9JDmEdsejHqSg3t) | 2026-11-04 |
 | **G** | Memorias de engram del proyecto `muttuhub-crm` (auditoría de worktrees, sesiones de sept-oct) | 2026-09-01 a 2026-11-03 |
+| **P** | Prototipos para probar: Proyectos v2, Reportes v2 e Informes PDF (`docs/ux-crm-2026-11/`, sección 9) | 2026-11-04 |
 | **U22** | Propuesta de avance por hitos en `docs/pendientes/plan-mejora-ux-proyectos.md` (#8868f1a) | 2026-11-04 |
 
 **Estados:** **Abierto** (verificado en el código de `main`) · **Parcial** · **Hecho** · **Decisión** (espera a la PO
@@ -41,7 +59,7 @@ o al negocio) · **Revisar** (el código cambió después de anotarlo; hay que v
 | N — hallazgos nuevos | 10 | 0 | 0 | 10 | 2 dependen de la PO (N1, N7) |
 | BL — reunión 28-oct | 27 | 0 | 1 | 21 | 3 decisión · 2 revisar |
 | U — plan Proyectos | 22 | 0 | 0 | 21 | 1 decisión (U22, PO) |
-| R — Reportes y PDF | 16 | 0 | 1 | 14 | 2 decisión (R12, R14) |
+| R — Reportes y PDF | 19 | 0 | 1 | 16 | 3 decisión (R12, R14, R19) |
 | O — oportunidades de agosto | 12 | 5 | 1 | 6 | — |
 | V — v7 en CRM | 10 | 3 | 2 | 3 | 2 fuera de alcance |
 | B — producto Proyectos | 8 | 5 | 0 | 1 | 2 esperan a la PO |
@@ -49,6 +67,7 @@ o al negocio) · **Revisar** (el código cambió después de anotarlo; hay que v
 | T — deuda técnica | 9 | 2 | 0 | 6 | 1 decisión |
 | G — engram | 7 | 0 | 0 | 6 | 1 descartado (Z3-11) |
 | X — arreglos chicos | 2 | 0 | 0 | 2 | — |
+| P — piezas nuevas de los prototipos | 5 | 0 | 0 | 0 | 5 decisión (se prueban; se construyen en la Fase 5) |
 
 **Lectura rápida:**
 - Ningún ítem de la reunión del 28-oct se cerró en `main` desde que se anotó, y el plan de Proyectos (U1–U21) está
@@ -58,6 +77,8 @@ o al negocio) · **Revisar** (el código cambió después de anotarlo; hay que v
 - El 4-nov producción recibió las migraciones de AJ-01 y AJ-02 (expansión) y el backfill de carpetas de cliente.
 - **Reportes** es el pedido nuevo de gerencia. Tiene errores de datos que conviene corregir antes de rediseñar los PDF
   (R1–R3).
+- **Prioridad:** primero el backlog (Fases 0–3). Los prototipos de Proyectos y Reportes muestran **cómo** queda cada
+  arreglo del backlog; lo que no es backlog (prefijo P) espera a la Fase 5 y a las decisiones D-G10 a D-G12.
 
 ---
 
@@ -123,6 +144,9 @@ siguen vigentes.
 | **D-G7** | **U22 — avance por hitos:** ¿se aprueba? ¿Los hitos se definen al planificar o también en ejecución? ¿Pesan igual? ¿Son obligatorios para aprobar la línea base? | PO | U22 |
 | **D-M1** | **Correo:** ¿se mantiene Resend (gratis hasta ~3.000/mes y 100/día, según fuentes de terceros; confirmar en su página) o se usa Brevo, Amazon SES o el SMTP de Microsoft 365? Recomendación: Resend detrás del puerto `EmailSender` | Gerencia / TI | PR-M1 en producción |
 | **D-G8** | **Reportes:** ¿se aprueba el formato común de los 5 informes («Informes PDF · Reportes»)? ¿Las frases de «Lo esencial» las arma el sistema con reglas fijas? ¿Qué informes salen en envíos programados, a quién y con qué frecuencia? ¿Puede uno de ellos ir a un cliente externo? ¿Se habilita la «Legalización de gastos» con detalle por gasto, que hoy prohíbe P04 / REQ-ACC-05, y para qué roles? | Gerencia | PR-R3 a PR-R7, PR-R11, PR-R13 |
+| **D-G10** | **Reportes v2:** ¿se pasa de 6 secciones a 4 informes (Mi semana, Equipo = Tareas + Gestión de tareas, Comercial = Pipeline + Actividad de clientes, Semanal)? Si se aprueba, los PDF también son 4 | Gerencia | P1, PR-R3 a PR-R7 |
+| **D-G11** | **Proyectos v2:** ¿entra «Lo que te toca esta semana» en el portafolio, distinto por rol? | PO | P3 |
+| **D-G12** | **Proyectos v2:** ¿entra «Avisar a Gerencia» cuando un borrador queda listo y quien lo armó no puede aprobar? | PO | P4 |
 | **D-G9** | **R12:** ¿hace falta un «Informe de avance para el aliado» por proyecto, sin valores comerciales ni notas internas, para enviar a clientes externos? | Gerencia | R12 |
 
 ---
@@ -130,6 +154,15 @@ siguen vigentes.
 ## 5. Fases y PRs
 
 Tamaños: **S** ≤ 1 día · **M** 2–4 días · **L** ≥ 1 semana.
+
+**Regla de prioridad:** el backlog va primero.
+1. **Fases 0 a 3** son backlog puro (BL, N, U1–U21, R1–R9, X, G): se hacen en ese orden y nada nuevo se mete en medio.
+2. **Mientras tanto**, los prototipos de la sección 9 se prueban con la PO y gerencia (semanas 1 y 2) y sus decisiones
+   se anotan en la sección 4.
+3. **Cada PR del backlog que toca Proyectos o Reportes se hace como se ve en su prototipo**, para no rediseñar dos
+   veces. Ejemplo: PR-7a a PR-7d (textos de Proyectos) usan los nombres del prototipo de Proyectos v2.
+4. **Fase 4** (funcionalidad nueva del backlog), el **Frente M** (correo) y la **Fase 5** (piezas nuevas de los
+   prototipos) van al final, en ese orden.
 
 ### Fase 0 — Preparación (~1 día, sin tocar UI)
 
@@ -249,7 +282,9 @@ La vista **«Reportes» de «Muttu Hub v7»** (mismo canvas) agrega dos cosas qu
 
 Ubicación en el calendario:
 - PR-R1 y PR-R2 entran en la **Fase 1** (semana 1).
-- PR-R3 a PR-R8 entran en la **Fase 3** (semanas 3–4).
+- PR-R3 a PR-R8 pasan a la **Fase 5**, después del backlog: dependen de D-G10 (¿6 o 4 informes?) y se construyen
+  según el prototipo Reportes v2 y los Informes PDF. Excepción: si gerencia pide un informe antes, PR-R3 (Tareas
+  unificado, que también cierra N2) puede adelantarse a la Fase 3.
 - PR-R9 a PR-R13 entran en la **Fase 4**. «Estado del portafolio» en PDF ya es BL#4 (F4.4), y conviene hacerlo con la
   base de PR-R2.
 
@@ -264,7 +299,7 @@ notificación interna (`TipoNotificacion`). Supabase envía los correos de acces
 (`supabase/email-templates/`). En local, el stack de Supabase trae **Mailpit** (`localhost:54324`) para ver los correos
 sin enviarlos.
 
-**Arquitectura elegida:** sin microservicio aparte. Un **outbox** en Postgres (la notificación se escribe en la misma
+**Arquitectura elegida:** sin microservicio aparte. Un **outbox** en Postgres (hecho en PR-M1, rama `feat/email-outbox`; el adaptador local usa la API HTTP de Mailpit en vez de SMTP, así que un proveedor solo-SMTP según D-M1 necesitará un adaptador nuevo) (la notificación se escribe en la misma
 transacción que el evento), un worker con reintentos (el cron existente) y un puerto `EmailSender` con adaptadores
 (Resend hoy; SMTP con Nodemailer para Mailpit en local y como salida a Brevo, SES o Microsoft 365). Plantillas con la
 marca. Cambiar de proveedor toca un solo adaptador.
@@ -289,9 +324,25 @@ marca. Cambiar de proveedor toca un solo adaptador.
 | **PR-M3** | `feat/email-eventos` | M2, M3, M5, M6, M8, M9 | M | Cada evento escribe su fila en el outbox en la misma transacción; pruebas por evento |
 | **PR-M4** | `feat/email-resumen-v2` | M1, M4, M7 | S–M | El resumen diario suma gastos por validar y entregables sin soporte |
 | **PR-M5** | `feat/email-preferencias` | M10, O5 | M | Pantalla de preferencias por usuario; el worker las respeta |
+| **PR-M1b** | `fix/email-outbox-lease` | Seguimiento del verificador de PR-M1: token de reclamo en las transiciones (hoy, si una corrida supera el lease de 10 min, un correo ya enviado vuelve a PENDIENTE y se reenvía; Resend lo deduplica 24 h, Mailpit/SMTP no), timeout en `fetch` y respeto de 429, drenar la cola después del resumen diario, y en el runbook: migración antes que el código | S–M | Prueba que reproduce la carrera y queda en verde; lote de 200 con timeout |
 
 Depende de **D-E** solo para producción (DNS de `muttu.co`: SPF y DKIM para cualquier proveedor). En local no hay
 bloqueo. **D-M1** decide el proveedor de producción.
+
+**Ubicación del Frente M:** después de la Fase 3, porque es funcionalidad nueva. PR-M1 (outbox y adaptadores, con
+Mailpit en local) puede adelantarse si gerencia lo prioriza: no toca pantallas ni choca con el backlog.
+
+### Fase 5 — Refactor según los prototipos (después del backlog)
+
+Cuando las Fases 0 a 3 estén cerradas, gran parte de los prototipos ya estará construida, porque es backlog. Esta fase
+solo junta lo que falta, según las decisiones que salgan de las pruebas.
+
+| ID | Qué | Ya cubierto por el backlog | Lo que queda para esta fase | Depende de |
+|---|---|---|---|---|
+| **F5.1** | Proyectos v2 (portafolio, asistente, ficha y registros) | U1–U21 (PR-7, PR-14 a PR-16, F4.7), BL#7, 9, 10, 13, 16 y 27 | P3 «Lo que te toca esta semana», P4 «Avisar a Gerencia», P5 reorganización del portafolio y del detalle de actividad | D-G11, D-G12 |
+| **F5.2** | Avance por hitos | — | U22 (F4.7b) con la variante del prototipo | D-G7 |
+| **F5.3** | Reportes v2 (flujo de 4 pasos) | N2, N8, BL#3, BL#5, R1–R9 | P1 4 informes, P2 selector por preguntas, filtro único, barra de acciones y vista previa del PDF; PR-R3 a PR-R8 | D-G10, D-G8 |
+| **F5.4** | Envíos programados | — | PR-R10 y PR-R13 (usan el outbox de PR-M1) | A2, D-G8, PR-M1 |
 
 ### En paralelo — operación, plataforma y deuda técnica
 
@@ -320,10 +371,11 @@ bloqueo. **D-M1** decide el proveedor de producción.
 
 | Semana | Contenido |
 |---|---|
-| 1 | Fase 0 + PR-1 + PR-2 + **PR-R1 + PR-R2** (+ PR-3 si D-G1 llega a tiempo) |
-| 2 | Fase 2 completa (PR-4 a PR-9) |
-| 3–4 | Fase 3 (PR-10 a PR-18) + **PR-R3 a PR-R8** |
-| 5 en adelante | Fase 4 en el orden F4.1 → F4.2 → F4.3 → resto, según la PO; PR-R9 y PR-R10 según D-G9 y A2 |
+| 1 | Fase 0 + PR-1 + PR-2 + **PR-R1 + PR-R2** (+ PR-3 si D-G1 llega a tiempo) · **pruebas del prototipo Proyectos v2 con la PO** |
+| 2 | Fase 2 completa (PR-4 a PR-9) · **pruebas de Reportes v2 e Informes PDF con gerencia** · decisiones D-G7, D-G8, D-G10 a D-G12 |
+| 3–4 | Fase 3 (PR-10 a PR-18) |
+| 5 en adelante | Fase 4 (backlog funcional) en el orden F4.1 → F4.2 → F4.3 → resto, según la PO; luego Frente M (PR-M1 a PR-M5) |
+| Después | Fase 5: piezas nuevas de los prototipos según lo decidido |
 
 ---
 
@@ -527,6 +579,9 @@ Revisión del 2026-11-04 del HTML de la sección Reportes en producción y del c
 | R14 | Informes financieros de la vista Reportes de v7: «Ejecución financiera por rubro» y «Legalización de gastos» (PDF y Excel) | Parcial · **Decisión** para la legalización | La ejecución por rubro ya sale **agregada** en el Excel del proyecto (`src/lib/proyectos/export-xlsx.ts`, hoja «Financiera»); falta en PDF con el formato común. La legalización (gasto por gasto, tercero y soporte) **choca con P04 / REQ-ACC-05**: hoy ningún Excel lleva ese detalle por regla de acceso (`export-xlsx.ts:6`). Necesita decisión de quién puede verlo y descargarlo (D-G8) | PR-R11 |
 | R15 | «Semaforización territorial» por departamento (vista Reportes de v7) | Abierto (depende de V5) | La ubicación del cliente es texto libre | PR-R12 |
 | R16 | Envíos programados de cualquier informe (v7 propone 3: portafolio, avance de proyecto, pipeline) | Abierto (bloqueado por A2; destinatarios según D-G8) | Solo existe el cron diario (`api/v1/cron/daily`) | PR-R13 |
+| R17 | «Vencidas» del reporte de tareas cuenta una tarea que vence hoy como vencida desde las 19:00 (Bogotá) del día anterior: compara `fecha_entrega < now` con la fecha guardada a medianoche UTC | Abierto (hallado en PR-R1) | `src/app/api/v1/tasks/report/route.ts` | PR-R1b |
+| R18 | El tablero usa la misma regla de «a tiempo» con el error de R1 (`updated_at <= fecha_entrega`) | Abierto (hallado en PR-R1) | `src/lib/openapi/paths/dashboard-admin.ts` y su implementación | PR-R1b |
+| R19 | Usuarios de prueba o duplicados en producción («Admin Test», «Administrador», dos variantes del mismo nombre): el código ya oculta las filas en cero; los que tienen tareas siguen saliendo | Decisión (limpieza de datos en producción) | Reporte de tareas | — |
 
 ### 7.8 Engram (G1–G7)
 
@@ -565,6 +620,47 @@ están cerradas en el código (fases 1–6, AJ-06, B3, arreglos de autenticació
 - [ ] Los números de Reportes cuadran: «a tiempo + tarde = cerradas», las barras no pasan del 100 % y no hay filas en
   cero (R1–R3).
 - [ ] Gerencia lee «Lo esencial» del semanal sin abrir la segunda página.
+
+- [ ] Las decisiones de las pruebas de prototipos (D-G7, D-G8, D-G10 a D-G12) quedan anotadas antes de cerrar la Fase 2.
+
+---
+
+## 9. Prototipos para probar
+
+Los tres están en `docs/ux-crm-2026-11/` (abren directo en Chrome o Edge, sin instalar nada) y en el proyecto de diseño
+Muttu Hub. **`index.html` (en esta misma carpeta)** es la portada: enlaza a los tres y trae la lista de qué probar y qué decidir.
+Todos usan datos ficticios.
+
+| Archivo | Qué es | Con quién | Valida | Decide |
+|---|---|---|---|---|
+| `proyectos-v2-prototipo.html` | Portafolio, asistente, ficha y flujos de registro de Proyectos, con todas las reglas de la PO (AJ-01 a AJ-06, B7, línea base). Barra de prueba: rol (Coordinadora / Gerencia), estado del proyecto y variante U22 | PO y un coordinador | U1–U21, BL#7, 9, 10, 13, 16, 27 | D-G7, D-G11, D-G12 |
+| `reportes-v2-prototipo.html` | Sección Reportes con flujo de 4 pasos. Barra de prueba: rol y estructura (4 informes o 6 secciones actuales, con los bloques repetidos marcados) | Gerencia | N2, N8, BL#3, R1–R8 | D-G8, D-G9, D-G10 |
+| `informes-pdf-reportes.html` | Los 5 informes en 7 hojas carta vertical, listos para imprimir | Gerencia | R9, R10 | D-G8 |
+
+**Cómo registrar el resultado:** cada decisión va a la sección 4 con fecha y quién decidió. Si una prueba cambia una
+regla de la PO, se anota primero en el documento de la PO y después aquí.
+
+**Lo que los prototipos no hacen:** guardar datos (todo vive en memoria y se reinicia al recargar), enviar correos ni
+generar PDF reales. En Proyectos v2 solo se abren PRY-2026-002 y el borrador PRY-2026-007. En Reportes v2, el periodo
+cambia las etiquetas pero no los números.
+
+### 9.1 Piezas nuevas de los prototipos (P1–P5)
+
+| # | Pieza | Estado | Prototipo | Fase |
+|---|---|---|---|---|
+| P1 | Reportes: 4 informes en lugar de 6 secciones (Mi semana, Equipo, Comercial, Semanal) | Decisión (D-G10) | Reportes v2 | F5.3 |
+| P2 | Reportes: selector por preguntas, filtro único con chips, barra fija de acciones, vista previa del PDF y programación del envío | Decisión (D-G8) | Reportes v2 | F5.3 |
+| P3 | Proyectos: «Lo que te toca esta semana» en el portafolio, por rol | Decisión (D-G11) | Proyectos v2 | F5.1 |
+| P4 | Proyectos: «Avisar a Gerencia» cuando el borrador queda listo | Decisión (D-G12) | Proyectos v2 | F5.1 |
+| P5 | Proyectos: portafolio en filas con semáforo y siguiente acción; detalle de actividad con «Avance de la actividad» y «Entregables» lado a lado | Decisión (pruebas con la PO) | Proyectos v2 | F5.1 |
+
+### 9.2 Ciclo de un proyecto: video y plan de rediseño
+
+- **`ciclo-proyecto-antes-despues.mp4`** (2 min 55 s, sin voz, datos ficticios): el mismo proyecto de ejemplo hoy, con
+  14 puntos complejos en rojo, y con el rediseño, con los mismos números en verde. Para mostrar al equipo que usa el Hub
+  y llevar a la sesión de discovery de BL#27 (PR-18).
+- **`rediseno-ciclo-proyecto.md`**: el ciclo paso a paso, la tabla de los 14 puntos cruzada con el backlog, el plan en
+  3 olas (ola 1 = Fases 2–3, ola 2 = F4.7, ola 3 = Fase 5 con CP1–CP12, P3, P4 y U22) y las decisiones D-CP1 a D-CP6.
 
 ---
 

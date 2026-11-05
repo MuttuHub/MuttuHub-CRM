@@ -80,3 +80,9 @@ tmp/plantilla-demo/
 /playwright-report-verify/
 /test-results-ci/
 /playwright-report-ci/
+
+# Video de demostración del rediseño: material para mostrar al equipo, no un artefacto fuente (11,9 MB).
+docs/ux-crm-2026-11/*.mp4
+
+# Capturas de verificación visual: son evidencia para adjuntar al PR, no fuente (5 MB de PNG/PDF).
+docs/ux-crm-2026-11/capturas/

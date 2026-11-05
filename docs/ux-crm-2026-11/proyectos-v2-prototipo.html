@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proyectos v2 · Prototipo · Muttu Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --rose-50:#FCF1F5;--rose-100:#F9DFE9;--rose-200:#F5BAD2;--rose-300:#F087B2;--rose-400:#EB3F85;--rose-500:#CD1560;--rose-600:#B41153;--rose-700:#940D44;--rose-800:#720B35;
+  --ink-50:#FCF9FA;--ink-100:#F7F3F4;--ink-200:#ECE5E7;--ink-300:#DDD2D5;--ink-400:#B09EA3;--ink-500:#8C757B;--ink-600:#725D62;--ink-700:#5A474C;--ink-800:#3F2F33;--ink-900:#281D20;--ink-950:#191113;
+  --ok:#127C4A;--ok-bg:#E6F4EC;--warn:#B45309;--warn-bg:#FBF0E1;--bad:#B3261E;--bad-bg:#FBE9E7;--info:#1E5FA8;--info-bg:#EAF1FA;
+  --page:#F3EDEF;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;background:var(--page);color:var(--ink-900);font-family:'Instrument Sans',system-ui,sans-serif;font-size:14px;line-height:1.45}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+button:disabled{cursor:not-allowed}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+h1,h2,h3,h4{font-family:'Bricolage Grotesque','Instrument Sans',sans-serif;margin:0;letter-spacing:-.01em}
+:focus-visible{outline:3px solid rgba(205,21,96,.45);outline-offset:2px}
+
+/* barra del prototipo */
+.proto{position:sticky;top:0;z-index:40;display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:8px 16px;background:var(--ink-950);color:#F8F2F4;font-size:12.5px}
+.proto b{color:var(--rose-200);font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:11.5px}
+.proto .grp{display:flex;align-items:center;gap:6px}
+.proto .seg{display:inline-flex;background:#2E2227;border-radius:9px;padding:2px;flex-wrap:wrap}
+.proto .seg button{border:0;background:transparent;color:#C4B2B8;padding:4px 10px;border-radius:7px;font-size:12.5px;font-weight:600}
+.proto .seg button[aria-pressed="true"]{background:var(--rose-500);color:#fff}
+.proto .link{margin-left:auto;border:1px solid #4A3A3F;background:transparent;color:#F8F2F4;border-radius:9px;padding:4px 10px;font-weight:600}
+
+/* shell */
+.app{display:flex;gap:14px;padding:14px;flex-wrap:wrap;min-height:calc(100vh - 44px)}
+.side{flex:0 0 212px;background:#fff;border:1px solid var(--ink-200);border-radius:26px;padding:14px 12px;display:flex;flex-direction:column;gap:12px;align-self:flex-start;position:sticky;top:58px}
+.brand{display:flex;align-items:center;gap:8px;padding:0 6px 10px;border-bottom:1px solid var(--ink-200)}
+.brand svg{width:78px;height:auto}
+.brand span{font-family:'Bricolage Grotesque';font-weight:700;font-size:15px;color:var(--ink-700)}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{display:flex;align-items:center;gap:10px;height:40px;padding:0 10px;border-radius:10px;color:var(--ink-700);text-decoration:none;font-size:13px;font-weight:500}
+.nav a.on{background:var(--rose-50);color:var(--rose-800);font-weight:700;box-shadow:inset 3px 0 0 var(--rose-500)}
+.main{flex:999 1 680px;min-width:0;background:#fff;border-radius:26px;padding:22px 26px 40px;display:flex;flex-direction:column;gap:16px}
+.crumbs{display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--ink-600)}
+.crumbs button{border:0;background:none;padding:0;color:var(--rose-600);font-weight:600}
+
+/* comunes */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:38px;padding:0 14px;border-radius:12px;border:1px solid var(--ink-300);background:#fff;font-weight:700;font-size:13px;color:var(--ink-900);white-space:nowrap}
+.btn:hover:not(:disabled){background:var(--ink-100)}
+.btn.pri{background:var(--rose-500);border-color:var(--rose-500);color:#fff}
+.btn.pri:hover:not(:disabled){background:var(--rose-600)}
+.btn.danger{background:var(--bad);border-color:var(--bad);color:#fff}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.sm{height:30px;padding:0 10px;font-size:12.5px;border-radius:10px}
+.btn:disabled{opacity:.55}
+.btn svg{width:15px;height:15px}
+.link{border:0;background:none;padding:0;color:var(--rose-600);font-weight:600;font-size:13px}
+.tag{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.t-bad{background:var(--bad-bg);color:var(--bad)}.t-warn{background:var(--warn-bg);color:var(--warn)}.t-ok{background:var(--ok-bg);color:var(--ok)}.t-ink{background:var(--ink-100);color:var(--ink-700)}.t-info{background:var(--info-bg);color:var(--info)}.t-rose{background:var(--rose-50);color:var(--rose-700)}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+.muted{color:var(--ink-600)}.strong{font-weight:600;color:var(--ink-950)}
+.bad{color:var(--bad);font-weight:600}.warn{color:var(--warn);font-weight:600}.good{color:var(--ok);font-weight:600}
+.card{border:1px solid var(--ink-200);border-radius:18px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;background:#fff;min-width:0}
+.card>h3{font-size:15px;display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.card>h3 small{font-family:'Instrument Sans';font-size:12.5px;font-weight:500;color:var(--ink-600)}
+.sub{margin:-6px 0 0;font-size:12.5px;color:var(--ink-600)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.kpi{border:1px solid var(--ink-200);border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:2px;text-align:left;background:#fff}
+.kpi .l{font-size:12.5px;font-weight:600;color:var(--ink-600)}
+.kpi .v{font-family:'JetBrains Mono';font-size:24px;font-weight:600;letter-spacing:-.03em;color:var(--ink-950)}
+.kpi .v small{font-size:13px;color:var(--ink-600);font-weight:500;letter-spacing:0}
+.kpi .d{font-size:12.5px;color:var(--ink-600)}
+.kpi.alert{border:1.5px solid var(--bad);background:#FDF3F2}.kpi.alert .l{color:var(--bad)}
+.tbl{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:var(--ink-100);color:var(--ink-700);font-weight:700;text-align:left;padding:8px 10px;border-bottom:1px solid var(--ink-300);white-space:nowrap;font-size:12.5px}
+td{padding:8px 10px;border-bottom:1px solid var(--ink-200);vertical-align:middle}
+td.num,th.num{text-align:right}td.num{font-family:'JetBrains Mono';white-space:nowrap}
+tr.tot td{font-weight:700;border-top:1.5px solid var(--ink-900);background:var(--ink-50);border-bottom:0}
+.bar{position:relative;height:10px;background:var(--ink-100);border-radius:999px;overflow:visible}
+.bar>i{position:absolute;left:0;top:0;bottom:0;border-radius:999px}
+.bar>b{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink-900);border-radius:2px}
+.bar>u{position:absolute;top:-4px;bottom:-4px;width:0;border-left:2px dashed var(--ink-500)}
+.seg2{display:inline-flex;background:var(--ink-100);border-radius:11px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg2 button{border:0;background:transparent;padding:6px 11px;border-radius:8px;font-size:12.5px;font-weight:600;color:var(--ink-700)}
+.seg2 button[aria-pressed="true"]{background:#fff;color:var(--ink-950);box-shadow:0 1px 2px rgba(40,29,32,.12)}
+.banner{display:flex;gap:10px;align-items:flex-start;border-radius:14px;padding:10px 14px;font-size:13px}
+.banner.warn{background:var(--warn-bg);color:#7A3B07}.banner.info{background:var(--info-bg);color:#143F70}.banner.bad{background:var(--bad-bg);color:#7A1A14}.banner.ok{background:var(--ok-bg);color:#0B4F2F}
+.new{font-size:10.5px;font-weight:700;color:var(--ok);background:var(--ok-bg);border-radius:999px;padding:1px 7px;margin-left:6px;vertical-align:middle;font-family:'Instrument Sans'}
+.prop{font-size:10.5px;font-weight:700;color:var(--info);background:var(--info-bg);border-radius:999px;padding:1px 7px;margin-left:6px;vertical-align:middle;font-family:'Instrument Sans'}
+.empty{padding:18px;text-align:center;color:var(--ink-600);font-size:13px;border:1px dashed var(--ink-300);border-radius:14px}
+
+/* portafolio */
+.ph{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:10px}
+.ph h1{font-size:32px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.ph p{margin:6px 0 0;color:var(--ink-600)}
+.todo{background:var(--rose-50);border:1px solid var(--rose-100);border-left:4px solid var(--rose-500);border-radius:6px 18px 18px 6px;padding:12px 16px;display:flex;flex-direction:column;gap:6px}
+.todo h3{font-size:15px;color:var(--rose-800)}
+.todo .it{display:flex;align-items:center;gap:10px;font-size:13.5px;padding:4px 0}
+.todo .it span{flex:1;min-width:0}
+.pfil{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.sel{height:36px;border:1px solid var(--ink-300);background:#fff;border-radius:11px;padding:0 10px;font-size:13px}
+.plist{display:flex;flex-direction:column;gap:8px}
+.prow{display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,1.2fr) 120px 140px 150px;gap:12px;align-items:center;border:1px solid var(--ink-200);border-radius:16px;padding:12px 14px;text-align:left;background:#fff;width:100%}
+.prow:hover{border-color:var(--rose-200);background:var(--rose-50)}
+.prow .nm{font-weight:700;color:var(--ink-950)}
+.prow .cd{font-family:'JetBrains Mono';font-size:12px;color:var(--ink-600)}
+.prow .nx{font-size:12.5px;color:var(--ink-700)}
+.lbl{font-size:11.5px;color:var(--ink-600);display:block;margin-bottom:3px}
+
+/* ficha */
+.fh{display:flex;flex-direction:column;gap:10px;padding-bottom:14px;border-bottom:1px solid var(--ink-200)}
+.fh .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.fh h1{font-size:26px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
+.fh .meta{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:13px;color:var(--ink-600);align-items:center}
+.semchip{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px 7px;min-height:30px;padding:4px 12px;text-align:left;border-radius:999px;border:1px solid var(--ink-300);background:#fff;font-size:12.5px;font-weight:600}
+.acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.menu{position:relative}
+.menu .pop{position:absolute;right:0;top:44px;z-index:30;background:#fff;border:1px solid var(--ink-200);border-radius:14px;box-shadow:0 12px 30px rgba(25,17,19,.15);padding:6px;min-width:250px;display:none;flex-direction:column}
+.menu .pop.on{display:flex}
+.menu .pop button{border:0;background:none;text-align:left;padding:9px 10px;border-radius:9px;font-size:13px;font-weight:500;display:flex;justify-content:space-between;gap:10px}
+.menu .pop button:hover:not(:disabled){background:var(--ink-100)}
+.menu .pop hr{border:0;border-top:1px solid var(--ink-200);margin:4px 0}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--ink-200);overflow-x:auto}
+.tabs button{border:0;background:none;padding:10px 12px;font-weight:600;font-size:14px;color:var(--ink-600);border-bottom:3px solid transparent;margin-bottom:-1px;white-space:nowrap;display:inline-flex;gap:6px;align-items:center}
+.tabs button[aria-selected="true"]{color:var(--ink-950);border-bottom-color:var(--rose-500)}
+.tabs .cnt{font-size:11px;font-weight:700;background:var(--rose-500);color:#fff;border-radius:999px;padding:0 6px;line-height:18px}
+.att{display:flex;flex-direction:column}
+.att .it{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--ink-200);font-size:13.5px}
+.att .it:last-child{border-bottom:0}
+.att .it span{flex:1;min-width:0}
+.obj{display:flex;flex-direction:column;gap:8px}
+.obj>h4{font-size:14px;color:var(--ink-700);padding:4px 2px}
+.act{border:1px solid var(--ink-200);border-radius:16px;background:#fff}
+.act.open{border-color:var(--rose-200)}
+.act .top{display:grid;grid-template-columns:minmax(0,1.6fr) 120px minmax(160px,1fr) auto;gap:12px;align-items:center;padding:12px 14px;cursor:pointer}
+.act .nm{font-weight:700;color:var(--ink-950)}
+.act .sm:not(.btn){font-size:12.5px;color:var(--ink-600)}
+.act .det{border-top:1px solid var(--ink-200);padding:12px 14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.act .det h4{font-size:13.5px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.hist{display:flex;flex-direction:column;gap:6px}
+.hist .h{display:grid;grid-template-columns:78px 52px minmax(0,1fr);gap:8px;font-size:12.5px;align-items:baseline}
+.hist .h.void{opacity:.55;text-decoration:line-through}
+.ent{display:flex;flex-direction:column;gap:6px;font-size:13px;padding:8px 10px;border:1px solid var(--ink-200);border-radius:12px}
+.ent .r{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.hito{display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0}
+.gantt{overflow-x:auto}
+.gantt .g{display:grid;grid-template-columns:220px repeat(30,22px);align-items:center;font-size:12px;min-width:880px}
+.gantt .g>div{height:30px;display:flex;align-items:center;border-bottom:1px solid var(--ink-200)}
+.gantt .wk{justify-content:center;color:var(--ink-600);font-size:10.5px}
+.gantt .cell{position:relative}
+.gantt .gb{position:absolute;top:8px;bottom:8px;left:0;right:0;border-radius:4px}
+.board{display:grid;grid-template-columns:repeat(4,minmax(200px,1fr));gap:10px;overflow-x:auto}
+.board .col{background:var(--ink-100);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px;min-height:180px}
+.board .col h4{font-size:13px;display:flex;justify-content:space-between}
+.board .tk{background:#fff;border:1px solid var(--ink-200);border-radius:12px;padding:9px 10px;font-size:12.5px;text-align:left;display:flex;flex-direction:column;gap:4px}
+
+/* asistente */
+.wiz{display:flex;flex-wrap:wrap;gap:6px}
+.wiz button{display:flex;align-items:center;gap:8px;border:1px solid var(--ink-200);background:#fff;border-radius:12px;padding:8px 12px;font-size:13px;font-weight:600;color:var(--ink-700)}
+.wiz button em{font-style:normal;display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--ink-100);font-size:12px;font-weight:700}
+.wiz button[aria-current="step"]{border-color:var(--rose-500);background:var(--rose-50);color:var(--ink-950)}
+.wiz button[aria-current="step"] em{background:var(--rose-500);color:#fff}
+.wiz button.okk em{background:var(--ok);color:#fff}
+.wiz button.ko em{background:var(--warn);color:#fff}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.fld{display:flex;flex-direction:column;gap:4px}
+.fld label{font-size:12.5px;font-weight:700;color:var(--ink-800)}
+.fld .hint{font-size:12px;color:var(--ink-600)}
+.fld .err{font-size:12.5px;color:var(--bad);font-weight:600}
+.in{height:38px;border:1px solid var(--ink-300);border-radius:11px;padding:0 10px;background:#fff;width:100%}
+textarea.in{height:auto;min-height:76px;padding:8px 10px;resize:vertical}
+.in[aria-invalid="true"]{border-color:var(--bad);box-shadow:0 0 0 3px rgba(179,38,30,.12)}
+.in[readonly]{background:var(--ink-100)}
+.req::after{content:" *";color:var(--bad)}
+.check{display:flex;flex-direction:column;gap:0}
+.check .it{display:grid;grid-template-columns:26px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--ink-200);font-size:13.5px}
+.check .it:last-child{border-bottom:0}
+.check .ic{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800;color:#fff}
+.prog td input{width:84px;height:30px;border:1px solid var(--ink-300);border-radius:8px;padding:0 6px;text-align:right;font-family:'JetBrains Mono';font-size:12px}
+.prog td.miss{color:var(--bad);font-weight:700}
+
+/* modales */
+.scrim{position:fixed;inset:0;background:rgba(25,17,19,.45);z-index:60;display:none;align-items:center;justify-content:center;padding:16px}
+.scrim.on{display:flex}
+.modal{background:#fff;border-radius:22px;width:min(720px,100%);max-height:calc(100vh - 32px);display:flex;flex-direction:column;overflow:hidden}
+.modal>header{padding:18px 22px 8px;display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.modal>header h2{font-size:19px}
+.modal>header p{margin:4px 0 0;font-size:13px;color:var(--ink-600)}
+.modal .x{border:0;background:var(--ink-100);width:32px;height:32px;border-radius:50%;font-size:15px;flex:none}
+.modal .bd{padding:8px 22px 16px;overflow:auto;display:flex;flex-direction:column;gap:14px}
+.modal>footer{padding:12px 22px;border-top:1px solid var(--ink-200);display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:8px;background:var(--ink-50)}
+.modal>footer .lft{margin-right:auto;font-size:12.5px;color:var(--ink-600)}
+fieldset.grpf{border:1px solid var(--ink-200);border-radius:14px;padding:10px 14px 14px;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+fieldset.grpf legend{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-600);padding:0 6px}
+.files{display:flex;flex-direction:column;gap:6px;grid-column:1/-1}
+.file{display:flex;align-items:center;gap:8px;font-size:13px;border:1px solid var(--ink-200);border-radius:10px;padding:6px 10px}
+.file span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pick{display:flex;flex-direction:column;gap:6px}
+.pick button{display:flex;align-items:center;gap:10px;text-align:left;border:1px solid var(--ink-200);background:#fff;border-radius:12px;padding:10px 12px}
+.pick button:hover:not(:disabled){border-color:var(--rose-300)}
+.pick button span{flex:1}
+.spin{width:14px;height:14px;border:2px solid rgba(255,255,255,.5);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;display:inline-block}
+@keyframes sp{to{transform:rotate(360deg)}}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--ink-950);color:#fff;padding:10px 16px;border-radius:12px;font-size:13px;font-weight:600;opacity:0;transition:all .2s;z-index:80;pointer-events:none;max-width:calc(100% - 32px)}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(480px,100%);background:#fff;z-index:70;box-shadow:-10px 0 40px rgba(25,17,19,.2);transform:translateX(105%);transition:transform .2s;display:flex;flex-direction:column}
+.drawer.on{transform:none}
+.drawer>header{padding:18px 20px;border-bottom:1px solid var(--ink-200);display:flex;justify-content:space-between;align-items:center}
+.drawer .in2{padding:16px 20px 40px;overflow:auto;display:flex;flex-direction:column;gap:12px;font-size:13.5px}
+.drawer h3{font-size:15px;margin-top:6px}
+.drawer ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px}
+.drawer table td,.drawer table th{white-space:normal;padding:6px 8px;font-size:12.5px}
+@media (max-width:820px){
+  .side{display:none}
+  .app{padding:8px}
+  .main{padding:18px 14px 40px;border-radius:20px}
+  .proto{position:static}
+  .prow{grid-template-columns:1fr 1fr}
+  .prow>div:first-child{grid-column:1/-1}
+  .act .top{grid-template-columns:1fr auto}
+  .act .top>.bw{grid-column:1/-1}
+  .act .top>.rsp{display:none}
+  .board{grid-template-columns:repeat(4,78%)}
+}
+</style>
+</head>
+<body>
+<div class="proto" role="region" aria-label="Controles del prototipo">
+  <b>Prototipo · Proyectos v2</b>
+  <div class="grp">Ver como
+    <div class="seg" id="roleSeg"><button data-role="coord" aria-pressed="true">Coordinadora</button><button data-role="ger" aria-pressed="false">Gerencia</button></div>
+  </div>
+  <div class="grp">Estado de PRY-2026-002
+    <div class="seg" id="stSeg"><button data-st="EJECUCION" aria-pressed="true">En ejecución</button><button data-st="SUSPENDIDO" aria-pressed="false">Suspendido</button><button data-st="CERRADO" aria-pressed="false">Cerrado</button></div>
+  </div>
+  <div class="grp">Avance de actividad
+    <div class="seg" id="u22Seg"><button data-u22="0" aria-pressed="true">AJ-01 vigente</button><button data-u22="1" aria-pressed="false">U22 hitos (propuesta)</button></div>
+  </div>
+  <button class="link" id="notesBtn" style="color:#F8F2F4">Notas de diseño</button>
+</div>
+
+<div class="app">
+  <aside class="side" aria-label="Menú">
+    <div class="brand"><svg role="img" aria-label="Muttu Innovación Social" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 146.1 84.26"><path fill="#CD1560" d="M44.66,82.57c-13.33-2.38-26.21-5.37-35.64-17.4C-.54,52.98-2.32,38.21,2.82,23.1,7.78,8.53,17.69.41,31.01.25c29.77-.36,59.55-.31,89.32.03,14.78.17,25.06,13.81,25.74,31.29.71,18.37-10.23,34.38-28.58,34.2-18.3-.18-36.59-.03-54.89,0-2.27,0-4.56-.07-6.81.2-8.85,1.04-12.01,5.58-11.14,16.6Z"></path><path fill="#FFFFFF" d="M83.43,26.47v23.55h-6.65v-2.96c-1.41,2.14-4.05,3.51-7.11,3.51-5.1,0-8.75-3.78-8.75-9.11v-14.99h6.42v13.58c0,2.92,1.82,4.92,4.46,4.92,2.78,0,4.92-2,4.92-4.56l.05.14v-14.08h6.65Z"></path><path fill="#FFFFFF" d="M97.64,48.52c-1.37,1.23-3.51,2.05-5.42,2.05-4.15,0-7.06-2.96-7.06-7.2v-11.53h-3.23v-5.38h3.23v-6.47h6.38v6.47h5.1v5.38h-5.1v10.48c0,1.55,1,2.64,2.23,2.64.91,0,1.82-.32,2.28-.77l1.59,4.33Z"></path><path fill="#FFFFFF" d="M110.31,48.52c-1.37,1.23-3.51,2.05-5.42,2.05-4.15,0-7.06-2.96-7.06-7.2v-11.53h-3.23v-5.38h3.23v-6.47h6.38v6.47h5.1v5.38h-5.1v10.48c0,1.55,1,2.64,2.23,2.64.91,0,1.82-.32,2.28-.77l1.59,4.33Z"></path><path fill="#FFFFFF" d="M131.26,26.47v23.55h-6.65v-2.96c-1.41,2.14-4.05,3.51-7.11,3.51-5.1,0-8.75-3.78-8.75-9.11v-14.99h6.42v13.58c0,2.92,1.82,4.92,4.46,4.92,2.78,0,4.92-2,4.92-4.56l.05.14v-14.08h6.65Z"></path><path fill="#FFFFFF" d="M58.87,45.97c0,.99-.01,1.98,0,2.96.02,1.02-.54,1.62-1.56,1.62-.63,0-1.26,0-1.89-.01-.91-.02-1.38-.52-1.4-1.44-.03-1.86,0-3.73-.1-5.58-.17-3.43-.66-6.8-1.97-10.01-.9-2.18-2.46-3.62-4.79-4.16-1.15-.27-2.27-.14-3.38.22-.25.08-.32.18-.25.47.39,1.57.81,3.13,1.09,4.71.34,1.94.32,3.9.1,5.86-.17,1.51-.41,3.01-.99,4.42-.75,1.82-1.94,3.25-3.84,3.95-2.82,1.04-5.77-.39-6.85-3.28-.82-2.2-1.02-4.47-.7-6.8.34-2.52,1-4.94,2.26-7.15.61-1.07,1.4-2.06,2.15-3.05.41-.54.45-.55-.02-1.06-1.61-1.72-3.92-2.22-6.27-1.31-2.03.78-3.39,2.3-4.42,4.15-1.07,1.92-1.6,4.03-2.06,6.16-.63,2.86-.98,5.75-1.04,8.67-.03,1.22-.05,2.43-.07,3.65-.01,1.04-.5,1.56-1.54,1.59-.69.02-1.38.01-2.06-.01-.67-.02-1.16-.46-1.16-1.14-.01-1.76-.02-3.52.04-5.28.05-1.37.14-2.75.3-4.11.5-4.24,1.31-8.4,3.44-12.17,1.19-2.1,2.74-3.88,4.85-5.12,2.38-1.4,4.94-1.75,7.66-1.42,2.64.32,4.72,1.56,6.33,3.64.28.36.6.43,1.02.29,1.37-.48,2.79-.8,4.24-.77,4.52.1,7.85,2.21,9.99,6.17,1.27,2.35,1.89,4.93,2.32,7.55.42,2.58.55,5.18.61,7.78ZM39.5,33.43s-.1,0-.15,0c-.05.1-.11.19-.16.29-.42,1-.86,2-1.25,3.01-.63,1.63-1.18,3.3-.9,5.09.11.7.31,1.4.56,2.06.26.69.7.73,1.09.1.36-.56.68-1.17.85-1.81.52-1.88.61-3.81.42-5.74-.1-1-.32-1.99-.48-2.99Z"></path><path fill="#FFFFFF" d="M32.64,20.01c-2.98-.07-5.46-2.01-6.03-4.77-.67-3.19,1.34-6.3,4.54-7.03,2.99-.68,6,.76,7.18,3.44,1.47,3.33-.44,7.17-4.03,8.1-.54.14-1.1.18-1.65.26ZM32.61,16.61c1.64,0,2.75-1.07,2.74-2.64,0-1.45-1.2-2.62-2.68-2.63-1.5-.01-2.81,1.22-2.82,2.66,0,1.4,1.25,2.6,2.75,2.61Z"></path><path fill="#FFFFFF" d="M47.27,12.89c2.8,0,5.21,2.33,5.19,5.01-.02,2.9-2.3,5.13-5.23,5.12-2.89,0-5.22-2.25-5.19-5.01.03-2.92,2.29-5.12,5.23-5.12ZM47.22,19.98c1.12,0,2.13-.97,2.12-2.05-.01-.99-1.1-2.03-2.1-2.02-1.09,0-2.03.94-2.04,2.03,0,1.16.86,2.04,2.02,2.05Z"></path><path fill="#CD1560" d="M51.11,84.16v-5.97h1.38v5.97h-1.38Z"></path><path fill="#CD1560" d="M53.74,84.16v-5.97h1.14l3.52,4.3h-.55v-4.3h1.36v5.97h-1.13l-3.53-4.3h.55v4.3h-1.36Z"></path><path fill="#CD1560" d="M60.46,84.16v-5.97h1.14l3.52,4.3h-.55v-4.3h1.36v5.97h-1.13l-3.53-4.3h.55v4.3h-1.36Z"></path><path fill="#CD1560" d="M70.07,84.26c-.47,0-.91-.08-1.31-.23s-.75-.37-1.04-.65c-.29-.28-.52-.61-.68-.98-.16-.38-.24-.78-.24-1.23s.08-.85.24-1.23.39-.7.69-.98c.3-.28.64-.49,1.04-.65.4-.15.83-.23,1.3-.23s.91.08,1.3.23c.39.15.74.37,1.03.65.29.28.52.6.69.98.16.37.25.78.25,1.23s-.08.85-.25,1.23c-.17.38-.39.71-.69.98-.29.28-.64.49-1.03.64-.4.15-.83.23-1.29.23ZM70.06,83.09c.27,0,.51-.05.74-.14s.42-.22.59-.39c.17-.17.3-.37.4-.61s.14-.49.14-.78-.05-.54-.14-.78c-.09-.23-.22-.43-.39-.61-.17-.17-.37-.3-.59-.39-.23-.09-.47-.14-.74-.14s-.51.05-.74.14c-.22.09-.42.22-.59.39-.17.17-.3.37-.4.61-.09.23-.14.49-.14.78s.05.54.14.77c.09.24.22.44.39.61.17.17.37.3.59.39.23.09.47.14.74.14Z"></path><path fill="#CD1560" d="M75.79,84.16l-2.57-5.97h1.49l2.25,5.29h-.88l2.28-5.29h1.37l-2.58,5.97h-1.36Z"></path><path fill="#CD1560" d="M79.08,84.16l2.66-5.97h1.36l2.67,5.97h-1.45l-2.18-5.27h.55l-2.19,5.27h-1.42ZM80.41,82.88l.37-1.05h3.07l.38,1.05h-3.81Z"></path><path fill="#CD1560" d="M89,84.26c-.46,0-.89-.08-1.28-.23s-.74-.37-1.03-.64-.52-.61-.68-.98c-.16-.38-.24-.79-.24-1.24s.08-.86.24-1.24c.16-.38.39-.7.68-.98.29-.28.63-.49,1.03-.64.39-.15.82-.23,1.29-.23.52,0,.98.09,1.4.27.42.18.77.44,1.05.79l-.89.82c-.2-.23-.43-.41-.68-.52-.25-.12-.52-.17-.82-.17-.28,0-.53.05-.77.14-.23.09-.43.22-.61.39s-.3.37-.4.61c-.09.23-.14.49-.14.78s.05.54.14.78c.09.23.23.43.4.61s.37.3.61.39c.23.09.49.14.77.14.3,0,.57-.06.82-.17.25-.12.48-.29.68-.53l.89.82c-.28.35-.64.61-1.05.79s-.89.27-1.41.27Z"></path><path fill="#CD1560" d="M92.22,84.16v-5.97h1.38v5.97h-1.38Z"></path><path fill="#CD1560" d="M97.74,84.26c-.47,0-.91-.08-1.31-.23s-.75-.37-1.04-.65c-.29-.28-.52-.61-.68-.98-.16-.38-.24-.78-.24-1.23s.08-.85.24-1.23.39-.7.69-.98c.3-.28.64-.49,1.04-.65.4-.15.83-.23,1.3-.23s.91.08,1.3.23c.39.15.74.37,1.03.65.29.28.52.6.69.98.16.37.25.78.25,1.23s-.08.85-.25,1.23c-.16.38-.39.71-.69.98-.29.28-.64.49-1.03.64-.4.15-.83.23-1.29.23ZM97.73,83.09c.27,0,.51-.05.74-.14.22-.09.42-.22.59-.39s.3-.37.4-.61c.09-.23.14-.49.14-.78s-.05-.54-.14-.78c-.09-.23-.22-.43-.39-.61-.17-.17-.37-.3-.59-.39-.23-.09-.47-.14-.74-.14s-.51.05-.74.14c-.22.09-.42.22-.59.39s-.3.37-.4.61c-.09.23-.14.49-.14.78s.05.54.14.77c.09.24.22.44.39.61s.37.3.59.39.47.14.74.14ZM96.96,77.71l1.15-1.23h1.43l-1.54,1.23h-1.04Z"></path><path fill="#CD1560" d="M101.87,84.16v-5.97h1.14l3.52,4.3h-.55v-4.3h1.36v5.97h-1.13l-3.53-4.3h.55v4.3h-1.36Z"></path><path fill="#CD1560" d="M112.79,84.26c-.48,0-.93-.06-1.37-.19-.44-.13-.79-.29-1.06-.5l.47-1.04c.26.18.56.33.91.45.35.12.7.17,1.06.17.27,0,.49-.03.66-.08.17-.05.29-.13.37-.23.08-.1.12-.21.12-.33,0-.16-.06-.29-.19-.38-.13-.09-.29-.17-.49-.23-.2-.06-.43-.12-.68-.17s-.49-.12-.74-.2c-.25-.08-.47-.18-.68-.31-.2-.12-.37-.29-.5-.49-.13-.2-.19-.47-.19-.78,0-.34.09-.65.28-.93s.46-.51.84-.67c.37-.17.84-.25,1.4-.25.38,0,.74.04,1.11.13.36.09.68.22.96.4l-.43,1.05c-.28-.16-.56-.28-.84-.35-.28-.08-.55-.11-.82-.11s-.49.03-.66.09c-.17.06-.29.14-.37.24s-.11.21-.11.34c0,.15.06.28.19.37.12.09.29.17.49.23.2.06.43.11.68.17.25.06.49.12.74.2.25.07.47.17.68.3.2.12.37.29.5.49.13.2.19.46.19.78,0,.34-.09.64-.28.92-.19.28-.47.5-.84.67s-.84.26-1.41.26Z"></path><path fill="#CD1560" d="M119,84.26c-.47,0-.91-.08-1.31-.23s-.75-.37-1.04-.65c-.29-.28-.52-.61-.68-.98-.16-.38-.24-.78-.24-1.23s.08-.85.24-1.23.39-.7.69-.98c.3-.28.64-.49,1.04-.65.4-.15.83-.23,1.3-.23s.91.08,1.3.23c.39.15.74.37,1.03.65.29.28.52.6.69.98.16.37.25.78.25,1.23s-.08.85-.25,1.23c-.16.38-.39.71-.69.98-.29.28-.64.49-1.03.64-.4.15-.83.23-1.29.23ZM118.99,83.09c.27,0,.51-.05.74-.14.22-.09.42-.22.59-.39s.3-.37.4-.61c.09-.23.14-.49.14-.78s-.05-.54-.14-.78c-.09-.23-.22-.43-.39-.61-.17-.17-.37-.3-.59-.39-.23-.09-.47-.14-.74-.14s-.51.05-.74.14c-.22.09-.42.22-.59.39s-.3.37-.4.61c-.09.23-.14.49-.14.78s.05.54.14.77c.09.24.22.44.39.61s.37.3.59.39.47.14.74.14Z"></path><path fill="#CD1560" d="M125.98,84.26c-.46,0-.89-.08-1.28-.23s-.74-.37-1.03-.64-.52-.61-.68-.98c-.16-.38-.24-.79-.24-1.24s.08-.86.24-1.24c.16-.38.39-.7.68-.98s.64-.49,1.03-.64c.39-.15.82-.23,1.29-.23.52,0,.98.09,1.4.27.42.18.77.44,1.05.79l-.89.82c-.2-.23-.43-.41-.68-.52-.25-.12-.52-.17-.82-.17-.28,0-.53.05-.77.14-.23.09-.43.22-.61.39-.17.17-.3.37-.4.61-.09.23-.14.49-.14.78s.05.54.14.78.23.43.4.61c.17.17.37.3.61.39.23.09.49.14.77.14.3,0,.57-.06.82-.17.25-.12.48-.29.68-.53l.89.82c-.28.35-.63.61-1.05.79s-.89.27-1.41.27Z"></path><path fill="#CD1560" d="M129.2,84.16v-5.97h1.38v5.97h-1.38Z"></path><path fill="#CD1560" d="M131.04,84.16l2.66-5.97h1.36l2.67,5.97h-1.45l-2.18-5.27h.55l-2.19,5.27h-1.42ZM132.37,82.88l.37-1.05h3.07l.38,1.05h-3.81Z"></path><path fill="#CD1560" d="M138.18,84.16v-5.97h1.38v4.84h2.99v1.13h-4.37Z"></path></svg><span>Hub</span></div>
+    <nav class="nav">
+      <a href="#">Inicio</a><a href="#">Clientes</a><a href="#" class="on" aria-current="page" id="navProj">Proyectos</a><a href="#">Tareas</a><a href="#">Documentos</a><a href="#">Reportes</a>
+    </nav>
+  </aside>
+  <main class="main" id="main"></main>
+</div>
+
+<div class="scrim" id="scrim"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="mT" id="modal"></div></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<aside class="drawer" id="drawer" aria-label="Notas de diseño"><header><h2 style="font-size:19px">Notas de diseño</h2><button class="btn sm" id="closeNotes">Cerrar</button></header><div class="in2" id="notes"></div></aside>
+
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const C={ok:'#127C4A',warn:'#B45309',bad:'#B3261E',info:'#1E5FA8',r5:'#CD1560',r3:'#F087B2',i3:'#DDD2D5',i4:'#B09EA3'};
+const TOPE=90, WEEK=14, TODAY='2026-11-04';
+const START=new Date('2026-08-03T00:00:00');
+const cop=n=>'$ '+Math.round(n).toLocaleString('es-CO');
+const mill=n=>'$ '+n.toLocaleString('es-CO',{maximumFractionDigits:1})+' M';
+const fdate=s=>{const d=new Date(s+'T00:00:00');return d.toLocaleDateString('es-CO',{day:'numeric',month:'short'}).replace('.','');};
+const weekEnd=w=>{const d=new Date(START);d.setDate(d.getDate()+w*7-1);return d;};
+const ME={coord:'Camila Pérez',ger:'Mariana Ortiz'};
+const ROLE={coord:'Coordinadora · integrante del equipo',ger:'Gerencia'};
+
+/* ───────── Datos ficticios ───────── */
+const ACTS=[
+ {id:'1.1',obj:1,n:'Convocatoria y selección de líderes',w:[1,4],resp:'Camila Pérez',
+  reps:[{f:'2026-08-21',p:60,o:'Convocatoria cerrada con 84 inscritos; faltan entrevistas.',u:'Camila Pérez'},{f:'2026-08-28',p:90,o:'Entrevistas hechas; falta publicar el listado.',u:'Camila Pérez'}],
+  ents:[{n:'Listado de líderes seleccionados',meta:60,u:'personas',cant:60,med:2}],
+  hitos:[['Convocatoria publicada',1],['Inscripciones cerradas',1],['Entrevistas realizadas',1],['Listado publicado',1]]},
+ {id:'1.2',obj:1,n:'Talleres de liderazgo',w:[5,16],resp:'Camila Pérez',
+  reps:[{f:'2026-09-02',p:30,o:'Talleres 1 a 3 realizados en dos sedes.',u:'Camila Pérez'},{f:'2026-09-30',p:55,o:'Talleres 4 a 6; actas en firma.',u:'Camila Pérez'},{f:'2026-10-21',p:70,o:'Talleres 7 y 8; faltan 4 y el informe.',u:'Camila Pérez'}],
+  ents:[{n:'Talleres realizados',meta:12,u:'talleres',cant:8,med:8},{n:'Actas de asistencia',meta:12,u:'actas',cant:8,med:7}],
+  hitos:[['Cronograma de talleres aprobado',1],['Talleres 1 a 4 realizados',1],['Talleres 5 a 8 realizados',1],['Talleres 9 a 12 realizados',0],['Informe de talleres entregado',0]]},
+ {id:'1.3',obj:1,n:'Mesas de concertación barrial',w:[9,13],resp:'Camila Pérez',
+  reps:[{f:'2026-10-14',p:40,o:'Mesas 1 y 2 con las JAC del sector norte.',u:'Camila Pérez'},{f:'2026-10-28',p:60,o:'Mesa 3; faltan 2 mesas y firmar las actas.',u:'Camila Pérez'}],
+  ents:[{n:'Mesas realizadas',meta:5,u:'mesas',cant:3,med:3},{n:'Actas firmadas',meta:5,u:'actas',cant:0,med:0}],
+  hitos:[['Convocatoria a las JAC',1],['Mesas 1 a 3',1],['Mesas 4 y 5',0],['Actas firmadas',0],['Informe de acuerdos',0]]},
+ {id:'2.1',obj:2,n:'Diagnóstico organizacional',w:[3,8],resp:'Julián Restrepo',
+  reps:[{f:'2026-09-25',p:90,o:'10 diagnósticos aplicados; consolidando.',u:'Julián Restrepo'}],
+  ents:[{n:'Diagnósticos aplicados',meta:10,u:'organizaciones',cant:10,med:10}],
+  hitos:[['Instrumento aprobado',1],['Diagnósticos aplicados',1],['Informe consolidado',1]]},
+ {id:'2.2',obj:2,n:'Acompañamiento técnico a organizaciones',w:[10,26],resp:'Julián Restrepo',
+  reps:[{f:'2026-10-20',p:35,o:'3 planes de fortalecimiento en marcha.',u:'Julián Restrepo'}],
+  ents:[{n:'Planes de fortalecimiento',meta:10,u:'planes',cant:3,med:3}],
+  hitos:[['Plan de acompañamiento',1],['Visitas ronda 1',1],['Visitas ronda 2',0],['Visitas ronda 3',0],['Planes entregados',0],['Informe final',0]]},
+ {id:'2.3',obj:2,n:'Encuentro de cierre',w:[27,30],resp:'Camila Pérez',reps:[],
+  ents:[{n:'Encuentro realizado',meta:1,u:'encuentro',cant:0,med:0}],
+  hitos:[['Lugar reservado',0],['Invitaciones enviadas',0],['Encuentro realizado',0]]}];
+const OBJS={1:'Objetivo 1 · Formar líderes comunitarios',2:'Objetivo 2 · Fortalecer las organizaciones barriales'};
+const RUBROS=[['R01','Talento humano',180,90,84],['R03','Logística de eventos',95,50,52],['R05','Materiales pedagógicos',40,20,18],['R07','Transporte',35,14,15],['R09','Comunicaciones',30,12,6],['R12','Gastos administrativos',40,17,19]];
+const MONTHS=['ago','sep','oct','nov','dic','ene','feb'];
+let GASTOS=[
+ {id:'G-118',d:'Logística talleres 5 a 8',t:'Eventos del Caribe S.A.S.',doc:'FE-2231',tipo:'Factura de proveedor',r:'R03',sub:8403361,iva:1596639,f:'2026-10-18',per:'oct 2026',by:'Camila Pérez',st:'REGISTRADO',sop:['factura-FE-2231.pdf']},
+ {id:'G-121',d:'Refrigerios mesa 3',t:'Panadería La Esquina',doc:'CC-118',tipo:'Cuenta de cobro',r:'R03',sub:1250000,iva:0,f:'2026-10-25',per:'oct 2026',by:'Camila Pérez',st:'REGISTRADO',sop:[],imp:true},
+ {id:'G-124',d:'Honorarios facilitadora octubre',t:'Paula Rincón',doc:'CC-0042',tipo:'Cuenta de cobro',r:'R01',sub:6000000,iva:0,f:'2026-10-31',per:'oct 2026',by:'Mariana Ortiz',st:'REGISTRADO',sop:['cuenta-cobro-0042.pdf']},
+ {id:'G-109',d:'Transporte veredal',t:'Transportes Brisa S.A.S.',doc:'FE-889',tipo:'Factura de proveedor',r:'R07',sub:2100840,iva:399160,f:'2026-10-09',per:'oct 2026',by:'Camila Pérez',st:'VALIDADO',sop:['FE-889.pdf'],val:'Mariana Ortiz'},
+ {id:'G-104',d:'Material pedagógico',t:'Papelería Central',doc:'FE-7781',tipo:'Factura de proveedor',r:'R05',sub:3361345,iva:638655,f:'2026-09-30',per:'oct 2026',permod:true,by:'Camila Pérez',st:'VALIDADO',sop:['FE-7781.pdf','remision-7781.pdf'],val:'Mariana Ortiz'},
+ {id:'G-112',d:'Pendón y piezas gráficas',t:'Imprenta Ágil',doc:'FE-302',tipo:'Factura de proveedor',r:'R09',sub:840336,iva:159664,f:'2026-10-02',per:'oct 2026',by:'Camila Pérez',st:'RECHAZADO',sop:['FE-302.pdf'],mot:'La factura está a nombre de otra entidad; adjunta la correcta.'},
+ {id:'G-097',d:'Arriendo de salón',t:'Club Social Puerto Sol',doc:'FE-55',tipo:'Factura de proveedor',r:'R03',sub:2000000,iva:380000,f:'2026-09-12',per:'sep 2026',by:'Camila Pérez',st:'ANULADO',sop:['FE-55.pdf'],mot:'Duplicado del gasto registrado el 10 sep.'}];
+let MODS=[
+ {id:'M-03',f:'2026-10-29',by:'Camila Pérez',tipo:'Presupuesto',d:'Mover $ 5 M de Comunicaciones (R09) a Logística de eventos (R03).',j:'Las mesas barriales necesitan más refrigerios y transporte del previsto; Comunicaciones lleva 20 % ejecutado.',st:'PENDIENTE'},
+ {id:'M-02',f:'2026-09-15',by:'Julián Restrepo',tipo:'Meta de entregable',d:'Talleres realizados: meta de 10 a 12.',j:'La Alcaldía pidió dos sedes más.',st:'APROBADA',dec:'Mariana Ortiz'}];
+const AUDIT=[['29 oct','Camila Pérez','Solicitó la modificación M-03 (presupuesto)'],['28 oct','Camila Pérez','Registró avance de 60 % en «Mesas de concertación barrial»'],['21 oct','Camila Pérez','Registró avance de 70 % en «Talleres de liderazgo»'],['9 oct','Mariana Ortiz','Validó el gasto G-109'],['15 sep','Mariana Ortiz','Aprobó la modificación M-02 · versión 1'],['3 ago','Mariana Ortiz','Aprobó la línea base · plan original']];
+const DOCS=[['Proyecto','Convenio firmado con la Alcaldía.pdf','3 ago','Mariana Ortiz'],['Actividades','Acta taller 8.pdf','21 oct','Camila Pérez'],['Actividades','Listado de líderes seleccionados.xlsx','28 ago','Camila Pérez'],['Actividades','Fotos mesa 3 (Drive)','28 oct','Camila Pérez'],['Gastos','factura-FE-2231.pdf','18 oct','Camila Pérez'],['Gastos','FE-7781.pdf','30 sep','Camila Pérez'],['Indicadores','Encuesta de satisfacción oct.pdf','30 oct','Julián Restrepo'],['Actividades','Diagnósticos consolidados.pdf','25 sep','Julián Restrepo']];
+const PORT=[
+ {c:'PRY-2026-002',n:'Escuelas de liderazgo comunitario',cli:'Alcaldía de Puerto Sol',st:'EJECUCION',tec:'warn',real:null,plan:null,fin:46,resp:'Julián Restrepo',team:['Camila Pérez','Julián Restrepo'],next:'1 actividad atrasada · 1 gasto por validar'},
+ {c:'PRY-2026-004',n:'Integración socioeconómica de migrantes',cli:'Corp. Vínculos',st:'EJECUCION',tec:'bad',real:44,plan:62,fin:41,resp:'Andrés Molina',team:['Andrés Molina','Valentina Ríos'],next:'3 actividades sin reporte en 21 días'},
+ {c:'PRY-2026-006',n:'Formación digital para adultos',cli:'Café Ribera S.A.S.',st:'EJECUCION',tec:'bad',real:39,plan:55,fin:48,resp:'Julián Restrepo',team:['Julián Restrepo','Tomás Vargas'],next:'La actividad 1.3 no tiene responsable'},
+ {c:'PRY-2026-003',n:'Emprendimiento femenino rural',cli:'Red Mujeres del Norte',st:'EJECUCION',tec:'warn',real:58,plan:66,fin:59,resp:'Sofía Herrera',team:['Sofía Herrera'],next:'Modificación de presupuesto sin aprobar'},
+ {c:'PRY-2026-005',n:'Huertas urbanas y nutrición',cli:'Coop. Mar Abierto',st:'EJECUCION',tec:'warn',real:63,plan:68,fin:70,resp:'Sofía Herrera',team:['Camila Pérez','Sofía Herrera'],next:'2 gastos por validar'},
+ {c:'PRY-2026-001',n:'Rutas de empleo para jóvenes',cli:'F. Puentes del Caribe',st:'EJECUCION',tec:'ok',real:82,plan:80,fin:74,resp:'Sofía Herrera',team:['Sofía Herrera','Daniel Suárez'],next:'Al día'},
+ {c:'PRY-2026-007',n:'Huertas escolares en Puerto Sol',cli:'Alcaldía de Puerto Sol',st:'BORRADOR',resp:'Camila Pérez',team:['Camila Pérez'],next:''},
+ {c:'PRY-2025-014',n:'Ferias de empleo 2025',cli:'F. Puentes del Caribe',st:'CERRADO',tec:'ok',real:100,plan:100,fin:98,resp:'Sofía Herrera',team:['Sofía Herrera'],next:'Cerrado el 30 sep'}];
+const DRAFT={nombre:'Huertas escolares en Puerto Sol',cli:'Alcaldía de Puerto Sol',origen:'Oportunidad ganada «Huertas escolares» ($ 300 M)',resp:'Camila Pérez',valor:300,ini:'2026-10-15',fin:'2027-03-31',benef:0,lineas:'Seguridad alimentaria',muni:'Puerto Sol',
+ objs:[{n:'Objetivo 1 · Instalar huertas en colegios',acts:[{n:'Diagnóstico de espacios',w:[1,3],ents:['Diagnóstico por colegio']},{n:'Instalación de huertas',w:[4,16],ents:[]}]},{n:'Objetivo 2 · Formar a docentes y familias',acts:[{n:'Talleres de agricultura urbana',w:[6,20],ents:['Talleres realizados']}]}],
+ rub:[{c:'R01',n:'Talento humano',a:150,p:[25,25,25,25,25,25]},{c:'R03',n:'Logística de eventos',a:80,p:[10,10,10,10,10,0]},{c:'R05',n:'Materiales pedagógicos',a:50,p:[0,0,0,0,0,0]}],
+ months:['oct','nov','dic','ene','feb','mar'],approved:false,step:1};
+
+/* ───────── Estado ───────── */
+const S={role:'coord',screen:'portafolio',tab:'resumen',fin:'resumen',hist:'mods',view:'lista',pst:'EJECUCION',u22:false,open:{'1.2':true,'1.3':true},pfilter:'todos',gfilter:'pendientes',docf:'Todos',menu:false,cmp:'v0'};
+
+/* ───────── Reglas (iguales a las de la PO) ───────── */
+const entOk=e=>e.cant>=e.meta&&e.med>=1;
+const allEnt=a=>a.ents.length>0&&a.ents.every(entOk);
+const live=a=>a.reps.filter(r=>!r.void);
+const last=a=>{const l=live(a);return l.length?l[l.length-1].p:null;};
+const avgEnt=a=>a.ents.length?a.ents.reduce((s,e)=>s+Math.min(e.cant/e.meta,1),0)/a.ents.length*100:0;
+function prog(a){
+  if(S.u22&&a.hitos){const d=a.hitos.filter(h=>h[1]).length;const p=Math.round(d/a.hitos.length*100);return allEnt(a)?100:Math.min(p,TOPE);}
+  if(allEnt(a))return 100;
+  const l=last(a);return Math.round(l==null?avgEnt(a):Math.max(l,avgEnt(a)));}
+function plan(a){if(WEEK<a.w[0])return 0;if(WEEK>=a.w[1])return TOPE;return Math.min(TOPE,Math.round((WEEK-a.w[0]+1)/(a.w[1]-a.w[0]+1)*100));}
+function estado(a){if(allEnt(a))return 'Terminada';const p=prog(a);if(WEEK>a.w[1]&&p<TOPE)return 'Atrasada';if(live(a).length||(S.u22&&a.hitos&&a.hitos.some(h=>h[1])))return 'En curso';return 'Sin iniciar';}
+const EST={Terminada:'t-ok','En curso':'t-info',Atrasada:'t-bad','Sin iniciar':'t-ink'};
+const peso=a=>a.w[1]-a.w[0]+1;
+function projReal(){let t=0,s=0;ACTS.forEach(a=>{t+=peso(a);s+=prog(a)*peso(a);});return Math.round(s/t);}
+function projPlan(){let t=0,s=0;ACTS.forEach(a=>{t+=peso(a);s+=plan(a)*peso(a);});return Math.round(s/t);}
+const frozen=()=>S.pst!=='EJECUCION';
+const isGer=()=>S.role==='ger';
+const canReport=a=>!frozen()&&(isGer()||a.resp===ME[S.role]);
+const total=g=>g.sub+g.iva;
+const canValidate=g=>isGer()&&!frozen()&&g.st==='REGISTRADO'&&g.by!==ME.ger&&g.sop.length>0;
+function whyNoValidate(g){if(!isGer())return 'Solo Administración o Gerencia validan gastos';if(frozen())return 'El proyecto está congelado';if(g.by===ME.ger)return 'Nadie valida su propio gasto';if(!g.sop.length)return 'Sin soporte no se puede validar';return '';}
+function semOf(l){return {ok:['En rango',C.ok],warn:['Atención',C.warn],bad:['Crítico',C.bad]}[l];}
+function techLevel(){const r=projReal(),p=projPlan();const late=ACTS.filter(a=>estado(a)==='Atrasada').length;return (p-r>=10)?'bad':(late||p-r>=4)?'warn':'ok';}
+
+/* ───────── Piezas ───────── */
+function bar(real,pl,color){return `<div class="bar" title="Real ${real} % · plan ${pl} % · tope ${TOPE} %"><i style="width:${real}%;background:${color||C.r5}"></i><u style="left:${TOPE}%"></u><b style="left:calc(${pl}% - 1px)"></b></div>`;}
+function sem(l,txt){const m=semOf(l);return `<span class="tag" style="background:${m[1]}1A;color:${m[1]}"><span class="dot" style="background:${m[1]}"></span>${txt||m[0]}</span>`;}
+function stTag(st){return {EJECUCION:'<span class="tag t-info">En ejecución</span>',BORRADOR:'<span class="tag t-warn">Borrador</span>',SUSPENDIDO:'<span class="tag t-ink">Suspendido</span>',CERRADO:'<span class="tag t-ink">Cerrado</span>',CANCELADO:'<span class="tag t-bad">Cancelado</span>'}[st];}
+function gTag(g){return {REGISTRADO:g.sop.length?'<span class="tag t-warn">Por validar</span>':'<span class="tag t-bad">Sin soporte</span>',VALIDADO:'<span class="tag t-ok">Validado</span>',RECHAZADO:'<span class="tag t-bad">Rechazado</span>',ANULADO:'<span class="tag t-ink">Anulado</span>'}[g.st];}
+function kpi(l,v,d,alert,go){return `<button class="kpi${alert?' alert':''}" ${go?`data-go="${go}"`:''}><span class="l">${l}</span><span class="v">${v}</span>${d?`<span class="d">${d}</span>`:''}</button>`;}
+
+/* ───────── Pendientes por rol (portafolio) ───────── */
+function myTodo(){const L=[];
+  if(isGer()){
+    const ok=GASTOS.filter(canValidate).length, own=GASTOS.filter(g=>g.st==='REGISTRADO'&&g.by===ME.ger).length, nos=GASTOS.filter(g=>g.st==='REGISTRADO'&&!g.sop.length).length;
+    if(ok)L.push([`<b>${ok} gasto${ok>1?'s':''}</b> de PRY-2026-002 espera${ok>1?'n':''} tu validación${own?` · ${own} es tuyo y lo valida otra persona`:''}${nos?` · ${nos} sin soporte`:''}.`,'Validar','go:ficha:finanzas:gastos']);
+    const pm=MODS.filter(m=>m.st==='PENDIENTE').length;if(pm)L.push([`<b>${pm} solicitud de modificación</b> pendiente en PRY-2026-002.`,'Revisar','go:ficha:historial:mods']);
+    if(!DRAFT.approved)L.push([`<b>PRY-2026-007</b> está en borrador: ${missing().length?`faltan ${missing().length} requisitos para aprobar la línea base`:'lista para aprobar la línea base'}.`,missing().length?'Ver qué falta':'Aprobar','go:wizard:5']);
+    L.push(['<b>2 proyectos en Crítico</b>: PRY-2026-004 y PRY-2026-006.','Ver','filter:bad']);
+  } else {
+    ACTS.filter(a=>a.resp===ME.coord&&estado(a)==='Atrasada').forEach(a=>L.push([`<b>${a.n}</b> está atrasada: va en ${prog(a)} % y cerró el ${fdate('2026-11-01')}.`,'Registrar avance','avance:'+a.id]));
+    ACTS.filter(a=>a.resp===ME.coord&&estado(a)==='En curso').forEach(a=>{const l=live(a);const dd=l.length?Math.round((new Date(TODAY)-new Date(l[l.length-1].f))/864e5):0;if(dd>=10)L.push([`<b>${a.n}</b>: tu último reporte fue hace ${dd} días.`,'Registrar avance','avance:'+a.id]);});
+    GASTOS.filter(g=>g.by===ME.coord&&g.st==='REGISTRADO'&&!g.sop.length).forEach(g=>L.push([`Gasto <b>${g.d}</b> sin soporte: no se puede validar.`,'Adjuntar soporte','adj:'+g.id]));
+    GASTOS.filter(g=>g.by===ME.coord&&g.st==='RECHAZADO').forEach(g=>L.push([`Gasto <b>${g.d}</b> rechazado: «${g.mot}»`,'Corregir','fix:'+g.id]));
+    if(!DRAFT.approved)L.push([`<b>PRY-2026-007</b> sigue en borrador: ${missing().length?`faltan ${missing().length} requisitos`:'todo listo; falta que Gerencia apruebe'}.`,'Continuar','go:wizard:'+(missing().length?missing()[0][3]:5)]);
+  }
+  if(frozen())L.unshift([`PRY-2026-002 está <b>${S.pst==='SUSPENDIDO'?'suspendido':'cerrado'}</b>: no se registran avances ni gastos.`,'Ver ficha','go:ficha:resumen']);
+  return L;}
+
+/* ───────── Portafolio ───────── */
+function viewPortafolio(){
+  const real=projReal(),pl=projPlan();PORT[0].real=real;PORT[0].plan=pl;PORT[0].tec=techLevel();PORT[0].st=S.pst;
+  PORT[6].st=DRAFT.approved?'EJECUCION':'BORRADOR';if(DRAFT.approved)Object.assign(PORT[6],{tec:DRAFT.ini<TODAY?'warn':'ok',real:0,plan:DRAFT.ini<TODAY?8:0,fin:0,next:DRAFT.ini<TODAY?'Recién aprobado · nació atrasado por la fecha de inicio':'Recién aprobado'});
+  let rows=PORT.filter(p=>isGer()||p.team.includes(ME.coord));
+  const nAll=rows.length;
+  if(S.pfilter==='bad')rows=rows.filter(p=>p.tec==='bad'&&p.st==='EJECUCION');
+  if(S.pfilter==='borrador')rows=rows.filter(p=>p.st==='BORRADOR');
+  if(S.pfilter==='ejec')rows=rows.filter(p=>p.st==='EJECUCION');
+  const todo=myTodo();
+  let h=`<div class="ph"><div><h1>Proyectos</h1><p>${isGer()?'Todo el portafolio de Muttu.':'Los proyectos donde eres parte del equipo.'}</p></div><div class="acts"><button class="btn" data-act="tablero">Tablero gerencial</button><button class="btn pri" data-go="wizard:1">+ Nuevo proyecto</button></div></div>`;
+  h+=`<div class="todo"><h3>Lo que te toca esta semana <span class="new">nuevo</span></h3>${todo.length?todo.map(([t,b,a])=>`<div class="it"><span>${t}</span><button class="btn sm" data-do="${a}">${b}</button></div>`).join(''):'<div class="it"><span>Nada pendiente. Buen trabajo.</span></div>'}</div>`;
+  if(isGer())h+=`<div class="kpis">${kpi('En ejecución','6','1 en borrador · 1 cerrado')}${kpi('En Crítico','2','PRY-2026-004 y 006',true)}${kpi('Avance técnico promedio','59 <small>%</small>','plan 65 %')}${kpi('Ejecución financiera','58 <small>%</small>','$ 1.512 M de $ 2.480 M')}</div>`;
+  h+=`<div class="pfil"><div class="seg2" role="group" aria-label="Filtrar">${[['todos',`Todos (${nAll})`],['ejec','En ejecución'],['bad','En Crítico'],['borrador','Borradores']].map(([k,t])=>`<button data-pf="${k}" aria-pressed="${S.pfilter===k}">${t}</button>`).join('')}</div>${isGer()?'<select class="sel" aria-label="Cliente"><option>Todos los clientes</option></select><select class="sel" aria-label="Responsable"><option>Todos los responsables</option></select>':''}</div>`;
+  h+='<div class="plist">'+(rows.length?rows.map(p=>{
+    const target=p.c==='PRY-2026-002'?'ficha:resumen':p.c==='PRY-2026-007'&&!DRAFT.approved?'wizard:1':'none';
+    if(p.st==='BORRADOR'){const m=missing().length;return `<button class="prow" data-go="${target}"><div><span class="cd">${p.c}</span><div class="nm">${p.n}</div><span class="muted">${p.cli}</span></div><div>${stTag(p.st)}</div><div style="grid-column:span 2"><span class="lbl">Para aprobar la línea base</span>${m?`<span class="warn">Faltan ${m} de 6 requisitos</span>`:'<span class="good">Listo para aprobar</span>'}</div><div class="nx">Responsable: ${p.resp}</div></button>`;}
+    const m=semOf(p.tec);
+    return `<button class="prow" data-go="${target}"><div><span class="cd">${p.c}</span><div class="nm">${p.n}</div><span class="muted">${p.cli}</span></div><div>${stTag(p.st)}<div class="nx" style="margin-top:4px">${p.next}</div></div><div><span class="lbl">Técnico</span>${sem(p.tec)}</div><div><span class="lbl">Avance ${p.real} % · plan ${p.plan} %</span>${bar(p.real,p.plan,m[1])}</div><div><span class="lbl">Ejecución $ ${p.fin} %</span><div class="bar"><i style="width:${p.fin}%;background:${C.r3}"></i></div></div></button>`;}).join(''):'<div class="empty">No hay proyectos con este filtro.</div>')+'</div>';
+  if(!isGer())h+='<p class="muted" style="font-size:12.5px">Solo ves los proyectos donde eres integrante del equipo.</p>';
+  return h;}
+
+/* ───────── Ficha ───────── */
+function header(){const real=projReal(),pl=projPlan(),tl=techLevel();const late=ACTS.filter(a=>estado(a)==='Atrasada').length;
+  let acts='';
+  if(!frozen()){acts+=`<button class="btn pri" data-act="avance">Registrar avance</button><button class="btn" data-act="gasto">Registrar gasto</button>`;}
+  acts+=`<div class="menu"><button class="btn" data-act="menu" aria-expanded="${S.menu}" aria-haspopup="menu">Más ▾</button><div class="pop ${S.menu?'on':''}" role="menu">
+    ${!frozen()?`<button data-act="mod" role="menuitem">Solicitar cambio <span class="muted">estructura o presupuesto</span></button><button data-act="import" role="menuitem">Importar gastos desde Excel</button><button data-act="entregable" role="menuitem">Registrar entregable</button>`:''}
+    <button data-act="xls" role="menuitem">Exportar a Excel</button><button data-act="pdf" role="menuitem">Imprimir / PDF</button>
+    ${isGer()&&S.pst!=='CANCELADO'?'<hr><button data-act="estado" role="menuitem">Cambiar estado…</button>':''}</div></div>`;
+  return `<div class="crumbs"><button data-go="portafolio">Proyectos</button> › <span>PRY-2026-002</span></div>
+  <div class="fh"><div class="row"><div><div class="meta"><span class="mono">PRY-2026-002</span>${stTag(S.pst)}<span>Alcaldía de Puerto Sol</span><span>Responsable: Julián Restrepo</span></div><h1 style="margin-top:6px">Escuelas de liderazgo comunitario</h1></div><div class="acts">${acts}</div></div>
+  <div class="meta"><button class="semchip" data-go="ficha:actividades" title="Ver por qué">${sem(tl,'Técnico · '+semOf(tl)[0])} Avance ${real} % · plan ${pl} %${late?` · ${late} atrasada`:''}</button><button class="semchip" data-go="ficha:finanzas:resumen">${sem('ok','Financiero · En rango')} 46 % ejecutado · 96 % de lo programado</button><span>Semana ${WEEK} de 30 · 3 ago 2026 – 26 feb 2027</span></div></div>
+  ${frozen()?`<div class="banner ${S.pst==='SUSPENDIDO'?'warn':'info'}"><span>❄</span><span><b>Proyecto ${S.pst==='SUSPENDIDO'?'suspendido':'cerrado'}.</b> Está congelado: no se registran avances, gastos ni documentos, ni se deciden gastos o modificaciones pendientes. Las anulaciones de gastos siguen permitidas. ${S.pst==='CERRADO'?'Gerencia puede reabrirlo.':'Gerencia puede reactivarlo.'}</span></div>`:''}`;}
+function tabs(){const pend=GASTOS.filter(canValidate).length;const pm=isGer()?MODS.filter(m=>m.st==='PENDIENTE').length:0;
+  return `<div class="tabs" role="tablist">${[['resumen','Resumen'],['actividades','Actividades'],['finanzas','Finanzas',pend],['documentos','Documentos'],['historial','Historial',pm]].map(([k,t,n])=>`<button role="tab" aria-selected="${S.tab===k}" data-tab="${k}">${t}${n?`<span class="cnt">${n}</span>`:''}</button>`).join('')}</div>`;}
+function attention(){const L=[];
+  ACTS.filter(a=>estado(a)==='Atrasada').forEach(a=>L.push(['bad',`<b>${a.n}</b> está atrasada: llegó a ${prog(a)} % y debía llegar a ${TOPE} % al cierre (1 nov).`,a.resp,canReport(a)?['Registrar avance','avance:'+a.id]:['Ver actividad','go:ficha:actividades'] ]));
+  const pv=GASTOS.filter(g=>g.st==='REGISTRADO'&&g.sop.length);if(pv.length)L.push(['warn',`<b>${pv.length} gastos esperan validación</b> (${cop(pv.reduce((s,g)=>s+total(g),0))}).`,'Gerencia',['Ir a gastos','go:ficha:finanzas:gastos']]);
+  GASTOS.filter(g=>g.st==='REGISTRADO'&&!g.sop.length).forEach(g=>L.push(['warn',`El gasto <b>${g.d}</b> no tiene soporte.`,g.by,g.by===ME[S.role]&&!frozen()?['Adjuntar soporte','adj:'+g.id]:['Ver gasto','go:ficha:finanzas:gastos']]));
+  GASTOS.filter(g=>g.st==='RECHAZADO').forEach(g=>L.push(['warn',`El gasto <b>${g.d}</b> fue rechazado: «${g.mot}»`,g.by,g.by===ME[S.role]&&!frozen()?['Corregir','fix:'+g.id]:['Ver gasto','go:ficha:finanzas:gastos']]));
+  L.push(['warn','<b>Logística de eventos</b> va $ 2 M por encima de lo programado a la fecha.','Gerencia',['Ver finanzas','go:ficha:finanzas:resumen']]);
+  MODS.filter(m=>m.st==='PENDIENTE').forEach(m=>L.push(['info',`Modificación <b>${m.id}</b> pendiente: ${m.d}`,'Gerencia',['Revisar','go:ficha:historial:mods']]));
+  return L;}
+function tabResumen(){const real=projReal(),pl=projPlan();const L=attention();
+  let h=`<div class="kpis">${kpi('Avance técnico',real+' <small>%</small>',`plan hoy ${pl} % · tope por actividad ${TOPE} %`,false,'ficha:actividades')}${kpi('Ejecución financiera','46 <small>%</small>','$ 194 M de $ 420 M','', 'ficha:finanzas:resumen')}${kpi('Beneficiarios','312 <small>/ 600</small>','meta del proyecto')}${kpi('Requiere atención',L.length,'ordenado por gravedad',L.some(x=>x[0]==='bad'))}</div>`;
+  h+=`<div class="grid2"><section class="card" id="att"><h3>Requiere atención <small>cada punto lleva a donde se resuelve</small></h3><div class="att">${L.map(([lv,t,who,[b,a]])=>`<div class="it"><span class="dot" style="background:${lv==='bad'?C.bad:lv==='warn'?C.warn:C.info}"></span><span>${t}<br><span class="muted" style="font-size:12px">Le toca a: ${who}</span></span><button class="btn sm" data-do="${a}">${b}</button></div>`).join('')}</div></section>
+  <section class="card"><h3>Datos generales ${!frozen()?'<button class="link" data-act="mod">Solicitar cambio</button>':''}</h3>
+  <table><tbody>${[['Origen','Oportunidad ganada «Escuelas de liderazgo» ($ 420 M)'],['Valor total','$ 420.000.000'],['Fechas','3 ago 2026 – 26 feb 2027 · 30 semanas'],['Beneficiarios (meta)','600 personas'],['Líneas estratégicas','Liderazgo y participación'],['Municipios','Puerto Sol']].map(([k,v])=>`<tr><td class="muted">${k}</td><td class="strong">${v}</td></tr>`).join('')}</tbody></table>
+  <p class="muted" style="font-size:12.5px;margin:0">En ejecución solo se editan descripción y beneficiarios; lo demás se pide como cambio.</p>
+  <h3 style="font-size:14px;margin-top:4px">Equipo</h3><div class="att">${[['Julián Restrepo','Coordinador · responsable'],['Camila Pérez','Coordinadora'],['Mariana Ortiz','Gerencia']].map(([n,r])=>`<div class="it"><span class="strong">${n}</span><span class="muted">${r}</span></div>`).join('')}</div></section></div>`;
+  return h;}
+function actRow(a){const p=prog(a),pl=plan(a),e=estado(a),open=S.open[a.id];const mine=a.resp===ME[S.role];
+  const col=e==='Atrasada'?C.bad:e==='Terminada'?C.ok:C.r5;
+  let top=`<div class="top" data-toggle="${a.id}" role="button" aria-expanded="${!!open}" tabindex="0"><div><span class="mono muted" style="font-size:12px">${a.id}</span> <span class="nm">${a.n}</span><div class="sm">Semanas ${a.w[0]}–${a.w[1]} · pesa ${peso(a)} semanas${S.u22?` · ${a.hitos.filter(h=>h[1]).length} de ${a.hitos.length} hitos`:''}</div></div><div><span class="tag ${EST[e]}">${e}</span></div><div class="bw"><div class="sm" style="display:flex;justify-content:space-between"><span><b class="strong">${p} %</b> real</span><span>plan hoy ${pl} %</span></div>${bar(p,pl,col)}</div><div class="rsp sm">${a.resp}${mine?' (tú)':''}</div></div>`;
+  if(!open)return `<div class="act">${top}</div>`;
+  const l=last(a);const can=canReport(a);const done=allEnt(a);
+  const why=frozen()?'El proyecto está congelado':!can?`Solo ${a.resp} puede reportar esta actividad`:done?'Ya está terminada':'';
+  let left;
+  if(S.u22){left=`<div><h4>Hitos <span class="prop">propuesta U22</span></h4><div>${a.hitos.map((hh,i)=>`<label class="hito"><input type="checkbox" ${hh[1]?'checked':''} ${!can||done?'disabled':''} data-hito="${a.id}:${i}"> ${hh[0]}</label>`).join('')}</div><p class="sm" style="margin:6px 0 0">El avance es ${a.hitos.filter(h=>h[1]).length} de ${a.hitos.length} hitos = ${Math.round(a.hitos.filter(h=>h[1]).length/a.hitos.length*100)} %${!done?`, con tope de ${TOPE} % mientras falten entregables`:''}. Desmarcar un hito pide justificación.</p>${why?`<p class="sm">${why}.</p>`:''}</div>`;}
+  else{left=`<div><h4>Avance de la actividad <button class="btn sm ${can&&!done?'pri':''}" data-act="avance:${a.id}" ${why?'disabled':''} title="${why}">Registrar avance</button></h4>${why&&!done?`<p class="sm" style="margin:0 0 6px">${why}.</p>`:''}<div class="hist">${a.reps.length?a.reps.map((r,i)=>`<div class="h ${r.void?'void':''}"><span class="muted">${fdate(r.f)}</span><span class="mono strong">${r.p} %</span><span>${esc(r.o)} <span class="muted">· ${r.u}${r.void?' · anulado: '+esc(r.void):''}</span></span></div>`).join(''):'<div class="sm">Sin reportes todavía. El primer reporte la pasa a «En curso».</div>'}</div>${l!=null&&can&&!done?`<button class="link" style="font-size:12.5px;margin-top:6px" data-act="anular:${a.id}">Anular el último reporte</button>`:''}</div>`;}
+  const right=`<div><h4>Entregables <span class="sm">${done?'completos':'meta + soporte en cada uno para terminar'}</span></h4><div style="display:flex;flex-direction:column;gap:6px">${a.ents.map((en,i)=>`<div class="ent"><div class="r"><span class="strong">${en.n}</span>${entOk(en)?'<span class="tag t-ok">Completo</span>':'<span class="tag t-ink">Incompleto</span>'}</div><div class="bar" style="height:8px"><i style="width:${Math.min(en.cant/en.meta,1)*100}%;background:${entOk(en)?C.ok:C.r3}"></i></div><div class="r sm"><span>${en.cant} de ${en.meta} ${en.u} · ${en.med} soporte${en.med===1?'':'s'}</span>${!frozen()&&(mine||isGer())&&!entOk(en)?`<button class="link" style="font-size:12.5px" data-act="ent:${a.id}:${i}">Registrar entregable</button>`:''}</div></div>`).join('')}</div></div>`;
+  return `<div class="act open">${top}<div class="det">${left}${right}</div></div>`;}
+function tabActividades(){let h=`<div class="ph" style="align-items:center"><div class="seg2" role="group" aria-label="Vista">${[['lista','Lista'],['gantt','Cronograma'],['tablero','Tablero']].map(([k,t])=>`<button data-view="${k}" aria-pressed="${S.view===k}">${t}</button>`).join('')}</div><div class="sm muted" style="display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px"><span><span class="dot" style="background:${C.r5}"></span> real</span><span>▮ plan hoy</span><span>┆ tope ${TOPE} % sin entregables completos</span></div></div>`;
+  if(S.view==='lista'){[1,2].forEach(o=>{h+=`<div class="obj"><h4>${OBJS[o]}</h4>${ACTS.filter(a=>a.obj===o).map(actRow).join('')}</div>`;});
+    h+=`<section class="card"><h3>Indicadores <small>se miden aparte del avance</small></h3><div class="tbl"><table><thead><tr><th>Indicador</th><th class="num">Línea base</th><th class="num">Meta</th><th class="num">Última medición</th><th></th></tr></thead><tbody><tr><td class="strong">Líderes que lideran una iniciativa barrial</td><td class="num">0</td><td class="num">40</td><td class="num">18 · 30 oct</td><td>${!frozen()?'<button class="link" data-act="medicion">Registrar medición</button>':''}</td></tr><tr><td class="strong">Satisfacción de participantes</td><td class="num">—</td><td class="num">85 %</td><td class="num">91 % · 30 oct</td><td>${!frozen()?'<button class="link" data-act="medicion">Registrar medición</button>':''}</td></tr></tbody></table></div></section>`;}
+  if(S.view==='gantt'){h+=`<div class="card gantt"><div class="g"><div class="strong">Actividad</div>${Array.from({length:30},(_,i)=>`<div class="wk" style="${i+1===WEEK?'background:#F9DFE9;font-weight:700':''}">${i+1}</div>`).join('')}${ACTS.map(a=>{const e=estado(a);const c=e==='Atrasada'?C.bad:e==='Terminada'?C.ok:e==='En curso'?C.r3:C.i3;return `<div style="font-size:12.5px"><span class="mono muted">${a.id}</span>&nbsp;${a.n}</div>`+Array.from({length:30},(_,i)=>{const w=i+1;const inb=w>=a.w[0]&&w<=a.w[1];return `<div class="cell" style="${w===WEEK?'background:#FCF1F5':''}">${inb?`<span class="gb" style="background:${c};${w===a.w[0]?'border-top-left-radius:6px;border-bottom-left-radius:6px;':''}${w===a.w[1]?'border-top-right-radius:6px;border-bottom-right-radius:6px;':''}${w!==a.w[0]?'left:-1px;':''}"></span>`:''}</div>`;}).join('');}).join('')}</div><div class="sm muted" style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px"><span><span class="dot" style="background:${C.ok}"></span> Terminada</span><span><span class="dot" style="background:${C.r3}"></span> En curso</span><span><span class="dot" style="background:${C.bad}"></span> Atrasada</span><span><span class="dot" style="background:${C.i3}"></span> Sin iniciar</span><span>Columna resaltada: semana ${WEEK} (hoy)</span></div></div>`;}
+  if(S.view==='tablero'){h+='<div class="board">'+['Sin iniciar','En curso','Atrasada','Terminada'].map(k=>{const L=ACTS.filter(a=>estado(a)===k);return `<div class="col"><h4>${k}<span class="muted">${L.length}</span></h4>${L.map(a=>`<button class="tk" data-open="${a.id}"><span class="strong">${a.n}</span><span class="muted">${a.resp} · ${prog(a)} %</span></button>`).join('')||'<span class="sm muted">—</span>'}</div>`;}).join('')+'</div>';}
+  return h;}
+function tabFinanzas(){let h=`<div class="seg2" role="group" aria-label="Finanzas">${[['resumen','Resumen'],['gastos','Gastos'],['presupuesto','Presupuesto']].map(([k,t])=>`<button data-fin="${k}" aria-pressed="${S.fin===k}">${t}</button>`).join('')}</div>`;
+  if(S.fin==='resumen'){const T=RUBROS.reduce((s,r)=>[s[0]+r[2],s[1]+r[3],s[2]+r[4]],[0,0,0]);
+    h+=`<section class="card"><h3>Ficha financiera <small><label>Comparar con <select class="sel" id="cmpSel" style="height:30px"><option value="v0" ${S.cmp==='v0'?'selected':''}>Plan original (3 ago)</option><option value="v1" ${S.cmp==='v1'?'selected':''}>Versión vigente (15 sep)</option></select></label></small></h3><p class="sub">«Ejecutado» suma el Total de los gastos validados (Subtotal + IVA).</p><div class="tbl"><table><thead><tr><th>Rubro</th><th class="num">Asignado</th><th class="num">Programado a la fecha</th><th class="num">Ejecutado</th><th class="num">Ejecutado vs. programado</th></tr></thead><tbody>${RUBROS.map(([c,n,a,p,e])=>{const r=Math.round(e/p*100);return `<tr><td><span class="mono muted">${c}</span> <span class="strong">${n}</span></td><td class="num">${mill(a)}</td><td class="num">${mill(p)}</td><td class="num">${mill(e)}</td><td class="num ${r>100?'warn':''}">${r} % ${r>100?'· por encima':''}</td></tr>`;}).join('')}<tr class="tot"><td>Total</td><td class="num">${mill(T[0])}</td><td class="num">${mill(T[1])}</td><td class="num">${mill(T[2])}</td><td class="num">${Math.round(T[2]/T[1]*100)} %</td></tr></tbody></table></div></section>`;}
+  if(S.fin==='gastos'){const F={pendientes:g=>g.st==='REGISTRADO',validados:g=>g.st==='VALIDADO',rechazados:g=>g.st==='RECHAZADO',anulados:g=>g.st==='ANULADO',todos:()=>true};
+    const list=GASTOS.filter(F[S.gfilter]);
+    h+=`<div class="ph" style="align-items:center"><div class="seg2" role="group" aria-label="Estado">${[['pendientes','Por revisar'],['validados','Validados'],['rechazados','Rechazados'],['anulados','Anulados'],['todos','Todos']].map(([k,t])=>`<button data-gf="${k}" aria-pressed="${S.gfilter===k}">${t} (${GASTOS.filter(F[k]).length})</button>`).join('')}</div>${!frozen()?'<div class="acts"><button class="btn" data-act="import">Importar desde Excel</button><button class="btn pri" data-act="gasto">Registrar gasto</button></div>':''}</div>`;
+    h+=list.length?`<div class="tbl"><table><thead><tr><th>Gasto</th><th>Rubro</th><th class="num">Total</th><th>Periodo</th><th>Estado</th><th>Soportes</th><th></th></tr></thead><tbody>${list.map(g=>{const w=whyNoValidate(g);let act='';
+      if(g.st==='REGISTRADO'&&isGer()&&!frozen())act+=`<button class="btn sm pri" data-act="val:${g.id}" ${w?'disabled':''} title="${w}">Validar</button><button class="btn sm" data-act="rej:${g.id}" ${w?'disabled':''} title="${w}">Rechazar</button>`;
+      if(g.st==='REGISTRADO'&&!g.sop.length&&g.by===ME[S.role]&&!frozen())act+=`<button class="btn sm pri" data-do="adj:${g.id}">Adjuntar soporte</button>`;
+      if(g.st==='RECHAZADO'&&g.by===ME[S.role]&&!frozen())act+=`<button class="btn sm pri" data-do="fix:${g.id}">Corregir</button>`;
+      if(g.st!=='ANULADO'&&(g.by===ME[S.role]||isGer()))act+=`<button class="btn sm ghost" data-act="anul:${g.id}">Anular</button>`;
+      return `<tr><td><span class="strong">${g.d}</span><br><span class="muted" style="font-size:12px">${g.t} · ${g.doc} · ${g.by}${g.imp?' · importado':''}</span>${g.mot&&g.st!=='VALIDADO'?`<br><span class="${g.st==='RECHAZADO'?'bad':'muted'}" style="font-size:12px">${g.st==='RECHAZADO'?'Motivo':'Anulado'}: ${esc(g.mot)}</span>`:''}</td><td class="mono">${g.r}</td><td class="num">${cop(total(g))}<br><span class="muted" style="font-size:11.5px">IVA ${cop(g.iva)}</span></td><td>${g.per}${g.permod?'<br><span class="tag t-warn" style="height:18px;font-size:11px">Periodo modificado</span>':''}</td><td>${gTag(g)}${w&&g.st==='REGISTRADO'&&isGer()?`<br><span class="muted" style="font-size:11.5px">${w}</span>`:''}</td><td>${g.sop.length} ${g.sop.length===1?'archivo':'archivos'}</td><td><div class="acts">${act}</div></td></tr>`;}).join('')}</tbody></table></div>`:'<div class="empty">No hay gastos con este filtro.</div>';}
+  if(S.fin==='presupuesto'){h+=`<div class="banner info"><span>ℹ</span><span>En ejecución el presupuesto no se edita directamente. ${!frozen()?'Para moverlo, <button class="link" data-act="mod">solicita un cambio de presupuesto</button>; aplica cuando Gerencia lo apruebe.':''}</span></div><section class="card"><h3>Presupuesto y programación mensual <small>total asignado $ 420 M = valor total</small></h3><div class="tbl"><table><thead><tr><th>Rubro</th><th class="num">Asignado</th>${MONTHS.map(m=>`<th class="num">${m}</th>`).join('')}<th class="num">Falta por programar</th></tr></thead><tbody>${RUBROS.map(([c,n,a])=>{const per=Math.floor(a/7*10)/10;const arr=MONTHS.map((_,i)=>i<6?per:Math.round((a-per*6)*10)/10);return `<tr><td><span class="mono muted">${c}</span> ${n}</td><td class="num">${mill(a)}</td>${arr.map(v=>`<td class="num">${v.toLocaleString('es-CO')}</td>`).join('')}<td class="num good">$ 0</td></tr>`;}).join('')}</tbody></table></div></section>`;}
+  return h;}
+function tabDocumentos(){const L=DOCS.filter(d=>S.docf==='Todos'||d[0]===S.docf);
+  return `<div class="ph" style="align-items:center"><div class="seg2">${['Todos','Proyecto','Actividades','Gastos','Indicadores'].map(k=>`<button data-docf="${k}" aria-pressed="${S.docf===k}">${k}</button>`).join('')}</div>${!frozen()?'<button class="btn pri" data-act="doc">Subir documento</button>':''}</div><div class="tbl"><table><thead><tr><th>Documento</th><th>Origen</th><th>Fecha</th><th>Subido por</th><th></th></tr></thead><tbody>${L.map(d=>`<tr><td class="strong">${d[1]}</td><td><span class="tag t-ink">${d[0]}</span></td><td>${d[2]}</td><td>${d[3]}</td><td><button class="link" data-toast="Descarga directa con enlace firmado">Descargar</button></td></tr>`).join('')}</tbody></table></div><p class="muted" style="font-size:12.5px;margin:0">Acepta PDF, Word, Excel, imágenes o un enlace · máx. 10 MB por archivo. Los soportes de avances y gastos se administran desde su propia pantalla.</p>`;}
+function tabHistorial(){let h=`<div class="seg2">${[['mods','Modificaciones'],['vers','Versiones'],['aud','Auditoría']].map(([k,t])=>`<button data-hist="${k}" aria-pressed="${S.hist===k}">${t}</button>`).join('')}</div>`;
+  if(S.hist==='mods')h+=MODS.map(m=>`<section class="card"><h3>${m.id} · ${m.tipo} <small>${m.st==='PENDIENTE'?'<span class="tag t-warn">Pendiente</span>':m.st==='APROBADA'?'<span class="tag t-ok">Aprobada</span>':'<span class="tag t-bad">Rechazada</span>'}</small></h3><p style="margin:0" class="strong">${m.d}</p><p style="margin:0" class="muted">Justificación: ${m.j}</p><p style="margin:0;font-size:12.5px" class="muted">Pedida por ${m.by} el ${fdate(m.f)}${m.dec?` · decidida por ${m.dec}`:''}${m.com?` · «${esc(m.com)}»`:''}</p>${m.st==='PENDIENTE'?(isGer()&&!frozen()?`<div class="acts"><button class="btn sm pri" data-act="mok:${m.id}">Aprobar</button><button class="btn sm" data-act="mko:${m.id}">Rechazar…</button></div>`:`<p class="sm muted" style="margin:0">${frozen()?'El proyecto está congelado: no se decide hasta reactivarlo.':'Mientras esté pendiente, el cambio no se aplica. Decide Gerencia.'}</p>`):''}</section>`).join('');
+  if(S.hist==='vers')h+=`<section class="card"><h3>Versiones <small>la primera es el plan original</small></h3><div class="att"><div class="it"><span><b>Plan original</b> · aprobado el 3 ago por Mariana Ortiz</span><span class="tag t-ink">v0</span></div><div class="it"><span><b>Versión 1</b> · 15 sep · por la modificación M-02</span><button class="btn sm" data-act="diff">Comparar con el plan original</button></div></div><div id="diff"></div></section>`;
+  if(S.hist==='aud')h+=`<section class="card"><h3>Auditoría</h3><div class="att">${AUDIT.map(([f,u,t])=>`<div class="it"><span class="muted" style="flex:0 0 52px">${f}</span><span>${t}</span><span class="muted">${u}</span></div>`).join('')}</div></section>`;
+  return h;}
+function viewFicha(){let h=header()+tabs();h+='<div id="tabc" style="display:flex;flex-direction:column;gap:12px">'+({resumen:tabResumen,actividades:tabActividades,finanzas:tabFinanzas,documentos:tabDocumentos,historial:tabHistorial}[S.tab])()+'</div>';return h;}
+
+/* ───────── Asistente (borrador) ───────── */
+function draftSum(){return DRAFT.rub.reduce((s,r)=>s+r.a,0);}
+function missing(){const M=[];
+  if(!(DRAFT.valor>0)||!DRAFT.ini||!DRAFT.fin||DRAFT.fin<DRAFT.ini)M.push(['Valor total y fechas','El valor debe ser mayor que 0 y la fecha fin posterior al inicio.','Datos generales',1]);
+  if(!(DRAFT.benef>0))M.push(['Meta de beneficiarios','Escribe cuántas personas espera atender el proyecto (hoy está en 0).','Datos generales',1]);
+  const noEnt=[];DRAFT.objs.forEach(o=>o.acts.forEach(a=>{if(!a.ents.length)noEnt.push(a.n);}));
+  if(!DRAFT.objs.length||noEnt.length)M.push(['Objetivos, actividades y entregables',noEnt.length?`Cada actividad necesita al menos un entregable. Falta en: ${noEnt.join(', ')}.`:'Agrega al menos un objetivo.','Estructura',2]);
+  if(draftSum()!==DRAFT.valor)M.push(['Presupuesto = valor total',`El total asignado es ${mill(draftSum())} y el valor total es ${mill(DRAFT.valor)}: ${draftSum()<DRAFT.valor?'faltan':'sobran'} ${mill(Math.abs(DRAFT.valor-draftSum()))}.`,'Presupuesto',4]);
+  const bad=DRAFT.rub.filter(r=>r.p.reduce((s,v)=>s+v,0)!==r.a);if(bad.length)M.push(['Programación mensual cuadrada',bad.map(r=>`${r.n}: falta programar ${mill(r.a-r.p.reduce((s,v)=>s+v,0))}`).join(' · '),'Presupuesto',4]);
+  return M;}
+const REQS=['Valor total y fechas','Meta de beneficiarios','Objetivos, actividades y entregables','Presupuesto = valor total','Programación mensual cuadrada','Ningún rubro suspendido con dinero'];
+function stepOk(n){const M=missing();return !M.some(m=>m[3]===n);}
+function viewWizard(){const st=DRAFT.step;const M=missing();
+  let h=`<div class="crumbs"><button data-go="portafolio">Proyectos</button> › <span>PRY-2026-007 · borrador</span></div><div class="ph"><div><h1 style="font-size:26px">Huertas escolares en Puerto Sol</h1><p>Borrador · todo se puede editar hasta aprobar la línea base.</p></div><button class="btn ${M.length?'':'pri'}" data-wstep="5">${M.length?`Faltan ${M.length} de 6 requisitos para aprobar`:'Listo para aprobar ✓'}</button></div>`;
+  h+=`<nav class="wiz" aria-label="Pasos">${[[1,'Datos generales'],[2,'Estructura'],[3,'Ver cronograma'],[4,'Presupuesto'],[5,'Revisión y aprobación']].map(([n,t])=>`<button data-wstep="${n}" ${st===n?'aria-current="step"':''} class="${n===3?'':stepOk(n)&&n!==5?'okk':n!==5?'ko':''}"><em>${n===3?'3':(stepOk(n)&&n!==5?'✓':n===5?'5':'!')}</em>${t}</button>`).join('')}</nav>`;
+  if(st===1){const past=DRAFT.ini<TODAY;h+=`<section class="card"><h3>Datos generales</h3>${past?'<div class="banner warn"><span>⚠</span><span><b>La fecha de inicio ya pasó (15 oct).</b> Si apruebas así, el proyecto nace atrasado: el plan esperará avance desde esa fecha. Ajústala si el trabajo aún no empezó.</span></div>':''}<div class="form">
+    <div class="fld"><label>Origen</label><input class="in" value="${esc(DRAFT.origen)}" readonly></div>
+    <div class="fld"><label class="req">Nombre</label><input class="in" data-d="nombre" value="${esc(DRAFT.nombre)}"></div>
+    <div class="fld"><label class="req">Responsable</label><select class="in"><option>Camila Pérez</option><option>Julián Restrepo</option></select></div>
+    <div class="fld"><label class="req">Valor total (millones)</label><input class="in" type="number" data-d="valor" value="${DRAFT.valor}"></div>
+    <div class="fld"><label class="req">Fecha de inicio</label><input class="in" type="date" data-d="ini" value="${DRAFT.ini}"></div>
+    <div class="fld"><label class="req">Fecha de fin</label><input class="in" type="date" data-d="fin" value="${DRAFT.fin}"></div>
+    <div class="fld"><label class="req">Meta de beneficiarios</label><input class="in" type="number" data-d="benef" value="${DRAFT.benef}" aria-invalid="${!(DRAFT.benef>0)}"><span class="hint">Obligatoria para aprobar la línea base.</span>${!(DRAFT.benef>0)?'<span class="err">Escribe un número mayor que 0.</span>':''}</div>
+    <div class="fld"><label>Líneas estratégicas</label><input class="in" value="${DRAFT.lineas}"></div>
+    <div class="fld"><label>Departamento y municipio</label><input class="in" value="Atlántico · ${DRAFT.muni}"></div></div></section>`;}
+  if(st===2){h+=`<section class="card"><h3>Estructura <small>objetivos → actividades → entregables</small></h3><div class="acts"><button class="btn" data-act="importEst">Importar desde Excel</button><span class="muted" style="font-size:12.5px">o agrégala aquí. El peso de cada actividad es su duración en semanas; no se escribe.</span></div>${DRAFT.objs.map((o,oi)=>`<div class="obj"><h4>${o.n}</h4>${o.acts.map((a,ai)=>`<div class="act"><div class="top" style="cursor:default;grid-template-columns:minmax(0,1fr) auto"><div><span class="nm">${a.n}</span><div class="sm">Semanas ${a.w[0]}–${a.w[1]} · pesa ${a.w[1]-a.w[0]+1} semanas</div><div class="sm">${a.ents.length?'Entregables: '+a.ents.join(', '):'<span class="bad">Sin entregables: necesita al menos uno para aprobar.</span>'}</div></div><button class="btn sm ${a.ents.length?'':'pri'}" data-addent="${oi}:${ai}">+ Entregable</button></div></div>`).join('')}</div>`).join('')}<button class="link" data-toast="Se abre el formulario de objetivo">+ Agregar objetivo</button></section>`;}
+  if(st===3){h+=`<section class="card"><h3>Cronograma <small>se arma solo con la estructura</small></h3><div class="gantt"><div class="g" style="grid-template-columns:220px repeat(24,22px);min-width:760px"><div class="strong">Actividad</div>${Array.from({length:24},(_,i)=>`<div class="wk">${i+1}</div>`).join('')}${DRAFT.objs.flatMap(o=>o.acts).map(a=>`<div style="font-size:12.5px">${a.n}</div>`+Array.from({length:24},(_,i)=>{const w=i+1;return `<div class="cell">${w>=a.w[0]&&w<=a.w[1]?`<span class="gb" style="background:${C.r3};${w!==a.w[0]?'left:-1px;':''}"></span>`:''}</div>`;}).join('')).join('')}</div></div><p class="muted" style="margin:0;font-size:12.5px">Solo lectura. Para cambiar fechas, edita las semanas de cada actividad en Estructura.</p></section>`;}
+  if(st===4){const sum=draftSum();h+=`<section class="card"><h3>Presupuesto <small>total asignado ${mill(sum)} de ${mill(DRAFT.valor)}</small></h3>${sum!==DRAFT.valor?`<div class="banner warn"><span>⚠</span><span>${sum<DRAFT.valor?'Faltan':'Sobran'} <b>${mill(Math.abs(DRAFT.valor-sum))}</b> para igualar el valor total. Ajusta un rubro o <button class="link" data-act="usesum">usa la suma como valor total</button>.</span></div>`:'<div class="banner ok"><span>✓</span><span>El total asignado es igual al valor total.</span></div>'}
+    <div class="tbl prog"><table><thead><tr><th>Rubro</th><th class="num">Asignado (M)</th>${DRAFT.months.map(m=>`<th class="num">${m}</th>`).join('')}<th class="num">Falta por programar</th><th></th></tr></thead><tbody>${DRAFT.rub.map((r,ri)=>{const f=r.a-r.p.reduce((s,v)=>s+v,0);return `<tr><td class="strong">${r.c} · ${r.n}</td><td class="num"><input type="number" data-ra="${ri}" value="${r.a}" aria-label="Asignado ${r.n}"></td>${r.p.map((v,mi)=>`<td class="num"><input type="number" data-rp="${ri}:${mi}" value="${v}" aria-label="${r.n} ${DRAFT.months[mi]}"></td>`).join('')}<td class="num ${f?'miss':''}">${f?mill(f):'<span class="good">$ 0</span>'}</td><td>${f?`<button class="btn sm" data-split="${ri}">Repartir en partes iguales</button>`:''}</td></tr>`;}).join('')}<tr class="tot"><td>Total</td><td class="num">${sum}</td>${DRAFT.months.map((_,mi)=>`<td class="num">${DRAFT.rub.reduce((s,r)=>s+r.p[mi],0)}</td>`).join('')}<td></td><td></td></tr></tbody></table></div>
+    <div class="acts"><button class="link" data-toast="Se abre el catálogo de rubros R01 a R15">+ Agregar rubro</button><span style="flex:1"></span><button class="btn pri" data-act="savebud">Guardar presupuesto y programación</button></div></section>`;}
+  if(st===5){const ok=M.length===0;h+=`<section class="card"><h3>Para aprobar la línea base <small>${6-M.length} de 6 listos</small></h3><p class="sub">Es lo mismo que revisa el sistema al aprobar; aquí lo ves antes.</p><div class="check">${REQS.map(r=>{const m=M.find(x=>x[0]===r);return `<div class="it"><span class="ic" style="background:${m?C.warn:C.ok}">${m?'!':'✓'}</span><span><span class="strong">${r}</span>${m?`<br><span class="muted" style="font-size:12.5px">${m[1]}</span>`:''}</span>${m?`<button class="btn sm" data-wstep="${m[3]}">Corregir aquí</button>`:''}</div>`;}).join('')}</div>${DRAFT.ini<TODAY?'<div class="banner warn"><span>⚠</span><span>La fecha de inicio ya pasó: el proyecto nacerá atrasado. No bloquea la aprobación.</span></div>':''}
+    <div class="banner info"><span>ℹ</span><span>Al aprobar, la estructura y el presupuesto quedan como el <b>plan original</b> y el proyecto pasa a <b>En ejecución</b>. No se puede deshacer: los cambios después se piden como modificación.</span></div>
+    <div class="acts"><button class="btn" data-toast="Borrador guardado">Guardar borrador</button><span style="flex:1"></span>${isGer()?`<button class="btn pri" data-act="approve" ${ok?'':'disabled'} title="${ok?'':'Faltan requisitos'}">Aprobar línea base</button>`:`<span class="muted" style="font-size:12.5px">Solo Administración o Gerencia aprueban.</span><button class="btn pri" data-act="notify" ${ok?'':'disabled'}>Avisar a Gerencia <span class="prop" style="margin:0">propuesta</span></button>`}</div></section>`;}
+  if(st<5)h+=`<div class="acts"><button class="btn" data-wstep="${Math.max(1,st-1)}" ${st===1?'disabled':''}>← Anterior</button><span style="flex:1"></span><button class="btn pri" data-wstep="${st+1}">Siguiente →</button></div>`;
+  return h;}
+
+/* ───────── Render ───────── */
+function render(){const m=$('#main');
+  m.innerHTML=S.screen==='portafolio'?viewPortafolio():S.screen==='ficha'?viewFicha():viewWizard();
+  document.querySelectorAll('#roleSeg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.role===S.role));
+  document.querySelectorAll('#stSeg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.st===S.pst));
+  document.querySelectorAll('#u22Seg button').forEach(b=>b.setAttribute('aria-pressed',(b.dataset.u22==='1')===S.u22));}
+function go(t){const p=t.split(':');S.menu=false;
+  if(p[0]==='portafolio'){S.screen='portafolio';}
+  else if(p[0]==='ficha'){S.screen='ficha';if(p[1])S.tab=p[1];if(p[2]){if(S.tab==='finanzas'){S.fin=p[2];if(p[2]==='gastos')S.gfilter='pendientes';}if(S.tab==='historial')S.hist=p[2];}}
+  else if(p[0]==='wizard'){if(DRAFT.approved){toast('PRY-2026-007 ya está en ejecución');return;}S.screen='wizard';DRAFT.step=+p[1]||1;}
+  else if(p[0]==='none'){toast('En el prototipo solo se abren PRY-2026-002 y el borrador PRY-2026-007');return;}
+  render();window.scrollTo({top:0,behavior:'smooth'});}
+
+/* ───────── Modales ───────── */
+const M={dirty:false,busy:false,onClose:null};
+function openModal(html){M.dirty=false;M.busy=false;$('#modal').innerHTML=html;$('#scrim').classList.add('on');S.menu=false;const f=$('#modal').querySelector('input:not([readonly]),select,textarea,button:not(.x)');if(f)f.focus();}
+function tryClose(){if(M.busy)return;if(M.dirty){const ft=$('#modal footer');if(ft&&!ft.querySelector('.confirm')){ft.insertAdjacentHTML('afterbegin','<span class="lft confirm"><b>¿Descartar los cambios?</b> <button class="link" data-x="discard">Descartar</button> · <button class="link" data-x="keep">Seguir editando</button></span>');}return;}closeModal();}
+function closeModal(){$('#scrim').classList.remove('on');M.dirty=false;}
+function busy(btn,ms,fn){M.busy=true;const old=btn.innerHTML;btn.disabled=true;btn.innerHTML='<span class="spin"></span> Guardando…';$('#modal').querySelectorAll('[data-close],.x').forEach(b=>b.disabled=true);setTimeout(()=>{M.busy=false;M.dirty=false;closeModal();fn();btn.innerHTML=old;},ms);}
+function mHead(t,s){return `<header><div><h2 id="mT">${t}</h2>${s?`<p>${s}</p>`:''}</div><button class="x" data-close aria-label="Cerrar">✕</button></header>`;}
+function toast(t){const el=$('#toast');el.textContent=t;el.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('on'),2800);}
+
+function pickActivity(){const L=ACTS;
+  openModal(mHead('Registrar avance','Elige la actividad. Solo su responsable reporta (Gerencia también puede).')+`<div class="bd"><div class="pick">${L.map(a=>{const done=allEnt(a);const why=done?'Terminada':!canReport(a)?`Solo ${a.resp}`:'';return `<button data-act="avance:${a.id}" ${why?'disabled':''}><span><span class="mono muted">${a.id}</span> <b>${a.n}</b><br><span class="muted" style="font-size:12.5px">${estado(a)} · ${prog(a)} % · ${a.resp}</span></span>${why?`<span class="tag t-ink">${why}</span>`:'<span class="tag t-rose">Reportar →</span>'}</button>`;}).join('')}</div></div><footer><button class="btn" data-close>Cancelar</button></footer>`);}
+function avanceModal(id){const a=ACTS.find(x=>x.id===id);const l=last(a);const comp=allEnt(a);
+  if(S.u22){openModal(mHead('Registrar avance · '+a.n,'Con hitos el porcentaje se calcula; no se escribe.')+`<div class="bd"><div class="banner info"><span>ℹ</span><span><b>Propuesta U22.</b> Marca los hitos cumplidos. Avance = hitos cumplidos ÷ total, con tope de ${TOPE} % mientras falten entregables. Desmarcar uno pide justificación.</span></div><div>${a.hitos.map((h,i)=>`<label class="hito"><input type="checkbox" ${h[1]?'checked disabled':''} data-mh="${i}"> ${h[0]}${h[1]?' <span class="muted">· ya cumplido</span>':''}</label>`).join('')}</div><div class="fld"><label>Observación (opcional)</label><textarea class="in" id="obs"></textarea></div><p class="strong" id="calc"></p></div><footer><button class="btn" data-close>Cancelar</button><button class="btn pri" id="saveHito">Guardar</button></footer>`);
+    const upd=()=>{const marked=[...$('#modal').querySelectorAll('[data-mh]')].filter(x=>x.checked).length;const p=Math.round(marked/a.hitos.length*100);$('#calc').textContent=`Quedará en ${comp?100:Math.min(p,TOPE)} %${!comp&&p>TOPE?` (tope ${TOPE} % hasta completar entregables)`:''}.`;};upd();
+    $('#modal').addEventListener('change',e=>{if(e.target.dataset.mh!=null){M.dirty=true;upd();}});
+    $('#saveHito').onclick=e=>{const boxes=[...document.querySelectorAll('[data-mh]')];busy(e.target,600,()=>{boxes.forEach((bx,i)=>{if(bx.checked)a.hitos[i][1]=1;});S.screen='ficha';S.tab='actividades';S.open[a.id]=true;render();toast('Hitos guardados');});};
+    return;}
+  openModal(mHead('Registrar avance · '+a.n,`Actividad ${a.id} · semanas ${a.w[0]}–${a.w[1]} · responsable ${a.resp}`)+`<div class="bd">
+   <div class="banner info"><span>ℹ</span><span>Último reporte: <b>${l==null?'ninguno':l+' %'}</b>. Máximo hoy: <b>${comp?100:TOPE} %</b>${comp?'':' (faltan entregables por completar)'}. ${l==null?'Este primer reporte pasa la actividad a «En curso».':''}</span></div>
+   <div class="form"><div class="fld"><label class="req">Fecha</label><input class="in" type="date" id="f" value="${TODAY}" max="${TODAY}"><span class="err" id="ef"></span></div>
+   <div class="fld"><label class="req">Avance de la actividad (%)</label><input class="in" type="number" id="p" min="1" max="100" placeholder="${l==null?'Ej. 30':'Más de '+l}"><span class="err" id="ep"></span></div></div>
+   <div class="fld"><label class="req">Observación</label><textarea class="in" id="o" placeholder="Qué se ejecutó y qué falta"></textarea><span class="err" id="eo"></span></div>
+   <div class="fld"><label>Medios de verificación (opcional)</label><div class="files" id="fl"></div><div class="acts"><button class="btn sm" data-addfile="acta-taller.pdf">Adjuntar archivo</button><button class="btn sm" data-addlink="1">Agregar enlace</button></div><span class="hint">Puedes adjuntar varios archivos o enlaces. Los soportes de entregables se registran en «Registrar entregable».</span></div>
+   </div><footer><button class="btn" data-close>Cancelar</button><button class="btn pri" id="saveAv">Guardar avance</button></footer>`);
+  $('#saveAv').onclick=e=>{const p=parseFloat($('#p').value),o=$('#o').value.trim(),f=$('#f').value;let ok=true;
+    const set=(k,msg)=>{$('#e'+k).textContent=msg||'';$('#'+k).setAttribute('aria-invalid',!!msg);if(msg)ok=false;};
+    set('f',f>TODAY?'La fecha no puede ser futura.':'');
+    set('p',isNaN(p)?'Escribe el porcentaje de avance.':(p<=0||p>100)?'Debe estar entre 1 y 100.':(l!=null&&p<=l)?`El avance debe ser mayor que el último reportado (${l} %)`:(!comp&&p>TOPE)?`El avance máximo sin entregables completos es ${TOPE} %`:'');
+    set('o',o?'':'Escribe qué se ejecutó y qué falta.');
+    if(!ok)return;
+    busy(e.target,650,()=>{a.reps.push({f,p,o,u:ME[S.role]});S.screen='ficha';S.tab='actividades';S.view='lista';S.open[a.id]=true;render();toast(`Avance de ${p} % registrado en «${a.n}»`);});};}
+function anularModal(id){const a=ACTS.find(x=>x.id===id);const lv=live(a);const r=lv[lv.length-1];
+  openModal(mHead('Anular el último reporte',`«${a.n}» · ${r.p} % del ${fdate(r.f)}`)+`<div class="bd"><p style="margin:0">Solo se anula el reporte más reciente. Queda en el historial tachado y en la auditoría; luego registras el valor correcto.</p><div class="fld"><label class="req">Motivo</label><textarea class="in" id="mo" placeholder="Ej. Error de digitación: era 65 %"></textarea><span class="err" id="emo"></span></div></div><footer><button class="btn" data-close>Cancelar</button><button class="btn danger" id="doAn">Anular reporte</button></footer>`);
+  $('#doAn').onclick=e=>{const m=$('#mo').value.trim();if(!m){$('#emo').textContent='El motivo es obligatorio.';return;}busy(e.target,500,()=>{r.void=m;render();toast('Reporte anulado');});};}
+function entModal(id,i){const a=ACTS.find(x=>x.id===id);const en=a.ents[i];
+  openModal(mHead('Registrar entregable · '+en.n,`${en.cant} de ${en.meta} ${en.u} · cada avance de entregable necesita su soporte`)+`<div class="bd"><div class="form"><div class="fld"><label class="req">Fecha</label><input class="in" type="date" value="${TODAY}" max="${TODAY}"></div><div class="fld"><label class="req">Cantidad lograda en este registro</label><input class="in" type="number" id="q" min="1"><span class="hint">Faltan ${en.meta-en.cant} para la meta.</span><span class="err" id="eq"></span></div></div><div class="fld" id="exc" style="display:none"><label class="req">Justificación del exceso</label><textarea class="in" id="jx"></textarea></div><div class="fld"><label class="req">Medio de verificación</label><div class="files" id="fl"></div><div class="acts"><button class="btn sm" data-addfile="acta-${en.u}.pdf">Adjuntar archivo</button><button class="btn sm" data-addlink="1">Agregar enlace</button></div><span class="err" id="efl"></span></div></div><footer><button class="btn" data-close>Cancelar</button><button class="btn pri" id="saveEnt">Guardar</button></footer>`);
+  $('#q').oninput=()=>{M.dirty=true;$('#exc').style.display=(+$('#q').value+en.cant>en.meta)?'flex':'none';};
+  $('#saveEnt').onclick=e=>{const q=+$('#q').value;const files=$('#fl').children.length;let ok=true;$('#eq').textContent=q>0?'':'Escribe la cantidad.';if(!(q>0))ok=false;$('#efl').textContent=files?'':'Adjunta al menos un soporte.';if(!files)ok=false;if(!ok)return;
+    busy(e.target,600,()=>{en.cant=Math.min(en.cant+q,en.meta+q);en.med+=files;S.screen='ficha';S.tab='actividades';S.open[a.id]=true;render();toast(allEnt(a)?`«${a.n}» quedó Terminada: todos los entregables están completos`:'Entregable registrado');});};}
+function gastoModal(pre){const g=pre||{};
+  openModal(mHead(pre?'Corregir gasto '+g.id:'Registrar gasto','PRY-2026-002 · los campos con * son obligatorios')+`<div class="bd">
+   ${pre&&pre.mot?`<div class="banner bad"><span>✕</span><span>Rechazado: «${esc(pre.mot)}»</span></div>`:''}
+   <fieldset class="grpf"><legend>Documento</legend><div class="fld"><label class="req">Tipo de soporte</label><select class="in" id="gt"><option>Factura de proveedor</option><option>Cuenta de cobro de persona natural</option><option>Otro</option></select></div><div class="fld"><label class="req">Número de documento</label><input class="in" id="gd" value="${esc(g.doc||'')}"><span class="err" id="egd"></span></div><div class="fld"><label class="req">Fecha del documento</label><input class="in" type="date" id="gf" value="${g.f||''}" max="${TODAY}"><span class="err" id="egf"></span></div><div class="fld"><label class="req">Periodo</label><select class="in" id="gp"><option value="">—</option>${['ago 2026','sep 2026','oct 2026','nov 2026'].map(m=>`<option ${g.per===m?'selected':''}>${m}</option>`).join('')}</select><span class="hint" id="gph">Se llena con el mes de la fecha.</span></div></fieldset>
+   <fieldset class="grpf"><legend>Tercero</legend><div class="fld"><label class="req">Nombre o razón social</label><input class="in" id="gn" value="${esc(g.t||'')}"><span class="err" id="egn"></span></div><div class="fld"><label class="req">Identificación</label><input class="in" placeholder="NIT 900…" value="${pre?'NIT 900.123.456-7':''}"></div><div class="fld" style="grid-column:1/-1"><label class="req">Descripción</label><input class="in" id="gde" value="${esc(g.d||'')}"><span class="err" id="egde"></span></div></fieldset>
+   <fieldset class="grpf"><legend>Valores</legend><div class="fld"><label class="req">Rubro</label><select class="in" id="gr">${RUBROS.map(r=>`<option value="${r[0]}" ${g.r===r[0]?'selected':''}>${r[0]} · ${r[1]}</option>`).join('')}</select></div><div class="fld"><label class="req">Subtotal</label><input class="in" type="number" id="gs" value="${g.sub||''}"><span class="err" id="egs"></span></div><div class="fld"><label class="req">IVA</label><input class="in" type="number" id="gi" value="${pre?g.iva:''}" placeholder="Puede ser 0"><span class="err" id="egi"></span></div><div class="fld"><label>Total</label><input class="in" id="gto" readonly value="${pre?cop(total(g)):'$ 0'}"><span class="hint">Subtotal + IVA. Es lo que consume el presupuesto.</span></div></fieldset>
+   <fieldset class="grpf"><legend>Soporte</legend><div class="files" id="fl">${(g.sop||[]).map(s=>`<div class="file"><span>📄 ${esc(s)}</span><button class="link" data-rmfile>Quitar</button></div>`).join('')}</div><div class="acts" style="grid-column:1/-1"><button class="btn sm" data-addfile="factura.pdf">Adjuntar archivo</button><button class="btn sm" data-addlink="1">Agregar enlace</button><span class="hint">Hasta 5 · PDF, imagen o enlace.</span></div><span class="err" id="efl" style="grid-column:1/-1"></span></fieldset>
+   </div><footer><span class="lft">Sin soporte el gasto no se registra.</span><button class="btn" data-close>Cancelar</button><button class="btn pri" id="saveG">${pre?'Guardar y enviar a validación':'Registrar gasto'}</button></footer>`);
+  const recalc=()=>{const s=+$('#gs').value||0,i=$('#gi').value===''?0:+$('#gi').value;$('#gto').value=cop(s+i);};
+  $('#gs').oninput=recalc;$('#gi').oninput=recalc;
+  let auto=true;
+  $('#gf').onchange=()=>{const v=$('#gf').value;if(!v)return;const d=new Date(v+'T00:00:00');const m=d.toLocaleDateString('es-CO',{month:'short'}).replace('.','')+' '+d.getFullYear();const has=[...$('#gp').options].some(o=>o.value===m||o.text===m);$('#gp').value=has?m:'';$('#gph').textContent=has?'Se llenó con el mes de la fecha.':'Ese mes no es del proyecto: elige un periodo.';auto=true;};
+  $('#gp').onchange=()=>{auto=false;$('#gph').innerHTML='<span class="tag t-warn" style="height:18px">Periodo modificado</span> queda en la auditoría.';};
+  $('#saveG').onclick=e=>{let ok=true;const req=[['gd','Escribe el número de documento.'],['gf','Elige la fecha del documento.'],['gn','Escribe el tercero.'],['gde','Escribe una descripción.'],['gs','Escribe el subtotal.']];
+    req.forEach(([k,m])=>{const v=$('#'+k).value.trim();$('#e'+k).textContent=v?'':m;$('#'+k).setAttribute('aria-invalid',!v);if(!v)ok=false;});
+    if($('#gi').value===''){$('#egi').textContent='Escribe el IVA (puede ser 0).';$('#gi').setAttribute('aria-invalid','true');ok=false;}else{$('#egi').textContent='';$('#gi').setAttribute('aria-invalid','false');}
+    if(!$('#fl').children.length){$('#efl').textContent='Adjunta al menos un soporte: sin soporte el gasto no se registra.';ok=false;}else $('#efl').textContent='';
+    if(!ok){const f=$('#modal [aria-invalid="true"]');if(f)f.focus();return;}
+    busy(e.target,700,()=>{if(pre){pre.st='REGISTRADO';pre.mot=null;pre.sop=[...$$fl()];}else{GASTOS.unshift({id:'G-1'+(30+GASTOS.length),d:$('#gde').value,t:$('#gn').value,doc:$('#gd').value,tipo:$('#gt').value,r:$('#gr').value,sub:+$('#gs').value,iva:+$('#gi').value,f:$('#gf').value,per:$('#gp').value||'nov 2026',permod:!auto,by:ME[S.role],st:'REGISTRADO',sop:[...$$fl()]});}
+      S.screen='ficha';S.tab='finanzas';S.fin='gastos';S.gfilter='pendientes';render();toast(pre?'Gasto corregido: vuelve a validación':'Gasto registrado: queda por validar');});};}
+let lastFiles=[];function $$fl(){return lastFiles;}
+function adjModal(id){const g=GASTOS.find(x=>x.id===id);openModal(mHead('Adjuntar soporte · '+g.d,`${g.id} · ${cop(total(g))} · importado sin soporte`)+`<div class="bd"><div class="files" id="fl"></div><div class="acts"><button class="btn sm" data-addfile="cuenta-cobro-${g.doc}.pdf">Adjuntar archivo</button><button class="btn sm" data-addlink="1">Agregar enlace</button></div><span class="err" id="efl"></span><p class="muted" style="margin:0;font-size:12.5px">Con el soporte, el gasto queda listo para que Gerencia lo valide.</p></div><footer><button class="btn" data-close>Cancelar</button><button class="btn pri" id="saveAdj">Guardar soporte</button></footer>`);
+  $('#saveAdj').onclick=e=>{if(!$('#fl').children.length){$('#efl').textContent='Adjunta al menos un archivo o enlace.';return;}busy(e.target,500,()=>{g.sop=[...$$fl()];g.imp=false;render();toast('Soporte adjuntado: listo para validar');});};}
+function rejModal(id){const g=GASTOS.find(x=>x.id===id);openModal(mHead('Rechazar gasto '+g.id,`${g.d} · ${cop(total(g))} · registrado por ${g.by}`)+`<div class="bd"><div class="fld"><label class="req">Motivo del rechazo</label><textarea class="in" id="rm" placeholder="Qué debe corregir quien lo registró"></textarea><span class="err" id="erm"></span></div><p class="muted" style="margin:0;font-size:12.5px">${g.by} recibe el aviso «Gasto rechazado» con este motivo.</p></div><footer><button class="btn" data-close>Cancelar</button><button class="btn danger" id="doRej">Rechazar gasto</button></footer>`);
+  $('#doRej').onclick=e=>{const m=$('#rm').value.trim();if(!m){$('#erm').textContent='El motivo es obligatorio.';return;}busy(e.target,500,()=>{g.st='RECHAZADO';g.mot=m;render();toast('Gasto rechazado y avisado');});};}
+function anulModal(id){const g=GASTOS.find(x=>x.id===id);openModal(mHead('Anular gasto '+g.id,`${g.d} · ${cop(total(g))}`)+`<div class="bd"><p style="margin:0">Anular es una corrección auditada: el gasto deja de contar y queda en el historial. Se permite en cualquier estado del proyecto.</p><div class="fld"><label class="req">Motivo</label><textarea class="in" id="am"></textarea><span class="err" id="eam"></span></div></div><footer><button class="btn" data-close>Cancelar</button><button class="btn danger" id="doAnul">Anular gasto</button></footer>`);
+  $('#doAnul').onclick=e=>{const m=$('#am').value.trim();if(!m){$('#eam').textContent='El motivo es obligatorio.';return;}busy(e.target,500,()=>{g.st='ANULADO';g.mot=m;render();toast('Gasto anulado');});};}
+function modModal(){openModal(mHead('Solicitar cambio','Después de la línea base, la estructura y el presupuesto cambian con una modificación que aprueba Gerencia.')+`<div class="bd"><div class="fld"><label class="req">¿Qué quieres cambiar?</label><select class="in" id="mt"><option value="pres">Mover dinero entre rubros</option><option value="meta">Cambiar la meta de un entregable</option><option value="fechas">Mover las semanas de una actividad</option><option value="act">Agregar o quitar una actividad o entregable</option><option value="datos">Datos generales (valor, fechas, responsable)</option></select><span class="hint" id="mth">Pasa dinero de un rubro a otro; el total del proyecto no cambia.</span></div><div class="form"><div class="fld"><label class="req">Desde</label><select class="in">${RUBROS.map(r=>`<option>${r[0]} · ${r[1]}</option>`).join('')}</select></div><div class="fld"><label class="req">Hacia</label><select class="in">${RUBROS.map(r=>`<option>${r[0]} · ${r[1]}</option>`).join('')}</select></div><div class="fld"><label class="req">Monto (millones)</label><input class="in" type="number" id="mm"></div></div><div class="fld"><label class="req">Justificación</label><textarea class="in" id="mj"></textarea><span class="err" id="emj"></span></div><p class="muted" style="margin:0;font-size:12.5px">Mientras esté pendiente, el cambio no se aplica.</p></div><footer><button class="btn" data-close>Cancelar</button><button class="btn pri" id="doMod">Enviar solicitud</button></footer>`);
+  const H={pres:'Pasa dinero de un rubro a otro; el total del proyecto no cambia.',meta:'Por ejemplo, 48 en vez de 50 personas cuando la meta no se puede cumplir.',fechas:'Cambia el cronograma de una actividad; el peso se recalcula con las semanas.',act:'Agrega o quita trabajo de la estructura.',datos:'El valor total, las fechas o el responsable.'};
+  $('#mt').onchange=()=>{$('#mth').textContent=H[$('#mt').value];};
+  $('#doMod').onclick=e=>{if(!$('#mj').value.trim()){$('#emj').textContent='La justificación es obligatoria.';return;}busy(e.target,600,()=>{MODS.unshift({id:'M-0'+(MODS.length+2),f:TODAY,by:ME[S.role],tipo:$('#mt').selectedOptions[0].text,d:'Solicitud nueva ('+$('#mt').selectedOptions[0].text.toLowerCase()+').',j:$('#mj').value,st:'PENDIENTE'});S.screen='ficha';S.tab='historial';S.hist='mods';render();toast('Solicitud enviada a Gerencia');});};}
+function estadoModal(){const T={EJECUCION:[['SUSPENDIDO','Suspender proyecto','Queda congelado hasta reactivarlo.','btn pri'],['CERRADO','Cerrar proyecto','Queda en solo lectura; se puede reabrir.','btn pri'],['CANCELADO','Cancelar proyecto','Definitivo: no se puede deshacer.','btn danger']],SUSPENDIDO:[['EJECUCION','Reactivar proyecto','Vuelve a En ejecución.','btn pri'],['CANCELADO','Cancelar proyecto','Definitivo: no se puede deshacer.','btn danger']],CERRADO:[['EJECUCION','Reabrir proyecto','Vuelve a En ejecución para corregir o completar.','btn pri']]}[S.pst]||[];
+  openModal(mHead('Cambiar estado','PRY-2026-002 · '+{EJECUCION:'En ejecución',SUSPENDIDO:'Suspendido',CERRADO:'Cerrado'}[S.pst])+`<div class="bd"><div class="pick">${T.map(([k,t,d],i)=>`<button data-pickst="${k}" aria-pressed="${i===0}"><span><b>${t}</b><br><span class="muted" style="font-size:12.5px">${d}</span></span><input type="radio" name="ns" ${i===0?'checked':''} tabindex="-1"></button>`).join('')}</div><div class="fld"><label class="req">Motivo (obligatorio)</label><textarea class="in" id="sm"></textarea><span class="err" id="esm"></span></div><p class="muted" style="margin:0;font-size:12.5px">Queda en Historial › Auditoría con tu nombre.</p></div><footer><button class="btn" data-close>Volver</button><button class="${T[0][3]}" id="doSt" data-target="${T[0][0]}">${T[0][1]}</button></footer>`);
+  $('#modal').querySelectorAll('[data-pickst]').forEach(b=>b.onclick=()=>{const t=T.find(x=>x[0]===b.dataset.pickst);$('#modal').querySelectorAll('[data-pickst] input').forEach(i=>i.checked=false);b.querySelector('input').checked=true;const d=$('#doSt');d.dataset.target=t[0];d.textContent=t[1];d.className=t[3];});
+  $('#doSt').onclick=e=>{if(!$('#sm').value.trim()){$('#esm').textContent='Escribe el motivo.';return;}const tgt=e.target.dataset.target;busy(e.target,600,()=>{if(tgt==='CANCELADO'){toast('En el prototipo no se cancela PRY-2026-002 para no perder la demo');return;}S.pst=tgt;AUDIT.unshift(['4 nov',ME.ger,'Cambió el estado a '+tgt.toLowerCase()+' · «'+$('#sm')?.value+'»']);render();toast('Estado actualizado');});};}
+function importModal(est){openModal(mHead(est?'Importar estructura desde Excel':'Importar gastos desde Excel',est?'Un solo botón: eliges el formato y te decimos qué reemplaza.':'Una fila por gasto. Primero se valida sin guardar nada.')+`<div class="bd">${est?`<div class="pick"><button aria-pressed="true"><span><b>Plantilla Muttu Hub</b><br><span class="muted" style="font-size:12.5px">Objetivos, actividades, entregables y presupuesto. Reemplaza la estructura y el presupuesto del borrador.</span></span><input type="radio" name="fmt" checked tabindex="-1"></button><button><span><b>Formato de la PO</b> (proyecto.xlsx)<br><span class="muted" style="font-size:12.5px">Solo estructura. Conserva el presupuesto que ya cargaste.</span></span><input type="radio" name="fmt" tabindex="-1"></button></div>`:'<div class="banner info"><span>ℹ</span><span>Columnas obligatorias: Subtotal e IVA (el IVA puede ser 0). «Enlace del soporte» admite varios enlaces separados por punto y coma. Sin enlace, el gasto queda «Sin soporte».</span></div>'}<div class="acts"><button class="btn sm" data-toast="Plantilla descargada">Descargar plantilla</button><button class="btn sm" data-addfile="${est?'estructura.xlsx':'gastos-noviembre.xlsx'}">Elegir archivo</button></div><div class="files" id="fl"></div><div id="vres"></div></div><footer><button class="btn" data-close>Cancelar</button><button class="btn" id="doVal">Validar</button><button class="btn pri" id="doImp" disabled>Importar filas válidas</button></footer>`);
+  $('#doVal').onclick=()=>{if(!$('#fl').children.length){toast('Elige un archivo primero');return;}$('#vres').innerHTML=est?'<div class="banner ok"><span>✓</span><span>2 objetivos, 3 actividades y 4 entregables válidos. Ninguna fila con error.</span></div>':'<div class="tbl"><table><thead><tr><th>Fila</th><th>Resultado</th></tr></thead><tbody><tr><td>2</td><td class="good">Válida · 2 soportes</td></tr><tr><td>3</td><td class="good">Válida · sin soporte</td></tr><tr><td>4</td><td class="bad">Columna «Total»: debe ser igual a Subtotal + IVA</td></tr></tbody></table></div>';$('#doImp').disabled=false;};
+  $('#doImp').onclick=e=>busy(e.target,600,()=>{if(est){DRAFT.objs.forEach(o=>o.acts.forEach(a=>{if(!a.ents.length)a.ents.push('Huertas instaladas');}));render();toast('Estructura importada');}else toast('2 gastos importados como «Por validar»; 1 fila rechazada');});}
+function approveModal(){openModal(mHead('Aprobar línea base','PRY-2026-007 · Huertas escolares en Puerto Sol')+`<div class="bd"><div class="banner warn"><span>⚠</span><span>La estructura y el presupuesto quedan como <b>plan original</b> y el proyecto pasa a <b>En ejecución</b>. No se puede deshacer.</span></div><label class="hito"><input type="checkbox" id="ack"> Entiendo que los cambios posteriores se piden como modificación.</label></div><footer><button class="btn" data-close>Volver</button><button class="btn pri" id="doAp" disabled>Aprobar línea base</button></footer>`);
+  $('#ack').onchange=()=>{$('#doAp').disabled=!$('#ack').checked;};
+  $('#doAp').onclick=e=>busy(e.target,700,()=>{DRAFT.approved=true;S.screen='portafolio';S.pfilter='todos';render();toast('Línea base aprobada: PRY-2026-007 está en ejecución');});}
+
+/* ───────── Eventos ───────── */
+function addFile(name,link){const fl=$('#fl');if(!fl)return;if(fl.children.length>=5){toast('Máximo 5 soportes');return;}
+  const nm=link?('Enlace '+(fl.children.length+1)+' · https://drive.example/…'):name.replace(/(\.\w+)$/,(fl.children.length?'-'+(fl.children.length+1):'')+'$1');
+  fl.insertAdjacentHTML('beforeend',`<div class="file"><span>${link?'🔗':'📄'} ${esc(nm)}</span><button class="link" data-rmfile>Quitar</button></div>`);lastFiles=[...fl.children].map(c=>c.textContent.replace('Quitar','').trim().slice(2));M.dirty=true;}
+document.addEventListener('click',e=>{const t=e.target.closest('button,a,[data-toggle]');if(!t)return;
+  if(t.tagName==='A'&&t.getAttribute('href')==='#'){e.preventDefault();if(t.id==='navProj')go('portafolio');return;}
+  const d=t.dataset;
+  if(d.role){S.role=d.role;S.menu=false;render();return;}
+  if(d.st){S.pst=d.st;render();return;}
+  if(d.u22!=null){S.u22=d.u22==='1';render();return;}
+  if(t.id==='notesBtn'){$('#drawer').classList.add('on');return;}
+  if(t.id==='closeNotes'){$('#drawer').classList.remove('on');return;}
+  if(t.hasAttribute('data-close')||t.classList.contains('x')){tryClose();return;}
+  if(d.x==='discard'){M.dirty=false;closeModal();return;}
+  if(d.x==='keep'){t.closest('.confirm').remove();return;}
+  if(d.addfile){addFile(d.addfile);return;}
+  if(d.addlink){addFile('',true);return;}
+  if(t.hasAttribute('data-rmfile')){t.parentElement.remove();lastFiles=$('#fl')?[...$('#fl').children].map(c=>c.textContent.replace('Quitar','').trim().slice(2)):[];return;}
+  if(d.toast){toast(d.toast);return;}
+  if(d.go){go(d.go);return;}
+  if(d.do){const [k,v]=[d.do.slice(0,d.do.indexOf(':')),d.do.slice(d.do.indexOf(':')+1)];
+    if(k==='go'){go(v);return;}if(k==='avance'){avanceModal(v);return;}if(k==='adj'){adjModal(v);return;}if(k==='fix'){gastoModal(GASTOS.find(g=>g.id===v));lastFiles=GASTOS.find(g=>g.id===v).sop.slice();return;}if(k==='filter'){S.screen='portafolio';S.pfilter=v;render();return;}return;}
+  if(d.toggle){S.open[d.toggle]=!S.open[d.toggle];render();return;}
+  if(d.open){S.view='lista';S.open[d.open]=true;render();return;}
+  if(d.tab){S.tab=d.tab;S.menu=false;render();return;}
+  if(d.fin){S.fin=d.fin;render();return;}
+  if(d.gf){S.gfilter=d.gf;render();return;}
+  if(d.hist){S.hist=d.hist;render();return;}
+  if(d.docf){S.docf=d.docf;render();return;}
+  if(d.view){S.view=d.view;render();return;}
+  if(d.pf){S.pfilter=d.pf;render();return;}
+  if(d.wstep){DRAFT.step=+d.wstep;render();window.scrollTo({top:0});return;}
+  if(d.addent){const [o,a]=d.addent.split(':').map(Number);DRAFT.objs[o].acts[a].ents.push(DRAFT.objs[o].acts[a].n==='Instalación de huertas'?'Huertas instaladas':'Entregable nuevo');render();toast('Entregable agregado');return;}
+  if(d.split){const r=DRAFT.rub[+d.split];const n=r.p.length;const base=Math.floor(r.a/n);r.p=r.p.map((_,i)=>i===n-1?r.a-base*(n-1):base);render();toast('Repartido en '+n+' meses');return;}
+  if(d.act){const a=d.act,[k,v,w]=a.split(':');
+    if(k==='menu'){S.menu=!S.menu;render();return;}
+    S.menu=false;
+    if(k==='avance'){if(v)avanceModal(v);else pickActivity();return;}
+    if(k==='anular'){anularModal(v);return;}
+    if(k==='ent'){entModal(v,+w);return;}
+    if(k==='entregable'){render();pickActivity();toast('Elige la actividad y abre «Registrar entregable» en su detalle');return;}
+    if(k==='gasto'){lastFiles=[];gastoModal();return;}
+    if(k==='val'){const g=GASTOS.find(x=>x.id===v);g.st='VALIDADO';g.val=ME.ger;render();toast('Gasto validado: ya cuenta como ejecutado');return;}
+    if(k==='rej'){rejModal(v);return;}
+    if(k==='anul'){anulModal(v);return;}
+    if(k==='mod'){modModal();return;}
+    if(k==='mok'){const m=MODS.find(x=>x.id===v);m.st='APROBADA';m.dec=ME.ger;render();toast('Modificación aprobada: se crea una versión nueva');return;}
+    if(k==='mko'){const m=MODS.find(x=>x.id===v);openModal(mHead('Rechazar '+m.id,m.d)+`<div class="bd"><div class="fld"><label class="req">Comentario del rechazo</label><textarea class="in" id="rc"></textarea><span class="err" id="erc"></span></div></div><footer><button class="btn" data-close>Cancelar</button><button class="btn danger" id="doMko">Rechazar solicitud</button></footer>`);$('#doMko').onclick=e=>{if(!$('#rc').value.trim()){$('#erc').textContent='El comentario es obligatorio.';return;}busy(e.target,500,()=>{m.st='RECHAZADA';m.dec=ME.ger;m.com=$('#rc')?$('#rc').value:'';render();toast('Solicitud rechazada');});};return;}
+    if(k==='estado'){estadoModal();return;}
+    if(k==='import'){lastFiles=[];importModal(false);return;}
+    if(k==='importEst'){lastFiles=[];importModal(true);return;}
+    if(k==='approve'){approveModal();return;}
+    if(k==='notify'){toast('Aviso enviado a Gerencia: PRY-2026-007 está listo para aprobar');return;}
+    if(k==='usesum'){DRAFT.valor=draftSum();render();toast('Valor total ajustado a la suma de los rubros');return;}
+    if(k==='savebud'){toast(missing().some(m=>m[3]===4)?'Guardado. Aún falta cuadrar el presupuesto para aprobar':'Presupuesto y programación guardados');return;}
+    if(k==='diff'){$('#diff').innerHTML='<div class="tbl"><table><thead><tr><th>Campo</th><th>Plan original</th><th>Versión 1</th></tr></thead><tbody><tr><td>Talleres realizados · meta</td><td class="num">10</td><td class="num warn">12</td></tr><tr><td>Logística de eventos · asignado</td><td class="num">$ 95 M</td><td class="num">$ 95 M</td></tr></tbody></table></div>';return;}
+    if(k==='xls'){toast('Se descargó PRY-2026-002.xlsx');return;}
+    if(k==='pdf'){toast('Se abre la vista de impresión en la misma pestaña');return;}
+    if(k==='doc'){lastFiles=[];openModal(mHead('Subir documento','Contrato, acta, convenio u otro documento del proyecto')+'<div class="bd"><div class="fld"><label class="req">Nombre</label><input class="in"></div><div class="files" id="fl"></div><div class="acts"><button class="btn sm" data-addfile="documento.pdf">Adjuntar archivo</button><button class="btn sm" data-addlink="1">Agregar enlace</button></div><span class="hint">PDF, Word, Excel, imagen o enlace · máx. 10 MB.</span></div><footer><button class="btn" data-close>Cancelar</button><button class="btn pri" data-close>Subir</button></footer>');return;}
+    if(k==='medicion'){toast('Se abre «Registrar medición» con fecha, valor y soportes');return;}
+    if(k==='tablero'){toast('Tablero gerencial: sin cambios en esta propuesta');return;}
+  }
+});
+document.addEventListener('change',e=>{const t=e.target;
+  if(t.dataset.d){const k=t.dataset.d;DRAFT[k]=t.type==='number'?+t.value:t.value;render();return;}
+  if(t.dataset.ra!=null){DRAFT.rub[+t.dataset.ra].a=+t.value;render();return;}
+  if(t.dataset.rp){const [r,m]=t.dataset.rp.split(':').map(Number);DRAFT.rub[r].p[m]=+t.value;render();return;}
+  if(t.dataset.hito){const [id,i]=t.dataset.hito.split(':');const a=ACTS.find(x=>x.id===id);
+    if(!t.checked&&a.hitos[+i][1]){t.checked=true;openModal(mHead('Desmarcar hito','«'+a.hitos[+i][0]+'» · '+a.n)+'<div class="bd"><p style="margin:0">El avance no baja sin explicación: desmarcar queda en el historial.</p><div class="fld"><label class="req">Justificación</label><textarea class="in" id="hj"></textarea><span class="err" id="ehj"></span></div></div><footer><button class="btn" data-close>Cancelar</button><button class="btn danger" id="doUn">Desmarcar hito</button></footer>');
+      $('#doUn').onclick=e=>{if(!$('#hj').value.trim()){$('#ehj').textContent='La justificación es obligatoria.';return;}busy(e.target,500,()=>{a.hitos[+i][1]=0;render();toast('Hito desmarcado con justificación');});};return;}
+    a.hitos[+i][1]=t.checked?1:0;render();toast('Hito marcado');return;}
+  if(t.id==='cmpSel'){S.cmp=t.value;render();toast('Comparando con '+t.selectedOptions[0].text.toLowerCase());return;}
+  if(t.closest&&t.closest('#modal'))M.dirty=true;});
+document.addEventListener('input',e=>{if(e.target.closest&&e.target.closest('#modal'))M.dirty=true;});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if($('#scrim').classList.contains('on'))tryClose();else{$('#drawer').classList.remove('on');if(S.menu){S.menu=false;render();}}}
+  if((e.key==='Enter'||e.key===' ')&&e.target.dataset&&e.target.dataset.toggle){e.preventDefault();S.open[e.target.dataset.toggle]=!S.open[e.target.dataset.toggle];render();}});
+$('#scrim').addEventListener('click',e=>{if(e.target.id==='scrim')tryClose();});
+
+/* ───────── Notas ───────── */
+$('#notes').innerHTML=`
+<p>Todas las reglas de la PO se conservan; lo que cambia es <b>dónde y cuándo</b> se muestran. Datos ficticios.</p>
+<h3>Reglas de la PO y dónde se ven</h3>
+<table><thead><tr><th>Regla</th><th>En la interfaz</th></tr></thead><tbody>
+<tr><td>AJ-01: avance % + observación obligatoria; mayor que el anterior; tope ${TOPE} % sin entregables completos; solo el responsable</td><td>«Registrar avance» muestra el último % y el máximo de hoy antes de escribir; mensajes literales de la PO; botón deshabilitado con «Solo X puede reportar».</td></tr>
+<tr><td>AJ-01: Terminada solo con entregables completos (meta + soporte)</td><td>Detalle de la actividad: entregables con «Completo/Incompleto» y su soporte.</td></tr>
+<tr><td>AJ-01: anular solo el último reporte, con motivo</td><td>«Anular el último reporte» en el historial de la actividad.</td></tr>
+<tr><td>AJ-02: peso = semanas, no editable</td><td>«pesa N semanas» como texto; sin campo de peso.</td></tr>
+<tr><td>AJ-03: atraso por ejecución contra el tope</td><td>Barra con marca de plan hoy y línea del tope; estado «Atrasada» con días.</td></tr>
+<tr><td>AJ-04: Subtotal + IVA = Total; IVA obligatorio (puede ser 0)</td><td>Formulario de gasto agrupado; Total calculado y de solo lectura.</td></tr>
+<tr><td>AJ-05: periodo desde la fecha del documento; «Periodo modificado»</td><td>Se llena solo; si lo cambias aparece la marca.</td></tr>
+<tr><td>AJ-06: varios archivos y enlaces; hasta 5 por gasto</td><td>«Adjuntar archivo» y «Agregar enlace» en avances, entregables y gastos.</td></tr>
+<tr><td>Nadie valida su propio gasto; sin soporte no se valida</td><td>Validar deshabilitado con el motivo escrito.</td></tr>
+<tr><td>Línea base: 6 requisitos</td><td>Checklist visible desde el inicio del asistente, con «Corregir aquí».</td></tr>
+<tr><td>B7: estados y congelamiento</td><td>«Cambiar estado» con acciones por estado, motivo obligatorio y botón que dice la acción; banner de congelado.</td></tr>
+<tr><td>Modificaciones después de la línea base</td><td>«Solicitar cambio» en contexto (datos generales, presupuesto, menú).</td></tr>
+</tbody></table>
+<h3>Mejoras del plan UX que cubre</h3>
+<ul><li>U1 beneficiarios obligatorio · U2 «Estructura» y «Ver cronograma» · U4/U5 sin Σ, pp ni v0 («Plan original»)</li><li>U9–U12 requisitos visibles antes de fallar · U13–U16 atajos que abren la acción y explican por qué no</li><li>U17 un solo «Importar desde Excel» con formato · U18 «Repartir en partes iguales» · U19 un solo guardado · U20 gasto agrupado con error por campo · U21 «Solicitar cambio» en contexto</li><li>BL#9/10 no se cierra con una operación en curso y pide «¿Descartar los cambios?» · BL#13 botón destructivo con la acción · BL#16 tipos y tamaño · BL#27 «Registrar avance» (actividad) separado de «Registrar entregable» y aviso de fechas pasadas</li></ul>
+<h3>Lo nuevo (para decidir)</h3>
+<ul><li><b>«Lo que te toca esta semana»</b> en Proyectos, por rol.</li><li><b>«Avisar a Gerencia»</b> cuando un borrador está listo y quien lo armó no puede aprobar.</li><li><b>U22 hitos</b> como variante (barra de arriba): requiere aprobación de la PO.</li></ul>
+<h3>Para probar</h3>
+<ul><li>Coordinadora → «Registrar avance» en Mesas con 50 % o 95 % para ver los mensajes de la PO.</li><li>Gerencia → Finanzas › Gastos: solo uno se puede validar (otro es tuyo y otro no tiene soporte).</li><li>Borrador PRY-2026-007: corrige los 4 requisitos que faltan y apruébalo como Gerencia.</li><li>Cambia el estado a Suspendido en la barra de arriba.</li></ul>`;
+
+render();
+})();
+
+</script>
+</body>
+</html>
