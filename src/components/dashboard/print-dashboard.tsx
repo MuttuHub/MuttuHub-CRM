@@ -1,7 +1,7 @@
 // Reportes imprimibles del dashboard (Hito 6, PRD §7.3): una página fuera
 // del shell por cara, que lee los mismos filtros comunes (§7.2) + dias_sin_gestion
 // y re-descarga el endpoint correspondiente de /api/v1/dashboard. Se
-// auto-imprime al cargar; en pantalla muestra la barra con "Volver" +
+// auto-imprime (vía la hoja compartida de PR-R2, tras cargar datos y fuentes); en pantalla muestra la barra con "Volver" +
 // "Imprimir". Patrón espejo de print-list.tsx (incluido el estado
 // "Plataforma no conectada" cuando el API no está configurado).
 
@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PrintToolbar } from "@/components/print/print-toolbar";
+import { PrintSheet, type PrintClassification } from "@/components/print/print-sheet";
 import { apiGet, ApiError } from "@/lib/api/http";
 import {
   ESTADO_CLIENTE_LABELS,
@@ -34,11 +34,35 @@ export type CaraPrint =
   | "clients-activity"
   | "my-summary";
 
-const CARA_META: Record<CaraPrint, { title: string; endpoint: string }> = {
-  pipeline: { title: "Reporte — Pipeline comercial", endpoint: "/api/v1/dashboard/pipeline" },
-  tasks: { title: "Reporte — Gestión de tareas", endpoint: "/api/v1/dashboard/tasks" },
-  "clients-activity": { title: "Reporte — Actividad de clientes", endpoint: "/api/v1/dashboard/clients-activity" },
-  "my-summary": { title: "Reporte — Mi resumen", endpoint: "/api/v1/dashboard/my-summary" },
+// `sheet` feeds the shared print sheet: report name in its footer, classification label and usage note.
+const CARA_META: Record<
+  CaraPrint,
+  {
+    title: string;
+    endpoint: string;
+    sheet: { title: string; classification: PrintClassification; note?: string };
+  }
+> = {
+  pipeline: {
+    title: "Reporte — Pipeline comercial",
+    endpoint: "/api/v1/dashboard/pipeline",
+    sheet: { title: "Pipeline comercial", classification: "interno", note: "Contiene valores de propuestas · uso interno" },
+  },
+  tasks: {
+    title: "Reporte — Gestión de tareas",
+    endpoint: "/api/v1/dashboard/tasks",
+    sheet: { title: "Gestión de tareas", classification: "interno" },
+  },
+  "clients-activity": {
+    title: "Reporte — Actividad de clientes",
+    endpoint: "/api/v1/dashboard/clients-activity",
+    sheet: { title: "Actividad de clientes", classification: "interno" },
+  },
+  "my-summary": {
+    title: "Reporte — Mi resumen",
+    endpoint: "/api/v1/dashboard/my-summary",
+    sheet: { title: "Mi resumen", classification: "personal" },
+  },
 };
 
 type LoadState =
@@ -81,18 +105,17 @@ export function PrintDashboardCara({ cara }: { cara: CaraPrint }) {
     };
   }, [cara, query]);
 
-  useEffect(() => {
-    if (state.kind !== "ready") return;
-    const t = setTimeout(() => window.print(), 250);
-    return () => clearTimeout(t);
-  }, [state]);
-
   return (
-    <main className="min-h-screen bg-white px-6 py-6 text-ink-900 sm:px-10 print:bg-white print:p-0">
-      <PrintToolbar
-        description="Vista de impresión: los filtros que aplicaste se respetan."
-        fallbackHref="/"
-      />
+    <PrintSheet
+      title={CARA_META[cara].sheet.title}
+      classification={CARA_META[cara].sheet.classification}
+      note={CARA_META[cara].sheet.note}
+      ready={state.kind === "ready"}
+      toolbar={{
+        description: "Vista de impresión: los filtros que aplicaste se respetan.",
+        fallbackHref: "/",
+      }}
+    >
 
       {state.kind === "loading" && (
         <p className="py-20 text-center text-[13px] text-ink-500">
@@ -124,7 +147,7 @@ export function PrintDashboardCara({ cara }: { cara: CaraPrint }) {
           <PrintFooter />
         </>
       )}
-    </main>
+    </PrintSheet>
   );
 }
 
