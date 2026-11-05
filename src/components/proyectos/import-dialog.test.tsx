@@ -85,7 +85,7 @@ describe("ImportDialog", () => {
   }
 
   /** `respuestas`: una por POST, en orden (validar, luego importar). */
-  function setup(respuestas: Response[] = []) {
+  function setup(respuestas: Response[] = [], proyecto: ProjectListRow = PROYECTO) {
     const cola = [...respuestas]
     fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
       const url = String(input)
@@ -105,7 +105,7 @@ describe("ImportDialog", () => {
       }
       return Promise.resolve(jsonResponse({}))
     })
-    return render(<ImportDialog proyecto={PROYECTO} />, { wrapper })
+    return render(<ImportDialog proyecto={proyecto} />, { wrapper })
   }
 
   async function abrirYElegir(user: ReturnType<typeof userEvent.setup>, archivo: File) {
@@ -170,6 +170,32 @@ describe("ImportDialog", () => {
   })
 
   describe("download", () => {
+    it("U7: without project dates both «Descargar plantilla» are disabled and explain why", async () => {
+      const user = userEvent.setup()
+      setup([], { ...PROYECTO, fecha_inicio: null, fecha_fin: null })
+
+      // The toolbar button lives outside the dialog, so it is the one on screen now.
+      expect(screen.getByRole("button", { name: /descargar plantilla/i })).toBeDisabled()
+
+      await user.click(screen.getByRole("button", { name: /importar plantilla/i }))
+      const dialogo = await screen.findByRole("dialog")
+      expect(within(dialogo).getByRole("button", { name: /descargar plantilla/i })).toBeDisabled()
+
+      // Same state and same explanation in the toolbar and inside the dialog.
+      expect(screen.getAllByText(/Define las fechas del proyecto/i)).toHaveLength(2)
+    })
+
+    it("keeps both downloads enabled when the project has dates", async () => {
+      const user = userEvent.setup()
+      setup()
+
+      expect(screen.getByRole("button", { name: /descargar plantilla/i })).toBeEnabled()
+
+      await user.click(screen.getByRole("button", { name: /importar plantilla/i }))
+      const dialogo = await screen.findByRole("dialog")
+      expect(within(dialogo).getByRole("button", { name: /descargar plantilla/i })).toBeEnabled()
+      expect(screen.queryByText(/Define las fechas del proyecto/i)).not.toBeInTheDocument()
+    })
     it("downloads the template named by the server", async () => {
       const user = userEvent.setup()
       setup()
@@ -310,7 +336,7 @@ describe("ImportDialog", () => {
       return { user, dialogo }
     }
 
-    it("groups the errors by sheet in tables with rule, row, column, value and message", async () => {
+    it("groups the errors by sheet in tables with row, column, value and message", async () => {
       const { dialogo } = await validarConErrores()
 
       const grupos = within(dialogo).getAllByTestId("import-errores-hoja")
@@ -318,11 +344,30 @@ describe("ImportDialog", () => {
       expect(grupos[0]).toHaveTextContent("4. Actividades")
       expect(grupos[0]).toHaveTextContent("2 errores")
       expect(within(grupos[0] as HTMLElement).getAllByRole("row")).toHaveLength(3)
-      expect(grupos[0]).toHaveTextContent("V-07")
       expect(grupos[0]).toHaveTextContent("La semana fin supera la duración.")
       expect(grupos[1]).toHaveTextContent("7. Presupuesto")
       expect(grupos[1]).toHaveTextContent("1 error")
       expect(within(dialogo).queryByRole("button", { name: /confirmar importación/i })).not.toBeInTheDocument()
+    })
+
+    it("U6: hides the internal rule code on screen but keeps it in the CSV", async () => {
+      const { user, dialogo } = await validarConErrores()
+
+      // The screen shows what the person has to fix, not our rule codes (V-07, W-01).
+      expect(within(dialogo).queryByRole("columnheader", { name: "Regla" })).not.toBeInTheDocument()
+      expect(within(dialogo).queryByText("V-07")).not.toBeInTheDocument()
+      expect(within(dialogo).queryByText("V-05")).not.toBeInTheDocument()
+      expect(within(dialogo).getByText("La semana fin supera la duración.")).toBeInTheDocument()
+
+      // The downloadable report keeps the code so support can trace it.
+      await user.click(within(dialogo).getByRole("button", { name: /descargar reporte/i }))
+      const texto = await new Promise<string>((resolve) => {
+        const lector = new FileReader()
+        lector.onload = () => resolve(String(lector.result))
+        lector.readAsText(blobs[0] as Blob)
+      })
+      expect(texto).toContain("Regla")
+      expect(texto).toContain("V-07")
     })
 
     it("tells the user when the list was truncated", async () => {

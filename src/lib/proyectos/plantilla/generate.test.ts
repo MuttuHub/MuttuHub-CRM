@@ -157,4 +157,24 @@ describe("generarPlantilla — comentarios en todos los encabezados", () => {
       })
     }
   })
+
+  // U8: la app y la guía PDF tratan de «tú»; las notas del Excel no pueden ir en voseo.
+  it("U8: habla de tú en las notas, nunca con voseo", async () => {
+    const workbook = await reload()
+    const trozos: string[] = []
+    for (const hoja of workbook.worksheets) {
+      hoja.eachRow((fila) => {
+        fila.eachCell({ includeEmpty: false }, (celda) => {
+          if (typeof celda.value === "string") trozos.push(celda.value)
+          const nota = JSON.stringify(celda.note)
+          if (nota && nota !== "null") trozos.push(nota)
+        })
+      })
+    }
+    const texto = trozos.join("\n")
+
+    expect(texto).not.toMatch(/Pasá|Leé|Escribí|Marcá|Revisá|Cargá|Usá|Completá|Poné|Tenés|Podés|Fijate|Acordate|Elegí|Dejá|Verificá/)
+    expect(texto).toContain("Lee esta hoja antes de llenar el libro")
+    expect(texto).toContain("Pasa el mouse por cada fila")
+  })
 })
