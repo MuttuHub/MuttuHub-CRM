@@ -65,3 +65,7 @@ Pruebas: Vitest bajo `node.exe`; e2e en `e2e/proyectos-v3/`; base local Docker v
   sin bandera → 404 para Gerencia y Colaborador; con `admin` → Gerencia 200 con el marcador y Colaborador 404.
   El valor `on` queda cubierto por pruebas unitarias, no por el navegador. Próximo: B0.2 (guardian de importaciones)
   y B0.4 (inventario de contratos), que no dependen de nadie; después B1 (portafolio).
+- **L4 (2026-11-04, prioridad, usuario, textual):** «terminemos primero todo el backlog que va a produccion y luego
+  realizamos las nuevas vistas y mejoras en local». **La línea B se pausa** después de B0.1. B0.2, B0.4, B0.3, B0.5 y
+  B1–B8 quedan en espera hasta que el backlog que va a producción esté cerrado. Lo hecho (bandera + ruta apagada) se
+  queda: no molesta a nadie y deja el terreno preparado. Vuelve a la regla original del plan: el backlog primero.

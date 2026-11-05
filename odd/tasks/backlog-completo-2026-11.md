@@ -190,3 +190,8 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
   completa —`texto` y `próximo_paso`— sigue visible para cualquier usuario autenticado. La recomendación de
   `docs/analisis/T3-seguridad.md:291` (ocultarla a COLABORADOR y paginar `/interactions` y `/contacts`) queda
   **declinada a sabiendas**, no olvidada. Punto de revisión si entra un cliente, un rol externo o un auditor.
+- **L17 (2026-11-04, prioridad, usuario, textual):** «terminemos primero todo el backlog que va a produccion y luego
+  realizamos las nuevas vistas y mejoras en local». Vuelve a la regla del plan §3: **el backlog primero**. Proyectos v3
+  queda **pausado** con B0.1 hecho (bandera `FEATURE_PROYECTOS_V3` apagada por defecto, ruta en 404). Cola del backlog
+  que va a producción, en orden: T5c (defecto de la hoja de impresión que ya está aprobada), T9 (PR-8), T13 (PR-11/13),
+  T15, más T4 cuando T3 entre a `main` y T14 cuando se autorice la ventana de producción.
