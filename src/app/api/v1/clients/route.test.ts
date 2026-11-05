@@ -17,6 +17,9 @@ vi.mock("@/lib/db", () => ({
     oportunidad: {
       groupBy: vi.fn(),
     },
+    bitacoraEntrada: {
+      groupBy: vi.fn(),
+    },
     tarea: {
       groupBy: vi.fn(),
       findMany: vi.fn(),
@@ -52,6 +55,7 @@ function mockEnrichmentEmpty() {
   vi.mocked(db.oportunidad.groupBy).mockResolvedValue([]);
   vi.mocked(db.tarea.groupBy).mockResolvedValue([]);
   vi.mocked(db.tarea.findMany).mockResolvedValue([]);
+  vi.mocked(db.bitacoraEntrada.groupBy).mockResolvedValue([]);
 }
 
 function authAs(usuario: Usuario) {
@@ -598,5 +602,62 @@ describe("client tags — etiquetas (2.6)", () => {
 
     const call = vi.mocked(db.cliente.findMany).mock.calls[0][0] as { where: Record<string, unknown> };
     expect(call.where).toEqual({ deleted_at: null });
+  });
+});
+
+// N6 (PR-11): la tarjeta del cliente necesita saber cuándo fue el último contacto y cuántos
+// días pasaron sin gestión. El cálculo es el mismo del panel de salud (/clients/health).
+describe("último contacto y días sin gestión (N6)", () => {
+  const dia = 24 * 60 * 60 * 1000;
+
+  it("devuelve la fecha del último contacto y los días transcurridos", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findMany).mockResolvedValue([baseClientRow] as never);
+    const haceDiezDias = new Date(Date.now() - 10 * dia);
+    vi.mocked(db.bitacoraEntrada.groupBy).mockResolvedValue([
+      { cliente_id: "cli-1", _max: { created_at: haceDiezDias } },
+    ] as never);
+
+    const res = await GET(new Request("http://localhost/api/v1/clients"));
+
+    const json = await res.json();
+    expect(json.items[0].ultimo_contacto).not.toBeNull();
+    expect(json.items[0].dias_sin_gestion).toBeGreaterThanOrEqual(9);
+    expect(json.items[0].dias_sin_gestion).toBeLessThanOrEqual(11);
+  });
+
+  it("un cliente sin bitácora queda con null y cuenta como sin gestión", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findMany).mockResolvedValue([baseClientRow] as never);
+
+    const res = await GET(new Request("http://localhost/api/v1/clients?sin_gestion=30"));
+
+    const json = await res.json();
+    expect(json.items[0].ultimo_contacto).toBeNull();
+    expect(json.items[0].dias_sin_gestion).toBeNull();
+    expect(json.total).toBe(1);
+  });
+
+  it("?sin_gestion=N deja fuera al cliente contactado dentro del plazo", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findMany).mockResolvedValue([baseClientRow] as never);
+    vi.mocked(db.bitacoraEntrada.groupBy).mockResolvedValue([
+      { cliente_id: "cli-1", _max: { created_at: new Date(Date.now() - 2 * dia) } },
+    ] as never);
+
+    const res = await GET(new Request("http://localhost/api/v1/clients?sin_gestion=30"));
+
+    const json = await res.json();
+    expect(json.total).toBe(0);
+    expect(json.items).toEqual([]);
+  });
+
+  it("rechaza un valor de sin_gestion que no sea un entero no negativo", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findMany).mockResolvedValue([baseClientRow] as never);
+
+    const res = await GET(new Request("http://localhost/api/v1/clients?sin_gestion=abc"));
+
+    expect(res.status).toBe(400);
   });
 });
