@@ -113,6 +113,14 @@ const ClientListItemSchema = registry.register(
     }),
     next_compromiso: NextCompromisoSchema,
     updated_at: z.string().datetime(),
+    ultimo_contacto: z.string().datetime().nullable().openapi({
+      description: "PR-11 (N6): fecha de la entrada de bitácora más reciente; null si nunca hubo contacto.",
+    }),
+    dias_sin_gestion: z.number().int().nullable().openapi({
+      description:
+        "PR-11 (N6): días completos (en días de Bogotá) desde el último contacto; null si nunca hubo contacto. " +
+        "Mismo cálculo que GET /api/v1/clients/health.",
+    }),
     puede_editar: z.boolean().openapi({
       description:
         "PR 2 + PR 4: false ⇒ el usuario actual no puede modificar este cliente (403 en PATCH/DELETE). " +
@@ -332,6 +340,10 @@ registry.registerPath({
         .openapi({ description: "Fecha de primer contacto, formato YYYY-MM-DD (inclusive, fin de día).", example: "2026-12-31" }),
       valorMin: z.coerce.number().min(0).optional().openapi({ description: "Filtra por valor_potencial mínimo." }),
       valorMax: z.coerce.number().min(0).optional().openapi({ description: "Filtra por valor_potencial máximo." }),
+      sinGestion: z.coerce.number().int().min(0).optional().openapi({
+        description:
+          "PR-11 (N6): deja solo los clientes sin contacto en los últimos N días (un cliente sin bitácora cuenta como sin gestión).",
+      }),
       page: z.coerce.number().int().min(1).optional().openapi({ description: "Página, 1-indexada. Default 1." }),
       limit: z.coerce.number().int().min(1).max(200).optional().openapi({ description: "Tamaño de página, 1-200. Default 25." }),
     }),
@@ -466,6 +478,10 @@ registry.registerPath({
         .openapi({ description: "Fecha de primer contacto, formato YYYY-MM-DD (inclusive, fin de día).", example: "2026-12-31" }),
       valorMin: z.coerce.number().min(0).optional().openapi({ description: "Filtra por valor_potencial mínimo." }),
       valorMax: z.coerce.number().min(0).optional().openapi({ description: "Filtra por valor_potencial máximo." }),
+      sinGestion: z.coerce.number().int().min(0).optional().openapi({
+        description:
+          "PR-11 (N6): deja solo los clientes sin contacto en los últimos N días (un cliente sin bitácora cuenta como sin gestión).",
+      }),
     }),
   },
   responses: {
