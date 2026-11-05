@@ -411,7 +411,7 @@ Inicio como «esto necesita tu atención hoy», con alertas y agenda.
 *Propuesta:* que Inicio sea «Mi día» (vencidos, agenda, mis compromisos y accesos rápidos) y que la analítica viva solo
 en Reportes.
 
-**N2 — Reportes tiene informes de tareas repetidos.** · Abierto · PR-13
+**N2 — Reportes tiene informes de tareas repetidos.** · **Hecho** (2026-11-04, `9accb52`) · PR-13
 Hay una pestaña «Tareas» (`reportes-page.tsx:139`) y otra «Gestión de tareas» (una de las 4 caras), y además el
 Tablero tiene su propia vista «Reporte» (`kanban-board.tsx`). Hay que dejar uno solo.
 

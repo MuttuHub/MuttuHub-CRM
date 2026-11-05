@@ -40,7 +40,7 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
 | T10 | PR-14, PR-15: U9–U12 (requisitos de línea base visibles) | S1, S2 | por definir | pendiente | — |
 | T11 | PR-16: U13–U16 (atajos) | S1, S2 | por definir | pendiente | — |
 | T12 | PR-17: BL#8 (impresión unificada) | S1, S2 | por definir | pendiente | — |
-| T13 | PR-11, PR-13 (sin decisión): N6, N2 | S1, S2 | por definir | pendiente | — |
+| T13 | PR-11 (N6) y PR-13 (N2) | S1, S2 | inline | **N2 hecho** · N6 pendiente | N2 en `9accb52` (rama `refactor/reportes-tareas-unico`), 3 archivos +32/−13: el tablero ya no tiene su propia vista «Reporte» —renderizaba el mismo `ReportView` que Reportes— y en su lugar enlaza a `/reportes`. Prueba nueva que falla contra el tablero anterior. Kanban y Reportes: 9 archivos / 64 pruebas, `tsc` y `eslint` 0. **N6** (último contacto y días sin gestión) sigue abierto: requiere backend |
 | T14 | F0.3: contrato de AJ-02 rehecho sobre `main` (producción según S4) | S1, S4 | inline | pendiente | — |
 | T15 | Paralelo sin decisión: T1 (e2e legacy a CI), T3, T8, E6 según el usuario | S1 | por definir | pendiente | — |
 | TB | **Bloqueados por decisión:** PR-3 (D-G1), PR-12 (D-G2), PR-6 (D-G3), PR-9 (D-G4), PR-4 parte (D-G5), PR-10 (D-G6), U22 (D-G7), PR-R3–R7, R11, R13 (D-G8), PR-M1 en prod (D-M1, D-E), B4/B5 (D-A), F4.x | S1 | — | decisión | Pedir en F0.5 |
@@ -213,3 +213,12 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
   «Cerrar», «Reactivar», «Reabrir», «Cancelar») y queda «Confirmar» solo cuando no hay nada elegido, que es cuando
   está deshabilitado. Lección para el resto del backlog: **verificar el ítem contra el código antes de escribirlo**; la
   tabla se escribió contra un `main` más viejo y tres entradas ya no eran ciertas.
+
+- **L20 (2026-11-04, N2 cerrado):** `9accb52` en `refactor/reportes-tareas-unico`. El tablero tenía una pestaña
+  «Reporte» que renderizaba el mismo `ReportView` de Reportes: dos entradas al mismo informe, con dos juegos de filtros.
+  Ahora hay un enlace «Ver reportes» a `/reportes` (esa página toma sus filtros de estado, no de la URL, así que el
+  enlace no lleva parámetros) y `ReportView` queda solo en Reportes. La guía de demo describía la pestaña retirada: se
+  actualizó. Prueba nueva que se verificó en **RED** revirtiendo solo el componente. Gate: 9 archivos / 64 pruebas,
+  `tsc` y `eslint` 0. **Nota de proceso:** el commit se hizo primero en `fix/proyectos-rapidos` (la rama de T9) por
+  error; se separó con `git rebase --onto main` a su propia rama sin perder nada, y la rama de T9 quedó con un solo
+  commit. **T13 queda a medias:** N6 sigue pendiente y necesita backend.
