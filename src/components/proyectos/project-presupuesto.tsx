@@ -144,7 +144,7 @@ function PresupuestoEditor({
 
       <dl data-testid="presupuesto-resumen" className="grid grid-cols-1 gap-x-6 gap-y-1.5 sm:grid-cols-3">
         <div className="flex items-baseline justify-between gap-2">
-          <dt className="text-[12px] text-ink-500">Σ asignado</dt>
+          <dt className="text-[12px] text-ink-500">Total asignado</dt>
           <dd className="font-semibold text-ink-900 tabular-nums">{formatCOP(suma)}</dd>
         </div>
         <div className="flex items-baseline justify-between gap-2">
@@ -180,7 +180,7 @@ function PresupuestoEditor({
               onClick={() => igualar.mutate(budget.suma)}
             >
               {igualar.isPending && <LoaderCircle className="size-4 animate-spin" />}
-              Igualar valor total a Σ A
+              Usar la suma como valor total
             </Button>
           )}
           <PresupuestoImportDialog proyectoId={proyectoId} />

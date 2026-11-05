@@ -142,17 +142,17 @@ describe("ProjectFinanciero", () => {
     expect(screen.queryByTestId("financiero-alerta")).not.toBeInTheDocument()
   })
 
-  it("shows the 'No confirmado' badge while the thresholds are unconfirmed", async () => {
+  it("shows the 'Semáforo provisional' badge while the thresholds are unconfirmed", async () => {
     setup({ ficha: { ...FICHA, parametros: { tolerancia: 10, retraso: 70, confirmado: false } } })
 
-    expect(await screen.findByText("No confirmado")).toBeInTheDocument()
+    expect(await screen.findByText("Semáforo provisional")).toBeInTheDocument()
   })
 
   it("does not show it once confirmed", async () => {
     setup()
 
     await screen.findByTestId("financiero-tabla")
-    expect(screen.queryByText("No confirmado")).not.toBeInTheDocument()
+    expect(screen.queryByText("Semáforo provisional")).not.toBeInTheDocument()
   })
 
   it("shows the possible-delay alert only when the API raises it", async () => {
@@ -173,14 +173,14 @@ describe("ProjectFinanciero", () => {
 
     const boton = await screen.findByRole("button", { name: "Opciones avanzadas" })
     expect(boton).toHaveAttribute("aria-expanded", "false")
-    expect(screen.queryByRole("combobox", { name: "Corte" })).not.toBeInTheDocument()
-    expect(screen.queryByRole("combobox", { name: "Base" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("combobox", { name: "Calcular hasta" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("combobox", { name: "Comparar con" })).not.toBeInTheDocument()
 
     boton.focus()
     await user.keyboard("{Enter}")
     expect(boton).toHaveAttribute("aria-expanded", "true")
-    expect(await screen.findByRole("combobox", { name: "Corte" })).toBeInTheDocument()
-    expect(screen.getByRole("combobox", { name: "Base" })).toBeInTheDocument()
+    expect(await screen.findByRole("combobox", { name: "Calcular hasta" })).toBeInTheDocument()
+    expect(screen.getByRole("combobox", { name: "Comparar con" })).toBeInTheDocument()
   })
 
   it("offers one corte per project month and refetches when it changes", async () => {
@@ -188,7 +188,7 @@ describe("ProjectFinanciero", () => {
     setup()
 
     await user.click(await screen.findByRole("button", { name: "Opciones avanzadas" }))
-    const corte = await screen.findByRole("combobox", { name: "Corte" })
+    const corte = await screen.findByRole("combobox", { name: "Calcular hasta" })
     expect(within(corte).getAllByRole("option").map((o) => o.getAttribute("value"))).toEqual([
       "2026-10", "2026-11", "2026-12", "2027-01",
     ])
@@ -211,11 +211,11 @@ describe("ProjectFinanciero", () => {
     expect(screen.queryByTestId("financiero-filtros")).not.toBeInTheDocument()
 
     await user.click(await screen.findByRole("button", { name: "Opciones avanzadas" }))
-    await user.selectOptions(await screen.findByRole("combobox", { name: "Corte" }), "2026-12")
-    await user.selectOptions(screen.getByRole("combobox", { name: "Base" }), "original")
+    await user.selectOptions(await screen.findByRole("combobox", { name: "Calcular hasta" }), "2026-12")
+    await user.selectOptions(screen.getByRole("combobox", { name: "Comparar con" }), "original")
     await user.click(screen.getByRole("button", { name: "Opciones avanzadas" }))
-    expect(screen.queryByRole("combobox", { name: "Corte" })).not.toBeInTheDocument()
-    expect(screen.getByTestId("financiero-filtros")).toHaveTextContent("Base original · Corte dic 2026")
+    expect(screen.queryByRole("combobox", { name: "Calcular hasta" })).not.toBeInTheDocument()
+    expect(screen.getByTestId("financiero-filtros")).toHaveTextContent("Comparado con el plan inicial · Hasta dic 2026")
 
     await user.click(screen.getByRole("button", { name: "Restablecer" }))
     expect(screen.queryByTestId("financiero-filtros")).not.toBeInTheDocument()
@@ -247,7 +247,7 @@ describe("ProjectFinanciero", () => {
     setup({ proyecto: { estado: "BORRADOR" } })
 
     await user.click(await screen.findByRole("button", { name: "Opciones avanzadas" }))
-    const base = await screen.findByRole("combobox", { name: "Base" })
+    const base = await screen.findByRole("combobox", { name: "Comparar con" })
     expect(base).toBeDisabled()
     expect(within(base).getAllByRole("option").map((o) => o.getAttribute("value"))).toEqual(["vigente"])
   })
@@ -257,12 +257,12 @@ describe("ProjectFinanciero", () => {
     setup()
 
     await user.click(await screen.findByRole("button", { name: "Opciones avanzadas" }))
-    const base = await screen.findByRole("combobox", { name: "Base" })
+    const base = await screen.findByRole("combobox", { name: "Comparar con" })
     expect(base).toBeEnabled()
     expect(within(base).getAllByRole("option").map((o) => o.getAttribute("value"))).toEqual(["vigente", "original"])
     await screen.findByTestId("financiero-tabla")
 
-    await user.selectOptions(screen.getByRole("combobox", { name: "Corte" }), "2026-12")
+    await user.selectOptions(screen.getByRole("combobox", { name: "Calcular hasta" }), "2026-12")
     await user.selectOptions(base, "original")
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -285,7 +285,7 @@ describe("ProjectFinanciero", () => {
     render(<ProjectFinanciero proyecto={PROYECTO} />, { wrapper: createWrapper() })
 
     await user.click(await screen.findByRole("button", { name: "Opciones avanzadas" }))
-    await user.selectOptions(await screen.findByRole("combobox", { name: "Base" }), "original")
+    await user.selectOptions(await screen.findByRole("combobox", { name: "Comparar con" }), "original")
     expect(await screen.findByRole("alert")).toHaveTextContent("La versión original aún no existe.")
   })
 

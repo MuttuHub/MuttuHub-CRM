@@ -310,13 +310,13 @@ export function agruparHistorial<T extends AuditHistoryEntryLike>(
 const PP = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 1 });
 
 /**
- * Deviation shown to the user: real - plan in percentage points, always signed ("+11,7 pp" ahead of plan,
- * "-35,7 pp" behind). The API's `desviacion_pp` is plan - real (it feeds the semáforo), so it is flipped here.
+ * Deviation shown to the user: real - plan in percentage points, always signed ("+11,7 puntos" ahead of
+ * plan, "-35,7 puntos" behind; U5: no "pp" jargon on screen). The API's `desviacion_pp` is plan - real (it feeds the semáforo), so it is flipped here.
  */
 export function formatDiferenciaPp(desviacionPp: number): string {
   const rounded = Math.round(diferenciaRealPlanPp(desviacionPp) * 10) / 10;
   const value = rounded === 0 ? 0 : rounded;
-  return `${value > 0 ? "+" : ""}${PP.format(value)} pp`;
+  return `${value > 0 ? "+" : ""}${PP.format(value)} puntos`;
 }
 
 const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];

@@ -1,5 +1,5 @@
 // Programación mensual (P) de la sección "Presupuesto" (S5 U5): una columna por
-// mes del proyecto y una fila por rubro con línea. El control (Σ celdas − A) es
+// mes del proyecto y una fila por rubro con línea. "Falta por programar" (A − celdas) es
 // informativo en borrador; la línea base lo exigirá en $ 0.
 
 "use client";
@@ -140,12 +140,13 @@ function ProgramacionGrid({
               {data.periodos.map((periodo) => (
                 <TableHead key={periodo} scope="col" numeric>{mesLegible(periodo)}</TableHead>
               ))}
-              <TableHead scope="col" numeric>Control</TableHead>
+              <TableHead scope="col" numeric>Falta por programar</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {data.control_por_rubro.map((c) => {
-              const control = sumaFila(c.rubro_id) - toCents(c.asignado);
+              // What is still to program: assigned minus programmed (negative when over-programmed).
+              const faltante = toCents(c.asignado) - sumaFila(c.rubro_id);
               return (
                 <TableRow key={c.rubro_id} data-testid="programacion-fila">
                   <TableCell className="text-ink-800 whitespace-normal">
@@ -164,7 +165,7 @@ function ProgramacionGrid({
                       )}
                     </TableCell>
                   ))}
-                  <TableCell numeric className="font-semibold">{formatCOP(control)}</TableCell>
+                  <TableCell numeric className="font-semibold">{formatCOP(faltante)}</TableCell>
                 </TableRow>
               );
             })}
@@ -173,7 +174,8 @@ function ProgramacionGrid({
       </div>
 
       <p className="text-[12px] text-ink-500">
-        El control (Σ programación − asignado) es informativo en borrador; deberá ser $ 0 para aprobar la línea base.
+        Falta por programar es lo asignado al rubro que aún no está repartido en meses (negativo si se programó de más).
+        En borrador es informativo; deberá ser $ 0 para aprobar la línea base.
       </p>
       {fueraDeRango > 0 && (
         <p className="text-[12.5px] text-ink-600">

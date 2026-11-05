@@ -16,6 +16,7 @@ import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import { EjecucionAvance } from "@/components/proyectos/ejecucion-avance";
 import { EjecucionIndicadores } from "@/components/proyectos/ejecucion-indicadores";
 import { SemaforoTecnico } from "@/components/proyectos/semaforo-tecnico";
+import { AyudaBase, ETIQUETA_BASE, OpcionesBase, datosAl } from "@/components/proyectos/vocabulario-seguimiento";
 import { CurveSChart } from "@/components/proyectos/curve-s-chart";
 import {
   useDeliverableProgress,
@@ -164,19 +165,21 @@ function OpcionesAvanzadas({
   return (
     <Disclosure titulo="Opciones avanzadas" testId="ejecucion-avanzadas">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[12.5px] text-ink-600">
-        <label className="flex items-center gap-1.5">
-          Base
-          <select
-            aria-label="Base"
-            value={base}
-            onChange={(event) => onBaseChange(event.target.value as ProjectBase)}
-            className={SELECT_CLASS}
-          >
-            <option value="vigente">Vigente</option>
-            <option value="original">Original (v0)</option>
-          </select>
-        </label>
-        <span>Corte al {formatFechaCalendario(corte)} (hoy)</span>
+        <span className="flex items-center gap-1">
+          <label className="flex items-center gap-1.5">
+            {ETIQUETA_BASE}
+            <select
+              aria-label={ETIQUETA_BASE}
+              value={base}
+              onChange={(event) => onBaseChange(event.target.value as ProjectBase)}
+              className={SELECT_CLASS}
+            >
+              <OpcionesBase />
+            </select>
+          </label>
+          <AyudaBase />
+        </span>
+        <span>{datosAl(formatFechaCalendario(corte))} (hoy)</span>
       </div>
       <CurvaSeccion proyecto={proyecto} base={base} corte={corte} seguimiento />
     </Disclosure>
@@ -210,7 +213,7 @@ export function useEjecucionPermisos(proyectoId: string): { canWrite: boolean; c
   return { canWrite: esGestor || esMiembro, canVoid: esGestor };
 }
 
-/** Pestaña "Metas e indicadores" (v7): el registro de avance de indicador vive junto a las metas. */
+/** Pestaña de objetivos e indicadores (v7): el registro de avance de indicador vive junto a los objetivos. */
 export function ProjectIndicadores({ proyecto }: { proyecto: ProjectListRow }) {
   const { canWrite, canVoid } = useEjecucionPermisos(proyecto.id);
   if (proyecto.estado === "BORRADOR") return null;
@@ -294,7 +297,7 @@ function EjecucionContent({
         </>
       )}
 
-      {seguimiento && !lista && <AvancePorMeta proyectoId={proyecto.id} tecnico={tecnico} />}
+      {seguimiento && !lista && <AvancePorObjetivo proyectoId={proyecto.id} tecnico={tecnico} />}
 
       {activitiesQuery.isError ? (
         <InlineError
@@ -377,13 +380,13 @@ function ListaActividades({
   );
 }
 
-/* ── Ficha de seguimiento (v7): tarjetas laterales y avance por meta ─────── */
+/* ── Ficha de seguimiento (v7): tarjetas laterales y avance por objetivo ─────── */
 
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 const nf = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 1 });
 
 const pct = (value: number): string => `${nf.format(value)} %`;
-const pp = (value: number): string => `${value > 0 ? "+" : ""}${nf.format(value)} pp`;
+const pp = (value: number): string => `${value > 0 ? "+" : ""}${nf.format(value)} puntos`;
 
 /** Days from the corte (the server's "today") to the project end, never negative. */
 export function diasRestantes(corte: string, fechaFin: string | null): number | null {
@@ -421,7 +424,7 @@ function SeguimientoLateral({
           Periodo del reporte{periodo ? ` · ${periodo}` : ""}
         </p>
         {ejecutado === null || planeado === null ? (
-          <p className="text-[12.5px] text-ink-500">Sin avance registrado al corte.</p>
+          <p className="text-[12.5px] text-ink-500">Sin avance registrado hasta la fecha de los datos.</p>
         ) : (
           <>
             <p className="font-display text-[26px] leading-none font-extrabold tracking-[-0.03em] text-ink-950 tabular-nums">
@@ -453,15 +456,15 @@ function SeguimientoLateral({
   );
 }
 
-/** Acumulado planeado vs ejecutado por meta (objetivo). Los porcentajes y el color llegan del servidor (D11). */
-function AvancePorMeta({ proyectoId, tecnico }: { proyectoId: string; tecnico: ProjectTechnicalStatusV6 }) {
+/** Acumulado planeado vs ejecutado por objetivo. Los porcentajes y el color llegan del servidor (D11). */
+function AvancePorObjetivo({ proyectoId, tecnico }: { proyectoId: string; tecnico: ProjectTechnicalStatusV6 }) {
   const objetivos = useProjectObjectives(proyectoId).data ?? [];
   if (!tecnico.objetivos || tecnico.objetivos.length === 0) return null;
   const nombre = new Map(objetivos.map((o) => [o.codigo, o.descripcion]));
 
   return (
-    <section data-testid="avance-por-meta" className="mt-4">
-      <SectionHeader>Avance por meta</SectionHeader>
+    <section data-testid="avance-por-objetivo" className="mt-4">
+      <SectionHeader>Avance por objetivo</SectionHeader>
       <ul className="mt-2 flex flex-col gap-2">
         {tecnico.objetivos.map((objetivo) => (
           <li key={objetivo.codigo} className="surface-inner grid grid-cols-1 items-center gap-x-4 gap-y-1.5 p-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto]">
@@ -471,7 +474,7 @@ function AvancePorMeta({ proyectoId, tecnico }: { proyectoId: string; tecnico: P
             </span>
             <span
               role="img"
-              aria-label={`Meta ${objetivo.codigo}: ejecutado ${pct(objetivo.ejecutado)}, planeado ${pct(objetivo.programado)}`}
+              aria-label={`Objetivo ${objetivo.codigo}: ejecutado ${pct(objetivo.ejecutado)}, planeado ${pct(objetivo.programado)}`}
               className="relative block h-2 overflow-hidden rounded-full bg-ink-100"
             >
               <span

@@ -17,7 +17,7 @@ import {
 
 describe("PASOS", () => {
   it("lists the five v7 steps in order", () => {
-    expect(PASOS.map((p) => p.etiqueta)).toEqual(["General", "Metas", "Cronograma", "Presupuesto", "Revisión"])
+    expect(PASOS.map((p) => p.etiqueta)).toEqual(["General", "Estructura", "Cronograma", "Presupuesto", "Revisión"])
     expect(PASOS.map((p) => p.numero)).toEqual([1, 2, 3, 4, 5])
   })
 })

@@ -1,11 +1,11 @@
-// Metas e indicadores del proyecto (S3 U4) dentro de la ficha: objetivos con sus
+// Objetivos e indicadores del proyecto (S3 U4) dentro de la ficha: objetivos con sus
 // actividades (ubicadas por semanas), entregables e indicadores. Todos los que
 // ven la ficha ven la estructura; solo quien gestiona proyectos
 // (`canManageProjects`) y mientras el proyecto está en BORRADOR ve los controles
 // de alta, edición y baja. Esa visibilidad es comodidad de interfaz: la
 // autoridad es la API (403 a otros roles, 409 INVALID_STATE fuera de BORRADOR).
 //
-// Desde S14 (P4) es el contenido de la pestaña "Metas e indicadores": el Gantt
+// Desde S14 (P4) es el contenido de la pestaña "Objetivos e indicadores": el Gantt
 // (solo lectura) vive en su propia pestaña, así que ya no se renderiza aquí.
 
 "use client";
@@ -43,7 +43,7 @@ export function ProjectEstructura({ proyecto }: { proyecto: ProjectListRow }) {
   return (
     <section data-testid="estructura">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <SectionHeader icon={<ListTree className="size-3.5" strokeWidth={2} />}>Metas e indicadores</SectionHeader>
+        <SectionHeader icon={<ListTree className="size-3.5" strokeWidth={2} />}>Objetivos e indicadores</SectionHeader>
         {canEdit && (
           <div className="flex flex-wrap items-center gap-2">
             <EstructuraPOImportDialog proyectoId={proyecto.id} />

@@ -37,6 +37,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ResponsableCell, ToneBadge } from "@/components/crm/shared";
+import { SemaforoProvisional } from "@/components/proyectos/vocabulario-seguimiento";
 import { ExpenseValidationQueue } from "@/components/proyectos/expense-validation-queue";
 import { PortafolioFiltros, contarFiltros } from "@/components/proyectos/portafolio-filtros";
 import { PortafolioKpis } from "@/components/proyectos/portafolio-kpis";
@@ -176,7 +177,7 @@ export function ProjectList() {
             <span className="rounded-full bg-ink-100 px-2.5 py-1 text-[11.5px] font-bold text-ink-600">
               {conteo}
             </span>
-            {portafolio && !portafolio.confirmado && <ToneBadge tone="neutro" label="No confirmado" />}
+            {portafolio && !portafolio.confirmado && <SemaforoProvisional />}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
