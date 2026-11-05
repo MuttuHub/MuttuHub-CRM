@@ -40,7 +40,7 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
 | T10 | PR-14, PR-15: U9–U12 (requisitos de línea base visibles) | S1, S2 | por definir | pendiente | — |
 | T11 | PR-16: U13–U16 (atajos) | S1, S2 | por definir | pendiente | — |
 | T12 | PR-17: BL#8 (impresión unificada) | S1, S2 | por definir | pendiente | — |
-| T13 | PR-11 (N6) y PR-13 (N2) | S1, S2 | inline | **N2 hecho** · N6 pendiente | N2 en `9accb52` (rama `refactor/reportes-tareas-unico`), 3 archivos +32/−13: el tablero ya no tiene su propia vista «Reporte» —renderizaba el mismo `ReportView` que Reportes— y en su lugar enlaza a `/reportes`. Prueba nueva que falla contra el tablero anterior. Kanban y Reportes: 9 archivos / 64 pruebas, `tsc` y `eslint` 0. **N6** (último contacto y días sin gestión) sigue abierto: requiere backend |
+| T13 | PR-11 (N6) y PR-13 (N2) | S1, S2 | inline | **N2 hecho** · **N6 hecho** (falta revisión visual) | N2 en `9accb52` (rama `refactor/reportes-tareas-unico`), 3 archivos +32/−13: el tablero ya no tiene su propia vista «Reporte» —renderizaba el mismo `ReportView` que Reportes— y en su lugar enlaza a `/reportes`. Prueba nueva que falla contra el tablero anterior. Kanban y Reportes: 9 archivos / 64 pruebas, `tsc` y `eslint` 0. **N6** (último contacto y días sin gestión) sigue abierto: requiere backend |
 | T14 | F0.3: contrato de AJ-02 rehecho sobre `main` (producción según S4) | S1, S4 | inline | pendiente | — |
 | T15 | Paralelo sin decisión: T1 (e2e legacy a CI), T3, T8, E6 según el usuario | S1 | por definir | pendiente | — |
 | TB | **Bloqueados por decisión:** PR-3 (D-G1), PR-12 (D-G2), PR-6 (D-G3), PR-9 (D-G4), PR-4 parte (D-G5), PR-10 (D-G6), U22 (D-G7), PR-R3–R7, R11, R13 (D-G8), PR-M1 en prod (D-M1, D-E), B4/B5 (D-A), F4.x | S1 | — | decisión | Pedir en F0.5 |
@@ -232,3 +232,15 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
   **A2b sigue abierta:** notificar al equipo exige un dominio verificado (D-E para `muttu.co`, o comprar uno).
   Para la prueba desde la app falta `CRON_SECRET` en `.env.local`; el script de humo de la rama fuerza Mailpit y no
   sirve para validar Resend.
+- **L22 (2026-11-05, N6 cerrado en código — push y PRs):** las 12 ramas quedaron en `origin` (el primer intento chocó
+  con la interceptación SSL de la red; el reintento pasó sin tocar la verificación) y se abrieron los PRs **#131–#138**
+  en el orden de `.claude/qa/prs/00-orden.md` (el cuerpo de #136 se corrigió: T5c ya está cerrado en `c055049`).
+  **N6 UI** en `e288ad4` (`feat/clientes-ultimo-contacto`, 12 archivos +247/−25): tarjeta, Lista y Detalles muestran
+  «Hoy» / «Hace N días» / «Sin contacto», y el filtro «Días sin gestión» (7, 15, 30, 60, 90 o más) viaja como
+  `?sinGestion=` a la API y `?sg=` en la URL, con chip, contador, vistas guardadas y encabezado del PDF. El parámetro
+  pasó de `sin_gestion` a `sinGestion` (como `valorMin`) y su validación vive en `parseClientListFilters`, así que la
+  exportación aplica el mismo filtro en vez de ignorarlo. `fa1491c` había dejado **12 pruebas en rojo** (detalle y
+  exportación sin mock de bitácora): corregido. RED observado (7 + 1 del export), luego 671/671 en el área, `tsc` y
+  `eslint` en 0. Suite completa: fallan solo `prisma/*.invariant` (necesitan base de datos) y
+  `proyectos/control-guards` (2, también fallan en `main`). Evaluación nativa: `medium`, `under_budget`.
+  **Pendiente:** revisión visual en 1440 y 390 px, y push de `e288ad4`.
