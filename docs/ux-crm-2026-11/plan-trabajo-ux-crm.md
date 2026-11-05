@@ -451,7 +451,7 @@ El desplegable del header (`src/components/shell/header.tsx`) y los chips del da
 El Kanban abre en «Todas» (`kanban-board.tsx:144`). Para un colaborador debería abrir en «Mías», y la app debería
 recordar la última elección. Lo mismo con la pestaña inicial de Inicio.
 
-**N10 — `/proyectos/nuevo` muestra «Muttu Hub» como título genérico.** · Abierto · PR-8
+**N10 — `/proyectos/nuevo` muestra «Muttu Hub» como título genérico.** · **Hecho** (verificado 2026-11-04) · PR-8
 Falta en `PAGE_HEADERS` (`src/lib/nav.ts`) y la página queda con dos `<h1>` (el del shell y el de
 `nuevo-proyecto.tsx:103`). Lo mismo pasa en `/proyectos/[id]/imprimir`.
 
@@ -469,16 +469,16 @@ Falta en `PAGE_HEADERS` (`src/lib/nav.ts`) y la página queda con dos `<h1>` (el
 | BL#4 | No existe el PDF del portafolio | Abierto | `dashboard/portfolio/export/route.ts`: `formato=pdf` responde 400 | F4.4 |
 | BL#5 | Pestañas de Reportes con parches `!important` | Abierto | `reportes-page.tsx` (3 clases forzadas) | PR-5 |
 | BL#6 | Tareas sin vínculo a proyecto | Abierto | `model Tarea` solo tiene `cliente_id` y `oportunidad_id` | F4.3 |
-| BL#7 | Nuevo proyecto usa el pie de un modal | Abierto | `project-create-form.tsx:594` (`DialogFooter`) | PR-8 |
+| BL#7 | Nuevo proyecto usa el pie de un modal | **Hecho** (verificado 2026-11-04: `variant` por defecto es `page`) | `project-create-form.tsx:594` (`DialogFooter`) | PR-8 |
 | BL#8 | Vistas de impresión inconsistentes | Abierto | `/proyectos/[id]/imprimir` sigue fuera de `/print/*` | PR-17 |
 | BL#9 | Esc, clic fuera o X cierran con la operación en curso | Abierto | Sin helper compartido (p. ej. `import-dialog.tsx:118`) | PR-2 |
 | BL#10 | Formularios largos pierden lo escrito sin aviso | Abierto | Sin confirmación en `editar-datos-generales.tsx` ni `modificacion-form.tsx` | PR-2 |
 | BL#11 | «Cancelar» con estilos distintos | Abierto | Mezcla de `ghost` y `outline` | PR-1 |
 | BL#12 | Tamaño del título distinto entre diálogos | Abierto | `subir-documento-dialog.tsx:86` usa el tamaño por defecto | PR-1 |
-| BL#13 | «Cambiar estado» confirma con «Confirmar» genérico | Abierto | `estado-proyecto-acciones.tsx:152` | PR-8 |
+| BL#13 | «Cambiar estado» confirma con «Confirmar» genérico | **Hecho** (2026-11-04, `adc3c72`) | `estado-proyecto-acciones.tsx:152` | PR-8 |
 | BL#14 | Los diálogos no limitan su altura | Abierto | `ui/dialog.tsx` sin altura máxima | PR-1 |
 | BL#15 | Aprobar una solicitud cierra el diálogo antes del resultado | Abierto | `solicitudes-section.tsx:383` | PR-2 |
-| BL#16 | «Subir documento» no dice qué archivos acepta | Abierto | Sin `accept` ni tamaño en `subir-documento-dialog.tsx` | PR-8 |
+| BL#16 | «Subir documento» no dice qué archivos acepta | **Hecho** (verificado 2026-11-04: `accept` y «máx. N MB» salen de las constantes de la API) | Sin `accept` ni tamaño en `subir-documento-dialog.tsx` | PR-8 |
 | BL#17 | Soltar archivos siempre abre el diálogo | Decisión | D-G4; revisar tras `74c227c` | PR-9 |
 | BL#18 | «Carpeta de cliente» solo encuentra 100 clientes | Abierto | `hooks/kanban.ts:278` (`limit=100`) | PR-4 |
 | BL#19 | Soltar un documento en su propia carpeta lo «mueve» | Revisar | El explorador se rediseñó el 2026-11-02 (`74c227c`) | PR-9 |

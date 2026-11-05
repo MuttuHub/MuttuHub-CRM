@@ -36,7 +36,7 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
 | T6 | PR-M1: outbox, worker y `EmailSender` (Resend + Mailpit por HTTP) | S3 | delegado (paralelo) | hecho; verificador PASS (ítems 1, 3, 4) | `145dfb8` migración + `03513bf` código (rama `feat/email-outbox`); 16 archivos; spot check del padre 41/41; humo: 1 correo en Mailpit |
 | T7 | PR-M2 a PR-M4: plantillas, eventos y resumen v2 | S3 | por definir | pendiente | — |
 | T8 | PR-7a–d: U1–U8 (textos de Proyectos) | S1, S2 | delegado (paralelo) | hecho · **verificado (pruebas + visual)** | `8b228fc` (PR-7a, U1–U3), `e8daa97` (PR-7b, U4), `ff222d4` (PR-7c, U5) en la rama `fix/proyectos-textos`, 37 archivos +429/−227. Verificado por el padre: 23 archivos / **369 pruebas en verde**, `tsc` 0, `eslint` 0. Sin tocar: `import-dialog.tsx` (U6, U7) y `lib/proyectos/plantilla/generate.ts` (U8). PR-7d en `c4c1ffb` (rama `fix/proyectos-textos-import`, desde `main`): 4 archivos, +82/−9, tres pruebas nuevas en RED→GREEN; 175 archivos / 2309 pruebas con 2 fallos preexistentes de `control-guards.test.ts` (`repository-list.tsx:1023`, reproducidos en `main`). |
-| T9 | PR-8: BL#13, BL#16, BL#7, N10 | S1, S2 | inline | pendiente | — |
+| T9 | PR-8: BL#13, BL#16, BL#7, N10 | S1, S2 | inline | hecho | `adc3c72` (rama `fix/proyectos-rapidos`), 2 archivos +17/−3. **3 de los 4 ya estaban en `main`**: BL#7, BL#16 y N10 se verificaron en el código y solo BL#13 estaba abierto. 12/12 en el archivo; área 860/864 con 3 fallos previos (reproducidos en `main`) y 1 timeout por carga que pasa solo |
 | T10 | PR-14, PR-15: U9–U12 (requisitos de línea base visibles) | S1, S2 | por definir | pendiente | — |
 | T11 | PR-16: U13–U16 (atajos) | S1, S2 | por definir | pendiente | — |
 | T12 | PR-17: BL#8 (impresión unificada) | S1, S2 | por definir | pendiente | — |
@@ -204,3 +204,12 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
   semanal pasó de 3 páginas recortadas a 2 con las 9 columnas. Gate: 19 archivos / 122 pruebas, `tsc` y `eslint` 0.
   **Trampa propia, dos veces la misma:** los comentarios CSS dentro del template literal no pueden llevar backticks —
   rompen el build de la página. Queda como límite cosmético que el código del proyecto se envuelva en 3 líneas.
+
+- **L19 (2026-11-04, T9 cerrado):** `adc3c72` en `fix/proyectos-rapidos`. **La evidencia del plan estaba vieja en 3 de
+  los 4 ítems:** BL#7 (el formulario de creación ya renderiza un pie de página porque `variant` nace en `page`),
+  BL#16 (el diálogo de subida ya deriva `accept` y «máx. N MB» de `ALLOWED_FILE_EXTENSIONS`/`MAX_FILE_MB`) y N10 (el
+  `<h1>` y el `metadata.title` ya dicen «Nuevo proyecto») estaban resueltos en `main`. El único abierto de verdad era
+  **BL#13**: «Cambiar estado» confirmaba con «Confirmar»; ahora el botón toma el nombre de la acción («Suspender»,
+  «Cerrar», «Reactivar», «Reabrir», «Cancelar») y queda «Confirmar» solo cuando no hay nada elegido, que es cuando
+  está deshabilitado. Lección para el resto del backlog: **verificar el ítem contra el código antes de escribirlo**; la
+  tabla se escribió contra un `main` más viejo y tres entradas ya no eran ciertas.
