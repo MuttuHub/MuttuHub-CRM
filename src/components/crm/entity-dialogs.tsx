@@ -77,7 +77,7 @@ export function ConfirmDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[min(400px,calc(100%-2rem))]">
         <DialogHeader>
-          <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
+          <DialogTitle>
             {title}
           </DialogTitle>
           <DialogDescription>{description}</DialogDescription>
@@ -249,9 +249,9 @@ export function ContactoFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88dvh] overflow-y-auto sm:max-w-[min(520px,calc(100%-2rem))]">
+      <DialogContent className="sm:max-w-[min(520px,calc(100%-2rem))]">
         <DialogHeader>
-          <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
+          <DialogTitle>
             {isEdit ? "Editar contacto" : "Agregar contacto"}
           </DialogTitle>
           <DialogDescription>
@@ -562,9 +562,9 @@ export function OportunidadFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88dvh] overflow-y-auto sm:max-w-[min(560px,calc(100%-2rem))]">
+      <DialogContent className="sm:max-w-[min(560px,calc(100%-2rem))]">
         <DialogHeader>
-          <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
+          <DialogTitle>
             {isEdit ? "Editar oportunidad" : "Nueva oportunidad"}
           </DialogTitle>
           <DialogDescription>
@@ -811,9 +811,9 @@ export function OportunidadLifecycleDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88dvh] overflow-y-auto sm:max-w-[min(620px,calc(100%-2rem))]">
+      <DialogContent className="sm:max-w-[min(620px,calc(100%-2rem))]">
         <DialogHeader>
-          <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
+          <DialogTitle>
             {oportunidad.nombre}
           </DialogTitle>
           <DialogDescription>

@@ -222,7 +222,7 @@ export function SavedViewsMenu({
       <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
         <DialogContent className="sm:max-w-[min(380px,calc(100%-2rem))]">
           <DialogHeader>
-            <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
+            <DialogTitle>
               Guardar vista
             </DialogTitle>
             <DialogDescription>

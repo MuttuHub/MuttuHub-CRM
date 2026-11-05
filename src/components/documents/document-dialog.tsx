@@ -62,7 +62,7 @@ export function DocumentDialog({
 
   return (
     <Dialog open={documentId !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[88dvh] gap-0 overflow-y-auto p-0 sm:max-w-[min(620px,calc(100%-2rem))]">
+      <DialogContent className="gap-0 p-0 sm:max-w-[min(620px,calc(100%-2rem))]">
         {!documento ? (
           <div className="flex flex-col gap-3 p-6">
             <Skeleton className="h-8 w-3/4 rounded-10" />
@@ -83,7 +83,7 @@ export function DocumentDialog({
                     {extensionOf(activa?.tipo_archivo ?? "")?.toUpperCase() ?? "—"}
                   </span>
                   <div className="min-w-0">
-                    <DialogTitle className="font-display text-[19px] leading-snug font-bold tracking-[-0.02em] text-ink-950">
+                    <DialogTitle>
                       {documento.titulo}
                     </DialogTitle>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -307,10 +307,10 @@ function VersionUploadDialog({
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="max-h-[88dvh] gap-0 overflow-y-auto p-0 sm:max-w-[min(520px,calc(100%-2rem))]">
+      <DialogContent className="gap-0 p-0 sm:max-w-[min(520px,calc(100%-2rem))]">
         <div className="flex flex-col gap-5 p-6">
           <DialogHeader className="gap-1">
-            <DialogTitle className="font-display text-[19px] font-bold tracking-[-0.02em] text-ink-950">
+            <DialogTitle>
               Subir nueva versión
             </DialogTitle>
             <DialogDescription>
@@ -329,10 +329,10 @@ function VersionUploadDialog({
 
           <FileDropzone file={file} onChange={setFile} />
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="-mx-6 -mb-6 gap-2 px-6">
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               onClick={() => close(false)}
               disabled={upload.isPending}
               className="px-4 font-semibold"

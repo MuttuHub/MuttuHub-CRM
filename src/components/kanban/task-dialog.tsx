@@ -251,7 +251,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[88dvh] gap-0 overflow-y-auto p-0 sm:max-w-[min(680px,calc(100%-2rem))]">
+      <DialogContent className="gap-0 p-0 sm:max-w-[min(680px,calc(100%-2rem))]">
         {isLoading ? (
           <div className="grid min-h-[320px] place-items-center text-[13px] text-ink-500">
             Cargando la tarea…
@@ -259,7 +259,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-5 p-6">
             <DialogHeader className="gap-1">
-              <DialogTitle className="font-display text-[19px] font-bold tracking-[-0.02em] text-ink-950">
+              <DialogTitle>
                 {isEdit ? "Editar tarea" : "Nueva tarea"}
               </DialogTitle>
               <DialogDescription>
@@ -482,7 +482,7 @@ export function TaskDialog({ taskId, onClose, users, clients }: TaskDialogProps)
               </div>
             )}
 
-            <DialogFooter className="sm:justify-end">
+            <DialogFooter className="-mx-6 -mb-6 px-6 sm:justify-end">
               {readOnly ? (
                 <Button type="button" variant="outline" onClick={onClose}>
                   Cerrar
@@ -933,7 +933,7 @@ function ConfirmDeleteDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[min(380px,calc(100%-2rem))]">
         <DialogHeader>
-          <DialogTitle className="font-display text-[17px] font-bold tracking-[-0.02em] text-ink-950">
+          <DialogTitle>
             Eliminar tarea
           </DialogTitle>
           <DialogDescription>
