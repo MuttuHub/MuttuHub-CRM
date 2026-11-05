@@ -13,6 +13,11 @@ se pudieron cerrar leyendo el hook; se verifican en la unidad que las usa.
 Desde B3, B puede **agregar** archivos de endpoint nuevos con aviso; todo cambio a un archivo existente se pide a A.
 **Decisión** = ID de la puerta (plan §4, rediseño §5) o «—».
 
+> **D-V3-1 está resuelta desde el 2026-11-04** (`odd/tasks/backlog-completo-2026-11.md`, L15): «no se reserva la
+> interfaz. La interfaz de U17–U21 se construye en la sección viva y v3 la hereda cuando llegue». Consecuencia para este
+> inventario: **U17, U18/CP6 y U19 no son pedidos de B**; son trabajo de A en la sección viva, y v3 los hereda. Quedan
+> marcados así abajo, sin renumerar la lista de pedidos para no romper las referencias.
+
 ## 1. Portafolio · pantalla 1 (`/proyectos-v3`)
 
 | Elemento del prototipo | Hoy | Hueco | Dueño | Decisión |
@@ -101,14 +106,14 @@ Desde B3, B puede **agregar** archivos de endpoint nuevos con aviso; todo cambio
 | 1 · Datos generales (origen, nombre, responsable, valor, fechas, meta de beneficiarios, líneas, municipio) | `useCreateProject` → `POST /projects`; `useEligibleOpportunities`, `useStrategicLines`, `useMunicipalities`, `useProjectMembers`; meta de beneficiarios por campo del proyecto (`useUpdateProject`) — confirmar nombre exacto en B1 | — | B | D-G1 (textos) |
 | 1 · Aviso «la fecha de inicio ya pasó» | regla de fecha en la lib de línea base | UI de B | B | — |
 | 2 · Estructura (objetivos → actividades → entregables) | CRUD de objetivos/actividades/entregables | — | B | — |
-| 2 · «Importar desde Excel» único (U17) | hoy tres importadores: `useImportStructurePO` (`/structure/import`), `useImportBudget`, `useImportExpenses` | un solo botón con elección de formato | A (PR de F4.7) + B | **D-V3-1** |
+| 2 · «Importar desde Excel» único (U17) | hoy tres importadores: `useImportStructurePO` (`/structure/import`), `useImportBudget`, `useImportExpenses` | un solo botón con elección de formato | A en la sección viva; v3 lo hereda | D-V3-1 resuelta (L15) |
 | 2 · Códigos automáticos (CP1) | hoy el código se escribe a mano y el 409 aparece al guardar | generación en el servidor | A | **D-CP6** |
 | 2 · Rango de fechas en vez de semanas (CP2) | semanas en `activities`; el peso se deriva (`weeks.ts`) | servidor calcula semanas desde fechas | A | — |
 | 2 · Responsable obligatorio (CP3) | hoy opcional | formulario + importación + checklist | A + B | **D-CP1** |
 | 2 · Entregable sin «Tipo de medio exigido» (CP5) | hoy se envía en `estructura-entregables.tsx:141` | migración aditiva (columna sin uso) | A | **D-CP2** |
 | 3 · Ver cronograma (solo lectura) | `gantt.ts`, `weeks.ts` | — | B | — |
 | 4 · Presupuesto y programación | `useProjectBudget`, `useProjectProgramming`, `useUpdateBudget`, `useUpdateProgramming`, `useSetValorTotal`, `useImportBudget`, `useImportTemplate` | — | B | — |
-| 4 · «Repartir según cronograma» (U18 + CP6) y «un solo guardado» (U19) | hoy reparto en partes iguales y dos guardados | endpoints nuevos | A | **D-V3-1** |
+| 4 · «Repartir según cronograma» (U18 + CP6) y «un solo guardado» (U19) | hoy reparto en partes iguales y dos guardados | endpoints nuevos | A en la sección viva; v3 lo hereda | D-V3-1 resuelta (L15) |
 | 4 · «Ajustar en el último mes» cuando no cuadra (CP7) | U12 (diferencia visible) | UI de B sobre U12 | B | — |
 | 5 · Checklist «Listo para aprobar · n de 6» | `precondicionesLineaBase()`; hoy solo aparece en el 409 de aprobar | `GET /projects/{id}/baseline/check` | A | — |
 | 5 · Aprobar línea base | `useApproveBaseline` → `POST /projects/{id}/baseline/approve` (permiso Admin/Gerencia ya aplicado) | — | B | — |
@@ -129,7 +134,7 @@ Desde B3, B puede **agregar** archivos de endpoint nuevos con aviso; todo cambio
 | Solicitar cambio (presupuesto, meta, fechas, estructura) | `useRequestModification` → `POST /modifications` | tipo de «datos generales» (ver cabecera) | A | — |
 | Aprobar / rechazar modificación | `useApproveModification`, `useRejectModification` | — | B | — |
 | Cambiar estado (suspender, cerrar, reactivar, cancelar) con motivo | `useChangeProjectEstado` → `POST /estado` | — | B | B7 |
-| Importar desde Excel (estructura, presupuesto, gastos) | `useImportStructurePO`, `useImportBudget`, `useImportExpenses` | unificación U17 | A + B | **D-V3-1** |
+| Importar desde Excel (estructura, presupuesto, gastos) | `useImportStructurePO`, `useImportBudget`, `useImportExpenses` | unificación U17 | A en la sección viva; v3 lo hereda | D-V3-1 resuelta (L15) |
 | Descargar plantilla | `useImportTemplate` (`GET /template`), `GET /budget/template`, `GET /expenses/template` | unificación U7 (hecha en v1: PR-7) | B | — |
 | Registrar medición de indicador | `useCreateMedicion` → `POST /indicators/{iid}/measurements` | — | B | — |
 | Subir documento del proyecto | `useCreateProjectDocument` | — | B | — |
@@ -158,12 +163,16 @@ v3 **consume** estas reglas; ninguna se vuelve a escribir en `proyectos-v3/`. La
 ## 6. Pedidos a A (resumen para su tracker)
 
 Cada línea es lo que v3 necesita y hoy no existe; Adrián las pasa a A. El orden respeta la línea de A del plan §5.
+Los puntos **4 y 5** quedaron reclasificados: no son pedidos de B, son trabajo de A en la sección viva que v3 hereda
+(D-V3-1 resuelta, L15). Se dejan en su lugar para no renumerar la lista.
 
 1. `GET /projects/{id}/baseline/check` — PR-14 (U9, U10). Habilita el checklist del asistente y la fila de borrador.
 2. «Mi semana en el proyecto»: endpoint por proyecto y rol (o ampliación de `dashboard/my-summary`) — P3, **D-G11**.
 3. Tipo de modificación para valor, fechas y responsable del proyecto — B2.
-4. U17: un solo «Importar desde Excel» con elección de formato — F4.7, **D-V3-1**.
-5. U18 + CP6 («repartir según cronograma») y U19 (un solo guardado) — F4.7, **D-V3-1**.
+4. ~~U17: un solo «Importar desde Excel» con elección de formato — F4.7.~~ **No es un pedido de B:** A lo construye en
+   la sección viva y v3 lo hereda (D-V3-1 resuelta, L15).
+5. ~~U18 + CP6 («repartir según cronograma») y U19 (un solo guardado) — F4.7.~~ **No es un pedido de B:** igual que el
+   anterior, A en la sección viva y v3 lo hereda.
 6. U20: campos que el gasto agrupado necesita del backend — B6.
 7. CP11: preflight de cierre antes de `POST /estado` — **D-CP3**.
 8. CP12: datos del informe de cierre en PDF — **D-CP5**.
@@ -180,8 +189,8 @@ Cada línea es lo que v3 necesita y hoy no existe; Adrián las pasa a A. El orde
 |---|---|---|
 | B1 Portafolio v3 | pedido 2 | P5, D-G11, D-G1 |
 | B2 Ficha v3 en lectura | pedido 3, PR-16 | D-G1 |
-| B3 Estructura en tabla | pedidos 4, 11, 12, 13, 14 | D-CP1, D-CP2, D-CP6, D-V3-1 |
-| B4 Presupuesto y programación | pedido 5 | D-V3-1 |
+| B3 Estructura en tabla | pedidos 11, 12, 13, 14 (U17 lo hereda de la sección viva) | D-CP1, D-CP2, D-CP6 |
+| B4 Presupuesto y programación | hereda de la sección viva (U18/CP6 y U19); sin pedidos propios | — |
 | B5 Aprobación con checklist y «Enviar a Gerencia» | pedidos 1, 10 | D-G12 |
 | B6 Registros: avance unificado y gasto en 4 grupos | pedidos 6, 9 | D-G7, D-G11 |
 | B7 Cierre | pedidos 7, 8 | D-CP3, D-CP4, D-CP5 |
