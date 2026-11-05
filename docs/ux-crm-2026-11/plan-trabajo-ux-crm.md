@@ -5,6 +5,13 @@
 **Fecha de corte:** 2026-11-04 (noche) · **`main` en `8868f1a`** («docs(projects): propose milestone-based activity
 progress (U22) for the PO», 2026-11-04).
 
+> **Actualización 2026-11-04 (cierre) — dos agentes en paralelo:**
+> - El backlog sigue primero (agente A). La sección renovada de Proyectos se prepara al lado como **Proyectos v3**
+>   (agente B, otro worktree, ruta aparte con la bandera `FEATURE_PROYECTOS_V3`, apagada). B solo hace la base técnica
+>   (B0) hasta que estén todas las decisiones de su puerta. Contrato: `plan-paralelo-backlog-proyectos-v3.md`;
+>   instrucciones: `odd/tasks/prompt-agente-a-backlog.md` y `odd/tasks/prompt-agente-b-proyectos-v3.md`; avance de B:
+>   `odd/tasks/proyectos-v3.md`. Entran las decisiones D-CP1 a D-CP6, D-V3-1 y D-V3-2 (sección 4).
+>
 > **Actualización 2026-11-04 (cierre) — ciclo de un proyecto:**
 > - Entra `rediseno-ciclo-proyecto.md` con el video `ciclo-proyecto-antes-despues.mp4` (sección 9.2): el ciclo crear →
 >   poblar → aprobar → ejecutar → terminar recreado desde el código, 14 puntos complejos y un plan en 3 olas. Las olas 1
@@ -125,6 +132,9 @@ Son las reglas que el repositorio ya usa (`docs/plan-trabajo-restante.md` §9), 
 
 ## 4. Decisiones que hay que pedir
 
+> **Para la reunión:** las 26 decisiones abiertas están reunidas, con propuesta y bloqueo asociado,
+> en `decisiones-abiertas-2026-11-04.md`.
+
 Se resuelven juntas en la reunión de la Fase 0. Las decisiones D-A a D-D (2026-10-21 y 2026-10-26) ya están tomadas y
 siguen vigentes.
 
@@ -147,6 +157,14 @@ siguen vigentes.
 | **D-G10** | **Reportes v2:** ¿se pasa de 6 secciones a 4 informes (Mi semana, Equipo = Tareas + Gestión de tareas, Comercial = Pipeline + Actividad de clientes, Semanal)? Si se aprueba, los PDF también son 4 | Gerencia | P1, PR-R3 a PR-R7 |
 | **D-G11** | **Proyectos v2:** ¿entra «Lo que te toca esta semana» en el portafolio, distinto por rol? | PO | P3 |
 | **D-G12** | **Proyectos v2:** ¿entra «Avisar a Gerencia» cuando un borrador queda listo y quien lo armó no puede aprobar? | PO | P4 |
+| **D-CP1** | **Ciclo del proyecto:** ¿el responsable es obligatorio al crear la actividad o basta con exigirlo para aprobar la línea base? | PO | CP3 |
+| **D-CP2** | **Ciclo del proyecto:** ¿se elimina «Tipo de medio exigido» del entregable? | PO | CP5 |
+| **D-CP3** | **Ciclo del proyecto:** en el checklist de cierre, ¿qué bloquea el cierre y qué solo avisa? | PO / Gerencia | CP11 |
+| **D-CP4** | **Ciclo del proyecto:** ¿el cambio de meta de un entregable es una modificación existente o nueva, y quién la aprueba? | PO | CP10 |
+| **D-CP5** | **Ciclo del proyecto:** ¿qué lleva el informe de cierre y a quién se envía? | Gerencia | CP12 |
+| **D-CP6** | **Ciclo del proyecto:** ¿el código automático se puede editar a mano? | PO | CP1 |
+| **D-V3-1** | **Proyectos v3:** ¿la interfaz de U17–U21 (F4.7) se hace solo en v3 y el backlog entrega solo el backend? Propuesta: sí; si v3 se atrasa más de 4 semanas, interfaz mínima en v1 | Adrián | F4.7, B3–B7 |
+| **D-V3-2** | **Proyectos v3:** ¿cuándo se retira v1? Propuesta: tras 2 semanas de piloto con un coordinador y paridad de reglas al 100 % | Adrián / Gerencia | B8 |
 | **D-G9** | **R12:** ¿hace falta un «Informe de avance para el aliado» por proyecto, sin valores comerciales ni notas internas, para enviar a clientes externos? | Gerencia | R12 |
 
 ---
