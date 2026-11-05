@@ -303,3 +303,15 @@ describe("POST /api/v1/projects/:id/structure/import — apply", () => {
     expect(mocks.updateMany).not.toHaveBeenCalled();
   });
 });
+
+describe("modo (X2)", () => {
+  it("rejects an unknown modo with 400 and writes nothing", async () => {
+    const res = await post(VALIDO, { modo: "aplicarr" });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      code: "VALIDATION_ERROR",
+      error: "El modo debe ser «validar» o «aplicar».",
+    });
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+});
