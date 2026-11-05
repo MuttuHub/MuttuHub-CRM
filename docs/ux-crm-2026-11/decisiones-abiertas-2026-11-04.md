@@ -2,7 +2,7 @@
 
 **Fecha:** 2026-11-04 · **Para:** Adrián (producto), PO, Gerencia y TI
 **Origen:** `plan-trabajo-ux-crm.md` §4 y `rediseno-ciclo-proyecto.md` §5
-**Estado:** 26 decisiones sin responder. Desbloquean ~15 ítems del backlog y 12 PRs.
+**Estado:** 24 abiertas. **3 cerradas el 2026-11-04** (D-V3-1, D-F, D-T5) y 1 nueva abierta (D-T5b).
 
 ---
 
@@ -59,23 +59,26 @@ plan. Si la reunión cambia algún nombre, esos textos se ajustan después — e
 |---|---|---|---|---|
 | **D-M1** | Correo: ¿se mantiene **Resend** (gratis hasta ~3.000/mes y 100/día) o se usa Brevo, Amazon SES o SMTP de Microsoft 365? | PR-M1 en producción, PR-M2–M4 | Resend detrás del puerto `EmailSender`: cambiarlo después es una variable de entorno | El correo funciona en local (Mailpit) pero no puede salir a nadie |
 | **D-E** | Acceso al DNS de `muttu.co` para verificar el dominio en Resend | A2, T6 | Pedirlo ahora: sin DNS no hay envío desde el dominio propio | Se enviaría desde un remitente genérico o no se envía |
-| **D-F** | ¿Railway reemplaza solo a Vercel (Opción A) o también a Supabase (Opción B)? | E4, E5 | Opción A: menos migración y el esquema no se toca | La infraestructura queda a medio decidir |
+| **D-F** ✔ | ¿Railway reemplaza solo a Vercel (Opción A) o también a Supabase (Opción B)? | E4, E5 | **Decidida: Opción A** — la app a Railway, Supabase sigue dando Auth, Storage y Postgres (un día). Opción B se revisa cuando haya requisito de datos propios | — |
 
 ## Bloque 4 · Internas (4)
 
 | ID | Pregunta | Desbloquea | Recomendación | Si se posterga |
 |---|---|---|---|---|
-| **D-T5** | Sign-off del dueño de los datos sobre la lectura global de clientes y tareas | T5 | Firmarlo antes de ampliar reportes | Los reportes nuevos heredan una lectura sin aval |
+| **D-T5** ✔ | Sign-off del dueño de los datos sobre la lectura global de clientes y tareas | T5 | **Decidida: Adrián firma como dueño técnico** (administra el acceso a Supabase); se pide una línea de gerencia que avale la lectura global | — |
+| **D-T5b** | **Nueva.** Si la lectura global se mantiene, ¿se ocultan `texto` y `próximo_paso` de la bitácora a los COLABORADOR y se pagina `/interactions` y `/contacts`? | T3 de deuda técnica | Sí: hoy la bitácora completa es visible para todo el equipo autenticado | La exposición de información de clientes sigue sin límite por rol |
 | **D-CP4** | El cambio de meta de un entregable, ¿es un tipo de modificación existente o uno nuevo? ¿Quién lo aprueba? | CP10 | Tipo propio, aprobado por Gerencia como una modificación | Nadie puede pedir una meta realista a mitad de proyecto |
-| **D-V3-1** | Proyectos v3: ¿la interfaz de U17–U21 se hace solo en v3 y el backlog entrega solo el backend? | F4.7, B3–B7 | Sí; si v3 se atrasa más de 4 semanas, interfaz mínima en v1 | El rediseño se parte en dos sin saber cuál sobrevive |
-| **D-V3-2** | Proyectos v3: ¿cuándo se retira v1? | B8 | Tras 2 semanas de piloto y paridad de reglas al 100 % | Conviven dos versiones sin fecha de corte |
+| **D-V3-1** ✔ | ¿La interfaz de U17–U21 se hace solo en Proyectos v3? | F4.7, B3–B7 | **Decidida: no se reserva.** Se construye en la sección viva; v3 la hereda cuando llegue | — |
+| **D-V3-2** | ¿Cuándo se retira la sección actual cuando v3 esté lista? | B8 | ⚠️ **Reformulada:** el texto original decía «retirar v1», pero en el código **v2 es lo que está en producción**. Propuesta original: 2 semanas de piloto y paridad de reglas al 100 % | Conviven dos versiones sin fecha de corte |
 
 ---
 
 ## Cómo destrabar esto sin esperar una reunión
 
-**Se pueden responder hoy, sin PO** (son tuyas): **D-V3-1**, **D-V3-2**, **D-F** y —si sos el dueño de
-los datos— **D-T5**.
+**Cerradas hoy, sin reunión:** **D-V3-1** (no se reserva la interfaz para v3), **D-F** (Opción A: app en
+Railway, Supabase se queda) y **D-T5** (Adrián firma como dueño técnico; falta una línea de gerencia).
+
+**Queda una tuya, reformulada:** **D-V3-2** — ¿cuándo se retira la sección **actual** cuando v3 esté lista?
 
 **Una sola reunión de 45 minutos con la PO** cubre el Bloque 1 completo (12 decisiones) y desbloquea
 PR-3, PR-4 parcial, PR-6, PR-9, PR-10, PR-12, U22 y las cuatro CP.

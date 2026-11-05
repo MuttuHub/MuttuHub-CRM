@@ -149,8 +149,9 @@ siguen vigentes.
 | **D-A (pregunta 1)** | En una segunda importación del mismo proyecto, ¿se conserva la estructura y solo se carga el presupuesto, o se reemplaza? | PO | B5 |
 | **D-B8** | ¿Cualquier miembro del proyecto (o el coordinador) puede adjuntar el soporte de un gasto, o solo quien lo registró? | PO | — |
 | **D-E** | Acceso al DNS de `muttu.co` para verificar Resend | Negocio / TI | A2, T6 |
-| **D-F** | ¿Railway reemplaza solo a Vercel (Opción A) o también a Supabase (Opción B)? | Usuario | E4, E5 |
-| **D-T5** | Sign-off del dueño de los datos sobre la lectura global de clientes y tareas | Dueño | T5 |
+| **D-F** ✔ | ¿Railway reemplaza solo a Vercel (Opción A) o también a Supabase (Opción B)? **Decidida (2026-11-04, Adrián): Opción A.** La app pasa a Railway y Supabase sigue dando Auth, Storage y Postgres (un día de trabajo, sin tocar identidad ni datos). La Opción B —stack completo en Railway— se revisa cuando haya requisito de datos en infraestructura propia; son 1–2 semanas con la migración de identidad como ruta crítica | Usuario | E4, E5 |
+| **D-T5** ✔ | Sign-off del dueño de los datos sobre la lectura global de clientes y tareas. **Decidida (2026-11-04):** Adrián firma como dueño técnico de los datos (administra el acceso a Supabase); se pide una línea de gerencia que avale que todo el equipo lea todos los clientes y la bitácora. Abre **D-T5b**: ocultar `texto` y `próximo_paso` de la bitácora a COLABORADOR (recomendación de `docs/analisis/T3-seguridad.md:291`) | Dueño | T5 |
+| **D-T5b** | **Bitácora:** si la lectura global se mantiene, ¿se ocultan `texto` y `próximo_paso` a los COLABORADOR y se pagina `/interactions` y `/contacts`? | PO / Adrián | T3 deuda técnica, BL#… |
 | **D-G7** | **U22 — avance por hitos:** ¿se aprueba? ¿Los hitos se definen al planificar o también en ejecución? ¿Pesan igual? ¿Son obligatorios para aprobar la línea base? | PO | U22 |
 | **D-M1** | **Correo:** ¿se mantiene Resend (gratis hasta ~3.000/mes y 100/día, según fuentes de terceros; confirmar en su página) o se usa Brevo, Amazon SES o el SMTP de Microsoft 365? Recomendación: Resend detrás del puerto `EmailSender` | Gerencia / TI | PR-M1 en producción |
 | **D-G8** | **Reportes:** ¿se aprueba el formato común de los 5 informes («Informes PDF · Reportes»)? ¿Las frases de «Lo esencial» las arma el sistema con reglas fijas? ¿Qué informes salen en envíos programados, a quién y con qué frecuencia? ¿Puede uno de ellos ir a un cliente externo? ¿Se habilita la «Legalización de gastos» con detalle por gasto, que hoy prohíbe P04 / REQ-ACC-05, y para qué roles? | Gerencia | PR-R3 a PR-R7, PR-R11, PR-R13 |
@@ -163,8 +164,8 @@ siguen vigentes.
 | **D-CP4** | **Ciclo del proyecto:** ¿el cambio de meta de un entregable es una modificación existente o nueva, y quién la aprueba? | PO | CP10 |
 | **D-CP5** | **Ciclo del proyecto:** ¿qué lleva el informe de cierre y a quién se envía? | Gerencia | CP12 |
 | **D-CP6** | **Ciclo del proyecto:** ¿el código automático se puede editar a mano? | PO | CP1 |
-| **D-V3-1** | **Proyectos v3:** ¿la interfaz de U17–U21 (F4.7) se hace solo en v3 y el backlog entrega solo el backend? Propuesta: sí; si v3 se atrasa más de 4 semanas, interfaz mínima en v1 | Adrián | F4.7, B3–B7 |
-| **D-V3-2** | **Proyectos v3:** ¿cuándo se retira v1? Propuesta: tras 2 semanas de piloto con un coordinador y paridad de reglas al 100 % | Adrián / Gerencia | B8 |
+| **D-V3-1** ✔ | **Proyectos v3:** ¿la interfaz de U17–U21 (F4.7) se hace solo en v3 y el backlog entrega solo el backend? **Decidida (2026-11-04, Adrián): no se reserva.** La interfaz de U17–U21 se construye en la sección viva a medida que el backlog la pida, y v3 hereda ese trabajo cuando llegue. Razón: v3 está en cero, su puerta necesita 13 decisiones y la gente sigue reportando que Proyectos es difícil de usar; reservarle la interfaz dejaría esas mejoras esperando meses | Adrián | F4.7, B3–B7 |
+| **D-V3-2** | **Proyectos v3:** ¿cuándo se retira v1? **Pendiente de precisión:** «v1» no existe como sección — en el código **v2 es lo que está en producción**. Reformular: ¿cuándo se retira la sección actual (v2) cuando v3 esté lista? Propuesta original: tras 2 semanas de piloto con un coordinador y paridad de reglas al 100 % | Adrián / Gerencia | B8 |
 | **D-G9** | **R12:** ¿hace falta un «Informe de avance para el aliado» por proyecto, sin valores comerciales ni notas internas, para enviar a clientes externos? | Gerencia | R12 |
 
 ---

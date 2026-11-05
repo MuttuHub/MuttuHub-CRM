@@ -165,4 +165,24 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
   **T5c abierto:** el semanal desborda el ancho útil (184 mm) — tablas de 9 columnas y `grid-cols-4` — y se corta
   a la derecha; con las cajas de margen ya no arrastra el chip, pero el corte del cuerpo sigue. Además pasó de 2 a
   3 páginas por los márgenes nuevos (24 mm arriba, 20 mm abajo).
-
+- **L15 (2026-11-04, plan en paralelo):** Adrián, textual: «ahora la prioridad es terminarl el backlog que tenemos
+  pendiente, y depronto con otro agente en paralelo podemos ir desarrollando esta sección renovada». Acordado: esta
+  línea es el **agente A** y tiene prioridad; un **agente B** prepara Proyectos v3 en otro worktree, ruta aparte y
+  bandera apagada, solo base técnica (B0) hasta cerrar su puerta de decisiones. Contrato y zonas («Quién toca qué»):
+  `docs/ux-crm-2026-11/plan-paralelo-backlog-proyectos-v3.md`. Instrucciones: `odd/tasks/prompt-agente-a-backlog.md`.
+  B no toca `src/components/proyectos/**`, API, reglas, `prisma/**` ni `ui/`; A no toca `proyectos-v3/**` ni
+  `src/lib/flags.ts`. A anota «**Entrega para B**» al fusionar PR-14, PR-16 y el backend de F4.7, y «**Aviso a B**» si
+  cambia un hook o endpoint que B usa. Puertos: A 3000, B 3001. Próximo para A: paso 0 (fusionar lo terminado), T4.
+- **L15 (2026-11-04, tres decisiones cerradas con Adrián):** quedaron resueltas **D-V3-1**, **D-F** y **D-T5**
+  (anotadas en el plan §4 y en `decisiones-abiertas-2026-11-04.md`).
+  - **D-V3-1 → no se reserva la interfaz.** La interfaz de U17–U21 se construye en la sección viva y v3 la hereda
+    cuando llegue. Dato que lo motivó: **v3 está en cero** — no hay ramas ni commits, y B0.1 a B0.6 siguen
+    «pendiente» en `odd/tasks/proyectos-v3.md`; reservarle esas pantallas dejaría las mejoras de uso esperando meses.
+  - **D-F → Opción A.** App en Railway y Supabase sigue dando Auth, Storage y Postgres: un día de trabajo, sin tocar
+    identidad ni datos. La Opción B (stack completo) se revisa cuando haya requisito de datos en infraestructura propia.
+  - **D-T5 → Adrián firma como dueño técnico de los datos** (administra el acceso a Supabase). Queda pedir una línea de
+    gerencia que avale que todo el equipo lea todos los clientes y la bitácora. **Abre D-T5b:** ocultar `texto` y
+    `próximo_paso` a COLABORADOR y paginar `/interactions` y `/contacts`.
+  - **D-V3-2 queda reformulada:** el texto decía «retirar v1», pero en el código **v2 es lo que está en producción**.
+    La pregunta real es cuándo se retira la sección actual cuando v3 esté lista.
+  - **La puerta de v3 sigue cerrada:** faltan D-G1, D-G7, D-G11, D-G12, D-CP1 a D-CP6, P5 y D-V3-2.
