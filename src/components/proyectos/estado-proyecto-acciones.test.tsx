@@ -108,13 +108,26 @@ describe("EstadoProyectoAcciones", () => {
     expect(confirmar).toBeDisabled()
   })
 
+  it("names the confirmation after the action instead of a generic «Confirmar» (BL#13)", async () => {
+    setup("GERENCIA")
+    render(<EstadoProyectoAcciones proyecto={proyectoEn("EN_EJECUCION")} />, { wrapper })
+    const dialogo = await abrir()
+
+    // Sin acción elegida no hay nada concreto que confirmar, y el botón lo dice.
+    expect(within(dialogo).getByRole("button", { name: "Confirmar" })).toBeDisabled()
+
+    await userEvent.click(within(dialogo).getByRole("radio", { name: /Suspender/ }))
+    expect(within(dialogo).getByRole("button", { name: "Suspender" })).toBeInTheDocument()
+    expect(within(dialogo).queryByRole("button", { name: "Confirmar" })).toBeNull()
+  })
+
   it("posts the accion and the motivo, closes and confirms", async () => {
     setup("GERENCIA")
     render(<EstadoProyectoAcciones proyecto={proyectoEn("EN_EJECUCION")} />, { wrapper })
     const dialogo = await abrir()
     await userEvent.click(within(dialogo).getByRole("radio", { name: /Suspender/ }))
     await userEvent.type(within(dialogo).getByLabelText("Motivo"), "Sin desembolso del cliente")
-    await userEvent.click(within(dialogo).getByRole("button", { name: "Confirmar" }))
+    await userEvent.click(within(dialogo).getByRole("button", { name: "Suspender" }))
 
     await waitFor(() => expect(cambios()).toHaveLength(1))
     expect(JSON.parse(String(cambios()[0][1].body))).toEqual({
@@ -133,7 +146,7 @@ describe("EstadoProyectoAcciones", () => {
     const dialogo = await abrir()
     await userEvent.click(within(dialogo).getByRole("radio", { name: /Suspender/ }))
     await userEvent.type(within(dialogo).getByLabelText("Motivo"), "x")
-    await userEvent.click(within(dialogo).getByRole("button", { name: "Confirmar" }))
+    await userEvent.click(within(dialogo).getByRole("button", { name: "Suspender" }))
 
     expect(await within(dialogo).findByText("Solo se puede suspender un proyecto en ejecución.")).toBeInTheDocument()
     expect(screen.getByRole("dialog")).toBeInTheDocument()
