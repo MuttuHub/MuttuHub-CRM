@@ -32,7 +32,7 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
 | T4 | PR-2: BL#9, BL#22, BL#15, BL#10 (diálogos con operación en curso) | S1, S2 | por definir | pendiente | — |
 | T5 | PR-R2: R9 (hoja de impresión común) | S1, S2 | delegado (paralelo) | hecho · **verificado con PDF real; 2 defectos → T5b** | `660989a` (rama `feat/print-sheet-base`), 8 archivos; RED → GREEN 125/125; spot check del padre 67/67. PDF real: 6/6 en carta 612×792 y «Página N de M» correcto en las 6. Defectos: cabecera y pie no se repiten por página; el semanal pierde el chip de clasificación. Evidencia en `docs/ux-crm-2026-11/capturas/t5/` |
 | T5b | **PR-R2b:** repetir cabecera y pie en cada página impresa (ver L13) | S2 | inline | hecho · **verificado en PDF** | Segundo commit de `feat/print-sheet-base`: cabecera y pie como cajas de margen `@page`. 6/6 plantillas x 11 páginas con cabecera, pie y «Página N de M» correctos (antes fallaban 4 de 6). Evidencia en `docs/ux-crm-2026-11/capturas/t5b/` |
-| T5c | **PR-R2c:** el semanal desborda el ancho de carta y se corta a la derecha | S2 | por definir | pendiente | Ver L14: tablas de 9 columnas y el `grid-cols-4` de tarjetas no entran en 184 mm útiles; el contenido se corta y arrastra el chip de clasificación |
+| T5c | **PR-R2c:** el semanal desborda el ancho de carta y se corta a la derecha | S2 | inline | hecho · **verificado en PDF** | `c055049` (tercer commit de `feat/print-sheet-base`), 3 archivos +18/−3. Causas: el wrapper de `Table` recorta en papel, `min-w-[960px]` le gana a `print:min-w-0`, y las celdas `whitespace-nowrap` fijan un ancho intrínseco mayor que la hoja. Resultado: 6/6 plantillas en 10 páginas con cabecera, pie y numeración; el semanal pasó de 3 páginas recortadas a **2 con las 9 columnas** y las cifras intactas |
 | T6 | PR-M1: outbox, worker y `EmailSender` (Resend + Mailpit por HTTP) | S3 | delegado (paralelo) | hecho; verificador PASS (ítems 1, 3, 4) | `145dfb8` migración + `03513bf` código (rama `feat/email-outbox`); 16 archivos; spot check del padre 41/41; humo: 1 correo en Mailpit |
 | T7 | PR-M2 a PR-M4: plantillas, eventos y resumen v2 | S3 | por definir | pendiente | — |
 | T8 | PR-7a–d: U1–U8 (textos de Proyectos) | S1, S2 | delegado (paralelo) | hecho · **verificado (pruebas + visual)** | `8b228fc` (PR-7a, U1–U3), `e8daa97` (PR-7b, U4), `ff222d4` (PR-7c, U5) en la rama `fix/proyectos-textos`, 37 archivos +429/−227. Verificado por el padre: 23 archivos / **369 pruebas en verde**, `tsc` 0, `eslint` 0. Sin tocar: `import-dialog.tsx` (U6, U7) y `lib/proyectos/plantilla/generate.ts` (U8). PR-7d en `c4c1ffb` (rama `fix/proyectos-textos-import`, desde `main`): 4 archivos, +82/−9, tres pruebas nuevas en RED→GREEN; 175 archivos / 2309 pruebas con 2 fallos preexistentes de `control-guards.test.ts` (`repository-list.tsx:1023`, reproducidos en `main`). |
@@ -195,3 +195,12 @@ Orden: primero lo que no depende de decisiones. Ruta: `inline` salvo que se indi
   queda **pausado** con B0.1 hecho (bandera `FEATURE_PROYECTOS_V3` apagada por defecto, ruta en 404). Cola del backlog
   que va a producción, en orden: T5c (defecto de la hoja de impresión que ya está aprobada), T9 (PR-8), T13 (PR-11/13),
   T15, más T4 cuando T3 entre a `main` y T14 cuando se autorice la ventana de producción.
+- **L18 (2026-11-04, T5c cerrado):** `c055049` en `feat/print-sheet-base` (3 archivos, +18/−3). El recorte del semanal
+  no era del componente sino de tres decisiones de pantalla que el papel no puede cumplir: el wrapper de `Table`
+  (`overflow-x-auto`) recorta en vez de desplazar, `min-w-[960px]` gana al `print:min-w-0`, y las celdas
+  `whitespace-nowrap` fijan un ancho intrínseco mayor que la hoja. Ahora la hoja manda: tablas sin ancho mínimo, celdas
+  que envuelven, tipografía y relleno más chicos en papel, y las tarjetas del semanal a 2 columnas para que
+  «$ 20.500.000» no se parta. Medido: **6/6 plantillas, 10 páginas**, cabecera, pie y «Página N de M» correctos; el
+  semanal pasó de 3 páginas recortadas a 2 con las 9 columnas. Gate: 19 archivos / 122 pruebas, `tsc` y `eslint` 0.
+  **Trampa propia, dos veces la misma:** los comentarios CSS dentro del template literal no pueden llevar backticks —
+  rompen el build de la página. Queda como límite cosmético que el código del proyecto se envuelva en 3 líneas.
