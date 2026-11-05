@@ -263,8 +263,8 @@ decir y qué acción hacer en vivo (no solo narrar).
      "Validar entregable con equipo técnico" o "Preparar propuesta
      técnica") y mostrar subtareas, comentarios de distintos usuarios y el
      adjunto real descargable.
-  3. Abrir el "reporte de equipo" (`report-view.tsx` dentro de `/tablero`) y
-     exportar a xlsx (`/api/v1/tasks/export`).
+  3. Abrir «Ver reportes» en el tablero (lleva a `/reportes`, que es el único
+     informe de tareas) y exportar a xlsx (`/api/v1/tasks/export`).
   4. Imprimir el reporte de tareas (`/print/reportes/tareas`).
 
 ### Bloque 4 — Documentos
@@ -335,8 +335,8 @@ decir y qué acción hacer en vivo (no solo narrar).
 - [ ] Login y las 4 caras del dashboard + exportar un PDF.
 - [ ] CRM: filtros, vista guardada, ficha de cliente completa, imprimir.
 - [ ] Kanban: drag-and-drop **con teclado**, diálogo de tarea con
-      subtareas/comentarios/adjunto real, reporte de equipo + exportar
-      xlsx, imprimir reporte.
+      subtareas/comentarios/adjunto real, «Ver reportes» hacia `/reportes`,
+      exportar xlsx, imprimir reporte.
 - [ ] Documentos: versiones múltiples, descarga/zip, categoría restringida
       cambiando a un usuario Colaborador.
 - [ ] Notificaciones: marcar leída/no leída, "Marcar todas como leídas" +
