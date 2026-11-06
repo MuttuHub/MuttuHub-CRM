@@ -9,16 +9,43 @@ import { ProjectHistorial } from "@/components/proyectos/project-historial";
 import { ProjectModificaciones } from "@/components/proyectos/project-modificaciones";
 import { ProjectVersiones } from "@/components/proyectos/project-versiones";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { ProjectListRow } from "@/hooks/projects";
+import { useProjectModifications, useProjectVersions, type ProjectListRow } from "@/hooks/projects";
 
 const PANEL_CLASS = "mt-0 flex flex-col gap-6";
 
+/**
+ * « · N» after a segment name, only once its data loaded (nothing while loading or on error). A bare text node,
+ * so the tab reads as one run («Versiones · 3»): a wrapping element would lose the space in the accessible name.
+ */
+function ContadorSegmento({ cantidad }: { cantidad: number | undefined }) {
+  return cantidad === undefined ? null : ` · ${cantidad}`;
+}
+
+// Same queries (same keys) as the Modificaciones and Versiones segments: no extra request once a segment is
+// open. They are mounted only outside BORRADOR, where those segments read nothing either.
+function ContadorModificaciones({ proyectoId }: { proyectoId: string }) {
+  const query = useProjectModifications(proyectoId);
+  return <ContadorSegmento cantidad={query.isSuccess ? query.data?.length : undefined} />;
+}
+
+function ContadorVersiones({ proyectoId }: { proyectoId: string }) {
+  const query = useProjectVersions(proyectoId);
+  return <ContadorSegmento cantidad={query.isSuccess ? query.data?.length : undefined} />;
+}
+
 export function FichaHistorial({ proyecto }: { proyecto: ProjectListRow }) {
+  const contar = proyecto.estado !== "BORRADOR";
   return (
     <Tabs defaultValue="modificaciones" className="flex flex-col gap-0">
       <TabsList variant="pill" className="w-full justify-start">
-        <TabsTrigger value="modificaciones">Modificaciones</TabsTrigger>
-        <TabsTrigger value="versiones">Versiones</TabsTrigger>
+        <TabsTrigger value="modificaciones">
+          Modificaciones
+          {contar && <ContadorModificaciones proyectoId={proyecto.id} />}
+        </TabsTrigger>
+        <TabsTrigger value="versiones">
+          Versiones
+          {contar && <ContadorVersiones proyectoId={proyecto.id} />}
+        </TabsTrigger>
         <TabsTrigger value="auditoria">Auditoría</TabsTrigger>
       </TabsList>
 

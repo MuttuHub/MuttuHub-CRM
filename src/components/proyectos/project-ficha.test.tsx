@@ -71,8 +71,11 @@ function renderFicha(projectId = "p1") {
   })
 }
 
-/** Los paneles de la ficha se montan solo con su pestaña activa. */
-async function openTab(name: string) {
+/**
+ * Los paneles de la ficha se montan solo con su pestaña activa. Los segmentos con contador («Gastos · 3»,
+ * «Versiones · 1») se piden con una RegExp anclada al nombre: el número llega cuando cargan los datos.
+ */
+async function openTab(name: string | RegExp) {
   const user = userEvent.setup()
   await user.click(await screen.findByRole("tab", { name }))
 }
@@ -138,7 +141,7 @@ describe("ProjectFicha (page)", () => {
 
     const kpis = await screen.findByTestId("kpis")
     expect(kpis).toHaveTextContent("Exportar fichas")
-    expect(await within(kpis).findByText("Semáforo provisional")).toBeInTheDocument()
+    expect(await within(kpis).findByText("Umbrales sin confirmar")).toBeInTheDocument()
     expect(within(kpis).getByRole("button", { name: /Exportar ficha \(Excel\)/ })).toBeInTheDocument()
 
     await user.keyboard("{Escape}")
@@ -226,11 +229,12 @@ describe("ProjectFicha (page)", () => {
     renderFicha()
     await openTab("Historial")
 
-    expect(await screen.findByTestId("modificaciones")).toHaveTextContent("Modificaciones")
+    expect(await screen.findByTestId("modificaciones")).toBeInTheDocument()
+    expect(screen.getByRole("tab", { name: /^Modificaciones( · \d+)?$/, selected: true })).toBeInTheDocument()
     expect(screen.queryByTestId("versiones")).not.toBeInTheDocument()
     expect(screen.queryByTestId("historial")).not.toBeInTheDocument()
 
-    await openTab("Versiones")
+    await openTab(/^Versiones( · \d+)?$/)
     expect(await screen.findByTestId("versiones")).toHaveTextContent("Versiones")
     await openTab("Auditoría")
     expect(await screen.findByTestId("historial")).toBeInTheDocument()
@@ -368,7 +372,8 @@ describe("ProjectFicha (page)", () => {
     await openTab("Finanzas")
 
     const financiero = await screen.findByTestId("financiero")
-    expect(financiero).toHaveTextContent("Ficha financiera")
+    // The Resumen segment names the section; the financial sheet does not repeat it as a heading.
+    expect(within(financiero).queryByRole("heading", { name: "Ficha financiera" })).not.toBeInTheDocument()
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/financial-sheet", expect.any(Object)),
     )
@@ -387,7 +392,7 @@ describe("ProjectFicha (page)", () => {
 
     renderFicha()
     await openTab("Finanzas")
-    await user.click(await screen.findByRole("tab", { name: "Gastos" }))
+    await user.click(await screen.findByRole("tab", { name: /^Gastos( · \d+)?$/ }))
 
     const gastos = await screen.findByTestId("gastos")
     expect(gastos).toHaveTextContent("Gastos")
@@ -474,7 +479,9 @@ describe("ProjectFicha (page)", () => {
     await screen.findByTestId("financiero")
     expect(screen.queryByTestId("ficha-resumen")).not.toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/financial-sheet", expect.any(Object))
-    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/expenses"))).toBe(false)
+    // The «Gastos · N» counter reads the expenses once Finanzas opens, but the Gastos section stays unmounted.
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/expenses"))).toBe(true)
+    expect(screen.queryByTestId("gastos")).not.toBeInTheDocument()
   })
 
   it("keeps the header (code, name, estado and both semáforo chips) outside the scrolling panel", async () => {
