@@ -28,7 +28,7 @@ Test runner: `node.exe node_modules/vitest/vitest.mjs run --dir src <files>` (Wi
 | T5 | S1–S7 | inline | wiring in `project-ficha.tsx`, `/proyectos/novedades`, unit + e2e updates; seam check green | see Log L3 |
 | T6 | S1, S6 | inline | visual check desktop + 390 px in a browser (14 shots, 0 overflow) and the e2e suite; two specs adapted to the new behaviour | `015240c` |
 | T7 | S2 | inline | «Qué falta» stops repeating the delay the Gasto figure already carries (5 rows → the board's 4); RED test first | `44820a7` |
-| T8 | S8 | inline | pending (after lunch). RED first in `gastos-por-validar.test.tsx`: a non-manager sees the action and gets the «sin permisos» popup; manager and «Tú lo registraste» unchanged. Then the same in the phone card and `AccionesGasto`; vitest `--dir src`, tsc, eslint, e2e `permisos` | — |
+| T8 | S8 | inline | done: non-managers see «Revisar» in «Gastos por validar» and it opens a popover with «No tienes permisos para validar gastos. Solo Gerencia o Administración pueden validarlos mientras el proyecto está en ejecución.» (user approved the wording: «Si me parece asi, siempre y cuando no tenga los permisos necesarios para esa tarea»); a manager on a project not in execution still sees nothing (B7). RED→GREEN in `project-financiero.test.tsx`; vitest `--dir src` 397/4738 green, tsc 0, eslint 0; e2e deferred to the end of T9 | (this commit) |
 | T9 | S9 | inline | pending: header «Registrar avance» / «Registrar gasto» open their modals from any tab; RED first in `project-ficha.test.tsx`, update e2e `ficha-ejecucion` | — |
 
 Route evidence: T1–T4 are independent units with disjoint edit surfaces (one tab each), each several files and well over 100 lines, launched together (Writer trigger a).

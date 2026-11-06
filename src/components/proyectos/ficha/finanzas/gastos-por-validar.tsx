@@ -13,7 +13,8 @@ import { StatusChip } from "@/components/ui/status-chip";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useIsMobile } from "@/components/proyectos/capture-surface";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
-import { PROPIO_TEXT } from "@/components/proyectos/gasto-acciones";
+import { Popover, PopoverContent, PopoverDescription, PopoverTrigger } from "@/components/ui/popover";
+import { PROPIO_TEXT, SIN_PERMISO_VALIDAR } from "@/components/proyectos/gasto-acciones";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import { InlineError } from "@/components/proyectos/ui";
 import {
@@ -188,28 +189,42 @@ function ListaPendientes({
   );
 }
 
-/** «Revisar» for a manager on someone else's expense; «Tú lo registraste» on one's own; nothing for the rest. */
+/**
+ * «Revisar» for a manager on someone else's expense; «Tú lo registraste» on one's own. Whoever lacks the role
+ * still sees «Revisar», and it opens a popover saying why instead of the panel, so the cell is never blank. A manager
+ * on a project that is not in execution sees nothing (B7: validating needs EN_EJECUCION).
+ */
 export function AccionRevisar({
   gasto,
   permisos,
   onRevisar,
 }: {
   gasto: ProjectExpense;
-  permisos: Pick<Permisos, "puedeValidar" | "usuarioId">;
+  permisos: Pick<Permisos, "puedeValidar" | "esGestor" | "usuarioId">;
   onRevisar: (id: string) => void;
 }) {
-  if (!permisos.puedeValidar || gasto.estado !== "REGISTRADO") return null;
+  if (gasto.estado !== "REGISTRADO") return null;
+  const nombre = `Revisar el gasto ${gasto.numero_documento} de ${gasto.tercero_nombre}`;
+  if (!permisos.esGestor) {
+    return (
+      <Popover>
+        <PopoverTrigger render={<Button type="button" size="sm" className="max-md:h-11" aria-label={nombre} />}>
+          Revisar
+        </PopoverTrigger>
+        <PopoverContent className="w-72 min-w-0 p-3" side="top">
+          <PopoverDescription className="text-[13px] leading-relaxed text-ink-700">
+            {SIN_PERMISO_VALIDAR}
+          </PopoverDescription>
+        </PopoverContent>
+      </Popover>
+    );
+  }
+  if (!permisos.puedeValidar) return null;
   if (gasto.registrado_por_id === permisos.usuarioId) {
     return <span className="text-[12px] font-semibold text-ink-500">{PROPIO_TEXT}</span>;
   }
   return (
-    <Button
-      type="button"
-      size="sm"
-      className="max-md:h-11"
-      aria-label={`Revisar el gasto ${gasto.numero_documento} de ${gasto.tercero_nombre}`}
-      onClick={() => onRevisar(gasto.id)}
-    >
+    <Button type="button" size="sm" className="max-md:h-11" aria-label={nombre} onClick={() => onRevisar(gasto.id)}>
       Revisar
     </Button>
   );

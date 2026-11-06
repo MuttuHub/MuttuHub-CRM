@@ -16,6 +16,8 @@ import { CAPTURE_TEXTAREA, InlineError } from "@/components/proyectos/ui";
 import { useRejectExpense, useValidateExpense } from "@/hooks/projects";
 
 export const PROPIO_TEXT = "Tú lo registraste";
+export const SIN_PERMISO_VALIDAR =
+  "No tienes permisos para validar gastos. Solo Gerencia o Administración pueden validarlos mientras el proyecto está en ejecución.";
 export const SIN_SOPORTE_HINT = "Adjunta un soporte para poder validarlo.";
 export const INCOMPLETO_HINT = "Completa el tipo y número de identificación del tercero antes de validar.";
 

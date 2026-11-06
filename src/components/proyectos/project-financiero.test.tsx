@@ -307,12 +307,22 @@ describe("ProjectFinanciero", () => {
       expect(screen.queryByTestId("gastos-por-validar")).not.toBeInTheDocument()
     })
 
-    it("offers no Revisar to a team member, and «Tú lo registraste» to the manager who registered it", async () => {
-      const { unmount } = setup({ rol: "COORDINADOR", gastos: [gasto("g1")] })
+    it("shows Revisar to a team member too, and clicking it explains the missing permission instead of opening the panel", async () => {
+      const user = userEvent.setup()
+      setup({ rol: "COORDINADOR", gastos: [gasto("g1")] })
       const seccion = await screen.findByTestId("gastos-por-validar")
       await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
-      expect(within(seccion).queryByRole("button", { name: /^Revisar/ })).not.toBeInTheDocument()
-      unmount()
+      const revisar = await within(seccion).findByRole("button", { name: "Revisar el gasto FV-4007 de Papelería del Sinú" })
+      await user.click(revisar)
+      expect(
+        await screen.findByText(
+          "No tienes permisos para validar gastos. Solo Gerencia o Administración pueden validarlos mientras el proyecto está en ejecución.",
+        ),
+      ).toBeInTheDocument()
+      expect(screen.queryByRole("dialog", { name: "Validar gasto" })).not.toBeInTheDocument()
+    })
+
+    it("«Tú lo registraste» to the manager who registered it", async () => {
 
       setup({ gastos: [gasto("g1", { registrado_por_id: "yo" })] })
       const propia = await screen.findByTestId("gastos-por-validar")
