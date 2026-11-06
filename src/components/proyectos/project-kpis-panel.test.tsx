@@ -123,18 +123,18 @@ describe("ProjectKpisPanel", () => {
     expect(screen.queryByText(/Beneficiarios vs meta/)).toBeNull()
   })
 
-  it("shows the 'Semáforo provisional' badge only while the parameters are not confirmed", async () => {
+  it("shows the 'Umbrales sin confirmar' badge only while the parameters are not confirmed", async () => {
     fetchMock.mockResolvedValue(jsonResponse(KPIS))
     const { unmount } = renderPanel()
-    expect(await screen.findByText("Semáforo provisional")).toBeInTheDocument()
+    expect(await screen.findByText("Umbrales sin confirmar")).toBeInTheDocument()
     unmount()
     fetchMock.mockResolvedValue(jsonResponse({ ...KPIS, confirmado: true }))
     renderPanel()
     await screen.findByTestId("kpi-tecnico")
-    expect(screen.queryByText("Semáforo provisional")).not.toBeInTheDocument()
+    expect(screen.queryByText("Umbrales sin confirmar")).not.toBeInTheDocument()
   })
 
-  it("uses plain words: Calcular hasta, Comparar con plan actual / inicial, puntos and Semáforo provisional (U5)", async () => {
+  it("uses plain words: Calcular hasta, Comparar con plan actual / inicial, puntos and Umbrales sin confirmar (U5)", async () => {
     fetchMock.mockResolvedValue(jsonResponse(KPIS))
     renderPanel()
     const panel = await screen.findByTestId("kpis")
@@ -144,8 +144,8 @@ describe("ProjectKpisPanel", () => {
     const base = screen.getByRole("combobox", { name: "Comparar con" })
     expect(within(base).getAllByRole("option").map((o) => o.textContent)).toEqual(["Plan actual", "Plan inicial"])
     expect(screen.getByRole("button", { name: "Ayuda: Comparar con" })).toBeInTheDocument()
-    expect(screen.getByText("Semáforo provisional")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Ayuda: Semáforo provisional" })).toBeInTheDocument()
+    expect(screen.getByText("Umbrales sin confirmar")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Ayuda: Umbrales sin confirmar" })).toBeInTheDocument()
     expect(within(panel).getByText(/^Datos al /)).toBeInTheDocument()
     expect(within(screen.getByTestId("kpi-tecnico")).getByText("0 puntos")).toBeInTheDocument()
     expect(panel).not.toHaveTextContent(/Corte|No confirmado|v0|\bpp\b|Vigente/)
