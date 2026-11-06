@@ -285,10 +285,10 @@ describe("validarNuevoReporte (S9.1-S9.4)", () => {
     const reportes: ReporteActividadInput[] = [{ fecha: "2026-10-13", porcentaje: 70 }]
     expect(
       validarNuevoReporte({ porcentaje: 70, observacion: "x", reportes, entregablesCompletos: false, tope: 90 }),
-    ).toEqual({ ok: false, message: "El avance debe ser mayor que el último reportado (70%)." })
+    ).toEqual({ ok: false, message: "El avance debe ser mayor que el último reportado (70 %)." })
     expect(
       validarNuevoReporte({ porcentaje: 50, observacion: "x", reportes, entregablesCompletos: false, tope: 90 }),
-    ).toEqual({ ok: false, message: "El avance debe ser mayor que el último reportado (70%)." })
+    ).toEqual({ ok: false, message: "El avance debe ser mayor que el último reportado (70 %)." })
   })
 
   it("accepts the tope exactly and rejects over it while incomplete, naming the tope (S3)", () => {
@@ -297,7 +297,7 @@ describe("validarNuevoReporte (S9.1-S9.4)", () => {
     ).toEqual({ ok: true })
     expect(
       validarNuevoReporte({ porcentaje: 95, observacion: "x", reportes: [], entregablesCompletos: false, tope: 90 }),
-    ).toEqual({ ok: false, message: "El avance máximo sin entregables completos es 90%." })
+    ).toEqual({ ok: false, message: "El avance máximo sin entregables completos es 90 %." })
   })
 
   it("allows exceeding the tope once deliverables are complete", () => {

@@ -661,6 +661,10 @@ export const ReporteActividadSchema = registry.register(
     porcentaje: z.string().openapi({ description: "Decimal(5,2) como string; siempre > 0 y <= 100.", example: "30" }),
     observacion: z.string().openapi({ description: "Obligatoria: qué se ejecutó y qué falta." }),
     registrado_por_id: z.string().uuid(),
+    registrado_por_nombre: z
+      .string()
+      .nullable()
+      .openapi({ description: "Nombre de quien registró el reporte; se mantiene aunque ya no sea integrante del proyecto." }),
     created_at: z.string(),
     anulado_at: z.string().nullable(),
     anulado_por_id: z.string().uuid().nullable(),

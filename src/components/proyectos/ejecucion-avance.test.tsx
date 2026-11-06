@@ -103,7 +103,8 @@ function reporte(overrides: Partial<ProjectActivityReport> = {}): ProjectActivit
     fecha: "2026-10-20",
     porcentaje: "30.00",
     observacion: "Se ejecutó el taller inicial; falta el acta firmada.",
-    registrado_por_id: "u1",
+    registrado_por_id: "6e9fd0f1-a71e-46a3-bef1-cd53487deccd",
+    registrado_por_nombre: "Ana Pérez",
     created_at: "2026-10-20T00:00:00.000Z",
     anulado_at: null,
     anulado_por_id: null,
@@ -547,7 +548,7 @@ describe("EjecucionAvance", () => {
     })
   })
 
-  it("shows the history with fecha, porcentaje, observación and usuario", async () => {
+  it("shows the history with fecha, porcentaje, observación and the author's name, never their id", async () => {
     mockReportes([reporte()])
     render(
       <EjecucionAvance
@@ -555,7 +556,6 @@ describe("EjecucionAvance", () => {
         actividad={ACTIVIDAD}
         canWrite={false}
         canVoid={false}
-        nombreUsuario={(id) => (id === "u1" ? "Ana Pérez" : id)}
         tecnico={TECNICO}
         entregables={[]}
         progreso={new Map()}
@@ -568,6 +568,7 @@ describe("EjecucionAvance", () => {
     expect(fila).toHaveTextContent("30 %")
     expect(fila).toHaveTextContent("Se ejecutó el taller inicial; falta el acta firmada.")
     expect(fila).toHaveTextContent("Ana Pérez")
+    expect(fila).not.toHaveTextContent("6e9fd0f1-a71e-46a3-bef1-cd53487deccd")
   })
 
   it("shows the attach control per report and the void action only on the most recent one", async () => {

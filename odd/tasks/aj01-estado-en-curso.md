@@ -225,6 +225,12 @@ activities must be a byte-for-byte no-op (S5.2) — pin with a regression test, 
   the UI passes `canWrite` (manager or member) straight to the activity reports. Void and attach share the gate,
   so they are open to any member too (still latest-report-only, motivo required, audited). Branch
   `fix/aj01-registrar-avance-miembros`. RED 4 API + 6 UI → GREEN; independent verifier PASS, no blockers.
+- **L11 (2026-11-05, two S2/S3 defects found in the browser):** (1) the history showed a raw UUID
+  (`6e9fd0f1-…`) instead of who registered the report: the UI resolved names from the current members list, so a
+  former member fell back to the id. The API now returns `registrado_por_nombre` (list, create and void; one
+  `usuario` query, like the expense validation queue) and the UI shows it; the members map is gone. (2) The S3
+  messages read «(70%)» / «90%.» while the PO's document and this document's S9.3/S9.4 (and the OpenAPI note)
+  say «(70 %)» / «90 %.»: fixed in `validarNuevoReporte`. RED 8 → GREEN.
 
 ## Delivery slices (2026-10-29)
 

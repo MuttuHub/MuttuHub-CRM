@@ -23,6 +23,7 @@ vi.mock("@/lib/db", () => ({
     proyecto: { findFirst: vi.fn() },
     actividad: { findFirst: vi.fn() },
     entregable: { findMany: vi.fn(async () => []) },
+    usuario: { findMany: vi.fn(async () => []) },
     soporteProyecto: { groupBy: vi.fn(async () => []) },
     reporteActividad: {
       findMany: vi.fn(async () => []),
@@ -41,7 +42,7 @@ import { GET, POST } from "./route";
 
 const gerencia = { id: "ger-1", rol: "GERENCIA" } as Usuario;
 const admin = { id: "adm-1", rol: "ADMINISTRADOR" } as Usuario;
-const responsable = { id: "resp-1", rol: "COORDINADOR" } as Usuario;
+const responsable = { id: "resp-1", nombre: "Laura Jiménez", rol: "COORDINADOR" } as Usuario;
 const otroCoordinador = { id: "coord-2", rol: "COORDINADOR" } as Usuario;
 const colaborador = { id: "col-1", rol: "COLABORADOR" } as Usuario;
 
@@ -157,17 +158,17 @@ describe("POST progress: S3 accept-if sequence", () => {
     expect(res.status).toBe(201);
   });
 
-  it('rejects 70 or 50 after a 70 with "El avance debe ser mayor que el último reportado (70%)."', async () => {
+  it('rejects 70 or 50 after a 70 with "El avance debe ser mayor que el último reportado (70 %)."', async () => {
     vi.mocked(db.reporteActividad.findMany).mockResolvedValue([fila({ porcentaje: new Prisma.Decimal(70) })] as never);
     for (const porcentaje of [70, 50]) {
       const res = await POST(post({ ...valido, porcentaje }), ctx);
       expect(res.status).toBe(409);
-      expect((await res.json()).error).toBe("El avance debe ser mayor que el último reportado (70%).");
+      expect((await res.json()).error).toBe("El avance debe ser mayor que el último reportado (70 %).");
     }
     expect(mocks.create).not.toHaveBeenCalled();
   });
 
-  it('accepts 90 and rejects 95 with "El avance máximo sin entregables completos es 90%." while incomplete', async () => {
+  it('accepts 90 and rejects 95 with "El avance máximo sin entregables completos es 90 %." while incomplete', async () => {
     vi.mocked(db.entregable.findMany).mockResolvedValue([
       { id: "ent-1", cantidad_meta: new Prisma.Decimal(10), avances: [] },
     ] as never);
@@ -175,7 +176,7 @@ describe("POST progress: S3 accept-if sequence", () => {
 
     const res = await POST(post({ ...valido, porcentaje: 95 }), ctx);
     expect(res.status).toBe(409);
-    expect((await res.json()).error).toBe("El avance máximo sin entregables completos es 90%.");
+    expect((await res.json()).error).toBe("El avance máximo sin entregables completos es 90 %.");
   });
 
   it("allows 100 once every entregable is complete (meta reached + live medio)", async () => {
@@ -201,7 +202,13 @@ describe("POST progress: result", () => {
     const res = await POST(post(valido), ctx);
     const json = await res.json();
     expect(res.status).toBe(201);
-    expect(json.reporte).toMatchObject({ id: "rep-1", fecha: "2026-10-06", porcentaje: "30", medios: 0 });
+    expect(json.reporte).toMatchObject({
+      id: "rep-1",
+      fecha: "2026-10-06",
+      porcentaje: "30",
+      medios: 0,
+      registrado_por_nombre: "Laura Jiménez",
+    });
     expect(logChange).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
@@ -228,6 +235,27 @@ describe("GET progress", () => {
     expect(res.status).toBe(200);
     expect(json.reportes.map((r: { id: string }) => r.id)).toEqual(["rep-1", "rep-2"]);
     expect(json.estado).toBe("EN_EJECUCION");
+  });
+
+  it("names who registered each report, including an author who is no longer a project member", async () => {
+    vi.mocked(db.reporteActividad.findMany).mockResolvedValue([
+      fila({ id: "rep-1", registrado_por_id: "resp-1" }),
+      fila({ id: "rep-2", registrado_por_id: "ex-miembro" }),
+    ] as never);
+    vi.mocked(db.usuario.findMany).mockResolvedValue([
+      { id: "resp-1", nombre: "Laura Jiménez" },
+      { id: "ex-miembro", nombre: "Ana Pérez" },
+    ] as never);
+
+    const json = await (await GET(get(), ctx)).json();
+
+    expect(json.reportes.map((r: { registrado_por_nombre: string | null }) => r.registrado_por_nombre)).toEqual([
+      "Laura Jiménez",
+      "Ana Pérez",
+    ]);
+    expect(db.usuario.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: { in: ["resp-1", "ex-miembro"] } } }),
+    );
   });
 
   it("is readable by any project reader (not only the responsable), 403 for a stranger, 404 for unknown project/activity", async () => {

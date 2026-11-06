@@ -334,10 +334,10 @@ export function validarNuevoReporte(input: {
   }
   const anterior = reportes.length > 0 ? reportes[reportes.length - 1] : null
   if (anterior !== null && porcentaje <= anterior.porcentaje) {
-    return { ok: false, message: `El avance debe ser mayor que el último reportado (${anterior.porcentaje}%).` }
+    return { ok: false, message: `El avance debe ser mayor que el último reportado (${anterior.porcentaje} %).` }
   }
   if (!completos && porcentaje > tope) {
-    return { ok: false, message: `El avance máximo sin entregables completos es ${tope}%.` }
+    return { ok: false, message: `El avance máximo sin entregables completos es ${tope} %.` }
   }
   return { ok: true }
 }

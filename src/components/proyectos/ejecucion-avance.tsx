@@ -72,7 +72,6 @@ export function EjecucionAvance({
   progreso,
   canWrite,
   canVoid,
-  nombreUsuario = (id: string) => id,
   enfocar = false,
 }: {
   proyectoId: string;
@@ -82,8 +81,6 @@ export function EjecucionAvance({
   progreso: Map<string, ProjectDeliverableProgress>;
   canWrite: boolean;
   canVoid: boolean;
-  /** Resuelve un `registrado_por_id` a un nombre visible en el historial (S2: "...fecha, porcentaje, observación, usuario"). */
-  nombreUsuario?: (id: string) => string;
   /** Scroll to this row and move the keyboard focus to it (the Tablero sends the user here). */
   enfocar?: boolean;
 }) {
@@ -139,7 +136,6 @@ export function EjecucionAvance({
         proyectoId={proyectoId}
         actividad={actividad}
         canWrite={canWrite}
-        nombreUsuario={nombreUsuario}
       />
 
       {entregables.length > 0 && (
@@ -170,12 +166,10 @@ function ActividadReportes({
   proyectoId,
   actividad,
   canWrite,
-  nombreUsuario,
 }: {
   proyectoId: string;
   actividad: ProjectActivity;
   canWrite: boolean;
-  nombreUsuario: (id: string) => string;
 }) {
   const query = useActivityReports(proyectoId, actividad.id);
   const remove = useVoidActivityReport(proyectoId, actividad.id);
@@ -196,7 +190,6 @@ function ActividadReportes({
               proyectoId={proyectoId}
               actividad={actividad}
               reporte={reporte}
-              nombreUsuario={nombreUsuario}
               canWrite={canWrite}
               esUltimo={index === ultimoIndex}
               deleting={remove.isPending && remove.variables?.id === reporte.id}
@@ -240,7 +233,6 @@ function ReporteRow({
   proyectoId,
   actividad,
   reporte,
-  nombreUsuario,
   canWrite,
   esUltimo,
   deleting,
@@ -250,7 +242,6 @@ function ReporteRow({
   proyectoId: string;
   actividad: ProjectActivity;
   reporte: ProjectActivityReport;
-  nombreUsuario: (id: string) => string;
   canWrite: boolean;
   esUltimo: boolean;
   deleting: boolean;
@@ -272,7 +263,7 @@ function ReporteRow({
           <span className={anulado ? "text-ink-500 line-through" : "font-semibold text-ink-900"}>
             {formatNumero(Number(reporte.porcentaje))} %
           </span>{" "}
-          <span className="text-ink-600">· {nombreUsuario(reporte.registrado_por_id)}</span>
+          <span className="text-ink-600">· {reporte.registrado_por_nombre ?? "Usuario desconocido"}</span>
         </span>
         <span className="flex items-center gap-2">
           {anulado && <ToneBadge tone="neutro" label="Anulado" />}

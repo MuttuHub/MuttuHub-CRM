@@ -24,6 +24,7 @@ import {
   gateEjecucionRead,
   gateReporteActividadWrite,
   loadActividadParaReporte,
+  nombresDeRegistradores,
   toReporteView,
 } from "@/lib/api/ejecucion";
 import { getSemaforoParametrosV2 } from "@/lib/settings";
@@ -81,11 +82,16 @@ export const GET = withApiErrorHandling(
       where: { actividad_id: activityId, proyecto_id: id },
       orderBy: [{ fecha: "asc" }, { created_at: "asc" }],
     });
-    const medios = await contarMediosVivosReporte(rows.map((row) => row.id));
+    const [medios, nombres] = await Promise.all([
+      contarMediosVivosReporte(rows.map((row) => row.id)),
+      nombresDeRegistradores(rows.map((row) => row.registrado_por_id)),
+    ]);
 
     return NextResponse.json({
       estado: gate.value.estado,
-      reportes: rows.map((row) => toReporteView(row, medios.get(row.id) ?? 0)),
+      reportes: rows.map((row) =>
+        toReporteView(row, medios.get(row.id) ?? 0, nombres.get(row.registrado_por_id) ?? null),
+      ),
     });
   },
 );
@@ -146,6 +152,6 @@ export const POST = withApiErrorHandling(
       return created;
     });
 
-    return NextResponse.json({ reporte: toReporteView(row, 0) }, { status: 201 });
+    return NextResponse.json({ reporte: toReporteView(row, 0, auth.usuario.nombre) }, { status: 201 });
   },
 );
