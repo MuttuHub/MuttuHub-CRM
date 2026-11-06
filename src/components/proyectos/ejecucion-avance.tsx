@@ -188,7 +188,18 @@ function ActividadReportes({
   const [abierto, setAbierto] = useState(false);
 
   const reportes = query.data?.reportes ?? [];
-  const ultimoIndex = reportes.length - 1;
+  // Same rule as the void route: the latest live report by date, then by creation. A voided one never counts.
+  const ultimoId = reportes
+    .filter((reporte) => reporte.anulado_at === null)
+    .reduce<ProjectActivityReport | null>(
+      (ultimo, reporte) =>
+        ultimo === null ||
+        reporte.fecha > ultimo.fecha ||
+        (reporte.fecha === ultimo.fecha && reporte.created_at > ultimo.created_at)
+          ? reporte
+          : ultimo,
+      null,
+    )?.id;
 
   return (
     <div className="mt-2">
@@ -196,14 +207,14 @@ function ActividadReportes({
         <InlineError message={errorMessage(query.error, "No pudimos cargar los avances. Inténtalo de nuevo.")} />
       ) : reportes.length > 0 ? (
         <ul data-testid="ejecucion-reportes" className="flex flex-col gap-1.5">
-          {reportes.map((reporte, index) => (
+          {reportes.map((reporte) => (
             <ReporteRow
               key={reporte.id}
               proyectoId={proyectoId}
               actividad={actividad}
               reporte={reporte}
               canWrite={canWrite}
-              esUltimo={index === ultimoIndex}
+              esUltimo={reporte.id === ultimoId}
               deleting={remove.isPending && remove.variables?.id === reporte.id}
               error={
                 remove.isError && remove.variables?.id === reporte.id

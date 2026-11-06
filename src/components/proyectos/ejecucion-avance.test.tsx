@@ -612,6 +612,29 @@ describe("EjecucionAvance", () => {
     expect(within(filas[1]).getByRole("button", { name: "Anular" })).toBeInTheDocument()
   })
 
+  it("offers «Anular» on the latest live report even when a later one was voided, as the API decides", async () => {
+    mockReportes([
+      reporte({ id: "r1", fecha: "2026-10-11", porcentaje: "90.00", created_at: "2026-10-11T00:00:00.000Z" }),
+      reporte({ id: "r2", fecha: "2026-11-03", porcentaje: "30.00", created_at: "2026-11-03T00:00:00.000Z", anulado_at: "2026-11-04T00:00:00.000Z", motivo_anulacion: "Error" }),
+    ])
+    render(
+      <EjecucionAvance
+        proyectoId="p1"
+        actividad={ACTIVIDAD}
+        canWrite
+        canVoid={false}
+        tecnico={{ ...TECNICO, estado: "FINALIZADA" }}
+        entregables={[]}
+        progreso={new Map()}
+      />,
+      { wrapper: createWrapper() },
+    )
+
+    const filas = await screen.findAllByTestId("ejecucion-reporte")
+    expect(within(filas[0]).getByRole("button", { name: "Anular" })).toBeInTheDocument()
+    expect(within(filas[1]).queryByRole("button", { name: "Anular" })).not.toBeInTheDocument()
+  })
+
   it("offers no «Adjuntar archivo» on a voided report: the API refuses it", async () => {
     mockReportes([
       reporte({ id: "r1", fecha: "2026-10-10", porcentaje: "30.00", anulado_at: "2026-10-12T00:00:00.000Z", motivo_anulacion: "Error" }),
