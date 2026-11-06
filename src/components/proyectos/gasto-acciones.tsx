@@ -6,16 +6,18 @@
 
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
-import { InlineError } from "@/components/proyectos/ui";
+import { CAPTURE_TEXTAREA, InlineError } from "@/components/proyectos/ui";
 import { useRejectExpense, useValidateExpense } from "@/hooks/projects";
 
 export const PROPIO_TEXT = "Tú lo registraste";
+export const SIN_PERMISO_VALIDAR =
+  "No tienes permisos para validar gastos. Solo Gerencia o Administración pueden validarlos mientras el proyecto está en ejecución.";
 export const SIN_SOPORTE_HINT = "Adjunta un soporte para poder validarlo.";
 export const INCOMPLETO_HINT = "Completa el tipo y número de identificación del tercero antes de validar.";
 
@@ -68,6 +70,133 @@ function RejectControl({
         Cancelar
       </Button>
     </form>
+  );
+}
+
+export const SUPERA_HINT = "Este gasto supera lo asignado al rubro: por ahora no se puede validar.";
+export const MOTIVO_VACIO = "El motivo no puede estar vacío.";
+export const MOTIVO_LARGO = "El motivo es demasiado largo.";
+export const MOTIVO_MAX = 500;
+
+/**
+ * Actions of the «Validar gasto» panel (redesign T3): the motivo is always visible, «Validar gasto» is disabled with
+ * its reason (no identification, no support, or over the rubro: that block stays until the PO decides), and
+ * «Rechazar» checks the motivo first and then asks to confirm (the two-step rejection stays, PO question 3).
+ * `onHecho` runs after a successful validation or rejection so the panel can move to the next expense.
+ * Mount it with `key={gastoId}`: changing expense discards the motivo.
+ */
+export function AccionesPanelValidacion({
+  projectId,
+  gastoId,
+  datosIncompletos,
+  sinSoporte,
+  superaAsignado,
+  onHecho,
+}: {
+  projectId: string;
+  gastoId: string;
+  datosIncompletos: boolean;
+  sinSoporte: boolean;
+  superaAsignado: boolean;
+  onHecho: () => void;
+}) {
+  const validar = useValidateExpense();
+  const rechazar = useRejectExpense();
+  const [motivo, setMotivo] = useState("");
+  const [errorMotivo, setErrorMotivo] = useState<string | null>(null);
+  const [confirmando, setConfirmando] = useState(false);
+  const motivoRef = useRef<HTMLTextAreaElement>(null);
+  const id = useId();
+
+  const pending = validar.isPending || rechazar.isPending;
+  const bloqueo = datosIncompletos ? INCOMPLETO_HINT : sinSoporte ? SIN_SOPORTE_HINT : superaAsignado ? SUPERA_HINT : null;
+  const error = validar.isError
+    ? errorMessage(validar.error, "No pudimos validar el gasto. Inténtalo de nuevo.")
+    : rechazar.isError
+      ? errorMessage(rechazar.error, "No pudimos rechazar el gasto. Inténtalo de nuevo.")
+      : null;
+
+  function pedirRechazo() {
+    const limpio = motivo.trim();
+    const problema = limpio === "" ? MOTIVO_VACIO : limpio.length > MOTIVO_MAX ? MOTIVO_LARGO : null;
+    setErrorMotivo(problema);
+    if (problema) {
+      setConfirmando(false);
+      motivoRef.current?.focus();
+      return;
+    }
+    setConfirmando(true);
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={`${id}-motivo`} className="text-[12.5px] text-ink-700">
+          Motivo (obligatorio si lo rechazas)
+        </Label>
+        <textarea
+          ref={motivoRef}
+          id={`${id}-motivo`}
+          value={motivo}
+          rows={3}
+          aria-invalid={errorMotivo ? true : undefined}
+          aria-describedby={errorMotivo ? `${id}-motivo-error` : undefined}
+          onChange={(event) => {
+            setMotivo(event.target.value);
+            setConfirmando(false);
+          }}
+          className={CAPTURE_TEXTAREA}
+        />
+        {errorMotivo && (
+          <p id={`${id}-motivo-error`} className="text-[12.5px] text-destructivo">
+            {errorMotivo}
+          </p>
+        )}
+      </div>
+
+      <div
+        data-testid="validar-gasto-acciones"
+        className="sticky bottom-0 -mx-4 flex flex-col gap-2 border-t border-border bg-popover px-4 py-3 md:static md:mx-0 md:border-0 md:bg-transparent md:px-0 md:py-0"
+      >
+        {bloqueo && (
+          <p id={`${id}-bloqueo`} className="text-[12.5px] text-ink-600">
+            {bloqueo}
+          </p>
+        )}
+        <InlineError message={error} />
+        {confirmando ? (
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button type="button" variant="ghost" disabled={pending} onClick={() => setConfirmando(false)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={pending}
+              onClick={() => rechazar.mutate({ projectId, id: gastoId, motivo: motivo.trim() }, { onSuccess: onHecho })}
+            >
+              {rechazar.isPending && <LoaderCircle className="size-4 animate-spin" />}
+              Confirmar rechazo
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2 md:flex md:justify-end">
+            <Button type="button" variant="outline" disabled={pending} onClick={pedirRechazo}>
+              Rechazar
+            </Button>
+            <Button
+              type="button"
+              disabled={pending || bloqueo !== null}
+              aria-describedby={bloqueo ? `${id}-bloqueo` : undefined}
+              onClick={() => validar.mutate({ projectId, id: gastoId }, { onSuccess: onHecho })}
+            >
+              {validar.isPending && <LoaderCircle className="size-4 animate-spin" />}
+              Validar gasto
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

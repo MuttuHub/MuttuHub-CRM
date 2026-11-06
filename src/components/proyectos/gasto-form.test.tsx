@@ -207,6 +207,18 @@ describe("GastoForm", () => {
       expect(periodo().value).toBe("2026-11")
     })
 
+    it("warns, tied to the field, that a hand-picked month will show as «Cuenta en AAAA-MM» (T3)", async () => {
+      const user = userEvent.setup({ delay: null })
+      setup()
+      await user.clear(screen.getByLabelText("Fecha del documento"))
+      await user.type(screen.getByLabelText("Fecha del documento"), "2026-10-28")
+      expect(periodo()).not.toHaveAccessibleDescription()
+      await user.selectOptions(periodo(), "2026-12")
+      expect(periodo()).toHaveAccessibleDescription(
+        "El gasto contará en 2026-12, un mes distinto al de su documento: en las listas se verá «Cuenta en 2026-12».",
+      )
+    })
+
     it("offers only the project months", () => {
       setup()
       const opciones = Array.from(periodo().options).map((o) => o.value).filter(Boolean)

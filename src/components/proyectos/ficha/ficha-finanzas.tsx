@@ -1,10 +1,12 @@
 // Pestaña "Finanzas" de la ficha (carril X, UX-1): un segmentado que agrupa el resumen financiero, los
 // gastos y el presupuesto, que antes vivían en tres pestañas. En BORRADOR abre en Presupuesto, el único
 // segmento editable entonces; en el resto de estados abre en Resumen. Solo se monta el segmento activo,
-// igual que las pestañas de la ficha.
+// igual que las pestañas de la ficha. El segmento activo es controlado: «Ver todos los gastos» del Resumen cambia a
+// Gastos, y la cabecera puede abrir Finanzas directo en Gastos con el formulario «Registrar gasto» abierto.
 
 "use client";
 
+import { useState } from "react";
 import { ProjectFinanciero } from "@/components/proyectos/project-financiero";
 import { ProjectGastos } from "@/components/proyectos/project-gastos";
 import { ProjectPresupuesto } from "@/components/proyectos/project-presupuesto";
@@ -27,10 +29,32 @@ function ContadorGastos({ proyectoId }: { proyectoId: string }) {
   return <ContadorSegmento cantidad={query.isSuccess ? query.data?.gastos.length : undefined} />;
 }
 
-export function FichaFinanzas({ proyecto }: { proyecto: ProjectListRow }) {
+type Segmento = "resumen" | "gastos" | "presupuesto";
+
+export function FichaFinanzas({
+  proyecto,
+  registrarAlAbrir = false,
+  onVerActividades,
+}: {
+  proyecto: ProjectListRow;
+  /** The header's «Registrar gasto»: open on Gastos with the form already open. */
+  registrarAlAbrir?: boolean;
+  /** «Ver actividades» of the possible-delay notice: switches the ficha to Actividades. */
+  onVerActividades?: () => void;
+}) {
+  const [segmento, setSegmento] = useState<Segmento>(
+    registrarAlAbrir ? "gastos" : proyecto.estado === "BORRADOR" ? "presupuesto" : "resumen",
+  );
+  // The form opens only on the first visit to Gastos that the header asked for.
+  const [registrar, setRegistrar] = useState(registrarAlAbrir);
+
   return (
     <Tabs
-      defaultValue={proyecto.estado === "BORRADOR" ? "presupuesto" : "resumen"}
+      value={segmento}
+      onValueChange={(valor) => {
+        setSegmento(valor as Segmento);
+        setRegistrar(false);
+      }}
       className="flex flex-col gap-0"
     >
       <TabsList variant="pill" className="w-full justify-start">
@@ -43,11 +67,15 @@ export function FichaFinanzas({ proyecto }: { proyecto: ProjectListRow }) {
       </TabsList>
 
       <TabsContent value="resumen" className={PANEL_CLASS}>
-        <ProjectFinanciero proyecto={proyecto} />
+        <ProjectFinanciero
+          proyecto={proyecto}
+          onVerActividades={onVerActividades}
+          onVerGastos={() => setSegmento("gastos")}
+        />
       </TabsContent>
 
       <TabsContent value="gastos" className={PANEL_CLASS}>
-        <ProjectGastos proyecto={proyecto} />
+        <ProjectGastos proyecto={proyecto} registrarAlAbrir={registrar} />
       </TabsContent>
 
       <TabsContent value="presupuesto" className={PANEL_CLASS}>

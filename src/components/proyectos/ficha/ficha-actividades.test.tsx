@@ -1,5 +1,5 @@
-// U4: la pestaña Actividades junta metas, cronograma, Gantt y seguimiento en una sola estructura con
-// tres vistas. Las queries son reales; solo se burla `fetch`.
+// U4: la pestaña Actividades junta metas, cronograma y seguimiento en una sola estructura con tres vistas
+// (Lista, Cronograma y Tablero; redesign T2: «Cronograma» es la vista que antes se llamaba «Gantt»). Las queries son reales; solo se burla `fetch`.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen, waitFor, within } from "@testing-library/react"
@@ -91,14 +91,18 @@ const CURVA = {
 describe("FichaActividades", () => {
   const fetchMock = vi.fn()
 
-  function setup(proyecto: Partial<ProjectListRow> = {}, rol = "ADMINISTRADOR") {
+  function setup(
+    proyecto: Partial<ProjectListRow> = {},
+    rol = "ADMINISTRADOR",
+    { tecnico = TECNICO, onSolicitarModificacion }: { tecnico?: unknown; onSolicitarModificacion?: () => void } = {},
+  ) {
     fetchMock.mockImplementation((input: unknown) => {
       const url = String(input).split("?")[0]
       if (url.endsWith("/api/v1/auth/me")) {
         return Promise.resolve(jsonResponse({ usuario: { id: "u1", nombre: "Ana", rol } }))
       }
       if (url.endsWith("/members")) return Promise.resolve(jsonResponse({ miembros: [] }))
-      if (url.endsWith("/technical-status")) return Promise.resolve(jsonResponse(TECNICO))
+      if (url.endsWith("/technical-status")) return Promise.resolve(jsonResponse(tecnico))
       if (url.endsWith("/curve")) return Promise.resolve(jsonResponse(CURVA))
       if (url.endsWith("/activities")) return Promise.resolve(jsonResponse({ actividades: [ACT1] }))
       if (url.endsWith("/objectives")) return Promise.resolve(jsonResponse({ objetivos: [OBJ1] }))
@@ -109,7 +113,10 @@ describe("FichaActividades", () => {
       }
       return Promise.resolve(jsonResponse({}))
     })
-    return render(<FichaActividades proyecto={{ ...PROYECTO, ...proyecto }} />, { wrapper })
+    return render(
+      <FichaActividades proyecto={{ ...PROYECTO, ...proyecto }} onSolicitarModificacion={onSolicitarModificacion} />,
+      { wrapper },
+    )
   }
 
   const vistas = () => screen.getAllByRole("tab").map((tab) => tab.textContent)
@@ -124,11 +131,12 @@ describe("FichaActividades", () => {
   })
 
   describe("view switcher", () => {
-    it("offers Lista, Gantt and Tablero in execution, with Lista selected", async () => {
+    it("offers Lista, Cronograma and Tablero in execution, with Lista selected", async () => {
       setup()
 
       await screen.findByTestId("ejecucion")
-      expect(vistas()).toEqual(["Lista", "Gantt", "Tablero"])
+      expect(vistas()).toEqual(["Lista", "Cronograma", "Tablero"])
+      expect(screen.getByRole("tablist", { name: "Vista de actividades" })).toBeInTheDocument()
       expect(screen.getByRole("tab", { name: "Lista" })).toHaveAttribute("aria-selected", "true")
     })
 
@@ -136,7 +144,7 @@ describe("FichaActividades", () => {
       setup({ estado: "BORRADOR" })
 
       await screen.findByTestId("estructura")
-      expect(vistas()).toEqual(["Lista", "Gantt"])
+      expect(vistas()).toEqual(["Lista", "Cronograma"])
     })
 
     it("mounts only the active view", async () => {
@@ -147,7 +155,7 @@ describe("FichaActividades", () => {
       expect(screen.queryByTestId("gantt")).not.toBeInTheDocument()
       expect(screen.queryByTestId("tablero")).not.toBeInTheDocument()
 
-      await user.click(screen.getByRole("tab", { name: "Gantt" }))
+      await user.click(screen.getByRole("tab", { name: "Cronograma" }))
       expect(await screen.findByTestId("gantt")).toBeInTheDocument()
       expect(screen.queryByTestId("ejecucion")).not.toBeInTheDocument()
 
@@ -156,14 +164,14 @@ describe("FichaActividades", () => {
       expect(screen.queryByTestId("gantt")).not.toBeInTheDocument()
     })
 
-    it("shows the editable structure as the Lista in BORRADOR and the Gantt on request", async () => {
+    it("shows the editable structure as the Lista in BORRADOR and the Cronograma on request", async () => {
       const user = userEvent.setup()
       setup({ estado: "BORRADOR" })
 
       expect(await screen.findByTestId("estructura")).toBeInTheDocument()
       expect(screen.queryByTestId("ejecucion")).not.toBeInTheDocument()
 
-      await user.click(screen.getByRole("tab", { name: "Gantt" }))
+      await user.click(screen.getByRole("tab", { name: "Cronograma" }))
       expect(await screen.findByTestId("gantt")).toBeInTheDocument()
       expect(screen.queryByTestId("estructura")).not.toBeInTheDocument()
     })
@@ -180,16 +188,28 @@ describe("FichaActividades", () => {
       expect(screen.queryByTestId("gantt")).not.toBeInTheDocument()
     })
 
-    it("shows plan, real, days and support on the activity row", async () => {
+    it("shows the semáforo in words, the overdue date, the days and the progress against the tope", async () => {
       setup()
 
+      // 1.1 ended on 25 jan and the corte is 15 mar: overdue and unfinished.
       const fila = await screen.findByTestId("ejecucion-actividad")
-      expect(fila).toHaveTextContent("Taller de formación")
-      expect(fila).toHaveTextContent("40 % real")
-      expect(fila).toHaveTextContent("50 % plan")
+      expect(within(fila).getByRole("heading", { level: 3, name: "Taller de formación" })).toBeInTheDocument()
       expect(fila).toHaveTextContent("Amarillo")
+      expect(fila).toHaveTextContent("Vencida el 25 ene")
       expect(fila).toHaveTextContent("21 días")
-      expect(fila).toHaveTextContent("Sin soporte")
+      expect(fila).toHaveTextContent("40 % registrado · tope 90 %")
+      expect(screen.getByRole("group", { name: "Filtrar actividades" })).toHaveTextContent("Por hacer · 1")
+    })
+
+    it("passes «Solicitar modificación» down to a finished activity", async () => {
+      const user = userEvent.setup()
+      const solicitar = vi.fn()
+      const finalizada = { ...TECNICO, actividades: [{ ...TECNICO.actividades[0], progreso: 90, estado: "FINALIZADA" }] }
+      setup({}, "ADMINISTRADOR", { tecnico: finalizada, onSolicitarModificacion: solicitar })
+
+      await user.click(await screen.findByRole("button", { name: /^Finalizadas/ }))
+      await user.click(await screen.findByRole("button", { name: "Solicitar modificación" }))
+      expect(solicitar).toHaveBeenCalledTimes(1)
     })
 
     it("keeps the S-curve and the Base selector in a collapsed 'Opciones avanzadas' disclosure", async () => {
@@ -252,6 +272,16 @@ describe("FichaActividades", () => {
       expect(screen.queryByTestId("tablero")).not.toBeInTheDocument()
       const fila = await screen.findByTestId("ejecucion-actividad")
       await waitFor(() => expect(fila).toHaveFocus())
+    })
+
+    it("stacks its columns on phones and keeps four from md", async () => {
+      const user = userEvent.setup()
+      setup()
+      await screen.findByTestId("ejecucion-actividad")
+      await user.click(screen.getByRole("tab", { name: "Tablero" }))
+      const columna = await screen.findByTestId("tablero-col-por_iniciar")
+      expect(columna.parentElement?.className).toMatch(/(^|\s)grid-cols-1(\s|$)/)
+      expect(columna.parentElement?.className).toMatch(/md:grid-cols-4/)
     })
   })
 })

@@ -123,7 +123,7 @@ export function ActividadesTablero({
 
   return (
     <div data-testid="tablero" className="min-w-0 overflow-x-auto pb-1">
-      <div className="grid min-w-[44rem] grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 gap-3 md:min-w-[44rem] md:grid-cols-4">
         {COLUMNAS_TABLERO.map((columna) => {
           const tarjetas = columnas.get(columna)!;
           return (

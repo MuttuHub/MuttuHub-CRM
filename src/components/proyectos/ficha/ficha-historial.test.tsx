@@ -1,6 +1,6 @@
-// Carril X · X6: segmentado de la pestaña "Historial" de la ficha (UX-1): Modificaciones, Versiones y
-// Auditoría. Los tres hijos se burlan: aquí solo se fija el segmento por defecto, el cambio de segmento y
-// que solo se monte el activo.
+// Segmentado de la pestaña "Historial" de la ficha (rediseño «Interacciones-Historial»): Registro de cambios,
+// Solicitudes de modificación y Versiones del plan. Los tres hijos se burlan: aquí solo se fija el segmento por
+// defecto, el cambio de segmento, que solo se monte el activo y los enlaces entre segmentos.
 
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
@@ -12,10 +12,22 @@ vi.mock("@/components/proyectos/project-modificaciones", () => ({
   ProjectModificaciones: () => <div data-testid="segmento-modificaciones" />,
 }))
 vi.mock("@/components/proyectos/project-versiones", () => ({
-  ProjectVersiones: () => <div data-testid="segmento-versiones" />,
+  ProjectVersiones: ({ onVerSolicitudes }: { onVerSolicitudes?: () => void }) => (
+    <div data-testid="segmento-versiones">
+      <button type="button" onClick={onVerSolicitudes}>
+        Ir a solicitudes
+      </button>
+    </div>
+  ),
 }))
 vi.mock("@/components/proyectos/project-historial", () => ({
-  ProjectHistorial: () => <div data-testid="segmento-auditoria" />,
+  ProjectHistorial: ({ onIrA }: { onIrA?: (tab: string) => void }) => (
+    <div data-testid="segmento-auditoria">
+      <button type="button" onClick={() => onIrA?.("actividades")}>
+        Ir a actividades
+      </button>
+    </div>
+  ),
 }))
 
 // The counters read the same queries the Modificaciones and Versiones segments use; here only their state matters.
@@ -62,26 +74,38 @@ const PROYECTO: ProjectListRow = {
   municipios: [],
 }
 
+const NOMBRES = ["Registro de cambios", "Solicitudes de modificación", "Versiones del plan"]
+
 describe("FichaHistorial", () => {
   const tab = (nombre: RegExp) => screen.getByRole("tab", { name: nombre })
 
-  it("lists Modificaciones, Versiones and Auditoría in order", () => {
+  it("lists Registro de cambios, Solicitudes de modificación and Versiones del plan in order", () => {
     render(<FichaHistorial proyecto={PROYECTO} />)
 
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Modificaciones", "Versiones", "Auditoría"])
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(NOMBRES)
   })
 
-  it("counts the modifications and the versions once they are loaded, and never the audit", () => {
+  it("keeps the short names apart for phones («Solicitudes», «Versiones»)", () => {
+    render(<FichaHistorial proyecto={PROYECTO} />)
+
+    // The tail of each long name is a span hidden below `sm`.
+    for (const cola of ["de modificación", "del plan"]) {
+      expect(screen.getByText(cola)).toHaveClass("hidden", "sm:inline")
+    }
+  })
+
+  it("counts the modifications and the versions once they are loaded, and never the change log", () => {
     consultas.modificaciones = { data: [{}, {}], isSuccess: true, isError: false }
     consultas.versiones = { data: [{}, {}, {}], isSuccess: true, isError: false }
     render(<FichaHistorial proyecto={PROYECTO} />)
 
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
-      "Modificaciones · 2",
-      "Versiones · 3",
-      "Auditoría",
+      "Registro de cambios",
+      "Solicitudes de modificación · 2",
+      "Versiones del plan · 3",
     ])
-    expect(screen.getByRole("tab", { name: "Modificaciones · 2" })).toHaveAttribute("aria-selected", "true")
+    expect(screen.getByRole("tab", { name: "Registro de cambios" })).toHaveAttribute("aria-selected", "true")
+    expect(screen.getByRole("tab", { name: "Solicitudes de modificación · 2" })).toBeInTheDocument()
     expect(consultas.llamadas).toEqual(expect.arrayContaining(["modificaciones:p1", "versiones:p1"]))
   })
 
@@ -89,7 +113,7 @@ describe("FichaHistorial", () => {
     consultas.modificaciones = { data: undefined, isSuccess: false, isError: true }
     render(<FichaHistorial proyecto={PROYECTO} />)
 
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Modificaciones", "Versiones", "Auditoría"])
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(NOMBRES)
   })
 
   it("reads nothing and shows no number for a BORRADOR project, whose segments only explain themselves", () => {
@@ -97,31 +121,31 @@ describe("FichaHistorial", () => {
     consultas.versiones = { data: [{}], isSuccess: true, isError: false }
     render(<FichaHistorial proyecto={{ ...PROYECTO, estado: "BORRADOR" }} />)
 
-    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Modificaciones", "Versiones", "Auditoría"])
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(NOMBRES)
     expect(consultas.llamadas).toEqual([])
   })
 
-  it("opens on Modificaciones and mounts only that segment", () => {
+  it("opens on Registro de cambios and mounts only that segment", () => {
     render(<FichaHistorial proyecto={PROYECTO} />)
 
-    expect(tab(/^Modificaciones$/)).toHaveAttribute("aria-selected", "true")
-    expect(screen.getByTestId("segmento-modificaciones")).toBeInTheDocument()
+    expect(tab(/^Registro de cambios$/)).toHaveAttribute("aria-selected", "true")
+    expect(screen.getByTestId("segmento-auditoria")).toBeInTheDocument()
     expect(screen.queryByTestId("segmento-versiones")).not.toBeInTheDocument()
-    expect(screen.queryByTestId("segmento-auditoria")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("segmento-modificaciones")).not.toBeInTheDocument()
   })
 
   it("switches segments and mounts only the active one", async () => {
     const user = userEvent.setup()
     render(<FichaHistorial proyecto={PROYECTO} />)
 
-    await user.click(tab(/^Versiones$/))
+    await user.click(tab(/^Versiones del plan$/))
     expect(screen.getByTestId("segmento-versiones")).toBeInTheDocument()
     expect(screen.queryByTestId("segmento-modificaciones")).not.toBeInTheDocument()
     expect(screen.queryByTestId("segmento-auditoria")).not.toBeInTheDocument()
 
-    await user.click(tab(/^Auditoría$/))
-    expect(screen.getByTestId("segmento-auditoria")).toBeInTheDocument()
-    expect(screen.queryByTestId("segmento-modificaciones")).not.toBeInTheDocument()
+    await user.click(tab(/^Solicitudes de modificación$/))
+    expect(screen.getByTestId("segmento-modificaciones")).toBeInTheDocument()
+    expect(screen.queryByTestId("segmento-auditoria")).not.toBeInTheDocument()
     expect(screen.queryByTestId("segmento-versiones")).not.toBeInTheDocument()
   })
 
@@ -129,11 +153,38 @@ describe("FichaHistorial", () => {
     const user = userEvent.setup()
     render(<FichaHistorial proyecto={PROYECTO} />)
 
-    tab(/^Modificaciones$/).focus()
+    tab(/^Registro de cambios$/).focus()
     await user.keyboard("{ArrowRight}")
-    expect(tab(/^Versiones$/)).toHaveFocus()
+    expect(tab(/^Solicitudes de modificación$/)).toHaveFocus()
     await user.keyboard("{Enter}")
-    expect(tab(/^Versiones$/)).toHaveAttribute("aria-selected", "true")
-    expect(screen.getByTestId("segmento-versiones")).toBeInTheDocument()
+    expect(tab(/^Solicitudes de modificación$/)).toHaveAttribute("aria-selected", "true")
+    expect(screen.getByTestId("segmento-modificaciones")).toBeInTheDocument()
+  })
+
+  it("opens on the segment the ficha asks for (the modification request sent from the Resumen)", () => {
+    render(<FichaHistorial proyecto={PROYECTO} segmentoInicial="solicitudes" />)
+
+    expect(tab(/^Solicitudes de modificación$/)).toHaveAttribute("aria-selected", "true")
+    expect(screen.getByTestId("segmento-modificaciones")).toBeInTheDocument()
+  })
+
+  it("opens Solicitudes de modificación from the link inside Versiones del plan", async () => {
+    const user = userEvent.setup()
+    render(<FichaHistorial proyecto={PROYECTO} />)
+
+    await user.click(tab(/^Versiones del plan$/))
+    await user.click(screen.getByRole("button", { name: "Ir a solicitudes" }))
+
+    expect(tab(/^Solicitudes de modificación$/)).toHaveAttribute("aria-selected", "true")
+    expect(screen.getByTestId("segmento-modificaciones")).toBeInTheDocument()
+  })
+
+  it("passes the ficha's tab switch down to the change log («Ver actividad», «Ver gasto»)", async () => {
+    const user = userEvent.setup()
+    const onIrA = vi.fn()
+    render(<FichaHistorial proyecto={PROYECTO} onIrA={onIrA} />)
+
+    await user.click(screen.getByRole("button", { name: "Ir a actividades" }))
+    expect(onIrA).toHaveBeenCalledWith("actividades")
   })
 })

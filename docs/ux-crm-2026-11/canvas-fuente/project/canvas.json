@@ -1,0 +1,568 @@
+{
+  "v": 3,
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-11-06T05:05:00Z"
+  },
+  "title": "Proyectos — Rediseño de usabilidad",
+  "launch": {
+    "view": "canvas",
+    "page": "resumen"
+  },
+  "pages": [
+    {
+      "id": "resumen",
+      "name": "1 · Resumen y cabecera"
+    },
+    {
+      "id": "actividades",
+      "name": "2 · Actividades"
+    },
+    {
+      "id": "finanzas",
+      "name": "3 · Finanzas"
+    },
+    {
+      "id": "documentos",
+      "name": "4 · Documentos"
+    },
+    {
+      "id": "historial",
+      "name": "5 · Historial"
+    },
+    {
+      "id": "ayudas",
+      "name": "6 · Ayudas y novedades"
+    }
+  ],
+  "boards": {
+    "Main.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 960,
+      "h": 640,
+      "title": "Cómo leer este canvas",
+      "page": "resumen"
+    },
+    "Resumen-hoy.dc.html": {
+      "x": 0,
+      "y": 1000,
+      "w": 1440,
+      "h": 1903,
+      "title": "Hoy · Ficha › Resumen (escritorio)",
+      "page": "resumen"
+    },
+    "Resumen-propuesta.dc.html": {
+      "x": 1520,
+      "y": 1000,
+      "w": 1440,
+      "h": 1560,
+      "title": "Propuesta · Ficha › Resumen (escritorio)",
+      "page": "resumen"
+    },
+    "Resumen-movil-hoy.dc.html": {
+      "x": 3040,
+      "y": 1000,
+      "w": 390,
+      "h": 2576,
+      "title": "Hoy · Resumen (móvil)",
+      "page": "resumen"
+    },
+    "Resumen-movil-propuesta.dc.html": {
+      "x": 3510,
+      "y": 1000,
+      "w": 390,
+      "h": 1980,
+      "title": "Propuesta · Resumen (móvil)",
+      "page": "resumen"
+    },
+    "Actividades-hoy.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1767,
+      "title": "Hoy · Actividades › Lista",
+      "page": "actividades"
+    },
+    "Actividades-propuesta.dc.html": {
+      "x": 1520,
+      "y": 0,
+      "w": 1440,
+      "h": 1500,
+      "title": "Propuesta · Actividades › Lista",
+      "page": "actividades"
+    },
+    "Registrar-avance-prototipo.dc.html": {
+      "x": 3040,
+      "y": 0,
+      "w": 880,
+      "h": 980,
+      "title": "Prototipo · Registrar avance",
+      "page": "actividades",
+      "is_interactive": true
+    },
+    "Finanzas-hoy.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 3046,
+      "title": "Hoy · Finanzas › Resumen y Gastos",
+      "page": "finanzas"
+    },
+    "Finanzas-propuesta.dc.html": {
+      "x": 1520,
+      "y": 0,
+      "w": 1440,
+      "h": 1320,
+      "title": "Propuesta · Finanzas › Resumen y gastos",
+      "page": "finanzas"
+    },
+    "Validar-gasto-propuesta.dc.html": {
+      "x": 3040,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "title": "Propuesta · Validar un gasto con su soporte",
+      "page": "finanzas"
+    },
+    "Ayudas-patron.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 1120,
+      "title": "Patrón de ayudas",
+      "page": "ayudas"
+    },
+    "Novedades-pagina.dc.html": {
+      "x": 1360,
+      "y": 0,
+      "w": 960,
+      "h": 1180,
+      "title": "Novedades · qué cambió",
+      "page": "ayudas"
+    },
+    "Documentos-hoy.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1356,
+      "title": "Hoy · Documentos (escritorio)",
+      "page": "documentos"
+    },
+    "Documentos-propuesta.dc.html": {
+      "x": 1520,
+      "y": 0,
+      "w": 1440,
+      "h": 1110,
+      "title": "Propuesta · Documentos",
+      "page": "documentos"
+    },
+    "Historial-hoy.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 2180,
+      "title": "Hoy · Historial › Modificaciones, Versiones y Auditoría",
+      "page": "historial"
+    },
+    "Historial-movil-hoy.dc.html": {
+      "x": 1520,
+      "y": 0,
+      "w": 390,
+      "h": 2200,
+      "title": "Hoy · Auditoría (móvil)",
+      "page": "historial"
+    },
+    "Historial-propuesta.dc.html": {
+      "x": 1990,
+      "y": 0,
+      "w": 1440,
+      "h": 1000,
+      "title": "Propuesta · Registro de cambios",
+      "page": "historial"
+    },
+    "Versiones-propuesta.dc.html": {
+      "x": 3510,
+      "y": 0,
+      "w": 1440,
+      "h": 570,
+      "title": "Propuesta · Versiones y solicitudes",
+      "page": "historial"
+    },
+    "Actividades-movil-propuesta.dc.html": {
+      "x": 4000,
+      "y": 0,
+      "w": 390,
+      "h": 1796,
+      "title": "Propuesta · Actividades (móvil)",
+      "page": "actividades"
+    },
+    "Registrar-avance-movil-prototipo.dc.html": {
+      "x": 4470,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Prototipo · Registrar avance (móvil)",
+      "page": "actividades",
+      "is_interactive": true
+    },
+    "Finanzas-movil-propuesta.dc.html": {
+      "x": 4560,
+      "y": 0,
+      "w": 390,
+      "h": 2470,
+      "title": "Propuesta · Finanzas (móvil)",
+      "page": "finanzas"
+    },
+    "Validar-gasto-movil-propuesta.dc.html": {
+      "x": 5030,
+      "y": 0,
+      "w": 390,
+      "h": 1158,
+      "title": "Propuesta · Validar un gasto (móvil)",
+      "page": "finanzas"
+    },
+    "Documentos-movil-propuesta.dc.html": {
+      "x": 3040,
+      "y": 0,
+      "w": 390,
+      "h": 2562,
+      "title": "Propuesta · Documentos (móvil)",
+      "page": "documentos"
+    },
+    "Historial-movil-propuesta.dc.html": {
+      "x": 5030,
+      "y": 0,
+      "w": 390,
+      "h": 2042,
+      "title": "Propuesta · Registro de cambios (móvil)",
+      "page": "historial"
+    },
+    "Versiones-movil-propuesta.dc.html": {
+      "x": 5500,
+      "y": 0,
+      "w": 390,
+      "h": 1102,
+      "title": "Propuesta · Versiones y solicitudes (móvil)",
+      "page": "historial"
+    },
+    "Novedades-movil.dc.html": {
+      "x": 2400,
+      "y": 0,
+      "w": 390,
+      "h": 2317,
+      "title": "Novedades (móvil)",
+      "page": "ayudas"
+    },
+    "Interacciones-Resumen.dc.html": {
+      "x": 0,
+      "y": 3876,
+      "w": 1440,
+      "h": 4565,
+      "title": "Interacciones · Resumen — qué hace cada elemento",
+      "page": "resumen"
+    },
+    "Interacciones-Actividades.dc.html": {
+      "x": 0,
+      "y": 2780,
+      "w": 1440,
+      "h": 5723,
+      "title": "Interacciones · Actividades — qué hace cada elemento",
+      "page": "actividades"
+    },
+    "Interacciones-Finanzas.dc.html": {
+      "x": 0,
+      "y": 3346,
+      "w": 1440,
+      "h": 5073,
+      "title": "Interacciones · Finanzas — qué hace cada elemento",
+      "page": "finanzas"
+    },
+    "Interacciones-Documentos.dc.html": {
+      "x": 0,
+      "y": 2862,
+      "w": 1440,
+      "h": 3125,
+      "title": "Interacciones · Documentos — qué hace cada elemento",
+      "page": "documentos"
+    },
+    "Interacciones-Historial.dc.html": {
+      "x": 0,
+      "y": 2500,
+      "w": 1440,
+      "h": 4809,
+      "title": "Interacciones · Historial — qué hace cada elemento",
+      "page": "historial"
+    },
+    "Interacciones-Ayudas.dc.html": {
+      "x": 0,
+      "y": 2617,
+      "w": 1440,
+      "h": 2578,
+      "title": "Interacciones · Ayudas — qué hace cada elemento",
+      "page": "ayudas"
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Resumen-hoy.dc.html",
+    "Resumen-propuesta.dc.html",
+    "Resumen-movil-hoy.dc.html",
+    "Resumen-movil-propuesta.dc.html",
+    "Actividades-hoy.dc.html",
+    "Actividades-propuesta.dc.html",
+    "Registrar-avance-prototipo.dc.html",
+    "Finanzas-hoy.dc.html",
+    "Finanzas-propuesta.dc.html",
+    "Validar-gasto-propuesta.dc.html",
+    "Documentos-hoy.dc.html",
+    "Documentos-propuesta.dc.html",
+    "Historial-hoy.dc.html",
+    "Historial-movil-hoy.dc.html",
+    "Historial-propuesta.dc.html",
+    "Versiones-propuesta.dc.html",
+    "Ayudas-patron.dc.html",
+    "Novedades-pagina.dc.html",
+    "Actividades-movil-propuesta.dc.html",
+    "Registrar-avance-movil-prototipo.dc.html",
+    "Finanzas-movil-propuesta.dc.html",
+    "Validar-gasto-movil-propuesta.dc.html",
+    "Documentos-movil-propuesta.dc.html",
+    "Historial-movil-propuesta.dc.html",
+    "Versiones-movil-propuesta.dc.html",
+    "Novedades-movil.dc.html",
+    "Interacciones-Resumen.dc.html",
+    "Interacciones-Actividades.dc.html",
+    "Interacciones-Finanzas.dc.html",
+    "Interacciones-Documentos.dc.html",
+    "Interacciones-Historial.dc.html",
+    "Interacciones-Ayudas.dc.html"
+  ],
+  "notes": {
+    "t-resumen": {
+      "x": 0,
+      "y": 720,
+      "text": "1 · Ficha › Resumen y cabecera — T-1, T-5",
+      "kind": "title1",
+      "maxW": 3900,
+      "page": "resumen"
+    },
+    "c-resumen": {
+      "x": 1520,
+      "y": 2640,
+      "w": 460,
+      "fill": "orange",
+      "page": "resumen",
+      "text": "Qué cambia\n1. El estado se lee en números: 35,7 % de avance real frente a 77,3 % programado, y 24,9 % de lo programado en gasto. El color acompaña, no reemplaza.\n2. «Requiere atención» pasa a «Qué falta»: cada fila dice qué pasa, a quién le toca y abre la acción exacta (Registrar avance de la 1.3, Adjuntar soporte, Revisar gasto).\n3. Aviso de Novedades descartable y ⓘ en cada cifra que no se explica sola.\nDatos: PRY-2026-001 de la demo, corte 05 nov 2026."
+    },
+    "i-resumen": {
+      "x": 2020,
+      "y": 2640,
+      "w": 520,
+      "fill": "blue",
+      "page": "resumen",
+      "text": "Ayudas ⓘ de este tablero\n① Semáforo técnico: «Compara el avance real de las actividades con el que deberían llevar a la fecha de corte. Gerencia aún no confirma los límites de cada color.»\n② Avance programado: «Lo que el cronograma esperaba a la fecha de corte, según la duración de cada actividad.»\n③ % de lo programado: «Lo gastado frente a lo que el presupuesto planeaba gastar hasta hoy. No es el porcentaje del valor total.»\n④ Qué falta: «Lo que necesita una acción ahora. Cada fila te lleva al lugar exacto donde se resuelve.»"
+    },
+    "f-resumen": {
+      "x": 2580,
+      "y": 2640,
+      "w": 380,
+      "fill": "pink",
+      "page": "resumen",
+      "text": "Para decidir con la PO\n• El portafolio muestra 12,5 % (ejecutado sobre el valor asignado, «E/A») y la ficha 24,9 % (ejecutado sobre lo programado a hoy). Son dos medidas distintas con el mismo nombre de «avance financiero»: la propuesta usa «% de lo programado» en todo el módulo y muestra el valor total aparte.\n• Resumen dice que la 1.3 va en 25 %; la lista dice 50 % real. Hay que confirmar cuál es la cifra correcta."
+    },
+    "t-actividades": {
+      "x": 0,
+      "y": -300,
+      "text": "2 · Actividades › Lista y Registrar avance — T-2, T-8",
+      "kind": "title1",
+      "maxW": 4860,
+      "page": "actividades"
+    },
+    "c-actividades": {
+      "x": 1520,
+      "y": 1580,
+      "w": 460,
+      "fill": "orange",
+      "page": "actividades",
+      "text": "Qué cambia\n1. Una acción principal por actividad: «Registrar avance» solo donde se puede; en las finalizadas desaparece también «Registrar cantidad» de sus entregables.\n2. Entregables en tabla (meta, contado, falta) y soportes como contador que abre la lista.\n3. Historial de avances como línea de tiempo con quién, cuándo y su soporte.\nPrototipo a la derecha: abre, prueba el tope del 90 %, guarda y ve el avance en el historial."
+    },
+    "i-actividades": {
+      "x": 2020,
+      "y": 1580,
+      "w": 520,
+      "fill": "blue",
+      "page": "actividades",
+      "text": "Ayudas ⓘ de este tablero\n① Tope del 90 %: «Una actividad llega como máximo al 90 % con avances; el 10 % restante se completa cuando se cuentan sus entregables.»\n② Real / programado: «Real es lo registrado; programado es lo que debería llevar a hoy según el cronograma.»\n③ Cuenta / No cuenta: «Un entregable cuenta para la meta cuando tiene su soporte adjunto.»"
+    },
+    "f-actividades": {
+      "x": 2580,
+      "y": 1580,
+      "w": 380,
+      "fill": "pink",
+      "page": "actividades",
+      "text": "Hallazgos de la captura real\n• La 1.1 está finalizada pero sus entregables siguen ofreciendo «Registrar cantidad».\n• «100 % real · 90 % plan» en una actividad finalizada confunde.\n• En móvil la lista mide 403 px en una pantalla de 390: se desplaza de lado."
+    },
+    "t-finanzas": {
+      "x": 0,
+      "y": -300,
+      "text": "3 · Finanzas — T-3, T-4",
+      "kind": "title1",
+      "maxW": 5420,
+      "page": "finanzas"
+    },
+    "c-finanzas": {
+      "x": 1520,
+      "y": 1400,
+      "w": 460,
+      "fill": "orange",
+      "page": "finanzas",
+      "text": "Qué cambia\n1. Resumen con 3 cifras clave arriba: ejecutado, programado a hoy y disponible; la tabla por rubro queda debajo.\n2. Gastos por validar dentro de la ficha (hoy solo están en el portafolio) con el soporte a la vista.\n3. Validar o rechazar sin cambiar de pantalla: soporte, rubro y cuánto queda del rubro en el mismo panel."
+    },
+    "i-finanzas": {
+      "x": 2020,
+      "y": 1400,
+      "w": 520,
+      "fill": "blue",
+      "page": "finanzas",
+      "text": "Ayudas ⓘ de este tablero\n① Disponible del rubro: «Lo asignado al rubro menos lo ya ejecutado y validado.»\n② Supera el asignado: «Este gasto deja el rubro por encima de su presupuesto. Puedes validarlo, pero queda registrado.»\n③ Periodo modificado: «El gasto cuenta en un mes distinto al de la fecha de su documento.»"
+    },
+    "t-ayudas": {
+      "x": 0,
+      "y": -300,
+      "text": "4 · Ayudas ⓘ y Novedades — frente §0.2",
+      "kind": "title1",
+      "maxW": 2790,
+      "page": "ayudas"
+    },
+    "f-finanzas": {
+      "x": 2580,
+      "y": 1400,
+      "w": 380,
+      "fill": "pink",
+      "page": "finanzas",
+      "text": "Hallazgos de la captura real\n• En escritorio (1440 px) la tabla de gastos se corta por la derecha: «Validar» y «Acciones» quedan fuera de la vista.\n• Todos los rubros salen «Verde» aunque R11 · Varios tiene un gasto que supera lo asignado.\n• La tabla de rubros tiene 9 columnas con siglas («E/A», «Umbral rojo»)."
+    },
+    "t-documentos": {
+      "x": 0,
+      "y": -300,
+      "text": "4 · Documentos — encontrar y revisar los soportes del proyecto",
+      "kind": "title1",
+      "maxW": 3430,
+      "page": "documentos"
+    },
+    "c-documentos": {
+      "x": 1520,
+      "y": 1190,
+      "w": 460,
+      "fill": "orange",
+      "page": "documentos",
+      "text": "Qué cambia\n① Título y una línea que dicen qué hay; ⓘ para el detalle.\n② Filtros con su número: se ve de un vistazo qué grupo tiene documentos y cuál está vacío.\n③ Tabla compacta en lugar de tarjetas: los 10 documentos caben en una pantalla (hoy ocupan casi dos). «De dónde viene» enlaza a la actividad o al gasto, y la columna Estado avisa lo que importa (FV-4007 supera lo asignado).\n④ Los grupos vacíos dicen por qué y dónde se suben sus documentos.\nSe quita la etiqueta «Enlace» repetida en cada fila: no ayuda a decidir."
+    },
+    "i-documentos": {
+      "x": 2020,
+      "y": 1190,
+      "w": 480,
+      "fill": "blue",
+      "page": "documentos",
+      "text": "Ayuda ⓘ de este tablero\nDocumentos del proyecto: «Aquí ves todos los soportes del proyecto. Cada uno se sube desde donde nace: el avance de un entregable, un gasto o una medición. Usa «Subir documento» solo para los del proyecto, como el convenio o el acta de inicio.»"
+    },
+    "f-documentos": {
+      "x": 2540,
+      "y": 1190,
+      "w": 420,
+      "fill": "pink",
+      "page": "documentos",
+      "text": "Para decidir con la PO\n• «Subir documento» hoy no dice a qué queda asociado el archivo. Propuesta: que suba solo documentos del proyecto y que los demás se suban desde su origen.\n• ¿Hace falta ver qué entregables aún no tienen soporte desde aquí, o basta con «Qué falta» del Resumen?\n• Los nombres de las actividades de la columna «De dónde viene» son ilustrativos; al implementar salen del plan."
+    },
+    "t-historial": {
+      "x": 0,
+      "y": -300,
+      "text": "5 · Historial — qué cambió, quién y por qué",
+      "kind": "title1",
+      "maxW": 5890,
+      "page": "historial"
+    },
+    "c-historial": {
+      "x": 1990,
+      "y": 1080,
+      "w": 480,
+      "fill": "orange",
+      "page": "historial",
+      "text": "Qué cambia\n① «Auditoría» pasa a «Registro de cambios» y abre primero, porque es la subpestaña con datos. Cada entrada es una frase: quién hizo qué, sobre qué actividad o gasto, y un enlace para ir allí. Agrupado por día.\n② Filtros por tipo y por persona.\n③ Las anulaciones dicen qué se anuló y por qué, sin texto tachado ni campos en inglés («Anulado at»).\nLos gastos se resumen en una línea legible; el número del tercero ya no aparece enmascarado a medias.\nVersiones: «v0» pasa a «Versión original (línea base)»; el comparador se oculta mientras haya una sola versión, y se explica cómo cambia el plan."
+    },
+    "i-historial": {
+      "x": 2510,
+      "y": 1080,
+      "w": 480,
+      "fill": "blue",
+      "page": "historial",
+      "text": "Ayudas ⓘ de este tablero\nVersiones del plan: «El plan aprobado de actividades, cronograma y presupuesto. Cada modificación aprobada crea una versión nueva; la original queda guardada para comparar.»\nAnulación: «Un reporte anulado deja de contar para el avance, pero queda en el registro con su motivo.»"
+    },
+    "f-historial": {
+      "x": 3030,
+      "y": 1080,
+      "w": 400,
+      "fill": "pink",
+      "page": "historial",
+      "text": "Hallazgos y decisiones\n• En escritorio, la Auditoría seguía mostrando solo marcadores de carga cuando se tomó la captura; en móvil sí cargó (8.584 px de alto). Hay que verificar si tarda demasiado.\n• La Auditoría actual no dice a qué actividad pertenece cada avance. La propuesta lo muestra; las actividades 1.3 y 1.1 de los dos primeros se dedujeron de las observaciones y hay que confirmarlas.\n• ¿El registro debe verlo todo rol o solo Coordinación y Gerencia?"
+    },
+    "ti-resumen": {
+      "x": 0,
+      "y": 3716,
+      "text": "Interacciones de Resumen: especificación para implementar (Existe / Cambia / Nuevo)",
+      "kind": "title1",
+      "maxW": 1440,
+      "page": "resumen"
+    },
+    "ti-actividades": {
+      "x": 0,
+      "y": 2620,
+      "text": "Interacciones de Actividades: especificación para implementar (Existe / Cambia / Nuevo)",
+      "kind": "title1",
+      "maxW": 1440,
+      "page": "actividades"
+    },
+    "ti-finanzas": {
+      "x": 0,
+      "y": 3186,
+      "text": "Interacciones de Finanzas: especificación para implementar (Existe / Cambia / Nuevo)",
+      "kind": "title1",
+      "maxW": 1440,
+      "page": "finanzas"
+    },
+    "ti-documentos": {
+      "x": 0,
+      "y": 2702,
+      "text": "Interacciones de Documentos: especificación para implementar (Existe / Cambia / Nuevo)",
+      "kind": "title1",
+      "maxW": 1440,
+      "page": "documentos"
+    },
+    "ti-historial": {
+      "x": 0,
+      "y": 2340,
+      "text": "Interacciones de Historial: especificación para implementar (Existe / Cambia / Nuevo)",
+      "kind": "title1",
+      "maxW": 1440,
+      "page": "historial"
+    },
+    "ti-ayudas": {
+      "x": 0,
+      "y": 2457,
+      "text": "Interacciones de Ayudas: especificación para implementar (Existe / Cambia / Nuevo)",
+      "kind": "title1",
+      "maxW": 1440,
+      "page": "ayudas"
+    }
+  },
+  "designSystems": [
+    {
+      "title": "Muttu Hub — Proyectos",
+      "namespace": "muttuhub",
+      "artifact": "https://claude.ai/artifact/4pNniJhtu1ZEvmsfjt4sqi",
+      "version": "1793938814-3ae3",
+      "copiedAt": "2026-11-06T05:06:00Z"
+    }
+  ]
+}

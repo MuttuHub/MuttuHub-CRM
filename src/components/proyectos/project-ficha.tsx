@@ -21,6 +21,9 @@ import { FichaHistorial } from "@/components/proyectos/ficha/ficha-historial";
 import { FichaActividades } from "@/components/proyectos/ficha/ficha-actividades";
 import { FichaHeader } from "@/components/proyectos/ficha/ficha-header";
 import { FichaResumen } from "@/components/proyectos/ficha/ficha-resumen";
+import { RegistrarAvanceDialog } from "@/components/proyectos/ficha/registrar-avance-dialog";
+import { RegistrarGastoDialog } from "@/components/proyectos/ficha/registrar-gasto-dialog";
+import { DESTINO_DE_ACCION, type AccionAtencion } from "@/components/proyectos/requiere-atencion";
 import { useProject, type ProjectListRow } from "@/hooks/projects";
 import { ApiError } from "@/lib/api/http";
 import { cn } from "@/lib/utils";
@@ -78,23 +81,48 @@ const PANEL_CLASS = "mt-0 flex flex-col gap-6";
 function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
   // Controlada: los semáforos y las acciones del encabezado también cambian de pestaña.
   const [tab, setTab] = useState<FichaTab>("resumen");
-  // Each «Registrar avance» in the header is a new request for Actividades to focus the first unfinished activity.
-  const [pedidoAvance, setPedidoAvance] = useState(0);
-  const registrarAvance = () => {
-    setTab("actividades");
-    setPedidoAvance((pedido) => pedido + 1);
+  // «Registrar avance» and «Registrar gasto» open their dialogs on top of the current tab (S9).
+  const [avanceAbierto, setAvanceAbierto] = useState(false);
+  const [actividadPedida, setActividadPedida] = useState<string | null>(null);
+  const [gastoAbierto, setGastoAbierto] = useState(false);
+  // «Solicitar modificación» opens Historial on its requests segment.
+  const [pedidoSolicitud, setPedidoSolicitud] = useState(0);
+  const [solicitudPendiente, setSolicitudPendiente] = useState(false);
+
+  const irA = (destino: FichaTab) => {
+    if (destino !== "historial") setSolicitudPendiente(false);
+    setTab(destino);
+  };
+  const registrarAvance = (actividadId: string | null = null) => {
+    setActividadPedida(actividadId);
+    setAvanceAbierto(true);
+  };
+  const solicitarModificacion = () => {
+    setSolicitudPendiente(true);
+    setPedidoSolicitud((pedido) => pedido + 1);
+    irA("historial");
+  };
+  const atenderAccion = (accion: AccionAtencion) => {
+    if (accion.tipo === "registrar-avance") registrarAvance(accion.actividadId);
+    else irA(DESTINO_DE_ACCION[accion.tipo]);
   };
 
   return (
     <div className="flex flex-col">
       <Tabs
         value={tab}
-        onValueChange={(value) => setTab(value as FichaTab)}
+        onValueChange={(value) => irA(value as FichaTab)}
         className="flex flex-col gap-0"
       >
         {/* Encabezado fijo: pegajoso y fuera del panel de contenido, así estado y semáforos siempre se ven. */}
         <div className="sticky top-0 z-10 rounded-t-card bg-panel">
-          <FichaHeader proyecto={proyecto} onIrA={setTab} onRegistrarAvance={registrarAvance} />
+          <FichaHeader
+            proyecto={proyecto}
+            onIrA={irA}
+            onRegistrarAvance={() => registrarAvance()}
+            onRegistrarGasto={() => setGastoAbierto(true)}
+            mostrarSemaforos={tab !== "resumen"}
+          />
           <div className="relative border-b border-ink-200">
             <div className="no-scrollbar overflow-x-auto px-5 sm:px-6">
               <TabsList variant="line" className="w-full justify-start gap-1">
@@ -113,17 +141,31 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
             />
           </div>
         </div>
-        <div data-testid="ficha-scroll" className="p-5 sm:p-6">
+        {/* On phones the header's action bar is fixed at the bottom: leave room so it never covers content. */}
+        <div data-testid="ficha-scroll" className="p-5 max-md:pb-28 sm:p-6">
+          {/* Its success notice shows here, above the tab content, once the dialog closes. */}
+          <RegistrarAvanceDialog
+            proyecto={proyecto}
+            open={avanceAbierto}
+            onOpenChange={setAvanceAbierto}
+            actividadId={actividadPedida}
+          />
+          <RegistrarGastoDialog proyecto={proyecto} open={gastoAbierto} onOpenChange={setGastoAbierto} />
           <TabsContent value="resumen" className={PANEL_CLASS}>
-            <FichaResumen proyecto={proyecto} onIrA={setTab} />
+            {/* The Resumen only goes to Historial for «Solicitar modificación»: land on the requests segment. */}
+            <FichaResumen
+              proyecto={proyecto}
+              onIrA={(destino) => (destino === "historial" ? solicitarModificacion() : irA(destino))}
+              onAccion={atenderAccion}
+            />
           </TabsContent>
 
           <TabsContent value="actividades" className={PANEL_CLASS}>
-            <FichaActividades proyecto={proyecto} pedidoAvance={pedidoAvance} />
+            <FichaActividades proyecto={proyecto} onSolicitarModificacion={solicitarModificacion} />
           </TabsContent>
 
           <TabsContent value="finanzas" className={PANEL_CLASS}>
-            <FichaFinanzas proyecto={proyecto} />
+            <FichaFinanzas proyecto={proyecto} onVerActividades={() => irA("actividades")} />
           </TabsContent>
 
           <TabsContent value="documentos" className={PANEL_CLASS}>
@@ -131,7 +173,12 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
           </TabsContent>
 
           <TabsContent value="historial" className={PANEL_CLASS}>
-            <FichaHistorial proyecto={proyecto} />
+            <FichaHistorial
+              key={pedidoSolicitud}
+              proyecto={proyecto}
+              onIrA={irA}
+              segmentoInicial={solicitudPendiente ? "solicitudes" : undefined}
+            />
           </TabsContent>
         </div>
       </Tabs>

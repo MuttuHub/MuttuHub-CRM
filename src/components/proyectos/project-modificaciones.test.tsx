@@ -128,10 +128,30 @@ describe("ProjectModificaciones", () => {
     expect(tarjetas[2]).toHaveTextContent("Versión 1")
   })
 
-  it("shows the empty state", async () => {
+  it("shows the empty state with its title, what appears here and the request button inside it", async () => {
     setup({ solicitudes: [] })
-    const vacio = await screen.findByText("Aún no hay solicitudes de modificación.")
-    expect(vacio.closest("[data-slot='empty-state']")).not.toBeNull()
+    const titulo = await screen.findByText("Aún no hay solicitudes de modificación")
+    const vacio = titulo.closest("[data-slot='empty-state']") as HTMLElement
+    expect(vacio).not.toBeNull()
+    expect(vacio).toHaveTextContent(
+      "Aquí aparecen los cambios de presupuesto, cronograma o entregables que pide el equipo.",
+    )
+    expect(await within(vacio).findByRole("button", { name: "Solicitar modificación" })).toBeInTheDocument()
+    // Only once: no second button above the empty state.
+    expect(screen.getAllByRole("button", { name: "Solicitar modificación" })).toHaveLength(1)
+  })
+
+  it("shows the empty state without the button to who cannot request", async () => {
+    setup({ rol: "VISUALIZADOR", solicitudes: [] })
+    const titulo = await screen.findByText("Aún no hay solicitudes de modificación")
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/api/v1/auth/me"))).toBe(true))
+    expect(within(titulo.closest("[data-slot='empty-state']") as HTMLElement).queryByRole("button")).not.toBeInTheDocument()
+  })
+
+  it("explains the order of the list above it", async () => {
+    setup()
+    await screen.findAllByTestId("solicitud")
+    expect(screen.getByText("Pendientes primero; luego las decididas, la más reciente arriba.")).toBeInTheDocument()
   })
 
   it("gives a manager the request button and Aprobar/Rechazar on the pending request only", async () => {
@@ -226,6 +246,8 @@ describe("ProjectModificaciones", () => {
     const confirmar = within(pendiente!).getByRole("button", { name: "Confirmar rechazo" })
     expect(confirmar).toBeDisabled()
     expect(posts()).toHaveLength(0)
+    // The field's name is a visible label, not only an aria-label.
+    expect(within(pendiente!).getByText("Comentario del rechazo").tagName).toBe("SPAN")
 
     await user.type(within(pendiente!).getByLabelText("Comentario del rechazo"), "No hay presupuesto")
     await user.click(confirmar)

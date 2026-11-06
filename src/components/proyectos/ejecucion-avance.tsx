@@ -1,68 +1,65 @@
-// Progreso de una actividad dentro de "Ejecución técnica" (S4 U6/U7): barra de
-// avance, insignia de estado y, por cada entregable, meta, cantidad contada, el
-// contador de avances "pendiente de soporte", su historial de avances, el
-// control de anulación (solo gestores) y el alta de un avance.
+// Tarjeta de una actividad en la Lista de Actividades (redesign T2, Actividades-propuesta e
+// Interacciones-Actividades tablas 2-4). One main action per card: «Registrar avance» while the activity
+// takes reports, «Solicitar modificación» once it is finished. Header: código, nombre, semáforo in words,
+// estado («Vencida el …» when its last day passed unfinished) and responsable · días. Then the progress
+// line (against the tope when overdue, against the plan otherwise), the entregables (folded unless the
+// activity is overdue) and the historial de avances. A finished activity at 100 % shows as one compact
+// row until «Ver historial». The «Registrar avance» form opens inline (a bottom sheet on phones).
 
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { AlertTriangle, Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { HelpHint } from "@/components/ui/help-hint";
 import { ProgressBar } from "@/components/ui/progress-bar";
-import { ToneBadge } from "@/components/crm/shared";
-import { formatFechaCalendario } from "@/components/proyectos/project-display";
+import { StatusChip } from "@/components/ui/status-chip";
 import { CaptureSurface } from "@/components/proyectos/capture-surface";
-import { EjecucionAvanceForm } from "@/components/proyectos/ejecucion-avance-form";
-import { AdjuntarArchivoControl, type AdjuntarArchivoMutation } from "@/components/proyectos/adjuntar-soporte";
-import { SIN_SOPORTE_TEXT } from "@/components/proyectos/gasto-form";
-import { ReporteActividadForm } from "@/components/proyectos/reporte-actividad-form";
-import { VoidControl, errorMessage, plural } from "@/components/proyectos/estructura-ui";
-import { CAPTURE_BUTTON, CAPTURE_CHOICE, CAPTURE_FIELD, InlineError } from "@/components/proyectos/ui";
+import { ReporteActividadForm, SOPORTE_FALLIDO_TEXT } from "@/components/proyectos/reporte-actividad-form";
+import { plural } from "@/components/proyectos/estructura-ui";
 import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
+import { EntregablesActividad, entregableCompleto } from "@/components/proyectos/ficha/actividades/entregables-actividad";
+import { HistorialAvances } from "@/components/proyectos/ficha/actividades/historial-avances";
 import {
-  useAttachAvanceMedio,
+  AYUDA_PROGRAMADO,
+  ENLACE_ACCION,
+  ayudaTope,
+  esFinalizada,
+  fechaCorta,
+  formatNumero,
+  ultimoVigente,
+} from "@/components/proyectos/ficha/actividades/formato";
+import {
   useActivityReports,
-  useAttachActivityReportMedio,
-  useVoidActivityReport,
-  useVoidAvance,
-  type AvanceMedioInput,
-  type EstadoActividad,
   type ProjectActivity,
-  type ProjectActivityReport,
-  type ProjectAvance,
   type ProjectDeliverable,
   type ProjectDeliverableProgress,
   type ProjectTechnicalActivity,
   type ProjectTechnicalActivityV6,
 } from "@/hooks/projects";
-import type { UiTone } from "@/lib/catalogs";
-import { SelectorArchivo } from "@/components/proyectos/selector-archivo";
-
-/** Mensaje de respaldo cuando `useAttachAvanceMedio` falla sin `Error.message` propio. */
-const ADJUNTAR_MEDIO_ERROR = "No pudimos adjuntar el medio. Inténtalo de nuevo.";
-/** Texto visible del botón "Adjuntar archivo" por reporte (mismo texto que AJ-06). */
-const ADJUNTAR_ARCHIVO_LABEL = "Adjuntar archivo";
+import { vencidaSinTerminar } from "@/lib/proyectos/estado-actividad";
+import { todayInBogota } from "@/lib/proyectos/weeks";
+import { cn } from "@/lib/utils";
 
 /** Replaces «Registrar avance» once the activity is finished: it takes no more reports. */
 export const ACTIVIDAD_FINALIZADA_TEXT =
-  "Actividad finalizada: ya no recibe avances. Si hay que corregir algo, anula el último avance o solicita una modificación.";
+  "Ya no recibe avances. Para corregir, anula el último avance o solicita una modificación.";
 
-const ESTADO_META: Record<EstadoActividad, { tone: UiTone; label: string }> = {
-  FINALIZADA: { tone: "exito", label: "Finalizada" },
-  FINALIZADA_CON_RETRASO: { tone: "alerta", label: "Finalizada con retraso" },
-  EN_CURSO: { tone: "info", label: "En curso" },
-  NO_INICIADA: { tone: "neutro", label: "No iniciada" },
-};
+/** `tope_en_curso` default when the technical status does not say (90 %, still to be confirmed). */
+export const TOPE_POR_DEFECTO = 90;
 
-function formatNumero(value: number): string {
-  return new Intl.NumberFormat("es-CO", { maximumFractionDigits: 2 }).format(value);
-}
-
-function formatMeta(meta: string): string {
-  const n = Number(meta);
-  return Number.isFinite(n) ? formatNumero(n) : meta;
+/**
+ * Highest % an activity's reports may reach: 100 once all its deliverables are counted in full, else the
+ * project's `tope_en_curso`. Shared by the activity card and the header's «Registrar avance» dialog.
+ */
+export function topeDeActividad(
+  entregables: ProjectDeliverable[],
+  progreso: Map<string, ProjectDeliverableProgress>,
+  tope: number = TOPE_POR_DEFECTO,
+): number {
+  const completos =
+    entregables.length > 0 &&
+    entregables.every((entregable) => entregableCompleto(entregable, progreso.get(entregable.id)?.avances ?? []));
+  return completos ? 100 : tope;
 }
 
 /** The v6 enrichment (plan, days, support, colour) is optional: callers that only have the base row keep working. */
@@ -78,6 +75,10 @@ export function EjecucionAvance({
   canWrite,
   canVoid,
   enfocar = false,
+  tope = TOPE_POR_DEFECTO,
+  corte,
+  responsable = null,
+  onSolicitarModificacion,
 }: {
   proyectoId: string;
   actividad: ProjectActivity;
@@ -87,19 +88,131 @@ export function EjecucionAvance({
   canWrite: boolean;
   canVoid: boolean;
   /**
-   * Scroll to this row and move the keyboard focus to it (the Tablero card or the header's «Registrar avance»).
-   * A new number asks again, so a repeated click still lands here.
+   * Scroll to this card and move the keyboard focus to it (the Tablero card or the header's «Registrar avance»).
+   * A new number asks again, so a repeated click still lands here. A compact card opens.
    */
   enfocar?: boolean | number;
+  /** `tope_en_curso` (%): the highest progress reports reach while the deliverables are incomplete. */
+  tope?: number;
+  /** The server's «today» (`YYYY-MM-DD`); Bogotá's today when absent. */
+  corte?: string;
+  /** Name of the activity's responsable, when known. */
+  responsable?: string | null;
+  /** «Solicitar modificación» on a finished activity; only passed when the person may ask for one. */
+  onSolicitarModificacion?: () => void;
 }) {
-  const estado = ESTADO_META[tecnico.estado];
-  const fila = useRef<HTMLLIElement>(null);
+  const finalizada = esFinalizada(tecnico.estado);
+  const hoy = (corte ?? todayInBogota()).slice(0, 10);
+  const fin = actividad.fecha_fin?.slice(0, 10) ?? null;
+  const vencida = fin !== null && vencidaSinTerminar({ fin, corte: hoy, terminada: finalizada });
 
+  const reportesQuery = useActivityReports(proyectoId, actividad.id);
+  const reportes = reportesQuery.data?.reportes ?? [];
+  const ultimo = ultimoVigente(reportes);
+
+  const topeVigente = topeDeActividad(entregables, progreso, tope);
+
+  const [abierta, setAbierta] = useState(!(finalizada && tecnico.progreso >= 100));
+  const [verEntregables, setVerEntregables] = useState(vencida);
+  const [registrando, setRegistrando] = useState(false);
+  const [nuevos, setNuevos] = useState<ReadonlySet<string>>(new Set());
+  const [aviso, setAviso] = useState("");
+  const entregablesId = useId();
+
+  // A focus request opens a compact card (render-time, once per request).
+  const [enfoqueVisto, setEnfoqueVisto] = useState<boolean | number>(false);
+  if (enfocar && enfocar !== enfoqueVisto) {
+    setEnfoqueVisto(enfocar);
+    if (!abierta) setAbierta(true);
+  }
+
+  const fila = useRef<HTMLLIElement>(null);
   useEffect(() => {
     if (!enfocar) return;
     fila.current?.scrollIntoView?.({ block: "center" });
     fila.current?.focus({ preventScroll: true });
   }, [enfocar]);
+
+  // Closing the form gives the focus back to «Registrar avance» (the button mounts again).
+  const devolverFoco = useRef(false);
+  const botonAvanceRef = (boton: HTMLButtonElement | null) => {
+    if (boton && devolverFoco.current) {
+      devolverFoco.current = false;
+      boton.focus();
+    }
+  };
+  // Opening or folding a finished card keeps the focus on its toggle (the other one mounts in its place).
+  const focoAlternar = useRef(false);
+  const alternarRef = (boton: HTMLButtonElement | null) => {
+    if (boton && focoAlternar.current) {
+      focoAlternar.current = false;
+      boton.focus();
+    }
+  };
+  function alternarHistorial(valor: boolean) {
+    focoAlternar.current = true;
+    setAbierta(valor);
+  }
+  function cerrarFormulario() {
+    devolverFoco.current = true;
+    setRegistrando(false);
+  }
+
+  const puedeAvance = canWrite && !finalizada;
+
+  if (finalizada && !abierta) {
+    return (
+      <li
+        ref={fila}
+        id={`actividad-${actividad.id}`}
+        tabIndex={-1}
+        data-testid="ejecucion-actividad"
+        className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-inner border border-border bg-muted/60 px-3.5 py-2.5 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:px-[18px]"
+      >
+        <span className="font-mono text-[12px] text-ink-500">{actividad.codigo}</span>
+        <h3 className="min-w-0 text-[15px] font-semibold break-words text-ink-900">{actividad.nombre}</h3>
+        <EstadoChip estado={tecnico.estado} />
+        <button
+          ref={alternarRef}
+          type="button"
+          aria-expanded={false}
+          className={cn(ENLACE_ACCION, "ml-auto")}
+          onClick={() => alternarHistorial(true)}
+        >
+          Ver historial
+        </button>
+      </li>
+    );
+  }
+
+  const plazo =
+    tecnico.dias === undefined
+      ? null
+      : tecnico.estado === "EN_CURSO" && !vencida && tecnico.al_corte !== undefined && tecnico.al_corte > 0
+        ? `${plural(tecnico.dias, "día", "días")}, día ${tecnico.al_corte}`
+        : plural(tecnico.dias, "día", "días");
+  const detalle = [responsable ? `Responsable: ${responsable}` : null, plazo].filter(Boolean).join(" · ");
+
+  const accionPrincipal = puedeAvance ? (
+    registrando ? null : (
+      <Button
+        ref={botonAvanceRef}
+        type="button"
+        aria-label={`Registrar avance ${actividad.codigo}`}
+        className="w-full px-4 sm:w-auto"
+        onClick={() => {
+          setAviso("");
+          setRegistrando(true);
+        }}
+      >
+        Registrar avance
+      </Button>
+    )
+  ) : finalizada && onSolicitarModificacion ? (
+    <Button type="button" variant="outline" className="w-full px-4 sm:w-auto" onClick={onSolicitarModificacion}>
+      Solicitar modificación
+    </Button>
+  ) : null;
 
   return (
     <li
@@ -107,527 +220,183 @@ export function EjecucionAvance({
       id={`actividad-${actividad.id}`}
       tabIndex={-1}
       data-testid="ejecucion-actividad"
-      className="rounded-inner border border-border bg-panel p-2.5 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      className={cn(
+        "grid min-w-0 grid-cols-1 gap-3 rounded-inner border border-border p-3.5 outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-x-4 sm:p-[18px]",
+        finalizada ? "bg-muted/60" : "bg-panel",
+      )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-[13px] text-ink-900">
-          <span className="font-mono text-[11px] text-ink-500 tabular-nums">{actividad.codigo}</span>{" "}
-          <span className="font-semibold">{actividad.nombre}</span>
-        </p>
-        <span className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-          {tecnico.color && <SemaforoChip color={tecnico.color} prefix="Semáforo" />}
-          <ToneBadge tone={estado.tone} label={estado.label} />
-        </span>
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <div className="flex min-w-0 items-baseline gap-2">
+          <span className="font-mono text-[12px] text-ink-500">{actividad.codigo}</span>
+          <h3 className="min-w-0 text-[16px] leading-snug font-semibold break-words text-ink-900">{actividad.nombre}</h3>
+        </div>
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-ink-600">
+          {!finalizada && tecnico.color && <SemaforoChip color={tecnico.color} />}
+          {vencida && fin ? (
+            <StatusChip tone="destructivo">Vencida el {fechaCorta(fin)}</StatusChip>
+          ) : (
+            <EstadoChip estado={tecnico.estado} />
+          )}
+          {finalizada
+            ? canWrite && <span className="min-w-0">{ACTIVIDAD_FINALIZADA_TEXT}</span>
+            : detalle && <span className="min-w-0 break-words">{detalle}</span>}
+        </div>
       </div>
 
-      <div className="mt-1.5 flex items-center gap-2">
-        <ProgressBar
-          data-testid="ejecucion-progreso"
-          aria-label={`Avance de la actividad ${actividad.codigo}`}
-          value={tecnico.progreso}
-        />
-        <span className="shrink-0 text-[12px] text-ink-600 tabular-nums">
-          {tecnico.programado === undefined
-            ? `${formatNumero(tecnico.progreso)} %`
-            : `${formatNumero(tecnico.progreso)} % real · ${formatNumero(tecnico.programado)} % plan`}
-        </span>
+      <div className="order-last flex min-w-0 flex-col gap-2 sm:order-none sm:items-end">
+        {accionPrincipal}
+        {finalizada && (
+          <button
+            ref={alternarRef}
+            type="button"
+            aria-expanded
+            className={ENLACE_ACCION}
+            onClick={() => alternarHistorial(false)}
+          >
+            Ocultar historial
+          </button>
+        )}
       </div>
-      {tecnico.dias !== undefined && (
-        <p className="mt-1 text-[12px] text-ink-600">
-          {plural(tecnico.dias, "día", "días")}
-          {tecnico.al_corte !== undefined && ` · ${tecnico.al_corte} al corte`}
-          {tecnico.sin_soporte !== undefined && ` · ${tecnico.sin_soporte ? "Sin soporte" : "Con soporte"}`}
-        </p>
-      )}
 
-      <ActividadReportes
-        proyectoId={proyectoId}
-        actividad={actividad}
-        canWrite={canWrite}
-        finalizada={tecnico.estado === "FINALIZADA" || tecnico.estado === "FINALIZADA_CON_RETRASO"}
-      />
+      <div className="flex min-w-0 flex-col gap-3 sm:col-span-2">
+        {!finalizada && (
+          <BarraAvance
+            codigo={actividad.codigo}
+            progreso={tecnico.progreso}
+            color={tecnico.color}
+            programado={vencida ? undefined : tecnico.programado}
+            tope={vencida && topeVigente < 100 ? topeVigente : undefined}
+          />
+        )}
 
-      {entregables.length > 0 && (
-        <ul className="mt-2 flex flex-col gap-1.5">
-          {entregables.map((entregable) => (
-            <EntregableRow
-              key={entregable.id}
-              proyectoId={proyectoId}
-              entregable={entregable}
-              avances={progreso.get(entregable.id)?.avances ?? []}
-              canWrite={canWrite}
-              canVoid={canVoid}
-            />
-          ))}
-        </ul>
-      )}
-    </li>
-  );
-}
-
-/**
- * AJ-01 (S2/S3): historial de reportes de avance de la ACTIVIDAD (no confundir con los avances
- * por entregable de `EntregableRow`/`AvanceRow`, un nivel más abajo). `canWrite` es el mismo
- * gate de escritura del resto de la ejecución (gestor o integrante del proyecto): el padre
- * decide si se muestra la acción, esta función solo dibuja.
- */
-function ActividadReportes({
-  proyectoId,
-  actividad,
-  canWrite,
-  finalizada,
-}: {
-  proyectoId: string;
-  actividad: ProjectActivity;
-  canWrite: boolean;
-  /** A finished activity takes no new report; voiding the last one stays available. */
-  finalizada: boolean;
-}) {
-  const query = useActivityReports(proyectoId, actividad.id);
-  const remove = useVoidActivityReport(proyectoId, actividad.id);
-  const [abierto, setAbierto] = useState(false);
-
-  const reportes = query.data?.reportes ?? [];
-  // Same rule as the void route: the latest live report by date, then by creation. A voided one never counts.
-  const ultimoId = reportes
-    .filter((reporte) => reporte.anulado_at === null)
-    .reduce<ProjectActivityReport | null>(
-      (ultimo, reporte) =>
-        ultimo === null ||
-        reporte.fecha > ultimo.fecha ||
-        (reporte.fecha === ultimo.fecha && reporte.created_at > ultimo.created_at)
-          ? reporte
-          : ultimo,
-      null,
-    )?.id;
-
-  return (
-    <div className="mt-2">
-      {query.isError ? (
-        <InlineError message={errorMessage(query.error, "No pudimos cargar los avances. Inténtalo de nuevo.")} />
-      ) : reportes.length > 0 ? (
-        <ul data-testid="ejecucion-reportes" className="flex flex-col gap-1.5">
-          {reportes.map((reporte) => (
-            <ReporteRow
-              key={reporte.id}
-              proyectoId={proyectoId}
-              actividad={actividad}
-              reporte={reporte}
-              canWrite={canWrite}
-              esUltimo={reporte.id === ultimoId}
-              deleting={remove.isPending && remove.variables?.id === reporte.id}
-              error={
-                remove.isError && remove.variables?.id === reporte.id
-                  ? errorMessage(remove.error, "No pudimos anular el reporte.")
-                  : null
-              }
-              onVoid={(motivo) => remove.mutate({ id: reporte.id, motivo })}
-            />
-          ))}
-        </ul>
-      ) : null}
-
-      {canWrite && finalizada && <p className="mt-1.5 text-[12.5px] text-ink-600">{ACTIVIDAD_FINALIZADA_TEXT}</p>}
-      {canWrite &&
-        !finalizada &&
-        (abierto ? (
-          <CaptureSurface title="Registrar avance" onClose={() => setAbierto(false)}>
+        {registrando && puedeAvance && (
+          <CaptureSurface
+            title={`Registrar avance ${actividad.codigo} · ${actividad.nombre}`}
+            onClose={cerrarFormulario}
+          >
             <ReporteActividadForm
               projectId={proyectoId}
               actividad={actividad}
-              onDone={() => setAbierto(false)}
+              actual={tecnico.progreso}
+              tope={topeVigente}
+              ultimo={ultimo ? Number(ultimo.porcentaje) : null}
+              onDone={cerrarFormulario}
+              onSaved={({ reporteId, porcentaje, soporteFallido }) => {
+                setNuevos((actuales) => new Set(actuales).add(reporteId));
+                setAviso(
+                  `Avance registrado: la ${actividad.codigo} queda en ${formatNumero(porcentaje)} %.` +
+                    (soporteFallido ? ` ${SOPORTE_FALLIDO_TEXT}` : ""),
+                );
+              }}
             />
           </CaptureSurface>
-        ) : (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            aria-label={`Registrar avance ${actividad.codigo}`}
-            className="mt-1.5"
-            onClick={() => setAbierto(true)}
-          >
-            Registrar avance
-          </Button>
-        ))}
-    </div>
+        )}
+        <p role="status" className={aviso ? "text-[13px] font-medium text-exito" : "sr-only"}>
+          {aviso}
+        </p>
+
+        {entregables.length > 0 && (
+          <div className="flex min-w-0 flex-col gap-2">
+            <button
+              type="button"
+              aria-expanded={verEntregables}
+              aria-controls={entregablesId}
+              className={cn(ENLACE_ACCION, "self-start")}
+              onClick={() => setVerEntregables((value) => !value)}
+            >
+              {verEntregables
+                ? "Ocultar entregables"
+                : `Ver ${plural(entregables.length, "entregable", "entregables")}`}
+            </button>
+            {verEntregables && (
+              <div id={entregablesId} className="min-w-0">
+                <EntregablesActividad
+                  proyectoId={proyectoId}
+                  entregables={entregables}
+                  progreso={progreso}
+                  canWrite={canWrite}
+                  canVoid={canVoid}
+                  puedeRegistrarCantidad={!finalizada}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        <HistorialAvances
+          proyectoId={proyectoId}
+          actividad={actividad}
+          reportes={reportes}
+          error={reportesQuery.error}
+          canWrite={canWrite}
+          nuevos={nuevos}
+        />
+      </div>
+    </li>
   );
 }
 
-function ReporteRow({
-  proyectoId,
-  actividad,
-  reporte,
-  canWrite,
-  esUltimo,
-  deleting,
-  error,
-  onVoid,
-}: {
-  proyectoId: string;
-  actividad: ProjectActivity;
-  reporte: ProjectActivityReport;
-  canWrite: boolean;
-  esUltimo: boolean;
-  deleting: boolean;
-  error: string | null;
-  onVoid: (motivo: string) => void;
-}) {
-  const anulado = reporte.anulado_at !== null;
-
-  return (
-    <li
-      data-testid="ejecucion-reporte"
-      className="rounded-[10px] bg-ink-100 px-2.5 py-1.5 text-[12.5px]"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <span className="text-ink-700">
-          <span className="font-mono text-[11px] text-ink-500 tabular-nums">
-            {formatFechaCalendario(reporte.fecha)}
-          </span>{" "}
-          <span className={anulado ? "text-ink-500 line-through" : "font-semibold text-ink-900"}>
-            {formatNumero(Number(reporte.porcentaje))} %
-          </span>{" "}
-          <span className="text-ink-600">· {reporte.registrado_por_nombre ?? "Usuario desconocido"}</span>
-        </span>
-        <span className="flex items-center gap-2">
-          {anulado && <ToneBadge tone="neutro" label="Anulado" />}
-          {error && <InlineError message={error} />}
-          {canWrite && esUltimo && !anulado && (
-            <VoidControl
-              nombre={`avance del ${formatFechaCalendario(reporte.fecha)}`}
-              pending={deleting}
-              error={null}
-              onConfirm={onVoid}
-            />
-          )}
-        </span>
-      </div>
-      <p className={anulado ? "mt-1 text-ink-500 line-through" : "mt-1 text-ink-700"}>{reporte.observacion}</p>
-      {canWrite && !anulado && (
-        <AdjuntarMedioReporte proyectoId={proyectoId} actividadId={actividad.id} reportId={reporte.id} />
-      )}
-    </li>
-  );
+function EstadoChip({ estado }: { estado: ProjectTechnicalActivity["estado"] }) {
+  if (estado === "FINALIZADA") return <StatusChip tone="exito">Finalizada</StatusChip>;
+  if (estado === "FINALIZADA_CON_RETRASO") return <StatusChip tone="alerta">Finalizada con retraso</StatusChip>;
+  return <span>{estado === "EN_CURSO" ? "En curso" : "No iniciada"}</span>;
 }
 
 /**
- * Adjuntar-después (S11). Deliberadamente autocontenido (nació cuando `AdjuntarArchivoControl`
- * (AJ-06, PR #108) aún no estaba fusionado): mismo flujo archivo/enlace. Unificarlo con el
- * control genérico ahora disponible es un follow-up, no parte de AJ-01.
+ * «50 % registrado · tope 90 %» (overdue, deliverables incomplete) or «0 % registrado · debería ir en 67,9 %»
+ * (plan known). The fill is the server's semáforo; the mark is the tope or the plan.
  */
-function AdjuntarMedioReporte({
-  proyectoId,
-  actividadId,
-  reportId,
+function BarraAvance({
+  codigo,
+  progreso,
+  color,
+  programado,
+  tope,
 }: {
-  proyectoId: string;
-  actividadId: string;
-  reportId: string;
+  codigo: string;
+  progreso: number;
+  color: TecnicoFila["color"];
+  programado: number | undefined;
+  tope: number | undefined;
 }) {
-  const adjuntar = useAttachActivityReportMedio(proyectoId, actividadId);
-  const prefijo = useId();
-  const [abierto, setAbierto] = useState(false);
-  const [tipo, setTipo] = useState<"archivo" | "enlace">("archivo");
-  const [archivo, setArchivo] = useState<File | null>(null);
-  const [url, setUrl] = useState("");
-  const [nombre, setNombre] = useState("");
-  const [local, setLocal] = useState<string | null>(null);
-
-  function cerrar() {
-    setAbierto(false);
-    setArchivo(null);
-    setUrl("");
-    setNombre("");
-    setLocal(null);
-    adjuntar.reset();
-  }
-
-  function enviar() {
-    let soporte: AvanceMedioInput;
-    if (tipo === "archivo") {
-      if (!archivo) return setLocal(SIN_SOPORTE_TEXT);
-      soporte = { tipo: "archivo", file: archivo };
-    } else {
-      if (url.trim() === "" || nombre.trim() === "") return setLocal(SIN_SOPORTE_TEXT);
-      soporte = { tipo: "enlace", url_externa: url.trim(), nombre: nombre.trim() };
-    }
-    setLocal(null);
-    adjuntar.mutate({ reportId, soporte }, { onSuccess: cerrar });
-  }
-
-  if (!abierto) {
-    return (
-      <Button type="button" variant="outline" size="sm" className="mt-1.5" onClick={() => setAbierto(true)}>
-        <Paperclip />
-        {ADJUNTAR_ARCHIVO_LABEL}
-      </Button>
-    );
-  }
-
+  const marca = tope ?? programado;
   return (
-    <form
-      aria-label={ADJUNTAR_ARCHIVO_LABEL}
-      noValidate
-      onSubmit={(event) => {
-        event.preventDefault();
-        enviar();
-      }}
-      className="mt-1.5 flex min-w-[200px] flex-col gap-2"
-    >
-      <div className="flex flex-wrap items-center gap-3">
-        {(
-          [
-            ["archivo", "Archivo"],
-            ["enlace", "Enlace"],
-          ] as const
-        ).map(([valor, label]) => (
-          <label key={valor} className={CAPTURE_CHOICE}>
-            <input
-              type="radio"
-              name={`${prefijo}-medio`}
-              value={valor}
-              checked={tipo === valor}
-              onChange={() => setTipo(valor)}
-            />
-            {label}
-          </label>
-        ))}
+    <div className="flex min-w-0 flex-wrap items-center gap-x-3.5 gap-y-1">
+      <div className="relative min-w-32 flex-1">
+        <ProgressBar
+          data-testid="ejecucion-progreso"
+          aria-label={`Avance de la actividad ${codigo}`}
+          value={progreso}
+          band={color}
+          className="h-2.5"
+        />
+        {marca !== undefined && (
+          <span
+            aria-hidden="true"
+            className="absolute -top-1 h-[18px] w-0.5 bg-ink-900"
+            style={{ left: `${Math.min(100, Math.max(0, marca))}%` }}
+          />
+        )}
       </div>
-
-      {tipo === "archivo" ? (
-        <div className="flex flex-col gap-1">
-          <Label htmlFor={`${prefijo}-archivo`} className="text-[12px] text-ink-600">
-            Archivo del soporte
-          </Label>
-          <SelectorArchivo id={`${prefijo}-archivo`} onChange={setArchivo} />
-        </div>
-      ) : (
-        <>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor={`${prefijo}-url`} className="text-[12px] text-ink-600">
-              URL
-            </Label>
-            <Input
-              id={`${prefijo}-url`}
-              type="url"
-              placeholder="https://"
-              value={url}
-              onChange={(event) => setUrl(event.target.value)}
-              className={CAPTURE_FIELD}
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor={`${prefijo}-nombre`} className="text-[12px] text-ink-600">
-              Nombre del enlace
-            </Label>
-            <Input
-              id={`${prefijo}-nombre`}
-              value={nombre}
-              onChange={(event) => setNombre(event.target.value)}
-              className={CAPTURE_FIELD}
-            />
-          </div>
-        </>
-      )}
-
-      <div className="flex items-center gap-2">
-        <Button type="submit" size="sm" className={CAPTURE_BUTTON} disabled={adjuntar.isPending}>
-          Adjuntar
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          className={CAPTURE_BUTTON}
-          disabled={adjuntar.isPending}
-          onClick={cerrar}
-        >
-          Cancelar
-        </Button>
-      </div>
-      <InlineError message={local ?? (adjuntar.isError ? errorMessage(adjuntar.error, "No pudimos adjuntar el medio. Inténtalo de nuevo.") : null)} />
-    </form>
-  );
-}
-
-function EntregableRow({
-  proyectoId,
-  entregable,
-  avances,
-  canWrite,
-  canVoid,
-}: {
-  proyectoId: string;
-  entregable: ProjectDeliverable;
-  avances: ProjectAvance[];
-  canWrite: boolean;
-  canVoid: boolean;
-}) {
-  const remove = useVoidAvance(proyectoId, entregable.id);
-  const [abierto, setAbierto] = useState(false);
-
-  const contado = avances
-    .filter((avance) => avance.cuenta)
-    .reduce((sum, avance) => sum + Number(avance.cantidad), 0);
-  const pendientes = avances.filter((avance) => avance.anulado_at === null && !avance.cuenta).length;
-
-  return (
-    <li data-testid="ejecucion-entregable" className="rounded-[10px] bg-ink-100 px-2.5 py-1.5">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[12.5px] text-ink-800">
-        <span className="min-w-0">
-          <span className="font-mono text-[11px] text-ink-500 tabular-nums">{entregable.codigo}</span>{" "}
-          <span className="font-semibold">{entregable.descripcion}</span>
+      <span className="flex items-center gap-1.5 text-[13px] text-ink-700">
+        <span>
+          <span className="font-semibold text-ink-900 tabular-nums">{formatNumero(progreso)} %</span> registrado
+          {tope !== undefined
+            ? ` · tope ${formatNumero(tope)} %`
+            : programado !== undefined && ` · debería ir en ${formatNumero(programado)} %`}
         </span>
-        <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-ink-600">
-          <span>
-            Meta {formatMeta(entregable.cantidad_meta)} {entregable.unidad}
-          </span>
-          <span className="tabular-nums">
-            Contado {formatNumero(contado)} {entregable.unidad}
-          </span>
-          {pendientes > 0 && (
-            <span
-              data-testid="ejecucion-pendiente-soporte"
-              className="inline-flex items-center gap-1 font-semibold text-alerta"
-            >
-              <AlertTriangle className="size-3.5 shrink-0" strokeWidth={2} />
-              {plural(pendientes, "pendiente", "pendientes")} de soporte
-            </span>
-          )}
-        </span>
-      </div>
-
-      {avances.length > 0 && (
-        <ul data-testid="ejecucion-avances" className="mt-1.5 flex flex-col gap-1">
-          {avances.map((avance) => (
-            <AvanceRow
-              key={avance.id}
-              proyectoId={proyectoId}
-              deliverableId={entregable.id}
-              avance={avance}
-              unidad={entregable.unidad}
-              canVoid={canVoid}
-              canWrite={canWrite}
-              deleting={remove.isPending && remove.variables?.id === avance.id}
-              error={
-                remove.isError && remove.variables?.id === avance.id
-                  ? errorMessage(remove.error, "No pudimos anular el avance.")
-                  : null
-              }
-              onVoid={(motivo) => remove.mutate({ id: avance.id, motivo })}
-            />
-          ))}
-        </ul>
-      )}
-
-      {canWrite &&
-        (abierto ? (
-          <CaptureSurface title="Registrar cantidad" onClose={() => setAbierto(false)}>
-            <EjecucionAvanceForm
-              projectId={proyectoId}
-              entregable={entregable}
-              meta={entregable.cantidad_meta}
-              avances={avances}
-              onDone={() => setAbierto(false)}
-            />
-          </CaptureSurface>
+        {tope !== undefined ? (
+          <HelpHint label="Tope del avance" className="after:-inset-3">
+            {ayudaTope(tope)}
+          </HelpHint>
         ) : (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            aria-label={`Registrar cantidad ${entregable.codigo}`}
-            className="mt-1.5"
-            onClick={() => setAbierto(true)}
-          >
-            Registrar cantidad
-          </Button>
-        ))}
-    </li>
-  );
-}
-
-function AvanceRow({
-  proyectoId,
-  deliverableId,
-  avance,
-  unidad,
-  canVoid,
-  canWrite,
-  deleting,
-  error,
-  onVoid,
-}: {
-  proyectoId: string;
-  deliverableId: string;
-  avance: ProjectAvance;
-  unidad: string;
-  canVoid: boolean;
-  canWrite: boolean;
-  deleting: boolean;
-  error: string | null;
-  onVoid: (motivo: string) => void;
-}) {
-  const anulado = avance.anulado_at !== null;
-  const badge = anulado
-    ? { tone: "neutro" as const, label: "Anulado" }
-    : avance.cuenta
-      ? { tone: "exito" as const, label: "Cuenta" }
-      : { tone: "alerta" as const, label: "Pendiente de soporte" };
-
-  const adjuntarMedio = useAttachAvanceMedio(proyectoId, deliverableId);
-  const adjuntar: AdjuntarArchivoMutation = {
-    mutate: (variables, options) =>
-      adjuntarMedio.mutate({ avanceId: avance.id, soporte: variables.soporte }, options),
-    isPending: adjuntarMedio.isPending,
-    isError: adjuntarMedio.isError,
-    error: adjuntarMedio.error,
-    reset: () => adjuntarMedio.reset(),
-  };
-  const soportes = avance.soportes ?? [];
-
-  return (
-    <li
-      data-testid="ejecucion-avance"
-      className="flex flex-col gap-1 rounded-[8px] bg-panel px-2.5 py-1 text-[12px]"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <span className="text-ink-700">
-          <span className="font-mono text-[11px] text-ink-500 tabular-nums">
-            {formatFechaCalendario(avance.fecha)}
-          </span>{" "}
-          <span className={anulado ? "text-ink-500 line-through" : "font-semibold text-ink-900"}>
-            {formatNumero(Number(avance.cantidad))} {unidad}
-          </span>
-        </span>
-        <span className="flex items-center gap-2">
-          <ToneBadge tone={badge.tone} label={badge.label} />
-          {error && <InlineError message={error} />}
-          {canVoid && !anulado && (
-            <VoidControl
-              nombre={`avance ${formatFechaCalendario(avance.fecha)}`}
-              pending={deleting}
-              error={null}
-              onConfirm={onVoid}
-            />
-          )}
-        </span>
-      </div>
-
-      {soportes.length > 0 && (
-        <ul data-testid="ejecucion-avance-soportes" className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11.5px] text-ink-500">
-          {soportes.map((soporte) => (
-            <li key={soporte.id} className="max-w-[160px] truncate">
-              {soporte.nombre}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {canWrite && !anulado && (
-        <AdjuntarArchivoControl adjuntar={adjuntar} errorFallback={ADJUNTAR_MEDIO_ERROR} sinSoporteText={SIN_SOPORTE_TEXT} />
-      )}
-    </li>
+          programado !== undefined && (
+            <HelpHint label="Real y programado" className="after:-inset-3">
+              {AYUDA_PROGRAMADO}
+            </HelpHint>
+          )
+        )}
+      </span>
+    </div>
   );
 }

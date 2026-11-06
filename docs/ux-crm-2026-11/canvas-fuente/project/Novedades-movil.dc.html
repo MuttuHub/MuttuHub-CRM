@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Novedades de Proyectos en móvil</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="muttu-tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&amp;family=Instrument+Sans:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#b41153;text-underline-offset:3px}a:hover{color:#940d44}
+.hscroll{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
+.hscroll::-webkit-scrollbar{display:none}
+.btn2{height:44px;padding:0 14px;border-radius:var(--radius-control);border:1px solid var(--border-strong);background:var(--input-bg);color:var(--ink-900);font:500 14px/1 var(--font-sans);white-space:nowrap;cursor:pointer}
+.chip{flex:none;height:44px;padding:0 14px;border-radius:9999px;border:1px solid var(--border-strong);background:var(--input-bg);color:var(--ink-800);font:500 13.5px/1 var(--font-sans);white-space:nowrap}
+.chip[aria-pressed=true]{border-color:var(--ink-900);background:var(--ink-900);color:#fff}
+.pill{display:inline-flex;width:max-content;align-items:center;height:24px;padding:0 10px;border-radius:9999px;font:700 12px/1 var(--font-sans);white-space:nowrap}
+.card{display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:var(--radius-inner);border:1px solid var(--border);background:var(--panel)}
+.eyebrow{margin:0;font:700 12px/1.5 var(--font-sans);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-500);display:flex;align-items:center;gap:8px}
+.sub{font-size:13px;line-height:1.5;color:var(--ink-600)}
+.tab{flex:none;padding:14px 8px;border:0;background:transparent;font:600 15px/1 var(--font-sans);color:var(--ink-600);white-space:nowrap}
+.tab[aria-selected=true]{color:var(--ink-900);box-shadow:inset 0 -3px 0 #cd1560}
+</style>
+</helmet>
+<div data-root style="position: relative; width: 390px; height: 2317px; box-sizing: border-box; overflow: hidden; background: var(--page); color: var(--ink-800); font-family: var(--font-sans); display: flex; flex-direction: column;">
+
+  <header style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--border);">
+    <img src="/_blob/389aff0606190d8d845b908338ec457a" alt="Muttu" style="width: 64px; height: auto;">
+    <button aria-label="Abrir menú" style="width: 44px; height: 44px; border-radius: var(--radius-control); border: 1px solid var(--border-strong); background: var(--input-bg); color: var(--ink-900); cursor: pointer; display: inline-flex; align-items: center; justify-content: center;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg>
+    </button>
+  </header>
+
+  <div style="display: flex; flex-direction: column; gap: 14px; padding: 16px 16px 28px;">
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <a href="#" style="display: inline-flex; align-items: center; min-height: 44px; margin: -8px 0 -4px; width: max-content; font-size: 14px; color: var(--ink-600); text-decoration: none;">← Volver al proyecto</a>
+      <span class="eyebrow">Novedades · 05 nov 2026</span>
+      <h1 style="margin: 0; font: 800 28px/1.1 var(--font-display); letter-spacing: -0.03em; color: var(--ink-950);">Qué cambió en Proyectos</h1>
+      <p style="margin: 0; font-size: 14.5px; line-height: 1.6; color: var(--ink-700);">Estos cambios responden a los ajustes AJ-01 a AJ-06 que pidió Coordinación. Ya están en la app.</p>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <article class="card" style="gap: 10px;">
+        <b style="font-size: 15px; color: var(--ink-900);">Registrar avance</b>
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: var(--radius-lg); background: var(--muted);">
+          <span class="pill" style="height: 22px; background: #ffffff; color: var(--ink-600);">Antes</span>
+          <span style="font-size: 13.5px; line-height: 1.5; color: var(--ink-600);">Solo la persona responsable de la actividad veía el botón.</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: var(--radius-lg); background: var(--exito-bg);">
+          <span class="pill" style="height: 22px; background: #ffffff; color: var(--exito);">Ahora</span>
+          <span style="font-size: 13.5px; line-height: 1.5; color: var(--ink-900);">Cualquier integrante del equipo lo registra, también desde la cabecera del proyecto.</span>
+        </div>
+      </article>
+      <article class="card" style="gap: 10px;">
+        <b style="font-size: 15px; color: var(--ink-900);">Historial de avances</b>
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: var(--radius-lg); background: var(--muted);">
+          <span class="pill" style="height: 22px; background: #ffffff; color: var(--ink-600);">Antes</span>
+          <span style="font-size: 13.5px; line-height: 1.5; color: var(--ink-600);">Mostraba un código en lugar de la persona.</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: var(--radius-lg); background: var(--exito-bg);">
+          <span class="pill" style="height: 22px; background: #ffffff; color: var(--exito);">Ahora</span>
+          <span style="font-size: 13.5px; line-height: 1.5; color: var(--ink-900);">Muestra el nombre de quien registró cada avance.</span>
+        </div>
+      </article>
+      <article class="card" style="gap: 10px;">
+        <b style="font-size: 15px; color: var(--ink-900);">Actividades finalizadas</b>
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: var(--radius-lg); background: var(--muted);">
+          <span class="pill" style="height: 22px; background: #ffffff; color: var(--ink-600);">Antes</span>
+          <span style="font-size: 13.5px; line-height: 1.5; color: var(--ink-600);">Seguían ofreciendo «Registrar avance».</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: var(--radius-lg); background: var(--exito-bg);">
+          <span class="pill" style="height: 22px; background: #ffffff; color: var(--exito);">Ahora</span>
+          <span style="font-size: 13.5px; line-height: 1.5; color: var(--ink-900);">Explican que ya no reciben avances y cómo corregir un error.</span>
+        </div>
+      </article>
+      <article class="card" style="gap: 10px;">
+        <b style="font-size: 15px; color: var(--ink-900);">Finanzas</b>
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: var(--radius-lg); background: var(--muted);">
+          <span class="pill" style="height: 22px; background: #ffffff; color: var(--ink-600);">Antes</span>
+          <span style="font-size: 13.5px; line-height: 1.5; color: var(--ink-600);">«E/P 40,3 %» y barras sin color.</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: var(--radius-lg); background: var(--exito-bg);">
+          <span class="pill" style="height: 22px; background: #ffffff; color: var(--exito);">Ahora</span>
+          <span style="font-size: 13.5px; line-height: 1.5; color: var(--ink-900);">«40,3 % de lo programado» y cada barra con el color de su semáforo.</span>
+        </div>
+      </article>
+      <article class="card" style="gap: 10px;">
+        <b style="font-size: 15px; color: var(--ink-900);">Lista de gastos</b>
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: var(--radius-lg); background: var(--muted);">
+          <span class="pill" style="height: 22px; background: #ffffff; color: var(--ink-600);">Antes</span>
+          <span style="font-size: 13.5px; line-height: 1.5; color: var(--ink-600);">«IVA $ 0» y sin periodo.</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: var(--radius-lg); background: var(--exito-bg);">
+          <span class="pill" style="height: 22px; background: #ffffff; color: var(--exito);">Ahora</span>
+          <span style="font-size: 13.5px; line-height: 1.5; color: var(--ink-900);">El periodo bajo la fecha y «Sin IVA» o el subtotal más IVA bajo el total.</span>
+        </div>
+      </article>
+      <article class="card" style="gap: 10px;">
+        <b style="font-size: 15px; color: var(--ink-900);">Adjuntar archivos</b>
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: var(--radius-lg); background: var(--muted);">
+          <span class="pill" style="height: 22px; background: #ffffff; color: var(--ink-600);">Antes</span>
+          <span style="font-size: 13.5px; line-height: 1.5; color: var(--ink-600);">El botón del navegador decía «Choose File».</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: var(--radius-lg); background: var(--exito-bg);">
+          <span class="pill" style="height: 22px; background: #ffffff; color: var(--exito);">Ahora</span>
+          <span style="font-size: 13.5px; line-height: 1.5; color: var(--ink-900);">«Elegir archivo» y el nombre del archivo elegido.</span>
+        </div>
+      </article>
+      <article class="card" style="gap: 10px;">
+        <b style="font-size: 15px; color: var(--ink-900);">Contadores</b>
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: var(--radius-lg); background: var(--muted);">
+          <span class="pill" style="height: 22px; background: #ffffff; color: var(--ink-600);">Antes</span>
+          <span style="font-size: 13.5px; line-height: 1.5; color: var(--ink-600);">Había que abrir cada sección para saber si tenía datos.</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: var(--radius-lg); background: var(--exito-bg);">
+          <span class="pill" style="height: 22px; background: #ffffff; color: var(--exito);">Ahora</span>
+          <span style="font-size: 13.5px; line-height: 1.5; color: var(--ink-900);">«Gastos · 5», «Modificaciones · N» y «Versiones · N».</span>
+        </div>
+      </article>
+    </div>
+    <section aria-labelledby="guia" style="display: flex; flex-direction: column; gap: 10px; padding-top: 6px;">
+      <h2 id="guia" class="eyebrow">Tu guía rápida</h2>
+      <div class="card" style="gap: 6px;">
+        <b style="font-size: 15px; color: var(--ink-900);">Coordinación</b>
+        <span style="font-size: 13.5px; line-height: 1.55; color: var(--ink-700);">Mira «Qué falta» en el Resumen cada semana; cada fila abre la acción que lo resuelve.</span>
+      </div>
+      <div class="card" style="gap: 6px;">
+        <b style="font-size: 15px; color: var(--ink-900);">Gerencia</b>
+        <span style="font-size: 13.5px; line-height: 1.55; color: var(--ink-700);">Valida los gastos desde Finanzas: el soporte y lo que queda del rubro se ven en el mismo panel.</span>
+      </div>
+      <div class="card" style="gap: 6px;">
+        <b style="font-size: 15px; color: var(--ink-900);">Integrantes</b>
+        <span style="font-size: 13.5px; line-height: 1.55; color: var(--ink-700);">Registra avance y gastos con el botón de la cabecera; adjunta el soporte para que cuente.</span>
+      </div>
+      <span style="font-size: 12.5px; line-height: 1.5; color: var(--ink-600);">La guía por rol es una propuesta: describe el flujo de los diseños, no el actual.</span>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":2317}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

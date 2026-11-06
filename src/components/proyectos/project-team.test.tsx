@@ -103,6 +103,21 @@ describe("ProjectTeam", () => {
     expect(items[1]).toHaveTextContent("Diego Mora")
   })
 
+  it("counts the members in the title and marks the project's responsible (redesign S2)", async () => {
+    fetchMock.mockImplementation((input: unknown) => {
+      const url = String(input)
+      if (url.endsWith("/api/v1/auth/me")) return Promise.resolve(jsonResponse({ usuario: null }))
+      if (url.endsWith("/members")) return Promise.resolve(jsonResponse({ miembros: [CARLA, DIEGO] }))
+      return Promise.resolve(jsonResponse({}, 404))
+    })
+    render(<ProjectTeam proyectoId="p1" responsableId="u10" />, { wrapper: createWrapper() })
+
+    expect(await screen.findByRole("heading", { name: "Equipo · 2" })).toBeInTheDocument()
+    const [carla, diego] = await screen.findAllByTestId("equipo-integrante")
+    expect(diego).toHaveTextContent("Coordinador · responsable del proyecto")
+    expect(carla).not.toHaveTextContent("responsable")
+  })
+
   it("shows a loading skeleton while the team loads", () => {
     fetchMock.mockImplementation(() => new Promise(() => {}))
     render(<ProjectTeam proyectoId="p1" />, { wrapper: createWrapper() })

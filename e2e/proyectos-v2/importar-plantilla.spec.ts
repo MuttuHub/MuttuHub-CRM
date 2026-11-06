@@ -30,9 +30,9 @@ test("PRY-2026-002: validate then import the PO template; 3 objectives, activiti
   await expect(lista.getByRole("button", { name: /^Editar actividad / })).toHaveCount(12);
   await expect(lista.getByText("Formalizar bajo la figura jurídica idónea").first()).toBeVisible();
 
-  // Gantt by week
-  await page.getByRole("tab", { name: "Gantt" }).click();
-  const gantt = page.getByRole("tabpanel", { name: "Gantt" });
+  // Cronograma (week Gantt)
+  await page.getByRole("tab", { name: "Cronograma" }).click();
+  const gantt = page.getByRole("tabpanel", { name: "Cronograma" });
   await expect(gantt.getByText(/S1\b/).first()).toBeVisible();
   await expect(gantt.getByText(/S17\b/).first()).toBeVisible();
   for (const code of ["O1", "O2", "O3", "A1.1", "A3.3"]) await expect(gantt.getByText(code, { exact: true })).toBeVisible();

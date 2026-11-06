@@ -1,0 +1,46 @@
+<title>Prototipo Ficha de Proyecto</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="tabs/resumen.css">
+<link rel="stylesheet" href="tabs/actividades.css">
+<link rel="stylesheet" href="tabs/finanzas.css">
+<link rel="stylesheet" href="tabs/documentos.css">
+<link rel="stylesheet" href="tabs/historial.css">
+
+<header class="toolbar">
+  <div>
+    <span class="tag">Prototipo · Proyectos · para revisar con la PO</span>
+    <h1>Ficha de proyecto PRY-2026-001</h1>
+  </div>
+  <span class="grow"></span>
+  <div class="seg" role="group" aria-label="Vista">
+    <button type="button" data-viewport="escritorio" aria-pressed="true">Escritorio</button>
+    <button type="button" data-viewport="movil" aria-pressed="false">Móvil</button>
+  </div>
+  <label for="rol">Ver como <select id="rol"></select></label>
+  <button type="button" class="tb-btn" id="reiniciar">Reiniciar datos</button>
+</header>
+
+<main class="stage" data-viewport="escritorio">
+  <div class="device">
+    <div class="app">
+      <div class="side-host"></div>
+      <div class="app-scroll"><div class="main"></div></div>
+    </div>
+    <div class="mbar" hidden></div>
+    <div class="toasts" aria-live="polite"></div>
+    <div class="layer" hidden></div>
+  </div>
+</main>
+
+<script src="data.js"></script>
+<script src="core.js"></script>
+<script src="tabs/resumen.js"></script>
+<script src="tabs/actividades.js"></script>
+<script src="tabs/finanzas.js"></script>
+<script src="tabs/documentos.js"></script>
+<script src="tabs/historial.js"></script>
+<script>
+  document.querySelector(".app-scroll").addEventListener("scroll", () => document.querySelectorAll(".popover").forEach((p) => p.remove()), { passive: true });
+</script>

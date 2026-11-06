@@ -58,8 +58,8 @@ const soporte = (id: string, origen: ProjectSupport["origen"], nombre: string, o
 })
 
 const SOPORTES: ProjectSupport[] = [
-  soporte("s1", "avance", "acta-visita.pdf", { vinculo: "Actividad 1.1" }),
-  soporte("s2", "gasto", "factura-100.pdf"),
+  soporte("s1", "avance", "acta-visita.pdf", { vinculo: "E1 · Acta de visita" }),
+  soporte("s2", "gasto", "factura-100.pdf", { vinculo: "Gasto FV-4007 · Material de oficina" }),
   soporte("s3", "indicador", "medicion-octubre.xlsx", { tipo_mime: "application/vnd.ms-excel" }),
   soporte("s4", "proyecto", "convenio-2026.pdf", {
     tipo: "enlace",
@@ -97,56 +97,96 @@ describe("FichaDocumentos", () => {
   })
 
   // Z3-2: `created_at` is a full ISO timestamp; the row used a calendar-day parser and always showed "—".
-  it("shows the upload date of each document", async () => {
+  it("shows who uploaded each document and the day, apart from where it comes from", async () => {
     setup()
 
     const lista = await screen.findByTestId("documentos-lista")
     const fila = within(lista).getAllByTestId("documento-fila")[0]
-    expect(fila).toHaveTextContent(/Actividad 1\.1 · Ana · 16 de oct de 2026/)
+    expect(within(fila).getByTestId("documento-subio")).toHaveTextContent(/^Ana · 16 oct 2026$/)
+    expect(within(fila).getByTestId("documento-origen")).toHaveTextContent("Entregable E1 · Acta de visita")
+    // The format label («PDF», «Enlace») is gone from the row.
+    expect(fila).not.toHaveTextContent("PDF")
   })
 
-  it("groups every support by origin, in a single list", async () => {
+  it("titles the tab «Documentos del proyecto» and explains it behind an ⓘ", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    expect(await screen.findByRole("heading", { name: "Documentos del proyecto" })).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Ayuda: Qué documentos aparecen aquí" }))
+    expect(await screen.findByText(/Cada uno se sube desde donde nace/)).toBeInTheDocument()
+  })
+
+  it("groups every support by origin, entregables first, with the count of each group", async () => {
     setup()
 
     await screen.findByTestId("documentos-lista")
     const grupos = screen.getAllByRole("heading", { level: 4 }).map((h) => h.textContent)
-    expect(grupos).toEqual(["Actividades", "Indicadores", "Gastos", "Proyecto"])
+    expect(grupos).toEqual([
+      "Soportes de entregables · 1",
+      "Soportes de gastos · 1",
+      "Soportes de indicadores · 1",
+      "Soportes del proyecto · 1",
+    ])
 
-    const actividades = screen.getByTestId("documentos-grupo-avance")
-    expect(within(actividades).getByText("acta-visita.pdf")).toBeInTheDocument()
+    const entregables = screen.getByTestId("documentos-grupo-avance")
+    expect(within(entregables).getByText("acta-visita.pdf")).toBeInTheDocument()
     expect(within(screen.getByTestId("documentos-grupo-gasto")).getByText("factura-100.pdf")).toBeInTheDocument()
     expect(within(screen.getByTestId("documentos-grupo-indicador")).getByText("medicion-octubre.xlsx")).toBeInTheDocument()
     expect(within(screen.getByTestId("documentos-grupo-proyecto")).getByText("convenio-2026.pdf")).toBeInTheDocument()
-
     expect(screen.getAllByTestId("documento-fila")).toHaveLength(4)
   })
 
-  it("filters by origin and hides the groups left empty", async () => {
+  it("splits a gasto origin into its number and its description", async () => {
+    setup()
+
+    const grupo = await screen.findByTestId("documentos-grupo-gasto")
+    const origen = within(grupo).getByTestId("documento-origen")
+    expect(within(origen).getByText("Gasto FV-4007")).toBeInTheDocument()
+    expect(within(origen).getByText("Material de oficina")).toBeInTheDocument()
+  })
+
+  it("counts each origin on its filter, filters by origin and hides the groups left empty", async () => {
     const user = userEvent.setup()
     setup()
 
     await screen.findByTestId("documentos-lista")
-    await user.click(screen.getByRole("button", { name: "Gastos" }))
+    const filtros = within(screen.getByRole("group", { name: "Filtrar por origen" }))
+      .getAllByRole("button")
+      .map((b) => b.textContent)
+    expect(filtros).toEqual(["Todos · 4", "Entregables · 1", "Gastos · 1", "Indicadores · 1", "Del proyecto · 1"])
+
+    await user.click(screen.getByRole("button", { name: "Gastos · 1" }))
 
     expect(screen.getByText("factura-100.pdf")).toBeInTheDocument()
     expect(screen.queryByText("acta-visita.pdf")).not.toBeInTheDocument()
     expect(screen.queryByTestId("documentos-grupo-avance")).not.toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Gastos" })).toHaveAttribute("aria-pressed", "true")
+    expect(screen.getByRole("button", { name: "Gastos · 1" })).toHaveAttribute("aria-pressed", "true")
 
-    await user.click(screen.getByRole("button", { name: "Todos" }))
+    await user.click(screen.getByRole("button", { name: "Todos · 4" }))
     expect(screen.getAllByTestId("documento-fila")).toHaveLength(4)
   })
 
-  it("searches by name, ignoring case", async () => {
+  it("searches by name or by code, ignoring case", async () => {
     const user = userEvent.setup()
     setup()
 
     await screen.findByTestId("documentos-lista")
-    await user.type(screen.getByLabelText("Buscar por nombre"), "FACTURA")
+    await user.type(screen.getByLabelText("Buscar por nombre o código"), "FACTURA")
 
     expect(screen.getAllByTestId("documento-fila")).toHaveLength(1)
     expect(screen.getByText("factura-100.pdf")).toBeInTheDocument()
     expect(screen.queryByTestId("documentos-grupo-avance")).not.toBeInTheDocument()
+
+    await user.clear(screen.getByLabelText("Buscar por nombre o código"))
+    await user.type(screen.getByLabelText("Buscar por nombre o código"), "fv-4007")
+    expect(screen.getAllByTestId("documento-fila")).toHaveLength(1)
+    expect(screen.getByText("factura-100.pdf")).toBeInTheDocument()
+
+    await user.clear(screen.getByLabelText("Buscar por nombre o código"))
+    await user.type(screen.getByLabelText("Buscar por nombre o código"), "e1")
+    expect(screen.getAllByTestId("documento-fila")).toHaveLength(1)
+    expect(screen.getByText("acta-visita.pdf")).toBeInTheDocument()
   })
 
   it("says so when the search or the filter leaves nothing", async () => {
@@ -154,10 +194,36 @@ describe("FichaDocumentos", () => {
     setup()
 
     await screen.findByTestId("documentos-lista")
-    await user.type(screen.getByLabelText("Buscar por nombre"), "no-existe")
+    await user.type(screen.getByLabelText("Buscar por nombre o código"), "no-existe")
 
     expect(screen.getByText("No hay documentos con este filtro.")).toBeInTheDocument()
     expect(screen.queryByTestId("documento-fila")).not.toBeInTheDocument()
+  })
+
+  it("explains the empty groups at the end of the list, and lets a filter at 0 be chosen", async () => {
+    const user = userEvent.setup()
+    setup({ soportes: SOPORTES.filter((s) => s.origen === "avance" || s.origen === "gasto") })
+
+    const explicacion = await screen.findByTestId("documentos-vacios")
+    expect(explicacion).toHaveTextContent(
+      "Indicadores y Del proyecto no tienen documentos. Los soportes de las mediciones se adjuntan desde Actividades › Indicadores.",
+    )
+    // Without permission to upload, «Subir documento» is not mentioned.
+    expect(explicacion).not.toHaveTextContent("Subir documento")
+
+    await user.click(screen.getByRole("button", { name: "Indicadores · 0" }))
+    expect(screen.getByRole("button", { name: "Indicadores · 0" })).toHaveAttribute("aria-pressed", "true")
+    expect(screen.queryByTestId("documento-fila")).not.toBeInTheDocument()
+    expect(screen.getByTestId("documentos-vacios")).toHaveTextContent(
+      "Indicadores no tiene documentos. Los soportes de las mediciones se adjuntan desde Actividades › Indicadores.",
+    )
+  })
+
+  it("shows no explanation when no group is empty", async () => {
+    setup()
+
+    await screen.findByTestId("documentos-lista")
+    expect(screen.queryByTestId("documentos-vacios")).not.toBeInTheDocument()
   })
 
   it("shows the empty state when the project has no supports", async () => {
@@ -186,7 +252,7 @@ describe("FichaDocumentos", () => {
     await screen.findByTestId("documentos-lista")
 
     const factura = within(screen.getByTestId("documentos-grupo-gasto")).getByText("factura-100.pdf").closest("li")!
-    await user.click(within(factura).getByRole("button", { name: "Abrir" }))
+    await user.click(within(factura).getByRole("button", { name: /^Abrir / }))
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/expenses/gasto-1/attachments/s2/download", expect.any(Object)),
     )
@@ -195,7 +261,7 @@ describe("FichaDocumentos", () => {
     expect(open).not.toHaveBeenCalled()
 
     const convenio = within(screen.getByTestId("documentos-grupo-proyecto")).getByText("convenio-2026.pdf").closest("li")!
-    await user.click(within(convenio).getByRole("button", { name: "Abrir" }))
+    await user.click(within(convenio).getByRole("button", { name: /^Abrir / }))
     expect(open).toHaveBeenCalledWith("https://docs.example/convenio", "_blank", "noopener,noreferrer")
     click.mockRestore()
   })
@@ -204,7 +270,7 @@ describe("FichaDocumentos", () => {
     setup()
 
     const grupo = await screen.findByTestId("documentos-grupo-indicador")
-    expect(within(grupo).getByRole("button", { name: "Abrir" })).toBeDisabled()
+    expect(within(grupo).getByRole("button", { name: /^Abrir / })).toBeDisabled()
   })
 
   it.each([
@@ -215,7 +281,7 @@ describe("FichaDocumentos", () => {
     setup({ soportes: [soporte("x1", origen, "sin-nada.pdf", over)] })
 
     const fila = (await screen.findByText("sin-nada.pdf")).closest("li")!
-    expect(within(fila).getByRole("button", { name: "Abrir" })).toBeDisabled()
+    expect(within(fila).getByRole("button", { name: /^Abrir / })).toBeDisabled()
   })
 })
 
@@ -270,6 +336,24 @@ describe("FichaDocumentos: project documents (upload, open, delete)", () => {
     expect(screen.getByText("Este proyecto todavía no tiene documentos.")).toBeInTheDocument()
   })
 
+  it("mentions «Subir documento» in the empty-group explanation only to who can use it", async () => {
+    setup({ soportes: [PROPIOS[0]] })
+
+    const explicacion = await screen.findByTestId("documentos-vacios")
+    await waitFor(() =>
+      expect(explicacion).toHaveTextContent(
+        "Gastos, Indicadores y Del proyecto no tienen documentos. Los soportes de los gastos se adjuntan al registrar el gasto en Finanzas; los de las mediciones, desde Actividades › Indicadores; los del proyecto (convenio, actas de inicio), con «Subir documento».",
+      ),
+    )
+  })
+
+  it("names each Abrir button after its document", async () => {
+    setup()
+
+    const fila = (await screen.findByText("contrato.pdf")).closest("li")!
+    expect(within(fila).getByRole("button", { name: "Abrir contrato.pdf" })).toBeInTheDocument()
+  })
+
   it("opens the upload dialog", async () => {
     const user = userEvent.setup()
     setup()
@@ -299,7 +383,7 @@ describe("FichaDocumentos: project documents (upload, open, delete)", () => {
     setup()
 
     const fila = (await screen.findByText("contrato.pdf")).closest("li")!
-    await user.click(within(fila).getByRole("button", { name: "Abrir" }))
+    await user.click(within(fila).getByRole("button", { name: /^Abrir / }))
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/supports/d1/download", expect.any(Object)),
     )

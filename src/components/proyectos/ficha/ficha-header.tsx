@@ -1,7 +1,10 @@
-// Encabezado de la ficha (U2): código y nombre a la izquierda; a la derecha el estado, los dos semáforos
-// (únicos de la ficha, cada uno lleva a su pestaña), las acciones principales según rol y estado, y el menú
-// "⋯" con la exportación a Excel y la ficha imprimible. «Aprobar línea base» es la acción principal en BORRADOR, así que queda
-// como botón visible y no escondida en el menú.
+// Encabezado de la ficha (U2; rediseño S2/S6): código, nombre (título de la página, enfocable para devolverle el
+// foco) y estado; debajo, cliente y responsable. A la derecha las acciones principales según rol y estado y el
+// menú "⋯" con la exportación a Excel y la ficha imprimible. «Aprobar línea base» es la acción principal en
+// BORRADOR, así que queda como botón visible. Los semáforos son opcionales: el Resumen ya los explica en sus
+// cifras, así que quien monta la ficha decide en qué pestañas se muestran (`mostrarSemaforos`). En el teléfono
+// «Registrar avance» y «Registrar gasto» pasan a una barra inferior fija; se decide con `matchMedia` para no
+// duplicar los botones en el DOM.
 
 "use client";
 
@@ -24,6 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { StatusChip } from "@/components/ui/status-chip";
 import { BaselineApproval } from "@/components/proyectos/baseline-approval";
+import { useIsMobile } from "@/components/proyectos/capture-surface";
 import { useEjecucionPermisos } from "@/components/proyectos/project-ejecucion";
 import { ESTADO_PROYECTO_META } from "@/components/proyectos/project-display";
 import { ProjectKpisPanel } from "@/components/proyectos/project-kpis-panel";
@@ -34,6 +38,9 @@ import { AvisoCongelado, EstadoProyectoAcciones } from "@/components/proyectos/e
 /** Pestañas a las que el encabezado puede llevar. */
 export type FichaDestino = "actividades" | "finanzas";
 
+/** Id del título de la ficha: otros bloques (p. ej. el aviso de Novedades al cerrarse) le devuelven el foco. */
+export const FICHA_TITULO_ID = "ficha-titulo";
+
 const CHIP_BUTTON_CLASS =
   "rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50 cursor-pointer";
 
@@ -41,14 +48,25 @@ export function FichaHeader({
   proyecto,
   onIrA,
   onRegistrarAvance,
+  onRegistrarGasto,
+  mostrarSemaforos = true,
 }: {
   proyecto: ProjectListRow;
   onIrA: (destino: FichaDestino) => void;
-  /** Opens Actividades on the first unfinished activity, where its «Registrar avance» is. */
+  /** Opens the «Registrar avance» dialog on top of the current tab. */
   onRegistrarAvance: () => void;
+  /** Opens the «Registrar gasto» dialog on top of the current tab; without it the button only switches to Finanzas. */
+  onRegistrarGasto?: () => void;
+  /** The semáforo chips; the Resumen leaves them out because its figures carry the color and its reason. */
+  mostrarSemaforos?: boolean;
 }) {
   const estado = ESTADO_PROYECTO_META[proyecto.estado];
   const [exportando, setExportando] = useState(false);
+  const movil = useIsMobile();
+  // Same rule as `ProjectGastos` and the activity cards (manager or team member, project running); the API decides.
+  const { canWrite } = useEjecucionPermisos(proyecto.id);
+  const puedeEjecutar = canWrite && proyecto.estado === "EN_EJECUCION";
+  const registrarGasto = onRegistrarGasto ?? (() => onIrA("finanzas"));
 
   return (
     <header
@@ -56,20 +74,38 @@ export function FichaHeader({
       className="flex flex-wrap items-start justify-between gap-3 border-b border-ink-200 p-5 sm:p-6"
     >
       <div className="min-w-0">
-        <span className="font-mono text-[12px] font-semibold text-ink-600 tabular-nums">
-          {proyecto.codigo}
-        </span>
-        <h1 className="mt-0.5 font-display text-[19px] font-bold tracking-[-0.02em] text-ink-950">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-[12px] font-semibold text-ink-600 tabular-nums">{proyecto.codigo}</span>
+          <StatusChip tone={estado.tone}>{estado.label}</StatusChip>
+        </div>
+        <h1
+          id={FICHA_TITULO_ID}
+          tabIndex={-1}
+          className="mt-0.5 font-display text-[19px] font-bold tracking-[-0.02em] text-ink-950 outline-none"
+        >
           {proyecto.nombre}
         </h1>
+        <p data-testid="ficha-header-cliente" className="mt-0.5 hidden text-[13px] text-ink-600 sm:block">
+          {`${proyecto.cliente.nombre} · Responsable: ${proyecto.responsable?.nombre ?? "Sin asignar"}`}
+        </p>
         <AvisoCongelado estado={proyecto.estado} />
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <StatusChip tone={estado.tone}>{estado.label}</StatusChip>
-        {proyecto.estado !== "BORRADOR" && (
+        {mostrarSemaforos && proyecto.estado !== "BORRADOR" && (
           <FichaSemaforos proyectoId={proyecto.id} onIrA={onIrA} />
         )}
-        <FichaAcciones proyecto={proyecto} onIrA={onIrA} onRegistrarAvance={onRegistrarAvance} />
+        <BaselineApproval proyecto={proyecto} triggerVariant="default" />
+        <EstadoProyectoAcciones proyecto={proyecto} />
+        {puedeEjecutar && !movil && (
+          <>
+            <Button type="button" size="sm" onClick={onRegistrarAvance}>
+              Registrar avance
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={registrarGasto}>
+              Registrar gasto
+            </Button>
+          </>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
@@ -93,6 +129,10 @@ export function FichaHeader({
         </DropdownMenu>
       </div>
 
+      {puedeEjecutar && movil && (
+        <BarraAcciones onRegistrarAvance={onRegistrarAvance} onRegistrarGasto={registrarGasto} />
+      )}
+
       <Dialog open={exportando} onOpenChange={setExportando}>
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[min(560px,calc(100%-2rem))]">
           <DialogHeader>
@@ -105,6 +145,32 @@ export function FichaHeader({
         </DialogContent>
       </Dialog>
     </header>
+  );
+}
+
+/**
+ * Barra inferior fija del teléfono con las dos acciones de ejecución (botones de 44 px). Quien monta la ficha
+ * reserva abajo su alto para que no tape la última fila.
+ */
+function BarraAcciones({
+  onRegistrarAvance,
+  onRegistrarGasto,
+}: {
+  onRegistrarAvance: () => void;
+  onRegistrarGasto: () => void;
+}) {
+  return (
+    <div
+      data-testid="ficha-barra-acciones"
+      className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-2 gap-2 border-t border-ink-200 bg-panel px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+    >
+      <Button type="button" className="w-full" onClick={onRegistrarAvance}>
+        Registrar avance
+      </Button>
+      <Button type="button" variant="outline" className="w-full" onClick={onRegistrarGasto}>
+        Registrar gasto
+      </Button>
+    </div>
   );
 }
 
@@ -133,41 +199,6 @@ function FichaSemaforos({
         <button type="button" className={CHIP_BUTTON_CLASS} onClick={() => onIrA("finanzas")}>
           <SemaforoChip color={kpis.financiero.color} prefix="Semáforo financiero" />
         </button>
-      )}
-    </>
-  );
-}
-
-/**
- * Acciones principales. Solo hay una con énfasis (la primera visible). «Registrar gasto» sigue la regla de
- * `ProjectGastos` (gestor o COORDINADOR integrante, con el proyecto en ejecución), que es la misma de
- * `useEjecucionPermisos`; la API sigue siendo la autoridad.
- */
-function FichaAcciones({
-  proyecto,
-  onIrA,
-  onRegistrarAvance,
-}: {
-  proyecto: ProjectListRow;
-  onIrA: (destino: FichaDestino) => void;
-  onRegistrarAvance: () => void;
-}) {
-  const { canWrite } = useEjecucionPermisos(proyecto.id);
-  const puedeEjecutar = canWrite && proyecto.estado === "EN_EJECUCION";
-
-  return (
-    <>
-      <BaselineApproval proyecto={proyecto} triggerVariant="default" />
-      <EstadoProyectoAcciones proyecto={proyecto} />
-      {puedeEjecutar && (
-        <>
-          <Button type="button" size="sm" onClick={onRegistrarAvance}>
-            Registrar avance
-          </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => onIrA("finanzas")}>
-            Registrar gasto
-          </Button>
-        </>
       )}
     </>
   );

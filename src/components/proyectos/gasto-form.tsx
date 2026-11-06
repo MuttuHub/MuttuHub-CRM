@@ -54,6 +54,14 @@ function periodoDeFecha(fecha: string, periodos: readonly string[]): string {
   }
 }
 
+function mesDeFecha(fecha: string): string | null {
+  try {
+    return periodOf(fecha);
+  } catch {
+    return null;
+  }
+}
+
 function Campo({ id, label, children, className }: { id: string; label: string; children: React.ReactNode; className?: string }) {
   return (
     <div className={`flex min-w-0 flex-col gap-1 ${className ?? ""}`}>
@@ -107,6 +115,8 @@ export function GastoForm({
   const [rubroId, setRubroId] = useState("");
   const [fecha, setFecha] = useState(todayInBogota());
   const [periodo, setPeriodo] = useState(() => periodoDeFecha(todayInBogota(), periodos));
+  // The expense will show «Cuenta en AAAA-MM» when its period is not the month of its document date.
+  const cuentaEnOtroMes = periodo !== "" && fecha !== "" && mesDeFecha(fecha) !== periodo;
   const [tipoSoporte, setTipoSoporte] = useState<ProjectExpense["tipo_soporte"]>("FACTURA_PROVEEDOR");
   const [tercero, setTercero] = useState("");
   const [tipoId, setTipoId] = useState<"" | "NIT" | "CC" | "CE">("");
@@ -262,7 +272,13 @@ export function GastoForm({
       </Campo>
 
       <Campo id={`${p}-periodo`} label="Periodo">
-        <select id={`${p}-periodo`} value={periodo} onChange={(e) => setPeriodo(e.target.value)} className={SELECT}>
+        <select
+          id={`${p}-periodo`}
+          value={periodo}
+          onChange={(e) => setPeriodo(e.target.value)}
+          aria-describedby={cuentaEnOtroMes ? `${p}-periodo-nota` : undefined}
+          className={SELECT}
+        >
           <option value="">Elige el periodo</option>
           {periodos.map((mes) => (
             <option key={mes} value={mes}>
@@ -270,6 +286,11 @@ export function GastoForm({
             </option>
           ))}
         </select>
+        {cuentaEnOtroMes && (
+          <p id={`${p}-periodo-nota`} className="text-[12px] text-ink-600">
+            {`El gasto contará en ${periodo}, un mes distinto al de su documento: en las listas se verá «Cuenta en ${periodo}».`}
+          </p>
+        )}
       </Campo>
 
       <Campo id={`${p}-tipo`} label="Tipo de soporte">
