@@ -81,9 +81,9 @@ async function openTab(name: string | RegExp) {
 }
 
 /** Historial groups modifications, versions and audit as segments; the audit log lives in "Auditoría". */
+// The change log («Registro de cambios») is the segment Historial opens on.
 async function openAuditoria() {
   await openTab("Historial")
-  await openTab("Auditoría")
 }
 
 const TAB_NAMES = ["Resumen", "Actividades", "Finanzas", "Documentos", "Historial"]
@@ -110,13 +110,15 @@ describe("ProjectFicha (page)", () => {
     expect(screen.getByText("En ejecución")).toBeInTheDocument()
     expect(screen.getByText("Desde una oportunidad ganada")).toBeInTheDocument()
     expect(screen.getByText("Alcaldía de Barranquilla")).toBeInTheDocument()
-    expect(screen.getByText("Ana Pérez")).toBeInTheDocument()
-    expect(screen.getByText("05 de ene de 2026")).toBeInTheDocument()
-    expect(screen.getByText("30 de mar de 2026")).toBeInTheDocument()
-    expect(screen.getByText("12 semanas")).toBeInTheDocument()
-    expect(screen.getByText("$ 180.000.000")).toBeInTheDocument()
-    // La meta aparece en el estado y en los datos generales.
-    expect(screen.getAllByText("1.200")).toHaveLength(2)
+    expect(screen.getByTestId("ficha-header")).toHaveTextContent("Responsable: Ana Pérez")
+    // Dates and weeks live in the Tiempo figure of the Resumen.
+    const tiempo = screen.getByTestId("resumen-estado")
+    expect(tiempo).toHaveTextContent("05 de ene de 2026 → 30 de mar de 2026")
+    expect(tiempo).toHaveTextContent("de 12")
+    expect(screen.getAllByText("$ 180.000.000").length).toBeGreaterThan(0)
+    // La meta aparece en los datos generales y junto al valor total.
+    expect(screen.getByText("1.200")).toBeInTheDocument()
+    expect(tiempo).toHaveTextContent("1.200 beneficiarios")
     expect(screen.getByText("-$ 5.000.000")).toBeInTheDocument()
 
     // Las dos líneas, con la principal marcada de forma visible.
@@ -173,8 +175,10 @@ describe("ProjectFicha (page)", () => {
     renderFicha()
 
     const estado = await screen.findByTestId("resumen-estado")
-    expect(await within(estado).findByTestId("salud-tecnico")).toHaveTextContent("Avance real 30 % frente a 40 % programado")
-    expect(within(estado).getByTestId("salud-financiero")).toHaveTextContent("Ejecutado 80 % de lo programado")
+    expect(await within(estado).findByTestId("salud-tecnico")).toHaveTextContent("real de 40 % programado")
+    const financiero = within(estado).getByTestId("salud-financiero")
+    expect(financiero).toHaveTextContent("80 %")
+    expect(financiero).toHaveTextContent("de lo programado a hoy")
     // Ya no hay la cuadrícula de seis tarjetas.
     expect(screen.queryByTestId("resumen-kpis")).not.toBeInTheDocument()
     expect(screen.queryByTestId(/^resumen-kpi-/)).not.toBeInTheDocument()
@@ -223,21 +227,21 @@ describe("ProjectFicha (page)", () => {
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/kpis"))).toBe(false)
   })
 
-  it("opens Historial on the modifications and mounts versions and audit from their segments", async () => {
+  it("opens Historial on the change log and mounts the requests and versions from their segments", async () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
     await openTab("Historial")
 
-    expect(await screen.findByTestId("modificaciones")).toBeInTheDocument()
-    expect(screen.getByRole("tab", { name: /^Modificaciones( · \d+)?$/, selected: true })).toBeInTheDocument()
-    expect(screen.queryByTestId("versiones")).not.toBeInTheDocument()
-    expect(screen.queryByTestId("historial")).not.toBeInTheDocument()
-
-    await openTab(/^Versiones( · \d+)?$/)
-    expect(await screen.findByTestId("versiones")).toHaveTextContent("Versiones")
-    await openTab("Auditoría")
     expect(await screen.findByTestId("historial")).toBeInTheDocument()
+    expect(screen.getByRole("tab", { name: "Registro de cambios", selected: true })).toBeInTheDocument()
+    expect(screen.queryByTestId("modificaciones")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("versiones")).not.toBeInTheDocument()
+
+    await openTab(/^Solicitudes de modificación( · \d+)?$/)
+    expect(await screen.findByTestId("modificaciones")).toBeInTheDocument()
+    await openTab(/^Versiones del plan( · \d+)?$/)
+    expect(await screen.findByTestId("versiones")).toHaveTextContent("Versiones del plan")
     expect(screen.queryByTestId("gastos")).not.toBeInTheDocument()
   })
 
@@ -264,9 +268,10 @@ describe("ProjectFicha (page)", () => {
 
     renderFicha()
     await openTab("Historial")
+    await openTab("Solicitudes de modificación")
 
     expect(await screen.findByText(/línea base esté aprobada/i)).toBeInTheDocument()
-    await openTab("Versiones")
+    await openTab("Versiones del plan")
     expect(await screen.findByText("La línea base aún no está aprobada.")).toBeInTheDocument()
     expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/modifications") || String(url).endsWith("/versions"))).toBe(false)
   })
@@ -316,7 +321,7 @@ describe("ProjectFicha (page)", () => {
     await openTab("Actividades")
     expect(screen.queryByTestId("gantt")).not.toBeInTheDocument()
 
-    await user.click(await screen.findByRole("tab", { name: "Gantt" }))
+    await user.click(await screen.findByRole("tab", { name: "Cronograma" }))
 
     expect(await screen.findByTestId("gantt")).toBeInTheDocument()
     await waitFor(() =>
@@ -498,10 +503,11 @@ describe("ProjectFicha (page)", () => {
     expect(within(header).getByText("PRY-2026-001")).toBeInTheDocument()
     expect(within(header).getByText(PROYECTO.nombre)).toBeInTheDocument()
     expect(within(header).getByText("En ejecución")).toBeInTheDocument()
+    expect(screen.getByTestId("ficha-scroll")).not.toContainElement(header)
+    // The Resumen's figures already carry the colours; the chips show on the other tabs.
+    await openTab("Finanzas")
     expect(await within(header).findByText("Semáforo técnico: Amarillo")).toBeInTheDocument()
     expect(await within(header).findByText("Semáforo financiero: Rojo")).toBeInTheDocument()
-    expect(screen.getByTestId("ficha-scroll")).not.toContainElement(header)
-    await openTab("Finanzas")
     expect(screen.getByTestId("ficha-header")).toBeInTheDocument()
   })
 
@@ -536,18 +542,23 @@ describe("ProjectFicha (page)", () => {
     renderFicha()
 
     const header = await screen.findByTestId("ficha-header")
+    await openTab("Documentos")
     await user.click(await within(header).findByRole("button", { name: "Semáforo técnico: Amarillo" }))
     expect(screen.getByRole("tab", { name: "Actividades" })).toHaveAttribute("aria-selected", "true")
     await user.click(within(header).getByRole("button", { name: "Semáforo financiero: Rojo" }))
     expect(screen.getByRole("tab", { name: "Finanzas" })).toHaveAttribute("aria-selected", "true")
   })
 
-  it("shows the semáforo only in the header: Resumen carries no semáforo chip of its own", async () => {
+  it("shows the semáforo once: as figures on the Resumen and as header chips on the other tabs", async () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
 
     const header = await screen.findByTestId("ficha-header")
+    await screen.findByTestId("salud-tecnico")
+    expect(screen.queryByText("Semáforo técnico: Amarillo")).not.toBeInTheDocument()
+
+    await openTab("Actividades")
     await within(header).findByText("Semáforo técnico: Amarillo")
     expect(screen.getAllByText("Semáforo técnico: Amarillo")).toHaveLength(1)
   })
@@ -566,8 +577,15 @@ describe("ProjectFicha (page)", () => {
 
     await user.click(gasto)
     expect(screen.getByRole("tab", { name: "Finanzas" })).toHaveAttribute("aria-selected", "true")
+    // «Registrar gasto» lands on the form itself, not just on the tab.
+    expect(await screen.findByRole("form", { name: "Registrar gasto" })).toBeInTheDocument()
     await user.click(avance)
     expect(screen.getByRole("tab", { name: "Actividades" })).toHaveAttribute("aria-selected", "true")
+
+    // Coming back to Finanzas by its tab does not reopen the form.
+    await openTab("Finanzas")
+    expect(await screen.findByRole("tab", { name: /^Gastos/, selected: false })).toBeInTheDocument()
+    expect(screen.queryByRole("form", { name: "Registrar gasto" })).not.toBeInTheDocument()
   })
 
   it("hides the execution actions in a draft and for a user who cannot write", async () => {
@@ -903,7 +921,7 @@ describe("ProjectFicha (page)", () => {
     renderFicha()
     await openAuditoria()
 
-    expect(await screen.findByTestId("historial")).toHaveTextContent("Historial")
+    expect(await screen.findByTestId("historial")).toBeInTheDocument()
     await waitFor(() => expect(screen.getAllByTestId("historial-paso")).toHaveLength(1))
 
     const paso = screen.getByTestId("historial-paso")

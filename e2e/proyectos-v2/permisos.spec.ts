@@ -114,8 +114,8 @@ test("coordinador: own projects only, may create, executes but never approves no
   await page.getByRole("tab", { name: "Finanzas", exact: true }).click();
   await page.getByRole("tab", { name: /^Gastos( · \d+)?$/ }).click();
   await expect(page.getByTestId("gastos-lista")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Validar" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Rechazar" })).toHaveCount(0);
+  // Validation is not theirs: no «Revisar» opens the «Validar gasto» panel.
+  await expect(page.getByRole("button", { name: /^Revisar el gasto/ })).toHaveCount(0);
 });
 
 test("colaborador: the list never shows a foreign project, both tabs, may create, ficha denied", async ({ page }) => {
@@ -170,8 +170,8 @@ test("colaborador member: reads their project, executes, cannot validate nor app
   await page.getByRole("tab", { name: "Finanzas", exact: true }).click();
   await page.getByRole("tab", { name: /^Gastos( · \d+)?$/ }).click();
   await expect(page.getByTestId("gastos-lista")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Validar" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Rechazar" })).toHaveCount(0);
+  // Validation is not theirs: no «Revisar» opens the «Validar gasto» panel.
+  await expect(page.getByRole("button", { name: /^Revisar el gasto/ })).toHaveCount(0);
 
   // The API is the authority: a member may edit the allowed field of an
   // executing project, and a project without membership stays 403.

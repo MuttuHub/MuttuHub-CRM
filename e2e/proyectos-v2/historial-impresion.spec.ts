@@ -4,20 +4,20 @@ import { loginToProject } from "./helpers";
 // Guide §3 (Más acciones / Imprimir) and §8 (Historial segments). Read-only.
 // The modification request/approval flow (§8) is intentionally NOT automated: it changes the baseline of PRY-2026-001.
 
-test("Historial has Modificaciones, Versiones and Auditoría segments that each render", async ({ page }) => {
+test("Historial has the change log, requests and plan versions segments that each render", async ({ page }) => {
   await loginToProject(page, "gerencia", "PRY-2026-001");
   await page.getByRole("tablist").first().getByRole("tab", { name: "Historial", exact: true }).click();
   const panel = page.getByRole("tabpanel", { name: "Historial" });
-  // The segments carry a count once loaded («Modificaciones · 0»); the section has no heading of its own.
-  await expect(panel.getByRole("tab", { name: /^Modificaciones/, selected: true })).toBeVisible();
+  // It opens on the change log; the other segments carry a count once loaded («Versiones del plan · 1»).
+  await expect(panel.getByRole("tab", { name: "Registro de cambios", selected: true })).toBeVisible();
+  await expect(panel.getByTestId("historial")).toBeVisible();
+
+  await panel.getByRole("tab", { name: /^Solicitudes de modificación/ }).click();
   await expect(panel.getByTestId("modificaciones")).toBeVisible();
   await expect(panel.getByRole("button", { name: "Solicitar modificación" })).toBeVisible();
 
-  await panel.getByRole("tab", { name: /^Versiones/ }).click();
-  await expect(panel.getByRole("heading", { name: "Versiones", level: 3 })).toBeVisible();
-
-  await panel.getByRole("tab", { name: "Auditoría", exact: true }).click();
-  await expect(panel.getByRole("heading", { name: "Historial", level: 3 })).toBeVisible();
+  await panel.getByRole("tab", { name: /^Versiones del plan/ }).click();
+  await expect(panel.getByRole("heading", { name: "Versiones del plan", level: 3 })).toBeVisible();
 });
 
 test("Más acciones: Exportar a Excel dialog and Imprimir / PDF opens the print view", async ({ page, context }) => {

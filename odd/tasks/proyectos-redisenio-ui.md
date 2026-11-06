@@ -19,11 +19,12 @@ Test runner: `node.exe node_modules/vitest/vitest.mjs run --dir src <files>` (Wi
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
 | T0 | S1 | inline | docs into repo | — |
-| T1 | S2, S6 | delegated (parallel unit) | pending | — |
-| T2 | S3, S6 | delegated (parallel unit) | pending | — |
-| T3 | S4, S6 | delegated (parallel unit) | pending | — |
-| T4 | S5, S6 | delegated (parallel unit) | pending | — |
-| T5 | S1–S7 | inline | seam check: full suite, tsc, eslint | — |
+| T1 | S2, S6 | delegated (parallel unit) | done in code; mobile not seen in a browser | `d7012ab` |
+| T2 | S3, S6 | delegated (parallel unit) | done in code; mobile not seen in a browser | `85ed158` |
+| T3 | S4, S6 | delegated (parallel unit) | done in code; mobile not seen in a browser | `624d785` |
+| T4 | S5, S6 | delegated (parallel unit) | done in code; mobile not seen in a browser | `88b7bc7` |
+| T5 | S1–S7 | inline | wiring in `project-ficha.tsx`, `/proyectos/novedades`, unit + e2e updates; seam check green | see Log L3 |
+| T6 | S1, S6 | inline | pending: visual check desktop + 390 px in a browser, and the e2e run | — |
 
 Route evidence: T1–T4 are independent units with disjoint edit surfaces (one tab each), each several files and well over 100 lines, launched together (Writer trigger a).
 
@@ -31,3 +32,5 @@ Route evidence: T1–T4 are independent units with disjoint edit surfaces (one t
 
 - L1 (2026-11-06) User: «la po esta de acuerdo con el diseño, avanza en lo que mas puedas, y luego uso mi otra cuenta».
 - L2 Earlier requests carried over: «todos los diseños también deben ser adaptados a dispositivos moviles»; «tambien incluye todas las interacciones de cada sección para que quede claro al momento de realizar los cambios».
+- L3 (2026-11-06) T1–T4 written by four parallel writers, each inside its own edit surface (checked against `git status`). The parent wired them in `project-ficha.tsx`: «Qué falta» actions (registrar avance focuses the named activity; the others switch tab), «Registrar gasto» opens the gasto form (remounts Finanzas by key), «Solicitar modificación» from Resumen and Actividades lands on Historial › Solicitudes, header semáforo chips hidden on Resumen (its figures carry the colour), `max-md:pb-28` for the phone action bar; new route `/proyectos/novedades`. Updated `project-ficha.test.tsx` (14 old-copy failures + new «Registrar gasto» assertions) and e2e `ficha-ejecucion`, `historial-impresion`, `importar-plantilla`, `permisos` (Revisar panel, Cronograma, segment names). Seam check: `vitest --dir src` 397 files / 4736 tests green; tsc 0 errors outside `.next`; eslint 0 problems on the 64 changed files (via `--stdin` from the main checkout: the worktree `node_modules` is an MSYS symlink Windows node cannot follow). `--dir scripts` not run (no script changed). e2e NOT run. Mobile layouts verified only by class/`mockViewport` tests, not in a browser.
+- L4 Not done / follow-ups that need the API or a PO answer: Documentos tab counter «Documentos · N» (would add a request on load); «Revisar gasto» from «Qué falta» opens Finanzas but not the panel on that gasto; «Cambiar estado…» inside «⋯»; support preview inline (needs a signed inline URL); activity/gasto data in document supports; paging past 100 history movements; «Ver el plan» of a version; `registrado_por_nombre` on expenses; reports without support in «Qué falta»; the API still accepts «Registrar cantidad» on a finished activity; filter memory in Actividades; Novedades close stored per user on the server (today localStorage).
