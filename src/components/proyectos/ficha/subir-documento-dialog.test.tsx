@@ -70,6 +70,8 @@ describe("SubirDocumentoDialog", () => {
     setup()
 
     await user.click(screen.getByRole("radio", { name: "Enlace" }))
+    // A URL keyboard on phones.
+    expect(screen.getByLabelText("URL")).toHaveAttribute("type", "url")
     await user.type(screen.getByLabelText("URL"), "https://drive.example/acta")
     await user.type(screen.getByLabelText("Nombre del enlace"), "Acta de inicio")
     await user.click(screen.getByRole("button", { name: "Subir documento" }))

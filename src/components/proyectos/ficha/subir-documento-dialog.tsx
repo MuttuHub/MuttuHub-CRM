@@ -125,6 +125,8 @@ export function SubirDocumentoDialog({
                 </Label>
                 <Input
                   id="documento-url"
+                  type="url"
+                  inputMode="url"
                   value={url}
                   onChange={(event) => setUrl(event.target.value)}
                   placeholder="https://…"
