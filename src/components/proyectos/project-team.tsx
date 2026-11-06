@@ -39,7 +39,16 @@ function errorMessage(error: unknown, fallback: string): string {
 }
 
 /** `congelado`: el proyecto está suspendido, cerrado o cancelado (B7) y el equipo no se puede cambiar. */
-export function ProjectTeam({ proyectoId, congelado = false }: { proyectoId: string; congelado?: boolean }) {
+export function ProjectTeam({
+  proyectoId,
+  congelado = false,
+  responsableId = null,
+}: {
+  proyectoId: string;
+  congelado?: boolean;
+  /** The project responsible, marked in the list as «responsable del proyecto». */
+  responsableId?: string | null;
+}) {
   const members = useProjectMembers(proyectoId);
   const userQuery = useCurrentUser();
   const usuario = userQuery.data;
@@ -48,7 +57,9 @@ export function ProjectTeam({ proyectoId, congelado = false }: { proyectoId: str
 
   return (
     <section data-testid="equipo">
-      <SectionHeader icon={<Users className="size-3.5" strokeWidth={2} />}>Equipo</SectionHeader>
+      <SectionHeader icon={<Users className="size-3.5" strokeWidth={2} />}>
+        {members.data ? `Equipo · ${members.data.length}` : "Equipo"}
+      </SectionHeader>
 
       {members.isError ? (
         <p role="alert" className="mt-1.5 text-[13px] text-destructivo">
@@ -70,6 +81,7 @@ export function ProjectTeam({ proyectoId, congelado = false }: { proyectoId: str
                 <MemberRow
                   key={miembro.id}
                   miembro={miembro}
+                  esResponsable={miembro.usuario.id === responsableId}
                   puedeGestionar={puedeGestionar}
                   quitando={remove.isPending && remove.variables === miembro.usuario.id}
                   onRemove={() => remove.mutate(miembro.usuario.id)}
@@ -95,11 +107,13 @@ export function ProjectTeam({ proyectoId, congelado = false }: { proyectoId: str
 
 function MemberRow({
   miembro,
+  esResponsable,
   puedeGestionar,
   quitando,
   onRemove,
 }: {
   miembro: ProjectMember;
+  esResponsable: boolean;
   puedeGestionar: boolean;
   quitando: boolean;
   onRemove: () => void;
@@ -111,7 +125,10 @@ function MemberRow({
     >
       <div className="min-w-0">
         <p className="truncate text-[13px] font-semibold text-ink-900">{miembro.usuario.nombre}</p>
-        <p className="text-[11.5px] text-ink-500">{ROLE_LABELS[miembro.usuario.rol]}</p>
+        <p className="text-[11.5px] text-ink-500">
+          {ROLE_LABELS[miembro.usuario.rol]}
+          {esResponsable && " · responsable del proyecto"}
+        </p>
       </div>
       {puedeGestionar && (
         <Button
