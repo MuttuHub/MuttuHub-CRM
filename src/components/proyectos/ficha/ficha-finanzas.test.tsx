@@ -8,10 +8,17 @@ import type { ProjectListRow } from "@/hooks/projects"
 import { FichaFinanzas } from "./ficha-finanzas"
 
 vi.mock("@/components/proyectos/project-financiero", () => ({
-  ProjectFinanciero: () => <div data-testid="segmento-resumen" />,
+  ProjectFinanciero: ({ onVerGastos, onVerActividades }: { onVerGastos?: () => void; onVerActividades?: () => void }) => (
+    <div data-testid="segmento-resumen">
+      {onVerGastos && <button onClick={onVerGastos}>Ver todos los gastos</button>}
+      {onVerActividades && <button onClick={onVerActividades}>Ver actividades</button>}
+    </div>
+  ),
 }))
 vi.mock("@/components/proyectos/project-gastos", () => ({
-  ProjectGastos: () => <div data-testid="segmento-gastos" />,
+  ProjectGastos: ({ registrarAlAbrir }: { registrarAlAbrir?: boolean }) => (
+    <div data-testid="segmento-gastos" data-registrar={registrarAlAbrir ? "si" : "no"} />
+  ),
 }))
 vi.mock("@/components/proyectos/project-presupuesto", () => ({
   ProjectPresupuesto: () => <div data-testid="segmento-presupuesto" />,
@@ -145,5 +152,33 @@ describe("FichaFinanzas", () => {
     await user.keyboard("{Enter}")
     expect(tab(/^Gastos$/)).toHaveAttribute("aria-selected", "true")
     expect(screen.getByTestId("segmento-gastos")).toBeInTheDocument()
+  })
+
+  it("«Ver todos los gastos» in Resumen switches to the Gastos segment", async () => {
+    const user = userEvent.setup()
+    render(<FichaFinanzas proyecto={PROYECTO} />)
+
+    await user.click(screen.getByRole("button", { name: "Ver todos los gastos" }))
+    expect(tab(/^Gastos$/)).toHaveAttribute("aria-selected", "true")
+    expect(screen.getByTestId("segmento-gastos")).toHaveAttribute("data-registrar", "no")
+  })
+
+  it("passes «Ver actividades» through to Resumen only when the ficha offers it", async () => {
+    const user = userEvent.setup()
+    const onVerActividades = vi.fn()
+    const { unmount } = render(<FichaFinanzas proyecto={PROYECTO} />)
+    expect(screen.queryByRole("button", { name: "Ver actividades" })).not.toBeInTheDocument()
+    unmount()
+
+    render(<FichaFinanzas proyecto={PROYECTO} onVerActividades={onVerActividades} />)
+    await user.click(screen.getByRole("button", { name: "Ver actividades" }))
+    expect(onVerActividades).toHaveBeenCalledTimes(1)
+  })
+
+  it("opens on Gastos with the form open when the header asks to register an expense", () => {
+    render(<FichaFinanzas proyecto={PROYECTO} registrarAlAbrir />)
+
+    expect(tab(/^Gastos$/)).toHaveAttribute("aria-selected", "true")
+    expect(screen.getByTestId("segmento-gastos")).toHaveAttribute("data-registrar", "si")
   })
 })

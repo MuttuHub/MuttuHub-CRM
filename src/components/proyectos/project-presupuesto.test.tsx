@@ -71,18 +71,20 @@ type Setup = {
   programming?: unknown
   programmingStatus?: number
   rol?: string
+  gastos?: unknown[]
 }
 
 describe("ProjectPresupuesto", () => {
   const fetchMock = vi.fn()
 
-  function setup({ proyecto = {}, budget = BUDGET, programming = PROGRAMMING, programmingStatus = 200, rol = "ADMINISTRADOR" }: Setup = {}) {
+  function setup({ proyecto = {}, budget = BUDGET, programming = PROGRAMMING, programmingStatus = 200, rol = "ADMINISTRADOR", gastos = [] }: Setup = {}) {
     fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
       const url = String(input)
       if (url.endsWith("/api/v1/auth/me")) {
         return Promise.resolve(jsonResponse({ usuario: { id: "u1", nombre: "Ana", rol } }))
       }
       if (url.endsWith("/budget")) return Promise.resolve(jsonResponse(budget))
+      if (url.endsWith("/expenses")) return Promise.resolve(jsonResponse({ gastos }))
       if (url.endsWith("/programming")) {
         return Promise.resolve(
           programmingStatus === 200
@@ -245,6 +247,45 @@ describe("ProjectPresupuesto", () => {
     // Falta por programar = asignado − programado: 59.500.000 − 20.000.000.
     expect(fila).toHaveTextContent("$ 39.500.000")
     expect(fila).not.toHaveTextContent("-$")
+  })
+
+  it("outside BORRADOR, adds what each rubro executed, has waiting for validation and has available (T3)", async () => {
+    const gasto = (id: string, rubro: string, estado: string, valor: string) => ({
+      id, rubro: { id: rubro, codigo: null, nombre: "x" }, estado, valor,
+    })
+    setup({
+      proyecto: { estado: "EN_EJECUCION" },
+      budget: { ...BUDGET, estado: "EN_EJECUCION" },
+      gastos: [
+        gasto("g1", "r1", "VALIDADO", "9500000.00"),
+        gasto("g2", "r1", "REGISTRADO", "1000000.00"),
+        gasto("g3", "r1", "RECHAZADO", "7000000.00"),
+        gasto("g4", "pop", "VALIDADO", "400000.00"),
+      ],
+    })
+
+    const tabla = await screen.findByTestId("presupuesto-tabla")
+    await waitFor(() =>
+      expect(within(tabla).getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
+        "Rubro", "Asignado", "Ejecutado", "Por validar", "Disponible",
+      ]),
+    )
+    expect(within(tabla).getByRole("button", { name: "Ayuda: Disponible del rubro" })).toBeInTheDocument()
+    const filas = within(tabla).getAllByTestId("presupuesto-fila")
+    expect(filas[0]).toHaveTextContent("$ 9.500.000")
+    expect(filas[0]).toHaveTextContent("$ 1.000.000")
+    // Disponible = asignado − ejecutado: 59.500.000 − 9.500.000.
+    expect(filas[0]).toHaveTextContent("$ 50.000.000")
+    expect(filas[1]).toHaveTextContent("—")
+    // Over its assigned amount: 300.000 − 400.000.
+    expect(filas[2]).toHaveTextContent("-$ 100.000")
+  })
+
+  it("keeps only Rubro and Asignado while the project is BORRADOR, without reading the expenses", async () => {
+    setup()
+    const tabla = await screen.findByTestId("presupuesto-tabla")
+    expect(within(tabla).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Rubro", "Asignado"])
+    expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/expenses"))).toBe(false)
   })
 
   it("names the budget totals in plain words, without Σ (U4)", async () => {

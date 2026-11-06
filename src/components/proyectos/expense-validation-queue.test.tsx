@@ -72,7 +72,7 @@ describe("ExpenseValidationQueue", () => {
     expect(filas[0]).toHaveTextContent("Transporte")
     expect(filas[0]).toHaveTextContent("Proveedor SAS")
     expect(filas[0]).toHaveTextContent("$ 1.500.000")
-    expect(filas[1]).toHaveTextContent("Supera el asignado")
+    expect(filas[1]).toHaveTextContent("Supera lo asignado")
     expect(filas[1]).toHaveTextContent("Datos incompletos")
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/v1/expense-validations?estado=REGISTRADO&limit=50",
