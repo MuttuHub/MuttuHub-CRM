@@ -96,6 +96,7 @@ export const DEMO_EMAIL_DOMAIN = "demo.muttuhub.local"
 const EMAIL_ADMIN = `admin@${DEMO_EMAIL_DOMAIN}`
 const EMAIL_GERENCIA = `gerencia@${DEMO_EMAIL_DOMAIN}`
 const EMAIL_COORDINADOR = `coordinador@${DEMO_EMAIL_DOMAIN}`
+const EMAIL_COLABORADOR = `colaborador@${DEMO_EMAIL_DOMAIN}`
 
 const USAGE = [
   "Usage:",
@@ -470,11 +471,18 @@ export async function runSeedProjectsDemo(
 
 const TX_OPTIONS = { timeout: 60_000, maxWait: 10_000 }
 
-type Actores = { admin: string; gerencia: string; coordinador: string; coordinadorEmail: string }
+type Actores = {
+  admin: string
+  gerencia: string
+  coordinador: string
+  coordinadorEmail: string
+  colaborador: string
+  colaboradorEmail: string
+}
 
 async function cargarActores(client: SeedClient): Promise<Actores> {
   const ids: Record<string, string> = {}
-  for (const email of [EMAIL_ADMIN, EMAIL_GERENCIA, EMAIL_COORDINADOR]) {
+  for (const email of [EMAIL_ADMIN, EMAIL_GERENCIA, EMAIL_COORDINADOR, EMAIL_COLABORADOR]) {
     const usuario = await client.usuario.findFirst({ where: { email, activo: true }, select: { id: true } })
     if (!usuario) throw new Error(`Demo user ${email} not found: run "npm run db:seed:local" first.`)
     ids[email] = usuario.id
@@ -484,6 +492,8 @@ async function cargarActores(client: SeedClient): Promise<Actores> {
     gerencia: ids[EMAIL_GERENCIA],
     coordinador: ids[EMAIL_COORDINADOR],
     coordinadorEmail: EMAIL_COORDINADOR,
+    colaborador: ids[EMAIL_COLABORADOR],
+    colaboradorEmail: EMAIL_COLABORADOR,
   }
 }
 
@@ -838,7 +848,11 @@ export async function applySeed(client: SeedClient, data: SeedData, hoy: string)
     actor: actores.admin,
     responsable: actores.coordinador,
   })
-  const resumenB = await importarCedeTextil(client, b, actores.admin, actores.coordinadorEmail)
+  // AJ-01: the project's own responsable stays the coordinador (team membership), but every
+  // activity's responsable is the colaborador, so the demo has a coordinador who is a project
+  // member without being any activity's named responsable — the case that hid the old
+  // responsable-only gate on "Registrar avance" (now any project member may register).
+  const resumenB = await importarCedeTextil(client, b, actores.admin, actores.colaboradorEmail)
   const baseline = await client.$transaction((tx) => aprobarLineaBase(tx, { proyectoId: b.id, usuarioId: actores.admin }), TX_OPTIONS)
   lines.push(`  ${b.codigo} ${data.nombreB}: ${resumenB}; baseline approved (v${baseline.version.numero}, ${baseline.proyecto.estado})`)
 
