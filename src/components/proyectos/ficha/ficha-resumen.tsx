@@ -39,6 +39,9 @@ export type { AccionAtencion };
 
 const SIN_DATO = "—";
 
+/** El tablero (Resumen-propuesta) dice el retraso una sola vez, bajo la cifra de Gasto: la lista no lo repite. */
+const ATENCION_FUERA_DEL_RESUMEN = ["alerta_retraso"] as const;
+
 /** Los decimales llegan como string: `toCents` los pasa a centavos exactos. */
 function formatMonto(value: string | null): string {
   return value === null ? SIN_DATO : formatCOP(toCents(value));
@@ -344,7 +347,12 @@ export function FichaResumen({
           {enBorrador ? (
             <ProximosPasos proyecto={proyecto} onIrA={onIrA} />
           ) : (
-            <RequiereAtencion proyecto={proyecto} onIrA={onIrA} onAccion={onAccion} />
+            <RequiereAtencion
+              proyecto={proyecto}
+              onIrA={onIrA}
+              onAccion={onAccion}
+              ocultar={ATENCION_FUERA_DEL_RESUMEN}
+            />
           )}
         </div>
         <div data-testid="resumen-columna" className="flex min-w-0 flex-col gap-6">

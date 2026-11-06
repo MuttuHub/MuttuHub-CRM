@@ -285,6 +285,29 @@ describe("FichaResumen", () => {
     expect(onAccion).toHaveBeenCalledWith({ tipo: "ver-indicadores" })
   })
 
+  it("keeps the possible delay out of «Qué falta»: the spending figure already says it", async () => {
+    mockApi({
+      kpisBody: kpis({ financiero: financiero("amarillo", { alerta_retraso: true }) }),
+      items: [
+        {
+          tipo: "alerta_retraso",
+          titulo: "Posible retraso",
+          detalle: "El gasto va por debajo de lo programado y el avance técnico está atrasado.",
+        },
+        { tipo: "indicador_bajo_meta", titulo: "x", detalle: "Personas: 12 de meta 60.", indicador_id: "i1" },
+      ],
+    })
+
+    renderResumen()
+
+    // The board (Resumen-propuesta) says it once, under the spending figure.
+    const cifra = await screen.findByTestId("salud-financiero")
+    expect(cifra).toHaveTextContent("posible retraso")
+    const falta = await screen.findByRole("region", { name: "Qué falta" })
+    expect(within(falta).queryByText(/Posible retraso/)).not.toBeInTheDocument()
+    expect(within(falta).getByRole("heading", { name: "Qué falta · 1" })).toBeInTheDocument()
+  })
+
   it("shows «Datos del proyecto» next to «Qué falta», then the team, with no beneficiaries registry (M5)", async () => {
     mockApi()
 

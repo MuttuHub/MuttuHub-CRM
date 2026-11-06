@@ -108,12 +108,16 @@ export function RequiereAtencion({
   proyecto,
   onIrA,
   onAccion,
+  ocultar,
 }: {
   proyecto: Pick<ProjectListRow, "id" | "estado">;
+  /** Tipos que otra parte de la pantalla ya explica: la lista no repite el aviso. */
+  ocultar?: readonly AtencionTipo[];
 } & Acciones) {
   const medible = proyecto.estado !== "BORRADOR";
   const query = useProjectAttention(medible ? proyecto.id : "");
-  const filas = medible && query.data?.medible ? agrupar(query.data.items) : [];
+  const items = (query.data?.items ?? []).filter((item) => !ocultar?.includes(item.tipo));
+  const filas = medible && query.data?.medible ? agrupar(items) : [];
 
   let contenido: ReactNode;
   if (!medible) contenido = <EmptyBlock>{ATENCION_VACIO}</EmptyBlock>;
