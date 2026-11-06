@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Prototipo · Registrar avance</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="muttu-tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&amp;family=Instrument+Sans:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#b41153;text-underline-offset:3px}a:hover{color:#940d44}
+input:focus-visible,textarea:focus-visible,button:focus-visible{outline:none;border-color:#cd1560;box-shadow:0 0 0 3px rgba(205,21,96,.5)}
+</style>
+</helmet>
+<div style="width: 880px; height: 980px; box-sizing: border-box; padding: 24px; background: var(--page); color: var(--ink-800); font-family: var(--font-sans); display: flex; flex-direction: column; gap: 16px;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between;">
+    <span style="font: 700 11px/1.5 var(--font-sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-500);">Prototipo · paso {{pasoNumero}} de 3 · {{pasoNombre}}</span>
+    <button onClick="{{reiniciar}}" style="height: 36px; padding: 0 12px; border-radius: var(--radius-control); border: 1px solid var(--border-strong); background: var(--input-bg); color: var(--ink-900); font: 500 13px/1 var(--font-sans); cursor: pointer;">Reiniciar</button>
+  </div>
+
+  <sc-if value="{{guardado}}" hint-placeholder-val="{{ false }}">
+    <div role="status" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: var(--radius-inner); background: var(--exito-bg); color: var(--exito); font-size: 14px; font-weight: 600;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+      Avance registrado: la 1.3 queda en {{pctGuardado}} %.
+    </div>
+  </sc-if>
+
+  <article style="border-radius: var(--radius-inner); border: 1px solid var(--border); background: var(--panel); padding: 18px; display: flex; flex-direction: column; gap: 14px;">
+    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;">
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font: 400 12px/1 var(--font-mono); color: var(--ink-500);">1.3</span>
+          <h3 style="margin: 0; font: 600 16px/1.3 var(--font-sans); color: var(--ink-900);">Acompañamiento técnico a las unidades</h3>
+        </div>
+        <span style="font-size: 12.5px; color: var(--ink-600);">Responsable: Andrés Torres · vencida el 25 oct 2026</span>
+      </div>
+      <sc-if value="{{enLista}}" hint-placeholder-val="{{ true }}">
+        <button onClick="{{abrir}}" style="flex: none; height: 44px; padding: 0 16px; border-radius: var(--radius-control); border: 1px solid transparent; background: var(--primary); color: #ffffff; font: 500 14px/1 var(--font-sans); cursor: pointer;">Registrar avance</button>
+      </sc-if>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 14px;">
+      <div style="position: relative; flex: 1; height: 10px; border-radius: 9999px; background: var(--ink-100);">
+        <span style="position: absolute; left: 0; top: 0; bottom: 0; width: {{anchoActual}}; border-radius: 9999px; background: var(--destructivo);"></span>
+        <span style="position: absolute; left: 90%; top: -4px; width: 2px; height: 18px; background: var(--ink-900);"></span>
+      </div>
+      <span style="flex: none; font-size: 13px; color: var(--ink-700);"><b style="color: var(--ink-900);">{{pctActual}} %</b> registrado · tope 90 %</span>
+    </div>
+
+    <sc-if value="{{enForm}}" hint-placeholder-val="{{ false }}">
+      <form aria-label="Registrar avance 1.3" style="display: flex; flex-direction: column; gap: 14px; padding: 16px; border-radius: var(--radius-inner); background: var(--muted);">
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;">
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <label for="avance-fecha" style="font-size: 12px; color: var(--ink-600);">Fecha del avance</label>
+            <input id="avance-fecha" value="2026-11-05" readonly style="box-sizing: border-box; height: 44px; padding: 0 10px; border-radius: var(--radius-control); border: 1px solid var(--border-strong); background: var(--input-bg); color: var(--ink-900); font: 400 14px/1 var(--font-sans);">
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <label for="avance-pct" style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-600);">Avance total de la actividad (%) <span class="anota">1</span></label>
+            <input id="avance-pct" type="number" min="0" max="100" value="{{pct}}" onChange="{{cambiarPct}}" aria-describedby="avance-pct-guia" aria-invalid="{{excede}}" style="box-sizing: border-box; height: 44px; padding: 0 10px; border-radius: var(--radius-control); border: 1px solid {{bordePct}}; background: var(--input-bg); color: var(--ink-900); font: 400 14px/1 var(--font-sans);">
+            <span id="avance-pct-guia" style="font-size: 12.5px; color: var(--ink-600);">Hoy va en {{pctActual}} %. Escribe hasta dónde llega con este avance; con avances se llega como máximo al 90 %.</span>
+          </div>
+        </div>
+        <sc-if value="{{excede}}" hint-placeholder-val="{{ false }}">
+          <p role="alert" style="margin: 0; font-size: 13px; color: var(--destructivo);">El avance llega como máximo al 90 %. El 10 % restante se completa cuando se cuentan los entregables de la actividad.</p>
+        </sc-if>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <label for="avance-obs" style="font-size: 12px; color: var(--ink-600);">Qué se hizo</label>
+          <textarea id="avance-obs" rows="2" placeholder="Ejemplo: segunda visita de acompañamiento a dos unidades." style="box-sizing: border-box; min-height: 64px; padding: 10px; border-radius: 12px; border: 1px solid var(--border-strong); background: var(--input-bg); color: var(--ink-900); font: 400 14px/1.4 var(--font-sans); resize: vertical;"></textarea>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 12px; color: var(--ink-600);">Soporte</span>
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+            <button type="button" style="display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 10px; border-radius: var(--radius-control); border: 1px solid var(--border-strong); background: var(--input-bg); color: var(--ink-900); font: 500 13px/1 var(--font-sans); cursor: pointer;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"></path></svg>
+              Elegir archivo
+            </button>
+            <span style="font-size: 12.5px; color: var(--ink-600);">Ningún archivo elegido · o <a href="#">pega un enlace</a></span>
+          </div>
+          <span style="font-size: 12.5px; color: var(--ink-600);">Puedes guardarlo sin soporte y adjuntarlo después; quedará en «Qué falta».</span>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button type="button" onClick="{{cancelar}}" style="height: 44px; padding: 0 14px; border-radius: var(--radius-control); border: 1px solid transparent; background: transparent; color: var(--ink-900); font: 500 14px/1 var(--font-sans); cursor: pointer;">Cancelar</button>
+          <button type="button" onClick="{{guardar}}" disabled="{{excede}}" style="height: 44px; padding: 0 16px; border-radius: var(--radius-control); border: 1px solid transparent; background: var(--primary); color: #ffffff; font: 500 14px/1 var(--font-sans); cursor: pointer; opacity: {{opacidadGuardar}};">Guardar avance</button>
+        </div>
+      </form>
+    </sc-if>
+
+    <div style="display: flex; flex-direction: column; padding-left: 6px;">
+      <span style="font: 700 11px/1.5 var(--font-sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-500); margin-bottom: 8px;">Historial de avances</span>
+      <sc-if value="{{guardado}}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; gap: 12px;">
+          <div style="display: flex; flex-direction: column; align-items: center;"><span style="width: 10px; height: 10px; border-radius: 9999px; background: var(--primary); margin-top: 4px;"></span><span style="width: 2px; flex: 1; background: var(--border);"></span></div>
+          <div style="display: flex; flex-direction: column; gap: 2px; padding-bottom: 14px;">
+            <span style="font-size: 13.5px; color: var(--ink-900);"><b>{{pctGuardado}} %</b> · Laura Jiménez · 05 nov 2026 <span style="display: inline-flex; align-items: center; height: 20px; padding: 0 8px; margin-left: 6px; border-radius: 9999px; background: var(--rose-50); color: var(--rose-700); font: 700 10.5px/1 var(--font-sans);">Nuevo</span></span>
+            <span style="font-size: 12.5px; color: var(--ink-600);">Sin soporte · <a href="#">Adjuntar soporte</a> · <a href="#">Anular</a></span>
+          </div>
+        </div>
+      </sc-if>
+      <div style="display: flex; gap: 12px;">
+        <div style="display: flex; flex-direction: column; align-items: center;"><span style="width: 10px; height: 10px; border-radius: 9999px; background: var(--ink-500); margin-top: 4px;"></span></div>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 13.5px; color: var(--ink-900);"><b>50 %</b> · Laura Jiménez</span>
+          <span style="font-size: 12.5px; color: var(--ink-600);">Con soporte</span>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <p style="margin: 0; font-size: 12.5px; color: var(--ink-600);">Prueba: escribe 95 para ver el tope; escribe 70 y guarda para verlo en el historial. Datos de la demo (PRY-2026-001); la fecha del nuevo avance es de ejemplo.</p>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":880,"height":980}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { paso: 'lista', pct: '70', pctGuardado: null };
+  }
+  renderVals() {
+    const s = this.state;
+    const n = Number(s.pct);
+    const excede = Number.isFinite(n) && n > 90;
+    const actual = s.pctGuardado === null ? 50 : s.pctGuardado;
+    const nombres = { lista: 'abrir', form: 'completar', guardado: 'ver en el historial' };
+    const numeros = { lista: 1, form: 2, guardado: 3 };
+    return {
+      enLista: s.paso !== 'form',
+      enForm: s.paso === 'form',
+      guardado: s.pctGuardado !== null,
+      pct: s.pct,
+      pctActual: String(actual),
+      pctGuardado: s.pctGuardado === null ? '' : String(s.pctGuardado),
+      anchoActual: actual + '%',
+      excede: excede,
+      bordePct: excede ? '#b3261e' : '#9b8c91',
+      opacidadGuardar: excede ? '0.5' : '1',
+      pasoNombre: nombres[s.paso],
+      pasoNumero: String(numeros[s.paso]),
+      abrir: () => this.setState({ paso: 'form' }),
+      cancelar: () => this.setState({ paso: 'lista' }),
+      cambiarPct: (e) => this.setState({ pct: e.target.value }),
+      guardar: () => {
+        const v = Number(this.state.pct);
+        if (!Number.isFinite(v) || v > 90) return;
+        this.setState({ paso: 'guardado', pctGuardado: v });
+      },
+      reiniciar: () => this.setState({ paso: 'lista', pct: '70', pctGuardado: null }),
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Cómo leer este canvas</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="muttu-tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&amp;family=Instrument+Sans:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#b41153}a:hover{color:#940d44}
+</style>
+</helmet>
+<div style="width: 960px; height: 640px; box-sizing: border-box; padding: 48px 56px; display: flex; flex-direction: column; gap: 28px; background: var(--page); color: var(--ink-800); font-family: var(--font-sans);">
+  <div style="display: flex; align-items: center; gap: 16px;">
+    <img src="/_blob/389aff0606190d8d845b908338ec457a" alt="Muttu" style="width: 64px; height: auto;">
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      <span style="font: 700 11px/1.5 var(--font-sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-500);">Muttu Hub · módulo Proyectos</span>
+      <h1 style="margin: 0; font: 800 40px/1.05 var(--font-display); letter-spacing: -0.03em; color: var(--ink-950);">Rediseño de usabilidad</h1>
+    </div>
+  </div>
+  <p style="margin: 0; max-width: 62ch; font-size: 15px; line-height: 1.6; color: var(--ink-700);">Cada página compara la pantalla de hoy, capturada de la app con los datos demo, con una propuesta hecha con el Design System «Muttu Hub — Proyectos». Son diseños para decidir: nada se implementa sin el OK de la PO.</p>
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;">
+    <div style="border-radius: var(--radius-inner); border: 1px solid var(--border); background: var(--panel); padding: 16px; display: flex; flex-direction: column; gap: 6px;">
+      <span style="font: 700 11px/1.5 var(--font-sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-500);">Hoy</span>
+      <span style="font-size: 13px; line-height: 1.5; color: var(--ink-700);">Captura real de main (0726e5d), entrando como Gerencia, corte al 05 nov 2026.</span>
+    </div>
+    <div style="border-radius: var(--radius-inner); border: 1px solid var(--border); background: var(--panel); padding: 16px; display: flex; flex-direction: column; gap: 6px;">
+      <span style="font: 700 11px/1.5 var(--font-sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-500);">Propuesta</span>
+      <span style="font-size: 13px; line-height: 1.5; color: var(--ink-700);">Misma información y mismos datos demo, ordenados para la tarea. Notas naranjas: qué cambia.</span>
+    </div>
+    <div style="border-radius: var(--radius-inner); border: 1px solid var(--border); background: var(--panel); padding: 16px; display: flex; flex-direction: column; gap: 6px;">
+      <span style="display: flex; align-items: center; gap: 8px; font: 700 11px/1.5 var(--font-sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-500);"><span class="anota">1</span>Ayudas ⓘ</span>
+      <span style="font-size: 13px; line-height: 1.5; color: var(--ink-700);">El punto azul marca dónde va una ayuda; su texto está en la nota azul de cada página.</span>
+    </div>
+  </div>
+  <div style="display: flex; flex-direction: column; gap: 8px;">
+    <span style="font: 700 11px/1.5 var(--font-sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-500);">Páginas</span>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 24px; font-size: 14px; color: var(--ink-800);">
+      <span><b>1 · Resumen y cabecera</b> — ver si va bien y qué falta (T-1, T-5)</span>
+      <span><b>2 · Actividades</b> — registrar avance, con prototipo (T-2, T-8)</span>
+      <span><b>3 · Finanzas</b> — registrar y validar gastos (T-3, T-4)</span>
+      <span><b>4 · Ayudas y novedades</b> — patrón ⓘ y «qué cambió»</span>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":960,"height":640}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

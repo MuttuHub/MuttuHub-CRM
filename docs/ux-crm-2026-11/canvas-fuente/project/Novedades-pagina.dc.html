@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Novedades de Proyectos</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="muttu-tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&amp;family=Instrument+Sans:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#b41153;text-underline-offset:3px}a:hover{color:#940d44}
+</style>
+</helmet>
+<div style="width: 960px; height: 1180px; box-sizing: border-box; padding: 40px 48px; background: var(--page); color: var(--ink-800); font-family: var(--font-sans); display: flex; flex-direction: column; gap: 20px;">
+  <div style="display: flex; flex-direction: column; gap: 6px;">
+    <a href="#" style="font-size: 13px; color: var(--ink-600); text-decoration: none;">← Volver al proyecto</a>
+    <span style="font: 700 11px/1.5 var(--font-sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-500);">Novedades · 05 nov 2026</span>
+    <h1 style="margin: 0; font: 800 32px/1.1 var(--font-display); letter-spacing: -0.03em; color: var(--ink-950);">Qué cambió en Proyectos</h1>
+    <p style="margin: 0; max-width: 64ch; font-size: 14.5px; line-height: 1.6; color: var(--ink-700);">Estos cambios responden a los ajustes AJ-01 a AJ-06 que pidió Coordinación. Ya están en la app.</p>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <article style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; padding: 14px 16px; border-radius: var(--radius-inner); border: 1px solid var(--border); background: var(--panel);">
+      <b style="font-size: 14px; color: var(--ink-900);">Registrar avance</b>
+      <span style="font-size: 13px; line-height: 1.5; color: var(--ink-600);"><b style="color: var(--ink-700);">Antes:</b> solo la persona responsable de la actividad veía el botón.</span>
+      <span style="font-size: 13px; line-height: 1.5; color: var(--ink-800);"><b>Ahora:</b> cualquier integrante del equipo lo registra, también desde la cabecera del proyecto.</span>
+    </article>
+    <article style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; padding: 14px 16px; border-radius: var(--radius-inner); border: 1px solid var(--border); background: var(--panel);">
+      <b style="font-size: 14px; color: var(--ink-900);">Historial de avances</b>
+      <span style="font-size: 13px; line-height: 1.5; color: var(--ink-600);"><b style="color: var(--ink-700);">Antes:</b> mostraba un código en lugar de la persona.</span>
+      <span style="font-size: 13px; line-height: 1.5; color: var(--ink-800);"><b>Ahora:</b> muestra el nombre de quien registró cada avance.</span>
+    </article>
+    <article style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; padding: 14px 16px; border-radius: var(--radius-inner); border: 1px solid var(--border); background: var(--panel);">
+      <b style="font-size: 14px; color: var(--ink-900);">Actividades finalizadas</b>
+      <span style="font-size: 13px; line-height: 1.5; color: var(--ink-600);"><b style="color: var(--ink-700);">Antes:</b> seguían ofreciendo «Registrar avance».</span>
+      <span style="font-size: 13px; line-height: 1.5; color: var(--ink-800);"><b>Ahora:</b> explican que ya no reciben avances y cómo corregir un error.</span>
+    </article>
+    <article style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; padding: 14px 16px; border-radius: var(--radius-inner); border: 1px solid var(--border); background: var(--panel);">
+      <b style="font-size: 14px; color: var(--ink-900);">Finanzas</b>
+      <span style="font-size: 13px; line-height: 1.5; color: var(--ink-600);"><b style="color: var(--ink-700);">Antes:</b> «E/P 40,3 %» y barras sin color.</span>
+      <span style="font-size: 13px; line-height: 1.5; color: var(--ink-800);"><b>Ahora:</b> «40,3 % de lo programado» y cada barra con el color de su semáforo.</span>
+    </article>
+    <article style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; padding: 14px 16px; border-radius: var(--radius-inner); border: 1px solid var(--border); background: var(--panel);">
+      <b style="font-size: 14px; color: var(--ink-900);">Lista de gastos</b>
+      <span style="font-size: 13px; line-height: 1.5; color: var(--ink-600);"><b style="color: var(--ink-700);">Antes:</b> «IVA $ 0» y sin periodo.</span>
+      <span style="font-size: 13px; line-height: 1.5; color: var(--ink-800);"><b>Ahora:</b> el periodo bajo la fecha y «Sin IVA» o el subtotal más IVA bajo el total.</span>
+    </article>
+    <article style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; padding: 14px 16px; border-radius: var(--radius-inner); border: 1px solid var(--border); background: var(--panel);">
+      <b style="font-size: 14px; color: var(--ink-900);">Adjuntar archivos</b>
+      <span style="font-size: 13px; line-height: 1.5; color: var(--ink-600);"><b style="color: var(--ink-700);">Antes:</b> el botón del navegador decía «Choose File».</span>
+      <span style="font-size: 13px; line-height: 1.5; color: var(--ink-800);"><b>Ahora:</b> «Elegir archivo» y el nombre del archivo elegido.</span>
+    </article>
+    <article style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; padding: 14px 16px; border-radius: var(--radius-inner); border: 1px solid var(--border); background: var(--panel);">
+      <b style="font-size: 14px; color: var(--ink-900);">Contadores</b>
+      <span style="font-size: 13px; line-height: 1.5; color: var(--ink-600);"><b style="color: var(--ink-700);">Antes:</b> había que abrir cada sección para saber si tenía datos.</span>
+      <span style="font-size: 13px; line-height: 1.5; color: var(--ink-800);"><b>Ahora:</b> «Gastos · 5», «Modificaciones · N» y «Versiones · N».</span>
+    </article>
+  </div>
+
+  <section aria-labelledby="guia" style="display: flex; flex-direction: column; gap: 10px;">
+    <h2 id="guia" style="margin: 0; font: 700 11px/1.5 var(--font-sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-500);">Tu guía rápida</h2>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+      <div style="border-radius: var(--radius-inner); border: 1px solid var(--border); background: var(--panel); padding: 14px; display: flex; flex-direction: column; gap: 6px;">
+        <b style="font-size: 14px; color: var(--ink-900);">Coordinación</b>
+        <span style="font-size: 13px; line-height: 1.55; color: var(--ink-700);">Mira «Qué falta» en el Resumen cada semana; cada fila abre la acción que lo resuelve.</span>
+      </div>
+      <div style="border-radius: var(--radius-inner); border: 1px solid var(--border); background: var(--panel); padding: 14px; display: flex; flex-direction: column; gap: 6px;">
+        <b style="font-size: 14px; color: var(--ink-900);">Gerencia</b>
+        <span style="font-size: 13px; line-height: 1.55; color: var(--ink-700);">Valida los gastos desde Finanzas: el soporte y lo que queda del rubro se ven en el mismo panel.</span>
+      </div>
+      <div style="border-radius: var(--radius-inner); border: 1px solid var(--border); background: var(--panel); padding: 14px; display: flex; flex-direction: column; gap: 6px;">
+        <b style="font-size: 14px; color: var(--ink-900);">Integrantes</b>
+        <span style="font-size: 13px; line-height: 1.55; color: var(--ink-700);">Registra avance y gastos con el botón de la cabecera; adjunta el soporte para que cuente.</span>
+      </div>
+    </div>
+    <span style="font-size: 12.5px; color: var(--ink-600);">La guía por rol es una propuesta: describe el flujo de los diseños, no el actual.</span>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":960,"height":1180}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+/* Historial tab (prefix his-). Desktop: time column + avatar + sentence; mobile: one card per day. */
+.his { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.his-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.his-subtabs button { min-height: 44px; }
+.his-panel { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.his-filtros { display: flex; justify-content: space-between; align-items: center; gap: 10px 16px; flex-wrap: wrap; }
+.his-mostrar { display: flex; align-items: center; gap: 10px; min-width: 0; max-width: 100%; }
+.his-mostrar .chip { min-height: 40px; }
+.his-persona { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--ink-700); }
+.his-persona select { min-height: 44px; padding: 0 10px; border-radius: var(--radius-control); border: 1px solid var(--border-strong); background: var(--input-bg); color: var(--ink-900); max-width: 100%; }
+.his-dia { display: flex; flex-direction: column; gap: 8px; }
+.his-dia-t { margin: 0; font: 700 14.5px/1.3 var(--font-sans); color: var(--ink-900); }
+.his-dia-card { border-radius: var(--radius-inner); border: 1px solid var(--border); background: var(--panel); padding: 4px 16px 12px; display: flex; flex-direction: column; gap: 4px; }
+.his-entradas { list-style: none; margin: 0; padding: 0; }
+.his-entrada { display: grid; grid-template-columns: 76px 32px 1fr; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border); align-items: start; border-radius: 8px; }
+.his-entrada:first-child { border-top: 0; }
+.his-hora { font: 400 12.5px/1.6 var(--font-mono); color: var(--ink-600); padding-top: 4px; white-space: nowrap; }
+.his-avatar { width: 32px; height: 32px; border-radius: 99px; background: var(--rose-50); color: var(--ink-900); display: inline-flex; align-items: center; justify-content: center; font: 700 12px/1 var(--font-sans); flex: none; }
+.his-cuerpo { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.his-frase { margin: 0; font-size: 14px; line-height: 1.6; color: var(--ink-800); overflow-wrap: anywhere; }
+.his-frase b { color: var(--ink-950); font-weight: 600; }
+.his-frase .pill { margin-left: 4px; }
+.his-extra { font-size: 13.5px; line-height: 1.55; color: var(--ink-700); }
+.his-nota { font-size: 13px; color: var(--ink-700); }
+.his-nota .info { margin: -8px -4px; }
+.his-cita { font-style: italic; color: var(--ink-700); quotes: "«" "»"; }
+.his-links { display: flex; gap: 16px; flex-wrap: wrap; }
+.his-links .link { min-height: 32px; font-size: 13.5px; }
+.his-entrada--oculta .his-avatar { background: var(--muted); }
+.his-mas { align-self: flex-start; min-height: 44px; font-size: 13.5px; }
+.his-h2 { margin: 0; display: flex; align-items: center; gap: 10px; font: 700 19px/1.3 var(--font-display); color: var(--ink-950); }
+.his-h2 .info, .his-titulo .info { width: 44px; height: 44px; margin: -10px -8px; }
+.his-versiones { display: flex; flex-direction: column; gap: 12px; }
+.his-v-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.his-v-head h3 { margin: 0 4px 0 0; font: 700 16px/1.3 var(--font-sans); color: var(--ink-950); }
+.his-v-txt { margin: 0; font-size: 14px; line-height: 1.6; color: var(--ink-700); }
+.his-botones { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.his-botones--start { justify-content: flex-start; }
+.his-aviso { margin: 0; padding: 14px 16px; border-radius: var(--radius-inner); background: var(--muted); font-size: 13.5px; line-height: 1.6; color: var(--ink-700); }
+.his-comp h3, .his-pasos h3 { margin: 0; font: 700 15px/1.3 var(--font-sans); color: var(--ink-950); }
+.his-comp-sel { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.his-dif { display: flex; flex-direction: column; gap: 6px; }
+.his-cambios { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 12px; }
+.his-cambios li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border-top: 1px solid var(--border); font-size: 13.5px; flex-wrap: wrap; }
+.his-cambios li:first-child { border-top: 0; }
+.his-ad { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.his-ad s { color: var(--ink-600); }
+.his-ad b { color: var(--ink-950); }
+.his-pasos { display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: var(--radius-inner); background: var(--muted); }
+.his-pasos ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.his-pasos li { display: flex; gap: 12px; align-items: flex-start; font-size: 14px; line-height: 1.6; color: var(--ink-800); }
+.his-n { width: 26px; height: 26px; flex: none; border-radius: 99px; background: var(--panel); border: 1px solid var(--border-strong); display: inline-flex; align-items: center; justify-content: center; font: 700 12.5px/1 var(--font-sans); color: var(--ink-900); }
+.his-sol-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.his-sub-intro { margin: 0; font-size: 13.5px; color: var(--ink-600); }
+.his-sol-lista { display: flex; flex-direction: column; gap: 12px; }
+.his-sol-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.his-sol-head b { color: var(--ink-950); font-size: 15px; }
+.his-meta, .his-decision, .his-espera { margin: 0; font-size: 13px; color: var(--ink-600); }
+.his-decision { color: var(--ink-800); }
+.his-motivo { margin: 0; display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.his-rechazo { display: flex; flex-direction: column; gap: 10px; }
+.his-grilla input { width: 150px; min-height: 40px; padding: 6px 8px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--input-bg); color: var(--ink-900); text-align: right; font-variant-numeric: tabular-nums; }
+.his-grilla input[readonly] { background: var(--muted); color: var(--ink-600); }
+.his-grilla td { vertical-align: middle; }
+.his-campos-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.his-errores { padding: 12px 14px; border-radius: 12px; background: var(--destructivo-bg); color: var(--destructivo); font-size: 13.5px; }
+.his-errores ul { margin: 6px 0 0; padding-left: 18px; }
+.his-ayuda { flex: 1 1 200px; align-self: center; font-size: 12.5px; color: var(--ink-600); }
+.his-plan { display: flex; flex-direction: column; gap: 8px; }
+.his-plan h3 { margin: 0; }
+@container (max-width: 719px) {
+  .his-filtros { flex-direction: column; align-items: stretch; }
+  .his-mostrar { flex-direction: column; align-items: stretch; gap: 6px; }
+  .his-mostrar .chips { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); padding-right: 24px; }
+  .his-mostrar .chip { min-height: 44px; }
+  .his-persona select { flex: 1; }
+  .his-dia-card { padding: 4px 12px 10px; }
+  .his-entrada { display: flex; flex-direction: column; gap: 6px; }
+  .his-e-top { display: flex; align-items: center; gap: 10px; width: 100%; }
+  .his-e-top .his-quien { flex: 1; color: var(--ink-950); font-size: 14px; }
+  .his-e-top .his-hora { padding: 0; }
+  .his-links .link { min-height: 44px; }
+  .his-comp-sel { grid-template-columns: 1fr; }
+  .his-ad { white-space: normal; }
+  .his-sol-top .btn, .his-botones .btn { flex: 1; }
+  .his-h2 { font-size: 18px; }
+}
+.his-ayuda[hidden] { display: none; }
