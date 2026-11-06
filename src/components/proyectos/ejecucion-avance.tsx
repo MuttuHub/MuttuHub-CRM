@@ -44,6 +44,10 @@ const ADJUNTAR_MEDIO_ERROR = "No pudimos adjuntar el medio. Inténtalo de nuevo.
 /** Texto visible del botón "Adjuntar archivo" por reporte (mismo texto que AJ-06). */
 const ADJUNTAR_ARCHIVO_LABEL = "Adjuntar archivo";
 
+/** Replaces «Registrar avance» once the activity is finished: it takes no more reports. */
+export const ACTIVIDAD_FINALIZADA_TEXT =
+  "Actividad finalizada: ya no recibe avances. Si hay que corregir algo, anula el último avance o solicita una modificación.";
+
 const ESTADO_META: Record<EstadoActividad, { tone: UiTone; label: string }> = {
   FINALIZADA: { tone: "exito", label: "Finalizada" },
   FINALIZADA_CON_RETRASO: { tone: "alerta", label: "Finalizada con retraso" },
@@ -139,6 +143,7 @@ export function EjecucionAvance({
         proyectoId={proyectoId}
         actividad={actividad}
         canWrite={canWrite}
+        finalizada={tecnico.estado === "FINALIZADA" || tecnico.estado === "FINALIZADA_CON_RETRASO"}
       />
 
       {entregables.length > 0 && (
@@ -169,10 +174,13 @@ function ActividadReportes({
   proyectoId,
   actividad,
   canWrite,
+  finalizada,
 }: {
   proyectoId: string;
   actividad: ProjectActivity;
   canWrite: boolean;
+  /** A finished activity takes no new report; voiding the last one stays available. */
+  finalizada: boolean;
 }) {
   const query = useActivityReports(proyectoId, actividad.id);
   const remove = useVoidActivityReport(proyectoId, actividad.id);
@@ -207,7 +215,9 @@ function ActividadReportes({
         </ul>
       ) : null}
 
+      {canWrite && finalizada && <p className="mt-1.5 text-[12.5px] text-ink-600">{ACTIVIDAD_FINALIZADA_TEXT}</p>}
       {canWrite &&
+        !finalizada &&
         (abierto ? (
           <CaptureSurface title="Registrar avance" onClose={() => setAbierto(false)}>
             <ReporteActividadForm
@@ -282,7 +292,7 @@ function ReporteRow({
         </span>
       </div>
       <p className={anulado ? "mt-1 text-ink-500 line-through" : "mt-1 text-ink-700"}>{reporte.observacion}</p>
-      {canWrite && (
+      {canWrite && !anulado && (
         <AdjuntarMedioReporte proyectoId={proyectoId} actividadId={actividad.id} reportId={reporte.id} />
       )}
     </li>

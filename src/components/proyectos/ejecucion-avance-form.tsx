@@ -232,7 +232,7 @@ export function EjecucionAvanceForm({
 
       <div className="flex items-center gap-2 sm:col-span-2">
         <Button type="submit" size="sm" className={CAPTURE_BUTTON} disabled={create.isPending}>
-          Registrar avance
+          Registrar cantidad
         </Button>
         <Button type="button" size="sm" variant="ghost" className={CAPTURE_BUTTON} disabled={create.isPending} onClick={onDone}>
           Cancelar

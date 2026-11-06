@@ -56,7 +56,7 @@ const TECNICO: ProjectTechnicalActivity = {
   codigo: "1.1",
   peso: 1,
   progreso: 100,
-  estado: "FINALIZADA",
+  estado: "EN_CURSO",
   fecha_cumplimiento: "2026-10-20",
 }
 
@@ -184,7 +184,7 @@ describe("EjecucionAvance", () => {
         actividad={ACTIVIDAD}
         canWrite={false}
         canVoid={false}
-        tecnico={TECNICO}
+        tecnico={{ ...TECNICO, estado: "FINALIZADA" }}
         entregables={[ENTREGABLE]}
         progreso={new Map([["e1", { estado: "EN_EJECUCION", meta: "2.00", avances: [avance()] }]])}
       />,
@@ -610,5 +610,53 @@ describe("EjecucionAvance", () => {
     expect(within(filas[1]).getByRole("button", { name: "Adjuntar archivo" })).toBeInTheDocument()
     expect(within(filas[0]).queryByRole("button", { name: "Anular" })).not.toBeInTheDocument()
     expect(within(filas[1]).getByRole("button", { name: "Anular" })).toBeInTheDocument()
+  })
+
+  it("offers no «Adjuntar archivo» on a voided report: the API refuses it", async () => {
+    mockReportes([
+      reporte({ id: "r1", fecha: "2026-10-10", porcentaje: "30.00", anulado_at: "2026-10-12T00:00:00.000Z", motivo_anulacion: "Error" }),
+      reporte({ id: "r2", fecha: "2026-10-20", porcentaje: "40.00" }),
+    ])
+    render(
+      <EjecucionAvance
+        proyectoId="p1"
+        actividad={ACTIVIDAD}
+        canWrite
+        canVoid={false}
+        tecnico={TECNICO}
+        entregables={[]}
+        progreso={new Map()}
+      />,
+      { wrapper: createWrapper() },
+    )
+
+    const filas = await screen.findAllByTestId("ejecucion-reporte")
+    expect(within(filas[0]).getByText("Anulado")).toBeInTheDocument()
+    expect(within(filas[0]).queryByRole("button", { name: "Adjuntar archivo" })).not.toBeInTheDocument()
+    expect(within(filas[1]).getByRole("button", { name: "Adjuntar archivo" })).toBeInTheDocument()
+  })
+
+  it("offers no «Registrar avance» on a finished activity and says what to do instead", async () => {
+    for (const estado of ["FINALIZADA", "FINALIZADA_CON_RETRASO"] as const) {
+      mockReportes([])
+      const { unmount } = render(
+        <EjecucionAvance
+          proyectoId="p1"
+          actividad={ACTIVIDAD}
+          canWrite
+          canVoid={false}
+          tecnico={{ ...TECNICO, estado }}
+          entregables={[]}
+          progreso={new Map()}
+        />,
+        { wrapper: createWrapper() },
+      )
+      await screen.findByTestId("ejecucion-actividad")
+      expect(screen.queryByRole("button", { name: "Registrar avance 1.1" }), estado).not.toBeInTheDocument()
+      expect(
+        screen.getByText("Actividad finalizada: ya no recibe avances. Si hay que corregir algo, anula el último avance o solicita una modificación."),
+      ).toBeInTheDocument()
+      unmount()
+    }
   })
 })

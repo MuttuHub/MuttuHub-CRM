@@ -102,7 +102,7 @@ const TECNICO = {
   desviacion_pp: 35.7,
   color: "rojo",
   actividades: [
-    { id: "a1", codigo: "1.1", peso: 1, progreso: 100, estado: "FINALIZADA", fecha_cumplimiento: "2026-10-20" },
+    { id: "a1", codigo: "1.1", peso: 1, progreso: 100, estado: "EN_CURSO", fecha_cumplimiento: "2026-10-20" },
   ],
   umbrales: { umbral1: 10, umbral2: 20, confirmado: false },
 }
