@@ -29,15 +29,9 @@ const VISTAS: { value: Vista; label: string }[] = [
 
 export function FichaActividades({
   proyecto,
-  pedidoAvance = 0,
-  actividadPedida = null,
   onSolicitarModificacion,
 }: {
   proyecto: ProjectListRow;
-  /** Bumped by «Registrar avance»: show the Lista and focus `actividadPedida`, or the first unfinished activity. */
-  pedidoAvance?: number;
-  /** Activity named by the request (a «Qué falta» row); null means the first unfinished one. */
-  actividadPedida?: string | null;
   /** «Solicitar modificación» of a finished activity: the ficha opens Historial › Modificaciones with its form. */
   onSolicitarModificacion?: () => void;
 }) {
@@ -45,12 +39,6 @@ export function FichaActividades({
   const [vista, setVista] = useState<Vista>("lista");
   // Activity the Tablero asked to reveal: the Lista scrolls to it and focuses its row.
   const [enfocarId, setEnfocarId] = useState<string | null>(null);
-  const [pedidoVisto, setPedidoVisto] = useState(pedidoAvance);
-  if (pedidoAvance !== pedidoVisto) {
-    setPedidoVisto(pedidoAvance);
-    setEnfocarId(actividadPedida);
-    setVista("lista");
-  }
 
   const disponibles = borrador ? VISTAS.filter((item) => item.value !== "tablero") : VISTAS;
   const activa = disponibles.some((item) => item.value === vista) ? vista : "lista";
@@ -91,7 +79,6 @@ export function FichaActividades({
                 proyecto={proyecto}
                 lista
                 enfocarId={enfocarId}
-                enfocarPrimeraPendiente={enfocarId ? 0 : pedidoAvance}
                 onSolicitarModificacion={onSolicitarModificacion}
               />
               <Disclosure titulo="Indicadores" testId="actividades-indicadores">

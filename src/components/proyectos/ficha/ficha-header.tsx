@@ -53,9 +53,9 @@ export function FichaHeader({
 }: {
   proyecto: ProjectListRow;
   onIrA: (destino: FichaDestino) => void;
-  /** Opens Actividades on the first unfinished activity, where its «Registrar avance» is. */
+  /** Opens the «Registrar avance» dialog on top of the current tab. */
   onRegistrarAvance: () => void;
-  /** Opens the «Registrar gasto» form in Finanzas; without it the button only switches to Finanzas. */
+  /** Opens the «Registrar gasto» dialog on top of the current tab; without it the button only switches to Finanzas. */
   onRegistrarGasto?: () => void;
   /** The semáforo chips; the Resumen leaves them out because its figures carry the color and its reason. */
   mostrarSemaforos?: boolean;

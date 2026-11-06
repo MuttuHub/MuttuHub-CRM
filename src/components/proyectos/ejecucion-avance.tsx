@@ -47,6 +47,21 @@ export const ACTIVIDAD_FINALIZADA_TEXT =
 /** `tope_en_curso` default when the technical status does not say (90 %, still to be confirmed). */
 export const TOPE_POR_DEFECTO = 90;
 
+/**
+ * Highest % an activity's reports may reach: 100 once all its deliverables are counted in full, else the
+ * project's `tope_en_curso`. Shared by the activity card and the header's «Registrar avance» dialog.
+ */
+export function topeDeActividad(
+  entregables: ProjectDeliverable[],
+  progreso: Map<string, ProjectDeliverableProgress>,
+  tope: number = TOPE_POR_DEFECTO,
+): number {
+  const completos =
+    entregables.length > 0 &&
+    entregables.every((entregable) => entregableCompleto(entregable, progreso.get(entregable.id)?.avances ?? []));
+  return completos ? 100 : tope;
+}
+
 /** The v6 enrichment (plan, days, support, colour) is optional: callers that only have the base row keep working. */
 type TecnicoFila = ProjectTechnicalActivity &
   Partial<Pick<ProjectTechnicalActivityV6, "programado" | "dias" | "al_corte" | "color" | "sin_soporte">>;
@@ -95,10 +110,7 @@ export function EjecucionAvance({
   const reportes = reportesQuery.data?.reportes ?? [];
   const ultimo = ultimoVigente(reportes);
 
-  const completos =
-    entregables.length > 0 &&
-    entregables.every((entregable) => entregableCompleto(entregable, progreso.get(entregable.id)?.avances ?? []));
-  const topeVigente = completos ? 100 : tope;
+  const topeVigente = topeDeActividad(entregables, progreso, tope);
 
   const [abierta, setAbierta] = useState(!(finalizada && tecnico.progreso >= 100));
   const [verEntregables, setVerEntregables] = useState(vencida);

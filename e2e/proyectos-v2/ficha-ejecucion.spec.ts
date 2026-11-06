@@ -48,7 +48,7 @@ async function registrarGasto(
   return form;
 }
 
-test("header: semáforos link to tabs; header actions go to Actividades / Finanzas", async ({ page }) => {
+test("header: semáforos link to tabs; header actions open their dialogs on any tab (S9)", async ({ page }) => {
   await loginToProject(page, "coordinador", "PRY-2026-001");
   await expect(page.getByRole("heading", { name: "Demo CedeTextil · En ejecución", level: 1 })).toBeVisible();
   // The Resumen carries the colours in its three figures, so the header chips stay out of it (T5).
@@ -58,12 +58,25 @@ test("header: semáforos link to tabs; header actions go to Actividades / Finanz
   await expect(tab(page, "Finanzas", true)).toBeVisible();
   await page.getByRole("button", { name: /^Semáforo técnico/ }).click();
   await expect(tab(page, "Actividades", true)).toBeVisible();
-  await tab(page, "Resumen").click();
-  await page.getByRole("button", { name: "Registrar avance", exact: true }).first().click();
-  await expect(tab(page, "Actividades", true)).toBeVisible();
-  await tab(page, "Resumen").click();
-  await page.getByRole("button", { name: "Registrar gasto", exact: true }).first().click();
-  await expect(tab(page, "Finanzas", true)).toBeVisible();
+  // «Registrar avance» / «Registrar gasto» open a dialog on top of the current tab, without switching it.
+  for (const pestana of ["Resumen", "Documentos"]) {
+    await tab(page, pestana).click();
+    await page.getByRole("button", { name: "Registrar avance", exact: true }).first().click();
+    const avance = page.getByRole("dialog", { name: "Registrar avance" });
+    await expect(avance.getByLabel("Actividad", { exact: true })).toBeVisible();
+    await expect(avance.getByTestId("registrar-avance-resumen")).toContainText("% registrado · tope");
+    await expect(avance.getByRole("button", { name: "Guardar avance" })).toBeVisible();
+    await avance.getByRole("button", { name: "Cancelar" }).click();
+    await expect(avance).toBeHidden();
+    await expect(tab(page, pestana, true)).toBeVisible();
+
+    await page.getByRole("button", { name: "Registrar gasto", exact: true }).first().click();
+    const gasto = page.getByRole("dialog", { name: "Registrar gasto" });
+    await expect(gasto.getByRole("form", { name: "Registrar gasto" }).getByLabel("Rubro")).toBeVisible();
+    await gasto.getByRole("button", { name: "Cancelar" }).click();
+    await expect(gasto).toBeHidden();
+    await expect(tab(page, pestana, true)).toBeVisible();
+  }
 });
 
 test("Registrar avance with a generated file → Documentos (Actividades) → opens via signed URL", async ({ page }) => {

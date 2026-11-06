@@ -53,7 +53,7 @@ export const EJECUCION_BORRADOR_HINT =
  * `lista` is the execution Lista of the Actividades tab (U4): only the activities, grouped by goal, without the
  * semáforo panel (the header owns it), with the S-curve and the Base selector inside a collapsed "Opciones
  * avanzadas" disclosure. `enfocarId` scrolls to and focuses one activity row (the Tablero card click);
- * `enfocarPrimeraPendiente` (a request counter from the header's «Registrar avance») does the same for the
+ * `enfocarPrimeraPendiente` (a request counter; the ficha header opens a dialog instead since T9) does the same for the
  * first activity that is not finished yet.
  *
  * `seguimiento` is the v7 "Ficha de seguimiento" tab: the chart, the period/time/budget cards, progress per goal
@@ -235,6 +235,26 @@ export function useEjecucionPermisos(proyectoId: string): {
   return { canWrite: esGestor || esMiembro, canVoid: esGestor, resuelto };
 }
 
+/**
+ * Progress of every deliverable by id, one query each (`useQueries`), for as long as the caller is mounted.
+ * Shared by the execution Lista and the header's «Registrar avance» dialog (same keys: no double fetch).
+ */
+export function useProgresoEntregables(
+  proyectoId: string,
+  deliverables: { id: string }[],
+): Map<string, ProjectDeliverableProgress> {
+  const progressQueries = useDeliverableProgress(
+    proyectoId,
+    deliverables.map((deliverable) => deliverable.id),
+  );
+  const progreso = new Map<string, ProjectDeliverableProgress>();
+  deliverables.forEach((deliverable, index) => {
+    const query = progressQueries[index];
+    if (query?.data) progreso.set(deliverable.id, query.data);
+  });
+  return progreso;
+}
+
 /** Pestaña de objetivos e indicadores (v7): el registro de avance de indicador vive junto a los objetivos. */
 export function ProjectIndicadores({ proyecto }: { proyecto: ProjectListRow }) {
   const { canWrite, canVoid } = useEjecucionPermisos(proyecto.id);
@@ -273,15 +293,7 @@ function EjecucionContent({
   // Decisión 2: los entregables se leen UNA vez y los avances se abren con
   // `useQueries`, solo mientras la sección está montada.
   const deliverables = deliverablesQuery.data ?? [];
-  const progressQueries = useDeliverableProgress(
-    proyecto.id,
-    deliverables.map((deliverable) => deliverable.id),
-  );
-  const progreso = new Map<string, ProjectDeliverableProgress>();
-  deliverables.forEach((deliverable, index) => {
-    const query = progressQueries[index];
-    if (query?.data) progreso.set(deliverable.id, query.data);
-  });
+  const progreso = useProgresoEntregables(proyecto.id, deliverables);
 
   // Each header request picks its row ONCE, so a later refetch (an activity just finished) never moves the focus.
   const [pedidoServido, setPedidoServido] = useState<{ pedido: number; id: string | null }>({ pedido: 0, id: null });

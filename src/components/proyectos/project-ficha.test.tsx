@@ -563,9 +563,8 @@ describe("ProjectFicha (page)", () => {
     expect(screen.getAllByText("Semáforo técnico: Amarillo")).toHaveLength(1)
   })
 
-  it("offers Registrar avance as the primary action and Registrar gasto as secondary, and switches tabs", async () => {
+  it("offers Registrar avance as the primary action and Registrar gasto as secondary", async () => {
     mockFichaAndAudit({ historial: [] })
-    const user = userEvent.setup()
 
     renderFicha()
 
@@ -574,19 +573,106 @@ describe("ProjectFicha (page)", () => {
     const gasto = within(header).getByRole("button", { name: "Registrar gasto" })
     expect(avance).toHaveClass("bg-primary")
     expect(gasto).not.toHaveClass("bg-primary")
-
-    await user.click(gasto)
-    expect(screen.getByRole("tab", { name: "Finanzas" })).toHaveAttribute("aria-selected", "true")
-    // «Registrar gasto» lands on the form itself, not just on the tab.
-    expect(await screen.findByRole("form", { name: "Registrar gasto" })).toBeInTheDocument()
-    await user.click(avance)
-    expect(screen.getByRole("tab", { name: "Actividades" })).toHaveAttribute("aria-selected", "true")
-
-    // Coming back to Finanzas by its tab does not reopen the form.
-    await openTab("Finanzas")
-    expect(await screen.findByRole("tab", { name: /^Gastos/, selected: false })).toBeInTheDocument()
-    expect(screen.queryByRole("form", { name: "Registrar gasto" })).not.toBeInTheDocument()
   })
+
+  // T9 / S9: «los dos botones deben abrir los siguiente modales …, desde cualquiera de las fichas».
+  const ACTIVIDADES_EJECUCION = [
+    {
+      id: "a1", proyecto_id: "p1", objetivo_id: "o1", codigo: "1.1", nombre: "Diagnóstico inicial",
+      semana_inicio: 1, semana_fin: 3, fecha_inicio: "2026-10-05", fecha_fin: "2026-12-10", peso: 1,
+      peso_manual: false, responsable_id: null, fuera_de_duracion: false,
+      created_at: "2026-10-08T00:00:00.000Z", updated_at: "2026-10-08T00:00:00.000Z",
+    },
+    {
+      id: "a2", proyecto_id: "p1", objetivo_id: "o1", codigo: "1.2", nombre: "Taller de formación",
+      semana_inicio: 1, semana_fin: 3, fecha_inicio: "2026-10-05", fecha_fin: "2026-12-10", peso: 1,
+      peso_manual: false, responsable_id: "u9", fuera_de_duracion: false,
+      created_at: "2026-10-08T00:00:00.000Z", updated_at: "2026-10-08T00:00:00.000Z",
+    },
+    {
+      id: "a3", proyecto_id: "p1", objetivo_id: "o1", codigo: "1.3", nombre: "Acompañamiento técnico",
+      semana_inicio: 1, semana_fin: 3, fecha_inicio: "2026-10-05", fecha_fin: "2026-10-25", peso: 1,
+      peso_manual: false, responsable_id: null, fuera_de_duracion: false,
+      created_at: "2026-10-08T00:00:00.000Z", updated_at: "2026-10-08T00:00:00.000Z",
+    },
+  ]
+  const TECNICO_ACTIVIDADES = [
+    { id: "a1", codigo: "1.1", peso: 1, progreso: 100, estado: "FINALIZADA", fecha_cumplimiento: "2026-10-20" },
+    { id: "a2", codigo: "1.2", peso: 1, progreso: 40, estado: "EN_CURSO", fecha_cumplimiento: null },
+    { id: "a3", codigo: "1.3", peso: 1, progreso: 25, estado: "EN_CURSO", fecha_cumplimiento: null },
+  ]
+
+  it.each(["Resumen", "Documentos"])(
+    "opens the «Registrar avance» dialog from the header on %s, without switching tab",
+    async (pestana) => {
+      mockFichaAndAudit({ historial: [] }, 200, PROYECTO, KPIS_PANEL, {
+        actividades: ACTIVIDADES_EJECUCION,
+        tecnicoActividades: TECNICO_ACTIVIDADES,
+      })
+      const user = userEvent.setup()
+
+      renderFicha()
+      if (pestana !== "Resumen") await openTab(pestana)
+      const header = await screen.findByTestId("ficha-header")
+      await user.click(await within(header).findByRole("button", { name: "Registrar avance" }))
+
+      const dialog = await screen.findByRole("dialog", { name: "Registrar avance" })
+      expect(await within(dialog).findByRole("combobox", { name: "Actividad" })).toHaveValue("a2")
+      expect(within(dialog).getByTestId("registrar-avance-resumen")).toHaveTextContent("40 % registrado · tope 90 %")
+      expect(within(dialog).getByRole("form", { name: "Registrar avance 1.2" })).toBeInTheDocument()
+      // The modal hides the page from the accessibility tree: read the tab behind it with `hidden`.
+      expect(screen.getByRole("tab", { name: pestana, hidden: true })).toHaveAttribute("aria-selected", "true")
+    },
+  )
+
+  it("opens the «Registrar avance» dialog on the activity a «Qué falta» row names, staying on the Resumen", async () => {
+    mockFichaAndAudit({ historial: [] }, 200, PROYECTO, KPIS_PANEL, {
+      actividades: ACTIVIDADES_EJECUCION,
+      tecnicoActividades: TECNICO_ACTIVIDADES,
+      atencion: [
+        {
+          tipo: "actividad_atrasada",
+          titulo: "Actividad atrasada",
+          detalle: "1.3 Acompañamiento: vencida el 25 oct 2026 con avance 25 %.",
+          actividad_id: "a3",
+        },
+      ],
+    })
+    const user = userEvent.setup()
+
+    renderFicha()
+    const fila = await screen.findByTestId("atencion-actividad_atrasada")
+    await user.click(await within(fila).findByRole("button", { name: "Registrar avance de 1.3" }))
+
+    const dialog = await screen.findByRole("dialog", { name: "Registrar avance" })
+    expect(await within(dialog).findByRole("combobox", { name: "Actividad" })).toHaveValue("a3")
+    expect(within(dialog).getByRole("form", { name: "Registrar avance 1.3" })).toBeInTheDocument()
+    expect(screen.getByRole("tab", { name: "Resumen", hidden: true })).toHaveAttribute("aria-selected", "true")
+  })
+
+  it.each(["Resumen", "Actividades"])(
+    "opens the «Registrar gasto» dialog from the header on %s, without switching to Finanzas",
+    async (pestana) => {
+      mockFichaAndAudit({ historial: [] })
+      const user = userEvent.setup()
+
+      renderFicha()
+      if (pestana !== "Resumen") await openTab(pestana)
+      const header = await screen.findByTestId("ficha-header")
+      await user.click(await within(header).findByRole("button", { name: "Registrar gasto" }))
+
+      const dialog = await screen.findByRole("dialog", { name: "Registrar gasto" })
+      expect(await within(dialog).findByRole("form", { name: "Registrar gasto" })).toBeInTheDocument()
+      expect(within(dialog).getByLabelText("Rubro")).toBeInTheDocument()
+      // The modal hides the page from the accessibility tree: read the tabs behind it with `hidden`.
+      expect(screen.getByRole("tab", { name: pestana, hidden: true })).toHaveAttribute("aria-selected", "true")
+      expect(screen.getByRole("tab", { name: "Finanzas", hidden: true })).toHaveAttribute("aria-selected", "false")
+
+      await user.click(within(dialog).getByRole("button", { name: "Cancelar" }))
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Registrar gasto" })).not.toBeInTheDocument())
+      expect(screen.getByRole("tab", { name: pestana })).toHaveAttribute("aria-selected", "true")
+    },
+  )
 
   it("hides the execution actions in a draft and for a user who cannot write", async () => {
     mockFichaAndAudit({ historial: [] }, 200, { ...PROYECTO, estado: "BORRADOR" })
@@ -839,7 +925,12 @@ describe("ProjectFicha (page)", () => {
     auditStatus = 200,
     proyecto: unknown = PROYECTO,
     kpis: unknown = KPIS_PANEL,
-    estructuraLista: { objetivos?: unknown[] } = {},
+    estructuraLista: {
+      objetivos?: unknown[]
+      actividades?: unknown[]
+      tecnicoActividades?: unknown[]
+      atencion?: unknown[]
+    } = {},
   ) {
     fetchMock.mockImplementation((input: unknown) => {
       if (String(input).endsWith("/audit")) {
@@ -850,7 +941,7 @@ describe("ProjectFicha (page)", () => {
       }
       // Ejecución técnica (S4 U6): semáforo y beneficiarios vacíos.
       if (String(input).endsWith("/technical-status")) {
-        return Promise.resolve(jsonResponse(TECNICO))
+        return Promise.resolve(jsonResponse({ ...TECNICO, actividades: estructuraLista.tecnicoActividades ?? [] }))
       }
       // Presupuesto (S5 U5): vacío; su comportamiento vive en project-presupuesto.test.tsx.
       if (String(input).endsWith("/budget")) {
@@ -868,7 +959,7 @@ describe("ProjectFicha (page)", () => {
       }
       // Requiere atención (S14 P5): vacío; su comportamiento vive en requiere-atencion.test.tsx.
       if (String(input).includes("/attention")) {
-        return Promise.resolve(jsonResponse({ corte: "2026-03-15", medible: true, items: [] }))
+        return Promise.resolve(jsonResponse({ corte: "2026-03-15", medible: true, items: estructuraLista.atencion ?? [] }))
       }
       if (String(input).includes("/financial-sheet")) {
         return Promise.resolve(jsonResponse(FINANCIERA))
@@ -903,7 +994,12 @@ describe("ProjectFicha (page)", () => {
       const estructura = /\/(objectives|activities|deliverables|indicators)$/.exec(String(input))
       if (estructura) {
         const campo = { objectives: "objetivos", activities: "actividades", deliverables: "entregables", indicators: "indicadores" }[estructura[1]]
-        const filas = campo === "objetivos" ? (estructuraLista.objetivos ?? []) : []
+        const filas =
+          campo === "objetivos"
+            ? (estructuraLista.objetivos ?? [])
+            : campo === "actividades"
+              ? (estructuraLista.actividades ?? [])
+              : []
         return Promise.resolve(jsonResponse({ [campo as string]: filas }))
       }
       if (String(input).endsWith("/api/v1/auth/me")) {

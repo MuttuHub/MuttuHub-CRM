@@ -44,6 +44,7 @@ export function ReporteActividadForm({
   actual,
   tope,
   ultimo = null,
+  enfocarAlAbrir = true,
   onDone,
   onSaved,
 }: {
@@ -55,6 +56,8 @@ export function ReporteActividadForm({
   tope: number;
   /** % of the latest live report: a new one must be above it. */
   ultimo?: number | null;
+  /** Focus the date on mount; off when a picker above the form (the header's dialog) keeps the focus. */
+  enfocarAlAbrir?: boolean;
   /** Closes the form (Cancelar, or after saving). */
   onDone: () => void;
   /** After the report is saved (and its soporte attached or not). */
@@ -84,7 +87,9 @@ export function ReporteActividadForm({
 
   const fechaRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    fechaRef.current?.focus();
+    if (enfocarAlAbrir) fechaRef.current?.focus();
+    // Only on mount: a later prop change must not steal the focus.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const tecleado = parseNumber(porcentaje);
