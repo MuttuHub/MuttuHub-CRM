@@ -38,6 +38,7 @@ import {
   type ProjectTechnicalActivityV6,
 } from "@/hooks/projects";
 import type { UiTone } from "@/lib/catalogs";
+import { SelectorArchivo } from "@/components/proyectos/selector-archivo";
 
 /** Mensaje de respaldo cuando `useAttachAvanceMedio` falla sin `Error.message` propio. */
 const ADJUNTAR_MEDIO_ERROR = "No pudimos adjuntar el medio. Inténtalo de nuevo.";
@@ -388,12 +389,7 @@ function AdjuntarMedioReporte({
           <Label htmlFor={`${prefijo}-archivo`} className="text-[12px] text-ink-600">
             Archivo del soporte
           </Label>
-          <input
-            id={`${prefijo}-archivo`}
-            type="file"
-            onChange={(event) => setArchivo(event.target.files?.[0] ?? null)}
-            className="min-h-11 text-base md:min-h-0 md:text-[12.5px] text-ink-800"
-          />
+          <SelectorArchivo id={`${prefijo}-archivo`} onChange={setArchivo} />
         </div>
       ) : (
         <>

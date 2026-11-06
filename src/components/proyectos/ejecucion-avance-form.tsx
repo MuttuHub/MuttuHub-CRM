@@ -18,6 +18,7 @@ import {
   type ProjectDeliverable,
 } from "@/hooks/projects";
 import { todayInBogota } from "@/lib/proyectos/weeks";
+import { SelectorArchivo } from "@/components/proyectos/selector-archivo";
 
 type TipoMedio = "ninguno" | "archivo" | "enlace";
 
@@ -192,12 +193,7 @@ export function EjecucionAvanceForm({
           <Label htmlFor={`${nombreMedio}-archivo`} className="text-[12px] text-ink-600">
             Archivo del medio
           </Label>
-          <input
-            id={`${nombreMedio}-archivo`}
-            type="file"
-            onChange={(event) => setArchivo(event.target.files?.[0] ?? null)}
-            className="min-h-11 text-base md:text-[12.5px] text-ink-800 md:min-h-0"
-          />
+          <SelectorArchivo id={`${nombreMedio}-archivo`} onChange={setArchivo} />
         </div>
       )}
 

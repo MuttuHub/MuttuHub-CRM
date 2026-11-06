@@ -96,6 +96,12 @@ describe("GastoForm", () => {
     expect(select).toHaveTextContent("R01")
   })
 
+  it("offers the support file in Spanish («Elegir archivo»), not the browser's «Choose File»", () => {
+    setup()
+    expect(screen.getByText("Elegir archivo")).toBeInTheDocument()
+    expect(screen.getByText("Ningún archivo elegido")).toBeInTheDocument()
+  })
+
   it("requires one support before sending anything", async () => {
     const user = userEvent.setup({ delay: null })
     setup()

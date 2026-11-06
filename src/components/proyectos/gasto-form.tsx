@@ -25,6 +25,7 @@ import {
 import { parseMontoInput } from "@/components/proyectos/presupuesto-ui";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { periodOf, projectPeriods, todayInBogota } from "@/lib/proyectos/weeks";
+import { SelectorArchivo } from "@/components/proyectos/selector-archivo";
 
 export const SIN_SOPORTE_TEXT = "Adjunta al menos un soporte (archivo o enlace).";
 const SUBTOTAL_INVALIDO =
@@ -354,13 +355,7 @@ export function GastoForm({
               </Button>
             </div>
           ) : (
-            <input
-              id={`${p}-archivo`}
-              ref={inputArchivoRef}
-              type="file"
-              onChange={(e) => setArchivo(e.target.files?.[0] ?? null)}
-              className="min-h-11 text-base md:text-[12.5px] text-ink-800 md:min-h-0"
-            />
+            <SelectorArchivo id={`${p}-archivo`} inputRef={inputArchivoRef} onChange={setArchivo} />
           )}
         </Campo>
       ) : (

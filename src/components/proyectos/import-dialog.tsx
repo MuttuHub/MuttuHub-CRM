@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useId, useState, type ChangeEvent } from "react";
+import { useId, useState } from "react";
 import { Download, FileSpreadsheet, LoaderCircle, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { HelpHint } from "@/components/ui/help-hint";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { errorMessage, plural } from "@/components/proyectos/estructura-ui";
 import { InlineError } from "@/components/proyectos/ui";
@@ -36,6 +35,7 @@ import {
 import { IMPORT_MAX_BYTES } from "@/lib/proyectos/plantilla/columns";
 import { agruparPorHoja, reporteACsv, type ReportePlantilla } from "@/lib/proyectos/plantilla-reporte";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SelectorArchivo } from "@/components/proyectos/selector-archivo";
 
 const TOO_LARGE = "El archivo supera el límite de 4 MB.";
 const NOT_XLSX = "Solo se acepta la plantilla en formato Excel (.xlsx).";
@@ -153,9 +153,8 @@ export function ImportDialog({
     }
   }
 
-  function elegirArchivo(event: ChangeEvent<HTMLInputElement>) {
+  function elegirArchivo(elegido: File | null) {
     limpiarResultado();
-    const elegido = event.target.files?.[0] ?? null;
     if (!elegido) {
       setArchivo(null);
       setArchivoError(null);
@@ -256,14 +255,7 @@ export function ImportDialog({
             <Label htmlFor={inputId} className="text-[12px] text-ink-600">
               Archivo de la plantilla (.xlsx, máx. 4 MB)
             </Label>
-            <Input
-              id={inputId}
-              type="file"
-              accept=".xlsx"
-              onChange={elegirArchivo}
-              disabled={ocupado}
-              className="h-auto px-3 py-2"
-            />
+            <SelectorArchivo id={inputId} accept=".xlsx" onChange={elegirArchivo} disabled={ocupado} />
             <InlineError message={archivoError} />
           </div>
 
