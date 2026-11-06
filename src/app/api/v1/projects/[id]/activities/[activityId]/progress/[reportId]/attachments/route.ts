@@ -6,9 +6,8 @@
 // `reporte_actividad_id` instead of `medicion_id` (S11: a dedicated route per parent type,
 // not an overload of the older generic `progress/{progressId}/attachments` resource).
 //
-// Write: same S9.5 gate as creating/voiding the report (responsable-only + ADMIN/GERENCIA
-// override) on an EN_EJECUCION project (404 -> 403 -> 409 -> 404 activity -> 403
-// responsable), on a non-voided report (409). A file is confirmed only when its key sits
+// Write: same gate as creating/voiding the report (any project member or manager) on an
+// EN_EJECUCION project (404 -> 403 -> 409 -> 404 activity), on a non-voided report (409). A file is confirmed only when its key sits
 // under THIS project's `soportes` prefix, the object exists in storage and is not larger
 // than declared or than the app limit; the stored row keeps the REAL size. Never deletes
 // from storage; the same object cannot back two medios. No `cuenta`/semáforo concept for a

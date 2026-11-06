@@ -93,7 +93,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe("POST progress: access matrix (S9.5)", () => {
+describe("POST progress: access matrix (any project member, AJ-01 fix)", () => {
   it("creates for the activity's own responsable (201)", async () => {
     expect((await POST(post(valido), ctx)).status).toBe(201);
   });
@@ -105,10 +105,24 @@ describe("POST progress: access matrix (S9.5)", () => {
     }
   });
 
-  it("answers 403 for a COORDINADOR who is not the responsable, and for a COLABORADOR", async () => {
+  it("creates for a member COORDINADOR or COLABORADOR who is not the activity's responsable", async () => {
     for (const usuario of [otroCoordinador, colaborador]) {
       authAs(usuario);
       vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto("EN_EJECUCION", true));
+      const res = await POST(post(valido), ctx);
+      expect(res.status, usuario.rol).toBe(201);
+    }
+    expect(mocks.create).toHaveBeenCalledTimes(2);
+    expect(mocks.create.mock.calls.map(([arg]) => (arg as { data: { registrado_por_id: string } }).data.registrado_por_id)).toEqual([
+      otroCoordinador.id,
+      colaborador.id,
+    ]);
+  });
+
+  it("answers 403 for a COORDINADOR or COLABORADOR who is not a project member", async () => {
+    for (const usuario of [otroCoordinador, colaborador]) {
+      authAs(usuario);
+      vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto("EN_EJECUCION", false));
       expect((await POST(post(valido), ctx)).status, usuario.rol).toBe(403);
     }
     expect(mocks.create).not.toHaveBeenCalled();

@@ -62,7 +62,10 @@ octubre. Según el documento, cada «cambio de regla» prevalece sobre la regla 
    entregables.
 2. Las actividades con avances de entregables pero sin reportes conservan el cálculo anterior.
 3. Los pesos manuales ya guardados se recalculan por duración. Las líneas base aprobadas conservan su foto histórica.
-4. El reporte de avance lo registra el **responsable** de la actividad.
+4. ~~El reporte de avance lo registra el **responsable** de la actividad.~~ **Reemplazada el 2026-11-05:**
+   lo registra **cualquier integrante del equipo del proyecto** (o Administración/Gerencia). Motivo: la
+   Coordinadora (PO), integrante pero no responsable, no veía «Registrar avance»; el documento de la PO
+   (AJ-01, v1.1) no restringe por rol. Ver `odd/tasks/aj01-estado-en-curso.md`, L10.
 5. El tope del 90 % sobre lo programado aplica al color del proyecto, al color de cada actividad y a la curva S.
 6. Las plantillas de gastos con «Valor (COP)» se rechazan con un mensaje que pide la plantilla nueva (hecho en AJ-04).
 

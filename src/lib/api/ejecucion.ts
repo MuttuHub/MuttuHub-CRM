@@ -299,17 +299,16 @@ export async function loadMedicionParaMedio(
 // ---------------------------------------------------------------------------
 
 export const ACTIVIDAD_NO_EXISTE = "La actividad no existe.";
-export const REPORTE_FORBIDDEN_MESSAGE = "Solo el responsable de la actividad puede registrar su avance.";
 export const REPORTE_NO_EXISTE = "El reporte no existe.";
 export const REPORTE_ANULADO_MEDIO_MESSAGE = "No se pueden adjuntar medios a un reporte anulado.";
 
 export type ActividadReporteGate = { id: string; responsable_id: string | null };
 
 /**
- * 404 (project) -> 403 (membership) -> 409 (EN_EJECUCION) -> 404 (activity) -> 403
- * (S9.5, responsable-only): only the activity's own `responsable_id`, or an
- * ADMINISTRADOR/GERENCIA override (the same override every other write gate in this
- * codebase already has), may register, edit or void one of its reports.
+ * 404 (project) -> 403 (membership) -> 409 (EN_EJECUCION) -> 404 (activity). Registering,
+ * voiding or attaching to an activity report follows the same membership axis as every other
+ * execution write: the PO's AJ-01 asks for no responsable-only restriction, so any project
+ * member (or a manager) may do it, whoever the activity's `responsable_id` is.
  */
 export async function gateReporteActividadWrite(
   usuario: Usuario,
@@ -325,10 +324,6 @@ export async function gateReporteActividadWrite(
   });
   if (!actividad) return { ok: false, response: apiError(ACTIVIDAD_NO_EXISTE, 404, "NOT_FOUND") };
 
-  const esResponsable = actividad.responsable_id !== null && actividad.responsable_id === usuario.id;
-  if (!esResponsable && !canManageProjects({ id: usuario.id, rol: usuario.rol })) {
-    return { ok: false, response: apiError(REPORTE_FORBIDDEN_MESSAGE, 403, "FORBIDDEN") };
-  }
   return { ok: true, value: { proyecto: gate.value, actividad } };
 }
 

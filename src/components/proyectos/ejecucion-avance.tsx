@@ -72,7 +72,6 @@ export function EjecucionAvance({
   progreso,
   canWrite,
   canVoid,
-  esResponsable = false,
   nombreUsuario = (id: string) => id,
   enfocar = false,
 }: {
@@ -83,8 +82,6 @@ export function EjecucionAvance({
   progreso: Map<string, ProjectDeliverableProgress>;
   canWrite: boolean;
   canVoid: boolean;
-  /** S9.5: solo el responsable de la actividad (o un override ADMINISTRADOR/GERENCIA) registra/anula sus avances. */
-  esResponsable?: boolean;
   /** Resuelve un `registrado_por_id` a un nombre visible en el historial (S2: "...fecha, porcentaje, observación, usuario"). */
   nombreUsuario?: (id: string) => string;
   /** Scroll to this row and move the keyboard focus to it (the Tablero sends the user here). */
@@ -141,7 +138,7 @@ export function EjecucionAvance({
       <ActividadReportes
         proyectoId={proyectoId}
         actividad={actividad}
-        canWrite={canWrite && esResponsable}
+        canWrite={canWrite}
         nombreUsuario={nombreUsuario}
       />
 
@@ -165,9 +162,9 @@ export function EjecucionAvance({
 
 /**
  * AJ-01 (S2/S3): historial de reportes de avance de la ACTIVIDAD (no confundir con los avances
- * por entregable de `EntregableRow`/`AvanceRow`, un nivel más abajo). `canWrite` ya trae
- * fusionado el gate de escritura general Y el de responsable (S9.5): el padre decide si se
- * muestra la acción, esta función solo dibuja.
+ * por entregable de `EntregableRow`/`AvanceRow`, un nivel más abajo). `canWrite` es el mismo
+ * gate de escritura del resto de la ejecución (gestor o integrante del proyecto): el padre
+ * decide si se muestra la acción, esta función solo dibuja.
  */
 function ActividadReportes({
   proyectoId,

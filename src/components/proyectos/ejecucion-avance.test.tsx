@@ -371,22 +371,20 @@ describe("EjecucionAvance", () => {
 
   /* ── AJ-01 (S2/S3): "Registrar avance" a nivel actividad ────────────── */
 
-  it("shows the activity-level \"Registrar avance\" action only to its responsable", async () => {
+  it("shows the activity-level \"Registrar avance\" action to anyone who can write, responsable or not", async () => {
     const { unmount } = render(
       <EjecucionAvance
         proyectoId="p1"
-        actividad={ACTIVIDAD}
+        actividad={{ ...ACTIVIDAD, responsable_id: "otro-usuario" }}
         canWrite
         canVoid={false}
-        esResponsable={false}
         tecnico={TECNICO}
         entregables={[]}
         progreso={new Map()}
       />,
       { wrapper: createWrapper() },
     )
-    await screen.findByTestId("ejecucion-actividad")
-    expect(screen.queryByRole("button", { name: "Registrar avance 1.1" })).not.toBeInTheDocument()
+    expect(await screen.findByRole("button", { name: "Registrar avance 1.1" })).toBeInTheDocument()
     unmount()
 
     render(
@@ -395,7 +393,6 @@ describe("EjecucionAvance", () => {
         actividad={ACTIVIDAD}
         canWrite={false}
         canVoid={false}
-        esResponsable
         tecnico={TECNICO}
         entregables={[]}
         progreso={new Map()}
@@ -404,21 +401,6 @@ describe("EjecucionAvance", () => {
     )
     await screen.findByTestId("ejecucion-actividad")
     expect(screen.queryByRole("button", { name: "Registrar avance 1.1" })).not.toBeInTheDocument()
-
-    render(
-      <EjecucionAvance
-        proyectoId="p1"
-        actividad={ACTIVIDAD}
-        canWrite
-        canVoid={false}
-        esResponsable
-        tecnico={TECNICO}
-        entregables={[]}
-        progreso={new Map()}
-      />,
-      { wrapper: createWrapper() },
-    )
-    expect(screen.getByRole("button", { name: "Registrar avance 1.1" })).toBeInTheDocument()
   })
 
   it("registers an activity report and shows it in the history", async () => {
@@ -429,7 +411,6 @@ describe("EjecucionAvance", () => {
         actividad={ACTIVIDAD}
         canWrite
         canVoid={false}
-        esResponsable
         tecnico={TECNICO}
         entregables={[]}
         progreso={new Map()}
@@ -485,7 +466,6 @@ describe("EjecucionAvance", () => {
         actividad={ACTIVIDAD}
         canWrite
         canVoid={false}
-        esResponsable
         tecnico={TECNICO}
         entregables={[]}
         progreso={new Map()}
@@ -537,7 +517,6 @@ describe("EjecucionAvance", () => {
         actividad={ACTIVIDAD}
         canWrite
         canVoid={false}
-        esResponsable
         tecnico={TECNICO}
         entregables={[]}
         progreso={new Map()}
@@ -576,7 +555,6 @@ describe("EjecucionAvance", () => {
         actividad={ACTIVIDAD}
         canWrite={false}
         canVoid={false}
-        esResponsable={false}
         nombreUsuario={(id) => (id === "u1" ? "Ana Pérez" : id)}
         tecnico={TECNICO}
         entregables={[]}
@@ -600,7 +578,6 @@ describe("EjecucionAvance", () => {
         actividad={ACTIVIDAD}
         canWrite
         canVoid={false}
-        esResponsable
         tecnico={TECNICO}
         entregables={[]}
         progreso={new Map()}

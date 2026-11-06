@@ -88,8 +88,15 @@ describe("POST attachments", () => {
     expect(json.medio).toMatchObject({ tipo: "enlace", url_externa: "https://example.com/doc" });
   });
 
-  it("is responsable-only (403 for another COORDINADOR) and 409 on a voided report", async () => {
+  it("lets a member COORDINADOR who is not the responsable attach (201)", async () => {
     authAs(otroCoordinador);
+    expect((await POST(post({ url_externa: "https://example.com/doc", nombre: "Enlace" }), ctx)).status).toBe(201);
+    expect(mocks.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("answers 403 for a non-member COORDINADOR and 409 on a voided report", async () => {
+    authAs(otroCoordinador);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValueOnce({ id: "pry-1", estado: "EN_EJECUCION", miembros: [] } as never);
     expect((await POST(post({ url_externa: "https://example.com/doc", nombre: "Enlace" }), ctx)).status).toBe(403);
     authAs(responsable);
     vi.mocked(db.reporteActividad.findFirst).mockResolvedValue({ id: "rep-1", anulado_at: new Date() } as never);

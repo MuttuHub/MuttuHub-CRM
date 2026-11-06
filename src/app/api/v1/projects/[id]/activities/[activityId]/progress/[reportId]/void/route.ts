@@ -6,8 +6,8 @@
 // prior pattern to follow: a mistaken report is voided and a new, correct one registered
 // through POST .../progress (S10's "edit" reading as "void + create a new one").
 //
-// Void is gated the same as create (S9.5, responsable-only + ADMINISTRADOR/GERENCIA
-// override) and only the single most recent non-voided report of the activity may be
+// Void is gated the same as create (any project member or manager) and only the single
+// most recent non-voided report of the activity may be
 // voided — an older, superseded report is immutable, preserving the "siempre mayor"
 // invariant for the ones that remain live. The row is kept (never hard-deleted) and
 // audited with ANULAR, exactly like `AvanceEntregable`'s void.

@@ -369,8 +369,8 @@ describe("ProjectEjecucion", () => {
       expect(screen.queryByRole("button", { name: "Anular" })).not.toBeInTheDocument()
     })
 
-    // AJ-01 (S9.5): "Registrar avance" a nivel ACTIVIDAD exige además ser el responsable
-    // (o un ADMINISTRADOR/GERENCIA) — un eje distinto al de `canWrite` por membresía.
+    // AJ-01: "Registrar avance" a nivel ACTIVIDAD sigue el mismo eje que el resto de la
+    // ejecución (`canWrite`: gestor o integrante del proyecto), no el responsable de la actividad.
     it("offers the activity-level avance action to the activity's own responsable", async () => {
       setup({
         rol: "COORDINADOR",
@@ -381,18 +381,28 @@ describe("ProjectEjecucion", () => {
       expect(await screen.findByRole("button", { name: "Registrar avance 1.1" })).toBeInTheDocument()
     })
 
-    it("hides the activity-level avance action from a member who isn't the responsable", async () => {
+    it("offers the activity-level avance action to a member who isn't the responsable", async () => {
       setup({
         rol: "COORDINADOR",
         miembros: [MIEMBRO_COORDINADOR],
         actividades: [{ ...ACTIVIDAD, responsable_id: "otro-usuario" }],
       })
 
+      expect(await screen.findByRole("button", { name: "Registrar avance 1.1" })).toBeInTheDocument()
+    })
+
+    it("hides the activity-level avance action from a COORDINADOR who is not a member", async () => {
+      setup({
+        rol: "COORDINADOR",
+        miembros: [],
+        actividades: [{ ...ACTIVIDAD, responsable_id: "u1" }],
+      })
+
       await screen.findByTestId("ejecucion-actividad")
       expect(screen.queryByRole("button", { name: "Registrar avance 1.1" })).not.toBeInTheDocument()
     })
 
-    it("offers it to an ADMINISTRADOR even when they aren't the responsable (S9.5 override)", async () => {
+    it("offers it to an ADMINISTRADOR even when they aren't the responsable", async () => {
       setup({
         rol: "ADMINISTRADOR",
         actividades: [{ ...ACTIVIDAD, responsable_id: "otro-usuario" }],

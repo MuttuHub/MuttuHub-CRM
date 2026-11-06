@@ -4,10 +4,9 @@
 // through the separate attachments route below (same separation AJ-06 established between
 // "create" and "attach more" for mediciones).
 //
-// Create: only the activity's own `responsable_id`, or ADMINISTRADOR/GERENCIA (the same
-// override every other write gate in this codebase already has) — S9.5 — on an
-// EN_EJECUCION project (404 -> 403 -> 409 -> 404 activity -> 403 responsable -> 400 body ->
-// 409 business rules S9.1-S9.4, run by `validarNuevoReporte`). The first report is what
+// Create: any project member or manager, whoever the activity's responsable is (the same
+// membership axis as every other execution write), on an EN_EJECUCION project (404 -> 403 ->
+// 409 -> 404 activity -> 400 body -> 409 business rules S9.1-S9.4, run by `validarNuevoReporte`). The first report is what
 // moves the activity to EN_CURSO (S2): this route never writes a state column — there isn't
 // one, `estadoActividad` derives it from the presence of a live report (S7/S8).
 
