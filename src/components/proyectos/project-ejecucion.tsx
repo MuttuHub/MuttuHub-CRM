@@ -50,7 +50,9 @@ export const EJECUCION_BORRADOR_HINT =
 /**
  * `lista` is the execution Lista of the Actividades tab (U4): only the activities, grouped by goal, without the
  * semáforo panel (the header owns it), with the S-curve and the Base selector inside a collapsed "Opciones
- * avanzadas" disclosure. `enfocarId` scrolls to and focuses one activity row (the Tablero card click).
+ * avanzadas" disclosure. `enfocarId` scrolls to and focuses one activity row (the Tablero card click);
+ * `enfocarPrimeraPendiente` (a request counter from the header's «Registrar avance») does the same for the
+ * first activity that is not finished yet.
  *
  * `seguimiento` is the v7 "Ficha de seguimiento" tab: the chart, the period/time/budget cards, progress per goal
  * and the activities, without the indicators (they have their own tab: see
@@ -61,11 +63,13 @@ export function ProjectEjecucion({
   seguimiento = false,
   lista = false,
   enfocarId = null,
+  enfocarPrimeraPendiente = 0,
 }: {
   proyecto: ProjectListRow;
   seguimiento?: boolean;
   lista?: boolean;
   enfocarId?: string | null;
+  enfocarPrimeraPendiente?: number;
 }) {
   if (proyecto.estado === "BORRADOR") {
     return (
@@ -79,7 +83,13 @@ export function ProjectEjecucion({
   return (
     <section data-testid="ejecucion">
       {!lista && <EjecucionHeader seguimiento={seguimiento} />}
-      <EjecucionContent proyecto={proyecto} seguimiento={seguimiento} lista={lista} enfocarId={enfocarId} />
+      <EjecucionContent
+        proyecto={proyecto}
+        seguimiento={seguimiento}
+        lista={lista}
+        enfocarId={enfocarId}
+        enfocarPrimeraPendiente={enfocarPrimeraPendiente}
+      />
     </section>
   );
 }
@@ -225,11 +235,13 @@ function EjecucionContent({
   seguimiento,
   lista,
   enfocarId,
+  enfocarPrimeraPendiente,
 }: {
   proyecto: ProjectListRow;
   seguimiento: boolean;
   lista: boolean;
   enfocarId: string | null;
+  enfocarPrimeraPendiente: number;
 }) {
   const [base, setBase] = useState<ProjectBase>("vigente");
   const tecnicoQuery = useProjectTechnicalStatus(proyecto.id, base);
@@ -252,6 +264,17 @@ function EjecucionContent({
     if (query?.data) progreso.set(deliverable.id, query.data);
   });
 
+  // Each header request picks its row ONCE, so a later refetch (an activity just finished) never moves the focus.
+  const [pedidoServido, setPedidoServido] = useState<{ pedido: number; id: string | null }>({ pedido: 0, id: null });
+  if (enfocarPrimeraPendiente !== pedidoServido.pedido && tecnicoQuery.data && activitiesQuery.data) {
+    const estados = new Map(tecnicoQuery.data.actividades.map((actividad) => [actividad.id, actividad.estado]));
+    const pendiente = activitiesQuery.data.find((actividad) => {
+      const estado = estados.get(actividad.id);
+      return estado !== undefined && estado !== "FINALIZADA" && estado !== "FINALIZADA_CON_RETRASO";
+    });
+    setPedidoServido({ pedido: enfocarPrimeraPendiente, id: pendiente?.id ?? null });
+  }
+
   if (tecnicoQuery.isError) {
     return (
       <InlineError message={errorMessage(tecnicoQuery.error, TECNICO_ERROR)} className="mt-2" />
@@ -264,6 +287,8 @@ function EjecucionContent({
   const tecnico = tecnicoQuery.data;
   const actividades = activitiesQuery.data ?? [];
   const tecnicas = new Map(tecnico.actividades.map((actividad) => [actividad.id, actividad]));
+  const enfocarFila = (id: string): boolean | number =>
+    enfocarId === id || (pedidoServido.id === id && pedidoServido.pedido);
 
   return (
     <div className={lista ? "mt-0" : "mt-2"}>
@@ -307,7 +332,7 @@ function EjecucionContent({
                 progreso={progreso}
                 canWrite={canWrite}
                 canVoid={canVoid}
-                enfocar={enfocarId === actividad.id}
+                enfocar={enfocarFila(actividad.id)}
               />
             );
           }}

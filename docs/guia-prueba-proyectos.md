@@ -71,7 +71,7 @@ En la reunión (como `admin@`, salvo donde se indica):
 3. **Aprobar línea base** (está en el encabezado, visible en cualquier pestaña) > **Aprobar**: el proyecto pasa a
    **En ejecución**, el encabezado muestra el estado y se habilitan ejecución, gastos, modificaciones y versiones.
    (1 min)
-4. Pestaña **Ficha de seguimiento**: **Registrar avance** en un entregable con un enlace https (URL y "Nombre del enlace", ambos obligatorios; espera a que
+4. Pestaña **Ficha de seguimiento**: **Registrar cantidad** en un entregable con un enlace https (URL y "Nombre del enlace", ambos obligatorios; espera a que
    el diálogo cierre solo: el enlace se guarda en una segunda petición); mira el
    **Semáforo técnico** (también en el encabezado, con la palabra del color) y la insignia **Semáforo provisional**.
    (2 min)
@@ -370,7 +370,7 @@ admin/gerencia.
    confirmados (ver §H). Es lo esperado hoy.
 3. Por actividad: estado (No iniciada, En curso, Finalizada, Finalizada con retraso, calculado por el servidor),
    barra de progreso y sus entregables con "Meta ... / Contado ...".
-4. **Registrar avance** en un entregable: Fecha, Cantidad, Observación (opcional) y "Medio de verificación" con
+4. **Registrar cantidad** en un entregable: Fecha, Cantidad, Observación (opcional) y "Medio de verificación" con
    tres opciones: **Sin medio**, **Archivo** o **Enlace** (URL https + "Nombre del enlace").
    - Con archivo o enlace, el avance queda **Cuenta** y mueve el semáforo.
    - **Sin medio** queda como **Pendiente de soporte** y NO cuenta (el entregable muestra "N pendiente de soporte").

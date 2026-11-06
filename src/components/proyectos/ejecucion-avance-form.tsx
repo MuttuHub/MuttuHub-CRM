@@ -102,7 +102,7 @@ export function EjecucionAvanceForm({
 
   return (
     <form
-      aria-label={`Registrar avance ${entregable.codigo}`}
+      aria-label={`Registrar cantidad ${entregable.codigo}`}
       noValidate
       onSubmit={(event) => {
         event.preventDefault();

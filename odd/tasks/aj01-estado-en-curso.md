@@ -231,6 +231,13 @@ activities must be a byte-for-byte no-op (S5.2) — pin with a regression test, 
   `usuario` query, like the expense validation queue) and the UI shows it; the members map is gone. (2) The S3
   messages read «(70%)» / «90%.» while the PO's document and this document's S9.3/S9.4 (and the OpenAPI note)
   say «(70 %)» / «90 %.»: fixed in `validarNuevoReporte`. RED 8 → GREEN.
+- **L12 (2026-11-05, UX approved by Adrián: «Aprobar los tres»):** (1) the deliverable's button and form are
+  «Registrar cantidad» (they ask for a quantity), so «Registrar avance» names only the activity's % report — it
+  closes BL#27 (two identical buttons). (2) The header's «Registrar avance» opens Actividades › Lista AND focuses
+  the first activity that is not finished (a request counter; each request picks its row once, so a refetch
+  never moves the focus). (3) The activity chip reads «Semáforo: Verde» (the existing `prefix`, same form as
+  «Semáforo técnico: Rojo») so it no longer reads as contradicting «Finalizada con retraso»; the proposal said
+  «Semáforo verde» and the house format with a colon was kept. Guides updated. RED 8 → GREEN.
 
 ## Delivery slices (2026-10-29)
 

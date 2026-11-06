@@ -121,7 +121,7 @@ describe("EjecucionAvanceForm", () => {
 
   it("uses 44 px touch targets on phones and no fixed width over 360 px", () => {
     setup()
-    const form = screen.getByRole("form", { name: "Registrar avance ENT-1" })
+    const form = screen.getByRole("form", { name: "Registrar cantidad ENT-1" })
     expectTouchTargets(form)
     expect(form.innerHTML).not.toMatch(/(?:min-)?w-\[(?:3[6-9]\d|[4-9]\d\d|\d{4,})px\]/)
   })
@@ -237,7 +237,7 @@ describe("EjecucionAvanceForm", () => {
     await user.type(screen.getByLabelText("Cantidad"), "1")
     await user.click(screen.getByRole("button", { name: "Registrar avance" }))
 
-    const form = screen.getByRole("form", { name: "Registrar avance ENT-1" })
+    const form = screen.getByRole("form", { name: "Registrar cantidad ENT-1" })
     expect(await within(form).findByRole("alert")).toHaveTextContent(
       "La cantidad acumulada supera la meta del entregable.",
     )

@@ -154,9 +154,27 @@ describe("EjecucionAvance", () => {
       />,
       { wrapper: createWrapper() },
     )
-    await user.click(screen.getByRole("button", { name: "Registrar avance ENT-1" }))
-    const dialog = await screen.findByRole("dialog", { name: "Registrar avance" })
-    expect(within(dialog).getByRole("form", { name: "Registrar avance ENT-1" })).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Registrar cantidad ENT-1" }))
+    const dialog = await screen.findByRole("dialog", { name: "Registrar cantidad" })
+    expect(within(dialog).getByRole("form", { name: "Registrar cantidad ENT-1" })).toBeInTheDocument()
+  })
+
+  it("labels the activity's colour chip as the semáforo, apart from its estado", () => {
+    render(
+      <EjecucionAvance
+        proyectoId="p1"
+        actividad={ACTIVIDAD}
+        canWrite={false}
+        canVoid={false}
+        tecnico={{ ...TECNICO, estado: "FINALIZADA_CON_RETRASO", color: "verde" }}
+        entregables={[]}
+        progreso={new Map()}
+      />,
+      { wrapper: createWrapper() },
+    )
+    const fila = screen.getByTestId("ejecucion-actividad")
+    expect(within(fila).getByText("Semáforo: Verde")).toBeInTheDocument()
+    expect(within(fila).getByText("Finalizada con retraso")).toBeInTheDocument()
   })
 
   it("renders the activity progress bar and its estado badge", () => {

@@ -128,6 +128,8 @@ type Setup = {
   rol?: string
   miembros?: unknown[]
   seguimiento?: boolean
+  lista?: boolean
+  enfocarPrimeraPendiente?: number
 }
 
 describe("ProjectEjecucion", () => {
@@ -144,6 +146,8 @@ describe("ProjectEjecucion", () => {
     rol = "ADMINISTRADOR",
     miembros = [],
     seguimiento = false,
+    lista = false,
+    enfocarPrimeraPendiente = 0,
   }: Setup = {}) {
     fetchMock.mockImplementation((input: unknown) => {
       const url = String(input)
@@ -176,9 +180,15 @@ describe("ProjectEjecucion", () => {
       }
       return Promise.resolve(jsonResponse({}))
     })
-    return render(<ProjectEjecucion proyecto={{ ...PROYECTO, ...proyecto }} seguimiento={seguimiento} />, {
-      wrapper: createWrapper(),
-    })
+    return render(
+      <ProjectEjecucion
+        proyecto={{ ...PROYECTO, ...proyecto }}
+        seguimiento={seguimiento}
+        lista={lista}
+        enfocarPrimeraPendiente={enfocarPrimeraPendiente}
+      />,
+      { wrapper: createWrapper() },
+    )
   }
 
   beforeEach(() => {
@@ -331,27 +341,27 @@ describe("ProjectEjecucion", () => {
     it("offers the avance control to a manager", async () => {
       setup({ rol: "ADMINISTRADOR" })
 
-      expect(await screen.findByRole("button", { name: "Registrar avance ENT-1" })).toBeInTheDocument()
+      expect(await screen.findByRole("button", { name: "Registrar cantidad ENT-1" })).toBeInTheDocument()
     })
 
     it("offers it to a COORDINADOR who is an active member", async () => {
       setup({ rol: "COORDINADOR", miembros: [MIEMBRO_COORDINADOR] })
 
-      expect(await screen.findByRole("button", { name: "Registrar avance ENT-1" })).toBeInTheDocument()
+      expect(await screen.findByRole("button", { name: "Registrar cantidad ENT-1" })).toBeInTheDocument()
     })
 
     it("hides it from a COORDINADOR who is not a member", async () => {
       setup({ rol: "COORDINADOR", miembros: [] })
 
       await screen.findByTestId("ejecucion-actividad")
-      expect(screen.queryByRole("button", { name: "Registrar avance ENT-1" })).not.toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: "Registrar cantidad ENT-1" })).not.toBeInTheDocument()
     })
 
     it("hides it from a COLABORADOR", async () => {
       setup({ rol: "COLABORADOR", miembros: [] })
 
       await screen.findByTestId("ejecucion-actividad")
-      expect(screen.queryByRole("button", { name: "Registrar avance ENT-1" })).not.toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: "Registrar cantidad ENT-1" })).not.toBeInTheDocument()
     })
 
     it("shows the void control only to a manager", async () => {
@@ -400,6 +410,33 @@ describe("ProjectEjecucion", () => {
 
       await screen.findByTestId("ejecucion-actividad")
       expect(screen.queryByRole("button", { name: "Registrar avance 1.1" })).not.toBeInTheDocument()
+    })
+
+    // F5b: the header's «Registrar avance» lands on the first unfinished activity, not just on the tab.
+    it("focuses the first unfinished activity when the header asks for it", async () => {
+      setup({
+        lista: true,
+        enfocarPrimeraPendiente: 1,
+        actividades: [ACTIVIDAD, { ...ACTIVIDAD, id: "a2", codigo: "1.2" }, { ...ACTIVIDAD, id: "a3", codigo: "1.3" }],
+        entregables: [],
+        tecnico: {
+          ...TECNICO,
+          actividades: [
+            { id: "a1", codigo: "1.1", peso: 1, progreso: 100, estado: "FINALIZADA", fecha_cumplimiento: "2026-10-20" },
+            { id: "a2", codigo: "1.2", peso: 1, progreso: 30, estado: "EN_CURSO", fecha_cumplimiento: null },
+            { id: "a3", codigo: "1.3", peso: 1, progreso: 0, estado: "NO_INICIADA", fecha_cumplimiento: null },
+          ],
+        },
+      })
+
+      await waitFor(() => expect(document.activeElement?.id).toBe("actividad-a2"))
+    })
+
+    it("focuses no activity when the header did not ask", async () => {
+      setup({ lista: true, actividades: [ACTIVIDAD, { ...ACTIVIDAD, id: "a2", codigo: "1.2" }], entregables: [] })
+
+      await screen.findAllByTestId("ejecucion-actividad")
+      expect(document.activeElement?.id ?? "").not.toMatch(/^actividad-/)
     })
 
     it("offers it to an ADMINISTRADOR even when they aren't the responsable", async () => {

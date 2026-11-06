@@ -81,8 +81,11 @@ export function EjecucionAvance({
   progreso: Map<string, ProjectDeliverableProgress>;
   canWrite: boolean;
   canVoid: boolean;
-  /** Scroll to this row and move the keyboard focus to it (the Tablero sends the user here). */
-  enfocar?: boolean;
+  /**
+   * Scroll to this row and move the keyboard focus to it (the Tablero card or the header's «Registrar avance»).
+   * A new number asks again, so a repeated click still lands here.
+   */
+  enfocar?: boolean | number;
 }) {
   const estado = ESTADO_META[tecnico.estado];
   const fila = useRef<HTMLLIElement>(null);
@@ -107,7 +110,7 @@ export function EjecucionAvance({
           <span className="font-semibold">{actividad.nombre}</span>
         </p>
         <span className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-          {tecnico.color && <SemaforoChip color={tecnico.color} />}
+          {tecnico.color && <SemaforoChip color={tecnico.color} prefix="Semáforo" />}
           <ToneBadge tone={estado.tone} label={estado.label} />
         </span>
       </div>
@@ -503,7 +506,7 @@ function EntregableRow({
 
       {canWrite &&
         (abierto ? (
-          <CaptureSurface title="Registrar avance" onClose={() => setAbierto(false)}>
+          <CaptureSurface title="Registrar cantidad" onClose={() => setAbierto(false)}>
             <EjecucionAvanceForm
               projectId={proyectoId}
               entregable={entregable}
@@ -517,11 +520,11 @@ function EntregableRow({
             type="button"
             variant="outline"
             size="sm"
-            aria-label={`Registrar avance ${entregable.codigo}`}
+            aria-label={`Registrar cantidad ${entregable.codigo}`}
             className="mt-1.5"
             onClick={() => setAbierto(true)}
           >
-            Registrar avance
+            Registrar cantidad
           </Button>
         ))}
     </li>

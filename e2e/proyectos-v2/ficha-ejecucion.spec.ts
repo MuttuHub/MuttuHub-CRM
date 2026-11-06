@@ -68,15 +68,15 @@ test("Registrar avance with a generated file → Documentos (Actividades) → op
   await loginToProject(page, "coordinador", "PRY-2026-001");
   await tab(page, "Actividades").click();
   // 1.4-E2 has target 4 and 0 counted: room for several runs; the form asks for a justification past the target.
-  await page.getByRole("button", { name: "Registrar avance 1.4-E2" }).click();
-  const form = page.getByRole("form", { name: "Registrar avance 1.4-E2" });
+  await page.getByRole("button", { name: "Registrar cantidad 1.4-E2" }).click();
+  const form = page.getByRole("form", { name: "Registrar cantidad 1.4-E2" });
   await form.getByLabel("Cantidad").fill("1");
   const just = form.getByLabel("Justificación del exceso");
   if (await just.isVisible()) await just.fill("Prueba E2E repetida");
   await form.getByLabel("Archivo", { exact: true }).check();
   await form.locator('input[type="file"]').setInputFiles({ name: ARCHIVO, mimeType: "application/pdf", buffer: PDF });
   await form.getByRole("button", { name: "Registrar avance" }).click();
-  await expect(page.getByRole("form", { name: "Registrar avance 1.4-E2" })).toBeHidden({ timeout: 30_000 });
+  await expect(page.getByRole("form", { name: "Registrar cantidad 1.4-E2" })).toBeHidden({ timeout: 30_000 });
 
   await tab(page, "Documentos").click();
   const grupo = page.getByTestId("documentos-grupo-avance");
