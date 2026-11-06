@@ -412,6 +412,17 @@ describe("ProjectEjecucion", () => {
       expect(screen.queryByRole("button", { name: "Registrar avance 1.1" })).not.toBeInTheDocument()
     })
 
+    it("explains read-only access to a viewer outside the team, and says nothing to a member", async () => {
+      const fuera = setup({ rol: "COORDINADOR", miembros: [] })
+      const aviso = await screen.findByTestId("aviso-solo-consulta")
+      expect(aviso).toHaveTextContent("Estás viendo este proyecto en modo consulta")
+      fuera.unmount()
+
+      setup({ rol: "COORDINADOR", miembros: [MIEMBRO_COORDINADOR] })
+      await screen.findByRole("button", { name: "Registrar avance 1.1" })
+      expect(screen.queryByTestId("aviso-solo-consulta")).not.toBeInTheDocument()
+    })
+
     // F5b: the header's «Registrar avance» lands on the first unfinished activity, not just on the tab.
     it("focuses the first unfinished activity when the header asks for it", async () => {
       setup({

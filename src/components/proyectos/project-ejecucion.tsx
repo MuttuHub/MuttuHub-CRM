@@ -10,7 +10,7 @@ import { ChevronRight, ClipboardList, Gauge } from "lucide-react";
 import { useCurrentUser } from "@/hooks/kanban";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
-import { InlineError, MetricRow, SELECT_CLASS, SectionHeader } from "@/components/proyectos/ui";
+import { AvisoSoloConsulta, InlineError, MetricRow, SELECT_CLASS, SectionHeader } from "@/components/proyectos/ui";
 import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import { EjecucionAvance } from "@/components/proyectos/ejecucion-avance";
@@ -209,7 +209,12 @@ function CurvaAvance({ query }: { query: ReturnType<typeof useProjectCurve> }) {
  * Decisión 3: control de escritura para gestores, o un COORDINADOR que sea integrante activo (su lectura de
  * `/members` está permitida). Anular es solo de gestores. La API sigue siendo la autoridad final.
  */
-export function useEjecucionPermisos(proyectoId: string): { canWrite: boolean; canVoid: boolean } {
+export function useEjecucionPermisos(proyectoId: string): {
+  canWrite: boolean;
+  canVoid: boolean;
+  /** Both the user and the team are known, so `canWrite: false` is an answer, not a pending load. */
+  resuelto: boolean;
+} {
   const userQuery = useCurrentUser();
   const membersQuery = useProjectMembers(proyectoId);
   const usuario = userQuery.data;
@@ -220,7 +225,8 @@ export function useEjecucionPermisos(proyectoId: string): { canWrite: boolean; c
       PROJECT_MEMBER_ROLES.includes(usuario.rol) &&
       (membersQuery.data ?? []).some((miembro) => miembro.usuario.id === usuario.id),
   );
-  return { canWrite: esGestor || esMiembro, canVoid: esGestor };
+  const resuelto = Boolean(usuario) && (esGestor || membersQuery.isSuccess || membersQuery.isError);
+  return { canWrite: esGestor || esMiembro, canVoid: esGestor, resuelto };
 }
 
 /** Pestaña de objetivos e indicadores (v7): el registro de avance de indicador vive junto a los objetivos. */
@@ -249,7 +255,8 @@ function EjecucionContent({
   const objetivosQuery = useProjectObjectives(proyecto.id);
   const deliverablesQuery = useProjectDeliverables(proyecto.id);
 
-  const { canWrite, canVoid } = useEjecucionPermisos(proyecto.id);
+  const { canWrite, canVoid, resuelto } = useEjecucionPermisos(proyecto.id);
+  const soloConsulta = resuelto && !canWrite && proyecto.estado === "EN_EJECUCION";
 
   // Decisión 2: los entregables se leen UNA vez y los avances se abren con
   // `useQueries`, solo mientras la sección está montada.
@@ -292,6 +299,7 @@ function EjecucionContent({
 
   return (
     <div className={lista ? "mt-0" : "mt-2"}>
+      {soloConsulta && <AvisoSoloConsulta className="mb-2" />}
       {lista ? (
         <OpcionesAvanzadas proyecto={proyecto} base={base} corte={tecnico.corte} onBaseChange={setBase} />
       ) : (

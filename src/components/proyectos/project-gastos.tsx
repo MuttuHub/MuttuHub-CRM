@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/ui/status-chip";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { VoidControl, errorMessage } from "@/components/proyectos/estructura-ui";
-import { EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/ui";
+import { AvisoSoloConsulta, EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/ui";
 import { GASTOS_ERROR, GastosResumen } from "@/components/proyectos/gastos-kpis";
 import { GastoForm, TIPO_SOPORTE_LABELS } from "@/components/proyectos/gasto-form";
 import { ValidacionControles } from "@/components/proyectos/gasto-acciones";
@@ -111,6 +111,8 @@ export function ProjectGastos({ proyecto }: { proyecto: ProjectListRow }) {
       (membersQuery.data ?? []).some((miembro) => miembro.usuario.id === usuario.id),
   );
   const puedeRegistrar = (esGestor || esMiembroDelEquipo) && proyecto.estado === "EN_EJECUCION";
+  const permisosResueltos = Boolean(usuario) && (esGestor || membersQuery.isSuccess || membersQuery.isError);
+  const soloConsulta = permisosResueltos && !puedeRegistrar && proyecto.estado === "EN_EJECUCION";
 
   const gastos = query.data?.gastos ?? [];
   const visibles = gastos.filter((gasto) => coincide(gasto, filtro));
@@ -126,6 +128,7 @@ export function ProjectGastos({ proyecto }: { proyecto: ProjectListRow }) {
       ) : (
         <>
           <GastosResumen data={query.data} />
+          {soloConsulta && <AvisoSoloConsulta className="mt-2" />}
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
             {gastos.length > 0 ? <FiltrosGasto gastos={gastos} filtro={filtro} onChange={setFiltro} /> : <span />}
             {puedeRegistrar && !registrando && (
