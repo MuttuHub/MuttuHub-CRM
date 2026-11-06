@@ -218,7 +218,12 @@ En el encabezado, siempre visible:
 - Los chips **Semáforo técnico** y **Semáforo financiero** (desde En ejecución). Cada chip lleva a la pestaña que explica
   su causa.
 - Las acciones según rol y estado: **Aprobar línea base** (en Borrador), **Registrar avance** y **Registrar gasto** (en
-  ejecución).
+  ejecución). Desde cualquier pestaña, **Registrar avance** abre una ventana con el selector **Actividad** (viene
+  elegida la primera sin terminar), lo registrado y el tope de esa actividad, y el formulario del avance;
+  **Registrar gasto** abre el formulario del gasto en una ventana. Ninguna de las dos cambia de pestaña.
+- En **Finanzas › Resumen › Gastos por validar**, quien no puede validar también ve **Revisar**; al tocarlo, un aviso
+  explica: «No tienes permisos para validar gastos. Solo Gerencia o Administración pueden validarlos mientras el
+  proyecto está en ejecución.»
 - El menú **«⋯» → «Más acciones»** con **Exportar a Excel** e **Imprimir / PDF**.
 
 ### 5.1 Resumen
