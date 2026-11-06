@@ -8,11 +8,12 @@ test("Historial has Modificaciones, Versiones and Auditoría segments that each 
   await loginToProject(page, "gerencia", "PRY-2026-001");
   await page.getByRole("tablist").first().getByRole("tab", { name: "Historial", exact: true }).click();
   const panel = page.getByRole("tabpanel", { name: "Historial" });
-  await expect(panel.getByRole("tab", { name: "Modificaciones", selected: true })).toBeVisible();
-  await expect(panel.getByRole("heading", { name: "Modificaciones", level: 3 })).toBeVisible();
+  // The segments carry a count once loaded («Modificaciones · 0»); the section has no heading of its own.
+  await expect(panel.getByRole("tab", { name: /^Modificaciones/, selected: true })).toBeVisible();
+  await expect(panel.getByTestId("modificaciones")).toBeVisible();
   await expect(panel.getByRole("button", { name: "Solicitar modificación" })).toBeVisible();
 
-  await panel.getByRole("tab", { name: "Versiones", exact: true }).click();
+  await panel.getByRole("tab", { name: /^Versiones/ }).click();
   await expect(panel.getByRole("heading", { name: "Versiones", level: 3 })).toBeVisible();
 
   await panel.getByRole("tab", { name: "Auditoría", exact: true }).click();
