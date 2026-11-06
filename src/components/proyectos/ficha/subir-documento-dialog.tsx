@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { useCreateProjectDocument } from "@/hooks/projects";
+import { SelectorArchivo } from "@/components/proyectos/selector-archivo";
 
 const ERROR = "No pudimos subir el documento. Inténtalo de nuevo.";
 
@@ -114,12 +115,7 @@ export function SubirDocumentoDialog({
               <Label htmlFor="documento-archivo" className="text-[12px] text-ink-600">
                 Archivo
               </Label>
-              <input
-                id="documento-archivo"
-                type="file"
-                onChange={(event) => setArchivo(event.target.files?.[0] ?? null)}
-                className="min-h-11 text-base text-ink-800 md:min-h-0 md:text-[12.5px]"
-              />
+              <SelectorArchivo id="documento-archivo" onChange={setArchivo} />
             </div>
           ) : (
             <>

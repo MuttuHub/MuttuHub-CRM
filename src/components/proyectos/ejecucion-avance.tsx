@@ -38,11 +38,16 @@ import {
   type ProjectTechnicalActivityV6,
 } from "@/hooks/projects";
 import type { UiTone } from "@/lib/catalogs";
+import { SelectorArchivo } from "@/components/proyectos/selector-archivo";
 
 /** Mensaje de respaldo cuando `useAttachAvanceMedio` falla sin `Error.message` propio. */
 const ADJUNTAR_MEDIO_ERROR = "No pudimos adjuntar el medio. Inténtalo de nuevo.";
 /** Texto visible del botón "Adjuntar archivo" por reporte (mismo texto que AJ-06). */
 const ADJUNTAR_ARCHIVO_LABEL = "Adjuntar archivo";
+
+/** Replaces «Registrar avance» once the activity is finished: it takes no more reports. */
+export const ACTIVIDAD_FINALIZADA_TEXT =
+  "Actividad finalizada: ya no recibe avances. Si hay que corregir algo, anula el último avance o solicita una modificación.";
 
 const ESTADO_META: Record<EstadoActividad, { tone: UiTone; label: string }> = {
   FINALIZADA: { tone: "exito", label: "Finalizada" },
@@ -139,6 +144,7 @@ export function EjecucionAvance({
         proyectoId={proyectoId}
         actividad={actividad}
         canWrite={canWrite}
+        finalizada={tecnico.estado === "FINALIZADA" || tecnico.estado === "FINALIZADA_CON_RETRASO"}
       />
 
       {entregables.length > 0 && (
@@ -169,17 +175,31 @@ function ActividadReportes({
   proyectoId,
   actividad,
   canWrite,
+  finalizada,
 }: {
   proyectoId: string;
   actividad: ProjectActivity;
   canWrite: boolean;
+  /** A finished activity takes no new report; voiding the last one stays available. */
+  finalizada: boolean;
 }) {
   const query = useActivityReports(proyectoId, actividad.id);
   const remove = useVoidActivityReport(proyectoId, actividad.id);
   const [abierto, setAbierto] = useState(false);
 
   const reportes = query.data?.reportes ?? [];
-  const ultimoIndex = reportes.length - 1;
+  // Same rule as the void route: the latest live report by date, then by creation. A voided one never counts.
+  const ultimoId = reportes
+    .filter((reporte) => reporte.anulado_at === null)
+    .reduce<ProjectActivityReport | null>(
+      (ultimo, reporte) =>
+        ultimo === null ||
+        reporte.fecha > ultimo.fecha ||
+        (reporte.fecha === ultimo.fecha && reporte.created_at > ultimo.created_at)
+          ? reporte
+          : ultimo,
+      null,
+    )?.id;
 
   return (
     <div className="mt-2">
@@ -187,14 +207,14 @@ function ActividadReportes({
         <InlineError message={errorMessage(query.error, "No pudimos cargar los avances. Inténtalo de nuevo.")} />
       ) : reportes.length > 0 ? (
         <ul data-testid="ejecucion-reportes" className="flex flex-col gap-1.5">
-          {reportes.map((reporte, index) => (
+          {reportes.map((reporte) => (
             <ReporteRow
               key={reporte.id}
               proyectoId={proyectoId}
               actividad={actividad}
               reporte={reporte}
               canWrite={canWrite}
-              esUltimo={index === ultimoIndex}
+              esUltimo={reporte.id === ultimoId}
               deleting={remove.isPending && remove.variables?.id === reporte.id}
               error={
                 remove.isError && remove.variables?.id === reporte.id
@@ -207,7 +227,9 @@ function ActividadReportes({
         </ul>
       ) : null}
 
+      {canWrite && finalizada && <p className="mt-1.5 text-[12.5px] text-ink-600">{ACTIVIDAD_FINALIZADA_TEXT}</p>}
       {canWrite &&
+        !finalizada &&
         (abierto ? (
           <CaptureSurface title="Registrar avance" onClose={() => setAbierto(false)}>
             <ReporteActividadForm
@@ -282,7 +304,7 @@ function ReporteRow({
         </span>
       </div>
       <p className={anulado ? "mt-1 text-ink-500 line-through" : "mt-1 text-ink-700"}>{reporte.observacion}</p>
-      {canWrite && (
+      {canWrite && !anulado && (
         <AdjuntarMedioReporte proyectoId={proyectoId} actividadId={actividad.id} reportId={reporte.id} />
       )}
     </li>
@@ -378,12 +400,7 @@ function AdjuntarMedioReporte({
           <Label htmlFor={`${prefijo}-archivo`} className="text-[12px] text-ink-600">
             Archivo del soporte
           </Label>
-          <input
-            id={`${prefijo}-archivo`}
-            type="file"
-            onChange={(event) => setArchivo(event.target.files?.[0] ?? null)}
-            className="min-h-11 text-base md:min-h-0 md:text-[12.5px] text-ink-800"
-          />
+          <SelectorArchivo id={`${prefijo}-archivo`} onChange={setArchivo} />
         </div>
       ) : (
         <>

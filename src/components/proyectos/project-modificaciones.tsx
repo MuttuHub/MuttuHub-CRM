@@ -6,13 +6,13 @@
 "use client";
 
 import { useState } from "react";
-import { FilePen, LoaderCircle } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { ToneBadge } from "@/components/crm/shared";
 import { SolicitarModificacion, TIPO_MODIFICACION_LABEL } from "@/components/proyectos/modificacion-form";
 import { formatFechaHora } from "@/components/proyectos/project-display";
 import { CAMPO_LABEL } from "@/components/proyectos/project-versiones";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
-import { EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/ui";
+import { EmptyBlock, InlineError } from "@/components/proyectos/ui";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrentUser } from "@/hooks/kanban";
@@ -53,10 +53,10 @@ function formatValor(item: ModificacionDetalleItem, valor: string): string {
   }
 }
 
+// Its only screen is Historial › Modificaciones, whose segment already names the section: no heading of its own.
 export function ProjectModificaciones({ proyecto }: { proyecto: ProjectListRow }) {
   return (
     <section data-testid="modificaciones">
-      <SectionHeader icon={<FilePen className="size-3.5" strokeWidth={2} />}>Modificaciones</SectionHeader>
       {proyecto.estado === "BORRADOR" ? (
         <p className="mt-1.5 text-[12.5px] text-ink-500">{MODIFICACIONES_BORRADOR_HINT}</p>
       ) : (

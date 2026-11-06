@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { CAPTURE_BUTTON, CAPTURE_CHOICE, CAPTURE_FIELD, InlineError } from "@/components/proyectos/ui";
 import type { AvanceMedioInput } from "@/hooks/projects";
+import { SelectorArchivo } from "@/components/proyectos/selector-archivo";
 
 /** Texto visible del botón en las cuatro superficies (S6): gasto, medios de verificación y mediciones. */
 export const ADJUNTAR_ARCHIVO_LABEL = "Adjuntar archivo";
@@ -130,13 +131,7 @@ export function AdjuntarArchivoControl({ adjuntar, errorFallback, sinSoporteText
               </Button>
             </div>
           ) : (
-            <input
-              id={`${prefijo}-archivo`}
-              ref={inputArchivoRef}
-              type="file"
-              onChange={(event) => setArchivo(event.target.files?.[0] ?? null)}
-              className="min-h-11 text-base md:min-h-0 md:text-[12.5px] text-ink-800"
-            />
+            <SelectorArchivo id={`${prefijo}-archivo`} inputRef={inputArchivoRef} onChange={setArchivo} />
           )}
         </div>
       ) : (

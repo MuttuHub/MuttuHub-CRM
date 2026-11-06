@@ -3,7 +3,7 @@
 
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { ProjectListRow } from "@/hooks/projects"
 import { FichaFinanzas } from "./ficha-finanzas"
 
@@ -16,6 +16,22 @@ vi.mock("@/components/proyectos/project-gastos", () => ({
 vi.mock("@/components/proyectos/project-presupuesto", () => ({
   ProjectPresupuesto: () => <div data-testid="segmento-presupuesto" />,
 }))
+
+// The Gastos counter reads the same expenses query the Gastos segment uses; here only its state matters.
+type Consulta = { data?: { gastos: unknown[] }; isSuccess: boolean; isError: boolean }
+const CARGANDO: Consulta = { data: undefined, isSuccess: false, isError: false }
+const gastos = vi.hoisted(() => ({ consulta: undefined as unknown, ids: [] as string[] }))
+vi.mock("@/hooks/projects", () => ({
+  useProjectExpenses: (id: string) => {
+    gastos.ids.push(id)
+    return gastos.consulta
+  },
+}))
+
+beforeEach(() => {
+  gastos.consulta = CARGANDO
+  gastos.ids = []
+})
 
 const PROYECTO: ProjectListRow = {
   id: "p1",
@@ -43,6 +59,33 @@ describe("FichaFinanzas", () => {
     render(<FichaFinanzas proyecto={PROYECTO} />)
 
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Resumen", "Gastos", "Presupuesto"])
+  })
+
+  it("counts the project's expenses on the Gastos segment once they are loaded", () => {
+    gastos.consulta = { data: { gastos: [{}, {}, {}] }, isSuccess: true, isError: false }
+    render(<FichaFinanzas proyecto={PROYECTO} />)
+
+    expect(screen.getByRole("tab", { name: "Gastos · 3" })).toBeInTheDocument()
+    expect(gastos.ids).toContain("p1")
+    // The count does not open the segment: Resumen stays the active one.
+    expect(screen.getByTestId("segmento-resumen")).toBeInTheDocument()
+  })
+
+  it("counts zero expenses as «Gastos · 0»", () => {
+    gastos.consulta = { data: { gastos: [] }, isSuccess: true, isError: false }
+    render(<FichaFinanzas proyecto={PROYECTO} />)
+
+    expect(screen.getByRole("tab", { name: "Gastos · 0" })).toBeInTheDocument()
+  })
+
+  it("shows no number while the expenses load or when they fail", () => {
+    const { unmount } = render(<FichaFinanzas proyecto={PROYECTO} />)
+    expect(screen.getByRole("tab", { name: "Gastos" })).toBeInTheDocument()
+    unmount()
+
+    gastos.consulta = { data: undefined, isSuccess: false, isError: true }
+    render(<FichaFinanzas proyecto={PROYECTO} />)
+    expect(screen.getByRole("tab", { name: "Gastos" })).toBeInTheDocument()
   })
 
   it("opens on Resumen for a project that is not BORRADOR and mounts only that segment", () => {

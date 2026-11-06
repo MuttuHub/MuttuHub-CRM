@@ -4,7 +4,7 @@
 
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { ProjectListRow } from "@/hooks/projects"
 import { FichaHistorial } from "./ficha-historial"
 
@@ -17,6 +17,31 @@ vi.mock("@/components/proyectos/project-versiones", () => ({
 vi.mock("@/components/proyectos/project-historial", () => ({
   ProjectHistorial: () => <div data-testid="segmento-auditoria" />,
 }))
+
+// The counters read the same queries the Modificaciones and Versiones segments use; here only their state matters.
+type Consulta = { data?: unknown[]; isSuccess: boolean; isError: boolean }
+const CARGANDO: Consulta = { data: undefined, isSuccess: false, isError: false }
+const consultas = vi.hoisted(() => ({
+  modificaciones: undefined as unknown,
+  versiones: undefined as unknown,
+  llamadas: [] as string[],
+}))
+vi.mock("@/hooks/projects", () => ({
+  useProjectModifications: (id: string) => {
+    consultas.llamadas.push(`modificaciones:${id}`)
+    return consultas.modificaciones
+  },
+  useProjectVersions: (id: string) => {
+    consultas.llamadas.push(`versiones:${id}`)
+    return consultas.versiones
+  },
+}))
+
+beforeEach(() => {
+  consultas.modificaciones = CARGANDO
+  consultas.versiones = CARGANDO
+  consultas.llamadas = []
+})
 
 const PROYECTO: ProjectListRow = {
   id: "p1",
@@ -44,6 +69,36 @@ describe("FichaHistorial", () => {
     render(<FichaHistorial proyecto={PROYECTO} />)
 
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Modificaciones", "Versiones", "Auditoría"])
+  })
+
+  it("counts the modifications and the versions once they are loaded, and never the audit", () => {
+    consultas.modificaciones = { data: [{}, {}], isSuccess: true, isError: false }
+    consultas.versiones = { data: [{}, {}, {}], isSuccess: true, isError: false }
+    render(<FichaHistorial proyecto={PROYECTO} />)
+
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
+      "Modificaciones · 2",
+      "Versiones · 3",
+      "Auditoría",
+    ])
+    expect(screen.getByRole("tab", { name: "Modificaciones · 2" })).toHaveAttribute("aria-selected", "true")
+    expect(consultas.llamadas).toEqual(expect.arrayContaining(["modificaciones:p1", "versiones:p1"]))
+  })
+
+  it("shows no number while loading or on error", () => {
+    consultas.modificaciones = { data: undefined, isSuccess: false, isError: true }
+    render(<FichaHistorial proyecto={PROYECTO} />)
+
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Modificaciones", "Versiones", "Auditoría"])
+  })
+
+  it("reads nothing and shows no number for a BORRADOR project, whose segments only explain themselves", () => {
+    consultas.modificaciones = { data: [{}], isSuccess: true, isError: false }
+    consultas.versiones = { data: [{}], isSuccess: true, isError: false }
+    render(<FichaHistorial proyecto={{ ...PROYECTO, estado: "BORRADOR" }} />)
+
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Modificaciones", "Versiones", "Auditoría"])
+    expect(consultas.llamadas).toEqual([])
   })
 
   it("opens on Modificaciones and mounts only that segment", () => {

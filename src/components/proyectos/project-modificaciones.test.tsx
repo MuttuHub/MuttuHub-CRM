@@ -100,9 +100,15 @@ describe("ProjectModificaciones", () => {
 
   it("only explains itself for a BORRADOR project, and reads nothing", () => {
     setup({ proyecto: { estado: "BORRADOR" } })
-    expect(screen.getByTestId("modificaciones")).toHaveTextContent("Modificaciones")
+    expect(screen.getByTestId("modificaciones")).toBeInTheDocument()
     expect(screen.getByText(/línea base esté aprobada/i)).toBeInTheDocument()
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("does not repeat the 'Modificaciones' heading: the Historial segment already names it", async () => {
+    setup()
+    await screen.findAllByTestId("solicitud")
+    expect(screen.queryByRole("heading", { name: "Modificaciones" })).not.toBeInTheDocument()
   })
 
   it("lists the pending queue first, then the decided requests with their outcome", async () => {

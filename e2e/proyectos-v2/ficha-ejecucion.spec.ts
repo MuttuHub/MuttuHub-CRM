@@ -75,7 +75,7 @@ test("Registrar avance with a generated file → Documentos (Actividades) → op
   if (await just.isVisible()) await just.fill("Prueba E2E repetida");
   await form.getByLabel("Archivo", { exact: true }).check();
   await form.locator('input[type="file"]').setInputFiles({ name: ARCHIVO, mimeType: "application/pdf", buffer: PDF });
-  await form.getByRole("button", { name: "Registrar avance" }).click();
+  await form.getByRole("button", { name: "Registrar cantidad" }).click();
   await expect(page.getByRole("form", { name: "Registrar cantidad 1.4-E2" })).toBeHidden({ timeout: 30_000 });
 
   await tab(page, "Documentos").click();

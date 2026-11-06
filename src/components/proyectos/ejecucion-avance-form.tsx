@@ -18,6 +18,7 @@ import {
   type ProjectDeliverable,
 } from "@/hooks/projects";
 import { todayInBogota } from "@/lib/proyectos/weeks";
+import { SelectorArchivo } from "@/components/proyectos/selector-archivo";
 
 type TipoMedio = "ninguno" | "archivo" | "enlace";
 
@@ -192,12 +193,7 @@ export function EjecucionAvanceForm({
           <Label htmlFor={`${nombreMedio}-archivo`} className="text-[12px] text-ink-600">
             Archivo del medio
           </Label>
-          <input
-            id={`${nombreMedio}-archivo`}
-            type="file"
-            onChange={(event) => setArchivo(event.target.files?.[0] ?? null)}
-            className="min-h-11 text-base md:text-[12.5px] text-ink-800 md:min-h-0"
-          />
+          <SelectorArchivo id={`${nombreMedio}-archivo`} onChange={setArchivo} />
         </div>
       )}
 
@@ -232,7 +228,7 @@ export function EjecucionAvanceForm({
 
       <div className="flex items-center gap-2 sm:col-span-2">
         <Button type="submit" size="sm" className={CAPTURE_BUTTON} disabled={create.isPending}>
-          Registrar avance
+          Registrar cantidad
         </Button>
         <Button type="button" size="sm" variant="ghost" className={CAPTURE_BUTTON} disabled={create.isPending} onClick={onDone}>
           Cancelar

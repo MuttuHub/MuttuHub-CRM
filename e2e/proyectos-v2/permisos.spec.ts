@@ -112,7 +112,7 @@ test("coordinador: own projects only, may create, executes but never approves no
   await expect(page.getByRole("button", { name: "Registrar avance", exact: true }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Registrar gasto", exact: true })).toBeVisible();
   await page.getByRole("tab", { name: "Finanzas", exact: true }).click();
-  await page.getByRole("tab", { name: "Gastos", exact: true }).click();
+  await page.getByRole("tab", { name: /^Gastos( · \d+)?$/ }).click();
   await expect(page.getByTestId("gastos-lista")).toBeVisible();
   await expect(page.getByRole("button", { name: "Validar" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Rechazar" })).toHaveCount(0);
@@ -168,7 +168,7 @@ test("colaborador member: reads their project, executes, cannot validate nor app
   await expect(page.getByRole("button", { name: "Registrar gasto", exact: true })).toBeVisible();
 
   await page.getByRole("tab", { name: "Finanzas", exact: true }).click();
-  await page.getByRole("tab", { name: "Gastos", exact: true }).click();
+  await page.getByRole("tab", { name: /^Gastos( · \d+)?$/ }).click();
   await expect(page.getByTestId("gastos-lista")).toBeVisible();
   await expect(page.getByRole("button", { name: "Validar" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Rechazar" })).toHaveCount(0);

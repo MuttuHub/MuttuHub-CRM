@@ -9,9 +9,23 @@ import { ProjectFinanciero } from "@/components/proyectos/project-financiero";
 import { ProjectGastos } from "@/components/proyectos/project-gastos";
 import { ProjectPresupuesto } from "@/components/proyectos/project-presupuesto";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { ProjectListRow } from "@/hooks/projects";
+import { useProjectExpenses, type ProjectListRow } from "@/hooks/projects";
 
 const PANEL_CLASS = "mt-0 flex flex-col gap-6";
+
+/**
+ * « · N» after a segment name, only once its data loaded (nothing while loading or on error). A bare text node,
+ * so the tab reads as one run («Gastos · 3»): a wrapping element would lose the space in the accessible name.
+ */
+function ContadorSegmento({ cantidad }: { cantidad: number | undefined }) {
+  return cantidad === undefined ? null : ` · ${cantidad}`;
+}
+
+/** Same expenses query as the Gastos segment (same key): no extra request once that segment is open. */
+function ContadorGastos({ proyectoId }: { proyectoId: string }) {
+  const query = useProjectExpenses(proyectoId);
+  return <ContadorSegmento cantidad={query.isSuccess ? query.data?.gastos.length : undefined} />;
+}
 
 export function FichaFinanzas({ proyecto }: { proyecto: ProjectListRow }) {
   return (
@@ -21,7 +35,10 @@ export function FichaFinanzas({ proyecto }: { proyecto: ProjectListRow }) {
     >
       <TabsList variant="pill" className="w-full justify-start">
         <TabsTrigger value="resumen">Resumen</TabsTrigger>
-        <TabsTrigger value="gastos">Gastos</TabsTrigger>
+        <TabsTrigger value="gastos">
+          Gastos
+          <ContadorGastos proyectoId={proyecto.id} />
+        </TabsTrigger>
         <TabsTrigger value="presupuesto">Presupuesto</TabsTrigger>
       </TabsList>
 

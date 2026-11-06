@@ -266,23 +266,49 @@ describe("ProjectGastos", () => {
       expect(filas[1]).not.toHaveTextContent("Supera el asignado")
     })
 
-    it("shows the IVA apart, for information, under the Total (S1, S2)", async () => {
+    it("keeps the Total in bold and breaks it down as «subtotal + IVA», or «Sin IVA» when the IVA is 0 (S1, S2)", async () => {
       setup({ gastos: [gasto("g1", { valor: "1190000.00", subtotal: "1000000.00", iva: "190000.00" }), gasto("g2")] })
       const lista = await screen.findByTestId("gastos-lista")
       const filas = await within(lista).findAllByTestId("gasto-fila")
-      expect(filas[0]).toHaveTextContent("$ 1.190.000")
-      expect(within(filas[0]).getByText("IVA $ 190.000")).toBeInTheDocument()
-      expect(within(filas[0]).getByText("$ 1.190.000").closest("td")?.className).toContain("text-right")
-      expect(within(filas[1]).getByText("IVA $ 0")).toBeInTheDocument()
+      const total = within(filas[0]).getByText("$ 1.190.000")
+      expect(total.closest("td")?.className).toContain("text-right")
+      expect(total.closest("td")?.className).toContain("font-semibold")
+      expect(within(filas[0]).getByText("$ 1.000.000 + IVA $ 190.000")).toBeInTheDocument()
+      expect(within(filas[0]).queryByText("Sin IVA")).not.toBeInTheDocument()
+      expect(within(filas[1]).getByText("Sin IVA")).toBeInTheDocument()
+      expect(within(filas[1]).queryByText("IVA $ 0")).not.toBeInTheDocument()
     })
 
-    it("marks «Periodo modificado» only on an expense whose period differs from its document month (S5, S6)", async () => {
+    it("shows the period under the document date, plus «Periodo modificado» only when it was edited (S5, S6)", async () => {
       setup({ gastos: [gasto("g1", { periodo: "2026-12", periodo_modificado: true }), gasto("g2")] })
       const lista = await screen.findByTestId("gastos-lista")
       const filas = await within(lista).findAllByTestId("gasto-fila")
+      const fecha = within(filas[0]).getByText("15/10/26").closest("td") as HTMLElement
+      expect(within(fecha).getByText("2026-12")).toBeInTheDocument()
       const marca = within(filas[0]).getByText("Periodo modificado")
       expect(marca).toHaveAttribute("title", "Periodo 2026-12")
+      expect(within(within(filas[1]).getByText("15/10/26").closest("td") as HTMLElement).getByText("2026-10")).toBeInTheDocument()
       expect(within(filas[1]).queryByText("Periodo modificado")).not.toBeInTheDocument()
+    })
+
+    it("shows the period and the IVA breakdown on the phone cards too", async () => {
+      mockViewport(true)
+      try {
+        setup({
+          gastos: [
+            gasto("g1", { valor: "1190000.00", subtotal: "1000000.00", iva: "190000.00", periodo: "2026-12", periodo_modificado: true }),
+            gasto("g2"),
+          ],
+        })
+        const tarjetas = await within(await screen.findByTestId("gastos-cards")).findAllByTestId("gasto-fila")
+        expect(within(tarjetas[0]).getByText("$ 1.000.000 + IVA $ 190.000")).toBeInTheDocument()
+        expect(tarjetas[0]).toHaveTextContent("Periodo 2026-12")
+        expect(within(tarjetas[0]).getByText("Periodo modificado")).toBeInTheDocument()
+        expect(within(tarjetas[1]).getByText("Sin IVA")).toBeInTheDocument()
+        expect(tarjetas[1]).toHaveTextContent("Periodo 2026-10")
+      } finally {
+        mockViewport(false)
+      }
     })
 
     it("shows the third-party number and the support control only when the API sent them", async () => {

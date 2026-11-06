@@ -188,19 +188,19 @@ describe("ProjectDashboard", () => {
     expect(within(fila).queryByTestId("chip-tecnico")).not.toBeInTheDocument()
   })
 
-  it("shows the weighted aggregate, the states and the 'Semáforo provisional' badge", () => {
+  it("shows the weighted aggregate, the states and the 'Umbrales sin confirmar' badge", () => {
     render(<ProjectDashboard />)
     expect(screen.getByTestId("tablero-ea")).toHaveTextContent("10 %")
     expect(screen.getByTestId("tablero-ejecutado")).toHaveTextContent("$ 100")
     expect(screen.getByTestId("tablero-estados")).toHaveTextContent("En ejecución")
     expect(screen.getByTestId("tablero-estados")).toHaveTextContent("Borrador")
-    expect(screen.getByText("Semáforo provisional")).toBeInTheDocument()
+    expect(screen.getByText("Umbrales sin confirmar")).toBeInTheDocument()
   })
 
   it("hides the badge once the parameters are confirmed", () => {
     state.query = { ...state.query, data: { ...PORTAFOLIO, confirmado: true } }
     render(<ProjectDashboard />)
-    expect(screen.queryByText("Semáforo provisional")).not.toBeInTheDocument()
+    expect(screen.queryByText("Umbrales sin confirmar")).not.toBeInTheDocument()
   })
 
   it("does not render a territorial traffic light: municipio is only a filter (REQ-DSH-04)", () => {

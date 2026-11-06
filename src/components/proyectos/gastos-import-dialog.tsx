@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useId, useState, type ChangeEvent } from "react";
+import { useId, useState } from "react";
 import { AlertTriangle, Download, FileSpreadsheet, LoaderCircle, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatusChip } from "@/components/ui/status-chip";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -35,6 +34,7 @@ import {
 } from "@/hooks/projects";
 import { IMPORT_MAX_BYTES } from "@/lib/proyectos/plantilla/columns";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
+import { SelectorArchivo } from "@/components/proyectos/selector-archivo";
 
 const TOO_LARGE = "El archivo supera el límite de 4 MB.";
 const NOT_XLSX = "Solo se aceptan los gastos en formato Excel (.xlsx).";
@@ -222,9 +222,8 @@ export function GastosImportDialog({ proyectoId }: { proyectoId: string }) {
     }
   }
 
-  function elegirArchivo(event: ChangeEvent<HTMLInputElement>) {
+  function elegirArchivo(elegido: File | null) {
     limpiarResultado();
-    const elegido = event.target.files?.[0] ?? null;
     if (!elegido) {
       setArchivo(null);
       setArchivoError(null);
@@ -289,14 +288,7 @@ export function GastosImportDialog({ proyectoId }: { proyectoId: string }) {
                 <Label htmlFor={inputId} className="text-[12px] text-ink-600">
                   Archivo de gastos (.xlsx, máx. 4 MB)
                 </Label>
-                <Input
-                  id={inputId}
-                  type="file"
-                  accept=".xlsx"
-                  onChange={elegirArchivo}
-                  disabled={ocupado}
-                  className="h-auto px-3 py-2"
-                />
+                <SelectorArchivo id={inputId} accept=".xlsx" onChange={elegirArchivo} disabled={ocupado} />
                 <InlineError message={archivoError} />
               </div>
             </>
