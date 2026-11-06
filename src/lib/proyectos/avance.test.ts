@@ -363,6 +363,29 @@ describe("calcularTecnico with reportes (S8, full S3 accept-if list)", () => {
   })
 })
 
+describe("calcularTecnico — AJ-03: soportes that arrive after the fin are not a delay", () => {
+  const actividad = (porcentajeAlFin: number): ActividadTecnicaInput => ({
+    id: "x",
+    codigo: "9.1",
+    peso: 1,
+    inicio: "2026-10-05",
+    fin: "2026-10-11",
+    entregables: [{ id: "e1", meta: 2, avances: [av("2026-10-25", 2)] }],
+    reportes: [{ fecha: "2026-10-11", porcentaje: porcentajeAlFin }],
+  })
+
+  it("reads Finalizada when the tope was reached by the fin and the deliverables closed later (PO: 90 % on time, done later)", () => {
+    const r = calcularTecnico({ corte: "2026-10-30", requiereMedio: true, tope: 0.9, actividades: [actividad(90)] })
+    expect(r.actividades[0].fecha_cumplimiento).toBe("2026-10-25")
+    expect(r.actividades[0].estado).toBe("FINALIZADA")
+  })
+
+  it("still reads Finalizada con retraso when the progress at the fin was below the tope (PO: 50 % at the fin)", () => {
+    const r = calcularTecnico({ corte: "2026-10-30", requiereMedio: true, tope: 0.9, actividades: [actividad(50)] })
+    expect(r.actividades[0].estado).toBe("FINALIZADA_CON_RETRASO")
+  })
+})
+
 describe("tendencia", () => {
   it("compares the last measurement with the previous one", () => {
     expect(tendencia(5, 3)).toBe("sube")

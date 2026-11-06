@@ -181,21 +181,22 @@ export function estadoActividad(input: {
   hasReports?: boolean
   /** S8: whether every deliverable of the activity is complete (only read when `hasReports`). */
   entregablesCompletos?: boolean
+  /**
+   * AJ-03: whether the progress had reached the tope by the fin. Then soportes that close the
+   * deliverables later are not a delay, the same rule the schedule-compliance KPI applies.
+   */
+  alcanzoTopeAlFin?: boolean
 }): EstadoActividad {
+  const late =
+    input.fechaCumplimiento !== null && input.fechaCumplimiento > input.fin && !input.alcanzoTopeAlFin
   if (input.hasReports) {
     // Once there is a report, there is no going back to NO_INICIADA (S2/S3): the activity
     // only finishes once every deliverable is actually complete, regardless of the reported
     // percentage — never "stays Sin iniciar" and never finishes on the report alone.
-    if (input.entregablesCompletos) {
-      const late = input.fechaCumplimiento !== null && input.fechaCumplimiento > input.fin
-      return late ? "FINALIZADA_CON_RETRASO" : "FINALIZADA"
-    }
+    if (input.entregablesCompletos) return late ? "FINALIZADA_CON_RETRASO" : "FINALIZADA"
     return "EN_CURSO"
   }
-  if (input.progreso >= 1) {
-    const late = input.fechaCumplimiento !== null && input.fechaCumplimiento > input.fin
-    return late ? "FINALIZADA_CON_RETRASO" : "FINALIZADA"
-  }
+  if (input.progreso >= 1) return late ? "FINALIZADA_CON_RETRASO" : "FINALIZADA"
   if (input.progreso > 0 || input.corte >= input.inicio) return "EN_CURSO"
   return "NO_INICIADA"
 }
@@ -265,6 +266,7 @@ export function calcularTecnico(input: {
     const completos = entregablesCompletos(a.entregables, requiereMedio)
     const hasReports = (a.reportes ?? []).length > 0
     const progreso = progresoActividad(a, requiereMedio)
+    const avanceAlFin = progresoActividad(a, requiereMedio, a.fin)
 
     return {
       id: a.id,
@@ -279,10 +281,11 @@ export function calcularTecnico(input: {
         fechaCumplimiento: cumplimiento,
         hasReports,
         entregablesCompletos: completos,
+        alcanzoTopeAlFin: alcanzaTope(avanceAlFin, input.tope),
       }),
       fecha_cumplimiento: cumplimiento,
       entregables_completos: completos,
-      avance_al_fin: progresoActividad(a, requiereMedio, a.fin),
+      avance_al_fin: avanceAlFin,
     }
   })
 
