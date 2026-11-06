@@ -129,6 +129,7 @@ beforeEach(() => {
 const BATCHED = [
   () => db.actividad.findMany,
   () => db.avanceEntregable.findMany,
+  () => db.reporteActividad.findMany,
   () => db.soporteProyecto.groupBy,
   () => db.indicador.findMany,
   () => db.registroBeneficiario.groupBy,
@@ -207,6 +208,21 @@ describe("parity with the per-project paths", () => {
       expect(kpis.financiero?.ea).toBe(ficha.total.eaTenths === null ? null : Number(ficha.total.eaTenths) / 10)
       expect(kpis.financiero?.ep).toBe(ficha.total.epTenths === null ? null : Number(ficha.total.epTenths) / 10)
     }
+  })
+
+  it("counts the AJ-01 activity progress reports like the activity list does (header semáforo, avance real, cronograma)", async () => {
+    seedProject("p1", 0)
+    store.reportes.push(
+      { proyecto_id: "p1", actividad_id: "p1-a2", fecha: D("2026-03-01"), porcentaje: dec("60"), created_at: new Date("2026-03-01T10:00:00Z"), anulado_at: null },
+      { proyecto_id: "p1", actividad_id: "p1-a2", fecha: D("2026-03-05"), porcentaje: dec("80"), created_at: new Date("2026-03-05T10:00:00Z"), anulado_at: new Date("2026-03-06T10:00:00Z") },
+    )
+    const corte = "2026-03-15"
+    const kpis = (await loadKpisPortafolio({ proyectos: [base("p1", "EN_EJECUCION")], corte, parametros: PARAMETROS_V2_DEFAULT })).get("p1")!
+    const tecnico = await loadTecnicoStatus({ proyectoId: "p1", fechaInicio: D("2026-01-05"), corte, parametros: PARAMETROS_V2_DEFAULT })
+
+    expect(tecnico.tecnico.actividades.find((a) => a.id === "p1-a2")?.progreso).toBe(0.6)
+    expect(kpis.tecnico?.avance_real).toBe(Math.round(tecnico.tecnico.avance_real * 1000) / 10)
+    expect(kpis.tecnico?.color).toBe(tecnico.color)
   })
 
   it("batching does not mix projects: each project sees only its own rows", async () => {

@@ -197,6 +197,24 @@ describe("ProjectGastos", () => {
         unmount()
       }
     })
+
+    it("explains why a viewer outside the team cannot register, instead of only hiding the button", async () => {
+      setup({ rol: "COORDINADOR" })
+      const aviso = await screen.findByTestId("aviso-solo-consulta")
+      expect(aviso).toHaveTextContent("Estás viendo este proyecto en modo consulta")
+      expect(aviso).toHaveTextContent("pide que te agreguen al equipo del proyecto")
+    })
+
+    it("shows no read-only notice to whoever can register, nor outside execution", async () => {
+      const gestor = setup({ rol: "GERENCIA" })
+      await screen.findByRole("button", { name: "Registrar gasto" })
+      expect(screen.queryByTestId("aviso-solo-consulta")).not.toBeInTheDocument()
+      gestor.unmount()
+
+      setup({ rol: "COORDINADOR", proyecto: { estado: "CERRADO" } })
+      await screen.findByTestId("gastos-lista")
+      expect(screen.queryByTestId("aviso-solo-consulta")).not.toBeInTheDocument()
+    })
   })
 
   describe("import control (B8)", () => {

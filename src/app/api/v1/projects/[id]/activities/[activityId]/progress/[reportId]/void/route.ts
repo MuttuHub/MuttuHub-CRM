@@ -6,8 +6,8 @@
 // prior pattern to follow: a mistaken report is voided and a new, correct one registered
 // through POST .../progress (S10's "edit" reading as "void + create a new one").
 //
-// Void is gated the same as create (S9.5, responsable-only + ADMINISTRADOR/GERENCIA
-// override) and only the single most recent non-voided report of the activity may be
+// Void is gated the same as create (any project member or manager) and only the single
+// most recent non-voided report of the activity may be
 // voided — an older, superseded report is immutable, preserving the "siempre mayor"
 // invariant for the ones that remain live. The row is kept (never hard-deleted) and
 // audited with ANULAR, exactly like `AvanceEntregable`'s void.
@@ -20,7 +20,13 @@ import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { logChange } from "@/lib/api/audit-cambios";
 import { conflict, parseEstructuraBody } from "@/lib/api/estructura";
-import { REPORTE_NO_EXISTE, contarMediosVivosReporte, gateReporteActividadWrite, toReporteView } from "@/lib/api/ejecucion";
+import {
+  REPORTE_NO_EXISTE,
+  contarMediosVivosReporte,
+  gateReporteActividadWrite,
+  nombresDeRegistradores,
+  toReporteView,
+} from "@/lib/api/ejecucion";
 
 export const dynamic = "force-dynamic";
 
@@ -89,7 +95,12 @@ export const POST = withApiErrorHandling(
     });
     if (!row) return conflict(REPORTE_ANULADO_MESSAGE);
 
-    const medios = await contarMediosVivosReporte([row.id]);
-    return NextResponse.json({ reporte: toReporteView(row, medios.get(row.id) ?? 0) });
+    const [medios, nombres] = await Promise.all([
+      contarMediosVivosReporte([row.id]),
+      nombresDeRegistradores([row.registrado_por_id]),
+    ]);
+    return NextResponse.json({
+      reporte: toReporteView(row, medios.get(row.id) ?? 0, nombres.get(row.registrado_por_id) ?? null),
+    });
   },
 );

@@ -279,3 +279,41 @@ describe("runSeedProjectsDemo", () => {
     expect(calls).toEqual([])
   })
 })
+
+describe("buildSeedData — the demo shows the PO's AJ-03/04/05 cases", () => {
+  const HOY_NOV = "2026-11-05"
+
+  it("charges every gasto to the month of its document date except one deliberate «Periodo modificado»", () => {
+    const { gastos } = buildSeedData(HOY_NOV)
+    const modificados = gastos.filter((g) => g.periodo !== g.fechaDocumento.slice(0, 7))
+    expect(modificados).toHaveLength(1)
+    expect(F_X1_PERIODOS).toContain(modificados[0].periodo)
+  })
+
+  it("has a validated gasto with IVA, so the rubro records subtotal + IVA", () => {
+    const conIva = buildSeedData(HOY_NOV).gastos.filter((g) => g.iva && toCents(g.iva) > BigInt(0))
+    expect(conIva.map((g) => [g.numeroDocumento, g.valor, g.iva, g.accion])).toEqual([["FV-1001", "8500000", "1615000", "VALIDAR"]])
+  })
+
+  it("reports 1.1 at the 90 % tope on its fin, before its soportes arrive", () => {
+    const { reportes, avances } = buildSeedData(HOY_NOV)
+    expect(reportes).toEqual([
+      expect.objectContaining({ actividad: "1.1", porcentaje: 90, fecha: "2026-10-11" }),
+    ])
+    const soportes11 = avances.filter((a) => a.entregable.startsWith("1.1-")).map((a) => a.fecha)
+    expect(soportes11.every((fecha) => fecha > "2026-10-11")).toBe(true)
+    expect(F_X1_INICIO).toBe("2026-10-05")
+  })
+
+  it("is consistent, and flags a report above the tope or without observación", () => {
+    const data = buildSeedData(HOY_NOV)
+    expect(checkSeedData(data, HOY_NOV)).toEqual([])
+    const malos: SeedData = {
+      ...data,
+      reportes: [{ actividad: "1.1", fecha: "2026-10-11", porcentaje: 95, observacion: " " }],
+    }
+    expect(checkSeedData(malos, HOY_NOV)).toEqual(
+      expect.arrayContaining(["reporte 1.1 must be in (0, 90]", "reporte 1.1 needs an observación"]),
+    )
+  })
+})

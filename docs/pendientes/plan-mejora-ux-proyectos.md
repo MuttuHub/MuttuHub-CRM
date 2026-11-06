@@ -53,7 +53,7 @@ Hoy los requisitos de la línea base solo aparecen como respuesta 409 **después
 |---|----------|-----------|-----------|
 | U13 | «Registrar gasto» del encabezado abre Finanzas › Resumen, no Gastos. | `ficha/ficha-header.tsx:162`, `ficha/ficha-finanzas.tsx:19` | Abrir el segmento Gastos con el formulario abierto. |
 | U14 | «Registrar avance» del encabezado solo cambia de pestaña. | `ficha/ficha-header.tsx:159` | Abrir un selector de actividad y luego el formulario. |
-| U15 | Si no eres el responsable, «Registrar avance» **desaparece** sin explicación. | `project-ejecucion.tsx:257-258`, `ejecucion-avance.tsx:217` | Mostrarlo deshabilitado con «Solo {responsable} puede reportar». |
+| U15 | Si no eres el responsable, «Registrar avance» **desaparece** sin explicación. | `project-ejecucion.tsx:257-258`, `ejecucion-avance.tsx:217` | Mostrarlo deshabilitado con «Solo {responsable} puede reportar». **Resuelto de otra forma (2026-11-05, PR #145): cualquier integrante del proyecto puede registrar avance, así que el botón ya no desaparece para el equipo.** |
 | U16 | El formulario de avance no muestra el último % ni el tope sin entregables (90 %): el usuario lo aprende por el error. | `reporte-actividad-form.tsx:88-110` | Pista bajo el campo: «Último: 70 %. Máximo hoy: 90 %». Relacionado con BL#27 (dos «Registrar avance»). |
 
 ## Fase 4 — Flujos más cortos (M/L)
@@ -98,7 +98,7 @@ versión de plantilla).
 
 Ya en el backlog, no se repiten aquí: pie de modal en página completa (BL#7), Esc durante una
 operación y pérdida de lo escrito (BL#9, BL#10), proyecto que nace atrasado por fechas pasadas y los
-dos «Registrar avance» (BL#27).
+dos «Registrar avance» (BL#27; resuelto el 2026-11-05 en PR #145: el del entregable se llama «Registrar cantidad»).
 
 ## Piezas existentes a reutilizar
 

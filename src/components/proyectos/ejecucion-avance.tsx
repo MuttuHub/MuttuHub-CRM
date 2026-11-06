@@ -72,8 +72,6 @@ export function EjecucionAvance({
   progreso,
   canWrite,
   canVoid,
-  esResponsable = false,
-  nombreUsuario = (id: string) => id,
   enfocar = false,
 }: {
   proyectoId: string;
@@ -83,12 +81,11 @@ export function EjecucionAvance({
   progreso: Map<string, ProjectDeliverableProgress>;
   canWrite: boolean;
   canVoid: boolean;
-  /** S9.5: solo el responsable de la actividad (o un override ADMINISTRADOR/GERENCIA) registra/anula sus avances. */
-  esResponsable?: boolean;
-  /** Resuelve un `registrado_por_id` a un nombre visible en el historial (S2: "...fecha, porcentaje, observación, usuario"). */
-  nombreUsuario?: (id: string) => string;
-  /** Scroll to this row and move the keyboard focus to it (the Tablero sends the user here). */
-  enfocar?: boolean;
+  /**
+   * Scroll to this row and move the keyboard focus to it (the Tablero card or the header's «Registrar avance»).
+   * A new number asks again, so a repeated click still lands here.
+   */
+  enfocar?: boolean | number;
 }) {
   const estado = ESTADO_META[tecnico.estado];
   const fila = useRef<HTMLLIElement>(null);
@@ -113,7 +110,7 @@ export function EjecucionAvance({
           <span className="font-semibold">{actividad.nombre}</span>
         </p>
         <span className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-          {tecnico.color && <SemaforoChip color={tecnico.color} />}
+          {tecnico.color && <SemaforoChip color={tecnico.color} prefix="Semáforo" />}
           <ToneBadge tone={estado.tone} label={estado.label} />
         </span>
       </div>
@@ -141,8 +138,7 @@ export function EjecucionAvance({
       <ActividadReportes
         proyectoId={proyectoId}
         actividad={actividad}
-        canWrite={canWrite && esResponsable}
-        nombreUsuario={nombreUsuario}
+        canWrite={canWrite}
       />
 
       {entregables.length > 0 && (
@@ -165,20 +161,18 @@ export function EjecucionAvance({
 
 /**
  * AJ-01 (S2/S3): historial de reportes de avance de la ACTIVIDAD (no confundir con los avances
- * por entregable de `EntregableRow`/`AvanceRow`, un nivel más abajo). `canWrite` ya trae
- * fusionado el gate de escritura general Y el de responsable (S9.5): el padre decide si se
- * muestra la acción, esta función solo dibuja.
+ * por entregable de `EntregableRow`/`AvanceRow`, un nivel más abajo). `canWrite` es el mismo
+ * gate de escritura del resto de la ejecución (gestor o integrante del proyecto): el padre
+ * decide si se muestra la acción, esta función solo dibuja.
  */
 function ActividadReportes({
   proyectoId,
   actividad,
   canWrite,
-  nombreUsuario,
 }: {
   proyectoId: string;
   actividad: ProjectActivity;
   canWrite: boolean;
-  nombreUsuario: (id: string) => string;
 }) {
   const query = useActivityReports(proyectoId, actividad.id);
   const remove = useVoidActivityReport(proyectoId, actividad.id);
@@ -199,7 +193,6 @@ function ActividadReportes({
               proyectoId={proyectoId}
               actividad={actividad}
               reporte={reporte}
-              nombreUsuario={nombreUsuario}
               canWrite={canWrite}
               esUltimo={index === ultimoIndex}
               deleting={remove.isPending && remove.variables?.id === reporte.id}
@@ -243,7 +236,6 @@ function ReporteRow({
   proyectoId,
   actividad,
   reporte,
-  nombreUsuario,
   canWrite,
   esUltimo,
   deleting,
@@ -253,7 +245,6 @@ function ReporteRow({
   proyectoId: string;
   actividad: ProjectActivity;
   reporte: ProjectActivityReport;
-  nombreUsuario: (id: string) => string;
   canWrite: boolean;
   esUltimo: boolean;
   deleting: boolean;
@@ -275,7 +266,7 @@ function ReporteRow({
           <span className={anulado ? "text-ink-500 line-through" : "font-semibold text-ink-900"}>
             {formatNumero(Number(reporte.porcentaje))} %
           </span>{" "}
-          <span className="text-ink-600">· {nombreUsuario(reporte.registrado_por_id)}</span>
+          <span className="text-ink-600">· {reporte.registrado_por_nombre ?? "Usuario desconocido"}</span>
         </span>
         <span className="flex items-center gap-2">
           {anulado && <ToneBadge tone="neutro" label="Anulado" />}
@@ -515,7 +506,7 @@ function EntregableRow({
 
       {canWrite &&
         (abierto ? (
-          <CaptureSurface title="Registrar avance" onClose={() => setAbierto(false)}>
+          <CaptureSurface title="Registrar cantidad" onClose={() => setAbierto(false)}>
             <EjecucionAvanceForm
               projectId={proyectoId}
               entregable={entregable}
@@ -529,11 +520,11 @@ function EntregableRow({
             type="button"
             variant="outline"
             size="sm"
-            aria-label={`Registrar avance ${entregable.codigo}`}
+            aria-label={`Registrar cantidad ${entregable.codigo}`}
             className="mt-1.5"
             onClick={() => setAbierto(true)}
           >
-            Registrar avance
+            Registrar cantidad
           </Button>
         ))}
     </li>

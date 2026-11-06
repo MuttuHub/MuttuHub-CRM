@@ -112,3 +112,10 @@ once AJ-02 merges.
   remaining-work table. Closing checks on the branch: `tsc` 0 errors, `eslint` clean, `npx vitest run` against the
   local DB 4877/4878 — the only failure is the pre-existing `prisma/municipios.invariant.test.ts`. Next: push and PR
   once GitHub is reachable, after AJ-02's PR (this branch stacks on it).
+- **2026-11-05 (gap found while verifying the PO's six adjustments in the browser):** the schedule-compliance KPI
+  already counted an activity that reached the tope by its fin as on time, but `estadoActividad` still labelled it
+  «Finalizada con retraso» whenever its deliverables closed after the fin — the visible label contradicted the PO's
+  «90 % en la semana 6 y Terminada en la semana 8: a tiempo». `calcularTecnico` now passes
+  `alcanzoTopeAlFin = alcanzaTope(avance_al_fin, tope)` and the label is «con retraso» only when the deliverables
+  closed after the fin AND the progress at the fin was below the tope (the same rule as the KPI). RED (the PO's case)
+  → GREEN; the 50 %-at-the-fin case still reads «con retraso». Branch `fix/aj01-registrar-avance-miembros` (PR #145).

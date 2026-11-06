@@ -103,7 +103,8 @@ function reporte(overrides: Partial<ProjectActivityReport> = {}): ProjectActivit
     fecha: "2026-10-20",
     porcentaje: "30.00",
     observacion: "Se ejecutó el taller inicial; falta el acta firmada.",
-    registrado_por_id: "u1",
+    registrado_por_id: "6e9fd0f1-a71e-46a3-bef1-cd53487deccd",
+    registrado_por_nombre: "Ana Pérez",
     created_at: "2026-10-20T00:00:00.000Z",
     anulado_at: null,
     anulado_por_id: null,
@@ -153,9 +154,27 @@ describe("EjecucionAvance", () => {
       />,
       { wrapper: createWrapper() },
     )
-    await user.click(screen.getByRole("button", { name: "Registrar avance ENT-1" }))
-    const dialog = await screen.findByRole("dialog", { name: "Registrar avance" })
-    expect(within(dialog).getByRole("form", { name: "Registrar avance ENT-1" })).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Registrar cantidad ENT-1" }))
+    const dialog = await screen.findByRole("dialog", { name: "Registrar cantidad" })
+    expect(within(dialog).getByRole("form", { name: "Registrar cantidad ENT-1" })).toBeInTheDocument()
+  })
+
+  it("labels the activity's colour chip as the semáforo, apart from its estado", () => {
+    render(
+      <EjecucionAvance
+        proyectoId="p1"
+        actividad={ACTIVIDAD}
+        canWrite={false}
+        canVoid={false}
+        tecnico={{ ...TECNICO, estado: "FINALIZADA_CON_RETRASO", color: "verde" }}
+        entregables={[]}
+        progreso={new Map()}
+      />,
+      { wrapper: createWrapper() },
+    )
+    const fila = screen.getByTestId("ejecucion-actividad")
+    expect(within(fila).getByText("Semáforo: Verde")).toBeInTheDocument()
+    expect(within(fila).getByText("Finalizada con retraso")).toBeInTheDocument()
   })
 
   it("renders the activity progress bar and its estado badge", () => {
@@ -371,22 +390,20 @@ describe("EjecucionAvance", () => {
 
   /* ── AJ-01 (S2/S3): "Registrar avance" a nivel actividad ────────────── */
 
-  it("shows the activity-level \"Registrar avance\" action only to its responsable", async () => {
+  it("shows the activity-level \"Registrar avance\" action to anyone who can write, responsable or not", async () => {
     const { unmount } = render(
       <EjecucionAvance
         proyectoId="p1"
-        actividad={ACTIVIDAD}
+        actividad={{ ...ACTIVIDAD, responsable_id: "otro-usuario" }}
         canWrite
         canVoid={false}
-        esResponsable={false}
         tecnico={TECNICO}
         entregables={[]}
         progreso={new Map()}
       />,
       { wrapper: createWrapper() },
     )
-    await screen.findByTestId("ejecucion-actividad")
-    expect(screen.queryByRole("button", { name: "Registrar avance 1.1" })).not.toBeInTheDocument()
+    expect(await screen.findByRole("button", { name: "Registrar avance 1.1" })).toBeInTheDocument()
     unmount()
 
     render(
@@ -395,7 +412,6 @@ describe("EjecucionAvance", () => {
         actividad={ACTIVIDAD}
         canWrite={false}
         canVoid={false}
-        esResponsable
         tecnico={TECNICO}
         entregables={[]}
         progreso={new Map()}
@@ -404,21 +420,6 @@ describe("EjecucionAvance", () => {
     )
     await screen.findByTestId("ejecucion-actividad")
     expect(screen.queryByRole("button", { name: "Registrar avance 1.1" })).not.toBeInTheDocument()
-
-    render(
-      <EjecucionAvance
-        proyectoId="p1"
-        actividad={ACTIVIDAD}
-        canWrite
-        canVoid={false}
-        esResponsable
-        tecnico={TECNICO}
-        entregables={[]}
-        progreso={new Map()}
-      />,
-      { wrapper: createWrapper() },
-    )
-    expect(screen.getByRole("button", { name: "Registrar avance 1.1" })).toBeInTheDocument()
   })
 
   it("registers an activity report and shows it in the history", async () => {
@@ -429,7 +430,6 @@ describe("EjecucionAvance", () => {
         actividad={ACTIVIDAD}
         canWrite
         canVoid={false}
-        esResponsable
         tecnico={TECNICO}
         entregables={[]}
         progreso={new Map()}
@@ -485,7 +485,6 @@ describe("EjecucionAvance", () => {
         actividad={ACTIVIDAD}
         canWrite
         canVoid={false}
-        esResponsable
         tecnico={TECNICO}
         entregables={[]}
         progreso={new Map()}
@@ -537,7 +536,6 @@ describe("EjecucionAvance", () => {
         actividad={ACTIVIDAD}
         canWrite
         canVoid={false}
-        esResponsable
         tecnico={TECNICO}
         entregables={[]}
         progreso={new Map()}
@@ -568,7 +566,7 @@ describe("EjecucionAvance", () => {
     })
   })
 
-  it("shows the history with fecha, porcentaje, observación and usuario", async () => {
+  it("shows the history with fecha, porcentaje, observación and the author's name, never their id", async () => {
     mockReportes([reporte()])
     render(
       <EjecucionAvance
@@ -576,8 +574,6 @@ describe("EjecucionAvance", () => {
         actividad={ACTIVIDAD}
         canWrite={false}
         canVoid={false}
-        esResponsable={false}
-        nombreUsuario={(id) => (id === "u1" ? "Ana Pérez" : id)}
         tecnico={TECNICO}
         entregables={[]}
         progreso={new Map()}
@@ -590,6 +586,7 @@ describe("EjecucionAvance", () => {
     expect(fila).toHaveTextContent("30 %")
     expect(fila).toHaveTextContent("Se ejecutó el taller inicial; falta el acta firmada.")
     expect(fila).toHaveTextContent("Ana Pérez")
+    expect(fila).not.toHaveTextContent("6e9fd0f1-a71e-46a3-bef1-cd53487deccd")
   })
 
   it("shows the attach control per report and the void action only on the most recent one", async () => {
@@ -600,7 +597,6 @@ describe("EjecucionAvance", () => {
         actividad={ACTIVIDAD}
         canWrite
         canVoid={false}
-        esResponsable
         tecnico={TECNICO}
         entregables={[]}
         progreso={new Map()}

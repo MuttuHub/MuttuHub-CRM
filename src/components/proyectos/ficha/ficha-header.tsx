@@ -40,9 +40,12 @@ const CHIP_BUTTON_CLASS =
 export function FichaHeader({
   proyecto,
   onIrA,
+  onRegistrarAvance,
 }: {
   proyecto: ProjectListRow;
   onIrA: (destino: FichaDestino) => void;
+  /** Opens Actividades on the first unfinished activity, where its «Registrar avance» is. */
+  onRegistrarAvance: () => void;
 }) {
   const estado = ESTADO_PROYECTO_META[proyecto.estado];
   const [exportando, setExportando] = useState(false);
@@ -66,7 +69,7 @@ export function FichaHeader({
         {proyecto.estado !== "BORRADOR" && (
           <FichaSemaforos proyectoId={proyecto.id} onIrA={onIrA} />
         )}
-        <FichaAcciones proyecto={proyecto} onIrA={onIrA} />
+        <FichaAcciones proyecto={proyecto} onIrA={onIrA} onRegistrarAvance={onRegistrarAvance} />
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
@@ -143,9 +146,11 @@ function FichaSemaforos({
 function FichaAcciones({
   proyecto,
   onIrA,
+  onRegistrarAvance,
 }: {
   proyecto: ProjectListRow;
   onIrA: (destino: FichaDestino) => void;
+  onRegistrarAvance: () => void;
 }) {
   const { canWrite } = useEjecucionPermisos(proyecto.id);
   const puedeEjecutar = canWrite && proyecto.estado === "EN_EJECUCION";
@@ -156,7 +161,7 @@ function FichaAcciones({
       <EstadoProyectoAcciones proyecto={proyecto} />
       {puedeEjecutar && (
         <>
-          <Button type="button" size="sm" onClick={() => onIrA("actividades")}>
+          <Button type="button" size="sm" onClick={onRegistrarAvance}>
             Registrar avance
           </Button>
           <Button type="button" variant="outline" size="sm" onClick={() => onIrA("finanzas")}>

@@ -5,12 +5,12 @@
 
 "use client";
 
-import { useId, useMemo, useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { ChevronRight, ClipboardList, Gauge } from "lucide-react";
 import { useCurrentUser } from "@/hooks/kanban";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
-import { InlineError, MetricRow, SELECT_CLASS, SectionHeader } from "@/components/proyectos/ui";
+import { AvisoSoloConsulta, InlineError, MetricRow, SELECT_CLASS, SectionHeader } from "@/components/proyectos/ui";
 import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import { EjecucionAvance } from "@/components/proyectos/ejecucion-avance";
@@ -50,7 +50,9 @@ export const EJECUCION_BORRADOR_HINT =
 /**
  * `lista` is the execution Lista of the Actividades tab (U4): only the activities, grouped by goal, without the
  * semáforo panel (the header owns it), with the S-curve and the Base selector inside a collapsed "Opciones
- * avanzadas" disclosure. `enfocarId` scrolls to and focuses one activity row (the Tablero card click).
+ * avanzadas" disclosure. `enfocarId` scrolls to and focuses one activity row (the Tablero card click);
+ * `enfocarPrimeraPendiente` (a request counter from the header's «Registrar avance») does the same for the
+ * first activity that is not finished yet.
  *
  * `seguimiento` is the v7 "Ficha de seguimiento" tab: the chart, the period/time/budget cards, progress per goal
  * and the activities, without the indicators (they have their own tab: see
@@ -61,11 +63,13 @@ export function ProjectEjecucion({
   seguimiento = false,
   lista = false,
   enfocarId = null,
+  enfocarPrimeraPendiente = 0,
 }: {
   proyecto: ProjectListRow;
   seguimiento?: boolean;
   lista?: boolean;
   enfocarId?: string | null;
+  enfocarPrimeraPendiente?: number;
 }) {
   if (proyecto.estado === "BORRADOR") {
     return (
@@ -79,7 +83,13 @@ export function ProjectEjecucion({
   return (
     <section data-testid="ejecucion">
       {!lista && <EjecucionHeader seguimiento={seguimiento} />}
-      <EjecucionContent proyecto={proyecto} seguimiento={seguimiento} lista={lista} enfocarId={enfocarId} />
+      <EjecucionContent
+        proyecto={proyecto}
+        seguimiento={seguimiento}
+        lista={lista}
+        enfocarId={enfocarId}
+        enfocarPrimeraPendiente={enfocarPrimeraPendiente}
+      />
     </section>
   );
 }
@@ -199,7 +209,12 @@ function CurvaAvance({ query }: { query: ReturnType<typeof useProjectCurve> }) {
  * Decisión 3: control de escritura para gestores, o un COORDINADOR que sea integrante activo (su lectura de
  * `/members` está permitida). Anular es solo de gestores. La API sigue siendo la autoridad final.
  */
-export function useEjecucionPermisos(proyectoId: string): { canWrite: boolean; canVoid: boolean } {
+export function useEjecucionPermisos(proyectoId: string): {
+  canWrite: boolean;
+  canVoid: boolean;
+  /** Both the user and the team are known, so `canWrite: false` is an answer, not a pending load. */
+  resuelto: boolean;
+} {
   const userQuery = useCurrentUser();
   const membersQuery = useProjectMembers(proyectoId);
   const usuario = userQuery.data;
@@ -210,7 +225,8 @@ export function useEjecucionPermisos(proyectoId: string): { canWrite: boolean; c
       PROJECT_MEMBER_ROLES.includes(usuario.rol) &&
       (membersQuery.data ?? []).some((miembro) => miembro.usuario.id === usuario.id),
   );
-  return { canWrite: esGestor || esMiembro, canVoid: esGestor };
+  const resuelto = Boolean(usuario) && (esGestor || membersQuery.isSuccess || membersQuery.isError);
+  return { canWrite: esGestor || esMiembro, canVoid: esGestor, resuelto };
 }
 
 /** Pestaña de objetivos e indicadores (v7): el registro de avance de indicador vive junto a los objetivos. */
@@ -225,11 +241,13 @@ function EjecucionContent({
   seguimiento,
   lista,
   enfocarId,
+  enfocarPrimeraPendiente,
 }: {
   proyecto: ProjectListRow;
   seguimiento: boolean;
   lista: boolean;
   enfocarId: string | null;
+  enfocarPrimeraPendiente: number;
 }) {
   const [base, setBase] = useState<ProjectBase>("vigente");
   const tecnicoQuery = useProjectTechnicalStatus(proyecto.id, base);
@@ -237,28 +255,8 @@ function EjecucionContent({
   const objetivosQuery = useProjectObjectives(proyecto.id);
   const deliverablesQuery = useProjectDeliverables(proyecto.id);
 
-  const { canWrite, canVoid } = useEjecucionPermisos(proyecto.id);
-
-  // AJ-01 (S9.5): "Registrar avance" de la actividad es solo para su responsable, o un
-  // ADMINISTRADOR/GERENCIA (el mismo override que todo otro gate de escritura ya tiene) — no
-  // es el mismo eje que `canWrite`/`canVoid` (membresía/gestor), por eso se calcula aparte.
-  // El historial también necesita el nombre de quien registró cada reporte (S2): se resuelve
-  // desde la misma lista de integrantes que ya se lee para los permisos.
-  const usuarioActualQuery = useCurrentUser();
-  const miembrosQuery = useProjectMembers(proyecto.id);
-  const usuarioActual = usuarioActualQuery.data;
-  const esGestor = usuarioActual
-    ? canManageProjects({ id: usuarioActual.id, rol: usuarioActual.rol })
-    : false;
-  const nombrePorUsuario = useMemo(() => {
-    const mapa = new Map<string, string>();
-    for (const miembro of miembrosQuery.data ?? []) mapa.set(miembro.usuario.id, miembro.usuario.nombre);
-    if (usuarioActual) mapa.set(usuarioActual.id, usuarioActual.nombre);
-    return mapa;
-  }, [miembrosQuery.data, usuarioActual]);
-  const nombreUsuario = (id: string) => nombrePorUsuario.get(id) ?? id;
-  const esResponsableDe = (actividad: ProjectActivity): boolean =>
-    esGestor || Boolean(usuarioActual && actividad.responsable_id === usuarioActual.id);
+  const { canWrite, canVoid, resuelto } = useEjecucionPermisos(proyecto.id);
+  const soloConsulta = resuelto && !canWrite && proyecto.estado === "EN_EJECUCION";
 
   // Decisión 2: los entregables se leen UNA vez y los avances se abren con
   // `useQueries`, solo mientras la sección está montada.
@@ -273,6 +271,17 @@ function EjecucionContent({
     if (query?.data) progreso.set(deliverable.id, query.data);
   });
 
+  // Each header request picks its row ONCE, so a later refetch (an activity just finished) never moves the focus.
+  const [pedidoServido, setPedidoServido] = useState<{ pedido: number; id: string | null }>({ pedido: 0, id: null });
+  if (enfocarPrimeraPendiente !== pedidoServido.pedido && tecnicoQuery.data && activitiesQuery.data) {
+    const estados = new Map(tecnicoQuery.data.actividades.map((actividad) => [actividad.id, actividad.estado]));
+    const pendiente = activitiesQuery.data.find((actividad) => {
+      const estado = estados.get(actividad.id);
+      return estado !== undefined && estado !== "FINALIZADA" && estado !== "FINALIZADA_CON_RETRASO";
+    });
+    setPedidoServido({ pedido: enfocarPrimeraPendiente, id: pendiente?.id ?? null });
+  }
+
   if (tecnicoQuery.isError) {
     return (
       <InlineError message={errorMessage(tecnicoQuery.error, TECNICO_ERROR)} className="mt-2" />
@@ -285,9 +294,12 @@ function EjecucionContent({
   const tecnico = tecnicoQuery.data;
   const actividades = activitiesQuery.data ?? [];
   const tecnicas = new Map(tecnico.actividades.map((actividad) => [actividad.id, actividad]));
+  const enfocarFila = (id: string): boolean | number =>
+    enfocarId === id || (pedidoServido.id === id && pedidoServido.pedido);
 
   return (
     <div className={lista ? "mt-0" : "mt-2"}>
+      {soloConsulta && <AvisoSoloConsulta className="mb-2" />}
       {lista ? (
         <OpcionesAvanzadas proyecto={proyecto} base={base} corte={tecnico.corte} onBaseChange={setBase} />
       ) : (
@@ -328,9 +340,7 @@ function EjecucionContent({
                 progreso={progreso}
                 canWrite={canWrite}
                 canVoid={canVoid}
-                esResponsable={esResponsableDe(actividad)}
-                nombreUsuario={nombreUsuario}
-                enfocar={enfocarId === actividad.id}
+                enfocar={enfocarFila(actividad.id)}
               />
             );
           }}

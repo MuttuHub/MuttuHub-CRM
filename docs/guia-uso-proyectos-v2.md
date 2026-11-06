@@ -40,7 +40,7 @@ Los permisos dependen del rol y de la pertenencia al proyecto (el **Equipo** del
 | Editar datos generales | Sí | Sí | Sí, donde es integrante | Sí, donde es integrante |
 | Cargar o editar la estructura (solo en Borrador) | Sí | Sí | Sí, donde es integrante | Sí, donde es integrante |
 | Aprobar la línea base | Sí | Sí | No | No |
-| Registrar avance de un entregable | Sí | Sí | Sí, si es integrante | Sí, si es integrante |
+| Registrar cantidad de un entregable | Sí | Sí | Sí, si es integrante | Sí, si es integrante |
 | Registrar el avance de la actividad (la pasa a En curso) | Sí | Sí | Solo si es el responsable de la actividad | Solo si es el responsable de la actividad |
 | Registrar gastos | Sí | Sí | Sí, si es integrante | Sí, si es integrante |
 | Validar o rechazar un gasto | Sí, salvo los que registró | Sí, salvo los que registró | No | No |
@@ -267,7 +267,7 @@ Una sola estructura con tres vistas: **Lista**, **Gantt** y **Tablero**.
 
 **Registrar un avance (por entregable)**
 
-1. Abre **Registrar avance** en el entregable.
+1. Abre **Registrar cantidad** en el entregable.
 2. Indica la fecha (no puede ser futura) y el avance.
 3. Adjunta el **medio de verificación**: un **archivo** o un **enlace** con su nombre.
 4. Si el avance excede lo planeado, escribe la **justificación del exceso**.

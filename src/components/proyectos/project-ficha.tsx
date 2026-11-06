@@ -78,6 +78,12 @@ const PANEL_CLASS = "mt-0 flex flex-col gap-6";
 function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
   // Controlada: los semáforos y las acciones del encabezado también cambian de pestaña.
   const [tab, setTab] = useState<FichaTab>("resumen");
+  // Each «Registrar avance» in the header is a new request for Actividades to focus the first unfinished activity.
+  const [pedidoAvance, setPedidoAvance] = useState(0);
+  const registrarAvance = () => {
+    setTab("actividades");
+    setPedidoAvance((pedido) => pedido + 1);
+  };
 
   return (
     <div className="flex flex-col">
@@ -88,7 +94,7 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
       >
         {/* Encabezado fijo: pegajoso y fuera del panel de contenido, así estado y semáforos siempre se ven. */}
         <div className="sticky top-0 z-10 rounded-t-card bg-panel">
-          <FichaHeader proyecto={proyecto} onIrA={setTab} />
+          <FichaHeader proyecto={proyecto} onIrA={setTab} onRegistrarAvance={registrarAvance} />
           <div className="relative border-b border-ink-200">
             <div className="no-scrollbar overflow-x-auto px-5 sm:px-6">
               <TabsList variant="line" className="w-full justify-start gap-1">
@@ -113,7 +119,7 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
           </TabsContent>
 
           <TabsContent value="actividades" className={PANEL_CLASS}>
-            <FichaActividades proyecto={proyecto} />
+            <FichaActividades proyecto={proyecto} pedidoAvance={pedidoAvance} />
           </TabsContent>
 
           <TabsContent value="finanzas" className={PANEL_CLASS}>

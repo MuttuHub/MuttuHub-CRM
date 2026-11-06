@@ -6,6 +6,7 @@
 // equal the per-project endpoints (`technical-status`, `financial-sheet`): the parity test pins it.
 
 import { db } from "@/lib/db";
+import { agruparReportesPorActividad } from "@/lib/api/tecnico";
 import { isoDate } from "@/lib/proyectos/proyecto-general";
 import { toCents, type Cents } from "@/lib/proyectos/money";
 import { pesoActividad } from "@/lib/proyectos/actividad";
@@ -72,7 +73,7 @@ export async function loadKpisPortafolio(input: {
   const hasta = new Date(`${corte}T00:00:00.000Z`);
   const periodo = periodOf(corte);
 
-  const [actividades, avances, soportes, indicadores, beneficiarios, asignado, programado, ejecutado] = await Promise.all([
+  const [actividades, avances, reportes, soportes, indicadores, beneficiarios, asignado, programado, ejecutado] = await Promise.all([
     db.actividad.findMany({
       where: { proyecto_id: { in: ids }, deleted_at: null },
       select: {
@@ -87,6 +88,13 @@ export async function loadKpisPortafolio(input: {
     db.avanceEntregable.findMany({
       where: { proyecto_id: { in: ids }, anulado_at: null, fecha: { lte: hasta } },
       select: { id: true, proyecto_id: true, entregable_id: true, fecha: true, cantidad: true, created_at: true },
+    }),
+    // AJ-01: the activity progress reports, exactly as `loadTecnicoStatus` reads them (live, up to the corte,
+    // chronological), so the header semáforo, the project advance and the schedule compliance count them too.
+    db.reporteActividad.findMany({
+      where: { proyecto_id: { in: ids }, anulado_at: null, fecha: { lte: hasta } },
+      orderBy: [{ fecha: "asc" }, { created_at: "asc" }],
+      select: { actividad_id: true, fecha: true, porcentaje: true },
     }),
     db.soporteProyecto.groupBy({
       by: ["avance_id"],
@@ -133,6 +141,7 @@ export async function loadKpisPortafolio(input: {
   for (const avance of avances) {
     avancesDe.set(avance.entregable_id, [...(avancesDe.get(avance.entregable_id) ?? []), avance]);
   }
+  const reportesDe = agruparReportesPorActividad(reportes);
   const actividadesDe = group(actividades);
   const indicadoresDe = group(indicadores);
   const sumaPor = <T extends { proyecto_id: string }>(rows: readonly T[], pick: (row: T) => Cents | number) =>
@@ -168,6 +177,7 @@ export async function loadKpisPortafolio(input: {
             createdAt: avance.created_at.toISOString(),
           })),
         })),
+        reportes: reportesDe.get(actividad.id) ?? [],
       };
     });
     const indicadoresKpi: IndicadorKpiInput[] = (indicadoresDe.get(proyecto.id) ?? []).map((indicador) => ({

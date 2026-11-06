@@ -1214,6 +1214,8 @@ export type ProjectActivityReport = {
   porcentaje: string;
   observacion: string;
   registrado_por_id: string;
+  /** Nombre de quien lo registró, resuelto por el servidor (sigue aunque ya no sea integrante). */
+  registrado_por_nombre: string | null;
   created_at: string;
   anulado_at: string | null;
   anulado_por_id: string | null;

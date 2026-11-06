@@ -79,7 +79,7 @@ describe("Projects forms: accessible names", () => {
   it("avance form, including both medio variants", async () => {
     const user = userEvent.setup()
     render(<EjecucionAvanceForm projectId="p1" entregable={ENTREGABLE} meta="2.00" avances={[]} onDone={() => {}} />, { wrapper })
-    const form = screen.getByRole("form", { name: "Registrar avance ENT-1" })
+    const form = screen.getByRole("form", { name: "Registrar cantidad ENT-1" })
     expectNamedControls(form)
     await user.click(within(form).getByLabelText("Archivo"))
     expectNamedControls(form)

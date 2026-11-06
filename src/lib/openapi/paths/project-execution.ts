@@ -643,9 +643,9 @@ registry.registerPath({
 // ---------------------------------------------------------------------------
 
 const REPORTE_WRITE_NOTE =
-  "Solo el `responsable_id` de la actividad, o un `ADMINISTRADOR`/`GERENCIA` (el mismo override que ya tiene " +
-  "cualquier otra puerta de escritura de esta base), y solo mientras el proyecto está `EN_EJECUCION`. Orden: " +
-  "404 proyecto -> 403 membresía -> 409 estado -> 404 actividad -> 403 responsable.";
+  "Cualquier integrante del proyecto (`COORDINADOR` o `COLABORADOR`) o un `ADMINISTRADOR`/`GERENCIA`, sea o no " +
+  "el `responsable_id` de la actividad (el mismo eje de membresía que el resto de la ejecución), y solo mientras " +
+  "el proyecto está `EN_EJECUCION`. Orden: 404 proyecto -> 403 membresía -> 409 estado -> 404 actividad.";
 
 const ProjectActivityParams = z.object({ id: z.string().uuid(), activityId: z.string().uuid() });
 const ReporteVoidParams = ProjectActivityParams.extend({ reportId: z.string().uuid() });
@@ -661,6 +661,10 @@ export const ReporteActividadSchema = registry.register(
     porcentaje: z.string().openapi({ description: "Decimal(5,2) como string; siempre > 0 y <= 100.", example: "30" }),
     observacion: z.string().openapi({ description: "Obligatoria: qué se ejecutó y qué falta." }),
     registrado_por_id: z.string().uuid(),
+    registrado_por_nombre: z
+      .string()
+      .nullable()
+      .openapi({ description: "Nombre de quien registró el reporte; se mantiene aunque ya no sea integrante del proyecto." }),
     created_at: z.string(),
     anulado_at: z.string().nullable(),
     anulado_por_id: z.string().uuid().nullable(),

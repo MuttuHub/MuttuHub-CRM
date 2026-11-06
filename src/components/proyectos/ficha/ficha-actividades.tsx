@@ -25,11 +25,24 @@ const VISTAS: { value: Vista; label: string }[] = [
   { value: "tablero", label: "Tablero" },
 ];
 
-export function FichaActividades({ proyecto }: { proyecto: ProjectListRow }) {
+export function FichaActividades({
+  proyecto,
+  pedidoAvance = 0,
+}: {
+  proyecto: ProjectListRow;
+  /** Bumped by the header's «Registrar avance»: show the Lista and focus the first unfinished activity. */
+  pedidoAvance?: number;
+}) {
   const borrador = proyecto.estado === "BORRADOR";
   const [vista, setVista] = useState<Vista>("lista");
   // Activity the Tablero asked to reveal: the Lista scrolls to it and focuses its row.
   const [enfocarId, setEnfocarId] = useState<string | null>(null);
+  const [pedidoVisto, setPedidoVisto] = useState(pedidoAvance);
+  if (pedidoAvance !== pedidoVisto) {
+    setPedidoVisto(pedidoAvance);
+    setEnfocarId(null);
+    setVista("lista");
+  }
 
   const disponibles = borrador ? VISTAS.filter((item) => item.value !== "tablero") : VISTAS;
   const activa = disponibles.some((item) => item.value === vista) ? vista : "lista";
@@ -66,7 +79,12 @@ export function FichaActividades({ proyecto }: { proyecto: ProjectListRow }) {
             <ProjectEstructura proyecto={proyecto} />
           ) : (
             <>
-              <ProjectEjecucion proyecto={proyecto} lista enfocarId={enfocarId} />
+              <ProjectEjecucion
+                proyecto={proyecto}
+                lista
+                enfocarId={enfocarId}
+                enfocarPrimeraPendiente={enfocarId ? 0 : pedidoAvance}
+              />
               <Disclosure titulo="Indicadores" testId="actividades-indicadores">
                 <ProjectIndicadores proyecto={proyecto} />
               </Disclosure>
