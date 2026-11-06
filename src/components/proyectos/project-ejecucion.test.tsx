@@ -231,7 +231,7 @@ describe("ProjectEjecucion", () => {
     const semaforo = await screen.findByTestId("semaforo-tecnico")
     expect(semaforo).toHaveAttribute("data-color", "rojo")
     expect(semaforo).toHaveTextContent("21,4 %")
-    expect(semaforo).toHaveTextContent("Semáforo provisional")
+    expect(semaforo).toHaveTextContent("Umbrales sin confirmar")
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/technical-status", expect.any(Object)),
     )
@@ -265,8 +265,8 @@ describe("ProjectEjecucion", () => {
     const semaforo = await screen.findByTestId("semaforo-tecnico")
     expect(semaforo).toHaveTextContent("-15 puntos")
     expect(semaforo).toHaveTextContent(/Datos al /)
-    expect(within(semaforo).getByText("Semáforo provisional")).toBeInTheDocument()
-    expect(within(semaforo).getByRole("button", { name: "Ayuda: Semáforo provisional" })).toBeInTheDocument()
+    expect(within(semaforo).getByText("Umbrales sin confirmar")).toBeInTheDocument()
+    expect(within(semaforo).getByRole("button", { name: "Ayuda: Umbrales sin confirmar" })).toBeInTheDocument()
     const base = within(semaforo).getByRole("combobox", { name: "Comparar con" })
     expect(within(base).getAllByRole("option").map((o) => o.textContent)).toEqual(["Plan actual", "Plan inicial"])
     expect(within(semaforo).getByRole("button", { name: "Ayuda: Comparar con" })).toBeInTheDocument()

@@ -142,17 +142,35 @@ describe("ProjectFinanciero", () => {
     expect(screen.queryByTestId("financiero-alerta")).not.toBeInTheDocument()
   })
 
-  it("shows the 'Semáforo provisional' badge while the thresholds are unconfirmed", async () => {
+  it("does not repeat the 'Ficha financiera' heading: the Finanzas › Resumen segment already names it", async () => {
+    setup()
+
+    await screen.findByTestId("financiero-tabla")
+    expect(screen.queryByRole("heading", { name: "Ficha financiera" })).not.toBeInTheDocument()
+    expect(screen.getByTestId("financiero")).not.toHaveTextContent("Ficha financiera")
+  })
+
+  it("shows the 'Umbrales sin confirmar' badge, with its help, while the thresholds are unconfirmed", async () => {
     setup({ ficha: { ...FICHA, parametros: { tolerancia: 10, retraso: 70, confirmado: false } } })
 
-    expect(await screen.findByText("Semáforo provisional")).toBeInTheDocument()
+    expect(await screen.findByText("Umbrales sin confirmar")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Ayuda: Umbrales sin confirmar" })).toBeInTheDocument()
+    expect(screen.queryByText("Semáforo provisional")).not.toBeInTheDocument()
   })
 
   it("does not show it once confirmed", async () => {
     setup()
 
     await screen.findByTestId("financiero-tabla")
-    expect(screen.queryByText("Semáforo provisional")).not.toBeInTheDocument()
+    expect(screen.queryByText("Umbrales sin confirmar")).not.toBeInTheDocument()
+  })
+
+  it("names the executed-vs-planned column in plain words instead of 'E/P'", async () => {
+    setup()
+
+    const tabla = await screen.findByTestId("financiero-tabla")
+    expect(within(tabla).getByRole("columnheader", { name: "% de lo programado" })).toBeInTheDocument()
+    expect(within(tabla).queryByRole("columnheader", { name: "E/P" })).not.toBeInTheDocument()
   })
 
   it("shows the possible-delay alert only when the API raises it", async () => {
@@ -366,14 +384,42 @@ describe("ProjectFinanciero", () => {
       expect(filas[0]).toHaveTextContent("R01")
       expect(r01.getByTestId("financiero-barra-programado")).toHaveAttribute("data-width", "100")
       expect(r01.getByTestId("financiero-barra-ejecutado")).toHaveAttribute("data-width", "90.8")
-      expect(r01.getByText("E/P 90,8 %")).toBeInTheDocument()
+      expect(r01.getByText("90,8 % de lo programado")).toBeInTheDocument()
       expect(filas[0].querySelector("[data-color]")).toHaveAttribute("data-color", "verde")
 
       const r12 = within(filas[1])
       expect(r12.getByTestId("financiero-barra-programado")).toHaveAttribute("data-width", "40.3")
       expect(r12.getByTestId("financiero-barra-ejecutado")).toHaveAttribute("data-width", "45.4")
-      expect(r12.getByText("E/P 112,5 %")).toBeInTheDocument()
+      expect(r12.getByText("112,5 % de lo programado")).toBeInTheDocument()
       expect(filas[1].querySelector("[data-color]")).toHaveAttribute("data-color", "rojo")
+      expect(within(barras).queryByText(/E\/P/)).not.toBeInTheDocument()
+    })
+
+    it("paints each rubro's executed bar with that rubro's semáforo colour and keeps the planned bar grey", async () => {
+      setup({
+        ficha: {
+          ...FICHA,
+          rubros: [
+            FICHA.rubros[0],
+            FICHA.rubros[1],
+            { ...FICHA.rubros[0], rubro_id: "r20", codigo: "R20", nombre: "Viáticos", color: "amarillo" },
+            { ...FICHA.rubros[0], rubro_id: "r30", codigo: "R30", nombre: "Otros", color: null },
+          ],
+        },
+      })
+
+      const filas = within(await screen.findByTestId("financiero-barras")).getAllByTestId("financiero-barra-fila")
+      const relleno = (fila: HTMLElement, testId: string) =>
+        within(fila).getByTestId(testId).firstElementChild as HTMLElement
+      expect(relleno(filas[0], "financiero-barra-ejecutado")).toHaveClass("bg-exito")
+      expect(relleno(filas[1], "financiero-barra-ejecutado")).toHaveClass("bg-destructivo")
+      expect(relleno(filas[2], "financiero-barra-ejecutado")).toHaveClass("bg-alerta")
+      // No colour from the server: a neutral fill, never the old magenta.
+      expect(relleno(filas[3], "financiero-barra-ejecutado")).toHaveClass("bg-ink-500")
+      for (const fila of filas) {
+        expect(relleno(fila, "financiero-barra-ejecutado").className).not.toMatch(/rose|primary/)
+        expect(relleno(fila, "financiero-barra-programado")).toHaveClass("bg-ink-300")
+      }
     })
 
     it("shows no executed bars or colours while expenses are unavailable", async () => {
@@ -384,7 +430,8 @@ describe("ProjectFinanciero", () => {
       const primera = within(barras).getAllByTestId("financiero-barra-fila")[0]
       expect(within(primera).getByTestId("financiero-barra-ejecutado")).toHaveAttribute("data-width", "0")
       expect(barras.querySelector("[data-color]")).toBeNull()
-      expect(within(barras).getAllByText("E/P —").length).toBeGreaterThan(0)
+      expect(within(barras).getAllByText("— de lo programado").length).toBeGreaterThan(0)
+      expect(within(primera).getByTestId("financiero-barra-ejecutado").firstElementChild).toHaveClass("bg-ink-500")
     })
 
     it("renders no execution bar and no rubro bars when the project has no budget lines", async () => {

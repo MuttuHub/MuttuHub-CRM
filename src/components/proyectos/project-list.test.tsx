@@ -500,15 +500,15 @@ describe("ProjectList", () => {
       expect(useProjectsMock).toHaveBeenLastCalledWith({ estado: "EN_EJECUCION" })
     })
 
-    it("shows the 'Semáforo provisional' badge while the thresholds are unconfirmed", () => {
+    it("shows the 'Umbrales sin confirmar' badge while the thresholds are unconfirmed", () => {
       projectsQuery.data = { proyectos: [PROYECTO] }
       portfolioQuery.data = portafolio([MEDIBLE], false)
       const { unmount } = render(<ProjectList />)
-      expect(screen.getByText("Semáforo provisional")).toBeInTheDocument()
+      expect(screen.getByText("Umbrales sin confirmar")).toBeInTheDocument()
       unmount()
       portfolioQuery.data = portafolio([MEDIBLE], true)
       render(<ProjectList />)
-      expect(screen.queryByText("Semáforo provisional")).not.toBeInTheDocument()
+      expect(screen.queryByText("Umbrales sin confirmar")).not.toBeInTheDocument()
     })
 
     it("cards below md also show both bars", () => {

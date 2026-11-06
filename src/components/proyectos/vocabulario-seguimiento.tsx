@@ -48,7 +48,7 @@ export function AyudaBase() {
   );
 }
 
-const PROVISIONAL = "Semáforo provisional";
+const PROVISIONAL = "Umbrales sin confirmar";
 
 /** Badge shown while the semáforo thresholds are not confirmed, with its explanation. */
 export function SemaforoProvisional() {
@@ -56,7 +56,7 @@ export function SemaforoProvisional() {
     <span className="inline-flex items-center gap-1">
       <ToneBadge tone="neutro" label={PROVISIONAL} />
       <HelpHint label={PROVISIONAL}>
-        Los límites que deciden el color del semáforo aún no están confirmados y pueden cambiar.
+        Gerencia aún no ha confirmado los umbrales que deciden el color del semáforo; pueden cambiar.
       </HelpHint>
     </span>
   );

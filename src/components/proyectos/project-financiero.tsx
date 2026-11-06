@@ -10,11 +10,11 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, ChevronDown, PiggyBank } from "lucide-react";
+import { AlertTriangle, ChevronDown } from "lucide-react";
 import { AyudaBase, BASE_NO_DISPONIBLE, ETIQUETA_BASE, ETIQUETA_CORTE, NOMBRE_BASE, OpcionesBase, SemaforoProvisional } from "@/components/proyectos/vocabulario-seguimiento";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { mesLegible } from "@/components/proyectos/project-display";
-import { EmptyBlock, InlineError, SELECT_CLASS, SectionHeader } from "@/components/proyectos/ui";
+import { EmptyBlock, InlineError, SELECT_CLASS } from "@/components/proyectos/ui";
 import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -37,10 +37,10 @@ export const ALERTA_RETRASO_TEXT =
   "Posible retraso: el gasto va por debajo de lo programado y el avance técnico está atrasado.";
 
 
+// Its only screen is Finanzas › Resumen, whose segment already names the section: no heading of its own.
 export function ProjectFinanciero({ proyecto }: { proyecto: ProjectListRow }) {
   return (
     <section data-testid="financiero">
-      <SectionHeader icon={<PiggyBank className="size-3.5" strokeWidth={2} />}>Ficha financiera</SectionHeader>
       {proyecto.fecha_inicio && proyecto.fecha_fin ? (
         <FinancieroContent proyecto={proyecto} inicio={proyecto.fecha_inicio} fin={proyecto.fecha_fin} />
       ) : (
@@ -186,7 +186,7 @@ function FichaTabla({ ficha }: { ficha: ProjectFinancialSheet }) {
                   <TableHead scope="col" numeric>Programado</TableHead>
                   <TableHead scope="col" numeric>Ejecutado</TableHead>
                   <TableHead scope="col" numeric>Diferencia</TableHead>
-                  <TableHead scope="col" numeric>E/P</TableHead>
+                  <TableHead scope="col" numeric>% de lo programado</TableHead>
                   <TableHead scope="col" numeric>E/A</TableHead>
                   <TableHead scope="col" numeric>Umbral rojo</TableHead>
                   <TableHead scope="col">Estado</TableHead>
@@ -297,7 +297,7 @@ function RubroBars({ rubros, disponible }: { rubros: readonly ProjectFinancialRo
             </span>
             <span className="flex items-center gap-2">
               <span className="text-[12px] text-ink-600 tabular-nums">
-                {`E/P ${disponible ? formatPercent(row.ep_decimas === null ? null : BigInt(row.ep_decimas)) : "—"}`}
+                {`${disponible ? formatPercent(row.ep_decimas === null ? null : BigInt(row.ep_decimas)) : "—"} de lo programado`}
               </span>
               {disponible && row.color ? <SemaforoChip color={row.color} /> : null}
             </span>
@@ -313,7 +313,7 @@ function RubroBars({ rubros, disponible }: { rubros: readonly ProjectFinancialRo
             valor={disponible ? row.ejecutado : null}
             ancho={disponible ? pct1(toCents(row.ejecutado), maximo) : 0}
             testId="financiero-barra-ejecutado"
-            marca
+            relleno={disponible && row.color ? COLOR_BARRA[row.color] : "bg-ink-500"}
           />
         </li>
       ))}
@@ -326,14 +326,15 @@ function BarraRubro({
   valor,
   ancho,
   testId,
-  marca = false,
+  relleno = "bg-ink-300",
 }: {
   etiqueta: string;
   /** Null when there is nothing executed yet: the amount shows an em dash. */
   valor: string | null;
   ancho: number;
   testId: string;
-  marca?: boolean;
+  /** Fill class: neutral grey for Programado; the row's server semáforo colour (or a neutral one) for Ejecutado. */
+  relleno?: string;
 }) {
   return (
     <div className="mt-1.5 flex items-center gap-2">
@@ -345,7 +346,7 @@ function BarraRubro({
         className="h-2 flex-1 overflow-hidden rounded-full bg-ink-100"
       >
         <span
-          className={cn("block h-full rounded-full", marca ? "bg-rose-500 dark:bg-rose-400" : "bg-ink-300")}
+          className={cn("block h-full rounded-full", relleno)}
           style={{ width: `${ancho}%` }}
         />
       </span>

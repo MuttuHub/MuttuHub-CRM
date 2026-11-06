@@ -40,14 +40,22 @@ describe("SemaforoTecnico", () => {
     expect(screen.getByTestId("semaforo-tecnico")).toHaveTextContent("+11,7 puntos")
   })
 
-  it("shows the 'Semáforo provisional' badge only while the thresholds are unconfirmed", () => {
+  it("shows the 'Umbrales sin confirmar' badge only while the thresholds are unconfirmed", () => {
     const { rerender } = render(<SemaforoTecnico tecnico={TECNICO} />)
 
-    expect(screen.getByText("Semáforo provisional")).toBeInTheDocument()
+    expect(screen.getByText("Umbrales sin confirmar")).toBeInTheDocument()
 
     rerender(<SemaforoTecnico tecnico={{ ...TECNICO, umbrales: { ...TECNICO.umbrales, confirmado: true } }} />)
 
-    expect(screen.queryByText("Semáforo provisional")).not.toBeInTheDocument()
+    expect(screen.queryByText("Umbrales sin confirmar")).not.toBeInTheDocument()
+  })
+
+  it("explains in its help that Gerencia has not confirmed the thresholds yet", async () => {
+    render(<SemaforoTecnico tecnico={TECNICO} />)
+
+    await userEvent.click(screen.getByRole("button", { name: "Ayuda: Umbrales sin confirmar" }))
+
+    expect(await screen.findByText(/Gerencia aún no ha confirmado los umbrales/)).toBeInTheDocument()
   })
 
   it("renders each API color value as its own tone, never recomputed", () => {
