@@ -51,11 +51,13 @@ async function registrarGasto(
 test("header: semáforos link to tabs; header actions go to Actividades / Finanzas", async ({ page }) => {
   await loginToProject(page, "coordinador", "PRY-2026-001");
   await expect(page.getByRole("heading", { name: "Demo CedeTextil · En ejecución", level: 1 })).toBeVisible();
-  await page.getByRole("button", { name: /^Semáforo técnico/ }).click();
-  await expect(tab(page, "Actividades", true)).toBeVisible();
-  await tab(page, "Resumen").click();
+  // The Resumen carries the colours in its three figures, so the header chips stay out of it (T5).
+  await expect(page.getByRole("button", { name: /^Semáforo técnico/ })).toHaveCount(0);
+  await tab(page, "Actividades").click();
   await page.getByRole("button", { name: /^Semáforo financiero/ }).click();
   await expect(tab(page, "Finanzas", true)).toBeVisible();
+  await page.getByRole("button", { name: /^Semáforo técnico/ }).click();
+  await expect(tab(page, "Actividades", true)).toBeVisible();
   await tab(page, "Resumen").click();
   await page.getByRole("button", { name: "Registrar avance", exact: true }).first().click();
   await expect(tab(page, "Actividades", true)).toBeVisible();
@@ -151,12 +153,14 @@ test("gerencia validates one expense and rejects another with a reason; annuls t
 
   const filaV = page.getByRole("row", { name: new RegExp(DOC_VALIDAR) });
   await expect(filaV).toBeVisible();
-  // «Revisar» opens the «Validar gasto» panel; after validating it moves on to the next pending expense.
+  // «Revisar» opens the «Validar gasto» panel; after validating it moves on to the next pending expense
+  // and keeps the ficha behind it inert, so close it before reading the Gastos table.
   await filaV.getByRole("button", { name: /^Revisar el gasto/ }).click();
   const panel = page.getByRole("dialog", { name: "Validar gasto" });
   await panel.getByRole("button", { name: "Validar gasto" }).click();
+  await expect(panel).not.toContainText(DOC_VALIDAR, { timeout: 30_000 });
+  await page.keyboard.press("Escape");
   await expect(filaV).toContainText("Validado", { timeout: 30_000 });
-  if (await panel.isVisible()) await page.keyboard.press("Escape");
 
   // The overspent one cannot be validated (open PO question): it can only be rejected, with a reason.
   const filaS = page.getByRole("row", { name: new RegExp(DOC_SOBRE) });
@@ -167,8 +171,9 @@ test("gerencia validates one expense and rejects another with a reason; annuls t
   await panel.getByLabel("Motivo (obligatorio si lo rechazas)").fill(MOTIVO_RECHAZO);
   await panel.getByRole("button", { name: "Rechazar" }).click();
   await panel.getByRole("button", { name: "Confirmar rechazo" }).click();
+  await expect(panel).not.toContainText(DOC_SOBRE, { timeout: 30_000 });
+  await page.keyboard.press("Escape");
   await expect(filaS).toContainText("Rechazado", { timeout: 30_000 });
-  if (await panel.isVisible()) await page.keyboard.press("Escape");
   await expect(filaS).toContainText(MOTIVO_RECHAZO);
 
   // annul the validated one
