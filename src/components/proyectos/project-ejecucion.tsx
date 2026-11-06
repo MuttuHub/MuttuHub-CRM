@@ -8,6 +8,7 @@
 import { useId, useState, type ReactNode } from "react";
 import { ChevronRight, ClipboardList, Gauge } from "lucide-react";
 import { useCurrentUser } from "@/hooks/kanban";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { AvisoSoloConsulta, InlineError, MetricRow, SELECT_CLASS, SectionHeader } from "@/components/proyectos/ui";
@@ -27,6 +28,7 @@ import {
   useProjectDeliverables,
   useProjectMembers,
   useProjectTechnicalStatus,
+  type EstadoActividad,
   type ProjectActivity,
   type ProjectBase,
   type ProjectCurve,
@@ -64,12 +66,15 @@ export function ProjectEjecucion({
   lista = false,
   enfocarId = null,
   enfocarPrimeraPendiente = 0,
+  onSolicitarModificacion,
 }: {
   proyecto: ProjectListRow;
   seguimiento?: boolean;
   lista?: boolean;
   enfocarId?: string | null;
   enfocarPrimeraPendiente?: number;
+  /** «Solicitar modificación» on a finished activity (the ficha opens Historial › Modificaciones). */
+  onSolicitarModificacion?: () => void;
 }) {
   if (proyecto.estado === "BORRADOR") {
     return (
@@ -89,6 +94,7 @@ export function ProjectEjecucion({
         lista={lista}
         enfocarId={enfocarId}
         enfocarPrimeraPendiente={enfocarPrimeraPendiente}
+        onSolicitarModificacion={onSolicitarModificacion}
       />
     </section>
   );
@@ -242,21 +248,27 @@ function EjecucionContent({
   lista,
   enfocarId,
   enfocarPrimeraPendiente,
+  onSolicitarModificacion,
 }: {
   proyecto: ProjectListRow;
   seguimiento: boolean;
   lista: boolean;
   enfocarId: string | null;
   enfocarPrimeraPendiente: number;
+  onSolicitarModificacion?: () => void;
 }) {
   const [base, setBase] = useState<ProjectBase>("vigente");
+  const [filtro, setFiltro] = useState<Filtro>("porhacer");
   const tecnicoQuery = useProjectTechnicalStatus(proyecto.id, base);
   const activitiesQuery = useProjectActivities(proyecto.id);
   const objetivosQuery = useProjectObjectives(proyecto.id);
   const deliverablesQuery = useProjectDeliverables(proyecto.id);
+  const membersQuery = useProjectMembers(proyecto.id);
 
   const { canWrite, canVoid, resuelto } = useEjecucionPermisos(proyecto.id);
   const soloConsulta = resuelto && !canWrite && proyecto.estado === "EN_EJECUCION";
+  const nombreMiembro = new Map((membersQuery.data ?? []).map((miembro) => [miembro.usuario.id, miembro.usuario.nombre]));
+  const solicitar = canWrite && proyecto.estado === "EN_EJECUCION" ? onSolicitarModificacion : undefined;
 
   // Decisión 2: los entregables se leen UNA vez y los avances se abren con
   // `useQueries`, solo mientras la sección está montada.
@@ -280,6 +292,16 @@ function EjecucionContent({
       return estado !== undefined && estado !== "FINALIZADA" && estado !== "FINALIZADA_CON_RETRASO";
     });
     setPedidoServido({ pedido: enfocarPrimeraPendiente, id: pendiente?.id ?? null });
+    // An unfinished activity is always under «Por hacer».
+    if (pendiente && filtro === "finalizadas") setFiltro("porhacer");
+  }
+
+  // A Tablero card asks for one activity: when the filter hides it, show «Todas» (once per request).
+  const [enfoqueFiltrado, setEnfoqueFiltrado] = useState<string | null>(null);
+  if (enfocarId !== enfoqueFiltrado && tecnicoQuery.data) {
+    setEnfoqueFiltrado(enfocarId);
+    const estado = tecnicoQuery.data.actividades.find((actividad) => actividad.id === enfocarId)?.estado;
+    if (estado !== undefined && filtro !== "todas" && grupoDe(estado) !== filtro) setFiltro("todas");
   }
 
   if (tecnicoQuery.isError) {
@@ -300,9 +322,7 @@ function EjecucionContent({
   return (
     <div className={lista ? "mt-0" : "mt-2"}>
       {soloConsulta && <AvisoSoloConsulta className="mb-2" />}
-      {lista ? (
-        <OpcionesAvanzadas proyecto={proyecto} base={base} corte={tecnico.corte} onBaseChange={setBase} />
-      ) : (
+      {!lista && (
         <>
           <SemaforoTecnico tecnico={tecnico} onBaseChange={setBase} />
           <CurvaSeccion proyecto={proyecto} base={base} corte={tecnico.corte} seguimiento={seguimiento} />
@@ -321,30 +341,58 @@ function EjecucionContent({
       ) : actividades.length === 0 ? (
         <p className="mt-2 text-[12.5px] text-ink-500">Este proyecto todavía no tiene actividades.</p>
       ) : (
-        <ListaActividades
-          actividades={actividades}
-          objetivos={objetivosQuery.data ?? []}
-          agrupar={lista}
-          fila={(actividad) => {
-            const tecnica = tecnicas.get(actividad.id);
-            if (!tecnica) return null;
-            return (
-              <EjecucionAvance
-                key={actividad.id}
-                proyectoId={proyecto.id}
-                actividad={actividad}
-                tecnico={tecnica}
-                entregables={deliverables.filter(
-                  (deliverable) => deliverable.actividad_id === actividad.id,
-                )}
-                progreso={progreso}
-                canWrite={canWrite}
-                canVoid={canVoid}
-                enfocar={enfocarFila(actividad.id)}
-              />
-            );
-          }}
-        />
+        <>
+          {lista && (
+            <FiltroActividades
+              filtro={filtro}
+              onChange={setFiltro}
+              conteo={{
+                porhacer: actividades.filter((a) => grupoDe(tecnicas.get(a.id)?.estado) === "porhacer").length,
+                finalizadas: actividades.filter((a) => grupoDe(tecnicas.get(a.id)?.estado) === "finalizadas").length,
+                todas: actividades.length,
+              }}
+            />
+          )}
+          <ListaActividades
+            actividades={
+              lista && filtro !== "todas"
+                ? actividades.filter((actividad) => grupoDe(tecnicas.get(actividad.id)?.estado) === filtro)
+                : actividades
+            }
+            objetivos={objetivosQuery.data ?? []}
+            agrupar={lista}
+            vacio={<FiltroVacio filtro={filtro} onVerTodas={() => setFiltro("todas")} />}
+            fila={(actividad) => {
+              const tecnica = tecnicas.get(actividad.id);
+              if (!tecnica) return null;
+              return (
+                <EjecucionAvance
+                  key={actividad.id}
+                  proyectoId={proyecto.id}
+                  actividad={actividad}
+                  tecnico={tecnica}
+                  entregables={deliverables.filter(
+                    (deliverable) => deliverable.actividad_id === actividad.id,
+                  )}
+                  progreso={progreso}
+                  canWrite={canWrite}
+                  canVoid={canVoid}
+                  enfocar={enfocarFila(actividad.id)}
+                  tope={tecnico.tope_en_curso ?? undefined}
+                  corte={tecnico.corte}
+                  responsable={actividad.responsable_id ? (nombreMiembro.get(actividad.responsable_id) ?? null) : null}
+                  onSolicitarModificacion={solicitar}
+                />
+              );
+            }}
+          />
+        </>
+      )}
+
+      {lista && (
+        <div className="mt-4">
+          <OpcionesAvanzadas proyecto={proyecto} base={base} corte={tecnico.corte} onBaseChange={setBase} />
+        </div>
       )}
 
       {!seguimiento && !lista && (
@@ -356,34 +404,107 @@ function EjecucionContent({
   );
 }
 
-/** Las actividades en una lista plana o, en la pestaña Actividades, agrupadas bajo su meta. */
+type Filtro = "porhacer" | "finalizadas" | "todas";
+
+/** «Por hacer» = No iniciada or En curso; «Finalizadas» = Finalizada or Finalizada con retraso. */
+function grupoDe(estado: EstadoActividad | undefined): Filtro | null {
+  if (estado === undefined) return null;
+  return estado === "FINALIZADA" || estado === "FINALIZADA_CON_RETRASO" ? "finalizadas" : "porhacer";
+}
+
+const FILTROS: { value: Filtro; label: string }[] = [
+  { value: "porhacer", label: "Por hacer" },
+  { value: "finalizadas", label: "Finalizadas" },
+  { value: "todas", label: "Todas" },
+];
+
+/** «Mostrar: Por hacer · 2 · Finalizadas · 2 · Todas · 4»: one pressed at a time, 44 px chips that wrap. */
+function FiltroActividades({
+  filtro,
+  conteo,
+  onChange,
+}: {
+  filtro: Filtro;
+  conteo: Record<Filtro, number>;
+  onChange: (filtro: Filtro) => void;
+}) {
+  return (
+    <div role="group" aria-label="Filtrar actividades" className="flex min-w-0 flex-wrap items-center gap-2 text-[13px]">
+      <span className="text-ink-600">Mostrar:</span>
+      {FILTROS.map((item) => {
+        const activo = filtro === item.value;
+        return (
+          <button
+            key={item.value}
+            type="button"
+            aria-pressed={activo}
+            onClick={() => onChange(item.value)}
+            className={cn(
+              "inline-flex h-11 items-center rounded-full border px-3 font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:h-9",
+              activo
+                ? "border-ink-900 bg-ink-900 text-panel"
+                : "border-border-strong bg-input-bg text-ink-800 hover:border-ink-500",
+            )}
+          >
+            {item.label} · {conteo[item.value]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function FiltroVacio({ filtro, onVerTodas }: { filtro: Filtro; onVerTodas: () => void }) {
+  return (
+    <div data-testid="actividades-filtro-vacio" className="mt-3 flex flex-col items-start gap-2 text-[13px] text-ink-600">
+      <p>
+        <span className="font-semibold text-ink-800">
+          {filtro === "finalizadas" ? "Aún no hay actividades finalizadas." : "No hay actividades por hacer."}
+        </span>{" "}
+        Cambia el filtro a «Todas» para ver el resto.
+      </p>
+      <Button type="button" variant="outline" size="sm" onClick={onVerTodas}>
+        Ver todas
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * Las actividades en una lista plana o, en la pestaña Actividades, agrupadas bajo su objetivo («Objetivo 1.
+ * …»). A goal with no visible activity (filtered out) is not shown.
+ */
 function ListaActividades({
   actividades,
   objetivos,
   agrupar,
   fila,
+  vacio,
 }: {
   actividades: ProjectActivity[];
   objetivos: ProjectObjective[];
   agrupar: boolean;
   fila: (actividad: ProjectActivity) => ReactNode;
+  /** What to show when the filter leaves nothing. */
+  vacio: ReactNode;
 }) {
+  if (actividades.length === 0) return <>{vacio}</>;
   const grupos = [...objetivos]
     .sort((a, b) => a.orden - b.orden)
     .map((objetivo) => ({ objetivo, filas: actividades.filter((a) => a.objetivo_id === objetivo.id) }))
     .filter((grupo) => grupo.filas.length > 0);
-  // Sin metas legibles (cargando o con error) la lista no se pierde: cae a la versión plana.
+  // Sin objetivos legibles (cargando o con error) la lista no se pierde: cae a la versión plana.
   if (!agrupar || grupos.reduce((n, grupo) => n + grupo.filas.length, 0) !== actividades.length) {
-    return <ul className="mt-3 flex flex-col gap-2.5">{actividades.map(fila)}</ul>;
+    return <ul className="mt-3 flex min-w-0 flex-col gap-2.5">{actividades.map(fila)}</ul>;
   }
   return (
-    <div className="mt-3 flex flex-col gap-4">
+    <div className="mt-3 flex min-w-0 flex-col gap-4">
       {grupos.map(({ objetivo, filas }) => (
-        <section key={objetivo.id} data-testid={`ejecucion-objetivo-${objetivo.codigo}`}>
-          <h4 className="text-[13px] font-semibold text-ink-800">
-            <span className="font-mono text-[11.5px] text-ink-500">{objetivo.codigo}</span> {objetivo.descripcion}
+        <section key={objetivo.id} data-testid={`ejecucion-objetivo-${objetivo.codigo}`} className="min-w-0">
+          <h4 className="text-[13px] break-words text-ink-700">
+            <span className="font-semibold text-ink-900">Objetivo {objetivo.codigo}.</span> {objetivo.descripcion}
           </h4>
-          <ul className="mt-1.5 flex flex-col gap-2.5">{filas.map(fila)}</ul>
+          <ul className="mt-2 flex min-w-0 flex-col gap-2.5">{filas.map(fila)}</ul>
         </section>
       ))}
     </div>

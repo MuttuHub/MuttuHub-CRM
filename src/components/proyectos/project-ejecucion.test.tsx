@@ -130,6 +130,9 @@ type Setup = {
   seguimiento?: boolean
   lista?: boolean
   enfocarPrimeraPendiente?: number
+  enfocarId?: string | null
+  objetivos?: unknown[]
+  onSolicitarModificacion?: () => void
 }
 
 describe("ProjectEjecucion", () => {
@@ -148,6 +151,9 @@ describe("ProjectEjecucion", () => {
     seguimiento = false,
     lista = false,
     enfocarPrimeraPendiente = 0,
+    enfocarId = null,
+    objetivos = [],
+    onSolicitarModificacion,
   }: Setup = {}) {
     fetchMock.mockImplementation((input: unknown) => {
       const url = String(input)
@@ -170,6 +176,7 @@ describe("ProjectEjecucion", () => {
             : jsonResponse({ error: "No pudimos cargar las actividades.", code: "INTERNAL_ERROR" }, actividadesStatus),
         )
       }
+      if (url.endsWith("/objectives")) return Promise.resolve(jsonResponse({ objetivos }))
       if (url.endsWith("/deliverables")) return Promise.resolve(jsonResponse({ entregables }))
       if (url.endsWith("/deliverables/e1/progress")) {
         return Promise.resolve(jsonResponse({ estado: "EN_EJECUCION", meta: "2.00", avances: [AVANCE] }))
@@ -186,6 +193,8 @@ describe("ProjectEjecucion", () => {
         seguimiento={seguimiento}
         lista={lista}
         enfocarPrimeraPendiente={enfocarPrimeraPendiente}
+        enfocarId={enfocarId}
+        onSolicitarModificacion={onSolicitarModificacion}
       />,
       { wrapper: createWrapper() },
     )
@@ -307,9 +316,10 @@ describe("ProjectEjecucion", () => {
     const actividad = await screen.findByTestId("ejecucion-actividad")
     expect(actividad).toHaveTextContent("1.1")
     expect(actividad).toHaveTextContent("Taller de formación")
+    // Its last day (25 oct) is the corte: overdue, so its entregables are open.
     const entregable = within(actividad).getByTestId("ejecucion-entregable")
     expect(entregable).toHaveTextContent("Acta de asistencia")
-    expect(entregable).toHaveTextContent("Contado 0 actas")
+    expect(within(entregable).getAllByRole("cell")[2]).toHaveTextContent(/^Contados*0/)
     expect(entregable).toHaveTextContent("1 pendiente de soporte")
   })
 
@@ -365,17 +375,23 @@ describe("ProjectEjecucion", () => {
     })
 
     it("shows the void control only to a manager", async () => {
+      const user = userEvent.setup()
       setup({ rol: "ADMINISTRADOR" })
 
       await screen.findByTestId("ejecucion-entregable")
+      await user.click(await screen.findByRole("button", { name: "0 archivos" }))
+      await screen.findByTestId("ejecucion-avance")
       // El entregable tiene un avance sin anular: el gestor puede anularlo.
       expect(screen.getByRole("button", { name: "Anular" })).toBeInTheDocument()
     })
 
     it("hides the void control from an active-member COORDINADOR", async () => {
+      const user = userEvent.setup()
       setup({ rol: "COORDINADOR", miembros: [MIEMBRO_COORDINADOR] })
 
       await screen.findByTestId("ejecucion-entregable")
+      await user.click(await screen.findByRole("button", { name: "0 archivos" }))
+      expect(await screen.findByRole("button", { name: "Adjuntar archivo" })).toBeInTheDocument()
       expect(screen.queryByRole("button", { name: "Anular" })).not.toBeInTheDocument()
     })
 
@@ -457,6 +473,101 @@ describe("ProjectEjecucion", () => {
       })
 
       expect(await screen.findByRole("button", { name: "Registrar avance 1.1" })).toBeInTheDocument()
+    })
+  })
+
+  describe("Lista filter and cards (redesign T2)", () => {
+    const TRES = [ACTIVIDAD, { ...ACTIVIDAD, id: "a2", codigo: "1.2", nombre: "Visitas" }, { ...ACTIVIDAD, id: "a3", codigo: "1.3", nombre: "Cierre" }]
+    const TECNICO_TRES = {
+      ...TECNICO,
+      actividades: [
+        { id: "a1", codigo: "1.1", peso: 1, progreso: 100, estado: "FINALIZADA", fecha_cumplimiento: "2026-10-20" },
+        { id: "a2", codigo: "1.2", peso: 1, progreso: 30, estado: "EN_CURSO", fecha_cumplimiento: null },
+        { id: "a3", codigo: "1.3", peso: 1, progreso: 0, estado: "NO_INICIADA", fecha_cumplimiento: null },
+      ],
+    }
+    const chip = (name: RegExp) => screen.getByRole("button", { name })
+    const visibles = () => screen.getAllByTestId("ejecucion-actividad").map((fila) => fila.id)
+
+    it("filters by «Por hacer» by default, with the count of each group", async () => {
+      const user = userEvent.setup()
+      setup({ lista: true, actividades: TRES, entregables: [], tecnico: TECNICO_TRES })
+
+      await screen.findAllByTestId("ejecucion-actividad")
+      const grupo = screen.getByRole("group", { name: "Filtrar actividades" })
+      expect(within(grupo).getAllByRole("button").map((b) => b.textContent)).toEqual(["Por hacer · 2", "Finalizadas · 1", "Todas · 3"])
+      expect(chip(/^Por hacer/)).toHaveAttribute("aria-pressed", "true")
+      expect(visibles()).toEqual(["actividad-a2", "actividad-a3"])
+
+      await user.click(chip(/^Finalizadas/))
+      expect(chip(/^Finalizadas/)).toHaveAttribute("aria-pressed", "true")
+      expect(chip(/^Por hacer/)).toHaveAttribute("aria-pressed", "false")
+      expect(visibles()).toEqual(["actividad-a1"])
+
+      await user.click(chip(/^Todas/))
+      expect(visibles()).toEqual(["actividad-a1", "actividad-a2", "actividad-a3"])
+    })
+
+    it("explains an empty filter and offers «Ver todas»", async () => {
+      const user = userEvent.setup()
+      setup({ lista: true, entregables: [], tecnico: { ...TECNICO, actividades: [{ ...TECNICO.actividades[0], estado: "FINALIZADA" }] } })
+
+      const vacio = await screen.findByTestId("actividades-filtro-vacio")
+      expect(vacio).toHaveTextContent("No hay actividades por hacer. Cambia el filtro a «Todas» para ver el resto.")
+      await user.click(within(vacio).getByRole("button", { name: "Ver todas" }))
+      expect(chip(/^Todas/)).toHaveAttribute("aria-pressed", "true")
+      expect(screen.getByTestId("ejecucion-actividad")).toBeInTheDocument()
+    })
+
+    it("shows «Todas» when the Tablero asks for an activity the filter hides", async () => {
+      setup({ lista: true, actividades: TRES, entregables: [], tecnico: TECNICO_TRES, enfocarId: "a1" })
+
+      await waitFor(() => expect(chip(/^Todas/)).toHaveAttribute("aria-pressed", "true"))
+      await waitFor(() => expect(document.activeElement?.id).toBe("actividad-a1"))
+    })
+
+    it("groups the activities under «Objetivo N.» and hides a goal with nothing visible", async () => {
+      const objetivos = [
+        { id: "o1", proyecto_id: "p1", codigo: "1", descripcion: "Fortalecer capacidades", orden: 1, ...STAMP },
+        { id: "o2", proyecto_id: "p1", codigo: "2", descripcion: "Cerrar el proyecto", orden: 2, ...STAMP },
+      ]
+      setup({
+        objetivos,
+        lista: true,
+        entregables: [],
+        actividades: [ACTIVIDAD, { ...ACTIVIDAD, id: "a2", codigo: "2.1", objetivo_id: "o2" }],
+        tecnico: { ...TECNICO, actividades: [TECNICO.actividades[0], { id: "a2", codigo: "2.1", peso: 1, progreso: 100, estado: "FINALIZADA", fecha_cumplimiento: null }] },
+      })
+
+      const grupo = await screen.findByTestId("ejecucion-objetivo-1")
+      expect(within(grupo).getByRole("heading", { level: 4 })).toHaveTextContent("Objetivo 1. Fortalecer capacidades")
+      expect(screen.queryByTestId("ejecucion-objetivo-2")).not.toBeInTheDocument()
+    })
+
+    it("names the responsable from the team", async () => {
+      setup({
+        lista: true,
+        entregables: [],
+        actividades: [{ ...ACTIVIDAD, responsable_id: "u7" }],
+        miembros: [{ id: "m7", usuario: { id: "u7", nombre: "Andrés Torres", rol: "COLABORADOR" }, agregado_por_id: "u9", created_at: STAMP.created_at, removed_at: null }],
+      })
+      await waitFor(() => expect(screen.getByTestId("ejecucion-actividad")).toHaveTextContent("Responsable: Andrés Torres"))
+    })
+
+    it("offers «Solicitar modificación» on a finished activity only to a writer of a project in execution", async () => {
+      const user = userEvent.setup()
+      const solicitar = vi.fn()
+      const finalizada = { ...TECNICO, actividades: [{ ...TECNICO.actividades[0], progreso: 90, estado: "FINALIZADA" }] }
+      const dentro = setup({ lista: true, entregables: [], tecnico: finalizada, onSolicitarModificacion: solicitar })
+      await user.click(await screen.findByRole("button", { name: /^Finalizadas/ }))
+      await user.click(await screen.findByRole("button", { name: "Solicitar modificación" }))
+      expect(solicitar).toHaveBeenCalledTimes(1)
+      dentro.unmount()
+
+      setup({ lista: true, entregables: [], tecnico: finalizada, onSolicitarModificacion: solicitar, rol: "COLABORADOR" })
+      await user.click(await screen.findByRole("button", { name: /^Finalizadas/ }))
+      await screen.findByTestId("ejecucion-actividad")
+      expect(screen.queryByRole("button", { name: "Solicitar modificación" })).not.toBeInTheDocument()
     })
   })
 })
