@@ -24,9 +24,11 @@ Test runner: `node.exe node_modules/vitest/vitest.mjs run --dir src <files>` (Wi
 | T3 | S4, S6 | delegated (parallel unit) | done in code; mobile not seen in a browser | `624d785` |
 | T4 | S5, S6 | delegated (parallel unit) | done in code; mobile not seen in a browser | `88b7bc7` |
 | T5 | S1–S7 | inline | wiring in `project-ficha.tsx`, `/proyectos/novedades`, unit + e2e updates; seam check green | see Log L3 |
-| T6 | S1, S6 | inline | visual check desktop + 390 px in a browser (14 shots, 0 overflow) and the e2e suite; two specs adapted to the new behaviour | see Log L5 |
+| T6 | S1, S6 | inline | visual check desktop + 390 px in a browser (14 shots, 0 overflow) and the e2e suite; two specs adapted to the new behaviour | `015240c` |
 
 Route evidence: T1–T4 are independent units with disjoint edit surfaces (one tab each), each several files and well over 100 lines, launched together (Writer trigger a).
+
+Delivery slice: the branch is 7 commits and ~17.5k changed lines over `origin/main@0726e5d` (60 files under `src/`, the rest the design sources of T0), well past one reviewable slice. The PR split is the human's call. Constraint for whoever splits it: T1–T4 each add one tab's components and their unit tests but nothing renders them until `c8e6e79` wires them into `project-ficha.tsx`, so a per-tab split has to be stacked with the wiring last (or squash the five into one PR).
 
 ## Log
 
