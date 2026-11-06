@@ -354,9 +354,26 @@ function EstadoGasto({ gasto }: { gasto: ProjectExpense }) {
   );
 }
 
-/** The IVA is shown apart and only for information: the budget always consumes the Total (`valor`). */
+/**
+ * The IVA is shown apart and only for information: the budget always consumes the Total (`valor`). Under the
+ * Total: «Sin IVA» when it is 0, otherwise «{subtotal} + IVA {iva}».
+ */
 function IvaGasto({ gasto, className }: { gasto: ProjectExpense; className?: string }) {
-  return <span className={`text-ink-600 ${className ?? ""}`}>IVA {formatCOP(toCents(gasto.iva))}</span>;
+  const iva = toCents(gasto.iva);
+  return (
+    <span className={`text-ink-600 ${className ?? ""}`}>
+      {iva === BigInt(0) ? "Sin IVA" : `${formatCOP(toCents(gasto.subtotal))} + IVA ${formatCOP(iva)}`}
+    </span>
+  );
+}
+
+/** The accounting period (YYYY-MM) the expense counts in, shown under its document date. */
+function PeriodoGasto({ gasto, className }: { gasto: ProjectExpense; className?: string }) {
+  return (
+    <span title="Periodo contable" className={`text-[11.5px] text-ink-600 ${className ?? ""}`}>
+      {gasto.periodo}
+    </span>
+  );
 }
 
 /** AJ-05: the period was edited away from the month of the document date. The change is in the audit ledger. */
@@ -381,6 +398,7 @@ function GastoFila(props: FilaProps) {
     >
       <TableCell className="align-top font-mono text-[12.5px] text-ink-700">
         <span title={formatFechaCalendario(gasto.fecha_documento)}>{fechaCorta(gasto.fecha_documento)}</span>
+        <PeriodoGasto gasto={gasto} className="block" />
         <PeriodoModificado gasto={gasto} className="block" />
       </TableCell>
       <TableCell className="min-w-[150px] max-w-[240px] align-top whitespace-normal">
@@ -447,6 +465,7 @@ function GastoTarjeta(props: FilaProps) {
           identificacion,
           `${TIPO_SOPORTE_LABELS[gasto.tipo_soporte]} ${gasto.numero_documento}`,
           formatFechaCalendario(gasto.fecha_documento),
+          `Periodo ${gasto.periodo}`,
         ]
           .filter(Boolean)
           .join(" · ")}
