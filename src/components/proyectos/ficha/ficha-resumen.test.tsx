@@ -317,8 +317,10 @@ describe("FichaResumen", () => {
     ]) {
       expect(datos).toHaveTextContent(texto)
     }
-    expect(datos).toHaveTextContent("Productividad")
-    expect(datos).toHaveTextContent("Principal")
+    // T10 R9: the lines in plain text, the principal one first and named, as in the prototype.
+    expect(datos).toHaveTextContent("LíneasProductividad (principal), Emprendimiento")
+    // T10 R9: label left and value right from `md`.
+    expect(within(datos).getByText("Cliente").parentElement!.className).toMatch(/(^|\s)md:grid(\s|$)/)
     expect(datos).toHaveTextContent("Medellín · Antioquia")
     expect(datos).not.toHaveTextContent("Diferencia valor oportunidad")
     const falta = screen.getByTestId("requiere-atencion")

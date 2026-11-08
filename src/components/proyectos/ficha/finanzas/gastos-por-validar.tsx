@@ -7,7 +7,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Paperclip } from "lucide-react";
+import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/ui/status-chip";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -120,7 +120,7 @@ function ListaPendientes({
             <div className="flex items-start justify-between gap-2">
               <p className="text-[14px] font-semibold text-ink-950">{gasto.tercero_nombre}</p>
               <span className="flex shrink-0 flex-col items-end">
-                <span className="font-mono text-[13px] font-semibold text-ink-900 tabular-nums">{monto(gasto.valor)}</span>
+                <span className="text-[13px] font-semibold text-ink-900 tabular-nums">{monto(gasto.valor)}</span>
                 <span className="text-[11.5px] text-ink-600">{textoIva(gasto)}</span>
               </span>
             </div>
@@ -166,7 +166,7 @@ function ListaPendientes({
               </TableCell>
               <TableCell className="align-top whitespace-normal">{nombreRubro(gasto.rubro)}</TableCell>
               <TableCell numeric className="align-top">
-                <span className="font-mono font-semibold text-ink-900">{monto(gasto.valor)}</span>
+                <span className="font-semibold text-ink-900 tabular-nums">{monto(gasto.valor)}</span>
                 <span className="block text-[11.5px] text-ink-600">{textoIva(gasto)}</span>
               </TableCell>
               <TableCell className="align-top whitespace-normal">
@@ -211,7 +211,7 @@ export function AccionRevisar({
     if (propio) return <span className="text-[12px] font-semibold text-ink-500">{PROPIO_TEXT}</span>;
     return (
       <Popover>
-        <PopoverTrigger render={<Button type="button" size="sm" className="max-md:h-11" aria-label={nombre} />}>
+        <PopoverTrigger render={<Button type="button" variant="outline" size="sm" className="max-md:h-11" aria-label={nombre} />}>
           Revisar
         </PopoverTrigger>
         <PopoverContent className="w-72 min-w-0 p-3" side="top">
@@ -227,7 +227,14 @@ export function AccionRevisar({
     return <span className="text-[12px] font-semibold text-ink-500">{PROPIO_TEXT}</span>;
   }
   return (
-    <Button type="button" size="sm" className="max-md:h-11" aria-label={nombre} onClick={() => onRevisar(gasto.id)}>
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="max-md:h-11"
+      aria-label={nombre}
+      onClick={() => onRevisar(gasto.id)}
+    >
       Revisar
     </Button>
   );
@@ -244,7 +251,7 @@ function SoporteEnlace({ proyectoId, gasto }: { proyectoId: string; gasto: Proje
       <Button
         type="button"
         variant="link"
-        className="h-auto min-h-11 px-0 md:min-h-0"
+        className="h-auto min-h-11 px-0 underline md:min-h-0"
         aria-label={`Ver soporte ${soporte.nombre}`}
         onClick={async () => {
           setError(null);
@@ -255,7 +262,7 @@ function SoporteEnlace({ proyectoId, gasto }: { proyectoId: string; gasto: Proje
           }
         }}
       >
-        <Paperclip />
+        <FileText />
         <span className="max-w-[160px] truncate">{soporte.nombre}</span>
       </Button>
       {gasto.soportes.length > 1 && (

@@ -338,7 +338,7 @@ function DetalleGasto({
             ? `Este gasto ya está ${ESTADO_TEXTO[gasto.estado]}.`
             : propio
               ? "No puedes validar un gasto que tú registraste."
-              : "Solo consulta: validar o rechazar gastos le corresponde a quien gestiona proyectos, nunca a quien registró el gasto."}
+              : "Solo consulta: validar o rechazar gastos le corresponde a Gerencia o Administración (y no a quien registró el gasto)."}
         </p>
       )}
     </section>

@@ -231,6 +231,11 @@ describe("ProjectFinanciero", () => {
       expect((await screen.findByTestId("financiero-cifras")).className).toMatch(/grid-cols-1 .*md:grid-cols-3/)
       // T10 C11: white cards with a border, as the prototype's `.card`.
       expect(screen.getByTestId("cifra-ejecutado").className).toMatch(/(^|\s)surface-tile(\s|$)/)
+      // T10 F2: small caps label and the amount in the display font, not monospace.
+      const [etiqueta, importe] = Array.from(screen.getByTestId("cifra-ejecutado").querySelectorAll("p"))
+      expect(etiqueta.className).toMatch(/(^|\s)uppercase(\s|$)/)
+      expect(importe.className).toMatch(/(^|\s)font-display(\s|$)/)
+      expect(importe.className).not.toMatch(/(^|\s)font-mono(\s|$)/)
     })
   })
 
@@ -268,6 +273,10 @@ describe("ProjectFinanciero", () => {
       )
       // T10 C12: underlined, as in the prototype.
       expect(within(alerta).getByRole("button", { name: "Ver actividades" }).className).toMatch(/(^|\s)underline(\s|$)/)
+      // T10 F5: a beige band without icon or bold text, as in the prototype.
+      expect(alerta.className).toMatch(/(^|\s)bg-alerta-bg(\s|$)/)
+      expect(alerta.querySelector("svg")).toBeNull()
+      expect(alerta.className).not.toMatch(/(^|\s)font-semibold(\s|$)/)
       await user.click(within(alerta).getByRole("button", { name: "Ver actividades" }))
       expect(onVerActividades).toHaveBeenCalledTimes(1)
       unmount()
@@ -301,7 +310,11 @@ describe("ProjectFinanciero", () => {
       expect(within(filas[1]).getByText("Cuenta en 2026-10")).toBeInTheDocument()
       expect(within(filas[1]).getByRole("button", { name: "Ayuda: Cuenta en 2026-10" })).toBeInTheDocument()
       expect(within(filas[0]).getByRole("button", { name: "Ver soporte Factura FV-4007.pdf" })).toBeInTheDocument()
-      expect(within(filas[0]).getByRole("button", { name: "Revisar el gasto FV-4007 de Papelería del Sinú" })).toBeInTheDocument()
+      const revisar = within(filas[0]).getByRole("button", { name: "Revisar el gasto FV-4007 de Papelería del Sinú" })
+      // T10 F6: «Revisar» is an outlined button and the support link is underlined, as in the prototype.
+      expect(revisar.className).toMatch(/(^|\s)bg-input-bg(\s|$)/)
+      expect(revisar.className).not.toMatch(/(^|\s)bg-primary(\s|$)/)
+      expect(within(filas[0]).getByRole("button", { name: "Ver soporte Factura FV-4007.pdf" }).className).toMatch(/(^|\s)underline(\s|$)/)
     })
 
     it("is not shown when nothing waits for validation", async () => {

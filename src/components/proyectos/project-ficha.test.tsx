@@ -123,10 +123,8 @@ describe("ProjectFicha (page)", () => {
     expect(tiempo).toHaveTextContent("1.200 beneficiarios")
     expect(screen.getByText("-$ 5.000.000")).toBeInTheDocument()
 
-    // Las dos líneas, con la principal marcada de forma visible.
-    expect(screen.getByText("Educación")).toBeInTheDocument()
-    expect(screen.getByText("Salud")).toBeInTheDocument()
-    expect(screen.getByText("Principal")).toBeInTheDocument()
+    // Las dos líneas, con la principal primero y nombrada (T10 R9, como en el prototipo).
+    expect(screen.getByText("Educación (principal), Salud")).toBeInTheDocument()
 
     expect(screen.getByText("Barranquilla · Atlántico")).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1", expect.any(Object))

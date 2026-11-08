@@ -60,21 +60,25 @@ export function FichaHistorial({
     <Tabs
       value={segmento}
       onValueChange={(valor) => setSegmento(valor as Segmento)}
-      className="flex flex-col gap-0"
+      className="flex flex-col gap-4"
     >
+      {/* Compact, as wide as its content (prototype); it still scrolls sideways on a narrow phone. */}
       <div className="no-scrollbar -mx-1 overflow-x-auto px-1">
-        <TabsList variant="pill" className="w-max min-w-full justify-start">
+        <TabsList variant="pill" className="w-max justify-start">
           <TabsTrigger value="registro" className="flex-none">
             Registro de cambios
           </TabsTrigger>
           <TabsTrigger value="solicitudes" className="flex-none">
-            Solicitudes{" "}
-            <SoloEnPantallaAncha>de modificación</SoloEnPantallaAncha>
+            {/* One inline run, so the trigger's flex gap never doubles the word space. */}
+            <span>
+              Solicitudes <SoloEnPantallaAncha>de modificación</SoloEnPantallaAncha>
+            </span>
             {contar && <ContadorModificaciones proyectoId={proyecto.id} />}
           </TabsTrigger>
           <TabsTrigger value="versiones" className="flex-none">
-            Versiones{" "}
-            <SoloEnPantallaAncha>del plan</SoloEnPantallaAncha>
+            <span>
+              Versiones <SoloEnPantallaAncha>del plan</SoloEnPantallaAncha>
+            </span>
             {contar && <ContadorVersiones proyectoId={proyecto.id} />}
           </TabsTrigger>
         </TabsList>

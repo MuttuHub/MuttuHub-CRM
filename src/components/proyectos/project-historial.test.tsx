@@ -202,6 +202,8 @@ describe("ProjectHistorial (Registro de cambios)", () => {
 
     await waitFor(() => expect(screen.getAllByTestId("historial-paso")).toHaveLength(4))
     const mostrar = screen.getByRole("group", { name: "Mostrar" })
+    // T10 H3: «MOSTRAR:» as a small caps label, as in the prototype (the colon is decoration, not the name).
+    expect(document.getElementById(mostrar.getAttribute("aria-labelledby")!)!.className).toMatch(/(^|\s)uppercase(\s|$)/)
     expect(within(mostrar).getAllByRole("button").map((b) => b.textContent)).toEqual([
       "Todo",
       "Avances",
@@ -282,6 +284,8 @@ describe("ProjectHistorial (Registro de cambios)", () => {
 
     await user.click(await screen.findByRole("button", { name: "Ver actividad 1.3" }))
     expect(onIrA).toHaveBeenCalledWith("actividades")
+    // T10 H6: the link reads «Ver gasto», as in the prototype; its name keeps the invoice number.
+    expect(screen.getByRole("button", { name: "Ver gasto FV-4007" })).toHaveTextContent(/^Ver gasto$/)
     await user.click(screen.getByRole("button", { name: "Ver gasto FV-4007" }))
     expect(onIrA).toHaveBeenCalledWith("finanzas")
   })

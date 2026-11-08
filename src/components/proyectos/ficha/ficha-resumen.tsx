@@ -202,9 +202,15 @@ function ProximosPasos({
 
 function Dato({ label, children, mono = false }: { label: string; children: React.ReactNode; mono?: boolean }) {
   return (
-    <div className="flex min-w-0 flex-col gap-0.5">
+    // Label left and value right from `md`, stacked on phones (prototype).
+    <div className="flex min-w-0 flex-col gap-0.5 md:grid md:grid-cols-[minmax(0,8rem)_minmax(0,1fr)] md:items-baseline md:gap-3">
       <dt className="text-[12px] font-semibold text-ink-500">{label}</dt>
-      <dd className={cn("min-w-0 text-[13.5px] break-words text-ink-900", mono && "font-mono tabular-nums")}>
+      <dd
+        className={cn(
+          "min-w-0 text-[13.5px] break-words text-ink-900 md:text-right",
+          mono && "font-mono tabular-nums",
+        )}
+      >
         {children}
       </dd>
     </div>
@@ -285,30 +291,13 @@ function DatosGenerales({
           </Dato>
         )}
         <Dato label="Líneas">
-          {proyecto.lineas.length === 0 ? (
-            "Sin líneas estratégicas."
-          ) : (
-            <ul className="flex flex-wrap gap-1.5">
-              {proyecto.lineas.map((linea) => (
-                <li
-                  key={linea.id}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12.5px]",
-                    linea.principal
-                      ? "border-rose-200 bg-rose-50 text-rose-700 dark:text-rose-400"
-                      : "border-ink-200 bg-panel text-ink-700",
-                  )}
-                >
-                  <span className="font-semibold">{linea.nombre}</span>
-                  {linea.principal && (
-                    <span className="rounded-full bg-rose-500 px-2 py-[1px] text-[10px] font-bold text-white">
-                      Principal
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
+          {proyecto.lineas.length === 0
+            ? "Sin líneas estratégicas."
+            : // Plain text, the principal line first and named (prototype).
+              [...proyecto.lineas]
+                .sort((x, y) => Number(y.principal) - Number(x.principal))
+                .map((linea) => (linea.principal ? `${linea.nombre} (principal)` : linea.nombre))
+                .join(", ")}
         </Dato>
         <Dato label="Municipios">
           {proyecto.municipios.length === 0

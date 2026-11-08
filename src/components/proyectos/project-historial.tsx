@@ -196,8 +196,11 @@ function Filtros({
   const id = useId();
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 md:flex md:items-center">
-      <span id={`${id}-mostrar`} className="text-[12px] font-semibold text-ink-600">
+      <span id={`${id}-mostrar`} className="text-[11.5px] font-semibold tracking-[0.06em] text-ink-600 uppercase">
         Mostrar
+        <span aria-hidden="true" className="hidden md:inline">
+          :
+        </span>
       </span>
       <div
         role="group"
@@ -210,8 +213,11 @@ function Filtros({
           </FiltroChip>
         ))}
       </div>
-      <label className="col-start-2 row-start-1 flex items-center gap-1.5 text-[12px] text-ink-600 md:col-auto md:row-auto">
-        Persona
+      <label className="col-start-2 row-start-1 flex items-center gap-1.5 text-[13.5px] text-ink-700 md:col-auto md:row-auto">
+        <span>
+          Persona
+          <span aria-hidden="true">:</span>
+        </span>
         <select value={persona} onChange={(event) => onPersona(event.target.value)} className={SELECT_CLASS_LG}>
           <option value="">todas</option>
           {personas.map((nombre) => (
@@ -356,8 +362,16 @@ function PasoRegistro({
               </Button>
             )}
             {gasto !== null && (
-              <Button type="button" variant="link" size="xs" className="px-0" onClick={() => onIrA("finanzas")}>
-                {gasto ? `Ver gasto ${gasto}` : "Ver gasto"}
+              // «Ver gasto», as in the prototype; the invoice number stays in its accessible name.
+              <Button
+                type="button"
+                variant="link"
+                size="xs"
+                className="px-0"
+                aria-label={gasto ? `Ver gasto ${gasto}` : undefined}
+                onClick={() => onIrA("finanzas")}
+              >
+                Ver gasto
               </Button>
             )}
           </div>

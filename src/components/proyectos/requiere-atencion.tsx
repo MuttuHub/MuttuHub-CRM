@@ -79,6 +79,18 @@ const BOTON_FILA = "w-full sm:w-auto";
 
 type Fila = { clave: string; tipo: AtencionTipo; items: AtencionItem[] };
 
+/** «Nombre: 9 de meta 30.» with the indicator's name in bold, as in the prototype (T10 R6). */
+function NombreEnNegrita({ texto }: { texto: string }) {
+  const corte = texto.indexOf(": ");
+  if (corte === -1) return <>{texto}</>;
+  return (
+    <>
+      <b className="font-semibold text-ink-900">{texto.slice(0, corte + 1)}</b>
+      {texto.slice(corte + 1)}
+    </>
+  );
+}
+
 /** Los indicadores bajo la meta van juntos en una fila, en el lugar del primero; el resto, uno por fila. */
 function agrupar(items: AtencionItem[]): Fila[] {
   const filas: Fila[] = [];
@@ -181,7 +193,7 @@ function FilaAtencion({
           <ul className="flex flex-col gap-0.5">
             {fila.items.map((indicador, index) => (
               <li key={indicador.indicador_id ?? index} className="text-[13px] leading-relaxed text-ink-800">
-                {indicador.detalle}
+                <NombreEnNegrita texto={indicador.detalle} />
               </li>
             ))}
           </ul>

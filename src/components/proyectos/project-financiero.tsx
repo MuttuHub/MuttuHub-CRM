@@ -8,7 +8,6 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle } from "lucide-react";
 import { AyudaBase, BASE_NO_DISPONIBLE, ETIQUETA_BASE, ETIQUETA_CORTE, NOMBRE_BASE, OpcionesBase, SemaforoProvisional } from "@/components/proyectos/vocabulario-seguimiento";
 import { errorMessage, plural } from "@/components/proyectos/estructura-ui";
 import { useIsMobile } from "@/components/proyectos/capture-surface";
@@ -130,12 +129,10 @@ function FinancieroContent({
             <div
               data-testid="financiero-alerta"
               role="note"
-              className="flex flex-wrap items-start gap-x-3 gap-y-1 rounded-inner border border-border bg-panel p-2.5 text-[12.5px] font-semibold text-ink-900"
+              className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-inner bg-alerta-bg px-3.5 py-2.5 text-[13px] text-ink-900"
             >
-              <span className="flex flex-1 items-start gap-1.5">
-                <AlertTriangle className="mt-0.5 size-3.5 shrink-0" strokeWidth={2} aria-hidden />
-                {ALERTA_RETRASO_TEXT}
-              </span>
+              {/* A beige band with plain text, as in the prototype (T10 F5). */}
+              <span className="min-w-0 flex-1">{ALERTA_RETRASO_TEXT}</span>
               {onVerActividades && (
                 <Button type="button" variant="link" className="h-auto min-h-11 px-0 underline md:min-h-0" onClick={onVerActividades}>
                   Ver actividades
@@ -239,11 +236,13 @@ function Cifra({
 }) {
   return (
     <div data-testid={testId} className="surface-tile flex min-w-0 flex-col gap-1 p-3.5">
-      <p className="flex items-center gap-1 text-[12px] font-semibold text-ink-600">
+      <p className="flex items-center gap-1 text-[11px] font-semibold tracking-[0.06em] text-ink-600 uppercase">
         {etiqueta}
         {ayuda && <HelpHint label={etiqueta}>{ayuda}</HelpHint>}
       </p>
-      <p className="font-mono text-[22px] leading-tight font-bold text-ink-950 tabular-nums">{valor}</p>
+      <p className="font-display text-[24px] leading-tight font-bold tracking-[-0.01em] text-ink-950 tabular-nums md:text-[26px]">
+        {valor}
+      </p>
       <div className="flex flex-wrap items-center gap-1.5 text-[12.5px] text-ink-600">{children}</div>
     </div>
   );
@@ -358,11 +357,11 @@ function PorRubro({ ficha, gastos }: { ficha: ProjectFinancialSheet; gastos: rea
         {filas.map(({ row, ejecutado, pct, libre, superan: n }) => (
           <li key={row.rubro_id ?? row.nombre} data-testid="financiero-rubro" className="flex flex-col gap-2 p-3">
             <div className="flex items-baseline justify-between gap-2">
-              <span className="text-[14px] text-ink-900">
+              <span className="text-[14px] font-semibold text-ink-900">
                 {nombreFila(row)}
                 <AvisoSupera n={n} />
               </span>
-              <span className="shrink-0 font-mono text-[13px] text-ink-800">{porcentaje(pct)}</span>
+              <span className="shrink-0 text-[13px] font-bold text-ink-900 tabular-nums">{porcentaje(pct)}</span>
             </div>
             {barra(row, pct)}
             <dl className="grid grid-cols-3 gap-2">
@@ -403,7 +402,7 @@ function PorRubro({ ficha, gastos }: { ficha: ProjectFinancialSheet; gastos: rea
         <TableBody>
           {filas.map(({ row, ejecutado, pct, libre, superan: n }) => (
             <TableRow key={row.rubro_id ?? row.nombre} data-testid="financiero-rubro">
-              <TableCell className="whitespace-normal text-ink-900">
+              <TableCell className="font-semibold whitespace-normal text-ink-900">
                 {nombreFila(row)}
                 <AvisoSupera n={n} />
               </TableCell>
@@ -412,7 +411,7 @@ function PorRubro({ ficha, gastos }: { ficha: ProjectFinancialSheet; gastos: rea
               <TableCell>
                 <span className="flex min-w-[160px] items-center gap-2">
                   {barra(row, pct)}
-                  <span className="w-14 shrink-0 text-right font-mono text-[12.5px] tabular-nums">{porcentaje(pct)}</span>
+                  <span className="w-14 shrink-0 text-right text-[12.5px] font-bold tabular-nums">{porcentaje(pct)}</span>
                 </span>
               </TableCell>
               <TableCell numeric>{formatCOP(libre)}</TableCell>

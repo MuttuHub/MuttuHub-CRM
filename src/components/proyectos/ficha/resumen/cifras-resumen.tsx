@@ -188,7 +188,7 @@ function CifraTecnica({
         <Grande>{real}</Grande>
         <span className="text-[13px] text-ink-700">
           <span className="hidden sm:inline">real </span>
-          {`de ${programado} programado`}
+          de <b className="font-semibold text-ink-900">{programado}</b> programado
         </span>
         <HelpHint label="Avance programado" className={AYUDA_CLASS}>
           {AYUDA.programado}
@@ -256,7 +256,7 @@ function CifraGasto({
         />
       )}
       {financiero.alerta_retraso && (
-        <p className="text-[12.5px] leading-relaxed font-semibold text-alerta">
+        <p className="text-[12.5px] leading-relaxed text-alerta">
           <span className="hidden sm:inline">Gasta poco mientras el avance técnico está atrasado: posible retraso.</span>
           <span className="sm:hidden">Gasta poco y el avance está atrasado: posible retraso.</span>
         </p>
