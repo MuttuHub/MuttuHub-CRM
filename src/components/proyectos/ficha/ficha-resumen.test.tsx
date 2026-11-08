@@ -253,6 +253,8 @@ describe("FichaResumen", () => {
     const user = userEvent.setup()
 
     const onIrA = renderResumen()
+    // T10 C12: the figure links are underlined, as in the prototype.
+    expect(within(await screen.findByTestId("salud-tecnico")).getByRole("button", { name: "Ver actividades" }).className).toMatch(/(^|\s)underline(\s|$)/)
     await user.click(within(await screen.findByTestId("salud-tecnico")).getByRole("button", { name: "Ver actividades" }))
     await user.click(within(screen.getByTestId("salud-financiero")).getByRole("button", { name: "Ver finanzas" }))
 

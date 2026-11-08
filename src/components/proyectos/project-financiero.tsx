@@ -137,7 +137,7 @@ function FinancieroContent({
                 {ALERTA_RETRASO_TEXT}
               </span>
               {onVerActividades && (
-                <Button type="button" variant="link" className="h-auto min-h-11 px-0 md:min-h-0" onClick={onVerActividades}>
+                <Button type="button" variant="link" className="h-auto min-h-11 px-0 underline md:min-h-0" onClick={onVerActividades}>
                   Ver actividades
                 </Button>
               )}

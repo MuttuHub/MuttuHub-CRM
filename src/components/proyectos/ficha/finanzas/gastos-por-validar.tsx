@@ -73,14 +73,14 @@ export function GastosPorValidar({
           Gastos por validar · {pendientes.length} · {formatCOP(total)}
         </h3>
         {onVerTodos && (
-          <Button type="button" variant="link" className="hidden md:inline-flex" onClick={onVerTodos}>
+          <Button type="button" variant="link" className="hidden underline md:inline-flex" onClick={onVerTodos}>
             Ver todos los gastos
           </Button>
         )}
       </div>
       <ListaPendientes proyecto={proyecto} pendientes={pendientes} permisos={permisos} onRevisar={setRevisando} />
       {onVerTodos && (
-        <Button type="button" variant="link" className="self-start md:hidden" onClick={onVerTodos}>
+        <Button type="button" variant="link" className="self-start underline md:hidden" onClick={onVerTodos}>
           Ver todos los gastos
         </Button>
       )}

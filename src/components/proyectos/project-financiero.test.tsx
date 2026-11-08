@@ -264,6 +264,8 @@ describe("ProjectFinanciero", () => {
       expect(alerta).toHaveTextContent(
         "Posible retraso: se ha gastado poco frente a lo programado y el avance técnico también va atrasado.",
       )
+      // T10 C12: underlined, as in the prototype.
+      expect(within(alerta).getByRole("button", { name: "Ver actividades" }).className).toMatch(/(^|\s)underline(\s|$)/)
       await user.click(within(alerta).getByRole("button", { name: "Ver actividades" }))
       expect(onVerActividades).toHaveBeenCalledTimes(1)
       unmount()
@@ -344,6 +346,9 @@ describe("ProjectFinanciero", () => {
       const onVerGastos = vi.fn()
       setup({ gastos: [gasto("g1")], navegacion: { onVerGastos } })
       const seccion = await screen.findByTestId("gastos-por-validar")
+      for (const enlace of within(seccion).getAllByRole("button", { name: "Ver todos los gastos" })) {
+        expect(enlace.className).toMatch(/(^|\s)underline(\s|$)/)
+      }
       await user.click(within(seccion).getAllByRole("button", { name: "Ver todos los gastos" })[0])
       expect(onVerGastos).toHaveBeenCalledTimes(1)
     })

@@ -152,7 +152,7 @@ function Grande({ children }: { children: ReactNode }) {
 
 function EnlacePestana({ onClick, children }: { onClick: () => void; children: ReactNode }) {
   return (
-    <Button type="button" variant="link" size="sm" className="w-fit px-0" onClick={onClick}>
+    <Button type="button" variant="link" size="sm" className="w-fit px-0 underline" onClick={onClick}>
       {children}
     </Button>
   );

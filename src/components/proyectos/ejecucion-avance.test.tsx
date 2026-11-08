@@ -313,6 +313,8 @@ describe("EjecucionAvance", () => {
       const user = userEvent.setup()
       renderCard({ entregables: [ENTREGABLE, ENTREGABLE2] })
       const ver = screen.getByRole("button", { name: "Ver 2 entregables" })
+      // T10 C12: underlined, as in the prototype.
+      expect(ver.className).toMatch(/(^|\s)underline(\s|$)/)
       expect(ver).toHaveAttribute("aria-expanded", "false")
       expect(screen.queryByTestId("ejecucion-entregable")).not.toBeInTheDocument()
 
