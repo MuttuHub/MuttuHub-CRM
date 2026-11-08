@@ -181,7 +181,7 @@ function FichaContent({ proyecto, backHref }: { proyecto: ProjectListRow; backHr
           </TabsContent>
 
           <TabsContent value="documentos" className={PANEL_CLASS}>
-            <FichaDocumentos proyecto={proyecto} />
+            <FichaDocumentos proyecto={proyecto} onVerIndicadores={() => irA("actividades")} />
           </TabsContent>
 
           <TabsContent value="historial" className={PANEL_CLASS}>

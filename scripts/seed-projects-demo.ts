@@ -251,21 +251,21 @@ export function buildSeedData(hoy: string): SeedData {
       fecha: ayer,
       cantidad: "1",
       observacion: "Informe de caracterización entregado a la coordinación.",
-      medios: [soporte("Informe de caracterización (PDF)", "informe-caracterizacion.pdf")],
+      medios: [soporte("Informe de caracterización", "informe-caracterizacion.pdf")],
     },
     {
       entregable: "1.1-E2",
       fecha: ayer,
       cantidad: "1",
       observacion: "Memoria de la jornada de caracterización.",
-      medios: [soporte("Memoria de la jornada (PDF)", "memoria-jornada.pdf")],
+      medios: [soporte("Memoria de la jornada", "memoria-jornada.pdf")],
     },
     {
       entregable: "1.2-E1",
       fecha: hoy,
       cantidad: "1",
       observacion: "Informe de la formación en confección entregado a la coordinación.",
-      medios: [soporte("Informe de la formación (PDF)", "informe-formacion.pdf")],
+      medios: [soporte("Informe de la formación", "informe-formacion.pdf")],
     },
     {
       entregable: "1.3-E1",
@@ -273,8 +273,8 @@ export function buildSeedData(hoy: string): SeedData {
       cantidad: "2",
       observacion: "Dos actas de acompañamiento técnico firmadas.",
       medios: [
-        soporte("Acta de acompañamiento 1 (PDF)", "acta-acompanamiento-1.pdf"),
-        soporte("Acta de acompañamiento 2 (PDF)", "acta-acompanamiento-2.pdf"),
+        soporte("Acta de acompañamiento 1", "acta-acompanamiento-1.pdf"),
+        soporte("Acta de acompañamiento 2", "acta-acompanamiento-2.pdf"),
       ],
     },
     {

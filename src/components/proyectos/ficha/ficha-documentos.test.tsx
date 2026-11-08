@@ -102,7 +102,13 @@ describe("FichaDocumentos", () => {
 
     const lista = await screen.findByTestId("documentos-lista")
     const fila = within(lista).getAllByTestId("documento-fila")[0]
-    expect(within(fila).getByTestId("documento-subio")).toHaveTextContent(/^Ana · 16 oct 2026$/)
+    const subio = within(fila).getByTestId("documento-subio")
+    expect(subio).toHaveTextContent(/^Ana · 16 oct 2026$/)
+    // T11 D8: on desktop the name and the day are two lines, as in the prototype.
+    expect(within(subio).getByText("Ana").className).toMatch(/(^|\s)md:block(\s|$)/)
+    expect(within(subio).getByText("16 oct 2026").className).toMatch(/(^|\s)md:block(\s|$)/)
+    // T11 D4: a file icon before the name.
+    expect(within(fila).getByTestId("documento-icono")).toHaveAttribute("aria-hidden", "true")
     expect(within(fila).getByTestId("documento-origen")).toHaveTextContent("Entregable E1 · Acta de visita")
     // The format label («PDF», «Enlace») is gone from the row.
     expect(fila).not.toHaveTextContent("PDF")
@@ -126,7 +132,7 @@ describe("FichaDocumentos", () => {
       "Soportes de entregables · 1",
       "Soportes de gastos · 1",
       "Soportes de indicadores · 1",
-      "Soportes del proyecto · 1",
+      "Documentos del proyecto · 1",
     ])
 
     const entregables = screen.getByTestId("documentos-grupo-avance")
@@ -135,6 +141,20 @@ describe("FichaDocumentos", () => {
     expect(within(screen.getByTestId("documentos-grupo-indicador")).getByText("medicion-octubre.xlsx")).toBeInTheDocument()
     expect(within(screen.getByTestId("documentos-grupo-proyecto")).getByText("convenio-2026.pdf")).toBeInTheDocument()
     expect(screen.getAllByTestId("documento-fila")).toHaveLength(4)
+  })
+
+  // T11 D9: a project document says where it comes from, as in the prototype.
+  it("says «Del proyecto» and how a project document was added", async () => {
+    setup({
+      soportes: [
+        soporte("p1", "proyecto", "convenio.pdf", { origen_id: null }),
+        soporte("p2", "proyecto", "acta.pdf", { tipo: "enlace", origen_id: null, url_externa: "https://x.example/a" }),
+      ],
+    })
+
+    const [archivo, enlace] = await screen.findAllByTestId("documento-origen")
+    expect(archivo).toHaveTextContent("Del proyectoArchivo subido con «Subir documento»")
+    expect(enlace).toHaveTextContent("Del proyectoEnlace subido con «Subir documento»")
   })
 
   it("splits a gasto origin into its number and its description", async () => {
@@ -210,6 +230,11 @@ describe("FichaDocumentos", () => {
 
     expect(screen.getByText("No hay documentos con este filtro.")).toBeInTheDocument()
     expect(screen.queryByTestId("documento-fila")).not.toBeInTheDocument()
+    // T11 D12: as in the prototype, it names the search and offers to clear it.
+    expect(screen.getByText("Ningún documento coincide con «no-existe».")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Limpiar búsqueda" }))
+    expect(screen.getByLabelText("Buscar por nombre o código")).toHaveValue("")
+    expect(screen.getAllByTestId("documento-fila")).toHaveLength(4)
   })
 
   it("explains the empty groups at the end of the list, and lets a filter at 0 be chosen", async () => {
@@ -218,8 +243,10 @@ describe("FichaDocumentos", () => {
 
     const explicacion = await screen.findByTestId("documentos-vacios")
     expect(explicacion).toHaveTextContent(
-      "Indicadores y Del proyecto no tienen documentos. Los soportes de las mediciones se adjuntan desde Actividades › Indicadores.",
+      "Indicadores y Del proyecto no tienen documentos. Los soportes de las mediciones se adjuntan desde Actividades › Indicadores; los del proyecto (convenio, actas de inicio) los sube el equipo del proyecto.",
     )
+    // T11 D11: the first sentence is bold, as in the prototype.
+    expect(within(explicacion).getByText("Indicadores y Del proyecto no tienen documentos.").tagName).toBe("B")
     // Without permission to upload, «Subir documento» is not mentioned.
     expect(explicacion).not.toHaveTextContent("Subir documento")
 
@@ -229,6 +256,22 @@ describe("FichaDocumentos", () => {
     expect(screen.getByTestId("documentos-vacios")).toHaveTextContent(
       "Indicadores no tiene documentos. Los soportes de las mediciones se adjuntan desde Actividades › Indicadores.",
     )
+  })
+
+  // T11 D11: «Actividades › Indicadores» is a link to the Actividades tab, as in the prototype.
+  it("links «Actividades › Indicadores» in the explanation to the Actividades tab", async () => {
+    const user = userEvent.setup()
+    const onVerIndicadores = vi.fn()
+    fetchMock.mockImplementation((input: unknown) =>
+      Promise.resolve(
+        String(input).endsWith("/supports") ? jsonResponse({ soportes: [SOPORTES[0]] }) : jsonResponse({}),
+      ),
+    )
+    render(<FichaDocumentos proyecto={PROYECTO} onVerIndicadores={onVerIndicadores} />, { wrapper: createWrapper() })
+
+    const explicacion = await screen.findByTestId("documentos-vacios")
+    await user.click(within(explicacion).getByRole("button", { name: "Actividades › Indicadores" }))
+    expect(onVerIndicadores).toHaveBeenCalledTimes(1)
   })
 
   it("shows no explanation when no group is empty", async () => {
@@ -242,6 +285,8 @@ describe("FichaDocumentos", () => {
     setup({ soportes: [] })
 
     expect(await screen.findByText("Este proyecto todavía no tiene documentos.")).toBeInTheDocument()
+    // T11 D13: the prototype adds where supports come from.
+    expect(screen.getByText("Los soportes aparecen aquí cuando se registran avances, gastos o mediciones.")).toBeInTheDocument()
     expect(screen.queryByTestId("documentos-lista")).not.toBeInTheDocument()
   })
 
@@ -344,7 +389,8 @@ describe("FichaDocumentos: project documents (upload, open, delete)", () => {
 
   it("offers «Subir documento» to a manager in an editable estado, also when the list is empty", async () => {
     setup({ soportes: [] })
-    expect(await screen.findByRole("button", { name: "Subir documento" })).toBeInTheDocument()
+    // T11 D13: besides the header one, the empty state carries its own «Subir documento», as in the prototype.
+    expect(await screen.findAllByRole("button", { name: "Subir documento" })).toHaveLength(2)
     expect(screen.getByText("Este proyecto todavía no tiene documentos.")).toBeInTheDocument()
   })
 
@@ -354,7 +400,7 @@ describe("FichaDocumentos: project documents (upload, open, delete)", () => {
     const explicacion = await screen.findByTestId("documentos-vacios")
     await waitFor(() =>
       expect(explicacion).toHaveTextContent(
-        "Gastos, Indicadores y Del proyecto no tienen documentos. Los soportes de los gastos se adjuntan al registrar el gasto en Finanzas; los de las mediciones, desde Actividades › Indicadores; los del proyecto (convenio, actas de inicio), con «Subir documento».",
+        "Gastos, Indicadores y Del proyecto no tienen documentos. Los soportes de gastos se adjuntan al registrar el gasto en Finanzas; los de las mediciones, desde Actividades › Indicadores; los del proyecto (convenio, actas de inicio), con «Subir documento».",
       ),
     )
   })
