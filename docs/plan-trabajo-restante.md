@@ -228,7 +228,7 @@ Abierto: este PR de documentación (#93), con las decisiones D-A, D-B y D-C de l
 Antes del merge se verificó la base local: 41 migraciones aplicadas («Database schema is up to date!»). Este cambio no
 agrega ninguna. El PR entró solo, con excepción de tamaño, por decisión de la usuaria; el código se revisó por tramos.
 
-### Plan del 2026-11-07
+### Plan del 2026-11-07 (se movió al 2026-11-08)
 
 Pedido de la usuaria: «Deja listo el plan de trabajo para el dia de mañana». Hallazgo que lo motiva: «por ejemplo a
 ficha de documentos todavia no está igual que en prototipo».
@@ -247,3 +247,32 @@ ficha de documentos todavia no está igual que en prototipo».
    panel en ese gasto, «debería ir en X» en la ventana de avance, y las ventanas de T9 revisadas a 390 px.
 
 Lo que necesita la API o una respuesta de la PO sigue en `odd/tasks/proyectos-redisenio-ui.md` (L4).
+
+### Plan del 2026-11-08 (actualizado)
+
+El plan del 2026-11-07 no se empezó; se ejecuta hoy en este orden. Pregunta de la usuaria: «eso lo terminamos todo
+hoy?». Las estimaciones son de trabajo efectivo:
+
+| Paso | Qué | Estimación | Hoy |
+|---|---|---|---|
+| 0 | Mergear este PR (#148), rama nueva `fix/proyectos-ficha-prototipo` desde `main` y nueva siembra de la base local | 15 min | Sí |
+| 1 | **T10:** capturas de app y prototipo de las cinco pestañas a 1440 y 390 px; lista de diferencias por pestaña con su tamaño | 1–2 h | Sí |
+| 2 | **T11:** Documentos igual al prototipo (ocho diferencias) | 2–3 h | Sí |
+| 3 | **T12:** avisos de la revisión de T8 y T9 | 1–2 h | Sí |
+| 4 | **T13:** «Cambiar estado» en «⋯», «Revisar gasto» desde «Qué falta», «debería ir en X», ventanas de T9 a 390 px | 2–3 h | Probable |
+| 5 | Lo que T10 encuentre en Resumen, Actividades, Finanzas e Historial | sin estimar | Se decide con la lista de T10 |
+
+Al terminar T10 se decide con la usuaria qué entra hoy. T11 y T12 no dependen de T10. Cada tarea lleva su prueba
+primero, `vitest --dir src`, `tsc`, `eslint`, el e2e de `ficha-ejecucion` y `permisos`, y la revisión del tramo.
+
+#### Cómo retomar (después de la limpieza del equipo)
+
+1. `git -C .claude/worktrees/redisenio fetch origin` y `git checkout -b fix/proyectos-ficha-prototipo origin/main`.
+2. Comprobar que siguen en su lugar: `.env.local`, `node_modules` del worktree (es un junction de Windows hacia la
+   copia principal), el contenedor Docker de Supabase local (`127.0.0.1:54322`) y el servidor `next dev` en
+   `localhost:3000`.
+3. Nueva siembra local (solo con `.env.local`): `prisma migrate reset --force`, después
+   `node.exe --env-file=.env.local node_modules/tsx/dist/cli.mjs prisma/seed.ts` y las siembras demo
+   `seed-projects-demo --apply` y `seed-demo-flujo --apply` (detalle en `odd/tasks/proyectos-redisenio-ui.md`, L6).
+4. Capturas: `node.exe .claude/qa/capturar-redisenio.mjs <carpeta> <pestaña>` (app) y el script del prototipo en
+   `.claude/qa/`. Ambos scripts están en `.gitignore`: si la limpieza borra `.claude/qa/`, hay que recrearlos.
