@@ -11,7 +11,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ExternalLink, Search, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,7 @@ import {
   type ProjectListRow,
   type ProjectSupport,
 } from "@/hooks/projects";
+import { FiltroChip } from "@/components/proyectos/ficha/filtro-chip";
 
 const ERROR = "No pudimos cargar los documentos. Inténtalo de nuevo.";
 const SIN_ARCHIVO = "Este documento no tiene archivo ni enlace para abrir.";
@@ -132,6 +133,7 @@ export function FichaDocumentos({ proyecto }: { proyecto: ProjectListRow }) {
   const miembros = useProjectMembers(proyecto.id).data;
   const borrar = useDeleteProjectDocument(proyecto.id);
   const [filtro, setFiltro] = useState<Filtro>("TODOS");
+  const idFiltro = useId();
   const [busqueda, setBusqueda] = useState("");
   const [abriendo, setAbriendo] = useState<string | null>(null);
   const [subiendo, setSubiendo] = useState(false);
@@ -248,23 +250,22 @@ export function FichaDocumentos({ proyecto }: { proyecto: ProjectListRow }) {
                 />
               </label>
               <div className="relative min-w-0">
+                {/* T11 D2: visible label, as in the prototype; it also names the chip group. */}
+                <span
+                  id={`${idFiltro}-etiqueta`}
+                  className="mb-1.5 block text-[11.5px] font-semibold tracking-[0.06em] text-ink-600 uppercase"
+                >
+                  Filtrar por origen
+                </span>
                 <div
                   role="group"
-                  aria-label="Filtrar por origen"
+                  aria-labelledby={`${idFiltro}-etiqueta`}
                   className="no-scrollbar flex gap-2 overflow-x-auto pr-6 md:flex-wrap md:overflow-visible md:pr-0"
                 >
                   {filtros.map((f) => (
-                    <Button
-                      key={f.valor}
-                      type="button"
-                      size="sm"
-                      variant={filtro === f.valor ? "default" : "outline"}
-                      aria-pressed={filtro === f.valor}
-                      className="flex-none rounded-full"
-                      onClick={() => setFiltro(f.valor)}
-                    >
+                    <FiltroChip key={f.valor} activo={filtro === f.valor} onClick={() => setFiltro(f.valor)}>
                       {`${f.etiqueta} · ${f.cantidad}`}
-                    </Button>
+                    </FiltroChip>
                   ))}
                 </div>
                 {/* Hints at the filters out of view on phones. */}

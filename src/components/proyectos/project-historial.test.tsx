@@ -210,6 +210,8 @@ describe("ProjectHistorial (Registro de cambios)", () => {
       "Cambios del plan",
     ])
     expect(within(mostrar).getByRole("button", { name: "Todo" })).toHaveAttribute("aria-pressed", "true")
+    // T10 C10: as in the prototype, the active chip is dark (ink), not the primary pink.
+    expect(within(mostrar).getByRole("button", { name: "Todo" }).className).toMatch(/(^|\s)bg-ink-900(\s|$)/)
 
     await user.click(within(mostrar).getByRole("button", { name: "Gastos" }))
     expect(within(mostrar).getByRole("button", { name: "Gastos" })).toHaveAttribute("aria-pressed", "true")

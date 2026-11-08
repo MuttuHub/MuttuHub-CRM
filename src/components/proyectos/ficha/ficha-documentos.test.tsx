@@ -162,9 +162,21 @@ describe("FichaDocumentos", () => {
     expect(screen.queryByText("acta-visita.pdf")).not.toBeInTheDocument()
     expect(screen.queryByTestId("documentos-grupo-avance")).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Gastos · 1" })).toHaveAttribute("aria-pressed", "true")
+    // T10 C10: the active chip is dark (ink), as in the prototype.
+    expect(screen.getByRole("button", { name: "Gastos · 1" }).className).toMatch(/(^|\s)bg-ink-900(\s|$)/)
 
     await user.click(screen.getByRole("button", { name: "Todos · 4" }))
     expect(screen.getAllByTestId("documento-fila")).toHaveLength(4)
+  })
+
+  // T11 D2: the prototype shows «Filtrar por origen» as a visible label that names the chip group.
+  it("labels the origin chips with a visible «Filtrar por origen»", async () => {
+    setup()
+
+    await screen.findByTestId("documentos-lista")
+    const etiqueta = screen.getByText("Filtrar por origen")
+    const grupo = screen.getByRole("group", { name: "Filtrar por origen" })
+    expect(grupo).toHaveAttribute("aria-labelledby", etiqueta.id)
   })
 
   it("searches by name or by code, ignoring case", async () => {

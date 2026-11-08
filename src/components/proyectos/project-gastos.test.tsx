@@ -448,6 +448,8 @@ describe("ProjectGastos", () => {
       expect(chip(/^Rechazado/)).toHaveTextContent("1")
       expect(chip(/^Pendiente por revisión/)).toHaveTextContent("2")
       expect(chip(/^Todos/)).toHaveAttribute("aria-pressed", "true")
+      // T10 C10: the active chip is dark (ink), as in every filter of the ficha.
+      expect(chip(/^Todos/).className).toMatch(/(^|\s)bg-ink-900(\s|$)/)
       expect(chip(/^Pendiente por revisión/)).toHaveAttribute("aria-pressed", "false")
       expect(screen.queryByRole("button", { name: /^Anulado/ })).not.toBeInTheDocument()
     })

@@ -41,6 +41,7 @@ import { formatMillones } from "@/lib/format/millones";
 import { toCents } from "@/lib/proyectos/money";
 import { PROJECT_MEMBER_ROLES, canManageProjects } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
+import { FiltroChip } from "@/components/proyectos/ficha/filtro-chip";
 
 const TECNICO_ERROR = "No pudimos cargar el semáforo técnico. Inténtalo de nuevo.";
 const ACTIVIDADES_ERROR = "No pudimos cargar las actividades. Inténtalo de nuevo.";
@@ -446,20 +447,9 @@ function FiltroActividades({
       {FILTROS.map((item) => {
         const activo = filtro === item.value;
         return (
-          <button
-            key={item.value}
-            type="button"
-            aria-pressed={activo}
-            onClick={() => onChange(item.value)}
-            className={cn(
-              "inline-flex h-11 items-center rounded-full border px-3 font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:h-9",
-              activo
-                ? "border-ink-900 bg-ink-900 text-panel"
-                : "border-border-strong bg-input-bg text-ink-800 hover:border-ink-500",
-            )}
-          >
+          <FiltroChip key={item.value} activo={activo} onClick={() => onChange(item.value)}>
             {item.label} · {conteo[item.value]}
-          </button>
+          </FiltroChip>
         );
       })}
     </div>

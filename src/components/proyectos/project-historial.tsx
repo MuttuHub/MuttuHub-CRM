@@ -35,6 +35,7 @@ import {
   type ProjectAuditEntry,
   type ProjectListRow,
 } from "@/hooks/projects";
+import { FiltroChip } from "@/components/proyectos/ficha/filtro-chip";
 
 /** Tabs of the ficha the change log can open. */
 export type DestinoFicha = "actividades" | "finanzas";
@@ -204,17 +205,9 @@ function Filtros({
         className="no-scrollbar col-span-2 row-start-2 flex gap-2 overflow-x-auto md:row-start-auto md:flex-1 md:flex-wrap md:overflow-visible"
       >
         {FILTROS.map((f) => (
-          <Button
-            key={f.valor}
-            type="button"
-            size="sm"
-            variant={filtro === f.valor ? "default" : "outline"}
-            aria-pressed={filtro === f.valor}
-            className="flex-none rounded-full"
-            onClick={() => onFiltro(f.valor)}
-          >
+          <FiltroChip key={f.valor} activo={filtro === f.valor} onClick={() => onFiltro(f.valor)}>
             {f.etiqueta}
-          </Button>
+          </FiltroChip>
         ))}
       </div>
       <label className="col-start-2 row-start-1 flex items-center gap-1.5 text-[12px] text-ink-600 md:col-auto md:row-auto">

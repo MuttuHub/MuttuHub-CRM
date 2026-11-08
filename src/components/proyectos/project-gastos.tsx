@@ -42,6 +42,7 @@ import {
 import type { UiTone } from "@/lib/catalogs";
 import { esObservado } from "@/lib/proyectos/gastos";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
+import { FiltroChip } from "@/components/proyectos/ficha/filtro-chip";
 
 export const ESTADO_GASTO_META: Record<ProjectExpenseEstado, { label: string; tone: UiTone }> = {
   REGISTRADO: { label: "Registrado", tone: "info" },
@@ -84,18 +85,10 @@ function FiltrosGasto({
   return (
     <div role="group" aria-label="Filtrar gastos" data-testid="gastos-filtros" className="flex flex-wrap gap-2">
       {filtros.map((f) => (
-        <Button
-          key={f}
-          type="button"
-          size="sm"
-          variant={filtro === f ? "default" : "outline"}
-          aria-pressed={filtro === f}
-          className="rounded-full"
-          onClick={() => onChange(f)}
-        >
+        <FiltroChip key={f} activo={filtro === f} onClick={() => onChange(f)}>
           {FILTRO_LABEL[f]}
           <span className="font-mono tabular-nums opacity-80">{gastos.filter((gasto) => coincide(gasto, f)).length}</span>
-        </Button>
+        </FiltroChip>
       ))}
     </div>
   );
