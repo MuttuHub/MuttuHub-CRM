@@ -301,7 +301,7 @@ function SoporteGasto({
     gasto.soportes.length < MAX_SOPORTES_POR_GASTO;
   return (
     <div className="flex flex-col items-start gap-1">
-      {gasto.soportes.length === 0 && <StatusChip tone="alerta">Sin soporte</StatusChip>}
+      {gasto.soportes.length === 0 && <StatusChip dot={false} tone="alerta">Sin soporte</StatusChip>}
       {gasto.soportes.map((soporte) => (
         <Button
           key={soporte.id}
@@ -325,7 +325,7 @@ function EstadoGasto({ gasto }: { gasto: ProjectExpense }) {
   return (
     <div className="flex flex-col items-start gap-1">
       <div className="flex flex-wrap items-center gap-1.5">
-        <StatusChip tone={meta.tone}>{meta.label}</StatusChip>
+        <StatusChip dot={false} tone={meta.tone}>{meta.label}</StatusChip>
         <AvisosGasto gasto={gasto} conCuentaEn={false} />
       </div>
       {gasto.estado === "RECHAZADO" && gasto.motivo_rechazo && (

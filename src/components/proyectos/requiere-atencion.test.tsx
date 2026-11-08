@@ -223,7 +223,7 @@ describe("RequiereAtencion («Qué falta»)", () => {
     expect(fila).toHaveTextContent("Actividad vencida")
     expect(await within(fila).findByText("1.3 Acompañamiento técnico a las unidades")).toBeInTheDocument()
     // Same calendar format as the rest of the ficha (`formatFechaCalendario`).
-    expect(fila).toHaveTextContent("Venció el 25 de oct de 2026 sin llegar a su meta.")
+    expect(fila).toHaveTextContent("Venció el 25 oct 2026 sin llegar a su meta.")
     expect(await within(fila).findByText(/Le toca a Andrés Torres/)).toBeInTheDocument()
 
     await user.click(await within(fila).findByRole("button", { name: "Registrar avance de 1.3" }))

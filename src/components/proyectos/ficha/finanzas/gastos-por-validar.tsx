@@ -15,7 +15,7 @@ import { useIsMobile } from "@/components/proyectos/capture-surface";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { Popover, PopoverContent, PopoverDescription, PopoverTrigger } from "@/components/ui/popover";
 import { PROPIO_TEXT, SIN_PERMISO_VALIDAR } from "@/components/proyectos/gasto-acciones";
-import { formatFechaCalendario } from "@/components/proyectos/project-display";
+import { fechaDia } from "@/components/proyectos/ficha/historial/fechas";
 import { InlineError } from "@/components/proyectos/ui";
 import {
   downloadExpenseSoporte,
@@ -125,7 +125,7 @@ function ListaPendientes({
               </span>
             </div>
             <p className="text-[12px] text-ink-600">
-              {lineaRegistro(gasto, permisos.nombreDe(gasto.registrado_por_id), formatFechaCalendario(gasto.fecha_documento))}
+              {lineaRegistro(gasto, permisos.nombreDe(gasto.registrado_por_id), fechaDia(gasto.fecha_documento))}
             </p>
             <p className="text-[12.5px] text-ink-800">Rubro: {nombreRubro(gasto.rubro)}</p>
             <AvisosGasto gasto={gasto} />
@@ -160,7 +160,7 @@ function ListaPendientes({
                   {lineaRegistro(
                     gasto,
                     permisos.nombreDe(gasto.registrado_por_id),
-                    formatFechaCalendario(gasto.fecha_documento),
+                    fechaDia(gasto.fecha_documento),
                   )}
                 </p>
               </TableCell>
@@ -234,7 +234,7 @@ export function AccionRevisar({
 function SoporteEnlace({ proyectoId, gasto }: { proyectoId: string; gasto: ProjectExpense }) {
   const [error, setError] = useState<string | null>(null);
   if (!gasto.soportes) return <span className="text-ink-500">—</span>;
-  if (gasto.soportes.length === 0) return <StatusChip tone="alerta">Sin soporte</StatusChip>;
+  if (gasto.soportes.length === 0) return <StatusChip dot={false} tone="alerta">Sin soporte</StatusChip>;
   const soporte = gasto.soportes[0];
   return (
     <span className="flex flex-col items-start gap-1">

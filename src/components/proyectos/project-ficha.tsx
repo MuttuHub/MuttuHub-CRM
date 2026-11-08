@@ -21,6 +21,7 @@ import { FichaHistorial } from "@/components/proyectos/ficha/ficha-historial";
 import { FichaActividades } from "@/components/proyectos/ficha/ficha-actividades";
 import { FichaHeader } from "@/components/proyectos/ficha/ficha-header";
 import { FichaResumen } from "@/components/proyectos/ficha/ficha-resumen";
+import { AvisoNovedades } from "@/components/proyectos/ficha/novedades/aviso-novedades";
 import { RegistrarAvanceDialog } from "@/components/proyectos/ficha/registrar-avance-dialog";
 import { RegistrarGastoDialog } from "@/components/proyectos/ficha/registrar-gasto-dialog";
 import { DESTINO_DE_ACCION, type AccionAtencion } from "@/components/proyectos/requiere-atencion";
@@ -52,6 +53,8 @@ export function ProjectFicha({ projectId, backHref }: { projectId: string; backH
           Volver a proyectos
         </Link>
       )}
+      {/* T10 C7: as in the prototype, the Novedades notice tops the page, above «← Proyectos», in every tab. */}
+      {proyecto && <AvisoNovedades proyectoId={proyecto.id} />}
       <div className="min-w-0 surface">
         {query.isError ? (
           <FichaError error={query.error} />

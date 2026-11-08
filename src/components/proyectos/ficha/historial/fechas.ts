@@ -41,6 +41,16 @@ export function fechaCorta(valor: string | null | undefined): string {
   return `${dia} ${mes} ${anio}`;
 }
 
+/** «05 oct 2026» for a calendar date (`YYYY-MM-DD`, read in UTC so it never shifts a day); an instant falls back to Bogotá. */
+export function fechaDia(valor: string | null | undefined): string {
+  if (!valor) return SIN_DATO;
+  const calendario = fechaCalendario(valor);
+  const fecha = calendario ?? instante(valor);
+  if (!fecha) return SIN_DATO;
+  const { dia, mes, anio } = partes(fecha, calendario ? "UTC" : ZONA);
+  return `${dia} ${mes} ${anio}`;
+}
+
 /** «05 nov» for a calendar date (the date of a report, not when it was typed). */
 export function diaMes(valor: unknown): string {
   if (typeof valor !== "string") return "";

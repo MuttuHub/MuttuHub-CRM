@@ -378,7 +378,7 @@ const mayuscula = (texto: string) => `${texto.charAt(0).toUpperCase()}${texto.sl
 
 function Etiqueta({ frase }: { frase: Frase }) {
   return (
-    <StatusChip tone={frase.tono} className="align-middle">
+    <StatusChip dot={false} tone={frase.tono} className="align-middle">
       {frase.etiqueta}
     </StatusChip>
   );
@@ -410,7 +410,7 @@ function LecturaPorCampo({ fila }: { fila: Fila }) {
   return (
     <div className="mt-1 flex flex-col gap-0.5">
       <div className="flex flex-wrap items-center gap-1.5">
-        <StatusChip tone="neutro">{ACCION_AUDITORIA_META[fila.entry.accion]}</StatusChip>
+        <StatusChip dot={false} tone="neutro">{ACCION_AUDITORIA_META[fila.entry.accion]}</StatusChip>
         <span className="text-[11.5px] font-semibold text-ink-600">{etiquetaEntidadAuditoria(fila.entry.entidad)}</span>
       </div>
       <p className="text-[12.5px] leading-snug break-words text-ink-800">

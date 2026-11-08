@@ -299,7 +299,7 @@ function AvanceRow({
           </span>
         </span>
         <span className="flex flex-wrap items-center gap-2">
-          <StatusChip tone={badge.tone}>{badge.label}</StatusChip>
+          <StatusChip dot={false} tone={badge.tone}>{badge.label}</StatusChip>
           {canVoid && !anulado && (
             <VoidControl
               nombre={`avance ${formatFechaCalendario(avance.fecha)}`}

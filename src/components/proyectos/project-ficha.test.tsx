@@ -115,7 +115,7 @@ describe("ProjectFicha (page)", () => {
     expect(screen.getByTestId("ficha-header")).toHaveTextContent("Responsable: Ana Pérez")
     // Dates and weeks live in the Tiempo figure of the Resumen.
     const tiempo = screen.getByTestId("resumen-estado")
-    expect(tiempo).toHaveTextContent("05 de ene de 2026 → 30 de mar de 2026")
+    expect(tiempo).toHaveTextContent("05 ene 2026 → 30 mar 2026")
     expect(tiempo).toHaveTextContent("de 12")
     expect(screen.getAllByText("$ 180.000.000").length).toBeGreaterThan(0)
     // La meta aparece en los datos generales y junto al valor total.
@@ -747,6 +747,20 @@ describe("ProjectFicha (page)", () => {
     expect(await screen.findByText(PROYECTO.nombre)).toBeInTheDocument()
     expect(screen.queryByText("Diferencia valor oportunidad")).not.toBeInTheDocument()
     expect(screen.getByText("$ 180.000.000")).toBeInTheDocument()
+  })
+
+  // T10 C7: as in the prototype, the Novedades notice tops the page above «← Proyectos», in every tab.
+  it("shows the Novedades notice above the header, and keeps it when switching to Finanzas", async () => {
+    window.localStorage.clear()
+    mockFichaAndAudit({ historial: [] })
+
+    renderFicha()
+
+    const aviso = await screen.findByTestId("aviso-novedades")
+    const volver = screen.getByRole("link", { name: "Volver a proyectos" })
+    expect(aviso.compareDocumentPosition(volver) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    await openTab("Finanzas")
+    expect(screen.getByTestId("aviso-novedades")).toBeInTheDocument()
   })
 
   // T10 C6: as in the prototype, the Documentos tab carries its count.

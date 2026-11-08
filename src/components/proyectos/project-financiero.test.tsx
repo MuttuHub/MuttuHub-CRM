@@ -289,7 +289,7 @@ describe("ProjectFinanciero", () => {
       const filas = within(seccion).getAllByTestId("por-validar-fila")
       expect(filas).toHaveLength(2)
       expect(filas[0]).toHaveTextContent("Papelería del Sinú")
-      expect(await within(filas[0]).findByText(/^FV-4007 · .+ · registró Laura Jiménez$/)).toBeInTheDocument()
+      expect(await within(filas[0]).findByText("FV-4007 · 02 nov 2026 · registró Laura Jiménez")).toBeInTheDocument()
       expect(filas[0]).toHaveTextContent("R01 · Personal")
       expect(filas[0]).toHaveTextContent("$ 450.000")
       expect(filas[0]).toHaveTextContent("Sin IVA")

@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { AvisoNovedades, NOVEDAD_ACTUAL } from "./aviso-novedades"
 
 const LARGO =
-  "Desde el 05 de nov cualquier integrante del equipo puede registrar avance, el historial muestra quién lo hizo y Finanzas habla en «% de lo programado»."
+  "Desde el 05 nov cualquier integrante del equipo puede registrar avance, el historial muestra quién lo hizo y Finanzas habla en «% de lo programado»."
 const CORTO = "Cualquier integrante del equipo ya puede registrar avance."
 
 function renderAviso() {
@@ -36,6 +36,8 @@ describe("AvisoNovedades", () => {
     expect(largo.className).toMatch(/(^|\s)hidden(\s|$)/)
     expect(largo.className).toMatch(/(^|\s)sm:inline(\s|$)/)
     expect(corto.className).toMatch(/(^|\s)sm:hidden(\s|$)/)
+    // T10 C7: as in the prototype, «Novedades» is an info pill, not an icon plus bold text.
+    expect(within(aviso).getByText("Novedades")).toHaveAttribute("data-slot", "status-chip")
   })
 
   it("links to the Novedades page, remembering the project to come back to", () => {

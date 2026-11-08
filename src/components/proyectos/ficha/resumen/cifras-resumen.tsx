@@ -13,13 +13,13 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusChip } from "@/components/ui/status-chip";
 import { KPIS_NO_MEDIBLE_NOTE, formatPct } from "@/components/proyectos/project-kpis-panel";
-import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import { SEMAFORO_LABEL } from "@/components/proyectos/semaforo-chip";
 import { EmptyBlock, InlineError } from "@/components/proyectos/ui";
 import { useProjectKpis, type ColorSemaforo, type ProjectKpis, type ProjectListRow } from "@/hooks/projects";
 import { toneFromSemaforo } from "@/lib/estado-tone";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { toDayNumber, todayInBogota } from "@/lib/proyectos/weeks";
+import { diaMes, fechaDia } from "@/components/proyectos/ficha/historial/fechas";
 
 const KPIS_ERROR = "No pudimos cargar el estado del proyecto. Inténtalo de nuevo.";
 
@@ -42,9 +42,9 @@ const AYUDA_CLASS = "after:-inset-3";
 
 const nf = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 1 });
 
-/** "05 de nov": la fecha de corte sin año, en el mismo formato de calendario de la ficha. */
+/** «05 nov»: la fecha de corte sin año, como en el prototipo. */
 function fechaCorta(iso: string): string {
-  return formatFechaCalendario(iso).replace(/ de \d{4}$/, "");
+  return diaMes(iso);
 }
 
 /** Distancia en puntos entre lo programado y lo real, a la fecha de corte. */
@@ -280,7 +280,7 @@ function CifraTiempo({ proyecto, corte }: { proyecto: ProjectListRow; corte: str
       titulo="Tiempo"
       cabecera={
         <span className="hidden text-[12.5px] text-ink-600 tabular-nums sm:inline">
-          {`${formatFechaCalendario(proyecto.fecha_inicio)} → ${formatFechaCalendario(proyecto.fecha_fin)}`}
+          {`${fechaDia(proyecto.fecha_inicio)} → ${fechaDia(proyecto.fecha_fin)}`}
         </span>
       }
     >

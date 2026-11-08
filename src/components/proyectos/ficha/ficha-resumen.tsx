@@ -1,4 +1,4 @@
-// Resumen de la ficha (U3; rediseño S2/S6). Arriba el aviso de Novedades; luego las tres cifras (Avance técnico,
+// Resumen de la ficha (U3; rediseño S2/S6). Arriba las tres cifras (Avance técnico,
 // Gasto y Tiempo) con su color y su porqué; debajo «Qué falta», con la acción exacta de cada fila, y al lado los
 // datos del proyecto y el equipo. En BORRADOR no hay nada que medir: en lugar de cifras y «Qué falta» guía la
 // puesta a punto con «Próximos pasos». El color de cada semáforo lo calcula el servidor; aquí solo se pinta.
@@ -10,9 +10,8 @@ import { useState } from "react";
 import { Check, Circle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatPct } from "@/components/proyectos/project-kpis-panel";
-import { ORIGEN_PROYECTO_META, formatFechaCalendario } from "@/components/proyectos/project-display";
+import { ORIGEN_PROYECTO_META } from "@/components/proyectos/project-display";
 import { EditarDatosGenerales, modoDeEdicion } from "@/components/proyectos/ficha/editar-datos-generales";
-import { AvisoNovedades } from "@/components/proyectos/ficha/novedades/aviso-novedades";
 import { CifrasResumen } from "@/components/proyectos/ficha/resumen/cifras-resumen";
 import { ProjectTeam } from "@/components/proyectos/project-team";
 import { RequiereAtencion, type AccionAtencion } from "@/components/proyectos/requiere-atencion";
@@ -31,6 +30,7 @@ import { canManageProjects } from "@/lib/permissions";
 import { estaCongelado } from "@/lib/proyectos/transiciones-estado";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { cn } from "@/lib/utils";
+import { fechaDia } from "@/components/proyectos/ficha/historial/fechas";
 
 /** Pestañas a las que el Resumen puede llevar. */
 export type ResumenDestino = "actividades" | "finanzas" | "historial";
@@ -271,7 +271,7 @@ function DatosGenerales({
         <Dato label="Origen">{proyecto.origen ? ORIGEN_PROYECTO_META[proyecto.origen] : SIN_DATO}</Dato>
         {conFechas && (
           <Dato label="Fechas" mono>
-            {`${formatFechaCalendario(proyecto.fecha_inicio)} → ${formatFechaCalendario(proyecto.fecha_fin)}`}
+            {`${fechaDia(proyecto.fecha_inicio)} → ${fechaDia(proyecto.fecha_fin)}`}
             {proyecto.duracion_semanas !== null &&
               ` · ${proyecto.duracion_semanas === 1 ? "1 semana" : `${proyecto.duracion_semanas} semanas`}`}
           </Dato>
@@ -340,7 +340,6 @@ export function FichaResumen({
   const enBorrador = proyecto.estado === "BORRADOR";
   return (
     <div data-testid="ficha-resumen" className="flex min-w-0 flex-col gap-6">
-      <AvisoNovedades proyectoId={proyecto.id} />
       {!enBorrador && <CifrasResumen proyecto={proyecto} onIrA={onIrA} />}
       <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
         <div data-testid="resumen-columna" className="flex min-w-0 flex-col gap-6">

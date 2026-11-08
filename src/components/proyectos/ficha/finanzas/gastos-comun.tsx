@@ -76,7 +76,7 @@ export function lineaRegistro(gasto: ProjectExpense, registro: string | null, fe
 function AvisoConAyuda({ tone, texto, ayuda }: { tone: "destructivo" | "info"; texto: string; ayuda: string }) {
   return (
     <span className="inline-flex items-center gap-0.5">
-      <StatusChip tone={tone}>{texto}</StatusChip>
+      <StatusChip dot={false} tone={tone}>{texto}</StatusChip>
       <HelpHint label={texto}>{ayuda}</HelpHint>
     </span>
   );
@@ -105,7 +105,7 @@ export function AvisosGasto({
     <span className={cn("flex flex-wrap items-center gap-1.5", className)}>
       {supera && <AvisoConAyuda tone="destructivo" texto={SUPERA_ASIGNADO} ayuda={AYUDA_SUPERA} />}
       {cuentaEn && <AvisoConAyuda tone="info" texto={`Cuenta en ${gasto.periodo}`} ayuda={AYUDA_CUENTA_EN} />}
-      {incompleto && <StatusChip tone="alerta">Datos incompletos</StatusChip>}
+      {incompleto && <StatusChip dot={false} tone="alerta">Datos incompletos</StatusChip>}
     </span>
   );
 }

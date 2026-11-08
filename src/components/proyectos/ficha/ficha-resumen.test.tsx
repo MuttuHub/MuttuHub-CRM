@@ -1,4 +1,4 @@
-// Resumen de la ficha (U3; rediseño S2/S6): el aviso de Novedades, las tres cifras (Avance técnico, Gasto y
+// Resumen de la ficha (U3; rediseño S2/S6): las tres cifras (Avance técnico, Gasto y
 // Tiempo) con su color, su porqué y sus ayudas ⓘ, «Qué falta» con la acción de cada fila, y al lado los datos
 // del proyecto y el equipo. En BORRADOR, «Próximos pasos» en lugar de cifras y «Qué falta». Las queries son
 // reales; solo se burla `fetch`.
@@ -104,17 +104,6 @@ describe("FichaResumen", () => {
 
   afterEach(() => vi.unstubAllGlobals())
 
-  it("opens with the Novedades notice above the figures", async () => {
-    mockApi()
-
-    renderResumen()
-
-    const aviso = screen.getByTestId("aviso-novedades")
-    expect(aviso).toHaveTextContent("Novedades")
-    const estado = await screen.findByTestId("resumen-estado")
-    expect(aviso.compareDocumentPosition(estado) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  })
-
   it.each([
     ["verde", "Verde · al día"],
     ["amarillo", "Amarillo · atención"],
@@ -134,9 +123,9 @@ describe("FichaResumen", () => {
   })
 
   it.each([
-    [35.7, 77.3, "Va 41,6 puntos por debajo de lo programado al 05 de nov."],
-    [80, 77, "Va 3 puntos por encima de lo programado al 05 de nov."],
-    [50, 50, "Va igual a lo programado al 05 de nov."],
+    [35.7, 77.3, "Va 41,6 puntos por debajo de lo programado al 05 nov."],
+    [80, 77, "Va 3 puntos por encima de lo programado al 05 nov."],
+    [50, 50, "Va igual a lo programado al 05 nov."],
   ])("explains the technical gap in points (real %s, planned %s)", async (real, programado, frase) => {
     mockApi({ kpisBody: kpis({ tecnico: tecnico("amarillo", real, programado) }) })
 
@@ -217,7 +206,7 @@ describe("FichaResumen", () => {
 
     const tiempo = await screen.findByTestId("cifra-tiempo")
     expect(within(tiempo).getByRole("heading", { name: "Tiempo" })).toBeInTheDocument()
-    expect(tiempo).toHaveTextContent("05 de oct de 2026 → 29 de ene de 2027")
+    expect(tiempo).toHaveTextContent("05 oct 2026 → 29 ene 2027")
     expect(await within(tiempo).findByText("Semana 5")).toBeInTheDocument()
     expect(tiempo).toHaveTextContent("de 17")
     expect(within(tiempo).getByRole("progressbar", { name: "Semana 5 de 17" })).toBeInTheDocument()
@@ -378,7 +367,7 @@ describe("FichaResumen", () => {
     await screen.findByTestId("proximos-pasos")
     expect(screen.queryByTestId("resumen-estado")).not.toBeInTheDocument()
     expect(screen.queryByTestId("requiere-atencion")).not.toBeInTheDocument()
-    expect(screen.getByTestId("datos-generales")).toHaveTextContent("Fechas05 de oct de 2026 → 29 de ene de 2027 · 17 semanas")
+    expect(screen.getByTestId("datos-generales")).toHaveTextContent("Fechas05 oct 2026 → 29 ene 2027 · 17 semanas")
     expect(screen.getByTestId("paso-datos")).toHaveAttribute("data-hecho", "true")
     await vi.waitFor(() => expect(screen.getByTestId("paso-estructura")).toHaveAttribute("data-hecho", "true"))
     await vi.waitFor(() => expect(screen.getByTestId("paso-presupuesto")).toHaveAttribute("data-hecho", "true"))

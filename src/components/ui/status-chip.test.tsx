@@ -55,4 +55,16 @@ describe("StatusChip", () => {
     )
     expect(screen.getByText("Prospecto").closest("span")).toHaveClass("ml-2")
   })
+  it("keeps its dot by default and drops it with dot={false} (the project ficha's plain pills, T10)", () => {
+    const { unmount } = render(<StatusChip tone="info">Con punto</StatusChip>)
+    expect(screen.getByText("Con punto").querySelector('[aria-hidden="true"]')).toBeInTheDocument()
+    unmount()
+
+    render(
+      <StatusChip tone="info" dot={false}>
+        Sin punto
+      </StatusChip>
+    )
+    expect(screen.getByText("Sin punto").querySelector('[aria-hidden="true"]')).not.toBeInTheDocument()
+  })
 })

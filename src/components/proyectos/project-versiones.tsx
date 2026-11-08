@@ -120,11 +120,11 @@ function TarjetaVersion({ version, vigente }: { version: ProjectVersion; vigente
       <div className="flex flex-wrap items-center gap-2">
         <h4 className="text-[14px] font-bold text-ink-950">{nombreVersion(version.numero)}</h4>
         {version.tipo === "LINEA_BASE" ? (
-          <StatusChip tone="neutro">Línea base</StatusChip>
+          <StatusChip dot={false} tone="neutro">Línea base</StatusChip>
         ) : (
-          <StatusChip tone="info">Modificación</StatusChip>
+          <StatusChip dot={false} tone="info">Modificación</StatusChip>
         )}
-        {vigente && <StatusChip tone="exito">Vigente</StatusChip>}
+        {vigente && <StatusChip dot={false} tone="exito">Vigente</StatusChip>}
       </div>
       <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-700">
         {version.tipo === "LINEA_BASE"
