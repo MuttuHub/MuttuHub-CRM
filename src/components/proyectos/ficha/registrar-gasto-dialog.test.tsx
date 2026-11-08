@@ -84,6 +84,22 @@ describe("RegistrarGastoDialog", () => {
     expect(within(form).getByRole("button", { name: "Registrar" })).toBeInTheDocument()
   })
 
+  // T12: a failed budget read is said, instead of an empty form that claims there are no rubros.
+  it("shows the error when the budget cannot be read, without the form", async () => {
+    fetchMock.mockImplementation((input: unknown) =>
+      Promise.resolve(
+        String(input).endsWith("/budget")
+          ? jsonResponse({ error: "No pudimos leer el presupuesto." }, 500)
+          : jsonResponse({}),
+      ),
+    )
+    render(<Harness />, { wrapper: createWrapper() })
+
+    const dialog = await screen.findByRole("dialog", { name: "Registrar gasto" })
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("No pudimos leer el presupuesto.")
+    expect(within(dialog).queryByRole("form", { name: "Registrar gasto" })).not.toBeInTheDocument()
+  })
+
   it("closes on Cancelar", async () => {
     const user = userEvent.setup()
     render(<Harness />, { wrapper: createWrapper() })

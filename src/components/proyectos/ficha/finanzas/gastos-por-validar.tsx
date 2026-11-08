@@ -190,7 +190,7 @@ function ListaPendientes({
 }
 
 /**
- * «Revisar» for a manager on someone else's expense; «Tú lo registraste» on one's own. Whoever lacks the role
+ * «Revisar» for a manager on someone else's expense; «Tú lo registraste» on one's own, for any role. Whoever lacks the role
  * still sees «Revisar», and it opens a popover saying why instead of the panel, so the cell is never blank. A manager
  * on a project that is not in execution sees nothing (B7: validating needs EN_EJECUCION).
  */
@@ -205,7 +205,10 @@ export function AccionRevisar({
 }) {
   if (gasto.estado !== "REGISTRADO") return null;
   const nombre = `Revisar el gasto ${gasto.numero_documento} de ${gasto.tercero_nombre}`;
+  const propio = gasto.registrado_por_id === permisos.usuarioId;
   if (!permisos.esGestor) {
+    // Whoever registered it reads that, instead of a «Revisar» they could not use (T12).
+    if (propio) return <span className="text-[12px] font-semibold text-ink-500">{PROPIO_TEXT}</span>;
     return (
       <Popover>
         <PopoverTrigger render={<Button type="button" size="sm" className="max-md:h-11" aria-label={nombre} />}>
@@ -220,7 +223,7 @@ export function AccionRevisar({
     );
   }
   if (!permisos.puedeValidar) return null;
-  if (gasto.registrado_por_id === permisos.usuarioId) {
+  if (propio) {
     return <span className="text-[12px] font-semibold text-ink-500">{PROPIO_TEXT}</span>;
   }
   return (

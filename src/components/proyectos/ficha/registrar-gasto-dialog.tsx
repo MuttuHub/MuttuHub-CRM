@@ -11,7 +11,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { GastoForm } from "@/components/proyectos/gasto-form";
+import { InlineError } from "@/components/proyectos/ui";
 import { useProjectBudget, type ProjectListRow } from "@/hooks/projects";
 
 export function RegistrarGastoDialog({
@@ -41,7 +43,11 @@ export function RegistrarGastoDialog({
 
 function Formulario({ proyecto, onCerrar }: { proyecto: ProjectListRow; onCerrar: () => void }) {
   const budgetQuery = useProjectBudget(proyecto.id);
+  // A failed read is said (T12): an empty list would claim the project has no rubros.
+  if (budgetQuery.isError) {
+    return <InlineError message={errorMessage(budgetQuery.error, "No pudimos cargar el presupuesto. Inténtalo de nuevo.")} />;
+  }
   // Wait for the rubros: an empty list would show «no hay rubros» for a moment.
-  if (!budgetQuery.data && !budgetQuery.isError) return <Skeleton className="h-40 w-full rounded-[12px]" />;
-  return <GastoForm proyecto={proyecto} rubros={budgetQuery.data?.rubros ?? []} onDone={onCerrar} />;
+  if (!budgetQuery.data) return <Skeleton className="h-40 w-full rounded-[12px]" />;
+  return <GastoForm proyecto={proyecto} rubros={budgetQuery.data.rubros} onDone={onCerrar} />;
 }

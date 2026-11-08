@@ -94,18 +94,11 @@ function FiltrosGasto({
   );
 }
 
-export function ProjectGastos({
-  proyecto,
-  registrarAlAbrir = false,
-}: {
-  proyecto: ProjectListRow;
-  /** The header's «Registrar gasto» opened Finanzas here: start with the form open (if the actor may register). */
-  registrarAlAbrir?: boolean;
-}) {
+export function ProjectGastos({ proyecto }: { proyecto: ProjectListRow }) {
   const query = useProjectExpenses(proyecto.id);
   const budgetQuery = useProjectBudget(proyecto.id);
   const permisos = usePermisosGastos(proyecto);
-  const [registrando, setRegistrando] = useState(registrarAlAbrir);
+  const [registrando, setRegistrando] = useState(false);
   const [filtro, setFiltro] = useState<Filtro>("TODOS");
   const [revisando, setRevisando] = useState<string | null>(null);
   const { puedeRegistrar, soloConsulta } = permisos;

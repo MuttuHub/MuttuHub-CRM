@@ -161,19 +161,6 @@ describe("ProjectGastos", () => {
       expectTouchTargets(dialog.querySelector("form") as HTMLElement)
     })
 
-    it("opens the form right away when the header asked to register an expense", async () => {
-      fetchMock.mockImplementation((input: unknown) => {
-        const url = String(input)
-        if (url.endsWith("/api/v1/auth/me")) return Promise.resolve(jsonResponse({ usuario: { id: "yo", nombre: "Yo", rol: "GERENCIA" } }))
-        if (url.endsWith("/members")) return Promise.resolve(jsonResponse({ miembros: [] }))
-        if (url.endsWith("/budget")) return Promise.resolve(jsonResponse(BUDGET))
-        if (url.endsWith("/expenses")) return Promise.resolve(jsonResponse(respuesta([])))
-        return Promise.resolve(jsonResponse({}))
-      })
-      render(<ProjectGastos proyecto={PROYECTO} registrarAlAbrir />, { wrapper: createWrapper() })
-      expect(await screen.findByRole("form", { name: "Registrar gasto" })).toBeInTheDocument()
-    })
-
     it("keeps the expense form inline on desktop", async () => {
       const user = userEvent.setup()
       setup({ rol: "GERENCIA" })

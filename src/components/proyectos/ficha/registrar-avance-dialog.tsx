@@ -19,7 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TOPE_POR_DEFECTO, topeDeActividad } from "@/components/proyectos/ejecucion-avance";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { esFinalizada, formatNumero, ultimoVigente } from "@/components/proyectos/ficha/actividades/formato";
-import { useEjecucionPermisos, useProgresoEntregables } from "@/components/proyectos/project-ejecucion";
+import { useEjecucionPermisos, useProgresoEntregablesConCarga } from "@/components/proyectos/project-ejecucion";
 import { ReporteActividadForm, SOPORTE_FALLIDO_TEXT } from "@/components/proyectos/reporte-actividad-form";
 import { InlineError, SELECT_CLASS_LG } from "@/components/proyectos/ui";
 import {
@@ -48,18 +48,17 @@ export function RegistrarAvanceDialog({
   /** Activity to preselect (a «Qué falta» row); null preselects the first unfinished one. */
   actividadId?: string | null;
 }) {
-  // The notice outlives the dialog: it is announced after the dialog closes.
+  // The notice outlives the dialog: it is announced after the dialog closes, and cleared when it opens again.
   const [aviso, setAviso] = useState("");
+  const [abiertoAntes, setAbiertoAntes] = useState(open);
+  if (open !== abiertoAntes) {
+    setAbiertoAntes(open);
+    if (open) setAviso("");
+  }
 
   return (
     <>
-      <Dialog
-        open={open}
-        onOpenChange={(abierto) => {
-          if (abierto) setAviso("");
-          onOpenChange(abierto);
-        }}
-      >
+      <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[min(560px,calc(100%-2rem))]">
           {/* Mounted (and fetching) only while open, so every opening starts from its own preselection. */}
           {open && (
@@ -96,7 +95,7 @@ function Contenido({
   const deliverablesQuery = useProjectDeliverables(proyecto.id);
   const membersQuery = useProjectMembers(proyecto.id);
   const deliverables = deliverablesQuery.data ?? [];
-  const progreso = useProgresoEntregables(proyecto.id, deliverables);
+  const { progreso, cargando: cargandoProgreso } = useProgresoEntregablesConCarga(proyecto.id, deliverables);
   const { canWrite } = useEjecucionPermisos(proyecto.id);
   const [elegida, setElegida] = useState<string | null>(actividadId);
   const selectId = useId();
@@ -109,8 +108,9 @@ function Contenido({
   const actividad = opciones.find((opcion) => opcion.id === elegida) ?? opciones[0] ?? null;
   const tecnica = actividad ? tecnicas.get(actividad.id) : undefined;
 
-  const error = tecnicoQuery.error ?? activitiesQuery.error;
-  const cargando = !tecnicoQuery.data || !activitiesQuery.data;
+  const error = tecnicoQuery.error ?? activitiesQuery.error ?? deliverablesQuery.error;
+  // The tope depends on the deliverables and their progress (T12): wait for them, not only for the activities.
+  const cargando = !tecnicoQuery.data || !activitiesQuery.data || !deliverablesQuery.data || cargandoProgreso;
 
   return (
     <>

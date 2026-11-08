@@ -53,9 +53,7 @@ export const EJECUCION_BORRADOR_HINT =
 /**
  * `lista` is the execution Lista of the Actividades tab (U4): only the activities, grouped by goal, without the
  * semáforo panel (the header owns it), with the S-curve and the Base selector inside a collapsed "Opciones
- * avanzadas" disclosure. `enfocarId` scrolls to and focuses one activity row (the Tablero card click);
- * `enfocarPrimeraPendiente` (a request counter; the ficha header opens a dialog instead since T9) does the same for the
- * first activity that is not finished yet.
+ * avanzadas" disclosure. `enfocarId` scrolls to and focuses one activity row (the Tablero card click).
  *
  * `seguimiento` is the v7 "Ficha de seguimiento" tab: the chart, the period/time/budget cards, progress per goal
  * and the activities, without the indicators (they have their own tab: see
@@ -66,14 +64,12 @@ export function ProjectEjecucion({
   seguimiento = false,
   lista = false,
   enfocarId = null,
-  enfocarPrimeraPendiente = 0,
   onSolicitarModificacion,
 }: {
   proyecto: ProjectListRow;
   seguimiento?: boolean;
   lista?: boolean;
   enfocarId?: string | null;
-  enfocarPrimeraPendiente?: number;
   /** «Solicitar modificación» on a finished activity (the ficha opens Historial › Modificaciones). */
   onSolicitarModificacion?: () => void;
 }) {
@@ -94,7 +90,6 @@ export function ProjectEjecucion({
         seguimiento={seguimiento}
         lista={lista}
         enfocarId={enfocarId}
-        enfocarPrimeraPendiente={enfocarPrimeraPendiente}
         onSolicitarModificacion={onSolicitarModificacion}
       />
     </section>
@@ -244,6 +239,14 @@ export function useProgresoEntregables(
   proyectoId: string,
   deliverables: { id: string }[],
 ): Map<string, ProjectDeliverableProgress> {
+  return useProgresoEntregablesConCarga(proyectoId, deliverables).progreso;
+}
+
+/** The same progress map, plus whether any deliverable's progress is still loading (the tope depends on it). */
+export function useProgresoEntregablesConCarga(
+  proyectoId: string,
+  deliverables: { id: string }[],
+): { progreso: Map<string, ProjectDeliverableProgress>; cargando: boolean } {
   const progressQueries = useDeliverableProgress(
     proyectoId,
     deliverables.map((deliverable) => deliverable.id),
@@ -253,7 +256,7 @@ export function useProgresoEntregables(
     const query = progressQueries[index];
     if (query?.data) progreso.set(deliverable.id, query.data);
   });
-  return progreso;
+  return { progreso, cargando: progressQueries.some((query) => query.isPending) };
 }
 
 /** Pestaña de objetivos e indicadores (v7): el registro de avance de indicador vive junto a los objetivos. */
@@ -268,14 +271,12 @@ function EjecucionContent({
   seguimiento,
   lista,
   enfocarId,
-  enfocarPrimeraPendiente,
   onSolicitarModificacion,
 }: {
   proyecto: ProjectListRow;
   seguimiento: boolean;
   lista: boolean;
   enfocarId: string | null;
-  enfocarPrimeraPendiente: number;
   onSolicitarModificacion?: () => void;
 }) {
   const [base, setBase] = useState<ProjectBase>("vigente");
@@ -295,19 +296,6 @@ function EjecucionContent({
   // `useQueries`, solo mientras la sección está montada.
   const deliverables = deliverablesQuery.data ?? [];
   const progreso = useProgresoEntregables(proyecto.id, deliverables);
-
-  // Each header request picks its row ONCE, so a later refetch (an activity just finished) never moves the focus.
-  const [pedidoServido, setPedidoServido] = useState<{ pedido: number; id: string | null }>({ pedido: 0, id: null });
-  if (enfocarPrimeraPendiente !== pedidoServido.pedido && tecnicoQuery.data && activitiesQuery.data) {
-    const estados = new Map(tecnicoQuery.data.actividades.map((actividad) => [actividad.id, actividad.estado]));
-    const pendiente = activitiesQuery.data.find((actividad) => {
-      const estado = estados.get(actividad.id);
-      return estado !== undefined && estado !== "FINALIZADA" && estado !== "FINALIZADA_CON_RETRASO";
-    });
-    setPedidoServido({ pedido: enfocarPrimeraPendiente, id: pendiente?.id ?? null });
-    // An unfinished activity is always under «Por hacer».
-    if (pendiente && filtro === "finalizadas") setFiltro("porhacer");
-  }
 
   // A Tablero card asks for one activity: when the filter hides it, show «Todas» (once per request).
   const [enfoqueFiltrado, setEnfoqueFiltrado] = useState<string | null>(null);
@@ -329,8 +317,7 @@ function EjecucionContent({
   const tecnico = tecnicoQuery.data;
   const actividades = activitiesQuery.data ?? [];
   const tecnicas = new Map(tecnico.actividades.map((actividad) => [actividad.id, actividad]));
-  const enfocarFila = (id: string): boolean | number =>
-    enfocarId === id || (pedidoServido.id === id && pedidoServido.pedido);
+  const enfocarFila = (id: string): boolean => enfocarId === id;
 
   return (
     <div className={lista ? "mt-0" : "mt-2"}>

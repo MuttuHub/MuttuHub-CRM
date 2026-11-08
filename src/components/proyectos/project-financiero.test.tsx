@@ -334,6 +334,15 @@ describe("ProjectFinanciero", () => {
       expect(within(propia).queryByRole("button", { name: /^Revisar/ })).not.toBeInTheDocument()
     })
 
+    // T12: a team member who registered the expense reads «Tú lo registraste», not a «Revisar» they cannot use.
+    it("«Tú lo registraste» to a team member who registered it", async () => {
+      setup({ rol: "COORDINADOR", gastos: [gasto("g1", { registrado_por_id: "yo" })] })
+      const propia = await screen.findByTestId("gastos-por-validar")
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
+      expect(await within(propia).findByText("Tú lo registraste")).toBeInTheDocument()
+      expect(within(propia).queryByRole("button", { name: /^Revisar/ })).not.toBeInTheDocument()
+    })
+
     it("«Revisar» opens the «Validar gasto» panel on that expense", async () => {
       const user = userEvent.setup()
       setup({ gastos: [gasto("g1")] })
