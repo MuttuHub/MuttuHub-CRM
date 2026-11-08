@@ -137,6 +137,8 @@ describe("ProjectVersiones", () => {
     setup({ versiones: [VERSIONES[1]] })
 
     const tarjeta = await screen.findByTestId("version-tarjeta")
+    // T10 C11: white card with a border, as the prototype's `.card`.
+    expect(tarjeta.className).toMatch(/(^|\s)surface-tile(\s|$)/)
     expect(tarjeta).toHaveTextContent("Versión original")
     expect(tarjeta).toHaveTextContent("Vigente")
     expect(

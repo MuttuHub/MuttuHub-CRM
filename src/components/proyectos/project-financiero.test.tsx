@@ -229,6 +229,8 @@ describe("ProjectFinanciero", () => {
     it("stacks the figures in one column on phones and in three from md", async () => {
       setup()
       expect((await screen.findByTestId("financiero-cifras")).className).toMatch(/grid-cols-1 .*md:grid-cols-3/)
+      // T10 C11: white cards with a border, as the prototype's `.card`.
+      expect(screen.getByTestId("cifra-ejecutado").className).toMatch(/(^|\s)surface-tile(\s|$)/)
     })
   })
 

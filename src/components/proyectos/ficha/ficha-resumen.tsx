@@ -231,7 +231,7 @@ function DatosGenerales({
     <section
       data-testid="datos-generales"
       aria-labelledby="resumen-datos-titulo"
-      className="surface-inner flex min-w-0 flex-col gap-3 p-4"
+      className="surface-tile flex min-w-0 flex-col gap-3 p-4"
     >
       <div className="flex items-center justify-between gap-2">
         <SectionHeader as="h2" id="resumen-datos-titulo">
@@ -356,7 +356,7 @@ export function FichaResumen({
         </div>
         <div data-testid="resumen-columna" className="flex min-w-0 flex-col gap-6">
           <DatosGenerales proyecto={proyecto} onIrA={onIrA} />
-          <div className="surface-inner p-4">
+          <div className="surface-tile p-4">
             <ProjectTeam
               proyectoId={proyecto.id}
               congelado={estaCongelado(proyecto.estado)}

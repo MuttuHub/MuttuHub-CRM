@@ -122,7 +122,7 @@ function Tarjeta({
   children: ReactNode;
 }) {
   return (
-    <article data-testid={testId} data-color={color} className="surface-inner flex min-w-0 flex-col gap-2 p-4">
+    <article data-testid={testId} data-color={color} className="surface-tile flex min-w-0 flex-col gap-2 p-4">
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <h3 className="text-[13px] font-semibold text-ink-700">{titulo}</h3>
         {cabecera && <div className="flex items-center gap-1.5">{cabecera}</div>}

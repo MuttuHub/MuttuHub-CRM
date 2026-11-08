@@ -114,6 +114,8 @@ describe("FichaResumen", () => {
     renderResumen()
 
     const cifra = await screen.findByTestId("salud-tecnico")
+    // T10 C11: white cards with a border, as the prototype's `.card`.
+    expect(cifra.className).toMatch(/(^|\s)surface-tile(\s|$)/)
     expect(cifra).toHaveAttribute("data-color", color)
     expect(within(cifra).getByRole("heading", { name: "Avance técnico" })).toBeInTheDocument()
     expect(cifra).toHaveTextContent(label)

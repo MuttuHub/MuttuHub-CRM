@@ -255,7 +255,7 @@ function Dia({
       <h4 id={`${id}-titulo`} className="text-[13px] font-bold text-ink-900">
         {tituloDia(pasos[0].created_at)}
       </h4>
-      <div className="surface-inner mt-1.5 px-3 py-1 sm:px-4">
+      <div className="surface-tile mt-1.5 px-3 py-1 sm:px-4">
         <ol id={`${id}-lista`} className="flex flex-col divide-y divide-border" data-dia={clave}>
           {mostrados.map((paso, indice) => (
             <PasoRegistro

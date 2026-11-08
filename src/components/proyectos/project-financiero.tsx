@@ -238,7 +238,7 @@ function Cifra({
   children: React.ReactNode;
 }) {
   return (
-    <div data-testid={testId} className="surface-inner flex min-w-0 flex-col gap-1 p-3.5">
+    <div data-testid={testId} className="surface-tile flex min-w-0 flex-col gap-1 p-3.5">
       <p className="flex items-center gap-1 text-[12px] font-semibold text-ink-600">
         {etiqueta}
         {ayuda && <HelpHint label={etiqueta}>{ayuda}</HelpHint>}

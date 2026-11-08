@@ -141,6 +141,13 @@
   background-color: var(--muted);
 }
 
+/* A white tile inside a surface (the project ficha's cards, as the clickable prototype's `.card`). */
+@utility surface-tile {
+  border-radius: var(--radius-inner);
+  border: 1px solid var(--border);
+  background-color: var(--panel);
+}
+
 :root {
   --background: #f6f1f3;
   --foreground: #281d20;
