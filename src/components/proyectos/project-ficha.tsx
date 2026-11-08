@@ -24,7 +24,7 @@ import { FichaResumen } from "@/components/proyectos/ficha/ficha-resumen";
 import { RegistrarAvanceDialog } from "@/components/proyectos/ficha/registrar-avance-dialog";
 import { RegistrarGastoDialog } from "@/components/proyectos/ficha/registrar-gasto-dialog";
 import { DESTINO_DE_ACCION, type AccionAtencion } from "@/components/proyectos/requiere-atencion";
-import { useProject, type ProjectListRow } from "@/hooks/projects";
+import { useProject, useProjectSupports, type ProjectListRow } from "@/hooks/projects";
 import { ApiError } from "@/lib/api/http";
 import { cn } from "@/lib/utils";
 
@@ -39,7 +39,8 @@ export function ProjectFicha({ projectId, backHref }: { projectId: string; backH
 
   return (
     <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col gap-4">
-      {backHref && (
+      {/* Once loaded, «← Proyectos» lives in the header (T10 C1); while loading or on error it stays here. */}
+      {backHref && !proyecto && (
         <Link
           href={backHref}
           className={cn(
@@ -55,7 +56,7 @@ export function ProjectFicha({ projectId, backHref }: { projectId: string; backH
         {query.isError ? (
           <FichaError error={query.error} />
         ) : proyecto ? (
-          <FichaContent proyecto={proyecto} />
+          <FichaContent proyecto={proyecto} backHref={backHref} />
         ) : (
           <FichaSkeleton />
         )}
@@ -78,9 +79,13 @@ type FichaTab = (typeof FICHA_TABS)[number]["value"];
 
 const PANEL_CLASS = "mt-0 flex flex-col gap-6";
 
-function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
+function FichaContent({ proyecto, backHref }: { proyecto: ProjectListRow; backHref?: string }) {
   // Controlada: los semáforos y las acciones del encabezado también cambian de pestaña.
   const [tab, setTab] = useState<FichaTab>("resumen");
+  // «Documentos · N» (T10 C6): same query (and cache) as the Documentos tab, so opening it costs nothing more.
+  // The API already leaves out what the role may not see, so the count matches the list.
+  const soportes = useProjectSupports(proyecto.id).data;
+  const totalDocumentos = Array.isArray(soportes) ? soportes.length : null;
   // «Registrar avance» and «Registrar gasto» open their dialogs on top of the current tab (S9).
   const [avanceAbierto, setAvanceAbierto] = useState(false);
   const [actividadPedida, setActividadPedida] = useState<string | null>(null);
@@ -122,13 +127,17 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
             onRegistrarAvance={() => registrarAvance()}
             onRegistrarGasto={() => setGastoAbierto(true)}
             mostrarSemaforos={tab !== "resumen"}
+            pestana={tab}
+            backHref={backHref}
           />
           <div className="relative border-b border-ink-200">
             <div className="no-scrollbar overflow-x-auto px-5 sm:px-6">
               <TabsList variant="line" className="w-full justify-start gap-1">
                 {FICHA_TABS.map((item) => (
                   <TabsTrigger key={item.value} value={item.value} className="flex-none px-3">
-                    {item.label}
+                    {item.value === "documentos" && totalDocumentos !== null
+                      ? `${item.label} · ${totalDocumentos}`
+                      : item.label}
                   </TabsTrigger>
                 ))}
               </TabsList>

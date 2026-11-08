@@ -79,7 +79,7 @@ La página tiene dos pestañas:
   se pliegan en el botón **«Filtros»**; **«Limpiar filtros»** los borra todos.
 - La tabla muestra: **Proyecto** (código, cliente y nombre), **Territorio · línea**, **Responsable**, **Avance
   técnico**, **Avance financiero** y **Estado**.
-- **Ver detalle** abre la ficha del proyecto en la misma ventana; **Volver a proyectos** regresa a la lista.
+- **Ver detalle** abre la ficha del proyecto en la misma ventana; el enlace **← Proyectos**, arriba del código, regresa a la lista.
 - El botón **Nuevo proyecto** abre el asistente de creación; lo ve cualquier rol.
 
 Si la tabla aparece vacía:
@@ -213,18 +213,23 @@ de aprobar.
 
 En el encabezado, siempre visible:
 
-- **Código** y **nombre**.
-- El **estado**: Borrador, En ejecución, Suspendido, Cerrado o Cancelado.
+- El enlace **← Proyectos**, que regresa a la lista.
+- **Código** y el título «nombre · estado» (Borrador, En ejecución, Suspendido, Cerrado o Cancelado).
 - Los chips **Semáforo técnico** y **Semáforo financiero** (desde En ejecución). Cada chip lleva a la pestaña que explica
   su causa.
 - Las acciones según rol y estado: **Aprobar línea base** (en Borrador), **Registrar avance** y **Registrar gasto** (en
   ejecución). Desde cualquier pestaña, **Registrar avance** abre una ventana con el selector **Actividad** (viene
   elegida la primera sin terminar), lo registrado y el tope de esa actividad, y el formulario del avance;
-  **Registrar gasto** abre el formulario del gasto en una ventana. Ninguna de las dos cambia de pestaña.
+  **Registrar gasto** abre el formulario del gasto en una ventana. Ninguna de las dos cambia de pestaña. En
+  **Actividades** y **Finanzas** solo queda **Registrar gasto**: el avance se registra en la tarjeta de cada actividad.
+  En el teléfono las acciones pasan a una barra fija abajo («Registrar gasto | Registrar avance»); en **Documentos**
+  esa barra es la de **Subir documento**.
 - En **Finanzas › Resumen › Gastos por validar**, quien no puede validar también ve **Revisar**; al tocarlo, un aviso
   explica: «No tienes permisos para validar gastos. Solo Gerencia o Administración pueden validarlos mientras el
   proyecto está en ejecución.»
-- El menú **«⋯» → «Más acciones»** con **Exportar a Excel** e **Imprimir / PDF**.
+- El menú **«⋯» → «Más acciones»** con **Cambiar estado** (Administración y Gerencia), **Exportar a Excel** e
+  **Imprimir / PDF**.
+- La pestaña **Documentos** muestra cuántos documentos tiene el proyecto («Documentos · N»).
 
 ### 5.1 Resumen
 
@@ -392,7 +397,7 @@ Tres segmentos: **Modificaciones**, **Versiones** y **Auditoría**.
 
 ### 5.6 Cambiar el estado: suspender, reactivar, cerrar, reabrir o cancelar
 
-Solo **Administrador** o **Gerencia**. En el encabezado de la ficha, el botón **Cambiar estado** abre un diálogo con
+Solo **Administrador** o **Gerencia**. En el encabezado de la ficha, el menú **⋯** tiene **Cambiar estado**, que abre un diálogo con
 las acciones válidas para el estado actual y un **motivo** obligatorio:
 
 | Estado actual | Acciones disponibles |

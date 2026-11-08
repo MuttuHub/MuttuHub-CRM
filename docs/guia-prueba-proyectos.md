@@ -341,7 +341,7 @@ Es la única vía real para salir de Borrador. Solo `admin@` o `gerencia@`, solo
 Solo `admin@` o `gerencia@`. Decisión de la PO (D-C): suspendido = congelado; cerrado = solo lectura y se puede
 reabrir; cancelado no se puede deshacer.
 
-1. Con un proyecto **En ejecución**, el encabezado de la ficha muestra **Cambiar estado**. El diálogo ofrece solo las
+1. Con un proyecto **En ejecución**, el menú **⋯** del encabezado de la ficha muestra **Cambiar estado**. El diálogo ofrece solo las
    acciones válidas para el estado actual (en ejecución: Suspender, Cerrar, Cancelar; suspendido: Reactivar, Cancelar;
    cerrado: Reabrir; borrador: Cancelar; cancelado: ninguna, el botón no aparece).
 2. Elige **Suspender**, escribe un motivo y pulsa **Confirmar** (sin motivo el botón queda deshabilitado). Esperado:
@@ -354,7 +354,7 @@ reabrir; cancelado no se puede deshacer.
    **Motivo**.
 5. **Reactivar** devuelve el proyecto a En ejecución. Repite con **Cerrar** (chip Cerrado, aviso de solo lectura) y
    **Reabrir**. **Cancelar** deja el proyecto en Cancelado sin acciones posibles.
-6. `coordinador@` y `colaborador@` no ven **Cambiar estado**; por API (`POST /api/v1/projects/:id/estado`) responden 403.
+6. `coordinador@` y `colaborador@` no ven **Cambiar estado** en el menú **⋯**; por API (`POST /api/v1/projects/:id/estado`) responden 403.
 
 ## D. Ejecución técnica y semáforo (S4)
 

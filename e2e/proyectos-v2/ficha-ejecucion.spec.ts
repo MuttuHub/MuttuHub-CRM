@@ -19,7 +19,11 @@ const PDF = Buffer.from(
 
 /** The ficha's OUTER tabs (Finanzas also renders an inner Resumen/Gastos/Presupuesto tablist). */
 const tab = (page: Page, name: string, selected?: boolean) =>
-  page.getByRole("tablist").first().getByRole("tab", { name, exact: true, ...(selected ? { selected: true } : {}) });
+  // «Documentos · N» carries its count (T10 C6): match the name with or without it.
+  page
+    .getByRole("tablist")
+    .first()
+    .getByRole("tab", { name: new RegExp(`^${name}( · \\d+)?$`), ...(selected ? { selected: true } : {}) });
 
 async function openGastos(page: Page) {
   await tab(page, "Finanzas").click();

@@ -77,7 +77,9 @@ function renderFicha(projectId = "p1") {
  */
 async function openTab(name: string | RegExp) {
   const user = userEvent.setup()
-  await user.click(await screen.findByRole("tab", { name }))
+  // «Documentos · N» (T10 C6) carries its count once the supports load: a plain name matches with or without it.
+  const pattern = typeof name === "string" ? new RegExp(`^${name}( · \\d+)?$`) : name
+  await user.click(await screen.findByRole("tab", { name: pattern }))
 }
 
 /** Historial groups modifications, versions and audit as segments; the audit log lives in "Auditoría". */
@@ -475,10 +477,14 @@ describe("ProjectFicha (page)", () => {
     for (const id of ["estructura", "cronograma", "gantt", "presupuesto", "ejecucion", "kpis", "financiero", "gastos", "modificaciones", "versiones", "historial", "soportes"]) {
       expect(screen.queryByTestId(id)).not.toBeInTheDocument()
     }
-    const lazy = ["/budget", "/expenses", "/audit", "/modifications", "/versions", "/financial-sheet", "/technical-status", "/objectives", "/activities", "/supports", "/curve"]
+    const lazy = ["/budget", "/expenses", "/audit", "/modifications", "/versions", "/financial-sheet", "/technical-status", "/objectives", "/activities", "/curve"]
     for (const suffix of lazy) {
       expect(fetchMock.mock.calls.some(([url]) => String(url).includes(suffix))).toBe(false)
     }
+    // T10 C6: the «Documentos · N» counter reads the supports up front; the Documentos tab stays unmounted.
+    await vi.waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/supports", expect.any(Object)),
+    )
 
     await openTab("Finanzas")
     await screen.findByTestId("financiero")
@@ -621,7 +627,9 @@ describe("ProjectFicha (page)", () => {
       expect(within(dialog).getByTestId("registrar-avance-resumen")).toHaveTextContent("40 % registrado · tope 90 %")
       expect(within(dialog).getByRole("form", { name: "Registrar avance 1.2" })).toBeInTheDocument()
       // The modal hides the page from the accessibility tree: read the tab behind it with `hidden`.
-      expect(screen.getByRole("tab", { name: pestana, hidden: true })).toHaveAttribute("aria-selected", "true")
+      expect(
+        screen.getByRole("tab", { name: new RegExp(`^${pestana}( · \\d+)?$`), hidden: true }),
+      ).toHaveAttribute("aria-selected", "true")
     },
   )
 
@@ -665,7 +673,9 @@ describe("ProjectFicha (page)", () => {
       expect(await within(dialog).findByRole("form", { name: "Registrar gasto" })).toBeInTheDocument()
       expect(within(dialog).getByLabelText("Rubro")).toBeInTheDocument()
       // The modal hides the page from the accessibility tree: read the tabs behind it with `hidden`.
-      expect(screen.getByRole("tab", { name: pestana, hidden: true })).toHaveAttribute("aria-selected", "true")
+      expect(
+        screen.getByRole("tab", { name: new RegExp(`^${pestana}( · \\d+)?$`), hidden: true }),
+      ).toHaveAttribute("aria-selected", "true")
       expect(screen.getByRole("tab", { name: "Finanzas", hidden: true })).toHaveAttribute("aria-selected", "false")
 
       await user.click(within(dialog).getByRole("button", { name: "Cancelar" }))
@@ -737,6 +747,21 @@ describe("ProjectFicha (page)", () => {
     expect(await screen.findByText(PROYECTO.nombre)).toBeInTheDocument()
     expect(screen.queryByText("Diferencia valor oportunidad")).not.toBeInTheDocument()
     expect(screen.getByText("$ 180.000.000")).toBeInTheDocument()
+  })
+
+  // T10 C6: as in the prototype, the Documentos tab carries its count.
+  it("shows «Documentos · N» with the number of supports the API returns", async () => {
+    mockFichaAndAudit({ historial: [] })
+    const base = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation((input: unknown, init?: unknown) =>
+      String(input).endsWith("/supports")
+        ? Promise.resolve(jsonResponse({ soportes: [{ id: "s1" }, { id: "s2" }] }))
+        : base(input, init),
+    )
+
+    renderFicha()
+
+    expect(await screen.findByRole("tab", { name: "Documentos · 2" })).toBeInTheDocument()
   })
 
   it("links back to the project list from the loaded page", async () => {

@@ -94,10 +94,10 @@ describe("FichaHeader", () => {
 
     const header = screen.getByTestId("ficha-header")
     expect(within(header).getByText("PRY-2026-001")).toBeInTheDocument()
-    const titulo = within(header).getByRole("heading", { level: 1, name: "Demo CedeTextil" })
+    // T10 C2: as in the prototype, the state goes in the title («nombre · estado»), not in a chip.
+    const titulo = within(header).getByRole("heading", { level: 1, name: "Demo CedeTextil · En ejecución" })
     expect(titulo).toHaveAttribute("id", "ficha-titulo")
     expect(titulo).toHaveAttribute("tabindex", "-1")
-    expect(within(header).getByText("En ejecución")).toBeInTheDocument()
     expect(within(header).getByTestId("ficha-header-cliente")).toHaveTextContent(
       "Instituto Andino · Responsable: Laura Jiménez",
     )
@@ -174,6 +174,105 @@ describe("FichaHeader", () => {
 
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/members", expect.any(Object)))
     expect(screen.queryByTestId("ficha-barra-acciones")).not.toBeInTheDocument()
+  })
+
+  // T10 C1: the prototype's «← Proyectos» text link sits in the header, above the code.
+  it("shows «← Proyectos» as a text link inside the header when it gets a back address", () => {
+    mockApi()
+
+    renderHeader({ backHref: "/proyectos" })
+
+    const volver = within(screen.getByTestId("ficha-header")).getByRole("link", { name: "Volver a proyectos" })
+    expect(volver).toHaveAttribute("href", "/proyectos")
+    expect(volver).toHaveTextContent("← Proyectos")
+  })
+
+  // T10 C3/C5: «Registrar gasto», then «Registrar avance» (primary), then «⋯».
+  it("orders the desktop actions as gasto, avance, more actions, with no visible «Cambiar estado»", async () => {
+    mockApi()
+
+    renderHeader()
+
+    const avance = await screen.findByRole("button", { name: "Registrar avance" })
+    const gasto = screen.getByRole("button", { name: "Registrar gasto" })
+    const mas = screen.getByRole("button", { name: "Más acciones" })
+    expect(gasto.compareDocumentPosition(avance) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(avance.compareDocumentPosition(mas) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
+    expect(screen.queryByRole("button", { name: "Cambiar estado" })).not.toBeInTheDocument()
+  })
+
+  // T10 C3 (T13): «Cambiar estado» moves inside «⋯» and still opens its dialog.
+  it("offers «Cambiar estado» inside «⋯» to who manages projects, and it opens the state dialog", async () => {
+    mockApi("GERENCIA")
+    const user = userEvent.setup()
+
+    renderHeader()
+
+    await user.click(screen.getByRole("button", { name: "Más acciones" }))
+    await user.click(await screen.findByRole("menuitem", { name: "Cambiar estado" }))
+    expect(await screen.findByRole("dialog", { name: "Cambiar estado del proyecto" })).toBeInTheDocument()
+  })
+
+  it("leaves «Cambiar estado» out of «⋯» for a role that cannot manage projects", async () => {
+    mockApi("COLABORADOR")
+    const user = userEvent.setup()
+
+    renderHeader()
+
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
+    await user.click(screen.getByRole("button", { name: "Más acciones" }))
+    expect(await screen.findByRole("menuitem", { name: "Exportar a Excel" })).toBeInTheDocument()
+    expect(screen.queryByRole("menuitem", { name: "Cambiar estado" })).not.toBeInTheDocument()
+  })
+
+  // T10 C4: Actividades and Finanzas keep only «Registrar gasto» (avance is registered per activity).
+  it.each(["actividades", "finanzas"] as const)("keeps only «Registrar gasto» in the %s tab", async (pestana) => {
+    mockApi()
+
+    renderHeader({ pestana })
+
+    expect(await screen.findByRole("button", { name: "Registrar gasto" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Registrar avance" })).not.toBeInTheDocument()
+  })
+
+  it.each(["actividades", "finanzas"] as const)("keeps only «Registrar gasto» in the phone bar of %s", async (pestana) => {
+    mockViewport(true)
+    mockApi()
+
+    renderHeader({ pestana })
+
+    const barra = await screen.findByTestId("ficha-barra-acciones")
+    expect(within(barra).getByRole("button", { name: "Registrar gasto" })).toBeInTheDocument()
+    expect(within(barra).queryByRole("button", { name: "Registrar avance" })).not.toBeInTheDocument()
+  })
+
+  it("has no phone bar in Documentos, which has its own «Subir documento» bar", async () => {
+    mockViewport(true)
+    mockApi()
+
+    // Same permissions as the Resumen, where the bar does show: only the tab differs.
+    const resumen = renderHeader({ pestana: "resumen" })
+    expect(await screen.findByTestId("ficha-barra-acciones")).toBeInTheDocument()
+    resumen.unmount()
+
+    renderHeader({ pestana: "documentos" })
+
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/members", expect.any(Object)))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(screen.queryByTestId("ficha-barra-acciones")).not.toBeInTheDocument()
+  })
+
+  it("orders the phone bar as «Registrar gasto | Registrar avance»", async () => {
+    mockViewport(true)
+    mockApi()
+
+    renderHeader()
+
+    const barra = await screen.findByTestId("ficha-barra-acciones")
+    const [primero, segundo] = within(barra).getAllByRole("button")
+    expect(primero).toHaveTextContent("Registrar gasto")
+    expect(segundo).toHaveTextContent("Registrar avance")
   })
 
   it("hides the client line on a phone, where the header keeps code, name and state", () => {
