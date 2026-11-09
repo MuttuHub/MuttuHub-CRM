@@ -36,6 +36,7 @@ import {
   type ProjectListRow,
 } from "@/hooks/projects";
 import { FiltroChip } from "@/components/proyectos/ficha/filtro-chip";
+import { cn } from "@/lib/utils";
 
 /** Tabs of the ficha the change log can open. */
 export type DestinoFicha = "actividades" | "finanzas";
@@ -195,7 +196,8 @@ function Filtros({
 }) {
   const id = useId();
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 md:flex md:items-center">
+    // T10 H3: on phones Mostrar, its chips, then Persona at full width (the prototype order); one row from `md`.
+    <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
       <span id={`${id}-mostrar`} className="text-[11.5px] font-semibold tracking-[0.06em] text-ink-600 uppercase">
         Mostrar
         <span aria-hidden="true" className="hidden md:inline">
@@ -205,7 +207,7 @@ function Filtros({
       <div
         role="group"
         aria-labelledby={`${id}-mostrar`}
-        className="no-scrollbar col-span-2 row-start-2 flex gap-2 overflow-x-auto md:row-start-auto md:flex-1 md:flex-wrap md:overflow-visible"
+        className="no-scrollbar flex gap-2 overflow-x-auto md:flex-1 md:flex-wrap md:overflow-visible"
       >
         {FILTROS.map((f) => (
           <FiltroChip key={f.valor} activo={filtro === f.valor} onClick={() => onFiltro(f.valor)}>
@@ -213,12 +215,16 @@ function Filtros({
           </FiltroChip>
         ))}
       </div>
-      <label className="col-start-2 row-start-1 flex items-center gap-1.5 text-[13.5px] text-ink-700 md:col-auto md:row-auto">
+      <label className="flex items-center gap-1.5 text-[13.5px] text-ink-700">
         <span>
           Persona
           <span aria-hidden="true">:</span>
         </span>
-        <select value={persona} onChange={(event) => onPersona(event.target.value)} className={SELECT_CLASS_LG}>
+        <select
+          value={persona}
+          onChange={(event) => onPersona(event.target.value)}
+          className={cn(SELECT_CLASS_LG, "min-w-0 flex-1 md:flex-none")}
+        >
           <option value="">todas</option>
           {personas.map((nombre) => (
             <option key={nombre} value={nombre}>
