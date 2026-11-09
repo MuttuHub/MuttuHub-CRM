@@ -128,7 +128,7 @@ npm run db:demo:seed-projects:local -- --apply     # escribe
 Qué crea (escrito por los mismos servicios que usa la API: importador de plantilla, aprobación de línea base,
 validación de gastos y la bitácora de auditoría):
 
-- `Demo CedeTextil · En ejecución` (`PRY-2026-001` en una base recién sembrada): línea base aprobada (versión v0,
+- `Demo CedeTextil · Programa de confección` (`PRY-2026-001` en una base recién sembrada): línea base aprobada (versión v0,
   por lo que Versiones y Modificaciones funcionan), 4 actividades, 7 entregables, 2 indicadores, presupuesto de
   $177.360.000 y programación mensual. Trae 5 avances (todos con enlace https como medio, salvo uno sin medio a propósito),
   3 mediciones y 5 gastos con soporte https: 2 VALIDADO, 2 REGISTRADO y 1 REGISTRADO con alerta de sobregasto

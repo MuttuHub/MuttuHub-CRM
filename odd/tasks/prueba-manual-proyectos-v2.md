@@ -7,7 +7,7 @@ los que más conviene mirar. Complementa la lista corta de `odd/tasks/lanzamient
 ## 0. Antes de empezar
 
 - [ ] Levanta la app con `npm run dev` y abre `http://localhost:3000`.
-- [ ] Comprueba que ves datos **demo** (por ejemplo «Demo CedeTextil · En ejecución»). **Esperado:** si aparecen nombres
+- [ ] Comprueba que ves datos **demo** (por ejemplo «Demo CedeTextil · Programa de confección»). **Esperado:** si aparecen nombres
   de clientes reales, detente: la app está apuntando a la base remota y no a la local.
 - [ ] Usa una ventana de incógnito por usuario, o cierra sesión entre usuarios.
 
@@ -26,7 +26,7 @@ Contraseña de todos: `MuttuDemo2026!` (salvo que hayas definido `SEED_DEMO_PASS
 
 | Código | Nombre | Estado | Uso en la prueba |
 |---|---|---|---|
-| PRY-2026-001 | Demo CedeTextil · En ejecución | En ejecución | Casi todo: ficha, gastos, avances, historial. Tiene 2 gastos validados y 3 registrados (uno con sobregasto) |
+| PRY-2026-001 | Demo CedeTextil · Programa de confección | En ejecución | Casi todo: ficha, gastos, avances, historial. Tiene 2 gastos validados y 3 registrados (uno con sobregasto) |
 | PRY-2026-002 | Demo CedeTextil · Ruta de fortalecimiento | Borrador | Editar datos generales y presupuesto, próximos pasos, carga por Excel |
 | PRY-2026-003 | Proyecto AgroSur | Borrador | Proyecto al que el coordinador no pertenece |
 | PRY-2026-004 | Proyecto XYZ | Borrador | Igual que el anterior |

@@ -54,7 +54,7 @@ async function registrarGasto(
 
 test("header: semáforos link to tabs; header actions open their dialogs on any tab (S9)", async ({ page }) => {
   await loginToProject(page, "coordinador", "PRY-2026-001");
-  await expect(page.getByRole("heading", { name: "Demo CedeTextil · En ejecución", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Demo CedeTextil · Programa de confección", level: 1 })).toBeVisible();
   // The Resumen carries the colours in its three figures, so the header chips stay out of it (T5).
   await expect(page.getByRole("button", { name: /^Semáforo técnico/ })).toHaveCount(0);
   await tab(page, "Actividades").click();

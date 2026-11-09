@@ -53,7 +53,7 @@ Todo lo que aparece abajo como "se muestra" fue verificado en el código o en la
 - **Tareas:** 20 en 7 estados; dos con un PDF adjunto real.
 - **Documentos:** 8, uno por categoría; el "Informe trimestral de gestión" tiene 2 versiones.
 - **Usuarios demo:** 4 roles (Administrador, Gerencia, Coordinador, Colaborador).
-- **Proyecto `PRY-2026-001` "Demo CedeTextil · En ejecución":** 4 actividades, 7 entregables, 2 indicadores, presupuesto de $177.360.000, 5 avances, 3 mediciones, 5 gastos (2 validados, 3 registrados, uno con alerta de sobreejecución en el rubro R11). Semáforos en verde.
+- **Proyecto `PRY-2026-001` "Demo CedeTextil · Programa de confección":** 4 actividades, 7 entregables, 2 indicadores, presupuesto de $177.360.000, 5 avances, 3 mediciones, 5 gastos (2 validados, 3 registrados, uno con alerta de sobreejecución en el rubro R11). Semáforos en verde.
 - **Proyecto `PRY-2026-002` "Demo CedeTextil · Ruta de fortalecimiento":** misma estructura, sin aprobar, para mostrar "Aprobar línea base" en vivo.
 - **Oportunidad libre:** "Demo · Programa de formación técnica (ganada, lista para convertir)" para la escena 4.
 

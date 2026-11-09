@@ -6,7 +6,7 @@
  *   - Project A "Demo CedeTextil · Ruta de fortalecimiento": created from a won opportunity, with the
  *     CedeTextil structure + budget + monthly programming imported, left in BORRADOR so
  *     "Aprobar línea base" can be shown live.
- *   - Project B "Demo CedeTextil · En ejecución": same workbook, baseline approved through
+ *   - Project B "Demo CedeTextil · Programa de confección": same workbook, baseline approved through
  *     the real writer (version 0 frozen), then avances (some with https support links),
  *     indicator measurements and gastos with https soportes (REGISTRADO, VALIDADO and one
  *     overspend case whose validation is blocked and notified).
@@ -86,7 +86,9 @@ export const MARKER_PREFIX = "Demo CedeTextil"
 export const NOMBRE_PROYECTO_A = `${MARKER_PREFIX} · Ruta de fortalecimiento`
 /** Name project A had before it was neutralised: a database seeded then must still read as seeded. */
 export const NOMBRE_PROYECTO_A_LEGADO = `${MARKER_PREFIX} · Borrador (aprobar línea base)`
-export const NOMBRE_PROYECTO_B = `${MARKER_PREFIX} · En ejecución`
+export const NOMBRE_PROYECTO_B = `${MARKER_PREFIX} · Programa de confección`
+/** Name project B had while it carried its state; the ficha title appends the state, so it read twice. */
+export const NOMBRE_PROYECTO_B_LEGADO = `${MARKER_PREFIX} · En ejecución`
 export const NOMBRE_EXTRA_GANADA = "Demo · Programa de formación técnica (ganada, lista para convertir)"
 export const VALOR_EXTRA_GANADA = 95_000_000
 /** Free GANADA opportunities that must remain available once the seed ends. */
@@ -124,13 +126,14 @@ export type SeedDecision = "seed" | "already-seeded" | "partial"
 
 /**
  * Decides from the names of the existing demo projects (those starting with MARKER_PREFIX):
- * none -> "seed"; both seeded projects (A, under its current or legacy name, and B) -> "already-seeded";
+ * none -> "seed"; both seeded projects (A and B, each under its current or legacy name) -> "already-seeded";
  * anything in between -> "partial" (a previous run failed midway), which must not be written over.
  */
 export function decideSeed(nombres: readonly string[]): SeedDecision {
   if (nombres.length === 0) return "seed"
   const tieneA = nombres.includes(NOMBRE_PROYECTO_A) || nombres.includes(NOMBRE_PROYECTO_A_LEGADO)
-  const completo = tieneA && nombres.includes(NOMBRE_PROYECTO_B)
+  const tieneB = nombres.includes(NOMBRE_PROYECTO_B) || nombres.includes(NOMBRE_PROYECTO_B_LEGADO)
+  const completo = tieneA && tieneB
   return completo ? "already-seeded" : "partial"
 }
 
