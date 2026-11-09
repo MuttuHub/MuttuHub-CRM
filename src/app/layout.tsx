@@ -1,28 +1,28 @@
 import type { Metadata } from "next";
-import {
-  Bricolage_Grotesque,
-  Instrument_Sans,
-  JetBrains_Mono,
-} from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "./providers";
 import { ThemeToaster } from "@/components/shell/theme-toaster";
 
-const display = Bricolage_Grotesque({
-  subsets: ["latin"],
-  weight: ["400", "600", "700", "800"],
+// Self-hosted (src/app/fonts/README.md): `next/font/google` fetched these at build time, and Next 16.3's
+// Turbopack fails the whole build when Google answers with extensionless `/l/font?kit=…&skey=…` URLs
+// (vercel/next.js#99114). Same families, latin subset, variable files that cover every weight in use.
+// The constant names become the @font-face family names, so they stay unique (not «sans» or «mono»).
+const bricolageGrotesque = localFont({
+  src: "./fonts/bricolage-grotesque-latin.woff2",
+  weight: "200 800",
   variable: "--font-bricolage",
 });
 
-const sans = Instrument_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+const instrumentSans = localFont({
+  src: "./fonts/instrument-sans-latin.woff2",
+  weight: "400 700",
   variable: "--font-instrument",
 });
 
-const mono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
+const jetbrainsMono = localFont({
+  src: "./fonts/jetbrains-mono-latin.woff2",
+  weight: "100 800",
   variable: "--font-jetbrains",
 });
 
@@ -46,7 +46,7 @@ export default function RootLayout({
       // The anti-FOUC script below mutates documentElement (class + color-scheme)
       // before hydration; suppress the expected attribute mismatch on this node.
       suppressHydrationWarning
-      className={`${display.variable} ${sans.variable} ${mono.variable} h-full antialiased`}
+      className={`${bricolageGrotesque.variable} ${instrumentSans.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <body className="min-h-full">
         {/* Anti-FOUC: applies the theme class before first paint. Inline
