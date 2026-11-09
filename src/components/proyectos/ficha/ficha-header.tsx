@@ -65,6 +65,16 @@ function accionesDePestana(pestana: FichaPestana, movil: boolean): AccionEjecuci
   return ["gasto", "avance"];
 }
 
+/**
+ * Whether «Registrar gasto» is the primary (filled) button. One rule for the header and the phone bar, following
+ * the prototype, which differs between them: on desktop it is primary whenever «Registrar avance» is not next to
+ * it (Actividades and Finanzas); in the phone bar only Finanzas fills it, and Actividades keeps it outlined.
+ */
+export function gastoEsPrincipal(acciones: readonly AccionEjecucion[], movil: boolean, pestana: FichaPestana): boolean {
+  if (movil) return pestana === "finanzas";
+  return !acciones.includes("avance");
+}
+
 export function FichaHeader({
   proyecto,
   onIrA,
@@ -139,7 +149,7 @@ export function FichaHeader({
                 key={accion}
                 type="button"
                 size="sm"
-                variant={acciones.includes("avance") ? "outline" : "default"}
+                variant={gastoEsPrincipal(acciones, movil, pestana) ? "default" : "outline"}
                 onClick={registrarGasto}
               >
                 Registrar gasto
@@ -182,8 +192,10 @@ export function FichaHeader({
       {movil && acciones.length > 0 && (
         <BarraAcciones
           acciones={acciones}
-          gastoPrincipal={pestana === "finanzas"}
-          onRegistrarAvance={onRegistrarAvance} onRegistrarGasto={registrarGasto} />
+          gastoPrincipal={gastoEsPrincipal(acciones, movil, pestana)}
+          onRegistrarAvance={onRegistrarAvance}
+          onRegistrarGasto={registrarGasto}
+        />
       )}
 
       <EstadoProyectoAcciones proyecto={proyecto} open={cambiandoEstado} onOpenChange={setCambiandoEstado} />
@@ -232,7 +244,6 @@ function BarraAcciones({
           <Button
             key={accion}
             type="button"
-            // As in the prototype: the main action in Finanzas, secondary elsewhere (Actividades keeps it outlined).
             variant={gastoPrincipal ? "default" : "outline"}
             className="w-full"
             onClick={onRegistrarGasto}
