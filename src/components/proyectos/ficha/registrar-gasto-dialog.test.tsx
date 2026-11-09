@@ -53,7 +53,14 @@ const BUDGET = {
 
 function Harness() {
   const [open, setOpen] = useState(true)
-  return <RegistrarGastoDialog proyecto={PROYECTO} open={open} onOpenChange={setOpen} />
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)}>
+        Abrir
+      </button>
+      <RegistrarGastoDialog proyecto={PROYECTO} open={open} onOpenChange={setOpen} />
+    </>
+  )
 }
 
 describe("RegistrarGastoDialog", () => {
@@ -98,6 +105,27 @@ describe("RegistrarGastoDialog", () => {
     const dialog = await screen.findByRole("dialog", { name: "Registrar gasto" })
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("No pudimos leer el presupuesto.")
     expect(within(dialog).queryByRole("form", { name: "Registrar gasto" })).not.toBeInTheDocument()
+  })
+
+  it("keeps the form with the budget it already has when a later read fails, and says the read failed", async () => {
+    const user = userEvent.setup()
+    render(<Harness />, { wrapper: createWrapper() })
+    const primera = await screen.findByRole("dialog", { name: "Registrar gasto" })
+    await user.click(await within(primera).findByRole("button", { name: "Cancelar" }))
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Registrar gasto" })).not.toBeInTheDocument())
+
+    fetchMock.mockImplementation((input: unknown) =>
+      Promise.resolve(
+        String(input).endsWith("/budget")
+          ? jsonResponse({ error: "No pudimos leer el presupuesto." }, 500)
+          : jsonResponse({}),
+      ),
+    )
+    await user.click(screen.getByRole("button", { name: "Abrir" }))
+
+    const dialog = await screen.findByRole("dialog", { name: "Registrar gasto" })
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("No pudimos leer el presupuesto.")
+    expect(within(dialog).getByRole("form", { name: "Registrar gasto" })).toBeInTheDocument()
   })
 
   it("closes on Cancelar", async () => {

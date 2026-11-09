@@ -43,11 +43,19 @@ export function RegistrarGastoDialog({
 
 function Formulario({ proyecto, onCerrar }: { proyecto: ProjectListRow; onCerrar: () => void }) {
   const budgetQuery = useProjectBudget(proyecto.id);
-  // A failed read is said (T12): an empty list would claim the project has no rubros.
-  if (budgetQuery.isError) {
-    return <InlineError message={errorMessage(budgetQuery.error, "No pudimos cargar el presupuesto. Inténtalo de nuevo.")} />;
+  // A failed read is said (T12): an empty list would claim the project has no rubros. When the budget was
+  // already read, a later failed refresh keeps that form and only adds the message.
+  const error = budgetQuery.isError ? (
+    <InlineError message={errorMessage(budgetQuery.error, "No pudimos cargar el presupuesto. Inténtalo de nuevo.")} />
+  ) : null;
+  if (!budgetQuery.data) {
+    // Wait for the rubros: an empty list would show «no hay rubros» for a moment.
+    return error ?? <Skeleton className="h-40 w-full rounded-[12px]" />;
   }
-  // Wait for the rubros: an empty list would show «no hay rubros» for a moment.
-  if (!budgetQuery.data) return <Skeleton className="h-40 w-full rounded-[12px]" />;
-  return <GastoForm proyecto={proyecto} rubros={budgetQuery.data.rubros} onDone={onCerrar} />;
+  return (
+    <>
+      {error}
+      <GastoForm proyecto={proyecto} rubros={budgetQuery.data.rubros} onDone={onCerrar} />
+    </>
+  );
 }
