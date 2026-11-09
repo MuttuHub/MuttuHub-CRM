@@ -2,12 +2,12 @@
 // se burla `fetch`, igual que en project-estructura.test.tsx.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen, waitFor, within } from "@testing-library/react"
+import { render, renderHook, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { ProjectListRow } from "@/hooks/projects"
-import { ProjectEjecucion } from "./project-ejecucion"
+import { ProjectEjecucion, useProgresoEntregablesConCarga } from "./project-ejecucion"
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -568,5 +568,28 @@ describe("ProjectEjecucion", () => {
       await screen.findByTestId("ejecucion-actividad")
       expect(screen.queryByRole("button", { name: "Solicitar modificación" })).not.toBeInTheDocument()
     })
+  })
+})
+
+describe("useProgresoEntregablesConCarga", () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  // A disabled read never starts, so it must not hold the tope «loading» forever.
+  it("is not loading when the progress reads are disabled (no project id)", () => {
+    vi.stubGlobal("fetch", vi.fn())
+    const { result } = renderHook(() => useProgresoEntregablesConCarga("", [{ id: "e1" }]), {
+      wrapper: createWrapper(),
+    })
+    expect(result.current.cargando).toBe(false)
+  })
+
+  it("is loading while a read is in flight, and stops once it fails", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(jsonResponse({ error: "Falló" }, 500))))
+    const { result } = renderHook(() => useProgresoEntregablesConCarga("p1", [{ id: "e1" }]), {
+      wrapper: createWrapper(),
+    })
+    expect(result.current.cargando).toBe(true)
+    await waitFor(() => expect(result.current.cargando).toBe(false))
+    expect(result.current.progreso.has("e1")).toBe(false)
   })
 })

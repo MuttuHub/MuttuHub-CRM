@@ -256,7 +256,8 @@ export function useProgresoEntregablesConCarga(
     const query = progressQueries[index];
     if (query?.data) progreso.set(deliverable.id, query.data);
   });
-  return { progreso, cargando: progressQueries.some((query) => query.isPending) };
+  // `isLoading`, not `isPending`: a disabled read is pending forever and would hold the tope «loading».
+  return { progreso, cargando: progressQueries.some((query) => query.isLoading) };
 }
 
 /** Pestaña de objetivos e indicadores (v7): el registro de avance de indicador vive junto a los objetivos. */
