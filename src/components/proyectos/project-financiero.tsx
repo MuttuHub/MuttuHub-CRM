@@ -158,7 +158,7 @@ function FinancieroContent({
           <Button
             type="button"
             variant="link"
-            className="h-auto min-h-11 self-start px-0 text-left whitespace-normal md:min-h-0"
+            className="h-auto min-h-11 self-start px-0 text-left whitespace-normal underline md:min-h-0"
             aria-expanded={detalle}
             aria-controls="financiero-detalle"
             onClick={() => setDetalle((abierto) => !abierto)}

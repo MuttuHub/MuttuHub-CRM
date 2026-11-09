@@ -167,11 +167,12 @@ function AddMember({
 
   return (
     <div className="mt-3 flex flex-col gap-2">
-      <div className="flex items-center gap-2">
+      {/* Wraps «Agregar» below when the card is narrow, so the placeholder is never cut. */}
+      <div className="flex flex-wrap items-center gap-2">
         <Select value={usuarioId} onValueChange={(value) => setUsuarioId(value ?? "")}>
           <SelectTrigger
             aria-label="Agregar integrante"
-            className="min-w-0 flex-1 px-3"
+            className="min-w-56 flex-1 px-3"
           >
             <SelectValue placeholder="Selecciona un integrante" />
           </SelectTrigger>

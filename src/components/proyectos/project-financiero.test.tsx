@@ -437,6 +437,8 @@ describe("ProjectFinanciero", () => {
       setup()
 
       const boton = await screen.findByRole("button", { name: "Ver detalle con diferencias y límites de cada color" })
+      // T10 C12: underlined, as in the prototype.
+      expect(boton.className).toMatch(/(^|\s)underline(\s|$)/)
       expect(boton).toHaveAttribute("aria-expanded", "false")
       expect(screen.queryByTestId("financiero-tabla")).not.toBeInTheDocument()
       expect(screen.queryByRole("combobox", { name: "Calcular hasta" })).not.toBeInTheDocument()

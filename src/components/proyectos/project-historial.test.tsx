@@ -269,6 +269,8 @@ describe("ProjectHistorial (Registro de cambios)", () => {
     await waitFor(() => expect(screen.getAllByTestId("historial-paso")).toHaveLength(5))
     const mas = screen.getByRole("button", { name: "Ver 2 cambios más de este día" })
     expect(mas).toHaveAttribute("aria-expanded", "false")
+    // T10 C12: underlined, as in the prototype.
+    expect(mas.className).toMatch(/(^|\s)underline(\s|$)/)
 
     await user.click(mas)
     const pasos = screen.getAllByTestId("historial-paso")
@@ -282,7 +284,11 @@ describe("ProjectHistorial (Registro de cambios)", () => {
     const onIrA = vi.fn()
     setup([AVANCE, GASTO], { onIrA })
 
-    await user.click(await screen.findByRole("button", { name: "Ver actividad 1.3" }))
+    const verActividad = await screen.findByRole("button", { name: "Ver actividad 1.3" })
+    // T10 C12: both links underlined, as in the prototype.
+    expect(verActividad.className).toMatch(/(^|\s)underline(\s|$)/)
+    expect(screen.getByRole("button", { name: "Ver gasto FV-4007" }).className).toMatch(/(^|\s)underline(\s|$)/)
+    await user.click(verActividad)
     expect(onIrA).toHaveBeenCalledWith("actividades")
     // T10 H6: the link reads «Ver gasto», as in the prototype; its name keeps the invoice number.
     expect(screen.getByRole("button", { name: "Ver gasto FV-4007" })).toHaveTextContent(/^Ver gasto$/)

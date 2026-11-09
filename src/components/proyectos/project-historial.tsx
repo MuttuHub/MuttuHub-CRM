@@ -284,7 +284,7 @@ function Dia({
             type="button"
             variant="link"
             size="xs"
-            className="mb-1 px-0"
+            className="mb-1 px-0 underline"
             aria-expanded={abierto}
             aria-controls={`${id}-lista`}
             onClick={() => {
@@ -363,7 +363,7 @@ function PasoRegistro({
         {onIrA && (actividad || gasto !== null) && (
           <div className="mt-1 flex flex-wrap gap-x-4">
             {actividad && (
-              <Button type="button" variant="link" size="xs" className="px-0" onClick={() => onIrA("actividades")}>
+              <Button type="button" variant="link" size="xs" className="px-0 underline" onClick={() => onIrA("actividades")}>
                 Ver actividad {actividad}
               </Button>
             )}
@@ -373,7 +373,7 @@ function PasoRegistro({
                 type="button"
                 variant="link"
                 size="xs"
-                className="px-0"
+                className="px-0 underline"
                 aria-label={gasto ? `Ver gasto ${gasto}` : undefined}
                 onClick={() => onIrA("finanzas")}
               >
