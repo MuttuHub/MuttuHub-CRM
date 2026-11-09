@@ -129,7 +129,6 @@ type Setup = {
   miembros?: unknown[]
   seguimiento?: boolean
   lista?: boolean
-  enfocarPrimeraPendiente?: number
   enfocarId?: string | null
   objetivos?: unknown[]
   onSolicitarModificacion?: () => void
@@ -150,7 +149,6 @@ describe("ProjectEjecucion", () => {
     miembros = [],
     seguimiento = false,
     lista = false,
-    enfocarPrimeraPendiente = 0,
     enfocarId = null,
     objetivos = [],
     onSolicitarModificacion,
@@ -192,7 +190,6 @@ describe("ProjectEjecucion", () => {
         proyecto={{ ...PROYECTO, ...proyecto }}
         seguimiento={seguimiento}
         lista={lista}
-        enfocarPrimeraPendiente={enfocarPrimeraPendiente}
         enfocarId={enfocarId}
         onSolicitarModificacion={onSolicitarModificacion}
       />,
@@ -437,26 +434,6 @@ describe("ProjectEjecucion", () => {
       setup({ rol: "COORDINADOR", miembros: [MIEMBRO_COORDINADOR] })
       await screen.findByRole("button", { name: "Registrar avance 1.1" })
       expect(screen.queryByTestId("aviso-solo-consulta")).not.toBeInTheDocument()
-    })
-
-    // F5b: the header's «Registrar avance» lands on the first unfinished activity, not just on the tab.
-    it("focuses the first unfinished activity when the header asks for it", async () => {
-      setup({
-        lista: true,
-        enfocarPrimeraPendiente: 1,
-        actividades: [ACTIVIDAD, { ...ACTIVIDAD, id: "a2", codigo: "1.2" }, { ...ACTIVIDAD, id: "a3", codigo: "1.3" }],
-        entregables: [],
-        tecnico: {
-          ...TECNICO,
-          actividades: [
-            { id: "a1", codigo: "1.1", peso: 1, progreso: 100, estado: "FINALIZADA", fecha_cumplimiento: "2026-10-20" },
-            { id: "a2", codigo: "1.2", peso: 1, progreso: 30, estado: "EN_CURSO", fecha_cumplimiento: null },
-            { id: "a3", codigo: "1.3", peso: 1, progreso: 0, estado: "NO_INICIADA", fecha_cumplimiento: null },
-          ],
-        },
-      })
-
-      await waitFor(() => expect(document.activeElement?.id).toBe("actividad-a2"))
     })
 
     it("focuses no activity when the header did not ask", async () => {

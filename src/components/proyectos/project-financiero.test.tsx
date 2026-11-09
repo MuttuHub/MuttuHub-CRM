@@ -229,6 +229,13 @@ describe("ProjectFinanciero", () => {
     it("stacks the figures in one column on phones and in three from md", async () => {
       setup()
       expect((await screen.findByTestId("financiero-cifras")).className).toMatch(/grid-cols-1 .*md:grid-cols-3/)
+      // T10 C11: white cards with a border, as the prototype's `.card`.
+      expect(screen.getByTestId("cifra-ejecutado").className).toMatch(/(^|\s)surface-tile(\s|$)/)
+      // T10 F2: small caps label and the amount in the display font, not monospace.
+      const [etiqueta, importe] = Array.from(screen.getByTestId("cifra-ejecutado").querySelectorAll("p"))
+      expect(etiqueta.className).toMatch(/(^|\s)uppercase(\s|$)/)
+      expect(importe.className).toMatch(/(^|\s)font-display(\s|$)/)
+      expect(importe.className).not.toMatch(/(^|\s)font-mono(\s|$)/)
     })
   })
 
@@ -264,6 +271,12 @@ describe("ProjectFinanciero", () => {
       expect(alerta).toHaveTextContent(
         "Posible retraso: se ha gastado poco frente a lo programado y el avance técnico también va atrasado.",
       )
+      // T10 C12: underlined, as in the prototype.
+      expect(within(alerta).getByRole("button", { name: "Ver actividades" }).className).toMatch(/(^|\s)underline(\s|$)/)
+      // T10 F5: a beige band without icon or bold text, as in the prototype.
+      expect(alerta.className).toMatch(/(^|\s)bg-alerta-bg(\s|$)/)
+      expect(alerta.querySelector("svg")).toBeNull()
+      expect(alerta.className).not.toMatch(/(^|\s)font-semibold(\s|$)/)
       await user.click(within(alerta).getByRole("button", { name: "Ver actividades" }))
       expect(onVerActividades).toHaveBeenCalledTimes(1)
       unmount()
@@ -289,7 +302,7 @@ describe("ProjectFinanciero", () => {
       const filas = within(seccion).getAllByTestId("por-validar-fila")
       expect(filas).toHaveLength(2)
       expect(filas[0]).toHaveTextContent("Papelería del Sinú")
-      expect(await within(filas[0]).findByText(/^FV-4007 · .+ · registró Laura Jiménez$/)).toBeInTheDocument()
+      expect(await within(filas[0]).findByText("FV-4007 · 02 nov 2026 · registró Laura Jiménez")).toBeInTheDocument()
       expect(filas[0]).toHaveTextContent("R01 · Personal")
       expect(filas[0]).toHaveTextContent("$ 450.000")
       expect(filas[0]).toHaveTextContent("Sin IVA")
@@ -297,7 +310,11 @@ describe("ProjectFinanciero", () => {
       expect(within(filas[1]).getByText("Cuenta en 2026-10")).toBeInTheDocument()
       expect(within(filas[1]).getByRole("button", { name: "Ayuda: Cuenta en 2026-10" })).toBeInTheDocument()
       expect(within(filas[0]).getByRole("button", { name: "Ver soporte Factura FV-4007.pdf" })).toBeInTheDocument()
-      expect(within(filas[0]).getByRole("button", { name: "Revisar el gasto FV-4007 de Papelería del Sinú" })).toBeInTheDocument()
+      const revisar = within(filas[0]).getByRole("button", { name: "Revisar el gasto FV-4007 de Papelería del Sinú" })
+      // T10 F6: «Revisar» is an outlined button and the support link is underlined, as in the prototype.
+      expect(revisar.className).toMatch(/(^|\s)bg-input-bg(\s|$)/)
+      expect(revisar.className).not.toMatch(/(^|\s)bg-primary(\s|$)/)
+      expect(within(filas[0]).getByRole("button", { name: "Ver soporte Factura FV-4007.pdf" }).className).toMatch(/(^|\s)underline(\s|$)/)
     })
 
     it("is not shown when nothing waits for validation", async () => {
@@ -330,6 +347,15 @@ describe("ProjectFinanciero", () => {
       expect(within(propia).queryByRole("button", { name: /^Revisar/ })).not.toBeInTheDocument()
     })
 
+    // T12: a team member who registered the expense reads «Tú lo registraste», not a «Revisar» they cannot use.
+    it("«Tú lo registraste» to a team member who registered it", async () => {
+      setup({ rol: "COORDINADOR", gastos: [gasto("g1", { registrado_por_id: "yo" })] })
+      const propia = await screen.findByTestId("gastos-por-validar")
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
+      expect(await within(propia).findByText("Tú lo registraste")).toBeInTheDocument()
+      expect(within(propia).queryByRole("button", { name: /^Revisar/ })).not.toBeInTheDocument()
+    })
+
     it("«Revisar» opens the «Validar gasto» panel on that expense", async () => {
       const user = userEvent.setup()
       setup({ gastos: [gasto("g1")] })
@@ -344,6 +370,9 @@ describe("ProjectFinanciero", () => {
       const onVerGastos = vi.fn()
       setup({ gastos: [gasto("g1")], navegacion: { onVerGastos } })
       const seccion = await screen.findByTestId("gastos-por-validar")
+      for (const enlace of within(seccion).getAllByRole("button", { name: "Ver todos los gastos" })) {
+        expect(enlace.className).toMatch(/(^|\s)underline(\s|$)/)
+      }
       await user.click(within(seccion).getAllByRole("button", { name: "Ver todos los gastos" })[0])
       expect(onVerGastos).toHaveBeenCalledTimes(1)
     })

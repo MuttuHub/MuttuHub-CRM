@@ -1,4 +1,4 @@
-// Resumen de la ficha (U3; rediseño S2/S6). Arriba el aviso de Novedades; luego las tres cifras (Avance técnico,
+// Resumen de la ficha (U3; rediseño S2/S6). Arriba las tres cifras (Avance técnico,
 // Gasto y Tiempo) con su color y su porqué; debajo «Qué falta», con la acción exacta de cada fila, y al lado los
 // datos del proyecto y el equipo. En BORRADOR no hay nada que medir: en lugar de cifras y «Qué falta» guía la
 // puesta a punto con «Próximos pasos». El color de cada semáforo lo calcula el servidor; aquí solo se pinta.
@@ -10,9 +10,8 @@ import { useState } from "react";
 import { Check, Circle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatPct } from "@/components/proyectos/project-kpis-panel";
-import { ORIGEN_PROYECTO_META, formatFechaCalendario } from "@/components/proyectos/project-display";
+import { ORIGEN_PROYECTO_META } from "@/components/proyectos/project-display";
 import { EditarDatosGenerales, modoDeEdicion } from "@/components/proyectos/ficha/editar-datos-generales";
-import { AvisoNovedades } from "@/components/proyectos/ficha/novedades/aviso-novedades";
 import { CifrasResumen } from "@/components/proyectos/ficha/resumen/cifras-resumen";
 import { ProjectTeam } from "@/components/proyectos/project-team";
 import { RequiereAtencion, type AccionAtencion } from "@/components/proyectos/requiere-atencion";
@@ -31,6 +30,7 @@ import { canManageProjects } from "@/lib/permissions";
 import { estaCongelado } from "@/lib/proyectos/transiciones-estado";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { cn } from "@/lib/utils";
+import { fechaDia } from "@/components/proyectos/ficha/historial/fechas";
 
 /** Pestañas a las que el Resumen puede llevar. */
 export type ResumenDestino = "actividades" | "finanzas" | "historial";
@@ -202,9 +202,15 @@ function ProximosPasos({
 
 function Dato({ label, children, mono = false }: { label: string; children: React.ReactNode; mono?: boolean }) {
   return (
-    <div className="flex min-w-0 flex-col gap-0.5">
+    // Label left and value right from `md`, stacked on phones (prototype).
+    <div className="flex min-w-0 flex-col gap-0.5 md:grid md:grid-cols-[minmax(0,8rem)_minmax(0,1fr)] md:items-baseline md:gap-3">
       <dt className="text-[12px] font-semibold text-ink-500">{label}</dt>
-      <dd className={cn("min-w-0 text-[13.5px] break-words text-ink-900", mono && "font-mono tabular-nums")}>
+      <dd
+        className={cn(
+          "min-w-0 text-[13.5px] break-words text-ink-900 md:text-right",
+          mono && "font-mono tabular-nums",
+        )}
+      >
         {children}
       </dd>
     </div>
@@ -231,7 +237,7 @@ function DatosGenerales({
     <section
       data-testid="datos-generales"
       aria-labelledby="resumen-datos-titulo"
-      className="surface-inner flex min-w-0 flex-col gap-3 p-4"
+      className="surface-tile flex min-w-0 flex-col gap-3 p-4"
     >
       <div className="flex items-center justify-between gap-2">
         <SectionHeader as="h2" id="resumen-datos-titulo">
@@ -271,7 +277,7 @@ function DatosGenerales({
         <Dato label="Origen">{proyecto.origen ? ORIGEN_PROYECTO_META[proyecto.origen] : SIN_DATO}</Dato>
         {conFechas && (
           <Dato label="Fechas" mono>
-            {`${formatFechaCalendario(proyecto.fecha_inicio)} → ${formatFechaCalendario(proyecto.fecha_fin)}`}
+            {`${fechaDia(proyecto.fecha_inicio)} → ${fechaDia(proyecto.fecha_fin)}`}
             {proyecto.duracion_semanas !== null &&
               ` · ${proyecto.duracion_semanas === 1 ? "1 semana" : `${proyecto.duracion_semanas} semanas`}`}
           </Dato>
@@ -285,30 +291,13 @@ function DatosGenerales({
           </Dato>
         )}
         <Dato label="Líneas">
-          {proyecto.lineas.length === 0 ? (
-            "Sin líneas estratégicas."
-          ) : (
-            <ul className="flex flex-wrap gap-1.5">
-              {proyecto.lineas.map((linea) => (
-                <li
-                  key={linea.id}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12.5px]",
-                    linea.principal
-                      ? "border-rose-200 bg-rose-50 text-rose-700 dark:text-rose-400"
-                      : "border-ink-200 bg-panel text-ink-700",
-                  )}
-                >
-                  <span className="font-semibold">{linea.nombre}</span>
-                  {linea.principal && (
-                    <span className="rounded-full bg-rose-500 px-2 py-[1px] text-[10px] font-bold text-white">
-                      Principal
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
+          {proyecto.lineas.length === 0
+            ? "Sin líneas estratégicas."
+            : // Plain text, the principal line first and named (prototype).
+              [...proyecto.lineas]
+                .sort((x, y) => Number(y.principal) - Number(x.principal))
+                .map((linea) => (linea.principal ? `${linea.nombre} (principal)` : linea.nombre))
+                .join(", ")}
         </Dato>
         <Dato label="Municipios">
           {proyecto.municipios.length === 0
@@ -340,7 +329,6 @@ export function FichaResumen({
   const enBorrador = proyecto.estado === "BORRADOR";
   return (
     <div data-testid="ficha-resumen" className="flex min-w-0 flex-col gap-6">
-      <AvisoNovedades proyectoId={proyecto.id} />
       {!enBorrador && <CifrasResumen proyecto={proyecto} onIrA={onIrA} />}
       <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
         <div data-testid="resumen-columna" className="flex min-w-0 flex-col gap-6">
@@ -357,7 +345,7 @@ export function FichaResumen({
         </div>
         <div data-testid="resumen-columna" className="flex min-w-0 flex-col gap-6">
           <DatosGenerales proyecto={proyecto} onIrA={onIrA} />
-          <div className="surface-inner p-4">
+          <div className="surface-tile p-4">
             <ProjectTeam
               proyectoId={proyecto.id}
               congelado={estaCongelado(proyecto.estado)}

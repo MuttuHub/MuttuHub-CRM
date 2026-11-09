@@ -116,15 +116,15 @@ function TarjetaVersion({ version, vigente }: { version: ProjectVersion; vigente
   const quien = version.aprobado_por.nombre ?? "Usuario no disponible";
   const aprobada = `Aprobada por ${quien} el ${fechaCorta(version.aprobado_at)}.`;
   return (
-    <article data-testid="version-tarjeta" className="surface-inner p-3 sm:p-4">
+    <article data-testid="version-tarjeta" className="surface-tile p-3 sm:p-4">
       <div className="flex flex-wrap items-center gap-2">
         <h4 className="text-[14px] font-bold text-ink-950">{nombreVersion(version.numero)}</h4>
         {version.tipo === "LINEA_BASE" ? (
-          <StatusChip tone="neutro">Línea base</StatusChip>
+          <StatusChip dot={false} tone="neutro">Línea base</StatusChip>
         ) : (
-          <StatusChip tone="info">Modificación</StatusChip>
+          <StatusChip dot={false} tone="info">Modificación</StatusChip>
         )}
-        {vigente && <StatusChip tone="exito">Vigente</StatusChip>}
+        {vigente && <StatusChip dot={false} tone="exito">Vigente</StatusChip>}
       </div>
       <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-700">
         {version.tipo === "LINEA_BASE"
@@ -142,7 +142,7 @@ function Comparacion({ proyectoId, versiones }: { proyectoId: string; versiones:
   const query = useProjectVersionCompare(proyectoId, desde, hasta);
 
   return (
-    <section aria-labelledby="versiones-comparar" className="surface-inner flex flex-col gap-3 p-3 sm:p-4">
+    <section aria-labelledby="versiones-comparar" className="surface-tile flex flex-col gap-3 p-3 sm:p-4">
       <h4 id="versiones-comparar" className="text-[14px] font-bold text-ink-950">
         Comparar versiones
       </h4>

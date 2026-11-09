@@ -15,7 +15,6 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusChip } from "@/components/ui/status-chip";
 import { useEjecucionPermisos } from "@/components/proyectos/project-ejecucion";
-import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import {
   useProjectActivities,
   useProjectAttention,
@@ -29,6 +28,7 @@ import { useCurrentUser } from "@/hooks/kanban";
 import type { UiTone } from "@/lib/catalogs";
 import { canManageProjects } from "@/lib/permissions";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
+import { fechaDia } from "@/components/proyectos/ficha/historial/fechas";
 
 export const ATENCION_ERROR = "No pudimos cargar lo que requiere atención. Inténtalo de nuevo.";
 const ATENCION_VACIO = "Nada pendiente por ahora.";
@@ -78,6 +78,18 @@ const TONE: Record<AtencionTipo, UiTone> = {
 const BOTON_FILA = "w-full sm:w-auto";
 
 type Fila = { clave: string; tipo: AtencionTipo; items: AtencionItem[] };
+
+/** «Nombre: 9 de meta 30.» with the indicator's name in bold, as in the prototype (T10 R6). */
+function NombreEnNegrita({ texto }: { texto: string }) {
+  const corte = texto.indexOf(": ");
+  if (corte === -1) return <>{texto}</>;
+  return (
+    <>
+      <b className="font-semibold text-ink-900">{texto.slice(0, corte + 1)}</b>
+      {texto.slice(corte + 1)}
+    </>
+  );
+}
 
 /** Los indicadores bajo la meta van juntos en una fila, en el lugar del primero; el resto, uno por fila. */
 function agrupar(items: AtencionItem[]): Fila[] {
@@ -181,7 +193,7 @@ function FilaAtencion({
           <ul className="flex flex-col gap-0.5">
             {fila.items.map((indicador, index) => (
               <li key={indicador.indicador_id ?? index} className="text-[13px] leading-relaxed text-ink-800">
-                {indicador.detalle}
+                <NombreEnNegrita texto={indicador.detalle} />
               </li>
             ))}
           </ul>
@@ -224,7 +236,7 @@ function FilaVencida({ item, proyecto, onIrA, ir }: FilaProps & { proyecto: Pick
         <>
           <p className="text-[13.5px] font-semibold text-ink-900">{`${actividad.codigo} ${actividad.nombre}`}</p>
           <p className="text-[13px] leading-relaxed text-ink-700">
-            {`Venció el ${formatFechaCalendario(actividad.fecha_fin)}`}
+            {`Venció el ${fechaDia(actividad.fecha_fin)}`}
             <span className="hidden sm:inline"> sin llegar a su meta</span>.
             {responsable && (
               <>
@@ -312,7 +324,7 @@ function FilaSinSoporte({ item, proyecto, onIrA, ir }: FilaProps & { proyecto: P
 function FilaBase({ tipo, etiqueta, children }: { tipo: AtencionTipo; etiqueta: string; children: ReactNode }) {
   return (
     <li data-testid={`atencion-${tipo}`} className="flex flex-col items-start gap-1 py-3 first:pt-0 last:pb-0">
-      <StatusChip tone={TONE[tipo]}>{etiqueta}</StatusChip>
+      <StatusChip dot={false} tone={TONE[tipo]}>{etiqueta}</StatusChip>
       {children}
     </li>
   );

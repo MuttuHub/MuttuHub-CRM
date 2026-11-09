@@ -16,8 +16,8 @@ vi.mock("@/components/proyectos/project-financiero", () => ({
   ),
 }))
 vi.mock("@/components/proyectos/project-gastos", () => ({
-  ProjectGastos: ({ registrarAlAbrir }: { registrarAlAbrir?: boolean }) => (
-    <div data-testid="segmento-gastos" data-registrar={registrarAlAbrir ? "si" : "no"} />
+  ProjectGastos: () => (
+    <div data-testid="segmento-gastos" />
   ),
 }))
 vi.mock("@/components/proyectos/project-presupuesto", () => ({
@@ -160,7 +160,7 @@ describe("FichaFinanzas", () => {
 
     await user.click(screen.getByRole("button", { name: "Ver todos los gastos" }))
     expect(tab(/^Gastos$/)).toHaveAttribute("aria-selected", "true")
-    expect(screen.getByTestId("segmento-gastos")).toHaveAttribute("data-registrar", "no")
+    expect(screen.getByTestId("segmento-gastos")).toBeInTheDocument()
   })
 
   it("passes «Ver actividades» through to Resumen only when the ficha offers it", async () => {
@@ -173,12 +173,5 @@ describe("FichaFinanzas", () => {
     render(<FichaFinanzas proyecto={PROYECTO} onVerActividades={onVerActividades} />)
     await user.click(screen.getByRole("button", { name: "Ver actividades" }))
     expect(onVerActividades).toHaveBeenCalledTimes(1)
-  })
-
-  it("opens on Gastos with the form open when the header asks to register an expense", () => {
-    render(<FichaFinanzas proyecto={PROYECTO} registrarAlAbrir />)
-
-    expect(tab(/^Gastos$/)).toHaveAttribute("aria-selected", "true")
-    expect(screen.getByTestId("segmento-gastos")).toHaveAttribute("data-registrar", "si")
   })
 })

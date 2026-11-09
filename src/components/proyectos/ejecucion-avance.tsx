@@ -233,7 +233,7 @@ export function EjecucionAvance({
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-ink-600">
           {!finalizada && tecnico.color && <SemaforoChip color={tecnico.color} />}
           {vencida && fin ? (
-            <StatusChip tone="destructivo">Vencida el {fechaCorta(fin)}</StatusChip>
+            <StatusChip dot={false} tone="destructivo">Vencida el {fechaCorta(fin)}</StatusChip>
           ) : (
             <EstadoChip estado={tecnico.estado} />
           )}
@@ -337,8 +337,8 @@ export function EjecucionAvance({
 }
 
 function EstadoChip({ estado }: { estado: ProjectTechnicalActivity["estado"] }) {
-  if (estado === "FINALIZADA") return <StatusChip tone="exito">Finalizada</StatusChip>;
-  if (estado === "FINALIZADA_CON_RETRASO") return <StatusChip tone="alerta">Finalizada con retraso</StatusChip>;
+  if (estado === "FINALIZADA") return <StatusChip dot={false} tone="exito">Finalizada</StatusChip>;
+  if (estado === "FINALIZADA_CON_RETRASO") return <StatusChip dot={false} tone="alerta">Finalizada con retraso</StatusChip>;
   return <span>{estado === "EN_CURSO" ? "En curso" : "No iniciada"}</span>;
 }
 

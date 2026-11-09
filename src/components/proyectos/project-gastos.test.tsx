@@ -161,19 +161,6 @@ describe("ProjectGastos", () => {
       expectTouchTargets(dialog.querySelector("form") as HTMLElement)
     })
 
-    it("opens the form right away when the header asked to register an expense", async () => {
-      fetchMock.mockImplementation((input: unknown) => {
-        const url = String(input)
-        if (url.endsWith("/api/v1/auth/me")) return Promise.resolve(jsonResponse({ usuario: { id: "yo", nombre: "Yo", rol: "GERENCIA" } }))
-        if (url.endsWith("/members")) return Promise.resolve(jsonResponse({ miembros: [] }))
-        if (url.endsWith("/budget")) return Promise.resolve(jsonResponse(BUDGET))
-        if (url.endsWith("/expenses")) return Promise.resolve(jsonResponse(respuesta([])))
-        return Promise.resolve(jsonResponse({}))
-      })
-      render(<ProjectGastos proyecto={PROYECTO} registrarAlAbrir />, { wrapper: createWrapper() })
-      expect(await screen.findByRole("form", { name: "Registrar gasto" })).toBeInTheDocument()
-    })
-
     it("keeps the expense form inline on desktop", async () => {
       const user = userEvent.setup()
       setup({ rol: "GERENCIA" })
@@ -448,6 +435,8 @@ describe("ProjectGastos", () => {
       expect(chip(/^Rechazado/)).toHaveTextContent("1")
       expect(chip(/^Pendiente por revisión/)).toHaveTextContent("2")
       expect(chip(/^Todos/)).toHaveAttribute("aria-pressed", "true")
+      // T10 C10: the active chip is dark (ink), as in every filter of the ficha.
+      expect(chip(/^Todos/).className).toMatch(/(^|\s)bg-ink-900(\s|$)/)
       expect(chip(/^Pendiente por revisión/)).toHaveAttribute("aria-pressed", "false")
       expect(screen.queryByRole("button", { name: /^Anulado/ })).not.toBeInTheDocument()
     })

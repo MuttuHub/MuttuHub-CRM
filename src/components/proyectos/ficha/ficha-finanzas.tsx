@@ -33,28 +33,18 @@ type Segmento = "resumen" | "gastos" | "presupuesto";
 
 export function FichaFinanzas({
   proyecto,
-  registrarAlAbrir = false,
   onVerActividades,
 }: {
   proyecto: ProjectListRow;
-  /** The header's «Registrar gasto»: open on Gastos with the form already open. */
-  registrarAlAbrir?: boolean;
   /** «Ver actividades» of the possible-delay notice: switches the ficha to Actividades. */
   onVerActividades?: () => void;
 }) {
-  const [segmento, setSegmento] = useState<Segmento>(
-    registrarAlAbrir ? "gastos" : proyecto.estado === "BORRADOR" ? "presupuesto" : "resumen",
-  );
-  // The form opens only on the first visit to Gastos that the header asked for.
-  const [registrar, setRegistrar] = useState(registrarAlAbrir);
+  const [segmento, setSegmento] = useState<Segmento>(proyecto.estado === "BORRADOR" ? "presupuesto" : "resumen");
 
   return (
     <Tabs
       value={segmento}
-      onValueChange={(valor) => {
-        setSegmento(valor as Segmento);
-        setRegistrar(false);
-      }}
+      onValueChange={(valor) => setSegmento(valor as Segmento)}
       className="flex flex-col gap-0"
     >
       <TabsList variant="pill" className="w-full justify-start">
@@ -75,7 +65,7 @@ export function FichaFinanzas({
       </TabsContent>
 
       <TabsContent value="gastos" className={PANEL_CLASS}>
-        <ProjectGastos proyecto={proyecto} registrarAlAbrir={registrar} />
+        <ProjectGastos proyecto={proyecto} />
       </TabsContent>
 
       <TabsContent value="presupuesto" className={PANEL_CLASS}>

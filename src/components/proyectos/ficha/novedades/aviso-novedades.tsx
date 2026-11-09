@@ -1,4 +1,5 @@
-// Aviso «Novedades» del Resumen de la ficha (rediseño S2, tablero Ayudas y novedades). Franja informativa con
+// Aviso «Novedades» de la ficha (rediseño S2, tablero Ayudas y novedades; T10: arriba de la página y en todas las
+// pestañas, como en el prototipo clicable). Franja informativa con
 // lo último que cambió en Proyectos y el enlace a la página de Novedades. El ✕ la cierra y lo recuerda EN ESTE
 // NAVEGADOR para ESTA novedad: una novedad nueva vuelve a mostrarse. Dónde se guarda el cierre (navegador o por
 // usuario en el servidor) y cuándo vuelve a salir siguen abiertos con la PO; si el navegador bloquea el
@@ -8,15 +9,16 @@
 
 import { useSyncExternalStore } from "react";
 import Link from "next/link";
-import { Megaphone, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { StatusChip } from "@/components/ui/status-chip";
 import { FICHA_TITULO_ID } from "@/components/proyectos/ficha/ficha-header";
 
 /** La novedad vigente. Al publicar otra, cambia `id` y el aviso vuelve a mostrarse a todos. */
 export const NOVEDAD_ACTUAL = {
   id: "2026-11-05",
   texto:
-    "Desde el 05 de nov cualquier integrante del equipo puede registrar avance, el historial muestra quién lo hizo y Finanzas habla en «% de lo programado».",
+    "Desde el 05 nov cualquier integrante del equipo puede registrar avance, el historial muestra quién lo hizo y Finanzas habla en «% de lo programado».",
   textoCorto: "Cualquier integrante del equipo ya puede registrar avance.",
 } as const;
 
@@ -70,20 +72,21 @@ export function AvisoNovedades({ proyectoId }: { proyectoId: string }) {
     <div
       role="status"
       data-testid="aviso-novedades"
-      className="flex items-start gap-3 rounded-inner border border-ink-200 bg-info-bg py-1.5 pr-1.5 pl-4"
+      className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-inner border border-ink-200 bg-info-bg py-1.5 pr-1.5 pl-4"
     >
-      <Megaphone className="mt-3 size-4 shrink-0 text-info" strokeWidth={1.8} aria-hidden="true" />
-      <p className="min-w-0 flex-1 py-2.5 text-[13px] leading-relaxed text-ink-800">
-        <span className="font-semibold text-ink-950">Novedades</span>{" "}
+      <StatusChip dot={false} tone="info" className="bg-panel">
+        Novedades
+      </StatusChip>
+      <p className="min-w-0 flex-1 basis-full py-1.5 text-[13px] leading-relaxed text-ink-800 sm:basis-0">
         <span className="hidden sm:inline">{NOVEDAD_ACTUAL.texto}</span>
-        <span className="sm:hidden">{NOVEDAD_ACTUAL.textoCorto}</span>{" "}
-        <Link
-          href={novedadesHref(proyectoId)}
-          className="inline-flex min-h-11 items-center font-semibold text-primary underline underline-offset-4 sm:min-h-0"
-        >
-          Ver qué cambió
-        </Link>
+        <span className="sm:hidden">{NOVEDAD_ACTUAL.textoCorto}</span>
       </p>
+      <Link
+        href={novedadesHref(proyectoId)}
+        className="inline-flex min-h-11 items-center text-[13px] font-semibold text-primary underline underline-offset-4 sm:min-h-0"
+      >
+        Ver qué cambió
+      </Link>
       <Button
         type="button"
         variant="ghost"

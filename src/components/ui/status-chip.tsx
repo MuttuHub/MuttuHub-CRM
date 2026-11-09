@@ -19,9 +19,11 @@ const TONE_CLASS: Record<UiTone, string> = {
 
 interface StatusChipProps extends React.ComponentProps<"span"> {
   tone: UiTone
+  /** The leading dot; the project ficha turns it off for its plain pills (only semáforos keep it). */
+  dot?: boolean
 }
 
-function StatusChip({ tone, className, children, ...props }: StatusChipProps) {
+function StatusChip({ tone, dot = true, className, children, ...props }: StatusChipProps) {
   return (
     <span
       data-slot="status-chip"
@@ -33,7 +35,7 @@ function StatusChip({ tone, className, children, ...props }: StatusChipProps) {
       )}
       {...props}
     >
-      <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
+      {dot && <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />}
       {children}
     </span>
   )

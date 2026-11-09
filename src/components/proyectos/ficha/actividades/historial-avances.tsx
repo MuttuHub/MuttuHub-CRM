@@ -127,7 +127,7 @@ function ReporteRow({
           {reporte.registrado_por_nombre ?? "Usuario desconocido"}
           {!anulado && ` · ${formatFechaCalendario(reporte.fecha)}`}
           {nuevo && (
-            <StatusChip tone="info" className="ml-1.5 align-middle">
+            <StatusChip dot={false} tone="info" className="ml-1.5 align-middle">
               Nuevo
             </StatusChip>
           )}

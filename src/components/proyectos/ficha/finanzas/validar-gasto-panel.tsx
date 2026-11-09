@@ -16,7 +16,7 @@ import { useIsMobile } from "@/components/proyectos/capture-surface";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { AccionesPanelValidacion } from "@/components/proyectos/gasto-acciones";
 import { TIPO_SOPORTE_LABELS } from "@/components/proyectos/gasto-form";
-import { formatFechaCalendario } from "@/components/proyectos/project-display";
+import { fechaDia } from "@/components/proyectos/ficha/historial/fechas";
 import { InlineError } from "@/components/proyectos/ui";
 import {
   downloadExpenseSoporte,
@@ -212,7 +212,7 @@ function ListaPorValidar({
                     .filter(Boolean)
                     .join(" · ")}
                 </span>
-                {g.alerta_sobregasto && <StatusChip tone="destructivo">{SUPERA_ASIGNADO}</StatusChip>}
+                {g.alerta_sobregasto && <StatusChip dot={false} tone="destructivo">{SUPERA_ASIGNADO}</StatusChip>}
               </button>
             </li>
           ))}
@@ -277,7 +277,7 @@ function DetalleGasto({
         </h3>
         <p className="text-[13px] text-ink-700">{gasto.descripcion}</p>
         <div className="flex flex-wrap items-center gap-1.5">
-          {!pendiente && <StatusChip tone="neutro">{`Gasto ${ESTADO_TEXTO[gasto.estado]}`}</StatusChip>}
+          {!pendiente && <StatusChip dot={false} tone="neutro">{`Gasto ${ESTADO_TEXTO[gasto.estado]}`}</StatusChip>}
           <AvisosGasto gasto={gasto} conCuentaEn={false} />
         </div>
       </div>
@@ -287,7 +287,7 @@ function DetalleGasto({
           <b className="font-mono tabular-nums">{monto(gasto.valor)}</b> · {textoIva(gasto)}
         </Dato>
         <Dato termino="Fecha del documento">
-          {formatFechaCalendario(gasto.fecha_documento)} · cuenta en {gasto.periodo}
+          {fechaDia(gasto.fecha_documento)} · cuenta en {gasto.periodo}
         </Dato>
         <Dato termino="Identificación">{identificacion || "Sin identificación"}</Dato>
         {registro && <Dato termino="Registró">{registro}</Dato>}
@@ -338,7 +338,7 @@ function DetalleGasto({
             ? `Este gasto ya está ${ESTADO_TEXTO[gasto.estado]}.`
             : propio
               ? "No puedes validar un gasto que tú registraste."
-              : "Solo consulta: validar o rechazar gastos le corresponde a quien gestiona proyectos, nunca a quien registró el gasto."}
+              : "Solo consulta: validar o rechazar gastos le corresponde a Gerencia o Administración (y no a quien registró el gasto)."}
         </p>
       )}
     </section>

@@ -38,7 +38,7 @@ test("Más acciones: Exportar a Excel dialog and Imprimir / PDF opens the print 
   await expect(print.getByRole("button", { name: "Imprimir / Guardar PDF" })).toBeVisible({ timeout: 60_000 });
   const ficha = print.getByRole("article");
   await expect(ficha.getByText("PRY-2026-001")).toBeVisible();
-  await expect(ficha.getByRole("heading", { name: "Demo CedeTextil · En ejecución", level: 1 })).toBeVisible();
+  await expect(ficha.getByRole("heading", { name: "Demo CedeTextil · Programa de confección", level: 1 })).toBeVisible();
   await expect(ficha.getByRole("region", { name: "Actividades por objetivo" })).toBeVisible();
 
   // Print preview shows only the ficha sheet: no sidebar, no top bar (guide expects it under Ctrl+P).

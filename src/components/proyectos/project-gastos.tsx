@@ -42,6 +42,7 @@ import {
 import type { UiTone } from "@/lib/catalogs";
 import { esObservado } from "@/lib/proyectos/gastos";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
+import { FiltroChip } from "@/components/proyectos/ficha/filtro-chip";
 
 export const ESTADO_GASTO_META: Record<ProjectExpenseEstado, { label: string; tone: UiTone }> = {
   REGISTRADO: { label: "Registrado", tone: "info" },
@@ -84,35 +85,20 @@ function FiltrosGasto({
   return (
     <div role="group" aria-label="Filtrar gastos" data-testid="gastos-filtros" className="flex flex-wrap gap-2">
       {filtros.map((f) => (
-        <Button
-          key={f}
-          type="button"
-          size="sm"
-          variant={filtro === f ? "default" : "outline"}
-          aria-pressed={filtro === f}
-          className="rounded-full"
-          onClick={() => onChange(f)}
-        >
+        <FiltroChip key={f} activo={filtro === f} onClick={() => onChange(f)}>
           {FILTRO_LABEL[f]}
           <span className="font-mono tabular-nums opacity-80">{gastos.filter((gasto) => coincide(gasto, f)).length}</span>
-        </Button>
+        </FiltroChip>
       ))}
     </div>
   );
 }
 
-export function ProjectGastos({
-  proyecto,
-  registrarAlAbrir = false,
-}: {
-  proyecto: ProjectListRow;
-  /** The header's «Registrar gasto» opened Finanzas here: start with the form open (if the actor may register). */
-  registrarAlAbrir?: boolean;
-}) {
+export function ProjectGastos({ proyecto }: { proyecto: ProjectListRow }) {
   const query = useProjectExpenses(proyecto.id);
   const budgetQuery = useProjectBudget(proyecto.id);
   const permisos = usePermisosGastos(proyecto);
-  const [registrando, setRegistrando] = useState(registrarAlAbrir);
+  const [registrando, setRegistrando] = useState(false);
   const [filtro, setFiltro] = useState<Filtro>("TODOS");
   const [revisando, setRevisando] = useState<string | null>(null);
   const { puedeRegistrar, soloConsulta } = permisos;
@@ -301,7 +287,7 @@ function SoporteGasto({
     gasto.soportes.length < MAX_SOPORTES_POR_GASTO;
   return (
     <div className="flex flex-col items-start gap-1">
-      {gasto.soportes.length === 0 && <StatusChip tone="alerta">Sin soporte</StatusChip>}
+      {gasto.soportes.length === 0 && <StatusChip dot={false} tone="alerta">Sin soporte</StatusChip>}
       {gasto.soportes.map((soporte) => (
         <Button
           key={soporte.id}
@@ -325,7 +311,7 @@ function EstadoGasto({ gasto }: { gasto: ProjectExpense }) {
   return (
     <div className="flex flex-col items-start gap-1">
       <div className="flex flex-wrap items-center gap-1.5">
-        <StatusChip tone={meta.tone}>{meta.label}</StatusChip>
+        <StatusChip dot={false} tone={meta.tone}>{meta.label}</StatusChip>
         <AvisosGasto gasto={gasto} conCuentaEn={false} />
       </div>
       {gasto.estado === "RECHAZADO" && gasto.motivo_rechazo && (

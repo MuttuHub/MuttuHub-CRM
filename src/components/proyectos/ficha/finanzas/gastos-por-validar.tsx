@@ -7,7 +7,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Paperclip } from "lucide-react";
+import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/ui/status-chip";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -15,7 +15,7 @@ import { useIsMobile } from "@/components/proyectos/capture-surface";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { Popover, PopoverContent, PopoverDescription, PopoverTrigger } from "@/components/ui/popover";
 import { PROPIO_TEXT, SIN_PERMISO_VALIDAR } from "@/components/proyectos/gasto-acciones";
-import { formatFechaCalendario } from "@/components/proyectos/project-display";
+import { fechaDia } from "@/components/proyectos/ficha/historial/fechas";
 import { InlineError } from "@/components/proyectos/ui";
 import {
   downloadExpenseSoporte,
@@ -73,14 +73,14 @@ export function GastosPorValidar({
           Gastos por validar · {pendientes.length} · {formatCOP(total)}
         </h3>
         {onVerTodos && (
-          <Button type="button" variant="link" className="hidden md:inline-flex" onClick={onVerTodos}>
+          <Button type="button" variant="link" className="hidden underline md:inline-flex" onClick={onVerTodos}>
             Ver todos los gastos
           </Button>
         )}
       </div>
       <ListaPendientes proyecto={proyecto} pendientes={pendientes} permisos={permisos} onRevisar={setRevisando} />
       {onVerTodos && (
-        <Button type="button" variant="link" className="self-start md:hidden" onClick={onVerTodos}>
+        <Button type="button" variant="link" className="self-start underline md:hidden" onClick={onVerTodos}>
           Ver todos los gastos
         </Button>
       )}
@@ -120,12 +120,12 @@ function ListaPendientes({
             <div className="flex items-start justify-between gap-2">
               <p className="text-[14px] font-semibold text-ink-950">{gasto.tercero_nombre}</p>
               <span className="flex shrink-0 flex-col items-end">
-                <span className="font-mono text-[13px] font-semibold text-ink-900 tabular-nums">{monto(gasto.valor)}</span>
+                <span className="text-[13px] font-semibold text-ink-900 tabular-nums">{monto(gasto.valor)}</span>
                 <span className="text-[11.5px] text-ink-600">{textoIva(gasto)}</span>
               </span>
             </div>
             <p className="text-[12px] text-ink-600">
-              {lineaRegistro(gasto, permisos.nombreDe(gasto.registrado_por_id), formatFechaCalendario(gasto.fecha_documento))}
+              {lineaRegistro(gasto, permisos.nombreDe(gasto.registrado_por_id), fechaDia(gasto.fecha_documento))}
             </p>
             <p className="text-[12.5px] text-ink-800">Rubro: {nombreRubro(gasto.rubro)}</p>
             <AvisosGasto gasto={gasto} />
@@ -160,13 +160,13 @@ function ListaPendientes({
                   {lineaRegistro(
                     gasto,
                     permisos.nombreDe(gasto.registrado_por_id),
-                    formatFechaCalendario(gasto.fecha_documento),
+                    fechaDia(gasto.fecha_documento),
                   )}
                 </p>
               </TableCell>
               <TableCell className="align-top whitespace-normal">{nombreRubro(gasto.rubro)}</TableCell>
               <TableCell numeric className="align-top">
-                <span className="font-mono font-semibold text-ink-900">{monto(gasto.valor)}</span>
+                <span className="font-semibold text-ink-900 tabular-nums">{monto(gasto.valor)}</span>
                 <span className="block text-[11.5px] text-ink-600">{textoIva(gasto)}</span>
               </TableCell>
               <TableCell className="align-top whitespace-normal">
@@ -190,7 +190,7 @@ function ListaPendientes({
 }
 
 /**
- * «Revisar» for a manager on someone else's expense; «Tú lo registraste» on one's own. Whoever lacks the role
+ * «Revisar» for a manager on someone else's expense; «Tú lo registraste» on one's own, for any role. Whoever lacks the role
  * still sees «Revisar», and it opens a popover saying why instead of the panel, so the cell is never blank. A manager
  * on a project that is not in execution sees nothing (B7: validating needs EN_EJECUCION).
  */
@@ -205,10 +205,13 @@ export function AccionRevisar({
 }) {
   if (gasto.estado !== "REGISTRADO") return null;
   const nombre = `Revisar el gasto ${gasto.numero_documento} de ${gasto.tercero_nombre}`;
+  const propio = gasto.registrado_por_id === permisos.usuarioId;
   if (!permisos.esGestor) {
+    // Whoever registered it reads that, instead of a «Revisar» they could not use (T12).
+    if (propio) return <span className="text-[12px] font-semibold text-ink-500">{PROPIO_TEXT}</span>;
     return (
       <Popover>
-        <PopoverTrigger render={<Button type="button" size="sm" className="max-md:h-11" aria-label={nombre} />}>
+        <PopoverTrigger render={<Button type="button" variant="outline" size="sm" className="max-md:h-11" aria-label={nombre} />}>
           Revisar
         </PopoverTrigger>
         <PopoverContent className="w-72 min-w-0 p-3" side="top">
@@ -220,11 +223,18 @@ export function AccionRevisar({
     );
   }
   if (!permisos.puedeValidar) return null;
-  if (gasto.registrado_por_id === permisos.usuarioId) {
+  if (propio) {
     return <span className="text-[12px] font-semibold text-ink-500">{PROPIO_TEXT}</span>;
   }
   return (
-    <Button type="button" size="sm" className="max-md:h-11" aria-label={nombre} onClick={() => onRevisar(gasto.id)}>
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="max-md:h-11"
+      aria-label={nombre}
+      onClick={() => onRevisar(gasto.id)}
+    >
       Revisar
     </Button>
   );
@@ -234,14 +244,14 @@ export function AccionRevisar({
 function SoporteEnlace({ proyectoId, gasto }: { proyectoId: string; gasto: ProjectExpense }) {
   const [error, setError] = useState<string | null>(null);
   if (!gasto.soportes) return <span className="text-ink-500">—</span>;
-  if (gasto.soportes.length === 0) return <StatusChip tone="alerta">Sin soporte</StatusChip>;
+  if (gasto.soportes.length === 0) return <StatusChip dot={false} tone="alerta">Sin soporte</StatusChip>;
   const soporte = gasto.soportes[0];
   return (
     <span className="flex flex-col items-start gap-1">
       <Button
         type="button"
         variant="link"
-        className="h-auto min-h-11 px-0 md:min-h-0"
+        className="h-auto min-h-11 px-0 underline md:min-h-0"
         aria-label={`Ver soporte ${soporte.nombre}`}
         onClick={async () => {
           setError(null);
@@ -252,7 +262,7 @@ function SoporteEnlace({ proyectoId, gasto }: { proyectoId: string; gasto: Proje
           }
         }}
       >
-        <Paperclip />
+        <FileText />
         <span className="max-w-[160px] truncate">{soporte.nombre}</span>
       </Button>
       {gasto.soportes.length > 1 && (

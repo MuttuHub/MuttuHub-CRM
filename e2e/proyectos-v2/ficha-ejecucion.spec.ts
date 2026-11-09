@@ -19,7 +19,11 @@ const PDF = Buffer.from(
 
 /** The ficha's OUTER tabs (Finanzas also renders an inner Resumen/Gastos/Presupuesto tablist). */
 const tab = (page: Page, name: string, selected?: boolean) =>
-  page.getByRole("tablist").first().getByRole("tab", { name, exact: true, ...(selected ? { selected: true } : {}) });
+  // «Documentos · N» carries its count (T10 C6): match the name with or without it.
+  page
+    .getByRole("tablist")
+    .first()
+    .getByRole("tab", { name: new RegExp(`^${name}( · \\d+)?$`), ...(selected ? { selected: true } : {}) });
 
 async function openGastos(page: Page) {
   await tab(page, "Finanzas").click();
@@ -50,7 +54,7 @@ async function registrarGasto(
 
 test("header: semáforos link to tabs; header actions open their dialogs on any tab (S9)", async ({ page }) => {
   await loginToProject(page, "coordinador", "PRY-2026-001");
-  await expect(page.getByRole("heading", { name: "Demo CedeTextil · En ejecución", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Demo CedeTextil · Programa de confección", level: 1 })).toBeVisible();
   // The Resumen carries the colours in its three figures, so the header chips stay out of it (T5).
   await expect(page.getByRole("button", { name: /^Semáforo técnico/ })).toHaveCount(0);
   await tab(page, "Actividades").click();

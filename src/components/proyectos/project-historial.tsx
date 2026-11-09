@@ -35,6 +35,8 @@ import {
   type ProjectAuditEntry,
   type ProjectListRow,
 } from "@/hooks/projects";
+import { FiltroChip } from "@/components/proyectos/ficha/filtro-chip";
+import { cn } from "@/lib/utils";
 
 /** Tabs of the ficha the change log can open. */
 export type DestinoFicha = "actividades" | "finanzas";
@@ -194,32 +196,35 @@ function Filtros({
 }) {
   const id = useId();
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 md:flex md:items-center">
-      <span id={`${id}-mostrar`} className="text-[12px] font-semibold text-ink-600">
+    // T10 H3: on phones Mostrar, its chips, then Persona at full width (the prototype order); one row from `md`.
+    <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
+      <span id={`${id}-mostrar`} className="text-[11.5px] font-semibold tracking-[0.06em] text-ink-600 uppercase">
         Mostrar
+        <span aria-hidden="true" className="hidden md:inline">
+          :
+        </span>
       </span>
       <div
         role="group"
         aria-labelledby={`${id}-mostrar`}
-        className="no-scrollbar col-span-2 row-start-2 flex gap-2 overflow-x-auto md:row-start-auto md:flex-1 md:flex-wrap md:overflow-visible"
+        className="no-scrollbar flex gap-2 overflow-x-auto md:flex-1 md:flex-wrap md:overflow-visible"
       >
         {FILTROS.map((f) => (
-          <Button
-            key={f.valor}
-            type="button"
-            size="sm"
-            variant={filtro === f.valor ? "default" : "outline"}
-            aria-pressed={filtro === f.valor}
-            className="flex-none rounded-full"
-            onClick={() => onFiltro(f.valor)}
-          >
+          <FiltroChip key={f.valor} activo={filtro === f.valor} onClick={() => onFiltro(f.valor)}>
             {f.etiqueta}
-          </Button>
+          </FiltroChip>
         ))}
       </div>
-      <label className="col-start-2 row-start-1 flex items-center gap-1.5 text-[12px] text-ink-600 md:col-auto md:row-auto">
-        Persona
-        <select value={persona} onChange={(event) => onPersona(event.target.value)} className={SELECT_CLASS_LG}>
+      <label className="flex items-center gap-1.5 text-[13.5px] text-ink-700">
+        <span>
+          Persona
+          <span aria-hidden="true">:</span>
+        </span>
+        <select
+          value={persona}
+          onChange={(event) => onPersona(event.target.value)}
+          className={cn(SELECT_CLASS_LG, "min-w-0 flex-1 md:flex-none")}
+        >
           <option value="">todas</option>
           {personas.map((nombre) => (
             <option key={nombre} value={nombre}>
@@ -262,7 +267,7 @@ function Dia({
       <h4 id={`${id}-titulo`} className="text-[13px] font-bold text-ink-900">
         {tituloDia(pasos[0].created_at)}
       </h4>
-      <div className="surface-inner mt-1.5 px-3 py-1 sm:px-4">
+      <div className="surface-tile mt-1.5 px-3 py-1 sm:px-4">
         <ol id={`${id}-lista`} className="flex flex-col divide-y divide-border" data-dia={clave}>
           {mostrados.map((paso, indice) => (
             <PasoRegistro
@@ -363,8 +368,16 @@ function PasoRegistro({
               </Button>
             )}
             {gasto !== null && (
-              <Button type="button" variant="link" size="xs" className="px-0" onClick={() => onIrA("finanzas")}>
-                {gasto ? `Ver gasto ${gasto}` : "Ver gasto"}
+              // «Ver gasto», as in the prototype; the invoice number stays in its accessible name.
+              <Button
+                type="button"
+                variant="link"
+                size="xs"
+                className="px-0"
+                aria-label={gasto ? `Ver gasto ${gasto}` : undefined}
+                onClick={() => onIrA("finanzas")}
+              >
+                Ver gasto
               </Button>
             )}
           </div>
@@ -378,7 +391,7 @@ const mayuscula = (texto: string) => `${texto.charAt(0).toUpperCase()}${texto.sl
 
 function Etiqueta({ frase }: { frase: Frase }) {
   return (
-    <StatusChip tone={frase.tono} className="align-middle">
+    <StatusChip dot={false} tone={frase.tono} className="align-middle">
       {frase.etiqueta}
     </StatusChip>
   );
@@ -410,7 +423,7 @@ function LecturaPorCampo({ fila }: { fila: Fila }) {
   return (
     <div className="mt-1 flex flex-col gap-0.5">
       <div className="flex flex-wrap items-center gap-1.5">
-        <StatusChip tone="neutro">{ACCION_AUDITORIA_META[fila.entry.accion]}</StatusChip>
+        <StatusChip dot={false} tone="neutro">{ACCION_AUDITORIA_META[fila.entry.accion]}</StatusChip>
         <span className="text-[11.5px] font-semibold text-ink-600">{etiquetaEntidadAuditoria(fila.entry.entidad)}</span>
       </div>
       <p className="text-[12.5px] leading-snug break-words text-ink-800">

@@ -85,6 +85,18 @@ describe("FichaHistorial", () => {
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(NOMBRES)
   })
 
+  // T10 H1/H2: a compact segment bar (as wide as its content) and one word space inside each long name.
+  it("keeps the segment bar compact and each long name in one text run", () => {
+    render(<FichaHistorial proyecto={PROYECTO} />)
+
+    expect(screen.getByRole("tablist").className).not.toMatch(/(^|\s)min-w-full(\s|$)/)
+    for (const [corto, cola] of [["Solicitudes", "de modificación"], ["Versiones", "del plan"]]) {
+      // The visible name lives in one inline span, so the trigger's flex gap never adds a second space.
+      expect(screen.getByText(cola).parentElement).toHaveTextContent(`${corto} ${cola}`)
+      expect(screen.getByText(cola).parentElement?.tagName).toBe("SPAN")
+    }
+  })
+
   it("keeps the short names apart for phones («Solicitudes», «Versiones»)", () => {
     render(<FichaHistorial proyecto={PROYECTO} />)
 

@@ -223,7 +223,7 @@ describe("RequiereAtencion («Qué falta»)", () => {
     expect(fila).toHaveTextContent("Actividad vencida")
     expect(await within(fila).findByText("1.3 Acompañamiento técnico a las unidades")).toBeInTheDocument()
     // Same calendar format as the rest of the ficha (`formatFechaCalendario`).
-    expect(fila).toHaveTextContent("Venció el 25 de oct de 2026 sin llegar a su meta.")
+    expect(fila).toHaveTextContent("Venció el 25 oct 2026 sin llegar a su meta.")
     expect(await within(fila).findByText(/Le toca a Andrés Torres/)).toBeInTheDocument()
 
     await user.click(await within(fila).findByRole("button", { name: "Registrar avance de 1.3" }))
@@ -319,6 +319,8 @@ describe("RequiereAtencion («Qué falta»)", () => {
     expect(filas[0]).toHaveTextContent("2 indicadores bajo la meta")
     expect(filas[0]).toHaveTextContent("Unidades fortalecidas: 9 de meta 30.")
     expect(filas[0]).toHaveTextContent("Personas formadas: 12 de meta 60.")
+    // T10 R6: the indicator's name in bold, as in the prototype.
+    expect(within(filas[0]!).getByText("Unidades fortalecidas:").tagName).toBe("B")
     await user.click(within(filas[0]!).getByRole("button", { name: "Ver indicadores" }))
     expect(onAccion).toHaveBeenCalledWith({ tipo: "ver-indicadores" })
   })

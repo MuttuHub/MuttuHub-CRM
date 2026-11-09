@@ -28,7 +28,7 @@ URL: `http://localhost:3000`. Solo Administrador y Gerencia pueden crear proyect
 
 | Elemento | Detalle |
 |---|---|
-| **PRY-2026-001** «Demo CedeTextil · En ejecución» | EN_EJECUCION; 4 actividades, 7 entregables, 2 indicadores, 8 rubros, 5 avances, 3 mediciones, 5 gastos (2 validados, 3 registrados, 1 con sobreejecución) |
+| **PRY-2026-001** «Demo CedeTextil · Programa de confección» | EN_EJECUCION; 4 actividades, 7 entregables, 2 indicadores, 8 rubros, 5 avances, 3 mediciones, 5 gastos (2 validados, 3 registrados, 1 con sobreejecución) |
 | **PRY-2026-002** «Demo CedeTextil · Ruta de fortalecimiento» | BORRADOR; misma estructura, sin avances ni gastos |
 | Clientes y oportunidades | 18 clientes y 23 oportunidades en todas las etapas |
 

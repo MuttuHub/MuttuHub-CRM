@@ -149,7 +149,10 @@ function Harness({ actividadId = null }: { actividadId?: string | null }) {
 describe("RegistrarAvanceDialog", () => {
   const fetchMock = vi.fn()
 
-  function setup({ actividadId = null }: { actividadId?: string | null } = {}) {
+  function setup({
+    actividadId = null,
+    progresoPendiente = false,
+  }: { actividadId?: string | null; progresoPendiente?: boolean } = {}) {
     fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
       const url = String(input)
       const method = init?.method ?? "GET"
@@ -175,6 +178,7 @@ describe("RegistrarAvanceDialog", () => {
       if (url.endsWith("/activities")) return Promise.resolve(jsonResponse({ actividades: ACTIVIDADES }))
       if (url.endsWith("/deliverables")) return Promise.resolve(jsonResponse({ entregables: [ENTREGABLE] }))
       if (url.endsWith("/deliverables/e3/progress")) {
+        if (progresoPendiente) return new Promise(() => {})
         return Promise.resolve(jsonResponse({ estado: "EN_EJECUCION", meta: "2.00", avances: [AVANCE_CONTADO] }))
       }
       if (url.endsWith("/activities/a2/progress") && method === "GET") {
@@ -259,6 +263,34 @@ describe("RegistrarAvanceDialog", () => {
       ([url, init]) => String(url).endsWith("/activities/a2/progress") && init?.method === "POST",
     )
     expect(JSON.parse(String(post?.[1]?.body))).toMatchObject({ porcentaje: 55, observacion: "Segundo taller." })
+  })
+
+  // T12: the tope depends on the deliverables' progress; until it arrives the form must not offer a wrong tope.
+  it("waits for the deliverables' progress before showing the summary and the form", async () => {
+    setup({ actividadId: "a3", progresoPendiente: true })
+
+    const dialog = await screen.findByRole("dialog", { name: "Registrar avance" })
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/deliverables/e3/progress", expect.any(Object)))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(within(dialog).queryByTestId("registrar-avance-resumen")).not.toBeInTheDocument()
+    expect(within(dialog).queryByRole("form", { name: "Registrar avance 1.3" })).not.toBeInTheDocument()
+  })
+
+  // T12: the success notice belongs to that save; opening the dialog again clears it.
+  it("clears the success notice when the dialog opens again", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    const dialog = await screen.findByRole("dialog", { name: "Registrar avance" })
+    const form = await within(dialog).findByRole("form", { name: "Registrar avance 1.2" })
+    await user.type(within(form).getByLabelText("Avance total de la actividad (%)"), "55")
+    await user.type(within(form).getByLabelText("Qué se hizo"), "Segundo taller.")
+    await user.click(within(form).getByRole("button", { name: "Guardar avance" }))
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Avance registrado"))
+
+    await user.click(screen.getByRole("button", { name: "Abrir" }))
+    await screen.findByRole("dialog", { name: "Registrar avance" })
+    expect(screen.getByRole("status", { hidden: true })).toHaveTextContent("")
   })
 
   it("closes on Cancelar without saving", async () => {

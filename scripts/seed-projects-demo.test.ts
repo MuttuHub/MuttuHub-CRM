@@ -32,6 +32,7 @@ import {
   extraGanadaNeeded,
   NOMBRE_PROYECTO_A,
   NOMBRE_PROYECTO_B,
+  NOMBRE_PROYECTO_B_LEGADO,
   parseSeedArgs,
   runSeedProjectsDemo,
   type SeedClient,
@@ -76,6 +77,16 @@ describe("decideSeed / extraGanadaNeeded", () => {
 
   it("still reads a database seeded under the legacy name of project A as already seeded", () => {
     expect(decideSeed([NOMBRE_PROYECTO_B, NOMBRE_PROYECTO_A_LEGADO])).toBe("already-seeded")
+  })
+
+  it("names project B without its state, which the ficha title already appends («nombre · estado»)", () => {
+    expect(NOMBRE_PROYECTO_B).toBe("Demo CedeTextil · Programa de confección")
+    expect(NOMBRE_PROYECTO_B).not.toMatch(/ejecución/i)
+  })
+
+  it("still reads a database seeded under the legacy name of project B as already seeded", () => {
+    expect(decideSeed([NOMBRE_PROYECTO_B_LEGADO, NOMBRE_PROYECTO_A])).toBe("already-seeded")
+    expect(decideSeed([NOMBRE_PROYECTO_B_LEGADO, NOMBRE_PROYECTO_A_LEGADO])).toBe("already-seeded")
   })
 
   it("is partial when only some demo project exists (B built, A missing, or the reverse)", () => {

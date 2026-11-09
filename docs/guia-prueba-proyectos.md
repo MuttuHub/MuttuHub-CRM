@@ -128,7 +128,7 @@ npm run db:demo:seed-projects:local -- --apply     # escribe
 Qué crea (escrito por los mismos servicios que usa la API: importador de plantilla, aprobación de línea base,
 validación de gastos y la bitácora de auditoría):
 
-- `Demo CedeTextil · En ejecución` (`PRY-2026-001` en una base recién sembrada): línea base aprobada (versión v0,
+- `Demo CedeTextil · Programa de confección` (`PRY-2026-001` en una base recién sembrada): línea base aprobada (versión v0,
   por lo que Versiones y Modificaciones funcionan), 4 actividades, 7 entregables, 2 indicadores, presupuesto de
   $177.360.000 y programación mensual. Trae 5 avances (todos con enlace https como medio, salvo uno sin medio a propósito),
   3 mediciones y 5 gastos con soporte https: 2 VALIDADO, 2 REGISTRADO y 1 REGISTRADO con alerta de sobregasto
@@ -341,7 +341,7 @@ Es la única vía real para salir de Borrador. Solo `admin@` o `gerencia@`, solo
 Solo `admin@` o `gerencia@`. Decisión de la PO (D-C): suspendido = congelado; cerrado = solo lectura y se puede
 reabrir; cancelado no se puede deshacer.
 
-1. Con un proyecto **En ejecución**, el encabezado de la ficha muestra **Cambiar estado**. El diálogo ofrece solo las
+1. Con un proyecto **En ejecución**, el menú **⋯** del encabezado de la ficha muestra **Cambiar estado**. El diálogo ofrece solo las
    acciones válidas para el estado actual (en ejecución: Suspender, Cerrar, Cancelar; suspendido: Reactivar, Cancelar;
    cerrado: Reabrir; borrador: Cancelar; cancelado: ninguna, el botón no aparece).
 2. Elige **Suspender**, escribe un motivo y pulsa **Confirmar** (sin motivo el botón queda deshabilitado). Esperado:
@@ -354,7 +354,7 @@ reabrir; cancelado no se puede deshacer.
    **Motivo**.
 5. **Reactivar** devuelve el proyecto a En ejecución. Repite con **Cerrar** (chip Cerrado, aviso de solo lectura) y
    **Reabrir**. **Cancelar** deja el proyecto en Cancelado sin acciones posibles.
-6. `coordinador@` y `colaborador@` no ven **Cambiar estado**; por API (`POST /api/v1/projects/:id/estado`) responden 403.
+6. `coordinador@` y `colaborador@` no ven **Cambiar estado** en el menú **⋯**; por API (`POST /api/v1/projects/:id/estado`) responden 403.
 
 ## D. Ejecución técnica y semáforo (S4)
 

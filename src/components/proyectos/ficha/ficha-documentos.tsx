@@ -11,8 +11,8 @@
 
 "use client";
 
-import { useState } from "react";
-import { ExternalLink, Search, Trash2, Upload } from "lucide-react";
+import { useId, useState } from "react";
+import { ExternalLink, FileText, Search, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +27,7 @@ import { HelpHint } from "@/components/ui/help-hint";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
+import { EmptyState } from "@/components/ui/empty-state";
 import { EmptyBlock, InlineError } from "@/components/proyectos/ui";
 import { SubirDocumentoDialog } from "@/components/proyectos/ficha/subir-documento-dialog";
 import { fechaCorta } from "@/components/proyectos/ficha/historial/fechas";
@@ -42,6 +43,7 @@ import {
   type ProjectListRow,
   type ProjectSupport,
 } from "@/hooks/projects";
+import { FiltroChip } from "@/components/proyectos/ficha/filtro-chip";
 
 const ERROR = "No pudimos cargar los documentos. Inténtalo de nuevo.";
 const SIN_ARCHIVO = "Este documento no tiene archivo ni enlace para abrir.";
@@ -58,15 +60,15 @@ const GRUPOS: readonly { origen: Origen; filtro: string; titulo: string; primero
     origen: "avance",
     filtro: "Entregables",
     titulo: "Soportes de entregables",
-    primero: "Los soportes de los entregables se adjuntan al registrar su avance en Actividades",
-    siguiente: "los de los entregables, al registrar su avance en Actividades",
+    primero: "Los soportes de entregables se adjuntan al registrar el avance en Actividades",
+    siguiente: "los de entregables, al registrar el avance en Actividades",
   },
   {
     origen: "gasto",
     filtro: "Gastos",
     titulo: "Soportes de gastos",
-    primero: "Los soportes de los gastos se adjuntan al registrar el gasto en Finanzas",
-    siguiente: "los de los gastos, al registrar el gasto en Finanzas",
+    primero: "Los soportes de gastos se adjuntan al registrar el gasto en Finanzas",
+    siguiente: "los de gastos, al registrar el gasto en Finanzas",
   },
   {
     origen: "indicador",
@@ -78,7 +80,7 @@ const GRUPOS: readonly { origen: Origen; filtro: string; titulo: string; primero
   {
     origen: "proyecto",
     filtro: "Del proyecto",
-    titulo: "Soportes del proyecto",
+    titulo: "Documentos del proyecto",
     primero: "Los del proyecto (convenio, actas de inicio) se suben con «Subir documento»",
     siguiente: "los del proyecto (convenio, actas de inicio), con «Subir documento»",
   },
@@ -97,6 +99,10 @@ function puedeAbrir(soporte: ProjectSupport): boolean {
  * its number and its description.
  */
 function origenDe(soporte: ProjectSupport): { principal: string; detalle: string | null } | null {
+  if (soporte.origen === "proyecto" && !soporte.vinculo) {
+    const forma = soporte.tipo === "archivo" ? "Archivo" : "Enlace";
+    return { principal: "Del proyecto", detalle: `${forma} subido con «Subir documento»` };
+  }
   if (!soporte.vinculo) return null;
   if (soporte.origen === "gasto") {
     const [numero, ...resto] = soporte.vinculo.split(" · ");
@@ -113,25 +119,62 @@ function enumerar(nombres: string[]): string {
   return `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}`;
 }
 
-/** The explanation of the empty groups; `null` when none is empty. «Subir documento» only for who may use it. */
-function explicacionVacios(vacios: typeof GRUPOS, puedeSubir: boolean): string | null {
+/** Who cannot upload reads who does it instead of «Subir documento» (prototype wording). */
+const PROYECTO_SIN_SUBIR = {
+  primero: "Los del proyecto (convenio, actas de inicio) los sube el equipo del proyecto",
+  siguiente: "los del proyecto (convenio, actas de inicio) los sube el equipo del proyecto",
+};
+
+/**
+ * The explanation of the empty groups, as in the prototype: a bold first sentence naming them and how each one
+ * gets its documents; `null` when none is empty. «Subir documento» only for who may use it.
+ */
+function explicacionVacios(vacios: typeof GRUPOS, puedeSubir: boolean): { cabeza: string; como: string } | null {
   if (vacios.length === 0) return null;
   const nombres = enumerar(vacios.map((grupo) => grupo.filtro));
   const cabeza = `${nombres} ${vacios.length === 1 ? "no tiene" : "no tienen"} documentos.`;
-  const formas = vacios.filter((grupo) => grupo.origen !== "proyecto" || puedeSubir);
-  if (formas.length === 0) return cabeza;
-  const como = formas.map((grupo, indice) => (indice === 0 ? grupo.primero : grupo.siguiente)).join("; ");
-  return `${cabeza} ${como}.`;
+  const frases = vacios.map((grupo) => (grupo.origen === "proyecto" && !puedeSubir ? PROYECTO_SIN_SUBIR : grupo));
+  const como = frases.map((frase, indice) => (indice === 0 ? frase.primero : frase.siguiente)).join("; ");
+  return { cabeza, como: `${como}.` };
+}
+
+const ENLACE_INDICADORES = "Actividades › Indicadores";
+
+/** The explanation's text, with «Actividades › Indicadores» as a link to the Actividades tab when it can go there. */
+function ComoSeAgregan({ texto, onVerIndicadores }: { texto: string; onVerIndicadores?: () => void }) {
+  const corte = texto.indexOf(ENLACE_INDICADORES);
+  if (!onVerIndicadores || corte === -1) return <span>{texto}</span>;
+  return (
+    <span>
+      {texto.slice(0, corte)}
+      <button
+        type="button"
+        className="rounded-sm font-medium text-primary underline underline-offset-2 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        onClick={onVerIndicadores}
+      >
+        {ENLACE_INDICADORES}
+      </button>
+      {texto.slice(corte + ENLACE_INDICADORES.length)}
+    </span>
+  );
 }
 
 type Filtro = "TODOS" | Origen;
 
-export function FichaDocumentos({ proyecto }: { proyecto: ProjectListRow }) {
+export function FichaDocumentos({
+  proyecto,
+  onVerIndicadores,
+}: {
+  proyecto: ProjectListRow;
+  /** «Actividades › Indicadores» in the empty-group explanation: switches the ficha to Actividades. */
+  onVerIndicadores?: () => void;
+}) {
   const query = useProjectSupports(proyecto.id);
   const usuario = useCurrentUser().data;
   const miembros = useProjectMembers(proyecto.id).data;
   const borrar = useDeleteProjectDocument(proyecto.id);
   const [filtro, setFiltro] = useState<Filtro>("TODOS");
+  const idFiltro = useId();
   const [busqueda, setBusqueda] = useState("");
   const [abriendo, setAbriendo] = useState<string | null>(null);
   const [subiendo, setSubiendo] = useState(false);
@@ -202,13 +245,15 @@ export function FichaDocumentos({ proyecto }: { proyecto: ProjectListRow }) {
     <section data-testid="documentos" className="grid grid-cols-1 gap-x-4 sm:grid-cols-[minmax(0,1fr)_auto]">
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
-          <h3 className="font-display text-[17px] font-bold text-ink-950">Documentos del proyecto</h3>
+          <h3 className="font-display text-[18px] font-bold tracking-[-0.01em] text-ink-950 sm:text-[19px]">
+            Documentos del proyecto
+          </h3>
           <HelpHint label="Qué documentos aparecen aquí" className="after:-inset-3">
             Aquí ves todos los soportes del proyecto. Cada uno se sube desde donde nace: el avance de un entregable, un
             gasto o una medición. Usa «Subir documento» solo para los del proyecto, como el convenio o el acta de inicio.
           </HelpHint>
         </div>
-        <p className="mt-1 text-[12.5px] text-ink-500">
+        <p className="mt-1 max-w-[70ch] text-[13.5px] text-ink-600">
           Los soportes de entregables, gastos, indicadores y del proyecto, en una sola lista.
         </p>
       </div>
@@ -232,7 +277,20 @@ export function FichaDocumentos({ proyecto }: { proyecto: ProjectListRow }) {
         ) : !query.data ? (
           <Skeleton data-testid="documentos-cargando" className="mt-2 h-24 w-full rounded-[14px]" />
         ) : soportes.length === 0 ? (
-          <EmptyBlock>Este proyecto todavía no tiene documentos.</EmptyBlock>
+          <EmptyState
+            bordered
+            className="mt-2 min-h-0 py-6"
+            title="Este proyecto todavía no tiene documentos."
+            description="Los soportes aparecen aquí cuando se registran avances, gastos o mediciones."
+            action={
+              puedeEscribir ? (
+                <Button type="button" onClick={() => setSubiendo(true)}>
+                  <Upload className="size-3.5" strokeWidth={1.8} />
+                  Subir documento
+                </Button>
+              ) : undefined
+            }
+          />
         ) : (
           <>
             <div className="mt-3 flex flex-col gap-2 md:flex-row-reverse md:items-center md:justify-between">
@@ -248,23 +306,22 @@ export function FichaDocumentos({ proyecto }: { proyecto: ProjectListRow }) {
                 />
               </label>
               <div className="relative min-w-0">
+                {/* T11 D2: visible label, as in the prototype; it also names the chip group. */}
+                <span
+                  id={`${idFiltro}-etiqueta`}
+                  className="mb-1.5 block text-[11.5px] font-semibold tracking-[0.06em] text-ink-600 uppercase"
+                >
+                  Filtrar por origen
+                </span>
                 <div
                   role="group"
-                  aria-label="Filtrar por origen"
+                  aria-labelledby={`${idFiltro}-etiqueta`}
                   className="no-scrollbar flex gap-2 overflow-x-auto pr-6 md:flex-wrap md:overflow-visible md:pr-0"
                 >
                   {filtros.map((f) => (
-                    <Button
-                      key={f.valor}
-                      type="button"
-                      size="sm"
-                      variant={filtro === f.valor ? "default" : "outline"}
-                      aria-pressed={filtro === f.valor}
-                      className="flex-none rounded-full"
-                      onClick={() => setFiltro(f.valor)}
-                    >
+                    <FiltroChip key={f.valor} activo={filtro === f.valor} onClick={() => setFiltro(f.valor)}>
                       {`${f.etiqueta} · ${f.cantidad}`}
-                    </Button>
+                    </FiltroChip>
                   ))}
                 </div>
                 {/* Hints at the filters out of view on phones. */}
@@ -276,7 +333,19 @@ export function FichaDocumentos({ proyecto }: { proyecto: ProjectListRow }) {
             </div>
 
             <div data-testid="documentos-lista" className="mt-3 flex flex-col gap-4">
-              {visibles.length === 0 && (texto !== "" || !explicacion) ? (
+              {visibles.length === 0 && texto !== "" ? (
+                <EmptyState
+                  bordered
+                  className="min-h-0 py-6"
+                  title="No hay documentos con este filtro."
+                  description={`Ningún documento coincide con «${busqueda.trim()}».`}
+                  action={
+                    <Button type="button" variant="outline" size="sm" onClick={() => setBusqueda("")}>
+                      Limpiar búsqueda
+                    </Button>
+                  }
+                />
+              ) : visibles.length === 0 && !explicacion ? (
                 <EmptyBlock>No hay documentos con este filtro.</EmptyBlock>
               ) : (
                 GRUPOS.filter((grupo) => delOrigen(grupo.origen).length > 0).map((grupo) => (
@@ -293,8 +362,12 @@ export function FichaDocumentos({ proyecto }: { proyecto: ProjectListRow }) {
                 ))
               )}
               {explicacion && (
-                <p data-testid="documentos-vacios" className="text-[12.5px] leading-relaxed text-ink-600">
-                  {explicacion}
+                <p
+                  data-testid="documentos-vacios"
+                  className="rounded-inner bg-muted px-4 py-3.5 text-[13.5px] leading-relaxed text-ink-700"
+                >
+                  <b className="font-semibold text-ink-900">{explicacion.cabeza}</b>{" "}
+                  <ComoSeAgregan texto={explicacion.como} onVerIndicadores={onVerIndicadores} />
                 </p>
               )}
             </div>
@@ -360,8 +433,9 @@ function GrupoDocumentos({
   const COLUMNAS = "md:grid md:grid-cols-[minmax(0,1.2fr)_minmax(0,1.6fr)_minmax(0,1fr)_auto] md:items-center md:gap-4";
   return (
     <section data-testid={`documentos-grupo-${origen}`}>
-      <h4 className="text-[13px] font-bold text-ink-900">{titulo}</h4>
-      <div className="surface-inner mt-1.5 overflow-hidden">
+      <h4 className="text-[14.5px] font-bold text-ink-900">{titulo}</h4>
+      {/* One bordered card per document on phones; a single white table from `md`, as in the prototype. */}
+      <div className="mt-1.5 md:surface-tile md:overflow-hidden">
         <div
           aria-hidden="true"
           className={`hidden border-b border-border px-3 py-2 text-[10.5px] font-bold tracking-[0.08em] text-ink-500 uppercase ${COLUMNAS}`}
@@ -371,23 +445,42 @@ function GrupoDocumentos({
           <span>Subió</span>
           <span className="w-24" />
         </div>
-        <ul className="divide-y divide-border">
+        <ul className="flex flex-col gap-2 md:gap-0 md:divide-y md:divide-border">
           {soportes.map((soporte) => {
             const origenTexto = origenDe(soporte);
             const abrible = puedeAbrir(soporte);
             return (
-              <li key={soporte.id} data-testid="documento-fila" className={`flex flex-col gap-1.5 px-3 py-3 ${COLUMNAS}`}>
-                <span className="min-w-0 text-[13px] font-semibold break-words text-ink-900">{soporte.nombre}</span>
+              <li
+                key={soporte.id}
+                data-testid="documento-fila"
+                className={`surface-tile flex flex-col gap-1.5 px-3 py-3 md:rounded-none md:border-0 md:bg-transparent ${COLUMNAS}`}
+              >
+                <span className="flex min-w-0 items-start gap-2 text-[13px] font-semibold break-words text-ink-900">
+                  <FileText
+                    data-testid="documento-icono"
+                    aria-hidden="true"
+                    className="mt-0.5 size-4 shrink-0 text-ink-500"
+                    strokeWidth={1.8}
+                  />
+                  <span className="min-w-0">{soporte.nombre}</span>
+                </span>
                 <span data-testid="documento-origen" className="min-w-0 text-[12.5px] break-words text-ink-700">
                   {origenTexto && (
                     <>
-                      <span className="block">{origenTexto.principal}</span>
+                      <span className="block font-medium text-ink-800">{origenTexto.principal}</span>
                       {origenTexto.detalle && <span className="block text-ink-500">{origenTexto.detalle}</span>}
                     </>
                   )}
                 </span>
-                <span data-testid="documento-subio" className="min-w-0 text-[12px] text-ink-500">
-                  {[soporte.subido_por, fechaCorta(soporte.created_at)].filter(Boolean).join(" · ")}
+                {/* «Quién · día» in one line on phones; name, then the day below it from `md` (prototype). */}
+                <span data-testid="documento-subio" className="min-w-0 text-[12.5px] text-ink-600">
+                  {soporte.subido_por && (
+                    <>
+                      <span className="md:block md:text-ink-800">{soporte.subido_por}</span>
+                      <span className="md:hidden"> · </span>
+                    </>
+                  )}
+                  <span className="md:block">{fechaCorta(soporte.created_at)}</span>
                 </span>
                 <span className="mt-1 flex items-center gap-2 md:mt-0 md:justify-end">
                   <Button
@@ -397,7 +490,7 @@ function GrupoDocumentos({
                     disabled={abriendo === soporte.id || !abrible}
                     title={abrible ? undefined : SIN_ARCHIVO}
                     onClick={() => onAbrir(soporte)}
-                    className="flex-1 md:flex-none"
+                    className="h-11 flex-1 md:flex-none"
                   >
                     <ExternalLink className="size-3.5" strokeWidth={1.8} />
                     Abrir
@@ -408,7 +501,7 @@ function GrupoDocumentos({
                       size="icon"
                       aria-label={`Eliminar ${soporte.nombre}`}
                       onClick={() => onEliminar(soporte)}
-                      className="shrink-0 text-ink-500 hover:border-destructivo/40 hover:text-destructivo"
+                      className="size-11 shrink-0 text-destructivo hover:border-destructivo/40"
                     >
                       <Trash2 className="size-3.5" strokeWidth={1.8} />
                     </Button>
