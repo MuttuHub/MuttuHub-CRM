@@ -395,7 +395,8 @@ describe("EjecucionAvance", () => {
       })
       expect(screen.getByTestId("ejecucion-pendiente-soporte")).toHaveTextContent("1 pendiente de soporte")
       const celdas = within(screen.getByTestId("ejecucion-entregable")).getAllByRole("cell")
-      expect(celdas[2]).toHaveTextContent(/^Contados*2(?!d)/)
+      // Counted: only the live quantity with its soporte (2); the pending 1 and the voided 5 do not add up.
+      expect(within(celdas[2]).getByText("2", { exact: true })).toBeInTheDocument()
     })
 
     it("opens the registered quantities with their soportes from «N archivos»", async () => {

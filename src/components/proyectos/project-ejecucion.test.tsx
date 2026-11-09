@@ -324,7 +324,7 @@ describe("ProjectEjecucion", () => {
     // Its last day (25 oct) is the corte: overdue, so its entregables are open.
     const entregable = within(actividad).getByTestId("ejecucion-entregable")
     expect(entregable).toHaveTextContent("Acta de asistencia")
-    expect(within(entregable).getAllByRole("cell")[2]).toHaveTextContent(/^Contados*0/)
+    expect(within(entregable).getAllByRole("cell")[2]).toHaveTextContent(/^Contado\s*0/)
     expect(entregable).toHaveTextContent("1 pendiente de soporte")
   })
 
@@ -338,7 +338,7 @@ describe("ProjectEjecucion", () => {
 
     progresoStatusActual = 200
     await user.click(within(entregable).getByRole("button", { name: "Reintentar" }))
-    await waitFor(() => expect(within(entregable).getAllByRole("cell")[2]).toHaveTextContent(/^Contados*0/))
+    await waitFor(() => expect(within(entregable).getAllByRole("cell")[2]).toHaveTextContent(/^Contado\s*0/))
     expect(within(entregable).queryByText("No se pudo cargar.")).not.toBeInTheDocument()
   })
 
