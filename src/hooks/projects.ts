@@ -992,14 +992,29 @@ export function useDeliverableProgress(
 ): UseQueryResult<ProjectDeliverableProgress>[] {
   return useQueries({
     queries: deliverableIds.map((deliverableId) => ({
-      queryKey: projectQueryKeys.deliverableProgress(projectId, deliverableId),
+      ...deliverableProgressQuery(projectId, deliverableId),
       enabled: projectId !== "" && deliverableId !== "",
-      queryFn: () =>
-        apiGet<ProjectDeliverableProgress>(
-          `/api/v1/projects/${projectId}/deliverables/${deliverableId}/progress`,
-        ),
     })),
   });
+}
+
+function deliverableProgressQuery(projectId: string, deliverableId: string) {
+  return {
+    queryKey: projectQueryKeys.deliverableProgress(projectId, deliverableId),
+    queryFn: () =>
+      apiGet<ProjectDeliverableProgress>(`/api/v1/projects/${projectId}/deliverables/${deliverableId}/progress`),
+  };
+}
+
+/**
+ * Read-only view of one entregable's progress query, as `useDeliverableProgress` left it in the cache: it never
+ * fetches on mount (the list owns that read), but tells a row whether the read failed and can `refetch` it.
+ */
+export function useDeliverableProgressState(
+  projectId: string,
+  deliverableId: string,
+): UseQueryResult<ProjectDeliverableProgress> {
+  return useQuery({ ...deliverableProgressQuery(projectId, deliverableId), enabled: false });
 }
 
 /** Mediciones de un indicador con su última lectura y tendencia. */
