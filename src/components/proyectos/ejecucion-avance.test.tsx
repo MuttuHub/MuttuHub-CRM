@@ -331,6 +331,7 @@ describe("EjecucionAvance", () => {
         entregables: [ENTREGABLE, ENTREGABLE2],
         progreso: new Map([
           ["e1", { estado: "EN_EJECUCION", meta: "2.00", avances: [avance(), avance({ id: "av2", cantidad: "1.00" })] }],
+          ["e2", { estado: "EN_EJECUCION", meta: "2.00", avances: [] }],
         ]),
       })
       expect(screen.getByText("Entregables · 1 de 2 completos")).toBeInTheDocument()
@@ -351,6 +352,23 @@ describe("EjecucionAvance", () => {
       expect(within(primero).getAllByRole("cell")[3]).toHaveTextContent("0")
       expect(within(segundo).getAllByRole("cell")[2]).toHaveTextContent("0")
       expect(within(segundo).getAllByRole("cell")[3]).toHaveTextContent("2")
+    })
+
+    it("shows «—» instead of zeros while an entregable's progress has not arrived", () => {
+      renderCard({
+        corte: DESPUES_DEL_FIN,
+        entregables: [ENTREGABLE, ENTREGABLE2],
+        progreso: progresoDe([avance()]),
+      })
+      expect(screen.getByText("Entregables")).toBeInTheDocument()
+      expect(screen.queryByText(/de 2 completos/)).not.toBeInTheDocument()
+      const [primero, segundo] = screen.getAllByTestId("ejecucion-entregable")
+      expect(within(primero).getAllByRole("cell")[2]).toHaveTextContent("2")
+      const celdas = within(segundo).getAllByRole("cell")
+      expect(celdas[2]).toHaveTextContent("—")
+      expect(celdas[3]).toHaveTextContent("—")
+      expect(celdas[4]).toHaveTextContent("—")
+      expect(within(segundo).queryByRole("button", { name: /archivo/ })).not.toBeInTheDocument()
     })
 
     it("flags live quantities without a soporte as pending; a voided one counts for nothing", () => {
@@ -428,11 +446,11 @@ describe("EjecucionAvance", () => {
 
     it("offers «Registrar cantidad» while the activity takes progress, never once it is finished", async () => {
       const user = userEvent.setup()
-      const { unmount } = renderCard({ canWrite: true, corte: DESPUES_DEL_FIN, entregables: [ENTREGABLE] })
+      const { unmount } = renderCard({ canWrite: true, corte: DESPUES_DEL_FIN, entregables: [ENTREGABLE], progreso: progresoDe([]) })
       expect(screen.getByRole("button", { name: "Registrar cantidad ENT-1" })).toBeInTheDocument()
       unmount()
 
-      renderCard({ canWrite: true, tecnico: { ...TECNICO, estado: "FINALIZADA", progreso: 90 }, entregables: [ENTREGABLE] })
+      renderCard({ canWrite: true, tecnico: { ...TECNICO, estado: "FINALIZADA", progreso: 90 }, entregables: [ENTREGABLE], progreso: progresoDe([]) })
       await user.click(screen.getByRole("button", { name: "Ver 1 entregable" }))
       expect(screen.getByTestId("ejecucion-entregable")).toBeInTheDocument()
       expect(screen.queryByRole("button", { name: "Registrar cantidad ENT-1" })).not.toBeInTheDocument()
@@ -441,7 +459,7 @@ describe("EjecucionAvance", () => {
     it("opens the Registrar cantidad form in a bottom sheet on phones", async () => {
       mockViewport(true)
       const user = userEvent.setup()
-      renderCard({ canWrite: true, corte: DESPUES_DEL_FIN, entregables: [ENTREGABLE] })
+      renderCard({ canWrite: true, corte: DESPUES_DEL_FIN, entregables: [ENTREGABLE], progreso: progresoDe([]) })
       await user.click(screen.getByRole("button", { name: "Registrar cantidad ENT-1" }))
       const dialog = await screen.findByRole("dialog", { name: "Registrar cantidad ENT-1" })
       expect(within(dialog).getByRole("form", { name: "Registrar cantidad ENT-1" })).toBeInTheDocument()

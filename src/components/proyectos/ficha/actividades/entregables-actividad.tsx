@@ -59,6 +59,8 @@ export function EntregablesActividad({
   /** «Registrar cantidad» is gone once the activity is finished (the proposal hides it). */
   puedeRegistrarCantidad: boolean;
 }) {
+  // A missing entry means the progress has not arrived (still loading, or failed): never read it as zero.
+  const todosCargados = entregables.every((entregable) => progreso.has(entregable.id));
   const completos = entregables.filter((entregable) =>
     entregableCompleto(entregable, progreso.get(entregable.id)?.avances ?? []),
   ).length;
@@ -67,7 +69,7 @@ export function EntregablesActividad({
     <div className="flex min-w-0 flex-col gap-1.5">
       <div className="flex items-center gap-1.5">
         <p className="text-[11px] font-bold tracking-[0.08em] text-ink-500 uppercase">
-          Entregables · {completos} de {entregables.length} completos
+          {todosCargados ? `Entregables · ${completos} de ${entregables.length} completos` : "Entregables"}
         </p>
         <HelpHint label="Entregables" className="after:-inset-3">
           {AYUDA_ENTREGABLES}
@@ -93,7 +95,7 @@ export function EntregablesActividad({
                 key={entregable.id}
                 proyectoId={proyectoId}
                 entregable={entregable}
-                avances={progreso.get(entregable.id)?.avances ?? []}
+                avances={progreso.get(entregable.id)?.avances}
                 canWrite={canWrite}
                 canVoid={canVoid}
                 puedeRegistrarCantidad={puedeRegistrarCantidad}
@@ -109,14 +111,15 @@ export function EntregablesActividad({
 function EntregableRow({
   proyectoId,
   entregable,
-  avances,
+  avances: avancesCargados,
   canWrite,
   canVoid,
   puedeRegistrarCantidad,
 }: {
   proyectoId: string;
   entregable: ProjectDeliverable;
-  avances: ProjectAvance[];
+  /** Undefined until the entregable's progress arrives: its cells show «—», not zeros. */
+  avances: ProjectAvance[] | undefined;
   canWrite: boolean;
   canVoid: boolean;
   puedeRegistrarCantidad: boolean;
@@ -126,6 +129,8 @@ function EntregableRow({
   const [verCantidades, setVerCantidades] = useState(false);
   const panelId = useId();
 
+  const cargado = avancesCargados !== undefined;
+  const avances = avancesCargados ?? [];
   const meta = Number(entregable.cantidad_meta);
   const contado = contadoDe(avances);
   const falta = Math.max(0, meta - contado);
@@ -153,39 +158,47 @@ function EntregableRow({
         </TableCell>
         <TableCell numeric className={CELDA}>
           <span className={ETIQUETA_MOVIL}>Contado</span>
-          <span className="flex flex-col items-end">
-            <span>{formatNumero(contado)}</span>
-            {contado > meta && (
-              <span className="text-[11.5px] text-ink-600">+{formatNumero(contado - meta)} sobre la meta</span>
-            )}
-            {pendientes > 0 && (
-              <span
-                data-testid="ejecucion-pendiente-soporte"
-                className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-alerta"
-              >
-                <AlertTriangle className="size-3.5 shrink-0" strokeWidth={2} aria-hidden="true" />
-                {plural(pendientes, "pendiente", "pendientes")} de soporte
-              </span>
-            )}
-          </span>
+          {cargado ? (
+            <span className="flex flex-col items-end">
+              <span>{formatNumero(contado)}</span>
+              {contado > meta && (
+                <span className="text-[11.5px] text-ink-600">+{formatNumero(contado - meta)} sobre la meta</span>
+              )}
+              {pendientes > 0 && (
+                <span
+                  data-testid="ejecucion-pendiente-soporte"
+                  className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-alerta"
+                >
+                  <AlertTriangle className="size-3.5 shrink-0" strokeWidth={2} aria-hidden="true" />
+                  {plural(pendientes, "pendiente", "pendientes")} de soporte
+                </span>
+              )}
+            </span>
+          ) : (
+            <SinDato />
+          )}
         </TableCell>
         <TableCell numeric className={CELDA}>
           <span className={ETIQUETA_MOVIL}>Falta</span>
-          <span className="font-semibold text-ink-900">{formatNumero(falta)}</span>
+          {cargado ? <span className="font-semibold text-ink-900">{formatNumero(falta)}</span> : <SinDato />}
         </TableCell>
         <TableCell className={cn(CELDA, "justify-start")}>
-          <button
-            type="button"
-            aria-expanded={verCantidades}
-            aria-controls={panelId}
-            className={ENLACE_ACCION}
-            onClick={() => setVerCantidades((value) => !value)}
-          >
-            {plural(archivos, "archivo", "archivos")}
-          </button>
+          {cargado ? (
+            <button
+              type="button"
+              aria-expanded={verCantidades}
+              aria-controls={panelId}
+              className={ENLACE_ACCION}
+              onClick={() => setVerCantidades((value) => !value)}
+            >
+              {plural(archivos, "archivo", "archivos")}
+            </button>
+          ) : (
+            <SinDato />
+          )}
         </TableCell>
         <TableCell className="block px-0 py-0 sm:table-cell sm:px-2 sm:py-2 sm:text-right">
-          {canWrite && puedeRegistrarCantidad && !registrando && (
+          {canWrite && puedeRegistrarCantidad && cargado && !registrando && (
             <Button
               type="button"
               variant="outline"
@@ -248,6 +261,16 @@ function EntregableRow({
         </TableRow>
       )}
     </>
+  );
+}
+
+/** Placeholder for a figure whose data has not arrived: «—» on screen, a plain phrase for screen readers. */
+function SinDato() {
+  return (
+    <span className="text-ink-500">
+      <span aria-hidden="true">—</span>
+      <span className="sr-only">Sin datos todavía</span>
+    </span>
   );
 }
 
