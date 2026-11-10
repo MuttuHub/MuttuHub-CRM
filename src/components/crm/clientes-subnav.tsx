@@ -1,15 +1,16 @@
 "use client";
 
-// v7 alignment, unit C1a: the Clientes sub-navigation shell. Five sections — the
-// user's list, so v7's extra "Convocatorias" is intentionally left out, and M4
-// (Y3) hides the two that are not built yet (Oportunidades and Mapa: their
-// routes redirect to /clientes). Each item navigates between pages, so they are
+// v7 alignment, unit C1a: the Clientes sub-navigation shell. The sections are
+// the user's list, so v7's extra "Convocatorias" is intentionally left out, and
+// M4 (Y3) still hides Mapa (its route redirects to /clientes). V1 turned
+// Oportunidades into a real section, so it moves into the position the v7 order
+// gives it: right after Aliados. Each item navigates between pages, so they are
 // links carrying `aria-current="page"` (the app's route convention, see
 // `shell/sidebar.tsx`), not an ARIA tablist: tabs own in-page panels, and every
 // section here is its own route with its own content.
 //
 // Interacciones (C3b), Relaciones (C4b), Salud (C5b) and Automatizaciones (C7b)
-// render their real sections.
+// render their real sections; V1 adds Oportunidades.
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -23,6 +24,7 @@ export type ClientesSection = {
 /** The v7 CRM sections that are built, in the order the user asked for them. */
 export const CLIENTES_SECTIONS: readonly ClientesSection[] = [
   { href: "/clientes", label: "Aliados" },
+  { href: "/clientes/oportunidades", label: "Oportunidades" },
   { href: "/clientes/interacciones", label: "Interacciones" },
   { href: "/clientes/relaciones", label: "Relaciones" },
   { href: "/clientes/salud", label: "Salud" },
