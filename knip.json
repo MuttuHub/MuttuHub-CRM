@@ -2,9 +2,6 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": [
     "src/app/**/{page,layout,route,loading,error,global-error,not-found,template,default,opengraph-image,icon,apple-icon,sitemap,robots,manifest}.{ts,tsx}",
-    "src/middleware.ts",
-    "src/instrumentation.ts",
-    "src/instrumentation-client.ts",
     "src/**/*.test.{ts,tsx}",
     "src/test/**/*.ts",
     "scripts/**/*.ts",
@@ -12,6 +9,5 @@
     "e2e/**/*.spec.ts"
   ],
   "project": ["src/**/*.{ts,tsx}", "scripts/**/*.ts", "prisma/**/*.ts", "e2e/**/*.ts"],
-  "ignore": [".next/**", "coverage/**", "docs/**", "supabase/**", "playwright-report*/**", "test-results*/**"],
-  "ignoreDependencies": ["tailwindcss", "postcss", "eslint-config-next", "prettier-plugin-tailwindcss"]
+  "ignoreDependencies": ["pg", "tailwindcss", "tw-animate-css", "shadcn"]
 }
