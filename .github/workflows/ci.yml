@@ -56,6 +56,13 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # L1 of docs/plan-limpieza-codigo.md: knip publishes the dead-code baseline
+      # in the job log. Non-blocking on purpose — L2 turns it into a gate once
+      # the list it reports is empty.
+      - name: Dead-code report (knip, non-blocking)
+        continue-on-error: true
+        run: npm run lint:dead
+
       # The invariant files open a live connection and run DDL/DML. Two of them
       # in parallel can deadlock on Postgres (40P01, seen on 2026-10-20), so
       # they run alone and after the rest of the suite.

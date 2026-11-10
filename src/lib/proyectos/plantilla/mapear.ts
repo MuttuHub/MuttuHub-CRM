@@ -10,7 +10,7 @@
 import { parseFechaCelda, parseNumeroColombiano, type Celda, type Fila, type ParsedTemplate } from "./parse"
 import { resolverLineaToken, resolverMunicipioToken, type ContextoValidacion } from "./validate"
 import { fromCents, sumCents, toCents, type Cents } from "../money"
-import { defaultWeight, type IsoDate, type Periodo } from "../weeks"
+import { type IsoDate, type Periodo } from "../weeks"
 
 export type PlanImportacion = {
   proyecto: {

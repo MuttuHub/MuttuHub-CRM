@@ -55,3 +55,27 @@ caben en uno o dos días; L3 a L5 son una semana repartida en PRs chicos.
   vacía.
 - **Mover archivos rompe el historial de `git blame`** si se mezcla con cambios: cada movimiento va en su propio commit,
   sin editar contenido.
+
+## Línea base de L1 (2026-11-10)
+
+`npx knip` con la configuración de `knip.json`, sobre `main` en `43c9b61`:
+
+| Categoría | Hallazgos |
+|---|---|
+| Archivos sin usar | 1 |
+| Dependencias sin usar | 3 (`pg`, `shadcn`, `tw-animate-css`) |
+| Exports sin usar | 190 |
+| Tipos exportados sin usar | 65 |
+| Export duplicado | 1 (`canManageAny` / `canReadRestrictedDocs` en `src/lib/permissions.ts`) |
+| Pistas de configuración | 14 |
+
+`noUnusedLocals` y `noUnusedParameters` sobre `main`: **6 diagnósticos TS6133**, todos mecánicos y corregidos al
+activar los flags (un parámetro de contrato renombrado a `_usuario`, dos imports de `React` que no se usaban, dos
+constantes muertas y un parámetro de prueba).
+
+**Aviso para L2:** knip cuenta los archivos de prueba como puntos de entrada, así que solo delata el archivo muerto que
+no tiene ninguna prueba: `src/components/crm/clientes-section-placeholder.tsx`. Los otros 6 de la lista de L2 se
+confirmaron a mano: cada uno tiene exactamente un importador, y ese importador es su propia prueba
+(`lib/soportes-format.ts`, `ui/card.tsx`, `ui/page-header.tsx`, `ui/separator.tsx`,
+`proyectos-v3/import-guards.tsx`, `proyectos-v3/lista-verificacion.tsx`). Al borrarlos junto con sus pruebas, la lista
+de archivos de knip queda en 0.
