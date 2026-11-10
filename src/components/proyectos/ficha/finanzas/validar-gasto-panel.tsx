@@ -31,7 +31,7 @@ import { cn } from "@/lib/utils";
 import { AYUDA_DISPONIBLE, AvisosGasto, SUPERA_ASIGNADO, monto, nombreRubro, textoIva } from "./gastos-comun";
 
 export const SOPORTE_ERROR = "No pudimos abrir el soporte. Inténtalo de nuevo.";
-export const AVISO_SUPERA_BLOQUEO =
+const AVISO_SUPERA_BLOQUEO =
   "Este gasto deja el rubro por encima de lo asignado y por ahora no se puede validar. Puedes rechazarlo y pedir un traslado entre rubros.";
 
 const ESTADO_TEXTO: Record<ProjectExpenseEstado, string> = {

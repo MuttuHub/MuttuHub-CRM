@@ -13,8 +13,7 @@
 import { activityDates } from "../weeks"
 import type { Periodo } from "../weeks"
 
-export const F_C1_INICIO = "2026-08-03"
-export const F_C1_FIN = "2026-12-31"
+const F_C1_INICIO = "2026-08-03"
 export const F_C1_PERIODOS: Periodo[] = ["2026-08", "2026-09", "2026-10", "2026-11", "2026-12"]
 export const F_C1_CORTE: Periodo = "2026-11"
 

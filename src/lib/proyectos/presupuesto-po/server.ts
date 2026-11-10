@@ -25,7 +25,7 @@ import {
 import { diferenciaValor } from "../proyecto-general"
 import { fromCents, sumCents, toCents, type Cents } from "../money"
 
-export const CATALOGO_CAMBIO_MESSAGE =
+const CATALOGO_CAMBIO_MESSAGE =
   "El catálogo de rubros cambió mientras importabas. Vuelve a validar el archivo."
 
 export type AplicarPresupuestoInput = {

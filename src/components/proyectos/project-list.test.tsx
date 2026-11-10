@@ -164,7 +164,6 @@ vi.mock("@/hooks/projects", () => ({
     [
       "useCreateAvance", "useVoidAvance", "useAddAvanceMedio",
       "useCreateMedicion", "useVoidMedicion",
-      "useCreateBeneficiario", "useVoidBeneficiario",
     ].map((name) => [
       name,
       () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, isError: false, error: null, variables: undefined }),

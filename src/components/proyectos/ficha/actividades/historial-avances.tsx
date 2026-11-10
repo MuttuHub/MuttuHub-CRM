@@ -25,7 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ENLACE_ACCION, formatNumero, porReciente, ultimoVigente } from "./formato";
 
-export const ADJUNTAR_SOPORTE_LABEL = "Adjuntar soporte";
+const ADJUNTAR_SOPORTE_LABEL = "Adjuntar soporte";
 const ADJUNTAR_ERROR = "No pudimos adjuntar el medio. Inténtalo de nuevo.";
 
 export function HistorialAvances({

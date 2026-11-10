@@ -16,7 +16,7 @@ import type { AvanceMedioInput } from "@/hooks/projects";
 import { SelectorArchivo } from "@/components/proyectos/selector-archivo";
 
 /** Texto visible del botón en las cuatro superficies (S6): gasto, medios de verificación y mediciones. */
-export const ADJUNTAR_ARCHIVO_LABEL = "Adjuntar archivo";
+const ADJUNTAR_ARCHIVO_LABEL = "Adjuntar archivo";
 
 /**
  * Subconjunto de `UseMutationResult` que el control necesita. El caller acota las variables de su

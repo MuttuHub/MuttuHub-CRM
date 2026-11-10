@@ -44,7 +44,7 @@ import { esObservado } from "@/lib/proyectos/gastos";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { FiltroChip } from "@/components/proyectos/ficha/filtro-chip";
 
-export const ESTADO_GASTO_META: Record<ProjectExpenseEstado, { label: string; tone: UiTone }> = {
+const ESTADO_GASTO_META: Record<ProjectExpenseEstado, { label: string; tone: UiTone }> = {
   REGISTRADO: { label: "Registrado", tone: "info" },
   VALIDADO: { label: "Validado", tone: "exito" },
   RECHAZADO: { label: "Rechazado", tone: "destructivo" },

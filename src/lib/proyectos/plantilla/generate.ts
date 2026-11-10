@@ -24,9 +24,9 @@ import {
   UNIDADES_SUGERIDAS,
 } from "./columns"
 
-export type ObjetivoInput = { codigo: string; descripcion: string }
+type ObjetivoInput = { codigo: string; descripcion: string }
 
-export type ActividadInput = {
+type ActividadInput = {
   codigo: string
   objetivoCodigo: string
   nombre: string
@@ -35,7 +35,7 @@ export type ActividadInput = {
   responsable: string | null
 }
 
-export type EntregableInput = {
+type EntregableInput = {
   codigo: string
   actividadCodigo: string
   descripcion: string
@@ -43,7 +43,7 @@ export type EntregableInput = {
   unidad: string
 }
 
-export type IndicadorInput = {
+type IndicadorInput = {
   codigo: string
   objetivoCodigo: string
   nombre: string

@@ -165,7 +165,7 @@ export function FileDropzone({
 
 /* ── Input de etiquetas en chips (Enter o coma; dedupe; máx 8) ─────────── */
 
-export function EtiquetasInput({
+function EtiquetasInput({
   etiquetas,
   onChange,
 }: {

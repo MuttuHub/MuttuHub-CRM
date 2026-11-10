@@ -30,7 +30,7 @@ import { canManageProjects } from "@/lib/permissions";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { fechaDia } from "@/components/proyectos/ficha/historial/fechas";
 
-export const ATENCION_ERROR = "No pudimos cargar lo que requiere atención. Inténtalo de nuevo.";
+const ATENCION_ERROR = "No pudimos cargar lo que requiere atención. Inténtalo de nuevo.";
 const ATENCION_VACIO = "Nada pendiente por ahora.";
 const TITULO = "Qué falta";
 const AYUDA = "Lo que necesita una acción ahora. Cada fila te lleva al lugar exacto donde se resuelve.";

@@ -1,0 +1,37 @@
+{
+  "base": "http://localhost:3003",
+  "modo": "t8",
+  "generado": "2026-11-04T20:28:21.218Z",
+  "capturas": [
+    {
+      "nombre": "01-proyectos",
+      "vista": "escritorio",
+      "url": "http://localhost:3003/proyectos",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t8\\01-proyectos-escritorio.png",
+      "titulo": "Proyectos · Muttu Hub"
+    },
+    {
+      "nombre": "02-ficha-proyecto",
+      "vista": "escritorio",
+      "url": "http://localhost:3003/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t8\\02-ficha-proyecto-escritorio.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "03-nuevo-proyecto",
+      "vista": "escritorio",
+      "url": "http://localhost:3003/proyectos/nuevo",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t8\\03-nuevo-proyecto-escritorio.png",
+      "titulo": "Nuevo proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "04-reportes",
+      "vista": "escritorio",
+      "url": "http://localhost:3003/reportes",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t8\\04-reportes-escritorio.png",
+      "titulo": "Reportes · Muttu Hub"
+    }
+  ],
+  "dialogos": [],
+  "errores": []
+}

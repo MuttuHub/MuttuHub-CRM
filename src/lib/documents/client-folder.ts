@@ -30,7 +30,7 @@ export type FolderRow = Prisma.CarpetaGetPayload<{ select: typeof FOLDER_SELECT 
 /** Same limit the folder create/rename routes enforce. */
 const FOLDER_NAME_MAX = 120;
 
-export const FOLDER_NOT_FOUND_MESSAGE = "La carpeta no existe.";
+const FOLDER_NOT_FOUND_MESSAGE = "La carpeta no existe.";
 export const FOLDER_CLIENT_MISMATCH_MESSAGE =
   "El cliente indicado no coincide con el cliente de la carpeta.";
 export const CARPETA_ID_INVALID_MESSAGE = "carpeta_id debe ser el id de una carpeta.";

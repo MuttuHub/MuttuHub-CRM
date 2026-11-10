@@ -32,7 +32,7 @@ export const UMBRAL_SANA = 75
 export const UMBRAL_ATENCION = 45
 
 /** Score value of each live-project semáforo color. */
-export const VALOR_SEMAFORO: Record<ColorSemaforo, number> = {
+const VALOR_SEMAFORO: Record<ColorSemaforo, number> = {
   verde: 100,
   amarillo: 60,
   rojo: 20,

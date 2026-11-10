@@ -18,13 +18,13 @@ import {
   hasCommercialAccess,
 } from "@/lib/permissions";
 
-export const FULL_ACCESS_ROLES: readonly RolUsuario[] = [
+const FULL_ACCESS_ROLES: readonly RolUsuario[] = [
   "ADMINISTRADOR",
   "GERENCIA",
   "COORDINADOR",
 ];
 
-export function isFullAccess(rol: RolUsuario): boolean {
+function isFullAccess(rol: RolUsuario): boolean {
   return FULL_ACCESS_ROLES.includes(rol);
 }
 

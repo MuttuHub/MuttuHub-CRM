@@ -1,0 +1,81 @@
+{
+  "base": "http://localhost:3004",
+  "modo": "t5",
+  "generado": "2026-11-05T01:43:20.615Z",
+  "capturas": [
+    {
+      "nombre": "impresion-tareas",
+      "url": "/print/reportes/tareas",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t5c\\impresion-tareas.png",
+      "pdf": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t5c\\impresion-tareas.pdf"
+    },
+    {
+      "nombre": "impresion-semanal",
+      "url": "/print/reportes/semanal",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t5c\\impresion-semanal.png",
+      "pdf": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t5c\\impresion-semanal.pdf"
+    },
+    {
+      "nombre": "impresion-dash-tasks",
+      "url": "/print/dashboard/tasks",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t5c\\impresion-dash-tasks.png",
+      "pdf": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t5c\\impresion-dash-tasks.pdf"
+    },
+    {
+      "nombre": "impresion-dash-pipeline",
+      "url": "/print/dashboard/pipeline",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t5c\\impresion-dash-pipeline.png",
+      "pdf": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t5c\\impresion-dash-pipeline.pdf"
+    },
+    {
+      "nombre": "impresion-dash-clients-activity",
+      "url": "/print/dashboard/clients-activity",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t5c\\impresion-dash-clients-activity.png",
+      "pdf": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t5c\\impresion-dash-clients-activity.pdf"
+    },
+    {
+      "nombre": "impresion-dash-my-summary",
+      "url": "/print/dashboard/my-summary",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t5c\\impresion-dash-my-summary.png",
+      "pdf": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t5c\\impresion-dash-my-summary.pdf"
+    }
+  ],
+  "dialogos": [],
+  "errores": [
+    {
+      "nombre": "general",
+      "error": "TimeoutError: locator.click: Timeout 90000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByLabel('Correo corporativo')\u001b[22m\n"
+    },
+    {
+      "nombre": "general",
+      "error": "TimeoutError: locator.click: Timeout 90000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByLabel('Correo corporativo')\u001b[22m\n"
+    }
+  ],
+  "corridas": [
+    {
+      "modo": "t5",
+      "cuando": "2026-11-05T01:37:08.132Z",
+      "nuevas": 6
+    },
+    {
+      "modo": "t5",
+      "cuando": "2026-11-05T01:39:19.273Z",
+      "nuevas": 6
+    },
+    {
+      "modo": "t5",
+      "cuando": "2026-11-05T01:39:58.792Z",
+      "nuevas": 6
+    },
+    {
+      "modo": "t5",
+      "cuando": "2026-11-05T01:42:13.206Z",
+      "nuevas": 6
+    },
+    {
+      "modo": "t5",
+      "cuando": "2026-11-05T01:43:20.615Z",
+      "nuevas": 6
+    }
+  ]
+}

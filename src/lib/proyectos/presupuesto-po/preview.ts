@@ -11,7 +11,7 @@
 import type { BudgetView } from "@/lib/api/presupuesto"
 import { fromCents, sumCents, toCents, type Cents } from "../money"
 
-export type FilaVistaPrevia = {
+type FilaVistaPrevia = {
   rubro_id: string
   codigo: string | null
   nombre: string

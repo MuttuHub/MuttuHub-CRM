@@ -48,7 +48,7 @@ function fechaCorta(iso: string): string {
 }
 
 /** Distancia en puntos entre lo programado y lo real, a la fecha de corte. */
-export function fraseDesviacion(real: number, programado: number, corte: string): string {
+function fraseDesviacion(real: number, programado: number, corte: string): string {
   const puntos = Math.round((programado - real) * 10) / 10;
   const al = `al ${fechaCorta(corte)}.`;
   if (puntos === 0) return `Va igual a lo programado ${al}`;

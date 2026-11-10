@@ -75,13 +75,13 @@ function pad(value: number): string {
 }
 
 /** Fecha de calendario local `YYYY-MM-DD` (el contrato de las columnas `@db.Date`). */
-export function fechaDeHoy(): string {
+function fechaDeHoy(): string {
   const hoy = new Date();
   return `${hoy.getFullYear()}-${pad(hoy.getMonth() + 1)}-${pad(hoy.getDate())}`;
 }
 
 /** Suma meses de calendario en UTC para no desviar el día por la zona horaria. */
-export function fechaMasMeses(fecha: string, meses: number): string {
+function fechaMasMeses(fecha: string, meses: number): string {
   const [year, month, day] = fecha.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
   date.setUTCMonth(date.getUTCMonth() + meses);

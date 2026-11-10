@@ -12,7 +12,7 @@
 import ExcelJS from "exceljs"
 import { diferenciaRealPlanPp } from "./avance"
 
-export type ColorXlsx = "verde" | "amarillo" | "rojo"
+type ColorXlsx = "verde" | "amarillo" | "rojo"
 
 /** Headers that would expose expense-level detail (a third party or a support). */
 export const ENCABEZADOS_PROHIBIDOS = /tercero|soporte/i
@@ -54,7 +54,7 @@ const FORMATO_PCT = "0.0"
 // Payload shapes (structural: the JSON the routes answer)
 // ---------------------------------------------------------------------------
 
-export type KpisXlsx = {
+type KpisXlsx = {
   corte: string
   estado: string
   medible: boolean
@@ -86,7 +86,7 @@ export type FichaFinancieraXlsx = {
   total: FilaFinancieraXlsx
 }
 
-export type FilaFinancieraXlsx = {
+type FilaFinancieraXlsx = {
   codigo: string | null
   nombre: string
   asignado: string

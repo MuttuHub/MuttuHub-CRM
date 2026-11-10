@@ -1,0 +1,45 @@
+{
+  "base": "http://localhost:3002",
+  "modo": "t5",
+  "generado": "2026-11-04T20:25:33.843Z",
+  "capturas": [
+    {
+      "nombre": "impresion-tareas",
+      "url": "/print/reportes/tareas",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t5\\impresion-tareas.png",
+      "pdf": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t5\\impresion-tareas.pdf"
+    },
+    {
+      "nombre": "impresion-semanal",
+      "url": "/print/reportes/semanal",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t5\\impresion-semanal.png",
+      "pdf": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t5\\impresion-semanal.pdf"
+    },
+    {
+      "nombre": "impresion-dash-tasks",
+      "url": "/print/dashboard/tasks",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t5\\impresion-dash-tasks.png",
+      "pdf": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t5\\impresion-dash-tasks.pdf"
+    },
+    {
+      "nombre": "impresion-dash-pipeline",
+      "url": "/print/dashboard/pipeline",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t5\\impresion-dash-pipeline.png",
+      "pdf": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t5\\impresion-dash-pipeline.pdf"
+    },
+    {
+      "nombre": "impresion-dash-clients-activity",
+      "url": "/print/dashboard/clients-activity",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t5\\impresion-dash-clients-activity.png",
+      "pdf": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t5\\impresion-dash-clients-activity.pdf"
+    },
+    {
+      "nombre": "impresion-dash-my-summary",
+      "url": "/print/dashboard/my-summary",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t5\\impresion-dash-my-summary.png",
+      "pdf": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\t5\\impresion-dash-my-summary.pdf"
+    }
+  ],
+  "dialogos": [],
+  "errores": []
+}

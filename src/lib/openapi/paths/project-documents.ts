@@ -18,7 +18,7 @@ const READ_NOTE =
 const ProjectParams = z.object({ id: z.string().uuid() });
 const ProjectSupportParams = z.object({ id: z.string().uuid(), supportId: z.string().uuid() });
 
-export const DocumentoProyectoSchema = registry.register(
+const DocumentoProyectoSchema = registry.register(
   "DocumentoProyecto",
   z.object({
     id: z.string().uuid(),

@@ -215,7 +215,7 @@ export type ClientFormState = {
   etiquetas: string[];
 };
 
-export const EMPTY_CLIENT_STATE: ClientFormState = {
+const EMPTY_CLIENT_STATE: ClientFormState = {
   nombre: "",
   empresa: "",
   tamano_org: "",

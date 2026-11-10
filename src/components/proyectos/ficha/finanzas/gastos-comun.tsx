@@ -15,9 +15,9 @@ import { cn } from "@/lib/utils";
 
 export const SUPERA_ASIGNADO = "Supera lo asignado";
 /** Validating over the rubro stays blocked (open PO question 1): the help says so instead of «Puedes validarlo igual». */
-export const AYUDA_SUPERA =
+const AYUDA_SUPERA =
   "Este gasto deja el rubro por encima de lo asignado. Por ahora no se puede validar: recházalo o pide un traslado entre rubros.";
-export const AYUDA_CUENTA_EN = "El gasto cuenta en un mes distinto al de la fecha de su documento.";
+const AYUDA_CUENTA_EN = "El gasto cuenta en un mes distinto al de la fecha de su documento.";
 export const AYUDA_DISPONIBLE = "Lo asignado al rubro menos lo ya ejecutado y validado.";
 
 export function nombreRubro(rubro: { codigo: string | null; nombre: string }): string {

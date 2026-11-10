@@ -47,7 +47,7 @@ const TECNICO_ERROR = "No pudimos cargar el semáforo técnico. Inténtalo de nu
 const ACTIVIDADES_ERROR = "No pudimos cargar las actividades. Inténtalo de nuevo.";
 const CURVA_ERROR = "No pudimos cargar la curva S. Inténtalo de nuevo.";
 
-export const EJECUCION_BORRADOR_HINT =
+const EJECUCION_BORRADOR_HINT =
   "La ejecución técnica estará disponible cuando el proyecto tenga su línea base aprobada.";
 
 /**
@@ -235,7 +235,7 @@ export function useEjecucionPermisos(proyectoId: string): {
  * Progress of every deliverable by id, one query each (`useQueries`), for as long as the caller is mounted.
  * Shared by the execution Lista and the header's «Registrar avance» dialog (same keys: no double fetch).
  */
-export function useProgresoEntregables(
+function useProgresoEntregables(
   proyectoId: string,
   deliverables: { id: string }[],
 ): Map<string, ProjectDeliverableProgress> {
@@ -510,7 +510,7 @@ const pct = (value: number): string => `${nf.format(value)} %`;
 const pp = (value: number): string => `${value > 0 ? "+" : ""}${nf.format(value)} puntos`;
 
 /** Days from the corte (the server's "today") to the project end, never negative. */
-export function diasRestantes(corte: string, fechaFin: string | null): number | null {
+function diasRestantes(corte: string, fechaFin: string | null): number | null {
   if (!fechaFin) return null;
   const dia = 24 * 60 * 60 * 1000;
   const diff = (Date.parse(`${fechaFin.slice(0, 10)}T00:00:00Z`) - Date.parse(`${corte.slice(0, 10)}T00:00:00Z`)) / dia;

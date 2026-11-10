@@ -50,7 +50,7 @@ export const ALLOWED_FILE_EXTENSIONS = new Set([
   "png",
 ]);
 
-export const ALLOWED_FILE_MIME = new Set([
+const ALLOWED_FILE_MIME = new Set([
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -61,7 +61,7 @@ export const ALLOWED_FILE_MIME = new Set([
 
 export const STORAGE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "muttu-docs";
 
-export const MAX_SANITIZED_FILENAME_LENGTH = 120;
+const MAX_SANITIZED_FILENAME_LENGTH = 120;
 
 /**
  * Nombre de archivo seguro para keys de storage y entradas de zip: elimina
@@ -111,7 +111,7 @@ export function isAllowedNameAndMime(
 }
 
 /** Longest external link (medio de verificación) the module stores. */
-export const MAX_EXTERNAL_URL_LENGTH = 2000;
+const MAX_EXTERNAL_URL_LENGTH = 2000;
 
 /**
  * True for an `https:` link the module may store as an external medio: at most

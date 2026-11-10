@@ -34,10 +34,10 @@ import { projectPeriods } from "@/lib/proyectos/weeks";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const FICHA_ERROR = "No pudimos cargar la ficha financiera. Inténtalo de nuevo.";
-export const SIN_GASTOS_NOTE = "Ejecución disponible cuando se registren gastos";
-export const ALERTA_RETRASO_TEXT =
+const SIN_GASTOS_NOTE = "Ejecución disponible cuando se registren gastos";
+const ALERTA_RETRASO_TEXT =
   "Posible retraso: se ha gastado poco frente a lo programado y el avance técnico también va atrasado.";
-export const VER_DETALLE = "Ver detalle con diferencias y límites de cada color";
+const VER_DETALLE = "Ver detalle con diferencias y límites de cada color";
 
 type Navegacion = {
   /** «Ver actividades» in the possible-delay notice: switches the ficha to Actividades. */

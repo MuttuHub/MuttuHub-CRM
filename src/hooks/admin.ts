@@ -27,7 +27,7 @@ export type SettingsSnapshot = {
   doc_categories: DocCategoriaSetting[];
 };
 
-export type AccesoRow = {
+type AccesoRow = {
   id: string;
   created_at: string;
   ip: string | null;
@@ -35,7 +35,7 @@ export type AccesoRow = {
   usuario: { email: string; nombre: string };
 };
 
-export type AccesosResponse = {
+type AccesosResponse = {
   accesos: AccesoRow[];
   next_before: string | null;
 };
@@ -58,7 +58,7 @@ export type AuditoriaRow = {
   usuario: { email: string; nombre: string };
 };
 
-export type AuditoriaResponse = {
+type AuditoriaResponse = {
   registros: AuditoriaRow[];
   next_before: string | null;
 };

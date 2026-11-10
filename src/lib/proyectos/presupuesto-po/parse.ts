@@ -14,7 +14,7 @@ import { sumCents, toCents, type Cents } from "../money"
 
 export type RubroCatalogo = { id: string; codigo: string | null; nombre: string }
 
-export type FilaPresupuestoPO = {
+type FilaPresupuestoPO = {
   /** Excel row number (1-based). */
   fila: number
   /** The rubro name as written in the file. */
@@ -42,7 +42,7 @@ const MAX_COLUMNAS = 20
 const MONTO_MAXIMO_CENTS = toCents("9999999999999.99")
 
 export const ARCHIVO_ILEGIBLE = "El archivo no es un archivo de Excel válido."
-export const SIN_ENCABEZADOS =
+const SIN_ENCABEZADOS =
   "No encontramos las columnas «Rubro» y «Valor (COP)». Usa la plantilla: la primera fila con datos debe tener esos dos encabezados."
 
 const ZERO = toCents("0")

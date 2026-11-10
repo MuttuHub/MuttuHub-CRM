@@ -80,7 +80,7 @@ export const PROJECT_AUDIT_ORDER_BY = [
 ];
 
 /** `where` of the history read: the project the caller may read. */
-export function projectAuditWhere(proyectoId: string): Prisma.AuditoriaCambioWhereInput {
+function projectAuditWhere(proyectoId: string): Prisma.AuditoriaCambioWhereInput {
   return { proyecto_id: proyectoId };
 }
 
@@ -108,7 +108,7 @@ export function toProjectAuditEntry(
  * omits any id that no longer has a `usuario` row, which is what makes the
  * "no fabricated name" fallback possible at the mapper's call site.
  */
-export async function resolveProjectAuditActors(
+async function resolveProjectAuditActors(
   rows: readonly Pick<ProjectAuditRow, "usuario_id">[],
 ): Promise<Map<string, string>> {
   const ids = [...new Set(rows.map((row) => row.usuario_id))];

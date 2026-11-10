@@ -18,8 +18,8 @@ import { useRejectExpense, useValidateExpense } from "@/hooks/projects";
 export const PROPIO_TEXT = "Tú lo registraste";
 export const SIN_PERMISO_VALIDAR =
   "No tienes permisos para validar gastos. Solo Gerencia o Administración pueden validarlos mientras el proyecto está en ejecución.";
-export const SIN_SOPORTE_HINT = "Adjunta un soporte para poder validarlo.";
-export const INCOMPLETO_HINT = "Completa el tipo y número de identificación del tercero antes de validar.";
+const SIN_SOPORTE_HINT = "Adjunta un soporte para poder validarlo.";
+const INCOMPLETO_HINT = "Completa el tipo y número de identificación del tercero antes de validar.";
 
 /** Rechazo en línea: un botón que revela un motivo obligatorio y confirma. */
 function RejectControl({
@@ -73,10 +73,10 @@ function RejectControl({
   );
 }
 
-export const SUPERA_HINT = "Este gasto supera lo asignado al rubro: por ahora no se puede validar.";
-export const MOTIVO_VACIO = "El motivo no puede estar vacío.";
-export const MOTIVO_LARGO = "El motivo es demasiado largo.";
-export const MOTIVO_MAX = 500;
+const SUPERA_HINT = "Este gasto supera lo asignado al rubro: por ahora no se puede validar.";
+const MOTIVO_VACIO = "El motivo no puede estar vacío.";
+const MOTIVO_LARGO = "El motivo es demasiado largo.";
+const MOTIVO_MAX = 500;
 
 /**
  * Actions of the «Validar gasto» panel (redesign T3): the motivo is always visible, «Validar gasto» is disabled with

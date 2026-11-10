@@ -30,7 +30,7 @@ export const CLIENTES_SECTIONS: readonly ClientesSection[] = [
 ];
 
 /** Exact match: `/clientes` must not stay active on `/clientes/oportunidades`. */
-export function clientesSectionActive(pathname: string, href: string): boolean {
+function clientesSectionActive(pathname: string, href: string): boolean {
   return pathname === href;
 }
 

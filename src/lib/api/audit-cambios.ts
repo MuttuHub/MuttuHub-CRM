@@ -41,8 +41,6 @@ export const AUDIT_ENTIDADES_V2 = [
   "parametro",
 ] as const
 
-export type AuditEntidadV2 = (typeof AUDIT_ENTIDADES_V2)[number]
-
 export type CambioInput = {
   usuario_id: string
   accion: AccionAuditoria

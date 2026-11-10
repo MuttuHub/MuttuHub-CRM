@@ -18,7 +18,7 @@ const WRITE_NOTE =
   "siempre mientras el proyecto está en `BORRADOR` (404 -> 403 -> 409 INVALID_STATE -> 400); " +
   "el estado se vuelve a comprobar bajo bloqueo de fila dentro de la transacción. Ninguna ruta cambia el estado del proyecto.";
 
-export const BudgetViewSchema = registry.register(
+const BudgetViewSchema = registry.register(
   "PresupuestoProyecto",
   z.object({
     estado: z.string(),
@@ -39,7 +39,7 @@ export const BudgetViewSchema = registry.register(
   }),
 );
 
-export const ProgrammingViewSchema = registry.register(
+const ProgrammingViewSchema = registry.register(
   "ProgramacionProyecto",
   z.object({
     estado: z.string(),
@@ -138,7 +138,7 @@ const FichaRowSchema = z.object({
   color: z.enum(["verde", "amarillo", "rojo"]).nullable().openapi({ description: "Nulo mientras `ejecucion_disponible` es false." }),
 });
 
-export const FinancialSheetSchema = registry.register(
+const FinancialSheetSchema = registry.register(
   "FichaFinanciera",
   z.object({
     base: z.enum(["vigente", "original"]),

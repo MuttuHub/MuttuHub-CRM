@@ -8,7 +8,7 @@
 
 import type { RolUsuario } from "@prisma/client";
 
-export const MANAGE_ANY_ROLES: readonly RolUsuario[] = [
+const MANAGE_ANY_ROLES: readonly RolUsuario[] = [
   "ADMINISTRADOR",
   "GERENCIA",
   "COORDINADOR",
@@ -73,7 +73,7 @@ export function canManageOpportunity(
  * granting them project-level write authority through that shared list would
  * be wrong.
  */
-export const PROJECT_MANAGER_ROLES: readonly RolUsuario[] = [
+const PROJECT_MANAGER_ROLES: readonly RolUsuario[] = [
   "ADMINISTRADOR",
   "GERENCIA",
 ]
@@ -93,7 +93,7 @@ export const PROJECT_MEMBER_ROLES: readonly RolUsuario[] = [
  * every role; the creation routes make the creator the responsable and a
  * member, which is what keeps the new project visible to them.
  */
-export const PROJECT_CREATE_ROLES: readonly RolUsuario[] = [
+const PROJECT_CREATE_ROLES: readonly RolUsuario[] = [
   "ADMINISTRADOR",
   "GERENCIA",
   "COORDINADOR",
@@ -132,7 +132,7 @@ export function canCreateProject(actor: PermissionActor): boolean {
  * is deliberately absent: it is a read axis and never grants work inside a
  * project.
  */
-export function canAccessProject(actor: ProjectMembershipActor): boolean {
+function canAccessProject(actor: ProjectMembershipActor): boolean {
   return (
     canManageProjects(actor) ||
     (PROJECT_MEMBER_ROLES.includes(actor.rol) && actor.es_miembro)

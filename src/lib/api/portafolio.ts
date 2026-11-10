@@ -17,7 +17,7 @@ export const PORTAFOLIO_FORBIDDEN_MESSAGE = "No tienes permisos para ver el tabl
 
 const ESTADOS = Object.values(EstadoProyecto);
 
-export const PORTAFOLIO_SELECT = {
+const PORTAFOLIO_SELECT = {
   id: true,
   codigo: true,
   nombre: true,
@@ -31,7 +31,7 @@ export const PORTAFOLIO_SELECT = {
 } as const;
 
 /** Filters of E-28; an unknown `estado` is a 400 instead of an empty portfolio. */
-export function parsePortafolioFilters(url: URL): { ok: true; filters: ProjectListFilters } | { ok: false; response: Response } {
+function parsePortafolioFilters(url: URL): { ok: true; filters: ProjectListFilters } | { ok: false; response: Response } {
   const sp = url.searchParams;
   const estado = sp.get("estado") ?? undefined;
   if (estado && !ESTADOS.includes(estado as EstadoProyecto)) {

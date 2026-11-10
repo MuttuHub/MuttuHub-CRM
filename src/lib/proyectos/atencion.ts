@@ -20,7 +20,7 @@ import type { MedicionInput } from "./kpis"
 import type { IsoDate } from "./weeks"
 
 /** Stable discriminator of an attention item; the UI keys its rendering by this value. */
-export const ATENCION_TIPOS = [
+const ATENCION_TIPOS = [
   "alerta_retraso",
   "rubro_sobreejecucion",
   "actividad_atrasada",

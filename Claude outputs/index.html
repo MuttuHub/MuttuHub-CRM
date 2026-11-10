@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prototipos para probar · Muttu Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--rose-50:#FCF1F5;--rose-100:#F9DFE9;--rose-500:#CD1560;--rose-600:#B41153;--rose-800:#720B35;--ink-100:#F7F3F4;--ink-200:#ECE5E7;--ink-300:#DDD2D5;--ink-600:#725D62;--ink-800:#3F2F33;--ink-900:#281D20;--ink-950:#191113;--ok:#127C4A;--ok-bg:#E6F4EC;--warn:#B45309;--warn-bg:#FBF0E1;--info:#1E5FA8;--info-bg:#EAF1FA}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;background:#F3EDEF;color:var(--ink-900);font-family:'Instrument Sans',system-ui,sans-serif;font-size:15px;line-height:1.5}
+.wrap{max-width:980px;margin:0 auto;padding:32px 16px 64px;display:flex;flex-direction:column;gap:18px}
+h1,h2,h3{font-family:'Bricolage Grotesque','Instrument Sans',sans-serif;margin:0;letter-spacing:-.02em}
+h1{font-size:34px;font-weight:800;line-height:1.05}
+.lead{margin:6px 0 0;color:var(--ink-600);max-width:70ch}
+.rule{background:var(--rose-50);border:1px solid var(--rose-100);border-left:4px solid var(--rose-500);border-radius:6px 16px 16px 6px;padding:12px 16px}
+.rule b{color:var(--rose-800)}
+.card{background:#fff;border:1px solid var(--ink-200);border-radius:22px;padding:20px 22px;display:flex;flex-direction:column;gap:12px}
+.top{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:flex-start}
+.top h2{font-size:21px}
+.top p{margin:4px 0 0;color:var(--ink-600);font-size:14px}
+.open{display:inline-flex;align-items:center;height:40px;padding:0 16px;border-radius:12px;background:var(--rose-500);color:#fff;font-weight:700;text-decoration:none;white-space:nowrap}
+.open:hover{background:var(--rose-600)}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{font-size:12.5px;font-weight:600;border-radius:999px;padding:2px 10px}
+.t-ok{background:var(--ok-bg);color:var(--ok)}.t-warn{background:var(--warn-bg);color:var(--warn)}.t-info{background:var(--info-bg);color:var(--info)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+h3{font-size:15px;margin-bottom:6px}
+ol,ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:5px;font-size:14px}
+label{display:flex;gap:8px;align-items:flex-start}
+input[type=checkbox]{accent-color:var(--rose-500);width:16px;height:16px;margin-top:3px;flex:none}
+.note{font-size:13px;color:var(--ink-600)}
+code{font-size:13px;background:var(--ink-100);padding:1px 5px;border-radius:5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Prototipos para probar · Muttu Hub</h1>
+    <p class="lead">Tres prototipos con datos ficticios. Ábrelos en el navegador (Chrome o Edge), recórrelos con la PO o con gerencia y marca lo que quede validado. Cada uno trae sus «Notas de diseño».</p>
+  </header>
+
+  <div class="rule"><b>Prioridad: el backlog va primero.</b> Estos prototipos se prueban en paralelo, pero no se construyen como pantallas nuevas hasta cerrar las Fases 0 a 3 del plan. Mientras tanto sirven de referencia: cada PR del backlog que toque una de estas pantallas se hace como se ve aquí. Plan completo: <code>docs/pendientes/plan-trabajo-ux-crm.md</code>.</div>
+
+  <section class="card">
+    <div class="top"><div><h2>1 · Proyectos v2</h2><p>Portafolio, asistente de nuevo proyecto, ficha y flujos de registro, con todas las reglas de la PO (AJ-01 a AJ-06, B7, línea base).</p></div><a class="open" href="proyectos-v2-prototipo.html">Abrir prototipo</a></div>
+    <div class="tags"><span class="tag t-ok">Cubre U1–U21, BL#7, 9, 10, 13, 16 y 27</span><span class="tag t-info">Con la variante U22 (hitos)</span><span class="tag t-warn">Para la PO</span></div>
+    <div class="cols">
+      <div><h3>Qué probar</h3><ul>
+        <li><label><input type="checkbox">Como <b>Coordinadora</b>: «Registrar avance» en «Mesas de concertación» con 50 % y con 95 %; los mensajes deben ser los de la PO.</label></li>
+        <li><label><input type="checkbox">Registrar un gasto sin llenar nada: cada campo muestra su error; el Total se calcula solo; el periodo sale de la fecha.</label></li>
+        <li><label><input type="checkbox">Como <b>Gerencia</b>, en Finanzas › Gastos: solo se puede validar uno; los otros dicen por qué no.</label></li>
+        <li><label><input type="checkbox">Borrador PRY-2026-007: corregir los 4 requisitos desde «Corregir aquí» y aprobar la línea base.</label></li>
+        <li><label><input type="checkbox">Cambiar el estado a Suspendido (barra de arriba o «Más › Cambiar estado»): todo queda congelado.</label></li>
+        <li><label><input type="checkbox">Activar «U22 hitos» y ver el avance calculado por hitos.</label></li>
+      </ul></div>
+      <div><h3>Qué decidir</h3><ul>
+        <li><label><input type="checkbox">D-G7: ¿se aprueba el avance por hitos (U22)?</label></li>
+        <li><label><input type="checkbox">D-G11: ¿entra «Lo que te toca esta semana» en el portafolio?</label></li>
+        <li><label><input type="checkbox">D-G12: ¿entra «Avisar a Gerencia» cuando un borrador queda listo?</label></li>
+        <li><label><input type="checkbox">¿Los textos nuevos («Estructura», «Plan original», «Falta por programar») son claros para el equipo?</label></li>
+      </ul></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="top"><div><h2>2 · Reportes v2</h2><p>Flujo de 4 pasos (elegir, ajustar, revisar, descargar o programar) y la propuesta de pasar de 6 secciones a 4 informes.</p></div><a class="open" href="reportes-v2-prototipo.html">Abrir prototipo</a></div>
+    <div class="tags"><span class="tag t-ok">Cubre N2, N8, BL#3, R1–R8</span><span class="tag t-warn">Para gerencia</span></div>
+    <div class="cols">
+      <div><h3>Qué probar</h3><ul>
+        <li><label><input type="checkbox">Cambiar «Ver como» y comprobar que cada rol entra a su informe (Gerencia → Semanal, Coordinación → Equipo, Colaborador → Mi semana).</label></li>
+        <li><label><input type="checkbox">Alternar «Propuesta · 4 informes» y «Actual · 6 secciones»; ver los bloques repetidos marcados.</label></li>
+        <li><label><input type="checkbox">En Equipo, filtrar por un responsable: la tabla y los indicadores se recalculan.</label></li>
+        <li><label><input type="checkbox">«Descargar PDF»: elegir qué incluir y si es interno o para un aliado.</label></li>
+        <li><label><input type="checkbox">«Programar envío» del Semanal cada lunes.</label></li>
+      </ul></div>
+      <div><h3>Qué decidir</h3><ul>
+        <li><label><input type="checkbox">D-G10: ¿se pasa de 6 secciones a 4 informes (Mi semana, Equipo, Comercial, Semanal)?</label></li>
+        <li><label><input type="checkbox">D-G8: destinatarios y frecuencia de los envíos programados.</label></li>
+        <li><label><input type="checkbox">D-G9: ¿hace falta la versión «Para un aliado»?</label></li>
+      </ul></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="top"><div><h2>3 · Informes PDF</h2><p>Los 5 informes en hojas carta vertical: cabecera, «Lo esencial», indicadores con comparación, gráficos con valores y pie con página.</p></div><a class="open" href="informes-pdf-reportes.html">Abrir informes</a></div>
+    <div class="tags"><span class="tag t-ok">Cubre R9 y R10</span><span class="tag t-warn">Para gerencia</span></div>
+    <div class="cols">
+      <div><h3>Qué probar</h3><ul>
+        <li><label><input type="checkbox">Imprimir (Ctrl+P) con «Gráficos de fondo» apagado: cada hoja sale en una página carta y se lee bien.</label></li>
+        <li><label><input type="checkbox">Imprimir en blanco y negro: todo se entiende sin color.</label></li>
+        <li><label><input type="checkbox">Leer solo «Lo esencial» del Semanal: ¿alcanza para decidir?</label></li>
+      </ul></div>
+      <div><h3>Qué decidir</h3><ul>
+        <li><label><input type="checkbox">D-G8: ¿se aprueba el formato común? ¿Las frases de «Lo esencial» las arma el sistema?</label></li>
+        <li><label><input type="checkbox">Si D-G10 aprueba 4 informes, los PDF se reducen a esos 4.</label></li>
+      </ul></div>
+    </div>
+  </section>
+
+  <p class="note">Las casillas no se guardan: anota las decisiones en la sección 4 del plan, con fecha y quién decidió. Los tres prototipos también están en el proyecto de diseño Muttu Hub (Claude Design).</p>
+</div>
+</body>
+</html>

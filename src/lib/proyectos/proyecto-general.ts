@@ -21,7 +21,7 @@ export type LineaInput = { id: string; principal?: boolean };
 /** Discriminated result so a caller can surface `message` as the 400 copy. */
 export type ValidacionLineas = { ok: true } | { ok: false; message: string };
 
-export const VALIDAR_LINEAS_MESSAGES = {
+const VALIDAR_LINEAS_MESSAGES = {
   empty: "Selecciona al menos una línea estratégica.",
   missingPrincipal: "Marca una línea estratégica como principal.",
   manyPrincipals: "Solo una línea estratégica puede ser la principal.",

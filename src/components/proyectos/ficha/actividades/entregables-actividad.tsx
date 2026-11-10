@@ -32,7 +32,7 @@ import { AYUDA_ENTREGABLES, ENLACE_ACCION, formatNumero } from "./formato";
 const ADJUNTAR_MEDIO_ERROR = "No pudimos adjuntar el medio. Inténtalo de nuevo.";
 
 /** Counted quantity of one entregable: the live quantities the API says count (with soporte when required). */
-export function contadoDe(avances: ProjectAvance[]): number {
+function contadoDe(avances: ProjectAvance[]): number {
   return avances.filter((avance) => avance.cuenta).reduce((sum, avance) => sum + Number(avance.cantidad), 0);
 }
 

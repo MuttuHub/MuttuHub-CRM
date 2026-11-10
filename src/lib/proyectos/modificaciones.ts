@@ -28,7 +28,7 @@ export type DetalleItem = {
   despues: string
 }
 
-export type ErrorReglaCodigo =
+type ErrorReglaCodigo =
   | "TRASLADO_CAMBIA_TOTAL"
   | "ADICION_NO_AUMENTA"
   | "REDUCCION_NO_DISMINUYE"

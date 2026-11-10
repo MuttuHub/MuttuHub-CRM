@@ -1,0 +1,233 @@
+{
+  "base": "http://localhost:3000",
+  "modo": "ux",
+  "generado": "2026-11-06T05:11:44.189Z",
+  "capturas": [
+    {
+      "nombre": "01-portafolio",
+      "vista": "escritorio",
+      "url": "http://localhost:3000/proyectos",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\01-portafolio-escritorio.png",
+      "titulo": "Proyectos · Muttu Hub"
+    },
+    {
+      "nombre": "01-portafolio",
+      "vista": "movil",
+      "url": "http://localhost:3000/proyectos",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\01-portafolio-movil.png",
+      "titulo": "Proyectos · Muttu Hub"
+    },
+    {
+      "nombre": "02-tablero-portafolio",
+      "vista": "escritorio",
+      "url": "http://localhost:3000/proyectos?vista=tablero",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\02-tablero-portafolio-escritorio.png",
+      "titulo": "Proyectos · Muttu Hub"
+    },
+    {
+      "nombre": "02-tablero-portafolio",
+      "vista": "movil",
+      "url": "http://localhost:3000/proyectos?vista=tablero",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\02-tablero-portafolio-movil.png",
+      "titulo": "Proyectos · Muttu Hub"
+    },
+    {
+      "nombre": "03-nuevo-proyecto",
+      "vista": "escritorio",
+      "url": "http://localhost:3000/proyectos/nuevo",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\03-nuevo-proyecto-escritorio.png",
+      "titulo": "Nuevo proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "03-nuevo-proyecto",
+      "vista": "movil",
+      "url": "http://localhost:3000/proyectos/nuevo",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\03-nuevo-proyecto-movil.png",
+      "titulo": "Nuevo proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "10-ficha-resumen",
+      "vista": "escritorio",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\10-ficha-resumen-escritorio.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "10-ficha-resumen",
+      "vista": "movil",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\10-ficha-resumen-movil.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "11-actividades-lista",
+      "vista": "escritorio",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\11-actividades-lista-escritorio.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "11-actividades-lista",
+      "vista": "movil",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\11-actividades-lista-movil.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "12-actividades-gantt",
+      "vista": "escritorio",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\12-actividades-gantt-escritorio.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "12-actividades-gantt",
+      "vista": "movil",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\12-actividades-gantt-movil.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "13-actividades-tablero",
+      "vista": "escritorio",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\13-actividades-tablero-escritorio.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "13-actividades-tablero",
+      "vista": "movil",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\13-actividades-tablero-movil.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "14-registrar-avance",
+      "vista": "escritorio",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\14-registrar-avance-escritorio.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "14-registrar-avance",
+      "vista": "movil",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\14-registrar-avance-movil.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "20-finanzas-resumen",
+      "vista": "escritorio",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\20-finanzas-resumen-escritorio.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "20-finanzas-resumen",
+      "vista": "movil",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\20-finanzas-resumen-movil.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "21-finanzas-gastos",
+      "vista": "escritorio",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\21-finanzas-gastos-escritorio.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "21-finanzas-gastos",
+      "vista": "movil",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\21-finanzas-gastos-movil.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "22-registrar-gasto",
+      "vista": "escritorio",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\22-registrar-gasto-escritorio.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "22-registrar-gasto",
+      "vista": "movil",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\22-registrar-gasto-movil.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "23-finanzas-presupuesto",
+      "vista": "escritorio",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\23-finanzas-presupuesto-escritorio.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "23-finanzas-presupuesto",
+      "vista": "movil",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\23-finanzas-presupuesto-movil.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "30-documentos",
+      "vista": "escritorio",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\30-documentos-escritorio.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "30-documentos",
+      "vista": "movil",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\30-documentos-movil.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "40-historial-modificaciones",
+      "vista": "escritorio",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\40-historial-modificaciones-escritorio.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "40-historial-modificaciones",
+      "vista": "movil",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\40-historial-modificaciones-movil.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "41-historial-versiones",
+      "vista": "movil",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\41-historial-versiones-movil.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "42-historial-auditoria",
+      "vista": "escritorio",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\42-historial-auditoria-escritorio.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "42-historial-auditoria",
+      "vista": "movil",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "docs\\ux-crm-2026-11\\capturas\\ux-proyectos\\coordinador\\42-historial-auditoria-movil.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    }
+  ],
+  "dialogos": [],
+  "errores": [
+    {
+      "nombre": "41-historial-versiones",
+      "vista": "escritorio",
+      "url": "/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "error": "TimeoutError: locator.click: Timeout 90000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('tab', { name: /^Historial/ }).last()\u001b[22m\n"
+    }
+  ]
+}

@@ -28,7 +28,7 @@ import {
   type ProjectListRow,
 } from "@/hooks/projects";
 
-export const SIN_FECHAS_HINT = "Define las fechas del proyecto antes de crear actividades.";
+const SIN_FECHAS_HINT = "Define las fechas del proyecto antes de crear actividades.";
 const SIN_RESPONSABLE = "none";
 
 function formatPeso(peso: number): string {
@@ -135,7 +135,7 @@ export function EstructuraActividades({
  * Resumen de solo lectura de una actividad (código, nombre, semanas, fechas derivadas, peso y avisos).
  * Lo comparten el árbol de la estructura (con `actions`) y el Cronograma (sin acciones).
  */
-export function ActivitySummary({
+function ActivitySummary({
   actividad,
   responsable,
   actions,
