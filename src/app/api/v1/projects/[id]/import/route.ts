@@ -13,6 +13,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { apiError } from "@/lib/api/errors";
+import { MODO_INVALIDO_MESSAGE, leerModoImport } from "@/lib/api/import-modo";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/supabase/server";
@@ -78,8 +79,9 @@ export const POST = withApiErrorHandling(
       return apiError("Solo se acepta la plantilla en formato Excel (.xlsx).", 400, "VALIDATION_ERROR");
     }
 
-    const soloValidar =
-      form.get("modo") === "validar" || new URL(request.url).searchParams.get("dry_run") === "1";
+    const modo = leerModoImport(form.get("modo"));
+    if (modo === null) return apiError(MODO_INVALIDO_MESSAGE, 400, "VALIDATION_ERROR");
+    const soloValidar = modo === "validar" || new URL(request.url).searchParams.get("dry_run") === "1";
 
     const buffer = Buffer.from(await archivo.arrayBuffer());
     if (!(await inspeccionarZip(buffer))) {

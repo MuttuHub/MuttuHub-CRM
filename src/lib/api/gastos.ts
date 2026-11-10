@@ -60,12 +60,15 @@ const TODOS_LOS_ESTADOS: EstadoGasto[] = ["REGISTRADO", "VALIDADO", "RECHAZADO",
 // Body schemas
 // ---------------------------------------------------------------------------
 
-const texto = (etiqueta: string, max: number) =>
-  z
-    .string({ error: `${etiqueta} es obligatorio.` })
+/** `genero` keeps the Spanish agreement right: «El nombre … es obligatorio» / «La descripción … es obligatoria». */
+const texto = (etiqueta: string, max: number, genero: "m" | "f" = "m") => {
+  const terminacion = genero === "f" ? "a" : "o";
+  return z
+    .string({ error: `${etiqueta} es obligatori${terminacion}.` })
     .trim()
-    .min(1, `${etiqueta} es obligatorio.`)
-    .max(max, `${etiqueta} es demasiado largo.`);
+    .min(1, `${etiqueta} es obligatori${terminacion}.`)
+    .max(max, `${etiqueta} es demasiado larg${terminacion}.`);
+};
 
 const fechaField = z
   .string({ error: "La fecha del documento es obligatoria." })
@@ -96,7 +99,7 @@ const GASTO_FIELDS = {
     .max(40, "El número de identificación es demasiado largo.")
     .nullable(),
   numero_documento: texto("El número de documento", 100),
-  descripcion: texto("La descripción", 1000),
+  descripcion: texto("La descripción", 1000, "f"),
   subtotal: z.union([z.string(), z.number()], { error: "Ingresa un subtotal válido." }),
   iva: z.union([z.string(), z.number()], { error: "Ingresa un IVA válido (puede ser 0)." }),
 };

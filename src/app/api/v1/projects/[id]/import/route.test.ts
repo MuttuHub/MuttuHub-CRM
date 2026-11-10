@@ -282,3 +282,15 @@ describe("POST /projects/:id/import — apply", () => {
     expect((await response.json()).code).toBe("INTERNAL_ERROR");
   });
 });
+
+describe("modo (X2)", () => {
+  it("rejects an unknown modo with 400 and writes nothing", async () => {
+    const res = await POST(subida(valido, { modo: "aplicarr" }), ctx);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      code: "VALIDATION_ERROR",
+      error: "El modo debe ser «validar» o «aplicar».",
+    });
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+});

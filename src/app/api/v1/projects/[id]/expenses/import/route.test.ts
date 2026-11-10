@@ -397,3 +397,15 @@ describe("POST expenses/import — apply", () => {
     expect(mocks.create).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("modo (X2)", () => {
+  it("rejects an unknown modo with 400 and writes nothing", async () => {
+    const res = await POST(subida(await libro([fila()]), { modo: "aplicarr" }), ctx);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      code: "VALIDATION_ERROR",
+      error: "El modo debe ser «validar» o «aplicar».",
+    });
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+});
