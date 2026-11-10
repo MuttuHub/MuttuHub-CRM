@@ -56,11 +56,10 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      # L1 of docs/plan-limpieza-codigo.md: knip publishes the dead-code baseline
-      # in the job log. Non-blocking on purpose — L2 turns it into a gate once
-      # the list it reports is empty.
-      - name: Dead-code report (knip, non-blocking)
-        continue-on-error: true
+      # L2 of docs/plan-limpieza-codigo.md: knip is a gate now that its list is
+      # empty. Anything it reports from here on is dead code that reached the
+      # branch, and the job fails so it gets pruned in the PR that added it.
+      - name: Dead code (knip)
         run: npm run lint:dead
 
       # The invariant files open a live connection and run DDL/DML. Two of them

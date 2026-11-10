@@ -20,7 +20,9 @@ export function canManageAny(rol: RolUsuario): boolean {
 }
 
 /** Alias explícito: quién puede leer documentos de categorías restringidas. Mismo valor que canManageAny, otro concepto — no fusionar. */
-export const canReadRestrictedDocs = canManageAny;
+export function canReadRestrictedDocs(rol: RolUsuario): boolean {
+  return canManageAny(rol);
+}
 
 export type PermissionActor = { id: string; rol: RolUsuario };
 

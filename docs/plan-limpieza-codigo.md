@@ -117,3 +117,22 @@ aparecía en `/mnt/c` no aparece acá.
 
 Conclusión operativa: la suite completa se corre desde un checkout en ext4; en `/mnt/c` se corre por archivo afectado.
 El clon en `/mnt/c` conserva la edición y el repo; el checkout en ext4 conserva las dependencias instaladas.
+
+## L2 · Dependencias y candado (2026-11-10)
+
+knip señalaba tres dependencias sin usar. **Dos no estaban muertas**, y borrarlas habría roto la app:
+
+- `pg` es peer de `@prisma/adapter-pg`, que `src/lib/db.ts:10` instancia con `PrismaPg`. knip no sigue ese salto.
+- `tw-animate-css` y `tailwindcss` se consumen desde CSS, no desde JS: `src/app/globals.css:1-2` los importa. knip solo
+  lee el grafo de módulos.
+
+Los tres quedan en `ignoreDependencies`, con este documento como respaldo. `shadcn` es la CLI de componentes y sigue
+como dependencia: sacarla exige regenerar `package-lock.json` y este entorno no puede (npm responde `EALLOWREMOTE` al
+bajar paquetes remotos), así que la baja queda pendiente de un entorno con red normal.
+
+También se resolvió el export duplicado: `canReadRestrictedDocs` era un alias `const` de `canManageAny` y ahora es una
+función que la llama. Mismo valor, misma intención («no fusionar», decía el comentario) y sin dos nombres para el mismo
+binding.
+
+`knip` pasa a **bloquear** el job de CI (`npm run lint:dead` = `knip`, sin `--no-exit-code` ni `continue-on-error`).
+Quedan dos pistas informativas sobre las extensiones `.prisma` y `.css`: no son hallazgos y no fallan el job.
