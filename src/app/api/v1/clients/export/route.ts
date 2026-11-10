@@ -22,6 +22,7 @@ import {
 import {
   CLIENT_BASE_SELECT,
   parseClientListFilters,
+  sinGestionDesde,
 } from "@/lib/api/crm";
 import { buildClientWhere, enrichClients } from "@/app/api/v1/clients/route";
 import { logAudit } from "@/lib/api/audit";
@@ -60,7 +61,9 @@ export const GET = withApiErrorHandling(
     const filtered = enriched.filter(
       (e) =>
         (filters.filters.valor_min === undefined || e.valor_potencial >= filters.filters.valor_min) &&
-        (filters.filters.valor_max === undefined || e.valor_potencial <= filters.filters.valor_max),
+        (filters.filters.valor_max === undefined || e.valor_potencial <= filters.filters.valor_max) &&
+        // PR-11 (N6): same «sin gestión hace N días» filter as GET /clients.
+        sinGestionDesde(e.dias_sin_gestion, filters.filters.sin_gestion),
     );
     const inExport = new Set(filtered.slice(0, EXPORT_MAX_ROWS).map((e) => e.id));
 

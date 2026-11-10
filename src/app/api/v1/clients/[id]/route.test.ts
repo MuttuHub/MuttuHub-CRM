@@ -21,6 +21,10 @@ vi.mock("@/lib/db", () => ({
       groupBy: vi.fn(),
       findMany: vi.fn(),
     },
+    // PR-11 (N6): enrichClients reads the last bitácora entry per client.
+    bitacoraEntrada: {
+      groupBy: vi.fn(),
+    },
   },
 }));
 
@@ -57,6 +61,7 @@ const baseClientRow = {
 function mockEnrichmentEmpty() {
   vi.mocked(db.oportunidad.groupBy).mockResolvedValue([]);
   vi.mocked(db.tarea.groupBy).mockResolvedValue([]);
+  vi.mocked(db.bitacoraEntrada.groupBy).mockResolvedValue([]);
   vi.mocked(db.tarea.findMany).mockResolvedValue([]);
 }
 

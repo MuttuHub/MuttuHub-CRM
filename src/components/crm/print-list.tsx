@@ -187,6 +187,7 @@ function describeFiltros(query: string): string[] {
   push("Primer contacto hasta", sp.get("hasta") ?? "");
   if (sp.get("valorMin")) push("Valor mín", `$${sp.get("valorMin")}`);
   if (sp.get("valorMax")) push("Valor máx", `$${sp.get("valorMax")}`);
+  if (sp.get("sinGestion")) push("Sin gestión", `${sp.get("sinGestion")}+ días`);
   return out;
 }
 

@@ -17,6 +17,7 @@ import { withApiErrorHandling } from "@/lib/api/handler";
 import { requireApiUser } from "@/lib/supabase/server";
 import { ENUM_VALUES } from "@/lib/catalogs";
 import { logAudit } from "@/lib/api/audit";
+import { toDayNumber, todayInBogota } from "@/lib/proyectos/weeks";
 import {
   catalogEnum,
   CLIENT_BASE_SELECT,
@@ -24,6 +25,7 @@ import {
   endOfDay,
   OPEN_TASK_STATES,
   parseClientListFilters,
+  sinGestionDesde,
   parseDate,
   parsePagination,
   zodError,
@@ -152,9 +154,13 @@ export async function enrichClients(
     valor_potencial: number;
     compromisos_abiertos: number;
     next_compromiso: { id: string; titulo: string; fecha_entrega: Date | null } | null;
+    /** Fecha de la última entrada de bitácora; null si nunca se registró una. */
+    ultimo_contacto: Date | null;
+    /** Días desde ese contacto, o null si no hay ninguno. Cuenta en días de Bogotá. */
+    dias_sin_gestion: number | null;
   }[]
 > {
-  const [sums, openCounts, nextTasks] = await Promise.all([
+  const [sums, openCounts, nextTasks, ultimas] = await Promise.all([
     db.oportunidad.groupBy({
       by: ["cliente_id"],
       where: { deleted_at: null, estado: { not: "PERDIDA" }, cliente_id: { in: ids } },
@@ -175,6 +181,13 @@ export async function enrichClients(
       select: { id: true, titulo: true, fecha_entrega: true, cliente_id: true },
       take: ids.length,
     }),
+    // Mismo cálculo que el panel de salud (/clients/health): la última entrada de
+    // bitácora por cliente, sin filtros extra, para que ambos coincidan.
+    db.bitacoraEntrada.groupBy({
+      by: ["cliente_id"],
+      where: { cliente_id: { in: ids } },
+      _max: { created_at: true },
+    }),
   ]);
 
   const valorByClient = new Map(sums.map((s) => [s.cliente_id, Number(s._sum.valor_estimado_cop ?? 0)]));
@@ -191,12 +204,20 @@ export async function enrichClients(
     }
   }
 
-  return rows.map((r) => ({
-    id: r.id,
-    valor_potencial: valorByClient.get(r.id) ?? 0,
-    compromisos_abiertos: countByClient.get(r.id) ?? 0,
-    next_compromiso: nextByClient.get(r.id) ?? null,
-  }));
+  const ultimaByClient = new Map(ultimas.map((u) => [u.cliente_id, u._max.created_at ?? null]));
+  const hoy = todayInBogota();
+
+  return rows.map((r) => {
+    const ultimo = ultimaByClient.get(r.id) ?? null;
+    return {
+      id: r.id,
+      valor_potencial: valorByClient.get(r.id) ?? 0,
+      compromisos_abiertos: countByClient.get(r.id) ?? 0,
+      next_compromiso: nextByClient.get(r.id) ?? null,
+      ultimo_contacto: ultimo,
+      dias_sin_gestion: ultimo === null ? null : Math.max(0, toDayNumber(hoy) - toDayNumber(todayInBogota(ultimo))),
+    };
+  });
 }
 
 /** PR 25 (plan 2B): sort + dir del querystring. Columnas se ordenan en Prisma;
@@ -270,7 +291,9 @@ export const GET = withApiErrorHandling(
     const filtered = enriched.filter(
       (e) =>
         (filters.filters.valor_min === undefined || e.valor_potencial >= filters.filters.valor_min) &&
-        (filters.filters.valor_max === undefined || e.valor_potencial <= filters.filters.valor_max),
+        (filters.filters.valor_max === undefined || e.valor_potencial <= filters.filters.valor_max) &&
+        // PR-11 (N6): «sin gestión hace N días», a per-client aggregate.
+        sinGestionDesde(e.dias_sin_gestion, filters.filters.sin_gestion),
     );
 
     // PR 25: orden de agregados post-enriquecimiento (ya se filtró por
@@ -315,6 +338,9 @@ export const GET = withApiErrorHandling(
           valor_potencial: e.valor_potencial,
           compromisos_abiertos: e.compromisos_abiertos,
           next_compromiso: e.next_compromiso,
+          // N6: último contacto y días sin gestión (mismo cálculo que /clients/health).
+          ultimo_contacto: e.ultimo_contacto,
+          dias_sin_gestion: e.dias_sin_gestion,
           updated_at: r.updated_at,
           // Server-authoritative write flag (PR 2). The UI gates destructive
           // controls / edit fields on this — see canEditClient.

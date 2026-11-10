@@ -17,6 +17,9 @@ vi.mock("@/lib/db", () => ({
       groupBy: vi.fn(),
       findMany: vi.fn(),
     },
+    bitacoraEntrada: {
+      groupBy: vi.fn(),
+    },
   },
 }));
 
@@ -47,6 +50,7 @@ function mockEnrichmentEmpty() {
   vi.mocked(db.oportunidad.groupBy).mockResolvedValue([]);
   vi.mocked(db.tarea.groupBy).mockResolvedValue([]);
   vi.mocked(db.tarea.findMany).mockResolvedValue([]);
+  vi.mocked(db.bitacoraEntrada.groupBy).mockResolvedValue([]);
 }
 
 function authAs(usuario: Usuario) {
@@ -118,6 +122,33 @@ describe("GET /api/v1/clients/export", () => {
 
     expect(res.status).toBe(400);
     expect(await res.json()).toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(db.cliente.findMany).not.toHaveBeenCalled();
+  });
+
+  it("applies ?sinGestion=N like GET /clients: a client contacted within N days is left out (N6)", async () => {
+    authAs(gerencia);
+    vi.mocked(db.cliente.findMany).mockResolvedValue([
+      baseClientRow,
+      { ...baseClientRow, id: "cli-2", nombre: "Beta" },
+    ] as never);
+    vi.mocked(db.bitacoraEntrada.groupBy).mockResolvedValue([
+      { cliente_id: "cli-1", _max: { created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) } },
+    ] as never);
+
+    const res = await GET(new Request("http://localhost/api/v1/clients/export?sinGestion=30"));
+
+    expect(res.status).toBe(200);
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ cambios: expect.objectContaining({ rows: 1 }) }),
+    );
+  });
+
+  it("returns 400 for a non-integer sinGestion (N6)", async () => {
+    authAs(gerencia);
+
+    const res = await GET(new Request("http://localhost/api/v1/clients/export?sinGestion=2.5"));
+
+    expect(res.status).toBe(400);
     expect(db.cliente.findMany).not.toHaveBeenCalled();
   });
 
