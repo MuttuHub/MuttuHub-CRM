@@ -32,11 +32,11 @@ Ordenado por lo que la PO pidió y por lo que desbloquea más trabajo.
 | ID | Tarea | Tamaño | Depende de | Terminado cuando |
 |---|---|---|---|---|
 | B1 | **D1**: no reintentar 403/404 en `useProject()` | S | — | El mensaje de «sin acceso» aparece en < 2 s y la prueba e2e correspondiente pasa |
-| B2 | Adaptador de **presupuesto** de la PO (`rubro | valor`) | S | Acceso a `presupuesto.xlsx` real | **Código listo** en `feat/po-budget-import` (P1–P3); falta la prueba manual con el archivo real de la PO (P4) |
+| B2 | Adaptador de **presupuesto** de la PO (`rubro | valor`) | S | Acceso a `presupuesto.xlsx` real | **Código listo** en `feat/po-presupuesto-import` (P1–P3), **sin PR ni merge**; falta la prueba manual con el archivo real de la PO (P4) |
 | B3 | Adaptador de **estructura** de la PO (objetivos, actividades, entregables con cantidad/unidad/medio) | M | B2, decisión **D-A** | **Hecho**: importar `proyecto.xlsx` crea O/A/E (e indicadores) con códigos generados, solo estructura y sin tocar el presupuesto, y la vista previa lista los errores por hoja y celda; el archivo actual de la PO necesita las columnas «Cantidad» y «Unidad» (B4) |
-| B4 | Plantillas actualizadas para la PO (con las columnas nuevas) | S | B3 | Archivos entregados y probados por la PO |
-| B5 | Importar **solo estructura** sin presupuesto | S–M | Decisión **D-A** | Un proyecto con presupuesto ya cargado puede importar estructura sin tocarlo |
-| B6 | **Rubros editables por proyecto** (deshabilitar y agregar) | M–L | Decisión **D-B**, migración | El presupuesto de un proyecto oculta rubros deshabilitados y acepta uno propio, sin afectar a otros proyectos |
+| B4 | Plantillas actualizadas para la PO (con las columnas nuevas) | S | B3, **espera a la PO** | **Pendiente**: espera a que la PO valide las plantillas con «Cantidad» y «Unidad» |
+| B5 | Importar **solo estructura** sin presupuesto | S–M | Decisión **D-A** | **Probablemente redundante con B3**, que ya importa sola la estructura sin tocar el presupuesto: decidir si se fusiona con B3 o se cierra |
+| B6 | **Rubros editables por proyecto** (deshabilitar y agregar) | M–L | Decisión **D-B**, migración | **Libre para arrancar**. El presupuesto de un proyecto oculta rubros deshabilitados y acepta uno propio, sin afectar a otros proyectos |
 | B7 | **Cerrar / suspender / cancelar** proyecto | M | Decisión **D-C** | **Hecho**: la ficha cambia de estado con motivo, auditoría y reglas de quién puede hacerlo (solo Administración y Gerencia); suspendido, cerrado o cancelado quedan congelados, salvo las anulaciones |
 | B8 | Importar **gastos** desde Excel | M | B2 como referencia | **Hecho**: un archivo de gastos entra con validación por fila y queda en `REGISTRADO` sin soportes; el soporte se adjunta después y sin él no se valida |
 
@@ -80,11 +80,11 @@ riesgo de reconstruir lo que ya está.
 
 | ID | Tarea | Tamaño | Depende de | Terminado cuando |
 |---|---|---|---|---|
-| V0 | **Verificación de paridad** de `/clientes/mapa`, `/clientes/salud`, `/clientes/relaciones` y `/clientes/automatizaciones` contra v7 | S | — | Documento con «cumple / parcial / esqueleto» por pantalla y backend faltante |
-| V1 | Oportunidades globales: lista y kanban por etapas | M–L | V0, decisión **D-D** | Existe una vista global con las etapas acordadas y mover una oportunidad actualiza su fase |
+| V0 | **Verificación de paridad** de `/clientes/mapa`, `/clientes/salud`, `/clientes/relaciones` y `/clientes/automatizaciones` contra v7 | S | — | **Hecho** (`odd/tasks/v7-paridad-crm-2026-10-20.md`): documento con «cumple / parcial / esqueleto» por pantalla y backend faltante |
+| V1 | Oportunidades globales: lista y kanban por etapas | M–L | V0, decisión **D-D** | **Libre** (V0 hecho y D-D decidida). Existe una vista global con las etapas acordadas y mover una oportunidad actualiza su fase |
 | V2 | Ficha de oportunidad con conversión a proyecto y tareas | M | V1 | Convertir una ganada crea el proyecto y enlaza las tareas |
 | V3 | Interacciones con `tipo` y `próximo paso` + feed global | M | Migración | El feed global filtra por tipo y muestra el próximo paso |
-| V4 | Convocatorias (modelo, CRUD, página) | M | Decisión **D-D** | Alta, edición y listado con estados |
+| V4 | Convocatorias (modelo, CRUD, página) | M | Decisión **D-D** | **Fuera de alcance** por D-D: las convocatorias quedaron fuera. Alta, edición y listado con estados |
 | V5 | Mapa de aliados por departamento | M | V0 | Agregación por departamento con filtros y sin datos inventados |
 | V6 | Salud de cartera con score de proyectos | M | V0 | El score se calcula en servidor y explica sus componentes |
 | V7 | Relaciones poder/interés/fuerza con cuadrantes | M | V0 | Mapa de cuadrantes y lista coherentes |
@@ -123,13 +123,29 @@ Sheet, Gantt, tabla de usuarios, Curva S, ruta vieja, IP/Agente, cronograma y to
 
 ## 6. Secuencia recomendada
 
-| Fase | Contenido | Por qué |
+| Fase | Contenido | Estado real a 2026-11-10 |
 |---|---|---|
-| **Fase 0** (hecha) | A1, A5, B1, U0 | Etiqueta, credenciales, D1 y re-auditoría UX |
-| **Fase 1** (siguiente) | A2, A4, U1–U3, E3 | Riesgo operativo y los cuatro hallazgos vigentes, que son pequeños |
-| **Fase 2** | B2 → B3 → B4 → B5 | Es el flujo que pidió la PO y se puede entregar por partes |
-| **Fase 3** | B6, B7, B8 y V1–V3 según decisiones | Cada uno con su documento de feature y su migración |
-| **Fase 4** | V4–V9, D2, D4, E1, E2, E4 | Mejora continua y plataforma |
+| **Fase 0** | A1, A5, B1, U0 | **Cerrada** |
+| **Fase 1** | A2, A4, U1–U3, E3 | U1, U2, U3 y E3 **hechas**. A2 y A4 **bloqueadas por terceros**: DNS de `muttu.co` (D-E) y plan de respaldos de Supabase |
+| **Fase 2** | B2 → B3 → B4 → B5 | B3 **hecha**. B2 tiene el código en `feat/po-presupuesto-import`, **sin PR ni merge**; falta P4 con el archivo real de la PO. B4 **espera a la PO**. B5 **probablemente redundante** con B3 |
+| **Fase 3** | B6, B7, B8 y V1–V3 | B7 y B8 **hechas**. B6 y V1 **libres** (D-B y D-D decididas, V0 hecho). V2 **espera a V1**. V3 **necesita migración** |
+| **Fase 4** | V4–V9, D2, D4, E1, E2, E4 | E1 y E2 **hechas**. V5–V8 y V9 **libres** (V0 hecho). V4 **fuera de alcance** por D-D. **D2 y D4 no existen**: no hay ficha de esas tareas en el repositorio. E4 **bloqueada** por acceso a Railway |
+
+### Orden de arranque, con el bloqueo de cada cosa
+
+| Orden | Qué | Estado | Qué la traba |
+|---|---|---|---|
+| **1** | Limpieza **L1 → L2** de `docs/plan-limpieza-codigo.md` | **Libre** | Nada. Va primero porque abarata todo lo demás |
+| **2** | **V9** · ficha de seguimiento con tabla mensual | **Libre** | Nada |
+| **3** | **B6** · rubros editables por proyecto | **Libre** | D-B decidida; necesita migración |
+| **4** | **V1 → V2** · oportunidades globales y conversión | **Libre** | V2 espera a V1 |
+| **5** | **V3** · interacciones y feed global | **Libre** | Migración |
+| **6** | **V5–V8** · aliados, salud de cartera, relaciones, automatizaciones | **Libre** | Nada: V0 está hecho |
+| **7** | **B2 (P4) → B4** · presupuesto y plantillas de la PO | **Espera a la PO** | El `presupuesto.xlsx` real y su validación de plantillas |
+| **8** | **B5** · importar solo estructura | **A decidir** | Fusionar con B3 o cerrar |
+| **9** | **A2** · dominio en Resend | **Bloqueada** | DNS de `muttu.co` (D-E) |
+| **10** | **A4** · respaldos automáticos y restauración | **Bloqueada** | Plan de Supabase |
+| **11** | **E4** · Railway Opción A | **Bloqueada** | Acceso a Railway |
 
 Cada tarea que toque esquema, permisos o dinero entra con documento en `odd/tasks/`, pruebas primero y PR propio.
 
@@ -340,3 +356,46 @@ T15.
 ### Qué falta de L0
 
 Nada. Sigue L1: `knip` en modo reporte y `noUnusedLocals`/`noUnusedParameters` en `tsconfig`.
+
+## 14. Corte del 2026-11-10: estado real del backlog
+
+### Qué cambió respecto del plan original
+
+Este documento se escribió el 2026-10-19 y su §6 asumía que casi todo estaba pendiente. La auditoría del 2026-11-10
+contra `main` y contra `odd/tasks/` encontró que **buena parte de las tareas ya están hechas** y que cuatro están
+trabadas por gente de afuera, no por trabajo técnico. Las tablas de los frentes y el §6 ya reflejan ese estado.
+
+### Lo que se cerró desde el corte anterior
+
+- **Ficha de proyectos**: T10–T15 en `main` (#149) y los seguimientos de la revisión nativa (#150). La revisión dejó 26
+  hallazgos no bloqueantes; siguen abiertos los WARNING de `odd/tasks/proyectos-redisenio-ui.md`.
+- **Higiene de git (L0)**: de 8 PRs abiertos a 1, de 96 ramas locales a 29 y de 22 worktrees a 12. Detalle en §13.
+
+### Lo que se puede arrancar hoy, sin esperar a nadie
+
+**L1 → L2** de la limpieza de código, **V9** (tabla mensual de seguimiento), **B6** (rubros editables, con migración),
+**V1 → V2**, **V3** y **V5–V8**.
+
+### Lo que no depende de nosotros
+
+| Qué | Quién | Sin eso no avanza |
+|---|---|---|
+| DNS de `muttu.co` | Negocio / TI | A2 |
+| Plan de respaldos de Supabase | Negocio / TI | A4 |
+| Acceso a Railway | Usuario | E4 |
+| `presupuesto.xlsx` real | PO | B2 (P4) |
+| Validación de las plantillas nuevas | PO | B4 |
+
+### Tres definiciones que faltan
+
+- **V4**: el §6 lo listaba en la Fase 4, pero D-D dejó las convocatorias fuera de alcance. Confirmar que se descarta.
+- **D2 y D4**: aparecen en el §6 y no tienen ficha de tarea en ningún lado del repositorio. Definirlas o borrarlas del
+  plan.
+- **B5**: B3 ya importa solo la estructura sin tocar el presupuesto. Decidir si B5 se fusiona con B3 o se cierra.
+
+### El riesgo abierto más caro
+
+**B2 vive en una rama sin PR.** El código del import de presupuesto de la PO está commiteado en
+`feat/po-presupuesto-import` desde el 2026-10-18 y nunca entró a `main`. Cuanto más crezcan `src/hooks/projects.ts` y
+`src/components/proyectos`, más caro va a ser integrarlo, y L4 y L5 del plan de limpieza mueven justo esos archivos:
+integrarlo o cerrarlo **antes** de esas dos fases.
