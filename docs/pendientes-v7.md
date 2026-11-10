@@ -5,6 +5,11 @@ Inventario consolidado al **2026-10-19**. El orden, el tamaño y los criterios d
 `odd/tasks/v7-gap-analysis.md`, `odd/tasks/ux-audit-report-2026-09-23.md`, `PENDIENTES-MENORES.md`,
 `odd/tasks/lanzamiento-v2-fin-de-semana.md` y `docs/analisis/`.
 
+> **Estado verificado el 2026-11-10 contra `main`.** Este inventario quedó congelado el 2026-10-19 y varias de sus
+> filas ya están hechas: **B2** (#92), **B3**, **B4**, **B5**, **B7**, **B8**, **V3**, **V6**, **V7**, **E1** y **E3**.
+> Lo que sigue abierto es **B6**, **V1**, **V5**, **V8** (parcial), **V9** (parcial), **A2**, **A4**, **E4** y **D4**;
+> **V4** está fuera de alcance por D-D. La lista vigente es [`plan-trabajo-restante.md`](plan-trabajo-restante.md).
+
 ---
 
 ## 1. Cierre del lanzamiento (operativo)
