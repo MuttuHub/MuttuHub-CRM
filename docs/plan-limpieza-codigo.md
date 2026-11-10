@@ -47,6 +47,8 @@ comportamiento de la aplicación. Evidencia tomada de la rama `fix/proyectos-fic
 **Orden sugerido:** L0 → L1 → L2 → L3 (proyectos primero) → L4 → L5 → L6, con L7 y L8 de forma continua. L0 a L2
 caben en uno o dos días; L3 a L5 son una semana repartida en PRs chicos.
 
+**Estado:** L0 cerrado el 2026-11-10 (detalle en §13 de `docs/plan-trabajo-restante.md`).
+
 ## Riesgos
 
 - **L3 cambia texto visible** si se unifican formatos que hoy difieren («sept» frente a «sep», «05 de oct de 2026»

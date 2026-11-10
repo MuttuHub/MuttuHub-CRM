@@ -320,3 +320,27 @@ T15.
    luego `node.exe --env-file=.env.local node_modules/tsx/dist/cli.mjs prisma/seed.ts` y las siembras demo
    `seed-projects-demo --apply` y `seed-demo-flujo --apply`.
 3. El id de PRY-2026-001 cambia con cada siembra; el script de capturas lo recibe como cuarto argumento.
+
+## 13. Corte del 2026-11-10: higiene de git (L0) cerrada
+
+### Hecho en esta jornada
+
+- **PRs abiertos: de 8 a 1.** Integrados por squash con CI en verde: #131 (X1/X2, mensajes y modo estricto en
+  Excel), #133 (reportes: cierres del mismo día y datos por persona), #143 (N6, último contacto y «días sin
+  gestión»), #144 (proyectos-v3 B0.3, selectores de solo lectura), #136 (print sheet compartido, PR-R2) y #130
+  (registro de la ventana de producción del 2026-11-04, que era el único lugar donde estaba documentada). Se cerró
+  #138 (volcado de planeación del 2026-11-05, superado por este documento, `docs/plan-limpieza-codigo.md` y
+  `odd/tasks/proyectos-v3-contratos.md`). Sigue abierto #137 (email outbox): trae la migración
+  `20261104181952_email_outbox`, así que entra recién con una ventana para producción.
+- **Ramas locales: de 96 a 29.** Se borraron las que ya estaban en `main` por contenido, las de PR mergeado y las 20
+  de PR cerrado sin merge (todas con copia en `origin`). Quedan las 11 ramas con worktree activo y 17 sin PR cuyo
+  trabajo no está en `origin`: no se tocaron y se deciden en L6.
+- **Worktrees: de 22 a 12.** Se borraron los de rama ya integrada (`redisenio`, `main-verde`, `v3`,
+  `agent-a615c4a2`, `agent-af1087bc`, `t8d`, `agent-aeb0a5a4`, `cliente-contacto`, `t5b`) y `git worktree prune`
+  sacó el `aj01-review`, que apuntaba a una ruta de Windows inexistente.
+- **La raíz volvió a `main`**, que estaba en detached HEAD sobre `0726e5d`. Antes se borraron 56 copias sin trackear
+  idénticas a `origin/main` en `docs/ux-crm-2026-11/`.
+
+### Qué falta de L0
+
+Nada. Sigue L1: `knip` en modo reporte y `noUnusedLocals`/`noUnusedParameters` en `tsconfig`.
