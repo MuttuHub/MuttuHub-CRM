@@ -81,7 +81,7 @@ riesgo de reconstruir lo que ya está.
 | ID | Tarea | Tamaño | Depende de | Terminado cuando |
 |---|---|---|---|---|
 | V0 | **Verificación de paridad** de `/clientes/mapa`, `/clientes/salud`, `/clientes/relaciones` y `/clientes/automatizaciones` contra v7 | S | — | Documento con «cumple / parcial / esqueleto» por pantalla y backend faltante |
-| V1 | Oportunidades globales: lista y kanban por etapas | M–L | V0, decisión **D-D** | Existe una vista global con las etapas acordadas y mover una oportunidad actualiza su fase |
+| V1 | Oportunidades globales: lista y kanban por etapas | M–L | V0, decisión **D-D** | **Hecho** (#159, `0ad4f9b`): vista global cross-cliente con las siete etapas acordadas y totales en COP; mover una oportunidad actualiza su fase por el PATCH existente con `canManageOpportunity`. Pendiente deuda anotada: `Oportunidad` no tiene índice por `cliente_id` ni `estado` |
 | V2 | Ficha de oportunidad con conversión a proyecto y tareas | M | V1 | Convertir una ganada crea el proyecto y enlaza las tareas |
 | V3 | Interacciones con `tipo` y `próximo paso` + feed global | M | Migración | El feed global filtra por tipo y muestra el próximo paso |
 | V4 | Convocatorias (modelo, CRUD, página) | M | Decisión **D-D** | Alta, edición y listado con estados |
