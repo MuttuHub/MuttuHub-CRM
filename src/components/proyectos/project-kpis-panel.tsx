@@ -27,7 +27,7 @@ import { formatCOP, toCents } from "@/lib/proyectos/money";
 const KPIS_ERROR = "No pudimos cargar los indicadores. Inténtalo de nuevo.";
 export const KPIS_NO_MEDIBLE_NOTE =
   "Los indicadores se calculan cuando el proyecto está en ejecución, suspendido o cerrado.";
-export const ALERTA_RETRASO_TEXT =
+const ALERTA_RETRASO_TEXT =
   "Posible retraso: el gasto va por debajo de lo programado y el avance técnico está atrasado.";
 
 const SIN_DATO = "—";

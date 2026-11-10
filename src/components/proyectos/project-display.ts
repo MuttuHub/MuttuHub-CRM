@@ -47,7 +47,7 @@ export const ACCION_AUDITORIA_META: Record<AccionAuditoria, string> = {
 };
 
 /** Nombre legible de la entidad auditada; una entidad desconocida fuera del módulo conserva su valor. */
-export const ENTIDAD_AUDITORIA_META: Record<string, string> = {
+const ENTIDAD_AUDITORIA_META: Record<string, string> = {
   oportunidad: "Oportunidad",
   proyecto: "Proyecto",
   proyecto_miembro: "Integrante del equipo",

@@ -33,7 +33,7 @@ import { formatCOP, toCents } from "@/lib/proyectos/money";
 import type { UiTone } from "@/lib/catalogs";
 
 const LISTA_ERROR = "No pudimos cargar las solicitudes de modificación. Inténtalo de nuevo.";
-export const MODIFICACIONES_BORRADOR_HINT =
+const MODIFICACIONES_BORRADOR_HINT =
   "Las modificaciones estarán disponibles cuando la línea base esté aprobada.";
 
 const ESTADO_META: Record<ProjectModificacion["estado"], { tone: UiTone; label: string }> = {

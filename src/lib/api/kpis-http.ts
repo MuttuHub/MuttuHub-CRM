@@ -6,7 +6,7 @@ import { fromCents } from "@/lib/proyectos/money";
 import type { KpisPortafolio, KpisProyecto } from "@/lib/proyectos/kpis";
 import { assertIsoDate, todayInBogota, type IsoDate } from "@/lib/proyectos/weeks";
 
-export const CORTE_INVALIDO_MESSAGE = "El corte no es válido. Usa el formato AAAA-MM-DD.";
+const CORTE_INVALIDO_MESSAGE = "El corte no es válido. Usa el formato AAAA-MM-DD.";
 
 /** Calendar date `AAAA-MM-DD`; absent or empty means today in Bogota. */
 export function parseCorteFecha(raw: string | null): { ok: true; corte: IsoDate } | { ok: false; response: Response } {

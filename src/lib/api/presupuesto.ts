@@ -12,8 +12,8 @@ import { canReadProject, loadProjectScoped, projectReadActor } from "@/lib/api/p
 import type { GateResult } from "@/lib/api/estructura";
 import { fromCents, sumCents, toCents, type Cents } from "@/lib/proyectos/money";
 
-export const PRESUPUESTO_FORBIDDEN_MESSAGE = "No tienes permisos sobre este proyecto.";
-export const PRESUPUESTO_STATE_MESSAGE =
+const PRESUPUESTO_FORBIDDEN_MESSAGE = "No tienes permisos sobre este proyecto.";
+const PRESUPUESTO_STATE_MESSAGE =
   "Solo se puede editar el presupuesto y la programación de un proyecto en Borrador.";
 export const PROYECTO_NO_EXISTE = "El proyecto no existe.";
 
@@ -149,7 +149,7 @@ export function decimalFromCents(cents: Cents): Prisma.Decimal {
 // Budget view
 // ---------------------------------------------------------------------------
 
-export type BudgetRubroRow = {
+type BudgetRubroRow = {
   rubro_id: string;
   codigo: string | null;
   nombre: string;
@@ -177,7 +177,7 @@ export function compareRubros(a: RubroRow, b: RubroRow): number {
   return a.orden - b.orden || a.nombre.localeCompare(b.nombre);
 }
 
-export function buildBudgetView(input: {
+function buildBudgetView(input: {
   estado: string;
   valorTotal: { toString(): string } | string | null;
   rubros: readonly RubroRow[];
@@ -261,7 +261,7 @@ type ProgramacionLinea = LineaRow & {
 };
 type CeldaRow = { id: string; linea_id: string; periodo: string; valor: { toString(): string } };
 
-export function buildProgrammingView(input: {
+function buildProgrammingView(input: {
   estado: string;
   periodos: string[];
   lineas: readonly ProgramacionLinea[];

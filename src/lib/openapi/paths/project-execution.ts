@@ -27,7 +27,7 @@ const ProjectDeliverableParams = z.object({ id: z.string().uuid(), deliverableId
 
 // Shared shape of a medio/soporte (file or link) attached to an avance or a medición — moved above
 // AvanceSchema so the latter can reference it directly in its additive `soportes` field (AJ-06).
-export const MedioSchema = registry.register(
+const MedioSchema = registry.register(
   "MedioProyecto",
   z.object({
     id: z.string().uuid(),
@@ -43,7 +43,7 @@ export const MedioSchema = registry.register(
   }),
 );
 
-export const AvanceSchema = registry.register(
+const AvanceSchema = registry.register(
   "Avance",
   z.object({
     id: z.string().uuid(),
@@ -257,7 +257,7 @@ const VOID_FIELDS = {
   motivo_anulacion: z.string().nullable(),
 };
 
-export const MedicionSchema = registry.register(
+const MedicionSchema = registry.register(
   "MedicionIndicador",
   z.object({
     id: z.string().uuid(),
@@ -270,7 +270,7 @@ export const MedicionSchema = registry.register(
   }),
 );
 
-export const RegistroBeneficiarioSchema = registry.register(
+const RegistroBeneficiarioSchema = registry.register(
   "RegistroBeneficiario",
   z.object({
     id: z.string().uuid(),
@@ -651,7 +651,7 @@ const ProjectActivityParams = z.object({ id: z.string().uuid(), activityId: z.st
 const ReporteVoidParams = ProjectActivityParams.extend({ reportId: z.string().uuid() });
 const ReporteMedioParams = ProjectActivityParams.extend({ reportId: z.string().uuid() });
 
-export const ReporteActividadSchema = registry.register(
+const ReporteActividadSchema = registry.register(
   "ReporteActividad",
   z.object({
     id: z.string().uuid(),

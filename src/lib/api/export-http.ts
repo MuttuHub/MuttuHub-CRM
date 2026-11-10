@@ -3,8 +3,8 @@
 
 import { apiError } from "@/lib/api/errors";
 
-export const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-export const FORMATO_NO_DISPONIBLE_MESSAGE = "Formato no disponible. Por ahora solo se exporta en Excel (xlsx).";
+const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const FORMATO_NO_DISPONIBLE_MESSAGE = "Formato no disponible. Por ahora solo se exporta en Excel (xlsx).";
 
 /** `formato` defaults to xlsx; anything else (pdf included) is a 400. */
 export function validarFormato(raw: string | null): Response | null {

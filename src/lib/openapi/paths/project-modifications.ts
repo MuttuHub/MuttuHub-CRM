@@ -30,7 +30,7 @@ const DetalleItemSchema = registry.register(
 
 const Persona = z.object({ id: z.string().uuid(), nombre: z.string().nullable() });
 
-export const SolicitudModificacionSchema = registry.register(
+const SolicitudModificacionSchema = registry.register(
   "SolicitudModificacion",
   z.object({
     id: z.string().uuid(),

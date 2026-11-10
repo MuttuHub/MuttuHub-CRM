@@ -20,7 +20,7 @@ import {
 } from "@/lib/proyectos/avance";
 
 export const EJECUCION_FORBIDDEN_MESSAGE = "No tienes permisos sobre este proyecto.";
-export const EJECUCION_STATE_MESSAGE = "El proyecto aún no tiene línea base aprobada.";
+const EJECUCION_STATE_MESSAGE = "El proyecto aún no tiene línea base aprobada.";
 export const PROYECTO_NO_EXISTE = "El proyecto no existe.";
 export const ENTREGABLE_NO_EXISTE = "El entregable no existe.";
 export const AVANCE_NO_EXISTE = "El avance no existe.";
@@ -227,7 +227,7 @@ export function toMedioView(row: MedioRow): MedioView {
   };
 }
 
-export const AVANCE_ANULADO_MEDIO_MESSAGE = "No se pueden adjuntar medios a un avance anulado.";
+const AVANCE_ANULADO_MEDIO_MESSAGE = "No se pueden adjuntar medios a un avance anulado.";
 
 /** The avance must belong to this project (404); a voided one cannot receive medios (409). */
 export async function loadAvanceParaMedio(
@@ -250,8 +250,8 @@ export async function loadAvanceParaMedio(
 // Medios (supports) of a medición (AJ-06 T3) — same shape as the avance medios above.
 // ---------------------------------------------------------------------------
 
-export const MEDICION_NO_EXISTE = "La medición no existe.";
-export const MEDICION_ANULADA_MEDIO_MESSAGE = "No se pueden adjuntar medios a una medición anulada.";
+const MEDICION_NO_EXISTE = "La medición no existe.";
+const MEDICION_ANULADA_MEDIO_MESSAGE = "No se pueden adjuntar medios a una medición anulada.";
 
 /**
  * Live medios of several mediciones, in detail (AJ-06 T3, same pattern as `listarSoportesVivos`
@@ -298,9 +298,9 @@ export async function loadMedicionParaMedio(
 // ReporteActividad (AJ-01): activity-level progress reports
 // ---------------------------------------------------------------------------
 
-export const ACTIVIDAD_NO_EXISTE = "La actividad no existe.";
+const ACTIVIDAD_NO_EXISTE = "La actividad no existe.";
 export const REPORTE_NO_EXISTE = "El reporte no existe.";
-export const REPORTE_ANULADO_MEDIO_MESSAGE = "No se pueden adjuntar medios a un reporte anulado.";
+const REPORTE_ANULADO_MEDIO_MESSAGE = "No se pueden adjuntar medios a un reporte anulado.";
 
 export type ActividadReporteGate = { id: string; responsable_id: string | null };
 

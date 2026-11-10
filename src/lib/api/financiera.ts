@@ -10,7 +10,7 @@ import { toCents, type Cents } from "@/lib/proyectos/money";
 import type { GastoEstado } from "@/lib/proyectos/ficha-financiera";
 import type { Periodo } from "@/lib/proyectos/weeks";
 
-export type GastoAgregable = { rubroId: string; periodo: Periodo; valor: Cents; estado: GastoEstado };
+type GastoAgregable = { rubroId: string; periodo: Periodo; valor: Cents; estado: GastoEstado };
 
 export type GastosFuente = {
   /** False when E is not real (no expense source, or the project is still BORRADOR): no color is shown. */

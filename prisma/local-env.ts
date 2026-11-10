@@ -11,10 +11,10 @@
  */
 import { config } from "dotenv"
 
-export const LOCAL_ENV_FILE = ".env.local"
+const LOCAL_ENV_FILE = ".env.local"
 
 /** Variables a DB-touching entry point must resolve. */
-export const REQUIRED_LOCAL_VARS = ["DATABASE_URL", "DIRECT_URL"] as const
+const REQUIRED_LOCAL_VARS = ["DATABASE_URL", "DIRECT_URL"] as const
 
 const LOOPBACK_HOSTNAMES = new Set(["127.0.0.1", "localhost", "::1", "0.0.0.0"])
 

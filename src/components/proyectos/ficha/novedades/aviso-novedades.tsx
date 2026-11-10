@@ -23,7 +23,7 @@ export const NOVEDAD_ACTUAL = {
 } as const;
 
 /** Página de Novedades; `desde` es el proyecto al que vuelve su enlace «Volver al proyecto». */
-export function novedadesHref(proyectoId: string): string {
+function novedadesHref(proyectoId: string): string {
   return `/proyectos/novedades?desde=${encodeURIComponent(proyectoId)}`;
 }
 

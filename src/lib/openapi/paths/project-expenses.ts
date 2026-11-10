@@ -36,7 +36,7 @@ const SoporteGastoSchema = registry.register(
 
 const EstadoGastoSchema = z.enum(["REGISTRADO", "VALIDADO", "RECHAZADO", "ANULADO"]);
 
-export const GastoSchema = registry.register(
+const GastoSchema = registry.register(
   "Gasto",
   z.object({
     id: z.string().uuid(),

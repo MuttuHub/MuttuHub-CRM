@@ -10,7 +10,7 @@ import Link from "next/link";
 import { ArrowLeft, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export function PrintBackLink({ fallbackHref }: { fallbackHref: string }) {
+function PrintBackLink({ fallbackHref }: { fallbackHref: string }) {
   function volver(e: MouseEvent<HTMLAnchorElement>) {
     // Ctrl/Cmd/Shift/rueda: el usuario quiere el enlace tal cual (p. ej. en otra pestaña), no el historial.
     if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;

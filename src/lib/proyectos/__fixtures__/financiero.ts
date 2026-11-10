@@ -11,8 +11,6 @@
 import { toCents } from "../money"
 import type { FichaRubroInput } from "../ficha-financiera"
 
-export const F_F1_INICIO = "2026-10-05"
-export const F_F1_FIN = "2027-01-29"
 export const F_F1_PERIODOS = ["2026-10", "2026-11", "2026-12", "2027-01"]
 export const F_F1_CORTE = "2026-11"
 export const F_F1_TOLERANCIA_BP = BigInt(1000)

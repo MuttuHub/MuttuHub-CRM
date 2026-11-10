@@ -25,11 +25,11 @@ import {
 } from "@/hooks/projects";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 
-export { CAMPO_LABEL };
+;
 
 const VERSIONES_ERROR = "No pudimos cargar las versiones. Inténtalo de nuevo.";
 const COMPARACION_ERROR = "No pudimos comparar las versiones. Inténtalo de nuevo.";
-export const SIN_LINEA_BASE_NOTE = "La línea base aún no está aprobada.";
+const SIN_LINEA_BASE_NOTE = "La línea base aún no está aprobada.";
 
 const ELEMENTO_LABEL: Record<ProjectDiferencia["elemento"], string> = {
   proyecto: "Proyecto",
@@ -51,7 +51,7 @@ function valorDe(diferencia: ProjectDiferencia, valor: string | null): string {
 const claveDe = (clave: string) => clave.replace("|", " · ");
 
 /** «Versión original» for the baseline (v0), «Versión N» for the rest. */
-export const nombreVersion = (numero: number) => (numero === 0 ? "Versión original" : `Versión ${numero}`);
+const nombreVersion = (numero: number) => (numero === 0 ? "Versión original" : `Versión ${numero}`);
 
 export function ProjectVersiones({
   proyecto,

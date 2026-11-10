@@ -57,8 +57,8 @@ export function buildDashboardQuery(
 
 /* ── GET /api/v1/dashboard/pipeline ─────────────────────────────────────── */
 
-export type PipelineEmbudo = { estado: EstadoOportunidad; count: number };
-export type TopCliente = {
+type PipelineEmbudo = { estado: EstadoOportunidad; count: number };
+type TopCliente = {
   cliente_id: string;
   nombre: string;
   valor_potencial: number;
@@ -75,8 +75,8 @@ export type DashboardPipeline = {
 
 /* ── GET /api/v1/dashboard/tasks ────────────────────────────────────────── */
 
-export type ColumnaTareas = { estado: EstadoTarea; label: string; count: number };
-export type CumplimientoPersona = {
+type ColumnaTareas = { estado: EstadoTarea; label: string; count: number };
+type CumplimientoPersona = {
   responsable_id: string;
   nombre: string;
   total: number;
@@ -84,7 +84,7 @@ export type CumplimientoPersona = {
   cumplidas: number;
   porc: number;
 };
-export type VencidaTarea = {
+type VencidaTarea = {
   id: string;
   titulo: string;
   responsable_nombre: string;
@@ -101,7 +101,7 @@ export type DashboardTasks = {
 
 /* ── GET /api/v1/dashboard/clients-activity ─────────────────────────────── */
 
-export type ClienteSinGestion = {
+type ClienteSinGestion = {
   cliente_id: string;
   nombre: string;
   estado: EstadoCliente;
@@ -128,7 +128,7 @@ export type DashboardClientsActivity = {
 
 /* ── GET /api/v1/dashboard/my-summary ───────────────────────────────────── */
 
-export type TareaResumen = {
+type TareaResumen = {
   id: string;
   titulo: string;
   estado: EstadoTarea;
@@ -136,7 +136,7 @@ export type TareaResumen = {
   origen: OrigenTarea;
 };
 
-export type ClienteAsignado = {
+type ClienteAsignado = {
   cliente_id: string;
   nombre: string;
   estado: EstadoCliente;
@@ -176,7 +176,7 @@ export type DashboardMySummary = {
 
 /* ── Query keys (filters included → refetch per change) ─────────────────── */
 
-export const dashboardQueryKeys = {
+const dashboardQueryKeys = {
   pipeline: (filters: DashboardFilters) => ["dashboard", "pipeline", filters] as const,
   tasks: (filters: DashboardFilters) => ["dashboard", "tasks", filters] as const,
   clientsActivity: (filters: DashboardFilters, dias: number) =>

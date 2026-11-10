@@ -21,10 +21,9 @@ export function ayudaDePaso(numero: number, aprobado: boolean): string | null {
   return AYUDA_PASOS[numero] ?? null
 }
 
-export type NumeroPaso = (typeof PASOS)[number]["numero"]
 export type EstadoPaso = "hecho" | "activo" | "pendiente"
 
-export const TOTAL_PASOS = PASOS.length
+const TOTAL_PASOS = PASOS.length
 const PRIMER_PASO_CON_PROYECTO = 2
 
 /**
@@ -76,7 +75,7 @@ export function pasoAnterior(actual: number): number | null {
   return actual > 1 ? actual - 1 : null
 }
 
-export const RUTA_NUEVO_PROYECTO = "/proyectos/nuevo"
+const RUTA_NUEVO_PROYECTO = "/proyectos/nuevo"
 
 /** URL of the page. `proyecto`/`paso` make a refresh or the back button keep the created project. */
 export function hrefNuevoProyecto({

@@ -41,7 +41,7 @@ import { todayInBogota } from "@/lib/proyectos/weeks";
 import { cn } from "@/lib/utils";
 
 /** Replaces «Registrar avance» once the activity is finished: it takes no more reports. */
-export const ACTIVIDAD_FINALIZADA_TEXT =
+const ACTIVIDAD_FINALIZADA_TEXT =
   "Ya no recibe avances. Para corregir, anula el último avance o solicita una modificación.";
 
 /** `tope_en_curso` default when the technical status does not say (90 %, still to be confirmed). */

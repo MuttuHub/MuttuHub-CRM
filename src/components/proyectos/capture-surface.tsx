@@ -9,7 +9,7 @@ import { useSyncExternalStore, type ReactNode } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 /** Debajo de `md` (768 px en Tailwind). */
-export const MOBILE_QUERY = "(max-width: 767px)";
+const MOBILE_QUERY = "(max-width: 767px)";
 
 function subscribe(onChange: () => void): () => void {
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => {};

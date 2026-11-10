@@ -85,7 +85,7 @@ export const NEXT_ESTADO: Partial<Record<EstadoTarea, EstadoTarea>> = {
   EN_ESPERA: "EN_CURSO",
 };
 
-export const CONVERT_HINT = "Pasa a nuevo proyecto cuando la oportunidad esté aceptada.";
+const CONVERT_HINT = "Pasa a nuevo proyecto cuando la oportunidad esté aceptada.";
 
 export type CardAction =
   | { kind: "advance"; to: EstadoTarea; label: string }

@@ -109,7 +109,7 @@ export type FinancialSheetInput = {
   corteParam: string | null;
 };
 
-export type FichaRowJson = ReturnType<typeof serializeRow>;
+type FichaRowJson = ReturnType<typeof serializeRow>;
 
 export type FinancialSheet = {
   base: "vigente" | "original";

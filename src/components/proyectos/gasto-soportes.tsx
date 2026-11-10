@@ -14,7 +14,7 @@ import { useAttachExpenseSupport } from "@/hooks/projects";
 
 /** Tope de soportes vivos por gasto (mismo valor que `MAX_SOPORTES` de la API). */
 export const MAX_SOPORTES_POR_GASTO = 5;
-export const ADJUNTAR_ERROR = "No pudimos adjuntar el soporte. Inténtalo de nuevo.";
+const ADJUNTAR_ERROR = "No pudimos adjuntar el soporte. Inténtalo de nuevo.";
 
 export function AdjuntarSoporte({ projectId, gastoId }: { projectId: string; gastoId: string }) {
   const adjuntarGasto = useAttachExpenseSupport(projectId);

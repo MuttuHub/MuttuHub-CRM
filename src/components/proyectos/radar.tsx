@@ -22,7 +22,7 @@ const CX = 100;
 const CY = 100;
 const R = 78;
 
-export interface RadarAxis {
+interface RadarAxis {
   label: string;
   /** Valor 0..100 (porcentaje de cumplimiento del eje). */
   value: number;

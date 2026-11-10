@@ -29,7 +29,7 @@ import { StatusChip } from "@/components/ui/status-chip";
 import { iniciales, useGlobalContacts, type ContactoFeedItem } from "@/hooks/crm";
 
 /** Top-2-box on the 1..5 axes: 4..5 is "alto", 1..3 is "bajo". */
-export const UMBRAL_ALTO = 4;
+const UMBRAL_ALTO = 4;
 
 export type QuadranteKey =
   | "mantener-satisfecho"
@@ -37,14 +37,14 @@ export type QuadranteKey =
   | "monitorear"
   | "mantener-informado";
 
-export type Quadrante = {
+type Quadrante = {
   key: QuadranteKey;
   titulo: string;
   ejes: string;
 };
 
 /** Render order = the Mendelow grid: poder grows upward, interés rightward. */
-export const QUADRANTES: readonly Quadrante[] = [
+const QUADRANTES: readonly Quadrante[] = [
   { key: "mantener-satisfecho", titulo: "Mantener satisfecho", ejes: "Poder alto · interés bajo" },
   { key: "gestionar-de-cerca", titulo: "Gestionar de cerca", ejes: "Poder alto · interés alto" },
   { key: "monitorear", titulo: "Monitorear", ejes: "Poder bajo · interés bajo" },

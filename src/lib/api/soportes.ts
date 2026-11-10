@@ -27,13 +27,13 @@ import {
 } from "@/lib/api/files";
 import { assertKeyBelongsToTarget, proyectoSoportePath, storedObjectSize } from "@/lib/api/signed-upload";
 
-export const FILE_TYPE_MESSAGE =
+const FILE_TYPE_MESSAGE =
   "Solo se aceptan PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), JPG/JPEG o PNG.";
 export const STORAGE_PATH_INDEX = "soportes_proyecto_storage_path_key";
 export const MEDIO_DUPLICADO_MESSAGE = "Ese archivo ya está adjunto como medio.";
-export const MEDIO_CLAVE_MESSAGE = "La ruta del archivo no corresponde a este proyecto.";
-export const MEDIO_ARCHIVO_MESSAGE = "El archivo no está disponible o supera el tamaño declarado.";
-export const MEDIO_URL_MESSAGE = "El enlace debe ser una URL https válida (máximo 2000 caracteres).";
+const MEDIO_CLAVE_MESSAGE = "La ruta del archivo no corresponde a este proyecto.";
+const MEDIO_ARCHIVO_MESSAGE = "El archivo no está disponible o supera el tamaño declarado.";
+const MEDIO_URL_MESSAGE = "El enlace debe ser una URL https válida (máximo 2000 caracteres).";
 export const PLATAFORMA_MESSAGE = "Plataforma no configurada. Revisa las variables de entorno.";
 
 const nombreField = z
@@ -66,8 +66,6 @@ export const MEDIO_ENLACE_SCHEMA = z
     nombre: nombreField,
   })
   .strict();
-
-export const MEDIO_CREATE_SCHEMA = z.union([MEDIO_ARCHIVO_SCHEMA, MEDIO_ENLACE_SCHEMA]);
 
 export type SoporteDatos = {
   nombre: string;
@@ -163,13 +161,13 @@ export async function validarSoporte(
 export const DOCUMENTO_DUPLICADO_MESSAGE = "Ese archivo ya está adjunto a un documento.";
 export const DOCUMENTO_NO_EXISTE = "El documento no existe.";
 export const DOCUMENTO_FORBIDDEN_MESSAGE = "No tienes permiso para cambiar los documentos de este proyecto.";
-export const DOCUMENTO_STATE_MESSAGE = "No se pueden cambiar los documentos del proyecto en su estado actual.";
+const DOCUMENTO_STATE_MESSAGE = "No se pueden cambiar los documentos del proyecto en su estado actual.";
 
 /**
  * Estados where project documents can be created or deleted (managers and member COORDINADORs).
  * SUSPENDIDO, CERRADO and CANCELADO are frozen (B7, PO decision D-C).
  */
-export const ESTADOS_DOCUMENTO_ESCRITURA: readonly string[] = ["BORRADOR", "EN_EJECUCION"];
+const ESTADOS_DOCUMENTO_ESCRITURA: readonly string[] = ["BORRADOR", "EN_EJECUCION"];
 
 /** A project-origin row: no avance, measurement or expense parent. */
 export const SOPORTE_ORIGEN_PROYECTO = { avance_id: null, medicion_id: null, gasto_id: null } as const;

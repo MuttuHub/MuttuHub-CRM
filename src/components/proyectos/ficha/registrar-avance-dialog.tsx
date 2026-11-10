@@ -34,7 +34,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const CARGA_ERROR = "No pudimos cargar las actividades. Inténtalo de nuevo.";
-export const SIN_ACTIVIDADES_TEXT = "No hay actividades que reciban avances.";
+const SIN_ACTIVIDADES_TEXT = "No hay actividades que reciban avances.";
 
 export function RegistrarAvanceDialog({
   proyecto,

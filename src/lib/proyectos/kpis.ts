@@ -28,7 +28,7 @@ import type { IsoDate } from "./weeks"
 export type KpiActividadInput = ActividadTecnicaInput
 
 /** Project states whose KPIs are computed (D5); the rest are listed with null KPIs. */
-export const ESTADOS_MEDIBLES = ["EN_EJECUCION", "SUSPENDIDO", "CERRADO"] as const
+const ESTADOS_MEDIBLES = ["EN_EJECUCION", "SUSPENDIDO", "CERRADO"] as const
 
 export type MedicionInput = { fecha: IsoDate; valor: number; anulado: boolean; createdAt?: string }
 export type IndicadorKpiInput = { id: string; meta: number; mediciones: MedicionInput[] }
@@ -167,7 +167,7 @@ export type KpiProyectoInput = {
   financiero: { asignado: Cents; programado: Cents; ejecutado: Cents }
 }
 
-export type KpiTecnico = {
+type KpiTecnico = {
   corte: IsoDate
   avance_real: number
   avance_programado: number
@@ -175,7 +175,7 @@ export type KpiTecnico = {
   color: ColorSemaforo
 }
 
-export type KpiFinanciero = {
+type KpiFinanciero = {
   corte: IsoDate
   asignado: Cents
   programado: Cents

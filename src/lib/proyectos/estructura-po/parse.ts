@@ -29,7 +29,7 @@ export const SIN_ACTIVIDADES =
   "No encontramos actividades: el archivo debe tener una hoja con las columnas «Objetivo especifico», «Actividad», " +
   "«Entregables», «Inicio (semana)», «Fin (semana)», «Cantidad» y «Unidad», con al menos una fila."
 
-export type ErrorEstructuraPO = { hoja: string | null; fila: number | null; columna: string | null; mensaje: string }
+type ErrorEstructuraPO = { hoja: string | null; fila: number | null; columna: string | null; mensaje: string }
 
 export type PlanEstructuraPO = {
   objetivos: { codigo: string; descripcion: string }[]

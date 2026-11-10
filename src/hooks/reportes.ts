@@ -9,7 +9,7 @@ import type { ReporteSemanal } from "@/lib/reportes/semanal";
 
 export type { ReporteSemanal };
 
-export const reportesQueryKeys = {
+const reportesQueryKeys = {
   semanal: (semana: string | null) => ["reportes", "semanal", semana] as const,
 };
 

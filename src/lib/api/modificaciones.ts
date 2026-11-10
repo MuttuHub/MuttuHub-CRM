@@ -28,18 +28,17 @@ import { buildSnapshot, diffSnapshots, type LiveProyecto, type SnapshotV1 } from
 import { periodOf, todayInBogota } from "@/lib/proyectos/weeks";
 import { estaCongelado } from "@/lib/proyectos/transiciones-estado";
 
-export const MODIFICACION_FORBIDDEN_MESSAGE = "No tienes permisos sobre este proyecto.";
-export const MODIFICACION_ESTADO_MESSAGE = "Solo se pueden solicitar modificaciones de un proyecto en ejecución.";
-export const MODIFICACION_SIN_BASE_MESSAGE = "El proyecto no tiene línea base aprobada.";
-export const PROYECTO_NO_EXISTE = "El proyecto no existe.";
-export const SOLICITUD_NO_EXISTE = "La solicitud no existe.";
-export const SOLICITUD_DECIDIDA_MESSAGE = "La solicitud ya fue decidida.";
-export const SOLICITUD_OBSOLETA_MESSAGE = "La solicitud se basa en una versión anterior; vuelve a crearla.";
-export const APLICAR_ESTADO_MESSAGE = "Solo se pueden aplicar modificaciones a un proyecto en ejecución.";
-export const DECISION_ESTADO_MESSAGE = "No se pueden aprobar o rechazar modificaciones de un proyecto suspendido, cerrado o cancelado.";
-export const APLICAR_REGLAS_MESSAGE = "La modificación ya no cumple las reglas.";
+const MODIFICACION_FORBIDDEN_MESSAGE = "No tienes permisos sobre este proyecto.";
+const MODIFICACION_ESTADO_MESSAGE = "Solo se pueden solicitar modificaciones de un proyecto en ejecución.";
+const MODIFICACION_SIN_BASE_MESSAGE = "El proyecto no tiene línea base aprobada.";
+const PROYECTO_NO_EXISTE = "El proyecto no existe.";
+const SOLICITUD_NO_EXISTE = "La solicitud no existe.";
+const SOLICITUD_DECIDIDA_MESSAGE = "La solicitud ya fue decidida.";
+const SOLICITUD_OBSOLETA_MESSAGE = "La solicitud se basa en una versión anterior; vuelve a crearla.";
+const APLICAR_ESTADO_MESSAGE = "Solo se pueden aplicar modificaciones a un proyecto en ejecución.";
+const DECISION_ESTADO_MESSAGE = "No se pueden aprobar o rechazar modificaciones de un proyecto suspendido, cerrado o cancelado.";
 
-export const TIPOS_MODIFICACION = ["TRASLADO", "ADICION", "REDUCCION", "REPROGRAMACION", "CRONOGRAMA", "ENTREGABLES"] as const;
+const TIPOS_MODIFICACION = ["TRASLADO", "ADICION", "REDUCCION", "REPROGRAMACION", "CRONOGRAMA", "ENTREGABLES"] as const;
 const ELEMENTOS = ["presupuesto", "programacion", "proyecto", "actividad", "entregable", "indicador"] as const;
 
 export const MODIFICACION_SCHEMA = z
@@ -67,8 +66,6 @@ export const MODIFICACION_SCHEMA = z
       .max(500, "La solicitud tiene demasiados cambios."),
   })
   .strict();
-
-export type ModificacionBody = z.infer<typeof MODIFICACION_SCHEMA>;
 
 export const DECISION_SCHEMA = z
   .object({

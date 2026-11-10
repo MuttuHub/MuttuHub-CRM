@@ -11,7 +11,7 @@ import { z } from "zod";
 import { apiError } from "@/lib/api/errors";
 import { db } from "@/lib/db";
 import { logChange } from "@/lib/api/audit-cambios";
-import { PROYECTO_NO_EXISTE, gateEjecucionVoid } from "@/lib/api/ejecucion";
+import { gateEjecucionVoid } from "@/lib/api/ejecucion";
 import { GASTO_INCLUDE, GASTO_NO_EXISTE, type GastoConRelaciones } from "@/lib/api/gastos";
 import { notificarSobregasto } from "@/lib/api/notificaciones-proyecto";
 import type { GateResult } from "@/lib/api/estructura";
@@ -193,4 +193,3 @@ export async function validarEnTransaccion(
   return { blocked: false, gasto: actualizado };
 }
 
-export { PROYECTO_NO_EXISTE };

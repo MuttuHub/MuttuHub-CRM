@@ -1,8 +1,8 @@
 import { expect, type Page } from "@playwright/test";
 
-export const PASSWORD = "MuttuDemo2026!";
+const PASSWORD = "MuttuDemo2026!";
 export type Role = "admin" | "gerencia" | "coordinador" | "colaborador";
-export const EMAILS: Record<Role, string> = {
+const EMAILS: Record<Role, string> = {
   admin: "admin@demo.muttuhub.local",
   gerencia: "gerencia@demo.muttuhub.local",
   coordinador: "coordinador@demo.muttuhub.local",
@@ -38,7 +38,7 @@ export async function fichaHref(page: Page, codigo: string): Promise<string> {
 }
 
 /** Resolve a project id by its code through the API the session already reads. */
-export async function projectId(page: Page, codigo: string): Promise<string> {
+async function projectId(page: Page, codigo: string): Promise<string> {
   const res = await page.request.get("/api/v1/projects");
   if (!res.ok()) throw new Error(`projects API answered ${res.status()}`);
   const { proyectos } = (await res.json()) as {

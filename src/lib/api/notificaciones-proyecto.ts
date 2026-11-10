@@ -62,12 +62,12 @@ export async function notificarGastoRechazado(
 // Reads for the notifications snapshot (GET /api/v1/notifications, read-all)
 // ---------------------------------------------------------------------------
 
-export const SOBREGASTO_MENSAJE = "Gasto supera el asignado del rubro";
+const SOBREGASTO_MENSAJE = "Gasto supera el asignado del rubro";
 
-export const GASTO_RECHAZADO_TITULO = "Gasto rechazado";
+const GASTO_RECHAZADO_TITULO = "Gasto rechazado";
 
 /** Only GERENCIA receives overspend notifications (ADM sees the flag in the lists and the queue). */
-export function recibeNotificacionesProyecto(usuario: { rol: string }): boolean {
+function recibeNotificacionesProyecto(usuario: { rol: string }): boolean {
   return usuario.rol === "GERENCIA";
 }
 
@@ -76,7 +76,7 @@ export function recibeNotificacionesProyecto(usuario: { rol: string }): boolean 
  * its author whatever their role; overspend stays GERENCIA-only. Rows are always filtered by the
  * actor's own `usuario_id`, so widening the types never exposes another user's rows.
  */
-export function tiposNotificacionProyecto(usuario: { rol: string }): TipoNotificacion[] {
+function tiposNotificacionProyecto(usuario: { rol: string }): TipoNotificacion[] {
   return recibeNotificacionesProyecto(usuario)
     ? ["SOBREGASTO_RUBRO", "GASTO_RECHAZADO"]
     : ["GASTO_RECHAZADO"];

@@ -39,7 +39,7 @@ import { taskQueryKeys } from "@/hooks/kanban";
 
 /* ── DTOs (server response shapes) ─────────────────────────────────────── */
 
-export type NextCompromiso = {
+type NextCompromiso = {
   id: string;
   titulo: string;
   fecha_entrega: string | null;
@@ -144,7 +144,7 @@ export type ContactoFilters = {
 };
 
 /** v7 alignment C7a: categorías del resumen diario que se pueden activar/desactivar. */
-export type AutomatizacionesCategorias = {
+type AutomatizacionesCategorias = {
   vencidos: boolean;
   hoy: boolean;
   proximos: boolean;
@@ -230,7 +230,7 @@ export type InteractionFilters = {
 export type SaludBucket = "SANA" | "ATENCION" | "RIESGO" | "SIN_DATOS";
 
 /** v7 C5a: sub-scores del score de salud (null = componente sin datos). */
-export type SaludSubscores = {
+type SaludSubscores = {
   contacto: number | null;
   compromisos: number | null;
   proyectos: number | null;
@@ -327,22 +327,6 @@ export type ClientFilters = {
   dir?: "asc" | "desc";
 };
 
-export type ClientFiltersPatch = {
-  q?: string;
-  tipo?: string;
-  estado?: string;
-  prioridad?: string;
-  responsable?: string;
-  /** 2.6 (S6): exact tag (`?etiqueta=`). */
-  etiqueta?: string;
-  desde?: string;
-  hasta?: string;
-  valorMin?: string;
-  valorMax?: string;
-  /** PR-11 (N6): «sin gestión hace N días» (`?sinGestion=`), whole days. */
-  sinGestion?: string;
-};
-
 /* ── Query keys ────────────────────────────────────────────────────────── */
 
 export const clientQueryKeys = {
@@ -362,7 +346,7 @@ export const clientQueryKeys = {
 };
 
 /** v7 C7a: settings query keys (automatizaciones). */
-export const automatizacionesQueryKeys = {
+const automatizacionesQueryKeys = {
   detail: () => ["settings", "automatizaciones"] as const,
 };
 

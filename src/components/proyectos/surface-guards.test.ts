@@ -20,9 +20,8 @@ const subdirs = (root: string) =>
     .map((name) => path.join(root, name))
     .filter((dir) => statSync(dir).isDirectory())
 
-// Directories under components/ that carry no components to scan: `print/` only holds `print-*` files and
-// `proyectos-v3/` only holds read-only data selectors plus the import guards (checked by import-guards.test.ts).
-const NON_COMPONENT_DIRS = ["print", "proyectos-v3"]
+// Directories under components/ that carry no components to scan. `print/` only holds `print-*` files.
+const NON_COMPONENT_DIRS = ["print"]
 
 const AREA_DIRS = [
   ...subdirs(COMPONENTS_ROOT).filter(

@@ -32,7 +32,7 @@ import { apiError } from "@/lib/api/errors";
 import { logChanges } from "@/lib/api/audit-cambios";
 import { parseDate } from "@/lib/api/crm";
 
-export const DESCRIPCION_MAX = 2000;
+const DESCRIPCION_MAX = 2000;
 
 /**
  * M3: optional description shared by the create, conversion and PATCH bodies.

@@ -15,7 +15,7 @@ import { randomUUID } from "node:crypto";
 
 export const BASELINE_YA_APROBADA_MESSAGE = "El proyecto ya tiene línea base aprobada.";
 export const BASELINE_ESTADO_MESSAGE = "Solo se puede aprobar la línea base de un proyecto en Borrador.";
-export const BASELINE_PRECONDICIONES_MESSAGE = "La línea base no se puede aprobar: hay precondiciones sin cumplir.";
+const BASELINE_PRECONDICIONES_MESSAGE = "La línea base no se puede aprobar: hay precondiciones sin cumplir.";
 
 export type CargaProyecto = {
   /** Input of `precondicionesLineaBase`: always available, even for an incomplete draft. */

@@ -2,16 +2,6 @@
 // Every non-2xx response throws ApiError { error, code, status }; 204 returns
 // undefined. Mutations that return void/undefined are typed with ApiVoid.
 
-export type ApiErrorCode =
-  | "VALIDATION_ERROR"
-  | "UNAUTHORIZED"
-  | "FORBIDDEN"
-  | "INACTIVE"
-  | "NOT_FOUND"
-  | "CONFLICT"
-  | "FILE_TOO_LARGE"
-  | "INTERNAL_ERROR";
-
 export class ApiError extends Error {
   readonly status: number;
   readonly code?: string;
@@ -42,7 +32,7 @@ async function readErrorBody(res: Response): Promise<{ error?: string; code?: st
   }
 }
 
-export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...init,
     headers: {

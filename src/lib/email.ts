@@ -7,9 +7,9 @@
 import type { Usuario } from "@prisma/client";
 import type { AlertBuckets, AlertItem } from "@/lib/alerts";
 
-export const RESEND_ENDPOINT = "https://api.resend.com/emails";
-export const EMAIL_FROM_DEFAULT = "noreply@muttu.co";
-export const DAILY_SUBJECT = "Muttu Hub · Resumen diario";
+const RESEND_ENDPOINT = "https://api.resend.com/emails";
+const EMAIL_FROM_DEFAULT = "noreply@muttu.co";
+const DAILY_SUBJECT = "Muttu Hub · Resumen diario";
 
 const BRAND_MAIN = "#cd1560";
 const RED = "#b91c1c";
@@ -82,7 +82,7 @@ function renderSeccion(seccion: Seccion): string {
  * estilo de la marca": encabezado magenta (#cd1560), tipografía del sistema y
  * solo CSS inline (compatible con los clientes de correo más estrictos).
  */
-export function buildDailyHtml(nombre: string, buckets: AlertBuckets): string {
+function buildDailyHtml(nombre: string, buckets: AlertBuckets): string {
   const body = [
     renderSeccion({
       titulo: "Vencidos sin cerrar",

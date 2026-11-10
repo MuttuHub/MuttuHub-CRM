@@ -54,7 +54,7 @@ export function mensajeRechazo(accion: AccionEstado): string {
  * Estados in which the project is frozen (S5): no project write is accepted until management
  * reactivates or reopens it. Voids stay allowed in any estado (decision 2026-10-27).
  */
-export const ESTADOS_CONGELADOS: readonly EstadoProyecto[] = ["SUSPENDIDO", "CERRADO", "CANCELADO"];
+const ESTADOS_CONGELADOS: readonly EstadoProyecto[] = ["SUSPENDIDO", "CERRADO", "CANCELADO"];
 
 export const EQUIPO_CONGELADO_MESSAGE = "No se puede cambiar el equipo de un proyecto suspendido, cerrado o cancelado.";
 
