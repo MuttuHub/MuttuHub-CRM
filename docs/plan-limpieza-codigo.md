@@ -79,3 +79,41 @@ confirmaron a mano: cada uno tiene exactamente un importador, y ese importador e
 (`lib/soportes-format.ts`, `ui/card.tsx`, `ui/page-header.tsx`, `ui/separator.tsx`,
 `proyectos-v3/import-guards.tsx`, `proyectos-v3/lista-verificacion.tsx`). Al borrarlos junto con sus pruebas, la lista
 de archivos de knip queda en 0.
+
+## L2 · Archivos muertos borrados (2026-11-10)
+
+Ejecutado en `chore/l2-archivos-muertos`, sobre la rama de L1. Se borraron **11 archivos**: 6 módulos muertos y sus 5
+pruebas (`crm/clientes-section-placeholder.tsx` no tenía ninguna).
+
+Dos rutas del aviso anterior estaban mal y se corrigieron al ejecutar:
+
+- `lib/soportes-format.ts` no existe. El archivo es `components/proyectos/soportes-format.ts`, con su prueba al lado.
+- `proyectos-v3/import-guards.tsx` tampoco existe: en esa carpeta solo hay `import-guards.ts` y su prueba. La prueba
+  importa `./import-guards`, que resuelve al módulo puro `.ts` (Vite prefiere `.ts` sobre `.tsx`), así que sobrevive al
+  borrado. Esa parte del aviso original, entonces, describía un archivo que ya no estaba.
+
+La verificación de importadores no fue por nombre base —eso da falsos positivos: `card` y `separator` aparecían en
+`administracion/`, `login/` y `dropdown-menu.tsx`— sino por **especificador de módulo exacto**
+(`@/components/ui/card`, `@/components/ui/separator`, …) y por identificador exportado. Los `Separator` de
+`context-menu.tsx`, `dropdown-menu.tsx` y `select.tsx` son primitivas de `@base-ui`, y el `PageHeader` de
+`src/lib/nav.ts` es un tipo, no el componente.
+
+Resultado con `npx knip` después del borrado: **0 archivos sin usar** (antes 1). Siguen 190 exports, 65 tipos
+exportados, 3 dependencias sin usar y 14 pistas de configuración: eso es el alcance de L2 PR-2. `tsc --noEmit` limpio.
+
+## Costo de verificar (medición 2026-11-10)
+
+La suite `src scripts` completa, misma máquina, los mismos 416 archivos y 4947 pruebas:
+
+| Dónde corre | Tiempo | Resultado |
+|---|---|---|
+| `/mnt/c` (9p a Windows) | 51m57s | 1 fallo: timeout de 5s leyendo fuentes |
+| ext4, `node_modules` por symlink a `/mnt/c` | >46m (cortada) | — |
+| ext4 con `npm ci` propio | **3m47s** | **416/416 archivos, 4947/4947 pruebas** |
+
+`npm ci` en ext4 tarda **1m23s** contra 13 min en `/mnt/c`. El trabajo de CPU es el mismo —`user 17m59s` en
+`real 3m47s`, o sea las cuatro workers ocupadas todo el tiempo—; lo que cambia es la espera de I/O. El timeout que
+aparecía en `/mnt/c` no aparece acá.
+
+Conclusión operativa: la suite completa se corre desde un checkout en ext4; en `/mnt/c` se corre por archivo afectado.
+El clon en `/mnt/c` conserva la edición y el repo; el checkout en ext4 conserva las dependencias instaladas.
