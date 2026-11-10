@@ -20,6 +20,7 @@ import { VoidControl, errorMessage, plural } from "@/components/proyectos/estruc
 import { InlineError } from "@/components/proyectos/ui";
 import {
   useAttachAvanceMedio,
+  useDeliverableProgressState,
   useVoidAvance,
   type ProjectAvance,
   type ProjectDeliverable,
@@ -60,6 +61,7 @@ export function EntregablesActividad({
   puedeRegistrarCantidad: boolean;
 }) {
   // A missing entry means the progress has not arrived (still loading, or failed): never read it as zero.
+  // A failed read says so in its row, with «Reintentar».
   const todosCargados = entregables.every((entregable) => progreso.has(entregable.id));
   const completos = entregables.filter((entregable) =>
     entregableCompleto(entregable, progreso.get(entregable.id)?.avances ?? []),
@@ -125,6 +127,7 @@ function EntregableRow({
   puedeRegistrarCantidad: boolean;
 }) {
   const remove = useVoidAvance(proyectoId, entregable.id);
+  const lectura = useDeliverableProgressState(proyectoId, entregable.id);
   const [registrando, setRegistrando] = useState(false);
   const [verCantidades, setVerCantidades] = useState(false);
   const panelId = useId();
@@ -193,6 +196,18 @@ function EntregableRow({
             >
               {plural(archivos, "archivo", "archivos")}
             </button>
+          ) : lectura.isError ? (
+            <span className="flex flex-wrap items-baseline gap-x-2 text-[12.5px] text-ink-700">
+              No se pudo cargar.
+              <button
+                type="button"
+                className={ENLACE_ACCION}
+                disabled={lectura.isFetching}
+                onClick={() => void lectura.refetch()}
+              >
+                Reintentar
+              </button>
+            </span>
           ) : (
             <SinDato />
           )}

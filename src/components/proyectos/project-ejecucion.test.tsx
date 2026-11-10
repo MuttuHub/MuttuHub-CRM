@@ -2,12 +2,12 @@
 // se burla `fetch`, igual que en project-estructura.test.tsx.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen, waitFor, within } from "@testing-library/react"
+import { render, renderHook, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { ProjectListRow } from "@/hooks/projects"
-import { ProjectEjecucion } from "./project-ejecucion"
+import { ProjectEjecucion, useProgresoEntregablesConCarga } from "./project-ejecucion"
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -125,6 +125,8 @@ type Setup = {
   actividades?: unknown[]
   actividadesStatus?: number
   entregables?: unknown[]
+  /** HTTP status of the e1 progress read; the test may flip `progresoStatusActual` later to simulate a retry. */
+  progresoStatus?: number
   rol?: string
   miembros?: unknown[]
   seguimiento?: boolean
@@ -136,6 +138,7 @@ type Setup = {
 
 describe("ProjectEjecucion", () => {
   const fetchMock = vi.fn()
+  let progresoStatusActual = 200
 
   function setup({
     proyecto = {},
@@ -145,6 +148,7 @@ describe("ProjectEjecucion", () => {
     actividades = [ACTIVIDAD],
     actividadesStatus = 200,
     entregables = [ENTREGABLE],
+    progresoStatus = 200,
     rol = "ADMINISTRADOR",
     miembros = [],
     seguimiento = false,
@@ -153,6 +157,7 @@ describe("ProjectEjecucion", () => {
     objetivos = [],
     onSolicitarModificacion,
   }: Setup = {}) {
+    progresoStatusActual = progresoStatus
     fetchMock.mockImplementation((input: unknown) => {
       const url = String(input)
       if (url.endsWith("/api/v1/auth/me")) {
@@ -177,6 +182,9 @@ describe("ProjectEjecucion", () => {
       if (url.endsWith("/objectives")) return Promise.resolve(jsonResponse({ objetivos }))
       if (url.endsWith("/deliverables")) return Promise.resolve(jsonResponse({ entregables }))
       if (url.endsWith("/deliverables/e1/progress")) {
+        if (progresoStatusActual !== 200) {
+          return Promise.resolve(jsonResponse({ error: "Falló", code: "INTERNAL_ERROR" }, progresoStatusActual))
+        }
         return Promise.resolve(jsonResponse({ estado: "EN_EJECUCION", meta: "2.00", avances: [AVANCE] }))
       }
       if (url.endsWith("/indicators")) return Promise.resolve(jsonResponse({ indicadores: [] }))
@@ -316,8 +324,22 @@ describe("ProjectEjecucion", () => {
     // Its last day (25 oct) is the corte: overdue, so its entregables are open.
     const entregable = within(actividad).getByTestId("ejecucion-entregable")
     expect(entregable).toHaveTextContent("Acta de asistencia")
-    expect(within(entregable).getAllByRole("cell")[2]).toHaveTextContent(/^Contados*0/)
+    expect(within(entregable).getAllByRole("cell")[2]).toHaveTextContent(/^Contado\s*0/)
     expect(entregable).toHaveTextContent("1 pendiente de soporte")
+  })
+
+  it("says an entregable's progress failed to load and retries it on «Reintentar»", async () => {
+    const user = userEvent.setup()
+    setup({ progresoStatus: 500 })
+
+    const entregable = await screen.findByTestId("ejecucion-entregable")
+    await within(entregable).findByText("No se pudo cargar.")
+    expect(within(entregable).getAllByRole("cell")[2]).toHaveTextContent("—")
+
+    progresoStatusActual = 200
+    await user.click(within(entregable).getByRole("button", { name: "Reintentar" }))
+    await waitFor(() => expect(within(entregable).getAllByRole("cell")[2]).toHaveTextContent(/^Contado\s*0/))
+    expect(within(entregable).queryByText("No se pudo cargar.")).not.toBeInTheDocument()
   })
 
   it("keeps the semáforo visible and explains a failing activities read", async () => {
@@ -546,5 +568,28 @@ describe("ProjectEjecucion", () => {
       await screen.findByTestId("ejecucion-actividad")
       expect(screen.queryByRole("button", { name: "Solicitar modificación" })).not.toBeInTheDocument()
     })
+  })
+})
+
+describe("useProgresoEntregablesConCarga", () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  // A disabled read never starts, so it must not hold the tope «loading» forever.
+  it("is not loading when the progress reads are disabled (no project id)", () => {
+    vi.stubGlobal("fetch", vi.fn())
+    const { result } = renderHook(() => useProgresoEntregablesConCarga("", [{ id: "e1" }]), {
+      wrapper: createWrapper(),
+    })
+    expect(result.current.cargando).toBe(false)
+  })
+
+  it("is loading while a read is in flight, and stops once it fails", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(jsonResponse({ error: "Falló" }, 500))))
+    const { result } = renderHook(() => useProgresoEntregablesConCarga("p1", [{ id: "e1" }]), {
+      wrapper: createWrapper(),
+    })
+    expect(result.current.cargando).toBe(true)
+    await waitFor(() => expect(result.current.cargando).toBe(false))
+    expect(result.current.progreso.has("e1")).toBe(false)
   })
 })

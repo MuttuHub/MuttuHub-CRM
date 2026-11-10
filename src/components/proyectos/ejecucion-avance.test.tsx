@@ -371,6 +371,18 @@ describe("EjecucionAvance", () => {
       expect(within(segundo).queryByRole("button", { name: /archivo/ })).not.toBeInTheDocument()
     })
 
+    it("withholds «Registrar cantidad» until the entregable's progress arrives (its form needs the avances)", () => {
+      renderCard({
+        canWrite: true,
+        corte: DESPUES_DEL_FIN,
+        entregables: [ENTREGABLE, ENTREGABLE2],
+        progreso: progresoDe([avance()]),
+      })
+      const [primero, segundo] = screen.getAllByTestId("ejecucion-entregable")
+      expect(within(primero).getByRole("button", { name: "Registrar cantidad ENT-1" })).toBeInTheDocument()
+      expect(within(segundo).queryByRole("button", { name: /Registrar cantidad/ })).not.toBeInTheDocument()
+    })
+
     it("flags live quantities without a soporte as pending; a voided one counts for nothing", () => {
       renderCard({
         corte: DESPUES_DEL_FIN,
@@ -383,7 +395,8 @@ describe("EjecucionAvance", () => {
       })
       expect(screen.getByTestId("ejecucion-pendiente-soporte")).toHaveTextContent("1 pendiente de soporte")
       const celdas = within(screen.getByTestId("ejecucion-entregable")).getAllByRole("cell")
-      expect(celdas[2]).toHaveTextContent(/^Contados*2(?!d)/)
+      // Counted: only the live quantity with its soporte (2); the pending 1 and the voided 5 do not add up.
+      expect(within(celdas[2]).getByText("2", { exact: true })).toBeInTheDocument()
     })
 
     it("opens the registered quantities with their soportes from «N archivos»", async () => {

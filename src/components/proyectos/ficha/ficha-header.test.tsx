@@ -9,7 +9,7 @@ import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { ProjectListRow } from "@/hooks/projects"
 import { mockViewport } from "@/test/viewport"
-import { FichaHeader } from "./ficha-header"
+import { FichaHeader, gastoEsPrincipal } from "./ficha-header"
 
 function createWrapper() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -71,11 +71,14 @@ type Props = Partial<React.ComponentProps<typeof FichaHeader>>
 function renderHeader(props: Props = {}) {
   const onIrA = vi.fn()
   const onRegistrarAvance = vi.fn()
-  const { unmount } = render(
+  const { unmount, rerender } = render(
     <FichaHeader proyecto={PROYECTO} onIrA={onIrA} onRegistrarAvance={onRegistrarAvance} {...props} />,
     { wrapper: createWrapper() },
   )
-  return { onIrA, onRegistrarAvance, unmount }
+  /** Same tree and query cache (permissions already resolved), other props. */
+  const conProps = (otros: Props) =>
+    rerender(<FichaHeader proyecto={PROYECTO} onIrA={onIrA} onRegistrarAvance={onRegistrarAvance} {...otros} />)
+  return { onIrA, onRegistrarAvance, unmount, conProps }
 }
 
 describe("FichaHeader", () => {
@@ -190,6 +193,7 @@ describe("FichaHeader", () => {
   // T10 C3/C5: «Registrar gasto», then «Registrar avance» (primary), then «⋯».
   it("orders the desktop actions as gasto, avance, more actions, with no visible «Cambiar estado»", async () => {
     mockApi()
+    const user = userEvent.setup()
 
     renderHeader()
 
@@ -198,7 +202,9 @@ describe("FichaHeader", () => {
     const mas = screen.getByRole("button", { name: "Más acciones" })
     expect(gasto.compareDocumentPosition(avance) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(avance.compareDocumentPosition(mas) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
+    // The role has resolved and this user may change the state: the action exists, but only inside «⋯».
+    await user.click(mas)
+    expect(await screen.findByRole("menuitem", { name: "Cambiar estado" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Cambiar estado" })).not.toBeInTheDocument()
   })
 
@@ -251,15 +257,12 @@ describe("FichaHeader", () => {
     mockViewport(true)
     mockApi()
 
-    // Same permissions as the Resumen, where the bar does show: only the tab differs.
-    const resumen = renderHeader({ pestana: "resumen" })
+    // Same tree and permissions as the Resumen, where the bar does show: only the tab differs.
+    const { conProps } = renderHeader({ pestana: "resumen" })
     expect(await screen.findByTestId("ficha-barra-acciones")).toBeInTheDocument()
-    resumen.unmount()
 
-    renderHeader({ pestana: "documentos" })
+    conProps({ pestana: "documentos" })
 
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/members", expect.any(Object)))
-    await new Promise((resolve) => setTimeout(resolve, 50))
     expect(screen.queryByTestId("ficha-barra-acciones")).not.toBeInTheDocument()
   })
 
@@ -282,5 +285,15 @@ describe("FichaHeader", () => {
 
     expect(screen.getByTestId("ficha-header-cliente").className).toMatch(/(^|\s)hidden(\s|$)/)
     expect(screen.getByTestId("ficha-header-cliente").className).toMatch(/(^|\s)sm:block(\s|$)/)
+  })
+
+  // One rule for «Registrar gasto» as the primary button, as the prototype draws it on each surface.
+  it("fills «Registrar gasto» on desktop when it stands alone, and in the phone bar only in Finanzas", () => {
+    expect(gastoEsPrincipal(["gasto", "avance"], false, "resumen")).toBe(false)
+    expect(gastoEsPrincipal(["gasto"], false, "actividades")).toBe(true)
+    expect(gastoEsPrincipal(["gasto"], false, "finanzas")).toBe(true)
+    expect(gastoEsPrincipal(["gasto", "avance"], true, "resumen")).toBe(false)
+    expect(gastoEsPrincipal(["gasto"], true, "actividades")).toBe(false)
+    expect(gastoEsPrincipal(["gasto"], true, "finanzas")).toBe(true)
   })
 })

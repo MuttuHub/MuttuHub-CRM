@@ -136,8 +136,11 @@ function Tarjeta({
 function EtiquetaColor({ color }: { color: ColorSemaforo }) {
   return (
     <StatusChip tone={toneFromSemaforo(color)}>
-      {SEMAFORO_LABEL[color]}
-      <span className="hidden sm:inline">{` · ${PALABRA[color]}`}</span>
+      {/* One inline run: as two flex items, the chip's gap would replace the space before «·». */}
+      <span>
+        {SEMAFORO_LABEL[color]}
+        <span className="hidden sm:inline">{` · ${PALABRA[color]}`}</span>
+      </span>
     </StatusChip>
   );
 }
