@@ -32,10 +32,10 @@ Ordenado por lo que la PO pidió y por lo que desbloquea más trabajo.
 | ID | Tarea | Tamaño | Depende de | Terminado cuando |
 |---|---|---|---|---|
 | B1 | **D1**: no reintentar 403/404 en `useProject()` | S | — | El mensaje de «sin acceso» aparece en < 2 s y la prueba e2e correspondiente pasa |
-| B2 | Adaptador de **presupuesto** de la PO (`rubro | valor`) | S | Acceso a `presupuesto.xlsx` real | **Código listo** en `feat/po-budget-import` (P1–P3); falta la prueba manual con el archivo real de la PO (P4) |
+| B2 | Adaptador de **presupuesto** de la PO (`rubro | valor`) | S | Acceso a `presupuesto.xlsx` real | **Hecho** (#92): `lib/proyectos/presupuesto-po/parse.ts` matchea rubros por nombre normalizado y el diálogo vive en Finanzas; falta la prueba manual con el archivo real de la PO (P4) |
 | B3 | Adaptador de **estructura** de la PO (objetivos, actividades, entregables con cantidad/unidad/medio) | M | B2, decisión **D-A** | **Hecho**: importar `proyecto.xlsx` crea O/A/E (e indicadores) con códigos generados, solo estructura y sin tocar el presupuesto, y la vista previa lista los errores por hoja y celda; el archivo actual de la PO necesita las columnas «Cantidad» y «Unidad» (B4) |
-| B4 | Plantillas actualizadas para la PO (con las columnas nuevas) | S | B3 | Archivos entregados y probados por la PO |
-| B5 | Importar **solo estructura** sin presupuesto | S–M | Decisión **D-A** | Un proyecto con presupuesto ya cargado puede importar estructura sin tocarlo |
+| B4 | Plantillas actualizadas para la PO (con las columnas nuevas) | S | B3 | **Hecho en código**: el juego nuevo de columnas incluye «Cantidad» y «Unidad» (`lib/proyectos/plantilla/columns.ts`) y el viejo se sigue aceptando; falta que la PO pruebe sus archivos |
+| B5 | Importar **solo estructura** sin presupuesto | S–M | Decisión **D-A** | **Hecho**: el import de estructura no toca el presupuesto ni la programación (`lib/api/estructura-po-import.ts`), con `modo=validar|aplicar` |
 | B6 | **Rubros editables por proyecto** (deshabilitar y agregar) | M–L | Decisión **D-B**, migración | El presupuesto de un proyecto oculta rubros deshabilitados y acepta uno propio, sin afectar a otros proyectos |
 | B7 | **Cerrar / suspender / cancelar** proyecto | M | Decisión **D-C** | **Hecho**: la ficha cambia de estado con motivo, auditoría y reglas de quién puede hacerlo (solo Administración y Gerencia); suspendido, cerrado o cancelado quedan congelados, salvo las anulaciones |
 | B8 | Importar **gastos** desde Excel | M | B2 como referencia | **Hecho**: un archivo de gastos entra con validación por fila y queda en `REGISTRADO` sin soportes; el soporte se adjunta después y sin él no se valida |
@@ -127,9 +127,9 @@ Sheet, Gantt, tabla de usuarios, Curva S, ruta vieja, IP/Agente, cronograma y to
 |---|---|---|
 | **Fase 0** (hecha) | A1, A5, B1, U0 | Etiqueta, credenciales, D1 y re-auditoría UX |
 | **Fase 1** (siguiente) | A2, A4, U1–U3, E3 | Riesgo operativo y los cuatro hallazgos vigentes, que son pequeños |
-| **Fase 2** | B2 → B3 → B4 → B5 | Es el flujo que pidió la PO y se puede entregar por partes |
+| **Fase 2** | B2 → B3 → B4 → B5 | Completa: los cuatro están en `main` (B2 por #92); B4 solo espera la prueba de la PO |
 | **Fase 3** | B6, B7, B8 y V1–V3 según decisiones | Cada uno con su documento de feature y su migración |
-| **Fase 4** | V4–V9, D2, D4, E1, E2, E4 | Mejora continua y plataforma |
+| **Fase 4** | V5, V8, V9, D4, E4 | Mejora continua y plataforma. V4 queda fuera de alcance por D-D; V6 y V7 están hechos; V1–V3 están en la Fase 3; D2 está hecho y E1/E2 también |
 
 Cada tarea que toque esquema, permisos o dinero entra con documento en `odd/tasks/`, pruebas primero y PR propio.
 
@@ -190,15 +190,19 @@ Abierto: este PR de documentación (#93), con las decisiones D-A, D-B y D-C de l
 
 ### Orden recomendado para retomar
 
-1. **Arreglos chicos (< 1 h):**
-   - Corregir el mensaje «La descripción es obligatorio.» → «obligatoria».
-   - Los imports de presupuesto (B2) y gastos (B8) solo deben aceptar `modo=validar` o `modo=aplicar`; hoy cualquier
-     otro valor aplica el import.
-2. **B7 — cerrar / suspender / cancelar.** D-C está decidida sin ambigüedad: suspendido = congelado; cerrado = solo
-   lectura y se puede reabrir; solo gerencia y administración suspenden o cancelan. Toca permisos: documento de feature,
-   matriz y pruebas primero.
-3. **B6 — rubros editables por proyecto** (D-B decidida; requiere migración).
-4. **B3 → B4 → B5**, después de aclarar con la PO la pregunta 1 de abajo.
+1. **Verificar los dos arreglos chicos:** el mensaje «La descripción es obligatorio.» → «obligatoria», y que los
+   imports de presupuesto (B2) y gastos (B8) solo acepten `modo=validar` o `modo=aplicar`. No hay evidencia reciente de
+   ninguno de los dos: hay que mirarlos antes de darlos por pendientes.
+2. **B6 — rubros editables por proyecto** (D-B decidida; requiere migración). Es la única del frente que sigue abierta.
+3. **V1 — oportunidades globales**: la página existe pero redirige a `/clientes` con «aún no está construida». Destraba
+   V2, que hoy convierte la oportunidad en proyecto pero no vincula las tareas (`Tarea` no tiene `proyecto_id`).
+4. **V8 y V9 completos**: a V8 le faltan las reglas de «2 días antes» y «30 días sin contacto»; V9 solo edita la
+   planeación del presupuesto en BORRADOR.
+5. **D4 (esquema A)**: falta la semilla que demuestre «Pasar a nuevo proyecto» con una tarea comercial completada sobre
+   una oportunidad GANADA sin proyecto. `scripts/seed-demo-flujo.ts` siembra 4 oportunidades libres y ninguna tarea.
+
+B2, B3, B4, B5, B7, B8, V3, V6 y V7 están en `main`. A2 (dominio de Resend), A4 (respaldos) y E4 (Railway) siguen
+bloqueadas por terceros, y V4 está fuera de alcance por D-D.
 5. A2 y A4 cuando haya acceso al DNS de `muttu.co` y al plan de Supabase; V1–V3 según D-D.
 
 ### Preguntas para la PO
