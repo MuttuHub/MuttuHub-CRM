@@ -4,24 +4,24 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { ThemeToaster } from "@/components/shell/theme-toaster";
 
-// Self-hosted (src/app/fonts/README.md): `next/font/google` fetched these at build time, and Next 16.3's
+// Self-hosted (src/fonts/README.md): `next/font/google` fetched these at build time, and Next 16.3's
 // Turbopack fails the whole build when Google answers with extensionless `/l/font?kit=…&skey=…` URLs
 // (vercel/next.js#99114). Same families, latin subset, variable files that cover every weight in use.
 // The constant names become the @font-face family names, so they stay unique (not «sans» or «mono»).
 const bricolageGrotesque = localFont({
-  src: "./fonts/bricolage-grotesque-latin.woff2",
+  src: "../fonts/bricolage-grotesque-latin.woff2",
   weight: "200 800",
   variable: "--font-bricolage",
 });
 
 const instrumentSans = localFont({
-  src: "./fonts/instrument-sans-latin.woff2",
+  src: "../fonts/instrument-sans-latin.woff2",
   weight: "400 700",
   variable: "--font-instrument",
 });
 
 const jetbrainsMono = localFont({
-  src: "./fonts/jetbrains-mono-latin.woff2",
+  src: "../fonts/jetbrains-mono-latin.woff2",
   weight: "100 800",
   variable: "--font-jetbrains",
 });
