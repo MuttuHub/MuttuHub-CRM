@@ -7,10 +7,11 @@ Los textos entre comillas son los que renderiza la interfaz (verificados contra 
 desarrollo; los mensajes de rechazo son verbatim del documento del PO; el resto se prueba paso a paso). Para el flujo general del módulo Proyectos, usar la
 guía base: `docs/guia-prueba-proyectos.md`.
 
-> **Probar todo en local.** Nunca contra Supabase remoto ni producción: producción aún **no** tiene las
-> migraciones de este sprint aplicadas (la de `ReporteActividad` de AJ-01 y la de carpetas/etiquetas de
-> los requisitos del jefe) ni el backfill de carpetas de cliente. Si algo falla ahí, el fallo esperado
-> es «las migraciones no están aplicadas», no un bug.
+> **Probar todo en local.** Nunca contra Supabase remoto ni producción.
+> **Actualización 2026-11-04:** producción ya tiene todas las migraciones de este sprint (gastos/IVA y
+> clientes/carpetas desde el 28/29-oct; `ReporteActividad` de AJ-01 y peso por duración de AJ-02 desde el
+> 2026-11-04) y el backfill de carpetas de cliente aplicado (52 documentos en 11 carpetas). Detalle en
+> `odd/tasks/jefe-carril-1.md` L11 y `odd/tasks/aj01-estado-en-curso.md` L10.
 
 > **Primera pasada automatizada (2026-11-02, por el agente):** las reglas de servidor y componentes de
 > **D, E, G, H, I, J, K y L** quedaron cubiertas por sus suites (430 tests verdes en las secciones

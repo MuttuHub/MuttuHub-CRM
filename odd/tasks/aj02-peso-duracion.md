@@ -149,3 +149,4 @@ Field-level decisions, so the worker does not have to re-decide them:
   created needs `UPDATE actividades SET peso = semana_fin - semana_inicio + 1 WHERE peso IS NULL;` first.
   Checks: clean-DB `migrate deploy` of all 41 migrations OK and `migrate diff` empty; local DB realigned
   (columns re-added, checksum updated) with empty diff; tsc 0, lint clean, invariant test 3/3.
+- **L7 (2026-11-04) — expand migration in production.** `20261030120000_v2_actividades_peso_por_duracion` applied in production together with AJ-01's migration (same rehearsal and backup; status up to date, diff empty). The 12 production activities keep their `peso`. **Next:** the contract migration (drop `peso` and `peso_manual`) is now unblocked because the AJ-02 code is live; it needs its own rehearsal on a production copy.
