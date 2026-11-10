@@ -24,8 +24,13 @@ export default defineConfig({
     // e2e/ holds Playwright specs (@playwright/test's own runner, video
     // recording against the live dev server) — vitest's default glob would
     // otherwise pick them up and fail them (wrong test/expect implementation).
+    // .claude/ holds the git worktrees used for parallel work, and each one has
+    // its own copy of src/. A positional filter such as `vitest run src` is a
+    // substring match on the path, so `X/src/**` inside a worktree matched too
+    // and the suite ran once per worktree (measured 2026-11-10: 1h28m and still
+    // running, 639 coverage chunks for 416 test files).
     // Spread the built-in defaults too, since setting `exclude` replaces them.
-    exclude: [...configDefaults.exclude, "e2e/**"],
+    exclude: [...configDefaults.exclude, "e2e/**", ".claude/**"],
     // En Vitest 4 `coverage` se configura dentro de `test` (no top-level) y la
     // opción `all` fue removida: con `include` definido, los archivos no
     // cubiertos que matcheen los patrones entran al reporte. Scope intencional:

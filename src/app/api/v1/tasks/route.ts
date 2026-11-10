@@ -131,11 +131,12 @@ export function parseTaskFilters(
  * Prisma rejects duplicate keys at the same level — extending the existing
  * object keeps one owner of the field (D6 in close-phase-1/design.md).
  */
-// `usuario` is kept on the signature to preserve the public contract that
-// PR 3 left in place (reading is global, so it isn't read here). Drop it
+// `_usuario` is kept on the signature to preserve the public contract that
+// PR 3 left in place (reading is global, so it isn't read here). The leading
+// underscore tells the compiler it is unused on purpose; drop the parameter
 // only if a future refactor removes every caller's argument.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function buildTaskWhere(filters: TaskFilters, usuario: Usuario): Prisma.TareaWhereInput {
+export function buildTaskWhere(filters: TaskFilters, _usuario: Usuario): Prisma.TareaWhereInput {
   const where: Prisma.TareaWhereInput = {
     deleted_at: null,
   };

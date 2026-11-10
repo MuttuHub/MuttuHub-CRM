@@ -78,8 +78,8 @@ function skipBraces(text: string, i: number): number {
   return text.length
 }
 
-/** End index (exclusive) of the JSX opening tag that starts at `<` position `start`, or -1 when malformed. */
-function tagEnd(text: string, start: number, nameEnd: number): number {
+/** End index (exclusive) of the JSX opening tag that starts at `<` position `_start`, or -1 when malformed. */
+function tagEnd(text: string, _start: number, nameEnd: number): number {
   for (let j = nameEnd; j < text.length; j++) {
     const c = text[j]
     if (c === ">") return j + 1
