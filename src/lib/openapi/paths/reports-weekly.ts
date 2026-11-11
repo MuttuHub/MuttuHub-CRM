@@ -81,16 +81,6 @@ const ReporteSemanalSchema = registry.register(
           "«Requiere atención» de cada proyecto medible, sin las actividades atrasadas (van aparte). Los gastos observados se " +
           "resumen en un conteo: nunca se expone el detalle de un gasto.",
       }),
-    gastos_por_validar: z
-      .object({
-        cantidad: z.number().int(),
-        monto: MONTO,
-        por_proyecto: z.array(
-          z.object({ proyecto: PROYECTO_REF, cantidad: z.number().int(), monto: MONTO, mas_antiguo: FECHA }),
-        ),
-      })
-      .nullable()
-      .openapi({ description: "Solo para ADMINISTRADOR y GERENCIA (null para el resto). Agregados por proyecto." }),
   }),
 );
 
@@ -102,7 +92,7 @@ registry.registerPath({
   method: "get",
   path: "/api/v1/reports/weekly",
   tags: ["Projects"],
-  summary: "Reporte semanal: portafolio, actividades atrasadas, tareas, «Requiere atención» y gastos por validar",
+  summary: "Reporte semanal: portafolio, actividades atrasadas, tareas y «Requiere atención»",
   description: `${ACCESO} Solo agregados: sin gastos individuales, terceros ni soportes (P04).`,
   security: [{ sessionCookie: [] }],
   request: { query: z.object({ semana: SEMANA_QUERY }) },
@@ -118,9 +108,9 @@ registry.registerPath({
   tags: ["Projects"],
   summary: "Exporta a Excel el reporte semanal",
   description:
-    `${ACCESO} El 403 va antes que el 400 de \`formato\`. Hojas: Resumen, Proyectos, Por cliente, Actividades atrasadas, ` +
-    "Requiere atención y, solo para ADMINISTRADOR y GERENCIA, Gastos por validar. Solo agregados (P04). Cada descarga escribe " +
-    "una fila de auditoría `EXPORTAR` (si la auditoría falla, la descarga no falla).",
+    `${ACCESO} El 403 va antes que el 400 de \`formato\`. Hojas: Resumen, Proyectos, Por cliente, Actividades atrasadas ` +
+    "y Requiere atención. Solo agregados (P04). Cada descarga escribe una fila de auditoría `EXPORTAR` (si la auditoría " +
+    "falla, la descarga no falla).",
   security: [{ sessionCookie: [] }],
   request: {
     query: z.object({

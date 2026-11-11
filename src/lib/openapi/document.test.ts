@@ -265,17 +265,16 @@ describe("buildOpenApiDocument", () => {
     }
     expect(importar).not.toContain("Valor (COP)` y `Periodo")
   })
-  it("registers the S6 validation workflow and the queue", () => {
+  it("registers the void correction and no approval workflow any more (AJ-08)", () => {
     const paths = buildOpenApiDocument().paths ?? {}
     const codes = (op: { responses?: object } | undefined) => Object.keys(op?.responses ?? {})
-    for (const action of ["validate", "reject", "void"]) {
-      const op = paths[`/api/v1/projects/{id}/expenses/{expenseId}/${action}`]?.post
-      expect(codes(op)).toEqual(expect.arrayContaining(["200", "401", "403", "404", "409"]))
+    const anular = paths["/api/v1/projects/{id}/expenses/{expenseId}/void"]?.post
+    expect(codes(anular)).toEqual(expect.arrayContaining(["200", "400", "401", "403", "404", "409"]))
+    // The approval step is gone: no validate, no reject, no cross-project queue.
+    for (const ruta of ["validate", "reject"]) {
+      expect(paths[`/api/v1/projects/{id}/expenses/{expenseId}/${ruta}`]).toBeUndefined()
     }
-    expect(codes(paths["/api/v1/projects/{id}/expenses/{expenseId}/reject"]?.post)).toContain("400")
-    expect(codes(paths["/api/v1/expense-validations"]?.get)).toEqual(
-      expect.arrayContaining(["200", "400", "401", "403"]),
-    )
+    expect(paths["/api/v1/expense-validations"]).toBeUndefined()
     expect(
       codes(paths["/api/v1/projects/{id}/expenses/{expenseId}/attachments/{attachmentId}/download"]?.get),
     ).toEqual(expect.arrayContaining(["200", "401", "403", "404", "500"]))
