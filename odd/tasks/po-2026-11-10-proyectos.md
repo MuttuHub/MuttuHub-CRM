@@ -452,5 +452,10 @@ S11) · T15 recarga de CedeTextil en producción con ensayo (S12).
   cuando un gasto supera el 50 % del asignado del rubro; en D2, los gastos anulados por esta decisión deben seguir
   visibles y poder corregirse (a resolver en T4 y T6). D5 queda abierta. CI de #170 en verde sobre `7ea7f7f`
   (`unit` 5m57s, `e2e` 5m35s); el merge sigue siendo decisión del usuario.
+- **L9 (2026-11-11, aclaraciones a D2, D4 y D5):** el usuario, textual: «D4 cuando un gasto supera el 50% tienen que
+  ver como hacen con las demas actividades y el restante de ese presupuesto»; «D2 Es correcto» (a la lectura de L8:
+  anulados, visibles y corregibles, sin borrar); «D5 tienes que modificar ese proyecto? por que?». Lectura del agente
+  (no textual): D4 confirma que no hay aviso de confirmación; el manejo del presupuesto restante es de quien
+  registra, con las alertas de sobreejecución y los traslados de S2 y S3. D5 sigue abierta.
 - **Siguiente paso:** merge de #170 (decisión del usuario); T3 y T4, ya destrabadas; cerrar D5; T0 (probar una
   invitación real en producción); verificación manual de T1 y T8 cuando la base local esté arriba.
