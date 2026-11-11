@@ -17,6 +17,7 @@ import { vencidaSinTerminar } from "./estado-actividad"
 import { esObservado, type EstadoGasto } from "./gastos"
 import { formatCOP, type Cents } from "./money"
 import type { MedicionInput } from "./kpis"
+import type { TipoModificacion } from "./modificaciones"
 import type { IsoDate } from "./weeks"
 
 /** Stable discriminator of an attention item; the UI keys its rendering by this value. */
@@ -27,6 +28,7 @@ const ATENCION_TIPOS = [
   "avance_sin_soporte",
   "indicador_bajo_meta",
   "gasto_observado",
+  "modificacion_pendiente",
 ] as const
 
 export type AtencionTipo = (typeof ATENCION_TIPOS)[number]
@@ -39,6 +41,7 @@ export const ATENCION_TITULO: Record<AtencionTipo, string> = {
   avance_sin_soporte: "Avance sin soporte",
   indicador_bajo_meta: "Indicador bajo la meta",
   gasto_observado: "Gasto pendiente por revisión",
+  modificacion_pendiente: "Solicitud de modificación pendiente",
 }
 
 /**
@@ -54,6 +57,7 @@ export type AtencionItem = {
   avance_id?: string
   indicador_id?: string
   gasto_id?: string
+  solicitud_id?: string
 }
 
 export type AtencionProyecto = {
@@ -95,6 +99,17 @@ export type AtencionGastoInput = {
   descripcion: string
 }
 
+/** A modification request of the project (AJ-09); only the ones still waiting for a decision are listed. */
+export type AtencionModificacionInput = {
+  id: string
+  tipo: TipoModificacion
+  estado: "PENDIENTE" | "APROBADA" | "RECHAZADA"
+  /** Name of who asked; null when the audit pointer no longer resolves to a user. */
+  solicitado_por: string | null
+  /** Calendar day the request was made. */
+  solicitado_at: IsoDate
+}
+
 export type AtencionInput = {
   corte: IsoDate
   /** From the project KPIs: the server's financial delay alert, never recomputed here. */
@@ -108,6 +123,7 @@ export type AtencionInput = {
   indicadores: readonly AtencionIndicadorInput[]
   rubros: readonly AtencionRubroInput[]
   gastos: readonly AtencionGastoInput[]
+  modificaciones: readonly AtencionModificacionInput[]
 }
 
 const nf = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 1 })
@@ -145,6 +161,21 @@ function detalleGasto(gasto: AtencionGastoInput): string {
   return `${sinPuntoFinal(gasto.descripcion)}: ${motivos.join(" y ")}.`
 }
 
+/** Same names the request form offers (`TIPO_MODIFICACION_LABEL`); the server owns this copy of the list. */
+const TIPO_MODIFICACION: Record<TipoModificacion, string> = {
+  TRASLADO: "Traslado entre rubros",
+  ADICION: "Adición de recursos",
+  REDUCCION: "Reducción de recursos",
+  REPROGRAMACION: "Reprogramación de periodos",
+  CRONOGRAMA: "Cronograma",
+  ENTREGABLES: "Entregables e indicadores",
+}
+
+function detalleModificacion(solicitud: AtencionModificacionInput): string {
+  const quien = solicitud.solicitado_por ? ` por ${solicitud.solicitado_por}` : ""
+  return `${TIPO_MODIFICACION[solicitud.tipo]}: solicitada${quien} el ${fechaLegible(solicitud.solicitado_at)}.`
+}
+
 /**
  * The attention list at `corte`, ordered by rule. Pure and total: an empty input yields an empty list,
  * and a rule with no source data simply contributes nothing.
@@ -159,6 +190,18 @@ export function construirAtencion(input: AtencionInput): AtencionItem[] {
       titulo: ATENCION_TITULO.alerta_retraso,
       detalle: "El gasto va por debajo de lo programado y el avance técnico está atrasado.",
     })
+  }
+
+  // A request waits for Gerencia whatever the corte: it is listed until someone approves or rejects it.
+  for (const solicitud of input.modificaciones) {
+    if (solicitud.estado === "PENDIENTE") {
+      items.push({
+        tipo: "modificacion_pendiente",
+        titulo: ATENCION_TITULO.modificacion_pendiente,
+        detalle: detalleModificacion(solicitud),
+        solicitud_id: solicitud.id,
+      })
+    }
   }
 
   for (const rubro of input.rubros) {

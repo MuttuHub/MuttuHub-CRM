@@ -2734,7 +2734,8 @@ export type AtencionTipo =
   | "actividad_atrasada"
   | "avance_sin_soporte"
   | "indicador_bajo_meta"
-  | "gasto_observado";
+  | "gasto_observado"
+  | "modificacion_pendiente";
 
 export type AtencionItem = {
   tipo: AtencionTipo;
@@ -2745,6 +2746,7 @@ export type AtencionItem = {
   avance_id?: string;
   indicador_id?: string;
   gasto_id?: string;
+  solicitud_id?: string;
 };
 
 /** Respuesta de `GET /api/v1/projects/:id/attention`. */

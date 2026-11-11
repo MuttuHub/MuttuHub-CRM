@@ -4,30 +4,59 @@
 // financial delay alert, so the attention list cannot disagree with the ficha. The per-item rows are
 // read in one batch and mapped to the pure `construirAtencion`; a source without rows simply
 // contributes nothing. Readable in any estado by whoever can read the project (404 -> 403 -> 409 -> 400).
+//
+// The pending modification requests (AJ-09) are part of the ficha's list only: a caller asks for them
+// with `incluirSolicitudes`. The weekly report reuses this loader for every measurable project and does
+// not ask, so it neither reads them nor changes what it prints.
 
 import { db } from "@/lib/db";
 import { calcularKpisProyecto } from "@/lib/api/kpis-proyecto";
 import type { ProyectoKpiBase } from "@/lib/api/kpis-portafolio";
 import { loadGastosValidados } from "@/lib/api/financiera";
+import { loadNombres, SOLICITUD_SELECT, toSolicitudView } from "@/lib/api/modificaciones";
 import { cargarReportesPorActividad } from "@/lib/api/tecnico";
 import { getSemaforoParametrosV2 } from "@/lib/settings";
 import { pesoActividad } from "@/lib/proyectos/actividad";
 import { datosIncompletos } from "@/lib/proyectos/gastos";
 import { toCents, type Cents } from "@/lib/proyectos/money";
 import { isoDate } from "@/lib/proyectos/proyecto-general";
-import { activityDates, periodOf } from "@/lib/proyectos/weeks";
+import { activityDates, periodOf, todayInBogota } from "@/lib/proyectos/weeks";
 import {
   construirAtencion,
   type AtencionActividadInput,
   type AtencionAvanceInput,
   type AtencionGastoInput,
   type AtencionIndicadorInput,
+  type AtencionModificacionInput,
   type AtencionProyecto,
   type AtencionRubroInput,
 } from "@/lib/proyectos/atencion";
 
 const toNumber = (value: { toString(): string }) => Number(value.toString());
 const ZERO: Cents = BigInt(0);
+
+/**
+ * The requests of the project still waiting for a decision (AJ-09), oldest first, through the same view
+ * and name lookup as the requests list of the ficha, so both name the same person.
+ */
+async function cargarSolicitudesPendientes(proyectoId: string): Promise<AtencionModificacionInput[]> {
+  const filas = await db.solicitudModificacion.findMany({
+    where: { proyecto_id: proyectoId, estado: "PENDIENTE" },
+    orderBy: [{ solicitado_at: "asc" }, { id: "asc" }],
+    select: SOLICITUD_SELECT,
+  });
+  const nombres = await loadNombres(filas.map((fila) => fila.solicitado_por_id));
+  return filas.map((fila) => {
+    const solicitud = toSolicitudView(fila, nombres);
+    return {
+      id: solicitud.id,
+      tipo: solicitud.tipo,
+      estado: solicitud.estado,
+      solicitado_por: solicitud.solicitado_por.nombre,
+      solicitado_at: todayInBogota(new Date(solicitud.solicitado_at)),
+    };
+  });
+}
 
 /**
  * The attention list of one project at `corteParam` (calendar date; absent means today in Bogotá).
@@ -37,6 +66,8 @@ const ZERO: Cents = BigInt(0);
 export async function cargarAtencion(input: {
   proyecto: ProyectoKpiBase;
   corteParam: string | null;
+  /** Adds the requests still waiting for a decision (AJ-09). Off by default: only the ficha lists them. */
+  incluirSolicitudes?: boolean;
 }): Promise<{ ok: true; value: AtencionProyecto } | { ok: false; response: Response }> {
   const calculado = await calcularKpisProyecto({
     proyecto: input.proyecto,
@@ -56,8 +87,17 @@ export async function cargarAtencion(input: {
   const inicio = isoDate(input.proyecto.fecha_inicio as Date);
   const proyectoId = input.proyecto.id;
 
-  const [actividades, avances, reportesPorActividad, soportes, indicadores, lineas, gastosValidados, gastosRegistrados] =
-    await Promise.all([
+  const [
+    actividades,
+    avances,
+    reportesPorActividad,
+    soportes,
+    indicadores,
+    lineas,
+    gastosValidados,
+    gastosRegistrados,
+    solicitudesPendientes,
+  ] = await Promise.all([
       db.actividad.findMany({
         where: { proyecto_id: proyectoId, deleted_at: null },
         orderBy: [{ semana_inicio: "asc" }, { codigo: "asc" }],
@@ -110,6 +150,7 @@ export async function cargarAtencion(input: {
           tercero_numero_id: true,
         },
       }),
+      input.incluirSolicitudes ? cargarSolicitudesPendientes(proyectoId) : [],
     ]);
 
   const medios = new Map<string, number>();
@@ -192,6 +233,7 @@ export async function cargarAtencion(input: {
     indicadores: indicadoresInput,
     rubros: rubrosInput,
     gastos: gastosInput,
+    modificaciones: solicitudesPendientes,
   });
 
   return { ok: true, value: { corte, medible: true, items } };

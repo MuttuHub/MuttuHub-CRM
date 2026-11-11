@@ -17,6 +17,8 @@ vi.mock("@/lib/db", () => ({
     indicador: { findMany: vi.fn(async () => []) },
     lineaPresupuestal: { findMany: vi.fn(async () => []) },
     gasto: { findMany: vi.fn(async () => []) },
+    solicitudModificacion: { findMany: vi.fn(async () => []) },
+    usuario: { findMany: vi.fn(async () => []) },
   },
 }))
 vi.mock("@/lib/api/kpis-portafolio", () => ({ loadKpisPortafolio: vi.fn() }))
@@ -84,6 +86,43 @@ describe("GET projects/:id/attention", () => {
     const body = await (await GET(get(), ctx)).json()
     expect(body.items.map((item: { tipo: string }) => item.tipo)).toEqual(["alerta_retraso"])
     expect(body.items[0].titulo).toBe("Posible retraso")
+  })
+
+  it("lists the project's pending modification requests for whoever reads the ficha (AJ-09)", async () => {
+    vi.mocked(db.solicitudModificacion.findMany).mockResolvedValueOnce([
+      {
+        id: "s1",
+        tipo: "TRASLADO",
+        motivo: "Mover saldo a materiales",
+        detalle: [],
+        version_base_numero: 0,
+        estado: "PENDIENTE",
+        solicitado_por_id: "u7",
+        solicitado_at: new Date("2026-03-10T15:00:00.000Z"),
+        decidido_por_id: null,
+        decidido_at: null,
+        comentario_decision: null,
+        version: null,
+      },
+    ] as never)
+    vi.mocked(db.usuario.findMany).mockResolvedValueOnce([{ id: "u7", nombre: "Ana Pérez" }] as never)
+    auth(user("COORDINADOR"))
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto({}, true))
+
+    const res = await GET(get(), ctx)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.items).toHaveLength(1)
+    expect(body.items[0]).toMatchObject({
+      tipo: "modificacion_pendiente",
+      titulo: "Solicitud de modificación pendiente",
+      solicitud_id: "s1",
+    })
+    expect(body.items[0].detalle).toMatch(/^Traslado entre rubros: solicitada por Ana Pérez el 10 (de )?mar(\.)?( de)? 2026\.$/)
+    expect(db.solicitudModificacion.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { proyecto_id: "pry-1", estado: "PENDIENTE" } }),
+    )
   })
 
   it("404 for an unknown project, before any permission decision", async () => {

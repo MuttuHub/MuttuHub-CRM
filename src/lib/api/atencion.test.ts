@@ -16,6 +16,8 @@ vi.mock("@/lib/db", () => ({
     indicador: { findMany: vi.fn() },
     lineaPresupuestal: { findMany: vi.fn() },
     gasto: { findMany: vi.fn() },
+    solicitudModificacion: { findMany: vi.fn() },
+    usuario: { findMany: vi.fn() },
   },
 }))
 vi.mock("@/lib/api/kpis-portafolio", () => ({ loadKpisPortafolio: vi.fn() }))
@@ -63,6 +65,8 @@ beforeEach(() => {
   vi.mocked(db.indicador.findMany).mockResolvedValue([] as never)
   vi.mocked(db.lineaPresupuestal.findMany).mockResolvedValue([] as never)
   vi.mocked(db.gasto.findMany).mockResolvedValue([] as never)
+  vi.mocked(db.solicitudModificacion.findMany).mockResolvedValue([] as never)
+  vi.mocked(db.usuario.findMany).mockResolvedValue([] as never)
   vi.mocked(loadKpisPortafolio).mockResolvedValue(new Map([["pry-1", kpisBase()]]))
   vi.mocked(loadGastosValidados).mockResolvedValue({ disponible: true, gastos: [] })
 })
@@ -174,6 +178,55 @@ describe("cargarAtencion", () => {
     const tipos = result.ok ? result.value.items.map((item) => item.tipo) : []
     expect(tipos).toContain("indicador_bajo_meta")
     expect(tipos).toContain("gasto_observado")
+  })
+
+  describe("pending modification requests (AJ-09)", () => {
+    // Asked late on 10 Nov in Bogotá, which is already 11 Nov in UTC.
+    const pendiente = {
+      id: "s1",
+      tipo: "TRASLADO",
+      motivo: "Mover saldo a materiales",
+      detalle: [],
+      version_base_numero: 0,
+      estado: "PENDIENTE",
+      solicitado_por_id: "u7",
+      solicitado_at: new Date("2026-11-11T02:30:00.000Z"),
+      decidido_por_id: null,
+      decidido_at: null,
+      comentario_decision: null,
+      version: null,
+    }
+
+    it("lists only the pending requests of the project, naming who asked and the Bogotá day, when asked to", async () => {
+      vi.mocked(db.solicitudModificacion.findMany).mockResolvedValue([pendiente] as never)
+      vi.mocked(db.usuario.findMany).mockResolvedValue([{ id: "u7", nombre: "Ana Pérez" }] as never)
+
+      const result = await cargarAtencion({ proyecto: PROYECTO, corteParam: "2026-03-15", incluirSolicitudes: true })
+
+      expect(db.solicitudModificacion.findMany).toHaveBeenCalledTimes(1)
+      expect(db.solicitudModificacion.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { proyecto_id: "pry-1", estado: "PENDIENTE" } }),
+      )
+      expect(db.usuario.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: { in: ["u7"] } } }))
+      const items = result.ok ? result.value.items : []
+      expect(items).toHaveLength(1)
+      expect(items[0]).toMatchObject({
+        tipo: "modificacion_pendiente",
+        titulo: "Solicitud de modificación pendiente",
+        solicitud_id: "s1",
+      })
+      expect(items[0].detalle).toMatch(/^Traslado entre rubros: solicitada por Ana Pérez el 10 (de )?nov(\.)?( de)? 2026\.$/)
+    })
+
+    it("leaves the requests out, without reading them, for a caller that does not ask (the weekly report)", async () => {
+      vi.mocked(db.solicitudModificacion.findMany).mockResolvedValue([pendiente] as never)
+
+      const result = await cargar()
+
+      expect(result).toEqual({ ok: true, value: { corte: "2026-03-15", medible: true, items: [] } })
+      expect(db.solicitudModificacion.findMany).not.toHaveBeenCalled()
+      expect(db.usuario.findMany).not.toHaveBeenCalled()
+    })
   })
 
   it("echoes the server's delay alert without recomputing it", async () => {
