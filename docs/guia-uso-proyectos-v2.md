@@ -216,7 +216,9 @@ En el encabezado, siempre visible:
 - El enlace **← Proyectos**, que regresa a la lista.
 - **Código** y el título «nombre · estado» (Borrador, En ejecución, Suspendido, Cerrado o Cancelado).
 - Los chips **Semáforo técnico** y **Semáforo financiero** (desde En ejecución). Cada chip lleva a la pestaña que explica
-  su causa.
+  su causa. Junto al financiero aparece **Posible retraso** cuando lo ejecutado va por debajo del porcentaje de retraso
+  de lo programado (60 % mientras el Administrador no lo cambie) y el semáforo técnico está en amarillo o rojo; el
+  aviso no cambia el color del semáforo financiero.
 - Las acciones según rol y estado: **Aprobar línea base** (en Borrador), **Registrar avance** y **Registrar gasto** (en
   ejecución). Desde cualquier pestaña, **Registrar avance** abre una ventana con el selector **Actividad** (viene
   elegida la primera sin terminar), lo registrado y el tope de esa actividad, y el formulario del avance;

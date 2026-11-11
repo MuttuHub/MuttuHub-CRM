@@ -26,6 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ToneBadge } from "@/components/crm/shared";
 import { BaselineApproval } from "@/components/proyectos/baseline-approval";
 import { useIsMobile } from "@/components/proyectos/capture-surface";
 import { useEjecucionPermisos } from "@/components/proyectos/project-ejecucion";
@@ -264,6 +265,7 @@ function BarraAcciones({
  * Semáforos del encabezado. Reutilizan la consulta de la sección Indicadores (misma clave: sin corte, base
  * vigente), así que no se pide dos veces ni se recalcula nada: el color llega del servidor. Un proyecto fuera de
  * ejecución (`medible: false`) no tiene semáforo. Cada chip es un botón que lleva a la pestaña de su causa.
+ * «Posible retraso» (AJ-10) va junto al semáforo financiero y lo complementa: no cambia su color.
  */
 function FichaSemaforos({
   proyectoId,
@@ -282,9 +284,12 @@ function FichaSemaforos({
         </button>
       )}
       {kpis.financiero && (
-        <button type="button" className={CHIP_BUTTON_CLASS} onClick={() => onIrA("finanzas")}>
-          <SemaforoChip color={kpis.financiero.color} prefix="Semáforo financiero" />
-        </button>
+        <span className="inline-flex flex-wrap items-center gap-1.5">
+          <button type="button" className={CHIP_BUTTON_CLASS} onClick={() => onIrA("finanzas")}>
+            <SemaforoChip color={kpis.financiero.color} prefix="Semáforo financiero" />
+          </button>
+          {kpis.financiero.alerta_retraso && <ToneBadge tone="alerta" label="Posible retraso" />}
+        </span>
       )}
     </>
   );

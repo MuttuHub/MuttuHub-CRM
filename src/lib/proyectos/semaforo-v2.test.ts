@@ -16,7 +16,7 @@ describe("PARAMETROS_V2_DEFAULT", () => {
       umbral1: { valor: 10, confirmado: false },
       umbral2: { valor: 20, confirmado: false },
       tolerancia: { valor: 10, confirmado: false },
-      retraso: { valor: 70, confirmado: false },
+      retraso: { valor: 60, confirmado: false },
       avance_requiere_medio: { valor: true, confirmado: false },
       modificacion_bloquea_periodos_pasados: { valor: true, confirmado: false },
       tope_en_curso: { valor: 90, confirmado: false },
@@ -56,7 +56,7 @@ describe("parseParametrosV2", () => {
       tope_en_curso: { valor: 150, confirmado: true },
     });
     expect(parsed.tolerancia).toEqual({ valor: 10, confirmado: false });
-    expect(parsed.retraso).toEqual({ valor: 70, confirmado: false });
+    expect(parsed.retraso).toEqual({ valor: 60, confirmado: false });
     expect(parsed.avance_requiere_medio).toEqual({ valor: true, confirmado: false });
     expect(parsed.modificacion_bloquea_periodos_pasados).toEqual({ valor: false, confirmado: true });
     expect(parsed.tope_en_curso).toEqual({ valor: 90, confirmado: false });
@@ -121,5 +121,22 @@ describe("alertaRetraso", () => {
   });
   it("90,8 % with technical rojo raises no alert", () => {
     expect(alertaRetraso({ epTenths: BigInt(908), colorTecnico: "rojo" }, 70)).toBe(false);
+  });
+
+  describe("with the initial threshold of the Administrador (AJ-10)", () => {
+    const umbral = PARAMETROS_V2_DEFAULT.retraso.valor;
+
+    it("starts at 60 %", () => {
+      expect(umbral).toBe(60);
+    });
+    it("technical rojo and 1 % of the programmed amount executed: the alert appears", () => {
+      expect(alertaRetraso({ epTenths: BigInt(10), colorTecnico: "rojo" }, umbral)).toBe(true);
+    });
+    it("technical verde and 40 % of the programmed amount executed: no alert", () => {
+      expect(alertaRetraso({ epTenths: BigInt(400), colorTecnico: "verde" }, umbral)).toBe(false);
+    });
+    it("technical rojo and 80 % of the programmed amount executed: no alert", () => {
+      expect(alertaRetraso({ epTenths: BigInt(800), colorTecnico: "rojo" }, umbral)).toBe(false);
+    });
   });
 });

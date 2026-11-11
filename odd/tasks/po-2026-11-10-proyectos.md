@@ -230,6 +230,16 @@ Parte 2 — nota de la PO: «El presupuesto deja de llevarse solo por rubro y pa
 | D4 | Los «Propuesto» de S2 (confirmar gasto > 50 % del rubro; resumen de cambios del periodo), S4 (60 %), S6 (fechas por defecto), S9 (IVA proporcional) y S11 (reabrir con motivo): ¿se aceptan? | T5, T7, Fase 2 | Aceptarlos todos |
 | D5 | S12: CedeTextil en producción tiene línea base aprobada y versiones **inmutables** (trigger). «Volver a cargar» no puede borrarlas. ¿Se crea un proyecto nuevo con la nueva estructura y el actual se cierra/archiva? | T15 | Proyecto nuevo + el actual archivado |
 
+**Respuestas del usuario (2026-11-11, textuales en L8).** Las dio el usuario, no la PO.
+
+| ID | Respuesta | Efecto |
+|---|---|---|
+| D1 | Mantener la regla actual | T2 no se hace |
+| D2 | Los rechazados quedan anulados y no se borran | T4 destrabada; el cambio de estado en producción sigue siendo tarea aparte con ensayo |
+| D3 | Gestor = miembro del proyecto con rol `COORDINADOR` o `COLABORADOR`; Gerente = `GERENCIA` | T3 y T6 destrabadas |
+| D4 | No se acepta la confirmación de gasto > 50 % del rubro; el resto de «Propuesto» se acepta (el 60 % de S4 ya está en T8) | T5 sin esa confirmación; T7 y Fase 2 destrabadas |
+| D5 | Abierta: el usuario pidió la explicación de por qué hace falta un proyecto nuevo | T15 sigue bloqueada |
+
 ## Tasks
 
 Tamaños: **S** ≤ medio día de agente, **M** ≈ 1 día, **L** > 1 día (se parte antes de empezar). Todas inline (una
@@ -238,14 +248,14 @@ sesión de agente por tarea) salvo que la tarjeta diga otra cosa.
 | ID | Specs | Qué | Tamaño | Depende de | Riesgo | Estado |
 |---|---|---|---|---|---|---|
 | T0 | — | Cerrar urgencias: mergear #166 (invitaciones rotas) y probar una invitación real | S | — | 2 (auth) | Pendiente |
-| T1 | S1 | La curva S, la tabla por periodo, «Periodo del reporte» y «Requiere atención» leen los reportes de avance | S | — | 6 | Hecha: PR #169 (`84aa280`); verificación manual en local pendiente |
-| T2 | S1 | Regla de avance por actividad según D1 (solo si la PO cambia la regla) | S | D1, T1 | 6 | Pendiente |
+| T1 | S1 | La curva S, la tabla por periodo, «Periodo del reporte» y «Requiere atención» leen los reportes de avance | S | — | 6 | Hecha: PR #169, `91b467a` en `main`; verificación manual en local pendiente |
+| T2 | S1 | Regla de avance por actividad según D1 (solo si la PO cambia la regla) | S | D1, T1 | 6 | No se hace: D1 mantiene la regla actual (L8) |
 | T3 | S3 | El Gestor solicita traslados; el Gerente ve pendientes; validación contra lo ejecutado | S–M | D3 | 2 (permisos) | Pendiente |
 | T4 | S2 | Gasto sin aprobación: todo gasto no anulado es ejecutado; se quitan «Por validar», filtros y cola | M | D2 | 3 (lectores compartidos) | Pendiente |
 | T5 | S2 | Validadores al digitar, alertas de sobreejecución que no bloquean y aviso de duplicados | M | T4, D4 | — | Pendiente |
 | T6 | S2 | Gestor edita/anula con motivo y auditoría; varios archivos y enlaces por gasto; plantilla exige enlace | M | T4, D3 | 1 si toca datos | Pendiente |
 | T7 | S2 | (Propuesto) Resumen de cambios del periodo en la ficha financiera | S | T6, D4 | — | Pendiente |
-| T8 | S4 | Alerta «Posible retraso» visible en ficha y Tablero gerencial (la lógica ya existe) | S | — | — | Pendiente |
+| T8 | S4 | Alerta «Posible retraso» visible en ficha y Tablero gerencial (la lógica ya existe) | S | — | — | Implementada en `8270e97`, PR #170 abierto |
 | T9 | S5–S12 | **Diseño y estimación de la Parte 2** (sin código): modelo de datos, migraciones, plantillas, recarga de CedeTextil | M | D5 | — | Pendiente |
 | T10–T15 | S5–S12 | Rebanadas de la Parte 2, definidas por T9 (orientativas abajo) | L en total | T9 | 1 | Pendiente |
 
@@ -337,7 +347,8 @@ sesión de agente por tarea) salvo que la tarjeta diga otra cosa.
 ### T5 — AJ-08: validadores y alertas (M)
 
 - Validadores al digitar en `gasto-form.tsx` (numéricos > 0, separador de miles, total calculado, advertencia IVA > 19 %
-  del subtotal; Propuesto: confirmar si supera el 50 % del asignado del rubro).
+  del subtotal). La confirmación propuesta para un gasto que supera el 50 % del asignado del rubro **no se
+  implementa** (D4, L8).
 - Sobreejecución **sin bloquear**: hoy `validacion-gastos.ts` bloquea con 409 al validar; pasar la regla al registro
   como advertencia (ejecutado acumulado > programado al periodo) y alerta crítica (> asignado del rubro) con el mensaje
   textual «Solicita un traslado al Gerente».
@@ -421,4 +432,30 @@ S11) · T15 recarga de CedeTextil en producción con ensayo (S12).
 - **L6 (2026-11-11, T1):** CI de #169 en verde sobre `0f22ba1` (`unit` 9m17s, `e2e` 5m23s): es la corrida completa
   que no terminó en local. El usuario autorizó mergear #169 y cerrar #168 sin mergear («si»). De T1 queda pendiente
   solo la verificación manual en la base local (sembrar, registrar un avance en PRY-2026-001 y ver moverse la curva).
-- **Siguiente paso:** T0 y T8; enviar D1–D5 a la PO; verificación manual de T1 cuando la base local esté arriba.
+- **L7 (2026-11-11, T1 y T8):** #169 mergeado en `main` como `91b467a` y #168 cerrado sin mergear. T8 en
+  `feat/aj-10-alerta-posible-retraso`, commit `8270e97`, PR #170, ruta inline. Ya existían la lógica (`alertaRetraso`)
+  y la insignia en el Tablero gerencial (con test); faltaba el encabezado de la ficha, que ahora muestra «Posible
+  retraso» junto al semáforo financiero sin cambiar su color. Decisión del usuario sobre el valor inicial (parte de
+  D4, antes de la respuesta de la PO), a la pregunta «¿Cambio el valor por defecto de 70 % a 60 % en T8, o lo dejo en
+  70 hasta que la PO confirme D4?» con la recomendación de cambiarlo: «dale». `retraso` pasa de 70 a 60; un valor ya
+  guardado por el Administrador no se toca. RED → GREEN: valor inicial 60 e insignia en el encabezado; los tres casos
+  de «Se acepta si» quedan fijados con el valor inicial. Pasan los 18 archivos de test que usan los parámetros por
+  defecto, el encabezado o el tablero (313 tests), eslint y knip; `tsc` solo con los 17 errores previos de `main`.
+  Guías de uso y de prueba actualizadas. Revisión nativa: riesgo medio, `under_budget`, sin revisión. Ojo:
+  `vitest related` arrastra los invariantes de `prisma/` (fallan con la base local apagada; su guard solo deja
+  conectar a loopback).
+- **L8 (2026-11-11, decisiones D1–D5):** respuestas del usuario, textuales: «D1 mantener la regla actual»; «D2 digo
+  que queden anulados pero que no se borren por si la po quiere modificarlos, de ahora en adelante ella solo
+  registrará gastos que se hicieron 100%»; «D3 Vamos con tu recomendación»; «D4 los gastos ya no llevan
+  confirmacion. del resto aceptados»; «D5 explicamos porque se tiene que crear un nuevo proyecto?». Lectura del
+  agente (no textual): en D4, «los gastos ya no llevan confirmacion» descarta el «Propuesto» de pedir confirmación
+  cuando un gasto supera el 50 % del asignado del rubro; en D2, los gastos anulados por esta decisión deben seguir
+  visibles y poder corregirse (a resolver en T4 y T6). D5 queda abierta. CI de #170 en verde sobre `7ea7f7f`
+  (`unit` 5m57s, `e2e` 5m35s); el merge sigue siendo decisión del usuario.
+- **L9 (2026-11-11, aclaraciones a D2, D4 y D5):** el usuario, textual: «D4 cuando un gasto supera el 50% tienen que
+  ver como hacen con las demas actividades y el restante de ese presupuesto»; «D2 Es correcto» (a la lectura de L8:
+  anulados, visibles y corregibles, sin borrar); «D5 tienes que modificar ese proyecto? por que?». Lectura del agente
+  (no textual): D4 confirma que no hay aviso de confirmación; el manejo del presupuesto restante es de quien
+  registra, con las alertas de sobreejecución y los traslados de S2 y S3. D5 sigue abierta.
+- **Siguiente paso:** merge de #170 (decisión del usuario); T3 y T4, ya destrabadas; cerrar D5; T0 (probar una
+  invitación real en producción); verificación manual de T1 y T8 cuando la base local esté arriba.

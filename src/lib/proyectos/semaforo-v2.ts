@@ -37,7 +37,7 @@ export const PARAMETROS_V2_DEFAULT: ParametrosV2 = {
   umbral1: { valor: 10, confirmado: false },
   umbral2: { valor: 20, confirmado: false },
   tolerancia: { valor: 10, confirmado: false },
-  retraso: { valor: 70, confirmado: false },
+  retraso: { valor: 60, confirmado: false },
   avance_requiere_medio: { valor: true, confirmado: false },
   modificacion_bloquea_periodos_pasados: { valor: true, confirmado: false },
   tope_en_curso: { valor: 90, confirmado: false },

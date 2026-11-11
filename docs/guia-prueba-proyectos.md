@@ -41,6 +41,9 @@ Todos los pasos de esta guía nombran la pestaña de la ficha donde está cada c
   **Semáforo financiero: <color>**. Solo aparecen cuando el proyecto es medible (En ejecución, Suspendido o
   Cerrado) y ya cargaron los indicadores.
 - Los chips de semáforo llevan **siempre la palabra del color** (Verde, Amarillo o Rojo), no solo el color.
+- Junto a **Semáforo financiero** aparece la insignia **Posible retraso** cuando lo ejecutado es menor que el
+  porcentaje de retraso de lo programado (60 % por defecto) y el semáforo técnico está en amarillo o rojo. El color
+  del semáforo financiero no cambia. Con el técnico en verde, o con lo ejecutado en 80 % de lo programado, no aparece.
 - Las pestañas inactivas **no se montan**: cada una consulta sus datos solo cuando la abres (la primera vez puede
   mostrar un instante de carga). La pestaña inicial es **Resumen**.
 
