@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { calcularKpisProyecto } from "@/lib/api/kpis-proyecto";
 import type { ProyectoKpiBase } from "@/lib/api/kpis-portafolio";
 import { loadGastosValidados } from "@/lib/api/financiera";
+import { cargarReportesPorActividad } from "@/lib/api/tecnico";
 import { getSemaforoParametrosV2 } from "@/lib/settings";
 import { pesoActividad } from "@/lib/proyectos/actividad";
 import { datosIncompletos } from "@/lib/proyectos/gastos";
@@ -55,7 +56,7 @@ export async function cargarAtencion(input: {
   const inicio = isoDate(input.proyecto.fecha_inicio as Date);
   const proyectoId = input.proyecto.id;
 
-  const [actividades, avances, soportes, indicadores, lineas, gastosValidados, gastosRegistrados] =
+  const [actividades, avances, reportesPorActividad, soportes, indicadores, lineas, gastosValidados, gastosRegistrados] =
     await Promise.all([
       db.actividad.findMany({
         where: { proyecto_id: proyectoId, deleted_at: null },
@@ -73,6 +74,9 @@ export async function cargarAtencion(input: {
         where: { proyecto_id: proyectoId, anulado_at: null, fecha: { lte: hasta } },
         select: { id: true, entregable_id: true, fecha: true, cantidad: true, created_at: true },
       }),
+      // AJ-07: the same reports the technical semáforo reads, so an activity that reported its
+      // progress is not listed as overdue with the progress of its deliverables alone.
+      cargarReportesPorActividad(proyectoId, corte),
       db.soporteProyecto.groupBy({
         by: ["avance_id"],
         where: { proyecto_id: proyectoId, avance_id: { not: null }, deleted_at: null },
@@ -135,6 +139,7 @@ export async function cargarAtencion(input: {
           createdAt: avance.created_at.toISOString(),
         })),
       })),
+      reportes: reportesPorActividad.get(actividad.id) ?? [],
     };
   });
 

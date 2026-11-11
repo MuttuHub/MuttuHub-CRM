@@ -4,8 +4,8 @@
 // corte date for the corte month, D13; executed = real progress measured at each period) and the
 // financial one (planned =
 // cumulative programmed / assigned, executed = cumulative validated / assigned). Every
-// non-voided avance up to the corte is read once and bucketed per month in memory, so one
-// read feeds the whole timeline. `base=vigente` (default) reads the live structure and
+// non-voided avance and activity report (AJ-07) up to the corte is read once and bucketed per
+// month in memory, so one read feeds the whole timeline. `base=vigente` (default) reads the live structure and
 // budget; `base=original` the weeks, weights and A/P frozen in version 0, with the same
 // live avances and expenses. Readable in any estado by whoever can read the project
 // (404 -> 403 -> 409 -> 400).
@@ -16,6 +16,8 @@ import { contarMediosVivos } from "@/lib/api/ejecucion";
 import { loadGastosValidados } from "@/lib/api/financiera";
 import {
   agruparAvancesPorEntregable,
+  cargarReportesPorActividad,
+  conReportes,
   desdeSnapshot,
   entradaTecnica,
   mapearActividadesFuente,
@@ -36,7 +38,6 @@ import { isoDate } from "@/lib/proyectos/proyecto-general";
 import { periodOf, projectPeriods, todayInBogota, type Periodo } from "@/lib/proyectos/weeks";
 
 const SIN_FECHAS_MESSAGE = "El proyecto aún no tiene fechas de inicio y fin.";
-;
 
 const ZERO: Cents = BigInt(0);
 
@@ -83,7 +84,7 @@ export async function calcularCurva(
   const corteFecha = fechaMedicion(corte, hoy);
   const inicio = original ? original.proyecto.fecha_inicio : isoDate(input.fecha_inicio);
 
-  const [actividades, avances, lineas, celdas, gastos, parametros] = await Promise.all([
+  const [actividades, avances, reportesPorActividad, lineas, celdas, gastos, parametros] = await Promise.all([
     db.actividad.findMany({
       where: { proyecto_id: id, deleted_at: null },
       orderBy: [{ semana_inicio: "asc" }, { codigo: "asc" }],
@@ -102,6 +103,7 @@ export async function calcularCurva(
       where: { proyecto_id: id, anulado_at: null, fecha: { lte: new Date(`${corteFecha}T00:00:00.000Z`) } },
       select: { id: true, entregable_id: true, fecha: true, cantidad: true, created_at: true },
     }),
+    cargarReportesPorActividad(id, corteFecha),
     db.lineaPresupuestal.findMany({
       where: { proyecto_id: id },
       select: { id: true, monto_proyectado_cop: true },
@@ -118,9 +120,10 @@ export async function calcularCurva(
   const porEntregable = agruparAvancesPorEntregable(avances);
   const vivas = mapearActividadesFuente(actividades);
   const fuente: ActividadFuente[] = original ? desdeSnapshot(original, vivas) : vivas;
-  const entrada = entradaTecnica(fuente, inicio, porEntregable, medios);
+  const entrada = conReportes(entradaTecnica(fuente, inicio, porEntregable, medios), reportesPorActividad);
 
-  // Technical executed: the real progress at each period's measurement date.
+  // Technical executed: the real progress at each period's measurement date, from the avances and
+  // reports dated up to it (a report of the 3rd of a month does not reach the month before).
   const requiereMedio = parametros.avance_requiere_medio.valor;
   const tope = parametros.tope_en_curso.valor / 100;
   const tecnicoEjecutado = periodos.map((periodo) => {
@@ -131,6 +134,7 @@ export async function calcularCurva(
         ...entregable,
         avances: entregable.avances.filter((avance) => avance.fecha <= fecha),
       })),
+      reportes: actividad.reportes.filter((reporte) => reporte.fecha <= fecha),
     }));
     return calcularTecnico({ corte: fecha, requiereMedio, tope, actividades: hasta }).avance_real;
   });

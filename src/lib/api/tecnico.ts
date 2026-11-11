@@ -65,7 +65,7 @@ export async function loadTecnicoStatus(input: {
 }): Promise<TecnicoStatus> {
   const { proyectoId, corte, parametros } = input;
   const inicio = isoDate(input.fechaInicio);
-  const [actividades, avances, reportes] = await Promise.all([
+  const [actividades, avances, reportesPorActividad] = await Promise.all([
     db.actividad.findMany({
       where: { proyecto_id: proyectoId, deleted_at: null },
       orderBy: [{ semana_inicio: "asc" }, { codigo: "asc" }],
@@ -83,26 +83,17 @@ export async function loadTecnicoStatus(input: {
       where: { proyecto_id: proyectoId, anulado_at: null, fecha: { lte: new Date(`${corte}T00:00:00.000Z`) } },
       select: { id: true, entregable_id: true, fecha: true, cantidad: true, created_at: true },
     }),
-    // AJ-01: non-voided activity-level reports up to the corte, so a historical (or `base=original`)
-    // read stays consistent with the avances above. Chronologically sorted (fecha, then creation),
-    // same as `validarNuevoReporte`/`calcularTecnico` expect — the last entry per activity is the latest.
-    db.reporteActividad.findMany({
-      where: { proyecto_id: proyectoId, anulado_at: null, fecha: { lte: new Date(`${corte}T00:00:00.000Z`) } },
-      orderBy: [{ fecha: "asc" }, { created_at: "asc" }],
-      select: { actividad_id: true, fecha: true, porcentaje: true },
-    }),
+    // AJ-01: the activity-level reports up to the corte, so a historical (or `base=original`) read
+    // stays consistent with the avances above.
+    cargarReportesPorActividad(proyectoId, corte),
   ]);
 
   const medios = await contarMediosVivos(avances.map((avance) => avance.id));
   const porEntregable = agruparAvancesPorEntregable(avances);
-  const reportesPorActividad = agruparReportesPorActividad(reportes);
 
   const vivas = mapearActividadesFuente(actividades);
   const fuente = input.estructura ? desdeSnapshot(input.estructura, vivas) : vivas;
-  const entrada = entradaTecnica(fuente, inicio, porEntregable, medios).map((actividad) => ({
-    ...actividad,
-    reportes: reportesPorActividad.get(actividad.id) ?? [],
-  }));
+  const entrada = conReportes(entradaTecnica(fuente, inicio, porEntregable, medios), reportesPorActividad);
 
   const tope = parametros.tope_en_curso.valor / 100;
   const tecnico = calcularTecnico({
@@ -226,6 +217,35 @@ export function agruparReportesPorActividad(
     porActividad.set(reporte.actividad_id, lista);
   }
   return porActividad;
+}
+
+/**
+ * Non-voided activity reports of a project dated up to `corte`, grouped by activity (AJ-01).
+ * Chronologically sorted (fecha, then creation), as `validarNuevoReporte`/`calcularTecnico`
+ * expect: the last entry per activity is the latest. Every technical read (semáforo, S-curve,
+ * attention list) loads them through here so they cannot disagree (AJ-07).
+ */
+export async function cargarReportesPorActividad(
+  proyectoId: string,
+  corte: IsoDate,
+): Promise<Map<string, ReporteActividadInput[]>> {
+  const reportes = await db.reporteActividad.findMany({
+    where: { proyecto_id: proyectoId, anulado_at: null, fecha: { lte: new Date(`${corte}T00:00:00.000Z`) } },
+    orderBy: [{ fecha: "asc" }, { created_at: "asc" }],
+    select: { actividad_id: true, fecha: true, porcentaje: true },
+  });
+  return agruparReportesPorActividad(reportes);
+}
+
+/** Each activity with its own reports; one without reports gets an empty list. */
+export function conReportes<T extends { id: string }>(
+  actividades: readonly T[],
+  reportesPorActividad: ReadonlyMap<string, ReporteActividadInput[]>,
+): (T & { reportes: ReporteActividadInput[] })[] {
+  return actividades.map((actividad) => ({
+    ...actividad,
+    reportes: reportesPorActividad.get(actividad.id) ?? [],
+  }));
 }
 
 /**
