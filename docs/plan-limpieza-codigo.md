@@ -47,7 +47,10 @@ comportamiento de la aplicación. Evidencia tomada de la rama `fix/proyectos-fic
 **Orden sugerido:** L0 → L1 → L2 → L3 (proyectos primero) → L4 → L5 → L6, con L7 y L8 de forma continua. L0 a L2
 caben en uno o dos días; L3 a L5 son una semana repartida en PRs chicos.
 
-**Estado:** L0 cerrado el 2026-11-10 (detalle en §13 de `docs/plan-trabajo-restante.md`).
+**Estado:** L0 cerrado el 2026-11-10 (detalle en §13 de `docs/plan-trabajo-restante.md`). L6, parte de documentos,
+avanzada el 2026-11-10: un solo plan vigente, planes duplicados e históricos en `docs/archive/` y
+`voy-a-hacer-un-synthetic-rabin.md` eliminado. Siguen abiertos: `odd/archive/`, guías en un solo formato y los specs
+e2e fuera de CI.
 
 ## Riesgos
 

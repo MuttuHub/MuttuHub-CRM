@@ -350,7 +350,7 @@ export async function buildDocumentWhere(
  * documento que matchea por metadatos (titulo, categoria, etiquetas, autor,
  * cliente) o por el CONTENIDO de su versión activa (índice GIN sobre
  * contenido_texto). `match` es el discriminante con lugar para "semantico"
- * (fase futura documentada en docs/pendientes/busqueda-semantica.md).
+ * (fase futura documentada en docs/archive/pendientes/busqueda-semantica.md).
  *
  * El fix de etiquetas vive acá: `etiquetas: { has: q }` es igualdad exacta y
  * sensible a mayúsculas (buscar "legal" nunca encontraba "Legal"), así que se

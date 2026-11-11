@@ -158,7 +158,7 @@ El índice con el estado de cada documento está en **`docs/README.md`**. Los tr
 |---|---|
 | `docs/guia-uso-proyectos-v2.md` (+ `.html`, `.pdf`) | Guía de usuario del módulo de Proyectos, con el anexo de validación de la PO |
 | `docs/despliegue-y-portabilidad.md` | Servicios, variables y plan de migración |
-| `docs/pendientes-v7.md` | Lo que queda abierto de v7 y del lanzamiento |
+| `docs/plan-trabajo-restante.md` | Fuente única de lo pendiente (sección 0: qué queda abierto) |
 
 ---
 
@@ -177,4 +177,4 @@ El índice con el estado de cada documento está en **`docs/README.md`**. Los tr
 ## Limitaciones conocidas
 
 Correo diario con `sent=0` hasta verificar el dominio en Resend; el defecto D1 (mensaje de «sin acceso» tarda ~11 s por
-los reintentos de react-query); y el resto de pendientes de producto en `docs/pendientes-v7.md`.
+los reintentos de react-query); y el resto de pendientes de producto en `docs/plan-trabajo-restante.md` (sección 0).

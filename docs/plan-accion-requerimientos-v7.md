@@ -5,7 +5,7 @@ de requerimientos del cliente y (b) el prototipo v7. Estado de partida: rama `fe
 
 Este documento **no contradice** `docs/pasos-post-reunion-2026-10-14.md` (la sección C de ese documento es la lista
 detallada con evidencia; aquí se reutiliza y se organiza por carriles). Contexto adicional: `odd/tasks/v7-alignment.md`,
-`odd/tasks/v7-gap-analysis.md`, `docs/pendientes/pendientes-v7-alignment-2026-10-13.md`, `odd/tasks/v2-projects-sdd.md`.
+`odd/tasks/v7-gap-analysis.md`, `docs/archive/pendientes/pendientes-v7-alignment-2026-10-13.md`, `odd/tasks/v2-projects-sdd.md`.
 
 Tamaños: **S** (horas), **M** (1 a 2 días), **L** (más de 2 días o con decisión externa). Son estimaciones gruesas.
 
@@ -559,4 +559,4 @@ carriles de desarrollo.
 - Prototipo v7: `~/Downloads/Web app views creation/Muttu Hub v7.dc.html`. Es diseño, **no** requisito.
 - `docs/Muttu_Hub_PRD_v2.md` **no** cubre Proyectos; no sirve como fuente de requisitos de este módulo.
 - Contexto y evidencia: `docs/pasos-post-reunion-2026-10-14.md`, `odd/tasks/v7-alignment.md`,
-  `odd/tasks/v7-gap-analysis.md`, `docs/pendientes/pendientes-v7-alignment-2026-10-13.md`, auditoría en `docs/analisis/`.
+  `odd/tasks/v7-gap-analysis.md`, `docs/archive/pendientes/pendientes-v7-alignment-2026-10-13.md`, auditoría en `docs/archive/analisis/`.

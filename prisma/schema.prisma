@@ -155,6 +155,7 @@ model Usuario {
   contactos_propietario Contacto[] @relation("ContactoOwner")
   documentos_subidos Documento[]
   notificaciones     Notificacion[]
+  email_outbox       EmailOutbox[]
   accesos            Acceso[] // PRD §3.3
   auditorias         Auditoria[]
   proyectos_responsable Proyecto[] @relation("ProyectoResponsable")
@@ -534,6 +535,46 @@ model CronLog {
   created_at DateTime @default(now())
 
   @@map("cron_logs")
+}
+
+// PR-M1 (Frente M) — transactional email outbox. A business event writes its row in the
+// same transaction as the event (`enqueue`), and the daily cron drains it (`processOutbox`):
+// PENDIENTE → ENVIANDO (claimed with a lease) → ENVIADO, or back to PENDIENTE with a backoff,
+// or FALLIDO after the max attempts. `clave_idempotencia` is unique, so the same event can
+// never enqueue twice (the insert is ON CONFLICT DO NOTHING) and it is forwarded to the
+// provider as its idempotency key so a retry after a lost response does not deliver twice.
+enum EstadoEmailOutbox {
+  PENDIENTE
+  ENVIANDO
+  ENVIADO
+  FALLIDO
+}
+
+model EmailOutbox {
+  id                 String            @id @default(uuid())
+  // Optional: system recipients (an admin mailbox) have no user row. SetNull keeps the
+  // delivery history if the user is ever hard-deleted.
+  usuario_id         String?
+  destinatario_email String
+  asunto             String
+  html               String
+  tipo               String
+  clave_idempotencia String            @unique
+  estado             EstadoEmailOutbox @default(PENDIENTE)
+  intentos           Int               @default(0)
+  ultimo_error       String?
+  proximo_intento_at DateTime          @default(now())
+  bloqueado_hasta    DateTime?
+  enviado_at         DateTime?
+  proveedor_id       String?
+  created_at         DateTime          @default(now())
+  updated_at         DateTime          @default(now()) @updatedAt
+
+  usuario Usuario? @relation(fields: [usuario_id], references: [id], onDelete: SetNull)
+
+  @@index([estado, proximo_intento_at])
+  @@index([usuario_id])
+  @@map("email_outbox")
 }
 
 // PRD §3.1 — public access requests: who asked to join and how it was approved
