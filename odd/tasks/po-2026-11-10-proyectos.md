@@ -1,0 +1,406 @@
+# Plan PO 2026-11-10 — Ajustes de Proyectos (Parte 1) y presupuesto por actividad (Parte 2)
+
+Fuente: `docs/Hub-proyectos261110.docx` («Ajustes y evolución del módulo Proyectos», observaciones de las pruebas del 10 de noviembre de 2026). Rama de trabajo: una por tarea desde `main`.
+Entrega: un PR por tarea, CI verde (`unit` + `e2e`) antes de mergear. Runner: `npx vitest run src scripts` (unit/API),
+`npx vitest run prisma/<archivo>` (invariantes, base local), `npx playwright test --config playwright.ci.config.ts` (e2e).
+
+## Cómo usar este plan (agente ejecutor, p. ej. Fable 5.2)
+
+1. Lee este documento **completo hasta `## Log`** antes de tocar código. Las specs `S#` son textuales de la PO: no las
+   reinterpretes; si algo no cierra, detente y anótalo como pregunta.
+2. Toma **una sola tarea** (`T#`) por sesión. Su tarjeta dice qué specs cubre, dónde está el código hoy (con
+   `ruta:línea` verificadas el 2026-11-10 sobre `main` `120c8a9`), qué test escribir primero y cómo se verifica.
+3. **Test primero:** escribe el test con el ejemplo numérico de «Se acepta si», míralo fallar (RED), implementa, míralo
+   pasar (GREEN). Cada ejemplo de «Se acepta si» es un test.
+4. Antes de abrir el PR: `npx tsc --noEmit -p .`, `npx eslint <archivos>`, `npx knip` (bloquea CI), la suite unit
+   completa y los invariantes de `prisma/` que toque la tarea.
+5. Reglas del repo que no se negocian: toda escritura de datos va contra la base **local** (`.env.local`,
+   127.0.0.1:54322), nunca el `.env` raíz (producción). Toda migración se ensaya sobre una copia restaurada de
+   producción antes de aplicarse (`docs/runbook-lanzamiento-v2.md` §3.1). Regla del boy scout: limpia la deuda del
+   área que tocas (por ejemplo, partir `src/hooks/projects.ts`) solo si es parte del mismo cambio.
+6. Al cerrar la tarea: marca su fila en `## Tasks` con el PR y el commit, y agrega una línea al `## Log`.
+
+## Specs
+
+Texto de la PO entre «comillas», sin cambios. «Propuesto» = la PO lo deja a comentario antes de implementar.
+
+Nota general de la PO: «El documento tiene dos partes. La Parte 1 son ajustes a lo que ya está construido. La Parte 2 es un nuevo alcance: el presupuesto pasa a llevarse por actividad. Por favor, estima la Parte 2 por separado para no retrasar la Parte 1. Cada punto dice qué pasa hoy, cómo debe quedar y cómo se comprueba. Propuesto = detalle que el equipo no pidió de forma explícita, pero que la regla necesita; se puede comentar antes de implementarlo.»
+
+### S1. AJ-07. El avance técnico ejecutado debe usar los avances reportados
+
+**Hoy:** «El avance técnico ejecutado se queda en 3,3 % en octubre y en noviembre, aunque haya actividades con avances reportados. Solo cuenta las actividades Terminadas. El error aparece a la vez en la tarjeta “Periodo del reporte”, en la curva S de avance técnico y en la tabla por periodo.»
+
+**Debe quedar**
+- «El avance de cada actividad es su último avance reportado hasta el cierre del periodo, o 100 % si está Terminada.»
+- «Para los meses ya cerrados se usa el último reporte con fecha dentro de ese mes, según el historial de avances.»
+- «El cálculo se aplica igual en la tarjeta del periodo, la curva S técnica, la tabla por periodo y el semáforo técnico.»
+- «Se mantiene la ponderación por duración (AJ-02): avance del proyecto = Σ (peso × avance) / Σ pesos.»
+- «Las actividades de tipo Transversal no entran en este cálculo (EV-02).»
+
+**Se acepta si**
+- «Una actividad que pesa 4 de 30 semanas reporta 50 % en noviembre: el ejecutado técnico de noviembre sube 4 × 0,50 / 30 = 6,7 puntos.»
+- «La tarjeta, la curva y la tabla muestran el mismo valor para el mismo periodo.»
+- «Un reporte del 28 de octubre se refleja en octubre; uno del 3 de noviembre, solo desde noviembre.»
+
+### S2. AJ-08. Gastos sin aprobación, con validadores y alertas
+
+**Hoy:** «Los gastos quedan en estado Registrado y solo cuentan como ejecutado cuando alguien los valida. Existen los filtros Validado, Rechazado y “Pendiente por revisión”, y la columna “Por validar”. Por eso Promoción y divulgación muestra $938.000 por validar y el ejecutado del proyecto está en $0. Además, el soporte se elige como archivo o como enlace, y solo uno.»
+
+**Debe quedar**
+- «Sin aprobación: se eliminan los estados Validado, Rechazado y Pendiente por revisión, y la columna “Por validar”. Todo gasto registrado cuenta como ejecutado (subtotal + IVA) en su periodo. Los gastos ya son pagos hechos; el control pasa a reglas automáticas.»
+- «Validadores al digitar: valores numéricos, mayores que 0, mostrados con separador de miles; el total lo calcula el sistema; advertencia si el IVA supera el 19 % del subtotal. Propuesto: pedir confirmación si un solo gasto supera el 50 % del asignado del rubro, para detectar ceros de más.»
+- «Alertas de sobreejecución, que no bloquean el registro: advertencia si el ejecutado acumulado del rubro supera lo programado hasta ese periodo; alerta crítica si supera el asignado total del rubro, con el mensaje “Solicita un traslado al Gerente”.»
+- «Duplicados: advertencia si ya existe un gasto del mismo tercero con el mismo número de documento.»
+- «Corrección: el Gestor del proyecto puede editar o anular un gasto, con motivo obligatorio y registro en auditoría. El gasto anulado no suma al ejecutado, pero no se borra.»
+- «Soportes: cada gasto admite varios archivos y varios enlaces a la vez (completa AJ-06).»
+- «Plantilla de gastos: se rechaza toda fila sin enlace de soporte, con indicación de fila y columna.»
+- «Propuesto: en la ficha financiera, un resumen de cambios del periodo (gastos editados y anulados) con acceso al detalle y los motivos, para que el Gerente pueda revisarlos sin entrar a la operación diaria.»
+
+**Se acepta si**
+- «Al registrar un gasto, el ejecutado del rubro sube de inmediato, sin otro paso.»
+- «Los $938.000 de Promoción y divulgación aparecen como ejecutado.»
+- «Un gasto que deja el rubro por encima de su asignado se guarda y muestra la alerta crítica.»
+- «Registrar dos veces la misma factura del mismo tercero muestra la advertencia antes de guardar.»
+- «Un gasto anulado aparece en el historial y no suma.»
+- «Un gasto se guarda con 2 archivos y 1 enlace, y muestra los 3.»
+- «Una fila de la plantilla sin enlace se rechaza.»
+
+### S3. AJ-09. El Gestor puede solicitar traslados entre rubros
+
+**Hoy:** «Con el rol colaborador el Gestor de proyecto no es posible solicitar un traslado entre rubros, y no está claro qué permisos tiene este rol.»
+
+**Debe quedar**
+- «El Gestor solicita el traslado: rubro de origen, rubro de destino, valor y motivo obligatorio.»
+- «El Gerente aprueba o rechaza. Al aprobar se genera una nueva versión del presupuesto; si rechaza, el comentario es obligatorio.»
+- «El Gestor ve el estado de sus solicitudes (pendiente, aprobada, rechazada) con el comentario.»
+- «El Gerente ve las solicitudes pendientes de forma visible, por ejemplo como alerta en la ficha del proyecto.»
+- «Por favor confirma si el rol Gerente ya existe en el Hub con permiso de aprobar. Si no existe, nadie puede aprobar aunque el Gestor pueda solicitar.»
+
+**Se acepta si**
+- «Un usuario Gestor crea una solicitud de traslado.»
+- «La solicitud no cambia el presupuesto hasta que el Gerente la aprueba.»
+- «No se puede trasladar un valor que deje el rubro de origen por debajo de lo ya ejecutado.»
+
+### S4. AJ-10. Alerta de posible retraso
+
+**Hoy:** «La ficha de CedeTextil muestra al mismo tiempo “Semáforo técnico: Rojo” y “Semáforo financiero: Verde”. El financiero está en verde porque se ha gastado menos de lo programado, pero con el técnico en rojo eso indica casi siempre retraso, no ahorro.»
+
+**Debe quedar**
+- «Se muestra la alerta “Posible retraso” junto al semáforo financiero cuando se cumplen las dos condiciones: el ejecutado del periodo es menor que un porcentaje de lo programado y el semáforo técnico está en amarillo o rojo.»
+- «El porcentaje es un parámetro del Administrador. Propuesto: valor inicial de 60 %.»
+- «La alerta no cambia el color del semáforo financiero; lo complementa.»
+- «Se muestra en la ficha del proyecto y en el Tablero gerencial.»
+
+**Se acepta si**
+- «Técnico en rojo y ejecutado del 1 % de lo programado: aparece la alerta.»
+- «Técnico en verde y ejecutado del 40 % de lo programado: no aparece la alerta.»
+- «Técnico en rojo y ejecutado del 80 % de lo programado: no aparece la alerta.»
+
+Parte 2 — nota de la PO: «El presupuesto deja de llevarse solo por rubro y pasa a llevarse por actividad y rubro. Esto reemplaza la regla anterior de que el presupuesto nacía del rubro. El objetivo es ver, para cada actividad, cuánto se planeó, cuánto se gastó y la diferencia, y mantener además el resumen por rubro para la gerencia. Los ajustes de la Parte 1 siguen aplicando.»
+
+### S5. EV-01. Presupuesto por actividad y rubro
+
+**Hoy:** «El presupuesto se carga por rubro, con un valor asignado y una programación mensual por rubro.»
+
+**Debe quedar**
+- «Cada línea del presupuesto es una combinación actividad + rubro + valor. Una actividad puede tener uno o varios rubros (por ejemplo, solo Personal, o Formación y Transporte).»
+- «El asignado por rubro y el valor total del proyecto se calculan sumando las líneas; no se digitan.»
+- «Plantilla del proyecto, hoja Presupuesto: columnas Código de actividad, Rubro y Valor; una fila por combinación.»
+- «Se elimina de la plantilla la hoja de Programación mensual (ver EV-03).»
+- «Validaciones: la actividad existe, el rubro está activo y no se repite la misma combinación actividad + rubro.»
+
+**Se acepta si**
+- «Una actividad con Formación $15.000.000 y Transporte $8.000.000 aparece con las dos líneas, y esos valores suman en sus rubros.»
+- «Una plantilla con la misma actividad y rubro en dos filas se rechaza con fila y columna.»
+
+### S6. EV-02. Actividad de tipo Transversal
+
+**Hoy:** «Todas las actividades pertenecen a un objetivo y cuentan en el avance técnico. Los gastos que no son de una sola actividad (por ejemplo, el personal de coordinación) no tienen dónde ubicarse.»
+
+**Debe quedar**
+- «Las actividades tienen un tipo: Normal o Transversal.»
+- «Las transversales se agrupan en “Gestión del proyecto”, un grupo aparte de los objetivos.»
+- «Una actividad transversal no requiere entregables y no entra en el avance técnico, la curva S técnica ni el cumplimiento del cronograma.»
+- «Sí entra en el presupuesto, la programación, el registro de gastos y las vistas financieras.»
+- «Plantilla, hoja Actividades: columna Tipo; en las transversales el objetivo va vacío. Propuesto: sus fechas son, por defecto, las del proyecto.»
+
+**Se acepta si**
+- «Un proyecto con una actividad transversal de 17 semanas tiene el mismo avance técnico que sin ella.»
+- «La actividad transversal aparece en el grupo “Gestión del proyecto” y se puede elegir al registrar gastos.»
+
+### S7. EV-03. Programación mensual propuesta por el sistema
+
+**Hoy:** «La programación mensual se digita por rubro en la hoja de Excel.»
+
+**Debe quedar**
+- «Al importar, el sistema propone la programación mensual de cada línea (actividad + rubro) en proporción a los días que la actividad ocupa en cada mes. El centavo que sobre por redondeo se suma al último mes.»
+- «Ejemplo: actividad del 19 de octubre al 15 de noviembre (28 días) con Transporte por $10.000.000: 13 días en octubre y 15 en noviembre, se proponen $4.642.857 y $5.357.143.»
+- «En las transversales la propuesta sale pareja por mes, y el Gestor la ajusta.»
+- «El Gestor revisa y ajusta en la web, en una pantalla agrupada por actividad (grupos que se pliegan y despliegan) y con arriba los totales por rubro y por mes.»
+- «El Gestor confirma la programación cuando “Falta por programar” queda en $0 en todas las líneas. Después el Gerente aprueba la línea base, como hoy.»
+
+**Se acepta si**
+- «Al importar la plantilla, todas las líneas tienen una programación propuesta que suma su valor.»
+- «Al editar un mes, el total por rubro y por mes de arriba se actualiza.»
+- «No se puede confirmar si alguna línea tiene un valor pendiente por programar.»
+
+### S8. EV-04. Reprogramación entre meses por el Gestor
+
+**Hoy:** «Después de aprobada la línea base, toda reprogramación exige una modificación aprobada por el Gerente.»
+
+**Debe quedar**
+- «El Gestor puede mover valores entre meses de una misma línea sin aprobación, siempre que el total de la línea no cambie.»
+- «Cada movimiento queda en auditoría (línea, mes de origen, mes de destino, valor, usuario, fecha).»
+- «Solo se pueden mover valores del mes en curso hacia meses futuros, o entre meses futuros. Los meses ya cerrados no se modifican, para no cambiar los semáforos pasados.»
+- «Los traslados entre rubros o entre actividades sí requieren aprobación del Gerente (AJ-09). Con esta evolución, el traslado indica actividad y rubro de origen, y actividad y rubro de destino.»
+
+**Se acepta si**
+- «El Gestor pasa $2.000.000 de Transporte de noviembre a diciembre en una actividad, sin aprobación, y el total de la línea no cambia.»
+- «Un cambio que altere el total de la línea no se permite sin traslado aprobado.»
+- «En noviembre no se puede mover valor desde octubre.»
+
+### S9. EV-05. Registro de gasto por objetivo, actividad y rubro, con facturas distribuidas
+
+**Hoy:** «El gasto se registra por rubro, sin actividad.»
+
+**Debe quedar**
+- «Orden del formulario: Objetivo (o “Gestión del proyecto”), Actividad y Rubro.»
+- «El objetivo funciona solo como filtro: al elegir el objetivo 1, solo aparecen sus actividades. No se guarda como dato aparte; se deduce de la actividad.»
+- «En Rubro solo aparecen los rubros presupuestados en la actividad elegida.»
+- «Factura que cubre varias actividades: se registra una sola factura (un tercero, un número de documento, sus soportes) con varias líneas. El usuario indica en cada línea la actividad, el rubro y el valor que le corresponde. Ejemplo: factura de $1.000.000, actividad 1.2 por $350.000 y actividad 1.3 por $650.000.»
+- «La suma de las líneas debe ser exactamente igual al total de la factura; si no, no se guarda. Propuesto: el IVA de cada línea se calcula en proporción a su subtotal y se puede corregir.»
+- «El control de duplicados y la anulación se aplican a la factura completa.»
+- «Plantilla de gastos: columna Código de actividad. Varias filas con el mismo tercero y el mismo número de documento se leen como una sola factura distribuida, no como duplicados, y deben sumar el total.»
+
+**Se acepta si**
+- «Al elegir el objetivo 2, la lista de actividades muestra solo las del objetivo 2.»
+- «La factura de $1.000.000 queda con $350.000 en la actividad 1.2 y $650.000 en la 1.3, y se puede consultar como un solo documento.»
+- «Una distribución que suma $990.000 para una factura de $1.000.000 no se guarda.»
+
+### S10. EV-06. Vistas financieras por actividad y por rubro
+
+**Hoy:** «Solo existe la vista por rubro.»
+
+**Debe quedar**
+- «Selector “Por actividad / Por rubro” en Finanzas.»
+- «Por actividad: agrupada por objetivo y por “Gestión del proyecto”. Por cada actividad: asignado, programado al corte, ejecutado, saldo o ahorro (EV-07) y semáforo. Al abrir una actividad se ve el detalle por rubro.»
+- «Por rubro: la vista actual (curva S, tabla por periodo, semáforo). El valor de cada rubro es la suma de ese rubro en todas las actividades.»
+- «El semáforo usa la misma regla de gasto óptimo en las dos vistas: ejecutado frente a lo programado al corte.»
+
+**Se acepta si**
+- «El ejecutado total es igual en las dos vistas.»
+- «Un gasto registrado en la actividad 1.2 sube el ejecutado de esa actividad y el de su rubro.»
+
+### S11. EV-07. Cierre de gastos de la actividad: saldo, ahorro o sobreejecución
+
+**Hoy:** «No existe.»
+
+**Debe quedar**
+- «Mientras la actividad tiene gastos abiertos, muestra saldo = asignado − ejecutado. No se llama ahorro, porque pueden faltar facturas.»
+- «El Gestor marca “Cerrar gastos de la actividad” cuando ya no espera más facturas. Al cerrar, debe escribir una nota obligatoria que explique la diferencia (por ejemplo, “No se requirió transporte porque el taller fue en el mismo municipio”).»
+- «Con los gastos cerrados, la actividad muestra ahorro (si sobró) o sobreejecución (si se gastó de más), con su nota.»
+- «Una actividad con gastos cerrados no recibe gastos nuevos. Propuesto: el Gestor puede reabrirla con motivo, y queda en auditoría.»
+- «El ahorro tiene dos destinos posibles: queda en la actividad como saldo disponible, o se traslada a otra actividad y a otro rubro (por ejemplo, ahorro de Transporte en la actividad 1.2 que pasa a Suministros en la actividad 2.1). El traslado lo solicita el Gestor y lo aprueba el Gerente (AJ-09).»
+
+**Se acepta si**
+- «Una actividad abierta con asignado $10.000.000 y ejecutado $7.000.000 muestra saldo $3.000.000.»
+- «Un ahorro de $3.000.000 trasladado y aprobado reduce el disponible de la actividad de origen y aumenta el de la actividad y rubro de destino; el total del proyecto no cambia.»
+- «Al cerrarla con nota, muestra ahorro $3.000.000 y la nota.»
+- «No se puede cerrar sin nota; no se pueden registrar gastos en una actividad cerrada.»
+
+### S12. EV-08. Nueva carga de CedeTextil
+
+**Hoy:** «CedeTextil está en ejecución con el presupuesto por rubro.»
+
+**Debe quedar**
+- «CedeTextil se vuelve a cargar con la nueva estructura (actividades, tipo, presupuesto por actividad y rubro).»
+- «El gasto ya registrado ($938.000 en Promoción y divulgación) no se migra: el equipo lo vuelve a registrar con su actividad después de la nueva carga.»
+
+**Se acepta si**
+- «Después de la carga, la ficha de CedeTextil muestra el presupuesto por actividad y no conserva gastos de la estructura anterior.»
+- «Al volver a registrar el gasto de $938.000 con su actividad, aparece en la vista por actividad y en la vista por rubro.»
+
+## Decisiones abiertas (preguntar a la PO antes de la tarea que bloquean)
+
+| ID | Pregunta | Bloquea | Recomendación técnica |
+|---|---|---|---|
+| D1 | S1 dice «el último avance reportado […] o 100 % si está Terminada». Hoy el sistema toma **el mayor** entre el último reporte y el promedio de entregables, y un avance de entregable solo cuenta si tiene medio de verificación (`src/lib/proyectos/avance.ts:234`, parámetro `avance_requiere_medio`). ¿Se quitan los entregables del cálculo? | T2 (solo la regla; el arreglo de la curva no) | Mantener la regla actual; el «3,3 %» viene de que la curva no lee los reportes (T1), no de la regla |
+| D2 | Al quitar la aprobación (S2), ¿qué pasa con los gastos ya **Rechazados** en producción? ¿Cuentan como ejecutado, quedan anulados, o se revisan uno a uno? | T4 | Pasarlos a anulados con motivo «rechazado antes de AJ-08», visibles en el historial |
+| D3 | ¿Quién es el «Gestor» y quién el «Gerente»? En el Hub no hay roles por proyecto: **Gerente** = rol global `GERENCIA` (ya existe y aprueba modificaciones, `src/lib/permissions.ts:200`). «Gestor» hoy sería un miembro `COORDINADOR`/`COLABORADOR` del proyecto. | T3, T6 | Gestor = miembro del proyecto con rol `COORDINADOR` o `COLABORADOR`; sin migración |
+| D4 | Los «Propuesto» de S2 (confirmar gasto > 50 % del rubro; resumen de cambios del periodo), S4 (60 %), S6 (fechas por defecto), S9 (IVA proporcional) y S11 (reabrir con motivo): ¿se aceptan? | T5, T7, Fase 2 | Aceptarlos todos |
+| D5 | S12: CedeTextil en producción tiene línea base aprobada y versiones **inmutables** (trigger). «Volver a cargar» no puede borrarlas. ¿Se crea un proyecto nuevo con la nueva estructura y el actual se cierra/archiva? | T15 | Proyecto nuevo + el actual archivado |
+
+## Tasks
+
+Tamaños: **S** ≤ medio día de agente, **M** ≈ 1 día, **L** > 1 día (se parte antes de empezar). Todas inline (una
+sesión de agente por tarea) salvo que la tarjeta diga otra cosa.
+
+| ID | Specs | Qué | Tamaño | Depende de | Riesgo | Estado |
+|---|---|---|---|---|---|---|
+| T0 | — | Cerrar urgencias: mergear #166 (invitaciones rotas) y probar una invitación real | S | — | 2 (auth) | Pendiente |
+| T1 | S1 | La curva S, la tabla por periodo, «Periodo del reporte» y «Requiere atención» leen los reportes de avance | S | — | 6 | Pendiente |
+| T2 | S1 | Regla de avance por actividad según D1 (solo si la PO cambia la regla) | S | D1, T1 | 6 | Pendiente |
+| T3 | S3 | El Gestor solicita traslados; el Gerente ve pendientes; validación contra lo ejecutado | S–M | D3 | 2 (permisos) | Pendiente |
+| T4 | S2 | Gasto sin aprobación: todo gasto no anulado es ejecutado; se quitan «Por validar», filtros y cola | M | D2 | 3 (lectores compartidos) | Pendiente |
+| T5 | S2 | Validadores al digitar, alertas de sobreejecución que no bloquean y aviso de duplicados | M | T4, D4 | — | Pendiente |
+| T6 | S2 | Gestor edita/anula con motivo y auditoría; varios archivos y enlaces por gasto; plantilla exige enlace | M | T4, D3 | 1 si toca datos | Pendiente |
+| T7 | S2 | (Propuesto) Resumen de cambios del periodo en la ficha financiera | S | T6, D4 | — | Pendiente |
+| T8 | S4 | Alerta «Posible retraso» visible en ficha y Tablero gerencial (la lógica ya existe) | S | — | — | Pendiente |
+| T9 | S5–S12 | **Diseño y estimación de la Parte 2** (sin código): modelo de datos, migraciones, plantillas, recarga de CedeTextil | M | D5 | — | Pendiente |
+| T10–T15 | S5–S12 | Rebanadas de la Parte 2, definidas por T9 (orientativas abajo) | L en total | T9 | 1 | Pendiente |
+
+### Orden y calendario sugerido
+
+- **Día 1 (prueba con Fable):** T0 → T1 → T8 (sin migraciones, riesgo bajo; terminan con la ficha de CedeTextil
+  mostrando el avance real y la alerta). En paralelo, mandar D1–D5 a la PO.
+- **Día 2:** T3 y T4 (con D2 y D3 respondidas), luego T5 y T6.
+- **Después:** T7, y T9 como entrega aparte para que la PO apruebe la estimación de la Parte 2 (la PO pidió estimarla
+  por separado para no retrasar la Parte 1).
+- Junto con la primera migración de la Parte 2 entra también #165 (AJ-02, borrar `peso`/`peso_manual`): misma ventana,
+  mismo ensayo sobre copia de producción.
+
+## Tarjetas de tarea
+
+### T0 — Urgencias (S)
+
+- Mergear #166 cuando su CI esté verde (corrige `/auth/confirm`: GoTrue rechaza `email` junto a `token_hash`).
+- Verificar en producción: invitar un usuario de prueba, abrir el enlace, crear la contraseña, entrar. Borrar el usuario.
+- Terminado cuando: el enlace de invitación ya no cae en «Enlace no válido».
+
+### T1 — AJ-07: la curva y «Requiere atención» leen los reportes (S)
+
+- **Causa (verificada):** `src/lib/api/curva.ts:135` llama `calcularTecnico({ corte, requiereMedio, tope, actividades })`
+  **sin `reportes`**, así que la curva S técnica (`curve-s-chart.tsx:75`), la tabla por periodo
+  (`curve-s-chart.tsx:219-240`) y la tarjeta «Periodo del reporte» (`project-ejecucion.tsx:524-560`, lee
+  `curva.periodos[corte].tecnico.ejecutado`) solo ven entregables. Lo mismo `src/lib/api/atencion.ts:58-140`.
+  En cambio `src/lib/api/tecnico.ts:68-104` (semáforo técnico) y `src/lib/api/kpis-portafolio.ts:94,180` sí los leen.
+- **Qué hacer:** cargar `reporteActividad` (no anulados) en `curva.ts` y `atencion.ts` igual que `tecnico.ts`
+  (reusar `agruparReportesPorActividad`; si hace falta, moverlo a un helper compartido en `src/lib/api/`) y pasarlos a
+  `calcularTecnico`. `progresoActividad` (`src/lib/proyectos/avance.ts:234`) ya filtra por fecha con `hasta`, así que
+  cada periodo ve solo los reportes con fecha ≤ fin del periodo.
+- **Tests primero** (`src/lib/api/curva.test.ts`, `src/app/api/v1/projects/[id]/curve/route.test.ts`):
+  1. Actividad de 4 de 30 semanas con reporte de 50 % en noviembre → el técnico ejecutado de noviembre sube 6,7 puntos
+     (4 × 0,50 / 30).
+  2. Reporte del 28 de octubre cuenta en octubre; uno del 3 de noviembre solo desde noviembre.
+  3. Mismo periodo → mismo valor en curva, tabla y tarjeta, y en el semáforo técnico (`technical-status`).
+  4. Un reporte anulado no cuenta.
+- **No incluye:** excluir transversales (depende de EV-02, Fase 2).
+- **Verificación manual:** sembrar la base local (`db:seed:local` + `db:demo:seed-projects:local -- --apply`), registrar
+  un avance en PRY-2026-001 y ver que la curva y la tarjeta se mueven.
+- **Terminado cuando:** los cuatro tests pasan y la ficha de CedeTextil local deja de mostrar 3,3 % con avances
+  reportados.
+
+### T2 — AJ-07: regla de avance por actividad (S, solo si D1 lo pide)
+
+- Cambiar `progresoActividad` (`src/lib/proyectos/avance.ts:234`) según la respuesta a D1. Tests en
+  `src/lib/proyectos/avance.test.ts`. Afecta a todos los lectores del avance a la vez (curva, KPIs, semáforo, atención).
+
+### T3 — AJ-09: traslados por el Gestor (S–M)
+
+- **Ya existe:** `SolicitudModificacion` con `TipoModificacion.TRASLADO` (`prisma/schema.prisma:1334`), reglas en
+  `src/lib/proyectos/modificaciones.ts` (`TRASLADO_CAMBIA_TOTAL`, `validarModificacion` :275), servidor
+  `src/lib/api/modificaciones.ts` (`gateModificacionRequest` :83 exige `canExecuteProject` y proyecto EN_EJECUCION con
+  línea base; aprobar crea la versión N+1 en `aplicarModificacion` :450), UI `modificacion-form.tsx`,
+  `project-modificaciones.tsx`. Permisos: `canExecuteProject` (`src/lib/permissions.ts:158`) ya deja a un
+  COORDINADOR/COLABORADOR **miembro** solicitar; `canApproveModification` (:200) es solo ADMINISTRADOR/GERENCIA.
+- **Primer paso: reproducir** con un COLABORADOR miembro de un proyecto EN_EJECUCION (local) por qué no puede
+  solicitar el traslado (¿la UI esconde el botón?, ¿no es miembro?, ¿el gate?). Documentar la causa en el Log.
+- **Qué falta probablemente:** el formulario de traslado simple (origen, destino, valor, motivo obligatorio); la
+  validación «No se puede trasladar un valor que deje el rubro de origen por debajo de lo ya ejecutado» (comprobar si
+  existe; si no, agregarla en `validarModificacion` usando el ejecutado de T4); comentario obligatorio al rechazar
+  (`rechazarModificacion` :514); el Gestor ve sus solicitudes con estado y comentario; alerta de pendientes en la ficha
+  para GERENCIA.
+- **Tests:** uno por cada «Se acepta si» de S3, en `modifications/**/route.test.ts` y `modificaciones.test.ts`; más
+  `src/lib/permissions.test.ts` si cambia un permiso; `e2e/proyectos-v2/permisos.spec.ts` no debe romperse.
+- **Respuesta para la PO (D3):** el rol Gerente existe como `GERENCIA` y ya puede aprobar.
+
+### T4 — AJ-08: gasto sin aprobación (M)
+
+- **Hoy:** `enum EstadoGasto { REGISTRADO, VALIDADO, RECHAZADO, ANULADO }` (`prisma/schema.prisma:1202`) y el ejecutado
+  cuenta **solo VALIDADO** en al menos seis lectores: `src/lib/api/financiera.ts:21` (`loadGastosValidados`),
+  `ficha-financiera.ts:76,101`, `kpis-portafolio.ts:133`, `src/lib/api/modificaciones.ts:159`,
+  `validacion-gastos.ts:150`, `src/lib/proyectos/gastos.ts:276` (`superaAsignado`). «Por validar» se calcula en el
+  cliente: `project-presupuesto.tsx:79-86,146,250`. Filtro «Pendiente por revisión» = `OBSERVADOS`
+  (`project-gastos.tsx:54-71`). Cola global: `/api/v1/expense-validations`, `expense-validation-queue.tsx`.
+- **Qué hacer (patrón expandir/contraer, sin migración en esta tarea):** un solo predicado compartido «cuenta como
+  ejecutado» = estado distinto de ANULADO (y de RECHAZADO según D2), usado por **todos** los lectores; quitar de la UI
+  validar/rechazar, «Por validar», los filtros Validado/Rechazado/Pendiente por revisión y la cola de validación. Los
+  valores del enum y los CHECK (`20261010120000_v2_gastos_validacion`) **no se tocan aquí**: se eliminan después, en una
+  migración de contracción ensayada sobre copia de producción (como AJ-02/#165).
+- **Datos de producción:** según D2. Si hay que cambiar estados existentes, es una tarea aparte con ensayo (riesgo 1).
+- **Tests:** «Al registrar un gasto, el ejecutado del rubro sube de inmediato» y «Los $938.000 de Promoción y
+  divulgación aparecen como ejecutado» (fixture equivalente), en `src/lib/api/gastos.test.ts`,
+  `expenses/route.test.ts`, `project-presupuesto.test.tsx`; `prisma/gastos.invariant.test.ts` en verde; e2e
+  `ficha-ejecucion.spec.ts` actualizado.
+- **Ojo:** «Pendiente por revisión» no es un estado, es un filtro: no hace falta `ALTER TYPE`.
+
+### T5 — AJ-08: validadores y alertas (M)
+
+- Validadores al digitar en `gasto-form.tsx` (numéricos > 0, separador de miles, total calculado, advertencia IVA > 19 %
+  del subtotal; Propuesto: confirmar si supera el 50 % del asignado del rubro).
+- Sobreejecución **sin bloquear**: hoy `validacion-gastos.ts` bloquea con 409 al validar; pasar la regla al registro
+  como advertencia (ejecutado acumulado > programado al periodo) y alerta crítica (> asignado del rubro) con el mensaje
+  textual «Solicita un traslado al Gerente».
+- Duplicados: advertencia antes de guardar si existe gasto del mismo tercero con el mismo número de documento (el
+  importador ya detecta duplicados: `gastos-import/parse.ts`; reusar la clave).
+- **Tests:** los «Se acepta si» de alerta crítica y factura duplicada.
+
+### T6 — AJ-08: corrección, soportes y plantilla (M)
+
+- Editar/anular por el Gestor con motivo obligatorio y auditoría (`logChange` en `src/lib/api/audit-cambios.ts:156`,
+  `CAMPOS_AUDITABLES_GASTO` en `src/lib/api/gastos.ts:547`). Hoy PATCH solo lo hace quien registró
+  (`[expenseId]/route.ts`) y anular solo aplica a VALIDADO (`void/`). El anulado no suma y no se borra.
+- Soportes: «varios archivos y varios enlaces a la vez». Hoy `SoporteProyecto` guarda archivo **o** enlace por fila
+  (`soportes_proyecto_fuente_check`) y un gasto admite 1–5 soportes (`src/lib/proyectos/gastos.ts:119`): verificar si la
+  UI (`gasto-form.tsx:130,384`, `adjuntar-soporte.tsx`) permite mezclar; ajustar la UI y el tope si hace falta.
+- Plantilla de gastos: rechazar fila sin enlace de soporte, con fila y columna (`gastos-import/parse.ts`,
+  `template.ts`).
+- **Tests:** «Un gasto anulado aparece en el historial y no suma», «2 archivos y 1 enlace», «fila sin enlace se rechaza».
+
+### T7 — AJ-08: resumen de cambios del periodo (S, Propuesto)
+
+- Solo si D4 lo aprueba. Lee `AuditoriaCambio` del periodo para gastos editados/anulados y lo muestra en la ficha
+  financiera para GERENCIA.
+
+### T8 — AJ-10: alerta «Posible retraso» (S)
+
+- **Ya existe la lógica:** `alertaRetraso` (`src/lib/proyectos/semaforo-v2.ts:137`) con el parámetro `retraso` del
+  Administrador (tabla `Setting`, `getSemaforoParametrosV2` en `src/lib/settings.ts:84`, UI
+  `src/components/admin/umbrales-section.tsx`), y la usan `kpis.ts`, `financial-sheet.ts` y `atencion.ts`.
+- **Qué hacer:** comprobar el valor por defecto (la PO propone 60 %), que el texto sea exactamente «Posible retraso»,
+  que aparezca **junto al semáforo financiero** en el header de la ficha (`ficha-header.tsx:281,286`) y en el Tablero
+  gerencial (`project-dashboard.tsx:240-241`), y que no cambie el color del semáforo.
+- **Tests:** los tres casos de «Se acepta si» de S4 en `semaforo-v2.test.ts`, más un test de render en
+  `ficha-header.test.tsx` y `project-dashboard.test.tsx`.
+
+### T9 — Parte 2: diseño y estimación (M, sin código)
+
+Entregable: `odd/tasks/po-2026-11-10-parte2-diseno.md` con modelo de datos, migraciones, impacto en importadores y
+estimación por rebanada, para que la PO la apruebe por separado. Debe resolver, con evidencia del código:
+
+- Línea presupuestal por actividad + rubro: hoy `LineaPresupuestal` es única por (proyecto, rubro)
+  (`prisma/schema.prisma:1162`) y `ProgramacionPeriodo` cuelga de ella (:1185). Cómo pasar a (actividad, rubro) sin
+  romper los proyectos con línea base aprobada (snapshots inmutables en `VersionProyecto`, :1316).
+- Tipo de actividad Normal/Transversal (`Actividad`, :902, no tiene `tipo`) y el grupo «Gestión del proyecto».
+- Tres importadores distintos: plantilla de nueve hojas (`src/lib/proyectos/plantilla/`), estructura PO
+  (`estructura-po/`), presupuesto PO (`presupuesto-po/`, sin programación mensual). Cuál se conserva.
+- Factura distribuida en varias líneas (S9) frente al `Gasto` actual (uno por rubro).
+- Cierre de gastos de actividad (S11) y traslados actividad+rubro (S8, S11, extiende T3).
+- Recarga de CedeTextil en producción según D5.
+
+### T10–T15 — Rebanadas de la Parte 2 (orientativas; T9 las fija)
+
+T10 tipo Transversal (S6) · T11 presupuesto por actividad + plantilla (S5) · T12 programación propuesta y pantalla de
+ajuste (S7) · T13 reprogramación entre meses (S8) · T14 gasto por actividad y factura distribuida + vistas (S9, S10,
+S11) · T15 recarga de CedeTextil en producción con ensayo (S12).
+
+## Log
+
+- **L1 (2026-11-10, pedido del usuario, textual):** «"C:\Users\Adrian\Downloads\Hub-proyectos261110.docx". Crea el plan
+  de trabajo de tal manera salir de lo mas urgente y luego continuar con los features, y que el plan esté optimizado
+  para fable 5.2 y probarlo mañana o pasado mañana»
+- **L2 (2026-11-10):** mapa del código hecho sobre `main` `120c8a9` (explorador de solo lectura) y verificado a mano:
+  `curva.ts:135` no pasa `reportes` a `calcularTecnico` (causa de AJ-07); `alertaRetraso` ya existe (AJ-10 es
+  cableado); no hay roles por proyecto ni rol «Gerente» (equivale a `GERENCIA`). Limpieza de la base de código cerrada
+  el mismo día (sección 0 de `docs/plan-trabajo-restante.md`).
+- **Siguiente paso:** enviar D1–D5 a la PO y arrancar T0 → T1 → T8.

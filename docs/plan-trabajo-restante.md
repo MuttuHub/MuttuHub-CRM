@@ -19,6 +19,9 @@ Este documento es la **fuente única** de lo pendiente. Los requerimientos nuevo
 frente (secciones 1–5) y en esta lista. Las secciones 10–13 son **cortes fechados**: registran lo que pasó ese día y no
 se actualizan.
 
+- **Pedido de la PO del 2026-11-10** (`docs/Hub-proyectos261110.docx`): Parte 1, ajustes AJ-07 a AJ-10, y Parte 2,
+  presupuesto por actividad EV-01 a EV-08 (se estima aparte). Plan, specs textuales, decisiones abiertas D1–D5 y
+  tareas T0–T15 en `odd/tasks/po-2026-11-10-proyectos.md`.
 - **Producto (frente C y B):** V2 (ficha de oportunidad; convertir una GANADA crea el proyecto con sus tareas
   enlazadas), V5 (mapa de aliados; hoy redirige), V8 (faltan las reglas de «2 días antes» y «30 días sin contacto»),
   V9 (falta «nueva planeación»), B6 (rubros por proyecto; requiere migración) y D4 (semilla con una tarea comercial).
