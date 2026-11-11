@@ -238,7 +238,7 @@ sesión de agente por tarea) salvo que la tarjeta diga otra cosa.
 | ID | Specs | Qué | Tamaño | Depende de | Riesgo | Estado |
 |---|---|---|---|---|---|---|
 | T0 | — | Cerrar urgencias: mergear #166 (invitaciones rotas) y probar una invitación real | S | — | 2 (auth) | Pendiente |
-| T1 | S1 | La curva S, la tabla por periodo, «Periodo del reporte» y «Requiere atención» leen los reportes de avance | S | — | 6 | Implementada en `84aa280`, PR #169 abierto; verificación manual pendiente |
+| T1 | S1 | La curva S, la tabla por periodo, «Periodo del reporte» y «Requiere atención» leen los reportes de avance | S | — | 6 | Hecha: PR #169 (`84aa280`); verificación manual en local pendiente |
 | T2 | S1 | Regla de avance por actividad según D1 (solo si la PO cambia la regla) | S | D1, T1 | 6 | Pendiente |
 | T3 | S3 | El Gestor solicita traslados; el Gerente ve pendientes; validación contra lo ejecutado | S–M | D3 | 2 (permisos) | Pendiente |
 | T4 | S2 | Gasto sin aprobación: todo gasto no anulado es ejecutado; se quitan «Por validar», filtros y cola | M | D2 | 3 (lectores compartidos) | Pendiente |
@@ -418,5 +418,7 @@ S11) · T15 recarga de CedeTextil en producción con ensayo (S12).
   (`84aa280` y el de este registro) están solo en la rama local `fix/aj-07-curva-lee-reportes`, sin push.
 - **L5 (2026-11-11, T1):** el usuario autorizó el push y el PR («dale»). Rama subida y PR #169 abierto; su CI es la
   corrida completa de `unit` y `e2e`. El PR #168 (solo este documento, hasta L4) queda duplicado por #169.
-- **Siguiente paso:** CI de #169 en verde, verificación manual en la base local y merge (decisión del usuario).
-  Después T0 y T8; enviar D1–D5 a la PO.
+- **L6 (2026-11-11, T1):** CI de #169 en verde sobre `0f22ba1` (`unit` 9m17s, `e2e` 5m23s): es la corrida completa
+  que no terminó en local. El usuario autorizó mergear #169 y cerrar #168 sin mergear («si»). De T1 queda pendiente
+  solo la verificación manual en la base local (sembrar, registrar un avance en PRY-2026-001 y ver moverse la curva).
+- **Siguiente paso:** T0 y T8; enviar D1–D5 a la PO; verificación manual de T1 cuando la base local esté arriba.
