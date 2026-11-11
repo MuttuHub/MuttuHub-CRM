@@ -238,7 +238,7 @@ sesión de agente por tarea) salvo que la tarjeta diga otra cosa.
 | ID | Specs | Qué | Tamaño | Depende de | Riesgo | Estado |
 |---|---|---|---|---|---|---|
 | T0 | — | Cerrar urgencias: mergear #166 (invitaciones rotas) y probar una invitación real | S | — | 2 (auth) | Pendiente |
-| T1 | S1 | La curva S, la tabla por periodo, «Periodo del reporte» y «Requiere atención» leen los reportes de avance | S | — | 6 | Pendiente |
+| T1 | S1 | La curva S, la tabla por periodo, «Periodo del reporte» y «Requiere atención» leen los reportes de avance | S | — | 6 | Implementada en `84aa280` (rama `fix/aj-07-curva-lee-reportes`); PR y verificación manual pendientes |
 | T2 | S1 | Regla de avance por actividad según D1 (solo si la PO cambia la regla) | S | D1, T1 | 6 | Pendiente |
 | T3 | S3 | El Gestor solicita traslados; el Gerente ve pendientes; validación contra lo ejecutado | S–M | D3 | 2 (permisos) | Pendiente |
 | T4 | S2 | Gasto sin aprobación: todo gasto no anulado es ejecutado; se quitan «Por validar», filtros y cola | M | D2 | 3 (lectores compartidos) | Pendiente |
@@ -403,4 +403,13 @@ S11) · T15 recarga de CedeTextil en producción con ensayo (S12).
   `curva.ts:135` no pasa `reportes` a `calcularTecnico` (causa de AJ-07); `alertaRetraso` ya existe (AJ-10 es
   cableado); no hay roles por proyecto ni rol «Gerente» (equivale a `GERENCIA`). Limpieza de la base de código cerrada
   el mismo día (sección 0 de `docs/plan-trabajo-restante.md`).
-- **Siguiente paso:** enviar D1–D5 a la PO y arrancar T0 → T1 → T8.
+- **L3 (2026-11-10, T1):** commit `84aa280` en `fix/aj-07-curva-lee-reportes`, ruta inline. `calcularCurva` y
+  `cargarAtencion` cargan los reportes con `cargarReportesPorActividad` (`src/lib/api/tecnico.ts`), el mismo loader
+  que ahora usa `loadTecnicoStatus`. Corrección a la tarjeta: `calcularTecnico` calcula `progreso` **sin** `hasta`
+  (solo `avance_al_fin` lo usa), así que el filtro por periodo se hace en `curva.ts`, igual que con los avances.
+  RED → GREEN: 10 tests nuevos (los cuatro de la tarjeta, `base=original` y «Requiere atención»); pasan los 16
+  archivos que dependen del cambio (183 tests), eslint y knip. `tsc` da 17 errores que ya están en `main`
+  (`emailOutbox`: cliente Prisma sin regenerar), ninguno en los archivos tocados. Revisión nativa: riesgo medio,
+  `under_budget`, sin revisión. **Pendiente:** verificación manual sobre la base local (no respondía
+  `127.0.0.1:54322` y `docker` no está disponible desde WSL), push y PR.
+- **Siguiente paso:** enviar D1–D5 a la PO; cerrar T1 (verificación manual + PR) y seguir con T0 y T8.
