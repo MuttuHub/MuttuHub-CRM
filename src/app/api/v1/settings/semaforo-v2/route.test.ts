@@ -107,7 +107,7 @@ describe("PATCH /api/v1/settings/semaforo-v2", () => {
     const res = await PATCH(
       patchRequest({
         umbral1: { valor: 5, confirmado: true },
-        retraso: { valor: 60 },
+        retraso: { valor: 50 },
         avance_requiere_medio: { valor: true },
       }),
     );
@@ -115,7 +115,7 @@ describe("PATCH /api/v1/settings/semaforo-v2", () => {
 
     expect(res.status).toBe(200);
     expect(json.parametros.umbral1).toEqual({ valor: 5, confirmado: true });
-    expect(json.parametros.retraso).toEqual({ valor: 60, confirmado: false });
+    expect(json.parametros.retraso).toEqual({ valor: 50, confirmado: false });
 
     const stored = mocks.txUpsert.mock.calls[0][0];
     expect(stored.where).toEqual({ key: "semaforo_parametros_v2" });
@@ -135,7 +135,7 @@ describe("PATCH /api/v1/settings/semaforo-v2", () => {
           valor_nuevo: 5,
         }),
         expect.objectContaining({ campo: "umbral1.confirmado", valor_anterior: false, valor_nuevo: true }),
-        expect.objectContaining({ campo: "retraso.valor", valor_anterior: 70, valor_nuevo: 60 }),
+        expect.objectContaining({ campo: "retraso.valor", valor_anterior: 60, valor_nuevo: 50 }),
       ]),
     );
   });

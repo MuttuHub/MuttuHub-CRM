@@ -54,13 +54,13 @@ const KPIS = {
 
 const fetchMock = vi.fn()
 
-function mockApi(rol: string | null = "GERENCIA") {
+function mockApi(rol: string | null = "GERENCIA", kpis: typeof KPIS = KPIS) {
   fetchMock.mockImplementation((input: unknown) => {
     const url = String(input)
     if (url.endsWith("/auth/me")) {
       return Promise.resolve(jsonResponse({ usuario: rol ? { id: "u9", nombre: "Gestor", rol } : null }))
     }
-    if (url.includes("/kpis")) return Promise.resolve(jsonResponse(KPIS))
+    if (url.includes("/kpis")) return Promise.resolve(jsonResponse(kpis))
     if (url.endsWith("/members")) return Promise.resolve(jsonResponse({ miembros: [] }))
     return Promise.resolve(jsonResponse({}))
   })
@@ -125,6 +125,23 @@ describe("FichaHeader", () => {
     await screen.findByRole("button", { name: "Registrar avance" })
     expect(screen.queryByText(/Semáforo técnico/)).not.toBeInTheDocument()
     expect(fetchMock.mock.calls.filter(([url]) => String(url).includes("/kpis"))).toHaveLength(1)
+  })
+
+  it("shows «Posible retraso» next to the financial semáforo, which keeps its colour (AJ-10)", async () => {
+    mockApi("GERENCIA", { ...KPIS, financiero: { ...KPIS.financiero, alerta_retraso: true } })
+    renderHeader()
+
+    const financiero = await screen.findByRole("button", { name: "Semáforo financiero: Verde" })
+    expect(within(financiero.parentElement as HTMLElement).getByText("Posible retraso")).toBeInTheDocument()
+    expect(screen.getAllByText("Posible retraso")).toHaveLength(1)
+  })
+
+  it("shows no «Posible retraso» while the server does not raise the alert", async () => {
+    mockApi()
+    renderHeader()
+
+    await screen.findByRole("button", { name: "Semáforo financiero: Verde" })
+    expect(screen.queryByText("Posible retraso")).not.toBeInTheDocument()
   })
 
   it("opens the expense form when the caller handles «Registrar gasto», and the Finanzas tab otherwise", async () => {

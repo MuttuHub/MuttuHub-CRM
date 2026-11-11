@@ -39,7 +39,7 @@ describe("UmbralesSection", () => {
     expect(screen.getByLabelText("Umbral 1 (pp)")).toHaveValue(10);
     expect(screen.getByLabelText("Umbral 2 (pp)")).toHaveValue(20);
     expect(screen.getByLabelText("Tolerancia (%)")).toHaveValue(10);
-    expect(screen.getByLabelText("Retraso (%)")).toHaveValue(70);
+    expect(screen.getByLabelText("Retraso (%)")).toHaveValue(60);
     expect(screen.getByRole("checkbox", { name: "Avance requiere medio" })).toBeChecked();
     expect(
       screen.getByRole("checkbox", { name: "Modificación bloquea periodos pasados" }),
@@ -70,11 +70,11 @@ describe("UmbralesSection", () => {
 
     const retraso = screen.getByLabelText("Retraso (%)");
     await user.clear(retraso);
-    await user.type(retraso, "60");
+    await user.type(retraso, "50");
     await user.click(screen.getByRole("checkbox", { name: "Confirmar Retraso (%)" }));
     await user.click(save);
 
-    expect(h.save).toHaveBeenCalledWith({ retraso: { valor: 60, confirmado: true } });
+    expect(h.save).toHaveBeenCalledWith({ retraso: { valor: 50, confirmado: true } });
   });
 
   it("drops the badge once a parameter is marked as confirmed", async () => {
