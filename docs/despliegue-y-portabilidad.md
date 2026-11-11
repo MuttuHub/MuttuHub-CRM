@@ -25,7 +25,7 @@ proveedor con Postgres gestionado). Este documento describe el camino; **no** af
 | Acoplamiento | Dónde vive | Coste de migrar |
 |---|---|---|
 | **Auth SSR** (cookies, refresh, `requireApiUser`) | `src/lib/supabase/*`, `src/proxy.ts`, middleware | Alto: hay que sustituir el proveedor de identidad y migrar usuarios sin cambiar contraseñas |
-| **Admin API** (`auth.admin.listUsers/createUser/deleteUser`) | `prisma/seed.ts`, `scripts/offboard-camarabaq.ts`, invitaciones | Bajo: solo herramientas internas |
+| **Admin API** (`auth.admin.listUsers/createUser/deleteUser`) | `prisma/seed.ts`, invitaciones | Bajo: solo herramientas internas |
 | **Storage SDK** (`storage.from(...).createSignedUploadUrl`, `createSignedUrl`, `info`) | `src/lib/api/signed-upload.ts`, `src/lib/api/soportes.ts` | Medio: se sustituye por URLs prefirmadas de S3 (R2, Backblaze B2, Tigris) |
 | **`pg_cron` + `pg_net`** | `scripts/cron_setup.sql`, función `public.muttu_cron_daily()` | Bajo: Railway Cron o un programador externo llamando al mismo endpoint |
 | **Plantillas de correo** | `supabase/email-templates/*.html` | Bajo: solo aplican al Auth alojado de Supabase |
