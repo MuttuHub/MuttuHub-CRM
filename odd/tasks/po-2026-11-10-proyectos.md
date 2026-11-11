@@ -412,4 +412,9 @@ S11) · T15 recarga de CedeTextil en producción con ensayo (S12).
   (`emailOutbox`: cliente Prisma sin regenerar), ninguno en los archivos tocados. Revisión nativa: riesgo medio,
   `under_budget`, sin revisión. **Pendiente:** verificación manual sobre la base local (no respondía
   `127.0.0.1:54322` y `docker` no está disponible desde WSL), push y PR.
-- **Siguiente paso:** enviar D1–D5 a la PO; cerrar T1 (verificación manual + PR) y seguir con T0 y T8.
+- **L4 (2026-11-10, cierre de sesión):** pedido del usuario, textual: «guarda el progreso ya voy a apagar el pc». La
+  suite unit completa (`npx vitest run src scripts`, 413 archivos) **no terminó**: llevaba más de 55 minutos sobre
+  `/mnt/c` cuando se apagó el equipo. Queda pendiente correrla entera (o apoyarse en el CI del PR). Los commits de T1
+  (`84aa280` y el de este registro) están solo en la rama local `fix/aj-07-curva-lee-reportes`, sin push.
+- **Siguiente paso:** cerrar T1: suite unit completa, verificación manual en la base local, push y PR. Después T0 y
+  T8; enviar D1–D5 a la PO.
