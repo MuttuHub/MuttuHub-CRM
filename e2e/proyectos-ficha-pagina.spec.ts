@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { login } from "./proyectos-v2/helpers";
 
 // Read-only check of the project ficha as its own page (S12): "Ver detalle"
@@ -28,8 +28,15 @@ const TABS: Array<{ tab: string; proof: (panel: Locator) => Locator }> = [
   { tab: "Actividades", proof: (panel) => panel.getByRole("tab", { name: "Lista", selected: true }) },
   { tab: "Finanzas", proof: (panel) => panel.getByRole("tab", { name: "Resumen", selected: true }) },
   { tab: "Documentos", proof: (panel) => panel.getByTestId("documentos") },
-  { tab: "Historial", proof: (panel) => panel.getByRole("tab", { name: "Modificaciones", selected: true }) },
+  { tab: "Historial", proof: (panel) => panel.getByRole("tab", { name: "Registro de cambios", selected: true }) },
 ];
+
+// «Documentos · N» carries its count (T10 C6): match a tab name with or without it.
+const tabName = (tab: string) => new RegExp(`^${tab}( · \\d+)?$`);
+
+/** The ficha's own tablist is the first one; panels nest segment tablists of their own. */
+const tabOf = (page: Page, tab: string) =>
+  page.getByRole("tablist").first().getByRole("tab", { name: tabName(tab) });
 
 test("Ficha page: opens in the same tab with header, semaforos, five tabs and not-found state", async ({
   page,
@@ -66,10 +73,15 @@ test("Ficha page: opens in the same tab with header, semaforos, five tabs and no
     await expect(header).toBeVisible({ timeout: 60_000 });
     await expect(header).toContainText(CODIGO);
     await expect(header).toContainText("En ejecución");
-    await expect(ficha.getByText(/Semáforo técnico: (Verde|Amarillo|Rojo)/)).toBeVisible({
+    // The Resumen carries the colours in its own figures, so the header chips stay
+    // out of it (project-ficha.tsx mostrarSemaforos) and show on the other tabs.
+    await expect(header.getByText(/^Semáforo (técnico|financiero):/)).toHaveCount(0);
+    await tabOf(ficha, "Actividades").click();
+    await expect(header.getByText(/^Semáforo técnico: (Verde|Amarillo|Rojo)$/)).toBeVisible({
       timeout: 60_000,
     });
-    await expect(ficha.getByText(/Semáforo financiero: (Verde|Amarillo|Rojo)/)).toBeVisible();
+    await expect(header.getByText(/^Semáforo financiero: (Verde|Amarillo|Rojo)$/)).toBeVisible();
+    await tabOf(ficha, "Resumen").click();
     const back = ficha.getByRole("link", { name: "Volver a proyectos" });
     await expect(back).toBeVisible();
     await expect(back).toHaveAttribute("href", "/proyectos");
@@ -77,22 +89,20 @@ test("Ficha page: opens in the same tab with header, semaforos, five tabs and no
   });
 
   await test.step("4. Five tabs, each opens and shows its section", async () => {
-    // The first tablist is the ficha's own; panels nest segment tablists of their own.
-    const tabs = ficha.getByRole("tablist").first();
-    await expect(tabs.getByRole("tab")).toHaveCount(TABS.length);
+    await expect(ficha.getByRole("tablist").first().getByRole("tab")).toHaveCount(TABS.length);
     for (const { tab } of TABS) {
-      await expect(tabs.getByRole("tab", { name: tab, exact: true })).toBeVisible();
+      await expect(tabOf(ficha, tab)).toBeVisible();
     }
     for (const { tab, proof } of TABS) {
-      const trigger = tabs.getByRole("tab", { name: tab, exact: true });
+      const trigger = tabOf(ficha, tab);
       await trigger.click();
       await expect(trigger).toHaveAttribute("aria-selected", "true");
-      const panel = ficha.getByRole("tabpanel", { name: tab, exact: true });
+      const panel = ficha.getByRole("tabpanel", { name: tabName(tab) });
       await expect(proof(panel)).toBeVisible({ timeout: 60_000 });
       await expect(ficha.getByText("No pudimos abrir la ficha")).toHaveCount(0);
       await expect(ficha.getByText("Proyecto no encontrado")).toHaveCount(0);
     }
-    await tabs.getByRole("tab", { name: "Resumen", exact: true }).click();
+    await tabOf(ficha, "Resumen").click();
   });
 
   await test.step("5. Screenshots: ficha 1440 and 390, tablero 1440", async () => {
@@ -105,7 +115,9 @@ test("Ficha page: opens in the same tab with header, semaforos, five tabs and no
 
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/proyectos?vista=tablero", { timeout: 90_000 });
-    await expect(page.getByText(CODIGO).first()).toBeVisible({ timeout: 60_000 });
+    // The code also appears in the hidden <option>s of «Proyecto de la curva»: assert the table row.
+    const tablero = page.getByRole("tabpanel", { name: "Tablero" });
+    await expect(tablero.getByRole("row", { name: new RegExp(`^${CODIGO} `) })).toBeVisible({ timeout: 60_000 });
     await page.waitForTimeout(1500);
     await page.screenshot({ path: `${screenshotDir}/tablero-1440.png`, fullPage: true });
   });

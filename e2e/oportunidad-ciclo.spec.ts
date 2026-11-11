@@ -106,6 +106,8 @@ test("commercial cycle: create, link a task, present, win, convert, chip flips",
 
   await test.step("8. The Kanban card for the linked task now shows the Ejecución chip", async () => {
     await page.goto("/tablero");
+    // The advanced filters (Cliente among them) stay collapsed behind «Filtros».
+    await page.getByRole("button", { name: "Filtros", exact: true }).click();
     const clienteFilter = page.getByRole("combobox").filter({ hasText: "Cliente" });
     await clienteFilter.click();
     await page.getByRole("option", { name: CLIENTE_DEMO }).click();
