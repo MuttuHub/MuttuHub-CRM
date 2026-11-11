@@ -250,7 +250,7 @@ sesión de agente por tarea) salvo que la tarjeta diga otra cosa.
 | T0 | — | Cerrar urgencias: mergear #166 (invitaciones rotas) y probar una invitación real | S | — | 2 (auth) | Pendiente |
 | T1 | S1 | La curva S, la tabla por periodo, «Periodo del reporte» y «Requiere atención» leen los reportes de avance | S | — | 6 | Hecha: PR #169, `91b467a` en `main`; verificación manual en local pendiente |
 | T2 | S1 | Regla de avance por actividad según D1 (solo si la PO cambia la regla) | S | D1, T1 | 6 | No se hace: D1 mantiene la regla actual (L8) |
-| T3 | S3 | El Gestor solicita traslados; el Gerente ve pendientes; validación contra lo ejecutado | S–M | D3 | 2 (permisos) | Pendiente |
+| T3 | S3 | El Gestor solicita traslados; el Gerente ve pendientes; validación contra lo ejecutado | S–M | D3 | 2 (permisos) | Implementada en `5094aa2`, `8924141` y `a5845da`, rama `feat/aj-09-traslados-gestor` (sin push) |
 | T4 | S2 | Gasto sin aprobación: todo gasto no anulado es ejecutado; se quitan «Por validar», filtros y cola | M | D2 | 3 (lectores compartidos) | Pendiente |
 | T5 | S2 | Validadores al digitar, alertas de sobreejecución que no bloquean y aviso de duplicados | M | T4, D4 | — | Pendiente |
 | T6 | S2 | Gestor edita/anula con motivo y auditoría; varios archivos y enlaces por gasto; plantilla exige enlace | M | T4, D3 | 1 si toca datos | Pendiente |
@@ -459,3 +459,19 @@ S11) · T15 recarga de CedeTextil en producción con ensayo (S12).
   registra, con las alertas de sobreejecución y los traslados de S2 y S3. D5 sigue abierta.
 - **Siguiente paso:** merge de #170 (decisión del usuario); T3 y T4, ya destrabadas; cerrar D5; T0 (probar una
   invitación real en producción); verificación manual de T1 y T8 cuando la base local esté arriba.
+- **L10 (2026-11-12, T3):** AJ-09 implementado en `feat/aj-09-traslados-gestor` (base `261e995`, ya con el
+  fast-forward de #170), ruta inline, tres rebanadas: `5094aa2` (servidor: `construirTrasladoSimple` en
+  `src/lib/proyectos/traslado-simple.ts` arma el `detalle` del TRASLADO repartiendo el valor entre los periodos
+  abiertos; gate y comentarios ahora dicen COORDINADOR **o** COLABORADOR miembro), `8924141` (la solicitud pendiente
+  entra a «Requiere atención» como `modificacion_pendiente`, con `solicitud_id` en API/OpenAPI/hooks) y `a5845da`
+  (botón «Solicitar traslado» en Finanzas con el formulario simple origen/destino/valor/motivo; la fila de atención
+  lleva al segmento de solicitudes del Historial). Hallazgos del paso «reproducir»: el gate y el botón ya dejaban
+  pedir al COLABORADOR miembro (los cambios de `5094aa2` en el gate son solo comentarios) y el piso contra lo
+  ejecutado ya existía en `validarModificacion` (`A_MENOR_QUE_EJECUTADO`, ahora fijado con test); lo que faltaba era
+  el formulario simple y la visibilidad de pendientes. Comentario obligatorio al rechazar y ver el estado con
+  comentario ya existían (`DECISION_SCHEMA`, cola de `project-modificaciones.tsx`). Checks: 185 tests en los 11
+  archivos afectados (los tres «Se acepta si» de S3 + reglas del traslado simple), eslint (solo un warning
+  preexistente de `ATENCION_TIPOS`), knip limpio, `tsc` con solo los 17 errores preexistentes de `emailOutbox`.
+  Riesgo: ítem 2 en `5094aa2` (amplía quién puede solicitar; aprobar sigue siendo solo ADMINISTRADOR/GERENCIA).
+  Pendiente: suite completa y `e2e/proyectos-v2/permisos.spec.ts` vía el CI del PR, verificación manual en la base
+  local y push + PR (decisión del usuario).
