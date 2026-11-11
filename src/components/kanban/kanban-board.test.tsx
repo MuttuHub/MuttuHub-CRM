@@ -128,3 +128,17 @@ describe("KanbanBoard — Imprimir in the same tab (jefe 2.4b / S4)", () => {
     expect(open).not.toHaveBeenCalled()
   })
 })
+
+// PR-13 (N2): había dos informes de tareas —el del tablero y el de Reportes—. El del tablero se
+// retiró: la pestaña «Reporte» ya no existe y en su lugar hay un enlace a Reportes, que es el
+// único informe.
+describe("KanbanBoard — un solo informe de tareas (PR-13 / N2)", () => {
+  it("no longer offers its own «Reporte» view and links to Reportes instead", () => {
+    renderBoard()
+
+    expect(screen.queryByText("Reporte", { exact: true })).toBeNull()
+
+    const verReportes = screen.getByRole("link", { name: "Ver reportes" })
+    expect(verReportes).toHaveAttribute("href", "/reportes")
+  })
+})

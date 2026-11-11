@@ -188,7 +188,8 @@ function CambioEstadoControl({
             </Button>
             <Button type="button" disabled={!listo} onClick={() => void confirmar()}>
               {cambiar.isPending && <LoaderCircle className="animate-spin" />}
-              Confirmar
+              {/* BL#13: el botón nombra la acción elegida; «Confirmar» no dice qué va a pasar. */}
+              {accion ? ACCION_META[accion].label : "Confirmar"}
             </Button>
           </DialogFooter>
         </DialogContent>

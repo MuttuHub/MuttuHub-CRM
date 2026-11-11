@@ -34,6 +34,7 @@ import {
   ChevronDown,
   Eye,
   FileSpreadsheet,
+  BarChart3,
   Loader2,
   Plus,
   Printer,
@@ -95,7 +96,6 @@ import {
   type CardAction,
 } from "@/components/kanban/board-logic";
 import { TaskDialog } from "@/components/kanban/task-dialog";
-import { ReportView } from "@/components/kanban/report-view";
 import { TruncationBanner } from "@/components/kanban/truncation-banner";
 import { SinConexionCard } from "@/components/shared/sin-conexion-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -106,12 +106,11 @@ const unconfigured =
   !process.env.NEXT_PUBLIC_SUPABASE_URL ||
   !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-type View = "tablero" | "lista" | "reporte";
+type View = "tablero" | "lista";
 
 const VISTAS: { value: View; label: string }[] = [
   { value: "tablero", label: "Tablero" },
   { value: "lista", label: "Lista" },
-  { value: "reporte", label: "Reporte" },
 ];
 
 // PR 7: useTasks ahora devuelve InfiniteData<TaskListResponse>. El helper
@@ -429,6 +428,17 @@ export function KanbanBoard() {
               <Printer className="size-4 text-ink-600" strokeWidth={1.8} />
               Imprimir
             </Link>
+            {/* PR-13: el tablero ya no tiene su propio informe; el de tareas vive en Reportes. */}
+            <Link
+              href="/reportes"
+              className={cn(
+                buttonVariants({ variant: "outline", size: "sm" }),
+                "px-3.5 text-[13px] font-semibold text-ink-800",
+              )}
+            >
+              <BarChart3 className="size-4 text-ink-600" strokeWidth={1.8} />
+              Ver reportes
+            </Link>
             <Button
               size="sm"
               onClick={() => setDialogTaskId("nueva")}
@@ -459,12 +469,7 @@ export function KanbanBoard() {
       ) : null}
 
       {/* Contenido */}
-      {view === "reporte" ? (
-        <ReportView
-          responsable={responsableEquipo || undefined}
-          cliente={cliente || undefined}
-        />
-      ) : tasksQuery.isError ? (
+      {tasksQuery.isError ? (
         <SinConexionCard unconfigured={unconfigured} onRetry={() => void tasksQuery.refetch()} />
       ) : tasksQuery.isLoading ? (
         <BoardSkeleton vista={view === "lista" ? "lista" : "board"} />
