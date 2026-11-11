@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { login, openCliente } from "./proyectos-v2/helpers";
 
 // oportunidades-comerciales — full commercial cycle end-to-end sentinel
 // (Phase 5, task 5.6): create → link an existing task → PRESENTADA → GANADA
@@ -17,12 +18,11 @@ import { expect, test } from "@playwright/test";
 //     responsableKey gerencia) — no oportunidad_id at seed time (D1: no
 //     backfill), so it is available to link from the lifecycle view.
 //
-// CI only: this spec runs against the running dev server
-// (playwright.config.ts has no `webServer` block). Do not run it locally
-// without `pnpm dev` first.
+// Runs in CI (playwright.ci.config.ts) on a freshly seeded database. It links
+// the seeded task to a new opportunity, so a second run against the same
+// database finds the task already linked and fails at step 5: reseed first.
+// The opportunity name is unique per run.
 
-const GERENCIA_EMAIL = "gerencia@demo.muttuhub.local";
-const GERENCIA_PASSWORD = "MuttuDemo2026!";
 const CLIENTE_DEMO = "Fundación Horizonte Nuevo";
 const TAREA_A_VINCULAR = "Validar entregable con equipo técnico";
 const NOMBRE_OPORTUNIDAD = `Ciclo E2E ${Date.now()}`;
@@ -33,29 +33,26 @@ test("commercial cycle: create, link a task, present, win, convert, chip flips",
   page,
 }) => {
   await test.step("1. Login as gerencia (full commercial access)", async () => {
-    await page.goto("/login?next=%2Fclientes");
-    await page.getByLabel("Correo corporativo").fill(GERENCIA_EMAIL);
-    await page.locator('input[type="password"]').fill(GERENCIA_PASSWORD);
-    await page.locator('button[type="submit"]', { hasText: "Entrar" }).click();
-    await page.waitForURL(/\/clientes/, { timeout: 30_000 });
+    await login(page, "gerencia", "/clientes");
   });
 
-  const ficha = page.getByRole("dialog");
+  // The ficha is named after its client, so the nested form and lifecycle
+  // dialogs never make this locator ambiguous.
+  const ficha = page.getByRole("dialog", { name: `Ficha de ${CLIENTE_DEMO}` });
 
   await test.step("2. Open the demo client's ficha and go to Oportunidades", async () => {
-    await page.getByLabel("Buscar clientes").fill("Horizonte Nuevo");
-    const card = page.getByRole("article", { name: `Abrir ficha de ${CLIENTE_DEMO}` });
-    await expect(card).toBeVisible({ timeout: 10_000 });
-    await card.getByRole("button", { name: "Ver detalle" }).click();
-    await expect(ficha).toBeVisible();
+    // openCliente waits for the search debounce before opening the ficha: the
+    // debounced router.replace otherwise drops the ?cliente= that opens it.
+    await openCliente(page, CLIENTE_DEMO);
     await ficha.getByRole("tab", { name: "Oportunidades" }).click();
   });
 
   await test.step("3. Create a new opportunity (starts in PROSPECCION)", async () => {
     await ficha.getByRole("button", { name: "Nueva oportunidad" }).click();
     const formDialog = page.getByRole("dialog", { name: "Nueva oportunidad" });
-    await formDialog.getByLabel(/Nombre/).fill(NOMBRE_OPORTUNIDAD);
+    await formDialog.getByRole("textbox", { name: "Nombre" }).fill(NOMBRE_OPORTUNIDAD);
     await formDialog.getByRole("button", { name: "Crear oportunidad" }).click();
+    await expect(formDialog).toHaveCount(0);
     await expect(ficha.getByText(NOMBRE_OPORTUNIDAD)).toBeVisible();
   });
 
@@ -65,17 +62,17 @@ test("commercial cycle: create, link a task, present, win, convert, chip flips",
   await test.step("4. Open the lifecycle view: starts in Prospección, no linked tasks", async () => {
     await filaOportunidad.getByRole("button", { name: `Ver ciclo comercial de ${NOMBRE_OPORTUNIDAD}` }).click();
     await expect(lifecycle).toBeVisible();
-    await expect(lifecycle.getByText("Prospección")).toBeVisible();
+    await expect(lifecycle.getByText("Prospección", { exact: true })).toBeVisible();
     await expect(lifecycle.getByText("Sin tareas vinculadas todavía.")).toBeVisible();
     // Not yet GANADA — no Convert action offered.
     await expect(lifecycle.getByRole("button", { name: /Convertir/ })).toHaveCount(0);
   });
 
   await test.step("5. Link the existing seeded task to this opportunity", async () => {
-    await lifecycle.getByRole("combobox").click();
+    await lifecycle.getByRole("combobox", { name: "Vincular tarea" }).click();
     await page.getByRole("option", { name: TAREA_A_VINCULAR }).click();
-    await lifecycle.getByRole("button", { name: "Vincular" }).click();
-    await expect(lifecycle.getByText(TAREA_A_VINCULAR)).toBeVisible();
+    await lifecycle.getByRole("button", { name: "Vincular", exact: true }).click();
+    await expect(lifecycle.getByRole("listitem").filter({ hasText: TAREA_A_VINCULAR })).toBeVisible();
     await expect(lifecycle.getByText("Tareas vinculadas (1)")).toBeVisible();
     await lifecycle.getByRole("button", { name: "Cerrar" }).first().click();
   });
@@ -83,14 +80,14 @@ test("commercial cycle: create, link a task, present, win, convert, chip flips",
   await test.step("6. Move the opportunity to PRESENTADA, then GANADA", async () => {
     await filaOportunidad.getByRole("button", { name: `Editar ${NOMBRE_OPORTUNIDAD}` }).click();
     const editDialog = page.getByRole("dialog", { name: "Editar oportunidad" });
-    await editDialog.getByRole("combobox").filter({ hasText: "Diseñando propuesta" }).click();
+    await editDialog.getByRole("combobox", { name: "Estado" }).click();
     await page.getByRole("option", { name: "Presentada", exact: true }).click();
     await editDialog.getByRole("button", { name: "Guardar cambios" }).click();
     await expect(editDialog).toHaveCount(0);
 
     await filaOportunidad.getByRole("button", { name: `Editar ${NOMBRE_OPORTUNIDAD}` }).click();
     const editDialog2 = page.getByRole("dialog", { name: "Editar oportunidad" });
-    await editDialog2.getByRole("combobox").filter({ hasText: "Presentada" }).click();
+    await editDialog2.getByRole("combobox", { name: "Estado" }).click();
     await page.getByRole("option", { name: "Ganada", exact: true }).click();
     await editDialog2.getByRole("button", { name: "Guardar cambios" }).click();
     await expect(editDialog2).toHaveCount(0);
@@ -100,7 +97,7 @@ test("commercial cycle: create, link a task, present, win, convert, chip flips",
     await filaOportunidad.getByRole("button", { name: `Ver ciclo comercial de ${NOMBRE_OPORTUNIDAD}` }).click();
     await expect(lifecycle).toBeVisible();
     await lifecycle.getByRole("button", { name: /Convertir a ejecución/ }).click();
-    await expect(lifecycle.getByText("Ejecución")).toBeVisible();
+    await expect(lifecycle.getByText("Ejecución", { exact: true })).toBeVisible();
     // D7/D5: idempotent — the action disappears once already converted.
     await expect(lifecycle.getByRole("button", { name: /Convertir/ })).toHaveCount(0);
     await lifecycle.getByRole("button", { name: "Cerrar" }).first().click();
@@ -109,6 +106,8 @@ test("commercial cycle: create, link a task, present, win, convert, chip flips",
 
   await test.step("8. The Kanban card for the linked task now shows the Ejecución chip", async () => {
     await page.goto("/tablero");
+    // The advanced filters (Cliente among them) stay collapsed behind «Filtros».
+    await page.getByRole("button", { name: "Filtros", exact: true }).click();
     const clienteFilter = page.getByRole("combobox").filter({ hasText: "Cliente" });
     await clienteFilter.click();
     await page.getByRole("option", { name: CLIENTE_DEMO }).click();
@@ -119,7 +118,7 @@ test("commercial cycle: create, link a task, present, win, convert, chip flips",
       })
       .first();
     await expect(card).toBeVisible({ timeout: 15_000 });
-    await expect(card.getByText("Ejecución")).toBeVisible();
-    await expect(card.getByText("Prospección")).toHaveCount(0);
+    await expect(card.getByText("Ejecución", { exact: true })).toBeVisible();
+    await expect(card.getByText("Prospección", { exact: true })).toHaveCount(0);
   });
 });
