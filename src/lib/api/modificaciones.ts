@@ -79,7 +79,7 @@ export const DECISION_SCHEMA = z
 
 const SCOPE_SELECT = { id: true, estado: true } as const;
 
-/** 404 -> 403 (manager or member COORDINADOR, A-01) -> 409 (EN_EJECUCION) -> 409 (v0 exists). */
+/** 404 -> 403 (manager, or member COORDINADOR / COLABORADOR, A-01) -> 409 (EN_EJECUCION) -> 409 (v0 exists). */
 export async function gateModificacionRequest(
   usuario: Usuario,
   proyectoId: string,
