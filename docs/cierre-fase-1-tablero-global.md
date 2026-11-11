@@ -98,7 +98,7 @@ El plan define los PRs 8-16. Orden de arranque:
 | 13 | Aceptar `.pptx` + extracción de texto (4 tipos, `unpdf`/`jszip`/`exceljs`) — paralelizable con 9-12 | 8 |
 | 14 | Búsqueda full-text + snippet + fix de `etiquetas` | 8 |
 | 15 | Asignar a tarea (doble gate) | 8 |
-| 16 | Backfill de texto + `docs/pendientes/busqueda-semantica.md` | 13, 14 |
+| 16 | Backfill de texto + `docs/archive/pendientes/busqueda-semantica.md` | 13, 14 |
 
 > Restricciones que conserva el plan: **una sola dependencia nueva** (`unpdf`), PRs ≤400 líneas,
 > y alertas de OJO: el índice GIN vive en SQL crudo (Prisma no lo modela) — nunca `prisma db push` en este
