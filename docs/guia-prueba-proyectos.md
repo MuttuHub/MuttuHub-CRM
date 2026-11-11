@@ -78,11 +78,10 @@ En la reunión (como `admin@`, salvo donde se indica):
    el diálogo cierre solo: el enlace se guarda en una segunda petición); mira el
    **Semáforo técnico** (también en el encabezado, con la palabra del color) y la insignia **Semáforo provisional**.
    (2 min)
-5. Pestaña **Legalización** > **Registrar gasto** con soporte. Sal y entra como `gerencia@`: cola **Gastos por validar**
-   (en **Proyectos**) y, en la pestaña **Legalización** de la ficha, **Validar**. Muestra que el registrante ve "Tú lo
-   registraste" en vez de los botones. (2 min)
-6. **Sobreejecución** (pestaña **Legalización**): un gasto mayor al asignado del rubro; como `gerencia@` **Validar** da
-   409 con "Se notificó a Gerencia" y aparece en la campana, grupo **PROYECTOS**. (1 min)
+5. Pestaña **Legalización** > **Registrar gasto** con soporte. Muestra que el ejecutado del rubro sube de inmediato,
+   sin validación: los gastos ya no llevan aprobación. (2 min)
+6. **Sobreejecución** (pestaña **Legalización**): un gasto mayor al asignado del rubro se guarda, cuenta como ejecutado
+   y la fila lleva **Supera lo asignado**. (1 min)
 7. **Solicitar modificación** (traslado) como `admin@` en la pestaña **Cambios**, **Aprobar** como `gerencia@`, y
    en **Versiones** (misma pestaña, bajo Modificaciones) compara `v0` contra **Vigente**. (2 min)
 
@@ -97,7 +96,7 @@ En la reunión (como `admin@`, salvo donde se indica):
    teléfono real)
 
 Si el tiempo aprieta, corta el paso 2 y el 6. El paso 8 solo luce con el proyecto ya **En ejecución** (paso 3) y
-al menos un avance o gasto validado; un Borrador sale en el tablero como "Sin medir".
+al menos un avance o gasto registrado; un Borrador sale en el tablero como "Sin medir".
 
 ## 0. Preparación
 
@@ -134,8 +133,8 @@ validación de gastos y la bitácora de auditoría):
 - `Demo CedeTextil · Programa de confección` (`PRY-2026-001` en una base recién sembrada): línea base aprobada (versión v0,
   por lo que Versiones y Modificaciones funcionan), 4 actividades, 7 entregables, 2 indicadores, presupuesto de
   $177.360.000 y programación mensual. Trae 5 avances (todos con enlace https como medio, salvo uno sin medio a propósito),
-  3 mediciones y 5 gastos con soporte https: 2 VALIDADO, 2 REGISTRADO y 1 REGISTRADO con alerta de sobregasto
-  (validarlo supera el rubro R11 y queda bloqueado y notificado).
+  3 mediciones y 5 gastos con soporte https, todos REGISTRADO (cuentan como ejecutado); uno supera el asignado del
+  rubro R11 y lleva la alerta de sobregasto.
 - `Demo CedeTextil · Ruta de fortalecimiento` (`PRY-2026-002`): en BORRADOR con la misma estructura, presupuesto
   y programación importados, para mostrar "Aprobar línea base" en vivo.
 - Una oportunidad GANADA sin proyecto, para mostrar "Convertir en proyecto". `prisma/seed.ts` trae dos GANADA y el
@@ -154,7 +153,7 @@ corre el seed ni nadie por ti.
 
 Verificado el 2026-10-09 contra la base local (`127.0.0.1:54322`) con una consulta de solo lectura: 2 proyectos
 (`EN_EJECUCION` y `BORRADOR`), 1 versión (v0), 5 avances con 5 medios, 3 mediciones, 5 gastos (2 VALIDADO,
-3 REGISTRADO, uno con alerta) y 1 oportunidad GANADA libre. No verificado: cómo se ven el Tablero y los semáforos en
+3 REGISTRADO, uno con alerta; desde AJ-08, 2026-11-11, el seed deja los 5 en REGISTRADO, sin volver a verificar) y 1 oportunidad GANADA libre. No verificado: cómo se ven el Tablero y los semáforos en
 el navegador, ni el flujo "Convertir en proyecto" con clics. Los semáforos dependen de la fecha: las fechas de los
 avances y gastos son "hoy" al correr el seed, pero el proyecto dura del 2026-10-05 al 2027-01-29; corrido mucho
 después, el semáforo técnico saldrá más atrasado.
@@ -350,9 +349,8 @@ reabrir; cancelado no se puede deshacer.
 2. Elige **Suspender**, escribe un motivo y pulsa **Confirmar** (sin motivo el botón queda deshabilitado). Esperado:
    toast "Proyecto suspendido.", el chip pasa a **Suspendido** y bajo el nombre aparece "Proyecto suspendido: está
    congelado hasta que Gerencia o Administración lo reactive."
-3. Con el proyecto suspendido: desaparecen **Registrar avance**, **Registrar gasto**, **Subir documento**, los botones
-   **Validar**/**Rechazar** de los gastos registrados y los controles del **Equipo**. **Anular** sigue disponible en los
-   gastos validados. La cola de validación de gastos ya no lista los gastos de ese proyecto.
+3. Con el proyecto suspendido: desaparecen **Registrar avance**, **Registrar gasto**, **Subir documento** y los
+   controles del **Equipo**. **Anular** sigue disponible en los gastos registrados.
 4. **Historial** (pestaña **Cambios**): una edición con dos filas en un lote, **Estado** (En ejecución → Suspendido) y
    **Motivo**.
 5. **Reactivar** devuelve el proyecto a En ejecución. Repite con **Cerrar** (chip Cerrado, aviso de solo lectura) y
@@ -442,8 +440,8 @@ entregables para el recorrido completo.
 ## E. Gastos y validación (S6)
 
 Pestaña **Legalización** de la ficha (sección **Gastos**). Registran `admin@`, `gerencia@` o `coordinador@` integrante, solo con el proyecto
-**En ejecución**. Validan y rechazan solo `admin@` y `gerencia@`. Regla central: no puedes validar ni rechazar un
-gasto que tú registraste.
+**En ejecución**. Regla central (AJ-08): no hay aprobación. Todo gasto registrado cuenta como ejecutado (subtotal +
+IVA) en su periodo; un gasto equivocado se anula con motivo (`admin@` y `gerencia@`) y no se borra.
 
 1. Como `admin@`, en la pestaña **Legalización**: **Registrar gasto**. Campos: Rubro (solo rubros con monto asignado), Subtotal, IVA, Total (solo
    lectura: Subtotal + IVA), Fecha del documento, Periodo, Tipo de soporte (Factura de proveedor, Cuenta de cobro de persona natural, ...), Número de documento,
@@ -466,45 +464,39 @@ gasto que tú registraste.
 3. **Alerta de duplicado**: registra otro con el mismo número de identificación y número de documento. Aparece
    "Gasto registrado, con avisos" con "Ya existe un gasto con el mismo NIT/cédula y número de documento (...)". No
    bloquea; pulsa **Entendido**.
-4. **Validación por otro usuario**: como `admin@` (el registrante) la fila dice "Tú lo registraste" y no hay
-   botones. Entra como `gerencia@`: en **Proyectos** aparece la cola **Gastos por validar · N**, y en la ficha,
-   pestaña **Legalización**, el gasto tiene **Validar** y **Rechazar**.
-5. **Validar**: pasa a **Validado** y alimenta la **Ficha financiera** (pestaña **Financiero**, §F). Si faltan tipo y número de
-   identificación, **Validar** está deshabilitado con "Completa el tipo y número de identificación del tercero
-   antes de validar." y el gasto lleva la insignia **Datos incompletos**.
-6. **Rechazar**: pide "Motivo del rechazo" (obligatorio) y **Confirmar rechazo**; la fila muestra
-   "Rechazado: <motivo>". No hay pantalla para corregir un rechazado (ver Límites).
-7. **Anular un gasto validado** (admin/gerencia): botón **Anular** con motivo; queda **Anulado**.
-8. **Sobreejecución**:
-   1. Como `admin@` registra un gasto con Total (Subtotal + IVA) mayor que el asignado del rubro (o mayor que lo que queda).
-      Sale el aviso "Este gasto, sumado a los gastos validados, superaría el valor asignado al rubro." (si la API lo
-      devuelve) y la fila lleva **Supera el asignado**.
-   2. Como `gerencia@` pulsa **Validar**: error 409 en la fila, "Validar este gasto superaría el valor asignado al
-      rubro. Se notificó a Gerencia." El gasto sigue **Registrado**, con la insignia **Supera el asignado**.
-   3. La campana (**Notificaciones**) de `gerencia@` muestra el grupo **PROYECTOS** con "Gasto supera el asignado
-      del rubro" y el código del proyecto. Refresca si no aparece. Al abrir la campana se marcan como leídas. Hoy la
-      notificación lleva a `/proyectos` (no abre la ficha).
-   4. Solo se notifica a usuarios Gerencia; `admin@` ve la marca en la lista y en la cola pero no recibe campana.
+4. **Sin aprobación**: no existen **Validar**, **Rechazar**, la columna **Por validar**, la cola **Gastos por validar**
+   ni los filtros **Validado**, **Rechazado** y **Pendiente por revisión**. Los filtros son **Todos**, **Registrado**
+   y, si hay alguno, **Anulado**.
+5. **Cuenta de inmediato**: tras registrar, la **Ficha financiera** (pestaña **Financiero**, §F) y el presupuesto
+   muestran el gasto como ejecutado sin otro paso. Si faltan tipo y número de identificación, el gasto lleva la
+   insignia **Datos incompletos** y cuenta igual.
+6. **Gastos anteriores a AJ-08**: uno que estaba **Validado** se lee como **Registrado**. Uno **Rechazado** conserva
+   su etiqueta y su motivo y no suma; pasará a **Anulado** en una tarea de datos aparte (decisión D2).
+7. **Anular** (admin/gerencia): botón **Anular** con motivo obligatorio; el gasto queda **Anulado**, sigue en la
+   lista y deja de sumar al ejecutado.
+8. **Sobreejecución**: como `admin@` registra un gasto con Total (Subtotal + IVA) mayor que el asignado del rubro (o
+   mayor que lo que queda). El gasto **se guarda y cuenta**; sale el aviso "Este gasto, sumado a los gastos ya
+   ejecutados del rubro, superaría el valor asignado." y la fila lleva **Supera lo asignado**. Registrar ya no envía
+   la notificación de campana a Gerencia; las alertas de sobreejecución de AJ-08 llegan con la tarea T5.
 9. **Soporte**: en cada gasto, el botón con el nombre del soporte ("Ver soporte <nombre>") descarga el archivo por su
    URL firmada (60 s), directo y sin abrir otra pestaña; si el soporte es un enlace externo, ese sí se abre aparte. Cada acceso se registra. Si falla: "No pudimos abrir el soporte. Inténtalo de nuevo." Un `coordinador@`
    integrante ve los soportes de su proyecto; `colaborador@` no ve la sección de gestión. El botón para sumar más
    soportes se llama **Adjuntar archivo** (antes "Adjuntar soporte") y, al elegir un archivo, muestra su nombre con
    la opción de **Quitar**.
 10. Negativos: sin soporte, "Adjunta al menos un soporte (archivo o enlace)."; rubro sin asignado, "Solo puedes
-    registrar gastos en rubros con valor asignado."; validar un gasto que ya no está registrado, 409 "Solo se pueden
-    validar o rechazar gastos en estado registrado."; el registrante que fuerza la llamada recibe 403 "No puedes
-    validar un gasto que tú registraste."
+    registrar gastos en rubros con valor asignado."; anular un gasto ya anulado o rechazado, 409 "Solo se puede anular
+    un gasto registrado."; las rutas `validate`, `reject` y `/expense-validations` ya no existen (404).
 
 ## F. Ficha financiera (S5/S6/S8)
 
 Pestaña **Financiero**, sección **Ficha financiera** (debajo de **Presupuesto**). Visible para quienes pueden leer el proyecto (admin, gerencia y coordinador integrante).
 
-1. Tabla por rubro con A (asignado), P (programado), E (ejecutado = gastos **Validados**), D y los porcentajes E/P y
+1. Tabla por rubro con A (asignado), P (programado), E (ejecutado = gastos registrados y no anulados), D y los porcentajes E/P y
    E/A, color por fila y fila de total.
 2. Selector **Calcular hasta** (mes) y selector **Comparar con**: **Plan actual** o **Plan inicial**. En Borrador la
    opción **Plan inicial** no existe (tooltip: "El plan inicial estará disponible cuando se apruebe la línea base.").
-3. Mientras no haya gastos validados: "Ejecución disponible cuando se registren gastos" (en Borrador siempre).
-4. Valida un gasto (§E, pestaña **Legalización**), vuelve a la pestaña **Financiero** y recarga la sección: E sube y el color del rubro cambia según los umbrales. Si E supera A
+3. Mientras no haya gastos registrados: "Ejecución disponible cuando se registren gastos" (en Borrador siempre).
+4. Registra un gasto (§E, pestaña **Legalización**), vuelve a la pestaña **Financiero** y recarga la sección: E sube y el color del rubro cambia según los umbrales. Si E supera A
    el color es rojo.
 5. Cambia **Comparar con** a **Plan inicial** tras una modificación aprobada (§G): A y P vuelven a los valores del
    plan inicial mientras E (los gastos) no cambia.
@@ -533,9 +525,9 @@ base esté aprobada." y "La línea base aún no está aprobada."
    (`v0` ... `Vigente`). Muestra las diferencias agrupadas (Presupuesto, Programación, Actividades, ...), con
    "Desaparece" / "Aparece" para elementos nuevos o eliminados.
 5. Reglas a comprobar (el formulario lista cada una en rojo):
-   - **REQ-GAS-06**: pide un traslado que deje un rubro por debajo de lo ya validado como gasto: "El valor
+   - **REQ-GAS-06**: pide un traslado que deje un rubro por debajo de lo ya ejecutado: "El valor
      asignado de «R01» no puede quedar por debajo de lo ya ejecutado ($ ...)." Hace falta tener antes un gasto
-     **Validado** en ese rubro (§E).
+     **Registrado** en ese rubro (§E).
    - "Un traslado no puede cambiar el valor total del proyecto (diferencia $ ...)."
    - "Una adición debe aumentar el valor total del proyecto." / "Una reducción debe disminuir el valor total del
      proyecto."
@@ -624,7 +616,7 @@ consulta): deben coincidir en color con las tarjetas de abajo.
    ("N medidos, M sin medir") y **Beneficiarios vs meta**.
 3. Insignia **Semáforo provisional** junto a los controles (solo si el proyecto es medible).
 4. En un Borrador: "Los indicadores se calculan cuando el proyecto está en ejecución, suspendido o cerrado."
-5. Registra un avance con soporte (§D) y un gasto validado (§E), recarga y comprueba que los porcentajes se mueven.
+5. Registra un avance con soporte (§D) y un gasto (§E), recarga y comprueba que los porcentajes se mueven.
    Cambia **Comparar con** a **Plan inicial** tras una modificación aprobada (§G): lo programado y asignado vuelven
    al plan inicial;
    los avances y gastos no cambian.
@@ -649,7 +641,7 @@ consulta): deben coincidir en color con las tarjetas de abajo.
 2. Entra como `colaborador@` (sesión nueva o recarga). Esperado: **Proyectos** muestra **Portafolio** y **Tablero**;
    el listado trae todos los proyectos; puede abrir la ficha, ver **Indicadores** y exportar.
 3. Sigue sin poder: crear proyectos, editar estructura/presupuesto, aprobar línea base, registrar avances o
-   gastos, validar o rechazar, ni solicitar o decidir modificaciones (sin botones; la API responde 403). Tampoco ve
+   gastos, anularlos, ni solicitar o decidir modificaciones (sin botones; la API responde 403). Tampoco ve
    soportes de gastos (la bandera no los habilita).
 4. Quita la casilla y comprueba que la pestaña **Tablero** desaparece y `/proyectos?vista=tablero` muestra solo el
    listado. Solo `admin@` puede cambiar la bandera.
@@ -663,15 +655,15 @@ consulta): deben coincidir en color con las tarjetas de abajo.
 
 ### J.6 Reporte semanal (Reportes › Semanal)
 1. Como `gerencia@`: **Reportes**, pestaña **Semanal**. Esperado: "Semana del <lunes> al <domingo>" de la semana en
-   curso, y las secciones Portafolio por proyecto, Portafolio por cliente, Tareas, Actividades atrasadas, Requiere
-   atención y Gastos por validar. Los semáforos y montos coinciden con el **Tablero** de proyectos.
+   curso, y las secciones Portafolio por proyecto, Portafolio por cliente, Tareas, Actividades atrasadas, y Requiere
+   atención. Los semáforos y montos coinciden con el **Tablero** de proyectos.
 2. **Semana anterior**: cambia la semana y las tareas cerradas/vencidas. **Semana siguiente** se desactiva en la
    semana en curso.
 3. **Generar reporte**: abre `/print/reportes/semanal?semana=<lunes>` en la **misma pestaña**; **Volver** regresa a
    Reportes.
 4. **Exportar Excel**: baja `reporte-semanal-<lunes>.xlsx` con las hojas `Resumen`, `Proyectos`, `Por cliente`,
-   `Actividades atrasadas`, `Requiere atención` y `Gastos por validar`. Sin gastos individuales, terceros ni soportes.
-5. Como `coordinador@`: solo sus proyectos y **sin** la sección ni la hoja "Gastos por validar".
+   `Actividades atrasadas` y `Requiere atención`. Sin gastos individuales, terceros ni soportes.
+5. Como `coordinador@`: solo sus proyectos.
 
 ## 5. Ensayo automatizado (opcional)
 

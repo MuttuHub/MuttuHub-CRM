@@ -43,15 +43,15 @@ Los permisos dependen del rol y de la pertenencia al proyecto (el **Equipo** del
 | Registrar cantidad de un entregable | Sí | Sí | Sí, si es integrante | Sí, si es integrante |
 | Registrar el avance de la actividad (la pasa a En curso) | Sí | Sí | Solo si es el responsable de la actividad | Solo si es el responsable de la actividad |
 | Registrar gastos | Sí | Sí | Sí, si es integrante | Sí, si es integrante |
-| Validar o rechazar un gasto | Sí, salvo los que registró | Sí, salvo los que registró | No | No |
+| Anular un gasto (con motivo) | Sí | Sí | No | No |
 | Subir o eliminar documentos del proyecto | Sí | Sí | Sí, si es integrante | Sí, si es integrante |
 | Solicitar una modificación | — | — | Sí, si es integrante | Sí, si es integrante |
 | Aprobar una modificación | Sí | Sí | No | No |
 
 Notas:
 
-- **Segregación de funciones:** nadie puede validar un gasto que registró. Si un administrador registra un gasto, otro
-  administrador o alguien de Gerencia debe validarlo.
+- **Gastos sin aprobación:** un gasto registrado cuenta como ejecutado de inmediato; no hay paso de validación ni de
+  rechazo. Un gasto equivocado se **anula** con motivo: deja de sumar, pero no se borra.
 - Un **Coordinador o un Colaborador** que no está en el **Equipo** del proyecto no lo ve, ni siquiera abriendo el enlace directo.
 - La **bandera gerencial** se asigna en **Administración → Usuarios**. Da lectura del portafolio y de las fichas, nunca
   escritura ni acceso a los soportes financieros.
@@ -226,9 +226,6 @@ En el encabezado, siempre visible:
   **Actividades** y **Finanzas** solo queda **Registrar gasto**: el avance se registra en la tarjeta de cada actividad.
   En el teléfono las acciones pasan a una barra fija abajo («Registrar gasto | Registrar avance»); en **Documentos**
   esa barra es la de **Subir documento**.
-- En **Finanzas › Resumen › Gastos por validar**, quien no puede validar también ve **Revisar**; al tocarlo, un aviso
-  explica: «No tienes permisos para validar gastos. Solo Gerencia o Administración pueden validarlos mientras el
-  proyecto está en ejecución.»
 - El menú **«⋯» → «Más acciones»** con **Cambiar estado** (Administración y Gerencia), **Exportar a Excel** e
   **Imprimir / PDF**.
 - La pestaña **Documentos** muestra cuántos documentos tiene el proyecto («Documentos · N»).
@@ -328,8 +325,9 @@ en ese estado.
 
 **Gastos**
 
-- Los KPI de gastos y la tabla con **Registrado**, **Validado**, **Rechazado** y **Anulado**.
-- Filtros por estado (incluye **Pendiente por revisión**) y un buscador.
+- Los KPI de gastos y la tabla con los estados **Registrado** y **Anulado**. Todo gasto registrado cuenta como
+  ejecutado (subtotal + IVA) en su periodo, sin otro paso.
+- Filtros **Todos**, **Registrado** y, si hay alguno, **Anulado**.
 - **Registrar gasto** abre el formulario: **Rubro**, **Subtotal**, **IVA**, **Total**, **Fecha del documento**,
   **Periodo**, **Tipo de soporte** (factura de proveedor, cuenta de cobro de persona natural u otro), **Número de
   documento**, **Tercero**, **Tipo y número de identificación**, **Descripción** y el **soporte** (archivo o enlace);
@@ -355,10 +353,9 @@ en ese estado.
   y coma; cada uno debe empezar por `http://` o `https://` o la fila se rechaza indicando la fila y la columna. Una
   fila con dos enlaces válidos crea el gasto con dos soportes. Si la fila no trae enlaces, el gasto importado aparece
   **Sin soporte** y quien lo registró lo adjunta con **Adjuntar archivo** (archivo o enlace, hasta 5); al elegir un
-  archivo se ve su nombre con la opción de **Quitar**. Un gasto sin soporte no se puede validar.
-- **Validar** y **Rechazar** están disponibles para Administrador y Gerencia, y nunca sobre un gasto propio. Al
-  rechazar se escribe el **motivo**.
-- **Anular** un gasto es una acción aparte, con su propio motivo.
+  archivo se ve su nombre con la opción de **Quitar**.
+- **Anular** un gasto está disponible para Administrador y Gerencia y exige un **motivo**. El gasto anulado sigue en la
+  lista y deja de sumar al ejecutado.
 
 **Presupuesto**
 
@@ -368,7 +365,6 @@ en ese estado.
 
 **Notificaciones relacionadas**
 
-- Quien registró un gasto rechazado recibe **«Gasto rechazado»** con el motivo y el enlace.
 - Gerencia recibe el aviso de **rubro sobreejecutado** y el proyecto lo muestra en **Requiere atención**.
 
 ### 5.4 Documentos
@@ -466,7 +462,6 @@ curso), con los mismos números del Tablero de proyectos.
 | Tareas | Tareas cerradas y vencidas de la semana frente a la semana anterior, con la diferencia. |
 | Actividades atrasadas | Actividades vencidas cuyo avance sigue por debajo del tope (**tope_en_curso**). |
 | Requiere atención | Lo mismo que la ficha (rubros sobreejecutados, avances sin soporte, indicadores bajo la meta, posible retraso); los gastos observados se cuentan, sin detalle. |
-| Gastos por validar | Solo Administrador y Gerencia: cantidad, monto y fecha del registro más antiguo, por proyecto. |
 
 Cada rol ve los proyectos que ve en el Tablero. Una tarea **vencida** en la semana es la que tenía entrega esa
 semana y no se cerró a tiempo; una **cerrada** es la que se completó esa semana.
@@ -500,8 +495,7 @@ semana y no se cerró a tiempo; una **cerrada** es la que se completó esa seman
 1. Revisar **Resumen → Requiere atención**, o el consolidado en **Reportes › Semanal**.
 2. Registrar los avances con su medio de verificación.
 3. Registrar los gastos con su soporte.
-4. Administrador o Gerencia: validar o rechazar los gastos pendientes.
-5. Revisar los semáforos y explicar los rojos.
+4. Revisar los semáforos y explicar los rojos.
 
 **Cada mes**
 
@@ -519,7 +513,7 @@ semana y no se cerró a tiempo; una **cerrada** es la que se completó esa seman
 | La tabla del portafolio está vacía | Tu rol ve solo tus proyectos, o hay filtros activos | **Limpiar filtros**; si sigue vacía, revisar el **Equipo** |
 | «Aprobar línea base» no aparece | No estás en Borrador o no tienes el rol | Verificar estado y rol |
 | La aprobación lista precondiciones | Falta completar estructura, presupuesto o programación | Resolver cada punto y volver a intentar |
-| No puedo validar un gasto | Lo registraste tú, o no tienes el rol | Que lo valide otra persona con permiso |
+| Registré un gasto por error | Los gastos ya no se validan ni se rechazan | Administrador o Gerencia lo anulan con motivo |
 | «Programación pendiente» | La programación no cuadra con lo asignado | Ajustar meses o montos en **Presupuesto** |
 | «Rubro suspendido pendiente de reasignación» | Un rubro suspendido tiene dinero asignado | Reasignar el monto a otro rubro |
 | No puedo editar la estructura | El proyecto ya salió de Borrador | Usar una **solicitud de modificación** |
@@ -582,9 +576,9 @@ coincide, es un hallazgo que conviene anotar con el paso, la pantalla y lo que a
 | 7 | **Finanzas → Presupuesto**: asignar rubros con una suma distinta al valor total | Aviso de la diferencia; **Usar la suma como valor total**; la programación mensual muestra **«Programación pendiente»** si no cuadra |
 | 8 | **Aprobar línea base** con algo pendiente | Lista las **precondiciones** que faltan; al completarlas y aprobar, el proyecto pasa a **En ejecución** y se crea la versión `v0` |
 | 9 | **Actividades → Registrar avance** | La fecha no puede ser futura; exige archivo o enlace; si el avance excede lo planeado, pide **justificación del exceso** |
-| 10 | **Finanzas → Gastos → Registrar gasto** | El **soporte es obligatorio**; el gasto queda en **Registrado** |
-| 11 | Validar ese gasto con **la misma** cuenta | No se puede: la validación exige otra persona con permiso |
-| 12 | **Rechazar** el gasto desde otra cuenta | Pide el **motivo**; quien lo registró recibe **«Gasto rechazado»** con el motivo y el enlace |
+| 10 | **Finanzas → Gastos → Registrar gasto** | El **soporte es obligatorio**; el gasto queda en **Registrado** y el ejecutado del rubro sube de inmediato |
+| 11 | Buscar **Validar**, **Rechazar** o **Por validar** en Finanzas | No existen: los gastos no llevan aprobación |
+| 12 | **Anular** el gasto como Administrador o Gerencia | Pide el **motivo**; el gasto sigue en la lista como **Anulado** y deja de sumar al ejecutado |
 | 13 | **Documentos**: subir un archivo y un enlace, y abrirlos | Descarga por **URL firmada**; **Eliminar** solo aparece en documentos del grupo **Proyecto** |
 | 14 | **Historial**: ver **Versiones** y **Auditoría** | Comparación `v0` contra la versión actual; la auditoría muestra usuario y fecha |
 | 15 | Menú **«⋯»** | **Imprimir / PDF** sale sin menú lateral; **Exportar a Excel** descarga con corte y base elegidos |

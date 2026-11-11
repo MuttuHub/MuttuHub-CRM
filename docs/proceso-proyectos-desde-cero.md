@@ -102,10 +102,11 @@ verificación** (archivo o enlace) que respalde ese avance. Si el avance supera 
 
 Cada gasto se registra con su **rubro**, **Subtotal**, **IVA** y **Total** (el Total lo calcula el sistema; el IVA
 puede ser cero, pero hay que escribirlo), la fecha del documento, el periodo contable y un **soporte obligatorio**
-(factura, cuenta de cobro u otro). Sin soporte, el gasto no se puede registrar ni validar.
+(factura, cuenta de cobro u otro). Sin soporte, el gasto no se puede registrar.
 
-La validación tiene un control de doble llave: **quien registra un gasto nunca puede validarlo**, ni siquiera un
-administrador sobre su propio registro. Lo valida o rechaza otro Administrador o Gerencia, con motivo si lo rechaza.
+Los gastos **no llevan aprobación**: un gasto registrado es un pago hecho y cuenta como ejecutado (subtotal + IVA) en
+su periodo, sin otro paso. Si se registró por error, Administrador o Gerencia lo **anulan** con motivo: deja de sumar,
+pero no se borra.
 
 ### 5.3 Semáforos y «Requiere atención»
 
@@ -115,13 +116,13 @@ Cada proyecto en ejecución muestra dos semáforos en su encabezado:
 - **Semáforo financiero**: qué tan alineado está el gasto frente al presupuesto y su programación mensual.
 
 Cada semáforo (Al día, Atención, En riesgo) lleva directo a la pestaña que explica la causa. El bloque **Resumen →
-Requiere atención** junta todo lo que necesita acción —gastos pendientes de validar, programación sin cuadrar,
+Requiere atención** junta todo lo que necesita acción —gastos observados, programación sin cuadrar,
 rubros sobreejecutados— ordenado por gravedad, para no tener que recorrer todas las pestañas buscando qué falta.
 
 ### 5.4 Rutina recomendada
 
-- **Cada semana**: revisar «Requiere atención», registrar avances con su soporte, registrar gastos con su soporte,
-  validar o rechazar los gastos pendientes, y revisar los semáforos en rojo.
+- **Cada semana**: revisar «Requiere atención», registrar avances con su soporte, registrar gastos con su soporte
+  y revisar los semáforos en rojo.
 - **Cada mes**: comparar la ficha financiera contra la línea base (`v0`) y ajustar lo que corresponda con una
   solicitud de modificación.
 
@@ -151,7 +152,7 @@ desde la interfaz, sin tocar la base de datos. Ya está disponible. Solo Adminis
 | Cancelado | Ningún otro estado: es definitivo |
 
 **Qué cambia al suspender o cerrar un proyecto:** se congela. No se pueden registrar avances, gastos ni documentos
-nuevos, y no se pueden aprobar ni rechazar modificaciones o gastos pendientes mientras dure esa suspensión o cierre.
+nuevos, y no se pueden aprobar ni rechazar modificaciones pendientes mientras dure esa suspensión o cierre.
 La única excepción son las **anulaciones** de gastos ya registrados, que siguen permitidas en cualquier estado como
 corrección auditada. Todo cambio de estado, con su motivo y quién lo hizo, queda en **Historial → Auditoría**.
 
@@ -165,7 +166,7 @@ corrección auditada. Todo cambio de estado, con su motivo y quién lo hizo, que
 | Editar estructura y presupuesto (solo en Borrador) | Sí | Sí | Sí, si es del equipo | Sí, si es del equipo |
 | Aprobar la línea base | Sí | Sí | No | No |
 | Registrar avances y gastos | Sí | Sí | Sí, si es del equipo | Sí, si es del equipo |
-| Validar o rechazar un gasto (nunca el propio) | Sí | Sí | No | No |
+| Anular un gasto (con motivo) | Sí | Sí | No | No |
 | Solicitar una modificación | — | — | Sí, si es del equipo | Sí, si es del equipo |
 | Aprobar una modificación | Sí | Sí | No | No |
 | Cambiar el estado del proyecto (suspender, cerrar, cancelar, etc.) | Sí | Sí | No | No |
@@ -189,7 +190,7 @@ pertenencia al **Equipo** del proyecto es lo que abre o cierra el acceso para es
 - **Línea base**: la foto aprobada de la estructura y el presupuesto (versión `v0`).
 - **Rubro**: categoría de gasto del catálogo (R01 a R15).
 - **Asignado / Programado / Ejecutado**: lo que el presupuesto destina a un rubro, cómo se reparte por mes, y lo
-  efectivamente gastado y validado.
+  efectivamente gastado (todo gasto registrado y no anulado).
 - **Semáforo técnico / financiero**: el estado de avance de actividades o de ejecución presupuestal.
 - **Modificación**: el cambio solicitado y aprobado después de la línea base.
 - **Medio de verificación**: el archivo o enlace que respalda un avance.
