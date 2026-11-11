@@ -76,13 +76,13 @@ la ficha, porque su `router.replace` pisaba la navegación de «Crear proyecto»
 ### Seguimiento: specs legacy fuera de CI (fallos observados en la corrida 40358916147)
 
 Actualizado 2026-11-10 (PR #162, verificado con corrida local idéntica al job `e2e`): `playwright.ci.config.ts`
-corre ahora `e2e/proyectos-v2` más dos specs legacy de la raíz (`testDir: "./e2e"` con `testMatch` explícito).
+corre ahora `e2e/proyectos-v2` más tres specs legacy de la raíz (`testDir: "./e2e"` con `testMatch` explícito).
 Corren antes que la v2 (orden por ruta) y no tocan datos que la v2 use.
 
-- `invitation-flow` (fuera de CI, bug de producto): `/auth/confirm` llama `verifyOtp({ type, token_hash, email })`
-  y GoTrue (v2.193.0 local) responde 400 «Only the token_hash and type should be provided», así que el enlace de
-  `supabase/email-templates/invite.html` (`token_hash` + `email`) cae en «Enlace no válido». Vuelve a CI cuando
-  la página deje de enviar `email` junto a `token_hash`.
+- `invitation-flow` (en CI desde el arreglo de `/auth/confirm`): la página llamaba
+  `verifyOtp({ type, token_hash, email })` y GoTrue (v2.193.0 local) respondía 400 «Only the token_hash and type
+  should be provided», así que el enlace de `supabase/email-templates/invite.html` caía en «Enlace no válido». Ahora
+  envía solo `type` y `token_hash`.
 - `oportunidad-ciclo` (en CI): abre la ficha con `openCliente` (espera el debounce del `?q=`, que cerraba la
   ficha antes de llegar a la pestaña «Oportunidades») y la ubica por nombre. En el Tablero el filtro «Cliente»
   está plegado tras el botón «Filtros». Vincula una tarea sembrada: exige base recién sembrada.

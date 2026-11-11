@@ -105,7 +105,7 @@ describe("ConfirmPage", () => {
     expect(screen.getByText("¡Tu cuenta fue validada!")).toBeInTheDocument()
   })
 
-  it("verifies via verifyOtp with token_hash (modern Supabase invite link)", async () => {
+  it("verifies via verifyOtp with token_hash and type only (GoTrue rejects email alongside token_hash)", async () => {
     mocks.verifyOtp.mockResolvedValue({ error: null })
     mocks.setSearchParams(
       new URLSearchParams("token_hash=th1&type=invite&email=a@b.co"),
@@ -115,7 +115,6 @@ describe("ConfirmPage", () => {
     expect(mocks.verifyOtp).toHaveBeenCalledWith({
       type: "invite",
       token_hash: "th1",
-      email: "a@b.co",
     })
     expect(screen.getByText("Crea tu contraseña")).toBeInTheDocument()
   })
