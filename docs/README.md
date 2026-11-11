@@ -1,6 +1,6 @@
 # Índice de documentación
 
-Qué documento manda para cada cosa, y cuáles quedaron como registro histórico. Actualizado el **2026-10-19**.
+Qué documento manda para cada cosa, y cuáles quedaron como registro histórico. Actualizado el **2026-11-10**.
 
 Leyenda: **Vigente** (describe el estado actual) · **Referencia** (sigue siendo útil, no es normativo) ·
 **Histórico** (registro de una etapa cerrada; no actualizar) · **Feature** (plan de trabajo en `odd/tasks`).
@@ -11,8 +11,8 @@ Leyenda: **Vigente** (describe el estado actual) · **Referencia** (sigue siendo
 |---|---|---|
 | [`../README.md`](../README.md) | **Vigente** | Stack, módulos, permisos, puesta en marcha, variables, pruebas y despliegue |
 | [`despliegue-y-portabilidad.md`](despliegue-y-portabilidad.md) | **Vigente** | Servicios, acoplamientos a Supabase y plan de migración (Railway Pro) |
-| [`pendientes-v7.md`](pendientes-v7.md) | **Vigente** | Lo que queda abierto de v7 y del lanzamiento, con estado |
-| [`plan-trabajo-restante.md`](plan-trabajo-restante.md) | **Vigente** | Orden, tamaño, dependencias y criterios de aceptación de todo lo pendiente |
+| [`plan-trabajo-restante.md`](plan-trabajo-restante.md) | **Vigente** | **Fuente única de lo pendiente.** La sección 0 dice qué queda abierto; ahí se cargan los requerimientos nuevos |
+| [`plan-limpieza-codigo.md`](plan-limpieza-codigo.md) | **Vigente** | Fases L0–L8 de limpieza de código (anexo técnico del plan) |
 | [`guia-uso-proyectos-v2.md`](guia-uso-proyectos-v2.md) · [`.html`](guia-uso-proyectos-v2.html) · [`.pdf`](guia-uso-proyectos-v2.pdf) | **Vigente** | Guía de usuario del módulo de Proyectos + anexo de validación para la PO |
 
 ## Producto y requisitos
@@ -31,7 +31,7 @@ Leyenda: **Vigente** (describe el estado actual) · **Referencia** (sigue siendo
 | [`runbook-lanzamiento-v2.md`](runbook-lanzamiento-v2.md) | **Histórico ejecutado** | Cómo se migró y desplegó v2 el 2026-10-19; sirve de plantilla para la próxima ventana |
 | [`../odd/tasks/lanzamiento-v2-fin-de-semana.md`](../odd/tasks/lanzamiento-v2-fin-de-semana.md) | **Histórico** | Plan, decisiones y evidencia del lanzamiento |
 | [`../odd/tasks/plan-emergencia-lanzamiento-v2.md`](../odd/tasks/plan-emergencia-lanzamiento-v2.md) | **Histórico** | Vuelta atrás de emergencia |
-| [`analisis/`](analisis/) | **Histórico** | Auditoría profunda del 2026-10-13 (commits, arquitectura, seguridad, pruebas) |
+| [`archive/analisis/`](archive/analisis/) | **Histórico** | Auditoría profunda del 2026-10-13 (commits, arquitectura, seguridad, pruebas) |
 
 ## Demos, guías y material de apoyo
 
@@ -51,7 +51,11 @@ Leyenda: **Vigente** (describe el estado actual) · **Referencia** (sigue siendo
 | [`cierre-fase-1-tablero-global.md`](cierre-fase-1-tablero-global.md) | **Histórico** |
 | [`cierre-plan-40-20.md`](cierre-plan-40-20.md) | **Histórico** |
 | [`plan-supabase-manana.md`](plan-supabase-manana.md) | **Histórico** |
-| [`pendientes/`](pendientes/) | **Histórico** (deuda y mejoras de fases anteriores; lo vigente está en `pendientes-v7.md`) |
+| [`archive/pendientes/`](archive/pendientes/) | **Histórico** (deuda y mejoras de fases anteriores; lo vigente está en `plan-trabajo-restante.md`) |
+| [`archive/pendientes-v7.md`](archive/pendientes-v7.md) | **Histórico** (inventario v7 al 2026-10-19, absorbido por `plan-trabajo-restante.md`) |
+| [`archive/pasos-siguientes.md`](archive/pasos-siguientes.md) | **Histórico** |
+| [`archive/PLAN-TRABAJO-2026-11-08.md`](archive/PLAN-TRABAJO-2026-11-08.md) · [`-09`](archive/PLAN-TRABAJO-2026-11-09.md) | **Histórico** (planes diarios; su contenido está en las secciones 11–12 del plan) |
+| [`archive/DIAGNOSTICO-SEED-CLOUD.md`](archive/DIAGNOSTICO-SEED-CLOUD.md) | **Histórico** (incidente del seed en producción, 2026-09-22; motivo del guard anti-producción) |
 | [`proposals/`](proposals/) | **Histórico** |
 
 ## Trabajo en curso (`odd/tasks`)
@@ -71,4 +75,4 @@ casillas de cada tarea, no aquí.
 ## Artefactos que no son documentación
 
 `muttu-hub-v2.html` (prototipo de diseño), `../manual-usuario.html`, `../guia-acceso.html` y los dos PDF de la raíz son
-material de comunicación anterior. Se conservan hasta decidir su limpieza (ver `pendientes-v7.md`, Q5).
+material de comunicación anterior. Se conservan hasta decidir su limpieza (ver `archive/pendientes-v7.md`, Q5).

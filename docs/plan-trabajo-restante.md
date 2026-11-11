@@ -6,10 +6,30 @@ permisos vigente, 4136 pruebas unitarias y 29 e2e en verde.
 IDs: **A** operación, **B** producto, **V** v7 CRM, **U** auditoría UX (sus hallazgos conservan `C1–C12`), **E** plataforma. **Estado de ejecución (2026-10-19):** A1 (etiqueta `v2.0.0`), A5 (credenciales), B1/D1 (mensaje de acceso) y **U0
 (re-auditoría UX)** están **hechos**. La re-auditoría encontró 10 de 16 hallazgos ya resueltos y dejó cuatro vigentes,
 todos pequeños: `odd/tasks/ux-audit-2026-10-19.md`. Detalle de la fase en `odd/tasks/fase-0-ejecucion.md`.
-**Último corte: 2026-11-06** — ver la sección 11 (rediseño de la ficha en `main` y plan del 2026-11-07).
+**Último corte: 2026-11-10** — ver la sección 13. **Lo que queda abierto está en la sección 0.**
 
 Este plan ordena lo que queda en cinco frentes. Cada tarea trae tamaño (**S** ≤ 1 día, **M** 2–4 días, **L** 1–2
 semanas), de qué depende y cómo se sabe que está terminada. Las decisiones que bloquean trabajo están en la sección 5.
+
+---
+
+## 0. Qué queda abierto (al 2026-11-10)
+
+Este documento es la **fuente única** de lo pendiente. Los requerimientos nuevos de la PO entran aquí, como filas en su
+frente (secciones 1–5) y en esta lista. Las secciones 10–13 son **cortes fechados**: registran lo que pasó ese día y no
+se actualizan.
+
+- **Producto (frente C y B):** V2 (ficha de oportunidad; convertir una GANADA crea el proyecto con sus tareas
+  enlazadas), V5 (mapa de aliados; hoy redirige), V8 (faltan las reglas de «2 días antes» y «30 días sin contacto»),
+  V9 (falta «nueva planeación»), B6 (rubros por proyecto; requiere migración) y D4 (semilla con una tarea comercial).
+- **Correo (PR-M1, #137):** migración `20261104181952_email_outbox` aplicada en producción el 2026-11-10 tras ensayo
+  sobre copia; el código entra con el merge de #137. Seguimiento PR-M1b en la descripción de #137.
+- **AJ-02, contracción:** la rama `feat/aj02-drop-peso-columns` no tiene PR y su migración es destructiva: necesita
+  ensayo sobre copia de producción antes de entrar.
+- **Deuda de V1:** `Oportunidad` no tiene índices por `cliente_id` ni por `estado`.
+- **Bloqueadas por terceros:** A2 (dominio de Resend), A4 (respaldos automáticos; requisito de toda migración futura) y
+  E4 (Railway).
+- **Limpieza de código:** L3–L8 en `docs/plan-limpieza-codigo.md` (L3 espera la decisión de formato de la PO).
 
 ---
 
@@ -189,6 +209,9 @@ si es de UI, componente o e2e), `tsc` y lint están limpios, la documentación a
 Abierto: este PR de documentación (#93), con las decisiones D-A, D-B y D-C de la PO.
 
 ### Orden recomendado para retomar
+
+> **Actualización 2026-11-10:** el paso 1 está hecho (#131, `206c4c5`) y el paso 3 también (V1, #159). Lo abierto
+> está en la sección 0.
 
 1. **Verificar los dos arreglos chicos:** el mensaje «La descripción es obligatorio.» → «obligatoria», y que los
    imports de presupuesto (B2) y gastos (B8) solo acepten `modo=validar` o `modo=aplicar`. No hay evidencia reciente de

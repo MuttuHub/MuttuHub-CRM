@@ -263,7 +263,7 @@ Los casos «Se acepta si» del documento, con los mensajes verbatim:
 
 > El jefe pidió: «Si logras encontrar algún otro fallo de ux o ui coméntamelo y lo guardamos como
 > mejora futura». Las mejoras ya detectadas y su prioridad viven en
-> `docs/pendientes/mejoras-ux-reunion-2026-10-28.md` (ítems 1–20). Los marcados allá son defectos del
+> `docs/archive/pendientes/mejoras-ux-reunion-2026-10-28.md` (ítems 1–20). Los marcados allá son defectos del
 > backlog, no bugs del sprint. Si en el testeo hoy aparece otro fallo, anotarlo abajo y lo agregamos al
 > backlog: no se arregla en el vuelo.
 

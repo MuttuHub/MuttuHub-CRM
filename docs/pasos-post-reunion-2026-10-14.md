@@ -3,7 +3,7 @@
 Qué hacer después de la demo del módulo Proyectos y qué falta, con detalle, de lo que pidió el cliente. Contexto:
 rama `feat/projects-v2`; estado de la demo en `odd/tasks/demo-proyectos-2026-10-14.md`; plan vivo de alineación con el
 prototipo v7 en `odd/tasks/v7-alignment.md`; pendientes del 2026-10-13 en
-`docs/pendientes/pendientes-v7-alignment-2026-10-13.md`.
+`docs/archive/pendientes/pendientes-v7-alignment-2026-10-13.md`.
 
 Tamaños: **S** (horas), **M** (1 a 2 días), **L** (más de 2 días o con decisión externa). Son estimaciones gruesas.
 
@@ -122,7 +122,7 @@ migración, salvo que se indique.
 - `odd/tasks/v2-projects-sdd.md`: SDD derivado del RF, con los identificadores REQ, V, P y D usados arriba.
 - Prototipo v7: `~/Downloads/Web app views creation/Muttu Hub v7.dc.html`. Es diseño, **no** requisito.
 - `docs/Muttu_Hub_PRD_v2.md` **no** cubre Proyectos; no sirve como fuente de requisitos de este módulo.
-- Análisis de brechas: `odd/tasks/v7-gap-analysis.md`; auditoría profunda del 2026-10-13: `docs/analisis/`.
+- Análisis de brechas: `odd/tasks/v7-gap-analysis.md`; auditoría profunda del 2026-10-13: `docs/archive/analisis/`.
 
 ## F. Orden sugerido después de la reunión
 

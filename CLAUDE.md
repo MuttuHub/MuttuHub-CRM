@@ -10,6 +10,6 @@
   `.env.local` explícitamente** (`tsx --env-file=.env.local ...`), nunca depender del
   `.env` por default. Nunca asumas que `.env` es local — no lo es.
 - Motivo: ya hubo un incidente de seed corriendo contra Supabase Cloud en vez de local
-  (ver `DIAGNOSTICO-SEED-CLOUD.md`). Cualquier nuevo script de datos debe reusar o
+  (ver `docs/archive/DIAGNOSTICO-SEED-CLOUD.md`). Cualquier nuevo script de datos debe reusar o
   replicar el guard anti-producción de `prisma/seed.ts` (verifica que `DATABASE_URL`
   apunte a localhost antes de escribir).

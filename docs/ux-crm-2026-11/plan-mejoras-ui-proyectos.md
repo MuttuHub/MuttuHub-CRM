@@ -10,7 +10,7 @@ implementación va después, por PRs chicos, cuando la PO apruebe cada diseño.
 - `docs/ux-crm-2026-11/HANDOFF-sesion-2026-11-05.md` — estado del repo, reglas del entorno y pendientes T1–T6.
 - Canvas existente (privado): https://claude.ai/artifact/B2jBj1ScW9vrGFxWNEi5xC — página «Mejoras UX» con
   UX1–UX7 (captura real vs. propuesta). **Este plan lo amplía; no empieza de cero.**
-- `docs/ux-crm-2026-11/plan-trabajo-ux-crm.md` (backlog UX en curso), `docs/pendientes/plan-mejora-ux-proyectos.md`
+- `docs/ux-crm-2026-11/plan-trabajo-ux-crm.md` (backlog UX en curso), `docs/archive/pendientes/plan-mejora-ux-proyectos.md`
   (U1–U22, BL#), `docs/ux-crm-2026-11/rediseno-ciclo-proyecto.md`, `docs/ux-crm-2026-11/proyectos-v2-prototipo.html`
   (prototipo de la v3) y `docs/ux-crm-2026-11/decisiones-abiertas-2026-11-04.md`.
 - **Regla v3 (decisión D-V3-1):** las mejoras se hacen en la sección viva de Proyectos y la v3 las hereda. Si un
