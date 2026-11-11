@@ -11,6 +11,7 @@ vi.mock("@/lib/db", () => ({
   db: {
     actividad: { findMany: vi.fn() },
     avanceEntregable: { findMany: vi.fn() },
+    reporteActividad: { findMany: vi.fn() },
     soporteProyecto: { groupBy: vi.fn() },
     indicador: { findMany: vi.fn() },
     lineaPresupuestal: { findMany: vi.fn() },
@@ -57,6 +58,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(db.actividad.findMany).mockResolvedValue([] as never)
   vi.mocked(db.avanceEntregable.findMany).mockResolvedValue([] as never)
+  vi.mocked(db.reporteActividad.findMany).mockResolvedValue([] as never)
   vi.mocked(db.soporteProyecto.groupBy).mockResolvedValue([] as never)
   vi.mocked(db.indicador.findMany).mockResolvedValue([] as never)
   vi.mocked(db.lineaPresupuestal.findMany).mockResolvedValue([] as never)
@@ -108,6 +110,51 @@ describe("cargarAtencion", () => {
     const tipos = result.ok ? result.value.items.map((item) => item.tipo) : []
     expect(tipos).toContain("actividad_atrasada")
     expect(tipos).toContain("avance_sin_soporte")
+  })
+
+  describe("activity reports (AJ-07)", () => {
+    // Ended on 2026-02-01, half of its deliverable delivered: overdue at the 2026-03-15 corte.
+    const vencida = {
+      id: "a1",
+      codigo: "A-01",
+      nombre: "Actividad 1",
+      semana_inicio: 1,
+      semana_fin: 4,
+      entregables: [{ id: "e1", codigo: "E-01", cantidad_meta: num("10") }],
+    }
+    const avance = { id: "av1", entregable_id: "e1", fecha: new Date("2026-02-01T00:00:00.000Z"), cantidad: num("5"), created_at: new Date("2026-02-01T12:00:00.000Z") }
+    const reporte = (porcentaje: string) => ({ actividad_id: "a1", fecha: new Date("2026-02-20T00:00:00.000Z"), porcentaje: num(porcentaje) })
+    const atrasadas = async () => {
+      const result = await cargar()
+      return result.ok ? result.value.items.filter((item) => item.tipo === "actividad_atrasada") : []
+    }
+
+    beforeEach(() => {
+      vi.mocked(db.actividad.findMany).mockResolvedValue([vencida] as never)
+      vi.mocked(db.avanceEntregable.findMany).mockResolvedValue([avance] as never)
+      vi.mocked(db.soporteProyecto.groupBy).mockResolvedValue([{ avance_id: "av1", _count: { _all: 1 } }] as never)
+    })
+
+    it("shows the reported progress of an overdue activity, not only its deliverables", async () => {
+      expect((await atrasadas()).map((item) => item.detalle)).toEqual([expect.stringContaining("con avance 50 %")])
+      vi.mocked(db.reporteActividad.findMany).mockResolvedValue([reporte("70")] as never)
+      expect((await atrasadas()).map((item) => item.detalle)).toEqual([expect.stringContaining("con avance 70 %")])
+    })
+
+    it("stops flagging an overdue activity whose report reached the tope", async () => {
+      vi.mocked(db.reporteActividad.findMany).mockResolvedValue([reporte("90")] as never)
+      expect(await atrasadas()).toEqual([])
+    })
+
+    it("reads only non-voided reports up to the corte, in chronological order", async () => {
+      await cargar()
+      expect(db.reporteActividad.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { proyecto_id: "pry-1", anulado_at: null, fecha: { lte: new Date("2026-03-15T00:00:00.000Z") } },
+          orderBy: [{ fecha: "asc" }, { created_at: "asc" }],
+        }),
+      )
+    })
   })
 
   it("flags an indicator below its goal and an observed expense", async () => {

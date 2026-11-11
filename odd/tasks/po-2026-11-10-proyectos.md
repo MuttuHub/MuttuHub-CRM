@@ -238,7 +238,7 @@ sesión de agente por tarea) salvo que la tarjeta diga otra cosa.
 | ID | Specs | Qué | Tamaño | Depende de | Riesgo | Estado |
 |---|---|---|---|---|---|---|
 | T0 | — | Cerrar urgencias: mergear #166 (invitaciones rotas) y probar una invitación real | S | — | 2 (auth) | Pendiente |
-| T1 | S1 | La curva S, la tabla por periodo, «Periodo del reporte» y «Requiere atención» leen los reportes de avance | S | — | 6 | Pendiente |
+| T1 | S1 | La curva S, la tabla por periodo, «Periodo del reporte» y «Requiere atención» leen los reportes de avance | S | — | 6 | Hecha: PR #169 (`84aa280`); verificación manual en local pendiente |
 | T2 | S1 | Regla de avance por actividad según D1 (solo si la PO cambia la regla) | S | D1, T1 | 6 | Pendiente |
 | T3 | S3 | El Gestor solicita traslados; el Gerente ve pendientes; validación contra lo ejecutado | S–M | D3 | 2 (permisos) | Pendiente |
 | T4 | S2 | Gasto sin aprobación: todo gasto no anulado es ejecutado; se quitan «Por validar», filtros y cola | M | D2 | 3 (lectores compartidos) | Pendiente |
@@ -403,4 +403,22 @@ S11) · T15 recarga de CedeTextil en producción con ensayo (S12).
   `curva.ts:135` no pasa `reportes` a `calcularTecnico` (causa de AJ-07); `alertaRetraso` ya existe (AJ-10 es
   cableado); no hay roles por proyecto ni rol «Gerente» (equivale a `GERENCIA`). Limpieza de la base de código cerrada
   el mismo día (sección 0 de `docs/plan-trabajo-restante.md`).
-- **Siguiente paso:** enviar D1–D5 a la PO y arrancar T0 → T1 → T8.
+- **L3 (2026-11-10, T1):** commit `84aa280` en `fix/aj-07-curva-lee-reportes`, ruta inline. `calcularCurva` y
+  `cargarAtencion` cargan los reportes con `cargarReportesPorActividad` (`src/lib/api/tecnico.ts`), el mismo loader
+  que ahora usa `loadTecnicoStatus`. Corrección a la tarjeta: `calcularTecnico` calcula `progreso` **sin** `hasta`
+  (solo `avance_al_fin` lo usa), así que el filtro por periodo se hace en `curva.ts`, igual que con los avances.
+  RED → GREEN: 10 tests nuevos (los cuatro de la tarjeta, `base=original` y «Requiere atención»); pasan los 16
+  archivos que dependen del cambio (183 tests), eslint y knip. `tsc` da 17 errores que ya están en `main`
+  (`emailOutbox`: cliente Prisma sin regenerar), ninguno en los archivos tocados. Revisión nativa: riesgo medio,
+  `under_budget`, sin revisión. **Pendiente:** verificación manual sobre la base local (no respondía
+  `127.0.0.1:54322` y `docker` no está disponible desde WSL), push y PR.
+- **L4 (2026-11-10, cierre de sesión):** pedido del usuario, textual: «guarda el progreso ya voy a apagar el pc». La
+  suite unit completa (`npx vitest run src scripts`, 413 archivos) **no terminó**: llevaba más de 55 minutos sobre
+  `/mnt/c` cuando se apagó el equipo. Queda pendiente correrla entera (o apoyarse en el CI del PR). Los commits de T1
+  (`84aa280` y el de este registro) están solo en la rama local `fix/aj-07-curva-lee-reportes`, sin push.
+- **L5 (2026-11-11, T1):** el usuario autorizó el push y el PR («dale»). Rama subida y PR #169 abierto; su CI es la
+  corrida completa de `unit` y `e2e`. El PR #168 (solo este documento, hasta L4) queda duplicado por #169.
+- **L6 (2026-11-11, T1):** CI de #169 en verde sobre `0f22ba1` (`unit` 9m17s, `e2e` 5m23s): es la corrida completa
+  que no terminó en local. El usuario autorizó mergear #169 y cerrar #168 sin mergear («si»). De T1 queda pendiente
+  solo la verificación manual en la base local (sembrar, registrar un avance en PRY-2026-001 y ver moverse la curva).
+- **Siguiente paso:** T0 y T8; enviar D1–D5 a la PO; verificación manual de T1 cuando la base local esté arriba.

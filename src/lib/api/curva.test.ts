@@ -20,6 +20,7 @@ vi.mock("@/lib/db", () => ({
   db: {
     actividad: { findMany: vi.fn() },
     avanceEntregable: { findMany: vi.fn() },
+    reporteActividad: { findMany: vi.fn() },
     soporteProyecto: { groupBy: vi.fn() },
     lineaPresupuestal: { findMany: vi.fn() },
     programacionPeriodo: { findMany: vi.fn() },
@@ -30,6 +31,7 @@ vi.mock("@/lib/db", () => ({
 
 import { db } from "@/lib/db";
 import { calcularCurva } from "./curva";
+import { loadTecnicoStatus } from "./tecnico";
 
 const INICIO = new Date("2026-08-03T00:00:00.000Z");
 const FIN = new Date("2026-12-31T00:00:00.000Z");
@@ -98,6 +100,7 @@ beforeEach(() => {
   mocks.parametros.tope_en_curso = { valor: 100, confirmado: false };
   vi.mocked(db.actividad.findMany).mockResolvedValue(actividades as never);
   vi.mocked(db.avanceEntregable.findMany).mockResolvedValue(avances as never);
+  vi.mocked(db.reporteActividad.findMany).mockResolvedValue([]);
   vi.mocked(db.soporteProyecto.groupBy).mockResolvedValue(conMedio(avances.map((a) => a.id)) as never);
   vi.mocked(db.lineaPresupuestal.findMany).mockResolvedValue(lineas as never);
   vi.mocked(db.programacionPeriodo.findMany).mockResolvedValue(celdas as never);
@@ -243,5 +246,80 @@ describe("calcularCurva: base=original", () => {
     expect(result.value.periodos.map((p) => p.financiero.planeado)).toEqual([20, 40, 60, 80, 100]);
     // The executed technical line is unchanged: the live avances still count.
     expect(result.value.periodos.map((p) => p.tecnico.ejecutado)).toEqual([10, 28, 40, 48, null]);
+  });
+});
+
+describe("calcularCurva: activity reports (AJ-07)", () => {
+  // 4 + 20 + 6 = 30 weeks of weight, no deliverable avances: only the reports move the executed line.
+  // `x` runs weeks 13-16 (2026-10-26 -> 2026-11-22).
+  const treinta = [act("x", 13, 16, 4), act("y", 1, 20, 20), act("z", 1, 6, 6)];
+  const rep = (actividad_id: string, fecha: string, porcentaje: number) => ({
+    actividad_id,
+    fecha: new Date(`${fecha}T00:00:00.000Z`),
+    porcentaje: new Prisma.Decimal(porcentaje),
+  });
+  const ejecutado = async () => {
+    const result = await calcularCurva(input());
+    if (!result.ok) throw new Error("expected ok");
+    return result.value.periodos.map((p) => p.tecnico.ejecutado);
+  };
+
+  beforeEach(() => {
+    vi.mocked(db.actividad.findMany).mockResolvedValue(treinta as never);
+    vi.mocked(db.avanceEntregable.findMany).mockResolvedValue([]);
+    vi.mocked(db.soporteProyecto.groupBy).mockResolvedValue([]);
+  });
+
+  it("raises November by 4 x 0.50 / 30 = 6.7 points when a 4-of-30-weeks activity reports 50 %", async () => {
+    expect(await ejecutado()).toEqual([0, 0, 0, 0, null]);
+    vi.mocked(db.reporteActividad.findMany).mockResolvedValue([rep("x", "2026-11-10", 50)] as never);
+    expect(await ejecutado()).toEqual([0, 0, 0, 6.7, null]);
+  });
+
+  it("counts a 28-October report in October and a 3-November report only from November", async () => {
+    vi.mocked(db.reporteActividad.findMany).mockResolvedValue([
+      rep("x", "2026-10-28", 25),
+      rep("x", "2026-11-03", 50),
+    ] as never);
+    // October sees only the 25 % (4 x 0.25 / 30 = 3.3); the 50 % arrives in November.
+    expect(await ejecutado()).toEqual([0, 0, 3.3, 6.7, null]);
+  });
+
+  it("measures the corte period exactly like the technical semáforo", async () => {
+    vi.mocked(db.actividad.findMany).mockResolvedValue(actividades as never);
+    vi.mocked(db.avanceEntregable.findMany).mockResolvedValue(avances as never);
+    vi.mocked(db.soporteProyecto.groupBy).mockResolvedValue(conMedio(avances.map((a) => a.id)) as never);
+    vi.mocked(db.reporteActividad.findMany).mockResolvedValue([rep("a3", "2026-11-18", 60)] as never);
+
+    const curva = await ejecutado();
+    const semaforo = await loadTecnicoStatus({
+      proyectoId: "pry-1",
+      fechaInicio: INICIO,
+      corte: "2026-11-20",
+      parametros: mocks.parametros as never,
+    });
+    // a1 100 %, a2 60 % by deliverables, a3 60 % by its report: (4 + 8 x 0.6 + 8 x 0.6) / 20 = 68 %.
+    expect(curva[3]).toBe(68);
+    expect(Math.round(semaforo.tecnico.avance_real * 1000) / 10).toBe(curva[3]);
+  });
+
+  it("reads only non-voided reports up to the corte, in chronological order", async () => {
+    await calcularCurva(input());
+    expect(db.reporteActividad.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { proyecto_id: "pry-1", anulado_at: null, fecha: { lte: new Date("2026-11-20T00:00:00.000Z") } },
+        orderBy: [{ fecha: "asc" }, { created_at: "asc" }],
+      }),
+    );
+  });
+
+  it("matches the reports to the frozen activities of base=original by code", async () => {
+    vi.mocked(db.actividad.findMany).mockResolvedValue(actividades as never);
+    vi.mocked(db.versionProyecto.findFirst).mockResolvedValue({ snapshot: snapshotV0Corte } as never);
+    vi.mocked(db.reporteActividad.findMany).mockResolvedValue([rep("a3", "2026-11-18", 60)] as never);
+    const result = await calcularCurva(input({ baseParam: "original" }));
+    if (!result.ok) throw new Error("expected ok");
+    // No avances: only a3's report counts -> 8 x 0.6 / 20 = 24 %.
+    expect(result.value.periodos.map((p) => p.tecnico.ejecutado)).toEqual([0, 0, 0, 24, null]);
   });
 });

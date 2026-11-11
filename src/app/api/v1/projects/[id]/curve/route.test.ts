@@ -21,6 +21,7 @@ vi.mock("@/lib/db", () => ({
     proyecto: { findFirst: vi.fn() },
     actividad: { findMany: vi.fn() },
     avanceEntregable: { findMany: vi.fn() },
+    reporteActividad: { findMany: vi.fn() },
     soporteProyecto: { groupBy: vi.fn() },
     lineaPresupuestal: { findMany: vi.fn() },
     programacionPeriodo: { findMany: vi.fn() },
@@ -32,6 +33,7 @@ vi.mock("@/lib/db", () => ({
 import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/supabase/server";
 import { GET } from "./route";
+import { GET as getTechnicalStatus } from "../technical-status/route";
 
 const gerencia = { id: "ger-1", rol: "GERENCIA" } as Usuario;
 const coordinador = { id: "coord-1", rol: "COORDINADOR" } as Usuario;
@@ -117,6 +119,7 @@ beforeEach(() => {
   vi.mocked(db.proyecto.findFirst).mockResolvedValue(proyecto());
   vi.mocked(db.actividad.findMany).mockResolvedValue(actividades as never);
   vi.mocked(db.avanceEntregable.findMany).mockResolvedValue(avances as never);
+  vi.mocked(db.reporteActividad.findMany).mockResolvedValue([]);
   vi.mocked(db.soporteProyecto.groupBy).mockResolvedValue(conMedio(avances.map((a) => a.id)) as never);
   vi.mocked(db.lineaPresupuestal.findMany).mockResolvedValue(lineas as never);
   vi.mocked(db.programacionPeriodo.findMany).mockResolvedValue(celdas as never);
@@ -165,6 +168,38 @@ describe("GET curve: golden", () => {
     const body = await (await GET(get("?base=original"), ctx)).json();
     expect(body.base).toBe("original");
     expect(body.periodos.map((p: { tecnico: { ejecutado: number | null } }) => p.tecnico.ejecutado)).toEqual([10, 28, 40, 48, null]);
+  });
+});
+
+describe("GET curve: activity reports (AJ-07)", () => {
+  const rep = (actividad_id: string, fecha: string, porcentaje: number) => ({
+    actividad_id,
+    fecha: new Date(`${fecha}T00:00:00.000Z`),
+    porcentaje: new Prisma.Decimal(porcentaje),
+  });
+  type Punto = { periodo: string; tecnico: { ejecutado: number | null } };
+
+  it("moves the executed technical line from the month of each report on", async () => {
+    // a3 (8 of 20 weeks) holds 10 % by deliverables: a 28-October report of 35 % and a 3-November one of 60 %.
+    vi.mocked(db.reporteActividad.findMany).mockResolvedValue([
+      rep("a3", "2026-10-28", 35),
+      rep("a3", "2026-11-03", 60),
+    ] as never);
+    const body = await (await GET(get(), ctx)).json();
+    // October: 40 + 8 x 0.35 / 20 = 54. November: (4 + 8 x 0.6 + 8 x 0.6) / 20 = 68.
+    expect(body.periodos.map((p: Punto) => p.tecnico.ejecutado)).toEqual([10, 28, 54, 68, null]);
+  });
+
+  it("shows for the corte period the same value as technical-status", async () => {
+    vi.mocked(db.reporteActividad.findMany).mockResolvedValue([rep("a3", "2026-11-18", 60)] as never);
+    const curva = await (await GET(get(), ctx)).json();
+    const semaforo = await (
+      await getTechnicalStatus(new Request("http://localhost/api/v1/projects/pry-1/technical-status"), ctx)
+    ).json();
+    const corte = curva.periodos.find((p: Punto) => p.periodo === curva.corte);
+    expect(semaforo.corte).toBe("2026-11-20");
+    expect(corte.tecnico.ejecutado).toBe(68);
+    expect(semaforo.avance_real).toBe(corte.tecnico.ejecutado);
   });
 });
 
