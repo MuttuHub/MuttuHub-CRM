@@ -1,9 +1,9 @@
 // Sección "Gastos" de la ficha (S6 U6): lista de gastos con totales por estado, registro
-// (gestores y COORDINADOR integrante, solo EN_EJECUCION), validación y soportes. El número de
+// (gestores y COORDINADOR integrante, solo EN_EJECUCION) y soportes. El número de
 // identificación del tercero y los soportes llegan SOLO si la API los envía (RNF-03): aquí se
 // pintan si vienen y nunca se piden por otro camino. La API es la autoridad de cada permiso.
-// Rediseño T3: la tabla ya no se corta (sin ancho mínimo fijo; columnas Gasto, Rubro, Periodo, Total, Estado,
-// Soporte, Acción) y validar o rechazar se hace en el panel «Validar gasto» que abre «Revisar».
+// AJ-08: no hay aprobación. Todo gasto registrado ya cuenta como ejecutado; los filtros se quedan con Todos,
+// Registrado y Anulado, y la única acción es Anular (con motivo), que no borra la fila.
 
 "use client";
 
@@ -19,7 +19,6 @@ import { GASTOS_ERROR, GastosResumen } from "@/components/proyectos/gastos-kpis"
 import { GastoForm, TIPO_SOPORTE_LABELS } from "@/components/proyectos/gasto-form";
 import { GastosImportDialog } from "@/components/proyectos/gastos-import-dialog";
 import { AdjuntarSoporte, MAX_SOPORTES_POR_GASTO } from "@/components/proyectos/gasto-soportes";
-import { AccionRevisar } from "@/components/proyectos/ficha/finanzas/gastos-por-validar";
 import {
   AvisosGasto,
   lineaRegistro,
@@ -27,7 +26,6 @@ import {
   textoIva,
   usePermisosGastos,
 } from "@/components/proyectos/ficha/finanzas/gastos-comun";
-import { ValidarGastoPanel } from "@/components/proyectos/ficha/finanzas/validar-gasto-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import {
@@ -40,32 +38,31 @@ import {
   type ProjectListRow,
 } from "@/hooks/projects";
 import type { UiTone } from "@/lib/catalogs";
-import { esObservado } from "@/lib/proyectos/gastos";
+import { cuentaComoEjecutado, esObservado } from "@/lib/proyectos/gastos";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { FiltroChip } from "@/components/proyectos/ficha/filtro-chip";
 
+// AJ-08: a legacy VALIDADO row reads «Registrado», because approval no longer exists on screen. RECHAZADO keeps its
+// own label until the data task of D2 turns those rows into ANULADO.
 const ESTADO_GASTO_META: Record<ProjectExpenseEstado, { label: string; tone: UiTone }> = {
   REGISTRADO: { label: "Registrado", tone: "info" },
-  VALIDADO: { label: "Validado", tone: "exito" },
+  VALIDADO: { label: "Registrado", tone: "info" },
   RECHAZADO: { label: "Rechazado", tone: "destructivo" },
   ANULADO: { label: "Anulado", tone: "neutro" },
 };
 
-type Filtro = "TODOS" | "REGISTRADO" | "VALIDADO" | "RECHAZADO" | "ANULADO" | "OBSERVADOS";
+type Filtro = "TODOS" | "REGISTRADO" | "ANULADO";
 
 const FILTRO_LABEL: Record<Filtro, string> = {
   TODOS: "Todos",
   REGISTRADO: "Registrado",
-  VALIDADO: "Validado",
-  RECHAZADO: "Rechazado",
   ANULADO: "Anulado",
-  OBSERVADOS: "Pendiente por revisión",
 };
 
-/** D5: el filtro "Observados" no es un estado; los demás coinciden con el estado del gasto. */
+/** AJ-08: «Registrado» is every expense that counts as executed, legacy VALIDADO rows included. */
 function coincide(gasto: ProjectExpense, filtro: Filtro): boolean {
   if (filtro === "TODOS") return true;
-  if (filtro === "OBSERVADOS") return esObservado(gasto);
+  if (filtro === "REGISTRADO") return cuentaComoEjecutado(gasto.estado);
   return gasto.estado === filtro;
 }
 
@@ -100,7 +97,6 @@ export function ProjectGastos({ proyecto }: { proyecto: ProjectListRow }) {
   const permisos = usePermisosGastos(proyecto);
   const [registrando, setRegistrando] = useState(false);
   const [filtro, setFiltro] = useState<Filtro>("TODOS");
-  const [revisando, setRevisando] = useState<string | null>(null);
   const { puedeRegistrar, soloConsulta } = permisos;
 
   const gastos = query.data?.gastos ?? [];
@@ -147,27 +143,9 @@ export function ProjectGastos({ proyecto }: { proyecto: ProjectListRow }) {
             ) : visibles.length === 0 ? (
               <EmptyBlock>No hay gastos con este filtro.</EmptyBlock>
             ) : (
-              <GastosListado
-                proyectoId={proyecto.id}
-                gastos={visibles}
-                permisos={permisos}
-                onRevisar={setRevisando}
-              />
+              <GastosListado proyectoId={proyecto.id} gastos={visibles} permisos={permisos} />
             )}
           </div>
-
-          {revisando && (
-            <ValidarGastoPanel
-              proyecto={proyecto}
-              gastos={gastos}
-              gastoId={revisando}
-              onSeleccionar={setRevisando}
-              onCerrar={() => setRevisando(null)}
-              puedeValidar={permisos.puedeValidar}
-              usuarioId={permisos.usuarioId}
-              nombreDe={permisos.nombreDe}
-            />
-          )}
         </>
       )}
     </section>
@@ -180,7 +158,6 @@ type FilaProps = {
   proyectoId: string;
   gasto: ProjectExpense;
   permisos: Permisos;
-  onRevisar: (id: string) => void;
 };
 
 /** Debajo de `md` el libro se vuelve una lista de tarjetas (misma convención que el Portafolio). */
@@ -188,19 +165,17 @@ function GastosListado({
   proyectoId,
   gastos,
   permisos,
-  onRevisar,
 }: {
   proyectoId: string;
   gastos: readonly ProjectExpense[];
   permisos: Permisos;
-  onRevisar: (id: string) => void;
 }) {
   const mobile = useIsMobile();
   if (mobile) {
     return (
       <ul data-testid="gastos-cards" className="flex flex-col gap-2">
         {gastos.map((gasto) => (
-          <GastoTarjeta key={gasto.id} proyectoId={proyectoId} gasto={gasto} permisos={permisos} onRevisar={onRevisar} />
+          <GastoTarjeta key={gasto.id} proyectoId={proyectoId} gasto={gasto} permisos={permisos} />
         ))}
       </ul>
     );
@@ -221,7 +196,7 @@ function GastosListado({
         </TableHeader>
         <TableBody>
           {gastos.map((gasto) => (
-            <GastoFila key={gasto.id} proyectoId={proyectoId} gasto={gasto} permisos={permisos} onRevisar={onRevisar} />
+            <GastoFila key={gasto.id} proyectoId={proyectoId} gasto={gasto} permisos={permisos} />
           ))}
         </TableBody>
       </Table>
@@ -250,25 +225,20 @@ function fechaCorta(iso: string): string {
 }
 
 /**
- * «Revisar» (REGISTRADO, solo con el proyecto en ejecución, abre el panel «Validar gasto») o Anular (VALIDADO, en
- * cualquier estado: es una corrección), solo para quien gestiona proyectos.
+ * Anular (AJ-08): any expense that counts as executed (REGISTRADO or VALIDADO) can be annulled with a motivo, in
+ * any project estado, only for whoever manages projects. RECHAZADO and ANULADO have nothing left to annul.
  */
-function AccionesGasto({ proyectoId, gasto, permisos, onRevisar }: FilaProps) {
+function AccionesGasto({ proyectoId, gasto, permisos }: FilaProps) {
   const anular = useVoidExpense();
-  if (gasto.estado === "REGISTRADO") {
-    return <AccionRevisar gasto={gasto} permisos={permisos} onRevisar={onRevisar} />;
-  }
-  if (permisos.esGestor && gasto.estado === "VALIDADO") {
-    return (
-      <VoidControl
-        nombre={`gasto ${gasto.numero_documento}`}
-        pending={anular.isPending}
-        error={anular.isError ? errorMessage(anular.error, "No pudimos anular el gasto. Inténtalo de nuevo.") : null}
-        onConfirm={(motivo) => anular.mutate({ projectId: proyectoId, id: gasto.id, motivo })}
-      />
-    );
-  }
-  return null;
+  if (!permisos.esGestor || !cuentaComoEjecutado(gasto.estado)) return null;
+  return (
+    <VoidControl
+      nombre={`gasto ${gasto.numero_documento}`}
+      pending={anular.isPending}
+      error={anular.isError ? errorMessage(anular.error, "No pudimos anular el gasto. Inténtalo de nuevo.") : null}
+      onConfirm={(motivo) => anular.mutate({ projectId: proyectoId, id: gasto.id, motivo })}
+    />
+  );
 }
 
 /** Un botón por soporte, o "Sin soporte"; sin acceso a soportes (RNF-03) no se dice nada. */

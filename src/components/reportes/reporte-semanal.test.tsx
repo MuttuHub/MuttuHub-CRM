@@ -44,8 +44,8 @@ describe("ReporteSemanalTab", () => {
     const atencion = screen.getByRole("region", { name: "Requiere atención" })
     expect(within(atencion).getByText("R01 Personal: ejecutado supera lo asignado.")).toBeInTheDocument()
 
-    const gastos = screen.getByRole("region", { name: "Gastos por validar" })
-    expect(within(gastos).getByRole("row", { name: /PRY-0001/ })).toHaveTextContent(/300\.000/)
+    // AJ-08: nothing waits for validation, so the section is gone.
+    expect(screen.queryByRole("region", { name: "Gastos por validar" })).toBeNull()
   })
 
   it("compares closed and overdue tasks with the previous week", () => {
@@ -58,9 +58,9 @@ describe("ReporteSemanalTab", () => {
     expect(within(vencidas).getAllByRole("cell").map((c) => c.textContent)).toEqual(["2", "4", "−2"])
   })
 
-  it("hides the validation queue for a role that does not validate expenses", () => {
+  it("never renders the «Gastos por validar» section (AJ-08)", () => {
     useReporteSemanal.mockReturnValue({
-      data: { ...REPORTE_SEMANAL, gastos_por_validar: null },
+      data: { ...REPORTE_SEMANAL },
       isLoading: false,
       isError: false,
       error: null,

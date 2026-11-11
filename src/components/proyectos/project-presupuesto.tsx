@@ -3,8 +3,8 @@
 // pertenece al equipo del proyecto (`useEjecucionPermisos`) y mientras el proyecto está en
 // BORRADOR ve los controles de edición. Esa visibilidad es comodidad de
 // interfaz: la autoridad es la API (403 / 409 INVALID_STATE). Fuera de BORRADOR (rediseño T3) la tabla suma, por
-// rubro, lo ejecutado (gastos validados), lo que espera validación y lo disponible (asignado − ejecutado), leídos de la
-// misma lista de gastos que usa Finanzas › Gastos.
+// rubro, lo ejecutado y lo disponible (asignado − ejecutado), leídos de la misma lista de gastos que usa
+// Finanzas › Gastos. AJ-08: todo gasto que cuenta ya es ejecutado, así que no hay columna «Por validar».
 
 "use client";
 
@@ -30,6 +30,7 @@ import {
   type ProjectListRow,
 } from "@/hooks/projects";
 import { useEjecucionPermisos } from "@/components/proyectos/project-ejecucion";
+import { cuentaComoEjecutado } from "@/lib/proyectos/gastos";
 import { formatCOP, toCents, type Cents } from "@/lib/proyectos/money";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -74,16 +75,15 @@ export function ProjectPresupuesto({ proyecto }: { proyecto: ProjectListRow }) {
   );
 }
 
-type Ejecucion = Map<string, { ejecutado: Cents; porValidar: Cents }>;
+type Ejecucion = Map<string, { ejecutado: Cents }>;
 
-/** Validated (ejecutado) and REGISTRADO (por validar) totals per rubro, from the project expenses. */
+/** Executed totals per rubro, from the project expenses: REGISTRADO already counts (AJ-08). */
 function ejecucionPorRubro(gastos: readonly ProjectExpense[]): Ejecucion {
   const mapa: Ejecucion = new Map();
   for (const g of gastos) {
-    if (g.estado !== "VALIDADO" && g.estado !== "REGISTRADO") continue;
-    const actual = mapa.get(g.rubro.id) ?? { ejecutado: BigInt(0), porValidar: BigInt(0) };
-    if (g.estado === "VALIDADO") actual.ejecutado += toCents(g.valor);
-    else actual.porValidar += toCents(g.valor);
+    if (!cuentaComoEjecutado(g.estado)) continue;
+    const actual = mapa.get(g.rubro.id) ?? { ejecutado: BigInt(0) };
+    actual.ejecutado += toCents(g.valor);
     mapa.set(g.rubro.id, actual);
   }
   return mapa;
@@ -143,7 +143,6 @@ function PresupuestoEditor({
               {ejecucion && (
                 <>
                   <TableHead scope="col" numeric>Ejecutado</TableHead>
-                  <TableHead scope="col" numeric>Por validar</TableHead>
                   <TableHead scope="col" numeric>
                     <span className="inline-flex items-center gap-1">
                       Disponible
@@ -239,15 +238,13 @@ function CeldasEjecucion({
   fila,
 }: {
   asignado: string;
-  fila: { ejecutado: Cents; porValidar: Cents } | undefined;
+  fila: { ejecutado: Cents } | undefined;
 }) {
   const ejecutado = fila?.ejecutado ?? BigInt(0);
-  const porValidar = fila?.porValidar ?? BigInt(0);
   const disponible = toCents(asignado) - ejecutado;
   return (
     <>
       <TableCell numeric>{formatCOP(ejecutado)}</TableCell>
-      <TableCell numeric>{porValidar > BigInt(0) ? formatCOP(porValidar) : "—"}</TableCell>
       <TableCell numeric className={disponible < BigInt(0) ? "font-semibold text-destructivo" : undefined}>
         {formatCOP(disponible)}
       </TableCell>

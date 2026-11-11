@@ -249,7 +249,7 @@ describe("ProjectPresupuesto", () => {
     expect(fila).not.toHaveTextContent("-$")
   })
 
-  it("outside BORRADOR, adds what each rubro executed, has waiting for validation and has available (T3)", async () => {
+  it("outside BORRADOR, adds what each rubro executed and has available; REGISTRADO already counts (AJ-08)", async () => {
     const gasto = (id: string, rubro: string, estado: string, valor: string) => ({
       id, rubro: { id: rubro, codigo: null, nombre: "x" }, estado, valor,
     })
@@ -265,18 +265,21 @@ describe("ProjectPresupuesto", () => {
     })
 
     const tabla = await screen.findByTestId("presupuesto-tabla")
+    // AJ-08: without approval there is no «Por validar» column left.
     await waitFor(() =>
       expect(within(tabla).getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
-        "Rubro", "Asignado", "Ejecutado", "Por validar", "Disponible",
+        "Rubro", "Asignado", "Ejecutado", "Disponible",
       ]),
     )
+    expect(within(tabla).queryByText(/Por validar/)).not.toBeInTheDocument()
     expect(within(tabla).getByRole("button", { name: "Ayuda: Disponible del rubro" })).toBeInTheDocument()
     const filas = within(tabla).getAllByTestId("presupuesto-fila")
-    expect(filas[0]).toHaveTextContent("$ 9.500.000")
-    expect(filas[0]).toHaveTextContent("$ 1.000.000")
-    // Disponible = asignado − ejecutado: 59.500.000 − 9.500.000.
-    expect(filas[0]).toHaveTextContent("$ 50.000.000")
-    expect(filas[1]).toHaveTextContent("—")
+    // Ejecutado = VALIDADO 9.500.000 + REGISTRADO 1.000.000; the RECHAZADO 7.000.000 never counts.
+    expect(filas[0]).toHaveTextContent("$ 10.500.000")
+    // Disponible = asignado − ejecutado: 59.500.000 − 10.500.000.
+    expect(filas[0]).toHaveTextContent("$ 49.000.000")
+    // A rubro without expenses shows zero executed and zero available.
+    expect(filas[1]).toHaveTextContent("$ 0")
     // Over its assigned amount: 300.000 − 400.000.
     expect(filas[2]).toHaveTextContent("-$ 100.000")
   })

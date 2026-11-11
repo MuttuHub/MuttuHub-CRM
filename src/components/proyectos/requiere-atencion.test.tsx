@@ -262,22 +262,26 @@ describe("RequiereAtencion («Qué falta»)", () => {
     expect(onIrA).toHaveBeenCalledWith("actividades")
   })
 
-  it("shows the expense under review with its amount, supplier and rubro, and lets a manager review it", async () => {
+  it("shows the observed expense with its amount, supplier and rubro, and leads to Finanzas (AJ-08: nothing to approve)", async () => {
     mockApi({ items: [GASTO], rol: "GERENCIA", userId: "u9" })
     const onAccion = vi.fn()
+    const onIrA = vi.fn()
     const user = userEvent.setup()
 
-    renderCard({ onIrA: vi.fn(), onAccion })
+    renderCard({ onIrA, onAccion })
 
     const fila = await screen.findByTestId("atencion-gasto_observado")
     expect(fila).toHaveTextContent("Gasto por revisar")
     expect(await within(fila).findByText("$ 450.000 · Papelería del Sinú")).toBeInTheDocument()
-    expect(fila).toHaveTextContent("Supera lo asignado al rubro R11 · Varios. Le toca a Gerencia validarlo o rechazarlo.")
-    await user.click(await within(fila).findByRole("button", { name: "Revisar gasto" }))
-    expect(onAccion).toHaveBeenCalledWith({ tipo: "revisar-gasto", gastoId: "g1" })
+    expect(fila).toHaveTextContent("Supera lo asignado al rubro R11 · Varios.")
+    expect(fila).not.toHaveTextContent(/validarlo|rechazarlo/)
+    expect(within(fila).queryByRole("button", { name: "Revisar gasto" })).not.toBeInTheDocument()
+    await user.click(await within(fila).findByRole("button", { name: "Ver finanzas" }))
+    expect(onIrA).toHaveBeenCalledWith("finanzas")
+    expect(onAccion).not.toHaveBeenCalled()
   })
 
-  it("does not offer to review an expense to the manager who registered it, nor to a non-manager", async () => {
+  it("leads the manager who registered it and a non-manager to Finanzas too", async () => {
     mockApi({ items: [GASTO], rol: "GERENCIA", userId: "u7" })
     const onIrA = vi.fn()
     const user = userEvent.setup()
@@ -293,7 +297,7 @@ describe("RequiereAtencion («Qué falta»)", () => {
     mockApi({ items: [GASTO], rol: "COORDINADOR", userId: "u3" })
     renderCard({ onIrA, onAccion: vi.fn() })
     const otra = await screen.findByTestId("atencion-gasto_observado")
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
+    // The row no longer depends on who is looking: it does not ask for the current user.
     expect(await within(otra).findByRole("button", { name: "Ver finanzas" })).toBeInTheDocument()
     expect(within(otra).queryByRole("button", { name: "Revisar gasto" })).not.toBeInTheDocument()
   })

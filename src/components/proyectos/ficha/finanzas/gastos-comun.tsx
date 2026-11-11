@@ -1,7 +1,8 @@
-// Shared pieces of Finanzas (redesign T3): who may register or validate an expense, the plain-word notices of an
-// expense («Supera lo asignado», «Cuenta en AAAA-MM», «Datos incompletos») with their ⓘ help, and the small
-// formatting helpers that the Resumen list, the Gastos ledger and the «Validar gasto» panel all use. The API stays the
-// authority on every permission; these gates only avoid offering what the API would refuse.
+// Shared pieces of Finanzas (redesign T3): who may register an expense, the plain-word notices of an expense
+// («Supera lo asignado», «Cuenta en AAAA-MM», «Datos incompletos») with their ⓘ help, and the small formatting
+// helpers that the Resumen list and the Gastos ledger use. AJ-08 removed the «Validar gasto» panel, so the pieces
+// only it used are gone. The API stays the authority on every permission; these gates only avoid offering what the
+// API would refuse.
 
 "use client";
 
@@ -13,12 +14,11 @@ import { PROJECT_MEMBER_ROLES, canManageProjects } from "@/lib/permissions";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { cn } from "@/lib/utils";
 
-export const SUPERA_ASIGNADO = "Supera lo asignado";
-/** Validating over the rubro stays blocked (open PO question 1): the help says so instead of «Puedes validarlo igual». */
-const AYUDA_SUPERA =
-  "Este gasto deja el rubro por encima de lo asignado. Por ahora no se puede validar: recházalo o pide un traslado entre rubros.";
+const SUPERA_ASIGNADO = "Supera lo asignado";
+/** AJ-08: nothing blocks or waits for approval any more, so the help only explains the alert. */
+const AYUDA_SUPERA = "Este gasto deja el rubro por encima de lo asignado.";
 const AYUDA_CUENTA_EN = "El gasto cuenta en un mes distinto al de la fecha de su documento.";
-export const AYUDA_DISPONIBLE = "Lo asignado al rubro menos lo ya ejecutado y validado.";
+export const AYUDA_DISPONIBLE = "Lo asignado al rubro menos lo ya ejecutado.";
 
 export function nombreRubro(rubro: { codigo: string | null; nombre: string }): string {
   return rubro.codigo ? `${rubro.codigo} · ${rubro.nombre}` : rubro.nombre;
@@ -30,12 +30,9 @@ export function textoIva(gasto: Pick<ProjectExpense, "iva" | "subtotal">): strin
   return iva === BigInt(0) ? "Sin IVA" : `${formatCOP(toCents(gasto.subtotal))} + IVA ${formatCOP(iva)}`;
 }
 
-export const monto = (valor: string) => formatCOP(toCents(valor));
-
 /**
- * Who may register (manager or team member, EN_EJECUCION) and who may validate (a manager, EN_EJECUCION, never on
- * their own expense). Also names the people who registered expenses, from the team list plus the current user:
- * the expenses API sends only the id, so an unknown registrant stays unnamed.
+ * Who may register (manager or team member, EN_EJECUCION). Also names the people who registered expenses, from the
+ * team list plus the current user: the expenses API sends only the id, so an unknown registrant stays unnamed.
  */
 export function usePermisosGastos(proyecto: ProjectListRow) {
   const userQuery = useCurrentUser();

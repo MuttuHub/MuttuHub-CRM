@@ -263,7 +263,9 @@ describe("ProjectGastos", () => {
       expect(filas[0]).toHaveTextContent("$ 1.500.000")
       expect(filas[0]).toHaveTextContent("Supera lo asignado")
       expect(within(filas[0]).getByRole("button", { name: "Ayuda: Supera lo asignado" })).toBeInTheDocument()
-      expect(filas[1]).toHaveTextContent("Validado")
+      // AJ-08: a legacy VALIDADO row reads «Registrado»; the approval estados are gone from the screen.
+      expect(filas[1]).toHaveTextContent("Registrado")
+      expect(filas[1]).not.toHaveTextContent("Validado")
       expect(filas[1]).not.toHaveTextContent("Supera lo asignado")
     })
 
@@ -373,14 +375,18 @@ describe("ProjectGastos", () => {
       expect(monto?.className).toContain("text-right")
     })
 
-    it("does not push Acción out of view: no fixed minimum width and one compact «Revisar» per pending expense", async () => {
+    it("does not push Acción out of view: no fixed minimum width and Anular as the only action (AJ-08)", async () => {
       setup({ gastos: MIXTO() })
       const tabla = within(await screen.findByTestId("gastos-lista")).getByRole("table")
       expect(tabla.className).not.toMatch(/min-w-\[/)
       const filas = within(tabla).getAllByTestId("gasto-fila")
-      expect(within(filas[0]).getByRole("button", { name: /^Revisar/ })).toBeInTheDocument()
+      // No approval any more: no «Revisar», «Validar» or «Rechazar» anywhere.
+      expect(within(tabla).queryByRole("button", { name: /^Revisar/ })).not.toBeInTheDocument()
       expect(within(tabla).queryByRole("button", { name: "Validar" })).not.toBeInTheDocument()
       expect(within(tabla).queryByRole("button", { name: "Rechazar" })).not.toBeInTheDocument()
+      // Every expense that counts as executed can be annulled; a RECHAZADO one has nothing to annul.
+      for (const i of [0, 1, 2, 4]) expect(within(filas[i]).getByRole("button", { name: "Anular" })).toBeInTheDocument()
+      expect(within(filas[3]).queryByRole("button", { name: "Anular" })).not.toBeInTheDocument()
     })
 
     it("shows one compact summary line above the list, plus the filter counts", async () => {
@@ -389,7 +395,7 @@ describe("ProjectGastos", () => {
       expect(screen.queryByTestId("gastos-kpis")).not.toBeInTheDocument()
       expect(screen.getByTestId("gastos-resumen")).toHaveTextContent(/^\d+ gastos?/)
       // Los conteos por estado del filtro se quedan: sirven para filtrar.
-      expect(screen.getByRole("button", { name: /^Registrado/ })).toHaveTextContent("3")
+      expect(screen.getByRole("button", { name: /^Registrado/ })).toHaveTextContent("4")
     })
 
     it("marks the support column: a button per support, or 'Sin soporte' when the viewer has none", async () => {
@@ -426,19 +432,19 @@ describe("ProjectGastos", () => {
     ]
     const chip = (nombre: RegExp) => screen.getByRole("button", { name: nombre })
 
-    it("lists the chips with their counts and starts on Todos", async () => {
+    it("lists only Todos and Registrado, with their counts, and starts on Todos (AJ-08)", async () => {
       setup({ gastos: MIXTO() })
       await screen.findByTestId("gastos-lista")
       expect(chip(/^Todos/)).toHaveTextContent("5")
-      expect(chip(/^Registrado/)).toHaveTextContent("3")
-      expect(chip(/^Validado/)).toHaveTextContent("1")
-      expect(chip(/^Rechazado/)).toHaveTextContent("1")
-      expect(chip(/^Pendiente por revisión/)).toHaveTextContent("2")
+      // g2 is a legacy VALIDADO row: it counts as executed, so it belongs to «Registrado».
+      expect(chip(/^Registrado/)).toHaveTextContent("4")
       expect(chip(/^Todos/)).toHaveAttribute("aria-pressed", "true")
       // T10 C10: the active chip is dark (ink), as in every filter of the ficha.
       expect(chip(/^Todos/).className).toMatch(/(^|\s)bg-ink-900(\s|$)/)
-      expect(chip(/^Pendiente por revisión/)).toHaveAttribute("aria-pressed", "false")
-      expect(screen.queryByRole("button", { name: /^Anulado/ })).not.toBeInTheDocument()
+      expect(chip(/^Registrado/)).toHaveAttribute("aria-pressed", "false")
+      for (const nombre of [/^Validado/, /^Rechazado/, /^Pendiente por revisión/, /^Anulado/]) {
+        expect(screen.queryByRole("button", { name: nombre })).not.toBeInTheDocument()
+      }
     })
 
     it("filters the loaded list by estado without calling the API again", async () => {
@@ -446,22 +452,21 @@ describe("ProjectGastos", () => {
       setup({ gastos: MIXTO() })
       await screen.findByTestId("gastos-lista")
       const antes = fetchMock.mock.calls.length
-      await user.click(chip(/^Validado/))
-      expect(screen.getAllByTestId("gasto-fila")).toHaveLength(1)
-      expect(chip(/^Validado/)).toHaveAttribute("aria-pressed", "true")
+      await user.click(chip(/^Registrado/))
+      expect(screen.getAllByTestId("gasto-fila")).toHaveLength(4)
+      expect(chip(/^Registrado/)).toHaveAttribute("aria-pressed", "true")
       expect(chip(/^Todos/)).toHaveAttribute("aria-pressed", "false")
       expect(fetchMock.mock.calls.length).toBe(antes)
     })
 
-    it("Pendiente por revisión keeps REGISTRADO expenses with the overspend alert or incomplete data (D5)", async () => {
-      const user = userEvent.setup()
+    it("still marks a REGISTRADO expense with the overspend alert or incomplete data as observed (D5)", async () => {
       setup({ gastos: MIXTO() })
-      await screen.findByTestId("gastos-lista")
-      await user.click(chip(/^Pendiente por revisión/))
-      const filas = screen.getAllByTestId("gasto-fila")
-      expect(filas).toHaveLength(2)
+      const filas = await screen.findAllByTestId("gasto-fila")
+      expect(filas[0]).toHaveAttribute("data-observado", "true")
       expect(filas[0]).toHaveTextContent("Supera lo asignado")
-      expect(filas[1]).toHaveTextContent("Datos incompletos")
+      expect(filas[2]).toHaveAttribute("data-observado", "true")
+      expect(filas[2]).toHaveTextContent("Datos incompletos")
+      expect(filas[1]).not.toHaveAttribute("data-observado")
     })
 
     it("shows the Anulado chip only when the list has voided expenses", async () => {
@@ -471,12 +476,13 @@ describe("ProjectGastos", () => {
     })
 
     it("says so when a filter has no expenses, and is reachable with the keyboard", async () => {
-      setup({ gastos: [gasto("g1")] })
+      setup({ gastos: [gasto("g1", { estado: "ANULADO", motivo_anulacion: "Duplicado" })] })
       await screen.findByTestId("gastos-lista")
-      const rechazado = chip(/^Rechazado/)
-      rechazado.focus()
-      expect(rechazado).toHaveFocus()
-      fireEvent.click(rechazado)
+      const registrado = chip(/^Registrado/)
+      expect(registrado).toHaveTextContent("0")
+      registrado.focus()
+      expect(registrado).toHaveFocus()
+      fireEvent.click(registrado)
       expect(screen.getByText("No hay gastos con este filtro.")).toBeInTheDocument()
       expect(screen.queryByTestId("gasto-fila")).not.toBeInTheDocument()
     })
@@ -492,236 +498,57 @@ describe("ProjectGastos", () => {
       await within(lista).findAllByTestId("gasto-fila")
       expect(within(lista).queryByRole("table")).not.toBeInTheDocument()
       expect(within(lista).getByTestId("gastos-cards")).toBeInTheDocument()
-      expect(screen.getByRole("button", { name: /^Revisar/ })).toBeInTheDocument()
-      expect(screen.getByRole("button", { name: "Anular" })).toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: /^Revisar/ })).not.toBeInTheDocument()
+      // Both expenses count as executed, so both offer Anular.
+      expect(screen.getAllByRole("button", { name: "Anular" })).toHaveLength(2)
     })
   })
 
-  describe("validation actions", () => {
-    const revisar = async (user: ReturnType<typeof userEvent.setup>, n = 0) => {
-      const botones = await screen.findAllByRole("button", { name: /^Revisar/ })
-      await user.click(botones[n])
-      return screen.findByRole("dialog", { name: "Validar gasto" })
-    }
-
-    it("hides Revisar on the actor's own expense and says why", async () => {
-      setup({ usuarioId: "yo", gastos: [gasto("g1", { registrado_por_id: "yo" })] })
-      const fila = await screen.findByTestId("gasto-fila")
-      expect(fila).toHaveTextContent("Tú lo registraste")
-      expect(within(fila).queryByRole("button", { name: /^Revisar/ })).not.toBeInTheDocument()
-    })
-
-    it("offers Revisar to a manager on another user's REGISTRADO expense, and it opens the «Validar gasto» panel", async () => {
-      const user = userEvent.setup()
-      setup({ gastos: [gasto("g1")] })
-      const fila = await screen.findByTestId("gasto-fila")
-      expect(within(fila).getByRole("button", { name: "Revisar el gasto FE-0123 de Proveedor SAS" })).toBeInTheDocument()
-      const panel = await revisar(user)
-      await waitFor(() => expect(within(panel).getByRole("heading", { name: "Proveedor SAS" })).toHaveFocus())
-      expect(within(panel).getByRole("button", { name: "Validar gasto" })).toBeEnabled()
-      expect(within(panel).getByRole("button", { name: "Rechazar" })).toBeEnabled()
-      expect(within(panel).getByLabelText("Motivo (obligatorio si lo rechazas)")).toBeInTheDocument()
-    })
-
-    it("hides Revisar on a SUSPENDIDO project but keeps Anular (B7)", async () => {
-      setup({ proyecto: { estado: "SUSPENDIDO" }, gastos: [gasto("g1", { estado: "VALIDADO" }), gasto("g2")] })
-      const filas = await screen.findAllByTestId("gasto-fila")
-      expect(within(filas[0]).getByRole("button", { name: "Anular" })).toBeInTheDocument()
-      expect(within(filas[1]).queryByRole("button", { name: /^Revisar/ })).not.toBeInTheDocument()
-    })
-
-    it("disables Validar gasto with the reason when the expense has no support (S3), and keeps Rechazar", async () => {
-      const user = userEvent.setup()
-      setup({ gastos: [gasto("g1", { soportes: [], soportes_count: 0 })] })
-      const panel = await revisar(user)
-      const validar = within(panel).getByRole("button", { name: "Validar gasto" })
-      expect(validar).toBeDisabled()
-      expect(validar).toHaveAccessibleDescription("Adjunta un soporte para poder validarlo.")
-      expect(within(panel).getByRole("button", { name: "Rechazar" })).toBeEnabled()
-      expect(posts()).toHaveLength(0)
-    })
-
-    it("disables Validar gasto while the third party has no identification", async () => {
-      const user = userEvent.setup()
-      setup({ gastos: [gasto("g1", { datos_incompletos: true, tercero_tipo_id: null, tercero_numero_id: null })] })
-      const panel = await revisar(user)
-      expect(within(panel).getByRole("button", { name: "Validar gasto" })).toHaveAccessibleDescription(
-        "Completa el tipo y número de identificación del tercero antes de validar.",
-      )
-      expect(within(panel).getByText("Sin identificación")).toBeInTheDocument()
-      expect(within(panel).getByText("Datos incompletos")).toBeInTheDocument()
-    })
-
-    it("shows the rubro balance: assigned, already executed, this expense and what is left", async () => {
-      const user = userEvent.setup()
-      setup({ gastos: [gasto("g1"), gasto("g2", { estado: "VALIDADO", valor: "2000000.00" })] })
-      const panel = await revisar(user)
-      const rubro = await within(panel).findByTestId("validar-gasto-rubro")
-      expect(rubro).toHaveTextContent("Rubro R12 · Transporte")
-      expect(rubro).toHaveTextContent("Asignado$ 24.000.000")
-      expect(rubro).toHaveTextContent("Ya ejecutado$ 2.000.000")
-      expect(rubro).toHaveTextContent("Este gasto$ 1.500.000")
-      expect(rubro).toHaveTextContent("Si lo validas, al rubro le quedan $ 20.500.000")
-      expect(within(rubro).getByRole("button", { name: "Ayuda: Disponible del rubro" })).toBeInTheDocument()
-    })
-
-    it("keeps validating over the rubro blocked: says what the rubro would end at and disables Validar gasto", async () => {
-      const user = userEvent.setup()
-      setup({
-        gastos: [
-          gasto("g1", { alerta_sobregasto: true }),
-          gasto("g2", { estado: "VALIDADO", valor: "23000000.00" }),
-        ],
-      })
-      const panel = await revisar(user)
-      const rubro = await within(panel).findByTestId("validar-gasto-rubro")
-      expect(rubro).toHaveTextContent("Si lo validas, el rubro queda en -$ 500.000")
-      expect(within(panel).getByRole("note")).toHaveTextContent("por ahora no se puede validar")
-      expect(within(panel).getByRole("button", { name: "Validar gasto" })).toHaveAccessibleDescription(
-        "Este gasto supera lo asignado al rubro: por ahora no se puede validar.",
-      )
-      expect(within(panel).getByRole("button", { name: "Rechazar" })).toBeEnabled()
-    })
-
-    it("never shows Revisar to a COORDINADOR member", async () => {
-      setup({ rol: "COORDINADOR", miembro: true, gastos: [gasto("g1")] })
-      const fila = await screen.findByTestId("gasto-fila")
-      expect(within(fila).queryByRole("button", { name: /^Revisar/ })).not.toBeInTheDocument()
-      expect(within(fila).queryByRole("button", { name: "Anular" })).not.toBeInTheDocument()
-    })
-
-    it("posts the validation, then moves to the next pending expense", async () => {
-      const user = userEvent.setup()
-      setup({ gastos: [gasto("g1"), gasto("g2", { tercero_nombre: "Logística Sinú", numero_documento: "FE-0200" })] })
-      const panel = await revisar(user)
-      await user.click(within(panel).getByRole("button", { name: "Validar gasto" }))
-      await waitFor(() =>
-        expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/expenses/g1/validate", expect.objectContaining({ method: "POST" })),
-      )
-      expect(await within(panel).findByRole("heading", { name: "Logística Sinú" })).toBeInTheDocument()
-    })
-
-    it("closes the panel after the last pending expense", async () => {
-      const user = userEvent.setup()
-      setup({ gastos: [gasto("g1")] })
-      const panel = await revisar(user)
-      await user.click(within(panel).getByRole("button", { name: "Validar gasto" }))
-      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Validar gasto" })).not.toBeInTheDocument())
-    })
-
-    it("shows the overspend block message inline when validation answers 409", async () => {
-      const user = userEvent.setup()
-      setup({ gastos: [gasto("g1")] })
-      const base = fetchMock.getMockImplementation()!
-      fetchMock.mockImplementation((input: unknown, init?: RequestInit) =>
-        String(input).endsWith("/validate")
-          ? Promise.resolve(
-              jsonResponse(
-                { error: "Validar este gasto superaría el valor asignado al rubro. Se notificó a Gerencia.", code: "OVERSPEND_BLOCKED" },
-                409,
-              ),
-            )
-          : base(input, init),
-      )
-      const panel = await revisar(user)
-      await user.click(within(panel).getByRole("button", { name: "Validar gasto" }))
-      expect(await within(panel).findByRole("alert")).toHaveTextContent("superaría el valor asignado")
-    })
-
-    it("requires a motivo to reject: error under the field and focus on it, then confirms", async () => {
-      const user = userEvent.setup()
-      setup({ gastos: [gasto("g1")] })
-      const panel = await revisar(user)
-      const motivo = within(panel).getByLabelText("Motivo (obligatorio si lo rechazas)")
-      await user.click(within(panel).getByRole("button", { name: "Rechazar" }))
-      expect(motivo).toHaveFocus()
-      expect(motivo).toHaveAttribute("aria-invalid", "true")
-      expect(motivo).toHaveAccessibleDescription("El motivo no puede estar vacío.")
-      expect(posts()).toHaveLength(0)
-
-      fireEvent.change(motivo, { target: { value: "x".repeat(501) } })
-      await user.click(within(panel).getByRole("button", { name: "Rechazar" }))
-      expect(motivo).toHaveAccessibleDescription("El motivo es demasiado largo.")
-
-      await user.clear(motivo)
-      await user.type(motivo, "Soporte ilegible")
-      await user.click(within(panel).getByRole("button", { name: "Rechazar" }))
-      await user.click(within(panel).getByRole("button", { name: "Confirmar rechazo" }))
-      await waitFor(() => {
-        const call = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/g1/reject"))
-        expect(call).toBeDefined()
-        expect(JSON.parse((call![1] as RequestInit).body as string)).toEqual({ motivo: "Soporte ilegible" })
-      })
-    })
-
-    it("lists the pending expenses in the panel and moves between them with a click or the arrow keys", async () => {
-      const user = userEvent.setup()
+  describe("void action (AJ-08)", () => {
+    it("offers Anular on every expense that counts as executed, to managers only", async () => {
       setup({
         gastos: [
           gasto("g1"),
-          gasto("g2", { tercero_nombre: "Logística Sinú", numero_documento: "FE-0200", periodo: "2026-11", periodo_modificado: true }),
-          gasto("g3", { estado: "VALIDADO" }),
+          gasto("g2", { estado: "VALIDADO" }),
+          gasto("g3", { estado: "RECHAZADO", motivo_rechazo: "Soporte ilegible" }),
+          gasto("g4", { estado: "ANULADO", motivo_anulacion: "Duplicado" }),
         ],
       })
-      const panel = await revisar(user)
-      const lista = within(panel).getByRole("navigation", { name: "Gastos por validar" })
-      expect(lista).toHaveTextContent("Por validar · 2")
-      const items = within(lista).getAllByRole("button")
-      expect(items).toHaveLength(2)
-      expect(items[0]).toHaveAttribute("aria-current", "true")
-      expect(items[1]).toHaveTextContent("cuenta en 2026-11")
-
-      await user.type(within(panel).getByLabelText("Motivo (obligatorio si lo rechazas)"), "borrador")
-      await user.click(items[1])
-      expect(within(panel).getByRole("heading", { name: "Logística Sinú" })).toBeInTheDocument()
-      expect(within(lista).getAllByRole("button")[1]).toHaveAttribute("aria-current", "true")
-      // Changing expense discards the motivo written for the previous one.
-      expect(within(panel).getByLabelText("Motivo (obligatorio si lo rechazas)")).toHaveValue("")
-
-      within(lista).getAllByRole("button")[1].focus()
-      await user.keyboard("{ArrowUp}")
-      expect(within(panel).getByRole("heading", { name: "Proveedor SAS" })).toBeInTheDocument()
-      expect(within(lista).getAllByRole("button")[0]).toHaveFocus()
-    })
-
-    it("closes with Escape and gives the focus back to Revisar", async () => {
-      const user = userEvent.setup()
-      setup({ gastos: [gasto("g1")] })
-      await revisar(user)
-      await user.keyboard("{Escape}")
-      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
-      await waitFor(() => expect(screen.getByRole("button", { name: /^Revisar/ })).toHaveFocus())
-    })
-
-    it("on the phone: support first, «1 de 2» with previous / next arrows, and 44 px actions", async () => {
-      mockViewport(true)
-      try {
-        const user = userEvent.setup()
-        setup({ gastos: [gasto("g1"), gasto("g2", { tercero_nombre: "Logística Sinú", numero_documento: "FE-0200" })] })
-        const botones = await screen.findAllByRole("button", { name: /^Revisar/ })
-        await user.click(botones[0])
-        const panel = await screen.findByRole("dialog", { name: "Por validar · 1 de 2" })
-        expect(within(panel).queryByRole("navigation")).not.toBeInTheDocument()
-        expect(within(panel).getByRole("button", { name: "Gasto anterior" })).toBeDisabled()
-        const siguiente = within(panel).getByRole("button", { name: "Siguiente gasto: Logística Sinú" })
-        const soporte = within(panel).getByRole("complementary", { name: "Soporte" })
-        const titulo = within(panel).getByRole("heading", { name: "Proveedor SAS" })
-        expect(soporte.compareDocumentPosition(titulo) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-        for (const nombre of ["Rechazar", "Validar gasto"]) {
-          expect(within(panel).getByRole("button", { name: nombre }).className).toMatch(/(^|\s)h-11(\s|$)/)
-        }
-        await user.click(siguiente)
-        expect(await screen.findByRole("dialog", { name: "Por validar · 2 de 2" })).toBeInTheDocument()
-      } finally {
-        mockViewport(false)
-      }
-    })
-
-    it("offers Anular only on VALIDADO expenses, to managers", async () => {
-      setup({ gastos: [gasto("g1", { estado: "VALIDADO" }), gasto("g2")] })
       const filas = await screen.findAllByTestId("gasto-fila")
       expect(within(filas[0]).getByRole("button", { name: "Anular" })).toBeInTheDocument()
-      expect(within(filas[1]).queryByRole("button", { name: "Anular" })).not.toBeInTheDocument()
+      expect(within(filas[1]).getByRole("button", { name: "Anular" })).toBeInTheDocument()
+      expect(within(filas[2]).queryByRole("button", { name: "Anular" })).not.toBeInTheDocument()
+      expect(within(filas[3]).queryByRole("button", { name: "Anular" })).not.toBeInTheDocument()
+    })
+
+    it("keeps Anular on a SUSPENDIDO project: a mistake stays correctable (B7)", async () => {
+      setup({ proyecto: { estado: "SUSPENDIDO" }, gastos: [gasto("g1"), gasto("g2", { estado: "VALIDADO" })] })
+      const filas = await screen.findAllByTestId("gasto-fila")
+      expect(within(filas[0]).getByRole("button", { name: "Anular" })).toBeInTheDocument()
+      expect(within(filas[1]).getByRole("button", { name: "Anular" })).toBeInTheDocument()
+    })
+
+    it("never shows Anular to a COORDINADOR member", async () => {
+      setup({ rol: "COORDINADOR", miembro: true, gastos: [gasto("g1")] })
+      const fila = await screen.findByTestId("gasto-fila")
+      expect(within(fila).queryByRole("button", { name: "Anular" })).not.toBeInTheDocument()
+      expect(within(fila).queryByRole("button", { name: /^Revisar/ })).not.toBeInTheDocument()
+    })
+
+    it("voids a REGISTRADO expense with its motivo and refreshes the list", async () => {
+      const user = userEvent.setup()
+      setup({ gastos: [gasto("g1")] })
+      const fila = await screen.findByTestId("gasto-fila")
+      await user.click(within(fila).getByRole("button", { name: "Anular" }))
+      const confirmar = within(fila).getByRole("button", { name: "Confirmar anulación" })
+      expect(confirmar).toBeDisabled()
+      await user.type(within(fila).getByLabelText("Motivo de anulación"), "Factura duplicada")
+      await user.click(confirmar)
+      await waitFor(() => {
+        const call = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/g1/void"))
+        expect(call).toBeDefined()
+        expect(JSON.parse((call![1] as RequestInit).body as string)).toEqual({ motivo: "Factura duplicada" })
+      })
     })
 
     it("downloads a support by fetching its signed URL, in the same tab (S4)", async () => {

@@ -1,9 +1,10 @@
 // Finanzas › Resumen (redesign T3, `Finanzas-propuesta` / `Finanzas-movil-propuesta`): three key figures (Ejecutado,
-// Programado a hoy, Valor total), the possible-delay notice, the gastos waiting for validation, and one row per rubro
-// with what is still available. The full table (differences and colour limits) and the corte / base options live
-// behind «Ver detalle con diferencias y límites de cada color». Every amount and colour of the financial sheet comes
-// from the server and is only painted: the client NEVER recomputes a colour. While the project is BORRADOR the API
-// sends `ejecucion_disponible: false` and no colours or execution percentages are shown.
+// Programado a hoy, Valor total), the possible-delay notice, and one row per rubro with what is still available. The
+// full table (differences and colour limits) and the corte / base options live behind «Ver detalle con diferencias y
+// límites de cada color». AJ-08: there is no approval step, so the executed figure already counts every registered
+// expense and no «Gastos por validar» block exists. Every amount and colour of the financial sheet comes from the
+// server and is only painted: the client NEVER recomputes a colour. While the project is BORRADOR the API sends
+// `ejecucion_disponible: false` and no colours or execution percentages are shown.
 
 "use client";
 
@@ -14,7 +15,6 @@ import { useIsMobile } from "@/components/proyectos/capture-surface";
 import { mesLegible } from "@/components/proyectos/project-display";
 import { EmptyBlock, InlineError, SELECT_CLASS } from "@/components/proyectos/ui";
 import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
-import { GastosPorValidar } from "@/components/proyectos/ficha/finanzas/gastos-por-validar";
 import { AYUDA_DISPONIBLE } from "@/components/proyectos/ficha/finanzas/gastos-comun";
 import { Button } from "@/components/ui/button";
 import { HelpHint } from "@/components/ui/help-hint";
@@ -42,7 +42,10 @@ const VER_DETALLE = "Ver detalle con diferencias y límites de cada color";
 type Navegacion = {
   /** «Ver actividades» in the possible-delay notice: switches the ficha to Actividades. */
   onVerActividades?: () => void;
-  /** «Ver todos los gastos»: switches Finanzas to its Gastos segment. */
+  /**
+   * «Ver todos los gastos»: switches Finanzas to its Gastos segment. AJ-08 removed the «Gastos por validar» block
+   * that used it, so nothing here reads it any more; the ficha still passes it.
+   */
   onVerGastos?: () => void;
 };
 
@@ -74,7 +77,6 @@ function FinancieroContent({
   inicio,
   fin,
   onVerActividades,
-  onVerGastos,
 }: { proyecto: ProjectListRow; inicio: string; fin: string } & Navegacion) {
   const periodos = periodosDe(inicio, fin);
   const [corte, setCorte] = useState<string | null>(null);
@@ -122,7 +124,7 @@ function FinancieroContent({
           <Cifras
             ficha={ficha}
             proyecto={proyecto}
-            validados={gastosQuery.data?.totales?.VALIDADO?.cantidad}
+            vigentes={gastosQuery.data?.resumen?.vigentes}
             corteElegido={corte !== null}
           />
           {ficha.alerta_retraso && (
@@ -142,8 +144,6 @@ function FinancieroContent({
           )}
         </>
       )}
-
-      <GastosPorValidar proyecto={proyecto} onVerTodos={onVerGastos} />
 
       {ficha?.rubros && !query.isError && (
         <section aria-labelledby="financiero-por-rubro" className="flex flex-col gap-2">
@@ -251,13 +251,13 @@ function Cifra({
 function Cifras({
   ficha,
   proyecto,
-  validados,
+  vigentes,
   corteElegido,
 }: {
   ficha: ProjectFinancialSheet;
   proyecto: ProjectListRow;
-  /** Validated expenses of the project; undefined until the expenses load. */
-  validados: number | undefined;
+  /** Expenses that count as executed (REGISTRADO and VALIDADO); undefined until the ledger loads. */
+  vigentes: number | undefined;
   corteElegido: boolean;
 }) {
   const disponible = ficha.ejecucion_disponible;
@@ -267,17 +267,17 @@ function Cifras({
 
   return (
     <div data-testid="financiero-cifras" className="grid grid-cols-1 gap-3 md:grid-cols-3">
-      <Cifra testId="cifra-ejecutado" etiqueta="Ejecutado (gastos validados)" valor={formatCOP(ejecutado)}>
+      <Cifra testId="cifra-ejecutado" etiqueta="Ejecutado (gastos registrados)" valor={formatCOP(ejecutado)}>
         {!disponible ? (
           <span>{SIN_GASTOS_NOTE}</span>
-        ) : validados !== undefined ? (
-          <span>{plural(validados, "gasto validado", "gastos validados")}</span>
+        ) : vigentes !== undefined ? (
+          <span>{plural(vigentes, "gasto registrado", "gastos registrados")}</span>
         ) : null}
       </Cifra>
       <Cifra
         testId="cifra-programado"
         etiqueta={etiquetaProgramado}
-        ayuda={`Lo que el plan financiero dice que deberías llevar ejecutado hasta ${mesLegible(ficha.corte)}. El porcentaje compara lo validado con esa cifra.`}
+        ayuda={`Lo que el plan financiero dice que deberías llevar ejecutado hasta ${mesLegible(ficha.corte)}. El porcentaje compara lo ejecutado con esa cifra.`}
         valor={monto(ficha.total.programado)}
       >
         {disponible ? (
@@ -306,7 +306,7 @@ function Cifras({
 
 /* ── Por rubro ──────────────────────────────────────────────────────────── */
 
-/** «1 gasto por validar lo supera»: pending expenses of the rubro that the server flagged over its assigned amount. */
+/** «1 gasto lo supera»: registered expenses of the rubro that the server flagged over its assigned amount. */
 function superanPorRubro(gastos: readonly ProjectExpense[]): Map<string, number> {
   const cuenta = new Map<string, number>();
   for (const g of gastos) {
@@ -323,7 +323,7 @@ function AvisoSupera({ n }: { n: number }) {
   if (n === 0) return null;
   return (
     <span className="block text-[12px] font-semibold text-destructivo">
-      {n === 1 ? "1 gasto por validar lo supera" : `${n} gastos por validar lo superan`}
+      {n === 1 ? "1 gasto lo supera" : `${n} gastos lo superan`}
     </span>
   );
 }

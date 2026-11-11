@@ -32,7 +32,7 @@ export function RegistrarGastoDialog({
           <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
             Registrar gasto
           </DialogTitle>
-          <DialogDescription>{`${proyecto.codigo} · se registra por validar; lo valida Gerencia.`}</DialogDescription>
+          <DialogDescription>{`${proyecto.codigo} · cuenta como ejecutado al registrarlo.`}</DialogDescription>
         </DialogHeader>
         {/* Mounted (and fetching the budget) only while open: every opening starts with an empty form. */}
         {open && <Formulario proyecto={proyecto} onCerrar={() => onOpenChange(false)} />}

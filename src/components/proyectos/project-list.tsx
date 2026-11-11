@@ -38,7 +38,6 @@ import {
 } from "@/components/ui/table";
 import { ResponsableCell, ToneBadge } from "@/components/crm/shared";
 import { SemaforoProvisional } from "@/components/proyectos/vocabulario-seguimiento";
-import { ExpenseValidationQueue } from "@/components/proyectos/expense-validation-queue";
 import { PortafolioFiltros, contarFiltros } from "@/components/proyectos/portafolio-filtros";
 import { PortafolioKpis } from "@/components/proyectos/portafolio-kpis";
 import {
@@ -59,7 +58,6 @@ import {
 import {
   PROJECT_MEMBER_ROLES,
   canCreateProject,
-  canManageProjects,
   canViewPortfolio,
 } from "@/lib/permissions";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
@@ -146,8 +144,6 @@ export function ProjectList() {
   // autoridad sigue siendo la API, que responde 403 a cualquier otro rol tanto
   // en la creación como en el listado de elegibles.
   const puedeCrear = usuario ? canCreateProject({ id: usuario.id, rol: usuario.rol }) : false;
-  // La cola de gastos por validar es solo de gestores (la API responde 403 al resto).
-  const puedeValidar = usuario ? canManageProjects({ id: usuario.id, rol: usuario.rol }) : false;
 
   const proyectos = useMemo(() => query.data?.proyectos ?? [], [query.data]);
   const portafolio = portafolioQuery.data;
@@ -205,8 +201,6 @@ export function ProjectList() {
           <ProjectTable filas={filas} cargando={cargandoPortafolio} />
         )}
       </section>
-
-      {puedeValidar && <ExpenseValidationQueue />}
     </div>
   );
 }
