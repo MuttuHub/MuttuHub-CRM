@@ -1,5 +1,5 @@
 // GET /api/v1/reports/weekly (S5): the weekly report composed from the portfolio loader, the per-project
-// "Requiere atención" list, the task ledger and the expense validation queue.
+// "Requiere atención" list and the task ledger. AJ-08 removed the «Gastos por validar» section.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { Usuario } from "@prisma/client"
 
@@ -9,7 +9,7 @@ vi.mock("@/lib/settings", async (importOriginal) => {
   return { ...(await importOriginal<typeof import("@/lib/settings")>()), getSemaforoParametrosV2: vi.fn(async () => PARAMETROS_V2_DEFAULT) }
 })
 vi.mock("@/lib/db", () => ({
-  db: { proyecto: { findMany: vi.fn() }, tarea: { findMany: vi.fn() }, gasto: { findMany: vi.fn() } },
+  db: { proyecto: { findMany: vi.fn() }, tarea: { findMany: vi.fn() } },
 }))
 vi.mock("@/lib/api/kpis-portafolio", () => ({ loadKpisPortafolio: vi.fn() }))
 vi.mock("@/lib/api/atencion", () => ({ cargarAtencion: vi.fn() }))
@@ -101,11 +101,6 @@ beforeEach(() => {
     tarea("COMPLETADA", "2026-10-16T00:00:00.000Z", "2026-10-15T14:00:00.000Z"),
     // Cancelada: ni cerrada ni vencida.
     tarea("CANCELADA", "2026-10-21T00:00:00.000Z", null),
-  ] as never)
-  vi.mocked(db.gasto.findMany).mockResolvedValue([
-    { proyecto_id: "p1", monto_cop: "100.50", created_at: new Date("2026-10-20T15:00:00.000Z"), proyecto: { codigo: "PRY-p1", nombre: "Proyecto p1" } },
-    { proyecto_id: "p1", monto_cop: "200", created_at: new Date("2026-10-10T15:00:00.000Z"), proyecto: { codigo: "PRY-p1", nombre: "Proyecto p1" } },
-    { proyecto_id: "p3", monto_cop: "50", created_at: new Date("2026-10-22T15:00:00.000Z"), proyecto: { codigo: "PRY-p3", nombre: "Proyecto p3" } },
   ] as never)
 })
 afterEach(() => {
@@ -200,27 +195,6 @@ describe("GET /api/v1/reports/weekly", () => {
     await GET(get())
     const where = JSON.stringify(vi.mocked(db.tarea.findMany).mock.calls[0][0]?.where)
     expect(where).toContain('{"estado":"COMPLETADA","completed_at":null,"updated_at":{"gte":"2026-10-12T05:00:00.000Z","lt":"2026-10-26T05:00:00.000Z"}}')
-  })
-
-  it("aggregates the expenses pending validation per project for a manager", async () => {
-    const body = await (await GET(get())).json()
-    expect(body.gastos_por_validar).toEqual({
-      cantidad: 3,
-      monto: "350.50",
-      por_proyecto: [
-        { proyecto: { id: "p1", codigo: "PRY-p1", nombre: "Proyecto p1" }, cantidad: 2, monto: "300.50", mas_antiguo: "2026-10-10" },
-        { proyecto: { id: "p3", codigo: "PRY-p3", nombre: "Proyecto p3" }, cantidad: 1, monto: "50.00", mas_antiguo: "2026-10-22" },
-      ],
-    })
-    const where = vi.mocked(db.gasto.findMany).mock.calls[0][0]?.where
-    expect(where).toMatchObject({ estado: "REGISTRADO" })
-  })
-
-  it("leaves the validation queue out for a role that cannot validate expenses", async () => {
-    auth(user("COORDINADOR"))
-    const body = await (await GET(get())).json()
-    expect(body.gastos_por_validar).toBeNull()
-    expect(db.gasto.findMany).not.toHaveBeenCalled()
   })
 
   it("is registered in the OpenAPI document", () => {

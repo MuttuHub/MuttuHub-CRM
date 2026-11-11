@@ -3,10 +3,11 @@
  * (periods 2026-10..2027-01), tolerance 1000 bp, corte 2026-11. Plain data, no DB.
  * Amounts go through `toCents`, never bigint literals (tsconfig target ES2017).
  *
- *  R01 Personal   A 59.500.000, P 14.875.000 x4, E validated 12.000.000 (10) + 15.000.000 (11)
- *  R12 Transporte A 24.000.000, P 6.000.000 x4,  E validated 7.000.000 (10) + 6.500.000 (11)
- *  Noise that must NOT move E: REGISTRADO 5.000.000 (R01, 11), RECHAZADO 800.000 (R12, 10),
- *  VALIDADO 3.000.000 (R01, 12: after the corte).
+ *  R01 Personal   A 59.500.000, P 14.875.000 x4, E executed 12.000.000 (10) + 15.000.000 (11)
+ *  R12 Transporte A 24.000.000, P 6.000.000 x4,  E executed 7.000.000 (10) + 6.500.000 (11)
+ *  Noise that must NOT move E: ANULADO 5.000.000 (R01, 11), RECHAZADO 800.000 (R12, 10),
+ *  VALIDADO 3.000.000 (R01, 12: after the corte). AJ-08: a REGISTRADO row DOES move E, so the
+ *  fixture keeps its executed totals with an ANULADO row instead of the old REGISTRADO noise.
  */
 import { toCents } from "../money"
 import type { FichaRubroInput } from "../ficha-financiera"
@@ -30,7 +31,7 @@ export function fixtureF_F1(): FichaRubroInput[] {
       gastos: [
         { periodo: "2026-10", valor: toCents("12000000"), estado: "VALIDADO" },
         { periodo: "2026-11", valor: toCents("15000000"), estado: "VALIDADO" },
-        { periodo: "2026-11", valor: toCents("5000000"), estado: "REGISTRADO" },
+        { periodo: "2026-11", valor: toCents("5000000"), estado: "ANULADO" },
         { periodo: "2026-12", valor: toCents("3000000"), estado: "VALIDADO" },
       ],
     },

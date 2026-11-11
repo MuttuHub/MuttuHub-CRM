@@ -9,24 +9,22 @@
 //   Los gastos observados se resumen en un conteo: el reporte no lleva el detalle de ningún gasto (P04).
 // - Tareas: cerradas y vencidas de la semana contra la semana anterior, con el mismo alcance global de la
 //   cara «Gestión de tareas» (`tareaScopeWhere("all", ...)`).
-// - Gastos por validar: solo para quien valida gastos (ADMINISTRADOR/GERENCIA, como la cola
-//   `GET /expense-validations`), agregados por proyecto: cantidad, total y el registro más antiguo.
+// AJ-08: no hay «Gastos por validar». Sin aprobación no queda nada pendiente, así que el reporte no lleva
+// esa sección.
 //
 // Semana: lunes a domingo en Bogotá (`semana.ts`). El corte es el domingo, o hoy si la semana está en curso.
 
-import type { EstadoProyecto, Usuario } from "@prisma/client"
+import type { Usuario } from "@prisma/client"
 import { db } from "@/lib/db"
 import { apiError } from "@/lib/api/errors"
 import { OPEN_TASK_STATES } from "@/lib/api/crm"
 import { cargarAtencion } from "@/lib/api/atencion"
 import { serializeAgregado } from "@/lib/api/kpis-http"
 import { PORTAFOLIO_FORBIDDEN_MESSAGE, cargarPortafolio, puedeVerPortafolio, type Portafolio } from "@/lib/api/portafolio"
-import { ESTADOS_PROYECTO_VALIDACION } from "@/lib/api/validacion-gastos"
 import { tareaScopeWhere } from "@/lib/dashboard"
-import { canManageProjects } from "@/lib/permissions"
 import { ATENCION_TITULO, type AtencionItem } from "@/lib/proyectos/atencion"
 import { kpisPortafolio, type KpisProyecto } from "@/lib/proyectos/kpis"
-import { fromCents, sumCents, toCents } from "@/lib/proyectos/money"
+import { toCents } from "@/lib/proyectos/money"
 import { assertIsoDate, todayInBogota, type IsoDate } from "@/lib/proyectos/weeks"
 import {
   desplazarSemana,
@@ -78,12 +76,6 @@ export type ReporteSemanal = {
   actividades_atrasadas: { proyecto: ProyectoRef; actividad_id: string | null; detalle: string }[]
   tareas: { semana: ConteoTareas; semana_anterior: ConteoTareas }
   atencion: { proyecto: ProyectoRef; items: { tipo: AtencionItem["tipo"]; titulo: string; detalle: string }[] }[]
-  /** null para quien no valida gastos: la sección no aplica. */
-  gastos_por_validar: {
-    cantidad: number
-    monto: string
-    por_proyecto: { proyecto: ProyectoRef; cantidad: number; monto: string; mas_antiguo: IsoDate }[]
-  } | null
 }
 
 type ConteoTareas = { cerradas: number; vencidas: number }
@@ -123,10 +115,9 @@ export async function cargarReporteSemanal(
   if (!portafolio.ok) return portafolio
   const data = portafolio.value
 
-  const [atencion, tareas, gastos] = await Promise.all([
+  const [atencion, tareas] = await Promise.all([
     leerAtencion(data.proyectos, corte),
     contarTareas(usuario, semana, semanaAnterior, hoy),
-    canManageProjects(usuario) ? gastosPorValidar() : Promise.resolve(null),
   ])
 
   return {
@@ -160,7 +151,6 @@ export async function cargarReporteSemanal(
       actividades_atrasadas: atencion.actividades,
       tareas,
       atencion: atencion.porProyecto,
-      gastos_por_validar: gastos,
     },
   }
 }
@@ -304,37 +294,4 @@ async function contarTareas(usuario: Usuario, semana: Semana, anterior: Semana, 
   return { semana: contar(semana), semana_anterior: contar(anterior) }
 }
 
-// ---------------------------------------------------------------------------
-// Gastos por validar (solo agregados)
-// ---------------------------------------------------------------------------
 
-async function gastosPorValidar(): Promise<NonNullable<ReporteSemanal["gastos_por_validar"]>> {
-  // La misma cola que `GET /expense-validations?estado=REGISTRADO`: proyectos sin borrar y en ejecución.
-  const rows = await db.gasto.findMany({
-    where: {
-      estado: "REGISTRADO",
-      proyecto: { deleted_at: null, estado: { in: [...ESTADOS_PROYECTO_VALIDACION] as EstadoProyecto[] } },
-    },
-    select: { proyecto_id: true, monto_cop: true, created_at: true, proyecto: { select: { codigo: true, nombre: true } } },
-    orderBy: [{ created_at: "asc" }, { id: "asc" }],
-  })
-  const grupos = new Map<string, { proyecto: ProyectoRef; montos: bigint[]; mas_antiguo: Date }>()
-  for (const row of rows) {
-    const grupo = grupos.get(row.proyecto_id) ?? {
-      proyecto: { id: row.proyecto_id, codigo: row.proyecto.codigo, nombre: row.proyecto.nombre },
-      montos: [],
-      mas_antiguo: row.created_at,
-    }
-    grupo.montos.push(toCents(row.monto_cop))
-    if (row.created_at < grupo.mas_antiguo) grupo.mas_antiguo = row.created_at
-    grupos.set(row.proyecto_id, grupo)
-  }
-  const porProyecto = [...grupos.values()]
-    .sort((a, b) => a.proyecto.codigo.localeCompare(b.proyecto.codigo))
-    .map((g) => ({ proyecto: g.proyecto, cantidad: g.montos.length, monto: fromCents(sumCents(g.montos)), mas_antiguo: fechaEnBogota(g.mas_antiguo) }))
-  return {
-    cantidad: rows.length,
-    monto: fromCents(sumCents(rows.map((r) => toCents(r.monto_cop)))),
-    por_proyecto: porProyecto,
-  }
-}

@@ -377,8 +377,9 @@ describe("POST expenses: alerts", () => {
     expect(res.status).toBe(201);
     expect(createdData().alerta_sobregasto).toBe(true);
     expect(json.alertas).toEqual([expect.objectContaining({ tipo: "SOBREGASTO" })]);
+    // AJ-08: the warning compares against every expense that counts as executed, not only VALIDADO.
     expect(mocks.aggregate).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { linea_id: "lin-1", estado: "VALIDADO" } }),
+      expect.objectContaining({ where: { linea_id: "lin-1", estado: { in: ["REGISTRADO", "VALIDADO"] } } }),
     );
   });
 

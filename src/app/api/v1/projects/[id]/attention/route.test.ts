@@ -22,7 +22,7 @@ vi.mock("@/lib/db", () => ({
   },
 }))
 vi.mock("@/lib/api/kpis-portafolio", () => ({ loadKpisPortafolio: vi.fn() }))
-vi.mock("@/lib/api/financiera", () => ({ loadGastosValidados: vi.fn(async () => ({ disponible: true, gastos: [] })) }))
+vi.mock("@/lib/api/financiera", () => ({ loadGastosEjecutados: vi.fn(async () => ({ disponible: true, gastos: [] })) }))
 
 import { db } from "@/lib/db"
 import { requireApiUser } from "@/lib/supabase/server"

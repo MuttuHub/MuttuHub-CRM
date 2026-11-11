@@ -8,6 +8,7 @@
 import { db } from "@/lib/db";
 import { agruparReportesPorActividad } from "@/lib/api/tecnico";
 import { isoDate } from "@/lib/proyectos/proyecto-general";
+import { ESTADOS_EJECUTADOS } from "@/lib/proyectos/gastos";
 import { toCents, type Cents } from "@/lib/proyectos/money";
 import { pesoActividad } from "@/lib/proyectos/actividad";
 import {
@@ -130,7 +131,7 @@ export async function loadKpisPortafolio(input: {
     }),
     db.gasto.groupBy({
       by: ["proyecto_id"],
-      where: { proyecto_id: { in: ids }, estado: "VALIDADO", periodo: { lte: periodo } },
+      where: { proyecto_id: { in: ids }, estado: { in: [...ESTADOS_EJECUTADOS] }, periodo: { lte: periodo } },
       _sum: { monto_cop: true },
     }),
   ]);

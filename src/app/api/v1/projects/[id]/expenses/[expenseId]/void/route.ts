@@ -1,8 +1,8 @@
 // POST /api/v1/projects/:id/expenses/:expenseId/void (S6 U4, RF-22).
 //
-// ADMINISTRADOR/GERENCIA, any project estado (a mistake must stay correctable), only a VALIDADO
-// expense: the row is kept with estado ANULADO and the anulado_* columns; E drops it because the
-// financial loader only reads VALIDADO. Order: 404 -> 403 -> 404 -> 400 -> 409.
+// ADMINISTRADOR/GERENCIA, any project estado (a mistake must stay correctable), any expense that counts
+// as executed (AJ-08: REGISTRADO or VALIDADO): the row is kept with estado ANULADO and the anulado_*
+// columns; E drops it because `cuentaComoEjecutado` no longer sees it. Order: 404 -> 403 -> 404 -> 400 -> 409.
 
 import { NextResponse } from "next/server";
 import { withApiErrorHandling } from "@/lib/api/handler";
@@ -12,7 +12,8 @@ import { requireApiUser } from "@/lib/supabase/server";
 import { logChange } from "@/lib/api/audit-cambios";
 import { parseEstructuraBody } from "@/lib/api/estructura";
 import { GASTO_INCLUDE, toGastoView } from "@/lib/api/gastos";
-import { MOTIVO_GASTO_SCHEMA, SOLO_VALIDADO_MESSAGE, gateGastoGestion } from "@/lib/api/validacion-gastos";
+import { ESTADOS_EJECUTADOS } from "@/lib/proyectos/gastos";
+import { MOTIVO_GASTO_SCHEMA, SOLO_EJECUTADO_MESSAGE, gateGastoGestion } from "@/lib/api/validacion-gastos";
 
 export const dynamic = "force-dynamic";
 
@@ -34,11 +35,11 @@ export const POST = withApiErrorHandling(
     if (!body.ok) return body.response;
     const { motivo } = body.value;
 
-    if (gasto.estado !== "VALIDADO") return apiError(SOLO_VALIDADO_MESSAGE, 409, "INVALID_STATE");
+    if (!ESTADOS_EJECUTADOS.includes(gasto.estado)) return apiError(SOLO_EJECUTADO_MESSAGE, 409, "INVALID_STATE");
 
     const actualizado = await db.$transaction(async (tx) => {
       const { count } = await tx.gasto.updateMany({
-        where: { id: expenseId, proyecto_id: id, estado: "VALIDADO" },
+        where: { id: expenseId, proyecto_id: id, estado: { in: [...ESTADOS_EJECUTADOS] } },
         data: {
           estado: "ANULADO",
           anulado_por_id: auth.usuario.id,
@@ -54,12 +55,12 @@ export const POST = withApiErrorHandling(
         entidad_id: expenseId,
         proyecto_id: id,
         campo: "estado",
-        valor_anterior: "VALIDADO",
+        valor_anterior: gasto.estado,
         valor_nuevo: { estado: "ANULADO", motivo },
       });
       return tx.gasto.findFirstOrThrow({ where: { id: expenseId }, include: GASTO_INCLUDE });
     });
-    if (!actualizado) return apiError(SOLO_VALIDADO_MESSAGE, 409, "INVALID_STATE");
+    if (!actualizado) return apiError(SOLO_EJECUTADO_MESSAGE, 409, "INVALID_STATE");
 
     return NextResponse.json({ gasto: toGastoView(actualizado, { puedeVerSoportes: true }) });
   },

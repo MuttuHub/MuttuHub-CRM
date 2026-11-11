@@ -97,12 +97,18 @@ describe("POST void", () => {
     expect(res.status).toBe(200);
     expect(json.gasto).toMatchObject({ estado: "ANULADO", anulado_por_id: "ger-1", motivo_anulacion: "Factura duplicada" });
     expect(mocks.updateMany).toHaveBeenCalledWith({
-      where: { id: "gas-1", proyecto_id: "pry-1", estado: "VALIDADO" },
+      where: { id: "gas-1", proyecto_id: "pry-1", estado: { in: ["REGISTRADO", "VALIDADO"] } },
       data: expect.objectContaining({ estado: "ANULADO", anulado_por_id: "ger-1", motivo_anulacion: "Factura duplicada" }),
     });
     expect(logChange).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ accion: "ANULAR", entidad: "gasto", entidad_id: "gas-1", proyecto_id: "pry-1" }),
+      expect.objectContaining({
+        accion: "ANULAR",
+        entidad: "gasto",
+        entidad_id: "gas-1",
+        proyecto_id: "pry-1",
+        valor_anterior: "VALIDADO",
+      }),
     );
   });
 
@@ -121,8 +127,20 @@ describe("POST void", () => {
     expect((await POST(post({ motivo: "x" }), ctx)).status).toBe(404);
   });
 
-  it("only voids VALIDADO: REGISTRADO, RECHAZADO and ANULADO answer 409", async () => {
-    for (const estado of ["REGISTRADO", "RECHAZADO", "ANULADO"]) {
+  it("voids a REGISTRADO expense too (AJ-08: without validation it is the only live estado)", async () => {
+    current = existente({ estado: "REGISTRADO" });
+    const res = await POST(post({ motivo: "Factura duplicada" }), ctx);
+    expect(res.status).toBe(200);
+    expect((await res.json()).gasto).toMatchObject({ estado: "ANULADO", motivo_anulacion: "Factura duplicada" });
+    expect(mocks.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "gas-1", proyecto_id: "pry-1", estado: { in: ["REGISTRADO", "VALIDADO"] } } }),
+    );
+    // The audit keeps the estado the row had before the annulment.
+    expect(logChange).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ valor_anterior: "REGISTRADO" }));
+  });
+
+  it("only voids RECHAZADO and ANULADO with 409: those never count as executed (AJ-08)", async () => {
+    for (const estado of ["RECHAZADO", "ANULADO"]) {
       current = existente({ estado });
       const res = await POST(post({ motivo: "x" }), ctx);
       expect(res.status).toBe(409);

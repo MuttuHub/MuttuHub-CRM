@@ -2,9 +2,9 @@
  * Pure financial ficha math for the v2 projects module (S5, RF-23/RF-24).
  * No DB, no framework. Amounts are COP cents in bigint (see `money.ts`).
  *
- * A = assigned, P = programmed (cumulative up to the corte), E = validated
- * expenses (cumulative up to the corte). A period is `"AAAA-MM"`, so a string
- * comparison is chronological.
+ * A = assigned, P = programmed (cumulative up to the corte), E = executed expenses (cumulative up
+ * to the corte). AJ-08: every expense that counts as executed (REGISTRADO or VALIDADO) is part of E;
+ * RECHAZADO and ANULADO never are. A period is `"AAAA-MM"`, so a string comparison is chronological.
  */
 
 import {
@@ -14,6 +14,7 @@ import {
   toleranceThreshold,
   type Cents,
 } from "./money"
+import { cuentaComoEjecutado } from "./gastos"
 import { colorFinancieroV2, type ColorSemaforo } from "./semaforo-v2"
 import type { Periodo } from "./weeks"
 
@@ -72,14 +73,14 @@ function buildRow(
   }
 }
 
-/** Sum of VALIDADO expenses (any period) of one rubro. */
-export function validadoAcumulado(gastos: readonly GastoInput[]): Cents {
-  return sumCents(gastos.filter((g) => g.estado === "VALIDADO").map((g) => g.valor))
+/** Sum of the expenses that count as executed (any period) of one rubro. */
+export function ejecutadoAcumulado(gastos: readonly GastoInput[]): Cents {
+  return sumCents(gastos.filter((g) => cuentaComoEjecutado(g.estado)).map((g) => g.valor))
 }
 
-/** True when validating `nuevo` would push the validated total strictly above A. */
-export function excederiaAsignado(input: { asignado: Cents; validado: Cents; nuevo: Cents }): boolean {
-  return input.validado + input.nuevo > input.asignado
+/** True when registering `nuevo` would push the executed total strictly above A. */
+export function excederiaAsignado(input: { asignado: Cents; ejecutado: Cents; nuevo: Cents }): boolean {
+  return input.ejecutado + input.nuevo > input.asignado
 }
 
 /** Σ programmed cells − A; informational in BORRADOR, a baseline precondition later. */
@@ -98,7 +99,7 @@ export function computeFicha(input: {
     A: rubro.asignado,
     P: sumCents(rubro.programacion.filter((c) => c.periodo <= corte).map((c) => c.valor)),
     E: sumCents(
-      rubro.gastos.filter((g) => g.estado === "VALIDADO" && g.periodo <= corte).map((g) => g.valor),
+      rubro.gastos.filter((g) => cuentaComoEjecutado(g.estado) && g.periodo <= corte).map((g) => g.valor),
     ),
   }))
 

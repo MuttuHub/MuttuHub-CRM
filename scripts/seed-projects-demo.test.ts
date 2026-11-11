@@ -163,23 +163,23 @@ describe("buildSeedData consistency", () => {
     for (const medicion of buildSeedData(HOY).mediciones) expect(indicadores.has(medicion.indicador)).toBe(true)
   })
 
-  it("keeps validated spend within each rubro and has exactly one overspend case", () => {
+  it("keeps registered spend within each rubro and has exactly one overspend case", () => {
     const data = buildSeedData(HOY)
-    const validado = new Map<string, bigint>()
-    for (const gasto of data.gastos.filter((g) => g.accion === "VALIDAR")) {
-      validado.set(gasto.rubro, (validado.get(gasto.rubro) ?? BigInt(0)) + toCents(gasto.valor))
+    const registrado = new Map<string, bigint>()
+    for (const gasto of data.gastos.filter((g) => g.accion === "REGISTRAR")) {
+      registrado.set(gasto.rubro, (registrado.get(gasto.rubro) ?? BigInt(0)) + toCents(gasto.valor))
     }
-    for (const [rubro, total] of validado) expect(total <= toCents(F_X1_PRESUPUESTO[rubro])).toBe(true)
+    for (const [rubro, total] of registrado) expect(total <= toCents(F_X1_PRESUPUESTO[rubro])).toBe(true)
 
-    const sobre = data.gastos.filter((g) => g.accion === "INTENTAR_VALIDAR")
+    const sobre = data.gastos.filter((g) => g.accion === "SOBREGASTO")
     expect(sobre).toHaveLength(1)
     expect(toCents(sobre[0].valor) > toCents(F_X1_PRESUPUESTO[sobre[0].rubro])).toBe(true)
   })
 
-  it("covers REGISTRADO and VALIDADO expenses, each with an https support", () => {
+  it("covers a regular and an over-rubro expense, each with an https support (AJ-08: all stored REGISTRADO)", () => {
     const data = buildSeedData(HOY)
     const acciones = new Set(data.gastos.map((g) => g.accion))
-    expect(acciones.has("VALIDAR")).toBe(true)
+    expect(acciones.has("SOBREGASTO")).toBe(true)
     expect(acciones.has("REGISTRAR")).toBe(true)
     for (const gasto of data.gastos) {
       expect(gasto.soportes.length).toBeGreaterThanOrEqual(1)
@@ -200,7 +200,7 @@ describe("buildSeedData consistency", () => {
       gastos: [{ ...base.gastos[0], soportes: [{ nombre: "x", url: "http://x.test" }] }, ...base.gastos.slice(1)],
     }
     expect(checkSeedData(rotoUrl, HOY).join(" ")).toMatch(/https/)
-    const sinSobre: SeedData = { ...base, gastos: base.gastos.filter((g) => g.accion !== "INTENTAR_VALIDAR") }
+    const sinSobre: SeedData = { ...base, gastos: base.gastos.filter((g) => g.accion !== "SOBREGASTO") }
     expect(checkSeedData(sinSobre, HOY).join(" ")).toMatch(/overspend/)
   })
 
@@ -301,9 +301,9 @@ describe("buildSeedData — the demo shows the PO's AJ-03/04/05 cases", () => {
     expect(F_X1_PERIODOS).toContain(modificados[0].periodo)
   })
 
-  it("has a validated gasto with IVA, so the rubro records subtotal + IVA", () => {
+  it("has a gasto with IVA, so the rubro records subtotal + IVA", () => {
     const conIva = buildSeedData(HOY_NOV).gastos.filter((g) => g.iva && toCents(g.iva) > BigInt(0))
-    expect(conIva.map((g) => [g.numeroDocumento, g.valor, g.iva, g.accion])).toEqual([["FV-1001", "8500000", "1615000", "VALIDAR"]])
+    expect(conIva.map((g) => [g.numeroDocumento, g.valor, g.iva, g.accion])).toEqual([["FV-1001", "8500000", "1615000", "REGISTRAR"]])
   })
 
   it("reports 1.1 at the 90 % tope on its fin, before its soportes arrive", () => {

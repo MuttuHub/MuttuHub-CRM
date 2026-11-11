@@ -13,7 +13,7 @@
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
 import { contarMediosVivos } from "@/lib/api/ejecucion";
-import { loadGastosValidados } from "@/lib/api/financiera";
+import { loadGastosEjecutados } from "@/lib/api/financiera";
 import {
   agruparAvancesPorEntregable,
   cargarReportesPorActividad,
@@ -112,7 +112,7 @@ export async function calcularCurva(
       where: { proyecto_id: id },
       select: { linea_id: true, periodo: true, valor: true },
     }),
-    loadGastosValidados(id),
+    loadGastosEjecutados(id),
     getSemaforoParametrosV2(),
   ]);
 

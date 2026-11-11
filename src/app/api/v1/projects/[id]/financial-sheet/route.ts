@@ -1,9 +1,9 @@
 // GET /api/v1/projects/:id/financial-sheet?corte=AAAA-MM&base=vigente — financial ficha (S5 U4, E-18).
 //
 // Per rubro and total row: A (assigned), P (programmed up to the corte), E
-// (validated expenses up to the corte), D = E - P, E/P, E/A, the red threshold
+// (executed expenses up to the corte), D = E - P, E/P, E/A, the red threshold
 // and the financial color, all through the pure `computeFicha`. E comes from the
-// VALIDADO expenses (`loadGastosValidados` seam, S6); while `ejecucion_disponible`
+// executed expenses (`loadGastosEjecutados` seam, AJ-08: REGISTRADO already counts); while `ejecucion_disponible`
 // is false (a BORRADOR project has not started executing) E is $0 and no color,
 // percentage or alert is produced. The delay alert lives on
 // the total row and reads the same technical color as `technical-status`.

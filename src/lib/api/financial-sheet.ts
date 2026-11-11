@@ -3,7 +3,7 @@
 // Per rubro and total row: A (assigned), P (programmed up to the corte), E
 // (validated expenses up to the corte), D = E - P, E/P, E/A, the red threshold
 // and the financial color, all through the pure `computeFicha`. E comes from the
-// VALIDADO expenses (`loadGastosValidados` seam, S6); while `ejecucion_disponible`
+// VALIDADO expenses (`loadGastosEjecutados` seam, S6); while `ejecucion_disponible`
 // is false (a BORRADOR project has not started executing) E is $0 and no color,
 // percentage or alert is produced. The delay alert lives on
 // the total row and reads the same technical color as `technical-status`.
@@ -20,7 +20,7 @@
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api/errors";
 import { compareRubros } from "@/lib/api/presupuesto";
-import { loadGastosValidados } from "@/lib/api/financiera";
+import { loadGastosEjecutados } from "@/lib/api/financiera";
 import { loadTecnicoStatus } from "@/lib/api/tecnico";
 import { BASE_INVALIDA_MESSAGE, BASE_ORIGINAL_MESSAGE, resolverBase } from "@/lib/api/versiones";
 import { getSemaforoParametrosV2 } from "@/lib/settings";
@@ -167,7 +167,7 @@ export async function calcularFichaFinanciera(
       where: { proyecto_id: id },
       select: { id: true, linea_id: true, periodo: true, valor: true },
     }),
-    loadGastosValidados(id),
+    loadGastosEjecutados(id),
     getSemaforoParametrosV2(),
   ]);
 

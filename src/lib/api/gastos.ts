@@ -20,6 +20,7 @@ import { MONTO_MAXIMO_CENTS, parseMonto } from "@/lib/api/presupuesto";
 import { PROYECTO_NO_EXISTE } from "@/lib/api/ejecucion";
 import { excederiaAsignado } from "@/lib/proyectos/ficha-financiera";
 import {
+  ESTADOS_EJECUTADOS,
   normalizarIdentificacion,
   normalizarNumeroDocumento,
   periodoEnProyecto,
@@ -36,8 +37,6 @@ import { isoDate } from "@/lib/proyectos/proyecto-general";
 export const GASTO_FORBIDDEN_MESSAGE = "No tienes permisos sobre este proyecto.";
 export const GASTO_NO_EXISTE = "El gasto no existe.";
 const SIN_SOPORTE_MESSAGE = "Adjunta al menos un soporte (archivo o enlace).";
-/** An expense without a live support cannot be validated (imported expenses start without one). */
-export const SIN_SOPORTE_VALIDAR_MESSAGE = "Adjunta al menos un soporte al gasto antes de validarlo.";
 export const MAX_SOPORTES = 5;
 export const MAX_SOPORTES_MESSAGE = `Puedes adjuntar máximo ${MAX_SOPORTES} soportes.`;
 export const RUBRO_SIN_ASIGNADO_MESSAGE = "Solo puedes registrar gastos en rubros con valor asignado.";
@@ -52,7 +51,6 @@ export const PERIODO_DOCUMENTO_FUERA_MESSAGE =
   "La fecha del documento está fuera de los meses del proyecto: elige el periodo.";
 
 export const ESTADOS_EDITABLES: EstadoGasto[] = ["REGISTRADO", "RECHAZADO"];
-const ESTADOS_VIVOS: EstadoGasto[] = ["REGISTRADO", "VALIDADO"];
 const TODOS_LOS_ESTADOS: EstadoGasto[] = ["REGISTRADO", "VALIDADO", "RECHAZADO", "ANULADO"];
 
 // ---------------------------------------------------------------------------
@@ -265,7 +263,7 @@ export function resolverPeriodo(
   return evaluated;
 }
 
-/** Early warning: would the VALIDADO total of the line plus `nuevo` exceed the assigned amount. */
+/** Early warning: would the executed total of the line plus `nuevo` exceed the assigned amount. */
 export async function superaAsignado(
   tx: Pick<Prisma.TransactionClient, "gasto">,
   linea: { id: string; asignado: Cents },
@@ -273,11 +271,15 @@ export async function superaAsignado(
   excluirGastoId?: string,
 ): Promise<boolean> {
   const total = await tx.gasto.aggregate({
-    where: { linea_id: linea.id, estado: "VALIDADO", ...(excluirGastoId ? { id: { not: excluirGastoId } } : {}) },
+    where: {
+      linea_id: linea.id,
+      estado: { in: [...ESTADOS_EJECUTADOS] },
+      ...(excluirGastoId ? { id: { not: excluirGastoId } } : {}),
+    },
     _sum: { monto_cop: true },
   });
-  const validado = total._sum.monto_cop ? toCents(total._sum.monto_cop) : BigInt(0);
-  return excederiaAsignado({ asignado: linea.asignado, validado, nuevo });
+  const ejecutado = total._sum.monto_cop ? toCents(total._sum.monto_cop) : BigInt(0);
+  return excederiaAsignado({ asignado: linea.asignado, ejecutado, nuevo });
 }
 
 /** Normalized keys written by the app and used only for the duplicate lookup (RF-21). */
@@ -301,7 +303,7 @@ export type AlertaGasto =
   | { tipo: "DUPLICADO"; gasto_id: string | null; proyecto_codigo: string | null; mensaje: string };
 
 export const SOBREGASTO_ADVERTENCIA =
-  "Este gasto, sumado a los gastos validados, superaría el valor asignado al rubro.";
+  "Este gasto, sumado a los gastos ya ejecutados del rubro, superaría el valor asignado.";
 
 /**
  * RF-21: a live expense (REGISTRADO or VALIDADO) of ANY project with the same normalized
@@ -318,7 +320,7 @@ export async function buscarDuplicados(
     where: {
       tercero_id_norm: gasto.tercero_id_norm,
       numero_documento_norm: gasto.numero_documento_norm,
-      estado: { in: ESTADOS_VIVOS },
+      estado: { in: [...ESTADOS_EJECUTADOS] },
       id: { not: gasto.id },
     },
     select: { id: true, proyecto_id: true, proyecto: { select: { codigo: true } } },
@@ -504,7 +506,7 @@ export function resumenGastos(
   }[],
   opts: { puedeVerSoportes: boolean },
 ): ResumenGastos {
-  const vigentes = rows.filter((row) => ESTADOS_VIVOS.includes(row.estado));
+  const vigentes = rows.filter((row) => ESTADOS_EJECUTADOS.includes(row.estado));
   const observados = rows.filter((row) =>
     esObservado({ estado: row.estado, alerta_sobregasto: row.alerta_sobregasto, datos_incompletos: datosIncompletos(row) }),
   );

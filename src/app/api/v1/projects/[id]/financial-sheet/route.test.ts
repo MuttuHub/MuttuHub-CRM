@@ -19,7 +19,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/supabase/server", () => ({ requireApiUser: vi.fn() }));
 vi.mock("@/lib/settings", () => ({ getSemaforoParametrosV2: vi.fn(async () => mocks.parametros) }));
-vi.mock("@/lib/api/financiera", () => ({ loadGastosValidados: mocks.loadGastos }));
+vi.mock("@/lib/api/financiera", () => ({ loadGastosEjecutados: mocks.loadGastos }));
 vi.mock("@/lib/api/tecnico", () => ({ loadTecnicoStatus: mocks.loadTecnico }));
 vi.mock("@/lib/db", () => ({
   db: {
@@ -72,7 +72,7 @@ const gastosF1 = [
   gasto("r01", "2026-11", "15000000"),
   gasto("r12", "2026-10", "7000000"),
   gasto("r12", "2026-11", "6500000"),
-  gasto("r01", "2026-11", "5000000", "REGISTRADO"),
+  gasto("r01", "2026-11", "5000000", "ANULADO"),
   gasto("r12", "2026-10", "800000", "RECHAZADO"),
   gasto("r01", "2026-12", "3000000"),
 ];
@@ -104,6 +104,16 @@ afterEach(() => {
 });
 
 describe("GET financial-sheet: F-F1 golden", () => {
+  it("counts a REGISTRADO expense as ejecutado (AJ-08): the $938.000 of Promoción y divulgación", async () => {
+    mocks.loadGastos.mockResolvedValue({ disponible: true, gastos: [gasto("r12", "2026-11", "938000", "REGISTRADO")] });
+    const res = await GET(get(), ctx);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const r12 = body.rubros.find((r: { codigo: string }) => r.codigo === "R12");
+    expect(r12).toMatchObject({ ejecutado: "938000.00" });
+    expect(body.total).toMatchObject({ ejecutado: "938000.00" });
+  });
+
   it("computes R01 verde, R12 rojo and the total row from the sums", async () => {
     const res = await GET(get(), ctx);
     expect(res.status).toBe(200);

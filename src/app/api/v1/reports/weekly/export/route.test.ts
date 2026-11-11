@@ -24,7 +24,7 @@ const get = (qs = "?semana=2026-10-21") => new Request(`http://localhost/api/v1/
 
 const COLORES = { verde: 0, amarillo: 0, rojo: 0 }
 const financiero = { proyectos: 1, asignado: "1000.00", programado: "500.00", ejecutado: "100.00", ea: 10, ep: 20 }
-const reporte = (gastos: ReporteSemanal["gastos_por_validar"]): ReporteSemanal => ({
+const reporte = (): ReporteSemanal => ({
   semana: { desde: "2026-10-19", hasta: "2026-10-25" },
   semana_anterior: { desde: "2026-10-12", hasta: "2026-10-18" },
   corte: "2026-10-25",
@@ -73,13 +73,7 @@ const reporte = (gastos: ReporteSemanal["gastos_por_validar"]): ReporteSemanal =
   atencion: [
     { proyecto: { id: "p1", codigo: "PRY-1", nombre: "Uno" }, items: [{ tipo: "rubro_sobreejecucion", titulo: "Rubro sobreejecutado", detalle: "R01 Personal." }] },
   ],
-  gastos_por_validar: gastos,
 })
-const GASTOS = {
-  cantidad: 2,
-  monto: "300.50",
-  por_proyecto: [{ proyecto: { id: "p1", codigo: "PRY-1", nombre: "Uno" }, cantidad: 2, monto: "300.50", mas_antiguo: "2026-10-10" }],
-}
 
 async function abrir(res: Response) {
   const wb = new ExcelJS.Workbook()
@@ -89,7 +83,7 @@ async function abrir(res: Response) {
 
 beforeEach(() => {
   auth(user("GERENCIA"))
-  vi.mocked(cargarReporteSemanal).mockResolvedValue({ ok: true, value: reporte(GASTOS) })
+  vi.mocked(cargarReporteSemanal).mockResolvedValue({ ok: true, value: reporte() })
 })
 afterEach(() => vi.clearAllMocks())
 
@@ -122,7 +116,6 @@ describe("GET /api/v1/reports/weekly/export", () => {
       "Por cliente",
       "Actividades atrasadas",
       "Requiere atención",
-      "Gastos por validar",
     ])
     const proyectos = wb.getWorksheet("Proyectos")!
     expect(proyectos.getRow(2).getCell(2).value).toBe("'=SUMA(1;1)")
@@ -137,9 +130,9 @@ describe("GET /api/v1/reports/weekly/export", () => {
     )
   })
 
-  it("never writes a tercero or soporte header and drops the queue sheet for a role that cannot validate", async () => {
+  it("never writes a tercero or soporte header (AJ-08: the queue sheet is gone for every role)", async () => {
     auth(user("COORDINADOR"))
-    vi.mocked(cargarReporteSemanal).mockResolvedValue({ ok: true, value: reporte(null) })
+    vi.mocked(cargarReporteSemanal).mockResolvedValue({ ok: true, value: reporte() })
     const wb = await abrir(await GET(get()))
     expect(wb.worksheets.map((ws) => ws.name)).not.toContain("Gastos por validar")
     for (const ws of wb.worksheets) {

@@ -125,6 +125,16 @@ beforeEach(() => {
 });
 afterEach(() => vi.clearAllMocks());
 
+describe("PATCH expenses/:expenseId overspend check (AJ-08)", () => {
+  it("leaves the edited expense out of the executed total, so it is not counted twice", async () => {
+    const res = await PATCH(patch({ descripcion: "Peajes del recorrido" }), ctx);
+    expect(res.status).toBe(200);
+    expect(mocks.aggregate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ linea_id: "lin-1", id: { not: "gas-1" } }) }),
+    );
+  });
+});
+
 describe("GET expenses/:expenseId", () => {
   it("returns the expense scoped to the project", async () => {
     const res = await GET(get(), ctx);
