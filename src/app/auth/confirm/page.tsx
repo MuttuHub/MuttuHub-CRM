@@ -178,10 +178,12 @@ function ConfirmInner() {
           });
           if (error) throw error;
         } else if (tokenHash) {
+          // token_hash identifies the user by itself: GoTrue rejects the call
+          // with 400 "Only the token_hash and type should be provided" when
+          // email is sent too, which left invited users on «Enlace no válido».
           const { error } = await supabase.auth.verifyOtp({
             type,
             token_hash: tokenHash,
-            email,
           });
           if (error) throw error;
         } else if (accessToken) {

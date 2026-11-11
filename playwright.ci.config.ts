@@ -8,13 +8,11 @@ import { defineConfig, devices } from "@playwright/test";
 // root specs stay out on purpose (odd/tasks/e2e-proyectos-v2.md): crm-demo and
 // proyectos-demo are recorded demos (proyectos-demo needs zero projects),
 // change-password needs a real QA account, permisos-colaborador is blocked by
-// the kanban card's aria-disabled wrapper, and invitation-flow is blocked by a product
-// bug (/auth/confirm sends `email` with `token_hash`, which GoTrue rejects). It is
-// never pointed at a remote environment.
+// the kanban card's aria-disabled wrapper. It is never pointed at a remote environment.
 //
 // Files run in path order: the legacy specs (e2e/*.spec.ts) run before
 // e2e/proyectos-v2/, and none of them touches data the v2 suite relies on.
-const CI_LEGACY_SPECS = ["oportunidad-ciclo", "proyectos-ficha-pagina"];
+const CI_LEGACY_SPECS = ["invitation-flow", "oportunidad-ciclo", "proyectos-ficha-pagina"];
 
 export default defineConfig({
   testDir: "./e2e",
