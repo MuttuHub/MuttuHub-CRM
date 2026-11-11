@@ -9,11 +9,6 @@ export type Tone =
   | "exito"
   | "info";
 
-export const DEMO_USER = {
-  nombre: "Adriana Gómez",
-  iniciales: "AG",
-};
-
 export type Kpi = {
   label: string;
   val: string;
@@ -80,57 +75,6 @@ export const MESES: Mes[] = [
   { label: "Nov", v: 80, proy: true },
   { label: "Dic", v: 45, proy: true },
 ];
-
-export const CARTERA_TOTAL = { valor: "$5,4", unidad: "MM COP" };
-
-export const CARTERA_LEYENDA: { label: string; pct: string; color: string }[] =
-  [
-    { label: "Gobierno", pct: "38 %", color: "#CD1560" },
-    { label: "Cooperación", pct: "24 %", color: "#E4569A" },
-    { label: "Fundaciones", pct: "20 %", color: "#F5BAD2" },
-    { label: "Privado", pct: "18 %", color: "#DDD2D5" },
-  ];
-
-export type SinGestionItem = {
-  nombre: string;
-  responsable: string;
-  dias: string;
-  grave?: boolean;
-};
-
-export const SIN_GESTION_COUNT = "6 aliados";
-
-export const SIN_GESTION: SinGestionItem[] = [
-  {
-    nombre: "Universidad del Norte",
-    responsable: "María Peña",
-    dias: "47 d",
-    grave: true,
-  },
-  {
-    nombre: "Ministerio de Igualdad",
-    responsable: "Diana Castro",
-    dias: "39 d",
-    grave: true,
-  },
-  { nombre: "Cámara de Comercio", responsable: "Juan Rivas", dias: "33 d" },
-  {
-    nombre: "Comfamiliar Atlántico",
-    responsable: "Laura Mendoza",
-    dias: "31 d",
-  },
-];
-
-export const DIAS_SEMANA = ["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sá"];
-
-/** August 2026 starts on a Saturday (6 empty leading cells). */
-export const CALENDARIO_AGOSTO_2026 = {
-  titulo: "Agosto 2026",
-  mesNombre: "agosto",
-  primerDia: 6,
-  totalDias: 31,
-  diaSeleccionado: 6,
-};
 
 export type AgendaItem = {
   k: string;
@@ -215,90 +159,3 @@ export const AGENDA: Record<number, AgendaItem[]> = {
     },
   ],
 };
-
-export type Cliente = {
-  id: string;
-  nombre: string;
-  ubicacion: string;
-  tipo: string;
-  estado: string;
-  tono: Tone;
-  valor: string;
-  compromiso: string;
-  urgente?: boolean;
-};
-
-export const CLIENTES: Cliente[] = [
-  {
-    id: "c1",
-    nombre: "Alcaldía de Barranquilla",
-    ubicacion: "Barranquilla, Atlántico",
-    tipo: "Gobierno local",
-    estado: "Cliente activo",
-    tono: "activo",
-    valor: "1.284.500.000",
-    compromiso: "Vencido hace 4 d",
-    urgente: true,
-  },
-  {
-    id: "c2",
-    nombre: "ACNUR Colombia",
-    ubicacion: "Bogotá D.C.",
-    tipo: "Cooperante multilateral",
-    estado: "En negociación",
-    tono: "info",
-    valor: "890.000.000",
-    compromiso: "12/08/2026",
-  },
-  {
-    id: "c3",
-    nombre: "Fundación Santo Domingo",
-    ubicacion: "Barranquilla, Atlántico",
-    tipo: "Fundación",
-    estado: "Cliente activo",
-    tono: "activo",
-    valor: "640.000.000",
-    compromiso: "19/08/2026",
-  },
-  {
-    id: "c4",
-    nombre: "Gobernación del Magdalena",
-    ubicacion: "Santa Marta, Magdalena",
-    tipo: "Gobierno local",
-    estado: "En acercamiento",
-    tono: "neutro",
-    valor: "415.700.000",
-    compromiso: "Vence hoy",
-    urgente: true,
-  },
-  {
-    id: "c5",
-    nombre: "Universidad del Norte",
-    ubicacion: "Puerto Colombia, Atlántico",
-    tipo: "Aliado académico",
-    estado: "Standby",
-    tono: "neutro",
-    valor: "122.000.000",
-    compromiso: "Sin fecha",
-  },
-  {
-    id: "c6",
-    nombre: "Grupo Argos",
-    ubicacion: "Medellín, Antioquia",
-    tipo: "Empresa privada",
-    estado: "Ganada",
-    tono: "exito",
-    valor: "2.100.000.000",
-    compromiso: "28/09/2026",
-  },
-  {
-    id: "c7",
-    nombre: "Ministerio de Igualdad",
-    ubicacion: "Bogotá D.C.",
-    tipo: "Gobierno nacional",
-    estado: "Prospecto",
-    tono: "neutro",
-    valor: "—",
-    compromiso: "Sin fecha",
-  },
-];

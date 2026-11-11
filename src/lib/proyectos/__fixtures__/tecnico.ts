@@ -11,7 +11,6 @@
  */
 import type { ActividadTecnicaInput, AvanceInput } from "../avance"
 
-export const F_T1_INICIO = "2026-10-05"
 export const F_T1_CORTE = "2026-10-25"
 
 function avance(fecha: string, cantidad: number, tieneMedio = true): AvanceInput {

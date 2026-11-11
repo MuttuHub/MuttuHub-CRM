@@ -19,7 +19,7 @@ import { activityDates, type IsoDate } from "@/lib/proyectos/weeks";
 const toNumber = (value: { toString(): string }) => Number(value.toString());
 
 /** One activity of the technical read, enriched for the v6 schedule views (S14 P6). */
-export type TecnicoActividad = ActividadTecnicaResultado & {
+type TecnicoActividad = ActividadTecnicaResultado & {
   nombre: string;
   /** Code of the objective the activity belongs to (the v6 grouping key). */
   objetivo_codigo: string;

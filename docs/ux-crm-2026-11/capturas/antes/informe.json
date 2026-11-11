@@ -1,0 +1,110 @@
+{
+  "base": "http://localhost:3000",
+  "modo": "antes",
+  "generado": "2026-11-04T20:29:28.210Z",
+  "capturas": [
+    {
+      "nombre": "01-inicio",
+      "vista": "escritorio",
+      "url": "http://localhost:3000/",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\antes\\01-inicio-escritorio.png",
+      "titulo": "Inicio · Muttu Hub"
+    },
+    {
+      "nombre": "01-inicio",
+      "vista": "movil",
+      "url": "http://localhost:3000/",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\antes\\01-inicio-movil.png",
+      "titulo": "Inicio · Muttu Hub"
+    },
+    {
+      "nombre": "02-clientes",
+      "vista": "escritorio",
+      "url": "http://localhost:3000/clientes",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\antes\\02-clientes-escritorio.png",
+      "titulo": "Aliados y clientes · Muttu Hub"
+    },
+    {
+      "nombre": "02-clientes",
+      "vista": "movil",
+      "url": "http://localhost:3000/clientes",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\antes\\02-clientes-movil.png",
+      "titulo": "Aliados y clientes · Muttu Hub"
+    },
+    {
+      "nombre": "04-tareas",
+      "vista": "escritorio",
+      "url": "http://localhost:3000/tablero",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\antes\\04-tareas-escritorio.png",
+      "titulo": "Tablero del equipo · Muttu Hub"
+    },
+    {
+      "nombre": "04-tareas",
+      "vista": "movil",
+      "url": "http://localhost:3000/tablero",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\antes\\04-tareas-movil.png",
+      "titulo": "Tablero del equipo · Muttu Hub"
+    },
+    {
+      "nombre": "05-reportes",
+      "vista": "escritorio",
+      "url": "http://localhost:3000/reportes",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\antes\\05-reportes-escritorio.png",
+      "titulo": "Reportes · Muttu Hub"
+    },
+    {
+      "nombre": "05-reportes",
+      "vista": "movil",
+      "url": "http://localhost:3000/reportes",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\antes\\05-reportes-movil.png",
+      "titulo": "Reportes · Muttu Hub"
+    },
+    {
+      "nombre": "06-ficha-proyecto",
+      "vista": "escritorio",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\antes\\06-ficha-proyecto-escritorio.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "06-ficha-proyecto",
+      "vista": "movil",
+      "url": "http://localhost:3000/proyectos/579debc9-d3ce-4468-a5ca-3d9821d0df37",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\antes\\06-ficha-proyecto-movil.png",
+      "titulo": "Ficha de proyecto · Muttu Hub"
+    },
+    {
+      "nombre": "03-ficha-cliente",
+      "vista": "escritorio",
+      "url": "http://localhost:3000/clientes?cliente=00000000-0000-4000-d001-000000000005",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\antes\\03-ficha-cliente-escritorio.png",
+      "titulo": "Aliados y clientes · Muttu Hub"
+    },
+    {
+      "nombre": "03-ficha-cliente",
+      "vista": "movil",
+      "url": "http://localhost:3000/clientes?cliente=00000000-0000-4000-d001-000000000005",
+      "archivo": "C:\\Users\\Adrian\\Documents\\MuttuHub-CRM\\docs\\ux-crm-2026-11\\capturas\\antes\\03-ficha-cliente-movil.png",
+      "titulo": "Aliados y clientes · Muttu Hub"
+    }
+  ],
+  "dialogos": [],
+  "errores": [
+    {
+      "nombre": "general",
+      "error": "TimeoutError: locator.click: Timeout 90000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByLabel('Correo corporativo')\u001b[22m\n"
+    }
+  ],
+  "corridas": [
+    {
+      "modo": "antes",
+      "cuando": "2026-11-04T20:22:45.823Z",
+      "nuevas": 12
+    },
+    {
+      "modo": "antes",
+      "cuando": "2026-11-04T20:29:28.210Z",
+      "nuevas": 12
+    }
+  ]
+}

@@ -39,7 +39,7 @@ import { taskQueryKeys } from "@/hooks/kanban";
 
 /* ── DTOs (server response shapes) ─────────────────────────────────────── */
 
-export type NextCompromiso = {
+type NextCompromiso = {
   id: string;
   titulo: string;
   fecha_entrega: string | null;
@@ -65,6 +65,13 @@ export type ClientListRow = {
   compromisos_abiertos: number;
   next_compromiso: NextCompromiso | null;
   updated_at: string;
+  /**
+   * PR-11 (N6): most recent bitácora entry (ISO) and whole Bogotá days since
+   * it; both null when the client was never contacted. Always sent by
+   * GET /clients; optional here so older fixtures stay valid.
+   */
+  ultimo_contacto?: string | null;
+  dias_sin_gestion?: number | null;
   /**
    * PR 2 (Slice A) + PR 4 (Slice B2): server-authoritative write flag.
    * `false` ⇒ the current user would get 403 on PATCH/DELETE. The UI hides
@@ -137,7 +144,7 @@ export type ContactoFilters = {
 };
 
 /** v7 alignment C7a: categorías del resumen diario que se pueden activar/desactivar. */
-export type AutomatizacionesCategorias = {
+type AutomatizacionesCategorias = {
   vencidos: boolean;
   hoy: boolean;
   proximos: boolean;
@@ -223,7 +230,7 @@ export type InteractionFilters = {
 export type SaludBucket = "SANA" | "ATENCION" | "RIESGO" | "SIN_DATOS";
 
 /** v7 C5a: sub-scores del score de salud (null = componente sin datos). */
-export type SaludSubscores = {
+type SaludSubscores = {
   contacto: number | null;
   compromisos: number | null;
   proyectos: number | null;
@@ -312,24 +319,12 @@ export type ClientFilters = {
   hasta?: string;
   valorMin?: string;
   valorMax?: string;
+  /** PR-11 (N6): «sin gestión hace N días» (`?sinGestion=`), whole days. */
+  sinGestion?: string;
   page?: number;
   limit?: number;
   sort?: string;
   dir?: "asc" | "desc";
-};
-
-export type ClientFiltersPatch = {
-  q?: string;
-  tipo?: string;
-  estado?: string;
-  prioridad?: string;
-  responsable?: string;
-  /** 2.6 (S6): exact tag (`?etiqueta=`). */
-  etiqueta?: string;
-  desde?: string;
-  hasta?: string;
-  valorMin?: string;
-  valorMax?: string;
 };
 
 /* ── Query keys ────────────────────────────────────────────────────────── */
@@ -351,7 +346,7 @@ export const clientQueryKeys = {
 };
 
 /** v7 C7a: settings query keys (automatizaciones). */
-export const automatizacionesQueryKeys = {
+const automatizacionesQueryKeys = {
   detail: () => ["settings", "automatizaciones"] as const,
 };
 

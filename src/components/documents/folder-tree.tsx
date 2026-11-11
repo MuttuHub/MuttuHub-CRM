@@ -45,7 +45,7 @@ export const FOLDER_DROP_PREFIX = "carpeta:";
 export const ROOT_DROP_ID = `${FOLDER_DROP_PREFIX}raiz`;
 /** MIME propio para arrastrar carpetas dentro del árbol (mover jerarquía). */
 export const FOLDER_DRAG_TYPE = "application/x-muttuhub-folder";
-export function folderDropId(id: string | null): string {
+function folderDropId(id: string | null): string {
   return id === null ? ROOT_DROP_ID : `${FOLDER_DROP_PREFIX}${id}`;
 }
 

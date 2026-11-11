@@ -28,7 +28,7 @@ export type ResumenEstructuraPO = { objetivos: number; actividades: number; entr
  * responsable, medio or indicator unit (PO 2026-10-23), so they take the
  * template's defaults: the default weight, no responsable and empty strings.
  */
-export function aEstructuraPlan(plan: PlanEstructuraPO): EstructuraPlan {
+function aEstructuraPlan(plan: PlanEstructuraPO): EstructuraPlan {
   return {
     objetivos: plan.objetivos.map((o, indice) => ({ codigo: o.codigo, descripcion: o.descripcion, orden: indice + 1 })),
     actividades: plan.actividades.map((a) => ({

@@ -22,7 +22,7 @@ export type UiTone =
   | "alerta"
   | "destructivo";
 
-export type CatalogEntry = { label: string; tone: UiTone };
+type CatalogEntry = { label: string; tone: UiTone };
 export type Catalog<T extends string> = Record<T, CatalogEntry>;
 
 // Roles keep ROLE_LABELS in src/lib/auth/types.ts (existing, don't duplicate).

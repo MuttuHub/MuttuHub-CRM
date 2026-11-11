@@ -55,24 +55,61 @@ export function AvisoCongelado({ estado }: { estado: EstadoProyecto }) {
   );
 }
 
-export function EstadoProyectoAcciones({ proyecto }: { proyecto: ProjectListRow }) {
+/** Whether the current user may change this project's state: the same rule that shows the control. */
+export function usePuedeCambiarEstado(proyecto: ProjectListRow): boolean {
   const usuario = useCurrentUser().data;
-  const acciones = accionesDisponibles(proyecto.estado);
-  if (acciones.length === 0) return null;
-  if (!usuario || !canManageProjects({ id: usuario.id, rol: usuario.rol })) return null;
-  return <CambioEstadoControl proyectoId={proyecto.id} acciones={acciones} />;
+  if (accionesDisponibles(proyecto.estado).length === 0) return false;
+  return !!usuario && canManageProjects({ id: usuario.id, rol: usuario.rol });
 }
 
-function CambioEstadoControl({ proyectoId, acciones }: { proyectoId: string; acciones: AccionEstado[] }) {
+/**
+ * The «Cambiar estado» control. Uncontrolled it brings its own button; with `open`/`onOpenChange` it renders
+ * only the dialog, so the caller can open it from elsewhere (the ficha's «⋯» menu, T10).
+ */
+export function EstadoProyectoAcciones({
+  proyecto,
+  open,
+  onOpenChange,
+}: {
+  proyecto: ProjectListRow;
+  open?: boolean;
+  onOpenChange?: (abierto: boolean) => void;
+}) {
+  const puede = usePuedeCambiarEstado(proyecto);
+  if (!puede) return null;
+  return (
+    <CambioEstadoControl
+      proyectoId={proyecto.id}
+      acciones={accionesDisponibles(proyecto.estado)}
+      open={open}
+      onOpenChange={onOpenChange}
+    />
+  );
+}
+
+function CambioEstadoControl({
+  proyectoId,
+  acciones,
+  open: openControlado,
+  onOpenChange,
+}: {
+  proyectoId: string;
+  acciones: AccionEstado[];
+  open?: boolean;
+  onOpenChange?: (abierto: boolean) => void;
+}) {
   const cambiar = useChangeProjectEstado(proyectoId);
   const id = useId();
-  const [open, setOpen] = useState(false);
+  const controlado = openControlado !== undefined;
+  const [openLocal, setOpenLocal] = useState(false);
+  const open = controlado ? openControlado : openLocal;
   const [accion, setAccion] = useState<AccionEstado | null>(null);
   const [motivo, setMotivo] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   function cambiarApertura(abierto: boolean) {
-    setOpen(abierto);
+    if (controlado) onOpenChange?.(abierto);
+    else setOpenLocal(abierto);
     if (!abierto) {
       setAccion(null);
       setMotivo("");
@@ -95,14 +132,16 @@ function CambioEstadoControl({ proyectoId, acciones }: { proyectoId: string; acc
 
   return (
     <>
-      <Button type="button" variant="outline" size="sm" onClick={() => cambiarApertura(true)}>
-        Cambiar estado
-      </Button>
+      {!controlado && (
+        <Button type="button" variant="outline" size="sm" onClick={() => cambiarApertura(true)}>
+          Cambiar estado
+        </Button>
+      )}
 
       <Dialog open={open} onOpenChange={cambiarApertura}>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[min(560px,calc(100%-2rem))]">
+        <DialogContent className="sm:max-w-[min(560px,calc(100%-2rem))]">
           <DialogHeader>
-            <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
+            <DialogTitle>
               Cambiar estado del proyecto
             </DialogTitle>
             <DialogDescription>Elige la acción y escribe el motivo; queda en el historial.</DialogDescription>
@@ -144,7 +183,7 @@ function CambioEstadoControl({ proyectoId, acciones }: { proyectoId: string; acc
           <InlineError message={error} />
 
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => cambiarApertura(false)} disabled={cambiar.isPending}>
+            <Button type="button" variant="outline" onClick={() => cambiarApertura(false)} disabled={cambiar.isPending}>
               Volver
             </Button>
             <Button type="button" disabled={!listo} onClick={() => void confirmar()}>

@@ -22,7 +22,7 @@ export const SETTING_AUTOMATIZACIONES = "automatizaciones";
 export type DocCategoriaSetting = { nombre: string; restringida: boolean };
 
 /** Categorías del resumen diario que el admin puede activar o desactivar. */
-export type AutomatizacionesCategorias = {
+type AutomatizacionesCategorias = {
   vencidos: boolean;
   hoy: boolean;
   proximos: boolean;

@@ -44,7 +44,8 @@ feature's new table and get their own documents/branches/PRs afterward, per that
   3. «Los pesos manuales ya guardados se recalculan por duración. Las líneas base aprobadas conservan su foto
      histórica.» (AJ-02's concern — recorded here since it's in the same decision list, acted on in the AJ-02
      document, not this one.)
-  4. «El reporte de avance lo registra el responsable de la actividad.»
+  4. ~~«El reporte de avance lo registra el responsable de la actividad.»~~ Reemplazada el 2026-11-05 (L10):
+     «Cualquier miembro» del equipo del proyecto.
   5. «El tope del 90 % sobre lo programado aplica al color del proyecto, al color de cada actividad y a la curva S.»
      (Partly AJ-03's concern — the setting is added here since AJ-01 needs it for the submission cap; its use on
      color/curva S is AJ-03's document.)
@@ -81,11 +82,10 @@ feature's new table and get their own documents/branches/PRs afterward, per that
   4. If `entregablesCompletos` is false at submission time: `porcentaje <= tope_en_curso.valor`, else 409 — message
      «El avance máximo sin entregables completos es {tope} %.» (exact wording, formatted). This also means 100%
      is only ever accepted once deliverables are already complete.
-  5. Write gate: only the activity's `responsable_id` may register/edit/void a report (S5.4), with the same
-     ADMINISTRADOR/GERENCIA override every other write gate in this codebase already has (assumption — no
-     responsable-only precedent exists yet; the house pattern elsewhere is role-based with an admin/gerencia
-     override, never a hard single-user lock, so this is extended rather than invented from nothing). A
-     COORDINADOR who is not the responsable gets 403.
+  5. Write gate (rewritten 2026-11-05, L10): any project member (COORDINADOR or COLABORADOR) or an
+     ADMINISTRADOR/GERENCIA may register, void or attach to a report, whoever the activity's `responsable_id` is —
+     the same membership axis as every other execution write. A non-member gets 403. (Before: responsable-only,
+     which hid the action from a member COORDINADOR who was not the activity's responsable.)
 - **S10 — Design: the "Propuesto" correction flow (assumption).** Edit and void apply only to the single most
   recent non-voided report for that activity (older reports are immutable once superseded, preserving the
   "siempre mayor" invariant for the sequence); both are audited the same way `AvanceEntregable`'s void already is.
@@ -216,6 +216,28 @@ activities must be a byte-for-byte no-op (S5.2) — pin with a regression test, 
   - **Outcome:** no blocking finding in either item; nothing to correct. Branch pushed as `6cadfe1` (previously
     local-only). A separate `chore(git)` commit on this branch adds `.gitattributes` and renormalizes the index,
     which is what actually removes the ~80 phantom CRLF modifications L8 had to `git restore`.
+- **L10 (2026-11-05, requirement change, user, verbatim):** asked who may register an activity report after the
+  fix — «Cualquier miembro». Context: the PO (role COORDINADOR) said she saw none of the AJ changes; in the
+  browser, a member COORDINADOR who is not the activity's responsable got no «Registrar avance» (the button is
+  not rendered) and the header shortcut only switches to the Actividades tab. The PO's AJ-01 text never asked
+  for a role restriction; decision 4 of 2026-10-28 (S5.4) did, and it is now replaced. S5.4 and S9.5 rewritten:
+  `gateReporteActividadWrite` keeps 404 → 403 membership → 409 → 404 activity and drops the responsable check;
+  the UI passes `canWrite` (manager or member) straight to the activity reports. Void and attach share the gate,
+  so they are open to any member too (still latest-report-only, motivo required, audited). Branch
+  `fix/aj01-registrar-avance-miembros`. RED 4 API + 6 UI → GREEN; independent verifier PASS, no blockers.
+- **L11 (2026-11-05, two S2/S3 defects found in the browser):** (1) the history showed a raw UUID
+  (`6e9fd0f1-…`) instead of who registered the report: the UI resolved names from the current members list, so a
+  former member fell back to the id. The API now returns `registrado_por_nombre` (list, create and void; one
+  `usuario` query, like the expense validation queue) and the UI shows it; the members map is gone. (2) The S3
+  messages read «(70%)» / «90%.» while the PO's document and this document's S9.3/S9.4 (and the OpenAPI note)
+  say «(70 %)» / «90 %.»: fixed in `validarNuevoReporte`. RED 8 → GREEN.
+- **L12 (2026-11-05, UX approved by Adrián: «Aprobar los tres»):** (1) the deliverable's button and form are
+  «Registrar cantidad» (they ask for a quantity), so «Registrar avance» names only the activity's % report — it
+  closes BL#27 (two identical buttons). (2) The header's «Registrar avance» opens Actividades › Lista AND focuses
+  the first activity that is not finished (a request counter; each request picks its row once, so a refetch
+  never moves the focus). (3) The activity chip reads «Semáforo: Verde» (the existing `prefix`, same form as
+  «Semáforo técnico: Rojo») so it no longer reads as contradicting «Finalizada con retraso»; the proposal said
+  «Semáforo verde» and the house format with a colon was kept. Guides updated. RED 8 → GREEN.
 
 ## Delivery slices (2026-10-29)
 
@@ -232,3 +254,4 @@ decision it is delivered as four chained PRs instead of one, each green on its o
 `feat/aj01-estado-en-curso` stays as the integration reference (all four slices combined) at `6cadfe1`; nothing is
 pushed to `main` from here — merge order is 1 → 2 → 3 → 4, so each PR's base is a real branch rather than a
 rebased guess.
+- **L10 (2026-11-04) — production migration.** Production was serving the AJ-01 code without `reportes_actividad` (dump of 2026-11-03: last applied migration `20261029120000_jefe_clientes_aliados_carpetas`). Verified in local Docker (41/41, invariants green), rehearsed on a restored production dump (`migrate deploy` clean incl. the re-created `soportes_proyecto_padre_check`, `migrate diff` empty, 42/42 tables unchanged), then applied in production on 2026-11-04 with explicit user authorization after a fresh backup: `migrate status` up to date, `migrate diff` empty, table and CHECK present, 5 `soportes_proyecto` rows intact. User smoke test: «Registrar avance» opens with both fields (no save). Follow-up proposal U22 (milestone-based progress, option A chosen by the user: «listo vamos con A») recorded in `docs/pendientes/plan-mejora-ux-proyectos.md`; needs PO approval.

@@ -25,7 +25,7 @@ import { db } from "@/lib/db";
 import type { EmailSender } from "./sender";
 
 export const OUTBOX_MAX_ATTEMPTS = 5;
-export const OUTBOX_LEASE_MS = 10 * 60_000;
+const OUTBOX_LEASE_MS = 10 * 60_000;
 const BACKOFF_BASE_MS = 5 * 60_000;
 const BACKOFF_CAP_MS = 6 * 60 * 60_000;
 /** Resend's limit for `Idempotency-Key`. */

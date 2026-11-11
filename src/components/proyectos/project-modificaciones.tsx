@@ -6,14 +6,15 @@
 "use client";
 
 import { useState } from "react";
-import { FilePen, LoaderCircle } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { ToneBadge } from "@/components/crm/shared";
 import { SolicitarModificacion, TIPO_MODIFICACION_LABEL } from "@/components/proyectos/modificacion-form";
 import { formatFechaHora } from "@/components/proyectos/project-display";
-import { CAMPO_LABEL } from "@/components/proyectos/project-versiones";
+import { CAMPO_LABEL } from "@/components/proyectos/ficha/historial/campos";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
-import { EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/ui";
+import { InlineError } from "@/components/proyectos/ui";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrentUser } from "@/hooks/kanban";
 import {
@@ -32,7 +33,7 @@ import { formatCOP, toCents } from "@/lib/proyectos/money";
 import type { UiTone } from "@/lib/catalogs";
 
 const LISTA_ERROR = "No pudimos cargar las solicitudes de modificación. Inténtalo de nuevo.";
-export const MODIFICACIONES_BORRADOR_HINT =
+const MODIFICACIONES_BORRADOR_HINT =
   "Las modificaciones estarán disponibles cuando la línea base esté aprobada.";
 
 const ESTADO_META: Record<ProjectModificacion["estado"], { tone: UiTone; label: string }> = {
@@ -53,10 +54,37 @@ function formatValor(item: ModificacionDetalleItem, valor: string): string {
   }
 }
 
+/**
+ * Who may request a modification (A-01): a manager or a member of the team, with the project EN_EJECUCION. A
+ * convenience: the API is the authority. Shared with Versiones del plan, which offers the same button.
+ */
+export function usePuedeSolicitarModificacion(proyecto: ProjectListRow): boolean {
+  const usuario = useCurrentUser().data;
+  const miembros = useProjectMembers(proyecto.id).data;
+  const esGestor = usuario ? canManageProjects({ id: usuario.id, rol: usuario.rol }) : false;
+  const esMiembro = Boolean(
+    usuario && PROJECT_MEMBER_ROLES.includes(usuario.rol) && (miembros ?? []).some((m) => m.usuario.id === usuario.id),
+  );
+  return proyecto.estado === "EN_EJECUCION" && (esGestor || esMiembro);
+}
+
+/** «Aún no hay solicitudes de modificación», with the request button inside for who may use it. */
+export function SolicitudesVacias({ proyecto, puedeSolicitar }: { proyecto: ProjectListRow; puedeSolicitar: boolean }) {
+  return (
+    <EmptyState
+      bordered
+      className="min-h-0 py-6"
+      title="Aún no hay solicitudes de modificación"
+      description="Aquí aparecen los cambios de presupuesto, cronograma o entregables que pide el equipo."
+      action={puedeSolicitar ? <SolicitarModificacion proyecto={proyecto} destacado /> : undefined}
+    />
+  );
+}
+
+// Its only screen is Historial › Solicitudes de modificación, whose segment already names the section: no heading.
 export function ProjectModificaciones({ proyecto }: { proyecto: ProjectListRow }) {
   return (
     <section data-testid="modificaciones">
-      <SectionHeader icon={<FilePen className="size-3.5" strokeWidth={2} />}>Modificaciones</SectionHeader>
       {proyecto.estado === "BORRADOR" ? (
         <p className="mt-1.5 text-[12.5px] text-ink-500">{MODIFICACIONES_BORRADOR_HINT}</p>
       ) : (
@@ -69,7 +97,6 @@ export function ProjectModificaciones({ proyecto }: { proyecto: ProjectListRow }
 function ModificacionesContent({ proyecto }: { proyecto: ProjectListRow }) {
   const query = useProjectModifications(proyecto.id);
   const userQuery = useCurrentUser();
-  const membersQuery = useProjectMembers(proyecto.id);
   const aprobar = useApproveModification(proyecto.id);
   const rechazar = useRejectModification(proyecto.id);
 
@@ -79,13 +106,7 @@ function ModificacionesContent({ proyecto }: { proyecto: ProjectListRow }) {
   const [fallos, setFallos] = useState<Record<string, { mensaje: string; reglas: ModificacionRegla[] }>>({});
 
   const usuario = userQuery.data;
-  const esGestor = usuario ? canManageProjects({ id: usuario.id, rol: usuario.rol }) : false;
-  const esMiembro = Boolean(
-    usuario &&
-      PROJECT_MEMBER_ROLES.includes(usuario.rol) &&
-      (membersQuery.data ?? []).some((m) => m.usuario.id === usuario.id),
-  );
-  const puedeSolicitar = proyecto.estado === "EN_EJECUCION" && (esGestor || esMiembro);
+  const puedeSolicitar = usePuedeSolicitarModificacion(proyecto);
   const puedeDecidir = proyecto.estado === "EN_EJECUCION" && usuario ? canApproveModification({ id: usuario.id, rol: usuario.rol }) : false;
 
   function registrarFallo(id: string, err: unknown) {
@@ -134,19 +155,18 @@ function ModificacionesContent({ proyecto }: { proyecto: ProjectListRow }) {
 
   return (
     <div className="mt-2 flex flex-col gap-2.5">
-      {puedeSolicitar && (
-        <div>
-          <SolicitarModificacion proyecto={proyecto} />
-        </div>
-      )}
-
       {query.isError ? (
         <InlineError message={errorMessage(query.error, LISTA_ERROR)} />
       ) : query.isLoading || !query.data ? (
         <Skeleton className="h-16 w-full rounded-[14px]" />
       ) : solicitudes.length === 0 ? (
-        <EmptyBlock>Aún no hay solicitudes de modificación.</EmptyBlock>
+        <SolicitudesVacias proyecto={proyecto} puedeSolicitar={puedeSolicitar} />
       ) : (
+        <>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[12.5px] text-ink-600">Pendientes primero; luego las decididas, la más reciente arriba.</p>
+          {puedeSolicitar && <SolicitarModificacion proyecto={proyecto} />}
+        </div>
         <ul className="flex flex-col gap-2.5">
           {solicitudes.map((solicitud) => {
             const meta = ESTADO_META[solicitud.estado];
@@ -202,14 +222,17 @@ function ModificacionesContent({ proyecto }: { proyecto: ProjectListRow }) {
                   <div className="mt-2 flex flex-col gap-2">
                     {rechazando === solicitud.id ? (
                       <>
-                        <textarea
-                          aria-label="Comentario del rechazo"
-                          value={comentario}
-                          onChange={(event) => setComentario(event.target.value)}
-                          rows={2}
-                          maxLength={1000}
-                          className="rounded-12 border border-border-strong bg-input-bg px-3 py-2 text-base text-ink-900 md:text-[13px]"
-                        />
+                        <label className="flex flex-col gap-1">
+                          <span className="text-[12px] font-semibold text-ink-700">Comentario del rechazo</span>
+                          <textarea
+                            value={comentario}
+                            onChange={(event) => setComentario(event.target.value)}
+                            rows={2}
+                            maxLength={1000}
+                            placeholder="Explica por qué no se aprueba"
+                            className="rounded-12 border border-border-strong bg-input-bg px-3 py-2 text-base text-ink-900 md:text-[13px]"
+                          />
+                        </label>
                         <div className="flex flex-wrap gap-2">
                           <Button
                             type="button"
@@ -251,6 +274,7 @@ function ModificacionesContent({ proyecto }: { proyecto: ProjectListRow }) {
             );
           })}
         </ul>
+        </>
       )}
     </div>
   );

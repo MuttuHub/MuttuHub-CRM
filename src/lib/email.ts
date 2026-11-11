@@ -9,7 +9,6 @@ import type { AlertBuckets, AlertItem } from "@/lib/alerts";
 import { resolveEmailTransport, type SendResult } from "@/lib/email/sender";
 
 export { RESEND_ENDPOINT } from "@/lib/email/resend";
-export { EMAIL_FROM_DEFAULT, type SendResult } from "@/lib/email/sender";
 export const DAILY_SUBJECT = "Muttu Hub · Resumen diario";
 
 const BRAND_MAIN = "#cd1560";

@@ -1,6 +1,6 @@
 // POST .../progress/:reportId/attachments/sign (AJ-01, S11): ADR-13 signed direct-to-storage
 // upload for a medio of an activity progress report. Mirrors the AJ-06 mediciones sign test,
-// retargeted to `reporte_actividad_id` with the S9.5 responsable-only gate.
+// retargeted to `reporte_actividad_id`; any project member may sign (the same gate as creating the report).
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Usuario } from "@prisma/client";
@@ -55,8 +55,15 @@ describe("POST progress attachments/sign", () => {
     expect(json).toMatchObject({ token: "tok", signed_url: "https://s.example/up", max_bytes: MAX_FILE_BYTES });
   });
 
-  it("is responsable-only (403) and 409 on a voided report", async () => {
+  it("signs for a member COORDINADOR who is not the responsable (200)", async () => {
     authAs(otroCoordinador);
+    expect((await POST(post(valido), ctx)).status).toBe(200);
+    expect(mocks.createSignedUploadUrl).toHaveBeenCalledTimes(1);
+  });
+
+  it("answers 403 for a non-member COORDINADOR and 409 on a voided report", async () => {
+    authAs(otroCoordinador);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValueOnce({ id: "pry-1", estado: "EN_EJECUCION", miembros: [] } as never);
     expect((await POST(post(valido), ctx)).status).toBe(403);
     authAs(responsable);
     vi.mocked(db.reporteActividad.findFirst).mockResolvedValueOnce({ id: "rep-1", anulado_at: new Date() } as never);

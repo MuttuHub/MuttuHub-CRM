@@ -121,7 +121,7 @@ describe("EjecucionAvanceForm", () => {
 
   it("uses 44 px touch targets on phones and no fixed width over 360 px", () => {
     setup()
-    const form = screen.getByRole("form", { name: "Registrar avance ENT-1" })
+    const form = screen.getByRole("form", { name: "Registrar cantidad ENT-1" })
     expectTouchTargets(form)
     expect(form.innerHTML).not.toMatch(/(?:min-)?w-\[(?:3[6-9]\d|[4-9]\d\d|\d{4,})px\]/)
   })
@@ -140,7 +140,7 @@ describe("EjecucionAvanceForm", () => {
     const futuro = "2099-01-01"
     fireEvent.change(fecha, { target: { value: futuro } })
     await user.type(screen.getByLabelText("Cantidad"), "1")
-    await user.click(screen.getByRole("button", { name: "Registrar avance" }))
+    await user.click(screen.getByRole("button", { name: "Registrar cantidad" }))
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/posterior a hoy/i)
     expect(call("POST", "/deliverables/e1/progress")).toBeUndefined()
@@ -162,7 +162,7 @@ describe("EjecucionAvanceForm", () => {
     setup()
 
     await user.type(screen.getByLabelText("Cantidad"), "1")
-    await user.click(screen.getByRole("button", { name: "Registrar avance" }))
+    await user.click(screen.getByRole("button", { name: "Registrar cantidad" }))
 
     await waitFor(() => expect(call("POST", "/deliverables/e1/progress")).toBeDefined())
     expect(call("POST", "/deliverables/e1/progress")?.body).toEqual({
@@ -179,7 +179,7 @@ describe("EjecucionAvanceForm", () => {
     await user.click(screen.getByRole("radio", { name: "Archivo" }))
     const archivo = new File([new Uint8Array([1, 2, 3])], "acta.pdf", { type: "application/pdf" })
     await user.upload(screen.getByLabelText("Archivo del medio"), archivo)
-    await user.click(screen.getByRole("button", { name: "Registrar avance" }))
+    await user.click(screen.getByRole("button", { name: "Registrar cantidad" }))
 
     await waitFor(() => expect(call("POST", "/attachments/sign")).toBeDefined())
     expect(call("POST", "/attachments/sign")?.body).toMatchObject({ nombre: "acta.pdf", tamano_bytes: 3 })
@@ -200,7 +200,7 @@ describe("EjecucionAvanceForm", () => {
     await user.click(screen.getByRole("radio", { name: "Enlace" }))
     await user.type(screen.getByLabelText("URL"), "https://example.com/soporte")
     await user.type(screen.getByLabelText("Nombre del enlace"), "Soporte externo")
-    await user.click(screen.getByRole("button", { name: "Registrar avance" }))
+    await user.click(screen.getByRole("button", { name: "Registrar cantidad" }))
 
     await waitFor(() => expect(call("POST", "/attachments")).toBeDefined())
     expect(call("POST", "/deliverables/e1/progress")).toBeDefined()
@@ -235,9 +235,9 @@ describe("EjecucionAvanceForm", () => {
     )
 
     await user.type(screen.getByLabelText("Cantidad"), "1")
-    await user.click(screen.getByRole("button", { name: "Registrar avance" }))
+    await user.click(screen.getByRole("button", { name: "Registrar cantidad" }))
 
-    const form = screen.getByRole("form", { name: "Registrar avance ENT-1" })
+    const form = screen.getByRole("form", { name: "Registrar cantidad ENT-1" })
     expect(await within(form).findByRole("alert")).toHaveTextContent(
       "La cantidad acumulada supera la meta del entregable.",
     )

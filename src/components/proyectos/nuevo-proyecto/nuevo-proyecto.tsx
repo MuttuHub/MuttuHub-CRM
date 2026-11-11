@@ -1,4 +1,4 @@
-// "Nuevo proyecto" as a v7 stepper page (`/proyectos/nuevo`): General, Metas, Cronograma, Presupuesto and
+// "Nuevo proyecto" as a v7 stepper page (`/proyectos/nuevo`): General, Estructura, Cronograma, Presupuesto and
 // Revisión. Step 1 creates the project through the shared create form (both origins); the project id then
 // lives in the URL (`?proyecto=<id>&paso=<n>`) so refresh and back keep it. Steps 2-5 reuse the editors the
 // ficha already has for a BORRADOR project and stay disabled until the project exists.

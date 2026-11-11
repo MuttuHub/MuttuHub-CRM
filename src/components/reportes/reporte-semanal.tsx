@@ -111,7 +111,7 @@ export function ReporteSemanalContenido({ data }: { data: ReporteSemanal }) {
         <p className="text-[12px] text-ink-600">Los umbrales del semáforo son provisionales hasta que se confirmen.</p>
       )}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 print:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 print:grid-cols-2">
         <StatTile label="Proyectos" value={data.portafolio.proyectos.length} foot={`Corte ${formatFechaCalendario(data.corte)}`} />
         <StatTile
           label="Avance real promedio"
@@ -148,7 +148,7 @@ export function ReporteSemanalContenido({ data }: { data: ReporteSemanal }) {
             <TableBody>
               {data.portafolio.proyectos.map((p) => (
                 <TableRow key={p.id}>
-                  <TableCell className="font-mono text-[12px] font-semibold tabular-nums">{p.codigo}</TableCell>
+                  <TableCell className="font-mono text-[12px] font-semibold tabular-nums ">{p.codigo}</TableCell>
                   <TableCell className="max-w-[220px]">
                     <p className="truncate font-semibold text-ink-950" title={p.nombre}>{p.nombre}</p>
                     <p className="truncate text-[11.5px] text-ink-600">{p.cliente.nombre}</p>

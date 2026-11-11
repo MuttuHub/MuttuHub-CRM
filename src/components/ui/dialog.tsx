@@ -39,6 +39,12 @@ function DialogOverlay({
   )
 }
 
+/**
+ * Height: the dialog never grows past 90% of the viewport; the whole content
+ * scrolls and a `DialogFooter` stays pinned to the bottom (sticky), so the
+ * actions are always reachable. When a footer is present the content drops its
+ * bottom padding and the footer sits flush against the rounded bottom edge.
+ */
 function DialogContent({
   className,
   children,
@@ -53,7 +59,7 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-[22px] border border-border bg-popover px-7 py-[26px] text-sm text-popover-foreground duration-100 outline-none sm:max-w-[600px] data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed top-1/2 left-1/2 z-50 grid max-h-[90dvh] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-[22px] border border-border bg-popover px-7 py-[26px] text-sm text-popover-foreground duration-100 outline-none sm:max-w-[600px] has-[[data-slot=dialog-footer]]:pb-0 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className
         )}
         {...props}
@@ -90,6 +96,13 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+/**
+ * Footer actions. Convention for the dismiss button (BL#11): every dialog's
+ * «Cancelar» (or equivalent «Volver»/«Cerrar») uses `variant="outline"`, the
+ * same variant as the built-in `showCloseButton`; the primary action keeps the
+ * default variant. Never use `ghost` for a dialog's dismiss button — this is
+ * pinned by `dialog.test.tsx`.
+ */
 function DialogFooter({
   className,
   showCloseButton = false,
@@ -102,7 +115,7 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "-mx-7 -mb-[26px] flex flex-col-reverse gap-2 rounded-b-[22px] border-t bg-muted/50 px-7 py-4 sm:flex-row sm:justify-end",
+        "sticky bottom-0 z-10 -mx-7 flex flex-col-reverse gap-2 rounded-b-[22px] border-t bg-[color-mix(in_oklab,var(--muted)_50%,var(--popover))] px-7 py-4 sm:flex-row sm:justify-end",
         className
       )}
       {...props}
@@ -127,12 +140,13 @@ function DialogCode({ className, ...props }: React.ComponentProps<"span">) {
   )
 }
 
+/** Single title size for every dialog (BL#12): pass layout classes only. */
 function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
       className={cn(
-        "font-heading text-[26px] leading-tight font-semibold",
+        "font-display text-[18px] leading-tight font-bold tracking-[-0.02em] text-ink-950",
         className
       )}
       {...props}
@@ -164,8 +178,8 @@ export {
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogOverlay,
-  DialogPortal,
+  
+  
   DialogTitle,
   DialogTrigger,
 }

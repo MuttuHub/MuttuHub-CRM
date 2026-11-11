@@ -9,7 +9,7 @@
 import { useState } from "react";
 import { BarChart3, Download } from "lucide-react";
 import { toast } from "sonner";
-import { ToneBadge } from "@/components/crm/shared";
+import { AyudaBase, BASE_NO_DISPONIBLE, ETIQUETA_BASE, ETIQUETA_CORTE, OpcionesBase, SemaforoProvisional, datosAl } from "@/components/proyectos/vocabulario-seguimiento";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { EmptyBlock, InlineError, KpiCard, MetricBar, MetricRow, MetricTile, SELECT_CLASS, SectionHeader } from "@/components/proyectos/ui";
 import { formatDiferenciaPp, formatFechaCalendario } from "@/components/proyectos/project-display";
@@ -27,7 +27,7 @@ import { formatCOP, toCents } from "@/lib/proyectos/money";
 const KPIS_ERROR = "No pudimos cargar los indicadores. Inténtalo de nuevo.";
 export const KPIS_NO_MEDIBLE_NOTE =
   "Los indicadores se calculan cuando el proyecto está en ejecución, suspendido o cerrado.";
-export const ALERTA_RETRASO_TEXT =
+const ALERTA_RETRASO_TEXT =
   "Posible retraso: el gasto va por debajo de lo programado y el avance técnico está atrasado.";
 
 const SIN_DATO = "—";
@@ -69,30 +69,32 @@ export function ProjectKpisPanel({ proyecto, soloExportar = false }: { proyecto:
 
       <div className="mt-2 flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-1.5 text-[12px] text-ink-600">
-          Corte
+          {ETIQUETA_CORTE}
           <input
             type="date"
-            aria-label="Corte"
+            aria-label={ETIQUETA_CORTE}
             value={corte}
             onChange={(event) => setCorte(event.target.value)}
             className={SELECT_CLASS}
           />
         </label>
-        <label className="flex items-center gap-1.5 text-[12px] text-ink-600">
-          Base
-          <select
-            aria-label="Base"
-            disabled={!baseDisponible}
-            value={base}
-            onChange={(event) => setBase(event.target.value as ProjectBase)}
-            title={baseDisponible ? undefined : "La versión original estará disponible con la línea base aprobada."}
-            className={SELECT_CLASS}
-          >
-            <option value="vigente">Vigente</option>
-            {baseDisponible && <option value="original">Original (v0)</option>}
-          </select>
-        </label>
-        {kpis && kpis.medible && !kpis.confirmado && <ToneBadge tone="neutro" label="No confirmado" />}
+        <span className="flex items-center gap-1">
+          <label className="flex items-center gap-1.5 text-[12px] text-ink-600">
+            {ETIQUETA_BASE}
+            <select
+              aria-label={ETIQUETA_BASE}
+              disabled={!baseDisponible}
+              value={base}
+              onChange={(event) => setBase(event.target.value as ProjectBase)}
+              title={baseDisponible ? undefined : BASE_NO_DISPONIBLE}
+              className={SELECT_CLASS}
+            >
+              <OpcionesBase conOriginal={baseDisponible} />
+            </select>
+          </label>
+          <AyudaBase />
+        </span>
+        {kpis && kpis.medible && !kpis.confirmado && <SemaforoProvisional />}
         <div className="ml-auto flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => void exportar("proyecto")}>
             <Download className="size-3.5" strokeWidth={1.8} />
@@ -122,7 +124,7 @@ function KpiTiles({ kpis }: { kpis: ProjectKpis }) {
   const { tecnico, financiero, cronograma, entregables, indicadores } = kpis;
   return (
     <div className="mt-2 flex flex-col gap-2.5">
-      <p className="text-[12px] text-ink-500">Corte al {formatFechaCalendario(kpis.corte)}</p>
+      <p className="text-[12px] text-ink-500">{datosAl(formatFechaCalendario(kpis.corte))}</p>
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         {tecnico && (
           <MetricTile testId="kpi-tecnico" color={tecnico.color} chipPrefix="Semáforo técnico">

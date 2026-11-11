@@ -560,7 +560,7 @@ export function KanbanBoard() {
       >
         <DialogContent className="sm:max-w-[min(420px,calc(100%-2rem))]">
           <DialogHeader>
-            <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
+            <DialogTitle>
               Bloquear tarea
             </DialogTitle>
             <DialogDescription>

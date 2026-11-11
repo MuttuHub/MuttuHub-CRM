@@ -20,7 +20,7 @@ import {
 } from "@/lib/proyectos/avance";
 
 export const EJECUCION_FORBIDDEN_MESSAGE = "No tienes permisos sobre este proyecto.";
-export const EJECUCION_STATE_MESSAGE = "El proyecto aún no tiene línea base aprobada.";
+const EJECUCION_STATE_MESSAGE = "El proyecto aún no tiene línea base aprobada.";
 export const PROYECTO_NO_EXISTE = "El proyecto no existe.";
 export const ENTREGABLE_NO_EXISTE = "El entregable no existe.";
 export const AVANCE_NO_EXISTE = "El avance no existe.";
@@ -227,7 +227,7 @@ export function toMedioView(row: MedioRow): MedioView {
   };
 }
 
-export const AVANCE_ANULADO_MEDIO_MESSAGE = "No se pueden adjuntar medios a un avance anulado.";
+const AVANCE_ANULADO_MEDIO_MESSAGE = "No se pueden adjuntar medios a un avance anulado.";
 
 /** The avance must belong to this project (404); a voided one cannot receive medios (409). */
 export async function loadAvanceParaMedio(
@@ -250,8 +250,8 @@ export async function loadAvanceParaMedio(
 // Medios (supports) of a medición (AJ-06 T3) — same shape as the avance medios above.
 // ---------------------------------------------------------------------------
 
-export const MEDICION_NO_EXISTE = "La medición no existe.";
-export const MEDICION_ANULADA_MEDIO_MESSAGE = "No se pueden adjuntar medios a una medición anulada.";
+const MEDICION_NO_EXISTE = "La medición no existe.";
+const MEDICION_ANULADA_MEDIO_MESSAGE = "No se pueden adjuntar medios a una medición anulada.";
 
 /**
  * Live medios of several mediciones, in detail (AJ-06 T3, same pattern as `listarSoportesVivos`
@@ -298,18 +298,17 @@ export async function loadMedicionParaMedio(
 // ReporteActividad (AJ-01): activity-level progress reports
 // ---------------------------------------------------------------------------
 
-export const ACTIVIDAD_NO_EXISTE = "La actividad no existe.";
-export const REPORTE_FORBIDDEN_MESSAGE = "Solo el responsable de la actividad puede registrar su avance.";
+const ACTIVIDAD_NO_EXISTE = "La actividad no existe.";
 export const REPORTE_NO_EXISTE = "El reporte no existe.";
-export const REPORTE_ANULADO_MEDIO_MESSAGE = "No se pueden adjuntar medios a un reporte anulado.";
+const REPORTE_ANULADO_MEDIO_MESSAGE = "No se pueden adjuntar medios a un reporte anulado.";
 
 export type ActividadReporteGate = { id: string; responsable_id: string | null };
 
 /**
- * 404 (project) -> 403 (membership) -> 409 (EN_EJECUCION) -> 404 (activity) -> 403
- * (S9.5, responsable-only): only the activity's own `responsable_id`, or an
- * ADMINISTRADOR/GERENCIA override (the same override every other write gate in this
- * codebase already has), may register, edit or void one of its reports.
+ * 404 (project) -> 403 (membership) -> 409 (EN_EJECUCION) -> 404 (activity). Registering,
+ * voiding or attaching to an activity report follows the same membership axis as every other
+ * execution write: the PO's AJ-01 asks for no responsable-only restriction, so any project
+ * member (or a manager) may do it, whoever the activity's `responsable_id` is.
  */
 export async function gateReporteActividadWrite(
   usuario: Usuario,
@@ -325,10 +324,6 @@ export async function gateReporteActividadWrite(
   });
   if (!actividad) return { ok: false, response: apiError(ACTIVIDAD_NO_EXISTE, 404, "NOT_FOUND") };
 
-  const esResponsable = actividad.responsable_id !== null && actividad.responsable_id === usuario.id;
-  if (!esResponsable && !canManageProjects({ id: usuario.id, rol: usuario.rol })) {
-    return { ok: false, response: apiError(REPORTE_FORBIDDEN_MESSAGE, 403, "FORBIDDEN") };
-  }
   return { ok: true, value: { proyecto: gate.value, actividad } };
 }
 
@@ -367,6 +362,8 @@ export type ReporteView = {
   porcentaje: string;
   observacion: string;
   registrado_por_id: string;
+  /** Who registered it (S2's "usuario"), resolved server-side so a former member still shows by name. */
+  registrado_por_nombre: string | null;
   created_at: string;
   anulado_at: string | null;
   anulado_por_id: string | null;
@@ -375,8 +372,17 @@ export type ReporteView = {
   medios: number;
 };
 
+/** `registrado_por_id` has no FK, so names are read in one query, like the expense validation queue. */
+export async function nombresDeRegistradores(ids: string[]): Promise<Map<string, string>> {
+  const usuarios = await db.usuario.findMany({
+    where: { id: { in: [...new Set(ids)] } },
+    select: { id: true, nombre: true },
+  });
+  return new Map(usuarios.map((usuario) => [usuario.id, usuario.nombre]));
+}
+
 /** No `cuenta`/semáforo concept for a ReporteActividad, same as a medición (AJ-06). */
-export function toReporteView(row: ReporteRow, medios = 0): ReporteView {
+export function toReporteView(row: ReporteRow, medios: number, registradoPorNombre: string | null): ReporteView {
   return {
     id: row.id,
     proyecto_id: row.proyecto_id,
@@ -385,6 +391,7 @@ export function toReporteView(row: ReporteRow, medios = 0): ReporteView {
     porcentaje: row.porcentaje.toString(),
     observacion: row.observacion,
     registrado_por_id: row.registrado_por_id,
+    registrado_por_nombre: registradoPorNombre,
     created_at: row.created_at.toISOString(),
     anulado_at: row.anulado_at ? row.anulado_at.toISOString() : null,
     anulado_por_id: row.anulado_por_id,

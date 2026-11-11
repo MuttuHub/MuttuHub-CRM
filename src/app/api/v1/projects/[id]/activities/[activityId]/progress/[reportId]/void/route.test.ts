@@ -23,6 +23,7 @@ vi.mock("@/lib/db", () => ({
     actividad: { findFirst: vi.fn() },
     reporteActividad: { findFirst: vi.fn() },
     soporteProyecto: { groupBy: vi.fn(async () => []) },
+    usuario: { findMany: vi.fn(async () => [{ id: "resp-1", nombre: "Laura Jiménez" }]) },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
       fn({ reporteActividad: { updateMany: mocks.updateMany, findUniqueOrThrow: mocks.findUnique } }),
     ),
@@ -77,9 +78,17 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe("POST progress void", () => {
-  it("is responsable-only (403 for another COORDINADOR), 404 for an unknown project", async () => {
+  it("lets a member COORDINADOR who is not the responsable void (200), naming the report's author", async () => {
     authAs(otroCoordinador);
-    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "pry-1", estado: "EN_EJECUCION", miembros: [{ id: "m-1" }] } as never);
+    const res = await POST(post({ motivo: "Error de digitación" }), ctx);
+    expect(res.status).toBe(200);
+    expect((await res.json()).reporte.registrado_por_nombre).toBe("Laura Jiménez");
+    expect(mocks.updateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("answers 403 for a non-member COORDINADOR, 404 for an unknown project", async () => {
+    authAs(otroCoordinador);
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({ id: "pry-1", estado: "EN_EJECUCION", miembros: [] } as never);
     expect((await POST(post({ motivo: "x" }), ctx)).status).toBe(403);
     authAs(responsable);
     vi.mocked(db.proyecto.findFirst).mockResolvedValueOnce(null);

@@ -19,7 +19,7 @@ test.describe("DOC1: subir documento del proyecto", () => {
 
   async function openDocumentos(page: import("@playwright/test").Page, role: "gerencia" | "coordinador") {
     await loginToProject(page, role, "PRY-2026-001");
-    await page.getByRole("tablist").first().getByRole("tab", { name: "Documentos", exact: true }).click();
+    await page.getByRole("tablist").first().getByRole("tab", { name: /^Documentos( · \d+)?$/ }).click();
   }
 
   test("manager uploads a file: it lands in group «Proyecto» and opens via signed URL", async ({ page }) => {

@@ -164,7 +164,6 @@ vi.mock("@/hooks/projects", () => ({
     [
       "useCreateAvance", "useVoidAvance", "useAddAvanceMedio",
       "useCreateMedicion", "useVoidMedicion",
-      "useCreateBeneficiario", "useVoidBeneficiario",
     ].map((name) => [
       name,
       () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, isError: false, error: null, variables: undefined }),
@@ -500,15 +499,15 @@ describe("ProjectList", () => {
       expect(useProjectsMock).toHaveBeenLastCalledWith({ estado: "EN_EJECUCION" })
     })
 
-    it("shows the 'No confirmado' badge while the thresholds are unconfirmed", () => {
+    it("shows the 'Umbrales sin confirmar' badge while the thresholds are unconfirmed", () => {
       projectsQuery.data = { proyectos: [PROYECTO] }
       portfolioQuery.data = portafolio([MEDIBLE], false)
       const { unmount } = render(<ProjectList />)
-      expect(screen.getByText("No confirmado")).toBeInTheDocument()
+      expect(screen.getByText("Umbrales sin confirmar")).toBeInTheDocument()
       unmount()
       portfolioQuery.data = portafolio([MEDIBLE], true)
       render(<ProjectList />)
-      expect(screen.queryByText("No confirmado")).not.toBeInTheDocument()
+      expect(screen.queryByText("Umbrales sin confirmar")).not.toBeInTheDocument()
     })
 
     it("cards below md also show both bars", () => {

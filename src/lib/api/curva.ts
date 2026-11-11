@@ -35,8 +35,8 @@ import { sumCents, toCents, type Cents } from "@/lib/proyectos/money";
 import { isoDate } from "@/lib/proyectos/proyecto-general";
 import { periodOf, projectPeriods, todayInBogota, type Periodo } from "@/lib/proyectos/weeks";
 
-export const SIN_FECHAS_MESSAGE = "El proyecto aún no tiene fechas de inicio y fin.";
-export { BASE_INVALIDA_MESSAGE, BASE_ORIGINAL_MESSAGE } from "@/lib/api/versiones";
+const SIN_FECHAS_MESSAGE = "El proyecto aún no tiene fechas de inicio y fin.";
+;
 
 const ZERO: Cents = BigInt(0);
 

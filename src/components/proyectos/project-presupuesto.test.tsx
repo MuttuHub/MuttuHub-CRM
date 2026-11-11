@@ -71,18 +71,20 @@ type Setup = {
   programming?: unknown
   programmingStatus?: number
   rol?: string
+  gastos?: unknown[]
 }
 
 describe("ProjectPresupuesto", () => {
   const fetchMock = vi.fn()
 
-  function setup({ proyecto = {}, budget = BUDGET, programming = PROGRAMMING, programmingStatus = 200, rol = "ADMINISTRADOR" }: Setup = {}) {
+  function setup({ proyecto = {}, budget = BUDGET, programming = PROGRAMMING, programmingStatus = 200, rol = "ADMINISTRADOR", gastos = [] }: Setup = {}) {
     fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
       const url = String(input)
       if (url.endsWith("/api/v1/auth/me")) {
         return Promise.resolve(jsonResponse({ usuario: { id: "u1", nombre: "Ana", rol } }))
       }
       if (url.endsWith("/budget")) return Promise.resolve(jsonResponse(budget))
+      if (url.endsWith("/expenses")) return Promise.resolve(jsonResponse({ gastos }))
       if (url.endsWith("/programming")) {
         return Promise.resolve(
           programmingStatus === 200
@@ -126,7 +128,7 @@ describe("ProjectPresupuesto", () => {
     expect(within(tabla).getByText("Rubro suspendido pendiente de reasignación")).toBeInTheDocument()
   })
 
-  it("shows the live difference between Σ A and the project value as the amounts change", async () => {
+  it("shows the live difference between the sum and the project value as the amounts change", async () => {
     const user = userEvent.setup()
     setup()
 
@@ -214,11 +216,11 @@ describe("ProjectPresupuesto", () => {
     expect(writes("PUT")).toHaveLength(0)
   })
 
-  it("equalizes the project value to Σ A through the existing PATCH", async () => {
+  it("equalizes the project value to the sum through the existing PATCH", async () => {
     const user = userEvent.setup()
     setup()
 
-    await user.click(await screen.findByRole("button", { name: "Igualar valor total a Σ A" }))
+    await user.click(await screen.findByRole("button", { name: "Usar la suma como valor total" }))
 
     await waitFor(() => expect(writes("PATCH")).toHaveLength(1))
     const [url, init] = writes("PATCH")[0]
@@ -226,11 +228,11 @@ describe("ProjectPresupuesto", () => {
     expect(JSON.parse(String((init as RequestInit).body))).toEqual({ valor_total: 59800000 })
   })
 
-  it("does not offer the equalize button when Σ A already matches the value", async () => {
+  it("does not offer the equalize button when the sum already matches the value", async () => {
     setup({ budget: { ...BUDGET, valor_total: "59800000.00", diferencia: "0.00" } })
 
     await screen.findByTestId("presupuesto-resumen")
-    expect(screen.queryByRole("button", { name: "Igualar valor total a Σ A" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Usar la suma como valor total" })).not.toBeInTheDocument()
   })
 
   it("renders one programming column per project month, with legible months, and the control per rubro", async () => {
@@ -242,10 +244,62 @@ describe("ProjectPresupuesto", () => {
     )
     expect(within(grid).getByLabelText("Programado R01 oct 2026")).toHaveValue("20.000.000")
     const fila = within(grid).getAllByTestId("programacion-fila")[0]
-    expect(fila).toHaveTextContent("-$ 39.500.000")
+    // Falta por programar = asignado − programado: 59.500.000 − 20.000.000.
+    expect(fila).toHaveTextContent("$ 39.500.000")
+    expect(fila).not.toHaveTextContent("-$")
   })
 
-  it("flags pending programming and shows the Σ P vs A control as informational", async () => {
+  it("outside BORRADOR, adds what each rubro executed, has waiting for validation and has available (T3)", async () => {
+    const gasto = (id: string, rubro: string, estado: string, valor: string) => ({
+      id, rubro: { id: rubro, codigo: null, nombre: "x" }, estado, valor,
+    })
+    setup({
+      proyecto: { estado: "EN_EJECUCION" },
+      budget: { ...BUDGET, estado: "EN_EJECUCION" },
+      gastos: [
+        gasto("g1", "r1", "VALIDADO", "9500000.00"),
+        gasto("g2", "r1", "REGISTRADO", "1000000.00"),
+        gasto("g3", "r1", "RECHAZADO", "7000000.00"),
+        gasto("g4", "pop", "VALIDADO", "400000.00"),
+      ],
+    })
+
+    const tabla = await screen.findByTestId("presupuesto-tabla")
+    await waitFor(() =>
+      expect(within(tabla).getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
+        "Rubro", "Asignado", "Ejecutado", "Por validar", "Disponible",
+      ]),
+    )
+    expect(within(tabla).getByRole("button", { name: "Ayuda: Disponible del rubro" })).toBeInTheDocument()
+    const filas = within(tabla).getAllByTestId("presupuesto-fila")
+    expect(filas[0]).toHaveTextContent("$ 9.500.000")
+    expect(filas[0]).toHaveTextContent("$ 1.000.000")
+    // Disponible = asignado − ejecutado: 59.500.000 − 9.500.000.
+    expect(filas[0]).toHaveTextContent("$ 50.000.000")
+    expect(filas[1]).toHaveTextContent("—")
+    // Over its assigned amount: 300.000 − 400.000.
+    expect(filas[2]).toHaveTextContent("-$ 100.000")
+  })
+
+  it("keeps only Rubro and Asignado while the project is BORRADOR, without reading the expenses", async () => {
+    setup()
+    const tabla = await screen.findByTestId("presupuesto-tabla")
+    expect(within(tabla).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Rubro", "Asignado"])
+    expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/expenses"))).toBe(false)
+  })
+
+  it("names the budget totals in plain words, without Σ (U4)", async () => {
+    setup()
+
+    const resumen = await screen.findByTestId("presupuesto-resumen")
+    expect(within(resumen).getByText("Total asignado")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Usar la suma como valor total" })).toBeInTheDocument()
+    const grid = await screen.findByTestId("programacion-grid")
+    expect(within(grid).getByRole("columnheader", { name: "Falta por programar" })).toBeInTheDocument()
+    expect(screen.getByTestId("presupuesto")).not.toHaveTextContent(/Σ|Control/)
+  })
+
+  it("flags pending programming and shows what is left to program as informational", async () => {
     setup({ programming: { ...PROGRAMMING, filas: [], programacion_pendiente: true } })
 
     expect(await screen.findByText("Programación pendiente")).toBeInTheDocument()
@@ -288,7 +342,7 @@ describe("ProjectPresupuesto", () => {
       expect(screen.queryByLabelText("Asignado R01")).not.toBeInTheDocument()
       expect(screen.queryByLabelText("Programado R01 nov 2026")).not.toBeInTheDocument()
       expect(screen.queryByRole("button", { name: "Guardar presupuesto" })).not.toBeInTheDocument()
-      expect(screen.queryByRole("button", { name: "Igualar valor total a Σ A" })).not.toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: "Usar la suma como valor total" })).not.toBeInTheDocument()
       expect(screen.queryByRole("button", { name: "Importar presupuesto" })).not.toBeInTheDocument()
     })
 

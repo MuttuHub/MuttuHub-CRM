@@ -41,7 +41,7 @@ export function ToneBadge({
 }
 
 /* Client priority chip palette: Alta → destructivo, Media → alerta, Baja → info. */
-export const PRIORIDAD_CHIP: Record<string, UiTone> = {
+const PRIORIDAD_CHIP: Record<string, UiTone> = {
   ALTA: "destructivo",
   MEDIA: "alerta",
   BAJA: "info",

@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Propuesta · Finanzas › Resumen y gastos</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="muttu-tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&amp;family=Instrument+Sans:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#b41153;text-underline-offset:3px}a:hover{color:#940d44}
+th{height:36px;padding:0 12px;text-align:left;font:700 11px/1.3 "Instrument Sans",system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#725d62;white-space:nowrap}
+td{padding:10px 12px;font-size:13.5px;white-space:nowrap;border-top:1px solid #ece5e7}
+.n{text-align:right;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5px}
+</style>
+</helmet>
+<div style="width: 1440px; height: 1320px; box-sizing: border-box; padding: 16px; background: var(--page); color: var(--ink-800); font-family: var(--font-sans);">
+<main style="box-sizing: border-box; border-radius: var(--radius-card); border: 1px solid var(--border); background: var(--panel); padding: 24px 28px; display: flex; flex-direction: column; gap: 18px;">
+
+  <div style="display: flex; align-items: center; justify-content: space-between;">
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      <span style="font: 400 12px/1 var(--font-mono); color: var(--ink-500);">PRY-2026-001</span>
+      <span style="font: 600 20px/1.2 var(--font-sans); color: var(--ink-900);">Demo CedeTextil · En ejecución</span>
+    </div>
+    <button style="height: 44px; padding: 0 14px; border-radius: var(--radius-control); border: 1px solid transparent; background: var(--primary); color: #ffffff; font: 500 14px/1 var(--font-sans);">Registrar gasto</button>
+  </div>
+
+  <div role="tablist" aria-label="Secciones del proyecto" style="display: flex; gap: 4px; border-bottom: 1px solid var(--border);">
+    <button role="tab" aria-selected="false" style="padding: 8px 8px 12px; border: 0; background: transparent; font: 600 15.5px/1 var(--font-sans); color: var(--ink-600);">Resumen</button>
+    <button role="tab" aria-selected="false" style="padding: 8px 8px 12px; border: 0; background: transparent; font: 600 15.5px/1 var(--font-sans); color: var(--ink-600);">Actividades</button>
+    <button role="tab" aria-selected="true" style="padding: 8px 8px 12px; border: 0; background: transparent; font: 600 15.5px/1 var(--font-sans); color: var(--ink-900); box-shadow: inset 0 -3px 0 #cd1560;">Finanzas</button>
+    <button role="tab" aria-selected="false" style="padding: 8px 8px 12px; border: 0; background: transparent; font: 600 15.5px/1 var(--font-sans); color: var(--ink-600);">Documentos</button>
+    <button role="tab" aria-selected="false" style="padding: 8px 8px 12px; border: 0; background: transparent; font: 600 15.5px/1 var(--font-sans); color: var(--ink-600);">Historial</button>
+  </div>
+
+  <div role="tablist" aria-label="Vista de Finanzas" style="display: inline-flex; width: max-content; height: 36px; padding: 3px; border-radius: var(--radius-lg); background: var(--muted);">
+    <button role="tab" aria-selected="true" style="padding: 0 12px; border: 0; border-radius: var(--radius-md); background: var(--background); box-shadow: var(--shadow-tab-active); font: 500 14px/1 var(--font-sans); color: var(--ink-900);">Resumen</button>
+    <button role="tab" aria-selected="false" style="padding: 0 12px; border: 0; border-radius: var(--radius-md); background: transparent; font: 500 14px/1 var(--font-sans); color: var(--ink-700);">Gastos · 5</button>
+    <button role="tab" aria-selected="false" style="padding: 0 12px; border: 0; border-radius: var(--radius-md); background: transparent; font: 500 14px/1 var(--font-sans); color: var(--ink-700);">Presupuesto</button>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+    <section aria-label="Ejecutado" style="border-radius: var(--radius-inner); border: 1px solid var(--border); padding: 16px; display: flex; flex-direction: column; gap: 6px;">
+      <span style="font-size: 13px; color: var(--ink-600);">Ejecutado (gastos validados)</span>
+      <span style="font: 800 30px/1.1 var(--font-display); letter-spacing: -0.03em; color: var(--ink-950);">$ 22.115.000</span>
+      <span style="font-size: 12.5px; color: var(--ink-600);">2 gastos validados</span>
+    </section>
+    <section aria-label="Programado a hoy" style="border-radius: var(--radius-inner); border: 1px solid var(--border); padding: 16px; display: flex; flex-direction: column; gap: 6px;">
+      <span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-600);">Programado a hoy <span class="anota">1</span></span>
+      <span style="font: 800 30px/1.1 var(--font-display); letter-spacing: -0.03em; color: var(--ink-950);">$ 88.680.000</span>
+      <span style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-700);"><b style="color: var(--ink-900);">24,9 %</b> de lo programado ejecutado <span style="display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 9999px; background: var(--exito-bg); color: var(--exito); font: 600 12px/1.33 var(--font-sans);"><span style="width: 6px; height: 6px; border-radius: 9999px; background: currentColor;"></span>Verde</span></span>
+    </section>
+    <section aria-label="Valor total" style="border-radius: var(--radius-inner); border: 1px solid var(--border); padding: 16px; display: flex; flex-direction: column; gap: 6px;">
+      <span style="font-size: 13px; color: var(--ink-600);">Valor total del proyecto</span>
+      <span style="font: 800 30px/1.1 var(--font-display); letter-spacing: -0.03em; color: var(--ink-950);">$ 177.360.000</span>
+      <span style="font-size: 12.5px; color: var(--ink-700);"><b style="color: var(--ink-900);">12,5 %</b> del total ejecutado · quedan $ 155.245.000</span>
+    </section>
+  </div>
+
+  <div role="status" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: var(--radius-inner); background: var(--alerta-bg); color: var(--ink-800); font-size: 13.5px;">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+    <span><b>Posible retraso:</b> se ha gastado poco frente a lo programado y el avance técnico también va atrasado (35,7 % de 77,3 %).</span>
+    <a href="#" style="margin-left: auto; font-weight: 600;">Ver actividades</a>
+  </div>
+
+  <section aria-labelledby="por-validar" style="display: flex; flex-direction: column; gap: 8px;">
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+      <h2 id="por-validar" style="margin: 0; font: 700 11px/1.5 var(--font-sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-500);">Gastos por validar · 3 · $ 12.150.000</h2>
+      <a href="#" style="font-size: 13px;">Ver todos los gastos</a>
+    </div>
+    <div style="border-radius: 12px; border: 1px solid var(--border); overflow: hidden;">
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead style="background: var(--muted);"><tr><th>Gasto</th><th>Rubro</th><th style="text-align: right;">Total</th><th>Aviso</th><th>Soporte</th><th style="text-align: right;">Acción</th></tr></thead>
+        <tbody>
+          <tr style="background: var(--alerta-bg);">
+            <td><b style="color: var(--ink-900);">Papelería y Suministros del Sinú (demo)</b><br><span style="font-size: 12px; color: var(--ink-600);">FV-4007 · 02 nov 2026 · registró Laura Jiménez</span></td>
+            <td>R11 · Varios</td><td class="n">$ 450.000<br><span style="color: var(--ink-600);">Sin IVA</span></td>
+            <td><span style="display: inline-flex; align-items: center; gap: 6px;"><span style="display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 9999px; background: var(--destructivo-bg); color: var(--destructivo); font: 700 11px/1 var(--font-sans);">Supera lo asignado</span><span class="anota">2</span></span></td>
+            <td><a href="#">Factura FV-4007</a></td>
+            <td style="text-align: right;"><button style="height: 36px; padding: 0 12px; border-radius: var(--radius-control); border: 1px solid transparent; background: var(--primary); color: #ffffff; font: 500 13px/1 var(--font-sans);">Revisar</button></td>
+          </tr>
+          <tr>
+            <td><b style="color: var(--ink-900);">Logística Sinú S.A.S. (demo)</b><br><span style="font-size: 12px; color: var(--ink-600);">FV-3002 · 02 nov 2026 · registró Laura Jiménez</span></td>
+            <td>R06 · Caracterización</td><td class="n">$ 450.000<br><span style="color: var(--ink-600);">Sin IVA</span></td>
+            <td><span style="font-size: 12.5px; color: var(--ink-600);">—</span></td>
+            <td><a href="#">Factura FV-3002</a></td>
+            <td style="text-align: right;"><button style="height: 36px; padding: 0 12px; border-radius: var(--radius-control); border: 1px solid transparent; background: var(--primary); color: #ffffff; font: 500 13px/1 var(--font-sans);">Revisar</button></td>
+          </tr>
+          <tr>
+            <td><b style="color: var(--ink-900);">Dotaciones del Caribe S.A.S. (demo)</b><br><span style="font-size: 12px; color: var(--ink-600);">FV-2040 · 02 nov 2026 · registró Laura Jiménez</span></td>
+            <td>R08 · Formación</td><td class="n">$ 11.250.000<br><span style="color: var(--ink-600);">Sin IVA</span></td>
+            <td><span style="display: inline-flex; align-items: center; gap: 6px;"><span style="display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 9999px; background: var(--info-bg); color: var(--info); font: 700 11px/1 var(--font-sans);">Cuenta en 2026-10</span><span class="anota">3</span></span></td>
+            <td><a href="#">Factura FV-2040</a></td>
+            <td style="text-align: right;"><button style="height: 36px; padding: 0 12px; border-radius: var(--radius-control); border: 1px solid transparent; background: var(--primary); color: #ffffff; font: 500 13px/1 var(--font-sans);">Revisar</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="rubros" style="display: flex; flex-direction: column; gap: 8px;">
+    <h2 id="rubros" style="margin: 0; font: 700 11px/1.5 var(--font-sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-500);">Por rubro</h2>
+    <div style="border-radius: 12px; border: 1px solid var(--border); overflow: hidden;">
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead style="background: var(--muted);"><tr><th>Rubro</th><th style="text-align: right;">Programado a hoy</th><th style="text-align: right;">Ejecutado</th><th style="width: 260px;">% de lo programado</th><th style="text-align: right;">Disponible del rubro</th></tr></thead>
+        <tbody>
+          <tr><td>R01 · Personal</td><td class="n">$ 29.750.000</td><td class="n">$ 12.000.000</td><td><span style="display: flex; align-items: center; gap: 8px;"><span style="flex: 1; height: 8px; border-radius: 9999px; background: var(--ink-100); overflow: hidden;"><span style="display: block; width: 40.3%; height: 100%; border-radius: 9999px; background: var(--exito);"></span></span>40,3 %</span></td><td class="n">$ 47.500.000</td></tr>
+          <tr><td>R04 · Promoción y divulgación</td><td class="n">$ 17.000.000</td><td class="n">$ 10.115.000</td><td><span style="display: flex; align-items: center; gap: 8px;"><span style="flex: 1; height: 8px; border-radius: 9999px; background: var(--ink-100); overflow: hidden;"><span style="display: block; width: 59.5%; height: 100%; border-radius: 9999px; background: var(--exito);"></span></span>59,5 %</span></td><td class="n">$ 23.885.000</td></tr>
+          <tr><td>R06 · Caracterización</td><td class="n">$ 720.000</td><td class="n">$ 0</td><td><span style="display: flex; align-items: center; gap: 8px;"><span style="flex: 1; height: 8px; border-radius: 9999px; background: var(--ink-100);"></span>0,0 %</span></td><td class="n">$ 1.440.000</td></tr>
+          <tr><td>R08 · Formación</td><td class="n">$ 22.500.000</td><td class="n">$ 0</td><td><span style="display: flex; align-items: center; gap: 8px;"><span style="flex: 1; height: 8px; border-radius: 9999px; background: var(--ink-100);"></span>0,0 %</span></td><td class="n">$ 45.000.000</td></tr>
+          <tr><td>R11 · Varios <span style="font-size: 12px; color: var(--destructivo);">· 1 gasto por validar lo supera</span></td><td class="n">$ 150.000</td><td class="n">$ 0</td><td><span style="display: flex; align-items: center; gap: 8px;"><span style="flex: 1; height: 8px; border-radius: 9999px; background: var(--ink-100);"></span>0,0 %</span></td><td class="n">$ 300.000</td></tr>
+          <tr><td>R12 · Transporte</td><td class="n">$ 12.000.000</td><td class="n">$ 0</td><td><span style="display: flex; align-items: center; gap: 8px;"><span style="flex: 1; height: 8px; border-radius: 9999px; background: var(--ink-100);"></span>0,0 %</span></td><td class="n">$ 24.000.000</td></tr>
+          <tr><td>R13 · Suministros</td><td class="n">$ 6.400.000</td><td class="n">$ 0</td><td><span style="display: flex; align-items: center; gap: 8px;"><span style="flex: 1; height: 8px; border-radius: 9999px; background: var(--ink-100);"></span>0,0 %</span></td><td class="n">$ 12.800.000</td></tr>
+          <tr><td>R15 · Dotación</td><td class="n">$ 160.000</td><td class="n">$ 0</td><td><span style="display: flex; align-items: center; gap: 8px;"><span style="flex: 1; height: 8px; border-radius: 9999px; background: var(--ink-100);"></span>0,0 %</span></td><td class="n">$ 320.000</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <a href="#" style="font-size: 13px;">Ver detalle con diferencias y límites de cada color</a>
+  </section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1320}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

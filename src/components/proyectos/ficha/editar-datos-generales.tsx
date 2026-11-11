@@ -90,9 +90,9 @@ export function EditarDatosGenerales({
   if (modo === null) return null;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[min(640px,calc(100%-2rem))]">
+      <DialogContent className="sm:max-w-[min(640px,calc(100%-2rem))]">
         <DialogHeader>
-          <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
+          <DialogTitle>
             Editar datos generales
           </DialogTitle>
           <DialogDescription>

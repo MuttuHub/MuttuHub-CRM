@@ -38,8 +38,8 @@ import {
   type Semana,
 } from "@/lib/reportes/semana"
 
-export const SEMANA_INVALIDA_MESSAGE = "La semana no es válida. Usa una fecha AAAA-MM-DD."
-export const SEMANA_FUTURA_MESSAGE = "La semana todavía no empieza."
+const SEMANA_INVALIDA_MESSAGE = "La semana no es válida. Usa una fecha AAAA-MM-DD."
+const SEMANA_FUTURA_MESSAGE = "La semana todavía no empieza."
 
 /** Proyectos cuya lista de atención se lee a la vez (cada una son varias consultas). */
 const LOTE_ATENCION = 4
@@ -89,7 +89,7 @@ export type ReporteSemanal = {
 type ConteoTareas = { cerradas: number; vencidas: number }
 
 /** `semana` es cualquier día de la semana pedida; ausente = la semana en curso en Bogotá. */
-export function parseSemana(raw: string | null, hoy: IsoDate): { ok: true; semana: Semana } | { ok: false; response: Response } {
+function parseSemana(raw: string | null, hoy: IsoDate): { ok: true; semana: Semana } | { ok: false; response: Response } {
   const fecha = raw === null || raw === "" ? hoy : raw
   try {
     assertIsoDate(fecha)

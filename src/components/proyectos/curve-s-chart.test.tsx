@@ -87,15 +87,16 @@ describe("CurveSChart", () => {
     expect(within(ultima).getAllByText("—")).toHaveLength(3);
   });
 
-  it("labels the corte month 'al corte' in the legend and the monthly table (D13)", () => {
+  it("labels the corte month 'parcial' in the monthly table and dates the legend without jargon (D13, U5)", () => {
     render(<CurveSChart curva={CURVA} />);
     const tabla = screen.getByTestId("curve-s-tabla");
     const filas = within(tabla).getAllByRole("row");
     // Only the corte month carries the label; its planned technical value is the one at the corte date.
-    expect(filas[4]).toHaveTextContent("nov 2026 (al corte)");
+    expect(filas[4]).toHaveTextContent("nov 2026 (parcial)");
     expect(filas[4]).toHaveTextContent("78,6 %");
-    expect(within(tabla).getAllByText(/al corte/)).toHaveLength(1);
-    expect(screen.getByText(/Corte al nov 2026/)).toBeInTheDocument();
-    expect(screen.getByText(/plan técnico de ese mes se mide a la fecha de corte/)).toBeInTheDocument();
+    expect(within(tabla).getAllByText(/parcial/)).toHaveLength(1);
+    expect(screen.getByText(/Datos al nov 2026/)).toBeInTheDocument();
+    expect(screen.getByText(/plan técnico de ese mes se mide hasta esa fecha/)).toBeInTheDocument();
+    expect(screen.queryByText(/[Cc]orte|\bpp\b/)).not.toBeInTheDocument();
   });
 });

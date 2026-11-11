@@ -5,17 +5,19 @@
 
 "use client";
 
-import { useId, useMemo, useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { ChevronRight, ClipboardList, Gauge } from "lucide-react";
 import { useCurrentUser } from "@/hooks/kanban";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
-import { InlineError, MetricRow, SELECT_CLASS, SectionHeader } from "@/components/proyectos/ui";
+import { AvisoSoloConsulta, InlineError, MetricRow, SELECT_CLASS, SectionHeader } from "@/components/proyectos/ui";
 import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import { EjecucionAvance } from "@/components/proyectos/ejecucion-avance";
 import { EjecucionIndicadores } from "@/components/proyectos/ejecucion-indicadores";
 import { SemaforoTecnico } from "@/components/proyectos/semaforo-tecnico";
+import { AyudaBase, ETIQUETA_BASE, OpcionesBase, datosAl } from "@/components/proyectos/vocabulario-seguimiento";
 import { CurveSChart } from "@/components/proyectos/curve-s-chart";
 import {
   useDeliverableProgress,
@@ -26,6 +28,7 @@ import {
   useProjectDeliverables,
   useProjectMembers,
   useProjectTechnicalStatus,
+  type EstadoActividad,
   type ProjectActivity,
   type ProjectBase,
   type ProjectCurve,
@@ -38,12 +41,13 @@ import { formatMillones } from "@/lib/format/millones";
 import { toCents } from "@/lib/proyectos/money";
 import { PROJECT_MEMBER_ROLES, canManageProjects } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
+import { FiltroChip } from "@/components/proyectos/ficha/filtro-chip";
 
 const TECNICO_ERROR = "No pudimos cargar el semáforo técnico. Inténtalo de nuevo.";
 const ACTIVIDADES_ERROR = "No pudimos cargar las actividades. Inténtalo de nuevo.";
 const CURVA_ERROR = "No pudimos cargar la curva S. Inténtalo de nuevo.";
 
-export const EJECUCION_BORRADOR_HINT =
+const EJECUCION_BORRADOR_HINT =
   "La ejecución técnica estará disponible cuando el proyecto tenga su línea base aprobada.";
 
 /**
@@ -60,11 +64,14 @@ export function ProjectEjecucion({
   seguimiento = false,
   lista = false,
   enfocarId = null,
+  onSolicitarModificacion,
 }: {
   proyecto: ProjectListRow;
   seguimiento?: boolean;
   lista?: boolean;
   enfocarId?: string | null;
+  /** «Solicitar modificación» on a finished activity (the ficha opens Historial › Modificaciones). */
+  onSolicitarModificacion?: () => void;
 }) {
   if (proyecto.estado === "BORRADOR") {
     return (
@@ -78,7 +85,13 @@ export function ProjectEjecucion({
   return (
     <section data-testid="ejecucion">
       {!lista && <EjecucionHeader seguimiento={seguimiento} />}
-      <EjecucionContent proyecto={proyecto} seguimiento={seguimiento} lista={lista} enfocarId={enfocarId} />
+      <EjecucionContent
+        proyecto={proyecto}
+        seguimiento={seguimiento}
+        lista={lista}
+        enfocarId={enfocarId}
+        onSolicitarModificacion={onSolicitarModificacion}
+      />
     </section>
   );
 }
@@ -164,19 +177,21 @@ function OpcionesAvanzadas({
   return (
     <Disclosure titulo="Opciones avanzadas" testId="ejecucion-avanzadas">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[12.5px] text-ink-600">
-        <label className="flex items-center gap-1.5">
-          Base
-          <select
-            aria-label="Base"
-            value={base}
-            onChange={(event) => onBaseChange(event.target.value as ProjectBase)}
-            className={SELECT_CLASS}
-          >
-            <option value="vigente">Vigente</option>
-            <option value="original">Original (v0)</option>
-          </select>
-        </label>
-        <span>Corte al {formatFechaCalendario(corte)} (hoy)</span>
+        <span className="flex items-center gap-1">
+          <label className="flex items-center gap-1.5">
+            {ETIQUETA_BASE}
+            <select
+              aria-label={ETIQUETA_BASE}
+              value={base}
+              onChange={(event) => onBaseChange(event.target.value as ProjectBase)}
+              className={SELECT_CLASS}
+            >
+              <OpcionesBase />
+            </select>
+          </label>
+          <AyudaBase />
+        </span>
+        <span>{datosAl(formatFechaCalendario(corte))} (hoy)</span>
       </div>
       <CurvaSeccion proyecto={proyecto} base={base} corte={corte} seguimiento />
     </Disclosure>
@@ -196,7 +211,12 @@ function CurvaAvance({ query }: { query: ReturnType<typeof useProjectCurve> }) {
  * Decisión 3: control de escritura para gestores, o un COORDINADOR que sea integrante activo (su lectura de
  * `/members` está permitida). Anular es solo de gestores. La API sigue siendo la autoridad final.
  */
-export function useEjecucionPermisos(proyectoId: string): { canWrite: boolean; canVoid: boolean } {
+export function useEjecucionPermisos(proyectoId: string): {
+  canWrite: boolean;
+  canVoid: boolean;
+  /** Both the user and the team are known, so `canWrite: false` is an answer, not a pending load. */
+  resuelto: boolean;
+} {
   const userQuery = useCurrentUser();
   const membersQuery = useProjectMembers(proyectoId);
   const usuario = userQuery.data;
@@ -207,10 +227,40 @@ export function useEjecucionPermisos(proyectoId: string): { canWrite: boolean; c
       PROJECT_MEMBER_ROLES.includes(usuario.rol) &&
       (membersQuery.data ?? []).some((miembro) => miembro.usuario.id === usuario.id),
   );
-  return { canWrite: esGestor || esMiembro, canVoid: esGestor };
+  const resuelto = Boolean(usuario) && (esGestor || membersQuery.isSuccess || membersQuery.isError);
+  return { canWrite: esGestor || esMiembro, canVoid: esGestor, resuelto };
 }
 
-/** Pestaña "Metas e indicadores" (v7): el registro de avance de indicador vive junto a las metas. */
+/**
+ * Progress of every deliverable by id, one query each (`useQueries`), for as long as the caller is mounted.
+ * Shared by the execution Lista and the header's «Registrar avance» dialog (same keys: no double fetch).
+ */
+function useProgresoEntregables(
+  proyectoId: string,
+  deliverables: { id: string }[],
+): Map<string, ProjectDeliverableProgress> {
+  return useProgresoEntregablesConCarga(proyectoId, deliverables).progreso;
+}
+
+/** The same progress map, plus whether any deliverable's progress is still loading (the tope depends on it). */
+export function useProgresoEntregablesConCarga(
+  proyectoId: string,
+  deliverables: { id: string }[],
+): { progreso: Map<string, ProjectDeliverableProgress>; cargando: boolean } {
+  const progressQueries = useDeliverableProgress(
+    proyectoId,
+    deliverables.map((deliverable) => deliverable.id),
+  );
+  const progreso = new Map<string, ProjectDeliverableProgress>();
+  deliverables.forEach((deliverable, index) => {
+    const query = progressQueries[index];
+    if (query?.data) progreso.set(deliverable.id, query.data);
+  });
+  // `isLoading`, not `isPending`: a disabled read is pending forever and would hold the tope «loading».
+  return { progreso, cargando: progressQueries.some((query) => query.isLoading) };
+}
+
+/** Pestaña de objetivos e indicadores (v7): el registro de avance de indicador vive junto a los objetivos. */
 export function ProjectIndicadores({ proyecto }: { proyecto: ProjectListRow }) {
   const { canWrite, canVoid } = useEjecucionPermisos(proyecto.id);
   if (proyecto.estado === "BORRADOR") return null;
@@ -222,53 +272,39 @@ function EjecucionContent({
   seguimiento,
   lista,
   enfocarId,
+  onSolicitarModificacion,
 }: {
   proyecto: ProjectListRow;
   seguimiento: boolean;
   lista: boolean;
   enfocarId: string | null;
+  onSolicitarModificacion?: () => void;
 }) {
   const [base, setBase] = useState<ProjectBase>("vigente");
+  const [filtro, setFiltro] = useState<Filtro>("porhacer");
   const tecnicoQuery = useProjectTechnicalStatus(proyecto.id, base);
   const activitiesQuery = useProjectActivities(proyecto.id);
   const objetivosQuery = useProjectObjectives(proyecto.id);
   const deliverablesQuery = useProjectDeliverables(proyecto.id);
+  const membersQuery = useProjectMembers(proyecto.id);
 
-  const { canWrite, canVoid } = useEjecucionPermisos(proyecto.id);
-
-  // AJ-01 (S9.5): "Registrar avance" de la actividad es solo para su responsable, o un
-  // ADMINISTRADOR/GERENCIA (el mismo override que todo otro gate de escritura ya tiene) — no
-  // es el mismo eje que `canWrite`/`canVoid` (membresía/gestor), por eso se calcula aparte.
-  // El historial también necesita el nombre de quien registró cada reporte (S2): se resuelve
-  // desde la misma lista de integrantes que ya se lee para los permisos.
-  const usuarioActualQuery = useCurrentUser();
-  const miembrosQuery = useProjectMembers(proyecto.id);
-  const usuarioActual = usuarioActualQuery.data;
-  const esGestor = usuarioActual
-    ? canManageProjects({ id: usuarioActual.id, rol: usuarioActual.rol })
-    : false;
-  const nombrePorUsuario = useMemo(() => {
-    const mapa = new Map<string, string>();
-    for (const miembro of miembrosQuery.data ?? []) mapa.set(miembro.usuario.id, miembro.usuario.nombre);
-    if (usuarioActual) mapa.set(usuarioActual.id, usuarioActual.nombre);
-    return mapa;
-  }, [miembrosQuery.data, usuarioActual]);
-  const nombreUsuario = (id: string) => nombrePorUsuario.get(id) ?? id;
-  const esResponsableDe = (actividad: ProjectActivity): boolean =>
-    esGestor || Boolean(usuarioActual && actividad.responsable_id === usuarioActual.id);
+  const { canWrite, canVoid, resuelto } = useEjecucionPermisos(proyecto.id);
+  const soloConsulta = resuelto && !canWrite && proyecto.estado === "EN_EJECUCION";
+  const nombreMiembro = new Map((membersQuery.data ?? []).map((miembro) => [miembro.usuario.id, miembro.usuario.nombre]));
+  const solicitar = canWrite && proyecto.estado === "EN_EJECUCION" ? onSolicitarModificacion : undefined;
 
   // Decisión 2: los entregables se leen UNA vez y los avances se abren con
   // `useQueries`, solo mientras la sección está montada.
   const deliverables = deliverablesQuery.data ?? [];
-  const progressQueries = useDeliverableProgress(
-    proyecto.id,
-    deliverables.map((deliverable) => deliverable.id),
-  );
-  const progreso = new Map<string, ProjectDeliverableProgress>();
-  deliverables.forEach((deliverable, index) => {
-    const query = progressQueries[index];
-    if (query?.data) progreso.set(deliverable.id, query.data);
-  });
+  const progreso = useProgresoEntregables(proyecto.id, deliverables);
+
+  // A Tablero card asks for one activity: when the filter hides it, show «Todas» (once per request).
+  const [enfoqueFiltrado, setEnfoqueFiltrado] = useState<string | null>(null);
+  if (enfocarId !== enfoqueFiltrado && tecnicoQuery.data) {
+    setEnfoqueFiltrado(enfocarId);
+    const estado = tecnicoQuery.data.actividades.find((actividad) => actividad.id === enfocarId)?.estado;
+    if (estado !== undefined && filtro !== "todas" && grupoDe(estado) !== filtro) setFiltro("todas");
+  }
 
   if (tecnicoQuery.isError) {
     return (
@@ -282,19 +318,19 @@ function EjecucionContent({
   const tecnico = tecnicoQuery.data;
   const actividades = activitiesQuery.data ?? [];
   const tecnicas = new Map(tecnico.actividades.map((actividad) => [actividad.id, actividad]));
+  const enfocarFila = (id: string): boolean => enfocarId === id;
 
   return (
     <div className={lista ? "mt-0" : "mt-2"}>
-      {lista ? (
-        <OpcionesAvanzadas proyecto={proyecto} base={base} corte={tecnico.corte} onBaseChange={setBase} />
-      ) : (
+      {soloConsulta && <AvisoSoloConsulta className="mb-2" />}
+      {!lista && (
         <>
           <SemaforoTecnico tecnico={tecnico} onBaseChange={setBase} />
           <CurvaSeccion proyecto={proyecto} base={base} corte={tecnico.corte} seguimiento={seguimiento} />
         </>
       )}
 
-      {seguimiento && !lista && <AvancePorMeta proyectoId={proyecto.id} tecnico={tecnico} />}
+      {seguimiento && !lista && <AvancePorObjetivo proyectoId={proyecto.id} tecnico={tecnico} />}
 
       {activitiesQuery.isError ? (
         <InlineError
@@ -306,32 +342,58 @@ function EjecucionContent({
       ) : actividades.length === 0 ? (
         <p className="mt-2 text-[12.5px] text-ink-500">Este proyecto todavía no tiene actividades.</p>
       ) : (
-        <ListaActividades
-          actividades={actividades}
-          objetivos={objetivosQuery.data ?? []}
-          agrupar={lista}
-          fila={(actividad) => {
-            const tecnica = tecnicas.get(actividad.id);
-            if (!tecnica) return null;
-            return (
-              <EjecucionAvance
-                key={actividad.id}
-                proyectoId={proyecto.id}
-                actividad={actividad}
-                tecnico={tecnica}
-                entregables={deliverables.filter(
-                  (deliverable) => deliverable.actividad_id === actividad.id,
-                )}
-                progreso={progreso}
-                canWrite={canWrite}
-                canVoid={canVoid}
-                esResponsable={esResponsableDe(actividad)}
-                nombreUsuario={nombreUsuario}
-                enfocar={enfocarId === actividad.id}
-              />
-            );
-          }}
-        />
+        <>
+          {lista && (
+            <FiltroActividades
+              filtro={filtro}
+              onChange={setFiltro}
+              conteo={{
+                porhacer: actividades.filter((a) => grupoDe(tecnicas.get(a.id)?.estado) === "porhacer").length,
+                finalizadas: actividades.filter((a) => grupoDe(tecnicas.get(a.id)?.estado) === "finalizadas").length,
+                todas: actividades.length,
+              }}
+            />
+          )}
+          <ListaActividades
+            actividades={
+              lista && filtro !== "todas"
+                ? actividades.filter((actividad) => grupoDe(tecnicas.get(actividad.id)?.estado) === filtro)
+                : actividades
+            }
+            objetivos={objetivosQuery.data ?? []}
+            agrupar={lista}
+            vacio={<FiltroVacio filtro={filtro} onVerTodas={() => setFiltro("todas")} />}
+            fila={(actividad) => {
+              const tecnica = tecnicas.get(actividad.id);
+              if (!tecnica) return null;
+              return (
+                <EjecucionAvance
+                  key={actividad.id}
+                  proyectoId={proyecto.id}
+                  actividad={actividad}
+                  tecnico={tecnica}
+                  entregables={deliverables.filter(
+                    (deliverable) => deliverable.actividad_id === actividad.id,
+                  )}
+                  progreso={progreso}
+                  canWrite={canWrite}
+                  canVoid={canVoid}
+                  enfocar={enfocarFila(actividad.id)}
+                  tope={tecnico.tope_en_curso ?? undefined}
+                  corte={tecnico.corte}
+                  responsable={actividad.responsable_id ? (nombreMiembro.get(actividad.responsable_id) ?? null) : null}
+                  onSolicitarModificacion={solicitar}
+                />
+              );
+            }}
+          />
+        </>
+      )}
+
+      {lista && (
+        <div className="mt-4">
+          <OpcionesAvanzadas proyecto={proyecto} base={base} corte={tecnico.corte} onBaseChange={setBase} />
+        </div>
       )}
 
       {!seguimiento && !lista && (
@@ -343,50 +405,112 @@ function EjecucionContent({
   );
 }
 
-/** Las actividades en una lista plana o, en la pestaña Actividades, agrupadas bajo su meta. */
+type Filtro = "porhacer" | "finalizadas" | "todas";
+
+/** «Por hacer» = No iniciada or En curso; «Finalizadas» = Finalizada or Finalizada con retraso. */
+function grupoDe(estado: EstadoActividad | undefined): Filtro | null {
+  if (estado === undefined) return null;
+  return estado === "FINALIZADA" || estado === "FINALIZADA_CON_RETRASO" ? "finalizadas" : "porhacer";
+}
+
+const FILTROS: { value: Filtro; label: string }[] = [
+  { value: "porhacer", label: "Por hacer" },
+  { value: "finalizadas", label: "Finalizadas" },
+  { value: "todas", label: "Todas" },
+];
+
+/** «Mostrar: Por hacer · 2 · Finalizadas · 2 · Todas · 4»: one pressed at a time, 44 px chips that wrap. */
+function FiltroActividades({
+  filtro,
+  conteo,
+  onChange,
+}: {
+  filtro: Filtro;
+  conteo: Record<Filtro, number>;
+  onChange: (filtro: Filtro) => void;
+}) {
+  return (
+    <div role="group" aria-label="Filtrar actividades" className="flex min-w-0 flex-wrap items-center gap-2 text-[13px]">
+      <span className="text-ink-600">Mostrar:</span>
+      {FILTROS.map((item) => {
+        const activo = filtro === item.value;
+        return (
+          <FiltroChip key={item.value} activo={activo} onClick={() => onChange(item.value)}>
+            {item.label} · {conteo[item.value]}
+          </FiltroChip>
+        );
+      })}
+    </div>
+  );
+}
+
+function FiltroVacio({ filtro, onVerTodas }: { filtro: Filtro; onVerTodas: () => void }) {
+  return (
+    <div data-testid="actividades-filtro-vacio" className="mt-3 flex flex-col items-start gap-2 text-[13px] text-ink-600">
+      <p>
+        <span className="font-semibold text-ink-800">
+          {filtro === "finalizadas" ? "Aún no hay actividades finalizadas." : "No hay actividades por hacer."}
+        </span>{" "}
+        Cambia el filtro a «Todas» para ver el resto.
+      </p>
+      <Button type="button" variant="outline" size="sm" onClick={onVerTodas}>
+        Ver todas
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * Las actividades en una lista plana o, en la pestaña Actividades, agrupadas bajo su objetivo («Objetivo 1.
+ * …»). A goal with no visible activity (filtered out) is not shown.
+ */
 function ListaActividades({
   actividades,
   objetivos,
   agrupar,
   fila,
+  vacio,
 }: {
   actividades: ProjectActivity[];
   objetivos: ProjectObjective[];
   agrupar: boolean;
   fila: (actividad: ProjectActivity) => ReactNode;
+  /** What to show when the filter leaves nothing. */
+  vacio: ReactNode;
 }) {
+  if (actividades.length === 0) return <>{vacio}</>;
   const grupos = [...objetivos]
     .sort((a, b) => a.orden - b.orden)
     .map((objetivo) => ({ objetivo, filas: actividades.filter((a) => a.objetivo_id === objetivo.id) }))
     .filter((grupo) => grupo.filas.length > 0);
-  // Sin metas legibles (cargando o con error) la lista no se pierde: cae a la versión plana.
+  // Sin objetivos legibles (cargando o con error) la lista no se pierde: cae a la versión plana.
   if (!agrupar || grupos.reduce((n, grupo) => n + grupo.filas.length, 0) !== actividades.length) {
-    return <ul className="mt-3 flex flex-col gap-2.5">{actividades.map(fila)}</ul>;
+    return <ul className="mt-3 flex min-w-0 flex-col gap-2.5">{actividades.map(fila)}</ul>;
   }
   return (
-    <div className="mt-3 flex flex-col gap-4">
+    <div className="mt-3 flex min-w-0 flex-col gap-4">
       {grupos.map(({ objetivo, filas }) => (
-        <section key={objetivo.id} data-testid={`ejecucion-objetivo-${objetivo.codigo}`}>
-          <h4 className="text-[13px] font-semibold text-ink-800">
-            <span className="font-mono text-[11.5px] text-ink-500">{objetivo.codigo}</span> {objetivo.descripcion}
+        <section key={objetivo.id} data-testid={`ejecucion-objetivo-${objetivo.codigo}`} className="min-w-0">
+          <h4 className="text-[13px] break-words text-ink-700">
+            <span className="font-semibold text-ink-900">Objetivo {objetivo.codigo}.</span> {objetivo.descripcion}
           </h4>
-          <ul className="mt-1.5 flex flex-col gap-2.5">{filas.map(fila)}</ul>
+          <ul className="mt-2 flex min-w-0 flex-col gap-2.5">{filas.map(fila)}</ul>
         </section>
       ))}
     </div>
   );
 }
 
-/* ── Ficha de seguimiento (v7): tarjetas laterales y avance por meta ─────── */
+/* ── Ficha de seguimiento (v7): tarjetas laterales y avance por objetivo ─────── */
 
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 const nf = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 1 });
 
 const pct = (value: number): string => `${nf.format(value)} %`;
-const pp = (value: number): string => `${value > 0 ? "+" : ""}${nf.format(value)} pp`;
+const pp = (value: number): string => `${value > 0 ? "+" : ""}${nf.format(value)} puntos`;
 
 /** Days from the corte (the server's "today") to the project end, never negative. */
-export function diasRestantes(corte: string, fechaFin: string | null): number | null {
+function diasRestantes(corte: string, fechaFin: string | null): number | null {
   if (!fechaFin) return null;
   const dia = 24 * 60 * 60 * 1000;
   const diff = (Date.parse(`${fechaFin.slice(0, 10)}T00:00:00Z`) - Date.parse(`${corte.slice(0, 10)}T00:00:00Z`)) / dia;
@@ -421,7 +545,7 @@ function SeguimientoLateral({
           Periodo del reporte{periodo ? ` · ${periodo}` : ""}
         </p>
         {ejecutado === null || planeado === null ? (
-          <p className="text-[12.5px] text-ink-500">Sin avance registrado al corte.</p>
+          <p className="text-[12.5px] text-ink-500">Sin avance registrado hasta la fecha de los datos.</p>
         ) : (
           <>
             <p className="font-display text-[26px] leading-none font-extrabold tracking-[-0.03em] text-ink-950 tabular-nums">
@@ -453,15 +577,15 @@ function SeguimientoLateral({
   );
 }
 
-/** Acumulado planeado vs ejecutado por meta (objetivo). Los porcentajes y el color llegan del servidor (D11). */
-function AvancePorMeta({ proyectoId, tecnico }: { proyectoId: string; tecnico: ProjectTechnicalStatusV6 }) {
+/** Acumulado planeado vs ejecutado por objetivo. Los porcentajes y el color llegan del servidor (D11). */
+function AvancePorObjetivo({ proyectoId, tecnico }: { proyectoId: string; tecnico: ProjectTechnicalStatusV6 }) {
   const objetivos = useProjectObjectives(proyectoId).data ?? [];
   if (!tecnico.objetivos || tecnico.objetivos.length === 0) return null;
   const nombre = new Map(objetivos.map((o) => [o.codigo, o.descripcion]));
 
   return (
-    <section data-testid="avance-por-meta" className="mt-4">
-      <SectionHeader>Avance por meta</SectionHeader>
+    <section data-testid="avance-por-objetivo" className="mt-4">
+      <SectionHeader>Avance por objetivo</SectionHeader>
       <ul className="mt-2 flex flex-col gap-2">
         {tecnico.objetivos.map((objetivo) => (
           <li key={objetivo.codigo} className="surface-inner grid grid-cols-1 items-center gap-x-4 gap-y-1.5 p-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto]">
@@ -471,7 +595,7 @@ function AvancePorMeta({ proyectoId, tecnico }: { proyectoId: string; tecnico: P
             </span>
             <span
               role="img"
-              aria-label={`Meta ${objetivo.codigo}: ejecutado ${pct(objetivo.ejecutado)}, planeado ${pct(objetivo.programado)}`}
+              aria-label={`Objetivo ${objetivo.codigo}: ejecutado ${pct(objetivo.ejecutado)}, planeado ${pct(objetivo.programado)}`}
               className="relative block h-2 overflow-hidden rounded-full bg-ink-100"
             >
               <span

@@ -6,7 +6,8 @@
 // SummaryCards un StatTile peor, el ReportSkeleton un DashboardSkeleton. Se
 // reutilizan (diff neto negativo). Además la API ya devuelve resumen.a_tiempo
 // / tarde que la UI nunca pintaba: van al pie de la tarjeta de completadas, y
-// la Tasa de cumplimiento (un ratio 0-100) se dibuja con BarRow.
+// la Tasa de cumplimiento (un ratio 0-100) se dibuja con su propia BarRow
+// rotulada «cumplimiento» (R6), no «completadas».
 //
 // El alcance (rol COLABORADOR = solo sus tareas) lo aplica el backend; acá el
 // título se deriva del filtro aplicado (responsable === yo), que es la verdad
@@ -219,7 +220,7 @@ function SummaryCards({
         mono
         foot={
           <BarRow
-            label="completadas"
+            label="cumplimiento"
             count={resumen.completadas}
             total={resumen.total_asignadas}
             tone="exito"
@@ -311,7 +312,9 @@ function CargaPersonaCard({
   // PR 19 (plan 3B): la tabla por persona responde fila por fila; esta barra
   // apilada responde de un vistazo la pregunta que la tabla no: ¿está
   // balanceada la carga? Cada persona = una barra con segmentos
-  // completadas / en curso / vencidas sobre su total de asignadas.
+  // completadas / en curso al día / vencidas sobre su total de asignadas.
+  // R2: `en_curso` already includes the overdue ones, so the «en curso»
+  // segment is en_curso - vencidas; stacking both counted them twice (>100 %).
   const conTareas = porPersona.filter((p) => p.asignadas > 0);
   if (conTareas.length === 0) return null;
 
@@ -328,7 +331,7 @@ function CargaPersonaCard({
             total={p.asignadas}
             segments={[
               { name: "completadas", value: p.completadas, tone: "exito" },
-              { name: "en curso", value: p.en_curso, tone: "activo" },
+              { name: "en curso al día", value: Math.max(p.en_curso - p.vencidas, 0), tone: "activo" },
               { name: "vencidas", value: p.vencidas, tone: "destructivo" },
             ]}
           />

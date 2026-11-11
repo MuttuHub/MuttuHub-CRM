@@ -344,12 +344,13 @@ describe("ProjectEstructura", () => {
     })
   })
 
-  describe("Metas e indicadores (S14 P6)", () => {
+  describe("Objetivos e indicadores (S14 P6, U2)", () => {
     it("labels the section as the tab it feeds", async () => {
       setup()
 
       const seccion = await screen.findByTestId("estructura")
-      expect(within(seccion).getByText("Metas e indicadores")).toBeInTheDocument()
+      expect(within(seccion).getByText("Objetivos e indicadores")).toBeInTheDocument()
+      expect(within(seccion).queryByText("Metas e indicadores")).not.toBeInTheDocument()
       expect(within(seccion).queryByText("Estructura técnica")).not.toBeInTheDocument()
     })
 

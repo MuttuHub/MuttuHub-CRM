@@ -3,15 +3,15 @@
 
 export const PASOS = [
   { numero: 1, etiqueta: "General", titulo: "Información general", descripcion: "Pide los datos base para crear el proyecto en borrador; el código se asigna solo." },
-  { numero: 2, etiqueta: "Metas", titulo: "Metas e indicadores", descripcion: "Define qué se quiere lograr: cada meta tiene indicadores con línea base y meta para medir el avance." },
-  { numero: 3, etiqueta: "Cronograma", titulo: "Cronograma de actividades", descripcion: "Planifica qué se hace y cuándo: cada actividad declara su meta asociada y su entregable." },
+  { numero: 2, etiqueta: "Estructura", titulo: "Estructura del proyecto", descripcion: "Define qué se quiere lograr: objetivos con sus actividades, entregables e indicadores (cada indicador con su línea base y su meta)." },
+  { numero: 3, etiqueta: "Cronograma", titulo: "Ver cronograma", descripcion: "Consulta qué se hace y cuándo. Es de solo lectura: las actividades se editan en el paso Estructura." },
   { numero: 4, etiqueta: "Presupuesto", titulo: "Presupuesto proyectado por rubros", descripcion: "Reparte el valor total por rubro y programa los desembolsos por mes." },
   { numero: 5, etiqueta: "Revisión", titulo: "Revisar y aprobar", descripcion: "Confirma lo capturado. Puedes guardar el borrador o aprobar la línea base." },
 ] as const
 
 /** Extra explanation of a step, shown behind a help button next to its title. Steps without one have none. */
 const AYUDA_PASOS: Record<number, string> = {
-  3: "El peso de una actividad indica cuánto cuenta en el avance. Si no lo escribes, se calcula con su duración en semanas.",
+  3: "El peso es la duración en semanas; lo calcula el sistema.",
   4: "La programación reparte lo asignado a cada rubro en los meses en que esperas ejecutarlo.",
   5: "Al aprobar la línea base, la estructura y el presupuesto quedan congelados y el proyecto pasa a En ejecución.",
 }
@@ -21,10 +21,9 @@ export function ayudaDePaso(numero: number, aprobado: boolean): string | null {
   return AYUDA_PASOS[numero] ?? null
 }
 
-export type NumeroPaso = (typeof PASOS)[number]["numero"]
 export type EstadoPaso = "hecho" | "activo" | "pendiente"
 
-export const TOTAL_PASOS = PASOS.length
+const TOTAL_PASOS = PASOS.length
 const PRIMER_PASO_CON_PROYECTO = 2
 
 /**
@@ -76,7 +75,7 @@ export function pasoAnterior(actual: number): number | null {
   return actual > 1 ? actual - 1 : null
 }
 
-export const RUTA_NUEVO_PROYECTO = "/proyectos/nuevo"
+const RUTA_NUEVO_PROYECTO = "/proyectos/nuevo"
 
 /** URL of the page. `proyecto`/`paso` make a refresh or the back button keep the created project. */
 export function hrefNuevoProyecto({

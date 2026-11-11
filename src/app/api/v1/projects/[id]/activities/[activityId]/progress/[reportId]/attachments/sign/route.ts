@@ -3,8 +3,8 @@
 //
 // ADR-13 signed direct-to-storage upload for a medio of an activity progress report: the
 // bytes go from the browser to Supabase Storage, never through this function. The server
-// authorises like any report write (S9.5: responsable-only + ADMIN/GERENCIA override, 404 ->
-// 403 -> 409 -> 404 -> 403), validates the shared upload policy, chooses the KEY
+// authorises like any report write (any project member or manager, 404 -> 403 -> 409 ->
+// 404), validates the shared upload policy, chooses the KEY
 // (`proyectos/{id}/soportes/{uuid}_{name}`; a key from the client is never read) and returns
 // a signed upload URL. The browser then confirms with metadata through POST
 // .../attachments. Objects are never deleted. Mirrors the AJ-06 mediciones sign route; the

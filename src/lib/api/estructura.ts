@@ -15,7 +15,7 @@ import { canReadProject, loadProjectScoped, projectReadActor } from "@/lib/api/p
 export const ESTRUCTURA_STATE_MESSAGE =
   "Solo se puede editar la estructura técnica de un proyecto en Borrador.";
 
-export const ESTRUCTURA_FORBIDDEN_MESSAGE = "No tienes permisos sobre este proyecto.";
+const ESTRUCTURA_FORBIDDEN_MESSAGE = "No tienes permisos sobre este proyecto.";
 
 export type GateResult<T> = { ok: true; value: T } | { ok: false; response: Response };
 
@@ -152,7 +152,7 @@ export const textoField = (etiqueta: string, max: number) =>
     .min(1, `${etiqueta} no puede estar vacío.`)
     .max(max, `${etiqueta} es demasiado largo.`);
 
-export const OBJETIVO_AJENO_MESSAGE = "El objetivo no existe en este proyecto.";
+const OBJETIVO_AJENO_MESSAGE = "El objetivo no existe en este proyecto.";
 
 /** The objective must be a live one of this very project. */
 export async function checkObjetivoDelProyecto(

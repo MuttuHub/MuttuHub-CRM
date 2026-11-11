@@ -12,7 +12,7 @@ import { isLocalTarget } from "../../../prisma/local-env";
 import { createMailpitSender, MAILPIT_URL_DEFAULT } from "./mailpit";
 import { createResendSender } from "./resend";
 
-export const EMAIL_FROM_DEFAULT = "noreply@muttu.co";
+const EMAIL_FROM_DEFAULT = "noreply@muttu.co";
 
 export type EmailMessage = {
   to: string;
@@ -29,7 +29,7 @@ export interface EmailSender {
   send(message: EmailMessage): Promise<SendResult>;
 }
 
-export type EmailTransportName = "resend" | "mailpit";
+type EmailTransportName = "resend" | "mailpit";
 
 export type EmailTransport =
   | { ok: true; name: EmailTransportName; sender: EmailSender }

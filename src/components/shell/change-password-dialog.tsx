@@ -108,7 +108,7 @@ export function ChangePasswordDialog({
     >
       <DialogContent className="sm:max-w-[min(400px,calc(100%-2rem))]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 font-display text-[17px] font-bold text-ink-950">
+          <DialogTitle className="flex items-center gap-2">
             <KeyRound className="size-4" strokeWidth={1.8} />
             Cambiar contraseña
           </DialogTitle>

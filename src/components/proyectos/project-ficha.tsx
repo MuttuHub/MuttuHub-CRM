@@ -21,7 +21,11 @@ import { FichaHistorial } from "@/components/proyectos/ficha/ficha-historial";
 import { FichaActividades } from "@/components/proyectos/ficha/ficha-actividades";
 import { FichaHeader } from "@/components/proyectos/ficha/ficha-header";
 import { FichaResumen } from "@/components/proyectos/ficha/ficha-resumen";
-import { useProject, type ProjectListRow } from "@/hooks/projects";
+import { AvisoNovedades } from "@/components/proyectos/ficha/novedades/aviso-novedades";
+import { RegistrarAvanceDialog } from "@/components/proyectos/ficha/registrar-avance-dialog";
+import { RegistrarGastoDialog } from "@/components/proyectos/ficha/registrar-gasto-dialog";
+import { DESTINO_DE_ACCION, type AccionAtencion } from "@/components/proyectos/requiere-atencion";
+import { useProject, useProjectSupports, type ProjectListRow } from "@/hooks/projects";
 import { ApiError } from "@/lib/api/http";
 import { cn } from "@/lib/utils";
 
@@ -36,7 +40,8 @@ export function ProjectFicha({ projectId, backHref }: { projectId: string; backH
 
   return (
     <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col gap-4">
-      {backHref && (
+      {/* Once loaded, «← Proyectos» lives in the header (T10 C1); while loading or on error it stays here. */}
+      {backHref && !proyecto && (
         <Link
           href={backHref}
           className={cn(
@@ -48,11 +53,13 @@ export function ProjectFicha({ projectId, backHref }: { projectId: string; backH
           Volver a proyectos
         </Link>
       )}
+      {/* T10 C7: as in the prototype, the Novedades notice tops the page, above «← Proyectos», in every tab. */}
+      {proyecto && <AvisoNovedades proyectoId={proyecto.id} />}
       <div className="min-w-0 surface">
         {query.isError ? (
           <FichaError error={query.error} />
         ) : proyecto ? (
-          <FichaContent proyecto={proyecto} />
+          <FichaContent proyecto={proyecto} backHref={backHref} />
         ) : (
           <FichaSkeleton />
         )}
@@ -75,26 +82,65 @@ type FichaTab = (typeof FICHA_TABS)[number]["value"];
 
 const PANEL_CLASS = "mt-0 flex flex-col gap-6";
 
-function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
+function FichaContent({ proyecto, backHref }: { proyecto: ProjectListRow; backHref?: string }) {
   // Controlada: los semáforos y las acciones del encabezado también cambian de pestaña.
   const [tab, setTab] = useState<FichaTab>("resumen");
+  // «Documentos · N» (T10 C6): same query (and cache) as the Documentos tab, so opening it costs nothing more.
+  // The API already leaves out what the role may not see, so the count matches the list.
+  const soportes = useProjectSupports(proyecto.id).data;
+  const totalDocumentos = Array.isArray(soportes) ? soportes.length : null;
+  // «Registrar avance» and «Registrar gasto» open their dialogs on top of the current tab (S9).
+  const [avanceAbierto, setAvanceAbierto] = useState(false);
+  const [actividadPedida, setActividadPedida] = useState<string | null>(null);
+  const [gastoAbierto, setGastoAbierto] = useState(false);
+  // «Solicitar modificación» opens Historial on its requests segment.
+  const [pedidoSolicitud, setPedidoSolicitud] = useState(0);
+  const [solicitudPendiente, setSolicitudPendiente] = useState(false);
+
+  const irA = (destino: FichaTab) => {
+    if (destino !== "historial") setSolicitudPendiente(false);
+    setTab(destino);
+  };
+  const registrarAvance = (actividadId: string | null = null) => {
+    setActividadPedida(actividadId);
+    setAvanceAbierto(true);
+  };
+  const solicitarModificacion = () => {
+    setSolicitudPendiente(true);
+    setPedidoSolicitud((pedido) => pedido + 1);
+    irA("historial");
+  };
+  const atenderAccion = (accion: AccionAtencion) => {
+    if (accion.tipo === "registrar-avance") registrarAvance(accion.actividadId);
+    else irA(DESTINO_DE_ACCION[accion.tipo]);
+  };
 
   return (
     <div className="flex flex-col">
       <Tabs
         value={tab}
-        onValueChange={(value) => setTab(value as FichaTab)}
+        onValueChange={(value) => irA(value as FichaTab)}
         className="flex flex-col gap-0"
       >
         {/* Encabezado fijo: pegajoso y fuera del panel de contenido, así estado y semáforos siempre se ven. */}
         <div className="sticky top-0 z-10 rounded-t-card bg-panel">
-          <FichaHeader proyecto={proyecto} onIrA={setTab} />
+          <FichaHeader
+            proyecto={proyecto}
+            onIrA={irA}
+            onRegistrarAvance={() => registrarAvance()}
+            onRegistrarGasto={() => setGastoAbierto(true)}
+            mostrarSemaforos={tab !== "resumen"}
+            pestana={tab}
+            backHref={backHref}
+          />
           <div className="relative border-b border-ink-200">
             <div className="no-scrollbar overflow-x-auto px-5 sm:px-6">
               <TabsList variant="line" className="w-full justify-start gap-1">
                 {FICHA_TABS.map((item) => (
                   <TabsTrigger key={item.value} value={item.value} className="flex-none px-3">
-                    {item.label}
+                    {item.value === "documentos" && totalDocumentos !== null
+                      ? `${item.label} · ${totalDocumentos}`
+                      : item.label}
                   </TabsTrigger>
                 ))}
               </TabsList>
@@ -107,25 +153,44 @@ function FichaContent({ proyecto }: { proyecto: ProjectListRow }) {
             />
           </div>
         </div>
-        <div data-testid="ficha-scroll" className="p-5 sm:p-6">
+        {/* On phones the header's action bar is fixed at the bottom: leave room so it never covers content. */}
+        <div data-testid="ficha-scroll" className="p-5 max-md:pb-28 sm:p-6">
+          {/* Its success notice shows here, above the tab content, once the dialog closes. */}
+          <RegistrarAvanceDialog
+            proyecto={proyecto}
+            open={avanceAbierto}
+            onOpenChange={setAvanceAbierto}
+            actividadId={actividadPedida}
+          />
+          <RegistrarGastoDialog proyecto={proyecto} open={gastoAbierto} onOpenChange={setGastoAbierto} />
           <TabsContent value="resumen" className={PANEL_CLASS}>
-            <FichaResumen proyecto={proyecto} onIrA={setTab} />
+            {/* The Resumen only goes to Historial for «Solicitar modificación»: land on the requests segment. */}
+            <FichaResumen
+              proyecto={proyecto}
+              onIrA={(destino) => (destino === "historial" ? solicitarModificacion() : irA(destino))}
+              onAccion={atenderAccion}
+            />
           </TabsContent>
 
           <TabsContent value="actividades" className={PANEL_CLASS}>
-            <FichaActividades proyecto={proyecto} />
+            <FichaActividades proyecto={proyecto} onSolicitarModificacion={solicitarModificacion} />
           </TabsContent>
 
           <TabsContent value="finanzas" className={PANEL_CLASS}>
-            <FichaFinanzas proyecto={proyecto} />
+            <FichaFinanzas proyecto={proyecto} onVerActividades={() => irA("actividades")} />
           </TabsContent>
 
           <TabsContent value="documentos" className={PANEL_CLASS}>
-            <FichaDocumentos proyecto={proyecto} />
+            <FichaDocumentos proyecto={proyecto} onVerIndicadores={() => irA("actividades")} />
           </TabsContent>
 
           <TabsContent value="historial" className={PANEL_CLASS}>
-            <FichaHistorial proyecto={proyecto} />
+            <FichaHistorial
+              key={pedidoSolicitud}
+              proyecto={proyecto}
+              onIrA={irA}
+              segmentoInicial={solicitudPendiente ? "solicitudes" : undefined}
+            />
           </TabsContent>
         </div>
       </Tabs>

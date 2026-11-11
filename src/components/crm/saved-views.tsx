@@ -71,6 +71,8 @@ const FILTER_KEYS: (keyof ClientFilters)[] = [
   "hasta",
   "valorMin",
   "valorMax",
+  // PR-11 (N6): «sin gestión hace N días».
+  "sinGestion",
   // Jefe 2.6: filtro por etiqueta del catálogo compartido.
   "etiqueta",
   // PR 26 (plan 2B): sort+dir viajan en la URL, así que una vista guardada
@@ -222,7 +224,7 @@ export function SavedViewsMenu({
       <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
         <DialogContent className="sm:max-w-[min(380px,calc(100%-2rem))]">
           <DialogHeader>
-            <DialogTitle className="font-display text-[17px] font-bold text-ink-950">
+            <DialogTitle>
               Guardar vista
             </DialogTitle>
             <DialogDescription>

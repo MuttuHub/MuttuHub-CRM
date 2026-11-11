@@ -19,7 +19,7 @@ import type { Periodo } from "./weeks"
 
 export type GastoEstado = "REGISTRADO" | "VALIDADO" | "RECHAZADO" | "ANULADO"
 export type GastoInput = { periodo: Periodo; valor: Cents; estado: GastoEstado }
-export type CeldaInput = { periodo: Periodo; valor: Cents }
+type CeldaInput = { periodo: Periodo; valor: Cents }
 
 export type FichaRubroInput = {
   rubroId: string
@@ -116,7 +116,7 @@ export function computeFicha(input: {
   return { corte, rubros, total }
 }
 
-export type PrecondicionCodigo =
+type PrecondicionCodigo =
   | "SUMA_DISTINTA_VALOR_TOTAL"
   | "CONTROL_PROGRAMACION"
   | "PROGRAMACION_PENDIENTE"

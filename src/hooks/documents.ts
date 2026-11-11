@@ -20,7 +20,7 @@ import { apiDelete, apiGet, apiPatch, apiPost, ApiError, type ApiVoid } from "@/
 
 /* ── DTOs (server response shapes) ─────────────────────────────────────── */
 
-export type DocumentVersionActiva = {
+type DocumentVersionActiva = {
   version_id: string;
   numero_version: number;
   tamano_bytes: number | null;
@@ -322,7 +322,7 @@ export function useDocumentVersions(id: string | null): UseQueryResult<DocumentV
  * `allowed_extensions` are the SERVER's policy (MAX_FILE_SIZE_MB may differ
  * from the client bundle's default), so the UI can adopt server truth.
  */
-export type SignedUploadResponse = {
+type SignedUploadResponse = {
   storage_path: string;
   token: string;
   signed_url: string;
@@ -333,7 +333,7 @@ export type SignedUploadResponse = {
 };
 
 /** A `documento_nuevo` sign response always carries the pre-generated id. */
-export type SignedDocumentUploadResponse = SignedUploadResponse & { documento_id: string };
+type SignedDocumentUploadResponse = SignedUploadResponse & { documento_id: string };
 
 /** PUTs the bytes straight to Storage with the server-signed URL (never through the route handler). */
 async function putToSignedUrl(url: string, file: File): Promise<void> {

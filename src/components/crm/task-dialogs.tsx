@@ -197,9 +197,9 @@ export function TareaFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88dvh] overflow-y-auto sm:max-w-[min(540px,calc(100%-2rem))]">
+      <DialogContent className="sm:max-w-[min(540px,calc(100%-2rem))]">
         <DialogHeader>
-          <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
+          <DialogTitle>
             {isEdit ? "Editar compromiso" : "Nuevo compromiso"}
           </DialogTitle>
           <DialogDescription>

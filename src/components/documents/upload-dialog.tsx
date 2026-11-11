@@ -165,7 +165,7 @@ export function FileDropzone({
 
 /* ── Input de etiquetas en chips (Enter o coma; dedupe; máx 8) ─────────── */
 
-export function EtiquetasInput({
+function EtiquetasInput({
   etiquetas,
   onChange,
 }: {
@@ -457,10 +457,10 @@ export function UploadDocumentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] gap-0 overflow-y-auto p-0 sm:max-w-[min(560px,calc(100%-2rem))]">
+      <DialogContent className="gap-0 p-0 sm:max-w-[min(560px,calc(100%-2rem))]">
         <div className="flex flex-col gap-5 p-6">
           <DialogHeader className="gap-1">
-            <DialogTitle className="font-display text-[19px] font-bold tracking-[-0.02em] text-ink-950">
+            <DialogTitle>
               Subir documento
             </DialogTitle>
             <DialogDescription>
@@ -634,10 +634,10 @@ export function UploadDocumentDialog({
             )}
           </div>
 
-          <DialogFooter className="mt-1 gap-2">
+          <DialogFooter className="-mx-6 -mb-6 mt-1 gap-2 px-6">
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={lotePending || upload.isPending || versionUpload.isPending}
               className="px-4 font-semibold"

@@ -52,6 +52,23 @@ export function SectionHeader({
 }
 
 /** Bloque vacío de una sección: el `EmptyState` compartido, en versión compacta. */
+/**
+ * Shown where the execution actions would be when the viewer can read the project but is not on its team (the
+ * gerencial read flag), so the missing buttons are explained instead of silently absent.
+ */
+export function AvisoSoloConsulta({ className }: { className?: string }) {
+  return (
+    <p
+      role="note"
+      data-testid="aviso-solo-consulta"
+      className={cn("rounded-[10px] bg-ink-100 px-3 py-2 text-[12.5px] text-ink-700", className)}
+    >
+      Estás viendo este proyecto en modo consulta: no formas parte de su equipo. Para registrar avances o gastos,
+      pide que te agreguen al equipo del proyecto.
+    </p>
+  );
+}
+
 export function EmptyBlock({ children, className }: { children: ReactNode; className?: string }) {
   return <EmptyState bordered description={children} className={cn("mt-1.5 min-h-0 py-4", className)} />;
 }

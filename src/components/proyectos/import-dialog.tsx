@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useId, useState, type ChangeEvent } from "react";
+import { useId, useState } from "react";
 import { Download, FileSpreadsheet, LoaderCircle, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { HelpHint } from "@/components/ui/help-hint";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { errorMessage, plural } from "@/components/proyectos/estructura-ui";
 import { InlineError } from "@/components/proyectos/ui";
@@ -36,6 +35,7 @@ import {
 import { IMPORT_MAX_BYTES } from "@/lib/proyectos/plantilla/columns";
 import { agruparPorHoja, reporteACsv, type ReportePlantilla } from "@/lib/proyectos/plantilla-reporte";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SelectorArchivo } from "@/components/proyectos/selector-archivo";
 
 const TOO_LARGE = "El archivo supera el límite de 4 MB.";
 const NOT_XLSX = "Solo se acepta la plantilla en formato Excel (.xlsx).";
@@ -70,7 +70,8 @@ function HallazgoTabla({ errores }: { errores: ReportePlantilla["errores"] }) {
       <Table className="text-[12.5px]">
         <TableHeader>
           <TableRow>
-            {["Regla", "Fila", "Columna", "Valor", "Mensaje"].map((titulo) => (
+            {/* U6: the internal rule code (V-07, W-01) stays in the CSV, not on screen. */}
+            {["Fila", "Columna", "Valor", "Mensaje"].map((titulo) => (
               <TableHead key={titulo} scope="col">
                 {titulo}
               </TableHead>
@@ -80,7 +81,6 @@ function HallazgoTabla({ errores }: { errores: ReportePlantilla["errores"] }) {
         <TableBody>
           {errores.map((error, indice) => (
             <TableRow key={`${error.regla}-${error.fila}-${indice}`} className="align-top">
-              <TableCell className="align-top font-mono text-[12px]">{error.regla}</TableCell>
               <TableCell className="align-top">{error.fila ?? "—"}</TableCell>
               <TableCell className="align-top">{error.columna ?? "—"}</TableCell>
               <TableCell className="max-w-[14rem] align-top break-words whitespace-normal">{error.valor ?? "—"}</TableCell>
@@ -153,9 +153,8 @@ export function ImportDialog({
     }
   }
 
-  function elegirArchivo(event: ChangeEvent<HTMLInputElement>) {
+  function elegirArchivo(elegido: File | null) {
     limpiarResultado();
-    const elegido = event.target.files?.[0] ?? null;
     if (!elegido) {
       setArchivo(null);
       setArchivoError(null);
@@ -203,7 +202,13 @@ export function ImportDialog({
     <div data-testid={ocultarControles ? undefined : "estructura-plantilla"} className="flex flex-wrap items-center gap-1.5">
       {!ocultarControles && (
         <>
-          <Button type="button" variant="outline" size="sm" disabled={descargando} onClick={() => void descargarPlantilla()}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={descargando || sinFechas}
+            onClick={() => void descargarPlantilla()}
+          >
             {descargando ? <LoaderCircle className="animate-spin" /> : <Download />}
             Descargar plantilla
           </Button>
@@ -211,13 +216,15 @@ export function ImportDialog({
             <Upload />
             Importar plantilla
           </Button>
+          {/* U7: same state and same explanation as the button inside the dialog. */}
+          {sinFechas && <p className="w-full text-[12.5px] text-ink-600">{SIN_FECHAS}</p>}
         </>
       )}
 
       <Dialog open={open} onOpenChange={cambiarApertura}>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[min(860px,calc(100%-2rem))]">
+        <DialogContent className="sm:max-w-[min(860px,calc(100%-2rem))]">
           <DialogHeader>
-            <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
+            <DialogTitle>
               Importar plantilla de proyecto
             </DialogTitle>
             <DialogDescription>
@@ -248,14 +255,7 @@ export function ImportDialog({
             <Label htmlFor={inputId} className="text-[12px] text-ink-600">
               Archivo de la plantilla (.xlsx, máx. 4 MB)
             </Label>
-            <Input
-              id={inputId}
-              type="file"
-              accept=".xlsx"
-              onChange={elegirArchivo}
-              disabled={ocupado}
-              className="h-auto px-3 py-2"
-            />
+            <SelectorArchivo id={inputId} accept=".xlsx" onChange={elegirArchivo} disabled={ocupado} />
             <InlineError message={archivoError} />
           </div>
 
@@ -323,7 +323,7 @@ export function ImportDialog({
           )}
 
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => cambiarApertura(false)} disabled={ocupado}>
+            <Button type="button" variant="outline" onClick={() => cambiarApertura(false)} disabled={ocupado}>
               Cancelar
             </Button>
             {validacion ? (

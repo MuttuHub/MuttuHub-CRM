@@ -1,0 +1,23 @@
+/* Muttu Hub — Proyectos: light-theme tokens copied from the design system (src/app/globals.css, main@8868f1a). */
+:root {
+  --page: #f6f1f3; --background: #f6f1f3; --panel: #ffffff; --card: #ffffff; --popover: #ffffff;
+  --foreground: #281d20; --card-foreground: #281d20; --popover-foreground: #281d20;
+  --primary: #cd1560; --primary-foreground: #ffffff;
+  --secondary: #f7f3f4; --secondary-foreground: #3f2f33; --muted: #f7f3f4; --muted-foreground: #725d62;
+  --destructive: #b3261e; --border: #ece5e7; --border-strong: #9b8c91; --input-bg: #ffffff; --ring: #cd1560;
+  --overlay: rgba(40, 29, 32, 0.45);
+  --ink-100: #f7f3f4; --ink-200: #ece5e7; --ink-300: #ddd2d5; --ink-500: #725d62; --ink-600: #725d62;
+  --ink-700: #5a474c; --ink-800: #3f2f33; --ink-900: #281d20; --ink-950: #191113;
+  --rose-50: #fcf1f5; --rose-100: #f9dfe9; --rose-200: #f5bad2; --rose-400: #eb3f85; --rose-500: #cd1560; --rose-700: #940d44;
+  --exito: #127c4a; --exito-bg: #e7f5ed; --alerta: #b45309; --alerta-bg: #fef4e6;
+  --destructivo: #b3261e; --destructivo-bg: #fdecea; --info: #1e5fa8; --info-bg: #eaf2fc;
+  --radius-sm: 7.2px; --radius-md: 9.6px; --radius-lg: 12px; --radius-control: 12px; --radius-inner: 14px;
+  --radius-card: 20px; --radius-dialog: 22px; --radius-pill: 9999px;
+  --shadow-row-selected: inset 3px 0 0 #cd1560; --shadow-tab-active: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-sans: "Instrument Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+/* Annotation marker for help ⓘ placements on proposal boards (not part of the product UI). */
+.anota { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 9999px;
+  background: #1e5fa8; color: #ffffff; font: 700 11px/1 var(--font-sans); flex: none; }

@@ -82,7 +82,7 @@ describe("NuevoProyecto", () => {
   it("keeps steps 2-5 disabled until a project exists, and shows no prev/next footer", () => {
     render(<NuevoProyecto />)
 
-    for (const nombre of ["Metas", "Cronograma", "Presupuesto", "Revisión"]) expect(paso(nombre)).toBeDisabled()
+    for (const nombre of ["Estructura", "Cronograma", "Presupuesto", "Revisión"]) expect(paso(nombre)).toBeDisabled()
     expect(paso("General")).toBeEnabled()
     expect(screen.queryByRole("button", { name: "Siguiente" })).not.toBeInTheDocument()
   })
@@ -110,8 +110,26 @@ describe("NuevoProyecto", () => {
     nav.search = "proyecto=p1&paso=3"
     useProjectMock.mockReturnValue({ data: PROYECTO, isError: false, error: null })
     render(<NuevoProyecto />)
-    await user.click(screen.getByRole("button", { name: "Ayuda: Cronograma de actividades" }))
-    expect(await screen.findByText(/El peso de una actividad/)).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Ayuda: Ver cronograma" }))
+    expect(await screen.findByText(/El peso es la duración en semanas/)).toBeInTheDocument()
+  })
+
+  it("names step 2 Estructura and says step 3 is read-only, with the weight computed by the system (U2, U3)", async () => {
+    const user = userEvent.setup()
+    nav.search = "proyecto=p1&paso=3"
+    useProjectMock.mockReturnValue({ data: PROYECTO, isError: false, error: null })
+    render(<NuevoProyecto />)
+
+    expect(paso("Estructura")).toBeEnabled()
+    expect(screen.queryByRole("button", { name: /^Metas/ })).not.toBeInTheDocument()
+    expect(screen.getByRole("heading", { level: 2, name: "Ver cronograma" })).toBeInTheDocument()
+    expect(screen.getByText(/solo lectura/)).toBeInTheDocument()
+    expect(screen.queryByText(/Planifica/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Ayuda: Ver cronograma" }))
+    expect(
+      await screen.findByText("El peso es la duración en semanas; lo calcula el sistema."),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Si no lo escribes/)).not.toBeInTheDocument()
   })
 
   it("moves to step 2 of the created project with replace, so the blank form is not one back-press away", async () => {
@@ -135,8 +153,8 @@ describe("NuevoProyecto", () => {
     expect(screen.getByTestId("paso-siguientes")).toHaveTextContent("paso 3")
     expect(paso("Cronograma")).toHaveAttribute("aria-current", "step")
     expect(paso("General")).toHaveAttribute("data-estado", "hecho")
-    expect(paso("Metas")).toHaveAttribute("data-estado", "hecho")
-    for (const nombre of ["General", "Metas", "Cronograma", "Presupuesto", "Revisión"]) expect(paso(nombre)).toBeEnabled()
+    expect(paso("Estructura")).toHaveAttribute("data-estado", "hecho")
+    for (const nombre of ["General", "Estructura", "Cronograma", "Presupuesto", "Revisión"]) expect(paso(nombre)).toBeEnabled()
   })
 
   it("lands on step 2 when a project exists but ?paso is missing", () => {
@@ -164,7 +182,7 @@ describe("NuevoProyecto", () => {
     expect(push).toHaveBeenLastCalledWith("/proyectos/nuevo?proyecto=p1&paso=4")
     await user.click(screen.getByRole("button", { name: "Atrás" }))
     expect(push).toHaveBeenLastCalledWith("/proyectos/nuevo?proyecto=p1&paso=2")
-    await user.click(paso("Metas"))
+    await user.click(paso("Estructura"))
     expect(push).toHaveBeenLastCalledWith("/proyectos/nuevo?proyecto=p1&paso=2")
   })
 

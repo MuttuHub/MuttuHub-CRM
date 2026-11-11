@@ -35,20 +35,19 @@ import { isoDate } from "@/lib/proyectos/proyecto-general";
 
 export const GASTO_FORBIDDEN_MESSAGE = "No tienes permisos sobre este proyecto.";
 export const GASTO_NO_EXISTE = "El gasto no existe.";
-export const SIN_SOPORTE_MESSAGE = "Adjunta al menos un soporte (archivo o enlace).";
+const SIN_SOPORTE_MESSAGE = "Adjunta al menos un soporte (archivo o enlace).";
 /** An expense without a live support cannot be validated (imported expenses start without one). */
 export const SIN_SOPORTE_VALIDAR_MESSAGE = "Adjunta al menos un soporte al gasto antes de validarlo.";
 export const MAX_SOPORTES = 5;
 export const MAX_SOPORTES_MESSAGE = `Puedes adjuntar máximo ${MAX_SOPORTES} soportes.`;
 export const RUBRO_SIN_ASIGNADO_MESSAGE = "Solo puedes registrar gastos en rubros con valor asignado.";
 export const PERIODO_FUERA_MESSAGE = "El periodo debe corresponder a un mes del proyecto.";
-export const PROYECTO_SIN_FECHAS_MESSAGE = "El proyecto no tiene fechas definidas.";
+const PROYECTO_SIN_FECHAS_MESSAGE = "El proyecto no tiene fechas definidas.";
 export const GASTO_VALIDADO_MESSAGE = "Un gasto validado no se puede editar.";
 export const GASTO_ANULADO_MESSAGE = "Un gasto anulado no se puede editar.";
-export const VALOR_POSITIVO_MESSAGE = "El valor debe ser mayor que cero.";
 export const SUBTOTAL_POSITIVO_MESSAGE = "El subtotal debe ser mayor que cero.";
 export const IVA_NEGATIVO_MESSAGE = "El IVA no puede ser negativo.";
-export const TOTAL_ALTO_MESSAGE = "El total (subtotal más IVA) es demasiado alto.";
+const TOTAL_ALTO_MESSAGE = "El total (subtotal más IVA) es demasiado alto.";
 export const PERIODO_DOCUMENTO_FUERA_MESSAGE =
   "La fecha del documento está fuera de los meses del proyecto: elige el periodo.";
 
@@ -60,12 +59,15 @@ const TODOS_LOS_ESTADOS: EstadoGasto[] = ["REGISTRADO", "VALIDADO", "RECHAZADO",
 // Body schemas
 // ---------------------------------------------------------------------------
 
-const texto = (etiqueta: string, max: number) =>
-  z
-    .string({ error: `${etiqueta} es obligatorio.` })
+/** `genero` keeps the Spanish agreement right: «El nombre … es obligatorio» / «La descripción … es obligatoria». */
+const texto = (etiqueta: string, max: number, genero: "m" | "f" = "m") => {
+  const terminacion = genero === "f" ? "a" : "o";
+  return z
+    .string({ error: `${etiqueta} es obligatori${terminacion}.` })
     .trim()
-    .min(1, `${etiqueta} es obligatorio.`)
-    .max(max, `${etiqueta} es demasiado largo.`);
+    .min(1, `${etiqueta} es obligatori${terminacion}.`)
+    .max(max, `${etiqueta} es demasiado larg${terminacion}.`);
+};
 
 const fechaField = z
   .string({ error: "La fecha del documento es obligatoria." })
@@ -96,7 +98,7 @@ const GASTO_FIELDS = {
     .max(40, "El número de identificación es demasiado largo.")
     .nullable(),
   numero_documento: texto("El número de documento", 100),
-  descripcion: texto("La descripción", 1000),
+  descripcion: texto("La descripción", 1000, "f"),
   subtotal: z.union([z.string(), z.number()], { error: "Ingresa un subtotal válido." }),
   iva: z.union([z.string(), z.number()], { error: "Ingresa un IVA válido (puede ser 0)." }),
 };
@@ -164,21 +166,6 @@ export function evaluarMontosGasto(subtotal: unknown, iva: unknown): MontosGasto
 /** Same as `evaluarMontosGasto`, answering 400. */
 export function parseMontosGasto(subtotal: unknown, iva: unknown): MontosGasto | { ok: false; response: Response } {
   const evaluated = evaluarMontosGasto(subtotal, iva);
-  if (!evaluated.ok) return { ok: false, response: apiError(evaluated.message, 400, "VALIDATION_ERROR") };
-  return evaluated;
-}
-
-/** A strictly positive amount in exact cents (decimal string or number, max two decimals), without HTTP. */
-export function evaluarValorGasto(value: unknown): { ok: true; cents: Cents } | { ok: false; message: string } {
-  const parsed = parseMonto(value);
-  if (!parsed.ok) return { ok: false, message: parsed.message };
-  if (parsed.cents <= BigInt(0)) return { ok: false, message: VALOR_POSITIVO_MESSAGE };
-  return { ok: true, cents: parsed.cents };
-}
-
-/** A strictly positive amount in exact cents (decimal string or number, max two decimals). */
-export function parseValorGasto(value: unknown): { ok: true; cents: Cents } | { ok: false; response: Response } {
-  const evaluated = evaluarValorGasto(value);
   if (!evaluated.ok) return { ok: false, response: apiError(evaluated.message, 400, "VALIDATION_ERROR") };
   return evaluated;
 }
@@ -380,7 +367,7 @@ export const GASTO_INCLUDE = {
 
 export type GastoConRelaciones = Prisma.GastoGetPayload<{ include: typeof GASTO_INCLUDE }>;
 
-export type SoporteGastoView = {
+type SoporteGastoView = {
   id: string;
   nombre: string;
   tipo: "archivo" | "enlace";
@@ -536,7 +523,7 @@ export function resumenGastos(
 // ---------------------------------------------------------------------------
 
 /** Last three characters only; the full identification never reaches the ledger. */
-export function mascara(numero: string | null): string | null {
+function mascara(numero: string | null): string | null {
   if (numero === null) return null;
   const limpio = numero.replace(/[^A-Za-z0-9]/g, "");
   return limpio === "" ? null : `***${limpio.slice(-3)}`;

@@ -2,6 +2,8 @@
 // (gestores y COORDINADOR integrante, solo EN_EJECUCION), validación y soportes. El número de
 // identificación del tercero y los soportes llegan SOLO si la API los envía (RNF-03): aquí se
 // pintan si vienen y nunca se piden por otro camino. La API es la autoridad de cada permiso.
+// Rediseño T3: la tabla ya no se corta (sin ancho mínimo fijo; columnas Gasto, Rubro, Periodo, Total, Estado,
+// Soporte, Acción) y validar o rechazar se hace en el panel «Validar gasto» que abre «Revisar».
 
 "use client";
 
@@ -12,31 +14,37 @@ import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/ui/status-chip";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { VoidControl, errorMessage } from "@/components/proyectos/estructura-ui";
-import { EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/ui";
+import { AvisoSoloConsulta, EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/ui";
 import { GASTOS_ERROR, GastosResumen } from "@/components/proyectos/gastos-kpis";
 import { GastoForm, TIPO_SOPORTE_LABELS } from "@/components/proyectos/gasto-form";
-import { ValidacionControles } from "@/components/proyectos/gasto-acciones";
 import { GastosImportDialog } from "@/components/proyectos/gastos-import-dialog";
 import { AdjuntarSoporte, MAX_SOPORTES_POR_GASTO } from "@/components/proyectos/gasto-soportes";
+import { AccionRevisar } from "@/components/proyectos/ficha/finanzas/gastos-por-validar";
+import {
+  AvisosGasto,
+  lineaRegistro,
+  nombreRubro,
+  textoIva,
+  usePermisosGastos,
+} from "@/components/proyectos/ficha/finanzas/gastos-comun";
+import { ValidarGastoPanel } from "@/components/proyectos/ficha/finanzas/validar-gasto-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
-import { useCurrentUser } from "@/hooks/kanban";
 import {
   downloadExpenseSoporte,
   useProjectBudget,
   useProjectExpenses,
-  useProjectMembers,
   useVoidExpense,
   type ProjectExpense,
   type ProjectExpenseEstado,
   type ProjectListRow,
 } from "@/hooks/projects";
 import type { UiTone } from "@/lib/catalogs";
-import { PROJECT_MEMBER_ROLES, canManageProjects } from "@/lib/permissions";
 import { esObservado } from "@/lib/proyectos/gastos";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
+import { FiltroChip } from "@/components/proyectos/ficha/filtro-chip";
 
-export const ESTADO_GASTO_META: Record<ProjectExpenseEstado, { label: string; tone: UiTone }> = {
+const ESTADO_GASTO_META: Record<ProjectExpenseEstado, { label: string; tone: UiTone }> = {
   REGISTRADO: { label: "Registrado", tone: "info" },
   VALIDADO: { label: "Validado", tone: "exito" },
   RECHAZADO: { label: "Rechazado", tone: "destructivo" },
@@ -77,18 +85,10 @@ function FiltrosGasto({
   return (
     <div role="group" aria-label="Filtrar gastos" data-testid="gastos-filtros" className="flex flex-wrap gap-2">
       {filtros.map((f) => (
-        <Button
-          key={f}
-          type="button"
-          size="sm"
-          variant={filtro === f ? "default" : "outline"}
-          aria-pressed={filtro === f}
-          className="rounded-full"
-          onClick={() => onChange(f)}
-        >
+        <FiltroChip key={f} activo={filtro === f} onClick={() => onChange(f)}>
           {FILTRO_LABEL[f]}
           <span className="font-mono tabular-nums opacity-80">{gastos.filter((gasto) => coincide(gasto, f)).length}</span>
-        </Button>
+        </FiltroChip>
       ))}
     </div>
   );
@@ -97,20 +97,11 @@ function FiltrosGasto({
 export function ProjectGastos({ proyecto }: { proyecto: ProjectListRow }) {
   const query = useProjectExpenses(proyecto.id);
   const budgetQuery = useProjectBudget(proyecto.id);
-  const userQuery = useCurrentUser();
-  const membersQuery = useProjectMembers(proyecto.id);
+  const permisos = usePermisosGastos(proyecto);
   const [registrando, setRegistrando] = useState(false);
   const [filtro, setFiltro] = useState<Filtro>("TODOS");
-
-  const usuario = userQuery.data;
-  const esGestor = usuario ? canManageProjects({ id: usuario.id, rol: usuario.rol }) : false;
-  // S6 (PO matrix 2026-10-19): membership, not the role, grants registering.
-  const esMiembroDelEquipo = Boolean(
-    usuario &&
-      PROJECT_MEMBER_ROLES.includes(usuario.rol) &&
-      (membersQuery.data ?? []).some((miembro) => miembro.usuario.id === usuario.id),
-  );
-  const puedeRegistrar = (esGestor || esMiembroDelEquipo) && proyecto.estado === "EN_EJECUCION";
+  const [revisando, setRevisando] = useState<string | null>(null);
+  const { puedeRegistrar, soloConsulta } = permisos;
 
   const gastos = query.data?.gastos ?? [];
   const visibles = gastos.filter((gasto) => coincide(gasto, filtro));
@@ -126,6 +117,7 @@ export function ProjectGastos({ proyecto }: { proyecto: ProjectListRow }) {
       ) : (
         <>
           <GastosResumen data={query.data} />
+          {soloConsulta && <AvisoSoloConsulta className="mt-2" />}
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
             {gastos.length > 0 ? <FiltrosGasto gastos={gastos} filtro={filtro} onChange={setFiltro} /> : <span />}
             {puedeRegistrar && !registrando && (
@@ -158,83 +150,78 @@ export function ProjectGastos({ proyecto }: { proyecto: ProjectListRow }) {
               <GastosListado
                 proyectoId={proyecto.id}
                 gastos={visibles}
-                usuarioId={usuario?.id ?? null}
-                esGestor={esGestor}
-                puedeRegistrar={puedeRegistrar}
+                permisos={permisos}
+                onRevisar={setRevisando}
               />
             )}
           </div>
+
+          {revisando && (
+            <ValidarGastoPanel
+              proyecto={proyecto}
+              gastos={gastos}
+              gastoId={revisando}
+              onSeleccionar={setRevisando}
+              onCerrar={() => setRevisando(null)}
+              puedeValidar={permisos.puedeValidar}
+              usuarioId={permisos.usuarioId}
+              nombreDe={permisos.nombreDe}
+            />
+          )}
         </>
       )}
     </section>
   );
 }
 
+type Permisos = ReturnType<typeof usePermisosGastos>;
+
 type FilaProps = {
   proyectoId: string;
   gasto: ProjectExpense;
-  usuarioId: string | null;
-  esGestor: boolean;
-  /** Mismo permiso que "Registrar gasto": gestor o integrante del equipo, solo EN_EJECUCION. */
-  puedeRegistrar: boolean;
+  permisos: Permisos;
+  onRevisar: (id: string) => void;
 };
 
 /** Debajo de `md` el libro se vuelve una lista de tarjetas (misma convención que el Portafolio). */
 function GastosListado({
   proyectoId,
   gastos,
-  usuarioId,
-  esGestor,
-  puedeRegistrar,
+  permisos,
+  onRevisar,
 }: {
   proyectoId: string;
   gastos: readonly ProjectExpense[];
-  usuarioId: string | null;
-  esGestor: boolean;
-  puedeRegistrar: boolean;
+  permisos: Permisos;
+  onRevisar: (id: string) => void;
 }) {
   const mobile = useIsMobile();
   if (mobile) {
     return (
       <ul data-testid="gastos-cards" className="flex flex-col gap-2">
         {gastos.map((gasto) => (
-          <GastoTarjeta
-            key={gasto.id}
-            proyectoId={proyectoId}
-            gasto={gasto}
-            usuarioId={usuarioId}
-            esGestor={esGestor}
-            puedeRegistrar={puedeRegistrar}
-          />
+          <GastoTarjeta key={gasto.id} proyectoId={proyectoId} gasto={gasto} permisos={permisos} onRevisar={onRevisar} />
         ))}
       </ul>
     );
   }
   return (
-    <div className="surface overflow-hidden">
-      <Table className="min-w-[920px]">
+    <div className="surface overflow-x-auto">
+      <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Fecha</TableHead>
+            <TableHead>Gasto</TableHead>
             <TableHead>Rubro</TableHead>
-            <TableHead>Tercero</TableHead>
-            <TableHead>Documento</TableHead>
-            <TableHead numeric>Monto</TableHead>
+            <TableHead>Periodo</TableHead>
+            <TableHead numeric>Total</TableHead>
             <TableHead>Estado</TableHead>
             <TableHead>Soporte</TableHead>
-            {esGestor && <TableHead>Acciones</TableHead>}
+            {permisos.esGestor && <TableHead>Acción</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
           {gastos.map((gasto) => (
-            <GastoFila
-              key={gasto.id}
-              proyectoId={proyectoId}
-              gasto={gasto}
-              usuarioId={usuarioId}
-              esGestor={esGestor}
-              puedeRegistrar={puedeRegistrar}
-            />
+            <GastoFila key={gasto.id} proyectoId={proyectoId} gasto={gasto} permisos={permisos} onRevisar={onRevisar} />
           ))}
         </TableBody>
       </Table>
@@ -262,28 +249,16 @@ function fechaCorta(iso: string): string {
   return anio && mes && dia ? `${dia}/${mes}/${anio.slice(2)}` : iso;
 }
 
-function nombreRubro(gasto: ProjectExpense): string {
-  return gasto.rubro.codigo ? `${gasto.rubro.codigo} · ${gasto.rubro.nombre}` : gasto.rubro.nombre;
-}
-
 /**
- * Validar / Rechazar (REGISTRADO, solo con el proyecto en ejecución: para un gestor eso es `puedeRegistrar`) o
- * Anular (VALIDADO, en cualquier estado: es una corrección), solo para quien gestiona proyectos.
+ * «Revisar» (REGISTRADO, solo con el proyecto en ejecución, abre el panel «Validar gasto») o Anular (VALIDADO, en
+ * cualquier estado: es una corrección), solo para quien gestiona proyectos.
  */
-function AccionesGasto({ proyectoId, gasto, usuarioId, esGestor, puedeRegistrar }: FilaProps) {
+function AccionesGasto({ proyectoId, gasto, permisos, onRevisar }: FilaProps) {
   const anular = useVoidExpense();
-  if (esGestor && puedeRegistrar && gasto.estado === "REGISTRADO") {
-    return (
-      <ValidacionControles
-        projectId={proyectoId}
-        gastoId={gasto.id}
-        propio={gasto.registrado_por_id === usuarioId}
-        datosIncompletos={gasto.datos_incompletos}
-        sinSoporte={gasto.soportes !== undefined && gasto.soportes.length === 0}
-      />
-    );
+  if (gasto.estado === "REGISTRADO") {
+    return <AccionRevisar gasto={gasto} permisos={permisos} onRevisar={onRevisar} />;
   }
-  if (esGestor && gasto.estado === "VALIDADO") {
+  if (permisos.esGestor && gasto.estado === "VALIDADO") {
     return (
       <VoidControl
         nombre={`gasto ${gasto.numero_documento}`}
@@ -300,20 +275,19 @@ function AccionesGasto({ proyectoId, gasto, usuarioId, esGestor, puedeRegistrar 
 function SoporteGasto({
   proyectoId,
   gasto,
-  usuarioId,
-  puedeRegistrar,
+  permisos,
   onVer,
-}: Pick<FilaProps, "proyectoId" | "gasto" | "usuarioId" | "puedeRegistrar"> & { onVer: (soporteId: string) => void }) {
+}: Pick<FilaProps, "proyectoId" | "gasto" | "permisos"> & { onVer: (soporteId: string) => void }) {
   if (!gasto.soportes) return <span className="text-ink-500">—</span>;
   // S2: el soporte de un gasto importado viene aparte; lo adjunta quien lo registró mientras sea editable.
   const puedeAdjuntar =
-    puedeRegistrar &&
-    gasto.registrado_por_id === usuarioId &&
+    permisos.puedeRegistrar &&
+    gasto.registrado_por_id === permisos.usuarioId &&
     (gasto.estado === "REGISTRADO" || gasto.estado === "RECHAZADO") &&
     gasto.soportes.length < MAX_SOPORTES_POR_GASTO;
   return (
     <div className="flex flex-col items-start gap-1">
-      {gasto.soportes.length === 0 && <StatusChip tone="alerta">Sin soporte</StatusChip>}
+      {gasto.soportes.length === 0 && <StatusChip dot={false} tone="alerta">Sin soporte</StatusChip>}
       {gasto.soportes.map((soporte) => (
         <Button
           key={soporte.id}
@@ -337,9 +311,8 @@ function EstadoGasto({ gasto }: { gasto: ProjectExpense }) {
   return (
     <div className="flex flex-col items-start gap-1">
       <div className="flex flex-wrap items-center gap-1.5">
-        <StatusChip tone={meta.tone}>{meta.label}</StatusChip>
-        {gasto.alerta_sobregasto && <StatusChip tone="destructivo">Supera el asignado</StatusChip>}
-        {gasto.datos_incompletos && <StatusChip tone="alerta">Datos incompletos</StatusChip>}
+        <StatusChip dot={false} tone={meta.tone}>{meta.label}</StatusChip>
+        <AvisosGasto gasto={gasto} conCuentaEn={false} />
       </div>
       {gasto.estado === "RECHAZADO" && gasto.motivo_rechazo && (
         <p className="text-[12px] text-destructivo">Rechazado: {gasto.motivo_rechazo}</p>
@@ -349,11 +322,6 @@ function EstadoGasto({ gasto }: { gasto: ProjectExpense }) {
       )}
     </div>
   );
-}
-
-/** The IVA is shown apart and only for information: the budget always consumes the Total (`valor`). */
-function IvaGasto({ gasto, className }: { gasto: ProjectExpense; className?: string }) {
-  return <span className={`text-ink-600 ${className ?? ""}`}>IVA {formatCOP(toCents(gasto.iva))}</span>;
 }
 
 /** AJ-05: the period was edited away from the month of the document date. The change is in the audit ledger. */
@@ -367,7 +335,7 @@ function PeriodoModificado({ gasto, className }: { gasto: ProjectExpense; classN
 }
 
 function GastoFila(props: FilaProps) {
-  const { proyectoId, gasto, esGestor } = props;
+  const { proyectoId, gasto, permisos } = props;
   const { error, ver } = useVerSoporte(proyectoId, gasto.id);
   const identificacion = [gasto.tercero_tipo_id, gasto.tercero_numero_id].filter(Boolean).join(" ");
   return (
@@ -376,41 +344,38 @@ function GastoFila(props: FilaProps) {
       data-observado={esObservado(gasto) ? "true" : undefined}
       className={esObservado(gasto) ? "bg-alerta-bg/40" : undefined}
     >
+      <TableCell className="min-w-[200px] align-top whitespace-normal">
+        <p className="text-[13px] font-semibold text-ink-950">{gasto.tercero_nombre}</p>
+        <p className="text-[12px] text-ink-600">
+          <span title={formatFechaCalendario(gasto.fecha_documento)}>
+            {lineaRegistro(gasto, permisos.nombreDe(gasto.registrado_por_id), fechaCorta(gasto.fecha_documento))}
+          </span>
+        </p>
+        <p className="text-[12px] text-ink-600">
+          {[TIPO_SOPORTE_LABELS[gasto.tipo_soporte], identificacion].filter(Boolean).join(" · ")}
+        </p>
+        <p className="text-[12px] text-ink-700">{gasto.descripcion}</p>
+      </TableCell>
+      <TableCell className="min-w-[120px] align-top whitespace-normal text-[13px] text-ink-900">
+        {nombreRubro(gasto.rubro)}
+      </TableCell>
       <TableCell className="align-top font-mono text-[12.5px] text-ink-700">
-        <span title={formatFechaCalendario(gasto.fecha_documento)}>{fechaCorta(gasto.fecha_documento)}</span>
+        <span title="Periodo contable">{gasto.periodo}</span>
         <PeriodoModificado gasto={gasto} className="block" />
-      </TableCell>
-      <TableCell className="min-w-[150px] max-w-[240px] align-top whitespace-normal">
-        <p className="text-[13px] font-semibold text-ink-950">{nombreRubro(gasto)}</p>
-        <p className="text-[12px] text-ink-600">{gasto.descripcion}</p>
-      </TableCell>
-      <TableCell className="min-w-[130px] max-w-[200px] align-top whitespace-normal">
-        <p className="text-[13px] text-ink-900">{gasto.tercero_nombre}</p>
-        {identificacion && <p className="font-mono text-[12px] text-ink-600">{identificacion}</p>}
-      </TableCell>
-      <TableCell className="max-w-[160px] align-top whitespace-normal">
-        <p className="font-mono text-[13px] break-all text-ink-900">{gasto.numero_documento}</p>
-        <p className="text-[12px] text-ink-600">{TIPO_SOPORTE_LABELS[gasto.tipo_soporte]}</p>
       </TableCell>
       <TableCell numeric className="align-top font-mono text-[13px] font-semibold text-ink-900">
         <span>{formatCOP(toCents(gasto.valor))}</span>
-        <IvaGasto gasto={gasto} className="block text-[11.5px] font-normal" />
+        <span className="block text-[11.5px] font-normal text-ink-600">{textoIva(gasto)}</span>
       </TableCell>
-      <TableCell className="max-w-[200px] align-top whitespace-normal">
+      <TableCell className="min-w-[130px] align-top whitespace-normal">
         <EstadoGasto gasto={gasto} />
       </TableCell>
       <TableCell className="align-top whitespace-normal">
-        <SoporteGasto
-          proyectoId={proyectoId}
-          gasto={gasto}
-          usuarioId={props.usuarioId}
-          puedeRegistrar={props.puedeRegistrar}
-          onVer={(id) => void ver(id)}
-        />
+        <SoporteGasto proyectoId={proyectoId} gasto={gasto} permisos={permisos} onVer={(id) => void ver(id)} />
         <InlineError message={error} />
       </TableCell>
-      {esGestor && (
-        <TableCell className="min-w-[180px] align-top whitespace-normal">
+      {permisos.esGestor && (
+        <TableCell className="align-top whitespace-normal">
           <AccionesGasto {...props} />
         </TableCell>
       )}
@@ -419,7 +384,7 @@ function GastoFila(props: FilaProps) {
 }
 
 function GastoTarjeta(props: FilaProps) {
-  const { proyectoId, gasto } = props;
+  const { proyectoId, gasto, permisos } = props;
   const { error, ver } = useVerSoporte(proyectoId, gasto.id);
   const identificacion = [gasto.tercero_tipo_id, gasto.tercero_numero_id].filter(Boolean).join(" ");
   return (
@@ -430,11 +395,11 @@ function GastoTarjeta(props: FilaProps) {
           <span className="font-mono text-[13px] font-semibold text-ink-900 tabular-nums">
             {formatCOP(toCents(gasto.valor))}
           </span>
-          <IvaGasto gasto={gasto} className="text-[11.5px]" />
+          <span className="text-[11.5px] text-ink-600">{textoIva(gasto)}</span>
         </span>
       </div>
       <p className="text-[13px] text-ink-900">
-        <span className="font-semibold">{nombreRubro(gasto)}</span>
+        <span className="font-semibold">{nombreRubro(gasto.rubro)}</span>
         {" — "}
         {gasto.descripcion}
       </p>
@@ -444,18 +409,13 @@ function GastoTarjeta(props: FilaProps) {
           identificacion,
           `${TIPO_SOPORTE_LABELS[gasto.tipo_soporte]} ${gasto.numero_documento}`,
           formatFechaCalendario(gasto.fecha_documento),
+          `Periodo ${gasto.periodo}`,
         ]
           .filter(Boolean)
           .join(" · ")}
       </p>
       <PeriodoModificado gasto={gasto} />
-      <SoporteGasto
-        proyectoId={proyectoId}
-        gasto={gasto}
-        usuarioId={props.usuarioId}
-        puedeRegistrar={props.puedeRegistrar}
-        onVer={(id) => void ver(id)}
-      />
+      <SoporteGasto proyectoId={proyectoId} gasto={gasto} permisos={permisos} onVer={(id) => void ver(id)} />
       <InlineError message={error} />
       <AccionesGasto {...props} />
     </li>

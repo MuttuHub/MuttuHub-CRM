@@ -39,21 +39,21 @@ export type { EstadoActividad, Tendencia };
 
 /* ── DTOs (forma real de la respuesta del servidor) ────────────────────── */
 
-export type ProjectLinea = {
+type ProjectLinea = {
   id: string;
   codigo: string;
   nombre: string;
   principal: boolean;
 };
 
-export type ProjectMunicipio = {
+type ProjectMunicipio = {
   id: string;
   nombre: string;
   departamento: string;
 };
 
 /** Aviso no bloqueante de `toProjectItemV2` (S2.4). */
-export type ProjectAlert = {
+type ProjectAlert = {
   codigo: "DIFERENCIA_VALOR";
   mensaje: string;
   /** Decimal serializado: string, nunca número. */
@@ -113,7 +113,7 @@ export type ProjectAuditEntry = {
   lote_id: string | null;
 };
 
-export type ProjectAuditResponse = {
+type ProjectAuditResponse = {
   historial: ProjectAuditEntry[];
 };
 
@@ -432,7 +432,7 @@ export function useMunicipalities(): UseQueryResult<Municipality[]> {
 export type ProjectLineaInput = { id: string; principal: boolean };
 
 /** Campos compartidos por ambos endpoints de creación (`PROJECT_CREATE_BASE`). */
-export type ProjectCreateBaseInput = {
+type ProjectCreateBaseInput = {
   /** M3: opcional, máx. 2000 caracteres. */
   descripcion?: string;
   responsable_id: string;
@@ -873,7 +873,7 @@ export type ProjectAvance = {
 };
 
 /** Un medio (archivo/enlace) de un avance, en detalle (`toMedioView`). */
-export type ProjectAvanceSoporte = {
+type ProjectAvanceSoporte = {
   id: string;
   proyecto_id: string;
   avance_id: string | null;
@@ -916,7 +916,7 @@ export type ProjectMedicion = {
 };
 
 /** Un medio (archivo/enlace) de una medición, en detalle (`toMedioView`). */
-export type ProjectMedicionSoporte = {
+type ProjectMedicionSoporte = {
   id: string;
   proyecto_id: string;
   avance_id: string | null;
@@ -939,7 +939,7 @@ export type ProjectIndicatorMeasurements = {
 };
 
 /** Fila de `registros[]` (`toBeneficiarioView`); `cantidad` es un entero. */
-export type ProjectBeneficiario = {
+type ProjectBeneficiario = {
   id: string;
   proyecto_id: string;
   actividad_id: string | null;
@@ -992,14 +992,29 @@ export function useDeliverableProgress(
 ): UseQueryResult<ProjectDeliverableProgress>[] {
   return useQueries({
     queries: deliverableIds.map((deliverableId) => ({
-      queryKey: projectQueryKeys.deliverableProgress(projectId, deliverableId),
+      ...deliverableProgressQuery(projectId, deliverableId),
       enabled: projectId !== "" && deliverableId !== "",
-      queryFn: () =>
-        apiGet<ProjectDeliverableProgress>(
-          `/api/v1/projects/${projectId}/deliverables/${deliverableId}/progress`,
-        ),
     })),
   });
+}
+
+function deliverableProgressQuery(projectId: string, deliverableId: string) {
+  return {
+    queryKey: projectQueryKeys.deliverableProgress(projectId, deliverableId),
+    queryFn: () =>
+      apiGet<ProjectDeliverableProgress>(`/api/v1/projects/${projectId}/deliverables/${deliverableId}/progress`),
+  };
+}
+
+/**
+ * Read-only view of one entregable's progress query, as `useDeliverableProgress` left it in the cache: it never
+ * fetches on mount (the list owns that read), but tells a row whether the read failed and can `refetch` it.
+ */
+export function useDeliverableProgressState(
+  projectId: string,
+  deliverableId: string,
+): UseQueryResult<ProjectDeliverableProgress> {
+  return useQuery({ ...deliverableProgressQuery(projectId, deliverableId), enabled: false });
 }
 
 /** Mediciones de un indicador con su última lectura y tendencia. */
@@ -1214,6 +1229,8 @@ export type ProjectActivityReport = {
   porcentaje: string;
   observacion: string;
   registrado_por_id: string;
+  /** Nombre de quien lo registró, resuelto por el servidor (sigue aunque ya no sea integrante). */
+  registrado_por_nombre: string | null;
   created_at: string;
   anulado_at: string | null;
   anulado_por_id: string | null;
@@ -1436,44 +1453,6 @@ export function useAttachMedicionMedio(
   });
 }
 
-export type ProjectBeneficiarioInput = {
-  fecha: string;
-  cantidad: number;
-  actividad_id?: string;
-  observacion?: string;
-};
-
-/** Registra un conteo de beneficiarios (`cantidad` entero > 0). */
-export function useCreateBeneficiario(
-  projectId: string,
-): UseMutationResult<{ registro: ProjectBeneficiario }, Error, ProjectBeneficiarioInput> {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input) =>
-      apiPost<{ registro: ProjectBeneficiario }>(`/api/v1/projects/${projectId}/beneficiaries`, input),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: projectQueryKeys.beneficiaries(projectId) });
-    },
-  });
-}
-
-/** Anula un registro de beneficiarios (conserva la fila); solo gestores. */
-export function useVoidBeneficiario(
-  projectId: string,
-): UseMutationResult<{ registro: ProjectBeneficiario }, Error, { id: string; motivo: string }> {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, motivo }) =>
-      apiPost<{ registro: ProjectBeneficiario }>(
-        `/api/v1/projects/${projectId}/beneficiaries/${id}/void`,
-        { motivo },
-      ),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: projectQueryKeys.beneficiaries(projectId) });
-    },
-  });
-}
-
 /* ── Presupuesto, programación y ficha financiera (S5 U5/U6) ───────────── */
 //
 // Los montos viajan como STRING decimal ("59500000.00") en ambos sentidos y
@@ -1651,7 +1630,7 @@ export function useProjectFinancialSheet(
 
 export type ProjectExpenseEstado = "REGISTRADO" | "VALIDADO" | "RECHAZADO" | "ANULADO";
 
-export type ProjectExpenseSoporte = {
+type ProjectExpenseSoporte = {
   id: string;
   nombre: string;
   tipo: "archivo" | "enlace";
@@ -1701,7 +1680,7 @@ export type ProjectExpense = {
   soportes_count?: number;
 };
 
-export type ProjectExpensesResumen = {
+type ProjectExpensesResumen = {
   /** REGISTRADO y VALIDADO. */
   vigentes: number;
   /** Vigentes con soporte; ausente sin acceso a soportes financieros (RNF-03). */
@@ -2151,7 +2130,7 @@ export type StructureImportError = { hoja: string | null; fila: number | null; c
 export type StructureImportCounts = { objetivos: number; actividades: number; entregables: number; indicadores: number };
 
 /** El plan con los códigos que genera el sistema (O1, A1.1, E1.1.1, IND-01). */
-export type StructureImportPlan = {
+type StructureImportPlan = {
   objetivos: { codigo: string; descripcion: string }[];
   indicadores: { codigo: string; objetivoCodigo: string; nombre: string; meta: string }[];
   actividades: { codigo: string; objetivoCodigo: string; nombre: string; semanaInicio: number; semanaFin: number }[];
@@ -2319,7 +2298,7 @@ export function useImportBudget(
 export type ExpensesImportError = { fila: number | null; rubro: string | null; mensaje: string };
 
 /** Una fila del archivo en la vista previa: válida o no, con su motivo y los avisos que no bloquean. */
-export type ExpensesImportRow = {
+type ExpensesImportRow = {
   fila: number;
   rubro: string | null;
   tercero: string | null;
@@ -2549,7 +2528,7 @@ export type ProjectDiferencia = {
 
 export type ProjectVersionComparison = { desde: string; hasta: string; diferencias: ProjectDiferencia[] };
 
-export type { TipoModificacion };
+;
 
 export type ModificacionDetalleItem = {
   elemento: "presupuesto" | "programacion" | "proyecto" | "actividad" | "entregable" | "indicador";
@@ -2713,7 +2692,7 @@ export function useRejectModification(
 // Los colores, porcentajes y alertas llegan calculados por el servidor (`kpisProyecto`): aquí solo se
 // declaran y se pintan, NUNCA se recalculan. Los montos viajan como string decimal.
 
-export type KpiTecnico = {
+type KpiTecnico = {
   corte: string;
   avance_real: number;
   avance_programado: number;

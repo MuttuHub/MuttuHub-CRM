@@ -71,16 +71,21 @@ function renderFicha(projectId = "p1") {
   })
 }
 
-/** Los paneles de la ficha se montan solo con su pestaña activa. */
-async function openTab(name: string) {
+/**
+ * Los paneles de la ficha se montan solo con su pestaña activa. Los segmentos con contador («Gastos · 3»,
+ * «Versiones · 1») se piden con una RegExp anclada al nombre: el número llega cuando cargan los datos.
+ */
+async function openTab(name: string | RegExp) {
   const user = userEvent.setup()
-  await user.click(await screen.findByRole("tab", { name }))
+  // «Documentos · N» (T10 C6) carries its count once the supports load: a plain name matches with or without it.
+  const pattern = typeof name === "string" ? new RegExp(`^${name}( · \\d+)?$`) : name
+  await user.click(await screen.findByRole("tab", { name: pattern }))
 }
 
 /** Historial groups modifications, versions and audit as segments; the audit log lives in "Auditoría". */
+// The change log («Registro de cambios») is the segment Historial opens on.
 async function openAuditoria() {
   await openTab("Historial")
-  await openTab("Auditoría")
 }
 
 const TAB_NAMES = ["Resumen", "Actividades", "Finanzas", "Documentos", "Historial"]
@@ -107,19 +112,19 @@ describe("ProjectFicha (page)", () => {
     expect(screen.getByText("En ejecución")).toBeInTheDocument()
     expect(screen.getByText("Desde una oportunidad ganada")).toBeInTheDocument()
     expect(screen.getByText("Alcaldía de Barranquilla")).toBeInTheDocument()
-    expect(screen.getByText("Ana Pérez")).toBeInTheDocument()
-    expect(screen.getByText("05 de ene de 2026")).toBeInTheDocument()
-    expect(screen.getByText("30 de mar de 2026")).toBeInTheDocument()
-    expect(screen.getByText("12 semanas")).toBeInTheDocument()
-    expect(screen.getByText("$ 180.000.000")).toBeInTheDocument()
-    // La meta aparece en el estado y en los datos generales.
-    expect(screen.getAllByText("1.200")).toHaveLength(2)
+    expect(screen.getByTestId("ficha-header")).toHaveTextContent("Responsable: Ana Pérez")
+    // Dates and weeks live in the Tiempo figure of the Resumen.
+    const tiempo = screen.getByTestId("resumen-estado")
+    expect(tiempo).toHaveTextContent("05 ene 2026 → 30 mar 2026")
+    expect(tiempo).toHaveTextContent("de 12")
+    expect(screen.getAllByText("$ 180.000.000").length).toBeGreaterThan(0)
+    // La meta aparece en los datos generales y junto al valor total.
+    expect(screen.getByText("1.200")).toBeInTheDocument()
+    expect(tiempo).toHaveTextContent("1.200 beneficiarios")
     expect(screen.getByText("-$ 5.000.000")).toBeInTheDocument()
 
-    // Las dos líneas, con la principal marcada de forma visible.
-    expect(screen.getByText("Educación")).toBeInTheDocument()
-    expect(screen.getByText("Salud")).toBeInTheDocument()
-    expect(screen.getByText("Principal")).toBeInTheDocument()
+    // Las dos líneas, con la principal primero y nombrada (T10 R9, como en el prototipo).
+    expect(screen.getByText("Educación (principal), Salud")).toBeInTheDocument()
 
     expect(screen.getByText("Barranquilla · Atlántico")).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1", expect.any(Object))
@@ -138,7 +143,7 @@ describe("ProjectFicha (page)", () => {
 
     const kpis = await screen.findByTestId("kpis")
     expect(kpis).toHaveTextContent("Exportar fichas")
-    expect(await within(kpis).findByText("No confirmado")).toBeInTheDocument()
+    expect(await within(kpis).findByText("Umbrales sin confirmar")).toBeInTheDocument()
     expect(within(kpis).getByRole("button", { name: /Exportar ficha \(Excel\)/ })).toBeInTheDocument()
 
     await user.keyboard("{Escape}")
@@ -170,8 +175,10 @@ describe("ProjectFicha (page)", () => {
     renderFicha()
 
     const estado = await screen.findByTestId("resumen-estado")
-    expect(await within(estado).findByTestId("salud-tecnico")).toHaveTextContent("Avance real 30 % frente a 40 % programado")
-    expect(within(estado).getByTestId("salud-financiero")).toHaveTextContent("Ejecutado 80 % de lo programado")
+    expect(await within(estado).findByTestId("salud-tecnico")).toHaveTextContent("real de 40 % programado")
+    const financiero = within(estado).getByTestId("salud-financiero")
+    expect(financiero).toHaveTextContent("80 %")
+    expect(financiero).toHaveTextContent("de lo programado a hoy")
     // Ya no hay la cuadrícula de seis tarjetas.
     expect(screen.queryByTestId("resumen-kpis")).not.toBeInTheDocument()
     expect(screen.queryByTestId(/^resumen-kpi-/)).not.toBeInTheDocument()
@@ -220,20 +227,21 @@ describe("ProjectFicha (page)", () => {
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/kpis"))).toBe(false)
   })
 
-  it("opens Historial on the modifications and mounts versions and audit from their segments", async () => {
+  it("opens Historial on the change log and mounts the requests and versions from their segments", async () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
     await openTab("Historial")
 
-    expect(await screen.findByTestId("modificaciones")).toHaveTextContent("Modificaciones")
-    expect(screen.queryByTestId("versiones")).not.toBeInTheDocument()
-    expect(screen.queryByTestId("historial")).not.toBeInTheDocument()
-
-    await openTab("Versiones")
-    expect(await screen.findByTestId("versiones")).toHaveTextContent("Versiones")
-    await openTab("Auditoría")
     expect(await screen.findByTestId("historial")).toBeInTheDocument()
+    expect(screen.getByRole("tab", { name: "Registro de cambios", selected: true })).toBeInTheDocument()
+    expect(screen.queryByTestId("modificaciones")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("versiones")).not.toBeInTheDocument()
+
+    await openTab(/^Solicitudes de modificación( · \d+)?$/)
+    expect(await screen.findByTestId("modificaciones")).toBeInTheDocument()
+    await openTab(/^Versiones del plan( · \d+)?$/)
+    expect(await screen.findByTestId("versiones")).toHaveTextContent("Versiones del plan")
     expect(screen.queryByTestId("gastos")).not.toBeInTheDocument()
   })
 
@@ -260,9 +268,10 @@ describe("ProjectFicha (page)", () => {
 
     renderFicha()
     await openTab("Historial")
+    await openTab("Solicitudes de modificación")
 
     expect(await screen.findByText(/línea base esté aprobada/i)).toBeInTheDocument()
-    await openTab("Versiones")
+    await openTab("Versiones del plan")
     expect(await screen.findByText("La línea base aún no está aprobada.")).toBeInTheDocument()
     expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith("/modifications") || String(url).endsWith("/versions"))).toBe(false)
   })
@@ -279,7 +288,7 @@ describe("ProjectFicha (page)", () => {
     await openTab("Actividades")
     // In a draft the Lista is the editable structure; the Gantt is another view, not stacked below it.
     const estructura = await screen.findByTestId("estructura")
-    expect(estructura).toHaveTextContent("Metas e indicadores")
+    expect(estructura).toHaveTextContent("Objetivos e indicadores")
     expect(screen.queryByTestId("equipo")).not.toBeInTheDocument()
     expect(screen.queryByTestId("gantt")).not.toBeInTheDocument()
   })
@@ -312,7 +321,7 @@ describe("ProjectFicha (page)", () => {
     await openTab("Actividades")
     expect(screen.queryByTestId("gantt")).not.toBeInTheDocument()
 
-    await user.click(await screen.findByRole("tab", { name: "Gantt" }))
+    await user.click(await screen.findByRole("tab", { name: "Cronograma" }))
 
     expect(await screen.findByTestId("gantt")).toBeInTheDocument()
     await waitFor(() =>
@@ -368,7 +377,8 @@ describe("ProjectFicha (page)", () => {
     await openTab("Finanzas")
 
     const financiero = await screen.findByTestId("financiero")
-    expect(financiero).toHaveTextContent("Ficha financiera")
+    // The Resumen segment names the section; the financial sheet does not repeat it as a heading.
+    expect(within(financiero).queryByRole("heading", { name: "Ficha financiera" })).not.toBeInTheDocument()
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/financial-sheet", expect.any(Object)),
     )
@@ -387,7 +397,7 @@ describe("ProjectFicha (page)", () => {
 
     renderFicha()
     await openTab("Finanzas")
-    await user.click(await screen.findByRole("tab", { name: "Gastos" }))
+    await user.click(await screen.findByRole("tab", { name: /^Gastos( · \d+)?$/ }))
 
     const gastos = await screen.findByTestId("gastos")
     expect(gastos).toHaveTextContent("Gastos")
@@ -465,16 +475,22 @@ describe("ProjectFicha (page)", () => {
     for (const id of ["estructura", "cronograma", "gantt", "presupuesto", "ejecucion", "kpis", "financiero", "gastos", "modificaciones", "versiones", "historial", "soportes"]) {
       expect(screen.queryByTestId(id)).not.toBeInTheDocument()
     }
-    const lazy = ["/budget", "/expenses", "/audit", "/modifications", "/versions", "/financial-sheet", "/technical-status", "/objectives", "/activities", "/supports", "/curve"]
+    const lazy = ["/budget", "/expenses", "/audit", "/modifications", "/versions", "/financial-sheet", "/technical-status", "/objectives", "/activities", "/curve"]
     for (const suffix of lazy) {
       expect(fetchMock.mock.calls.some(([url]) => String(url).includes(suffix))).toBe(false)
     }
+    // T10 C6: the «Documentos · N» counter reads the supports up front; the Documentos tab stays unmounted.
+    await vi.waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/supports", expect.any(Object)),
+    )
 
     await openTab("Finanzas")
     await screen.findByTestId("financiero")
     expect(screen.queryByTestId("ficha-resumen")).not.toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/financial-sheet", expect.any(Object))
-    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/expenses"))).toBe(false)
+    // The «Gastos · N» counter reads the expenses once Finanzas opens, but the Gastos section stays unmounted.
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/expenses"))).toBe(true)
+    expect(screen.queryByTestId("gastos")).not.toBeInTheDocument()
   })
 
   it("keeps the header (code, name, estado and both semáforo chips) outside the scrolling panel", async () => {
@@ -491,10 +507,11 @@ describe("ProjectFicha (page)", () => {
     expect(within(header).getByText("PRY-2026-001")).toBeInTheDocument()
     expect(within(header).getByText(PROYECTO.nombre)).toBeInTheDocument()
     expect(within(header).getByText("En ejecución")).toBeInTheDocument()
+    expect(screen.getByTestId("ficha-scroll")).not.toContainElement(header)
+    // The Resumen's figures already carry the colours; the chips show on the other tabs.
+    await openTab("Finanzas")
     expect(await within(header).findByText("Semáforo técnico: Amarillo")).toBeInTheDocument()
     expect(await within(header).findByText("Semáforo financiero: Rojo")).toBeInTheDocument()
-    expect(screen.getByTestId("ficha-scroll")).not.toContainElement(header)
-    await openTab("Finanzas")
     expect(screen.getByTestId("ficha-header")).toBeInTheDocument()
   })
 
@@ -529,25 +546,29 @@ describe("ProjectFicha (page)", () => {
     renderFicha()
 
     const header = await screen.findByTestId("ficha-header")
+    await openTab("Documentos")
     await user.click(await within(header).findByRole("button", { name: "Semáforo técnico: Amarillo" }))
     expect(screen.getByRole("tab", { name: "Actividades" })).toHaveAttribute("aria-selected", "true")
     await user.click(within(header).getByRole("button", { name: "Semáforo financiero: Rojo" }))
     expect(screen.getByRole("tab", { name: "Finanzas" })).toHaveAttribute("aria-selected", "true")
   })
 
-  it("shows the semáforo only in the header: Resumen carries no semáforo chip of its own", async () => {
+  it("shows the semáforo once: as figures on the Resumen and as header chips on the other tabs", async () => {
     mockFichaAndAudit({ historial: [] })
 
     renderFicha()
 
     const header = await screen.findByTestId("ficha-header")
+    await screen.findByTestId("salud-tecnico")
+    expect(screen.queryByText("Semáforo técnico: Amarillo")).not.toBeInTheDocument()
+
+    await openTab("Actividades")
     await within(header).findByText("Semáforo técnico: Amarillo")
     expect(screen.getAllByText("Semáforo técnico: Amarillo")).toHaveLength(1)
   })
 
-  it("offers Registrar avance as the primary action and Registrar gasto as secondary, and switches tabs", async () => {
+  it("offers Registrar avance as the primary action and Registrar gasto as secondary", async () => {
     mockFichaAndAudit({ historial: [] })
-    const user = userEvent.setup()
 
     renderFicha()
 
@@ -556,12 +577,110 @@ describe("ProjectFicha (page)", () => {
     const gasto = within(header).getByRole("button", { name: "Registrar gasto" })
     expect(avance).toHaveClass("bg-primary")
     expect(gasto).not.toHaveClass("bg-primary")
-
-    await user.click(gasto)
-    expect(screen.getByRole("tab", { name: "Finanzas" })).toHaveAttribute("aria-selected", "true")
-    await user.click(avance)
-    expect(screen.getByRole("tab", { name: "Actividades" })).toHaveAttribute("aria-selected", "true")
   })
+
+  // T9 / S9: «los dos botones deben abrir los siguiente modales …, desde cualquiera de las fichas».
+  const ACTIVIDADES_EJECUCION = [
+    {
+      id: "a1", proyecto_id: "p1", objetivo_id: "o1", codigo: "1.1", nombre: "Diagnóstico inicial",
+      semana_inicio: 1, semana_fin: 3, fecha_inicio: "2026-10-05", fecha_fin: "2026-12-10", peso: 1,
+      peso_manual: false, responsable_id: null, fuera_de_duracion: false,
+      created_at: "2026-10-08T00:00:00.000Z", updated_at: "2026-10-08T00:00:00.000Z",
+    },
+    {
+      id: "a2", proyecto_id: "p1", objetivo_id: "o1", codigo: "1.2", nombre: "Taller de formación",
+      semana_inicio: 1, semana_fin: 3, fecha_inicio: "2026-10-05", fecha_fin: "2026-12-10", peso: 1,
+      peso_manual: false, responsable_id: "u9", fuera_de_duracion: false,
+      created_at: "2026-10-08T00:00:00.000Z", updated_at: "2026-10-08T00:00:00.000Z",
+    },
+    {
+      id: "a3", proyecto_id: "p1", objetivo_id: "o1", codigo: "1.3", nombre: "Acompañamiento técnico",
+      semana_inicio: 1, semana_fin: 3, fecha_inicio: "2026-10-05", fecha_fin: "2026-10-25", peso: 1,
+      peso_manual: false, responsable_id: null, fuera_de_duracion: false,
+      created_at: "2026-10-08T00:00:00.000Z", updated_at: "2026-10-08T00:00:00.000Z",
+    },
+  ]
+  const TECNICO_ACTIVIDADES = [
+    { id: "a1", codigo: "1.1", peso: 1, progreso: 100, estado: "FINALIZADA", fecha_cumplimiento: "2026-10-20" },
+    { id: "a2", codigo: "1.2", peso: 1, progreso: 40, estado: "EN_CURSO", fecha_cumplimiento: null },
+    { id: "a3", codigo: "1.3", peso: 1, progreso: 25, estado: "EN_CURSO", fecha_cumplimiento: null },
+  ]
+
+  it.each(["Resumen", "Documentos"])(
+    "opens the «Registrar avance» dialog from the header on %s, without switching tab",
+    async (pestana) => {
+      mockFichaAndAudit({ historial: [] }, 200, PROYECTO, KPIS_PANEL, {
+        actividades: ACTIVIDADES_EJECUCION,
+        tecnicoActividades: TECNICO_ACTIVIDADES,
+      })
+      const user = userEvent.setup()
+
+      renderFicha()
+      if (pestana !== "Resumen") await openTab(pestana)
+      const header = await screen.findByTestId("ficha-header")
+      await user.click(await within(header).findByRole("button", { name: "Registrar avance" }))
+
+      const dialog = await screen.findByRole("dialog", { name: "Registrar avance" })
+      expect(await within(dialog).findByRole("combobox", { name: "Actividad" })).toHaveValue("a2")
+      expect(within(dialog).getByTestId("registrar-avance-resumen")).toHaveTextContent("40 % registrado · tope 90 %")
+      expect(within(dialog).getByRole("form", { name: "Registrar avance 1.2" })).toBeInTheDocument()
+      // The modal hides the page from the accessibility tree: read the tab behind it with `hidden`.
+      expect(
+        screen.getByRole("tab", { name: new RegExp(`^${pestana}( · \\d+)?$`), hidden: true }),
+      ).toHaveAttribute("aria-selected", "true")
+    },
+  )
+
+  it("opens the «Registrar avance» dialog on the activity a «Qué falta» row names, staying on the Resumen", async () => {
+    mockFichaAndAudit({ historial: [] }, 200, PROYECTO, KPIS_PANEL, {
+      actividades: ACTIVIDADES_EJECUCION,
+      tecnicoActividades: TECNICO_ACTIVIDADES,
+      atencion: [
+        {
+          tipo: "actividad_atrasada",
+          titulo: "Actividad atrasada",
+          detalle: "1.3 Acompañamiento: vencida el 25 oct 2026 con avance 25 %.",
+          actividad_id: "a3",
+        },
+      ],
+    })
+    const user = userEvent.setup()
+
+    renderFicha()
+    const fila = await screen.findByTestId("atencion-actividad_atrasada")
+    await user.click(await within(fila).findByRole("button", { name: "Registrar avance de 1.3" }))
+
+    const dialog = await screen.findByRole("dialog", { name: "Registrar avance" })
+    expect(await within(dialog).findByRole("combobox", { name: "Actividad" })).toHaveValue("a3")
+    expect(within(dialog).getByRole("form", { name: "Registrar avance 1.3" })).toBeInTheDocument()
+    expect(screen.getByRole("tab", { name: "Resumen", hidden: true })).toHaveAttribute("aria-selected", "true")
+  })
+
+  it.each(["Resumen", "Actividades"])(
+    "opens the «Registrar gasto» dialog from the header on %s, without switching to Finanzas",
+    async (pestana) => {
+      mockFichaAndAudit({ historial: [] })
+      const user = userEvent.setup()
+
+      renderFicha()
+      if (pestana !== "Resumen") await openTab(pestana)
+      const header = await screen.findByTestId("ficha-header")
+      await user.click(await within(header).findByRole("button", { name: "Registrar gasto" }))
+
+      const dialog = await screen.findByRole("dialog", { name: "Registrar gasto" })
+      expect(await within(dialog).findByRole("form", { name: "Registrar gasto" })).toBeInTheDocument()
+      expect(within(dialog).getByLabelText("Rubro")).toBeInTheDocument()
+      // The modal hides the page from the accessibility tree: read the tabs behind it with `hidden`.
+      expect(
+        screen.getByRole("tab", { name: new RegExp(`^${pestana}( · \\d+)?$`), hidden: true }),
+      ).toHaveAttribute("aria-selected", "true")
+      expect(screen.getByRole("tab", { name: "Finanzas", hidden: true })).toHaveAttribute("aria-selected", "false")
+
+      await user.click(within(dialog).getByRole("button", { name: "Cancelar" }))
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Registrar gasto" })).not.toBeInTheDocument())
+      expect(screen.getByRole("tab", { name: pestana })).toHaveAttribute("aria-selected", "true")
+    },
+  )
 
   it("hides the execution actions in a draft and for a user who cannot write", async () => {
     mockFichaAndAudit({ historial: [] }, 200, { ...PROYECTO, estado: "BORRADOR" })
@@ -626,6 +745,35 @@ describe("ProjectFicha (page)", () => {
     expect(await screen.findByText(PROYECTO.nombre)).toBeInTheDocument()
     expect(screen.queryByText("Diferencia valor oportunidad")).not.toBeInTheDocument()
     expect(screen.getByText("$ 180.000.000")).toBeInTheDocument()
+  })
+
+  // T10 C7: as in the prototype, the Novedades notice tops the page above «← Proyectos», in every tab.
+  it("shows the Novedades notice above the header, and keeps it when switching to Finanzas", async () => {
+    window.localStorage.clear()
+    mockFichaAndAudit({ historial: [] })
+
+    renderFicha()
+
+    const aviso = await screen.findByTestId("aviso-novedades")
+    const volver = screen.getByRole("link", { name: "Volver a proyectos" })
+    expect(aviso.compareDocumentPosition(volver) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    await openTab("Finanzas")
+    expect(screen.getByTestId("aviso-novedades")).toBeInTheDocument()
+  })
+
+  // T10 C6: as in the prototype, the Documentos tab carries its count.
+  it("shows «Documentos · N» with the number of supports the API returns", async () => {
+    mockFichaAndAudit({ historial: [] })
+    const base = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation((input: unknown, init?: unknown) =>
+      String(input).endsWith("/supports")
+        ? Promise.resolve(jsonResponse({ soportes: [{ id: "s1" }, { id: "s2" }] }))
+        : base(input, init),
+    )
+
+    renderFicha()
+
+    expect(await screen.findByRole("tab", { name: "Documentos · 2" })).toBeInTheDocument()
   })
 
   it("links back to the project list from the loaded page", async () => {
@@ -814,7 +962,12 @@ describe("ProjectFicha (page)", () => {
     auditStatus = 200,
     proyecto: unknown = PROYECTO,
     kpis: unknown = KPIS_PANEL,
-    estructuraLista: { objetivos?: unknown[] } = {},
+    estructuraLista: {
+      objetivos?: unknown[]
+      actividades?: unknown[]
+      tecnicoActividades?: unknown[]
+      atencion?: unknown[]
+    } = {},
   ) {
     fetchMock.mockImplementation((input: unknown) => {
       if (String(input).endsWith("/audit")) {
@@ -825,7 +978,7 @@ describe("ProjectFicha (page)", () => {
       }
       // Ejecución técnica (S4 U6): semáforo y beneficiarios vacíos.
       if (String(input).endsWith("/technical-status")) {
-        return Promise.resolve(jsonResponse(TECNICO))
+        return Promise.resolve(jsonResponse({ ...TECNICO, actividades: estructuraLista.tecnicoActividades ?? [] }))
       }
       // Presupuesto (S5 U5): vacío; su comportamiento vive en project-presupuesto.test.tsx.
       if (String(input).endsWith("/budget")) {
@@ -843,7 +996,7 @@ describe("ProjectFicha (page)", () => {
       }
       // Requiere atención (S14 P5): vacío; su comportamiento vive en requiere-atencion.test.tsx.
       if (String(input).includes("/attention")) {
-        return Promise.resolve(jsonResponse({ corte: "2026-03-15", medible: true, items: [] }))
+        return Promise.resolve(jsonResponse({ corte: "2026-03-15", medible: true, items: estructuraLista.atencion ?? [] }))
       }
       if (String(input).includes("/financial-sheet")) {
         return Promise.resolve(jsonResponse(FINANCIERA))
@@ -878,7 +1031,12 @@ describe("ProjectFicha (page)", () => {
       const estructura = /\/(objectives|activities|deliverables|indicators)$/.exec(String(input))
       if (estructura) {
         const campo = { objectives: "objetivos", activities: "actividades", deliverables: "entregables", indicators: "indicadores" }[estructura[1]]
-        const filas = campo === "objetivos" ? (estructuraLista.objetivos ?? []) : []
+        const filas =
+          campo === "objetivos"
+            ? (estructuraLista.objetivos ?? [])
+            : campo === "actividades"
+              ? (estructuraLista.actividades ?? [])
+              : []
         return Promise.resolve(jsonResponse({ [campo as string]: filas }))
       }
       if (String(input).endsWith("/api/v1/auth/me")) {
@@ -896,7 +1054,7 @@ describe("ProjectFicha (page)", () => {
     renderFicha()
     await openAuditoria()
 
-    expect(await screen.findByTestId("historial")).toHaveTextContent("Historial")
+    expect(await screen.findByTestId("historial")).toBeInTheDocument()
     await waitFor(() => expect(screen.getAllByTestId("historial-paso")).toHaveLength(1))
 
     const paso = screen.getByTestId("historial-paso")

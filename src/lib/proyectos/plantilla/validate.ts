@@ -62,8 +62,6 @@ export type ResultadoValidacion = {
 
 const ZERO = BigInt(0)
 const MAX_META = 2_147_483_647
-/** `Decimal(9,2)`, the activity weight ceiling. */
-const MAX_PESO_CENTS = toCents("9999999.99")
 /** `Decimal(15,2)`, duplicated here so the pure lib never imports the API layer. */
 export const MONTO_MAXIMO_CENTS = toCents("9999999999999.99")
 

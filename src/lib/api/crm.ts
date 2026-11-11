@@ -18,13 +18,13 @@ import {
   hasCommercialAccess,
 } from "@/lib/permissions";
 
-export const FULL_ACCESS_ROLES: readonly RolUsuario[] = [
+const FULL_ACCESS_ROLES: readonly RolUsuario[] = [
   "ADMINISTRADOR",
   "GERENCIA",
   "COORDINADOR",
 ];
 
-export function isFullAccess(rol: RolUsuario): boolean {
+function isFullAccess(rol: RolUsuario): boolean {
   return FULL_ACCESS_ROLES.includes(rol);
 }
 
@@ -288,7 +288,18 @@ export type ClientListFilters = {
   hasta?: string;
   valor_min?: number;
   valor_max?: number;
+  /**
+   * PR-11 (N6): keep clients without any contact in the last N days. A client
+   * never contacted counts as without management. Applied after enrichment
+   * (it is a per-client aggregate), like valor_min/valor_max.
+   */
+  sin_gestion?: number;
 };
+
+/** PR-11 (N6): true when the client has had no contact in the last `dias` days. */
+export function sinGestionDesde(diasSinGestion: number | null, dias: number | undefined): boolean {
+  return dias === undefined || diasSinGestion === null || diasSinGestion >= dias;
+}
 
 /**
  * Parses and validates the shared clients list/export query params. Returns a
@@ -342,6 +353,18 @@ export function parseClientListFilters(
     return { ok: false, response: apiError("Valor máximo no válido.", 400, "VALIDATION_ERROR") };
   }
 
+  const sinGestion = sp.get("sinGestion");
+  if (sinGestion !== null && !/^\d+$/.test(sinGestion)) {
+    return {
+      ok: false,
+      response: apiError(
+        "El filtro «sin gestión» debe ser un número de días entero y no negativo.",
+        400,
+        "VALIDATION_ERROR",
+      ),
+    };
+  }
+
   return {
     ok: true,
     filters: {
@@ -354,6 +377,7 @@ export function parseClientListFilters(
       hasta,
       valor_min: valorMin !== null ? Number(valorMin) : undefined,
       valor_max: valorMax !== null ? Number(valorMax) : undefined,
+      sin_gestion: sinGestion !== null ? Number(sinGestion) : undefined,
     },
   };
 }

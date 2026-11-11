@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Propuesta · Validar un gasto en móvil</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="muttu-tokens.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&amp;family=Instrument+Sans:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#b41153;text-underline-offset:3px}a:hover{color:#940d44}
+</style>
+</helmet>
+<div role="dialog" aria-modal="true" aria-labelledby="gasto-titulo" style="position: relative; width: 390px; height: 1158px; box-sizing: border-box; background: var(--panel); color: var(--ink-800); font-family: var(--font-sans); display: flex; flex-direction: column; overflow: hidden;">
+
+  <header style="display: flex; align-items: center; gap: 4px; padding: 8px 8px; border-bottom: 1px solid var(--border); background: var(--panel);">
+    <button aria-label="Cerrar y volver a Finanzas" style="flex: none; width: 44px; height: 44px; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--ink-900); cursor: pointer; display: inline-flex; align-items: center; justify-content: center;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+    </button>
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+      <span style="font: 700 12px/1.4 var(--font-sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-500);">Por validar · 1 de 3</span>
+      <span style="font-size: 13px; color: var(--ink-600); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">PRY-2026-001 · Demo CedeTextil</span>
+    </div>
+    <button aria-label="Gasto anterior" disabled style="flex: none; width: 44px; height: 44px; border-radius: var(--radius-control); border: 1px solid var(--border); background: var(--input-bg); color: var(--ink-300); display: inline-flex; align-items: center; justify-content: center;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>
+    </button>
+    <button aria-label="Siguiente gasto: Logística Sinú S.A.S. (demo)" style="flex: none; width: 44px; height: 44px; border-radius: var(--radius-control); border: 1px solid var(--border-strong); background: var(--input-bg); color: var(--ink-900); cursor: pointer; display: inline-flex; align-items: center; justify-content: center;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
+    </button>
+  </header>
+
+  <div style="display: flex; flex-direction: column; gap: 16px; padding: 16px 16px 104px;">
+    <figure style="margin: 0; display: flex; flex-direction: column; gap: 6px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+        <figcaption style="font: 700 12px/1.5 var(--font-sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-500);">Soporte · Factura FV-4007</figcaption>
+        <a href="#" style="display: inline-flex; align-items: center; min-height: 44px; font-size: 13px;">Abrir en otra pestaña</a>
+      </div>
+      <div role="img" aria-label="Espacio para la vista previa del archivo del soporte" style="height: 280px; box-sizing: border-box; border-radius: var(--radius-inner); border: 1px dashed var(--ink-300); background: color-mix(in srgb, #f7f3f4 40%, transparent); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--ink-600); font-size: 13px; line-height: 1.45; text-align: center; padding: 20px;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path></svg>
+        <b style="color: var(--ink-800);">Vista previa del soporte</b>
+        <span style="max-width: 32ch;">Aquí se ve el PDF o la imagen adjunta, sin salir del panel. En el diseño es un espacio reservado: no hay archivo de ejemplo.</span>
+      </div>
+    </figure>
+
+    <div style="display: flex; flex-direction: column; gap: 6px;">
+      <span style="font: 400 12px/1 var(--font-mono); color: var(--ink-500);">FV-4007 · Factura de proveedor</span>
+      <h1 id="gasto-titulo" style="margin: 0; font: 600 21px/1.25 var(--font-sans); color: var(--ink-900);">Papelería y Suministros del Sinú (demo)</h1>
+      <span style="font-size: 13.5px; line-height: 1.45; color: var(--ink-700);">Material de oficina para las jornadas, por encima del rubro.</span>
+      <span style="display: inline-flex; width: max-content; align-items: center; height: 24px; padding: 0 10px; border-radius: 9999px; background: var(--destructivo-bg); color: var(--destructivo); font: 700 12px/1 var(--font-sans);">Supera lo asignado</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; font-size: 13.5px; line-height: 1.35;">
+      <div style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 12px; color: var(--ink-600);">Total</span><span style="font: 600 14px/1.35 var(--font-mono); color: var(--ink-900);">$ 450.000 · Sin IVA</span></div>
+      <div style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 12px; color: var(--ink-600);">Fecha del documento</span><span style="color: var(--ink-900);">02 nov 2026 · cuenta en 2026-11</span></div>
+      <div style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 12px; color: var(--ink-600);">Identificación</span><span style="color: var(--ink-900);">NIT 900000004</span></div>
+      <div style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 12px; color: var(--ink-600);">Registró</span><span style="color: var(--ink-900);">Laura Jiménez</span></div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: var(--radius-inner); border: 1px solid var(--border);">
+      <span style="display: flex; align-items: center; gap: 6px; font: 700 12px/1.5 var(--font-sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-500);">Rubro R11 · Varios <span class="anota">1</span></span>
+      <div style="display: flex; justify-content: space-between; font-size: 13.5px;"><span style="color: var(--ink-600);">Asignado</span><span style="font-family: var(--font-mono); color: var(--ink-900);">$ 300.000</span></div>
+      <div style="display: flex; justify-content: space-between; font-size: 13.5px;"><span style="color: var(--ink-600);">Ya ejecutado</span><span style="font-family: var(--font-mono); color: var(--ink-900);">$ 0</span></div>
+      <div style="display: flex; justify-content: space-between; font-size: 13.5px;"><span style="color: var(--ink-600);">Este gasto</span><span style="font-family: var(--font-mono); color: var(--ink-900);">$ 450.000</span></div>
+      <div style="height: 1px; background: var(--border);"></div>
+      <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 14px; font-weight: 600;"><span style="color: var(--destructivo);">Si lo validas, el rubro queda en</span><span style="flex: none; font-family: var(--font-mono); color: var(--destructivo);">−$ 150.000</span></div>
+      <span style="display: flex; align-items: flex-start; gap: 6px; font-size: 13px; line-height: 1.5; color: var(--ink-700);"><span class="anota">2</span>Puedes validarlo igual: quedará marcado como «Supera lo asignado» en el resumen. Otra opción es rechazarlo y pedir un traslado entre rubros.</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 6px;">
+      <label for="motivo" style="font-size: 13px; color: var(--ink-600);">Motivo (obligatorio si lo rechazas)</label>
+      <textarea id="motivo" rows="3" placeholder="Ejemplo: corresponde al rubro R13 · Suministros." style="box-sizing: border-box; min-height: 88px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border-strong); background: var(--input-bg); color: var(--ink-900); font: 400 16px/1.4 var(--font-sans);"></textarea>
+    </div>
+  </div>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; display: flex; gap: 8px; padding: 12px 16px 20px; background: var(--panel); border-top: 1px solid var(--border);">
+    <button style="flex: 1; height: 48px; border-radius: var(--radius-control); border: 1px solid var(--destructive); background: transparent; color: var(--destructive); font: 500 15px/1 var(--font-sans);">Rechazar</button>
+    <button style="flex: 1; height: 48px; border-radius: var(--radius-control); border: 1px solid transparent; background: var(--primary); color: #ffffff; font: 500 15px/1 var(--font-sans);">Validar gasto</button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1158}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

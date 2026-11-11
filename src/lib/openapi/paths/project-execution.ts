@@ -27,7 +27,7 @@ const ProjectDeliverableParams = z.object({ id: z.string().uuid(), deliverableId
 
 // Shared shape of a medio/soporte (file or link) attached to an avance or a medición — moved above
 // AvanceSchema so the latter can reference it directly in its additive `soportes` field (AJ-06).
-export const MedioSchema = registry.register(
+const MedioSchema = registry.register(
   "MedioProyecto",
   z.object({
     id: z.string().uuid(),
@@ -43,7 +43,7 @@ export const MedioSchema = registry.register(
   }),
 );
 
-export const AvanceSchema = registry.register(
+const AvanceSchema = registry.register(
   "Avance",
   z.object({
     id: z.string().uuid(),
@@ -257,7 +257,7 @@ const VOID_FIELDS = {
   motivo_anulacion: z.string().nullable(),
 };
 
-export const MedicionSchema = registry.register(
+const MedicionSchema = registry.register(
   "MedicionIndicador",
   z.object({
     id: z.string().uuid(),
@@ -270,7 +270,7 @@ export const MedicionSchema = registry.register(
   }),
 );
 
-export const RegistroBeneficiarioSchema = registry.register(
+const RegistroBeneficiarioSchema = registry.register(
   "RegistroBeneficiario",
   z.object({
     id: z.string().uuid(),
@@ -643,15 +643,15 @@ registry.registerPath({
 // ---------------------------------------------------------------------------
 
 const REPORTE_WRITE_NOTE =
-  "Solo el `responsable_id` de la actividad, o un `ADMINISTRADOR`/`GERENCIA` (el mismo override que ya tiene " +
-  "cualquier otra puerta de escritura de esta base), y solo mientras el proyecto está `EN_EJECUCION`. Orden: " +
-  "404 proyecto -> 403 membresía -> 409 estado -> 404 actividad -> 403 responsable.";
+  "Cualquier integrante del proyecto (`COORDINADOR` o `COLABORADOR`) o un `ADMINISTRADOR`/`GERENCIA`, sea o no " +
+  "el `responsable_id` de la actividad (el mismo eje de membresía que el resto de la ejecución), y solo mientras " +
+  "el proyecto está `EN_EJECUCION`. Orden: 404 proyecto -> 403 membresía -> 409 estado -> 404 actividad.";
 
 const ProjectActivityParams = z.object({ id: z.string().uuid(), activityId: z.string().uuid() });
 const ReporteVoidParams = ProjectActivityParams.extend({ reportId: z.string().uuid() });
 const ReporteMedioParams = ProjectActivityParams.extend({ reportId: z.string().uuid() });
 
-export const ReporteActividadSchema = registry.register(
+const ReporteActividadSchema = registry.register(
   "ReporteActividad",
   z.object({
     id: z.string().uuid(),
@@ -661,6 +661,10 @@ export const ReporteActividadSchema = registry.register(
     porcentaje: z.string().openapi({ description: "Decimal(5,2) como string; siempre > 0 y <= 100.", example: "30" }),
     observacion: z.string().openapi({ description: "Obligatoria: qué se ejecutó y qué falta." }),
     registrado_por_id: z.string().uuid(),
+    registrado_por_nombre: z
+      .string()
+      .nullable()
+      .openapi({ description: "Nombre de quien registró el reporte; se mantiene aunque ya no sea integrante del proyecto." }),
     created_at: z.string(),
     anulado_at: z.string().nullable(),
     anulado_por_id: z.string().uuid().nullable(),

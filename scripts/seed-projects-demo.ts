@@ -6,7 +6,7 @@
  *   - Project A "Demo CedeTextil · Ruta de fortalecimiento": created from a won opportunity, with the
  *     CedeTextil structure + budget + monthly programming imported, left in BORRADOR so
  *     "Aprobar línea base" can be shown live.
- *   - Project B "Demo CedeTextil · En ejecución": same workbook, baseline approved through
+ *   - Project B "Demo CedeTextil · Programa de confección": same workbook, baseline approved through
  *     the real writer (version 0 frozen), then avances (some with https support links),
  *     indicator measurements and gastos with https soportes (REGISTRADO, VALIDADO and one
  *     overspend case whose validation is blocked and notified).
@@ -70,7 +70,7 @@ import { generarPlantilla, type PlantillaInput } from "../src/lib/proyectos/plan
 import { construirPlan } from "../src/lib/proyectos/plantilla/mapear"
 import { parsePlantilla } from "../src/lib/proyectos/plantilla/parse"
 import { validarPlantilla } from "../src/lib/proyectos/plantilla/validate"
-import { todayInBogota } from "../src/lib/proyectos/weeks"
+import { periodOf, todayInBogota } from "../src/lib/proyectos/weeks"
 import { elegirLineas, elegirMunicipios, entradaDemo } from "./import-plantilla-demo"
 
 // ---------------------------------------------------------------------------
@@ -86,7 +86,9 @@ export const MARKER_PREFIX = "Demo CedeTextil"
 export const NOMBRE_PROYECTO_A = `${MARKER_PREFIX} · Ruta de fortalecimiento`
 /** Name project A had before it was neutralised: a database seeded then must still read as seeded. */
 export const NOMBRE_PROYECTO_A_LEGADO = `${MARKER_PREFIX} · Borrador (aprobar línea base)`
-export const NOMBRE_PROYECTO_B = `${MARKER_PREFIX} · En ejecución`
+export const NOMBRE_PROYECTO_B = `${MARKER_PREFIX} · Programa de confección`
+/** Name project B had while it carried its state; the ficha title appends the state, so it read twice. */
+export const NOMBRE_PROYECTO_B_LEGADO = `${MARKER_PREFIX} · En ejecución`
 export const NOMBRE_EXTRA_GANADA = "Demo · Programa de formación técnica (ganada, lista para convertir)"
 export const VALOR_EXTRA_GANADA = 95_000_000
 /** Free GANADA opportunities that must remain available once the seed ends. */
@@ -96,6 +98,7 @@ export const DEMO_EMAIL_DOMAIN = "demo.muttuhub.local"
 const EMAIL_ADMIN = `admin@${DEMO_EMAIL_DOMAIN}`
 const EMAIL_GERENCIA = `gerencia@${DEMO_EMAIL_DOMAIN}`
 const EMAIL_COORDINADOR = `coordinador@${DEMO_EMAIL_DOMAIN}`
+const EMAIL_COLABORADOR = `colaborador@${DEMO_EMAIL_DOMAIN}`
 
 const USAGE = [
   "Usage:",
@@ -123,13 +126,14 @@ export type SeedDecision = "seed" | "already-seeded" | "partial"
 
 /**
  * Decides from the names of the existing demo projects (those starting with MARKER_PREFIX):
- * none -> "seed"; both seeded projects (A, under its current or legacy name, and B) -> "already-seeded";
+ * none -> "seed"; both seeded projects (A and B, each under its current or legacy name) -> "already-seeded";
  * anything in between -> "partial" (a previous run failed midway), which must not be written over.
  */
 export function decideSeed(nombres: readonly string[]): SeedDecision {
   if (nombres.length === 0) return "seed"
   const tieneA = nombres.includes(NOMBRE_PROYECTO_A) || nombres.includes(NOMBRE_PROYECTO_A_LEGADO)
-  const completo = tieneA && nombres.includes(NOMBRE_PROYECTO_B)
+  const tieneB = nombres.includes(NOMBRE_PROYECTO_B) || nombres.includes(NOMBRE_PROYECTO_B_LEGADO)
+  const completo = tieneA && tieneB
   return completo ? "already-seeded" : "partial"
 }
 
@@ -168,10 +172,16 @@ export type SeedGasto = {
   terceroNumeroId: string
   numeroDocumento: string
   descripcion: string
+  /** The subtotal (AJ-04); the executed amount is `valor` + `iva`. */
   valor: string
+  /** AJ-04: the IVA, «0» when the tercero is not IVA-responsible. */
+  iva?: string
   soportes: SeedMedio[]
   accion: SeedGastoAccion
 }
+
+/** AJ-01 activity progress report (a percentage with its reason), registered by the coordinador. */
+export type SeedReporte = { actividad: string; fecha: string; porcentaje: number; observacion: string }
 
 export type SeedData = {
   nombreA: string
@@ -179,6 +189,12 @@ export type SeedData = {
   avances: SeedAvance[]
   mediciones: SeedMedicion[]
   gastos: SeedGasto[]
+  reportes: SeedReporte[]
+}
+
+/** AJ-04: the executed amount of a seed gasto, in cents. */
+function totalGasto(g: SeedGasto): bigint {
+  return toCents(g.valor) + toCents(g.iva ?? "0")
 }
 
 function addDays(iso: string, days: number): string {
@@ -226,8 +242,11 @@ export function aplicarContenidoDemo(entrada: PlantillaInput): PlantillaInput {
 /** All illustrative: fictitious third parties, `.example` links, round figures. */
 export function buildSeedData(hoy: string): SeedData {
   const ayer = ayerAcotado(hoy)
-  const periodo = F_X1_PERIODOS[0]
-  const soporte = (nombre: string, ruta: string): SeedMedio => ({ nombre, url: `${URL_BASE}/${ruta}` })
+  // AJ-05: a gasto's period is the month of its document date, so only a deliberate edit shows
+  // «Periodo modificado»; `otroPeriodo` is that one deliberate example.
+  const periodo = (F_X1_PERIODOS as readonly string[]).includes(periodOf(hoy)) ? periodOf(hoy) : F_X1_PERIODOS[0]
+  const otroPeriodo = F_X1_PERIODOS.find((p) => p !== periodo) ?? periodo
+  const soporte =(nombre: string, ruta: string): SeedMedio => ({ nombre, url: `${URL_BASE}/${ruta}` })
 
   const avances: SeedAvance[] = [
     {
@@ -235,21 +254,21 @@ export function buildSeedData(hoy: string): SeedData {
       fecha: ayer,
       cantidad: "1",
       observacion: "Informe de caracterización entregado a la coordinación.",
-      medios: [soporte("Informe de caracterización (PDF)", "informe-caracterizacion.pdf")],
+      medios: [soporte("Informe de caracterización", "informe-caracterizacion.pdf")],
     },
     {
       entregable: "1.1-E2",
       fecha: ayer,
       cantidad: "1",
       observacion: "Memoria de la jornada de caracterización.",
-      medios: [soporte("Memoria de la jornada (PDF)", "memoria-jornada.pdf")],
+      medios: [soporte("Memoria de la jornada", "memoria-jornada.pdf")],
     },
     {
       entregable: "1.2-E1",
       fecha: hoy,
       cantidad: "1",
       observacion: "Informe de la formación en confección entregado a la coordinación.",
-      medios: [soporte("Informe de la formación (PDF)", "informe-formacion.pdf")],
+      medios: [soporte("Informe de la formación", "informe-formacion.pdf")],
     },
     {
       entregable: "1.3-E1",
@@ -257,8 +276,8 @@ export function buildSeedData(hoy: string): SeedData {
       cantidad: "2",
       observacion: "Dos actas de acompañamiento técnico firmadas.",
       medios: [
-        soporte("Acta de acompañamiento 1 (PDF)", "acta-acompanamiento-1.pdf"),
-        soporte("Acta de acompañamiento 2 (PDF)", "acta-acompanamiento-2.pdf"),
+        soporte("Acta de acompañamiento 1", "acta-acompanamiento-1.pdf"),
+        soporte("Acta de acompañamiento 2", "acta-acompanamiento-2.pdf"),
       ],
     },
     {
@@ -304,12 +323,16 @@ export function buildSeedData(hoy: string): SeedData {
       terceroNumeroId: "900000001",
       numeroDocumento: "FV-1001",
       descripcion: "Jornada de formación en prácticas de confección.",
+      // AJ-04: 19 % IVA, so the rubro records 10.115.000 executed (subtotal + IVA).
       valor: "8500000",
+      iva: "1615000",
       soportes: [soporte("Factura FV-1001", "factura-fv-1001.pdf")],
       accion: "VALIDAR",
     },
     {
       ...base,
+      // AJ-05: the one gasto charged to another project month, so the list shows «Periodo modificado».
+      periodo: otroPeriodo,
       rubro: "R08",
       tipoSoporte: "FACTURA_PROVEEDOR",
       terceroNombre: "Dotaciones del Caribe S.A.S. (demo)",
@@ -348,7 +371,19 @@ export function buildSeedData(hoy: string): SeedData {
     },
   ]
 
-  return { nombreA: NOMBRE_PROYECTO_A, nombreB: NOMBRE_PROYECTO_B, avances, mediciones, gastos }
+  // AJ-03: 1.1 reached the tope on its fin (week 1) and its soportes arrived later, so it reads
+  // «Finalizada» and counts as on time — the PO's «90 % en su fecha fin, Terminada después» case.
+  const fin11 = addDays(F_X1_INICIO, 6)
+  const reportes: SeedReporte[] = [
+    {
+      actividad: "1.1",
+      fecha: fin11 > hoy ? hoy : fin11,
+      porcentaje: 90,
+      observacion: "Caracterización ejecutada en las unidades; pendiente cargar el informe y la memoria.",
+    },
+  ]
+
+  return { nombreA: NOMBRE_PROYECTO_A, nombreB: NOMBRE_PROYECTO_B, avances, mediciones, gastos, reportes }
 }
 
 /** Every inconsistency of the data against the F-X1 workbook (empty = consistent). */
@@ -381,8 +416,8 @@ export function checkSeedData(data: SeedData, hoy?: string): string[] {
     if (hoy && g.fechaDocumento > hoy) problemas.push(`gasto ${g.numeroDocumento} dated after today (${g.fechaDocumento})`)
     if (g.soportes.length === 0) problemas.push(`gasto ${g.numeroDocumento} has no soporte`)
     for (const s of g.soportes) if (!s.url.startsWith("https://")) problemas.push(`soporte "${s.nombre}" is not https`)
-    if (g.accion === "VALIDAR") validado.set(g.rubro, (validado.get(g.rubro) ?? BigInt(0)) + toCents(g.valor))
-    if (g.accion === "INTENTAR_VALIDAR" && asignado !== undefined && toCents(g.valor) <= toCents(asignado)) {
+    if (g.accion === "VALIDAR") validado.set(g.rubro, (validado.get(g.rubro) ?? BigInt(0)) + totalGasto(g))
+    if (g.accion === "INTENTAR_VALIDAR" && asignado !== undefined && totalGasto(g) <= toCents(asignado)) {
       problemas.push(`gasto ${g.numeroDocumento} does not exceed its rubro: it is not an overspend case`)
     }
   }
@@ -394,6 +429,14 @@ export function checkSeedData(data: SeedData, hoy?: string): string[] {
   }
   if (!data.gastos.some((g) => g.accion === "VALIDAR") || !data.gastos.some((g) => g.accion === "REGISTRAR")) {
     problemas.push("the seed needs both VALIDADO and REGISTRADO gastos")
+  }
+  const actividades = new Set(estructura.actividades.map((a) => a.codigo))
+  for (const r of data.reportes) {
+    if (!actividades.has(r.actividad)) problemas.push(`reporte on unknown activity ${r.actividad}`)
+    if (hoy && r.fecha > hoy) problemas.push(`reporte ${r.actividad} dated after today (${r.fecha})`)
+    // The seed writes reports before the deliverables close, so a report above the 90 % tope would be refused.
+    if (!(r.porcentaje > 0 && r.porcentaje <= 90)) problemas.push(`reporte ${r.actividad} must be in (0, 90]`)
+    if (!r.observacion.trim()) problemas.push(`reporte ${r.actividad} needs an observación`)
   }
   return problemas
 }
@@ -470,11 +513,18 @@ export async function runSeedProjectsDemo(
 
 const TX_OPTIONS = { timeout: 60_000, maxWait: 10_000 }
 
-type Actores = { admin: string; gerencia: string; coordinador: string; coordinadorEmail: string }
+type Actores = {
+  admin: string
+  gerencia: string
+  coordinador: string
+  coordinadorEmail: string
+  colaborador: string
+  colaboradorEmail: string
+}
 
 async function cargarActores(client: SeedClient): Promise<Actores> {
   const ids: Record<string, string> = {}
-  for (const email of [EMAIL_ADMIN, EMAIL_GERENCIA, EMAIL_COORDINADOR]) {
+  for (const email of [EMAIL_ADMIN, EMAIL_GERENCIA, EMAIL_COORDINADOR, EMAIL_COLABORADOR]) {
     const usuario = await client.usuario.findFirst({ where: { email, activo: true }, select: { id: true } })
     if (!usuario) throw new Error(`Demo user ${email} not found: run "npm run db:seed:local" first.`)
     ids[email] = usuario.id
@@ -484,6 +534,8 @@ async function cargarActores(client: SeedClient): Promise<Actores> {
     gerencia: ids[EMAIL_GERENCIA],
     coordinador: ids[EMAIL_COORDINADOR],
     coordinadorEmail: EMAIL_COORDINADOR,
+    colaborador: ids[EMAIL_COLABORADOR],
+    colaboradorEmail: EMAIL_COLABORADOR,
   }
 }
 
@@ -602,6 +654,41 @@ async function importarCedeTextil(
   await client.$transaction((tx) => importarPlantilla(tx, { proyectoId: proyecto.id, usuarioId: actor, plan, loteId }), TX_OPTIONS)
   const r = resumenDePlan(plan)
   return `${r.actividades} actividades, ${r.entregables} entregables, ${r.indicadores} indicadores, ${r.rubros} rubros, ${r.celdas_programacion} celdas`
+}
+
+/** Mirrors POST .../activities/:activityId/progress (AJ-01): one report and its CREAR audit. */
+async function registrarReporte(client: SeedClient, proyectoId: string, actor: string, r: SeedReporte): Promise<void> {
+  const actividad = await client.actividad.findFirst({
+    where: { proyecto_id: proyectoId, codigo: r.actividad, deleted_at: null },
+    select: { id: true },
+  })
+  if (!actividad) throw new Error(`Activity ${r.actividad} not found in the project.`)
+
+  await client.$transaction(async (tx) => {
+    const created = await tx.reporteActividad.create({
+      data: {
+        proyecto_id: proyectoId,
+        actividad_id: actividad.id,
+        fecha: new Date(`${r.fecha}T00:00:00.000Z`),
+        porcentaje: toDecimal2(r.porcentaje),
+        observacion: r.observacion,
+        registrado_por_id: actor,
+      },
+    })
+    await logChange(tx, {
+      usuario_id: actor,
+      accion: "CREAR",
+      entidad: "reporte_actividad",
+      entidad_id: created.id,
+      proyecto_id: proyectoId,
+      valor_nuevo: {
+        actividad_id: created.actividad_id,
+        fecha: r.fecha,
+        porcentaje: created.porcentaje,
+        observacion: created.observacion,
+      },
+    })
+  }, TX_OPTIONS)
 }
 
 /** Mirrors POST .../deliverables/:id/progress and POST .../progress/:id/attachments (links only). */
@@ -726,7 +813,9 @@ async function registrarGasto(
     if (!validado.ok) throw new Error(`Soporte "${s.nombre}" was refused: ${await validado.response.text()}`)
     soportes.push(validado.value)
   }
-  const cents = toCents(g.valor)
+  const subtotal = toCents(g.valor)
+  const iva = toCents(g.iva ?? "0")
+  const total = totalGasto(g)
   const claves = clavesNormalizadas({
     tercero_tipo_id: g.terceroTipoId,
     tercero_numero_id: g.terceroNumeroId,
@@ -734,7 +823,7 @@ async function registrarGasto(
   })
 
   const gastoId = await client.$transaction(async (tx) => {
-    const sobregasto = await superaAsignado(tx, linea.value, cents)
+    const sobregasto = await superaAsignado(tx, linea.value, total)
     const created = await tx.gasto.create({
       data: {
         proyecto_id: proyecto.id,
@@ -748,9 +837,9 @@ async function registrarGasto(
         ...claves,
         numero_documento: g.numeroDocumento,
         descripcion: g.descripcion,
-        monto_cop: decimalFromCents(cents),
-        subtotal_cop: decimalFromCents(cents),
-        iva_cop: decimalFromCents(BigInt(0)),
+        monto_cop: decimalFromCents(total),
+        subtotal_cop: decimalFromCents(subtotal),
+        iva_cop: decimalFromCents(iva),
         alerta_sobregasto: sobregasto,
         registrado_por_id: actores.coordinador,
       },
@@ -838,10 +927,17 @@ export async function applySeed(client: SeedClient, data: SeedData, hoy: string)
     actor: actores.admin,
     responsable: actores.coordinador,
   })
-  const resumenB = await importarCedeTextil(client, b, actores.admin, actores.coordinadorEmail)
+  // AJ-01: the project's own responsable stays the coordinador (team membership), but every
+  // activity's responsable is the colaborador, so the demo has a coordinador who is a project
+  // member without being any activity's named responsable — the case that hid the old
+  // responsable-only gate on "Registrar avance" (now any project member may register).
+  const resumenB = await importarCedeTextil(client, b, actores.admin, actores.colaboradorEmail)
   const baseline = await client.$transaction((tx) => aprobarLineaBase(tx, { proyectoId: b.id, usuarioId: actores.admin }), TX_OPTIONS)
   lines.push(`  ${b.codigo} ${data.nombreB}: ${resumenB}; baseline approved (v${baseline.version.numero}, ${baseline.proyecto.estado})`)
 
+  // Reports first: they describe execution that happened before the deliverables were closed.
+  for (const reporte of data.reportes) await registrarReporte(client, b.id, actores.coordinador, reporte)
+  lines.push(`  ${b.codigo}: ${data.reportes.length} activity progress reports`)
   for (const avance of data.avances) await registrarAvance(client, b.id, actores.coordinador, avance)
   lines.push(`  ${b.codigo}: ${data.avances.length} avances (${data.avances.reduce((n, a) => n + a.medios.length, 0)} https medios)`)
   for (const medicion of data.mediciones) await registrarMedicion(client, b.id, actores.coordinador, medicion)

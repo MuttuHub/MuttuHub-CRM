@@ -709,10 +709,12 @@ registry.registerPath({
   summary: "Reporte de equipo: resumen, por persona, por estado y por cliente",
   description:
     "No forma parte del contrato §8.2 (agregado para el hito Kanban, §5.4). Mismos filtros y alcance de roles " +
-    "que GET /tasks; COLABORADOR solo ve su propio desempeño (una sola fila en `por_persona`, la suya). " +
-    "`rango` acota por `updated_at` (week=7d, month=30d default, quarter=90d, all=sin límite). Proxy documentado: " +
-    "Tarea no tiene `completed_at`, así que 'a tiempo/tarde' usa `updated_at <= fecha_entrega` para tareas " +
-    "COMPLETADA con fecha de entrega (las completadas sin fecha no cuentan en ninguno de los dos).",
+    "que GET /tasks; la lectura es global. `por_persona` solo lista a las personas con tareas en el período " +
+    "(sin filas en cero). `rango` (week=7d, month=30d default, quarter=90d, all=sin límite) acota las COMPLETADA " +
+    "por `completed_at` y las abiertas por `updated_at`. 'A tiempo' = COMPLETADA cuyo cierre " +
+    "(`completed_at`, o `updated_at` antes del backfill) cae, en el calendario de Bogotá, a más tardar el día de " +
+    "`fecha_entrega`; 'tarde' = un día posterior (las completadas sin fecha no cuentan en ninguno de los dos). " +
+    "`meta.criterio_rango` explica esa regla en lenguaje llano para la UI.",
   security: [{ sessionCookie: [] }],
   request: { query: TaskReportQuerySchema },
   responses: {

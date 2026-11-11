@@ -24,9 +24,9 @@ import {
   UNIDADES_SUGERIDAS,
 } from "./columns"
 
-export type ObjetivoInput = { codigo: string; descripcion: string }
+type ObjetivoInput = { codigo: string; descripcion: string }
 
-export type ActividadInput = {
+type ActividadInput = {
   codigo: string
   objetivoCodigo: string
   nombre: string
@@ -35,7 +35,7 @@ export type ActividadInput = {
   responsable: string | null
 }
 
-export type EntregableInput = {
+type EntregableInput = {
   codigo: string
   actividadCodigo: string
   descripcion: string
@@ -43,7 +43,7 @@ export type EntregableInput = {
   unidad: string
 }
 
-export type IndicadorInput = {
+type IndicadorInput = {
   codigo: string
   objetivoCodigo: string
   nombre: string
@@ -184,7 +184,7 @@ function escribirInstrucciones(workbook: ExcelJS.Workbook, input: PlantillaInput
   titulo.alignment = { vertical: "middle" }
   nota(
     titulo,
-    "Leé esta hoja antes de llenar el libro: reglas generales, versión y ejemplos de cada hoja.",
+    "Lee esta hoja antes de llenar el libro: reglas generales, versión y ejemplos de cada hoja.",
   )
   hoja.getRow(1).height = 34
 
@@ -293,7 +293,7 @@ function escribirProyecto(workbook: ExcelJS.Workbook, input: PlantillaInput): Ex
   )
   nota(
     hoja.getCell("B1"),
-    "Valor del proyecto. Pasá el mouse por cada fila para ver qué escribir y un ejemplo.",
+    "Valor del proyecto. Pasa el mouse por cada fila para ver qué escribir y un ejemplo.",
   )
   const ayudaProyecto: Record<string, string> = {
     Código: "No cambiar: debe coincidir con el código del proyecto (PRY-AAAA-NNN).",

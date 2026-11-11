@@ -188,19 +188,19 @@ describe("ProjectDashboard", () => {
     expect(within(fila).queryByTestId("chip-tecnico")).not.toBeInTheDocument()
   })
 
-  it("shows the weighted aggregate, the states and the 'No confirmado' badge", () => {
+  it("shows the weighted aggregate, the states and the 'Umbrales sin confirmar' badge", () => {
     render(<ProjectDashboard />)
     expect(screen.getByTestId("tablero-ea")).toHaveTextContent("10 %")
     expect(screen.getByTestId("tablero-ejecutado")).toHaveTextContent("$ 100")
     expect(screen.getByTestId("tablero-estados")).toHaveTextContent("En ejecución")
     expect(screen.getByTestId("tablero-estados")).toHaveTextContent("Borrador")
-    expect(screen.getByText("No confirmado")).toBeInTheDocument()
+    expect(screen.getByText("Umbrales sin confirmar")).toBeInTheDocument()
   })
 
   it("hides the badge once the parameters are confirmed", () => {
     state.query = { ...state.query, data: { ...PORTAFOLIO, confirmado: true } }
     render(<ProjectDashboard />)
-    expect(screen.queryByText("No confirmado")).not.toBeInTheDocument()
+    expect(screen.queryByText("Umbrales sin confirmar")).not.toBeInTheDocument()
   })
 
   it("does not render a territorial traffic light: municipio is only a filter (REQ-DSH-04)", () => {
@@ -220,7 +220,7 @@ describe("ProjectDashboard", () => {
     await user.selectOptions(screen.getByLabelText("Municipio"), "m1")
     await user.selectOptions(screen.getByLabelText("Cliente"), "c1")
     await user.selectOptions(screen.getByLabelText("Responsable"), "u1")
-    await user.type(screen.getByLabelText("Corte"), "2026-03-01")
+    await user.type(screen.getByLabelText("Calcular hasta"), "2026-03-01")
     expect(usePortfolio).toHaveBeenLastCalledWith({
       estado: "EN_EJECUCION",
       linea_id: "l1",

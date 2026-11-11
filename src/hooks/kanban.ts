@@ -158,7 +158,7 @@ export const taskQueryKeys = {
  * `fetchNextPage` (D8 — explicit button, no scroll listener, to keep the
  * @dnd-kit pointer/touch handlers stable).
  */
-export const TASKS_PAGE_SIZE = 100;
+const TASKS_PAGE_SIZE = 100;
 
 export function useTasks(
   filters: TaskFilters,
@@ -592,14 +592,14 @@ const EXTENSION_LABELS: Record<string, string> = {
   png: "PNG",
 };
 
-export const ALLOWED_ATTACHMENT_EXT = [...ALLOWED_FILE_EXTENSIONS];
+const ALLOWED_ATTACHMENT_EXT = [...ALLOWED_FILE_EXTENSIONS];
 
 /** "PDF, Word, Excel, PowerPoint, JPG, JPEG, PNG" — the shared allowlist as user-facing text. */
 export const ALLOWED_ATTACHMENT_LABEL = ALLOWED_ATTACHMENT_EXT.map(
   (ext) => EXTENSION_LABELS[ext] ?? ext.toUpperCase(),
 ).join(", ");
 
-export const MAX_ATTACHMENT_BYTES = MAX_FILE_BYTES;
+const MAX_ATTACHMENT_BYTES = MAX_FILE_BYTES;
 
 export function attachmentValidationError(file: File): string | null {
   // Same rule the API applies (allowed extension AND an allowed-or-empty

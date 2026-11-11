@@ -47,18 +47,25 @@ export const TIPO_MODIFICACION_LABEL: Record<TipoModificacion, string> = {
 const TIPOS = Object.keys(TIPO_MODIFICACION_LABEL) as TipoModificacion[];
 const CELDA_CLASS = "h-10 w-[8.5rem] px-2 text-right text-base tabular-nums md:text-[12.5px]";
 
-export function SolicitarModificacion({ proyecto }: { proyecto: ProjectListRow }) {
+export function SolicitarModificacion({
+  proyecto,
+  destacado = false,
+}: {
+  proyecto: ProjectListRow;
+  /** The main action of an empty state: a filled button instead of the outlined one. */
+  destacado?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+      <Button type="button" variant={destacado ? "default" : "outline"} size="sm" onClick={() => setOpen(true)}>
         <FilePen />
         Solicitar modificación
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[min(860px,calc(100%-2rem))]">
+        <DialogContent className="sm:max-w-[min(860px,calc(100%-2rem))]">
           <DialogHeader>
-            <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
+            <DialogTitle>
               Solicitar modificación
             </DialogTitle>
             <DialogDescription>
@@ -336,7 +343,7 @@ function Formulario({ proyecto, onDone }: { proyecto: ProjectListRow; onDone: ()
       )}
 
       <DialogFooter>
-        <Button type="button" variant="ghost" onClick={onDone} disabled={solicitar.isPending}>
+        <Button type="button" variant="outline" onClick={onDone} disabled={solicitar.isPending}>
           Cancelar
         </Button>
         <Button

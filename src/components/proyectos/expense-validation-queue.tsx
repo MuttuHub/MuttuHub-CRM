@@ -35,7 +35,7 @@ export function ExpenseValidationQueue() {
               <span className="font-mono text-[12px] font-semibold text-ink-600 tabular-nums">
                 {gasto.proyecto_codigo}
               </span>
-              {gasto.alerta_sobregasto && <ToneBadge tone="destructivo" label="Supera el asignado" />}
+              {gasto.alerta_sobregasto && <ToneBadge tone="destructivo" label="Supera lo asignado" />}
               {gasto.datos_incompletos && <ToneBadge tone="alerta" label="Datos incompletos" />}
               <span className="ml-auto font-mono text-[13px] font-semibold text-ink-900 tabular-nums">
                 {formatCOP(toCents(gasto.valor))}

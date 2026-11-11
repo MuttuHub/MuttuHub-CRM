@@ -36,7 +36,7 @@ const SoporteGastoSchema = registry.register(
 
 const EstadoGastoSchema = z.enum(["REGISTRADO", "VALIDADO", "RECHAZADO", "ANULADO"]);
 
-export const GastoSchema = registry.register(
+const GastoSchema = registry.register(
   "Gasto",
   z.object({
     id: z.string().uuid(),
@@ -460,7 +460,7 @@ registry.registerPath({
         "multipart/form-data": {
           schema: z.object({
             archivo: z.string().openapi({ format: "binary", description: "Gastos .xlsx con las columnas de la plantilla." }),
-            modo: z.literal("validar").optional().openapi({ description: "Solo valida y devuelve la vista previa; no escribe." }),
+            modo: z.enum(["validar", "aplicar"]).optional().openapi({ description: "«validar» solo devuelve la vista previa y no escribe; «aplicar» o sin `modo` aplica. Otro valor responde 400 VALIDATION_ERROR." }),
           }),
         },
       },

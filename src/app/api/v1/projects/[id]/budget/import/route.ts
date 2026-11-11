@@ -14,6 +14,7 @@
 
 import { NextResponse } from "next/server";
 import { apiError } from "@/lib/api/errors";
+import { MODO_INVALIDO_MESSAGE, leerModoImport } from "@/lib/api/import-modo";
 import { withApiErrorHandling } from "@/lib/api/handler";
 import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/supabase/server";
@@ -69,7 +70,9 @@ export const POST = withApiErrorHandling(
     if (!/\.xlsx$/i.test(archivo.name) || !isAllowedNameAndMime(archivo.name, archivo.type)) {
       return apiError("Solo se acepta el presupuesto en formato Excel (.xlsx).", 400, "VALIDATION_ERROR");
     }
-    const soloValidar = form.get("modo") === "validar";
+    const modo = leerModoImport(form.get("modo"));
+    if (modo === null) return apiError(MODO_INVALIDO_MESSAGE, 400, "VALIDATION_ERROR");
+    const soloValidar = modo === "validar";
 
     const buffer = Buffer.from(await archivo.arrayBuffer());
     if (!(await inspeccionarZip(buffer))) return apiError(PRESUPUESTO_EXCEL_INVALIDO, 400, "VALIDATION_ERROR");

@@ -1,5 +1,5 @@
-// S5 U6: sección "Ficha financiera". Las queries son reales; solo se burla
-// `fetch`. El color llega del servidor y se pinta verbatim.
+// Finanzas › Resumen (redesign T3): three key figures, the delay notice, the gastos por validar, the rubros and the
+// folded detail. The queries are real; only `fetch` is mocked. The colour comes from the server and is painted verbatim.
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen, waitFor, within } from "@testing-library/react"
@@ -7,6 +7,7 @@ import userEvent from "@testing-library/user-event"
 import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { ProjectListRow } from "@/hooks/projects"
+import { mockViewport } from "@/test/viewport"
 import { ProjectFinanciero } from "./project-financiero"
 
 function createWrapper() {
@@ -74,10 +75,65 @@ const SIN_GASTOS = {
   total: { ...FICHA.total, ejecutado: "0.00", ep_decimas: null, ea_decimas: null, color: null },
 }
 
+const gasto = (id: string, over: Record<string, unknown> = {}) => ({
+  id,
+  proyecto_id: "p1",
+  rubro: { id: "r12", codigo: "R12", nombre: "Transporte" },
+  fecha_documento: "2026-11-02",
+  periodo: "2026-11",
+  tipo_soporte: "FACTURA_PROVEEDOR",
+  tercero_nombre: "Papelería del Sinú",
+  tercero_tipo_id: "NIT",
+  tercero_numero_id: "900000004",
+  numero_documento: "FV-4007",
+  descripcion: "Material de oficina",
+  valor: "450000.00",
+  subtotal: "450000.00",
+  iva: "0.00",
+  estado: "REGISTRADO",
+  alerta_sobregasto: false,
+  periodo_modificado: false,
+  datos_incompletos: false,
+  registrado_por_id: "laura",
+  created_at: "2026-11-02T12:00:00.000Z",
+  validado_por_id: null,
+  validado_at: null,
+  rechazado_por_id: null,
+  rechazado_at: null,
+  motivo_rechazo: null,
+  anulado_por_id: null,
+  anulado_at: null,
+  motivo_anulacion: null,
+  soportes: [
+    { id: "s1", nombre: "Factura FV-4007.pdf", tipo: "archivo", url_externa: null, tipo_mime: "application/pdf", tamano_bytes: 100, subido_por_id: "laura", created_at: "2026-11-02T12:00:00.000Z" },
+  ],
+  soportes_count: 1,
+  ...over,
+})
+
+function respuestaGastos(gastos: ReturnType<typeof gasto>[]) {
+  const totales = Object.fromEntries(
+    ["REGISTRADO", "VALIDADO", "RECHAZADO", "ANULADO"].map((e) => {
+      const delEstado = gastos.filter((g) => g.estado === e)
+      return [e, { cantidad: delEstado.length, valor: delEstado.reduce((a, g) => a + Number(g.valor), 0).toFixed(2) }]
+    }),
+  )
+  return { gastos, totales, resumen: { vigentes: gastos.length, observados: { cantidad: 0, valor: "0.00" } } }
+}
+
 describe("ProjectFinanciero", () => {
   const fetchMock = vi.fn()
 
-  function setup({ ficha = FICHA as unknown, status = 200, proyecto = {} }: { ficha?: unknown; status?: number; proyecto?: Partial<ProjectListRow> } = {}) {
+  type Setup = {
+    ficha?: unknown
+    status?: number
+    proyecto?: Partial<ProjectListRow>
+    gastos?: ReturnType<typeof gasto>[]
+    rol?: string
+    navegacion?: { onVerActividades?: () => void; onVerGastos?: () => void }
+  }
+
+  function setup({ ficha = FICHA as unknown, status = 200, proyecto = {}, gastos = [], rol = "GERENCIA", navegacion = {} }: Setup = {}) {
     fetchMock.mockImplementation((input: unknown) => {
       const url = String(input)
       if (url.includes("/financial-sheet")) {
@@ -87,10 +143,20 @@ describe("ProjectFinanciero", () => {
             : jsonResponse({ error: "No tienes permisos sobre este proyecto.", code: "FORBIDDEN" }, status),
         )
       }
+      if (url.endsWith("/api/v1/auth/me")) return Promise.resolve(jsonResponse({ usuario: { id: "yo", nombre: "Yo", rol } }))
+      if (url.endsWith("/members")) {
+        return Promise.resolve(
+          jsonResponse({ miembros: [{ id: "m1", usuario: { id: "laura", nombre: "Laura Jiménez", rol: "COORDINADOR" }, agregado_por_id: "x", created_at: "2026-10-07T13:00:00.000Z", removed_at: null }] }),
+        )
+      }
+      if (url.endsWith("/expenses")) return Promise.resolve(jsonResponse(respuestaGastos(gastos)))
       return Promise.resolve(jsonResponse({}))
     })
-    return render(<ProjectFinanciero proyecto={{ ...PROYECTO, ...proyecto }} />, { wrapper: createWrapper() })
+    return render(<ProjectFinanciero proyecto={{ ...PROYECTO, ...proyecto }} {...navegacion} />, { wrapper: createWrapper() })
   }
+
+  const abrirDetalle = async (user: ReturnType<typeof userEvent.setup>) =>
+    user.click(await screen.findByRole("button", { name: "Ver detalle con diferencias y límites de cada color" }))
 
   beforeEach(() => {
     fetchMock.mockReset()
@@ -98,212 +164,441 @@ describe("ProjectFinanciero", () => {
   })
   afterEach(() => {
     vi.unstubAllGlobals()
+    mockViewport(false)
   })
 
-  it("renders A, P, E, D, percentages and the API color of each rubro plus the total row", async () => {
+  describe("three key figures", () => {
+    it("shows Ejecutado with the validated count, Programado a hoy with its share and colour, and the project value", async () => {
+      setup({ gastos: [gasto("g1", { estado: "VALIDADO" }), gasto("g2", { estado: "VALIDADO" }), gasto("g3")] })
+
+      const ejecutado = await screen.findByTestId("cifra-ejecutado")
+      expect(ejecutado).toHaveTextContent("Ejecutado (gastos validados)")
+      expect(ejecutado).toHaveTextContent("$ 40.500.000")
+      expect(await within(ejecutado).findByText("2 gastos validados")).toBeInTheDocument()
+
+      const programado = screen.getByTestId("cifra-programado")
+      expect(programado).toHaveTextContent("Programado a hoy")
+      expect(programado).toHaveTextContent("$ 41.750.000")
+      expect(programado).toHaveTextContent("97,0 % de lo programado ejecutado")
+      expect(programado.querySelector("[data-color]")).toHaveAttribute("data-color", "verde")
+      expect(within(programado).getByText("Verde")).toBeInTheDocument()
+      expect(within(programado).getByRole("button", { name: "Ayuda: Programado a hoy" })).toBeInTheDocument()
+
+      const total = screen.getByTestId("cifra-valor-total")
+      expect(total).toHaveTextContent("Valor total del proyecto")
+      expect(total).toHaveTextContent("$ 83.500.000")
+      // 40.500.000 / 83.500.000 = 48,5 %; quedan 83.500.000 − 40.500.000.
+      expect(total).toHaveTextContent("48,5 % del total ejecutado · quedan $ 43.000.000")
+    })
+
+    it("opens the help of Programado a hoy with the keyboard and closes it with Escape", async () => {
+      const user = userEvent.setup()
+      setup()
+      const ayuda = await screen.findByRole("button", { name: "Ayuda: Programado a hoy" })
+      ayuda.focus()
+      await user.keyboard("{Enter}")
+      expect(await screen.findByRole("dialog")).toHaveTextContent("deberías llevar ejecutado hasta nov 2026")
+      await user.keyboard("{Escape}")
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+      expect(ayuda).toHaveFocus()
+    })
+
+    it("explains that expenses are not available yet: $ 0, no percentage and no colour", async () => {
+      setup({ ficha: SIN_GASTOS })
+
+      const ejecutado = await screen.findByTestId("cifra-ejecutado")
+      expect(ejecutado).toHaveTextContent("$ 0")
+      expect(ejecutado).toHaveTextContent("Ejecución disponible cuando se registren gastos")
+      expect(screen.getByTestId("cifra-programado")).not.toHaveTextContent("de lo programado ejecutado")
+      expect(screen.getByTestId("financiero-cifras").querySelector("[data-color]")).toBeNull()
+      expect(screen.queryByTestId("financiero-alerta")).not.toBeInTheDocument()
+    })
+
+    it("says «Sin definir» when the project has no total value", async () => {
+      setup({ proyecto: { valor_total: null } })
+      expect(await screen.findByTestId("cifra-valor-total")).toHaveTextContent("Sin definir")
+      expect(screen.getByTestId("cifra-valor-total")).not.toHaveTextContent("quedan")
+    })
+
+    it("paints the colour the API sent, even if it contradicts the numbers", async () => {
+      setup({ ficha: { ...FICHA, total: { ...FICHA.total, color: "amarillo" } } })
+      const programado = await screen.findByTestId("cifra-programado")
+      expect(programado.querySelector("[data-color]")).toHaveAttribute("data-color", "amarillo")
+    })
+
+    it("stacks the figures in one column on phones and in three from md", async () => {
+      setup()
+      expect((await screen.findByTestId("financiero-cifras")).className).toMatch(/grid-cols-1 .*md:grid-cols-3/)
+      // T10 C11: white cards with a border, as the prototype's `.card`.
+      expect(screen.getByTestId("cifra-ejecutado").className).toMatch(/(^|\s)surface-tile(\s|$)/)
+      // T10 F2: small caps label and the amount in the display font, not monospace.
+      const [etiqueta, importe] = Array.from(screen.getByTestId("cifra-ejecutado").querySelectorAll("p"))
+      expect(etiqueta.className).toMatch(/(^|\s)uppercase(\s|$)/)
+      expect(importe.className).toMatch(/(^|\s)font-display(\s|$)/)
+      expect(importe.className).not.toMatch(/(^|\s)font-mono(\s|$)/)
+    })
+  })
+
+  it("does not repeat the 'Ficha financiera' heading: the Finanzas › Resumen segment already names it", async () => {
     setup()
 
-    const tabla = await screen.findByTestId("financiero-tabla")
-    const filas = within(tabla).getAllByTestId("financiero-fila")
-    expect(filas).toHaveLength(2)
-    expect(filas[0]).toHaveTextContent("R01")
-    expect(filas[0]).toHaveTextContent("$ 59.500.000")
-    expect(filas[0]).toHaveTextContent("$ 29.750.000")
-    expect(filas[0]).toHaveTextContent("$ 27.000.000")
-    expect(filas[0]).toHaveTextContent("-$ 2.750.000")
-    expect(filas[0]).toHaveTextContent("90,8 %")
-    expect(filas[0]).toHaveTextContent("45,4 %")
-    expect(filas[0]).toHaveTextContent("$ 32.725.000")
-    expect(filas[0].querySelector("[data-color]")).toHaveAttribute("data-color", "verde")
-    expect(filas[1].querySelector("[data-color]")).toHaveAttribute("data-color", "rojo")
-    expect(filas[1]).toHaveTextContent("112,5 %")
-
-    const total = within(tabla).getByTestId("financiero-total")
-    expect(total).toHaveTextContent("Total")
-    expect(total).toHaveTextContent("$ 83.500.000")
-    expect(total).toHaveTextContent("97,0 %")
-    expect(total.querySelector("[data-color]")).toHaveAttribute("data-color", "verde")
+    await screen.findByTestId("financiero-cifras")
+    expect(screen.queryByRole("heading", { name: "Ficha financiera" })).not.toBeInTheDocument()
+    expect(screen.getByTestId("financiero")).not.toHaveTextContent("Ficha financiera")
   })
 
-  it("paints the color the API sent, even if it contradicts the numbers", async () => {
-    setup({ ficha: { ...FICHA, total: { ...FICHA.total, color: "amarillo" } } })
-
-    const total = await screen.findByTestId("financiero-total")
-    expect(total.querySelector("[data-color]")).toHaveAttribute("data-color", "amarillo")
-  })
-
-  it("explains that expenses are not available yet and renders no colors, percentages or alert", async () => {
-    setup({ ficha: SIN_GASTOS })
-
-    expect(await screen.findByText("Ejecución disponible cuando se registren gastos")).toBeInTheDocument()
-    const tabla = screen.getByTestId("financiero-tabla")
-    expect(tabla.querySelector("[data-color]")).toBeNull()
-    expect(within(tabla).getAllByTestId("financiero-fila")[0]).toHaveTextContent("$ 29.750.000")
-    expect(screen.queryByTestId("financiero-alerta")).not.toBeInTheDocument()
-  })
-
-  it("shows the 'No confirmado' badge while the thresholds are unconfirmed", async () => {
+  it("shows the 'Umbrales sin confirmar' badge, with its help, while the thresholds are unconfirmed", async () => {
     setup({ ficha: { ...FICHA, parametros: { tolerancia: 10, retraso: 70, confirmado: false } } })
 
-    expect(await screen.findByText("No confirmado")).toBeInTheDocument()
+    expect(await screen.findByText("Umbrales sin confirmar")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Ayuda: Umbrales sin confirmar" })).toBeInTheDocument()
   })
 
   it("does not show it once confirmed", async () => {
     setup()
 
-    await screen.findByTestId("financiero-tabla")
-    expect(screen.queryByText("No confirmado")).not.toBeInTheDocument()
+    await screen.findByTestId("financiero-cifras")
+    expect(screen.queryByText("Umbrales sin confirmar")).not.toBeInTheDocument()
   })
 
-  it("shows the possible-delay alert only when the API raises it", async () => {
-    const { unmount } = setup({ ficha: { ...FICHA, alerta_retraso: true } })
+  describe("possible-delay notice", () => {
+    it("appears only when the API raises it, with «Ver actividades» switching tabs", async () => {
+      const user = userEvent.setup()
+      const onVerActividades = vi.fn()
+      const { unmount } = setup({ ficha: { ...FICHA, alerta_retraso: true }, navegacion: { onVerActividades } })
 
-    expect(await screen.findByTestId("financiero-alerta")).toHaveTextContent(
-      "Posible retraso: el gasto va por debajo de lo programado y el avance técnico está atrasado.",
-    )
-    unmount()
-    setup()
-    await screen.findByTestId("financiero-tabla")
-    expect(screen.queryByTestId("financiero-alerta")).not.toBeInTheDocument()
+      const alerta = await screen.findByTestId("financiero-alerta")
+      expect(alerta).toHaveTextContent(
+        "Posible retraso: se ha gastado poco frente a lo programado y el avance técnico también va atrasado.",
+      )
+      // T10 C12: underlined, as in the prototype.
+      expect(within(alerta).getByRole("button", { name: "Ver actividades" }).className).toMatch(/(^|\s)underline(\s|$)/)
+      // T10 F5: a beige band without icon or bold text, as in the prototype.
+      expect(alerta.className).toMatch(/(^|\s)bg-alerta-bg(\s|$)/)
+      expect(alerta.querySelector("svg")).toBeNull()
+      expect(alerta.className).not.toMatch(/(^|\s)font-semibold(\s|$)/)
+      await user.click(within(alerta).getByRole("button", { name: "Ver actividades" }))
+      expect(onVerActividades).toHaveBeenCalledTimes(1)
+      unmount()
+
+      setup()
+      await screen.findByTestId("financiero-cifras")
+      expect(screen.queryByTestId("financiero-alerta")).not.toBeInTheDocument()
+    })
   })
 
-  it("keeps the corte and base selectors in a collapsed 'Opciones avanzadas' block, closed by default and keyboard operable", async () => {
-    const user = userEvent.setup()
-    setup()
+  describe("gastos por validar", () => {
+    it("lists the pending expenses with registrant, rubro, total, notices, support and Revisar", async () => {
+      setup({
+        gastos: [
+          gasto("g1", { alerta_sobregasto: true, rubro: { id: "r1", codigo: "R01", nombre: "Personal" } }),
+          gasto("g2", { tercero_nombre: "Dotaciones del Caribe", numero_documento: "FV-2040", valor: "11250000.00", subtotal: "11250000.00", periodo: "2026-10", periodo_modificado: true }),
+          gasto("g3", { estado: "VALIDADO" }),
+        ],
+      })
 
-    const boton = await screen.findByRole("button", { name: "Opciones avanzadas" })
-    expect(boton).toHaveAttribute("aria-expanded", "false")
-    expect(screen.queryByRole("combobox", { name: "Corte" })).not.toBeInTheDocument()
-    expect(screen.queryByRole("combobox", { name: "Base" })).not.toBeInTheDocument()
+      const seccion = await screen.findByTestId("gastos-por-validar")
+      expect(within(seccion).getByRole("heading", { name: "Gastos por validar · 2 · $ 11.700.000" })).toBeInTheDocument()
+      const filas = within(seccion).getAllByTestId("por-validar-fila")
+      expect(filas).toHaveLength(2)
+      expect(filas[0]).toHaveTextContent("Papelería del Sinú")
+      expect(await within(filas[0]).findByText("FV-4007 · 02 nov 2026 · registró Laura Jiménez")).toBeInTheDocument()
+      expect(filas[0]).toHaveTextContent("R01 · Personal")
+      expect(filas[0]).toHaveTextContent("$ 450.000")
+      expect(filas[0]).toHaveTextContent("Sin IVA")
+      expect(within(filas[0]).getByRole("button", { name: "Ayuda: Supera lo asignado" })).toBeInTheDocument()
+      expect(within(filas[1]).getByText("Cuenta en 2026-10")).toBeInTheDocument()
+      expect(within(filas[1]).getByRole("button", { name: "Ayuda: Cuenta en 2026-10" })).toBeInTheDocument()
+      expect(within(filas[0]).getByRole("button", { name: "Ver soporte Factura FV-4007.pdf" })).toBeInTheDocument()
+      const revisar = within(filas[0]).getByRole("button", { name: "Revisar el gasto FV-4007 de Papelería del Sinú" })
+      // T10 F6: «Revisar» is an outlined button and the support link is underlined, as in the prototype.
+      expect(revisar.className).toMatch(/(^|\s)bg-input-bg(\s|$)/)
+      expect(revisar.className).not.toMatch(/(^|\s)bg-primary(\s|$)/)
+      expect(within(filas[0]).getByRole("button", { name: "Ver soporte Factura FV-4007.pdf" }).className).toMatch(/(^|\s)underline(\s|$)/)
+    })
 
-    boton.focus()
-    await user.keyboard("{Enter}")
-    expect(boton).toHaveAttribute("aria-expanded", "true")
-    expect(await screen.findByRole("combobox", { name: "Corte" })).toBeInTheDocument()
-    expect(screen.getByRole("combobox", { name: "Base" })).toBeInTheDocument()
+    it("is not shown when nothing waits for validation", async () => {
+      setup({ gastos: [gasto("g1", { estado: "VALIDADO" })] })
+      await screen.findByTestId("financiero-cifras")
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/expenses", expect.any(Object)))
+      expect(screen.queryByTestId("gastos-por-validar")).not.toBeInTheDocument()
+    })
+
+    it("shows Revisar to a team member too, and clicking it explains the missing permission instead of opening the panel", async () => {
+      const user = userEvent.setup()
+      setup({ rol: "COORDINADOR", gastos: [gasto("g1")] })
+      const seccion = await screen.findByTestId("gastos-por-validar")
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
+      const revisar = await within(seccion).findByRole("button", { name: "Revisar el gasto FV-4007 de Papelería del Sinú" })
+      await user.click(revisar)
+      expect(
+        await screen.findByText(
+          "No tienes permisos para validar gastos. Solo Gerencia o Administración pueden validarlos mientras el proyecto está en ejecución.",
+        ),
+      ).toBeInTheDocument()
+      expect(screen.queryByRole("dialog", { name: "Validar gasto" })).not.toBeInTheDocument()
+    })
+
+    it("«Tú lo registraste» to the manager who registered it", async () => {
+
+      setup({ gastos: [gasto("g1", { registrado_por_id: "yo" })] })
+      const propia = await screen.findByTestId("gastos-por-validar")
+      expect(await within(propia).findByText("Tú lo registraste")).toBeInTheDocument()
+      expect(within(propia).queryByRole("button", { name: /^Revisar/ })).not.toBeInTheDocument()
+    })
+
+    // T12: a team member who registered the expense reads «Tú lo registraste», not a «Revisar» they cannot use.
+    it("«Tú lo registraste» to a team member who registered it", async () => {
+      setup({ rol: "COORDINADOR", gastos: [gasto("g1", { registrado_por_id: "yo" })] })
+      const propia = await screen.findByTestId("gastos-por-validar")
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
+      expect(await within(propia).findByText("Tú lo registraste")).toBeInTheDocument()
+      expect(within(propia).queryByRole("button", { name: /^Revisar/ })).not.toBeInTheDocument()
+    })
+
+    it("«Revisar» opens the «Validar gasto» panel on that expense", async () => {
+      const user = userEvent.setup()
+      setup({ gastos: [gasto("g1")] })
+      await user.click(await screen.findByRole("button", { name: /^Revisar/ }))
+      const panel = await screen.findByRole("dialog", { name: "Validar gasto" })
+      expect(within(panel).getByRole("heading", { name: "Papelería del Sinú" })).toBeInTheDocument()
+      expect(within(panel).getByText("Laura Jiménez")).toBeInTheDocument()
+    })
+
+    it("«Ver todos los gastos» switches to the Gastos segment", async () => {
+      const user = userEvent.setup()
+      const onVerGastos = vi.fn()
+      setup({ gastos: [gasto("g1")], navegacion: { onVerGastos } })
+      const seccion = await screen.findByTestId("gastos-por-validar")
+      for (const enlace of within(seccion).getAllByRole("button", { name: "Ver todos los gastos" })) {
+        expect(enlace.className).toMatch(/(^|\s)underline(\s|$)/)
+      }
+      await user.click(within(seccion).getAllByRole("button", { name: "Ver todos los gastos" })[0])
+      expect(onVerGastos).toHaveBeenCalledTimes(1)
+    })
+
+    it("shows one card per expense on the phone, with a 44 px Revisar", async () => {
+      mockViewport(true)
+      setup({ gastos: [gasto("g1")] })
+      const tarjetas = await screen.findByTestId("gastos-por-validar-tarjetas")
+      const revisar = await within(tarjetas).findByRole("button", { name: /^Revisar/ })
+      expect(revisar.className).toMatch(/max-md:h-11/)
+      expect(within(tarjetas).getByText("Rubro: R12 · Transporte")).toBeInTheDocument()
+    })
   })
 
-  it("offers one corte per project month and refetches when it changes", async () => {
-    const user = userEvent.setup()
-    setup()
+  describe("por rubro", () => {
+    it("lists programmed, executed, % of programmed with a bar, and the rubro's available amount", async () => {
+      setup()
 
-    await user.click(await screen.findByRole("button", { name: "Opciones avanzadas" }))
-    const corte = await screen.findByRole("combobox", { name: "Corte" })
-    expect(within(corte).getAllByRole("option").map((o) => o.getAttribute("value"))).toEqual([
-      "2026-10", "2026-11", "2026-12", "2027-01",
-    ])
-    // Legible months, never the raw period.
-    expect(within(corte).getAllByRole("option").map((o) => o.textContent)).toEqual([
-      "oct 2026", "nov 2026", "dic 2026", "ene 2027",
-    ])
+      const tabla = await screen.findByTestId("financiero-rubros")
+      const cabeceras = within(tabla).getAllByRole("columnheader").map((th) => th.textContent)
+      expect(cabeceras).toEqual(["Rubro", "Programado a hoy", "Ejecutado", "% de lo programado", "Disponible del rubro"])
+      expect(within(tabla).getByRole("button", { name: "Ayuda: Disponible del rubro" })).toBeInTheDocument()
+      const filas = within(tabla).getAllByTestId("financiero-rubro")
+      expect(filas).toHaveLength(2)
+      expect(filas[0]).toHaveTextContent("R01 · Personal")
+      expect(filas[0]).toHaveTextContent("$ 29.750.000")
+      expect(filas[0]).toHaveTextContent("$ 27.000.000")
+      expect(filas[0]).toHaveTextContent("90,8 %")
+      // Disponible = asignado − ejecutado: 59.500.000 − 27.000.000.
+      expect(filas[0]).toHaveTextContent("$ 32.500.000")
+      const barra = within(filas[1]).getByRole("progressbar", { name: "R12 · Transporte: 112,5 % de lo programado" })
+      expect(barra).toHaveAttribute("data-band", "rojo")
+    })
 
-    await user.selectOptions(corte, "2026-12")
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/financial-sheet?corte=2026-12", expect.any(Object)),
-    )
+    it("flags the rubro that a pending expense would push over its assigned amount", async () => {
+      setup({ gastos: [gasto("g1", { alerta_sobregasto: true }), gasto("g2", { alerta_sobregasto: true })] })
+      const filas = await screen.findAllByTestId("financiero-rubro")
+      expect(await within(filas[1]).findByText("2 gastos por validar lo superan")).toBeInTheDocument()
+      expect(filas[0]).not.toHaveTextContent("por validar")
+    })
+
+    it("becomes one card per rubro on the phone, with the % on top and three figures below", async () => {
+      mockViewport(true)
+      setup()
+      const lista = await screen.findByTestId("financiero-rubros")
+      expect(lista.tagName).toBe("UL")
+      const tarjeta = within(lista).getAllByTestId("financiero-rubro")[0]
+      expect(tarjeta).toHaveTextContent("Programado a hoy$ 29.750.000")
+      expect(tarjeta).toHaveTextContent("Ejecutado$ 27.000.000")
+      expect(tarjeta).toHaveTextContent("Disponible$ 32.500.000")
+    })
+
+    it("says so when the project has no budget yet", async () => {
+      setup({ ficha: { ...FICHA, rubros: [] } })
+      expect(await screen.findByText("Aún no hay presupuesto asignado a este proyecto.")).toBeInTheDocument()
+    })
   })
 
-  it("announces a non-default corte or base with a chip while the options are collapsed, and resets them", async () => {
-    const user = userEvent.setup()
-    setup()
+  describe("detail with differences and colour limits", () => {
+    it("is folded by default and opens with the keyboard (aria-expanded)", async () => {
+      const user = userEvent.setup()
+      setup()
 
-    await screen.findByTestId("financiero-tabla")
-    expect(screen.queryByTestId("financiero-filtros")).not.toBeInTheDocument()
+      const boton = await screen.findByRole("button", { name: "Ver detalle con diferencias y límites de cada color" })
+      // T10 C12: underlined, as in the prototype.
+      expect(boton.className).toMatch(/(^|\s)underline(\s|$)/)
+      expect(boton).toHaveAttribute("aria-expanded", "false")
+      expect(screen.queryByTestId("financiero-tabla")).not.toBeInTheDocument()
+      expect(screen.queryByRole("combobox", { name: "Calcular hasta" })).not.toBeInTheDocument()
 
-    await user.click(await screen.findByRole("button", { name: "Opciones avanzadas" }))
-    await user.selectOptions(await screen.findByRole("combobox", { name: "Corte" }), "2026-12")
-    await user.selectOptions(screen.getByRole("combobox", { name: "Base" }), "original")
-    await user.click(screen.getByRole("button", { name: "Opciones avanzadas" }))
-    expect(screen.queryByRole("combobox", { name: "Corte" })).not.toBeInTheDocument()
-    expect(screen.getByTestId("financiero-filtros")).toHaveTextContent("Base original · Corte dic 2026")
+      boton.focus()
+      await user.keyboard("{Enter}")
+      expect(screen.getByRole("button", { name: "Ocultar detalle" })).toHaveAttribute("aria-expanded", "true")
+      expect(screen.getByTestId("financiero-tabla")).toBeInTheDocument()
+      expect(screen.getByRole("group", { name: "Opciones avanzadas" })).toBeInTheDocument()
+      expect(screen.getByRole("combobox", { name: "Calcular hasta" })).toBeInTheDocument()
+      expect(screen.getByRole("combobox", { name: "Comparar con" })).toBeInTheDocument()
+    })
 
-    await user.click(screen.getByRole("button", { name: "Restablecer" }))
-    expect(screen.queryByTestId("financiero-filtros")).not.toBeInTheDocument()
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenLastCalledWith("/api/v1/projects/p1/financial-sheet", expect.any(Object)),
-    )
-  })
+    it("renders A, P, E, D, percentages and the API colour of each rubro plus the total row", async () => {
+      const user = userEvent.setup()
+      setup()
+      await abrirDetalle(user)
 
-  it("explains what green, yellow and red mean with the project tolerance", async () => {
-    setup()
+      const tabla = screen.getByTestId("financiero-tabla")
+      const filas = within(tabla).getAllByTestId("financiero-fila")
+      expect(filas).toHaveLength(2)
+      expect(filas[0]).toHaveTextContent("R01")
+      expect(filas[0]).toHaveTextContent("$ 59.500.000")
+      expect(filas[0]).toHaveTextContent("$ 29.750.000")
+      expect(filas[0]).toHaveTextContent("$ 27.000.000")
+      expect(filas[0]).toHaveTextContent("-$ 2.750.000")
+      expect(filas[0]).toHaveTextContent("90,8 %")
+      expect(filas[0]).toHaveTextContent("45,4 %")
+      expect(filas[0]).toHaveTextContent("$ 32.725.000")
+      expect(filas[0].querySelector("[data-color]")).toHaveAttribute("data-color", "verde")
+      expect(filas[1].querySelector("[data-color]")).toHaveAttribute("data-color", "rojo")
+      const total = within(tabla).getByTestId("financiero-total")
+      expect(total).toHaveTextContent("$ 83.500.000")
+    })
 
-    const leyenda = await screen.findByTestId("financiero-ejecucion-leyenda")
-    expect(leyenda).toHaveTextContent("Verde: lo ejecutado no supera lo programado.")
-    expect(leyenda).toHaveTextContent("Amarillo: lo supera hasta un 10 %.")
-    expect(leyenda).toHaveTextContent("Rojo")
-  })
+    it("names every column in plain words: no E/P, E/A or Umbral rojo", async () => {
+      const user = userEvent.setup()
+      setup()
+      await abrirDetalle(user)
 
-  it("scales the bar so an overspend past P shows beyond the programmed marker", async () => {
-    setup({ ficha: { ...FICHA, total: { ...FICHA.total, ejecutado: "50100000.00", ep_decimas: 1200, color: "rojo" } } })
+      const cabeceras = within(screen.getByTestId("financiero-tabla")).getAllByRole("columnheader").map((th) => th.textContent)
+      expect(cabeceras).toEqual([
+        "Rubro", "Asignado", "Programado a hoy", "Ejecutado", "Diferencia", "% de lo programado", "% de lo asignado", "Pasa a rojo desde", "Color",
+      ])
+      expect(screen.getByTestId("financiero")).not.toHaveTextContent(/E\/P|E\/A|Umbral rojo|\bpp\b|Σ/)
+    })
 
-    const barra = await screen.findByTestId("financiero-ejecucion")
-    // E/P = 120 %: E fills the scale, P sits at 41.750.000 / 50.100.000 = 83,3 %.
-    expect(within(barra).getByTestId("financiero-ejecucion-ejecutado")).toHaveAttribute("data-width", "100")
-    expect(within(barra).getByTestId("financiero-ejecucion-programado")).toHaveAttribute("data-width", "83.3")
-  })
+    it("explains the difference and what green, yellow and red mean with the project tolerance", async () => {
+      const user = userEvent.setup()
+      setup()
+      await abrirDetalle(user)
 
-  it("keeps the base selector disabled while the baseline is not approved (BORRADOR)", async () => {
-    const user = userEvent.setup()
-    setup({ proyecto: { estado: "BORRADOR" } })
+      const leyenda = screen.getByTestId("financiero-ejecucion-leyenda")
+      expect(leyenda).toHaveTextContent("Diferencia = ejecutado − programado.")
+      expect(leyenda).toHaveTextContent("Verde: lo ejecutado no supera lo programado.")
+      expect(leyenda).toHaveTextContent("Amarillo: lo supera hasta un 10 %.")
+      expect(leyenda).toHaveTextContent("Rojo")
+    })
 
-    await user.click(await screen.findByRole("button", { name: "Opciones avanzadas" }))
-    const base = await screen.findByRole("combobox", { name: "Base" })
-    expect(base).toBeDisabled()
-    expect(within(base).getAllByRole("option").map((o) => o.getAttribute("value"))).toEqual(["vigente"])
-  })
+    it("renders no colours or execution percentages while expenses are unavailable", async () => {
+      const user = userEvent.setup()
+      setup({ ficha: SIN_GASTOS })
+      await abrirDetalle(user)
+      const tabla = screen.getByTestId("financiero-tabla")
+      expect(tabla.querySelector("[data-color]")).toBeNull()
+      expect(within(tabla).getAllByTestId("financiero-fila")[0]).toHaveTextContent("$ 29.750.000")
+    })
 
-  it("lets an approved project read the original (v0): it refetches with base=original and keeps the corte", async () => {
-    const user = userEvent.setup()
-    setup()
+    it("offers one corte per project month and refetches when it changes; the figure says up to which month", async () => {
+      const user = userEvent.setup()
+      setup()
+      await abrirDetalle(user)
 
-    await user.click(await screen.findByRole("button", { name: "Opciones avanzadas" }))
-    const base = await screen.findByRole("combobox", { name: "Base" })
-    expect(base).toBeEnabled()
-    expect(within(base).getAllByRole("option").map((o) => o.getAttribute("value"))).toEqual(["vigente", "original"])
-    await screen.findByTestId("financiero-tabla")
+      const corte = screen.getByRole("combobox", { name: "Calcular hasta" })
+      expect(within(corte).getAllByRole("option").map((o) => o.getAttribute("value"))).toEqual([
+        "2026-10", "2026-11", "2026-12", "2027-01",
+      ])
+      expect(within(corte).getAllByRole("option").map((o) => o.textContent)).toEqual([
+        "oct 2026", "nov 2026", "dic 2026", "ene 2027",
+      ])
 
-    await user.selectOptions(screen.getByRole("combobox", { name: "Corte" }), "2026-12")
-    await user.selectOptions(base, "original")
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/v1/projects/p1/financial-sheet?corte=2026-12&base=original",
-        expect.any(Object),
-      ),
-    )
-    expect(base).toHaveValue("original")
-  })
+      await user.selectOptions(corte, "2026-12")
+      await waitFor(() =>
+        expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/financial-sheet?corte=2026-12", expect.any(Object)),
+      )
+      expect(screen.getByTestId("cifra-programado")).toHaveTextContent("Programado hasta")
+    })
 
-  it("shows the 409 of an original that does not exist yet, inline", async () => {
-    const user = userEvent.setup()
-    fetchMock.mockImplementation((input: unknown) =>
-      Promise.resolve(
+    it("announces a non-default corte or base with a chip while the detail is folded, and resets them", async () => {
+      const user = userEvent.setup()
+      setup()
+
+      await screen.findByTestId("financiero-cifras")
+      expect(screen.queryByTestId("financiero-filtros")).not.toBeInTheDocument()
+
+      await abrirDetalle(user)
+      await user.selectOptions(screen.getByRole("combobox", { name: "Calcular hasta" }), "2026-12")
+      await user.selectOptions(screen.getByRole("combobox", { name: "Comparar con" }), "original")
+      await user.click(await screen.findByRole("button", { name: "Ocultar detalle" }))
+      expect(screen.queryByRole("combobox", { name: "Calcular hasta" })).not.toBeInTheDocument()
+      expect(screen.getByTestId("financiero-filtros")).toHaveTextContent("Comparado con el plan inicial · Hasta dic 2026")
+
+      await user.click(within(screen.getByTestId("financiero-filtros")).getByRole("button", { name: "Restablecer" }))
+      expect(screen.queryByTestId("financiero-filtros")).not.toBeInTheDocument()
+      await waitFor(() =>
+        expect(fetchMock.mock.calls.filter(([url]) => String(url).includes("/financial-sheet")).at(-1)?.[0]).toBe(
+          "/api/v1/projects/p1/financial-sheet",
+        ),
+      )
+    })
+
+    it("keeps the base selector disabled while the baseline is not approved (BORRADOR)", async () => {
+      const user = userEvent.setup()
+      setup({ proyecto: { estado: "BORRADOR" } })
+      await abrirDetalle(user)
+
+      const base = screen.getByRole("combobox", { name: "Comparar con" })
+      expect(base).toBeDisabled()
+      expect(within(base).getAllByRole("option").map((o) => o.getAttribute("value"))).toEqual(["vigente"])
+    })
+
+    it("lets an approved project read the original: it refetches with base=original and keeps the corte", async () => {
+      const user = userEvent.setup()
+      setup()
+      await abrirDetalle(user)
+
+      const base = screen.getByRole("combobox", { name: "Comparar con" })
+      expect(base).toBeEnabled()
+      expect(within(base).getAllByRole("option").map((o) => o.getAttribute("value"))).toEqual(["vigente", "original"])
+      await user.selectOptions(screen.getByRole("combobox", { name: "Calcular hasta" }), "2026-12")
+      await user.selectOptions(screen.getByRole("combobox", { name: "Comparar con" }), "original")
+      await waitFor(() =>
+        expect(fetchMock).toHaveBeenCalledWith(
+          "/api/v1/projects/p1/financial-sheet?corte=2026-12&base=original",
+          expect.any(Object),
+        ),
+      )
+    })
+
+    it("shows the 409 of an original that does not exist yet, inline", async () => {
+      const user = userEvent.setup()
+      setup()
+      const base = fetchMock.getMockImplementation()!
+      fetchMock.mockImplementation((input: unknown, init?: RequestInit) =>
         String(input).includes("base=original")
-          ? jsonResponse({ error: "La versión original aún no existe.", code: "INVALID_STATE" }, 409)
-          : jsonResponse(FICHA),
-      ),
-    )
-    render(<ProjectFinanciero proyecto={PROYECTO} />, { wrapper: createWrapper() })
-
-    await user.click(await screen.findByRole("button", { name: "Opciones avanzadas" }))
-    await user.selectOptions(await screen.findByRole("combobox", { name: "Base" }), "original")
-    expect(await screen.findByRole("alert")).toHaveTextContent("La versión original aún no existe.")
-  })
-
-  it("renders no expense, support or third-party rows", async () => {
-    setup()
-
-    const seccion = await screen.findByTestId("financiero")
-    await screen.findByTestId("financiero-tabla")
-    for (const termino of [/soporte/i, /tercero/i, /proveedor/i, /factura/i]) {
-      expect(seccion).not.toHaveTextContent(termino)
-    }
+          ? Promise.resolve(jsonResponse({ error: "La versión original aún no existe.", code: "INVALID_STATE" }, 409))
+          : base(input, init),
+      )
+      await abrirDetalle(user)
+      await user.selectOptions(screen.getByRole("combobox", { name: "Comparar con" }), "original")
+      expect(await screen.findByRole("alert")).toHaveTextContent("La versión original aún no existe.")
+    })
   })
 
   it("shows the API error for a role that cannot read it", async () => {
     setup({ status: 403 })
 
     expect(await screen.findByRole("alert")).toHaveTextContent("No tienes permisos sobre este proyecto.")
-    expect(screen.queryByTestId("financiero-tabla")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("financiero-cifras")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("financiero-rubros")).not.toBeInTheDocument()
   })
 
   it("asks for the project dates when they are missing, without reading the sheet", () => {
@@ -311,88 +606,5 @@ describe("ProjectFinanciero", () => {
 
     expect(screen.getByText(/fechas de inicio y fin/i)).toBeInTheDocument()
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/financial-sheet"))).toBe(false)
-  })
-
-  // Carril X · X3: la barra de ejecución y las barras por rubro leen la misma ficha. El color del avance
-  // sale del servidor (D11); los anchos se derivan de los montos del servidor (E/A y P/A), nunca de
-  // constantes locales.
-  describe("executed bar and per-rubro bars", () => {
-    it("paints the executed share of the assigned amount, the programmed marker and the server colour", async () => {
-      setup()
-
-      const barra = await screen.findByTestId("financiero-ejecucion")
-      expect(barra).toHaveAttribute("data-color", "verde")
-      // E y P comparten escala (la mayor): E/P = 40.500.000 / 41.750.000 = 97 %; la marca de P va al 100 %.
-      expect(within(barra).getByTestId("financiero-ejecucion-ejecutado")).toHaveAttribute("data-width", "97")
-      expect(within(barra).getByTestId("financiero-ejecucion-programado")).toHaveAttribute("data-width", "100")
-    })
-
-    it("describes the bar and repeats the same sentence as its accessible name", async () => {
-      setup()
-
-      const frase = "Ejecutado $ 40.500.000 de $ 41.750.000 programados (97 %) · Asignado $ 83.500.000"
-      const barra = await screen.findByTestId("financiero-ejecucion")
-      expect(barra).toHaveAttribute("role", "img")
-      expect(barra).toHaveAttribute("aria-label", frase)
-      expect(screen.getByTestId("financiero-ejecucion-caption")).toHaveTextContent(frase)
-    })
-
-    it("follows the server colour even when it contradicts the executed share", async () => {
-      setup({ ficha: { ...FICHA, total: { ...FICHA.total, color: "rojo" } } })
-
-      expect(await screen.findByTestId("financiero-ejecucion")).toHaveAttribute("data-color", "rojo")
-    })
-
-    it("starts with no executed colour and no percentage while expenses are unavailable", async () => {
-      setup({ ficha: SIN_GASTOS })
-
-      const barra = await screen.findByTestId("financiero-ejecucion")
-      expect(barra).not.toHaveAttribute("data-color")
-      expect(within(barra).getByTestId("financiero-ejecucion-ejecutado")).toHaveAttribute("data-width", "0")
-      expect(screen.getByTestId("financiero-ejecucion-caption")).toHaveTextContent(
-        "Ejecutado $ 0 de $ 41.750.000 programados · Asignado $ 83.500.000",
-      )
-    })
-
-    it("lists one planned-vs-executed bar per rubro on a shared scale, with the server E/P and colour", async () => {
-      setup()
-
-      const barras = await screen.findByTestId("financiero-barras")
-      const filas = within(barras).getAllByTestId("financiero-barra-fila")
-      expect(filas).toHaveLength(2)
-
-      // Shared scale = max(programado, ejecutado) = 29.750.000 (R01 programado).
-      const r01 = within(filas[0])
-      expect(filas[0]).toHaveTextContent("R01")
-      expect(r01.getByTestId("financiero-barra-programado")).toHaveAttribute("data-width", "100")
-      expect(r01.getByTestId("financiero-barra-ejecutado")).toHaveAttribute("data-width", "90.8")
-      expect(r01.getByText("E/P 90,8 %")).toBeInTheDocument()
-      expect(filas[0].querySelector("[data-color]")).toHaveAttribute("data-color", "verde")
-
-      const r12 = within(filas[1])
-      expect(r12.getByTestId("financiero-barra-programado")).toHaveAttribute("data-width", "40.3")
-      expect(r12.getByTestId("financiero-barra-ejecutado")).toHaveAttribute("data-width", "45.4")
-      expect(r12.getByText("E/P 112,5 %")).toBeInTheDocument()
-      expect(filas[1].querySelector("[data-color]")).toHaveAttribute("data-color", "rojo")
-    })
-
-    it("shows no executed bars or colours while expenses are unavailable", async () => {
-      setup({ ficha: SIN_GASTOS })
-
-      await screen.findByTestId("financiero-ejecucion")
-      const barras = screen.getByTestId("financiero-barras")
-      const primera = within(barras).getAllByTestId("financiero-barra-fila")[0]
-      expect(within(primera).getByTestId("financiero-barra-ejecutado")).toHaveAttribute("data-width", "0")
-      expect(barras.querySelector("[data-color]")).toBeNull()
-      expect(within(barras).getAllByText("E/P —").length).toBeGreaterThan(0)
-    })
-
-    it("renders no execution bar and no rubro bars when the project has no budget lines", async () => {
-      setup({ ficha: { ...FICHA, rubros: [] } })
-
-      expect(await screen.findByText("Aún no hay presupuesto asignado a este proyecto.")).toBeInTheDocument()
-      expect(screen.queryByTestId("financiero-ejecucion")).not.toBeInTheDocument()
-      expect(screen.queryByTestId("financiero-barras")).not.toBeInTheDocument()
-    })
   })
 })

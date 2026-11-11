@@ -3,19 +3,33 @@ import { login, openCliente } from "./helpers";
 
 // Guide §10 (what changed in Clientes).
 
-test("sub-navigation has no «Oportunidades»/«Mapa» and the old routes redirect to /clientes", async ({ page }) => {
+test("sub-navigation lists «Oportunidades» with its board and still hides «Mapa», whose route redirects to /clientes", async ({ page }) => {
   await login(page, "gerencia", "/clientes");
   const nav = page.getByRole("navigation", { name: "Secciones de clientes" });
-  for (const s of ["Aliados", "Interacciones", "Relaciones", "Salud", "Automatizaciones"]) {
+  for (const s of ["Aliados", "Oportunidades", "Interacciones", "Relaciones", "Salud", "Automatizaciones"]) {
     await expect(nav.getByRole("link", { name: s, exact: true })).toBeVisible();
   }
-  await expect(nav.getByRole("link", { name: "Oportunidades" })).toHaveCount(0);
   await expect(nav.getByRole("link", { name: "Mapa" })).toHaveCount(0);
-  for (const old of ["/clientes/oportunidades", "/clientes/mapa"]) {
-    await page.goto(old);
-    await expect(page).toHaveURL(/\/clientes$/);
-    await expect(page.getByRole("heading", { name: "Aliados y clientes", level: 1 })).toBeVisible();
+
+  // V1: the board replaced the redirect, with the seven stages the PO agreed on.
+  await nav.getByRole("link", { name: "Oportunidades", exact: true }).click();
+  await expect(page).toHaveURL(/\/clientes\/oportunidades$/);
+  for (const etapa of [
+    "Revisión TDR",
+    "En formulación",
+    "Enviada · seguimiento",
+    "En negociación",
+    "Aceptada",
+    "Rechazada",
+    "En espera",
+  ]) {
+    await expect(page.getByText(etapa, { exact: true }).first()).toBeVisible();
   }
+
+  // Mapa is still unbuilt, so its route keeps redirecting.
+  await page.goto("/clientes/mapa");
+  await expect(page).toHaveURL(/\/clientes$/);
+  await expect(page.getByRole("heading", { name: "Aliados y clientes", level: 1 })).toBeVisible();
 });
 
 test("gerencia: first-contact date is human readable; «Crear proyecto» opens the stepper with the client preselected", async ({ page }) => {

@@ -4,10 +4,9 @@
 // through the separate attachments route below (same separation AJ-06 established between
 // "create" and "attach more" for mediciones).
 //
-// Create: only the activity's own `responsable_id`, or ADMINISTRADOR/GERENCIA (the same
-// override every other write gate in this codebase already has) — S9.5 — on an
-// EN_EJECUCION project (404 -> 403 -> 409 -> 404 activity -> 403 responsable -> 400 body ->
-// 409 business rules S9.1-S9.4, run by `validarNuevoReporte`). The first report is what
+// Create: any project member or manager, whoever the activity's responsable is (the same
+// membership axis as every other execution write), on an EN_EJECUCION project (404 -> 403 ->
+// 409 -> 404 activity -> 400 body -> 409 business rules S9.1-S9.4, run by `validarNuevoReporte`). The first report is what
 // moves the activity to EN_CURSO (S2): this route never writes a state column — there isn't
 // one, `estadoActividad` derives it from the presence of a live report (S7/S8).
 
@@ -25,6 +24,7 @@ import {
   gateEjecucionRead,
   gateReporteActividadWrite,
   loadActividadParaReporte,
+  nombresDeRegistradores,
   toReporteView,
 } from "@/lib/api/ejecucion";
 import { getSemaforoParametrosV2 } from "@/lib/settings";
@@ -82,11 +82,16 @@ export const GET = withApiErrorHandling(
       where: { actividad_id: activityId, proyecto_id: id },
       orderBy: [{ fecha: "asc" }, { created_at: "asc" }],
     });
-    const medios = await contarMediosVivosReporte(rows.map((row) => row.id));
+    const [medios, nombres] = await Promise.all([
+      contarMediosVivosReporte(rows.map((row) => row.id)),
+      nombresDeRegistradores(rows.map((row) => row.registrado_por_id)),
+    ]);
 
     return NextResponse.json({
       estado: gate.value.estado,
-      reportes: rows.map((row) => toReporteView(row, medios.get(row.id) ?? 0)),
+      reportes: rows.map((row) =>
+        toReporteView(row, medios.get(row.id) ?? 0, nombres.get(row.registrado_por_id) ?? null),
+      ),
     });
   },
 );
@@ -147,6 +152,6 @@ export const POST = withApiErrorHandling(
       return created;
     });
 
-    return NextResponse.json({ reporte: toReporteView(row, 0) }, { status: 201 });
+    return NextResponse.json({ reporte: toReporteView(row, 0, auth.usuario.nombre) }, { status: 201 });
   },
 );

@@ -55,7 +55,7 @@ function mensual(valor: string): Record<Periodo, string> {
   return Object.fromEntries(F_X1_PERIODOS.map((periodo) => [periodo, cell])) as Record<Periodo, string>
 }
 
-export const F_X1_MUNICIPIOS = [
+const F_X1_MUNICIPIOS = [
   { nombre: "Montería", departamento: "Córdoba", codigoDane: "23001" },
   { nombre: "Cereté", departamento: "Córdoba", codigoDane: "23162" },
 ] as const

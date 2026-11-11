@@ -19,7 +19,11 @@ const PDF = Buffer.from(
 
 /** The ficha's OUTER tabs (Finanzas also renders an inner Resumen/Gastos/Presupuesto tablist). */
 const tab = (page: Page, name: string, selected?: boolean) =>
-  page.getByRole("tablist").first().getByRole("tab", { name, exact: true, ...(selected ? { selected: true } : {}) });
+  // «Documentos · N» carries its count (T10 C6): match the name with or without it.
+  page
+    .getByRole("tablist")
+    .first()
+    .getByRole("tab", { name: new RegExp(`^${name}( · \\d+)?$`), ...(selected ? { selected: true } : {}) });
 
 async function openGastos(page: Page) {
   await tab(page, "Finanzas").click();
@@ -48,39 +52,58 @@ async function registrarGasto(
   return form;
 }
 
-test("header: semáforos link to tabs; header actions go to Actividades / Finanzas", async ({ page }) => {
+test("header: semáforos link to tabs; header actions open their dialogs on any tab (S9)", async ({ page }) => {
   await loginToProject(page, "coordinador", "PRY-2026-001");
-  await expect(page.getByRole("heading", { name: "Demo CedeTextil · En ejecución", level: 1 })).toBeVisible();
-  await page.getByRole("button", { name: /^Semáforo técnico/ }).click();
-  await expect(tab(page, "Actividades", true)).toBeVisible();
-  await tab(page, "Resumen").click();
+  await expect(page.getByRole("heading", { name: "Demo CedeTextil · Programa de confección", level: 1 })).toBeVisible();
+  // The Resumen carries the colours in its three figures, so the header chips stay out of it (T5).
+  await expect(page.getByRole("button", { name: /^Semáforo técnico/ })).toHaveCount(0);
+  await tab(page, "Actividades").click();
   await page.getByRole("button", { name: /^Semáforo financiero/ }).click();
   await expect(tab(page, "Finanzas", true)).toBeVisible();
-  await tab(page, "Resumen").click();
-  await page.getByRole("button", { name: "Registrar avance", exact: true }).first().click();
+  await page.getByRole("button", { name: /^Semáforo técnico/ }).click();
   await expect(tab(page, "Actividades", true)).toBeVisible();
-  await tab(page, "Resumen").click();
-  await page.getByRole("button", { name: "Registrar gasto", exact: true }).first().click();
-  await expect(tab(page, "Finanzas", true)).toBeVisible();
+  // «Registrar avance» / «Registrar gasto» open a dialog on top of the current tab, without switching it.
+  for (const pestana of ["Resumen", "Documentos"]) {
+    await tab(page, pestana).click();
+    await page.getByRole("button", { name: "Registrar avance", exact: true }).first().click();
+    const avance = page.getByRole("dialog", { name: "Registrar avance" });
+    await expect(avance.getByLabel("Actividad", { exact: true })).toBeVisible();
+    await expect(avance.getByTestId("registrar-avance-resumen")).toContainText("% registrado · tope");
+    await expect(avance.getByRole("button", { name: "Guardar avance" })).toBeVisible();
+    await avance.getByRole("button", { name: "Cancelar" }).click();
+    await expect(avance).toBeHidden();
+    await expect(tab(page, pestana, true)).toBeVisible();
+
+    await page.getByRole("button", { name: "Registrar gasto", exact: true }).first().click();
+    const gasto = page.getByRole("dialog", { name: "Registrar gasto" });
+    await expect(gasto.getByRole("form", { name: "Registrar gasto" }).getByLabel("Rubro")).toBeVisible();
+    await gasto.getByRole("button", { name: "Cancelar" }).click();
+    await expect(gasto).toBeHidden();
+    await expect(tab(page, pestana, true)).toBeVisible();
+  }
 });
 
 test("Registrar avance with a generated file → Documentos (Actividades) → opens via signed URL", async ({ page }) => {
   await loginToProject(page, "coordinador", "PRY-2026-001");
   await tab(page, "Actividades").click();
   // 1.4-E2 has target 4 and 0 counted: room for several runs; the form asks for a justification past the target.
-  await page.getByRole("button", { name: "Registrar avance 1.4-E2" }).click();
-  const form = page.getByRole("form", { name: "Registrar avance 1.4-E2" });
+  // The deliverables of an activity in progress start folded: unfold them first.
+  if (!(await page.getByRole("button", { name: "Registrar cantidad 1.4-E2" }).isVisible())) {
+    await page.getByRole("button", { name: /^Ver \d+ entregables?$/ }).filter({ visible: true }).last().click();
+  }
+  await page.getByRole("button", { name: "Registrar cantidad 1.4-E2" }).click();
+  const form = page.getByRole("form", { name: "Registrar cantidad 1.4-E2" });
   await form.getByLabel("Cantidad").fill("1");
   const just = form.getByLabel("Justificación del exceso");
   if (await just.isVisible()) await just.fill("Prueba E2E repetida");
   await form.getByLabel("Archivo", { exact: true }).check();
   await form.locator('input[type="file"]').setInputFiles({ name: ARCHIVO, mimeType: "application/pdf", buffer: PDF });
-  await form.getByRole("button", { name: "Registrar avance" }).click();
-  await expect(page.getByRole("form", { name: "Registrar avance 1.4-E2" })).toBeHidden({ timeout: 30_000 });
+  await form.getByRole("button", { name: "Registrar cantidad" }).click();
+  await expect(page.getByRole("form", { name: "Registrar cantidad 1.4-E2" })).toBeHidden({ timeout: 30_000 });
 
   await tab(page, "Documentos").click();
   const grupo = page.getByTestId("documentos-grupo-avance");
-  await expect(grupo.getByText("Actividades")).toBeVisible();
+  await expect(grupo.getByRole("heading", { name: /^Soportes de entregables/ })).toBeVisible();
   const fila = grupo.getByTestId("documento-fila").filter({ hasText: ARCHIVO });
   await expect(fila).toBeVisible({ timeout: 30_000 });
 
@@ -128,7 +151,7 @@ test("Finanzas (coordinador): es-CO value, bad format error, overspend → Pendi
   await expect(page.getByRole("status").filter({ hasText: "Gasto registrado, con avisos" })).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "Entendido" }).click();
   const filaS = page.getByRole("row", { name: new RegExp(DOC_SOBRE) });
-  await expect(filaS).toContainText("Supera el asignado");
+  await expect(filaS).toContainText("Supera lo asignado");
   await expect(filaS).toContainText("1.500.000");
 
   // filter
@@ -136,10 +159,9 @@ test("Finanzas (coordinador): es-CO value, bad format error, overspend → Pendi
   await expect(page.getByRole("row", { name: new RegExp(DOC_SOBRE) })).toBeVisible();
   await expect(page.getByRole("row", { name: new RegExp(DOC_VALIDAR) })).toHaveCount(0);
 
-  // coordinador (member) has no validation buttons
+  // coordinador (member) cannot review: no «Revisar» opens the validation panel
   await page.getByRole("group", { name: "Filtrar gastos" }).getByRole("button", { name: /^Todos/ }).click();
-  await expect(page.getByRole("button", { name: "Validar" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Rechazar" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Revisar el gasto/ })).toHaveCount(0);
 });
 
 test("gerencia validates one expense and rejects another with a reason; annuls the validated one", async ({ page }) => {
@@ -148,15 +170,26 @@ test("gerencia validates one expense and rejects another with a reason; annuls t
 
   const filaV = page.getByRole("row", { name: new RegExp(DOC_VALIDAR) });
   await expect(filaV).toBeVisible();
-  await filaV.getByRole("button", { name: "Validar" }).click();
+  // «Revisar» opens the «Validar gasto» panel; after validating it moves on to the next pending expense
+  // and keeps the ficha behind it inert, so close it before reading the Gastos table.
+  await filaV.getByRole("button", { name: /^Revisar el gasto/ }).click();
+  const panel = page.getByRole("dialog", { name: "Validar gasto" });
+  await panel.getByRole("button", { name: "Validar gasto" }).click();
+  await expect(panel).not.toContainText(DOC_VALIDAR, { timeout: 30_000 });
+  await page.keyboard.press("Escape");
   await expect(filaV).toContainText("Validado", { timeout: 30_000 });
 
+  // The overspent one cannot be validated (open PO question): it can only be rejected, with a reason.
   const filaS = page.getByRole("row", { name: new RegExp(DOC_SOBRE) });
-  await filaS.getByRole("button", { name: "Rechazar" }).click();
-  const confirmar = filaS.getByRole("button", { name: "Confirmar rechazo" });
-  await expect(confirmar).toBeDisabled();
-  await filaS.getByLabel("Motivo del rechazo").fill(MOTIVO_RECHAZO);
-  await confirmar.click();
+  await filaS.getByRole("button", { name: /^Revisar el gasto/ }).click();
+  await expect(panel.getByRole("button", { name: "Validar gasto" })).toBeDisabled();
+  await panel.getByRole("button", { name: "Rechazar" }).click();
+  await expect(panel.getByText("El motivo no puede estar vacío.")).toBeVisible();
+  await panel.getByLabel("Motivo (obligatorio si lo rechazas)").fill(MOTIVO_RECHAZO);
+  await panel.getByRole("button", { name: "Rechazar" }).click();
+  await panel.getByRole("button", { name: "Confirmar rechazo" }).click();
+  await expect(panel).not.toContainText(DOC_SOBRE, { timeout: 30_000 });
+  await page.keyboard.press("Escape");
   await expect(filaS).toContainText("Rechazado", { timeout: 30_000 });
   await expect(filaS).toContainText(MOTIVO_RECHAZO);
 
@@ -188,6 +221,5 @@ test("a manager cannot validate their own expense (admin registers, sees «Tú l
   const fila = page.getByRole("row", { name: new RegExp(doc) });
   await expect(fila).toBeVisible({ timeout: 30_000 });
   await expect(fila).toContainText("Tú lo registraste");
-  await expect(fila.getByRole("button", { name: "Validar" })).toHaveCount(0);
-  await expect(fila.getByRole("button", { name: "Rechazar" })).toHaveCount(0);
+  await expect(fila.getByRole("button", { name: /^Revisar el gasto/ })).toHaveCount(0);
 });

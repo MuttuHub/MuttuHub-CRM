@@ -13,6 +13,7 @@ import Link from "next/link";
 import { Download, Eye, FolderKanban } from "lucide-react";
 import { toast } from "sonner";
 import { ToneBadge } from "@/components/crm/shared";
+import { ETIQUETA_CORTE, SemaforoProvisional, datosAl } from "@/components/proyectos/vocabulario-seguimiento";
 import { BarRow, StatTile } from "@/components/dashboard/shared";
 import { CurveSChart } from "@/components/proyectos/curve-s-chart";
 import { errorMessage } from "@/components/proyectos/estructura-ui";
@@ -137,12 +138,12 @@ export function ProjectDashboard() {
                 ))}
               </select>
             </Filtro>
-            <Filtro label="Corte">
-              <input type="date" aria-label="Corte" value={valores.corte} onChange={set("corte")} className={SELECT_CLASS} />
+            <Filtro label={ETIQUETA_CORTE}>
+              <input type="date" aria-label={ETIQUETA_CORTE} value={valores.corte} onChange={set("corte")} className={SELECT_CLASS} />
             </Filtro>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {data && !data.confirmado && <ToneBadge tone="neutro" label="No confirmado" />}
+            {data && !data.confirmado && <SemaforoProvisional />}
             <Button size="lg" variant="outline" onClick={() => void exportar()}>
               <Download className="size-4" />
               Exportar Excel
@@ -185,7 +186,7 @@ function Resumen({ data }: { data: NonNullable<ReturnType<typeof useProjectsPort
   const total = estados.reduce((suma, [, cantidad]) => suma + cantidad, 0);
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <StatTile label="Proyectos" value={total} foot={`Corte al ${formatFechaCalendario(data.corte)}`} />
+      <StatTile label="Proyectos" value={total} foot={datosAl(formatFechaCalendario(data.corte))} />
       <StatTile
         label="Avance real promedio"
         value={formatPct(agregado.tecnico.avance_real)}

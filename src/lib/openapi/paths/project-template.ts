@@ -118,7 +118,7 @@ registry.registerPath({
         "multipart/form-data": {
           schema: z.object({
             archivo: z.string().openapi({ format: "binary", description: "Plantilla .xlsx diligenciada." }),
-            modo: z.literal("validar").optional().openapi({ description: "Solo valida; no escribe." }),
+            modo: z.enum(["validar", "aplicar"]).optional().openapi({ description: "«validar» solo valida y no escribe; «aplicar» o sin `modo` aplica. Otro valor responde 400 VALIDATION_ERROR." }),
           }),
         },
       },

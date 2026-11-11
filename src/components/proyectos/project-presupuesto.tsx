@@ -2,7 +2,9 @@
 // programación mensual (P). Todos los que ven la ficha lo leen; solo quien
 // pertenece al equipo del proyecto (`useEjecucionPermisos`) y mientras el proyecto está en
 // BORRADOR ve los controles de edición. Esa visibilidad es comodidad de
-// interfaz: la autoridad es la API (403 / 409 INVALID_STATE).
+// interfaz: la autoridad es la API (403 / 409 INVALID_STATE). Fuera de BORRADOR (rediseño T3) la tabla suma, por
+// rubro, lo ejecutado (gastos validados), lo que espera validación y lo disponible (asignado − ejecutado), leídos de la
+// misma lista de gastos que usa Finanzas › Gastos.
 
 "use client";
 
@@ -15,16 +17,20 @@ import { MONTO_INVALIDO, montoToInput, parseMontoInput } from "@/components/proy
 import { MontoInput, PresupuestoProgramacion } from "@/components/proyectos/presupuesto-programacion";
 import { PresupuestoImportDialog } from "@/components/proyectos/presupuesto-import-dialog";
 import { Button } from "@/components/ui/button";
+import { HelpHint } from "@/components/ui/help-hint";
+import { AYUDA_DISPONIBLE } from "@/components/proyectos/ficha/finanzas/gastos-comun";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   useProjectBudget,
+  useProjectExpenses,
   useSetValorTotal,
   useUpdateBudget,
   type ProjectBudget,
+  type ProjectExpense,
   type ProjectListRow,
 } from "@/hooks/projects";
 import { useEjecucionPermisos } from "@/components/proyectos/project-ejecucion";
-import { formatCOP, toCents } from "@/lib/proyectos/money";
+import { formatCOP, toCents, type Cents } from "@/lib/proyectos/money";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const BUDGET_ERROR = "No pudimos cargar el presupuesto. Inténtalo de nuevo.";
@@ -34,6 +40,10 @@ export function ProjectPresupuesto({ proyecto }: { proyecto: ProjectListRow }) {
   const { canWrite: puedeGestionar } = useEjecucionPermisos(proyecto.id);
   const canEdit = puedeGestionar && proyecto.estado === "BORRADOR";
   const query = useProjectBudget(proyecto.id);
+  // Outside BORRADOR the budget also shows execution; a draft has no expenses, so it does not read them.
+  const enBorrador = proyecto.estado === "BORRADOR";
+  const gastosQuery = useProjectExpenses(enBorrador ? "" : proyecto.id);
+  const ejecucion = enBorrador || !gastosQuery.data?.gastos ? null : ejecucionPorRubro(gastosQuery.data.gastos);
 
   return (
     <section data-testid="presupuesto">
@@ -55,6 +65,7 @@ export function ProjectPresupuesto({ proyecto }: { proyecto: ProjectListRow }) {
           proyectoId={proyecto.id}
           budget={query.data}
           canEdit={canEdit}
+          ejecucion={ejecucion}
         />
       )}
 
@@ -63,14 +74,32 @@ export function ProjectPresupuesto({ proyecto }: { proyecto: ProjectListRow }) {
   );
 }
 
+type Ejecucion = Map<string, { ejecutado: Cents; porValidar: Cents }>;
+
+/** Validated (ejecutado) and REGISTRADO (por validar) totals per rubro, from the project expenses. */
+function ejecucionPorRubro(gastos: readonly ProjectExpense[]): Ejecucion {
+  const mapa: Ejecucion = new Map();
+  for (const g of gastos) {
+    if (g.estado !== "VALIDADO" && g.estado !== "REGISTRADO") continue;
+    const actual = mapa.get(g.rubro.id) ?? { ejecutado: BigInt(0), porValidar: BigInt(0) };
+    if (g.estado === "VALIDADO") actual.ejecutado += toCents(g.valor);
+    else actual.porValidar += toCents(g.valor);
+    mapa.set(g.rubro.id, actual);
+  }
+  return mapa;
+}
+
 function PresupuestoEditor({
   proyectoId,
   budget,
   canEdit,
+  ejecucion,
 }: {
   proyectoId: string;
   budget: ProjectBudget;
   canEdit: boolean;
+  /** Execution per rubro outside BORRADOR; null while it loads or in a draft. */
+  ejecucion: Ejecucion | null;
 }) {
   const [drafts, setDrafts] = useState<Record<string, string>>(() =>
     Object.fromEntries(budget.rubros.map((r) => [r.rubro_id, montoToInput(r.asignado)])),
@@ -111,6 +140,18 @@ function PresupuestoEditor({
             <TableRow>
               <TableHead scope="col">Rubro</TableHead>
               <TableHead scope="col" numeric>Asignado</TableHead>
+              {ejecucion && (
+                <>
+                  <TableHead scope="col" numeric>Ejecutado</TableHead>
+                  <TableHead scope="col" numeric>Por validar</TableHead>
+                  <TableHead scope="col" numeric>
+                    <span className="inline-flex items-center gap-1">
+                      Disponible
+                      <HelpHint label="Disponible del rubro">{AYUDA_DISPONIBLE}</HelpHint>
+                    </span>
+                  </TableHead>
+                </>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -136,6 +177,7 @@ function PresupuestoEditor({
                     formatCOP(toCents(r.asignado))
                   )}
                 </TableCell>
+                {ejecucion && <CeldasEjecucion asignado={r.asignado} fila={ejecucion.get(r.rubro_id)} />}
               </TableRow>
             ))}
           </TableBody>
@@ -144,7 +186,7 @@ function PresupuestoEditor({
 
       <dl data-testid="presupuesto-resumen" className="grid grid-cols-1 gap-x-6 gap-y-1.5 sm:grid-cols-3">
         <div className="flex items-baseline justify-between gap-2">
-          <dt className="text-[12px] text-ink-500">Σ asignado</dt>
+          <dt className="text-[12px] text-ink-500">Total asignado</dt>
           <dd className="font-semibold text-ink-900 tabular-nums">{formatCOP(suma)}</dd>
         </div>
         <div className="flex items-baseline justify-between gap-2">
@@ -180,7 +222,7 @@ function PresupuestoEditor({
               onClick={() => igualar.mutate(budget.suma)}
             >
               {igualar.isPending && <LoaderCircle className="size-4 animate-spin" />}
-              Igualar valor total a Σ A
+              Usar la suma como valor total
             </Button>
           )}
           <PresupuestoImportDialog proyectoId={proyectoId} />
@@ -189,5 +231,26 @@ function PresupuestoEditor({
       <InlineError message={errorPut} />
       <InlineError message={igualar.isError ? errorMessage(igualar.error, "No pudimos actualizar el valor total.") : null} />
     </div>
+  );
+}
+
+function CeldasEjecucion({
+  asignado,
+  fila,
+}: {
+  asignado: string;
+  fila: { ejecutado: Cents; porValidar: Cents } | undefined;
+}) {
+  const ejecutado = fila?.ejecutado ?? BigInt(0);
+  const porValidar = fila?.porValidar ?? BigInt(0);
+  const disponible = toCents(asignado) - ejecutado;
+  return (
+    <>
+      <TableCell numeric>{formatCOP(ejecutado)}</TableCell>
+      <TableCell numeric>{porValidar > BigInt(0) ? formatCOP(porValidar) : "—"}</TableCell>
+      <TableCell numeric className={disponible < BigInt(0) ? "font-semibold text-destructivo" : undefined}>
+        {formatCOP(disponible)}
+      </TableCell>
+    </>
   );
 }

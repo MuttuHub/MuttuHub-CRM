@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TaskReportResponse } from "@/hooks/kanban";
@@ -73,7 +73,7 @@ const reporte: TaskReportResponse = {
     { semana: "2026-08-10", cantidad: 3 },
     { semana: "2026-08-17", cantidad: 2 },
   ],
-  meta: { criterio_rango: "completadas por completed_at, abiertas por updated_at" },
+  meta: { criterio_rango: "Las completadas cuentan por el día en que se cerraron y las abiertas, por su último cambio." },
 };
 
 beforeEach(() => {
@@ -97,12 +97,13 @@ describe("ReportView — preservación de información (PR 17)", () => {
     expect(screen.getByText(/4 a tiempo · 2 tarde/)).toBeInTheDocument();
   });
 
-  it("shows the tasa de cumplimiento as a BarRow with label, count and % as text", () => {
+  it("shows the tasa de cumplimiento with its own bar, not one labeled «completadas» (R6)", () => {
     render(<ReportView responsable={undefined} cliente={undefined} />);
+    const tile = screen.getByText("Tasa de cumplimiento").parentElement!;
     // BarRow imprime label + count + pct como texto real (CSS apagado).
-    expect(screen.getByText("completadas")).toBeInTheDocument();
-    expect(screen.getAllByText("6").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("60%").length).toBeGreaterThan(0);
+    expect(within(tile).getByText("cumplimiento")).toBeInTheDocument();
+    expect(within(tile).queryByText("completadas")).toBeNull();
+    expect(within(tile).getAllByText("60%").length).toBeGreaterThan(0);
   });
 
   it("keeps every estado label and count findable as text", () => {
@@ -137,6 +138,26 @@ describe("ReportView — preservación de información (PR 17)", () => {
     meQuery.data = { id: "u1", nombre: "Ana", rol: "COLABORADOR" };
     render(<ReportView responsable="u1" cliente={undefined} />);
     expect(screen.getByText("Mi reporte de tareas")).toBeInTheDocument();
+  });
+});
+
+describe("ReportView — carga por persona (R2)", () => {
+  it("never stacks the overdue tasks on top of «en curso»: the bar stays within 100 %", () => {
+    reportQuery.data = {
+      ...reporte,
+      por_persona: [
+        { id: "u3", nombre: "Marta", asignadas: 6, en_curso: 6, vencidas: 3, completadas: 0, a_tiempo: 0, tarde: 0 },
+      ],
+    };
+    render(<ReportView responsable={undefined} cliente={undefined} />);
+
+    // The overdue tasks are part of «en curso»: the bar splits them out instead of adding them twice.
+    expect(screen.getByText("Marta: 3 en curso al día, 3 vencidas de 6.")).toBeInTheDocument();
+    const card = screen.getByText("Carga por persona").closest("section")!;
+    const widths = [...card.querySelectorAll<HTMLElement>("[aria-hidden] > div")].map((el) =>
+      Number.parseFloat(el.style.width),
+    );
+    expect(widths).toEqual([50, 50]);
   });
 });
 

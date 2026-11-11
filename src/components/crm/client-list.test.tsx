@@ -89,6 +89,8 @@ const CLIENTE: ClientListRow = {
   compromisos_abiertos: 2,
   next_compromiso: { id: "t1", titulo: "Seguimiento", fecha_entrega: "2026-12-31" },
   updated_at: "2026-08-01T12:00:00.000Z",
+  ultimo_contacto: "2026-10-24T15:00:00.000Z",
+  dias_sin_gestion: 12,
   puede_editar: true,
   puede_gestionar_oportunidades: true,
 }
@@ -358,6 +360,63 @@ it("shows the pagination footer and pages through results", () => {
     render(<ClientList />)
     expect(useClientsMock).toHaveBeenLastCalledWith({ etiqueta: "Urgente", page: 1 })
     expect(screen.getByText("Etiqueta: Urgente")).toBeInTheDocument()
+  })
+
+  /* ── N6: último contacto y días sin gestión ──────────────────────────── */
+
+  it("shows the days without management on the client card (N6)", () => {
+    clientsQuery.data = {
+      page: 1,
+      limit: 25,
+      total: 2,
+      items: [CLIENTE, { ...CLIENTE, id: "c2", nombre: "Sin Contacto SAS", ultimo_contacto: null, dias_sin_gestion: null }],
+    }
+    render(<ClientList />)
+    const [conContacto, sinContacto] = screen.getAllByRole("article")
+    expect(conContacto).toHaveTextContent("Último contacto")
+    expect(conContacto).toHaveTextContent("Hace 12 días")
+    expect(sinContacto).toHaveTextContent("Sin contacto")
+  })
+
+  it("shows the days without management in the Lista view (N6)", () => {
+    clientsQuery.data = { page: 1, limit: 25, total: 1, items: [{ ...CLIENTE, dias_sin_gestion: 1 }] }
+    render(<ClientList />)
+    fireEvent.click(screen.getByRole("button", { name: /Lista/ }))
+    expect(screen.getByText("Hace 1 día")).toBeInTheDocument()
+  })
+
+  it("shows a last-contact column in the Detalles view (N6)", () => {
+    clientsQuery.data = { page: 1, limit: 25, total: 1, items: [{ ...CLIENTE, dias_sin_gestion: 0 }] }
+    render(<ClientList />)
+    fireEvent.click(screen.getByRole("button", { name: /Detalles/ }))
+    expect(screen.getByRole("columnheader", { name: "Último contacto" })).toBeInTheDocument()
+    expect(screen.getByText("Hoy")).toBeInTheDocument()
+  })
+
+  it("filters by days without management via Aplicar: query, URL, chip and count (N6)", async () => {
+    vi.useRealTimers()
+    render(<ClientList />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole("button", { name: /Filtros/ }))
+    await user.click(await screen.findByRole("combobox", { name: "Días sin gestión" }))
+    await user.click(await screen.findByRole("option", { name: "30 días o más" }))
+    expect(useClientsMock).toHaveBeenLastCalledWith({ page: 1 })
+    await user.click(screen.getByRole("button", { name: "Aplicar" }))
+
+    expect(useClientsMock).toHaveBeenLastCalledWith({ sinGestion: "30", page: 1 })
+    expect(router.replace).toHaveBeenLastCalledWith("/clientes?sg=30", { scroll: false })
+    expect(screen.getByText("Sin gestión: 30+ días")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Filtros 1 filtro" })).toBeInTheDocument()
+  })
+
+  it("seeds the days-without-management filter from the URL and drops an invalid value (N6)", () => {
+    searchParamsMap.set("sg", "60")
+    const { unmount } = render(<ClientList />)
+    expect(useClientsMock).toHaveBeenLastCalledWith({ sinGestion: "60", page: 1 })
+    unmount()
+    searchParamsMap.set("sg", "2.5")
+    render(<ClientList />)
+    expect(useClientsMock).toHaveBeenLastCalledWith({ page: 1 })
   })
 
   /* ── URL persistence (Lote 6) ────────────────────────────────────────── */

@@ -7,7 +7,7 @@
 
 "use client";
 
-import { useId, useState, type ChangeEvent } from "react";
+import { useId, useState } from "react";
 import { FileSpreadsheet, LoaderCircle, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +18,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { errorMessage, plural } from "@/components/proyectos/estructura-ui";
@@ -31,6 +30,7 @@ import {
   type StructureImportPreview,
 } from "@/hooks/projects";
 import { IMPORT_MAX_BYTES } from "@/lib/proyectos/plantilla/columns";
+import { SelectorArchivo } from "@/components/proyectos/selector-archivo";
 
 const TOO_LARGE = "El archivo supera el límite de 4 MB.";
 const NOT_XLSX = "Solo se acepta el archivo en formato Excel (.xlsx).";
@@ -186,9 +186,8 @@ export function EstructuraPOImportDialog({ proyectoId }: { proyectoId: string })
     }
   }
 
-  function elegirArchivo(event: ChangeEvent<HTMLInputElement>) {
+  function elegirArchivo(elegido: File | null) {
     limpiarResultado();
-    const elegido = event.target.files?.[0] ?? null;
     if (!elegido) {
       setArchivo(null);
       setArchivoError(null);
@@ -227,9 +226,9 @@ export function EstructuraPOImportDialog({ proyectoId }: { proyectoId: string })
       </Button>
 
       <Dialog open={open} onOpenChange={cambiarApertura}>
-        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[min(820px,calc(100%-2rem))]">
+        <DialogContent className="sm:max-w-[min(820px,calc(100%-2rem))]">
           <DialogHeader>
-            <DialogTitle className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink-950">
+            <DialogTitle>
               Importar estructura (formato PO)
             </DialogTitle>
             <DialogDescription>
@@ -244,14 +243,7 @@ export function EstructuraPOImportDialog({ proyectoId }: { proyectoId: string })
             <Label htmlFor={inputId} className="text-[12px] text-ink-600">
               Archivo de la estructura (.xlsx, máx. 4 MB)
             </Label>
-            <Input
-              id={inputId}
-              type="file"
-              accept=".xlsx"
-              onChange={elegirArchivo}
-              disabled={ocupado}
-              className="h-auto px-3 py-2"
-            />
+            <SelectorArchivo id={inputId} accept=".xlsx" onChange={elegirArchivo} disabled={ocupado} />
             <InlineError message={archivoError} />
           </div>
 
@@ -260,7 +252,7 @@ export function EstructuraPOImportDialog({ proyectoId }: { proyectoId: string })
           {errores && <ErroresArchivo errores={errores} />}
 
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => cambiarApertura(false)} disabled={ocupado}>
+            <Button type="button" variant="outline" onClick={() => cambiarApertura(false)} disabled={ocupado}>
               Cancelar
             </Button>
             {preview ? (

@@ -19,10 +19,10 @@ export type ExtractResult =
   | { ok: false; code: "SIN_TEXTO" | "ERROR" };
 
 export const MAX_EXTRACTED_CHARS = 200_000; // tope del plan 4B
-export const EXTRACT_TIMEOUT_MS = 5_000; // tope del plan 4B
+const EXTRACT_TIMEOUT_MS = 5_000; // tope del plan 4B
 
 /** Carrera contra el reloj: la extracción nunca debe secar la subida. */
-export async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
