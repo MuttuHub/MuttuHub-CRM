@@ -656,6 +656,32 @@ describe("ProjectFicha (page)", () => {
     expect(screen.getByRole("tab", { name: "Resumen", hidden: true })).toHaveAttribute("aria-selected", "true")
   })
 
+  it("opens Historial on the requests segment from the pending-request row of «Qué falta» (AJ-09)", async () => {
+    mockFichaAndAudit({ historial: [] }, 200, PROYECTO, KPIS_PANEL, {
+      atencion: [
+        {
+          tipo: "modificacion_pendiente",
+          titulo: "Solicitud de modificación pendiente",
+          detalle: "Traslado entre rubros: solicitada por Ana Pérez el 10 nov 2026.",
+          solicitud_id: "s1",
+        },
+      ],
+    })
+    const user = userEvent.setup()
+
+    renderFicha()
+    const fila = await screen.findByTestId("atencion-modificacion_pendiente")
+    await user.click(within(fila).getByRole("button", { name: "Ver solicitudes" }))
+
+    expect(await screen.findByRole("tab", { name: "Historial", selected: true })).toBeInTheDocument()
+    expect(
+      await screen.findByRole("tab", { name: /^Solicitudes de modificación( · \d+)?$/, selected: true }),
+    ).toBeInTheDocument()
+    expect(await screen.findByTestId("modificaciones")).toBeInTheDocument()
+    expect(screen.queryByTestId("historial")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("ficha-resumen")).not.toBeInTheDocument()
+  })
+
   it.each(["Resumen", "Actividades"])(
     "opens the «Registrar gasto» dialog from the header on %s, without switching to Finanzas",
     async (pestana) => {

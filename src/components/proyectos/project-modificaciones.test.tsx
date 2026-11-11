@@ -174,6 +174,15 @@ describe("ProjectModificaciones", () => {
     expect(screen.queryByRole("button", { name: "Rechazar" })).not.toBeInTheDocument()
   })
 
+  it("lets a member COLABORADOR (the Gestor of AJ-09) request but not decide", async () => {
+    setup({ rol: "COLABORADOR", miembros: [{ usuario: { id: "u1" } }] })
+
+    expect(await screen.findByRole("button", { name: "Solicitar modificación" })).toBeInTheDocument()
+    await screen.findAllByTestId("solicitud")
+    expect(screen.queryByRole("button", { name: "Aprobar" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Rechazar" })).not.toBeInTheDocument()
+  })
+
   it("offers nothing to a COORDINADOR who is not a member, nor to a VISUALIZADOR", async () => {
     for (const rol of ["COORDINADOR", "VISUALIZADOR", "COLABORADOR"]) {
       queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })

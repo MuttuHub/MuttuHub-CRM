@@ -93,7 +93,7 @@ function FichaContent({ proyecto, backHref }: { proyecto: ProjectListRow; backHr
   const [avanceAbierto, setAvanceAbierto] = useState(false);
   const [actividadPedida, setActividadPedida] = useState<string | null>(null);
   const [gastoAbierto, setGastoAbierto] = useState(false);
-  // «Solicitar modificación» opens Historial on its requests segment.
+  // «Solicitar modificación» and the pending-request row of «Qué falta» open Historial on its requests segment.
   const [pedidoSolicitud, setPedidoSolicitud] = useState(0);
   const [solicitudPendiente, setSolicitudPendiente] = useState(false);
 
@@ -112,6 +112,8 @@ function FichaContent({ proyecto, backHref }: { proyecto: ProjectListRow; backHr
   };
   const atenderAccion = (accion: AccionAtencion) => {
     if (accion.tipo === "registrar-avance") registrarAvance(accion.actividadId);
+    // Historial opens on the change log: a pending request must land on the requests segment instead.
+    else if (accion.tipo === "ver-solicitudes") solicitarModificacion();
     else irA(DESTINO_DE_ACCION[accion.tipo]);
   };
 
