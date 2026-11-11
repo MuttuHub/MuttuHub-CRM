@@ -14,7 +14,7 @@ proveedor con Postgres gestionado). Este documento describe el camino; **no** af
 | Autenticación | **Supabase Auth** | Cookies SSR con `@supabase/ssr`; admin API para invitar, resetear y sembrar |
 | Archivos | **Supabase Storage** | Bucket privado `muttu-docs`; subida y descarga con URLs firmadas |
 | Cron | **pg_cron + pg_net** | `muttu-daily-8am` (13:00 UTC) y `muttu-retry-830` (13:30 UTC) → `POST /api/cron/daily` con `CRON_SECRET` |
-| Correo | **Resend** | `RESEND_API_KEY` + `EMAIL_FROM` (dominio pendiente de verificar) |
+| Correo | **Resend** | `RESEND_API_KEY` + `EMAIL_FROM` (dominio pendiente de verificar). Todo envío pasa por el puerto `EmailSender` (`src/lib/email/sender.ts`); los avisos se encolan en la tabla `email_outbox` y el cron diario los envía con reintentos. En local, `EMAIL_TRANSPORT=mailpit` los deja en Mailpit (`localhost:54324`); prueba de humo: `tsx scripts/email-outbox-smoke.ts` |
 | Respaldos | Dump manual + PITR si el plan lo incluye | Runbook §3.1 y §5.3 |
 | CI | **GitHub Actions** | `unit` (migraciones en Postgres desechable + `tsc` + lint + vitest) |
 
@@ -49,6 +49,8 @@ migraciones, el cron lógico (`/api/cron/daily`), el correo (Resend es independi
 | `SUPABASE_SERVICE_ROLE_KEY` | Sí (servidor) | Idem |
 | `SUPABASE_STORAGE_BUCKET` | Sí | Se reemplaza por bucket + credenciales S3 |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Sí | Sin cambios |
+| `EMAIL_TRANSPORT` | No (`resend` por defecto) | Sin cambios. `resend` o `mailpit`; `mailpit` es solo para local |
+| `MAILPIT_URL` | No (`http://127.0.0.1:54324`) | No aplica: se rechaza si no apunta a loopback |
 | `CRON_SECRET` | Sí | Sin cambios |
 | `NEXT_PUBLIC_APP_URL` | Sí | Sin cambios (dominio nuevo) |
 | `ENABLE_DEV_ROUTES` | No | Nunca en producción |

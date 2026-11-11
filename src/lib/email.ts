@@ -1,15 +1,15 @@
-// Resend email helper para el cron diario de notificaciones (Hito 5,
-// PRD §4.4.1). Envío server-to-server sin SDK: fetch POST a
-// https://api.resend.com/emails con RESEND_API_KEY + EMAIL_FROM. HTML mínimo
-// con estilo de la marca (primario #cd1560) y 3 buckets de colores:
-// vencidos rojo, hoy ámbar, próximos 3 días neutro/informativo.
+// Daily summary email for the notifications cron (Hito 5, PRD §4.4.1). Since PR-M1 the send
+// goes through the EmailSender port (`@/lib/email/sender`): Resend by default (same request as
+// before — fetch POST to https://api.resend.com/emails with RESEND_API_KEY + EMAIL_FROM), or
+// Mailpit locally with EMAIL_TRANSPORT=mailpit. HTML mínimo con estilo de la marca (primario
+// #cd1560) y 3 buckets de colores: vencidos rojo, hoy ámbar, próximos 3 días neutro.
 
 import type { Usuario } from "@prisma/client";
 import type { AlertBuckets, AlertItem } from "@/lib/alerts";
+import { resolveEmailTransport, type SendResult } from "@/lib/email/sender";
 
-const RESEND_ENDPOINT = "https://api.resend.com/emails";
-const EMAIL_FROM_DEFAULT = "noreply@muttu.co";
-const DAILY_SUBJECT = "Muttu Hub · Resumen diario";
+export { RESEND_ENDPOINT } from "@/lib/email/resend";
+export const DAILY_SUBJECT = "Muttu Hub · Resumen diario";
 
 const BRAND_MAIN = "#cd1560";
 const RED = "#b91c1c";
@@ -82,7 +82,7 @@ function renderSeccion(seccion: Seccion): string {
  * estilo de la marca": encabezado magenta (#cd1560), tipografía del sistema y
  * solo CSS inline (compatible con los clientes de correo más estrictos).
  */
-function buildDailyHtml(nombre: string, buckets: AlertBuckets): string {
+export function buildDailyHtml(nombre: string, buckets: AlertBuckets): string {
   const body = [
     renderSeccion({
       titulo: "Vencidos sin cerrar",
@@ -119,50 +119,21 @@ function buildDailyHtml(nombre: string, buckets: AlertBuckets): string {
     </div>`;
 }
 
-export type SendResult = { ok: true; id?: string } | { ok: false; error: string };
-
 /**
- * Envía el resumen diario a un usuario vía Resend. Devuelve { ok: false }
- * con el detalle cuando falla la API (el cron lo registra en cron_logs y
+ * Envía el resumen diario a un usuario con el transporte configurado (Resend por defecto).
+ * Devuelve { ok: false } con el detalle cuando falla la API (el cron lo registra en cron_logs y
  * reintenta a las 8:30 vía pg_cron, PRD §4.4.1). Nunca lanza.
  */
 export async function sendDailySummary(
   usuario: Pick<Usuario, "nombre" | "email">,
   buckets: AlertBuckets,
 ): Promise<SendResult> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return { ok: false, error: "missing RESEND_API_KEY" };
+  const transport = resolveEmailTransport();
+  if (!transport.ok) return { ok: false, error: transport.reason };
 
-  const from = process.env.EMAIL_FROM || EMAIL_FROM_DEFAULT;
-
-  let res: Response;
-  try {
-    res = await fetch(RESEND_ENDPOINT, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from,
-        to: [usuario.email],
-        subject: DAILY_SUBJECT,
-        html: buildDailyHtml(usuario.nombre, buckets),
-      }),
-    });
-  } catch (err) {
-    return { ok: false, error: `fetch failed: ${(err as Error).message}` };
-  }
-
-  if (!res.ok) {
-    let detail = `Resend HTTP ${res.status}`;
-    try {
-      const text = (await res.text()).slice(0, 300);
-      if (text) detail += ` · ${text}`;
-    } catch {
-      // byte body — ignora
-    }
-    return { ok: false, error: detail };
-  }
-  return { ok: true };
+  return transport.sender.send({
+    to: usuario.email,
+    subject: DAILY_SUBJECT,
+    html: buildDailyHtml(usuario.nombre, buckets),
+  });
 }
