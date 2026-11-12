@@ -544,7 +544,11 @@ S11) · T15 recarga de CedeTextil en producción con ensayo (S12).
   intento de rebase se interrumpió a mitad de la escritura del árbol; se abortó y se repitió sin pérdida (los
   archivos sueltos eran copias idénticas de `main`). **Sin correr:** la suite completa, los invariantes de `prisma/`
   y el e2e, que corre el CI del PR.
-- **Siguiente paso:** CI y merge del PR de T4 (el merge es decisión del usuario); borrar `backup/aj-08-pre-split`
-  cuando el PR esté abierto; T5 y T6; la tarea de datos de D2 (rechazados a anulados, con ensayo sobre copia de
+- **L15 (2026-11-11, T4, CI de #172):** PR #172 abierto. Primera corrida: `e2e` en verde y `unit` en rojo por un
+  solo test, `prisma/gastos.invariant.test.ts` («feeds E with every expense that counts as executed»), que es uno
+  de los invariantes que no se pudieron correr en local. Causa: `loadGastosEjecutados` no tiene `orderBy` (E suma las
+  filas) y el test comparaba las dos filas en un orden fijo; antes de AJ-08 devolvía una sola. Corregido en el test
+  (dos filas, en cualquier orden), sin tocar el loader. Los otros 33 archivos de invariantes pasaron.
+- **Siguiente paso:** CI en verde y merge de #172 (el merge es decisión del usuario); borrar `backup/aj-08-pre-split`; T5 y T6; la tarea de datos de D2 (rechazados a anulados, con ensayo sobre copia de
   producción); los seguimientos de L13; cerrar D5; T0 (probar una invitación real en producción); verificación
   manual de T1, T3 y T8 con la base local arriba.
