@@ -624,6 +624,10 @@ S11) · T15 recarga de CedeTextil en producción con ensayo (S12).
   descripción publicada en OpenAPI, que decía «403 para cualquiera más, incluidos los administradores»—; corregidos en
   `c7e46da`. **Seguimientos abiertos:** un Gerente puede des-rechazar el gasto `RECHAZADO` de otro al editarlo (sólo filas
   heredadas de AJ-08, T4 las quiere `ANULADO`); `T7` tendrá que leer dos formas de motivo (`motivo_correccion` y el
-  `valor_nuevo.motivo` de la anulación); y `main` sigue sin typechequear por el modelo `emailOutbox` ausente en
-  `prisma/schema.prisma` (20 errores ajenos a este trabajo) más 3 de `.next/types/validator.ts` por rutas eliminadas.
+  `valor_nuevo.motivo` de la anulación). **Corrección de L19:** el «defecto de `emailOutbox`» no era un defecto del repo.
+  El modelo `EmailOutbox` sí está en `prisma/schema.prisma:553` con su migración; lo que estaba viejo era el cliente
+  Prisma generado, que nadie regeneró después de esa migración. Un `npx prisma generate` y una línea de fixture
+  (`updated_at` en el gasto de `a11y-guards.test.tsx`) dejan `tsc --noEmit` en **0 errores**. Los 3 errores restantes de
+  `.next/types/validator.ts` son artefactos de build que apuntaban a las rutas `reject`/`validate` eliminadas por AJ-08 y
+  desaparecen al regenerar `.next`. Diagnóstico anterior, que era erróneo: «modelo ausente en el schema».
   **Entrega:** un solo PR; la rebanada es de 1167 líneas en 6 commits, grande para revisar, y se declara así.
