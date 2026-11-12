@@ -656,7 +656,7 @@ describe("ProjectGastos", () => {
       expect(within(dialogo).getByRole("button", { name: "Guardar cambios" })).toBeInTheDocument()
     })
 
-    it("offers Corregir only on editable expenses, never on VALIDADO or ANULADO", async () => {
+    it("offers Corregir on an ANULADO expense to a manager only, and never on a VALIDADO one", async () => {
       setup({
         gastos: [
           gasto("g1"),
@@ -669,7 +669,8 @@ describe("ProjectGastos", () => {
       expect(within(filas[0]).getByRole("button", { name: "Corregir" })).toBeInTheDocument()
       expect(within(filas[1]).getByRole("button", { name: "Corregir" })).toBeInTheDocument()
       expect(within(filas[2]).queryByRole("button", { name: "Corregir" })).not.toBeInTheDocument()
-      expect(within(filas[3]).queryByRole("button", { name: "Corregir" })).not.toBeInTheDocument()
+      // D2: an annulled expense stays correctable, but only by a manager.
+      expect(within(filas[3]).getByRole("button", { name: "Corregir" })).toBeInTheDocument()
     })
 
     it("shows Corregir to a team member only on their own expense", async () => {

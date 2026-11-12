@@ -52,6 +52,7 @@ const existente = (data: Record<string, unknown> = {}) => ({
   alerta_sobregasto: false,
   registrado_por_id: "ger-1",
   created_at: new Date("2026-10-16T12:00:00.000Z"),
+  updated_at: new Date("2026-10-16T12:00:00.000Z"),
   validado_por_id: "ger-3",
   validado_at: new Date("2026-10-17T12:00:00.000Z"),
   rechazado_por_id: null,

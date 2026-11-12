@@ -204,7 +204,7 @@ describe("PATCH expenses/:expenseId", () => {
     expect(res.status).toBe(200);
     expect(updatedData()).toMatchObject({ descripcion: "Tiquetes aéreos", monto_cop: expect.anything() });
     expect(mocks.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "gas-1", proyecto_id: "pry-1", estado: { in: ["REGISTRADO", "RECHAZADO"] } } }),
+      expect.objectContaining({ where: { id: "gas-1", proyecto_id: "pry-1", estado: "REGISTRADO" } }),
     );
     const rows = vi.mocked(logChanges).mock.calls[0][1];
     expect(rows).toEqual(
@@ -261,12 +261,38 @@ describe("PATCH expenses/:expenseId", () => {
     expect(logChanges).not.toHaveBeenCalled();
   });
 
-  it("keeps 409 for an ANULADO expense and 404 for another project's, whoever corrects (S2/T6)", async () => {
+  it("corrects an ANULADO expense with a motive, keeps it ANULADO, and still answers 404 for another project's (S2/T6, D2)", async () => {
     authAs(otraGerencia);
-    current = existente({ estado: "ANULADO", registrado_por_id: "otro-1" });
-    expect((await PATCH(patch({ descripcion: "x", motivo: "porque sí" }), ctx)).status).toBe(409);
+    current = existente({
+      estado: "ANULADO",
+      registrado_por_id: "otro-1",
+      anulado_por_id: "ger-9",
+      anulado_at: new Date("2026-10-20T12:00:00.000Z"),
+      motivo_anulacion: "Duplicado",
+    });
+    const res = await PATCH(patch({ descripcion: "Corregida por el Gestor", motivo: "Estaba mal escrita" }), ctx);
+    expect(res.status).toBe(200);
+    // D2: the data is corrected, the annulment stands and the expense never counts again.
+    const escrito = updatedData();
+    expect(escrito).toMatchObject({ descripcion: "Corregida por el Gestor" });
+    expect(escrito).not.toHaveProperty("estado");
+    expect(escrito).not.toHaveProperty("anulado_at");
     vi.mocked(db.gasto.findFirst).mockResolvedValue(null as never);
     expect((await PATCH(patch({ descripcion: "x", motivo: "porque sí" }), ctx)).status).toBe(404);
+  });
+
+  it("refuses the registrant correcting their own ANULADO expense, and a stale updated_at answers 409 (S2/T6)", async () => {
+    current = existente({ estado: "ANULADO", registrado_por_id: "ger-1", motivo_anulacion: "Duplicado" });
+    authAs(coordinador);
+    expect((await PATCH(patch({ descripcion: "x", motivo: "porque sí" }), ctx)).status).toBe(403);
+
+    current = existente();
+    authAs(gerencia);
+    expect((await PATCH(patch({ descripcion: "x" }), ctx)).status).toBe(200);
+    mocks.updateMany.mockResolvedValue({ count: 0 });
+    const res = await PATCH(patch({ descripcion: "y", updated_at: "2026-10-16T12:00:00.000Z" }), ctx);
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe("El gasto cambió mientras lo corregías. Vuelve a abrirlo.");
   });
 
   it("recomputes the Total from the new Subtotal and IVA and audits both (S1, S2)", async () => {

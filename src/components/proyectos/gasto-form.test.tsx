@@ -53,6 +53,7 @@ const GASTO: ProjectExpense = {
   datos_incompletos: false,
   registrado_por_id: "otro",
   created_at: "2026-10-16T12:00:00.000Z",
+  updated_at: "2026-10-16T12:00:00.000Z",
   validado_por_id: null,
   validado_at: null,
   rechazado_por_id: null,

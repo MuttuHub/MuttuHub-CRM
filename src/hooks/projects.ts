@@ -1668,6 +1668,8 @@ export type ProjectExpense = {
   datos_incompletos: boolean;
   registrado_por_id: string;
   created_at: string;
+  /** S2/T6: se manda en el PATCH para que una corrección no pise a otra más nueva. */
+  updated_at: string;
   validado_por_id: string | null;
   validado_at: string | null;
   rechazado_por_id: string | null;
@@ -1744,6 +1746,8 @@ export type ProjectExpenseUpdate = Omit<ProjectExpenseInput, "soportes" | "terce
   tercero_numero_id?: string | null;
   /** Obligatorio solo cuando el Gestor corrige el gasto de otra persona; lo decide y lo audita el servidor. */
   motivo?: string;
+  /** La fila tal como se leyó: el servidor rechaza la corrección si alguien la cambió mientras tanto. */
+  updated_at?: string;
 };
 
 export function useProjectExpenses(id: string): UseQueryResult<ProjectExpenses> {

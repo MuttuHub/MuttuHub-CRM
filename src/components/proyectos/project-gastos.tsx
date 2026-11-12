@@ -177,9 +177,13 @@ type Permisos = ReturnType<typeof usePermisosGastos>;
  * S2/T6: la API admite la corrección del autor sobre su propio gasto y la del Gestor sobre cualquiera, solo con el
  * proyecto EN_EJECUCION y el gasto REGISTRADO o RECHAZADO. La API sigue siendo la autoridad de cada permiso.
  */
+/** S2/T6 + D2: an annulled expense stays annulled but a manager may still fix its data (with a motive). */
 function puedeCorregir(gasto: ProjectExpense, permisos: Permisos): boolean {
-  const editable = gasto.estado === "REGISTRADO" || gasto.estado === "RECHAZADO";
-  return editable && permisos.puedeRegistrar && (permisos.esGestor || gasto.registrado_por_id === permisos.usuarioId);
+  const editable =
+    gasto.estado === "REGISTRADO" || gasto.estado === "RECHAZADO" || (gasto.estado === "ANULADO" && permisos.esGestor);
+  const alcanza =
+    gasto.estado === "ANULADO" ? permisos.esGestor : permisos.esGestor || gasto.registrado_por_id === permisos.usuarioId;
+  return editable && permisos.puedeRegistrar && alcanza;
 }
 
 type FilaProps = {

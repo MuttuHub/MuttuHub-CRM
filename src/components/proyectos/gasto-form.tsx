@@ -256,6 +256,9 @@ export function GastoForm({
           ...campos,
           ...(conservarIdentificacionOculta ? {} : { tercero_numero_id: numeroIdLimpio }),
           ...(motivo.trim() === "" ? {} : { motivo: motivo.trim() }),
+          // Optimistic concurrency: the row as it was read. If somebody corrected it meanwhile, the API
+          // answers 409 instead of silently overwriting their work.
+          updated_at: gasto.updated_at,
         },
         { onSuccess: alGuardar },
       );

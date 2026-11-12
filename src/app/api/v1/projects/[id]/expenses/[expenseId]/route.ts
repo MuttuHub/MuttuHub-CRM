@@ -27,7 +27,7 @@ import {
   CAMPOS_AUDITABLES_GASTO,
   CORRECCION_SIN_MOTIVO_MESSAGE,
   ESTADOS_EDITABLES,
-  GASTO_ANULADO_MESSAGE,
+  GASTO_CAMBIO_MESSAGE,
   GASTO_INCLUDE,
   GASTO_NO_EXISTE,
   GASTO_PATCH_SCHEMA,
@@ -93,20 +93,22 @@ export const PATCH = withApiErrorHandling(
     // S2/T6: the registrant keeps editing their own expense; anybody else has to be the project's Gestor,
     // and a Gestor correcting somebody else's expense has to write down why.
     const esAutor = actual.registrado_por_id === auth.usuario.id;
-    if (!esAutor) {
+    const anulado = actual.estado === "ANULADO";
+    // S2/T6 + D2: an annulled expense stays annulled but a manager may still fix its data, so it also
+    // goes through the managers-only gate — the registrant cannot reopen their own annulled row.
+    if (!esAutor || anulado) {
       const gestion = await gateGastoGestion(auth.usuario, id, expenseId);
       if (!gestion.ok) return gestion.response;
     }
-    if (!ESTADOS_EDITABLES.includes(actual.estado)) {
-      const message = actual.estado === "ANULADO" ? GASTO_ANULADO_MESSAGE : GASTO_VALIDADO_MESSAGE;
-      return apiError(message, 409, "INVALID_STATE");
+    if (!anulado && !ESTADOS_EDITABLES.includes(actual.estado)) {
+      return apiError(GASTO_VALIDADO_MESSAGE, 409, "INVALID_STATE");
     }
 
     const body = await parseEstructuraBody(request, GASTO_PATCH_SCHEMA);
     if (!body.ok) return body.response;
-    const { motivo, ...cambios } = body.value;
+    const { motivo, updated_at: visto, ...cambios } = body.value;
     if (Object.keys(cambios).length === 0) return apiError(NOTHING_TO_UPDATE, 400, "VALIDATION_ERROR");
-    if (!esAutor && motivo === undefined) return apiError(CORRECCION_SIN_MOTIVO_MESSAGE, 400, "VALIDATION_ERROR");
+    if ((!esAutor || anulado) && motivo === undefined) return apiError(CORRECCION_SIN_MOTIVO_MESSAGE, 400, "VALIDATION_ERROR");
     const input = cambios;
 
     // The Total is never typed: it is always the new Subtotal plus the new IVA (each defaults to the stored one).
@@ -157,7 +159,14 @@ export const PATCH = withApiErrorHandling(
         const sobregasto = await superaAsignado(tx, linea, valor, expenseId);
         const corrige = actual.estado === "RECHAZADO";
         const { count } = await tx.gasto.updateMany({
-          where: { id: expenseId, proyecto_id: id, estado: { in: ESTADOS_EDITABLES } },
+          // Pin the state and, when the client sent it, the `updated_at` it read: two corrections of the
+          // same row can no longer silently overwrite each other.
+          where: {
+            id: expenseId,
+            proyecto_id: id,
+            estado: actual.estado,
+            ...(visto ? { updated_at: new Date(visto) } : {}),
+          },
           data: {
             ...data,
             alerta_sobregasto: sobregasto,
@@ -166,7 +175,9 @@ export const PATCH = withApiErrorHandling(
               : {}),
           },
         });
-        if (count === 0) throw new RespuestaAbortada(conflict(GASTO_VALIDADO_MESSAGE));
+        if (count === 0) {
+          throw new RespuestaAbortada(conflict(visto ? GASTO_CAMBIO_MESSAGE : GASTO_VALIDADO_MESSAGE));
+        }
 
         const gasto = await tx.gasto.findFirstOrThrow({ where: { id: expenseId }, include: GASTO_INCLUDE });
 
