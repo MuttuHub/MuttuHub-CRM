@@ -252,7 +252,7 @@ sesión de agente por tarea) salvo que la tarjeta diga otra cosa.
 | T2 | S1 | Regla de avance por actividad según D1 (solo si la PO cambia la regla) | S | D1, T1 | 6 | No se hace: D1 mantiene la regla actual (L8) |
 | T3 | S3 | El Gestor solicita traslados; el Gerente ve pendientes; validación contra lo ejecutado | S–M | D3 | 2 (permisos) | Hecha: PR #171, `5934e4e` en `main`; verificación manual en local pendiente |
 | T4 | S2 | Gasto sin aprobación: todo gasto no anulado es ejecutado; se quitan «Por validar», filtros y cola | M | D2 | 3 (lectores compartidos) | Hecha: PR #172, `f5c4e4e` en `main`; verificación manual en local pendiente |
-| T5 | S2 | Validadores al digitar, alertas de sobreejecución que no bloquean y aviso de duplicados | M | T4, D4 | — | En curso en `feat/aj-08-validadores-alertas` (diseño en L16) |
+| T5 | S2 | Validadores al digitar, alertas de sobreejecución que no bloquean y aviso de duplicados | M | T4, D4 | — | Hecha: `9214f06` (servidor) y `fa2dfb3` (formulario) en `feat/aj-08-validadores-alertas`; verificación manual en local pendiente |
 | T6 | S2 | Gestor edita/anula con motivo y auditoría; varios archivos y enlaces por gasto; plantilla exige enlace | M | T4, D3 | 1 si toca datos | Pendiente |
 | T7 | S2 | (Propuesto) Resumen de cambios del periodo en la ficha financiera | S | T6, D4 | — | Pendiente |
 | T8 | S4 | Alerta «Posible retraso» visible en ficha y Tablero gerencial (la lógica ya existe) | S | — | — | Hecha: PR #170, `261e995` en `main`; verificación manual en local pendiente |
@@ -571,6 +571,25 @@ S11) · T15 recarga de CedeTextil en producción con ensayo (S12).
   (d) **Campana a Gerencia:** `notificarSobregasto` vuelve a llamarse dentro de la transacción que deja el rubro por
   encima de lo asignado (registro, edición e importación). Valor por defecto del agente, avisado al usuario: es el
   comportamiento que existía antes de T4.
-- **Siguiente paso:** T5 (en curso); borrar `backup/aj-08-pre-split` (decisión del usuario); T5 y T6; la tarea de datos de D2 (rechazados a anulados, con ensayo sobre copia de
+- **Siguiente paso:** cerrar el PR de T5 (rama `feat/aj-08-validadores-alertas`, commits `9214f06` y `fa2dfb3`);
+  borrar `backup/aj-08-pre-split` (decisión del usuario); T5 y T6; la tarea de datos de D2 (rechazados a anulados, con ensayo sobre copia de
   producción); los seguimientos de L13; cerrar D5; T0 (probar una invitación real en producción); verificación
   manual de T1, T3 y T8 con la base local arriba.
+- **L17 (2026-11-12, T5 hecha):** Implementada en `feat/aj-08-validadores-alertas` en dos unidades de trabajo:
+  `9214f06` (servidor) y `fa2dfb3` (formulario). Las dos mitades las escribieron subagentes que quedaron abortados a
+  mitad de vuelo; el trabajo se completó y se verificó en el hilo principal. (a)(b)(c)(d) de L16 implementadas tal
+  cual, sin desvíos. La alerta crítica es ahora `SOBREGASTO` con el texto exacto «Solicita un traslado al Gerente»;
+  el nivel intermedio es `SOBREGASTO_PROGRAMADO` y no se emite cuando aplica la crítica. `notificarSobregasto` vuelve
+  a llamarse en registro, edición e importación, solo en el camino crítico y nunca en el preview de la importación.
+  El chequeo previo de duplicados es `GET /api/v1/projects/:id/expenses/duplicates`, detrás del mismo gate de lectura
+  y con la misma clave (identificación + número de documento normalizados) y la misma redacción que
+  `buscarDuplicados`. En el formulario los montos se agrupan con `formatMontoInput` sin reinterpretar lo escrito:
+  «1.50» sigue siendo inválido y nunca se convierte en 150. Se reparó el doble de `import/route.rules.test.ts`, que
+  no mockeaba `programacionPeriodo`, `usuario` ni `notificacion`. **Verificación:** 350 tests verdes en 18 archivos
+  (gastos, gastos-import, rutas de gastos, gasto-form, a11y-guards, project-gastos), `tsc --noEmit` limpio y `eslint`
+  con 0 errores. La verificación independiente se lanzó dos veces y las dos quedó abortada por interrupciones de la
+  sesión: riesgo declarado, no verificación hecha. **Pendiente:** verificación manual en local (registrar un gasto que
+  pase el asignado y ver la crítica con la campana; dos facturas iguales del mismo tercero y ver la advertencia en
+  línea antes de guardar). **Entrega:** un solo PR con los dos commits; aunque la rebanada pasa las ~400 líneas, el
+  formulario consume el endpoint que agrega el servidor y separarlos dejaría la primera mitad sin interfaz. **Fuera de T5, anotado y sin tocar:** la consulta de duplicados dispara un GET por tecla,
+  sin debounce.
