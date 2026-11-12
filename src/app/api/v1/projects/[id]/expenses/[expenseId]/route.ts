@@ -3,12 +3,15 @@
 // GET: anyone who can read the project; the third-party number and supports follow the
 // financial-support predicate (RNF-03). An expense is only addressable through its own project.
 //
-// PATCH: ONLY the registrant, on an EN_EJECUCION project (404 -> 403 -> 409 -> 400), while the
-// expense is REGISTRADO or RECHAZADO; a VALIDADO (or ANULADO) one is immutable. Editing a RECHAZADO
-// expense returns it to REGISTRADO and clears the rejection (the registrant may correct it). The
-// line, norms and early-overspend flag are recomputed; the write is guarded on the editable estados
-// so a racing validation cannot be overwritten. Audit: one EDITAR row per changed field, the
-// identification number only masked (RNF-04).
+// PATCH: the registrant on their own expense, or anybody who passes the managers-only gate
+// (`gateGastoGestion`, the same the void route uses) on somebody else's, on an EN_EJECUCION project
+// (404 -> 403 -> 409 -> 400), while the expense is REGISTRADO or RECHAZADO; a VALIDADO (or ANULADO) one
+// is immutable. Correcting somebody else's expense requires `motivo`, audited as `motivo_correccion`;
+// the registrant's own edit does not require one, and a motive they send anyway is recorded too. Editing
+// a RECHAZADO expense returns it to REGISTRADO and clears the rejection. The line, norms and
+// early-overspend flag are recomputed; the write is guarded on the editable estados so a racing
+// validation cannot be overwritten. Audit: one EDITAR row per changed field, the identification number
+// only masked (RNF-04).
 
 import { NextResponse } from "next/server";
 import { withApiErrorHandling } from "@/lib/api/handler";

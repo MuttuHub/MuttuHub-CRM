@@ -251,6 +251,24 @@ describe("PATCH expenses/:expenseId", () => {
     expect(mocks.updateMany).not.toHaveBeenCalled();
   });
 
+  it("rejects every way of hiding the motive: blank, spaces, null and absent (S2/T6)", async () => {
+    current = existente({ registrado_por_id: "otro-1" });
+    for (const motivo of ["", "   ", null, undefined]) {
+      const body = motivo === undefined ? { descripcion: "x" } : { descripcion: "x", motivo };
+      expect((await PATCH(patch(body), ctx)).status).toBe(400);
+    }
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+    expect(logChanges).not.toHaveBeenCalled();
+  });
+
+  it("keeps 409 for an ANULADO expense and 404 for another project's, whoever corrects (S2/T6)", async () => {
+    authAs(otraGerencia);
+    current = existente({ estado: "ANULADO", registrado_por_id: "otro-1" });
+    expect((await PATCH(patch({ descripcion: "x", motivo: "porque sí" }), ctx)).status).toBe(409);
+    vi.mocked(db.gasto.findFirst).mockResolvedValue(null as never);
+    expect((await PATCH(patch({ descripcion: "x", motivo: "porque sí" }), ctx)).status).toBe(404);
+  });
+
   it("recomputes the Total from the new Subtotal and IVA and audits both (S1, S2)", async () => {
     const res = await PATCH(patch({ subtotal: "1000000", iva: "190000" }), ctx);
     const json = await res.json();

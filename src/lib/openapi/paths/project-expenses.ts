@@ -247,7 +247,9 @@ registry.registerPath({
   tags: ["Projects"],
   summary: "Edita un gasto registrado o rechazado",
   description:
-    `${WRITE_NOTE} Solo quien lo registró (403 para cualquiera más, incluidos los administradores). Solo en REGISTRADO o ` +
+    `${WRITE_NOTE} Quien lo registró sobre su propio gasto, o quien pase la compuerta de gestión del proyecto ` +
+    "(ADMINISTRADOR o GERENCIA, la misma que usa la anulación) sobre el gasto de otra persona; en ese caso `motivo` es " +
+    "obligatorio y queda auditado como `motivo_correccion` (400 sin él). Solo en REGISTRADO o " +
     "RECHAZADO; un gasto validado o anulado responde 409. Editar un RECHAZADO lo devuelve a REGISTRADO y limpia el rechazo. " +
     "Audita un registro EDITAR por campo cambiado (incluidos `subtotal`, `iva`, `valor` y `periodo`); el número de " +
     "identificación solo se audita enmascarado. `subtotal` e `iva` se envían juntos o por separado (el que falta conserva el " +
