@@ -21,9 +21,9 @@ Un criterio con `Estado: cubierto` significa que alguien corrió ese comando y l
 
 | # | Criterio del PO (textual) | Test automático | A mano | Estado |
 |---|---|---|---|---|
-| 1 | «Una actividad que pesa 4 de 30 semanas reporta 50 % en noviembre: el ejecutado técnico de noviembre sube 4 × 0,50 / 30 = 6,7 puntos.» | `npx vitest run src/lib/proyectos/curva.test.ts` | — | por confirmar |
-| 2 | «La tarjeta, la curva y la tabla muestran el mismo valor para el mismo periodo.» | `npx vitest run src/lib/proyectos/curva.test.ts src/lib/proyectos/atencion.test.ts src/components/proyectos/curve-s-chart.test.tsx` | Ficha → tarjeta «Periodo del reporte», curva S técnica y tabla por periodo del mismo mes: los tres números deben coincidir. | por confirmar |
-| 3 | «Un reporte del 28 de octubre se refleja en octubre; uno del 3 de noviembre, solo desde noviembre.» | `npx vitest run src/lib/proyectos/curva.test.ts` | Reportar un avance con fecha 28/10 y otro con fecha 03/11, y comparar octubre y noviembre. | por confirmar |
+| 1 | «Una actividad que pesa 4 de 30 semanas reporta 50 % en noviembre: el ejecutado técnico de noviembre sube 4 × 0,50 / 30 = 6,7 puntos.» | `npx vitest run src/lib/proyectos/avance.test.ts` | Reportar 50 % en una actividad de 4 semanas y leer el número en la tarjeta del periodo. | parcial: la fórmula ponderada está probada (`avance.test.ts:37`, «46,7 % para 4 semanas al 20 % más 2 al 100 %»), pero el ejemplo literal de 6,7 puntos no aparece: hay que verlo a mano |
+| 2 | «La tarjeta, la curva y la tabla muestran el mismo valor para el mismo periodo.» | `npx vitest run src/lib/proyectos/curva.test.ts src/components/proyectos/curve-s-chart.test.tsx` | Ficha → tarjeta «Periodo del reporte», curva S técnica y tabla por periodo del mismo mes: los tres números deben coincidir. | por confirmar: ningún test compara los tres a la vez |
+| 3 | «Un reporte del 28 de octubre se refleja en octubre; uno del 3 de noviembre, solo desde noviembre.» | `npx vitest run src/lib/proyectos/avance.test.ts src/lib/api` | Reportar un avance con fecha 28/10 y otro con fecha 03/11, y comparar octubre y noviembre. | por confirmar |
 | 4 | «Las actividades de tipo Transversal no entran en este cálculo (EV-02).» | `npx vitest run src/lib/proyectos/curva.test.ts` | — | no aplica todavía: EV-02 (actividad Transversal) es Parte 2, aún sin construir (`T9`). |
 
 ### AJ-08 · Gastos sin aprobación, con validadores y alertas (`S2`, PR #172, #173, #175)
@@ -43,16 +43,16 @@ Un criterio con `Estado: cubierto` significa que alguien corrió ese comando y l
 
 | # | Criterio del PO (textual) | Test automático | A mano | Estado |
 |---|---|---|---|---|
-| 1 | «Un usuario Gestor crea una solicitud de traslado.» | `npx vitest run src/components/proyectos/traslado-form.test.tsx src/lib/proyectos/traslado-simple.test.ts` | Como Gestor, pedir un traslado entre dos rubros y verlo en la lista de pendientes. | por confirmar |
-| 2 | «La solicitud no cambia el presupuesto hasta que el Gerente la aprueba.» | `npx vitest run src/lib/proyectos/traslado-simple.test.ts "src/app/api/v1/projects"` | Crear la solicitud y mirar el asignado de ambos rubros: no se mueve hasta aprobar. | por confirmar |
-| 3 | «No se puede trasladar un valor que deje el rubro de origen por debajo de lo ya ejecutado.» | `npx vitest run src/lib/proyectos/traslado-simple.test.ts` | Pedir un traslado mayor que (asignado − ejecutado) del rubro de origen: se rechaza. | por confirmar |
+| 1 | «Un usuario Gestor crea una solicitud de traslado.» | `npx vitest run src/components/proyectos/traslado-form.test.tsx` | Como Gestor, pedir un traslado entre dos rubros y verlo en la lista de pendientes. | cubierto (2026-11-12) |
+| 2 | «La solicitud no cambia el presupuesto hasta que el Gerente la aprueba.» | `npx vitest run src/lib/proyectos/traslado-simple.test.ts` | Crear la solicitud y mirar el asignado de ambos rubros: no se mueve hasta aprobar. | cubierto (2026-11-12) |
+| 3 | «No se puede trasladar un valor que deje el rubro de origen por debajo de lo ya ejecutado.» | `npx vitest run src/lib/proyectos/traslado-simple.test.ts` | Pedir un traslado mayor que el ejecutado del rubro de origen y ver si lo deja por debajo: la regla que hoy lo frena no es ésa. | ⚠️ **discrepancia de regla**: el código rechaza lo que supera lo **programado desde el periodo actual** (`traslado-simple.ts:97-104`), no lo **ejecutado**. La tarjeta `T3` del plan también dice «validación contra lo ejecutado». Hay que confirmar con la PO cuál de las dos es la regla. |
 
 ### AJ-10 · Alerta de posible retraso (`S4`, PR #170)
 
 | # | Criterio del PO (textual) | Test automático | A mano | Estado |
 |---|---|---|---|---|
-| 1 | «Técnico en rojo y ejecutado del 80 % de lo programado: no aparece la alerta.» | `npx vitest run src/lib/proyectos/atencion.test.ts` | Un proyecto con técnico en rojo y 80 % de lo programado no debe mostrar «Posible retraso». | por confirmar |
-| 2 | (complemento de la misma regla) «Posible retraso» visible en la ficha y en el Tablero gerencial con el umbral desde 60 % | `npx vitest run src/lib/proyectos/atencion.test.ts src/components/proyectos` | Con ejecutado ≥ 60 % de lo programado y técnico en rojo, la alerta aparece en la ficha y en el Tablero. | por confirmar |
+| 1 | «Técnico en rojo y ejecutado del 80 % de lo programado: no aparece la alerta.» | `npx vitest run src/components/proyectos/ficha/ficha-header.test.tsx "src/app/api/v1/projects/[id]/attention"` | Un proyecto con técnico en rojo y 80 % de lo programado no debe mostrar «Posible retraso». | cubierto (2026-11-12): `ficha-header.test.tsx:130` la muestra sólo si el servidor la levanta, y `attention/route.test.ts:88` prueba el título |
+| 2 | (complemento de la misma regla) «Posible retraso» visible en la ficha y en el Tablero gerencial con el umbral desde 60 % | `npx vitest run src/components/proyectos/ficha/ficha-header.test.tsx src/lib/proyectos/atencion.test.ts` | Con ejecutado ≥ 60 % de lo programado y técnico en rojo, la alerta aparece en la ficha y en el Tablero. | parcial: la ficha está probada; el umbral del 60 % en el servidor hay que verlo a mano |
 
 ---
 
@@ -88,3 +88,9 @@ renglón por criterio, el comando que lo prueba y el paso manual cuando haya pan
 3. **La rama `feat/t6-aj08-correccion-y-plantilla` tiene commits sin pushear** (el arreglo de
    concurrencia y de gastos anulados) porque la red bloquea la verificación TLS. Hasta que se pushee, el PR
    #175 no incluye ese arreglo.
+4. **AJ-09 criterio 3 pide una regla distinta de la implementada**, y esto necesita una respuesta de la PO antes de
+   darlo por bueno: el criterio habla de no dejar el rubro de origen «por debajo de lo ya ejecutado», y el código
+   rechaza lo que supera lo **programado desde el periodo actual** (`traslado-simple.ts:97-104`). No son la misma
+   garantía: con la regla actual un traslado puede dejar el origen por debajo de lo ejecutado y pasar. La tarjeta
+   `T3` del plan dice «validación contra lo ejecutado», así que o el código quedó corto o la PO quiso decir
+   «programado».
