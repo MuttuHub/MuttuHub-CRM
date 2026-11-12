@@ -11,6 +11,9 @@ const mocks = vi.hoisted(() => ({
   create: vi.fn(),
   soporteCreate: vi.fn(),
   aggregate: vi.fn(),
+  programadoAggregate: vi.fn(),
+  gerentes: vi.fn(),
+  notificar: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({ requireApiUser: vi.fn(), isSupabaseConfigured: vi.fn(() => true) }));
@@ -35,6 +38,9 @@ vi.mock("@/lib/db", () => ({
       fn({
         gasto: { aggregate: mocks.aggregate, create: mocks.create },
         soporteProyecto: { create: mocks.soporteCreate },
+        programacionPeriodo: { aggregate: mocks.programadoAggregate },
+        usuario: { findMany: mocks.gerentes },
+        notificacion: { createMany: mocks.notificar },
       }),
     ),
   },
@@ -150,6 +156,10 @@ beforeEach(() => {
   vi.mocked(db.proyectoMiembro.findMany).mockResolvedValue([]);
   mocks.info.mockResolvedValue({ data: { size: 2048 }, error: null });
   mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: null } });
+  // The fixture line has a full monthly programming, so only the tests that say so warn.
+  mocks.programadoAggregate.mockResolvedValue({ _sum: { valor: new Prisma.Decimal("24000000") } });
+  mocks.gerentes.mockResolvedValue([{ id: "ger-1" }]);
+  mocks.notificar.mockResolvedValue({ count: 1 });
   mocks.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => gastoRow(data));
   mocks.soporteCreate.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => soporteRow(data));
 });
@@ -370,17 +380,46 @@ describe("POST expenses: access and state", () => {
 });
 
 describe("POST expenses: alerts", () => {
-  it("flags the early overspend warning without blocking and without notifying", async () => {
+  it("flags the critical overspend alert with the exact message and notifies Gerencia, without blocking", async () => {
     mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: new Prisma.Decimal("23500000") } });
     const res = await POST(post({ ...valido, subtotal: "1000000" }), ctx);
     const json = await res.json();
     expect(res.status).toBe(201);
     expect(createdData().alerta_sobregasto).toBe(true);
-    expect(json.alertas).toEqual([expect.objectContaining({ tipo: "SOBREGASTO" })]);
+    expect(json.alertas).toEqual([{ tipo: "SOBREGASTO", mensaje: "Solicita un traslado al Gerente" }]);
+    expect(mocks.notificar).toHaveBeenCalledWith({
+      data: [{ usuario_id: "ger-1", tipo: "SOBREGASTO_RUBRO", proyecto_id: "pry-1", gasto_id: "gas-1" }],
+      skipDuplicates: true,
+    });
     // AJ-08: the warning compares against every expense that counts as executed, not only VALIDADO.
     expect(mocks.aggregate).toHaveBeenCalledWith(
       expect.objectContaining({ where: { linea_id: "lin-1", estado: { in: ["REGISTRADO", "VALIDADO"] } } }),
     );
+  });
+
+  it("warns about the programmed level when the period passes its program but the line keeps under its assigned amount", async () => {
+    mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: new Prisma.Decimal("3000000") } });
+    mocks.programadoAggregate.mockResolvedValue({ _sum: { valor: new Prisma.Decimal("2000000") } });
+    const res = await POST(post(valido), ctx);
+    const json = await res.json();
+    expect(res.status).toBe(201);
+    expect(createdData().alerta_sobregasto).toBe(false);
+    expect(json.alertas).toEqual([
+      { tipo: "SOBREGASTO_PROGRAMADO", mensaje: "Este gasto supera lo programado del rubro hasta este periodo." },
+    ]);
+    expect(mocks.programadoAggregate).toHaveBeenCalledWith({
+      where: { linea_id: "lin-1", periodo: { lte: "2026-10" } },
+      _sum: { valor: true },
+    });
+    expect(mocks.notificar).not.toHaveBeenCalled();
+  });
+
+  it("does not add the programmed warning when the critical alert applies", async () => {
+    mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: new Prisma.Decimal("23500000") } });
+    mocks.programadoAggregate.mockResolvedValue({ _sum: { valor: new Prisma.Decimal("1") } });
+    const json = await (await POST(post({ ...valido, subtotal: "1000000" }), ctx)).json();
+    expect(json.alertas).toEqual([{ tipo: "SOBREGASTO", mensaje: "Solicita un traslado al Gerente" }]);
+    expect(mocks.programadoAggregate).not.toHaveBeenCalled();
   });
 
   it("checks the overspend with the Total, IVA included", async () => {

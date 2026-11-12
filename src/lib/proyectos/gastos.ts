@@ -5,6 +5,7 @@
  */
 
 import { periodOf, type IsoDate, type Periodo } from "./weeks"
+import type { Cents } from "./money"
 
 export type TipoIdentificacion = "NIT" | "CC" | "CE"
 export type EstadoGasto = "REGISTRADO" | "VALIDADO" | "RECHAZADO" | "ANULADO"
@@ -100,6 +101,14 @@ export function esDuplicado(a: DuplicadoKey, b: DuplicadoKey): boolean {
   if (a.tercero_id_norm == null || b.tercero_id_norm == null) return false
   if (!cuentaComoEjecutado(a.estado) || !cuentaComoEjecutado(b.estado)) return false
   return a.tercero_id_norm === b.tercero_id_norm && a.numero_documento_norm === b.numero_documento_norm
+}
+
+/**
+ * S2/L16: the executed amount accumulated up to a period is above the programmed amount accumulated up to
+ * the same period. Mirrors `excederiaAsignado` (ficha-financiera.ts): it warns, it never blocks.
+ */
+export function excedeProgramado(input: { programado: Cents; ejecutado: Cents }): boolean {
+  return input.ejecutado > input.programado
 }
 
 const CAMPOS_RESTRINGIDOS = ["tercero_numero_id", "tercero_id_norm", "soportes", "soportes_count"] as const

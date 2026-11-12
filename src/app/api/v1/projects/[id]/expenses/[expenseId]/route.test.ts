@@ -9,6 +9,9 @@ const mocks = vi.hoisted(() => ({
   updateMany: vi.fn(),
   reread: vi.fn(),
   aggregate: vi.fn(),
+  programadoAggregate: vi.fn(),
+  gerentes: vi.fn(),
+  notificar: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({ requireApiUser: vi.fn(), isSupabaseConfigured: vi.fn(() => true) }));
@@ -29,6 +32,9 @@ vi.mock("@/lib/db", () => ({
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
       fn({
         gasto: { aggregate: mocks.aggregate, updateMany: mocks.updateMany, findFirstOrThrow: mocks.reread },
+        programacionPeriodo: { aggregate: mocks.programadoAggregate },
+        usuario: { findMany: mocks.gerentes },
+        notificacion: { createMany: mocks.notificar },
       }),
     ),
   },
@@ -117,6 +123,9 @@ beforeEach(() => {
     rubro: { id: "rub-1", codigo: "R12", nombre: "Transporte" },
   } as never);
   mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: null } });
+  mocks.programadoAggregate.mockResolvedValue({ _sum: { valor: new Prisma.Decimal("24000000") } });
+  mocks.gerentes.mockResolvedValue([{ id: "ger-1" }, { id: "ger-2" }]);
+  mocks.notificar.mockResolvedValue({ count: 2 });
   mocks.updateMany.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => {
     current = { ...current, ...data } as typeof current;
     return { count: 1 };
@@ -132,6 +141,36 @@ describe("PATCH expenses/:expenseId overspend check (AJ-08)", () => {
     expect(mocks.aggregate).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ linea_id: "lin-1", id: { not: "gas-1" } }) }),
     );
+  });
+
+  it("returns the critical alert with the exact message and notifies Gerencia when the edit leaves the rubro above its assigned amount", async () => {
+    mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: new Prisma.Decimal("24000000") } });
+    const res = await PATCH(patch({ subtotal: "2000000" }), ctx);
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(updatedData().alerta_sobregasto).toBe(true);
+    expect(json.alertas).toEqual([{ tipo: "SOBREGASTO", mensaje: "Solicita un traslado al Gerente" }]);
+    expect(mocks.notificar).toHaveBeenCalledWith({
+      data: [
+        { usuario_id: "ger-1", tipo: "SOBREGASTO_RUBRO", proyecto_id: "pry-1", gasto_id: "gas-1" },
+        { usuario_id: "ger-2", tipo: "SOBREGASTO_RUBRO", proyecto_id: "pry-1", gasto_id: "gas-1" },
+      ],
+      skipDuplicates: true,
+    });
+    expect(mocks.programadoAggregate).not.toHaveBeenCalled();
+  });
+
+  it("returns the programmed warning and does not notify when the edit only passes the period's program", async () => {
+    mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: new Prisma.Decimal("3000000") } });
+    mocks.programadoAggregate.mockResolvedValue({ _sum: { valor: new Prisma.Decimal("2000000") } });
+    const res = await PATCH(patch({ descripcion: "Peajes del recorrido" }), ctx);
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(updatedData().alerta_sobregasto).toBe(false);
+    expect(json.alertas).toEqual([
+      { tipo: "SOBREGASTO_PROGRAMADO", mensaje: "Este gasto supera lo programado del rubro hasta este periodo." },
+    ]);
+    expect(mocks.notificar).not.toHaveBeenCalled();
   });
 });
 

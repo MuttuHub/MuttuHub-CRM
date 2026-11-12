@@ -21,6 +21,7 @@ import { PROYECTO_NO_EXISTE } from "@/lib/api/ejecucion";
 import { excederiaAsignado } from "@/lib/proyectos/ficha-financiera";
 import {
   ESTADOS_EJECUTADOS,
+  excedeProgramado,
   normalizarIdentificacion,
   normalizarNumeroDocumento,
   periodoEnProyecto,
@@ -139,6 +140,13 @@ export const GASTO_PATCH_SCHEMA = z
 
 /** One row of an expense: the create body without its supports (the Excel import carries none). */
 export const GASTO_FILA_SCHEMA = GASTO_CREATE_SCHEMA.omit({ soportes: true });
+
+/** Query of the pre-save duplicate check: the create body's identity fields, never the amount. */
+export const GASTO_DUPLICADO_QUERY_SCHEMA = GASTO_CREATE_SCHEMA.pick({
+  tercero_tipo_id: true,
+  tercero_numero_id: true,
+  numero_documento: true,
+});
 
 export type MontosGasto = { ok: true; subtotal: Cents; iva: Cents; total: Cents };
 export type MontosGastoError = { ok: false; campo: "Subtotal" | "IVA" | "Total"; message: string };
@@ -300,10 +308,59 @@ export function clavesNormalizadas(input: {
 
 export type AlertaGasto =
   | { tipo: "SOBREGASTO"; mensaje: string }
+  | { tipo: "SOBREGASTO_PROGRAMADO"; mensaje: string }
   | { tipo: "DUPLICADO"; gasto_id: string | null; proyecto_codigo: string | null; mensaje: string };
 
-export const SOBREGASTO_ADVERTENCIA =
-  "Este gasto, sumado a los gastos ya ejecutados del rubro, superaría el valor asignado.";
+/** S2: the critical alert carries the exact text the PO asked for. */
+export const SOBREGASTO_MENSAJE = "Solicita un traslado al Gerente";
+export const SOBREGASTO_PROGRAMADO_ADVERTENCIA =
+  "Este gasto supera lo programado del rubro hasta este periodo.";
+
+export type NivelSobregasto = "ASIGNADO" | "PROGRAMADO" | null;
+
+/** Maps the level computed after saving to its alert: the critical one wins over the programmed warning. */
+export function alertaSobregasto(nivel: NivelSobregasto): AlertaGasto | null {
+  if (nivel === "ASIGNADO") return { tipo: "SOBREGASTO", mensaje: SOBREGASTO_MENSAJE };
+  if (nivel === "PROGRAMADO") return { tipo: "SOBREGASTO_PROGRAMADO", mensaje: SOBREGASTO_PROGRAMADO_ADVERTENCIA };
+  return null;
+}
+
+/**
+ * Overspend level after saving (S2, L16), never blocking: the assigned total (`ASIGNADO`, critical) when the
+ * executed total of the line already exceeds it, else the programmed level (`PROGRAMADO`) when the executed
+ * accumulated up to `periodo` exceeds the amount programmed up to that same period. The critical level is
+ * taken as given (the callers already store it as `alerta_sobregasto`) and skips the programmed query.
+ *
+ * `nuevo` predicts an amount that is not written yet (the import preview); after a write the executed sum
+ * already includes the row. `excluirGastoId` leaves the edited row out when the update has not landed yet.
+ */
+export async function nivelSobregasto(
+  tx: Pick<Prisma.TransactionClient, "gasto" | "programacionPeriodo">,
+  linea: { id: string },
+  input: { periodo: string; critico: boolean; nuevo?: Cents; excluirGastoId?: string },
+): Promise<NivelSobregasto> {
+  if (input.critico) return "ASIGNADO";
+  const [programado, ejecutado] = await Promise.all([
+    tx.programacionPeriodo.aggregate({
+      where: { linea_id: linea.id, periodo: { lte: input.periodo } },
+      _sum: { valor: true },
+    }),
+    tx.gasto.aggregate({
+      where: {
+        linea_id: linea.id,
+        estado: { in: [...ESTADOS_EJECUTADOS] },
+        periodo: { lte: input.periodo },
+        ...(input.excluirGastoId ? { id: { not: input.excluirGastoId } } : {}),
+      },
+      _sum: { monto_cop: true },
+    }),
+  ]);
+  const programadoCents = programado._sum.valor ? toCents(programado._sum.valor) : BigInt(0);
+  const ejecutadoCents = ejecutado._sum.monto_cop ? toCents(ejecutado._sum.monto_cop) : BigInt(0);
+  return excedeProgramado({ programado: programadoCents, ejecutado: ejecutadoCents + (input.nuevo ?? BigInt(0)) })
+    ? "PROGRAMADO"
+    : null;
+}
 
 /**
  * RF-21: a live expense (REGISTRADO or VALIDADO) of ANY project with the same normalized

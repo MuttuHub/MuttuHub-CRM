@@ -9,9 +9,13 @@ import {
   GASTO_PATCH_SCHEMA,
   PERIODO_DOCUMENTO_FUERA_MESSAGE,
   PERIODO_FUERA_MESSAGE,
+  SOBREGASTO_MENSAJE,
+  SOBREGASTO_PROGRAMADO_ADVERTENCIA,
+  alertaSobregasto,
   evaluarMontosGasto,
   evaluarPeriodo,
   gastoAuditable,
+  nivelSobregasto,
   superaAsignado,
   toGastoView,
 } from "@/lib/api/gastos";
@@ -175,6 +179,77 @@ describe("superaAsignado (AJ-08)", () => {
     expect(excede).toBe(true);
     expect(aggregate).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ estado: { in: ["REGISTRADO", "VALIDADO"] } }) }),
+    );
+  });
+});
+
+describe("overspend alerts after saving (S2, L16)", () => {
+  it("uses the exact «Solicita un traslado al Gerente» message for the critical alert", () => {
+    expect(SOBREGASTO_MENSAJE).toBe("Solicita un traslado al Gerente");
+    expect(alertaSobregasto("ASIGNADO")).toEqual({ tipo: "SOBREGASTO", mensaje: "Solicita un traslado al Gerente" });
+  });
+
+  it("emits the programmed-level warning below the critical one, and nothing when neither applies", () => {
+    expect(alertaSobregasto("PROGRAMADO")).toEqual({
+      tipo: "SOBREGASTO_PROGRAMADO",
+      mensaje: SOBREGASTO_PROGRAMADO_ADVERTENCIA,
+    });
+    expect(alertaSobregasto(null)).toBeNull();
+  });
+
+  it("compares the executed accumulated up to the period with the programmed one", async () => {
+    const ejecutado = vi.fn().mockResolvedValue({ _sum: { monto_cop: new Prisma.Decimal("3000000") } });
+    const programado = vi.fn().mockResolvedValue({ _sum: { valor: new Prisma.Decimal("2500000") } });
+    const tx = { gasto: { aggregate: ejecutado }, programacionPeriodo: { aggregate: programado } };
+
+    await expect(nivelSobregasto(tx as never, { id: "lin-1" }, { periodo: "2026-10", critico: false })).resolves.toBe(
+      "PROGRAMADO",
+    );
+    expect(programado).toHaveBeenCalledWith({
+      where: { linea_id: "lin-1", periodo: { lte: "2026-10" } },
+      _sum: { valor: true },
+    });
+    expect(ejecutado).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          linea_id: "lin-1",
+          periodo: { lte: "2026-10" },
+          estado: { in: ["REGISTRADO", "VALIDADO"] },
+        }),
+      }),
+    );
+  });
+
+  it("stays quiet while the executed does not exceed the programmed, adding `nuevo` only when predicting", async () => {
+    const ejecutado = vi.fn().mockResolvedValue({ _sum: { monto_cop: new Prisma.Decimal("2000000") } });
+    const programado = vi.fn().mockResolvedValue({ _sum: { valor: new Prisma.Decimal("2500000") } });
+    const tx = { gasto: { aggregate: ejecutado }, programacionPeriodo: { aggregate: programado } };
+
+    await expect(nivelSobregasto(tx as never, { id: "lin-1" }, { periodo: "2026-10", critico: false })).resolves.toBeNull();
+    await expect(
+      nivelSobregasto(tx as never, { id: "lin-1" }, { periodo: "2026-10", critico: false, nuevo: toCents("600000") }),
+    ).resolves.toBe("PROGRAMADO");
+  });
+
+  it("the critical level wins and skips the programmed query", async () => {
+    const ejecutado = vi.fn();
+    const programado = vi.fn();
+    const tx = { gasto: { aggregate: ejecutado }, programacionPeriodo: { aggregate: programado } };
+
+    await expect(nivelSobregasto(tx as never, { id: "lin-1" }, { periodo: "2026-10", critico: true })).resolves.toBe(
+      "ASIGNADO",
+    );
+    expect(ejecutado).not.toHaveBeenCalled();
+    expect(programado).not.toHaveBeenCalled();
+  });
+
+  it("reads a line with no programming as $0 and warns on any executed amount", async () => {
+    const ejecutado = vi.fn().mockResolvedValue({ _sum: { monto_cop: new Prisma.Decimal("1") } });
+    const programado = vi.fn().mockResolvedValue({ _sum: { valor: null } });
+    const tx = { gasto: { aggregate: ejecutado }, programacionPeriodo: { aggregate: programado } };
+
+    await expect(nivelSobregasto(tx as never, { id: "lin-1" }, { periodo: "2026-10", critico: false })).resolves.toBe(
+      "PROGRAMADO",
     );
   });
 });

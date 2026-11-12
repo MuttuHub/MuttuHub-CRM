@@ -36,9 +36,10 @@ describe("GastoForm", () => {
   const fetchMock = vi.fn()
   const onDone = vi.fn()
 
-  function setup(respuesta: unknown = { gasto: { id: "g1" }, alertas: [] }) {
+  function setup(respuesta: unknown = { gasto: { id: "g1" }, alertas: [] }, duplicados: unknown = { alertas: [] }) {
     fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
       const url = String(input)
+      if (url.includes("/expenses/duplicates?")) return Promise.resolve(jsonResponse(duplicados))
       if (url.endsWith("/expenses/sign")) {
         return Promise.resolve(
           jsonResponse({ storage_path: "proyectos/p1/soportes/u_f.pdf", token: "t", signed_url: "https://s.example/up", max_bytes: 10, allowed_extensions: ["pdf"] }),
@@ -51,18 +52,28 @@ describe("GastoForm", () => {
     return render(<GastoForm proyecto={PROYECTO} rubros={RUBROS} onDone={onDone} />, { wrapper: createWrapper() })
   }
 
-  async function llenarBasicos(user: ReturnType<typeof userEvent.setup>, subtotal = "1.500.000,50", iva = "0") {
+  /** The non-amount fields, so a test can decide which amounts to type before or after them. */
+  async function llenarCamposDeGasto(
+    user: ReturnType<typeof userEvent.setup>,
+    { identificacion = true, documento = true } = {},
+  ) {
     await user.selectOptions(screen.getByLabelText("Rubro"), "r12")
     await user.clear(screen.getByLabelText("Fecha del documento"))
     await user.type(screen.getByLabelText("Fecha del documento"), "2026-10-15")
+    await user.type(screen.getByLabelText("Tercero"), "Proveedor SAS")
+    if (identificacion) {
+      await user.selectOptions(screen.getByLabelText("Tipo de identificación"), "NIT")
+      await user.type(screen.getByLabelText("Número de identificación"), "900123456")
+    }
+    if (documento) await user.type(screen.getByLabelText("Número de documento"), "FE-0123")
+    await user.type(screen.getByLabelText("Descripción"), "Tiquetes")
+  }
+
+  async function llenarBasicos(user: ReturnType<typeof userEvent.setup>, subtotal = "1.500.000,50", iva = "0") {
+    await llenarCamposDeGasto(user)
     await user.type(screen.getByLabelText("Subtotal"), subtotal)
     await user.clear(screen.getByLabelText("IVA"))
     if (iva !== "") await user.type(screen.getByLabelText("IVA"), iva)
-    await user.type(screen.getByLabelText("Tercero"), "Proveedor SAS")
-    await user.selectOptions(screen.getByLabelText("Tipo de identificación"), "NIT")
-    await user.type(screen.getByLabelText("Número de identificación"), "900123456")
-    await user.type(screen.getByLabelText("Número de documento"), "FE-0123")
-    await user.type(screen.getByLabelText("Descripción"), "Tiquetes")
   }
 
   const postedBody = () => {
@@ -288,6 +299,128 @@ describe("GastoForm", () => {
     expect(postedBody()).toMatchObject({ subtotal: "1000000.00", iva: "190000.00" })
     expect(postedBody()).not.toHaveProperty("valor")
     expect(postedBody()).not.toHaveProperty("total")
+  })
+
+  // S2/L16 (c): validators while typing, inline and never only on submit.
+  it("shows the subtotal error inline while typing and clears it when the amount is valid", async () => {
+    const user = userEvent.setup({ delay: null })
+    setup()
+    const subtotal = screen.getByLabelText("Subtotal")
+
+    await user.type(subtotal, "0")
+    expect(screen.getByRole("alert")).toHaveTextContent("Ingresa un subtotal válido")
+    expect(subtotal).toHaveAttribute("aria-invalid", "true")
+
+    await user.clear(subtotal)
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+    expect(subtotal).not.toHaveAttribute("aria-invalid")
+
+    await user.type(subtotal, "abc")
+    expect(screen.getByRole("alert")).toHaveTextContent("Ingresa un subtotal válido")
+
+    await user.clear(subtotal)
+    await user.type(subtotal, "1500")
+    expect(subtotal).toHaveValue("1.500")
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+  })
+
+  it("shows the IVA error inline while typing and accepts 0", async () => {
+    const user = userEvent.setup({ delay: null })
+    setup()
+    const iva = screen.getByLabelText("IVA")
+
+    await user.clear(iva)
+    await user.type(iva, "abc")
+    expect(screen.getByRole("alert")).toHaveTextContent("Ingresa un IVA válido")
+    expect(iva).toHaveAttribute("aria-invalid", "true")
+
+    await user.clear(iva)
+    await user.type(iva, "0")
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+    expect(iva).not.toHaveAttribute("aria-invalid")
+  })
+
+  it("groups thousands in Subtotal and IVA while typing (S2)", async () => {
+    const user = userEvent.setup({ delay: null })
+    setup()
+    const subtotal = screen.getByLabelText("Subtotal")
+    const iva = screen.getByLabelText("IVA")
+
+    await user.type(subtotal, "1500000")
+    expect(subtotal).toHaveValue("1.500.000")
+
+    await user.clear(iva)
+    await user.type(iva, "190000")
+    expect(iva).toHaveValue("190.000")
+    expect(screen.getByLabelText("Total")).toHaveValue("$ 1.690.000")
+  })
+
+  it("warns, without blocking, when the IVA exceeds 19 % of the subtotal (S2, L16 c)", async () => {
+    const user = userEvent.setup({ delay: null })
+    setup()
+    const subtotal = screen.getByLabelText("Subtotal")
+    const iva = screen.getByLabelText("IVA")
+
+    await user.type(subtotal, "1000000")
+    await user.clear(iva)
+    await user.type(iva, "190000")
+    expect(iva).toHaveValue("190.000")
+    expect(screen.queryByRole("status")).not.toBeInTheDocument()
+
+    await user.clear(iva)
+    await user.type(iva, "190001")
+    expect(iva).toHaveValue("190.001")
+    expect(screen.getByRole("status")).toHaveTextContent("El IVA supera el 19 % del subtotal")
+    expect(iva).toHaveAccessibleDescription(/El IVA supera el 19 % del subtotal/)
+
+    await llenarCamposDeGasto(user)
+    await user.click(screen.getByRole("radio", { name: "Enlace" }))
+    await user.type(screen.getByLabelText("URL"), "https://drive.example/factura")
+    await user.type(screen.getByLabelText("Nombre del enlace"), "Factura FE-0123")
+    await user.click(screen.getByRole("button", { name: "Registrar" }))
+
+    await waitFor(() => expect(postedBody()).not.toBeNull())
+    expect(postedBody()).toMatchObject({ subtotal: "1000000.00", iva: "190001.00" })
+  })
+
+  // S2/L16 (b): the duplicate check runs before saving, as soon as both identity fields are filled.
+  it("warns inline about a duplicate before saving and still lets the expense be registered", async () => {
+    const user = userEvent.setup({ delay: null })
+    const mensaje = "Ya existe un gasto con el mismo NIT/cédula y número de documento (proyecto PRY-2026-001)."
+    setup(undefined, { alertas: [{ tipo: "DUPLICADO", gasto_id: "g0", proyecto_codigo: "PRY-2026-001", mensaje }] })
+
+    await user.selectOptions(screen.getByLabelText("Tipo de identificación"), "NIT")
+    await user.type(screen.getByLabelText("Número de identificación"), "900123456")
+    await user.type(screen.getByLabelText("Número de documento"), "FE-0123")
+
+    expect(await screen.findByText(mensaje)).toBeInTheDocument()
+    const consultas = fetchMock.mock.calls
+      .map(([url]) => String(url))
+      .filter((url) => url.includes("/expenses/duplicates?"))
+    expect(consultas.at(-1)).toBe(
+      "/api/v1/projects/p1/expenses/duplicates?tercero_tipo_id=NIT&tercero_numero_id=900123456&numero_documento=FE-0123",
+    )
+    expect(postedBody()).toBeNull()
+
+    await llenarCamposDeGasto(user, { identificacion: false, documento: false })
+    await user.type(screen.getByLabelText("Subtotal"), "1500")
+    await user.click(screen.getByRole("radio", { name: "Enlace" }))
+    await user.type(screen.getByLabelText("URL"), "https://drive.example/factura")
+    await user.type(screen.getByLabelText("Nombre del enlace"), "Factura FE-0123")
+    await user.click(screen.getByRole("button", { name: "Registrar" }))
+
+    await waitFor(() => expect(postedBody()).not.toBeNull())
+    expect(onDone).toHaveBeenCalled()
+  })
+
+  it("does not check duplicates when the third party has no identification number (RF-21)", async () => {
+    const user = userEvent.setup({ delay: null })
+    setup()
+
+    await user.type(screen.getByLabelText("Número de documento"), "FE-0123")
+
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(screen.queryByRole("status")).not.toBeInTheDocument()
   })
 
   it.each([

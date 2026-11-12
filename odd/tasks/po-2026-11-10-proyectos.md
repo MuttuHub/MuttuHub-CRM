@@ -251,8 +251,8 @@ sesión de agente por tarea) salvo que la tarjeta diga otra cosa.
 | T1 | S1 | La curva S, la tabla por periodo, «Periodo del reporte» y «Requiere atención» leen los reportes de avance | S | — | 6 | Hecha: PR #169, `91b467a` en `main`; verificación manual en local pendiente |
 | T2 | S1 | Regla de avance por actividad según D1 (solo si la PO cambia la regla) | S | D1, T1 | 6 | No se hace: D1 mantiene la regla actual (L8) |
 | T3 | S3 | El Gestor solicita traslados; el Gerente ve pendientes; validación contra lo ejecutado | S–M | D3 | 2 (permisos) | Hecha: PR #171, `5934e4e` en `main`; verificación manual en local pendiente |
-| T4 | S2 | Gasto sin aprobación: todo gasto no anulado es ejecutado; se quitan «Por validar», filtros y cola | M | D2 | 3 (lectores compartidos) | Implementada en `deffc44`, `eda8444`, `6fa9361` y `de9d7c5` (rama `fix/aj-08-gasto-sin-aprobacion`, sobre `main` con T3); revisión nativa aprobada (L13); invariantes de `prisma/` y e2e quedan para el CI del PR (L14) |
-| T5 | S2 | Validadores al digitar, alertas de sobreejecución que no bloquean y aviso de duplicados | M | T4, D4 | — | Pendiente |
+| T4 | S2 | Gasto sin aprobación: todo gasto no anulado es ejecutado; se quitan «Por validar», filtros y cola | M | D2 | 3 (lectores compartidos) | Hecha: PR #172, `f5c4e4e` en `main`; verificación manual en local pendiente |
+| T5 | S2 | Validadores al digitar, alertas de sobreejecución que no bloquean y aviso de duplicados | M | T4, D4 | — | Hecha: `9214f06` (servidor) y `fa2dfb3` (formulario) en `feat/aj-08-validadores-alertas`; verificación manual en local pendiente |
 | T6 | S2 | Gestor edita/anula con motivo y auditoría; varios archivos y enlaces por gasto; plantilla exige enlace | M | T4, D3 | 1 si toca datos | Pendiente |
 | T7 | S2 | (Propuesto) Resumen de cambios del periodo en la ficha financiera | S | T6, D4 | — | Pendiente |
 | T8 | S4 | Alerta «Posible retraso» visible en ficha y Tablero gerencial (la lógica ya existe) | S | — | — | Hecha: PR #170, `261e995` en `main`; verificación manual en local pendiente |
@@ -549,6 +549,61 @@ S11) · T15 recarga de CedeTextil en producción con ensayo (S12).
   de los invariantes que no se pudieron correr en local. Causa: `loadGastosEjecutados` no tiene `orderBy` (E suma las
   filas) y el test comparaba las dos filas en un orden fijo; antes de AJ-08 devolvía una sola. Corregido en el test
   (dos filas, en cualquier orden), sin tocar el loader. Los otros 33 archivos de invariantes pasaron.
-- **Siguiente paso:** CI en verde y merge de #172 (el merge es decisión del usuario); borrar `backup/aj-08-pre-split`; T5 y T6; la tarea de datos de D2 (rechazados a anulados, con ensayo sobre copia de
+- **L16 (2026-11-11, T4 mergeada; diseño de T5):** CI de #172 en verde sobre `1467351` (`unit` 7m9s, `e2e` 4m15s).
+  A la pregunta «¿Mergeo #172 y arranco T5?», el usuario respondió, textual: «si». #172 mergeado aplastado en `main`
+  como `f5c4e4e`. T5 en la rama `feat/aj-08-validadores-alertas`. **Ruta: delegada a un escritor** (razón: respaldo
+  de contexto de una sesión larga; una sola unidad, sin paralelismo). Lo que ya existe y se reutiliza: los avisos
+  después de guardar `SOBREGASTO` y `DUPLICADO` (`AlertaGasto`, `superaAsignado`, `buscarDuplicados` en
+  `src/lib/api/gastos.ts`), el total calculado y el subtotal mayor que cero al enviar (`gasto-form.tsx`).
+  Decisiones de diseño del agente (no son textuales del usuario):
+  (a) **Sobreejecución en dos niveles, después de guardar y sin bloquear:** aviso nuevo `SOBREGASTO_PROGRAMADO`
+  cuando el ejecutado acumulado del rubro hasta el periodo del gasto supera lo programado acumulado hasta ese
+  periodo; `SOBREGASTO` pasa a ser la alerta crítica (supera el asignado del rubro) y su mensaje incluye el texto de
+  S2 «Solicita un traslado al Gerente». Si aplica la crítica, no se repite la de programado.
+  (b) **Duplicados antes de guardar:** consulta de solo lectura con la misma clave de `buscarDuplicados` (número de
+  identificación normalizado + número de documento normalizado) y la misma redacción por proyecto; el formulario
+  muestra la advertencia en línea en cuanto están la identificación y el número de documento, sin paso de
+  confirmación (D4). El aviso después de guardar se conserva. Supuesto: un tercero sin número de identificación no
+  se detecta (regla RF-21 vigente).
+  (c) **Validadores al digitar:** el error del campo se muestra en línea mientras se escribe (subtotal numérico y
+  mayor que 0; IVA numérico, puede ser 0), los valores se muestran con separador de miles y sale una advertencia,
+  que no bloquea, si el IVA supera el 19 % del subtotal. Sin la confirmación del 50 % (D4).
+  (d) **Campana a Gerencia:** `notificarSobregasto` vuelve a llamarse dentro de la transacción que deja el rubro por
+  encima de lo asignado (registro, edición e importación). Valor por defecto del agente, avisado al usuario: es el
+  comportamiento que existía antes de T4.
+- **Siguiente paso:** cerrar el PR de T5 (rama `feat/aj-08-validadores-alertas`, commits `9214f06` y `fa2dfb3`);
+  borrar `backup/aj-08-pre-split` (decisión del usuario); T5 y T6; la tarea de datos de D2 (rechazados a anulados, con ensayo sobre copia de
   producción); los seguimientos de L13; cerrar D5; T0 (probar una invitación real en producción); verificación
   manual de T1, T3 y T8 con la base local arriba.
+- **L17 (2026-11-12, T5 hecha):** Implementada en `feat/aj-08-validadores-alertas` en dos unidades de trabajo:
+  `9214f06` (servidor) y `fa2dfb3` (formulario). Las dos mitades las escribieron subagentes que quedaron abortados a
+  mitad de vuelo; el trabajo se completó y se verificó en el hilo principal. (a)(b)(c)(d) de L16 implementadas tal
+  cual, sin desvíos. La alerta crítica es ahora `SOBREGASTO` con el texto exacto «Solicita un traslado al Gerente»;
+  el nivel intermedio es `SOBREGASTO_PROGRAMADO` y no se emite cuando aplica la crítica. `notificarSobregasto` vuelve
+  a llamarse en registro, edición e importación, solo en el camino crítico y nunca en el preview de la importación.
+  El chequeo previo de duplicados es `GET /api/v1/projects/:id/expenses/duplicates`, detrás del mismo gate de lectura
+  y con la misma clave (identificación + número de documento normalizados) y la misma redacción que
+  `buscarDuplicados`. En el formulario los montos se agrupan con `formatMontoInput` sin reinterpretar lo escrito:
+  «1.50» sigue siendo inválido y nunca se convierte en 150. Se reparó el doble de `import/route.rules.test.ts`, que
+  no mockeaba `programacionPeriodo`, `usuario` ni `notificacion`. **Verificación:** 350 tests verdes en 18 archivos
+  (gastos, gastos-import, rutas de gastos, gasto-form, a11y-guards, project-gastos), `tsc --noEmit` limpio y `eslint`
+  con 0 errores. La verificación independiente se lanzó dos veces y las dos quedó abortada por interrupciones de la
+  sesión: riesgo declarado, no verificación hecha. **Pendiente:** verificación manual en local (registrar un gasto que
+  pase el asignado y ver la crítica con la campana; dos facturas iguales del mismo tercero y ver la advertencia en
+  línea antes de guardar). **Entrega:** un solo PR con los dos commits; aunque la rebanada pasa las ~400 líneas, el
+  formulario consume el endpoint que agrega el servidor y separarlos dejaría la primera mitad sin interfaz. **Fuera de T5, anotado y sin tocar:** la consulta de duplicados dispara un GET por tecla,
+  sin debounce.
+- **L18 (2026-11-12, review nativo de T5 aprobado):** linaje `review-9885040ff3fcbb66`, tier *medium*, 4 lentes (risk,
+  resilience, readability, reliability), sobre los 19 archivos de la rama. Resultado: **aprobado**, 9 hallazgos, todos
+  informativos y **no bloqueantes** (ninguno abrió corrección). El primer intento de revisión murió por `ETIMEDOUT` del
+  proveedor (`deepseek-v4.1-flash` vía `opencode-go`) sin consumir corridas; STATUS reofreció los mismos slots y se
+  relanzó. **Seguimientos anotados, no hechos** (detalle en el recibo del linaje):
+  - `R1-001` (risk, WARNING) `expenses/duplicates/route.ts:50-59`.
+  - `R2-001`, `R2-002`, `R2-003` (readability, SUGGESTION) en `import/route.test.ts:416`, `lib/api/gastos.ts:353` y
+    `duplicates/route.ts:54-56`.
+  - `R3-1` (reliability, WARNING) `gasto-form.tsx:161`; `R3-2` (reliability, WARNING) `import/route.ts:106-110`.
+  - `R4-DUPLICATE-DEBOUNCE` (resilience, WARNING) `hooks/projects.ts:1750-1764`: la consulta de duplicados dispara un
+    GET por tecla, sin debounce. Es el mismo detalle que ya estaba anotado en L17.
+  - `R4-IMPORT-APPLY-NPLUS1` y `R4-IMPORT-PREVIEW-NPLUS1` (resilience, WARNING) `gastos-import/server.ts:162-163` y
+    `import/route.ts:105-111`: el cálculo de nivel por fila agrega una consulta por gasto importado.
+  **Entrega:** PR #173 (`feat/aj-08-validadores-alertas`). Sigue pendiente la verificación manual en local.

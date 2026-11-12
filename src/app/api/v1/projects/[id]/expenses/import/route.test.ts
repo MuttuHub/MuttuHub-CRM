@@ -15,6 +15,9 @@ const mocks = vi.hoisted(() => ({
   gastoFindMany: vi.fn(),
   proyectoMiembroFindMany: vi.fn(),
   aggregate: vi.fn(),
+  programadoAggregate: vi.fn(),
+  gerentes: vi.fn(),
+  notificar: vi.fn(),
   create: vi.fn(),
   soporteCreate: vi.fn(),
   transaction: vi.fn(),
@@ -26,13 +29,20 @@ vi.mock("@/lib/api/audit-cambios", async (importOriginal) => {
   return { ...actual, logChange: vi.fn(), logChanges: vi.fn() };
 });
 vi.mock("@/lib/db", () => {
-  const tx = { gasto: { aggregate: mocks.aggregate, create: mocks.create }, soporteProyecto: { create: mocks.soporteCreate } };
+  const tx = {
+    gasto: { aggregate: mocks.aggregate, create: mocks.create },
+    soporteProyecto: { create: mocks.soporteCreate },
+    programacionPeriodo: { aggregate: mocks.programadoAggregate },
+    usuario: { findMany: mocks.gerentes },
+    notificacion: { createMany: mocks.notificar },
+  };
   return {
     db: {
       proyecto: { findFirst: mocks.proyectoFindFirst },
       rubro: { findMany: mocks.rubroFindMany },
       lineaPresupuestal: { findMany: mocks.lineaFindMany },
       gasto: { findMany: mocks.gastoFindMany, aggregate: mocks.aggregate },
+      programacionPeriodo: { aggregate: mocks.programadoAggregate },
       proyectoMiembro: { findMany: mocks.proyectoMiembroFindMany },
       $transaction: mocks.transaction.mockImplementation(async (fn: (t: unknown) => Promise<unknown>) => fn(tx)),
     },
@@ -131,6 +141,10 @@ beforeEach(() => {
   mocks.gastoFindMany.mockResolvedValue([]);
   mocks.proyectoMiembroFindMany.mockResolvedValue([]);
   mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: null } });
+  // The fixture lines have a full monthly programming, so only the tests that say so warn.
+  mocks.programadoAggregate.mockResolvedValue({ _sum: { valor: new Prisma.Decimal("24000000") } });
+  mocks.gerentes.mockResolvedValue([{ id: "ger-1" }]);
+  mocks.notificar.mockResolvedValue({ count: 1 });
   mocks.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
     id: `gas-${++creados}`,
     estado: "REGISTRADO",
@@ -273,10 +287,24 @@ describe("POST expenses/import — validate-only preview", () => {
     expect(body.filas[0].alertas).toEqual([expect.objectContaining({ tipo: "DUPLICADO", gasto_id: "gas-viejo" })]);
   });
 
-  it("adds the SOBREGASTO alert like a single expense", async () => {
+  it("adds the critical SOBREGASTO alert like a single expense", async () => {
     mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: new Prisma.Decimal("23000000") } });
     const body = await (await POST(subida(await libro([fila()]), { modo: "validar" }), ctx)).json();
-    expect(body.filas[0].alertas).toEqual([expect.objectContaining({ tipo: "SOBREGASTO" })]);
+    expect(body.filas[0].alertas).toEqual([{ tipo: "SOBREGASTO", mensaje: "Solicita un traslado al Gerente" }]);
+    expect(mocks.programadoAggregate).not.toHaveBeenCalled();
+  });
+
+  it("adds the programmed warning when the row passes the program up to its period but not the assigned amount", async () => {
+    mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: new Prisma.Decimal("3000000") } });
+    mocks.programadoAggregate.mockResolvedValue({ _sum: { valor: new Prisma.Decimal("2000000") } });
+    const body = await (await POST(subida(await libro([fila()]), { modo: "validar" }), ctx)).json();
+    expect(body.filas[0].alertas).toEqual([
+      { tipo: "SOBREGASTO_PROGRAMADO", mensaje: "Este gasto supera lo programado del rubro hasta este periodo." },
+    ]);
+    expect(mocks.programadoAggregate).toHaveBeenCalledWith({
+      where: { linea_id: "lin-1", periodo: { lte: "2026-10" } },
+      _sum: { valor: true },
+    });
   });
 });
 
@@ -376,9 +404,20 @@ describe("POST expenses/import — apply", () => {
     expect(body.alertas).toEqual([
       {
         fila: 2,
-        alertas: [expect.objectContaining({ tipo: "SOBREGASTO" }), expect.objectContaining({ tipo: "DUPLICADO", gasto_id: "gas-viejo" })],
+        alertas: [{ tipo: "SOBREGASTO", mensaje: "Solicita un traslado al Gerente" }, expect.objectContaining({ tipo: "DUPLICADO", gasto_id: "gas-viejo" })],
       },
     ]);
+    expect(mocks.notificar).toHaveBeenCalledWith({
+      data: [{ usuario_id: "ger-1", tipo: "SOBREGASTO_RUBRO", proyecto_id: "pry-1", gasto_id: "gas-1" }],
+      skipDuplicates: true,
+    });
+  });
+
+  it("does not notify when no row exceeds the assigned amount", async () => {
+    await POST(subida(await libro([fila()])), ctx);
+    expect(mocks.soporteCreate).not.toHaveBeenCalled();
+    expect(mocks.create).toHaveBeenCalledTimes(1);
+    expect(mocks.notificar).not.toHaveBeenCalled();
   });
 
   it("answers 400 with the row report and writes nothing when no row is valid", async () => {
@@ -391,10 +430,11 @@ describe("POST expenses/import — apply", () => {
     expect(logChanges).not.toHaveBeenCalled();
   });
 
-  it("does not notify anyone: the transaction only creates gastos and the audit rows", async () => {
+  it("does not notify when no row exceeds the assigned amount", async () => {
     await POST(subida(await libro([fila()])), ctx);
     expect(mocks.soporteCreate).not.toHaveBeenCalled();
     expect(mocks.create).toHaveBeenCalledTimes(1);
+    expect(mocks.notificar).not.toHaveBeenCalled();
   });
 });
 

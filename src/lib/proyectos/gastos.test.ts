@@ -6,6 +6,7 @@ import {
   datosIncompletos,
   esDuplicado,
   esObservado,
+  excedeProgramado,
   normalizarIdentificacion,
   normalizarNumeroDocumento,
   periodoEnProyecto,
@@ -95,6 +96,15 @@ describe("esDuplicado", () => {
     expect(esDuplicado(base, { ...base, estado: "ANULADO" })).toBe(false)
     expect(esDuplicado(base, { ...base, numero_documento_norm: "FE123" })).toBe(false)
     expect(esDuplicado({ ...base, tercero_id_norm: null }, { ...base, tercero_id_norm: null })).toBe(false)
+  })
+})
+
+describe("excedeProgramado (S2, L16)", () => {
+  it("warns only when the executed accumulated up to the period is strictly above the programmed one", () => {
+    expect(excedeProgramado({ programado: toCents("1000000"), ejecutado: toCents("1000000.01") })).toBe(true)
+    expect(excedeProgramado({ programado: toCents("1000000"), ejecutado: toCents("1000000") })).toBe(false)
+    expect(excedeProgramado({ programado: toCents("1000000"), ejecutado: toCents("999999.99") })).toBe(false)
+    expect(excedeProgramado({ programado: BigInt(0), ejecutado: toCents("1") })).toBe(true)
   })
 })
 
