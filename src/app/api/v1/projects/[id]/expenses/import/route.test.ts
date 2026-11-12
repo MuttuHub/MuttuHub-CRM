@@ -16,6 +16,8 @@ const mocks = vi.hoisted(() => ({
   proyectoMiembroFindMany: vi.fn(),
   aggregate: vi.fn(),
   programadoAggregate: vi.fn(),
+  ejecutadoGroupBy: vi.fn(),
+  programadoGroupBy: vi.fn(),
   gerentes: vi.fn(),
   notificar: vi.fn(),
   create: vi.fn(),
@@ -30,9 +32,9 @@ vi.mock("@/lib/api/audit-cambios", async (importOriginal) => {
 });
 vi.mock("@/lib/db", () => {
   const tx = {
-    gasto: { aggregate: mocks.aggregate, create: mocks.create },
+    gasto: { aggregate: mocks.aggregate, groupBy: mocks.ejecutadoGroupBy, create: mocks.create },
     soporteProyecto: { create: mocks.soporteCreate },
-    programacionPeriodo: { aggregate: mocks.programadoAggregate },
+    programacionPeriodo: { aggregate: mocks.programadoAggregate, groupBy: mocks.programadoGroupBy },
     usuario: { findMany: mocks.gerentes },
     notificacion: { createMany: mocks.notificar },
   };
@@ -41,8 +43,8 @@ vi.mock("@/lib/db", () => {
       proyecto: { findFirst: mocks.proyectoFindFirst },
       rubro: { findMany: mocks.rubroFindMany },
       lineaPresupuestal: { findMany: mocks.lineaFindMany },
-      gasto: { findMany: mocks.gastoFindMany, aggregate: mocks.aggregate },
-      programacionPeriodo: { aggregate: mocks.programadoAggregate },
+      gasto: { findMany: mocks.gastoFindMany, aggregate: mocks.aggregate, groupBy: mocks.ejecutadoGroupBy },
+      programacionPeriodo: { aggregate: mocks.programadoAggregate, groupBy: mocks.programadoGroupBy },
       proyectoMiembro: { findMany: mocks.proyectoMiembroFindMany },
       $transaction: mocks.transaction.mockImplementation(async (fn: (t: unknown) => Promise<unknown>) => fn(tx)),
     },
@@ -128,6 +130,17 @@ function authAs(usuario: Usuario) {
   vi.mocked(requireApiUser).mockResolvedValue({ ok: true, usuario, supabaseUser: {} as never });
 }
 
+/**
+ * Overspend queries of one request: the per-row aggregates of the previous shape plus the two grouped
+ * loads of the batch. Counting both lets the same test fail on the N+1 shape (one pair per row) and
+ * pass on the batch one (exactly two queries, whatever the number of rows).
+ */
+const consultasSobregasto = () =>
+  mocks.aggregate.mock.calls.length +
+  mocks.programadoAggregate.mock.calls.length +
+  mocks.ejecutadoGroupBy.mock.calls.length +
+  mocks.programadoGroupBy.mock.calls.length;
+
 let creados = 0;
 beforeEach(() => {
   creados = 0;
@@ -144,6 +157,11 @@ beforeEach(() => {
   mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: null } });
   // The fixture lines have a full monthly programming, so only the tests that say so warn.
   mocks.programadoAggregate.mockResolvedValue({ _sum: { valor: new Prisma.Decimal("24000000") } });
+  mocks.ejecutadoGroupBy.mockResolvedValue([]);
+  mocks.programadoGroupBy.mockResolvedValue([
+    { linea_id: "lin-1", periodo: "2026-10", _sum: { valor: new Prisma.Decimal("24000000") } },
+    { linea_id: "lin-2", periodo: "2026-10", _sum: { valor: new Prisma.Decimal("5000000") } },
+  ]);
   mocks.gerentes.mockResolvedValue([{ id: "ger-1" }]);
   mocks.notificar.mockResolvedValue({ count: 1 });
   mocks.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
@@ -289,23 +307,72 @@ describe("POST expenses/import — validate-only preview", () => {
   });
 
   it("adds the critical SOBREGASTO alert like a single expense", async () => {
-    mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: new Prisma.Decimal("23000000") } });
+    mocks.ejecutadoGroupBy.mockResolvedValue([
+      { linea_id: "lin-1", periodo: "2026-10", _sum: { monto_cop: new Prisma.Decimal("23000000") } },
+    ]);
     const body = await (await POST(subida(await libro([fila()]), { modo: "validar" }), ctx)).json();
     expect(body.filas[0].alertas).toEqual([{ tipo: "SOBREGASTO", mensaje: "Solicita un traslado al Gerente" }]);
-    expect(mocks.programadoAggregate).not.toHaveBeenCalled();
+    // One grouped load of the programming for the whole workbook, never one per row (R4-IMPORT-PREVIEW-NPLUS1).
+    expect(mocks.programadoGroupBy).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the same critical, programmed and clean alerts for a multi-row preview, writing and notifying nothing", async () => {
+    mocks.ejecutadoGroupBy.mockResolvedValue([
+      { linea_id: "lin-1", periodo: "2026-10", _sum: { monto_cop: new Prisma.Decimal("3000000") } },
+    ]);
+    mocks.programadoGroupBy.mockResolvedValue([
+      { linea_id: "lin-1", periodo: "2026-10", _sum: { valor: new Prisma.Decimal("2000000") } },
+      { linea_id: "lin-2", periodo: "2026-10", _sum: { valor: new Prisma.Decimal("5000000") } },
+    ]);
+    const res = await POST(
+      subida(
+        await libro([
+          fila({ "Número de documento": "PV-A", Subtotal: 1500000 }),
+          fila({ "Número de documento": "PV-B", Subtotal: 21500000 }),
+          fila({ Rubro: "Viáticos", "Número de documento": "PV-C", Subtotal: 100000 }),
+        ]),
+        { modo: "validar" },
+      ),
+      ctx,
+    );
+    const body = await res.json();
+    expect(body.filas.map((f: { alertas: unknown[] }) => f.alertas)).toEqual([
+      [{ tipo: "SOBREGASTO_PROGRAMADO", mensaje: "Este gasto supera lo programado del rubro hasta este periodo." }],
+      [{ tipo: "SOBREGASTO", mensaje: "Solicita un traslado al Gerente" }],
+      [],
+    ]);
+    expect(mocks.transaction).not.toHaveBeenCalled();
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.notificar).not.toHaveBeenCalled();
+    expect(logChanges).not.toHaveBeenCalled();
+  });
+
+  it("computes 3 and 6 valid rows with the same two overspend queries, not one pair per row (R4-IMPORT-PREVIEW-NPLUS1)", async () => {
+    const filas = (n: number, prefijo: string) =>
+      Array.from({ length: n }, (_, i) =>
+        fila({ "Número de documento": `${prefijo}-${i}`, "Número de identificación": `${3000 + i}`, Subtotal: 100000 }),
+      );
+    const inicio = consultasSobregasto();
+    expect((await POST(subida(await libro(filas(3, "P3")), { modo: "validar" }), ctx)).status).toBe(200);
+    const conTres = consultasSobregasto() - inicio;
+    const medio = consultasSobregasto();
+    expect((await POST(subida(await libro(filas(6, "P6")), { modo: "validar" }), ctx)).status).toBe(200);
+    const conSeis = consultasSobregasto() - medio;
+    expect({ conTres, conSeis }).toEqual({ conTres: 2, conSeis: 2 });
   });
 
   it("adds the programmed warning when the row passes the program up to its period but not the assigned amount", async () => {
-    mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: new Prisma.Decimal("3000000") } });
-    mocks.programadoAggregate.mockResolvedValue({ _sum: { valor: new Prisma.Decimal("2000000") } });
+    mocks.ejecutadoGroupBy.mockResolvedValue([
+      { linea_id: "lin-1", periodo: "2026-10", _sum: { monto_cop: new Prisma.Decimal("3000000") } },
+    ]);
+    mocks.programadoGroupBy.mockResolvedValue([
+      { linea_id: "lin-1", periodo: "2026-10", _sum: { valor: new Prisma.Decimal("2000000") } },
+    ]);
     const body = await (await POST(subida(await libro([fila()]), { modo: "validar" }), ctx)).json();
     expect(body.filas[0].alertas).toEqual([
       { tipo: "SOBREGASTO_PROGRAMADO", mensaje: "Este gasto supera lo programado del rubro hasta este periodo." },
     ]);
-    expect(mocks.programadoAggregate).toHaveBeenCalledWith({
-      where: { linea_id: "lin-1", periodo: { lte: "2026-10" } },
-      _sum: { valor: true },
-    });
+    expect(mocks.programadoGroupBy).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -398,8 +465,113 @@ describe("POST expenses/import — apply", () => {
     });
   });
 
+  it("keeps the same critical, programmed and clean alerts for a multi-row batch", async () => {
+    mocks.ejecutadoGroupBy.mockResolvedValue([
+      { linea_id: "lin-1", periodo: "2026-10", _sum: { monto_cop: new Prisma.Decimal("3000000") } },
+    ]);
+    mocks.programadoGroupBy.mockResolvedValue([
+      { linea_id: "lin-1", periodo: "2026-10", _sum: { valor: new Prisma.Decimal("2000000") } },
+      { linea_id: "lin-2", periodo: "2026-10", _sum: { valor: new Prisma.Decimal("5000000") } },
+    ]);
+    const body = await (
+      await POST(
+        subida(
+          await libro([
+            fila({ "Número de documento": "LOTE-A", Subtotal: 1500000 }),
+            fila({ "Número de documento": "LOTE-B", Subtotal: 21500000 }),
+            fila({ Rubro: "Viáticos", "Número de documento": "LOTE-C", Subtotal: 100000 }),
+          ]),
+        ),
+        ctx,
+      )
+    ).json();
+    expect(mocks.create.mock.calls.map(([args]) => args.data.alerta_sobregasto)).toEqual([false, true, false]);
+    expect(body.alertas).toEqual([
+      {
+        fila: 2,
+        alertas: [{ tipo: "SOBREGASTO_PROGRAMADO", mensaje: "Este gasto supera lo programado del rubro hasta este periodo." }],
+      },
+      { fila: 3, alertas: [{ tipo: "SOBREGASTO", mensaje: "Solicita un traslado al Gerente" }] },
+    ]);
+  });
+
+  it("counts the rows created earlier in the same batch for the following rows (rule 3)", async () => {
+    mocks.lineaFindMany.mockResolvedValue([
+      { id: "lin-1", monto_proyectado_cop: new Prisma.Decimal("10000000"), rubro: rubroTransporte },
+    ]);
+    mocks.programadoGroupBy.mockResolvedValue([
+      { linea_id: "lin-1", periodo: "2026-10", _sum: { valor: new Prisma.Decimal("5000000") } },
+    ]);
+    // The batch reads the line totals once; the rows this import writes are its own state from then on.
+    const filasEscritas: { linea_id: string; periodo: string; monto_cop: Prisma.Decimal }[] = [];
+    mocks.ejecutadoGroupBy.mockImplementation(async () => {
+      const sumas = new Map<string, { linea_id: string; periodo: string; total: Prisma.Decimal }>();
+      for (const row of filasEscritas) {
+        const clave = `${row.linea_id}|${row.periodo}`;
+        const actual = sumas.get(clave);
+        sumas.set(clave, {
+          linea_id: row.linea_id,
+          periodo: row.periodo,
+          total: actual ? actual.total.plus(row.monto_cop) : row.monto_cop,
+        });
+      }
+      return [...sumas.values()].map((s) => ({
+        linea_id: s.linea_id,
+        periodo: s.periodo,
+        _sum: { monto_cop: s.total },
+      }));
+    });
+    mocks.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => {
+      filasEscritas.push({
+        linea_id: data.linea_id as string,
+        periodo: data.periodo as string,
+        monto_cop: data.monto_cop as Prisma.Decimal,
+      });
+      return { id: `gas-${++creados}`, estado: "REGISTRADO", created_at: new Date("2026-10-16T12:00:00.000Z"), ...data };
+    });
+    const body = await (
+      await POST(
+        subida(
+          await libro([
+            fila({ "Número de documento": "R3-A", Subtotal: 6000000 }),
+            fila({ "Número de documento": "R3-B", Subtotal: 5000000 }),
+          ]),
+        ),
+        ctx,
+      )
+    ).json();
+    expect(mocks.create.mock.calls.map(([args]) => args.data.alerta_sobregasto)).toEqual([false, true]);
+    expect(body.alertas).toEqual([
+      {
+        fila: 2,
+        alertas: [{ tipo: "SOBREGASTO_PROGRAMADO", mensaje: "Este gasto supera lo programado del rubro hasta este periodo." }],
+      },
+      { fila: 3, alertas: [{ tipo: "SOBREGASTO", mensaje: "Solicita un traslado al Gerente" }] },
+    ]);
+    expect(mocks.notificar).toHaveBeenCalledWith({
+      data: [{ usuario_id: "ger-1", tipo: "SOBREGASTO_RUBRO", proyecto_id: "pry-1", gasto_id: "gas-2" }],
+      skipDuplicates: true,
+    });
+  });
+
+  it("applies 3 and 6 rows with the same two overspend queries, not one pair per row (R4-IMPORT-APPLY-NPLUS1)", async () => {
+    const filas = (n: number, prefijo: string) =>
+      Array.from({ length: n }, (_, i) =>
+        fila({ "Número de documento": `${prefijo}-${i}`, "Número de identificación": `${4000 + i}`, Subtotal: 100000 }),
+      );
+    const inicio = consultasSobregasto();
+    expect((await POST(subida(await libro(filas(3, "A3"))), ctx)).status).toBe(200);
+    const conTres = consultasSobregasto() - inicio;
+    const medio = consultasSobregasto();
+    expect((await POST(subida(await libro(filas(6, "A6"))), ctx)).status).toBe(200);
+    const conSeis = consultasSobregasto() - medio;
+    expect({ conTres, conSeis }).toEqual({ conTres: 2, conSeis: 2 });
+  });
+
   it("computes alerta_sobregasto like a single create and returns the per-row alerts", async () => {
-    mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: new Prisma.Decimal("23000000") } });
+    mocks.ejecutadoGroupBy.mockResolvedValue([
+      { linea_id: "lin-1", periodo: "2026-10", _sum: { monto_cop: new Prisma.Decimal("23000000") } },
+    ]);
     mocks.gastoFindMany.mockResolvedValue([{ id: "gas-viejo", proyecto_id: "pry-1", proyecto: { codigo: "P-001" } }]);
     const body = await (await POST(subida(await libro([fila()])), ctx)).json();
     expect(mocks.create.mock.calls[0][0].data.alerta_sobregasto).toBe(true);
