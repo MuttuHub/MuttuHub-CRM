@@ -203,6 +203,8 @@ describe("PATCH expenses/:expenseId", () => {
     const res = await PATCH(patch({ descripcion: "Tiquetes aéreos", subtotal: "2000000" }), ctx);
     expect(res.status).toBe(200);
     expect(updatedData()).toMatchObject({ descripcion: "Tiquetes aéreos", monto_cop: expect.anything() });
+    // S2/T6: la corrección adelanta la marca, que es lo que hace que la siguiente no pise a esta.
+    expect(updatedData().updated_at).toBeInstanceOf(Date);
     expect(mocks.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "gas-1", proyecto_id: "pry-1", estado: "REGISTRADO" } }),
     );

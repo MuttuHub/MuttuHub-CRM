@@ -85,6 +85,6 @@ renglón por criterio, el comando que lo prueba y el paso manual cuando haya pan
    cerrar: cada renglón es un comando.
 2. **AJ-08 criterio 2** depende de datos reales («los $938.000 de Promoción y divulgación»): sólo se puede
    comprobar con la base local cargada con ese proyecto.
-3. **La rama `feat/t6-aj08-correccion-y-plantilla` tiene un commit sin pushear** (`74bb137`, el arreglo de
+3. **La rama `feat/t6-aj08-correccion-y-plantilla` tiene commits sin pushear** (el arreglo de
    concurrencia y de gastos anulados) porque la red bloquea la verificación TLS. Hasta que se pushee, el PR
    #175 no incluye ese arreglo.

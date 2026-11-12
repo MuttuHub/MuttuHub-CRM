@@ -169,6 +169,9 @@ export const PATCH = withApiErrorHandling(
           },
           data: {
             ...data,
+            // Explicit, not left to `@updatedAt`: the pin above only protects the next correction if this
+            // write really advances the stamp.
+            updated_at: new Date(),
             alerta_sobregasto: sobregasto,
             ...(corrige
               ? { estado: "REGISTRADO" as const, motivo_rechazo: null, rechazado_por_id: null, rechazado_at: null }
