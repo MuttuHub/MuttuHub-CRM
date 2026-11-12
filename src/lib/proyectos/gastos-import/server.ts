@@ -19,15 +19,18 @@ import { logChanges, type CambioInput } from "@/lib/api/audit-cambios"
 import { decimalFromCents } from "@/lib/api/presupuesto"
 import { normalizeProjectDate } from "@/lib/api/projects"
 import {
-  SOBREGASTO_ADVERTENCIA,
+  alertaSobregasto,
   buscarDuplicados,
   clavesNormalizadas,
   gastoAuditable,
+  nivelSobregasto,
   superaAsignado,
   tieneAsignado,
   type AlertaGasto,
   type LineaGasto,
+  type NivelSobregasto,
 } from "@/lib/api/gastos"
+import { notificarSobregasto } from "@/lib/api/notificaciones-proyecto"
 import { toCents } from "../money"
 import type { ContextoImportGastos, DatosGastoImport, FilaGastoImport } from "./parse"
 
@@ -72,14 +75,15 @@ export async function cargarContextoImport(proyecto: {
   }
 }
 
-/** The alerts of one row: early overspend (when flagged) and live duplicates of any project. Never blocking. */
+/** The alerts of one row: the overspend level (critical or programmed) and live duplicates of any project. Never blocking. */
 export async function alertasDeFila(
   usuario: Usuario,
   proyectoId: string,
-  gasto: { id: string; datos: DatosGastoImport; sobregasto: boolean },
+  gasto: { id: string; datos: DatosGastoImport; nivel: NivelSobregasto },
 ): Promise<AlertaGasto[]> {
   const alertas: AlertaGasto[] = []
-  if (gasto.sobregasto) alertas.push({ tipo: "SOBREGASTO", mensaje: SOBREGASTO_ADVERTENCIA })
+  const alerta = alertaSobregasto(gasto.nivel)
+  if (alerta) alertas.push(alerta)
   const { datos } = gasto
   alertas.push(
     ...(await buscarDuplicados(usuario, {
@@ -105,7 +109,7 @@ export type AplicarGastosInput = {
   loteId: string
 }
 
-export type GastoCreadoImport = { fila: number; id: string; datos: DatosGastoImport; sobregasto: boolean }
+export type GastoCreadoImport = { fila: number; id: string; datos: DatosGastoImport; nivel: NivelSobregasto }
 
 export async function aplicarGastosImport(tx: Prisma.TransactionClient, input: AplicarGastosInput): Promise<GastoCreadoImport[]> {
   const creados: GastoCreadoImport[] = []
@@ -154,6 +158,10 @@ export async function aplicarGastosImport(tx: Prisma.TransactionClient, input: A
       })
     }
 
+    // S2/L16: after saving, the line tells its level; the critical one also rings the Gerencia bell.
+    const nivel = await nivelSobregasto(tx, linea, { periodo: datos.periodo, critico: sobregasto })
+    if (sobregasto) await notificarSobregasto(tx, { gastoId: created.id, proyectoId: input.proyectoId })
+
     auditoria.push({
       usuario_id: input.usuarioId,
       accion: "CREAR",
@@ -167,7 +175,7 @@ export async function aplicarGastosImport(tx: Prisma.TransactionClient, input: A
         soportes: datos.enlaces.length,
       },
     })
-    creados.push({ fila, id: created.id, datos, sobregasto })
+    creados.push({ fila, id: created.id, datos, nivel })
   }
 
   await logChanges(tx, auditoria)

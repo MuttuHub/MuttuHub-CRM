@@ -29,11 +29,12 @@ import {
   GASTO_NO_EXISTE,
   GASTO_PATCH_SCHEMA,
   GASTO_VALIDADO_MESSAGE,
-  SOBREGASTO_ADVERTENCIA,
+  alertaSobregasto,
   buscarDuplicados,
   clavesNormalizadas,
   gastoAuditable,
   gateGastoRead,
+  nivelSobregasto,
   parseMontosGasto,
   resolverLinea,
   resolverPeriodo,
@@ -41,6 +42,7 @@ import {
   toGastoView,
   type AlertaGasto,
 } from "@/lib/api/gastos";
+import { notificarSobregasto } from "@/lib/api/notificaciones-proyecto";
 import { isoDate } from "@/lib/proyectos/proyecto-general";
 import { fromCents, toCents } from "@/lib/proyectos/money";
 
@@ -140,7 +142,7 @@ export const PATCH = withApiErrorHandling(
     };
 
     try {
-      const { gasto, sobregasto } = await db.$transaction(async (tx) => {
+      const { gasto, nivel } = await db.$transaction(async (tx) => {
         // AJ-08: REGISTRADO already counts as executed, so the row being edited is left out of the sum.
         const sobregasto = await superaAsignado(tx, linea, valor, expenseId);
         const corrige = actual.estado === "RECHAZADO";
@@ -182,11 +184,16 @@ export const PATCH = withApiErrorHandling(
           });
         }
         await logChanges(tx, filas);
-        return { gasto, sobregasto };
+
+        // S2/L16: after saving, the line tells its level; the critical one also rings the Gerencia bell.
+        const nivel = await nivelSobregasto(tx, linea, { periodo: periodo.value, critico: sobregasto });
+        if (sobregasto) await notificarSobregasto(tx, { gastoId: gasto.id, proyectoId: id });
+        return { gasto, nivel };
       });
 
       const alertas: AlertaGasto[] = [];
-      if (sobregasto) alertas.push({ tipo: "SOBREGASTO", mensaje: SOBREGASTO_ADVERTENCIA });
+      const alerta = alertaSobregasto(nivel);
+      if (alerta) alertas.push(alerta);
       alertas.push(...(await buscarDuplicados(auth.usuario, gasto)));
       return NextResponse.json({ gasto: toGastoView(gasto, { puedeVerSoportes: true }), alertas });
     } catch (err) {

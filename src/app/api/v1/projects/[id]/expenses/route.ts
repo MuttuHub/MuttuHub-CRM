@@ -5,8 +5,10 @@
 // (404 -> 403 -> 409 -> 400). The rubro must have an assigned amount above zero; the period must be
 // a month of the project (default: the month of the document date); the estado is always REGISTRADO.
 // Supports follow the confirm-mode flow (sign -> direct upload -> confirm) and are created in the same
-// transaction as the expense. Alerts never block: SOBREGASTO (early warning against the current validated
-// total, no notification) and DUPLICADO (same normalized identification and document number, any project).
+// transaction as the expense. Alerts never block: SOBREGASTO (critical, over the assigned amount, with
+// the «Solicita un traslado al Gerente» message and the Gerencia notification), SOBREGASTO_PROGRAMADO
+// (warning, over the amount programmed up to the expense's period, suppressed by the critical one) and
+// DUPLICADO (same normalized identification and document number, any project).
 //
 // Read: anyone who can read the project, in any estado. The third-party number and the supports are
 // returned only to actors who can view financial supports (RNF-03).
@@ -23,11 +25,12 @@ import { MEDIO_DUPLICADO_MESSAGE, STORAGE_PATH_INDEX, validarSoporte, type Sopor
 import {
   GASTO_CREATE_SCHEMA,
   GASTO_INCLUDE,
-  SOBREGASTO_ADVERTENCIA,
+  alertaSobregasto,
   buscarDuplicados,
   clavesNormalizadas,
   gastoAuditable,
   gateGastoRead,
+  nivelSobregasto,
   parseMontosGasto,
   resolverLinea,
   resumenGastos,
@@ -37,6 +40,7 @@ import {
   totalesPorEstado,
   type AlertaGasto,
 } from "@/lib/api/gastos";
+import { notificarSobregasto } from "@/lib/api/notificaciones-proyecto";
 import { normalizeProjectDate } from "@/lib/api/projects";
 
 export const dynamic = "force-dynamic";
@@ -107,7 +111,7 @@ export const POST = withApiErrorHandling(
     const claves = clavesNormalizadas({ ...tercero, numero_documento: input.numero_documento });
 
     try {
-      const { gasto, soportesCreados, sobregasto } = await db.$transaction(async (tx) => {
+      const { gasto, soportesCreados, nivel } = await db.$transaction(async (tx) => {
         const sobregasto = await superaAsignado(tx, linea.value, montos.total);
         const created = await tx.gasto.create({
           data: {
@@ -150,11 +154,16 @@ export const POST = withApiErrorHandling(
             soportes: soportesCreados.length,
           },
         });
-        return { gasto: created, soportesCreados, sobregasto };
+
+        // S2/L16: after saving, the line tells its level; the critical one also rings the Gerencia bell.
+        const nivel = await nivelSobregasto(tx, linea.value, { periodo: periodo.value, critico: sobregasto });
+        if (sobregasto) await notificarSobregasto(tx, { gastoId: created.id, proyectoId: id });
+        return { gasto: created, soportesCreados, nivel };
       });
 
       const alertas: AlertaGasto[] = [];
-      if (sobregasto) alertas.push({ tipo: "SOBREGASTO", mensaje: SOBREGASTO_ADVERTENCIA });
+      const alerta = alertaSobregasto(nivel);
+      if (alerta) alertas.push(alerta);
       alertas.push(...(await buscarDuplicados(auth.usuario, gasto)));
 
       const view = toGastoView(

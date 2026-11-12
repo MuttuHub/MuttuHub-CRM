@@ -18,6 +18,9 @@ const mocks = vi.hoisted(() => ({
   create: vi.fn(),
   soporteCreate: vi.fn(),
   transaction: vi.fn(),
+  programacionAggregate: vi.fn(),
+  usuarioFindMany: vi.fn(),
+  notificacionCreateMany: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({ requireApiUser: vi.fn() }));
@@ -26,7 +29,13 @@ vi.mock("@/lib/api/audit-cambios", async (importOriginal) => {
   return { ...actual, logChange: vi.fn(), logChanges: vi.fn() };
 });
 vi.mock("@/lib/db", () => {
-  const tx = { gasto: { aggregate: mocks.aggregate, create: mocks.create }, soporteProyecto: { create: mocks.soporteCreate } };
+  const tx = {
+    gasto: { aggregate: mocks.aggregate, create: mocks.create },
+    soporteProyecto: { create: mocks.soporteCreate },
+    programacionPeriodo: { aggregate: mocks.programacionAggregate },
+    usuario: { findMany: mocks.usuarioFindMany },
+    notificacion: { createMany: mocks.notificacionCreateMany },
+  };
   return {
     db: {
       proyecto: { findFirst: mocks.proyectoFindFirst },
@@ -34,6 +43,7 @@ vi.mock("@/lib/db", () => {
       lineaPresupuestal: { findMany: mocks.lineaFindMany },
       gasto: { findMany: mocks.gastoFindMany, aggregate: mocks.aggregate },
       proyectoMiembro: { findMany: mocks.proyectoMiembroFindMany },
+      programacionPeriodo: { aggregate: mocks.programacionAggregate },
       $transaction: mocks.transaction.mockImplementation(async (fn: (t: unknown) => Promise<unknown>) => fn(tx)),
     },
   };
@@ -130,6 +140,9 @@ beforeEach(() => {
   mocks.gastoFindMany.mockResolvedValue([]);
   mocks.proyectoMiembroFindMany.mockResolvedValue([]);
   mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: null } });
+  mocks.programacionAggregate.mockResolvedValue({ _sum: { valor: null } });
+  mocks.usuarioFindMany.mockResolvedValue([]);
+  mocks.notificacionCreateMany.mockResolvedValue({ count: 0 });
   mocks.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
     id: `gas-${++creados}`,
     estado: "REGISTRADO",

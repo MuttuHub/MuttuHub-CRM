@@ -84,14 +84,17 @@ const GastoSchema = registry.register(
   }),
 );
 
+const DuplicadoAlertaSchema = z.object({
+  tipo: z.literal("DUPLICADO"),
+  gasto_id: z.string().nullable(),
+  proyecto_codigo: z.string().nullable().openapi({ description: "Nulo si quien consulta no puede leer ese proyecto." }),
+  mensaje: z.string(),
+});
+
 const AlertaSchema = z.union([
   z.object({ tipo: z.literal("SOBREGASTO"), mensaje: z.string() }),
-  z.object({
-    tipo: z.literal("DUPLICADO"),
-    gasto_id: z.string().nullable(),
-    proyecto_codigo: z.string().nullable().openapi({ description: "Nulo si quien registra no puede leer ese proyecto." }),
-    mensaje: z.string(),
-  }),
+  z.object({ tipo: z.literal("SOBREGASTO_PROGRAMADO"), mensaje: z.string() }),
+  DuplicadoAlertaSchema,
 ]);
 
 const ResumenSchema = z.object({
@@ -137,8 +140,10 @@ registry.registerPath({
     "decimales con máximo dos decimales; el Total no se envía: el servidor lo calcula (Subtotal + IVA) y es el valor ejecutado " +
     "(`valor` en la vista). Ya no se acepta `valor`. Exige de 1 a 5 " +
     "soportes en modo confirmación (firma en `/expenses/sign`, subida directa, y aquí `storage_path` o `url_externa`). El " +
-    "estado siempre es REGISTRADO y ya cuenta como ejecutado (AJ-08). Las alertas no bloquean: `SOBREGASTO` (aviso " +
-    "temprano contra lo ejecutado del rubro) y `DUPLICADO` " +
+    "estado siempre es REGISTRADO y ya cuenta como ejecutado (AJ-08). Las alertas no bloquean: `SOBREGASTO` (crítico: el " +
+    "ejecutado total del rubro supera lo asignado; su mensaje es «Solicita un traslado al Gerente» y avisa a Gerencia), " +
+    "`SOBREGASTO_PROGRAMADO` (aviso: el ejecutado acumulado hasta el periodo supera lo programado hasta ese mismo periodo; " +
+    "no se repite cuando aplica el crítico) y `DUPLICADO` " +
     "(mismo tercero y número de documento normalizados en cualquier proyecto; el código solo se revela si se puede leer ese proyecto).",
   security: [{ sessionCookie: [] }],
   request: {
@@ -189,6 +194,36 @@ registry.registerPath({
       },
     },
     ...standardErrorResponses([400, 401, 403, 404, 409, 413, 500]),
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/api/v1/projects/{id}/expenses/duplicates",
+  tags: ["Projects"],
+  summary: "Comprueba si ya existe un gasto duplicado (antes de guardar)",
+  description:
+    "Consulta de solo lectura para el formulario de gasto, con la misma clave normalizada (identificación y número de " +
+    "documento), la misma redacción y el mismo filtro de lectura de proyecto que la alerta `DUPLICADO` que se devuelve al " +
+    "guardar (RF-21): gastos REGISTRADO o VALIDADO de cualquier proyecto. No bloquea ni escribe. Un tercero sin número de " +
+    "identificación no se detecta (regla vigente de RF-21). `numero_documento` es obligatorio; sin `tercero_numero_id` la " +
+    "respuesta es una lista vacía. " +
+    READ_NOTE,
+  security: [{ sessionCookie: [] }],
+  request: {
+    params: ProjectParams,
+    query: z.object({
+      tercero_tipo_id: z.enum(["NIT", "CC", "CE"]).optional(),
+      tercero_numero_id: z.string().max(40).optional().openapi({ description: "Número de identificación del tercero; sin él no hay detección." }),
+      numero_documento: z.string().openapi({ description: "Número de documento del gasto (obligatorio)." }),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Duplicados encontrados; lista vacía cuando no hay ninguno.",
+      content: { "application/json": { schema: z.object({ alertas: z.array(DuplicadoAlertaSchema) }) } },
+    },
+    ...standardErrorResponses([400, 401, 403, 404, 500]),
   },
 });
 
@@ -357,7 +392,8 @@ registry.registerPath({
     "(`POST /expenses/{expenseId}/attachments`); sin soporte no se puede validar. Dos filas " +
     "con el mismo tercero y número de documento normalizados: la segunda es inválida. Con `modo=validar` devuelve cada fila como " +
     "válida o inválida con su motivo, más las alertas no bloqueantes, sin escribir. Aplicar crea solo las filas válidas en una " +
-    "transacción, con un único `lote_id` de auditoría, y devuelve las rechazadas; no notifica. Errores del archivo completo " +
+    "transacción, con un único `lote_id` de auditoría, y devuelve las rechazadas; avisa a Gerencia por cada gasto que deja el " +
+    "rubro por encima de lo asignado. Errores del archivo completo " +
     "(no es Excel, faltan encabezados, sin filas, más de 200) y la ausencia de filas válidas al aplicar responden 400 con " +
     "`reporte`. Orden de errores: 404 -> 403 -> 409 -> 413 -> 400.",
   security: [{ sessionCookie: [] }],
