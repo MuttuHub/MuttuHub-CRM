@@ -1,9 +1,10 @@
 // Formulario de registro de gasto (S6 U6): rubro (solo con valor asignado), fecha, periodo,
 // tercero, número de documento, descripción, subtotal e IVA (strings, nunca Number; el Total lo
-// calcula el sistema y solo se muestra) y UN soporte
-// obligatorio: archivo (firma -> subida -> confirmación) o enlace https. Tras registrar, las
-// alertas que devuelve la API (duplicado, sobregasto temprano) se muestran y esperan a que la
-// persona las cierre: nunca bloquean, pero tampoco pasan inadvertidas.
+// calcula el sistema y solo se muestra) y una LISTA de soportes obligatoria (AJ-08): uno o varios,
+// hasta el tope de la API, cada uno archivo (firma -> subida -> confirmación) o enlace https, con
+// «Agregar otro soporte» hacia abajo. Tras registrar, las alertas que devuelve la API (duplicado,
+// sobregasto temprano) se muestran y esperan a que la persona las cierre: nunca bloquean, pero
+// tampoco pasan inadvertidas.
 
 "use client";
 
@@ -25,6 +26,7 @@ import {
   type ProjectListRow,
 } from "@/hooks/projects";
 import { formatMontoInput, parseMontoInput } from "@/components/proyectos/presupuesto-ui";
+import { MAX_SOPORTES_POR_GASTO } from "@/components/proyectos/gasto-soportes";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { periodOf, projectPeriods, todayInBogota } from "@/lib/proyectos/weeks";
 import { SelectorArchivo } from "@/components/proyectos/selector-archivo";
@@ -47,6 +49,24 @@ export const TIPO_SOPORTE_LABELS: Record<ProjectExpense["tipo_soporte"], string>
 };
 
 const FIELD = CAPTURE_FIELD;
+
+/** Una fila de la lista de soportes del gasto (AJ-08); `clave` es estable y arma los ids de la fila. */
+type FilaSoporte = {
+  clave: number;
+  tipo: "archivo" | "enlace";
+  archivo: File | null;
+  url: string;
+  nombre: string;
+};
+
+function filaSoporteVacia(clave: number): FilaSoporte {
+  return { clave, tipo: "archivo", archivo: null, url: "", nombre: "" };
+}
+
+/** Fila a medias: un archivo sin elegir, o un enlace sin su URL o sin su nombre. */
+function filaIncompleta(fila: FilaSoporte): boolean {
+  return fila.tipo === "archivo" ? fila.archivo === null : fila.url.trim() === "" || fila.nombre.trim() === "";
+}
 
 /** AJ-05: the month of the document date when it is a project month; otherwise empty, and the person must choose. */
 function periodoDeFecha(fecha: string, periodos: readonly string[]): string {
@@ -125,7 +145,6 @@ export function GastoForm({
   onDone: () => void;
 }) {
   const create = useCreateExpense(proyecto.id);
-  const inputArchivoRef = useRef<HTMLInputElement>(null);
   const conAsignado = rubros.filter((rubro) => rubro.linea_id !== null && toCents(rubro.asignado) > BigInt(0));
   const periodos = periodosDe(proyecto);
 
@@ -142,10 +161,10 @@ export function GastoForm({
   const [descripcion, setDescripcion] = useState("");
   const [subtotal, setSubtotal] = useState("");
   const [iva, setIva] = useState("0");
-  const [tipoMedio, setTipoMedio] = useState<"archivo" | "enlace">("archivo");
-  const [archivo, setArchivo] = useState<File | null>(null);
-  const [url, setUrl] = useState("");
-  const [nombreEnlace, setNombreEnlace] = useState("");
+  const [filasSoporte, setFilasSoporte] = useState<FilaSoporte[]>(() => [filaSoporteVacia(1)]);
+  // Se enciende al intentar guardar con alguna fila a medias; solo entonces se marca la fila, nunca antes.
+  const [intentoSoporte, setIntentoSoporte] = useState(false);
+  const proximaClaveSoporte = useRef(2);
   const [local, setLocal] = useState<string | null>(null);
   const [alertas, setAlertas] = useState<ExpenseAlert[] | null>(null);
 
@@ -161,10 +180,22 @@ export function GastoForm({
   const duplicados = useExpenseDuplicates(proyecto.id, consultaDuplicados);
   const alertasDuplicado = duplicados.data ?? [];
 
-  /** S7: quita el archivo elegido y limpia el `<input>` nativo (no se resetea solo con el estado). */
-  function quitarArchivo() {
-    setArchivo(null);
-    if (inputArchivoRef.current) inputArchivoRef.current.value = "";
+  /** AJ-08: la lista se detiene en el tope de la API; cada fila nueva nace como archivo. */
+  const puedeAgregarSoporte = filasSoporte.length < MAX_SOPORTES_POR_GASTO;
+
+  function agregarSoporte() {
+    if (!puedeAgregarSoporte) return;
+    const clave = proximaClaveSoporte.current;
+    proximaClaveSoporte.current += 1;
+    setFilasSoporte((filas) => [...filas, filaSoporteVacia(clave)]);
+  }
+
+  function quitarSoporte(clave: number) {
+    setFilasSoporte((filas) => filas.filter((fila) => fila.clave !== clave));
+  }
+
+  function cambiarSoporte(clave: number, cambio: Partial<Omit<FilaSoporte, "clave">>) {
+    setFilasSoporte((filas) => filas.map((fila) => (fila.clave === clave ? { ...fila, ...cambio } : fila)));
   }
 
   function submit() {
@@ -182,14 +213,35 @@ export function GastoForm({
     if (numeroDoc.trim() === "") return setLocal("El número de documento es obligatorio.");
     if (descripcion.trim() === "") return setLocal("La descripción es obligatoria.");
 
-    let soporte: AvanceMedioInput;
-    if (tipoMedio === "archivo") {
-      if (!archivo) return setLocal(SIN_SOPORTE_TEXT);
-      soporte = { tipo: "archivo", file: archivo };
-    } else {
-      if (url.trim() === "" || nombreEnlace.trim() === "") return setLocal(SIN_SOPORTE_TEXT);
-      soporte = { tipo: "enlace", url_externa: url.trim(), nombre: nombreEnlace.trim() };
+    const soportes: AvanceMedioInput[] = [];
+    const filasIncompletas: number[] = [];
+    for (const fila of filasSoporte) {
+      if (fila.tipo === "archivo") {
+        if (fila.archivo === null) {
+          filasIncompletas.push(fila.clave);
+          continue;
+        }
+        soportes.push({ tipo: "archivo", file: fila.archivo });
+      } else {
+        const enlace = fila.url.trim();
+        const nombre = fila.nombre.trim();
+        if (enlace === "" || nombre === "") {
+          filasIncompletas.push(fila.clave);
+          continue;
+        }
+        soportes.push({ tipo: "enlace", url_externa: enlace, nombre });
+      }
     }
+    // Sin ninguna fila completa el aviso es uno solo, el de siempre; si solo faltan filas sueltas se marca cada una.
+    if (soportes.length === 0) {
+      setIntentoSoporte(false);
+      return setLocal(SIN_SOPORTE_TEXT);
+    }
+    if (filasIncompletas.length > 0) {
+      setIntentoSoporte(true);
+      return setLocal(null);
+    }
+    setIntentoSoporte(false);
 
     setLocal(null);
     create.mutate(
@@ -205,7 +257,7 @@ export function GastoForm({
         descripcion: descripcion.trim(),
         subtotal: subtotalNormal,
         iva: ivaNormal,
-        soporte,
+        soportes,
       },
       {
         onSuccess: ({ alertas: devueltas }) => {
@@ -432,52 +484,121 @@ export function GastoForm({
         />
       </Campo>
 
-      <fieldset className="sm:col-span-2">
-        <legend className="text-[12px] text-ink-600">Soporte</legend>
-        <div className="mt-1 flex flex-wrap items-center gap-4">
-          {(
-            [
-              ["archivo", "Archivo"],
-              ["enlace", "Enlace"],
-            ] as const
-          ).map(([valorMedio, label]) => (
-            <label key={valorMedio} className={CAPTURE_CHOICE}>
-              <input
-                type="radio"
-                name={`${p}-medio`}
-                value={valorMedio}
-                checked={tipoMedio === valorMedio}
-                onChange={() => setTipoMedio(valorMedio)}
-              />
-              {label}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <div className="flex flex-col gap-2 sm:col-span-2">
+        <p className="text-[12px] text-ink-600">Soportes</p>
+        {filasSoporte.map((fila, indice) => {
+          // La primera fila conserva los nombres de siempre; las siguientes los numeran para que cada control
+          // tenga un id propio y un lector de pantalla no oiga cinco veces «URL».
+          const numero = indice + 1;
+          const sufijo = numero === 1 ? "" : ` ${numero}`;
+          const idFila = `${p}-soporte-${fila.clave}`;
+          const conError = intentoSoporte && filaIncompleta(fila);
+          return (
+            <fieldset
+              key={fila.clave}
+              aria-invalid={conError || undefined}
+              aria-describedby={conError ? `${idFila}-error` : undefined}
+              className="flex flex-col gap-2 rounded-inner border border-border bg-panel p-2 sm:grid sm:grid-cols-2"
+            >
+              <legend className="px-1 text-[12px] text-ink-600">{numero === 1 ? "Soporte" : `Soporte ${numero}`}</legend>
+              <div className="flex flex-wrap items-center gap-4 sm:col-span-2">
+                {(
+                  [
+                    ["archivo", "Archivo"],
+                    ["enlace", "Enlace"],
+                  ] as const
+                ).map(([valorMedio, label]) => (
+                  <label key={valorMedio} className={CAPTURE_CHOICE}>
+                    <input
+                      type="radio"
+                      name={`${idFila}-medio`}
+                      value={valorMedio}
+                      checked={fila.tipo === valorMedio}
+                      onChange={() => cambiarSoporte(fila.clave, { tipo: valorMedio })}
+                    />
+                    {`${label}${sufijo}`}
+                  </label>
+                ))}
+              </div>
 
-      {tipoMedio === "archivo" ? (
-        <Campo id={`${p}-archivo`} label="Archivo del soporte" className="sm:col-span-2">
-          {archivo ? (
-            <div className="flex min-h-11 items-center gap-2 text-[12.5px] text-ink-800 md:min-h-0">
-              <span className="truncate">{archivo.name}</span>
-              <Button type="button" size="sm" variant="ghost" className={CAPTURE_BUTTON} onClick={quitarArchivo}>
-                Quitar
-              </Button>
-            </div>
-          ) : (
-            <SelectorArchivo id={`${p}-archivo`} inputRef={inputArchivoRef} onChange={setArchivo} />
-          )}
-        </Campo>
-      ) : (
-        <>
-          <Campo id={`${p}-url`} label="URL">
-            <Input id={`${p}-url`} type="url" placeholder="https://" value={url} onChange={(e) => setUrl(e.target.value)} className={FIELD} />
-          </Campo>
-          <Campo id={`${p}-nombre`} label="Nombre del enlace">
-            <Input id={`${p}-nombre`} value={nombreEnlace} onChange={(e) => setNombreEnlace(e.target.value)} className={FIELD} />
-          </Campo>
-        </>
-      )}
+              {fila.tipo === "archivo" ? (
+                <Campo id={`${idFila}-archivo`} label={`Archivo del soporte${sufijo}`} className="sm:col-span-2">
+                  {fila.archivo ? (
+                    <div className="flex min-h-11 items-center gap-2 text-[12.5px] text-ink-800 md:min-h-0">
+                      <span className="truncate">{fila.archivo.name}</span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className={CAPTURE_BUTTON}
+                        onClick={() => cambiarSoporte(fila.clave, { archivo: null })}
+                      >
+                        Quitar
+                      </Button>
+                    </div>
+                  ) : (
+                    <SelectorArchivo id={`${idFila}-archivo`} onChange={(archivo) => cambiarSoporte(fila.clave, { archivo })} />
+                  )}
+                </Campo>
+              ) : (
+                <>
+                  <Campo id={`${idFila}-url`} label={`URL${sufijo}`}>
+                    <Input
+                      id={`${idFila}-url`}
+                      type="url"
+                      placeholder="https://"
+                      value={fila.url}
+                      onChange={(e) => cambiarSoporte(fila.clave, { url: e.target.value })}
+                      className={FIELD}
+                    />
+                  </Campo>
+                  <Campo id={`${idFila}-nombre`} label={`Nombre del enlace${sufijo}`}>
+                    <Input
+                      id={`${idFila}-nombre`}
+                      value={fila.nombre}
+                      onChange={(e) => cambiarSoporte(fila.clave, { nombre: e.target.value })}
+                      className={FIELD}
+                    />
+                  </Campo>
+                </>
+              )}
+
+              {conError && (
+                <div id={`${idFila}-error`} className="sm:col-span-2">
+                  <InlineError message={SIN_SOPORTE_TEXT} />
+                </div>
+              )}
+
+              {numero > 1 && (
+                <div className="sm:col-span-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className={CAPTURE_BUTTON}
+                    aria-label={`Quitar soporte ${numero}`}
+                    onClick={() => quitarSoporte(fila.clave)}
+                  >
+                    Quitar
+                  </Button>
+                </div>
+              )}
+            </fieldset>
+          );
+        })}
+        <div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className={CAPTURE_BUTTON}
+            disabled={!puedeAgregarSoporte || create.isPending}
+            onClick={agregarSoporte}
+          >
+            Agregar otro soporte
+          </Button>
+        </div>
+      </div>
 
       <div className="flex items-center gap-2 sm:col-span-2">
         <Button type="submit" size="sm" className={CAPTURE_BUTTON} disabled={create.isPending}>

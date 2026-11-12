@@ -1726,8 +1726,12 @@ export type ProjectExpenseInput = {
   subtotal: string;
   /** Decimal como string; puede ser "0", nunca negativo. El Total lo calcula el servidor. */
   iva: string;
-  /** Un soporte: archivo (firma -> subida -> confirmación) o enlace https. */
-  soporte: AvanceMedioInput;
+  /**
+   * Uno o varios soportes (tope `MAX_SOPORTES` de la API), cada uno un archivo (firma -> subida ->
+   * confirmación) o un enlace https: la tabla guarda un medio por fila, así que una mezcla es una
+   * lista y no una fila con los dos. Se envían en el orden recibido.
+   */
+  soportes: AvanceMedioInput[];
 };
 
 export function useProjectExpenses(id: string): UseQueryResult<ProjectExpenses> {
@@ -1774,20 +1778,24 @@ function useRefreshGastos() {
   };
 }
 
-/** Registra un gasto: sube su soporte (si es archivo) y confirma todo en un solo POST. */
+/** Registra un gasto: sube cada soporte de archivo (si hay) y confirma todos con los enlaces en un solo POST. */
 export function useCreateExpense(
   projectId: string,
 ): UseMutationResult<{ gasto: ProjectExpense; alertas: ExpenseAlert[] }, Error, ProjectExpenseInput> {
   const refresh = useRefreshGastos();
   return useMutation({
-    mutationFn: async ({ soporte, ...datos }) => {
-      const confirmado =
-        soporte.tipo === "archivo"
-          ? await uploadSoporteFile(`/api/v1/projects/${projectId}/expenses/sign`, soporte.file)
-          : { url_externa: soporte.url_externa, nombre: soporte.nombre };
+    mutationFn: async ({ soportes, ...datos }) => {
+      // `Promise.all` conserva el orden del arreglo: la respuesta queda en el mismo orden que armó la persona.
+      const confirmados = await Promise.all(
+        soportes.map((soporte) =>
+          soporte.tipo === "archivo"
+            ? uploadSoporteFile(`/api/v1/projects/${projectId}/expenses/sign`, soporte.file)
+            : Promise.resolve({ url_externa: soporte.url_externa, nombre: soporte.nombre }),
+        ),
+      );
       return apiPost<{ gasto: ProjectExpense; alertas: ExpenseAlert[] }>(
         `/api/v1/projects/${projectId}/expenses`,
-        { ...datos, soportes: [confirmado] },
+        { ...datos, soportes: confirmados },
       );
     },
     onSuccess: refresh,

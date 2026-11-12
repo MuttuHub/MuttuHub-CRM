@@ -41,8 +41,10 @@ describe("GastoForm", () => {
       const url = String(input)
       if (url.includes("/expenses/duplicates?")) return Promise.resolve(jsonResponse(duplicados))
       if (url.endsWith("/expenses/sign")) {
+        // One distinct storage_path per file name, so a test can tell the supports apart by their upload.
+        const { nombre } = JSON.parse(String(init?.body ?? "{}")) as { nombre?: string }
         return Promise.resolve(
-          jsonResponse({ storage_path: "proyectos/p1/soportes/u_f.pdf", token: "t", signed_url: "https://s.example/up", max_bytes: 10, allowed_extensions: ["pdf"] }),
+          jsonResponse({ storage_path: `proyectos/p1/soportes/u_${nombre ?? "soporte"}`, token: "t", signed_url: "https://s.example/up", max_bytes: 10, allowed_extensions: ["pdf"] }),
         )
       }
       if (url === "https://s.example/up") return Promise.resolve(new Response(null, { status: 200 }))
@@ -472,6 +474,131 @@ describe("GastoForm", () => {
     expect(postedBody().soportes).toEqual([
       expect.objectContaining({ storage_path: "proyectos/p1/soportes/u_f.pdf", nombre: "f.pdf", tamano_bytes: 1 }),
     ])
+  })
+
+  // AJ-08 (S2): «cada gasto admite varios archivos y varios enlaces a la vez». Una lista de soportes con
+  // «Agregar otro soporte»; cada fila elige su medio y el POST los lleva todos en el orden armado.
+  describe("varios soportes", () => {
+    /** File names sent to `/expenses/sign`, in call order: the uploads that actually happened. */
+    const nombresFirmados = () =>
+      fetchMock.mock.calls
+        .filter(([url]) => String(url).endsWith("/expenses/sign"))
+        .map(([, init]) => (JSON.parse(String((init as RequestInit).body)) as { nombre: string }).nombre)
+
+    const elegirArchivo = async (
+      user: ReturnType<typeof userEvent.setup>,
+      etiqueta: string,
+      nombre: string,
+    ) => user.upload(screen.getByLabelText(etiqueta), new File(["x"], nombre, { type: "application/pdf" }))
+
+    it("registra 2 archivos y 1 enlace, en el orden en que se agregaron (S2)", async () => {
+      const user = userEvent.setup({ delay: null })
+      setup()
+      await llenarBasicos(user)
+
+      await elegirArchivo(user, "Archivo del soporte", "uno.pdf")
+
+      await user.click(screen.getByRole("button", { name: "Agregar otro soporte" }))
+      await user.click(screen.getByRole("radio", { name: "Enlace 2" }))
+      await user.type(screen.getByLabelText("URL 2"), "https://drive.example/dos")
+      await user.type(screen.getByLabelText("Nombre del enlace 2"), "Enlace dos")
+
+      await user.click(screen.getByRole("button", { name: "Agregar otro soporte" }))
+      await elegirArchivo(user, "Archivo del soporte 3", "tres.pdf")
+
+      await user.click(screen.getByRole("button", { name: "Registrar" }))
+
+      await waitFor(() => expect(postedBody()).not.toBeNull())
+      expect(postedBody().soportes).toEqual([
+        expect.objectContaining({ storage_path: "proyectos/p1/soportes/u_uno.pdf", nombre: "uno.pdf", tamano_bytes: 1 }),
+        { url_externa: "https://drive.example/dos", nombre: "Enlace dos" },
+        expect.objectContaining({ storage_path: "proyectos/p1/soportes/u_tres.pdf", nombre: "tres.pdf", tamano_bytes: 1 }),
+      ])
+      expect(nombresFirmados()).toEqual(["uno.pdf", "tres.pdf"])
+      await waitFor(() => expect(onDone).toHaveBeenCalled())
+    })
+
+    it("«Agregar otro soporte» agrega una fila y «Quitar soporte 2» la elimina sin subir su archivo (S2)", async () => {
+      const user = userEvent.setup({ delay: null })
+      setup()
+      await llenarBasicos(user)
+
+      expect(screen.queryByRole("group", { name: "Soporte 2" })).not.toBeInTheDocument()
+      await user.click(screen.getByRole("button", { name: "Agregar otro soporte" }))
+      expect(screen.getByRole("group", { name: "Soporte 2" })).toBeInTheDocument()
+
+      await elegirArchivo(user, "Archivo del soporte 2", "borrame.pdf")
+      expect(screen.getByText("borrame.pdf")).toBeInTheDocument()
+
+      await user.click(screen.getByRole("button", { name: "Quitar soporte 2" }))
+      expect(screen.queryByRole("group", { name: "Soporte 2" })).not.toBeInTheDocument()
+      expect(screen.queryByText("borrame.pdf")).not.toBeInTheDocument()
+
+      await elegirArchivo(user, "Archivo del soporte", "uno.pdf")
+      await user.click(screen.getByRole("button", { name: "Registrar" }))
+
+      await waitFor(() => expect(postedBody()).not.toBeNull())
+      expect(postedBody().soportes).toEqual([expect.objectContaining({ nombre: "uno.pdf" })])
+      expect(nombresFirmados()).toEqual(["uno.pdf"])
+    })
+
+    it("se detiene en 5 soportes: no se puede agregar un sexto (S2)", async () => {
+      const user = userEvent.setup({ delay: null })
+      setup()
+      const agregar = screen.getByRole("button", { name: "Agregar otro soporte" })
+
+      for (let fila = 2; fila <= 5; fila += 1) await user.click(agregar)
+
+      expect(screen.getByRole("group", { name: "Soporte 5" })).toBeInTheDocument()
+      expect(agregar).toBeDisabled()
+
+      await user.click(agregar)
+      expect(screen.queryByRole("group", { name: "Soporte 6" })).not.toBeInTheDocument()
+      expect(screen.getAllByRole("group")).toHaveLength(5)
+    })
+
+    it("bloquea el guardado si una fila de archivo quedó sin archivo (S2)", async () => {
+      const user = userEvent.setup({ delay: null })
+      setup()
+      await llenarBasicos(user)
+      await elegirArchivo(user, "Archivo del soporte", "uno.pdf")
+      await user.click(screen.getByRole("button", { name: "Agregar otro soporte" }))
+
+      await user.click(screen.getByRole("button", { name: "Registrar" }))
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("Adjunta al menos un soporte (archivo o enlace).")
+      const incompleta = screen.getByRole("group", { name: "Soporte 2" })
+      expect(incompleta).toHaveAttribute("aria-invalid", "true")
+      expect(incompleta).toHaveAccessibleDescription("Adjunta al menos un soporte (archivo o enlace).")
+      // The complete row is not flagged.
+      expect(screen.getByRole("group", { name: "Soporte" })).not.toHaveAttribute("aria-invalid")
+      expect(postedBody()).toBeNull()
+    })
+
+    it("bloquea el guardado si una fila de enlace quedó sin nombre, y la deja pasar al completarla (S2)", async () => {
+      const user = userEvent.setup({ delay: null })
+      setup()
+      await llenarBasicos(user)
+      await elegirArchivo(user, "Archivo del soporte", "uno.pdf")
+      await user.click(screen.getByRole("button", { name: "Agregar otro soporte" }))
+      await user.click(screen.getByRole("radio", { name: "Enlace 2" }))
+      await user.type(screen.getByLabelText("URL 2"), "https://drive.example/dos")
+
+      await user.click(screen.getByRole("button", { name: "Registrar" }))
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("Adjunta al menos un soporte (archivo o enlace).")
+      const incompleta = screen.getByRole("group", { name: "Soporte 2" })
+      expect(incompleta).toHaveAttribute("aria-invalid", "true")
+      expect(postedBody()).toBeNull()
+
+      await user.type(screen.getByLabelText("Nombre del enlace 2"), "Enlace dos")
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+      expect(screen.getByRole("group", { name: "Soporte 2" })).not.toHaveAttribute("aria-invalid")
+
+      await user.click(screen.getByRole("button", { name: "Registrar" }))
+      await waitFor(() => expect(postedBody()).not.toBeNull())
+      expect(postedBody().soportes).toHaveLength(2)
+    })
   })
 
   it("shows the duplicate and early-overspend alerts the API returns, and waits for the user to close", async () => {
