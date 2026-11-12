@@ -16,13 +16,15 @@ import { errorMessage } from "@/components/proyectos/estructura-ui";
 import { CAPTURE_BUTTON, CAPTURE_CHOICE, CAPTURE_FIELD, CAPTURE_TEXTAREA, InlineError, SELECT_CLASS_LG as SELECT } from "@/components/proyectos/ui";
 import {
   useCreateExpense,
+  useExpenseDuplicates,
   type AvanceMedioInput,
   type ExpenseAlert,
+  type ExpenseDuplicateQuery,
   type ProjectBudgetRubro,
   type ProjectExpense,
   type ProjectListRow,
 } from "@/hooks/projects";
-import { parseMontoInput } from "@/components/proyectos/presupuesto-ui";
+import { formatMontoInput, parseMontoInput } from "@/components/proyectos/presupuesto-ui";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { periodOf, projectPeriods, todayInBogota } from "@/lib/proyectos/weeks";
 import { SelectorArchivo } from "@/components/proyectos/selector-archivo";
@@ -34,6 +36,9 @@ const PERIODO_REQUERIDO = "Elige el periodo: la fecha del documento está fuera 
 const IVA_VACIO = "Ingresa el IVA (puede ser 0).";
 const IVA_INVALIDO =
   "Ingresa un IVA válido con máximo dos decimales; usa coma para los decimales (1.500,50). Puede ser 0.";
+const IVA_EXCEDE_19 =
+  "El IVA supera el 19 % del subtotal. Revisa los valores; puedes registrar el gasto igualmente.";
+const POSIBLE_DUPLICADO = "Posible duplicado";
 
 export const TIPO_SOPORTE_LABELS: Record<ProjectExpense["tipo_soporte"], string> = {
   FACTURA_PROVEEDOR: "Factura de proveedor",
@@ -96,6 +101,18 @@ function normalizarIva(texto: string): string | null {
   return limpio === "" ? null : parseMontoInput(limpio);
 }
 
+/**
+ * S2/L16 (c): miles a la vista mientras se escribe. Si la persona sigue escribiendo dígitos después
+ * de un grupo completo («1.500» + «0» = «1.5000»), esos dígitos alargan el entero: se quitan los puntos
+ * y se vuelve a agrupar. Un punto seguido de menos de tres dígitos no se toca, para que «1.50» siga
+ * siendo inválido en vez de convertirse en 150 en silencio.
+ */
+function formatearMontoAlEscribir(texto: string): string {
+  return /^\d{1,3}(?:\.\d{3})+\d+$/.test(texto)
+    ? formatMontoInput(texto.replace(/\./g, ""))
+    : formatMontoInput(texto);
+}
+
 const SIN_RUBROS = "Aún no hay rubros con monto asignado. Asigna primero un monto a un rubro en Presupuesto.";
 
 export function GastoForm({
@@ -132,6 +149,18 @@ export function GastoForm({
   const [local, setLocal] = useState<string | null>(null);
   const [alertas, setAlertas] = useState<ExpenseAlert[] | null>(null);
 
+  // S2/L16 (b): consulta previa de duplicados en cuanto están la identificación y el documento.
+  const consultaDuplicados: ExpenseDuplicateQuery | null =
+    numeroId.trim() !== "" && numeroDoc.trim() !== ""
+      ? {
+          tercero_tipo_id: tipoId === "" ? null : tipoId,
+          tercero_numero_id: numeroId.trim(),
+          numero_documento: numeroDoc.trim(),
+        }
+      : null;
+  const duplicados = useExpenseDuplicates(proyecto.id, consultaDuplicados);
+  const alertasDuplicado = duplicados.data ?? [];
+
   /** S7: quita el archivo elegido y limpia el `<input>` nativo (no se resetea solo con el estado). */
   function quitarArchivo() {
     setArchivo(null);
@@ -145,9 +174,10 @@ export function GastoForm({
     if (rubroId === "") return setLocal("Elige el rubro.");
     if (fecha === "") return setLocal("La fecha del documento es obligatoria.");
     if (periodo === "") return setLocal(PERIODO_REQUERIDO);
-    if (subtotalNormal === null) return setLocal(SUBTOTAL_INVALIDO);
+    // Los errores de monto ya están en línea junto al campo; el aviso general solo cubre el vacío.
+    if (subtotalNormal === null) return setLocal(subtotal.trim() === "" ? SUBTOTAL_INVALIDO : null);
     if (iva.trim() === "") return setLocal(IVA_VACIO);
-    if (ivaNormal === null) return setLocal(IVA_INVALIDO);
+    if (ivaNormal === null) return setLocal(null);
     if (tercero.trim() === "") return setLocal("El nombre del tercero es obligatorio.");
     if (numeroDoc.trim() === "") return setLocal("El número de documento es obligatorio.");
     if (descripcion.trim() === "") return setLocal("La descripción es obligatoria.");
@@ -214,6 +244,17 @@ export function GastoForm({
   const totalTexto = formatCOP(
     (subtotalCents === null ? BigInt(0) : toCents(subtotalCents)) + (ivaCents === null ? BigInt(0) : toCents(ivaCents)),
   );
+  // S2/L16 (c): errors are shown as soon as the field has text; empty stays for the submit check.
+  const subtotalError = subtotal.trim() !== "" && subtotalCents === null ? SUBTOTAL_INVALIDO : null;
+  const ivaError = iva.trim() !== "" && ivaCents === null ? IVA_INVALIDO : null;
+  // «Supera el 19 %»: se compara en centavos y sin redondear (iva × 100 > subtotal × 19).
+  const ivaExcede19 =
+    subtotalCents !== null &&
+    ivaCents !== null &&
+    toCents(ivaCents) * BigInt(100) > toCents(subtotalCents) * BigInt(19);
+  const ivaDescritoPor = [ivaError !== null ? `${p}-iva-error` : null, ivaExcede19 ? `${p}-iva-aviso` : null]
+    .filter((id): id is string => id !== null)
+    .join(" ");
   return (
     <form
       aria-label="Registrar gasto"
@@ -244,18 +285,49 @@ export function GastoForm({
           id={`${p}-subtotal`}
           inputMode="decimal"
           value={subtotal}
-          onChange={(e) => setSubtotal(e.target.value)}
+          onChange={(e) => setSubtotal(formatearMontoAlEscribir(e.target.value))}
           className={FIELD}
+          aria-invalid={subtotalError !== null ? true : undefined}
+          aria-describedby={subtotalError !== null ? `${p}-subtotal-error` : undefined}
         />
+        {subtotalError !== null && (
+          <div id={`${p}-subtotal-error`}>
+            <InlineError message={subtotalError} />
+          </div>
+        )}
       </Campo>
 
       <Campo id={`${p}-iva`} label="IVA">
-        <Input id={`${p}-iva`} inputMode="decimal" value={iva} onChange={(e) => setIva(e.target.value)} className={FIELD} />
+        <Input
+          id={`${p}-iva`}
+          inputMode="decimal"
+          value={iva}
+          onChange={(e) => setIva(formatearMontoAlEscribir(e.target.value))}
+          className={FIELD}
+          aria-invalid={ivaError !== null ? true : undefined}
+          aria-describedby={ivaDescritoPor === "" ? undefined : ivaDescritoPor}
+        />
+        {ivaError !== null && (
+          <div id={`${p}-iva-error`}>
+            <InlineError message={ivaError} />
+          </div>
+        )}
       </Campo>
 
       <Campo id={`${p}-total`} label="Total">
         <Input id={`${p}-total`} readOnly tabIndex={-1} value={totalTexto} className={FIELD} />
       </Campo>
+
+      {ivaExcede19 && (
+        <p
+          id={`${p}-iva-aviso`}
+          role="status"
+          className="flex items-start gap-1.5 text-[12.5px] text-alerta sm:col-span-2"
+        >
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-alerta" strokeWidth={2} aria-hidden />
+          {IVA_EXCEDE_19}
+        </p>
+      )}
 
       <Campo id={`${p}-fecha`} label="Fecha del documento">
         <Input
@@ -333,6 +405,23 @@ export function GastoForm({
       <Campo id={`${p}-numid`} label="Número de identificación">
         <Input id={`${p}-numid`} value={numeroId} onChange={(e) => setNumeroId(e.target.value)} className={FIELD} />
       </Campo>
+
+      {alertasDuplicado.length > 0 && (
+        <div
+          role="status"
+          className="flex flex-col gap-1 rounded-inner border border-alerta/40 bg-panel p-3 sm:col-span-2"
+        >
+          <p className="flex items-center gap-1.5 text-[13px] font-semibold text-ink-900">
+            <AlertTriangle className="size-4 text-alerta" strokeWidth={2} aria-hidden />
+            {POSIBLE_DUPLICADO}
+          </p>
+          <ul className="flex flex-col gap-1 text-[12.5px] text-ink-800">
+            {alertasDuplicado.map((alerta, index) => (
+              <li key={`${alerta.gasto_id ?? alerta.proyecto_codigo ?? "duplicado"}-${index}`}>{alerta.mensaje}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <Campo id={`${p}-desc`} label="Descripción" className="sm:col-span-2">
         <textarea

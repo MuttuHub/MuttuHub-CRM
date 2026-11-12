@@ -307,6 +307,9 @@ export const projectQueryKeys = {
   curve: (id: string, base: string = "vigente") => ["projects", "curve", id, base] as const,
   portfolio: (filters: PortfolioFilters) => ["projects", "portfolio", filters] as const,
   expenses: (id: string) => ["projects", "expenses", id] as const,
+  /** Consulta previa de duplicados (S2/L16 b): la clave incluye los tres campos de identidad que viajan. */
+  expenseDuplicates: (id: string, query: ExpenseDuplicateQuery | null) =>
+    ["projects", "expense-duplicates", id, query] as const,
   versions: (id: string) => ["projects", "versions", id] as const,
   versionCompare: (id: string, from: string, to: string) => ["projects", "version-compare", id, from, to] as const,
   modifications: (id: string) => ["projects", "modifications", id] as const,
@@ -1696,7 +1699,17 @@ export type ProjectExpenses = {
 
 export type ExpenseAlert =
   | { tipo: "SOBREGASTO"; mensaje: string }
+  | { tipo: "SOBREGASTO_PROGRAMADO"; mensaje: string }
   | { tipo: "DUPLICADO"; gasto_id: string | null; proyecto_codigo: string | null; mensaje: string };
+
+/** Aviso de la consulta previa de duplicados: la misma forma y redacción que el aviso posterior al guardado. */
+export type ExpenseDuplicateAlert = Extract<ExpenseAlert, { tipo: "DUPLICADO" }>;
+
+export type ExpenseDuplicateQuery = {
+  tercero_tipo_id: "NIT" | "CC" | "CE" | null;
+  tercero_numero_id: string;
+  numero_documento: string;
+};
 
 export type ProjectExpenseInput = {
   rubro_id: string;
@@ -1722,6 +1735,32 @@ export function useProjectExpenses(id: string): UseQueryResult<ProjectExpenses> 
     queryKey: projectQueryKeys.expenses(id),
     enabled: id !== "",
     queryFn: () => apiGet<ProjectExpenses>(`/api/v1/projects/${id}/expenses`),
+  });
+}
+
+/**
+ * S2/L16 (b): consulta de solo lectura antes de guardar, sin paso de confirmación. Solo corre cuando
+ * hay número de identificación y número de documento; un tercero sin identificación no se detecta (RF-21).
+ * La redacción y la clave normalizada las decide el servidor (misma que `buscarDuplicados`).
+ */
+export function useExpenseDuplicates(
+  projectId: string,
+  query: ExpenseDuplicateQuery | null,
+): UseQueryResult<ExpenseDuplicateAlert[]> {
+  return useQuery({
+    queryKey: projectQueryKeys.expenseDuplicates(projectId, query),
+    enabled: projectId !== "" && query !== null,
+    queryFn: async () => {
+      if (query === null) return [];
+      const sp = new URLSearchParams();
+      if (query.tercero_tipo_id !== null) sp.set("tercero_tipo_id", query.tercero_tipo_id);
+      sp.set("tercero_numero_id", query.tercero_numero_id);
+      sp.set("numero_documento", query.numero_documento);
+      const res = await apiGet<{ alertas: ExpenseDuplicateAlert[] }>(
+        `/api/v1/projects/${projectId}/expenses/duplicates?${sp.toString()}`,
+      );
+      return res.alertas ?? [];
+    },
   });
 }
 
