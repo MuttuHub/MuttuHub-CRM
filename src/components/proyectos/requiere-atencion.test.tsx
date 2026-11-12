@@ -41,6 +41,12 @@ const SIN_SOPORTE = {
   detalle: "Avance del 02 nov 2026 sin soporte adjunto.",
   avance_id: "v1",
 }
+const SOLICITUD = {
+  tipo: "modificacion_pendiente",
+  titulo: "Solicitud de modificación pendiente",
+  detalle: "Traslado entre rubros: solicitada por Ana Pérez el 10 nov 2026.",
+  solicitud_id: "s1",
+}
 const INDICADORES = [
   { tipo: "indicador_bajo_meta", titulo: "Indicador bajo la meta", detalle: "Unidades fortalecidas: 9 de meta 30.", indicador_id: "i1" },
   { tipo: "indicador_bajo_meta", titulo: "Indicador bajo la meta", detalle: "Personas formadas: 12 de meta 60.", indicador_id: "i2" },
@@ -135,7 +141,7 @@ function renderCard({
   onAccion,
 }: {
   estado?: string
-  onIrA?: (destino: "actividades" | "finanzas") => void
+  onIrA?: (destino: "actividades" | "finanzas" | "historial") => void
   onAccion?: (accion: AccionAtencion) => void
 } = {}) {
   return render(
@@ -305,6 +311,31 @@ describe("RequiereAtencion («Qué falta»)", () => {
     expect(fila).toHaveTextContent("Adjunta el archivo o el enlace que lo respalda.")
     await user.click(await within(fila).findByRole("button", { name: "Adjuntar soporte" }))
     expect(onAccion).toHaveBeenCalledWith({ tipo: "adjuntar-soporte", avanceId: "v1" })
+  })
+
+  it("shows a pending modification request to any reader and opens the requests of the Historial (AJ-09)", async () => {
+    mockApi({ items: [SOLICITUD], rol: "COLABORADOR", userId: "u3" })
+    const onAccion = vi.fn()
+    const onIrA = vi.fn()
+    const user = userEvent.setup()
+
+    const conAccion = renderCard({ onIrA, onAccion })
+
+    const fila = await screen.findByTestId("atencion-modificacion_pendiente")
+    expect(fila).toHaveTextContent("Solicitud de modificación pendiente")
+    expect(fila).toHaveTextContent("Traslado entre rubros: solicitada por Ana Pérez el 10 nov 2026.")
+    expect(within(fila).getByText("Traslado entre rubros:").tagName).toBe("B")
+    expect(fila).toHaveTextContent("Le toca a Gerencia aprobarla o rechazarla.")
+    await user.click(within(fila).getByRole("button", { name: "Ver solicitudes" }))
+    expect(onAccion).toHaveBeenCalledWith({ tipo: "ver-solicitudes" })
+    expect(onIrA).not.toHaveBeenCalled()
+    conAccion.unmount()
+
+    // Without `onAccion` the row falls back to the tab where the requests live.
+    renderCard({ onIrA })
+    const otra = await screen.findByTestId("atencion-modificacion_pendiente")
+    await user.click(within(otra).getByRole("button", { name: "Ver solicitudes" }))
+    expect(onIrA).toHaveBeenCalledWith("historial")
   })
 
   it("groups the indicators below their goal in one row that opens the indicators", async () => {

@@ -1,7 +1,7 @@
 // GET /api/v1/projects/:id/modifications — the modification requests of a project (S8 U4).
 // POST — request a modification (E-26, RF-28).
 //
-// POST: ADM/GER, or a COORDINADOR who is an active member (A-01); only for an EN_EJECUCION project
+// POST: ADM/GER, or a COORDINADOR / COLABORADOR who is an active member (A-01); only for an EN_EJECUCION project
 // with an approved baseline. The detail is dry-run against the live project with the same rules the
 // approval applies (400 with every broken rule in `reglas`); the request stores the newest version
 // number as its base, so the approval can detect that the project moved on since. Order: project

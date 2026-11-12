@@ -1,7 +1,7 @@
 // Formulario "Solicitar modificación" (S8 U6, E-26). Ofrece solo los campos que el tipo permite y
 // envía lo que cambió, con el valor que la persona vio como `antes`. NO valida reglas: RF-28 y
 // REQ-GAS-06 las decide la API y llegan en línea (todas a la vez). El botón lo ven quienes gestionan
-// proyectos y el COORDINADOR integrante (A-01); es comodidad, la autoridad es la API.
+// proyectos y los integrantes del equipo, COORDINADOR o COLABORADOR (A-01); es comodidad, la autoridad es la API.
 
 "use client";
 

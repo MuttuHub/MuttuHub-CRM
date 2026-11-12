@@ -1,7 +1,7 @@
 // POST/GET /api/v1/projects/:id/modifications (S8 U4, E-26).
 //
 // Mocked db and dry run: pins the order (404 -> 403 -> 409 -> 400), who may request (ADM/GER or a
-// member COORDINADOR, A-01), the need of a v0, the RF-28 answer and the SOLICITAR audit. The rules
+// member COORDINADOR / COLABORADOR, A-01), the need of a v0, the RF-28 answer and the SOLICITAR audit. The rules
 // themselves are covered in proyectos/modificaciones.test.ts and the approval live in
 // prisma/modificaciones.invariant.test.ts.
 
@@ -17,21 +17,43 @@ const mocks = vi.hoisted(() => ({
   usuarioFindMany: vi.fn(),
   evaluar: vi.fn(),
   logChange: vi.fn(),
+  /** Every write to the budget, the programming, the versions or the project header lands here. */
+  escrituraDelPlan: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({ requireApiUser: vi.fn() }));
 vi.mock("@/lib/api/audit-cambios", () => ({ logChange: mocks.logChange }));
-vi.mock("@/lib/db", () => ({
-  db: {
-    proyecto: { findFirst: mocks.proyectoFindFirst },
-    versionProyecto: { findFirst: mocks.versionFindFirst, aggregate: mocks.versionAggregate },
-    solicitudModificacion: { create: mocks.solicitudCreate, findMany: mocks.solicitudFindMany },
-    usuario: { findMany: mocks.usuarioFindMany },
-    $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
-      fn({ solicitudModificacion: { create: mocks.solicitudCreate } }),
-    ),
-  },
-}));
+vi.mock("@/lib/db", () => {
+  const escribir = mocks.escrituraDelPlan;
+  const escrituras = () => ({
+    create: escribir,
+    createMany: escribir,
+    update: escribir,
+    updateMany: escribir,
+    upsert: escribir,
+    delete: escribir,
+    deleteMany: escribir,
+  });
+  // The tables an APPROVAL changes: a request must leave all of them alone, in and out of the transaction.
+  const plan = () => ({ lineaPresupuestal: escrituras(), programacionPeriodo: escrituras() });
+  return {
+    db: {
+      ...plan(),
+      proyecto: { ...escrituras(), findFirst: mocks.proyectoFindFirst },
+      versionProyecto: { ...escrituras(), findFirst: mocks.versionFindFirst, aggregate: mocks.versionAggregate },
+      solicitudModificacion: { create: mocks.solicitudCreate, findMany: mocks.solicitudFindMany },
+      usuario: { findMany: mocks.usuarioFindMany },
+      $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) =>
+        fn({
+          ...plan(),
+          proyecto: escrituras(),
+          versionProyecto: escrituras(),
+          solicitudModificacion: { create: mocks.solicitudCreate },
+        }),
+      ),
+    },
+  };
+});
 vi.mock("@/lib/api/modificaciones", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api/modificaciones")>();
   return { ...actual, evaluarSolicitud: mocks.evaluar };
@@ -117,6 +139,43 @@ describe("POST /api/v1/projects/:id/modifications", () => {
     const res = await POST(post(), ctx);
     expect(res.status).toBe(201);
     expect(mocks.solicitudCreate.mock.calls[0]![0].data.solicitado_por_id).toBe("coord-1");
+  });
+
+  it("lets a member COLABORADOR, the Gestor, create a traslado request (AJ-09)", async () => {
+    authAs(colaborador);
+    mocks.proyectoFindFirst.mockResolvedValue(proyecto("EN_EJECUCION", true));
+    mocks.solicitudCreate.mockResolvedValue(fila({ version_base_numero: 2, solicitado_por_id: "col-1" }));
+    mocks.usuarioFindMany.mockResolvedValue([{ id: "col-1", nombre: "Camilo" }]);
+
+    const res = await POST(post(), ctx);
+    const json = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(json.solicitud).toMatchObject({ tipo: "TRASLADO", estado: "PENDIENTE", solicitado_por: { id: "col-1", nombre: "Camilo" } });
+    expect(mocks.solicitudCreate.mock.calls[0]![0].data).toMatchObject({
+      proyecto_id: "pry-1",
+      tipo: "TRASLADO",
+      motivo: "Mover transporte a dotación",
+      detalle: BODY.detalle,
+      solicitado_por_id: "col-1",
+    });
+  });
+
+  it("stores only the request and its audit row: the budget stays as it was until the approval (AJ-09)", async () => {
+    const res = await POST(post(), ctx);
+    const json = await res.json();
+
+    expect(res.status).toBe(201);
+    // The request waits for a decision and points at no new version.
+    expect(json.solicitud).toMatchObject({ estado: "PENDIENTE", decidido_por: null, version_numero: null });
+    // Exactly two writes: the request row and its SOLICITAR audit row.
+    expect(mocks.solicitudCreate).toHaveBeenCalledTimes(1);
+    expect(mocks.logChange).toHaveBeenCalledTimes(1);
+    expect(mocks.logChange.mock.calls[0]![1]).toMatchObject({ accion: "SOLICITAR", entidad: "solicitud" });
+    // Nothing of the plan: no budget line, no programming cell, no version, no project header.
+    expect(mocks.escrituraDelPlan).not.toHaveBeenCalled();
+    // The proposed values travel only inside the request, as its detail.
+    expect(mocks.solicitudCreate.mock.calls[0]![0].data.detalle).toEqual(BODY.detalle);
   });
 
   it("answers 409 when the project is not EN_EJECUCION", async () => {

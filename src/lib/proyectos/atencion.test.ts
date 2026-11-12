@@ -27,6 +27,7 @@ function input(over: Partial<AtencionInput> = {}): AtencionInput {
     indicadores: [],
     rubros: [],
     gastos: [],
+    modificaciones: [],
     ...over,
   }
 }
@@ -178,6 +179,40 @@ describe("construirAtencion", () => {
       expect(construirAtencion(input({ gastos: [gasto()] }))).toEqual([])
       expect(construirAtencion(input({ gastos: [gasto({ estado: "VALIDADO", alerta_sobregasto: true })] }))).toEqual([])
       expect(construirAtencion(input({ gastos: [gasto({ estado: "ANULADO", datos_incompletos: true })] }))).toEqual([])
+    })
+  })
+
+  describe("modificacion_pendiente (AJ-09)", () => {
+    const solicitud = (over: Partial<AtencionInput["modificaciones"][number]> = {}) => ({
+      id: "s1",
+      tipo: "TRASLADO" as const,
+      estado: "PENDIENTE" as const,
+      solicitado_por: "Ana Pérez",
+      solicitado_at: "2026-11-10",
+      ...over,
+    })
+
+    it("lists each pending request with its type, who asked and when, and nothing once it is decided", () => {
+      const items = construirAtencion(
+        input({
+          modificaciones: [
+            solicitud(),
+            solicitud({ id: "s2", tipo: "CRONOGRAMA", solicitado_por: null }),
+            solicitud({ id: "s3", estado: "APROBADA" }),
+            solicitud({ id: "s4", estado: "RECHAZADA" }),
+          ],
+        }),
+      )
+
+      expect(tipos(items)).toEqual(["modificacion_pendiente", "modificacion_pendiente"])
+      expect(items.map((item) => item.solicitud_id)).toEqual(["s1", "s2"])
+      expect(items.map((item) => item.titulo)).toEqual([
+        "Solicitud de modificación pendiente",
+        "Solicitud de modificación pendiente",
+      ])
+      expect(items[0].detalle).toMatch(/^Traslado entre rubros: solicitada por Ana Pérez el 10 (de )?nov(\.)?( de)? 2026\.$/)
+      // The requester's name is an audit pointer without a foreign key: it may no longer resolve.
+      expect(items[1].detalle).toMatch(/^Cronograma: solicitada el 10 (de )?nov(\.)?( de)? 2026\.$/)
     })
   })
 

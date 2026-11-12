@@ -2,7 +2,8 @@
 //
 // The server owns the whole reading: which budget lines overspent (E > A), which activities are due
 // and still below the tope (AJ-03), which avances lack a support, which indicators are below their target, the
-// financial delay alert and the D5 "observed" expenses. Copy and reference ids come from the server;
+// financial delay alert, the D5 "observed" expenses and the modification requests still waiting for a
+// decision (AJ-09). Copy and reference ids come from the server;
 // the client only renders (D11). Whoever can read the project reads it, in any estado
 // (404 -> 403 -> 409 -> 400); a project outside the measurable states answers 200 with `medible: false`
 // and an empty list.
@@ -34,7 +35,11 @@ export const GET = withApiErrorHandling(
     if (!canReadProject(auth.usuario, scoped.es_miembro)) return apiError(EJECUCION_FORBIDDEN_MESSAGE, 403, "FORBIDDEN");
 
     const params = new URL(request.url).searchParams;
-    const result = await cargarAtencion({ proyecto: scoped.row, corteParam: params.get("corte") });
+    const result = await cargarAtencion({
+      proyecto: scoped.row,
+      corteParam: params.get("corte"),
+      incluirSolicitudes: true,
+    });
     if (!result.ok) return result.response;
     return NextResponse.json(result.value);
   },

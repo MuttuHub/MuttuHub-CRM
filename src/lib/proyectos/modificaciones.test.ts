@@ -137,6 +137,17 @@ describe("validarModificacion", () => {
     expect(valida(liveF_V1(), "REDUCCION", detalle, { ejecutado: new Map([["R12", toCents("23000000")]]) })).toEqual([])
   })
 
+  it("rejects a TRASLADO that leaves the origin rubro below what it already executed (AJ-09)", () => {
+    // R12 gives 1.000.000 to R13 (24M -> 23M) while it already has 23.500.000 validated.
+    const errores = valida(liveF_V1(), "TRASLADO", traslado(), { ejecutado: new Map([["R12", toCents("23500000")]]) })
+    expect(codigos(errores)).toEqual(["A_MENOR_QUE_EJECUTADO"])
+    expect(errores[0]!.clave).toBe("R12")
+    expect(errores[0]!.mensaje).toBe("El valor asignado de «R12» no puede quedar por debajo de lo ya ejecutado ($ 23.500.000).")
+    // Leaving the origin exactly at its executed amount is allowed, and so is what the destination executed.
+    const alLimite = new Map([["R12", toCents("23000000")], ["R13", toCents("13800000")]])
+    expect(valida(liveF_V1(), "TRASLADO", traslado(), { ejecutado: alLimite })).toEqual([])
+  })
+
   it("rejects a rubro that vanishes while it has validated expenses", () => {
     const detalle = [presupuesto("R15", "320000", "0"), ...["2026-10", "2026-11", "2026-12", "2027-01"].map((p) => celda(`R15|${p}`, "80000", "0"))]
     const errores = valida(liveF_V1(), "REDUCCION", detalle, { ejecutado: new Map([["R15", toCents("1")]]) })

@@ -5,6 +5,8 @@
 // sigue siendo la autoridad). Los nombres de la actividad, su responsable y los datos del gasto se leen de las
 // consultas que la ficha ya usa (actividades, equipo, gastos) y solo cuando hay una fila de ese tipo; si no
 // llegan, la fila muestra el texto del servidor. Un BORRADOR no se pide al servidor (nunca es medible).
+// Una solicitud de modificación pendiente (AJ-09) la ve quien lee el proyecto y lleva a las solicitudes del
+// Historial, donde Gerencia la aprueba o la rechaza.
 
 "use client";
 
@@ -36,14 +38,15 @@ const TITULO = "Qué falta";
 const AYUDA = "Lo que necesita una acción ahora. Cada fila te lleva al lugar exacto donde se resuelve.";
 
 /** Pestaña de la ficha donde se resuelve cada tipo de aviso. */
-export type AtencionDestino = "actividades" | "finanzas";
+export type AtencionDestino = "actividades" | "finanzas" | "historial";
 
 /** La acción exacta de una fila; quien monta la ficha decide cómo abrirla. */
 export type AccionAtencion =
   | { tipo: "registrar-avance"; actividadId: string }
   | { tipo: "revisar-gasto"; gastoId: string }
   | { tipo: "adjuntar-soporte"; avanceId: string }
-  | { tipo: "ver-indicadores" };
+  | { tipo: "ver-indicadores" }
+  | { tipo: "ver-solicitudes" };
 
 /** Sin `onAccion`, cada acción cae en la pestaña donde vive (el comportamiento de antes). */
 export const DESTINO_DE_ACCION: Record<AccionAtencion["tipo"], AtencionDestino> = {
@@ -51,11 +54,13 @@ export const DESTINO_DE_ACCION: Record<AccionAtencion["tipo"], AtencionDestino> 
   "revisar-gasto": "finanzas",
   "adjuntar-soporte": "actividades",
   "ver-indicadores": "actividades",
+  "ver-solicitudes": "historial",
 };
 
 const DESTINO_LABEL: Record<AtencionDestino, string> = {
   actividades: "Ver actividades",
   finanzas: "Ver finanzas",
+  historial: "Ver solicitudes",
 };
 
 /** Etiqueta llana por tipo (la del servidor se conserva para los tipos que el rediseño no redibuja). */
@@ -73,6 +78,7 @@ const TONE: Record<AtencionTipo, UiTone> = {
   avance_sin_soporte: "info",
   indicador_bajo_meta: "alerta",
   gasto_observado: "alerta",
+  modificacion_pendiente: "alerta",
 };
 
 const BOTON_FILA = "w-full sm:w-auto";
@@ -104,7 +110,8 @@ function agrupar(items: AtencionItem[]): Fila[] {
       indicadores.items.push(item);
       return;
     }
-    const id = item.rubro_id ?? item.actividad_id ?? item.avance_id ?? item.gasto_id ?? String(index);
+    const id =
+      item.rubro_id ?? item.actividad_id ?? item.avance_id ?? item.gasto_id ?? item.solicitud_id ?? String(index);
     filas.push({ clave: `${item.tipo}-${id}`, tipo: item.tipo, items: [item] });
   });
   return filas;
@@ -201,6 +208,16 @@ function FilaAtencion({
         </FilaBase>
       );
     }
+    case "modificacion_pendiente":
+      return (
+        <FilaBase tipo={fila.tipo} etiqueta={item.titulo}>
+          <p className="text-[13px] leading-relaxed text-ink-800">
+            <NombreEnNegrita texto={item.detalle} />
+            <span className="hidden sm:inline"> Le toca a Gerencia aprobarla o rechazarla.</span>
+          </p>
+          {onIrA && <BotonFila onClick={() => ir({ tipo: "ver-solicitudes" })}>{DESTINO_LABEL.historial}</BotonFila>}
+        </FilaBase>
+      );
     default:
       return (
         <FilaBase tipo={fila.tipo} etiqueta={item.titulo}>

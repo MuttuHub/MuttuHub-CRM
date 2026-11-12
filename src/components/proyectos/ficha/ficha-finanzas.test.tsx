@@ -1,7 +1,8 @@
 // Carril X · X2: segmentado de la pestaña "Finanzas" de la ficha (UX-1). Los tres hijos se burlan: aquí
 // solo se fija el segmento por defecto según el estado, el cambio de segmento y que solo se monte el activo.
+// AJ-09: «Solicitar traslado» abre el formulario simple (burlado) en un diálogo, solo para quien puede solicitar.
 
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { ProjectListRow } from "@/hooks/projects"
@@ -35,9 +36,27 @@ vi.mock("@/hooks/projects", () => ({
   },
 }))
 
+// Who may request a modification is decided by the shared hook (covered in project-modificaciones.test.tsx).
+const permiso = vi.hoisted(() => ({ puede: false, proyectos: [] as string[] }))
+vi.mock("@/components/proyectos/project-modificaciones", () => ({
+  usePuedeSolicitarModificacion: (proyecto: { id: string }) => {
+    permiso.proyectos.push(proyecto.id)
+    return permiso.puede
+  },
+}))
+vi.mock("@/components/proyectos/traslado-form", () => ({
+  TrasladoForm: ({ proyecto, onDone }: { proyecto: { id: string }; onDone: () => void }) => (
+    <div data-testid="traslado-form" data-proyecto={proyecto.id}>
+      <button onClick={onDone}>Terminar traslado</button>
+    </div>
+  ),
+}))
+
 beforeEach(() => {
   gastos.consulta = CARGANDO
   gastos.ids = []
+  permiso.puede = false
+  permiso.proyectos = []
 })
 
 const PROYECTO: ProjectListRow = {
@@ -161,6 +180,35 @@ describe("FichaFinanzas", () => {
     await user.click(screen.getByRole("button", { name: "Ver todos los gastos" }))
     expect(tab(/^Gastos$/)).toHaveAttribute("aria-selected", "true")
     expect(screen.getByTestId("segmento-gastos")).toBeInTheDocument()
+  })
+
+  it("offers «Solicitar traslado» only to who may request a modification of this project", () => {
+    const { unmount } = render(<FichaFinanzas proyecto={PROYECTO} />)
+    expect(screen.queryByRole("button", { name: "Solicitar traslado" })).not.toBeInTheDocument()
+    expect(permiso.proyectos).toContain("p1")
+    unmount()
+
+    permiso.puede = true
+    render(<FichaFinanzas proyecto={PROYECTO} />)
+    expect(screen.getByRole("button", { name: "Solicitar traslado" })).toBeInTheDocument()
+    // The form is not mounted until the dialog opens, and the segments stay as they were.
+    expect(screen.queryByTestId("traslado-form")).not.toBeInTheDocument()
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Resumen", "Gastos", "Presupuesto"])
+  })
+
+  it("opens the simple traslado form in a dialog and closes it when the form is done", async () => {
+    const user = userEvent.setup()
+    permiso.puede = true
+    render(<FichaFinanzas proyecto={PROYECTO} />)
+
+    await user.click(screen.getByRole("button", { name: "Solicitar traslado" }))
+    const dialogo = await screen.findByRole("dialog")
+    expect(within(dialogo).getByRole("heading", { name: "Solicitar traslado" })).toBeInTheDocument()
+    expect(within(dialogo).getByTestId("traslado-form")).toHaveAttribute("data-proyecto", "p1")
+
+    await user.click(within(dialogo).getByRole("button", { name: "Terminar traslado" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+    expect(screen.queryByTestId("traslado-form")).not.toBeInTheDocument()
   })
 
   it("passes «Ver actividades» through to Resumen only when the ficha offers it", async () => {

@@ -16,6 +16,7 @@ const AtencionItemSchema = registry.register(
       "avance_sin_soporte",
       "indicador_bajo_meta",
       "gasto_observado",
+      "modificacion_pendiente",
     ]),
     titulo: z.string().openapi({ description: "Título en español, propiedad del servidor." }),
     detalle: z.string().openapi({ description: "Detalle en español, propiedad del servidor." }),
@@ -24,6 +25,7 @@ const AtencionItemSchema = registry.register(
     avance_id: z.string().optional(),
     indicador_id: z.string().optional(),
     gasto_id: z.string().optional(),
+    solicitud_id: z.string().optional(),
   }),
 );
 
@@ -35,7 +37,7 @@ const AtencionSchema = registry.register(
     items: z.array(AtencionItemSchema).openapi({
       description:
         "Rubros sobreejecutados (E > A), actividades vencidas y bajo 100 % (D3), avances sin soporte, indicadores bajo meta, " +
-        "la alerta de retraso financiero y los gastos observados (D5).",
+        "la alerta de retraso financiero, los gastos observados (D5) y las solicitudes de modificación pendientes de decisión.",
     }),
   }),
 );
@@ -48,7 +50,8 @@ registry.registerPath({
   description:
     "Derivada en el servidor: rubros con ejecutado sobre lo asignado, actividades vencidas al corte con avance < 100 % (D3), " +
     "avances sin soporte, indicadores cuyo último valor no alcanza la meta, la alerta de retraso financiero y los gastos " +
-    "REGISTRADO observados (D5). El servidor es dueño del texto y de las referencias; el cliente solo pinta (D11). Lee quien " +
+    "REGISTRADO observados (D5), y las solicitudes de modificación que siguen pendientes de decisión, cualquiera sea el " +
+    "corte. El servidor es dueño del texto y de las referencias; el cliente solo pinta (D11). Lee quien " +
     "puede leer la ficha del proyecto, en cualquier estado (404 -> 403 -> 409 sin fechas -> 400 corte inválido); un proyecto no " +
     "medible responde 200 con `medible: false` y una lista vacía.",
   security: [{ sessionCookie: [] }],

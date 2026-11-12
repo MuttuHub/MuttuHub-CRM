@@ -1,6 +1,6 @@
 // Sección "Modificaciones" de la ficha (S8 U6, E-26). La cola de solicitudes de modificación: quien
 // gestiona proyectos aprueba o rechaza las pendientes (el rechazo exige comentario) y quien gestiona o es
-// COORDINADOR integrante puede solicitar una nueva (A-01). Los botones por rol son comodidad: la API es la
+// integrante del equipo (COORDINADOR o COLABORADOR) puede solicitar una nueva (A-01). Los botones por rol son comodidad: la API es la
 // autoridad y sus errores (reglas incumplidas, solicitud obsoleta, ya decidida) se muestran en línea.
 
 "use client";
