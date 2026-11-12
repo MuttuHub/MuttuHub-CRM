@@ -406,9 +406,13 @@ describe("E seam (live DB)", () => {
     })
     expect(fuente.fuente.disponible).toBe(true)
     // AJ-08: the REGISTRADO 40 already counts; RECHAZADO and ANULADO never do.
-    expect(fuente.fuente.gastos).toEqual([
-      { rubroId: fuente.rubroId, periodo: "2026-10", valor: toCents("100"), estado: "VALIDADO" },
-      { rubroId: fuente.rubroId, periodo: "2026-10", valor: toCents("40"), estado: "REGISTRADO" },
-    ])
+    // The loader has no orderBy (E sums the rows), so the row order is not part of the contract.
+    expect(fuente.fuente.gastos).toHaveLength(2)
+    expect(fuente.fuente.gastos).toEqual(
+      expect.arrayContaining([
+        { rubroId: fuente.rubroId, periodo: "2026-10", valor: toCents("100"), estado: "VALIDADO" },
+        { rubroId: fuente.rubroId, periodo: "2026-10", valor: toCents("40"), estado: "REGISTRADO" },
+      ]),
+    )
   })
 })
