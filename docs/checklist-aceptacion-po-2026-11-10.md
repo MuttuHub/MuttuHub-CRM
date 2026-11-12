@@ -45,7 +45,7 @@ Un criterio con `Estado: cubierto` significa que alguien corrió ese comando y l
 |---|---|---|---|---|
 | 1 | «Un usuario Gestor crea una solicitud de traslado.» | `npx vitest run src/components/proyectos/traslado-form.test.tsx` | Como Gestor, pedir un traslado entre dos rubros y verlo en la lista de pendientes. | cubierto (2026-11-12) |
 | 2 | «La solicitud no cambia el presupuesto hasta que el Gerente la aprueba.» | `npx vitest run src/lib/proyectos/traslado-simple.test.ts` | Crear la solicitud y mirar el asignado de ambos rubros: no se mueve hasta aprobar. | cubierto (2026-11-12) |
-| 3 | «No se puede trasladar un valor que deje el rubro de origen por debajo de lo ya ejecutado.» | `npx vitest run src/lib/proyectos/traslado-simple.test.ts` | Pedir un traslado mayor que el ejecutado del rubro de origen y ver si lo deja por debajo: la regla que hoy lo frena no es ésa. | ⚠️ **discrepancia de regla**: el código rechaza lo que supera lo **programado desde el periodo actual** (`traslado-simple.ts:97-104`), no lo **ejecutado**. La tarjeta `T3` del plan también dice «validación contra lo ejecutado». Hay que confirmar con la PO cuál de las dos es la regla. |
+| 3 | «No se puede trasladar un valor que deje el rubro de origen por debajo de lo ya ejecutado.» | `npx vitest run src/lib/proyectos/modificaciones.test.ts` | Pedir un traslado que deje el origen por debajo de lo ya gastado: se rechaza con el monto ejecutado en el mensaje. | cubierto: `modificaciones.test.ts:139` lo prueba con el caso del PO (24M → 23M con 23,5M ejecutado se rechaza; dejarlo justo en el ejecutado se acepta), en el validador del servidor (`A_MENOR_QUE_EJECUTADO`), no en el armador del cliente |
 
 ### AJ-10 · Alerta de posible retraso (`S4`, PR #170)
 
@@ -85,12 +85,6 @@ renglón por criterio, el comando que lo prueba y el paso manual cuando haya pan
    cerrar: cada renglón es un comando.
 2. **AJ-08 criterio 2** depende de datos reales («los $938.000 de Promoción y divulgación»): sólo se puede
    comprobar con la base local cargada con ese proyecto.
-3. **La rama `feat/t6-aj08-correccion-y-plantilla` tiene commits sin pushear** (el arreglo de
-   concurrencia y de gastos anulados) porque la red bloquea la verificación TLS. Hasta que se pushee, el PR
-   #175 no incluye ese arreglo.
-4. **AJ-09 criterio 3 pide una regla distinta de la implementada**, y esto necesita una respuesta de la PO antes de
-   darlo por bueno: el criterio habla de no dejar el rubro de origen «por debajo de lo ya ejecutado», y el código
-   rechaza lo que supera lo **programado desde el periodo actual** (`traslado-simple.ts:97-104`). No son la misma
-   garantía: con la regla actual un traslado puede dejar el origen por debajo de lo ejecutado y pasar. La tarjeta
-   `T3` del plan dice «validación contra lo ejecutado», así que o el código quedó corto o la PO quiso decir
-   «programado».
+3. **`tsc --noEmit` está en 0 errores** desde `4f6a8f4`: el modelo `EmailOutbox` siempre estuvo en el schema y lo
+   que faltaba era regenerar el cliente Prisma. Ya no hay ruido que tape un error de tipos real en esta
+   rama ni en `main`.
