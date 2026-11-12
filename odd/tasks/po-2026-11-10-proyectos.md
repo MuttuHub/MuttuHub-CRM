@@ -517,6 +517,21 @@ S11) · T15 recarga de CedeTextil en producción con ensayo (S12).
   `240ea66` (se borran las rutas de aprobación y sus rutas OpenAPI; 10 archivos, 1482 líneas, casi todo borrado),
   `780a604` (pantallas, hooks y e2e; 27 archivos, 2144 líneas) y `48e5607` (las tres guías). Los commits intermedios
   no se compilaron uno por uno: el PR se integra aplastado, como los anteriores.
+- **L13 (2026-11-11, T4, revisión nativa por tramos):** pedido del usuario, textual: «continuemos». Los tres tramos
+  de código quedaron aprobados y con acuse, sin bloqueos ni correcciones: `c34c1b6` (base `261e995`, escalado al
+  ítem 3), `240ea66` (lentes riesgo y legibilidad) y `780a604` (lentes legibilidad y fiabilidad); el usuario dio el
+  consentimiento de cada uno («Revisar este cambio»). `48e5607` y el commit del plan son pasivos: sin revisión.
+  Avisos no bloqueantes, comprobados contra la punta de la rama. **Descartados:** el conteo `vigentes` sí excluye
+  `RECHAZADO` (`src/lib/api/gastos.ts:509` filtra por `ESTADOS_EJECUTADOS`); `gastos_por_validar` ya no existe en
+  `src/`, así que el fixture del reporte semanal compila; la documentación OpenAPI «sin respaldo» del tramo 2 la
+  respalda el tramo 1, que ese revisor no veía. **Quedan como seguimiento:** (1) el caso `CANCELADO` de «anular en
+  cualquier estado del proyecto» perdió su test al borrar los de `validate` (`void/route.test.ts` cubre `CERRADO`);
+  (2) código sin lector: la prop `onVerGastos` (`project-financiero.tsx:49`, aún cableada en `ficha-finanzas.tsx:63`)
+  y `puedeValidar` (`finanzas/gastos-comun.tsx:62`), además de los restos ya anotados en L11; (3) sin `resumen`, el
+  renglón de `gastos-kpis.tsx:13` lee «0 gastos» sobre un libro con filas, sin test; (4) el e2e
+  `ficha-ejecucion.spec.ts` deja en cada corrida el gasto sobreejecutado de R11 contando como ejecutado en
+  PRY-2026-001 (antes se rechazaba), y el test de anular no lee la cifra de «Ejecutado» antes y después; (5) la
+  etiqueta «pendiente(s) por revisión» / «Gasto por revisar», ya anotada en L11.
 - **Siguiente paso:** push y PR de T4 (decisión del usuario); correr los invariantes de `prisma/` con la base local
   arriba (#170 ya está en `main` como `261e995`); T3, T5 y T6; la tarea de datos de D2 (rechazados a anulados, con
   ensayo sobre copia de producción); cerrar D5; T0 (probar una invitación real en producción); verificación manual de
