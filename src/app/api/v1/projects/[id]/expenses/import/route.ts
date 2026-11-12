@@ -21,7 +21,7 @@ import { requireApiUser } from "@/lib/supabase/server";
 import { isAllowedNameAndMime } from "@/lib/api/files";
 import { gateEjecucionWrite } from "@/lib/api/ejecucion";
 import { inspeccionarZip } from "@/lib/api/plantilla-import";
-import { nivelSobregasto, superaAsignado, type AlertaGasto, type LineaGasto } from "@/lib/api/gastos";
+import { cargarSobregastos, type AlertaGasto, type LineaGasto } from "@/lib/api/gastos";
 import { IMPORT_MAX_BYTES } from "@/lib/proyectos/plantilla/columns";
 import { parseGastosImport, type DatosGastoImport, type FilaGastoImport } from "@/lib/proyectos/gastos-import/parse";
 import { alertasDeFila, aplicarGastosImport, cargarContextoImport } from "@/lib/proyectos/gastos-import/server";
@@ -97,17 +97,14 @@ export const POST = withApiErrorHandling(
     const validas = resultado.filas.filter(esValida);
 
     if (soloValidar) {
+      // Two grouped queries for the whole workbook, whatever the number of rows (R4-IMPORT-PREVIEW-NPLUS1).
+      const lote = await cargarSobregastos(db, [...lineas.values()]);
       const vista = await Promise.all(
         resultado.filas.map(async (f) => {
           let alertas: AlertaGasto[] = [];
           if (esValida(f)) {
             const linea = lineas.get(f.datos.rubro_id) as LineaGasto;
-            const critico = await superaAsignado(db, linea, f.datos.cents);
-            const nivel = await nivelSobregasto(db, linea, {
-              periodo: f.datos.periodo,
-              critico,
-              nuevo: f.datos.cents,
-            });
+            const nivel = lote.nivel(linea, { periodo: f.datos.periodo, monto: f.datos.cents });
             alertas = await alertasDeFila(auth.usuario, id, { id: `previa-${f.fila}`, datos: f.datos, nivel });
           }
           return {

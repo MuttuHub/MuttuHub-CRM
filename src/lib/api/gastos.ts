@@ -362,6 +362,81 @@ export async function nivelSobregasto(
     : null;
 }
 
+/** One batch's programmed and executed amounts, loaded once instead of once per row. */
+export type LoteSobregasto = {
+  /** `alerta_sobregasto`: the line's executed total plus this amount passes its assigned total. */
+  critico(linea: { id: string; asignado: Cents }, monto: Cents): boolean;
+  /** The same two levels as `nivelSobregasto`, answered from the batch's memory. */
+  nivel(linea: { id: string; asignado: Cents }, input: { periodo: string; monto: Cents }): NivelSobregasto;
+  /** Keeps a row the batch has just written visible to the rows that follow it. */
+  registrar(lineaId: string, periodo: string, monto: Cents): void;
+};
+
+type PorLinea = Map<string, Map<string, bigint>>;
+
+function acumular(porLinea: PorLinea, lineaId: string, periodo: string, monto: bigint) {
+  const periodos = porLinea.get(lineaId) ?? new Map<string, bigint>();
+  periodos.set(periodo, (periodos.get(periodo) ?? BigInt(0)) + monto);
+  porLinea.set(lineaId, periodos);
+}
+
+/** Cumulative through `periodo`: periods are `YYYY-MM`, so the comparison is lexicographic. */
+function sumarHasta(porLinea: PorLinea, lineaId: string, periodo: string): bigint {
+  let total = BigInt(0);
+  for (const [cada, valor] of porLinea.get(lineaId) ?? []) if (cada <= periodo) total += valor;
+  return total;
+}
+
+function sumarTodo(porLinea: PorLinea, lineaId: string): bigint {
+  let total = BigInt(0);
+  for (const valor of porLinea.get(lineaId)?.values() ?? []) total += valor;
+  return total;
+}
+
+/**
+ * The importer's overspend arithmetic, loaded once: `programacionPeriodo` and `gasto` grouped by line and
+ * period (R4-IMPORT-PREVIEW-NPLUS1 / R4-IMPORT-APPLY-NPLUS1). The rows a batch writes are registered here as
+ * they are created, so each one still counts for the ones that follow without going back to the database.
+ */
+export async function cargarSobregastos(
+  tx: Pick<Prisma.TransactionClient, "gasto" | "programacionPeriodo">,
+  lineas: readonly { id: string }[],
+): Promise<LoteSobregasto> {
+  const ids = lineas.map((linea) => linea.id);
+  const [programados, ejecutados] = await Promise.all([
+    tx.programacionPeriodo.groupBy({ by: ["linea_id", "periodo"], where: { linea_id: { in: ids } }, _sum: { valor: true } }),
+    tx.gasto.groupBy({
+      by: ["linea_id", "periodo"],
+      where: { linea_id: { in: ids }, estado: { in: [...ESTADOS_EJECUTADOS] } },
+      _sum: { monto_cop: true },
+    }),
+  ]);
+  const programado: PorLinea = new Map();
+  for (const fila of programados) {
+    if (fila._sum.valor) acumular(programado, fila.linea_id, fila.periodo, toCents(fila._sum.valor));
+  }
+  const ejecutado: PorLinea = new Map();
+  for (const fila of ejecutados) {
+    if (fila._sum.monto_cop) acumular(ejecutado, fila.linea_id, fila.periodo, toCents(fila._sum.monto_cop));
+  }
+
+  const critico = (linea: { id: string; asignado: Cents }, monto: Cents) =>
+    excederiaAsignado({ asignado: linea.asignado, ejecutado: sumarTodo(ejecutado, linea.id), nuevo: monto });
+
+  return {
+    critico,
+    nivel(linea, { periodo, monto }) {
+      if (critico(linea, monto)) return "ASIGNADO";
+      const programadoHasta = sumarHasta(programado, linea.id, periodo);
+      const ejecutadoHasta = sumarHasta(ejecutado, linea.id, periodo) + monto;
+      return excedeProgramado({ programado: programadoHasta, ejecutado: ejecutadoHasta }) ? "PROGRAMADO" : null;
+    },
+    registrar(lineaId, periodo, monto) {
+      acumular(ejecutado, lineaId, periodo, monto);
+    },
+  };
+}
+
 /**
  * RF-21: a live expense (REGISTRADO or VALIDADO) of ANY project with the same normalized
  * identification and document number. It never blocks. The project code (and the expense id)

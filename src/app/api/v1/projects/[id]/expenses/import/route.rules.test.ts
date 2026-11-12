@@ -19,6 +19,8 @@ const mocks = vi.hoisted(() => ({
   soporteCreate: vi.fn(),
   transaction: vi.fn(),
   programacionAggregate: vi.fn(),
+  programadoGroupBy: vi.fn(),
+  ejecutadoGroupBy: vi.fn(),
   usuarioFindMany: vi.fn(),
   notificacionCreateMany: vi.fn(),
 }));
@@ -30,9 +32,9 @@ vi.mock("@/lib/api/audit-cambios", async (importOriginal) => {
 });
 vi.mock("@/lib/db", () => {
   const tx = {
-    gasto: { aggregate: mocks.aggregate, create: mocks.create },
+    gasto: { aggregate: mocks.aggregate, groupBy: mocks.ejecutadoGroupBy, create: mocks.create },
     soporteProyecto: { create: mocks.soporteCreate },
-    programacionPeriodo: { aggregate: mocks.programacionAggregate },
+    programacionPeriodo: { aggregate: mocks.programacionAggregate, groupBy: mocks.programadoGroupBy },
     usuario: { findMany: mocks.usuarioFindMany },
     notificacion: { createMany: mocks.notificacionCreateMany },
   };
@@ -41,9 +43,9 @@ vi.mock("@/lib/db", () => {
       proyecto: { findFirst: mocks.proyectoFindFirst },
       rubro: { findMany: mocks.rubroFindMany },
       lineaPresupuestal: { findMany: mocks.lineaFindMany },
-      gasto: { findMany: mocks.gastoFindMany, aggregate: mocks.aggregate },
+      gasto: { findMany: mocks.gastoFindMany, aggregate: mocks.aggregate, groupBy: mocks.ejecutadoGroupBy },
       proyectoMiembro: { findMany: mocks.proyectoMiembroFindMany },
-      programacionPeriodo: { aggregate: mocks.programacionAggregate },
+      programacionPeriodo: { aggregate: mocks.programacionAggregate, groupBy: mocks.programadoGroupBy },
       $transaction: mocks.transaction.mockImplementation(async (fn: (t: unknown) => Promise<unknown>) => fn(tx)),
     },
   };
@@ -141,6 +143,8 @@ beforeEach(() => {
   mocks.proyectoMiembroFindMany.mockResolvedValue([]);
   mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: null } });
   mocks.programacionAggregate.mockResolvedValue({ _sum: { valor: null } });
+  mocks.programadoGroupBy.mockResolvedValue([]);
+  mocks.ejecutadoGroupBy.mockResolvedValue([]);
   mocks.usuarioFindMany.mockResolvedValue([]);
   mocks.notificacionCreateMany.mockResolvedValue({ count: 0 });
   mocks.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
@@ -287,7 +291,9 @@ describe("VERIFIER import", () => {
   });
 
   it("overspend flag computed like single create: value > assigned flags alerta_sobregasto and still imports", async () => {
-    mocks.aggregate.mockResolvedValue({ _sum: { monto_cop: new Prisma.Decimal("23500000") } });
+    mocks.ejecutadoGroupBy.mockResolvedValue([
+      { linea_id: "lin-1", periodo: "2026-10", _sum: { monto_cop: new Prisma.Decimal("23500000") } },
+    ]);
     const res = await POST(subida(await libro([ok({ Subtotal: 1000000 })])), ctx);
     expect(res.status).toBe(200);
     expect(mocks.create.mock.calls[0][0].data.alerta_sobregasto).toBe(true);
