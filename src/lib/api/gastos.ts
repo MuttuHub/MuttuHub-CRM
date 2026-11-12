@@ -36,6 +36,8 @@ import { assertIsoDate, projectPeriods } from "@/lib/proyectos/weeks";
 import { isoDate } from "@/lib/proyectos/proyecto-general";
 
 export const GASTO_FORBIDDEN_MESSAGE = "No tienes permisos sobre este proyecto.";
+/** S2/T6: the reason the Gestor writes when correcting somebody else's expense. */
+export const CORRECCION_SIN_MOTIVO_MESSAGE = "Escribe el motivo de la corrección.";
 export const GASTO_NO_EXISTE = "El gasto no existe.";
 const SIN_SOPORTE_MESSAGE = "Adjunta al menos un soporte (archivo o enlace).";
 export const MAX_SOPORTES = 5;
@@ -135,6 +137,8 @@ export const GASTO_PATCH_SCHEMA = z
     descripcion: GASTO_FIELDS.descripcion.optional(),
     subtotal: GASTO_FIELDS.subtotal.optional(),
     iva: GASTO_FIELDS.iva.optional(),
+    /** Optional here: the route demands it only when the Gestor corrects another person's expense. */
+    motivo: z.string().trim().min(1, CORRECCION_SIN_MOTIVO_MESSAGE).max(500, "El motivo es demasiado largo.").optional(),
   })
   .strict();
 

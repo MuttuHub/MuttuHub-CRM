@@ -22,9 +22,9 @@ import { RespuestaAbortada, decimalFromCents } from "@/lib/api/presupuesto";
 import { normalizeProjectDate } from "@/lib/api/projects";
 import {
   CAMPOS_AUDITABLES_GASTO,
+  CORRECCION_SIN_MOTIVO_MESSAGE,
   ESTADOS_EDITABLES,
   GASTO_ANULADO_MESSAGE,
-  GASTO_FORBIDDEN_MESSAGE,
   GASTO_INCLUDE,
   GASTO_NO_EXISTE,
   GASTO_PATCH_SCHEMA,
@@ -43,6 +43,7 @@ import {
   type AlertaGasto,
 } from "@/lib/api/gastos";
 import { notificarSobregasto } from "@/lib/api/notificaciones-proyecto";
+import { gateGastoGestion } from "@/lib/api/validacion-gastos";
 import { isoDate } from "@/lib/proyectos/proyecto-general";
 import { fromCents, toCents } from "@/lib/proyectos/money";
 
@@ -86,8 +87,12 @@ export const PATCH = withApiErrorHandling(
       include: GASTO_INCLUDE,
     });
     if (!actual) return apiError(GASTO_NO_EXISTE, 404, "NOT_FOUND");
-    if (actual.registrado_por_id !== auth.usuario.id) {
-      return apiError(GASTO_FORBIDDEN_MESSAGE, 403, "FORBIDDEN");
+    // S2/T6: the registrant keeps editing their own expense; anybody else has to be the project's Gestor,
+    // and a Gestor correcting somebody else's expense has to write down why.
+    const esAutor = actual.registrado_por_id === auth.usuario.id;
+    if (!esAutor) {
+      const gestion = await gateGastoGestion(auth.usuario, id, expenseId);
+      if (!gestion.ok) return gestion.response;
     }
     if (!ESTADOS_EDITABLES.includes(actual.estado)) {
       const message = actual.estado === "ANULADO" ? GASTO_ANULADO_MESSAGE : GASTO_VALIDADO_MESSAGE;
@@ -96,8 +101,10 @@ export const PATCH = withApiErrorHandling(
 
     const body = await parseEstructuraBody(request, GASTO_PATCH_SCHEMA);
     if (!body.ok) return body.response;
-    const input = body.value;
-    if (Object.keys(input).length === 0) return apiError(NOTHING_TO_UPDATE, 400, "VALIDATION_ERROR");
+    const { motivo, ...cambios } = body.value;
+    if (Object.keys(cambios).length === 0) return apiError(NOTHING_TO_UPDATE, 400, "VALIDATION_ERROR");
+    if (!esAutor && motivo === undefined) return apiError(CORRECCION_SIN_MOTIVO_MESSAGE, 400, "VALIDATION_ERROR");
+    const input = cambios;
 
     // The Total is never typed: it is always the new Subtotal plus the new IVA (each defaults to the stored one).
     const montos = parseMontosGasto(
@@ -181,6 +188,18 @@ export const PATCH = withApiErrorHandling(
             campo: "estado",
             valor_anterior: "RECHAZADO",
             valor_nuevo: "REGISTRADO",
+          });
+        }
+        if (motivo !== undefined) {
+          filas.push({
+            usuario_id: auth.usuario.id,
+            accion: "EDITAR",
+            entidad: "gasto",
+            entidad_id: expenseId,
+            proyecto_id: id,
+            campo: "motivo_correccion",
+            valor_anterior: null,
+            valor_nuevo: motivo,
           });
         }
         await logChanges(tx, filas);

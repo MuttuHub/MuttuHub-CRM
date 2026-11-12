@@ -213,6 +213,42 @@ describe("PATCH expenses/:expenseId", () => {
         expect.objectContaining({ accion: "EDITAR", campo: "valor", valor_nuevo: "2000000.00" }),
       ]),
     );
+    // S2/T6: correcting your own expense needs no motive, so nothing like that reaches the audit.
+    expect(rows).not.toEqual(expect.arrayContaining([expect.objectContaining({ campo: "motivo_correccion" })]));
+  });
+
+  it("lets the project's Gestor correct somebody else's expense when the motive is written, and audits it (S2)", async () => {
+    current = existente({ registrado_por_id: "otro-1" });
+    const res = await PATCH(patch({ descripcion: "Corregido por el Gestor", motivo: "El proveedor facturó mal" }), ctx);
+    expect(res.status).toBe(200);
+    expect(updatedData()).toMatchObject({ descripcion: "Corregido por el Gestor" });
+    const rows = vi.mocked(logChanges).mock.calls[0][1];
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ accion: "EDITAR", campo: "descripcion", valor_nuevo: "Corregido por el Gestor" }),
+        expect.objectContaining({ accion: "EDITAR", campo: "motivo_correccion", valor_nuevo: "El proveedor facturó mal" }),
+      ]),
+    );
+  });
+
+  it("rejects the Gestor's correction of somebody else's expense without a motive and writes nothing (S2)", async () => {
+    current = existente({ registrado_por_id: "otro-1" });
+    const res = await PATCH(patch({ descripcion: "Sin motivo" }), ctx);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("Escribe el motivo de la corrección.");
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+    expect(logChanges).not.toHaveBeenCalled();
+  });
+
+  it("still refuses somebody who is neither the author nor the Gestor, and refuses a body with only a motive", async () => {
+    current = existente({ registrado_por_id: "otro-1" });
+    authAs({ id: "coord-1", rol: "COORDINADOR" } as Usuario);
+    expect((await PATCH(patch({ descripcion: "x", motivo: "porque sí" }), ctx)).status).toBe(403);
+
+    current = existente();
+    authAs(gerencia);
+    expect((await PATCH(patch({ motivo: "sólo el motivo" }), ctx)).status).toBe(400);
+    expect(mocks.updateMany).not.toHaveBeenCalled();
   });
 
   it("recomputes the Total from the new Subtotal and IVA and audits both (S1, S2)", async () => {
@@ -295,10 +331,11 @@ describe("PATCH expenses/:expenseId", () => {
     expect(updatedData()).toMatchObject({ tercero_numero_id: "800.555.111-2", tercero_id_norm: "800555111" });
   });
 
-  it("answers 403 when the actor is not the registrant, even a manager", async () => {
+  it("lets Gerencia correct an expense it did not register, but only with the motive written (S2)", async () => {
     authAs(otraGerencia);
-    expect((await PATCH(patch({ descripcion: "x" }), ctx)).status).toBe(403);
+    expect((await PATCH(patch({ descripcion: "x" }), ctx)).status).toBe(400);
     expect(mocks.updateMany).not.toHaveBeenCalled();
+    expect((await PATCH(patch({ descripcion: "x", motivo: "Corrección de Gerencia" }), ctx)).status).toBe(200);
   });
 
   it("answers 403 for a member COORDINADOR who did not register it", async () => {
