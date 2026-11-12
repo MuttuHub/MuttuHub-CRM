@@ -573,6 +573,150 @@ describe("ProjectGastos", () => {
     })
   })
 
+  describe("correction action (S2/T6)", () => {
+    const patchBody = () => {
+      const call = fetchMock.mock.calls.find(
+        ([url, init]) => String(url).endsWith("/expenses/g1") && (init as RequestInit | undefined)?.method === "PATCH",
+      )
+      return call ? JSON.parse((call[1] as RequestInit).body as string) : null
+    }
+
+    async function abrirCorreccion(user: ReturnType<typeof userEvent.setup>) {
+      const fila = await screen.findByTestId("gasto-fila")
+      await user.click(within(fila).getByRole("button", { name: "Corregir" }))
+      return screen.findByRole("dialog", { name: "Corregir gasto" })
+    }
+
+    it("opens the dialog with the row's current values filled in", async () => {
+      const user = userEvent.setup()
+      setup({ gastos: [gasto("g1")] })
+      const dialogo = await abrirCorreccion(user)
+
+      expect(within(dialogo).getByLabelText("Rubro")).toHaveValue("r12")
+      expect(within(dialogo).getByLabelText("Fecha del documento")).toHaveValue("2026-10-15")
+      expect(within(dialogo).getByLabelText("Periodo")).toHaveValue("2026-10")
+      expect(within(dialogo).getByLabelText("Tercero")).toHaveValue("Proveedor SAS")
+      expect(within(dialogo).getByLabelText("Número de documento")).toHaveValue("FE-0123")
+      expect(within(dialogo).getByLabelText("Descripción")).toHaveValue("Tiquetes del equipo")
+      expect(within(dialogo).getByLabelText("Subtotal")).toHaveValue("1.500.000")
+      expect(within(dialogo).getByLabelText("IVA")).toHaveValue("0")
+      // S2/T6: los soportes no son parte de una corrección.
+      expect(within(dialogo).queryByText("Soportes")).not.toBeInTheDocument()
+    })
+
+    it("saves with a PATCH, without soportes, and shows the updated row", async () => {
+      const user = userEvent.setup()
+      let actual = gasto("g1")
+      setup({ gastos: [actual] })
+      const base = fetchMock.getMockImplementation()!
+      fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
+        const url = String(input)
+        const method = init?.method ?? "GET"
+        if (url.endsWith("/expenses/g1") && method === "PATCH") {
+          const body = JSON.parse(String(init?.body)) as Record<string, unknown>
+          actual = { ...actual, ...body } as ReturnType<typeof gasto>
+          return Promise.resolve(jsonResponse({ gasto: actual, alertas: [] }))
+        }
+        if (url.endsWith("/expenses") && method === "GET") return Promise.resolve(jsonResponse(respuesta([actual])))
+        return base(input, init)
+      })
+
+      const dialogo = await abrirCorreccion(user)
+      const descripcion = within(dialogo).getByLabelText("Descripción")
+      await user.clear(descripcion)
+      await user.type(descripcion, "Tiquetes corregidos")
+      await user.click(within(dialogo).getByRole("button", { name: "Guardar cambios" }))
+
+      await waitFor(() => expect(patchBody()).not.toBeNull())
+      expect(patchBody()).toMatchObject({ descripcion: "Tiquetes corregidos" })
+      expect(patchBody()).not.toHaveProperty("soportes")
+      expect(posts()).toHaveLength(0)
+
+      const lista = await screen.findByTestId("gastos-lista")
+      await waitFor(() => expect(within(lista).getByText("Tiquetes corregidos")).toBeInTheDocument())
+    })
+
+    it("sends the motive and shows the server's 400 inline", async () => {
+      const user = userEvent.setup()
+      setup({ gastos: [gasto("g1")] })
+      const base = fetchMock.getMockImplementation()!
+      fetchMock.mockImplementation((input: unknown, init?: RequestInit) =>
+        String(input).endsWith("/expenses/g1") && init?.method === "PATCH"
+          ? Promise.resolve(jsonResponse({ error: "Escribe el motivo de la corrección.", code: "VALIDATION_ERROR" }, 400))
+          : base(input, init),
+      )
+
+      const dialogo = await abrirCorreccion(user)
+      await user.type(within(dialogo).getByLabelText("Motivo de la corrección"), "Corrijo el valor")
+      await user.click(within(dialogo).getByRole("button", { name: "Guardar cambios" }))
+
+      await waitFor(() => expect(patchBody()).not.toBeNull())
+      expect(patchBody()).toMatchObject({ motivo: "Corrijo el valor" })
+      expect(await within(dialogo).findByRole("alert")).toHaveTextContent("Escribe el motivo de la corrección.")
+      expect(within(dialogo).getByRole("button", { name: "Guardar cambios" })).toBeInTheDocument()
+    })
+
+    it("offers Corregir only on editable expenses, never on VALIDADO or ANULADO", async () => {
+      setup({
+        gastos: [
+          gasto("g1"),
+          gasto("g2", { estado: "RECHAZADO", motivo_rechazo: "Soporte ilegible" }),
+          gasto("g3", { estado: "VALIDADO" }),
+          gasto("g4", { estado: "ANULADO", motivo_anulacion: "Duplicado" }),
+        ],
+      })
+      const filas = await screen.findAllByTestId("gasto-fila")
+      expect(within(filas[0]).getByRole("button", { name: "Corregir" })).toBeInTheDocument()
+      expect(within(filas[1]).getByRole("button", { name: "Corregir" })).toBeInTheDocument()
+      expect(within(filas[2]).queryByRole("button", { name: "Corregir" })).not.toBeInTheDocument()
+      expect(within(filas[3]).queryByRole("button", { name: "Corregir" })).not.toBeInTheDocument()
+    })
+
+    it("shows Corregir to a team member only on their own expense", async () => {
+      setup({
+        rol: "COLABORADOR",
+        miembro: true,
+        usuarioId: "yo",
+        gastos: [gasto("g1", { registrado_por_id: "yo" }), gasto("g2")],
+      })
+      const filas = await screen.findAllByTestId("gasto-fila")
+      expect(within(filas[0]).getByRole("button", { name: "Corregir" })).toBeInTheDocument()
+      expect(within(filas[1]).queryByRole("button", { name: "Corregir" })).not.toBeInTheDocument()
+      expect(within(await screen.findByTestId("gastos-lista")).getByRole("columnheader", { name: "Acción" })).toBeInTheDocument()
+    })
+
+    it("hides Corregir when the project is not EN_EJECUCION, as the API refuses it", async () => {
+      setup({ proyecto: { estado: "SUSPENDIDO" }, gastos: [gasto("g1")] })
+      const fila = await screen.findByTestId("gasto-fila")
+      expect(within(fila).queryByRole("button", { name: "Corregir" })).not.toBeInTheDocument()
+    })
+
+    it("shows the alertas of a correction the same way the create flow does", async () => {
+      const user = userEvent.setup()
+      setup({ gastos: [gasto("g1")] })
+      const base = fetchMock.getMockImplementation()!
+      fetchMock.mockImplementation((input: unknown, init?: RequestInit) =>
+        String(input).endsWith("/expenses/g1") && init?.method === "PATCH"
+          ? Promise.resolve(
+              jsonResponse({
+                gasto: gasto("g1", { alerta_sobregasto: true }),
+                alertas: [{ tipo: "SOBREGASTO", mensaje: "Este gasto deja el rubro por encima de lo asignado." }],
+              }),
+            )
+          : base(input, init),
+      )
+
+      const dialogo = await abrirCorreccion(user)
+      await user.click(within(dialogo).getByRole("button", { name: "Guardar cambios" }))
+
+      expect(await screen.findByText("Este gasto deja el rubro por encima de lo asignado.")).toBeInTheDocument()
+      expect(screen.getByText("Gasto corregido, con avisos")).toBeInTheDocument()
+      expect(screen.getByRole("dialog", { name: "Corregir gasto" })).toBeInTheDocument()
+      await user.click(screen.getByRole("button", { name: "Entendido" }))
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+    })
+  })
+
   describe("attach a support later (S2)", () => {
     const propio = (over: Record<string, unknown> = {}) => gasto("g1", { registrado_por_id: "yo", soportes: [], soportes_count: 0, ...over })
 

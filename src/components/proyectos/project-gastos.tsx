@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { VoidControl, errorMessage } from "@/components/proyectos/estructura-ui";
 import { AvisoSoloConsulta, EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/ui";
 import { GASTOS_ERROR, GastosResumen } from "@/components/proyectos/gastos-kpis";
+import { EditarGastoDialog } from "@/components/proyectos/editar-gasto-dialog";
 import { GastoForm, TIPO_SOPORTE_LABELS } from "@/components/proyectos/gasto-form";
 import { GastosImportDialog } from "@/components/proyectos/gastos-import-dialog";
 import { AdjuntarSoporte, MAX_SOPORTES_POR_GASTO } from "@/components/proyectos/gasto-soportes";
@@ -96,6 +97,7 @@ export function ProjectGastos({ proyecto }: { proyecto: ProjectListRow }) {
   const budgetQuery = useProjectBudget(proyecto.id);
   const permisos = usePermisosGastos(proyecto);
   const [registrando, setRegistrando] = useState(false);
+  const [corrigiendo, setCorrigiendo] = useState<ProjectExpense | null>(null);
   const [filtro, setFiltro] = useState<Filtro>("TODOS");
   const { puedeRegistrar, soloConsulta } = permisos;
 
@@ -143,9 +145,26 @@ export function ProjectGastos({ proyecto }: { proyecto: ProjectListRow }) {
             ) : visibles.length === 0 ? (
               <EmptyBlock>No hay gastos con este filtro.</EmptyBlock>
             ) : (
-              <GastosListado proyectoId={proyecto.id} gastos={visibles} permisos={permisos} />
+              <GastosListado
+                proyectoId={proyecto.id}
+                gastos={visibles}
+                permisos={permisos}
+                onCorregir={setCorrigiendo}
+              />
             )}
           </div>
+
+          {corrigiendo && (
+            <EditarGastoDialog
+              proyecto={proyecto}
+              gasto={corrigiendo}
+              rubros={budgetQuery.data?.rubros ?? []}
+              open
+              onOpenChange={(abierto) => {
+                if (!abierto) setCorrigiendo(null);
+              }}
+            />
+          )}
         </>
       )}
     </section>
@@ -154,10 +173,20 @@ export function ProjectGastos({ proyecto }: { proyecto: ProjectListRow }) {
 
 type Permisos = ReturnType<typeof usePermisosGastos>;
 
+/**
+ * S2/T6: la API admite la corrección del autor sobre su propio gasto y la del Gestor sobre cualquiera, solo con el
+ * proyecto EN_EJECUCION y el gasto REGISTRADO o RECHAZADO. La API sigue siendo la autoridad de cada permiso.
+ */
+function puedeCorregir(gasto: ProjectExpense, permisos: Permisos): boolean {
+  const editable = gasto.estado === "REGISTRADO" || gasto.estado === "RECHAZADO";
+  return editable && permisos.puedeRegistrar && (permisos.esGestor || gasto.registrado_por_id === permisos.usuarioId);
+}
+
 type FilaProps = {
   proyectoId: string;
   gasto: ProjectExpense;
   permisos: Permisos;
+  onCorregir: (gasto: ProjectExpense) => void;
 };
 
 /** Debajo de `md` el libro se vuelve una lista de tarjetas (misma convención que el Portafolio). */
@@ -165,17 +194,27 @@ function GastosListado({
   proyectoId,
   gastos,
   permisos,
+  onCorregir,
 }: {
   proyectoId: string;
   gastos: readonly ProjectExpense[];
   permisos: Permisos;
+  onCorregir: (gasto: ProjectExpense) => void;
 }) {
   const mobile = useIsMobile();
+  // La columna de acciones también aparece si alguna fila es corregible por su autor, no solo para el Gestor.
+  const conAcciones = permisos.esGestor || gastos.some((gasto) => puedeCorregir(gasto, permisos));
   if (mobile) {
     return (
       <ul data-testid="gastos-cards" className="flex flex-col gap-2">
         {gastos.map((gasto) => (
-          <GastoTarjeta key={gasto.id} proyectoId={proyectoId} gasto={gasto} permisos={permisos} />
+          <GastoTarjeta
+            key={gasto.id}
+            proyectoId={proyectoId}
+            gasto={gasto}
+            permisos={permisos}
+            onCorregir={onCorregir}
+          />
         ))}
       </ul>
     );
@@ -191,12 +230,19 @@ function GastosListado({
             <TableHead numeric>Total</TableHead>
             <TableHead>Estado</TableHead>
             <TableHead>Soporte</TableHead>
-            {permisos.esGestor && <TableHead>Acción</TableHead>}
+            {conAcciones && <TableHead>Acción</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
           {gastos.map((gasto) => (
-            <GastoFila key={gasto.id} proyectoId={proyectoId} gasto={gasto} permisos={permisos} />
+            <GastoFila
+              key={gasto.id}
+              proyectoId={proyectoId}
+              gasto={gasto}
+              permisos={permisos}
+              onCorregir={onCorregir}
+              conAcciones={conAcciones}
+            />
           ))}
         </TableBody>
       </Table>
@@ -225,19 +271,30 @@ function fechaCorta(iso: string): string {
 }
 
 /**
- * Anular (AJ-08): any expense that counts as executed (REGISTRADO or VALIDADO) can be annulled with a motivo, in
- * any project estado, only for whoever manages projects. RECHAZADO and ANULADO have nothing left to annul.
+ * Acciones de la fila: Corregir (S2/T6) para el autor o el Gestor mientras el gasto sea editable, y Anular (AJ-08)
+ * para el Gestor sobre todo gasto que cuenta como ejecutado. La API es la autoridad de ambas.
  */
-function AccionesGasto({ proyectoId, gasto, permisos }: FilaProps) {
+function AccionesGasto({ proyectoId, gasto, permisos, onCorregir }: FilaProps) {
   const anular = useVoidExpense();
-  if (!permisos.esGestor || !cuentaComoEjecutado(gasto.estado)) return null;
+  const corregir = puedeCorregir(gasto, permisos);
+  const puedeAnular = permisos.esGestor && cuentaComoEjecutado(gasto.estado);
+  if (!corregir && !puedeAnular) return null;
   return (
-    <VoidControl
-      nombre={`gasto ${gasto.numero_documento}`}
-      pending={anular.isPending}
-      error={anular.isError ? errorMessage(anular.error, "No pudimos anular el gasto. Inténtalo de nuevo.") : null}
-      onConfirm={(motivo) => anular.mutate({ projectId: proyectoId, id: gasto.id, motivo })}
-    />
+    <div className="flex flex-col items-start gap-1">
+      {corregir && (
+        <Button type="button" variant="ghost" size="sm" onClick={() => onCorregir(gasto)}>
+          Corregir
+        </Button>
+      )}
+      {puedeAnular && (
+        <VoidControl
+          nombre={`gasto ${gasto.numero_documento}`}
+          pending={anular.isPending}
+          error={anular.isError ? errorMessage(anular.error, "No pudimos anular el gasto. Inténtalo de nuevo.") : null}
+          onConfirm={(motivo) => anular.mutate({ projectId: proyectoId, id: gasto.id, motivo })}
+        />
+      )}
+    </div>
   );
 }
 
@@ -304,7 +361,7 @@ function PeriodoModificado({ gasto, className }: { gasto: ProjectExpense; classN
   );
 }
 
-function GastoFila(props: FilaProps) {
+function GastoFila({ conAcciones, ...props }: FilaProps & { conAcciones: boolean }) {
   const { proyectoId, gasto, permisos } = props;
   const { error, ver } = useVerSoporte(proyectoId, gasto.id);
   const identificacion = [gasto.tercero_tipo_id, gasto.tercero_numero_id].filter(Boolean).join(" ");
@@ -344,7 +401,7 @@ function GastoFila(props: FilaProps) {
         <SoporteGasto proyectoId={proyectoId} gasto={gasto} permisos={permisos} onVer={(id) => void ver(id)} />
         <InlineError message={error} />
       </TableCell>
-      {permisos.esGestor && (
+      {conAcciones && (
         <TableCell className="align-top whitespace-normal">
           <AccionesGasto {...props} />
         </TableCell>

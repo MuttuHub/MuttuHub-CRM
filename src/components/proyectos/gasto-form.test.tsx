@@ -5,7 +5,7 @@ import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import type { ProjectBudgetRubro, ProjectListRow } from "@/hooks/projects"
+import type { ProjectBudgetRubro, ProjectExpense, ProjectListRow } from "@/hooks/projects"
 import { GastoForm } from "./gasto-form"
 
 function createWrapper() {
@@ -31,6 +31,39 @@ const RUBROS: ProjectBudgetRubro[] = [
   { rubro_id: "r12", codigo: "R12", nombre: "Transporte", activo: true, linea_id: "l12", asignado: "24000000.00", heredado_pendiente: false },
   { rubro_id: "r01", codigo: "R01", nombre: "Personal", activo: true, linea_id: "l01", asignado: "59500000.00", heredado_pendiente: false },
 ]
+
+const GASTO: ProjectExpense = {
+  id: "g1",
+  proyecto_id: "p1",
+  rubro: { id: "r12", codigo: "R12", nombre: "Transporte" },
+  fecha_documento: "2026-10-15",
+  periodo: "2026-10",
+  tipo_soporte: "FACTURA_PROVEEDOR",
+  tercero_nombre: "Proveedor SAS",
+  tercero_tipo_id: "NIT",
+  tercero_numero_id: "900123456",
+  numero_documento: "FE-0123",
+  descripcion: "Tiquetes del equipo",
+  valor: "1500000.00",
+  subtotal: "1500000.00",
+  iva: "0.00",
+  estado: "REGISTRADO",
+  alerta_sobregasto: false,
+  periodo_modificado: false,
+  datos_incompletos: false,
+  registrado_por_id: "otro",
+  created_at: "2026-10-16T12:00:00.000Z",
+  validado_por_id: null,
+  validado_at: null,
+  rechazado_por_id: null,
+  rechazado_at: null,
+  motivo_rechazo: null,
+  anulado_por_id: null,
+  anulado_at: null,
+  motivo_anulacion: null,
+  soportes: [],
+  soportes_count: 0,
+}
 
 describe("GastoForm", () => {
   const fetchMock = vi.fn()
@@ -80,6 +113,22 @@ describe("GastoForm", () => {
 
   const postedBody = () => {
     const call = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith("/expenses") && (init as RequestInit)?.method === "POST")
+    return call ? JSON.parse((call[1] as RequestInit).body as string) : null
+  }
+
+  /** S2/T6: modo corrección; el PATCH del gasto es la única escritura que se espera. */
+  function setupEdicion(respuesta: unknown = { gasto: GASTO, alertas: [] }, status = 200) {
+    fetchMock.mockImplementation((input: unknown, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes("/expenses/duplicates?")) return Promise.resolve(jsonResponse({ alertas: [] }))
+      if (url.endsWith("/expenses/g1") && init?.method === "PATCH") return Promise.resolve(jsonResponse(respuesta, status))
+      return Promise.resolve(jsonResponse({}))
+    })
+    return render(<GastoForm proyecto={PROYECTO} rubros={RUBROS} gasto={GASTO} onDone={onDone} />, { wrapper: createWrapper() })
+  }
+
+  const patchBody = () => {
+    const call = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith("/expenses/g1") && (init as RequestInit)?.method === "PATCH")
     return call ? JSON.parse((call[1] as RequestInit).body as string) : null
   }
 
@@ -598,6 +647,52 @@ describe("GastoForm", () => {
       await user.click(screen.getByRole("button", { name: "Registrar" }))
       await waitFor(() => expect(postedBody()).not.toBeNull())
       expect(postedBody().soportes).toHaveLength(2)
+    })
+  })
+
+  describe("corrección (S2/T6)", () => {
+    it("prefills the row's current values, hides the supports and saves with a PATCH", async () => {
+      const user = userEvent.setup({ delay: null })
+      setupEdicion()
+
+      expect(screen.getByRole("form", { name: "Corregir gasto" })).toBeInTheDocument()
+      expect(screen.getByLabelText("Tercero")).toHaveValue("Proveedor SAS")
+      expect(screen.getByLabelText("Número de documento")).toHaveValue("FE-0123")
+      expect(screen.getByLabelText("Descripción")).toHaveValue("Tiquetes del equipo")
+      expect(screen.getByLabelText("Subtotal")).toHaveValue("1.500.000")
+      expect(screen.getByLabelText("IVA")).toHaveValue("0")
+      // Los soportes no forman parte de una corrección: `GASTO_PATCH_SCHEMA` no los admite.
+      expect(screen.queryByText("Soportes")).not.toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: "Agregar otro soporte" })).not.toBeInTheDocument()
+
+      await user.clear(screen.getByLabelText("Descripción"))
+      await user.type(screen.getByLabelText("Descripción"), "Tiquetes corregidos")
+      await user.click(screen.getByRole("button", { name: "Guardar cambios" }))
+
+      await waitFor(() => expect(patchBody()).not.toBeNull())
+      expect(patchBody()).toMatchObject({ descripcion: "Tiquetes corregidos" })
+      expect(patchBody()).not.toHaveProperty("soportes")
+      expect(postedBody()).toBeNull()
+      await waitFor(() => expect(onDone).toHaveBeenCalled())
+    })
+
+    it("explains when the motive is required and shows the server's 400 inline", async () => {
+      const user = userEvent.setup({ delay: null })
+      setupEdicion({ error: "Escribe el motivo de la corrección.", code: "VALIDATION_ERROR" }, 400)
+
+      const motivo = screen.getByLabelText("Motivo de la corrección")
+      expect(motivo).toHaveAccessibleDescription(/Obligatorio al corregir el gasto de otra persona/)
+      await user.type(motivo, "Corrijo el valor")
+      await user.click(screen.getByRole("button", { name: "Guardar cambios" }))
+
+      await waitFor(() => expect(patchBody()).not.toBeNull())
+      expect(patchBody()).toMatchObject({ motivo: "Corrijo el valor" })
+      expect(await screen.findByRole("alert")).toHaveTextContent("Escribe el motivo de la corrección.")
+    })
+
+    it("does not offer the correction motive when registering", () => {
+      setup()
+      expect(screen.queryByLabelText("Motivo de la corrección")).not.toBeInTheDocument()
     })
   })
 

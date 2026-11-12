@@ -1734,6 +1734,18 @@ export type ProjectExpenseInput = {
   soportes: AvanceMedioInput[];
 };
 
+/**
+ * S2/T6: cuerpo de una corrección. `GASTO_PATCH_SCHEMA` no admite `soportes`, así que los soportes quedan fuera;
+ * `motivo` solo es obligatorio cuando el Gestor corrige el gasto de otra persona, y el servidor lo audita como
+ * `motivo_correccion`.
+ */
+export type ProjectExpenseUpdate = Omit<ProjectExpenseInput, "soportes" | "tercero_numero_id"> & {
+  /** Se omite cuando la API no envió la identificación (RNF-03), para no borrarla sin querer. */
+  tercero_numero_id?: string | null;
+  /** Obligatorio solo cuando el Gestor corrige el gasto de otra persona; lo decide y lo audita el servidor. */
+  motivo?: string;
+};
+
 export function useProjectExpenses(id: string): UseQueryResult<ProjectExpenses> {
   return useQuery({
     queryKey: projectQueryKeys.expenses(id),
@@ -1798,6 +1810,28 @@ export function useCreateExpense(
         { ...datos, soportes: confirmados },
       );
     },
+    onSuccess: refresh,
+  });
+}
+
+/**
+ * Corrige un gasto (S2/T6): PATCH, nunca POST y sin soportes. Refresca lo mismo que registrar e informa las
+ * alertas del servidor (sobregasto, programado, duplicado) con la misma forma que `useCreateExpense`.
+ */
+export function useUpdateExpense(
+  projectId: string,
+): UseMutationResult<
+  { gasto: ProjectExpense; alertas: ExpenseAlert[] },
+  Error,
+  { id: string } & ProjectExpenseUpdate
+> {
+  const refresh = useRefreshGastos();
+  return useMutation({
+    mutationFn: ({ id, ...datos }) =>
+      apiPatch<{ gasto: ProjectExpense; alertas: ExpenseAlert[] }>(
+        `/api/v1/projects/${projectId}/expenses/${id}`,
+        datos,
+      ),
     onSuccess: refresh,
   });
 }
