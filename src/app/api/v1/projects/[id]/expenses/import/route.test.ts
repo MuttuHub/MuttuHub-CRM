@@ -91,6 +91,7 @@ const fila = (data: Partial<Record<(typeof ENCABEZADOS_GASTOS)[number], Celda>> 
     IVA: 0,
     Total: null,
     Periodo: null,
+    "Enlace del soporte": "https://drive.google.com/soporte",
     ...data,
   };
   return ENCABEZADOS_GASTOS.map((h) => base[h] ?? null);
@@ -309,7 +310,7 @@ describe("POST expenses/import — validate-only preview", () => {
 });
 
 describe("POST expenses/import — apply", () => {
-  it("creates only the valid rows in one transaction, as REGISTRADO with no supports, and returns the rejected ones", async () => {
+  it("creates only the valid rows in one transaction, as REGISTRADO with one link support each, and returns the rejected ones", async () => {
     const res = await POST(
       subida(await libro([fila(), fila({ Rubro: "Inventado", "Número de documento": "FE-2" }), fila({ "Número de documento": "FE-3", Descripción: "Otro viaje" })])),
       ctx,
@@ -327,7 +328,8 @@ describe("POST expenses/import — apply", () => {
     });
     expect(mocks.transaction).toHaveBeenCalledTimes(1);
     expect(mocks.create).toHaveBeenCalledTimes(2);
-    expect(mocks.soporteCreate).not.toHaveBeenCalled();
+    // S2/T6: the template has no file column, so every imported row lands with its one link support.
+    expect(mocks.soporteCreate).toHaveBeenCalledTimes(2);
     expect(mocks.create.mock.calls[0][0].data).toMatchObject({
       proyecto_id: "pry-1",
       linea_id: "lin-1",
@@ -392,7 +394,7 @@ describe("POST expenses/import — apply", () => {
       tercero_numero_id: "***567",
       valor: "1500000.50",
       estado: "REGISTRADO",
-      soportes: 0,
+      soportes: 1,
     });
   });
 
@@ -415,7 +417,7 @@ describe("POST expenses/import — apply", () => {
 
   it("does not notify when no row exceeds the assigned amount", async () => {
     await POST(subida(await libro([fila()])), ctx);
-    expect(mocks.soporteCreate).not.toHaveBeenCalled();
+    expect(mocks.soporteCreate).toHaveBeenCalledTimes(1);
     expect(mocks.create).toHaveBeenCalledTimes(1);
     expect(mocks.notificar).not.toHaveBeenCalled();
   });
@@ -432,7 +434,7 @@ describe("POST expenses/import — apply", () => {
 
   it("does not notify when no row exceeds the assigned amount", async () => {
     await POST(subida(await libro([fila()])), ctx);
-    expect(mocks.soporteCreate).not.toHaveBeenCalled();
+    expect(mocks.soporteCreate).toHaveBeenCalledTimes(1);
     expect(mocks.create).toHaveBeenCalledTimes(1);
     expect(mocks.notificar).not.toHaveBeenCalled();
   });

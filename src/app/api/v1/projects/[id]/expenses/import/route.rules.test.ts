@@ -90,6 +90,7 @@ const fila = (data: Partial<Record<(typeof ENCABEZADOS_GASTOS)[number], Celda>> 
     IVA: 0,
     Total: null,
     Periodo: null,
+    "Enlace del soporte": "https://drive.google.com/soporte",
     ...data,
   };
   return ENCABEZADOS_GASTOS.map((h) => base[h] ?? null);
@@ -195,7 +196,7 @@ describe("VERIFIER import", () => {
   });
 
 
-  it("apply: one transaction, only valid rows written, one shared lote_id, registrant = importer, estado default, zero supports", async () => {
+  it("apply: one transaction, only valid rows written, one shared lote_id, registrant = importer, estado default, one link support each", async () => {
     const buf = await libro([
       ok(),
       ok({ "Número de documento": "FE-2", Subtotal: 0 }),
@@ -212,7 +213,7 @@ describe("VERIFIER import", () => {
     expect(j.creados).toBe(2);
     expect(mocks.transaction).toHaveBeenCalledTimes(1);
     expect(mocks.create).toHaveBeenCalledTimes(2);
-    expect(mocks.soporteCreate).not.toHaveBeenCalled();
+    expect(mocks.soporteCreate).toHaveBeenCalledTimes(2);
     for (const [a] of mocks.create.mock.calls) expect(a.data).toMatchObject({ registrado_por_id: "ger-1", proyecto_id: "pry-1" });
     expect(logChanges).toHaveBeenCalledTimes(1);
     const rows = vi.mocked(logChanges).mock.calls[0][1] as unknown as { lote_id: string }[];

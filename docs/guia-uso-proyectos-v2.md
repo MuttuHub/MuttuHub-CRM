@@ -349,11 +349,13 @@ en ese estado.
   **Periodo** vacío usa el mes de la fecha del documento; si ese mes no es del proyecto, la fila se rechaza hasta que se
   indique el periodo. Una plantilla anterior (con la columna **Valor (COP)** y sin **Subtotal**) se rechaza completa con
   «Esta plantilla es anterior: descarga la nueva, que separa Subtotal e IVA.»
-  La columna **Enlace del soporte** es opcional y admite uno o varios enlaces en la misma celda, separados por punto
-  y coma; cada uno debe empezar por `http://` o `https://` o la fila se rechaza indicando la fila y la columna. Una
-  fila con dos enlaces válidos crea el gasto con dos soportes. Si la fila no trae enlaces, el gasto importado aparece
-  **Sin soporte** y quien lo registró lo adjunta con **Adjuntar archivo** (archivo o enlace, hasta 5); al elegir un
-  archivo se ve su nombre con la opción de **Quitar**.
+  La columna **Enlace del soporte** es **obligatoria**: una fila sin enlace se rechaza indicando la fila y la columna,
+  porque es el único soporte que la plantilla puede cargar. Admite uno o varios enlaces en la misma celda, separados
+  por punto y coma; cada uno debe empezar por `http://` o `https://` o la fila también se rechaza, con su fila y su
+  columna. Una fila con dos enlaces válidos crea el gasto con dos soportes. Un archivo generado antes de que existiera
+  esta columna se rechaza completo: hay que descargar la plantilla nueva. Para adjuntar archivos, quien registró el
+  gasto los suma después con **Adjuntar archivo** (archivo o enlace, hasta 5); al elegir un archivo se ve su nombre con
+  la opción de **Quitar**.
 - **Anular** un gasto está disponible para Administrador y Gerencia y exige un **motivo**. El gasto anulado sigue en la
   lista y deja de sumar al ejecutado.
 
