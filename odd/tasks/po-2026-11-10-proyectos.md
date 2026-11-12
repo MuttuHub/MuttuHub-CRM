@@ -250,8 +250,8 @@ sesión de agente por tarea) salvo que la tarjeta diga otra cosa.
 | T0 | — | Cerrar urgencias: mergear #166 (invitaciones rotas) y probar una invitación real | S | — | 2 (auth) | Pendiente |
 | T1 | S1 | La curva S, la tabla por periodo, «Periodo del reporte» y «Requiere atención» leen los reportes de avance | S | — | 6 | Hecha: PR #169, `91b467a` en `main`; verificación manual en local pendiente |
 | T2 | S1 | Regla de avance por actividad según D1 (solo si la PO cambia la regla) | S | D1, T1 | 6 | No se hace: D1 mantiene la regla actual (L8) |
-| T3 | S3 | El Gestor solicita traslados; el Gerente ve pendientes; validación contra lo ejecutado | S–M | D3 | 2 (permisos) | Implementada en `5094aa2`, `8924141` y `a5845da`, rama `feat/aj-09-traslados-gestor` (sin push) |
-| T4 | S2 | Gasto sin aprobación: todo gasto no anulado es ejecutado; se quitan «Por validar», filtros y cola | M | D2 | 3 (lectores compartidos) | Implementada en `c34c1b6`, `240ea66`, `780a604` y `48e5607` (rama `fix/aj-08-gasto-sin-aprobacion`, sin push); invariantes de `prisma/` y e2e sin correr (L11, L12) |
+| T3 | S3 | El Gestor solicita traslados; el Gerente ve pendientes; validación contra lo ejecutado | S–M | D3 | 2 (permisos) | Hecha: PR #171, `5934e4e` en `main`; verificación manual en local pendiente |
+| T4 | S2 | Gasto sin aprobación: todo gasto no anulado es ejecutado; se quitan «Por validar», filtros y cola | M | D2 | 3 (lectores compartidos) | Implementada en `deffc44`, `eda8444`, `6fa9361` y `de9d7c5` (rama `fix/aj-08-gasto-sin-aprobacion`, sobre `main` con T3); revisión nativa aprobada (L13); invariantes de `prisma/` y e2e quedan para el CI del PR (L14) |
 | T5 | S2 | Validadores al digitar, alertas de sobreejecución que no bloquean y aviso de duplicados | M | T4, D4 | — | Pendiente |
 | T6 | S2 | Gestor edita/anula con motivo y auditoría; varios archivos y enlaces por gasto; plantilla exige enlace | M | T4, D3 | 1 si toca datos | Pendiente |
 | T7 | S2 | (Propuesto) Resumen de cambios del periodo en la ficha financiera | S | T6, D4 | — | Pendiente |
@@ -532,7 +532,19 @@ S11) · T15 recarga de CedeTextil en producción con ensayo (S12).
   `ficha-ejecucion.spec.ts` deja en cada corrida el gasto sobreejecutado de R11 contando como ejecutado en
   PRY-2026-001 (antes se rechazaba), y el test de anular no lee la cifra de «Ejecutado» antes y después; (5) la
   etiqueta «pendiente(s) por revisión» / «Gasto por revisar», ya anotada en L11.
-- **Siguiente paso:** push y PR de T4 (decisión del usuario); correr los invariantes de `prisma/` con la base local
-  arriba (#170 ya está en `main` como `261e995`); T3, T5 y T6; la tarea de datos de D2 (rechazados a anulados, con
-  ensayo sobre copia de producción); cerrar D5; T0 (probar una invitación real en producción); verificación manual de
-  T1 y T8.
+- **L14 (2026-11-11, T3 mergeada y T4 sobre `main`):** a la pregunta «¿Mergeo #171 y sigo con el rebase, push y PR
+  de T4?», el usuario respondió, textual: «dale». #171 (T3, AJ-09) mergeado aplastado en `main` como `5934e4e`. T4
+  rebasada sobre ese `main`; los commits de L12 cambian de identidad, con el mismo contenido: `c34c1b6` → `deffc44`,
+  `240ea66` → `eda8444`, `780a604` → `6fa9361`, `48e5607` → `de9d7c5`. Dos conflictos, ambos de suma: el import de
+  `src/lib/api/atencion.ts` (queda `loadGastosEjecutados` de T4 junto al import de `modificaciones` de T3) y este
+  documento (fila de T3, L10 antes de L11). Costura T3 + T4 comprobada: pasan los 11 archivos de test de lo que
+  ambos cambios tocan y sus vecinos (211 tests: atención, modificaciones, traslado simple, ficha, Finanzas,
+  OpenAPI); `tsc` con los mismos 20 errores de L11 (17 de `emailOutbox`, 3 del generado `.next/types/validator.ts`),
+  ninguno nuevo. La revisión nativa de L13 se hizo sobre los commits anteriores al rebase y no se repitió. El primer
+  intento de rebase se interrumpió a mitad de la escritura del árbol; se abortó y se repitió sin pérdida (los
+  archivos sueltos eran copias idénticas de `main`). **Sin correr:** la suite completa, los invariantes de `prisma/`
+  y el e2e, que corre el CI del PR.
+- **Siguiente paso:** CI y merge del PR de T4 (el merge es decisión del usuario); borrar `backup/aj-08-pre-split`
+  cuando el PR esté abierto; T5 y T6; la tarea de datos de D2 (rechazados a anulados, con ensayo sobre copia de
+  producción); los seguimientos de L13; cerrar D5; T0 (probar una invitación real en producción); verificación
+  manual de T1, T3 y T8 con la base local arriba.
