@@ -21,10 +21,9 @@ import { normalizeProjectDate } from "@/lib/api/projects"
 import {
   alertaSobregasto,
   buscarDuplicados,
+  cargarSobregastos,
   clavesNormalizadas,
   gastoAuditable,
-  nivelSobregasto,
-  superaAsignado,
   tieneAsignado,
   type AlertaGasto,
   type LineaGasto,
@@ -114,10 +113,12 @@ export type GastoCreadoImport = { fila: number; id: string; datos: DatosGastoImp
 export async function aplicarGastosImport(tx: Prisma.TransactionClient, input: AplicarGastosInput): Promise<GastoCreadoImport[]> {
   const creados: GastoCreadoImport[] = []
   const auditoria: CambioInput[] = []
+  // One grouped load for the whole batch; every row after this reads the same memory.
+  const lote = await cargarSobregastos(tx, [...input.lineas.values()])
 
   for (const { fila, datos } of input.filas) {
     const linea = input.lineas.get(datos.rubro_id) as LineaGasto
-    const sobregasto = await superaAsignado(tx, linea, datos.cents)
+    const sobregasto = lote.critico(linea, datos.cents)
     const claves = clavesNormalizadas({
       tercero_tipo_id: datos.tercero_tipo_id,
       tercero_numero_id: datos.tercero_numero_id,
@@ -159,7 +160,8 @@ export async function aplicarGastosImport(tx: Prisma.TransactionClient, input: A
     }
 
     // S2/L16: after saving, the line tells its level; the critical one also rings the Gerencia bell.
-    const nivel = await nivelSobregasto(tx, linea, { periodo: datos.periodo, critico: sobregasto })
+    const nivel = lote.nivel(linea, { periodo: datos.periodo, monto: datos.cents })
+    lote.registrar(linea.id, datos.periodo, datos.cents)
     if (sobregasto) await notificarSobregasto(tx, { gastoId: created.id, proyectoId: input.proyectoId })
 
     auditoria.push({
