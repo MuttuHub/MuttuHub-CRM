@@ -114,7 +114,7 @@ function seedProject(id: string, n: number) {
   for (const [linea, periodo, valor] of [["l1", "2026-01", "300000"], ["l1", "2026-03", "400000"], ["l2", "2026-02", "200000"], ["l2", "2026-06", "300000"]]) {
     store.programacion.push({ proyecto_id: id, linea_id: `${id}-${linea}`, periodo, valor: dec(valor) })
   }
-  for (const [linea, periodo, valor, estado] of [["l1", "2026-01", "250000", "VALIDADO"], ["l1", "2026-03", "100000.50", "VALIDADO"], ["l2", "2026-02", "90000", "VALIDADO"], ["l2", "2026-04", "50000", "VALIDADO"], ["l1", "2026-02", "999", "REGISTRADO"]]) {
+  for (const [linea, periodo, valor, estado] of [["l1", "2026-01", "250000", "VALIDADO"], ["l1", "2026-03", "100000.50", "VALIDADO"], ["l2", "2026-02", "90000", "VALIDADO"], ["l2", "2026-04", "50000", "VALIDADO"], ["l1", "2026-02", "999", "REGISTRADO"], ["l1", "2026-02", "777", "ANULADO"], ["l2", "2026-02", "555", "RECHAZADO"]]) {
     store.gastos.push({ proyecto_id: id, linea_id: `${id}-${linea}`, periodo, monto_cop: dec(valor), estado })
   }
 }
@@ -288,11 +288,12 @@ describe("base=original (frozen structure)", () => {
     expect(kpis.tecnico?.avance_real).toBe(Math.round(tecnico.tecnico.avance_real * 1000) / 10)
     expect(kpis.tecnico?.avance_programado).toBe(Math.round(tecnico.tecnico.avance_programado * 1000) / 10)
     expect(kpis.tecnico?.color).toBe(tecnico.color)
-    // A and P frozen; E is the live validated total up to the corte period.
+    // A and P frozen; E is the live executed total up to the corte period (AJ-08: REGISTRADO counts,
+    // ANULADO and RECHAZADO do not).
     expect(kpis.financiero).toMatchObject({
       asignado: toCents("3000000.50"),
       programado: toCents("1200000"),
-      ejecutado: toCents("440000.50"),
+      ejecutado: toCents("440999.50"),
     })
     expect(kpis.beneficiarios?.meta).toBe(50)
   })

@@ -310,7 +310,6 @@ export const projectQueryKeys = {
   versions: (id: string) => ["projects", "versions", id] as const,
   versionCompare: (id: string, from: string, to: string) => ["projects", "version-compare", id, from, to] as const,
   modifications: (id: string) => ["projects", "modifications", id] as const,
-  expenseQueue: ["projects", "expense-validations"] as const,
   eligibleOpportunities: ["projects", "eligible-opportunities"] as const,
   // Los catálogos viven fuera de `projects` para que invalidar la lista de
   // proyectos no refetchee catálogos que no cambiaron.
@@ -1718,30 +1717,6 @@ export type ProjectExpenseInput = {
   soporte: AvanceMedioInput;
 };
 
-export type ExpenseQueueRow = {
-  id: string;
-  proyecto_id: string;
-  proyecto_codigo: string;
-  proyecto_nombre: string;
-  rubro: { id: string; codigo: string | null; nombre: string };
-  fecha_documento: string;
-  periodo: string;
-  tercero_nombre: string;
-  tercero_tipo_id: "NIT" | "CC" | "CE" | null;
-  numero_documento: string;
-  descripcion: string;
-  valor: string;
-  estado: ProjectExpenseEstado;
-  alerta_sobregasto: boolean;
-  datos_incompletos: boolean;
-  /** No live support yet (an imported expense): it cannot be validated until one is attached. */
-  sin_soporte: boolean;
-  registrado_por_id: string;
-  registrado_por_nombre: string | null;
-  propio: boolean;
-  created_at: string;
-};
-
 export function useProjectExpenses(id: string): UseQueryResult<ProjectExpenses> {
   return useQuery({
     queryKey: projectQueryKeys.expenses(id),
@@ -1750,21 +1725,11 @@ export function useProjectExpenses(id: string): UseQueryResult<ProjectExpenses> 
   });
 }
 
-/** Cola de validación entre proyectos (ADM/GER; el resto recibe 403). */
-export function useExpenseValidationQueue(): UseQueryResult<{ gastos: ExpenseQueueRow[] }> {
-  return useQuery({
-    queryKey: projectQueryKeys.expenseQueue,
-    retry: false,
-    queryFn: () =>
-      apiGet<{ gastos: ExpenseQueueRow[] }>("/api/v1/expense-validations?estado=REGISTRADO&limit=50"),
-  });
-}
-
-/** Refresca lo que un gasto puede cambiar: su lista, la cola y E de la ficha financiera. */
+/** Refresca lo que un gasto puede cambiar: su lista y E de la ficha financiera (AJ-08: no hay cola de validación). */
 function useRefreshGastos() {
   const qc = useQueryClient();
   return () => {
-    for (const key of [["projects", "expenses"], ["projects", "expense-validations"], ["projects", "financial-sheet"]]) {
+    for (const key of [["projects", "expenses"], ["projects", "financial-sheet"]]) {
       void qc.invalidateQueries({ queryKey: key });
     }
   };
@@ -1813,30 +1778,7 @@ export function useAttachExpenseSupport(
 
 type ExpenseTarget = { projectId: string; id: string };
 
-/** Valida un gasto (ADM/GER distinto de quien lo registró). 409 OVERSPEND_BLOCKED refresca la bandera. */
-export function useValidateExpense(): UseMutationResult<{ gasto: ProjectExpense }, Error, ExpenseTarget> {
-  const refresh = useRefreshGastos();
-  return useMutation({
-    mutationFn: ({ projectId, id }) =>
-      apiPost<{ gasto: ProjectExpense }>(`/api/v1/projects/${projectId}/expenses/${id}/validate`),
-    onSettled: refresh,
-  });
-}
-
-export function useRejectExpense(): UseMutationResult<
-  { gasto: ProjectExpense },
-  Error,
-  ExpenseTarget & { motivo: string }
-> {
-  const refresh = useRefreshGastos();
-  return useMutation({
-    mutationFn: ({ projectId, id, motivo }) =>
-      apiPost<{ gasto: ProjectExpense }>(`/api/v1/projects/${projectId}/expenses/${id}/reject`, { motivo }),
-    onSettled: refresh,
-  });
-}
-
-/** Anula un gasto validado (solo gestores); deja de contar en E. */
+/** Anula un gasto registrado o validado (solo gestores); deja de contar en E. */
 export function useVoidExpense(): UseMutationResult<
   { gasto: ProjectExpense },
   Error,

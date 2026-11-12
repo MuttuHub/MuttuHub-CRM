@@ -137,7 +137,8 @@ registry.registerPath({
     "decimales con máximo dos decimales; el Total no se envía: el servidor lo calcula (Subtotal + IVA) y es el valor ejecutado " +
     "(`valor` en la vista). Ya no se acepta `valor`. Exige de 1 a 5 " +
     "soportes en modo confirmación (firma en `/expenses/sign`, subida directa, y aquí `storage_path` o `url_externa`). El " +
-    "estado siempre es REGISTRADO. Las alertas no bloquean: `SOBREGASTO` (aviso temprano contra lo validado) y `DUPLICADO` " +
+    "estado siempre es REGISTRADO y ya cuenta como ejecutado (AJ-08). Las alertas no bloquean: `SOBREGASTO` (aviso " +
+    "temprano contra lo ejecutado del rubro) y `DUPLICADO` " +
     "(mismo tercero y número de documento normalizados en cualquier proyecto; el código solo se revela si se puede leer ese proyecto).",
   security: [{ sessionCookie: [] }],
   request: {
@@ -230,115 +231,22 @@ registry.registerPath({
 
 const GestionNote =
   "Solo ADMINISTRADOR/GERENCIA (404 -> 403 -> 404 del gasto). Ninguna ruta cambia el estado del proyecto.";
-const DecisionNote =
-  "Solo con el proyecto `EN_EJECUCION` (409 INVALID_STATE; suspendido, cerrado o cancelado está congelado), verificado " +
-  "también bajo bloqueo.";
 const GastoResponse = z.object({ gasto: GastoSchema });
-
-registry.registerPath({
-  method: "post",
-  path: "/api/v1/projects/{id}/expenses/{expenseId}/validate",
-  tags: ["Projects"],
-  summary: "Valida un gasto registrado",
-  description:
-    `${GestionNote} ${DecisionNote} Quien registró el gasto no puede validarlo (403; también lo impide una restricción de la base de datos). ` +
-    "409 INVALID_STATE si no está REGISTRADO; 409 CONFLICT si el tercero no tiene tipo y número de identificación o si el gasto " +
-    "no tiene ningún soporte vigente (los gastos importados desde Excel nacen sin soporte). Si el total validado " +
-    "del rubro más este gasto superaría el valor asignado (estricto), se bloquea: responde 409 `OVERSPEND_BLOCKED`, el gasto " +
-    "sigue REGISTRADO con `alerta_sobregasto` en true y se notifica una sola vez a cada usuario GERENCIA activo. Tras " +
-    "aumentar el asignado, la misma llamada valida y limpia la bandera.",
-  security: [{ sessionCookie: [] }],
-  request: { params: ExpenseParams },
-  responses: {
-    200: { description: "Gasto validado.", content: { "application/json": { schema: GastoResponse } } },
-    ...standardErrorResponses([401, 403, 404, 409, 500]),
-  },
-});
-
-registry.registerPath({
-  method: "post",
-  path: "/api/v1/projects/{id}/expenses/{expenseId}/reject",
-  tags: ["Projects"],
-  summary: "Rechaza un gasto registrado con motivo",
-  description:
-    `${GestionNote} ${DecisionNote} El motivo es obligatorio (400). Quien registró el gasto no puede rechazarlo (403). Solo desde REGISTRADO ` +
-    "(409). Quien lo registró puede corregirlo con PATCH y vuelve a REGISTRADO.",
-  security: [{ sessionCookie: [] }],
-  request: { params: ExpenseParams, body: { content: { "application/json": { schema: MOTIVO_GASTO_SCHEMA } } } },
-  responses: {
-    200: { description: "Gasto rechazado.", content: { "application/json": { schema: GastoResponse } } },
-    ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
-  },
-});
 
 registry.registerPath({
   method: "post",
   path: "/api/v1/projects/{id}/expenses/{expenseId}/void",
   tags: ["Projects"],
-  summary: "Anula un gasto validado con motivo",
+  summary: "Anula un gasto ejecutado con motivo",
   description:
-    `${GestionNote} En cualquier estado del proyecto: es una corrección. Solo desde VALIDADO (409). La fila se conserva con estado ANULADO y las columnas anulado_*; deja de ` +
-    "contar en la ejecución (E) de la ficha financiera.",
+    `${GestionNote} En cualquier estado del proyecto: es una corrección. Desde REGISTRADO o VALIDADO (409 en los demás; ` +
+    "AJ-08 quitó la aprobación, así que un gasto registrado ya es ejecutado). La fila se conserva con estado ANULADO y " +
+    "las columnas anulado_*; deja de contar en la ejecución (E) de la ficha financiera.",
   security: [{ sessionCookie: [] }],
   request: { params: ExpenseParams, body: { content: { "application/json": { schema: MOTIVO_GASTO_SCHEMA } } } },
   responses: {
     200: { description: "Gasto anulado.", content: { "application/json": { schema: GastoResponse } } },
     ...standardErrorResponses([400, 401, 403, 404, 409, 500]),
-  },
-});
-
-registry.registerPath({
-  method: "get",
-  path: "/api/v1/expense-validations",
-  tags: ["Projects"],
-  summary: "Cola de validación de gastos entre proyectos",
-  description:
-    "Solo ADMINISTRADOR/GERENCIA (403 para el resto). Más antiguos primero, sin proyectos eliminados. La cola REGISTRADO " +
-    "solo incluye proyectos `EN_EJECUCION`; las demás vistas incluyen también los `SUSPENDIDO`. `estado` (por defecto " +
-    "REGISTRADO) y `limit` (1..200, por defecto 50) se validan (400). `propio` marca los gastos que registró quien consulta. " +
-    "Nunca devuelve el número de identificación del tercero.",
-  security: [{ sessionCookie: [] }],
-  request: {
-    query: z.object({
-      estado: EstadoGastoSchema.optional(),
-      limit: z.coerce.number().int().min(1).max(200).optional(),
-    }),
-  },
-  responses: {
-    200: {
-      description: "Gastos pendientes de validación.",
-      content: {
-        "application/json": {
-          schema: z.object({
-            gastos: z.array(
-              z.object({
-                id: z.string().uuid(),
-                proyecto_id: z.string().uuid(),
-                proyecto_codigo: z.string(),
-                proyecto_nombre: z.string(),
-                rubro: z.object({ id: z.string().uuid(), codigo: z.string().nullable(), nombre: z.string() }),
-                fecha_documento: z.string(),
-                periodo: z.string(),
-                tercero_nombre: z.string(),
-                tercero_tipo_id: z.enum(["NIT", "CC", "CE"]).nullable(),
-                numero_documento: z.string(),
-                descripcion: z.string(),
-                valor: z.string(),
-                estado: EstadoGastoSchema,
-                alerta_sobregasto: z.boolean(),
-                datos_incompletos: z.boolean(),
-                sin_soporte: z.boolean().openapi({ description: "Sin soportes vivos (gasto importado): no se puede validar todavía." }),
-                registrado_por_id: z.string(),
-                registrado_por_nombre: z.string().nullable(),
-                propio: z.boolean(),
-                created_at: z.string(),
-              }),
-            ),
-          }),
-        },
-      },
-    },
-    ...standardErrorResponses([400, 401, 403, 500]),
   },
 });
 

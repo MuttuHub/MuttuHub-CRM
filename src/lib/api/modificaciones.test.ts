@@ -30,9 +30,19 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("loadEjecutadoPorRubro", () => {
-  it("sums the VALIDADO expenses per rubro code and skips legacy rubros without a code", async () => {
+  it("sums the executed expenses per rubro code and skips legacy rubros without a code", async () => {
     const total = await loadEjecutadoPorRubro(cliente([gasto("R12", "1000.50"), gasto("R12", "2000"), gasto("R01", "5"), gasto(null, "9")]), "pry-1");
     expect(Object.fromEntries(total)).toEqual({ R12: BigInt(300050), R01: BigInt(500) });
+  });
+
+  it("reads REGISTRADO and VALIDADO: a registered expense already counts as executed (AJ-08)", async () => {
+    const findMany = vi.fn(async () => []);
+    await loadEjecutadoPorRubro({ gasto: { findMany } } as never, "pry-1");
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { proyecto_id: "pry-1", estado: { in: ["REGISTRADO", "VALIDADO"] } },
+      }),
+    );
   });
 });
 
@@ -44,7 +54,7 @@ describe("evaluarSolicitud", () => {
     { elemento: "programacion" as const, clave: "R13|2027-01", campo: "valor", antes: "3200000", despues: "4200000" },
   ];
 
-  it("runs the rules with the validated E and the parameter of the settings", async () => {
+  it("runs the rules with the executed E and the parameter of the settings", async () => {
     const { reglas } = await evaluarSolicitud(cliente([gasto("R12", "23500000")]), "pry-1", { tipo: "TRASLADO", detalle: traslado });
     expect(reglas.map((r) => r.codigo)).toEqual(["A_MENOR_QUE_EJECUTADO"]);
   });

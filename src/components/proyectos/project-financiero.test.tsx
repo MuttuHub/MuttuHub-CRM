@@ -168,13 +168,14 @@ describe("ProjectFinanciero", () => {
   })
 
   describe("three key figures", () => {
-    it("shows Ejecutado with the validated count, Programado a hoy with its share and colour, and the project value", async () => {
+    it("shows Ejecutado with the count of expenses that count, Programado a hoy with its share and colour, and the project value", async () => {
+      // AJ-08: the three expenses count, the REGISTRADO included.
       setup({ gastos: [gasto("g1", { estado: "VALIDADO" }), gasto("g2", { estado: "VALIDADO" }), gasto("g3")] })
 
       const ejecutado = await screen.findByTestId("cifra-ejecutado")
-      expect(ejecutado).toHaveTextContent("Ejecutado (gastos validados)")
+      expect(ejecutado).toHaveTextContent("Ejecutado (gastos registrados)")
       expect(ejecutado).toHaveTextContent("$ 40.500.000")
-      expect(await within(ejecutado).findByText("2 gastos validados")).toBeInTheDocument()
+      expect(await within(ejecutado).findByText("3 gastos registrados")).toBeInTheDocument()
 
       const programado = screen.getByTestId("cifra-programado")
       expect(programado).toHaveTextContent("Programado a hoy")
@@ -287,103 +288,14 @@ describe("ProjectFinanciero", () => {
     })
   })
 
-  describe("gastos por validar", () => {
-    it("lists the pending expenses with registrant, rubro, total, notices, support and Revisar", async () => {
-      setup({
-        gastos: [
-          gasto("g1", { alerta_sobregasto: true, rubro: { id: "r1", codigo: "R01", nombre: "Personal" } }),
-          gasto("g2", { tercero_nombre: "Dotaciones del Caribe", numero_documento: "FV-2040", valor: "11250000.00", subtotal: "11250000.00", periodo: "2026-10", periodo_modificado: true }),
-          gasto("g3", { estado: "VALIDADO" }),
-        ],
-      })
-
-      const seccion = await screen.findByTestId("gastos-por-validar")
-      expect(within(seccion).getByRole("heading", { name: "Gastos por validar · 2 · $ 11.700.000" })).toBeInTheDocument()
-      const filas = within(seccion).getAllByTestId("por-validar-fila")
-      expect(filas).toHaveLength(2)
-      expect(filas[0]).toHaveTextContent("Papelería del Sinú")
-      expect(await within(filas[0]).findByText("FV-4007 · 02 nov 2026 · registró Laura Jiménez")).toBeInTheDocument()
-      expect(filas[0]).toHaveTextContent("R01 · Personal")
-      expect(filas[0]).toHaveTextContent("$ 450.000")
-      expect(filas[0]).toHaveTextContent("Sin IVA")
-      expect(within(filas[0]).getByRole("button", { name: "Ayuda: Supera lo asignado" })).toBeInTheDocument()
-      expect(within(filas[1]).getByText("Cuenta en 2026-10")).toBeInTheDocument()
-      expect(within(filas[1]).getByRole("button", { name: "Ayuda: Cuenta en 2026-10" })).toBeInTheDocument()
-      expect(within(filas[0]).getByRole("button", { name: "Ver soporte Factura FV-4007.pdf" })).toBeInTheDocument()
-      const revisar = within(filas[0]).getByRole("button", { name: "Revisar el gasto FV-4007 de Papelería del Sinú" })
-      // T10 F6: «Revisar» is an outlined button and the support link is underlined, as in the prototype.
-      expect(revisar.className).toMatch(/(^|\s)bg-input-bg(\s|$)/)
-      expect(revisar.className).not.toMatch(/(^|\s)bg-primary(\s|$)/)
-      expect(within(filas[0]).getByRole("button", { name: "Ver soporte Factura FV-4007.pdf" }).className).toMatch(/(^|\s)underline(\s|$)/)
-    })
-
-    it("is not shown when nothing waits for validation", async () => {
-      setup({ gastos: [gasto("g1", { estado: "VALIDADO" })] })
+  describe("no validation section (AJ-08)", () => {
+    it("never renders the «Gastos por validar» block, not even with REGISTRADO expenses", async () => {
+      setup({ gastos: [gasto("g1"), gasto("g2", { estado: "VALIDADO" })] })
       await screen.findByTestId("financiero-cifras")
       await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/projects/p1/expenses", expect.any(Object)))
       expect(screen.queryByTestId("gastos-por-validar")).not.toBeInTheDocument()
-    })
-
-    it("shows Revisar to a team member too, and clicking it explains the missing permission instead of opening the panel", async () => {
-      const user = userEvent.setup()
-      setup({ rol: "COORDINADOR", gastos: [gasto("g1")] })
-      const seccion = await screen.findByTestId("gastos-por-validar")
-      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
-      const revisar = await within(seccion).findByRole("button", { name: "Revisar el gasto FV-4007 de Papelería del Sinú" })
-      await user.click(revisar)
-      expect(
-        await screen.findByText(
-          "No tienes permisos para validar gastos. Solo Gerencia o Administración pueden validarlos mientras el proyecto está en ejecución.",
-        ),
-      ).toBeInTheDocument()
-      expect(screen.queryByRole("dialog", { name: "Validar gasto" })).not.toBeInTheDocument()
-    })
-
-    it("«Tú lo registraste» to the manager who registered it", async () => {
-
-      setup({ gastos: [gasto("g1", { registrado_por_id: "yo" })] })
-      const propia = await screen.findByTestId("gastos-por-validar")
-      expect(await within(propia).findByText("Tú lo registraste")).toBeInTheDocument()
-      expect(within(propia).queryByRole("button", { name: /^Revisar/ })).not.toBeInTheDocument()
-    })
-
-    // T12: a team member who registered the expense reads «Tú lo registraste», not a «Revisar» they cannot use.
-    it("«Tú lo registraste» to a team member who registered it", async () => {
-      setup({ rol: "COORDINADOR", gastos: [gasto("g1", { registrado_por_id: "yo" })] })
-      const propia = await screen.findByTestId("gastos-por-validar")
-      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/me", expect.any(Object)))
-      expect(await within(propia).findByText("Tú lo registraste")).toBeInTheDocument()
-      expect(within(propia).queryByRole("button", { name: /^Revisar/ })).not.toBeInTheDocument()
-    })
-
-    it("«Revisar» opens the «Validar gasto» panel on that expense", async () => {
-      const user = userEvent.setup()
-      setup({ gastos: [gasto("g1")] })
-      await user.click(await screen.findByRole("button", { name: /^Revisar/ }))
-      const panel = await screen.findByRole("dialog", { name: "Validar gasto" })
-      expect(within(panel).getByRole("heading", { name: "Papelería del Sinú" })).toBeInTheDocument()
-      expect(within(panel).getByText("Laura Jiménez")).toBeInTheDocument()
-    })
-
-    it("«Ver todos los gastos» switches to the Gastos segment", async () => {
-      const user = userEvent.setup()
-      const onVerGastos = vi.fn()
-      setup({ gastos: [gasto("g1")], navegacion: { onVerGastos } })
-      const seccion = await screen.findByTestId("gastos-por-validar")
-      for (const enlace of within(seccion).getAllByRole("button", { name: "Ver todos los gastos" })) {
-        expect(enlace.className).toMatch(/(^|\s)underline(\s|$)/)
-      }
-      await user.click(within(seccion).getAllByRole("button", { name: "Ver todos los gastos" })[0])
-      expect(onVerGastos).toHaveBeenCalledTimes(1)
-    })
-
-    it("shows one card per expense on the phone, with a 44 px Revisar", async () => {
-      mockViewport(true)
-      setup({ gastos: [gasto("g1")] })
-      const tarjetas = await screen.findByTestId("gastos-por-validar-tarjetas")
-      const revisar = await within(tarjetas).findByRole("button", { name: /^Revisar/ })
-      expect(revisar.className).toMatch(/max-md:h-11/)
-      expect(within(tarjetas).getByText("Rubro: R12 · Transporte")).toBeInTheDocument()
+      expect(screen.queryByText(/Gastos por validar/)).not.toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: /^Revisar/ })).not.toBeInTheDocument()
     })
   })
 
@@ -407,11 +319,12 @@ describe("ProjectFinanciero", () => {
       expect(barra).toHaveAttribute("data-band", "rojo")
     })
 
-    it("flags the rubro that a pending expense would push over its assigned amount", async () => {
+    it("flags the rubro that registered expenses push over its assigned amount", async () => {
       setup({ gastos: [gasto("g1", { alerta_sobregasto: true }), gasto("g2", { alerta_sobregasto: true })] })
       const filas = await screen.findAllByTestId("financiero-rubro")
-      expect(await within(filas[1]).findByText("2 gastos por validar lo superan")).toBeInTheDocument()
-      expect(filas[0]).not.toHaveTextContent("por validar")
+      expect(await within(filas[1]).findByText("2 gastos lo superan")).toBeInTheDocument()
+      expect(filas[1]).not.toHaveTextContent("por validar")
+      expect(filas[0]).not.toHaveTextContent("lo supera")
     })
 
     it("becomes one card per rubro on the phone, with the % on top and three figures below", async () => {

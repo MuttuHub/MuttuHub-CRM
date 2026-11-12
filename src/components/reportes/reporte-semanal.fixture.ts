@@ -61,11 +61,4 @@ export const REPORTE_SEMANAL: ReporteSemanal = {
       items: [{ tipo: "rubro_sobreejecucion", titulo: "Rubro sobreejecutado", detalle: "R01 Personal: ejecutado supera lo asignado." }],
     },
   ],
-  gastos_por_validar: {
-    cantidad: 2,
-    monto: "300000.00",
-    por_proyecto: [
-      { proyecto: { id: "p1", codigo: "PRY-0001", nombre: "Ruta del emprendimiento" }, cantidad: 2, monto: "300000.00", mas_antiguo: "2026-10-10" },
-    ],
-  },
 }

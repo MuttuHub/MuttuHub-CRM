@@ -1,12 +1,14 @@
-// Source of the validated expenses (E) of the financial ficha.
+// Source of the executed expenses (E) of the financial ficha.
 //
-// S6: only VALIDADO expenses count (REGISTRADO, RECHAZADO and ANULADO never do), each mapped to
-// the rubro of its budget line. The route and the pure lib (`computeFicha`) do not change: the
-// ficha itself keeps E unavailable for a BORRADOR project (`ejecucion_disponible`).
+// AJ-08: without an approval step, every expense that counts as executed (REGISTRADO or VALIDADO;
+// RECHAZADO and ANULADO never do) is money spent. Each row keeps its real estado so the pure
+// `computeFicha` can filter by period and by `cuentaComoEjecutado`. The route and the pure lib do not
+// change: the ficha itself keeps E unavailable for a BORRADOR project (`ejecucion_disponible`).
 
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { toCents, type Cents } from "@/lib/proyectos/money";
+import { ESTADOS_EJECUTADOS } from "@/lib/proyectos/gastos";
 import type { GastoEstado } from "@/lib/proyectos/ficha-financiera";
 import type { Periodo } from "@/lib/proyectos/weeks";
 
@@ -18,13 +20,13 @@ export type GastosFuente = {
   gastos: GastoAgregable[];
 };
 
-export async function loadGastosValidados(
+export async function loadGastosEjecutados(
   proyectoId: string,
   client: Pick<Prisma.TransactionClient, "gasto"> = db,
 ): Promise<GastosFuente> {
   const rows = await client.gasto.findMany({
-    where: { proyecto_id: proyectoId, estado: "VALIDADO" },
-    select: { periodo: true, monto_cop: true, linea: { select: { rubro_id: true } } },
+    where: { proyecto_id: proyectoId, estado: { in: [...ESTADOS_EJECUTADOS] } },
+    select: { periodo: true, monto_cop: true, estado: true, linea: { select: { rubro_id: true } } },
   });
   return {
     disponible: true,
@@ -32,7 +34,7 @@ export async function loadGastosValidados(
       rubroId: row.linea.rubro_id,
       periodo: row.periodo,
       valor: toCents(row.monto_cop),
-      estado: "VALIDADO" as const,
+      estado: row.estado,
     })),
   };
 }

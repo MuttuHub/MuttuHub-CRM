@@ -18,7 +18,6 @@ import { db } from "@/lib/db"
 import { RespuestaAbortada } from "@/lib/api/errors"
 import { GASTO_INCLUDE } from "@/lib/api/gastos"
 import { aplicarModificacion, rechazarModificacion } from "@/lib/api/modificaciones"
-import { validarEnTransaccion } from "@/lib/api/validacion-gastos"
 import { aprobarLineaBase, loadLiveProyecto } from "@/lib/api/versiones"
 import { applyModificacion, type DetalleItem, type TipoModificacion } from "@/lib/proyectos/modificaciones"
 import { buildSnapshot } from "@/lib/proyectos/versiones"
@@ -329,7 +328,7 @@ describe("aplicarModificacion (live DB)", () => {
     expect(r.segunda.status).toBe(409)
   })
 
-  it("never leaves A below the validated E: 400 with the rule and nothing written (REQ-GAS-06)", async () => {
+  it("never leaves A below the executed E: 400 with the rule and nothing written (REQ-GAS-06)", async () => {
     const r = await runAndRollback(async (tx) => {
       const f = await enEjecucion(tx)
       await crearGasto(tx, f, { monto: 95, estado: "VALIDADO" })
@@ -348,27 +347,6 @@ describe("aplicarModificacion (live DB)", () => {
     expect(r.versiones).toBe(1)
     expect(r.linea).toBe("100")
     expect(r.estado).toBe("PENDIENTE")
-  })
-
-  it("unblocks a previously overspend-blocked expense once A is raised (REQ-GAS-05)", async () => {
-    const r = await runAndRollback(async (tx) => {
-      const f = await enEjecucion(tx)
-      const gasto = await crearGasto(tx, f, { monto: 120 })
-      const primero = await validarEnTransaccion(tx, { gasto, validadorId: f.validador.id })
-      const sol = await solicitud(tx, f, "ADICION", [
-        presupuesto(A(f), "100", "130"),
-        celda(`${A(f)}|2030-01`, "50", "65"),
-        celda(`${A(f)}|2030-02`, "50", "65"),
-      ])
-      await aplicarModificacion(tx, { ...f.ids, solicitudId: sol.id })
-      const bloqueado = await tx.gasto.findUniqueOrThrow({ where: { id: gasto.id }, include: GASTO_INCLUDE })
-      const segundo = await validarEnTransaccion(tx, { gasto: bloqueado, validadorId: f.validador.id })
-      return { primero, segundo, final: await tx.gasto.findUniqueOrThrow({ where: { id: gasto.id } }), flagTrasBloqueo: bloqueado.alerta_sobregasto }
-    })
-    expect(r.primero).toEqual({ blocked: true })
-    expect(r.flagTrasBloqueo).toBe(true)
-    expect(r.segundo).toMatchObject({ blocked: false })
-    expect(r.final).toMatchObject({ estado: "VALIDADO", alerta_sobregasto: false })
   })
 
   it("rolls back everything when the write fails after the version insert", async () => {
@@ -403,90 +381,5 @@ describe("aplicarModificacion (live DB)", () => {
       }
     })
     expect(r).toEqual({ versiones: 1, lineas: ["100", "50"], estado: "PENDIENTE", auditoria: 0 })
-  })
-})
-
-describe("approval vs a concurrent validation (live DB, two connections)", () => {
-  it("an approval that has read E already holds the line locks: a validation waits and then sees the committed value", async () => {
-    // Committed fixture WITHOUT a baseline (deletable); the v0 is created inside the approving transaction.
-    const creado = await db.$transaction(async (tx) => {
-      const f = await borrador(tx)
-      await tx.proyecto.update({ where: { id: f.proyecto.id }, data: { estado: "EN_EJECUCION" } })
-      const gasto = await crearGasto(tx, f, { monto: 95 })
-      return { f, gastoId: gasto.id }
-    }, TX_OPTIONS)
-
-    try {
-      let liberar!: () => void
-      const liberada = new Promise<void>((resolve) => (liberar = resolve))
-      let sosteniendo!: () => void
-      const listo = new Promise<void>((resolve) => (sosteniendo = resolve))
-
-      const aprobador = db
-        .$transaction(async (tx) => {
-          const { live } = await loadLiveProyecto(tx, creado.f.proyecto.id)
-          await tx.versionProyecto.create({
-            data: { proyecto_id: creado.f.proyecto.id, numero: 0, tipo: "LINEA_BASE", aprobado_por_id: creado.f.usuario.id, snapshot: buildSnapshot(live!) as unknown as Prisma.InputJsonValue },
-          })
-          const sol = await solicitud(tx, creado.f, "REDUCCION", [presupuesto(A(creado.f), "100", "90"), celda(`${A(creado.f)}|2030-02`, "50", "40")])
-          // Pause the approval right after it read E (and before it writes anything): the line locks
-          // must already be held, or a validation could slip in between and leave A below E.
-          const pausado = new Proxy(tx, {
-            get(target, prop, receiver) {
-              if (prop === "gasto") {
-                return new Proxy(target.gasto, {
-                  get(modelo, accion, rr) {
-                    if (accion !== "findMany") return Reflect.get(modelo, accion, rr)
-                    return async (args: unknown) => {
-                      const filas = await (modelo.findMany as (a: unknown) => Promise<unknown>)(args)
-                      sosteniendo()
-                      await liberada
-                      return filas
-                    }
-                  },
-                })
-              }
-              return Reflect.get(target, prop, receiver)
-            },
-          }) as Tx
-          await aplicarModificacion(pausado, { ...creado.f.ids, solicitudId: sol.id })
-          throw new IntentionalRollback()
-        }, TX_OPTIONS)
-        .catch((error) => {
-          if (!(error instanceof IntentionalRollback)) throw error
-        })
-
-      // If the approving transaction fails before pausing, surface that error (and still clean up below).
-      await Promise.race([listo, aprobador])
-      let terminado = false
-      let resultado: unknown
-      const gasto = await db.gasto.findUniqueOrThrow({ where: { id: creado.gastoId }, include: GASTO_INCLUDE })
-      const validador = runAndRollback(async (tx) => {
-        resultado = await validarEnTransaccion(tx, { gasto, validadorId: creado.f.validador.id })
-        terminado = true
-      })
-
-      await new Promise((resolve) => setTimeout(resolve, 600))
-      const bloqueada = !terminado
-
-      liberar()
-      await aprobador
-      await validador // A rolled back: the line is back at 100 and the 95 validates
-      expect(bloqueada).toBe(true)
-      expect(resultado).toMatchObject({ blocked: false })
-    } finally {
-      const id = creado.f.proyecto.id
-      await db.gasto.deleteMany({ where: { proyecto_id: id } })
-      await db.programacionPeriodo.deleteMany({ where: { proyecto_id: id } })
-      await db.lineaPresupuestal.deleteMany({ where: { proyecto_id: id } })
-      await db.indicador.deleteMany({ where: { proyecto_id: id } })
-      await db.entregable.deleteMany({ where: { proyecto_id: id } })
-      await db.actividad.deleteMany({ where: { proyecto_id: id } })
-      await db.objetivo.deleteMany({ where: { proyecto_id: id } })
-      await db.proyecto.delete({ where: { id } })
-      await db.rubro.deleteMany({ where: { id: { in: [creado.f.rubros.A.id, creado.f.rubros.B.id, creado.f.rubros.C.id] } } })
-      await db.cliente.delete({ where: { id: creado.f.cliente.id } })
-      await db.usuario.deleteMany({ where: { id: { in: [creado.f.usuario.id, creado.f.validador.id] } } })
-    }
   })
 })

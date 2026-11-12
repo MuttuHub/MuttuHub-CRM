@@ -267,42 +267,6 @@ export function ReporteSemanalContenido({ data }: { data: ReporteSemanal }) {
         )}
       </Seccion>
 
-      {data.gastos_por_validar && (
-        <Seccion id="semanal-gastos" titulo="Gastos por validar">
-          {data.gastos_por_validar.cantidad === 0 ? (
-            <EmptyBlock>No hay gastos pendientes de validación.</EmptyBlock>
-          ) : (
-            <Table className="min-w-[640px] print:min-w-0">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Código</TableHead>
-                  <TableHead>Proyecto</TableHead>
-                  <TableHead numeric>Gastos</TableHead>
-                  <TableHead numeric>Monto</TableHead>
-                  <TableHead>Registrado desde</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.gastos_por_validar.por_proyecto.map((g) => (
-                  <TableRow key={g.proyecto.id}>
-                    <TableCell className="font-mono text-[12px] font-semibold tabular-nums">{g.proyecto.codigo}</TableCell>
-                    <TableCell className="font-semibold text-ink-950">{g.proyecto.nombre}</TableCell>
-                    <Numero>{g.cantidad}</Numero>
-                    <Numero>{formatMonto(g.monto)}</Numero>
-                    <TableCell>{formatFechaCalendario(g.mas_antiguo)}</TableCell>
-                  </TableRow>
-                ))}
-                <TableRow>
-                  <TableCell className="font-bold" colSpan={2}>Total</TableCell>
-                  <Numero>{data.gastos_por_validar.cantidad}</Numero>
-                  <Numero>{formatMonto(data.gastos_por_validar.monto)}</Numero>
-                  <TableCell />
-                </TableRow>
-              </TableBody>
-            </Table>
-          )}
-        </Seccion>
-      )}
     </div>
   );
 }

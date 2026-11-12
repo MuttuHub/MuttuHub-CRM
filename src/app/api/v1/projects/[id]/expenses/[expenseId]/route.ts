@@ -141,7 +141,8 @@ export const PATCH = withApiErrorHandling(
 
     try {
       const { gasto, sobregasto } = await db.$transaction(async (tx) => {
-        const sobregasto = await superaAsignado(tx, linea, valor);
+        // AJ-08: REGISTRADO already counts as executed, so the row being edited is left out of the sum.
+        const sobregasto = await superaAsignado(tx, linea, valor, expenseId);
         const corrige = actual.estado === "RECHAZADO";
         const { count } = await tx.gasto.updateMany({
           where: { id: expenseId, proyecto_id: id, estado: { in: ESTADOS_EDITABLES } },

@@ -82,7 +82,7 @@ describe("RegistrarGastoDialog", () => {
     render(<Harness />, { wrapper: createWrapper() })
 
     const dialog = await screen.findByRole("dialog", { name: "Registrar gasto" })
-    expect(dialog).toHaveAccessibleDescription("PRY-2026-001 · se registra por validar; lo valida Gerencia.")
+    expect(dialog).toHaveAccessibleDescription("PRY-2026-001 · cuenta como ejecutado al registrarlo.")
     const form = await within(dialog).findByRole("form", { name: "Registrar gasto" })
     const rubro = within(form).getByLabelText("Rubro")
     await waitFor(() =>

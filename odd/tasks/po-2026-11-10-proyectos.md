@@ -250,12 +250,12 @@ sesión de agente por tarea) salvo que la tarjeta diga otra cosa.
 | T0 | — | Cerrar urgencias: mergear #166 (invitaciones rotas) y probar una invitación real | S | — | 2 (auth) | Pendiente |
 | T1 | S1 | La curva S, la tabla por periodo, «Periodo del reporte» y «Requiere atención» leen los reportes de avance | S | — | 6 | Hecha: PR #169, `91b467a` en `main`; verificación manual en local pendiente |
 | T2 | S1 | Regla de avance por actividad según D1 (solo si la PO cambia la regla) | S | D1, T1 | 6 | No se hace: D1 mantiene la regla actual (L8) |
-| T3 | S3 | El Gestor solicita traslados; el Gerente ve pendientes; validación contra lo ejecutado | S–M | D3 | 2 (permisos) | Implementada en `5094aa2`, `8924141` y `a5845da`, rama `feat/aj-09-traslados-gestor` (sin push) |
-| T4 | S2 | Gasto sin aprobación: todo gasto no anulado es ejecutado; se quitan «Por validar», filtros y cola | M | D2 | 3 (lectores compartidos) | Pendiente |
+| T3 | S3 | El Gestor solicita traslados; el Gerente ve pendientes; validación contra lo ejecutado | S–M | D3 | 2 (permisos) | Hecha: PR #171, `5934e4e` en `main`; verificación manual en local pendiente |
+| T4 | S2 | Gasto sin aprobación: todo gasto no anulado es ejecutado; se quitan «Por validar», filtros y cola | M | D2 | 3 (lectores compartidos) | Implementada en `deffc44`, `eda8444`, `6fa9361` y `de9d7c5` (rama `fix/aj-08-gasto-sin-aprobacion`, sobre `main` con T3); revisión nativa aprobada (L13); invariantes de `prisma/` y e2e quedan para el CI del PR (L14) |
 | T5 | S2 | Validadores al digitar, alertas de sobreejecución que no bloquean y aviso de duplicados | M | T4, D4 | — | Pendiente |
 | T6 | S2 | Gestor edita/anula con motivo y auditoría; varios archivos y enlaces por gasto; plantilla exige enlace | M | T4, D3 | 1 si toca datos | Pendiente |
 | T7 | S2 | (Propuesto) Resumen de cambios del periodo en la ficha financiera | S | T6, D4 | — | Pendiente |
-| T8 | S4 | Alerta «Posible retraso» visible en ficha y Tablero gerencial (la lógica ya existe) | S | — | — | Implementada en `8270e97`, PR #170 abierto |
+| T8 | S4 | Alerta «Posible retraso» visible en ficha y Tablero gerencial (la lógica ya existe) | S | — | — | Hecha: PR #170, `261e995` en `main`; verificación manual en local pendiente |
 | T9 | S5–S12 | **Diseño y estimación de la Parte 2** (sin código): modelo de datos, migraciones, plantillas, recarga de CedeTextil | M | D5 | — | Pendiente |
 | T10–T15 | S5–S12 | Rebanadas de la Parte 2, definidas por T9 (orientativas abajo) | L en total | T9 | 1 | Pendiente |
 
@@ -354,6 +354,9 @@ sesión de agente por tarea) salvo que la tarjeta diga otra cosa.
   textual «Solicita un traslado al Gerente».
 - Duplicados: advertencia antes de guardar si existe gasto del mismo tercero con el mismo número de documento (el
   importador ya detecta duplicados: `gastos-import/parse.ts`; reusar la clave).
+- **Heredado de T4 (L11):** al quitar la validación, `notificarSobregasto` (`src/lib/api/notificaciones-proyecto.ts`)
+  quedó sin quien lo llame: registrar un gasto que supera el asignado ya no avisa a Gerencia por la campana. Decidir
+  aquí si el aviso sale al registrar, junto con la alerta crítica. `notificarGastoRechazado` también quedó sin uso.
 - **Tests:** los «Se acepta si» de alerta crítica y factura duplicada.
 
 ### T6 — AJ-08: corrección, soportes y plantilla (M)
@@ -457,8 +460,6 @@ S11) · T15 recarga de CedeTextil en producción con ensayo (S12).
   anulados, visibles y corregibles, sin borrar); «D5 tienes que modificar ese proyecto? por que?». Lectura del agente
   (no textual): D4 confirma que no hay aviso de confirmación; el manejo del presupuesto restante es de quien
   registra, con las alertas de sobreejecución y los traslados de S2 y S3. D5 sigue abierta.
-- **Siguiente paso:** merge de #170 (decisión del usuario); T3 y T4, ya destrabadas; cerrar D5; T0 (probar una
-  invitación real en producción); verificación manual de T1 y T8 cuando la base local esté arriba.
 - **L10 (2026-11-12, T3):** AJ-09 implementado en `feat/aj-09-traslados-gestor` (base `261e995`, ya con el
   fast-forward de #170), ruta inline, tres rebanadas: `5094aa2` (servidor: `construirTrasladoSimple` en
   `src/lib/proyectos/traslado-simple.ts` arma el `detalle` del TRASLADO repartiendo el valor entre los periodos
@@ -475,3 +476,79 @@ S11) · T15 recarga de CedeTextil en producción con ensayo (S12).
   Riesgo: ítem 2 en `5094aa2` (amplía quién puede solicitar; aprobar sigue siendo solo ADMINISTRADOR/GERENCIA).
   Pendiente: suite completa y `e2e/proyectos-v2/permisos.spec.ts` vía el CI del PR, verificación manual en la base
   local y push + PR (decisión del usuario).
+- **L11 (2026-11-11, T4; L10 es la entrada de T3 en la rama `feat/aj-09-traslados-gestor`, PR #171):** pedido del usuario, textual: «Hola estuve adelantando con deepseek porque se acabó tu
+  limite de uso, revisa com ovamos». DeepSeek dejó T4 sin commit (63 archivos) en `fix/aj-08-gasto-sin-aprobacion`;
+  la revisión de Fable 5.2 lo completó y lo dejó en el commit `ba5fa1f`, ruta inline. Lo que traía bien: el predicado
+  único `cuentaComoEjecutado` / `ESTADOS_EJECUTADOS` (`src/lib/proyectos/gastos.ts`), sin tocar el enum ni crear
+  migración, y la retirada de la cola, las rutas `validate`/`reject`, «Por validar» y la sección del reporte semanal.
+  Lo que faltaba y se corrigió: (1) `src/lib/api/kpis-portafolio.ts` seguía contando solo `VALIDADO` (uno de los seis
+  lectores de la tarjeta; su test de paridad con la ficha fallaba por los $999 del gasto registrado: RED observado,
+  luego GREEN, con filas `ANULADO` y `RECHAZADO` que no suman); (2) un gasto `VALIDADO` heredado no entraba en el
+  filtro «Registrado» y mostraba la insignia «Validado»: ahora se lee «Registrado» (RED → GREEN en
+  `project-gastos.test.tsx`); (3) las guías de uso y de prueba y `docs/proceso-proyectos-desde-cero.md` seguían
+  explicando la validación; (4) el mensaje 409 de anular decía «registrado o validado». Checks observados: eslint y
+  knip limpios; `tsc` con los 17 errores previos de `main` (`emailOutbox`) más 3 de `.next/types/validator.ts`, que es
+  generado y aún nombra las rutas borradas; 26 archivos de test del cambio y sus vecinos en verde (444 tests) tras el
+  arreglo. **Sin correr:** `prisma/gastos.invariant.test.ts` y `prisma/modificaciones.invariant.test.ts` (la base
+  local `127.0.0.1:54322` rechaza la conexión y `docker` falla desde WSL) y el e2e `ficha-ejecucion.spec.ts` (queda
+  para el CI del PR). Regresión conocida, pasada a T5: el aviso de campana a Gerencia por sobregasto ya no se envía.
+  Los gastos `RECHAZADO` de producción conservan su etiqueta hasta la tarea de datos de D2. Revisión nativa: riesgo
+  alto (ítem 3 nombrado), `review_due`. Los 144 archivos de test relacionados con el cambio pasan (1931 tests,
+  `vitest related` sin `prisma/` ni `e2e/`).
+  **Verificador independiente sobre `ba5fa1f` (solo lectura):** predicado en todos los lectores, sin restos de las
+  rutas borradas y esquema intacto, en regla. Dos bloqueos, corregidos en `fc5cded` con RED → GREEN: (1) editar un
+  gasto (`PATCH .../expenses/:expenseId`) comparaba contra un ejecutado que ya incluía al propio gasto, así que una
+  edición cualquiera podía marcar «Supera lo asignado»: la ruta ahora lo excluye (`excluirGastoId`); (2) tres textos
+  seguían hablando de aprobación: el diálogo de registro («lo valida Gerencia»), la fila de «Requiere atención» («Le
+  toca a Gerencia validarlo o rechazarlo» y el botón «Revisar gasto», que ya no existe: la fila lleva a Finanzas) y el
+  aviso por rubro («N gastos por validar lo superan», ahora «N gastos lo superan»). Avisos que quedan abiertos, no
+  bloquean: la etiqueta «Pendiente por revisión» sobrevive en `gastos-kpis.tsx`, `ficha-resumen.tsx` y
+  `src/lib/proyectos/atencion.ts` («Gasto por revisar» en la lista de atención); restos sin uso en producción
+  (`canValidateExpense`, `puedeValidar`, `notificarGastoRechazado`, las transiciones VALIDAR/RECHAZAR); comentarios
+  viejos; «aparece en el historial» de un gasto anulado no tiene test propio; un gasto `VALIDADO` heredado se lee
+  «Registrado» pero no se puede editar ni recibir adjuntos hasta T6.
+- **L12 (2026-11-11, T4, commits partidos):** la revisión nativa del rango completo (75 archivos, 4617 líneas), con el
+  consentimiento del usuario («Revisar este cambio»), se detuvo en el preflight con `lens_context_budget_exceeded`: no
+  entra en el contexto del revisor y no se creó autoridad. A la pregunta «¿Parto los commits para revisarlos por
+  tramos, o seguimos sin revisión nativa para T4?», con la recomendación de partirlos, el usuario respondió, textual:
+  «si». Los commits `ba5fa1f` y `fc5cded` de L11 se rehicieron como cuatro, con el mismo árbol final (comprobado con
+  `git diff` contra el respaldo `backup/aj-08-pre-split`, que se puede borrar cuando el PR esté abierto): `c34c1b6`
+  (lógica: predicado, lectores del servidor, rutas modificadas, invariantes y seed; 34 archivos, 808 líneas),
+  `240ea66` (se borran las rutas de aprobación y sus rutas OpenAPI; 10 archivos, 1482 líneas, casi todo borrado),
+  `780a604` (pantallas, hooks y e2e; 27 archivos, 2144 líneas) y `48e5607` (las tres guías). Los commits intermedios
+  no se compilaron uno por uno: el PR se integra aplastado, como los anteriores.
+- **L13 (2026-11-11, T4, revisión nativa por tramos):** pedido del usuario, textual: «continuemos». Los tres tramos
+  de código quedaron aprobados y con acuse, sin bloqueos ni correcciones: `c34c1b6` (base `261e995`, escalado al
+  ítem 3), `240ea66` (lentes riesgo y legibilidad) y `780a604` (lentes legibilidad y fiabilidad); el usuario dio el
+  consentimiento de cada uno («Revisar este cambio»). `48e5607` y el commit del plan son pasivos: sin revisión.
+  Avisos no bloqueantes, comprobados contra la punta de la rama. **Descartados:** el conteo `vigentes` sí excluye
+  `RECHAZADO` (`src/lib/api/gastos.ts:509` filtra por `ESTADOS_EJECUTADOS`); `gastos_por_validar` ya no existe en
+  `src/`, así que el fixture del reporte semanal compila; la documentación OpenAPI «sin respaldo» del tramo 2 la
+  respalda el tramo 1, que ese revisor no veía. **Quedan como seguimiento:** (1) el caso `CANCELADO` de «anular en
+  cualquier estado del proyecto» perdió su test al borrar los de `validate` (`void/route.test.ts` cubre `CERRADO`);
+  (2) código sin lector: la prop `onVerGastos` (`project-financiero.tsx:49`, aún cableada en `ficha-finanzas.tsx:63`)
+  y `puedeValidar` (`finanzas/gastos-comun.tsx:62`), además de los restos ya anotados en L11; (3) sin `resumen`, el
+  renglón de `gastos-kpis.tsx:13` lee «0 gastos» sobre un libro con filas, sin test; (4) el e2e
+  `ficha-ejecucion.spec.ts` deja en cada corrida el gasto sobreejecutado de R11 contando como ejecutado en
+  PRY-2026-001 (antes se rechazaba), y el test de anular no lee la cifra de «Ejecutado» antes y después; (5) la
+  etiqueta «pendiente(s) por revisión» / «Gasto por revisar», ya anotada en L11.
+- **L14 (2026-11-11, T3 mergeada y T4 sobre `main`):** a la pregunta «¿Mergeo #171 y sigo con el rebase, push y PR
+  de T4?», el usuario respondió, textual: «dale». #171 (T3, AJ-09) mergeado aplastado en `main` como `5934e4e`. T4
+  rebasada sobre ese `main`; los commits de L12 cambian de identidad, con el mismo contenido: `c34c1b6` → `deffc44`,
+  `240ea66` → `eda8444`, `780a604` → `6fa9361`, `48e5607` → `de9d7c5`. Dos conflictos, ambos de suma: el import de
+  `src/lib/api/atencion.ts` (queda `loadGastosEjecutados` de T4 junto al import de `modificaciones` de T3) y este
+  documento (fila de T3, L10 antes de L11). Costura T3 + T4 comprobada: pasan los 11 archivos de test de lo que
+  ambos cambios tocan y sus vecinos (211 tests: atención, modificaciones, traslado simple, ficha, Finanzas,
+  OpenAPI); `tsc` con los mismos 20 errores de L11 (17 de `emailOutbox`, 3 del generado `.next/types/validator.ts`),
+  ninguno nuevo. La revisión nativa de L13 se hizo sobre los commits anteriores al rebase y no se repitió. El primer
+  intento de rebase se interrumpió a mitad de la escritura del árbol; se abortó y se repitió sin pérdida (los
+  archivos sueltos eran copias idénticas de `main`). **Sin correr:** la suite completa, los invariantes de `prisma/`
+  y el e2e, que corre el CI del PR.
+- **L15 (2026-11-11, T4, CI de #172):** PR #172 abierto. Primera corrida: `e2e` en verde y `unit` en rojo por un
+  solo test, `prisma/gastos.invariant.test.ts` («feeds E with every expense that counts as executed»), que es uno
+  de los invariantes que no se pudieron correr en local. Causa: `loadGastosEjecutados` no tiene `orderBy` (E suma las
+  filas) y el test comparaba las dos filas en un orden fijo; antes de AJ-08 devolvía una sola. Corregido en el test
+  (dos filas, en cualquier orden), sin tocar el loader. Los otros 33 archivos de invariantes pasaron.
+- **Siguiente paso:** CI en verde y merge de #172 (el merge es decisión del usuario); borrar `backup/aj-08-pre-split`; T5 y T6; la tarea de datos de D2 (rechazados a anulados, con ensayo sobre copia de
+  producción); los seguimientos de L13; cerrar D5; T0 (probar una invitación real en producción); verificación
+  manual de T1, T3 y T8 con la base local arriba.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { toCents } from "./money"
-import { excederiaAsignado, validadoAcumulado } from "./ficha-financiera"
+import { excederiaAsignado, ejecutadoAcumulado } from "./ficha-financiera"
 import { gastosTransporte, TRANSPORTE_ASIGNADO } from "./__fixtures__/gastos"
 import {
   datosIncompletos,
@@ -143,21 +143,23 @@ describe("esObservado (D5)", () => {
 })
 
 describe("overspend with the shared ficha helpers", () => {
-  const validado = validadoAcumulado(gastosTransporte())
+  // AJ-08: the executed total counts REGISTRADO too. The fixture's transport rows are
+  // VALIDADO 23.500.000 + REGISTRADO 4.000.000; RECHAZADO and ANULADO never count.
+  const ejecutado = ejecutadoAcumulado(gastosTransporte())
 
-  it("counts only VALIDADO rows", () => {
-    expect(validado).toBe(toCents("23500000"))
+  it("counts REGISTRADO and VALIDADO rows, never RECHAZADO or ANULADO", () => {
+    expect(ejecutado).toBe(toCents("27500000"))
   })
 
-  it("blocks when the new amount pushes the total above A", () => {
-    expect(excederiaAsignado({ asignado: TRANSPORTE_ASIGNADO, validado, nuevo: toCents("1000000") })).toBe(true)
+  it("flags when the new amount pushes the total above A", () => {
+    expect(excederiaAsignado({ asignado: TRANSPORTE_ASIGNADO, ejecutado, nuevo: toCents("1000000") })).toBe(true)
   })
 
   it("allows reaching A exactly", () => {
-    expect(excederiaAsignado({ asignado: TRANSPORTE_ASIGNADO, validado, nuevo: toCents("500000") })).toBe(false)
+    expect(excederiaAsignado({ asignado: ejecutado + toCents("500000"), ejecutado, nuevo: toCents("500000") })).toBe(false)
   })
 
   it("allows the same amount once A is raised", () => {
-    expect(excederiaAsignado({ asignado: toCents("25000000"), validado, nuevo: toCents("1000000") })).toBe(false)
+    expect(excederiaAsignado({ asignado: ejecutado + toCents("1000000"), ejecutado, nuevo: toCents("1000000") })).toBe(false)
   })
 })

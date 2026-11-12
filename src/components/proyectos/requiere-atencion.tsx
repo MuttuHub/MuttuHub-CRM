@@ -26,9 +26,7 @@ import {
   type AtencionTipo,
   type ProjectListRow,
 } from "@/hooks/projects";
-import { useCurrentUser } from "@/hooks/kanban";
 import type { UiTone } from "@/lib/catalogs";
-import { canManageProjects } from "@/lib/permissions";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { fechaDia } from "@/components/proyectos/ficha/historial/fechas";
 
@@ -43,7 +41,6 @@ export type AtencionDestino = "actividades" | "finanzas" | "historial";
 /** La acción exacta de una fila; quien monta la ficha decide cómo abrirla. */
 export type AccionAtencion =
   | { tipo: "registrar-avance"; actividadId: string }
-  | { tipo: "revisar-gasto"; gastoId: string }
   | { tipo: "adjuntar-soporte"; avanceId: string }
   | { tipo: "ver-indicadores" }
   | { tipo: "ver-solicitudes" };
@@ -51,7 +48,6 @@ export type AccionAtencion =
 /** Sin `onAccion`, cada acción cae en la pestaña donde vive (el comportamiento de antes). */
 export const DESTINO_DE_ACCION: Record<AccionAtencion["tipo"], AtencionDestino> = {
   "registrar-avance": "actividades",
-  "revisar-gasto": "finanzas",
   "adjuntar-soporte": "actividades",
   "ver-indicadores": "actividades",
   "ver-solicitudes": "historial",
@@ -190,7 +186,7 @@ function FilaAtencion({
     case "actividad_atrasada":
       return <FilaVencida item={item} proyecto={proyecto} onIrA={onIrA} ir={ir} />;
     case "gasto_observado":
-      return <FilaGasto item={item} proyectoId={proyecto.id} onIrA={onIrA} ir={ir} />;
+      return <FilaGasto item={item} proyectoId={proyecto.id} onIrA={onIrA} />;
     case "avance_sin_soporte":
       return <FilaSinSoporte item={item} proyecto={proyecto} onIrA={onIrA} ir={ir} />;
     case "indicador_bajo_meta": {
@@ -278,12 +274,9 @@ function FilaVencida({ item, proyecto, onIrA, ir }: FilaProps & { proyecto: Pick
   );
 }
 
-function FilaGasto({ item, proyectoId, onIrA, ir }: FilaProps & { proyectoId: string }) {
-  const usuario = useCurrentUser().data;
+function FilaGasto({ item, proyectoId, onIrA }: Omit<FilaProps, "ir"> & { proyectoId: string }) {
+  // AJ-08: no approval step, so the row only explains the notice and leads to Finanzas.
   const gasto = useProjectExpenses(proyectoId).data?.gastos.find((g) => g.id === item.gasto_id);
-  const esGestor = usuario ? canManageProjects({ id: usuario.id, rol: usuario.rol }) : false;
-  // Un gestor no valida su propio gasto (la API lo rechaza): solo se ofrece cuando se sabe que no es suyo.
-  const puedeRevisar = esGestor && Boolean(item.gasto_id) && Boolean(gasto) && gasto?.registrado_por_id !== usuario?.id;
 
   const motivos: string[] = [];
   if (gasto?.alerta_sobregasto) {
@@ -302,18 +295,12 @@ function FilaGasto({ item, proyectoId, onIrA, ir }: FilaProps & { proyectoId: st
           </p>
           <p className="text-[13px] leading-relaxed text-ink-700">
             {motivos.join(" ")}
-            <span className="hidden sm:inline"> Le toca a Gerencia validarlo o rechazarlo.</span>
           </p>
         </>
       ) : (
         <p className="text-[13px] leading-relaxed text-ink-700">{item.detalle}</p>
       )}
-      {onIrA &&
-        (puedeRevisar ? (
-          <BotonFila onClick={() => ir({ tipo: "revisar-gasto", gastoId: item.gasto_id! })}>Revisar gasto</BotonFila>
-        ) : (
-          <BotonFila onClick={() => onIrA("finanzas")}>{DESTINO_LABEL.finanzas}</BotonFila>
-        ))}
+      {onIrA && <BotonFila onClick={() => onIrA("finanzas")}>{DESTINO_LABEL.finanzas}</BotonFila>}
     </FilaBase>
   );
 }

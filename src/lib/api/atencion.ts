@@ -12,7 +12,7 @@
 import { db } from "@/lib/db";
 import { calcularKpisProyecto } from "@/lib/api/kpis-proyecto";
 import type { ProyectoKpiBase } from "@/lib/api/kpis-portafolio";
-import { loadGastosValidados } from "@/lib/api/financiera";
+import { loadGastosEjecutados } from "@/lib/api/financiera";
 import { loadNombres, SOLICITUD_SELECT, toSolicitudView } from "@/lib/api/modificaciones";
 import { cargarReportesPorActividad } from "@/lib/api/tecnico";
 import { getSemaforoParametrosV2 } from "@/lib/settings";
@@ -138,7 +138,7 @@ export async function cargarAtencion(input: {
         where: { proyecto_id: proyectoId },
         select: { rubro_id: true, monto_proyectado_cop: true, rubro: { select: { codigo: true, nombre: true } } },
       }),
-      loadGastosValidados(proyectoId),
+      loadGastosEjecutados(proyectoId),
       db.gasto.findMany({
         where: { proyecto_id: proyectoId, estado: "REGISTRADO" },
         select: {

@@ -57,12 +57,6 @@ export async function xlsxReporteSemanal(r: ReporteSemanal): Promise<Buffer> {
     ["Programado total", dinero(t.financiero.programado), ""],
     ["Ejecutado total", dinero(t.financiero.ejecutado), ""],
     ["Actividades atrasadas", t.atrasadas, ""],
-    ...(r.gastos_por_validar
-      ? ([
-          ["Gastos por validar", r.gastos_por_validar.cantidad, ""],
-          ["Monto por validar", dinero(r.gastos_por_validar.monto), ""],
-        ] as Celda[][])
-      : []),
     ...(r.confirmado ? [] : ([["Nota", "Los umbrales del semáforo son provisionales hasta que se confirmen.", ""]] as Celda[][])),
   ])
 
@@ -130,16 +124,6 @@ export async function xlsxReporteSemanal(r: ReporteSemanal): Promise<Buffer> {
     ["Código del proyecto", "Proyecto", "Tipo", "Detalle"],
     r.atencion.flatMap((p) => p.items.map((i) => [p.proyecto.codigo, celdaTexto(p.proyecto.nombre), i.titulo, celdaTexto(i.detalle)])),
   )
-
-  if (r.gastos_por_validar) {
-    hoja(
-      wb,
-      "Gastos por validar",
-      ["Código del proyecto", "Proyecto", "Gastos por validar", "Monto", "Registrado desde"],
-      r.gastos_por_validar.por_proyecto.map((g) => [g.proyecto.codigo, celdaTexto(g.proyecto.nombre), g.cantidad, dinero(g.monto), g.mas_antiguo]),
-      { 4: FORMATO_DINERO },
-    )
-  }
 
   return Buffer.from(await wb.xlsx.writeBuffer())
 }

@@ -21,11 +21,11 @@ vi.mock("@/lib/db", () => ({
   },
 }))
 vi.mock("@/lib/api/kpis-portafolio", () => ({ loadKpisPortafolio: vi.fn() }))
-vi.mock("@/lib/api/financiera", () => ({ loadGastosValidados: vi.fn() }))
+vi.mock("@/lib/api/financiera", () => ({ loadGastosEjecutados: vi.fn() }))
 
 import { db } from "@/lib/db"
 import { loadKpisPortafolio } from "@/lib/api/kpis-portafolio"
-import { loadGastosValidados } from "@/lib/api/financiera"
+import { loadGastosEjecutados } from "@/lib/api/financiera"
 import { kpisProyecto, type KpisProyecto } from "@/lib/proyectos/kpis"
 import { PARAMETROS_V2_DEFAULT } from "@/lib/proyectos/semaforo-v2"
 import { toCents } from "@/lib/proyectos/money"
@@ -68,7 +68,7 @@ beforeEach(() => {
   vi.mocked(db.solicitudModificacion.findMany).mockResolvedValue([] as never)
   vi.mocked(db.usuario.findMany).mockResolvedValue([] as never)
   vi.mocked(loadKpisPortafolio).mockResolvedValue(new Map([["pry-1", kpisBase()]]))
-  vi.mocked(loadGastosValidados).mockResolvedValue({ disponible: true, gastos: [] })
+  vi.mocked(loadGastosEjecutados).mockResolvedValue({ disponible: true, gastos: [] })
 })
 
 const cargar = (corte: string | null = "2026-03-15") => cargarAtencion({ proyecto: PROYECTO, corteParam: corte })
@@ -83,7 +83,7 @@ describe("cargarAtencion", () => {
     vi.mocked(db.lineaPresupuestal.findMany).mockResolvedValue([
       { rubro_id: "r1", monto_proyectado_cop: num("100.00"), rubro: { codigo: "R-01", nombre: "Materiales" } },
     ] as never)
-    vi.mocked(loadGastosValidados).mockResolvedValue({
+    vi.mocked(loadGastosEjecutados).mockResolvedValue({
       disponible: true,
       gastos: [{ rubroId: "r1", periodo: "2026-03", valor: toCents("150.00"), estado: "VALIDADO" }],
     })

@@ -8,13 +8,14 @@
  *     "Aprobar línea base" can be shown live.
  *   - Project B "Demo CedeTextil · Programa de confección": same workbook, baseline approved through
  *     the real writer (version 0 frozen), then avances (some with https support links),
- *     indicator measurements and gastos with https soportes (REGISTRADO, VALIDADO and one
- *     overspend case whose validation is blocked and notified).
+ *     indicator measurements and gastos with https soportes (all of them REGISTRADO, which AJ-08
+ *     already counts as executed, plus one registered expense that exceeds its rubro and carries
+ *     the overspend alert).
  *   - At least ONE GANADA opportunity without project, left for the live conversion. If
  *     fewer than three would be free, ONE extra fictitious GANADA opportunity is added.
  *
  * Every write goes through the same server-side helpers the API routes use
- * (`importarPlantilla`, `aprobarLineaBase`, `validarEnTransaccion`, `logChange(s)`,
+ * (`importarPlantilla`, `aprobarLineaBase`, `logChange(s)`,
  * `nextProjectCode`, `addProyectoMiembros`, `validarSoporte`, the gasto/avance guards), so
  * audit lotes, version 0, derived fields and the DB triggers stay correct. The routes keep
  * their transaction bodies inline and need a Supabase session (cookies), which a script
@@ -43,7 +44,6 @@ import { NonLocalDatabaseError, connectionTarget, isLocalTarget } from "../prism
 import { logChange, logChanges } from "../src/lib/api/audit-cambios"
 import { toDecimal2 } from "../src/lib/api/estructura"
 import {
-  GASTO_INCLUDE,
   clavesNormalizadas,
   gastoAuditable,
   resolverLinea,
@@ -55,7 +55,6 @@ import { decimalFromCents } from "../src/lib/api/presupuesto"
 import { nextProjectCode } from "../src/lib/api/project-code"
 import { PROJECT_SELECT_V2, addProyectoMiembros, normalizeProjectDate } from "../src/lib/api/projects"
 import { validarSoporte, type SoporteDatos } from "../src/lib/api/soportes"
-import { validarEnTransaccion } from "../src/lib/api/validacion-gastos"
 import { aprobarLineaBase } from "../src/lib/api/versiones"
 import { db } from "../src/lib/db"
 import { toCents } from "../src/lib/proyectos/money"
@@ -159,8 +158,8 @@ export type SeedAvance = {
 
 export type SeedMedicion = { indicador: string; fecha: string; valor: string; observacion: string }
 
-/** REGISTRAR: stays REGISTRADO. VALIDAR: validated by Gerencia. INTENTAR_VALIDAR: blocked overspend. */
-export type SeedGastoAccion = "REGISTRAR" | "VALIDAR" | "INTENTAR_VALIDAR"
+/** REGISTRAR: fits its rubro. SOBREGASTO: leaves the rubro over its assigned amount (the alert case). */
+export type SeedGastoAccion = "REGISTRAR" | "SOBREGASTO"
 
 export type SeedGasto = {
   rubro: string
@@ -313,7 +312,7 @@ export function buildSeedData(hoy: string): SeedData {
       descripcion: "Honorarios del equipo técnico, primera quincena.",
       valor: "12000000",
       soportes: [soporte("Cuenta de cobro CC-0001", "cuenta-cobro-0001.pdf")],
-      accion: "VALIDAR",
+      accion: "REGISTRAR",
     },
     {
       ...base,
@@ -327,7 +326,7 @@ export function buildSeedData(hoy: string): SeedData {
       valor: "8500000",
       iva: "1615000",
       soportes: [soporte("Factura FV-1001", "factura-fv-1001.pdf")],
-      accion: "VALIDAR",
+      accion: "REGISTRAR",
     },
     {
       ...base,
@@ -356,8 +355,8 @@ export function buildSeedData(hoy: string): SeedData {
       accion: "REGISTRAR",
     },
     {
-      // R11 is assigned 300.000: validating 450.000 would exceed it, so the writer blocks it,
-      // flags the gasto and notifies Gerencia (the sobreejecución case).
+      // R11 is assigned 300.000: registering 450.000 leaves the rubro over its assigned amount, so the
+      // writer flags `alerta_sobregasto` (AJ-08: it saves and counts, it does not block).
       ...base,
       rubro: "R11",
       tipoSoporte: "FACTURA_PROVEEDOR",
@@ -367,7 +366,7 @@ export function buildSeedData(hoy: string): SeedData {
       descripcion: "Material de oficina para las jornadas, por encima del rubro.",
       valor: "450000",
       soportes: [soporte("Factura FV-4007", "factura-fv-4007.pdf")],
-      accion: "INTENTAR_VALIDAR",
+      accion: "SOBREGASTO",
     },
   ]
 
@@ -408,7 +407,7 @@ export function checkSeedData(data: SeedData, hoy?: string): string[] {
     if (hoy && m.fecha > hoy) problemas.push(`medición ${m.indicador} dated after today (${m.fecha})`)
   }
 
-  const validado = new Map<string, bigint>()
+  const ejecutado = new Map<string, bigint>()
   for (const g of data.gastos) {
     const asignado = F_X1_PRESUPUESTO[g.rubro]
     if (asignado === undefined) problemas.push(`gasto on unfunded rubro ${g.rubro}`)
@@ -416,19 +415,16 @@ export function checkSeedData(data: SeedData, hoy?: string): string[] {
     if (hoy && g.fechaDocumento > hoy) problemas.push(`gasto ${g.numeroDocumento} dated after today (${g.fechaDocumento})`)
     if (g.soportes.length === 0) problemas.push(`gasto ${g.numeroDocumento} has no soporte`)
     for (const s of g.soportes) if (!s.url.startsWith("https://")) problemas.push(`soporte "${s.nombre}" is not https`)
-    if (g.accion === "VALIDAR") validado.set(g.rubro, (validado.get(g.rubro) ?? BigInt(0)) + totalGasto(g))
-    if (g.accion === "INTENTAR_VALIDAR" && asignado !== undefined && totalGasto(g) <= toCents(asignado)) {
+    if (g.accion === "REGISTRAR") ejecutado.set(g.rubro, (ejecutado.get(g.rubro) ?? BigInt(0)) + totalGasto(g))
+    if (g.accion === "SOBREGASTO" && asignado !== undefined && totalGasto(g) <= toCents(asignado)) {
       problemas.push(`gasto ${g.numeroDocumento} does not exceed its rubro: it is not an overspend case`)
     }
   }
-  for (const [rubro, total] of validado) {
-    if (total > toCents(F_X1_PRESUPUESTO[rubro] ?? "0")) problemas.push(`validated gastos exceed rubro ${rubro}`)
+  for (const [rubro, total] of ejecutado) {
+    if (total > toCents(F_X1_PRESUPUESTO[rubro] ?? "0")) problemas.push(`registered gastos exceed rubro ${rubro}`)
   }
-  if (data.gastos.filter((g) => g.accion === "INTENTAR_VALIDAR").length !== 1) {
+  if (data.gastos.filter((g) => g.accion === "SOBREGASTO").length !== 1) {
     problemas.push("the seed needs exactly one overspend gasto")
-  }
-  if (!data.gastos.some((g) => g.accion === "VALIDAR") || !data.gastos.some((g) => g.accion === "REGISTRAR")) {
-    problemas.push("the seed needs both VALIDADO and REGISTRADO gastos")
   }
   const actividades = new Set(estructura.actividades.map((a) => a.codigo))
   for (const r of data.reportes) {
@@ -793,13 +789,16 @@ async function registrarMedicion(client: SeedClient, proyectoId: string, actor: 
   }, TX_OPTIONS)
 }
 
-/** Mirrors POST .../expenses, then POST .../expenses/:id/validate for VALIDAR / INTENTAR_VALIDAR. */
+/**
+ * Mirrors POST .../expenses. AJ-08 removed the approval step, so every demo expense is stored REGISTRADO and already
+ * counts as executed; `SOBREGASTO` only marks the one meant to exceed its rubro (it carries the overspend alert).
+ */
 async function registrarGasto(
   client: SeedClient,
   proyecto: { id: string; estado: string; fecha_inicio: Date | null; fecha_fin: Date | null },
   actores: Actores,
   g: SeedGasto,
-): Promise<"REGISTRADO" | "VALIDADO" | "BLOQUEADO"> {
+): Promise<"REGISTRADO"> {
   const rubro = await client.rubro.findFirst({ where: { codigo: g.rubro }, select: { id: true } })
   if (!rubro) throw new Error(`Rubro ${g.rubro} not found.`)
   const linea = await resolverLinea(proyecto.id, rubro.id)
@@ -822,7 +821,7 @@ async function registrarGasto(
     numero_documento: g.numeroDocumento,
   })
 
-  const gastoId = await client.$transaction(async (tx) => {
+  await client.$transaction(async (tx) => {
     const sobregasto = await superaAsignado(tx, linea.value, total)
     const created = await tx.gasto.create({
       data: {
@@ -867,17 +866,7 @@ async function registrarGasto(
     return created.id
   }, TX_OPTIONS)
 
-  if (g.accion === "REGISTRAR") return "REGISTRADO"
-
-  const gasto = await client.gasto.findFirstOrThrow({ where: { id: gastoId }, include: GASTO_INCLUDE })
-  const resultado = await client.$transaction((tx) => validarEnTransaccion(tx, { gasto, validadorId: actores.gerencia }), TX_OPTIONS)
-  if ("stale" in resultado) throw new Error(`Gasto ${g.numeroDocumento} changed while validating.`)
-  if (g.accion === "VALIDAR") {
-    if (resultado.blocked) throw new Error(`Gasto ${g.numeroDocumento} was unexpectedly blocked as overspend.`)
-    return "VALIDADO"
-  }
-  if (!resultado.blocked) throw new Error(`Gasto ${g.numeroDocumento} was expected to be blocked as overspend.`)
-  return "BLOQUEADO"
+  return "REGISTRADO"
 }
 
 async function asegurarOportunidades(client: SeedClient): Promise<{ lista: OportunidadLibre[]; extra: boolean }> {
@@ -947,10 +936,13 @@ export async function applySeed(client: SeedClient, data: SeedData, hoy: string)
     where: { id: b.id },
     select: { id: true, estado: true, fecha_inicio: true, fecha_fin: true },
   })
-  const conteo = { REGISTRADO: 0, VALIDADO: 0, BLOQUEADO: 0 }
-  for (const gasto of data.gastos) conteo[await registrarGasto(client, proyectoB, actores, gasto)] += 1
+  let registrados = 0
+  for (const gasto of data.gastos) {
+    if ((await registrarGasto(client, proyectoB, actores, gasto)) === "REGISTRADO") registrados += 1
+  }
+  const sobrepasados = data.gastos.filter((gasto) => gasto.accion === "SOBREGASTO").length
   lines.push(
-    `  ${b.codigo}: ${data.gastos.length} gastos (registered=${conteo.REGISTRADO}, validated=${conteo.VALIDADO}, overspend blocked=${conteo.BLOQUEADO})`,
+    `  ${b.codigo}: ${data.gastos.length} gastos (registered=${registrados}, of them over their rubro=${sobrepasados})`,
   )
 
   const a = await crearProyectoDesdeOportunidad(client, oportunidadA, {

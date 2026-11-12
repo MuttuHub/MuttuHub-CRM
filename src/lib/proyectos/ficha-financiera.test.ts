@@ -5,7 +5,7 @@ import {
   controlProgramacion,
   excederiaAsignado,
   precondicionesPresupuesto,
-  validadoAcumulado,
+  ejecutadoAcumulado,
 } from "./ficha-financiera"
 import { F_F1_CORTE, F_F1_PERIODOS, F_F1_TOLERANCIA_BP, fixtureF_F1 } from "./__fixtures__/financiero"
 
@@ -55,11 +55,15 @@ describe("computeFicha F-F1 (corte 2026-11)", () => {
     expect(t.color).toBe("verde")
   })
 
-  it("REGISTRADO, RECHAZADO, ANULADO and later periods never move E", () => {
+  it("RECHAZADO and ANULADO never move E; a REGISTRADO one does (AJ-08)", () => {
     const rubros = fixtureF_F1()
     rubros[0].gastos.push({ periodo: "2026-10", valor: toCents("1000"), estado: "ANULADO" })
-    const r = computeFicha({ rubros, corte: F_F1_CORTE, toleranciaBp: F_F1_TOLERANCIA_BP }).rubros[0]
+    rubros[0].gastos.push({ periodo: "2026-10", valor: toCents("2000"), estado: "RECHAZADO" })
+    let r = computeFicha({ rubros, corte: F_F1_CORTE, toleranciaBp: F_F1_TOLERANCIA_BP }).rubros[0]
     expect(money(r.ejecutado)).toBe("27000000.00")
+    rubros[0].gastos.push({ periodo: "2026-10", valor: toCents("4000"), estado: "REGISTRADO" })
+    r = computeFicha({ rubros, corte: F_F1_CORTE, toleranciaBp: F_F1_TOLERANCIA_BP }).rubros[0]
+    expect(money(r.ejecutado)).toBe("27004000.00")
   })
 
   it("G5 corte 2027-01: E above A is rojo", () => {
@@ -105,19 +109,19 @@ describe("computeFicha F-F1 (corte 2026-11)", () => {
   })
 })
 
-describe("validadoAcumulado and excederiaAsignado", () => {
+describe("ejecutadoAcumulado and excederiaAsignado", () => {
   const gastos = [
     { periodo: "2026-10", valor: toCents("100"), estado: "VALIDADO" as const },
     { periodo: "2027-01", valor: toCents("50"), estado: "VALIDADO" as const },
     { periodo: "2026-10", valor: toCents("999"), estado: "REGISTRADO" as const },
   ]
-  it("sums VALIDADO of any period", () => {
-    expect(money(validadoAcumulado(gastos))).toBe("150.00")
+  it("sums every expense that counts as executed, of any period (AJ-08)", () => {
+    expect(money(ejecutadoAcumulado(gastos))).toBe("1149.00")
   })
-  it("flags validado + nuevo > asignado only when strictly above", () => {
+  it("flags ejecutado + nuevo > asignado only when strictly above", () => {
     const asignado = toCents("200")
-    expect(excederiaAsignado({ asignado, validado: toCents("150"), nuevo: toCents("50") })).toBe(false)
-    expect(excederiaAsignado({ asignado, validado: toCents("150"), nuevo: toCents("50.01") })).toBe(true)
+    expect(excederiaAsignado({ asignado, ejecutado: toCents("150"), nuevo: toCents("50") })).toBe(false)
+    expect(excederiaAsignado({ asignado, ejecutado: toCents("150"), nuevo: toCents("50.01") })).toBe(true)
   })
 })
 

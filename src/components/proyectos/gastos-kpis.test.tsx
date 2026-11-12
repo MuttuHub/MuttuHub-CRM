@@ -1,5 +1,6 @@
-// Resumen compacto del libro de Gastos: una sola línea con los conteos del servidor (`totales` y
-// `resumen`); el cliente no recalcula nada. Los segmentos en cero se ocultan, salvo el total.
+// Resumen compacto del libro de Gastos: una sola línea con los conteos del servidor (`resumen`);
+// el cliente no recalcula nada. AJ-08 quitó el desglose de validados y «por validar». Los segmentos en
+// cero se ocultan, salvo el total.
 
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
@@ -20,22 +21,22 @@ const DATOS: ProjectExpenses = {
 const linea = () => screen.getByTestId("gastos-resumen").textContent
 
 describe("GastosResumen", () => {
-  it("shows total, validated, pending, pending-review and with-support counts in one line", () => {
+  it("shows total, pending-review and with-support counts in one line, without a validation breakdown", () => {
     render(<GastosResumen data={DATOS} />)
-    expect(linea()).toBe("12 gastos · 8 validados · 3 por validar · 1 pendiente por revisión · 10 con soporte")
+    expect(linea()).toBe("12 gastos · 1 pendiente por revisión · 10 con soporte")
+    expect(linea()).not.toMatch(/valid|por validar/i)
   })
 
-  it("pluralizes pending review and singularizes a single validated expense", () => {
+  it("pluralizes pending review", () => {
     render(
       <GastosResumen
         data={{
           ...DATOS,
-          totales: { ...DATOS.totales, VALIDADO: { cantidad: 1, valor: "1.00" } },
           resumen: { vigentes: 1, con_soporte: 1, observados: { cantidad: 2, valor: "1.00" } },
         }}
       />,
     )
-    expect(linea()).toBe("1 gasto · 1 validado · 3 por validar · 2 pendientes por revisión · 1 con soporte")
+    expect(linea()).toBe("1 gasto · 2 pendientes por revisión · 1 con soporte")
   })
 
   it("hides the zero segments but keeps the total", () => {
@@ -43,17 +44,16 @@ describe("GastosResumen", () => {
       <GastosResumen
         data={{
           ...DATOS,
-          totales: { ...DATOS.totales, REGISTRADO: { cantidad: 0, valor: "0.00" } },
           resumen: { vigentes: 8, con_soporte: 0, observados: { cantidad: 0, valor: "0.00" } },
         }}
       />,
     )
-    expect(linea()).toBe("8 gastos · 8 validados")
+    expect(linea()).toBe("8 gastos")
   })
 
   it("does not invent a support count when the server omits it (no access to supports, RNF-03)", () => {
     render(<GastosResumen data={{ ...DATOS, resumen: { vigentes: 12, observados: DATOS.resumen.observados } }} />)
-    expect(linea()).toBe("12 gastos · 8 validados · 3 por validar · 1 pendiente por revisión")
+    expect(linea()).toBe("12 gastos · 1 pendiente por revisión")
     expect(linea()).not.toMatch(/soporte/)
   })
 

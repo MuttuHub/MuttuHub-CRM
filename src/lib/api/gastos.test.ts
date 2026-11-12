@@ -1,6 +1,6 @@
 // Pure rules of the expense money split (AJ-04): Subtotal + IVA = Total, and the view/audit shape.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
 
 import {
@@ -12,6 +12,7 @@ import {
   evaluarMontosGasto,
   evaluarPeriodo,
   gastoAuditable,
+  superaAsignado,
   toGastoView,
 } from "@/lib/api/gastos";
 import { toCents } from "@/lib/proyectos/money";
@@ -162,5 +163,18 @@ describe("gastoAuditable", () => {
       iva: "190000.00",
       valor: "1190000.00",
     });
+  });
+});
+
+describe("superaAsignado (AJ-08)", () => {
+  it("counts every expense that counts as executed, not only VALIDADO", async () => {
+    // 9.000.000 already spent (a mix of REGISTRADO and VALIDADO) + 2.000.000 new > 10.000.000.
+    const aggregate = vi.fn().mockResolvedValue({ _sum: { monto_cop: new Prisma.Decimal("9000000") } });
+    const tx = { gasto: { aggregate } } as never;
+    const excede = await superaAsignado(tx, { id: "lin-1", asignado: toCents("10000000") }, toCents("2000000"));
+    expect(excede).toBe(true);
+    expect(aggregate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ estado: { in: ["REGISTRADO", "VALIDADO"] } }) }),
+    );
   });
 });

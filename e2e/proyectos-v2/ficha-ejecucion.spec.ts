@@ -1,12 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
-import { login, loginToProject } from "./helpers";
+import { loginToProject } from "./helpers";
 
 // Guide §3, §5, §6, §7, §11 on PRY-2026-001 (EN_EJECUCION). Serial: the expense lifecycle spans roles.
-// Every run creates uniquely named expenses/avances so reruns never collide.
+// AJ-08 removed the approval step: a registered expense already counts as executed and the only correction is
+// Anular, with a motivo. Every run creates uniquely named expenses/avances so reruns never collide.
 const RUN = Date.now();
-const DOC_VALIDAR = `E2E-V-${RUN}`;
+const DOC_PROPIO = `E2E-V-${RUN}`;
 const DOC_SOBRE = `E2E-S-${RUN}`;
-const MOTIVO_RECHAZO = `Soporte ilegible ${RUN}`;
 const MOTIVO_ANULA = `Registro duplicado ${RUN}`;
 const ARCHIVO = `e2e-soporte-${RUN}.pdf`;
 
@@ -127,99 +127,62 @@ test("Registrar avance with a generated file → Documentos (Actividades) → op
   expect(file.status()).toBe(200);
 });
 
-test("Finanzas (coordinador): es-CO value, bad format error, overspend → Pendiente por revisión", async ({ page }) => {
+test("Finanzas (coordinador): es-CO value, bad format error and an overspend that saves with the alert (AJ-08)", async ({ page }) => {
   await loginToProject(page, "coordinador", "PRY-2026-001");
   await openGastos(page);
 
   // invalid format
-  let form = await registrarGasto(page, { rubro: /R13/, subtotal: "1500000.50", doc: DOC_VALIDAR, tercero: `E2E Proveedor ${RUN}` });
+  let form = await registrarGasto(page, { rubro: /R13/, subtotal: "1500000.50", doc: DOC_PROPIO, tercero: `E2E Proveedor ${RUN}` });
   await form.getByRole("button", { name: "Registrar", exact: true }).click();
   await expect(page.getByText(/Ingresa un subtotal válido con máximo dos decimales/)).toBeVisible();
 
-  // valid small expense (to be validated later)
+  // valid small expense
   await form.getByLabel("Subtotal", { exact: true }).fill("10.000,50");
   await form.getByRole("button", { name: "Registrar", exact: true }).click();
   await expect(page.getByRole("form", { name: "Registrar gasto" })).toBeHidden({ timeout: 30_000 });
-  const filaV = page.getByRole("row", { name: new RegExp(DOC_VALIDAR) });
-  await expect(filaV).toBeVisible();
-  await expect(filaV).toContainText("Registrado");
-  await expect(filaV).toContainText("10.000");
+  const filaPropia = page.getByRole("row", { name: new RegExp(DOC_PROPIO) });
+  await expect(filaPropia).toBeVisible();
+  await expect(filaPropia).toContainText("Registrado");
+  await expect(filaPropia).toContainText("10.000");
 
-  // overspend: R11 Varios is assigned only 300.000
+  // overspend: R11 Varios is assigned only 300.000. AJ-08: it saves with the alert and counts as executed.
   form = await registrarGasto(page, { rubro: /R11/, subtotal: "1.500.000,50", doc: DOC_SOBRE, tercero: `E2E Proveedor ${RUN}` });
   await form.getByRole("button", { name: "Registrar", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "Gasto registrado, con avisos" })).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "Entendido" }).click();
-  const filaS = page.getByRole("row", { name: new RegExp(DOC_SOBRE) });
-  await expect(filaS).toContainText("Supera lo asignado");
-  await expect(filaS).toContainText("1.500.000");
+  const fila = page.getByRole("row", { name: new RegExp(DOC_SOBRE) });
+  await expect(fila).toContainText("Supera lo asignado");
+  await expect(fila).toContainText("1.500.000");
 
-  // filter
-  await page.getByRole("group", { name: "Filtrar gastos" }).getByRole("button", { name: /Pendiente por revisión/ }).click();
-  await expect(page.getByRole("row", { name: new RegExp(DOC_SOBRE) })).toBeVisible();
-  await expect(page.getByRole("row", { name: new RegExp(DOC_VALIDAR) })).toHaveCount(0);
-
-  // coordinador (member) cannot review: no «Revisar» opens the validation panel
-  await page.getByRole("group", { name: "Filtrar gastos" }).getByRole("button", { name: /^Todos/ }).click();
+  // No approval any more: only Todos / Registrado / Anulado, and no «Revisar» for a member.
+  const filtros = page.getByRole("group", { name: "Filtrar gastos" });
+  await expect(filtros.getByRole("button", { name: /^Registrado/ })).toBeVisible();
+  await expect(filtros.getByRole("button", { name: /^Validado/ })).toHaveCount(0);
+  await expect(filtros.getByRole("button", { name: /^Rechazado/ })).toHaveCount(0);
+  await expect(filtros.getByRole("button", { name: /Pendiente por revisión/ })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^Revisar el gasto/ })).toHaveCount(0);
+
+  await filtros.getByRole("button", { name: /^Registrado/ }).click();
+  await expect(page.getByRole("row", { name: new RegExp(DOC_SOBRE) })).toBeVisible();
+  await expect(page.getByRole("row", { name: new RegExp(DOC_PROPIO) })).toBeVisible();
 });
 
-test("gerencia validates one expense and rejects another with a reason; annuls the validated one", async ({ page }) => {
+test("gerencia annuls a registered expense with a motivo, which drops it from the executed total", async ({ page }) => {
   await loginToProject(page, "gerencia", "PRY-2026-001");
   await openGastos(page);
 
-  const filaV = page.getByRole("row", { name: new RegExp(DOC_VALIDAR) });
-  await expect(filaV).toBeVisible();
-  // «Revisar» opens the «Validar gasto» panel; after validating it moves on to the next pending expense
-  // and keeps the ficha behind it inert, so close it before reading the Gastos table.
-  await filaV.getByRole("button", { name: /^Revisar el gasto/ }).click();
-  const panel = page.getByRole("dialog", { name: "Validar gasto" });
-  await panel.getByRole("button", { name: "Validar gasto" }).click();
-  await expect(panel).not.toContainText(DOC_VALIDAR, { timeout: 30_000 });
-  await page.keyboard.press("Escape");
-  await expect(filaV).toContainText("Validado", { timeout: 30_000 });
+  const fila = page.getByRole("row", { name: new RegExp(DOC_PROPIO) });
+  await expect(fila).toBeVisible();
+  await expect(fila).toContainText("Registrado");
 
-  // The overspent one cannot be validated (open PO question): it can only be rejected, with a reason.
-  const filaS = page.getByRole("row", { name: new RegExp(DOC_SOBRE) });
-  await filaS.getByRole("button", { name: /^Revisar el gasto/ }).click();
-  await expect(panel.getByRole("button", { name: "Validar gasto" })).toBeDisabled();
-  await panel.getByRole("button", { name: "Rechazar" }).click();
-  await expect(panel.getByText("El motivo no puede estar vacío.")).toBeVisible();
-  await panel.getByLabel("Motivo (obligatorio si lo rechazas)").fill(MOTIVO_RECHAZO);
-  await panel.getByRole("button", { name: "Rechazar" }).click();
-  await panel.getByRole("button", { name: "Confirmar rechazo" }).click();
-  await expect(panel).not.toContainText(DOC_SOBRE, { timeout: 30_000 });
-  await page.keyboard.press("Escape");
-  await expect(filaS).toContainText("Rechazado", { timeout: 30_000 });
-  await expect(filaS).toContainText(MOTIVO_RECHAZO);
-
-  // annul the validated one
-  await filaV.getByRole("button", { name: "Anular" }).click();
-  const anular = filaV.getByRole("button", { name: "Confirmar anulación" });
+  // AJ-08: a REGISTRADO expense is already executed, so the manager can annul it directly.
+  await fila.getByRole("button", { name: "Anular" }).click();
+  const anular = fila.getByRole("button", { name: "Confirmar anulación" });
   await expect(anular).toBeDisabled();
-  await filaV.getByLabel("Motivo de anulación").fill(MOTIVO_ANULA);
+  await fila.getByLabel("Motivo de anulación").fill(MOTIVO_ANULA);
   await anular.click();
-  await expect(filaV).toContainText("Anulado", { timeout: 30_000 });
-  await expect(filaV).toContainText(MOTIVO_ANULA);
-});
-
-test("M7: the coordinador receives the «Gasto rechazado» notification with the reason", async ({ page }) => {
-  await login(page, "coordinador", "/proyectos");
-  await page.getByRole("button", { name: /^Notificaciones/ }).click();
-  const panel = page.getByRole("dialog", { name: "Notificaciones" });
-  const item = panel.getByText(new RegExp(`Motivo: ${MOTIVO_RECHAZO}`));
-  await expect(item.first()).toBeVisible({ timeout: 30_000 });
-  await expect(panel.getByText("Gasto rechazado").first()).toBeVisible();
-});
-
-test("a manager cannot validate their own expense (admin registers, sees «Tú lo registraste»)", async ({ page }) => {
-  await loginToProject(page, "admin", "PRY-2026-001");
-  await openGastos(page);
-  const doc = `E2E-P-${RUN}`;
-  const form = await registrarGasto(page, { rubro: /R13/, subtotal: "5.000", doc, tercero: `E2E Propio ${RUN}` });
-  await form.getByRole("button", { name: "Registrar", exact: true }).click();
-  const fila = page.getByRole("row", { name: new RegExp(doc) });
-  await expect(fila).toBeVisible({ timeout: 30_000 });
-  await expect(fila).toContainText("Tú lo registraste");
-  await expect(fila.getByRole("button", { name: /^Revisar el gasto/ })).toHaveCount(0);
+  await expect(fila).toContainText("Anulado", { timeout: 30_000 });
+  await expect(fila).toContainText(MOTIVO_ANULA);
+  // The row is kept: an annulled expense never disappears from the ledger.
+  await expect(page.getByRole("row", { name: new RegExp(DOC_PROPIO) })).toBeVisible();
 });

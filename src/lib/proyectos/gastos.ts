@@ -1,7 +1,7 @@
 /**
  * Pure expense rules for the v2 projects module (S6, RF-20..22, RF-25, RNF-03).
  * No DB, no framework. Overspend math lives in `ficha-financiera.ts`
- * (`validadoAcumulado`, `excederiaAsignado`) and is intentionally not repeated here.
+ * (`ejecutadoAcumulado`, `excederiaAsignado`) and is intentionally not repeated here.
  */
 
 import { periodOf, type IsoDate, type Periodo } from "./weeks"
@@ -52,6 +52,18 @@ export function datosIncompletos(input: {
 }
 
 /**
+ * AJ-08: without approval, a registered expense is already money spent. These two estados count as executed
+ * everywhere (ficha financiera, curve, KPIs, modifications, overspend math); RECHAZADO and ANULADO never do.
+ * The enum keeps the legacy VALIDADO / RECHAZADO values: the contraction migration is a later task.
+ */
+export const ESTADOS_EJECUTADOS: readonly EstadoGasto[] = ["REGISTRADO", "VALIDADO"]
+
+/** The single predicate behind every executed reading of the ledger (AJ-08). */
+export function cuentaComoEjecutado(estado: EstadoGasto): boolean {
+  return ESTADOS_EJECUTADOS.includes(estado)
+}
+
+/**
  * D5: "observado" is a reading of the ledger, not a state. A REGISTRADO expense is observed while it carries the
  * overspend alert or its third-party data is incomplete; leaving REGISTRADO (validated, rejected, voided) clears it.
  */
@@ -64,6 +76,8 @@ export function esObservado(input: {
 }
 
 const TRANSICIONES: Record<EstadoGasto, Partial<Record<AccionGasto, EstadoGasto>>> = {
+  // AJ-08 removed the approval step from the UI: the VALIDAR / RECHAZAR rows stay so legacy rows of the
+  // ledger remain readable, but no screen reaches them any more (only ANULAR is offered).
   REGISTRADO: { VALIDAR: "VALIDADO", RECHAZAR: "RECHAZADO" },
   RECHAZADO: { CORREGIR: "REGISTRADO" },
   VALIDADO: { ANULAR: "ANULADO" },
@@ -81,12 +95,10 @@ type DuplicadoKey = {
   estado: EstadoGasto
 }
 
-const ESTADOS_VIVOS: readonly EstadoGasto[] = ["REGISTRADO", "VALIDADO"]
-
-/** Same normalized id and document number, both live (REGISTRADO or VALIDADO). Never blocks. */
+/** Same normalized id and document number, both counting as executed (REGISTRADO or VALIDADO). Never blocks. */
 export function esDuplicado(a: DuplicadoKey, b: DuplicadoKey): boolean {
   if (a.tercero_id_norm == null || b.tercero_id_norm == null) return false
-  if (!ESTADOS_VIVOS.includes(a.estado) || !ESTADOS_VIVOS.includes(b.estado)) return false
+  if (!cuentaComoEjecutado(a.estado) || !cuentaComoEjecutado(b.estado)) return false
   return a.tercero_id_norm === b.tercero_id_norm && a.numero_documento_norm === b.numero_documento_norm
 }
 

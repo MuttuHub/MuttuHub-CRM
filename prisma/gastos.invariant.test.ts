@@ -12,7 +12,7 @@ import { Prisma } from "@prisma/client"
 import { describe, expect, it } from "vitest"
 
 import { db } from "@/lib/db"
-import { loadGastosValidados } from "@/lib/api/financiera"
+import { loadGastosEjecutados } from "@/lib/api/financiera"
 import { toCents } from "@/lib/proyectos/money"
 
 const TX_OPTIONS = { timeout: 20_000, maxWait: 10_000 }
@@ -373,7 +373,7 @@ describe("AccesoSoporte log (live DB)", () => {
 })
 
 describe("E seam (live DB)", () => {
-  it("feeds E only with VALIDADO expenses, mapped to the rubro of their line", async () => {
+  it("feeds E with every expense that counts as executed, mapped to the rubro of their line", async () => {
     const fuente = await runAndRollback(async (tx) => {
       const { datos, validador, proyecto, rubro, usuario } = await fixture(tx)
       const validado = { validado_por_id: validador.id, validado_at: new Date() }
@@ -402,11 +402,17 @@ describe("E seam (live DB)", () => {
           motivo_anulacion: "Error",
         },
       })
-      return { fuente: await loadGastosValidados(proyecto.id, tx), rubroId: rubro.id }
+      return { fuente: await loadGastosEjecutados(proyecto.id, tx), rubroId: rubro.id }
     })
     expect(fuente.fuente.disponible).toBe(true)
-    expect(fuente.fuente.gastos).toEqual([
-      { rubroId: fuente.rubroId, periodo: "2026-10", valor: toCents("100"), estado: "VALIDADO" },
-    ])
+    // AJ-08: the REGISTRADO 40 already counts; RECHAZADO and ANULADO never do.
+    // The loader has no orderBy (E sums the rows), so the row order is not part of the contract.
+    expect(fuente.fuente.gastos).toHaveLength(2)
+    expect(fuente.fuente.gastos).toEqual(
+      expect.arrayContaining([
+        { rubroId: fuente.rubroId, periodo: "2026-10", valor: toCents("100"), estado: "VALIDADO" },
+        { rubroId: fuente.rubroId, periodo: "2026-10", valor: toCents("40"), estado: "REGISTRADO" },
+      ]),
+    )
   })
 })

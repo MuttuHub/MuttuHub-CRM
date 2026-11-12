@@ -83,19 +83,3 @@ test("filters combine down to the empty state and Limpiar filtros restores the t
   await expect(portfolioRows(page).first()).toBeVisible();
 });
 
-test("validation queue lists only expenses of EN_EJECUCION/SUSPENDIDO projects", async ({ page }) => {
-  const queue = page.getByRole("region", { name: "Gastos por validar" });
-  await expect(queue.getByRole("heading", { name: /Gastos por validar · \d+/ })).toBeVisible();
-  const items = await queue.getByRole("listitem").allInnerTexts();
-  const codes = items.map((t) => t.match(/PRY-\d{4}-\d{3}/)?.[0]).filter(Boolean) as string[];
-  // Map code -> estado from the portfolio table.
-  const estados = new Map<string, string>();
-  for (const row of await portfolioRows(page).all()) {
-    const t = await row.innerText();
-    const code = t.match(/PRY-\d{4}-\d{3}/)?.[0];
-    if (code) estados.set(code, /En ejecución|Suspendido/.test(t) ? "ok" : "no");
-  }
-  for (const c of codes) expect(estados.get(c), `${c} must be EN_EJECUCION/SUSPENDIDO`).toBe("ok");
-  // Drafts never appear.
-  for (const draft of ["PRY-2026-002"]) expect(codes).not.toContain(draft);
-});

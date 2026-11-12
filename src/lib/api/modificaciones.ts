@@ -16,6 +16,7 @@ import { canReadProject, loadProjectScoped, projectReadActor } from "@/lib/api/p
 import type { GateResult } from "@/lib/api/estructura";
 import { loadLiveProyecto } from "@/lib/api/versiones";
 import { getSemaforoParametrosV2 } from "@/lib/settings";
+import { ESTADOS_EJECUTADOS } from "@/lib/proyectos/gastos";
 import { toCents, type Cents } from "@/lib/proyectos/money";
 import {
   applyModificacion,
@@ -151,12 +152,12 @@ export async function loadSolicitudView(solicitudId: string): Promise<SolicitudV
 type EjecutadoReader = Pick<Prisma.TransactionClient, "gasto">;
 
 /**
- * VALIDADO total per rubro code (E). At approval time it runs under the line locks, so no
- * validation can commit between this read and the write.
+ * Executed total per rubro code (E). At approval time it runs under the line locks, so no
+ * registration can commit between this read and the write. AJ-08: REGISTRADO already counts.
  */
 export async function loadEjecutadoPorRubro(client: EjecutadoReader, proyectoId: string): Promise<Map<string, Cents>> {
   const filas = await client.gasto.findMany({
-    where: { proyecto_id: proyectoId, estado: "VALIDADO" },
+    where: { proyecto_id: proyectoId, estado: { in: [...ESTADOS_EJECUTADOS] } },
     select: { monto_cop: true, linea: { select: { rubro: { select: { codigo: true } } } } },
   });
   const total = new Map<string, Cents>();
