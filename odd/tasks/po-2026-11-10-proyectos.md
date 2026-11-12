@@ -253,7 +253,7 @@ sesión de agente por tarea) salvo que la tarjeta diga otra cosa.
 | T3 | S3 | El Gestor solicita traslados; el Gerente ve pendientes; validación contra lo ejecutado | S–M | D3 | 2 (permisos) | Hecha: PR #171, `5934e4e` en `main`; verificación manual en local pendiente |
 | T4 | S2 | Gasto sin aprobación: todo gasto no anulado es ejecutado; se quitan «Por validar», filtros y cola | M | D2 | 3 (lectores compartidos) | Hecha: PR #172, `f5c4e4e` en `main`; verificación manual en local pendiente |
 | T5 | S2 | Validadores al digitar, alertas de sobreejecución que no bloquean y aviso de duplicados | M | T4, D4 | — | Hecha: `9214f06` (servidor) y `fa2dfb3` (formulario) en `feat/aj-08-validadores-alertas`; verificación manual en local pendiente |
-| T6 | S2 | Gestor edita/anula con motivo y auditoría; varios archivos y enlaces por gasto; plantilla exige enlace | M | T4, D3 | 1 si toca datos | Pendiente |
+| T6 | S2 | Gestor edita/anula con motivo y auditoría; varios archivos y enlaces por gasto; plantilla exige enlace | M | T4, D3 | 1 si toca datos | Hecha: `843842b`, `8b11b05`, `c7e46da`, `f47680b`, `83e9e94` en `feat/t6-aj08-correccion-y-plantilla`; verificación manual en local pendiente |
 | T7 | S2 | (Propuesto) Resumen de cambios del periodo en la ficha financiera | S | T6, D4 | — | Pendiente |
 | T8 | S4 | Alerta «Posible retraso» visible en ficha y Tablero gerencial (la lógica ya existe) | S | — | — | Hecha: PR #170, `261e995` en `main`; verificación manual en local pendiente |
 | T9 | S5–S12 | **Diseño y estimación de la Parte 2** (sin código): modelo de datos, migraciones, plantillas, recarga de CedeTextil | M | D5 | — | Pendiente |
@@ -607,3 +607,23 @@ S11) · T15 recarga de CedeTextil en producción con ensayo (S12).
   - `R4-IMPORT-APPLY-NPLUS1` y `R4-IMPORT-PREVIEW-NPLUS1` (resilience, WARNING) `gastos-import/server.ts:162-163` y
     `import/route.ts:105-111`: el cálculo de nivel por fila agrega una consulta por gasto importado.
   **Entrega:** PR #173 (`feat/aj-08-validadores-alertas`). Sigue pendiente la verificación manual en local.
+- **L19 (2026-11-12, T6 hecha):** Rama `feat/t6-aj08-correccion-y-plantilla` (sale de `2f2cb53`, con `main` mergeado
+  encima cuando entró el arreglo N+1). Commits: `843842b` (plantilla), `8b11b05` (Gestor corrige), `c7e46da` (contrato y
+  sondas), `f47680b` (soportes múltiples), `83e9e94` (acción Corregir en la lista). **La tarjeta estaba desactualizada
+  en dos puntos:** anular con motivo y auditoría ya existía (usa `ESTADOS_EJECUTADOS`, así que abarca `REGISTRADO`), y el
+  constraint `num_nonnulls(storage_path, url_externa) = 1` no pedía migración: permite un medio por fila, así que «varios
+  archivos y varios enlaces» es una lista. **El agujero real era otro:** el PATCH exigía `registrado_por_id === actor`, y
+  nada en `src/` lo llamaba; ahora pasa por `gateGastoGestion` (ADMINISTRADOR/GERENCIA) exigiendo `motivo`, auditado como
+  `motivo_correccion`, y hay acción «Corregir» en la lista. Decisión del usuario: el motivo se exige **sólo cuando el
+  Gestor corrige el gasto de otro**; el autor edita el suyo sin motivo, y si escribe uno igual se audita. Plantilla: toda
+  fila sin «Enlace del soporte» se rechaza con fila y columna; consecuencia declarada, **un Excel exportado antes de que
+  existiera la columna se rechaza entero** y hay que descargar la plantilla nueva (la guía decía «opcional» y prometía un
+  gasto «Sin soporte»; las dos frases se corrigieron). **Verificación:** 230 tests en importador y rutas de gastos, 103 en
+  formulario, lista y accesibilidad; `eslint` 0 errores; `tsc` sin errores en lo tocado. **Verificador independiente**
+  (escalado por permisos, ítem 2): encontró el código correcto y dos textos mintiendo —la cabecera del PATCH y la
+  descripción publicada en OpenAPI, que decía «403 para cualquiera más, incluidos los administradores»—; corregidos en
+  `c7e46da`. **Seguimientos abiertos:** un Gerente puede des-rechazar el gasto `RECHAZADO` de otro al editarlo (sólo filas
+  heredadas de AJ-08, T4 las quiere `ANULADO`); `T7` tendrá que leer dos formas de motivo (`motivo_correccion` y el
+  `valor_nuevo.motivo` de la anulación); y `main` sigue sin typechequear por el modelo `emailOutbox` ausente en
+  `prisma/schema.prisma` (20 errores ajenos a este trabajo) más 3 de `.next/types/validator.ts` por rutas eliminadas.
+  **Entrega:** un solo PR; la rebanada es de 1167 líneas en 6 commits, grande para revisar, y se declara así.
