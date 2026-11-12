@@ -593,3 +593,17 @@ S11) · T15 recarga de CedeTextil en producción con ensayo (S12).
   línea antes de guardar). **Entrega:** un solo PR con los dos commits; aunque la rebanada pasa las ~400 líneas, el
   formulario consume el endpoint que agrega el servidor y separarlos dejaría la primera mitad sin interfaz. **Fuera de T5, anotado y sin tocar:** la consulta de duplicados dispara un GET por tecla,
   sin debounce.
+- **L18 (2026-11-12, review nativo de T5 aprobado):** linaje `review-9885040ff3fcbb66`, tier *medium*, 4 lentes (risk,
+  resilience, readability, reliability), sobre los 19 archivos de la rama. Resultado: **aprobado**, 9 hallazgos, todos
+  informativos y **no bloqueantes** (ninguno abrió corrección). El primer intento de revisión murió por `ETIMEDOUT` del
+  proveedor (`deepseek-v4.1-flash` vía `opencode-go`) sin consumir corridas; STATUS reofreció los mismos slots y se
+  relanzó. **Seguimientos anotados, no hechos** (detalle en el recibo del linaje):
+  - `R1-001` (risk, WARNING) `expenses/duplicates/route.ts:50-59`.
+  - `R2-001`, `R2-002`, `R2-003` (readability, SUGGESTION) en `import/route.test.ts:416`, `lib/api/gastos.ts:353` y
+    `duplicates/route.ts:54-56`.
+  - `R3-1` (reliability, WARNING) `gasto-form.tsx:161`; `R3-2` (reliability, WARNING) `import/route.ts:106-110`.
+  - `R4-DUPLICATE-DEBOUNCE` (resilience, WARNING) `hooks/projects.ts:1750-1764`: la consulta de duplicados dispara un
+    GET por tecla, sin debounce. Es el mismo detalle que ya estaba anotado en L17.
+  - `R4-IMPORT-APPLY-NPLUS1` y `R4-IMPORT-PREVIEW-NPLUS1` (resilience, WARNING) `gastos-import/server.ts:162-163` y
+    `import/route.ts:105-111`: el cálculo de nivel por fila agrega una consulta por gasto importado.
+  **Entrega:** PR #173 (`feat/aj-08-validadores-alertas`). Sigue pendiente la verificación manual en local.
