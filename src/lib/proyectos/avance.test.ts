@@ -34,6 +34,10 @@ const av = (fecha: string, cantidad: number, extra: Partial<AvanceInput> = {}): 
 })
 
 describe("calcularTecnico — the project advance weights each activity by its weeks (AJ-02, S5)", () => {
+  it("sube 6,7 puntos cuando una actividad de 4 de 30 semanas reporta 50 % (criterio del PO, AJ-07)", () => {
+    // El ejemplo textual del PO: 4 × 0,50 / 30 = 0,0666… → 6,7 puntos porcentuales del proyecto.
+    expect(avanceReal([{ peso: 4, progreso: 0.5 }, { peso: 26, progreso: 0 }])).toBeCloseTo(0.0667, 4)
+  })
   it("gives 46,7 % for a 4-week activity at 20 % plus a 2-week activity at 100 %", () => {
     const tecnico = calcularTecnico({
       corte: "2026-02-16",
