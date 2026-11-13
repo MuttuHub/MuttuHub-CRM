@@ -1,6 +1,7 @@
 // Pure rules of the "Editar datos generales" dialog (UX-3): which fields are validated, which are sent.
 // In BORRADOR every general field is editable; in EN_EJECUCION only `descripcion` and the number of
-// beneficiaries are, because dates and value change the baseline (they go through a modification request).
+// beneficiaries are, because dates change the baseline (they go through a modification request).
+// `valor_total` is not a field here: it is the sum of the budget lines (T11 S2) and only the budget writes it.
 // The validators are the same ones the creation form and the API use: no rule is forked here.
 
 import { MENSAJE_BENEFICIARIOS } from "./linea-base"
@@ -16,7 +17,6 @@ export type CampoDatosGenerales =
   | "nombre"
   | "descripcion"
   | "responsable"
-  | "valorTotal"
   | "fechaInicio"
   | "fechaFin"
   | "beneficiarios"
@@ -28,7 +28,6 @@ export type DatosGenerales = {
   nombre: string
   descripcion: string
   responsableId: string
-  valorTotal: string
   fechaInicio: string
   fechaFin: string
   beneficiarios: string
@@ -61,7 +60,6 @@ export function validarDatosGenerales(datos: DatosGenerales, modo: ModoEdicion):
       return error(datos.fechaInicio === "" ? "fechaInicio" : "fechaFin", "Completa las fechas de inicio y fin.")
     }
     if (!rangoFechasValido(datos.fechaInicio, datos.fechaFin)) return error("fechaFin", MENSAJE_RANGO_FECHAS)
-    if (!(Number(datos.valorTotal.trim()) > 0)) return error("valorTotal", "El valor total debe ser mayor que cero.")
   }
   const beneficiarios = datos.beneficiarios.trim()
   if (modo === "EN_EJECUCION" || beneficiarios !== "") {
@@ -80,7 +78,6 @@ export type CuerpoCambios = {
   nombre?: string
   descripcion?: string
   responsable_id?: string
-  valor_total?: number
   fecha_inicio?: string
   fecha_fin?: string
   beneficiarios_meta?: number | null
@@ -110,7 +107,6 @@ export function cuerpoDeCambios(inicial: DatosGenerales, actual: DatosGenerales,
     if (actual.responsableId !== inicial.responsableId && actual.responsableId !== "") {
       cuerpo.responsable_id = actual.responsableId
     }
-    if (actual.valorTotal.trim() !== inicial.valorTotal.trim()) cuerpo.valor_total = Number(actual.valorTotal.trim())
     if (actual.fechaInicio !== inicial.fechaInicio) cuerpo.fecha_inicio = actual.fechaInicio
     if (actual.fechaFin !== inicial.fechaFin) cuerpo.fecha_fin = actual.fechaFin
     if (!mismoConjunto(clavesLineas(actual.lineas), clavesLineas(inicial.lineas))) cuerpo.lineas = actual.lineas

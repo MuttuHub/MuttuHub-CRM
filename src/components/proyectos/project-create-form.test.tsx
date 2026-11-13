@@ -195,7 +195,6 @@ describe("ProjectCreateForm", () => {
 
     await elegirCliente(user, "Cliente Uno")
     await user.type(screen.getByLabelText("Nombre"), "Libre")
-    await user.type(screen.getByLabelText("Valor total"), "1000000")
     await elegirMunicipio(user)
     await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
 
@@ -207,7 +206,6 @@ describe("ProjectCreateForm", () => {
     renderForm()
     await elegirCliente(user, "Cliente Uno")
     await user.type(screen.getByLabelText("Nombre"), "Libre")
-    await user.type(screen.getByLabelText("Valor total"), "1000000")
     await elegirMunicipio(user)
     await user.type(screen.getByLabelText("Descripción (opcional)"), "  Alcance del convenio  ")
     await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
@@ -220,7 +218,6 @@ describe("ProjectCreateForm", () => {
     renderForm()
     await elegirCliente(user, "Cliente Uno")
     await user.type(screen.getByLabelText("Nombre"), "Libre")
-    await user.type(screen.getByLabelText("Valor total"), "1000000")
     await elegirMunicipio(user)
     await user.type(screen.getByLabelText("Descripción (opcional)"), "   ")
     await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
@@ -285,7 +282,9 @@ describe("ProjectCreateForm", () => {
   it("preselects initialOportunidadId together with its client", () => {
     renderForm({ initialOportunidadId: "op-1" })
     expect(screen.getByLabelText("Nombre")).toHaveValue("Consultoría línea base")
-    expect(screen.getByLabelText("Valor total")).toHaveValue("180.000.000")
+    expect(screen.getByTestId("proyecto-valor-total")).toHaveTextContent(
+      "Valor estimado de la oportunidad: $ 180.000.000",
+    )
     expect(screen.getByRole("combobox", { name: "Cliente" })).toHaveValue("Alcaldía de Barranquilla")
     expect(screen.getByRole("combobox", { name: "Oportunidad" })).toHaveTextContent("Consultoría línea base")
   })
@@ -324,7 +323,6 @@ describe("ProjectCreateForm", () => {
   it("requires the client and fires nothing without one", async () => {
     const user = userEvent.setup()
     const { onCreated } = renderForm()
-    await user.type(screen.getByLabelText("Valor total"), "1000")
     await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
     expect(await screen.findByRole("alert")).toHaveTextContent("Selecciona el cliente.")
     expect(createProject.mutateAsync).not.toHaveBeenCalled()
@@ -368,7 +366,6 @@ describe("ProjectCreateForm", () => {
     renderForm()
     await crearDesdeOportunidad(user)
     expect(screen.getByLabelText("Nombre")).toHaveValue("Consultoría línea base")
-    expect(screen.getByLabelText("Valor total")).toHaveValue("180.000.000")
     await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
 
     await waitFor(() => expect(createFromOpportunity.mutateAsync).toHaveBeenCalled())
@@ -376,7 +373,7 @@ describe("ProjectCreateForm", () => {
     const body = createFromOpportunity.mutateAsync.mock.calls[0][0]
     expect(body).not.toHaveProperty("cliente_id")
     expect(body).not.toHaveProperty("oportunidad_id")
-    expect(body.valor_total).toBe(180000000)
+    expect(body).not.toHaveProperty("valor_total")
     expect(createProject.mutateAsync).not.toHaveBeenCalled()
   })
 
@@ -385,17 +382,17 @@ describe("ProjectCreateForm", () => {
     renderForm()
     await elegirCliente(user, "Alcaldía de Barranquilla")
     await user.type(screen.getByLabelText("Nombre"), "Proyecto propio")
-    await user.type(screen.getByLabelText("Valor total"), "2500000")
     await elegirMunicipio(user)
     await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
 
     await waitFor(() => expect(createProject.mutateAsync).toHaveBeenCalled())
     const body = createProject.mutateAsync.mock.calls[0][0]
-    expect(body).toMatchObject({ cliente_id: "cli-1", nombre: "Proyecto propio", valor_total: 2500000 })
+    expect(body).toMatchObject({ cliente_id: "cli-1", nombre: "Proyecto propio" })
+    expect(body).not.toHaveProperty("valor_total")
     expect(createFromOpportunity.mutateAsync).not.toHaveBeenCalled()
   })
 
-  it("keeps the typed name and value when the opportunity is dropped, and resets them when the client changes", async () => {
+  it("keeps the typed name when the opportunity is dropped, and resets it when the client changes", async () => {
     const user = userEvent.setup()
     renderForm()
     await elegirCliente(user, "Alcaldía de Barranquilla")
@@ -406,20 +403,32 @@ describe("ProjectCreateForm", () => {
     await elegirOportunidad(user, /Consultoría línea base/)
     await elegirCliente(user, "Cliente Uno")
     expect(screen.getByLabelText("Nombre")).toHaveValue("")
-    expect(screen.getByLabelText("Valor total")).toHaveValue("")
+    expect(screen.getByTestId("proyecto-valor-total")).not.toHaveTextContent("Valor estimado de la oportunidad")
     expect(screen.getByRole("combobox", { name: "Oportunidad" })).toHaveTextContent("Sin oportunidad")
   })
 
-  it("keeps requiring a valor total greater than zero on an opportunity without value", async () => {
+  // S2 (T11): the project value is the sum of the budget lines; the form never asks for it.
+  it("has no value field and says the value is derived from the budget", () => {
+    renderForm()
+    expect(screen.queryByLabelText("Valor total")).not.toBeInTheDocument()
+    expect(screen.queryByRole("textbox", { name: /valor/i })).not.toBeInTheDocument()
+    const valor = screen.getByTestId("proyecto-valor-total")
+    expect(valor).toHaveTextContent("Valor total")
+    expect(valor).toHaveTextContent("$ 0")
+    expect(valor).toHaveTextContent("Se calcula sumando las líneas del presupuesto.")
+  })
+
+  it("converts an opportunity without value: nothing about the value blocks the submit", async () => {
     const user = userEvent.setup()
     useEligibleOpportunitiesMock.mockReturnValue({ data: [OPORTUNIDAD_2], isLoading: false, isError: false })
     renderForm()
     await elegirCliente(user, "Gobernación del Atlántico")
     await elegirOportunidad(user, /Oportunidad de otro cliente/)
+    expect(screen.getByTestId("proyecto-valor-total")).not.toHaveTextContent("Valor estimado de la oportunidad")
     await elegirMunicipio(user)
     await user.click(screen.getByRole("button", { name: "Crear proyecto" }))
-    expect(await screen.findByRole("alert")).toHaveTextContent("El valor total debe ser mayor que cero.")
-    expect(createFromOpportunity.mutateAsync).not.toHaveBeenCalled()
+    await waitFor(() => expect(createFromOpportunity.mutateAsync).toHaveBeenCalled())
+    expect(createFromOpportunity.mutateAsync.mock.calls[0][0]).not.toHaveProperty("valor_total")
   })
 
   it("searches and selects the client in one field (PO 2026-10-23)", async () => {
@@ -448,7 +457,7 @@ describe("ProjectCreateForm", () => {
     const user = userEvent.setup()
     renderForm()
     for (const [nombre, texto] of [
-      ["Valor total", "Valor total del contrato o convenio; debe ser mayor que cero."],
+      ["Valor total", /suma de las líneas del presupuesto; no se digita/],
       ["Fechas", /anterior a la de fin/],
       ["Cliente", /oportunidades ganadas sin proyecto/],
       ["Oportunidad", /Sin oportunidad, el proyecto es independiente/],

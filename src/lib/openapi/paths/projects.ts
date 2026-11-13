@@ -57,7 +57,7 @@ export const ProjectItemV2Schema = registry.register(
     valor_total: z
       .string()
       .nullable()
-      .openapi({ description: "Decimal(15,2) serializado como string por Prisma/decimal.js.", example: "245450000" }),
+      .openapi({ description: "Decimal(15,2) serializado como string por Prisma/decimal.js. Derivado (T11 S2): la suma de las líneas del presupuesto; nunca se envía al crear ni al editar, y un proyecto nuevo nace en 0.", example: "245450000" }),
     diferencia_valor_oportunidad: z
       .string()
       .nullable()
@@ -146,8 +146,9 @@ registry.registerPath({
     "cada id debe ser un COORDINADOR activo (400 si no existe, está inactivo o no es COORDINADOR) y el responsable " +
     "siempre entra como integrante, de modo que una entrada que lo nombre se colapsa en su única membresía; el " +
     "equipo inicial se audita como `CREAR proyecto_miembro` en su propio lote, dentro de la misma transacción. " +
-    "`codigo`, `estado`, `oportunidad_id`, `deleted_at`, `umbrales_override`, `programacion_pendiente`, " +
-    "`diferencia_valor_oportunidad` (S2.4) y `alertas` se rechazan con 400. Las líneas estratégicas y los " +
+    "`codigo`, `estado`, `oportunidad_id`, `deleted_at`, `valor_total`, `umbrales_override`, `programacion_pendiente`, " +
+    "`diferencia_valor_oportunidad` (S2.4) y `alertas` se rechazan con 400. `valor_total` es la suma de las líneas del " +
+    "presupuesto (T11 S2): el proyecto nace con `valor_total = 0` y lo actualiza `PUT /projects/{id}/budget`. Las líneas estratégicas y los " +
     "municipios deben existir y estar activos (V-04); uno suspendido responde 400. 404 si el cliente no existe.",
   security: [{ sessionCookie: [] }],
   request: { body: { content: { "application/json": { schema: PROJECT_CREATE_SCHEMA } } } },
@@ -300,13 +301,14 @@ registry.registerPath({
   tags: ["Projects"],
   summary: "Edita los datos generales de un proyecto en Borrador o en Ejecución (P06, solo ADM/GER)",
   description:
-    "Acepta `nombre`, `descripcion` (máx. 2000; vacío guarda null), `origen`, `fecha_inicio`, `fecha_fin`, `valor_total`, `beneficiarios_meta`, `responsable_id`, " +
+    "Acepta `nombre`, `descripcion` (máx. 2000; vacío guarda null), `origen`, `fecha_inicio`, `fecha_fin`, `beneficiarios_meta`, `responsable_id`, " +
     "`lineas` (reemplazo N..N, 1..n con exactamente una principal) y `municipio_ids` (reemplazo N..N). " +
     "En `EN_EJECUCION` solo acepta `descripcion` y `beneficiarios_meta` (mayor que cero, no se puede vaciar): cualquier otro campo responde 409 INVALID_STATE, porque cambia la línea base y se pide como modificación. " +
     "En cualquier otro estado responde 409 INVALID_STATE (código compartido del envelope). Las escrituras y las filas de auditoría van en una sola " +
     "transacción: una por campo cambiado, por línea y por municipio cambiados. `codigo`, `estado`, `miembro_ids` " +
-    "(S2.6) y `diferencia_valor_oportunidad` (S2.4) se rechazan con 400. En un proyecto nacido de una oportunidad, " +
-    "cambiar `valor_total` recalcula y audita `diferencia_valor_oportunidad`; la respuesta trae `alertas`.",
+    "(S2.6), `diferencia_valor_oportunidad` (S2.4) y `valor_total` se rechazan con 400, también en `EN_EJECUCION`. " +
+    "`valor_total` es la suma de las líneas del presupuesto (T11 S2): solo lo escribe `PUT /projects/{id}/budget`, " +
+    "que también recalcula `diferencia_valor_oportunidad`.",
   security: [{ sessionCookie: [] }],
   request: {
     params: ProjectIdParams,

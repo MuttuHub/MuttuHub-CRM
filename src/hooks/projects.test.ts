@@ -290,7 +290,6 @@ const INPUT: ProjectCreateInput = {
   municipio_ids: ["m1"],
   fecha_inicio: "2026-01-05",
   fecha_fin: "2026-04-05",
-  valor_total: 180000000,
 }
 
 describe("unidad 2: creación y catálogos", () => {

@@ -4,6 +4,8 @@
 // ficha header, untouched: it decides by itself who sees it (`canApproveBaseline`, BORRADOR only), asks for
 // confirmation and lists, inline, the pending preconditions the API returns on a 409. This step never
 // re-implements those validations; it only counts what exists and points out a budget that does not add up.
+// The project value is Σ lines (T11 S2), so the summary shows the sum once and says it is derived; the
+// difference notice only fires for a legacy value typed before T11 that the budget has not re-saved yet.
 
 "use client";
 
@@ -108,9 +110,8 @@ function ResumenPresupuesto({ consulta }: { consulta: ReturnType<typeof useProje
   const detalle = rubros === 1 ? "1 rubro" : `${rubros} rubros`;
   return (
     <>
-      {budget.valor_total === null
-        ? `${suma} (sin valor total) · ${detalle}`
-        : `${suma} de ${formatCOP(toCents(budget.valor_total))} · ${detalle}`}
+      {`${suma} · ${detalle}`}
+      <span className="mt-0.5 block font-sans text-[12px] text-ink-500">Se calcula sumando las líneas del presupuesto.</span>
     </>
   );
 }

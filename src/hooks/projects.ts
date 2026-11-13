@@ -433,7 +433,10 @@ export function useMunicipalities(): UseQueryResult<Municipality[]> {
 
 export type ProjectLineaInput = { id: string; principal: boolean };
 
-/** Campos compartidos por ambos endpoints de creación (`PROJECT_CREATE_BASE`). */
+/**
+ * Campos compartidos por ambos endpoints de creación (`PROJECT_CREATE_BASE`). Sin `valor_total`: es la
+ * suma de las líneas del presupuesto (T11 S2), el proyecto nace en 0 y el servidor responde 400 si llega.
+ */
 type ProjectCreateBaseInput = {
   /** M3: opcional, máx. 2000 caracteres. */
   descripcion?: string;
@@ -443,7 +446,6 @@ type ProjectCreateBaseInput = {
   /** Calendario `YYYY-MM-DD`, nunca instante ISO. */
   fecha_inicio: string;
   fecha_fin: string;
-  valor_total?: number;
   beneficiarios_meta?: number;
 };
 
@@ -522,14 +524,14 @@ export function useCreateProjectFromOpportunity(
 
 /**
  * UX-3: edita los datos generales (PATCH E-06). El cuerpo trae solo lo que cambió; en ejecución el servidor
- * acepta únicamente `descripcion` y `beneficiarios_meta`. Al guardar invalida todo el namespace `projects`
+ * acepta únicamente `descripcion` y `beneficiarios_meta`. Nunca lleva `valor_total` (T11 S2: lo escribe el
+ * presupuesto, el PATCH responde 400). Al guardar invalida todo el namespace `projects`
  * (ficha, encabezado, listado, auditoría). El error del servidor se re-lanza sin toast: el diálogo lo muestra en línea.
  */
 export type ProjectUpdateInput = {
   nombre?: string;
   descripcion?: string;
   responsable_id?: string;
-  valor_total?: number;
   fecha_inicio?: string;
   fecha_fin?: string;
   beneficiarios_meta?: number | null;

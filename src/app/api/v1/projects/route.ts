@@ -119,15 +119,8 @@ const PROJECT_CREATE_BASE = {
   fecha_fin: z
     .string()
     .refine((value) => parseDate(value) !== null, INVALID_DATE_MESSAGES.fecha_fin),
-  // Upper bounds match the columns: `numeric(15,2)` and `int4`. Without them a
-  // bigger number reaches Postgres and Prisma raises P2020 (ValueOutOfRange),
-  // which would surface as a 500 instead of a 400.
-  valor_total: z
-    .number()
-    .min(0, "El valor total no puede ser negativo.")
-    .max(9_999_999_999_999.99, "El valor total es demasiado alto.")
-    .nullable()
-    .optional(),
+  // The upper bound matches the `int4` column. Without it a bigger number reaches Postgres and
+  // Prisma raises P2020 (ValueOutOfRange), which would surface as a 500 instead of a 400.
   beneficiarios_meta: z
     .number()
     .int("El número de beneficiarios debe ser un entero.")
@@ -160,12 +153,6 @@ export const PROJECT_CREATE_SCHEMA = z
       .max(200, "El nombre es muy largo."),
     cliente_id: z.string().min(1, "El cliente no es válido."),
     ...PROJECT_CREATE_BASE,
-    // PO-5 / REQ-ORG-04: a project is born with a positive value. E-05 (conversion) keeps the optional
-    // base field because the server prefills it from the opportunity.
-    valor_total: z
-      .number({ error: "El valor total es obligatorio." })
-      .gt(0, "El valor total debe ser mayor que cero.")
-      .max(9_999_999_999_999.99, "El valor total es demasiado alto."),
   })
   .superRefine(exigirRangoFechas);
 
@@ -188,9 +175,10 @@ export const PROJECT_CREATE_FROM_OPPORTUNITY_SCHEMA = z
 
 /**
  * Fields that must not be settable at creation: `codigo` belongs to S2.2,
- * `estado`/`oportunidad_id`/`deleted_at` are derived, and `umbrales_override`/
- * `programacion_pendiente`/`diferencia_valor_oportunidad`/`alertas` to later
- * units. E-05 adds `cliente_id` (derived from the URL). `miembro_ids` is
+ * `estado`/`oportunidad_id`/`deleted_at` are derived, `valor_total` is the sum
+ * of the budget lines (T11 S2, a new project starts at 0), and
+ * `umbrales_override`/`programacion_pendiente`/`diferencia_valor_oportunidad`/
+ * `alertas` belong to later units. E-05 adds `cliente_id` (derived from the URL). `miembro_ids` is
  * accepted since S2.6 T4 and validated against active COORDINADORs.
  */
 export const PROJECT_CREATE_FORBIDDEN_FIELDS = [
@@ -198,6 +186,7 @@ export const PROJECT_CREATE_FORBIDDEN_FIELDS = [
   "estado",
   "oportunidad_id",
   "deleted_at",
+  "valor_total",
   "umbrales_override",
   "programacion_pendiente",
   "diferencia_valor_oportunidad",
@@ -307,7 +296,8 @@ export const POST = withApiErrorHandling(
           origen: "INDEPENDIENTE",
           fecha_inicio: inicio,
           fecha_fin: fin,
-          valor_total: toProjectDecimal(parsed.data.valor_total ?? null),
+          // S2: Σ of the budget lines, and a new project has none yet.
+          valor_total: toProjectDecimal(0),
           beneficiarios_meta: parsed.data.beneficiarios_meta ?? null,
           lineas: {
             create: parsed.data.lineas.map((linea) => ({

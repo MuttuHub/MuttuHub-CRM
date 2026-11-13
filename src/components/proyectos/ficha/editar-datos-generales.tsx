@@ -1,13 +1,13 @@
 // "Editar datos generales" (UX-3): diálogo de la ficha Resumen. En BORRADOR edita todos los datos generales; en
 // EN_EJECUCION solo la descripción y los beneficiarios, porque fechas y valor cambian la línea base y se piden
-// como modificación (el diálogo las muestra de solo lectura y lleva al Historial). Las reglas son las de la
+// como modificación (el diálogo las muestra de solo lectura y lleva al Historial). El valor total nunca se digita
+// (T11 S2): es la suma de las líneas del presupuesto y aquí solo se muestra. Las reglas son las de la
 // creación (`validarDatosGenerales`) y el cuerpo solo lleva lo que cambió. La API sigue siendo la autoridad.
 
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { LoaderCircle } from "lucide-react";
-import { valorDesdeDecimal } from "@/components/proyectos/project-create-form";
 import { CampoLineas, CampoMunicipios } from "@/components/proyectos/nuevo-proyecto/campos-proyecto";
 import { formatFechaCalendario } from "@/components/proyectos/project-display";
 import { CAPTURE_TEXTAREA } from "@/components/proyectos/ui";
@@ -42,6 +42,13 @@ import {
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { alternarLinea, alternarPrincipal } from "@/lib/proyectos/proyecto-general";
 
+/** S2: the project value is derived, the same copy as the budget screen. */
+const VALOR_DERIVADO = "Se calcula sumando las líneas del presupuesto.";
+
+function valorTotalTexto(proyecto: ProjectListRow): string {
+  return proyecto.valor_total === null ? "—" : formatCOP(toCents(proyecto.valor_total));
+}
+
 /** Estados cuyos datos generales se pueden editar desde la ficha. */
 export function modoDeEdicion(estado: ProjectListRow["estado"]): ModoEdicion | null {
   return estado === "BORRADOR" || estado === "EN_EJECUCION" ? estado : null;
@@ -52,7 +59,6 @@ function datosDelProyecto(proyecto: ProjectListRow): DatosGenerales {
     nombre: proyecto.nombre,
     descripcion: proyecto.descripcion ?? "",
     responsableId: proyecto.responsable?.id ?? "",
-    valorTotal: valorDesdeDecimal(proyecto.valor_total),
     fechaInicio: proyecto.fecha_inicio ?? "",
     fechaFin: proyecto.fecha_fin ?? "",
     beneficiarios: proyecto.beneficiarios_meta === null ? "" : String(proyecto.beneficiarios_meta),
@@ -305,9 +311,8 @@ function SoloLectura({
         </div>
         <div>
           <dt className="text-[12px] font-semibold text-ink-600">Valor total</dt>
-          <dd className="font-mono text-ink-900 tabular-nums">
-            {proyecto.valor_total === null ? "—" : formatCOP(toCents(proyecto.valor_total))}
-          </dd>
+          <dd className="font-mono text-ink-900 tabular-nums">{valorTotalTexto(proyecto)}</dd>
+          <dd className="text-[12px] text-ink-500">{VALOR_DERIVADO}</dd>
         </div>
       </dl>
       <p className="text-[13px] text-ink-700">Cambian la línea base: solicítalo como modificación.</p>
@@ -380,21 +385,10 @@ function CamposBorrador({
           </Select>
         </div>
 
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="editar-valor">Valor total</Label>
-          <Input
-            id="editar-valor"
-            data-campo="valorTotal"
-            type="number"
-            inputMode="decimal"
-            min={0}
-            value={datos.valorTotal}
-            onChange={(event) => cambiar({ valorTotal: event.target.value })}
-            aria-invalid={invalido("valorTotal") || undefined}
-            aria-describedby={describe("valorTotal")}
-            className="px-3"
-          />
-          {mensaje("valorTotal")}
+        <div className="flex flex-col gap-2" data-testid="editar-valor-total">
+          <span className="text-sm leading-none font-medium">Valor total</span>
+          <span className="font-mono text-[13px] text-ink-900 tabular-nums">{valorTotalTexto(proyecto)}</span>
+          <span className="text-[12px] text-ink-500">{VALOR_DERIVADO}</span>
         </div>
 
         <div className="flex flex-col gap-2">

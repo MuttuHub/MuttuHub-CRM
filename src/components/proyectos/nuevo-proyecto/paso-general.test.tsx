@@ -34,6 +34,8 @@ describe("PasoGeneralCreado", () => {
     expect(screen.getByText("Educación")).toBeInTheDocument()
     expect(screen.getByText("Barranquilla")).toBeInTheDocument()
     expect(screen.getByText(/180\.000\.000/)).toBeInTheDocument()
+    // S2 (T11): the value is read-only and derived from the budget lines.
+    expect(screen.getByText("Se calcula sumando las líneas del presupuesto.")).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: /Crear proyecto/ })).not.toBeInTheDocument()
   })
 

@@ -342,7 +342,6 @@ describe("PATCH /api/v1/projects/:id", () => {
       ["nombre", { nombre: "Otro" }],
       ["fecha_inicio", { fecha_inicio: "2026-11-01" }],
       ["fecha_fin", { fecha_fin: "2027-02-01" }],
-      ["valor_total", { valor_total: 300000000 }],
       ["responsable_id", { responsable_id: "user-9" }],
       ["lineas", { lineas: [{ id: "linea-1", principal: true }] }],
       ["municipio_ids", { municipio_ids: ["mun-1"] }],
@@ -357,6 +356,15 @@ describe("PATCH /api/v1/projects/:id", () => {
       );
       expect(mocks.txUpdate).not.toHaveBeenCalled();
       expect(vi.mocked(logChanges)).not.toHaveBeenCalled();
+    });
+
+    it("rejects a typed valor_total with 400 before the state rule: it is derived (S2)", async () => {
+      const res = await PATCH(patchRequest({ descripcion: "Nueva", valor_total: 300000000 }), routeContext);
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.error).toBe("El campo 'valor_total' no se puede modificar en este endpoint.");
+      expect(mocks.txUpdate).not.toHaveBeenCalled();
     });
 
     it("rejects a negative beneficiarios_meta", async () => {
@@ -697,81 +705,29 @@ describe("PATCH /api/v1/projects/:id", () => {
     expect(mocks.txUpdate).not.toHaveBeenCalled();
   });
 
-  it("leaves diferencia_valor_oportunidad alone for a project without opportunity", async () => {
-    const res = await PATCH(patchRequest({ valor_total: 245450000 }), routeContext);
-    const json = await res.json();
-
-    expect(res.status).toBe(200);
-    const [updateArgs] = mocks.txUpdate.mock.calls[0]! as [
-      { data: Record<string, unknown> & { valor_total: Prisma.Decimal } },
-    ];
-    expect(String(updateArgs.data.valor_total)).toBe("245450000");
-    expect(updateArgs.data).not.toHaveProperty("diferencia_valor_oportunidad");
-    expect(json.proyecto.diferencia_valor_oportunidad).toBeNull();
-    expect(json.proyecto.alertas).toEqual([]);
-  });
-
-  describe("project born from an opportunity (S2.4)", () => {
-    const conOportunidad = {
-      ...existente,
-      oportunidad: { valor_estimado_cop: new Prisma.Decimal("245400000.00") },
-    };
-
-    it("recomputes and audits diferencia_valor_oportunidad when valor_total changes", async () => {
-      vi.mocked(db.proyecto.findFirst).mockResolvedValue(conOportunidad as never);
-      mocks.txFindUniqueOrThrow.mockResolvedValue({
-        ...conOportunidad,
-        valor_total: new Prisma.Decimal("245450000.00"),
-        diferencia_valor_oportunidad: new Prisma.Decimal("50000.00"),
-      });
-
-      const res = await PATCH(patchRequest({ valor_total: 245450000 }), routeContext);
-      const json = await res.json();
-
-      expect(res.status).toBe(200);
-      const [updateArgs] = mocks.txUpdate.mock.calls[0]! as [{ data: Record<string, unknown> }];
-      expect(String(updateArgs.data.diferencia_valor_oportunidad)).toBe("50000");
-      const [, rows] = vi.mocked(logChanges).mock.calls[0]!;
-      expect(rows).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            campo: "diferencia_valor_oportunidad",
-            valor_anterior: null,
-            valor_nuevo: "50000",
-          }),
-        ]),
-      );
-      expect(json.proyecto.alertas).toEqual([
-        expect.objectContaining({ codigo: "DIFERENCIA_VALOR", diferencia: "50000.00" }),
-      ]);
-    });
-
-    it("does not recompute when valor_total is not in the patch", async () => {
-      vi.mocked(db.proyecto.findFirst).mockResolvedValue(conOportunidad as never);
-
-      await PATCH(patchRequest({ nombre: "Otro" }), routeContext);
-
-      const [updateArgs] = mocks.txUpdate.mock.calls[0]! as [{ data: Record<string, unknown> }];
-      expect(updateArgs.data).not.toHaveProperty("diferencia_valor_oportunidad");
-    });
-  });
-
-  it("rejects an out-of-range valor_total with 400 instead of a 500", async () => {
-    const res = await PATCH(patchRequest({ valor_total: 1e15 }), routeContext);
-    const json = await res.json();
-
-    expect(res.status).toBe(400);
-    expect(json.code).toBe("VALIDATION_ERROR");
-    expect(mocks.txUpdate).not.toHaveBeenCalled();
-  });
-
-  it.each([[0], [-1], [null]])("rejects valor_total %j with 400 (PO-5: a project value is positive)", async (value) => {
+  // S2 (T11): valor_total is the sum of the budget lines; only the budget PUT writes it.
+  it.each([[245450000], [0], [null]])("rejects a typed valor_total %j with 400 and writes nothing", async (value) => {
     const res = await PATCH(patchRequest({ valor_total: value }), routeContext);
     const json = await res.json();
 
     expect(res.status).toBe(400);
     expect(json.code).toBe("VALIDATION_ERROR");
+    expect(json.error).toBe("El campo 'valor_total' no se puede modificar en este endpoint.");
     expect(mocks.txUpdate).not.toHaveBeenCalled();
+    expect(vi.mocked(logChanges)).not.toHaveBeenCalled();
+  });
+
+  it("leaves valor_total and diferencia_valor_oportunidad alone on a project born from an opportunity", async () => {
+    vi.mocked(db.proyecto.findFirst).mockResolvedValue({
+      ...existente,
+      oportunidad: { valor_estimado_cop: new Prisma.Decimal("245400000.00") },
+    } as never);
+
+    const res = await PATCH(patchRequest({ nombre: "Otro" }), routeContext);
+
+    expect(res.status).toBe(200);
+    const [updateArgs] = mocks.txUpdate.mock.calls[0]! as [{ data: Record<string, unknown> }];
+    expect(updateArgs.data).toEqual({ nombre: "Otro" });
   });
 
   it("rejects an out-of-range beneficiarios_meta with 400 instead of a 500", async () => {

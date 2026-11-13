@@ -5,7 +5,7 @@ export const PASOS = [
   { numero: 1, etiqueta: "General", titulo: "Información general", descripcion: "Pide los datos base para crear el proyecto en borrador; el código se asigna solo." },
   { numero: 2, etiqueta: "Estructura", titulo: "Estructura del proyecto", descripcion: "Define qué se quiere lograr: objetivos con sus actividades, entregables e indicadores (cada indicador con su línea base y su meta)." },
   { numero: 3, etiqueta: "Cronograma", titulo: "Ver cronograma", descripcion: "Consulta qué se hace y cuándo. Es de solo lectura: las actividades se editan en el paso Estructura." },
-  { numero: 4, etiqueta: "Presupuesto", titulo: "Presupuesto proyectado por rubros", descripcion: "Reparte el valor total por rubro y programa los desembolsos por mes." },
+  { numero: 4, etiqueta: "Presupuesto", titulo: "Presupuesto proyectado por rubros", descripcion: "Asigna el presupuesto por actividad y rubro; el valor total es la suma de las líneas." },
   { numero: 5, etiqueta: "Revisión", titulo: "Revisar y aprobar", descripcion: "Confirma lo capturado. Puedes guardar el borrador o aprobar la línea base." },
 ] as const
 
