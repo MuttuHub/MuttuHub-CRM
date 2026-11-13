@@ -706,3 +706,26 @@ S11) · T15 recarga de CedeTextil en producción con ensayo (S12).
   queda cerrada en L21 §5. Consecuencia sobre el modelo: `T10` sigue en `L`, se agrega la tabla `gasto_reparto` y
   **cambia el umbral de duplicados de T5**: dos filas con el mismo tercero y documento pasan a ser una factura
   distribuida, no un duplicado.
+- **L23 (2026-11-13, T12 · Carril B de `odd/tasks/plan-2026-11-13-dos-agentes.md`):** pedido del usuario, textual:
+  «vamos con el plan para deepseek». `T10` ya estaba en `main` (`0e0de6a`, PR #181) y los PRs #178, #179 y #165
+  mergeados, así que el carril arrancó sobre `main` limpio en un worktree propio
+  (`feat/t12-actividad-transversal`), no en el directorio compartido con el otro carril.
+  **Decisión de modelo no cubierta por `D1`–`D10`:** `S6` dice «en las transversales el objetivo va vacío», así
+  que `actividades.objetivo_id` pasa a nullable. Prisma no expresa una relación compuesta opcional —todos los
+  campos escalares de la relación tendrían que ser opcionales y `proyecto_id` es obligatorio—, por lo que la FK
+  compuesta `(objetivo_id, proyecto_id)`, que era la garantía de que una actividad no cuelga de un objetivo de
+  otro proyecto, se reemplaza por una FK de una columna más un trigger `actividades_objetivo_del_proyecto` que
+  conserva exactamente esa garantía. Es la misma técnica que ya usan `rubros`, `lineas_estrategicas` y
+  `versiones_proyecto`. Un `CHECK` (`actividades_tipo_objetivo_check`) impide que el tipo y el objetivo se
+  contradigan: `NORMAL` exige objetivo, `TRANSVERSAL` lo prohíbe. Ensayo sobre la base descartable: aplica, la fila
+  vieja toma `NORMAL` por defecto, rechaza las tres combinaciones inválidas (transversal con objetivo, normal sin
+  objetivo, objetivo de otro proyecto, también en `UPDATE`), el SQL inverso restaura la forma anterior y
+  `migrate deploy` la reaplica.
+  **Desviaciones de superficie, declaradas:** además de la lista del plan hubo que tocar `src/lib/proyectos/kpis.ts`
+  (el cronograma del KPI no descartaba la transversal), `src/lib/api/tecnico.ts`, `kpis-portafolio.ts`,
+  `versiones.ts` (objetivo nulo en el snapshot), `src/hooks/projects.ts` (el DTO de actividades no conocía `tipo`),
+  `src/lib/proyectos/gantt.ts` y `estructura-gantt.tsx` (el Gantt descartaba la transversal en silencio) y una
+  línea de `plantilla-import.ts` (`actividad.objetivo?.codigo`, para que compile con el objetivo nullable). No se
+  tocó `src/lib/proyectos/plantilla/**` ni la hoja de plantilla: la columna «Tipo» sigue siendo de `T11`.
+  **Pendiente conocido:** desde la UI no se puede volver una transversal a Normal (su grupo no tiene selector de
+  objetivo y la API exige el par coherente en el mismo patch); queda visible en «Gestión del proyecto».
