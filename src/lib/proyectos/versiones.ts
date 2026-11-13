@@ -60,7 +60,7 @@ export function decimal(value: string): string {
  * guardadas antes de la Parte 2 sólo traen `rubro_codigo`; las nuevas traen también `codigo_linea`
  * (`ACT|RUBRO`). Leer con esto y escribir `codigo_linea` es la regla de compatibilidad de T10.
  */
-export function claveLinea(fila: { rubro_codigo: string | null; codigo_linea?: string | null }): string | null {
+function claveLinea(fila: { rubro_codigo: string | null; codigo_linea?: string | null }): string | null {
   return fila.codigo_linea ?? fila.rubro_codigo
 }
 
