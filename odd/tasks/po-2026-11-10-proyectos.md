@@ -253,7 +253,7 @@ sesión de agente por tarea) salvo que la tarjeta diga otra cosa.
 | T3 | S3 | El Gestor solicita traslados; el Gerente ve pendientes; validación contra lo ejecutado | S–M | D3 | 2 (permisos) | Hecha: PR #171, `5934e4e` en `main`; verificación manual en local pendiente |
 | T4 | S2 | Gasto sin aprobación: todo gasto no anulado es ejecutado; se quitan «Por validar», filtros y cola | M | D2 | 3 (lectores compartidos) | Hecha: PR #172, `f5c4e4e` en `main`; verificación manual en local pendiente |
 | T5 | S2 | Validadores al digitar, alertas de sobreejecución que no bloquean y aviso de duplicados | M | T4, D4 | — | Hecha: `9214f06` (servidor) y `fa2dfb3` (formulario) en `feat/aj-08-validadores-alertas`; verificación manual en local pendiente |
-| T6 | S2 | Gestor edita/anula con motivo y auditoría; varios archivos y enlaces por gasto; plantilla exige enlace | M | T4, D3 | 1 si toca datos | Hecha: `843842b`, `8b11b05`, `c7e46da`, `f47680b`, `83e9e94` en `feat/t6-aj08-correccion-y-plantilla`; verificación manual en local pendiente |
+| T6 | S2 | Gestor edita/anula con motivo y auditoría; varios archivos y enlaces por gasto; plantilla exige enlace | M | T4, D3 | 1 si toca datos | Hecha: PR #175, `1e6410b` en `main` (`843842b`…`57b2f17`); verificación manual de AJ-07 en local pendiente |
 | T7 | S2 | (Propuesto) Resumen de cambios del periodo en la ficha financiera | S | T6, D4 | — | Pendiente |
 | T8 | S4 | Alerta «Posible retraso» visible en ficha y Tablero gerencial (la lógica ya existe) | S | — | — | Hecha: PR #170, `261e995` en `main`; verificación manual en local pendiente |
 | T9 | S5–S12 | **Diseño y estimación de la Parte 2** (sin código): modelo de datos, migraciones, plantillas, recarga de CedeTextil | M | D5 | — | Pendiente |
@@ -631,3 +631,10 @@ S11) · T15 recarga de CedeTextil en producción con ensayo (S12).
   `.next/types/validator.ts` son artefactos de build que apuntaban a las rutas `reject`/`validate` eliminadas por AJ-08 y
   desaparecen al regenerar `.next`. Diagnóstico anterior, que era erróneo: «modelo ausente en el schema».
   **Entrega:** un solo PR; la rebanada es de 1167 líneas en 6 commits, grande para revisar, y se declara así.
+- **L20 (2026-11-12, T6 mergeada):** PR #175 mergeado aplastado en `main` como `1e6410b`, con CI verde
+  (`unit`, `e2e`, Vercel) y 13 commits aplastados. Antes de mergear se corrigieron dos diagnósticos propios que
+  estaban mal: el «defecto de `emailOutbox`» no era tal (el modelo siempre estuvo en el schema; faltaba regenerar
+  el cliente Prisma, y `tsc` quedó en 0 errores) y el criterio 3 de AJ-09 ya estaba cubierto desde T3 en
+  `modificaciones.test.ts:139` (mi bandera de «discrepancia de regla» salió de leer sólo el armador del cliente).
+  **Pendiente real de la Parte 1:** la verificación manual de AJ-07 (el ejemplo de 6,7 puntos y la igualdad
+  tarjeta/curva/tabla). **Siguiente:** T7 y el diseño de la Parte 2 (`T9`).
