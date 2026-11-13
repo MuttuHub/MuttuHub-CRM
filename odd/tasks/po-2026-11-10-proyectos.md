@@ -256,7 +256,7 @@ sesión de agente por tarea) salvo que la tarjeta diga otra cosa.
 | T6 | S2 | Gestor edita/anula con motivo y auditoría; varios archivos y enlaces por gasto; plantilla exige enlace | M | T4, D3 | 1 si toca datos | Hecha: PR #175, `1e6410b` en `main` (`843842b`…`57b2f17`); verificación manual de AJ-07 en local pendiente |
 | T7 | S2 | (Propuesto) Resumen de cambios del periodo en la ficha financiera | S | T6, D4 | — | Pendiente |
 | T8 | S4 | Alerta «Posible retraso» visible en ficha y Tablero gerencial (la lógica ya existe) | S | — | — | Hecha: PR #170, `261e995` en `main`; verificación manual en local pendiente |
-| T9 | S5–S12 | **Diseño y estimación de la Parte 2** (sin código): modelo de datos, migraciones, plantillas, recarga de CedeTextil | M | D5 | — | Pendiente |
+| T9 | S5–S12 | **Diseño y estimación de la Parte 2** (sin código): modelo de datos, migraciones, plantillas, recarga de CedeTextil | M | D5 | — | Hecha: `odd/tasks/po-2026-11-10-parte-2-diseno.md`; 5 preguntas abiertas para la PO (L21) |
 | T10–T15 | S5–S12 | Rebanadas de la Parte 2, definidas por T9 (orientativas abajo) | L en total | T9 | 1 | Pendiente |
 
 ### Orden y calendario sugerido
@@ -638,3 +638,16 @@ S11) · T15 recarga de CedeTextil en producción con ensayo (S12).
   `modificaciones.test.ts:139` (mi bandera de «discrepancia de regla» salió de leer sólo el armador del cliente).
   **Pendiente real de la Parte 1:** la verificación manual de AJ-07 (el ejemplo de 6,7 puntos y la igualdad
   tarjeta/curva/tabla). **Siguiente:** T7 y el diseño de la Parte 2 (`T9`).
+- **L21 (2026-11-12, T9 hecha):** diseño y estimación de la Parte 2 en `odd/tasks/po-2026-11-10-parte-2-diseno.md`,
+  sin código. Decisión de fondo: la Parte 2 entra **de forma aditiva y compatible en las dos direcciones** —
+  `actividad_id` nullable en líneas y gastos, unicidad `[proyecto_id, actividad_id, rubro_id]` con índice parcial
+  para las líneas heredadas, y un `codigo_linea` (`R12` viejo, `1.1|R12` nuevo) que reemplaza al código de rubro en
+  versiones, `detalle`, diffs y exportaciones. La regla que se repite: **leer las dos formas, escribir la nueva**.
+  Lo que el mapa dejó a la vista: el código de rubro es la clave de negocio de las versiones inmutables y de las
+  solicitudes ya guardadas, y **nueve sitios colapsan dinero por rubro en silencio** (`presupuesto.ts:186`,
+  `budget/route.ts:109`, `programming/route.ts:126`, `presupuesto-po/server.ts:65`, `plantilla-import.ts:583`,
+  `modificaciones.ts:191,264,318`, `ficha-financiera.ts:162`, `financial-sheet.ts:77`, `gastos.ts:242`). Estimación
+  en cinco rebanadas (`T10` `L`, `T11` `M–L`, `T12` `M`, `T13` `L`, `T14` `L`, `T15` `M` bloqueada por D5). **D5**
+  queda explicada en el documento §5: proyecto nuevo y el actual archivado. **Antes de `T11` hay cinco preguntas
+  para la PO** (§6), y la más cara es si una actividad puede tener varios rubros: si es «un rubro por actividad»,
+  `T10` baja de `L` a `M`.
