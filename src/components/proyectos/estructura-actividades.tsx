@@ -1,6 +1,10 @@
 // Actividades de un objetivo (S3 U4). Se ubican por SEMANAS del proyecto; las
 // fechas que se muestran las deriva el servidor (nunca se envían). El peso tampoco se
 // envía ni se edita (AJ-02): siempre es la duración en semanas de la actividad.
+//
+// T12 (S6): el formulario elige el TIPO (Normal o Transversal). Una transversal no
+// lleva objetivo y se lista en «Gestión del proyecto», el grupo que se abre con
+// `objetivoId: null`, aparte de los objetivos.
 
 "use client";
 
@@ -14,10 +18,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatFechaCalendario } from "@/components/proyectos/project-display";
+import { formatFechaCalendario, esGestionDelProyecto } from "@/components/proyectos/project-display";
 import { EstructuraEntregables } from "@/components/proyectos/estructura-entregables";
 import { AddButton, INVALID_NUMBER, RowActions, StructureForm, TextField, errorMessage, formError, parseNumber } from "@/components/proyectos/estructura-ui";
 import { EmptyBlock, InlineError, SectionHeader } from "@/components/proyectos/ui";
+import { GRUPO_GESTION, type TipoActividad } from "@/lib/proyectos/actividad";
 import { useUsers } from "@/hooks/crm";
 import {
   useCreateActivity,
@@ -30,6 +35,11 @@ import {
 
 const SIN_FECHAS_HINT = "Define las fechas del proyecto antes de crear actividades.";
 const SIN_RESPONSABLE = "none";
+/** T12 (S6): una transversal no tiene objetivo y se lista en su propio grupo. */
+const HINT_TRANSVERSAL = "Las actividades transversales van en «Gestión del proyecto», sin objetivo.";
+/** El grupo de gestión solo aloja transversales: ahí no hay objetivo que elegir. */
+const HINT_GRUPO_GESTION =
+  "Las actividades de «Gestión del proyecto» son transversales y no tienen objetivo.";
 
 function formatPeso(peso: number): string {
   return new Intl.NumberFormat("es-CO", { maximumFractionDigits: 2 }).format(peso);
@@ -47,7 +57,8 @@ export function EstructuraActividades({
   canEdit,
 }: {
   proyecto: ProjectListRow;
-  objetivoId: string;
+  /** `null` = grupo «Gestión del proyecto»: solo transversales, sin objetivo (T12, S6). */
+  objetivoId: string | null;
   canEdit: boolean;
 }) {
   const query = useProjectActivities(proyecto.id);
@@ -65,13 +76,17 @@ export function EstructuraActividades({
   }
   if (!query.data) return <Skeleton className="mt-2 h-10 w-full rounded-[10px]" />;
 
-  const propias = query.data.filter((a) => a.objetivo_id === objetivoId);
+  // T12 (S6): una transversal solo se lista en el grupo de gestión y una normal solo bajo su
+  // objetivo; ninguna cae en un objetivo vacío ni desaparece de la lista.
+  const propias = query.data.filter((a) =>
+    objetivoId === null ? esGestionDelProyecto(a) : !esGestionDelProyecto(a) && a.objetivo_id === objetivoId,
+  );
   const sinFechas = proyecto.fecha_inicio === null || proyecto.fecha_fin === null;
   const nombreDe = (id: string | null) => users.data?.find((u) => u.id === id)?.nombre ?? null;
 
   return (
     <div className="mt-3">
-      <SectionHeader as="h4">Actividades</SectionHeader>
+      <SectionHeader as="h4">{objetivoId === null ? GRUPO_GESTION : "Actividades"}</SectionHeader>
       {propias.length === 0 ? (
         <EmptyBlock>Sin actividades.</EmptyBlock>
       ) : (
@@ -178,7 +193,7 @@ function ActivityForm({
   onDone,
 }: {
   proyecto: ProjectListRow;
-  objetivoId: string;
+  objetivoId: string | null;
   actividad?: ProjectActivity;
   onDone: () => void;
 }) {
@@ -191,6 +206,11 @@ function ActivityForm({
   const [inicio, setInicio] = useState(actividad ? String(actividad.semana_inicio) : "");
   const [fin, setFin] = useState(actividad ? String(actividad.semana_fin) : "");
   const [responsable, setResponsable] = useState(actividad?.responsable_id ?? SIN_RESPONSABLE);
+  // T12 (S6): dentro de «Gestión del proyecto» la actividad siempre es transversal; en un objetivo,
+  // el tipo por defecto es Normal, el mismo que asume la API cuando no se envía.
+  const [tipo, setTipo] = useState<TipoActividad>(
+    actividad?.tipo ?? (objetivoId === null ? "TRANSVERSAL" : "NORMAL"),
+  );
   const [local, setLocal] = useState<string | null>(null);
 
   function submit() {
@@ -204,15 +224,30 @@ function ActivityForm({
     const responsable_id = responsable === SIN_RESPONSABLE ? null : responsable;
     const base = { codigo, nombre, semana_inicio, semana_fin };
     if (actividad) {
+      // T12 (S6): tipo y objetivo viajan juntos en el mismo parche, porque la API no acepta media
+      // pareja; si el tipo no cambió, no viajan y el parche conserva su forma de siempre.
+      const cambiaTipo = tipo !== (actividad.tipo ?? "NORMAL");
       update.mutate(
-        { id: actividad.id, data: { ...base, responsable_id } },
+        {
+          id: actividad.id,
+          data: {
+            ...base,
+            responsable_id,
+            ...(cambiaTipo
+              ? tipo === "TRANSVERSAL"
+                ? { tipo, objetivo_id: null }
+                : { tipo, objetivo_id: objetivoId }
+              : {}),
+          },
+        },
         { onSuccess: onDone },
       );
     } else {
       create.mutate(
         {
-          objetivo_id: objetivoId,
           ...base,
+          // T12 (S6): «en las transversales el objetivo va vacío»: no se envía la clave.
+          ...(tipo === "TRANSVERSAL" ? { tipo } : { objetivo_id: objetivoId }),
           ...(responsable_id === null ? {} : { responsable_id }),
         },
         { onSuccess: onDone },
@@ -234,6 +269,30 @@ function ActivityForm({
       <TextField label="Nombre" value={nombre} onChange={setNombre} />
       <TextField label="Semana inicial" value={inicio} onChange={setInicio} type="number" />
       <TextField label="Semana final" value={fin} onChange={setFin} type="number" />
+      {objetivoId === null ? (
+        <p className="text-[12px] text-ink-500 sm:col-span-2">{HINT_GRUPO_GESTION}</p>
+      ) : (
+        <>
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="text-[12px] font-medium text-ink-600">Tipo</span>
+            <Select
+              value={tipo}
+              onValueChange={(value) => setTipo(value === "TRANSVERSAL" ? "TRANSVERSAL" : "NORMAL")}
+            >
+              <SelectTrigger size="sm" aria-label="Tipo" className="min-w-0 px-3">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="NORMAL">Normal</SelectItem>
+                <SelectItem value="TRANSVERSAL">Transversal</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {tipo === "TRANSVERSAL" && (
+            <p className="text-[12px] text-ink-500 sm:col-span-2">{HINT_TRANSVERSAL}</p>
+          )}
+        </>
+      )}
       <div className="flex min-w-0 flex-col gap-1">
         <span className="text-[12px] font-medium text-ink-600">Responsable</span>
         <Select value={responsable} onValueChange={(value) => setResponsable(value ?? SIN_RESPONSABLE)}>

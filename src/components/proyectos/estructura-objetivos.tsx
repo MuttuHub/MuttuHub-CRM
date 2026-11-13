@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { EstructuraActividades } from "@/components/proyectos/estructura-actividades";
 import { EstructuraIndicadores } from "@/components/proyectos/estructura-indicadores";
+import { esGestionDelProyecto } from "@/components/proyectos/project-display";
 import { SemaforoChip } from "@/components/proyectos/semaforo-chip";
 import { AddButton, RowActions, StructureForm, TextField, errorMessage, formError, plural } from "@/components/proyectos/estructura-ui";
 import { InlineError } from "@/components/proyectos/ui";
@@ -90,6 +91,9 @@ export function EstructuraObjetivos({
         </ul>
       )}
 
+      {/* T12 (S6): las transversales se agrupan aparte de los objetivos. */}
+      <GestionDelProyecto proyecto={proyecto} canEdit={canEdit} />
+
       {canEdit &&
         (abierto === "new" ? (
           <ObjectiveForm proyectoId={proyecto.id} onDone={() => setAbierto(null)} />
@@ -97,6 +101,23 @@ export function EstructuraObjetivos({
           abierto === null && <AddButton label="Agregar objetivo" onClick={() => setAbierto("new")} />
         ))}
     </>
+  );
+}
+
+/**
+ * T12 (S6): «Gestión del proyecto», el grupo aparte de los objetivos. Solo aloja transversales, así
+ * que no lleva acumulado ni semáforo: no cuentan en el avance técnico. Se pinta como una tarjeta
+ * más de la estructura y su encabezado lo pone `EstructuraActividades` al abrirse con `objetivoId`
+ * nulo. Sin transversales y sin permiso para crearlas no se muestra.
+ */
+function GestionDelProyecto({ proyecto, canEdit }: { proyecto: ProjectListRow; canEdit: boolean }) {
+  const actividades = useProjectActivities(proyecto.id);
+  const hayTransversales = (actividades.data ?? []).some(esGestionDelProyecto);
+  if (!canEdit && !hayTransversales) return null;
+  return (
+    <div data-testid="estructura-gestion" className="mt-3 rounded-inner border border-border bg-panel p-3">
+      <EstructuraActividades proyecto={proyecto} objetivoId={null} canEdit={canEdit} />
+    </div>
   );
 }
 

@@ -9,7 +9,7 @@
 
 import { ChartGantt, TriangleAlert } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatFechaCalendario } from "@/components/proyectos/project-display";
+import { formatFechaCalendario, esGestionDelProyecto } from "@/components/proyectos/project-display";
 import {
   useProjectActivities,
   useProjectObjectives,
@@ -18,6 +18,7 @@ import {
   type ProjectObjective,
 } from "@/hooks/projects";
 import { ganttLayout, type GanttBarra } from "@/lib/proyectos/gantt";
+import { GRUPO_GESTION } from "@/lib/proyectos/actividad";
 import { weekStart } from "@/lib/proyectos/weeks";
 import { cn } from "@/lib/utils";
 import { SectionHeader } from "@/components/proyectos/ui";
@@ -91,11 +92,13 @@ function GanttBody({
 
   const columnas = { gridTemplateColumns: `repeat(${layout.totalSemanas}, minmax(0, 1fr))` };
   const porActividad = new Map(actividades.map((a) => [a.id, a]));
+  // T12 (S6): una transversal no tiene objetivo y se dibuja en su propio grupo, no se descarta.
+  const barrasGestion = layout.barras.filter(esGestionDelProyecto);
   const grupos = [...objetivos]
     .sort((a, b) => a.orden - b.orden)
     .map((objetivo) => ({
       objetivo,
-      barras: layout.barras.filter((b) => b.objetivoId === objetivo.id),
+      barras: layout.barras.filter((b) => !esGestionDelProyecto(b) && b.objetivoId === objetivo.id),
     }))
     .filter((grupo) => grupo.barras.length > 0);
 
@@ -131,6 +134,21 @@ function GanttBody({
             </div>
           </div>
         ))}
+
+        {barrasGestion.length > 0 && (
+          <div data-testid="gantt-gestion" className="mt-3">
+            <p className="text-[11.5px] font-bold text-ink-700">
+              <span>{GRUPO_GESTION}</span>
+            </p>
+            <div className="mt-1 flex flex-col gap-1">
+              {barrasGestion.map((barra) => (
+                <div key={barra.id} className="grid gap-px" style={columnas}>
+                  <Barra barra={barra} actividad={porActividad.get(barra.id)} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* C9: el color no basta. La barra fuera de rango ya lleva icono y aria-label; esta leyenda lo explica. */}

@@ -20,6 +20,7 @@ import {
   type UseMutationResult,
   type UseQueryResult,
 } from "@tanstack/react-query";
+import type { TipoActividad } from "@/lib/proyectos/actividad";
 import type { TipoModificacion } from "@/lib/proyectos/modificaciones";
 import type { AccionEstado } from "@/lib/proyectos/transiciones-estado";
 import { toast } from "sonner";
@@ -149,7 +150,13 @@ export type ProjectObjective = {
 export type ProjectActivity = {
   id: string;
   proyecto_id: string;
-  objetivo_id: string;
+  /** S6 (EV-02): una transversal no tiene objetivo («el objetivo va vacío»); una normal siempre lo tiene. */
+  objetivo_id: string | null;
+  /**
+   * S6 (EV-02): Normal o Transversal. Opcional a propósito: un fixture anterior a S6 vale como
+   * Normal, el valor por defecto de la API, igual que en `cuentaTecnico`.
+   */
+  tipo?: TipoActividad;
   codigo: string;
   nombre: string;
   semana_inicio: number;
@@ -196,7 +203,10 @@ export type ProjectIndicator = {
 export type ProjectObjectiveInput = { codigo: string; descripcion: string; orden?: number };
 
 export type ProjectActivityInput = {
-  objetivo_id: string;
+  /** S6: obligatorio en una normal, ausente o nulo en una transversal; la API juzga la pareja. */
+  objetivo_id?: string | null;
+  /** S6 (EV-02): Normal o Transversal. */
+  tipo?: TipoActividad;
   codigo: string;
   nombre: string;
   semana_inicio: number;

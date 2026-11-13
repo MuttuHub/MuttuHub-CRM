@@ -13,6 +13,7 @@
 import type { AccionAuditoria, EstadoProyecto, OrigenProyecto } from "@prisma/client";
 import type { UiTone } from "@/lib/catalogs";
 import { diferenciaRealPlanPp } from "@/lib/proyectos/avance";
+import { cuentaTecnico, type TipoActividad } from "@/lib/proyectos/actividad";
 
 /** Etiqueta y tono de cada estado; aún no viven en src/lib/catalogs.ts. */
 export const ESTADO_PROYECTO_META: Record<EstadoProyecto, { label: string; tone: UiTone }> = {
@@ -216,6 +217,8 @@ const CAMPO_AUDITORIA_META: Record<string, string> = {
   objetivo_id: "Objetivo",
   rubro_id: "Rubro",
   actividad_id: "Actividad",
+  // T12 (S6): el tipo de la actividad se audita como cualquier otro campo.
+  tipo: "Tipo",
 };
 
 /** Etiqueta de un `campo` (o de una clave de un valor JSON) en español; sin traducción, el nombre en sentence case. */
@@ -228,6 +231,9 @@ const VALOR_AUDITORIA_META: Record<string, string> = {
   PROSPECCION: "Prospección",
   EJECUCION: "Ejecución",
   LINEA_BASE: "Línea base",
+  // T12 (S6): el libro guarda el enum; se lee en español.
+  NORMAL: "Normal",
+  TRANSVERSAL: "Transversal",
 };
 
 /**
@@ -326,4 +332,14 @@ export function mesLegible(periodo: string): string {
   const match = /^(\d{4})-(\d{2})$/.exec(periodo);
   const mes = match ? MESES_CORTOS[Number(match[2]) - 1] : undefined;
   return match && mes ? `${mes} ${match[1]}` : periodo;
+}
+
+/**
+ * T12 (S6): si la actividad se lista en «Gestión del proyecto» y no bajo un objetivo. La decisión es
+ * una sola para el árbol, la lista de actividades, el tablero y el Gantt, y quien la pinta usa
+ * `GRUPO_GESTION` como etiqueta. Delega en `cuentaTecnico`: sin `tipo` la actividad es Normal, el
+ * valor por defecto de la API, así que un fixture viejo sigue cayendo en su objetivo.
+ */
+export function esGestionDelProyecto(actividad: { tipo?: TipoActividad | null }): boolean {
+  return !cuentaTecnico(actividad);
 }

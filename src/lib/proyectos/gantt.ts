@@ -6,11 +6,19 @@
  * `columnaFin` (end-exclusive, the CSS `grid-column: start / end` contract).
  * An activity whose weeks exceed the project duration is flagged, never
  * clamped (A-03): the grid grows (`totalSemanas`) so the bar stays whole.
+ *
+ * T12 (S6): a transversal has no objective, so its bar carries `objetivoId: null` and the chart
+ * groups it apart, under «Gestión del proyecto».
  */
+
+import type { TipoActividad } from "./actividad"
 
 export type GanttActividad = {
   id: string
-  objetivo_id: string
+  /** `null` en una transversal (S6): no tiene objetivo y se agrupa en «Gestión del proyecto». */
+  objetivo_id: string | null
+  /** S6 (EV-02): Normal o Transversal; sin `tipo` la actividad vale como Normal, como en la API. */
+  tipo?: TipoActividad | null
   codigo: string
   nombre: string
   semana_inicio: number
@@ -19,7 +27,9 @@ export type GanttActividad = {
 
 export type GanttBarra = {
   id: string
-  objetivoId: string
+  objetivoId: string | null
+  /** Copia del tipo para que el cronograma decida el grupo con la misma regla que el resto (T12). */
+  tipo?: TipoActividad | null
   codigo: string
   nombre: string
   semanaInicio: number
@@ -52,6 +62,7 @@ export function ganttLayout(
     .map<GanttBarra>((a) => ({
       id: a.id,
       objetivoId: a.objetivo_id,
+      tipo: a.tipo,
       codigo: a.codigo,
       nombre: a.nombre,
       semanaInicio: a.semana_inicio,
