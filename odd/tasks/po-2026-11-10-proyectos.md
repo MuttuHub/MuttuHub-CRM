@@ -3,9 +3,13 @@
 Diseño completo en `odd/tasks/po-2026-11-10-parte-2-diseno.md`. Decisiones `D6`–`D10`. Es la rebanada fundacional: si
 sale mal, `T11`–`T15` la pagan cinco veces.
 
-- **Esquema (M1–M4).** `lineas_presupuestales.actividad_id` (nullable, FK compuesta `[actividad_id, proyecto_id]`) con
-  unicidad `[proyecto_id, actividad_id, rubro_id]` **más un índice parcial** que conserva `[proyecto_id, rubro_id]` donde
-  `actividad_id IS NULL`; `codigo_linea` en la línea, con backfill `= rubro.codigo`. Sin tocar filas existentes.
+- **Esquema (M1–M4).** `lineas_presupuestales.actividad_id` (nullable, FK compuesta `[actividad_id, proyecto_id]`) y la
+  unicidad pasa a **dos índices parciales**: `[proyecto_id, actividad_id, rubro_id]` donde `actividad_id IS NOT NULL` y
+  `[proyecto_id, rubro_id]` donde `actividad_id IS NULL`. Prisma no expresa índices parciales, así que viven en el SQL y
+  el `@@unique` por rubro sale del schema. Sin tocar filas existentes.
+- **La clave de negocio se deriva, no se guarda.** `codigo_linea` es `ACT|RUBRO` si la línea tiene actividad y `RUBRO` si
+  es heredada. Se calcula en TS: guardarla obligaba a backfillearla y a inventar un valor para los rubros sin código
+  (`Rubro.codigo` es nullable), que es justo el caso donde hoy `codigoRubro()` tira. Menos columnas, menos trampa.
 - **Claves de negocio.** `SnapshotV1` gana `actividad_codigo` opcional en `presupuesto[]` y `programacion[]`, y el
   `detalle` de las solicitudes acepta `CODIGO_ACTIVIDAD|RUBRO` además de `RUBRO`. Regla única: **leer las dos formas,
   escribir la nueva.** Las versiones y solicitudes ya guardadas son inmutables y quedan como están.
@@ -22,6 +26,10 @@ sale mal, `T11`–`T15` la pagan cinco veces.
 - Una solicitud con `detalle.clave` vieja (`R12`) se sigue aplicando, y otra con la nueva (`1.AB|R12`) también.
 - Ninguna de las nueve claves suma dos líneas distintas del mismo rubro como si fueran una.
 - La migración se ensayó sobre una copia: aplica, se revierte, y deja la base como estaba.
+  **Ensayado el 2026-11-12** sobre un Postgres 17 descartable (imagen de Supabase, puerto 55432) con todas las
+  migraciones anteriores aplicadas: los tres casos de unicidad se comportan como se espera —heredada repetida falla,
+  mismo rubro con actividades distintas entra, misma actividad y rubro falla—, el rollback borra la columna y los tres
+  índices y devuelve el índice único viejo, y volver a aplicar lo deja otra vez como estaba.
 
 **Riesgo:** 1 (datos). El ensayo de la migración sobre copia va antes que cualquier commit.
 

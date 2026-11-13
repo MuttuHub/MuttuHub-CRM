@@ -922,6 +922,7 @@ model Actividad {
   objetivo    Objetivo @relation(fields: [objetivo_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
   responsable Usuario? @relation("ActividadResponsable", fields: [responsable_id], references: [id])
   entregables Entregable[]
+  lineas      LineaPresupuestal[]
   beneficiarios RegistroBeneficiario[]
   reportes    ReporteActividad[]
 
@@ -1163,16 +1164,22 @@ model LineaPresupuestal {
   id                   String   @id @default(uuid())
   proyecto_id          String
   rubro_id             String
+  /// S5/D6: la actividad de la línea. Nulo en todo proyecto cargado antes de la Parte 2.
+  actividad_id         String?
   monto_proyectado_cop Decimal  @db.Decimal(15, 2)
   created_at           DateTime @default(now())
   updated_at           DateTime @updatedAt
 
   proyecto     Proyecto               @relation(fields: [proyecto_id], references: [id])
   rubro        Rubro                  @relation(fields: [rubro_id], references: [id])
+  actividad    Actividad?             @relation(fields: [actividad_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
   programacion ProgramacionPeriodo[]
   gastos       Gasto[]
 
-  @@unique([proyecto_id, rubro_id])
+  // La unicidad es de dos índices parciales escritos en SQL (`20261112120000_t10_linea_por_actividad`),
+  // porque la clave depende de si la línea es heredada: (proyecto, actividad, rubro) cuando tiene
+  // actividad, (proyecto, rubro) cuando no. Prisma no expresa índices parciales. Se deja el índice
+  // antiguo por rubro fuera del schema a propósito: ver la migración.
   @@unique([id, proyecto_id])
   @@index([proyecto_id])
   @@map("lineas_presupuestales")
