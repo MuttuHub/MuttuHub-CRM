@@ -12,7 +12,9 @@ import { ESTADOS_EJECUTADOS } from "@/lib/proyectos/gastos";
 import type { GastoEstado } from "@/lib/proyectos/ficha-financiera";
 import type { Periodo } from "@/lib/proyectos/weeks";
 
-type GastoAgregable = { rubroId: string; periodo: Periodo; valor: Cents; estado: GastoEstado };
+// S5/T10: la línea, no sólo el rubro. Sin ella dos líneas del mismo rubro se quedan con los mismos
+// gastos y el ejecutado se duplica al sumar el total.
+type GastoAgregable = { rubroId: string; lineaId: string; periodo: Periodo; valor: Cents; estado: GastoEstado };
 
 export type GastosFuente = {
   /** False when E is not real (no expense source, or the project is still BORRADOR): no color is shown. */
@@ -26,12 +28,13 @@ export async function loadGastosEjecutados(
 ): Promise<GastosFuente> {
   const rows = await client.gasto.findMany({
     where: { proyecto_id: proyectoId, estado: { in: [...ESTADOS_EJECUTADOS] } },
-    select: { periodo: true, monto_cop: true, estado: true, linea: { select: { rubro_id: true } } },
+    select: { periodo: true, monto_cop: true, estado: true, linea: { select: { id: true, rubro_id: true } } },
   });
   return {
     disponible: true,
     gastos: rows.map((row) => ({
       rubroId: row.linea.rubro_id,
+      lineaId: row.linea.id,
       periodo: row.periodo,
       valor: toCents(row.monto_cop),
       estado: row.estado,

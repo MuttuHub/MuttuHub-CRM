@@ -14,20 +14,20 @@ import { toCents } from "@/lib/proyectos/money";
 describe("loadGastosEjecutados", () => {
   it("reads the expenses that count as executed (REGISTRADO and VALIDADO) with their real estado", async () => {
     vi.mocked(db.gasto.findMany).mockResolvedValue([
-      { periodo: "2026-10", monto_cop: new Prisma.Decimal("1500000.50"), estado: "REGISTRADO", linea: { rubro_id: "rub-1" } },
-      { periodo: "2026-11", monto_cop: new Prisma.Decimal("200"), estado: "VALIDADO", linea: { rubro_id: "rub-2" } },
+      { periodo: "2026-10", monto_cop: new Prisma.Decimal("1500000.50"), estado: "REGISTRADO", linea: { id: "lin-1", rubro_id: "rub-1" } },
+      { periodo: "2026-11", monto_cop: new Prisma.Decimal("200"), estado: "VALIDADO", linea: { id: "lin-2", rubro_id: "rub-2" } },
     ] as never);
 
     const fuente = await loadGastosEjecutados("pry-1");
 
     expect(db.gasto.findMany).toHaveBeenCalledWith({
       where: { proyecto_id: "pry-1", estado: { in: ["REGISTRADO", "VALIDADO"] } },
-      select: { periodo: true, monto_cop: true, estado: true, linea: { select: { rubro_id: true } } },
+      select: { periodo: true, monto_cop: true, estado: true, linea: { select: { id: true, rubro_id: true } } },
     });
     expect(fuente.disponible).toBe(true);
     expect(fuente.gastos).toEqual([
-      { rubroId: "rub-1", periodo: "2026-10", valor: toCents("1500000.50"), estado: "REGISTRADO" },
-      { rubroId: "rub-2", periodo: "2026-11", valor: toCents("200"), estado: "VALIDADO" },
+      { rubroId: "rub-1", lineaId: "lin-1", periodo: "2026-10", valor: toCents("1500000.50"), estado: "REGISTRADO" },
+      { rubroId: "rub-2", lineaId: "lin-2", periodo: "2026-11", valor: toCents("200"), estado: "VALIDADO" },
     ]);
   });
 

@@ -174,7 +174,12 @@ export async function calcularFichaFinanciera(
   // A BORRADOR project has nothing executed yet: no E and no color, whatever the source says.
   const fuente = { ...origen, disponible: origen.disponible && estado !== "BORRADOR" };
 
+  // La base original se indexa por rubro (es un snapshot histórico con una fila por código); la
+  // vigente se indexa por línea, que es lo único que impide duplicar el ejecutado cuando un rubro
+  // tiene varias (S5/T10).
   const gastosDe = (rubroId: string) => (fuente.disponible ? fuente.gastos.filter((gasto) => gasto.rubroId === rubroId) : []);
+  const gastosDeLinea = (lineaId: string) =>
+    fuente.disponible ? fuente.gastos.filter((gasto) => gasto.lineaId === lineaId) : [];
   const rubros: FichaRubroInput[] = original
     ? rubrosDelOriginal(original, lineas, gastosDe)
     : [...lineas]
@@ -187,7 +192,7 @@ export async function calcularFichaFinanciera(
           programacion: celdas
             .filter((celda) => celda.linea_id === linea.id)
             .map((celda) => ({ periodo: celda.periodo, valor: toCents(celda.valor) })),
-          gastos: gastosDe(linea.rubro_id),
+          gastos: gastosDeLinea(linea.id),
         }));
 
   const tolerancia = toleranciaBp(parametros.tolerancia);

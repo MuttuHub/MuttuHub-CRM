@@ -85,7 +85,7 @@ describe("cargarAtencion", () => {
     ] as never)
     vi.mocked(loadGastosEjecutados).mockResolvedValue({
       disponible: true,
-      gastos: [{ rubroId: "r1", periodo: "2026-03", valor: toCents("150.00"), estado: "VALIDADO" }],
+      gastos: [{ rubroId: "r1", lineaId: "l1", periodo: "2026-03", valor: toCents("150.00"), estado: "VALIDADO" }],
     })
 
     const result = await cargar()
