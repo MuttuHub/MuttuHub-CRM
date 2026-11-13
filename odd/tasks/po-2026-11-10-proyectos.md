@@ -1,3 +1,36 @@
+### T10 — Modelo y claves (L)
+
+Diseño completo en `odd/tasks/po-2026-11-10-parte-2-diseno.md`. Decisiones `D6`–`D10`. Es la rebanada fundacional: si
+sale mal, `T11`–`T15` la pagan cinco veces.
+
+- **Esquema (M1–M4).** `lineas_presupuestales.actividad_id` (nullable, FK compuesta `[actividad_id, proyecto_id]`) con
+  unicidad `[proyecto_id, actividad_id, rubro_id]` **más un índice parcial** que conserva `[proyecto_id, rubro_id]` donde
+  `actividad_id IS NULL`; `codigo_linea` en la línea, con backfill `= rubro.codigo`. Sin tocar filas existentes.
+- **Claves de negocio.** `SnapshotV1` gana `actividad_codigo` opcional en `presupuesto[]` y `programacion[]`, y el
+  `detalle` de las solicitudes acepta `CODIGO_ACTIVIDAD|RUBRO` además de `RUBRO`. Regla única: **leer las dos formas,
+  escribir la nueva.** Las versiones y solicitudes ya guardadas son inmutables y quedan como están.
+- **Las nueve claves que colapsan dinero por rubro** (`presupuesto.ts:186`, `budget/route.ts:109`,
+  `programming/route.ts:126`, `presupuesto-po/server.ts:65`, `plantilla-import.ts:583`, `modificaciones.ts:191,264,318`,
+  `ficha-financiera.ts:162`, `financial-sheet.ts:77`, `gastos.ts:242`) pasan a agrupar **por línea**.
+- **Fuera de alcance:** pantallas, plantilla y export (`T11`), reparto de factura (`T14`), transversales (`T12`).
+
+**Se acepta si**
+- «Una actividad con Formación $15.000.000 y Transporte $8.000.000 aparece con las dos líneas, y esos valores suman en
+  sus rubros» (`S5`), es decir: dos líneas del mismo rubro en un proyecto, y el asignado del rubro es su suma.
+- Un proyecto cargado **antes** de la Parte 2 se lee idéntico: su presupuesto, su versión aprobada, su ficha y sus
+  solicitudes pendientes dan los mismos números que hoy (test de compatibilidad con datos heredados).
+- Una solicitud con `detalle.clave` vieja (`R12`) se sigue aplicando, y otra con la nueva (`1.AB|R12`) también.
+- Ninguna de las nueve claves suma dos líneas distintas del mismo rubro como si fueran una.
+- La migración se ensayó sobre una copia: aplica, se revierte, y deja la base como estaba.
+
+**Riesgo:** 1 (datos). El ensayo de la migración sobre copia va antes que cualquier commit.
+
+### T11–T15 — Rebanadas siguientes (fijadas por `T9`)
+
+`T11` presupuesto por actividad, pantalla y plantilla (`S5`) · `T12` actividad Transversal (`S6`) · `T13` programación
+propuesta y reprogramación entre meses (`S7`, `S8`) · `T14` gasto por actividad, factura distribuida y vistas (`S9`,
+`S10`, `S11`) · `T15` cierre de actividad y recarga de CedeTextil (`S12`, `D5`).
+
 # Plan PO 2026-11-10 — Ajustes de Proyectos (Parte 1) y presupuesto por actividad (Parte 2)
 
 Fuente: `docs/Hub-proyectos261110.docx` («Ajustes y evolución del módulo Proyectos», observaciones de las pruebas del 10 de noviembre de 2026). Rama de trabajo: una por tarea desde `main`.
