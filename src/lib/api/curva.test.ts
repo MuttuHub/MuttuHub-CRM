@@ -323,3 +323,22 @@ describe("calcularCurva: activity reports (AJ-07)", () => {
     expect(result.value.periodos.map((p) => p.tecnico.ejecutado)).toEqual([0, 0, 0, 24, null]);
   });
 });
+
+describe("calcularCurva: las fechas de los reportes (criterios del PO, AJ-07)", () => {
+  it("lleva un avance del 28 de octubre a octubre, y uno del 3 de noviembre sólo a noviembre", async () => {
+    vi.mocked(db.avanceEntregable.findMany).mockResolvedValue([av("v1", "a1-e1", "2026-10-28", 50)] as never);
+    const conOctubre = await calcularCurva(input());
+    if (!conOctubre.ok) throw new Error("expected ok");
+    const octubre = conOctubre.value.periodos.find((p) => p.periodo === "2026-10");
+    const noviembre = conOctubre.value.periodos.find((p) => p.periodo === "2026-11");
+    expect(octubre?.tecnico.ejecutado).toBeGreaterThan(0);
+    expect(noviembre?.tecnico.ejecutado).toBeGreaterThan(0);
+
+    // El mismo avance fechado el 3 de noviembre no toca octubre: su medición ya pasó.
+    vi.mocked(db.avanceEntregable.findMany).mockResolvedValue([av("v1", "a1-e1", "2026-11-03", 50)] as never);
+    const conNoviembre = await calcularCurva(input());
+    if (!conNoviembre.ok) throw new Error("expected ok");
+    expect(conNoviembre.value.periodos.find((p) => p.periodo === "2026-10")?.tecnico.ejecutado).toBe(0);
+    expect(conNoviembre.value.periodos.find((p) => p.periodo === "2026-11")?.tecnico.ejecutado).toBeGreaterThan(0);
+  });
+});
