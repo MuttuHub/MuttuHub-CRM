@@ -1,3 +1,36 @@
+### T10 — Modelo y claves (L)
+
+Diseño completo en `odd/tasks/po-2026-11-10-parte-2-diseno.md`. Decisiones `D6`–`D10`. Es la rebanada fundacional: si
+sale mal, `T11`–`T15` la pagan cinco veces.
+
+- **Esquema (M1–M4).** `lineas_presupuestales.actividad_id` (nullable, FK compuesta `[actividad_id, proyecto_id]`) con
+  unicidad `[proyecto_id, actividad_id, rubro_id]` **más un índice parcial** que conserva `[proyecto_id, rubro_id]` donde
+  `actividad_id IS NULL`; `codigo_linea` en la línea, con backfill `= rubro.codigo`. Sin tocar filas existentes.
+- **Claves de negocio.** `SnapshotV1` gana `actividad_codigo` opcional en `presupuesto[]` y `programacion[]`, y el
+  `detalle` de las solicitudes acepta `CODIGO_ACTIVIDAD|RUBRO` además de `RUBRO`. Regla única: **leer las dos formas,
+  escribir la nueva.** Las versiones y solicitudes ya guardadas son inmutables y quedan como están.
+- **Las nueve claves que colapsan dinero por rubro** (`presupuesto.ts:186`, `budget/route.ts:109`,
+  `programming/route.ts:126`, `presupuesto-po/server.ts:65`, `plantilla-import.ts:583`, `modificaciones.ts:191,264,318`,
+  `ficha-financiera.ts:162`, `financial-sheet.ts:77`, `gastos.ts:242`) pasan a agrupar **por línea**.
+- **Fuera de alcance:** pantallas, plantilla y export (`T11`), reparto de factura (`T14`), transversales (`T12`).
+
+**Se acepta si**
+- «Una actividad con Formación $15.000.000 y Transporte $8.000.000 aparece con las dos líneas, y esos valores suman en
+  sus rubros» (`S5`), es decir: dos líneas del mismo rubro en un proyecto, y el asignado del rubro es su suma.
+- Un proyecto cargado **antes** de la Parte 2 se lee idéntico: su presupuesto, su versión aprobada, su ficha y sus
+  solicitudes pendientes dan los mismos números que hoy (test de compatibilidad con datos heredados).
+- Una solicitud con `detalle.clave` vieja (`R12`) se sigue aplicando, y otra con la nueva (`1.AB|R12`) también.
+- Ninguna de las nueve claves suma dos líneas distintas del mismo rubro como si fueran una.
+- La migración se ensayó sobre una copia: aplica, se revierte, y deja la base como estaba.
+
+**Riesgo:** 1 (datos). El ensayo de la migración sobre copia va antes que cualquier commit.
+
+### T11–T15 — Rebanadas siguientes (fijadas por `T9`)
+
+`T11` presupuesto por actividad, pantalla y plantilla (`S5`) · `T12` actividad Transversal (`S6`) · `T13` programación
+propuesta y reprogramación entre meses (`S7`, `S8`) · `T14` gasto por actividad, factura distribuida y vistas (`S9`,
+`S10`, `S11`) · `T15` cierre de actividad y recarga de CedeTextil (`S12`, `D5`).
+
 # Plan PO 2026-11-10 — Ajustes de Proyectos (Parte 1) y presupuesto por actividad (Parte 2)
 
 Fuente: `docs/Hub-proyectos261110.docx` («Ajustes y evolución del módulo Proyectos», observaciones de las pruebas del 10 de noviembre de 2026). Rama de trabajo: una por tarea desde `main`.
@@ -238,7 +271,12 @@ Parte 2 — nota de la PO: «El presupuesto deja de llevarse solo por rubro y pa
 | D2 | Los rechazados quedan anulados y no se borran | T4 destrabada; el cambio de estado en producción sigue siendo tarea aparte con ensayo |
 | D3 | Gestor = miembro del proyecto con rol `COORDINADOR` o `COLABORADOR`; Gerente = `GERENCIA` | T3 y T6 destrabadas |
 | D4 | No se acepta la confirmación de gasto > 50 % del rubro; el resto de «Propuesto» se acepta (el 60 % de S4 ya está en T8) | T5 sin esa confirmación; T7 y Fase 2 destrabadas |
-| D5 | Abierta: el usuario pidió la explicación de por qué hace falta un proyecto nuevo | T15 sigue bloqueada |
+| D5 | **Respondida (L21 §5):** proyecto nuevo y el actual archivado | T15 desbloqueada |
+| D6 | **Uno o varios rubros por actividad** (criterio `S5`) | `T10` queda en `L` |
+| D7 | El asignado se controla **por renglón**; el rubro es la suma (criterio `S5`) | comportamiento |
+| D8 | **La factura se reparte** entre actividades y las líneas deben sumar el total (criterio `S9`) | agrega `gasto_reparto` y cambia el umbral de duplicados |
+| D9 | Los gastos ya cargados quedan **«Sin actividad»** | comportamiento |
+| D10 | La programación propuesta va **por días**, centavo al último mes, transversales parejo (criterio `S7`) | comportamiento |
 
 ## Tasks
 
@@ -256,7 +294,7 @@ sesión de agente por tarea) salvo que la tarjeta diga otra cosa.
 | T6 | S2 | Gestor edita/anula con motivo y auditoría; varios archivos y enlaces por gasto; plantilla exige enlace | M | T4, D3 | 1 si toca datos | Hecha: PR #175, `1e6410b` en `main` (`843842b`…`57b2f17`); verificación manual de AJ-07 en local pendiente |
 | T7 | S2 | (Propuesto) Resumen de cambios del periodo en la ficha financiera | S | T6, D4 | — | Pendiente |
 | T8 | S4 | Alerta «Posible retraso» visible en ficha y Tablero gerencial (la lógica ya existe) | S | — | — | Hecha: PR #170, `261e995` en `main`; verificación manual en local pendiente |
-| T9 | S5–S12 | **Diseño y estimación de la Parte 2** (sin código): modelo de datos, migraciones, plantillas, recarga de CedeTextil | M | D5 | — | Pendiente |
+| T9 | S5–S12 | **Diseño y estimación de la Parte 2** (sin código): modelo de datos, migraciones, plantillas, recarga de CedeTextil | M | D5 | — | Hecha: `odd/tasks/po-2026-11-10-parte-2-diseno.md`; 5 preguntas abiertas para la PO (L21) |
 | T10–T15 | S5–S12 | Rebanadas de la Parte 2, definidas por T9 (orientativas abajo) | L en total | T9 | 1 | Pendiente |
 
 ### Orden y calendario sugerido
@@ -638,3 +676,25 @@ S11) · T15 recarga de CedeTextil en producción con ensayo (S12).
   `modificaciones.test.ts:139` (mi bandera de «discrepancia de regla» salió de leer sólo el armador del cliente).
   **Pendiente real de la Parte 1:** la verificación manual de AJ-07 (el ejemplo de 6,7 puntos y la igualdad
   tarjeta/curva/tabla). **Siguiente:** T7 y el diseño de la Parte 2 (`T9`).
+- **L21 (2026-11-12, T9 hecha):** diseño y estimación de la Parte 2 en `odd/tasks/po-2026-11-10-parte-2-diseno.md`,
+  sin código. Decisión de fondo: la Parte 2 entra **de forma aditiva y compatible en las dos direcciones** —
+  `actividad_id` nullable en líneas y gastos, unicidad `[proyecto_id, actividad_id, rubro_id]` con índice parcial
+  para las líneas heredadas, y un `codigo_linea` (`R12` viejo, `1.1|R12` nuevo) que reemplaza al código de rubro en
+  versiones, `detalle`, diffs y exportaciones. La regla que se repite: **leer las dos formas, escribir la nueva**.
+  Lo que el mapa dejó a la vista: el código de rubro es la clave de negocio de las versiones inmutables y de las
+  solicitudes ya guardadas, y **nueve sitios colapsan dinero por rubro en silencio** (`presupuesto.ts:186`,
+  `budget/route.ts:109`, `programming/route.ts:126`, `presupuesto-po/server.ts:65`, `plantilla-import.ts:583`,
+  `modificaciones.ts:191,264,318`, `ficha-financiera.ts:162`, `financial-sheet.ts:77`, `gastos.ts:242`). Estimación
+  en cinco rebanadas (`T10` `L`, `T11` `M–L`, `T12` `M`, `T13` `L`, `T14` `L`, `T15` `M` bloqueada por D5). **D5**
+  queda explicada en el documento §5: proyecto nuevo y el actual archivado. **Antes de `T11` hay cinco preguntas
+  para la PO** (§6), y la más cara es si una actividad puede tener varios rubros: si es «un rubro por actividad»,
+  `T10` baja de `L` a `M`.
+- **L22 (2026-11-12, decisiones de la Parte 2):** el usuario pidió cerrar las cinco definiciones «con los
+  recomendados, lo importante es que se cumplan los criterios de aceptación». Al contrastarlas con `S5`, `S7` y `S9`,
+  **dos de las cinco recomendaciones del diseño estaban mal** y se resolvieron al revés: `S5` exige que una actividad
+  pueda tener **uno o varios rubros** (mi recomendación era uno solo) y `S9` exige que **una factura se reparta**
+  entre actividades con líneas que sumen su total (mi recomendación era no repartir). La quinta también se corrigió al
+  texto del PO: el reparto mensual va **por días**, no por semanas. Decisiones registradas como `D6`–`D10`; `D5`
+  queda cerrada en L21 §5. Consecuencia sobre el modelo: `T10` sigue en `L`, se agrega la tabla `gasto_reparto` y
+  **cambia el umbral de duplicados de T5**: dos filas con el mismo tercero y documento pasan a ser una factura
+  distribuida, no un duplicado.
