@@ -129,6 +129,15 @@ enum OrigenProyecto {
   INDEPENDIENTE
 }
 
+// T12 (S6, EV-02): a Transversal activity carries the coordination work that belongs to no objective
+// ("Gestión del proyecto"). It has no objective, requires no deliverables and stays out of the technical
+// progress, the technical S-curve and schedule compliance, while still counting in budget, programming,
+// expenses and financial views.
+enum TipoActividad {
+  NORMAL
+  TRANSVERSAL
+}
+
 // ─────────────────────────────────────────
 // MODELOS
 // ─────────────────────────────────────────
@@ -902,7 +911,10 @@ model Objetivo {
 model Actividad {
   id             String    @id @default(uuid())
   proyecto_id    String
-  objetivo_id    String
+  // Null on Transversal activities only: "en las transversales el objetivo va vacío" (S6). The tenant
+  // guarantee the old composite FK gave now lives in the `actividades_objetivo_del_proyecto` trigger.
+  objetivo_id    String?
+  tipo           TipoActividad @default(NORMAL)
   codigo         String
   nombre         String
   semana_inicio  Int
@@ -915,7 +927,7 @@ model Actividad {
   deleted_at     DateTime?
 
   proyecto    Proyecto @relation(fields: [proyecto_id], references: [id])
-  objetivo    Objetivo @relation(fields: [objetivo_id, proyecto_id], references: [id, proyecto_id], onDelete: NoAction, onUpdate: NoAction)
+  objetivo    Objetivo? @relation(fields: [objetivo_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   responsable Usuario? @relation("ActividadResponsable", fields: [responsable_id], references: [id])
   entregables Entregable[]
   lineas      LineaPresupuestal[]
