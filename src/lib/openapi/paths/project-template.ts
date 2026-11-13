@@ -16,7 +16,7 @@ const WRITE_NOTE =
 const HallazgoSchema = registry.register(
   "HallazgoPlantilla",
   z.object({
-    regla: z.string().openapi({ example: "V-12", description: "Regla de validación (V-01..V-14, V-H1, V-H2) o advertencia (W-01, W-02)." }),
+    regla: z.string().openapi({ example: "V-12", description: "Regla de validación (V-01..V-12, V-H1, V-H2) o advertencia (W-01, W-02)." }),
     hoja: z.string().openapi({ example: "7. Presupuesto" }),
     fila: z.number().int().nullable().openapi({ description: "Fila de Excel (base 1); nula si el hallazgo es de la hoja." }),
     columna: z.string().nullable(),
@@ -32,8 +32,12 @@ const ResumenImportacionSchema = registry.register(
     actividades: z.number().int(),
     entregables: z.number().int(),
     indicadores: z.number().int(),
-    rubros: z.number().int().openapi({ description: "Rubros con presupuesto mayor que $0." }),
-    celdas_programacion: z.number().int(),
+    rubros: z.number().int().openapi({
+      description: "Líneas de presupuesto (actividad + rubro) mayores que $0. Conserva el nombre anterior por compatibilidad.",
+    }),
+    celdas_programacion: z.number().int().openapi({
+      description: "@deprecated Siempre 0: desde la versión 2026.2 la plantilla no trae programación (se edita en la web, por línea).",
+    }),
   }),
 );
 
@@ -85,9 +89,10 @@ registry.registerPath({
   tags: ["Projects"],
   summary: "Descarga la plantilla Excel precargada de un proyecto en Borrador",
   description:
-    `${WRITE_NOTE} Requiere fecha de inicio y fin (409 INVALID_STATE si falta alguna): la hoja de programación tiene una columna ` +
-    "por mes. El libro trae nueve hojas y se precarga con la estructura, el presupuesto y la programación actuales, de modo " +
-    "que descargar, editar e importar es el ciclo de edición. Registra una auditoría `EXPORTAR` (best-effort).",
+    `${WRITE_NOTE} Requiere fecha de inicio y fin (409 INVALID_STATE si falta alguna). El libro (versión 2026.2) trae ocho hojas ` +
+    "y se precarga con la estructura y las líneas del presupuesto actuales: la hoja 7. Presupuesto lleva una fila por actividad y " +
+    "rubro (Código de actividad, Rubro, Valor; una línea heredada sin actividad deja vacía su actividad). La programación mensual " +
+    "ya no va en la plantilla. Descargar, editar e importar es el ciclo de edición. Registra una auditoría `EXPORTAR` (best-effort).",
   security: [{ sessionCookie: [] }],
   request: { params: ProjectParams },
   responses: {
@@ -108,8 +113,11 @@ registry.registerPath({
     `${WRITE_NOTE} Multipart con el archivo en \`archivo\` (se acepta \`file\`), máximo 4 MB; el archivo no se almacena. Con ` +
     "`modo=validar` (o `?dry_run=1`) solo valida y devuelve el resumen y lo que se reemplazaría, sin escribir nada. Aplicar " +
     "ejecuta el escritor una sola vez en una sola transacción, todo o nada, con un único lote de auditoría `IMPORTAR`: " +
-    "reemplaza estructura (borrado lógico), presupuesto, programación, fechas, líneas y municipios. Orden de errores: " +
-    "404 -> 403 -> 409 -> 413 -> 400. Un proyecto con avances, mediciones o beneficiarios registrados responde 409.",
+    "reemplaza estructura (borrado lógico), líneas del presupuesto, fechas, líneas estratégicas y municipios; `valor_total` queda " +
+    "como la suma de las líneas. Una línea que la plantilla repite (misma actividad por código y mismo rubro) se conserva con su " +
+    "programación; una que deja por fuera se elimina con su programación. Una plantilla de la versión anterior (presupuesto por " +
+    "rubro u hoja 8. Programación) responde 400 con el reporte. Orden de errores: 404 -> 403 -> 409 -> 413 -> 400. Un proyecto " +
+    "con avances, mediciones o beneficiarios registrados, o que perdería una línea con gastos, responde 409.",
   security: [{ sessionCookie: [] }],
   request: {
     params: ProjectParams,

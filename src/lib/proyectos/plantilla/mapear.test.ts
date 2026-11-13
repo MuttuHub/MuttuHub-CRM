@@ -6,7 +6,7 @@ import { parsePlantilla } from "./parse"
 import ExcelJS from "exceljs"
 import { toCents } from "../money"
 import { HOJAS } from "./columns"
-import { fixtureContextoFX1, fixtureF_X1, plantillaFormatoAnterior } from "../__fixtures__/plantilla-cedetextil"
+import { F_X1_LINEAS, fixtureContextoFX1, fixtureF_X1, plantillaFormatoAnterior } from "../__fixtures__/plantilla-cedetextil"
 
 let bufferValido: Buffer
 
@@ -36,10 +36,13 @@ describe("construirPlan project total", () => {
     expect(p.proyecto.valorTotalCents).toBe(toCents("177360000"))
   })
 
-  it("keeps the template total when the budget is empty", async () => {
+  it("takes the sum of the lines, never the typed total (S2)", async () => {
     const parsed = await parsePlantilla(bufferValido)
-    for (const fila of parsed.presupuesto) fila.celdas["Valor asignado"].valor = 0
-    expect(construirPlan(parsed, fixtureContextoFX1()).proyecto.valorTotalCents).toBe(toCents("177360000"))
+    parsed.presupuesto[0].celdas["Valor"].valor = 1000
+    parsed.proyecto.valorTotal.valor = 999
+    expect(construirPlan(parsed, fixtureContextoFX1()).proyecto.valorTotalCents).toBe(
+      toCents("177360000") - toCents("59500000") + toCents("1000"),
+    )
   })
 })
 
@@ -108,14 +111,20 @@ describe("construirPlan of the valid F-X1", () => {
     expect(p.indicadores[0]).toMatchObject({ codigo: "IND-01", unidad: "Unidades", lineaBase: "0.00" })
   })
 
-  it("fills every active rubro and the monthly programming in exact cents", async () => {
+  it("plans one line per sheet row: activity, rubro code and exact cents, with no programming (S3, S4)", async () => {
     const p = await plan()
-    expect(p.presupuesto).toHaveLength(15)
-    expect(p.presupuesto.find((r) => r.rubroCodigo === "R01")?.cents).toBe(toCents("59500000"))
-    expect(p.presupuesto.find((r) => r.rubroCodigo === "R02")?.cents).toBe(toCents("0"))
-    expect(p.programacion).toHaveLength(8 * 4)
-    const r01oct = p.programacion.find((c) => c.rubroCodigo === "R01" && c.periodo === "2026-10")
-    expect(r01oct?.cents).toBe(toCents("14875000"))
+    expect(p.presupuesto).toEqual(
+      F_X1_LINEAS.map((l) => ({ actividadCodigo: l.actividadCodigo, rubroCodigo: l.rubroCodigo, cents: toCents(l.valor) })),
+    )
+    // S6: one activity with two rubros keeps both lines.
+    expect(p.presupuesto.filter((l) => l.actividadCodigo === "1.2").map((l) => l.rubroCodigo)).toEqual(["R08", "R12"])
+    expect(p).not.toHaveProperty("programacion")
+  })
+
+  it("reads a bare rubro code as well as the «código - nombre» dropdown text", async () => {
+    const parsed = await parsePlantilla(bufferValido)
+    parsed.presupuesto[0].celdas["Rubro"].valor = "R01"
+    expect(construirPlan(parsed, fixtureContextoFX1()).presupuesto[0]).toMatchObject({ actividadCodigo: "1.1", rubroCodigo: "R01" })
   })
 
   it("ignores a «Peso (opcional)» column still present in a template filled with the previous layout", async () => {
@@ -135,18 +144,5 @@ describe("construirPlan of the valid F-X1", () => {
     expect(() => construirPlan(parsed, fixtureContextoFX1())).toThrow(
       "La plantilla no tiene valor total o meta de beneficiarios válidos.",
     )
-  })
-
-  it("excludes zero-value programming cells", async () => {
-    const parsed = await parsePlantilla(bufferValido)
-    const antes = construirPlan(parsed, fixtureContextoFX1()).programacion.length
-    const r01 = parsed.programacion.filas.find((f) => f.celdas["Código rubro"].valor === "R01")!
-    r01.celdas[parsed.programacion.meses[0].encabezado].valor = 0
-
-    const p = construirPlan(parsed, fixtureContextoFX1())
-    expect(p.programacion).toHaveLength(antes - 1)
-    expect(
-      p.programacion.some((c) => c.rubroCodigo === "R01" && c.periodo === parsed.programacion.meses[0].periodo),
-    ).toBe(false)
   })
 })

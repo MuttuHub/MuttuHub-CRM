@@ -233,8 +233,9 @@ Solo `admin@` o `gerencia@`, y solo con el proyecto en **Borrador**. Los botones
 ### A.1 Descargar y llenar
 1. **Descargar plantilla**. Si el proyecto no tiene fechas, la API responde 409: "Define las fechas del proyecto
    antes de descargar la plantilla."
-2. El libro tiene nueve hojas: `1. Instrucciones`, `2. Proyecto`, `3. Objetivos`, `4. Actividades`,
-   `5. Entregables`, `6. Indicadores`, `7. Presupuesto`, `8. Programación`, `9. Catálogos` (protegida).
+2. El libro tiene ocho hojas: `1. Instrucciones`, `2. Proyecto`, `3. Objetivos`, `4. Actividades`,
+   `5. Entregables`, `6. Indicadores`, `7. Presupuesto` (una fila por actividad y rubro), `8. Catálogos` (protegida).
+   La programación mensual ya no va en la plantilla: se edita en la web, línea por línea.
    `2. Proyecto` trae código y cliente ya llenos; ahí van fechas, valor total y "Meta de beneficiarios".
 3. Llénalo a mano solo si hay tiempo. Para la reunión usa el piloto (A.3), que genera libros ya llenos.
 

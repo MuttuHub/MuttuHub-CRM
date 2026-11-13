@@ -1,9 +1,10 @@
 // GET /api/v1/projects/:id/template — the official Excel template (S7 U5, E-23).
 //
 // Manager-only and BORRADOR-only, like every structure write (404 -> 403 -> 409),
-// and the project needs its dates first: the programming sheet has one column per
-// month. The workbook is prefilled with the project's current structure, budget
-// and programming, so download -> edit -> import is the edit loop. The download
+// and the project needs its dates first (the weeks of the activities hang on them).
+// The workbook is prefilled with the project's current structure and budget lines
+// (T11: one row per activity + rubro, no programming sheet), so download -> edit ->
+// import is the edit loop. The download
 // writes an `EXPORTAR` audit row, best-effort: an audit hiccup never fails it.
 
 import { apiError } from "@/lib/api/errors";

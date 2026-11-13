@@ -8,10 +8,12 @@
  *
  * The budget sums 177.360.000; the `v12` variant keeps the same lines but
  * declares a `valor_total` of 177.410.000, off by exactly 50.000 (since the PO
- * feedback of 2026-10-23 that is the W-02 warning, not a V-12 error). The `v13`
- * variant moves R12's first month up by 50.000, so its programming no longer
- * sums to the assigned amount (one V-13 error). The fixture carries the full
- * 15-rubro catalog so the generator always emits every active row.
+ * feedback of 2026-10-23 that is the W-02 warning, not a V-12 error). Since T11
+ * the budget is written by activity line (`F_X1_LINEAS`, S3): activity 1.2 carries
+ * Formación and Transporte (S6). The monthly programming is no longer part of the
+ * template (S4); `programacion` stays on the fixture as the per-rubro programming
+ * the S8 version fixtures read, and the `v13` variant still moves R12's first
+ * month up by 50.000 there.
  */
 import ExcelJS from "exceljs"
 import { LINEAS_ESTRATEGICAS_V2, RUBROS_V2 } from "@/lib/catalogs"
@@ -45,6 +47,21 @@ export const F_X1_PRESUPUESTO: Readonly<Record<string, string>> = {
   R15: "320000",
 }
 
+/**
+ * S3: the budget lines of the template, one per activity + rubro, in sheet order (activity code,
+ * then catalog order). Per rubro they add up to `F_X1_PRESUPUESTO`.
+ */
+export const F_X1_LINEAS: readonly { actividadCodigo: string; rubroCodigo: string; valor: string }[] = [
+  { actividadCodigo: "1.1", rubroCodigo: "R01", valor: "59500000" },
+  { actividadCodigo: "1.1", rubroCodigo: "R06", valor: "1440000" },
+  { actividadCodigo: "1.2", rubroCodigo: "R08", valor: "45000000" },
+  { actividadCodigo: "1.2", rubroCodigo: "R12", valor: "24000000" },
+  { actividadCodigo: "1.3", rubroCodigo: "R04", valor: "34000000" },
+  { actividadCodigo: "1.3", rubroCodigo: "R11", valor: "300000" },
+  { actividadCodigo: "1.4", rubroCodigo: "R13", valor: "12800000" },
+  { actividadCodigo: "1.4", rubroCodigo: "R15", valor: "320000" },
+]
+
 /** The eight funded rubros, each split in four equal monthly cells. */
 export const F_X1_PROGRAMACION: Readonly<Record<string, Readonly<Record<Periodo, string>>>> = Object.fromEntries(
   Object.entries(F_X1_PRESUPUESTO).map(([codigo, valor]) => [codigo, mensual(valor)]),
@@ -60,7 +77,10 @@ const F_X1_MUNICIPIOS = [
   { nombre: "Cereté", departamento: "Córdoba", codigoDane: "23162" },
 ] as const
 
-export function fixtureF_X1(variante: F_X1_Variante = "valido"): PlantillaInput {
+/** The template input plus the per-rubro programming the web holds (no longer in the template). */
+export type FixtureF_X1 = PlantillaInput & { programacion: Record<string, Record<Periodo, string>> }
+
+export function fixtureF_X1(variante: F_X1_Variante = "valido"): FixtureF_X1 {
   return {
     proyecto: {
       codigo: F_X1_CODIGO,
@@ -189,7 +209,7 @@ export function fixtureF_X1(variante: F_X1_Variante = "valido"): PlantillaInput 
         },
       ],
     },
-    presupuesto: { ...F_X1_PRESUPUESTO },
+    presupuesto: F_X1_LINEAS.map((linea) => ({ ...linea })),
     programacion: Object.fromEntries(
       Object.entries(F_X1_PROGRAMACION).map(([codigo, periodos]) => [
         codigo,
