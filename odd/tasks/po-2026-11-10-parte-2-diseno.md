@@ -52,6 +52,7 @@ necesita una columna de actividad con rechazo de fila, igual que hoy hace con el
 | M3 | `versiones_proyecto` / `SnapshotV1`: `actividad_codigo` opcional en `presupuesto[]` y `programacion[]`; `codigo_linea` en los nuevos. Sin tocar filas existentes | ninguna (JSON) | — |
 | M4 | `solicitudes_modificacion.detalle`: `clave` acepta `CODIGO_ACTIVIDAD\|RUBRO` además de `RUBRO`; validador de clave con las dos formas | ninguna (JSON) | — |
 | M5 | Plantilla y export: columna «Actividad» obligatoria en la hoja de presupuesto y en la de gastos; el export suma el pivote por actividad | ninguna | 3 (contrato de archivo) |
+| M6 | **Reparto de factura** (`S9`): tabla `gasto_reparto` (`gasto_id`, `actividad_id`, `rubro_id`, `valor`, `iva`) con la suma igual al total de la factura, y la regla de duplicados pasa a mirar la factura completa | una | 1 |
 
 ## 4. Rebanadas y estimación
 
@@ -81,21 +82,24 @@ versionar la estructura misma, lo que mete un eje de versión en cada consulta f
 para un recargue que ocurre una vez. El proyecto nuevo deja el histórico legible y la estructura nueva limpia, a cambio
 de copiar datos y un flujo de «proyecto nuevo», sin tocar el modelo.
 
-## 6. Preguntas para la PO (antes de `T11`)
+## 6. Decisiones tomadas (2026-11-12)
 
-Versión para enviar a la PO, sin jerga y con el costo de cada respuesta: `docs/preguntas-po-parte-2.md`.
+Se cerraron las cinco definiciones que esta tarea dejó abiertas. **Dos de las recomendaciones que había escrito eran
+contrarias a los criterios de aceptación del PO**, así que ganaron los criterios: quedan registradas acá con la cita que
+las fija, para que nadie las vuelva a discutir por opinión.
 
+| # | Definición | Decisión | La fija |
+|---|---|---|---|
+| 1 | ¿Varios rubros por actividad? | **Sí, uno o varios** | `S5`: «Cada línea del presupuesto es una combinación actividad + rubro + valor. Una actividad puede tener uno o varios rubros.» |
+| 2 | ¿El asignado se controla por renglón o por rubro? | **Por renglón**; el rubro es la suma | `S5`: «El asignado por rubro y el valor total del proyecto se calculan sumando las líneas; no se digitan.» |
+| 3 | ¿Una factura se reparte entre actividades? | **Sí**, con líneas que deben sumar el total | `S9`: «se registra una sola factura … con varias líneas … La suma de las líneas debe ser exactamente igual al total.» |
+| 4 | Gastos ya cargados sin actividad | **Fila «Sin actividad»** | nada lo contradice; es lo que ya pasa con los gastos sin rubro |
+| 5 | Reparto mensual propuesto | **Por días**, centavo al último mes; transversales parejo | `S7`: «en proporción a los días que la actividad ocupa en cada mes. El centavo que sobre … se suma al último mes.» |
 
-1. **¿Una actividad puede tener varios rubros a la vez?** `S5` dice «presupuesto por actividad y rubro»; el diseño lo
-   asume sí (una línea por par). Si la respuesta es «una actividad, un rubro», el modelo es más simple y `T10` baja a `M`.
-2. **¿El monto asignado sigue siendo la suma de la programación mensual por línea?** Hoy es así y `validarModificacion`
-   lo exige; con dos renglones del mismo rubro hay que decidir si el control pasa a la suma por rubro.
-3. **Un gasto, ¿puede repartirse entre varias actividades?** `S9` habla de «facturas distribuidas»: si el reparto es por
-   actividad, `gastos.actividad_id` debe ser tabla de reparto y no columna.
-4. **¿Qué pasa con los gastos ya cargados sin actividad** al activar la Parte 2 en un proyecto existente? Propuesta:
-   quedan sin actividad y se muestran en una fila «Sin actividad» del pivote, como hoy se muestran los gastos sin rubro.
-5. **El «Propuesto» de `EV-03`** (que el sistema proponga la programación mensual): ¿qué reparto prefiere — lineal por
-   semanas, o por duración de cada actividad?
+Consecuencia sobre el modelo: la #3 agrega una tabla de reparto y convierte `Gasto` en la **factura** (tercero, número de
+documento, soportes, anulación) con N líneas de reparto. Y toca una regla que ya existe: hoy dos filas con el mismo
+tercero y el mismo documento son **duplicado**; con `S9` esas filas pasan a leerse como **una factura distribuida** que
+debe sumar el total, así que la detección de duplicados de `T5` cambia de umbral.
 
 ## 7. Lo que este diseño no cubre
 

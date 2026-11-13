@@ -238,7 +238,12 @@ Parte 2 — nota de la PO: «El presupuesto deja de llevarse solo por rubro y pa
 | D2 | Los rechazados quedan anulados y no se borran | T4 destrabada; el cambio de estado en producción sigue siendo tarea aparte con ensayo |
 | D3 | Gestor = miembro del proyecto con rol `COORDINADOR` o `COLABORADOR`; Gerente = `GERENCIA` | T3 y T6 destrabadas |
 | D4 | No se acepta la confirmación de gasto > 50 % del rubro; el resto de «Propuesto» se acepta (el 60 % de S4 ya está en T8) | T5 sin esa confirmación; T7 y Fase 2 destrabadas |
-| D5 | Abierta: el usuario pidió la explicación de por qué hace falta un proyecto nuevo | T15 sigue bloqueada |
+| D5 | **Respondida (L21 §5):** proyecto nuevo y el actual archivado | T15 desbloqueada |
+| D6 | **Uno o varios rubros por actividad** (criterio `S5`) | `T10` queda en `L` |
+| D7 | El asignado se controla **por renglón**; el rubro es la suma (criterio `S5`) | comportamiento |
+| D8 | **La factura se reparte** entre actividades y las líneas deben sumar el total (criterio `S9`) | agrega `gasto_reparto` y cambia el umbral de duplicados |
+| D9 | Los gastos ya cargados quedan **«Sin actividad»** | comportamiento |
+| D10 | La programación propuesta va **por días**, centavo al último mes, transversales parejo (criterio `S7`) | comportamiento |
 
 ## Tasks
 
@@ -651,3 +656,12 @@ S11) · T15 recarga de CedeTextil en producción con ensayo (S12).
   queda explicada en el documento §5: proyecto nuevo y el actual archivado. **Antes de `T11` hay cinco preguntas
   para la PO** (§6), y la más cara es si una actividad puede tener varios rubros: si es «un rubro por actividad»,
   `T10` baja de `L` a `M`.
+- **L22 (2026-11-12, decisiones de la Parte 2):** el usuario pidió cerrar las cinco definiciones «con los
+  recomendados, lo importante es que se cumplan los criterios de aceptación». Al contrastarlas con `S5`, `S7` y `S9`,
+  **dos de las cinco recomendaciones del diseño estaban mal** y se resolvieron al revés: `S5` exige que una actividad
+  pueda tener **uno o varios rubros** (mi recomendación era uno solo) y `S9` exige que **una factura se reparta**
+  entre actividades con líneas que sumen su total (mi recomendación era no repartir). La quinta también se corrigió al
+  texto del PO: el reparto mensual va **por días**, no por semanas. Decisiones registradas como `D6`–`D10`; `D5`
+  queda cerrada en L21 §5. Consecuencia sobre el modelo: `T10` sigue en `L`, se agrega la tabla `gasto_reparto` y
+  **cambia el umbral de duplicados de T5**: dos filas con el mismo tercero y documento pasan a ser una factura
+  distribuida, no un duplicado.
