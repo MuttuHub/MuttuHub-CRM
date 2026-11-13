@@ -15,6 +15,7 @@
  */
 
 import { avanceProgramado } from "./avance"
+import type { TipoActividad } from "./actividad"
 import type { IsoDate, Periodo } from "./weeks"
 
 /** One decimal, half-up: the same rounding the KPI percentages use. */
@@ -37,7 +38,13 @@ export function fechaMedicion(periodo: Periodo, corte: IsoDate): IsoDate {
   return fin <= corte ? fin : corte
 }
 
-export type TecnicoPlaneadoInput = { peso: number; inicio: IsoDate; fin: IsoDate }
+export type TecnicoPlaneadoInput = {
+  peso: number
+  inicio: IsoDate
+  fin: IsoDate
+  /** T12 (S6): a Transversal stays out of the technical curve; absent means Normal. */
+  tipo?: TipoActividad | null
+}
 
 /** The corte as the curve measures it: its period and the date inside that period. */
 export type CorteMedicion = { periodo: Periodo; fecha: IsoDate }

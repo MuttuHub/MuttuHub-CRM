@@ -14,6 +14,7 @@ import {
   calcularTecnico,
   type ActividadTecnicaInput,
 } from "./avance"
+import { cuentaTecnico, type TipoActividad } from "./actividad"
 import { percentTenths, sumCents, type Cents } from "./money"
 import {
   alertaRetraso,
@@ -61,18 +62,25 @@ export type CumplimientoCronograma = {
 }
 
 /** One activity as schedule compliance reads it: progress at its fin and at the corte, both 0..1. */
-export type CronogramaActividadInput = { fin: IsoDate; avance_al_fin: number; avance: number }
+export type CronogramaActividadInput = {
+  fin: IsoDate
+  avance_al_fin: number
+  avance: number
+  /** T12 (S6): a Transversal is not schedule compliance; absent means Normal. */
+  tipo?: TipoActividad | null
+}
 
 /**
  * AJ-03 schedule compliance: «actividades ejecutadas a tiempo / actividades cuya fecha fin ya pasó», where
  * on time means the progress reached the tope (`tope_en_curso`, as a 0..1 fraction) by the fin.
+ * T12 (S6): a Transversal is filtered out of both the numerator and the denominator.
  */
 export function cumplimientoCronograma(
   actividades: readonly CronogramaActividadInput[],
   corte: IsoDate,
   tope: number,
 ): CumplimientoCronograma {
-  const vencidas = actividades.filter((a) => a.fin <= corte)
+  const vencidas = actividades.filter((a) => a.fin <= corte && cuentaTecnico(a))
   const aTiempo = vencidas.filter((a) => alcanzaTope(a.avance_al_fin, tope)).length
   const atrasadas = vencidas.filter((a) => !alcanzaTope(a.avance, tope)).length
   return { corte, vencidas: vencidas.length, a_tiempo: aTiempo, atrasadas, valor: pct(aTiempo, vencidas.length) }
@@ -256,6 +264,8 @@ export function kpisProyecto(input: KpiProyectoInput): KpisProyecto {
         fin: fin.get(a.id) as IsoDate,
         avance_al_fin: a.avance_al_fin,
         avance: a.progreso,
+        // T12 (S6): la transversal llega hasta acá y `cumplimientoCronograma` la descarta.
+        tipo: a.tipo,
       })),
       corte,
       tope,

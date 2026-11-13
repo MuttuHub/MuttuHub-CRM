@@ -16,7 +16,7 @@ import { loadGastosEjecutados } from "@/lib/api/financiera";
 import { loadNombres, SOLICITUD_SELECT, toSolicitudView } from "@/lib/api/modificaciones";
 import { cargarReportesPorActividad } from "@/lib/api/tecnico";
 import { getSemaforoParametrosV2 } from "@/lib/settings";
-import { pesoActividad } from "@/lib/proyectos/actividad";
+import { cuentaTecnico, pesoActividad } from "@/lib/proyectos/actividad";
 import { datosIncompletos } from "@/lib/proyectos/gastos";
 import { toCents, type Cents } from "@/lib/proyectos/money";
 import { isoDate } from "@/lib/proyectos/proyecto-general";
@@ -105,6 +105,8 @@ export async function cargarAtencion(input: {
           id: true,
           codigo: true,
           nombre: true,
+          // T12 (S6): a transversal is not schedule progress and must never be listed as overdue.
+          tipo: true,
           semana_inicio: true,
           semana_fin: true,
           entregables: { where: { deleted_at: null }, select: { id: true, codigo: true, cantidad_meta: true } },
@@ -160,7 +162,7 @@ export async function cargarAtencion(input: {
     avancesDe.set(avance.entregable_id, [...(avancesDe.get(avance.entregable_id) ?? []), avance]);
   }
 
-  const actividadesInput: AtencionActividadInput[] = actividades.map((actividad) => {
+  const actividadesInput: AtencionActividadInput[] = actividades.filter(cuentaTecnico).map((actividad) => {
     const fechas = activityDates(inicio, actividad.semana_inicio, actividad.semana_fin);
     return {
       id: actividad.id,

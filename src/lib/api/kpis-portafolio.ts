@@ -10,7 +10,7 @@ import { agruparReportesPorActividad } from "@/lib/api/tecnico";
 import { isoDate } from "@/lib/proyectos/proyecto-general";
 import { ESTADOS_EJECUTADOS } from "@/lib/proyectos/gastos";
 import { toCents, type Cents } from "@/lib/proyectos/money";
-import { pesoActividad } from "@/lib/proyectos/actividad";
+import { pesoActividad, type TipoActividad } from "@/lib/proyectos/actividad";
 import {
   esMedible,
   kpisNoMedible,
@@ -81,6 +81,8 @@ export async function loadKpisPortafolio(input: {
         id: true,
         proyecto_id: true,
         codigo: true,
+        // T12 (S6): without it every row would read as Normal and a transversal would count in the KPIs.
+        tipo: true,
         semana_inicio: true,
         semana_fin: true,
         entregables: { where: { deleted_at: null }, select: { id: true, codigo: true, cantidad_meta: true } },
@@ -165,6 +167,8 @@ export async function loadKpisPortafolio(input: {
         id: actividad.id,
         codigo: actividad.codigo,
         peso: actividad.peso,
+        // T12 (S6): the KPI math groups and filters a transversal by this field.
+        tipo: actividad.tipo,
         inicio: fechas.inicio,
         fin: fechas.fin,
         entregables: actividad.entregables.map((entregable) => ({
@@ -224,15 +228,19 @@ type ActividadFuente = {
   semana_inicio: number;
   semana_fin: number;
   peso: number;
+  /** T12 (S6): Normal or Transversal; absent means Normal (older fixtures and frozen versions). */
+  tipo?: TipoActividad | null;
   entregables: { id: string; cantidad_meta: { toString(): string } }[];
 };
 
 /** The frozen structure in the shape of the live rows; ids come from the live rows with the same code. */
 function desdeSnapshot(
   snapshot: SnapshotV1,
-  vivas: readonly { id: string; codigo: string; entregables: readonly { id: string; codigo: string }[] }[],
+  vivas: readonly { id: string; codigo: string; tipo?: TipoActividad | null; entregables: readonly { id: string; codigo: string }[] }[],
 ): ActividadFuente[] {
   const idActividad = new Map(vivas.map((a) => [a.codigo, a.id]));
+  // The type is not frozen in the version: it comes from the live row with the same code (T12).
+  const tipoActividad = new Map(vivas.map((a) => [a.codigo, a.tipo ?? "NORMAL"] as const));
   const idEntregable = new Map(vivas.flatMap((a) => a.entregables.map((e) => [e.codigo, e.id] as const)));
   return snapshot.actividades.map((a) => ({
     id: idActividad.get(a.codigo) ?? a.codigo,
@@ -240,6 +248,7 @@ function desdeSnapshot(
     semana_inicio: a.semana_inicio,
     semana_fin: a.semana_fin,
     peso: Number(a.peso),
+    tipo: tipoActividad.get(a.codigo) ?? "NORMAL",
     entregables: snapshot.entregables
       .filter((e) => e.actividad_codigo === a.codigo)
       .map((e) => ({ id: idEntregable.get(e.codigo) ?? e.codigo, cantidad_meta: e.cantidad_meta })),

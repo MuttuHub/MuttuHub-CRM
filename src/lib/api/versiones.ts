@@ -91,7 +91,7 @@ export async function loadLiveProyecto(client: Reader, proyectoId: string): Prom
     fechaFin,
     beneficiariosMeta: proyecto.beneficiarios_meta,
     objetivos: objetivos.map((o) => ({ codigo: o.codigo })),
-    actividades: actividades.map((a) => ({ codigo: a.codigo, objetivoCodigo: codigoObjetivo.get(a.objetivo_id) ?? "" })),
+    actividades: actividades.map((a) => ({ codigo: a.codigo, objetivoCodigo: a.objetivo_id ? codigoObjetivo.get(a.objetivo_id) ?? "" : "" })),
     entregables: entregables.map((e) => ({ codigo: e.codigo, actividadCodigo: codigoActividad.get(e.actividad_id) ?? "" })),
     lineas: lineas.map((l) => ({
       rubroId: l.rubro_id,
@@ -142,7 +142,7 @@ export async function loadLiveProyecto(client: Reader, proyectoId: string): Prom
       })),
     actividades: actividades.map((a) => ({
       codigo: a.codigo,
-      objetivo_codigo: codigoObjetivo.get(a.objetivo_id) ?? "",
+      objetivo_codigo: a.objetivo_id ? codigoObjetivo.get(a.objetivo_id) ?? "" : "",
       nombre: a.nombre,
       semana_inicio: a.semana_inicio,
       semana_fin: a.semana_fin,

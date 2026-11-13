@@ -7,6 +7,7 @@
  * (`avance_requiere_medio`), an avance only counts once it has a live medio.
  */
 
+import { cuentaTecnico, type TipoActividad } from "./actividad"
 import { toDayNumber, type IsoDate } from "./weeks"
 
 export type AvanceInput = {
@@ -31,6 +32,11 @@ export type ActividadTecnicaInput = {
   inicio: IsoDate
   fin: IsoDate
   entregables: EntregableTecnicoInput[]
+  /**
+   * T12 (S6): a Transversal is not schedule progress — it stays out of the real and programmed project
+   * advance, the technical curve and schedule compliance. Absent means Normal.
+   */
+  tipo?: TipoActividad | null
   /**
    * Non-voided reports (AJ-01), chronologically sorted by the caller — the last entry is
    * the latest. Kept as the full history (not just the latest) so a later feature (AJ-03)
@@ -121,11 +127,15 @@ export function alcanzaTope(avance: number, tope: number): boolean {
   return avance + EPSILON_TOPE >= tope
 }
 
-/** Weighted mean of the activity progresses; zero total weight yields 0. */
-export function avanceReal(actividades: { peso: number; progreso: number }[]): number {
-  const total = actividades.reduce((sum, a) => sum + a.peso, 0)
+/**
+ * Weighted mean of the activity progresses; zero total weight yields 0.
+ * T12 (S6): Transversal activities are filtered out, never weighed as zero progress.
+ */
+export function avanceReal(actividades: { peso: number; progreso: number; tipo?: TipoActividad | null }[]): number {
+  const tecnicas = actividades.filter(cuentaTecnico)
+  const total = tecnicas.reduce((sum, a) => sum + a.peso, 0)
   if (total <= 0) return 0
-  return actividades.reduce((sum, a) => sum + a.peso * a.progreso, 0) / total
+  return tecnicas.reduce((sum, a) => sum + a.peso * a.progreso, 0) / total
 }
 
 /** Elapsed fraction of `inicio..fin` at `corte`, both ends inclusive, clamped to [0, 1]. */
@@ -145,16 +155,20 @@ export function programadoActividad(corte: IsoDate, inicio: IsoDate, fin: IsoDat
   return Math.min(tope, fraccionTiempo(corte, inicio, fin))
 }
 
-/** Weighted mean of the activities' planned fractions (capped at the tope); zero total weight yields 0. */
+/**
+ * Weighted mean of the activities' planned fractions (capped at the tope); zero total weight yields 0.
+ * T12 (S6): Transversal activities are filtered out, so they never inflate the plan either.
+ */
 export function avanceProgramado(
-  actividades: { peso: number; inicio: IsoDate; fin: IsoDate }[],
+  actividades: { peso: number; inicio: IsoDate; fin: IsoDate; tipo?: TipoActividad | null }[],
   corte: IsoDate,
   tope: number,
 ): number {
-  const total = actividades.reduce((sum, a) => sum + a.peso, 0)
+  const tecnicas = actividades.filter(cuentaTecnico)
+  const total = tecnicas.reduce((sum, a) => sum + a.peso, 0)
   if (total <= 0) return 0
   return (
-    actividades.reduce((sum, a) => sum + a.peso * programadoActividad(corte, a.inicio, a.fin, tope), 0) / total
+    tecnicas.reduce((sum, a) => sum + a.peso * programadoActividad(corte, a.inicio, a.fin, tope), 0) / total
   )
 }
 
@@ -214,6 +228,8 @@ export type ActividadTecnicaResultado = {
   codigo: string
   peso: number
   progreso: number
+  /** T12 (S6): carried through so the views can group a Transversal without re-reading the row. */
+  tipo?: TipoActividad | null
   estado: EstadoActividad
   /** Date the last deliverable reached its goal; null while any is open (or there are none). */
   fecha_cumplimiento: IsoDate | null
@@ -273,6 +289,7 @@ export function calcularTecnico(input: {
       codigo: a.codigo,
       peso: a.peso,
       progreso,
+      tipo: a.tipo,
       estado: estadoActividad({
         progreso,
         inicio: a.inicio,

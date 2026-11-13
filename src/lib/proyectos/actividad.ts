@@ -27,6 +27,24 @@ export function pesoActividad(actividad: {
   return defaultWeight(actividad.semana_inicio, actividad.semana_fin)
 }
 
+/**
+ * T12 (S6, EV-02): Normal or Transversal. A Transversal carries the coordination work that belongs to no
+ * objective — «Gestión del proyecto» — and is not schedule progress.
+ */
+export type TipoActividad = "NORMAL" | "TRANSVERSAL"
+
+/** The group Transversal activities are listed under, apart from the objectives (S6). */
+export const GRUPO_GESTION = "Gestión del proyecto"
+
+/**
+ * T12 (S6): whether an activity counts towards the technical read — progress, technical S-curve and
+ * schedule compliance. A transversal still counts in budget, programming, expenses and financial views;
+ * those never come through here. Absent `tipo` means Normal, so older callers and fixtures keep working.
+ */
+export function cuentaTecnico(actividad: { tipo?: TipoActividad | null }): boolean {
+  return actividad.tipo !== "TRANSVERSAL"
+}
+
 /** Calendar days an activity spans, both endpoints included (the v6 "Días" column). */
 export function duracionDias(inicio: IsoDate, fin: IsoDate): number {
   return daysBetweenInclusive(inicio, fin)
@@ -53,6 +71,8 @@ export type ObjetivoResumenInput = {
   progreso: number
   /** Planned fraction 0..1 at the corte. */
   programado: number
+  /** T12 (S6): a Transversal is grouped under `GRUPO_GESTION`, never under its objective. */
+  tipo?: TipoActividad | null
 }
 
 export type ObjetivoResumen = {
@@ -70,7 +90,9 @@ export type ObjetivoResumen = {
 /**
  * Roll-up per objective (S14 P6): the weighted mean of its activities' planned
  * and executed fractions, the deviation in percentage points and the semáforo
- * from the API thresholds. Objectives keep the order of first appearance.
+ * from the API thresholds. Objectives keep the order of first appearance, and
+ * T12's transversals come out as one group of their own (`GRUPO_GESTION`) that
+ * never dilutes an objective's numbers.
  */
 export function resumenObjetivos(
   actividades: readonly ObjetivoResumenInput[],
@@ -79,11 +101,12 @@ export function resumenObjetivos(
   const orden: string[] = []
   const grupos = new Map<string, { peso: number; programado: number; ejecutado: number }>()
   for (const actividad of actividades) {
-    let grupo = grupos.get(actividad.objetivo_codigo)
+    const clave = cuentaTecnico(actividad) ? actividad.objetivo_codigo : GRUPO_GESTION
+    let grupo = grupos.get(clave)
     if (!grupo) {
       grupo = { peso: 0, programado: 0, ejecutado: 0 }
-      grupos.set(actividad.objetivo_codigo, grupo)
-      orden.push(actividad.objetivo_codigo)
+      grupos.set(clave, grupo)
+      orden.push(clave)
     }
     grupo.peso += actividad.peso
     grupo.programado += actividad.peso * actividad.programado
@@ -128,7 +151,8 @@ export function validarSemanas(
 export type ActividadRow = {
   id: string
   proyecto_id: string
-  objetivo_id: string
+  objetivo_id: string | null
+  tipo: TipoActividad
   codigo: string
   nombre: string
   semana_inicio: number
@@ -141,7 +165,9 @@ export type ActividadRow = {
 export type ActividadV2View = {
   id: string
   proyecto_id: string
-  objetivo_id: string
+  objetivo_id: string | null
+  /** T12 (S6): Normal or Transversal; the client shows the transversal under «Gestión del proyecto». */
+  tipo: TipoActividad
   codigo: string
   nombre: string
   semana_inicio: number
@@ -179,6 +205,7 @@ export function toActividadV2View(
     id: row.id,
     proyecto_id: row.proyecto_id,
     objetivo_id: row.objetivo_id,
+    tipo: row.tipo,
     codigo: row.codigo,
     nombre: row.nombre,
     semana_inicio: row.semana_inicio,
