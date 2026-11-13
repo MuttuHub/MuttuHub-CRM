@@ -1668,6 +1668,8 @@ export type ProjectExpense = {
   datos_incompletos: boolean;
   registrado_por_id: string;
   created_at: string;
+  /** S2/T6: se manda en el PATCH para que una corrección no pise a otra más nueva. */
+  updated_at: string;
   validado_por_id: string | null;
   validado_at: string | null;
   rechazado_por_id: string | null;
@@ -1726,8 +1728,26 @@ export type ProjectExpenseInput = {
   subtotal: string;
   /** Decimal como string; puede ser "0", nunca negativo. El Total lo calcula el servidor. */
   iva: string;
-  /** Un soporte: archivo (firma -> subida -> confirmación) o enlace https. */
-  soporte: AvanceMedioInput;
+  /**
+   * Uno o varios soportes (tope `MAX_SOPORTES` de la API), cada uno un archivo (firma -> subida ->
+   * confirmación) o un enlace https: la tabla guarda un medio por fila, así que una mezcla es una
+   * lista y no una fila con los dos. Se envían en el orden recibido.
+   */
+  soportes: AvanceMedioInput[];
+};
+
+/**
+ * S2/T6: cuerpo de una corrección. `GASTO_PATCH_SCHEMA` no admite `soportes`, así que los soportes quedan fuera;
+ * `motivo` solo es obligatorio cuando el Gestor corrige el gasto de otra persona, y el servidor lo audita como
+ * `motivo_correccion`.
+ */
+export type ProjectExpenseUpdate = Omit<ProjectExpenseInput, "soportes" | "tercero_numero_id"> & {
+  /** Se omite cuando la API no envió la identificación (RNF-03), para no borrarla sin querer. */
+  tercero_numero_id?: string | null;
+  /** Obligatorio solo cuando el Gestor corrige el gasto de otra persona; lo decide y lo audita el servidor. */
+  motivo?: string;
+  /** La fila tal como se leyó: el servidor rechaza la corrección si alguien la cambió mientras tanto. */
+  updated_at?: string;
 };
 
 export function useProjectExpenses(id: string): UseQueryResult<ProjectExpenses> {
@@ -1774,22 +1794,48 @@ function useRefreshGastos() {
   };
 }
 
-/** Registra un gasto: sube su soporte (si es archivo) y confirma todo en un solo POST. */
+/** Registra un gasto: sube cada soporte de archivo (si hay) y confirma todos con los enlaces en un solo POST. */
 export function useCreateExpense(
   projectId: string,
 ): UseMutationResult<{ gasto: ProjectExpense; alertas: ExpenseAlert[] }, Error, ProjectExpenseInput> {
   const refresh = useRefreshGastos();
   return useMutation({
-    mutationFn: async ({ soporte, ...datos }) => {
-      const confirmado =
-        soporte.tipo === "archivo"
-          ? await uploadSoporteFile(`/api/v1/projects/${projectId}/expenses/sign`, soporte.file)
-          : { url_externa: soporte.url_externa, nombre: soporte.nombre };
+    mutationFn: async ({ soportes, ...datos }) => {
+      // `Promise.all` conserva el orden del arreglo: la respuesta queda en el mismo orden que armó la persona.
+      const confirmados = await Promise.all(
+        soportes.map((soporte) =>
+          soporte.tipo === "archivo"
+            ? uploadSoporteFile(`/api/v1/projects/${projectId}/expenses/sign`, soporte.file)
+            : Promise.resolve({ url_externa: soporte.url_externa, nombre: soporte.nombre }),
+        ),
+      );
       return apiPost<{ gasto: ProjectExpense; alertas: ExpenseAlert[] }>(
         `/api/v1/projects/${projectId}/expenses`,
-        { ...datos, soportes: [confirmado] },
+        { ...datos, soportes: confirmados },
       );
     },
+    onSuccess: refresh,
+  });
+}
+
+/**
+ * Corrige un gasto (S2/T6): PATCH, nunca POST y sin soportes. Refresca lo mismo que registrar e informa las
+ * alertas del servidor (sobregasto, programado, duplicado) con la misma forma que `useCreateExpense`.
+ */
+export function useUpdateExpense(
+  projectId: string,
+): UseMutationResult<
+  { gasto: ProjectExpense; alertas: ExpenseAlert[] },
+  Error,
+  { id: string } & ProjectExpenseUpdate
+> {
+  const refresh = useRefreshGastos();
+  return useMutation({
+    mutationFn: ({ id, ...datos }) =>
+      apiPatch<{ gasto: ProjectExpense; alertas: ExpenseAlert[] }>(
+        `/api/v1/projects/${projectId}/expenses/${id}`,
+        datos,
+      ),
     onSuccess: refresh,
   });
 }

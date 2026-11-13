@@ -8,7 +8,7 @@ import { readdirSync, readFileSync } from "node:fs"
 import path from "node:path"
 import { createElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import type { ProjectBudgetRubro, ProjectDeliverable, ProjectListRow } from "@/hooks/projects"
+import type { ProjectBudgetRubro, ProjectDeliverable, ProjectExpense, ProjectListRow } from "@/hooks/projects"
 import { EjecucionAvanceForm } from "./ejecucion-avance-form"
 import { GastoForm } from "./gasto-form"
 import { SolicitarModificacion } from "./modificacion-form"
@@ -33,6 +33,40 @@ const PROYECTO = {
 const RUBROS: ProjectBudgetRubro[] = [
   { rubro_id: "r12", codigo: "R12", nombre: "Transporte", activo: true, linea_id: "l12", asignado: "24000000.00", heredado_pendiente: false },
 ]
+
+const GASTO = {
+  id: "g1",
+  proyecto_id: "p1",
+  rubro: { id: "r12", codigo: "R12", nombre: "Transporte" },
+  fecha_documento: "2026-10-15",
+  periodo: "2026-10",
+  tipo_soporte: "FACTURA_PROVEEDOR",
+  tercero_nombre: "Proveedor SAS",
+  tercero_tipo_id: "NIT",
+  tercero_numero_id: "900123456",
+  numero_documento: "FE-0123",
+  descripcion: "Tiquetes del equipo",
+  valor: "1500000.00",
+  subtotal: "1500000.00",
+  iva: "0.00",
+  estado: "REGISTRADO",
+  alerta_sobregasto: false,
+  periodo_modificado: false,
+  datos_incompletos: false,
+  registrado_por_id: "otro",
+  created_at: "2026-10-16T12:00:00.000Z",
+  updated_at: "2026-10-16T12:00:00.000Z",
+  validado_por_id: null,
+  validado_at: null,
+  rechazado_por_id: null,
+  rechazado_at: null,
+  motivo_rechazo: null,
+  anulado_por_id: null,
+  anulado_at: null,
+  motivo_anulacion: null,
+  soportes: [],
+  soportes_count: 0,
+} as ProjectExpense
 
 const ENTREGABLE = {
   id: "e1",
@@ -74,6 +108,13 @@ describe("Projects forms: accessible names", () => {
     expectNamedControls(form)
     await user.click(within(form).getByLabelText("Enlace"))
     expectNamedControls(form)
+  })
+
+  it("gasto form, in correction mode", () => {
+    render(<GastoForm proyecto={PROYECTO} rubros={RUBROS} gasto={GASTO} onDone={() => {}} />, { wrapper })
+    const form = screen.getByRole("form", { name: "Corregir gasto" })
+    expectNamedControls(form)
+    expect(within(form).getByLabelText("Motivo de la corrección")).toBeInTheDocument()
   })
 
   it("avance form, including both medio variants", async () => {

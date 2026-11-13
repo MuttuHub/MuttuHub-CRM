@@ -66,7 +66,7 @@ const fila = (data: Partial<Record<(typeof ENCABEZADO)[number], Celda>> = {}): C
     IVA: 0,
     Total: null,
     Periodo: null,
-    "Enlace del soporte": null,
+    "Enlace del soporte": "https://drive.google.com/soporte",
     ...data,
   }
   return ENCABEZADO.map((h) => base[h] ?? null)
@@ -102,7 +102,7 @@ describe("parseGastosImport — file", () => {
       subtotal: toCents("1500000.50"),
       iva: BigInt(0),
       cents: toCents("1500000.50"),
-      enlaces: [],
+      enlaces: ["https://drive.google.com/soporte"],
     })
     expect(r.resumen).toEqual({ validas: 1, errores: 0 })
   })
@@ -137,9 +137,9 @@ describe("parseGastosImport — file", () => {
   })
 
   it("accepts the optional columns missing and the columns in any order", async () => {
-    const encabezado = ["IVA", "Subtotal", "Descripción", "Número de documento", "Tercero", "Tipo de soporte", "Fecha del documento", "Rubro"]
+    const encabezado = ["IVA", "Subtotal", "Descripción", "Número de documento", "Tercero", "Tipo de soporte", "Fecha del documento", "Rubro", "Enlace del soporte"]
     const r = await parseGastosImport(
-      await libro([[190, 1000, "Taxi", "D-1", "Pedro", "Otro", "2026-11-02", "R12"]], encabezado),
+      await libro([[190, 1000, "Taxi", "D-1", "Pedro", "Otro", "2026-11-02", "R12", "https://drive.google.com/x"]], encabezado),
       contexto,
     )
     expect(r.filas[0].error).toBeNull()
@@ -336,10 +336,10 @@ describe("parseGastosImport — enlace del soporte (AJ-06, S2, S3)", () => {
     return r.filas[0]
   }
 
-  it("accepts an empty cell with no supports, unchanged from before (S2)", async () => {
+  it("rejects a row without a support link, naming the row and the column (S2)", async () => {
     const f = await unaFila({ "Enlace del soporte": null })
-    expect(f.error).toBeNull()
-    expect(f.datos?.enlaces).toEqual([])
+    expect(f.datos).toBeNull()
+    expect(f.error).toBe("«Enlace del soporte»: es obligatorio.")
   })
 
   it("reads one valid http(s) link into one support", async () => {
@@ -370,7 +370,7 @@ describe("parseGastosImport — enlace del soporte (AJ-06, S2, S3)", () => {
     expect(f.datos?.enlaces).toEqual(["HTTPS://Drive.com/a"])
   })
 
-  it("still imports an old-format file without the «Enlace del soporte» column (no regression)", async () => {
+  it("rejects every row of an old-format file that has no «Enlace del soporte» column (S2 change)", async () => {
     const antiguo = ENCABEZADO.filter((h) => h !== "Enlace del soporte")
     const filaAntigua = [
       "Transporte",
@@ -388,8 +388,8 @@ describe("parseGastosImport — enlace del soporte (AJ-06, S2, S3)", () => {
     ]
     const r = await parseGastosImport(await libro([filaAntigua], antiguo), contexto)
     expect(r.erroresArchivo).toEqual([])
-    expect(r.filas[0].error).toBeNull()
-    expect(r.filas[0].datos?.enlaces).toEqual([])
+    expect(r.filas[0].error).toBe("«Enlace del soporte»: es obligatorio.")
+    expect(r.filas[0].datos).toBeNull()
   })
 })
 

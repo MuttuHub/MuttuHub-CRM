@@ -203,8 +203,10 @@ describe("PATCH expenses/:expenseId", () => {
     const res = await PATCH(patch({ descripcion: "Tiquetes aéreos", subtotal: "2000000" }), ctx);
     expect(res.status).toBe(200);
     expect(updatedData()).toMatchObject({ descripcion: "Tiquetes aéreos", monto_cop: expect.anything() });
+    // S2/T6: la corrección adelanta la marca, que es lo que hace que la siguiente no pise a esta.
+    expect(updatedData().updated_at).toBeInstanceOf(Date);
     expect(mocks.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "gas-1", proyecto_id: "pry-1", estado: { in: ["REGISTRADO", "RECHAZADO"] } } }),
+      expect.objectContaining({ where: { id: "gas-1", proyecto_id: "pry-1", estado: "REGISTRADO" } }),
     );
     const rows = vi.mocked(logChanges).mock.calls[0][1];
     expect(rows).toEqual(
@@ -213,6 +215,86 @@ describe("PATCH expenses/:expenseId", () => {
         expect.objectContaining({ accion: "EDITAR", campo: "valor", valor_nuevo: "2000000.00" }),
       ]),
     );
+    // S2/T6: correcting your own expense needs no motive, so nothing like that reaches the audit.
+    expect(rows).not.toEqual(expect.arrayContaining([expect.objectContaining({ campo: "motivo_correccion" })]));
+  });
+
+  it("lets the project's Gestor correct somebody else's expense when the motive is written, and audits it (S2)", async () => {
+    current = existente({ registrado_por_id: "otro-1" });
+    const res = await PATCH(patch({ descripcion: "Corregido por el Gestor", motivo: "El proveedor facturó mal" }), ctx);
+    expect(res.status).toBe(200);
+    expect(updatedData()).toMatchObject({ descripcion: "Corregido por el Gestor" });
+    const rows = vi.mocked(logChanges).mock.calls[0][1];
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ accion: "EDITAR", campo: "descripcion", valor_nuevo: "Corregido por el Gestor" }),
+        expect.objectContaining({ accion: "EDITAR", campo: "motivo_correccion", valor_nuevo: "El proveedor facturó mal" }),
+      ]),
+    );
+  });
+
+  it("rejects the Gestor's correction of somebody else's expense without a motive and writes nothing (S2)", async () => {
+    current = existente({ registrado_por_id: "otro-1" });
+    const res = await PATCH(patch({ descripcion: "Sin motivo" }), ctx);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("Escribe el motivo de la corrección.");
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+    expect(logChanges).not.toHaveBeenCalled();
+  });
+
+  it("still refuses somebody who is neither the author nor the Gestor, and refuses a body with only a motive", async () => {
+    current = existente({ registrado_por_id: "otro-1" });
+    authAs({ id: "coord-1", rol: "COORDINADOR" } as Usuario);
+    expect((await PATCH(patch({ descripcion: "x", motivo: "porque sí" }), ctx)).status).toBe(403);
+
+    current = existente();
+    authAs(gerencia);
+    expect((await PATCH(patch({ motivo: "sólo el motivo" }), ctx)).status).toBe(400);
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects every way of hiding the motive: blank, spaces, null and absent (S2/T6)", async () => {
+    current = existente({ registrado_por_id: "otro-1" });
+    for (const motivo of ["", "   ", null, undefined]) {
+      const body = motivo === undefined ? { descripcion: "x" } : { descripcion: "x", motivo };
+      expect((await PATCH(patch(body), ctx)).status).toBe(400);
+    }
+    expect(mocks.updateMany).not.toHaveBeenCalled();
+    expect(logChanges).not.toHaveBeenCalled();
+  });
+
+  it("corrects an ANULADO expense with a motive, keeps it ANULADO, and still answers 404 for another project's (S2/T6, D2)", async () => {
+    authAs(otraGerencia);
+    current = existente({
+      estado: "ANULADO",
+      registrado_por_id: "otro-1",
+      anulado_por_id: "ger-9",
+      anulado_at: new Date("2026-10-20T12:00:00.000Z"),
+      motivo_anulacion: "Duplicado",
+    });
+    const res = await PATCH(patch({ descripcion: "Corregida por el Gestor", motivo: "Estaba mal escrita" }), ctx);
+    expect(res.status).toBe(200);
+    // D2: the data is corrected, the annulment stands and the expense never counts again.
+    const escrito = updatedData();
+    expect(escrito).toMatchObject({ descripcion: "Corregida por el Gestor" });
+    expect(escrito).not.toHaveProperty("estado");
+    expect(escrito).not.toHaveProperty("anulado_at");
+    vi.mocked(db.gasto.findFirst).mockResolvedValue(null as never);
+    expect((await PATCH(patch({ descripcion: "x", motivo: "porque sí" }), ctx)).status).toBe(404);
+  });
+
+  it("refuses the registrant correcting their own ANULADO expense, and a stale updated_at answers 409 (S2/T6)", async () => {
+    current = existente({ estado: "ANULADO", registrado_por_id: "ger-1", motivo_anulacion: "Duplicado" });
+    authAs(coordinador);
+    expect((await PATCH(patch({ descripcion: "x", motivo: "porque sí" }), ctx)).status).toBe(403);
+
+    current = existente();
+    authAs(gerencia);
+    expect((await PATCH(patch({ descripcion: "x" }), ctx)).status).toBe(200);
+    mocks.updateMany.mockResolvedValue({ count: 0 });
+    const res = await PATCH(patch({ descripcion: "y", updated_at: "2026-10-16T12:00:00.000Z" }), ctx);
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe("El gasto cambió mientras lo corregías. Vuelve a abrirlo.");
   });
 
   it("recomputes the Total from the new Subtotal and IVA and audits both (S1, S2)", async () => {
@@ -295,10 +377,11 @@ describe("PATCH expenses/:expenseId", () => {
     expect(updatedData()).toMatchObject({ tercero_numero_id: "800.555.111-2", tercero_id_norm: "800555111" });
   });
 
-  it("answers 403 when the actor is not the registrant, even a manager", async () => {
+  it("lets Gerencia correct an expense it did not register, but only with the motive written (S2)", async () => {
     authAs(otraGerencia);
-    expect((await PATCH(patch({ descripcion: "x" }), ctx)).status).toBe(403);
+    expect((await PATCH(patch({ descripcion: "x" }), ctx)).status).toBe(400);
     expect(mocks.updateMany).not.toHaveBeenCalled();
+    expect((await PATCH(patch({ descripcion: "x", motivo: "Corrección de Gerencia" }), ctx)).status).toBe(200);
   });
 
   it("answers 403 for a member COORDINADOR who did not register it", async () => {

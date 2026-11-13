@@ -36,6 +36,10 @@ import { assertIsoDate, projectPeriods } from "@/lib/proyectos/weeks";
 import { isoDate } from "@/lib/proyectos/proyecto-general";
 
 export const GASTO_FORBIDDEN_MESSAGE = "No tienes permisos sobre este proyecto.";
+/** S2/T6: the reason the Gestor writes when correcting somebody else's expense. */
+export const CORRECCION_SIN_MOTIVO_MESSAGE = "Escribe el motivo de la corrección.";
+/** S2/T6: two people corrected the same expense and the second one is holding an older row. */
+export const GASTO_CAMBIO_MESSAGE = "El gasto cambió mientras lo corregías. Vuelve a abrirlo.";
 export const GASTO_NO_EXISTE = "El gasto no existe.";
 const SIN_SOPORTE_MESSAGE = "Adjunta al menos un soporte (archivo o enlace).";
 export const MAX_SOPORTES = 5;
@@ -135,6 +139,10 @@ export const GASTO_PATCH_SCHEMA = z
     descripcion: GASTO_FIELDS.descripcion.optional(),
     subtotal: GASTO_FIELDS.subtotal.optional(),
     iva: GASTO_FIELDS.iva.optional(),
+    /** Optional here: the route demands it only when the Gestor corrects another person's expense. */
+    motivo: z.string().trim().min(1, CORRECCION_SIN_MOTIVO_MESSAGE).max(500, "El motivo es demasiado largo.").optional(),
+    /** The `updated_at` the client read; when it arrives, the write refuses to overwrite a newer row. */
+    updated_at: z.string().optional(),
   })
   .strict();
 
@@ -538,6 +546,8 @@ export type GastoView = {
   datos_incompletos: boolean;
   registrado_por_id: string;
   created_at: string;
+  /** Optimistic concurrency for a correction: the PATCH pins the value it read (S2/T6). */
+  updated_at: string;
   validado_por_id: string | null;
   validado_at: string | null;
   rechazado_por_id: string | null;
@@ -590,6 +600,8 @@ export function toGastoView(row: GastoConRelaciones, opts: { puedeVerSoportes: b
     datos_incompletos: datosIncompletos(row),
     registrado_por_id: row.registrado_por_id,
     created_at: row.created_at.toISOString(),
+    /** Optimistic concurrency for a correction: the PATCH pins the value it read (S2/T6). */
+    updated_at: row.updated_at.toISOString(),
     validado_por_id: row.validado_por_id,
     validado_at: iso(row.validado_at),
     rechazado_por_id: row.rechazado_por_id,

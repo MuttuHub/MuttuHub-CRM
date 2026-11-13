@@ -293,16 +293,19 @@ type EnlacesFila = { ok: true; enlaces: string[] } | { ok: false; message: strin
 
 /**
  * AJ-06 (S2, S3): several links in the same cell, separated by `;`; each non-empty piece must start
- * with http:// or https:// (case-insensitive). An empty cell is valid and yields no links — the
- * column stays optional, unlike Subtotal/IVA.
+ * with http:// or https:// (case-insensitive).
+ *
+ * S2/T6: the template carries no file column, so the link is the only support an imported row can hold
+ * and the row is rejected without it. A file exported before AJ-06 has no such column, so every one of
+ * its rows now falls on this rule.
  */
 function leerEnlaces(valor: ValorCelda): EnlacesFila {
   const texto = textoDe(valor)
-  if (texto === undefined) return { ok: true, enlaces: [] }
-  const piezas = texto
+  const piezas = (texto ?? "")
     .split(";")
     .map((pieza) => pieza.trim())
     .filter((pieza) => pieza !== "")
+  if (piezas.length === 0) return { ok: false, message: enColumna("enlaces", "es obligatorio.") }
   for (const pieza of piezas) {
     if (!/^https?:\/\//i.test(pieza)) {
       return { ok: false, message: enColumna("enlaces", `"${pieza}" no empieza por http:// o https://.`) }

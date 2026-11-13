@@ -1,9 +1,10 @@
 // Formulario de registro de gasto (S6 U6): rubro (solo con valor asignado), fecha, periodo,
 // tercero, número de documento, descripción, subtotal e IVA (strings, nunca Number; el Total lo
-// calcula el sistema y solo se muestra) y UN soporte
-// obligatorio: archivo (firma -> subida -> confirmación) o enlace https. Tras registrar, las
-// alertas que devuelve la API (duplicado, sobregasto temprano) se muestran y esperan a que la
-// persona las cierre: nunca bloquean, pero tampoco pasan inadvertidas.
+// calcula el sistema y solo se muestra) y una LISTA de soportes obligatoria (AJ-08): uno o varios,
+// hasta el tope de la API, cada uno archivo (firma -> subida -> confirmación) o enlace https, con
+// «Agregar otro soporte» hacia abajo. Tras registrar, las alertas que devuelve la API (duplicado,
+// sobregasto temprano) se muestran y esperan a que la persona las cierre: nunca bloquean, pero
+// tampoco pasan inadvertidas.
 
 "use client";
 
@@ -17,6 +18,7 @@ import { CAPTURE_BUTTON, CAPTURE_CHOICE, CAPTURE_FIELD, CAPTURE_TEXTAREA, Inline
 import {
   useCreateExpense,
   useExpenseDuplicates,
+  useUpdateExpense,
   type AvanceMedioInput,
   type ExpenseAlert,
   type ExpenseDuplicateQuery,
@@ -24,7 +26,8 @@ import {
   type ProjectExpense,
   type ProjectListRow,
 } from "@/hooks/projects";
-import { formatMontoInput, parseMontoInput } from "@/components/proyectos/presupuesto-ui";
+import { formatMontoInput, montoToInput, parseMontoInput } from "@/components/proyectos/presupuesto-ui";
+import { MAX_SOPORTES_POR_GASTO } from "@/components/proyectos/gasto-soportes";
 import { formatCOP, toCents } from "@/lib/proyectos/money";
 import { periodOf, projectPeriods, todayInBogota } from "@/lib/proyectos/weeks";
 import { SelectorArchivo } from "@/components/proyectos/selector-archivo";
@@ -47,6 +50,24 @@ export const TIPO_SOPORTE_LABELS: Record<ProjectExpense["tipo_soporte"], string>
 };
 
 const FIELD = CAPTURE_FIELD;
+
+/** Una fila de la lista de soportes del gasto (AJ-08); `clave` es estable y arma los ids de la fila. */
+type FilaSoporte = {
+  clave: number;
+  tipo: "archivo" | "enlace";
+  archivo: File | null;
+  url: string;
+  nombre: string;
+};
+
+function filaSoporteVacia(clave: number): FilaSoporte {
+  return { clave, tipo: "archivo", archivo: null, url: "", nombre: "" };
+}
+
+/** Fila a medias: un archivo sin elegir, o un enlace sin su URL o sin su nombre. */
+function filaIncompleta(fila: FilaSoporte): boolean {
+  return fila.tipo === "archivo" ? fila.archivo === null : fila.url.trim() === "" || fila.nombre.trim() === "";
+}
 
 /** AJ-05: the month of the document date when it is a project month; otherwise empty, and the person must choose. */
 function periodoDeFecha(fecha: string, periodos: readonly string[]): string {
@@ -119,39 +140,51 @@ export function GastoForm({
   proyecto,
   rubros,
   onDone,
+  gasto,
 }: {
   proyecto: Pick<ProjectListRow, "id" | "fecha_inicio" | "fecha_fin">;
   rubros: ProjectBudgetRubro[];
   onDone: () => void;
+  /**
+   * S2/T6: si viene, el formulario corrige ese gasto (PATCH) en vez de registrar uno nuevo (POST). No ofrece
+   * soportes —`GASTO_PATCH_SCHEMA` no los admite— y añade el motivo de la corrección.
+   */
+  gasto?: ProjectExpense;
 }) {
   const create = useCreateExpense(proyecto.id);
-  const inputArchivoRef = useRef<HTMLInputElement>(null);
+  const update = useUpdateExpense(proyecto.id);
+  const enCorreccion = gasto !== undefined;
   const conAsignado = rubros.filter((rubro) => rubro.linea_id !== null && toCents(rubro.asignado) > BigInt(0));
   const periodos = periodosDe(proyecto);
 
-  const [rubroId, setRubroId] = useState("");
-  const [fecha, setFecha] = useState(todayInBogota());
-  const [periodo, setPeriodo] = useState(() => periodoDeFecha(todayInBogota(), periodos));
+  const [rubroId, setRubroId] = useState(gasto?.rubro.id ?? "");
+  const [fecha, setFecha] = useState(gasto?.fecha_documento.slice(0, 10) ?? todayInBogota());
+  const [periodo, setPeriodo] = useState(() => gasto?.periodo ?? periodoDeFecha(todayInBogota(), periodos));
   // The expense will show «Cuenta en AAAA-MM» when its period is not the month of its document date.
   const cuentaEnOtroMes = periodo !== "" && fecha !== "" && mesDeFecha(fecha) !== periodo;
-  const [tipoSoporte, setTipoSoporte] = useState<ProjectExpense["tipo_soporte"]>("FACTURA_PROVEEDOR");
-  const [tercero, setTercero] = useState("");
-  const [tipoId, setTipoId] = useState<"" | "NIT" | "CC" | "CE">("");
-  const [numeroId, setNumeroId] = useState("");
-  const [numeroDoc, setNumeroDoc] = useState("");
-  const [descripcion, setDescripcion] = useState("");
-  const [subtotal, setSubtotal] = useState("");
-  const [iva, setIva] = useState("0");
-  const [tipoMedio, setTipoMedio] = useState<"archivo" | "enlace">("archivo");
-  const [archivo, setArchivo] = useState<File | null>(null);
-  const [url, setUrl] = useState("");
-  const [nombreEnlace, setNombreEnlace] = useState("");
+  const [tipoSoporte, setTipoSoporte] = useState<ProjectExpense["tipo_soporte"]>(
+    gasto?.tipo_soporte ?? "FACTURA_PROVEEDOR",
+  );
+  const [tercero, setTercero] = useState(gasto?.tercero_nombre ?? "");
+  const [tipoId, setTipoId] = useState<"" | "NIT" | "CC" | "CE">(gasto?.tercero_tipo_id ?? "");
+  const [numeroId, setNumeroId] = useState(gasto?.tercero_numero_id ?? "");
+  const [numeroDoc, setNumeroDoc] = useState(gasto?.numero_documento ?? "");
+  const [descripcion, setDescripcion] = useState(gasto?.descripcion ?? "");
+  const [subtotal, setSubtotal] = useState(gasto ? formatMontoInput(montoToInput(gasto.subtotal)) : "");
+  const [iva, setIva] = useState(gasto ? formatMontoInput(montoToInput(gasto.iva)) : "0");
+  const [motivo, setMotivo] = useState("");
+  const [filasSoporte, setFilasSoporte] = useState<FilaSoporte[]>(() => [filaSoporteVacia(1)]);
+  // Se enciende al intentar guardar con alguna fila a medias; solo entonces se marca la fila, nunca antes.
+  const [intentoSoporte, setIntentoSoporte] = useState(false);
+  const proximaClaveSoporte = useRef(2);
   const [local, setLocal] = useState<string | null>(null);
   const [alertas, setAlertas] = useState<ExpenseAlert[] | null>(null);
 
-  // S2/L16 (b): consulta previa de duplicados en cuanto están la identificación y el documento.
+  // S2/L16 (b): consulta previa de duplicados en cuanto están la identificación y el documento. En una corrección
+  // no corre: la consulta no excluye el gasto que se edita y se encontraría a sí mismo; el PATCH ya devuelve la
+  // alerta real, sin la fila propia.
   const consultaDuplicados: ExpenseDuplicateQuery | null =
-    numeroId.trim() !== "" && numeroDoc.trim() !== ""
+    !enCorreccion && numeroId.trim() !== "" && numeroDoc.trim() !== ""
       ? {
           tercero_tipo_id: tipoId === "" ? null : tipoId,
           tercero_numero_id: numeroId.trim(),
@@ -161,10 +194,22 @@ export function GastoForm({
   const duplicados = useExpenseDuplicates(proyecto.id, consultaDuplicados);
   const alertasDuplicado = duplicados.data ?? [];
 
-  /** S7: quita el archivo elegido y limpia el `<input>` nativo (no se resetea solo con el estado). */
-  function quitarArchivo() {
-    setArchivo(null);
-    if (inputArchivoRef.current) inputArchivoRef.current.value = "";
+  /** AJ-08: la lista se detiene en el tope de la API; cada fila nueva nace como archivo. */
+  const puedeAgregarSoporte = filasSoporte.length < MAX_SOPORTES_POR_GASTO;
+
+  function agregarSoporte() {
+    if (!puedeAgregarSoporte) return;
+    const clave = proximaClaveSoporte.current;
+    proximaClaveSoporte.current += 1;
+    setFilasSoporte((filas) => [...filas, filaSoporteVacia(clave)]);
+  }
+
+  function quitarSoporte(clave: number) {
+    setFilasSoporte((filas) => filas.filter((fila) => fila.clave !== clave));
+  }
+
+  function cambiarSoporte(clave: number, cambio: Partial<Omit<FilaSoporte, "clave">>) {
+    setFilasSoporte((filas) => filas.map((fila) => (fila.clave === clave ? { ...fila, ...cambio } : fila)));
   }
 
   function submit() {
@@ -182,37 +227,77 @@ export function GastoForm({
     if (numeroDoc.trim() === "") return setLocal("El número de documento es obligatorio.");
     if (descripcion.trim() === "") return setLocal("La descripción es obligatoria.");
 
-    let soporte: AvanceMedioInput;
-    if (tipoMedio === "archivo") {
-      if (!archivo) return setLocal(SIN_SOPORTE_TEXT);
-      soporte = { tipo: "archivo", file: archivo };
-    } else {
-      if (url.trim() === "" || nombreEnlace.trim() === "") return setLocal(SIN_SOPORTE_TEXT);
-      soporte = { tipo: "enlace", url_externa: url.trim(), nombre: nombreEnlace.trim() };
+    setLocal(null);
+    const campos = {
+      rubro_id: rubroId,
+      fecha_documento: fecha,
+      periodo,
+      tipo_soporte: tipoSoporte,
+      tercero_nombre: tercero.trim(),
+      tercero_tipo_id: tipoId === "" ? null : tipoId,
+      numero_documento: numeroDoc.trim(),
+      descripcion: descripcion.trim(),
+      subtotal: subtotalNormal,
+      iva: ivaNormal,
+    };
+    const numeroIdLimpio = numeroId.trim() === "" ? null : numeroId.trim();
+    const alGuardar = ({ alertas: devueltas }: { alertas: ExpenseAlert[] }) => {
+      if (devueltas.length > 0) setAlertas(devueltas);
+      else onDone();
+    };
+
+    // S2/T6: corregir es un PATCH, sin soportes. El permiso y el motivo obligatorio los decide el servidor; aquí
+    // solo se omite un motivo vacío y la identificación que la API no envió (RNF-03), para no borrarla sin querer.
+    if (gasto !== undefined) {
+      const conservarIdentificacionOculta = gasto.tercero_numero_id === undefined && numeroIdLimpio === null;
+      update.mutate(
+        {
+          id: gasto.id,
+          ...campos,
+          ...(conservarIdentificacionOculta ? {} : { tercero_numero_id: numeroIdLimpio }),
+          ...(motivo.trim() === "" ? {} : { motivo: motivo.trim() }),
+          // Optimistic concurrency: the row as it was read. If somebody corrected it meanwhile, the API
+          // answers 409 instead of silently overwriting their work.
+          updated_at: gasto.updated_at,
+        },
+        { onSuccess: alGuardar },
+      );
+      return;
     }
 
-    setLocal(null);
+    const soportes: AvanceMedioInput[] = [];
+    const filasIncompletas: number[] = [];
+    for (const fila of filasSoporte) {
+      if (fila.tipo === "archivo") {
+        if (fila.archivo === null) {
+          filasIncompletas.push(fila.clave);
+          continue;
+        }
+        soportes.push({ tipo: "archivo", file: fila.archivo });
+      } else {
+        const enlace = fila.url.trim();
+        const nombre = fila.nombre.trim();
+        if (enlace === "" || nombre === "") {
+          filasIncompletas.push(fila.clave);
+          continue;
+        }
+        soportes.push({ tipo: "enlace", url_externa: enlace, nombre });
+      }
+    }
+    // Sin ninguna fila completa el aviso es uno solo, el de siempre; si solo faltan filas sueltas se marca cada una.
+    if (soportes.length === 0) {
+      setIntentoSoporte(false);
+      return setLocal(SIN_SOPORTE_TEXT);
+    }
+    if (filasIncompletas.length > 0) {
+      setIntentoSoporte(true);
+      return setLocal(null);
+    }
+    setIntentoSoporte(false);
+
     create.mutate(
-      {
-        rubro_id: rubroId,
-        fecha_documento: fecha,
-        periodo,
-        tipo_soporte: tipoSoporte,
-        tercero_nombre: tercero.trim(),
-        tercero_tipo_id: tipoId === "" ? null : tipoId,
-        tercero_numero_id: numeroId.trim() === "" ? null : numeroId.trim(),
-        numero_documento: numeroDoc.trim(),
-        descripcion: descripcion.trim(),
-        subtotal: subtotalNormal,
-        iva: ivaNormal,
-        soporte,
-      },
-      {
-        onSuccess: ({ alertas: devueltas }) => {
-          if (devueltas.length > 0) setAlertas(devueltas);
-          else onDone();
-        },
-      },
+      { ...campos, tercero_numero_id: numeroIdLimpio, soportes },
+      { onSuccess: alGuardar },
     );
   }
 
@@ -221,7 +306,7 @@ export function GastoForm({
       <div role="status" className="mt-2 flex flex-col gap-2 rounded-inner border border-alerta/40 bg-panel p-3">
         <p className="flex items-center gap-1.5 text-[13px] font-semibold text-ink-900">
           <AlertTriangle className="size-4 text-alerta" strokeWidth={2} />
-          Gasto registrado, con avisos
+          {enCorreccion ? "Gasto corregido, con avisos" : "Gasto registrado, con avisos"}
         </p>
         <ul className="flex flex-col gap-1 text-[12.5px] text-ink-800">
           {alertas.map((alerta, index) => (
@@ -238,6 +323,14 @@ export function GastoForm({
   }
 
   const p = `gasto-${proyecto.id}`;
+  const pending = enCorreccion ? update.isPending : create.isPending;
+  const errorGuardado = enCorreccion
+    ? update.isError
+      ? errorMessage(update.error, "No pudimos actualizar el gasto. Inténtalo de nuevo.")
+      : null
+    : create.isError
+      ? errorMessage(create.error, "No pudimos registrar el gasto. Inténtalo de nuevo.")
+      : null;
   // The Total is always Subtotal + IVA and is never typed; it stays $ 0 until both amounts read as valid.
   const subtotalCents = normalizarSubtotal(subtotal);
   const ivaCents = normalizarIva(iva);
@@ -257,7 +350,7 @@ export function GastoForm({
     .join(" ");
   return (
     <form
-      aria-label="Registrar gasto"
+      aria-label={enCorreccion ? "Corregir gasto" : "Registrar gasto"}
       noValidate
       onSubmit={(event) => {
         event.preventDefault();
@@ -432,65 +525,148 @@ export function GastoForm({
         />
       </Campo>
 
-      <fieldset className="sm:col-span-2">
-        <legend className="text-[12px] text-ink-600">Soporte</legend>
-        <div className="mt-1 flex flex-wrap items-center gap-4">
-          {(
-            [
-              ["archivo", "Archivo"],
-              ["enlace", "Enlace"],
-            ] as const
-          ).map(([valorMedio, label]) => (
-            <label key={valorMedio} className={CAPTURE_CHOICE}>
-              <input
-                type="radio"
-                name={`${p}-medio`}
-                value={valorMedio}
-                checked={tipoMedio === valorMedio}
-                onChange={() => setTipoMedio(valorMedio)}
-              />
-              {label}
-            </label>
-          ))}
-        </div>
-      </fieldset>
-
-      {tipoMedio === "archivo" ? (
-        <Campo id={`${p}-archivo`} label="Archivo del soporte" className="sm:col-span-2">
-          {archivo ? (
-            <div className="flex min-h-11 items-center gap-2 text-[12.5px] text-ink-800 md:min-h-0">
-              <span className="truncate">{archivo.name}</span>
-              <Button type="button" size="sm" variant="ghost" className={CAPTURE_BUTTON} onClick={quitarArchivo}>
-                Quitar
-              </Button>
-            </div>
-          ) : (
-            <SelectorArchivo id={`${p}-archivo`} inputRef={inputArchivoRef} onChange={setArchivo} />
-          )}
+      {enCorreccion && (
+        <Campo id={`${p}-motivo`} label="Motivo de la corrección" className="sm:col-span-2">
+          <textarea
+            id={`${p}-motivo`}
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            aria-describedby={`${p}-motivo-nota`}
+            className={CAPTURE_TEXTAREA}
+          />
+          <p id={`${p}-motivo-nota`} className="text-[12px] text-ink-600">
+            Obligatorio al corregir el gasto de otra persona; si el gasto es tuyo, puedes dejarlo vacío.
+          </p>
         </Campo>
-      ) : (
-        <>
-          <Campo id={`${p}-url`} label="URL">
-            <Input id={`${p}-url`} type="url" placeholder="https://" value={url} onChange={(e) => setUrl(e.target.value)} className={FIELD} />
-          </Campo>
-          <Campo id={`${p}-nombre`} label="Nombre del enlace">
-            <Input id={`${p}-nombre`} value={nombreEnlace} onChange={(e) => setNombreEnlace(e.target.value)} className={FIELD} />
-          </Campo>
-        </>
+      )}
+
+      {!enCorreccion && (
+        <div className="flex flex-col gap-2 sm:col-span-2">
+          <p className="text-[12px] text-ink-600">Soportes</p>
+          {filasSoporte.map((fila, indice) => {
+            // La primera fila conserva los nombres de siempre; las siguientes los numeran para que cada control
+            // tenga un id propio y un lector de pantalla no oiga cinco veces «URL».
+            const numero = indice + 1;
+            const sufijo = numero === 1 ? "" : ` ${numero}`;
+            const idFila = `${p}-soporte-${fila.clave}`;
+            const conError = intentoSoporte && filaIncompleta(fila);
+            return (
+              <fieldset
+                key={fila.clave}
+                aria-invalid={conError || undefined}
+                aria-describedby={conError ? `${idFila}-error` : undefined}
+                className="flex flex-col gap-2 rounded-inner border border-border bg-panel p-2 sm:grid sm:grid-cols-2"
+              >
+                <legend className="px-1 text-[12px] text-ink-600">{numero === 1 ? "Soporte" : `Soporte ${numero}`}</legend>
+                <div className="flex flex-wrap items-center gap-4 sm:col-span-2">
+                  {(
+                    [
+                      ["archivo", "Archivo"],
+                      ["enlace", "Enlace"],
+                    ] as const
+                  ).map(([valorMedio, label]) => (
+                    <label key={valorMedio} className={CAPTURE_CHOICE}>
+                      <input
+                        type="radio"
+                        name={`${idFila}-medio`}
+                        value={valorMedio}
+                        checked={fila.tipo === valorMedio}
+                        onChange={() => cambiarSoporte(fila.clave, { tipo: valorMedio })}
+                      />
+                      {`${label}${sufijo}`}
+                    </label>
+                  ))}
+                </div>
+
+                {fila.tipo === "archivo" ? (
+                  <Campo id={`${idFila}-archivo`} label={`Archivo del soporte${sufijo}`} className="sm:col-span-2">
+                    {fila.archivo ? (
+                      <div className="flex min-h-11 items-center gap-2 text-[12.5px] text-ink-800 md:min-h-0">
+                        <span className="truncate">{fila.archivo.name}</span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className={CAPTURE_BUTTON}
+                          onClick={() => cambiarSoporte(fila.clave, { archivo: null })}
+                        >
+                          Quitar
+                        </Button>
+                      </div>
+                    ) : (
+                      <SelectorArchivo id={`${idFila}-archivo`} onChange={(archivo) => cambiarSoporte(fila.clave, { archivo })} />
+                    )}
+                  </Campo>
+                ) : (
+                  <>
+                    <Campo id={`${idFila}-url`} label={`URL${sufijo}`}>
+                      <Input
+                        id={`${idFila}-url`}
+                        type="url"
+                        placeholder="https://"
+                        value={fila.url}
+                        onChange={(e) => cambiarSoporte(fila.clave, { url: e.target.value })}
+                        className={FIELD}
+                      />
+                    </Campo>
+                    <Campo id={`${idFila}-nombre`} label={`Nombre del enlace${sufijo}`}>
+                      <Input
+                        id={`${idFila}-nombre`}
+                        value={fila.nombre}
+                        onChange={(e) => cambiarSoporte(fila.clave, { nombre: e.target.value })}
+                        className={FIELD}
+                      />
+                    </Campo>
+                  </>
+                )}
+
+                {conError && (
+                  <div id={`${idFila}-error`} className="sm:col-span-2">
+                    <InlineError message={SIN_SOPORTE_TEXT} />
+                  </div>
+                )}
+
+                {numero > 1 && (
+                  <div className="sm:col-span-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className={CAPTURE_BUTTON}
+                      aria-label={`Quitar soporte ${numero}`}
+                      onClick={() => quitarSoporte(fila.clave)}
+                    >
+                      Quitar
+                    </Button>
+                  </div>
+                )}
+              </fieldset>
+            );
+          })}
+          <div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className={CAPTURE_BUTTON}
+              disabled={!puedeAgregarSoporte || pending}
+              onClick={agregarSoporte}
+            >
+              Agregar otro soporte
+            </Button>
+          </div>
+        </div>
       )}
 
       <div className="flex items-center gap-2 sm:col-span-2">
-        <Button type="submit" size="sm" className={CAPTURE_BUTTON} disabled={create.isPending}>
-          Registrar
+        <Button type="submit" size="sm" className={CAPTURE_BUTTON} disabled={pending}>
+          {enCorreccion ? "Guardar cambios" : "Registrar"}
         </Button>
-        <Button type="button" size="sm" variant="ghost" className={CAPTURE_BUTTON} disabled={create.isPending} onClick={onDone}>
+        <Button type="button" size="sm" variant="ghost" className={CAPTURE_BUTTON} disabled={pending} onClick={onDone}>
           Cancelar
         </Button>
       </div>
-      <InlineError
-        message={local ?? (create.isError ? errorMessage(create.error, "No pudimos registrar el gasto. Inténtalo de nuevo.") : null)}
-        className="sm:col-span-2"
-      />
+      <InlineError message={local ?? errorGuardado} className="sm:col-span-2" />
     </form>
   );
 }
