@@ -50,6 +50,7 @@ const filaActividad = {
   id: "act-1",
   proyecto_id: "pry-1",
   objetivo_id: "obj-1",
+  tipo: "NORMAL",
   codigo: "1.4",
   nombre: "Taller de costura",
   semana_inicio: 3,
@@ -60,6 +61,11 @@ const filaActividad = {
   deleted_at: null,
 };
 const cuerpo = { objetivo_id: "obj-1", codigo: "1.4", nombre: "Taller de costura", semana_inicio: 3, semana_fin: 6 };
+// S6: «en las transversales el objetivo va vacío».
+const cuerpoTransversal = { codigo: "G-1", nombre: "Coordinación del proyecto", semana_inicio: 1, semana_fin: 17 };
+
+const OBJETIVO_OBLIGATORIO = "El objetivo es obligatorio.";
+const TRANSVERSAL_CON_OBJETIVO = "Una actividad transversal no puede tener un objetivo.";
 
 const ctx = { params: Promise.resolve({ id: "pry-1" }) };
 
@@ -111,6 +117,7 @@ describe("GET /api/v1/projects/:id/activities", () => {
     expect(json.actividades).toHaveLength(1);
     expect(json.actividades[0]).toMatchObject({
       id: "act-1",
+      tipo: "NORMAL",
       semana_inicio: 3,
       semana_fin: 6,
       fecha_inicio: "2026-10-19",
@@ -205,6 +212,7 @@ describe("POST /api/v1/projects/:id/activities", () => {
     expect(data).toMatchObject({
       proyecto_id: "pry-1",
       objetivo_id: "obj-1",
+      tipo: "NORMAL",
       codigo: "1.4",
       nombre: "Taller de costura",
       semana_inicio: 3,
@@ -224,6 +232,71 @@ describe("POST /api/v1/projects/:id/activities", () => {
         proyecto_id: "pry-1",
       }),
     );
+  });
+
+  it("creates a TRANSVERSAL with no objective, stored as TRANSVERSAL and a null objective", async () => {
+    mocks.txCreate.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
+      ...filaActividad,
+      ...data,
+    }));
+
+    for (const body of [
+      { ...cuerpoTransversal, tipo: "TRANSVERSAL" },
+      { ...cuerpoTransversal, tipo: "TRANSVERSAL", objetivo_id: null },
+    ]) {
+      mocks.txCreate.mockClear();
+      const res = await POST(post(body), ctx);
+      const json = await res.json();
+      expect(res.status).toBe(201);
+      expect(mocks.txCreate).toHaveBeenCalledTimes(1);
+      expect(mocks.txCreate.mock.calls[0][0].data).toMatchObject({ tipo: "TRANSVERSAL", objetivo_id: null });
+      expect(json.actividad).toMatchObject({ tipo: "TRANSVERSAL", objetivo_id: null, peso: 17 });
+    }
+    // Nothing to look up: a transversal has no objective to validate.
+    expect(db.objetivo.findFirst).not.toHaveBeenCalled();
+    expect(logChange).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ valor_nuevo: expect.objectContaining({ tipo: "TRANSVERSAL", objetivo_id: null }) }),
+    );
+  });
+
+  it("rejects a TRANSVERSAL that carries an objective, and writes nothing", async () => {
+    const res = await POST(post({ ...cuerpo, tipo: "TRANSVERSAL" }), ctx);
+    const json = await res.json();
+    expect(res.status).toBe(400);
+    expect(json).toMatchObject({ code: "VALIDATION_ERROR", error: TRANSVERSAL_CON_OBJETIVO });
+    expect(mocks.txCreate).not.toHaveBeenCalled();
+    expect(db.objetivo.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("keeps rejecting a NORMAL with no objective", async () => {
+    for (const body of [
+      { ...cuerpo, tipo: "NORMAL", objetivo_id: undefined },
+      { ...cuerpo, tipo: "NORMAL", objetivo_id: null },
+      { ...cuerpo, objetivo_id: undefined },
+    ]) {
+      const res = await POST(post(body), ctx);
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toBe(OBJETIVO_OBLIGATORIO);
+    }
+    expect(mocks.txCreate).not.toHaveBeenCalled();
+  });
+
+  it("defaults tipo to NORMAL when the body omits it (every previous caller)", async () => {
+    const res = await POST(post(cuerpo), ctx);
+    expect(res.status).toBe(201);
+    expect(mocks.txCreate.mock.calls[0][0].data).toMatchObject({ tipo: "NORMAL", objetivo_id: "obj-1" });
+    expect(logChange).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ valor_nuevo: expect.objectContaining({ tipo: "NORMAL" }) }),
+    );
+  });
+
+  it("rejects a tipo outside Normal/Transversal", async () => {
+    const res = await POST(post({ ...cuerpo, tipo: "OTRA" }), ctx);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("El tipo debe ser Normal o Transversal.");
+    expect(mocks.txCreate).not.toHaveBeenCalled();
   });
 
   it("rejects a supplied weight field as unknown", async () => {

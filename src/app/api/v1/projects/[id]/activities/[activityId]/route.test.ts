@@ -45,6 +45,7 @@ const fila = {
   id: "act-1",
   proyecto_id: "pry-1",
   objetivo_id: "obj-1",
+  tipo: "NORMAL",
   codigo: "1.4",
   nombre: "Taller de costura",
   semana_inicio: 3,
@@ -54,6 +55,11 @@ const fila = {
   updated_at: new Date("2026-10-08T12:00:00.000Z"),
   deleted_at: null,
 };
+
+const filaTransversal = { ...fila, objetivo_id: null, tipo: "TRANSVERSAL" };
+
+const OBJETIVO_OBLIGATORIO = "El objetivo es obligatorio.";
+const TRANSVERSAL_CON_OBJETIVO = "Una actividad transversal no puede tener un objetivo.";
 
 const ctx = { params: Promise.resolve({ id: "pry-1", activityId: "act-1" }) };
 
@@ -131,6 +137,40 @@ describe("PATCH /api/v1/projects/:id/activities/:activityId", () => {
     expect(rows.every((row) => row.accion === "EDITAR" && row.entidad === "actividad" && row.proyecto_id === "pry-1")).toBe(true);
   });
 
+  it("switches to TRANSVERSAL and clears the objective in the same write, auditing both fields", async () => {
+    const res = await PATCH(patch({ tipo: "TRANSVERSAL" }), ctx);
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(mocks.txUpdate).toHaveBeenCalledTimes(1);
+    expect(mocks.txUpdate.mock.calls[0][0].data).toEqual({ tipo: "TRANSVERSAL", objetivo_id: null });
+    expect(json.actividad).toMatchObject({ tipo: "TRANSVERSAL", objetivo_id: null });
+    expect(db.objetivo.findFirst).not.toHaveBeenCalled();
+    const rows = vi.mocked(logChanges).mock.calls[0][1];
+    expect(rows.map((row) => row.campo)).toEqual(["objetivo_id", "tipo"]);
+  });
+
+  it("rejects giving an objective to a TRANSVERSAL", async () => {
+    vi.mocked(db.actividad.findFirst).mockResolvedValue(filaTransversal as never);
+    const res = await PATCH(patch({ objetivo_id: "obj-2" }), ctx);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe(TRANSVERSAL_CON_OBJETIVO);
+    expect(mocks.txUpdate).not.toHaveBeenCalled();
+  });
+
+  it("switching back to NORMAL requires an objective, and accepts it in the same patch", async () => {
+    vi.mocked(db.actividad.findFirst).mockResolvedValue(filaTransversal as never);
+
+    const sinObjetivo = await PATCH(patch({ tipo: "NORMAL" }), ctx);
+    expect(sinObjetivo.status).toBe(400);
+    expect((await sinObjetivo.json()).error).toBe(OBJETIVO_OBLIGATORIO);
+    expect(mocks.txUpdate).not.toHaveBeenCalled();
+
+    const res = await PATCH(patch({ tipo: "NORMAL", objetivo_id: "obj-2" }), ctx);
+    expect(res.status).toBe(200);
+    expect(mocks.txUpdate.mock.calls[0][0].data).toEqual({ tipo: "NORMAL", objetivo_id: "obj-2" });
+    expect((await res.json()).actividad).toMatchObject({ tipo: "NORMAL", objetivo_id: "obj-2" });
+  });
+
   it("rejects a peso field in the patch as unknown", async () => {
     expect((await PATCH(patch({ peso: 2.5 }), ctx)).status).toBe(400);
     expect(mocks.txUpdate).not.toHaveBeenCalled();
@@ -153,6 +193,12 @@ describe("PATCH /api/v1/projects/:id/activities/:activityId", () => {
     vi.mocked(db.usuario.findFirst).mockClear();
     expect((await PATCH(patch({ responsable_id: null }), ctx)).status).toBe(200);
     expect(db.usuario.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("keeps auditing only the fields a NORMAL patch really changes", async () => {
+    await PATCH(patch({ nombre: "Taller de costura inicial" }), ctx);
+    expect(mocks.txUpdate.mock.calls[0][0].data).toEqual({ nombre: "Taller de costura inicial" });
+    expect(vi.mocked(logChanges).mock.calls[0][1].map((row) => row.campo)).toEqual(["nombre"]);
   });
 
   it("flags nothing as changed when the values are the same (no audit row, still 200)", async () => {

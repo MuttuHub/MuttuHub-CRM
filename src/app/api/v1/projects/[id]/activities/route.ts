@@ -9,6 +9,13 @@
 // project (and the composite foreign key makes anything else impossible even if
 // this check were bypassed). The duplicate-code conflict is the partial unique
 // index `actividades_codigo_activo_uq` (P2002 -> 409).
+//
+// S6 (EV-02): every activity has a `tipo`, Normal or Transversal. The body may
+// omit it, and then it is NORMAL — what every caller before S6 meant. The
+// objective is conditional on the type: a NORMAL requires one, a TRANSVERSAL
+// forbids it. The pair is checked here as a 400 so the
+// `actividades_tipo_objetivo_check` CHECK is the safety net, never the way the
+// client learns the rule.
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -29,7 +36,7 @@ import {
   parseEstructuraBody,
   ESTRUCTURA_STATE_MESSAGE,
 } from "@/lib/api/estructura";
-import { toActividadV2View, validarSemanas } from "@/lib/proyectos/actividad";
+import { toActividadV2View, validarSemanas, type TipoActividad } from "@/lib/proyectos/actividad";
 import { durationWeeks } from "@/lib/proyectos/weeks";
 import { lockProyectoBorrador } from "@/lib/api/presupuesto";
 
@@ -40,6 +47,9 @@ type RouteContext = { params: Promise<{ id: string }> };
 export const ACTIVIDAD_INDEX = "actividades_codigo_activo_uq";
 export const ACTIVIDAD_DUPLICATE_MESSAGE = "Ya existe una actividad con ese código en el proyecto.";
 export const SIN_FECHAS_MESSAGE = "Define las fechas del proyecto antes de crear actividades.";
+export const OBJETIVO_OBLIGATORIO_MESSAGE = "El objetivo es obligatorio.";
+export const TRANSVERSAL_CON_OBJETIVO_MESSAGE = "Una actividad transversal no puede tener un objetivo.";
+export const TIPO_INVALIDO_MESSAGE = "El tipo debe ser Normal o Transversal.";
 
 const semanaField = z
   .number({ error: "La semana debe ser un número entero." })
@@ -54,7 +64,15 @@ const nombreField = z
 /** Dates are derived from the weeks, so `fecha_*` is an unknown key and a 400 (strict). */
 export const ACTIVIDAD_CREATE_SCHEMA = z
   .object({
-    objetivo_id: z.string({ error: "El objetivo es obligatorio." }).min(1, "El objetivo es obligatorio."),
+    // Conditional on `tipo` (S6): required for NORMAL, absent or null for TRANSVERSAL. The pair is
+    // judged together by `checkTipoObjetivo`, because a zod field cannot see its sibling.
+    objetivo_id: z
+      .string({ error: OBJETIVO_OBLIGATORIO_MESSAGE })
+      .min(1, OBJETIVO_OBLIGATORIO_MESSAGE)
+      .nullable()
+      .optional(),
+    // Optional on purpose: omitted means NORMAL, the type of every activity that existed before S6.
+    tipo: z.enum(["NORMAL", "TRANSVERSAL"], { error: TIPO_INVALIDO_MESSAGE }).optional(),
     codigo: codigoField,
     nombre: nombreField,
     semana_inicio: semanaField,
@@ -64,6 +82,25 @@ export const ACTIVIDAD_CREATE_SCHEMA = z
   .strict();
 
 export type ActividadCreate = z.infer<typeof ACTIVIDAD_CREATE_SCHEMA>;
+
+export type TipoObjetivoValidation = { ok: true } | { ok: false; message: string };
+
+/**
+ * S6: the type and the objective cannot contradict each other — `NORMAL` requires an objective and
+ * `TRANSVERSAL` forbids it («en las transversales el objetivo va vacío»). Same rule as the
+ * `actividades_tipo_objetivo_check` CHECK, answered as a 400 before any write.
+ */
+export function checkTipoObjetivo(
+  tipo: TipoActividad,
+  objetivoId: string | null | undefined,
+): TipoObjetivoValidation {
+  if (tipo === "TRANSVERSAL") {
+    return objetivoId === null || objetivoId === undefined
+      ? { ok: true }
+      : { ok: false, message: TRANSVERSAL_CON_OBJETIVO_MESSAGE };
+  }
+  return objetivoId ? { ok: true } : { ok: false, message: OBJETIVO_OBLIGATORIO_MESSAGE };
+}
 
 /**
  * Week bounds against the project's current duration; a project without dates
@@ -122,11 +159,20 @@ export const POST = withApiErrorHandling(
     if (!body.ok) return body.response;
     const input = body.value;
 
+    // S6: the type decides whether the objective is required or forbidden, so the pair is settled
+    // before the body meets the project.
+    const tipo = input.tipo ?? "NORMAL";
+    const objetivoId = input.objetivo_id ?? null;
+    const incoherente = checkTipoObjetivo(tipo, objetivoId);
+    if (!incoherente.ok) return apiError(incoherente.message, 400, "VALIDATION_ERROR");
+
     const fueraDeRango = checkSemanasEnProyecto(gate.value, input.semana_inicio, input.semana_fin);
     if (fueraDeRango) return fueraDeRango;
 
-    const objetivoAjeno = await checkObjetivoDelProyecto(id, input.objetivo_id);
-    if (objetivoAjeno) return objetivoAjeno;
+    if (objetivoId !== null) {
+      const objetivoAjeno = await checkObjetivoDelProyecto(id, objetivoId);
+      if (objetivoAjeno) return objetivoAjeno;
+    }
 
     if (input.responsable_id) {
       const inactivo = await checkResponsableActivo(input.responsable_id);
@@ -139,7 +185,8 @@ export const POST = withApiErrorHandling(
         const created = await tx.actividad.create({
           data: {
             proyecto_id: id,
-            objetivo_id: input.objetivo_id,
+            objetivo_id: objetivoId,
+            tipo,
             codigo: input.codigo,
             nombre: input.nombre,
             semana_inicio: input.semana_inicio,
@@ -156,6 +203,7 @@ export const POST = withApiErrorHandling(
           proyecto_id: id,
           valor_nuevo: {
             objetivo_id: created.objetivo_id,
+            tipo: created.tipo,
             codigo: created.codigo,
             nombre: created.nombre,
             semana_inicio: created.semana_inicio,

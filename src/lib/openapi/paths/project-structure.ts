@@ -151,7 +151,18 @@ const ActividadSchema = registry.register(
   z.object({
     id: z.string().uuid(),
     proyecto_id: z.string().uuid(),
-    objetivo_id: z.string().uuid(),
+    objetivo_id: z.string().uuid().nullable().openapi({
+      description:
+        "null en las actividades transversales: «en las transversales el objetivo va vacío» (S6). En las normales es " +
+        "siempre un objetivo vivo del mismo proyecto.",
+    }),
+    tipo: z.enum(["NORMAL", "TRANSVERSAL"]).openapi({
+      description:
+        "Tipo de actividad (S6). Una `TRANSVERSAL` agrupa el trabajo que no es de un solo objetivo, «Gestión del " +
+        "proyecto», no lleva objetivo ni entregables y queda fuera del avance técnico, la curva S técnica y el " +
+        "cumplimiento del cronograma; sí cuenta en presupuesto, programación, registro de gastos y vistas financieras.",
+      example: "NORMAL",
+    }),
     codigo: z.string().openapi({ example: "1.4" }),
     nombre: z.string(),
     semana_inicio: z.number().int().openapi({ example: 3 }),
@@ -195,7 +206,10 @@ registerStructureResource({
     "Las semanas deben cumplir `1 <= semana_inicio <= semana_fin <= duración del proyecto` y el objetivo debe ser uno " +
     "vivo del mismo proyecto, o responde 400. Un proyecto sin fechas responde 400. El peso no se envía ni se edita " +
     "(AJ-02): es siempre la duración en semanas, y enviar `peso` responde 400 como campo desconocido. Las fechas no se " +
-    "aceptan: se derivan de las semanas.",
+    "aceptan: se derivan de las semanas. `tipo` es opcional y por defecto `NORMAL`; una `NORMAL` exige `objetivo_id`, " +
+    "y una `TRANSVERSAL` no lleva objetivo (`objetivo_id` ausente o `null`), o responde 400 en ambos casos. El `tipo` " +
+    "también se edita por PATCH, y el cambio mantiene el par coherente en la misma escritura: pasar a `TRANSVERSAL` " +
+    "vacía el objetivo y volver a `NORMAL` exige enviar uno.",
   deleteConflict:
     "Responde 409 CONFLICT mientras la actividad tenga entregables vivos o registros de beneficiarios no anulados.",
 });
