@@ -183,19 +183,29 @@ function buildBudgetView(input: {
   rubros: readonly RubroRow[];
   lineas: readonly LineaRow[];
 }): BudgetView {
-  const porRubro = new Map(input.lineas.map((l) => [l.rubro_id, l]));
+  // S5/T10: un rubro puede tener varias líneas (una por actividad). El rubro las SUMA; antes el mapa
+  // por rubro se quedaba con la última y la suma perdía el resto, con un orden que ni siquiera era
+  // estable porque la consulta no lleva `orderBy`. Con una sola línea por rubro —todo lo cargado antes
+  // de la Parte 2— el resultado es exactamente el de antes.
+  const lineasPorRubro = new Map<string, LineaRow[]>();
+  for (const linea of input.lineas) {
+    const acumuladas = lineasPorRubro.get(linea.rubro_id);
+    if (acumuladas) acumuladas.push(linea);
+    else lineasPorRubro.set(linea.rubro_id, [linea]);
+  }
   const filas = [...input.rubros]
-    .filter((r) => r.activo || porRubro.has(r.id))
+    .filter((r) => r.activo || lineasPorRubro.has(r.id))
     .sort(compareRubros)
     .map((r): BudgetRubroRow => {
-      const linea = porRubro.get(r.id);
-      const asignado = linea ? toCents(linea.monto_proyectado_cop) : toCents("0");
+      const lineas = lineasPorRubro.get(r.id) ?? [];
+      const asignado = sumCents(lineas.map((l) => toCents(l.monto_proyectado_cop)));
       return {
         rubro_id: r.id,
         codigo: r.codigo,
         nombre: r.nombre,
         activo: r.activo,
-        linea_id: linea?.id ?? null,
+        // Con varias líneas, el renglón es la suma del rubro y no una línea concreta.
+        linea_id: lineas.length === 1 ? lineas[0]!.id : null,
         asignado: fromCents(asignado),
         heredado_pendiente: !r.activo && asignado > toCents("0"),
       };

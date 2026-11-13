@@ -61,8 +61,11 @@ const celdas = [
   ...PERIODOS.map((periodo, i) => ({ id: `c01-${i}`, linea_id: "l01", periodo, valor: new Prisma.Decimal("14875000") })),
   ...PERIODOS.map((periodo, i) => ({ id: `c12-${i}`, linea_id: "l12", periodo, valor: new Prisma.Decimal("6000000") })),
 ];
+// T10: la fuente lleva la línea, que es lo que evita duplicar el ejecutado cuando un rubro tiene varias.
+const LINEA_DE_RUBRO: Record<string, string> = { r01: "l01", r12: "l12" };
 const gasto = (rubroId: string, periodo: string, valor: string, estado = "VALIDADO") => ({
   rubroId,
+  lineaId: LINEA_DE_RUBRO[rubroId] ?? `l-${rubroId}`,
   periodo,
   valor: toCents(valor),
   estado,

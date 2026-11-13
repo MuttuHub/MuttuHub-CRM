@@ -58,12 +58,16 @@ const celda = (lineaId: string, periodo: string, valor: string) => ({
   valor: dinero(valor),
 })
 
-/** Gasto tal como lo selecciona `loadGastosEjecutados`: la fila trae el rubro por su línea. */
-const gasto = (rubroId: string, periodo: string, valor: string, estado = "VALIDADO") => ({
+/**
+ * Gasto tal como lo selecciona `loadGastosEjecutados`: la fila trae la línea, y por ella el rubro.
+ * T10: la línea es lo que impide que dos líneas del mismo rubro se queden con los mismos gastos.
+ */
+const LINEA_DE_RUBRO: Record<string, string> = { r01: "l01", r12: "l12", r99: "l99" }
+const gasto = (rubroId: string, periodo: string, valor: string, estado = "VALIDADO", lineaId?: string) => ({
   periodo,
   monto_cop: dinero(valor),
   estado,
-  linea: { rubro_id: rubroId },
+  linea: { id: lineaId ?? LINEA_DE_RUBRO[rubroId] ?? `l-${rubroId}`, rubro_id: rubroId },
 })
 
 const snapshot = (over: Partial<SnapshotV1> = {}): SnapshotV1 => ({
@@ -174,22 +178,21 @@ describe("calcularFichaFinanciera — A, P y E por rubro", () => {
     expect(value.parametros).toEqual({ tolerancia: 10, retraso: 60, confirmado: true })
   })
 
-  it("dos líneas del mismo rubro reciben los mismos gastos y duplican E en el total", async () => {
-    // Hoy el constraint [proyecto_id, rubro_id] lo impide; T10 lo vuelve legal. La ficha arma una fila
-    // por línea y le pasa a cada una los MISMOS gastos de su rubro_id, así que los 6.500.000 se cuentan
-    // dos veces en el total. Es el dinero que T10 tiene que dejar de duplicar.
+  it("con dos líneas del mismo rubro, cada gasto cuenta en su línea y no se duplica en el total", async () => {
+    // T10: antes la ficha le pasaba a cada línea los mismos gastos de su rubro_id, así que 6.500.000 se
+    // contaban dos veces en el total. Ahora cada gasto va a su línea y el total es lo gastado de verdad.
     mocks.lineas.mockResolvedValue([
       linea("l1", "r12", "R12", "Transporte", 12, "15000000.00"),
       linea("l2", "r12", "R12", "Transporte", 12, "8000000.00"),
     ])
     mocks.celdas.mockResolvedValue([celda("l1", "2026-10", "15000000.00"), celda("l2", "2026-11", "8000000.00")])
-    mocks.gastos.mockResolvedValue([gasto("r12", "2026-11", "6500000.00")])
+    mocks.gastos.mockResolvedValue([gasto("r12", "2026-11", "6500000.00", "VALIDADO", "l1")])
     const value = await ficha()
     expect(value.rubros.map((fila) => fila.codigo)).toEqual(["R12", "R12"])
-    expect(value.rubros.map((fila) => fila.ejecutado)).toEqual(["6500000.00", "6500000.00"])
+    expect(value.rubros.map((fila) => fila.ejecutado)).toEqual(["6500000.00", "0.00"])
     expect(value.total.asignado).toBe("23000000.00")
     expect(value.total.programado).toBe("23000000.00")
-    expect(value.total.ejecutado).toBe("13000000.00")
+    expect(value.total.ejecutado).toBe("6500000.00")
   })
 
   it("base original: A y P salen del snapshot v0 y E de los gastos vivos del rubro", async () => {
@@ -268,7 +271,7 @@ describe("calcularFichaFinanciera — A, P y E por rubro", () => {
     mocks.version.mockResolvedValue({
       snapshot: snapshot({ presupuesto: [{ rubro_codigo: "R12", rubro_nombre: "Transporte", asignado: "25000000.00" }] }),
     })
-    mocks.gastos.mockResolvedValue([gasto("r12", "2026-11", "6500000.00")])
+    mocks.gastos.mockResolvedValue([gasto("r12", "2026-11", "6500000.00", "VALIDADO", "l1")])
     const value = await ficha({ baseParam: "original" })
     expect(value.rubros).toHaveLength(1)
     expect(value.rubros[0]).toMatchObject({ asignado: "25000000.00", ejecutado: "6500000.00" })

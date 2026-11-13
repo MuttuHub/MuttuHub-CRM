@@ -96,11 +96,10 @@ describe("presupuesto — el dinero por rubro (T10)", () => {
     expect(view.diferencia).toBe("0.00")
   })
 
-  it("loadBudgetView, con dos líneas del mismo rubro, se queda con la última y pierde la primera", async () => {
-    // Hoy el constraint [proyecto_id, rubro_id] lo impide en la base; T10 lo vuelve legal. La vista NO
-    // suma las dos líneas: `porRubro` es un Map por rubro_id, así que sólo sobrevive la última y
-    // 15.000.000 desaparecen de `suma` (y falsean `diferencia`, que alimenta la precondición de línea
-    // base). Es el dinero que T10 tiene que rescatar.
+  it("loadBudgetView suma las dos líneas de un mismo rubro en vez de quedarse con una", async () => {
+    // T10: con una línea por actividad, un rubro puede tener varias. Antes el mapa por rubro se
+    // quedaba con la última y 15.000.000 desaparecían de `suma` (falseando `diferencia`, que alimenta la
+    // precondición de la línea base). Ahora el renglón del rubro es su suma y no apunta a una línea.
     const view = await loadBudgetView(
       clientePresupuesto(
         [rubro("r12", "R12", "Transporte", 12)],
@@ -111,9 +110,19 @@ describe("presupuesto — el dinero por rubro (T10)", () => {
       "23000000.00",
     )
     expect(view.rubros).toHaveLength(1)
-    expect(view.rubros[0]).toMatchObject({ rubro_id: "r12", linea_id: "l2", asignado: "8000000.00" })
-    expect(view.suma).toBe("8000000.00")
-    expect(view.diferencia).toBe("-15000000.00")
+    expect(view.rubros[0]).toMatchObject({ rubro_id: "r12", linea_id: null, asignado: "23000000.00" })
+    expect(view.suma).toBe("23000000.00")
+    expect(view.diferencia).toBe("0.00")
+  })
+
+  it("loadBudgetView deja linea_id cuando el rubro tiene una sola línea, como hasta hoy", async () => {
+    const view = await loadBudgetView(
+      clientePresupuesto([rubro("r12", "R12", "Transporte", 12)], [linea("l1", "r12", "15000000.00")]) as never,
+      "pry-1",
+      "BORRADOR",
+      "15000000.00",
+    )
+    expect(view.rubros[0]).toMatchObject({ linea_id: "l1", asignado: "15000000.00" })
   })
 
   it("loadBudgetView conserva el rubro inactivo que todavía tiene línea y deja sin línea al activo que no la tiene", async () => {
