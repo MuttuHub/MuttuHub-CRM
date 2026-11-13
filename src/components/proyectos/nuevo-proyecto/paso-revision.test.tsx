@@ -53,6 +53,7 @@ function presupuesto(partial: Partial<ProjectBudget> = {}): { data: ProjectBudge
   return {
     data: {
       estado: "BORRADOR",
+      lineas: [],
       rubros: [
         { rubro_id: "r1", codigo: "R1", nombre: "Personal", activo: true, linea_id: "l1", asignado: "100000000.00", heredado_pendiente: false },
         { rubro_id: "r2", codigo: "R2", nombre: "Formación", activo: true, linea_id: "l2", asignado: "80000000.00", heredado_pendiente: false },

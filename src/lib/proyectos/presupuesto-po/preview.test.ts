@@ -18,6 +18,7 @@ const fila = (rubro_id: string, codigo: string | null, nombre: string, asignado:
 
 const VIEW: BudgetView = {
   estado: "BORRADOR",
+  lineas: [],
   rubros: [
     fila("r1", "R01", "Personal", "1000.00"),
     fila("r2", "R02", "Consultor", "500.00"),

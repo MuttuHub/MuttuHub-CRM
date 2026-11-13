@@ -32,9 +32,21 @@ const BudgetViewSchema = registry.register(
         asignado: z.string().openapi({ example: "59500000.00", description: "Decimal(15,2) como string." }),
         heredado_pendiente: z.boolean().openapi({ description: "Rubro suspendido con monto pendiente de reasignación." }),
       }),
-    ),
+    ).openapi({ description: "Por rubro: el asignado es la suma de sus líneas (S2). `linea_id` es nulo con 0 o con varias líneas." }),
+    lineas: z.array(
+      z.object({
+        linea_id: z.string().uuid(),
+        actividad_id: z.string().uuid().nullable().openapi({ description: "Nulo en una línea heredada, cargada antes de la Parte 2." }),
+        actividad_codigo: z.string().nullable(),
+        actividad_nombre: z.string().nullable(),
+        rubro_id: z.string().uuid(),
+        rubro_codigo: z.string().nullable(),
+        rubro_nombre: z.string(),
+        valor: z.string().openapi({ example: "15000000.00" }),
+      }),
+    ).openapi({ description: "Una línea por actividad + rubro (S1), por código de actividad; las heredadas al final." }),
     suma: z.string().openapi({ description: "Σ A de todas las líneas." }),
-    valor_total: z.string().nullable(),
+    valor_total: z.string().nullable().openapi({ description: "Suma de las líneas (S2): no se digita." }),
     diferencia: z.string().nullable().openapi({ description: "Σ A − valor_total; nulo sin valor_total." }),
   }),
 );
@@ -63,9 +75,10 @@ registry.registerPath({
   method: "get",
   path: "/api/v1/projects/{id}/budget",
   tags: ["Projects"],
-  summary: "Presupuesto por rubro de un proyecto",
+  summary: "Presupuesto de un proyecto, por línea y por rubro",
   description:
-    `Lista todos los rubros activos (fila virtual en $0 si aún no hay línea) y los rubros suspendidos que conservan una línea. ${READ_NOTE}`,
+    "Lista cada línea (actividad + rubro + valor) y, por rubro, la suma de sus líneas: todos los rubros activos (en $0 si no " +
+    `tienen línea) y los suspendidos que conservan alguna. ${READ_NOTE}`,
   security: [{ sessionCookie: [] }],
   request: { params: ProjectParams },
   responses: {
@@ -80,10 +93,12 @@ registry.registerPath({
   tags: ["Projects"],
   summary: "Reemplaza el presupuesto de un proyecto en Borrador",
   description:
-    `${WRITE_NOTE} El cuerpo debe incluir todos los rubros activos exactamente una vez; los montos son string decimal o número ` +
-    "con máximo dos decimales, no negativos. No rechaza una suma distinta de `valor_total` (la línea base lo exige después) y no " +
-    "sobrescribe `valor_total`, salvo que sea nulo: entonces toma la suma. Las líneas se crean solo con montos > $0 y no se eliminan. " +
-    "Audita un registro por línea cambiada en la misma transacción.",
+    `${WRITE_NOTE} El cuerpo es el presupuesto COMPLETO, una entrada por actividad + rubro; la misma combinación no puede ` +
+    "repetirse. Una línea nueva necesita una actividad viva del proyecto y un rubro activo; una línea existente (también una " +
+    "heredada sin actividad) se puede conservar o cambiar. Una línea que no viaja se elimina con su programación, salvo que " +
+    "tenga gastos (400). Los montos son string decimal o número con máximo dos decimales, no negativos; una línea nueva en $0 " +
+    "no se crea. `valor_total` queda siempre en la suma de las líneas (S2) y la diferencia con la oportunidad se recalcula. " +
+    "Audita un registro por línea creada, cambiada o eliminada en la misma transacción.",
   security: [{ sessionCookie: [] }],
   request: { params: ProjectParams, body: { content: { "application/json": { schema: BUDGET_PUT_SCHEMA } } } },
   responses: {

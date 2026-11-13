@@ -207,7 +207,7 @@ vi.mock("@/hooks/projects", () => ({
     error: null,
   }),
   ...Object.fromEntries(
-    ["useUpdateBudget", "useUpdateProgramming", "useSetValorTotal"].map((name) => [
+    ["useUpdateBudget", "useUpdateProgramming"].map((name) => [
       name,
       () => ({ mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, isError: false, error: null, variables: undefined }),
     ]),

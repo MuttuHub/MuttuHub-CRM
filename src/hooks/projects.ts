@@ -1474,17 +1474,32 @@ export type ProjectBudgetRubro = {
   heredado_pendiente: boolean;
 };
 
+/** S1 (T11): una línea es actividad + rubro + valor. Sin actividad = línea heredada (D9). */
+export type ProjectBudgetLinea = {
+  linea_id: string;
+  actividad_id: string | null;
+  actividad_codigo: string | null;
+  actividad_nombre: string | null;
+  rubro_id: string;
+  rubro_codigo: string | null;
+  rubro_nombre: string;
+  valor: string;
+};
+
 /** `GET/PUT /api/v1/projects/:id/budget`. */
 export type ProjectBudget = {
   estado: EstadoProyecto;
+  /** S2: cada rubro es la suma de sus líneas. */
   rubros: ProjectBudgetRubro[];
+  lineas: ProjectBudgetLinea[];
   suma: string;
   valor_total: string | null;
   /** Σ A − valor_total; nulo sin valor total. */
   diferencia: string | null;
 };
 
-export type ProjectBudgetInput = { rubros: { rubro_id: string; asignado: string }[] };
+/** El presupuesto COMPLETO: una línea que no viaja se elimina (si no tiene gastos). */
+export type ProjectBudgetInput = { lineas: { actividad_id: string | null; rubro_id: string; valor: string }[] };
 
 export type ProjectProgramming = {
   estado: EstadoProyecto;
@@ -1553,24 +1568,6 @@ export function useUpdateProgramming(
   return useMutation({
     mutationFn: (input) => apiPut<ProjectProgramming>(`/api/v1/projects/${projectId}/programming`, input),
     onSuccess: refresh,
-  });
-}
-
-/**
- * "Igualar valor total a Σ A": reutiliza el PATCH existente del proyecto (que
- * ya recalcula la diferencia con la oportunidad y audita). El PATCH recibe el
- * valor como número JSON; la cadena de la suma ya es exacta a dos decimales.
- */
-export function useSetValorTotal(projectId: string): UseMutationResult<unknown, Error, string> {
-  const refresh = useRefreshPresupuesto(projectId);
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (valorTotal) =>
-      apiPatch<unknown>(`/api/v1/projects/${projectId}`, { valor_total: Number(valorTotal) }),
-    onSuccess: () => {
-      refresh();
-      void qc.invalidateQueries({ queryKey: ["projects", "list"] });
-    },
   });
 }
 

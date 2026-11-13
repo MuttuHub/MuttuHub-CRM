@@ -49,10 +49,20 @@ const BUDGET = {
     { rubro_id: "r2", codigo: "R02", nombre: "Alimentación", activo: true, linea_id: null, asignado: "0.00", heredado_pendiente: false },
     { rubro_id: "pop", codigo: null, nombre: "Material POP", activo: false, linea_id: "l9", asignado: "300000.00", heredado_pendiente: true },
   ],
+  // S1: one line per activity + rubro. l9 is a legacy line (D9) on a suspended rubro.
+  lineas: [
+    { linea_id: "l1", actividad_id: "a11", actividad_codigo: "1.1", actividad_nombre: "Taller", rubro_id: "r1", rubro_codigo: "R01", rubro_nombre: "Personal", valor: "59500000.00" },
+    { linea_id: "l9", actividad_id: null, actividad_codigo: null, actividad_nombre: null, rubro_id: "pop", rubro_codigo: null, rubro_nombre: "Material POP", valor: "300000.00" },
+  ],
   suma: "59800000.00",
-  valor_total: "100000000.00",
-  diferencia: "-40200000.00",
+  valor_total: "59800000.00",
+  diferencia: "0.00",
 }
+
+const ACTIVIDADES = [
+  { id: "a11", codigo: "1.1", nombre: "Taller" },
+  { id: "a12", codigo: "1.2", nombre: "Feria" },
+]
 
 const PROGRAMMING = {
   estado: "BORRADOR",
@@ -84,6 +94,7 @@ describe("ProjectPresupuesto", () => {
         return Promise.resolve(jsonResponse({ usuario: { id: "u1", nombre: "Ana", rol } }))
       }
       if (url.endsWith("/budget")) return Promise.resolve(jsonResponse(budget))
+      if (url.endsWith("/activities")) return Promise.resolve(jsonResponse({ actividades: ACTIVIDADES }))
       if (url.endsWith("/expenses")) return Promise.resolve(jsonResponse({ gastos }))
       if (url.endsWith("/programming")) {
         return Promise.resolve(
@@ -109,63 +120,131 @@ describe("ProjectPresupuesto", () => {
     vi.unstubAllGlobals()
   })
 
-  it("lists every rubro, including the virtual $0 row, with money formatted", async () => {
+  const bodyDelPut = () => {
+    const [url, init] = writes("PUT").find(([u]) => String(u).endsWith("/budget"))!
+    expect(String(url)).toBe("/api/v1/projects/p1/budget")
+    return JSON.parse(String((init as RequestInit).body))
+  }
+
+  it("lists each line under its activity, the legacy line under «Sin actividad», with money formatted (S1)", async () => {
     setup()
 
-    const tabla = await screen.findByTestId("presupuesto-tabla")
-    const filas = within(tabla).getAllByTestId("presupuesto-fila")
-    expect(filas).toHaveLength(3)
-    expect(filas[0]).toHaveTextContent("R01")
+    const lineas = await screen.findByTestId("presupuesto-lineas")
+    const filas = within(lineas).getAllByTestId("presupuesto-linea")
+    expect(filas).toHaveLength(2)
+    expect(within(lineas).getByText("1.1 · Taller")).toBeInTheDocument()
+    expect(within(lineas).getByText("Sin actividad")).toBeInTheDocument()
     expect(filas[0]).toHaveTextContent("Personal")
-    expect(within(tabla).getByLabelText("Asignado R01")).toHaveValue("59.500.000")
-    expect(within(tabla).getByLabelText("Asignado R02")).toHaveValue("0")
+    expect(within(lineas).getByLabelText("Valor 1.1 R01")).toHaveValue("59.500.000")
   })
 
-  it("marks a suspended rubro that still holds an amount as pending reassignment", async () => {
+  it("shows each rubro as the sum of its lines, live, so two lines of a rubro add up (S2, S6)", async () => {
+    const user = userEvent.setup()
     setup()
+    await screen.findByTestId("presupuesto-lineas")
 
-    const tabla = await screen.findByTestId("presupuesto-tabla")
-    expect(within(tabla).getByText("Rubro suspendido pendiente de reasignación")).toBeInTheDocument()
+    // S6: one activity with Formación and Transporte; here 1.2 adds a second Personal line.
+    // Activities arrive after the budget, as in the app.
+    await screen.findByRole("option", { name: "1.2 Feria" })
+    await user.selectOptions(screen.getByLabelText("Actividad de la nueva línea"), "a12")
+    await user.selectOptions(screen.getByLabelText("Rubro de la nueva línea"), "r1")
+    await user.type(screen.getByLabelText("Valor de la nueva línea"), "500000")
+    await user.click(screen.getByRole("button", { name: "Agregar línea" }))
+
+    const tabla = screen.getByTestId("presupuesto-tabla")
+    const personal = within(tabla).getAllByTestId("presupuesto-fila")[0]!
+    expect(personal).toHaveTextContent("Personal")
+    expect(personal).toHaveTextContent("$ 60.000.000")
+    expect(screen.getByTestId("presupuesto-resumen")).toHaveTextContent("$ 60.300.000")
   })
 
-  it("shows the live difference between the sum and the project value as the amounts change", async () => {
+  it("shows the project value as the sum of the lines, never as a field to type (S2)", async () => {
     const user = userEvent.setup()
     setup()
 
     const resumen = await screen.findByTestId("presupuesto-resumen")
-    expect(resumen).toHaveTextContent("$ 59.800.000")
-    expect(resumen).toHaveTextContent("$ 100.000.000")
-    expect(resumen).toHaveTextContent("-$ 40.200.000")
+    expect(within(resumen).getByText("Valor total")).toBeInTheDocument()
+    expect(resumen).toHaveTextContent("Se calcula sumando las líneas")
+    expect(resumen).not.toHaveTextContent("Diferencia")
+    expect(screen.queryByRole("button", { name: "Usar la suma como valor total" })).not.toBeInTheDocument()
 
-    const campo = screen.getByLabelText("Asignado R02")
+    const campo = screen.getByLabelText("Valor 1.1 R01")
     await user.clear(campo)
-    await user.type(campo, "40200000")
+    await user.type(campo, "40000000")
     await user.tab()
-    expect(campo).toHaveValue("40.200.000")
-    expect(resumen).toHaveTextContent("Diferencia")
-    expect(resumen).toHaveTextContent("$ 0")
-    expect(resumen).not.toHaveTextContent("-$ 40.200.000")
+    expect(resumen).toHaveTextContent("$ 40.300.000")
   })
 
-  it("submits every rubro amount as a decimal string (comma decimals included)", async () => {
+  it("submits every line as activity + rubro + a decimal string (comma decimals included)", async () => {
     const user = userEvent.setup()
     setup()
 
-    const campo = await screen.findByLabelText("Asignado R02")
+    const campo = await screen.findByLabelText("Valor 1.1 R01")
     await user.clear(campo)
     await user.type(campo, "1500000,5")
     await user.click(screen.getByRole("button", { name: "Guardar presupuesto" }))
 
     await waitFor(() => expect(writes("PUT").length).toBeGreaterThan(0))
-    const [url, init] = writes("PUT").find(([u]) => String(u).endsWith("/budget"))!
-    expect(String(url)).toBe("/api/v1/projects/p1/budget")
-    expect(JSON.parse(String((init as RequestInit).body))).toEqual({
-      rubros: [
-        { rubro_id: "r1", asignado: "59500000.00" },
-        { rubro_id: "r2", asignado: "1500000.50" },
-        { rubro_id: "pop", asignado: "300000.00" },
+    expect(bodyDelPut()).toEqual({
+      lineas: [
+        { actividad_id: "a11", rubro_id: "r1", valor: "1500000.50" },
+        { actividad_id: null, rubro_id: "pop", valor: "300000.00" },
       ],
     })
+  })
+
+  it("adds a line for an activity that already has another rubro, and sends it (S1)", async () => {
+    const user = userEvent.setup()
+    setup()
+    await screen.findByTestId("presupuesto-lineas")
+
+    // Activities arrive after the budget, as in the app.
+    await screen.findByRole("option", { name: "1.1 Taller" })
+    await user.selectOptions(screen.getByLabelText("Actividad de la nueva línea"), "a11")
+    await user.selectOptions(screen.getByLabelText("Rubro de la nueva línea"), "r2")
+    await user.type(screen.getByLabelText("Valor de la nueva línea"), "8000000")
+    await user.click(screen.getByRole("button", { name: "Agregar línea" }))
+    expect(screen.getByLabelText("Valor 1.1 R02")).toHaveValue("8.000.000")
+    await user.click(screen.getByRole("button", { name: "Guardar presupuesto" }))
+
+    await waitFor(() => expect(writes("PUT").length).toBeGreaterThan(0))
+    expect(bodyDelPut().lineas).toContainEqual({ actividad_id: "a11", rubro_id: "r2", valor: "8000000.00" })
+  })
+
+  it("only offers active rubros for a new line", async () => {
+    setup()
+    const rubro = await screen.findByLabelText("Rubro de la nueva línea")
+    const opciones = within(rubro).getAllByRole("option").map((o) => o.textContent)
+    expect(opciones).toContain("R02 Alimentación")
+    expect(opciones).not.toContain("Material POP")
+  })
+
+  it("refuses the same activity + rubro twice, locally (S5)", async () => {
+    const user = userEvent.setup()
+    setup()
+    await screen.findByTestId("presupuesto-lineas")
+
+    // Activities arrive after the budget, as in the app.
+    await screen.findByRole("option", { name: "1.1 Taller" })
+    await user.selectOptions(screen.getByLabelText("Actividad de la nueva línea"), "a11")
+    await user.selectOptions(screen.getByLabelText("Rubro de la nueva línea"), "r1")
+    await user.type(screen.getByLabelText("Valor de la nueva línea"), "1")
+    await user.click(screen.getByRole("button", { name: "Agregar línea" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("ya está en el presupuesto")
+    expect(screen.getAllByTestId("presupuesto-linea")).toHaveLength(2)
+  })
+
+  it("removes a line, which is then left out of the request", async () => {
+    const user = userEvent.setup()
+    setup()
+
+    await user.click(await screen.findByRole("button", { name: "Quitar línea 1.1 R01" }))
+    expect(screen.getAllByTestId("presupuesto-linea")).toHaveLength(1)
+    await user.click(screen.getByRole("button", { name: "Guardar presupuesto" }))
+
+    await waitFor(() => expect(writes("PUT").length).toBeGreaterThan(0))
+    expect(bodyDelPut()).toEqual({ lineas: [{ actividad_id: null, rubro_id: "pop", valor: "300000.00" }] })
   })
 
   it.each([
@@ -173,11 +252,11 @@ describe("ProjectPresupuesto", () => {
     ["1.234.567{backspace}", "1.234.56"],
     ["1.500,505", "1.500,505"],
     ["1234.50", "1234.50"],
-  ])("never reinterprets the allocation %j: it is rejected and not sent", async (typed, shown) => {
+  ])("never reinterprets the value %j: it is rejected and not sent", async (typed, shown) => {
     const user = userEvent.setup()
     setup()
 
-    const campo = await screen.findByLabelText("Asignado R02")
+    const campo = await screen.findByLabelText("Valor 1.1 R01")
     await user.clear(campo)
     await user.type(campo, typed)
     await user.tab()
@@ -192,22 +271,21 @@ describe("ProjectPresupuesto", () => {
     const user = userEvent.setup()
     setup()
 
-    const campo = await screen.findByLabelText("Asignado R02")
+    const campo = await screen.findByLabelText("Valor 1.1 R01")
     await user.clear(campo)
     await user.click(campo)
     await user.paste("1.234.567,50")
     await user.click(screen.getByRole("button", { name: "Guardar presupuesto" }))
 
     await waitFor(() => expect(writes("PUT").length).toBeGreaterThan(0))
-    const [, init] = writes("PUT").find(([u]) => String(u).endsWith("/budget"))!
-    expect(JSON.parse(String((init as RequestInit).body)).rubros).toContainEqual({ rubro_id: "r2", asignado: "1234567.50" })
+    expect(bodyDelPut().lineas).toContainEqual({ actividad_id: "a11", rubro_id: "r1", valor: "1234567.50" })
   })
 
   it("rejects an invalid amount locally and does not call the API", async () => {
     const user = userEvent.setup()
     setup()
 
-    const campo = await screen.findByLabelText("Asignado R02")
+    const campo = await screen.findByLabelText("Valor 1.1 R01")
     await user.clear(campo)
     await user.type(campo, "12abc")
     await user.click(screen.getByRole("button", { name: "Guardar presupuesto" }))
@@ -216,23 +294,11 @@ describe("ProjectPresupuesto", () => {
     expect(writes("PUT")).toHaveLength(0)
   })
 
-  it("equalizes the project value to the sum through the existing PATCH", async () => {
-    const user = userEvent.setup()
+  it("marks a suspended rubro that still holds an amount as pending reassignment", async () => {
     setup()
 
-    await user.click(await screen.findByRole("button", { name: "Usar la suma como valor total" }))
-
-    await waitFor(() => expect(writes("PATCH")).toHaveLength(1))
-    const [url, init] = writes("PATCH")[0]
-    expect(String(url)).toBe("/api/v1/projects/p1")
-    expect(JSON.parse(String((init as RequestInit).body))).toEqual({ valor_total: 59800000 })
-  })
-
-  it("does not offer the equalize button when the sum already matches the value", async () => {
-    setup({ budget: { ...BUDGET, valor_total: "59800000.00", diferencia: "0.00" } })
-
-    await screen.findByTestId("presupuesto-resumen")
-    expect(screen.queryByRole("button", { name: "Usar la suma como valor total" })).not.toBeInTheDocument()
+    const tabla = await screen.findByTestId("presupuesto-tabla")
+    expect(within(tabla).getByText("Rubro suspendido pendiente de reasignación")).toBeInTheDocument()
   })
 
   it("renders one programming column per project month, with legible months, and the control per rubro", async () => {
@@ -296,7 +362,6 @@ describe("ProjectPresupuesto", () => {
 
     const resumen = await screen.findByTestId("presupuesto-resumen")
     expect(within(resumen).getByText("Total asignado")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Usar la suma como valor total" })).toBeInTheDocument()
     const grid = await screen.findByTestId("programacion-grid")
     expect(within(grid).getByRole("columnheader", { name: "Falta por programar" })).toBeInTheDocument()
     expect(screen.getByTestId("presupuesto")).not.toHaveTextContent(/Σ|Control/)
