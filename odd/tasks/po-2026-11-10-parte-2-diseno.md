@@ -83,6 +83,9 @@ de copiar datos y un flujo de «proyecto nuevo», sin tocar el modelo.
 
 ## 6. Preguntas para la PO (antes de `T11`)
 
+Versión para enviar a la PO, sin jerga y con el costo de cada respuesta: `docs/preguntas-po-parte-2.md`.
+
+
 1. **¿Una actividad puede tener varios rubros a la vez?** `S5` dice «presupuesto por actividad y rubro»; el diseño lo
    asume sí (una línea por par). Si la respuesta es «una actividad, un rubro», el modelo es más simple y `T10` baja a `M`.
 2. **¿El monto asignado sigue siendo la suma de la programación mensual por línea?** Hoy es así y `validarModificacion`
