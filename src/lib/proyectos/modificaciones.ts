@@ -214,14 +214,15 @@ export function applyModificacion(
       case "presupuesto": {
         const fila = lineas.get(item.clave)
         if (fila) fila.asignado = despues
-        else lineas.set(item.clave, { rubro_codigo: item.clave, rubro_nombre: catalogo.get(item.clave) ?? item.clave, asignado: despues })
+        // A line a request creates has no activity: its key is the bare rubro, as the live reader derives it.
+        else lineas.set(item.clave, { rubro_codigo: item.clave, codigo_linea: item.clave, rubro_nombre: catalogo.get(item.clave) ?? item.clave, asignado: despues })
         break
       }
       case "programacion": {
         const [, rubro = "", periodo = ""] = CLAVE_CELDA.exec(item.clave) ?? []
         const fila = celdas.get(item.clave)
         if (fila) fila.valor = despues
-        else celdas.set(item.clave, { rubro_codigo: rubro, periodo, valor: despues })
+        else celdas.set(item.clave, { rubro_codigo: rubro, codigo_linea: rubro, periodo, valor: despues })
         break
       }
       case "proyecto":

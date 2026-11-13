@@ -85,6 +85,18 @@ describe("applyModificacion", () => {
     expect(sin.programacion.some((c) => c.rubro_codigo === "R15")).toBe(false)
   })
 
+  it("a line created by a request carries its line key, as the live reader derives it for a legacy line (T10)", () => {
+    // aplicarModificacion re-reads the project and compares snapshots: without the key the new line
+    // never matches what was written and every ADICION with a new rubro is rolled back.
+    const nuevo = applyModificacion(
+      liveF_V1(),
+      { tipo: "ADICION", detalle: [presupuesto("R20", "0", "100"), celda("R20|2026-10", "0", "100")] },
+      new Map([["R20", "Imprevistos"]]),
+    )
+    expect(nuevo.presupuesto.find((r) => r.rubro_codigo === "R20")).toMatchObject({ codigo_linea: "R20" })
+    expect(nuevo.programacion.find((c) => c.rubro_codigo === "R20")).toMatchObject({ codigo_linea: "R20" })
+  })
+
   it("CRONOGRAMA recomputes the weight of every activity whose weeks changed (AJ-02)", () => {
     const live = liveF_V1()
     const despues = applyModificacion(live, {
