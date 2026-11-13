@@ -47,19 +47,33 @@ const PROGRAMMING = {
   estado: "BORRADOR",
   periodos: ["2026-10", "2026-11", "2026-12"],
   filas: [],
+  control_por_linea: [
+    { linea_id: "l1", actividad: null, rubro_id: "r1", codigo: "R01", nombre: "Personal", asignado: "59500000.00", programado: "0.00", control: "-59500000.00" },
+  ],
   control_por_rubro: [
     { rubro_id: "r1", codigo: "R01", nombre: "Personal", asignado: "59500000.00", programado: "0.00", control: "-59500000.00" },
   ],
   programacion_pendiente: true,
 }
 
+// T11 S8: Formación on two activities is programmed as two rows.
+const formacion = { rubro_id: "r5", codigo: "R05", nombre: "Formación", programado: "0.00" }
+const POR_ACTIVIDAD = {
+  ...PROGRAMMING,
+  control_por_linea: [
+    { linea_id: "lt", actividad: { id: "a11", codigo: "1.1", nombre: "Taller" }, ...formacion, asignado: "15000000.00", control: "-15000000.00" },
+    { linea_id: "lf", actividad: { id: "a12", codigo: "1.2", nombre: "Feria" }, ...formacion, asignado: "8000000.00", control: "-8000000.00" },
+  ],
+  control_por_rubro: [{ ...formacion, asignado: "23000000.00", control: "-23000000.00" }],
+}
+
 describe("PresupuestoProgramacion", () => {
   const fetchMock = vi.fn()
 
-  function setup({ canEdit = true }: { canEdit?: boolean } = {}) {
+  function setup({ canEdit = true, data = PROGRAMMING }: { canEdit?: boolean; data?: unknown } = {}) {
     fetchMock.mockImplementation((input: unknown) => {
       const url = String(input)
-      if (url.endsWith("/programming")) return Promise.resolve(jsonResponse(PROGRAMMING))
+      if (url.endsWith("/programming")) return Promise.resolve(jsonResponse(data))
       return Promise.resolve(jsonResponse({}))
     })
     return render(<PresupuestoProgramacion proyecto={PROYECTO} canEdit={canEdit} />, { wrapper: createWrapper() })
@@ -78,6 +92,7 @@ describe("PresupuestoProgramacion", () => {
 
     const grid = await screen.findByTestId("programacion-grid")
     expect(within(grid).getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
+      "Actividad",
       "Rubro",
       "oct 2026",
       "nov 2026",
@@ -85,6 +100,31 @@ describe("PresupuestoProgramacion", () => {
       "Falta por programar",
     ])
     expect(within(grid).getByLabelText("Programado R01 oct 2026")).toBeInTheDocument()
+    expect(within(grid).getByText("Sin actividad")).toBeInTheDocument()
+  })
+
+  it("S8: programs each activity line of a rubro apart and saves the cells on their own line", async () => {
+    const user = userEvent.setup()
+    setup({ data: POR_ACTIVIDAD })
+
+    const grid = await screen.findByTestId("programacion-grid")
+    const filas = within(grid).getAllByTestId("programacion-fila")
+    expect(filas).toHaveLength(2)
+    expect(filas[0]).toHaveTextContent("1.1 Taller")
+    expect(filas[1]).toHaveTextContent("1.2 Feria")
+
+    await user.type(within(grid).getByLabelText("Programado 1.1 R05 oct 2026"), "15000000")
+    await user.type(within(grid).getByLabelText("Programado 1.2 R05 nov 2026"), "8000000")
+    await user.click(screen.getByRole("button", { name: "Guardar programación" }))
+
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => (init as RequestInit | undefined)?.method === "PUT")).toBe(true))
+    const put = fetchMock.mock.calls.find(([, init]) => (init as RequestInit | undefined)?.method === "PUT")!
+    expect(JSON.parse(String((put[1] as RequestInit).body))).toEqual({
+      filas: [
+        { linea_id: "lt", periodo: "2026-10", valor: "15000000.00" },
+        { linea_id: "lf", periodo: "2026-11", valor: "8000000.00" },
+      ],
+    })
   })
 
   it("keeps the typed text while focused and groups thousands on blur", async () => {

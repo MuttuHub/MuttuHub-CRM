@@ -51,22 +51,35 @@ const BudgetViewSchema = registry.register(
   }),
 );
 
+const ControlProgramacion = z.object({
+  rubro_id: z.string().uuid(),
+  codigo: z.string().nullable(),
+  nombre: z.string(),
+  asignado: z.string(),
+  programado: z.string(),
+  control: z.string().openapi({ description: "Σ celdas − A; informativo en Borrador." }),
+});
+
 const ProgrammingViewSchema = registry.register(
   "ProgramacionProyecto",
   z.object({
     estado: z.string(),
     periodos: z.array(z.string()).openapi({ example: ["2026-10", "2026-11"] }),
-    filas: z.array(z.object({ rubro_id: z.string().uuid(), periodo: z.string(), valor: z.string() })),
-    control_por_rubro: z.array(
-      z.object({
-        rubro_id: z.string().uuid(),
-        codigo: z.string().nullable(),
-        nombre: z.string(),
-        asignado: z.string(),
-        programado: z.string(),
-        control: z.string().openapi({ description: "Σ celdas − A; informativo en Borrador." }),
-      }),
+    filas: z.array(
+      z.object({ linea_id: z.string().uuid(), rubro_id: z.string().uuid(), periodo: z.string(), valor: z.string() }),
     ),
+    control_por_linea: z
+      .array(
+        ControlProgramacion.extend({
+          linea_id: z.string().uuid(),
+          actividad: z
+            .object({ id: z.string().uuid(), codigo: z.string(), nombre: z.string() })
+            .nullable()
+            .openapi({ description: "Nula en una línea anterior a las actividades (Sin actividad)." }),
+        }),
+      )
+      .openapi({ description: "Una fila por línea del presupuesto (actividad + rubro): lo que se programa." }),
+    control_por_rubro: z.array(ControlProgramacion).openapi({ description: "Las líneas de cada rubro sumadas." }),
     programacion_pendiente: z.boolean().openapi({ description: "Derivado: ninguna celda por encima de $0." }),
   }),
 );
@@ -113,7 +126,7 @@ registry.registerPath({
   tags: ["Projects"],
   summary: "Programación mensual de un proyecto",
   description:
-    `Requiere fecha de inicio y fin (409 INVALID_STATE si falta alguna). Devuelve los periodos, las celdas y el control por rubro. ${READ_NOTE}`,
+    `Requiere fecha de inicio y fin (409 INVALID_STATE si falta alguna). Devuelve los periodos, las celdas (cada una con su línea) y el control por línea y por rubro. ${READ_NOTE}`,
   security: [{ sessionCookie: [] }],
   request: { params: ProjectParams },
   responses: {
@@ -129,8 +142,8 @@ registry.registerPath({
   summary: "Reemplaza la programación mensual de un proyecto en Borrador",
   description:
     `${WRITE_NOTE} Reemplazo completo escrito por diferencia: las celdas > $0 se crean o actualizan; las que pasan a $0 o se omiten ` +
-    "se eliminan. Cada rubro necesita una línea de presupuesto y cada periodo debe estar dentro del rango del proyecto (400). El control " +
-    "por rubro es informativo en Borrador. Audita cada celda cambiada (`programacion`, `campo` = periodo).",
+    "se eliminan. Cada fila nombra una línea del presupuesto del proyecto (`linea_id`) y cada periodo debe estar dentro del rango " +
+    "del proyecto (400). El control por línea es informativo en Borrador. Audita cada celda cambiada (`programacion`, `campo` = periodo).",
   security: [{ sessionCookie: [] }],
   request: { params: ProjectParams, body: { content: { "application/json": { schema: PROGRAMMING_PUT_SCHEMA } } } },
   responses: {

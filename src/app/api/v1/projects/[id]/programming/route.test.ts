@@ -65,12 +65,30 @@ const lineaR01 = {
   rubro_id: "r1",
   monto_proyectado_cop: new Prisma.Decimal("100"),
   rubro: { codigo: "R01", nombre: "Personal", orden: 1, activo: true },
+  actividad: null,
 };
 const lineaR12 = {
   id: "l12",
   rubro_id: "r12",
   monto_proyectado_cop: new Prisma.Decimal("50"),
   rubro: { codigo: "R12", nombre: "Transporte", orden: 12, activo: true },
+  actividad: null,
+};
+// S8: one rubro (Formación) on two activities, so two lines to program apart.
+const formacion = { codigo: "R05", nombre: "Formación", orden: 5, activo: true };
+const lineaTaller = {
+  id: "lt",
+  rubro_id: "r5",
+  monto_proyectado_cop: new Prisma.Decimal("15"),
+  rubro: formacion,
+  actividad: { id: "a11", codigo: "1.1", nombre: "Taller" },
+};
+const lineaFeria = {
+  id: "lf",
+  rubro_id: "r5",
+  monto_proyectado_cop: new Prisma.Decimal("8"),
+  rubro: formacion,
+  actividad: { id: "a12", codigo: "1.2", nombre: "Feria" },
 };
 const celda = (id: string, linea_id: string, periodo: string, valor: string) => ({
   id,
@@ -122,15 +140,36 @@ describe("GET programming", () => {
     expect(json.estado).toBe("BORRADOR");
     expect(json.periodos).toEqual(["2026-10", "2026-11", "2026-12", "2027-01"]);
     expect(json.filas).toEqual([
-      { rubro_id: "r1", periodo: "2026-10", valor: "60.00" },
-      { rubro_id: "r1", periodo: "2026-11", valor: "30.00" },
-      { rubro_id: "r12", periodo: "2026-10", valor: "50.00" },
+      { linea_id: "l1", rubro_id: "r1", periodo: "2026-10", valor: "60.00" },
+      { linea_id: "l1", rubro_id: "r1", periodo: "2026-11", valor: "30.00" },
+      { linea_id: "l12", rubro_id: "r12", periodo: "2026-10", valor: "50.00" },
     ]);
     expect(json.control_por_rubro).toEqual([
       { rubro_id: "r1", codigo: "R01", nombre: "Personal", asignado: "100.00", programado: "90.00", control: "-10.00" },
       { rubro_id: "r12", codigo: "R12", nombre: "Transporte", asignado: "50.00", programado: "50.00", control: "0.00" },
     ]);
     expect(json.programacion_pendiente).toBe(false);
+  });
+
+  it("S8: controls each activity line apart and sums a rubro's lines in control_por_rubro", async () => {
+    mocks.lineaFindMany.mockResolvedValue([lineaFeria, lineaR01, lineaTaller]);
+    mocks.celdaFindMany.mockResolvedValue([celda("c1", "lt", "2026-10", "15"), celda("c2", "lf", "2026-11", "5")]);
+
+    const json = await (await GET(get(), ctx)).json();
+
+    expect(json.filas).toEqual([
+      { linea_id: "lt", rubro_id: "r5", periodo: "2026-10", valor: "15.00" },
+      { linea_id: "lf", rubro_id: "r5", periodo: "2026-11", valor: "5.00" },
+    ]);
+    expect(json.control_por_linea).toEqual([
+      { linea_id: "lt", actividad: { id: "a11", codigo: "1.1", nombre: "Taller" }, rubro_id: "r5", codigo: "R05", nombre: "Formación", asignado: "15.00", programado: "15.00", control: "0.00" },
+      { linea_id: "lf", actividad: { id: "a12", codigo: "1.2", nombre: "Feria" }, rubro_id: "r5", codigo: "R05", nombre: "Formación", asignado: "8.00", programado: "5.00", control: "-3.00" },
+      { linea_id: "l1", actividad: null, rubro_id: "r1", codigo: "R01", nombre: "Personal", asignado: "100.00", programado: "0.00", control: "-100.00" },
+    ]);
+    expect(json.control_por_rubro).toEqual([
+      { rubro_id: "r1", codigo: "R01", nombre: "Personal", asignado: "100.00", programado: "0.00", control: "-100.00" },
+      { rubro_id: "r5", codigo: "R05", nombre: "Formación", asignado: "23.00", programado: "20.00", control: "-3.00" },
+    ]);
   });
 
   it("derives programacion_pendiente when no cell is above zero", async () => {
@@ -161,7 +200,7 @@ describe("GET programming", () => {
 });
 
 describe("PUT programming: gates", () => {
-  const cuerpo = { filas: [{ rubro_id: "r1", periodo: "2026-10", valor: "10" }] };
+  const cuerpo = { filas: [{ linea_id: "l1", periodo: "2026-10", valor: "10" }] };
 
   it("answers 404, 403 for non-managers, 409 outside BORRADOR and 409 without dates", async () => {
     vi.mocked(db.proyecto.findFirst).mockResolvedValueOnce(null);
@@ -203,12 +242,12 @@ describe("PUT programming: gates", () => {
 
 describe("PUT programming: validation (400)", () => {
   const rechazados: [string, unknown][] = [
-    ["a period outside the project range", { filas: [{ rubro_id: "r1", periodo: "2027-02", valor: "1" }] }],
-    ["a malformed period", { filas: [{ rubro_id: "r1", periodo: "2026-1", valor: "1" }] }],
-    ["a duplicate (rubro, periodo)", { filas: [{ rubro_id: "r1", periodo: "2026-10", valor: "1" }, { rubro_id: "r1", periodo: "2026-10", valor: "2" }] }],
-    ["a negative value", { filas: [{ rubro_id: "r1", periodo: "2026-10", valor: "-1" }] }],
-    ["a float-noise value", { filas: [{ rubro_id: "r1", periodo: "2026-10", valor: 0.1 + 0.2 }] }],
-    ["a rubro without a budget line", { filas: [{ rubro_id: "r99", periodo: "2026-10", valor: "1" }] }],
+    ["a period outside the project range", { filas: [{ linea_id: "l1", periodo: "2027-02", valor: "1" }] }],
+    ["a malformed period", { filas: [{ linea_id: "l1", periodo: "2026-1", valor: "1" }] }],
+    ["a duplicate (line, periodo)", { filas: [{ linea_id: "l1", periodo: "2026-10", valor: "1" }, { linea_id: "l1", periodo: "2026-10", valor: "2" }] }],
+    ["a negative value", { filas: [{ linea_id: "l1", periodo: "2026-10", valor: "-1" }] }],
+    ["a float-noise value", { filas: [{ linea_id: "l1", periodo: "2026-10", valor: 0.1 + 0.2 }] }],
+    ["a line that is not in the project", { filas: [{ linea_id: "l99", periodo: "2026-10", valor: "1" }] }],
     ["no filas array", {}],
   ];
   it.each(rechazados)("rejects %s", async (_name, body) => {
@@ -220,7 +259,7 @@ describe("PUT programming: validation (400)", () => {
   });
 
   it("explains the out-of-range period", async () => {
-    const res = await PUT(put({ filas: [{ rubro_id: "r1", periodo: "2027-02", valor: "1" }] }), ctx);
+    const res = await PUT(put({ filas: [{ linea_id: "l1", periodo: "2027-02", valor: "1" }] }), ctx);
     expect((await res.json()).error).toBe("El periodo 2027-02 está fuera del rango del proyecto.");
   });
 });
@@ -237,10 +276,10 @@ describe("PUT programming: writes", () => {
     const res = await PUT(
       put({
         filas: [
-          { rubro_id: "r1", periodo: "2026-10", valor: "60.00" },
-          { rubro_id: "r1", periodo: "2026-11", valor: "35" },
-          { rubro_id: "r1", periodo: "2026-12", valor: 10 },
-          { rubro_id: "r12", periodo: "2026-10", valor: "0" },
+          { linea_id: "l1", periodo: "2026-10", valor: "60.00" },
+          { linea_id: "l1", periodo: "2026-11", valor: "35" },
+          { linea_id: "l1", periodo: "2026-12", valor: 10 },
+          { linea_id: "l12", periodo: "2026-10", valor: "0" },
         ],
       }),
       ctx,
@@ -262,9 +301,32 @@ describe("PUT programming: writes", () => {
     expect(audit.find((a) => a.entidad_id === "c3")).toMatchObject({ accion: "EDITAR", valor_anterior: "50.00", valor_nuevo: "0.00" });
   });
 
+  it("S8: writes each cell on its own line when a rubro has two activity lines", async () => {
+    mocks.lineaFindMany.mockResolvedValue([lineaTaller, lineaFeria]);
+    const res = await PUT(
+      put({ filas: [{ linea_id: "lt", periodo: "2026-10", valor: "15" }, { linea_id: "lf", periodo: "2026-10", valor: "8" }] }),
+      ctx,
+    );
+    expect(res.status).toBe(200);
+    expect(mocks.celdaCreate.mock.calls.map((c) => c[0].data.linea_id).sort()).toEqual(["lf", "lt"]);
+  });
+
+  it("names the line in the duplicate-period message", async () => {
+    const res = await PUT(
+      put({ filas: [{ linea_id: "l1", periodo: "2026-10", valor: "1" }, { linea_id: "l1", periodo: "2026-10", valor: "2" }] }),
+      ctx,
+    );
+    expect((await res.json()).error).toBe("El periodo 2026-10 se repite para una misma línea.");
+  });
+
+  it("explains a line that is not in the project", async () => {
+    const res = await PUT(put({ filas: [{ linea_id: "l99", periodo: "2026-10", valor: "1" }] }), ctx);
+    expect((await res.json()).error).toBe("La línea no está en el presupuesto del proyecto: agrégala primero.");
+  });
+
   it("writes nothing and audits nothing when nothing changed", async () => {
     mocks.celdaFindMany.mockResolvedValue([celda("c1", "l1", "2026-10", "60")]);
-    const res = await PUT(put({ filas: [{ rubro_id: "r1", periodo: "2026-10", valor: "60" }] }), ctx);
+    const res = await PUT(put({ filas: [{ linea_id: "l1", periodo: "2026-10", valor: "60" }] }), ctx);
     expect(res.status).toBe(200);
     expect(mocks.celdaUpdate).not.toHaveBeenCalled();
     expect(mocks.celdaCreate).not.toHaveBeenCalled();
@@ -274,7 +336,7 @@ describe("PUT programming: writes", () => {
 
   it("accepts a control different from zero (informational in BORRADOR) and reports it", async () => {
     mocks.celdaFindMany.mockResolvedValue([celda("c1", "l1", "2026-10", "150")]);
-    const json = await (await PUT(put({ filas: [{ rubro_id: "r1", periodo: "2026-10", valor: "150" }] }), ctx)).json();
+    const json = await (await PUT(put({ filas: [{ linea_id: "l1", periodo: "2026-10", valor: "150" }] }), ctx)).json();
     expect(json.control_por_rubro[0]).toMatchObject({ rubro_id: "r1", programado: "150.00", control: "50.00" });
   });
 });

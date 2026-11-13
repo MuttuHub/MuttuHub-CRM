@@ -1,5 +1,5 @@
 // Programación mensual (P) de la sección "Presupuesto" (S5 U5): una columna por
-// mes del proyecto y una fila por rubro con línea. "Falta por programar" (A − celdas) es
+// mes del proyecto y una fila por línea del presupuesto (actividad + rubro, T11 S8). "Falta por programar" (A − celdas) es
 // informativo en borrador; la línea base lo exigirá en $ 0.
 
 "use client";
@@ -63,7 +63,7 @@ export function PresupuestoProgramacion({ proyecto, canEdit }: { proyecto: Proje
         <Skeleton className="mt-2 h-20 w-full rounded-[14px]" />
       ) : (
         <ProgramacionGrid
-          key={query.data.filas.map((f) => `${f.rubro_id}${f.periodo}${f.valor}`).join("|") + query.data.control_por_rubro.map((c) => c.asignado).join("|")}
+          key={query.data.filas.map((f) => `${f.linea_id}${f.periodo}${f.valor}`).join("|") + query.data.control_por_linea.map((c) => `${c.linea_id}:${c.asignado}`).join("|")}
           proyectoId={proyecto.id}
           data={query.data}
           canEdit={canEdit}
@@ -73,7 +73,11 @@ export function PresupuestoProgramacion({ proyecto, canEdit }: { proyecto: Proje
   );
 }
 
-const cellKey = (rubroId: string, periodo: string) => `${rubroId}|${periodo}`;
+const cellKey = (lineaId: string, periodo: string) => `${lineaId}|${periodo}`;
+
+/** "1.1 R05" for an activity line, "R05" for a legacy one. */
+const nombreLinea = (c: ProjectProgramming["control_por_linea"][number]) =>
+  `${c.actividad ? `${c.actividad.codigo} ` : ""}${c.codigo ?? c.nombre}`;
 
 function ProgramacionGrid({
   proyectoId,
@@ -88,38 +92,38 @@ function ProgramacionGrid({
     Object.fromEntries(
       data.filas
         .filter((f) => data.periodos.includes(f.periodo))
-        .map((f) => [cellKey(f.rubro_id, f.periodo), montoToInput(f.valor)]),
+        .map((f) => [cellKey(f.linea_id, f.periodo), montoToInput(f.valor)]),
     ),
   );
   const [localError, setLocalError] = useState<string | null>(null);
   const guardar = useUpdateProgramming(proyectoId);
   const ZERO = toCents("0");
 
-  if (data.control_por_rubro.length === 0) {
+  if (data.control_por_linea.length === 0) {
     return <p className="mt-1.5 text-[13px] text-ink-500">Asigna un monto a algún rubro para poder programarlo.</p>;
   }
 
-  const celda = (rubroId: string, periodo: string) => drafts[cellKey(rubroId, periodo)] ?? "";
-  const valorCelda = (rubroId: string, periodo: string) => parseMontoInput(celda(rubroId, periodo));
+  const celda = (lineaId: string, periodo: string) => drafts[cellKey(lineaId, periodo)] ?? "";
+  const valorCelda = (lineaId: string, periodo: string) => parseMontoInput(celda(lineaId, periodo));
   const fueraDeRango = data.filas.filter((f) => !data.periodos.includes(f.periodo)).length;
 
-  const sumaFila = (rubroId: string) =>
+  const sumaFila = (lineaId: string) =>
     data.periodos.reduce((total, periodo) => {
-      const valor = valorCelda(rubroId, periodo);
+      const valor = valorCelda(lineaId, periodo);
       return valor === null ? total : total + toCents(valor);
     }, ZERO);
-  const pendiente = !data.control_por_rubro.some((c) => sumaFila(c.rubro_id) > ZERO);
+  const pendiente = !data.control_por_linea.some((c) => sumaFila(c.linea_id) > ZERO);
 
   function submit() {
-    const filas: { rubro_id: string; periodo: string; valor: string }[] = [];
-    for (const c of data.control_por_rubro) {
+    const filas: { linea_id: string; periodo: string; valor: string }[] = [];
+    for (const c of data.control_por_linea) {
       for (const periodo of data.periodos) {
-        const valor = valorCelda(c.rubro_id, periodo);
+        const valor = valorCelda(c.linea_id, periodo);
         if (valor === null) {
-          setLocalError(`${MONTO_INVALIDO} (${c.codigo ?? c.nombre} ${mesLegible(periodo)})`);
+          setLocalError(`${MONTO_INVALIDO} (${nombreLinea(c)} ${mesLegible(periodo)})`);
           return;
         }
-        if (toCents(valor) > ZERO) filas.push({ rubro_id: c.rubro_id, periodo, valor });
+        if (toCents(valor) > ZERO) filas.push({ linea_id: c.linea_id, periodo, valor });
       }
     }
     setLocalError(null);
@@ -136,6 +140,7 @@ function ProgramacionGrid({
         <Table data-testid="programacion-grid" className="w-full text-[12.5px]">
           <TableHeader>
             <TableRow>
+              <TableHead scope="col">Actividad</TableHead>
               <TableHead scope="col">Rubro</TableHead>
               {data.periodos.map((periodo) => (
                 <TableHead key={periodo} scope="col" numeric>{mesLegible(periodo)}</TableHead>
@@ -144,11 +149,20 @@ function ProgramacionGrid({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.control_por_rubro.map((c) => {
+            {data.control_por_linea.map((c) => {
               // What is still to program: assigned minus programmed (negative when over-programmed).
-              const faltante = toCents(c.asignado) - sumaFila(c.rubro_id);
+              const faltante = toCents(c.asignado) - sumaFila(c.linea_id);
               return (
-                <TableRow key={c.rubro_id} data-testid="programacion-fila">
+                <TableRow key={c.linea_id} data-testid="programacion-fila">
+                  <TableCell className="text-ink-800 whitespace-normal">
+                    {c.actividad ? (
+                      <>
+                        <span className="font-mono text-[11.5px] text-ink-500">{c.actividad.codigo}</span> {c.actividad.nombre}
+                      </>
+                    ) : (
+                      <span className="text-ink-500">Sin actividad</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-ink-800 whitespace-normal">
                     <span className="font-mono text-[11.5px] text-ink-500">{c.codigo ?? "—"}</span> {c.nombre}
                   </TableCell>
@@ -156,12 +170,12 @@ function ProgramacionGrid({
                     <TableCell key={periodo} numeric>
                       {canEdit ? (
                         <MontoInput
-                          label={`Programado ${c.codigo ?? c.nombre} ${mesLegible(periodo)}`}
-                          value={celda(c.rubro_id, periodo)}
-                          onChange={(value) => setDrafts((prev) => ({ ...prev, [cellKey(c.rubro_id, periodo)]: value }))}
+                          label={`Programado ${nombreLinea(c)} ${mesLegible(periodo)}`}
+                          value={celda(c.linea_id, periodo)}
+                          onChange={(value) => setDrafts((prev) => ({ ...prev, [cellKey(c.linea_id, periodo)]: value }))}
                         />
                       ) : (
-                        formatCOP(toCents(valorCelda(c.rubro_id, periodo) ?? "0"))
+                        formatCOP(toCents(valorCelda(c.linea_id, periodo) ?? "0"))
                       )}
                     </TableCell>
                   ))}
@@ -174,7 +188,7 @@ function ProgramacionGrid({
       </div>
 
       <p className="text-[12px] text-ink-500">
-        Falta por programar es lo asignado al rubro que aún no está repartido en meses (negativo si se programó de más).
+        Falta por programar es lo asignado a la línea que aún no está repartido en meses (negativo si se programó de más).
         En borrador es informativo; deberá ser $ 0 para aprobar la línea base.
       </p>
       {fueraDeRango > 0 && (

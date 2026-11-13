@@ -67,7 +67,11 @@ const ACTIVIDADES = [
 const PROGRAMMING = {
   estado: "BORRADOR",
   periodos: ["2026-10", "2026-11", "2026-12"],
-  filas: [{ rubro_id: "r1", periodo: "2026-10", valor: "20000000.00" }],
+  filas: [{ linea_id: "l1", rubro_id: "r1", periodo: "2026-10", valor: "20000000.00" }],
+  control_por_linea: [
+    { linea_id: "l1", actividad: { id: "a11", codigo: "1.1", nombre: "Taller" }, rubro_id: "r1", codigo: "R01", nombre: "Personal", asignado: "59500000.00", programado: "20000000.00", control: "-39500000.00" },
+    { linea_id: "l9", actividad: null, rubro_id: "pop", codigo: null, nombre: "Material POP", asignado: "300000.00", programado: "0.00", control: "-300000.00" },
+  ],
   control_por_rubro: [
     { rubro_id: "r1", codigo: "R01", nombre: "Personal", asignado: "59500000.00", programado: "20000000.00", control: "-39500000.00" },
     { rubro_id: "pop", codigo: null, nombre: "Material POP", asignado: "300000.00", programado: "0.00", control: "-300000.00" },
@@ -308,7 +312,7 @@ describe("ProjectPresupuesto", () => {
     expect(within(grid).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(
       expect.arrayContaining(["oct 2026", "nov 2026", "dic 2026"]),
     )
-    expect(within(grid).getByLabelText("Programado R01 oct 2026")).toHaveValue("20.000.000")
+    expect(within(grid).getByLabelText("Programado 1.1 R01 oct 2026")).toHaveValue("20.000.000")
     const fila = within(grid).getAllByTestId("programacion-fila")[0]
     // Falta por programar = asignado − programado: 59.500.000 − 20.000.000.
     expect(fila).toHaveTextContent("$ 39.500.000")
@@ -378,7 +382,7 @@ describe("ProjectPresupuesto", () => {
     const user = userEvent.setup()
     setup()
 
-    const celda = await screen.findByLabelText("Programado R01 nov 2026")
+    const celda = await screen.findByLabelText("Programado 1.1 R01 nov 2026")
     await user.type(celda, "7500,25")
     await user.tab()
     expect(celda).toHaveValue("7.500,25")
@@ -388,8 +392,8 @@ describe("ProjectPresupuesto", () => {
     const [, init] = writes("PUT").find(([u]) => String(u).endsWith("/programming"))!
     expect(JSON.parse(String((init as RequestInit).body))).toEqual({
       filas: [
-        { rubro_id: "r1", periodo: "2026-10", valor: "20000000.00" },
-        { rubro_id: "r1", periodo: "2026-11", valor: "7500.25" },
+        { linea_id: "l1", periodo: "2026-10", valor: "20000000.00" },
+        { linea_id: "l1", periodo: "2026-11", valor: "7500.25" },
       ],
     })
   })
@@ -408,7 +412,7 @@ describe("ProjectPresupuesto", () => {
       const tabla = await screen.findByTestId("presupuesto-tabla")
       expect(tabla).toHaveTextContent("$ 59.500.000")
       expect(screen.queryByLabelText("Asignado R01")).not.toBeInTheDocument()
-      expect(screen.queryByLabelText("Programado R01 nov 2026")).not.toBeInTheDocument()
+      expect(screen.queryByLabelText("Programado 1.1 R01 nov 2026")).not.toBeInTheDocument()
       expect(screen.queryByRole("button", { name: "Guardar presupuesto" })).not.toBeInTheDocument()
       expect(screen.queryByRole("button", { name: "Usar la suma como valor total" })).not.toBeInTheDocument()
       expect(screen.queryByRole("button", { name: "Importar presupuesto" })).not.toBeInTheDocument()

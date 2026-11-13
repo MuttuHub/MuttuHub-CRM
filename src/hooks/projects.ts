@@ -1504,20 +1504,28 @@ export type ProjectBudgetInput = { lineas: { actividad_id: string | null; rubro_
 export type ProjectProgramming = {
   estado: EstadoProyecto;
   periodos: string[];
-  filas: { rubro_id: string; periodo: string; valor: string }[];
-  control_por_rubro: {
-    rubro_id: string;
-    codigo: string | null;
-    nombre: string;
-    asignado: string;
-    programado: string;
-    /** Σ celdas − A; informativo en Borrador. */
-    control: string;
-  }[];
+  filas: { linea_id: string; rubro_id: string; periodo: string; valor: string }[];
+  /** T11 S8: una fila por línea del presupuesto (actividad + rubro), que es lo que se programa. */
+  control_por_linea: (ProjectProgrammingControl & {
+    linea_id: string;
+    actividad: { id: string; codigo: string; nombre: string } | null;
+  })[];
+  /** Las líneas de cada rubro sumadas. */
+  control_por_rubro: ProjectProgrammingControl[];
   programacion_pendiente: boolean;
 };
 
-export type ProjectProgrammingInput = { filas: { rubro_id: string; periodo: string; valor: string }[] };
+type ProjectProgrammingControl = {
+  rubro_id: string;
+  codigo: string | null;
+  nombre: string;
+  asignado: string;
+  programado: string;
+  /** Σ celdas − A; informativo en Borrador. */
+  control: string;
+};
+
+export type ProjectProgrammingInput = { filas: { linea_id: string; periodo: string; valor: string }[] };
 
 export function useProjectBudget(id: string): UseQueryResult<ProjectBudget> {
   return useQuery({
