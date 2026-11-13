@@ -217,3 +217,46 @@ describe("validarModificacion", () => {
     expect(valida(liveF_V1(), "ENTREGABLES", [meta])).toEqual([])
   })
 })
+
+describe("claves de línea (T10): el detalle lee las dos formas", () => {
+  // Una línea con actividad expone `codigo_linea` = `1.1|R12`; las solicitudes guardadas antes de la
+  // Parte 2 siguen direccionando por `R12`. Mientras convivan, el validador tiene que entender las dos.
+  // El aserto es sobre la resolución: `ANTES_DESACTUALIZADO` significa que la clave no encontró su fila
+  // (o encontró otra), así que su ausencia prueba que resolvió.
+  const liveConLinea = (): LiveProyecto => {
+    const live = liveF_V1()
+    return {
+      ...live,
+      presupuesto: live.presupuesto.map((r) => (r.rubro_codigo === "R12" ? { ...r, codigo_linea: "1.1|R12" } : r)),
+      programacion: live.programacion.map((c) => (c.rubro_codigo === "R12" ? { ...c, codigo_linea: "1.1|R12" } : c)),
+    }
+  }
+  const codigos = (errores: { codigo: string }[]) => errores.map((e) => e.codigo)
+
+  it("resuelve el presupuesto por la clave nueva ACT|RUBRO, y falla con una clave inventada", () => {
+    const live = liveConLinea()
+    const fila = live.presupuesto.find((r) => r.codigo_linea === "1.1|R12")!
+    const detalle = (clave: string): DetalleItem[] => [
+      { elemento: "presupuesto", clave, campo: "asignado", antes: fila.asignado, despues: fila.asignado },
+    ]
+    expect(codigos(valida(live, "REDUCCION", detalle("1.1|R12")))).not.toContain("ANTES_DESACTUALIZADO")
+    expect(codigos(valida(live, "REDUCCION", detalle("9.9|R99")))).toContain("ANTES_DESACTUALIZADO")
+  })
+
+  it("resuelve la programación por la clave nueva ACT|RUBRO|periodo, y falla con una clave inventada", () => {
+    const live = liveConLinea()
+    const celda = live.programacion.find((c) => c.codigo_linea === "1.1|R12")!
+    const detalle = (clave: string): DetalleItem[] => [
+      { elemento: "programacion", clave, campo: "valor", antes: celda.valor, despues: celda.valor },
+    ]
+    expect(codigos(valida(live, "REPROGRAMACION", detalle(`1.1|R12|${celda.periodo}`)))).not.toContain("ANTES_DESACTUALIZADO")
+    expect(codigos(valida(live, "REPROGRAMACION", detalle(`9.9|R99|${celda.periodo}`)))).toContain("ANTES_DESACTUALIZADO")
+  })
+
+  it("sigue resolviendo la clave vieja R12 aunque la fila traiga codigo_linea", () => {
+    const live = liveConLinea()
+    const fila = live.presupuesto.find((r) => r.rubro_codigo === "R12")!
+    const detalle: DetalleItem[] = [{ elemento: "presupuesto", clave: "R12", campo: "asignado", antes: fila.asignado, despues: fila.asignado }]
+    expect(codigos(valida(live, "REDUCCION", detalle))).not.toContain("ANTES_DESACTUALIZADO")
+  })
+})

@@ -8,8 +8,9 @@ import { fromCents, toCents } from "./money"
 export type SnapshotV1 = {
   schema: 1
   proyecto: { valor_total: string; fecha_inicio: string; fecha_fin: string; beneficiarios_meta: number | null }
-  presupuesto: { rubro_codigo: string; rubro_nombre: string; asignado: string }[]
-  programacion: { rubro_codigo: string; periodo: string; valor: string }[]
+  /** T10: `codigo_linea` es la clave nueva (`ACT|RUBRO`) y falta en las versiones guardadas antes de la Parte 2. */
+  presupuesto: { rubro_codigo: string; codigo_linea?: string; rubro_nombre: string; asignado: string }[]
+  programacion: { rubro_codigo: string; codigo_linea?: string; periodo: string; valor: string }[]
   actividades: {
     codigo: string
     objetivo_codigo: string
@@ -36,8 +37,9 @@ export type SnapshotV1 = {
  * `buildSnapshot` refuses them.
  */
 export type LiveProyecto = Omit<SnapshotV1, "schema" | "presupuesto" | "programacion"> & {
-  presupuesto: { rubro_codigo: string | null; rubro_nombre: string; asignado: string }[]
-  programacion: { rubro_codigo: string | null; periodo: string; valor: string }[]
+  /** `codigo_linea` es opcional: un proyecto heredado no la tiene y no hay que inventarla. */
+  presupuesto: { rubro_codigo: string | null; codigo_linea?: string | null; rubro_nombre: string; asignado: string }[]
+  programacion: { rubro_codigo: string | null; codigo_linea?: string | null; periodo: string; valor: string }[]
 }
 
 const byKey = <T>(key: (row: T) => string) => (a: T, b: T) => {
@@ -51,6 +53,15 @@ export const money = (value: string): string => fromCents(toCents(value))
 /** Canonical plain-decimal text: no trailing fractional zeros ("2.00" -> "2", "10.50" -> "10.5"). */
 export function decimal(value: string): string {
   return value.includes(".") ? value.replace(/0+$/, "").replace(/\.$/, "") : value
+}
+
+/**
+ * T10: la clave de una fila de presupuesto o programación, leída de las dos formas. Las versiones
+ * guardadas antes de la Parte 2 sólo traen `rubro_codigo`; las nuevas traen también `codigo_linea`
+ * (`ACT|RUBRO`). Leer con esto y escribir `codigo_linea` es la regla de compatibilidad de T10.
+ */
+export function claveLinea(fila: { rubro_codigo: string | null; codigo_linea?: string | null }): string | null {
+  return fila.codigo_linea ?? fila.rubro_codigo
 }
 
 function codigoRubro(codigo: string | null, donde: string): string {
@@ -71,17 +82,19 @@ export function buildSnapshot(live: LiveProyecto): SnapshotV1 {
     presupuesto: live.presupuesto
       .map((r) => ({
         rubro_codigo: codigoRubro(r.rubro_codigo, r.rubro_nombre),
+        ...(r.codigo_linea === null ? {} : { codigo_linea: r.codigo_linea }),
         rubro_nombre: r.rubro_nombre,
         asignado: money(r.asignado),
       }))
-      .sort(byKey((r) => r.rubro_codigo)),
+      .sort(byKey((r) => claveLinea(r) ?? "")),
     programacion: live.programacion
       .map((c) => ({
         rubro_codigo: codigoRubro(c.rubro_codigo, c.periodo),
+        ...(c.codigo_linea === null ? {} : { codigo_linea: c.codigo_linea }),
         periodo: c.periodo,
         valor: money(c.valor),
       }))
-      .sort(byKey((c) => `${c.rubro_codigo}|${c.periodo}`)),
+      .sort(byKey((c) => `${claveLinea(c) ?? ""}|${c.periodo}`)),
     actividades: live.actividades
       .map((a) => ({
         codigo: a.codigo,

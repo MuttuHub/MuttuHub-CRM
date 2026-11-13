@@ -44,7 +44,14 @@ export async function loadLiveProyecto(client: Reader, proyectoId: string): Prom
     }),
     client.lineaPresupuestal.findMany({
       where: { proyecto_id: proyectoId },
-      select: { id: true, rubro_id: true, monto_proyectado_cop: true, rubro: { select: { codigo: true, nombre: true, activo: true } } },
+      select: {
+        id: true,
+        rubro_id: true,
+        monto_proyectado_cop: true,
+        rubro: { select: { codigo: true, nombre: true, activo: true } },
+        // T10: la actividad de la línea, para derivar la clave `ACT|RUBRO`.
+        actividad: { select: { codigo: true } },
+      },
     }),
     client.programacionPeriodo.findMany({
       where: { proyecto_id: proyectoId },
@@ -103,7 +110,15 @@ export async function loadLiveProyecto(client: Reader, proyectoId: string): Prom
     return { entrada, live: null };
   }
 
+  // S5/T10: la clave de negocio se deriva. `ACT|RUBRO` si la línea tiene actividad, `RUBRO` si es
+  // heredada; nula cuando el rubro no tiene código, que es el caso que `codigoRubro()` ya rechazaba.
   const codigoRubro = new Map(lineas.map((l) => [l.id, l.rubro.codigo]));
+  const claveDeLinea = new Map(
+    lineas.map((l) => [
+      l.id,
+      l.rubro.codigo === null ? null : l.actividad ? `${l.actividad.codigo}|${l.rubro.codigo}` : l.rubro.codigo,
+    ]),
+  );
   const live: LiveProyecto = {
     proyecto: {
       valor_total: proyecto.valor_total.toString(),
@@ -113,12 +128,18 @@ export async function loadLiveProyecto(client: Reader, proyectoId: string): Prom
     },
     presupuesto: lineasEnVersion.map((l) => ({
       rubro_codigo: l.rubro.codigo,
+      codigo_linea: claveDeLinea.get(l.id) ?? null,
       rubro_nombre: l.rubro.nombre,
       asignado: l.monto_proyectado_cop.toString(),
     })),
     programacion: celdasVivas
       .filter((c) => enVersion.has(c.linea_id))
-      .map((c) => ({ rubro_codigo: codigoRubro.get(c.linea_id) ?? null, periodo: c.periodo, valor: c.valor.toString() })),
+      .map((c) => ({
+        rubro_codigo: codigoRubro.get(c.linea_id) ?? null,
+        codigo_linea: claveDeLinea.get(c.linea_id) ?? null,
+        periodo: c.periodo,
+        valor: c.valor.toString(),
+      })),
     actividades: actividades.map((a) => ({
       codigo: a.codigo,
       objetivo_codigo: codigoObjetivo.get(a.objetivo_id) ?? "",
