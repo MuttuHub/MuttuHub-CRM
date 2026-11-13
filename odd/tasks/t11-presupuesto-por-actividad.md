@@ -44,7 +44,7 @@ src/components/proyectos/project-presupuesto`, `npx tsc --noEmit` (after `npx pr
 
 | ID | Specs | What | Route | Status | Commit |
 |---|---|---|---|---|---|
-| T11.1 | S1 S2 S5 S6 A1 A3 A4 | Budget API by line: GET exposes `lineas[]` (activity, rubro, value) next to `rubros[]`; PUT writes lines; valor_total = Σ lines | inline | pending | |
+| T11.1 | S1 S2 S5 S6 A1 A3 A4 | Budget API by line: GET exposes `lineas[]` (activity, rubro, value) next to `rubros[]`; PUT writes lines; valor_total = Σ lines | inline | done | `b74835e` |
 | T11.2 | S8 | Programming API by `linea_id`: write and read cells per line, not per rubro | inline | pending | |
 | T11.3 | S3 S4 S5 S7 A2 | Template: Presupuesto sheet (Código de actividad, Rubro, Valor), drop sheet 8, V-11 by combination, activity exists; import writes lines with activity | inline | pending | |
 | T11.4 | S1 S6 S8 | Budget screen by activity, and programming screen by line | inline | pending | |
@@ -67,3 +67,6 @@ Forecast: ~900–1200 authored lines → above 400; chain strategy asked before 
   (`fa43596`, new lines from a request lacked `codigo_linea`).
 - **L5** (2026-11-13, user): asked how far S2 goes in T11 (valor_total is typed in five places); chose «Todo en
   T11» → S2 scope, T11.6, A6.
+- **L6** T11.1 committed `b74835e` (735+/252−). Checks: tsc, knip, eslint clean; vitest budget, presupuesto, presupuesto-po,
+  components/proyectos, openapi green (the PO import route needed `compareActividad` to tolerate a missing activity).
+  Running count ~990 authored lines > 400 → chain strategy asked before the next commit.
