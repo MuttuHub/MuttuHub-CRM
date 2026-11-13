@@ -97,16 +97,28 @@ function normalizar(clase: Clase, texto: string): string | null {
 const CLAVE_CELDA = /^(.+)\|(\d{4}-(?:0[1-9]|1[0-2]))$/
 const claveCelda = (rubro: string, periodo: string) => `${rubro}|${periodo}`
 
+/**
+ * T10: la clave de una fila, leída de las dos formas. Las solicitudes guardadas antes de la Parte 2
+ * direccionan por código de rubro (`R12`, `R12|2026-10`); las nuevas pueden direccionar por línea
+ * (`1.1|R12`, `1.1|R12|2026-10`). Leer con esto y escribir la forma nueva es la regla de T10.
+ */
+function coincideClave(fila: { rubro_codigo: string | null; codigo_linea?: string | null }, clave: string): boolean {
+  return fila.rubro_codigo === clave || fila.codigo_linea === clave
+}
+
 /** The live value of the field a detail item points at; null when the element does not exist. */
 function valorActual(live: LiveProyecto, item: DetalleItem, campo: string): string | null {
   switch (item.elemento) {
     case "presupuesto": {
-      const fila = live.presupuesto.find((r) => r.rubro_codigo === item.clave)
+      const fila = live.presupuesto.find((r) => coincideClave(r, item.clave))
       return normalizar("dinero", fila ? fila.asignado : "0")
     }
     case "programacion": {
       if (!CLAVE_CELDA.test(item.clave)) return null
-      const fila = live.programacion.find((c) => claveCelda(c.rubro_codigo ?? "", c.periodo) === item.clave)
+      const corte = item.clave.lastIndexOf("|")
+      const claveFila = item.clave.slice(0, corte)
+      const periodo = item.clave.slice(corte + 1)
+      const fila = live.programacion.find((c) => c.periodo === periodo && coincideClave(c, claveFila))
       return normalizar("dinero", fila ? fila.valor : "0")
     }
     case "proyecto": {

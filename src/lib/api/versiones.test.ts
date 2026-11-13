@@ -11,7 +11,14 @@ import { loadLiveProyecto } from "./versiones"
 
 const dinero = (valor: string) => new Prisma.Decimal(valor)
 
-type Linea = { id: string; rubro_id: string; monto_proyectado_cop: Prisma.Decimal; rubro: { codigo: string | null; nombre: string; activo: boolean } }
+type Linea = {
+  id: string
+  rubro_id: string
+  monto_proyectado_cop: Prisma.Decimal
+  rubro: { codigo: string | null; nombre: string; activo: boolean }
+  /** T10: null en las líneas heredadas; `{ codigo }` cuando la línea pertenece a una actividad. */
+  actividad: { codigo: string } | null
+}
 type Celda = { linea_id: string; periodo: string; valor: Prisma.Decimal }
 
 const proyecto = (over: Record<string, unknown> = {}) => ({
@@ -22,11 +29,12 @@ const proyecto = (over: Record<string, unknown> = {}) => ({
   ...over,
 })
 
-const linea = (id: string, rubroId: string, codigo: string | null, monto: string): Linea => ({
+const linea = (id: string, rubroId: string, codigo: string | null, monto: string, actividad: string | null = null): Linea => ({
   id,
   rubro_id: rubroId,
   monto_proyectado_cop: dinero(monto),
   rubro: { codigo, nombre: `Rubro ${codigo ?? "sin código"}`, activo: true },
+  actividad: actividad === null ? null : { codigo: actividad },
 })
 
 const celda = (lineaId: string, periodo: string, valor: string): Celda => ({
@@ -59,7 +67,7 @@ describe("loadLiveProyecto — presupuesto vivo (T10)", () => {
       "pry-1",
     )
     expect(live?.presupuesto).toEqual([
-      { rubro_codigo: "R12", rubro_nombre: "Rubro R12", asignado: "15000000" },
+      { rubro_codigo: "R12", codigo_linea: "R12", rubro_nombre: "Rubro R12", asignado: "15000000" },
     ])
   })
 
@@ -83,21 +91,27 @@ describe("loadLiveProyecto — presupuesto vivo (T10)", () => {
       }) as never,
       "pry-1",
     )
-    expect(live?.programacion).toEqual([{ rubro_codigo: "R12", periodo: "2026-09", valor: "2500000" }])
+    expect(live?.programacion).toEqual([
+      { rubro_codigo: "R12", codigo_linea: "R12", periodo: "2026-09", valor: "2500000" },
+    ])
   })
 
-  it("devuelve una entrada por línea aunque dos líneas compartan el mismo rubro", async () => {
-    // Esto es lo que T10 vuelve legal en la base. Hoy no puede pasar por el constraint; el test fija
-    // que el lector NO colapsa dos líneas en una, que es la parte que el refactor no puede romper.
+  it("deriva la clave de la línea: ACT|RUBRO cuando tiene actividad, RUBRO cuando es heredada", async () => {
+    // Dos líneas del mismo rubro (S5, D6), distinguibles por su actividad. Esto es lo que la migración
+    // de T10 vuelve legal en la base y lo que el lector tiene que exponer para que no colapsen.
     const { live } = await loadLiveProyecto(
       cliente({
-        lineas: [linea("l1", "r12", "R12", "15000000.00"), linea("l2", "r12", "R12", "8000000.00")],
+        lineas: [
+          linea("l1", "r12", "R12", "15000000.00", "1.1"),
+          linea("l2", "r12", "R12", "8000000.00", "1.2"),
+          linea("l3", "r13", "R13", "5000000.00"),
+        ],
       }) as never,
       "pry-1",
     )
-    expect(live?.presupuesto).toHaveLength(2)
-    // `toString()` de Prisma normaliza los ceros: el snapshot no guarda "15000000.00".
-    expect(live?.presupuesto.map((p) => p.asignado)).toEqual(["15000000", "8000000"])
+    expect(live?.presupuesto.map((p) => p.codigo_linea)).toEqual(["1.1|R12", "1.2|R12", "R13"])
+    // El código de rubro se conserva: es lo que leen las versiones guardadas antes de la Parte 2.
+    expect(live?.presupuesto.map((p) => p.rubro_codigo)).toEqual(["R12", "R12", "R13"])
   })
 
   it("devuelve live nulo mientras la cabecera está incompleta, pero la entrada ya sirve", async () => {
