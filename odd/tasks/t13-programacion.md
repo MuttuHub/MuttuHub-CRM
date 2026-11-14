@@ -40,6 +40,12 @@ Verbatim from `odd/tasks/po-2026-11-10-proyectos.md` (S7, S8).
 
 ### S7. Columna «Tipo» en la hoja Actividades de la plantilla (left by T12).
 
+### S8. Borrar una actividad con presupuesto (verifier advisory of T11, L12)
+- User (2026-11-14): «si tiene un presupuesto asignado se borra junto con la actividad, le toca hacerlo de cero».
+- Deleting an activity (BORRADOR only, as today) deletes its budget lines with their programming; `valor_total` is
+  recomputed as the sum of the remaining lines (T11 S2) and the programming confirmation is cleared (S3). A line with
+  expenses cannot be deleted (T11 A3): the deletion answers 409 and nothing changes.
+
 ## Tasks
 
 | ID | S# | Task | Route | Status | Commit |
@@ -52,6 +58,7 @@ Verbatim from `odd/tasks/po-2026-11-10-proyectos.md` (S7, S8).
 | T13.6 | S5 | Modification engine, control, forms and traslado by line | inline | pending | |
 | T13.7 | S6 | `estructura-po-import.ts` matches activities by code | inline | pending | |
 | T13.8 | S7 | Template «Tipo» column | inline | pending | |
+| T13.9 | S8 | Deleting an activity deletes its budget lines and programming; valor_total recomputed | inline | pending | |
 
 Route evidence: one agent, sequential units sharing `presupuesto.ts`/`hooks/projects.ts` → no Writer trigger; inline.
 Risk: T13.1 item 1 (schema, additive), T13.6 item 3 (modification key format), T13.7 item 1 (re-import deletes rows).
@@ -96,3 +103,5 @@ Risk: T13.1 item 1 (schema, additive), T13.6 item 3 (modification key format), T
   on `feat/t14-gasto-por-actividad` from `220d544`; its step 0 merges main (with #188) before its migration. The main
   worktree is on `docs/t14-prompt-carril-b` (another session's prompt branch): left untouched. Next: T13.4 on
   `feat/t13-4-pantalla-programacion`.
+- **L10** (2026-11-14, user, on T13.7's open question): «si tiene un presupuesto asignado se borra junto con la
+  actividad, le toca hacerlo de cero» → S8, task T13.9.
