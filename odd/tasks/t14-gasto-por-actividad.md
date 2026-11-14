@@ -56,7 +56,8 @@ Bitácora de la rebanada: reportes, evidencia y decisiones. Specs textuales de l
 | T14.2A | S9 | Schema y migración del reparto (riesgo 1) con reporte de seis puntos | delegated (writer) | done | `45e98f7` |
 | T14.2B | S9 | API y UI del reparto: suma = total, `DROP NOT NULL` y reescritura de lectores | pending | **espera la revisión de Claude** | — |
 | T14.3 | S9 | Importación con «Código de actividad», agrupación por documento y umbral de duplicados en tres capas | inline | pending | — |
-| T14.4 | S10 | Vistas por actividad / por rubro, fila «Sin actividad», costura única `loadGastosEjecutados` | inline | pending | — |
+| T14.4A | S10 | Vistas por actividad, lado servidor: costura con `actividadId` y `actividades` con detalle por rubro | delegated (writer) | done | `1a9c4fa` |
+| T14.4B | S10 | Selector «Por actividad / Por rubro» en Finanzas y árbol de detalle | pending | siguiente | — |
 | T14.5 | S11 | Cierre de gastos de la actividad (solo con autorización explícita del humano) | inline | pending | — |
 
 ## Log
@@ -203,3 +204,58 @@ worker se desvió con razón de mi brief en `Decimal(15,2)`/`uuid()`, que es la 
 
 **L20** **Alto:** la rebanada 3 no arranca hasta que Claude revise esta migración, como manda el prompt. La 2-B
 (API y UI del reparto, con el `DROP NOT NULL` y la reescritura de lectores) también espera esa revisión.
+
+---
+
+### Rebanada 4-A (T14.4-A) — vistas por actividad, lado servidor
+
+**L21** El prompt autoriza avanzar la rebanada 4 mientras Claude revisa la migración («no te quedes parado»), sobre el
+modelo de la rebanada 1 y sin depender del reparto. Costura única respetada: `loadGastosEjecutados` pasa a llevar
+`actividadId` y el bloque por actividad se arma llamando al `computeFicha` puro **por actividad** sobre sus líneas, sin
+tocar `ficha-financiera.ts` ni duplicar un umbral de semáforo.
+
+**L22** Ampliación de superficie aprobada por mí, con motivo (el worker frenó en vez de cruzarla):
+`src/lib/openapi/paths/project-budget.ts` (ahí vive `FinancialSheetSchema`, no en el de baseline que figuraba en el
+brief), `prisma/gastos.invariant.test.ts` (dos filas esperadas necesitan `actividadId`),
+`src/app/api/v1/projects/[id]/export/route.test.ts` (su stub necesita `actividades: []` o `tsc` rompe) y
+`src/lib/api/atencion.test.ts` (para que `actividadId` sea **obligatorio y nullable** en vez de opcional: un
+`undefined` silencioso es peor contrato). En `project-budget.ts` el alcance queda limitado al schema y la descripción
+de la hoja financiera: el path de presupuesto es del carril A y no se toca. Aviso para Claude: ese archivo lo tocamos
+después de que T13 cerró, así que no debería haber solapamiento.
+
+**L23** Limitación aceptada en esta rebanada: el bloque por actividad lee siempre el presupuesto vigente, así que
+`?base=original` solo cambia las filas por rubro y el total. La foto v0 no registra de qué línea salió cada peso, y
+arreglarlo pediría un campo nuevo en el snapshot, fuera de esta rebanada. Queda documentado en el código, en la
+cabecera de la ruta y fijado por un test, no como bug latente.
+
+**L24** Riesgo del orden en que se cerró esto: la 4-A es aditiva sobre el payload (`actividades` como campo nuevo) y
+el payload por rubro más los totales quedan intactos, con un test de regresión que lo fija. El criterio «El ejecutado
+total es igual en las dos vistas» es estructural: las dos vistas leen las mismas filas de la única costura.
+
+**L25** Commit `1a9c4fae8ac728e683c1908be2f1ea113f04f3bb` — `feat(finanzas): publish the per-activity view next to the
+per-rubro one (S10, T14.4a)`. 11 archivos, +660 / −32 (unas 340 líneas son tests).
+
+**L26** Hueco que encontré antes de commitear y mandé cerrar: la primera entrega armaba cada actividad como **una
+fila sintética** (todos sus rubros fusionados), y S10 pide «Al abrir una actividad se ve el detalle por rubro». Ahora
+`filasPorActividad` corre `computeFicha` **una vez por grupo con los rubros reales** de la actividad; la fila de la
+actividad es `fila.total` y los hijos son `fila.rubros`, ambos del mismo cálculo, así que «la actividad es la suma de
+sus hijos» no puede cumplirse por casualidad. El test que lo protege comparte el rubro R12 entre las actividades 1.2 y
+1.3: si las filas se indexaran por rubro, se cruzarían y falla.
+
+**L27** Cobertura de S10 con sus tests: «El ejecutado total es igual en las dos vistas» →
+`el ejecutado total es igual en las dos vistas (S10)` (lib y ruta); «Un gasto registrado en la actividad 1.2 sube el
+ejecutado de esa actividad y el de su rubro» → `un gasto registrado en la actividad 1.2 sube el ejecutado de esa
+actividad y el de su rubro (S10)`; detalle al abrir → `una actividad con dos rubros publica su detalle y los hijos suman
+exactamente la fila de la actividad (S10)` y `cada actividad publica su detalle por rubro (S10)`; agrupación y
+«Gestión del proyecto» → `agrupa en «Gestión del proyecto» la transversal y la fila «Sin actividad» (S10, D4)`;
+«Sin actividad» con sus propios rubros → `«Sin actividad» detalla los rubros de sus propias líneas (S10, D4)`; no
+fuga entre actividades → `350.000 en la actividad 1.2 y 650.000 en la 1.3 no se cruzan en los hijos (S10)`; asignado y
+programado por actividad → `el asignado y el programado al corte de una actividad son la suma de sus líneas (S10)`;
+regresión del nivel superior → `mantiene intactos el payload por rubro y los totales (regresión S5)`.
+
+**L28** Verificación propia: `npx tsc --noEmit` 0, `npx knip` 0, `npx eslint` de los 11 archivos 0, **41 tests** en
+`financiera` + `financial-sheet` + la ruta, **259 tests** en `prisma` (la costura no rompió invariantes) y **99 tests**
+en los consumidores (`atencion`, `curva`, `openapi`, export, `project-financiero`). Riesgo: **`Risk: none`** — campo
+aditivo, sin dato, seguridad, concurrencia ni entrega: el payload por rubro y los totales siguen intactos y el
+OpenAPI de `/budget` no se tocó. Tamaño: 660 líneas de autoría en un commit, otra vez sobre la guía; se deja junto
+porque es un solo comportamiento con sus tests y el límite se anota para la revisión.
